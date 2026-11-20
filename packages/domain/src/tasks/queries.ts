@@ -165,8 +165,9 @@ async function gated(tx: Tx, viewer: Reader, query: SQL, admin = false) {
 export function dueOf(row: Pick<TaskRow, "due_kind" | "due_date" | "due_time" | "timezone" | "due_at">): c.Due {
 	if (row.due_kind === "undated") return { kind: "undated" };
 	if (row.due_kind === "date_only") return c.due.parse({ kind: "local_date", date: row.due_date });
-	const local = localDateTime.parse(`${row.due_date}T${row.due_time!.slice(0, 8)}`),
-		at = row.due_at!;
+	const at = row.due_at;
+	if (row.due_time === null || at === null) throw Error("A timed task stores no due time");
+	const local = localDateTime.parse(`${row.due_date}T${row.due_time.slice(0, 8)}`);
 	return c.due.parse({
 		kind: "resolved_instant",
 		local,
@@ -383,8 +384,8 @@ export const taskReader = {
 				v = parse(c.getTaskRequest, raw);
 			const [found] = await gated(tx, viewer, taskQuery(viewer.plantId, sql`t.id=${v.taskId}::uuid`, true));
 			const row = found && lockedTask.parse(found);
-			if (!row || row.deleted_at) return c.taskResult.parse({ status: "unavailable" });
-			return c.taskResult.parse({ status: "available", task: detailOf(row, v.asOf ?? now()) });
+			if (!row || row.deleted_at) return { status: "unavailable" } satisfies z.output<typeof c.taskResult>;
+			return { status: "available", task: detailOf(row, v.asOf ?? now()) } satisfies z.output<typeof c.taskResult>;
 		});
 	},
 	async statusHistory(tx: Tx, authority: RequestActor, raw: unknown) {
@@ -611,7 +612,7 @@ export const taskReader = {
 					revision: revision.nullable(),
 				})
 				.parse(found);
-			if (!row.series_id) return c.openOccurrence.parse({ status: "not_recurring" });
+			if (!row.series_id) return { status: "not_recurring" } satisfies z.output<typeof c.openOccurrence>;
 			return c.openOccurrence.parse({
 				status: "series",
 				seriesId: row.series_id,

@@ -21,6 +21,8 @@ import { DialogNotice, SaveButton, type SaveIntent } from "../../components/save
 import { importTemplates } from "./actions.ts";
 import { templateCatalog } from "./fetch.ts";
 import { plural, type Catalog, type SetupForm } from "./model.ts";
+import { loadProblem, failedIcon } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type SetupInto = {
 	id: string;
@@ -32,7 +34,7 @@ type SetupInto = {
 const NONE: ReadonlySet<string> = new Set();
 
 const catalogs = createRead(() => templateCatalog(), {
-	failed: (): Outcome<Catalog> => ({ status: "lost" }),
+	failed: (): Outcome<Catalog> | ReadFailure => ({ status: "lost" }),
 	fresh: Infinity,
 });
 
@@ -74,22 +76,26 @@ function SetupBody({ lane, present = NONE, into, onDone, form }: SetupProps & { 
 		Object.fromEntries(
 			into ? teams.filter((t) => t.key === into.templateKey && fresh(t).length).map((t) => [t.key, fresh(t)]) : [],
 		);
-	const selections = teams
-		.filter((t) => chosen[t.key] && (!into || chosen[t.key]!.length > 0))
-		.map((t) => ({
+	const picked = teams.flatMap((t) => {
+		const roles = chosen[t.key];
+		if (!roles || (into && roles.length === 0)) return [];
+		const selection = {
 			teamKey: t.key,
-			roleKeys: t.roles.filter((r) => chosen[t.key]!.includes(r.key)).map((r) => r.key),
+			roleKeys: t.roles.filter((r) => roles.includes(r.key)).map((r) => r.key),
 			...(into ? { destinationTeamId: into.id } : {}),
-		}));
+		};
+		return [{ team: t, selection }];
+	});
+	const selections = picked.map((p) => p.selection);
 	const newTeams = into ? 0 : selections.filter((s) => !present.has(s.teamKey)).length;
 	const roleCount = selections.reduce((n, s) => n + s.roleKeys.length, 0);
 	const nothing = newTeams === 0 && roleCount === 0;
 
-	const toggleTeam = (key: string, on: boolean) =>
+	const toggleTeam = (team: (typeof teams)[number], on: boolean) =>
 		setF((x) => {
 			const next = { ...chosen };
-			if (on) next[key] = fresh(teams.find((t) => t.key === key)!);
-			else delete next[key];
+			if (on) next[team.key] = fresh(team);
+			else delete next[team.key];
 			return { ...x, chosen: next };
 		});
 	const toggleRole = (team: string, role: string, on: boolean) =>
@@ -141,13 +147,14 @@ function SetupBody({ lane, present = NONE, into, onDone, form }: SetupProps & { 
 						<Spinner size={16} /> Loading the templates…
 					</p>
 				) : catalog.status !== "ok" ? (
-					<StatePanel tone="error" title="The templates did not load" headingLevel="h3">
-						Nothing was changed. Close this and try again in a moment.
+					<StatePanel tone="error" title="The templates did not load" icon={failedIcon(catalog)} headingLevel="h3">
+						{loadProblem(catalog, "Nothing was changed. Close this and try again in a moment.")}
 					</StatePanel>
 				) : f.step === "choose" ? (
 					<ul className="flex flex-col divide-y divide-line">
 						{teams.map((t) => {
-							const on = chosen[t.key] !== undefined;
+							const roles = chosen[t.key];
+							const on = roles !== undefined;
 							const here = !into && present.has(t.key);
 							const left = fresh(t).length;
 							return (
@@ -156,7 +163,7 @@ function SetupBody({ lane, present = NONE, into, onDone, form }: SetupProps & { 
 										<Checkbox
 											checked={on}
 											disabled={!!into && left === 0}
-											onCheckedChange={(v) => toggleTeam(t.key, v === true)}
+											onCheckedChange={(v) => toggleTeam(t, v === true)}
 											label={into && t.key === into.templateKey ? `${t.name} (this ministry's template)` : t.name}
 											description={
 												into
@@ -174,7 +181,7 @@ function SetupBody({ lane, present = NONE, into, onDone, form }: SetupProps & { 
 											</StatusBadge>
 										) : null}
 									</div>
-									{on && t.roles.length ? (
+									{roles !== undefined && t.roles.length ? (
 										<fieldset className="mb-2 ml-8 flex flex-col">
 											<legend className="sr-only">Roles for {t.name}</legend>
 											{t.roles.map((r) => {
@@ -182,7 +189,7 @@ function SetupBody({ lane, present = NONE, into, onDone, form }: SetupProps & { 
 												return (
 													<div key={r.key} className="flex items-center justify-between gap-3">
 														<Checkbox
-															checked={have || chosen[t.key]!.includes(r.key)}
+															checked={have || roles.includes(r.key)}
 															disabled={have}
 															onCheckedChange={(v) => toggleRole(t.key, r.key, v === true)}
 															label={
@@ -213,8 +220,7 @@ function SetupBody({ lane, present = NONE, into, onDone, form }: SetupProps & { 
 					</ul>
 				) : (
 					<ul className="flex flex-col gap-3">
-						{selections.map((s) => {
-							const t = teams.find((x) => x.key === s.teamKey)!;
+						{picked.map(({ team: t, selection: s }) => {
 							const here = !into && present.has(s.teamKey);
 							return (
 								<li key={s.teamKey} className="rounded-md bg-surface-2 px-4 py-3">

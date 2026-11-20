@@ -132,12 +132,12 @@ export async function readOversightDigest(db: Database, authority: RequestActor,
 		if (!row.allowed || !row.timezone) deny("access_denied");
 		const zone = timeZone.parse(row.timezone);
 		const plants = [...new Set(row.lines.map((line) => line.plant))];
-		return oversightDigestResult.parse({
+		return {
 			timezone: zone,
 			period: input.period,
 			lines: row.lines.map((line) => ({ date: line.date, count: line.count })),
 			plants,
-		});
+		} satisfies z.output<typeof oversightDigestResult>;
 	});
 }
 
@@ -170,7 +170,7 @@ export async function readPlanterDigest(db: Database, authority: RequestActor, r
 			if (resolved.kind !== "resolved") deny("invalid_input");
 			sendAt = resolved.occurrence.instant;
 		} else sendAt = nextDigestInstant(zone, row.cadence ?? "weekly", now(), { weekday: row.weekday, hour: row.hour });
-		return planterDigestResult.parse({ sendAt, inAppDigest: row.in_app });
+		return { sendAt, inAppDigest: row.in_app } satisfies z.output<typeof planterDigestResult>;
 	});
 }
 

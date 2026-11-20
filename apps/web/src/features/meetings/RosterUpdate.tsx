@@ -23,6 +23,8 @@ import { updateRoster } from "./actions.ts";
 import { previewRoster } from "./fetch.ts";
 import { problemText, type Detail, type Guest, type Outcome } from "./model.ts";
 import { PENDING, type Change, type PendingGuest } from "./page-state.ts";
+import { loadProblem, failedIcon } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type Preview = z.infer<typeof c.rosterPreview>;
 type Person = Preview["add"][number];
@@ -43,7 +45,7 @@ export function RosterUpdate({
 	const lane = useSaveIntent({ explain: rosterProblem });
 	const [, startTransition] = useTransition();
 	const [open, setOpen] = useState(false);
-	const [preview, setPreview] = useState<Outcome<Preview> | null>(null);
+	const [preview, setPreview] = useState<Outcome<Preview> | ReadFailure | null>(null);
 	if (!team) return null;
 
 	function review() {
@@ -124,7 +126,7 @@ function RosterDialog({
 	onConfirm,
 }: {
 	teamName: string;
-	preview: Outcome<Preview> | null;
+	preview: Outcome<Preview> | ReadFailure | null;
 	onRetry: () => void;
 	onCancel: () => void;
 	onConfirm: (p: Preview) => void;
@@ -149,23 +151,25 @@ function RosterDialog({
 						<Spinner size={16} /> Comparing with {teamName}…
 					</p>
 				) : preview.status !== "ok" ? (
-					<StatePanel tone="error" title="The comparison did not load" headingLevel="h3">
-						{preview.status === "refused" ? rosterProblem(preview.code) : "Nothing was changed. Try again."}
+					<StatePanel tone="error" title="The comparison did not load" icon={failedIcon(preview)} headingLevel="h3">
+						{preview.status === "refused"
+							? rosterProblem(preview.code)
+							: loadProblem(preview, "Nothing was changed. Try again.")}
 					</StatePanel>
 				) : (
 					<>
-						{p!.add.length ? (
-							<Group title={`Add ${p!.add.length}`} people={names(p!.add)}>
+						{preview.value.add.length ? (
+							<Group title={`Add ${preview.value.add.length}`} people={names(preview.value.add)}>
 								They serve in {teamName} now. They join as invited, absent, RSVP pending.
 							</Group>
 						) : null}
-						{p!.remove.length ? (
-							<Group title={`Remove ${p!.remove.length}`} people={names(p!.remove)}>
+						{preview.value.remove.length ? (
+							<Group title={`Remove ${preview.value.remove.length}`} people={names(preview.value.remove)}>
 								They no longer serve in {teamName}. Their RSVP links close and their history stays.
 							</Group>
 						) : null}
-						{p!.kept.length ? (
-							<Group title={`Keep ${p!.kept.length}`} people={names(p!.kept)}>
+						{preview.value.kept.length ? (
+							<Group title={`Keep ${preview.value.kept.length}`} people={names(preview.value.kept)}>
 								They no longer serve in {teamName}, but they are marked present, so they stay.
 							</Group>
 						) : null}

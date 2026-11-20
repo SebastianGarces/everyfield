@@ -197,7 +197,11 @@ export function relationshipCommands(
 				discovery: pair.organization.organizationKind === "sending_church" ? "discovery_church" : "discovery_network",
 			};
 			const description =
-				subject.kind === "account" ? z.string().trim().min(1).max(500).parse(facts.inviter_name) : root!.name;
+				subject.kind === "account"
+					? z.string().trim().min(1).max(500).parse(facts.inviter_name)
+					: root
+						? root.name
+						: refuse();
 			const [plant, account, church] = endpointValues(pair);
 			c.writes.push(
 				tx.insert(tables.invitation).values({
@@ -298,7 +302,11 @@ export function relationshipCommands(
 			);
 			if (!accept) {
 				await appendEvent(tx, c, i.id, "remove", null, i.revision, next);
-				return finishCommand(tx, c, () => Q.invitationDecisionResult.parse({ status: "declined", invitationId: i.id }));
+				return finishCommand(
+					tx,
+					c,
+					() => ({ status: "declined", invitationId: i.id }) satisfies z.output<typeof Q.invitationDecisionResult>,
+				);
 			}
 			const [prior] = await loadAffiliations(tx, pairMatch(tables.affiliation, pair), true);
 			if (prior?.ended_at === null) refuse("already_active");
@@ -427,7 +435,7 @@ export function relationshipCommands(
 						),
 				);
 				await appendEvent(tx, c, i.id, "revoke", "invitation.revoked", i.revision, next);
-				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
+				return finishCommand(tx, c, () => ({ status: "committed" }) satisfies z.output<typeof Q.mutationResult>);
 			}
 			if (i.now.getTime() - (i.resent_at ?? i.created_at).getTime() < 60000) refuse("resend_cooldown");
 			const proof = randomBytes(32).toString("base64url"),
@@ -480,7 +488,8 @@ export function relationshipCommands(
 				refuse();
 			const c = await beginCommand(tx, actor, selected, "associations.end", q);
 			if (c.kind === "replay") return Q.mutationResult.parse(c.result);
-			if (a.ended_at !== null) return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
+			if (a.ended_at !== null)
+				return finishCommand(tx, c, () => ({ status: "committed" }) satisfies z.output<typeof Q.mutationResult>);
 			checkRevision(q.expectedRevision, a.revision);
 			const next = String(BigInt(a.revision) + 1n);
 			c.writes.push(
@@ -496,7 +505,7 @@ export function relationshipCommands(
 				c.writes.push(
 					queueMilestoneJob({ plantId: a.plant_id, affiliationId: a.id, occurrence: "ended", revision: next }),
 				);
-			return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
+			return finishCommand(tx, c, () => ({ status: "committed" }) satisfies z.output<typeof Q.mutationResult>);
 		});
 	}
 	return {

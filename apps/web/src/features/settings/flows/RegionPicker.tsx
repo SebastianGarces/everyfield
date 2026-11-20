@@ -21,6 +21,7 @@ import type { Locality, RegionRead, RegionSuggestion } from "../port";
 import { newRequestKey } from "../port";
 import { SaveError } from "../SaveError";
 import { useReads, useSettings } from "../store";
+import { loadProblem } from "../../../components/read-failed.ts";
 
 type Ready = Extract<RegionRead, { status: "ok" }>;
 const UNRESOLVED = "unresolved";
@@ -41,7 +42,9 @@ export function ReportingRegion({ onSaved }: { onSaved: () => void }) {
 	if (read.status !== "ok")
 		return (
 			<p className="text-md text-text-2">
-				{read.status === "denied" ? "Only this church's seats can see its Region." : "The Region couldn't load."}
+				{read.status === "denied"
+					? "Only this church's seats can see its Region."
+					: loadProblem(read, "The Region couldn't load.")}
 			</p>
 		);
 	return (
@@ -82,7 +85,8 @@ export function ReportingRegion({ onSaved }: { onSaved: () => void }) {
 }
 
 function suggestedChoice(found: RegionSuggestion[], saved: Ready["region"]): string | null {
-	if (found.length === 1) return found[0]!.regionItemId;
+	const [only] = found;
+	if (only && found.length === 1) return only.regionItemId;
 	if (found.length === 0) return UNRESOLVED;
 	return found.find((c) => c.area.code === saved?.code)?.regionItemId ?? null;
 }

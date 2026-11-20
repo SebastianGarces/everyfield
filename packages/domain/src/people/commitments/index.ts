@@ -191,7 +191,7 @@ function checkCard(k: CardInput, today: string, witness: string | null) {
 	const witnessId = witnessOf(k);
 	if (witnessId === k.personId) deny("invalid_subject");
 	notFuture({ today }, k.occurredOn);
-	if (witnessId && witness === null) deny();
+	if (witnessId && witness === null) deny("unavailable");
 }
 
 export const commitments = {
@@ -228,7 +228,7 @@ export const commitments = {
 						.object({ witness: z.string().nullable(), upload: z.uuid().nullable(), commitment: commitmentInputs })
 						.parse(p.extra);
 					checkCard(k, p.today, found.witness);
-					if (document && !found.upload) deny();
+					if (document && !found.upload) deny("unavailable");
 					const id = randomUUID();
 					const step = advance(p, "core_group");
 					const inputs = found.commitment;
@@ -431,13 +431,13 @@ export async function getCommitmentDownload(db: Database, storage: PrivateStorag
 			.select({ objectId: tables.commitment.object_id })
 			.from(tables.commitment)
 			.where(and(eq(tables.commitment.id, input.commitmentId), eq(tables.commitment.plant_id, plant), adminRead(ctx)));
-		if (!card?.objectId) deny();
+		if (!card?.objectId) deny("unavailable");
 		const link = await createAuthorizedDownload(
 			db,
 			storage,
 			documentAuthority(ctx, input.commitmentId),
 			card.objectId,
-		).catch(() => deny());
+		).catch(() => deny("unavailable"));
 		return c.commitmentDownloadResult.parse(link);
 	});
 }
@@ -471,9 +471,9 @@ export async function signCommitmentDocument(
  SELECT ${plant}::uuid,'object_cleanup',u.id,'commitment-upload/'||u.id,'ready',u.expires_at,0,4,0 FROM upload u
  ON CONFLICT DO NOTHING)
  SELECT id FROM upload`);
-		if (!result.rows[0]) deny();
+		if (!result.rows[0]) deny("unavailable");
 		if (input.mime === "application/pdf") warmCommitmentParser();
-		const signed = await signPrivatePut(storage, key, input.mime, input.byteLength).catch(() => deny());
+		const signed = await signPrivatePut(storage, key, input.mime, input.byteLength).catch(() => deny("unavailable"));
 		return c.commitmentDocumentUpload.parse({ uploadId: id, ...signed });
 	});
 }
@@ -496,11 +496,11 @@ export async function saveCommitmentDocument(
  EXISTS(SELECT FROM file_object f WHERE f.id=${uploadId}::uuid AND f.tenant_id=${plant}::uuid AND file_is_referenced(f.id)) AS attached
  FROM plant pl WHERE pl.id=${plant}::uuid`)
 		).rows.map((r) => earlyRow.parse(r));
-		if (!early) deny();
+		if (!early) deny("unavailable");
 		if (!early.attached) checkCard(request.input, early.today, early.witness);
 		const object = await readPrivateObject(storage, documentKey(plant, uploadId), c.COMMITMENT_MAX_BYTES);
 		const mime = c.commitmentMime.safeParse(object?.mediaType);
-		if (!object || !mime.success) deny();
+		if (!object || !mime.success) deny("unavailable");
 		await validateCommitment(object.bytes, mime.data).catch(() =>
 			deny("invalid_input", { reason: "unreadable_document" }),
 		);

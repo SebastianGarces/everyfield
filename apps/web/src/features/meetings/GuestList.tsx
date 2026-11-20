@@ -203,9 +203,10 @@ export function GuestList({
 	}
 	function add(draft: AddDraft) {
 		const names = new Map(draft.people.map((p) => [p.id, p.name]));
-		const count = draft.people.length + draft.fresh.length;
+		const named = [...draft.people.map((p) => p.name), ...draft.fresh.map((n) => n.displayName)];
+		const [only] = named;
 		write({
-			what: count === 1 ? (draft.people[0]?.name ?? draft.fresh[0]!.displayName) : `${count} guests`,
+			what: only !== undefined && named.length === 1 ? only : `${named.length} guests`,
 			done: "added",
 			form: { kind: "add", draft },
 			changes: [
@@ -225,11 +226,12 @@ export function GuestList({
 				}),
 			ok: ({ guests: added, notAdded, attendanceRevision }) => {
 				for (const g of added) onGuest(g, attendanceRevision);
+				const [first] = added;
 				if (!notAdded.length)
 					return toast({
 						message:
-							added.length === 1
-								? `${added[0]!.person.displayName} is on the guest list.`
+							first && added.length === 1
+								? `${first.person.displayName} is on the guest list.`
 								: `${added.length} guests are on the guest list.`,
 						tone: "success",
 					});

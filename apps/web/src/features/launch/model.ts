@@ -13,10 +13,12 @@ import {
 	type Plan,
 	type SummaryProblem,
 } from "@everyfield/contracts/launch";
+import { READ_FAILED } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; error: LaunchError } | { status: "lost" };
 
-export async function sent<T>(call: () => Promise<Outcome<T>>): Promise<Outcome<T>> {
+export async function sent<R extends { status: string }>(call: () => Promise<R>): Promise<R | { status: "lost" }> {
 	try {
 		return await call();
 	} catch {
@@ -209,7 +211,8 @@ function historyValue(field: OutcomeField, v: string | number | null, today: str
 }
 export const actorText = (e: Pick<HistoryEntry, "actor">) => e.actor?.displayName || "A former account";
 
-export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok" }>): string {
+export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok" }> | ReadFailure): string {
+	if (outcome.status === "failed") return READ_FAILED;
 	if (outcome.status === "lost")
 		return "Everyfield's answer did not come back, so this may not have saved. Try again: the same change will not apply twice.";
 	const error = outcome.error;
@@ -250,8 +253,11 @@ export function requestKeys(fresh: () => string) {
 	return {
 		keyFor(intent: readonly unknown[]) {
 			const id = JSON.stringify(intent);
-			if (!keys.has(id)) keys.set(id, fresh());
-			return keys.get(id)!;
+			const known = keys.get(id);
+			if (known !== undefined) return known;
+			const key = fresh();
+			keys.set(id, key);
+			return key;
 		},
 		settle(intent: readonly unknown[]) {
 			keys.delete(JSON.stringify(intent));

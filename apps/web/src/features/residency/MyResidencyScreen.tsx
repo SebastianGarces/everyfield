@@ -38,6 +38,14 @@ import { meetingDay, meetingTime, milestoneAnchor, readingPath, zoneName } from 
 type Linked = Extract<MyResidency, { status: "linked" }>;
 type Enrollment = Linked["enrollments"][number];
 type Milestone = Enrollment["milestones"][number];
+type ResidentReading = Enrollment["readings"][number];
+
+function readingHref(r: ResidentReading) {
+	if (!r.available) return null;
+	if (r.source === "organization") return readingPath(r.id);
+	if (r.slug === null) throw new Error(`The available reading ${r.id} has no slug`);
+	return articlePath(r.slug);
+}
 
 export function MyResidencyScreen({ initial }: { initial: Exclude<MyResidency, { status: "not_linked" }> }) {
 	const frame = useResidency();
@@ -119,7 +127,10 @@ function EnrollmentView({
 }) {
 	const church = residency.organizationName;
 	const [marks, setMarks] = useState<Record<string, Milestone["completion"]>>({});
-	const milestones = e.milestones.map((m) => (m.id in marks ? { ...m, completion: marks[m.id]! } : m));
+	const milestones = e.milestones.map((m) => {
+		const mark = marks[m.id];
+		return mark === undefined ? m : { ...m, completion: mark };
+	});
 	const confirmed = milestones.filter((m) => m.completion?.confirmedOn).length;
 	return (
 		<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-5 max-app-md:grid-cols-1">
@@ -135,7 +146,7 @@ function EnrollmentView({
 					</CardHeader>
 					<CardBody className="flex flex-col gap-5">
 						<div>
-							<p className="text-xs font-semibold tracking-normal text-text-2 uppercase">Program stage</p>
+							<p className="text-sm text-text-2">Program stage</p>
 							<p className="mt-1 font-title text-title-sm tracking-[-0.02em] text-ink">{e.stage}</p>
 						</div>
 						<NextMeeting meeting={e.nextMeeting} timezone={residency.timezone} church={church} />
@@ -351,7 +362,7 @@ function Reading({ readings, church }: { readings: Enrollment["readings"]; churc
 				{readings.length ? (
 					<ul className="flex flex-col divide-y divide-line">
 						{readings.map((r) => {
-							const href = !r.available ? null : r.source === "organization" ? readingPath(r.id) : articlePath(r.slug!);
+							const href = readingHref(r);
 							const label = (
 								<>
 									<Icon icon={BookOpen01Icon} size={18} className="mt-0.5 flex-none text-text-2" />

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { requestIdentity } from "../../../packages/contracts/src/common/index.ts";
+import { instant, localDate, owner, requestIdentity } from "../../../packages/contracts/src/common/index.ts";
 import { followUpDueDate } from "../../../packages/contracts/src/tasks/index.ts";
 import { within48Hours } from "../../../packages/contracts/src/followups/index.ts";
 import {
@@ -19,39 +19,89 @@ import {
 	taskReader,
 	reminderRecipients,
 	withTaskWrite,
+	type TaskReminders,
 } from "../../../packages/domain/src/tasks/index.ts";
 import {
 	createFollowUpWriter,
 	followUpReader,
 	withFollowUpWrite,
+	type FollowUpWriter,
 } from "../../../packages/domain/src/followups/index.ts";
+import type { FollowUpReply } from "../../../packages/domain/src/followups/core.ts";
+import type { TaskReply } from "../../../packages/domain/src/tasks/core.ts";
 import { peopleReader, peopleWriter } from "../../../packages/domain/src/people/index.ts";
+import { activityRequest, listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
-import { ok, refused } from "../../support/fixture.mts";
+import { refused } from "../../support/fixture.mts";
+import type { SQL } from "../../../packages/db/src/query.ts";
 
-let f, followups, tasks, reminders;
-const write = (who, op, input) => withFollowUpWrite(f.db, who.actor, (tx, ctx) => followups[op](tx, ctx, input));
-const taskWrite = (who, op, input) => withTaskWrite(f.db, who.actor, (tx, ctx) => tasks[op](tx, ctx, input));
-const read = (who, op, input) => gatedTransaction(f.db, (tx) => followUpReader[op](tx, who.actor, input));
-const rows = async (q) => (await f.admin.execute(q)).rows;
+const ok = <T,>(result: { status: "ok"; value: T } | { status: "refused" }): T => {
+	if (result.status !== "ok") assert.fail(JSON.stringify(result));
+	return result.value;
+};
+const present = <T,>(value: T | null | undefined, what: string): T => {
+	if (value === null || value === undefined) assert.fail("missing " + what);
+	return value;
+};
+const entry = <V,>(map: Map<string, V>, k: string) => present(map.get(k), k);
+type Answers<W> = { [K in keyof W]: W[K] extends (...args: never[]) => Promise<infer R> ? R : never };
+type Values<W> = { [K in keyof W]: Extract<Answers<W>[K], { status: "ok" }> extends { value: infer V } ? V : never };
+type Body = Parameters<typeof withFollowUpWrite>[2];
+type Tx = Parameters<Body>[0];
+type Ctx = Parameters<Body>[1];
+type Actor = Parameters<typeof withFollowUpWrite>[1];
+type FollowUpWrites = {
+	[K in keyof FollowUpWriter]: (tx: Tx, ctx: Ctx, input: unknown) => Promise<FollowUpReply<Values<FollowUpWriter>[K]>>;
+};
+type TaskWriter = ReturnType<typeof createTaskWriter>;
+type TaskWrites = {
+	[K in keyof TaskWriter]: (tx: Tx, ctx: Ctx, input: unknown) => Promise<TaskReply<Values<TaskWriter>[K]>>;
+};
+type Reader = typeof followUpReader;
+type Reads = { [K in keyof Reader]: (tx: Tx, actor: Actor, input: unknown) => Promise<Answers<Reader>[K]> };
+type Seat = { id: string; actor: Actor };
+type Church = Awaited<ReturnType<typeof church>>;
+
+let f: Awaited<ReturnType<typeof fixture>>, followups: FollowUpWrites, tasks: TaskWrites, reminders: TaskReminders;
+const reads: Reads = followUpReader;
+const write = <K extends keyof FollowUpWrites>(who: Seat, op: K, input: unknown) =>
+	withFollowUpWrite(f.db, who.actor, (tx, ctx) => followups[op](tx, ctx, input));
+const taskWrite = <K extends keyof TaskWrites>(who: Seat, op: K, input: unknown) =>
+	withTaskWrite(f.db, who.actor, (tx, ctx) => tasks[op](tx, ctx, input));
+const read = <K extends keyof Reads>(who: Seat, op: K, input: unknown) =>
+	gatedTransaction(f.db, (tx) => reads[op](tx, who.actor, input));
+const rows = async (q: SQL) => (await f.admin.execute(q)).rows;
+const one = async (q: SQL) => present((await rows(q))[0], "row");
+const integerOf = (value: unknown) => {
+	assert.ok(Number.isInteger(value), `expected an integer, got ${JSON.stringify(value)}`);
+	return Number(value);
+};
+const accountOf = <A extends { kind: string }>(actor: A) => ("accountId" in actor ? actor.accountId : actor.kind);
 const key = () => randomUUID();
-const hours = (iso, h) => new Date(Date.parse(iso) + h * 3_600_000).toISOString();
+const hours = (iso: string, h: number) => new Date(Date.parse(iso) + h * 3_600_000).toISOString();
 
 async function church() {
 	const w = await f.workspace();
 	await f.admin.execute(sql`UPDATE plant SET timezone='America/Chicago' WHERE id=${w.id}`);
-	const seated = async (role) => {
+	const seated = async (role: "owner" | "admin" | "member") => {
 		const a = await f.account();
 		await f.seat(a, w, role);
 		return { ...a, actor: await f.actor(a.session) };
 	};
-	return { w, owner: await seated("owner"), admin: await seated("admin"), member: await seated("member"), seated };
+	return {
+		w,
+		selected: owner.parse(w),
+		owner: await seated("owner"),
+		admin: await seated("admin"),
+		member: await seated("member"),
+		seated,
+	};
 }
-async function person(c, name, fields = {}) {
-	const ctx = { session: c.owner.actor.session, selected: c.w };
+async function person(c: Church, name: string, fields: { stage?: string; linked?: string } = {}) {
+	const ctx = { session: c.owner.actor.session, selected: c.selected };
 	const r = await gatedTransaction(f.db, (tx) =>
 		peopleWriter.createPerson(tx, ctx, { requestKey: key(), input: { displayName: name } }),
 	);
@@ -60,17 +110,20 @@ async function person(c, name, fields = {}) {
 	if (fields.linked) await f.admin.execute(sql`UPDATE person SET linked_account_id=${fields.linked} WHERE id=${id}`);
 	return id;
 }
-const committed = (c, who, stage = "core_group") => person(c, "Owner " + who.id.slice(0, 4), { stage, linked: who.id });
-async function meeting(c, title, origin) {
+const committed = (c: Church, who: Seat, stage = "core_group") =>
+	person(c, "Owner " + who.id.slice(0, 4), { stage, linked: who.id });
+type MeetingInput = Parameters<typeof ensureMeetingObligations>[3]["meetings"][number];
+type Origin = MeetingInput["origin"];
+async function meeting(c: Church, title: string, origin: Origin) {
 	const id = randomUUID();
 	await f.admin.execute(
 		sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision) VALUES(${id},${c.w.id},'vision_meeting',${title},${origin.date},'18:00','America/Chicago',${origin.at},'1','completed',1)`,
 	);
 	return id;
 }
-const finalize = (c, meetingId, origin, input) =>
+const finalize = (c: Church, meetingId: string, origin: Origin, input: Omit<MeetingInput, "meetingId" | "origin">) =>
 	auditTransaction(f.db, async (tx) => {
-		if (!(await c.owner.actor.bind(tx, c.w))) throw Error("unbound");
+		if (!(await c.owner.actor.bind(tx, c.selected))) throw Error("unbound");
 		const identity = requestIdentity.parse({
 			owner: c.w,
 			actorId: c.owner.id,
@@ -79,6 +132,7 @@ const finalize = (c, meetingId, origin, input) =>
 			digest: "0".repeat(64),
 		});
 		const claim = await prepareWrite(tx, identity);
+		if (claim.kind !== "new") throw Error("expected a new write, got " + claim.kind);
 		const cmd = { ...claim, actor: { accountId: c.owner.id, plantId: c.w.id } };
 		const r = await ensureMeetingObligations(tx, cmd, reminders, { meetings: [{ meetingId, origin, ...input }] });
 		cmd.events.unshift({
@@ -94,31 +148,37 @@ const finalize = (c, meetingId, origin, input) =>
 		await r.after();
 		return r.value;
 	});
-async function generated(c, personId, title, origin) {
+type Generated = Awaited<ReturnType<typeof generated>>;
+async function generated(c: Church, personId: string, title: string, origin: Origin) {
 	const m = await meeting(c, title, origin);
 	await finalize(c, m, origin, { followUps: [{ personId, assigneeIds: [] }], evaluation: null });
 	const [o] = ok(await read(c.owner, "readObligations", { meetingId: m })).items;
+	if (!o) throw Error("the meeting generated no obligation");
 	return { meetingId: m, obligation: o };
 }
-const record = (who, target, outcome, extra = {}) =>
+const record = (who: Seat, target: unknown, outcome: string, extra: object = {}) =>
 	write(who, "recordOutcome", {
 		requestKey: key(),
 		input: { target, outcome, completeTask: false, ...extra },
 	});
-const onTask = (task) => ({ kind: "task", taskId: task.id, expectedRevision: task.revision });
+const onTask = (task: { id: string; revision: string } | null) => ({
+	kind: "task",
+	taskId: present(task, "task").id,
+	expectedRevision: present(task, "task").revision,
+});
 
 let statements = 0;
-async function counted(body) {
+async function counted<T>(body: () => Promise<T>) {
 	const start = statements;
-	await body();
-	return statements - start;
+	const value = await body();
+	return { n: statements - start, value };
 }
 
 before(async () => {
 	f = await fixture();
 	f.db.$client.on("connect", (client) => {
 		const query = client.query;
-		client.query = function (...args) {
+		client.query = function (this: unknown, ...args: unknown[]) {
 			statements++;
 			return Reflect.apply(query, this, args);
 		};
@@ -146,7 +206,10 @@ before(async () => {
 				inputs[0]?.owner.id ?? randomUUID(),
 				inputs.map((i) => i.recipient),
 			);
-			return inputs.map((i) => (found.has(i.recipient) ? { address: found.get(i.recipient) } : null));
+			return inputs.map((i) => {
+				const address = found.get(i.recipient);
+				return address === undefined ? null : { address };
+			});
 		},
 	});
 	reminders = taskReminders(notifications);
@@ -157,7 +220,7 @@ after(() => f?.close());
 
 test("AC:B03-004 AC:B03-005 INV-dates: due day is meeting day plus two; the 48-hour window is exact elapsed time", async () => {
 	assert.deepEqual(
-		["2026-03-07", "2026-10-31", "2026-12-31"].map((d) => followUpDueDate(d)),
+		["2026-03-07", "2026-10-31", "2026-12-31"].map((d) => followUpDueDate(localDate.parse(d))),
 		["2026-03-09", "2026-11-02", "2027-01-02"],
 	);
 	const c = await church();
@@ -166,19 +229,20 @@ test("AC:B03-004 AC:B03-005 INV-dates: due day is meeting day plus two; the 48-h
 	const late = await generated(c, await person(c, "Late"), "Late", origin);
 	const completions = ["2026-03-09T15:00:00Z", "2026-03-09T15:00:00.001Z"];
 	assert.deepEqual(
-		completions.map((at) => within48Hours(origin.at, at)),
+		completions.map((at) => within48Hours(instant.parse(origin.at), instant.parse(at))),
 		[true, false],
 	);
-	for (const [{ obligation }, at] of [
+	const pairs: Array<[typeof exact, string | undefined]> = [
 		[exact, completions[0]],
 		[late, completions[1]],
-	])
+	];
+	for (const [{ obligation }, at] of pairs)
 		ok(await record(c.owner, onTask(obligation.task), "contacted", { occurredAt: at, completeTask: true }));
-	const read48 = async (m) =>
+	const read48 = async (m: string) =>
 		ok(await read(c.owner, "readObligations", { meetingId: m, asOf: "2026-03-20T00:00:00Z" })).items[0];
 	const [a, b] = [await read48(exact.meetingId), await read48(late.meetingId)];
 	assert.deepEqual(
-		[a, b].map((o) => [o.dueDate, o.measurement.success, o.completion.occurredAt]),
+		[a, b].map((o) => [o?.dueDate, o?.measurement?.success, o?.completion?.occurredAt]),
 		[
 			["2026-03-09", true, "2026-03-09T15:00:00.000Z"],
 			["2026-03-09", false, "2026-03-09T15:00:00.001Z"],
@@ -190,7 +254,7 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 	const c = await church();
 	const alex = await person(c, "Alex Rivera");
 	const asOf = "2026-09-20T12:00:00Z";
-	const at = (h) => ({ at: hours(asOf, h), date: hours(asOf, h).slice(0, 10), zone: "America/Chicago" });
+	const at = (h: number) => ({ at: hours(asOf, h), date: hours(asOf, h).slice(0, 10), zone: "America/Chicago" });
 	const same = at(-72);
 	const [bea, cy, dee] = [await person(c, "Bea Lopez"), await person(c, "Cy Nakamura"), await person(c, "Dee Foster")];
 	const m = {
@@ -206,7 +270,7 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 		checkbox: await generated(c, alex, "M10", same),
 	};
 	assert.equal(new Set(Object.values(m).map((x) => x.obligation.id)).size, 10);
-	const complete = (x, outcome, occurredAt) =>
+	const complete = (x: Generated, outcome: string, occurredAt: string) =>
 		record(c.owner, onTask(x.obligation.task), outcome, { occurredAt, completeTask: true });
 	ok(await complete(m.admin2h, "administrative_completion", hours(same.at, 2)));
 	ok(await complete(m.contact48, "contacted", hours(same.at, 48)));
@@ -217,16 +281,16 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 	ok(
 		await taskWrite(c.owner, "complete", {
 			requestKey: key(),
-			expectedRevision: m.checkbox.obligation.task.revision,
-			input: { taskId: m.checkbox.obligation.task.id },
+			expectedRevision: present(m.checkbox.obligation.task, "task").revision,
+			input: { taskId: present(m.checkbox.obligation.task, "task").id },
 		}),
 	);
 	const page = ok(await read(c.member, "readObligations", { asOf, limit: 100 }));
-	const byMeeting = new Map(page.items.map((o) => [o.meeting.id, o]));
+	const byMeeting = new Map<string, (typeof page.items)[number]>(page.items.map((o) => [o.meeting.id, o]));
 	const result = Object.fromEntries(
 		Object.entries(m).map(([name, x]) => {
-			const o = byMeeting.get(x.meetingId);
-			return [name, [o.state, o.measurement.eligible, o.measurement.success, o.measurement.reason, o.contacted]];
+			const o = entry(byMeeting, x.meetingId);
+			return [name, [o.state, o.measurement?.eligible, o.measurement?.success, o.measurement?.reason, o.contacted]];
 		}),
 	);
 	assert.deepEqual(result, {
@@ -241,50 +305,51 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 		afterAsOf: ["complete", false, null, "invalid_completion", true],
 		checkbox: ["complete", true, false, "measured", false],
 	});
-	assert.deepEqual(byMeeting.get(m.admin2h.meetingId).dueDate, followUpDueDate(same.date));
+	assert.deepEqual(entry(byMeeting, m.admin2h.meetingId).dueDate, followUpDueDate(localDate.parse(same.date)));
 
-	const w = byMeeting.get(m.waived.meetingId);
+	const w = entry(byMeeting, m.waived.meetingId);
+	const wTask = present(w.task, "task");
 	const edited = ok(
 		await taskWrite(c.owner, "edit", {
 			requestKey: key(),
-			expectedRevision: w.task.revision,
-			input: { taskId: w.task.id, patch: { title: "Renamed" } },
+			expectedRevision: wTask.revision,
+			input: { taskId: wTask.id, patch: { title: "Renamed" } },
 		}),
 	).task;
 	ok(
 		await taskWrite(c.owner, "delete", {
 			requestKey: key(),
 			expectedRevision: edited.revision,
-			input: { taskId: w.task.id },
+			input: { taskId: wTask.id },
 		}),
 	);
 	await finalize(c, m.waived.meetingId, same, { followUps: [{ personId: alex, assigneeIds: [] }], evaluation: null });
 	const [after] = ok(await read(c.owner, "readObligations", { meetingId: m.waived.meetingId, asOf })).items;
 	assert.deepEqual(
-		[after.id, after.state, after.task.deleted, after.waiver !== null, after.measurement.reason],
+		[after?.id, after?.state, after?.task?.deleted, after?.waiver !== null, after?.measurement?.reason],
 		[w.id, "no_longer_needed", true, true, "waived"],
 	);
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM task WHERE obligation_id=${w.id}`), [{ n: 1 }]);
-	const other = byMeeting.get(m.pending48.meetingId);
+	const other = present(entry(byMeeting, m.pending48.meetingId).task, "task");
 	const waived = ok(
 		await taskWrite(c.owner, "waive", {
 			requestKey: key(),
-			expectedRevision: other.task.revision,
-			input: { taskId: other.task.id },
+			expectedRevision: other.revision,
+			input: { taskId: other.id },
 		}),
 	).task;
 	ok(
 		await taskWrite(c.owner, "reopen", {
 			requestKey: key(),
 			expectedRevision: waived.revision,
-			input: { taskId: other.task.id },
+			input: { taskId: other.id },
 		}),
 	);
 	const [reopened] = ok(await read(c.owner, "readObligations", { meetingId: m.pending48.meetingId, asOf })).items;
-	assert.deepEqual([reopened.state, reopened.waiver, reopened.measurement.reason], ["open", null, "measured"]);
+	assert.deepEqual([reopened?.state, reopened?.waiver, reopened?.measurement?.reason], ["open", null, "measured"]);
 	assert.deepEqual(
 		await rows(
-			sql`SELECT kind FROM audit_event WHERE subject_id=${other.task.id} AND after_value ? 'status' ORDER BY occurred_at,id`,
+			sql`SELECT kind FROM audit_event WHERE subject_id=${other.id} AND after_value ? 'status' ORDER BY occurred_at,id`,
 		),
 		[{ kind: "create" }, { kind: "waive" }, { kind: "reopen" }],
 	);
@@ -304,7 +369,8 @@ test("AC:TARGET-COM-011 AC:TARGET-MTG-022 AC:ROLE43-008 contact log: only an eff
 	const standalone = { kind: "person", personId: alex };
 	const contactAt = async () =>
 		ok(await read(c.member, "listContactHistory", { personId: alex })).lastConfirmedContactAt;
-	const material = async () => (await rows(sql`SELECT material_revision::int n FROM plant WHERE id=${c.w.id}`))[0].n;
+	const material = async () =>
+		integerOf((await one(sql`SELECT material_revision::int n FROM plant WHERE id=${c.w.id}`)).n);
 
 	const first = ok(await record(c.owner, standalone, "contacted", { occurredAt: "2026-09-01T15:00:00Z" }));
 	assert.equal(first.lastConfirmedContactAt, "2026-09-01T15:00:00.000Z");
@@ -318,14 +384,18 @@ test("AC:TARGET-COM-011 AC:TARGET-MTG-022 AC:ROLE43-008 contact log: only an eff
 			completeTask: true,
 		}),
 	);
-	assert.deepEqual([done.task.status, done.record.contact, done.record.completedTask], ["complete", false, true]);
+	assert.deepEqual([done.task?.status, done.record.contact, done.record.completedTask], ["complete", false, true]);
 	const activity = ok(
 		await gatedTransaction(f.db, (tx) =>
-			peopleReader.getActivities(tx, new PeopleReadContext(c.owner.actor), { personId: alex, kinds: ["follow_up"] }),
+			peopleReader.getActivities(
+				tx,
+				new PeopleReadContext(c.owner.actor),
+				activityRequest.parse({ personId: alex, kinds: ["follow_up"] }),
+			),
 		),
 	);
 	assert.deepEqual(
-		activity.items.map((i) => [i.outcome, i.obligationId]),
+		activity.items.map((i) => (i.kind === "follow_up" ? [i.outcome, i.obligationId] : [i.kind])),
 		[
 			["administrative_completion", null],
 			["attempted_no_contact", null],
@@ -344,7 +414,7 @@ test("AC:TARGET-COM-011 AC:TARGET-MTG-022 AC:ROLE43-008 contact log: only an eff
 		}),
 	);
 	assert.deepEqual(
-		[voided.record.state, voided.record.voided.reason, voided.lastConfirmedContactAt],
+		[voided.record.state, voided.record.voided?.reason, voided.lastConfirmedContactAt],
 		["voided", "Entered on the wrong person", "2026-09-01T15:00:00.000Z"],
 	);
 	assert.equal(await material(), before + 2);
@@ -359,7 +429,7 @@ test("AC:TARGET-COM-011 AC:TARGET-MTG-022 AC:ROLE43-008 contact log: only an eff
 		],
 	);
 	assert.deepEqual([log.total, log.lastConfirmedContactAt], [4, "2026-09-01T15:00:00.000Z"]);
-	assert.equal(log.items[0].actor.accountId, c.owner.id);
+	assert.equal(accountOf(present(log.items[0], "log item").actor), c.owner.id);
 
 	const corrected = ok(
 		await write(c.admin, "correctOutcome", {
@@ -375,8 +445,8 @@ test("AC:TARGET-COM-011 AC:TARGET-MTG-022 AC:ROLE43-008 contact log: only an eff
 	assert.deepEqual(
 		[
 			corrected.record.corrects,
-			corrected.previous.state,
-			corrected.previous.voided.actor.accountId,
+			corrected.previous?.state,
+			corrected.previous?.voided && accountOf(corrected.previous.voided.actor),
 			corrected.lastConfirmedContactAt,
 		],
 		[
@@ -451,10 +521,10 @@ test("AC:TARGET-MTG-022 a Just now within the 2-minute clock allowance is stored
 	const c = await church();
 	const alex = await person(c, "Alex Rivera");
 	const standalone = { kind: "person", personId: alex };
-	const count = async () => (await rows(sql`SELECT count(*)::int n FROM contact_outcome WHERE person_id=${alex}`))[0].n;
+	const count = async () => (await one(sql`SELECT count(*)::int n FROM contact_outcome WHERE person_id=${alex}`)).n;
 	const ahead = new Date(Date.now() + 90_000).toISOString();
 	const saved = ok(await record(c.owner, standalone, "contacted", { occurredAt: ahead }));
-	const [stored] = await rows(
+	const stored = await one(
 		sql`SELECT occurred_at <= recorded_at AS ok, occurred_at < ${ahead}::timestamptz AS before FROM contact_outcome WHERE id=${saved.record.id}`,
 	);
 	assert.deepEqual(stored, { ok: true, before: true });
@@ -478,7 +548,7 @@ test("AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE AC:PERSONREF-MEETING-INVITATION-
 	});
 	const [o2] = ok(await read(c.owner, "readObligations", { personId: p2 })).items;
 	ok(
-		await record(c.owner, onTask(o2.task), "contacted", {
+		await record(c.owner, onTask(present(o2, "obligation").task), "contacted", {
 			occurredAt: "2026-10-02T15:00:00Z",
 			completeTask: true,
 		}),
@@ -491,8 +561,8 @@ test("AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE AC:PERSONREF-MEETING-INVITATION-
 	const history = ok(await read(c.owner, "listContactHistory", { personId: p2 }));
 	const [kept] = ok(await read(c.owner, "readObligations", { personId: p2 })).items;
 	assert.deepEqual(
-		[history.lastConfirmedContactAt, kept.id, kept.state, kept.contacted],
-		["2026-10-02T15:00:00.000Z", o2.id, "complete", true],
+		[history.lastConfirmedContactAt, kept?.id, kept?.state, kept?.contacted],
+		["2026-10-02T15:00:00.000Z", present(o2, "obligation").id, "complete", true],
 	);
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM obligation WHERE meeting_id=${m}`), [{ n: 2 }]);
 	const coverage = ok(await read(c.owner, "followUpCoverage", {}));
@@ -514,8 +584,8 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 		[[["uncovered", []]], 1, 0],
 	);
 	assert.equal(ok(await read(c.owner, "listContactHistory", { personId: casey })).total, 0);
-	const ctx = { session: c.owner.actor.session, selected: c.w };
-	const current = (await rows(sql`SELECT revision::text r FROM person WHERE id=${casey}`))[0].r;
+	const ctx = { session: c.owner.actor.session, selected: c.selected };
+	const current = (await one(sql`SELECT revision::text r FROM person WHERE id=${casey}`)).r;
 	ok(
 		await gatedTransaction(f.db, (tx) =>
 			peopleWriter.changeStatus(
@@ -541,14 +611,14 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 	const departed = await c.seated("member");
 	await committed(c, departed);
 	await f.admin.execute(sql`UPDATE seat SET ended_at=now() WHERE account_id=${departed.id} AND plant_id=${c.w.id}`);
-	const create = (who, input) =>
+	const create = (who: Seat, input: object) =>
 		write(who, "createFollowUp", { requestKey: key(), input: { personId: casey, ...input } });
 	for (const who of [unlinked, shared, departed])
 		refused(await create(c.owner, { assigneeIds: [who.id] }), "owner_ineligible");
 	refused(await create(c.member, {}), "unavailable");
 	const manual = ok(await create(c.admin, { assigneeIds: [eligible.id] })).task;
 	assert.deepEqual(
-		[manual.title, manual.due, manual.overdue, manual.managed, manual.assignees[0].accountId],
+		[manual.title, manual.due, manual.overdue, manual.managed, manual.assignees[0]?.accountId],
 		["Follow up with Casey", { kind: "undated" }, null, null, eligible.id],
 	);
 	assert.deepEqual(ok(await read(c.owner, "readObligations", { personId: casey })).items, []);
@@ -582,7 +652,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 			input: { taskId: manual.id, assigneeIds: [demoted.id] },
 		}),
 	).task;
-	assert.equal(moved.assignees[0].accountId, demoted.id);
+	assert.equal(moved.assignees[0]?.accountId, demoted.id);
 	await f.admin.execute(sql`UPDATE person SET stage='prospect' WHERE id=${demotedPerson}`);
 	const owners = ok(await read(c.member, "listFollowUpOwners", { personId: casey }));
 	assert.deepEqual(
@@ -597,7 +667,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 		{ account_id: demoted.id },
 	]);
 	const covered = ok(await read(c.owner, "followUpCoverage", { personId: casey }));
-	assert.deepEqual([covered.items[0].coverage, covered.needsOwner, covered.uncovered], ["needs_owner", 1, 0]);
+	assert.deepEqual([covered.items[0]?.coverage, covered.needsOwner, covered.uncovered], ["needs_owner", 1, 0]);
 	refused(await read(c.member, "followUpCoverage", {}), "unavailable");
 	const back = ok(
 		await write(c.owner, "assignFollowUp", {
@@ -608,7 +678,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 	).task;
 	const tally = ok(await read(c.owner, "listFollowUpOwners", { owner: eligible.id }));
 	assert.deepEqual([tally.matched, tally.owners.map((o) => [o.accountId, o.open])], [2, [[eligible.id, 2]]]);
-	assert.equal(back.assignees[0].accountId, eligible.id);
+	assert.equal(back.assignees[0]?.accountId, eligible.id);
 });
 
 test("INV-paging a follow-up page past the end answers with the last page in the same read", async () => {
@@ -628,7 +698,7 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 	const recipient = await c.seated("member");
 	const recipientPerson = await committed(c, recipient);
 	const bystander = await c.seated("member");
-	const insert = (status, n) =>
+	const insert = (status: string, n: number) =>
 		f.admin
 			.execute(sql`WITH ins AS (INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,completed_at)
 			SELECT gen_random_uuid(),${c.w.id},'Call Alex '||g,'follow_up','medium',${status},now(),'undated',${alex},
@@ -652,12 +722,14 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 	refused(await read(c.member, "planHandoff", { fromAccountId: leaving.id }), "unavailable");
 
 	const items = plan.duties.map((d) => ({ taskId: d.taskId, expectedRevision: d.revision }));
-	const handoff = (to, chunk, requestKey = key(), from = leaving.id) =>
-		write(c.admin, "executeHandoff", { requestKey, input: { fromAccountId: from, toAccountId: to, items: chunk } });
+	const handoff = (
+		to: string,
+		chunk: readonly { taskId: string; expectedRevision: string }[],
+		requestKey = key(),
+		from = leaving.id,
+	) => write(c.admin, "executeHandoff", { requestKey, input: { fromAccountId: from, toAccountId: to, items: chunk } });
 	const held = async () =>
-		(
-			await rows(sql`SELECT count(*)::int n FROM task_assignee WHERE account_id=${leaving.id} AND plant_id=${c.w.id}`)
-		)[0].n;
+		(await one(sql`SELECT count(*)::int n FROM task_assignee WHERE account_id=${leaving.id} AND plant_id=${c.w.id}`)).n;
 	refused(await handoff(bystander.id, items.slice(0, 100)), "handoff_target_ineligible");
 	refused(await handoff(recipient.id, items.slice(0, 1), key(), c.owner.id), "protected_owner");
 	const stale = items.slice(0, 100).map((i, n) => (n === 99 ? { ...i, expectedRevision: "7" } : i));
@@ -677,7 +749,7 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 			2,
 		],
 	);
-	const audits = async () => (await rows(sql`SELECT count(*)::int n FROM audit_event WHERE tenant_id=${c.w.id}`))[0].n;
+	const audits = async () => (await one(sql`SELECT count(*)::int n FROM audit_event WHERE tenant_id=${c.w.id}`)).n;
 	const before = await audits();
 	assert.deepEqual(ok(await handoff(recipient.id, items.slice(0, 100), first)), moved);
 	assert.equal(await audits(), before);
@@ -728,11 +800,11 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 	assert.deepEqual(ok(await read(c.admin, "followUpCoverage", { personId: alex })).formerOwners, []);
 
 	const reads = async () => [
-		await counted(() => read(c.owner, "listFollowUpOwners", { limit: 100 })),
-		await counted(() => read(c.owner, "followUpCoverage", { limit: 100 })),
-		await counted(() => read(c.owner, "planHandoff", { fromAccountId: recipient.id })),
-		await counted(() => read(c.owner, "readObligations", { limit: 100 })),
-		await counted(() => read(c.owner, "listContactHistory", { personId: alex })),
+		(await counted(() => read(c.owner, "listFollowUpOwners", { limit: 100 }))).n,
+		(await counted(() => read(c.owner, "followUpCoverage", { limit: 100 }))).n,
+		(await counted(() => read(c.owner, "planHandoff", { fromAccountId: recipient.id }))).n,
+		(await counted(() => read(c.owner, "readObligations", { limit: 100 }))).n,
+		(await counted(() => read(c.owner, "listContactHistory", { personId: alex }))).n,
 	];
 	assert.deepEqual(await reads(), Array(5).fill(3));
 });
@@ -740,7 +812,7 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 test("AC:TARGET-PPL-007 INV-inactivity: a card warns after the church's inactivity days without activity; new activity clears it", async () => {
 	const c = await church();
 	await f.admin.execute(sql`UPDATE plant SET warning_days=7, alert_days=14 WHERE id=${c.w.id}`);
-	const added = async (name, daysAgo) => {
+	const added = async (name: string, daysAgo: number) => {
 		const id = randomUUID();
 		await f.admin
 			.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at)
@@ -754,11 +826,13 @@ test("AC:TARGET-PPL-007 INV-inactivity: a card warns after the church's inactivi
 	};
 	const levels = async () => {
 		const pipeline = ok(
-			await gatedTransaction(f.db, (tx) => peopleReader.getPipelineData(tx, new PeopleReadContext(c.member.actor), {})),
+			await gatedTransaction(f.db, (tx) =>
+				peopleReader.getPipelineData(tx, new PeopleReadContext(c.member.actor), listPeopleRequest.parse({})),
+			),
 		);
 		const cards = pipeline.groups.flatMap((g) => g.cards);
 		return Object.fromEntries(
-			Object.entries(people).map(([name, id]) => [name, cards.find((k) => k.person.id === id).inactivity.level]),
+			Object.entries(people).map(([name, id]) => [name, cards.find((k) => k.person.id === id)?.inactivity.level]),
 		);
 	};
 	assert.deepEqual(await levels(), { recent: "none", quiet: "warning", silent: "alert" });
@@ -782,7 +856,7 @@ test("AC:TARGET-PPL-007 INV-inactivity: a card warns after the church's inactivi
 	assert.deepEqual(await levels(), { recent: "none", quiet: "warning", silent: "none" });
 });
 
-async function assigned(c, personId, title, assigneeId) {
+async function assigned(c: Church, personId: string, title: string, assigneeId: string | null) {
 	const id = randomUUID();
 	await f.admin
 		.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,creator_id)
@@ -811,25 +885,26 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 one owner view: every read names a fol
 		[prospect.id]: [false, "not_committed"],
 		[departed.id]: [false, "no_seat"],
 	};
-	const taskOf = {};
+	const taskOf = new Map<string, string>();
 	for (const a of [eligible, unlinked, prospect, departed])
-		taskOf[a.id] = await assigned(c, pia, "Visit " + a.id.slice(0, 4), a.id);
-	const shape = (o) => o && [o.accountId, o.eligible, o.reason];
+		taskOf.set(a.id, await assigned(c, pia, "Visit " + a.id.slice(0, 4), a.id));
+	const shape = (o: { accountId: string; eligible: boolean; reason: unknown } | undefined) =>
+		o && [o.accountId, o.eligible, o.reason];
 	const owners = ok(await read(c.member, "listFollowUpOwners", { personId: pia })).items;
-	const coverage = ok(await read(c.admin, "followUpCoverage", { personId: pia })).items[0].duties;
+	const coverage = present(ok(await read(c.admin, "followUpCoverage", { personId: pia })).items[0], "coverage").duties;
 	const list = ok(await gatedTransaction(f.db, (tx) => taskReader.list(tx, c.admin.actor, {}))).items;
 	for (const [account, [ok_, reason]] of Object.entries(expected)) {
-		const id = taskOf[account];
+		const id = entry(taskOf, account);
 		const views = [
-			owners.find((d) => d.taskId === id).owners[0],
-			coverage.find((d) => d.taskId === id).owners[0],
-			list.find((t) => t.id === id).followUpOwners[0],
+			owners.find((d) => d.taskId === id)?.owners[0],
+			coverage.find((d) => d.taskId === id)?.owners[0],
+			list.find((t) => t.id === id)?.followUpOwners[0],
 		];
 		assert.deepEqual(
 			views.map(shape),
 			views.map(() => [account, ok_, reason]),
 		);
-		assert.deepEqual(new Set(views.map((v) => v.displayName)).size, 1);
+		assert.deepEqual(new Set(views.map((v) => v?.displayName)).size, 1);
 	}
 	assert.equal(ok(await read(c.member, "listFollowUpOwners", { personId: pia, owner: "needs_owner" })).matched, 3);
 	assert.deepEqual(
@@ -841,7 +916,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 one owner view: every read names a fol
 		plan.duties.map((d) => d.owners.map(shape)),
 		[[[unlinked.id, false, "no_person"]]],
 	);
-	assert.equal(list.find((t) => t.id === taskOf[eligible.id]).followUpOwners[0].eligible, true);
+	assert.equal(list.find((t) => t.id === entry(taskOf, eligible.id))?.followUpOwners[0]?.eligible, true);
 });
 
 test("AC:TARGET-TSK-012 task assignment, create and edit refuse a follow-up owner who cannot own one", async () => {
@@ -851,7 +926,7 @@ test("AC:TARGET-TSK-012 task assignment, create and edit refuse a follow-up owne
 	const ready = await c.seated("member");
 	await committed(c, ready);
 	const task = await assigned(c, quinn, "Visit Quinn", null);
-	const [row] = await rows(sql`SELECT revision::text AS r FROM task WHERE id=${task}`);
+	const row = await one(sql`SELECT revision::text AS r FROM task WHERE id=${task}`);
 	refused(
 		await taskWrite(c.owner, "edit", {
 			requestKey: key(),
@@ -885,8 +960,9 @@ test("AC:TARGET-TSK-012 task assignment, create and edit refuse a follow-up owne
 			input: { taskId: task, patch: { assigneeIds: [ready.id] } },
 		}),
 	).task;
-	assert.deepEqual([edited.assignees[0].accountId, edited.followUpOwners[0].eligible], [ready.id, true]);
-	const names = (r) => ok(r).items.map((i) => i.accountId);
+	assert.deepEqual([edited.assignees[0]?.accountId, edited.followUpOwners[0]?.eligible], [ready.id, true]);
+	const names = (r: { status: "ok"; value: { items: { accountId: string }[] } } | { status: "refused" }) =>
+		ok(r).items.map((i) => i.accountId);
 	const all = names(await gatedTransaction(f.db, (tx) => taskReader.eligibleAssignees(tx, c.owner.actor, {})));
 	const eligibleOnly = names(
 		await gatedTransaction(f.db, (tx) =>
@@ -905,23 +981,24 @@ test("AC:TARGET-MTG-022 AC:TARGET-MTG-021 one follow-up state: a done follow-up 
 	const first = ok(
 		await record(c.owner, onTask(a.obligation.task), "attempted_no_contact", { occurredAt: "2026-09-10T16:00:00Z" }),
 	);
-	assert.equal(first.task.status, "not_started");
-	const [open] = await rows(sql`SELECT status, revision::text AS r FROM task WHERE id=${a.obligation.task.id}`);
+	assert.equal(first.task?.status, "not_started");
+	const aTask = present(a.obligation.task, "task");
+	const open = await one(sql`SELECT status, revision::text AS r FROM task WHERE id=${aTask.id}`);
 	assert.equal(open.status, "not_started");
 	const done = ok(
 		await taskWrite(c.owner, "complete", {
 			requestKey: key(),
 			expectedRevision: open.r,
-			input: { taskId: a.obligation.task.id },
+			input: { taskId: aTask.id },
 		}),
 	).task;
-	const before = (await rows(sql`SELECT count(*)::int AS n FROM contact_outcome WHERE person_id=${rae}`))[0].n;
+	const before = (await one(sql`SELECT count(*)::int AS n FROM contact_outcome WHERE person_id=${rae}`)).n;
 	refused(
 		await record(c.owner, onTask(done), "contacted", { occurredAt: "2026-09-11T15:00:00Z", completeTask: true }),
 		"conflict",
 	);
 	refused(await record(c.owner, onTask(done), "no_longer_needed"), "conflict");
-	assert.equal((await rows(sql`SELECT count(*)::int AS n FROM contact_outcome WHERE person_id=${rae}`))[0].n, before);
+	assert.equal((await one(sql`SELECT count(*)::int AS n FROM contact_outcome WHERE person_id=${rae}`)).n, before);
 	ok(await record(c.owner, { kind: "person", personId: rae }, "contacted", { occurredAt: "2026-09-11T15:00:00Z" }));
 
 	const sol = await person(c, "Sol Ortiz");
@@ -944,7 +1021,7 @@ test("AC:TARGET-MTG-022 AC:TARGET-MTG-021 one follow-up state: a done follow-up 
 			completeTask: true,
 		}),
 	);
-	assert.equal(finished.task.status, "complete");
+	assert.equal(finished.task?.status, "complete");
 	assert.deepEqual(
 		finished.record.alsoFinished.map((x) => [x.taskId, x.origin.kind]),
 		[[manual.id, "added"]],
@@ -954,7 +1031,7 @@ test("AC:TARGET-MTG-022 AC:TARGET-MTG-021 one follow-up state: a done follow-up 
 		statuses.map((x) => x.status),
 		["complete", "complete"],
 	);
-	assert.equal((await rows(sql`SELECT count(*)::int AS n FROM contact_outcome WHERE person_id=${sol}`))[0].n, 1);
+	assert.equal((await one(sql`SELECT count(*)::int AS n FROM contact_outcome WHERE person_id=${sol}`)).n, 1);
 	const log = ok(await read(c.owner, "listContactHistory", { personId: sol }));
 	assert.deepEqual(
 		log.items.map((i) => [i.channel, i.notes, i.alsoFinished.length]),
@@ -967,17 +1044,21 @@ test("AC:TARGET-MTG-022 AC:TARGET-MTG-021 one follow-up state: a done follow-up 
 	);
 	const duty = ok(await read(c.owner, "readObligations", { personId: sol, asOf: "2026-09-20T00:00:00Z" })).items[0];
 	assert.deepEqual(
-		[duty.state, duty.completion.outcomeId === finished.record.id, duty.contacted, duty.measurement.success],
+		[duty?.state, duty?.completion?.outcomeId === finished.record.id, duty?.contacted, duty?.measurement?.success],
 		["complete", true, true, true],
 	);
 	assert.equal(ok(await read(c.owner, "listFollowUpOwners", { personId: sol })).items.length, 0);
 	const activity = ok(
 		await gatedTransaction(f.db, (tx) =>
-			peopleReader.getActivities(tx, new PeopleReadContext(c.owner.actor), { personId: sol, kinds: ["follow_up"] }),
+			peopleReader.getActivities(
+				tx,
+				new PeopleReadContext(c.owner.actor),
+				activityRequest.parse({ personId: sol, kinds: ["follow_up"] }),
+			),
 		),
 	);
 	assert.deepEqual(
-		activity.items.map((i) => [i.outcome, i.channel, i.notes]),
+		activity.items.map((i) => (i.kind === "follow_up" ? [i.outcome, i.channel, i.notes] : [i.kind])),
 		[["contacted", "phone", "Left a voicemail and texted."]],
 	);
 });
@@ -988,19 +1069,18 @@ test("INV-statements an outcome locks its task and reads its Person in one state
 	const origin = { at: "2026-09-14T15:00:00Z", date: "2026-09-14", zone: "America/Chicago" };
 	const vision = await generated(c, lee, "Vision C", origin);
 	const generatedTask = vision.obligation.task;
-	const followUp = async (input) =>
+	const followUp = async (input: object) =>
 		ok(await write(c.owner, "createFollowUp", { requestKey: key(), input: { personId: lee, ...input } })).task;
-	const save = async (target, outcome, extra = {}) => {
-		let saved;
-		const n = await counted(async () => {
-			saved = ok(await record(c.owner, target, outcome, { occurredAt: "2026-09-14T18:00:00Z", ...extra }));
-		});
-		return { n, saved };
+	const save = async (target: unknown, outcome: string, extra: object = {}) => {
+		const { n, value } = await counted(async () =>
+			ok(await record(c.owner, target, outcome, { occurredAt: "2026-09-14T18:00:00Z", ...extra })),
+		);
+		return { n, saved: value };
 	};
 
 	const plain = await save(onTask(generatedTask), "attempted_no_contact");
 	assert.deepEqual(
-		[plain.n, plain.saved.task.status, plain.saved.lastConfirmedContactAt, plain.saved.record.meetingId],
+		[plain.n, plain.saved.task?.status, plain.saved.lastConfirmedContactAt, plain.saved.record.meetingId],
 		[5, "not_started", null, vision.meetingId],
 	);
 	const byPerson = await save({ kind: "person", personId: lee }, "contacted");
@@ -1009,11 +1089,11 @@ test("INV-statements an outcome locks its task and reads its Person in one state
 		[5, null, "2026-09-14T18:00:00.000Z"],
 	);
 	const dropped = await save(onTask(await followUp({})), "no_longer_needed");
-	assert.deepEqual([dropped.n, dropped.saved.task.status], [5, "no_longer_needed"]);
+	assert.deepEqual([dropped.n, dropped.saved.task?.status], [5, "no_longer_needed"]);
 	const other = await followUp({ title: "Send Lee the packet" });
 	const finished = await save(onTask(plain.saved.task), "contacted", { completeTask: true });
 	assert.deepEqual(
-		[finished.n, finished.saved.task.status, finished.saved.record.alsoFinished.map((x) => [x.taskId, x.origin.kind])],
+		[finished.n, finished.saved.task?.status, finished.saved.record.alsoFinished.map((x) => [x.taskId, x.origin.kind])],
 		[5, "complete", [[other.id, "added"]]],
 	);
 
@@ -1023,7 +1103,7 @@ test("INV-statements an outcome locks its task and reads its Person in one state
 	const due = sql`SELECT count(*)::int n FROM notice WHERE source_record_id=${dated.id} AND cancelled_at IS NULL`;
 	assert.deepEqual(await rows(due), [{ n: 2 }]);
 	const completed = await save(onTask(dated), "attempted_no_contact", { completeTask: true });
-	assert.deepEqual([completed.n, completed.saved.task.status], [6, "complete"]);
+	assert.deepEqual([completed.n, completed.saved.task?.status], [6, "complete"]);
 	assert.deepEqual(await rows(due), [{ n: 0 }]);
 });
 
@@ -1075,7 +1155,7 @@ test("AC:TARGET-MTG-022 a Member's contact finishes only the follow-ups they hol
 	const mine = await assigned(c, tia, "Call Tia", me.id);
 	const mine2 = await assigned(c, tia, "Text Tia", me.id);
 	const theirs = await assigned(c, tia, "Visit Tia", other.id);
-	const [r] = await rows(sql`SELECT revision::text AS r FROM task WHERE id=${mine}`);
+	const r = await one(sql`SELECT revision::text AS r FROM task WHERE id=${mine}`);
 	const saved = ok(
 		await record(me, { kind: "task", taskId: mine, expectedRevision: r.r }, "contacted", {
 			occurredAt: "2026-09-12T20:00:00Z",
@@ -1097,7 +1177,7 @@ test("AC:TARGET-MTG-022 a Member's contact finishes only the follow-ups they hol
 		],
 	);
 	const left = ok(await read(me, "listFollowUpOwners", { personId: tia })).items;
-	const [recorder] = await rows(sql`SELECT display_name FROM seat_identity(${me.id}::uuid)`);
+	const recorder = await one(sql`SELECT display_name FROM seat_identity(${me.id}::uuid)`);
 	assert.deepEqual(
 		left.map((d) => [d.taskId === theirs, d.contacted?.by ?? "none"]),
 		[[true, recorder.display_name]],
@@ -1124,7 +1204,7 @@ test("AC:TARGET-MTG-022 a Member's contact finishes only the follow-ups they hol
 	);
 });
 
-async function sharedBy(c, personId, title, ids) {
+async function sharedBy(c: Church, personId: string, title: string, ids: readonly string[]) {
 	const id = await assigned(c, personId, title, ids[0] ?? null);
 	for (const account of ids.slice(1))
 		await f.admin.execute(
@@ -1145,7 +1225,11 @@ test("AC:TARGET-TSK-012 a follow-up is owned while one owner is eligible, and co
 	const mixed = await sharedBy(c, pia, "Call Pia", [ready.id, stuck.id]);
 	const only = await sharedBy(c, pia, "Text Pia", [stuck.id]);
 	const owners = ok(await read(c.admin, "listFollowUpOwners", { personId: pia }));
-	const byTask = (id) => owners.items.find((d) => d.taskId === id);
+	const byTask = (id: string) =>
+		present(
+			owners.items.find((d) => d.taskId === id),
+			"duty " + id,
+		);
 	assert.deepEqual(
 		byTask(pair).owners.map((o) => [o.eligible]),
 		[[true], [true]],
@@ -1173,7 +1257,7 @@ test("AC:TARGET-TSK-012 a follow-up is owned while one owner is eligible, and co
 	);
 	const coverage = ok(await read(c.admin, "followUpCoverage", { personId: pia }));
 	assert.equal(coverage.needsOwner, 1);
-	assert.equal(coverage.items[0].coverage, "needs_owner");
+	assert.equal(coverage.items[0]?.coverage, "needs_owner");
 	assert.deepEqual(
 		coverage.formerOwners.map((o) => [o.accountId, o.open]),
 		[[stuck.id, 2]],
@@ -1192,7 +1276,7 @@ test("AC:TARGET-TSK-012 assigning a list refuses the whole write when one accoun
 	await committed(c, ready);
 	const stuck = await c.seated("member");
 	const id = await sharedBy(c, pia, "Visit Pia", []);
-	const [r] = await rows(sql`SELECT revision::text AS r FROM task WHERE id=${id}`);
+	const r = await one(sql`SELECT revision::text AS r FROM task WHERE id=${id}`);
 	const held = () => rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${id}`);
 	const error = refused(
 		await write(c.admin, "assignFollowUp", {
@@ -1248,7 +1332,7 @@ test("AC:TARGET-TSK-013 a handoff swaps only the leaving owner, and a contact fi
 			},
 		}),
 	);
-	const held = async (id) =>
+	const held = async (id: string) =>
 		(await rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${id}`)).map((r) => r.account_id).sort();
 	assert.deepEqual(await held(alone), [recipient.id]);
 	assert.deepEqual(await held(withKeeper), [keeper.id, recipient.id].sort());
@@ -1256,7 +1340,7 @@ test("AC:TARGET-TSK-013 a handoff swaps only the leaving owner, and a contact fi
 	const tia = await person(c, "Tia Marsh");
 	const mine = await sharedBy(c, tia, "Call Tia", [recipient.id, keeper.id]);
 	const theirs = await sharedBy(c, tia, "Visit Tia", [keeper.id]);
-	const [r] = await rows(sql`SELECT revision::text AS r FROM task WHERE id=${mine}`);
+	const r = await one(sql`SELECT revision::text AS r FROM task WHERE id=${mine}`);
 	ok(
 		await record(
 			{ ...recipient, actor: await f.actor(recipient.session) },

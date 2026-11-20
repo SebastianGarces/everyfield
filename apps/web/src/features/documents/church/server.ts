@@ -1,6 +1,6 @@
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
-import { recordId } from "@everyfield/contracts/common";
+import { type Lost, recordId } from "@everyfield/contracts/common";
 import {
 	type ArchivedChurchSummary,
 	type ChurchDocument,
@@ -16,10 +16,11 @@ import { documentsWriter, docTemplateSummaries, sheetOf, type DocTemplateSummary
 import { readBoundedBody } from "@everyfield/domain/operations";
 import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
-import { EXPORT_MESSAGES } from "./refusal.ts";
+import { EXPORT_MESSAGES, EXPORT_UNAVAILABLE } from "./refusal.ts";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
 import { parseJson } from "../../../server/platform/json.ts";
 import { transient } from "../../../server/platform/transient.ts";
+import { readDb } from "../../../server/platform/tx.ts";
 
 export type ChurchView = {
 	id: string;
@@ -41,7 +42,7 @@ export type RevisionRow = {
 	savedBy: string | null;
 	formats: readonly ChurchDocument["formats"][number][];
 };
-export type Load<T> = { status: "ok"; value: T } | { status: "refused" } | { status: "failed" };
+export type Load<T> = { status: "ok"; value: T } | { status: "refused" } | Lost;
 
 export const canManageChurch = (authority: RequestActor) => hasPlantSeat(authority) && canEditDocuments(authority);
 
@@ -51,35 +52,25 @@ export async function loadLibrary(
 	Load<{ documents: ChurchSummary[]; templates: DocTemplateSummary[]; churchTemplates: ChurchTemplateSummary[] }>
 > {
 	if (!hasPlantSeat(authority)) return { status: "refused" };
-	const db = requestDatabase();
-	return transient(
-		{ component: "church-documents", outcome: "read_failed" },
-		async () => {
-			const reply = await documentsWriter.listChurch(db, authority, {});
-			if (reply.status !== "ok") return { status: "refused" };
-			return {
-				status: "ok",
-				value: {
-					documents: reply.value.documents,
-					templates: docTemplateSummaries(),
-					churchTemplates: reply.value.templates,
-				},
-			};
-		},
-		{ status: "failed" },
-	);
+	return readDb("church-documents", async (db) => {
+		const reply = await documentsWriter.listChurch(db, authority, {});
+		if (reply.status !== "ok") return { status: "refused" };
+		return {
+			status: "ok",
+			value: {
+				documents: reply.value.documents,
+				templates: docTemplateSummaries(),
+				churchTemplates: reply.value.templates,
+			},
+		};
+	});
 }
 
 export async function loadArchived(authority: RequestActor): Promise<Load<ArchivedChurchSummary[]>> {
-	const db = requestDatabase();
-	return transient(
-		{ component: "church-documents", outcome: "read_failed" },
-		async () => {
-			const reply = await documentsWriter.listArchivedChurch(db, authority, {});
-			return reply.status === "ok" ? { status: "ok", value: reply.value.documents } : { status: "refused" };
-		},
-		{ status: "failed" },
-	);
+	return readDb("church-documents", async (db) => {
+		const reply = await documentsWriter.listArchivedChurch(db, authority, {});
+		return reply.status === "ok" ? { status: "ok", value: reply.value.documents } : { status: "refused" };
+	});
 }
 
 export async function loadChurchDocument(
@@ -98,61 +89,53 @@ export async function loadChurchDocument(
 	  }>
 	| { status: "deleted" }
 > {
-	const db = requestDatabase();
-	return transient(
-		{ component: "church-documents", outcome: "read_failed" },
-		async () => {
-			const readOnly = () =>
-				documentsWriter
-					.readChurch(db, authority, { documentId })
-					.then((r) =>
-						r.status === "ok" ? { ...r, value: { ...r.value, brands: null, mergeValues: {}, template: null } } : r,
-					);
-			const [first, saved, history] = await Promise.all([
-				canManageChurch(authority) ? documentsWriter.readChurchForEdit(db, authority, { documentId }) : readOnly(),
-				documentsWriter.listExports(db, authority, { documentId }),
-				documentsWriter["history.list"](db, authority, { documentId }),
-			]);
-			if (saved.status !== "ok" && saved.error.code === "deleted") return { status: "deleted" };
-			const reply =
-				first.status !== "ok" &&
-				first.error.code === "unavailable" &&
-				saved.status === "ok" &&
-				canManageChurch(authority)
-					? await readOnly()
-					: first;
-			if (reply.status !== "ok" || saved.status !== "ok" || history.status !== "ok") return { status: "refused" };
-			const d = reply.value;
-			return {
-				status: "ok",
-				value: {
-					view: {
-						id: d.id,
-						title: d.title,
-						templateId: d.templateId,
-						templateVersion: d.templateVersion,
-						templateName: d.templateName,
-						documentClass: d.documentClass,
-						revision: d.revision,
-						formats: d.formats,
-						useChurchBranding: d.useChurchBranding,
-						page: sheetOf(d.body.page),
-						archived: d.archived,
-					},
-					document: d.body,
-					brands: d.brands,
-					mergeValues: d.mergeValues,
-					exports: saved.value.exports,
-					revisions: history.value.revisions
-						.map((r) => ({ number: r.number, recordedAt: r.recordedAt, savedBy: r.authorName, formats: r.formats }))
-						.toSorted((a, b) => b.number - a.number),
-					revisionsTruncated: history.value.truncated,
-					template: d.template,
+	return readDb("church-documents", async (db) => {
+		const readOnly = () =>
+			documentsWriter
+				.readChurch(db, authority, { documentId })
+				.then((r) =>
+					r.status === "ok" ? { ...r, value: { ...r.value, brands: null, mergeValues: {}, template: null } } : r,
+				);
+		const [first, saved, history] = await Promise.all([
+			canManageChurch(authority) ? documentsWriter.readChurchForEdit(db, authority, { documentId }) : readOnly(),
+			documentsWriter.listExports(db, authority, { documentId }),
+			documentsWriter["history.list"](db, authority, { documentId }),
+		]);
+		if (saved.status !== "ok" && saved.error.code === "deleted") return { status: "deleted" };
+		const reply =
+			first.status !== "ok" && first.error.code === "unavailable" && saved.status === "ok" && canManageChurch(authority)
+				? await readOnly()
+				: first;
+		if (reply.status !== "ok" || saved.status !== "ok" || history.status !== "ok") return { status: "refused" };
+		const d = reply.value;
+		return {
+			status: "ok",
+			value: {
+				view: {
+					id: d.id,
+					title: d.title,
+					templateId: d.templateId,
+					templateVersion: d.templateVersion,
+					templateName: d.templateName,
+					documentClass: d.documentClass,
+					revision: d.revision,
+					formats: d.formats,
+					useChurchBranding: d.useChurchBranding,
+					page: sheetOf(d.body.page),
+					archived: d.archived,
 				},
-			};
-		},
-		{ status: "failed" },
-	);
+				document: d.body,
+				brands: d.brands,
+				mergeValues: d.mergeValues,
+				exports: saved.value.exports,
+				revisions: history.value.revisions
+					.map((r) => ({ number: r.number, recordedAt: r.recordedAt, savedBy: r.authorName, formats: r.formats }))
+					.toSorted((a, b) => b.number - a.number),
+				revisionsTruncated: history.value.truncated,
+				template: d.template,
+			},
+		};
+	});
 }
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
@@ -294,5 +277,5 @@ export const saveExportRoute = mutatingRoute(async function saveExportRoute(
 });
 
 function refused(code: string): ExportResult {
-	return { status: "refused", message: EXPORT_MESSAGES[code] ?? EXPORT_MESSAGES.unavailable! };
+	return { status: "refused", message: EXPORT_MESSAGES[code] ?? EXPORT_UNAVAILABLE };
 }

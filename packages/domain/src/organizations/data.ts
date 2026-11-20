@@ -116,7 +116,7 @@ SELECT g.allowed,(SELECT to_jsonb(o) FROM o) AS org,
 FROM g`);
 		const row = exportRow.parse(r.rows[0]);
 		if (!row.allowed || !row.org) refuse();
-		const o = row.org!;
+		const o = row.org;
 		let body = "";
 		for (const p of row.people) {
 			const who = { person_id: p.id, name: p.name };
@@ -168,12 +168,12 @@ FROM g`);
 				"Notes, stage move reasons, conversations, feedback, anything from a resident's own account, and progress a resident does not share.",
 			]) +
 			"\r\n";
-		return C.pipelineExport.parse({
+		return {
 			filename: `pipeline-${o.day}.csv`,
 			mediaType: "text/csv; charset=utf-8",
 			text: "﻿" + preamble + csvLine(COLUMNS) + programs + body,
 			people: row.people.length,
-		});
+		} satisfies z.output<typeof C.pipelineExport>;
 	});
 }
 

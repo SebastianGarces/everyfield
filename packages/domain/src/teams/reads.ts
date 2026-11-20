@@ -17,11 +17,11 @@ const stamp = z
 
 export async function row(db: Reader, viewer: Viewer, query: ReturnType<typeof sql>) {
 	const found = await one(db, viewer, query);
-	if (!found) deny();
+	if (!found) deny("unavailable");
 	return found;
 }
 export function owner(plantId: string, value: unknown) {
-	if (typeof value !== "string") deny();
+	if (typeof value !== "string") deny("unavailable");
 	if (value !== plantId) deny("access_denied");
 }
 export function unique(ids: string[]) {
@@ -176,7 +176,8 @@ export const teamsReader = {
 	async previewTemplateImport(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.previewTemplateImportRequest, raw);
-			if (unknownSelection(input.selections)) deny("invalid_input");
+			if (unknownSelection(input.selections))
+				deny("invalid_input", { issues: [{ path: "selections", problem: "unknown team or role" }] });
 			const found = await row(
 				db,
 				viewer,
@@ -186,7 +187,8 @@ export const teamsReader = {
 			);
 			const present = z.array(z.object({ key: z.string(), roles: z.array(z.string()) })).parse(found.present);
 			const teams = input.selections.map((selection) => {
-				const team = catalogTeam(selection.teamKey)!;
+				const team = catalogTeam(selection.teamKey);
+				if (!team) throw Error(`The checked selection names no catalog team: ${selection.teamKey}`);
 				const have = present.find((p) => p.key === team.key);
 				const chosen = team.roles
 					.filter((role) => selection.roleKeys.includes(role.key))
