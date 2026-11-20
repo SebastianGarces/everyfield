@@ -23,6 +23,7 @@ import { problemText, type Account, type HandoffPlan, type HandoffResult } from 
 import { useRead } from "../../components/read.tsx";
 import { DialogNotice, NoticeInDialog, SaveButton, useSaveIntent } from "../../components/save/parts.tsx";
 import { useLocalStore, useStore } from "../../components/store.ts";
+import { loadProblem } from "../../components/read-failed.ts";
 
 type Seat = { accountId: string; displayName: string; role: string };
 
@@ -152,9 +153,10 @@ export function HandoffDialog({
 											options={sourceOptions(seats?.status === "ok" ? seats.value.items : [], former)}
 										/>
 									</Field>
-									{seats?.status === "refused" || seats?.status === "lost" ? (
+									{seats && seats.status !== "ok" ? (
 										<p className="text-sm text-text-2">
-											The current seats did not load. People who can no longer own follow-ups are still listed.
+											{loadProblem(seats, "The current seats did not load.")} People who can no longer own follow-ups
+											are still listed.
 										</p>
 									) : null}
 									{from && plan === null ? (
@@ -164,7 +166,7 @@ export function HandoffDialog({
 									) : null}
 									{plan && plan.status !== "ok" ? (
 										<p className="text-sm text-text-2">
-											Their follow-ups did not load. Choose the person again to retry.
+											{loadProblem(plan, "Their follow-ups did not load. Choose the person again to retry.")}
 										</p>
 									) : null}
 									{p ? <Review plan={p} selected={selected} onSelected={setSelected} /> : null}

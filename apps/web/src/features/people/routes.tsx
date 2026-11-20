@@ -1,5 +1,5 @@
-import { getViewer } from "@/server/request-context";
-import { signIn } from "@/server/sign-in";
+import type { PlantSeat } from "@/server/request-context";
+import { requireSeat } from "@/server/sign-in";
 import { privateStorage } from "@everyfield/db/schema";
 import { LockKeyIcon, UserSearch01Icon } from "@hugeicons/core-free-icons";
 import { personRequest } from "@everyfield/contracts/people";
@@ -13,29 +13,22 @@ import { parseQuery, querySearch } from "./model.ts";
 import { PeopleScreen } from "./PeopleScreen.tsx";
 import { PersonScreen } from "./PersonScreen.tsx";
 import { canWrite } from "../../components/seat-role.ts";
-import { loadPeople, loadPerson, type Viewer } from "./server.ts";
+import { loadPeople, loadPerson } from "./server.ts";
 import { params } from "../../components/search-params.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
-export async function gate(returnTo: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
-	const v = await getViewer();
-	if (v.status === "unauthenticated") signIn(returnTo);
-	if (v.people) return { viewer: v.people };
+export async function gate(returnTo: string): Promise<{ viewer: PlantSeat } | { blocked: ReactNode }> {
+	const viewer = await requireSeat(returnTo);
+	if (viewer) return { viewer };
 	return {
 		blocked: (
 			<>
 				<PageHeader size="xl" title="People" />
 				<Card>
-					{v && !v.people ? (
-						<StatePanel tone="lock" icon={LockKeyIcon} title="People is not part of your seat" headingLevel="h2">
-							People belongs to a church plant workspace. Your account has no current seat in one, so there is nothing
-							to show here.
-						</StatePanel>
-					) : (
-						<StatePanel tone="error" title="We could not load your people" headingLevel="h2">
-							This is a loading problem, not an empty list. Your people are safe. Try again in a moment.
-						</StatePanel>
-					)}
+					<StatePanel tone="lock" icon={LockKeyIcon} title="People is not part of your seat" headingLevel="h2">
+						People belongs to a church plant workspace. Your account has no current seat in one, so there is nothing to
+						show here.
+					</StatePanel>
 				</Card>
 			</>
 		),
@@ -71,7 +64,7 @@ export async function PersonPage({
 	const { personId } = parsed.data;
 
 	const loaded = await loadPerson(viewer, personId);
-	if (loaded.status === "failed") return failed();
+	if (loaded.status === "lost") return failed();
 	if (loaded.status === "refused") {
 		if (loaded.error.code !== "unavailable" && loaded.error.code !== "invalid_input") return failed();
 		notFound();

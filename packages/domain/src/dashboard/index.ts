@@ -121,7 +121,7 @@ export const dashboardReader = {
 	LEFT JOIN LATERAL (SELECT ${dismissedColumn(scope)}) q ON g.ok`);
 			const r = rows[0];
 			if (!r || r.ok !== true) return deny();
-			return c.promptState.parse({ dismissed: dismissedOf(r.dismissed) });
+			return { dismissed: dismissedOf(r.dismissed) } satisfies z.output<typeof c.promptState>;
 		});
 	},
 
@@ -307,7 +307,7 @@ export const dashboardWriter = {
  SELECT g.ok,(SELECT count(*)::int FROM ins) AS written FROM g`);
 			const r = rows[0];
 			if (!r || r.ok !== true) return deny();
-			return c.dismissPromptResult.parse({ outcome: r.written === 1 ? "changed" : "noop", prompt });
+			return { outcome: r.written === 1 ? "changed" : "noop", prompt } satisfies z.output<typeof c.dismissPromptResult>;
 		});
 	},
 };

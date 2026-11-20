@@ -1,3 +1,4 @@
+import type { Lost } from "@everyfield/contracts/common";
 import type { PipelineReply } from "@everyfield/contracts/organizations";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
 import type { RequestActor, WriteTx } from "@everyfield/domain/access";
@@ -18,7 +19,7 @@ import { getViewer } from "../../server/request-context";
 import { LOST, transient } from "../../server/platform/transient.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
 
-export type PipelineAnswer<T> = PipelineReply<T> | { status: "lost" };
+export type PipelineAnswer<T> = PipelineReply<T> | Lost;
 
 export async function pipelineActor(): Promise<
 	{ kind: "signed_out" } | { kind: "unavailable" } | { kind: "seat"; authority: RequestActor }
@@ -31,7 +32,7 @@ export async function pipelineActor(): Promise<
 	return { kind: "seat", authority };
 }
 
-async function guarded<R>(run: () => Promise<R>): Promise<R | { status: "lost" }> {
+async function guarded<R>(run: () => Promise<R>): Promise<R | Lost> {
 	return transient({ component: "pipeline", outcome: "failed" }, () => run(), LOST);
 }
 
@@ -78,7 +79,7 @@ export async function loadPipelineExport(authority: RequestActor) {
 	return guarded(() => readPipelineExport(db, authority));
 }
 
-type PeopleAnswer<T> = PeopleReply<T> | { status: "lost" };
+type PeopleAnswer<T> = PeopleReply<T> | Lost;
 async function asSeat<T>(
 	run: (db: Database, authority: RequestActor) => Promise<PeopleReply<T>>,
 ): Promise<PeopleAnswer<T>> {

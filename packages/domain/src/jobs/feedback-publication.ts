@@ -123,7 +123,9 @@ async function prepare(tx: Transaction, claim: Claim, config: PublicationConfig)
 		await intend(tx, f, issue, config.repository);
 		return { f: { ...f, publication_payload: issue }, issue, repository: config.repository.name, reconcile: false };
 	}
-	return { f, issue: f.publication_payload!, repository: f.repository_name!, reconcile: true };
+	if (!f.publication_payload || f.repository_name === null)
+		throw Error(`Feedback ${f.id} is ${f.publication_state} with no stored issue or repository`);
+	return { f, issue: f.publication_payload, repository: f.repository_name, reconcile: true };
 }
 
 async function call(step: Step, claim: Claim, issues: IssueClient): Promise<Outcome> {
@@ -131,7 +133,8 @@ async function call(step: Step, claim: Claim, issues: IssueClient): Promise<Outc
 		const found = await issues.search(step.repository, step.f.reference);
 		if (found.kind === "failed") return { state: "held", reason: "search_failed" };
 		if (found.issues.length > 1) return { state: "held", reason: "ambiguous" };
-		if (found.issues.length === 1) return { state: "published", issue: found.issues[0]! };
+		const [only] = found.issues;
+		if (found.issues.length === 1 && only) return { state: "published", issue: only };
 	}
 	const created = await issues.create(step.repository, step.issue);
 	if (created.kind === "created") return { state: "published", issue: created.issue };
