@@ -7,10 +7,8 @@ import * as Q from "../../../packages/contracts/src/organizations/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createNotificationProducer } from "../../../packages/domain/src/notifications/index.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
-import {
-	authorizeNotificationMail,
-	createNotificationWorker,
-} from "../../../apps/web/src/features/notifications/worker.ts";
+import { authorizeNotificationMail } from "../../../packages/domain/src/jobs/notice-mail.ts";
+import { createNotificationWorker } from "../../../apps/web/src/features/notifications/worker.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 
 after(S.teardown);
