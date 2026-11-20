@@ -1,90 +1,26 @@
 "use server";
 
-import { requestDatabase } from "@/server/database";
-import type { DocumentsError } from "@everyfield/contracts/documents";
 import { privateStorage } from "@everyfield/db/schema";
-import { documentsReader, documentsWriter } from "@everyfield/domain/documents";
-import {
-	type CopySource,
-	type Format,
-	type OwnedView,
-	type Resolved,
-	type SavedFile,
-	type WrittenView,
-} from "./model.ts";
+import { documentsWriter } from "@everyfield/domain/documents";
+import { z } from "zod";
+import type { OwnedView, SavedFile, WrittenView } from "./model.ts";
 import { documentActor } from "./server.ts";
+import {
+	presentOwned,
+	presentSaved,
+	refused,
+	runAs,
+	storageMissing,
+	type DocumentOutcome,
+	type Read,
+} from "./outcome.ts";
 
-export type DocumentOutcome<T> =
-	| { status: "ok"; value: T }
-	| { status: "refused"; code: DocumentsError["code"]; problem?: string; path?: string }
-	| { status: "lost" };
-
-function refused(error: DocumentsError): DocumentOutcome<never> {
-	const issue = error.code === "invalid_input" ? error.details.issues[0] : undefined;
-	return issue
-		? { status: "refused", code: error.code, problem: issue.problem, path: issue.path }
-		: { status: "refused", code: error.code };
-}
-
-async function run<T>(
-	read: (
-		db: NonNullable<ReturnType<typeof requestDatabase>>,
-		actor: NonNullable<Awaited<ReturnType<typeof documentActor>>>,
-	) => Promise<DocumentOutcome<T>>,
-) {
-	const actor = await documentActor();
-	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" } as const;
-	try {
-		return await read(db, actor);
-	} catch (error) {
-		console.error(JSON.stringify({ component: "documents", outcome: "action_failed", error: String(error) }));
-		return { status: "lost" } as const;
-	}
-}
-
-export async function resolveDocument(templateId: string, format: Format): Promise<DocumentOutcome<Resolved>> {
-	return run(async (db, actor) => {
-		const reply = await documentsReader.resolveContext(db, actor, { templateId, format });
-		if (reply.status === "refused") return refused(reply.error);
-		const value = reply.value;
-		return {
-			status: "ok",
-			value: {
-				templateId: value.templateId,
-				format: value.format,
-				fields: value.fields,
-				missing: value.missing,
-				complete: value.complete,
-			},
-		};
-	});
-}
-
-const storageMissing = {
-	status: "refused" as const,
-	code: "unavailable" as const,
-	problem: "Saving is not available right now.",
-};
-
-function presentSaved(value: SavedFile): SavedFile {
-	return {
-		id: value.id,
-		savedTemplateName: value.savedTemplateName,
-		format: value.format,
-		generatedAt: value.generatedAt,
-		downloadName: value.downloadName,
-	};
-}
-
-function presentOwned(value: OwnedView): OwnedView {
-	return { id: value.id, kind: value.kind, title: value.title, archived: value.archived };
-}
+const run = async <T>(read: Read<T>) => runAs(await documentActor(), read);
 
 export async function generateDocument(
 	templateId: string,
-	format: Format,
-	overrides: Record<string, string>,
+	format: unknown,
+	overrides: unknown,
 	requestKey: string,
 ): Promise<DocumentOutcome<SavedFile>> {
 	const storage = privateStorage();
@@ -96,48 +32,15 @@ export async function generateDocument(
 	});
 }
 
-export async function listSavedDocuments(): Promise<DocumentOutcome<SavedFile[]>> {
-	return run(async (db, actor) => {
-		const reply = await documentsWriter["history.list"](db, actor, {});
-		if (reply.status === "refused") return refused(reply.error);
-		return { status: "ok", value: reply.value.entries.map(presentSaved) };
-	});
-}
+const ownedDraft = z
+	.object({ title: z.unknown(), body: z.unknown(), documentId: z.unknown(), expectedRevision: z.unknown() })
+	.partial();
 
-export async function downloadSavedDocument(documentId: string): Promise<DocumentOutcome<{ url: string }>> {
-	const storage = privateStorage();
-	if (!storage) return storageMissing;
-	return run(async (db, actor) => {
-		const reply = await documentsWriter.download(db, actor, { documentId }, storage);
-		if (reply.status === "refused") return refused(reply.error);
-		return { status: "ok", value: { url: reply.value.url } };
-	});
-}
-
-export async function loadWrittenDocuments(): Promise<
-	DocumentOutcome<{ documents: OwnedView[]; evidence: string | null }>
-> {
-	return run(async (db, actor) => {
-		const listed = await documentsWriter.listOwned(db, actor, {});
-		if (listed.status === "refused") return refused(listed.error);
-		const evidence = await documentsWriter.readCoreValuesEvidence(db, actor, {});
-		if (evidence.status === "refused") return refused(evidence.error);
-		return {
-			status: "ok",
-			value: {
-				documents: listed.value.documents.map(presentOwned),
-				evidence: evidence.value.text,
-			},
-		};
-	});
-}
-
-export async function saveOwnedDocument(input: {
-	title: string;
-	body: unknown;
-	documentId?: string;
-	expectedRevision: string;
-}): Promise<DocumentOutcome<{ id: string; revision: string; kind: WrittenView["kind"] }>> {
+export async function saveOwnedDocument(
+	raw: unknown,
+): Promise<DocumentOutcome<{ id: string; revision: string; kind: WrittenView["kind"] }>> {
+	const parsed = ownedDraft.safeParse(raw);
+	const input = parsed.success ? parsed.data : {};
 	return run(async (db, actor) => {
 		const reply = await documentsWriter.saveNative(db, actor, {
 			title: input.title,
@@ -172,22 +75,7 @@ export async function designateOwnedDocument(
 	});
 }
 
-export async function loadCopySources(): Promise<DocumentOutcome<CopySource[]>> {
-	return run(async (db, actor) => {
-		const reply = await documentsWriter.listCopySources(db, actor, {});
-		if (reply.status === "refused") return refused(reply.error);
-		return {
-			status: "ok",
-			value: reply.value.documents.map((item) => ({ id: item.id, title: item.title, revisionId: item.revisionId })),
-		};
-	});
-}
-
-export async function copyToChurch(input: {
-	documentId: string;
-	revisionId: string;
-	requestKey: string;
-}): Promise<DocumentOutcome<{ id: string }>> {
+export async function copyToChurch(input: unknown): Promise<DocumentOutcome<{ id: string }>> {
 	return run(async (db, actor) => {
 		const reply = await documentsWriter.useForChurch(db, actor, input);
 		if (reply.status === "refused") return refused(reply.error);

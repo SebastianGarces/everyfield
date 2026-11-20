@@ -1,5 +1,5 @@
 import * as c from "@everyfield/contracts/people";
-import { sql } from "@everyfield/db/query";
+import { sql, type SqlLiteral } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import "server-only";
@@ -57,7 +57,8 @@ function interviewView(plant: string, raw: unknown) {
 		nextSteps: r.next_steps,
 	});
 }
-const criterionSql = (column: string) => sql.raw(`jsonb_build_object('rating',r.${column},'notes',r.${column}_notes)`);
+const criterionSql = <ColumnName extends string>(column: SqlLiteral<ColumnName>) =>
+	sql.raw(`jsonb_build_object('rating',r.${column},'notes',r.${column}_notes)`);
 const interviewJson = sql`jsonb_build_object('id',r.id,'person_id',r.person_id,'occurred_on',r.interviewed_on::text,
  'recorded_at',r.recorded_at,'actor_id',${recorderSql("r")},'revision',r.revision::text,'maturity',${criterionSql("maturity")},
  'gifted',${criterionSql("gifted")},'chemistry',${criterionSql("chemistry")},'rightReasons',${criterionSql("right_reasons")},

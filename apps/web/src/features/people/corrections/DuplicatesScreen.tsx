@@ -35,7 +35,8 @@ import { keyFor, STAGE_KEY, STAGE_LABEL, type KeyedPayload, type StageValue } fr
 import { writeAddress } from "../../../components/location.ts";
 import type { Outcome } from "../../../components/save/model.ts";
 import { fresh, LocalDay, When } from "../parts.tsx";
-import { dismissPair, mergeDestination, mergePair, reviewPair, type Merged } from "./actions.ts";
+import { dismissPair, mergePair, type Merged } from "./actions.ts";
+import { mergeDestination, reviewPair } from "../fetch.ts";
 import { leaveConfirmation } from "./DuplicatePairs.tsx";
 import {
 	blockerText,
@@ -57,6 +58,8 @@ import {
 } from "./model.ts";
 import { Problem } from "./parts.tsx";
 import type { PairView } from "./server.ts";
+import { READ_FAILED } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
 type Ready = Extract<PairView, { kind: "ready" }>;
 type Review = Ready["review"];
@@ -94,7 +97,9 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 	function load(keep: string | null, then?: string) {
 		const n = ++seq.current;
 		startLoad(async () => {
-			const r: Outcome<PairView> = await reviewPair({ ...query, keep }).catch(() => ({ status: "lost" }) as const);
+			const r: Outcome<PairView> | ReadFailure = await reviewPair({ ...query, keep }).catch(
+				() => ({ status: "lost" }) as const,
+			);
 			if (n !== seq.current) return;
 			startLoad(() => {
 				if (r.status === "ok") {
@@ -106,9 +111,11 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 					setNotice({
 						n,
 						text:
-							r.status === "lost"
-								? "The review did not load. Try again in a moment."
-								: "You cannot review these people. Your seat may have changed; reload the page.",
+							r.status === "failed"
+								? READ_FAILED
+								: r.status === "lost"
+									? "The review did not load. Try again in a moment."
+									: "You cannot review these people. Your seat may have changed; reload the page.",
 					});
 			});
 		});
@@ -308,7 +315,7 @@ function PairReview({
 					<CalloutLabel tone="blue" icon={InformationCircleIcon}>
 						You can unmerge later
 					</CalloutLabel>
-					<CalloutText className="text-sm">
+					<CalloutText className="leading-(--text-sm--line-height)">
 						After merging, links to {source.displayName} open {survivor.displayName}. If this was a mistake, Review
 						Unmerge in {first(survivor.displayName)}&rsquo;s Activity brings {first(source.displayName)} back.
 						Everyfield shows what goes back first, and stops if a later change depends on the merge.
@@ -318,7 +325,7 @@ function PairReview({
 
 			<div className="flex min-w-0 flex-col gap-5">
 				<Card size="sm" as="section" aria-labelledby="moves-title">
-					<CardHeader className="mb-1">
+					<CardHeader>
 						<CardHeading>
 							<CardTitle size="sm" id="moves-title">
 								What moves to {first(survivor.displayName)}
@@ -397,15 +404,11 @@ function PairReview({
 				</Card>
 				<div className="flex flex-col gap-2">
 					<div className="flex gap-2 max-app-sm:flex-col-reverse">
-						<IntentLink
-							href={`/people/${survivor.personId}`}
-							className={cn(buttonVariants({ variant: "secondary" }), "flex-1")}
-						>
+						<IntentLink href={`/people/${survivor.personId}`} className={buttonVariants({ variant: "secondary" })}>
 							Keep both
 						</IntentLink>
 						<Button
 							variant="primary"
-							className="flex-1"
 							icon={GitMergeIcon}
 							disabled={blocked || loading || dismissing}
 							onClick={() => setConfirming(true)}
@@ -513,7 +516,7 @@ function FieldRow({
 			<Radio
 				value={side}
 				aria-label={`${FIELD_LABEL[field.field]} from ${name}: ${shown ?? "none"}`}
-				className="min-h-[46px] items-center rounded-card bg-surface-raised px-3.5 py-2.5 shadow-[inset_0_0_0_1px_var(--ef-line)] has-[[data-state=checked]]:shadow-[0_0_0_2px_var(--ef-ink)]"
+				className="min-h-[46px] rounded-card bg-surface-raised px-3.5 shadow-[inset_0_0_0_1px_var(--ef-line)] has-[[data-state=checked]]:shadow-[0_0_0_2px_var(--ef-ink)]"
 				label={
 					<span className="flex min-w-0 items-center gap-2.5">
 						{photo ? <Avatar name={name} src={photo} size="sm" decorative /> : null}
@@ -540,7 +543,7 @@ function FieldRow({
 				orientation="horizontal"
 				value={value}
 				onValueChange={(v) => onChange(v as Side)}
-				className="grid grid-cols-2 gap-3 max-app-sm:gap-2"
+				className="grid grid-cols-2 gap-y-3 max-app-sm:gap-2"
 			>
 				{option("survivor")}
 				{option("source")}
@@ -692,7 +695,7 @@ function Result({ done }: { done: Done }) {
 				<h2 ref={focusOnMount} tabIndex={-1} className="mt-3 font-title text-title-md text-ink outline-none">
 					{done.source} is now part of {done.survivor}
 				</h2>
-				<CalloutText className="text-sm">
+				<CalloutText className="leading-(--text-sm--line-height)">
 					Links to {done.source} open {done.survivor}.{" "}
 					{merged.moved.length
 						? `${listText(merged.moved.map((m) => counted(m.kind, m.count)))} moved to ${first(done.survivor)}.`

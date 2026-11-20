@@ -1,10 +1,10 @@
 "use client";
 
+import { cn } from "@everyfield/ui/foundations";
 import { Tick02Icon } from "@hugeicons/core-free-icons";
 import { useTransform, type MotionValue } from "motion/react";
 import { m } from "@/components/motion/m";
 import type { Ref } from "react";
-import { cn } from "../cn";
 import { Icon } from "../Icon";
 import { back, bump, inOut, out, P } from "./curves";
 import { useTo } from "./scene";

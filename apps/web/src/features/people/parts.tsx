@@ -7,16 +7,20 @@ import { useRouter } from "next/navigation";
 import { useMemo, useSyncExternalStore, type ComponentProps } from "react";
 import type * as people from "@everyfield/contracts/people";
 import type { z } from "zod";
-import { statusWarnings } from "./actions.ts";
+import { statusWarnings } from "./fetch.ts";
 import type { Outcome } from "../../components/save/model.ts";
 import { createRead, useRead } from "../../components/read.tsx";
 import { useLocalStore } from "../../components/store.ts";
 import { createPersonStore, withServer, type PersonState, type PersonStore, type Saved } from "./person.store.ts";
+import { READ_FAILED } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 export function problemText(code: string): string {
 	switch (code) {
 		case "conflict":
 			return "This person changed while you were working. Check the latest details, then try again.";
+		case "failed":
+			return READ_FAILED;
 		case "lost":
 			return "We did not hear back from the server. Your text is kept. Try again; it will not save twice.";
 		case "use_reviewed_unmerge":
@@ -59,8 +63,8 @@ export function usePersonState<P extends Saved, D>(store: PersonStore<P, D>): Pe
 
 export const fresh = () => crypto.randomUUID();
 export const isConflict = <T,>(o: Outcome<T> | null) => o?.status === "refused" && o.code === "conflict";
-export const problemOf = <T,>(o: Outcome<T> | null): string | undefined =>
-	!o || o.status === "ok" ? undefined : o.status === "lost" ? "lost" : o.code;
+export const problemOf = <T,>(o: Outcome<T> | ReadFailure | null): string | undefined =>
+	!o || o.status === "ok" ? undefined : o.status === "refused" ? o.code : o.status;
 
 const DATE = { month: "short", day: "numeric", year: "numeric" } as const;
 const TIME = { ...DATE, hour: "numeric", minute: "2-digit" } as const;
@@ -80,7 +84,7 @@ export function LocalDay({ day }: { day: string }) {
 	return <time dateTime={day}>{DAY.format(new Date(Date.UTC(y, m - 1, d)))}</time>;
 }
 
-type Warnings = Outcome<z.infer<typeof people.statusWarningsResult>>;
+type Warnings = Outcome<z.infer<typeof people.statusWarningsResult>> | ReadFailure;
 const warningsRead = createRead<[personId: string, round: number], Warnings>((personId) => statusWarnings(personId), {
 	failed: () => ({ status: "lost" }) as const,
 });

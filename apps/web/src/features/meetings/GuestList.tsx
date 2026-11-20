@@ -33,7 +33,7 @@ import {
 	SegmentedControl,
 	StatePanel,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { instant } from "@everyfield/contracts/common";
 import { answeringStatuses } from "@everyfield/contracts/meetings";
@@ -148,7 +148,6 @@ export function GuestList({
 	onCard: (personId: string, card: CardEntry | null) => void;
 	onStale: () => void;
 }) {
-	const toast = useToast();
 	const [chosenFilter, setChosenFilter] = useState<{ value: Filter; at: number }>({ value: "all", at: cardsRequest });
 	const filter = chosenFilter.at === cardsRequest ? chosenFilter.value : "all";
 	const [removing, setRemoving] = useState<Guest | null>(null);
@@ -550,7 +549,7 @@ export function GuestList({
 	const form = lane.editing;
 	return (
 		<Card as="section" aria-labelledby="guests-title">
-			<CardHeader className="flex-wrap items-center">
+			<CardHeader className="flex-wrap">
 				<CardHeading>
 					<CardTitle id="guests-title">Guest list</CardTitle>
 				</CardHeading>
@@ -579,7 +578,7 @@ export function GuestList({
 			<SaveNotice {...lane.noticeProps} dialogOpen={form !== null} className="mb-3" />
 			<RowNotices lanes={presence.lanes} className="mb-3" />
 			{guests === null ? (
-				<StatePanel tone="error" title="Guests did not load" headingLevel="h3" className="py-8">
+				<StatePanel tone="error" title="Guests did not load" headingLevel="h3">
 					Nothing was changed. Reload the page in a moment.
 				</StatePanel>
 			) : (

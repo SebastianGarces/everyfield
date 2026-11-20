@@ -5,6 +5,7 @@ export const CHECKS = {
 	typecheck: { kind: "package", script: "typecheck" },
 	"test:unit": { kind: "package", script: "test:unit" },
 	"test:db": { kind: "package", script: "test:db" },
+	census: { kind: "census" },
 	docs: { kind: "command", command: ["python3", "docs/check-all.py"] },
 	"ci-coverage": { kind: "command", command: ["node", "tools/ci/ci-tests.ts"] },
 	"migration-safety": { kind: "command", command: ["node", "tools/ci/migration-safety.ts"] },
@@ -20,6 +21,7 @@ export type CheckId = keyof typeof CHECKS;
 type Check =
 	| { kind: "package"; script: string }
 	| { kind: "command"; command: readonly string[] }
+	| { kind: "census" }
 	| { kind: "suite"; root: string; files: string };
 export type SuiteId = { [K in CheckId]: (typeof CHECKS)[K] extends { kind: "suite" } ? K : never }[CheckId];
 
@@ -113,6 +115,12 @@ export const RULES: readonly Rule[] = [
 		tests: ["tests/workflow/formal.test.ts"],
 	},
 	{ name: "QA command", paths: ["bin/qa"], suites: ["tools-qa"] },
+	{
+		name: "flag command and its checks",
+		paths: ["bin/flag", "tools/flag/**"],
+		packages: true,
+		fallbackPackage: "@everyfield/domain",
+	},
 	{ name: "app verification command", paths: ["bin/app", "tools/app/**"], suites: ["tools-app"] },
 	{ name: "production identity setup", paths: ["bin/prod-identity", "tools/prod-identity/**"], suites: ["tools-qa"] },
 	{
@@ -124,6 +132,23 @@ export const RULES: readonly Rule[] = [
 		name: "adapter operations and their eval cases",
 		paths: ["packages/evry/src/adapters/**", "tests/evry/evals/**"],
 		tests: ["tests/workflow/evry-evals-coverage.test.mjs"],
+	},
+	{
+		name: "backend or database code",
+		paths: [
+			"packages/domain/**",
+			"packages/db/**",
+			"packages/reference/**",
+			"apps/web/src/server/**",
+			"apps/web/src/features/**/server.ts",
+			"apps/web/src/features/**/*-server.ts",
+			"apps/web/src/features/**/actions.ts",
+			"apps/web/src/features/**/routes.tsx",
+			"apps/web/src/features/**/*-route.ts",
+			"apps/web/src/app/**/route.ts",
+			"tests/integration/**",
+		],
+		checks: ["census"],
 	},
 	{ name: "web app under a dev server", paths: ["apps/web/**"], tests: ["tests/workflow/server-logs.test.mjs"] },
 	{
@@ -194,6 +219,7 @@ export type Context = {
 };
 
 export type Decision = { run: boolean; reason: string };
+export const NO_CENSUS = "the diff touches no backend or database code";
 export type Selection = {
 	mode: "selected" | "full";
 	fullReasons: string[];
@@ -234,6 +260,13 @@ export function everything(reasons: string[], context: Pick<Context, "testFiles"
 		tests: Object.fromEntries(context.testFiles.map((file) => [file, { run: true, reason: why }])),
 		packageFilters: [],
 	};
+}
+
+export function censusDecision(changedPaths: readonly string[] | null): Decision {
+	if (changedPaths === null) return { run: true, reason: "the diff could not be read" };
+	const rules = RULES.filter((rule) => rule.checks?.includes("census"));
+	const why = changedPaths.flatMap((path) => rules.filter((r) => matches(r, path)).map((r) => `${r.name}: ${path}`));
+	return why.length ? { run: true, reason: why.join("; ") } : { run: false, reason: NO_CENSUS };
 }
 
 export function selectChecks(

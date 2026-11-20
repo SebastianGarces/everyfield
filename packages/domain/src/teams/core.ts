@@ -1,13 +1,12 @@
 import { requestIdentity, sameOwner, type Owner, type sessionId } from "@everyfield/contracts/common";
-import { teamsError, type TeamsError, type TeamsReply } from "@everyfield/contracts/teams";
+import { teamsError, type TeamsReply } from "@everyfield/contracts/teams";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { eq, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import { randomUUID } from "node:crypto";
 import { hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
-import { boundWrite, liveRead, RequestActor, type requestWrite } from "../access/session.ts";
+import { boundWrite, liveRead, RequestActor, type requestWrite, type WriteTx } from "../access/session.ts";
 import {
 	auditSavepoint,
 	declareWrite,
@@ -15,53 +14,24 @@ import {
 	lockedWrite,
 	nativeWrite,
 	prepareWrite,
-	WriteUnavailable,
 	type AuditWrite,
 } from "../operations/writes.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
-export type Tx = Transaction;
+export type Tx = WriteTx;
 export type Reader = Pick<Transaction, "execute">;
 export type TeamsContext = { session: z.infer<typeof sessionId>; selected: Owner };
 
-type Code = TeamsError["code"];
-export class Refusal extends Error {
-	readonly code: Code;
-	readonly details: object;
-	constructor(code: Code, details: object) {
-		super(code);
-		this.code = code;
-		this.details = details;
-	}
-}
-export function deny(code: Code = "unavailable", details: object = {}): never {
-	throw new Refusal(code, details);
-}
-function refused(error: Refusal): TeamsReply<never> {
-	return {
-		status: "refused",
-		error: teamsError.parse({
-			code: error.code,
-			details: error.details,
-			correlationId: randomUUID(),
-			retry: error.code === "conflict" ? "refresh" : error.code === "required_write_failed" ? "same_request" : "never",
-		}),
-	};
-}
-async function settle<T>(body: () => Promise<T>): Promise<TeamsReply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (error instanceof WriteUnavailable) return refused(new Refusal("unavailable", {}));
-		if (error instanceof Refusal) return refused(error);
-		throw error;
-	}
-}
+const refusals = defineRefusals(teamsError, { writeUnavailable: "unavailable" });
+export const { Refusal } = refusals;
+const { settle } = refusals;
+export const deny: Deny<typeof teamsError> = refusals.deny;
 const databaseError = z.object({ cause: z.object({ code: z.string().regex(/^[0-9A-Z]{5}$/) }) });
 async function settleWrite<T>(body: () => Promise<T>): Promise<TeamsReply<T>> {
 	try {
 		return await settle(body);
 	} catch (error) {
-		if (databaseError.safeParse(error).success) return refused(new Refusal("required_write_failed", {}));
+		if (databaseError.safeParse(error).success) return refusals.refused("required_write_failed");
 		throw error;
 	}
 }
@@ -97,7 +67,7 @@ export async function withTeamsWrite<T>(
 export async function read<T>(authority: RequestActor, body: (viewer: Viewer) => Promise<T>): Promise<TeamsReply<T>> {
 	return settle(() => {
 		const actor = authority.actor;
-		if (actor.context.kind !== "seat" || actor.context.owner.kind !== "plant") deny();
+		if (actor.context.kind !== "seat" || actor.context.owner.kind !== "plant") deny("unavailable");
 		return body({
 			plantId: actor.context.owner.id,
 			accountId: actor.accountId,
@@ -116,7 +86,7 @@ export async function one(db: Reader, viewer: Viewer, query: SQL) {
 		AS access_live) a
 		LEFT JOIN LATERAL (SELECT true AS access_found, x.* FROM (${query}) x LIMIT 1) q ON a.access_live`);
 	const row = found.rows[0] as Record<string, unknown>;
-	if (row.access_live !== true) deny();
+	if (row.access_live !== true) deny("unavailable");
 	return row.access_found === true ? row : undefined;
 }
 
@@ -129,7 +99,7 @@ async function writer(tx: Tx, ctx: TeamsContext): Promise<Writer> {
 	let bound = await lockedWrite(tx);
 	if (!bound || bound.authority.session !== ctx.session || !sameOwner(bound.selected, ctx.selected))
 		bound = (await RequestActor.claimWrite(tx, ctx.session, ctx.selected)) ?? undefined;
-	if (!bound?.plant || bound.actor.context.kind !== "seat") deny();
+	if (!bound?.plant || bound.actor.context.kind !== "seat") deny("unavailable");
 	return { accountId: bound.actor.accountId, admin: bound.actor.context.role !== "member", plant: bound.plant };
 }
 
@@ -230,7 +200,7 @@ export async function command<T>(
 	});
 	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "conflict") deny("conflict");
-	if (claim.kind === "unavailable") deny();
+	if (claim.kind === "unavailable") deny("unavailable");
 	if (claim.kind === "replay") return claim.value as T;
 	const change = await body(w, claim);
 	const changed = (change.outcome ?? "changed") === "changed";

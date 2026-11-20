@@ -25,6 +25,20 @@ export const insertStarters = (
  SELECT x.id,${o}::uuid,x.kind,x.label,x.position,1 FROM jsonb_to_recordset(${startersJson(o)}::jsonb) x(id uuid,kind text,label text,position int)
  WHERE NOT EXISTS(SELECT FROM pipeline_stage s WHERE s.organization_id=${o}::uuid) ON CONFLICT (id) DO NOTHING`;
 
+const stagesOf = (org: string) => sql`
+ SELECT s.id,s.label,s.stable_kind AS kind,s.position,s.revision::text AS revision FROM pipeline_stage s
+  WHERE s.organization_id=${org}::uuid AND s.removed_at IS NULL AND EXISTS(SELECT FROM o)
+ UNION ALL
+ SELECT x.id,x.label,x.kind,x.position,'1' FROM jsonb_to_recordset(${startersJson(org)}::jsonb) x(id uuid,kind text,label text,position int)
+  WHERE EXISTS(SELECT FROM o) AND NOT EXISTS(SELECT FROM pipeline_stage s WHERE s.organization_id=${org}::uuid)`;
+const staffOf = (seat: NonNullable<ReturnType<typeof seatOf>>) => sql`coalesce((SELECT
+ jsonb_agg(jsonb_build_object('seatId',s.id,'name',coalesce(i.display_name,'Staff'),'role',s.role)
+  ORDER BY lower(coalesce(i.display_name,'')),s.id)
+  FROM seat s LEFT JOIN LATERAL seat_identity(s.account_id) i ON true
+  WHERE ${seat.administrator} AND EXISTS(SELECT FROM o) AND s.organization_id=${seat.organization}::uuid AND s.ended_at IS NULL
+   AND s.accepted_at<=clock_timestamp()),'[]'::jsonb)`;
+const staffRow = z.array(z.object({ seatId: z.string(), name: z.string(), role: z.string() }));
+
 const boardRow = z.object({
 	allowed: z.boolean(),
 	name: z.string().nullable(),
@@ -41,7 +55,7 @@ const boardRow = z.object({
 			people: z.array(z.record(z.string(), z.unknown())),
 		}),
 	),
-	staff: z.array(z.object({ seatId: z.string(), name: z.string(), role: z.string() })),
+	staff: staffRow,
 	retired: z.coerce.number(),
 });
 
@@ -57,12 +71,7 @@ export async function readPipelineBoard(db: Executor, authority: RequestActor, r
 		const r = await db.execute(sql`WITH g AS (SELECT ${seat.live} AS allowed),
 o AS (SELECT o.name,o.timezone,(clock_timestamp() AT TIME ZONE o.timezone)::date AS today FROM organization o JOIN g ON g.allowed
  WHERE o.id=${org}::uuid),
-st AS (
- SELECT s.id,s.label,s.stable_kind AS kind,s.position,s.revision::text AS revision FROM pipeline_stage s
-  WHERE s.organization_id=${org}::uuid AND s.removed_at IS NULL AND EXISTS(SELECT FROM o)
- UNION ALL
- SELECT x.id,x.label,x.kind,x.position,'1' FROM jsonb_to_recordset(${startersJson(org)}::jsonb) x(id uuid,kind text,label text,position int)
-  WHERE EXISTS(SELECT FROM o) AND NOT EXISTS(SELECT FROM pipeline_stage s WHERE s.organization_id=${org}::uuid)),
+st AS (${stagesOf(org)}),
 pp AS (
  SELECT pp.id,pp.person_id,pp.stage_id,pp.responsible_seat_id,pp.revision::text AS revision,p.display_name,p.email,p.state,
   (SELECT max(a.occurred_at) FROM pipeline_stage_move m JOIN audit_event a ON a.id=m.id AND a.tenant_id=m.organization_id
@@ -93,11 +102,7 @@ SELECT g.allowed,(SELECT name FROM o) AS name,(SELECT today::text FROM o) AS as_
      LEFT JOIN LATERAL seat_identity(rs.account_id) i ON true WHERE rs.id=seen.responsible_seat_id))
     ORDER BY seen.rn) FROM seen WHERE seen.stage_id=st.id AND seen.rn>${offset} AND seen.rn<=${offset + PAGE}),'[]'::jsonb))
   ORDER BY st.position,st.label,st.id) FROM st),'[]'::jsonb) AS stages,
- coalesce((SELECT jsonb_agg(jsonb_build_object('seatId',s.id,'name',coalesce(i.display_name,'Staff'),'role',s.role)
-  ORDER BY lower(coalesce(i.display_name,'')),s.id)
-  FROM seat s LEFT JOIN LATERAL seat_identity(s.account_id) i ON true
-  WHERE ${seat.administrator} AND EXISTS(SELECT FROM o) AND s.organization_id=${org}::uuid AND s.ended_at IS NULL
-   AND s.accepted_at<=clock_timestamp()),'[]'::jsonb) AS staff,
+ ${staffOf(seat)} AS staff,
  (SELECT count(*) FROM pp WHERE ${seat.administrator} AND pp.state='retired') AS retired
 FROM g`);
 		const row = boardRow.parse(r.rows[0]);
@@ -114,6 +119,31 @@ FROM g`);
 			staff: row.staff,
 			retiredCount: row.retired,
 		});
+	});
+}
+
+const choicesRow = z.object({
+	allowed: z.boolean(),
+	name: z.string().nullable(),
+	stages: z.array(z.object({ id: z.string(), label: z.string(), kind: z.string() })),
+	staff: staffRow,
+});
+
+export async function readPipelineChoices(db: Executor, authority: RequestActor) {
+	return answer(async () => {
+		const seat = seatOf(authority) ?? refuse();
+		const org = seat.organization;
+		const r = await db.execute(sql`WITH g AS (SELECT ${seat.live} AS allowed),
+o AS (SELECT o.name FROM organization o JOIN g ON g.allowed WHERE o.id=${org}::uuid),
+st AS (${stagesOf(org)})
+SELECT g.allowed,(SELECT name FROM o) AS name,
+ coalesce((SELECT jsonb_agg(jsonb_build_object('id',st.id,'label',st.label,'kind',st.kind)
+  ORDER BY st.position,st.label,st.id) FROM st),'[]'::jsonb) AS stages,
+ ${staffOf(seat)} AS staff
+FROM g`);
+		const row = choicesRow.parse(r.rows[0]);
+		if (!row.allowed || row.name === null) refuse();
+		return C.pipelineChoices.parse({ organizationName: row.name, stages: row.stages, staff: row.staff });
 	});
 }
 

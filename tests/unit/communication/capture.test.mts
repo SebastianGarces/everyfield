@@ -1,18 +1,16 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, before, test } from "node:test";
-import { capture, captureAllowed, NO_ANSWER_FILE } from "../../../apps/web/src/server/mail/capture.ts";
+import { setServerEnv } from "../../support/server-env.mts";
+import { isTestDeployment } from "../../../packages/db/src/deployment.ts";
+import type { ProviderKey } from "../../../packages/contracts/src/common/values.ts";
+import type { Captured } from "../../../apps/web/src/server/mail/capture.ts";
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
 import { deliveryTransport, mailReady } from "../../../apps/web/src/server/mail/transport.ts";
 
-const keys = {
-	IDENTITY_MAIL_KEY: "a".repeat(64),
-	IDENTITY_ADDRESS_KEY: "b".repeat(64),
-	IDENTITY_MAIL_FROM: "church@everyfield.test",
-	IDENTITY_ORIGIN: "https://app.everyfield.test",
-};
+const storedKey = (key: string) => key as ProviderKey;
 const saved = { ...process.env };
 let outbox = "";
 before(async () => {
@@ -22,7 +20,7 @@ before(async () => {
 });
 const setEnv = (values: Record<string, string | undefined>) => {
 	for (const name of ["RESEND_API_KEY", "VERCEL_ENV"]) delete process.env[name];
-	Object.assign(process.env, keys);
+	setServerEnv();
 	for (const [name, value] of Object.entries(values)) {
 		if (value === undefined) delete process.env[name];
 		else process.env[name] = value;
@@ -34,15 +32,15 @@ afterEach(() => {
 });
 
 test("AC:CASE-COM-003 the capture outbox opens in local, development or preview, with or without a provider key", () => {
-	assert.equal(captureAllowed({}), true);
-	assert.equal(captureAllowed({ VERCEL_ENV: "development" }), true);
-	assert.equal(captureAllowed({ VERCEL_ENV: "preview" }), true);
-	assert.equal(captureAllowed({ VERCEL_ENV: "production" }), false);
-	assert.equal(captureAllowed({ VERCEL_ENV: "something-new" }), false);
-	assert.equal(captureAllowed({ RESEND_API_KEY: "re_live" }), true);
-	assert.equal(captureAllowed({ VERCEL_ENV: "preview", RESEND_API_KEY: "re_live" }), true);
-	assert.equal(captureAllowed({ VERCEL_ENV: "production", RESEND_API_KEY: "re_live" }), false);
-	assert.equal(captureAllowed({ VERCEL_ENV: "something-new", RESEND_API_KEY: "re_live" }), false);
+	assert.equal(isTestDeployment({}), true);
+	assert.equal(isTestDeployment({ VERCEL_ENV: "development" }), true);
+	assert.equal(isTestDeployment({ VERCEL_ENV: "preview" }), true);
+	assert.equal(isTestDeployment({ VERCEL_ENV: "production" }), false);
+	assert.equal(isTestDeployment({ VERCEL_ENV: "something-new" }), false);
+	assert.equal(isTestDeployment({ RESEND_API_KEY: "re_live" }), true);
+	assert.equal(isTestDeployment({ VERCEL_ENV: "preview", RESEND_API_KEY: "re_live" }), true);
+	assert.equal(isTestDeployment({ VERCEL_ENV: "production", RESEND_API_KEY: "re_live" }), false);
+	assert.equal(isTestDeployment({ VERCEL_ENV: "something-new", RESEND_API_KEY: "re_live" }), false);
 });
 
 test("AC:CASE-COM-003 production without a provider key is not ready, so nothing is recorded or sent", () => {
@@ -58,15 +56,19 @@ test("AC:CASE-COM-003 a development server records each send and calls no provid
 	assert.ok(ready && ready.apiKey === null);
 	const refuseFetch: typeof fetch = () => Promise.reject(new Error("provider called"));
 	const settled: string[] = [];
-	const result = await deliveryTransport(ready, refuseFetch, (ids) => settled.push(...ids)).send(
+	const result = await deliveryTransport(ready, refuseFetch, {
+		settle: async (_db, ids) => void settled.push(...ids),
+	}).send(
 		{
-			key: "k-1",
+			key: storedKey("k-1"),
 			messages: [{ to: "maria@example.test", subject: "Hello", html: "<p>Hi Maria</p>", text: "Hi Maria" }],
 			scheduledAt: null,
 		},
 		AbortSignal.timeout(1_000),
 	);
 	assert.equal(result.outcome, "ids");
+	assert.deepEqual(settled, []);
+	if (result.outcome === "ids") await result.afterRecord?.(null as never);
 	assert.deepEqual(settled, result.outcome === "ids" ? result.ids.filter((id): id is string => id !== null) : []);
 	assert.equal(settled.length, 1);
 	const [entry] = await readOutbox(outbox);
@@ -76,7 +78,7 @@ test("AC:CASE-COM-003 a development server records each send and calls no provid
 });
 
 test("AC:CASE-COM-003 production sending posts to the provider unchanged", async () => {
-	setEnv({ VERCEL_ENV: "production", RESEND_API_KEY: "re_live_key", IDENTITY_MAIL_FROM: "church@resend.dev" });
+	setEnv({ VERCEL_ENV: "production", RESEND_API_KEY: "re_live_key" });
 	const ready = mailReady();
 	assert.equal(ready?.apiKey, "re_live_key");
 	const calls: string[] = [];
@@ -85,23 +87,39 @@ test("AC:CASE-COM-003 production sending posts to the provider unchanged", async
 		return Response.json({ data: [{ id: "provider-1" }] });
 	};
 	const before = (await readOutbox(outbox)).length;
-	const settled: string[] = [];
-	const result = await deliveryTransport(ready!, provider, (ids) => settled.push(...ids)).send(
-		{ key: "k-2", messages: [{ to: "a@example.test", subject: "S", html: "<p>x</p>", text: "x" }], scheduledAt: null },
+	const result = await deliveryTransport(ready!, provider, {
+		settle: async () => assert.fail("a provider send settles nothing"),
+	}).send(
+		{
+			key: storedKey("k-2"),
+			messages: [{ to: "a@example.test", subject: "S", html: "<p>x</p>", text: "x" }],
+			scheduledAt: null,
+		},
 		AbortSignal.timeout(1_000),
 	);
 	assert.deepEqual(calls, ["https://api.resend.com/emails/batch"]);
 	assert.deepEqual(result, { outcome: "ids", ids: ["provider-1"] });
 	assert.equal((await readOutbox(outbox)).length, before);
-	assert.deepEqual(settled, []);
 });
 
 test("INV-communication-outbox: the outbox lists newest first", async () => {
 	const dir = await mkdtemp(join(tmpdir(), "outbox-test-"));
-	const message = { from: "f@x.test", to: "t@x.test", html: "h", text: "t" };
-	await capture({ ...message, subject: "first" }, null, "first", dir);
-	await new Promise((done) => setTimeout(done, 5));
-	await capture({ ...message, subject: "second" }, null, "second", dir);
+	const entry = (subject: string, at: string, n: number): Captured => ({
+		id: `capture-0000000${n}-0000-0000-0000-000000000000`,
+		at,
+		from: "f@x.test",
+		to: "t@x.test",
+		subject,
+		html: "h",
+		text: "t",
+		scheduledAt: null,
+		cancelled: false,
+	});
+	for (const captured of [
+		entry("first", "2026-11-18T10:00:00.000Z", 1),
+		entry("second", "2026-11-18T10:00:00.001Z", 2),
+	])
+		await writeFile(join(dir, `${captured.id}.json`), JSON.stringify(captured));
 	assert.deepEqual(
 		(await readOutbox(dir)).map((e) => e.subject),
 		["second", "first"],
@@ -112,17 +130,15 @@ test("AC:CASE-COM-012 a scheduled capture waits in the outbox, and cancel and ti
 	setEnv({});
 	const ready = mailReady()!;
 	const settled: string[] = [];
-	const capture = deliveryTransport(
-		ready,
-		() => Promise.reject(new Error("provider called")),
-		(ids) => settled.push(...ids),
-	);
+	const capture = deliveryTransport(ready, () => Promise.reject(new Error("provider called")), {
+		settle: async (_db, ids) => void settled.push(...ids),
+	});
 	const signal = () => AbortSignal.timeout(1_000);
 	const friday = new Date(Date.now() + 3 * 86_400_000).toISOString();
 	const saturday = new Date(Date.now() + 4 * 86_400_000).toISOString();
 	const held = await capture.send(
 		{
-			key: "k-held",
+			key: storedKey("k-held"),
 			messages: [
 				{ to: "ana@example.test", subject: "Held", html: "<p>a</p>", text: "a" },
 				{ to: "ben@example.test", subject: "Held", html: "<p>b</p>", text: "b" },
@@ -151,7 +167,7 @@ test("AC:CASE-COM-012 a scheduled capture waits in the outbox, and cancel and ti
 
 	const past = await capture.send(
 		{
-			key: "k-now",
+			key: storedKey("k-now"),
 			messages: [{ to: "cy@example.test", subject: "Now", html: "<p>c</p>", text: "c" }],
 			scheduledAt: null,
 		},
@@ -162,19 +178,17 @@ test("AC:CASE-COM-012 a scheduled capture waits in the outbox, and cancel and ti
 	assert.deepEqual(await capture.reschedule([sentId], saturday, signal()), [{ outcome: "sent" }]);
 });
 
-test("AC:CASE-COM-012 the no-answer switch makes the capture answer nothing, so each not-confirmed state can be shown", async () => {
+test("AC:CASE-COM-012 a silent capture answers nothing, so each not-confirmed state can be shown", async () => {
 	setEnv({});
 	const ready = mailReady()!;
-	const capture = deliveryTransport(
-		ready,
-		() => Promise.reject(new Error("provider called")),
-		() => {},
-	);
+	const refuse = () => Promise.reject(new Error("provider called"));
+	const capture = deliveryTransport(ready, refuse, { settle: async () => {} });
+	const silent = deliveryTransport(ready, refuse, { silent: true });
 	const signal = () => AbortSignal.timeout(1_000);
 	const friday = new Date(Date.now() + 3 * 86_400_000).toISOString();
 	const held = await capture.send(
 		{
-			key: "k-quiet",
+			key: storedKey("k-quiet"),
 			messages: [{ to: "dee@example.test", subject: "Q", html: "<p>d</p>", text: "d" }],
 			scheduledAt: friday,
 		},
@@ -182,26 +196,20 @@ test("AC:CASE-COM-012 the no-answer switch makes the capture answer nothing, so 
 	);
 	const id = held.outcome === "ids" ? held.ids[0]! : "";
 	const before = (await readOutbox(outbox)).length;
-	await writeFile(join(outbox, NO_ANSWER_FILE), "");
-	try {
-		assert.deepEqual(await capture.cancel([id], signal()), [{ outcome: "unknown" }]);
-		assert.deepEqual(await capture.reschedule([id], new Date(Date.now() + 5 * 86_400_000).toISOString(), signal()), [
-			{ outcome: "unknown" },
-		]);
-		assert.deepEqual(
-			await capture.send(
-				{
-					key: "k-q2",
-					messages: [{ to: "eli@example.test", subject: "Q", html: "<p>e</p>", text: "e" }],
-					scheduledAt: null,
-				},
-				signal(),
-			),
-			{ outcome: "unknown" },
-		);
-		assert.equal((await readOutbox(outbox)).length, before);
-	} finally {
-		await rm(join(outbox, NO_ANSWER_FILE));
-	}
+	assert.deepEqual(await silent.cancel([id], signal()), [{ outcome: "unknown" }]);
+	const later = new Date(Date.now() + 5 * 86_400_000).toISOString();
+	assert.deepEqual(await silent.reschedule([id], later, signal()), [{ outcome: "unknown" }]);
+	assert.deepEqual(
+		await silent.send(
+			{
+				key: storedKey("k-q2"),
+				messages: [{ to: "eli@example.test", subject: "Q", html: "<p>e</p>", text: "e" }],
+				scheduledAt: null,
+			},
+			signal(),
+		),
+		{ outcome: "unknown" },
+	);
+	assert.equal((await readOutbox(outbox)).length, before);
 	assert.deepEqual(await capture.cancel([id], signal()), [{ outcome: "done" }]);
 });

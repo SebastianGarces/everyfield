@@ -2,12 +2,11 @@ import { writeActor } from "./core.ts";
 import { accountId, recordId, revision, tenantId, type Owner, type sessionId } from "@everyfield/contracts/common";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
-import type { Transaction } from "@everyfield/db/client";
 import { alias } from "@everyfield/db/columns";
 import { and, eq, getTableColumns, inArray, isNotNull, isNull, lte, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { readOwnResidency } from "@everyfield/domain/access";
-import { liveRead, type RequestActor } from "../access/session.ts";
+import { liveRead, type RequestActor, type WriteTx } from "../access/session.ts";
 import { z } from "zod";
 import { auditSavepoint } from "../operations/writes.ts";
 import {
@@ -43,7 +42,7 @@ const residentRow = z.object({
 	share_milestones: z.boolean(),
 	organization_kind: z.enum(["sending_church", "sending_network"]),
 });
-async function loadResident(tx: Transaction, id: string, write = false) {
+async function loadResident(tx: WriteTx, id: string, write = false) {
 	const query = tx
 		.select({ ...getTableColumns(tables.residency_link), organization_kind: tables.organization.kind })
 		.from(tables.residency_link)
@@ -107,7 +106,7 @@ export async function readPipelineConsents(db: Reader, authority: RequestActor, 
 export function consentOperations(
 	effects: OrganizationEffects,
 ): Pick<
-	OrganizationAdapter<Transaction>,
+	OrganizationAdapter<WriteTx>,
 	| "residency.readSharing"
 	| "residency.setSharing"
 	| "residency.leave"
@@ -122,20 +121,21 @@ export function consentOperations(
 				actor = await currentActor(tx, session, selected);
 			if (!l || actor.status !== "active" || selected.kind !== "account" || l.account_id !== actor.accountId)
 				return unavailable();
-			if (l.ended_at !== null) return Q.residencySharingResult.parse({ status: "ended", linkId: l.id });
-			const organization = Q.organizationOwner.parse({
+			if (l.ended_at !== null)
+				return { status: "ended", linkId: l.id } satisfies z.output<typeof Q.residencySharingResult>;
+			const organization = {
 				kind: "organization",
 				id: l.organization_id,
 				organizationKind: l.organization_kind,
-			});
+			} satisfies z.output<typeof Q.organizationOwner>;
 			if (!(await readOwnResidency(tx, session, organization, { personId: l.person_id }))) return unavailable();
-			return Q.residencySharingResult.parse({
+			return {
 				status: "active",
 				linkId: l.id,
 				organization,
 				consentRevision: l.consent_revision,
 				choices: { shareFoundations: l.share_foundations, shareMilestones: l.share_milestones },
-			});
+			} satisfies z.output<typeof Q.residencySharingResult>;
 		},
 		async "residency.setSharing"(tx, session, selected, raw) {
 			return auditSavepoint(tx, async () => {
@@ -173,13 +173,13 @@ export function consentOperations(
 						eq(tables.pipeline_sharing.network_id, a.organization_id),
 					),
 				);
-			return Q.pipelineConsentResult.parse({
+			return {
 				status: "available",
 				relationshipId: a.id,
 				revision: a.revision,
 				sharePipelineTotals: r[0]?.share_pipeline_totals ?? false,
 				minimumContributors: 2,
-			});
+			} satisfies z.output<typeof Q.pipelineConsentResult>;
 		},
 		async "pipelineSharing.setConsent"(tx, session, selected, raw) {
 			return auditSavepoint(tx, async () => {
@@ -227,7 +227,7 @@ export function consentOperations(
 				const next = String(BigInt(a.revision) + 1n);
 				await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
 				invalidate(tx, effects, c, pairOf(a), a.id, next);
-				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
+				return finishCommand(tx, c, () => ({ status: "committed" }) satisfies z.output<typeof Q.mutationResult>);
 			});
 		},
 		async "pipelineSharing.checkAggregateAccess"(tx, session, selected, raw) {
@@ -273,11 +273,13 @@ export function consentOperations(
 					),
 				))
 					if (a.active && a.sending_church_id) contributors.add(a.sending_church_id);
-			return Q.pipelineAggregateAccessResult.parse({ allowed: contributors.size >= 2, minimumContributors: 2 });
+			return { allowed: contributors.size >= 2, minimumContributors: 2 } satisfies z.output<
+				typeof Q.pipelineAggregateAccessResult
+			>;
 		},
 	};
 	async function changeResident(
-		tx: Transaction,
+		tx: WriteTx,
 		session: z.infer<typeof sessionId>,
 		selected: Owner,
 		raw: unknown,
@@ -287,11 +289,11 @@ export function consentOperations(
 			l = await loadResident(tx, q.input.linkId, true),
 			actor = await writeActor(tx, session, selected);
 		if (!l || actor.status !== "active" || selected.kind !== "account" || selected.id !== l.account_id) refuse();
-		const organization = Q.organizationOwner.parse({
+		const organization = {
 			kind: "organization",
 			id: l.organization_id,
 			organizationKind: l.organization_kind,
-		});
+		} satisfies z.output<typeof Q.organizationOwner>;
 		if (l.ended_at === null && !(await readOwnResidency(tx, session, organization, { personId: l.person_id })))
 			refuse();
 		const c = await beginCommand(tx, actor, selected, leave ? "residency.leave" : "residency.setSharing", q);
@@ -325,6 +327,6 @@ export function consentOperations(
 			effects.invalidate(tx, { owners: [organization], sourceId: l.id, revision: next }),
 		);
 		await appendEvent(tx, c, l.id, leave ? "remove" : "preference", null, l.revision, next);
-		return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
+		return finishCommand(tx, c, () => ({ status: "committed" }) satisfies z.output<typeof Q.mutationResult>);
 	}
 }

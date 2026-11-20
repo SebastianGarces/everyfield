@@ -40,7 +40,8 @@ export async function loadHistory(
 	const r = await db.execute(sql`
 		SELECT ${history(lease)} AS history FROM conversation c
 		WHERE c.id=${conversationId}::uuid AND c.active_turn_id=${lease.turnId}::uuid AND ${fence(lease)} AND ${liveAuthority(actor)}`);
-	return r.rows.length ? z.array(eventRow).parse(r.rows[0]!.history) : null;
+	const [row] = r.rows;
+	return row ? z.array(eventRow).parse(row.history) : null;
 }
 
 export async function loadTurn(db: Database, lease: RunLease): Promise<Turn | null> {
@@ -70,11 +71,13 @@ export async function appendEvent(
 		)
 		INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
 		SELECT id,last_sequence,${lease.turnId}::uuid,${kind},${JSON.stringify(body)}::jsonb FROM c RETURNING sequence`);
-	return r.rows.length ? z.coerce.number().parse(r.rows[0]!.sequence) : null;
+	const [row] = r.rows;
+	return row ? z.coerce.number().parse(row.sequence) : null;
 }
 
 export async function savedResult(db: Database, conversationId: string, sequence: number) {
 	const r = await db.execute(sql`
 		SELECT body FROM conversation_event WHERE conversation_id=${conversationId}::uuid AND sequence=${sequence} AND kind='tool_result'`);
-	return r.rows.length ? (r.rows[0]!.body as Record<string, unknown>) : null;
+	const [row] = r.rows;
+	return row ? (row.body as Record<string, unknown>) : null;
 }

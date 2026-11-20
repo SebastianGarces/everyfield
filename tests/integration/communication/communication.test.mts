@@ -7,12 +7,13 @@ import { scheduleAccepted, systemTemplates } from "../../../packages/contracts/s
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { ok, refused } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, plant, other, owner, member, foreign;
 const write = (who, op, input) =>
 	withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
 const read = (who, op, input) =>
-	f.db.transaction((tx) =>
+	gatedTransaction(f.db, (tx) =>
 		input === undefined ? communicationWriter[op](tx, who.actor) : communicationWriter[op](tx, who.actor, input),
 	);
 const key = () => randomUUID();

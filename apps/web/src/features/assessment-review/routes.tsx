@@ -1,10 +1,10 @@
+import { signIn } from "@/server/sign-in";
 import type { ReviewRun } from "@everyfield/contracts/intelligence";
 import { Card, CardHeader, CardHeading, CardTitle, EmptyState, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, List, ListRow, Tag } from "@everyfield/ui/display";
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { CAUSE, count, DEMAND, RULE, timeLabel } from "./model.ts";
 import { assessments, run, type Run } from "./server.ts";
@@ -13,8 +13,8 @@ export const reviewMetadata: Metadata = { title: "Assessment review", robots: { 
 const REVIEW = [{ label: "Assessment review", href: "/assessment-review" }];
 
 function settled<T>(r: Run<T>, returnTo: string): Exclude<Run<T>, { status: "signed_out" }> {
-	if (r.status === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
-	return r as Exclude<Run<T>, { status: "signed_out" }>;
+	if (r.status === "signed_out") signIn(returnTo);
+	return r;
 }
 function Panel({ title, tone, children }: { title: string; tone: "error" | "lock" | "neutral"; children: ReactNode }) {
 	return (
@@ -107,7 +107,7 @@ function RunDetail({ run: item }: { run: ReviewRun }) {
 	return (
 		<div className="grid items-start gap-5 app-lg:grid-cols-[minmax(0,1fr)_360px]">
 			<Card className="gap-4">
-				<CardHeader className="mb-0 items-center">
+				<CardHeader>
 					<CardHeading>
 						<CardTitle>Cause</CardTitle>
 					</CardHeading>

@@ -8,7 +8,8 @@ import { useId, useRef, useState } from "react";
 import { useRead } from "../../../components/read.tsx";
 import type { OrderRead, OrderRow } from "../port";
 import { newRequestKey } from "../port";
-import { SaveError, SaveFooter, SectionBody } from "../SettingsDialog";
+import { SaveFooter, SectionBody } from "../SectionParts";
+import { SaveError } from "../SaveError";
 import { useDraft, useReads, useSettings } from "../store";
 import {
 	moved,
@@ -21,6 +22,7 @@ import {
 	type WikiOrder,
 	type WikiOrderView,
 } from "./wikiOrder";
+import { READ_FAILED, READ_FAILED_ICON } from "../../../components/read-failed.ts";
 
 const LIST: Record<OrderKind, { title: string; description: string; empty: string }> = {
 	churches: {
@@ -49,6 +51,7 @@ export function WikiSourcesSection() {
 				: {
 						status: "error",
 						title: "The Wiki sources did not load",
+						...(reply.status === "failed" ? { text: READ_FAILED, icon: READ_FAILED_ICON } : {}),
 						meta: "Everyfield could not read your church's source order.",
 						onRetry: read.retry,
 					};

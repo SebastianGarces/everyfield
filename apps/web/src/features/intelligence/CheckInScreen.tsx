@@ -29,7 +29,8 @@ import {
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { RadioGroup } from "radix-ui";
 import { startTransition, useActionState, useOptimistic, useRef, useState, useTransition } from "react";
-import { correctCheckIn, readCheckInHistory, saveCheckIn } from "./actions.ts";
+import { correctCheckIn, saveCheckIn } from "./actions.ts";
+import { readCheckInHistory } from "./fetch.ts";
 import {
 	AREA,
 	complete,
@@ -48,9 +49,11 @@ import {
 	type Outcome,
 } from "./model.ts";
 import { CheckInHeader } from "./Header.tsx";
+import { READ_FAILED } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type FormDraft = Draft & { origin: object };
-type Failure = { error: CareError | null };
+type Failure = { error: CareError | null; failed?: true };
 type Notice = {
 	origin: object | null;
 	status: { text: string; draft: FormDraft } | null;
@@ -64,7 +67,10 @@ type Intent =
 
 const QUIET: Notice = { origin: null, status: null, failure: null, incomplete: false };
 const formOf = (week: CareWeek): FormDraft => ({ ...draftOf(week), origin: {} });
-const failureOf = <T,>(result: Outcome<T>): Failure => ({ error: result.status === "refused" ? result.error : null });
+const failureOf = <T,>(result: Outcome<T> | ReadFailure): Failure =>
+	result.status === "failed"
+		? { error: null, failed: true }
+		: { error: result.status === "refused" ? result.error : null };
 const savedText = (result: CareWriteResult, correcting: boolean) =>
 	result.outcome === "unchanged"
 		? "Nothing changed, so nothing new was saved."
@@ -79,9 +85,9 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 	const [draft, setDraft] = useState<FormDraft>(() => formOf(initial.weeks[0]!));
 	const [pages, showAnswer] = useOptimistic(
 		{ strip, older },
-		(p, a: { week: CareWeek; answers: CareAnswers; note: string }) => ({
-			strip: withAnswer(p.strip, a.week, a.answers, a.note),
-			older: p.older ? withAnswer(p.older, a.week, a.answers, a.note) : null,
+		(p, a: { week: CareWeek; answers: CareAnswers; note: string; at: string }) => ({
+			strip: withAnswer(p.strip, a.week, a.answers, a.note, a.at),
+			older: p.older ? withAnswer(p.older, a.week, a.answers, a.note, a.at) : null,
 		}),
 	);
 	const [paging, startPaging] = useTransition();
@@ -105,7 +111,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 				incomplete: prev.origin === intent.origin && prev.incomplete,
 			};
 		const { draft: sentDraft, answers, week, correcting, revision } = intent;
-		showAnswer({ week, answers, note: sentDraft.note });
+		showAnswer({ week, answers, note: sentDraft.note, at: new Date().toISOString() });
 		const payload = JSON.stringify({ id: week.id, revision, answers, note: sentDraft.note });
 		if (sent.current?.payload !== payload) sent.current = { payload, key: crypto.randomUUID() };
 		const key = sent.current.key;
@@ -172,7 +178,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 	const load = (page: number) => {
 		const origin = draft.origin;
 		startPaging(async () => {
-			const result = await readCheckInHistory(page).catch((): Outcome<CarePage> => ({ status: "lost" }));
+			const result = await readCheckInHistory(page).catch((): Outcome<CarePage> | ReadFailure => ({ status: "lost" }));
 			if (result.status !== "ok") {
 				startTransition(() => act({ kind: "failed", origin, failure: failureOf(result) }));
 				return;
@@ -265,7 +271,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 										? "Your correction was not saved. "
 										: "Your check-in was not saved. "
 									: null}
-								{refusalText(failure.error)}
+								{failure.failed ? READ_FAILED : refusalText(failure.error)}
 							</span>
 							{conflict ? (
 								<Button size="sm" variant="secondary" loading={paging} onClick={() => load(1)}>
@@ -293,7 +299,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 						<CalloutLabel tone="violet" icon={LockKeyIcon}>
 							Private to you
 						</CalloutLabel>
-						<CalloutText className="text-sm">
+						<CalloutText className="leading-(--text-sm--line-height)">
 							Only you can read your check-ins. They are never shown to your team, other Admins, your network or sending
 							church, and never sent to Evry. They do not affect Plant Intelligence or any score. Evry is off while this
 							page is open.
@@ -303,7 +309,9 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 						<CardHeader>
 							<CardHeading>
 								<CardTitle size="sm">{older ? `Earlier weeks, page ${older.page}` : "Your last 12 weeks"}</CardTitle>
-								<CardDescription className="text-sm">Select the pencil to correct a past week</CardDescription>
+								<CardDescription className="leading-(--text-sm--line-height)">
+									Select the pencil to correct a past week
+								</CardDescription>
 							</CardHeading>
 						</CardHeader>
 						<Strip page={shown} editing={editing.ordinal} onCorrect={choose} />
@@ -457,7 +465,7 @@ function Strip({ page, editing, onCorrect }: { page: CarePage; editing: number; 
 										label={`Correct the week of ${shortDate(week.startsOn)}`}
 										title="Correct this week"
 										onClick={() => onCorrect(week)}
-										className="size-7 text-text-3 shadow-none hover:bg-surface-2 hover:text-ink"
+										className="text-text-3 shadow-none hover:text-ink"
 									/>
 								) : null}
 							</td>

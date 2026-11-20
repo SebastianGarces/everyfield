@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { ArrowLeft01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, Field, Select } from "@everyfield/ui/controls";
@@ -7,7 +8,8 @@ import { useState, type ComponentProps } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { useLocalStore, useShallow, useStore } from "../../components/store.ts";
 import { unsavedMark } from "../../components/save/leave.ts";
-import { deleteDraft, readDraft, readMeetingContext, readMeetingTemplate, saveDraft, handOff } from "./actions.ts";
+import { deleteDraft, saveDraft, handOff } from "./actions.ts";
+import { readDraft, readMeetingContext, readMeetingTemplate } from "./fetch.ts";
 import { bodyToTextResult, textToBody } from "./body.ts";
 import {
 	audienceSize,
@@ -31,7 +33,6 @@ import {
 	type Draft,
 	type Handoff,
 	type MeetingContext,
-	type Outcome,
 	type PageData,
 	type Step,
 } from "./model.ts";
@@ -60,12 +61,12 @@ const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 async function open(id: string, handoff: Handoff | null): Promise<Opening> {
 	if (id !== "new") {
 		const draft = await readDraft(id);
-		if (draft.status === "lost") return { kind: "unreachable" };
+		if (draft.status === "lost" || draft.status === "failed") return { kind: "unreachable", read: draft.status };
 		return draft.status === "ok" ? { kind: "draft", draft: draft.value } : { kind: "missing" };
 	}
 	if (!handoff) return { kind: "new", meeting: null, template: null, guests: false, notes: [] };
 	const context = await readMeetingContext(handoff.meeting);
-	if (context.status === "lost") return { kind: "unreachable" };
+	if (context.status === "lost" || context.status === "failed") return { kind: "unreachable", read: context.status };
 	if (context.status !== "ok")
 		return {
 			kind: "new",
@@ -75,7 +76,7 @@ async function open(id: string, handoff: Handoff | null): Promise<Opening> {
 			notes: ["That meeting is not available. The message has no meeting."],
 		};
 	const found = handoff.template ? await readMeetingTemplate(context.value.type) : null;
-	if (found?.status === "lost") return { kind: "unreachable" };
+	if (found?.status === "lost" || found?.status === "failed") return { kind: "unreachable", read: found.status };
 	return {
 		kind: "new",
 		meeting: context.value,
@@ -89,7 +90,7 @@ async function open(id: string, handoff: Handoff | null): Promise<Opening> {
 }
 
 const openings = createRead(open, {
-	failed: (): Opening => ({ kind: "unreachable" }),
+	failed: (): Opening => ({ kind: "unreachable", read: "lost" }),
 	keep: (opening) => opening.kind !== "unreachable",
 });
 const meetingContexts = createRead((meetingId: string) => readMeetingContext(meetingId), {
@@ -138,7 +139,7 @@ export function Compose(props: ComposeProps) {
 		return (
 			<div className="flex flex-col items-start gap-3">
 				<p role="alert" className="text-md font-medium text-magenta-600">
-					{outcomeText({ status: "lost" })}
+					{outcomeText({ status: opened.read })}
 				</p>
 				<div className="flex flex-wrap gap-2">
 					<Button variant="secondary" onClick={opening.retry}>

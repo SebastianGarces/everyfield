@@ -46,23 +46,23 @@ import {
 	Input,
 	PageHeader,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { useId, useState, useTransition } from "react";
+import { useId, useState, useTransition, type CSSProperties } from "react";
 import { changeTaskStatus } from "../tasks/actions.ts";
 import { DoneBox } from "../tasks/parts.tsx";
 import {
 	chooseGatheringPath,
 	completeMilestone,
 	postponeLaunch,
-	readGatheringOffers,
 	reopenMilestone,
 	saveGathering,
 	setLaunchDate,
 } from "./actions.ts";
+import { readGatheringOffers } from "./fetch.ts";
 import { DebriefCard, SummaryCard } from "./Debrief.tsx";
 import { GatheringCard, GatheringChoice, type Offers } from "./Gathering.tsx";
 import { LaunchHistory } from "./History.tsx";
@@ -102,7 +102,6 @@ export function LaunchScreen({
 	offers: Offers;
 	viewer: Viewer;
 }) {
-	const toast = useToast();
 	const [plan, setPlan] = useState(initial);
 	const [offers, setOffers] = useState(initialOffers);
 	const milestone = plan.path.kind === "milestone" ? plan.path : null;
@@ -496,12 +495,11 @@ function StateMark({ m }: { m: Milestone }) {
 	return (
 		<span
 			aria-hidden="true"
-			className="grid size-6 flex-none place-items-center rounded-full shadow-[inset_0_0_0_1.5px_var(--ef-line-2)]"
-			style={
-				pct
-					? { background: `conic-gradient(var(--ef-blue-500) ${pct}%, var(--ef-surface-2) 0)`, boxShadow: "none" }
-					: undefined
-			}
+			className={cn(
+				"grid size-6 flex-none place-items-center rounded-full",
+				pct ? "ef-ring" : "shadow-[inset_0_0_0_1.5px_var(--ef-line-2)]",
+			)}
+			style={pct ? ({ "--ring": `${pct}%` } as CSSProperties) : undefined}
 		>
 			{pct ? <span className="size-4 rounded-full bg-surface" /> : null}
 		</span>
@@ -527,7 +525,6 @@ function MilestoneRow({
 	onMilestone: (m: Milestone) => void;
 	onTask: (t: PrepTask) => void;
 }) {
-	const toast = useToast();
 	const panel = useId();
 	const [busy, setBusy] = useState(false);
 	const [stale, setStale] = useState(false);
@@ -666,7 +663,6 @@ function TaskRow({
 	viewer: Viewer;
 	onTask: (t: PrepTask) => void;
 }) {
-	const toast = useToast();
 	const [saving, setSaving] = useState(false);
 	const mine = task.assignees.some((a) => a.accountId === viewer.accountId);
 	async function toggle() {
