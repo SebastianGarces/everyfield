@@ -1,3 +1,4 @@
+import type { Outcome as Shared } from "@everyfield/contracts/common";
 import { recordId } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
@@ -38,10 +39,7 @@ export type Saved = {
 	successor?: TaskDetail | null;
 };
 
-export type Outcome<T> =
-	| { status: "ok"; value: T }
-	| { status: "refused"; code: TaskError["code"] | "access_denied"; error?: TaskError }
-	| { status: "lost" };
+export type Outcome<T> = Shared<T, TaskError["code"] | "access_denied", { error?: TaskError }>;
 
 export const STATUSES = ["not_started", "in_progress", "blocked", "complete", "no_longer_needed"] as const;
 export const OPEN_STATUSES = ["not_started", "in_progress", "blocked"] as const satisfies readonly Status[];

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { watch } from "node:fs";
 import { chmod, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -225,13 +226,25 @@ function cli(args: string[]): Promise<{ code: number; stdout: string; stderr: st
 	});
 }
 
-async function until(check: () => Promise<boolean>, ms = 10_000) {
-	const end = Date.now() + ms;
-	while (Date.now() < end) {
-		if (await check()) return;
-		await new Promise((r) => setTimeout(r, 50));
-	}
-	assert.fail("timed out waiting");
+function until(signal: AbortSignal, dir: string, check: () => Promise<boolean>) {
+	return new Promise<void>((resolve, reject) => {
+		const watcher = watch(dir, { recursive: true, signal });
+		signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+		const settle = () =>
+			check().then(
+				(done) => {
+					if (!done) return;
+					watcher.close();
+					resolve();
+				},
+				(error: unknown) => {
+					watcher.close();
+					reject(error);
+				},
+			);
+		watcher.on("change", settle);
+		void settle();
+	});
 }
 
 describe("INV-watch-provision: the provision CLI", () => {
@@ -260,24 +273,30 @@ describe("INV-watch-provision: the provision CLI", () => {
 		assertNoLeak(bad.stdout + (await everythingButConfig(state)), "failure output");
 	});
 
-	test("INV-watch-provision: --detach prints only its pid and status path, shows waiting, and outlives the launcher", async () => {
-		const work = await tmp();
-		const state = join(work, "state");
-		const bin = await fakeOsascript(work, GOOD_URL, KEY);
-		const launched = await cli(["--detach", "--state-dir", state, "--osascript", bin]);
-		assert.equal(launched.code, 0);
-		assert.equal(launched.stderr, "");
-		const m = launched.stdout.match(/^pid=(\d+) status=(.+)\n$/);
-		assert.ok(m, launched.stdout);
-		assert.equal(m[2], join(state, "provision.status"));
-		await until(async () => (await readFile(join(work, "seen.out"), "utf8").catch(() => "")).includes("argv:"));
-		assert.match(await statusLine(state), /^state=waiting code=none at=/);
-		process.kill(Number(m[1]), 0);
-		await writeFile(join(work, "go"), "");
-		await until(async () => (await statusLine(state)).startsWith("state=ok"));
-		assert.match(await statusLine(state), /^state=ok code=webhook_config_ok at=/);
-		const seen = await readFile(join(work, "seen.out"), "utf8");
-		assert.match(seen, /parent:.*provision\.mts --state-dir .* --osascript /);
-		assertNoLeak(seen + launched.stdout + (await everythingButConfig(state)), "detached run");
-	});
+	test(
+		"INV-watch-provision: --detach prints only its pid and status path, shows waiting, and outlives the launcher",
+		{ timeout: 20_000 },
+		async (t) => {
+			const work = await tmp();
+			const state = join(work, "state");
+			const bin = await fakeOsascript(work, GOOD_URL, KEY);
+			const launched = await cli(["--detach", "--state-dir", state, "--osascript", bin]);
+			assert.equal(launched.code, 0);
+			assert.equal(launched.stderr, "");
+			const m = launched.stdout.match(/^pid=(\d+) status=(.+)\n$/);
+			assert.ok(m, launched.stdout);
+			assert.equal(m[2], join(state, "provision.status"));
+			await until(t.signal, work, async () =>
+				(await readFile(join(work, "seen.out"), "utf8").catch(() => "")).includes("argv:"),
+			);
+			assert.match(await statusLine(state), /^state=waiting code=none at=/);
+			process.kill(Number(m[1]), 0);
+			await writeFile(join(work, "go"), "");
+			await until(t.signal, work, async () => (await statusLine(state)).startsWith("state=ok"));
+			assert.match(await statusLine(state), /^state=ok code=webhook_config_ok at=/);
+			const seen = await readFile(join(work, "seen.out"), "utf8");
+			assert.match(seen, /parent:.*provision\.mts --state-dir .* --osascript /);
+			assertNoLeak(seen + launched.stdout + (await everythingButConfig(state)), "detached run");
+		},
+	);
 });

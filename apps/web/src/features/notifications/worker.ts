@@ -22,9 +22,9 @@ import "server-only";
 import { z } from "zod";
 import { reviewPath } from "../organizations/reviews/model.ts";
 import { milestonePath } from "../residency/model.ts";
-import { serverConfig } from "../../server/config.ts";
-import { transaction } from "../../server/platform/database.ts";
+import { serverConfig, serverEnv } from "../../server/config.ts";
 import {
+	transaction,
 	MAIL_PASSES,
 	mailUnsubscribe,
 	runDueMail,
@@ -32,8 +32,6 @@ import {
 	type createMailService,
 	type MailPass,
 	type MailTransport,
-} from "../../server/jobs/mail.ts";
-import {
 	claimDue,
 	finishClaim,
 	finishJob,
@@ -41,7 +39,7 @@ import {
 	recoverLease,
 	type Claim,
 	type JobResult,
-} from "../../server/jobs/queue.ts";
+} from "@everyfield/domain/jobs";
 import {
 	accountNotificationService,
 	mountMailService,
@@ -224,7 +222,12 @@ let mounted: NotificationWorker | undefined;
 export function notificationsMount(db: Database): NotificationWorker {
 	const config = serverConfig();
 	mounted ??= createNotificationWorker({
-		mail: mountMailService({ db, env: config, authorize: authorizeNotificationMail, unsubscribe: mailUnsubscribe() }),
+		mail: mountMailService({
+			db,
+			env: config,
+			authorize: authorizeNotificationMail,
+			unsubscribe: mailUnsubscribe(serverEnv()),
+		}),
 		origin: new URL(config.IDENTITY_ORIGIN).origin,
 	});
 	return mounted;
@@ -242,7 +245,7 @@ export function noticeMailPass(db: Database, transport: MailTransport): MailPass
 		db,
 		env: serverConfig(),
 		authorize: authorizeNoticeMail,
-		unsubscribe: mailUnsubscribe(),
+		unsubscribe: mailUnsubscribe(serverEnv()),
 		transport,
 	});
 	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.notice, limit, until);

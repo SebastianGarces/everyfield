@@ -16,8 +16,8 @@ import {
 import { NOTIFICATION_READS } from "../../../../packages/evry/src/adapters/notifications/reads/index.ts";
 import { NOTIFICATION_COMMANDS } from "../../../../packages/evry/src/adapters/notifications/commands/index.ts";
 import { modelTools } from "../../../../packages/evry/src/runtime/tools.ts";
-import { transaction } from "../../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../packages/domain/src/jobs/queue.ts";
 import { accounts, actor, admin, db, plant, setup, sql, teardown } from "../../runtime/support.mts";
 
 const noReminders = async () => {

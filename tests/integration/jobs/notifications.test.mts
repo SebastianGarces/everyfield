@@ -2,13 +2,13 @@ import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/i
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import {
 	createNotificationService,
 	sendDiscoveryAssociationReceipt,
 } from "../../../apps/web/src/server/jobs/notifications.ts";
-import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { db, runtime, tenant, setup, teardown } from "./support.mts";
 const account = randomUUID(),
