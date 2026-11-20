@@ -39,8 +39,8 @@ Targets:
   --production              production, only with FLAG_PRODUCTION_DATABASE_URL set from Sebastian's production env
                             (AGENTS guard 1). Never from a seat, a test or CI.
 
-Flags Explorer: on previews with FLAGS_SECRET set (bin/qa and the local bin/dev stack preview), the Vercel Toolbar
-can force a flag for one browser through the vercel-flag-overrides cookie; that changes no feature_flag row and is
+Flags Explorer: on a deployment with FLAGS_SECRET set that is not production (the local bin/dev stack preview; bin/qa
+previews set none), the Vercel Toolbar can force a flag for one browser through the vercel-flag-overrides cookie; that changes no feature_flag row and is
 ignored in production. Runbook: docs/runbooks/qa-preview.md.`;
 
 type Db = Pick<Transaction, "execute">;
