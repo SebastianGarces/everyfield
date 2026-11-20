@@ -206,7 +206,7 @@ a AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subjec
 		${"assessment-refresh:" + id},${id},jsonb_build_object('requestId',${id}::text) FROM j RETURNING 1)
 SELECT (SELECT ok FROM gate) AS ok`);
 				if (!z.object({ ok: z.boolean() }).parse(rows[0]).ok) deny("access_denied");
-				return c.refreshReceipt.parse({ requestId: id, state: "preparing" });
+				return { requestId: id, state: "preparing" } satisfies z.output<typeof c.refreshReceipt>;
 			});
 		},
 
@@ -242,13 +242,13 @@ SELECT (SELECT ok FROM gate) AS ok,
 				const r = readRow.parse(rows[0]);
 				if (!r.ok || r.current_phase === null) deny("access_denied");
 				const catalog = r.current ? await readCatalog() : null;
-				return c.assessmentView.parse({
+				return {
 					current: r.current && present(r.current, catalog!),
 					newest: newestOf(r),
 					currentPhase: r.current_phase,
 					seen: r.seen,
 					feedback: r.feedback,
-				});
+				} satisfies z.output<typeof c.assessmentView>;
 			});
 		},
 
@@ -270,7 +270,7 @@ SELECT (SELECT ok FROM gate) AS ok,EXISTS(SELECT FROM r) AS found,EXISTS(SELECT 
 				const r = z.object({ ok: z.boolean(), found: z.boolean(), recorded: z.boolean() }).parse(rows[0]);
 				if (!r.ok) deny("access_denied");
 				if (!r.found) deny("not_found");
-				return c.seenReceipt.parse({ outcome: r.recorded ? "recorded" : "already_seen" });
+				return { outcome: r.recorded ? "recorded" : "already_seen" } satisfies z.output<typeof c.seenReceipt>;
 			});
 		},
 
