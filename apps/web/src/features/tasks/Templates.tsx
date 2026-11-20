@@ -22,11 +22,12 @@ import {
 	type TemplateCatalog,
 	type TemplatePreview,
 } from "./model.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type Load<T> = { status: "loading" } | { status: "failed"; message: string } | { status: "ok"; value: T };
-const loadFailed = (r: Exclude<Outcome<unknown>, { status: "ok" }>) => ({
+const loadFailed = (r: Exclude<Outcome<unknown> | ReadFailure, { status: "ok" }>) => ({
 	status: "failed" as const,
-	message: r.status === "lost" ? "Check your connection and try again." : problemText(r.code),
+	message: r.status === "lost" ? "Check your connection and try again." : problemText(r.status === "refused" ? r.code : r.status),
 });
 export const phaseName = (phase: number) => `Phase ${phase} · ${SHORT_NAME[phase] ?? ""}`;
 const previews = createRead((key: string) => loadPreview(key), { failed: () => ({ status: "lost" }) as const });
