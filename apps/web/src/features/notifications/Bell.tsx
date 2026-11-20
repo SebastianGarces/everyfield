@@ -66,6 +66,7 @@ export function useNotificationBell() {
 						<StatePanel
 							tone="error"
 							title="Notifications did not load"
+							icon={feed.state.icon}
 							headingLevel="h3"
 							actions={
 								<Button variant="secondary" size="sm" onClick={feed.state.onRetry}>
@@ -73,7 +74,7 @@ export function useNotificationBell() {
 								</Button>
 							}
 						>
-							Nothing was changed. Try again in a moment.
+							{feed.state.text ?? "Nothing was changed. Try again in a moment."}
 						</StatePanel>
 					) : feed.state.data.items.length === 0 ? (
 						<EmptyState icon={Notification01Icon} title="No notifications yet">

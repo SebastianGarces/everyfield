@@ -28,20 +28,6 @@ export async function resendWebhook(
 	});
 }
 
-export async function receiveMailCallback(db: Database, request: Request, secret: string) {
-	const raw = await readBoundedBody(request, 16_384);
-	if (!raw) throw new Refusal("invalid_input", 413);
-	return applyMailCallback(db, raw, verifyCallback(raw, request.headers, secret));
-}
-export function mailCallbackHandler(db: Database, secret: string) {
-	return (request: Request) =>
-		safeBoundary(async () => {
-			if (request.method !== "POST") return safeResponse({ code: "method_not_allowed" }, 405);
-			const result = await receiveMailCallback(db, request, secret);
-			return safeResponse(result, result.result === "pending" ? 202 : 200);
-		});
-}
-
 export function resendWebhookGet() {
 	return safeResponse({ code: "method_not_allowed" }, 405);
 }

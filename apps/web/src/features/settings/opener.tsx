@@ -3,14 +3,13 @@
 import { createContext, use, type MouseEvent } from "react";
 import type { DialogSection } from "./model";
 
-const Opener = createContext<((section: DialogSection) => void) | null>(null);
-export const SettingsOpener = Opener.Provider;
+export const SettingsOpenerContext = createContext<((section: DialogSection) => void) | null>(null);
 
 export function useSettingsLink(section: DialogSection): {
 	href: string;
 	onClick: (event: MouseEvent<HTMLAnchorElement>) => void;
 } {
-	const open = use(Opener);
+	const open = use(SettingsOpenerContext);
 	return {
 		href: `/settings/${section}`,
 		onClick: (event) => {
@@ -22,5 +21,5 @@ export function useSettingsLink(section: DialogSection): {
 }
 
 export function useOpenSettings(): ((section: DialogSection) => void) | null {
-	return use(Opener);
+	return use(SettingsOpenerContext);
 }

@@ -258,7 +258,9 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 		);
 		const found = currentWitness.parse(read.rows[0]);
 		if (found.blocked) deny("manual_owner_exception_required");
-		revision(v.expectedRevision, subject.kind === "account" ? a.account.revision : a.plant!.revision);
+		const current = subject.kind === "account" ? a.account.revision : a.plant?.revision;
+		if (current === undefined) deny("unavailable");
+		revision(v.expectedRevision, current);
 		const old = found.witness;
 		if (old && !allows(deletionMachine, event, old.state, "pending_deletion", { kind: subject.kind })) deny("conflict");
 		const requestedAt = new Date(),
@@ -298,14 +300,15 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 					.insert(t.lifecycle_witness)
 					.values({ ...values, state: "pending_deletion" })
 					.returning();
-		await tx.execute(sql`SELECT settings_suspend_subject(${w!.id}::uuid,${requestId}::uuid)`);
-		if (subject.kind === "plant") await effects.workspaceNotice(tx, await seated(tx, "requested", w!), c.writes);
+		if (!w) deny("conflict");
+		await tx.execute(sql`SELECT settings_suspend_subject(${w.id}::uuid,${requestId}::uuid)`);
+		if (subject.kind === "plant") await effects.workspaceNotice(tx, await seated(tx, "requested", w), c.writes);
 		c.writes.push(
 			effects.queue(tx, {
 				subject,
 				requestId,
 				revision: next,
-				witnessId: w!.id,
+				witnessId: w.id,
 				eligibleAt: cancelUntil.toISOString(),
 			}),
 		);
@@ -318,7 +321,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 			v.expectedRevision,
 			v.expectedRevision,
 		);
-		const result = await finish(tx, c, requestRecord, () => ({ deletion: status(w!) }));
+		const result = await finish(tx, c, requestRecord, () => ({ deletion: status(w) }));
 		return result.deletion;
 	}
 	async function cancel(tx: Tx, ctx: n.RestrictedDeletionContext, raw: unknown, kind: "account" | "plant") {
@@ -327,7 +330,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 		const { w, clock } = await restricted(tx, ctx, v.input.subject, v.input.requestId);
 		revision(v.expectedRevision, w.request_revision);
 		const event = kind === "account" ? "account.cancelDeletion" : "churches.cancelWorkspaceDeletion";
-		const witnessed = { kind, beforeDeadline: clock < w.cancel_until! };
+		const witnessed = { kind, beforeDeadline: w.cancel_until !== null && clock < w.cancel_until };
 		if (holds(deletionMachine, event, w.state, witnessed)) return status(w);
 		if (!allows(deletionMachine, event, w.state, "cancelled", witnessed)) deny("deadline_passed");
 		const writes: SQLWrapper[] = [];
@@ -445,7 +448,10 @@ export function createLifecycleCleanup(
 			const clock = new Date(
 				z.coerce.date().parse((await tx.execute(sql`SELECT clock_timestamp() AS at`)).rows[0]?.at),
 			);
-			const witnessed = { kind: input.subject.kind, beforeDeadline: clock < w.cancel_until! };
+			const witnessed = {
+				kind: input.subject.kind,
+				beforeDeadline: w.cancel_until !== null && clock < w.cancel_until,
+			};
 			if (!allows(deletionMachine, "lifecycle.purge", w.state, "purging", witnessed)) deny("deadline_passed");
 			await tx
 				.update(t.lifecycle_witness)
@@ -487,7 +493,8 @@ export function createLifecycleCleanup(
 				sql`SELECT settings_purge_subject(${w.id}::uuid,${input.requestId}::uuid,${input.revision}::bigint)`,
 			);
 			const [done] = await tx.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.id, w.id));
-			return status(done!);
+			if (!done) throw Error(`The purged lifecycle witness ${w.id} is gone`);
+			return status(done);
 		});
 	};
 }
