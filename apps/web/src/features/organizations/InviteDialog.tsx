@@ -22,6 +22,7 @@ import { useIntent } from "../../components/intent.ts";
 import { emailProblem, kindLabel } from "./model";
 import { ProblemLine } from "./parts";
 import type { Disclosure, Invitation, Organization, RelationshipPair, Run } from "./port";
+import { READ_FAILED, thrownRead } from "../../components/read-failed.ts";
 
 export type InviteTarget = { pair: RelationshipPair; name: string };
 
@@ -88,7 +89,7 @@ export function InviteDialog({
 
 type InviteCommand = ReturnType<typeof inviteRelationshipRequest.parse>;
 type DisclosureRead = { asked: object; id: string } & (
-	{ status: "loading" } | { status: "ready"; value: Disclosure | null } | { status: "failed" }
+	{ status: "loading" } | { status: "ready"; value: Disclosure | null } | { status: "failed"; read: "lost" | "failed" }
 );
 
 function InviteForm({
@@ -128,7 +129,7 @@ function InviteForm({
 		setDisclosure({ asked, id, status: "loading" });
 		readDisclosure(picked.pair).then(
 			(value) => answer({ asked, id, status: "ready", value }),
-			() => answer({ asked, id, status: "failed" }),
+			(error: unknown) => answer({ asked, id, status: "failed", read: thrownRead(error).status }),
 		);
 	};
 
@@ -213,7 +214,9 @@ function InviteForm({
 								>
 									<p className="min-w-0 flex-1">
 										{shownDisclosure.status === "failed"
-											? `What ${target.name} would see did not load. Nothing was sent.`
+											? shownDisclosure.read === "failed"
+												? READ_FAILED
+												: `What ${target.name} would see did not load. Nothing was sent.`
 											: `${target.name} cannot be asked from here right now. Nothing was sent.`}
 									</p>
 									{shownDisclosure.status === "failed" ? (
