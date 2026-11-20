@@ -32,7 +32,7 @@ export async function ChurchLibraryPage({
 	const authority = (await activeViewer("/documents/church"))?.authority;
 	if (!authority) return <Unavailable />;
 	const loaded = await loadLibrary(authority);
-	if (loaded.status === "failed") return <Failed />;
+	if (loaded.status === "lost") return <Failed />;
 	if (loaded.status === "refused") return <Unavailable />;
 	return (
 		<ChurchLibrary
@@ -57,7 +57,7 @@ export async function ChurchArchivedPage() {
 	if (!authority) return <Unavailable />;
 	if (!canManageChurch(authority)) return <NotAvailablePage />;
 	const loaded = await loadArchived(authority);
-	if (loaded.status === "failed") return <Failed />;
+	if (loaded.status === "lost") return <Failed />;
 	if (loaded.status === "refused") return <NotAvailablePage />;
 	return <ArchivedLibrary documents={loaded.value} />;
 }
@@ -80,7 +80,7 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 	const id = recordId.safeParse(raw);
 	if (!id.success) return <Missing />;
 	const loaded = await loadChurchDocument(authority, id.data);
-	if (loaded.status === "failed") return <Failed />;
+	if (loaded.status === "lost") return <Failed />;
 	if (loaded.status === "refused") return <Missing />;
 	if (loaded.status === "deleted") return <Deleted />;
 	const canManage = canManageChurch(authority);

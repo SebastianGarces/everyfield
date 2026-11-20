@@ -12,6 +12,7 @@ import { resolveAudience } from "./actions.ts";
 import { recipientSearches, type ComposeStore } from "./Compose.store.ts";
 import { audienceSize, plural } from "./composeModel.ts";
 import { audienceGroups, groupLabel, type Audience, type AudienceSummary, type Recipient, type Team } from "./model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
 
 const MAX_CHIPS = 8;
 
@@ -230,7 +231,7 @@ function ToField({
 	const answer = useReadWith(searched ? recipientSearches : null, [searched], { showPrevious: true });
 	const found = answer.value;
 	const results = found?.status === "ok" ? found.value.people : [];
-	const status = found && found.status !== "ok" ? "The search did not load. Try again." : null;
+	const status = found && found.status !== "ok" ? loadProblem(found, "The search did not load. Try again.") : null;
 	const byId = new Map(known.map((person) => [person.id, person]));
 	const people = form.people.map((person) => ({
 		...person,

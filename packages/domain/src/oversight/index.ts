@@ -175,9 +175,11 @@ const SECTIONS = {
 				ORDER BY occurred DESC, m.id DESC LIMIT 12) x`,
 		parse: (raw: unknown) => {
 			const meetings = z.array(z.object({ date: z.string(), attended: z.int().nullable() })).parse(raw);
-			if (!meetings.length) return null;
+			const [first] = meetings;
+			const last = meetings.at(-1);
+			if (!first || !last) return null;
 			const day = (d: string) => Date.parse(`${d}T00:00:00Z`) / 86_400_000;
-			const span = day(meetings.at(-1)!.date) - day(meetings[0]!.date);
+			const span = day(last.date) - day(first.date);
 			return C.meetingCounts.parse({
 				meetings,
 				averageDaysBetween: meetings.length > 1 ? Math.round(span / (meetings.length - 1)) : null,
