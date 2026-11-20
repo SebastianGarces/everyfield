@@ -1,5 +1,6 @@
-import { signIn } from "@/server/sign-in";
-import { loadAnswerReview, loadAnswerReviews, pipelineActor } from "../pipeline-mount";
+import { organizationSeatOf } from "@/server/request-context";
+import { requireActor } from "@/server/sign-in";
+import { loadAnswerReview, loadAnswerReviews } from "../pipeline-mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { LANDING_ROUTE } from "@everyfield/contracts/identity";
@@ -18,20 +19,18 @@ const refused = (
 );
 
 export async function ReviewsPage() {
-	const who = await pipelineActor();
-	if (who.kind === "signed_out") signIn(REVIEWS_PATH);
-	if (who.kind !== "seat") return refused;
-	const list = await loadAnswerReviews(who.authority);
+	const seat = organizationSeatOf(await requireActor(REVIEWS_PATH));
+	if (!seat) return refused;
+	const list = await loadAnswerReviews(seat.authority);
 	if (list.status !== "ok") return refused;
 	return <ReviewsScreen list={list.value} />;
 }
 
 export async function ReviewPage({ params }: { params: Promise<{ reviewId: string }> }) {
 	const { reviewId } = await params;
-	const who = await pipelineActor();
-	if (who.kind === "signed_out") signIn(reviewPath(reviewId));
-	if (who.kind !== "seat") return refused;
-	const review = await loadAnswerReview(who.authority, reviewId);
+	const seat = organizationSeatOf(await requireActor(reviewPath(reviewId)));
+	if (!seat) return refused;
+	const review = await loadAnswerReview(seat.authority, reviewId);
 	if (review.status !== "ok") return refused;
 	return <ReviewScreen review={review.value} />;
 }
