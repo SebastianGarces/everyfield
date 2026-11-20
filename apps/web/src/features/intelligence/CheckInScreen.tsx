@@ -42,6 +42,7 @@ import {
 	savedAt,
 	shortDate,
 	submitLabel,
+	thisWeekOf,
 	weekNote,
 	withAnswer,
 	withResult,
@@ -82,7 +83,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 	const [strip, setStrip] = useState(initial);
 	const [older, setOlder] = useState<CarePage | null>(null);
 	const [target, setTarget] = useState<CareWeek | null>(null);
-	const [draft, setDraft] = useState<FormDraft>(() => formOf(initial.weeks[0]!));
+	const [draft, setDraft] = useState<FormDraft>(() => formOf(thisWeekOf(initial)));
 	const [pages, showAnswer] = useOptimistic(
 		{ strip, older },
 		(p, a: { week: CareWeek; answers: CareAnswers; note: string; at: string }) => ({
@@ -140,7 +141,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 		};
 	}, QUIET);
 
-	const thisWeek = pages.strip.weeks[0]!;
+	const thisWeek = thisWeekOf(pages.strip);
 	const shown = pages.older ?? pages.strip;
 	const editing = target ?? thisWeek;
 	const correcting = target !== null;
