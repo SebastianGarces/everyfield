@@ -30,6 +30,7 @@ import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
 import { randomUUID } from "node:crypto";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const church = await goldenChurch();
 after(church.close);
@@ -40,7 +41,7 @@ let feedbackId: string | undefined;
 async function sentFeedback() {
 	if (feedbackId) return feedbackId;
 	const authority = (await setupActor(SETUP_SPECS.setupOwner.session)).authority;
-	const r = await church.db.transaction((tx) =>
+	const r = await gatedTransaction(church.db, (tx) =>
 		feedbackWriter.submit(
 			tx as never,
 			authority,
@@ -99,7 +100,7 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"people.previewUnmerge": async () => {
 		const pair = { sourceId: byName("John Smith").id, survivorId: byName("Jon Smith").id };
 		const authority = church.actors.owner.authority;
-		const review = await church.db.transaction((tx) =>
+		const review = await gatedTransaction(church.db, (tx) =>
 			peopleMerge.getMergeReview(tx, new PeopleReadContext(authority), pair),
 		);
 		assert.equal(review.status, "ok");
@@ -297,7 +298,7 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	},
 };
 
-const catalogTools = Object.values(catalog).filter((v): v is string => typeof v === "string" && v.startsWith("evry."));
+const catalogTools = Object.values(catalog).flatMap((v) => (typeof v === "string" && v.startsWith("evry.") ? [v] : []));
 const installed = [
 	...Object.values(catalog.READ_DOMAINS).flatMap((adapters) => adapters.map((a) => a.operation)),
 	...catalogTools,

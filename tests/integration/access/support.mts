@@ -2,6 +2,7 @@ import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/i
 import { randomUUID } from "node:crypto";
 import { testDatabase } from "../../support/test-database.mts";
 import { seeds } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 export const id = randomUUID;
 export async function database() {
@@ -9,7 +10,7 @@ export async function database() {
 	return { admin: t.admin, ...t.pools, schema: t.schema, createSchema: t.createSchema, close: t.close };
 }
 export async function transaction(pool, run) {
-	return pool.transaction(run);
+	return gatedTransaction(pool, run);
 }
 export async function account(db, registration = "active") {
 	const a = await seeds(db).actor(null, "owner", {

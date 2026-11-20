@@ -16,8 +16,8 @@ import {
 	type EvryActor,
 } from "../../../packages/evry/src/index.ts";
 import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { accounts, actor, admin, db, people, plant, setup, sql, teardown, work } from "./support.mts";
 
 before(async () => {
@@ -195,7 +195,7 @@ async function effect() {
 	const outcome = await executeProposal(
 		db,
 		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-		async () => undefined,
+		{ reminders: async () => undefined, phaseNotices: async () => undefined },
 	);
 	if (outcome !== "lost") await transaction(db, (tx) => finishClaim(tx, claim, { state: "succeeded" }));
 	return outcome;

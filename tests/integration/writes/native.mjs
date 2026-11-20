@@ -1,11 +1,11 @@
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { randomBytes } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { authorizeTaskReminders, reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
-import { claimDue, finishClaim, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue, finishClaim, queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -44,11 +44,12 @@ import {
 import { createOnboardingProducer, withOnboardingWrite } from "../../../packages/domain/src/onboarding/index.ts";
 import { withSettingsWrite } from "../../../packages/domain/src/settings/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/sections.ts";
-import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
 import { readPair, readRecords, readUnmerge } from "../../../apps/web/src/features/people/corrections/server.ts";
 import { listMessages } from "../../../packages/evry/src/adapters/communication/reads/index.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { measure } from "./counter.mjs";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const f = await fixture();
 try {
@@ -56,7 +57,7 @@ try {
 		actor = await f.actor(s.sender.session);
 	const run = (name, body) => measure("native.people." + name, () => withPeopleWrite(f.db, actor, body));
 	await measure("communication.list", () =>
-		f.db.transaction((tx) => listMessages.invoke(tx, evryActor(actor), { state: "scheduled" })),
+		gatedTransaction(f.db, (tx) => listMessages.invoke(tx, evryActor(actor), { state: "scheduled" })),
 	);
 	const createKey = randomUUID();
 	const created = await run("createPerson", (tx, ctx) =>
@@ -140,7 +141,7 @@ try {
 	);
 
 	const view = (name, body) =>
-		measure("native.people." + name, () => f.db.transaction((tx) => body(tx, new PeopleReadContext(actor))));
+		measure("native.people." + name, () => gatedTransaction(f.db, (tx) => body(tx, new PeopleReadContext(actor))));
 	const value = (result) => {
 		assert.equal(result.status, "ok", JSON.stringify(result));
 		return result.value;
@@ -590,7 +591,7 @@ try {
 		assert.equal(imported.status, "in_progress");
 		const [claim] = await claimDue(f.db, ["people_import"]);
 		assert.equal(await measure("native.people.runPeopleImport", () => runPeopleImport(f.db, claim)), "succeeded");
-		await f.db.transaction((tx) => finishClaim(tx, claim, { state: "succeeded" }));
+		await gatedTransaction(f.db, (tx) => finishClaim(tx, claim, { state: "succeeded" }));
 		const receipt = value(
 			await view("getImportReceipt", (tx, ctx) => peopleCsv.getImportReceipt(tx, ctx, { requestKey })),
 		);
@@ -923,7 +924,7 @@ try {
 		{ candidates: unused },
 	);
 	const orgUpdated = await measure("native.organizations.profile", () =>
-		f.db.transaction(async (tx) => {
+		gatedTransaction(f.db, async (tx) => {
 			assert.ok(await orgActor.bind(tx, org.w));
 			return organizations["organizations.updateProfile"](tx, orgActor.session, org.w, {
 				requestKey: randomUUID(),
@@ -933,7 +934,7 @@ try {
 		}),
 	);
 	assert.equal(orgUpdated.status, "committed");
-	const orgProfile = await f.db.transaction((tx) =>
+	const orgProfile = await gatedTransaction(f.db, (tx) =>
 		organizations["organizations.getProfile"](tx, orgActor.session, org.w, { organization: org.w }),
 	);
 	assert.equal(orgProfile.profile.name, "Native organization");
@@ -942,7 +943,7 @@ try {
 		sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings) VALUES(${s.w.id},${org.w.id},clock_timestamp(),true,true,true,true,true,true,true) RETURNING id`,
 	);
 	const ended = await measure("native.organizations.end", () =>
-		f.db.transaction(async (tx) => {
+		gatedTransaction(f.db, async (tx) => {
 			assert.ok(await orgActor.bind(tx, org.w));
 			return organizations["associations.end"](tx, orgActor.session, org.w, {
 				requestKey: randomUUID(),
@@ -954,7 +955,7 @@ try {
 	assert.equal(ended.status, "committed");
 	const plantRevision = (await f.db.execute(sql`SELECT revision FROM plant WHERE id=${s.w.id}`)).rows[0].revision;
 	const invited = await measure("native.organizations.invite", () =>
-		f.db.transaction(async (tx) => {
+		gatedTransaction(f.db, async (tx) => {
 			assert.ok(await actor.bind(tx, s.w));
 			return organizations["associations.invite"](tx, actor.session, s.w, {
 				requestKey: randomUUID(),
@@ -965,7 +966,7 @@ try {
 	);
 	assert.equal(invited.status, "pending");
 	const accepted = await measure("native.organizations.accept", () =>
-		f.db.transaction(async (tx) => {
+		gatedTransaction(f.db, async (tx) => {
 			assert.ok(await orgActor.bind(tx, org.w));
 			return organizations["associations.acceptInvitation"](tx, orgActor.session, org.w, {
 				requestKey: randomUUID(),
@@ -1095,14 +1096,14 @@ try {
 	);
 	assert.equal(requested.status, "ok");
 	if (requested.status !== "ok") throw Error("deletion_request");
-	const proof = await f.db.transaction((tx) =>
+	const proof = await gatedTransaction(f.db, (tx) =>
 		issueRestrictedDeletionSession(tx, { subject: s.w, requestId: requested.value.requestId }, async () => ({
 			accountId: s.sender.id,
 			provenAt: new Date(Date.now() - 100),
 		})),
 	);
 	const cancelled = await measure("settings.cancelWorkspaceDeletion", () =>
-		f.db.transaction((tx) =>
+		gatedTransaction(f.db, (tx) =>
 			deletion.cancelWorkspaceDeletion(tx, proof, {
 				requestKey: randomUUID(),
 				expectedRevision: requested.value.revision,
@@ -1131,7 +1132,7 @@ try {
 	await f.admin.execute(
 		sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision) VALUES(${meeting},${s.w.id},'orientation','Synthetic meeting','2099-01-15','10:00','UTC','2099-01-15T10:00:00Z','temporal-v1','ready',1)`,
 	);
-	const reminders = await f.db.transaction((tx) =>
+	const reminders = await gatedTransaction(f.db, (tx) =>
 		notifications.enqueueMany(tx, [
 			{
 				owner: s.w,

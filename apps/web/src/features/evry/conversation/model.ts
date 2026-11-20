@@ -389,8 +389,9 @@ export function pageReferences(pathname: string | null): Reference[] {
 	try {
 		const slug = path.split("/").map(decodeURIComponent).join("/");
 		return slug.length <= 300 ? [{ kind: "article", slug }] : [];
-	} catch {
-		return [];
+	} catch (error) {
+		if (error instanceof URIError) return [];
+		throw error;
 	}
 }
 

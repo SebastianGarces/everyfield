@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { authorizeDigestMail, createDigestWorker } from "../../../apps/web/src/server/jobs/digest.ts";
-import { createMailService, runDueMail } from "../../../apps/web/src/server/jobs/mail.ts";
+import { authorizeDigestMail, createDigestWorker } from "../../../packages/domain/src/jobs/digest.ts";
+import { createMailService, runDueMail } from "../../../packages/domain/src/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { INVITATION_MAIL } from "../../../apps/web/src/server/invitations/index.ts";
 import { fixture } from "../identity/invitations-support.mts";
@@ -47,7 +47,6 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 		},
 	});
 	const tick = scheduledJobs({
-		secret,
 		db: f.db,
 		storage: {
 			bucket: "synthetic-only",
@@ -166,7 +165,6 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 test("INV-scheduled-steps: a throwing notification step names itself and the later steps still run", async () => {
 	let messages = 0;
 	const failing = scheduledJobs({
-		secret,
 		db: f.db,
 		storage: null,
 		cleanup: null,
@@ -207,7 +205,6 @@ test("INV-scheduled-steps: a throwing notification step names itself and the lat
 test("INV-scheduled-steps: each tick sweeps an unreferenced documents file whose staging window has passed", async () => {
 	const removed: string[] = [];
 	const tick = scheduledJobs({
-		secret,
 		db: f.db,
 		storage: {
 			bucket: "synthetic-only",
@@ -255,7 +252,6 @@ test("INV-scheduled-steps: each tick sweeps an unreferenced documents file whose
 	assert.equal(await state(staging.id), "ready", "a file inside its staging window stays");
 
 	const bare = scheduledJobs({
-		secret,
 		db: f.db,
 		storage: null,
 		cleanup: null,

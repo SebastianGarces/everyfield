@@ -9,6 +9,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 import { ownerOrAdmin, STATUS_WORDS } from "../reads/index.ts";
+import { present } from "../../../runtime/captured.ts";
 
 const plant = sql`jsonb_build_object('kind','plant','id',p.id,'label',p.name)`;
 const inPlant = (actor: EvryActor) => sql`FROM plant p WHERE p.id=${actor.owner.id}::uuid`;
@@ -77,7 +78,7 @@ export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 				${change("direction", sql`NULL`, sql`to_jsonb(${direction})`)},
 				${change("reason", sql`NULL`, json(value.reason.trim()))})
 				||CASE WHEN ${to}>p.phase THEN jsonb_build_array(${change("openCriteria", sql`NULL`, sql`${json(open)}->p.phase`)}) ELSE '[]'::jsonb END)
-				||${refusal(sql`${to}=p.phase`, `The church is already in ${phases[value.toPhase]!.name}.`)} AS review,
+				||${refusal(sql`${to}=p.phase`, `The church is already in ${present(phases[value.toPhase]).name}.`)} AS review,
 			jsonb_build_object('expectedRevision',p.revision::text,'input',jsonb_build_object('toPhase',${to},'reason',${value.reason.trim()}::text)) AS args
 			${inPlant(actor)}`;
 	},
@@ -93,7 +94,8 @@ export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 };
 
 const signals = createSignals();
-const signal = (key: s.SignalKey) => json({ key, label: s.SIGNAL_DEFINITIONS.find((d) => d.key === key)!.label });
+const signal = (key: s.SignalKey) =>
+	json({ key, label: present(s.SIGNAL_DEFINITIONS.find((d) => d.key === key)).label });
 const current = (key: s.SignalKey) =>
 	sql`LEFT JOIN attestation a ON a.plant_id=p.id AND a.key=${key} AND a.person_id IS NULL`;
 const answer = sql`to_jsonb(CASE WHEN a.state='answered' THEN CASE WHEN a.answer THEN 'yes' ELSE 'not_yet' END END)`;
@@ -194,7 +196,7 @@ export const reaffirmSignal: ReviewedWrite<z.infer<typeof reaffirmInput>> = {
 	input: reaffirmInput,
 	allowed: ownerOrAdmin,
 	review(actor, value) {
-		const renews = s.SIGNAL_DEFINITIONS.find((d) => d.key === value.key)!.reaffirms;
+		const renews = present(s.SIGNAL_DEFINITIONS.find((d) => d.key === value.key)).reaffirms;
 		return sql`SELECT jsonb_build_object('target',${plant},'changes',jsonb_build_array(
 				${change("signal", sql`NULL`, signal(value.key))},
 				${change("value", answer, answer)},

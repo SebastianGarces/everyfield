@@ -12,7 +12,7 @@ import { READ_DOMAINS, readCatalog } from "../../../../packages/evry/src/catalog
 import { invokeRead } from "../../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter } from "../../../../packages/evry/src/catalog/types.ts";
 import { allowedWrites } from "../../../../packages/evry/src/proposals/store.ts";
-import { claimDue } from "../../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue } from "../../../../packages/domain/src/jobs/queue.ts";
 import { actor, admin, db, otherPlant, plant, setup, sql, teardown } from "../../runtime/support.mts";
 import { seedDocument, type Seeded } from "./seed.mts";
 
@@ -23,8 +23,8 @@ const reads = new Map(READ_DOMAINS.documents.map((a) => [a.operation, a as ReadA
 const read = (who: EvryActor, operation: string, input: unknown = {}) =>
 	invokeRead(db, who, reads.get(operation)!, input);
 
-let docs: Record<string, Seeded>;
-let theirs: Record<string, Seeded>;
+let docs: Record<"coreValues" | "september" | "october" | "draft" | "empty" | "policy", Seeded>;
+let theirs: Record<"agenda" | "policy", Seeded>;
 before(async () => {
 	docs = {
 		coreValues: await seedDocument(plant, "core_values", "Our Core Values", "We pray first.\nWe make room.", 30),

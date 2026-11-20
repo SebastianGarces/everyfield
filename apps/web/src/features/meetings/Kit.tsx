@@ -11,7 +11,7 @@ import {
 	CardTitle,
 	Checkbox,
 	EmptyState,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { useOptimistic, useTransition } from "react";
 import { populateKit, updateKitItem } from "./actions.ts";
@@ -39,7 +39,6 @@ export function KitCard({
 	onMeeting: (meeting: Detail) => void;
 	onStale: () => void;
 }) {
-	const toast = useToast();
 	const [, startTransition] = useTransition();
 	const [items, tick] = useOptimistic(kit?.items ?? [], (all: KitItem[], change: { id: string; checked: boolean }) =>
 		all.map((k) => (k.id === change.id ? { ...k, checked: change.checked } : k)),
@@ -132,7 +131,7 @@ export function KitCard({
 			>
 				{groups.map((g) => (
 					<fieldset key={g.label} className="mt-3 first:mt-0">
-						<legend className="mb-0.5 text-xs font-semibold tracking-[0.04em] text-text-3 uppercase">{g.label}</legend>
+						<legend className="section-label mb-0.5 text-text-3">{g.label}</legend>
 						{g.items.map((k) => (
 							<Checkbox
 								key={k.id}

@@ -15,8 +15,8 @@ import {
 } from "../../../../packages/evry/src/index.ts";
 import type { ReadAdapter } from "../../../../packages/evry/src/catalog/types.ts";
 import { EvryRefusal } from "../../../../packages/evry/src/context/errors.ts";
-import { transaction } from "../../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../packages/domain/src/jobs/queue.ts";
 import { accounts, actor, admin, db, plant, setup, sql, teardown } from "../../runtime/support.mts";
 
 const reminders = async () => undefined;
@@ -127,7 +127,7 @@ test("AC:GAP-EVR-405 INV-task-windows: overdue and due-today match the Tasks pag
 	const mine = await read(owner, "tasks.list", { due: "today", mine: true });
 	assert.deepEqual(titles(mine), ["Call the school", "Order chairs"]);
 	assert.equal(mine.rows.find((r) => r.id === ids.today)!.fields.owners, "you");
-	assert.ok(!mine.rows.some((r) => [ids.tomorrow, ids.done, ids.undated].includes(r.id)));
+	assert.ok(!mine.rows.some((r) => ([ids.tomorrow, ids.done, ids.undated] as string[]).includes(r.id)));
 });
 
 test("INV-review-first: a weekly task on Mondays is created with its recurrence only after approval", async () => {
@@ -191,7 +191,7 @@ test("INV-eligible-owner: follow-ups go only to accounts that may own them, in o
 	const owner = await actor("owner");
 	const propose = await turn(owner);
 	const guests = [await person("Gia Guest"), await person("Hal Guest")];
-	const duties = [];
+	const duties: Awaited<ReturnType<typeof task>>[] = [];
 	for (const g of guests) duties.push(await task(`Follow up`, { personId: g, category: "follow_up" }));
 
 	const seats = await read(owner, "tasks.eligibleAssignees", {});

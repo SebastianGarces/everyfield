@@ -1,10 +1,10 @@
-import type { Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import type { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import type { EffectResult, NativeContext, NativePorts, ReviewContext, ReviewedWrite } from "../proposals/types.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 export const plantAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
@@ -56,7 +56,7 @@ export function nativeWrite<I>(spec: {
 	allowed(actor: EvryActor): boolean;
 	review(actor: EvryActor, input: I, context: ReviewContext): SQL | Promise<SQL | null>;
 	run(
-		tx: Transaction,
+		tx: WriteTx,
 		context: PeopleContext,
 		request: Record<string, unknown> & { requestKey: string },
 		native: NativeContext & { ports: NativePorts; reminders: TaskReminders },

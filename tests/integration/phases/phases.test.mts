@@ -1,9 +1,14 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { CRITERION_KEYS, DECLARATION_REASON } from "../../../packages/contracts/src/phases/index.ts";
+import {
+	CRITERION_KEYS,
+	DECLARATION_REASON,
+	type CriterionStatus,
+} from "../../../packages/contracts/src/phases/index.ts";
+import { accountId } from "../../../packages/contracts/src/common/index.ts";
 import {
 	authorizePhaseNotices,
 	createPhaseWriter,
@@ -13,28 +18,49 @@ import {
 	readReadiness,
 } from "../../../packages/domain/src/phases/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { phaseNotices } from "../../../apps/web/src/features/phases/notices.ts";
-import { ok, refused } from "../../support/fixture.mts";
+import { ok, refused, type Workspace } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
-let f, writer, onboarding;
+let f: Awaited<ReturnType<typeof fixture>>;
+let writer: ReturnType<typeof createPhaseWriter>;
+let onboarding: ReturnType<typeof createOnboardingProducer>;
 let faultyNotices = false;
-const rows = async (q) => (await f.admin.execute(q)).rows;
-const one = async (q) => (await rows(q))[0];
-const history = (who) => phaseReader.readHistory(f.db, who.actor);
-const declare = (who, phase, expectedRevision, requestKey = randomUUID()) =>
+type Seated = Awaited<ReturnType<typeof seated>>;
+const rows = async (q: SQL) => (await f.admin.execute(q)).rows;
+const one = async (q: SQL) => {
+	const [row] = await rows(q);
+	if (!row) throw Error("the query returned no row");
+	return row;
+};
+const history = (who: Seated) => phaseReader.readHistory(f.db, who.actor);
+const historyOf = async (who: Seated) => {
+	const result = await history(who);
+	if (result.status !== "ok") assert.fail(JSON.stringify(result));
+	return result.value;
+};
+const declare = (who: Seated, phase: unknown, expectedRevision: string, requestKey = randomUUID()) =>
 	writer.declare(f.db, who.actor, { requestKey, expectedRevision, input: { phase } });
-const move = (who, toPhase, reason, expectedRevision, requestKey = randomUUID()) =>
+const move = (who: Seated, toPhase: unknown, reason: string, expectedRevision: string, requestKey = randomUUID()) =>
 	writer.transition(f.db, who.actor, { requestKey, expectedRevision, input: { toPhase, reason } });
-const revisionOf = async (plant) => (await one(sql`SELECT revision::text AS r FROM plant WHERE id=${plant.id}`)).r;
-const footprint = (plant) =>
-	one(sql`SELECT (SELECT count(*)::int FROM phase_transition WHERE plant_id=${plant.id}) transitions,
+const revisionOf = async (plant: Workspace) => {
+	const { r } = await one(sql`SELECT revision::text AS r FROM plant WHERE id=${plant.id}`);
+	assert.equal(typeof r, "string");
+	return String(r);
+};
+const footprint = async (plant: Workspace) => {
+	const row = await one(sql`SELECT (SELECT count(*)::int FROM phase_transition WHERE plant_id=${plant.id}) transitions,
 		(SELECT count(*)::int FROM audit_event WHERE tenant_id=${plant.id}) audits,
 		(SELECT count(*)::int FROM notice) notices, (SELECT count(*)::int FROM job) jobs,
 		(SELECT phase FROM plant WHERE id=${plant.id}) phase, (SELECT revision::text FROM plant WHERE id=${plant.id}) revision`);
+	const { transitions, audits, revision } = row;
+	assert.ok(typeof transitions === "number" && typeof audits === "number" && typeof revision === "string");
+	return { ...row, transitions, audits, revision };
+};
 
-async function seated(w, role) {
+async function seated(w: Workspace, role: "owner" | "admin" | "member") {
 	const a = await f.account();
 	await f.seat(a, w, role);
 	return { ...a, actor: await f.actor(a.session) };
@@ -44,19 +70,23 @@ async function church(name = "Harvest Point") {
 	await f.admin.execute(sql`UPDATE account SET registration_kind='planter' WHERE id=${a.id}`);
 	const create = { requestKey: randomUUID(), expectedRevision: "1", input: { name, confirmed: true } };
 	const run = () =>
-		f.db.transaction((tx) =>
-			onboarding.createPlant(tx, { session: a.session, selected: { kind: "account", id: a.id } }, create),
+		gatedTransaction(f.db, (tx) =>
+			onboarding.createPlant(
+				tx,
+				{ session: a.session, selected: { kind: "account", id: accountId.parse(a.id) } },
+				create,
+			),
 		);
 	const created = ok(await run());
 	const owner = { ...a, actor: await f.actor(a.session) };
 	return { plant: created.plant, owner, replayCreation: run };
 }
-async function churchAt(phase) {
+async function churchAt(phase: number) {
 	const c = await church();
 	if (phase !== 1) ok(await move(c.owner, phase, "Setting up the test church", await revisionOf(c.plant)));
 	return c;
 }
-async function connect(plant, kind = "sending_church") {
+async function connect(plant: Workspace, kind: "sending_church" | "sending_network" = "sending_church") {
 	const org = await f.workspace(kind);
 	const owner = await seated(org, "owner");
 	await f.admin.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,
@@ -64,7 +94,7 @@ async function connect(plant, kind = "sending_church") {
 		VALUES(${plant.id},${org.id},clock_timestamp(),false,false,false,false,false,false,false)`);
 	return { org, owner };
 }
-const noticesFor = (plant) =>
+const noticesFor = (plant: Workspace) =>
 	rows(sql`SELECT n.tenant_id,n.recipient_id,n.cancelled_at,n.purpose FROM notice n
 		JOIN phase_transition t ON t.id=n.source_record_id WHERE t.plant_id=${plant.id} ORDER BY n.created_at`);
 
@@ -102,7 +132,7 @@ after(() => f?.close());
 test("AC:DC-021 AC:DC-027 AC:DC-029 AC:DC-031 AC:ROLE43-014 AC:DC-001 creation starts at Phase 1 with one creation entry and no 0→1 move", async () => {
 	const { plant, owner } = await church();
 	assert.equal((await one(sql`SELECT count(*)::int n FROM reading WHERE account_id=${owner.id}`)).n, 0);
-	const h = ok(await history(owner));
+	const h = await historyOf(owner);
 	assert.deepEqual(h.state, { phase: 1, revision: h.state.revision, declarable: true });
 	assert.equal(h.plantName, "Harvest Point");
 	assert.equal(h.entries.length, 1);
@@ -155,9 +185,10 @@ test("AC:PHASE-CASE-008 AC:B02-032 the catalog has seven phases and the 19 refer
 
 test("AC:PHASE-CASE-004 readiness is an advisory conjunction: Unknown holds it back without failing it", async () => {
 	const phase1 = (await readCatalog()).phases[1];
+	assert.ok(phase1);
 	const keys = phase1.criteria.map((x) => x.key);
-	const cluster = (...statuses) => Object.fromEntries(keys.map((k, i) => [k, statuses[i]]));
-	const verdict = (...statuses) => {
+	const cluster = (...statuses: CriterionStatus[]) => Object.fromEntries(keys.map((k, i) => [k, statuses[i]]));
+	const verdict = (...statuses: CriterionStatus[]) => {
 		const r = readinessOf(phase1, cluster(...statuses));
 		return [r.verdict, r.ready, r.humanTransitionAllowed];
 	};
@@ -183,11 +214,13 @@ test("AC:PHASE-CASE-004 readiness is an advisory conjunction: Unknown holds it b
 		financial_base: "not_met",
 		training_complete: "met",
 	});
+	const [, second, , fourth] = filled;
+	assert.ok(second && fourth);
 	assert.deepEqual(
-		filled[1].criteria.map((c) => c.status),
+		second.criteria.map((c) => c.status),
 		["met", "unknown", "not_met", "unknown", "unknown"],
 	);
-	assert.deepEqual([filled[1].measured, filled[1].verdict, filled[3].criteria[0].status], [true, "not_ready", "met"]);
+	assert.deepEqual([second.measured, second.verdict, fourth.criteria[0]?.status], [true, "not_ready", "met"]);
 });
 
 test("AC:PHASE-CASE-001 AC:DC-022 AC:DC-032 AC:TARGET-IDN-015 a declaration records where the church was, once, and creation retry keeps it", async () => {
@@ -209,7 +242,7 @@ test("AC:PHASE-CASE-001 AC:DC-022 AC:DC-032 AC:TARGET-IDN-015 a declaration reco
 		{ kind: "initial_declaration", from_phase: 1, to_phase: 3, reason: DECLARATION_REASON },
 	]);
 	assert.deepEqual(
-		ok(await history(owner)).entries.map((e) => e.kind),
+		(await historyOf(owner)).entries.map((e) => e.kind),
 		["creation", "initial_declaration"],
 	);
 	const before = await footprint(plant);
@@ -235,26 +268,26 @@ test("AC:PHASE-CASE-001 two Admins declaring at the same moment leave exactly on
 		sql`SELECT to_phase FROM phase_transition WHERE plant_id=${plant.id} AND kind='initial_declaration'`,
 	);
 	assert.equal(declared.length, 1);
-	assert.equal((await one(sql`SELECT phase FROM plant WHERE id=${plant.id}`)).phase, declared[0].to_phase);
-	assert.equal(won[0].value.state.phase, declared[0].to_phase);
+	assert.equal((await one(sql`SELECT phase FROM plant WHERE id=${plant.id}`)).phase, declared[0]?.to_phase);
+	assert.equal(won[0]?.value.state.phase, declared[0]?.to_phase);
 });
 
 test("AC:DC-022 onboarding and the journey view share one declaration slot", async () => {
 	const { plant, owner } = await church();
 	const ctx = { session: owner.session, selected: plant };
-	const resume = ok(await f.db.transaction((tx) => onboarding.getResume(tx, ctx, {})));
+	const resume = ok(await gatedTransaction(f.db, (tx) => onboarding.getResume(tx, ctx, {})));
 	const journey = {
 		requestKey: randomUUID(),
 		expectedRevision: resume.revision,
 		input: { journey: { answer: "existing", phase: 2 }, launch: { answer: "no_date" } },
 	};
-	const saved = ok(await f.db.transaction((tx) => onboarding.declareJourney(tx, ctx, journey)));
+	const saved = ok(await gatedTransaction(f.db, (tx) => onboarding.declareJourney(tx, ctx, journey)));
 	assert.equal(saved.currentPhase, 2);
 	refused(await declare(owner, 3, saved.revision), "already_declared");
-	const h = ok(await history(owner));
+	const h = await historyOf(owner);
 	assert.equal(h.state.declarable, false);
 	assert.deepEqual(
-		h.entries.map((e) => [e.kind, e.fromPhase, e.toPhase]),
+		h.entries.map((e) => ("fromPhase" in e ? [e.kind, e.fromPhase, e.toPhase] : [e.kind])),
 		[
 			["creation", null, 1],
 			["initial_declaration", 1, 2],
@@ -269,7 +302,7 @@ test("AC:DC-022 onboarding and the journey view share one declaration slot", asy
 		expectedRevision: moved.state.revision,
 		input: { journey: { answer: "existing", phase: 4 }, launch: { answer: "no_date" } },
 	};
-	refused(await f.db.transaction((tx) => onboarding.declareJourney(tx, octx, late)), "already_declared");
+	refused(await gatedTransaction(f.db, (tx) => onboarding.declareJourney(tx, octx, late)), "already_declared");
 });
 
 test("AC:PHASE-CASE-009 phases are integers 0 to 6, reasons are trimmed and the reserved sentence is refused", async () => {
@@ -280,7 +313,7 @@ test("AC:PHASE-CASE-009 phases are integers 0 to 6, reasons are trimmed and the 
 		refused(await declare(owner, phase, revision), "invalid_input");
 		refused(await move(owner, phase, "A real reason", revision), "invalid_input");
 	}
-	const reason = async (problem, text) =>
+	const reason = async (problem: string, text: string) =>
 		assert.equal(refused(await move(owner, 2, text, revision), "invalid_reason").details.problem, problem);
 	await reason("empty", "   \n\t ");
 	await reason("too_long", "x".repeat(2001));
@@ -314,15 +347,15 @@ test("AC:PHASE-CASE-009 phases are integers 0 to 6, reasons are trimmed and the 
 test("AC:PHASE-CASE-007 a reasoned move records from, to, direction, reason, actor and time; the history only grows", async () => {
 	const { plant, owner } = await churchAt(2);
 	const admin = await seated(plant, "admin");
-	const start = ok(await history(owner)).entries;
-	const steps = [
+	const start = (await historyOf(owner)).entries;
+	const steps: [Seated, number, string, string, number][] = [
 		[admin, 4, "Training finished early", "skip_forward", 2],
 		[owner, 1, "Core group shrank after the move", "backward", 4],
 		[admin, 0, "Back to discernment", "backward", 1],
 		[owner, 1, "Discernment is done", "forward", 0],
 	];
 	let revision = await revisionOf(plant);
-	const dbNow = async () => Date.parse((await one(sql`SELECT clock_timestamp()::text AS t`)).t);
+	const dbNow = async () => Date.parse(String((await one(sql`SELECT clock_timestamp()::text AS t`)).t));
 	for (const [who, to, reason, direction, from] of steps) {
 		const earliest = await dbNow();
 		const r = ok(await move(who, to, reason, revision));
@@ -347,10 +380,12 @@ test("AC:PHASE-CASE-007 a reasoned move records from, to, direction, reason, act
 		assert.ok(at >= earliest && at <= latest, `${r.entry.occurredAt} outside the move`);
 		revision = r.state.revision;
 	}
-	const h = ok(await history(owner));
+	const h = await historyOf(owner);
 	assert.deepEqual(h.entries.slice(0, start.length), start);
 	assert.deepEqual(
-		h.entries.slice(start.length).map((e) => [e.fromPhase, e.toPhase, e.direction]),
+		h.entries
+			.slice(start.length)
+			.map((e) => (e.kind === "movement" ? [e.fromPhase, e.toPhase, e.direction] : [e.kind])),
 		[
 			[2, 4, "skip_forward"],
 			[4, 1, "backward"],
@@ -369,7 +404,9 @@ test("AC:PHASE-CASE-002 two moves from the same reviewed revision: one wins from
 		move(a, 3, "Training starts now", revision),
 		move(b, 2, "Launch team is forming", revision),
 	]);
-	const won = results.find((r) => r.status === "ok").value;
+	const winner = results.find((r) => r.status === "ok");
+	assert.ok(winner?.status === "ok" && winner.value.outcome === "moved");
+	const won = winner.value;
 	assert.equal(won.entry.fromPhase, 1);
 	const lost = refused(
 		results.find((r) => r.status !== "ok"),
@@ -384,7 +421,7 @@ test("AC:PHASE-CASE-003 the same phase returns a noop receipt and changes nothin
 	const { plant, owner } = await churchAt(3);
 	await connect(plant);
 	const before = await footprint(plant);
-	const entries = ok(await history(owner)).entries;
+	const entries = (await historyOf(owner)).entries;
 	const key = randomUUID();
 	const receipt = ok(await move(owner, 3, "Checking where we are", before.revision, key));
 	assert.equal(receipt.outcome, "noop");
@@ -398,7 +435,7 @@ test("AC:PHASE-CASE-003 the same phase returns a noop receipt and changes nothin
 		),
 		[{ id: receipt.receiptId, kind: "noop", from_phase: 3, to_phase: 3 }],
 	);
-	assert.deepEqual(ok(await history(owner)).entries, entries);
+	assert.deepEqual((await historyOf(owner)).entries, entries);
 	refused(await move(owner, 4, "Something else", before.revision, key), "idempotency_conflict");
 });
 
@@ -410,7 +447,7 @@ test("AC:PHASE-CASE-005 a move, its audit and its notice commit together; a noti
 	await assert.rejects(move(owner, 2, "Launch team is forming", before.revision));
 	faultyNotices = false;
 	assert.deepEqual(await footprint(plant), before);
-	assert.equal(ok(await history(owner)).entries.length, 1);
+	assert.equal((await historyOf(owner)).entries.length, 1);
 	const moved = ok(await move(owner, 2, "Launch team is forming", before.revision));
 	const audits = await rows(
 		sql`SELECT action,kind,before_value,after_value FROM audit_event WHERE tenant_id=${plant.id} AND action LIKE 'phase.%' AND action<>'phase.created'`,
@@ -463,7 +500,7 @@ test("AC:CASE-NTF-009 a forward move notifies each connected organization once; 
 	ok(await move(owner, 4, "Pre-launch for real", revision));
 	const last = await noticesFor(plant);
 	assert.equal(last.length, 3);
-	assert.equal(last.at(-1).tenant_id, network.org.id);
+	assert.equal(last.at(-1)?.tenant_id, network.org.id);
 });
 
 test("AC:PHASE-CASE-007 only a live Owner or Admin seat reads the journey or changes the phase", async () => {
@@ -476,13 +513,13 @@ test("AC:PHASE-CASE-007 only a live Owner or Admin seat reads the journey or cha
 	refused(await declare(member, 3, revision), "access_denied");
 	refused(await move(member, 3, "Members cannot move it", revision), "access_denied");
 	assert.deepEqual(await footprint(plant), before);
-	assert.equal(ok(await history(admin)).entries.length, 1);
+	assert.equal((await historyOf(admin)).entries.length, 1);
 	await f.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${admin.id}`);
 	const gone = refused(await history(admin), "access_denied");
 	assert.deepEqual(gone.details, {});
 	refused(await move(admin, 3, "After the seat ended", revision), "access_denied");
 	assert.deepEqual(await footprint(plant), before);
-	ok(await history(owner));
+	await historyOf(owner);
 });
 
 test("AC:CASE-NTF-009 a phase notice mails no organization seat that has not accepted yet", async () => {
@@ -490,10 +527,15 @@ test("AC:CASE-NTF-009 a phase notice mails no organization seat that has not acc
 	const linked = await connect(plant, "sending_church");
 	const advance = ok(await move(owner, 2, "Core group is forming", await revisionOf(plant)));
 	assert.ok(advance);
-	const mailRows = await rows(sql`SELECT m.id, m.recipient_account_id recipient, m.notice_id notice FROM mail m
-		JOIN notice n ON n.id=m.notice_id JOIN phase_transition t ON t.id=n.source_record_id WHERE t.plant_id=${plant.id}`);
+	const mailRows = (
+		await rows(sql`SELECT m.id, m.recipient_account_id recipient, m.notice_id notice FROM mail m
+		JOIN notice n ON n.id=m.notice_id JOIN phase_transition t ON t.id=n.source_record_id WHERE t.plant_id=${plant.id}`)
+	).map(({ id, recipient, notice }) => {
+		assert.ok(typeof id === "string" && typeof recipient === "string" && typeof notice === "string");
+		return { id, recipient, notice };
+	});
 	assert.equal(mailRows.length, 1);
-	const allowed = () => f.db.transaction((tx) => authorizePhaseNotices(tx, mailRows));
+	const allowed = () => gatedTransaction(f.db, (tx) => authorizePhaseNotices(tx, mailRows));
 	assert.equal((await allowed()).size, 1);
 	await f.admin.execute(sql`UPDATE seat SET accepted_at=clock_timestamp()+interval '1 day'
 		WHERE account_id=${linked.owner.id} AND organization_id=${linked.org.id}`);

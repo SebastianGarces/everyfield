@@ -12,6 +12,7 @@ import { EvryRefusal } from "../context/errors.ts";
 import { REVIEWED_WRITES, staleMessage } from "../proposals/store.ts";
 import { refusalCode } from "../proposals/review.ts";
 import type { EffectPorts, EffectResult, MailPort, NativePorts, ReviewedWrite } from "../proposals/types.ts";
+import { gatedTransaction } from "@everyfield/domain/operations";
 
 export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string; generation: string };
 
@@ -51,10 +52,12 @@ const locked = z.object({
 });
 
 const currentState = (() => {
-	const writes = (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).filter((w) => w.current);
+	const writes = (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).flatMap((w) =>
+		w.current ? [{ operation: w.operation, current: w.current }] : [],
+	);
 	if (!writes.length) return sql`NULL::jsonb`;
 	return sql`CASE proposal.operation ${sql.join(
-		writes.map((w) => sql`WHEN ${w.operation} THEN ${w.current!(sql`proposal`)}`),
+		writes.map((w) => sql`WHEN ${w.operation} THEN ${w.current(sql`proposal`)}`),
 		sql` `,
 	)} END`;
 })();
@@ -79,7 +82,7 @@ export async function executeProposal(
 	native: NativePorts | null = null,
 ): Promise<EffectOutcome> {
 	try {
-		const first = await db.transaction(async (tx): Promise<EffectOutcome | Reach> => {
+		const first = await gatedTransaction(db, async (tx): Promise<EffectOutcome | Reach> => {
 			const r = await tx.execute(sql`
 				SELECT p.id,p.account_id,p.tenant_id,c.context_kind,p.operation,p.revision,p.input,p.state,p.outcome,p.approved_session_id,
 					p.expires_at<=clock_timestamp() AS expired,${fence(lease)} AS fenced,

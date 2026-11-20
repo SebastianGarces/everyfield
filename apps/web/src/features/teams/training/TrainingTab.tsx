@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import {
 	Add01Icon,
@@ -22,23 +23,24 @@ import {
 	MenuTrigger,
 	Spinner,
 	StatePanel,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { useState, useTransition } from "react";
+import { localToday } from "../../../components/clock.ts";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
-import { dayText, type Outcome } from "../model.ts";
+import { dayText } from "../model.ts";
 import {
 	attestCompletion,
 	attestService,
 	correctProgram,
 	createProgram,
-	loadTraining,
 	recompleteTraining,
 	revokeCompletion,
 	saveRoster,
 } from "./actions.ts";
+import { loadTraining } from "../fetch.ts";
 import { AssignDialog, checkRoster, CompletionDialog, CorrectDialog, CreateDialog, ServiceDialog } from "./dialogs.tsx";
 import { PersonLookup } from "./PersonLookup.tsx";
 import {
@@ -58,8 +60,10 @@ import {
 	type Flow,
 	type ShownProgram,
 } from "./model.ts";
+import { loadProblem, failedIcon } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
-type ShownRead = Outcome<ShownProgram[]>;
+type ShownRead = Outcome<ShownProgram[]> | ReadFailure;
 
 const loadShown = (teamId: string): Promise<ShownRead> =>
 	loadTraining(teamId).then((result) =>
@@ -81,7 +85,6 @@ export function TrainingTab({
 	canChange: boolean;
 	admin: boolean;
 }) {
-	const toast = useToast();
 	const lane = useSaveIntent<Flow>({ explain: problemText });
 	const training = useRead(trainings, teamId);
 	const [reloading, startReload] = useTransition();
@@ -294,6 +297,7 @@ export function TrainingTab({
 					<StatePanel
 						tone="error"
 						title="Training did not load"
+						icon={failedIcon(loaded)}
 						headingLevel="h3"
 						actions={
 							<Button variant="secondary" onClick={reload} disabled={pending}>
@@ -303,7 +307,7 @@ export function TrainingTab({
 					>
 						{loaded?.status === "refused"
 							? problemText(loaded.code)
-							: `Nothing on ${teamName} was changed. Try again in a moment.`}
+							: loadProblem(loaded, `Nothing on ${teamName} was changed. Try again in a moment.`)}
 					</StatePanel>
 				) : programs.length === 0 ? (
 					<EmptyState
@@ -423,10 +427,14 @@ function ProgramRow({
 			</div>
 			{writable ? (
 				<div className="flex flex-wrap items-center gap-2">
-					<Button variant="primary" disabled={busy} onClick={() => onOpen(personForm("complete", program))}>
+					<Button
+						variant="primary"
+						disabled={busy}
+						onClick={() => onOpen(personForm("complete", localToday(), program))}
+					>
 						Record completion
 					</Button>
-					<Button variant="danger" disabled={busy} onClick={() => onOpen(personForm("revoke", program))}>
+					<Button variant="danger" disabled={busy} onClick={() => onOpen(personForm("revoke", localToday(), program))}>
 						Revoke completion
 					</Button>
 					<Button variant="outline" icon={FileEditIcon} disabled={busy} onClick={() => onOpen(correctForm(program))}>
@@ -437,7 +445,7 @@ function ProgramRow({
 							<IconButton icon={MoreHorizontalIcon} label={`More actions for ${program.name}`} disabled={busy} />
 						</MenuTrigger>
 						<MenuContent>
-							<MenuItem onSelect={() => onOpen(personForm("redo", program))}>Record again</MenuItem>
+							<MenuItem onSelect={() => onOpen(personForm("redo", localToday(), program))}>Record again</MenuItem>
 							{program.required ? (
 								<MenuItem onSelect={() => onOpen(assignForm(program))}>Choose who must finish</MenuItem>
 							) : null}

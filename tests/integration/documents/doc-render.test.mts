@@ -99,8 +99,8 @@ test("AC:CASE-DOC-023 the conflict-of-interest policy prints its text, numbered 
 		pages[0]!,
 		/^Harbor City Church BOARD POLICY Conflict of Interest Policy This policy says how the board of Harbor City Church, a church plant/,
 	);
-	assert.match(pages[0]!, /01 Purpose .* 02 Who this policy covers/);
-	assert.match(pages[1]!, /09 If a member breaks this policy/);
+	assert.match(pages[0]!, /(?<!\d)1 Purpose .* (?<!\d)2 Who this policy covers/);
+	assert.match(pages[1]!, /(?<!\d)9 If a member breaks this policy/);
 	assert.match(pages[1]!, /BOARD MEMBER ROLE SIGNATURE DATE/);
 	for (const [i, page] of pages.entries()) {
 		assert.ok(page.includes("Harbor City Church, Inc. | Conflict of Interest Policy"), `page ${i + 1} footer`);
@@ -708,7 +708,7 @@ test("AC:CASE-DOC-023 every node, mark and page setup part of the design node ta
 		"Bold and italic and underline and a link",
 		"after a break.",
 		"A small paragraph signed by Dana Brooks",
-		"01 First numbered",
+		"1 First numbered",
 		"1.1 Numbered sub",
 		"Plain heading",
 		"Bullet one",
@@ -725,6 +725,7 @@ test("AC:CASE-DOC-023 every node, mark and page setup part of the design node ta
 		"Grand total 5 $650.50 $1,701",
 	])
 		assert.ok(all.includes(words), `prints "${words}"`);
+	assert.ok(!all.includes("01 First numbered"), "the heading number is not zero-padded");
 	for (const [i, page] of pages.entries()) {
 		assert.ok(page.startsWith("Running header"), `page ${i + 1} header`);
 		assert.ok(page.includes(`Footer Page ${i + 1}`), `page ${i + 1} footer and page number`);

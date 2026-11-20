@@ -25,6 +25,7 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { personRow } from "../../../catalog/person-row.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
+import { present } from "../../../runtime/captured.ts";
 
 export const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 export const ownerOrAdmin = (actor: EvryActor) =>
@@ -124,7 +125,7 @@ async function churchToday(tx: Transaction, actor: EvryActor) {
 			.formatToParts(new Date())
 			.map((p) => [p.type, p.value]),
 	);
-	const weekday = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(parts.weekday!) + 1;
+	const weekday = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(present(parts.weekday)) + 1;
 	return { zone, today: `${parts.year}-${parts.month}-${parts.day}`, weekday };
 }
 export async function churchZone(tx: Transaction, actor: EvryActor) {
@@ -203,7 +204,7 @@ export const listTasks: ReadAdapter<z.infer<typeof listInput>> = {
 			input.due === "overdue"
 				? t.overdue === true
 				: by
-					? t.overdue === true || (dueDate(t.due) !== null && dueDate(t.due)! <= by)
+					? t.overdue === true || (dueDate(t.due) !== null && present(dueDate(t.due)) <= by)
 					: true;
 		const split = input.followUps ?? "include";
 		const matched = items.filter((t) => inWindow(t) && (split === "include" || (split === "only") === isFollowUp(t)));
@@ -481,7 +482,7 @@ export const findOpenOccurrence: ReadAdapter<z.infer<typeof taskInput>> = {
 		const open = value(await taskReader.listRows(tx, actor.authority, { taskIds: [found.open.taskId] }));
 		const rows = open.items.map((t) => {
 			const row = taskRow(actor, t);
-			row.fields.occurrence = found.open!.occurrence;
+			row.fields.occurrence = present(found.open).occurrence;
 			return row;
 		});
 		return result("tasks.findOpenOccurrence", rows, ["settled occurrences"]);

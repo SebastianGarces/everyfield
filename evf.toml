@@ -13,6 +13,11 @@ name = "full-check"
 run = ["bin/dev", "check", "--full"]
 timeout_minutes = 25
 
+[[check]]
+name = "census"
+run = ["bin/dev", "census"]
+timeout_minutes = 20
+
 [guards]
 heavy = [
   "tsc", "tsc *", "*/tsc", "*/tsc *", "env *tsc", "env *tsc *",

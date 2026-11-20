@@ -11,8 +11,8 @@ import {
 	type EvryActor,
 	type Proposal,
 } from "../../../../../packages/evry/src/index.ts";
-import { transaction } from "../../../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../../packages/domain/src/jobs/queue.ts";
 import { actor, admin, db, otherPlant, plant, setup, sql, teardown } from "../../../runtime/support.mts";
 
 before(setup);
@@ -50,7 +50,7 @@ async function turn(who: EvryActor) {
 }
 
 async function approveAndRun(who: EvryActor, proposal: Proposal) {
-	await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest });
+	await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	assert.ok(claim);
 	const outcome = await executeProposal(

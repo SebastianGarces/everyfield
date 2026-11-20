@@ -1,4 +1,5 @@
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
+import type { WriteTx } from "@everyfield/domain/access";
 import { sql, type SQL } from "@everyfield/db/query";
 import { privateStorage } from "@everyfield/db/schema";
 import { liveRead, RequestActor } from "@everyfield/domain/access";
@@ -18,11 +19,11 @@ const change = (field: string, before: SQL | null, after: SQL) =>
 const text = (value: string | number) => sql`to_jsonb(${String(value)}::text)`;
 const documentId = z.uuid().describe("A document id from documents.listOwned");
 
-async function authorityIn(tx: Transaction, context: PeopleContext) {
+async function authorityIn(tx: WriteTx, context: PeopleContext) {
 	const claimed = await RequestActor.claimWrite(tx, context.session, context.selected);
 	return claimed?.authority ?? null;
 }
-const asDatabase = (tx: Transaction) => tx as unknown as Database;
+const asDatabase = (tx: WriteTx) => tx as unknown as Database;
 const writer = async () => (await import("@everyfield/domain/documents")).documentsWriter;
 const done = <T>(reply: DocumentsReply<T>, receipt: (value: T) => { id: string; revision: string }): EffectResult => {
 	if (reply.status !== "ok") return { refused: reply.error.code };

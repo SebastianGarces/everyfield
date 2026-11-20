@@ -1,7 +1,7 @@
 import { calendarContext, instant, timeZone, type Clock } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveAccess, liveRead, liveRows, type RequestActor } from "../access/session.ts";
@@ -21,7 +21,7 @@ export const heldPractices = (plant: SQL) => sql`(SELECT count(*)::int FROM meet
 	AND x.type='prelaunch_practice' AND x.status='completed' AND x.actual_occurrence_at<=clock_timestamp()
 	AND x.occurrence_voided_at IS NULL)`;
 
-export const milestoneJson = (m: string) => {
+export const milestoneJson = <MName extends string>(m: SqlLiteral<MName>) => {
 	const r = sql.raw(m);
 	return sql`jsonb_build_object('id',${r}.id,'templateKey',${r}.template_key,'area',${r}.area,'title',${r}.title,
 	'description',${r}.description,'revision',${r}.revision::text,
@@ -80,7 +80,7 @@ export function milestoneOf(raw: unknown, practices: number): c.Milestone {
 
 const personJson = (id: SQL) => sql`CASE WHEN ${id} IS NOT NULL THEN jsonb_build_object('accountId',${id},
 	'displayName',(SELECT i.display_name FROM seat_identity(${id}) i LIMIT 1)) END`;
-const debriefJson = (d: string) => {
+const debriefJson = <DName extends string>(d: SqlLiteral<DName>) => {
 	const r = sql.raw(d);
 	return sql`jsonb_build_object('id',${r}.id,'version',${r}.version,'revision',${r}.revision::text,
 	'answers',jsonb_build_object('wentWell',${r}.went_well,'toChange',${r}.to_change,'operations',${r}.operations,
@@ -120,7 +120,7 @@ export const planColumns = (plant: SQL, admin: SQL) => sql`${outcomeColumns(plan
 	(SELECT count(*)::int FROM launch_milestone m WHERE m.plant_id=${plant}) AS seeded_milestones,
 	(SELECT count(*)::int FROM task k WHERE k.plant_id=${plant} AND k.launch_task_key IS NOT NULL) AS seeded_tasks,
 	${preparationJson(plant, sql`true`)} AS preparation`;
-export const offersTo = (o: string, plant: SQL) =>
+export const offersTo = <OName extends string>(o: SqlLiteral<OName>, plant: SQL) =>
 	sql`(${sql.raw(o)}.gathering_milestone_offered AND EXISTS(SELECT FROM affiliation k WHERE k.plant_id=${plant}
 		AND k.organization_id=${sql.raw(o)}.id AND ${linkActive("k")}))`;
 const gatheringJson = (plant: SQL) => sql`(SELECT jsonb_build_object('path',l.gathering_path,
@@ -252,7 +252,7 @@ export function createLaunchReader(clock: Clock = systemClock) {
 					.object({ ok: z.boolean(), timezone: z.string().nullable(), entries: z.array(z.unknown()).nullable() })
 					.parse(rows[0]);
 				if (!r.ok || !r.timezone) deny("access_denied");
-				return c.history.parse({ timeZone: r.timezone, entries: historyOf(r.entries ?? []) });
+				return { timeZone: r.timezone, entries: historyOf(r.entries ?? []) } satisfies z.output<typeof c.history>;
 			});
 		},
 		async readGatheringOffers(db: Pick<Database, "execute">, authority: RequestActor) {

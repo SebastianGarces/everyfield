@@ -23,8 +23,8 @@ import {
 	type NativePorts,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { nativePorts } from "./settings-ports.mts";
 import { evalDatabase, GRACE_AUSTIN, NETWORK, seedHope } from "./golden-church.mts";
 import { seedSetup, SETUP_SPECS, type SetupName } from "./setup-church.mts";

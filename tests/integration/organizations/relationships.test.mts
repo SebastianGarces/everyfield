@@ -7,7 +7,8 @@ import * as Q from "../../../packages/contracts/src/organizations/index.ts";
 import { readAnswerableInvitation } from "../../../packages/domain/src/organizations/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
-import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 after(S.teardown);
 const accepted = (v: unknown) => {
 	const r = Q.acceptedInvitationResult.parse(v);
@@ -454,5 +455,138 @@ test("INV-lock-order: a subject-side write and the organization ending that link
 			(SELECT count(*)::int FROM audit_event WHERE subject_id=${sql.param(link)} AND action='affiliation.ended') AS end_events`,
 			);
 			assert.deepEqual(facts.rows[0], { ended: true, end_events: 1 });
+		});
+});
+
+test("INV-lock-order: a link write holds its gate's account and root and the organization before the link, and never locks the subject side for the organization", async (t) => {
+	type Tenant = Awaited<ReturnType<typeof S.tenant>>;
+	type Identity = Awaited<ReturnType<typeof S.identity>>;
+	type Setup = { subject: S.Actor["selected"]; sa: Identity; o: Tenant; oa: Identity; link: string; pair: unknown };
+	const end = (actor: (s: Setup) => S.Actor) => (s: Setup) =>
+		S.call(
+			"associations.end",
+			actor(s),
+			S.command({ relationshipId: s.link, pair: s.pair, confirmed: true, reason: null }),
+		);
+	const rows = [
+		{
+			name: "the organization ends a Discovery link",
+			subject: "discovery" as const,
+			organization: "sending_church" as const,
+			share: false,
+			run: end((s) => s.oa),
+			held: (s: Setup) => [s.oa.account, s.o.id],
+			untouched: (s: Setup) => s.subject.id,
+		},
+		{
+			name: "the organization ends a plant link",
+			subject: "plant" as const,
+			organization: "sending_church" as const,
+			run: end((s) => s.oa),
+			held: (s: Setup) => [s.oa.account, s.o.id],
+			untouched: (s: Setup) => s.subject.id,
+		},
+		{
+			name: "the Discovery account ends its link",
+			subject: "discovery" as const,
+			organization: "sending_church" as const,
+			share: false,
+			run: end((s) => s.sa),
+			held: (s: Setup) => [s.sa.account, s.subject.id, s.o.id],
+		},
+		{
+			name: "the plant ends its link",
+			subject: "plant" as const,
+			organization: "sending_church" as const,
+			run: end((s) => s.sa),
+			held: (s: Setup) => [s.sa.account, s.subject.id, s.o.id],
+		},
+		{
+			name: "the plant changes a sharing choice",
+			subject: "plant" as const,
+			organization: "sending_church" as const,
+			run: (s: Setup) =>
+				S.call(
+					"privacy.setSharing",
+					s.sa,
+					S.command({
+						plant: s.subject,
+						organization: s.o,
+						relationshipId: s.link,
+						expectedConsentRevision: "1",
+						category: "people",
+						enabled: false,
+					}),
+				),
+			held: (s: Setup) => [s.sa.account, s.subject.id, s.o.id],
+		},
+		{
+			name: "the sending church changes pipeline consent",
+			subject: "sending_church" as const,
+			organization: "sending_network" as const,
+			share: false,
+			run: (s: Setup) =>
+				S.call("pipelineSharing.setConsent", s.sa, S.command({ relationshipId: s.link, sharePipelineTotals: true })),
+			held: (s: Setup) => [s.sa.account, s.subject.id, s.o.id],
+		},
+	];
+	const pid = async (c: { execute: typeof S.db.execute }) =>
+		((await c.execute(sql`SELECT pg_backend_pid() AS pid`)).rows[0] as { pid: number }).pid;
+	const locked = async (id: string) => {
+		try {
+			await S.db.execute(
+				sql`SELECT (SELECT 1 FROM account WHERE id=${sql.param(id)} FOR NO KEY UPDATE NOWAIT),(SELECT 1 FROM plant WHERE id=${sql.param(id)} FOR NO KEY UPDATE NOWAIT),(SELECT 1 FROM organization WHERE id=${sql.param(id)} FOR NO KEY UPDATE NOWAIT)`,
+			);
+			return false;
+		} catch (e) {
+			if ((e as { cause?: { code?: string } }).cause?.code === "55P03") return true;
+			throw e;
+		}
+	};
+	for (const row of rows)
+		await t.test(row.name, async () => {
+			const subject = row.subject === "discovery" ? undefined : await S.tenant(row.subject),
+				sa = await S.identity(subject),
+				o = await S.tenant(row.organization),
+				oa = await S.identity(o);
+			if (row.subject === "discovery")
+				await S.db.execute(sql`INSERT INTO discovery(account_id) VALUES(${sql.param(sa.account)})`);
+			const link = await S.affiliation(sa.selected, o, row.share ?? true),
+				pair =
+					row.subject === "discovery"
+						? { kind: "discovery", accountId: sa.account, organization: o }
+						: { kind: row.subject, subject: sa.selected, organization: o },
+				s: Setup = { subject: sa.selected, sa, o, oa, link, pair };
+			const untouched = row.untouched?.(s);
+			let write!: Promise<PromiseSettledResult<unknown>>;
+			await S.db.transaction(async (side) => {
+				if (untouched)
+					await side.execute(
+						sql`SELECT (SELECT 1 FROM account WHERE id=${sql.param(untouched)} FOR UPDATE),(SELECT 1 FROM plant WHERE id=${sql.param(untouched)} FOR UPDATE)`,
+					);
+				await gatedTransaction(S.db, async (hold) => {
+					await hold.execute(sql`SELECT 1 FROM affiliation WHERE id=${sql.param(link)} FOR UPDATE`);
+					const holder = await pid(hold);
+					write = row.run(s).then(
+						(value) => ({ status: "fulfilled" as const, value }),
+						(reason) => ({ status: "rejected" as const, reason }),
+					);
+					await S.waitingOnLock();
+					const waits = await S.runtime.execute(
+						sql`SELECT pg_blocking_pids(a.pid) AS by FROM pg_stat_activity a WHERE a.usename=current_user AND a.wait_event_type='Lock' AND a.pid<>pg_backend_pid()`,
+					);
+					assert.deepEqual(
+						waits.rows.map((r) => (r as { by: number[] }).by),
+						[[holder]],
+						"the write waits on the link alone",
+					);
+					assert.deepEqual(
+						await Promise.all(row.held(s).map(locked)),
+						row.held(s).map(() => true),
+						"the gate's account and root and the organization are held before the link",
+					);
+				});
+				assert.deepEqual(await write, { status: "fulfilled", value: { status: "committed" } });
+			});
 		});
 });

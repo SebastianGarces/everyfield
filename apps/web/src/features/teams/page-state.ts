@@ -102,5 +102,3 @@ export function apply(v: TeamView, c: Change): TeamView {
 		}
 	}
 }
-
-export const today = () => new Date().toLocaleDateString("en-CA");

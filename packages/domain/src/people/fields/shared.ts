@@ -7,7 +7,7 @@ import { z } from "zod";
 import { deny, type Tx } from "../core.ts";
 
 export function plantId(ctx: { selected: Owner }): string {
-	if (ctx.selected.kind !== "plant") deny();
+	if (ctx.selected.kind !== "plant") deny("unavailable");
 	return ctx.selected.id;
 }
 
@@ -73,11 +73,11 @@ export async function personFacts(
 		.where(
 			and(eq(tables.person.id, id), eq(tables.person.tenant_id, plant), eq(tables.person.plant_id, plant), visible),
 		);
-	if (!row) deny();
+	if (!row) deny("unavailable");
 	return { ...factRow.parse(row), extra: row.extra };
 }
 export function livePerson(p: PersonFacts) {
-	if (p.state !== "live") deny();
+	if (p.state !== "live") deny("unavailable");
 }
 export function expectRevision(actual: string, expected: string) {
 	if (actual !== expected) deny("conflict");

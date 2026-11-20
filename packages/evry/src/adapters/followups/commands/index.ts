@@ -22,6 +22,7 @@ import {
 	taskTarget,
 } from "../../tasks/commands/index.ts";
 import { inPlant, ownerOrAdmin } from "../../tasks/reads/index.ts";
+import { present } from "../../../runtime/captured.ts";
 
 const followUps = (reminders: TaskReminders) => createFollowUpWriter({ reminders });
 const openFollowUp = sql`t.category='follow_up' AND t.person_id IS NOT NULL AND t.parent_id IS NULL
@@ -91,7 +92,7 @@ export const recordOutcome = reviewed<OutcomeInput>({
 				'changes',${changes(false)}) AS review,
 			${native(sql`jsonb_build_object('kind','person','personId',p.id)`)} AS args
 			FROM person p CROSS JOIN LATERAL (SELECT ${at} AS at) x
-			WHERE p.id=${v.personId!}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
+			WHERE p.id=${present(v.personId)}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
 	},
 	async run(tx, context, args, key, reminders) {
 		const a = z.object({ input: z.unknown() }).parse(args);

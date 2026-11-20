@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
+import { present } from "../../../runtime/captured.ts";
 
 export const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
@@ -27,7 +28,7 @@ const complete = (operation: string, rows: SourceRow[], exclusions: string[] = [
 	exclusions,
 });
 
-const phaseName = (catalog: c.Catalog, phase: number) => catalog.phases.find((p) => p.phase === phase)!.name;
+const phaseName = (catalog: c.Catalog, phase: number) => present(catalog.phases.find((p) => p.phase === phase)).name;
 const localDay = (at: string, zone: string) =>
 	new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
 		new Date(at),
@@ -158,7 +159,7 @@ const readReadinessAdapter: ReadAdapter<z.infer<typeof readinessInput>> = {
 		]);
 		const h = valueOf(history);
 		const phase = input.phase ?? h.state.phase;
-		const readiness = readReadiness(catalog, valueOf(measured).criteria).find((r) => r.phase === phase)!;
+		const readiness = present(readReadiness(catalog, valueOf(measured).criteria).find((r) => r.phase === phase));
 		const head: SourceRow = {
 			kind: "phase",
 			id: String(phase),

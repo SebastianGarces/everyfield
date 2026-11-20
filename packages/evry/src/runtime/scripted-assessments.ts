@@ -1,4 +1,5 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
+import { captured, present } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind: string; id: string; label: string; fields: Record<string, unknown> };
@@ -9,7 +10,7 @@ const say = (text: string): LanguageModelV4Content[] => [{ type: "text", text }]
 function turnOutputs(prompt: Prompt): Output[] {
 	const out: Output[] = [];
 	for (let i = prompt.length - 1; i >= 0; i--) {
-		const m = prompt[i]!;
+		const m = present(prompt[i]);
 		if (m.role === "user") break;
 		if (m.role !== "tool") continue;
 		for (const part of [...m.content].reverse())
@@ -37,8 +38,8 @@ function dateIn(text: string, prompt: Prompt): string | null {
 	if (/\byesterday\b/i.test(text)) return shift(day, -1);
 	const m = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? (\d{1,2})(?:,? (\d{4}))?\b/i.exec(text);
 	if (!m) return null;
-	const month = String(MONTHS.indexOf(m[1]!.toLowerCase()) + 1).padStart(2, "0");
-	return `${m[3] ?? day.slice(0, 4)}-${month}-${m[2]!.padStart(2, "0")}`;
+	const month = String(MONTHS.indexOf(captured(m, 1).toLowerCase()) + 1).padStart(2, "0");
+	return `${m[3] ?? day.slice(0, 4)}-${month}-${captured(m, 2).padStart(2, "0")}`;
 }
 const longDate = (day: unknown) =>
 	typeof day === "string"
@@ -108,21 +109,22 @@ function intentOf(text: string, prompt: Prompt): Intent | null {
 	const lower = text.toLowerCase();
 	if (/\bundo (that|the) merge\b|\bunmerge\b/.test(lower)) return { kind: "unmerge" };
 	const record = /\bwhere does (?:the )?record ([0-9a-f-]{36}) lead\b/i.exec(text);
-	if (record) return { kind: "destination", personId: record[1]! };
+	if (record) return { kind: "destination", personId: captured(record, 1) };
 	const merge = /\bmerge (them|([a-z][\w' ]+?) (?:and|with|into) ([a-z][\w' ]+?))\s*[.?!]?$/i.exec(text);
-	if (merge) return { kind: "merge", names: merge[2] ? [merge[2], merge[3]!] : userTexts(prompt).flatMap(nameList) };
+	if (merge)
+		return { kind: "merge", names: merge[2] ? [merge[2], captured(merge, 3)] : userTexts(prompt).flatMap(nameList) };
 	const name = named(text);
 	if (!name) return null;
 	if (/\bfix\b.*\binterview date\b/.test(lower))
 		return { kind: "fix_interview_date", name, occurredOn: dateIn(text.split(/\binterview date\b/i)[1] ?? "", prompt) };
 	if (/\bcorrection/.test(lower)) return { kind: "corrections", name };
 	const card = /\bcard was signed (.+?), not\b/i.exec(text);
-	if (card) return { kind: "fix_card_date", name, occurredOn: dateIn(card[1]!, prompt), reason: text.trim() };
+	if (card) return { kind: "fix_card_date", name, occurredOn: dateIn(captured(card, 1), prompt), reason: text.trim() };
 	if (/\brecord\b.*\binterview\b/.test(lower)) {
 		const ratings: Record<string, string> = {};
 		for (const [k, re] of CRITERIA) {
 			const m = new RegExp(`${re.source}\\s+(pass|concern|fail)`).exec(lower);
-			if (m) ratings[k] = m[1]!;
+			if (m) ratings[k] = captured(m, 1);
 		}
 		const result = RESULTS.find(([, re]) => re.test(lower))?.[0] ?? null;
 		return { kind: "record_interview", name, occurredOn: dateIn(text, prompt), ratings, result };
@@ -153,13 +155,13 @@ function intentOf(text: string, prompt: Prompt): Intent | null {
 }
 function nameList(text: string) {
 	const m = /\b([a-z]+ [a-z]+) (?:the same as|and|or) ([a-z]+ [a-z]+)\b/i.exec(text.replace(/^is /i, ""));
-	return m ? [m[1]!, m[2]!] : [];
+	return m ? [captured(m, 1), captured(m, 2)] : [];
 }
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 function missing(intent: Intent): string | null {
 	if (intent.kind === "record_interview") {
-		const left = CRITERIA.filter(([k]) => !intent.ratings[k]).map(([k]) => CRITERION_WORDS[k]!);
+		const left = CRITERIA.filter(([k]) => !intent.ratings[k]).map(([k]) => present(CRITERION_WORDS[k]));
 		const parts = [
 			...left.map((k) => `the ${k} rating`),
 			...(intent.result ? [] : ["the result"]),
@@ -239,8 +241,8 @@ export function assessmentStep(
 		const merge = review.rows?.find((r) => r.kind === "merge");
 		if (!merge) return say("I can't review that merge: one of them is no longer available.");
 		if (typeof merge.fields.blocked === "string") return say(`${merge.fields.blocked} Nothing was merged.`);
-		const [survivor, source] = review.rows!;
-		return propose("people.mergePeople", { sourceId: source!.id, survivorId: survivor!.id });
+		const [survivor, source] = present(review.rows);
+		return propose("people.mergePeople", { sourceId: present(source).id, survivorId: present(survivor).id });
 	}
 
 	if (intent.kind === "destination") {
@@ -286,7 +288,7 @@ export function assessmentStep(
 	if (!matches.length) return say(`I can't find ${intent.name} in this church.`);
 	if (matches.length > 1)
 		return say(`I found ${matches.length} matches: ${matches.map((r) => r.label).join(", ")}. Which one do you mean?`);
-	const person = matches[0]!;
+	const person = present(matches[0]);
 	const personId = person.id;
 
 	switch (intent.kind) {

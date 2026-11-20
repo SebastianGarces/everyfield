@@ -1,17 +1,13 @@
-import { timingSafeEqual } from "node:crypto";
 import { expireAccessRequests } from "@everyfield/db";
+import { cronRoute } from "../server/platform/cron";
+import { serverEnv } from "../server/config.ts";
+import { transient } from "../server/platform/transient.ts";
 
-export async function accessRetention(request: Request): Promise<Response> {
-	const secret = process.env.CRON_SECRET;
-	if (!secret) return Response.json({ status: "unavailable" }, { status: 503 });
-	const expected = Buffer.from(`Bearer ${secret}`);
-	const actual = Buffer.from(request.headers.get("authorization") ?? "");
-	if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
-		return Response.json({ status: "unauthorized" }, { status: 401 });
-	}
-	try {
-		return Response.json(await expireAccessRequests());
-	} catch {
-		return Response.json({ status: "unavailable" }, { status: 503 });
-	}
-}
+export const accessRetention = (request: Request) =>
+	cronRoute(serverEnv().CRON_SECRET, async () => {
+		return transient(
+			{ component: "access", outcome: "retention_failed" },
+			async () => Response.json(await expireAccessRequests()),
+			Response.json({ status: "unavailable" }, { status: 503 }),
+		);
+	})(request);

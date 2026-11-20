@@ -1,7 +1,7 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-cjs/index.js";
+import { S3Client } from "../../../packages/db/src/schema/storage.ts";
 import {
 	createConversation,
 	readConversation,
@@ -11,7 +11,7 @@ import {
 } from "../../../packages/evry/src/index.ts";
 import type { PrivateStorage } from "../../../packages/db/src/schema/storage.ts";
 import { readAttachment } from "../../../packages/evry/src/attachments/store.ts";
-import { runDueObjectCleanup } from "../../../apps/web/src/server/jobs/object-cleanup.ts";
+import { runDueObjectCleanup } from "../../../packages/domain/src/jobs/object-cleanup.ts";
 import { actor, admin, db, people, plant, setup, sql, teardown, work } from "./support.mts";
 
 before(async () => {

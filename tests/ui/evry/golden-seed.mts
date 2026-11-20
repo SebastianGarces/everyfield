@@ -22,7 +22,7 @@ async function up(origin: string) {
 	const env = await openSeedEnvironment(origin);
 	try {
 		const days = shiftDays();
-		await seedGolden(env.admin, { shiftDays: days, preview: true });
+		await seedGolden(env.admin as Parameters<typeof seedGolden>[0], { shiftDays: days, preview: true });
 		await env.admin.execute(
 			sql`UPDATE auth_session SET expires_at=clock_timestamp()+interval '14 days' WHERE token LIKE 'golden-%'`,
 		);

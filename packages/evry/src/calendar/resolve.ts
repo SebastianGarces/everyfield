@@ -1,3 +1,5 @@
+import { captured, present } from "../runtime/captured.ts";
+
 const pad = (n: number) => String(n).padStart(2, "0");
 const offsetText = (minutes: number) =>
 	`${minutes < 0 ? "-" : "+"}${pad(Math.floor(Math.abs(minutes) / 60))}:${pad(Math.abs(minutes) % 60)}`;
@@ -19,13 +21,22 @@ const parts = (zone: string, at: Date) =>
 	) as Record<string, string>;
 function offsetAt(zone: string, at: Date) {
 	const p = parts(zone, at);
-	const wall = Date.UTC(+p.year!, +p.month! - 1, +p.day!, +p.hour!, +p.minute!, +p.second!);
+	const wall = Date.UTC(
+		+present(p.year),
+		+present(p.month) - 1,
+		+present(p.day),
+		+present(p.hour),
+		+present(p.minute),
+		+present(p.second),
+	);
 	return Math.round((wall - Math.floor(at.getTime() / 1000) * 1000) / 60_000);
 }
 const shortZone = (zone: string, at: Date) =>
-	new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "short" })
-		.formatToParts(at)
-		.find((p) => p.type === "timeZoneName")!.value;
+	present(
+		new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "short" })
+			.formatToParts(at)
+			.find((p) => p.type === "timeZoneName"),
+	).value;
 const localLabel = (zone: string, at: Date) =>
 	`${new Intl.DateTimeFormat("en-US", {
 		timeZone: zone,
@@ -54,7 +65,7 @@ export function resolveLocal(zone: string, date: string, time: string, offset?: 
 	const d = LOCAL_DATE.exec(date);
 	const t = LOCAL_TIME.exec(time);
 	if (!d || !t) return { status: "invalid_date", local, zone };
-	const [y, mo, da, h, mi] = [+d[1]!, +d[2]!, +d[3]!, +t[1]!, +t[2]!];
+	const [y, mo, da, h, mi] = [+captured(d, 1), +captured(d, 2), +captured(d, 3), +captured(t, 1), +captured(t, 2)];
 	const wall = Date.UTC(y, mo - 1, da, h, mi);
 	const check = new Date(wall);
 	if (check.getUTCMonth() !== mo - 1 || check.getUTCDate() !== da || h > 23 || mi > 59)
@@ -66,10 +77,15 @@ export function resolveLocal(zone: string, date: string, time: string, offset?: 
 		.sort((a, b) => a.getTime() - b.getTime())
 		.map((at) => ({ instant: at.toISOString(), offset: offsetText(offsetAt(zone, at)), label: localLabel(zone, at) }));
 	if (!moments.length)
-		return { status: "nonexistent", local, zone, skippedMinutes: Math.abs(offsets[offsets.length - 1]! - offsets[0]!) };
+		return {
+			status: "nonexistent",
+			local,
+			zone,
+			skippedMinutes: Math.abs(present(offsets[offsets.length - 1]) - present(offsets[0])),
+		};
 	const chosen = moments.length > 1 ? moments.find((m) => m.offset === offset) : moments[0];
 	if (chosen) return { status: "exact", local, zone, at: chosen };
-	return { status: "ambiguous", local, zone, options: [moments[0]!, moments[1]!] };
+	return { status: "ambiguous", local, zone, options: [present(moments[0]), present(moments[1])] };
 }
 
 export function calendarContext(zone: string, now: Date) {

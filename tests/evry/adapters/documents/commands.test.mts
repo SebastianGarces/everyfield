@@ -11,8 +11,8 @@ import {
 	type EvryActor,
 	type Proposal,
 } from "../../../../packages/evry/src/index.ts";
-import { transaction } from "../../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../packages/domain/src/jobs/queue.ts";
 import { actor, admin, db, plant, setup, sql, teardown } from "../../runtime/support.mts";
 import { seedDocument, type Seeded } from "./seed.mts";
 
@@ -37,7 +37,7 @@ const shared = globalThis as Record<symbol, { configured?: unknown; checks: Weak
 before(setup);
 after(teardown);
 
-let docs: Record<string, Seeded>;
+let docs: Record<"draft" | "agenda" | "policy" | "other", Seeded>;
 before(async () => {
 	docs = {
 		draft: await seedDocument(plant, "native", "Values Draft", "Prayer comes before planning.", 5),
@@ -68,7 +68,7 @@ async function propose(who: EvryActor, operation: string, input: unknown) {
 }
 
 async function approveAndRun(who: EvryActor, proposal: Proposal) {
-	await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest });
+	await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	assert.ok(claim);
 	const outcome = await executeProposal(
@@ -139,7 +139,7 @@ test("an approved export saves the PDF with the Church Document, in private stor
 	const saved = (
 		await admin.execute(sql`SELECT gd.id, gd.format, gd.source_document_id, f.state, f.opaque_key FROM generated_document gd
 			JOIN file_object f ON f.id=gd.object_id WHERE gd.id=${review.receipt!.receiptId!}`)
-	).rows[0] as Record<string, string>;
+	).rows[0] as { id: string; format: string; source_document_id: string; state: string; opaque_key: string };
 	assert.deepEqual([saved.format, saved.source_document_id, saved.state], ["pdf", docs.policy.id, "ready"]);
 	assert.equal(objects.get(saved.opaque_key)!.subarray(0, 5).toString(), "%PDF-");
 	assert.deepEqual(await audits(proposal.id), [{ action: "documents.exported", subject_id: saved.id }]);

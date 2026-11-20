@@ -8,11 +8,11 @@ import {
 	updateProgressRequest,
 	type WikiReply,
 } from "@everyfield/contracts/wiki";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
-import type { RequestActor } from "../access/session.ts";
+import type { RequestActor, WriteTx } from "../access/session.ts";
 import { corpusCtes } from "./corpus.ts";
 import {
 	accessDenied,
@@ -195,7 +195,7 @@ async function saveReading(
 				stored_last_read: z.coerce.number().nullable(),
 			})
 			.parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		if (!row.entitled) throw new WikiOutcome(readingValue({ errorCode: "content_access_denied", written: false }));
 		if (mode === "bookmark" && row.stored_revision && row.stored_bookmarked === desired) {
 			const completed = row.stored_completed === true;
@@ -218,7 +218,7 @@ async function saveReading(
 		return readingValue({
 			errorCode: null,
 			written: true,
-			revision: row.written_revision!,
+			revision: row.written_revision,
 			completed,
 			observedFraction: row.fraction ?? "0",
 			bookmarked: row.bookmarked === true,
@@ -240,7 +240,7 @@ export function setBookmark(db: Database, authority: RequestActor, raw: unknown)
 	const input = parse(setBookmarkRequest, raw);
 	return saveReading(ownWrite(db, authority), authority, "wiki.bookmarks.set", input, "bookmark");
 }
-export async function setBookmarkIn(tx: Transaction, context: PeopleContext, raw: unknown) {
+export async function setBookmarkIn(tx: WriteTx, context: PeopleContext, raw: unknown) {
 	const input = parse(setBookmarkRequest, raw);
 	const claimed = await claimedWrite(tx, context.session, context.selected);
 	if (!claimed) return accessDenied();

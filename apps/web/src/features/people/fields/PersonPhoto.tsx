@@ -13,7 +13,7 @@ import {
 	PopoverAnchor,
 	PopoverContent,
 	Spinner,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { Avatar, initials } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
@@ -24,7 +24,8 @@ import type { Receipt } from "../boundary.ts";
 import { throughStore, type PersonStore } from "../person.store.ts";
 import { problemText, usePersonState } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
-import { readPhoto, removePhoto, uploadPhoto, type PhotoSaved } from "./actions.ts";
+import { removePhoto, uploadPhoto, type PhotoSaved } from "./actions.ts";
+import { readPhoto } from "../fetch.ts";
 import { photoProblem, photoSrc, takeFile, type PhotoResult } from "./model.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
@@ -58,7 +59,6 @@ export function PersonPhoto({
 	onSaved: (receipt: Receipt) => void;
 	onConflict: () => void;
 }) {
-	const toast = useToast();
 	usePersonState(store);
 	const lane = useSaveIntent<{ problem?: string }>({
 		explain: photoRefusal,

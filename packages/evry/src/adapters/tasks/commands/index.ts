@@ -1,5 +1,6 @@
-import type { Transaction } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import type { WriteTx } from "@everyfield/domain/access";
+import { gatedTransaction } from "@everyfield/domain/operations";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { createTaskWriter, taskReader, type TaskReminders } from "@everyfield/domain/tasks";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import { category, priority, recurrenceFrequency, taskStatus, title } from "@everyfield/contracts/tasks";
@@ -9,6 +10,7 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { inPlant, ownerOrAdmin, value } from "../reads/index.ts";
+import { present } from "../../../runtime/captured.ts";
 
 export const liveTask = (actor: EvryActor, taskId: string) =>
 	sql`FROM task t WHERE t.id=${taskId}::uuid AND t.plant_id=${actor.owner.id}::uuid AND t.deleted_at IS NULL`;
@@ -16,10 +18,10 @@ export const taskTarget = sql`jsonb_build_object('kind','task','id',t.id,'label'
 export const change = (field: string, before: SQL | null, after: SQL | null) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before ?? sql`NULL::jsonb`},'after',${after ?? sql`NULL::jsonb`})`;
 export const json = (v: unknown) => sql`${JSON.stringify(v ?? null)}::jsonb`;
-export const ownersOf = (t: string) =>
+export const ownersOf = <T extends string>(t: SqlLiteral<T>) =>
 	sql.raw(`(SELECT to_jsonb(string_agg(i.display_name,', ' ORDER BY lower(i.display_name),a.account_id))
 		FROM task_assignee a CROSS JOIN LATERAL seat_identity(a.account_id) i WHERE a.task_id=${t}.id)`);
-export const dueOf = (t: string) =>
+export const dueOf = <T extends string>(t: SqlLiteral<T>) =>
 	sql.raw(`to_jsonb(CASE ${t}.due_kind WHEN 'date_only' THEN ${t}.due_date::text
 		WHEN 'timed' THEN to_char(${t}.due_date,'YYYY-MM-DD')||' '||to_char(${t}.due_time,'HH24:MI')||' '||${t}.timezone END)`);
 
@@ -38,7 +40,7 @@ export async function namedAccounts(
 }
 
 export async function accountNamer(context: ReviewContext, actor: EvryActor, purpose: "any" | "committed_follow_up") {
-	const seats = await context.db.transaction(async (tx) =>
+	const seats = await gatedTransaction(context.db, async (tx) =>
 		value(await taskReader.eligibleAssignees(tx, actor.authority, { purpose })),
 	);
 	return (raw: readonly string[]) => {
@@ -70,7 +72,7 @@ export function reviewed<I>(spec: {
 	allowed(actor: EvryActor): boolean;
 	review(actor: EvryActor, input: I, context: ReviewContext): Promise<SQL | null>;
 	run(
-		tx: Transaction,
+		tx: WriteTx,
 		context: PeopleContext,
 		args: unknown,
 		key: (step: string) => string,
@@ -191,7 +193,7 @@ const recurrence = z.strictObject({
 type Recurrence = z.infer<typeof recurrence>;
 const dueDay = (due: string | undefined) => due?.slice(0, 10) ?? null;
 function ruleText(rule: Recurrence, first: string | null, zone: SQL) {
-	const day = first ? WEEKDAY[new Date(`${first}T00:00:00Z`).getUTCDay()]! : null;
+	const day = first ? present(WEEKDAY[new Date(`${first}T00:00:00Z`).getUTCDay()]) : null;
 	const on = day && /weekly/.test(rule.frequency) ? ` on ${day}` : "";
 	const until = rule.until ? `, until ${rule.until}` : "";
 	return sql`to_jsonb(${`${rule.frequency}${on}${until}`}::text||', '||${zone})`;

@@ -15,8 +15,8 @@ import { WIKI_READS } from "../../../../packages/evry/src/adapters/wiki/reads/in
 import type { ReadAdapter, SourceResult } from "../../../../packages/evry/src/catalog/types.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { createWikiProducer } from "../../../../packages/domain/src/wiki/index.ts";
-import { transaction } from "../../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../packages/domain/src/jobs/queue.ts";
 import { accounts, actor, admin, db, plant, setup, sql, teardown, work } from "../../runtime/support.mts";
 import {
 	DRAFT_LINE,
@@ -78,8 +78,13 @@ async function runEffect() {
 	const outcome = await executeProposal(
 		db,
 		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-		async () => {
-			throw Error("unexpected task reminder replan");
+		{
+			reminders: async () => {
+				throw Error("unexpected task reminder replan");
+			},
+			phaseNotices: async () => {
+				throw Error("unexpected phase notice");
+			},
 		},
 	);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));

@@ -22,6 +22,7 @@ import {
 	result,
 	value,
 } from "../../tasks/reads/index.ts";
+import { present } from "../../../runtime/captured.ts";
 
 type Owner = { accountId: string; displayName: string; eligible: boolean };
 const owning = (owners: readonly Owner[]) => owners.filter((o) => o.eligible);
@@ -125,8 +126,9 @@ export const followUpCoverage: ReadAdapter<z.infer<typeof coverageInput>> = {
 					stage: p.person.stage,
 					coverage: p.coverage,
 					owners:
-						[...new Set(p.duties.flatMap((d) => owning(d.owners).map((o) => ownerNames(actor, [o])!)))].join(", ") ||
-						null,
+						[...new Set(p.duties.flatMap((d) => owning(d.owners).map((o) => present(ownerNames(actor, [o])))))].join(
+							", ",
+						) || null,
 				}),
 			),
 			["committed people", "contact notes"],

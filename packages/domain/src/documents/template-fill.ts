@@ -16,9 +16,10 @@ export const contactLine = (kit: Kit) =>
 		.filter(Boolean)
 		.join("  ·  ") || null;
 
-export function mergeSources(plant: Awaited<ReturnType<typeof readPlant>>, kit: Kit): MergeSources {
+export function mergeSources(plant: Awaited<ReturnType<typeof readPlant>>): MergeSources {
 	if (!plant.open) deny("access_denied");
 	if (!plant.subjectOk) deny("unavailable");
+	const { kit } = plant;
 	return {
 		churchName: plant.churchName ?? "",
 		pastorName: plant.pastorName,
@@ -45,13 +46,9 @@ export async function templateFill(db: Pick<Database, "execute">, authority: Req
 		const scope = plantScope(viewer);
 		const template = docTemplateById(input.templateId) ?? deny("unavailable");
 		const plant = await readPlant(db, viewer, { personId: null, meetingId: null, teamId: null });
-		const kit = await rowsOf<{ kit: Record<string, unknown> | null }>(
-			db,
-			sql`SELECT (SELECT to_jsonb(k) FROM church_brand_kit k WHERE k.tenant_id = ${scope.tenantId}::uuid) AS kit
-			FROM (SELECT ${gateSql(scope, true)} AS ok) g WHERE g.ok`,
-		);
-		if (!kit[0]) deny("access_denied");
-		const frozen = frozenData(template.fields, mergeSources(plant, kit[0].kit ? dataFromRow(kit[0].kit) : null));
+		const gate = await rowsOf<{ ok: boolean }>(db, sql`SELECT ${gateSql(scope, true)} AS ok`);
+		if (gate[0]?.ok !== true) deny("access_denied");
+		const frozen = frozenData(template.fields, mergeSources(plant));
 		return {
 			templateId: template.id,
 			title: template.title,

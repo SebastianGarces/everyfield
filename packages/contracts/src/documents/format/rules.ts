@@ -1,5 +1,15 @@
 import { FORMAT_SCHEMA } from "./schema.ts";
-import type { AnyNode, DocDocument, DocTemplate, FormatSchema, PageSetup, TableNode, ValueSpec } from "./types.ts";
+import type {
+	AnyNode,
+	DocDocument,
+	DocTemplate,
+	FormatSchema,
+	PageSetup,
+	PageSize,
+	TableNode,
+	Tile,
+	ValueSpec,
+} from "./types.ts";
 
 const SLUG = /^[a-z][a-z0-9-]{0,79}$/;
 export const KEY = /^[a-z][a-z0-9_]{0,59}$/;
@@ -21,7 +31,11 @@ export function pageBox(page: Pick<PageSetup, "size" | "width" | "height" | "ori
 	return page.orientation === "landscape" ? { width: base.height, height: base.width } : { ...base };
 }
 
-export function tileBox(page: PageSetup, schema = FORMAT_SCHEMA) {
+type TiledPage = Pick<PageSetup, "size" | "width" | "height" | "orientation" | "margin"> & {
+	tile?: Pick<Tile, "across" | "down"> | null;
+};
+
+export function tileBox(page: TiledPage, schema = FORMAT_SCHEMA) {
 	const box = pageBox(page, schema);
 	if (!box) return null;
 	const m = page.margin;
@@ -295,10 +309,9 @@ const newCtx = (schema: FormatSchema, fail: Ctx["fail"]): Ctx => ({
 
 export function tableIssue(table: TableNode, schema = FORMAT_SCHEMA): string | null {
 	const errors: string[] = [];
-	const node = table as unknown as Rec;
 	checkTable(
-		node,
-		node.attrs as Rec,
+		table,
+		table.attrs,
 		"table",
 		newCtx(schema, (_path, message) => errors.push(message)),
 	);
@@ -339,7 +352,7 @@ export function validate(doc: unknown, schema = FORMAT_SCHEMA): { ok: boolean; e
 			fail("page", "a custom page size needs a width and a height in points");
 		if (page.size !== "custom" && (page.width !== undefined || page.height !== undefined))
 			fail("page", `the page size "${String(page.size)}" sets its own width and height; remove them or use "custom"`);
-		const box = isRec(page.margin) ? safeTileBox(page, schema) : null;
+		const box = isRec(page.margin) ? safeTileBox(page, page.margin, schema) : null;
 		if (box && (box.width < 72 || box.height < 72))
 			fail(
 				"page",
@@ -383,12 +396,31 @@ export function validate(doc: unknown, schema = FORMAT_SCHEMA): { ok: boolean; e
 	return { ok: errors.length === 0, errors };
 }
 
-function safeTileBox(page: Rec, schema: FormatSchema) {
-	const m = page.margin as Rec;
+const pageSize = (value: unknown, schema: FormatSchema): value is PageSize =>
+	value === "custom" || (typeof value === "string" && Object.hasOwn(schema.pageSizes, value));
+const points = (value: unknown) => (typeof value === "number" ? value : undefined);
+
+function safeTileBox(page: Rec, margin: Rec, schema: FormatSchema) {
+	const { top, right, bottom, left } = margin;
 	const tile = isRec(page.tile) ? page.tile : null;
-	const nums = [m.top, m.right, m.bottom, m.left, ...(tile ? [tile.across, tile.down] : [])];
-	if (nums.some((n) => typeof n !== "number")) return null;
-	return tileBox(page as unknown as PageSetup, schema);
+	if (typeof top !== "number" || typeof right !== "number" || typeof bottom !== "number" || typeof left !== "number")
+		return null;
+	if (page.tile && !tile) return null;
+	const across = tile?.across;
+	const down = tile?.down;
+	if (tile && (typeof across !== "number" || typeof down !== "number")) return null;
+	if (!pageSize(page.size, schema)) return null;
+	return tileBox(
+		{
+			size: page.size,
+			width: points(page.width),
+			height: points(page.height),
+			orientation: page.orientation === "landscape" ? "landscape" : "portrait",
+			margin: { top, right, bottom, left },
+			tile: typeof across === "number" && typeof down === "number" ? { across, down } : null,
+		},
+		schema,
+	);
 }
 
 function checkNode(node: unknown, path: string, ctx: Ctx, allowed: string[], deny: string[] = []) {

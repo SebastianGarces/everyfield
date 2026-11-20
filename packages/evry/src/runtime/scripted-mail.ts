@@ -1,5 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { present } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind: string; id: string; label: string; fields: Record<string, unknown> };
@@ -166,7 +167,7 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 			if (found.length > 1)
 				return text(`I found ${found.length}: ${list(found.map((p) => p.label))}. Which one do you mean?`);
 			if (!found.length) return text(`I can't find ${opened[1]} in this church.`);
-			return read("communication.forPerson", { personId: found[0]!.id });
+			return read("communication.forPerson", { personId: present(found[0]).id });
 		}
 		const name = results[0]?.rows?.find((r) => r.kind === "person")?.label ?? opened[1] ?? "them";
 		const email = rowsOf(last, "message")[0];
@@ -249,9 +250,9 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 	if (editTemplate || copyTemplate) {
 		if (!last) return read("communication.templates.list", {});
 		if (last.proposalId) return text("Here's the change to review. Nothing changes until you press Approve.");
-		const wanted = (editTemplate ?? copyTemplate)![1]!.toLowerCase();
+		const wanted = present(present(editTemplate ?? copyTemplate)[1]).toLowerCase();
 		const found = rowsOf(last, "template").find((t) => t.label.toLowerCase() === wanted);
-		if (!found) return text(`I can't find a template named ${(editTemplate ?? copyTemplate)![1]}.`);
+		if (!found) return text(`I can't find a template named ${present(editTemplate ?? copyTemplate)[1]}.`);
 		if (copyTemplate) {
 			if (found.fields.origin !== "system") return text(`${found.label} is already the church's own template.`);
 			return canPropose ? propose("communication.templates.fork", { sourceKey: found.fields.sourceKey }) : null;
@@ -261,7 +262,7 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 				`${found.label} is a system template, so it can't be edited. Want me to copy it into a church template first? Then you can change the copy.`,
 			);
 		return canPropose
-			? propose("communication.templates.update", { templateId: found.id, subject: editTemplate![2] })
+			? propose("communication.templates.update", { templateId: found.id, subject: present(editTemplate)[2] })
 			: null;
 	}
 
@@ -277,7 +278,7 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 			return text(
 				"Here's who the resend goes to and who is left out. Open tracking isn't reliable, so some people who read it show no open. Nothing is sent until you press Approve.",
 			);
-		const message = rowsOf(last, "message")[0]!;
+		const message = present(rowsOf(last, "message")[0]);
 		if (message.fields.tooSoon)
 			return text(
 				`A resend has to wait until 24 hours after the send. "${message.label}" can be resent from ${String(message.fields.resendFrom)}.`,

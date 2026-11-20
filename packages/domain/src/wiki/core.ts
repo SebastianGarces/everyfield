@@ -1,11 +1,10 @@
 import { owner, requestIdentity, sameOwner, type Owner, type sessionId } from "@everyfield/contracts/common";
-import { wikiError, type WikiError, type WikiReply } from "@everyfield/contracts/wiki";
+import { wikiError, type WikiReply } from "@everyfield/contracts/wiki";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
-import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { liveRead, RequestActor } from "../access/session.ts";
+import { liveRead, RequestActor, type WriteTx } from "../access/session.ts";
 import { hash } from "../operations/canonical.ts";
 import {
 	declareWrite,
@@ -13,19 +12,12 @@ import {
 	lockedWrite,
 	nativeWrite,
 	prepareWrite,
-	WriteUnavailable,
 	type AuditWrite,
 } from "../operations/writes.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 export const GLOBAL = "00000000-0000-0000-0000-000000000000";
 export const PAGE = 20;
-class WikiRefusal extends Error {
-	readonly code: WikiError["code"];
-	constructor(code: WikiError["code"]) {
-		super(code);
-		this.code = code;
-	}
-}
 export class WikiOutcome extends Error {
 	readonly value: unknown;
 	constructor(value: unknown) {
@@ -33,35 +25,10 @@ export class WikiOutcome extends Error {
 		this.value = value;
 	}
 }
-export function deny(code: WikiError["code"] = "access_denied"): never {
-	throw new WikiRefusal(code);
-}
-const retry: Record<WikiError["code"], WikiError["retry"]> = {
-	invalid_input: "never",
-	access_denied: "never",
-	unavailable: "never",
-	invalid_subject: "never",
-	conflict: "refresh",
-	temporary: "same_request",
-	unknown: "reconcile",
-};
-function refused(error: WikiRefusal): WikiReply<never> {
-	return {
-		status: "refused",
-		error: wikiError.parse({
-			code: error.code,
-			details: {},
-			correlationId: randomUUID(),
-			retry: retry[error.code],
-		}),
-	};
-}
-export const accessDenied = (): WikiReply<never> => refused(new WikiRefusal("access_denied"));
-function refusal(error: unknown): WikiReply<never> {
-	if (error instanceof WriteUnavailable) return refused(new WikiRefusal("unavailable"));
-	if (error instanceof WikiRefusal) return refused(error);
-	throw error;
-}
+const refusals = defineRefusals(wikiError, { writeUnavailable: "unavailable" });
+export const deny: Deny<typeof wikiError> = refusals.deny;
+export const { refused } = refusals;
+export const accessDenied = (): WikiReply<never> => refused("access_denied");
 export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	const result = schema.safeParse(raw);
 	if (!result.success) deny("invalid_input");
@@ -107,7 +74,7 @@ export async function runRead<T>(body: () => Promise<T>): Promise<WikiReply<T>> 
 		return { status: "ok", value: await body() };
 	} catch (error) {
 		if (error instanceof WikiOutcome) throw error;
-		return refusal(error);
+		return refusals.refusalOf(error);
 	}
 }
 type Body<T> = (tx: Transaction, command: Command, input: { requestKey: string }) => Promise<T>;
@@ -120,7 +87,7 @@ export type Runner = <T>(
 ) => Promise<WikiReply<T>>;
 
 async function keyed<T>(
-	tx: Transaction,
+	tx: WriteTx,
 	authority: RequestActor,
 	selected: Owner,
 	operation: string,
@@ -138,7 +105,7 @@ async function keyed<T>(
 	});
 	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "conflict") deny("conflict");
-	if (claim.kind === "unavailable") deny();
+	if (claim.kind === "unavailable") deny("access_denied");
 	if (claim.kind === "replay") return result.parse(claim.value);
 	const produced = result.parse(await body(tx, { ...claim, actorId, selected }, input));
 	await finishAudit(tx, claim, identity, produced);
@@ -146,7 +113,7 @@ async function keyed<T>(
 }
 function answered<T>(result: z.ZodType<T>, error: unknown): WikiReply<T> {
 	if (error instanceof WikiOutcome) return { status: "ok", value: result.parse(error.value) };
-	return refusal(error);
+	return refusals.refusalOf(error);
 }
 
 export async function runWrite<T>(
@@ -175,7 +142,7 @@ export const ownWrite =
 		runWrite(db, authority, selected, operation, input, result, body);
 
 export async function claimedWrite(
-	tx: Transaction,
+	tx: WriteTx,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
 ): Promise<{ authority: RequestActor; run: Runner } | null> {

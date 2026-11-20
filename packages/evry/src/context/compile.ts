@@ -10,6 +10,7 @@ import type { ConversationEvent, ConversationState, Reference } from "../convers
 import type { EvryActor } from "./actor.ts";
 import { scrub } from "./errors.ts";
 import { LIMITS } from "./limits.ts";
+import { present } from "../runtime/captured.ts";
 
 export const PASTORAL_BOUNDARY =
 	"I help with the church planting work recorded in Everyfield. I can't give pastoral or Biblical counsel, write prayers, or judge whether someone is spiritually ready or qualified. Your church's leaders are the right people for that. I can show what is recorded about a person, such as their stage and history.";
@@ -387,7 +388,7 @@ function savedFacts(state: ConversationState | null) {
 				(a) =>
 					`- ${scrub(JSON.stringify(a.name))} attachmentId ${a.id}, attached ${when(a.attachedAt)}: ${
 						a.status === "available"
-							? `available until ${when(a.availableUntil!)}`
+							? `available until ${when(present(a.availableUntil))}`
 							: a.status === "replaced"
 								? "replaced by a newer file with the same name"
 								: "gone: attached files last 24 hours; ask the user to attach it again"

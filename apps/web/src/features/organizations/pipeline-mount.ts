@@ -1,27 +1,30 @@
+import type { Lost } from "@everyfield/contracts/common";
 import type { PipelineReply } from "@everyfield/contracts/organizations";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
-import type { RequestActor } from "@everyfield/domain/access";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { RequestActor, WriteTx } from "@everyfield/domain/access";
+import type { Database } from "@everyfield/db/client";
 import {
 	readAnswerReview,
 	readAnswerReviews,
 	readPipelineBoard,
+	readPipelineChoices,
 	readPipelineExport,
 	readPipelineGoals,
 	readPipelinePersonRecord,
 } from "@everyfield/domain/organizations";
-import { PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
+import { PeopleReadContext, peopleMerge, withPeopleWrite } from "@everyfield/domain/people";
 import "server-only";
 import { requestDatabase } from "../../server/database";
 import { getViewer } from "../../server/request-context";
+import { LOST, transient } from "../../server/platform/transient.ts";
+import { gatedTransaction } from "@everyfield/domain/operations";
 
-export type PipelineAnswer<T> = PipelineReply<T> | { status: "lost" };
+export type PipelineAnswer<T> = PipelineReply<T> | Lost;
 
 export async function pipelineActor(): Promise<
 	{ kind: "signed_out" } | { kind: "unavailable" } | { kind: "seat"; authority: RequestActor }
 > {
 	const v = await getViewer();
-	if (!v) return { kind: "unavailable" };
 	if (v.status === "unauthenticated") return { kind: "signed_out" };
 	const authority = v.authority;
 	const context = authority?.actor.context;
@@ -29,41 +32,36 @@ export async function pipelineActor(): Promise<
 	return { kind: "seat", authority };
 }
 
-async function guarded<R>(run: () => Promise<R>): Promise<R | { status: "lost" }> {
-	try {
-		return await run();
-	} catch (error) {
-		console.error(JSON.stringify({ component: "pipeline", outcome: "failed", error: String(error) }));
-		return { status: "lost" };
-	}
+async function guarded<R>(run: () => Promise<R>): Promise<R | Lost> {
+	return transient({ component: "pipeline", outcome: "failed" }, () => run(), LOST);
 }
 
 export async function loadPipelineBoard(authority: RequestActor, query: unknown) {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
 	return guarded(() => readPipelineBoard(db, authority, query));
+}
+
+export async function loadPipelineChoices(authority: RequestActor) {
+	const db = requestDatabase();
+	return guarded(() => readPipelineChoices(db, authority));
 }
 
 export async function loadPipelineGoals(authority: RequestActor) {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
 	return guarded(() => readPipelineGoals(db, authority));
 }
 
 export async function loadPipelinePerson(authority: RequestActor, personId: string) {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
 	return guarded(() => readPipelinePersonRecord(db, authority, { personId }));
 }
 
 export async function loadAnswerReviews(authority: RequestActor) {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
 	return guarded(() => readAnswerReviews(db, authority));
 }
 export async function loadAnswerReview(authority: RequestActor, reviewId: string) {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
 	return guarded(() => readAnswerReview(db, authority, { reviewId }));
 }
 
@@ -73,27 +71,34 @@ export async function pipelineWrite<T>(
 	const who = await pipelineActor();
 	if (who.kind !== "seat") return { status: "refused", refusal: { code: "unavailable" } };
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	return guarded(() => run(db, who.authority));
 }
 
 export async function loadPipelineExport(authority: RequestActor) {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
 	return guarded(() => readPipelineExport(db, authority));
 }
 
-type PeopleAnswer<T> = PeopleReply<T> | { status: "lost" };
+type PeopleAnswer<T> = PeopleReply<T> | Lost;
 async function asSeat<T>(
 	run: (db: Database, authority: RequestActor) => Promise<PeopleReply<T>>,
 ): Promise<PeopleAnswer<T>> {
 	const who = await pipelineActor();
 	if (who.kind !== "seat") return { status: "refused", error: { code: "unavailable" } } as PeopleReply<T>;
-	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	return guarded(() => run(db, who.authority));
+	return asAuthority(who.authority, run);
 }
-export const pipelinePeopleRead = <T>(run: (tx: Transaction, ctx: PeopleContext) => Promise<PeopleReply<T>>) =>
-	asSeat((db, authority) => db.transaction((tx) => run(tx, new PeopleReadContext(authority))));
-export const pipelinePeopleWrite = <T>(run: (tx: Transaction, ctx: PeopleWriteContext) => Promise<PeopleReply<T>>) =>
+async function asAuthority<T>(
+	authority: RequestActor,
+	run: (db: Database, authority: RequestActor) => Promise<PeopleReply<T>>,
+): Promise<PeopleAnswer<T>> {
+	const db = requestDatabase();
+	return guarded(() => run(db, authority));
+}
+export const loadMergeReview = (authority: RequestActor, input: unknown) =>
+	asAuthority(authority, (db) =>
+		gatedTransaction(db, (tx) => peopleMerge.getMergeReview(tx, new PeopleReadContext(authority), input)),
+	);
+export const pipelinePeopleRead = <T>(run: (tx: WriteTx, ctx: PeopleContext) => Promise<PeopleReply<T>>) =>
+	asSeat((db, authority) => gatedTransaction(db, (tx) => run(tx, new PeopleReadContext(authority))));
+export const pipelinePeopleWrite = <T>(run: (tx: WriteTx, ctx: PeopleWriteContext) => Promise<PeopleReply<T>>) =>
 	asSeat((db, authority) => withPeopleWrite(db, authority, run));

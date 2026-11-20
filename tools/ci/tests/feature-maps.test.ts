@@ -369,14 +369,11 @@ test("INV-feature-maps: an absent observable names something that must not be on
 	]);
 });
 
-test("INV-feature-maps: on a surface that polls, every action is followed by a check that waits", async () => {
+test("INV-feature-maps: on a surface that polls, every action is followed by a check that waits, and any text check waits", async () => {
 	const root = fixture();
 	editMap(root, (map) => {
 		Object.assign(surface(map), { polls: "the previews keep fetching" });
-		surface(map).states[0]!.expect = [
-			{ text: "All things", match: "contains" },
-			{ role: "heading", name: "All things" },
-		];
+		surface(map).states[0]!.expect = [{ text: "All things" }, { role: "heading", name: "All things" }];
 		behavior(map).proof.browser.steps.push({ click: { role: "button", name: "Open thing" } });
 	});
 	assert.deepEqual(await problems(root), [
@@ -388,9 +385,7 @@ test("INV-feature-maps: on a surface that polls, every action is followed by a c
 		surface(map).states[0]!.expect = [{ role: "heading", name: "All things" }];
 	});
 	assert.deepEqual(await problems(fixed), [
-		at(
-			'things.list state populated: things.list polls, so the check after "open" must wait (URL, noText or contains text)',
-		),
+		at('things.list state populated: things.list polls, so the check after "open" must wait (URL, noText or text)'),
 	]);
 });
 

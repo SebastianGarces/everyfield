@@ -1,4 +1,5 @@
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
+import type { WriteTx } from "@everyfield/domain/access";
 import { sql, type SQL } from "@everyfield/db/query";
 import { RequestActor } from "@everyfield/domain/access";
 import {
@@ -34,6 +35,8 @@ import {
 	recipientNames,
 	type AudienceValue,
 } from "../audience.ts";
+import { gatedTransaction } from "@everyfield/domain/operations";
+import { present } from "../../../runtime/captured.ts";
 
 const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
@@ -164,7 +167,9 @@ const SAMPLE_NAME = "RECIPIENT_NAME_TOKEN_7F3A";
 async function audienceFacts(context: ReviewContext, plantId: string, audience: AudienceValue) {
 	const { mail } = context;
 	if (!mail) return null;
-	const raw = (await context.db.execute(sql`SELECT ${audiencePeople(plantId, audience)} AS people`)).rows[0]!.people;
+	const [row] = (await context.db.execute(sql`SELECT ${audiencePeople(plantId, audience)} AS people`)).rows;
+	if (!row) throw new Error("The audience query returned no row");
+	const raw = row.people;
 	const hashes = Object.fromEntries(
 		z
 			.array(z.object({ email: z.string().nullable() }))
@@ -316,7 +321,7 @@ async function moveTime(
 		},
 	};
 }
-const checkedOnly = async (_tx: Transaction, _context: unknown, args: unknown): Promise<EffectResult> => {
+const checkedOnly = async (_tx: WriteTx, _context: unknown, args: unknown): Promise<EffectResult> => {
 	const saved = savedArgs.parse(args);
 	return { receiptId: saved.input.communicationId, revision: saved.expectedRevision };
 };
@@ -469,7 +474,7 @@ async function replaceStep(
 	if (!gate.value.replacementAllowed) return stopped(counts.open > 0 ? "not_confirmed" : "blocked");
 	const session = authority.session;
 	const owner = authority.actor.context.owner;
-	const scheduled = await db.transaction(async (tx) => {
+	const scheduled = await gatedTransaction(db, async (tx) => {
 		if (!(await RequestActor.claimWrite(tx, session, owner))) return null;
 		const context: CommunicationContext = { session, selected: owner };
 		const draft = await communicationWriter.saveDraft(tx, context, {
@@ -585,7 +590,9 @@ export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 	async recheck(tx, context, args) {
 		const saved = savedReplace.parse(args);
 		const now = await tx.execute(sql`SELECT ${audiencePeople(context.selected.id, saved.input.audience)} AS people`);
-		return recipientsDigest(now.rows[0]!.people) === saved.recipientsDigest ? null : "stale_review";
+		const [row] = now.rows;
+		if (!row) throw new Error("The audience query returned no row");
+		return recipientsDigest(row.people) === saved.recipientsDigest ? null : "stale_review";
 	},
 	execute: checkedOnly,
 	reach: (db, authority, args, effectKey, _first, mail) =>
@@ -597,7 +604,7 @@ export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 const earliestSendAt = (now = Date.now()) => new Date(Math.ceil((now + 60_000) / 60_000) * 60_000).toISOString();
 
 async function scheduleNow(
-	tx: Transaction,
+	tx: WriteTx,
 	context: PeopleContext,
 	communicationId: string,
 	revision: string,
@@ -748,16 +755,16 @@ export const send: ReviewedWrite<z.infer<typeof sendInput>> = {
 			};
 		} else
 			draft = {
-				subject: value.subject!,
-				html: paragraphs(value.body!),
-				audience: value.audience!,
+				subject: present(value.subject),
+				html: paragraphs(present(value.body)),
+				audience: present(value.audience),
 				meetingId: value.meetingId ?? null,
 				revision: null,
 			};
 		const facts = await audienceFacts(context, plant, draft.audience);
 		if (!facts) return null;
 		const target = draft.revision
-			? sql`(SELECT ${message} FROM communication c WHERE c.id=${value.communicationId!}::uuid)`
+			? sql`(SELECT ${message} FROM communication c WHERE c.id=${present(value.communicationId)}::uuid)`
 			: sql`'null'::jsonb`;
 		const meeting = draft.meetingId ? meetingFact(sql`${draft.meetingId}::uuid`) : sql`NULL::jsonb`;
 		const refusal = sql`coalesce(CASE WHEN ${draft.subject}::text='' OR ${draft.html}::text='' THEN 'The email needs a subject and a body before it can be sent.' END,
@@ -766,7 +773,7 @@ export const send: ReviewedWrite<z.infer<typeof sendInput>> = {
 				THEN 'This email has an RSVP link, and its meeting is no longer open.' END,
 			${audienceRefusal})`;
 		const input = draft.revision
-			? sql`jsonb_build_object('communicationId',${value.communicationId!}::uuid)`
+			? sql`jsonb_build_object('communicationId',${present(value.communicationId)}::uuid)`
 			: sql`jsonb_build_object('subject',${draft.subject}::text,'bodyHtml',${draft.html}::text,'audience',${JSON.stringify(draft.audience)}::jsonb,'meetingId',${draft.meetingId}::uuid)`;
 		return sql`WITH c AS (SELECT ${plant}::uuid AS plant_id), ${classifiedPeople(plant, facts.audience, facts.hashes)}
 			SELECT ${withRefusal(
@@ -789,7 +796,7 @@ export const send: ReviewedWrite<z.infer<typeof sendInput>> = {
 		let revision: string;
 		if ("communicationId" in saved.input) {
 			id = saved.input.communicationId;
-			revision = saved.expectedRevision!;
+			revision = present(saved.expectedRevision);
 		} else {
 			const { meetingId, ...rest } = saved.input;
 			const draft = await communicationWriter.saveDraft(tx, context, {
@@ -844,7 +851,7 @@ function resendWrite({
 		input: resendInput,
 		allowed: ownerOrAdmin,
 		async review(actor, value, context) {
-			const read = await context.db.transaction((tx) =>
+			const read = await gatedTransaction(context.db, (tx) =>
 				resendCandidates.invoke(tx, actor, { communicationId: value.communicationId, selection }, context.native),
 			);
 			const people = read.rows.filter((r) => r.kind === "person");
@@ -854,7 +861,7 @@ function resendWrite({
 				sql`SELECT c.body_html FROM communication c WHERE c.id=${value.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid`,
 			);
 			const html = z.object({ body_html: z.string().nullable() }).optional().parse(found.rows[0])?.body_html ?? "";
-			const content = contentFor(html).replaceAll(SAMPLE_NAME, eligible[0]!.label);
+			const content = contentFor(html).replaceAll(SAMPLE_NAME, present(eligible[0]).label);
 			const names = (rows: typeof people, reason: boolean) =>
 				sql`${JSON.stringify(rows.map((r) => (reason ? { name: r.label, reason: r.fields.leftOut } : { name: r.label })))}::jsonb`;
 			return sql`SELECT jsonb_build_object('target',${message},'changes',jsonb_build_array(
@@ -1034,7 +1041,7 @@ export const updateTemplate: ReviewedWrite<z.infer<typeof updateInput>> = {
 	),
 	allowed: ownerOrAdmin,
 	async review(actor, value, context) {
-		const listed = await context.db.transaction((tx) => communicationWriter.listTemplates(tx, actor.authority));
+		const listed = await gatedTransaction(context.db, (tx) => communicationWriter.listTemplates(tx, actor.authority));
 		if (listed.status !== "ok") return null;
 		const found = listed.value.templates.find((t) => t.templateId === value.templateId && !t.archived);
 		if (!found) return null;

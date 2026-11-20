@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
+import { present } from "../../../runtime/captured.ts";
 
 const wiki = createWikiProducer();
 export const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
@@ -78,7 +79,7 @@ export const referenceExcerpt: ReadAdapter<z.infer<typeof excerptInput>> = {
 			? [
 					articleRow(article, {
 						section: input.heading ?? null,
-						excerpt: sectionExcerpt(article.contentType, article.body!, input.heading),
+						excerpt: sectionExcerpt(article.contentType, present(article.body), input.heading),
 					}),
 				]
 			: [];

@@ -1,4 +1,5 @@
 import "server-only";
+import type { Database } from "@everyfield/db/client";
 import { EvryRefusal, evryActor, projectError, type EvryActor } from "@everyfield/evry";
 import { after } from "next/server";
 import { privateHeaders } from "../platform/boundary";
@@ -8,15 +9,9 @@ import { phasesMount } from "../../features/phases/mount.ts";
 import { tasksMount } from "../../features/tasks/mount.ts";
 import { runEffects, runTurns } from "./worker";
 
-export function evryDatabase() {
-	const pool = requestDatabase();
-	if (!pool) throw new EvryRefusal("unknown");
-	return pool;
-}
-
 export async function requestActor(): Promise<EvryActor> {
 	const viewer = await getViewer();
-	if (!viewer || viewer.status !== "active" || !viewer.authority) throw new EvryRefusal("access_denied");
+	if (viewer.status !== "active" || !viewer.authority) throw new EvryRefusal("access_denied");
 	return evryActor(viewer.authority);
 }
 
@@ -40,28 +35,23 @@ export function errorResponse(error: unknown) {
 	);
 }
 
-export async function evryResponse(body: (db: ReturnType<typeof evryDatabase>, actor: EvryActor) => Promise<unknown>) {
+export async function evryResponse(body: (db: Database, actor: EvryActor) => Promise<unknown>) {
 	try {
-		return Response.json(await body(evryDatabase(), await requestActor()), { headers: privateHeaders });
+		return Response.json(await body(requestDatabase(), await requestActor()), { headers: privateHeaders });
 	} catch (error) {
 		return errorResponse(error);
 	}
 }
 
 export function drainTurns() {
-	after(() => runTurns(evryDatabase(), 4));
+	after(() => runTurns(requestDatabase(), 4));
 }
 
-export function evryEffectPorts() {
-	const reminders = tasksMount()?.reminders;
-	const phaseNotices = phasesMount()?.notices;
-	return reminders && phaseNotices ? { reminders, phaseNotices } : null;
-}
+export const evryEffectPorts = () => ({ reminders: tasksMount().reminders, phaseNotices: phasesMount().notices });
 
 export function drainEffects() {
 	after(async () => {
-		const ports = evryEffectPorts();
-		if (ports) await runEffects(evryDatabase(), ports, 4);
+		await runEffects(requestDatabase(), evryEffectPorts(), 4);
 	});
 }
 

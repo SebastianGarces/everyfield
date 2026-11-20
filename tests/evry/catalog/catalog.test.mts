@@ -175,7 +175,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		assert.ok(op, id);
 		assert.deepEqual(
 			[op.model_tool, op.kind, op.durable_write, op.evry_review, generated.has(id)],
-			"approveNow" in write && write.approveNow.reason
+			"approveNow" in write && write.approveNow?.reason
 				? [true, "query", false, false, true]
 				: [true, "command", true, true, true],
 			id,
@@ -208,10 +208,9 @@ const as = (contextKind: EvryActor["contextKind"], role: EvryActor["role"]): Evr
 	authority: null as never,
 	accountId: "5b6d1f0e-0000-4000-8000-000000000f01",
 	session: "5b6d1f0e-0000-4000-8000-000000000f21",
-	owner:
-		contextKind === "account" || contextKind === "plant"
-			? { kind: contextKind, id: "5b6d1f0e-0000-4000-8000-000000000001" }
-			: { kind: "organization", id: "5b6d1f0e-0000-4000-8000-000000000003", organizationKind: contextKind },
+	owner: (contextKind === "account" || contextKind === "plant"
+		? { kind: contextKind, id: "5b6d1f0e-0000-4000-8000-000000000001" }
+		: { kind: "organization", id: "5b6d1f0e-0000-4000-8000-000000000003", organizationKind: contextKind }) as never,
 	contextKind,
 	role,
 	seatId: role ? "5b6d1f0e-0000-4000-8000-000000000f31" : null,

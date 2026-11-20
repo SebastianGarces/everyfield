@@ -1,5 +1,6 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { readFileSync, writeFileSync } from "node:fs";
 import { readCatalog, READ_DOMAINS } from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
@@ -400,7 +401,7 @@ async function setUp(setup: NonNullable<Eval["setup"]>) {
 	const authority = church.actors.owner.authority;
 	if (setup.merge) {
 		const pair = { sourceId: byName(setup.merge[0]).id, survivorId: byName(setup.merge[1]).id };
-		const review = await church.db.transaction((tx) =>
+		const review = await gatedTransaction(church.db, (tx) =>
 			peopleMerge.getMergeReview(tx, new PeopleReadContext(authority), pair),
 		);
 		if (review.status !== "ok") throw Error("setup: no merge review");

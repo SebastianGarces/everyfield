@@ -1,6 +1,6 @@
 import type { Database, Transaction } from "@everyfield/db/client";
 import type { SQL } from "@everyfield/db/query";
-import type { RequestActor } from "@everyfield/domain/access";
+import type { RequestActor, WriteTx } from "@everyfield/domain/access";
 import type { createInvitationService } from "@everyfield/domain/identity";
 import type { OnboardingProducer } from "@everyfield/contracts/onboarding/server";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
@@ -23,14 +23,14 @@ export type NativePorts = {
 	invitations(
 		db: Database | Transaction,
 	): Pick<ReturnType<typeof createInvitationService>, "invite" | "resend" | "revoke" | "list">;
-	organizations: OrganizationAdapter<Transaction>;
+	organizations: OrganizationAdapter<WriteTx>;
 	settings: Pick<
-		SettingsProducer<Transaction>,
+		SettingsProducer<WriteTx>,
 		"updatePlantProfile" | "setDigestSchedule" | "previewPlantTimezone" | "setPlantTimezone"
 	>;
-	account: Pick<NativeAccountProducer<Transaction>, "finalizeAvatar"> &
-		Pick<DeletionProducer<Transaction>, "requestAccountDeletion">;
-	onboarding: OnboardingProducer<Transaction>;
+	account: Pick<NativeAccountProducer<WriteTx>, "finalizeAvatar"> &
+		Pick<DeletionProducer<WriteTx>, "requestAccountDeletion">;
+	onboarding: OnboardingProducer<WriteTx>;
 	appVersion: string | null;
 	launchNotices?: LaunchNotices;
 };
@@ -74,7 +74,7 @@ export type ReviewedWrite<I> = {
 	allowed(actor: EvryActor): boolean;
 	review(actor: EvryActor, input: I, context: ReviewContext): SQL | Promise<SQL | null>;
 	execute(
-		tx: Transaction,
+		tx: WriteTx,
 		context: PeopleContext,
 		args: unknown,
 		effectKey: string,
@@ -85,7 +85,7 @@ export type ReviewedWrite<I> = {
 		reason: boolean;
 		run(db: Database, authority: RequestActor, args: unknown, reason: string | null): Promise<EffectResult>;
 	};
-	recheck?(tx: Transaction, context: PeopleContext, args: unknown): Promise<string | null>;
+	recheck?(tx: WriteTx, context: PeopleContext, args: unknown): Promise<string | null>;
 	current?(p: SQL): SQL;
 	reach?(
 		db: Database,

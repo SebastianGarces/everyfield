@@ -1,4 +1,4 @@
-import type { Transaction } from "@everyfield/db/client";
+import type { WriteTx } from "@everyfield/domain/access";
 import { sql } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
 import {
@@ -60,7 +60,7 @@ export const getInterviews: ReadAdapter<z.infer<typeof history>> = {
 		"Read one person's recorded interviews, latest first: the date, the five criteria (maturity, gifted, chemistry, right reasons, season) each rated pass, concern or fail with notes, the result and next steps. Owners and Admins only.",
 	input: history,
 	allowed: ownerOrAdmin,
-	async invoke(tx: Transaction, actor, input) {
+	async invoke(tx: WriteTx, actor, input) {
 		const v = valueOf(await interviews.getInterviews(tx, context(actor), page(input)));
 		if (!v) return result("people.getInterviews", [], PRIVATE);
 		const rows = v.items.map((i): SourceRow => ({
@@ -187,13 +187,13 @@ export const getCommitmentDownload: ReadAdapter<{ commitmentId: string }> = {
 	},
 };
 
-const names = async (tx: Transaction, actor: EvryActor, ids: string[]) => {
+const names = async (tx: WriteTx, actor: EvryActor, ids: string[]) => {
 	const r = await tx.execute(sql`SELECT p.id,p.display_name FROM person p
 		WHERE p.id=ANY(${sql.param(ids)}::uuid[]) AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid`);
 	return new Map(r.rows.map((x) => [String(x.id), String(x.display_name)]));
 };
 
-export async function mergeReviewOf(tx: Transaction, actor: EvryActor, pair: { sourceId: string; survivorId: string }) {
+export async function mergeReviewOf(tx: WriteTx, actor: EvryActor, pair: { sourceId: string; survivorId: string }) {
 	return valueOf(await peopleMerge.getMergeReview(tx, context(actor), pair));
 }
 export const getMergeReview: ReadAdapter<{ sourceId: string; survivorId: string }> = {
@@ -230,7 +230,7 @@ export const getMergeReview: ReadAdapter<{ sourceId: string; survivorId: string 
 	},
 };
 
-export async function unmergePreviewOf(tx: Transaction, actor: EvryActor, mergeId: string) {
+export async function unmergePreviewOf(tx: WriteTx, actor: EvryActor, mergeId: string) {
 	const v = valueOf(await peopleUnmerge.previewUnmerge(tx, context(actor), { mergeId }));
 	if (!v) return null;
 	const named = await names(tx, actor, [v.sourceId, v.survivorId]);
@@ -250,7 +250,7 @@ const unmergeInput = z.union([
 	z.strictObject({ mergeId: id }),
 	z.strictObject({ personId: id.describe("Either person of the merge: the one who stayed or the one merged in") }),
 ]);
-async function mergeOf(tx: Transaction, actor: EvryActor, input: z.infer<typeof unmergeInput>) {
+async function mergeOf(tx: WriteTx, actor: EvryActor, input: z.infer<typeof unmergeInput>) {
 	if ("mergeId" in input) return input.mergeId;
 	const r = await tx.execute(sql`SELECT m.id FROM person_merge m
 		WHERE (m.survivor_id=${input.personId}::uuid OR m.source_id=${input.personId}::uuid) AND m.tenant_id=${actor.owner.id}::uuid

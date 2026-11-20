@@ -1,5 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { captured, present } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind: string; id: string; label: string; fields: Record<string, unknown> };
@@ -8,7 +9,7 @@ type Output = Record<string, unknown> & { operation?: string; rows?: Row[]; tota
 function outputs(prompt: Prompt): Output[] {
 	const found: Output[] = [];
 	for (let i = prompt.length - 1; i >= 0; i--) {
-		const m = prompt[i]!;
+		const m = present(prompt[i]);
 		if (m.role === "user") break;
 		if (m.role !== "tool") continue;
 		const parts = m.content.filter((p) => p.type === "tool-result");
@@ -113,7 +114,7 @@ export function taskStep(
 		const lines = rows(people).map((p, i) => {
 			const log = rows(histories[i]);
 			if (!log.length) return `No call is recorded for ${p.label}.`;
-			const latest = log[0]!;
+			const latest = present(log[0]);
 			return `For ${p.label}, ${String(latest.fields.recordedBy)} recorded ${OUTCOME[String(latest.fields.outcome)] ?? "an outcome"} on ${day(latest.fields.occurredAt)}${latest.fields.channel ? ` (${String(latest.fields.channel)})` : ""}.`;
 		});
 		if (!lines.length) return say(`I can't find anyone named ${called[1]} in this church.`);
@@ -176,9 +177,9 @@ export function taskStep(
 		const owners = last(out, "tasks.listFollowUpOwners");
 		if (!owners) return read("followups", "tasks.listFollowUpOwners", { personId: person.id });
 		const duty = rows(owners)[0];
-		const note = logged[3]!.trim();
+		const note = captured(logged, 3).trim();
 		const channel = { called: "phone", texted: "text", emailed: "email", visited: "in_person", met: "in_person" }[
-			logged[1]!.toLowerCase()
+			captured(logged, 1).toLowerCase()
 		];
 		return propose("followups.recordOutcome", {
 			...(duty ? { taskId: duty.id } : { personId: person.id, completeTask: false }),
@@ -193,14 +194,14 @@ export function taskStep(
 	if (split && tasks) {
 		const seats = last(out, "tasks.eligibleAssignees");
 		if (!seats) return read("tasks", "tasks.eligibleAssignees", {});
-		const named = [split[2]!, split[3]!].map((n) => ({
+		const named = [captured(split, 2), captured(split, 3)].map((n) => ({
 			n,
 			seat: rows(seats).find((r) => r.label.toLowerCase().startsWith(n.toLowerCase())),
 		}));
 		const cannot = named.filter((x) => !x.seat?.fields.canOwnFollowUps);
 		if (cannot.length)
 			return say(
-				`${list(cannot.map((x) => x.seat?.label ?? x.n))} can't be assigned follow-ups. ${list(named.filter((x) => !cannot.includes(x)).map((x) => x.seat!.label))} can. What would you like to do: give all ${split[1]} to them, or choose someone else?`,
+				`${list(cannot.map((x) => x.seat?.label ?? x.n))} can't be assigned follow-ups. ${list(named.filter((x) => !cannot.includes(x)).map((x) => present(x.seat).label))} can. What would you like to do: give all ${split[1]} to them, or choose someone else?`,
 			);
 	}
 	const all = /\bgive (?:them|all of them|all \w+) (?:all )?to ([A-Z][\w'-]+)/i.exec(text);
@@ -211,7 +212,7 @@ export function taskStep(
 		if (!open) return read("followups", "tasks.listFollowUpOwners", { owner: "needs_owner" });
 		const seats = last(out, "tasks.eligibleAssignees");
 		if (!seats) return read("tasks", "tasks.eligibleAssignees", {});
-		const seat = rows(seats).find((r) => r.label.toLowerCase().startsWith(all[1]!.toLowerCase()));
+		const seat = rows(seats).find((r) => r.label.toLowerCase().startsWith(captured(all, 1).toLowerCase()));
 		if (!seat?.fields.canOwnFollowUps) return say(`${all[1]} can't be assigned follow-ups.`);
 		return propose("tasks.assignFollowUp", {
 			items: rows(open).map((d) => ({ taskId: d.id, assigneeIds: [seat.id] })),
@@ -222,7 +223,7 @@ export function taskStep(
 	if (remind && has("propose_change")) {
 		if (proposed(out)) return say(REVIEWED);
 		if (failed) return say(`I couldn't prepare that (${String(failed.error)}).`);
-		const title = remind[2]!.charAt(0).toUpperCase() + remind[2]!.slice(1);
+		const title = captured(remind, 2).charAt(0).toUpperCase() + captured(remind, 2).slice(1);
 		return propose("tasks.create", {
 			title,
 			due: nextMonday(prompt),
@@ -298,7 +299,7 @@ export function taskStep(
 		if (!task) return say(`I can't find a task called "${assign[1]}".`);
 		const seats = last(out, "tasks.eligibleAssignees");
 		if (!seats) return read("tasks", "tasks.eligibleAssignees", {});
-		const name = assign[2]!.toLowerCase();
+		const name = captured(assign, 2).toLowerCase();
 		const seat = rows(seats).find((r) => r.label.toLowerCase().startsWith(name));
 		if (!seat)
 			return say(
@@ -320,7 +321,7 @@ export function taskStep(
 		if (!detail) return read("tasks", "tasks.get", { taskId: parent.id });
 		const tick = checklist[3]
 			? rows(detail).find(
-					(r) => r.fields.parentId === parent.id && r.label.toLowerCase() === checklist[3]!.toLowerCase(),
+					(r) => r.fields.parentId === parent.id && r.label.toLowerCase() === captured(checklist, 3).toLowerCase(),
 				)
 			: undefined;
 		return propose("tasks.createSubtask", {

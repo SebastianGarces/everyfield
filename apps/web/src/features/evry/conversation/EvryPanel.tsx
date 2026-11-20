@@ -30,8 +30,8 @@ import {
 	type Ref,
 } from "react";
 import { createRead, useRead } from "@/components/read";
-import { storeContext, useLocalStore, useStore } from "@/components/store";
 import * as api from "./api.ts";
+import { Panel } from "./panel.tsx";
 import {
 	endNotice,
 	MAX_MESSAGE,
@@ -50,41 +50,16 @@ import { ReviewCard } from "../review/ReviewCard.tsx";
 import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
 import { useRowPhotos } from "./useRowPhotos.ts";
-import { AttachButton, AttachedPhoto, checkPhoto, stageAttached } from "./PhotoAttach.tsx";
-import { ATTACH, fileSize, putFile, type Picked } from "./attachments.ts";
-import { createEvryPanelStore, type EvryPanelState, type EvryPort, type Stream } from "./EvryPanel.store.ts";
+import { AttachButton, AttachedPhoto } from "./PhotoAttach.tsx";
+import { ATTACH, fileSize, type Picked } from "./attachments.ts";
+import type { Stream } from "./EvryPanel.store.ts";
 
-const PORT: EvryPort = { ...api, checkPhoto, stagePhoto: stageAttached, putFile };
-const Panel = storeContext<EvryPanelState>("EvryPanel");
 const useActions = () => Panel.useSelect((s) => s.actions);
 
 const conversations = createRead((search: string, page: number) => api.listConversations(search, page), {
 	failed: () => ({ status: "lost" }) as const,
 	fresh: 1_000,
 });
-
-export function useEvryPanel({
-	inPlant,
-	canAttach = false,
-	off = false,
-	context,
-}: {
-	inPlant: boolean;
-	canAttach?: boolean;
-	off?: boolean;
-	context: string;
-}) {
-	const store = useLocalStore(() => createEvryPanelStore({ context, port: PORT }));
-	return {
-		open: useStore(store, (s) => s.open),
-		toggle: () => store.getState().actions.toggle(),
-		element: off ? null : (
-			<Panel.Provider value={store}>
-				<EvryPanel inPlant={inPlant} canAttach={canAttach} context={context} />
-			</Panel.Provider>
-		),
-	};
-}
 
 function followEnd() {
 	let stick = true;
@@ -125,7 +100,7 @@ function followEnd() {
 	};
 }
 
-function EvryPanel({ inPlant, canAttach, context }: { inPlant: boolean; canAttach: boolean; context: string }) {
+export function EvryPanel({ inPlant, canAttach, context }: { inPlant: boolean; canAttach: boolean; context: string }) {
 	const actions = useActions();
 	const open = Panel.useSelect((s) => s.open);
 	const view = Panel.useSelect((s) => s.view);
@@ -159,7 +134,7 @@ function EvryPanel({ inPlant, canAttach, context }: { inPlant: boolean; canAttac
 			open={open}
 			onOpenChange={actions.show}
 			modal={false}
-			className="w-[560px] max-w-[calc(100vw-24px)]"
+			size="xl"
 			bodyRef={view === "chat" ? box : undefined}
 			onOpenAutoFocus={(e) => {
 				if (view !== "chat") return;

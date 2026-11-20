@@ -1,5 +1,5 @@
 import type { Database } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
+import { sql, type SqlLiteral } from "@everyfield/db/query";
 import { readPrivateUpload, signPrivatePut, type PrivateStorage } from "@everyfield/db/schema";
 import { liveRead } from "@everyfield/domain/access";
 import { randomUUID } from "node:crypto";
@@ -22,9 +22,10 @@ const stageInput = z.strictObject({
 export const attachment = z.strictObject({ id: z.uuid(), name: stageInput.shape.name });
 
 const uploadKey = (conversationId: string, id: string) => `evry-attachment/${conversationId}/${id}`;
-const staged = (f: string, c: string) =>
+const staged = <F extends string, C extends string>(f: SqlLiteral<F>, c: SqlLiteral<C>) =>
 	`${f}.purpose='assistant_staging' AND ${f}.upload_key='evry-attachment/'||${c}.id||'/'||${f}.id`;
-export const stagedIn = (f: string, c: string) => sql.raw(staged(f, c));
+export const stagedIn = <F extends string, C extends string>(f: SqlLiteral<F>, c: SqlLiteral<C>) =>
+	sql.raw(staged(f, c));
 const canAttach = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
 
@@ -83,7 +84,7 @@ export async function readAttachment(
 	return object.bytes;
 }
 
-export const attachmentsOf = (c: string) =>
+export const attachmentsOf = <C extends string>(c: SqlLiteral<C>) =>
 	sql.raw(`coalesce((SELECT jsonb_agg(x ORDER BY x."attachedAt" DESC, x.id) FROM (
 		SELECT DISTINCT ON (a.id) a.id,a.name,e.created_at AS "attachedAt",f.expires_at AS "availableUntil",
 			(SELECT k.body->'result'->'rows'->0->'fields'->>'fileDigest' FROM conversation_event k WHERE k.conversation_id=${c}.id

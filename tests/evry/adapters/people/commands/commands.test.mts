@@ -13,8 +13,8 @@ import {
 	type Proposal,
 } from "../../../../../packages/evry/src/index.ts";
 import { verifyPeople } from "../../../../../packages/evry/src/adapters/people/reads/index.ts";
-import { transaction } from "../../../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../../packages/domain/src/jobs/queue.ts";
 import {
 	accounts,
 	actor,
@@ -122,7 +122,8 @@ async function openTask(personId: string) {
 test("INV-budget: a proposed person is created only after approval, once, with its audit row", async () => {
 	const owner = await actor("owner");
 	const t = await turn(owner);
-	const before = (await admin.execute(sql`SELECT count(*)::int n FROM person WHERE plant_id=${plant}`)).rows[0]!.n;
+	const before = (await admin.execute<{ n: number }>(sql`SELECT count(*)::int n FROM person WHERE plant_id=${plant}`))
+		.rows[0]!.n;
 	const proposal = await t.propose("people.createPerson", { displayName: "Jamie Park", city: "Oak Park" });
 	assert.ok(proposal);
 	assert.deepEqual(proposal.review, {
@@ -136,7 +137,7 @@ test("INV-budget: a proposed person is created only after approval, once, with i
 		],
 	});
 	const count = async () =>
-		(await admin.execute(sql`SELECT count(*)::int n FROM person WHERE plant_id=${plant}`)).rows[0]!.n;
+		(await admin.execute<{ n: number }>(sql`SELECT count(*)::int n FROM person WHERE plant_id=${plant}`)).rows[0]!.n;
 	assert.equal(await count(), before, "nothing changes before approval");
 
 	const { outcome, statements, review } = await approveAndRun(owner, proposal);

@@ -29,6 +29,7 @@ import {
 	withdrawCommitmentRequest,
 	type PeopleReply,
 } from "@everyfield/contracts/people";
+import { gatedTransaction } from "@everyfield/domain/operations";
 import { z } from "zod";
 import { person, reviewed, target, type Receipt } from "../../people/commands/index.ts";
 import { mergeReviewOf, unmergePreviewOf } from "../reads/index.ts";
@@ -197,14 +198,14 @@ const RECORDS = {
 					? sql`to_jsonb(r.result)`
 					: f === "nextSteps"
 						? sql`to_jsonb(r.next_steps)`
-						: sql.raw(`jsonb_build_object('rating',r.${column(f)},'notes',r.${column(f)}_notes)`),
+						: sql`jsonb_build_object('rating',r.${sql.identifier(column(f))},'notes',r.${sql.identifier(`${column(f)}_notes`)})`,
 	},
 	assessment: {
 		table: "four_cs",
 		read: (f: string) =>
 			f === "occurredOn"
 				? sql`to_jsonb(r.assessed_on::text)`
-				: sql.raw(`jsonb_build_object('score',r.${f},'notes',r.${f}_notes)`),
+				: sql`jsonb_build_object('score',r.${sql.identifier(f)},'notes',r.${sql.identifier(`${f}_notes`)})`,
 	},
 	commitment: { table: "commitment", read: () => sql`to_jsonb(r.notes)` },
 } as const;
@@ -381,7 +382,7 @@ export const ASSESSMENT_COMMANDS = {
 		input: mergeInput,
 		async review(actor, v, { db }) {
 			if (v.sourceId === v.survivorId) return null;
-			const m = await db.transaction((tx) => mergeReviewOf(tx, actor, v));
+			const m = await gatedTransaction(db, (tx) => mergeReviewOf(tx, actor, v));
 			if (!m) return null;
 			const who = { source: m.source.displayName, survivor: m.survivor.displayName };
 			const fields = m.fields.filter(
@@ -427,7 +428,7 @@ export const ASSESSMENT_COMMANDS = {
 			"Propose undoing one merge, by the mergeId from people.previewUnmerge. When something changed since the merge, the card says why and nothing can be approved. Nothing changes until the user approves the exact review.",
 		input: z.strictObject({ mergeId: id }),
 		async review(actor, v, { db }) {
-			const u = await db.transaction((tx) => unmergePreviewOf(tx, actor, v.mergeId));
+			const u = await gatedTransaction(db, (tx) => unmergePreviewOf(tx, actor, v.mergeId));
 			if (!u) return null;
 			const list = [
 				change("comesBack", u.names.source),

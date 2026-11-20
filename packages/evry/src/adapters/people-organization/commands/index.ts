@@ -1,5 +1,4 @@
-import type { Transaction } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { PeopleReadContext, peopleCsv, peopleWriter, personFields } from "@everyfield/domain/people";
 import {
 	householdName,
@@ -24,9 +23,12 @@ import { attachmentState, attachmentsOf } from "../../../attachments/store.ts";
 import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { ownerOrAdmin } from "../../people/commands/index.ts";
 import { failure, problemText } from "../reads/index.ts";
+import type { WriteTx } from "@everyfield/domain/access";
+import { gatedTransaction } from "@everyfield/domain/operations";
+import { present } from "../../../runtime/captured.ts";
 
 type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
-type Run<A> = (tx: Transaction, context: PeopleContext, args: A, key: string) => Promise<EffectResult>;
+type Run<A> = (tx: WriteTx, context: PeopleContext, args: A, key: string) => Promise<EffectResult>;
 
 function reviewed<I, A>(spec: {
 	operation: string;
@@ -70,15 +72,15 @@ const ADDRESS = [
 	["postalCode", "postal_code"],
 	["country", "country"],
 ] as const;
-const addressLine = (a: string) =>
+const addressLine = <AName extends string>(a: SqlLiteral<AName>) =>
 	sql.raw(`nullif(concat_ws(', ',${ADDRESS.map(([, col]) => `nullif(btrim(${a}.${col}),'')`).join(",")}),'')`);
-const hasAddress = (a: string) =>
+const hasAddress = <AName extends string>(a: SqlLiteral<AName>) =>
 	sql.raw(`(${ADDRESS.map(([, col]) => `nullif(btrim(${a}.${col}),'')`).join(" IS NOT NULL OR ")} IS NOT NULL)`);
-const sameAddress = (a: string, b: string) =>
+const sameAddress = <AName extends string, BName extends string>(a: SqlLiteral<AName>, b: SqlLiteral<BName>) =>
 	sql.raw(
 		`(${ADDRESS.map(([, col]) => `${a}.${col}`).join(",")}) IS NOT DISTINCT FROM (${ADDRESS.map(([, col]) => `${b}.${col}`).join(",")})`,
 	);
-const roleOrder = (a: string) =>
+const roleOrder = <AName extends string>(a: SqlLiteral<AName>) =>
 	sql.raw(
 		`CASE ${a}.household_role WHEN 'head' THEN 1 WHEN 'spouse' THEN 2 WHEN 'child' THEN 3 ELSE 4 END,${a}.display_name,${a}.id`,
 	);
@@ -90,10 +92,18 @@ const address = z.strictObject({
 	country: z.string().trim().max(255).nullable().optional(),
 });
 type Address = z.infer<typeof address>;
-function fieldChanges(a: string, patch: Record<string, unknown>, keys: Record<string, string>) {
+function fieldChanges<AName extends string>(
+	a: SqlLiteral<AName>,
+	patch: Record<string, unknown>,
+	keys: Record<string, string>,
+) {
 	const rows = Object.entries(patch)
 		.filter(([, after]) => after !== undefined)
-		.map(([field, after], n) => ({ n, field, col: keys[field]!, after }));
+		.map(([field, after], n) => {
+			const col = keys[field];
+			if (col === undefined) throw new Error(`The patch field ${field} has no column`);
+			return { n, field, col, after };
+		});
 	return sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('field',k.field,'before',to_jsonb(${sql.raw(a)})->k.col,'after',k.after) ORDER BY k.n)
 		FILTER (WHERE (to_jsonb(${sql.raw(a)})->k.col) IS DISTINCT FROM k.after),'[]'::jsonb)
 		FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) k(n int,field text,col text,after jsonb))`;
@@ -363,7 +373,7 @@ function tagReview(actor: EvryActor, ids: string[], tag: SQL, assign: boolean, t
 		WHERE (SELECT count(*) FROM ps)=${ids.length} AND (EXISTS(SELECT FROM t) OR ${assign && tagName !== null}::boolean)`;
 }
 async function eachPerson(
-	tx: Transaction,
+	tx: WriteTx,
 	context: PeopleContext,
 	args: Tagging,
 	tagId: string,
@@ -389,7 +399,8 @@ async function eachPerson(
 				: { outcome: "unchanged" as const, reason: unchanged }),
 		});
 	}
-	return { receiptId: receiptId!, revision: "1", people };
+	if (receiptId === null) throw new Error("A tag change ran for no person");
+	return { receiptId, revision: "1", people };
 }
 export const assignTag = reviewed({
 	operation: "people.assignTag",
@@ -399,9 +410,10 @@ export const assignTag = reviewed({
 		.strictObject({ personIds, tagId: z.uuid().optional(), tagName: tagName.optional() })
 		.refine((v) => (v.tagId === undefined) !== (v.tagName === undefined), "name the tag by id or by name"),
 	review(actor, value) {
-		const tag = value.tagId
-			? sql`t.id=${value.tagId}::uuid`
-			: sql`t.normalized_name=lower(btrim(${value.tagName!}::text))`;
+		const tag =
+			value.tagName === undefined
+				? sql`t.id=${value.tagId}::uuid`
+				: sql`t.normalized_name=lower(btrim(${value.tagName}::text))`;
 		return tagReview(actor, value.personIds, tag, true, value.tagName ?? null);
 	},
 	async run(tx, context, args: Tagging, key) {
@@ -632,7 +644,7 @@ async function importBytes(actor: EvryActor, value: z.infer<typeof importInput>,
 	if (!file) throw new EvryRefusal("attachment_elsewhere");
 	if (file.status === "gone") throw new EvryRefusal("attachment_gone");
 	if (file.status === "replaced" || file.checkedDigest !== value.fileDigest) throw new EvryRefusal("file_changed");
-	return context.files.read(value.attachmentId!);
+	return context.files.read(present(value.attachmentId));
 }
 
 export const executeBulkImport = reviewed({
@@ -642,7 +654,7 @@ export const executeBulkImport = reviewed({
 	input: importInput,
 	async review(actor, value, context) {
 		const bytes = await importBytes(actor, value, context);
-		const preview = (await context.db.transaction((tx) =>
+		const preview = (await gatedTransaction(context.db, (tx) =>
 			peopleCsv.previewImport(tx, new PeopleReadContext(actor.authority), { file: bytes }),
 		)) as Reply<Preview>;
 		if (preview.status !== "ok") {

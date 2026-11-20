@@ -21,9 +21,10 @@ import {
 	type Proposal,
 } from "../../../../../packages/evry/src/index.ts";
 import { listMessages } from "../../../../../packages/evry/src/adapters/communication/reads/index.ts";
-import { transaction } from "../../../../../apps/web/src/server/platform/database.ts";
-import { receiveMailCallback, replayStoredCallbacks } from "../../../../../apps/web/src/server/jobs/webhook.ts";
-import { claimDue, finishClaim } from "../../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../../packages/domain/src/jobs/transaction.ts";
+import { replayStoredCallbacks } from "../../../../../packages/domain/src/jobs/webhook.ts";
+import { resendWebhook } from "../../../../../apps/web/src/server/jobs/webhook-route.ts";
+import { claimDue, finishClaim } from "../../../../../packages/domain/src/jobs/queue.ts";
 import {
 	accounts,
 	actor,
@@ -37,6 +38,7 @@ import {
 	sql,
 	teardown,
 } from "../../../runtime/support.mts";
+import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
 const CALLBACK_SECRET = "whsec_" + randomBytes(32).toString("base64");
 function signedCallback(messageId: string, kind: string) {
@@ -87,7 +89,6 @@ function emailService() {
 		cancel: "done" as Answer | ((id: string, n: number) => Answer),
 		reschedule: "done" as Answer,
 		send: "ids" as "ids" | "unknown" | "refused",
-		lookup: "unknown" as "ids" | "unknown",
 	};
 	const open = async () =>
 		Number(
@@ -117,10 +118,6 @@ function emailService() {
 				if (answers.send !== "ids") return { outcome: answers.send };
 				return { outcome: "ids", ids: batch.messages.map(() => "re_" + randomUUID()) };
 			},
-			async lookup() {
-				if (answers.lookup === "unknown") return { outcome: "unknown" };
-				return { outcome: "ids", ids: Array.from({ length: 20 }, () => "re_" + randomUUID()) };
-			},
 			async cancel(ids) {
 				calls.cancel.push({ ids: [...ids], openTransactions: await open() });
 				const a = answers.cancel;
@@ -138,12 +135,14 @@ function emailService() {
 const unsubscribe = (person: string) =>
 	admin.execute(sql`INSERT INTO person_email_opt_out (plant_id, person_id) VALUES (${plant}, ${person})`);
 
+let dana = "";
+let noAddress = "";
 before(async () => {
 	await setup();
 	const emails: [string, string][] = [
-		[people.alexRivera!, "alex.rivera@example.test"],
-		[people.alexChen!, "alex.chen@example.test"],
-		[people.casey!, "casey.reed@example.test"],
+		[people.alexRivera, "alex.rivera@example.test"],
+		[people.alexChen, "alex.chen@example.test"],
+		[people.casey, "casey.reed@example.test"],
 	];
 	for (const [id, email] of emails) await admin.execute(sql`UPDATE person SET email=${email} WHERE id=${id}`);
 	const event = randomUUID();
@@ -151,13 +150,13 @@ before(async () => {
 		VALUES(${event},${"seed-" + event},${"seed-" + event},'bounced',clock_timestamp(),clock_timestamp(),'x','{"hard_bounce":true}'::jsonb)`);
 	await admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
 		VALUES(${hashOf("casey.reed@example.test")},'hard_bounce',${event},clock_timestamp())`);
-	people.dana = randomUUID();
+	dana = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state,linked_account_id)
-		VALUES(${people.dana},${plant},${plant},'Dana Off','dana.off@example.test','other',clock_timestamp(),'prospect','unknown','unknown',9,'live',${accounts.member.id})`);
-	await unsubscribe(people.dana);
+		VALUES(${dana},${plant},${plant},'Dana Off','dana.off@example.test','other',clock_timestamp(),'prospect','unknown','unknown',9,'live',${accounts.member.id})`);
+	await unsubscribe(dana);
 	const [none] = (await admin.execute(sql`SELECT id FROM person WHERE plant_id=${plant} AND display_name='Member 001'`))
 		.rows as { id: string }[];
-	people.noAddress = none!.id;
+	noAddress = none!.id;
 });
 after(teardown);
 
@@ -207,7 +206,7 @@ function localAt(days: number, hhmm = "09:00") {
 const audience = (extra: string[] = []) => ({
 	groups: [],
 	teamIds: [],
-	personIds: [people.alexRivera!, people.alexChen!, people.casey!, people.noAddress!, people.dana!, ...extra],
+	personIds: [people.alexRivera, people.alexChen, people.casey, noAddress, dana, ...extra],
 });
 const SUBJECT = "Sunday's interest meeting";
 const limits = JSON.parse(
@@ -293,7 +292,9 @@ test("approving a draft saves it in Messages drafts with no mail and no email se
 	assert.equal(draft!.state, "draft");
 	assert.match(draft!.body_text, /Hello team\./);
 	assert.deepEqual(draft!.audience.personIds, audience().personIds);
-	const found = await db.transaction((tx) => listMessages.invoke(tx, owner, { state: "draft", subject: "Draft only" }));
+	const found = await gatedTransaction(db, (tx) =>
+		listMessages.invoke(tx, owner, { state: "draft", subject: "Draft only" }, null),
+	);
 	assert.equal(found.rows[0]!.id, done.review.receipt!.receiptId);
 	assert.deepEqual(
 		(
@@ -391,7 +392,7 @@ test("the review leaves out who the handoff refuses: an unsubscribe after one re
 	const proposed = await t.propose("communication.saveDraft", {
 		subject: "Opt-out rule",
 		body: "Hello.",
-		audience: { groups: [], teamIds: [], personIds: [people.dana!, olive] },
+		audience: { groups: [], teamIds: [], personIds: [dana, olive] },
 	});
 	const saved = await approve(owner, proposed!, service.port);
 	const id = saved.review.receipt!.receiptId!;
@@ -474,7 +475,9 @@ test("approving a schedule saves it scheduled, reports counts without saying del
 			scheduledAt: undefined,
 		},
 	);
-	assert.equal(review.receipt!.report!.scheduledAt, expected!.at);
+	const report = review.receipt!.report!;
+	assert.ok(report.kind === "schedule");
+	assert.equal(report.scheduledAt, expected!.at);
 	assert.doesNotMatch(JSON.stringify(review.receipt), /delivered/i);
 	const [message] = await rows(sql`SELECT state FROM communication WHERE id=${id}`);
 	assert.equal(message!.state, "scheduled");
@@ -485,8 +488,8 @@ test("approving a schedule saves it scheduled, reports counts without saying del
 		{ state: "refused", n: 2 },
 		{ state: "scheduled", n: 2 },
 	]);
-	const found = await db.transaction((tx) =>
-		listMessages.invoke(tx, owner, { state: "scheduled", subject: "Scheduled once" }),
+	const found = await gatedTransaction(db, (tx) =>
+		listMessages.invoke(tx, owner, { state: "scheduled", subject: "Scheduled once" }, null),
 	);
 	assert.equal(found.rows[0]!.fields.handedOff, true);
 	assert.equal(await sendWhenDue(id, service), 1);
@@ -502,7 +505,7 @@ test("the email service gets only the people the review showed", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
 	const launchTeam = { groups: ["launch_team"], teamIds: [], personIds: [] };
-	await stageOf(people.alexRivera!, "launch_team");
+	await stageOf(people.alexRivera, "launch_team");
 	const start = await turn(owner, service.port);
 	const proposed = await start.propose("communication.saveDraft", {
 		subject: "Reviewed people",
@@ -515,19 +518,19 @@ test("the email service gets only the people the review showed", async () => {
 	const sendAt = localAt(3);
 	const proposal = await t.propose("communication.scheduleReviewed", { communicationId: id, sendAt });
 	assert.deepEqual(change(proposal!, "recipients")!.after, [{ name: "Alex Rivera" }]);
-	await stageOf(people.alexChen!, "launch_team");
+	await stageOf(people.alexChen, "launch_team");
 	const done = await approve(owner, proposal!, service.port);
 	assert.equal(done.review.outcome, "refused");
 	assert.equal(done.review.receipt!.code, "stale_review");
 	assert.equal(service.calls.send.length, 0, "the email service got no call");
 	assert.equal((await rows(sql`SELECT state FROM communication WHERE id=${id}`))[0]!.state, "draft");
-	await stageOf(people.alexChen!, "prospect");
+	await stageOf(people.alexChen, "prospect");
 
 	const blockedDraft = await turn(owner, service.port);
 	const p2 = await blockedDraft.propose("communication.saveDraft", {
 		subject: "Left out stays out",
 		body: "Hello.",
-		audience: { groups: [], teamIds: [], personIds: [people.alexRivera!, people.casey!] },
+		audience: { groups: [], teamIds: [], personIds: [people.alexRivera, people.casey] },
 	});
 	const saved2 = await approve(owner, p2!, service.port);
 	const t2 = await turn(owner, service.port);
@@ -542,7 +545,7 @@ test("the email service gets only the people the review showed", async () => {
 	assert.equal(await sendWhenDue(saved2.review.receipt!.receiptId!, service), 1);
 	await admin.execute(sql`UPDATE suppression SET cleared_at=NULL WHERE address_hash=${blockedHash}`);
 	assert.deepEqual(service.calls.send.at(-1)!.to, ["alex.rivera@example.test"]);
-	await stageOf(people.alexRivera!, "prospect");
+	await stageOf(people.alexRivera, "prospect");
 });
 
 test("a message still waiting in Everyfield moves and cancels at once, with no email service call", async () => {
@@ -669,8 +672,10 @@ test("a cancel review shows subject, time and count; Cancelled needs the email s
 	assert.ok(change(proposal, "sendAt")!.before);
 	service.answers.cancel = "unknown";
 	const first = await approve(owner, proposal, service.port);
+	const report = first.review.receipt!.report!;
+	assert.ok(report.kind === "cancel");
 	assert.deepEqual(
-		{ confirmation: first.review.receipt!.report!.confirmation, open: first.review.receipt!.report!.open },
+		{ confirmation: report.confirmation, open: report.open },
 		{ confirmation: "not_confirmed", open: 2 },
 	);
 	const held = first.review.receipt!.report!;
@@ -708,7 +713,7 @@ test("a replacement is scheduled only when every original send is confirmed canc
 	const proposal = await t.propose("communication.replaceScheduledReviewed", {
 		communicationId: ok.id,
 		body: "New plan: we meet at 5 pm.",
-		audience: { groups: [], teamIds: [], personIds: [people.alexRivera!] },
+		audience: { groups: [], teamIds: [], personIds: [people.alexRivera] },
 	});
 	assert.ok(proposal);
 	assert.match(String(change(proposal, "body")!.before), /4 pm/);
@@ -792,7 +797,7 @@ test("a replacement the handoff would refuse is refused on the review, and a cha
 	const t = await turn(owner, service.port);
 	const nobody = await t.propose("communication.replaceScheduledReviewed", {
 		communicationId: id,
-		audience: { groups: [], teamIds: [], personIds: [people.casey!, people.noAddress!] },
+		audience: { groups: [], teamIds: [], personIds: [people.casey, noAddress] },
 	});
 	assert.match(nobody!.review.refusal!, /Nobody in this audience/);
 	await assert.rejects(
@@ -803,16 +808,16 @@ test("a replacement the handoff would refuse is refused on the review, and a cha
 	);
 	assert.equal(service.calls.cancel.length, 0);
 
-	await stageOf(people.alexChen!, "launch_team");
+	await stageOf(people.alexChen, "launch_team");
 	const grown = await t.propose("communication.replaceScheduledReviewed", {
 		communicationId: id,
 		audience: { groups: ["launch_team"], teamIds: [], personIds: [] },
 	});
 	assert.equal(grown!.review.refusal, undefined);
-	await stageOf(people.alexRivera!, "launch_team");
+	await stageOf(people.alexRivera, "launch_team");
 	const stale = await approve(owner, grown!, service.port);
-	await stageOf(people.alexRivera!, "prospect");
-	await stageOf(people.alexChen!, "prospect");
+	await stageOf(people.alexRivera, "prospect");
+	await stageOf(people.alexChen, "prospect");
 	assert.equal(stale.review.outcome, "refused");
 	assert.equal(stale.review.receipt!.code, "stale_review");
 	assert.equal(service.calls.cancel.length, 0, "the old send was not cancelled");
@@ -822,7 +827,7 @@ const inMessages = {
 	async edit(who: EvryActor, id: string) {
 		const [row] = await rows(sql`SELECT revision::text AS r,body_html,audience FROM communication WHERE id=${id}`);
 		const context = { session: who.session, selected: who.owner };
-		const reply = await db.transaction(async (tx) =>
+		const reply = await gatedTransaction(db, async (tx) =>
 			communicationWriter.saveDraft(tx, context as never, {
 				requestKey: randomUUID(),
 				expectedRevision: row!.r,
@@ -865,8 +870,8 @@ const inMessages = {
 			sql`SELECT provider_message_id AS id FROM mail WHERE logical_key LIKE ${"communication/" + id + "/%"} AND state='accepted'`,
 		);
 		for (const mail of held) {
-			const reply = await receiveMailCallback(db, signedCallback(mail.id, "sent"), CALLBACK_SECRET);
-			assert.ok(reply.ok ?? true);
+			const reply = await (await resendWebhook(signedCallback(mail.id, "sent"), () => db, CALLBACK_SECRET)).json();
+			assert.ok(reply.stored, JSON.stringify(reply));
 		}
 		await replayStoredCallbacks(db);
 		assert.equal(
@@ -997,7 +1002,9 @@ test("Evry finds messages by subject and send time; a member reads but cannot wr
 	const friday = localAt(2, "09:00");
 	await scheduledMessage(owner, service, "Friday volunteer reminder", friday);
 	await scheduledMessage(owner, service, "Saturday cookout", localAt(3, "12:00"));
-	const byDate = await db.transaction((tx) => listMessages.invoke(tx, owner, { sendOn: friday.slice(0, 10) }));
+	const byDate = await gatedTransaction(db, (tx) =>
+		listMessages.invoke(tx, owner, { sendOn: friday.slice(0, 10) }, null),
+	);
 	assert.deepEqual(
 		byDate.rows.map((r) => r.label),
 		["Friday volunteer reminder"],
@@ -1007,15 +1014,15 @@ test("Evry finds messages by subject and send time; a member reads but cannot wr
 		new Date(byDate.rows[0]!.fields.sendsAtInstant as string).toISOString().slice(0, 10),
 		friday.slice(0, 10),
 	);
-	const bySubject = await db.transaction((tx) =>
-		listMessages.invoke(tx, owner, { subject: "cookout", state: "scheduled" }),
+	const bySubject = await gatedTransaction(db, (tx) =>
+		listMessages.invoke(tx, owner, { subject: "cookout", state: "scheduled" }, null),
 	);
 	assert.deepEqual(
 		bySubject.rows.map((r) => r.label),
 		["Saturday cookout"],
 	);
 	assert.doesNotMatch(JSON.stringify(byDate), /example\.test|Come to Sunday/, "no address or body reaches the model");
-	const memberReads = await db.transaction((tx) => listMessages.invoke(tx, member, {}));
+	const memberReads = await gatedTransaction(db, (tx) => listMessages.invoke(tx, member, {}, null));
 	assert.ok(memberReads.rows.length >= 2, "a member reads drafts and scheduled messages");
 	const writes = (who: EvryActor) =>
 		readCatalog(who)
@@ -1053,7 +1060,7 @@ test("the read offers only a message that can still go out, so a replaced origin
 	const service = emailService();
 	const when = localAt(6);
 	const sendOn = when.slice(0, 10);
-	const list = () => db.transaction((tx) => listMessages.invoke(tx, owner, { sendOn }));
+	const list = () => gatedTransaction(db, (tx) => listMessages.invoke(tx, owner, { sendOn }, null));
 
 	const cancelled = await scheduledMessage(owner, service, "Read cancelled", when);
 	const t = await turn(owner, service.port);
@@ -1195,8 +1202,10 @@ test("a retry that runs after the approval lapsed reports what the email service
 	const review = await readReview(db, owner, proposal!.id);
 	assert.equal(review.status, "approved");
 	assert.equal(review.outcome, "completed");
-	assert.equal(review.receipt!.report!.confirmation, "confirmed");
-	assert.equal(review.receipt!.report!.accepted, 2);
+	const report = review.receipt!.report!;
+	assert.ok(report.kind === "schedule");
+	assert.equal(report.confirmation, "confirmed");
+	assert.equal(report.accepted, 2);
 	assert.equal(service.calls.send.length, sends, "no second schedule request");
 
 	const other = await savedDraft(owner, service.port, "Lapsed before it started");
@@ -1213,7 +1222,7 @@ test("each read and effect stays within its budget in limits.json and no transac
 	const service = emailService();
 	await scheduledMessage(owner, service, "Budget read");
 	const start = queries.length;
-	await db.transaction((tx) => listMessages.invoke(tx, owner, { state: "scheduled" }));
+	await gatedTransaction(db, (tx) => listMessages.invoke(tx, owner, { state: "scheduled" }, null));
 	const sent = queries.length - start;
 	assert.ok(sent <= limits["communication.list"]!.limit, `communication.list sent ${sent} statements`);
 
@@ -1295,8 +1304,8 @@ test("the preview read names who a drafted email reaches and who is left out and
 	const { preview } = await reads();
 	const extra = await twin();
 	const before = await rows(sql`SELECT (SELECT count(*)::int FROM communication) c,(SELECT count(*)::int FROM mail) m`);
-	const r = await db.transaction((tx) =>
-		preview.invoke(tx, owner, { subject: "Vision night", body: BODY, audience: audience([extra]) }),
+	const r = await gatedTransaction(db, (tx) =>
+		preview.invoke(tx, owner, { subject: "Vision night", body: BODY, audience: audience([extra]) }, null),
 	);
 	assert.deepEqual(
 		r.rows.map((p) => `${p.label}: ${p.fields.leftOut ?? "gets it"}`),
@@ -1364,7 +1373,7 @@ test("a send review lists the exact recipients, the left out and the content; on
 	assert.equal(service.calls.send.length, 1, "one email service call, however often the effect runs");
 	const { getMessage } = await reads();
 	const asked = async () =>
-		(await db.transaction((tx) => getMessage.invoke(tx, owner, { communicationId: id }))).rows
+		(await gatedTransaction(db, (tx) => getMessage.invoke(tx, owner, { communicationId: id }, null))).rows
 			.filter((r) => r.kind === "person")
 			.map((r) => `${r.label}: ${r.fields.result}`);
 	assert.deepEqual(await asked(), [
@@ -1377,12 +1386,12 @@ test("a send review lists the exact recipients, the left out and the content; on
 		sql`UPDATE mail SET delivered_at=clock_timestamp() WHERE communication_id=${id} AND recipient_person_id=${people.alexRivera!}`,
 	);
 	assert.deepEqual((await asked()).slice(0, 2), ["Alex Chen: sent", "Alex Rivera: delivered"]);
-	const totals = await db.transaction((tx) => getDeliveryTotals(tx, owner.authority, { communicationId: id }));
+	const totals = await gatedTransaction(db, (tx) => getDeliveryTotals(tx, owner.authority, { communicationId: id }));
 	assert.deepEqual(
 		{ reachable: totals.reachable, failed: totals.failed, unsubscribed: totals.unsubscribed },
 		{ reachable: 2, failed: 1, unsubscribed: 1 },
 	);
-	const latest = await db.transaction((tx) => getMessage.invoke(tx, owner, {}));
+	const latest = await gatedTransaction(db, (tx) => getMessage.invoke(tx, owner, {}, null));
 	assert.equal(latest.rows[0]!.id, id);
 });
 
@@ -1415,7 +1424,7 @@ test("a resend goes to delivered non-openers only after 24 hours; a retry goes o
 	const { id } = await sentEmail(owner, service, "Resend me");
 	const { resendCandidates } = await reads();
 	const candidates = (selection: "delivered_nonopeners" | "proven_failed") =>
-		db.transaction((tx) => resendCandidates.invoke(tx, owner, { communicationId: id, selection }));
+		gatedTransaction(db, (tx) => resendCandidates.invoke(tx, owner, { communicationId: id, selection }, null));
 	const at = (hours: number) =>
 		admin.execute(sql`UPDATE mail SET sent_at=clock_timestamp()-make_interval(hours=>${hours}),
 			delivered_at=CASE WHEN state='accepted' THEN clock_timestamp()-make_interval(hours=>${hours}) END
@@ -1481,7 +1490,7 @@ test("deleting a draft waits for Approve; templates list system and church, a sy
 
 	const { listTemplates } = await reads();
 	const listed = async () =>
-		(await db.transaction((tx) => listTemplates.invoke(tx, owner, {}))).rows.map(
+		(await gatedTransaction(db, (tx) => listTemplates.invoke(tx, owner, {}, null))).rows.map(
 			(r) => `${r.label} (${String(r.fields.origin)})`,
 		);
 	assert.ok((await listed()).every((l) => l.endsWith("(system)")));
@@ -1494,7 +1503,7 @@ test("deleting a draft waits for Approve; templates list system and church, a sy
 	assert.ok(create);
 	assert.equal((await approve(owner, create, service.port)).outcome, "completed");
 	assert.ok((await listed()).includes("Vision night invite (church)"));
-	const system = (await db.transaction((tx) => listTemplates.invoke(tx, owner, {}))).rows.find(
+	const system = (await gatedTransaction(db, (tx) => listTemplates.invoke(tx, owner, {}, null))).rows.find(
 		(r) => r.fields.origin === "system",
 	)!;
 	const edit = await t.propose("communication.templates.update", { templateId: system.id, subject: "Changed" });
@@ -1507,7 +1516,7 @@ test("deleting a draft waits for Approve; templates list system and church, a sy
 	assert.ok(fork);
 	assert.equal((await approve(owner, fork, service.port)).outcome, "completed");
 	assert.ok((await listed()).includes(`${system.label} (church)`), "the copy is the church's own");
-	const copy = (await db.transaction((tx) => listTemplates.invoke(tx, owner, {}))).rows.find(
+	const copy = (await gatedTransaction(db, (tx) => listTemplates.invoke(tx, owner, {}, null))).rows.find(
 		(r) => r.label === system.label,
 	)!;
 	const change2 = await t.propose("communication.templates.update", {
@@ -1525,7 +1534,7 @@ test("one person's emails are listed with their results, and the never-emailed l
 	const service = emailService();
 	const { id } = await sentEmail(owner, service, "For one person");
 	const { forPerson } = await reads();
-	const mine = await db.transaction((tx) => forPerson.invoke(tx, owner, { personId: people.alexRivera! }));
+	const mine = await gatedTransaction(db, (tx) => forPerson.invoke(tx, owner, { personId: people.alexRivera! }, null));
 	const email = mine.rows.find((r) => r.kind === "message" && r.id === id)!;
 	assert.equal(email.fields.result, "sent");
 	assert.ok(
@@ -1533,7 +1542,7 @@ test("one person's emails are listed with their results, and the never-emailed l
 		"only emails: a recorded call is never in this read",
 	);
 	assert.ok(mine.exclusions.some((e) => /an email is never one/.test(e)));
-	const never = await db.transaction((tx) => forPerson.invoke(tx, owner, {}));
+	const never = await gatedTransaction(db, (tx) => forPerson.invoke(tx, owner, {}, null));
 	const names = never.rows.map((r) => r.label);
 	assert.ok(!names.includes("Alex Rivera") && !names.includes("Alex Chen"), "emailed people are not listed");
 	assert.ok(names.includes("Member 001"));
