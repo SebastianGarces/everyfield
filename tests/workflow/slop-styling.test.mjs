@@ -261,7 +261,7 @@ export const Named = () => <div className="ef-ring ef-top-fade ef-scroll-fade ef
 	assert.deepEqual(checkCss(dir).hits, ["4 orb", "7 gradient", "10 orb", "13 gradient"]);
 });
 
-test("INV-lint: the approved foundations, the section label, the serif tokens and the named gradient surfaces pass, and paths outside features and packages/ui are not checked", () => {
+test("INV-lint: the approved foundations, the section label, the serif tokens and the named gradient surfaces pass, and paths outside features, packages/ui and marketing are not checked", () => {
 	const dir = sandbox({});
 	for (const path of ["packages/ui/src/foundations", "packages/ui/src/controls/controls.css"])
 		cpSync(join(repo, path), join(dir, path), { recursive: true });
@@ -280,8 +280,8 @@ test("INV-lint: the approved foundations, the section label, the serif tokens an
 );
 `;
 	const hits = lint({
-		"apps/web/src/marketing/home/Hero.tsx": banned,
 		"apps/web/src/app/(product)/x/page.tsx": banned,
+		"apps/web/src/app/oversight/page.tsx": banned,
 		"apps/web/src/features/x/Hero.tsx": banned,
 	});
 	assert.deepEqual(
@@ -293,7 +293,156 @@ test("INV-lint: the approved foundations, the section label, the serif tokens an
 		new Set(["counter", "eyebrow", "mono-uppercase", "tracking", "serif", "beige", "orb", "gradient"]),
 	);
 	const outside = sandbox({
-		"apps/web/src/marketing/mk.css": `.a {\n\tletter-spacing: 0.2em;\n\tfont-family: Georgia, serif;\n}\n`,
+		"apps/web/src/styles/globals.css": `.a {\n\tletter-spacing: 0.2em;\n\tfont-family: Georgia, serif;\n}\n`,
 	});
 	assert.equal(checkCss(outside).status, 0);
+});
+
+const MARKETING_NAMES = `export const Hero = () => (
+	<header>
+		<span className="mk-eyebrow type-sm font-semibold">Plants</span>
+		<h1>Send more churches</h1>
+		<span className="mk-label type-sm">Group</span>
+		<span className="mk-counter type-xs">{stepNumber(0)}</span>
+		<div className="mk-corner-shade mk-leaders-shade mk-hatch skeleton hero-fade mk-caret-fill" />
+		<div className="bg-mk-canvas bg-mk-canvas-94 text-mk-cream-70" />
+	</header>
+);
+`;
+const MARKETING_CSS = `@theme {
+	--color-mk-canvas: #fcfbf8;
+}
+@utility mk-eyebrow {
+	letter-spacing: 0.09em;
+	text-transform: uppercase;
+}
+@utility mk-label {
+	letter-spacing: 0.09em;
+}
+@utility mk-counter {
+	letter-spacing: 0.06em;
+}
+@utility mk-hatch {
+	background-image: repeating-linear-gradient(-45deg, var(--color-blue-300) 0, transparent 5px);
+}
+@utility mk-leaders-shade {
+	background: linear-gradient(180deg, var(--color-ink), transparent);
+	@media (width < 901px) {
+		background: linear-gradient(180deg, transparent, var(--color-ink));
+	}
+}
+`;
+
+test("INV-lint: the landing's approved looks pass in marketing only through their named mk utilities, tokens and the stepNumber helper", () => {
+	const dir = sandbox({});
+	for (const path of ["apps/web/src/marketing", "apps/web/src/styles/marketing.css"])
+		cpSync(join(repo, path), join(dir, path), { recursive: true });
+	const css = checkCss(dir);
+	assert.equal(css.status, 0, css.stderr);
+	const files = readdirSync(join(dir, "apps/web/src/marketing"), { recursive: true })
+		.filter((name) => /\.tsx?$/.test(name))
+		.map((name) => `apps/web/src/marketing/${name}`);
+	assert.ok(files.length > 20);
+	assert.deepEqual(lintCode(dir, files), []);
+	const path = "apps/web/src/marketing/home/Named.tsx";
+	assert.deepEqual(lint({ [path]: MARKETING_NAMES }), []);
+	assert.equal(checkCss(sandbox({ "apps/web/src/styles/marketing.css": MARKETING_CSS })).status, 0);
+});
+
+test("INV-lint: the marketing approvals do not reach product code, where the mk names fail and the T-507 approvals still pass", () => {
+	for (const path of ["apps/web/src/features/x/Hero.tsx", "packages/ui/src/display/Hero.tsx"])
+		assert.deepEqual(at(path, lint({ [path]: MARKETING_NAMES })), [
+			"3 eyebrow",
+			"5 tracking",
+			"6 counter",
+			"6 tracking",
+			"7 gradient",
+			"7 gradient",
+			"7 gradient",
+			"7 gradient",
+			"7 gradient",
+			"7 gradient",
+			"8 beige",
+			"8 beige",
+			"8 beige",
+		]);
+	for (const path of ["apps/web/src/features/x/mk.css", "packages/ui/src/controls/mk.css"])
+		assert.deepEqual(checkCss(sandbox({ [path]: MARKETING_CSS })).hits, [
+			"2 beige",
+			"5 tracking",
+			"9 tracking",
+			"12 tracking",
+			"15 gradient",
+			"18 gradient",
+			"20 gradient",
+		]);
+	const product = `export const Named = () => (
+	<header>
+		<span className="section-label">Plants</span>
+		<p className="ef-insight ef-scroll-fade ef-top-fade ef-skel ef-ring ef-none-swatch hatch bg-cream">Body</p>
+	</header>
+);
+`;
+	for (const path of ["apps/web/src/features/x/Named.tsx", "apps/web/src/marketing/x/Named.tsx"])
+		assert.deepEqual(lint({ [path]: product }), []);
+	const step = 'export const stepNumber = (i: number) => String(i + 1).padStart(2, "0");\n';
+	assert.deepEqual(
+		at("apps/web/src/features/x/step-number.ts", lint({ "apps/web/src/features/x/step-number.ts": step })),
+		["1 counter"],
+	);
+});
+
+test("INV-lint: free-form versions of every banned look still fail under apps/web/src/marketing", () => {
+	const path = "apps/web/src/marketing/home/Slop.tsx";
+	const source = `export const Slop = () => (
+	<section>
+		<p className="text-xs font-semibold uppercase">Overview</p>
+		<h2>Raw eyebrow</h2>
+		<code className="font-mono uppercase">ref</code>
+		<p className="tracking-wide">wide</p>
+		<blockquote className="font-serif">serif</blockquote>
+		<div className="bg-stone-100">stone</div>
+		<div className="bg-[#fcfbf8]">beige</div>
+		<span>01</span>
+		<div className="size-96 rounded-full bg-green-500 blur-3xl" />
+		<div className="bg-linear-to-r from-green-500 to-blue-500" />
+		<span className="font-semibold tracking-[0.09em] uppercase">Raw eyebrow</span>
+		<Display as="h1" size="hero">Above a Display heading</Display>
+	</section>
+);
+`;
+	assert.deepEqual(at(path, lint({ [path]: source })), [
+		"3 eyebrow",
+		"5 mono-uppercase",
+		"6 tracking",
+		"7 serif",
+		"8 beige",
+		"9 beige",
+		"10 counter",
+		"11 orb",
+		"12 gradient",
+		"13 eyebrow",
+		"13 tracking",
+	]);
+	const pad = "apps/web/src/marketing/home/Steps.tsx";
+	const steps = 'export const num = (i: number) => String(i + 1).padStart(2, "0");\n';
+	const helper = "apps/web/src/marketing/step-number.ts";
+	const other =
+		'export const stepNumber = (i: number) => String(i).padStart(2, "0");\nexport const label = (i: number) => String(i).padStart(2, "0");\n';
+	assert.deepEqual(lint({ [pad]: steps, [helper]: other }), [`${pad}:1 counter`, `${helper}:2 counter`]);
+	const css = "apps/web/src/styles/marketing.css";
+	const dir = sandbox({
+		[css]: `@theme {\n\t--color-mk-paper: #f5f0e8;\n}\n.wash {\n\tbackground: linear-gradient(90deg, var(--ef-green-100), var(--ef-blue-100));\n}\n.kicker {\n\tletter-spacing: 0.09em;\n\ttext-transform: uppercase;\n}\n.orb {\n\tfilter: blur(60px);\n}\n@utility mk-label {\n\tbackground: linear-gradient(red, blue);\n\tfont-family: Georgia, serif;\n}\n`,
+		"apps/web/src/marketing/home/fx.css": `.tag {\n\tletter-spacing: 0.2em;\n}\n`,
+	});
+	const found = checkCss(dir);
+	assert.deepEqual(found.hits, [
+		"2 beige",
+		"2 tracking",
+		"5 gradient",
+		"8 tracking",
+		"12 orb",
+		"15 gradient",
+		"16 serif",
+	]);
 });
