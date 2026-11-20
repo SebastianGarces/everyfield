@@ -1,3 +1,4 @@
+import type { SitePath } from "@everyfield/contracts/identity";
 import { signIn } from "@/server/sign-in";
 import { ProductFrameLayout } from "@/features/shell/routes";
 import { Button, Card, StatePanel } from "@everyfield/ui/controls";
@@ -14,7 +15,7 @@ function one(value: string | string[] | undefined): string | undefined {
 	return Array.isArray(value) ? value[0] : value;
 }
 
-function requestPath(slug: string): string {
+function requestPath(slug: string): SitePath {
 	return slug
 		? `/wiki/${slug
 				.split("/")

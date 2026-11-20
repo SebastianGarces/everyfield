@@ -1,3 +1,4 @@
+import type { SitePath } from "@everyfield/contracts/identity";
 import {
 	EDITOR_FORMAT,
 	editorDocumentBlocks,
@@ -55,7 +56,7 @@ function slugFromParts(parts: string[] | undefined): string {
 		.join("/");
 }
 
-export function articlePath(slug: string): string {
+export function articlePath(slug: string): SitePath {
 	if (!slug) return "/wiki";
 	return `/wiki/${slug
 		.split("/")
@@ -63,7 +64,7 @@ export function articlePath(slug: string): string {
 		.join("/")}`;
 }
 
-export function wikiReturn(path: string, choice: SourceChoice): string {
+export function wikiReturn(path: SitePath, choice: SourceChoice): SitePath {
 	const source = sourceQuery(choice);
 	return source ? `${path}?source=${encodeURIComponent(source)}` : path;
 }
@@ -344,7 +345,7 @@ export function splitWikiPath(parts: string[] | undefined): { slug: string; edit
 	return { slug: slugFromParts(parts), editing: false };
 }
 
-export function editPath(slug: string): string {
+export function editPath(slug: string): SitePath {
 	return `${articlePath(slug)}/edit`;
 }
 
