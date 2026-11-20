@@ -187,6 +187,12 @@
 			}
 		},
 		{
+			"files": ["packages/domain/src/**"],
+			"rules": {
+				"everyfield/domain-refusals": "error"
+			}
+		},
+		{
 			"files": ["packages/domain/src/mail-recipients.ts", "packages/db/src/deployment.ts"],
 			"rules": {
 				"everyfield/pure-module": "error"
