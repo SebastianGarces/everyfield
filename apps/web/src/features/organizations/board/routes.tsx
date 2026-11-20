@@ -1,11 +1,6 @@
-import { signIn } from "@/server/sign-in";
-import {
-	loadPipelineBoard,
-	loadPipelineChoices,
-	loadPipelineGoals,
-	loadPipelinePerson,
-	pipelineActor,
-} from "../pipeline-mount";
+import { organizationSeatOf } from "@/server/request-context";
+import { requireActor } from "@/server/sign-in";
+import { loadPipelineBoard, loadPipelineChoices, loadPipelineGoals, loadPipelinePerson } from "../pipeline-mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { LANDING_ROUTE } from "@everyfield/contracts/identity";
@@ -27,12 +22,11 @@ const refused = (
 );
 
 export async function PipelinePage({ searchParams }: { searchParams: Search }) {
-	const who = await pipelineActor();
-	if (who.kind === "signed_out") signIn(PIPELINE_PATH);
-	if (who.kind !== "seat") return refused;
+	const seat = organizationSeatOf(await requireActor(PIPELINE_PATH));
+	if (!seat) return refused;
 	const [board, goals] = await Promise.all([
-		loadPipelineBoard(who.authority, queryFromSearch(await searchParams)),
-		loadPipelineGoals(who.authority),
+		loadPipelineBoard(seat.authority, queryFromSearch(await searchParams)),
+		loadPipelineGoals(seat.authority),
 	]);
 	if (board.status !== "ok") return refused;
 	return <PipelineScreen initial={board.value} goals={goals.status === "ok" ? goals.value : null} />;
@@ -40,12 +34,11 @@ export async function PipelinePage({ searchParams }: { searchParams: Search }) {
 
 export async function PipelinePersonPage({ params }: { params: Promise<{ personId: string }> }) {
 	const { personId } = await params;
-	const who = await pipelineActor();
-	if (who.kind === "signed_out") signIn(`${PIPELINE_PATH}/${personId}`);
-	if (who.kind !== "seat") return refused;
+	const seat = organizationSeatOf(await requireActor(`${PIPELINE_PATH}/${personId}`));
+	if (!seat) return refused;
 	const [record, choices] = await Promise.all([
-		loadPipelinePerson(who.authority, personId),
-		loadPipelineChoices(who.authority),
+		loadPipelinePerson(seat.authority, personId),
+		loadPipelineChoices(seat.authority),
 	]);
 	if (record.status !== "ok" || choices.status !== "ok") return refused;
 	return (

@@ -2,7 +2,7 @@
 
 import { pipelineWrite } from "../organizations/pipeline-mount";
 import { requestDatabase } from "@/server/database";
-import { oversightViewer } from "./server.ts";
+import { organizationSeat } from "@/server/request-context";
 import { level, type IntelligenceView } from "@everyfield/contracts/oversight";
 import { submitIntelligenceFeedback, readIntelligence, requestIntelligenceRefresh } from "@everyfield/domain/oversight";
 
@@ -12,10 +12,10 @@ export async function refreshIntelligence(
 ): Promise<{ status: "ok"; view: IntelligenceView } | { status: "refused" } | { status: "lost" }> {
 	const ran = await pipelineWrite((db, authority) => requestIntelligenceRefresh(db, authority, { runId }));
 	if (ran.status !== "ok") return ran.status === "lost" ? { status: "lost" } : { status: "refused" };
-	const who = await oversightViewer();
-	if (who.kind !== "organization") return { status: "refused" };
+	const seat = await organizationSeat();
+	if (!seat) return { status: "refused" };
 	const db = requestDatabase();
-	const view = await readIntelligence(db, who.viewer.authority, {
+	const view = await readIntelligence(db, seat.authority, {
 		level: level.catch("portfolio").parse(shownLevel),
 		runId,
 	});
