@@ -1,6 +1,7 @@
 import * as c from "@everyfield/contracts/branding";
 import type { Database } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
+import { eq, sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
 import { dominantColors, readAuthorizedObject, type PrivateStorage } from "@everyfield/db/schema";
 import "server-only";
 import { z } from "zod";
@@ -24,6 +25,20 @@ export const brandReader = {
 			if (found.ok !== true) deny("access_denied");
 			return kitFromRow(found.row);
 		});
+	},
+
+	async settings(db: Database, authority: RequestActor, raw: unknown) {
+		const context = authority.actor.context;
+		const plantId = context.kind === "seat" && context.owner.kind === "plant" ? context.owner.id : null;
+		const [reply, named] = await Promise.all([
+			brandReader.get(db, authority, raw),
+			plantId
+				? db.select({ name: t.plant.name }).from(t.plant).where(eq(t.plant.id, plantId)).limit(1)
+				: Promise.resolve([]),
+		]);
+		if (reply.status === "refused") return reply;
+		const churchName = named[0]?.name;
+		return settle(async () => (churchName ? { kit: reply.value, churchName } : deny("unavailable")));
 	},
 
 	async suggestColors(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {

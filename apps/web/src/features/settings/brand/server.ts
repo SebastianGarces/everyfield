@@ -1,7 +1,5 @@
 import "server-only";
 import { brandError, type BrandKit, type BrandReply } from "@everyfield/contracts/branding";
-import { eq } from "@everyfield/db/query";
-import * as t from "@everyfield/db/tables";
 import { privateStorage } from "@everyfield/db/schema";
 import { brandReader, brandWriter, readBrandAssetIfChanged, uploadBrandAsset } from "@everyfield/domain/branding";
 import { randomUUID } from "node:crypto";
@@ -30,19 +28,7 @@ async function runAs<T, O extends string>(viewer: Viewer, outcome: LogWord<O>, c
 }
 
 export function readBrand(viewer: Viewer): Promise<BrandReply<BrandView>> {
-	return runAs(viewer, "read_failed", async (db, actor) => {
-		const context = actor.actor.context;
-		const plantId = context.kind === "seat" && context.owner.kind === "plant" ? context.owner.id : null;
-		const [reply, named] = await Promise.all([
-			brandReader.get(db, actor, {}),
-			plantId
-				? db.select({ name: t.plant.name }).from(t.plant).where(eq(t.plant.id, plantId)).limit(1)
-				: Promise.resolve([]),
-		]);
-		if (reply.status === "refused") return reply;
-		const churchName = named[0]?.name;
-		return churchName ? { status: "ok", value: { kit: reply.value, churchName } } : unavailable();
-	});
+	return runAs(viewer, "read_failed", (db, actor) => brandReader.settings(db, actor, {}));
 }
 
 export function saveBrandKit(raw: unknown): Promise<BrandReply<BrandKit>> {

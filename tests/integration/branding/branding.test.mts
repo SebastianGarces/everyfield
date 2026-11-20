@@ -172,6 +172,14 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		assert.equal(ok(await brandReader.resolveTheme(db, member, { documentClass: "email" })).kind, "everyfield-neutral");
 	});
 
+	test("AC:CASE-BRD-004 the brand settings read names the church beside its kit, for its Owner or Admin only", async () => {
+		const view = ok(await brandReader.settings(db, await authority(0), {}));
+		assert.equal(view.churchName, "Harvest Point");
+		assert.equal(view.kit.kitState, "default");
+		refused(await brandReader.settings(db, await authority(1), {}), "access_denied");
+		refused(await brandReader.settings(db, await authority(4), {}), "access_denied");
+	});
+
 	test("AC:CASE-BRD-004 brand.get for a church plant with no kit returns the defaults", async () => {
 		const kit = ok(await brandReader.get(db, await authority(0), {}));
 		assert.equal(kit.kitState, "default");
