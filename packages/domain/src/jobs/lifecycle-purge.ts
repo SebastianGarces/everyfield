@@ -4,7 +4,7 @@ import type { Database } from "@everyfield/db/client";
 import { and, eq, ne } from "@everyfield/db/query";
 import { deleteUnreferencedObject, type PrivateStorage } from "@everyfield/db/schema";
 import * as t from "@everyfield/db/tables";
-import { createLifecycleCleanup, Refusal, type DeletionRequest } from "@everyfield/domain/settings";
+import { createLifecycleCleanup, Refusal, type DeletionRequest } from "../settings/index.ts";
 import {
 	claimDue,
 	DEFAULT_LEASE_SECONDS,
@@ -14,7 +14,7 @@ import {
 	type Claim,
 	type JobResult,
 } from "./queue.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { logFailure } from "../log.ts";
 
 const LEASE_MARGIN_MS = 60_000;
 

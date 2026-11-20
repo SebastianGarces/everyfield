@@ -107,6 +107,12 @@ export const RULES: readonly Rule[] = [
 		tests: ["tests/workflow/formal.test.ts"],
 	},
 	{ name: "QA command", paths: ["bin/qa"], suites: ["tools-qa"] },
+	{
+		name: "flag command and its checks",
+		paths: ["bin/flag", "tools/flag/**"],
+		packages: true,
+		fallbackPackage: "@everyfield/domain",
+	},
 	{ name: "app verification command", paths: ["bin/app", "tools/app/**"], suites: ["tools-app"] },
 	{ name: "production identity setup", paths: ["bin/prod-identity", "tools/prod-identity/**"], suites: ["tools-qa"] },
 	{

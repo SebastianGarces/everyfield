@@ -89,18 +89,19 @@ describe("INV-watch-io: command failures are classified, never thrown", () => {
 			await runAllowed("evf-status", { bin: await fake(dir, "echo secret-detail >&2; exit 3"), cwd: dir }),
 			{ ok: false, code: "evf_exit_3" },
 		);
-		const start = Date.now();
-		assert.deepEqual(await runAllowed("gh-main-ci", { bin: await fake(dir, "sleep 30"), cwd: dir, timeoutMs: 300 }), {
-			ok: false,
-			code: "gh_timeout",
-		});
-		assert.ok(Date.now() - start < 5000);
 		assert.deepEqual(await runAllowed("evf-status", { bin: await fake(dir, 'echo "$1 $2"'), cwd: dir }), {
 			ok: true,
 			stdout: "status --json\n",
 		});
 	});
 
+	test("INV-watch-io: a hung command is stopped by its timeout", { timeout: 5000 }, async () => {
+		const dir = await tmp();
+		assert.deepEqual(await runAllowed("gh-main-ci", { bin: await fake(dir, "sleep 30"), cwd: dir, timeoutMs: 300 }), {
+			ok: false,
+			code: "gh_timeout",
+		});
+	});
 	test("INV-watch-io: the timeout cannot be raised past 20 s", async () => {
 		const io = await readFile(join(here, "io.mts"), "utf8");
 		assert.match(io, /COMMAND_TIMEOUT_MS = 20_000/);
