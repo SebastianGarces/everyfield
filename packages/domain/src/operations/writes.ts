@@ -239,8 +239,9 @@ async function firstAttempt<T>(
 			return body(tx);
 		});
 		return { done: true, value };
-	} catch (error) {
-		if (error instanceof WriteOrderError) throw error;
+	} catch (thrown) {
+		if (thrown instanceof WriteOrderError) throw thrown;
+		const error = thrown instanceof Error && thrown.cause instanceof WriteUnavailable ? thrown.cause : thrown;
 		const next: Next = isAuditRetry(error)
 			? "replay"
 			: !deferred || session.failed || (session.unlocked && !session.keyed)
