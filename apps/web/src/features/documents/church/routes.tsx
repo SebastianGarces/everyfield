@@ -1,5 +1,6 @@
 import { getViewer } from "@/server/request-context";
 import { signIn } from "@/server/sign-in";
+import type { SitePath } from "@everyfield/contracts/identity";
 import { recordId } from "@everyfield/contracts/common";
 import { Button, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
@@ -18,7 +19,7 @@ export const churchArchivedMetadata: Metadata = {
 };
 export const churchDocumentMetadata: Metadata = { title: "Church document", robots: { index: false, follow: false } };
 
-async function activeViewer(returnTo: string) {
+async function activeViewer(returnTo: SitePath) {
 	const viewer = await getViewer();
 	if (viewer.status === "unauthenticated") signIn(returnTo);
 	return viewer.status === "active" ? viewer : null;

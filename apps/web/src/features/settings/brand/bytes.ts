@@ -11,9 +11,9 @@ export async function uploadBytes(uploadId: string, file: Blob): Promise<BrandRe
 	});
 	if (response.ok) return { status: "ok", value: null };
 	const body = (await response.json().catch(() => null)) as { code?: string; correlationId?: string } | null;
-	const code = ["invalid_file", "access_denied", "unavailable"].includes(body?.code ?? "")
-		? body!.code!
-		: "unavailable";
+	const sent = body?.code;
+	const code =
+		sent !== undefined && ["invalid_file", "access_denied", "unavailable"].includes(sent) ? sent : "unavailable";
 	return {
 		status: "refused",
 		error: brandError.parse({

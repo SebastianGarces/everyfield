@@ -92,14 +92,14 @@ function PasswordForm({
 	const currentRef = useRef<HTMLInputElement>(null);
 	const newRef = useRef<HTMLInputElement>(null);
 	const confirmRef = useRef<HTMLInputElement>(null);
-	const focusFirst = (keys: (keyof Form)[]) =>
-		({ currentPassword: currentRef, newPassword: newRef, confirmPassword: confirmRef })[keys[0]!].current?.focus();
+	const focusField = (key: keyof Form) =>
+		({ currentPassword: currentRef, newPassword: newRef, confirmPassword: confirmRef })[key].current?.focus();
 
 	const submit = () => {
 		setChecked(true);
 		if (pending) return;
-		const found = Object.keys(passwordProblems(form)) as (keyof Form)[];
-		if (found.length > 0) return focusFirst(found);
+		const [first] = Object.keys(passwordProblems(form)) as (keyof Form)[];
+		if (first) return focusField(first);
 		startChange(async () => {
 			const status = await port.changePassword(form).then(
 				(outcome) => outcome.status,
@@ -109,7 +109,7 @@ function PasswordForm({
 			setFailure(status);
 			setForm(status === "unknown" ? EMPTY : { ...form, currentPassword: "" });
 			setChecked(false);
-			if (status === "refused") focusFirst(["currentPassword"]);
+			if (status === "refused") focusField("currentPassword");
 		});
 	};
 

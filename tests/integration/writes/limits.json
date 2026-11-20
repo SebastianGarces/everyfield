@@ -175,8 +175,8 @@
 		"reason": "A new tag name creates the church tag and puts it on the person in one transaction: two producer writes (people.createTag, people.assignTag), each with its own gate and locked read, behind the session lookup. Its largest first run: 2 transaction, 1 locked read, 3 read, 2 write."
 	},
 	"POST people.fields.addPersonTag (replay)": {
-		"limit": 9,
-		"reason": "A replay of the same request key after a lost answer: the first attempt runs the gate and its reads and meets the stored key at its write; one read per stored key (people.createTag, people.assignTag) then answers the stored result (RT-6b). Its largest first run: 2 transaction, 1 locked read, 5 read, 1 write."
+		"limit": 8,
+		"reason": "A replay of the same request key after a lost answer: the first attempt runs the gate and its reads and meets the stored key at its write; one read per stored key (people.createTag, people.assignTag) then answers the stored result (RT-6b). Its largest first run: 2 transaction, 1 locked read, 4 read, 1 write."
 	},
 	"POST people.fields.addSkill": {
 		"limit": 6
@@ -1378,9 +1378,8 @@
 		"retry": 4
 	},
 	"people.createTag": {
-		"limit": 5,
-		"retry": 3,
-		"reads": "T-498: 2 reads in a row (read of tag, then read of person+person_tag+tag); the follow-up merges them or says why they cannot be one statement."
+		"limit": 4,
+		"retry": 3
 	},
 	"people.deleteHousehold": {
 		"limit": 4,
@@ -1413,7 +1412,7 @@
 		"limit": 7,
 		"retry": 6,
 		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, both people locked in id order, one read of both full rows with the merge check, then one statement that moves every reference and writes the merge and its audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write.",
-		"reads": "T-498: 2 reads in a row (locked read of person, then read of attestation+commitment+commitment_change+contact_outcome+development_enrollment+four_cs+interview+invitation+launch_guest+mail+meeting_kit_item+obligation+participation+person+person_note+person_skill+person_tag+record_correction+task+team+team_tenure+training_assignment); the follow-up merges them or says why they cannot be one statement."
+		"reads": "Both people are locked in id order, then both full rows and their references are read; the lock must come first as its own statement: under READ COMMITTED a statement's snapshot predates its locks and a lock refreshes only the rows it locks (C88 in docs/architecture/decisions.md), so the full-row and reference read must start after the lock is granted, or a merge that waited on a concurrent edit would read stale columns and miss references added meanwhile."
 	},
 	"people.mergedPersonDestination": {
 		"limit": 2
@@ -1476,7 +1475,7 @@
 		"limit": 7,
 		"retry": 6,
 		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, both people of the merge locked, one read of the merge record with the unmerge check, then one statement that moves the references back and writes the unmerge and its audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write.",
-		"reads": "T-498: 2 reads in a row (locked read of person+person_merge, then read of attestation+commitment+commitment_change+contact_outcome+development_enrollment+four_cs+interview+invitation+launch_guest+mail+meeting_kit_item+obligation+participation+person+person_merge+person_note+person_skill+person_tag+record_correction+task+team+team_tenure+training_assignment); the follow-up merges them or says why they cannot be one statement."
+		"reads": "Both people of the merge are locked, then the merge record and both full rows are read; the lock must come first as its own statement: under READ COMMITTED a statement's snapshot predates its locks and a lock refreshes only the rows it locks (C88 in docs/architecture/decisions.md), so the full-row and reference read must start after the lock is granted, or a merge that waited on a concurrent edit would read stale columns and miss references added meanwhile."
 	},
 	"people.updateHousehold": {
 		"limit": 4
@@ -1490,9 +1489,8 @@
 		"retry": 6
 	},
 	"people.updateTag": {
-		"limit": 5,
-		"retry": 6,
-		"reads": "T-498: 2 reads in a row (read of person+person_tag+tag, then read of tag); the follow-up merges them or says why they cannot be one statement."
+		"limit": 4,
+		"retry": 6
 	},
 	"people.withdrawCommitment": {
 		"limit": 6,
@@ -1568,7 +1566,7 @@
 		"limit": 16,
 		"retry": 4,
 		"reason": "The photo bytes go to private storage between three short transactions, so the provider call holds no lock: the session check and the staged file locked to record its size and hash; the session check, the file-key advisory lock, the file locked again and the session checked once more before the upload; then the session check, the file marked ready and its audit. Its largest first run: 6 transaction, 3 locked read, 4 read, 3 write.",
-		"reads": "T-498: 2 reads in a row (read of account+discovery+lifecycle_witness+organization+person+seat+tenant, then locked read of file_object); the follow-up merges them or says why they cannot be one statement.",
+		"reads": "Each of the three transactions opens with the shared session check (currentActor in packages/domain/src/access/session.ts, the actor resolver every request and the private-storage authority use, held by the formal permissions model); the staged file's lock cannot join that one shared statement without changing the gate for every caller.",
 		"repeats": "The private storage protocol (putPrivateObject, readAuthorizedObject) runs the caller's authority check, and reads the stored file row, in each of its short transactions (claim, finalize, and a replay read when a rival finished first) so the provider call holds no lock. One upload stores one file, so the seat check repeats four times."
 	},
 	"pipeline.addNote": {
