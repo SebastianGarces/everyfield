@@ -133,9 +133,7 @@ export async function runTools(root: string, projects: string[], prefix = ""): P
 		);
 		if (run.outcome === "pass") continue;
 		if (run.outcome === "timeout") {
-			console.error(
-				`typecheck:tools timed out after ${budgetMs} ms in ${project}; its process group was killed.`,
-			);
+			console.error(`typecheck:tools timed out after ${budgetMs} ms in ${project}; its process group was killed.`);
 			return 1;
 		}
 		console.error(`typecheck:tools failed in ${project} (exit ${run.code ?? "signal"}).`);

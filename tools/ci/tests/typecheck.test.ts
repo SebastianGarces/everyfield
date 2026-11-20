@@ -184,7 +184,10 @@ test("INV-typecheck: pnpm typecheck:bun runs each package's bun check and no tsc
 	assert.equal(existsSync(join(clean.root, "tools-ran")), false);
 	const wrong = spawnSync(process.execPath, [tool, "typecheck:tsc"], { cwd: clean.root, encoding: "utf8" });
 	assert.equal(wrong.status, 2);
-	assert.match(wrong.stderr, /usage: node tools\/ci\/typecheck\.ts \[typecheck\|typecheck:bun\|typecheck:tools -p <tsconfig\.json>\.\.\.\]/);
+	assert.match(
+		wrong.stderr,
+		/usage: node tools\/ci\/typecheck\.ts \[typecheck\|typecheck:bun\|typecheck:tools -p <tsconfig\.json>\.\.\.\]/,
+	);
 });
 
 test("INV-typecheck: a failing typecheck:tools project fails the run after every package's tsc and every other project", (t) => {
