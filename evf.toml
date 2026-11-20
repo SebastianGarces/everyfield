@@ -43,7 +43,6 @@ paths = [
   "packages/domain/src/documents/templates/bylaws.json",
   "packages/domain/src/documents/templates/card-content.ts",
   "packages/domain/src/documents/templates/checklists-content.ts",
-  "packages/domain/src/documents/templates/church-content.ts",
   "packages/domain/src/documents/templates/commitment-card.json",
   "packages/domain/src/documents/templates/conflict-of-interest-policy.json",
   "packages/domain/src/documents/templates/follow-up-letter.json",
@@ -51,7 +50,6 @@ paths = [
   "packages/domain/src/documents/templates/launch-team-commitment.json",
   "packages/domain/src/documents/templates/member-expectations.json",
   "packages/domain/src/documents/templates/prayer-letter.json",
-  "packages/domain/src/documents/templates/text-content.ts",
 ]
 outcome = "owner"
 quote = "when I meant document-template code I meant the actual templates... if you are talking about functionality, I don't necessarily have to approve it. I was referring to actual templates themselves"
@@ -99,6 +97,7 @@ paths = [
   "scripts/lint/check-comments.mjs",
   "scripts/lint/lint-scripts.json",
   "scripts/lint/boundaries/_layout.json",
+  "evf.toml",
 ]
 outcome = "owner"
 quote = "Yes, keep my OK on all five, including CI and agent settings"
