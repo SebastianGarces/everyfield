@@ -40,10 +40,11 @@ import {
 
 const now = () => instant.parse(new Date().toISOString());
 const OPEN = (s: string) => !(c.settledStatus as readonly string[]).includes(s);
-const ruleOf = (row: TaskRow) =>
-	row.rule && !row.rule.stopped
-		? { frequency: row.rule.frequency, until: row.rule.until, localTime: row.rule.local_time }
-		: null;
+const liveRule = (row: TaskRow) => (row.rule && !row.rule.stopped ? row.rule : null);
+const ruleOf = (row: TaskRow) => {
+	const rule = liveRule(row);
+	return rule ? { frequency: rule.frequency, until: rule.until, localTime: rule.local_time } : null;
+};
 
 export function structureWriter(reminders: TaskReminders) {
 	return {
@@ -170,21 +171,23 @@ export function structureWriter(reminders: TaskReminders) {
 					const row = await current(tx, cmd, v.taskId, input.expectedRevision, false);
 					if (row.parent_id) deny("invalid_subject");
 					if (row.obligation_id) deny("protected_source");
-					const before = ruleOf(row),
+					const live = liveRule(row),
+						before = ruleOf(row),
 						after = v.rule;
 					const plant = cmd.actor.plantId;
 					if (JSON.stringify(before) === JSON.stringify(after))
 						return { value: mutation(cmd, noop(cmd, row).row, "noop") };
 					let next: TaskRow = { ...row, revision: bump(row.revision) };
 					if (!after) {
+						if (!live) throw Error(`Task ${row.id} stops a recurrence it does not hold`);
 						cmd.writes.push(
 							sql`UPDATE recurrence SET stopped_at=clock_timestamp(), revision=revision+1
 								WHERE id=${row.series_id}::uuid AND plant_id=${plant}::uuid`,
 							sql`UPDATE task SET revision=revision+1 WHERE id=${row.id}::uuid AND plant_id=${plant}::uuid
 								AND revision=${row.revision}::bigint`,
 						);
-						next = { ...next, rule: { ...row.rule!, stopped: true } };
-					} else if (before) {
+						next = { ...next, rule: { ...live, stopped: true } };
+					} else if (live) {
 						cmd.writes.push(
 							sql`UPDATE recurrence SET interval=${after.frequency}, end_date=${after.until}::date,
 								local_time=${after.localTime}::time, revision=revision+1
@@ -192,7 +195,7 @@ export function structureWriter(reminders: TaskReminders) {
 							sql`UPDATE task SET revision=revision+1 WHERE id=${row.id}::uuid AND plant_id=${plant}::uuid
 								AND revision=${row.revision}::bigint`,
 						);
-						next = { ...next, rule: { ...row.rule!, ...stored(after) } };
+						next = { ...next, rule: { ...live, ...stored(after) } };
 					} else {
 						const seriesId = randomUUID();
 						cmd.writes.push(
