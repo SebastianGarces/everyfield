@@ -1408,10 +1408,6 @@ export const WEB_SQL_HOLDERS = {
 		why: "the brand read looks up the church name beside the brand kit with its own plant select",
 		movedBy: "brandReader.get answering the church name (R-12 slice 8 rest, settings/brand group)",
 	},
-	"apps/web/src/features/settings/mail.ts": {
-		why: "the settings mail authorizer reads notice addresses and pending email-change proofs for queued account mail",
-		movedBy: MAIL_AUTHORIZERS,
-	},
 	"apps/web/src/features/settings/server.ts": {
 		why: "the settings sections ask whether an address is suppressed with their own suppression select",
 		movedBy: "a suppression read in @everyfield/domain/jobs beside the mail outbox (R-12 slice 20 follow-up, AP-S-17)",

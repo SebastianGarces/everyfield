@@ -1118,20 +1118,21 @@ export const later = () => import("@everyfield/db/query");
 export const used = [sql, t, eq, privateStorage, pgTable] as unknown as Database;
 import { pgTable } from "@everyfield/db/columns";
 `;
+	const [holder, emptied] = Object.keys(WEB_SQL_HOLDERS);
 	const hits = lint({
 		"apps/web/src/features/x/server.ts": code,
-		"apps/web/src/features/wiki/server.ts": code,
-		"apps/web/src/features/settings/mail.ts": "export const none = 1;\n",
+		[holder]: code,
+		[emptied]: "export const none = 1;\n",
 		"packages/domain/src/x/index.ts": code,
 	}).filter((hit) => hit.endsWith(" web-database-imports"));
 	assert.deepEqual(
 		hits,
 		[
-			"apps/web/src/features/settings/mail.ts:1 web-database-imports",
+			`${emptied}:1 web-database-imports`,
 			...[1, 2, 3, 4, 5, 8, 10].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`),
 		].sort(),
 	);
-	assert.ok(Object.keys(WEB_SQL_HOLDERS).length <= 9, "WEB_SQL_HOLDERS only shrinks");
+	assert.ok(Object.keys(WEB_SQL_HOLDERS).length <= 8, "WEB_SQL_HOLDERS only shrinks");
 });
 
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
