@@ -2885,6 +2885,104 @@ const signInRedirect = {
 	},
 };
 
+const CONSTRUCTED = new Set([
+	"ObjectExpression",
+	"ArrayExpression",
+	"ArrowFunctionExpression",
+	"FunctionExpression",
+	"NewExpression",
+]);
+const WRAPPERS = new Set([
+	"TSAsExpression",
+	"TSSatisfiesExpression",
+	"TSNonNullExpression",
+	"TSTypeAssertion",
+	"ParenthesizedExpression",
+]);
+const unwrapValue = (node) => {
+	let at = node;
+	while (at && WRAPPERS.has(at.type)) at = at.expression;
+	return at;
+};
+const providerName = (name) =>
+	(name.type === "JSXIdentifier" && name.name.endsWith("Context")) ||
+	(name.type === "JSXMemberExpression" && name.property.name === "Provider");
+const enclosingFunction = (node) => {
+	for (let at = node.parent; at; at = at.parent) if (FUNCTIONS.has(at.type)) return at;
+	return null;
+};
+const restNamed = (pattern, name) => {
+	if (!pattern) return false;
+	if (pattern.type === "RestElement") return pattern.argument.type === "Identifier" && pattern.argument.name === name;
+	if (pattern.type === "ObjectPattern") return pattern.properties.some((p) => restNamed(p, name));
+	if (pattern.type === "ArrayPattern") return pattern.elements.some((p) => restNamed(p, name));
+	if (pattern.type === "AssignmentPattern") return restNamed(pattern.left, name);
+	return false;
+};
+function bindingOf(fn, name) {
+	if (!fn) return null;
+	if (fn.params.some((param) => restNamed(param, name))) return { rest: true };
+	let found = null;
+	walkOwn(fn.body, (node) => {
+		if (node.type !== "VariableDeclarator") return false;
+		if (node.id.type === "Identifier" && node.id.name === name) found = { init: node.init };
+		else if (restNamed(node.id, name)) found = { rest: true };
+		return found !== null;
+	});
+	return found;
+}
+function builtInline(node, fn, seen = new Set()) {
+	const value = unwrapValue(node);
+	if (!value) return false;
+	if (CONSTRUCTED.has(value.type)) return true;
+	if (value.type === "ConditionalExpression")
+		return builtInline(value.consequent, fn, seen) || builtInline(value.alternate, fn, seen);
+	if (value.type === "LogicalExpression")
+		return builtInline(value.left, fn, seen) || builtInline(value.right, fn, seen);
+	if (value.type !== "Identifier" || seen.has(value.name)) return false;
+	seen.add(value.name);
+	const binding = bindingOf(fn, value.name);
+	return binding?.rest === true || (binding?.init ? builtInline(binding.init, fn, seen) : false);
+}
+const isCreateContext = (node) => {
+	const call = unwrapValue(node);
+	if (call?.type !== "CallExpression") return false;
+	const callee = call.callee;
+	return (
+		(callee.type === "Identifier" && callee.name === "createContext") ||
+		(callee.type === "MemberExpression" && !callee.computed && callee.property.name === "createContext")
+	);
+};
+
+const stableContextValue = {
+	meta: { type: "problem" },
+	create(context) {
+		return {
+			VariableDeclarator(node) {
+				if (!isCreateContext(node.init)) return;
+				if (node.id.type === "Identifier" && node.id.name.endsWith("Context")) return;
+				context.report({
+					node: node.id,
+					message: "Name a createContext result *Context, so the stable-value check sees every provider of it.",
+				});
+			},
+			JSXOpeningElement(node) {
+				if (!providerName(node.name)) return;
+				for (const attribute of node.attributes) {
+					if (attribute.type !== "JSXAttribute" || attribute.name.name !== "value") continue;
+					const expression = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : null;
+					if (!expression || !builtInline(expression, enclosingFunction(node))) continue;
+					context.report({
+						node: attribute,
+						message:
+							"A context value built during render is new on every render, so every consumer renders again. Build it with useMemo or useCallback, or keep it in a store, and pass the stable value.",
+					});
+				}
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -2928,5 +3026,6 @@ export default {
 		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
+		"stable-context-value": stableContextValue,
 	},
 };
