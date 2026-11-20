@@ -23,7 +23,7 @@ import {
 	type Outcome,
 	type UnreadCount,
 } from "./model.ts";
-import { READ_FAILED } from "../../components/read-failed.ts";
+import { READ_FAILED, READ_FAILED_ICON } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
 const STALE_MS = 60_000;
@@ -257,7 +257,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 			: {
 					status: "error",
 					title: "Notifications did not load",
-					...(state.status === "failed" ? { text: READ_FAILED } : {}),
+					...(state.status === "failed" ? { text: READ_FAILED, icon: READ_FAILED_ICON } : {}),
 					onRetry: () => void load(query),
 				};
 	return { state: loadable, count: count?.count ?? null, refreshing, load, more, markOne, markAll };

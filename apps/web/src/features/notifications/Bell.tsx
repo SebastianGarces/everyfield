@@ -66,6 +66,7 @@ export function useNotificationBell() {
 						<StatePanel
 							tone="error"
 							title="Notifications did not load"
+							icon={feed.state.icon}
 							headingLevel="h3"
 							actions={
 								<Button variant="secondary" size="sm" onClick={feed.state.onRetry}>
