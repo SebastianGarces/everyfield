@@ -7,18 +7,24 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { checkBudgets, checkSamples } from "./budgets.mjs";
+import { checkBudgets, checkSamples, readRuns } from "./budgets.mjs";
+import { statementStep } from "./kinds.cjs";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 
 type Census = { kind: "whole" } | { kind: "part"; index: number; total: number } | { kind: "union"; folder: string };
-type Row = { kind: string; [key: string]: any };
+type Sample = { kind: "sample"; name: string; status: string; count: number; writes: number; [key: string]: unknown };
+type Declaration = { kind: "declaration"; name: string; write: boolean };
+type Part = { kind: "part"; index: number; total: number; ran: string[] };
+type Row = Sample | Declaration | Part;
 
 function censusMode(part = process.env.EVF_CENSUS_PART, union = process.env.EVF_CENSUS_UNION): Census {
 	if (part && union) throw Error("Set EVF_CENSUS_PART or EVF_CENSUS_UNION, not both");
 	if (union) return { kind: "union", folder: union };
 	if (!part) return { kind: "whole" };
-	const [index, total] = (/^(\d+)\/(\d+)$/.exec(part) ?? []).slice(1).map(Number);
+	const match = /^(\d+)\/(\d+)$/.exec(part);
+	const index = Number(match?.[1]),
+		total = Number(match?.[2]);
 	if (!(index >= 1 && index <= total)) throw Error(`EVF_CENSUS_PART must be i/N with 1 <= i <= N, not "${part}"`);
 	return { kind: "part", index, total };
 }
@@ -34,7 +40,10 @@ function partSuites(files: string[], index: number, total: number): string[] {
 		lightest.bytes += bytes;
 		lightest.files.push(file);
 	}
-	return index === 1 ? [] : parts[index - 2].files;
+	if (index === 1) return [];
+	const chosen = parts[index - 2];
+	if (!chosen) throw Error(`Census part ${index}/${total} has no suites to run`);
+	return chosen.files;
 }
 
 const parseRows = (text: string): Row[] =>
@@ -44,13 +53,16 @@ const parseRows = (text: string): Row[] =>
 		.filter(Boolean)
 		.map((line) => JSON.parse(line));
 
-async function censusUnits(): Promise<string[]> {
+const REQUESTS = "tests/integration/writes/requests.mjs";
+const NATIVE = "tests/integration/writes/native.mjs";
+
+async function censusSuites(): Promise<string[]> {
 	const patterns = JSON.parse(await readFile(new URL("./suites.json", import.meta.url), "utf8"));
-	return [
-		"tests/integration/writes/requests.mjs",
-		"tests/integration/writes/native.mjs",
-		...globSync(patterns, { cwd: root }),
-	];
+	return globSync(patterns, { cwd: root });
+}
+
+async function censusUnits(): Promise<string[]> {
+	return [REQUESTS, NATIVE, ...(await censusSuites())];
 }
 
 async function unionRows(folder: string, units: string[]): Promise<Row[]> {
@@ -76,9 +88,9 @@ async function unionRows(folder: string, units: string[]): Promise<Row[]> {
 }
 
 function checkPart(rows: Row[], limits: object) {
-	const reserves = rows.filter(
-		(row) => row.kind === "sample" && row.status !== "threw" && row.name === "identity.budget.reserve",
-	);
+	const reserves = rows
+		.filter((row) => row.kind === "sample")
+		.filter((row) => row.status !== "threw" && row.name === "identity.budget.reserve");
 	for (const sample of reserves) assert.ok(sample.count > 0, "identity.budget.reserve counted 0 statements");
 	assert.deepEqual(checkSamples(rows, limits), []);
 }
@@ -92,12 +104,11 @@ function checkWhole(rows: Row[], limits: object) {
 	assert.deepEqual(checkBudgets(rows, limits), []);
 	const covered = new Set(
 		rows
-			.filter(
-				(row) => row.kind === "sample" && row.status !== "threw" && (row.writes > 0 || Object.hasOwn(limits, row.name)),
-			)
+			.filter((row) => row.kind === "sample")
+			.filter((row) => row.status !== "threw" && (row.writes > 0 || Object.hasOwn(limits, row.name)))
 			.map((row) => row.name.split(":")[0]),
 	);
-	for (const row of rows.filter((row) => row.kind === "declaration" && row.write))
+	for (const row of rows.filter((row) => row.kind === "declaration").filter((row) => row.write))
 		assert.ok(covered.has(row.name), "A declared write has no successful real-database exercise: " + row.name);
 }
 
@@ -127,16 +138,16 @@ test(
 	{ skip: census.kind === "union" },
 	async () => {
 		const { instrument } = await import("./counter.mjs");
-		const path = join(root, "apps/web/src/server/jobs/mail.ts");
+		const path = join(root, "packages/domain/src/jobs/mail.ts");
 		const source = await readFile(path, "utf8");
-		const listed = (names: string[]) => ({ "/apps/web/src/server/jobs/mail.ts": names });
+		const listed = (names: string[]) => ({ "/packages/domain/src/jobs/mail.ts": names });
 		assert.match(
 			instrument(path, source, listed(["claimUnknownMail"])),
 			/measureWrapper\("jobs\/mail\.claimUnknownMail"/,
 		);
 		assert.throws(() => instrument(path, source, listed(["claimUnknownMail", "claimUnknownMailX"])), {
 			message:
-				"Statement counter lists claimUnknownMailX for apps/web/src/server/jobs/mail.ts, which declares no such function",
+				"Statement counter lists claimUnknownMailX for packages/domain/src/jobs/mail.ts, which declares no such function",
 		});
 	},
 );
@@ -190,6 +201,133 @@ test("INV-census: a budget fails on growth, slack, a write above six without its
 		"GET /people: 4 and 5 statements as its data grows; a page read must be fixed",
 		"retired.write: budgeted but never measured; remove it or exercise it",
 	]);
+});
+
+test("INV-census: a missing budget fails the same way with the read rule on", () => {
+	const rows = [
+		{ kind: "sample", name: "people.unbudgeted", count: 2, writes: 1, rollbacks: 0, status: "ok", kinds: {} },
+		{ kind: "sample", name: "people.read", count: 1, writes: 0, rollbacks: 0, status: "ok", kinds: {} },
+	];
+	assert.deepEqual(checkSamples(rows, {}), ["people.unbudgeted: 2 statements, no budget in limits.json"]);
+	assert.deepEqual(checkBudgets(rows, { "people.unbudgeted": { limit: 2 } }), []);
+});
+
+const steps = (prefix: string, list: Array<[string, string[], boolean?, string?]>) =>
+	list.map(([kind, tables, linked = false, skip], i) => ({
+		id: `${prefix}:${i}`,
+		kind,
+		tables,
+		linked,
+		...(skip ? { skip } : {}),
+	}));
+const written = (name: string, list: ReturnType<typeof steps>) => ({
+	kind: "sample",
+	name,
+	count: list.length,
+	writes: list.filter((s) => s.kind === "write").length,
+	rollbacks: 0,
+	status: "ok",
+	kinds: {},
+	steps: list,
+});
+const baseTask = ["meeting", "obligation", "person", "plant", "recurrence", "task", "task_assignee", "team"];
+const baseFacts = ["contact_outcome", "meeting", "obligation", "person", "task"];
+
+test("INV-census: related reads in a row inside one write fail without a reads reason", () => {
+	const gate = ["account", "onboarding_setup", "organization", "plant", "seat"];
+	const lean = steps("a", [
+		["transaction", []],
+		["locked read", gate, false, "write gate"],
+		["locked read", ["person", "task"]],
+		["write", ["task"], true],
+		["transaction", []],
+	]);
+	const added = steps("b", [
+		["transaction", []],
+		["locked read", gate, false, "write gate"],
+		["locked read", ["person", "task"]],
+		["read", ["contact_outcome"], true],
+		["write", ["task"], true],
+		["transaction", []],
+	]);
+	const limits = { "tasks.complete": { limit: 5 } };
+	assert.deepEqual(checkBudgets([written("tasks.complete", lean)], limits), []);
+	assert.deepEqual(checkBudgets([written("tasks.complete", added)], { "tasks.complete": { limit: 6 } }), [
+		"tasks.complete: 2 reads in a row on related rows (locked read of person+task, then read of contact_outcome); make them one statement or give a reads reason",
+	]);
+	assert.deepEqual(
+		checkBudgets([written("tasks.complete", added)], {
+			"tasks.complete": { limit: 6, reads: "T-1: they wait on a lock" },
+		}),
+		[],
+	);
+	assert.deepEqual(checkBudgets([written("tasks.complete", lean)], { "tasks.complete": { limit: 5, reads: "T-1" } }), [
+		"tasks.complete: no related reads in a row; remove its reads reason",
+	]);
+});
+
+test("INV-census: the read rule flags the base commit's recordOutcome and holds a run to its innermost frame", () => {
+	const domain = steps("r", [
+		["locked read", baseTask],
+		["locked read", baseFacts, true],
+		["write", ["seat", "task"], true],
+	]);
+	const wrapped = [
+		{ id: "w:0", kind: "transaction", tables: [], linked: false },
+		{ id: "w:1", kind: "locked read", tables: ["account", "plant", "seat"], linked: false, skip: "write gate" },
+		...domain,
+		{ id: "w:2", kind: "transaction", tables: [], linked: false },
+	];
+	const limits = {
+		"followups.recordOutcome": { limit: 3 },
+		"followups/core.withFollowUpWrite": { limit: 6 },
+	};
+	assert.deepEqual(
+		checkBudgets(
+			[
+				written("followups.recordOutcome", domain),
+				written("followups/core.withFollowUpWrite:followups.recordOutcome", wrapped),
+			],
+			limits,
+		),
+		[
+			"followups.recordOutcome: 2 reads in a row on related rows (locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then locked read of contact_outcome+meeting+obligation+person+task); make them one statement or give a reads reason",
+		],
+	);
+	const merged = steps("m", [
+		["locked read", [...new Set([...baseTask, ...baseFacts])].sort()],
+		["write", ["seat", "task"], true],
+	]);
+	assert.deepEqual(
+		checkBudgets([written("followups.recordOutcome", merged)], { "followups.recordOutcome": { limit: 2 } }),
+		[],
+	);
+});
+
+test("INV-census: platform statements and unrelated reads start a new run; a passed result value relates two reads", () => {
+	assert.deepEqual(
+		readRuns(
+			steps("u", [
+				["read", ["seat"], false, "session lookup"],
+				["read", ["seat", "person"]],
+				["read", ["meeting"]],
+				["locked read", ["venue"], true],
+			]),
+		).map((run) => run.map((s) => s.id)),
+		[["u:2", "u:3"]],
+	);
+	const id = "6f1c0b9e-6a51-4f0e-9d0b-1b7a3e0d2c11";
+	const seen = new Set([id]);
+	const facts = statementStep(
+		`WITH k AS (SELECT t.id FROM task t JOIN plant pl ON pl.id=t.plant_id WHERE t.id=$1 FOR UPDATE OF t)
+		SELECT (SELECT display_name FROM seat_identity($2)), (SELECT 1 FROM "public"."person" p WHERE p.id IN (SELECT id FROM k)
+			AND p.state IS DISTINCT FROM 'merged' FOR SHARE), unnest($3::uuid[])`,
+		["short", id],
+		seen,
+	);
+	assert.deepEqual(facts, { kind: "locked read", tables: ["person", "plant", "task"], linked: true });
+	assert.equal(statementStep("SELECT 1 FROM person WHERE id=$1", ["contacted"], new Set(["contacted"])).linked, false);
+	assert.equal(statementStep(`WITH "write_gate" AS (SELECT 1) SELECT 1`, [], undefined).skip, "write gate");
 });
 
 test("INV-census: a zero-write replay with a suffixed name is held to its operation's retry budget", () => {
@@ -268,7 +406,9 @@ test("INV-census: every request and write stays within its statement budget", { 
 	const directory = await mkdtemp(join(parent, "evf-write-counts-")),
 		output = join(directory, "counts.jsonl");
 	await writeFile(output, "");
-	const [requestsScript, nativeScript, ...suites] = (await censusUnits()).map((file) => join(root, file));
+	const requestsScript = join(root, REQUESTS),
+		nativeScript = join(root, NATIVE);
+	const suites = (await censusSuites()).map((file) => join(root, file));
 	const part = census.kind === "part" ? census : { index: 1, total: 1 };
 	const files = partSuites(suites, part.index, part.total);
 	const ran: string[] = [];

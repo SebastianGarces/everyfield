@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { sql } from "../../../packages/db/src/query.ts";
-import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import { avatarOperations, readAvatar, uploadAvatar } from "../../../packages/domain/src/settings/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 

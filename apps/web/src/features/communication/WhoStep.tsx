@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { Combobox, Command, Field, keepKeyInField, Spinner } from "@everyfield/ui/controls";
@@ -10,15 +11,7 @@ import { useStore } from "../../components/store.ts";
 import { resolveAudience } from "./actions.ts";
 import { recipientSearches, type ComposeStore } from "./Compose.store.ts";
 import { audienceSize, plural } from "./composeModel.ts";
-import {
-	audienceGroups,
-	groupLabel,
-	type Audience,
-	type AudienceSummary,
-	type Outcome,
-	type Recipient,
-	type Team,
-} from "./model.ts";
+import { audienceGroups, groupLabel, type Audience, type AudienceSummary, type Recipient, type Team } from "./model.ts";
 
 const MAX_CHIPS = 8;
 

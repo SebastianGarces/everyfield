@@ -1,8 +1,10 @@
 import "server-only";
+import { isTestDeployment } from "@everyfield/db/deployment";
 import type { RequestActor } from "@everyfield/domain/access";
 import { readFlags, registry, type FlagName } from "@everyfield/domain/flags";
-import { flag } from "flags/next";
+import { createFlagsDiscoveryEndpoint, flag, getProviderData } from "flags/next";
 import { cache } from "react";
+import { serverEnv } from "./config";
 import { requestDatabase } from "./database";
 import { getViewer } from "./request-context";
 
@@ -23,15 +25,39 @@ const adapter = {
 
 const identify = async (): Promise<Entities> => (await getViewer())?.authority ?? null;
 
+const options = [
+	{ value: false, label: "Off" },
+	{ value: true, label: "On" },
+];
+
 const declare = (key: FlagName) =>
-	flag<boolean, Entities>({ key, defaultValue: registry[key].default, adapter, identify });
+	flag<boolean, Entities>({
+		key,
+		defaultValue: registry[key].default,
+		description: `${registry[key].kind} flag, owner ${registry[key].owner}, ${registry[key].task}, expires ${registry[key].expires}`,
+		options,
+		adapter,
+		identify,
+	});
 
 const flags = Object.fromEntries(Object.keys(registry).map((key) => [key, declare(key as FlagName)])) as {
 	[N in FlagName]: ReturnType<typeof declare>;
 };
 
+const overridesAllowed = (): boolean => {
+	const env = serverEnv();
+	return Boolean(env.FLAGS_SECRET) && isTestDeployment(env);
+};
+
 const requestWithoutOverrideCookie = cache(() => new Request("http://flags.invalid/"));
 
 export function readFlag(name: FlagName): Promise<boolean> {
-	return flags[name](requestWithoutOverrideCookie());
+	return overridesAllowed() ? flags[name]() : flags[name](requestWithoutOverrideCookie());
+}
+
+const discovery = createFlagsDiscoveryEndpoint(() => getProviderData(flags));
+
+export function flagsDiscovery(request: Parameters<typeof discovery>[0]): Promise<Response> {
+	if (!overridesAllowed()) return Promise.resolve(new Response(null, { status: 404 }));
+	return discovery(request);
 }

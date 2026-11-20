@@ -38,7 +38,7 @@ export function HeroPanel({ eyebrow, headline, subhead, primary, secondary, note
 				>
 					<Backdrop bg={photo} preload sizes="100vw" className="hero-fade pointer-events-none absolute inset-0 -z-1" />
 					{eyebrow ? (
-						<span className="mb-[26px] inline-block type-sm leading-[1.3] font-semibold tracking-[0.09em] text-text-2 uppercase max-mk-sm:mb-[18px]">
+						<span className="mb-[26px] inline-block mk-eyebrow type-sm leading-[1.3] font-semibold text-text-2 max-mk-sm:mb-[18px]">
 							{eyebrow}
 						</span>
 					) : null}

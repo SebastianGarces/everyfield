@@ -1,7 +1,7 @@
+import { signIn } from "@/server/sign-in";
 import { feedbackCategory, feedbackStatus } from "@everyfield/contracts/feedback";
 import { Card, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { OwnFeedbackList, OwnFeedbackItem } from "./OwnFeedback.tsx";
 import { feedbackWriter, publicationSetup, run, type Run } from "./server.ts";
@@ -14,7 +14,7 @@ const SENT = [{ label: "Sent feedback", href: "/feedback" }];
 const TRIAGE = [{ label: "Feedback triage", href: "/feedback/triage" }];
 
 function settled<T>(r: Run<T>, returnTo: string): Exclude<Run<T>, { status: "signed_out" }> {
-	if (r.status === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
+	if (r.status === "signed_out") signIn(returnTo);
 	return r as Exclude<Run<T>, { status: "signed_out" }>;
 }
 

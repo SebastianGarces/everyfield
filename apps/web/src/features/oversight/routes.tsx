@@ -1,3 +1,4 @@
+import { signIn } from "@/server/sign-in";
 import {
 	loadDirectory,
 	loadIntelligence,
@@ -10,7 +11,7 @@ import {
 } from "./server.ts";
 import { Button, Card, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { cache, type ReactNode } from "react";
 import { NotAvailable } from "../access/AccessStates";
 import { level, type Level } from "@everyfield/contracts/oversight";
@@ -29,7 +30,7 @@ type Params<K extends string> = { params: Promise<Record<K, string>> };
 
 async function organizationOnly(path: string, page: (viewer: OversightViewer) => Promise<ReactNode>) {
 	const who = await organizationViewer();
-	if (who.kind === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(path)}`);
+	if (who.kind === "signed_out") signIn(path);
 	if (who.kind !== "organization")
 		return (
 			<Card className="mx-auto mt-12 max-w-[560px]">

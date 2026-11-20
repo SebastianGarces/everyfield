@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { ArrowLeft01Icon, CrownIcon, LayoutGridIcon } from "@hugeicons/core-free-icons";
 import {
@@ -19,7 +20,7 @@ import { createRead, useRead } from "../../components/read.tsx";
 import { DialogNotice, SaveButton, type SaveIntent } from "../../components/save/parts.tsx";
 import { importTemplates } from "./actions.ts";
 import { templateCatalog } from "./fetch.ts";
-import { plural, type Catalog, type Outcome, type SetupForm } from "./model.ts";
+import { plural, type Catalog, type SetupForm } from "./model.ts";
 
 type SetupInto = {
 	id: string;

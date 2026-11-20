@@ -37,7 +37,7 @@ async function readMerge(tx: Tx, owner: string, mergeId: string, gate: SQL) {
 		.parse(result.rows[0]);
 	const source = parseFacts(row.source),
 		survivor = parseFacts(row.survivor);
-	if (!row.allowed || row.merge === null || !source || !survivor) deny();
+	if (!row.allowed || row.merge === null || !source || !survivor) deny("unavailable");
 	return { merge: mergeRow.parse(row.merge), source, survivor };
 }
 
@@ -106,7 +106,7 @@ const fieldOf = (col: string) => fieldColumns[col];
 export const peopleUnmerge = {
 	async previewUnmerge(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
-			if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny();
+			if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny("unavailable");
 			const input = parse(c.unmergePreviewRequest, raw);
 			const { merge, source, survivor } = await readMerge(tx, ctx.selected.id, input.mergeId, adminRead(ctx));
 			const i = inverse(merge, source, survivor);
@@ -125,7 +125,7 @@ export const peopleUnmerge = {
 	},
 	async unmergePeople(tx: Tx, ctx: WriteContext, raw: unknown) {
 		return reply(tx, async () => {
-			if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny();
+			if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny("unavailable");
 			const kind = ctx.selected.kind;
 			const owner = ctx.selected.id;
 			const input = parse(c.unmergePeopleRequest, raw);
