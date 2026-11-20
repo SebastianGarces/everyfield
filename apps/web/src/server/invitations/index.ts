@@ -1,12 +1,17 @@
 import "server-only";
 import { createHmac } from "node:crypto";
 import { serverConfig, type ServerConfig } from "../config.ts";
-import { sql } from "@everyfield/db/query";
 import { database } from "../database";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { authorizeInvitationMail, createInvitationService, type InvitationConfig } from "@everyfield/domain/identity";
 import { accountPersonProducer } from "@everyfield/domain/people";
-import { createMailService, MAIL_PASSES, runDueMail, type MailTransport } from "@everyfield/domain/jobs";
+import {
+	addressSuppressed,
+	createMailService,
+	MAIL_PASSES,
+	runDueMail,
+	type MailTransport,
+} from "@everyfield/domain/jobs";
 
 export const INVITATION_MAIL = MAIL_PASSES.mail;
 
@@ -54,10 +59,8 @@ function invitationConfig(): InvitationConfig {
 		origin: v.IDENTITY_ORIGIN,
 		budgetSecret: createHmac("sha256", v.IDENTITY_SECRET).update("invitation-budget").digest("hex"),
 		people: accountPersonProducer,
-		addressBlocked: (email) => {
-			const hash = createHmac("sha256", addressKey).update(email.trim().toLowerCase()).digest("hex");
-			return sql`EXISTS (SELECT 1 FROM suppression WHERE address_hash = ${hash} AND cleared_at IS NULL)`;
-		},
+		addressBlocked: (email) =>
+			addressSuppressed(createHmac("sha256", addressKey).update(email.trim().toLowerCase()).digest("hex")),
 		enqueueMail: (tx, m, command) => {
 			if (m.owner.kind === "global") throw new Error("unavailable");
 			return mail.append(
