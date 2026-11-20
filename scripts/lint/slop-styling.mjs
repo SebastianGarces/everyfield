@@ -1,5 +1,4 @@
-export const SCOPE =
-	/^(?:apps\/web\/src\/features\/|packages\/ui\/src\/|apps\/web\/src\/marketing\/|apps\/web\/src\/styles\/marketing\.css$)/;
+export const SCOPE = /^(?:apps\/web\/src\/features\/|packages\/ui\/src\/|apps\/web\/src\/marketing\/)/;
 export const MARKETING = /^apps\/web\/src\/(?:marketing\/|styles\/marketing\.css$)/;
 
 const LABEL_UTILITY = "section-label";
@@ -38,7 +37,7 @@ export const MARKETING_STEP = {
 };
 const MARKETING_TOKEN = new RegExp(`(?:^|-)(?:${Object.keys(MARKETING_TOKENS).join("|")})(?:-\\d+)?(?:\\/\\d+)?$`);
 const MARKETING_CANVAS = "--color-mk-canvas";
-export const isMarketing = (path) => MARKETING.test(path ?? "");
+export const isMarketing = (path) => MARKETING.test(path);
 
 const BEIGE_HEX = new Set([
 	"f5f5dc",
