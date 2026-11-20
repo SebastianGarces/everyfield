@@ -3,7 +3,14 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { GLOBAL_TENANT, readFlags, setFlag } from "../../../packages/domain/src/flags/index.ts";
+import {
+	GLOBAL_TENANT,
+	readFlags,
+	setFlag,
+	type FlagScope,
+	type Registry,
+} from "../../../packages/domain/src/flags/index.ts";
+import type { Workspace } from "../../support/fixture.mts";
 import { withFlag } from "../../support/flags.mts";
 
 const declared = {
@@ -81,16 +88,23 @@ const declared = {
 	},
 } as const;
 
-let f, plantA, plantB, operator, a1, a2, b1, loner;
-const read = async (who, name) => (await readFlags(f.db, who?.actor ?? null, declared)).value(name);
-const set = (flag, scope, value) => setFlag(f.db, { flag, scope, value, operator: operator.id }, declared);
+type Fixture = Awaited<ReturnType<typeof fixture>>;
+type Account = Awaited<ReturnType<Fixture["account"]>>;
+type Reader = { actor: Awaited<ReturnType<Fixture["actor"]>> };
+type Flag = keyof typeof declared;
+let f: Fixture, plantA: Workspace, plantB: Workspace, operator: Account;
+let a1: Account & Reader, a2: Account & Reader, b1: Account & Reader, loner: Account & Reader;
+const read = async (who: Reader | null, name: Flag) =>
+	(await readFlags(f.db, who?.actor ?? null, declared)).value(name);
+const set = (flag: Flag, scope: FlagScope, value: boolean | null) =>
+	setFlag(f.db, { flag, scope, value, operator: operator.id }, declared);
 
 before(async () => {
 	f = await fixture();
 	plantA = await f.workspace();
 	plantB = await f.workspace();
 	operator = await f.account();
-	const seated = async (w, role = "owner") => {
+	const seated = async (w: Workspace, role: "owner" | "admin" | "member" = "owner") => {
 		const account = await f.account();
 		await f.seat(account, w, role);
 		return { ...account, actor: await f.actor(account.session) };
@@ -186,8 +200,13 @@ test("another tenant's workspace or account override is never read", async () =>
 	]);
 	await assert.rejects(set("test-tenancy", { kind: "workspace", id: a1.id }, true), /flag_scope_unavailable/);
 	await assert.rejects(set("test-tenancy", { kind: "account", id: plantB.id }, true), /flag_scope_unavailable/);
+	const registryByName: Registry = declared;
 	await assert.rejects(
-		setFlag(f.db, { flag: "not-registered", scope: { kind: "global" }, value: true, operator: operator.id }, declared),
+		setFlag(
+			f.db,
+			{ flag: "not-registered", scope: { kind: "global" }, value: true, operator: operator.id },
+			registryByName,
+		),
 		/flag_not_registered/,
 	);
 });
