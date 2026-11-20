@@ -106,8 +106,8 @@ export class SaveLane<E extends { problem?: string }> {
 	}
 
 	#refuse<T>(spec: SaveSpec<E, T>, key: string, token: number, code: string, done: string) {
-		const reopen = spec.form !== undefined && token === this.#state.intent;
-		if (reopen) return this.#set({ editing: { ...spec.form!, problem: code } });
+		const form = spec.form;
+		if (form !== undefined && token === this.#state.intent) return this.#set({ editing: { ...form, problem: code } });
 		this.#set({
 			notice: { tone: "refused", id: key, what: spec.what, done, reason: this.#options.explain(code) },
 		});
