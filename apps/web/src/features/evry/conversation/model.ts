@@ -1,3 +1,4 @@
+import { plainText } from "../../../components/markdown.ts";
 import type { Review } from "../review/model.ts";
 
 type ContextKind = "account" | "plant" | "sending_church" | "sending_network";
@@ -247,11 +248,12 @@ export function turnsOf(events: readonly ConversationEvent[], live: Readonly<Rec
 }
 
 export const answerText = (turn: Turn) =>
-	turn.blocks
-		.filter((b) => b.kind === "text" && !b.withheld)
-		.map((b) => (b as { text: string }).text)
-		.join("")
-		.trim();
+	plainText(
+		turn.blocks
+			.filter((b) => b.kind === "text" && !b.withheld)
+			.map((b) => (b as { text: string }).text)
+			.join(""),
+	).trim();
 
 export function retryable(state: State, turns: readonly Turn[]) {
 	const last = turns.at(-1);
