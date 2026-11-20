@@ -20,6 +20,9 @@ import { transaction } from "./transaction.ts";
 import { logLine } from "../log.ts";
 
 const PLAN_LIMIT = 500;
+
+export const supersedeDigests = (sourceId: string) =>
+	sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`;
 const DIGESTS_PER_RUN = 20;
 
 export async function planDigests(db: Database, asOf: string): Promise<{ started: number; queued: number }> {
