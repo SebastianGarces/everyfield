@@ -1,5 +1,5 @@
 import { getViewer } from "@/server/request-context";
-import { signIn } from "@/server/sign-in";
+import { requireActor } from "@/server/sign-in";
 import { recordId } from "@everyfield/contracts/common";
 import { Button, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
@@ -18,18 +18,12 @@ export const churchArchivedMetadata: Metadata = {
 };
 export const churchDocumentMetadata: Metadata = { title: "Church document", robots: { index: false, follow: false } };
 
-async function activeViewer(returnTo: string) {
-	const viewer = await getViewer();
-	if (viewer.status === "unauthenticated") signIn(returnTo);
-	return viewer.status === "active" ? viewer : null;
-}
-
 export async function ChurchLibraryPage({
 	searchParams,
 }: {
 	searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-	const authority = (await activeViewer("/documents/church"))?.authority;
+	const authority = await requireActor("/documents/church");
 	if (!authority) return <Unavailable />;
 	const loaded = await loadLibrary(authority);
 	if (loaded.status === "lost") return <Failed />;
@@ -53,7 +47,7 @@ function noticeOf(params: Record<string, string | string[] | undefined>) {
 }
 
 export async function ChurchArchivedPage() {
-	const authority = (await activeViewer("/documents/church/archived"))?.authority;
+	const authority = await requireActor("/documents/church/archived");
 	if (!authority) return <Unavailable />;
 	if (!canManageChurch(authority)) return <NotAvailablePage />;
 	const loaded = await loadArchived(authority);
@@ -74,9 +68,8 @@ function NotAvailablePage() {
 
 export async function ChurchDocumentPage({ params }: { params: Promise<{ documentId: string }> }) {
 	const raw = (await params).documentId;
-	const viewer = await activeViewer(`/documents/church/${encodeURIComponent(raw)}`);
-	const authority = viewer?.authority;
-	if (!viewer || !authority) return <Unavailable />;
+	const authority = await requireActor(`/documents/church/${encodeURIComponent(raw)}`);
+	if (!authority) return <Unavailable />;
 	const id = recordId.safeParse(raw);
 	if (!id.success) return <Missing />;
 	const loaded = await loadChurchDocument(authority, id.data);
@@ -93,7 +86,7 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 			exports={loaded.value.exports}
 			revisions={loaded.value.revisions}
 			revisionsTruncated={loaded.value.revisionsTruncated}
-			viewerName={viewer.displayName || null}
+			viewerName={(await getViewer()).displayName || null}
 		/>
 	);
 }

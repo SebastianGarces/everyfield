@@ -718,7 +718,7 @@ const fallback: OpView = {
 function localName(local: string) {
 	const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
 	if (!m) return local;
-	const wall = new Date(Date.UTC(+m[1]!, +m[2]! - 1, +m[3]!, +m[4]!, +m[5]!));
+	const wall = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5])));
 	return new Intl.DateTimeFormat("en-US", {
 		timeZone: "UTC",
 		weekday: "short",
@@ -1308,7 +1308,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			const done = num(fields.complete);
 			return {
 				...plain,
-				name: row.id === "checklist" ? "Checklist items" : label(TASK_STATUS, row.label)!,
+				name: row.id === "checklist" ? "Checklist items" : (label(TASK_STATUS, row.label) ?? ""),
 				line: Number.isFinite(done)
 					? `${done.toLocaleString()} of ${count(n || 0, "item", "items")} done`
 					: count(n || 0, "task", "tasks"),
@@ -1330,7 +1330,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 			const personId = text(fields.personId);
 			return {
 				key,
-				name: outcome === "contacted" ? (by ? `${by} — conversation` : "Conversation") : label(OUTCOME, outcome)!,
+				name:
+					outcome === "contacted" ? (by ? `${by} — conversation` : "Conversation") : (label(OUTCOME, outcome) ?? ""),
 				line: joined(
 					day(fields.occurredAt),
 					outcome === "contacted" ? null : label(CHANNEL, fields.channel),
@@ -1673,9 +1674,9 @@ function rowView(operation: string, row: SourceRow): RowView {
 				line: joined(line, whose),
 				avatar: "article",
 				href: operation === "wiki.article.exportPdf" ? null : text(fields.href),
-				...(operation === "wiki.article.exportPdf" && text(fields.pdfHref) ? { file: text(fields.pdfHref)! } : {}),
+				...(operation === "wiki.article.exportPdf" && text(fields.pdfHref) ? { file: text(fields.pdfHref) ?? "" } : {}),
 				...(operation === "wiki.referenceExcerpt" && text(fields.excerpt)
-					? { quote: plainExcerpt(text(fields.excerpt)!) }
+					? { quote: plainExcerpt(text(fields.excerpt) ?? "") }
 					: {}),
 			};
 		}
@@ -1845,7 +1846,7 @@ function taskView(operation: string, row: SourceRow, key: string): RowView {
 			: fields.blocking === true
 				? { kind: "status", text: "Not done yet", warn: true }
 				: fields.status && fields.status !== "not_started"
-					? { kind: "status", text: label(TASK_STATUS, fields.status)!, warn: false }
+					? { kind: "status", text: label(TASK_STATUS, fields.status) ?? "", warn: false }
 					: null;
 	const owner = fields.needsOwner === true ? "Needs owner" : owners(fields.owners);
 	const phase =
@@ -1887,7 +1888,7 @@ function followUpView(operation: string, row: SourceRow, key: string): RowView {
 		fields.overdue === true && open
 			? { kind: "status", text: "Overdue", warn: true }
 			: obligation && fields.state !== "open"
-				? { kind: "status", text: label(OBLIGATION_STATE, fields.state)!, warn: false }
+				? { kind: "status", text: label(OBLIGATION_STATE, fields.state) ?? "", warn: false }
 				: null;
 	const line = obligation
 		? joined(

@@ -127,7 +127,7 @@ export function scheduledJobs(config: {
 				report[component] = { status: "failed" };
 			}
 		}
-		const failed = Object.keys(report).filter((component) => report[component]!.status === "failed");
+		const failed = Object.entries(report).flatMap(([component, step]) => (step.status === "failed" ? [component] : []));
 		return Response.json(
 			{ status: failed.length ? "failed" : "ok", ...counts, failed, steps: report },
 			{ status: failed.length ? 500 : 200 },

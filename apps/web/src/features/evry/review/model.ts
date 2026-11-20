@@ -1012,7 +1012,8 @@ export const openCriteria = (review: Review) => {
 	return Array.isArray(value) ? (value as { label: string; status: string }[]) : null;
 };
 
-export const isMail = (operation: Operation) => operation.startsWith("communication.");
+export type MailOperation = Extract<Operation, `communication.${string}`>;
+export const isMail = (operation: Operation): operation is MailOperation => operation.startsWith("communication.");
 export const isWiki = (operation: Operation) => operation.startsWith("wiki.");
 export const targetHref = (target: NonNullable<Review["review"]["target"]>) => target.href ?? `/people/${target.id}`;
 export const isMeetings = (operation: Operation) =>
@@ -1109,7 +1110,7 @@ export const LEFT_OUT_REASON: Record<string, string> = {
 export const checkable = (review: Review) =>
 	review.outcome === "completed" && review.receipt?.report?.confirmation === "not_confirmed";
 
-const MAIL_PENDING: Record<string, string> = {
+const MAIL_PENDING: Record<MailOperation, string> = {
 	"communication.saveDraft": "Review before saving",
 	"communication.scheduleReviewed": "Review before scheduling",
 	"communication.rescheduleReviewed": "Review the new time",
@@ -1163,7 +1164,7 @@ export function mailHead(
 				? "Message changed"
 				: review.review.refusal
 					? (MAIL_REFUSED[review.operation] ?? "Can't do this")
-					: MAIL_PENDING[review.operation]!,
+					: MAIL_PENDING[review.operation],
 			tone: "amber",
 		};
 	if (phase === "running")
@@ -1370,6 +1371,13 @@ export const CHOICES: Record<string, { value: string; label: string }[]> = {
 	adultClassification: Object.entries(CLASSIFICATION_LABEL).map(([value, label]) => ({ value, label })),
 };
 
+export function choicesFor(field: string) {
+	const choices = CHOICES[field];
+	if (!choices) throw new Error(`The choice field ${field} has no choices`);
+	return choices;
+}
+export const linkEdit = (link: CarryOver) => JSON.stringify({ carries: link.carries, share: link.share });
+
 const FIXED = new Set([
 	"photo",
 	"state",
@@ -1408,7 +1416,7 @@ const ADDS = new Set<Operation>([
 export const seatsAccount = (operation: Operation) =>
 	operation === "onboarding.createPlant" || operation === "discovery.convertToPlant";
 
-type CarryOver = {
+export type CarryOver = {
 	organizationId: string;
 	organization: string;
 	kind: string;
@@ -1459,8 +1467,9 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 	if (!REVISABLE.has(review.operation) && !isMail(review.operation)) return null;
 	const { target, changes } = review.review;
 	const value = (c: Change) => {
-		if (!(c.field in edits)) return c.after;
-		const text = edits[c.field]!.trim();
+		const edited = edits[c.field];
+		if (edited === undefined) return c.after;
+		const text = edited.trim();
 		return text === "" ? null : text;
 	};
 	const after = (field: string) => {
@@ -1473,7 +1482,8 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 		const picks = changes.flatMap((c) => {
 			const link = carryOver(c);
 			if (!link) return [];
-			const edited = c.field in edits ? (JSON.parse(edits[c.field]!) as Pick<CarryOver, "carries" | "share">) : link;
+			const raw = edits[c.field];
+			const edited = raw !== undefined ? (JSON.parse(raw) as Pick<CarryOver, "carries" | "share">) : link;
 			return edited.carries ? [{ organizationId: link.organizationId, share: edited.share }] : [];
 		});
 		const place = Object.fromEntries(

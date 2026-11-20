@@ -1,5 +1,5 @@
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
+import { viewerActor } from "@/server/request-context";
 import type { Lost, Outcome } from "@everyfield/contracts/common";
 import type { DocumentsError } from "@everyfield/contracts/documents";
 import type { RequestActor } from "@everyfield/domain/access";
@@ -24,10 +24,6 @@ export type DocumentsLoad =
 	| { status: "refused" }
 	| Lost;
 
-export async function documentActor(): Promise<RequestActor | null> {
-	return (await getViewer()).authority;
-}
-
 export type PreviewOutcome = Outcome<
 	Resolved & { artifact: string | null; brandKit: boolean },
 	DocumentsError["code"],
@@ -39,7 +35,7 @@ export async function readPreview(
 	format: Format,
 	overrides: Record<string, string>,
 ): Promise<PreviewOutcome> {
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return { status: "refused", code: "access_denied" };
 	const reply = await transient(
 		{ component: "documents", outcome: "action_failed" },

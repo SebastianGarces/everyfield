@@ -19,7 +19,7 @@ function keptAnswers(body: string, questions: readonly string[]): Map<string, st
 		if (current !== null && value && !answers.has(current)) answers.set(current, value);
 	};
 	lines.forEach((line, i) => {
-		if (titles.has(line.trim()) && (i === 0 || lines[i - 1]!.trim() === "")) {
+		if (titles.has(line.trim()) && lines.slice(Math.max(0, i - 1), i).every((previous) => previous.trim() === "")) {
 			close();
 			current = line.trim();
 			text = [];
@@ -166,7 +166,7 @@ SELECT g.allowed,(SELECT to_jsonb(x) FROM x) AS send,
 			})
 			.parse(r.rows[0]);
 		if (!row.allowed || !row.send) refuse();
-		const send = row.send!;
+		const send = row.send;
 		if (!send.shared || !row.note) return C.answerReview.parse({ ...sendOf(send), shared: false });
 		const answers = keptAnswers(row.note.body, row.note.questions);
 		return C.answerReview.parse({

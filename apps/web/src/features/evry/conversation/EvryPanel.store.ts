@@ -242,7 +242,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 		const readyFiles = (conversationId: string | null): Attachment[] =>
 			get()
 				.files.filter((p) => p.state === "ready" && p.conversationId === conversationId)
-				.map((p) => p.attachment!);
+				.flatMap((p) => (p.attachment ? [p.attachment] : []));
 
 		const deliver = async (send: Send) => {
 			const view = shown;

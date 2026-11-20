@@ -18,7 +18,12 @@ export async function stepAccessForm(_: unknown, data: FormData): Promise<FormSt
 		const v = data.get(k);
 		return typeof v === "string" ? v : undefined;
 	};
-	const values = Object.fromEntries(FIELD_NAMES.flatMap((n) => (str(n) === undefined ? [] : [[n, str(n)!]])));
+	const values = Object.fromEntries(
+		FIELD_NAMES.flatMap((n) => {
+			const v = str(n);
+			return v === undefined ? [] : [[n, v]];
+		}),
+	);
 	const who = str("who");
 	const step = Math.min(Math.max(Number(str("step")) || 0, 0), LAST_STEP);
 	const status = str("notice") ? "unavailable" : "editing";

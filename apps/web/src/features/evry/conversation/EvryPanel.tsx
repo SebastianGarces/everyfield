@@ -594,7 +594,7 @@ function Composer({
 				<div className="flex items-center gap-2">
 					{usePage ? (
 						<Tag tone="green" icon={Link01Icon}>
-							{page[0]!.kind === "article" ? "Using the article on this page" : "Using the person on this page"}
+							{page[0]?.kind === "article" ? "Using the article on this page" : "Using the person on this page"}
 						</Tag>
 					) : (
 						<Tag icon={Unlink01Icon}>Page left out</Tag>

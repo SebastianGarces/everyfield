@@ -61,7 +61,7 @@ import { CurrentState, ImportResult, ImportRows, PeopleResult, ReviewedPeople } 
 import {
 	asksReason,
 	approvable,
-	CHOICES,
+	choicesFor,
 	checkable,
 	emptyText,
 	clock,
@@ -116,6 +116,8 @@ import {
 	targetHref,
 	valueText,
 	wikiRefusalText,
+	linkEdit,
+	type CarryOver,
 	type Change,
 	type Phase,
 	type Review,
@@ -272,7 +274,8 @@ function announcement(view: View, review: Review | null, lapsed: boolean, unknow
 			: ((review && mailHead(review, view)?.title) ?? HEAD[view].title).replace("…", "");
 	if (view === "pending" && !(review && review.revision > 1)) return "";
 	if (view === "running") return "Approved. Saving in the background.";
-	if (view === "completed" && review && isMail(review.operation)) return mailHead(review, "completed")!.title;
+	const completedMail = view === "completed" && review ? mailHead(review, "completed") : null;
+	if (completedMail) return completedMail.title;
 	if (view === "completed" && review && peopleResult(review)) return `${peopleResult(review)}.`;
 	if (view === "completed" && review?.receipt?.import) return "Import saved.";
 	if (view === "completed") return review ? savedText(review) : "Saved.";
@@ -324,12 +327,13 @@ export function ReviewCard({
 			: base.icon;
 	const people = view === "completed" && review ? peopleResult(review) : null;
 	const imported = view === "completed" && review?.receipt?.import ? "Import saved" : null;
+	const plainTitle = people ?? imported;
 	const h = mailTitle
 		? { ...base, ...mailTitle, icon }
-		: people || imported
+		: plainTitle
 			? {
 					...base,
-					title: people ?? imported!,
+					title: plainTitle,
 					...(people && !people.startsWith("Saved") && { icon: Alert02Icon, tone: "amber" as const }),
 				}
 			: base;
@@ -923,16 +927,17 @@ function PhotoTile({
 
 function PhotoChange({
 	review,
+	target,
 	change,
 	staged,
 	onRetry,
 }: {
 	review: Review;
+	target: NonNullable<Review["review"]["target"]>;
 	change: Change;
 	staged: StagedPhoto;
 	onRetry: () => void;
 }) {
-	const target = review.review.target!;
 	const saved = review.outcome === "completed";
 	const after: { state: TileState; src?: string } =
 		change.after === null || change.after === undefined
@@ -1015,23 +1020,31 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 	const open = openCriteria(review);
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
-			{changes.map((c: Change, n) =>
-				item ? (
+			{changes.map((c: Change, n) => {
+				const link = carryOver(c);
+				return item ? (
 					<div key={n} className="flex min-w-0 flex-col gap-0.5">
 						<dt className="font-medium break-words text-ink">{c.field}</dt>
 						{values(c, item)}
 					</div>
 				) : c.field === "photo" && review.review.target ? (
-					<PhotoChange key={c.field} review={review} change={c} staged={staged} onRetry={onRetry} />
-				) : carryOver(c) ? (
-					<LinkChange key={c.field} change={c} />
+					<PhotoChange
+						key={c.field}
+						review={review}
+						target={review.review.target}
+						change={c}
+						staged={staged}
+						onRetry={onRetry}
+					/>
+				) : link ? (
+					<LinkChange key={c.field} link={link} />
 				) : (
 					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_minmax(0,1fr)] items-baseline gap-x-3">
 						<dt className="text-text-2">{fieldLabel(c.field, review.operation)}</dt>
 						{values(c, c.field)}
 					</div>
-				),
-			)}
+				);
+			})}
 			{open ? (
 				<div className="grid grid-cols-[minmax(88px,auto)_1fr] items-baseline gap-x-3">
 					<dt className="text-text-2">{fieldLabel("openCriteria")}</dt>
@@ -1055,8 +1068,7 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 	);
 }
 
-function LinkChange({ change }: { change: Change }) {
-	const link = carryOver(change)!;
+function LinkChange({ link }: { link: CarryOver }) {
 	return (
 		<div className="grid grid-cols-[minmax(88px,auto)_minmax(0,1fr)] items-baseline gap-x-3">
 			<dt className="text-text-2">
@@ -1071,17 +1083,16 @@ function LinkChange({ change }: { change: Change }) {
 }
 
 function LinkPicker({
-	change,
+	link,
 	value,
 	onChange,
 	disabled,
 }: {
-	change: Change;
+	link: CarryOver;
 	value: string;
 	onChange: (value: string) => void;
 	disabled: boolean;
 }) {
-	const link = carryOver(change)!;
 	const pick = JSON.parse(value) as { carries: boolean; share: string[] };
 	const set = (next: typeof pick) => onChange(JSON.stringify(next));
 	return (
@@ -1155,7 +1166,7 @@ function ReviseForm({
 		Object.fromEntries(
 			fields.map((c) => {
 				const link = carryOver(c);
-				if (link) return [c.field, JSON.stringify({ carries: link.carries, share: link.share })];
+				if (link) return [c.field, linkEdit(link)];
 				return [c.field, c.after === null || c.after === undefined ? "" : String(c.after)];
 			}),
 		),
@@ -1178,10 +1189,11 @@ function ReviseForm({
 				{fields.map((c) => {
 					const kind = fieldKind(c.field);
 					const set = (value: string) => setEdits((all) => ({ ...all, [c.field]: value }));
-					if (carryOver(c))
+					const link = carryOver(c);
+					if (link)
 						return (
 							<div key={c.field} data-field={c.field}>
-								<LinkPicker change={c} value={edits[c.field]!} onChange={set} disabled={locked} />
+								<LinkPicker link={link} value={edits[c.field] ?? linkEdit(link)} onChange={set} disabled={locked} />
 							</div>
 						);
 					const now =
@@ -1200,7 +1212,7 @@ function ReviseForm({
 							>
 								{kind === "choice" ? (
 									<Select
-										options={CHOICES[c.field]!}
+										options={choicesFor(c.field)}
 										value={edits[c.field] ?? ""}
 										onValueChange={set}
 										disabled={locked}
