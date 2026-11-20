@@ -12,7 +12,7 @@ import {
 	planNotifications,
 } from "../../../packages/domain/src/meetings/index.ts";
 import { createNotificationProducer } from "../../../packages/domain/src/notifications/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import {
 	authorizeNotificationMail,
 	createNotificationWorker,

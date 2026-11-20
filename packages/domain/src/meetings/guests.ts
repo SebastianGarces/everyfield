@@ -83,7 +83,7 @@ async function lockGuest(tx: Tx, w: Writer, meetingId: string, person: SQL, extr
 			${extra} AS extra, m.finalized_at IS NOT NULL AS finalized, m.attendance_revision::text AS attendance,
 			clock_timestamp() AS now
 		FROM meeting m WHERE ${plantMeeting(w.plant.id, meetingId)} AND m.retired_at IS NULL FOR SHARE OF m`);
-	if (!r.rows[0]) deny();
+	if (!r.rows[0]) deny("unavailable");
 	const row = r.rows[0] as Record<string, unknown>;
 	return {
 		m: meetingRow.parse(row),
@@ -102,7 +102,7 @@ function changeAttended(audit: AuditWrite, meetingId: string, finalized: boolean
 	return next(attendance);
 }
 const current = (g: GuestRow | null) => {
-	if (!g || g.removed_at) deny();
+	if (!g || g.removed_at) deny("unavailable");
 	return g;
 };
 const expected = (g: GuestRow, revision: string) => {
@@ -230,7 +230,7 @@ export const guestsWriter = {
 						m.finalized_at IS NOT NULL AS finalized, m.attendance_revision::text AS attendance
 					FROM meeting m WHERE ${plantMeeting(w.plant.id, meetingId)} AND m.retired_at IS NULL FOR SHARE OF m`);
 				const row = r.rows[0] as Record<string, unknown> | undefined;
-				if (!row) deny();
+				if (!row) deny("unavailable");
 				const m = meetingRow.parse(row);
 				const f = z
 					.object({
@@ -351,7 +351,7 @@ export const guestsWriter = {
 					input.input.meetingId,
 					sql`${input.input.personId}::uuid`,
 				);
-				if (!g) deny();
+				if (!g) deny("unavailable");
 				if (g.removed_at)
 					return guestChange(answer(audit.id, "noop", g, attendance), g, m, {
 						action: "meetings.changed",

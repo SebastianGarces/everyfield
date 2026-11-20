@@ -73,7 +73,7 @@ const standalone = {
 	],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
 	"/packages/domain/src/oversight/intelligence.ts": ["requestIntelligenceRefresh", "submitIntelligenceFeedback"],
-	"/apps/web/src/server/jobs/queue.ts": [
+	"/packages/domain/src/jobs/queue.ts": [
 		"enqueueJob",
 		"enqueueJobs",
 		"claimDue",
@@ -82,9 +82,9 @@ const standalone = {
 		"checkpoint",
 		"scanPage",
 	],
-	"/apps/web/src/server/jobs/mail.ts": ["claimUnknownMail"],
-	"/apps/web/src/server/jobs/webhook.ts": ["applyMailCallback", "applyStoredCallback"],
-	"/apps/web/src/server/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
+	"/packages/domain/src/jobs/mail.ts": ["claimUnknownMail"],
+	"/packages/domain/src/jobs/webhook.ts": ["applyMailCallback", "applyStoredCallback"],
+	"/packages/domain/src/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
 };
 
 function outcomeVariant(input) {
@@ -175,10 +175,10 @@ function measureWrapper(name, body) {
 }
 globalThis.__evfWriteCounts = { measure, measureWrapper, decorate, observeDatabase };
 
-export function instrument(path, source, listed = standalone) {
+export function instrument(path, source, listed) {
 	const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true),
 		edits = [];
-	const names = listed[path.slice(root.length)] ?? [],
+	const names = (listed ?? standalone)[path.slice(root.length)] ?? [],
 		declared = new Set();
 	const localAliases = path.endsWith("/jobs/notifications.ts") ? { enqueueMany: "notifications.enqueueMany" } : {};
 	function walk(n) {

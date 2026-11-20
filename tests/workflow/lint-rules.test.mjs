@@ -934,7 +934,7 @@ export const e: string = "x";
 	assert.deepEqual(hits("packages/domain/src/notifications/x.ts"), [1, 3, 4, 7, 8]);
 	assert.deepEqual(hits("apps/web/src/features/x/mail.ts"), [1, 3, 4, 7, 8]);
 	assert.deepEqual(hits("packages/domain/src/communication/delivery.ts"), []);
-	assert.deepEqual(hits("apps/web/src/server/jobs/mail.ts"), []);
+	assert.deepEqual(hits("packages/domain/src/jobs/mail.ts"), []);
 });
 
 test("INV-actor: only the session module builds a RequestActor from a session, in product code; tests may forge one", () => {
@@ -1171,12 +1171,15 @@ export async function m(run, refusalOf) {
 		lint({
 			"apps/web/src/features/x/server.ts": code,
 			"apps/web/src/server/jobs/x.ts": code.replace('import "server-only";\n', ""),
+			"packages/domain/src/jobs/x.ts": code.replace('import "server-only";\n', ""),
+			"packages/domain/src/people/x.ts": code.replace('import "server-only";\n', ""),
 			"apps/web/src/features/x/Client.tsx": `"use client";\n${code.replace('import "server-only";\n', "")}`,
 			"apps/web/src/server/platform/transient.ts": code,
 		}),
 		[
 			...hits.map((line) => `apps/web/src/features/x/server.ts:${line} no-silent-catch`),
 			...hits.map((line) => `apps/web/src/server/jobs/x.ts:${line - 1} no-silent-catch`),
+			...hits.map((line) => `packages/domain/src/jobs/x.ts:${line - 1} no-silent-catch`),
 		].sort(),
 	);
 });

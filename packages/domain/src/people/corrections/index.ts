@@ -86,7 +86,7 @@ export const recordCorrections = {
 					const table = sql.identifier(def.table);
 					const target = sql`FROM ${table} r WHERE r.id=${recordId}::uuid AND r.plant_id=${plant}::uuid`;
 					const p = await subject(tx, ctx, personId, sql`(SELECT ${recordJson(recordType)} ${target})`);
-					if (p.extra === null) deny();
+					if (p.extra === null) deny("unavailable");
 					const record = found.parse(p.extra);
 					if (record.person_id !== p.id) deny("conflict");
 					expectRevision(record.revision, input.expectedRevision);
@@ -173,7 +173,7 @@ export const recordCorrections = {
 					),
 				})
 				.safeParse(result.rows[0]);
-			if (!row.success) deny();
+			if (!row.success) deny("unavailable");
 			const { total, items } = row.data;
 			return c.recordCorrectionsResult.parse({
 				personId: input.personId,

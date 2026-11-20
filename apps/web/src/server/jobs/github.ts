@@ -1,17 +1,10 @@
 import { z } from "zod";
 import { serverEnv, type ServerEnv } from "../config.ts";
 import { logFailure } from "@everyfield/domain/log";
+import type { IssueClient } from "@everyfield/domain/jobs";
 
 const GITHUB_TIMEOUT_MS = 10_000;
 const GITHUB_API = "https://api.github.com";
-
-export type IssueLink = { number: number; url: string };
-export type CreateOutcome = { kind: "created"; issue: IssueLink } | { kind: "refused" } | { kind: "unknown" };
-export type SearchOutcome = { kind: "found"; issues: IssueLink[] } | { kind: "failed" };
-export interface IssueClient {
-	create(repository: string, issue: { title: string; body: string }): Promise<CreateOutcome>;
-	search(repository: string, reference: string): Promise<SearchOutcome>;
-}
 
 const repositoryName = z.string().regex(/^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/);
 

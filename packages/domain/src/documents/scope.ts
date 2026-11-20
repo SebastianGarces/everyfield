@@ -42,7 +42,7 @@ export function plantScope(viewer: PlantViewer): Scope {
 export function iso(value: unknown) {
 	if (value instanceof Date) return value.toISOString();
 	if (typeof value === "string" && !Number.isNaN(Date.parse(value))) return new Date(value).toISOString();
-	deny();
+	deny("unavailable");
 }
 
 export async function rowsOf<T>(db: Pick<Database, "execute"> | Transaction, query: ReturnType<typeof sql>) {
@@ -70,7 +70,7 @@ export function sameRevision(left: string, right: string) {
 }
 
 export function refuseStorage(error: unknown): never {
-	if (error instanceof StorageError) deny();
+	if (error instanceof StorageError) deny("unavailable");
 	throw error;
 }
 
@@ -83,7 +83,7 @@ export async function storeBytes(
 	bytes: Uint8Array,
 	uploadKey: string,
 ) {
-	if (!storage) deny();
+	if (!storage) deny("unavailable");
 	const authorize: ResourceAuthorizer = async (tx, file, intent) => {
 		if (intent !== "put" || file.tenant_id !== scope.tenantId || file.purpose !== purpose) return null;
 		const found = await rowsOf<{ ok: boolean }>(tx, sql`SELECT ${gateSql(scope, purpose === "native_import")} AS ok`);
@@ -162,7 +162,7 @@ export async function historyRows(db: Database, scope: Scope, documentId: string
 		ORDER BY gd.generated_at DESC NULLS LAST
 		LIMIT ${PAGE}`,
 	);
-	if (found[0]?.ok !== true && found.length > 0) deny();
-	if (found.length === 0) deny();
+	if (found[0]?.ok !== true && found.length > 0) deny("unavailable");
+	if (found.length === 0) deny("unavailable");
 	return found.filter((row) => row.present);
 }
