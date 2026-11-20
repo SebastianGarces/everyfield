@@ -81,14 +81,14 @@ const answerRecord = z.object({
 });
 
 const summary = (k: Checklist) =>
-	c.checklistSummary.parse({
+	({
 		key: k.key,
 		name: k.name,
 		description: k.description,
 		phase: k.phase,
 		category: k.category,
 		taskCount: k.items.length,
-	});
+	}) satisfies z.output<typeof c.checklistSummary>;
 const preview = (k: Checklist, anchor: LocalDate) =>
 	c.checklistPreview.parse({
 		...summary(k),
@@ -152,11 +152,11 @@ export function createTemplateReader(catalog: Catalog = CATALOG) {
 				const viewer = adminReader(authority);
 				parse(c.listTemplatesRequest, raw);
 				const plant = await plantFacts(tx, viewer);
-				return c.templateCatalog.parse({
+				return {
 					catalogVersion: catalog.version,
 					currentPhase: plant.phase,
 					checklists: catalog.checklists.map(summary),
-				});
+				} satisfies z.output<typeof c.templateCatalog>;
 			});
 		},
 		async previewTemplate(tx: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
@@ -166,11 +166,11 @@ export function createTemplateReader(catalog: Catalog = CATALOG) {
 				const checklist = catalog.checklists.find((k) => k.key === input.checklistKey) ?? deny("invalid_input");
 				const plant = await plantFacts(tx, viewer);
 				const anchor = localDateAt(now(), plant.zone);
-				return c.templatePreview.parse({
+				return {
 					catalogVersion: catalog.version,
 					anchorDate: anchor,
 					checklist: preview(checklist, anchor),
-				});
+				} satisfies z.output<typeof c.templatePreview>;
 			});
 		},
 		async readPhaseOffer(tx: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
@@ -196,13 +196,13 @@ export function createTemplateReader(catalog: Catalog = CATALOG) {
 				}
 				const latest = plant.latest;
 				if (!latest || latest.answer !== null || (input.transitionId && latest.id !== input.transitionId))
-					return c.phaseOffer.parse({ status: "none" });
+					return { status: "none" } satisfies z.output<typeof c.phaseOffer>;
 				const transition = offerTransition(latest, plant.zone);
 				const settled = new Set(plant.answered ?? []);
 				const checklists = catalog.checklists
 					.filter((k) => k.phase === latest.toPhase && !settled.has(k.key))
 					.map((k) => preview(k, transition.anchorDate));
-				if (!checklists.length) return c.phaseOffer.parse({ status: "none" });
+				if (!checklists.length) return { status: "none" } satisfies z.output<typeof c.phaseOffer>;
 				const wiki = await recommendForPhase(tx as Database, authority, { phase: latest.toPhase });
 				return c.phaseOffer.parse({
 					status: "open",

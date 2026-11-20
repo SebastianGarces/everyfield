@@ -59,7 +59,7 @@ export type PersonHit = { id: string; name: string; detail: string };
 
 export async function searchPeople(tx: Tx, ctx: Context, query: string, limit = 8) {
 	return readReply(async (): Promise<PersonHit[]> => {
-		if (ctx.selected.kind !== "plant") deny();
+		if (ctx.selected.kind !== "plant") deny("unavailable");
 		const { gate } = await authorizeRead(tx, ctx);
 		const result = await tx.execute(sql`SELECT g.allowed,p.id,p.display_name,p.email,p.phone
  FROM (SELECT ${gate} AS allowed) g
@@ -68,7 +68,7 @@ export async function searchPeople(tx: Tx, ctx: Context, query: string, limit = 
    WHERE g.allowed AND ${tables.person.plant_id}=${ctx.selected.id}::uuid AND ${tables.person.state}='live' AND ${personSearchMatch(query)}
    ORDER BY ${tables.person.created_at},${tables.person.id} LIMIT ${limit}) p ON true`);
 		const rows = result.rows.map((r) => row.parse(r));
-		if (!rows[0]?.allowed) deny();
+		if (!rows[0]?.allowed) deny("unavailable");
 		return rows.flatMap((r) =>
 			r.id ? [{ id: r.id, name: r.display_name ?? "", detail: r.email ?? r.phone ?? "" }] : [],
 		);
