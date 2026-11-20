@@ -4,6 +4,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
+import { queueJobsFor } from "../jobs/queue.ts";
 
 type Code = z.infer<typeof c.feedbackErrorCode>;
 class Refusal extends Error {
@@ -172,11 +173,7 @@ ins AS (
  FROM gate WHERE gate.ok
  ON CONFLICT (account_id, request_key) DO NOTHING
  RETURNING id, category, page_label, submitted_at
-), job AS (
- INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts,
-  claim_generation)
- SELECT ${account}::uuid, 'feedback_publication', id, 'feedback/' || id::text, 'ready', clock_timestamp(), 0, 4, 0 FROM ins
- RETURNING 1
+), job AS (${queueJobsFor(sql`ins`, { tenant: account, kind: "feedback_publication", keyPrefix: "feedback/" })}
 ), aud AS (
  INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_id)
  SELECT ${account}::uuid, ${account}::uuid, 'feedback.received', 'create', id FROM ins RETURNING 1
