@@ -16,7 +16,7 @@ import { createContext, Suspense, use, useMemo, useRef, useState, type ReactNode
 import { lazyModule, Opened, useLazyModule } from "../../components/lazy.tsx";
 import { guides } from "./guides.ts";
 
-type OverlayProps = { open: boolean; onOpenChange: (open: boolean) => void };
+type OverlayProps = { open: boolean; onOpenChange: (open: boolean) => void; actions?: ReactNode };
 
 const overlays = lazyModule(() => import("./overlays.tsx"));
 
@@ -66,7 +66,7 @@ function SearchUnavailable({ open, onOpenChange }: OverlayProps) {
 	);
 }
 
-function GuideUnavailable({ open, onOpenChange }: OverlayProps) {
+function GuideUnavailable({ open, onOpenChange, actions }: OverlayProps) {
 	return (
 		<Sheet
 			open={open}
@@ -74,6 +74,7 @@ function GuideUnavailable({ open, onOpenChange }: OverlayProps) {
 			title="Guide"
 			description="A short note for this page."
 			modal={false}
+			actions={actions}
 		>
 			<p>The guide could not be loaded. Try again.</p>
 		</Sheet>
@@ -131,24 +132,27 @@ export function WikiChrome({ children }: { children: ReactNode }) {
 export function SettingsGuide() {
 	const pathname = usePathname();
 	const [open, setOpen] = useState(false);
+	const toggle = (
+		<IconButton
+			icon={BookOpen02Icon}
+			label="Guide"
+			size="sm"
+			aria-expanded={open}
+			onPointerEnter={preloadOverlays}
+			onFocus={preloadOverlays}
+			onClick={() => {
+				preloadOverlays();
+				if (!open) guides.refresh(pathname);
+				setOpen(!open);
+			}}
+		/>
+	);
 	return (
 		<>
-			<IconButton
-				icon={BookOpen02Icon}
-				label="Guide"
-				size="sm"
-				aria-expanded={open}
-				onPointerEnter={preloadOverlays}
-				onFocus={preloadOverlays}
-				onClick={() => {
-					preloadOverlays();
-					if (!open) guides.refresh(pathname);
-					setOpen(!open);
-				}}
-			/>
+			{toggle}
 			<Opened open={open}>
 				<Suspense fallback={null}>
-					<GuideOverlay open={open} onOpenChange={setOpen} />
+					<GuideOverlay open={open} onOpenChange={setOpen} actions={toggle} />
 				</Suspense>
 			</Opened>
 		</>

@@ -16,7 +16,7 @@ import {
 import { createDebouncer } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import type { GuideResult, SearchResult } from "./actions.ts";
 import { searchWiki } from "./fetch.ts";
@@ -193,7 +193,15 @@ function Snippet({ text }: { text: string }) {
 	);
 }
 
-export function GuideSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function GuideSheet({
+	open,
+	onOpenChange,
+	actions,
+}: {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	actions?: ReactNode;
+}) {
 	const guide = useRead(open ? guides : null, usePathname());
 	return (
 		<Sheet
@@ -202,6 +210,7 @@ export function GuideSheet({ open, onOpenChange }: { open: boolean; onOpenChange
 			title="Guide"
 			description="A short note for this page."
 			modal={false}
+			actions={actions}
 		>
 			<GuideBody result={guide.value ?? null} />
 		</Sheet>
