@@ -23,7 +23,7 @@ import { searchWiki } from "./fetch.ts";
 import { guides } from "./guides.ts";
 import { PHASE_NAME, snippetParts } from "./model.ts";
 import { ArticleBody } from "./prose.tsx";
-import { READ_FAILED, loadProblem } from "../../components/read-failed.ts";
+import { READ_FAILED, loadProblem, failedIcon } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
 const PHASES = [
@@ -134,7 +134,7 @@ function SearchBody({
 function SearchResults({ result }: { result: SearchResult | ReadFailure }) {
 	if (result.status === "lost" || result.status === "failed")
 		return (
-			<StatePanel tone="error" title="Search could not be loaded" headingLevel="h3">
+			<StatePanel tone="error" title="Search could not be loaded" icon={failedIcon(result)} headingLevel="h3">
 				{loadProblem(result, "This is a loading problem. Try again.")}
 			</StatePanel>
 		);
