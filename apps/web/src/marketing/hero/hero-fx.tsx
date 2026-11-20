@@ -257,7 +257,7 @@ function Caret({
 	const size = useTransform<number, string>(t, (v) => (show(v) ? `1.5px ${h}px` : "0px 0px"));
 	return (
 		<m.span
-			className="[box-decoration-break:slice] bg-[linear-gradient(var(--color-ink),var(--color-ink))] bg-right bg-no-repeat -mr-[2.5px] pr-[2.5px] whitespace-pre-wrap animate-mk-caret motion-reduce:animate-none"
+			className="[box-decoration-break:slice] mk-caret-fill bg-right bg-no-repeat -mr-[2.5px] pr-[2.5px] whitespace-pre-wrap animate-mk-caret motion-reduce:animate-none"
 			style={{ backgroundSize: size }}
 		>
 			{children}
