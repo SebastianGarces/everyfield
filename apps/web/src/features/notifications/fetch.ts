@@ -1,22 +1,12 @@
+import { readsFrom, type ReadFailure } from "../../components/get-reads.ts";
 import type { Feed, FeedPage, FeedQuery, Outcome, UnreadCount } from "./model.ts";
-import { querySearch } from "./model.ts";
+import type { GET } from "./read.ts";
 
-async function get<T>(params: URLSearchParams): Promise<Outcome<T>> {
-	try {
-		const r = await fetch(`/notifications/read?${params}`, { cache: "no-store" });
-		return r.ok ? ((await r.json()) as Outcome<T>) : { status: "lost" };
-	} catch {
-		return { status: "lost" };
-	}
-}
-const params = (what: string, query: FeedQuery, extra: Record<string, string> = {}) => {
-	const p = new URLSearchParams(querySearch(query));
-	p.set("what", what);
-	for (const [k, v] of Object.entries(extra)) p.set(k, v);
-	return p;
-};
+const get = readsFrom<typeof GET>("/notifications/read");
 
-export const readUnreadCount = (account: string) => get<UnreadCount>(new URLSearchParams({ what: "count", account }));
-export const readFirstPage = (query: FeedQuery) => get<FeedPage>(params("page", query));
-export const readMore = (query: FeedQuery, cursor: string) => get<Feed>(params("more", query, { cursor }));
-export const readRevision = () => get<{ revision: string }>(new URLSearchParams({ what: "revision" }));
+export const readUnreadCount = (account: string): Promise<Outcome<UnreadCount> | ReadFailure> =>
+	get("count", { account });
+export const readFirstPage = (query: FeedQuery): Promise<Outcome<FeedPage> | ReadFailure> => get("page", query);
+export const readMore = (query: FeedQuery, cursor: string): Promise<Outcome<Feed> | ReadFailure> =>
+	get("more", { ...query, cursor });
+export const readRevision = (): Promise<Outcome<{ revision: string }> | ReadFailure> => get("revision");

@@ -3,6 +3,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { APICallError, wrapLanguageModel } from "ai";
 import { LIMITS } from "../context/limits.ts";
 import { scriptedModel } from "./scripted.ts";
+import { runsOffVercel } from "@everyfield/db/deployment";
 
 export type Price = { input: number; output: number; longContextAbove: number };
 export type Spend = { price: Price; capMicroUsd: number };
@@ -13,7 +14,7 @@ const OPENAI: Record<string, Price> = { "gpt-6-luna": { input: 0.1, output: 0.5,
 const DEFAULT_CAP_USD = 20;
 
 export function selectQualifiedModel(env: Record<string, string | undefined> = process.env): QualifiedModel {
-	if (env.EVRY_SCRIPTED_MODEL === "1" && !env.VERCEL_ENV)
+	if (env.EVRY_SCRIPTED_MODEL === "1" && runsOffVercel(env))
 		return { status: "qualified", id: "evry-scripted", model: withTransientRetry(scriptedModel()) };
 	const paid = paidModel(env);
 	return paid ? { status: "qualified", ...paid, model: withTransientRetry(paid.model) } : { status: "unavailable" };

@@ -11,7 +11,7 @@ import {
 	CardTitle,
 } from "@everyfield/ui/controls";
 import { useState } from "react";
-import { readLaunchHistory } from "./actions.ts";
+import { readLaunchHistory } from "./fetch.ts";
 import { actorText, historyText, refusalMessage, sent } from "./model.ts";
 
 export function LaunchHistory({ today }: { today: string }) {

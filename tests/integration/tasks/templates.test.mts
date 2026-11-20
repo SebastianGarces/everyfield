@@ -16,11 +16,12 @@ import {
 import { createPhaseWriter } from "../../../packages/domain/src/phases/index.ts";
 import { recommendForPhase } from "../../../packages/domain/src/wiki/reads.ts";
 import { ok, refused } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, writer, templates, phases, plant, owner, admin, member;
 const rows = async (q) => (await f.admin.execute(q)).rows;
 const write = (who, op, input, w = writer) => withTaskWrite(f.db, who.actor, (tx, ctx) => w[op](tx, ctx, input));
-const read = (who, op, input, r = templates) => f.db.transaction((tx) => r[op](tx, who.actor, input));
+const read = (who, op, input, r = templates) => gatedTransaction(f.db, (tx) => r[op](tx, who.actor, input));
 const importing = (who, checklistKey, requestKey = randomUUID(), extra = {}) => {
 	const checklist = CATALOG.checklists.find((k) => k.key === checklistKey);
 	return write(who, "importTemplate", {
@@ -232,7 +233,7 @@ test("AC:TARGET-TSK-009 an import adds exactly the previewed tasks; a retry repl
 			t.assignees.map((a) => a.accountId),
 			[c.admin.id],
 		);
-	const listed = ok(await f.db.transaction((tx) => taskReader.list(tx, c.admin.actor, { limit: 100 })));
+	const listed = ok(await gatedTransaction(f.db, (tx) => taskReader.list(tx, c.admin.actor, { limit: 100 })));
 	assert.deepEqual(listed.items.map((t) => t.id).sort(), first.tasks.map((t) => t.id).sort());
 	const stored = await rows(sql`SELECT title, description FROM task WHERE plant_id=${c.w.id}`);
 	assert.deepEqual(
@@ -536,7 +537,7 @@ test("AC:PHASE-CASE-006 AC:TARGET-TSK-009 a new catalog version never changes ed
 	assert.equal(kept.due_date, "2027-01-15");
 	assert.notEqual(before.find((r) => r.id === deleted.id).deleted_at, null);
 	assert.equal(before.filter((r) => imported.some((t) => t.id === r.id) && /^Revised/.test(r.title)).length, 0);
-	const listed = ok(await f.db.transaction((tx) => taskReader.list(tx, c.owner.actor, { limit: 100 })));
+	const listed = ok(await gatedTransaction(f.db, (tx) => taskReader.list(tx, c.owner.actor, { limit: 100 })));
 	assert.equal(
 		listed.items.some((t) => t.id === deleted.id),
 		false,
@@ -580,7 +581,7 @@ test("AC:TARGET-TSK-016 create, edit and import keep the typed text, drop unsafe
 		}),
 	).task;
 	assert.equal(withHtml.description, pastedHtml);
-	const reread = ok(await f.db.transaction((tx) => taskReader.get(tx, owner.actor, { taskId: created.id }))).task;
+	const reread = ok(await gatedTransaction(f.db, (tx) => taskReader.get(tx, owner.actor, { taskId: created.id }))).task;
 	assert.equal(reread.description, pastedHtml);
 	assert.equal(reread.excerpt, pastedHtml);
 	const edited = ok(

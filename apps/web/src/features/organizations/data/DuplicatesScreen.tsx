@@ -20,7 +20,9 @@ import type { z } from "zod";
 import { blockerText, counted, FIELD_LABEL, fieldText, type Columns } from "../../people/corrections/model";
 import { PIPELINE_PATH } from "../board/model";
 import { Problem } from "../../../components/Problem.tsx";
-import { mergePeople, reviewMerge, undoMerge } from "./actions";
+import { mergePeople, undoMerge } from "./actions";
+import { reviewMerge } from "../board/fetch";
+import { READ_FAILED } from "../../../components/read-failed.ts";
 
 type Pairs = z.infer<typeof organizationDuplicatePairs>;
 type Pair = Pairs["items"][number];
@@ -32,6 +34,7 @@ type Answer = { status: string; error?: { code: string; details?: unknown } };
 const SHARED: Record<Pair["shared"][number], string> = { email: "Same email", phone: "Same phone" };
 
 function problemText(answer: Answer) {
+	if (answer.status === "failed") return READ_FAILED;
 	if (answer.status === "lost") return "We couldn’t reach Everyfield. Nothing changed. Try again.";
 	switch (answer.error?.code) {
 		case "conflict":

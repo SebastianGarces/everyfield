@@ -1,9 +1,8 @@
 "use client";
 
-import { EvryBot as Evry, type EvryMood } from "@everyfield/ui/foundations";
+import { cn, EvryBot as Evry, type EvryMood } from "@everyfield/ui/foundations";
 import type { MotionValue } from "motion/react";
 import { useCallback, useSyncExternalStore } from "react";
-import { cn } from "../cn";
 
 type Props = { size: "sm" | "lg"; mood?: MotionValue<string>; follow?: boolean; className?: string };
 

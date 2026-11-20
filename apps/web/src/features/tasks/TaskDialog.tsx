@@ -5,6 +5,7 @@ import { Field, Input, Radio, RadioGroup, SearchInput, Select, Spinner, Textarea
 import { DESCRIPTION_EXCERPT, MAX_DESCRIPTION, normalizeDescription } from "@everyfield/contracts/tasks";
 import { createDebouncer } from "@everyfield/ui/foundations";
 import { useRef, useState } from "react";
+import { localToday } from "../../components/clock.ts";
 import { createRead, useRead } from "../../components/read.tsx";
 import { RecordDialog } from "../../components/save/parts.tsx";
 import type { Wait } from "../../components/save/model.ts";
@@ -39,6 +40,7 @@ import {
 	type TaskItem,
 	type Viewer,
 } from "./model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
 
 type RelationKind = "person" | "meeting" | "team";
 type Relation = { kind: RelationKind; id: string; label: string } | null;
@@ -264,7 +266,7 @@ function Form({
 			priority: draft.priority,
 			category: draft.category,
 			due: shownDue,
-			overdue: task && sameDue(draft.due, initial.due) ? task.overdue : previewOverdue(due.due),
+			overdue: task && sameDue(draft.due, initial.due) ? task.overdue : previewOverdue(due.due, localToday()),
 			assignees: draft.assigneeIds.map((id) => ({
 				accountId: id as never,
 				displayName: draft.assigneeNames[id] ?? task?.assignees.find((a) => a.accountId === id)?.displayName ?? "",
@@ -489,7 +491,7 @@ function RelationField({
 						</p>
 					) : found === "failed" ? (
 						<p className="px-1 py-2 text-sm text-magenta-600" role="alert">
-							The {RELATION_PLURAL[kind]} did not load. Change the search to try again.
+							{loadProblem(read.value, `The ${RELATION_PLURAL[kind]} did not load. Change the search to try again.`)}
 						</p>
 					) : listed.length === 0 ? (
 						<p className="px-1 py-2 text-sm text-text-3">No {RELATION_PLURAL[kind]} match.</p>
@@ -501,10 +503,10 @@ function RelationField({
 								const hit = listed.find((c) => c.id === id);
 								if (hit) onChange({ kind, id: hit.id, label: hit.label });
 							}}
-							className="max-h-[220px] gap-0 overflow-y-auto px-1"
+							className="max-h-[220px] gap-y-0 overflow-y-auto px-1"
 						>
 							{listed.map((c) => (
-								<Radio key={c.id} value={c.id} label={c.label} className="py-2" />
+								<Radio key={c.id} value={c.id} label={c.label} />
 							))}
 						</RadioGroup>
 					)}

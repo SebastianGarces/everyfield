@@ -20,6 +20,7 @@ import {
 	patternText,
 	RULES,
 	type IntelligenceGroup,
+	type IntelligenceRow,
 	type IntelligencePattern,
 	type IntelligenceView,
 	type Level,
@@ -138,9 +139,9 @@ const refresh = async (who: { session: string }) => {
 	return runId;
 };
 const find = <T extends IntelligencePattern["theme"]>(g: IntelligenceGroup, theme: T) =>
-	(g.patterns.find((p) => p.theme === theme) as Extract<IntelligencePattern, { theme: T }> | undefined) ?? null;
+	g.patterns.find((p): p is IntelligencePattern & { theme: T } => p.theme === theme) ?? null;
 const names = (p: IntelligencePattern | null) => p?.plants.map((x) => x.name) ?? null;
-const results = (g: IntelligenceGroup, rule: keyof typeof RULES) =>
+const results = (g: IntelligenceGroup, rule: keyof Extract<IntelligenceRow, { status: "shared" }>["results"]) =>
 	g.rows.map((r) => [r.name, r.status === "shared" ? r.results[rule] : r.status]);
 const asOfLabel = (v: IntelligenceView) =>
 	new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: v.timeZone }).format(new Date(v.run!.ranAt));

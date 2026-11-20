@@ -16,8 +16,10 @@ import {
 	liveRead,
 	requestWrite,
 	writeAuthority,
+	writeTx,
 	writeVisibility,
 	type RequestActor,
+	type WriteTx,
 } from "../access/session.ts";
 
 export class WriteUnavailable extends Error {
@@ -38,15 +40,15 @@ const newWrite = () => ({
 	writes: new Array<SQLWrapper>(),
 	events: new Array<PgInsertValue<typeof t.audit_event>>(),
 });
-export async function prepareWrite(tx: Transaction, request: RequestIdentity) {
-	const first = sessions.get(tx);
-	if (first) {
-		first.keyed = true;
+export async function prepareWrite(tx: WriteTx, request: RequestIdentity) {
+	const native = tx.write.native;
+	if (native?.kind === "first") {
+		native.session.keyed = true;
 		return newWrite();
 	}
-	const stored = storedRuns.get(tx);
+	const stored = native?.kind === "stored" ? native.run : undefined;
 	const row =
-		knownKeys.get(tx)?.get(request.requestKey) ??
+		(native?.kind === "retry" ? native.known.get(request.requestKey) : undefined) ??
 		storedKey.parse(
 			(
 				await tx.execute(sql`${sql.raw(stored ? STORED : "")}SELECT ${stored ? stored.allowed : writeVisibility(request.actorId, request.owner)} AS allowed,
@@ -75,7 +77,7 @@ const storedKey = z.object({
 });
 type StoredKey = z.infer<typeof storedKey>;
 
-export async function finishAudit(tx: Transaction, command: AuditWrite, request: RequestIdentity, result: unknown) {
+export async function finishAudit(tx: WriteTx, command: AuditWrite, request: RequestIdentity, result: unknown) {
 	const entries = command.events;
 	if (!entries.some((entry) => entry.id === command.id))
 		entries.unshift({
@@ -94,8 +96,8 @@ export async function finishAudit(tx: Transaction, command: AuditWrite, request:
 	}));
 	const closesOwner = ["account.requestDeletion", "churches.requestWorkspaceDeletion"].includes(request.operation);
 	const writes = [...command.writes, tx.insert(t.audit_event).values(rows)];
-	const session = sessions.get(tx);
-	if (session) return session.finish(writes, closesOwner ? undefined : request);
+	const native = tx.write.native;
+	if (native?.kind === "first") return native.session.finish(writes, closesOwner ? undefined : request);
 	await executeWrites(tx, writes, closesOwner ? undefined : request);
 }
 
@@ -123,12 +125,19 @@ function isAuditRetry(error: unknown): boolean {
 		.safeParse(error);
 	return found.success;
 }
-export async function auditTransaction<T>(db: Database, body: (tx: Transaction) => Promise<T>): Promise<T> {
+export const gatedTransaction = <T>(db: Database | Transaction, body: (tx: WriteTx) => Promise<T>): Promise<T> =>
+	db.transaction((tx) => body(writeTx(tx)));
+export async function auditTransaction<T>(
+	db: Database | Transaction,
+	body: (tx: WriteTx) => Promise<T>,
+	native?: () => NativeRun | undefined,
+): Promise<T> {
+	const attempt = (tx: Transaction) => body(writeTx(tx, native?.()));
 	try {
-		return await db.transaction(body);
+		return await db.transaction(attempt);
 	} catch (error) {
 		if (!isAuditRetry(error)) throw error;
-		return db.transaction(body);
+		return db.transaction(attempt);
 	}
 }
 
@@ -139,15 +148,16 @@ export function setAuditDetails(command: AuditWrite, id: string, metadata: unkno
 	entry.reason = reason;
 }
 
-export async function auditSavepoint<T>(tx: Transaction, body: (tx: Transaction) => Promise<T>): Promise<T> {
+export async function auditSavepoint<T>(tx: WriteTx, body: (tx: WriteTx) => Promise<T>): Promise<T> {
 	if (boundWrite(tx)) return body(tx);
+	const savepoint = (inner: Transaction) => body(writeTx(inner));
 	try {
 		try {
-			return await tx.transaction(body);
+			return await tx.transaction(savepoint);
 		} catch (error) {
 			if (!isAuditRetry(error)) throw error;
 			clearRequestWrite(tx);
-			return tx.transaction(body);
+			return tx.transaction(savepoint);
 		}
 	} finally {
 		clearRequestWrite(tx);
@@ -156,8 +166,9 @@ export async function auditSavepoint<T>(tx: Transaction, body: (tx: Transaction)
 
 export type WritePath = "single" | "established";
 
-export async function declareWrite(tx: Transaction, path: WritePath) {
-	const session = sessions.get(tx);
+export async function declareWrite(tx: WriteTx, path: WritePath) {
+	const native = tx.write.native;
+	const session = native?.kind === "first" ? native.session : undefined;
 	if (!session || session.path === "established") return session?.lock();
 	session.path = path;
 	if (path === "established") await session.lock();
@@ -167,7 +178,7 @@ export async function nativeWrite<T>(
 	db: Database,
 	authority: RequestActor,
 	selected: Owner,
-	body: (tx: Transaction) => Promise<T>,
+	body: (tx: WriteTx) => Promise<T>,
 ): Promise<T> {
 	const first = await firstAttempt(db, authority, selected, body);
 	if (first.done) return first.value;
@@ -186,12 +197,18 @@ export async function nativeWrite<T>(
 		send(/^\s*begin\s*$/i.test(typeof config === "string" ? config : config.text) ? RETRY : config, values);
 	Object.defineProperty(client, "query", { value: retry, configurable: true, writable: true });
 	try {
-		return await auditTransaction(bound, async (tx) => {
-			if (!(await authority.bind(tx, selected))) throw new WriteUnavailable();
-			if (known) knownKeys.set(tx, known);
-			known = undefined;
-			return body(tx);
-		});
+		return await auditTransaction(
+			bound,
+			async (tx) => {
+				if (!(await authority.bind(tx, selected))) throw new WriteUnavailable();
+				return body(tx);
+			},
+			() => {
+				const retry: NativeRun | undefined = known && { kind: "retry", known };
+				known = undefined;
+				return retry;
+			},
+		);
 	} finally {
 		if (own) Object.defineProperty(client, "query", own);
 		else delete (client as { query?: unknown }).query;
@@ -208,17 +225,17 @@ async function firstAttempt<T>(
 	db: Database,
 	authority: RequestActor,
 	selected: Owner,
-	body: (tx: Transaction) => Promise<T>,
+	body: (tx: WriteTx) => Promise<T>,
 ): Promise<{ done: true; value: T } | { done: false; error: unknown; next: Next }> {
 	const { client, db: bound } = await checkoutClient(db);
 	const session = new WriteSession(client, authority, selected);
 	let deferred = false;
 	try {
-		const value = await bound.transaction(async (tx) => {
+		const value = await bound.transaction(async (raw) => {
+			const tx = writeTx(raw, { kind: "first", session });
 			if (!deferWrite(tx, authority, selected)) throw new WriteUnavailable();
 			deferred = true;
 			session.tx = tx;
-			sessions.set(tx, session);
 			return body(tx);
 		});
 		return { done: true, value };
@@ -242,21 +259,23 @@ async function firstAttempt<T>(
 
 class StoredMiss extends Error {}
 const STORED = "/* evf:stored */ ";
-const storedRuns = new WeakMap<Transaction, StoredRun>();
-const knownKeys = new WeakMap<Transaction, ReadonlyMap<string, StoredKey>>();
+export type NativeRun =
+	| { kind: "first"; session: WriteSession }
+	| { kind: "stored"; run: StoredRun }
+	| { kind: "retry"; known: ReadonlyMap<string, StoredKey> };
 
 async function storedAnswer<T>(
 	db: Database,
 	authority: RequestActor,
 	selected: Owner,
-	body: (tx: Transaction) => Promise<T>,
+	body: (tx: WriteTx) => Promise<T>,
 ): Promise<{ done: true; value: T } | { done: false; absent: boolean; known: ReadonlyMap<string, StoredKey> }> {
 	const { client, db: bound } = await checkoutClient(db);
 	const run = new StoredRun(client, authority, selected);
 	try {
-		const value = await bound.transaction(async (tx) => {
+		const value = await bound.transaction(async (raw) => {
+			const tx = writeTx(raw, { kind: "stored", run });
 			if (!deferWrite(tx, authority, selected)) run.miss(false);
-			storedRuns.set(tx, run);
 			return body(tx);
 		});
 		if (run.missed === undefined && !run.failed) return { done: true, value };
@@ -312,7 +331,6 @@ class StoredRun {
 }
 
 type Check = { read: SQL; lock: SQL; digest: string };
-const sessions = new WeakMap<Transaction, WriteSession>();
 const gating = new AsyncLocalStorage<true>();
 const FINAL = "/* evf:final */ ",
 	READ = "/* evf:read */ ";
@@ -321,7 +339,7 @@ const digestOf = (read: SQL) =>
 	sql`(SELECT md5(coalesce(jsonb_agg(r.v ORDER BY r.v::text)::text,'')) FROM (SELECT to_jsonb(q) AS v FROM (${read}) q) r)`;
 
 class WriteSession {
-	tx: Transaction | undefined;
+	tx: WriteTx | undefined;
 	private begun = false;
 	path: WritePath | undefined;
 	private done = false;
@@ -351,6 +369,10 @@ class WriteSession {
 		if (this.own) Object.defineProperty(this.client, "query", this.own);
 		else delete (this.client as { query?: unknown }).query;
 	}
+	private get transaction(): WriteTx {
+		if (!this.tx) throw new WriteOrderError("The native write ran a statement before its transaction began");
+		return this.tx;
+	}
 
 	private async route(text: string, run: () => Promise<unknown>) {
 		const control = /^\s*(begin|commit|rollback)\s*$/i.exec(text)?.[1]?.toUpperCase();
@@ -375,14 +397,14 @@ class WriteSession {
 		this.locking ??= gating.run(true, async () => {
 			await this.sent(() => (this.send as (c: string) => Promise<unknown>)("BEGIN"));
 			this.begun = true;
-			if (!(await this.authority.bind(this.tx!, this.selected))) throw new WriteUnavailable();
+			if (!(await this.authority.bind(this.transaction, this.selected))) throw new WriteUnavailable();
 		});
 		return this.locking;
 	}
 
 	async check(read: SQL, lock: SQL): Promise<Record<string, unknown>[] | null> {
 		if (this.begun || this.path !== "single") return null;
-		const result = await this.tx!.execute(
+		const result = await this.transaction.execute(
 			sql`${sql.raw(READ)}SELECT d.evf_digest, q.* FROM (SELECT ${digestOf(read)} AS evf_digest) d
  LEFT JOIN LATERAL (SELECT x.*, row_number() OVER () AS evf_row FROM (${read}) x) q ON true ORDER BY q.evf_row`,
 		);
@@ -399,7 +421,7 @@ class WriteSession {
 
 	async finish(writes: readonly SQLWrapper[], request: RequestIdentity | undefined) {
 		if (this.path !== "single") await this.lock();
-		const authority = this.begun ? null : boundWrite(this.tx!);
+		const authority = this.begun ? null : boundWrite(this.transaction);
 		const allowed = authority
 			? sql`(SELECT allowed FROM evf_auth)`
 			: request
@@ -412,7 +434,7 @@ class WriteSession {
 				)
 			: sql`true`;
 		const entries = [...(authority ? [writeAuthority(authority)] : []), writeEntries(writes)];
-		await this.tx!.execute(
+		await this.transaction.execute(
 			sql`${sql.raw(FINAL)}WITH ${sql.join(entries, sql`, `)} SELECT (CASE WHEN ${allowed} IS NOT TRUE THEN 'evf_refused'
  WHEN ${current} THEN 'true' ELSE 'evf_stale' END)::boolean AS allowed`,
 		);
@@ -420,12 +442,14 @@ class WriteSession {
 	}
 }
 
-export function checkedRead(tx: Transaction, read: SQL, lock: SQL) {
-	return sessions.get(tx)?.check(read, lock) ?? Promise.resolve(null);
+export function checkedRead(tx: WriteTx, read: SQL, lock: SQL) {
+	const native = tx.write.native;
+	return native?.kind === "first" ? native.session.check(read, lock) : Promise.resolve(null);
 }
 
-export async function lockedWrite(tx: Transaction) {
-	storedRuns.get(tx)?.miss(false);
-	await sessions.get(tx)?.lock();
+export async function lockedWrite(tx: WriteTx) {
+	const native = tx.write.native;
+	if (native?.kind === "stored") native.run.miss(false);
+	if (native?.kind === "first") await native.session.lock();
 	return requestWrite(tx);
 }

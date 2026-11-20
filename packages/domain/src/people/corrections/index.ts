@@ -1,5 +1,5 @@
 import * as c from "@everyfield/contracts/people";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { adminRead, attribution, notFuture, recordEvent, subject } from "../assessments/shared.ts";
@@ -7,8 +7,10 @@ import { deny, hash, mutation, parse, readReply, reply, type Context, type Tx, t
 import { expectRevision, plantId } from "../fields/shared.ts";
 
 type RecordType = z.infer<typeof c.recordType>;
-const lens = (col: string) => sql.raw(`jsonb_build_object('score',r.${col},'notes',r.${col}_notes)`);
-const criterion = (col: string) => sql.raw(`jsonb_build_object('rating',r.${col},'notes',r.${col}_notes)`);
+const lens = <ColName extends string>(col: SqlLiteral<ColName>) =>
+	sql.raw(`jsonb_build_object('score',r.${col},'notes',r.${col}_notes)`);
+const criterion = <ColName extends string>(col: SqlLiteral<ColName>) =>
+	sql.raw(`jsonb_build_object('rating',r.${col},'notes',r.${col}_notes)`);
 const records: Record<
 	RecordType,
 	{ table: string; fields: Record<string, { read: SQL; write: (v: never) => Record<string, unknown> }> }
@@ -84,7 +86,7 @@ export const recordCorrections = {
 					const table = sql.identifier(def.table);
 					const target = sql`FROM ${table} r WHERE r.id=${recordId}::uuid AND r.plant_id=${plant}::uuid`;
 					const p = await subject(tx, ctx, personId, sql`(SELECT ${recordJson(recordType)} ${target})`);
-					if (p.extra === null) deny();
+					if (p.extra === null) deny("unavailable");
 					const record = found.parse(p.extra);
 					if (record.person_id !== p.id) deny("conflict");
 					expectRevision(record.revision, input.expectedRevision);
@@ -171,7 +173,7 @@ export const recordCorrections = {
 					),
 				})
 				.safeParse(result.rows[0]);
-			if (!row.success) deny();
+			if (!row.success) deny("unavailable");
 			const { total, items } = row.data;
 			return c.recordCorrectionsResult.parse({
 				personId: input.personId,

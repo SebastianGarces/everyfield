@@ -1,49 +1,40 @@
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
+import type { PlantSeat } from "@/server/request-context";
+import type { Lost } from "@everyfield/contracts/common";
 import type { MeetingsContext } from "@everyfield/domain/meetings";
 import { documentsReader } from "@everyfield/domain/documents";
 import { attendanceReader, meetingsReader, withMeetingsWrite } from "@everyfield/domain/meetings";
 import type { MeetingsReply } from "@everyfield/contracts/meetings";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import "server-only";
 import { isFiltered, listRequest, NEXT_REQUEST, pageCount, type MeetingsQuery, type Outcome } from "./model.ts";
 import { canWrite } from "../../components/seat-role.ts";
+import { transient } from "../../server/platform/transient.ts";
+import { readDb, guardedWrite } from "../../server/platform/tx.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
-type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
-export type Viewer = Peopled;
+export type Viewer = PlantSeat;
 
-type Reply<T> = MeetingsReply<T> | { status: "failed" };
+type Reply<T> = MeetingsReply<T> | Lost;
 
 export async function read<T>(
-	viewer: Viewer,
+	viewer: Pick<Viewer, "authority">,
 	run: (db: Database, authority: Viewer["authority"]) => Promise<MeetingsReply<T>>,
 ): Promise<Reply<T>> {
-	const db = requestDatabase();
-	if (!db) return { status: "failed" };
-	try {
-		return await run(db, viewer.authority);
-	} catch (error) {
-		console.error(JSON.stringify({ component: "meetings", outcome: "read_failed", error: String(error) }));
-		return { status: "failed" };
-	}
+	return readDb("meetings", (db) => run(db, viewer.authority));
 }
 
 export async function write<T>(
 	viewer: Viewer,
-	run: (tx: Transaction, context: MeetingsContext) => Promise<MeetingsReply<T>>,
+	run: (tx: WriteTx, context: MeetingsContext) => Promise<MeetingsReply<T>>,
 ): Promise<Outcome<T>> {
-	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		return outcome(await withMeetingsWrite(db, viewer.authority, run));
-	} catch (error) {
-		console.error(JSON.stringify({ component: "meetings", outcome: "write_failed", error: String(error) }));
-		return { status: "lost" };
-	}
+	return guardedWrite("meetings", async () =>
+		outcome(await withMeetingsWrite(requestDatabase(), viewer.authority, run)),
+	);
 }
 
 export function outcome<T>(reply: Reply<T>): Outcome<T> {
-	if (reply.status === "failed") return { status: "lost" };
+	if (reply.status === "lost") return reply;
 	if (reply.status === "refused") {
 		const e = reply.error;
 		return e.code === "ambiguous_local_time"
@@ -56,11 +47,6 @@ export function outcome<T>(reply: Reply<T>): Outcome<T> {
 }
 
 const value = <T>(r: Reply<T>): T | null => (r.status === "ok" ? r.value : null);
-
-export async function plantViewer() {
-	const v = await getViewer();
-	return { viewer: v?.people ?? null, signedOut: !v || v.status === "unauthenticated", ok: v !== null };
-}
 
 export type MeetingsView = Awaited<ReturnType<typeof loadMeetings>>;
 
@@ -91,14 +77,14 @@ export async function loadMeetings(viewer: Viewer, query: MeetingsQuery) {
 
 async function readAgendaTemplate(viewer: Viewer, meetingId: string) {
 	const db = requestDatabase();
-	if (!db) return null;
-	try {
-		const reply = await documentsReader["templates.contextual"](db, viewer.authority, { meetingId });
-		return reply.status === "ok" ? (reply.value.templates[0]?.id ?? null) : null;
-	} catch (error) {
-		console.error(JSON.stringify({ component: "meetings", outcome: "agenda_template_failed", error: String(error) }));
-		return null;
-	}
+	return transient(
+		{ component: "meetings", outcome: "agenda_template_failed" },
+		async () => {
+			const reply = await documentsReader["templates.contextual"](db, viewer.authority, { meetingId });
+			return reply.status === "ok" ? (reply.value.templates[0]?.id ?? null) : null;
+		},
+		null,
+	);
 }
 
 export async function loadMeeting(viewer: Viewer, meetingId: string) {
@@ -117,7 +103,7 @@ export async function loadMeeting(viewer: Viewer, meetingId: string) {
 		),
 		readAgendaTemplate(viewer, meetingId),
 	]);
-	if (meeting.status === "failed") return { status: "failed" } as const;
+	if (meeting.status === "lost") return { status: "failed" } as const;
 	if (meeting.status === "refused" || meeting.value.status === "unavailable") return { status: "missing" } as const;
 	const page = value(people);
 	return {
@@ -161,7 +147,7 @@ export async function loadCheckIn(viewer: Viewer, meetingId: string) {
 		read(viewer, (db, a) => meetingsReader.listGuests(db, a, request)),
 		readAttendance(viewer, meetingId),
 	]);
-	if (meeting.status === "failed" || guests.status === "failed") return { status: "failed" } as const;
+	if (meeting.status === "lost" || guests.status === "lost") return { status: "failed" } as const;
 	if (meeting.status === "refused" || meeting.value.status === "unavailable") return { status: "missing" } as const;
 	if (guests.status !== "ok") return { status: "failed" } as const;
 	return {

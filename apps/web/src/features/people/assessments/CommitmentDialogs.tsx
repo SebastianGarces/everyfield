@@ -22,13 +22,16 @@ import {
 } from "@everyfield/ui/controls";
 import { createDebouncer } from "@everyfield/ui/foundations";
 import { useId, useRef, useState } from "react";
+import { localToday } from "../../../components/clock.ts";
 import { createRead, useRead } from "../../../components/read.tsx";
 import type { Outcome, Wait } from "../../../components/save/model.ts";
 import { RecordDialog } from "../../../components/save/parts.tsx";
 import { LocalDay } from "../parts.tsx";
-import { findWitnesses } from "./actions.ts";
-import { KIND_LABEL, today, type Commitment, type Kind } from "./model.ts";
+import { findWitnesses } from "../fetch.ts";
+import { KIND_LABEL, type Commitment, type Kind } from "./model.ts";
 import { ChoiceField, recordProblem } from "./parts.tsx";
+import { loadProblem } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
 const DOCUMENT_TYPES = commitmentMime.options;
 const KINDS = (["core_group", "launch_team"] as const).map((k) => ({ value: k, label: KIND_LABEL[k] }));
@@ -53,7 +56,7 @@ export type CommitmentDraft = {
 };
 export const blankCommitment = (): CommitmentDraft => ({
 	kind: "core_group",
-	occurredOn: today(),
+	occurredOn: localToday(),
 	witness: { kind: "none" },
 	notes: "",
 	file: null,
@@ -128,7 +131,7 @@ export function RecordCommitmentDialog({
 					<Input
 						type="date"
 						value={draft.occurredOn}
-						max={today()}
+						max={localToday()}
 						onChange={(e) => set({ occurredOn: e.target.value })}
 					/>
 				</Field>
@@ -248,9 +251,9 @@ function WitnessField({
 				}}
 				className="flex-wrap gap-x-6"
 			>
-				<Radio value="none" label="No witness" className="py-1.5" />
-				<Radio value="person" label="Someone in your church" className="py-1.5" />
-				<Radio value="external" label="Someone else" className="py-1.5" />
+				<Radio value="none" label="No witness" />
+				<Radio value="person" label="Someone in your church" />
+				<Radio value="external" label="Someone else" />
 			</RadioGroup>
 			{value.kind === "person" ? (
 				<WitnessPicker
@@ -276,7 +279,8 @@ function WitnessField({
 
 const WITNESS_PAUSE_MS = 250;
 const witnesses = createRead(
-	(query: string): Promise<Outcome<{ id: string; name: string; detail: string }[]>> => findWitnesses(query),
+	(query: string): Promise<Outcome<{ id: string; name: string; detail: string }[]> | ReadFailure> =>
+		findWitnesses(query),
 	{ failed: () => ({ status: "lost" }) as const },
 );
 
@@ -329,7 +333,7 @@ function WitnessPicker({
 					</p>
 				) : result !== null && result.status !== "ok" ? (
 					<p role="alert" className="px-2 py-3 text-sm text-magenta-600">
-						People did not load. Change the search to try again.
+						{loadProblem(result, "People did not load. Change the search to try again.")}
 					</p>
 				) : options.length === 0 ? (
 					<p className="px-2 py-3 text-sm text-text-3" aria-live="polite">
@@ -343,10 +347,10 @@ function WitnessPicker({
 							const p = options.find((o) => o.id === id);
 							if (p) onChange({ id: p.id, name: p.name });
 						}}
-						className="gap-0"
+						className="gap-y-0"
 					>
 						{options.map((p) => (
-							<Radio key={p.id} value={p.id} label={p.name} description={p.detail || undefined} className="py-2" />
+							<Radio key={p.id} value={p.id} label={p.name} description={p.detail || undefined} />
 						))}
 					</RadioGroup>
 				)}
@@ -424,7 +428,7 @@ export function LifecycleDialog({
 					type="date"
 					value={draft.effectiveOn}
 					min={since ?? undefined}
-					max={today()}
+					max={localToday()}
 					onChange={(e) => setDraft((d) => ({ ...d, effectiveOn: e.target.value }))}
 				/>
 			</Field>
@@ -517,7 +521,7 @@ export function CorrectionDialog({
 						<Input
 							type="date"
 							value={draft.occurredOn}
-							max={today()}
+							max={localToday()}
 							onChange={(e) => set({ occurredOn: e.target.value })}
 						/>
 					</Field>

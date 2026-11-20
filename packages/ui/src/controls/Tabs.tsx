@@ -2,8 +2,9 @@
 
 import { motion } from "motion/react";
 import { Tabs as TabsPrimitive, ToggleGroup } from "radix-ui";
-import { createContext, use, useId, useState, type ComponentPropsWithRef, type ReactNode } from "react";
+import { createContext, use, useId, useMemo, useState, type ComponentPropsWithRef } from "react";
 import { cn, HoverGroup, Icon, useHoverItem, type IconSvgElement } from "../foundations";
+import { Count } from "./Count";
 
 const SLIDE = { duration: 0.26, ease: [0.2, 0.8, 0.2, 1] } as const;
 
@@ -74,15 +75,15 @@ function Segment<V extends string>({ option, size }: { option: SegmentOption<V>;
 			{indicator}
 			{option.icon ? <Icon icon={option.icon} size={16} /> : null}
 			{option.label}
-			{option.count !== undefined ? <CountChip>{option.count}</CountChip> : null}
+			{option.count !== undefined ? <CountChip value={option.count} /> : null}
 		</ToggleGroup.Item>
 	);
 }
 
-export function CountChip({ children }: { children: ReactNode }) {
+export function CountChip({ value }: { value: number }) {
 	return (
 		<span className="num rounded-pill bg-surface-2 px-[7px] py-px font-title text-xs tracking-[-0.02em] text-text-2">
-			{children}
+			<Count value={value} />
 		</span>
 	);
 }
@@ -100,8 +101,9 @@ export function Tabs({ value: controlled, defaultValue = "", onValueChange, ...p
 	const [inner, setInner] = useState(defaultValue);
 	const value = controlled ?? inner;
 	const indicator = useId();
+	const state = useMemo(() => ({ value, indicator }), [value, indicator]);
 	return (
-		<TabsContext value={{ value, indicator }}>
+		<TabsContext value={state}>
 			<TabsPrimitive.Root
 				value={value}
 				onValueChange={(next) => {
@@ -145,7 +147,7 @@ export function Tab({
 			{...props}
 		>
 			{children}
-			{count !== undefined ? <CountChip>{count}</CountChip> : null}
+			{count !== undefined ? <CountChip value={count} /> : null}
 			{selected ? (
 				<motion.span
 					layoutId={tabs?.indicator}

@@ -32,6 +32,7 @@ import { interviewsJson, interviewsOf } from "./interviews/index.ts";
 import { activitiesJson, activityFeed, peopleReader } from "./queries.ts";
 import { personSkills, personSkillsJson, personTags, personTagsJson } from "./tags-skills/index.ts";
 import { personTenures, personTenuresJson } from "../teams/reads.ts";
+import { gatedTransaction } from "../operations/writes.ts";
 
 export type PersonPageParts = { fields?: boolean; records?: number; duplicates?: boolean };
 
@@ -78,7 +79,7 @@ export async function readPersonPage(
 				ministries: null,
 			};
 		};
-		return "rollback" in db ? run(db) : db.transaction(run);
+		return "rollback" in db ? run(db) : gatedTransaction(db, run);
 	});
 }
 
@@ -143,14 +144,14 @@ async function plantPage(
  ${parts.duplicates ? sql`CASE WHEN person.state='live' THEN ${personDuplicatesJson(plant)} END` : sql`NULL`} AS duplicates
  FROM person WHERE person.id=${feed.personId}::uuid AND person.tenant_id=${plant}::uuid AND ${gate}
  AND NOT EXISTS(SELECT FROM organization_person_removal w WHERE w.person_record_id=person.id AND w.organization_id=person.tenant_id)`);
-	if (!result.rows[0]) deny();
+	if (!result.rows[0]) deny("unavailable");
 	const row = pageRow.parse(result.rows[0]);
 	const p = pagePerson.parse(row.person);
 	const found = c.personResult.parse({ status: "available", person: projectWith(ctx, [p], evidence(row.evidence))[0] });
 	const survivor =
 		p.state === "merged" && p.merged_into_person_id
 			? await readReply(async () => {
-					if (!row.survivor) deny();
+					if (!row.survivor) deny("unavailable");
 					const s = personRow.parse(row.survivor.person);
 					return c.personResult.parse({
 						status: "available",
@@ -160,9 +161,11 @@ async function plantPage(
 			: null;
 	const fields = parts.fields
 		? {
-				tags: part(() => (p.plant_id === plant ? personTags(row.tags) : deny())),
-				skills: part(() => (p.plant_id === plant ? personSkills(row.skills) : deny())),
-				household: part(() => (p.plant_id === plant ? personHousehold(p.household_id, row.household) : deny())),
+				tags: part(() => (p.plant_id === plant ? personTags(row.tags) : deny("unavailable"))),
+				skills: part(() => (p.plant_id === plant ? personSkills(row.skills) : deny("unavailable"))),
+				household: part(() =>
+					p.plant_id === plant ? personHousehold(p.household_id, row.household) : deny("unavailable"),
+				),
 				photo: c.personPhotoResult.parse(
 					p.plant_id === plant && p.state === "live" && p.photo_object_id
 						? { status: "available", personId: p.id, versionId: p.photo_object_id }

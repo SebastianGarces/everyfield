@@ -12,3 +12,4 @@ You build the spec in your worktree and commit it. Build the done criteria and n
 - The repository is public. Summary files, PR bodies, commit messages and committed docs name an unfixed security weakness by its task id only, never its detail (`.agents/skills/pr/SKILL.md`).
 
 Your role notes are in `.agents/roles/ui-designer.md` and `.agents/roles/implementor.md`.
+Before building or changing a component, run `.agents/skills/beautiful-ui-check/SKILL.md`; for any library choice, `.agents/skills/pick-ui-library/SKILL.md`.

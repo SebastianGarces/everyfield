@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 123,
-  "column_count": 1404,
-  "foreign_key_count": 409,
+  "table_count": 124,
+  "column_count": 1408,
+  "foreign_key_count": 410,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -790,6 +790,7 @@
       "effect",
       "enrollment_milestone",
       "enrollment_plan",
+      "feature_flag",
       "feedback",
       "feedback_publication",
       "file_object",
@@ -1512,6 +1513,7 @@
       "feedback.received",
       "feedback.status_changed",
       "files.finalized",
+      "flags.changed",
       "followup.corrected",
       "followup.recorded",
       "identity.credential_changed",
@@ -13547,7 +13549,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.assessment_opened','intelligence.feedback_saved','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','flags.changed','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.assessment_opened','intelligence.feedback_saved','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -20203,6 +20205,146 @@
         "checks": [
           "enrollment_milestone_source",
           "enrollment_milestone_confirmed"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "feature_flag",
+      "domain": "operations",
+      "purpose": "One stored value of a feature flag declared in the code registry (packages/domain/src/flags/registry.ts, T-470): the global value on the global tenant, a workspace override on a plant or organization, or an account override on an account. A read takes the account override, then the workspace override, then the global value, then the registry default. A cleared value stays as a row with no value, so its audit history keeps one subject.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-053"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-050"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-050"
+        ],
+        "rule": "WP-050 engineering tooling: the T-470 feature-flag foundation for trunk-based landing."
+      },
+      "feature_ids": [
+        "OPS-002",
+        "OPS-003",
+        "OPS-005",
+        "OPS-006",
+        "OPS-007",
+        "OPS-008",
+        "OPS-009",
+        "OPS-010",
+        "OPS-011"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "operations",
+      "invariants": [
+        "At most one row per flag and scope (tenant).",
+        "A read of a workspace or account override carries the live-access check; another tenant's override is never read.",
+        "Each value change writes one flags.changed audit row in the same statement; setting the current value writes nothing."
+      ],
+      "revision": "No revision column; a set replaces the value and a clear leaves the row with no value.",
+      "idempotency": "Setting a flag to the value it already holds, or clearing a cleared flag, changes nothing and writes no audit row.",
+      "deletion": "Flag values hold a flag name and a boolean only. Rows stay with their tenant; the registry entry's removal leaves any stored value unread.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Flag value identity and its audit subject.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "The flag's registry name, in kebab case.",
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The scope: the global tenant, a plant or organization (workspace) or an account.",
+          "name": "tenant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The stored value; null once cleared, so the read falls through to the next scope.",
+          "name": "value",
+          "type": "boolean",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "tenant_id",
+            "name"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "A tenant with flag values keeps them; they carry no personal data."
+          },
+          "columns": [
+            "tenant_id"
+          ],
+          "references": {
+            "table": "tenant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "name ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$' AND length(name) <= 64"
+      ],
+      "indexes": {
+        "feature_flag_scope": {
+          "name": "feature_flag_scope",
+          "isUnique": true,
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "feature_flag_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "feature_flag_tenant"
+        ],
+        "checks": [
+          "feature_flag_name"
         ]
       },
       "policies": {},
@@ -38572,7 +38714,7 @@
         }
       ],
       "checks": [
-        "kind in ('account', 'affiliation', 'answer_review', 'article_editor_state', 'article_revision', 'assessment', 'assessment_contributor', 'assessment_fact', 'assignment_feedback', 'attestation', 'commitment', 'communication', 'communication_recipient', 'contact_outcome', 'conversation', 'conversation_entry', 'development_enrollment', 'development_milestone', 'development_program', 'development_program_version', 'development_reading', 'development_stage', 'digest_coverage', 'discovery', 'document', 'document_revision', 'effect', 'enrollment_milestone', 'enrollment_plan', 'feedback', 'feedback_publication', 'file_object', 'finding', 'four_cs', 'generated_document', 'household', 'interview', 'invitation', 'job', 'launch_debrief', 'launch_guest', 'launch_milestone', 'launch_summary', 'leadership_conversation', 'lifecycle_witness', 'mail', 'mail_attempt', 'mail_request', 'meeting', 'meeting_evaluation', 'meeting_item', 'message_template', 'notice', 'notification_preference', 'obligation', 'audit_event', 'organization', 'organization_person_removal', 'participation', 'passage', 'person', 'person_merge', 'person_note', 'person_skill', 'phase_transition', 'pipeline_person', 'pipeline_sharing', 'pipeline_stage', 'pipeline_stage_move', 'plant', 'plant_geography', 'platform_grant', 'prompt_dismissal', 'provider_event', 'reader_feedback', 'reading', 'recurrence', 'reference_activation', 'reference_item', 'reference_release', 'reference_version', 'residency_link', 'responsibility', 'review', 'seat', 'sending_goal', 'suppression', 'tag', 'task', 'team', 'team_role', 'team_tenure', 'training_assignment', 'training_credit', 'training_program', 'training_requirement', 'training_version', 'venue', 'wiki_preference')",
+        "kind in ('account', 'affiliation', 'answer_review', 'article_editor_state', 'article_revision', 'assessment', 'assessment_contributor', 'assessment_fact', 'assignment_feedback', 'attestation', 'commitment', 'communication', 'communication_recipient', 'contact_outcome', 'conversation', 'conversation_entry', 'development_enrollment', 'development_milestone', 'development_program', 'development_program_version', 'development_reading', 'development_stage', 'digest_coverage', 'discovery', 'document', 'document_revision', 'effect', 'enrollment_milestone', 'enrollment_plan', 'feature_flag', 'feedback', 'feedback_publication', 'file_object', 'finding', 'four_cs', 'generated_document', 'household', 'interview', 'invitation', 'job', 'launch_debrief', 'launch_guest', 'launch_milestone', 'launch_summary', 'leadership_conversation', 'lifecycle_witness', 'mail', 'mail_attempt', 'mail_request', 'meeting', 'meeting_evaluation', 'meeting_item', 'message_template', 'notice', 'notification_preference', 'obligation', 'audit_event', 'organization', 'organization_person_removal', 'participation', 'passage', 'person', 'person_merge', 'person_note', 'person_skill', 'phase_transition', 'pipeline_person', 'pipeline_sharing', 'pipeline_stage', 'pipeline_stage_move', 'plant', 'plant_geography', 'platform_grant', 'prompt_dismissal', 'provider_event', 'reader_feedback', 'reading', 'recurrence', 'reference_activation', 'reference_item', 'reference_release', 'reference_version', 'residency_link', 'responsibility', 'review', 'seat', 'sending_goal', 'suppression', 'tag', 'task', 'team', 'team_role', 'team_tenure', 'training_assignment', 'training_credit', 'training_program', 'training_requirement', 'training_version', 'venue', 'wiki_preference')",
         "((kind <> ALL (ARRAY['account'::text, 'plant'::text, 'organization'::text])) OR (tenant_id = id))"
       ],
       "indexes": {

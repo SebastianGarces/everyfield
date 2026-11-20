@@ -1,11 +1,23 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	renameSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 import {
 	CHECKS,
 	type CheckId,
 	type CoverageMap,
+	censusDecision,
+	type Decision,
 	everything,
 	type MapProblem,
 	type Package,
@@ -43,7 +55,7 @@ export const spawnRunner: Runner = (command, args, { cwd, env }) => {
 	return { status: result.status ?? 1, stdout, output: `${stdout}${result.stderr ?? ""}${result.error ?? ""}` };
 };
 
-type Result = "passed" | "failed" | "skipped" | "not run";
+type Result = "passed" | "failed" | "skipped" | "not run" | "running";
 export type CheckRecord = {
 	head: string | null;
 	mergeBase: string | null;
@@ -52,6 +64,8 @@ export type CheckRecord = {
 	startedAt: string;
 	durationMs: number;
 	result: "passed" | "failed";
+	complete: boolean;
+	running: CheckId | null;
 	failures: string[];
 	checks: {
 		id: CheckId;
@@ -64,6 +78,7 @@ export type CheckRecord = {
 		detail?: string;
 		packages?: { name: string; command: string; result: Result; tests: number | null }[];
 		database?: { throwaway: true; image: string; container: string };
+		tightened?: string[];
 	}[];
 	tests: { file: string; check: CheckId; run: boolean; reason: string; result: Result; tests: number | null }[];
 };
@@ -170,6 +185,23 @@ function gather(root: string, home: string, full: boolean, gh: Gh) {
 }
 
 export const CENSUS_PACKAGE = "@everyfield/domain";
+export const CENSUS_ELSEWHERE = "runs as the census check (bin/dev census)";
+
+export const checkTmp = (root: string, home: string) =>
+	join(home, "tmp", createHash("sha256").update(resolve(root)).digest("hex").slice(0, 12));
+
+const oxlintThreads = `if(/[\\/]oxlint[\\/]bin[\\/]oxlint$/.test(process.argv[1]??"")&&!process.argv.some((a)=>a.startsWith("--threads")))process.argv.push("--threads=3")`;
+export const OXLINT_PRELOAD = `--import=data:text/javascript,${encodeURIComponent(oxlintThreads)}`;
+
+function checkEnv(tmp: string) {
+	rmSync(tmp, { recursive: true, force: true });
+	mkdirSync(tmp, { recursive: true });
+	return {
+		PATH: `${process.execPath.replace(/\/[^/]+$/, "")}:${process.env.PATH ?? ""}`,
+		TMPDIR: tmp,
+		EVF_NODE_TEST_FLAGS: process.env.EVF_NODE_TEST_FLAGS ?? "--test-concurrency=3",
+	};
+}
 
 export type CheckOptions = {
 	root: string;
@@ -198,7 +230,7 @@ export function check({
 	const selection = full
 		? everything(["verifier run (--full) ignores selection"], context)
 		: selectChecks(input.changed, input.map, context);
-	const env = { PATH: `${process.execPath.replace(/\/[^/]+$/, "")}:${process.env.PATH ?? ""}` };
+	const env = checkEnv(checkTmp(root, home));
 	const failures: string[] = [];
 	const testRecords: CheckRecord["tests"] = Object.entries(selection.tests).map(([file, d]) => ({
 		file,
@@ -209,8 +241,33 @@ export function check({
 		tests: null,
 	}));
 	const checks: CheckRecord["checks"] = [];
+	const assemble = (running: CheckId | null): CheckRecord => {
+		const found = [...failures];
+		for (const c of checks)
+			if (c.result === "failed")
+				found.push(
+					c.detail ? `${c.id} failed: ${c.detail}` : c.tests === 0 ? `${c.id} reported 0 tests` : `${c.id} failed`,
+				);
+		if (running) found.push(`incomplete: ${running} was still running when this record was written`);
+		else for (const t of testRecords) if (t.run && t.tests === 0) found.push(`${t.file} reported 0 tests`);
+		return {
+			head: input.head,
+			mergeBase: input.mergeBase,
+			mode: selection.mode,
+			fullReasons: selection.fullReasons,
+			startedAt: new Date(started).toISOString(),
+			durationMs: Date.now() - started,
+			result: found.length ? "failed" : "passed",
+			complete: running === null,
+			running,
+			failures: [...new Set(found)],
+			checks,
+			tests: testRecords,
+		};
+	};
+	const progress = (running: CheckId) => writeRecord(home, root, "checks.json", assemble(running));
 	for (const id of Object.keys(CHECKS) as CheckId[]) {
-		const decision = selection.checks[id];
+		const decision = id === "census" ? { run: false, reason: CENSUS_ELSEWHERE } : selection.checks[id];
 		const entry: CheckRecord["checks"][number] = {
 			id,
 			...decision,
@@ -221,6 +278,8 @@ export function check({
 		};
 		checks.push(entry);
 		if (!decision.run) continue;
+		entry.result = "running";
+		progress(id);
 		const t0 = Date.now();
 		const definition = CHECKS[id];
 		const exec = (command: string, args: string[], extra: Record<string, string> = {}) => {
@@ -249,7 +308,7 @@ export function check({
 			const defining = input.packages.filter((p) => names.includes(p.name) && p.scripts[definition.script]);
 			if (id === "test:db" && defining.length && defining.every((p) => p.name === CENSUS_PACKAGE)) {
 				entry.result = "skipped";
-				entry.reason += `; only ${CENSUS_PACKAGE} defines test:db, the statement census, which runs in GitHub CI only`;
+				entry.reason += `; only ${CENSUS_PACKAGE} defines test:db, the statement census, which ${CENSUS_ELSEWHERE}`;
 				continue;
 			}
 			if (!defining.length) {
@@ -263,7 +322,12 @@ export function check({
 				entry.durationMs = Date.now() - t0;
 				continue;
 			}
-			const r = exec("corepack", ["pnpm", ...filters, "--if-present", "run", definition.script]);
+			const concurrency = id === "test:unit" ? ["--workspace-concurrency=2"] : [];
+			const extra =
+				id === "lint"
+					? { NODE_OPTIONS: [process.env.NODE_OPTIONS, OXLINT_PRELOAD].filter(Boolean).join(" ") }
+					: undefined;
+			const r = exec("corepack", ["pnpm", ...filters, ...concurrency, "--if-present", "run", definition.script], extra);
 			entry.result = r.status === 0 ? "passed" : "failed";
 			if (id === "test:unit") {
 				entry.tests = testCount(r.output);
@@ -304,36 +368,32 @@ export function check({
 	}
 	if (selection.mode === "selected" && !checks.some((c) => c.run))
 		failures.push("the diff selected no checks, so nothing proves it; run bin/dev check --full");
-	for (const c of checks)
-		if (c.result === "failed")
-			failures.push(
-				c.detail ? `${c.id} failed: ${c.detail}` : c.tests === 0 ? `${c.id} reported 0 tests` : `${c.id} failed`,
-			);
-	for (const t of testRecords) if (t.run && t.tests === 0) failures.push(`${t.file} reported 0 tests`);
-	const record: CheckRecord = {
-		head: input.head,
-		mergeBase: input.mergeBase,
-		mode: selection.mode,
-		fullReasons: selection.fullReasons,
-		startedAt: new Date(started).toISOString(),
-		durationMs: Date.now() - started,
-		result: failures.length ? "failed" : "passed",
-		failures: [...new Set(failures)],
-		checks,
-		tests: testRecords,
-	};
-	const dir = join(home, "checks", basename(root));
-	mkdirSync(dir, { recursive: true });
-	const recordPath = join(dir, "checks.json");
-	writeFileSync(recordPath, JSON.stringify(record, null, 2) + "\n");
-	return { record, recordPath };
+	const record = assemble(null);
+	return { record, recordPath: writeRecord(home, root, "checks.json", record) };
 }
 
-function databaseTests(
-	entry: CheckRecord["checks"][number],
-	names: string[],
-	options: Omit<PostgresOptions, "readyTimeoutMs" | "sleep" | "watch"> & Partial<PostgresOptions>,
-) {
+function writeRecord(home: string, root: string, name: string, record: CheckRecord) {
+	const dir = join(home, "checks", basename(root));
+	mkdirSync(dir, { recursive: true });
+	const recordPath = join(dir, name);
+	writeFileSync(recordPath, JSON.stringify(record, null, 2) + "\n");
+	return recordPath;
+}
+
+type DatabaseOptions = Omit<PostgresOptions, "readyTimeoutMs" | "sleep" | "watch"> & Partial<PostgresOptions>;
+
+function throwawayFor(entry: CheckRecord["checks"][number], options: DatabaseOptions) {
+	try {
+		return startPostgres({ readyTimeoutMs: 60_000, sleep: sleepSync, watch: watchProcess, ...options });
+	} catch (error) {
+		if (!(error instanceof DatabaseError)) throw error;
+		entry.result = "failed";
+		entry.detail = error.message;
+		return undefined;
+	}
+}
+
+function databaseTests(entry: CheckRecord["checks"][number], names: string[], options: DatabaseOptions) {
 	const { root, env, run } = options;
 	entry.packages = names.map((name) => ({
 		name,
@@ -343,20 +403,8 @@ function databaseTests(
 	}));
 	entry.command = entry.packages.map((p) => p.command).join("; ");
 	const problems: string[] = [];
-	let db: ReturnType<typeof startPostgres>;
-	try {
-		db = startPostgres({
-			readyTimeoutMs: 60_000,
-			sleep: sleepSync,
-			watch: watchProcess,
-			...options,
-		});
-	} catch (error) {
-		if (!(error instanceof DatabaseError)) throw error;
-		entry.result = "failed";
-		entry.detail = error.message;
-		return;
-	}
+	const db = throwawayFor(entry, options);
+	if (!db) return;
 	try {
 		entry.database = { throwaway: true, image: db.image, container: db.container };
 		for (const p of entry.packages) {
@@ -378,6 +426,129 @@ function databaseTests(
 	entry.tests = entry.packages.reduce((sum, p) => sum + (p.tests ?? 0), 0);
 	entry.result = problems.length ? "failed" : "passed";
 	if (problems.length) entry.detail = problems.join("; ");
+}
+
+const LIMITS = "tests/integration/writes/limits.json";
+const NEXT_RETRY = "Retry the same command to continue";
+const CENSUS_PROBLEM = /^\s*\+\s+'(.+)',?$/gm;
+
+function census(entry: CheckRecord["checks"][number], options: DatabaseOptions) {
+	const { root, env, run } = options;
+	const build = ["corepack", "pnpm", "--filter", "@everyfield/web", "run", "build"];
+	const test = ["corepack", "pnpm", "--filter", CENSUS_PACKAGE, "run", "test:db"];
+	entry.command = `${build.join(" ")}; ${test.join(" ")}`;
+	const db = throwawayFor(entry, options);
+	if (!db) return;
+	const tightenedDir = mkdtempSync(join(tmpdir(), "evf-census-tightened-"));
+	try {
+		entry.database = { throwaway: true, image: db.image, container: db.container };
+		const dbEnv = { ...env, ...databaseEnv(db.url) };
+		const show = (output: string) => {
+			const text = output.replaceAll(db.password, "***");
+			process.stderr.write(text.endsWith("\n") || !text ? text : text + "\n");
+			return text;
+		};
+		const buildOnce = () => {
+			console.error(`check census: ${build.join(" ")}`);
+			const r = run(build[0]!, build.slice(1), { cwd: root, env: { ...dbEnv, NEXT_TELEMETRY_DISABLED: "1" } });
+			show(r.output);
+			return r;
+		};
+		let built = buildOnce();
+		if (built.status !== 0 && built.output.includes(NEXT_RETRY)) built = buildOnce();
+		if (built.status !== 0) {
+			entry.result = "failed";
+			entry.detail = "the production build for the request budgets failed";
+			return;
+		}
+		console.error(`check census: ${test.join(" ")} on ${db.container}`);
+		const r = run(test[0]!, test.slice(1), { cwd: root, env: { ...dbEnv, EVF_CENSUS_TIGHTENED: tightenedDir } });
+		const output = show(r.output);
+		entry.tests = testCount(r.output);
+		entry.result = r.status === 0 && entry.tests > 0 ? "passed" : "failed";
+		if (entry.result === "failed") {
+			const problems = [...new Set([...output.matchAll(CENSUS_PROBLEM)].map((m) => m[1]!))];
+			entry.detail = problems.length
+				? `statement census: ${problems.join("; ")}`
+				: r.status === 0
+					? "the statement census reported 0 tests"
+					: "the statement census failed; see its output above";
+		}
+		const tightened = join(tightenedDir, "limits.json");
+		if (existsSync(tightened)) {
+			copyFileSync(tightened, join(root, LIMITS));
+			entry.tightened = readFileSync(join(tightenedDir, "changes.md"), "utf8")
+				.split("\n")
+				.filter((line) => line.startsWith("- "))
+				.map((line) => line.slice(2));
+		}
+	} finally {
+		rmSync(tightenedDir, { recursive: true, force: true });
+		db.stop();
+	}
+}
+
+export type CensusOptions = Omit<CheckOptions, "full" | "gh"> & { all: boolean };
+
+export function censusCheck({ root, all, home = ciHome(), run = spawnRunner, database = {} }: CensusOptions) {
+	root = resolve(root);
+	if (!relative(root, resolve(home)).startsWith("..")) throw new Error(`The CI home ${home} must be outside ${root}.`);
+	const started = Date.now();
+	const head = git(root, ["rev-parse", "HEAD"])?.trim() ?? null;
+	const mergeBase = git(root, ["merge-base", "HEAD", "origin/main"])?.trim() ?? null;
+	const diff = mergeBase ? git(root, ["diff", "--name-only", "-z", mergeBase]) : null;
+	const untracked = git(root, ["ls-files", "--others", "--exclude-standard", "-z"]);
+	const changed = diff === null || untracked === null ? null : [...lines(diff, "\0"), ...lines(untracked, "\0")];
+	const decision: Decision = all
+		? { run: true, reason: "--all runs it regardless of the diff" }
+		: censusDecision(changed);
+	const entry: CheckRecord["checks"][number] = {
+		id: "census",
+		...decision,
+		command: null,
+		result: decision.run ? "not run" : "skipped",
+		tests: null,
+		durationMs: 0,
+	};
+	if (decision.run) {
+		const env = checkEnv(`${checkTmp(root, home)}-census`);
+		census(entry, { root, env, run, scope: "census", ...database });
+		entry.durationMs = Date.now() - started;
+	}
+	const failures = entry.result === "failed" ? [`census failed: ${entry.detail}`] : [];
+	const record: CheckRecord = {
+		head,
+		mergeBase,
+		mode: all ? "full" : "selected",
+		fullReasons: all ? ["--all runs the census regardless of the diff"] : [],
+		startedAt: new Date(started).toISOString(),
+		durationMs: Date.now() - started,
+		result: failures.length ? "failed" : "passed",
+		complete: true,
+		running: null,
+		failures,
+		checks: [entry],
+		tests: [],
+	};
+	return { record, recordPath: writeRecord(home, root, "census.json", record) };
+}
+
+export function censusCommand(args: string[], root: string): number {
+	const all = args.includes("--all");
+	if (args.some((a) => a !== "--all")) {
+		console.error("usage: dev census [--all]");
+		return 2;
+	}
+	const { record, recordPath } = censusCheck({ root, all });
+	const entry = record.checks[0]!;
+	console.log(entry.run ? `census: ${record.result}. ${entry.reason}.` : `census: skipped, ${entry.reason}.`);
+	for (const failure of record.failures) console.log(`FAIL ${failure}`);
+	if (entry.tightened?.length) {
+		console.log(`The census tightened ${LIMITS} in this worktree; commit it in this change:`);
+		for (const change of entry.tightened) console.log(`  ${change}`);
+	}
+	console.log(`census record: ${recordPath}`);
+	return record.result === "passed" ? 0 : 1;
 }
 
 export function checkCommand(args: string[], root: string): number {

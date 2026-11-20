@@ -19705,6 +19705,68 @@
 					}
 				}
 			}
+		},
+		"feature_flag": {
+			"table": {
+				"name": "feature_flag",
+				"domain": "operations",
+				"purpose": "One stored value of a feature flag declared in the code registry (packages/domain/src/flags/registry.ts, T-470): the global value on the global tenant, a workspace override on a plant or organization, or an account override on an account. A read takes the account override, then the workspace override, then the global value, then the registry default. A cleared value stays as a row with no value, so its audit history keeps one subject.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-053"],
+				"replaces": [],
+				"producer_work_packages": ["WP-050"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-050"],
+					"rule": "WP-050 engineering tooling: the T-470 feature-flag foundation for trunk-based landing."
+				},
+				"feature_ids": [
+					"OPS-002",
+					"OPS-003",
+					"OPS-005",
+					"OPS-006",
+					"OPS-007",
+					"OPS-008",
+					"OPS-009",
+					"OPS-010",
+					"OPS-011"
+				],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "operations",
+				"invariants": [
+					"At most one row per flag and scope (tenant).",
+					"A read of a workspace or account override carries the live-access check; another tenant's override is never read.",
+					"Each value change writes one flags.changed audit row in the same statement; setting the current value writes nothing."
+				],
+				"revision": "No revision column; a set replaces the value and a clear leaves the row with no value.",
+				"idempotency": "Setting a flag to the value it already holds, or clearing a cleared flag, changes nothing and writes no audit row.",
+				"deletion": "Flag values hold a flag name and a boolean only. Rows stay with their tenant; the registry entry's removal leaves any stored value unread.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Flag value identity and its audit subject."
+				},
+				"name": {
+					"note": "The flag's registry name, in kebab case."
+				},
+				"tenant_id": {
+					"note": "The scope: the global tenant, a plant or organization (workspace) or an account."
+				},
+				"value": {
+					"note": "The stored value; null once cleared, so the read falls through to the next scope."
+				}
+			},
+			"foreignKeys": {
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "A tenant with flag values keeps them; they carry no personal data."
+					}
+				}
+			}
 		}
 	}
 }

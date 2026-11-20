@@ -1,5 +1,5 @@
+import { cn } from "@everyfield/ui/foundations";
 import { LOGO_SYMBOLS } from "@/marketing/logo-symbols";
-import { cn } from "./cn";
 
 type Path = { d: string; evenOdd: boolean };
 type Symbol = { id: "ef-symbol" | "ef-wordmark"; viewBox: string; paths: Path[] };
