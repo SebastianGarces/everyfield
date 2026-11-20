@@ -256,6 +256,13 @@ export function everything(reasons: string[], context: Pick<Context, "testFiles"
 	};
 }
 
+export function censusDecision(changedPaths: readonly string[] | null): Decision {
+	if (changedPaths === null) return { run: true, reason: "the diff could not be read" };
+	const rules = RULES.filter((rule) => rule.checks?.includes("census"));
+	const why = changedPaths.flatMap((path) => rules.filter((r) => matches(r, path)).map((r) => `${r.name}: ${path}`));
+	return why.length ? { run: true, reason: why.join("; ") } : { run: false, reason: NO_CENSUS };
+}
+
 export function selectChecks(
 	changedPaths: readonly string[] | null,
 	map: CoverageMap | MapProblem,

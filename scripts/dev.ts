@@ -14,13 +14,11 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
         checks.json record outside the repo and prints its path. Selection reads the coverage map of the latest
         green GitHub nightly (.github/workflows/nightly.yml), downloaded with gh; without one it runs everything
         --full takes about 9 minutes alone and about 15 minutes each with six evf check slots side by side, test:db
-        on Docker Postgres included, plus the census (a production build and the whole statement census) when it runs
+        on Docker Postgres included. Neither form runs the statement census: it runs as the census check
+        (bin/dev census), and the record lists it as skipped with that reason
         checks: lint, typecheck, test:unit, test:db, census, docs, ci-coverage, workflow, tools-ci, tools-qa, tools-app, github-scripts, ops-watch
         test:db runs the selected packages' database tests on a throwaway local Postgres (CI's image in Docker,
         removed when the run ends), so it needs Docker; it never uses the shared development database
-        census runs for a diff that touches backend or database code (and in --full): a production build, then the
-        whole statement census on its own throwaway Postgres. Over budget, N+1 and a missing budget fail it; slack
-        and stale reasons only tighten tests/integration/writes/limits.json in the worktree, so commit that file
         check first removes orphaned qa-test-* containers: older than EVERYFIELD_QA_SWEEP_MINUTES (default 120)
         and owned by no live run
         GitHub CI also runs: format:check, the statement census in parts with the one build then server-trace,
@@ -29,6 +27,12 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
         the tests/ui set in chromium and webkit on a seeded build over its own Postgres (scripts/nightly-ui.ts), and
         the formal replay: permissions behaviors from a fresh random seed replayed on its own Postgres; a disagreement
         files the seed (scripts/nightly-formal.ts [--seed <n>], .agents/skills/formal-permissions/SKILL.md)
+  dev census [--all]    the statement census, the evf census check (evf.toml, its own 20-minute timeout): a
+        production build, then the whole statement census (HTTP request budgets included) on its own throwaway
+        Postgres, when the diff since the merge base of origin/main touches backend or database code; else it exits 0
+        and says why it skipped. --all runs it regardless of the diff. Over budget, N+1 and a missing budget fail it;
+        slack, stale reasons and a retry with no retry budget only tighten tests/integration/writes/limits.json in the
+        worktree, so commit that file. Writes a census.json record next to checks.json and prints its path
   dev nightly           runs tests/ui on a preview of origin/main, one engine at a time; skips when the machine is
         loaded or no preview slot is free. The GitHub nightly runs the same set too; this stays the local run until
         it is retired. The coverage map comes from the GitHub nightly, not from this
@@ -160,6 +164,8 @@ async function main([command, ...args]: string[]): Promise<number> {
 			return logs(args);
 		case "check":
 			return (await import("./check.ts")).checkCommand(args, root);
+		case "census":
+			return (await import("./check.ts")).censusCommand(args, root);
 		case "nightly":
 			return (await import("./nightly.ts")).nightlyCommand(args);
 		case "fast-check":

@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const select = (await import(process.env.CI_SELECT_MODULE ?? "../select.ts")) as typeof import("../select.ts");
-const { CHECKS, NO_CENSUS, RULES, parseCoverageMap, selectChecks, unreachable } = select;
+const { CHECKS, NO_CENSUS, RULES, censusDecision, parseCoverageMap, selectChecks, unreachable } = select;
 type Selection = import("../select.ts").Selection;
 type Context = import("../select.ts").Context;
 
@@ -119,13 +119,17 @@ test("INV-ci-select: selection table: docs, one package, tools, lockfile, workfl
 			"apps/web/src/features/people/server.ts",
 			"apps/web/src/features/people/routes.tsx",
 			"tests/integration/db/baseline.test.mts",
-		])
-			assert.deepEqual(selectChecks([path], map, context).checks.census, {
-				run: true,
-				reason: `backend or database code: ${path}`,
-			});
-		for (const path of ["docs/plan/context.md", "apps/web/src/features/people/PersonCard.tsx"])
+		]) {
+			const want = { run: true, reason: `backend or database code: ${path}` };
+			assert.deepEqual(selectChecks([path], map, context).checks.census, want);
+			assert.deepEqual(censusDecision(["docs/plan/context.md", path]), want, "bin/dev census decides the same");
+		}
+		for (const path of ["docs/plan/context.md", "apps/web/src/features/people/PersonCard.tsx"]) {
 			assert.deepEqual(selectChecks([path], map, context).checks.census, { run: false, reason: NO_CENSUS });
+			assert.deepEqual(censusDecision([path]), { run: false, reason: NO_CENSUS });
+		}
+		assert.deepEqual(censusDecision([]), { run: false, reason: NO_CENSUS });
+		assert.deepEqual(censusDecision(null), { run: true, reason: "the diff could not be read" });
 	});
 	await t.test("INV-ci-select: a docs-only change runs only the documentation check", () =>
 		assertSelected(selectChecks(["docs/plan/context.md"], map, context), {

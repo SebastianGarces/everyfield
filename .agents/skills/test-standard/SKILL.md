@@ -28,7 +28,7 @@ the repository only when a silent break would cost us. Suite size is not evidenc
    write above six has no reason, when a page read's count grows with its data, and on N+1: the same
    statement sent more than twice in one first attempt, unless the entry's `repeats` says why the count is
    fixed. Slack, a stale reason and a retry with no retry budget only print a notice; a run over every
-   suite tightens `limits.json` (`bin/dev check` writes it into the worktree; commit it). A new write or page read gets a `limits.json` entry at the
+   suite tightens `limits.json` (`bin/dev census`, the evf census check, writes it into the worktree; commit it). A new write or page read gets a `limits.json` entry at the
    recorded rule in `docs/architecture/patterns.md` (Performance; D69, D70) and a behavior test that
    exercises it, not its own statement-count test. Write a per-file count only for what the census cannot
    see, such as a read other than a page that must send the same statements at 3 and 50 rows, and assert
