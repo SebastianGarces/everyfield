@@ -12,7 +12,7 @@ import {
 	IconButton,
 	Input,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { startTransition, useOptimistic, useState, useTransition } from "react";
 import type { Wait } from "../../../components/save/model.ts";
@@ -56,7 +56,6 @@ export function AssessmentCard({
 	onSaved,
 	corrected,
 }: RecordProps<Assessments>) {
-	const toast = useToast();
 	const history = useHistory(
 		initial,
 		(page) => loadAssessments(personId, page),

@@ -5,14 +5,13 @@ import { defaultChannelEnabled, notificationCategory } from "@everyfield/contrac
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
-import { executeWrites } from "@everyfield/domain/operations";
+import { executeWrites } from "../operations/index.ts";
 import type { ProviderKey } from "@everyfield/contracts/common";
 import { IDENTITY_LINK_SECONDS } from "@everyfield/contracts/identity";
-import { issueMailOptOutToken, parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
-import { transaction } from "../platform/database.ts";
+import { issueMailOptOutToken, parseKeyRing, type OptOutKeyRing } from "../notifications/index.ts";
 import { finishClaim, lockClaim, checkpoint, claimSchema, DEFAULT_LEASE_SECONDS, type Claim } from "./queue.ts";
-import { logFailure, logLine } from "@everyfield/domain/log";
-import { serverEnv, type ServerEnv } from "../config.ts";
+import { transaction } from "./transaction.ts";
+import { logFailure, logLine } from "../log.ts";
 
 const owner = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("account"), id: z.uuid() }),
@@ -105,7 +104,7 @@ const stored = z.object({
 const OPTIONAL_PURPOSES: ReadonlySet<string> = new Set(["notification", "planter_digest", "oversight_digest"]);
 export type MailUnsubscribe = { origin: string; keys: OptOutKeyRing } | null;
 type OptOut = { category: z.infer<typeof notificationCategory>; revision: string };
-export function mailUnsubscribe(env: ServerEnv = serverEnv()): MailUnsubscribe {
+export function mailUnsubscribe(env: Readonly<Record<string, string | undefined>>): MailUnsubscribe {
 	const keys = parseKeyRing(env.NOTIFICATION_OPT_OUT_KEYS);
 	const origin = z.url().safeParse(env.IDENTITY_ORIGIN);
 	return keys && origin.success ? { origin: new URL(origin.data).origin, keys } : null;

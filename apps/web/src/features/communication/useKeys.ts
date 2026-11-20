@@ -1,5 +1,5 @@
+import type { Outcome } from "@everyfield/contracts/common";
 import { useRef } from "react";
-import type { Outcome } from "./model.ts";
 
 export function useKeys() {
 	const keys = useRef<Record<string, string>>({});
