@@ -25,6 +25,7 @@ export const QA_LOGINS = {
 	graceStaff: "delivered+qa-grace-staff@resend.dev",
 	graceMember: "delivered+qa-grace-member@resend.dev",
 	resident: "delivered+qa-resident@resend.dev",
+	endedResident: "delivered+qa-resident-ended@resend.dev",
 	hillOwner: "delivered+qa-hill-owner@resend.dev",
 } as const;
 
