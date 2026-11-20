@@ -128,7 +128,7 @@ async function finishWhole(rows: Row[], limits: object, units: string[]) {
 	checkWhole(rows, limits);
 }
 
-let counter: Promise<{ output: string; module: any }> | undefined;
+let counter: Promise<{ output: string; module: typeof import("./counter.mjs") }> | undefined;
 function countedDatabase() {
 	counter ??= (async () => {
 		const output = join(await mkdtemp(join(tmpdir(), "evf-write-pool-")), "counts.jsonl");
@@ -154,7 +154,7 @@ test("BUG-PR193: a pooled query counts in the request that issued it", { skip: c
 		await pool.end();
 	}
 	const counts = (await countedRows(output))
-		.filter((row) => row.kind === "sample" && ["a", "b", "c"].includes(row.name))
+		.filter((row): row is Sample => row.kind === "sample" && ["a", "b", "c"].includes(row.name))
 		.map((row) => [row.name, row.count]);
 	assert.deepEqual(Object.fromEntries(counts), { a: 1, b: 1, c: 1 });
 });
@@ -189,7 +189,9 @@ test(
 		} finally {
 			await pool.end();
 		}
-		const rows = (await countedRows(output)).filter((row) => row.name?.startsWith("census."));
+		const rows = (await countedRows(output)).filter(
+			(row): row is Sample => row.kind === "sample" && row.name.startsWith("census."),
+		);
 		const limits = { "census.overBudget": { limit: 2 }, "census.perRow": { limit: 6 }, "census.batched": { limit: 1 } };
 		const perRow =
 			"census.perRow: N+1, sends the same statement 3 times in one run: INSERT INTO census_note (id, body) VALUES (?); batch it into one set-based statement, or give limits.json a repeats reason";
@@ -647,7 +649,12 @@ test("INV-census: every request and write stays within its statement budget", { 
 	console.log("Statement census:", output);
 
 	const rows = parseRows(await readFile(output, "utf8"));
-	const marker = { kind: "part", index: part.index, total: part.total, ran: ran.map((file) => relative(root, file)) };
+	const marker: Part = {
+		kind: "part",
+		index: part.index,
+		total: part.total,
+		ran: ran.map((file) => relative(root, file)),
+	};
 	if (census.kind === "whole") return finishWhole([...rows, marker], limits, units);
 	checkPart(rows, limits);
 	appendFileSync(output, JSON.stringify(marker) + "\n");
