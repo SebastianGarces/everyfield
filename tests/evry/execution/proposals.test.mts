@@ -21,25 +21,13 @@ import {
 	submitTurn,
 	type EvryActor,
 } from "../../../packages/evry/src/index.ts";
+import { waitingOnLock } from "../../support/fixture.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim, recoverLease, type Claim } from "../../../apps/web/src/server/jobs/queue.ts";
-import {
-	accounts,
-	actor,
-	admin,
-	db,
-	people,
-	plant,
-	queries,
-	role,
-	setup,
-	sql,
-	teardown,
-	work,
-} from "../runtime/support.mts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim, recoverLease, type Claim } from "../../../packages/domain/src/jobs/queue.ts";
+import { accounts, actor, admin, db, people, plant, queries, setup, sql, teardown, work } from "../runtime/support.mts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -68,6 +56,12 @@ async function effects() {
 	return { outcome, statements };
 }
 
+async function backendPid(tx: Parameters<Parameters<typeof admin.transaction>[0]>[0]) {
+	const [row] = (await tx.execute<{ pid: number }>(sql`SELECT pg_backend_pid() AS pid`)).rows;
+	assert.ok(row);
+	return row.pid;
+}
+
 async function stalledEffect(during: (claim: Claim) => Promise<void>, leaseSeconds = 60) {
 	const [claim] = await claimDue(db, ["evry_effect"], 1, leaseSeconds);
 	assert.ok(claim);
@@ -75,13 +69,7 @@ async function stalledEffect(during: (claim: Claim) => Promise<void>, leaseSecon
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`SELECT id FROM plant WHERE id=${plant} FOR UPDATE`);
 		running = executeProposal(db, lease(claim), noReminders);
-		for (let waiting = 0, deadline = Date.now() + 20_000; !waiting;) {
-			assert.ok(Date.now() < deadline, "the executor never waited for write authority");
-			const r = await admin.execute(
-				sql`SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND usename=${role} AND query LIKE '%write_gate%'`,
-			);
-			waiting = (r.rows[0] as { n: number }).n;
-		}
+		await waitingOnLock(admin, { blockedBy: await backendPid(tx) });
 		await during(claim);
 	});
 	const outcome = await running!;
@@ -237,7 +225,9 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 		revision: 1,
 		input: { personId: people.casey, patch: { phone: "555-0100" } },
 	});
-	assert.ok(fresh.expiresAt.getTime() - Date.now() > 14 * 60_000);
+	const [clock] = (await admin.execute<{ now: string }>(sql`SELECT clock_timestamp()::text AS now`)).rows;
+	assert.ok(clock);
+	assert.ok(fresh.expiresAt.getTime() - Date.parse(clock.now) > 14 * 60_000);
 	await approveProposal(db, owner, proposal.id, witness(fresh), null);
 	await admin.execute(sql`UPDATE proposal SET expires_at=clock_timestamp() WHERE id=${proposal.id}`);
 	assert.equal((await effects())?.outcome, "expired");
@@ -426,24 +416,12 @@ test("AC:EVRY-LEASE-FENCE an executor whose lease expires while it waits for the
 	const before = await person(people.alexChen);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	assert.ok(claim);
-	await admin.execute(
-		sql`UPDATE job SET lease_until=clock_timestamp()+interval '2000 milliseconds' WHERE id=${claim.id}`,
-	);
 	let running: Promise<string> | undefined;
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`SELECT id FROM job WHERE id=${claim.id} FOR UPDATE`);
 		running = executeProposal(db, lease(claim), noReminders);
-		for (let waiting = 0, deadline = Date.now() + 20_000; !waiting;) {
-			assert.ok(Date.now() < deadline, "the executor never waited for the job row");
-			const r = await admin.execute(
-				sql`SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND usename=${role}`,
-			);
-			waiting = (r.rows[0] as { n: number }).n;
-		}
-		for (let passed = false; !passed;) {
-			const r = await admin.execute(sql`SELECT lease_until<=clock_timestamp() AS passed FROM job WHERE id=${claim.id}`);
-			passed = (r.rows[0] as { passed: boolean }).passed;
-		}
+		await waitingOnLock(admin, { blockedBy: await backendPid(tx) });
+		await tx.execute(sql`UPDATE job SET lease_until=clock_timestamp()-interval '1 millisecond' WHERE id=${claim.id}`);
 	});
 	assert.equal(await running!, "lost");
 	const after = await readReview(db, owner, proposal.id);

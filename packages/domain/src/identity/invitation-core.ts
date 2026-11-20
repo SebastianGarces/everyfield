@@ -8,7 +8,7 @@ import * as t from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { currentActor, liveOwner, RequestActor, requestWrite } from "../access/session.ts";
+import { currentActor, liveOwner, RequestActor, requestWrite, type WriteTx } from "../access/session.ts";
 import { canonical } from "../operations/canonical.ts";
 import { auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
 import { rethrowWriteError } from "./budget.ts";
@@ -56,16 +56,16 @@ export async function identity(tx: Transaction, session: string) {
 	if (!r.rows[0]) refuse();
 	return identityRow.parse(r.rows[0]);
 }
-export async function readAdministrator(tx: Transaction, session: string, selected: Owner) {
+export async function readAdministrator(tx: WriteTx, session: string, selected: Owner) {
 	const actor = await currentActor(tx, sessionId.parse(session), selected, false);
 	if (actor.status !== "active" || actor.context.kind !== "seat" || actor.context.role === "member") refuse();
 	return actor;
 }
 export async function writeAsAdministrator<T>(
-	db: Database,
+	db: Database | Transaction,
 	authority: RequestActor,
 	selected: Owner,
-	body: (tx: Transaction, bound: NonNullable<Awaited<ReturnType<RequestActor["bind"]>>>) => Promise<T>,
+	body: (tx: WriteTx, bound: NonNullable<Awaited<ReturnType<RequestActor["bind"]>>>) => Promise<T>,
 ): Promise<T> {
 	try {
 		return await auditTransaction(db, async (tx) => {
@@ -79,7 +79,7 @@ export async function writeAsAdministrator<T>(
 }
 
 export async function begin(
-	tx: Transaction,
+	tx: WriteTx,
 	selected: Owner,
 	actor: string,
 	name: string,
@@ -101,7 +101,7 @@ export async function begin(
 	return { kind: "new" as const, id: claim.id, request, writes: claim.writes, events: claim.events };
 }
 export type Command = Extract<Awaited<ReturnType<typeof begin>>, { kind: "new" }>;
-export async function finish<T>(tx: Transaction, c: Command, output: () => T) {
+export async function finish<T>(tx: WriteTx, c: Command, output: () => T) {
 	const result = output();
 	await finishAudit(tx, c, c.request, result);
 	return result;
@@ -182,7 +182,7 @@ export async function lockForWrite(tx: Transaction, id: string) {
 	return { invitation: r.invitation, selected, tenant: r.kind, now: new Date(locked.data.now) };
 }
 const lockedRoot = z.object({ kind: z.string(), organization_kind: z.string().nullable(), now: z.number() });
-export async function workspace(tx: Transaction, id: string) {
+export async function workspace(tx: WriteTx, id: string) {
 	const bound = requestWrite(tx);
 	if (bound?.selected.id === id && bound.selected.kind !== "account")
 		return { selected: bound.selected, name: bound.plant?.name ?? bound.organization?.name ?? null };

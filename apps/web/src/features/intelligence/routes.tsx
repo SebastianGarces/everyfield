@@ -1,41 +1,36 @@
-import { getViewer } from "@/server/request-context";
+import { requireSeat } from "@/server/sign-in";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { NoChurchPlantSeat, PlantIntelligenceBlocked } from "../phases/PlantIntelligenceBlocked.tsx";
-import { administers, phaseViewer } from "../phases/server.ts";
+import { administers } from "../phases/server.ts";
 import { AssessmentScreen } from "./AssessmentScreen.tsx";
 import { loadAssessment, loadTrends } from "./assessment-server.ts";
 import { AttestationsScreen } from "./AttestationsScreen.tsx";
 import { TrendsScreen } from "./TrendsScreen.tsx";
 import { CheckInScreen } from "./CheckInScreen.tsx";
 import { CHECK_IN_PATH } from "./path.ts";
-import { careViewer, loadCheckIn } from "./server.ts";
+import { loadCheckIn } from "./server.ts";
 import { loadAttestations } from "./signals-server.ts";
 import { ZoneStep } from "./ZoneStep.tsx";
 
 export const checkInMetadata: Metadata = { title: "Weekly check-in", robots: { index: false, follow: false } };
 
 export async function CheckInPage() {
-	const viewer = await careViewer();
-	if (!viewer) {
-		const v = await getViewer();
-		if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(CHECK_IN_PATH)}`);
-		return <Blocked title="The weekly check-in belongs to a church plant">{SEAT_TEXT}</Blocked>;
-	}
+	const viewer = await requireSeat(CHECK_IN_PATH);
+	if (!viewer) return <Blocked title="The weekly check-in belongs to a church plant">{SEAT_TEXT}</Blocked>;
 	if (viewer.role === "member")
 		return <Blocked title="The weekly check-in is for Owners and Admins">{SEAT_TEXT}</Blocked>;
 	const loaded = await loadCheckIn(viewer);
 	if (loaded.status === "refused" && loaded.error.code === "personal_timezone_confirmation_required")
-		return <ZoneStep name={viewer.displayName} />;
+		return <ZoneStep name={viewer.accountName} />;
 	if (loaded.status !== "ok")
 		return (
 			<Blocked title="We could not load your check-in" tone="error">
 				This is a loading problem. Your check-ins are safe. Reload the page in a moment.
 			</Blocked>
 		);
-	return <CheckInScreen initial={loaded.value} name={viewer.displayName} />;
+	return <CheckInScreen initial={loaded.value} name={viewer.accountName} />;
 }
 
 const SEAT_TEXT =
@@ -68,10 +63,10 @@ export function CheckInLoading() {
 			<span className="sr-only" role="status">
 				Loading your check-in
 			</span>
-			<Skeleton className="h-14 w-80 rounded-card" />
+			<Skeleton className="h-14 w-80" />
 			<div className="grid grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
-				<Skeleton className="h-[520px] rounded-card" />
-				<Skeleton className="h-[520px] rounded-card" />
+				<Skeleton className="h-[520px]" />
+				<Skeleton className="h-[520px]" />
 			</div>
 		</div>
 	);
@@ -80,13 +75,8 @@ export function CheckInLoading() {
 export const attestationsMetadata: Metadata = { title: "Attestations", robots: { index: false, follow: false } };
 
 export async function AttestationsPage() {
-	const viewer = await careViewer();
-	if (!viewer) {
-		const v = await getViewer();
-		if (!v || v.status === "unauthenticated")
-			redirect(`/signin?returnTo=${encodeURIComponent("/intelligence/attestations")}`);
-		return <NoChurchPlantSeat />;
-	}
+	const viewer = await requireSeat("/intelligence/attestations");
+	if (!viewer) return <NoChurchPlantSeat />;
 	if (viewer.role === "member")
 		return (
 			<PlantIntelligenceBlocked title="Attestations are for Owners and Admins">
@@ -100,7 +90,7 @@ export async function AttestationsPage() {
 				This is a loading problem. Your answers are safe. Reload the page in a moment.
 			</PlantIntelligenceBlocked>
 		);
-	return <AttestationsScreen initial={loaded.value} viewerName={viewer.displayName} />;
+	return <AttestationsScreen initial={loaded.value} viewerName={viewer.accountName} />;
 }
 
 export function AttestationsLoading() {
@@ -109,15 +99,15 @@ export function AttestationsLoading() {
 			<span className="sr-only" role="status">
 				Loading the attestations
 			</span>
-			<Skeleton className="h-14 w-80 rounded-card" />
+			<Skeleton className="h-14 w-80" />
 			<Skeleton className="h-10 w-72 rounded-md" />
 			<div className="grid grid-cols-4 gap-4 max-app-md:grid-cols-2">
-				<Skeleton className="h-28 rounded-card" />
-				<Skeleton className="h-28 rounded-card" />
-				<Skeleton className="h-28 rounded-card" />
-				<Skeleton className="h-28 rounded-card" />
+				<Skeleton className="h-28" />
+				<Skeleton className="h-28" />
+				<Skeleton className="h-28" />
+				<Skeleton className="h-28" />
 			</div>
-			<Skeleton className="h-72 rounded-card" />
+			<Skeleton className="h-72" />
 		</div>
 	);
 }
@@ -126,12 +116,8 @@ export const intelligenceMetadata: Metadata = { title: "Plant Intelligence", rob
 export const trendsMetadata: Metadata = { title: "Trends", robots: { index: false, follow: false } };
 
 async function ownerOrAdmin(path: string) {
-	const viewer = await phaseViewer();
-	if (!viewer) {
-		const v = await getViewer();
-		if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(path)}`);
-		return { blocked: <NoChurchPlantSeat /> } as const;
-	}
+	const viewer = await requireSeat(path);
+	if (!viewer) return { blocked: <NoChurchPlantSeat /> } as const;
 	if (!administers(viewer))
 		return {
 			blocked: (
@@ -170,12 +156,12 @@ export function PlantIntelligenceLoading() {
 			<span className="sr-only" role="status">
 				Loading Plant Intelligence
 			</span>
-			<Skeleton className="h-14 w-80 rounded-card" />
+			<Skeleton className="h-14 w-80" />
 			<Skeleton className="h-10 w-96 max-w-full rounded-md" />
-			<Skeleton className="h-28 rounded-card" />
+			<Skeleton className="h-28" />
 			<div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-5 max-app-md:grid-cols-1">
-				<Skeleton className="h-[300px] rounded-card" />
-				<Skeleton className="h-[300px] rounded-card" />
+				<Skeleton className="h-[300px]" />
+				<Skeleton className="h-[300px]" />
 			</div>
 		</div>
 	);

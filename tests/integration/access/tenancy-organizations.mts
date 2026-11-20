@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import {
 	createOrganizationAdapter,
 	readHistory,
@@ -16,6 +16,7 @@ import {
 	listSendingChurches,
 	readIntelligence,
 } from "../../../packages/domain/src/oversight/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const proofs = new Map();
 const api = createOrganizationAdapter(
@@ -51,7 +52,7 @@ export async function seedOrganizations(t) {
 	const networkOwner = await f.account();
 	await f.seat(networkOwner, network, "owner");
 	const write = (session, selected, name, expectedRevision, input) =>
-		f.db.transaction(async (tx) => {
+		gatedTransaction(f.db, async (tx) => {
 			if (!(await RequestActor.claimWrite(tx, session, selected))) throw Error("unavailable");
 			return api[name](tx, session, selected, { requestKey: key(), expectedRevision, input });
 		});

@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { setTimeout as sleep } from "node:timers/promises";
 import { gunzipSync } from "node:zlib";
 import {
 	createConversation,
@@ -18,12 +17,13 @@ import { actor, admin, db, people, setup, sql, teardown, work } from "./support.
 type Span = { traceId: string; name: string; attributes: { key: string; value: { stringValue?: string } }[] };
 const spans: Span[] = [];
 const hung: ServerResponse[] = [];
+const firstHung = Promise.withResolvers<void>();
 let outage = false;
 const langfuse = createServer((request: IncomingMessage, response: ServerResponse) => {
 	const chunks: Buffer[] = [];
 	request.on("data", (c: Buffer) => chunks.push(c));
 	request.on("end", () => {
-		if (outage) return void hung.push(response);
+		if (outage) return void (hung.push(response), firstHung.resolve());
 		const raw = Buffer.concat(chunks);
 		const body = JSON.parse(String(request.headers["content-encoding"] === "gzip" ? gunzipSync(raw) : raw));
 		spans.push(...body.resourceSpans.flatMap((r: any) => r.scopeSpans.flatMap((s: any) => s.spans)));
@@ -113,7 +113,7 @@ test("INV-tracing: a Langfuse outage never fails or holds a turn", async () => {
 	await ask("Find Casey");
 	assert.equal(await work(), "succeeded");
 	const flushed = flushTraces();
-	while (!hung.length) await sleep(10);
+	await firstHung.promise;
 	const { owner, conversationId } = await ask("Find Casey");
 	assert.equal(await work(), "succeeded");
 	const { events } = await readConversation(db, owner, conversationId);

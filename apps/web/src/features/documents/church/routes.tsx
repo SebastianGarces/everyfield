@@ -1,9 +1,9 @@
 import { getViewer } from "@/server/request-context";
+import { signIn } from "@/server/sign-in";
 import { recordId } from "@everyfield/contracts/common";
 import { Button, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { NotAvailable } from "../../access/AccessStates";
 import { AFTER_SIGN_IN } from "../../identity/SignInScreen";
 import { ArchivedLibrary } from "./ArchivedLibrary.tsx";
@@ -20,7 +20,7 @@ export const churchDocumentMetadata: Metadata = { title: "Church document", robo
 
 async function activeViewer(returnTo: string) {
 	const viewer = await getViewer();
-	if (!viewer || viewer.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
+	if (viewer.status === "unauthenticated") signIn(returnTo);
 	return viewer.status === "active" ? viewer : null;
 }
 
@@ -32,7 +32,7 @@ export async function ChurchLibraryPage({
 	const authority = (await activeViewer("/documents/church"))?.authority;
 	if (!authority) return <Unavailable />;
 	const loaded = await loadLibrary(authority);
-	if (loaded.status === "failed") return <Failed />;
+	if (loaded.status === "lost") return <Failed />;
 	if (loaded.status === "refused") return <Unavailable />;
 	return (
 		<ChurchLibrary
@@ -57,7 +57,7 @@ export async function ChurchArchivedPage() {
 	if (!authority) return <Unavailable />;
 	if (!canManageChurch(authority)) return <NotAvailablePage />;
 	const loaded = await loadArchived(authority);
-	if (loaded.status === "failed") return <Failed />;
+	if (loaded.status === "lost") return <Failed />;
 	if (loaded.status === "refused") return <NotAvailablePage />;
 	return <ArchivedLibrary documents={loaded.value} />;
 }
@@ -80,7 +80,7 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 	const id = recordId.safeParse(raw);
 	if (!id.success) return <Missing />;
 	const loaded = await loadChurchDocument(authority, id.data);
-	if (loaded.status === "failed") return <Failed />;
+	if (loaded.status === "lost") return <Failed />;
 	if (loaded.status === "refused") return <Missing />;
 	if (loaded.status === "deleted") return <Deleted />;
 	const canManage = canManageChurch(authority);
@@ -165,7 +165,7 @@ export function ChurchLoading() {
 			<span className="sr-only" role="status">
 				Loading
 			</span>
-			<Skeleton className="h-14 w-72 rounded-card" />
+			<Skeleton className="h-14 w-72" />
 			<Skeleton className="h-6 w-96 max-w-full rounded-md" />
 			<Skeleton className="mx-auto aspect-[612/792] w-full max-w-[880px] rounded-none" />
 		</div>

@@ -1,9 +1,9 @@
 "use client";
 
 import { ArrowLeft01Icon, CheckListIcon } from "@hugeicons/core-free-icons";
-import { Button, Sheet, Skeleton, StatePanel, useToast } from "@everyfield/ui/controls";
+import { Button, Sheet, Skeleton, StatePanel, toast } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { Icon } from "@everyfield/ui/foundations";
+import { Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useId, useRef, useState, useTransition } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { SHORT_NAME } from "../phases/model.ts";
@@ -22,17 +22,25 @@ import {
 	type TemplateCatalog,
 	type TemplatePreview,
 } from "./model.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
+import { failedIcon } from "../../components/read-failed.ts";
 
-type Load<T> = { status: "loading" } | { status: "failed"; message: string } | { status: "ok"; value: T };
-const loadFailed = (r: Exclude<Outcome<unknown>, { status: "ok" }>) => ({
+type Load<T> =
+	| { status: "loading" }
+	| { status: "failed"; message: string; icon: IconSvgElement | undefined }
+	| { status: "ok"; value: T };
+const loadFailed = (r: Exclude<Outcome<unknown> | ReadFailure, { status: "ok" }>) => ({
 	status: "failed" as const,
-	message: r.status === "lost" ? "Check your connection and try again." : problemText(r.code),
+	icon: failedIcon(r),
+	message:
+		r.status === "lost"
+			? "Check your connection and try again."
+			: problemText(r.status === "refused" ? r.code : r.status),
 });
 export const phaseName = (phase: number) => `Phase ${phase} · ${SHORT_NAME[phase] ?? ""}`;
 const previews = createRead((key: string) => loadPreview(key), { failed: () => ({ status: "lost" }) as const });
 
 export function Templates({ year, onImported }: { year: number; onImported: (tasks: TaskItem[]) => void }) {
-	const toast = useToast();
 	const [open, setOpen] = useState(false);
 	const [catalog, setCatalog] = useState<Load<TemplateCatalog>>({ status: "loading" });
 	const [chosen, setChosen] = useState<string | null>(null);
@@ -109,7 +117,7 @@ export function Templates({ year, onImported }: { year: number; onImported: (tas
 					? `${phaseName(shown.checklist.phase)} · ${CATEGORY_LABEL[shown.checklist.category]}`
 					: "Ready-made task lists for each phase. Preview one, then add its tasks to your list."
 			}
-			className="w-[560px]"
+			size="xl"
 			footer={
 				chosen ? (
 					<>
@@ -155,7 +163,7 @@ function CatalogBody({
 		);
 	if (state.status === "failed")
 		return (
-			<StatePanel tone="error" title="The checklists did not load" headingLevel="h3">
+			<StatePanel tone="error" title="The checklists did not load" icon={state.icon} headingLevel="h3">
 				{state.message}{" "}
 				<Button variant="secondary" size="sm" onClick={onRetry}>
 					Try again
@@ -180,7 +188,7 @@ function CatalogBody({
 					</h3>
 					{g.categories.map((cat) => (
 						<div key={cat.category} className="mt-2">
-							<p className="text-xs font-medium tracking-wide text-text-3 uppercase">{CATEGORY_LABEL[cat.category]}</p>
+							<p className="section-label text-text-3">{CATEGORY_LABEL[cat.category]}</p>
 							<ul className="mt-1 flex flex-col">
 								{cat.checklists.map((k) => (
 									<li key={k.key}>
@@ -225,7 +233,7 @@ function PreviewBody({
 	const headingId = useId();
 	if (state.status === "failed")
 		return (
-			<StatePanel tone="error" title="This checklist did not load" headingLevel="h3">
+			<StatePanel tone="error" title="This checklist did not load" icon={state.icon} headingLevel="h3">
 				{state.message}{" "}
 				<Button variant="secondary" size="sm" onClick={onRetry}>
 					Try again

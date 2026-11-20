@@ -25,6 +25,12 @@ A path in an `evf.toml` owner class also waits for Sebastian. The classes are `d
 
 evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in history.
 
+## Pinging Jonah
+
+Outside a seat, when you need Jonah, run `evf ping need --kind decision|gate|question|stuck|limit|merge --msg "<1-2 sentences>"`
+and wait; when done, `evf ping done --kind done|progress|report --msg "<what finished>" --link <PR or file>`. In a seat, evf
+pings him for `evf ask owner`, stuck or environment failures, usage limits and landings: never `ping done`; `ping need` only if nothing else fits.
+
 ## Rules
 
 - Three guards hold. Everything else is your judgment.
@@ -91,7 +97,7 @@ Each `[role.*]` in `evf.toml` and the role notes its `.agents/role-prompts/<role
 | Permissions model, its TLC check and conformance test | `.agents/skills/formal-permissions/SKILL.md` |
 | A diff touches a path in a formal `map.json` | `.agents/skills/maintain-formal-verification/SKILL.md` |
 | Previews | `.agents/skills/portless-preview/SKILL.md`, then the Everyfield rules in "Shared preview service" of `verify-preview` |
-| UI quality | better-interface and the better-* suite |
+| UI quality | better-interface and the better-* suite; before building a component `.agents/skills/beautiful-ui-check/SKILL.md`, for a library choice `.agents/skills/pick-ui-library/SKILL.md` |
 | Browser runs, preview stack, logs | `bin/dev help` |
 | Interactive browser checks, local seeded app | `bin/app help` |
 | QA previews | `docs/runbooks/qa-preview.md` |

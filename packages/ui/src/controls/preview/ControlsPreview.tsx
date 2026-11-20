@@ -27,7 +27,7 @@ import {
 	UserCheck01Icon,
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { cn, EvryBot, Icon, revealDelay, useFocusRequest } from "../../foundations";
 import {
 	Alert,
@@ -102,13 +102,13 @@ import {
 	TabsList,
 	TabsPanel,
 	Textarea,
-	ToastProvider,
+	toast,
+	Toaster,
 	Tooltip,
 	TooltipSep,
-	useToast,
 	type DateRange,
 } from "..";
-import { ACTIVITY, COMMANDS, PRESETS, STAGES, TAGS, TONES_PREVIEW } from "./fixtures";
+import { ACTIVITY, COMMANDS, DEFAULT_RANGE, PRESETS, STAGES, TAGS, TONES_PREVIEW } from "./fixtures";
 
 type Group = "all" | "surfaces" | "actions" | "inputs" | "overlays" | "feedback";
 
@@ -121,11 +121,14 @@ const GROUPS = [
 	{ value: "feedback", label: "Feedback" },
 ] as const satisfies readonly { value: Group; label: string }[];
 
-export function ControlsPreview() {
+export type ShortcutMark = { "data-shortcut": string; "aria-keyshortcuts": string; "data-shortcut-claim"?: string };
+
+export function ControlsPreview({ paletteShortcut }: { paletteShortcut: ShortcutMark }) {
 	const [group, setGroup] = useState<Group>("all");
 	const show = (g: Group) => group === "all" || group === g;
 	return (
-		<ToastProvider>
+		<>
+			<Toaster />
 			<PageHeader
 				size="xl"
 				breadcrumb={[{ label: "Design system", href: "/design/foundations" }, { label: "Controls" }]}
@@ -140,13 +143,13 @@ export function ControlsPreview() {
 				{show("actions") ? <ButtonsSection /> : null}
 				{show("inputs") ? <InputsSection /> : null}
 				{show("inputs") ? <SelectionSection /> : null}
-				{show("overlays") ? <OverlaysSection /> : null}
+				{show("overlays") ? <OverlaysSection paletteShortcut={paletteShortcut} /> : null}
 				{show("feedback") ? <FeedbackSection /> : null}
 				{show("feedback") ? <AlertsSection /> : null}
 				{show("surfaces") ? <StickyFooterSection /> : null}
 				{group === "all" ? <CompositionMap /> : null}
 			</div>
-		</ToastProvider>
+		</>
 	);
 }
 
@@ -260,7 +263,7 @@ function CardsSection() {
 				)}
 
 				<Card as="section" aria-labelledby="card-scroll">
-					<CardHeader className="mb-2.5">
+					<CardHeader>
 						<CardHeading>
 							<CardTitle id="card-scroll" size="sm">
 								Header and scroll area
@@ -384,7 +387,7 @@ function InsightSection() {
 }
 
 function ButtonsSection() {
-	const [range, setRange] = useState<DateRange>(PRESETS[1]!.range);
+	const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
 	const [saving, setSaving] = useState(false);
 	return (
 		<Section index={3} title="Buttons" code="<Button variant size icon loading> · <IconButton variant size label>">
@@ -741,7 +744,6 @@ function SelectionSection() {
 }
 
 function RowMenu({ name }: { name: string }) {
-	const toast = useToast();
 	return (
 		<Menu>
 			<Tooltip content="More actions">
@@ -766,7 +768,7 @@ function RowMenu({ name }: { name: string }) {
 					onSelect={() =>
 						toast({
 							message: "Follow-up created for Tom.",
-							action: { label: "View task", altText: "Open Tasks to view the follow-up", onSelect: () => {} },
+							action: { label: "View task", onSelect: () => {} },
 						})
 					}
 				>
@@ -788,35 +790,8 @@ function RowMenu({ name }: { name: string }) {
 	);
 }
 
-let paletteOpen = false;
-const paletteListeners = new Set<() => void>();
-const paletteSnapshot = () => paletteOpen;
-const closedOnServer = () => false;
-function setPaletteOpen(next: boolean) {
-	paletteOpen = next;
-	for (const changed of paletteListeners) changed();
-}
-function togglePaletteOnShortcut(e: KeyboardEvent) {
-	if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-		e.preventDefault();
-		setPaletteOpen(!paletteOpen);
-	}
-}
-function subscribePalette(changed: () => void) {
-	paletteListeners.add(changed);
-	if (paletteListeners.size === 1) window.addEventListener("keydown", togglePaletteOnShortcut);
-	return () => {
-		paletteListeners.delete(changed);
-		if (paletteListeners.size > 0) return;
-		window.removeEventListener("keydown", togglePaletteOnShortcut);
-		paletteOpen = false;
-	};
-}
-
-function OverlaysSection() {
-	const toast = useToast();
-	const palette = useSyncExternalStore(subscribePalette, paletteSnapshot, closedOnServer);
-	const setPalette = setPaletteOpen;
+function OverlaysSection({ paletteShortcut }: { paletteShortcut: ShortcutMark }) {
+	const [palette, setPalette] = useState(false);
 	const [guide, setGuide] = useState(false);
 	const [answer, setAnswer] = useState<((hidden: boolean) => void) | null>(null);
 	const hide = () =>
@@ -837,7 +812,7 @@ function OverlaysSection() {
 		<Section
 			index={6}
 			title="Overlays"
-			code="<Dialog> <ConfirmDialog> <Sheet> <Menu> <Popover> <Tooltip> <Toast> <CommandPalette>"
+			code="<Dialog> <ConfirmDialog> <Sheet> <Menu> <Popover> <Tooltip> <Toaster> <CommandPalette>"
 			note="Each overlay closes with Esc and returns focus to the control that opened it. Dialogs make the page behind them inert."
 		>
 			<div className="grid items-start gap-5 app-md:grid-cols-2">
@@ -861,7 +836,7 @@ function OverlaysSection() {
 										Maria signed a commitment card on Oct 6. Moving her to core group adds her to the 50-person
 										benchmark count.
 									</p>
-									<CardInset className="mt-4 bg-surface">
+									<CardInset className="mt-4">
 										<div className="flex flex-wrap items-center gap-4">
 											<div>
 												<p className="text-sm text-text-3">Now</p>
@@ -893,7 +868,7 @@ function OverlaysSection() {
 											onClick={() =>
 												toast({
 													message: "Maria moved to core group.",
-													action: { label: "View Maria", altText: "Open People to view Maria", onSelect: () => {} },
+													action: { label: "View Maria", onSelect: () => {} },
 												})
 											}
 										>
@@ -1001,7 +976,7 @@ function OverlaysSection() {
 							onClick={() =>
 								toast({
 									message: "Maria moved to core group.",
-									action: { label: "View Maria", altText: "Open People to view Maria", onSelect: () => {} },
+									action: { label: "View Maria", onSelect: () => {} },
 								})
 							}
 						>
@@ -1018,7 +993,13 @@ function OverlaysSection() {
 						>
 							Error toast
 						</Button>
-						<Button size="sm" variant="outline" icon={SparklesIcon} onClick={() => setPalette(true)}>
+						<Button
+							size="sm"
+							variant="outline"
+							icon={SparklesIcon}
+							onClick={() => setPalette(!palette)}
+							{...paletteShortcut}
+						>
 							Command palette <Kbd className="ml-1">⌘K</Kbd>
 						</Button>
 					</div>
@@ -1317,7 +1298,7 @@ function CompositionMap() {
 				aria-label="Feature compositions table"
 				tabIndex={0}
 				data-focus-inset=""
-				className="overflow-x-auto p-0"
+				className="overflow-x-auto"
 			>
 				<table className="w-full min-w-[620px] text-left text-md">
 					<thead className="text-sm text-text-3">

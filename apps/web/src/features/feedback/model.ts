@@ -102,18 +102,26 @@ export type PageDetails = {
 	openedAt: Date;
 };
 
-export function readPageDetails(): PageDetails {
-	const heading = document.querySelector("#main h1")?.textContent?.trim() || null;
-	const theme = document.querySelector("[data-product-root]")?.getAttribute("data-theme");
+export type PageView = {
+	heading: string | null;
+	theme: string | null;
+	pathname: string;
+	userAgent: string;
+	width: number;
+	height: number;
+	openedAt: Date;
+};
+
+export function pageDetails(view: PageView): PageDetails {
 	const size = (n: number) => (Number.isInteger(n) && n > 0 ? n : null);
 	return {
-		page: heading,
-		address: canonicalAddress(window.location.pathname),
-		browser: browserName(navigator.userAgent),
-		screenWidth: size(window.innerWidth),
-		screenHeight: size(window.innerHeight),
-		theme: theme === "light" || theme === "dark" ? theme : null,
-		openedAt: new Date(),
+		page: view.heading,
+		address: canonicalAddress(view.pathname),
+		browser: browserName(view.userAgent),
+		screenWidth: size(view.width),
+		screenHeight: size(view.height),
+		theme: view.theme === "light" || view.theme === "dark" ? view.theme : null,
+		openedAt: view.openedAt,
 	};
 }
 

@@ -15,8 +15,8 @@ const stubs: Record<string, string> = {
 		export async function* observeRun(_db, _actor, _id, after) { calls.observe.push(after); }
 	`),
 	"next/server": stub(`export const after = () => {};`),
+	"@/server/database": stub(`export const requestDatabase = () => ({});`),
 	"@/server/evry": stub(`
-		export const evryDatabase = () => ({});
 		export const requestActor = async () => ({});
 		export const errorResponse = (error) => new Response(String(error), { status: 500 });
 	`),

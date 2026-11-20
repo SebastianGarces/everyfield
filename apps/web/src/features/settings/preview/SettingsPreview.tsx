@@ -8,8 +8,8 @@ import { useState, useSyncExternalStore } from "react";
 import { parsePreviewKit, type PreviewKit } from "../brand/fixtures";
 import { offeredSections, parseSectionKey, SECTION_LABEL } from "../model";
 import type { DeletionStatus, SectionKey } from "../port";
-import { SettingsDialog } from "../SettingsDialog";
 import { SharingSection } from "../sections/SharingSection";
+import { LazySettingsDialog } from "../ProductSettings";
 import { SettingsProvider } from "../store";
 import {
 	createFixturePort,
@@ -81,7 +81,7 @@ function PreviewSession({
 		<ShellPreview role={persona === "member" ? "member" : "owner"}>
 			<SettingsProvider port={fixture.port} viewer={viewer}>
 				<PreviewPage persona={persona} query={query} fixture={fixture.controls} replies={replies} />
-				<SettingsDialog
+				<LazySettingsDialog
 					section={section}
 					onNavigate={navigate}
 					hrefFor={hrefFor}
@@ -186,7 +186,7 @@ function PreviewPage({
 					<div className="mt-4 flex flex-wrap items-center gap-2">
 						<Select
 							aria-label="Failure for the next call"
-							className="w-[340px] max-w-full"
+							className="max-w-full"
 							options={FAULTS}
 							value={fault}
 							onValueChange={(v) => {

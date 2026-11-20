@@ -1,4 +1,4 @@
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
@@ -67,7 +67,7 @@ export const staleMessage = (alias: string) =>
 	`coalesce(${alias}.review->'target'->>'kind'='message' AND NOT EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid
 		AND t.plant_id=${alias}.tenant_id AND t.revision=(${alias}.input->>'expectedRevision')::bigint
 		AND ${untouchedMail("t")}=(${alias}.input->>'untouched')::int),false)`;
-export const projection = (alias: string) =>
+export const projection = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
 	sql.raw(`jsonb_build_object('id',${alias}.id,'conversationId',${alias}.conversation_id,'operation',${alias}.operation,
 		'revision',${alias}.revision,'digest',${alias}.digest,'expiresAt',${alias}.expires_at,'approvedAt',${alias}.approved_at,
 		'status',CASE WHEN ${alias}.state='pending' AND ${alias}.expires_at<=clock_timestamp() THEN 'expired' ELSE ${alias}.state END,

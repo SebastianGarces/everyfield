@@ -8,7 +8,7 @@ import { credentialOutcome, type CredentialOutcome } from "@everyfield/contracts
 import * as n from "@everyfield/contracts/settings/native";
 import type { CredentialProducer, SettingsContext } from "@everyfield/contracts/settings/server";
 import { identityAuth } from "../identity/auth.ts";
-import { executeWrites } from "../operations/writes.ts";
+import { executeWrites, gatedTransaction } from "../operations/writes.ts";
 import { attemptBudget, IdentityRefusal } from "../identity/budget.ts";
 import { writeVisibility } from "../access/session.ts";
 import { now, hash, deny, Refusal, recover, parse } from "./core.ts";
@@ -25,6 +25,7 @@ export interface CredentialConfig {
 		viewer: { accountId: string; email: string; verified: boolean } | null;
 	}>;
 	later?(work: () => Promise<unknown>): void;
+	diagnostic(value: { correlationId: string; outcome: "reporting_pending" }): void;
 	responseCookies(ctx: SettingsContext, cookies: string[]): Promise<void>;
 	deliverVerification(
 		tx: Transaction,
@@ -49,7 +50,7 @@ type OpenDeletion = (
 				requestId: string;
 			};
 	  }
-	| { status: "refused"; code: Refusal["code"] }
+	| { status: "refused"; code: InstanceType<typeof Refusal>["code"] }
 >;
 export function createAccountCredentials(config: CredentialConfig): CredentialProducer & {
 	openAccountDeletion: OpenDeletion;
@@ -69,7 +70,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 					.from(t.account)
 					.where(eq(t.account.auth_user_id, user.id))
 					.for("update");
-				if (!account) deny();
+				if (!account) deny("unavailable");
 				await tx
 					.update(t.identity_proof)
 					.set({ superseded_at: now })
@@ -101,15 +102,30 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 			new URL(ingress.request.url).origin !== config.origin ||
 			ingress.request.headers.get("origin") !== config.origin
 		)
-			deny();
+			deny("unavailable");
 		const viewer = ingress.viewer;
-		if (!viewer?.verified || ctx.selected.kind !== "account" || ctx.selected.id !== viewer.accountId) deny();
+		if (!viewer?.verified || ctx.selected.kind !== "account" || ctx.selected.id !== viewer.accountId)
+			deny("unavailable");
 		return { account: { id: viewer.accountId }, principal: { email: viewer.email }, ingress };
 	}
 	function settle(reservation: Awaited<ReturnType<typeof budget.reserve>>, success: boolean) {
 		const work = () => budget.finish(reservation, success).catch(() => undefined);
 		if (config.later) config.later(work);
 		else return work();
+	}
+	function reportingPending(
+		accountId: string,
+		action: "password_changed" | "email_changed",
+		correlationId: string,
+	): CredentialOutcome {
+		config.diagnostic({ correlationId, outcome: "reporting_pending" });
+		return credentialOutcome.parse({
+			status: "succeeded",
+			accountId,
+			action,
+			correlationId,
+			reporting: { status: "pending_investigation" },
+		});
 	}
 	async function recorded(
 		accountId: string,
@@ -138,13 +154,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 			const reporting = { status: "recorded" as const, eventId, mailIntentId };
 			return credentialOutcome.parse({ status: "succeeded", accountId, action, correlationId, reporting });
 		} catch {
-			return credentialOutcome.parse({
-				status: "succeeded",
-				accountId,
-				action,
-				correlationId,
-				reporting: { status: "pending_investigation" },
-			});
+			return reportingPending(accountId, action, correlationId);
 		}
 	}
 	async function openDeletion(kind: "account" | "plant", raw: unknown, trustedIp: string | null) {
@@ -160,7 +170,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 			await budget.finish(reservation, valid);
 			if (!found || !valid) deny("proof_invalid");
 			const provenAt = new Date();
-			const opened = await config.db.transaction(async (tx) => {
+			const opened = await gatedTransaction(config.db, async (tx) => {
 				const w = t.lifecycle_witness;
 				const [current] = await tx
 					.select({ account: t.account.id, subject: w.opaque_subject_id, requestId: w.request_id })
@@ -249,14 +259,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 				await config.responseCookies(ctx, changed.headers.getSetCookie());
 				return await recorded(a.account.id, a.principal.email, "email_changed", correlationId);
 			} catch (e) {
-				if (committedAccount)
-					return credentialOutcome.parse({
-						status: "succeeded",
-						accountId: committedAccount,
-						action: "email_changed",
-						correlationId,
-						reporting: { status: "pending_investigation" },
-					});
+				if (committedAccount) return reportingPending(committedAccount, "email_changed", correlationId);
 				return credentialOutcome.parse({
 					status:
 						e instanceof Refusal || e instanceof IdentityRefusal || e instanceof z.ZodError || isRefused(e)
@@ -296,14 +299,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 				await settle(reservation, true);
 				return await recorded(a.account.id, a.principal.email, "password_changed", correlationId);
 			} catch (e) {
-				if (committedAccount)
-					return credentialOutcome.parse({
-						status: "succeeded",
-						accountId: committedAccount,
-						action: "password_changed",
-						correlationId,
-						reporting: { status: "pending_investigation" },
-					});
+				if (committedAccount) return reportingPending(committedAccount, "password_changed", correlationId);
 				if (reservation) await budget.finish(reservation, false);
 				return credentialOutcome.parse({
 					status:

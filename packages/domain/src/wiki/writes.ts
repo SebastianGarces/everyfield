@@ -183,7 +183,7 @@ async function saveReading(
 				stored_last_read: z.coerce.number().nullable(),
 			})
 			.parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		if (!row.entitled) throw new WikiOutcome(readingValue({ errorCode: "content_access_denied", written: false }));
 		if (mode === "bookmark" && row.stored_revision && row.stored_bookmarked === desired) {
 			const completed = row.stored_completed === true;
@@ -206,7 +206,7 @@ async function saveReading(
 		return readingValue({
 			errorCode: null,
 			written: true,
-			revision: row.written_revision!,
+			revision: row.written_revision,
 			completed,
 			observedFraction: row.fraction ?? "0",
 			bookmarked: row.bookmarked === true,

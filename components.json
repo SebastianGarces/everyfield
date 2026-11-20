@@ -1,0 +1,24 @@
+{
+	"$schema": "https://ui.shadcn.com/schema.json",
+	"style": "new-york",
+	"rsc": true,
+	"tsx": true,
+	"tailwind": {
+		"config": "",
+		"css": "packages/ui/src/foundations/product.css",
+		"baseColor": "neutral",
+		"cssVariables": true,
+		"prefix": ""
+	},
+	"iconLibrary": "hugeicons",
+	"aliases": {
+		"components": "@everyfield/ui/display",
+		"ui": "@everyfield/ui/controls",
+		"utils": "@everyfield/ui/foundations",
+		"lib": "@everyfield/ui/foundations",
+		"hooks": "@everyfield/ui/foundations"
+	},
+	"registries": {
+		"@beautifului": "https://www.beautifului.dev/r/{name}.json"
+	}
+}

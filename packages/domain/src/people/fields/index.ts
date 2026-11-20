@@ -10,7 +10,7 @@ import {
 	type ResourceAuthorizer,
 } from "@everyfield/db/schema";
 import * as tables from "@everyfield/db/tables";
-import { liveRead } from "../../access/session.ts";
+import { liveRead, writeTx } from "../../access/session.ts";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
@@ -31,6 +31,7 @@ import {
 import { households } from "../households/index.ts";
 import { tagsAndSkills } from "../tags-skills/index.ts";
 import { expectRevision, livePerson, next, personFacts, plantId, queueObjectCleanup } from "./shared.ts";
+import { gatedTransaction } from "../../operations/writes.ts";
 
 const photo = {
 	async requestPersonPhotoUpload(tx: Tx, ctx: WriteContext, raw: unknown) {
@@ -77,7 +78,7 @@ const photo = {
 						const value = { photo: available, personRevision: p.revision, outcome: "noop", receiptId };
 						return { value, subject: p.id, action: "people.updated", outcome: "noop" };
 					}
-					if (p.extra !== true) deny();
+					if (p.extra !== true) deny("unavailable");
 					audit.writes.push(
 						tx
 							.update(tables.person)
@@ -154,7 +155,8 @@ function uploadIdFor(plant: string, requestKey: string) {
 export const personFields = { ...households, ...tagsAndSkills, ...photo };
 
 function photoAuthority(ctx: PeopleContext, read?: { personId: string }): ResourceAuthorizer {
-	return async (tx, file, intent) => {
+	return async (raw, file, intent) => {
+		const tx = writeTx(raw);
 		if (intent === "cleanup" || file.purpose !== "person_photo" || file.tenant_id !== ctx.selected.id) return null;
 		if (intent === "read") {
 			const [current] = await tx
@@ -185,7 +187,7 @@ export async function uploadPersonPhoto(db: Database, storage: PrivateStorage, c
 		const plant = plantId(ctx);
 		const input = parse(z.object({ uploadId: z.uuid(), bytes: z.instanceof(Uint8Array) }), raw);
 		const sha256 = createHash("sha256").update(input.bytes).digest("hex");
-		const file = await db.transaction(async (tx) => {
+		const file = await gatedTransaction(db, async (tx) => {
 			await authorize(tx, ctx, true);
 			const [current] = await tx
 				.select()
@@ -199,7 +201,7 @@ export async function uploadPersonPhoto(db: Database, storage: PrivateStorage, c
 					),
 				)
 				.for("update");
-			if (!current) deny();
+			if (!current) deny("unavailable");
 			if (current.state === "ready") {
 				if (current.sha256 !== sha256 || Number(current.byte_count) !== input.bytes.length) deny("conflict");
 				return null;
@@ -219,7 +221,7 @@ export async function uploadPersonPhoto(db: Database, storage: PrivateStorage, c
 				mediaType: file.media_type,
 				bytes: input.bytes,
 				uploadKey: file.upload_key,
-			}).catch(() => deny());
+			}).catch(() => deny("unavailable"));
 		return { uploadId: input.uploadId };
 	});
 }
@@ -236,10 +238,10 @@ export async function readPersonPhoto(db: Database, storage: PrivateStorage, ctx
 		plantId(ctx);
 		const input = parse(z.object({ personId: z.uuid(), versionId: z.uuid() }), raw);
 		const bytes = await readAuthorizedObject(db, storage, photoAuthority(ctx, input), input.versionId).catch(() =>
-			deny(),
+			deny("unavailable"),
 		);
 		const mediaType = photoMediaType(bytes);
-		if (!mediaType) deny();
+		if (!mediaType) deny("unavailable");
 		return { bytes, mediaType };
 	});
 }

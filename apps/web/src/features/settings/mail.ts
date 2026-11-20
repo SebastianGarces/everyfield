@@ -11,21 +11,15 @@ import {
 	runDueMail,
 	type MailPass,
 	type MailTransport,
-} from "../../server/jobs/mail.ts";
-import { protectedTemplate } from "../../server/jobs/templates.ts";
-import { mailEnv } from "../../server/mail-env.ts";
+	protectedTemplate,
+} from "@everyfield/domain/jobs";
+import { serverConfig, type ServerConfig } from "../../server/config.ts";
 import { workspaceDeletionContent } from "./deletion-mail.ts";
-
-const env = z.object({
-	IDENTITY_DATABASE_URL: z.string().min(1),
-	IDENTITY_ORIGIN: z.url(),
-	...mailEnv,
-});
 
 const WORKSPACE_NOTICE = /^workspace-deletion\/(requested|cancelled)\/([0-9a-f-]{36})$/;
 const noticeHolder = z.object({ id: z.uuid(), email: z.string() });
 
-function settingsMailService(v: z.infer<typeof env>, transport?: MailTransport) {
+function settingsMailService(v: ServerConfig, transport?: MailTransport) {
 	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
 	const addressHash = (address: string) =>
 		createHmac("sha256", addressKey).update(address.trim().toLowerCase()).digest("hex");
@@ -86,12 +80,11 @@ function settingsMailService(v: z.infer<typeof env>, transport?: MailTransport) 
 	});
 }
 
-export function settingsMail():
-	(Pick<CredentialConfig, "deliverVerification" | "securityNotice"> & Pick<DeletionEffects, "workspaceNotice">) | null {
-	const parsed = env.safeParse(process.env);
-	if (!parsed.success) return null;
-	const origin = parsed.data.IDENTITY_ORIGIN;
-	const mail = settingsMailService(parsed.data);
+export function settingsMail(): Pick<CredentialConfig, "deliverVerification" | "securityNotice"> &
+	Pick<DeletionEffects, "workspaceNotice"> {
+	const config = serverConfig();
+	const origin = config.IDENTITY_ORIGIN;
+	const mail = settingsMailService(config);
 	return {
 		deliverVerification: async (tx, i, writes) => {
 			const url = `${origin}/confirm-email?token=${encodeURIComponent(i.token)}`;
@@ -157,10 +150,9 @@ export function settingsMail():
 	};
 }
 
-export function settingsMailPass(transport: MailTransport): MailPass | null {
-	const parsed = env.safeParse(process.env);
-	if (!parsed.success) return null;
-	const db = database(parsed.data.IDENTITY_DATABASE_URL),
-		mail = settingsMailService(parsed.data, transport);
+export function settingsMailPass(transport: MailTransport): MailPass {
+	const config = serverConfig();
+	const db = database(config.IDENTITY_DATABASE_URL),
+		mail = settingsMailService(config, transport);
 	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.settings, limit, until);
 }

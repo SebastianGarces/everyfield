@@ -34,6 +34,8 @@ CHECKS = [
     ('local links self-test', ['docs/check-links.py', '--self-test']),
     ('pinned skills', ['docs/check-skills-lock.py']),
     ('pinned skills self-test', ['docs/check-skills-lock.py', '--self-test']),
+    ('reliability checklist', ['docs/check-reliability-checklist.py']),
+    ('reliability checklist self-test', ['docs/check-reliability-checklist.py', '--self-test']),
     ('Wiki seed', ['tools/wiki/seed.py', 'check', '--seed-dir', 'docs/reference/wiki',
                    '--playbook', 'docs/reference/playbook.md',
                    '--bootstrap', 'docs/reference/bootstrap/global-seed-payload.json']),

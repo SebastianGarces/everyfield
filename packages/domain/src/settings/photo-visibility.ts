@@ -1,7 +1,7 @@
-import { sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
+import { sql, type SQL, type SQLWrapper, type SqlLiteral } from "@everyfield/db/query";
 import { seatHeld } from "../access/session.ts";
 
-export const hiding = (alias: string, condition: SQL) =>
+export const hiding = <AliasName extends string>(alias: SqlLiteral<AliasName>, condition: SQL) =>
 	sql`EXISTS(SELECT FROM lifecycle_witness ${sql.raw(alias)} WHERE ${sql.raw(alias)}.state NOT IN ('active','cancelled') AND ${condition})`;
 export function workspaceAvatar(account: SQLWrapper, workspace: SQLWrapper) {
 	return sql<string | null>`(SELECT av_a.avatar_object_id FROM account av_a JOIN seat av_s ON av_s.account_id=av_a.id

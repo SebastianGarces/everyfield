@@ -89,7 +89,7 @@ export function peopleFilters(
 	return filters;
 }
 async function list(tx: Tx, ctx: Context, raw: unknown) {
-	if (ctx.selected.kind !== "plant") deny();
+	if (ctx.selected.kind !== "plant") deny("unavailable");
 	const input = parse(c.listPeopleRequest, raw);
 	const { gate } = await authorizeRead(tx, ctx);
 	const filters = peopleFilters(ctx, input, gate);
@@ -99,7 +99,7 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 			.from(tables.person)
 			.where(and(...filters))
 	)[0]!;
-	if (!allowed) deny();
+	if (!allowed) deny("unavailable");
 	const result = await tx
 		.select({
 			...personColumns,
@@ -165,13 +165,13 @@ export const peopleReader: PeopleReader<Tx> = {
  LEFT JOIN person p ON g.allowed AND p.tenant_id=${ctx.selected.id}::uuid AND p.linked_account_id=${actor.accountId}::uuid
  AND p.state='live'`);
 			const row = z.object({ allowed: z.boolean(), id: z.uuid().nullable() }).parse(r.rows[0]);
-			if (!row.allowed) deny();
+			if (!row.allowed) deny("unavailable");
 			return c.accountLinkResult.parse(row.id ? { status: "linked", personId: row.id } : { status: "unlinked" });
 		});
 	},
 	async getStatusWarnings(tx, ctx, raw) {
 		return readReply(async () => {
-			if (ctx.selected.kind !== "plant") deny();
+			if (ctx.selected.kind !== "plant") deny("unavailable");
 			const input = parse(c.personRequest, raw);
 			const { actor, gate } = await authorizeRead(tx, ctx);
 			const p = await person(tx, ctx, input.personId, gate);
@@ -183,7 +183,7 @@ export const peopleReader: PeopleReader<Tx> = {
       coalesce((SELECT jsonb_agg(jsonb_build_object('id',t.id,'revision',t.revision::text) ORDER BY t.id) FROM task t
         WHERE t.plant_id=${ctx.selected.id} AND ${openDutiesOf(p.id, p.linked_account_id)}),'[]'::jsonb) AS duties
       FROM plant pl WHERE pl.id=${ctx.selected.id} AND ${gate}`);
-			if (!result.rows[0]) deny();
+			if (!result.rows[0]) deny("unavailable");
 			const row = warningsRow.parse(result.rows[0]);
 			return c.statusWarningsResult.parse({
 				personId: p.id,
@@ -204,7 +204,7 @@ export const peopleReader: PeopleReader<Tx> = {
 	async getPipelineData(tx, ctx, raw) {
 		return readReply(async () => {
 			const input = parse(c.listPeopleRequest, raw);
-			if (ctx.selected.kind !== "plant") deny();
+			if (ctx.selected.kind !== "plant") deny("unavailable");
 			const { gate } = await authorizeRead(tx, ctx);
 			const columns: readonly z.infer<typeof c.pipelineColumn>[] = input.column
 				? [input.column]
@@ -214,7 +214,7 @@ export const peopleReader: PeopleReader<Tx> = {
 			);
 			const saved = await tx.execute(sql`SELECT g.allowed,pc.column_name AS column,pc.revision::text AS revision
  FROM (SELECT ${gate} AS allowed) g LEFT JOIN people_column pc ON g.allowed AND pc.plant_id=${ctx.selected.id}::uuid`);
-			if (saved.rows[0]?.allowed !== true) deny();
+			if (saved.rows[0]?.allowed !== true) deny("unavailable");
 			const revisions = z
 				.array(z.object({ column: z.string().nullable(), revision: z.string().nullable() }))
 				.parse(saved.rows)
@@ -340,7 +340,7 @@ export const peopleReader: PeopleReader<Tx> = {
 	},
 	async getActivities(tx, ctx, raw) {
 		return readReply(async () => {
-			if (ctx.selected.kind !== "plant") deny();
+			if (ctx.selected.kind !== "plant") deny("unavailable");
 			const input = parse(c.activityRequest, raw);
 			const { actor, gate } = await authorizeRead(tx, ctx);
 			const p = await person(tx, ctx, input.personId, gate);

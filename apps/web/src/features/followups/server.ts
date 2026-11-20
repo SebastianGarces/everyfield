@@ -1,7 +1,8 @@
 import { requestDatabase } from "@/server/database";
+import type { PlantSeat } from "@/server/request-context";
+import { outcomeOf, type Outcome } from "@everyfield/contracts/common";
 import { tasksMount } from "../tasks/mount.ts";
 import { personId as personIdOf } from "@everyfield/contracts/common";
-import type { Transaction } from "@everyfield/db/client";
 import {
 	createFollowUpWriter,
 	followUpReader,
@@ -9,57 +10,43 @@ import {
 	type FollowUpReply,
 } from "@everyfield/domain/followups";
 import { PeopleReadContext, peopleReader } from "@everyfield/domain/people";
-import type { RequestActor } from "@everyfield/domain/access";
+import type { RequestActor, WriteTx } from "@everyfield/domain/access";
 import { taskReader, type TaskContext } from "@everyfield/domain/tasks";
 import "server-only";
 import type { TaskDetail } from "../tasks/model.ts";
-import { taskViewer, type TaskViewer } from "../tasks/server.ts";
 import {
 	COVERAGE_PAGE,
 	HISTORY_PAGE,
-	outcomeOf,
 	type Account,
 	type ContactHistory,
 	type DutyItem,
 	type ObligationItem,
-	type Outcome,
 	type Owners,
 	type ObligationPage,
 } from "./model.ts";
+import { transient } from "../../server/platform/transient.ts";
+import { guardedWrite } from "../../server/platform/tx.ts";
+import { gatedTransaction } from "@everyfield/domain/operations";
 
-export { COVERAGE_PAGE, taskViewer, type TaskViewer };
+export { COVERAGE_PAGE };
 
-export async function read<T>(run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
-	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		return await db.transaction(run);
-	} catch (error) {
-		console.error(JSON.stringify({ component: "followups", outcome: "read_failed", error: String(error) }));
-		return { status: "lost" };
-	}
-}
-export const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
+export const administers = (v: Pick<PlantSeat, "role">) => v.role !== "member";
 
 let writer: ReturnType<typeof createFollowUpWriter> | undefined;
 type Writer = ReturnType<typeof createFollowUpWriter>;
 export async function write<T>(
-	viewer: TaskViewer,
-	run: (w: Writer, tx: Transaction, ctx: TaskContext) => Promise<FollowUpReply<T>>,
+	viewer: PlantSeat,
+	run: (w: Writer, tx: WriteTx, ctx: TaskContext) => Promise<FollowUpReply<T>>,
 ): Promise<Outcome<T>> {
 	const mount = tasksMount();
-	if (!mount) return { status: "lost" };
 	writer ??= createFollowUpWriter({ reminders: mount.reminders });
 	const w = writer;
-	try {
-		return outcomeOf(await withFollowUpWrite(mount.db, viewer.authority, (tx, ctx) => run(w, tx, ctx)));
-	} catch (error) {
-		console.error(JSON.stringify({ component: "followups", outcome: "write_failed", error: String(error) }));
-		return { status: "lost" };
-	}
+	return guardedWrite("followups", async () =>
+		outcomeOf(await withFollowUpWrite(mount.db, viewer.authority, (tx, ctx) => run(w, tx, ctx))),
+	);
 }
 
-export async function readOwners(tx: Transaction, viewer: TaskViewer): Promise<Outcome<Account[]>> {
+export async function readOwners(tx: WriteTx, viewer: PlantSeat): Promise<Outcome<Account[]>> {
 	const seats = await taskReader.eligibleAssignees(tx, viewer.authority, { purpose: "committed_follow_up" });
 	return seats.status === "ok"
 		? {
@@ -78,7 +65,7 @@ export type PersonFollowUps = {
 	duties: Owners | null;
 };
 export async function readPersonFollowUps(
-	tx: Transaction,
+	tx: WriteTx,
 	authority: RequestActor,
 	personId: string,
 ): Promise<PersonFollowUps> {
@@ -90,13 +77,11 @@ export async function readPersonFollowUps(
 
 export async function loadPersonFollowUps(authority: RequestActor, personId: string): Promise<PersonFollowUps | null> {
 	const db = requestDatabase();
-	if (!db) return null;
-	try {
-		return await db.transaction((tx) => readPersonFollowUps(tx, authority, personId));
-	} catch (error) {
-		console.error(JSON.stringify({ component: "followups", outcome: "read_failed", error: String(error) }));
-		return null;
-	}
+	return transient(
+		{ component: "followups", outcome: "read_failed" },
+		() => gatedTransaction(db, (tx) => readPersonFollowUps(tx, authority, personId)),
+		null,
+	);
 }
 
 export type CallData = {
@@ -110,7 +95,7 @@ export type CallData = {
 export type CallRead =
 	{ kind: "call"; call: CallData } | { kind: "not_follow_up"; taskId: string } | { kind: "missing" };
 
-export async function loadCall(tx: Transaction, viewer: TaskViewer, taskId: string): Promise<Outcome<CallRead>> {
+export async function loadCall(tx: WriteTx, viewer: PlantSeat, taskId: string): Promise<Outcome<CallRead>> {
 	const found = await taskReader.get(tx, viewer.authority, { taskId });
 	if (found.status !== "ok") return { status: "refused", code: found.error.code };
 	if (found.value.status !== "available" || found.value.task.deleted)

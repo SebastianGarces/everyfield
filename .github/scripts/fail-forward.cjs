@@ -87,10 +87,18 @@ async function recover({ github, context, core }, run, workflow, options) {
   if (!saved) return;
   const issue = (await github.rest.issues.get({ ...repo, issue_number: Number(saved[1]) })).data;
   if (issue.state !== 'open' || !issue.body?.includes(marker)) return;
+  if (issue.labels?.some(label => (label?.name ?? label) === 'flaky')) return;
   const failed = /^Commit: ([0-9a-f]{40})$/m.exec(issue.body)?.[1];
   if (!failed) return;
   const comparison = await github.rest.repos.compareCommitsWithBasehead({ ...repo, basehead: `${failed}...${run.head_sha}` });
-  if (!['ahead', 'identical'].includes(comparison.data.status)) return;
+  if (comparison.data.status === 'identical') {
+    await github.rest.issues.createComment({ ...repo, issue_number: issue.number,
+      body: `Passed on a retry at the same commit ${failed}: this is a flake. Find the root cause, or delete the test and write down why.` });
+    await github.rest.issues.addLabels({ ...repo, issue_number: issue.number, labels: ['flaky'] });
+    core.info(`Marked failure issue as flaky: ${issue.html_url}`);
+    return issue.number;
+  }
+  if (comparison.data.status !== 'ahead') return;
   const revert = await autoRevert(github, repo, run.head_commit);
   await github.rest.issues.createComment({ ...repo, issue_number: issue.number,
     body: `${workflow.recovered} passed again at ${run.head_sha}, which contains the failed commit ${failed}: ${run.html_url}\n\n${revert ? `${describeRevert(revert, run.head_sha)}\n\n` : ''}The fail-forward workflow closed this incident.` });

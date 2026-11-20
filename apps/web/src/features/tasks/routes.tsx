@@ -1,12 +1,12 @@
 import { getViewer } from "@/server/request-context";
+import { requireSeat } from "@/server/sign-in";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { recordId } from "@everyfield/contracts/common";
 import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { parseQuery, querySearch } from "./model.ts";
 import { Fresh } from "./fresh.tsx";
-import { loadTasksPage, taskViewer } from "./server.ts";
+import { loadTasksPage } from "./server.ts";
 import { TasksScreen } from "./TasksScreen.tsx";
 import { params } from "../../components/search-params.ts";
 
@@ -17,11 +17,8 @@ export async function TasksPage({ searchParams }: { searchParams: Search }) {
 	const raw = params(await searchParams);
 	const query = parseQuery(raw);
 	const open = recordId.safeParse(raw.get("task"));
-	const viewer = await taskViewer();
-	if (!viewer) {
-		const v = await getViewer();
-		if (!v || v.status === "unauthenticated")
-			redirect(`/signin?returnTo=${encodeURIComponent("/tasks" + querySearch(query))}`);
+	const viewer = await requireSeat("/tasks" + querySearch(query));
+	if (!viewer)
 		return (
 			<Blocked>
 				<StatePanel tone="lock" icon={LockKeyIcon} title="Tasks are not part of your seat" headingLevel="h2">
@@ -30,7 +27,6 @@ export async function TasksPage({ searchParams }: { searchParams: Search }) {
 				</StatePanel>
 			</Blocked>
 		);
-	}
 	const loaded = await loadTasksPage(viewer, query, open.success ? open.data : null);
 	if (loaded.status !== "ok")
 		return (
@@ -44,7 +40,7 @@ export async function TasksPage({ searchParams }: { searchParams: Search }) {
 		<Fresh loading={<TasksLoading />}>
 			<TasksScreen
 				loaded={loaded.value}
-				viewer={{ accountId: viewer.accountId, role: viewer.role, name: (await getViewer())?.displayName ?? null }}
+				viewer={{ accountId: viewer.accountId, role: viewer.role, name: (await getViewer()).displayName ?? null }}
 				year={new Date().getUTCFullYear()}
 			/>
 		</Fresh>
@@ -66,7 +62,7 @@ export function TasksLoading() {
 			<span className="sr-only" role="status">
 				Loading tasks
 			</span>
-			<Skeleton className="h-14 w-60 rounded-card" />
+			<Skeleton className="h-14 w-60" />
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
 				<Card className="gap-4">
 					<div className="flex flex-wrap gap-3">
@@ -76,16 +72,16 @@ export function TasksLoading() {
 					</div>
 					{[0, 1, 2, 3, 4].map((i) => (
 						<div key={i} className="flex items-center gap-3.5 px-3 py-3.5">
-							<Skeleton className="size-5 rounded-full" />
+							<Skeleton className="size-5" />
 							<div className="flex flex-1 flex-col gap-2">
 								<Skeleton className="h-4 w-2/3" />
 								<Skeleton className="h-3 w-1/3" />
 							</div>
-							<Skeleton className="size-7 rounded-full" />
+							<Skeleton className="size-7" />
 						</div>
 					))}
 				</Card>
-				<Skeleton className="h-60 rounded-card max-app-md:hidden" />
+				<Skeleton className="h-60 max-app-md:hidden" />
 			</div>
 		</div>
 	);

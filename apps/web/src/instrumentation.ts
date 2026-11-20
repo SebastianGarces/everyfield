@@ -1,18 +1,20 @@
+import { asLogNames, logFailure, logInfo, logLine } from "@everyfield/domain/log";
 export async function register() {
 	if (process.env.NEXT_RUNTIME !== "nodejs") return;
+	const problem = (await import("./server/config")).serverConfigProblem();
+	if (problem) logLine({ component: "server", event: "config_missing", missing: asLogNames(problem.names) });
 	const { privateStorage, assertPrivateBucket } = await import("@everyfield/db/schema");
 	const storage = privateStorage();
 	if (storage)
-		assertPrivateBucket(storage).catch((error) => {
-			const message = error instanceof Error ? error.message : String(error);
-			console.error(JSON.stringify({ component: "server", event: "bucket_check_failed", message }));
-		});
+		assertPrivateBucket(storage).catch((error) =>
+			logFailure({ component: "server", event: "bucket_check_failed" }, error),
+		);
 	try {
 		(await import("@everyfield/evry/tracing")).registerTracing();
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		console.error(JSON.stringify({ component: "server", event: "tracing_failed", message }));
+		logFailure({ component: "server", event: "tracing_failed" }, error);
 	}
+	if (problem) return;
 	const started = performance.now();
 	const ms = () => Math.round(performance.now() - started);
 	try {
@@ -21,16 +23,12 @@ export async function register() {
 			import("./server/database"),
 		]);
 		const [, pools] = await Promise.all([requestAuth().$context, warmPools()]);
-		console.log(JSON.stringify({ component: "server", event: "warm", ms: ms() }));
+		logInfo({ component: "server", event: "warm", ms: ms() });
 		pools.rest.then(
-			() => console.log(JSON.stringify({ component: "server", event: "warm_rest", ms: ms() })),
-			(error) => {
-				const message = error instanceof Error ? error.message : String(error);
-				console.error(JSON.stringify({ component: "server", event: "warm_failed", ms: ms(), message }));
-			},
+			() => logInfo({ component: "server", event: "warm_rest", ms: ms() }),
+			(error) => logFailure({ component: "server", event: "warm_failed", ms: ms() }, error),
 		);
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		console.error(JSON.stringify({ component: "server", event: "warm_failed", ms: ms(), message }));
+		logFailure({ component: "server", event: "warm_failed", ms: ms() }, error);
 	}
 }

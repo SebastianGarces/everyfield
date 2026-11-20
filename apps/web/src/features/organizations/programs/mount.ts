@@ -1,3 +1,4 @@
+import type { Lost } from "@everyfield/contracts/common";
 import type { ProgramReply } from "@everyfield/contracts/organizations";
 import type { RequestActor } from "@everyfield/domain/access";
 import type { Database } from "@everyfield/db/client";
@@ -5,8 +6,9 @@ import { readEnrollment, readProgram, readPrograms } from "@everyfield/domain/or
 import "server-only";
 import { requestDatabase } from "../../../server/database";
 import { pipelineActor } from "../pipeline-mount";
+import { LOST, transient } from "../../../server/platform/transient.ts";
 
-export type ProgramAnswer<T> = ProgramReply<T> | { status: "lost" };
+export type ProgramAnswer<T> = ProgramReply<T> | Lost;
 
 export async function programCall<T>(
 	run: (db: Database, authority: RequestActor) => Promise<ProgramReply<T>>,
@@ -19,13 +21,7 @@ export async function programCall<T>(
 		actor = who.authority;
 	}
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		return await run(db, actor);
-	} catch (error) {
-		console.error(JSON.stringify({ component: "programs", outcome: "failed", error: String(error) }));
-		return { status: "lost" };
-	}
+	return transient({ component: "programs", outcome: "failed" }, () => run(db, actor), LOST);
 }
 
 export const loadPrograms = (authority: RequestActor) => programCall((db, a) => readPrograms(db, a), authority);
