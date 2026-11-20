@@ -1,11 +1,11 @@
 "use server";
 
 import { requestDatabase } from "@/server/database";
+import { viewerActor } from "@/server/request-context";
 import type { ChurchTemplateSummary, DocDocument } from "@everyfield/contracts/documents";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { documentActor } from "../server.ts";
 import { refusedWith } from "./refusal.ts";
 import type { LogWord } from "@everyfield/domain/log";
 import { LOST, transient } from "../../../server/platform/transient.ts";
@@ -21,7 +21,7 @@ export async function createChurchDocument(
 	requestKey: string,
 	mergeFields?: unknown,
 ): Promise<ChurchActionResult> {
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return denied;
 	const reply = await write("create_failed", () =>
 		documentsWriter.createFromTemplate(requestDatabase(), actor, { templateId, requestKey, mergeFields }),
@@ -40,7 +40,7 @@ export async function saveChurchDocument(
 	expectedRevision: string,
 	body: unknown,
 ): Promise<SaveResult> {
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return denied;
 	const reply = await write("save_failed", () =>
 		documentsWriter.saveNative(requestDatabase(), actor, { documentId, expectedRevision, body }),
@@ -62,7 +62,7 @@ export type BrandingResult =
 	{ status: "saved"; useChurchBranding: boolean } | { status: "refused"; message: string } | { status: "lost" };
 
 export async function setChurchBranding(documentId: string, useChurchBranding: boolean): Promise<BrandingResult> {
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return denied;
 	const reply = await write("branding_failed", () =>
 		documentsWriter.setBranding(requestDatabase(), actor, { documentId, useChurchBranding }),
@@ -73,7 +73,7 @@ export async function setChurchBranding(documentId: string, useChurchBranding: b
 }
 
 export async function deleteChurchDocument(documentId: string, expectedRevision: string): Promise<ChurchActionResult> {
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return denied;
 	const reply = await write("delete_failed", () =>
 		documentsWriter.deleteChurch(requestDatabase(), actor, { documentId, expectedRevision }),
@@ -85,7 +85,7 @@ export async function deleteChurchDocument(documentId: string, expectedRevision:
 }
 
 export async function archiveChurchDocument(documentId: string, expectedRevision: string): Promise<ChurchActionResult> {
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return denied;
 	const reply = await write("archive_failed", () =>
 		documentsWriter.archiveChurch(requestDatabase(), actor, { documentId, expectedRevision }),
@@ -97,7 +97,7 @@ export async function archiveChurchDocument(documentId: string, expectedRevision
 }
 
 export async function restoreChurchDocument(documentId: string): Promise<ChurchActionResult> {
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return denied;
 	const reply = await write("restore_failed", () =>
 		documentsWriter.restoreChurch(requestDatabase(), actor, { documentId }),
@@ -112,7 +112,7 @@ export type TemplateSaveResult =
 	{ status: "saved"; template: ChurchTemplateSummary } | { status: "refused"; message: string } | { status: "lost" };
 
 export async function saveChurchTemplate(input: unknown): Promise<TemplateSaveResult> {
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return denied;
 	const reply = await write("template_save_failed", () =>
 		documentsWriter.saveChurchTemplate(requestDatabase(), actor, input),
@@ -129,7 +129,7 @@ export type TemplateUpdateResult =
 	| { status: "lost" };
 
 export async function updateChurchTemplate(input: unknown): Promise<TemplateUpdateResult> {
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return denied;
 	const reply = await write("template_update_failed", () =>
 		documentsWriter.updateChurchTemplate(requestDatabase(), actor, input),
@@ -146,7 +146,7 @@ export type TemplateEditResult =
 	| { status: "lost" };
 
 export async function editChurchTemplate(input: unknown): Promise<TemplateEditResult> {
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return denied;
 	const reply = await write("template_edit_failed", () =>
 		documentsWriter.editChurchTemplate(requestDatabase(), actor, input),
@@ -160,7 +160,7 @@ export async function editChurchTemplate(input: unknown): Promise<TemplateEditRe
 export async function deleteChurchTemplate(
 	templateId: string,
 ): Promise<{ status: "deleted" } | { status: "refused"; message: string } | { status: "lost" }> {
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return denied;
 	const reply = await write("template_delete_failed", () =>
 		documentsWriter.deleteChurchTemplate(requestDatabase(), actor, { templateId }),
@@ -174,7 +174,7 @@ export async function deleteChurchTemplate(
 export type DeleteExportResult = { status: "deleted" } | { status: "refused"; message: string } | { status: "lost" };
 
 export async function deleteSavedExport(documentId: string, exportId: string): Promise<DeleteExportResult> {
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return denied;
 	const reply = await write("export_delete_failed", () =>
 		documentsWriter.deleteExport(requestDatabase(), actor, { documentId, exportId }),
@@ -197,7 +197,7 @@ export async function acceptTemplateChanges(
 	key: string,
 	accept: unknown,
 ): Promise<AcceptResult> {
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return denied;
 	const reply = await write("accept_failed", () =>
 		documentsWriter.acceptTemplateChanges(requestDatabase(), actor, {

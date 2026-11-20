@@ -1,11 +1,9 @@
-import { getViewer } from "@/server/request-context";
+import { organizationSeatOf, viewerActor } from "@/server/request-context";
 import { requestDatabase } from "@/server/database";
 import { humanCredit, type WikiArticle } from "@everyfield/contracts/wiki";
 import type { Database } from "@everyfield/db/client";
-import { alias, and, eq, inArray } from "@everyfield/db/query";
-import { article_editor_state, article_revision, organization, reading } from "@everyfield/db/tables";
 import type { RequestActor } from "@everyfield/domain/access";
-import { createWikiProducer } from "@everyfield/domain/wiki";
+import { createWikiProducer, type StoredEditor } from "@everyfield/domain/wiki";
 import { cache } from "react";
 import "server-only";
 import {
@@ -39,10 +37,6 @@ export function wikiMount(): Mount {
 	return slot[MOUNT];
 }
 
-export async function wikiActor(): Promise<RequestActor | null> {
-	return (await getViewer()).authority;
-}
-
 export function plantContext(actor: RequestActor): { plantId?: string; canOrder: boolean } {
 	const context = actor.actor.context;
 	if (context.kind !== "seat" || context.owner.kind !== "plant") return { canOrder: false };
@@ -50,95 +44,17 @@ export function plantContext(actor: RequestActor): { plantId?: string; canOrder:
 }
 
 export function editorContext(actor: RequestActor): { organizationId: string } | null {
-	const context = actor.actor.context;
-	if (context.kind !== "seat" || context.owner.kind !== "organization") return null;
-	if (context.role !== "owner" && context.role !== "admin") return null;
-	return { organizationId: context.owner.id };
+	const seat = organizationSeatOf(actor);
+	if (!seat || (seat.role !== "owner" && seat.role !== "admin")) return null;
+	return { organizationId: seat.organization.id };
 }
-
-type StoredEditor = {
-	revision: string;
-	state: "published" | "hide" | "draft" | "inherited" | null;
-	draftBody: string | null;
-	draftType: "safe_mdx" | "safe_nodes" | null;
-	currentBody: string | null;
-	currentType: "safe_mdx" | "safe_nodes" | null;
-};
 
 async function editorRevision(mount: Mount, organizationId: string, articleId: string): Promise<StoredEditor | "lost"> {
-	const draft = alias(article_revision, "wiki_draft_revision");
-	const current = alias(article_revision, "wiki_current_revision");
 	return transient(
 		{ component: "wiki", outcome: "editor-revision-failed" },
-		async () => {
-			const rows = await mount.db
-				.select({
-					revision: article_editor_state.revision,
-					state: article_editor_state.state,
-					draftBody: draft.body,
-					draftType: draft.content_type,
-					currentBody: current.body,
-					currentType: current.content_type,
-				})
-				.from(article_editor_state)
-				.leftJoin(draft, eq(draft.id, article_editor_state.draft_revision_id))
-				.leftJoin(current, eq(current.id, article_editor_state.current_revision_id))
-				.where(
-					and(eq(article_editor_state.organization_id, organizationId), eq(article_editor_state.article_id, articleId)),
-				)
-				.limit(1);
-			const row = rows[0];
-			if (!row) {
-				return {
-					revision: "0",
-					state: null,
-					draftBody: null,
-					draftType: null,
-					currentBody: null,
-					currentType: null,
-				};
-			}
-			return {
-				revision: row.revision,
-				state: row.state,
-				draftBody: row.draftBody,
-				draftType: row.draftType,
-				currentBody: row.currentBody,
-				currentType: row.currentType,
-			};
-		},
+		() => mount.producer.readEditorState(mount.db, organizationId, articleId),
 		"lost",
 	);
-}
-
-async function readingRevision(mount: Mount, actor: RequestActor, articleId: string): Promise<string> {
-	const rows = await mount.db
-		.select({ revision: reading.revision })
-		.from(reading)
-		.where(and(eq(reading.account_id, actor.actor.accountId), eq(reading.article_id, articleId)))
-		.limit(1);
-	return rows[0]?.revision ?? "0";
-}
-
-async function completedIds(mount: Mount, actor: RequestActor, articleIds: string[]): Promise<Set<string>> {
-	if (articleIds.length === 0) return new Set();
-	const rows = await mount.db
-		.select({ articleId: reading.article_id, fraction: reading.observed_fraction, completedAt: reading.completed_at })
-		.from(reading)
-		.where(and(eq(reading.account_id, actor.actor.accountId), inArray(reading.article_id, articleIds)));
-	return new Set(
-		rows.filter((row) => row.completedAt != null && Number(row.fraction) > 0.8).map((row) => row.articleId),
-	);
-}
-
-export async function organizationNames(mount: Mount, ids: string[]): Promise<Map<string, string>> {
-	const unique = [...new Set(ids)].filter((id) => id !== "00000000-0000-0000-0000-000000000000");
-	if (unique.length === 0) return new Map();
-	const rows = await mount.db
-		.select({ id: organization.id, name: organization.name })
-		.from(organization)
-		.where(inArray(organization.id, unique));
-	return new Map(rows.map((row) => [row.id, row.name]));
 }
 
 export type Preview = { crawler: boolean; allowed: boolean; title: string | null; excerpt: string | null };
@@ -264,7 +180,7 @@ export async function loadWiki(
 	editing = false,
 ): Promise<WikiPageData | "lost" | "signed-out"> {
 	const mount = wikiMount();
-	const actor = await wikiActor();
+	const actor = await viewerActor();
 	if (!actor) return "signed-out";
 	const seat = plantContext(actor);
 	const editor = editorContext(actor);
@@ -281,7 +197,7 @@ export async function loadWiki(
 			? nav.value.groups.flatMap((group) => group.articles).find((item) => item.slug === slug)
 			: undefined;
 		const [read, currentRead, sourceRead] = await Promise.all([
-			completedIds(mount, actor, visibleIds),
+			mount.producer.listCompletedArticles(mount.db, actor, visibleIds),
 			hit ? articleOf(mount, actor, hit.articleId, { kind: "current" }) : null,
 			hit && source.kind !== "current" ? articleOf(mount, actor, hit.articleId, source) : null,
 		]);
@@ -313,8 +229,8 @@ export async function loadWiki(
 		let draft: WikiDraft | null = null;
 		let draftLost = false;
 		let feedback: WikiPageData["feedback"] = null;
-		if (hit) {
-			const current = currentRead!;
+		if (currentRead) {
+			const current = currentRead;
 			if (current.status !== "ok") return "lost";
 			const preferred = current.value.article;
 			const viewedReply = sourceRead ?? current;
@@ -350,14 +266,14 @@ export async function loadWiki(
 							? "denied"
 							: null;
 			const [names, revision, vote, order] = await Promise.all([
-				organizationNames(mount, [
+				mount.producer.listOrganizationNames(mount.db, [
 					preferred.sourceId,
 					shown.sourceId,
 					...preferred.alternates.map((item) => item.sourceId),
 					...shown.alternates.map((item) => item.sourceId),
 					...(editor ? [editor.organizationId] : []),
 				]),
-				readingRevision(mount, actor, shown.articleId),
+				mount.producer.getReadingRevision(mount.db, actor, shown.articleId),
 				block === null && seat.plantId && !editing
 					? feedbackVote(mount, actor, shown.articleId).then((v) => ({ vote: v }))
 					: null,
@@ -521,7 +437,7 @@ export const progressRoute = mutatingRoute(async function progressRoute(request:
 	const body = parseJson(text) as
 		{ requestKey?: unknown; articleId?: unknown; fraction?: unknown; plantId?: unknown } | undefined;
 	if (body === undefined) return new Response(null, { status: 400 });
-	const actor = await wikiActor();
+	const actor = await viewerActor();
 	if (!actor) return new Response(null, { status: 401 });
 	const mount = wikiMount();
 	try {
@@ -541,7 +457,7 @@ export const progressRoute = mutatingRoute(async function progressRoute(request:
 	}
 });
 
-export function mountFor(actor: Awaited<ReturnType<typeof wikiActor>>) {
+export function mountFor(actor: RequestActor | null) {
 	if (!actor) return { status: "denied" as const };
 	return { status: "ready" as const, actor, mount: wikiMount() };
 }

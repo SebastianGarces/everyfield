@@ -1,4 +1,5 @@
 import { requestDatabase } from "@/server/database";
+import { viewerActor } from "@/server/request-context";
 import { IMPORT_BYTES_MAX, IMPORT_TOO_LARGE } from "@everyfield/contracts/documents";
 import { privateStorage } from "@everyfield/db/schema";
 import { documentsWriter } from "@everyfield/domain/documents";
@@ -6,7 +7,6 @@ import { readBoundedBody } from "@everyfield/domain/operations";
 import "server-only";
 import type { DocumentOutcome } from "../outcome.ts";
 import { writtenView, type WrittenView } from "../model.ts";
-import { documentActor } from "../server.ts";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
 import { LOST, transient } from "../../../server/platform/transient.ts";
 
@@ -30,7 +30,7 @@ export const importRoute = mutatingRoute(async function importRoute(request: Req
 	const storage = privateStorage();
 	if (!storage)
 		return answer({ status: "refused", code: "unavailable", problem: "Saving is not available right now." });
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return answer({ status: "refused", code: "access_denied" });
 	const reply = await transient(
 		{ component: "documents", outcome: "import_failed" },

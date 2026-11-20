@@ -1,5 +1,6 @@
 import { type PlantSeat } from "@/server/request-context";
 import { requireSeat } from "@/server/sign-in";
+import type { SitePath } from "@everyfield/contracts/identity";
 import { recordId } from "@everyfield/contracts/common";
 import { followUpReader } from "@everyfield/domain/followups";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
@@ -20,7 +21,7 @@ const robots = { index: false, follow: false };
 export const callMetadata: Metadata = { title: "Follow-up", robots };
 export const followUpsMetadata: Metadata = { title: "Follow-ups", robots };
 
-async function gate(returnTo: string, title: string): Promise<{ viewer: PlantSeat } | { blocked: ReactNode }> {
+async function gate(returnTo: SitePath, title: string): Promise<{ viewer: PlantSeat } | { blocked: ReactNode }> {
 	const viewer = await requireSeat(returnTo);
 	if (viewer) return { viewer };
 	return {
