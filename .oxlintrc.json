@@ -45,6 +45,7 @@
 		"everyfield/request-actor": "error",
 		"everyfield/provider-key-mint": "error",
 		"everyfield/no-comments": "error",
+		"everyfield/shared-outcome": "error",
 		"everyfield/server-log": "error",
 		"everyfield/no-effects": "error",
 		"everyfield/stable-context-value": "error",
@@ -183,6 +184,12 @@
 			"files": ["packages/domain/src/intelligence/**"],
 			"rules": {
 				"everyfield/private-care-scope": "off"
+			}
+		},
+		{
+			"files": ["packages/domain/src/**"],
+			"rules": {
+				"everyfield/domain-refusals": "error"
 			}
 		},
 		{

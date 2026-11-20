@@ -197,7 +197,7 @@ const errorMessage = (node) =>
 	node.object.type === "Identifier" &&
 	knownError(node, node.object.name);
 const EQUALITY = new Set(["==", "===", "!=", "!=="]);
-const TEXT_MATCH = new Set(["includes", "startsWith", "endsWith"]);
+const TEXT_MATCH = new Set(["includes", "startsWith", "endsWith", "test", "match", "exec", "search"]);
 
 const noErrorMessageMatch = {
 	meta: { type: "problem" },
@@ -2818,6 +2818,33 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 	};
 });
 
+export const OUTCOME_MODULE = "packages/contracts/src/common/values.ts";
+const OUTCOME_SOURCE = "@everyfield/contracts/common";
+const OUTCOME_SCOPE = /^(apps\/web\/src|packages\/[^/]+\/src)\//;
+const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
+	const path = repoPath(context.filename);
+	if (path === OUTCOME_MODULE || !OUTCOME_SCOPE.test(path)) return {};
+	const shared = new Set();
+	return {
+		ImportDeclaration(node) {
+			if (node.source.value !== OUTCOME_SOURCE) return;
+			for (const spec of node.specifiers)
+				if (spec.type === "ImportSpecifier" && nameOf(spec.imported) === "Outcome") shared.add(spec.local.name);
+		},
+		TSTypeAliasDeclaration(node) {
+			if (node.id.name !== "Outcome" || !node.typeParameters) return;
+			const body = node.typeAnnotation;
+			if (body.type === "TSTypeReference" && body.typeName.type === "Identifier" && shared.has(body.typeName.name))
+				return;
+			push({
+				node: node.id,
+				fn: "Outcome",
+				message: `A local Outcome<T> type copies the request boundary's reply shape. Import Outcome from ${OUTCOME_SOURCE} and specialize it (type Outcome<T> = Shared<T, Code, Extra>), so every feature answers the same ok / refused / lost union.`,
+			});
+		},
+	};
+});
+
 export const SIGN_IN_MODULE = "apps/web/src/server/sign-in.ts";
 const REDIRECTS = ["redirect", "permanentRedirect"];
 function leadingText(context, node, seen = new Set()) {
@@ -2850,6 +2877,91 @@ function leadingText(context, node, seen = new Set()) {
 	}
 	return null;
 }
+const RETRY_ELIGIBILITY = new Set(["never", "refresh", "same_request", "reconcile"]);
+const literalOutcomes = (node) => {
+	const at = unwrapped(node);
+	if (!at) return [];
+	if (at.type === "ConditionalExpression") return [...literalOutcomes(at.consequent), ...literalOutcomes(at.alternate)];
+	if (at.type === "LogicalExpression") return [...literalOutcomes(at.left), ...literalOutcomes(at.right)];
+	const text = literalArgument(at);
+	return text === null ? [] : [text];
+};
+const DEFINE_REFUSALS = "packages/domain/src/operations/refusals.ts";
+const BARE_CODE =
+	"defineRefusals adds details, correlationId and retry to a bare { code } refusal, which would change what Evry and the readers see";
+export const REFUSAL_MECHANISMS = {
+	"packages/domain/src/feedback/index.ts": { why: `Feedback refusals are a bare { code }: ${BARE_CODE}` },
+	"packages/domain/src/dashboard/index.ts": { why: `Dashboard refusals are a bare { code }: ${BARE_CODE}` },
+	"packages/domain/src/people/pipeline-metrics.ts": {
+		why: "Pipeline metrics answers a bare { code } refusal that its contract test pins; defineRefusals adds details, correlationId and retry",
+	},
+	"packages/domain/src/identity/budget.ts": {
+		why: "An identity refusal carries its HTTP status, and identity's handler answers it as HTTP JSON",
+	},
+	"packages/domain/src/identity/service.ts": {
+		why: "Identity's handler builds the identity safe error with its HTTP status from an identity refusal",
+	},
+	"packages/domain/src/identity/invitation-core.ts": {
+		why: "An invitation refusal carries a parsed safe error with retryAt details, the identity invitation mechanism",
+	},
+	"packages/domain/src/settings/credentials.ts": {
+		why: "Credential changes answer identity's credential outcome (a status with a correlationId and no retry)",
+	},
+	"packages/domain/src/organizations/seat.ts": {
+		why: "Pipeline, program and import refusals are a { status, refusal } reply whose refusal carries a field or file problem beside its code",
+	},
+	"packages/domain/src/organizations/core.ts": {
+		why: "Organization commands refuse with a typed code (OrganizationRefusal) that the web mount and Evry each turn into their own reply; organizations has no safe-error contract",
+	},
+	"packages/domain/src/people/csv/sheet.ts": {
+		why: "SheetRefused carries a file problem that People CSV import and the organizations pipeline import each turn into their own refusal",
+	},
+};
+const domainRefusals = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === DEFINE_REFUSALS) return {};
+		const listed = Object.hasOwn(REFUSAL_MECHANISMS, path);
+		let found = 0;
+		const report = (node, what) => {
+			found++;
+			if (!listed)
+				context.report({
+					node,
+					message: `${what} is hand-built. A domain module defines its refusals once with defineRefusals(errorSchema) from operations/refusals.ts and answers through its deny, refused and settle; retry comes from the contract.`,
+				});
+		};
+		const refusalClass = (node) => {
+			if (node.superClass && /Refus/.test(node.id?.name ?? "")) report(node, `The refusal class ${node.id.name}`);
+		};
+		return {
+			ClassDeclaration: refusalClass,
+			ClassExpression: refusalClass,
+			Property(node) {
+				if (node.parent?.type !== "ObjectExpression") return;
+				const key = keyName(node.key, node.computed);
+				if (key === "status" && literalOutcomes(node.value).includes("refused")) report(node, "A refusal reply");
+				if (key === "retry" && literalOutcomes(node.value).some((v) => RETRY_ELIGIBILITY.has(v)))
+					report(node, "A refusal's retry");
+			},
+			VariableDeclarator(node) {
+				const init = unwrapped(node.init);
+				if (node.id.type !== "Identifier" || !/retr(y|ies)/i.test(node.id.name)) return;
+				if (init?.type === "ObjectExpression" || (init?.type === "NewExpression" && init.callee.name === "Map"))
+					report(node, `The retry table ${node.id.name}`);
+			},
+			"Program:exit"(node) {
+				if (listed && found === 0)
+					context.report({
+						node,
+						message: `${path} no longer builds its own refusals: delete its REFUSAL_MECHANISMS entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+			},
+		};
+	},
+};
+
 const signInRedirect = {
 	meta: { type: "problem" },
 	create(context) {
@@ -3026,6 +3138,8 @@ export default {
 		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
+		"shared-outcome": sharedOutcome,
+		"domain-refusals": domainRefusals,
 		"stable-context-value": stableContextValue,
 	},
 };
