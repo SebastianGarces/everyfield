@@ -156,7 +156,7 @@ function heading(w: W, node: Extract<BlockNode, { type: "heading" }>) {
 	if (a.level === 2) {
 		w.headings.h2 += 1;
 		w.headings.h3 = 0;
-		if (a.numbered) number = String(w.headings.h2).padStart(2, "0");
+		if (a.numbered) number = String(w.headings.h2);
 	} else {
 		w.headings.h3 += 1;
 		if (a.numbered) number = `${w.headings.h2}.${w.headings.h3}`;

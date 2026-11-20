@@ -99,7 +99,7 @@ export const meetingsReader = {
 				v,
 				sql`SELECT ${meetingColumns} FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 			);
-			if (!row) deny();
+			if (!row) deny("unavailable");
 			return agendaOf(meetingRow.parse(row));
 		});
 	},
@@ -112,7 +112,7 @@ export const meetingsReader = {
 				sql`SELECT m.kit_version, (SELECT coalesce(json_agg(row_to_json(k) ORDER BY k.position), '[]') FROM (${kitColumns}
 					WHERE k.meeting_id = m.id) k) AS items FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 			);
-			if (!row) deny();
+			if (!row) deny("unavailable");
 			const f = z.object({ kit_version: z.number().int().nullable(), items: z.array(kitRow) }).parse(row);
 			const items = f.items.map(kitItem);
 			return c.kitResult.parse({
@@ -133,7 +133,7 @@ export const meetingsReader = {
 				sql`SELECT ${guests(sql`true`)} AS guests, ${emailOpens} AS email_opens, ${guestPhotos} AS photos
 					FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 			);
-			if (!row) deny();
+			if (!row) deny("unavailable");
 			return c.guestList.parse({
 				meetingId: i.meetingId,
 				guests: z.array(guestRow).parse(row.guests).map(guest),
@@ -152,7 +152,7 @@ export const meetingsReader = {
 				sql`SELECT ${guests(sql`true`)} AS guests, ${emailOpens} AS email_opens, ${guestPhotos} AS photos,
 					${attendanceColumns(list, v.accountId)} FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 			);
-			if (!row) deny();
+			if (!row) deny("unavailable");
 			const rows = z.array(guestRow).parse(row.guests);
 			return {
 				guests: c.guestList.parse({
@@ -177,7 +177,7 @@ export const meetingsReader = {
 				v,
 				sql`SELECT ${guests(sql`g.card_response IS NOT NULL`)} AS guests FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 			);
-			if (!row) deny();
+			if (!row) deny("unavailable");
 			return c.cardList.parse({
 				meetingId: i.meetingId,
 				cards: z
@@ -197,7 +197,7 @@ export const meetingsReader = {
 					FROM meeting m LEFT JOIN participation g ON g.meeting_id = m.id AND g.removed_at IS NULL
 					WHERE ${current(v.plantId, i.meetingId)} GROUP BY m.id`,
 			);
-			if (!row) deny();
+			if (!row) deny("unavailable");
 			const rows = z
 				.array(z.object({ attended: z.boolean().nullable(), response: c.cardResponse.nullable() }))
 				.parse(row.rows)
@@ -226,7 +226,7 @@ export const meetingsReader = {
 				v,
 				sql`SELECT ${guests(sql`true`)} AS guests FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 			);
-			if (!row) deny();
+			if (!row) deny("unavailable");
 			return c.attribution.parse({
 				meetingId: i.meetingId,
 				guests: z
@@ -252,7 +252,7 @@ export const meetingsReader = {
 					FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 				true,
 			);
-			if (!row) deny();
+			if (!row) deny("unavailable");
 			const m = meetingRow.parse(row);
 			return c.communicationContext.parse({ meeting: summary(m), agenda: m.agenda, guests: row.recipients });
 		});
@@ -285,7 +285,7 @@ export const meetingsReader = {
 					JOIN person p ON p.id = g.person_id AND p.linked_account_id = ${v.accountId}::uuid AND p.state = 'live'
 					WHERE ${current(v.plantId, i.meetingId)}`,
 			);
-			if (!row) deny();
+			if (!row) deny("unavailable");
 			const g = z.object({ id: z.uuid(), revision: z.string(), rsvp: c.rsvp, status: c.meetingStatus }).parse(row);
 			return c.ownRsvp.parse({
 				meetingId: i.meetingId,

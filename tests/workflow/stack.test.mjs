@@ -135,6 +135,11 @@ test("OPS-76: each preview resolves IDENTITY_ORIGIN to its own URL, whatever its
 				const resolved = JSON.parse(readFileSync(join(dir, `env-${preview.id}.json`), "utf8"));
 				assert.equal(resolved.IDENTITY_ORIGIN, preview.url, `${mode} ${name}`);
 				assert.equal(resolved.NEXT_TELEMETRY_DISABLED, "1");
+				assert.equal(
+					Buffer.from(resolved.FLAGS_SECRET, "base64url").length,
+					32,
+					"a development-only Flags Explorer key",
+				);
 				urls.add(preview.url);
 			}
 		}

@@ -101,7 +101,7 @@ export async function ensureMeetingObligations(
 		meetingOf = new Map<string, string>();
 	for (const m of v.meetings) {
 		const meeting = row.meetings[m.meetingId];
-		if (!meeting) deny();
+		if (!meeting) deny("unavailable");
 		if (new Set(m.followUps.map((f) => f.personId)).size !== m.followUps.length) deny("invalid_input");
 		if (m.followUps.some((f) => !(f.personId in row.people))) deny("invalid_subject");
 		origins.set(m.meetingId, m.origin);

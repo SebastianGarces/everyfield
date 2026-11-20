@@ -14,7 +14,7 @@ import {
 	Radio,
 	RadioGroup,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
@@ -83,7 +83,6 @@ export function InterviewCard({
 	onSaved,
 	corrected,
 }: RecordProps<Interviews>) {
-	const toast = useToast();
 	const history = useHistory(
 		initial,
 		(page) => loadInterviews(personId, page),
