@@ -211,6 +211,7 @@
 				"network": "read",
 				"hillOwner": "read",
 				"graceOwner": "none",
+				"graceDirector": "none",
 				"owner": "none"
 			},
 			"states": [
@@ -280,6 +281,20 @@
 							"role": "link",
 							"name": "Harvest Point (QA)",
 							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "not-available",
+					"reach": {
+						"persona": "graceDirector",
+						"open": "/network/sending-churches",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This page is not available"
 						}
 					]
 				}
