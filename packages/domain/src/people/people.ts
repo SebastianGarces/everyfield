@@ -29,7 +29,7 @@ import {
 	reply,
 	replyWithoutSavepoint,
 } from "./core.ts";
-import type { Context, Evidence, LockedReads, WriteContext, Tx, Person } from "./core.ts";
+import type { Context, Evidence, WriteContext, Tx, Person } from "./core.ts";
 import { columnStages, isCommitted, openDutiesOf } from "./pipeline.ts";
 import { lockingTasks, managedTaskRows } from "../tasks/queries.ts";
 import { reminderChange, syncAll, type TaskReminders } from "../tasks/writes.ts";
@@ -142,8 +142,7 @@ async function handoffReads(tx: Tx, ctx: Context, p: Person, choices: z.infer<ty
 	if (ctx.selected.kind !== "plant") return { duties: [], targets: [], seats: [] };
 	const plant = ctx.selected.id,
 		duties = choices.map((choice) => choice.dutyId),
-		matched = new Set(duties).size === duties.length,
-		targets = matched ? choices.flatMap((choice) => (choice.kind === "assign" ? [choice.toPersonId] : [])) : [];
+		targets = choices.flatMap((choice) => (choice.kind === "assign" ? [choice.toPersonId] : []));
 	const dutiesMatchChoices = sql`(SELECT count(*) FROM duties)=${duties.length}
 		AND NOT EXISTS (SELECT FROM duties d WHERE d.id<>ALL(${sql.param(duties)}::uuid[]))`;
 	const r =
@@ -358,10 +357,13 @@ async function retire(
 	reminders: TaskReminders,
 ) {
 	return mutation(tx, ctx, "people.deletePerson", input, async (_a, id, audit) => {
-		const { person: before, row } = await lockPersonWith(tx, ctx, input.input.personId, {
-			columns: sql`(SELECT material_revision::text FROM plant WHERE id=${ctx.selected.id}::uuid
+		const { person: before, row } = await lockPersonWith(
+			tx,
+			ctx,
+			input.input.personId,
+			sql`(SELECT material_revision::text FROM plant WHERE id=${ctx.selected.id}::uuid
 				AND subject.revision=${input.expectedRevision}::bigint AND subject.state<>'merged' FOR SHARE) AS review`,
-		});
+		);
 		expected(before, input.expectedRevision);
 		if (before.state === "merged") deny("use_reviewed_unmerge");
 		if (input.input.reviewRevision !== row.review) deny("conflict");
@@ -464,16 +466,14 @@ async function restore(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.restor
 	});
 }
 const lockedNote = z.object({ author_id: z.uuid().nullable(), revision, body: z.string() });
-const noteRead = (ctx: Context, noteId: string): LockedReads => ({
-	columns: sql`(SELECT jsonb_build_object('author_id',n.author_id,'revision',n.revision::text,'body',n.body)
+const noteRead = (ctx: Context, noteId: string) =>
+	sql`(SELECT jsonb_build_object('author_id',n.author_id,'revision',n.revision::text,'body',n.body)
 		FROM person_note n WHERE n.id=${noteId}::uuid AND n.tenant_id=${ctx.selected.id}::uuid AND n.person_id=subject.id
-		AND n.removed_at IS NULL AND subject.state='live' FOR UPDATE OF n) AS note`,
-});
-const participationRead = (ctx: Context, meetingId: string, personRevision: string): LockedReads => ({
-	columns: sql`(SELECT coalesce(json_agg(x.id),'[]') FROM (SELECT q.id FROM participation q
+		AND n.removed_at IS NULL AND subject.state='live' FOR UPDATE OF n) AS note`;
+const participationRead = (ctx: Context, meetingId: string, personRevision: string) =>
+	sql`(SELECT coalesce(json_agg(x.id),'[]') FROM (SELECT q.id FROM participation q
 		WHERE q.meeting_id=${meetingId}::uuid AND q.person_id=subject.id AND q.plant_id=${ctx.selected.id}::uuid
-		AND subject.state='live' AND subject.revision=${personRevision}::bigint FOR SHARE OF q) x) AS participations`,
-});
+		AND subject.state='live' AND subject.revision=${personRevision}::bigint FOR SHARE OF q) x) AS participations`;
 type NoteInput =
 	z.infer<typeof c.addNoteRequest> | z.infer<typeof c.editNoteRequest> | z.infer<typeof c.deleteNoteRequest>;
 async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "edit" | "delete") {
@@ -585,9 +585,12 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 				correction ? "people.correctAdultClassification" : "people.recordAdultClassification",
 				input,
 				async (_a, id, audit) => {
-					const { person: before, row } = await lockPersonWith(tx, ctx, input.input.personId, {
-						columns: sql`${evidenceJson(ctx.selected.id, sql`subject.id`)} AS evidence`,
-					});
+					const { person: before, row } = await lockPersonWith(
+						tx,
+						ctx,
+						input.input.personId,
+						sql`${evidenceJson(ctx.selected.id, sql`subject.id`)} AS evidence`,
+					);
 					live(before);
 					expected(before, input.expectedRevision);
 					if (before.birth_date) deny("invalid_input", { reason: "birth_date_decides" });
