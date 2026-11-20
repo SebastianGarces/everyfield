@@ -187,7 +187,7 @@ export async function readUnreadCount(db: Database, authority: RequestActor, raw
 					AND (${input.category ?? null}::text IS NULL OR split_part(n.logical_key,'/',2) = ${input.category ?? null})) AS count`);
 		const row = countRow.parse(result.rows[0]);
 		if (!row.account_id) deny("unavailable");
-		return unreadCountResult.parse({ count: row.count });
+		return { count: row.count } satisfies z.output<typeof unreadCountResult>;
 	});
 }
 
