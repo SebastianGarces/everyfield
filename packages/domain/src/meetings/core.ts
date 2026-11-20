@@ -25,7 +25,7 @@ export type Reader = Pick<Transaction, "execute">;
 export type MeetingsContext = { session: z.infer<typeof sessionId>; selected: Owner };
 
 const refusals = defineRefusals(meetingsError, { writeUnavailable: "unavailable" });
-export const { Refusal } = refusals;
+export const { Refusal, refused } = refusals;
 const { settle } = refusals;
 export const deny: Deny<typeof meetingsError> = refusals.deny;
 const databaseError = z.object({ cause: z.object({ code: z.string().regex(/^[0-9A-Z]{5}$/) }) });

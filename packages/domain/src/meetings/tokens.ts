@@ -1,10 +1,10 @@
 import * as c from "@everyfield/contracts/meetings";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQLWrapper, type SqlLiteral } from "@everyfield/db/query";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { plantVisible, type Reader } from "./core.ts";
+import { plantVisible, refused, type Reader } from "./core.ts";
 import { displayTitle } from "./rows.ts";
 
 const TOKEN_DAYS = 7;
@@ -73,19 +73,11 @@ export async function describeRsvpToken(db: Reader, raw: unknown) {
 export async function answerRsvpToken(db: Database, raw: unknown) {
 	const input = c.answerRsvpTokenRequest.safeParse(raw);
 	if (!input.success)
-		return {
-			status: "refused" as const,
-			error: c.meetingsError.parse({
-				code: "invalid_input",
-				details: {
-					issues: input.error.issues
-						.slice(0, 50)
-						.map((i) => ({ path: i.path.join("."), problem: i.message.slice(0, 200) })),
-				},
-				correlationId: randomUUID(),
-				retry: "never",
-			}),
-		};
+		return refused("invalid_input", {
+			issues: input.error.issues
+				.slice(0, 50)
+				.map((i) => ({ path: i.path.join("."), problem: i.message.slice(0, 200) })),
+		});
 	const { token, rsvp } = input.data;
 	const r = await db.execute(sql`WITH target AS (
 			SELECT g.id, g.plant_id, g.meeting_id, coalesce(g.rsvp, 'pending') AS rsvp FROM participation g
@@ -104,16 +96,7 @@ export async function answerRsvpToken(db: Database, raw: unknown) {
 		)
 		SELECT (SELECT count(*) FROM answered)::int AS answered`);
 	const row = z.object({ answered: z.number().int() }).parse(r.rows[0]);
-	if (!row.answered)
-		return {
-			status: "refused" as const,
-			error: c.meetingsError.parse({
-				code: "token_closed",
-				details: {},
-				correlationId: randomUUID(),
-				retry: "never",
-			}),
-		};
+	if (!row.answered) return refused("token_closed");
 	return {
 		status: "ok" as const,
 		value: c.rsvpTokenAnswer.parse({ rsvp }),
