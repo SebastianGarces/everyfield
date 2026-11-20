@@ -113,17 +113,48 @@ export function runScript(
 	});
 }
 
+export const TOOLS_SCRIPT = /^node tools\/ci\/typecheck\.ts typecheck:tools -p ((?:\S+\.json ?)+)$/;
+
+export function toolsProjects(script: string): string[] | undefined {
+	return TOOLS_SCRIPT.exec(script.trim())?.[1]!.trim().split(" ");
+}
+
+export async function runTools(root: string, projects: string[], prefix = ""): Promise<number> {
+	const budgetMs = Number(process.env.TYPECHECK_TOOLS_TIMEOUT_MS) || 300_000;
+	const deadline = performance.now() + budgetMs;
+	let exit = 0;
+	for (const project of projects) {
+		console.log(`${prefix}tsc -p ${project}`);
+		const run = await runScript(
+			`node_modules/typescript-7/bin/tsc --noEmit -p '${project}' --checkers 2`,
+			root,
+			Math.max(1, Math.round(deadline - performance.now())),
+			(line) => console.log(`${prefix}${line}`),
+		);
+		if (run.outcome === "pass") continue;
+		if (run.outcome === "timeout") {
+			console.error(
+				`typecheck:tools timed out after ${budgetMs} ms in ${project}; its process group was killed.`,
+			);
+			return 1;
+		}
+		console.error(`typecheck:tools failed in ${project} (exit ${run.code ?? "signal"}).`);
+		exit ||= run.code || 1;
+	}
+	return exit;
+}
+
 async function typecheckTools(root: string): Promise<number> {
 	const script: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts?.["typecheck:tools"];
 	if (typeof script !== "string") return 0;
-	const timeoutMs = Number(process.env.TYPECHECK_TOOLS_TIMEOUT_MS) || 300_000;
-	console.log("typecheck:tools: started");
-	const run = await runScript(script, root, timeoutMs, (line) => console.log(`typecheck:tools: ${line}`));
-	if (run.outcome === "pass") return 0;
-	if (run.outcome === "timeout")
-		console.error(`typecheck:tools timed out after ${timeoutMs} ms; its process group was killed.`);
-	else console.error(`typecheck:tools failed (exit ${run.code ?? "signal"}).`);
-	return run.code || 1;
+	const projects = toolsProjects(script);
+	if (!projects) {
+		console.error(
+			"typecheck:tools must read `node tools/ci/typecheck.ts typecheck:tools -p <tsconfig.json>...`, so pnpm typecheck and fast-check share its project list.",
+		);
+		return 1;
+	}
+	return runTools(root, projects, "typecheck:tools: ");
 }
 
 export type TypecheckScript = "typecheck" | "typecheck:bun";
@@ -161,8 +192,11 @@ export async function typecheck(root: string, script: TypecheckScript = "typeche
 
 if (import.meta.main) {
 	const [script = "typecheck", ...rest] = process.argv.slice(2);
-	if (rest.length || (script !== "typecheck" && script !== "typecheck:bun")) {
-		console.error("usage: node tools/ci/typecheck.ts [typecheck|typecheck:bun]");
+	const projects = rest[0] === "-p" ? rest.slice(1).filter((p) => p.endsWith(".json")) : [];
+	if (script === "typecheck:tools" && projects.length && projects.length === rest.length - 1)
+		process.exitCode = await runTools(process.cwd(), projects);
+	else if (rest.length || (script !== "typecheck" && script !== "typecheck:bun")) {
+		console.error("usage: node tools/ci/typecheck.ts [typecheck|typecheck:bun|typecheck:tools -p <tsconfig.json>...]");
 		process.exitCode = 2;
 	} else process.exitCode = await typecheck(process.cwd(), script);
 }
