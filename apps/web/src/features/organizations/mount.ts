@@ -1,7 +1,6 @@
 import { owner, type Owner } from "@everyfield/contracts/common";
 import * as C from "@everyfield/contracts/organizations";
 import type { Database } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
 import { liveAccess, type RequestActor, type WriteTx } from "@everyfield/domain/access";
 import { createSeatService } from "@everyfield/domain/identity";
 import { auditTransaction, gatedTransaction, WriteUnavailable } from "@everyfield/domain/operations";
@@ -23,7 +22,14 @@ import "server-only";
 import { z } from "zod";
 import { serverConfig, type ServerConfig } from "../../server/config.ts";
 import { database } from "../../server/database";
-import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "@everyfield/domain/jobs";
+import {
+	createMailService,
+	MAIL_PASSES,
+	runDueMail,
+	supersedeDigests,
+	type MailPass,
+	type MailTransport,
+} from "@everyfield/domain/jobs";
 import { getViewer } from "../../server/request-context";
 import { invitationLink } from "../../server/invitations";
 
@@ -79,9 +85,7 @@ function create(v: ServerConfig) {
 				writes,
 			);
 		},
-		invalidate(_tx, input) {
-			return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`;
-		},
+		invalidate: (_tx, input) => supersedeDigests(input.sourceId),
 	};
 	const adapter = createOrganizationAdapter(effects, geographyReference);
 	return { db, adapter, effects, seats: createSeatService(db), origin: v.IDENTITY_ORIGIN };
