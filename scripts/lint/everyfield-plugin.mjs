@@ -2652,7 +2652,7 @@ const READ_NAME =
 	/^(?:load|read|get|list|find|search|suggest|preview|compare|reload|fetch|query|count|download|print)(?:[A-Z]|$)/;
 
 const READ_HOME =
-	"Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through getReads in the feature's fetch.ts.";
+	"Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through readsFrom in the feature's fetch.ts.";
 
 const boundNames = (pattern) => {
 	if (!pattern) return [];
