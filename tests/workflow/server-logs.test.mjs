@@ -14,6 +14,13 @@ const app = fileURLToPath(new URL("../../apps/web/", import.meta.url));
 const next = fileURLToPath(new URL("../../apps/web/node_modules/next/dist/bin/next", import.meta.url));
 const PAGE = "/settings/account";
 const COOKIE = "better-auth.session_token=signed-out";
+const GUARD = fileURLToPath(new URL("server-logs-offline.cjs", import.meta.url));
+const ABSORBED = new Map([
+	[
+		"registry.npmjs.org:443",
+		"next dev's security advisory check, which runs only when it detects an agent such as a seat",
+	],
+]);
 
 const freePort = () =>
 	new Promise((resolve, reject) => {
@@ -56,14 +63,22 @@ function actionId(name) {
 	return found[0];
 }
 
-test("BUG-PR199: the dev server log never shows a password sent to a server action", { timeout: 240_000 }, async () => {
+async function serverLogs(t) {
 	let fontRequests = 0;
 	const fonts = createHttpServer((_, response) => {
 		fontRequests++;
 		response.writeHead(200, { "content-type": "font/woff2" }).end();
 	});
 	await new Promise((r) => fonts.listen(0, "127.0.0.1", r));
-	const offline = createServer((socket) => socket.destroy());
+	const outside = [];
+	const offline = createHttpServer((request) => {
+		outside.push(new URL(request.url).host);
+		request.socket.destroy();
+	});
+	offline.on("connect", (request, socket) => {
+		outside.push(request.url);
+		socket.destroy();
+	});
 	await new Promise((r) => offline.listen(0, "127.0.0.1", r));
 	const proxy = `http://127.0.0.1:${offline.address().port}`;
 	const dir = mkdtempSync(join(tmpdir(), "server-logs-"));
@@ -94,6 +109,7 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 			NODE_ENV: "development",
 			NEXT_TELEMETRY_DISABLED: "1",
 			NEXT_FONT_GOOGLE_MOCKED_RESPONSES: mockFile,
+			NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --require ${GUARD}`,
 			NODE_USE_ENV_PROXY: "1",
 			HTTP_PROXY: proxy,
 			HTTPS_PROXY: proxy,
@@ -126,6 +142,16 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 	});
 	watcher.unref();
 	watcher.stdin.unref();
+	const assertOffline = () => {
+		const blocked = [...log.matchAll(/offline guard: blocked a connection to (\S+)/g)].map((m) => m[1]);
+		const hosts = [...outside.filter((host) => !ABSORBED.has(host)), ...blocked];
+		assert.deepEqual(hosts, [], `the dev server sent requests to outside hosts: ${[...new Set(hosts)].join(", ")}`);
+		const unmocked = log.includes("url not found")
+			? [...new Set([...log.matchAll(/internal\/font\/google\/(\w+?)_[0-9a-f]+\.js/g)].map((m) => m[1]))]
+			: [];
+		assert.deepEqual(unmocked, [], `next/font/google ${unmocked.join(", ")} has no entry in the test's font mock`);
+		for (const host of new Set(outside)) t.diagnostic(`absorbed on loopback: ${host} (${ABSORBED.get(host)})`);
+	};
 	const send = (url, init) =>
 		fetch(url, init).catch((error) => {
 			assert.fail(`${init?.method ?? "GET"} ${url} failed (${error.cause?.message ?? error.message}):\n${log}`);
@@ -162,10 +188,14 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 		await send(origin + PAGE, { headers: { cookie: COOKIE }, redirect: "manual" });
 		await logged((text) => text.split(`GET ${PAGE}`).length > 2);
 		assert.equal(log.split(`POST ${PAGE}`).length - 1, calls.length, "the dev server logged each action request");
+		assertOffline();
 		assert.ok(fontRequests > 0, "the page's fonts came from this run's font server, not from Google");
 		const shown = Object.keys(secrets).filter((key) => log.includes(secrets[key]));
 		const masked = Object.values(secrets).reduce((text, secret) => text.replaceAll(secret, "<password>"), log);
 		assert.deepEqual(shown, [], `the dev server log shows synthetic passwords:\n${masked}`);
+	} catch (error) {
+		assertOffline();
+		throw error;
 	} finally {
 		stop();
 		watcher.kill();
@@ -173,4 +203,6 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 		offline.close();
 		rmSync(dir, { recursive: true, force: true });
 	}
-});
+}
+
+test("BUG-PR199: the dev server log never shows a password sent to a server action", { timeout: 240_000 }, serverLogs);
