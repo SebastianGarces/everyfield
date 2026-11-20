@@ -1188,8 +1188,8 @@ async function mailCases(
 				() => runtime,
 				secret,
 			);
-			const received = await response.json();
-			if (received.result !== "applied") throw Error(`delivered callback: ${JSON.stringify(received)}`);
+			const received = await response.text();
+			if (JSON.parse(received).result !== "applied") throw Error(`delivered callback: ${received}`);
 		}
 		done.push(`message ${DELIVERY}`);
 	}
