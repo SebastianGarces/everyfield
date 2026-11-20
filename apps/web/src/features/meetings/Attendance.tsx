@@ -856,7 +856,8 @@ function EvaluationForm({
 	const [reason, setReason] = useState(initial?.reason ?? "");
 	const [touched, setTouched] = useState(false);
 	const missing = FACTORS.filter((f) => scores[f.key] === undefined);
-	const complete = missing.length === 0;
+	const [firstMissing] = missing;
+	const complete = firstMissing === undefined;
 	const changed =
 		correcting &&
 		(FACTORS.some((f) => scores[f.key] !== evaluation.scores[f.key]) || notes.trim() !== (evaluation.notes ?? ""));
@@ -870,8 +871,8 @@ function EvaluationForm({
 				onSubmit={(e) => {
 					e.preventDefault();
 					setTouched(true);
-					if (!complete) {
-						first.current?.querySelector<HTMLElement>(`[data-factor="${missing[0]!.key}"] button`)?.focus();
+					if (firstMissing) {
+						first.current?.querySelector<HTMLElement>(`[data-factor="${firstMissing.key}"] button`)?.focus();
 						return;
 					}
 					if (correcting && !changed)
