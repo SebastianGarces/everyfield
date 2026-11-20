@@ -92,8 +92,10 @@ test("T-301 the People seed runs first, since the Evry and Meetings seeds read i
 
 test("T-301 the nightly ui job runs webkit after a failed chromium run and uses no secret", () => {
 	const workflow = readFileSync(join(root, ".github/workflows/nightly.yml"), "utf8");
-	const job = workflow.slice(workflow.indexOf("\n  ui:\n"));
-	assert.doesNotMatch(workflow, /secrets\./);
+	const start = workflow.indexOf("\n  ui:\n");
+	const next = workflow.slice(start + 1).search(/\n  [\w-]+:\n/);
+	const job = next < 0 ? workflow.slice(start) : workflow.slice(start, start + 1 + next);
+	assert.doesNotMatch(job, /secrets\./);
 	for (const engine of ["chromium", "webkit"]) {
 		const at = job.indexOf(`- name: tests/ui ${engine}\n`);
 		assert.ok(at > 0, `${engine} step`);
