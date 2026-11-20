@@ -1,10 +1,10 @@
 import "server-only";
-import { readRequestViewer } from "@everyfield/domain/access";
+import { readRequestViewer, type RequestActor } from "@everyfield/domain/access";
 import { signedSessionToken } from "@everyfield/domain/identity";
 import { peopleViewer } from "@everyfield/domain/people";
 import { sessionResult } from "@everyfield/contracts/identity";
 import { avatarReference } from "@everyfield/contracts/settings";
-import type { Refused } from "@everyfield/contracts/common";
+import type { Owner, Refused } from "@everyfield/contracts/common";
 import { requestDatabase } from "./database";
 import { serverConfigProblem } from "./config.ts";
 import { cookies, headers } from "next/headers";
@@ -76,6 +76,28 @@ export type Viewer = Awaited<ReturnType<typeof getViewer>>;
 export type PlantSeat = NonNullable<Viewer["people"]> & { accountName: string };
 
 export const seatOf = (v: Viewer): PlantSeat | null => v.people && { ...v.people, accountName: v.displayName ?? "" };
+
+type SeatContext = Extract<RequestActor["actor"]["context"], { kind: "seat" }>;
+
+export type OrganizationSeat = {
+	authority: RequestActor;
+	organization: Extract<Owner, { kind: "organization" }>;
+	role: SeatContext["role"];
+};
+
+export function organizationSeatOf(authority: RequestActor | null): OrganizationSeat | null {
+	const context = authority?.actor.context;
+	if (!authority || context?.kind !== "seat" || context.owner.kind !== "organization") return null;
+	return { authority, organization: context.owner, role: context.role };
+}
+
+export async function viewerActor(): Promise<RequestActor | null> {
+	return (await getViewer()).authority;
+}
+
+export async function organizationSeat(): Promise<OrganizationSeat | null> {
+	return organizationSeatOf(await viewerActor());
+}
 
 export async function plantSeat(): Promise<PlantSeat | null> {
 	return seatOf(await getViewer());

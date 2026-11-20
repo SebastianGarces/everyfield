@@ -15,7 +15,7 @@ export async function ImportPage({
 }) {
 	const raw = (await searchParams).import;
 	const key = typeof raw === "string" ? raw : null;
-	const g = await gate("/people/import" + (key ? `?import=${encodeURIComponent(key)}` : ""));
+	const g = await gate(`/people/import${key ? `?import=${encodeURIComponent(key)}` : ""}`);
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
 	if (!canWrite(viewer)) {
