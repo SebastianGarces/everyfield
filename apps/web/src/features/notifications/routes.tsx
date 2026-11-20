@@ -15,7 +15,7 @@ export const notificationsMetadata: Metadata = { title: "Notifications", robots:
 export async function NotificationsPage({ searchParams }: { searchParams: Search }) {
 	const query = parseQuery(params(await searchParams));
 	const actor = await notificationActor();
-	if (!actor) signIn("/notifications" + querySearch(query));
+	if (!actor) signIn(`/notifications${querySearch(query)}`);
 	const loaded = await loadFeedPage(actor, query);
 	if (loaded.status !== "ok")
 		return (

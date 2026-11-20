@@ -1,5 +1,5 @@
 export { taskReminderTimes } from "./calendar.ts";
-export { authorizeDigestMail, createDigestWorker, planDigests, type DigestWorker } from "./digest.ts";
+export { authorizeDigestMail, createDigestWorker, planDigests, supersedeDigests, type DigestWorker } from "./digest.ts";
 export {
 	runDueFeedbackPublication,
 	type CreateOutcome,

@@ -60,7 +60,7 @@ export function previewViewer(persona: PreviewPersona): SettingsViewer {
 	};
 }
 
-export const PREVIEW_RELATIONSHIPS: Relationship[] = [
+export const PREVIEW_RELATIONSHIPS: [Relationship, Relationship] = [
 	{ relationshipId: uuid(10, 3), revision: "4", organization: NETWORK, organizationName: "Austin Sending Network" },
 	{ relationshipId: uuid(11, 3), revision: "2", organization: SENDING, organizationName: "Grace Fellowship" },
 ];
@@ -173,7 +173,7 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 		const admin = persona !== "member";
 		for (const [r, choices] of [
 			[
-				PREVIEW_RELATIONSHIPS[0]!,
+				PREVIEW_RELATIONSHIPS[0],
 				{
 					people: false,
 					meetings: true,
@@ -185,7 +185,7 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 				},
 			],
 			[
-				PREVIEW_RELATIONSHIPS[1]!,
+				PREVIEW_RELATIONSHIPS[1],
 				{
 					people: true,
 					meetings: true,
@@ -510,12 +510,14 @@ export function createFixturePort(
 		},
 		async saveChurch(raw) {
 			const request = S.saveChurchRequest.parse(raw);
+			const [first, ...rest] = request.input.changes;
+			if (!first) throw new Error("A church save has no change");
 			let reply = await port.saveSection({
 				requestKey: request.requestKey,
 				expectedRevision: request.expectedRevision,
-				input: { section: "plant", plant: request.input.plant, change: request.input.changes[0]! },
+				input: { section: "plant", plant: request.input.plant, change: first },
 			});
-			for (const change of request.input.changes.slice(1)) {
+			for (const change of rest) {
 				if (reply.status !== "ok" || reply.value.current.section !== "plant") break;
 				reply = await port.saveSection({
 					requestKey: `${request.requestKey}/${change.kind}`,

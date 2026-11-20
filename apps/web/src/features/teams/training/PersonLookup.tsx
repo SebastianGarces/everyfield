@@ -331,8 +331,9 @@ function ProgramHistory({
 	busy: boolean;
 	onOpen: (form: Flow) => void;
 }) {
-	const name = row.program?.name ?? "A program";
-	const writable = row.program ? canWrite(row.program) : false;
+	const { program } = row;
+	const name = program?.name ?? "A program";
+	const writable = program ? canWrite(program) : false;
 	const events = credits
 		.filter((credit) => credit.programId === row.id)
 		.slice()
@@ -353,21 +354,21 @@ function ProgramHistory({
 					))}
 				</ul>
 			) : null}
-			{writable && row.program ? (
+			{writable && program ? (
 				<div className="flex flex-wrap gap-2">
 					{earned ? (
 						<>
 							<Button
 								variant="danger"
 								disabled={busy}
-								onClick={() => onOpen(personForm("revoke", localToday(), row.program!, person))}
+								onClick={() => onOpen(personForm("revoke", localToday(), program, person))}
 							>
 								Revoke completion
 							</Button>
 							<Button
 								variant="outline"
 								disabled={busy}
-								onClick={() => onOpen(personForm("redo", localToday(), row.program!, person))}
+								onClick={() => onOpen(personForm("redo", localToday(), program, person))}
 							>
 								Record again
 							</Button>
@@ -376,7 +377,7 @@ function ProgramHistory({
 						<Button
 							variant="primary"
 							disabled={busy}
-							onClick={() => onOpen(personForm("complete", localToday(), row.program!, person))}
+							onClick={() => onOpen(personForm("complete", localToday(), program, person))}
 						>
 							Record completion
 						</Button>

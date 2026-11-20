@@ -3,7 +3,8 @@
 import { organizationBodyFits } from "@everyfield/contracts/wiki";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { editorContext, plantContext, mountFor, wikiActor } from "./server.ts";
+import { viewerActor } from "@/server/request-context";
+import { editorContext, plantContext, mountFor } from "./server.ts";
 import { isTransient, logFailure } from "@everyfield/domain/log";
 import { LOST, transient, unexpected } from "../../server/platform/transient.ts";
 
@@ -21,7 +22,7 @@ const readingKey = z.object({ requestKey: z.string(), articleId: z.string(), pla
 const bookmarkKey = readingKey.extend({ expectedRevision: z.string() });
 const invalidKey = { status: "denied" } as const;
 
-const actorMount = async () => mountFor(await wikiActor());
+const actorMount = async () => mountFor(await viewerActor());
 
 function mapReading(value: {
 	errorCode: "content_access_denied" | null;

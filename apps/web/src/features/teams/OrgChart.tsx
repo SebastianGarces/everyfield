@@ -12,7 +12,8 @@ import { loadProblem } from "../../components/read-failed.ts";
 type Tree = { root: ChartNode | null; children: ChartNode[] };
 function tree(nodes: readonly ChartNode[]): Tree {
 	const root = nodes.find((n) => n.parentId === null && nodes.some((c) => c.parentId === n.id)) ?? null;
-	const lone = root === null && nodes.length === 1 && nodes[0]!.parentId === null ? nodes[0]! : null;
+	const [only] = nodes;
+	const lone = root === null && only !== undefined && nodes.length === 1 && only.parentId === null ? only : null;
 	if (lone && lone.templateKey === "leadership") return { root: lone, children: [] };
 	return { root, children: nodes.filter((n) => n !== root) };
 }

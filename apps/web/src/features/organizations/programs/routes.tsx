@@ -3,7 +3,7 @@ import { pipelineActor } from "../pipeline-mount";
 import { loadEnrollment, loadProgram, loadPrograms } from "./mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { LANDING_ROUTE } from "@everyfield/contracts/identity";
+import { LANDING_ROUTE, type SitePath } from "@everyfield/contracts/identity";
 import { NotAvailable } from "../../access/AccessStates";
 import { EnrollmentScreen } from "./EnrollmentScreen";
 import { enrollmentHref, programHref, PROGRAMS_PATH } from "./model";
@@ -21,7 +21,7 @@ const refused = (
 	</div>
 );
 
-async function seat(path: string) {
+async function seat(path: SitePath) {
 	const who = await pipelineActor();
 	if (who.kind === "signed_out") signIn(path);
 	return who.kind === "seat" ? who.authority : null;
