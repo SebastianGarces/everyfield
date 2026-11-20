@@ -7,9 +7,12 @@
 		"jsx": "react-jsx",
 		"typeRoots": ["../../apps/web/node_modules/@types"],
 		"types": ["node"],
+		"moduleDetection": "force",
 		"paths": { "@/*": ["../../apps/web/src/*"] }
 	},
 	"include": [
+		"./branding/**/*.ts",
+		"./branding/**/*.mts",
 		"./dashboard/**/*.ts",
 		"./dashboard/**/*.mts",
 		"./feedback/**/*.ts",
