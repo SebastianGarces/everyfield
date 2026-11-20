@@ -116,7 +116,7 @@ SELECT g.allowed,(SELECT to_jsonb(o) FROM o) AS org,
 FROM g`);
 		const row = exportRow.parse(r.rows[0]);
 		if (!row.allowed || !row.org) refuse();
-		const o = row.org!;
+		const o = row.org;
 		let body = "";
 		for (const p of row.people) {
 			const who = { person_id: p.id, name: p.name };

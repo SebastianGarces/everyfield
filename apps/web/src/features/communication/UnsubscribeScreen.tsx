@@ -57,6 +57,7 @@ function Choice({ token, churchName, unsubscribed }: { token: string; churchName
 			() => applyUnsubscribe(token),
 			(r) => ({ kind: "off", undoToken: r.undoToken }),
 		);
+	const undoable = done?.kind === "off" ? done.undoToken : null;
 	const undo = (undoToken: string) =>
 		run(
 			() => undoUnsubscribe(undoToken),
@@ -95,9 +96,9 @@ function Choice({ token, churchName, unsubscribed }: { token: string; churchName
 					<Button variant="primary" className="w-full" loading={pending} onClick={unsubscribe}>
 						Unsubscribe
 					</Button>
-				) : done.kind === "off" && done.undoToken ? (
+				) : undoable ? (
 					<div className="flex flex-col gap-2">
-						<Button variant="secondary" className="w-full" loading={pending} onClick={() => undo(done.undoToken!)}>
+						<Button variant="secondary" className="w-full" loading={pending} onClick={() => undo(undoable)}>
 							Undo
 						</Button>
 						<p className="text-center text-xs text-text-3">You can undo this here for one hour.</p>
