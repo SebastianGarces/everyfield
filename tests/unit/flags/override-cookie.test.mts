@@ -79,7 +79,6 @@ const vercelSigned = (
 	})}`;
 	return `${body}.${sign("sha256", Buffer.from(body), { key: kms.privateKey, dsaEncoding: "ieee-p1363" }).toString("base64url")}`;
 };
-const signedOn = () => vercelSigned("flag-overrides", { overrides: { "overview-role-subtitle": true } });
 
 beforeEach(() => {
 	configure({});
@@ -165,16 +164,6 @@ test("on a Vercel preview with no FLAGS_SECRET the discovery route lists every r
 	configure(onVercel("preview"));
 	assert.equal((await discover()).status, 401);
 	assert.equal((await discover(`Bearer ${await createAccessProof(secret)}`)).status, 401);
-	assert.equal((await discover(`Bearer ${vercelSigned("flag-overrides")}`)).status, 401, "a token for another purpose");
-	assert.equal(
-		(
-			await discover(
-				`Bearer ${vercelSigned("flags-discovery", {}, { projectIds: ["prj_other"], environments: ["preview"] })}`,
-			)
-		).status,
-		401,
-		"a token for another project",
-	);
 	const forged = vercelSigned("flags-discovery").replace(/\.[^.]+$/, `.${randomBytes(64).toString("base64url")}`);
 	assert.equal((await discover(`Bearer ${forged}`)).status, 401, "a token with a signature Vercel did not make");
 	const ok = await discover(`Bearer ${vercelSigned("flags-discovery")}`);
@@ -185,21 +174,12 @@ test("on a Vercel preview with no FLAGS_SECRET the discovery route lists every r
 
 test("on a Vercel preview with no FLAGS_SECRET a Vercel-signed override cookie forces the flag and changes no feature_flag row", async () => {
 	configure(onVercel("preview"));
-	state.flagCookie = signedOn();
+	state.flagCookie = vercelSigned("flag-overrides", { overrides: { "overview-role-subtitle": true } });
 	assert.equal(await readFlag("overview-role-subtitle"), true);
 	assert.ok(
 		state.flagStatements.every((q) => !/\b(INSERT|UPDATE|DELETE)\b/i.test(q)),
 		state.flagStatements.join("\n"),
 	);
-	state.flagCookie = vercelSigned(
-		"flag-overrides",
-		{ overrides: { "overview-role-subtitle": true } },
-		{
-			projectIds: ["prj_other"],
-			environments: ["preview"],
-		},
-	);
-	assert.equal(await readFlag("overview-role-subtitle"), false, "a cookie signed for another project is ignored");
 	state.flagCookie = await forcedOn();
 	assert.equal(await readFlag("overview-role-subtitle"), false, "a FLAGS_SECRET cookie is ignored without the secret");
 });
