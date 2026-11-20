@@ -155,7 +155,7 @@ async function createProgram(
 	const teamId = input.input.teamId;
 	await teamGate(tx, w, teamId);
 	const id = randomUUID();
-	const program = programRow.parse({
+	const program = {
 		id,
 		teamId,
 		name: input.input.name,
@@ -163,7 +163,7 @@ async function createProgram(
 		version: 1,
 		revision: "1",
 		archived: false,
-	});
+	} satisfies z.output<typeof programRow>;
 	audit.writes.push(sql`INSERT INTO training_program (id, plant_id, team_id, name, required)
 		VALUES (${id}::uuid, ${w.plant.id}::uuid, ${teamId}::uuid, ${program.name}, ${program.required})`);
 	return {

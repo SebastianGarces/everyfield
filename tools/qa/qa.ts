@@ -169,6 +169,9 @@ export function qaUp(root: string, branch: string, recipients: string[] = []): n
 		`Sign in as ${QA_LOGINS.owner} (also qa-admin, qa-member; Riverside (QA): ${QA_LOGINS.riverside}). Remove it with: bin/qa down ${id}. Runbook: docs/runbooks/qa-preview.md`,
 	);
 	console.error(
+		`Ended residency: sign in as ${QA_LOGINS.endedResident} to see the ended-residency message on /my-residency.`,
+	);
+	console.error(
 		recipients.length
 			? `Real mail on this preview also reaches: ${recipients.join(", ")}. Ana Lee uses ${recipients[0]} in both churches. Other addresses go to /api/dev/outbox.`
 			: "Real mail on this preview reaches no extra address: only delivered+...@resend.dev. Other addresses go to /api/dev/outbox.",

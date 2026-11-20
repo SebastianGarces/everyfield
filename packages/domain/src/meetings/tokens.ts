@@ -53,7 +53,7 @@ export async function describeRsvpToken(db: Reader, raw: unknown) {
 		FROM participation g JOIN meeting m ON m.id = g.meeting_id JOIN person p ON p.id = g.person_id
 		WHERE g.rsvp_token_hash = ${rsvpTokenDigest(input.data.token)} AND g.removed_at IS NULL AND m.retired_at IS NULL AND p.state = 'live'
 			AND ${plantVisible(sql`g.plant_id`)}`);
-	if (!r.rows[0]) return c.rsvpTokenView.parse({ state: "unavailable" });
+	if (!r.rows[0]) return { state: "unavailable" } satisfies z.output<typeof c.rsvpTokenView>;
 	const v = viewRow.parse(r.rows[0]);
 	return c.rsvpTokenView.parse({
 		state: v.closed ? "closed" : !v.open ? "answered" : v.expired ? "expired" : "pending",
@@ -99,6 +99,6 @@ export async function answerRsvpToken(db: Database, raw: unknown) {
 	if (!row.answered) return refused("token_closed");
 	return {
 		status: "ok" as const,
-		value: c.rsvpTokenAnswer.parse({ rsvp }),
+		value: { rsvp } satisfies z.output<typeof c.rsvpTokenAnswer>,
 	};
 }

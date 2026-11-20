@@ -75,6 +75,7 @@
 		"everyfield/no-comments": "error",
 		"everyfield/server-log": "error",
 		"everyfield/no-effects": "error",
+		"everyfield/stable-context-value": "error",
 		"everyfield/storage-client": "error",
 		"everyfield/deployment-env": "error",
 		"everyfield/server-config": "error",
@@ -85,6 +86,7 @@
 		"everyfield/no-error-message-match": "error",
 		"everyfield/no-slop-styling": "error",
 		"everyfield/sign-in-redirect": "error",
+		"everyfield/shared-outcome": "error",
 		"everyfield/web-database-imports": "error",
 		"no-restricted-imports": [
 			"error",

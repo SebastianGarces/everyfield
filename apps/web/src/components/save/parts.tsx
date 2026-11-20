@@ -2,7 +2,17 @@
 
 import { Alert, Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
 import { cn, useFocusRequest, type IconSvgElement } from "@everyfield/ui/foundations";
-import { createContext, use, useId, useReducer, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+	createContext,
+	use,
+	useId,
+	useMemo,
+	useReducer,
+	useRef,
+	useState,
+	useSyncExternalStore,
+	type ReactNode,
+} from "react";
 import { SaveLane, waitOf, type LaneOptions, type Notice, type SaveSpec, type Wait } from "./model.ts";
 
 export function useSaveIntent<E extends { problem?: string }>(options: Pick<LaneOptions, "explain" | "busy">) {
@@ -237,8 +247,9 @@ export function SaveNotice({
 	return <NoticeRegion {...props} notice={dialogOpen ? null : props.notice} className={className} />;
 }
 
-export function NoticeInDialog({ children, ...props }: NoticeProps & { children: ReactNode }) {
-	return <NoticeContext value={props}>{children}</NoticeContext>;
+export function NoticeInDialog({ children, notice, busy, onDismiss }: NoticeProps & { children: ReactNode }) {
+	const value = useMemo(() => ({ notice, busy, onDismiss }), [notice, busy, onDismiss]);
+	return <NoticeContext value={value}>{children}</NoticeContext>;
 }
 
 export function DialogNotice() {

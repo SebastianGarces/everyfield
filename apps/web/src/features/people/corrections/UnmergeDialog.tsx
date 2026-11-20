@@ -27,6 +27,7 @@ import { unmergeRead } from "./intent.ts";
 import { conflictText, counted, FIELD_LABEL, kindTitle, listText } from "./model.ts";
 import { Problem } from "./parts.tsx";
 import type { UnmergeView } from "./server.ts";
+import { loadProblem } from "../../../components/read-failed.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Restored = UnmergeView["preview"]["restores"];
@@ -138,10 +139,10 @@ export function UnmergeDialog({
 						</div>
 					) : !view || !p || !names ? (
 						<Problem>
-							{preview.status === "lost"
+							{preview.status === "lost" || preview.status === "failed"
 								? uncertain
 									? "The Unmerge preview did not load, so this page cannot tell whether your last Unmerge went through. Try again to see where they stand."
-									: "The Unmerge preview did not load. Try again in a moment."
+									: loadProblem(preview, "The Unmerge preview did not load. Try again in a moment.")
 								: "You cannot see this Unmerge. Only Owners and Admins can unmerge people."}
 						</Problem>
 					) : finished ? (
