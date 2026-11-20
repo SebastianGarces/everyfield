@@ -45,7 +45,7 @@ async function person(name, fields = {}) {
 	const id = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,
 		pipeline_position,state,created_at,linked_account_id) VALUES(${id},${fields.plant ?? P},${fields.plant ?? P},${name},'other',
-		${fields.stage ?? "prospect"},'unknown','unknown',0,'live',clock_timestamp(),${fields.account ?? null})`);
+		${fields.stage ?? "prospect"},'unknown','unknown',0,${fields.state ?? "live"},clock_timestamp(),${fields.account ?? null})`);
 	return id;
 }
 async function makeTeam(name, who = 0) {
@@ -1154,6 +1154,46 @@ test("AC:REQ-IDN-005 an unknown or another church's program or team is unavailab
 		),
 		"access_denied",
 	);
+});
+
+test("AC:REQ-IDN-005 a credit write for a missing, another church's or retired person is refused and adds no credit", async () => {
+	const course = await program("Person outcome course", { required: false });
+	const revision = await rev("training_program", course.id);
+	const credits = () => count(sql`SELECT count(*)::int AS n FROM training_credit WHERE program_id=${course.id}`);
+	const marks = await plantRevision();
+	const cases = [
+		[randomUUID(), "invalid_subject"],
+		[await person("Abroad Person", { plant: Q }), "access_denied"],
+		[await person("Retired Person", { state: "retired" }), "invalid_subject"],
+	];
+	for (const [personId, code] of cases) {
+		refused(
+			await run(trainingWriter.attestCompletion, {
+				requestKey: key(),
+				expectedRevision: revision,
+				input: { kind: "program", personId, programId: course.id, earnedOn: "2026-10-01" },
+			}),
+			code,
+		);
+		refused(
+			await run(trainingWriter.revokeCompletion, {
+				requestKey: key(),
+				expectedRevision: revision,
+				input: { personId, programId: course.id },
+			}),
+			code,
+		);
+		refused(
+			await run(trainingWriter.recompleteTraining, {
+				requestKey: key(),
+				expectedRevision: revision,
+				input: { personId, programId: course.id, earnedOn: "2026-10-01" },
+			}),
+			code,
+		);
+	}
+	assert.equal(await credits(), 0);
+	assert.equal(await plantRevision(), marks);
 });
 
 test("INV-concurrency two leaders recording the same credit at once add one credit row, and two revokes add one revoke", async () => {
