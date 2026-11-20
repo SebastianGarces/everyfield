@@ -28,7 +28,7 @@ async function runAs<T, O extends string>(viewer: Viewer, outcome: LogWord<O>, c
 }
 
 export function readBrand(viewer: Viewer): Promise<BrandReply<BrandView>> {
-	return runAs(viewer, "read_failed", (db, actor) => brandReader.settings(db, actor, {}));
+	return runAs(viewer, "read_failed", (db, actor) => brandReader.getSettings(db, actor, {}));
 }
 
 export function saveBrandKit(raw: unknown): Promise<BrandReply<BrandKit>> {

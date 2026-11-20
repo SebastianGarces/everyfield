@@ -92,7 +92,7 @@ export function brandingCases(t, who) {
 	};
 	return [
 		r("get", () => brandReader.get(db, who.actor, {}), { value: defaultKit, control: savedKit }),
-		r("settings", () => brandReader.settings(db, who.actor, {}), {
+		r("getSettings", () => brandReader.getSettings(db, who.actor, {}), {
 			value: { kit: defaultKit, churchName: "Synthetic plant" },
 			control: (value) => {
 				assert.equal(value.churchName, `${MARK} Church`);

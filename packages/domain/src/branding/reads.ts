@@ -27,7 +27,7 @@ export const brandReader = {
 		});
 	},
 
-	async settings(db: Database, authority: RequestActor, raw: unknown) {
+	async getSettings(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
 			parse(c.getRequest, raw);
