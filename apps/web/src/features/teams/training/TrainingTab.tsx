@@ -60,8 +60,10 @@ import {
 	type Flow,
 	type ShownProgram,
 } from "./model.ts";
+import { loadProblem, failedIcon } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
-type ShownRead = Outcome<ShownProgram[]>;
+type ShownRead = Outcome<ShownProgram[]> | ReadFailure;
 
 const loadShown = (teamId: string): Promise<ShownRead> =>
 	loadTraining(teamId).then((result) =>
@@ -295,6 +297,7 @@ export function TrainingTab({
 					<StatePanel
 						tone="error"
 						title="Training did not load"
+						icon={failedIcon(loaded)}
 						headingLevel="h3"
 						actions={
 							<Button variant="secondary" onClick={reload} disabled={pending}>
@@ -304,7 +307,7 @@ export function TrainingTab({
 					>
 						{loaded?.status === "refused"
 							? problemText(loaded.code)
-							: `Nothing on ${teamName} was changed. Try again in a moment.`}
+							: loadProblem(loaded, `Nothing on ${teamName} was changed. Try again in a moment.`)}
 					</StatePanel>
 				) : programs.length === 0 ? (
 					<EmptyState

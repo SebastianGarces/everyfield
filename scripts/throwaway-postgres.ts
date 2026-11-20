@@ -16,6 +16,7 @@ export type PostgresOptions = {
 	readyTimeoutMs: number;
 	sleep: (ms: number) => void;
 	watch: (container: string) => () => void;
+	scope?: string;
 };
 
 export class DatabaseError extends Error {}
@@ -46,9 +47,9 @@ export const databaseEnv = (url: string) => ({
 });
 
 export function startPostgres(options: PostgresOptions): ThrowawayPostgres & { stop: () => void } {
-	const { root, env, run, readyTimeoutMs, sleep } = options;
+	const { root, env, run, readyTimeoutMs, sleep, scope } = options;
 	const docker = (...args: string[]) => run("docker", args, { cwd: root, env });
-	const label = `${LABEL}=${checkoutLabel(root)}`;
+	const label = `${LABEL}=${checkoutLabel(scope ? `${root}#${scope}` : root)}`;
 	const left = docker("ps", "-aq", "--filter", `label=${label}`);
 	if (left.status !== 0) throw new DatabaseError(`Docker cannot be reached: ${firstLine(left.output)}`);
 	const stale = left.stdout.split("\n").filter(Boolean);
@@ -57,7 +58,7 @@ export function startPostgres(options: PostgresOptions): ThrowawayPostgres & { s
 	const slug = basename(root)
 		.replace(/[^a-zA-Z0-9_.-]/g, "-")
 		.slice(0, 40);
-	const container = `evf-check-db-${slug}-${randomBytes(3).toString("hex")}`;
+	const container = `evf-${scope ?? "check"}-db-${slug}-${randomBytes(3).toString("hex")}`;
 	const password = randomBytes(18).toString("hex");
 	const started = docker(
 		...["run", "-d", "--rm", "--name", container, "--label", label],

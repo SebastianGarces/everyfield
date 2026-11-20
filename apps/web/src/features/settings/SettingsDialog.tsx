@@ -12,7 +12,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { ConfirmDialog, Dialog, DialogContent, DialogHeader, StatePanel } from "@everyfield/ui/controls";
 import { cn, Icon, useFocusRequest, type IconSvgElement } from "@everyfield/ui/foundations";
-import { useId, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useId, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { unsavedMark } from "../../components/save/leave.ts";
 import { offeredSections, SECTION_LABEL } from "./model";
 import type { SectionKey } from "./port";
@@ -89,13 +89,20 @@ export function SettingsDialog({
 		confirming || root.contains(root.ownerDocument.activeElement) ? null : currentNavLink(root),
 	);
 
-	const requestClose = () => {
-		if (dirty.keys.length > 0) setConfirming(true);
-		else {
-			setShown(null);
-			onNavigate(null);
-		}
-	};
+	const hasDirty = dirty.keys.length > 0;
+	const frame = useMemo(
+		() => ({
+			requestClose: () => {
+				if (hasDirty) setConfirming(true);
+				else {
+					setShown(null);
+					onNavigate(null);
+				}
+			},
+		}),
+		[hasDirty, onNavigate],
+	);
+	const { requestClose } = frame;
 	const discarded = useRef(false);
 	const leavingFor = useRef<SectionKey | null>(null);
 	const keepEditing = (open: boolean) => {
@@ -138,7 +145,7 @@ export function SettingsDialog({
 	const unsavedNames = dirty.keys.map((k) => SECTION_LABEL[k]);
 
 	return (
-		<FrameContext value={{ requestClose }}>
+		<FrameContext value={frame}>
 			<Dialog open={current !== null} onOpenChange={(open) => (open ? undefined : requestClose())}>
 				<DialogContent
 					size="lg"
