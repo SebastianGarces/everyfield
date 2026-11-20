@@ -510,34 +510,26 @@ export function censusCheck({ root, all, home = ciHome(), run = spawnRunner, dat
 		tests: null,
 		durationMs: 0,
 	};
-	const assemble = (running: boolean): CheckRecord => {
-		const failures = [
-			...(entry.result === "failed" ? [`census failed: ${entry.detail}`] : []),
-			...(running ? ["incomplete: census was still running when this record was written"] : []),
-		];
-		return {
-			head,
-			mergeBase,
-			mode: all ? "full" : "selected",
-			fullReasons: all ? ["--all runs the census regardless of the diff"] : [],
-			startedAt: new Date(started).toISOString(),
-			durationMs: Date.now() - started,
-			result: failures.length ? "failed" : "passed",
-			complete: !running,
-			running: running ? "census" : null,
-			failures,
-			checks: [entry],
-			tests: [],
-		};
-	};
 	if (decision.run) {
-		entry.result = "running";
-		writeRecord(home, root, "census.json", assemble(true));
 		const env = checkEnv(`${checkTmp(root, home)}-census`);
 		census(entry, { root, env, run, scope: "census", ...database });
 		entry.durationMs = Date.now() - started;
 	}
-	const record = assemble(false);
+	const failures = entry.result === "failed" ? [`census failed: ${entry.detail}`] : [];
+	const record: CheckRecord = {
+		head,
+		mergeBase,
+		mode: all ? "full" : "selected",
+		fullReasons: all ? ["--all runs the census regardless of the diff"] : [],
+		startedAt: new Date(started).toISOString(),
+		durationMs: Date.now() - started,
+		result: failures.length ? "failed" : "passed",
+		complete: true,
+		running: null,
+		failures,
+		checks: [entry],
+		tests: [],
+	};
 	return { record, recordPath: writeRecord(home, root, "census.json", record) };
 }
 
