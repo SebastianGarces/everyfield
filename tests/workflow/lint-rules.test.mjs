@@ -1595,28 +1595,51 @@ export function gate(path: string, out: boolean) {
 	]);
 });
 
-test("INV-lint: a context value built inline is reported, a stable value is not", () => {
-	const source = `import { createContext, useMemo } from "react";
+test("INV-lint: a context value built during render is reported through aliases, casts and conditionals; stable values are not", () => {
+	const source = `import React, { createContext, useCallback, useMemo } from "react";
+type T = { theme: string };
 const ThemeContext = createContext<object | null>(null);
-const Store = createContext<object | null>(null);
-export function A({ theme, children }: { theme: string; children: unknown }) {
+const Store = { Provider: ThemeContext };
+export function A({ theme, on, children }: { theme: string; on: boolean; children: unknown }) {
 	const stable = useMemo(() => ({ theme }), [theme]);
+	const change = useCallback(() => theme, [theme]);
+	const alias = { theme };
+	const twice = alias;
+	const pick = on ? stable : null;
 	return (
 		<>
 			<ThemeContext value={{ theme }}>{children}</ThemeContext>
 			<Store.Provider value={[theme]}>{children}</Store.Provider>
 			<ThemeContext value={() => theme}>{children}</ThemeContext>
+			<ThemeContext value={twice}>{children}</ThemeContext>
+			<ThemeContext value={{ theme } as T}>{children}</ThemeContext>
+			<ThemeContext value={on ? { theme } : null}>{children}</ThemeContext>
+			<ThemeContext value={(on && [theme]) || null}>{children}</ThemeContext>
 			<ThemeContext value={stable}>{children}</ThemeContext>
-			<Store.Provider value={stable}>{children}</Store.Provider>
-			<div title={theme} />
+			<ThemeContext value={change}>{children}</ThemeContext>
+			<ThemeContext value={pick}>{children}</ThemeContext>
+			<Store.Provider value={theme}>{children}</Store.Provider>
 		</>
 	);
 }
+export function B({ children, ...rest }: { children: unknown; a: string }) {
+	return <ThemeContext value={rest}>{children}</ThemeContext>;
+}
+export const Seat = createContext(null);
+export const Flag = React.createContext(false);
+export const SeatContext = createContext(null);
 `;
 	assert.deepEqual(lint({ "packages/ui/src/x.tsx": source }), [
-		"packages/ui/src/x.tsx:10 stable-context-value",
-		"packages/ui/src/x.tsx:8 stable-context-value",
-		"packages/ui/src/x.tsx:9 stable-context-value",
+		"packages/ui/src/x.tsx:13 stable-context-value",
+		"packages/ui/src/x.tsx:14 stable-context-value",
+		"packages/ui/src/x.tsx:15 stable-context-value",
+		"packages/ui/src/x.tsx:16 stable-context-value",
+		"packages/ui/src/x.tsx:17 stable-context-value",
+		"packages/ui/src/x.tsx:18 stable-context-value",
+		"packages/ui/src/x.tsx:19 stable-context-value",
+		"packages/ui/src/x.tsx:28 stable-context-value",
+		"packages/ui/src/x.tsx:30 stable-context-value",
+		"packages/ui/src/x.tsx:31 stable-context-value",
 	]);
 });
 
