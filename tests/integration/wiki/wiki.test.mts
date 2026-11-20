@@ -1549,19 +1549,11 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 		const piece = await globalPiece("t157/publish/" + randomUUID(), [{ text: "Global guidance." }]);
 		const editor = await enroll("admin", { kind: "organization", id: S3 });
 		const at = { articleId: piece.article, organizationId: S3 };
-		const pointer = async () =>
-			(
-				await admin.execute(
-					sql`SELECT e.draft_revision_id, d.body AS draft, c.body AS current FROM article_editor_state e
-						LEFT JOIN article_revision d ON d.id = e.draft_revision_id
-						LEFT JOIN article_revision c ON c.id = e.current_revision_id
-						WHERE e.organization_id=${S3} AND e.article_id=${piece.article}`,
-				)
-			).rows[0];
+		const pointer = () => api.readEditorState(db, S3, piece.article);
 		const opens = async () => {
 			const draft = ok(await api.getOrganizationDraft(db, await actor(editor), at));
 			const stored = await pointer();
-			return { body: draft.body ?? stored.draft ?? stored.current, state: draft.state };
+			return { body: draft.body ?? stored.draftBody ?? stored.currentBody, state: draft.state };
 		};
 		ok(await api.addOrganizationArticle(db, await actor(editor), cmd({ ...at, body: "Draft A." })));
 		const published = ok(
@@ -1575,15 +1567,15 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 		assert.equal(published.state, "published");
 		assert.deepEqual(await opens(), { body: "Draft B.", state: "published" });
 		const stored = await pointer();
-		assert.equal(stored.draft_revision_id, null);
-		assert.equal(stored.current, "Draft B.");
+		assert.equal(stored.draftBody, null);
+		assert.equal(stored.currentBody, "Draft B.");
 		assert.equal(
 			(await current(editor, piece.article, { kind: "organization", organizationId: S3 })).article.body,
 			"Draft B.",
 		);
 		ok(await api.editOrganizationArticle(db, await actor(editor), cmd({ ...at, body: "Draft C." }, "2")));
 		assert.deepEqual(await opens(), { body: "Draft C.", state: "published" });
-		assert.equal((await pointer()).current, "Draft B.");
+		assert.equal((await pointer()).currentBody, "Draft B.");
 	});
 
 	test("two tabs write progress and views from stale revisions without a conflict; bookmark still works", async () => {
@@ -1616,6 +1608,7 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 				)
 			).rows[0];
 		assert.deepEqual(await row(), { fraction: "0.6", revision: "1", bookmarked: false });
+		assert.deepEqual(await api.listCompletedArticles(db, await actor(reader), [piece.article]), new Set());
 		const marked = ok(
 			await api.setBookmark(db, await actor(reader), cmd({ articleId: piece.article, desired: true }, loaded)),
 		);
@@ -1631,6 +1624,11 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 			"conflict",
 		);
 		assert.deepEqual(await row(), { fraction: "0.85", revision: "2", bookmarked: true });
+		assert.equal(await api.getReadingRevision(db, await actor(reader), piece.article), "2");
+		assert.deepEqual(
+			await api.listCompletedArticles(db, await actor(reader), [piece.article]),
+			new Set([piece.article]),
+		);
 	});
 
 	test("AC:CASE-WIKI-001 organization draft edit and hide keep every prior revision", async () => {
