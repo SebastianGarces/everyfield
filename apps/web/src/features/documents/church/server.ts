@@ -1,5 +1,5 @@
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
+import { getViewer, viewerActor } from "@/server/request-context";
 import { type Lost, recordId } from "@everyfield/contracts/common";
 import {
 	type ArchivedChurchSummary,
@@ -15,7 +15,7 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { documentsWriter, docTemplateSummaries, sheetOf, type DocTemplateSummary } from "@everyfield/domain/documents";
 import { readBoundedBody } from "@everyfield/domain/operations";
 import "server-only";
-import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
+import { canEditDocuments, hasPlantSeat } from "../server.ts";
 import { EXPORT_MESSAGES, EXPORT_UNAVAILABLE } from "./refusal.ts";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
 import { parseJson } from "../../../server/platform/json.ts";
@@ -148,7 +148,7 @@ export async function churchFileRoute(request: Request, { params }: { params: Pr
 	const url = new URL(request.url);
 	const format = url.searchParams.get("format") ?? "pdf";
 	const revision = url.searchParams.get("revision");
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return gone();
 	const db = requestDatabase();
 	return transient(
@@ -184,7 +184,7 @@ export async function savedExportRoute(
 	const documentId = recordId.safeParse(raw.documentId);
 	const exportId = recordId.safeParse(raw.exportId);
 	if (!documentId.success || !exportId.success) return gone();
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return gone();
 	const db = requestDatabase();
 	return transient(
@@ -238,7 +238,7 @@ export const saveExportRoute = mutatingRoute(async function saveExportRoute(
 	} | null;
 	if (!body || typeof body.revision !== "string" || !/^[0-9]{1,7}$/.test(body.revision))
 		return answer(refused("invalid_input"));
-	const [actor, viewer] = await Promise.all([documentActor(), getViewer()]);
+	const [actor, viewer] = await Promise.all([viewerActor(), getViewer()]);
 	if (!actor) return answer(refused("access_denied"));
 	const db = requestDatabase();
 	return transient(

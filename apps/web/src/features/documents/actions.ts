@@ -1,10 +1,10 @@
 "use server";
 
+import { viewerActor } from "@/server/request-context";
 import { privateStorage } from "@everyfield/db/schema";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { z } from "zod";
 import type { OwnedView, SavedFile, WrittenView } from "./model.ts";
-import { documentActor } from "./server.ts";
 import {
 	presentOwned,
 	presentSaved,
@@ -15,7 +15,7 @@ import {
 	type Read,
 } from "./outcome.ts";
 
-const run = async <T>(read: Read<T>) => runAs(await documentActor(), read);
+const run = async <T>(read: Read<T>) => runAs(await viewerActor(), read);
 
 export async function generateDocument(
 	templateId: string,
