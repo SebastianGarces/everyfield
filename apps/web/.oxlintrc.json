@@ -1314,6 +1314,17 @@
 			}
 		},
 		{
+			"files": [
+				"src/features/intelligence/**",
+				"src/features/oversight/**",
+				"src/features/phases/**",
+				"src/features/residency/**"
+			],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
+		},
+		{
 			"files": ["src/**"],
 			"rules": {
 				"everyfield/no-timers": "error",
