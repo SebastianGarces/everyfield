@@ -268,7 +268,7 @@ flowchart LR
 | [documents](documents.md) | [`apps/web/src/features/documents/feature-map.json`](../../apps/web/src/features/documents/feature-map.json) | 5 | 12 | 9 | 6 | 3 |
 | [evry](evry.md) | [`apps/web/src/features/evry/feature-map.json`](../../apps/web/src/features/evry/feature-map.json) | 2 | 16 | 5 | 2 | 1 |
 | [feedback](feedback.md) | [`apps/web/src/features/feedback/feature-map.json`](../../apps/web/src/features/feedback/feature-map.json) | 3 | 5 | 3 | 3 | 0 |
-| [followups](followups.md) | [`apps/web/src/features/followups/feature-map.json`](../../apps/web/src/features/followups/feature-map.json) | 2 | 3 | 5 | 3 | 1 |
+| [followups](followups.md) | [`apps/web/src/features/followups/feature-map.json`](../../apps/web/src/features/followups/feature-map.json) | 2 | 3 | 6 | 3 | 1 |
 | [identity](identity.md) | [`apps/web/src/features/identity/feature-map.json`](../../apps/web/src/features/identity/feature-map.json) | 8 | 11 | 11 | 4 | 1 |
 | [intelligence](intelligence.md) | [`apps/web/src/features/intelligence/feature-map.json`](../../apps/web/src/features/intelligence/feature-map.json) | 4 | 5 | 4 | 2 | 1 |
 | [launch](launch.md) | [`apps/web/src/features/launch/feature-map.json`](../../apps/web/src/features/launch/feature-map.json) | 2 | 2 | 5 | 3 | 1 |
