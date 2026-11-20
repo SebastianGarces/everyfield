@@ -1,4 +1,5 @@
 import { signIn } from "@/server/sign-in";
+import type { SitePath } from "@everyfield/contracts/identity";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { Card, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
@@ -10,7 +11,7 @@ import { params } from "../../components/search-params.ts";
 import { canWrite } from "../../components/seat-role.ts";
 import { communicationViewer, isReviewedFollowUp, loadCommunicationPage, type Viewer } from "./server.ts";
 
-async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
+async function gate(returnTo: SitePath, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const seat = await communicationViewer();
 	if (seat.signedOut) signIn(returnTo);
 	if (seat.viewer) return { viewer: seat.viewer };

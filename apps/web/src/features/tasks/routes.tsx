@@ -17,7 +17,7 @@ export async function TasksPage({ searchParams }: { searchParams: Search }) {
 	const raw = params(await searchParams);
 	const query = parseQuery(raw);
 	const open = recordId.safeParse(raw.get("task"));
-	const viewer = await requireSeat("/tasks" + querySearch(query));
+	const viewer = await requireSeat(`/tasks${querySearch(query)}`);
 	if (!viewer)
 		return (
 			<Blocked>

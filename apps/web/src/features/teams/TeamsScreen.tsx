@@ -58,6 +58,7 @@ export function TeamsScreen({ view: initial, admin }: { view: TeamsView; admin: 
 	const gone = teams?.filter((t) => t.archived) ?? [];
 	const present = new Set((teams ?? []).flatMap((t) => (t.templateKey ? [t.templateKey] : [])));
 	const leaderless = current.filter((t) => !t.leaderPersonId);
+	const [firstLeaderless] = leaderless;
 	const led = current.length - leaderless.length;
 	const filled = current.reduce((n, t) => n + t.activeCount, 0);
 	const ordered = [...current.filter(isLeadership), ...current.filter((t) => !isLeadership(t))];
@@ -195,8 +196,8 @@ export function TeamsScreen({ view: initial, admin }: { view: TeamsView; admin: 
 									<InsightPill icon={Alert02Icon}>Needs a leader</InsightPill>
 								</InsightTop>
 								<InsightTitle id="leaderless-title" size="sm">
-									{leaderless.length === 1
-										? `${leaderless[0]!.name} has no leader`
+									{firstLeaderless && leaderless.length === 1
+										? `${firstLeaderless.name} has no leader`
 										: `${plural(leaderless.length, "ministry", "ministries")} have no leader`}
 								</InsightTitle>
 								<InsightText className="wrap-anywhere">

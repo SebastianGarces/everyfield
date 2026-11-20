@@ -207,7 +207,7 @@ function Column({
 			direction,
 		);
 		const at = ids.indexOf(card.person.id);
-		const input = { column: group.column, personId: card.person.id, afterId: at > 0 ? ids[at - 1]! : null };
+		const input = { column: group.column, personId: card.person.id, afterId: ids[at - 1] ?? null };
 		const rev = order.saved.revision;
 		setPending({ from: group, ids });
 		const r = await runSave(store, "order", { input, rev }, (key) => reorderPipeline(key, rev, input), {

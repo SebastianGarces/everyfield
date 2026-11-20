@@ -1,9 +1,11 @@
 import "server-only";
+import { viewerActor } from "@/server/request-context";
+import type { RequestActor } from "@everyfield/domain/access";
 import { z } from "zod";
 import { defineReads } from "../../server/platform/reads.ts";
 import type { ExportResult, GuideResult, OrderRead, OrderRow, SearchResult } from "./actions.ts";
 import { articlePath, parseSource, sourceInput } from "./model.ts";
-import { mountFor, organizationNames, plantContext, runSearch, wikiActor } from "./server.ts";
+import { mountFor, organizationNames, plantContext, runSearch } from "./server.ts";
 import { LOST, transient } from "../../server/platform/transient.ts";
 
 const search = z.strictObject({
@@ -14,7 +16,7 @@ const search = z.strictObject({
 });
 
 async function exportOf(
-	actor: Awaited<ReturnType<typeof wikiActor>>,
+	actor: RequestActor | null,
 	articleId: string,
 	sourceRaw: string | null,
 	kind: "pdf" | "print",
@@ -48,7 +50,7 @@ async function exportOf(
 const exportInput = z.strictObject({ articleId: z.string(), source: z.string().nullable() });
 
 export const GET = defineReads(
-	async () => ({ actor: await wikiActor() }),
+	async () => ({ actor: await viewerActor() }),
 	"denied",
 	(get) => ({
 		search: get(search, async ({ actor }, v): Promise<SearchResult> => {

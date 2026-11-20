@@ -63,7 +63,7 @@ export async function writeActor(tx: WriteTx, session: string, selected: Owner) 
 }
 export const subjectOwner = (pair: RelationshipPair): Owner =>
 	pair.kind === "discovery" ? ({ kind: "account", id: pair.accountId } satisfies z.output<typeof owner>) : pair.subject;
-export const endpointValues = (pair: RelationshipPair) => [
+export const endpointValues = (pair: RelationshipPair): [string | null, string | null, string | null, string] => [
 	pair.kind === "plant" ? pair.subject.id : null,
 	pair.kind === "discovery" ? pair.accountId : null,
 	pair.kind === "sending_church" ? pair.subject.id : null,
@@ -276,5 +276,5 @@ type PairColumns = Record<"plant_id" | "account_id" | "sending_church_id" | "org
 export const pairMatch = (t: PairColumns, pair: RelationshipPair) => {
 	const [plant, account, church, organization] = endpointValues(pair);
 	const nullable = (v: string | null | undefined) => (v ? uuid(v) : sql`NULL::uuid`);
-	return sql`${t.plant_id} IS NOT DISTINCT FROM ${nullable(plant)} AND ${t.account_id} IS NOT DISTINCT FROM ${nullable(account)} AND ${t.sending_church_id} IS NOT DISTINCT FROM ${nullable(church)} AND ${t.organization_id}=${uuid(organization!)}`;
+	return sql`${t.plant_id} IS NOT DISTINCT FROM ${nullable(plant)} AND ${t.account_id} IS NOT DISTINCT FROM ${nullable(account)} AND ${t.sending_church_id} IS NOT DISTINCT FROM ${nullable(church)} AND ${t.organization_id}=${uuid(organization)}`;
 };
