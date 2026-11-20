@@ -1,13 +1,14 @@
 import "server-only";
 import { requestDatabase } from "@/server/database";
 import { drainPeopleImports } from "./drain";
-import { getViewer } from "@/server/request-context";
+import { plantSeat, type PlantSeat } from "@/server/request-context";
 import {
 	exportPeopleRequest,
 	importLimits,
 	importReceiptRequest,
 	type PeopleReply,
 } from "@everyfield/contracts/people";
+import type { Lost } from "@everyfield/contracts/common";
 import { privateStorage } from "@everyfield/db/schema";
 import { readBoundedBody } from "@everyfield/domain/operations";
 import {
@@ -18,7 +19,7 @@ import {
 	signPeopleImport,
 } from "@everyfield/domain/people";
 import { listRequest, parseQuery } from "../model.ts";
-import { read, type Viewer } from "../server.ts";
+import { read } from "../server.ts";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
 import { parseJson } from "../../../server/platform/json.ts";
 import { transient } from "../../../server/platform/transient.ts";
@@ -29,8 +30,8 @@ const json = (body: Answer) => Response.json(body, { headers: NO_STORE });
 const lost = () => Response.json({ status: "lost" }, { status: 503, headers: NO_STORE });
 const refused = (code: string) => json({ status: "refused", code });
 
-function answer<T>(reply: PeopleReply<T> | { status: "failed" }, ok: (value: T) => unknown = (v) => v) {
-	if (reply.status === "failed") return lost();
+function answer<T>(reply: PeopleReply<T> | Lost, ok: (value: T) => unknown = (v) => v) {
+	if (reply.status === "lost") return lost();
 	if (reply.status === "refused") {
 		const line = (reply.error.details as { line?: number } | undefined)?.line;
 		return json({ status: "refused", code: reply.error.code, ...(line ? { line } : {}) });
@@ -38,12 +39,9 @@ function answer<T>(reply: PeopleReply<T> | { status: "failed" }, ok: (value: T) 
 	return json({ status: "ok", value: ok(reply.value) });
 }
 
-async function viewer(): Promise<Viewer | null> {
-	return (await getViewer()).people ?? null;
-}
 const BODY_LIMIT = importLimits.rows * 48 + 64 * 1024;
 export async function templateRoute() {
-	if (!(await viewer())) return new Response(null, { status: 403, headers: NO_STORE });
+	if (!(await plantSeat())) return new Response(null, { status: 403, headers: NO_STORE });
 	const file = peopleCsv.generateCsvTemplate();
 	return new Response(file.text, {
 		headers: {
@@ -73,7 +71,7 @@ async function jsonBody(request: Request): Promise<unknown> {
 }
 
 async function importDeps() {
-	const v = await viewer();
+	const v = await plantSeat();
 	if (!v) return refused("access_denied");
 	const storage = privateStorage();
 	if (!storage) return refused("storage_unavailable");
@@ -139,13 +137,13 @@ export const retryRoute = mutatingRoute(async function retryRoute(request: Reque
 	);
 });
 
-export function readReceipt(v: Viewer, requestKey: unknown) {
+export function readReceipt(v: PlantSeat, requestKey: unknown) {
 	const input = importReceiptRequest.safeParse({ requestKey });
 	return input.success ? read(v, (tx, ctx) => peopleCsv.getImportReceipt(tx, ctx, input.data)) : null;
 }
 
 export async function receiptRoute(request: Request) {
-	const v = await viewer();
+	const v = await plantSeat();
 	if (!v) return refused("access_denied");
 	const reply = await readReceipt(v, new URL(request.url).searchParams.get("key"));
 	if (!reply) return refused("unavailable");
@@ -168,12 +166,12 @@ function exportFilters(search: URLSearchParams) {
 }
 
 export async function exportRoute(request: Request) {
-	const v = await viewer();
+	const v = await plantSeat();
 	if (!v) return new Response(null, { status: 403, headers: NO_STORE });
 	const filters = exportFilters(new URL(request.url).searchParams);
 	const reply = await read(v, (tx, ctx) => peopleCsv.exportPeople(tx, ctx, filters));
 	if (reply.status !== "ok")
-		return new Response(null, { status: reply.status === "failed" ? 503 : 403, headers: NO_STORE });
+		return new Response(null, { status: reply.status === "lost" ? 503 : 403, headers: NO_STORE });
 	const { text, filename, mediaType, receipt } = reply.value;
 	return new Response(text, {
 		headers: {
