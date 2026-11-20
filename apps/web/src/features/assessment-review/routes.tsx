@@ -14,7 +14,7 @@ const REVIEW = [{ label: "Assessment review", href: "/assessment-review" }];
 
 function settled<T>(r: Run<T>, returnTo: string): Exclude<Run<T>, { status: "signed_out" }> {
 	if (r.status === "signed_out") signIn(returnTo);
-	return r as Exclude<Run<T>, { status: "signed_out" }>;
+	return r;
 }
 function Panel({ title, tone, children }: { title: string; tone: "error" | "lock" | "neutral"; children: ReactNode }) {
 	return (
