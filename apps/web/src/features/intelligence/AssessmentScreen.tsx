@@ -68,7 +68,7 @@ import {
 	STANDING,
 } from "./assessment-model.ts";
 import { IntelligenceTabs } from "./IntelligenceTabs.tsx";
-import { loadProblem } from "../../components/read-failed.ts";
+import { loadProblem, failedIcon } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
 type Props = { view: AssessmentView; facts: PlantFacts; catalog: Catalog };
@@ -612,7 +612,7 @@ function CitationDialog({
 							<Spinner size={16} /> Opening the evidence
 						</p>
 					) : result.status !== "ok" ? (
-						<StatePanel tone="error" title="We couldn't open this evidence" headingLevel="h3">
+						<StatePanel tone="error" title="We couldn't open this evidence" icon={failedIcon(result)} headingLevel="h3">
 							{loadProblem(result, "Nothing was changed. Close this and try again in a moment.")}
 						</StatePanel>
 					) : (
