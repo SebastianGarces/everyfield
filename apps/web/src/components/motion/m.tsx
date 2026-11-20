@@ -37,7 +37,11 @@ const bindingOf = (style: MStyle | undefined): Binding => {
 };
 
 const sameLive = (a: Binding["live"], b: Binding["live"]) =>
-	a.length === b.length && a.every(([k, mv], i) => b[i]![0] === k && b[i]![1] === mv);
+	a.length === b.length &&
+	a.every(([k, mv], i) => {
+		const other = b[i];
+		return other !== undefined && other[0] === k && other[1] === mv;
+	});
 
 function useBinding(style: MStyle | undefined) {
 	const [binding, setBinding] = useState(() => bindingOf(style));
