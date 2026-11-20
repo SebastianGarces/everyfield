@@ -285,7 +285,7 @@ export const pipelineRemovalReport = z.strictObject({
 	}),
 	kept: z.array(
 		z.strictObject({
-			category: z.enum(["program_completion_count", "activity_record", "removal_record"]),
+			category: z.enum(["activity_record", "removal_record"]),
 			count: count.nullable(),
 		}),
 	),

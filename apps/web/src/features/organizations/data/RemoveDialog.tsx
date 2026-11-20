@@ -73,7 +73,7 @@ export function RemoveDialog({
 								</h3>
 								<ul className="mt-1.5 flex flex-col gap-2.5">
 									{report.kept.map((k) => {
-										const { title, why } = keptText(k, report.attribution);
+										const { title, why } = keptText(k);
 										return (
 											<li key={k.category} className="rounded-md bg-surface-2 px-3 py-2.5">
 												<p className="text-sm font-medium text-ink">{title}</p>
@@ -104,13 +104,13 @@ export function RemoveDialog({
 						<DialogBody className="flex flex-col gap-4 text-md text-text-2">
 							<p className="text-pretty">
 								<span className="font-medium text-ink">Removed:</span> their name and contact details, their place on
-								the pipeline and stage history, staff notes, conversations, enrollments in progress, milestone marks and
+								the pipeline and stage history, staff notes, conversations, enrollments, milestone marks and
 								feedback. If they have an Everyfield account, their link to {organization} ends at once; their own
 								account stays as it is.
 							</p>
 							<p className="text-pretty">
-								<span className="font-medium text-ink">Kept, without their name:</span> finished programs as counts, the
-								activity record with names and values taken out, and a record of this removal.
+								<span className="font-medium text-ink">Kept, without their name:</span> the activity record with names and
+								values taken out, and a record of this removal.
 							</p>
 							<p className="rounded-md bg-surface-2 px-3 py-2.5 text-sm text-pretty">
 								Not the same as retiring. Retire takes someone off the board but keeps their record, so you can restore

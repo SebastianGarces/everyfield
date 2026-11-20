@@ -426,9 +426,6 @@ test("AC:ADR1-005 INV-privacy: removing Jordan on request keeps only what Grace 
 	const goals = ok(await readPipelineGoals(db, await authority(dana)));
 	const kind = (g: typeof goals, k: string) => g.kinds.find((x) => x.kind === k)?.count ?? 0;
 	const talks = (g: typeof goals) => g.conversations.months.reduce((n, m) => n + m.count, 0);
-	await admin.execute(
-		sql`UPDATE development_enrollment SET status='completed' WHERE id=${enrollments.jordanApprentice}`,
-	);
 	const revision = (await record(jordan)).revision;
 	refusedWith(
 		await pipelineDataWriter.removePerson(db, await authority(dana), { personId: jordan, expectedRevision: "99" }),
@@ -445,7 +442,7 @@ test("AC:ADR1-005 INV-privacy: removing Jordan on request keeps only what Grace 
 			stageMoves: 1,
 			notes: 0,
 			conversations: 1,
-			enrollments: 1,
+			enrollments: 2,
 			milestoneMarks: 1,
 			feedback: 0,
 			residencyLinkEnded: false,
@@ -453,7 +450,6 @@ test("AC:ADR1-005 INV-privacy: removing Jordan on request keeps only what Grace 
 			mergedRecords: 0,
 		},
 		kept: [
-			{ category: "program_completion_count", count: 1 },
 			{ category: "activity_record", count: null },
 			{ category: "removal_record", count: null },
 		],
@@ -490,9 +486,7 @@ test("AC:ADR1-005 INV-privacy: removing Jordan on request keeps only what Grace 
 	assert.deepEqual(await rows(sql`SELECT display_name,email,state,linked_account_id FROM person WHERE id=${jordan}`), [
 		{ display_name: "Former participant", email: null, state: "retired", linked_account_id: null },
 	]);
-	assert.deepEqual(await rows(sql`SELECT status FROM development_enrollment WHERE person_id=${jordan}`), [
-		{ status: "completed" },
-	]);
+	assert.deepEqual(await rows(sql`SELECT id FROM development_enrollment WHERE person_id=${jordan}`), []);
 	assert.deepEqual(
 		await rows(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${jordan} AND action<>'people.removed'
 		 AND (actor_id IS NOT NULL OR before_value IS NOT NULL OR after_value IS NOT NULL OR reason IS NOT NULL)`),

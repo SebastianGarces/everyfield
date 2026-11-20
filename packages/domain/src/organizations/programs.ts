@@ -115,8 +115,8 @@ SELECT g.allowed,(SELECT timezone FROM o) AS timezone,(SELECT today::text FROM o
  (SELECT ${versionJson(org)} FROM x JOIN development_program_version v ON v.program_id=x.id
    AND v.organization_id=x.organization_id AND v.published_at IS NULL CROSS JOIN o) AS draft,
  coalesce((SELECT jsonb_agg(jsonb_build_object('id',e.id,'personId',e.person_id,'name',pn.display_name,
-   'cohort',e.cohort_label,'status',e.status,'stage',s.label,'versionNumber',ev.version_number)
-   ORDER BY e.status<>'active',lower(pn.display_name),e.id)
+   'cohort',e.cohort_label,'stage',s.label,'versionNumber',ev.version_number)
+   ORDER BY lower(pn.display_name),e.id)
   FROM x JOIN development_enrollment e ON e.program_id=x.id AND e.organization_id=x.organization_id
   JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id AND pn.state='live'
   JOIN development_stage s ON s.id=e.current_stage_id JOIN development_program_version ev ON ev.id=e.version_id

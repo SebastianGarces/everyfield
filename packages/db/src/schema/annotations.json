@@ -1729,7 +1729,7 @@
 				"other"
 			],
 			"development_program.kind": ["apprenticeship", "residency"],
-			"development_enrollment.status": ["active", "completed", "withdrawn"],
+			"development_enrollment.status": ["active"],
 			"schema_migration.provenance": ["original", "adopted"],
 			"people_column.column_name": ["prospect", "attendee", "following_up", "interviewed", "core_group"],
 			"meeting_kit_item.category": ["essential", "materials", "setup", "av", "organization"],

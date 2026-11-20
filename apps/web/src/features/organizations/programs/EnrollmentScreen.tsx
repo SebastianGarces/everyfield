@@ -42,7 +42,7 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 	const enrollment = local?.from === initial ? local.value : initial;
 	const [recording, setRecording] = useState<Milestone | null>(null);
 	const [reviewing, setReviewing] = useState(false);
-	const director = enrollment.viewer.director && enrollment.status === "active";
+	const director = enrollment.viewer.director;
 	const resident = enrollment.resident;
 	const firstName = enrollment.person.name.split(" ")[0] ?? enrollment.person.name;
 
@@ -64,7 +64,7 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 				title={enrollment.person.name}
 				subtitle={`${enrollment.program.name} · ${KIND[enrollment.program.kind]} · Version ${enrollment.versionNumber}`}
 			/>
-			{enrollment.newerVersion && enrollment.status === "active" ? (
+			{enrollment.newerVersion ? (
 				<Card
 					variant="callout"
 					tone="blue"
@@ -114,7 +114,7 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 									: "Not set"}
 							</Detail>
 							<Detail term="Plan">{`Version ${enrollment.versionNumber}`}</Detail>
-							<Detail term="Status">{enrollment.status === "active" ? "Active" : enrollment.status}</Detail>
+							<Detail term="Status">Active</Detail>
 							<Detail term="Director">{enrollment.program.director.name}</Detail>
 							<Detail term="Everyfield account">{resident.status === "linked" ? "Linked" : "Not linked"}</Detail>
 							{resident.status === "linked" ? (

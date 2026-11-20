@@ -432,6 +432,11 @@ test("AC:ADR1-011 an Owner enrolls Casey; the pipeline stage stays; a second act
 		sql`SELECT next_meeting_at AT TIME ZONE 'UTC' AS utc FROM development_enrollment WHERE id=${caseyResidency}`,
 	);
 	assert.equal(new Date(String(stored.rows[0]!.utc) + "Z").toISOString(), "2026-10-21T00:00:00.000Z");
+	for (const status of ["completed", "withdrawn"])
+		await assert.rejects(
+			admin.execute(sql`UPDATE development_enrollment SET status=${status} WHERE id=${caseyResidency}`),
+			(error: { cause?: { constraint?: string } }) => error.cause?.constraint === "development_enrollment_ck_1",
+		);
 	const record = ok(await readPipelinePersonRecord(db, await authority(dana), { personId: casey }));
 	assert.equal(record.stage.label, "Potential leader");
 	refusedWith(await enroll(db, await authority(dana), { ...input, enrollmentId: randomUUID() }), "already_enrolled");
@@ -934,8 +939,7 @@ test("a version that drops Casey's finished milestone keeps its record under Ver
 
 const cohort = randomUUID();
 const riley = randomUUID();
-const sam = randomUUID();
-const batch = { casey: randomUUID(), jordan: randomUUID(), riley: randomUUID(), sam: randomUUID() };
+const batch = { casey: randomUUID(), jordan: randomUUID(), riley: randomUUID() };
 const GROUP = "Start a small group and raise a replacement";
 const PROSPECTUS = "Write a church planting prospectus";
 const { applyVersions } = programWriter;
@@ -1000,8 +1004,6 @@ test("the director reviews several enrollments: one section per person, with the
 	ok(await publishVersion(db, await authority(ana), { programId: cohort, expectedRevision: p.revision }));
 	await enrollNew(cohort, casey, batch.casey, "Casey Lee", "Training and planning");
 	await enrollNew(cohort, jordan, batch.jordan, "Jordan Price", "Assimilating");
-	await enrollNew(cohort, sam, batch.sam, "Sam Ortiz", "Assimilating");
-	await admin.execute(sql`UPDATE development_enrollment SET status='withdrawn' WHERE id=${batch.sam}`);
 	for (const [id, title, on] of [
 		[batch.casey, GROUP, "2026-10-12"],
 		[batch.jordan, PROSPECTUS, "2026-10-20"],
@@ -1028,12 +1030,11 @@ test("the director reviews several enrollments: one section per person, with the
 	await enrollNew(cohort, riley, batch.riley, "Riley Shaw", "Assimilating");
 	const v2 = (await program(ana, cohort)).published!;
 	assert.deepEqual(
-		(await program(ana, cohort)).enrollments.map((e) => [e.name, e.versionNumber, e.status]),
+		(await program(ana, cohort)).enrollments.map((e) => [e.name, e.versionNumber]),
 		[
-			["Casey Lee", 1, "active"],
-			["Jordan Price", 1, "active"],
-			["Riley Shaw", 2, "active"],
-			["Sam Ortiz", 1, "withdrawn"],
+			["Casey Lee", 1],
+			["Jordan Price", 1],
+			["Riley Shaw", 2],
 		],
 	);
 
@@ -1065,7 +1066,7 @@ test("the director reviews several enrollments: one section per person, with the
 		],
 	);
 	assert.deepEqual(await appliedTo([batch.casey, batch.jordan]), []);
-	for (const id of [batch.riley, batch.sam]) refusedWith(await reviews(ana, [batch.casey, id]), "unavailable");
+	refusedWith(await reviews(ana, [batch.casey, batch.riley]), "unavailable");
 	for (const who of [dana, luis, dee, ben, hillOwner])
 		refusedWith(await reviews(who, [batch.casey, batch.jordan]), "unavailable");
 	refusedWith(await reviews(ana, [batch.casey, caseyResidency]), "unavailable");
@@ -1119,7 +1120,7 @@ test("a batch apply is refused whole for anyone but the director and for any bad
 			nextMeetingAt: null,
 		}),
 	);
-	for (const other of [caseyResidency, batch.riley, batch.sam, hillEnrollment, randomUUID()])
+	for (const other of [caseyResidency, batch.riley, hillEnrollment, randomUUID()])
 		refusedWith(
 			await applyVersions(db, await authority(ana), {
 				...input,
@@ -1228,14 +1229,13 @@ test("Ana applies Version 2 to Casey and Jordan, each at their own stage; finish
 			["Casey Lee", 2, "Training and planning"],
 			["Jordan Price", 2, "Gathering"],
 			["Riley Shaw", 2, "Assimilating"],
-			["Sam Ortiz", 1, "Assimilating"],
 		],
 	);
 	const audit = [
 		[batch.casey, { fromVersion: 1, toVersion: 2 }],
 		[batch.jordan, { fromVersion: 1, toVersion: 2 }],
 	].sort((a, b) => String(a[0]).localeCompare(String(b[0])));
-	assert.deepEqual(await appliedTo([...ids, batch.riley, batch.sam]), audit);
+	assert.deepEqual(await appliedTo([...ids, batch.riley]), audit);
 	assert.equal(ok(await applyVersions(db, await authority(ana), input)).outcome, "noop");
 	assert.deepEqual(await appliedTo(ids), audit);
 	assert.deepEqual(await storedRows(ids), rows);

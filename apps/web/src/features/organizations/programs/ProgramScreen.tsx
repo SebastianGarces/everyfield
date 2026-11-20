@@ -329,7 +329,7 @@ function Enrollments({ program, onApplied }: { program: ProgramDetail; onApplied
 	};
 	const current = program.published?.number ?? null;
 	const movable = (e: ProgramDetail["enrollments"][number]) =>
-		program.viewer.director && current !== null && e.status === "active" && e.versionNumber < current;
+		program.viewer.director && current !== null && e.versionNumber < current;
 	const selecting = program.enrollments.some(movable);
 	const chosen = selected.filter((id) => program.enrollments.some((e) => e.id === id && movable(e)));
 	const tooMany = chosen.length > APPLY_VERSION_LIMIT;
@@ -389,7 +389,7 @@ function Enrollments({ program, onApplied }: { program: ProgramDetail; onApplied
 										{e.name}
 									</Link>
 									<p className="text-text-2">
-										{[e.cohort, e.stage, `Version ${e.versionNumber}`, e.status === "active" ? null : e.status]
+										{[e.cohort, e.stage, `Version ${e.versionNumber}`]
 											.filter(Boolean)
 											.join(" · ")}
 									</p>

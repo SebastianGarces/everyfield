@@ -5897,7 +5897,7 @@
         },
         "development_enrollment_ck_1": {
           "name": "development_enrollment_ck_1",
-          "value": "(status = ANY (ARRAY['active'::text, 'completed'::text, 'withdrawn'::text]))"
+          "value": "(status = 'active'::text)"
         },
         "development_enrollment_ck_2": {
           "name": "development_enrollment_ck_2",

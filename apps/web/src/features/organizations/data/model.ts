@@ -21,13 +21,8 @@ export function removedLines(report: PipelineRemovalReport): string[] {
 }
 
 type Kept = PipelineRemovalReport["kept"][number];
-export function keptText(k: Kept, attribution: string): { title: string; why: string } {
+export function keptText(k: Kept): { title: string; why: string } {
 	switch (k.category) {
-		case "program_completion_count":
-			return {
-				title: `${plural(k.count ?? 0, "finished program", "finished programs")}, as “${attribution}”`,
-				why: "Program completion counts stay right. No name, contact or marks are kept with them.",
-			};
 		case "activity_record":
 			return {
 				title: "Activity record, with names, values and reasons taken out",
