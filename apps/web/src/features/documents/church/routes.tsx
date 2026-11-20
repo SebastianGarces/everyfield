@@ -1,9 +1,9 @@
 import { getViewer } from "@/server/request-context";
+import { signIn } from "@/server/sign-in";
 import { recordId } from "@everyfield/contracts/common";
 import { Button, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { NotAvailable } from "../../access/AccessStates";
 import { AFTER_SIGN_IN } from "../../identity/SignInScreen";
 import { ArchivedLibrary } from "./ArchivedLibrary.tsx";
@@ -20,7 +20,7 @@ export const churchDocumentMetadata: Metadata = { title: "Church document", robo
 
 async function activeViewer(returnTo: string) {
 	const viewer = await getViewer();
-	if (viewer.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
+	if (viewer.status === "unauthenticated") signIn(returnTo);
 	return viewer.status === "active" ? viewer : null;
 }
 

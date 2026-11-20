@@ -5,6 +5,7 @@ import { timeText } from "@everyfield/contracts/common";
 import { ArrowLeft01Icon, CheckListIcon, Tick02Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
+	Count,
 	Dialog,
 	DialogBody,
 	DialogContent,
@@ -16,8 +17,8 @@ import {
 	iconButtonVariants,
 	SearchInput,
 	SegmentedControl,
-	ToastProvider,
-	useToast,
+	toast,
+	Toaster,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, prefersReducedMotion } from "@everyfield/ui/foundations";
@@ -41,14 +42,14 @@ import type { CheckInData } from "./server.ts";
 
 export function CheckInScreen({ data, admin }: { data: CheckInData; admin: boolean }) {
 	return (
-		<ToastProvider>
+		<>
+			<Toaster />
 			<CheckIn loaded={data} admin={admin} />
-		</ToastProvider>
+		</>
 	);
 }
 
 function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
-	const toast = useToast();
 	const [local, setLocal] = useState<{ from: CheckInData; value: CheckInData } | null>(null);
 	const data = local?.from === loaded ? local.value : loaded;
 	const setData = (change: (d: CheckInData) => CheckInData) =>
@@ -211,7 +212,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 					</div>
 					<StatusBadge status="positive" size="sm">
 						<span className="tabular-nums">
-							{here.length} of {guests.length}
+							<Count value={here.length} /> of <Count value={guests.length} />
 						</span>
 						<span className="sr-only"> checked in</span>
 					</StatusBadge>
