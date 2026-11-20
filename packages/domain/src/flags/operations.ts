@@ -48,15 +48,12 @@ export async function readStaleReleaseFlags<R extends Registry = typeof registry
 	const release = Object.entries(declared)
 		.filter(([, flag]) => flag.kind === "release")
 		.map(([name]) => name);
-	const { rows } = await db.execute(sql`SELECT f.name, c.occurred_at AS since,
- floor(extract(epoch FROM clock_timestamp()-c.occurred_at)/86400)::int AS days
- FROM feature_flag f
- CROSS JOIN LATERAL (SELECT a.occurred_at FROM audit_event a
-  WHERE a.tenant_id=${GLOBAL_TENANT}::uuid AND a.subject_id=f.id AND a.action='flags.changed'
-  ORDER BY a.occurred_at DESC, a.id DESC LIMIT 1) c
- WHERE f.tenant_id=${GLOBAL_TENANT}::uuid AND f.value AND f.name=ANY(${sql.param(release)}::text[])
-  AND c.occurred_at<=clock_timestamp()-make_interval(days=>${minimumDays}::int)
- ORDER BY c.occurred_at, f.name`);
+	const { rows } = await db.execute(sql`SELECT r.name, r.changed_at AS since,
+ floor(extract(epoch FROM clock_timestamp()-r.changed_at)/86400)::int AS days
+ FROM flag_rollout r
+ WHERE r.value AND r.name=ANY(${sql.param(release)}::text[])
+  AND r.changed_at<=clock_timestamp()-make_interval(days=>${minimumDays}::int)
+ ORDER BY r.changed_at, r.name`);
 	return z.array(staleRow).parse(rows);
 }
 

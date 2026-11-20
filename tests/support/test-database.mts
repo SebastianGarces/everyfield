@@ -6,7 +6,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 
 export type Database = ReturnType<typeof createDatabase>;
 
-export type Capability = "runtime" | "auth" | "cleanup";
+export type Capability = "runtime" | "auth" | "cleanup" | "flag_reader";
 
 export function testDatabaseUrl(): URL {
 	const refused = Error("Approved shared development database or disposable CI database required");
