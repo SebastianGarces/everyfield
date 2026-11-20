@@ -12,6 +12,7 @@ export {
 } from "./feedback-publication.ts";
 export { runDuePurges } from "./lifecycle-purge.ts";
 export {
+	addressSuppressed,
 	claimUnknownMail,
 	createMailService,
 	digest,
@@ -21,6 +22,7 @@ export {
 	mailPurpose,
 	mailUnsubscribe,
 	runDueMail,
+	suppressionOf,
 	type AuthorizeMail,
 	type AuthorizeRecovery,
 	type MailAuthority,

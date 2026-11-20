@@ -104,6 +104,18 @@ const stored = z.object({
 const OPTIONAL_PURPOSES: ReadonlySet<string> = new Set(["notification", "planter_digest", "oversight_digest"]);
 export type MailUnsubscribe = { origin: string; keys: OptOutKeyRing } | null;
 type OptOut = { category: z.infer<typeof notificationCategory>; revision: string };
+export const addressSuppressed = (addressHash: string) =>
+	sql<boolean>`EXISTS (SELECT 1 FROM suppression WHERE address_hash = ${addressHash} AND cleared_at IS NULL)`;
+
+export async function suppressionOf(db: Pick<Transaction, "select">, addressHash: string) {
+	const rows = await db
+		.select({ id: tables.suppression.id })
+		.from(tables.suppression)
+		.where(and(eq(tables.suppression.address_hash, addressHash), isNull(tables.suppression.cleared_at)))
+		.limit(1);
+	return rows.length ? ("suppressed" as const) : ("clear" as const);
+}
+
 export function mailUnsubscribe(env: Readonly<Record<string, string | undefined>>): MailUnsubscribe {
 	const keys = parseKeyRing(env.NOTIFICATION_OPT_OUT_KEYS);
 	const origin = z.url().safeParse(env.IDENTITY_ORIGIN);
