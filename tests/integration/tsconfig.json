@@ -11,6 +11,8 @@
 		"paths": { "@/*": ["../../apps/web/src/*"] }
 	},
 	"include": [
+		"./branding/**/*.ts",
+		"./branding/**/*.mts",
 		"./dashboard/**/*.ts",
 		"./dashboard/**/*.mts",
 		"./feedback/**/*.ts",
