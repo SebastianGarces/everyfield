@@ -68,6 +68,7 @@ If a step fails, the command removes what it made and prints the error with ever
 | Responsible Member      | `delivered+qa-grace-staff@resend.dev`       | `Everyfield-QA-preview-1` |
 | Counts-only Member      | `delivered+qa-grace-member@resend.dev`      | `Everyfield-QA-preview-1` |
 | Linked resident         | `delivered+qa-resident@resend.dev`          | `Everyfield-QA-preview-1` |
+| Ended resident          | `delivered+qa-resident-ended@resend.dev`    | `Everyfield-QA-preview-1` |
 | Hill Country Owner      | `delivered+qa-hill-owner@resend.dev`        | `Everyfield-QA-preview-1` |
 
 These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. The Owner, Admin, Member and Second
@@ -76,7 +77,7 @@ tasks, two follow-ups, a written document, a draft message, a sent message, the 
 history (below).
 The Feedback triager has no church seat. It holds the `feedback_triage` platform grant and opens `/feedback/triage`.
 
-The last seven logins belong to the multiplication example (T-312, below).
+The last eight logins belong to the multiplication example (T-312, below).
 
 The church is connected to three organizations. Two of them are sending churches with similar names. They are two
 different churches on purpose:
@@ -114,7 +115,7 @@ Grace Austin (QA) has five staff logins:
 | Responsible Member      | Dee Walker  | Member. Responsible for Jordan.                             |
 | Counts-only Member      | Ben Carter  | Member. Responsible for no one.                             |
 
-Its pipeline has two people:
+Its pipeline has three people:
 
 - **Casey Lee** is a Resident, enrolled in the published "Church planting residency". Ana wrote a note on her, logged
   a conversation with her and wrote feedback on her "Preach on a Sunday" assignment. Ana recorded that milestone
@@ -122,6 +123,8 @@ Its pipeline has two people:
   Ana confirmed it.
 - **Jordan Reyes** is a Potential leader. He is not enrolled and not linked. Dee and Dana each wrote a note on him,
   and Dee logged a conversation with him.
+- **Riley Hart** is a Potential leader with no responsible staff member. He was linked to the residency and left it
+  (below).
 
 The church also has one sending goal. The pipeline is at `/organization/pipeline`, and the residency is under
 `/organization/pipeline/programs`.
@@ -129,14 +132,18 @@ The church also has one sending goal. The pipeline is at `/organization/pipeline
 Casey has her own login, the Linked resident. Luis invited her to link her account, and she accepted. She shares
 milestone progress and does not share foundations. She holds no seat.
 
+Riley has his own login, the Ended resident. Luis invited him to link his account to Grace Austin (QA), and he
+accepted. Then he left the residency himself, through the resident's leave command, so the link has ended. He holds no
+seat. A preview made before T-536 merged has no Ended resident login.
+
 Hill Country Network (QA) has its own Owner, Ruth Calder, and its own pipeline person, Morgan Diaz. Grace Austin (QA)
 is connected to the network and shares its pipeline totals with it. Harvest Point (QA) is connected to both
 organizations: its Owner sent each one a connection request, and the organization's Owner accepted it.
 
 What each login should see:
 
-- **Grace Austin Owner and Admin** see Casey and Jordan, every note, every conversation, Ana's feedback and Casey's
-  shared progress.
+- **Grace Austin Owner and Admin** see Casey, Jordan and Riley, every note, every conversation, Ana's feedback and
+  Casey's shared progress.
 - **Residency director** sees Casey only. She sees her own note, the feedback she wrote and Casey's milestones. She
   does not see Jordan, Dee's or Dana's notes, or Casey's foundations.
 - **Responsible Member** sees Jordan and Jordan's notes only. She does not see Casey or the residency.
@@ -144,6 +151,8 @@ What each login should see:
   sees no names, notes or conversations. Every change he tries is refused.
 - **Linked resident** sees My residency (`/my-residency`) only: the program, her milestones and Ana's feedback. She
   does not see the pipeline, any note or her stage.
+- **Ended resident** sees My residency (`/my-residency`) with "You’re no longer linked to a residency" and the "Back
+  to Discovery" button. He sees no pipeline or residency data: no program, milestones, feedback, notes or stage.
 - **Hill Country Owner** sees Morgan Diaz only. Even with sharing on, she sees no Grace Austin (QA) person, count,
   goal or conversation. The network needs at least two sharing churches before it shows any totals.
 - **Harvest Point's planter**, the Owner login, sees nothing from either organization's pipeline or residency.
