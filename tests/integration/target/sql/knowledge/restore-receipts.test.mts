@@ -9,7 +9,7 @@ import { RequestActor } from "../../../../../packages/domain/src/access/session.
 import { feedbackWriter } from "../../../../../packages/domain/src/feedback/index.ts";
 import { runDueScheduled } from "../../../../../packages/domain/src/communication/index.ts";
 import { queueJobs } from "../../../../../packages/domain/src/jobs/queue.ts";
-import { runDueFeedbackPublication } from "../../../../../apps/web/src/server/jobs/feedback-publication.ts";
+import { runDueFeedbackPublication } from "../../../../../packages/domain/src/jobs/feedback-publication.ts";
 import { readCurrentManifest, restoreWithCurrentManifest } from "../../../../../ops/maintenance/restore.mts";
 import { testDatabase } from "../../../../support/test-database.mts";
 import { ok, seeds } from "../../../../support/fixture.mts";
