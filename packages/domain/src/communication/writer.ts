@@ -814,7 +814,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown, previe
 	const digest = reviewedDigest(found.subject, sourceBody ? sourceBody : null, parts.people, parts.emails);
 	if (input.audienceChangedAfterReview || (found.review_digest !== null && found.review_digest !== digest))
 		deny("stale_review", { previewBody, scriptExecution: false, providerCalls: 0 });
-	return c.previewResult.parse({
+	return {
 		previewBody,
 		previewHtml: renderEmailHtml(input.bodyHtml, merge, { churchName: found.church_name ?? "" }, "preview"),
 		scriptExecution: false,
@@ -822,7 +822,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown, previe
 		eligibleEmails: summary.eligibleEmails,
 		excludedMissingEmail: summary.missingEmailExclusions,
 		duplicateAddressesRemoved: summary.duplicateAddressesRemoved,
-	});
+	} satisfies z.output<typeof c.previewResult>;
 }
 async function audience(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.resolveAudienceRequest, request);
@@ -881,7 +881,7 @@ async function merge(tx: Tx, authority: RequestActor, raw: unknown) {
 		.parse(one(await tx.execute(sql`SELECT ${communicationAccess(reader, reader.session, true)} AS allowed`)));
 	requireAllowed(found.allowed);
 	const bodyHtml = renderBody(input.bodyHtml, input.merge);
-	return c.mergeResult.parse({ bodyHtml, bodyText: plainText(bodyHtml) });
+	return { bodyHtml, bodyText: plainText(bodyHtml) } satisfies z.output<typeof c.mergeResult>;
 }
 async function templates(tx: Tx, authority: RequestActor) {
 	const reader = readerOf(authority);

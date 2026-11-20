@@ -847,7 +847,7 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 		}
 		const held = local.length > 0 || next.some((row) => row.provider !== null || holding(row));
 		const openCount = next.filter(holding).length;
-		return c.cancelScheduledResult.parse({
+		return {
 			newHandoffs: 0,
 			scheduledCancel: !held ? "none" : openCount > 0 ? "reconcile" : "confirmed",
 			sentRecalled: false,
@@ -858,7 +858,7 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 			confirmedCount: next.filter((row) => row.state === "cancelled").length,
 			sentCount: next.filter((row) => row.state === "sent").length,
 			openCount,
-		});
+		} satisfies z.output<typeof c.cancelScheduledResult>;
 	});
 }
 
@@ -873,7 +873,9 @@ export function replaceScheduled(db: Database, authority: RequestActor, raw: unk
 		const replacementAllowed =
 			members.some((row) => row.state === "cancelled") &&
 			members.every((row) => row.state === "cancelled" || row.state === "refused" || row.state === "failed");
-		return c.replaceScheduledResult.parse({ replacementAllowed, replacementIntents: 0, blindResends: 0 });
+		return { replacementAllowed, replacementIntents: 0, blindResends: 0 } satisfies z.output<
+			typeof c.replaceScheduledResult
+		>;
 	});
 }
 
@@ -1017,7 +1019,9 @@ export function restoreOwnSuppression(db: Database, authority: RequestActor, raw
 				)
 				SELECT count(*)::int AS clears FROM updated`),
 		) as { clears?: number };
-		return c.restoreSuppressionResult.parse({ suppressionClears: updated?.clears ?? 0, newSends: 0 });
+		return { suppressionClears: updated?.clears ?? 0, newSends: 0 } satisfies z.output<
+			typeof c.restoreSuppressionResult
+		>;
 	});
 }
 
@@ -1103,7 +1107,9 @@ export function sendTransactionalMail(
 			await db.execute(sql`UPDATE mail_attempt SET outcome = ${deliveryStatus === "accepted" ? "accepted" : deliveryStatus === "refused" ? "refused" : "unknown"},
 				completed_at = clock_timestamp() WHERE id = ${attemptId}::uuid`);
 		}
-		return c.transactionalResult.parse({ purposeMailAttempted: true, deliveryStatus, sentAt: null });
+		return { purposeMailAttempted: true, deliveryStatus, sentAt: null } satisfies z.output<
+			typeof c.transactionalResult
+		>;
 	});
 }
 

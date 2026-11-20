@@ -36,7 +36,8 @@ Run this on Sebastian's Mac, from the home checkout. `neonctl` and `vercel` must
       the same two. No key is printed.
    5. Deploys the branch head with `vercel deploy --target preview`. Only the database and identity settings and a
       cron secret are set for this deployment, with the same mail keys the seed got. Everything else comes from the Vercel Preview environment. No key is printed, and no
-      project setting changes.
+      project setting changes. It sets no `FLAGS_SECRET`: on a preview the app mounts the Vercel Toolbar itself, and
+      Flags Explorer works with tokens Vercel signs ("Testing a flagged feature", route 2).
    6. Points the alias `everyfield-<id>.vercel.app` at the deployment. The app trusts only this origin, so always give
       Nora the alias URL, not the deployment URL.
    7. Writes the preview's cron secret to a private file for `bin/qa drive`. It never starts a driver itself. When
@@ -346,7 +347,7 @@ time with `bin/qa up` before you test mail on it.
 ### Testing a flagged feature (T-471)
 
 New work can land hidden behind a feature flag (`docs/architecture/patterns.md`, "Feature flags"). The flag is off
-unless someone turns it on, so Nora sees the old screen until route 1 below turns it on for her. It changes
+unless someone turns it on, so Nora sees the old screen until route 1 or route 2 below turns it on for her. It changes
 nothing that other accounts see, and it does not turn the flag on for everyone. `bin/flag list` names every flag.
 
 **Route 1: an account override on her QA login.** The lead runs, on Sebastian's Mac, against the preview's own Neon
@@ -363,11 +364,22 @@ is then on for that one login in every browser, and off for the other QA logins.
 delivered+qa-owner@resend.dev --qa <preview id>`. `bin/qa down` also removes it, with the branch. An override on the
 shared development database works the same way without `--qa`.
 
-**No Flags Explorer on QA previews.** The Vercel Toolbar's Flags Explorer cannot work on a `bin/qa` preview without
-two project settings Sebastian has not made: the Toolbar shows on a custom alias (`everyfield-<id>.vercel.app`) only
-when the project opts in, and Flags Explorer reads `FLAGS_SECRET` only from the project's environment variables, never
-from one deployment's. So `bin/qa up` sets no `FLAGS_SECRET`, the preview's `/.well-known/vercel/flags` answers 404,
-and the preview ignores any `vercel-flag-overrides` cookie (T-531). Use route 1.
+**Route 2: Flags Explorer in Nora's own browser.** This forces a flag for one browser only, and writes nothing to the
+database. Nora does it herself on the alias URL:
+
+1. Open `https://everyfield-<id>.vercel.app` in a browser signed in to Vercel, the same account that gets her past
+   Deployment Protection. Sign in to the app as usual.
+2. The Vercel Toolbar shows on the page. If it asks, sign in to Vercel from it.
+3. Open the Toolbar menu, then Flags Explorer. It lists every flag in the registry (`bin/flag list`).
+4. Choose the flag, set it to On, then Apply. The page reloads with the flag on in this browser.
+5. To go back, open Flags Explorer again, Reset the flag, then Apply. The page shows the stored value again.
+
+The override lives in this browser's `vercel-flag-overrides` cookie, which Vercel signs for this project's previews, so
+`bin/flag show <flag> --qa <preview id>` still shows no value for it, and production ignores it. The app mounts the
+Toolbar itself on every Vercel preview (T-535), because Vercel's own injection skips an alias such as
+`everyfield-<id>.vercel.app` unless the project opts in. No `FLAGS_SECRET` or project setting is needed: `flags` 4.5
+checks the Toolbar's Vercel-signed tokens. A private window cannot use route 2, since Deployment Protection keeps it out
+(section 3).
 
 Nora tests both states: the flag on, then off again. When she signs off, the flag goes on for everyone through
 `bin/flag set <flag> on --all`, which needs an approved `evf flip` (`bin/flag help`).
