@@ -73,7 +73,7 @@ export function useNotificationBell() {
 								</Button>
 							}
 						>
-							Nothing was changed. Try again in a moment.
+							{feed.state.text ?? "Nothing was changed. Try again in a moment."}
 						</StatePanel>
 					) : feed.state.data.items.length === 0 ? (
 						<EmptyState icon={Notification01Icon} title="No notifications yet">
