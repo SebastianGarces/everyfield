@@ -228,7 +228,10 @@ const announced = new Set<string>();
 const noticeKey = (n: Notice) => `${n.id}:${n.tone}:${n.tone === "unknown" && n.checking}`;
 
 function recordShown(region: HTMLElement) {
-	for (const shown of region.querySelectorAll<HTMLElement>("[data-notice]")) announced.add(shown.dataset.notice!);
+	for (const shown of region.querySelectorAll<HTMLElement>("[data-notice]")) {
+		const key = shown.dataset.notice;
+		if (key !== undefined) announced.add(key);
+	}
 }
 
 function recordAnnounced(region: HTMLDivElement | null) {
