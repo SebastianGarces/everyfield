@@ -25,6 +25,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 import "server-only";
 import { z } from "zod";
+import { readBoundedBody } from "../operations/body.ts";
 import { identityAuth } from "./auth.ts";
 import { attemptBudget, IdentityRefusal, RateLimited, transaction } from "./budget.ts";
 import { InvitationRefusal } from "./invitation-core.ts";
@@ -127,7 +128,12 @@ export function createIdentityService(config: IdentityConfig) {
 		const response = await call(request, "get-session");
 		if (!response.ok) throw new IdentityRefusal("unavailable", 503);
 		const raw: unknown = await response.json();
-		if (!raw) return { response, authUser: null, value: sessionResult.parse({ status: "unauthenticated" }) };
+		if (!raw)
+			return {
+				response,
+				authUser: null,
+				value: { status: "unauthenticated" } satisfies z.output<typeof sessionResult>,
+			};
 		const s = z
 			.object({ user: z.object({ id: z.uuid() }), session: z.object({ id: z.uuid(), expiresAt: z.coerce.date() }) })
 			.parse(raw);
@@ -138,26 +144,16 @@ export function createIdentityService(config: IdentityConfig) {
 		return result;
 	}
 	async function boundedBody(request: Request): Promise<unknown> {
-		if (request.headers.get("content-type")?.split(";")[0] !== "application/json")
+		if (request.headers.get("content-type")?.split(";")[0] !== "application/json" || !request.body)
 			throw new IdentityRefusal("invalid_input", 422);
-		const reader = request.body?.getReader();
-		if (!reader) throw new IdentityRefusal("invalid_input", 422);
-		const chunks: Uint8Array[] = [];
-		let size = 0;
+		const bytes = await readBoundedBody(request, 24576).catch(() => {
+			throw new IdentityRefusal("invalid_input", 422);
+		});
+		if (!bytes) throw new IdentityRefusal("invalid_input", 413);
 		try {
-			for (;;) {
-				const part = await reader.read();
-				if (part.done) break;
-				size += part.value.length;
-				if (size > 24576) throw new IdentityRefusal("invalid_input", 413);
-				chunks.push(part.value);
-			}
-			return JSON.parse(Buffer.concat(chunks).toString("utf8"));
-		} catch (e) {
-			if (e instanceof IdentityRefusal) throw e;
+			return JSON.parse(Buffer.from(bytes).toString("utf8"));
+		} catch {
 			throw new IdentityRefusal("invalid_input", 422);
-		} finally {
-			await reader.cancel();
 		}
 	}
 	async function handle(request: Request): Promise<Response> {
@@ -193,19 +189,17 @@ export function createIdentityService(config: IdentityConfig) {
 									? "sending_network"
 									: "sending_church"
 							: "discovery";
-					return json(
-						registrationOptions.parse({
-							mode: config.registrationMode ?? "open",
-							kinds:
-								invitation?.status === "pending"
-									? [kind]
-									: ["plant_precreation", "discovery", "sending_church", "sending_network"],
-							invitation:
-								invitation?.status === "pending"
-									? { status: "invitation", kind, organizationName: invitation.workspaceName }
-									: { status: "unavailable" },
-						}),
-					);
+					return json({
+						mode: config.registrationMode ?? "open",
+						kinds:
+							invitation?.status === "pending"
+								? [kind]
+								: ["plant_precreation", "discovery", "sending_church", "sending_network"],
+						invitation:
+							invitation?.status === "pending"
+								? { status: "invitation", kind, organizationName: invitation.workspaceName }
+								: { status: "unavailable" },
+					} satisfies z.output<typeof registrationOptions>);
 				}
 				if (path === "recover-invalid-session")
 					return json({ next: invalidSessionReturn(url.searchParams.get("returnTo")) });
@@ -213,7 +207,9 @@ export function createIdentityService(config: IdentityConfig) {
 				if (path === "registration-status") {
 					if (s.value.status === "unauthenticated") throw new IdentityRefusal("unauthenticated", 401);
 					return cookies(
-						json(registrationStatus.parse({ status: s.value.status, accountId: s.value.accountId })),
+						json({ status: s.value.status, accountId: s.value.accountId } satisfies z.output<
+							typeof registrationStatus
+						>),
 						s.response,
 					);
 				}
@@ -358,8 +354,9 @@ export function createIdentityService(config: IdentityConfig) {
 							),
 						),
 					);
-				if (!proof.length) throw new IdentityRefusal("invalid_proof", 400);
-				const authUser = z.uuid().parse(proof[0]!.value),
+				const [found] = proof;
+				if (!found) throw new IdentityRefusal("invalid_proof", 400);
+				const authUser = z.uuid().parse(found.value),
 					a = await account(authUser);
 				if (!a) throw new IdentityRefusal("invalid_proof", 400);
 				const credential = await config.authDb
@@ -431,17 +428,15 @@ export function createIdentityService(config: IdentityConfig) {
 					await config.invitations.resume(s.value.sessionId, v.invitationProof, v.requestKey),
 				);
 				return cookies(
-					json(
-						registrationResult.parse({
-							status: "active",
-							accountId: accepted.accountId,
-						}),
-					),
+					json({
+						status: "active",
+						accountId: accepted.accountId,
+					} satisfies z.output<typeof registrationResult>),
 					s.response,
 				);
 			}
 			return cookies(
-				json(registrationStatus.parse({ status: s.value.status, accountId: s.value.accountId })),
+				json({ status: s.value.status, accountId: s.value.accountId } satisfies z.output<typeof registrationStatus>),
 				s.response,
 			);
 		} catch (error) {

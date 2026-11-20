@@ -1,6 +1,6 @@
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import "server-only";
-import type { createNotificationService } from "../../server/jobs/notifications.ts";
+import type { createNotificationService } from "@everyfield/domain/jobs";
 
 export function taskReminders(notifications: ReturnType<typeof createNotificationService>): TaskReminders {
 	return (tx, sources) => {

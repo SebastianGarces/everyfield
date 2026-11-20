@@ -32,3 +32,21 @@ const PHASE_NAME = [
 	"Post-launch",
 ] as const;
 export const phaseText = (phase: number) => `Phase ${phase}, ${PHASE_NAME[phase] ?? "unknown"}`;
+
+const part = (at: Date, zone: string, options: Intl.DateTimeFormatOptions) =>
+	new Intl.DateTimeFormat("en-US", { ...options, timeZone: zone }).format(at);
+export function localWhen(instant: string, zone: string) {
+	const at = new Date(instant);
+	return `${part(at, zone, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}, ${part(at, zone, {
+		hour: "numeric",
+		minute: "2-digit",
+		timeZoneName: "short",
+	})}`;
+}
+
+export const TYPE_LABEL: Record<string, string> = {
+	vision_meeting: "Vision meeting",
+	orientation: "Orientation",
+	team_meeting: "Team meeting",
+	prelaunch_practice: "Pre-launch practice",
+};

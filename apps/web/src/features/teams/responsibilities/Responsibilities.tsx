@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { Add01Icon, CheckListIcon, Delete02Icon, Edit02Icon } from "@hugeicons/core-free-icons";
 import {
@@ -16,7 +17,7 @@ import {
 	Spinner,
 	StatePanel,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import type * as c from "@everyfield/contracts/teams/responsibilities";
 import { useId, useOptimistic, useRef, useState, useTransition } from "react";
@@ -30,17 +31,17 @@ import {
 	useSaveIntent,
 	type SaveIntent,
 } from "../../../components/save/parts.tsx";
-import { asRecordId, asRevision, dayText, problemText, type Outcome } from "../model.ts";
+import { asRecordId, asRevision, dayText, problemText } from "../model.ts";
 import {
 	addResponsibility,
 	completeResponsibility,
 	deleteResponsibility,
 	editResponsibility,
-	listResponsibilities,
 	offerResponsibilities,
-	previewResponsibilities,
-	readTeamRevision,
 } from "./actions.ts";
+import { listResponsibilities, previewResponsibilities, readTeamRevision } from "../fetch.ts";
+import { READ_FAILED, READ_FAILED_ICON } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
 type Page = z.infer<typeof c.responsibilityPage>;
 type Item = Page["items"][number];
@@ -103,14 +104,14 @@ function acceptedRows(
 	);
 }
 
-const lostPage = (): Outcome<Page> => ({ status: "lost" });
+const lostPage = (): Outcome<Page> | ReadFailure => ({ status: "lost" });
 const loadPage = (teamId: string, page: number) => listResponsibilities(teamId, page);
 const pages = createRead(loadPage, { failed: lostPage });
 const previews = createRead((teamId: string) => previewResponsibilities(teamId), {
-	failed: (): Outcome<Preview> => ({ status: "lost" }),
+	failed: (): Outcome<Preview> | ReadFailure => ({ status: "lost" }),
 });
 
-const emptyPage = (result: Outcome<Page>) => result.status === "ok" && result.value.items.length === 0;
+const emptyPage = (result: Outcome<Page> | ReadFailure) => result.status === "ok" && result.value.items.length === 0;
 
 type TextForm = { mode: "add" | "edit"; text: string; id?: string; revision?: string; problem?: string };
 type OfferDecision = Extract<Awaited<ReturnType<typeof offerResponsibilities>>, { status: "ok" }>["value"];
@@ -130,7 +131,6 @@ export function ResponsibilitiesPanel({
 	canOffer: boolean;
 	onTeamRevision: (revision: string) => void;
 }) {
-	const toast = useToast();
 	const [, startTransition] = useTransition();
 	const lane = useSaveIntent<TextForm>({ explain: problemText });
 	const ticks = useRowLanes(problemText);
@@ -148,8 +148,7 @@ export function ResponsibilitiesPanel({
 	const items = loaded?.status === "ok" ? loaded.value.items : null;
 	if (loaded?.status === "ok" && loaded.value.offer !== lastOffer) setLastOffer(loaded.value.offer);
 	const offer = loaded?.status === "ok" ? loaded.value.offer : lastOffer;
-	const listPhase =
-		loaded === undefined || loaded.status === "ok" ? null : loaded.status === "lost" ? "lost" : "refused";
+	const listPhase = loaded === undefined || loaded.status === "ok" ? null : loaded.status;
 	const [shown, project] = useOptimistic<Row[], RowChange>(items ?? [], applyRows);
 	const rows = items === null ? null : shown;
 
@@ -350,10 +349,17 @@ export function ResponsibilitiesPanel({
 					{addButton}
 				</CardHeader>
 				{listPhase !== null ? (
-					<StatePanel tone="error" title="Responsibilities did not load" headingLevel="h3">
-						{listPhase === "lost"
-							? "This is a loading problem. Nothing was changed. Open this tab again in a moment."
-							: "You cannot see these responsibilities. Your seat may have changed."}
+					<StatePanel
+						tone="error"
+						title="Responsibilities did not load"
+						icon={listPhase === "failed" ? READ_FAILED_ICON : undefined}
+						headingLevel="h3"
+					>
+						{listPhase === "refused"
+							? "You cannot see these responsibilities. Your seat may have changed."
+							: listPhase === "failed"
+								? READ_FAILED
+								: "This is a loading problem. Nothing was changed. Open this tab again in a moment."}
 					</StatePanel>
 				) : rows === null ? (
 					<div className="flex justify-center py-8" role="status">
@@ -442,7 +448,6 @@ function OfferCard({
 	onDecided: (result: OfferDecision, lines: readonly Line[], chosen: ReadonlySet<string>) => void;
 	onConflict: () => void;
 }) {
-	const toast = useToast();
 	const [, startTransition] = useTransition();
 	const preview = useRead(previews, teamId);
 	const [picked, setPicked] = useState<string[]>([]);

@@ -61,7 +61,7 @@ flowchart LR
 Documents: fill a template and download or save it, and open what was written for the church or for you.
 
 - Routes: `/documents`
-- Endpoints: `/documents/preview`
+- Endpoints: `/documents/preview`, `/documents/read`
 - Personas: `owner` write, `admin` write, `member` write, `resident` write, `signup` write, `triage` write, `visitor` none
 - Catalog: DOC-001, DOC-002, DOC-003, DOC-016
 - Polls: the template list keeps fetching PDF page previews, so the page never goes network-idle. No network-idle wait here: each step waits on the check after it.
@@ -263,7 +263,7 @@ agent-browser wait --load networkidle
 agent-browser find role button click --name "Restore document" --exact
 agent-browser wait --load networkidle
 agent-browser wait --url "**/documents/church?restored=1"
-agent-browser find text "The document was restored. It is back in the library and can be edited again." text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"The document was restored. It is back in the library and can be edited again.\")"
 agent-browser find role link text --name "Bylaws"
 ```
 
@@ -339,7 +339,7 @@ agent-browser wait --load networkidle
 agent-browser find role button click --name "Archive document" --exact
 agent-browser wait --load networkidle
 agent-browser wait --url "**/documents/church?archived=1"
-agent-browser find text "The document was archived. Its revisions and saved exports stay available." text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"The document was archived. Its revisions and saved exports stay available.\")"
 ```
 
 #### documents.church-document#export

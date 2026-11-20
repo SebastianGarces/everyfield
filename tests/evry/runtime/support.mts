@@ -1,9 +1,11 @@
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { testDatabase } from "../../support/test-database.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { evryActor, runTurn, selectQualifiedModel } from "../../../packages/evry/src/index.ts";
+import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
+import type { LanguageModelV4 } from "../../../packages/evry/node_modules/@ai-sdk/provider/dist/index.js";
 import type { PrivateStorage } from "../../../packages/db/src/schema/storage.ts";
 import { createHash, randomUUID } from "node:crypto";
 
@@ -29,7 +31,7 @@ const seats: Record<Who, [string | null, string | null, string | null]> = {
 export const accounts = Object.fromEntries(
 	(Object.keys(seats) as Who[]).map((who) => [who, { id: randomUUID(), user: randomUUID(), session: randomUUID() }]),
 ) as Record<Who, { id: string; user: string; session: string }>;
-export const people: Record<string, string> = {};
+export const people = { alexRivera: "", alexChen: "", casey: "", foreign: "" };
 
 export async function actor(who: Who) {
 	const viewer = await readViewer(db, accounts[who].session as never);
@@ -41,6 +43,57 @@ export async function freshActor(session: string) {
 	return viewer?.authority ? evryActor(viewer.authority) : null;
 }
 export const scripted = () => selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+
+export const usage = {
+	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+	outputTokens: { total: 1, text: 1, reasoning: 0 },
+};
+
+export function gatedWriter(deltas: string[], { error, emitted = [] }: { error?: Error; emitted?: number[] } = {}) {
+	const base = scriptedModel();
+	let released = 0;
+	const waiting = new Set<() => void>();
+	const release = (n = 1) => {
+		released += n;
+		for (const wake of [...waiting]) wake();
+	};
+	const releasedPast = (n: number, signal?: AbortSignal) =>
+		new Promise<void>((resolve) => {
+			const wake = () => {
+				if (released <= n && !signal?.aborted) return;
+				waiting.delete(wake);
+				resolve();
+			};
+			waiting.add(wake);
+			signal?.addEventListener("abort", wake, { once: true });
+			wake();
+		});
+	const model: LanguageModelV4 = {
+		...base,
+		async doStream(options) {
+			if (options.responseFormat?.type === "json") return base.doStream(options);
+			const signal = options.abortSignal;
+			return {
+				stream: new ReadableStream({
+					async start(c) {
+						c.enqueue({ type: "text-start", id: "t" });
+						for (const [n, delta] of deltas.entries()) {
+							await releasedPast(n, signal);
+							if (signal?.aborted) return c.error(signal.reason);
+							c.enqueue({ type: "text-delta", id: "t", delta });
+							emitted.push(Date.now());
+						}
+						if (error) return (c.enqueue({ type: "error", error }), c.close());
+						c.enqueue({ type: "text-end", id: "t" });
+						c.enqueue({ type: "finish", finishReason: { unified: "stop", raw: undefined }, usage });
+						c.close();
+					},
+				}),
+			};
+		},
+	};
+	return { model: { status: "qualified" as const, id: "test", model }, release };
+}
 
 export async function work(model = scripted(), extra: Partial<Parameters<typeof runTurn>[0]> = {}) {
 	const claimStart = new Date();
@@ -66,7 +119,7 @@ async function person(tenant: string, name: string, city: string | null, positio
 export async function setup() {
 	db.$client.on("connect", (client) => {
 		const query = client.query;
-		client.query = function (...args: unknown[]) {
+		client.query = function (this: typeof client, ...args: unknown[]) {
 			const text = typeof args[0] === "string" ? args[0] : (args[0] as { text: string }).text;
 			const values = (args[0] as { values?: unknown[] }).values ?? (Array.isArray(args[1]) ? args[1] : []);
 			queries.push(text);

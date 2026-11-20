@@ -59,7 +59,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 	const due = dueText(task.due);
 
 	async function submit() {
-		const parsed = outcomeInput(draft, { completable: open });
+		const parsed = outcomeInput(draft, { completable: open, now: new Date() });
 		if (!parsed.ok) {
 			setErrors(parsed.errors);
 			refuseProblem();
@@ -253,7 +253,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 							personName={person.label.split(" ")[0] || person.label}
 						/>
 						<div ref={notice} tabIndex={-1} className="outline-none">
-							<SaveNotice {...lane.noticeProps} dialogOpen={false} className="" />
+							<SaveNotice {...lane.noticeProps} dialogOpen={false} />
 						</div>
 						<div className="flex flex-wrap items-center justify-end gap-3">
 							<SaveButton wait={lane.wait} saving={lane.saving} className="max-app-sm:w-full">
@@ -281,7 +281,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 
 			{call.recent && call.recent.items.length ? (
 				<Card className="gap-1">
-					<CardHeader className="mb-1">
+					<CardHeader>
 						<CardHeading>
 							<CardTitle size="sm">Recent</CardTitle>
 						</CardHeading>

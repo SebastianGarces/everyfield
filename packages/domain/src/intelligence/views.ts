@@ -1,6 +1,6 @@
 import * as c from "@everyfield/contracts/intelligence";
 import type { Catalog, CriterionKey, CriterionStatus } from "@everyfield/contracts/phases";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { readinessOf } from "../phases/readiness.ts";
@@ -43,7 +43,7 @@ export function lensesOf(facts: unknown, draft: c.DraftOutput): c.LensTile[] {
 			.filter(({ p }) => p.citations.some((k) => c.lensOfKey(k) === lens.key))
 			.sort((a, b) => RANK[a.p.urgency] - RANK[b.p.urgency] || a.ordinal - b.ordinal);
 		const top = citing[0];
-		return c.lensTile.parse({
+		return {
 			key: lens.key,
 			label: lens.label,
 			quality,
@@ -51,7 +51,7 @@ export function lensesOf(facts: unknown, draft: c.DraftOutput): c.LensTile[] {
 			evidence: evidenceOf(entries, lens.headline),
 			attestations,
 			points: citing.map((x) => x.ordinal),
-		});
+		} satisfies z.output<typeof c.lensTile>;
 	});
 }
 
@@ -67,7 +67,7 @@ export function criteriaOf(catalog: Catalog, phase: number, facts: unknown): c.A
 	);
 }
 
-export const concernsSql = (r: string) => {
+export const concernsSql = <RName extends string>(r: SqlLiteral<RName>) => {
 	const run = sql.raw(r);
 	return sql`(SELECT coalesce(json_agg(json_build_object('ordinal',e.n-1,'urgency',e.p->>'urgency','keys',e.p->'citations',
 	'evidence',(SELECT coalesce(json_agg(json_build_object('key',k.v,'label',f.cite->>'label','value',f.cite->'value')
@@ -86,13 +86,13 @@ export const storedConcern = z.object({
 });
 export type StoredConcern = z.infer<typeof storedConcern>;
 export const concernOf = (runId: string, s: StoredConcern): c.Concern =>
-	c.concern.parse({
+	({
 		id: c.concernId(runId, s.ordinal),
 		ordinal: s.ordinal,
 		severity: c.SEVERITY[s.urgency],
 		lens: s.keys.map(c.lensOfKey).find((l) => l !== null) ?? null,
 		evidence: s.evidence,
-	});
+	}) satisfies z.output<typeof c.concern>;
 
 export const RELEASE_HOURS = 72;
 export const releasedRun = (plant: SQL, now: SQL) => sql`(SELECT r.* FROM assessment_run r WHERE r.plant_id=${plant}
@@ -101,7 +101,7 @@ export const releasedRun = (plant: SQL, now: SQL) => sql`(SELECT r.* FROM assess
 	ORDER BY r.available_at DESC,r.id DESC LIMIT 1)`;
 
 const UNKNOWN_WITH_STATUS = new Set(["followUps", "training", "cohesion"]);
-export const trendCellsSql = (r: string) =>
+export const trendCellsSql = <RName extends string>(r: SqlLiteral<RName>) =>
 	sql`json_build_array(${sql.join(
 		c.TREND_FACTS.map(({ key }) => {
 			const [group, field] = key.split(".") as [string, string];

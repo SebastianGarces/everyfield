@@ -6,7 +6,7 @@ import { StatusBadge } from "@everyfield/ui/display";
 import { useState } from "react";
 import type { TimezonePreference } from "../port";
 import type { Outcome, Refusal } from "../save";
-import { SaveError } from "../SettingsDialog";
+import { SaveError } from "../SaveError";
 import { useFlows } from "../store";
 import { formatInstant, formatLocalDate, nextMonday, zoneLabel } from "../../../components/time.ts";
 import { usePersonalZoneChoice } from "./usePersonalZoneChoice";

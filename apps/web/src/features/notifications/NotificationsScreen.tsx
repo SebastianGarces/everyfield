@@ -21,17 +21,19 @@ import {
 	parseQuery,
 	querySearch,
 	type Category,
+	type Clock,
 	type FeedPage,
 	type FeedQuery,
 } from "./model.ts";
 import { ItemsSkeleton, NotificationItem } from "./parts.tsx";
+import { READ_FAILED } from "../../components/read-failed.ts";
 
 const ANY = "any";
 
-export function NotificationsScreen({ initial }: { initial: FeedPage }) {
+export function NotificationsScreen({ initial, served }: { initial: FeedPage; served: Clock | null }) {
 	const query = parseQuery(useAddress().params);
 	const feed = useFeed(query, initial);
-	const clock = useClock();
+	const clock = useClock(served);
 
 	const go = (next: FeedQuery) => {
 		writeAddress(`/notifications${querySearch(next)}`, { replace: true });
@@ -60,7 +62,7 @@ export function NotificationsScreen({ initial }: { initial: FeedPage }) {
 					</>
 				}
 			/>
-			<Card className="w-full max-w-[880px] gap-2 px-[18px] py-5 max-app-sm:px-3">
+			<Card className="w-full max-w-[880px] gap-2 px-[18px]">
 				<div className="flex flex-wrap items-center gap-3 px-2 pb-1.5">
 					<SegmentedControl
 						label="Show"
@@ -148,15 +150,15 @@ export function NotificationsScreen({ initial }: { initial: FeedPage }) {
 									))}
 								</ul>
 							)}
-							{data.nextCursor || data.more === "failed" ? (
+							{data.nextCursor || data.more === "lost" || data.more === "failed" ? (
 								<div className="flex flex-col items-center gap-2 pt-3">
-									{data.more === "failed" ? (
+									{data.more === "lost" || data.more === "failed" ? (
 										<p role="alert" className="text-sm text-text-2">
-											Older notifications did not load. Nothing was changed.
+											{data.more === "failed" ? READ_FAILED : "Older notifications did not load. Nothing was changed."}
 										</p>
 									) : null}
 									<Button variant="ghost" size="sm" loading={data.more === "loading"} onClick={feed.more}>
-										{data.more === "failed" ? "Try again" : "Load older"}
+										{data.more === "lost" || data.more === "failed" ? "Try again" : "Load older"}
 									</Button>
 								</div>
 							) : null}

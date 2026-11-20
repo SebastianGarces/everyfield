@@ -24,7 +24,8 @@ import type { Wait } from "../../../components/save/model.ts";
 import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import type { Receipt } from "../boundary.ts";
 import { fresh, problemText } from "../parts.tsx";
-import { addSkill, readSkills, removeSkill, updateSkill } from "./actions.ts";
+import { addSkill, removeSkill, updateSkill } from "./actions.ts";
+import { readSkills } from "../fetch.ts";
 import {
 	CATEGORY_LABEL,
 	PROFICIENCIES,
@@ -122,7 +123,7 @@ export function SkillsCard({
 	const groups = skillGroups(shown);
 	return (
 		<Card>
-			<CardHeader className="mb-2">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle size="sm">Skills and gifts</CardTitle>
 				</CardHeading>
@@ -217,9 +218,7 @@ function SkillRow({
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-center gap-2">
 					<span className="font-medium text-ink [overflow-wrap:anywhere]">{skill.name}</span>
-					{skill.proficiency ? (
-						<Tag className="h-[22px] px-2 text-xs">{PROFICIENCY_LABEL[skill.proficiency]}</Tag>
-					) : null}
+					{skill.proficiency ? <Tag className="text-xs">{PROFICIENCY_LABEL[skill.proficiency]}</Tag> : null}
 					{pending ? <span className="text-xs text-text-3">Saving…</span> : null}
 				</div>
 				{skill.notes ? (

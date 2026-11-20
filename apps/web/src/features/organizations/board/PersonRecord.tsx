@@ -1,6 +1,6 @@
 "use client";
 
-import type { PipelineBoard, PipelinePersonRecord } from "@everyfield/contracts/organizations";
+import type { PipelineChoices, PipelinePersonRecord } from "@everyfield/contracts/organizations";
 import { avatarRoute } from "@everyfield/contracts/settings";
 import { ArrowRight02Icon, Edit02Icon } from "@hugeicons/core-free-icons";
 import {
@@ -23,16 +23,8 @@ import {
 } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
 import { useActionState, useState, useTransition, type FormEvent, type ReactNode } from "react";
-import {
-	addNote,
-	editNote,
-	movePerson,
-	readPerson,
-	recordAssessment,
-	removeNote,
-	restorePerson,
-	retirePerson,
-} from "./actions";
+import { addNote, editNote, movePerson, recordAssessment, removeNote, restorePerson, retirePerson } from "./actions";
+import { readPerson } from "./fetch.ts";
 import { ConversationsCard } from "./Conversations";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { changedText, PIPELINE_PATH, refusalText } from "./model";
@@ -53,8 +45,8 @@ export function PersonRecord({
 	organization,
 }: {
 	initial: Record;
-	stages: PipelineBoard["stages"];
-	staff: PipelineBoard["staff"];
+	stages: PipelineChoices["stages"];
+	staff: PipelineChoices["staff"];
 	organization: string;
 }) {
 	const [local, setLocal] = useState<{ from: Record; value: Record } | null>(null);
@@ -294,7 +286,7 @@ function MoveDialog({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	record: Record;
-	stages: PipelineBoard["stages"];
+	stages: PipelineChoices["stages"];
 	onSubmit: (stageId: string, reason: string) => Promise<string | null>;
 }) {
 	return (
@@ -312,7 +304,7 @@ function MoveForm({
 	onSubmit,
 }: {
 	record: Record;
-	stages: PipelineBoard["stages"];
+	stages: PipelineChoices["stages"];
 	onSubmit: (stageId: string, reason: string) => Promise<string | null>;
 }) {
 	const choices = stages.filter((s) => s.id !== record.stage.id);
@@ -415,7 +407,7 @@ function Notes({
 	onChanged,
 }: {
 	record: Record;
-	staff: PipelineBoard["staff"];
+	staff: PipelineChoices["staff"];
 	onChanged: () => Promise<void>;
 }) {
 	const canWrite = !record.retired;
@@ -519,7 +511,7 @@ function NoteItem({
 }: {
 	note: Extract<Record["notes"][number], { state: "current" }>;
 	editable: boolean;
-	review: { person: string; staff: PipelineBoard["staff"] } | null;
+	review: { person: string; staff: PipelineChoices["staff"] } | null;
 	canWithdraw: boolean;
 	onChanged: () => Promise<void>;
 }) {

@@ -86,7 +86,7 @@ export function TeamDialog({
 				<legend className="mb-1 text-sm font-medium text-ink-2">State</legend>
 				<RadioGroup value={f.state} onValueChange={(v) => set({ state: v as TeamState })} aria-label="State">
 					{STATES.map((s) => (
-						<Radio key={s} value={s} label={STATE_LABEL[s]} description={STATE_HINT[s]} className="py-2" />
+						<Radio key={s} value={s} label={STATE_LABEL[s]} description={STATE_HINT[s]} />
 					))}
 				</RadioGroup>
 			</fieldset>

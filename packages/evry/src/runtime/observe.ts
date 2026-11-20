@@ -4,7 +4,9 @@ import { closeLostRun, readConversation, type ConversationEvent } from "../conve
 import { liveRoom } from "./live.ts";
 import { traceDelivery } from "./trace.ts";
 
-const pause = (ms: number, signal: AbortSignal) =>
+type Pause = (ms: number, signal: AbortSignal) => Promise<void>;
+
+const timerPause: Pause = (ms, signal) =>
 	new Promise<void>((resolve) => {
 		const timer = setTimeout(resolve, ms);
 		signal.addEventListener("abort", () => (clearTimeout(timer), resolve()), { once: true });
@@ -17,6 +19,8 @@ export type ObserveOptions = {
 	pollMs?: number;
 	staleMs?: number;
 	first?: Awaited<ReturnType<typeof readConversation>>;
+	pause?: Pause;
+	now?: () => number;
 };
 
 export async function* observeRun(
@@ -25,7 +29,7 @@ export async function* observeRun(
 	conversationId: string,
 	after: number,
 	signal: AbortSignal,
-	{ pollMs = 100, staleMs = 1_000, first }: ObserveOptions = {},
+	{ pollMs = 100, staleMs = 1_000, first, pause = timerPause, now = Date.now }: ObserveOptions = {},
 ): AsyncGenerator<Observed> {
 	const queue: Observed[] = [];
 	const inner = new AbortController();
@@ -51,7 +55,7 @@ export async function* observeRun(
 			while (!inner.signal.aborted) {
 				const page = first ?? (await readConversation(db, actor, conversationId, cursor));
 				first = undefined;
-				checkedAt = Date.now();
+				checkedAt = now();
 				for (const event of page.events) {
 					cursor = event.sequence;
 					queue.push({ event });
@@ -104,15 +108,13 @@ export async function* observeRun(
 			if (failure) throw (failure as { error: unknown }).error;
 			const item = queue[0];
 			if (item) {
-				if ("live" in item && Date.now() - checkedAt > staleMs) {
-					await new Promise<void>((resolve) => {
-						wake = resolve;
-						setTimeout(poke, 50);
-					});
+				const unchecked = "live" in item && now() - checkedAt > staleMs;
+				if (unchecked && polling) {
+					await new Promise<void>((resolve) => (wake = resolve));
 					continue;
 				}
 				queue.shift();
-				if ("live" in item && withheld.has(item.live.turnId)) continue;
+				if (unchecked || ("live" in item && withheld.has(item.live.turnId))) continue;
 				yield item;
 				continue;
 			}

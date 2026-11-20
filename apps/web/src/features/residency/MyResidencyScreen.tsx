@@ -39,9 +39,9 @@ type Linked = Extract<MyResidency, { status: "linked" }>;
 type Enrollment = Linked["enrollments"][number];
 type Milestone = Enrollment["milestones"][number];
 
-export function MyResidencyScreen({ initial }: { initial: MyResidency }) {
+export function MyResidencyScreen({ initial }: { initial: Exclude<MyResidency, { status: "not_linked" }> }) {
 	const frame = useResidency();
-	if (initial.status === "not_linked" || frame.ended) return <NotLinked />;
+	if (initial.status === "ended" || frame.ended) return <NotLinked />;
 	return <LinkedResidency residency={initial} />;
 }
 
@@ -135,7 +135,7 @@ function EnrollmentView({
 					</CardHeader>
 					<CardBody className="flex flex-col gap-5">
 						<div>
-							<p className="text-xs font-semibold tracking-normal text-text-2 uppercase">Program stage</p>
+							<p className="text-sm text-text-2">Program stage</p>
 							<p className="mt-1 font-title text-title-sm tracking-[-0.02em] text-ink">{e.stage}</p>
 						</div>
 						<NextMeeting meeting={e.nextMeeting} timezone={residency.timezone} church={church} />

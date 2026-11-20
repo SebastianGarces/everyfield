@@ -1,5 +1,6 @@
 import { randomUUID, randomBytes, createHmac } from "node:crypto";
 import { sql, eq } from "../../../packages/db/src/query.ts";
+import type { Workspace } from "../../support/fixture.mts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { testDatabase } from "../../support/test-database.mts";
 import { seeds } from "../../support/fixture.mts";
@@ -10,22 +11,26 @@ import {
 	createIdentityService,
 } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService, type MailTransport } from "../../../packages/domain/src/jobs/mail.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { refuse } from "../../../packages/domain/src/identity/invitation-core.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
-import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 export const key = randomUUID;
-export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
+export async function fixture({
+	lockTimeout = "0",
+	mailKeys = null,
+}: { lockTimeout?: string; mailKeys?: { addressKey: Buffer; encryptionKey: Buffer } | null } = {}) {
 	const database = await testDatabase({ prefix: "wp008", max: 8 });
 	const { admin, schema } = database;
 	const db = database.connect("runtime", { options: `-c lock_timeout=${lockTimeout}` });
 	const runtimeUrl = database.logins.runtime.url;
-	const effects = [];
+	const effects: { text: string; to: string; key: string }[] = [];
 	let mailFault = false;
-	let relay = null;
+	let relay: MailTransport | null = null;
 	const addressKey = mailKeys?.addressKey ?? randomBytes(32);
-	const hash = (address) => createHmac("sha256", addressKey).update(address).digest("hex");
+	const hash = (address: string) => createHmac("sha256", addressKey).update(address).digest("hex");
 	const mail = createMailService({
 		db,
 		addressKey,
@@ -43,7 +48,7 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 		},
 	});
 	async function actor(session: string) {
-		const a = await db.transaction((tx) => RequestActor.resolve(tx, sessionId.parse(session)));
+		const a = await gatedTransaction(db, (tx) => RequestActor.resolve(tx, sessionId.parse(session)));
 		if (!(a instanceof RequestActor)) refuse();
 		return a;
 	}
@@ -56,6 +61,7 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 			sql`EXISTS (SELECT 1 FROM suppression WHERE address_hash = ${hash(email.trim().toLowerCase())} AND cleared_at IS NULL)`,
 		enqueueMail: async (tx, m, command) => {
 			if (mailFault) throw Error("synthetic_outbox_failure");
+			if (m.owner.kind === "global") throw Error("invitation mail has no global owner");
 			return mail.append(
 				tx,
 				{
@@ -74,7 +80,7 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 		},
 	});
 	const identitySecret = randomBytes(32).toString("hex");
-	function native(mode = "open") {
+	function native(mode: "open" | "invitation_only" | "closed" = "open") {
 		const service = createIdentityService({
 			db,
 			authDb: admin,
@@ -90,7 +96,7 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 			},
 			diagnostic: () => {},
 		});
-		const call = (path, body, cookie, headers = {}) =>
+		const call = (path: string, body?: unknown, cookie?: string, headers: Record<string, string> = {}) =>
 			service.handle(
 				new Request("http://invitation.example.test/api/auth/" + path, {
 					method: body === undefined ? "GET" : "POST",
@@ -110,11 +116,12 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 		for (let claims = await claimDue(db, ["mail"], 100); claims.length; claims = await claimDue(db, ["mail"], 100))
 			for (const claim of claims) await mail.dispatch(claim);
 	}
-	async function proof(invitationId) {
+	async function proof(invitationId: string) {
 		const [i] = await admin
 			.select({ revision: t.invitation.revision })
 			.from(t.invitation)
 			.where(eq(t.invitation.id, invitationId));
+		if (!i) throw Error("No invitation " + invitationId);
 		const [request] = await admin
 			.select({ provider_key: t.mail_request.provider_key })
 			.from(t.mail)
@@ -124,9 +131,9 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 		await dispatch();
 		const row = effects.findLast((e) => e.key === request?.provider_key);
 		if (!row) throw Error("No dispatched invitation");
-		const m = row.text.match(/http:\/\/invitation\.example\.test\/invitation#proof=([^\s]+)/);
-		if (!m) throw Error("Missing invitation proof");
-		return decodeURIComponent(m[1]);
+		const [, token] = row.text.match(/http:\/\/invitation\.example\.test\/invitation#proof=([^\s]+)/) ?? [];
+		if (!token) throw Error("Missing invitation proof");
+		return decodeURIComponent(token);
 	}
 
 	const seed = seeds(admin);
@@ -138,14 +145,14 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 		});
 		return { id: a.id, user: a.user, session: a.session, email: address };
 	}
-	async function workspace(kind = "plant") {
+	async function workspace(kind: "plant" | "sending_church" | "sending_network" = "plant"): Promise<Workspace> {
 		if (kind === "plant") return seed.plant({ name: "Synthetic plant", timezone: "UTC" });
 		return seed.organization(kind, { name: "Synthetic organization" });
 	}
-	async function seat(a, w, role = "owner") {
+	async function seat(a: { id: string }, w: Workspace, role: "owner" | "admin" | "member" = "owner") {
 		return seed.seat(a, w, role);
 	}
-	async function resident(w) {
+	async function resident(w: Workspace) {
 		const id = key();
 		await admin.insert(t.person).values({
 			id,
@@ -158,14 +165,14 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 		});
 		return id;
 	}
-	async function setup(kind = "plant") {
+	async function setup(kind: "plant" | "sending_church" | "sending_network" = "plant") {
 		const w = await workspace(kind),
 			sender = await account(),
 			recipient = await account("pending_domain");
 		await seat(sender, w);
 		return { w, sender, recipient };
 	}
-	async function invitation(s, residentId) {
+	async function invitation(s: Awaited<ReturnType<typeof setup>>, residentId?: string) {
 		const command = {
 			requestKey: key(),
 			expectedRevision: "1",
@@ -208,10 +215,10 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 		resident,
 		setup,
 		invitation,
-		setMailFault(v) {
+		setMailFault(v: boolean) {
 			mailFault = v;
 		},
-		setTransport(transport) {
+		setTransport(transport: MailTransport | null) {
 			relay = transport;
 		},
 		async close() {
