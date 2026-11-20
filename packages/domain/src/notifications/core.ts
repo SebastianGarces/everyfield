@@ -1,14 +1,8 @@
 import { owner, requestIdentity, type Owner } from "@everyfield/contracts/common";
-import {
-	notificationCategory,
-	notificationError,
-	type NotificationError,
-	type NotificationReply,
-} from "@everyfield/contracts/notifications";
+import { notificationCategory, notificationError, type NotificationReply } from "@everyfield/contracts/notifications";
 import { residencyCategories } from "@everyfield/contracts/settings";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
-import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { liveResidency, reviewShared } from "../access/pipeline.ts";
@@ -20,54 +14,15 @@ import {
 	lockedWrite,
 	nativeWrite,
 	prepareWrite,
-	WriteUnavailable,
 	type AuditWrite,
 } from "../operations/writes.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 export type Tx = WriteTx;
 export const PAGE = 50;
-class NotificationRefusal extends Error {
-	readonly code: NotificationError["code"];
-	constructor(code: NotificationError["code"]) {
-		super(code);
-		this.code = code;
-	}
-}
-export function deny(code: NotificationError["code"] = "unavailable"): never {
-	throw new NotificationRefusal(code);
-}
-const retry: Record<NotificationError["code"], NotificationError["retry"]> = {
-	invalid_input: "never",
-	access_denied: "never",
-	unavailable: "never",
-	invalid_subject: "never",
-	conflict: "refresh",
-	temporary: "same_request",
-	unknown: "reconcile",
-};
-function refused(error: NotificationRefusal): NotificationReply<never> {
-	return {
-		status: "refused",
-		error: notificationError.parse({
-			code: error.code,
-			details: {},
-			correlationId: randomUUID(),
-			retry: retry[error.code],
-		}),
-	};
-}
-function refusal(error: unknown): NotificationReply<never> {
-	if (error instanceof WriteUnavailable) return refused(new NotificationRefusal("unavailable"));
-	if (error instanceof NotificationRefusal) return refused(error);
-	throw error;
-}
-export async function readReply<T>(body: () => Promise<T>): Promise<NotificationReply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		return refusal(error);
-	}
-}
+const refusals = defineRefusals(notificationError, { writeUnavailable: "unavailable" });
+export const deny: Deny<typeof notificationError> = refusals.deny;
+export const { settle: readReply } = refusals;
 export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	const result = schema.safeParse(raw);
 	if (!result.success) deny("invalid_input");
@@ -97,7 +52,7 @@ async function command<T>(
 	body: (command: Command) => Promise<T>,
 ): Promise<T> {
 	const bound = await lockedWrite(tx);
-	if (!bound || bound.actor.accountId !== authority.actor.accountId) deny();
+	if (!bound || bound.actor.accountId !== authority.actor.accountId) deny("unavailable");
 	const identity = requestIdentity.parse({
 		owner: selected,
 		actorId: bound.actor.accountId,
@@ -107,7 +62,7 @@ async function command<T>(
 	});
 	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "conflict") deny("conflict");
-	if (claim.kind === "unavailable") deny();
+	if (claim.kind === "unavailable") deny("unavailable");
 	if (claim.kind === "replay") return schema.parse(claim.value);
 	const value = schema.parse(await body({ ...claim, actorId: bound.actor.accountId, selected }));
 	await finishAudit(tx, claim, identity, value);
@@ -210,7 +165,7 @@ export async function runWrite<S extends z.ZodType<{ requestKey: string }>, T>(
 			),
 		);
 	} catch (error) {
-		return refusal(error);
+		return refusals.refusalOf(error);
 	}
 }
 export async function runLockedWrite<S extends z.ZodType<{ requestKey: string }>, T>(
@@ -220,7 +175,7 @@ export async function runLockedWrite<S extends z.ZodType<{ requestKey: string }>
 ): Promise<NotificationReply<T>> {
 	return readReply(async () => {
 		const authority = requestWrite(tx)?.authority;
-		if (!authority) deny();
+		if (!authority) deny("unavailable");
 		const input = parse(spec.schema, raw);
 		const selected = accountOwner(authority.actor.accountId);
 		return command(tx, authority, selected, spec.operation, input, spec.result, (cmd) =>

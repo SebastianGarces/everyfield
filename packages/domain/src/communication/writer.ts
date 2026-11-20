@@ -536,7 +536,8 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 			const parts = reviewedParts(people);
 			if (!parts.people.length) deny("invalid_input");
 			const shown = input.input.recipientsDigest;
-			if (shown && shown !== recipientsDigest(people)) deny("stale_review", { providerHandoffs: 0 });
+			if (shown && shown !== recipientsDigest(people))
+				deny("stale_review", { previewBody: current.body_html, scriptExecution: false, providerCalls: 0 });
 			const digest = reviewedDigest(current.subject, current.body_html, parts.people, parts.emails);
 			const revision = bump(current.revision);
 			const scheduled = {
