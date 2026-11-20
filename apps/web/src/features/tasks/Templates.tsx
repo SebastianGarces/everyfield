@@ -179,7 +179,7 @@ function CatalogBody({
 					</h3>
 					{g.categories.map((cat) => (
 						<div key={cat.category} className="mt-2">
-							<p className="text-xs font-medium tracking-wide text-text-3 uppercase">{CATEGORY_LABEL[cat.category]}</p>
+							<p className="section-label text-text-3">{CATEGORY_LABEL[cat.category]}</p>
 							<ul className="mt-1 flex flex-col">
 								{cat.checklists.map((k) => (
 									<li key={k.key}>
