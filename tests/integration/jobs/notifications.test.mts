@@ -7,7 +7,7 @@ import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import {
 	createNotificationService,
 	sendDiscoveryAssociationReceipt,
-} from "../../../apps/web/src/server/jobs/notifications.ts";
+} from "../../../packages/domain/src/jobs/notifications.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { db, runtime, tenant, setup, teardown } from "./support.mts";

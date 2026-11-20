@@ -136,12 +136,12 @@ async function plantFacts(tx: Pick<Database, "execute">, viewer: Reader, offer?:
 				.nullish(),
 		})
 		.parse(r.rows[0]);
-	if (!row.live || row.timezone === null || row.phase === null) deny();
+	if (!row.live || row.timezone === null || row.phase === null) deny("unavailable");
 	return { ...row, zone: row.timezone, phase: row.phase };
 }
 function adminReader(authority: RequestActor) {
 	const viewer = readerOf(authority);
-	if (!administers(viewer)) deny();
+	if (!administers(viewer)) deny("unavailable");
 	return viewer;
 }
 
@@ -266,7 +266,7 @@ async function lockOffer(tx: Tx, cmd: Command, transitionId: string, importer: b
 	const row = r.rows[0]
 		? z.object({ transition: transitionRow, answered: z.array(c.templateKey), importer: z.unknown() }).parse(r.rows[0])
 		: null;
-	if (!row) deny();
+	if (!row) deny("unavailable");
 	if (row.transition.answer !== null) deny("offer_answered");
 	if (!row.transition.latest) deny("conflict");
 	return row;
@@ -284,7 +284,7 @@ export function templateWriter(reminders: TaskReminders, catalog: Catalog = CATA
 		cmd: Command,
 		input: { transitionId: string; checklistKeys: readonly string[] | null },
 	) {
-		if (!administers(cmd.actor)) deny();
+		if (!administers(cmd.actor)) deny("unavailable");
 		const offer = await lockOffer(tx, cmd, input.transitionId, input.checklistKeys !== null);
 		const settled = new Set(offer.answered);
 		const offered = catalog.checklists.filter((k) => k.phase === offer.transition.toPhase && !settled.has(k.key));
@@ -332,7 +332,7 @@ export function templateWriter(reminders: TaskReminders, catalog: Catalog = CATA
 			return reply(tx, async () => {
 				const input = parse(c.importTemplateRequest, raw);
 				return command(tx, context, "tasks.importTemplate", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input;
 					if (v.catalogVersion !== catalog.version) deny("stale_catalog");
 					const checklist = catalog.checklists.find((k) => k.key === v.checklistKey) ?? deny("invalid_input");
