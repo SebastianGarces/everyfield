@@ -248,7 +248,7 @@ test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, too
 		);
 });
 
-test("INV-typecheck: no tests/integration file declares a global or is a declaration file, so one folder's types never satisfy another folder in the shared integration program", () => {
+test("INV-typecheck: no tests/integration file declares a global, augments a module, references a declaration file or is one, so one folder's types never satisfy another folder in the shared integration program", () => {
 	const files = globSync("tests/integration/**/*.{ts,mts,cts}", { cwd: repo });
 	assert.ok(files.length > 0);
 	assert.deepEqual(
@@ -257,9 +257,11 @@ test("INV-typecheck: no tests/integration file declares a global or is a declara
 		"declaration files under tests/integration",
 	);
 	assert.deepEqual(
-		files.filter((file) => /\bdeclare\s+global\b/.test(readFileSync(join(repo, file), "utf8"))),
+		files.filter((file) =>
+			/\bdeclare\s+(?:global|module)\b|^\s*\/\/\/\s*<reference\b/m.test(readFileSync(join(repo, file), "utf8")),
+		),
 		[],
-		"declare global under tests/integration",
+		"declare global, declare module or a triple-slash reference under tests/integration",
 	);
 });
 
