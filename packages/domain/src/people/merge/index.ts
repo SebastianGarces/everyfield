@@ -18,7 +18,7 @@ import {
 import { matchPeople } from "../duplicates.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people.ts";
 import {
-	lockedPair,
+	lockPair,
 	parseReferences,
 	referencesOf,
 	registrationOf,
@@ -172,18 +172,9 @@ function plan(
 	};
 }
 
-async function readPair(
-	tx: Tx,
-	owner: string,
-	input: { sourceId: string; survivorId: string },
-	gate: SQL,
-	lock = false,
-) {
-	const locked = lock
-		? sql`${lockedPair(owner, sql`${input.sourceId}::uuid,${input.survivorId}::uuid`)} AS locked,`
-		: sql``;
+async function readPair(tx: Tx, owner: string, input: { sourceId: string; survivorId: string }, gate: SQL) {
 	const result =
-		await tx.execute(sql`SELECT ${locked}${gate} AS allowed,${factsOf(sql`${input.sourceId}::uuid`, owner)} AS source,
+		await tx.execute(sql`SELECT ${gate} AS allowed,${factsOf(sql`${input.sourceId}::uuid`, owner)} AS source,
  ${factsOf(sql`${input.survivorId}::uuid`, owner)} AS survivor`);
 	const row = z.object({ allowed: z.boolean(), source: z.unknown(), survivor: z.unknown() }).parse(result.rows[0]);
 	const source = parseFacts(row.source),
@@ -259,7 +250,8 @@ export const peopleMerge = {
 			return c.mergeResult.parse(
 				await mutation<unknown>(tx, ctx, name, input, async (_actor, receiptId, audit) => {
 					const m = input.input;
-					const { source, survivor } = await readPair(tx, owner, m, sql`true`, true);
+					await lockPair(tx, owner, sql`${m.sourceId}::uuid,${m.survivorId}::uuid`);
+					const { source, survivor } = await readPair(tx, owner, m, sql`true`);
 					const p = plan(kind, source, survivor, m.fieldChoices);
 					if (p.reviewDigest !== m.reviewDigest) deny("conflict");
 					if (p.blockers.causes.length) deny("merge_blocked", p.blockers);

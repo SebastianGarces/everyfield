@@ -1090,7 +1090,7 @@
 		"limit": 3
 	},
 	"native.people.mergePeople": {
-		"limit": 5
+		"limit": 6
 	},
 	"native.people.mergedPersonDestination": {
 		"limit": 3
@@ -1138,7 +1138,7 @@
 		"limit": 6
 	},
 	"native.people.unmergePeople": {
-		"limit": 5
+		"limit": 6
 	},
 	"native.people.unmergeView": {
 		"limit": 5
@@ -1401,8 +1401,10 @@
 		"limit": 1
 	},
 	"people.mergePeople": {
-		"limit": 6,
-		"retry": 6
+		"limit": 7,
+		"retry": 6,
+		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, both people locked in id order, one read of both full rows with the merge check, then one statement that moves every reference and writes the merge and its audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write.",
+		"reads": "Both people are locked in id order, then both full rows and their references are read; the lock must come first as its own statement: under READ COMMITTED a statement's snapshot predates its locks and a lock refreshes only the rows it locks (C88 in docs/architecture/decisions.md), so the full-row and reference read must start after the lock is granted, or a merge that waited on a concurrent edit would read stale columns and miss references added meanwhile."
 	},
 	"people.mergedPersonDestination": {
 		"limit": 2
@@ -1462,8 +1464,10 @@
 		"retry": 5
 	},
 	"people.unmergePeople": {
-		"limit": 6,
-		"retry": 6
+		"limit": 7,
+		"retry": 6,
+		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, both people of the merge locked, one read of the merge record with the unmerge check, then one statement that moves the references back and writes the unmerge and its audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write.",
+		"reads": "Both people of the merge are locked, then the merge record and both full rows are read; the lock must come first as its own statement: under READ COMMITTED a statement's snapshot predates its locks and a lock refreshes only the rows it locks (C88 in docs/architecture/decisions.md), so the full-row and reference read must start after the lock is granted, or a merge that waited on a concurrent edit would read stale columns and miss references added meanwhile."
 	},
 	"people.updateHousehold": {
 		"limit": 4
