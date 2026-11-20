@@ -111,7 +111,7 @@ export function nextSteps(facts: PlantFacts): { title: string; detail: string; h
 		steps.push({
 			title: "Track follow-ups after meetings",
 			detail: "Follow-ups are measured once one is due and recorded.",
-			href: "/follow-ups",
+			href: "/tasks/follow-ups",
 		});
 	if (facts.coverage.filled < facts.coverage.slots)
 		steps.push({
