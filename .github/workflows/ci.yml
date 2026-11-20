@@ -19,7 +19,7 @@ env:
 
 jobs:
   app:
-    name: app (lint, types, unit)
+    name: app (lint, types, logs, unit)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -36,6 +36,10 @@ jobs:
         run: pnpm lint
       - name: Types
         run: pnpm typecheck
+      - name: Server log privacy (next dev with synthetic passwords)
+        run: pnpm test:logs
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
       - name: LibreOffice packages from the cache (the runner's Ubuntu mirror can be slow)
         id: libreoffice-debs
         uses: actions/cache/restore@v6

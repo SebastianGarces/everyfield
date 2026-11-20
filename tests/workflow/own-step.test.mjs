@@ -4,9 +4,7 @@ import { test } from "node:test";
 import { OWN_STEP } from "../../scripts/test-workflow.mjs";
 
 const root = new URL("../../", import.meta.url);
-const ci = ["ci.yml", "nightly.yml"]
-	.map((name) => readFileSync(new URL(`.github/workflows/${name}`, root), "utf8"))
-	.join("\n");
+const ci = readFileSync(new URL(".github/workflows/ci.yml", root), "utf8");
 const scripts = JSON.parse(readFileSync(new URL("package.json", root), "utf8")).scripts;
 const workflowTests = new Set(readdirSync(new URL("tests/workflow/", root)).filter((n) => /\.test\.(mjs|ts)$/.test(n)));
 
@@ -22,12 +20,12 @@ const ownStep = new Set(
 		.filter((n) => workflowTests.has(n)),
 );
 
-test("every OWN_STEP name is a workflow test ci.yml or nightly.yml runs as its own step", () => {
+test("every OWN_STEP name is a workflow test ci.yml runs as its own step", () => {
 	for (const name of OWN_STEP)
-		assert.ok(ownStep.has(name), `${name} is in OWN_STEP but neither ci.yml nor nightly.yml runs it as its own step`);
+		assert.ok(ownStep.has(name), `${name} is in OWN_STEP but ci.yml does not run it as its own step`);
 });
 
-test("every workflow test ci.yml or nightly.yml runs as its own step is in OWN_STEP", () => {
+test("every workflow test ci.yml runs as its own step is in OWN_STEP", () => {
 	for (const name of ownStep)
-		assert.ok(OWN_STEP.has(name), `a workflow runs ${name} as its own step but OWN_STEP lacks it`);
+		assert.ok(OWN_STEP.has(name), `ci.yml runs ${name} as its own step but OWN_STEP lacks it`);
 });
