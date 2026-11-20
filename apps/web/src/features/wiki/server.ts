@@ -1,4 +1,4 @@
-import { getViewer } from "@/server/request-context";
+import { organizationSeatOf, viewerActor } from "@/server/request-context";
 import { requestDatabase } from "@/server/database";
 import { humanCredit, type WikiArticle } from "@everyfield/contracts/wiki";
 import type { Database } from "@everyfield/db/client";
@@ -39,10 +39,6 @@ export function wikiMount(): Mount {
 	return slot[MOUNT];
 }
 
-export async function wikiActor(): Promise<RequestActor | null> {
-	return (await getViewer()).authority;
-}
-
 export function plantContext(actor: RequestActor): { plantId?: string; canOrder: boolean } {
 	const context = actor.actor.context;
 	if (context.kind !== "seat" || context.owner.kind !== "plant") return { canOrder: false };
@@ -50,10 +46,9 @@ export function plantContext(actor: RequestActor): { plantId?: string; canOrder:
 }
 
 export function editorContext(actor: RequestActor): { organizationId: string } | null {
-	const context = actor.actor.context;
-	if (context.kind !== "seat" || context.owner.kind !== "organization") return null;
-	if (context.role !== "owner" && context.role !== "admin") return null;
-	return { organizationId: context.owner.id };
+	const seat = organizationSeatOf(actor);
+	if (!seat || (seat.role !== "owner" && seat.role !== "admin")) return null;
+	return { organizationId: seat.organization.id };
 }
 
 type StoredEditor = {
@@ -264,7 +259,7 @@ export async function loadWiki(
 	editing = false,
 ): Promise<WikiPageData | "lost" | "signed-out"> {
 	const mount = wikiMount();
-	const actor = await wikiActor();
+	const actor = await viewerActor();
 	if (!actor) return "signed-out";
 	const seat = plantContext(actor);
 	const editor = editorContext(actor);
@@ -521,7 +516,7 @@ export const progressRoute = mutatingRoute(async function progressRoute(request:
 	const body = parseJson(text) as
 		{ requestKey?: unknown; articleId?: unknown; fraction?: unknown; plantId?: unknown } | undefined;
 	if (body === undefined) return new Response(null, { status: 400 });
-	const actor = await wikiActor();
+	const actor = await viewerActor();
 	if (!actor) return new Response(null, { status: 401 });
 	const mount = wikiMount();
 	try {
@@ -541,7 +536,7 @@ export const progressRoute = mutatingRoute(async function progressRoute(request:
 	}
 });
 
-export function mountFor(actor: Awaited<ReturnType<typeof wikiActor>>) {
+export function mountFor(actor: RequestActor | null) {
 	if (!actor) return { status: "denied" as const };
 	return { status: "ready" as const, actor, mount: wikiMount() };
 }
