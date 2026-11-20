@@ -594,11 +594,11 @@ export async function executeStoredImport(
 
 export const peopleCsv = {
 	generateCsvTemplate() {
-		return c.csvFile.parse({
+		return {
 			filename: "people-import-template.csv",
 			mediaType: media,
 			text: csvLine(c.importColumns),
-		});
+		} satisfies z.output<typeof c.csvFile>;
 	},
 	async previewImport(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
@@ -675,7 +675,7 @@ export const peopleCsv = {
 					).rows[0],
 				);
 			if (!row.allowed) deny("unavailable");
-			if (!row.id || !row.state) return c.latestImportReceipt.parse({ status: "none" });
+			if (!row.id || !row.state) return { status: "none" } satisfies z.output<typeof c.latestImportReceipt>;
 			return c.latestImportReceipt.parse({
 				status: "available",
 				requestKey: row.request_key,
@@ -712,12 +712,12 @@ export const peopleCsv = {
 				.object({ allowed: z.boolean(), rows: z.array(z.array(z.string().nullable())) })
 				.parse(result.rows[0]);
 			if (!state.allowed) deny("unavailable");
-			return c.peopleExport.parse({
+			return {
 				filename: `people-${new Date().toISOString().slice(0, 10)}.csv`,
 				mediaType: media,
 				text: "\ufeff" + csvLine(c.exportColumns) + state.rows.map(csvLine).join(""),
 				receipt: { filters, matched: state.rows.length, returned: state.rows.length, completeness: "complete" },
-			});
+			} satisfies z.output<typeof c.peopleExport>;
 		});
 	},
 	async countExport(tx: Tx, ctx: Context, raw: unknown) {
