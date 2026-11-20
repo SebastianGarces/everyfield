@@ -1400,10 +1400,6 @@ export const WEB_SQL_HOLDERS = {
 		why: "the notification worker's mail authorizer reads which recipients still hold a grant for each queued notice mail",
 		movedBy: MAIL_AUTHORIZERS,
 	},
-	"apps/web/src/features/settings/mail.ts": {
-		why: "the settings mail authorizer reads notice addresses and pending email-change proofs for queued account mail",
-		movedBy: MAIL_AUTHORIZERS,
-	},
 	"apps/web/src/server/identity/index.ts": {
 		why: "the identity mail authorizer locks the accounts its queued mail names and reads their contact address",
 		movedBy: MAIL_AUTHORIZERS,
