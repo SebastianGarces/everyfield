@@ -1,8 +1,8 @@
 import { fixture, ok, refused, type Actor } from "../../support/fixture.mts";
 import { sql, type SQL } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { S3Client } from "../../support/client-s3.mts";
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { S3Client } from "../../../packages/db/src/schema/storage.ts";
 import {
 	brandReader,
 	brandWriter,
