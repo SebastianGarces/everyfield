@@ -279,10 +279,11 @@ export function takeMoved(id: string | undefined): MovedEditor | null {
 		moving.delete(id!);
 		return null;
 	}
+	const titleFocused = document.activeElement instanceof HTMLInputElement;
 	return {
 		store: kept.store,
 		body: kept.editor.getJSON(),
-		caret: kept.editor.isFocused ? kept.editor.state.selection.to : null,
-		titleFocused: document.activeElement instanceof HTMLInputElement,
+		caret: titleFocused ? null : kept.editor.state.selection.to,
+		titleFocused,
 	};
 }

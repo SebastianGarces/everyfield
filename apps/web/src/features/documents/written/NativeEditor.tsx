@@ -109,7 +109,6 @@ export default function NativeEditor({
 		extensions: [...nativeExtensions(), BlockShortcuts],
 		content: moved?.body ?? toEditor(doc?.body ?? EMPTY),
 		immediatelyRender: true,
-		autofocus: moved?.caret ?? false,
 		editorProps: {
 			attributes: {
 				"aria-label": "Document text",
@@ -146,6 +145,13 @@ export default function NativeEditor({
 
 	const save = useCallback(async () => (editor ? actions.save(editor) : false), [editor, actions]);
 	const editorContext = useMemo(() => ({ editor }), [editor]);
+	const caret = moved?.caret ?? null;
+	const placeCaret = useCallback(
+		(paper: HTMLDivElement | null) => {
+			if (paper && editor && caret !== null) editor.chain().setTextSelection(caret).focus().run();
+		},
+		[editor, caret],
+	);
 	function reload() {
 		leaveNow(() => window.location.reload());
 	}
@@ -310,7 +316,7 @@ export default function NativeEditor({
 					</p>
 				) : null}
 				<div className="ef-sheet ef-native">
-					<div className="ef-paper">
+					<div className="ef-paper" ref={caret === null ? undefined : placeCaret}>
 						<EditorContent editor={editor} />
 					</div>
 				</div>
