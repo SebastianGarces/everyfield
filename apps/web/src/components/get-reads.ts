@@ -26,28 +26,19 @@ export async function refusalAs<T, C extends string, F>(
 	return refusedByRead<C>(r) ? reply(r) : (r as Exclude<T, ReadRefusal<C>>);
 }
 
-function reader<H extends ReadsHandler<Record<string, Entry>, string>, F>(path: string, failed: F) {
+export function readsFrom<H extends ReadsHandler<Record<string, Entry>, string>>(path: string) {
 	return async function get<K extends keyof Wire<H> & string>(
 		what: K,
 		...[input]: Args<Wire<H>[K]>
-	): Promise<Wire<H>[K]["result"] | ReadRefusal<SignedOut<H>> | F | Lost> {
+	): Promise<Wire<H>[K]["result"] | ReadRefusal<SignedOut<H>> | ReadFailure | Lost> {
 		const params = new URLSearchParams({ what });
 		if (input !== undefined) params.set("in", JSON.stringify(input));
 		try {
 			const r = await fetch(`${path}?${params}`, { cache: "no-store" });
 			if (r.ok) return await r.json();
-			return r.status === 500 ? failed : { status: "lost" };
+			return r.status === 500 ? { status: "failed" } : { status: "lost" };
 		} catch {
 			return { status: "lost" };
 		}
 	};
 }
-
-const FAILED: ReadFailure = { status: "failed" };
-const LOST: Lost = { status: "lost" };
-
-export const readsFrom = <H extends ReadsHandler<Record<string, Entry>, string>>(path: string) =>
-	reader<H, ReadFailure>(path, FAILED);
-
-export const getReads = <H extends ReadsHandler<Record<string, Entry>, string>>(path: string) =>
-	reader<H, Lost>(path, LOST);

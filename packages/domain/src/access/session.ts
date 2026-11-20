@@ -141,13 +141,13 @@ async function viewerRow(db: Executor, identity: SQL, requested?: Owner) {
 function actorOf(row: SessionRow) {
 	const { now, seats, selected_owner: selected, hidden } = row;
 	if (row.expires_at <= now || !row.account_exists || seats.length > 1)
-		return currentActorResult.parse({ status: "unavailable" });
+		return { status: "unavailable" } satisfies z.output<typeof currentActorResult>;
 	if (hidden.some((w) => w.kind === "account" && w.opaque_subject_id === row.account_id))
 		return currentActorResult.parse({ status: "unavailable" });
 	if (row.registration_state === "pending_domain")
-		return currentActorResult.parse({ status: "pending_domain", accountId: row.account_id });
+		return { status: "pending_domain", accountId: row.account_id } satisfies z.output<typeof currentActorResult>;
 	if (!row.selected_exists || hidden.some((w) => w.kind === selected.kind && w.opaque_subject_id === selected.id))
-		return currentActorResult.parse({ status: "unavailable" });
+		return { status: "unavailable" } satisfies z.output<typeof currentActorResult>;
 	if (selected.kind === "account")
 		return currentActorResult.parse(
 			selected.id === row.account_id
@@ -163,8 +163,9 @@ function actorOf(row: SessionRow) {
 			? seat.plant_id !== selected.id || seat.organization_id !== null
 			: selected.kind !== "organization" || seat.organization_id !== selected.id || seat.plant_id !== null)
 	)
-		return currentActorResult.parse({ status: "unavailable" });
-	if (hidden.some((w) => w.seat_id === seat.id)) return currentActorResult.parse({ status: "unavailable" });
+		return { status: "unavailable" } satisfies z.output<typeof currentActorResult>;
+	if (hidden.some((w) => w.seat_id === seat.id))
+		return { status: "unavailable" } satisfies z.output<typeof currentActorResult>;
 	return currentActorResult.parse({
 		status: "active",
 		accountId: row.account_id,
@@ -173,7 +174,7 @@ function actorOf(row: SessionRow) {
 }
 async function resolveActor(tx: Executor, session: z.infer<typeof sessionId>, requested?: Owner, lock = true) {
 	const row = await readSession(tx, session, requested, lock);
-	return row ? actorOf(row) : currentActorResult.parse({ status: "unavailable" });
+	return row ? actorOf(row) : ({ status: "unavailable" } satisfies z.output<typeof currentActorResult>);
 }
 
 export async function readViewer(db: Executor, session: z.infer<typeof sessionId>) {
@@ -214,17 +215,17 @@ export async function currentActor(tx: WriteTx, session: z.infer<typeof sessionI
 	const bound = boundWrite(tx);
 	if (bound && bound.authority.session === session && sameOwner(bound.selected, selected)) return bound.actor;
 	const parsed = owner.safeParse(selected);
-	if (!parsed.success) return currentActorResult.parse({ status: "unavailable" });
+	if (!parsed.success) return { status: "unavailable" } satisfies z.output<typeof currentActorResult>;
 	const observed = tx.write.observed;
 	if (observed && observed.session === session) {
 		const actor = observed.actor;
 		if (sameOwner(actor.context.owner, parsed.data)) return actor;
 		if (parsed.data.kind === "account" && parsed.data.id === actor.accountId)
-			return currentActorResult.parse({
+			return {
 				status: "active",
 				accountId: actor.accountId,
 				context: { kind: "account", owner: parsed.data },
-			});
+			} satisfies z.output<typeof currentActorResult>;
 	}
 	return resolveActor(tx, session, parsed.data, lock);
 }

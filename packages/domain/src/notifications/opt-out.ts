@@ -219,7 +219,7 @@ export function emailOptOut(
 						unsubscribeRevision: row.rev,
 					})
 				: null;
-		return emailOptOutResult.parse({
+		return {
 			category: claim.category,
 			purpose: claim.purpose,
 			expired,
@@ -227,6 +227,6 @@ export function emailOptOut(
 			emailEnabled,
 			inAppEnabled: row.in_app_enabled,
 			undoToken: undo,
-		});
+		} satisfies z.output<typeof emailOptOutResult>;
 	});
 }

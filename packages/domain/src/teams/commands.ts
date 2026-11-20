@@ -395,7 +395,7 @@ export const teamsWriter = {
 							)
 						)?.n,
 					);
-				const row = teamRow.parse({
+				const row = {
 					id,
 					revision: "1",
 					name: input.input.name,
@@ -409,7 +409,7 @@ export const teamsWriter = {
 					leaderSource: null,
 					leaderRoleId: null,
 					activeCount: 0,
-				});
+				} satisfies z.output<typeof teamRow>;
 				audit.writes.push(sql`INSERT INTO team (id, plant_id, name, description, icon, state, sort_order)
 					SELECT ${id}::uuid, ${w.plant.id}::uuid, ${row.name}, ${row.description}, ${row.icon}, ${row.state},
 						${sortOrder}::int`);
@@ -451,7 +451,7 @@ export const teamsWriter = {
 					const team = await lockTeam(tx, w, input.input.teamId);
 					if (team.archived) deny("unavailable");
 					const id = randomUUID();
-					const row = roleRow.parse({
+					const row = {
 						id,
 						revision: "1",
 						teamId: team.id,
@@ -474,7 +474,7 @@ export const teamsWriter = {
 						personRevision: null,
 						pipelinePosition: null,
 						teamCount: 0,
-					});
+					} satisfies z.output<typeof roleRow>;
 					audit.writes.push(sql`INSERT INTO team_role
 						(id, plant_id, team_id, name, description, leadership, time_commitment, desired_skills, sort_order, template_key)
 						SELECT ${id}::uuid, ${w.plant.id}::uuid, ${team.id}::uuid, ${row.name}, ${row.description},

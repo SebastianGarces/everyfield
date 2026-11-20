@@ -21,7 +21,7 @@ export async function readPipelinePerson(
 	raw: unknown,
 ) {
 	const input = organizationPersonRequest.safeParse(raw);
-	const unavailable = () => pipelineAccessResult.parse({ status: "unavailable" });
+	const unavailable = () => ({ status: "unavailable" }) satisfies z.output<typeof pipelineAccessResult>;
 	if (!input.success || selected.kind !== "organization") return unavailable();
 	const actor = await currentActor(tx, session, selected, false);
 	if (actor.status !== "active" || actor.context.kind !== "seat") return unavailable();
@@ -83,7 +83,9 @@ export async function readPipelinePerson(
 
 	if (director.length) duties.push({ kind: "program_director", canReadStaffNotes: false });
 	return duties.length
-		? pipelineAccessResult.parse({ status: "allowed", organization: selected, personId: input.data.personId, duties })
+		? ({ status: "allowed", organization: selected, personId: input.data.personId, duties } satisfies z.output<
+				typeof pipelineAccessResult
+			>)
 		: unavailable();
 }
 
