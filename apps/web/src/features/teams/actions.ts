@@ -1,23 +1,18 @@
 "use server";
 
-import { getViewer } from "@/server/request-context";
+import type { Outcome } from "@everyfield/contracts/common";
+import { seated } from "@/server/request-context";
 import { teamsWriter } from "@everyfield/domain/teams";
 import type { TeamsReply } from "@everyfield/contracts/teams";
-import type { Outcome } from "./model.ts";
+
 import { write } from "./server.ts";
 import type { WriteTx } from "@everyfield/domain/access";
 
-const noSeat = { status: "refused", code: "unavailable" } as const;
 type Context = Parameters<typeof teamsWriter.create>[1];
 type Run<T> = (tx: WriteTx, ctx: Context) => Promise<TeamsReply<T>>;
 
-async function seat() {
-	return (await getViewer()).people ?? null;
-}
 async function change<T>(run: Run<T>): Promise<Outcome<T>> {
-	const v = await seat();
-	if (!v) return noSeat;
-	return write(v, run);
+	return seated("unavailable", (v) => write(v, run));
 }
 const withIds = (fields: unknown, ids: Record<string, string>) =>
 	fields && typeof fields === "object" && !Array.isArray(fields) ? { ...fields, ...ids } : fields;
@@ -28,9 +23,7 @@ const command = (requestKey: string, expectedRevision: string, input: unknown) =
 });
 
 export async function createTeam(requestKey: string, input: unknown) {
-	const v = await seat();
-	if (!v) return noSeat;
-	return write(v, (tx, ctx) => teamsWriter.create(tx, ctx, { requestKey, input }));
+	return seated("unavailable", (v) => write(v, (tx, ctx) => teamsWriter.create(tx, ctx, { requestKey, input })));
 }
 
 export async function changeTeam(
@@ -100,14 +93,14 @@ export async function importTemplates(
 	version: string,
 	selections: unknown,
 ): Promise<Outcome<{ newTeams: number; newRoles: number }>> {
-	const v = await seat();
-	if (!v) return noSeat;
-	const done = await write(v, (tx, ctx) =>
-		teamsWriter.initialize(tx, ctx, {
-			requestKey,
-			input: { expectedVersion: version, mode: "import", selections },
-		}),
-	);
-	if (done.status !== "ok") return done;
-	return { status: "ok", value: { newTeams: done.value.newTeams, newRoles: done.value.newSelectedRoles } };
+	return seated("unavailable", async (v) => {
+		const done = await write(v, (tx, ctx) =>
+			teamsWriter.initialize(tx, ctx, {
+				requestKey,
+				input: { expectedVersion: version, mode: "import", selections },
+			}),
+		);
+		if (done.status !== "ok") return done;
+		return { status: "ok", value: { newTeams: done.value.newTeams, newRoles: done.value.newSelectedRoles } };
+	});
 }
