@@ -91,6 +91,7 @@ agent-browser find role link text --name "Idea" --exact
 Sent feedback: what you sent with Send feedback and where each one stands.
 
 - Routes: `/feedback`, `/feedback/[feedbackId]`
+- Endpoints: `/feedback/read`
 - Personas: `owner` read, `admin` read, `member` read, `resident` read, `signup` read, `triage` read, `network` read, `visitor` none
 - Catalog: ADM-001
 
@@ -152,7 +153,7 @@ agent-browser wait --load networkidle
 agent-browser wait --url "**/feedback/*"
 agent-browser find role heading text --name "Feedback" --exact
 agent-browser find role link text --name "Sent feedback" --exact
-agent-browser find text "None yet" text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"None yet\")"
 ```
 
 ### feedback.triage

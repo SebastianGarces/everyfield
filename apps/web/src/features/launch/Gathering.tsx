@@ -26,10 +26,11 @@ import {
 	InsightTop,
 	Input,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { useState } from "react";
-import type { chooseGatheringPath, readGatheringOffers, saveGathering } from "./actions.ts";
+import type { chooseGatheringPath, saveGathering } from "./actions.ts";
+import type { readGatheringOffers } from "./fetch.ts";
 import {
 	GATHERING_MESSAGE,
 	longDate,
@@ -40,12 +41,14 @@ import {
 	type Outcome,
 	type requestKeys,
 } from "./model.ts";
+import { READ_FAILED } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type Keys = ReturnType<typeof requestKeys>;
 type Milestone = Extract<Plan["path"], { kind: "milestone" }>;
 type Mode = "record" | "correct" | "clear";
 type Draft = { mode: Mode; date: string; note: string; reason: string; error: string | null };
-export type Offers = Outcome<GatheringOffer[]> | null;
+export type Offers = Outcome<GatheringOffer[]> | ReadFailure | null;
 export type GatheringActions = {
 	choose: typeof chooseGatheringPath;
 	save: typeof saveGathering;
@@ -64,7 +67,6 @@ function useSwitch(
 	onPlan: (p: Plan) => void,
 	onOffers: (o: Offers) => void,
 ) {
-	const toast = useToast();
 	const [busy, setBusy] = useState<string | null>(null);
 	async function choose(organizationId: string | null) {
 		const input = organizationId ? { path: "milestone", organizationId } : { path: "launch_sunday" };
@@ -155,11 +157,9 @@ export function GatheringCard({
 					? `No longer offered by ${by ?? "the organization that chose it"}. ${admin ? "Go back to Launch Sunday, or choose another milestone if one is offered." : "An Owner or Admin can go back to Launch Sunday."}`
 					: `${name ? `Used instead of Launch Sunday, chosen by ${by ?? "an organization no longer connected"}.` : ""}${path.offered?.description ? ` ${path.offered.description}` : ""}`}
 			</InsightText>
-			{r?.note ? <InsightText className="mt-2 whitespace-pre-line">{r.note}</InsightText> : null}
+			{r?.note ? <InsightText className="whitespace-pre-line">{r.note}</InsightText> : null}
 			{r && gone ? (
-				<InsightText className="mt-2">
-					No longer offered by {by ?? "the organization that chose it"}. The record stays.
-				</InsightText>
+				<InsightText>No longer offered by {by ?? "the organization that chose it"}. The record stays.</InsightText>
 			) : null}
 			{admin ? (
 				<InsightFooter>
@@ -218,8 +218,14 @@ export function GatheringChoice({
 					Gathering milestones
 				</CalloutLabel>
 				<CalloutText className="text-md">
-					The milestones your network or sending church offer could not load. Your church&rsquo;s path is shown as it
-					is. Reload the page in a moment to see them.
+					{offers.status === "failed" ? (
+						<>{READ_FAILED} Your church&rsquo;s path is shown as it is.</>
+					) : (
+						<>
+							The milestones your network or sending church offer could not load. Your church&rsquo;s path is shown as
+							it is. Reload the page in a moment to see them.
+						</>
+					)}
 				</CalloutText>
 			</Card>
 		);

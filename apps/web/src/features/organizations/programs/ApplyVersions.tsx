@@ -5,7 +5,8 @@ import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader }
 import { useState, useTransition, type FormEvent } from "react";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { Problem } from "../../../components/Problem.tsx";
-import { applyVersions, reviewVersions } from "./actions";
+import { applyVersions } from "./actions";
+import { reviewVersions } from "./fetch.ts";
 import { programProblem } from "./model";
 import { ReviewParts } from "./VersionReview";
 

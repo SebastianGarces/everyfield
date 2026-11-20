@@ -33,7 +33,6 @@ export function CardFailed({ what, loaded }: { what: string; loaded: Exclude<Loa
 				tone={loaded.status === "denied" ? "lock" : "error"}
 				headingLevel="h2"
 				title={loaded.status === "denied" ? `${what} are not part of your seat` : `${what} could not load`}
-				className="py-10"
 			>
 				{loaded.status === "denied"
 					? "Your seat in this church changed. Reload the page to see what it allows now."
@@ -71,7 +70,7 @@ export function MetricsLoading() {
 				Loading your numbers
 			</span>
 			{METRICS.map((m) => (
-				<Skeleton key={m.key} shape="block" height={150} className="rounded-card" />
+				<Skeleton key={m.key} shape="block" height={150} />
 			))}
 		</div>
 	);
@@ -230,7 +229,7 @@ export function CardLoading({ label, height = 320 }: { label: string; height?: n
 			<span className="sr-only" role="status">
 				Loading {label}
 			</span>
-			<Skeleton shape="block" height={height} className="rounded-card" />
+			<Skeleton shape="block" height={height} />
 		</div>
 	);
 }

@@ -6,7 +6,8 @@ import { useState } from "react";
 import { canDeleteWorkspace } from "../model";
 import type { DeletionStatus, DigestSchedule, PlantOwner, PlantSettings, SectionResult } from "../port";
 import { attempt } from "../save";
-import { SaveError, SaveFooter, SectionBody, SettingRow } from "../SettingsDialog";
+import { SaveFooter, SectionBody, SettingRow } from "../SectionParts";
+import { SaveError } from "../SaveError";
 import { useDraft, useSection, useSettings } from "../store";
 import { hourLabel, WEEKDAYS, zoneLabel } from "../../../components/time.ts";
 import { PlantTimezoneDialog } from "../flows/PlantTimezoneDialog";
@@ -335,7 +336,6 @@ function DigestControl({ value, onChange }: { value: DigestSchedule; onChange: (
 			{value.cadence === "weekly" ? (
 				<Select
 					aria-label="Digest day"
-					className="w-[150px]"
 					options={DAYS}
 					value={String(value.weekday)}
 					onValueChange={(v) => onChange({ ...value, weekday: Number(v) })}
@@ -344,7 +344,6 @@ function DigestControl({ value, onChange }: { value: DigestSchedule; onChange: (
 			{value.cadence !== "off" ? (
 				<Select
 					aria-label="Digest time"
-					className="w-[130px]"
 					options={HOURS}
 					value={String(value.hour)}
 					onValueChange={(v) => onChange({ ...value, hour: Number(v) })}

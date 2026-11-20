@@ -1,0 +1,175 @@
+import type { Database, Transaction } from "@everyfield/db/client";
+import { sql, type SQL } from "@everyfield/db/query";
+import { issueHash, publicIssue, type PublicIssue } from "../feedback/public.ts";
+import "server-only";
+import { z } from "zod";
+import { claimDue, finishClaim, lockClaim, recoverLease, type Claim } from "./queue.ts";
+import { transaction } from "./transaction.ts";
+import type { HeldReason } from "@everyfield/contracts/feedback";
+import { logLine } from "../log.ts";
+
+export type IssueLink = { number: number; url: string };
+export type CreateOutcome = { kind: "created"; issue: IssueLink } | { kind: "refused" } | { kind: "unknown" };
+export type SearchOutcome = { kind: "found"; issues: IssueLink[] } | { kind: "failed" };
+export interface IssueClient {
+	create(repository: string, issue: { title: string; body: string }): Promise<CreateOutcome>;
+	search(repository: string, reference: string): Promise<SearchOutcome>;
+}
+export type OperatorMail = (notice: OperatorNotice) => SQL;
+export type OperatorNotice = {
+	tenant: string;
+	feedbackId: string;
+	reference: string;
+	issue: PublicIssue | null;
+	url: string | null;
+};
+export type PublicationConfig = {
+	repository: { id: string; name: string };
+	issues: IssueClient;
+	operatorMail: OperatorMail | null;
+};
+
+const feedbackRow = z.object({
+	id: z.uuid(),
+	account_id: z.uuid(),
+	category: z.string(),
+	page_address: z.string().nullable(),
+	reference: z.string(),
+	publication_state: z.enum(["pending", "publishing", "unknown", "published", "held"]),
+	publication_payload: z.object({ title: z.string(), body: z.string() }).nullable(),
+	repository_name: z.string().nullable(),
+});
+type Feedback = z.infer<typeof feedbackRow>;
+type Outcome = { state: "published"; issue: IssueLink } | { state: "held"; reason: HeldReason } | { state: "unknown" };
+
+const ACTION = {
+	published: "feedback.published",
+	held: "feedback.publication_held",
+	unknown: "feedback.publication_unknown",
+} as const;
+
+async function intend(tx: Transaction, f: Feedback, issue: PublicIssue, repository: PublicationConfig["repository"]) {
+	const r = await tx.execute(sql`WITH upd AS (
+ UPDATE feedback SET publication_state='publishing', publication_payload=${JSON.stringify(issue)}::jsonb,
+  publication_hash=${issueHash(issue)}, repository_id=${repository.id}::bigint, repository_name=${repository.name}
+ WHERE id=${f.id}::uuid AND account_id=${f.account_id}::uuid AND publication_state='pending' RETURNING id, account_id
+), aud AS (
+ INSERT INTO audit_event (tenant_id, action, kind, subject_id, system_cause, after_value)
+ SELECT account_id, 'feedback.publication_intended', 'publish', id, 'feedback_publication',
+  jsonb_build_object('state', 'publishing') FROM upd RETURNING 1
+) SELECT count(*)::int AS n FROM upd`);
+	if (r.rows[0]?.n !== 1) throw Error("feedback_publication_changed");
+}
+
+async function settle(tx: Transaction, f: Feedback, outcome: Outcome, mail: OperatorMail | null) {
+	const set =
+		outcome.state === "published"
+			? sql`publication_state='published', issue_number=${outcome.issue.number}::int, issue_url=${outcome.issue.url},
+  published_at=clock_timestamp()`
+			: outcome.state === "held"
+				? sql`publication_state='held', held_reason=${outcome.reason}`
+				: sql`publication_state='unknown'`;
+	const after =
+		outcome.state === "published"
+			? { state: "published", issue: outcome.issue.number }
+			: outcome.state === "held"
+				? { state: "held", reason: outcome.reason }
+				: { state: "unknown" };
+	const queued =
+		mail && outcome.state !== "unknown"
+			? sql`, ${mail({
+					tenant: f.account_id,
+					feedbackId: f.id,
+					reference: f.reference,
+					issue: f.publication_payload ?? null,
+					url: outcome.state === "published" ? outcome.issue.url : null,
+				})}`
+			: sql``;
+	const r = await tx.execute(sql`WITH upd AS (
+ UPDATE feedback SET ${set}
+ WHERE id=${f.id}::uuid AND account_id=${f.account_id}::uuid AND publication_state IN ('pending', 'publishing', 'unknown')
+ RETURNING id, account_id
+), aud AS (
+ INSERT INTO audit_event (tenant_id, action, kind, subject_id, system_cause, after_value)
+ SELECT account_id, ${ACTION[outcome.state]}, 'outcome', id, 'feedback_publication', ${JSON.stringify(after)}::jsonb
+ FROM upd RETURNING 1
+)${queued} SELECT count(*)::int AS n FROM upd`);
+	if (r.rows[0]?.n !== 1) throw Error("feedback_publication_changed");
+}
+
+type Step = { f: Feedback; issue: PublicIssue; repository: string; reconcile: boolean };
+
+async function prepare(tx: Transaction, claim: Claim, config: PublicationConfig): Promise<Step | null> {
+	if (claim.kind !== "feedback_publication" || !(await lockClaim(tx, claim))) return null;
+	const found = await tx.execute(sql`SELECT id, account_id, category, page_address, reference, publication_state,
+ publication_payload, repository_name FROM feedback
+ WHERE id=${claim.subject_record_id}::uuid AND account_id=${claim.tenant_id}::uuid FOR UPDATE`);
+	if (!found.rows[0]) {
+		await finishClaim(tx, claim, { state: "cancelled", code: "feedback_removed" });
+		return null;
+	}
+	const f = feedbackRow.parse(found.rows[0]);
+	if (f.publication_state === "published" || f.publication_state === "held") {
+		await finishClaim(tx, claim, { state: "succeeded" });
+		return null;
+	}
+	if (f.publication_state === "pending") {
+		const issue = publicIssue({ category: f.category, address: f.page_address, reference: f.reference });
+		if (!issue) {
+			await settle(tx, f, { state: "held", reason: "unsafe_fields" }, config.operatorMail);
+			await finishClaim(tx, claim, { state: "succeeded" });
+			return null;
+		}
+		await intend(tx, f, issue, config.repository);
+		return { f: { ...f, publication_payload: issue }, issue, repository: config.repository.name, reconcile: false };
+	}
+	if (!f.publication_payload || f.repository_name === null)
+		throw Error(`Feedback ${f.id} is ${f.publication_state} with no stored issue or repository`);
+	return { f, issue: f.publication_payload, repository: f.repository_name, reconcile: true };
+}
+
+async function call(step: Step, claim: Claim, issues: IssueClient): Promise<Outcome> {
+	if (step.reconcile) {
+		const found = await issues.search(step.repository, step.f.reference);
+		if (found.kind === "failed") return { state: "held", reason: "search_failed" };
+		if (found.issues.length > 1) return { state: "held", reason: "ambiguous" };
+		const [only] = found.issues;
+		if (found.issues.length === 1 && only) return { state: "published", issue: only };
+	}
+	const created = await issues.create(step.repository, step.issue);
+	if (created.kind === "created") return { state: "published", issue: created.issue };
+	if (created.kind === "refused") return { state: "held", reason: "github_refused" };
+	return claim.attempt_count >= claim.max_attempts ? { state: "held", reason: "unresolved" } : { state: "unknown" };
+}
+
+async function publish(db: Database, claim: Claim, config: PublicationConfig) {
+	const step = await transaction(db, (tx) => prepare(tx, claim, config));
+	if (!step) return;
+	const outcome = await call(step, claim, config.issues);
+	await transaction(db, async (tx) => {
+		if (!(await lockClaim(tx, claim))) return;
+		await settle(tx, step.f, outcome, config.operatorMail);
+		await finishClaim(
+			tx,
+			claim,
+			outcome.state === "unknown" ? { state: "retry_wait", code: "github_unknown" } : { state: "succeeded" },
+		);
+	});
+}
+
+export async function runDueFeedbackPublication(
+	db: Database,
+	config: PublicationConfig,
+	limit: number,
+	until: number,
+): Promise<number> {
+	await recoverLease(db);
+	let claimed = 0;
+	while (claimed < limit && Date.now() < until) {
+		const [claim] = await claimDue(db, ["feedback_publication"], 1);
+		if (!claim) break;
+		claimed++;
+		await publish(db, claim, config).catch(() => logLine({ component: "feedback-publication", outcome: "error" }));
+	}
+	return claimed;
+}

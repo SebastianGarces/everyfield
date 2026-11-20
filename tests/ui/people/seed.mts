@@ -4,6 +4,7 @@ import { createOnboardingProducer } from "../../../packages/domain/src/onboardin
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { randomUUID } from "node:crypto";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const PASSWORD = "People-preview-pass-1";
 
@@ -19,7 +20,7 @@ async function up(origin: string) {
 		origin,
 		secret,
 		trustedIp: () => env.loopback("people", ip),
-		enqueueMail: async () => {},
+		enqueueMail: async () => randomUUID(),
 		diagnostic: () => {},
 	});
 	const host = new URL(origin).host;
@@ -66,8 +67,8 @@ async function up(origin: string) {
 	const owner = await account("Daniel Reyes", "owner@people-preview.example.test");
 
 	const noop = async () => {};
-	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop });
-	const created = await runtime.transaction((tx) =>
+	const onboarding = createOnboardingProducer({ relationships: noop, enqueue: noop });
+	const created = await gatedTransaction(runtime, (tx) =>
 		onboarding.createPlant(
 			tx,
 			{
@@ -85,7 +86,7 @@ async function up(origin: string) {
 	const plant = (created.value as { plant: { kind: "plant"; id: string } }).plant;
 
 	const ctx = { session: owner.sessionId, selected: plant } as never;
-	const write = <T,>(run: (tx: unknown) => Promise<T>) => runtime.transaction((tx) => run(tx));
+	const write = <T,>(run: (tx: unknown) => Promise<T>) => gatedTransaction(runtime, (tx) => run(tx));
 	const people: Record<string, { id: string; revision: string }> = {};
 	const names: [string, string, string | null][] = [
 		["Maria Santos", "interviewed", "maria@example.test"],

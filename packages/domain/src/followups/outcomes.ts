@@ -1,6 +1,6 @@
 import { instant, revision, type Instant } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/followups";
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
@@ -15,7 +15,7 @@ import {
 	type Tx,
 } from "../tasks/core.ts";
 import { assignedTo } from "../tasks/assignees.ts";
-import { loadTask, lockTasks, type LockedTask } from "../tasks/queries.ts";
+import { lockingTasks, managedTaskRows, type LockedTask } from "../tasks/queries.ts";
 import { mutation, setStatus, syncAll, type TaskReminders } from "../tasks/writes.ts";
 import { originJson, originOf } from "../tasks/origin.ts";
 import { answer, followUpTask, OPEN, refuse } from "./core.ts";
@@ -137,30 +137,35 @@ function occurrence(value: Instant | undefined, fallback: Date, clock: Date) {
 	return d > clock ? clock : d;
 }
 
-const personFacts = z.object({
+const subjectFacts = z.object({
+	tasks: managedTaskRows,
 	live: z.boolean().nullable(),
 	last_contact: z.coerce.date().nullable(),
 	actor_name: z.string().nullable(),
 	meeting_id: z.uuid().nullable(),
 	origins: z.record(z.string(), z.unknown()),
 });
-async function factsOf(
+async function lockSubject(
 	tx: Tx,
 	plantId: string,
 	accountId: string,
-	personId: string,
-	obligationId: string | null,
-	finished: readonly string[],
+	tasks: SQL,
+	taskId: string | null,
+	personId: string | null,
 ) {
-	const r = await tx.execute(sql`SELECT (SELECT state='live' AND plant_id IS NOT NULL FROM person
-			WHERE id=${personId}::uuid AND tenant_id=${plantId}::uuid FOR SHARE) AS live,
-		(SELECT max(x.occurred_at) FROM contact_outcome x WHERE x.plant_id=${plantId}::uuid AND x.person_id=${personId}::uuid
+	const person = sql`coalesce((SELECT k.person_id FROM k WHERE k.id=${taskId}::uuid), ${personId}::uuid)`;
+	const r = await tx.execute(sql`WITH k AS (${lockingTasks(plantId, tasks)})
+		SELECT (SELECT coalesce(json_agg(k ORDER BY k.id),'[]') FROM k) AS tasks,
+		(SELECT state='live' AND plant_id IS NOT NULL FROM person WHERE id=${person} AND tenant_id=${plantId}::uuid
+			FOR SHARE) AS live,
+		(SELECT max(x.occurred_at) FROM contact_outcome x WHERE x.plant_id=${plantId}::uuid AND x.person_id=${person}
 			AND x.voided_at IS NULL AND x.outcome='contacted') AS last_contact,
 		(SELECT display_name FROM seat_identity(${accountId}::uuid)) AS actor_name,
-		(SELECT meeting_id FROM obligation WHERE id=${obligationId}::uuid AND plant_id=${plantId}::uuid) AS meeting_id,
-		(SELECT coalesce(jsonb_object_agg(k.id, ${originJson(sql`k`)}),'{}') FROM task k WHERE k.plant_id=${plantId}::uuid
-			AND k.id=ANY(${sql.param([...finished])}::uuid[])) AS origins`);
-	return personFacts.parse(r.rows[0]);
+		(SELECT o.meeting_id FROM obligation o WHERE o.id=(SELECT k.obligation_id FROM k WHERE k.id=${taskId}::uuid)
+			AND o.plant_id=${plantId}::uuid) AS meeting_id,
+		(SELECT coalesce(jsonb_object_agg(o.id, ${originJson(sql`o`)}),'{}') FROM task o WHERE o.plant_id=${plantId}::uuid
+			AND o.id IN (SELECT k.id FROM k WHERE k.id<>${taskId}::uuid)) AS origins`);
+	return subjectFacts.parse(r.rows[0]);
 }
 
 const correctionFacts = z.object({
@@ -201,39 +206,33 @@ export function outcomeWriter(reminders: TaskReminders) {
 					const v = input.input,
 						plant = cmd.actor.plantId,
 						clock = new Date();
-					let task: LockedTask | null = null;
-					let others: LockedTask[] = [];
-					if (v.target.kind === "task") {
-						if (v.outcome === "contacted" && v.completeTask) {
-							const taskId = v.target.taskId;
-							const locked =
-								await tx.execute(sql`SELECT t.id FROM task t WHERE t.plant_id=${plant}::uuid AND (t.id=${taskId}::uuid
-								OR (t.person_id=(SELECT x.person_id FROM task x WHERE x.id=${taskId}::uuid AND x.plant_id=${plant}::uuid)
-									AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN}
-									${administers(cmd.actor) ? sql`` : sql`AND ${assignedTo("t", sql`${cmd.actor.accountId}::uuid`)}`}))
-								ORDER BY t.id FOR UPDATE OF t`);
-							const ids = z
-								.array(z.object({ id: z.uuid() }))
-								.parse(locked.rows)
-								.map((r) => r.id);
-							const rows = await lockTasks(tx, plant, sql`t.id=ANY(${sql.param(ids)}::uuid[])`);
-							task = rows.find((r) => r.id === taskId) ?? null;
-							others = rows.filter((r) => r.id !== taskId);
-						} else task = await loadTask(tx, plant, v.target.taskId, true);
-						if (!task || task.deleted_at || task.parent_id || !task.person_id) deny();
-						if (!administers(cmd.actor) && !task.assignees.some((a) => a.accountId === cmd.actor.accountId)) deny();
-						if (task.revision !== v.target.expectedRevision) deny("conflict");
-						if (!(OPEN_STATUS as readonly string[]).includes(task.status)) deny("conflict");
-					} else if (!administers(cmd.actor)) deny();
-					const personId = task?.person_id ?? (v.target.kind === "person" ? v.target.personId : "");
-					const facts = await factsOf(
+					const taskId = v.target.kind === "task" ? v.target.taskId : null;
+					if (!taskId && !administers(cmd.actor)) deny("unavailable");
+					const tasks = !taskId
+						? sql`false`
+						: v.outcome === "contacted" && v.completeTask
+							? sql`(t.id=${taskId}::uuid OR (t.person_id=(SELECT x.person_id FROM task x WHERE x.id=${taskId}::uuid
+								AND x.plant_id=${plant}::uuid) AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN}
+								${administers(cmd.actor) ? sql`` : sql`AND ${assignedTo("t", sql`${cmd.actor.accountId}::uuid`)}`}))`
+							: sql`t.id=${taskId}::uuid`;
+					const facts = await lockSubject(
 						tx,
 						plant,
 						cmd.actor.accountId,
-						personId,
-						task?.obligation_id ?? null,
-						others.map((o) => o.id),
+						tasks,
+						taskId,
+						v.target.kind === "person" ? v.target.personId : null,
 					);
+					const task: LockedTask | null = facts.tasks.find((r) => r.id === taskId) ?? null;
+					const others = facts.tasks.filter((r) => r.id !== taskId);
+					if (v.target.kind === "task") {
+						if (!task || task.deleted_at || task.parent_id || !task.person_id) deny("unavailable");
+						if (!administers(cmd.actor) && !task.assignees.some((a) => a.accountId === cmd.actor.accountId))
+							deny("unavailable");
+						if (task.revision !== v.target.expectedRevision) deny("conflict");
+						if (!(OPEN_STATUS as readonly string[]).includes(task.status)) deny("conflict");
+					}
+					const personId = task?.person_id ?? (v.target.kind === "person" ? v.target.personId : "");
 					if (!facts.live) deny("invalid_subject");
 					const row: Stored = {
 						id: randomUUID(),
@@ -315,7 +314,7 @@ export function outcomeWriter(reminders: TaskReminders) {
 					LEFT JOIN person p ON p.id=o.person_id AND p.tenant_id=o.plant_id
 					WHERE o.id=${v.outcomeId}::uuid AND o.plant_id=${plant}::uuid
 					FOR UPDATE OF o`);
-					if (!r.rows[0]) deny();
+					if (!r.rows[0]) deny("unavailable");
 					const f = correctionFacts.parse(r.rows[0]);
 					const old: Stored = { ...f.row, revision: f.row.revision };
 					const own =
@@ -323,7 +322,7 @@ export function outcomeWriter(reminders: TaskReminders) {
 						f.task_live === true &&
 						f.actor_assigned === true &&
 						f.author_id === cmd.actor.accountId;
-					if (!administers(cmd.actor) && !own) deny();
+					if (!administers(cmd.actor) && !own) deny("unavailable");
 					if (old.voided_at || old.revision !== input.expectedRevision) deny("conflict");
 					const me = { accountId: cmd.actor.accountId, displayName: f.actor_name };
 					const author = f.author_id ? { accountId: f.author_id, displayName: f.author_name } : null;

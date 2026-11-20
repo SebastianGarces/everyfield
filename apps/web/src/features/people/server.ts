@@ -1,55 +1,36 @@
 import { requestDatabase } from "@/server/database";
+import type { PlantSeat } from "@/server/request-context";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
-import type { Database, Transaction } from "@everyfield/db/client";
-import { type peopleViewer, PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
+import type { Database } from "@everyfield/db/client";
+import { PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
 import "server-only";
 import type { PeopleQuery } from "./model.ts";
 import { HISTORY_PAGE } from "./assessments/server.ts";
 import { loadPersonFollowUps } from "../followups/server.ts";
 import { readPeoplePage, readPersonPage } from "./page-data.ts";
 import { canWrite } from "../../components/seat-role.ts";
+import { guardedWrite, readDb, readTx } from "../../server/platform/tx.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
-export type Viewer = NonNullable<ReturnType<typeof peopleViewer>>;
-export type Role = Viewer["role"];
+export type Role = PlantSeat["role"];
 
-export async function read<T>(
-	viewer: Viewer,
-	run: (tx: Transaction, context: PeopleContext) => Promise<PeopleReply<T>>,
-): Promise<PeopleReply<T> | { status: "failed" }> {
-	return readOnPool(viewer, (db, context) => db.transaction((tx) => run(tx, context)));
+export function read<T>(viewer: PlantSeat, run: (tx: WriteTx, context: PeopleContext) => Promise<PeopleReply<T>>) {
+	return readTx("people", (tx) => run(tx, new PeopleReadContext(viewer.authority)));
 }
 
-async function readOnPool<T>(
-	viewer: Viewer,
-	run: (db: Database, context: PeopleReadContext) => Promise<PeopleReply<T>>,
-): Promise<PeopleReply<T> | { status: "failed" }> {
-	const store = requestDatabase();
-	if (!store) return { status: "failed" };
-	try {
-		return await run(store, new PeopleReadContext(viewer.authority));
-	} catch (error) {
-		console.error(JSON.stringify({ component: "people", outcome: "read_failed", error: String(error) }));
-		return { status: "failed" };
-	}
+function readOnPool<T>(viewer: PlantSeat, run: (db: Database, context: PeopleReadContext) => Promise<PeopleReply<T>>) {
+	return readDb("people", (db) => run(db, new PeopleReadContext(viewer.authority)));
 }
 
-export async function write<T>(
-	viewer: Viewer,
-	run: (tx: Transaction, context: PeopleWriteContext) => Promise<PeopleReply<T>>,
-): Promise<PeopleReply<T> | { status: "failed" }> {
-	const store = requestDatabase();
-	if (!store) return { status: "failed" };
-	try {
-		return await withPeopleWrite(store, viewer.authority, run);
-	} catch (error) {
-		console.error(JSON.stringify({ component: "people", outcome: "write_failed", error: String(error) }));
-		return { status: "failed" };
-	}
+export function write<T>(
+	viewer: PlantSeat,
+	run: (tx: WriteTx, context: PeopleWriteContext) => Promise<PeopleReply<T>>,
+) {
+	return guardedWrite("people", () => withPeopleWrite(requestDatabase(), viewer.authority, run));
 }
-
 export type { PeopleData, PeopleView } from "./page-data.ts";
 
-export async function loadPerson(viewer: Viewer, personId: Parameters<typeof readPersonPage>[2], withFields = true) {
+export async function loadPerson(viewer: PlantSeat, personId: Parameters<typeof readPersonPage>[2], withFields = true) {
 	const followUps = withFields ? loadPersonFollowUps(viewer.authority, personId) : Promise.resolve(null);
 	const loaded = await readPersonView(viewer, personId, withFields);
 	const parts = await followUps;
@@ -60,7 +41,7 @@ export async function loadPerson(viewer: Viewer, personId: Parameters<typeof rea
 }
 
 export async function readPersonView(
-	viewer: Viewer,
+	viewer: PlantSeat,
 	personId: Parameters<typeof readPersonPage>[2],
 	withFields = true,
 ) {
@@ -70,7 +51,7 @@ export async function readPersonView(
 	return readOnPool(viewer, (db, ctx) => readPersonPage(db, ctx, personId, parts));
 }
 
-export async function loadPeople(viewer: Viewer, query: PeopleQuery, pairs = false) {
+export async function loadPeople(viewer: PlantSeat, query: PeopleQuery, pairs = false) {
 	const result = await read(viewer, async (tx, ctx) => ({
 		status: "ok",
 		value: await readPeoplePage(tx, ctx, query, { pairs }),

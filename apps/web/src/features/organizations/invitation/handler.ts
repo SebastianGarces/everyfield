@@ -1,6 +1,8 @@
 import "server-only";
-import { command, invitationFor, namesFor, subjectFacts, viewerOf, type Reply } from "@/server/organizations";
+import { command, invitationFor, namesFor, subjectFacts, viewerOf, type RefusalCode, type Reply } from "../mount";
 import { z } from "zod";
+import { mutatingRoute } from "../../../server/platform/boundary.ts";
+import { parseJson } from "../../../server/platform/json.ts";
 
 export type RelationshipInvitationRead =
 	| { kind: "signed_out" }
@@ -14,7 +16,7 @@ const request = z.discriminatedUnion("op", [
 const LIMIT = 16384;
 const headers = { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" };
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers });
-const refused = (code: string): Reply<never> => ({ status: "refused", code });
+const refused = (code: RefusalCode): Reply<never> => ({ status: "refused", code });
 
 async function read(invitationId: string, proof: string): Promise<RelationshipInvitationRead> {
 	const w = await viewerOf();
@@ -38,21 +40,17 @@ async function respond(input: unknown): Promise<Reply<unknown>> {
 	);
 }
 
-export async function relationshipInvitationRoute(incoming: Request): Promise<Response> {
-	const origin = process.env.IDENTITY_ORIGIN;
-	if (!origin || incoming.headers.get("origin") !== new URL(origin).origin) return json(refused("access_denied"), 403);
+export const relationshipInvitationRoute = mutatingRoute(async function relationshipInvitationRoute(
+	incoming: Request,
+): Promise<Response> {
 	if (incoming.headers.get("content-type")?.split(";")[0] !== "application/json")
 		return json(refused("invalid_input"), 415);
 	const text = await incoming.text();
 	if (text.length > LIMIT) return json(refused("invalid_input"), 413);
-	let raw: unknown;
-	try {
-		raw = JSON.parse(text);
-	} catch {
-		return json(refused("invalid_input"), 400);
-	}
+	const raw = parseJson(text);
+	if (raw === undefined) return json(refused("invalid_input"), 400);
 	const body = request.safeParse(raw);
 	if (!body.success) return json(refused("invalid_input"), 400);
 	const v = body.data;
 	return json(v.op === "read" ? await read(v.invitationId, v.proof) : await respond(v.command));
-}
+});

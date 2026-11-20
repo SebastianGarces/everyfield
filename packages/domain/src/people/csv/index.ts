@@ -8,7 +8,7 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import "server-only";
 import { z } from "zod";
 import { liveRead, writeVisibility, type RequestActor } from "../../access/session.ts";
-import { declareWrite, finishAudit, prepareWrite } from "../../operations/writes.ts";
+import { declareWrite, finishAudit, prepareWrite, gatedTransaction } from "../../operations/writes.ts";
 import {
 	authorize,
 	authorizeCachedWrite,
@@ -303,7 +303,7 @@ async function saveImport(
 	});
 	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "conflict") deny("review_digest_conflict");
-	if (claim.kind === "unavailable") deny();
+	if (claim.kind === "unavailable") deny("unavailable");
 	if (claim.kind === "replay") return receiptOf(claim.id, await stateOf(tx, sql`${claim.id}::uuid`));
 	const people = match.parse(
 		(await tx.execute(sql`SELECT ${existingPeople(plant, file.rows)} AS people`)).rows[0]?.people,
@@ -365,7 +365,7 @@ async function retryImport(tx: Tx, ctx: WriteContext, requestKey: string, file: 
  LEFT JOIN audit_event a ON a.tenant_id=${plant}::uuid AND a.request_key=${requestKey} AND a.request_identity->>'operation'=${OPERATION}`)
 		).rows[0],
 	);
-	if (!found.id || !found.state) deny();
+	if (!found.id || !found.state) deny("unavailable");
 	const prior = loadState(found.state);
 	const answer = receiptOf(found.id, prior);
 	if (answer.status !== "partial") return answer;
@@ -539,8 +539,8 @@ export async function signPeopleImport(db: Database, storage: PrivateStorage, au
  SELECT ${plant}::uuid,'object_cleanup',u.id,'people-import-upload/'||u.id,'ready',u.expires_at,0,4,0 FROM upload u
  ON CONFLICT DO NOTHING)
  SELECT id FROM upload`);
-		if (!result.rows[0]) deny();
-		const signed = await signPrivatePut(storage, key, "text/csv", input.byteLength).catch(() => deny());
+		if (!result.rows[0]) deny("unavailable");
+		const signed = await signPrivatePut(storage, key, "text/csv", input.byteLength).catch(() => deny("unavailable"));
 		return c.importUpload.parse({ uploadId: id, ...signed });
 	});
 }
@@ -554,7 +554,7 @@ async function storedFile(db: Database, storage: PrivateStorage, ctx: PeopleRead
  AND f.state='pending' AND f.expires_at>clock_timestamp()) AS staged`)
 		).rows[0],
 	);
-	if (!found.allowed) deny();
+	if (!found.allowed) deny("unavailable");
 	if (!found.staged) deny("file_changed");
 	const object = await readPrivateUpload(storage, key, c.importLimits.bytes);
 	if (object === "too_large") deny("file_too_large");
@@ -574,7 +574,7 @@ export async function previewStoredImport(
 		return storedFile(db, storage, ctx, input.uploadId);
 	});
 	if (loaded.status !== "ok") return loaded;
-	return db.transaction((tx) => peopleCsv.previewImport(tx, ctx, { file: loaded.value }));
+	return gatedTransaction(db, (tx) => peopleCsv.previewImport(tx, ctx, { file: loaded.value }));
 }
 export async function executeStoredImport(
 	db: Database,
@@ -594,11 +594,11 @@ export async function executeStoredImport(
 
 export const peopleCsv = {
 	generateCsvTemplate() {
-		return c.csvFile.parse({
+		return {
 			filename: "people-import-template.csv",
 			mediaType: media,
 			text: csvLine(c.importColumns),
-		});
+		} satisfies z.output<typeof c.csvFile>;
 	},
 	async previewImport(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
@@ -610,7 +610,7 @@ export const peopleCsv = {
 					(await tx.execute(sql`SELECT ${access(ctx, true)} AS allowed, ${existingPeople(plant, file.rows)} AS people`))
 						.rows[0],
 				);
-			if (!state.allowed) deny();
+			if (!state.allowed) deny("unavailable");
 			const { findings, reviewDigest } = findDuplicates(file, state.people);
 			const rows = file.rows.map((r) => {
 				if (r.status === "invalid") return r;
@@ -651,7 +651,7 @@ export const peopleCsv = {
   AND a.request_identity->>'operation'=${OPERATION}`)
 				).rows[0],
 			);
-			if (!row.allowed || !row.id || !row.state) deny();
+			if (!row.allowed || !row.id || !row.state) deny("unavailable");
 			return receiptOf(row.id, loadState(row.state));
 		});
 	},
@@ -674,8 +674,8 @@ export const peopleCsv = {
   WHERE g.allowed AND pi.tenant_id=${plant}::uuid ORDER BY e.occurred_at DESC,e.id DESC LIMIT 1) a ON true`)
 					).rows[0],
 				);
-			if (!row.allowed) deny();
-			if (!row.id || !row.state) return c.latestImportReceipt.parse({ status: "none" });
+			if (!row.allowed) deny("unavailable");
+			if (!row.id || !row.state) return { status: "none" } satisfies z.output<typeof c.latestImportReceipt>;
 			return c.latestImportReceipt.parse({
 				status: "available",
 				requestKey: row.request_key,
@@ -711,13 +711,13 @@ export const peopleCsv = {
 			const state = z
 				.object({ allowed: z.boolean(), rows: z.array(z.array(z.string().nullable())) })
 				.parse(result.rows[0]);
-			if (!state.allowed) deny();
-			return c.peopleExport.parse({
+			if (!state.allowed) deny("unavailable");
+			return {
 				filename: `people-${new Date().toISOString().slice(0, 10)}.csv`,
 				mediaType: media,
 				text: "\ufeff" + csvLine(c.exportColumns) + state.rows.map(csvLine).join(""),
 				receipt: { filters, matched: state.rows.length, returned: state.rows.length, completeness: "complete" },
-			});
+			} satisfies z.output<typeof c.peopleExport>;
 		});
 	},
 	async countExport(tx: Tx, ctx: Context, raw: unknown) {
@@ -727,7 +727,7 @@ export const peopleCsv = {
 			const result = await tx.execute(sql`SELECT ${access(ctx)} AS allowed,
  (SELECT count(*)::int FROM person WHERE ${and(...peopleFilters(ctx, filters, access(ctx)))}) AS matched`);
 			const state = z.object({ allowed: z.boolean(), matched: z.number().int() }).parse(result.rows[0]);
-			if (!state.allowed) deny();
+			if (!state.allowed) deny("unavailable");
 			return c.peopleExport.omit({ text: true }).parse({
 				filename: `people-${new Date().toISOString().slice(0, 10)}.csv`,
 				mediaType: media,

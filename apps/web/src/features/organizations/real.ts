@@ -1,21 +1,23 @@
 import type { OrganizationOperations as Ops } from "@everyfield/contracts/organizations";
-import type { Reply } from "@/server/organizations";
+import type { Reply } from "./mount";
 import {
 	endConnection,
 	inviteAssociation,
 	leaveResidency,
-	loadConnections,
-	loadDisclosure,
-	loadHistoryPage,
-	loadPipelineConsent,
-	loadResidency,
-	loadSharing,
 	resendAssociationInvitation,
 	revokeAssociationInvitation,
 	savePipelineConsent,
 	saveResidencySharing,
 	saveSharing,
 } from "./actions";
+import {
+	loadConnections,
+	loadDisclosure,
+	loadHistoryPage,
+	loadPipelineConsent,
+	loadResidency,
+	loadSharing,
+} from "./fetch.ts";
 import type { ConnectionsData } from "./Connections";
 import { respondRelationshipInvitation } from "./invitation/client.ts";
 import type { ReadHistory } from "./History";

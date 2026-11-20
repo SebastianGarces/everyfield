@@ -17,12 +17,16 @@ import { Button, Checkbox, SegmentedControl, Skeleton, StatePanel } from "@every
 import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
 import { useId, useMemo, useState } from "react";
 import { createRead, useRead } from "../../../../components/read.tsx";
-import { acceptTemplateChanges, compareWithTemplate, type CompareResult } from "../actions.ts";
+import { acceptTemplateChanges } from "../actions.ts";
+import type { CompareResult } from "../../read.ts";
+import { compareWithTemplate } from "../../fetch.ts";
 import { blockLabel, PAPER_LABEL } from "../labels.ts";
 import { editorExtensions, type FieldValues } from "./extensions.ts";
 import { paletteVars } from "./paper.ts";
 import { blocksToEditor } from "./table-json.ts";
 import { WORD_MARK, wordMarks } from "./word-marks.ts";
+import { loadProblem, READ_FAILED, READ_FAILED_ICON } from "../../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../../components/get-reads.ts";
 
 type Props = {
 	docId: string;
@@ -33,18 +37,21 @@ type Props = {
 };
 
 export const templateCompares = createRead(
-	(docId: string) => compareWithTemplate(docId).catch((): CompareResult => ({ status: "lost" })),
-	{ failed: (): CompareResult => ({ status: "lost" }) },
+	(docId: string) => compareWithTemplate(docId).catch((): CompareResult | ReadFailure => ({ status: "lost" })),
+	{ failed: (): CompareResult | ReadFailure => ({ status: "lost" }) },
 );
 
 type Load = { kind: "loading" } | { kind: "ready"; compare: ChurchCompare } | { kind: "failed"; message: string };
 
-function loadOf(result: CompareResult | undefined): Load {
+function loadOf(result: CompareResult | ReadFailure | undefined): Load {
 	if (!result) return { kind: "loading" };
 	if (result.status === "ok") return { kind: "ready", compare: result.compare };
 	return {
 		kind: "failed",
-		message: result.status === "refused" ? result.message : "The connection dropped. Nothing was changed.",
+		message:
+			result.status === "refused"
+				? result.message
+				: loadProblem(result, "The connection dropped. Nothing was changed."),
 	};
 }
 
@@ -201,12 +208,17 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 					<span className="sr-only" role="status">
 						Comparing with the template
 					</span>
-					<Skeleton className="h-40 w-full rounded-card" />
-					<Skeleton className="h-40 w-full rounded-card" />
+					<Skeleton className="h-40 w-full" />
+					<Skeleton className="h-40 w-full" />
 				</div>
 			) : load.kind === "failed" ? (
 				<div className="rounded-card bg-surface-raised p-6 shadow-[0_0_0_1px_var(--ef-line)]">
-					<StatePanel tone="error" title="We could not compare this document" headingLevel="h3">
+					<StatePanel
+						tone="error"
+						title="We could not compare this document"
+						icon={load.message === READ_FAILED ? READ_FAILED_ICON : undefined}
+						headingLevel="h3"
+					>
 						{load.message}
 					</StatePanel>
 					<div className="mt-4 flex justify-center">
@@ -425,13 +437,13 @@ function DifferenceCard({
 			<div className={sides.length === 2 || goneFromTemplate ? "grid gap-3 app-md:grid-cols-2" : "grid gap-3"}>
 				{sides.map((side) => (
 					<div key={side.who} className="flex min-w-0 flex-col gap-1.5">
-						<p className="text-xs font-semibold tracking-wide text-text-3 uppercase">{side.who}</p>
+						<p className="section-label text-text-3">{side.who}</p>
 						<Side difference={d} value={side.value} lines={side.lines} values={values} brand={brand} />
 					</div>
 				))}
 				{goneFromTemplate ? (
 					<div className="flex min-w-0 flex-col gap-1.5">
-						<p className="text-xs font-semibold tracking-wide text-text-3 uppercase">Template, new version</p>
+						<p className="section-label text-text-3">Template, new version</p>
 						<p className="text-[15px] text-text-2">The template removed this.</p>
 					</div>
 				) : null}

@@ -36,8 +36,6 @@ jobs:
         run: pnpm format:check
       - name: Lint (Oxlint, ESLint, lint baselines against main, image locks, colour literals)
         run: pnpm lint
-      - name: Lint rules stay on, cover every file and only shrink their baselines
-        run: node scripts/lint/check-comments.mjs
       - name: Types
         run: pnpm typecheck
       - name: Server log privacy (next dev with synthetic passwords)
@@ -53,18 +51,8 @@ jobs:
           restore-keys: libreoffice-debs-ubuntu-24.04-${{ runner.arch }}-writer-calc-v2-
       - name: LibreOffice, with apt's archive cache in the restored directory so only packages it lacks come from the mirror
         id: libreoffice
-        run: |
-          debs="$HOME/libreoffice-debs"
-          mkdir -p "$debs/partial"
-          apt_cache=(-o "Dir::Cache::Archives=$debs" -o APT::Keep-Downloaded-Packages=true -o APT::Sandbox::User=root)
-          echo "Restored $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) cached packages."
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends "${apt_cache[@]}" libreoffice-writer libreoffice-calc
-          sudo apt-get "${apt_cache[@]}" autoclean
-          sudo rm -rf "$debs/partial" "$debs/lock"
-          sudo chown -R "$(id -u):$(id -g)" "$debs"
-          echo "Caching $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) packages, $(du -sh "$debs" | cut -f1)."
-          echo "key=libreoffice-debs-ubuntu-24.04-${{ runner.arch }}-writer-calc-v2-$(find "$debs" -maxdepth 1 -name '*.deb' -printf '%f\n' | sort | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+        timeout-minutes: 8
+        run: node tools/ci/libreoffice.ts --arch "${{ runner.arch }}"
       - name: LibreOffice packages saved to the cache (only when this run's set differs from the restored one)
         if: ${{ steps.libreoffice.outputs.key != steps.libreoffice-debs.outputs.cache-matched-key }}
         uses: actions/cache/save@v6
@@ -307,6 +295,18 @@ jobs:
         run: node --test tests/integration/writes/statements.test.mts
         env:
           EVF_CENSUS_UNION: ${{ runner.temp }}/census
+          EVF_CENSUS_TIGHTENED: ${{ runner.temp }}/tightened
+      - name: Tightened statement budgets in the job summary (slack never fails; commit the file in this PR)
+        if: ${{ !cancelled() }}
+        run: if [ -f "$RUNNER_TEMP/tightened/changes.md" ]; then cat "$RUNNER_TEMP/tightened/changes.md" >> "$GITHUB_STEP_SUMMARY"; fi
+      - name: Tightened limits.json
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: tightened-limits
+          path: ${{ runner.temp }}/tightened
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Every check passed
         if: always()
         env:

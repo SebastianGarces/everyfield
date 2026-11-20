@@ -1,3 +1,4 @@
+import { requireSeat } from "@/server/sign-in";
 import { LockKeyIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { recordId } from "@everyfield/contracts/common";
 import {
@@ -10,32 +11,24 @@ import {
 	StatePanel,
 } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { plantViewer } from "../meetings/server.ts";
 import { isAdmin, loadTeam, loadTeams, type Viewer } from "./server.ts";
 import { TeamScreen } from "./TeamScreen.tsx";
 import { TeamsScreen } from "./TeamsScreen.tsx";
 
 async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
-	const v = await plantViewer();
-	if (v.signedOut) redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
-	if (v.viewer) return { viewer: v.viewer };
+	const viewer = await requireSeat(returnTo);
+	if (viewer) return { viewer };
 	return {
 		blocked: (
 			<>
 				<PageHeader size="xl" title={title} />
 				<Card>
-					{v.ok ? (
-						<StatePanel tone="lock" icon={LockKeyIcon} title="Ministries are not part of your seat" headingLevel="h2">
-							Ministries belong to a church plant workspace. Your account has no current seat in one, so there is
-							nothing to show here.
-						</StatePanel>
-					) : (
-						<StatePanel tone="error" title="We could not load ministries" headingLevel="h2">
-							This is a loading problem. Nothing was changed. Try again in a moment.
-						</StatePanel>
-					)}
+					<StatePanel tone="lock" icon={LockKeyIcon} title="Ministries are not part of your seat" headingLevel="h2">
+						Ministries belong to a church plant workspace. Your account has no current seat in one, so there is nothing
+						to show here.
+					</StatePanel>
 				</Card>
 			</>
 		),
@@ -109,15 +102,15 @@ export function TeamsLoading() {
 			<span className="sr-only" role="status">
 				Loading ministries
 			</span>
-			<Skeleton className="h-14 w-60 rounded-card" />
+			<Skeleton className="h-14 w-60" />
 			<div className="grid grid-cols-3 gap-5 max-app-lg:grid-cols-2 max-app-sm:grid-cols-1">
-				<Skeleton className="h-[150px] rounded-card" />
-				<Skeleton className="h-[150px] rounded-card" />
-				<Skeleton className="h-[150px] rounded-card max-app-sm:hidden" />
+				<Skeleton className="h-[150px]" />
+				<Skeleton className="h-[150px]" />
+				<Skeleton className="h-[150px] max-app-sm:hidden" />
 			</div>
 			<div className="grid grid-cols-[repeat(auto-fill,minmax(232px,1fr))] gap-4">
 				{Array.from({ length: 6 }, (_, i) => (
-					<Skeleton key={i} className="h-[184px] rounded-card" />
+					<Skeleton key={i} className="h-[184px]" />
 				))}
 			</div>
 		</div>

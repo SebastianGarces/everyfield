@@ -259,15 +259,27 @@ function stringsOf(root: string, files: string[]): Set<string> {
 	return new Set(files.flatMap((f) => sourceStrings(readFileSync(join(root, f), "utf8"), f.endsWith(".tsx"))));
 }
 
+const APP_ALIAS_ROOT = "apps/web/src";
+
+function importsOf(root: string, file: string): string[] {
+	return [...readFileSync(join(root, file), "utf8").matchAll(/from\s+"((?:\.\.?|@)\/[^"]+)"/g)].flatMap((m) => {
+		const spec = m[1]!;
+		const target = spec.startsWith("@/")
+			? posix.join(APP_ALIAS_ROOT, spec.slice(2))
+			: posix.normalize(posix.join(posix.dirname(file), spec));
+		return [target, `${target}.ts`, `${target}.tsx`].filter(
+			(f) => (SOURCE_FILE.test(f) || f.endsWith(".json")) && existsSync(join(root, f)),
+		);
+	});
+}
+
 function withImports(root: string, dir: string): string[] {
 	const files = walk(root, dir, (f) => SOURCE_FILE.test(f) && !isTest(f));
-	const imported = files.flatMap((file) =>
-		[...readFileSync(join(root, file), "utf8").matchAll(/from\s+"(\.\.?\/[^"]+)"/g)].flatMap((m) => {
-			const target = posix.normalize(posix.join(posix.dirname(file), m[1]!));
-			return [target, `${target}.ts`, `${target}.tsx`].filter((f) => SOURCE_FILE.test(f) && existsSync(join(root, f)));
-		}),
-	);
-	return [...new Set([...files, ...imported])];
+	const imported = files.flatMap((file) => importsOf(root, file));
+	const data = imported
+		.flatMap((file) => (file.endsWith(".json") ? [] : importsOf(root, file)))
+		.filter((f) => f.endsWith(".json"));
+	return [...new Set([...files, ...imported, ...data])];
 }
 
 type SeedPersona = Omit<Persona, "says" | "seed"> & { name: string };
@@ -660,11 +672,9 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 				for (const item of [...steps, ...observables.map((o) => ({ expect: o }))]) {
 					if ("expect" in item) {
 						const o = (item as { expect: Observable }).expect;
-						const waits = "url" in o || "noText" in o || ("text" in o && o.match === "contains");
+						const waits = "url" in o || "noText" in o || "text" in o;
 						if (acted && !waits)
-							problems.push(
-								at(`${where}: ${s} polls, so the check after "${acted}" must wait (URL, noText or contains text)`),
-							);
+							problems.push(at(`${where}: ${s} polls, so the check after "${acted}" must wait (URL, noText or text)`));
 						acted = null;
 					} else if (!("type" in item)) {
 						if (acted)
@@ -870,9 +880,14 @@ function command(step: Step | Observable): string {
 	if ("url" in step) return `agent-browser wait --url ${q("**" + step.url.replace(/\{[A-Za-z]+\}/g, "*"))}`;
 	if ("role" in step) return `agent-browser find role ${step.role} text --name ${q(step.name)}${exact(step)}`;
 	return (step.match ?? "exact") === "exact"
-		? `agent-browser find text ${q(step.text)} text --exact`
+		? `agent-browser wait --fn ${q(visibleTextIs(step.text))}`
 		: `agent-browser wait --text ${q(step.text)}`;
 }
+
+const visibleTextIs = (text: string) =>
+	"((x,l=[])=>/json/.test(document.contentType)" +
+	"?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x))" +
+	`:[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(${q(text)})`;
 
 function commands(steps: Step[], expect: Observable[] = [], polls = false): string[] {
 	return [
@@ -1114,8 +1129,10 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		"and residency link match what the seed creates; a behavior proof checks more than the address after it acts;",
 		"on a surface that polls, a waiting check follows every open, click, press and upload; and every name, label",
 		"and text in a step equals (or, for `contains`, is part of) a string literal or JSX text, comments excluded, in the",
-		"feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly) or the QA seed, or was",
-		"typed earlier in the same steps.",
+		"feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly, by a relative or `@/`",
+		"path, and the JSON files those modules import) or the QA seed, or was typed earlier in the same steps. The app",
+		"map (`apps/web/src/app/feature-map.json`) owns the routes no one feature does, such as the public site, and",
+		"its folder is all of `apps/web/src/app`.",
 		"",
 		"It cannot catch, and only running the browser steps catches:",
 		"",
@@ -1139,8 +1156,15 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		"The network-idle wait suits pages that go quiet after each action. On a page that keeps fetching (for example",
 		"`/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there. Such a",
 		"surface sets `polls` to say what keeps fetching: its commands get no network-idle wait, and the checker requires the",
-		"check after each open, click, press or upload to be one that waits (a URL, `noText`, or `contains` text, printed as",
-		"`wait --url`, `wait --fn` and `wait --text`).",
+		"check after each open, click, press or upload to be one that waits (a URL, `noText` or text, printed as `wait --url`,",
+		"`wait --fn` and `wait --text`).",
+		"",
+		"Text checks refuse text that has no box or is not painted: text under `display: none` or `visibility: hidden`",
+		"(such as a message waiting for a press) does not count. Text that is rendered but visually hidden still counts:",
+		"screen-reader-only (`sr-only`), zero-size, off-screen, clipped, `opacity: 0` or `font-size: 0` text matches. A",
+		"`contains` check waits for the page's rendered text to include its words (`wait --text`). An exact check waits for",
+		"an element whose whole rendered text is its words, or, on a bare JSON response, for a JSON value equal to them",
+		"(`wait --fn`).",
 		"",
 		"## Changing a feature, and the review proof",
 		"",

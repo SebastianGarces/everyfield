@@ -15,7 +15,7 @@ import { FormMessage, PasswordInput } from "../../identity/parts";
 import { OUT_OF_REACH } from "../flows/DeletionDialogs";
 import type { DeletionPort, DeletionStatus, Reply } from "../port";
 import { OFFLINE_REFERENCE, refusalOf, type Refusal } from "../save";
-import { SaveError } from "../SettingsDialog";
+import { SaveError } from "../SaveError";
 import { formatMoment } from "../../../components/time.ts";
 
 type Subject = { kind: "account" } | { kind: "workspace"; churchName?: string };

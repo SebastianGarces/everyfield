@@ -1,15 +1,11 @@
 "use server";
 
-import { pipelinePeopleRead, pipelinePeopleWrite, pipelineWrite } from "@/server/organizations/pipeline";
+import { pipelinePeopleRead, pipelinePeopleWrite, pipelineWrite } from "../pipeline-mount";
 import { pipelineDataWriter } from "@everyfield/domain/organizations";
 import { peopleMerge, peopleUnmerge } from "@everyfield/domain/people";
 
 export async function removePerson(input: unknown) {
 	return pipelineWrite((db, authority) => pipelineDataWriter.removePerson(db, authority, input));
-}
-
-export async function reviewMerge(input: unknown) {
-	return pipelinePeopleRead((tx, ctx) => peopleMerge.getMergeReview(tx, ctx, input));
 }
 
 export async function mergePeople(input: unknown) {

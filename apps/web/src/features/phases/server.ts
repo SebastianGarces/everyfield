@@ -1,5 +1,4 @@
-import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
+import { plantSeat, type PlantSeat } from "@/server/request-context";
 import { phasesError, type PhasesReply } from "@everyfield/contracts/phases";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
@@ -9,31 +8,15 @@ import { phaseReader, readCatalog, readReadiness, type PhaseWriter } from "@ever
 import "server-only";
 import { phasesMount } from "./mount.ts";
 import type { Outcome } from "./model.ts";
+import { readDb, guardedWrite } from "../../server/platform/tx.ts";
 
-type PhaseViewer = {
-	authority: RequestActor;
-	accountId: string;
-	role: "owner" | "admin" | "member";
-	displayName: string;
-};
-
-export async function phaseViewer(): Promise<PhaseViewer | null> {
-	const v = await getViewer();
-	const authority = v?.authority;
-	if (!authority) return null;
-	const ctx = authority.actor.context;
-	if (ctx.kind !== "seat" || ctx.owner.kind !== "plant") return null;
-	return { authority, accountId: authority.actor.accountId, role: ctx.role, displayName: v.displayName ?? "" };
-}
-export const administers = (v: Pick<PhaseViewer, "role">) => v.role !== "member";
+export const administers = (v: Pick<PlantSeat, "role">) => v.role !== "member";
 
 const facts = createFacts();
 const launch = createLaunchReader();
 
-export async function loadJourney(viewer: PhaseViewer) {
-	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
-	try {
+export async function loadJourney(viewer: PlantSeat) {
+	return readDb("phases", async (db) => {
 		const [history, catalog, measured, journal] = await Promise.all([
 			phaseReader.readHistory(db, viewer.authority),
 			readCatalog(),
@@ -49,25 +32,16 @@ export async function loadJourney(viewer: PhaseViewer) {
 			status: "ok",
 			value: { history: history.value, catalog, readiness, facts: measured.value, launchDates },
 		} as const;
-	} catch (error) {
-		console.error(JSON.stringify({ component: "phases", outcome: "read_failed", error: String(error) }));
-		return { status: "lost" } as const;
-	}
+	});
 }
 
 export async function write<T>(
 	run: (writer: PhaseWriter, db: Database, authority: RequestActor) => Promise<PhasesReply<T>>,
 ): Promise<Outcome<T>> {
-	const viewer = await phaseViewer();
+	const viewer = await plantSeat();
 	if (!viewer) return { status: "refused", error: denied() };
 	const mount = phasesMount();
-	if (!mount) return { status: "lost" };
-	try {
-		return await run(mount.writer, mount.db, viewer.authority);
-	} catch (error) {
-		console.error(JSON.stringify({ component: "phases", outcome: "write_failed", error: String(error) }));
-		return { status: "lost" };
-	}
+	return guardedWrite("phases", () => run(mount.writer, mount.db, viewer.authority));
 }
 const denied = () =>
 	phasesError.parse({ code: "access_denied", details: {}, correlationId: crypto.randomUUID(), retry: "never" });

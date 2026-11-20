@@ -21,7 +21,7 @@ import {
 	backfill,
 } from "../../../packages/db/src/schema/migrate.ts";
 import { pdf } from "../platform/fixtures.mjs";
-import { validateCommitment } from "../../../packages/db/src/schema/validate-file.ts";
+import { commitmentValidator, validateCommitment } from "../../../packages/db/src/schema/validate-file.ts";
 import { auth_user, auth_account, auth_session, auth_verification } from "../../../packages/db/src/schema/tables.ts";
 import { authStorage } from "../../../packages/db/src/schema/auth-storage.ts";
 import { canonicalTimeZone } from "../../../packages/db/src/schema/time.ts";
@@ -106,19 +106,17 @@ export * from ${JSON.stringify(parser)};`;
 	};
 	mock.timers.enable({ apis: ["setTimeout"] });
 	try {
-		await validateCommitment(pdf(), "application/pdf", {
-			entry: "data:text/javascript," + encodeURIComponent(slowStart),
-		});
+		await commitmentValidator("data:text/javascript," + encodeURIComponent(slowStart)).validate(
+			pdf(),
+			"application/pdf",
+		);
 	} finally {
 		mock.timers.reset();
 		channel.close();
 	}
 	const endless = `export const getDocument = () => ({ promise: new Promise(() => {}), destroy: async () => {} });`;
 	await assert.rejects(
-		validateCommitment(pdf(), "application/pdf", {
-			entry: "data:text/javascript," + encodeURIComponent(endless),
-			parseMs: 200,
-		}),
+		commitmentValidator("data:text/javascript," + encodeURIComponent(endless), 200).validate(pdf(), "application/pdf"),
 		/invalid_file/,
 	);
 	await validateCommitment(pdf(), "application/pdf");
@@ -562,6 +560,66 @@ test("INV-calendar-revision: canonical named zones and full int64 precision in r
 	await rejected("UPDATE plant SET revision=revision+1 WHERE id=$1", [p], "22003");
 	await admin.execute(querySql`UPDATE plant SET revision=1 WHERE id=${querySql.param(p)}`);
 });
+test("INV-storage: a malformed upload key is refused before any statement or provider call", async () => {
+	let providerCalls = 0;
+	const untouched = {
+		bucket: "synthetic-only",
+		client: {
+			send: async () => {
+				providerCalls += 1;
+				throw new Error("offline");
+			},
+		},
+	};
+	const refusing = async () => assert.fail("the authorizer ran");
+	const files = async () => (await admin.execute(querySql`SELECT count(*)::int n FROM file_object`)).rows[0].n;
+	const before = await files();
+	for (const uploadKey of [
+		"",
+		" ",
+		"../other",
+		"a/../b",
+		"/root",
+		"a//b",
+		"a/",
+		"./a",
+		"a b",
+		"a\nb",
+		"a\\b",
+		"a?b",
+		"x".repeat(201),
+	])
+		await assert.rejects(
+			putPrivateObject(runtime, untouched, refusing, {
+				tenantId: p,
+				purpose: "commitment",
+				mediaType: "application/pdf",
+				bytes: Buffer.from(pdf()),
+				uploadKey,
+			}),
+			/invalid_upload_key/,
+			JSON.stringify(uploadKey),
+		);
+	assert.deepEqual({ files: await files(), providerCalls }, { files: before, providerCalls: 0 });
+	for (const uploadKey of [
+		randomUUID(),
+		`brand-asset/logo/png/120/${randomUUID()}`,
+		`generated:${randomUUID()}:make-docx`,
+		`evry:${randomUUID()}:3`,
+	])
+		await assert.rejects(
+			putPrivateObject(runtime, untouched, refusing, {
+				tenantId: p,
+				purpose: "commitment",
+				mediaType: "application/pdf",
+				bytes: Buffer.from(pdf()),
+				uploadKey,
+			}),
+			/unavailable/,
+		);
+	assert.equal(providerCalls, 4);
+});
+
 test("INV-storage: server-owned key, current authorization, five-minute signing and fenced cleanup", async () => {
 	const bytes = Buffer.from(pdf());
 	const saved = new Map();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useToast } from "@everyfield/ui/controls";
+import { toast } from "@everyfield/ui/controls";
 import type { Loadable } from "@everyfield/ui/display";
 import { useBrowserZone, useDocumentHidden, useMinuteClock } from "@everyfield/ui/foundations";
 import { useMemo, useRef, useState, type ReactNode } from "react";
@@ -23,6 +23,8 @@ import {
 	type Outcome,
 	type UnreadCount,
 } from "./model.ts";
+import { READ_FAILED, READ_FAILED_ICON } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 const STALE_MS = 60_000;
 
@@ -33,7 +35,7 @@ export function NotificationsProvider({ account, children }: { account: string; 
 	return <Account.Provider value={store}>{children}</Account.Provider>;
 }
 
-type Counted = Outcome<UnreadCount>;
+type Counted = Outcome<UnreadCount> | ReadFailure;
 
 const unreadCount = createRead((account: string) => readUnreadCount(account), {
 	failed: (): Counted => ({ status: "lost" }),
@@ -85,9 +87,9 @@ export function useReadElsewhere(): (ids: readonly string[]) => void {
 
 const lost = () => ({ status: "lost" }) as const;
 
-export function useClock(): Clock | null {
-	const zone = useBrowserZone();
-	const now = useMinuteClock();
+export function useClock(served: Clock | null = null): Clock | null {
+	const zone = useBrowserZone() ?? served?.zone ?? null;
+	const now = useMinuteClock() ?? served?.now ?? null;
 	return useMemo(() => (zone === null || now === null ? null : { zone, now }), [zone, now]);
 }
 
@@ -96,9 +98,9 @@ type Ready = {
 	nextCursor: string | null;
 	unread: number;
 	at: number;
-	more: "idle" | "loading" | "failed";
+	more: "idle" | "loading" | "lost" | "failed";
 };
-type FeedState = { status: "loading" } | { status: "failed" } | ({ status: "ready" } & Ready);
+type FeedState = { status: "loading" } | { status: "lost" | "failed" } | ({ status: "ready" } & Ready);
 type Marked = Outcome<{ markedIds: string[] }>;
 type Envelope = { requestKey: string; expectedRevision: string };
 
@@ -111,7 +113,6 @@ const fromPage = (page: FeedPage): Ready => ({
 });
 
 export function useFeed(query: FeedQuery, initial: FeedPage | null) {
-	const toast = useToast();
 	const { stand, withdraw, confirm } = Account.useSelect((s) => s.actions);
 	const marks = Account.useSelect((s) => s.marks);
 	const account = Account.useSelect((s) => s.account);
@@ -145,7 +146,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		const r = await readFirstPage(q);
 		if (ticket !== latest.current) return;
 		setRefreshing(false);
-		if (r.status !== "ok") return setState({ status: "failed" });
+		if (r.status !== "ok") return setState({ status: r.status === "failed" ? "failed" : "lost" });
 		setState({ status: "ready", ...fromPage(r.value) });
 		revision.current = r.value.revision;
 		if (!q.category) setCount(account, r.value.unread, r.value.at);
@@ -159,7 +160,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		if (ticket !== latest.current) return;
 		setState((s) => {
 			if (s.status !== "ready") return s;
-			if (r.status !== "ok") return { ...s, more: "failed" };
+			if (r.status !== "ok") return { ...s, more: r.status === "failed" ? "failed" : "lost" };
 			const known = new Set(s.items.map((i) => i.id));
 			return {
 				...s,
@@ -210,9 +211,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 			toast({
 				tone: "error",
 				message: markProblem(r),
-				...(r.status === "lost"
-					? { action: { label: "Try again", altText: "Mark it read again from the list", onSelect: () => void go() } }
-					: {}),
+				...(r.status === "lost" ? { action: { label: "Try again", onSelect: () => void go() } } : {}),
 			});
 		};
 		void go();
@@ -221,8 +220,8 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 	const markOne = (item: FeedItem) => {
 		if (item.read) return;
 		const ids = readTogether(item, shown?.items ?? []);
-		if (ids.length === 1) mark(new Set(ids), 1, (e) => markRead(e, item.id));
-		else mark(new Set(ids), ids.length, (e) => markSelectedRead(e, ids));
+		if (ids.length === 1) mark(new Set(ids), 1, (e) => markRead({ ...e, input: { noticeId: item.id } }));
+		else mark(new Set(ids), ids.length, (e) => markSelectedRead({ ...e, input: { noticeIds: ids } }));
 	};
 
 	const markAll = () => {
@@ -235,7 +234,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 			mark(
 				new Set(open.map((i) => i.id)),
 				before,
-				(e) => markAllVisibleRead(e, cutoff),
+				(e) => markAllVisibleRead({ ...e, input: { cutoff } }),
 				(marked) => {
 					if (marked >= before) return;
 					setState((s) => (s.status === "ready" ? { ...s, unread: before - marked } : s));
@@ -247,7 +246,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		}
 		for (let i = 0; i < open.length; i += 50) {
 			const chunk = open.slice(i, i + 50).map((n) => n.id);
-			mark(new Set(chunk), chunk.length, (e) => markSelectedRead(e, chunk));
+			mark(new Set(chunk), chunk.length, (e) => markSelectedRead({ ...e, input: { noticeIds: chunk } }));
 		}
 	};
 
@@ -255,6 +254,11 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		? { status: "ready", data: shown }
 		: state.status === "loading"
 			? { status: "loading" }
-			: { status: "error", title: "Notifications did not load", onRetry: () => void load(query) };
+			: {
+					status: "error",
+					title: "Notifications did not load",
+					...(state.status === "failed" ? { text: READ_FAILED, icon: READ_FAILED_ICON } : {}),
+					onRetry: () => void load(query),
+				};
 	return { state: loadable, count: count?.count ?? null, refreshing, load, more, markOne, markAll };
 }

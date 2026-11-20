@@ -28,7 +28,7 @@ flowchart LR
 The Evry panel the Ask Evry button opens beside any page: ask in words and see what Evry read as cards of linked rows. Each person has their own conversations. The catalog endpoint is listed for completeness: nothing in the app calls it, so no step reaches it.
 
 - Routes: none
-- Endpoints: `/api/evry/catalog`, `/api/evry/open`, `/api/evry/conversations`, `/api/evry/conversations/[id]`, `/api/evry/conversations/[id]/turns`, `/api/evry/conversations/[id]/stream`, `/api/evry/conversations/[id]/cancel`, `/api/evry/conversations/[id]/retry`
+- Endpoints: `/api/evry/catalog`, `/api/evry/open`, `/api/evry/conversations`, `/api/evry/conversations/[id]`, `/api/evry/conversations/[id]/turns`, `/api/evry/conversations/[id]/stream`, `/api/evry/conversations/[id]/cancel`, `/api/evry/conversations/[id]/retry`, `/api/evry/photos`
 - Personas: `owner` write, `member` write, `network` write, `visitor` none
 - Catalog: EVR-003, EVR-005, EVR-008, EVR-021, EVR-029
 
@@ -167,12 +167,12 @@ agent-browser wait --load networkidle
 agent-browser find role heading text --name "Review before saving" --exact
 agent-browser find role button click --name "Approve" --exact
 agent-browser wait --load networkidle
-agent-browser find text "Approved by you" text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Approved by you\")"
 agent-browser open "$ORIGIN/people"
 agent-browser wait --load networkidle
 agent-browser find role link click --name "Maria Santos" --exact
 agent-browser wait --load networkidle
-agent-browser find text "Dallas" text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Dallas\")"
 ```
 
 #### evry.review#revise-or-cancel

@@ -26,8 +26,9 @@ import { RESIDENCY_TEMPLATE } from "../../packages/contracts/src/organizations/p
 import { accountPersonProducer, peopleWriter, personFields } from "../../packages/domain/src/people/index.ts";
 import { createTaskWriter } from "../../packages/domain/src/tasks/index.ts";
 import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
-import { receiveMailCallback } from "../../apps/web/src/server/jobs/webhook.ts";
+import { resendWebhook } from "../../apps/web/src/server/jobs/webhook-route.ts";
 import { FULL_ADDRESS, QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
+import { gatedTransaction } from "../../packages/domain/src/operations/writes.ts";
 
 const CHURCH = "Harvest Point (QA)";
 const RIVERSIDE = { name: "Riverside (QA)", city: "Dallas", owner: "Rachel Moss" } as const;
@@ -239,7 +240,7 @@ async function fill(
 
 	const noop = async () => {};
 	const onboarding = createOnboardingProducer({ relationships: noop, enqueue: noop });
-	const write = <T>(run: (tx: never) => Promise<T>) => runtime.transaction((tx) => run(tx as never));
+	const write = <T>(run: (tx: never) => Promise<T>) => gatedTransaction(runtime, (tx) => run(tx as never));
 	async function church(name: string, city: string, ownerAccount: string, ownerEmail: string, label: string) {
 		let id = (await rows(admin, sql`SELECT id FROM plant WHERE name=${name} ORDER BY id LIMIT 1`))[0]?.id as
 			string | undefined;
@@ -518,7 +519,7 @@ async function fill(
 				WHERE r.${column}=${subject.id} AND r.organization_id=${organization.id} AND i.state='pending'`,
 		);
 		for (const i of stale)
-			await runtime.transaction((tx) =>
+			await gatedTransaction(runtime, (tx) =>
 				organizations["associations.revokeInvitation"](
 					tx,
 					s,
@@ -542,7 +543,7 @@ async function fill(
 			subject.kind === "plant"
 				? { kind: "plant", subject, organization }
 				: { kind: "sending_church", subject, organization };
-		const invited = await runtime.transaction((tx) =>
+		const invited = await gatedTransaction(runtime, (tx) =>
 			organizations["associations.invite"](
 				tx,
 				s,
@@ -551,7 +552,7 @@ async function fill(
 			),
 		);
 		const answer = (await sessionOf(recipient)) as never;
-		await runtime.transaction((tx) =>
+		await gatedTransaction(runtime, (tx) =>
 			organizations["associations.acceptInvitation"](
 				tx,
 				answer,
@@ -629,6 +630,7 @@ const GRACE_STAFF = [
 	{ name: "Ben Carter", login: QA_LOGINS.graceMember, role: "member" },
 ] as const;
 const RESIDENT = { name: "Casey Lee", login: QA_LOGINS.resident } as const;
+const ENDED_RESIDENT = { name: "Riley Hart", login: QA_LOGINS.endedResident } as const;
 const HILL_OWNER = { name: "Ruth Calder", login: QA_LOGINS.hillOwner } as const;
 const PROGRAM = "Church planting residency";
 const MILESTONES = {
@@ -698,6 +700,7 @@ async function multiplication(m: Multiplication): Promise<void> {
 	for (const s of GRACE_STAFF)
 		accounts.set(s.login, await m.account(s.name, s.login, { kind: "sending_church", name: GRACE }));
 	const caseyAccount = await m.account(RESIDENT.name, RESIDENT.login, { kind: "discovery" });
+	const endedAccount = await m.account(ENDED_RESIDENT.name, ENDED_RESIDENT.login, { kind: "discovery" });
 	const ruth = await m.account(HILL_OWNER.name, HILL_OWNER.login, { kind: "sending_network", name: HILL });
 
 	const grace = await m.organizationRow("sending_church", GRACE);
@@ -917,26 +920,29 @@ async function multiplication(m: Multiplication): Promise<void> {
 		done.push(`feedback on ${MILESTONES.preach}`);
 	}
 
-	const linked = sql`SELECT 1 FROM residency_link WHERE account_id=${caseyAccount} AND organization_id=${grace.id} AND ended_at IS NULL`;
-	if (!(await rows(admin, linked)).length) {
-		const proofs = new Map<string, string>();
-		const invitations = createInvitationService({
-			db: runtime,
-			origin: ORIGIN,
-			budgetSecret: randomBytes(32).toString("hex"),
-			people: accountPersonProducer,
-			addressBlocked: () => sql`false`,
-			enqueueMail: async (_tx, mail) => {
-				const proof = /#proof=(\S+)/.exec(mail.text)?.[1];
-				if (proof) proofs.set(mail.invitationId, decodeURIComponent(proof));
-				return "";
-			},
-		});
+	const proofs = new Map<string, string>();
+	const invitations = createInvitationService({
+		db: runtime,
+		origin: ORIGIN,
+		budgetSecret: randomBytes(32).toString("hex"),
+		people: accountPersonProducer,
+		addressBlocked: () => sql`false`,
+		enqueueMail: async (_tx, mail) => {
+			const proof = /#proof=(\S+)/.exec(mail.text)?.[1];
+			if (proof) proofs.set(mail.invitationId, decodeURIComponent(proof));
+			return "";
+		},
+	});
+	async function linkResident(
+		personId: string,
+		login: string,
+		choices: { shareFoundations: boolean; shareMilestones: boolean },
+	) {
 		const luis = await authority(QA_LOGINS.graceAdmin);
 		for (const i of await rows(
 			admin,
 			sql`SELECT id, revision::text AS revision FROM invitation WHERE tenant_id=${grace.id} AND purpose='residency_link'
-				AND resident_person_id=${casey} AND state='pending'`,
+				AND resident_person_id=${personId} AND state='pending'`,
 		))
 			await invitations.revoke(luis, {
 				requestKey: randomUUID(),
@@ -948,19 +954,18 @@ async function multiplication(m: Multiplication): Promise<void> {
 		const sent = await invitations.inviteResident(luis, {
 			requestKey: randomUUID(),
 			expectedRevision: revision,
-			input: { organization: grace, personId: casey, recipientEmail: RESIDENT.login },
+			input: { organization: grace, personId, recipientEmail: login },
 		});
 		const invitationId = sent.invitation.invitationId as string;
-		await invitations.respondResident(await m.sessionOf(RESIDENT.login), {
+		await invitations.respondResident(await m.sessionOf(login), {
 			requestKey: randomUUID(),
 			expectedRevision: "1",
-			input: {
-				invitationId,
-				proof: proofs.get(invitationId)!,
-				decision: "accept",
-				choices: { shareFoundations: false, shareMilestones: true },
-			},
+			input: { invitationId, proof: proofs.get(invitationId)!, decision: "accept", choices },
 		});
+	}
+	const linked = sql`SELECT 1 FROM residency_link WHERE account_id=${caseyAccount} AND organization_id=${grace.id} AND ended_at IS NULL`;
+	if (!(await rows(admin, linked)).length) {
+		await linkResident(casey, RESIDENT.login, { shareFoundations: false, shareMilestones: true });
 		done.push(`residency link ${RESIDENT.name}`);
 	}
 	const vision = await milestoneId(MILESTONES.vision);
@@ -1025,6 +1030,38 @@ async function multiplication(m: Multiplication): Promise<void> {
 		done.push(`conversation with ${c.about}`);
 	}
 
+	const endedLink = async () =>
+		(
+			await rows(
+				admin,
+				sql`SELECT id, revision::text AS revision, consent_revision::text AS consent, ended_at IS NOT NULL AS ended
+					FROM residency_link WHERE account_id=${endedAccount} AND organization_id=${grace.id} ORDER BY accepted_at LIMIT 1`,
+			)
+		)[0] as { id: string; revision: string; consent: string; ended: boolean } | undefined;
+	if (!(await endedLink())) {
+		const person = await place(grace.id, QA_LOGINS.graceOwner, ENDED_RESIDENT.name, ENDED_RESIDENT.login, null);
+		await linkResident(person, ENDED_RESIDENT.login, { shareFoundations: false, shareMilestones: true });
+		done.push(`residency link ${ENDED_RESIDENT.name}`);
+	}
+	const ended = (await endedLink())!;
+	if (!ended.ended) {
+		const s = (await m.sessionOf(ENDED_RESIDENT.login)) as never;
+		const left = await gatedTransaction(runtime, (tx) =>
+			m.organizations["residency.leave"](
+				tx,
+				s,
+				{ kind: "account", id: endedAccount } as never,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: ended.revision,
+					input: { linkId: ended.id, expectedConsentRevision: ended.consent },
+				} as never,
+			),
+		);
+		if (left.status !== "committed") throw Error(`leave residency ${ENDED_RESIDENT.name}: ${JSON.stringify(left)}`);
+		done.push(`left residency ${ENDED_RESIDENT.name}`);
+	}
+
 	if (await m.relate(grace, hill, QA_LOGINS.graceOwner, HILL_OWNER.login)) done.push(`connection ${GRACE} to ${HILL}`);
 	const link = (
 		await rows(
@@ -1036,7 +1073,7 @@ async function multiplication(m: Multiplication): Promise<void> {
 	)[0]! as { id: string; revision: string; shared: boolean };
 	if (!link.shared) {
 		const s = (await m.sessionOf(QA_LOGINS.graceOwner)) as never;
-		await runtime.transaction((tx) =>
+		await gatedTransaction(runtime, (tx) =>
 			m.organizations["pipelineSharing.setConsent"](
 				tx,
 				s,
@@ -1118,7 +1155,7 @@ async function mailCases(
 		for (const name of DELIVERY_TO) personIds.push((await p.personId(name))!.id);
 		ok(
 			"delivery message",
-			await runtime.transaction((tx) =>
+			await gatedTransaction(runtime, (tx) =>
 				communicationWriter.saveDraft(tx as never, c as never, {
 					requestKey: randomUUID(),
 					input: {
@@ -1133,7 +1170,7 @@ async function mailCases(
 		const at = new Date(Math.ceil((Date.now() + 60_000) / 60_000) * 60_000).toISOString();
 		ok(
 			"schedule delivery message",
-			await runtime.transaction((tx) =>
+			await gatedTransaction(runtime, (tx) =>
 				communicationWriter.scheduleReviewed(tx as never, c as never, {
 					requestKey: randomUUID(),
 					expectedRevision: draft.revision,
@@ -1178,16 +1215,17 @@ async function mailCases(
 			const signature = createHmac("sha256", Buffer.from(secret.slice(6), "base64"))
 				.update(`${id}.${stamp}.${raw}`)
 				.digest("base64");
-			const received = await receiveMailCallback(
-				runtime,
-				new Request(`${ORIGIN}/api/webhooks/mail`, {
+			const response = await resendWebhook(
+				new Request(`${ORIGIN}/api/webhooks/resend`, {
 					method: "POST",
 					headers: { "svix-id": id, "svix-timestamp": stamp, "svix-signature": `v1,${signature}` },
 					body: raw,
 				}),
+				() => runtime,
 				secret,
 			);
-			if (received.result !== "applied") throw Error(`delivered callback: ${JSON.stringify(received)}`);
+			const received = await response.text();
+			if (JSON.parse(received).result !== "applied") throw Error(`delivered callback: ${received}`);
 		}
 		done.push(`message ${DELIVERY}`);
 	}
@@ -1257,7 +1295,7 @@ async function checkIns(
 	const care = createPrivateCare({ clock: { now: () => now as Instant } });
 	const actor = await RequestActor.resolve(runtime, (await ownerSession()) as never);
 	if (!(actor instanceof RequestActor)) throw Error(`check-in actor: ${JSON.stringify(actor)}`);
-	await runtime.transaction(async (tx) => {
+	await gatedTransaction(runtime, async (tx) => {
 		for (const [index, [spiritual, family, financial, pace, note]] of CHECK_INS.entries()) {
 			now = times[index]!;
 			ok(

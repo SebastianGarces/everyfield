@@ -1,12 +1,7 @@
 "use server";
 
-import {
-	loadPipelineBoard,
-	loadPipelineGoals,
-	loadPipelinePerson,
-	pipelineActor,
-	pipelineWrite,
-} from "@/server/organizations/pipeline";
+import { z } from "zod";
+import { pipelineActor, pipelineWrite } from "../pipeline-mount";
 import { invitationService } from "@/server/invitations";
 import { pipelineWriter, reviewWriter } from "@everyfield/domain/organizations";
 import { answer, refused, type Reply } from "../../identity/server";
@@ -57,35 +52,21 @@ export async function correctConversation(input: unknown) {
 	return pipelineWrite((db, authority) => pipelineWriter.correctConversation(db, authority, input));
 }
 
-export async function readGoals() {
-	const who = await pipelineActor();
-	if (who.kind !== "seat") return { status: "refused", refusal: { code: "unavailable" } } as const;
-	return loadPipelineGoals(who.authority);
-}
+const linkInvite = z.looseObject({ input: z.looseObject({}) });
 
-export async function readBoard(query: unknown) {
-	const who = await pipelineActor();
-	if (who.kind !== "seat") return { status: "refused", refusal: { code: "unavailable" } } as const;
-	return loadPipelineBoard(who.authority, query);
-}
-
-export async function readPerson(personId: string) {
-	const who = await pipelineActor();
-	if (who.kind !== "seat") return { status: "refused", refusal: { code: "unavailable" } } as const;
-	return loadPipelinePerson(who.authority, personId);
-}
-
-export async function runLinkInvitation(
-	operation: "invite" | "resend" | "revoke",
-	command: { requestKey: string; expectedRevision: string; input: Record<string, unknown> },
-): Promise<Reply> {
+export async function runLinkInvitation(operation: unknown, command: unknown): Promise<Reply> {
 	const who = await pipelineActor();
 	const service = invitationService();
-	if (who.kind !== "seat" || !service) return refused("unavailable");
+	if (who.kind !== "seat") return refused("unavailable");
 	const organization = who.authority.actor.context.owner;
-	if (operation === "invite")
+	if (operation === "invite") {
+		const invite = linkInvite.safeParse(command);
+		if (!invite.success) return refused("invalid_input");
 		return answer(() =>
-			service.inviteResident(who.authority, { ...command, input: { ...command.input, organization } }),
+			service.inviteResident(who.authority, { ...invite.data, input: { ...invite.data.input, organization } }),
 		);
-	return answer(() => (operation === "resend" ? service.resend : service.revoke)(who.authority, command));
+	}
+	if (operation === "resend") return answer(() => service.resend(who.authority, command));
+	if (operation === "revoke") return answer(() => service.revoke(who.authority, command));
+	return refused("invalid_input");
 }

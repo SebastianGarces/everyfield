@@ -268,6 +268,11 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 			"NOTIFICATION_OPT_OUT_KEYS",
 		]);
 		assert.equal(env.IDENTITY_ORIGIN, url);
+		assert.equal(
+			env.FLAGS_SECRET,
+			undefined,
+			"Flags Explorer on a QA preview uses tokens Vercel signs (flags 4.5), so a QA preview sets no FLAGS_SECRET",
+		);
 		assert.equal(new URL(env.IDENTITY_DATABASE_URL!).username, "evf_qa_runtime");
 		assert.match(new URL(env.IDENTITY_DATABASE_URL!).hostname, /^ep-qa-branch-a1\./);
 		const seedKeys = s.stubState<Record<string, string>>("seed-keys.json");
@@ -283,6 +288,13 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 		assert.ok(!s.calls("vercel").some((c) => c[0] === "env"));
 		assert.deepEqual(s.stubState("seed-recipients.json"), { QA_TEST_RECIPIENTS: null });
 		assert.match(up.stderr, /Real mail on this preview reaches no extra address: only delivered\+\.\.\.@resend\.dev\./);
+		assert.ok(up.stderr.includes(`Sign in as ${QA_LOGINS.owner} (also qa-admin, qa-member;`), up.stderr);
+		assert.ok(
+			up.stderr.includes(
+				`Ended residency: sign in as ${QA_LOGINS.endedResident} to see the ended-residency message on /my-residency.`,
+			),
+			up.stderr,
+		);
 		assert.deepEqual(s.stubState("alias.json"), {
 			[`everyfield-${id}.vercel.app`]: "https://everyfield-abc123-team.vercel.app",
 		});
@@ -550,6 +562,7 @@ const T312_LOGINS = [
 	QA_LOGINS.graceStaff,
 	QA_LOGINS.graceMember,
 	QA_LOGINS.resident,
+	QA_LOGINS.endedResident,
 	QA_LOGINS.hillOwner,
 ];
 const MULTIPLICATION = [
@@ -580,6 +593,9 @@ const MULTIPLICATION = [
 	"sending goal",
 	"conversation with Casey Lee",
 	"conversation with Jordan Reyes",
+	"pipeline person Riley Hart",
+	"residency link Riley Hart",
+	"left residency Riley Hart",
 	`connection ${ORGS.grace} to ${ORGS.hill}`,
 	`pipeline totals shared with ${ORGS.hill}`,
 	`connection ${ORGS.grace}`,
@@ -648,7 +664,7 @@ test("INV-qa-seed: the QA seed fills a fresh database, and a second run changes 
 	);
 });
 
-test("INV-qa-seed: sixteen QA logins; the seed makes both organization logins verified and active, and each signs in", async () => {
+test("INV-qa-seed: seventeen QA logins; the seed makes both organization logins verified and active, and each signs in", async () => {
 	assert.deepEqual(QA_LOGINS, {
 		owner: "delivered+qa-owner@resend.dev",
 		admin: "delivered+qa-admin@resend.dev",
@@ -665,6 +681,7 @@ test("INV-qa-seed: sixteen QA logins; the seed makes both organization logins ve
 		graceStaff: "delivered+qa-grace-staff@resend.dev",
 		graceMember: "delivered+qa-grace-member@resend.dev",
 		resident: "delivered+qa-resident@resend.dev",
+		endedResident: "delivered+qa-resident-ended@resend.dev",
 		hillOwner: "delivered+qa-hill-owner@resend.dev",
 	});
 	const { first, query, seen } = await fresh();
@@ -948,6 +965,7 @@ test("INV-qa-runbook: the runbook's login table lists exactly the QA logins and 
 			"Responsible Member",
 			"Counts-only Member",
 			"Linked resident",
+			"Ended resident",
 			"Hill Country Owner",
 		],
 	);
@@ -1181,7 +1199,7 @@ test("INV-qa-cron: qa up writes the cron secret to a private file and starts no 
 			up.stderr.trim().split("\n").pop(),
 			`Scheduled sends: off until you run, outside a seat: cd '${s.root}' && bin/qa drive`,
 		);
-		Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2 * TEST_MINUTE);
+		assert.ok(!existsSync(join(s.root, ".git/qa/drive.lock")), "qa up started a driver");
 		assert.deepEqual(cronCalls(s.state), [], "qa up started a driver");
 		assert.ok(!existsSync(join(s.root, `.git/qa/${id}.cron.log`)));
 		const down = s.qa("down", id);
@@ -1467,7 +1485,7 @@ test("INV-qa-seed: the multiplication example's parts are written once, and the 
 	assert.equal(second, "QA seed: the branch is already complete.");
 });
 
-test("INV-qa-seed: each Grace Austin (QA) and Hill Country login holds its seat and signs in to it; Casey holds none", async () => {
+test("INV-qa-seed: each Grace Austin (QA) and Hill Country login holds its seat and signs in to it; Casey and Riley hold none", async () => {
 	const { query, seen } = await fresh();
 	assert.deepEqual(
 		await query(`SELECT u.email, u.email_verified, a.registration_state, a.registration_kind, o.name, s.role,
@@ -1481,6 +1499,7 @@ test("INV-qa-seed: each Grace Austin (QA) and Hill Country login holds its seat 
 			[QA_LOGINS.graceOwner, "sending_church", ORGS.grace, "owner"],
 			[QA_LOGINS.graceStaff, "sending_church", ORGS.grace, "member"],
 			[QA_LOGINS.hillOwner, "network", ORGS.hill, "owner"],
+			[QA_LOGINS.endedResident, "discovery", null, null],
 			[QA_LOGINS.resident, "discovery", null, null],
 		].map(([email, kind, name, role]) => ({
 			email,
@@ -1506,6 +1525,8 @@ test("INV-qa-seed: each Grace Austin (QA) and Hill Country login holds its seat 
 	}
 	assert.deepEqual([seen.resident.signedIn, seen.resident.session], ["signed_in", "active"]);
 	assert.deepEqual(seen.resident.context, { kind: "account", owner: "account" });
+	assert.deepEqual([seen.endedResident.signedIn, seen.endedResident.session], ["signed_in", "active"]);
+	assert.deepEqual(seen.endedResident.context, { kind: "account", owner: "account" });
 });
 
 test("INV-qa-seed: Casey linked through the residency invitation and shares milestone progress, not foundations", async () => {
@@ -1517,7 +1538,7 @@ test("INV-qa-seed: Casey linked through the residency invitation and shares mile
 			JOIN person p ON p.id = l.person_id JOIN invitation i ON i.resident_person_id = l.person_id AND i.purpose = 'residency_link'
 			JOIN account ia ON ia.id = i.inviter_id JOIN auth_user inviter ON inviter.id = ia.auth_user_id
 			JOIN account aa ON aa.id = i.accepted_account_id JOIN auth_user accepter ON accepter.id = aa.auth_user_id
-			WHERE o.name = '${ORGS.grace}'`),
+			WHERE o.name = '${ORGS.grace}' AND p.display_name = 'Casey Lee'`),
 		[
 			{
 				state: "accepted",
@@ -1554,6 +1575,48 @@ test("INV-qa-seed: Casey linked through the residency invitation and shares mile
 	);
 });
 
+test("INV-qa-seed: Riley left the Grace Austin (QA) residency through the leave command and sees only that it ended", async () => {
+	const { query, seen } = await fresh();
+	assert.deepEqual(
+		await query(`SELECT i.state, inviter.email AS invited_by, u.email AS linked_account, l.ended_at IS NOT NULL AS ended,
+			l.share_milestones, l.share_foundations,
+			(SELECT array_agg(e.request_identity->>'operation' ORDER BY e.recorded_at) FROM audit_event e
+				WHERE e.subject_id = l.id AND e.actor_id = l.account_id AND e.kind = 'remove') AS removed_by
+			FROM residency_link l JOIN organization o ON o.id = l.organization_id JOIN person p ON p.id = l.person_id
+			JOIN account a ON a.id = l.account_id JOIN auth_user u ON u.id = a.auth_user_id
+			JOIN invitation i ON i.id = l.invitation_id JOIN account ia ON ia.id = i.inviter_id
+			JOIN auth_user inviter ON inviter.id = ia.auth_user_id
+			WHERE p.display_name = 'Riley Hart'`),
+		[
+			{
+				state: "accepted",
+				invited_by: QA_LOGINS.graceAdmin,
+				linked_account: QA_LOGINS.endedResident,
+				ended: true,
+				share_milestones: false,
+				share_foundations: false,
+				removed_by: ["residency.leave"],
+			},
+		],
+	);
+	assert.deepEqual(
+		await query(`SELECT count(*)::int AS n FROM invitation i JOIN person p ON p.id = i.resident_person_id
+			WHERE p.display_name = 'Riley Hart'`),
+		[{ n: 1 }],
+	);
+	assert.deepEqual(
+		{ ...seen.endedResident, signedIn: undefined, session: undefined, context: undefined },
+		{
+			signedIn: undefined,
+			session: undefined,
+			context: undefined,
+			residency: { status: "ended" },
+			board: refused,
+			goals: refused,
+		},
+	);
+});
+
 test("INV-privacy: each Grace Austin (QA) login reads only the pipeline its role and duty allow", async () => {
 	const { seen } = await fresh();
 	const enrollment = {
@@ -1575,20 +1638,20 @@ test("INV-privacy: each Grace Austin (QA) login reads only the pipeline its role
 				signedIn: undefined,
 				session: undefined,
 				context: undefined,
-				board: { audience: "administrator", count: 2, people: ["Casey Lee", "Jordan Reyes"] },
+				board: { audience: "administrator", count: 3, people: ["Casey Lee", "Jordan Reyes", "Riley Hart"] },
 				goals,
 				records: { casey, jordan, morgan: refused },
 				enrollment,
 			},
 			login,
 		);
-	assert.deepEqual(seen.graceDirector.board, { audience: "responsible", count: 2, people: ["Casey Lee"] });
+	assert.deepEqual(seen.graceDirector.board, { audience: "responsible", count: 3, people: ["Casey Lee"] });
 	assert.deepEqual(seen.graceDirector.records, { casey, jordan: refused, morgan: refused });
 	assert.deepEqual(seen.graceDirector.enrollment, enrollment);
-	assert.deepEqual(seen.graceStaff.board, { audience: "responsible", count: 2, people: ["Jordan Reyes"] });
+	assert.deepEqual(seen.graceStaff.board, { audience: "responsible", count: 3, people: ["Jordan Reyes"] });
 	assert.deepEqual(seen.graceStaff.records, { casey: refused, jordan, morgan: refused });
 	assert.deepEqual(seen.graceStaff.enrollment, refused);
-	assert.deepEqual(seen.graceMember.board, { audience: "counts", count: 2, people: [] });
+	assert.deepEqual(seen.graceMember.board, { audience: "counts", count: 3, people: [] });
 	assert.deepEqual(seen.graceMember.goals, goals);
 	assert.deepEqual(seen.graceMember.records, { casey: refused, jordan: refused, morgan: refused });
 	assert.deepEqual(seen.graceMember.enrollment, refused);
