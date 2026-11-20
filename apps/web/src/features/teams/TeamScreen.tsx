@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import {
 	Add01Icon,
@@ -37,12 +38,13 @@ import {
 	Tabs,
 	TabsList,
 	TabsPanel,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition, type ReactNode } from "react";
+import { localToday } from "../../components/clock.ts";
 import { useAddress, writeAddress } from "../../components/location.ts";
 import { createRead, useRead } from "../../components/read.tsx";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
@@ -54,10 +56,9 @@ import {
 	editRole,
 	endMembership,
 	reactivateMembership,
-	reloadTeam,
 	retireRole,
-	teamHistory,
 } from "./actions.ts";
+import { reloadTeam, teamHistory } from "./fetch.ts";
 import {
 	LEADER_ICON,
 	optional,
@@ -87,7 +88,6 @@ import {
 	stampText,
 	type HistoryEntry,
 	type Member,
-	type Outcome,
 	type Role,
 	type SetupForm,
 } from "./model.ts";
@@ -95,12 +95,14 @@ import { MeetingsCard } from "./MeetingsCard.tsx";
 import { ChartTree } from "./OrgChart.tsx";
 import { LeaderLine, TeamBadge, TeamIcon } from "./parts.tsx";
 import { SetupDialog } from "./Setup.tsx";
-import { apply, today, type Change } from "./page-state.ts";
+import { apply, type Change } from "./page-state.ts";
 import { ResponsibilitiesPanel } from "./responsibilities/Responsibilities.tsx";
 import type { TeamView } from "./server.ts";
+import { loadProblem, failedIcon } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 const histories = createRead(({ teamId }: { teamId: string; revision: string }) => teamHistory(teamId), {
-	failed: (): Outcome<{ entries: HistoryEntry[] }> => ({ status: "lost" }),
+	failed: (): Outcome<{ entries: HistoryEntry[] }> | ReadFailure => ({ status: "lost" }),
 });
 
 const TABS = ["roles", "responsibilities", "people", "training", "history"] as const;
@@ -114,13 +116,10 @@ type PersonFlow = { kind: "leader" } | { kind: "member"; role: Role | null };
 
 export function TeamScreen({ data: loaded }: { data: TeamView }) {
 	const router = useRouter();
-	const toast = useToast();
-	const [server, setServer] = useState(loaded);
-	const [data, setData] = useState(loaded);
-	if (server !== loaded) {
-		setServer(loaded);
-		setData(loaded);
-	}
+	const [local, setLocal] = useState<{ from: TeamView; value: TeamView } | null>(null);
+	const data = local?.from === loaded ? local.value : loaded;
+	const setData = (change: (d: TeamView) => TeamView) =>
+		setLocal((last) => ({ from: loaded, value: change(last?.from === loaded ? last.value : loaded) }));
 	const [, startTransition] = useTransition();
 	const [view, project] = useOptimistic(data, apply);
 	const teamLane = useSaveIntent<TeamForm>({ explain: problemText });
@@ -145,7 +144,8 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		reloadTeam(t.id).then(
 			(r) => {
 				if (r.status !== "ok") return;
-				if (r.value) setData(r.value);
+				const fresh = r.value;
+				if (fresh) setData(() => fresh);
 				else router.push("/ministries");
 			},
 			() => {},
@@ -264,18 +264,18 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			what: `The role ${facts.name}`,
 			done: form.roleId ? "saved" : "added",
 			form,
-			change: { kind: "role", role: shown, today: today() },
+			change: { kind: "role", role: shown, today: localToday() },
 			send: (key) => (form.roleId ? editRole(key, form.revision, form.roleId, facts) : createRole(key, t.id, facts)),
-			confirm: (r) => ({ kind: "role", role: r.role, today: today() }),
+			confirm: (r) => ({ kind: "role", role: r.role, today: localToday() }),
 		});
 	}
 	function retire(role: Role) {
 		save(roleLane, {
 			what: `The role ${role.name}`,
 			done: "retired",
-			change: { kind: "role", role: { ...role, retired: true }, today: today() },
+			change: { kind: "role", role: { ...role, retired: true }, today: localToday() },
 			send: (key) => retireRole(key, role.revision, role.id),
-			confirm: (r) => ({ kind: "role", role: r.role, today: today() }),
+			confirm: (r) => ({ kind: "role", role: r.role, today: localToday() }),
 			ok: () => toast({ tone: "success", message: `${role.name} is retired. Its history stays.` }),
 		});
 	}
@@ -287,9 +287,9 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			what: `${person.name} in ${role.name}`,
 			done: "added",
 			form,
-			change: { kind: "fill", role, person, today: today(), derive: true },
+			change: { kind: "fill", role, person, today: localToday(), derive: true },
 			send: (key) => assignRole(key, role.revision, t.id, role.id, person.id),
-			confirm: () => ({ kind: "fill", role, person, today: today(), derive: true }),
+			confirm: () => ({ kind: "fill", role, person, today: localToday(), derive: true }),
 			ok: (result) => {
 				toast(
 					result.warning === "overload"
@@ -306,9 +306,9 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		save(peopleLane, {
 			what: `${name}'s place on ${t.name}`,
 			done: "ended",
-			change: { kind: "leave", personId, today: today() },
+			change: { kind: "leave", personId, today: localToday() },
 			send: (key) => endMembership(key, t.revision, t.id, personId),
-			confirm: () => ({ kind: "leave", personId, today: today() }),
+			confirm: () => ({ kind: "leave", personId, today: localToday() }),
 			ok: () => toast({ tone: "success", message: `${name} is no longer on ${t.name}. Their history stays.` }),
 		});
 	}
@@ -318,9 +318,15 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		save(peopleLane, {
 			what: `${m.name} in ${role.name}`,
 			done: "added",
-			change: { kind: "fill", role, person: { id: m.personId, name: m.name }, today: today(), derive: false },
+			change: { kind: "fill", role, person: { id: m.personId, name: m.name }, today: localToday(), derive: false },
 			send: (key) => reactivateMembership(key, role.revision, role.id, m.personId),
-			confirm: () => ({ kind: "fill", role, person: { id: m.personId, name: m.name }, today: today(), derive: false }),
+			confirm: () => ({
+				kind: "fill",
+				role,
+				person: { id: m.personId, name: m.name },
+				today: localToday(),
+				derive: false,
+			}),
 			ok: () => toast({ tone: "success", message: `${m.name} is back in ${role.name}.` }),
 		});
 	}
@@ -1088,7 +1094,7 @@ function HistoryCard({ teamId, revision }: { teamId: string; revision: string })
 	return <HistoryList state={history.value ?? null} />;
 }
 
-function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | null }): ReactNode {
+function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | ReadFailure | null }): ReactNode {
 	return (
 		<Card as="section" aria-labelledby="history-title">
 			<CardHeader>
@@ -1102,8 +1108,8 @@ function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | 
 					<Spinner size={16} /> Loading the history…
 				</p>
 			) : state.status !== "ok" ? (
-				<StatePanel tone="error" title="The history did not load" headingLevel="h3">
-					Nothing was changed. Open the tab again in a moment.
+				<StatePanel tone="error" title="The history did not load" icon={failedIcon(state)} headingLevel="h3">
+					{loadProblem(state, "Nothing was changed. Open the tab again in a moment.")}
 				</StatePanel>
 			) : state.value.entries.length === 0 ? (
 				<p className="py-4 text-sm text-text-3">No changes are recorded yet.</p>

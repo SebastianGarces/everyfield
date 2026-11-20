@@ -261,13 +261,15 @@ export const trainingReader = {
 				.array(z.record(z.string(), z.unknown()))
 				.parse(found.teams)
 				.map((t) => health(String(t.id), t));
-			const measured = teams.filter((t) => t.composite !== null);
-			return c.aggregateHealth.parse({
+			const composites = teams.flatMap((t) => (t.composite === null ? [] : [t.composite]));
+			return {
 				teams,
-				measuredTeams: measured.length,
+				measuredTeams: composites.length,
 				totalTeams: teams.length,
-				composite: measured.length ? measured.reduce((sum, t) => sum + t.composite!, 0) / measured.length : null,
-			});
+				composite: composites.length
+					? composites.reduce((sum, composite) => sum + composite, 0) / composites.length
+					: null,
+			} satisfies z.output<typeof c.aggregateHealth>;
 		});
 	},
 	async readStaffingFacts(db: Reader, authority: RequestActor, raw: unknown) {

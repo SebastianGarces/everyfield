@@ -26,6 +26,7 @@ import {
 import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
 import { CANARY, church, type Church } from "../intelligence/assessment-church.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let c0: Church;
 const job = createAssessmentJob();
@@ -89,7 +90,7 @@ async function save(p: Plant, where: Locality, code: string | null) {
 	const region = code === null ? null : offered.find((c) => c.area.code === code)!.regionItemId;
 	assert.ok(code === null || region, `the picker offers ${code}`);
 	const selected = { kind: "plant" as const, id: p.id };
-	await c0.db.transaction(async (tx) => {
+	await gatedTransaction(c0.db, async (tx) => {
 		assert.ok(await RequestActor.claimWrite(tx, p.owner.session as never, selected as never));
 		return api["organizations.correctReportingLocation"](
 			tx,
@@ -385,7 +386,9 @@ test("a plant that does not share findings reads Not shared at every level and L
 	await link(p, net, false);
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	await runAssessmentBatch(job, c0.db, scriptedAssessmentDrafter(), 20);
-	const own = ok(await assessments.readAssessment(c0.db, p.actor, {})).current!;
+	const assessment = await assessments.readAssessment(c0.db, p.actor, {});
+	if (assessment.status !== "ok" || !assessment.value.current) assert.fail(JSON.stringify(assessment));
+	const own = assessment.value.current;
 	ok(await assessments.markAssessmentSeen(c0.db, p.actor, { runId: own.runId }));
 	await refresh(net);
 	for (const level of LEVELS) {
@@ -434,7 +437,9 @@ test("AC:GEO-011 AC:ORG55-005 the directory, the plant view and every Network In
 
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	await runAssessmentBatch(job, c0.db, scriptedAssessmentDrafter(), 20);
-	const own = ok(await assessments.readAssessment(c0.db, p.actor, {})).current!;
+	const assessment = await assessments.readAssessment(c0.db, p.actor, {});
+	if (assessment.status !== "ok" || !assessment.value.current) assert.fail(JSON.stringify(assessment));
+	const own = assessment.value.current;
 	ok(await assessments.markAssessmentSeen(c0.db, p.actor, { runId: own.runId }));
 	await refresh(net);
 

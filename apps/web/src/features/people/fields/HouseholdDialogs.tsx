@@ -21,9 +21,11 @@ import { useReadWith, createRead } from "../../../components/read.tsx";
 import { RecordDialog } from "../../../components/save/parts.tsx";
 import { useLocalStore, useStore } from "../../../components/store.ts";
 import { problemText } from "../parts.tsx";
-import { findHouseholds } from "./actions.ts";
+import { findHouseholds } from "../fetch.ts";
 import { createJoinHouseholdStore } from "./JoinHouseholdDialog.store.ts";
 import { addressLine, ROLE_LABEL, ROLES, type Household, type HouseholdRole, type HouseholdSummary } from "./model.ts";
+import { loadProblem } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 export type Address = { street: string; city: string; stateProvince: string; postalCode: string; country: string };
@@ -95,7 +97,7 @@ function AddressFields({ value, onChange }: { value: Address; onChange: (a: Addr
 	);
 }
 
-type Found = Outcome<{ items: HouseholdSummary[]; total: number }>;
+type Found = Outcome<{ items: HouseholdSummary[]; total: number }> | ReadFailure;
 export const households = createRead((q: string): Promise<Found> => findHouseholds(q), {
 	failed: () => ({ status: "lost" }) as const,
 });
@@ -286,7 +288,7 @@ export function JoinHouseholdDialog({
 								</div>
 							) : read.value.status !== "ok" ? (
 								<p role="alert" className="px-4 py-4 text-sm text-text-2">
-									Households did not load.{" "}
+									{loadProblem(read.value, "Households did not load.")}{" "}
 									<button type="button" className="font-medium text-ink underline" onClick={read.retry}>
 										Try again
 									</button>

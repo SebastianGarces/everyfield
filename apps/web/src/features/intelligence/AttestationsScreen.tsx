@@ -42,7 +42,7 @@ import {
 	Input,
 	PageHeader,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
@@ -50,14 +50,8 @@ import { RadioGroup } from "radix-ui";
 import { useState } from "react";
 import { shortDate } from "./model.ts";
 import { IntelligenceTabs } from "./IntelligenceTabs.tsx";
-import {
-	attestCandidate,
-	attestSignal,
-	correctCandidate,
-	correctSignal,
-	reaffirmSignal,
-	reloadAttestations,
-} from "./signals-actions.ts";
+import { attestCandidate, attestSignal, correctCandidate, correctSignal, reaffirmSignal } from "./signals-actions.ts";
+import { reloadAttestations } from "./fetch.ts";
 import {
 	actionLabel,
 	agoText,
@@ -90,13 +84,13 @@ import {
 	type Draft,
 	type SignalOutcome,
 } from "./signals-model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
 
 export function AttestationsScreen({ initial, viewerName }: { initial: AttestationsPage; viewerName: string }) {
 	const [page, setPage] = useState(initial);
 	const [dialog, setDialog] = useState<
 		{ kind: "answer"; key: SignalKey } | { kind: "renew" } | { kind: "candidate"; personId: string | null } | null
 	>(null);
-	const toast = useToast();
 	const [keys] = useState(() => new Map<string, string>());
 	const keyFor = (payload: string) => {
 		if (!keys.has(payload)) keys.set(payload, crypto.randomUUID());
@@ -114,12 +108,13 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 
 	async function writeSignal(
 		entry: SignalEntry,
-		optimistic: (today: string) => SignalEntry,
+		optimistic: (today: string, recordedAt: string) => SignalEntry,
 		payload: string,
 		send: (requestKey: string) => Promise<SignalOutcome<SignalWriteResult>>,
 		line: (confirmed: SignalEntry) => HumanRevision,
 	): Promise<string | null> {
-		setPage((p) => withSignal(p, optimistic(p.today)));
+		const recordedAt = new Date().toISOString();
+		setPage((p) => withSignal(p, optimistic(p.today, recordedAt)));
 		const result = await sent(() => send(keyFor(payload)));
 		if (result.status !== "ok") {
 			setPage((p) => withSignal(p, entry));
@@ -138,7 +133,7 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		const input = signalInput(entry.key, value, draft);
 		return writeSignal(
 			entry,
-			(today) => stated(entry, { ...draft, value, asOf: statedAsOf(draft, today) }, today, viewerName),
+			(today, at) => stated(entry, { ...draft, value, asOf: statedAsOf(draft, today) }, today, at, viewerName),
 			JSON.stringify([what, entry.revision, input]),
 			(key) =>
 				what === "attest"
@@ -151,7 +146,7 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		const input = { action: "retract", key: entry.key };
 		return writeSignal(
 			entry,
-			() => retracted(entry, viewerName),
+			(_, at) => retracted(entry, at, viewerName),
 			JSON.stringify(["retract", entry.revision, input]),
 			(key) => correctSignal(key, entry.revision, input),
 			(confirmed) => historyLine(confirmed, "retracted", null),
@@ -161,16 +156,17 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		const input = { key: entry.key, expectedValue: entry.value };
 		return writeSignal(
 			entry,
-			(today) => reaffirmed(entry, today, viewerName),
+			(today, at) => reaffirmed(entry, today, at, viewerName),
 			JSON.stringify(["reaffirm", entry.revision, input]),
 			(key) => reaffirmSignal(key, entry.revision, input),
 			(confirmed) => historyLine(confirmed, "reaffirmed", confirmed.value),
 		);
 	}
 	async function reload() {
-		const result = await sent(() => reloadAttestations());
+		const result = await reloadAttestations().catch(() => ({ status: "lost" }) as const);
 		if (result.status === "ok") setPage(result.value);
-		else toast({ message: "Everyfield could not be reached. Try again in a moment.", tone: "error" });
+		else
+			toast({ message: loadProblem(result, "Everyfield could not be reached. Try again in a moment."), tone: "error" });
 	}
 
 	async function saveCandidate(

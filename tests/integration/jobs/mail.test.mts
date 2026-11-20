@@ -10,22 +10,19 @@ import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createNotificationProducer, issueMailOptOutToken } from "../../../packages/domain/src/notifications/index.ts";
 import { ok, seeds } from "../../support/fixture.mts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import {
 	createMailService,
 	claimUnknownMail,
 	MAIL_PASSES,
 	runDueMail,
-} from "../../../apps/web/src/server/jobs/mail.ts";
+} from "../../../packages/domain/src/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.ts";
-import { protectedTemplate } from "../../../apps/web/src/server/jobs/templates.ts";
-import { claimDue, recoverLease } from "../../../apps/web/src/server/jobs/queue.ts";
-import {
-	receiveMailCallback,
-	mailCallbackHandler,
-	callbackVisibility,
-} from "../../../apps/web/src/server/jobs/webhook.ts";
+import { protectedTemplate } from "../../../packages/domain/src/jobs/templates.ts";
+import { claimDue, recoverLease } from "../../../packages/domain/src/jobs/queue.ts";
+import { callbackVisibility } from "../../../packages/domain/src/jobs/webhook.ts";
+import { resendWebhook } from "../../../apps/web/src/server/jobs/webhook-route.ts";
 import { db, runtime, runtimeSettings, tenant, setup, teardown, due } from "./support.mts";
 const account = randomUUID(),
 	key = randomBytes(32),
@@ -123,6 +120,8 @@ async function callback(messageId, kind, eventKey = randomUUID(), bounce) {
 		headers: { "svix-id": eventKey, "svix-timestamp": stamp, "svix-signature": "v1," + signature },
 	});
 }
+const webhook = (request, key = secret) => resendWebhook(request, () => runtime, key);
+const receive = async (request) => (await webhook(request)).json();
 before(async () => {
 	await setup();
 	const user = randomUUID();
@@ -320,10 +319,10 @@ test("INV-mail: callbacks persist unknown IDs, reject wrong secrets, replay with
 	const count = requests.length;
 	const delivered = await callback(out.id, "delivered");
 	const clone = delivered.clone();
-	assert.deepEqual(await receiveMailCallback(runtime, delivered, secret), { stored: true, result: "applied" });
-	assert.deepEqual(await receiveMailCallback(runtime, clone, secret), { stored: true, result: "duplicate" });
-	await receiveMailCallback(runtime, await callback(out.id, "sent"), secret);
-	await receiveMailCallback(runtime, await callback(out.id, "accepted"), secret);
+	assert.deepEqual(await receive(delivered), { stored: true, result: "applied" });
+	assert.deepEqual(await receive(clone), { stored: true, result: "duplicate" });
+	await receive(await callback(out.id, "sent"));
+	await receive(await callback(out.id, "accepted"));
 	assert.equal(
 		(
 			await db.execute(
@@ -334,32 +333,30 @@ test("INV-mail: callbacks persist unknown IDs, reject wrong secrets, replay with
 	);
 	assert.equal(requests.length, count);
 	const unknown = "unknown-" + randomUUID();
-	assert.deepEqual(await receiveMailCallback(runtime, await callback(unknown, "delivered"), secret), {
+	assert.deepEqual(await receive(await callback(unknown, "delivered")), {
 		stored: true,
 		result: "unmatched",
 	});
 	await db.execute(
 		querySql`UPDATE mail SET provider_message_id=${querySql.param(unknown)} WHERE id=${querySql.param(id)}`,
 	);
-	const handler = mailCallbackHandler(runtime, "whsec_" + randomBytes(32).toString("base64"));
-	const response = await handler(await callback(out.id, "sent"));
-	assert.equal(response.status, 404);
+	const response = await webhook(await callback(out.id, "sent"), "whsec_" + randomBytes(32).toString("base64"));
+	assert.equal(response.status, 401);
 	const body = await response.text();
 	assert.equal(body.includes(secret), false);
 	assert.equal(body.includes(out.id), false);
-	const genuine = mailCallbackHandler(runtime, secret);
 	const prior = (await db.execute(querySql`SELECT count(*)::int n FROM provider_event`)).rows[0].n;
 	await db.execute(
 		querySql`CREATE FUNCTION reject_callback() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_storage_failure'; END $$; CREATE TRIGGER reject_callback BEFORE INSERT ON provider_event FOR EACH ROW EXECUTE FUNCTION reject_callback()`,
 	);
-	const unavailable = await genuine(await callback(unknown, "sent"));
+	const unavailable = await webhook(await callback(unknown, "sent"));
 	assert.equal(unavailable.status, 503);
 	assert.equal((await db.execute(querySql`SELECT count(*)::int n FROM provider_event`)).rows[0].n, prior);
 	await db.execute(querySql`DROP TRIGGER reject_callback ON provider_event; DROP FUNCTION reject_callback()`);
 	await db.execute(
 		querySql`CREATE FUNCTION reject_projection() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_apply_failure'; END $$; CREATE TRIGGER reject_projection BEFORE UPDATE ON mail FOR EACH ROW EXECUTE FUNCTION reject_projection()`,
 	);
-	const pending = await genuine(await callback(unknown, "sent"));
+	const pending = await webhook(await callback(unknown, "sent"));
 	assert.equal(pending.status, 202);
 	assert.deepEqual(await pending.json(), { stored: true, result: "pending" });
 	assert.deepEqual(await callbackVisibility(runtime, "disabled"), { endpoint: "disabled", pending: 2, unmatched: 0 });
@@ -420,9 +417,9 @@ test("INV-mail: hard bounce suppresses even security mail; soft bounce does not"
 	const [c] = await claimDue(runtime, ["mail"]);
 	const out = await service.dispatch(c);
 	assert.equal(out.kind, "accepted");
-	await receiveMailCallback(runtime, await callback(out.id, "bounced", randomUUID(), { type: "Transient" }), secret);
+	await receive(await callback(out.id, "bounced", randomUUID(), { type: "Transient" }));
 	assert.equal((await db.execute(querySql`SELECT count(*)::int n FROM suppression`)).rows[0].n, 0);
-	await receiveMailCallback(runtime, await callback(out.id, "bounced", randomUUID(), { type: "Permanent" }), secret);
+	await receive(await callback(out.id, "bounced", randomUUID(), { type: "Permanent" }));
 	assert.equal((await db.execute(querySql`SELECT reason FROM suppression`)).rows[0].reason, "hard_bounce");
 	const next = await enqueue("password_reset");
 	const [claim] = await claimDue(runtime, ["mail"]);
@@ -474,7 +471,6 @@ function queue(svc: ReturnType<typeof recorded>["svc"], logicalKey: string, extr
 const cron = "cron-" + randomUUID();
 async function tick(mountMail: Parameters<typeof scheduledJobs>[0]["mountMail"]) {
 	const response = await scheduledJobs({
-		secret: cron,
 		db: runtime,
 		storage: null,
 		cleanup: null,
@@ -592,7 +588,7 @@ test("an unknown handoff is replayed on the next tick under the same key, only i
 
 test("a stored callback whose email had no provider id yet is applied on the first tick after it gets one", async () => {
 	const providerId = "early-" + randomUUID();
-	assert.deepEqual(await receiveMailCallback(runtime, await callback(providerId, "delivered"), secret), {
+	assert.deepEqual(await receive(await callback(providerId, "delivered")), {
 		stored: true,
 		result: "unmatched",
 	});

@@ -10,9 +10,9 @@ import {
 	issueEmailOptOutToken,
 } from "../../../packages/domain/src/notifications/index.ts";
 import { defaultTitle } from "../../../packages/contracts/src/common/index.ts";
-import { authorizeDigestMail, createDigestWorker, planDigests } from "../../../apps/web/src/server/jobs/digest.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
+import { authorizeDigestMail, createDigestWorker, planDigests } from "../../../packages/domain/src/jobs/digest.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { closeDatabase, createDatabase } from "../../../packages/db/src/client.ts";
 import { db as admin, runtime, runtimeSettings, setup, teardown } from "../jobs/support.mts";
@@ -58,7 +58,6 @@ before(async () => {
 	});
 	worker = createDigestWorker({ mail, origin: "https://everyfield.test" });
 	tick = scheduledJobs({
-		secret,
 		db: runtime,
 		storage: null,
 		cleanup: null,
@@ -70,7 +69,7 @@ before(async () => {
 	counted.db = createDatabase(runtimeSettings);
 	counted.db.$client.on("connect", (client) => {
 		const query = client.query;
-		client.query = function (...args: unknown[]) {
+		client.query = function (this: unknown, ...args: unknown[]) {
 			counted.queries.push(typeof args[0] === "string" ? args[0] : (args[0] as { text: string }).text);
 			return Reflect.apply(query, this, args);
 		} as typeof client.query;

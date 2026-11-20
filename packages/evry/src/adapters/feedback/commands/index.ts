@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { DESCRIPTION_MAX, feedbackCategory } from "@everyfield/contracts/feedback";
 import { feedbackWriter } from "@everyfield/domain/feedback";
@@ -17,7 +16,7 @@ const sender = (seatId: string | null, accountId: string) =>
 
 function requestKeyOf(effectKey: string) {
 	const h = createHash("sha256").update(effectKey).digest("hex");
-	const variant = ((parseInt(h[16]!, 16) & 0x3) | 0x8).toString(16);
+	const variant = ((parseInt(h.charAt(16), 16) & 0x3) | 0x8).toString(16);
 	return `${h.slice(0, 8)}-${h.slice(8, 12)}-8${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
@@ -48,7 +47,7 @@ export const submit = nativeWrite({
 	async run(tx, _context, request, { authority, ports }) {
 		const saved = settled(
 			await feedbackWriter.submit(
-				tx as unknown as Database,
+				tx,
 				authority,
 				{ ...request, requestKey: requestKeyOf(request.requestKey) },
 				{ appVersion: ports.appVersion },

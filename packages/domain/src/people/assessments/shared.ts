@@ -1,5 +1,5 @@
 import * as c from "@everyfield/contracts/people";
-import { and, eq, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
+import { and, eq, sql, type SQL, type SQLWrapper, type SqlLiteral } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
@@ -36,9 +36,9 @@ export async function subject(
  ${churchToday} AS today,clock_timestamp() AS now,${extra ?? sql`NULL`} AS extra
  FROM person p JOIN plant pl ON pl.id=p.plant_id WHERE p.id=${typeof person === "string" ? sql`${person}::uuid` : person} AND p.tenant_id=${plant}::uuid AND p.plant_id=${plant}::uuid
  FOR UPDATE OF p`);
-	if (!result.rows[0]) deny();
+	if (!result.rows[0]) deny("unavailable");
 	const p = subjectRow.parse(result.rows[0]);
-	if (p.state !== "live") deny();
+	if (p.state !== "live") deny("unavailable");
 	return p;
 }
 export function notFuture(p: Pick<Subject, "today">, date: string) {
@@ -76,7 +76,7 @@ export const nextRevision = (p: Subject, set: object) =>
 export const recordEvent = (event: string, recordId?: string): Record<string, string> =>
 	recordId ? { event, recordId } : { event };
 
-export const recorderSql = (alias: string) =>
+export const recorderSql = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
 	sql.raw(`(SELECT a.actor_id FROM audit_event a WHERE a.tenant_id=${alias}.plant_id AND a.subject_id IN (SELECT ${alias}.person_id
  UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=${alias}.person_id AND m.tenant_id=${alias}.plant_id)
  AND a.action='people.recorded' AND a.metadata->>'recordId'=${alias}.id::text ORDER BY a.occurred_at,a.id LIMIT 1)`);
@@ -123,7 +123,7 @@ export async function readHistory(
 	const result = await tx.execute(sql`SELECT ${json(plant)} AS h
  FROM person p WHERE ${adminRead(ctx)} AND p.id=${input.personId}::uuid AND p.tenant_id=${plant}::uuid
  AND p.plant_id=${plant}::uuid`);
-	if (!result.rows[0]) deny();
+	if (!result.rows[0]) deny("unavailable");
 	return history(plant, input, result.rows[0].h);
 }
 
@@ -143,6 +143,6 @@ export async function replayed(
 	const result = await tx.execute(
 		sql`SELECT ${row} AS j FROM ${from} r WHERE r.id=${recordId}::uuid AND r.plant_id=${plant}::uuid`,
 	);
-	if (!result.rows[0]) deny();
+	if (!result.rows[0]) deny("unavailable");
 	return { ...rest, [field]: view(plant, result.rows[0].j) };
 }

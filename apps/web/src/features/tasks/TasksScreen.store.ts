@@ -1,7 +1,7 @@
 import { createStore, type StoreApi } from "zustand/vanilla";
 import { SaveLane, type LaneOptions } from "../../components/save/model.ts";
 import type { Report } from "./bulk.tsx";
-import { BadgeReads, problemText, type TaskCounts, type TaskItem } from "./model.ts";
+import { problemText, type TaskCounts, type TaskItem } from "./model.ts";
 import type { EditForm } from "./TaskDialog.tsx";
 import type { DetailState, PanelEdit } from "./TaskSheet.tsx";
 import type { TasksAnswer } from "./TasksScreen.tsx";
@@ -44,12 +44,9 @@ export type TasksPageData = {
 	total: number;
 	selected: ReadonlySet<string>;
 	report: Report | null;
-	badgesStale: boolean;
-	readingBadges: boolean;
 };
 
 export type TasksPageState = TasksPageData & {
-	badgeReads: BadgeReads;
 	actions: { change: (change: (page: TasksPageData) => Partial<TasksPageData>) => void };
 };
 
@@ -62,9 +59,6 @@ export function createTasksPageStore(answer: TasksAnswer): TasksPageStore {
 		total: answer.page.total,
 		selected: new Set(),
 		report: null,
-		badgesStale: false,
-		readingBadges: false,
-		badgeReads: new BadgeReads(),
 		actions: { change: (change) => set(change(get())) },
 	}));
 }
@@ -92,7 +86,10 @@ export type TasksState = {
 
 export type TasksStore = StoreApi<TasksState>;
 
-export function createTasksStore(init: { opened: TasksAnswer["opened"] }): TasksStore {
+export function createTasksStore(init: {
+	opened: TasksAnswer["opened"];
+	report: NonNullable<LaneOptions["report"]>;
+}): TasksStore {
 	let formLane: string | null = null;
 	let bulkHeld: readonly string[] = [];
 	let bulkChosen: readonly string[] = [];
@@ -100,7 +97,7 @@ export function createTasksStore(init: { opened: TasksAnswer["opened"] }): Tasks
 	return createStore<TasksState>()((set, get) => {
 		const lanes: Lanes = new Lanes((id): LaneOptions => ({
 			explain: (code) => problemText(code as never),
-			report: (line) => console.error(line),
+			report: init.report,
 			busy:
 				id === BULK
 					? (): boolean => bulkChosen.some((t) => lanes.of(t).wait() !== null)

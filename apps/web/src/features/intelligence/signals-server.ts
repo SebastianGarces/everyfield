@@ -11,30 +11,20 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { createSignals, type Signals } from "@everyfield/domain/intelligence";
 import "server-only";
 import type { SignalOutcome } from "./signals-model.ts";
-import { careViewer, type CareViewer } from "./server.ts";
+import { plantSeat, type PlantSeat } from "@/server/request-context";
+import { LOST, transient } from "../../server/platform/transient.ts";
+import { readDb } from "../../server/platform/tx.ts";
 
 const signals = createSignals();
 
-const report = (outcome: string, error: unknown) =>
-	console.error(
-		JSON.stringify({ component: "signals", outcome, kind: (error as { code?: string })?.code ?? "unknown" }),
-	);
-
-export async function loadAttestations(viewer: CareViewer): Promise<SignalOutcome<AttestationsPage>> {
-	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		return await signals.readAttestations(db, viewer.authority, {});
-	} catch (error) {
-		report("read_failed", error);
-		return { status: "lost" };
-	}
+export async function loadAttestations(viewer: PlantSeat): Promise<SignalOutcome<AttestationsPage>> {
+	return readDb("signals", (db) => signals.readAttestations(db, viewer.authority, {}));
 }
 
 export async function runSignals<T extends SignalWriteResult | CandidateWriteResult | AttestationsPage>(
 	body: (signals: Signals, db: Database, authority: RequestActor) => Promise<SignalReply<T>>,
 ): Promise<SignalOutcome<T>> {
-	const viewer = await careViewer();
+	const viewer = await plantSeat();
 	if (!viewer)
 		return {
 			status: "refused",
@@ -46,11 +36,5 @@ export async function runSignals<T extends SignalWriteResult | CandidateWriteRes
 			}),
 		};
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		return await body(signals, db, viewer.authority);
-	} catch (error) {
-		report("call_failed", error);
-		return { status: "lost" };
-	}
+	return transient({ component: "signals", outcome: "call_failed" }, () => body(signals, db, viewer.authority), LOST);
 }

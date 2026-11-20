@@ -20,7 +20,9 @@ import { MERGE_VALUE_MAX } from "@everyfield/contracts/documents";
 import { startTransition, useActionState, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { fullAddress, writeAddress, useAddress } from "../../components/location.ts";
 import { createRead, useRead } from "../../components/read.tsx";
-import { generateDocument, resolveDocument, type DocumentOutcome } from "./actions.ts";
+import { generateDocument } from "./actions.ts";
+import type { DocumentOutcome } from "./outcome.ts";
+import { resolveDocument } from "./fetch.ts";
 import { createChurchDocument, type ChurchActionResult } from "./church/actions.ts";
 import { PdfPreview } from "./PdfPreview.tsx";
 import { Thumbnail } from "./Thumbnail.tsx";
@@ -59,6 +61,8 @@ import {
 } from "./model.ts";
 import { NativeDocuments } from "./native.tsx";
 import { SavedHistory, savedDocuments } from "./saved.tsx";
+import { READ_FAILED, READ_FAILED_ICON } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type PreviewState =
 	| { kind: "idle" }
@@ -84,8 +88,12 @@ function failureText(code: string, path?: string) {
 	return RENDER_FAILED;
 }
 
-const problemText = (reply: { status: "refused"; code: string; path?: string } | { status: "lost" }) =>
-	reply.status === "refused" ? failureText(reply.code, reply.path) : failureText("lost");
+const problemText = (reply: { status: "refused"; code: string; path?: string } | { status: "lost" } | ReadFailure) =>
+	reply.status === "refused"
+		? failureText(reply.code, reply.path)
+		: reply.status === "failed"
+			? READ_FAILED
+			: failureText("lost");
 
 type PreviewRequest = {
 	templateId: string;
@@ -109,7 +117,7 @@ type Job = {
 
 const resolutionsOfVisit = () =>
 	createRead((templateId: string, format: Format) => resolveDocument(templateId, format), {
-		failed: (): DocumentOutcome<Resolved> => ({ status: "lost" }),
+		failed: (): DocumentOutcome<Resolved> | ReadFailure => ({ status: "lost" }),
 		fresh: Infinity,
 	});
 
@@ -638,7 +646,12 @@ function TemplatePanel({
 					{preview.kind === "pdf" ? (
 						<PdfPreview key={preview.key} title={template.name} pageSize={template.pageSize} bytes={preview.bytes} />
 					) : preview.kind === "message" ? (
-						<StatePanel tone="error" title="Preview unavailable" headingLevel="h3">
+						<StatePanel
+							tone="error"
+							title="Preview unavailable"
+							icon={preview.text === READ_FAILED ? READ_FAILED_ICON : undefined}
+							headingLevel="h3"
+						>
 							{preview.text}
 						</StatePanel>
 					) : canPreview ? (

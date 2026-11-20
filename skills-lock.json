@@ -59,6 +59,18 @@
       "computedHash": "ea8e80fe5c72ff3b8c04956dc6c92fa86723f83c9d90674db9edba1cc621d344",
       "sha256": "5508ab735dac93a0d3409408048c7929a9e089319b30d3199c754a436b8a86ae"
     },
+    "pick-ui-library": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/pick-ui-library/SKILL.md",
+      "upstreamCommit": "64eb3deb9a5fbfa041faf783e0bc3fd635872e9c",
+      "license": "MIT, Copyright (c) 2026 Emil Kowalski; LICENSE is the upstream repo-root LICENSE at upstreamCommit",
+      "policy": "verbatim: do not edit; update with `npx skills@latest add emilkowalski/skills --skill pick-ui-library`, then restore this lock's other entries and re-pin; put Everyfield rules in .agents/roles/ or workflow skills",
+      "sha256": "db10dc6b2a0c340d873f69e35140ceb3c929e15664b33fcacd1ecb25c5574df3",
+      "fileHashes": {
+        "LICENSE": "4ff5bdb7887ec1435c9cab0e8d1a7caee704d894d65c2a008ccc68b1cc2f260b"
+      }
+    },
     "pr": {
       "source": "mattpocock/skills",
       "sourceType": "github",

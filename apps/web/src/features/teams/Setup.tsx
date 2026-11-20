@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { ArrowLeft01Icon, CrownIcon, LayoutGridIcon } from "@hugeicons/core-free-icons";
 import {
@@ -17,8 +18,11 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { DialogNotice, SaveButton, type SaveIntent } from "../../components/save/parts.tsx";
-import { importTemplates, templateCatalog } from "./actions.ts";
-import { plural, type Catalog, type Outcome, type SetupForm } from "./model.ts";
+import { importTemplates } from "./actions.ts";
+import { templateCatalog } from "./fetch.ts";
+import { plural, type Catalog, type SetupForm } from "./model.ts";
+import { loadProblem, failedIcon } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type SetupInto = {
 	id: string;
@@ -30,7 +34,7 @@ type SetupInto = {
 const NONE: ReadonlySet<string> = new Set();
 
 const catalogs = createRead(() => templateCatalog(), {
-	failed: (): Outcome<Catalog> => ({ status: "lost" }),
+	failed: (): Outcome<Catalog> | ReadFailure => ({ status: "lost" }),
 	fresh: Infinity,
 });
 
@@ -139,8 +143,8 @@ function SetupBody({ lane, present = NONE, into, onDone, form }: SetupProps & { 
 						<Spinner size={16} /> Loading the templates…
 					</p>
 				) : catalog.status !== "ok" ? (
-					<StatePanel tone="error" title="The templates did not load" headingLevel="h3">
-						Nothing was changed. Close this and try again in a moment.
+					<StatePanel tone="error" title="The templates did not load" icon={failedIcon(catalog)} headingLevel="h3">
+						{loadProblem(catalog, "Nothing was changed. Close this and try again in a moment.")}
 					</StatePanel>
 				) : f.step === "choose" ? (
 					<ul className="flex flex-col divide-y divide-line">

@@ -1,5 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { captured } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind?: string; id: string; label: string; fields: Record<string, unknown> };
@@ -29,7 +30,8 @@ function quote(prompt: Prompt, start: string, line = false) {
 	const at = system.indexOf(start);
 	if (at < 0) return null;
 	const rest = system.slice(at);
-	return say((line ? rest.split("\n")[0]! : /^[^.]*\./.exec(rest)![0]).trim());
+	const quoted = line ? rest.split("\n")[0] : /^[^.]*\./.exec(rest)?.[0];
+	return quoted === undefined ? null : say(quoted.trim());
 }
 
 const SETUP =
@@ -83,8 +85,9 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 	const noSetup = () =>
 		say((resume?.exclusions as string[] | undefined)?.[0] ?? "This church has no setup in progress for you.");
 
-	const journey = EXISTING.exec(text)
-		? { answer: "existing", phase: Number(EXISTING.exec(text)![1]) }
+	const existing = EXISTING.exec(text);
+	const journey = existing
+		? { answer: "existing", phase: Number(existing[1]) }
 		: JOURNEY.find(([r]) => r.test(text))?.[1];
 	const lead = LEAD.find(([r]) => r.test(text));
 	const known =
@@ -112,11 +115,12 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 			return propose("discovery.convertToPlant", { name: convert[1].trim() });
 		}
 		const named = NEW_CHURCH.exec(text);
-		if (named && offers("onboarding.createPlant")) return propose("onboarding.createPlant", { name: named[1]!.trim() });
+		if (named && offers("onboarding.createPlant"))
+			return propose("onboarding.createPlant", { name: captured(named, 1).trim() });
 		const privacy = PRIVACY.exec(text);
 		if (privacy && offers("discovery.getProfile")) {
 			if (!profile) return readProfile();
-			const name = privacy[1]!.trim();
+			const name = captured(privacy, 1).trim();
 			const link = (profile.rows ?? []).find((r) => r.label.toLowerCase() === name.toLowerCase());
 			if (!link) return say(`${name} is not linked to your Discovery space, so it sees nothing from it.`);
 			const shares = link.fields.shares;
@@ -198,9 +202,9 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 		if (!resume) return readResume();
 		if (resume.status !== "available") return noSetup();
 		const where = stepOf("journey");
-		if (/^Declared /.test(String(where?.fields.answer)))
+		if (where && /^Declared /.test(String(where.fields.answer)))
 			return say(
-				`Where you are is already saved: ${String(where!.fields.answer)} To move the church to another phase, record a phase change with a reason.`,
+				`Where you are is already saved: ${String(where.fields.answer)} To move the church to another phase, record a phase change with a reason.`,
 			);
 		return propose("onboarding.declareJourney", { journey });
 	}

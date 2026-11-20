@@ -1,5 +1,5 @@
 import type { Database } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
@@ -12,7 +12,7 @@ import { reviewMap, reviewsOf } from "../proposals/review.ts";
 const PAGE_SIZE = 24;
 const EVENT_PAGE = 200;
 const TERMINAL_JOB = sql`('succeeded','failed','cancelled','superseded')`;
-const liveRun = (alias: string) =>
+const liveRun = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
 	sql`EXISTS(SELECT FROM job j WHERE j.id=${sql.raw(alias)}.active_turn_id AND ${sql.raw(liveJob("j"))})`;
 
 const uuid = z.uuid();
@@ -39,7 +39,7 @@ function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	return r.data;
 }
 
-const owned = (actor: EvryActor, alias: string) =>
+const owned = <AliasName extends string>(actor: EvryActor, alias: SqlLiteral<AliasName>) =>
 	sql`${sql.raw(alias)}.account_id=${actor.accountId}::uuid AND ${sql.raw(alias)}.tenant_id=${actor.owner.id}::uuid`;
 
 const conversationRow = z.object({
@@ -51,7 +51,7 @@ const conversationRow = z.object({
 	updatedAt: z.coerce.date(),
 });
 export type Conversation = z.infer<typeof conversationRow>;
-const conversationJson = (alias: string) =>
+const conversationJson = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
 	sql.raw(
 		`jsonb_build_object('id',${alias}.id,'title',${alias}.title,'context',${alias}.context_kind,'lastSequence',${alias}.last_sequence,'activeTurnId',${alias}.active_turn_id,'updatedAt',${alias}.updated_at)`,
 	);

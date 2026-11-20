@@ -1,0 +1,33 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"lib": ["dom", "dom.iterable", "ESNext"],
+		"allowImportingTsExtensions": true,
+		"allowJs": true,
+		"jsx": "react-jsx",
+		"typeRoots": ["../../apps/web/node_modules/@types"],
+		"types": ["node"],
+		"moduleDetection": "force",
+		"paths": { "@/*": ["../../apps/web/src/*"] }
+	},
+	"include": [
+		"./branding/**/*.ts",
+		"./branding/**/*.mts",
+		"./dashboard/**/*.ts",
+		"./dashboard/**/*.mts",
+		"./feedback/**/*.ts",
+		"./feedback/**/*.mts",
+		"./flags/**/*.ts",
+		"./flags/**/*.mts",
+		"./notifications/**/*.ts",
+		"./notifications/**/*.mts",
+		"./oversight/**/*.ts",
+		"./oversight/**/*.mts",
+		"./phases/**/*.ts",
+		"./phases/**/*.mts",
+		"./platform/**/*.ts",
+		"./platform/**/*.mts",
+		"./writes/**/*.ts",
+		"./writes/**/*.mts"
+	]
+}

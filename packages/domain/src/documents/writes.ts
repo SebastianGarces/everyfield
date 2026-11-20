@@ -9,6 +9,7 @@ import {
 	type ResourceAuthorizer,
 } from "@everyfield/db/schema";
 import { createHash, randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import "server-only";
 import type { z } from "zod";
 import { type RequestActor } from "../access/session.ts";
@@ -119,12 +120,12 @@ const generatedWriter = {
 			const cleaned = cleanOverrides(input.overrides);
 			if (!cleaned.ok) rejectInput(cleaned.path, cleaned.problem);
 			const scope = generateScope(authority);
-			if (!scope) deny();
+			if (!scope) deny("unavailable");
 			const loaded = await library();
 			const template = loaded.templates.find((item) => item.id === input.templateId);
-			if (!template) deny();
+			if (!template) deny("unavailable");
 			if (!template.formats.includes(input.format)) rejectInput("format", "Format is not on this template.");
-			if (template.name.length > 200) deny();
+			if (template.name.length > 200) deny("unavailable");
 			const plant = await readPlant(
 				db,
 				{ ...scope, plantId: scope.tenantId },
@@ -133,38 +134,31 @@ const generatedWriter = {
 					meetingId: input.meetingId ?? null,
 					teamId: input.teamId ?? null,
 				},
+				sql`(SELECT json_build_object('id', gd.id, 'template_id', gd.template_id, 'template_version', gd.template_version,
+					'saved_template_name', gd.saved_template_name, 'format', gd.format, 'download_name', gd.download_name,
+					'generated_at', gd.generated_at, 'creator_account_id', gd.creator_account_id, 'revision', gd.revision::text,
+					'sha256', f.sha256, 'byte_count', f.byte_count, 'inputs', gd.inputs)
+				FROM generated_document gd
+				JOIN file_object f ON f.id = gd.object_id AND f.tenant_id = gd.tenant_id AND f.state = 'ready'
+				WHERE gd.tenant_id = ${scope.tenantId}::uuid AND gd.request_key = ${input.requestKey}
+					AND ${gateSql(scope, false)})`,
 			);
-			if (!plant.open) deny();
+			if (!plant.open) deny("unavailable");
 			if (!plant.subjectOk) deny("invalid_subject");
 			const done = forSubject(loaded, template, input.format, cleaned.values, scope.tenantId, plant, input.meetingId);
 			const resolved = done.merge;
 			const inputs = resolved.fields.map((field) => ({ key: field.key, value: field.value, source: field.source }));
-			const stored = await rowsOf<{
-				id: string;
-				template_version: string;
-				saved_template_name: string;
-				format: "pdf" | "docx" | "xlsx";
-				download_name: string;
-				generated_at: Date | string;
-				creator_account_id: string | null;
-				revision: string;
-				sha256: string;
-				byte_count: string | number;
-				same: boolean;
-			}>(
-				db,
-				sql`SELECT gd.id, gd.template_version, gd.saved_template_name, gd.format, gd.download_name, gd.generated_at,
-					gd.creator_account_id, gd.revision::text AS revision, f.sha256, f.byte_count,
-					(gd.template_id = ${template.id} AND gd.template_version = ${loaded.version} AND gd.format = ${input.format}
-						AND gd.inputs = ${JSON.stringify(inputs)}::jsonb) AS same
-				FROM generated_document gd
-				JOIN file_object f ON f.id = gd.object_id AND f.tenant_id = gd.tenant_id AND f.state = 'ready'
-				WHERE gd.tenant_id = ${scope.tenantId}::uuid AND gd.request_key = ${input.requestKey}
-					AND ${gateSql(scope, false)}`,
-			);
-			const prior = stored[0];
-			if (prior?.same) return generatedFrom(prior, scope.tenantId, template.id);
-			if (prior) deny("conflict");
+			const prior = plant.extra as
+				(Parameters<typeof generatedFrom>[0] & { template_id: string; inputs: unknown }) | null;
+			if (prior) {
+				const same =
+					prior.template_id === template.id &&
+					prior.template_version === loaded.version &&
+					prior.format === input.format &&
+					isDeepStrictEqual(prior.inputs, JSON.parse(JSON.stringify(inputs)));
+				if (!same) deny("conflict");
+				return generatedFrom(prior, scope.tenantId, template.id);
+			}
 			if (!resolved.complete) rejectInput("overrides", "A required merge field is empty.");
 			const bytes = await done.render(db, storage, authority);
 			if (!bytes) rejectInput("overrides", "A required merge field is empty.");
@@ -216,7 +210,7 @@ const generatedWriter = {
 						(SELECT count(*) FROM aud) AS audited`,
 				);
 				const row = inserted[0];
-				if (!row?.ok) deny();
+				if (!row?.ok) deny("unavailable");
 				if (row.id && row.generated_at && row.revision)
 					return c.generatedDocument.parse({
 						id: row.id,
@@ -236,7 +230,7 @@ const generatedWriter = {
 					});
 			} catch (error) {
 				if (postgresCode(error) !== "23505") {
-					if (postgresCode(error) === "42501" || postgresCode(error) === "23514") deny();
+					if (postgresCode(error) === "42501" || postgresCode(error) === "23514") deny("unavailable");
 					throw error;
 				}
 			}
@@ -258,9 +252,9 @@ const generatedWriter = {
 	async download(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
 		return settle(async () => {
 			const input = parse(c.generatedDocumentRequest, raw);
-			if (!storage) deny();
+			if (!storage) deny("unavailable");
 			const scope = generateScope(authority);
-			if (!scope) deny();
+			if (!scope) deny("unavailable");
 			const found = await rowsOf<{ object_id: string }>(
 				db,
 				sql`SELECT f.id AS object_id
@@ -269,7 +263,7 @@ const generatedWriter = {
 				WHERE gd.id = ${input.documentId}::uuid AND gd.tenant_id = ${scope.tenantId}::uuid
 					AND ${gateSql(scope, false)}`,
 			);
-			if (!found[0]) deny();
+			if (!found[0]) deny("unavailable");
 			const authorize: ResourceAuthorizer = async (tx, file, intent) => {
 				if (intent !== "read") return null;
 				const allowed = await rowsOf<{ ok: boolean }>(
@@ -294,11 +288,11 @@ const generatedWriter = {
 		return settle(async () => {
 			parse(c.listHistoryRequest, raw);
 			const scope = generateScope(authority);
-			if (!scope) deny();
+			if (!scope) deny("unavailable");
 			const found = await historyRows(db, scope, null);
-			return c.generatedHistory.parse({
+			return {
 				entries: found.map((row) => generatedFrom(row, scope.tenantId, row.template_id)),
-			});
+			} satisfies z.output<typeof c.generatedHistory>;
 		});
 	},
 
@@ -306,9 +300,9 @@ const generatedWriter = {
 		return settle(async () => {
 			const input = parse(c.generatedDocumentRequest, raw);
 			const scope = generateScope(authority);
-			if (!scope) deny();
+			if (!scope) deny("unavailable");
 			const found = await historyRows(db, scope, input.documentId);
-			if (!found[0]) deny();
+			if (!found[0]) deny("unavailable");
 			return generatedFrom(found[0], scope.tenantId, found[0].template_id);
 		});
 	},
@@ -317,7 +311,7 @@ const generatedWriter = {
 		return settle(async () => {
 			parse(c.listOwnedRequest, raw);
 			const scope = viewScope(authority);
-			if (!scope) deny();
+			if (!scope) deny("unavailable");
 			const found = await rowsOf<Omit<OwnedRow, "body"> & { ok: boolean }>(
 				db,
 				sql`SELECT g.ok, d.id, d.tenant_id, d.kind, d.title, d.revision::text AS revision,
@@ -330,8 +324,8 @@ const generatedWriter = {
 				ORDER BY r.recorded_at DESC NULLS LAST
 				LIMIT ${PAGE}`,
 			);
-			if (found[0]?.ok !== true && found.length > 0) deny();
-			if (found.length === 0) deny();
+			if (found[0]?.ok !== true && found.length > 0) deny("unavailable");
+			if (found.length === 0) deny("unavailable");
 			return c.ownedDocumentPage.parse({
 				documents: found
 					.filter((row) => row.id)
@@ -379,7 +373,7 @@ const generatedWriter = {
 		return settle(async () => {
 			parse(c.readEvidenceRequest, raw);
 			const scope = viewScope(authority);
-			if (!scope) deny();
+			if (!scope) deny("unavailable");
 			const found = await rowsOf<{ ok: boolean; id: string | null; body: string | null }>(
 				db,
 				sql`SELECT g.ok, d.id, r.body
@@ -391,9 +385,10 @@ const generatedWriter = {
 				ORDER BY r.recorded_at DESC NULLS LAST
 				LIMIT 1`,
 			);
-			if (!found[0] || found[0].ok !== true) deny();
+			if (!found[0] || found[0].ok !== true) deny("unavailable");
 			const text = found[0].body ? c.nativeText(c.readNative(found[0].body).body) : "";
-			if (!found[0].id || !text) return c.coreValuesEvidence.parse({ documentId: null, text: null });
+			if (!found[0].id || !text)
+				return { documentId: null, text: null } satisfies z.output<typeof c.coreValuesEvidence>;
 			return c.coreValuesEvidence.parse({ documentId: found[0].id, text });
 		});
 	},
@@ -403,7 +398,7 @@ const generatedWriter = {
 			const input = parse(c.saveNativeRequest, raw);
 			if (!c.nativeText(input.body)) rejectInput("body", "Enter the document text.");
 			const scope = editScope(authority);
-			if (!scope) deny();
+			if (!scope) deny("unavailable");
 			const body = JSON.stringify(input.body);
 			const hash = hashOf(body);
 			if (input.expectedRevision === "0") {
@@ -419,10 +414,10 @@ const generatedWriter = {
 		return settle(async () => {
 			const input = parse(c.documentRevisionRequest, raw);
 			const scope = editScope(authority);
-			if (!scope) deny();
+			if (!scope) deny("unavailable");
 			const row = await mutateOwned(db, scope, input.documentId, input.expectedRevision, "archive");
 			if (row === "conflict") deny("conflict");
-			if (row === "deny" || !row) deny();
+			if (row === "deny" || !row) deny("unavailable");
 			return row;
 		});
 	},
@@ -431,10 +426,10 @@ const generatedWriter = {
 		return settle(async () => {
 			const input = parse(c.documentRevisionRequest, raw);
 			const scope = editScope(authority);
-			if (!scope) deny();
+			if (!scope) deny("unavailable");
 			const row = await mutateOwned(db, scope, input.documentId, input.expectedRevision, "designate");
 			if (row === "conflict") deny("conflict");
-			if (row === "deny" || !row) deny();
+			if (row === "deny" || !row) deny("unavailable");
 			return row;
 		});
 	},
@@ -443,7 +438,7 @@ const generatedWriter = {
 		return settle(async () => {
 			const input = parse(c.importDocumentRequest, raw);
 			const scope = editScope(authority);
-			if (!scope) deny();
+			if (!scope) deny("unavailable");
 			let read: c.DocNode;
 			try {
 				read = readImport(input.bytes, input.format);
@@ -466,7 +461,7 @@ const generatedWriter = {
 				LEFT JOIN document d ON d.id = a.subject_id AND d.tenant_id = a.tenant_id
 				LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id`,
 			);
-			if (replay[0]?.ok !== true) deny();
+			if (replay[0]?.ok !== true) deny("unavailable");
 			if (replay[0]?.stored_hash) {
 				if (replay[0].content_hash === hash && replay[0].id) return ownedFrom(replay[0], scope.tenantId);
 				deny("conflict");
@@ -494,7 +489,7 @@ const generatedWriter = {
 		return settle(async () => {
 			const input = parse(c.useForChurchRequest, raw);
 			const scope = copyScope(authority);
-			if (!scope) deny();
+			if (!scope) deny("unavailable");
 			let row: Awaited<ReturnType<typeof copyForChurch>>;
 			try {
 				row = await copyForChurch(db, scope, input);
@@ -502,10 +497,10 @@ const generatedWriter = {
 				if (postgresCode(error) !== "23505") throw error;
 				row = await rerun(db, (bound) => copyForChurch(bound, scope, input));
 			}
-			if (!row?.ok) deny();
+			if (!row?.ok) deny("unavailable");
 			if (row.prior_id) {
 				if (row.prior_source !== input.documentId) deny("conflict");
-				if (!row.prior_title || !row.prior_revision_id || row.prior_body === null) deny();
+				if (!row.prior_title || !row.prior_revision_id || row.prior_body === null) deny("unavailable");
 				return ownedFrom(
 					{
 						id: row.prior_id,
@@ -522,7 +517,7 @@ const generatedWriter = {
 					scope.tenantId,
 				);
 			}
-			if (!row.id) deny();
+			if (!row.id) deny("unavailable");
 			return ownedFrom(row as OwnedRow, scope.tenantId);
 		});
 	},
@@ -531,7 +526,7 @@ const generatedWriter = {
 		return settle(async () => {
 			parse(c.listCopySourcesRequest, raw);
 			const scope = copyScope(authority);
-			if (!scope) deny();
+			if (!scope) deny("unavailable");
 			const found = await rowsOf<{
 				ok: boolean;
 				id: string | null;
@@ -548,7 +543,7 @@ const generatedWriter = {
 				ORDER BY r.recorded_at DESC NULLS LAST
 				LIMIT ${PAGE}`,
 			);
-			if (found[0]?.ok !== true) deny();
+			if (found[0]?.ok !== true) deny("unavailable");
 			return c.copySourcePage.parse({
 				documents: found
 					.filter((row) => row.id && row.revision_id)
@@ -567,7 +562,7 @@ const generatedWriter = {
 				);
 				return { removed: Number(found[0]?.removed ?? 0) };
 			} catch (error) {
-				if (postgresCode(error) === "42501") deny();
+				if (postgresCode(error) === "42501") deny("unavailable");
 				throw error;
 			}
 		});
@@ -575,7 +570,7 @@ const generatedWriter = {
 
 	async reconcileOrphans(db: Database, storage: PrivateStorage | null) {
 		return settle(async () => {
-			if (!storage) deny();
+			if (!storage) deny("unavailable");
 			const candidates = await rowsOf<{ id: string }>(
 				db,
 				sql`SELECT id FROM file_object
@@ -611,7 +606,7 @@ async function readOwnedDocument(db: Database, authority: RequestActor, raw: unk
 async function readOwned(db: Database, authority: RequestActor, raw: unknown) {
 	const input = parse(c.ownedDocumentRequest, raw);
 	const scope = viewScope(authority);
-	if (!scope) deny();
+	if (!scope) deny("unavailable");
 	const found = await rowsOf<OwnedRow & { ok: boolean }>(
 		db,
 		sql`SELECT g.ok, d.id, d.tenant_id, d.kind, d.title, d.revision::text AS revision,
@@ -623,7 +618,7 @@ async function readOwned(db: Database, authority: RequestActor, raw: unknown) {
 			AND d.kind NOT IN ('church_document', 'church_template')
 		LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id`,
 	);
-	if (!found[0]?.ok || !found[0].id) deny();
+	if (!found[0]?.ok || !found[0].id) deny("unavailable");
 	return ownedFrom(found[0], scope.tenantId);
 }
 
@@ -757,7 +752,7 @@ async function createNative(
 			(SELECT count(*) FROM added) AS written, (SELECT count(*) FROM aud) AS audited`,
 	);
 	const row = found[0];
-	if (!row?.ok || !row.id || !row.revision) deny();
+	if (!row?.ok || !row.id || !row.revision) deny("unavailable");
 	return ownedFrom(
 		{
 			id: row.id,
@@ -862,10 +857,10 @@ async function appendNative(
 		throw error;
 	}
 	const row = found[0];
-	if (!row?.ok) deny();
-	if (!row.found || !row.prior_revision) deny();
+	if (!row?.ok) deny("unavailable");
+	if (!row.found || !row.prior_revision) deny("unavailable");
 	if (!sameRevision(row.prior_revision, expected)) deny("conflict");
-	if (row.archived) deny();
+	if (row.archived) deny("unavailable");
 	if (!row.stored || !row.next_revision) deny("conflict");
 	return ownedFrom(
 		{

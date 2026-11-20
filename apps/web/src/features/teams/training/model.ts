@@ -1,3 +1,4 @@
+import type { Outcome } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/teams";
 import type { z } from "zod";
 
@@ -6,8 +7,6 @@ export type Credit = z.infer<typeof c.trainingHistory>["credits"][number];
 type PersonTraining = z.infer<typeof c.personTraining>;
 type ProgramBody = z.infer<typeof c.trainingProgram>;
 type CreditBody = z.infer<typeof c.creditResult>;
-
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
 
 export type ShownProgram = Program & { assignedIds: string[]; countsKnown: boolean; rosterKnown: boolean };
 
@@ -153,13 +152,6 @@ export function latestByProgram(credits: readonly Credit[]): Map<string, Credit>
 	return map;
 }
 
-function todayLocal(): string {
-	const now = new Date();
-	const month = String(now.getMonth() + 1).padStart(2, "0");
-	const day = String(now.getDate()).padStart(2, "0");
-	return `${now.getFullYear()}-${month}-${day}`;
-}
-
 export const NAME_MAX = 200;
 export const REASON_MAX = 500;
 
@@ -236,6 +228,7 @@ export const correctForm = (program: ShownProgram): CorrectForm => ({
 });
 export const personForm = (
 	kind: PersonForm["kind"],
+	today: string,
 	program: Pick<ShownProgram, "id" | "revision" | "name">,
 	person?: { id: string; name: string } | null,
 ): PersonForm => ({
@@ -245,7 +238,7 @@ export const personForm = (
 	programName: program.name,
 	personId: person?.id ?? null,
 	personName: person?.name ?? "",
-	earnedOn: todayLocal(),
+	earnedOn: today,
 });
 export const assignForm = (program: ShownProgram): AssignForm => ({
 	kind: "assign",

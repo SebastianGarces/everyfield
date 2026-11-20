@@ -15,10 +15,12 @@ import { createDebouncer } from "@everyfield/ui/foundations";
 import { useId, useState, type ReactNode } from "react";
 import { Await, createRead, useRead, type ReadState } from "../../components/read.tsx";
 import type { PersonHit } from "@everyfield/domain/people";
-import { searchPeople } from "./actions.ts";
+import { searchPeople } from "./fetch.ts";
 import type { Wait } from "../../components/save/model.ts";
 import { RecordDialog } from "../../components/save/parts.tsx";
 import type { Outcome } from "./model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 export function ReasonDialog({
 	title,
@@ -83,7 +85,7 @@ export type PickedPerson = { id: string; name: string };
 const PERSON_SEARCH_PAUSE_MS = 250;
 
 const people = createRead((query: string) => searchPeople(query), {
-	failed: (): Outcome<PersonHit[]> => ({ status: "lost" }),
+	failed: (): Outcome<PersonHit[]> | ReadFailure => ({ status: "lost" }),
 });
 
 function usePersonSearch() {
@@ -137,7 +139,7 @@ function SearchResults({
 	children,
 }: {
 	idle: boolean;
-	hits: ReadState<Outcome<PersonHit[]>>;
+	hits: ReadState<Outcome<PersonHit[]> | ReadFailure>;
 	children: (found: PersonHit[]) => ReactNode;
 }) {
 	if (idle) return children([]);
@@ -155,7 +157,7 @@ function SearchResults({
 					children(result.value)
 				) : (
 					<p role="alert" className="px-2 py-3 text-sm text-magenta-600">
-						People did not load. Change the search to try again.
+						{loadProblem(result, "People did not load. Change the search to try again.")}
 					</p>
 				)
 			}
