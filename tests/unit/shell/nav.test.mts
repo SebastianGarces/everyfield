@@ -20,7 +20,10 @@ test("once the account creates or joins a church, every seat sees Wiki and the G
 });
 
 test("a signed-up account without a seat keeps Wiki, which it can read", () => {
-	assert.deepEqual(labels({ context: "account", residencyLinked: false }), { links: ["Wiki", "Documents"], guide: true });
+	assert.deepEqual(labels({ context: "account", residencyLinked: false }), {
+		links: ["Wiki", "Documents"],
+		guide: true,
+	});
 	assert.deepEqual(labels({ context: "account", residencyLinked: true }), {
 		links: ["My residency", "Wiki", "Documents"],
 		guide: true,
