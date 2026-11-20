@@ -1,3 +1,5 @@
+import type { IconSvgElement } from "../foundations";
+
 export type Count = number | null;
 
 const COUNT = new Intl.NumberFormat("en-US");
@@ -12,6 +14,7 @@ export type Loadable<T> =
 			status: "error";
 			title?: string;
 			text?: string;
+			icon?: IconSvgElement;
 			onRetry?: () => void;
 			meta?: string;
 	  }
