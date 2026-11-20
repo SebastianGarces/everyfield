@@ -79,11 +79,15 @@ test("INV-authority: each shared write wrapper rechecks the seat inside its tran
 			);
 			const before = await plantName(),
 				stale = "Stale " + randomUUID();
-			const answer = await write(page, rename(stale)).then(
-				(value) => ({ answered: value }),
-				(error: Error) => ({ threw: error.message }),
+			const answer = (await write(page, rename(stale))) as { error?: { correlationId?: unknown } };
+			assert.deepEqual(
+				answer,
+				{
+					status: "refused",
+					error: { code: "unavailable", details: {}, correlationId: answer.error?.correlationId, retry: "never" },
+				},
+				"the write by the role the page read answers the unavailable refusal",
 			);
-			assert.notDeepEqual(answer, { answered: { status: "ok", value: stale } });
 			assert.equal(await plantName(), before, "the write by the role the page read commits nothing");
 			const current = "Current " + randomUUID();
 			await write(await resolved(admin.session), rename(current));
