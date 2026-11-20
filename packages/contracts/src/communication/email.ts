@@ -1,7 +1,7 @@
 import { FONT, escapeHtml, renderBody, type RenderMode } from "./html.ts";
 
 export type EmailContext = { churchName: string; mailingAddress: string | null; unsubscribeUrl?: string };
-export type ChurchAddress = {
+type ChurchAddress = {
 	street: string | null;
 	city: string | null;
 	stateProvince: string | null;
