@@ -1,5 +1,6 @@
-export type Outcome<T> =
-	{ status: "ok"; value: T } | { status: "refused"; code: string; reason?: string } | { status: "lost" };
+import type { Outcome as Shared } from "@everyfield/contracts/common";
+
+export type Outcome<T> = Shared<T, string, { reason?: string }>;
 
 export async function sendTwice<T>(call: () => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const once = () => call().catch((): Outcome<T> => ({ status: "lost" }));

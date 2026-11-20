@@ -2818,6 +2818,33 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 	};
 });
 
+export const OUTCOME_MODULE = "packages/contracts/src/common/values.ts";
+const OUTCOME_SOURCE = "@everyfield/contracts/common";
+const OUTCOME_SCOPE = /^(apps\/web\/src|packages\/[^/]+\/src)\//;
+const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
+	const path = repoPath(context.filename);
+	if (path === OUTCOME_MODULE || !OUTCOME_SCOPE.test(path)) return {};
+	const shared = new Set();
+	return {
+		ImportDeclaration(node) {
+			if (node.source.value !== OUTCOME_SOURCE) return;
+			for (const spec of node.specifiers)
+				if (spec.type === "ImportSpecifier" && nameOf(spec.imported) === "Outcome") shared.add(spec.local.name);
+		},
+		TSTypeAliasDeclaration(node) {
+			if (node.id.name !== "Outcome" || !node.typeParameters) return;
+			const body = node.typeAnnotation;
+			if (body.type === "TSTypeReference" && body.typeName.type === "Identifier" && shared.has(body.typeName.name))
+				return;
+			push({
+				node: node.id,
+				fn: "Outcome",
+				message: `A local Outcome<T> type copies the request boundary's reply shape. Import Outcome from ${OUTCOME_SOURCE} and specialize it (type Outcome<T> = Shared<T, Code, Extra>), so every feature answers the same ok / refused / lost union.`,
+			});
+		},
+	};
+});
+
 export const SIGN_IN_MODULE = "apps/web/src/server/sign-in.ts";
 const REDIRECTS = ["redirect", "permanentRedirect"];
 function leadingText(context, node, seen = new Set()) {
@@ -3111,6 +3138,7 @@ export default {
 		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
+		"shared-outcome": sharedOutcome,
 		"domain-refusals": domainRefusals,
 		"stable-context-value": stableContextValue,
 	},
