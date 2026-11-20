@@ -1,4 +1,4 @@
-import { signIn } from "@/server/sign-in";
+import { requireSeat } from "@/server/sign-in";
 import { LockKeyIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { recordId } from "@everyfield/contracts/common";
 import {
@@ -13,15 +13,13 @@ import {
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { plantViewer } from "../meetings/server.ts";
 import { isAdmin, loadTeam, loadTeams, type Viewer } from "./server.ts";
 import { TeamScreen } from "./TeamScreen.tsx";
 import { TeamsScreen } from "./TeamsScreen.tsx";
 
 async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
-	const v = await plantViewer();
-	if (v.signedOut) signIn(returnTo);
-	if (v.viewer) return { viewer: v.viewer };
+	const viewer = await requireSeat(returnTo);
+	if (viewer) return { viewer };
 	return {
 		blocked: (
 			<>

@@ -73,7 +73,7 @@ const standalone = {
 	],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
 	"/packages/domain/src/oversight/intelligence.ts": ["requestIntelligenceRefresh", "submitIntelligenceFeedback"],
-	"/apps/web/src/server/jobs/queue.ts": [
+	"/packages/domain/src/jobs/queue.ts": [
 		"enqueueJob",
 		"enqueueJobs",
 		"claimDue",
