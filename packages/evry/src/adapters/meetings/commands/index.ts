@@ -448,7 +448,8 @@ export const updateKitItem = write({
 	run: (w, tx, ctx, r) => w.meetings.updateKitItem(tx, ctx, r),
 	changes: ({ prepared, value: v }: { prepared: Prepared<KitItem>; value: z.infer<typeof c.kitMutationResult> }) => {
 		const before = prepared.facts,
-			after = v.items.find((x) => x.id === before.id)!;
+			after = v.items.find((x) => x.id === before.id);
+		if (!after) throw new Error("The kit result is missing the changed item");
 		const yes = (b: boolean) => (b ? "Checked" : "Not checked");
 		return [
 			created("item", before.text),

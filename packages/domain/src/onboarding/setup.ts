@@ -41,7 +41,7 @@ async function assignLead(
 			.from(t.team)
 			.where(and(eq(t.team.id, selection.teamId), eq(t.team.plant_id, plantId), isNull(t.team.archived_at)))
 			.for("update");
-		if (!team) deny();
+		if (!team) deny("unavailable");
 		revision(selection.expectedTeamRevision, team.revision);
 		[role] = await tx
 			.select()
@@ -55,7 +55,7 @@ async function assignLead(
 				),
 			)
 			.for("update");
-		if (!role || !role.leadership) deny();
+		if (!role || !role.leadership) deny("unavailable");
 		revision(selection.expectedRoleRevision, role.revision);
 	} else {
 		if (selection.container.kind === "existing") {
@@ -64,7 +64,7 @@ async function assignLead(
 				.from(t.team)
 				.where(and(eq(t.team.id, selection.container.teamId), eq(t.team.plant_id, plantId), isNull(t.team.archived_at)))
 				.for("update");
-			if (!team) deny();
+			if (!team) deny("unavailable");
 			revision(selection.container.expectedRevision, team.revision);
 		} else
 			[team] = await tx
@@ -189,7 +189,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 					),
 				)
 				.for("update");
-			if (!person) deny();
+			if (!person) deny("unavailable");
 			const cx = await begin(tx, ctx, a.account.id, "identity.answerLeadOnboarding", q);
 			if (cx.kind === "replay") return c.leadAnswerResult.parse(cx.value);
 			revision(q.expectedRevision, a.plant.revision);
@@ -308,9 +308,9 @@ async function readContext(tx: Tx, ctx: Context) {
 		bound && bound.authority.session === ctx.session
 			? bound.authority
 			: (await readViewer(tx, sessionId.parse(ctx.session)))?.authority;
-	if (!authority) deny();
+	if (!authority) deny("unavailable");
 	const read = new OnboardingReadContext(authority);
-	if (read.selected.kind !== ctx.selected.kind || read.selected.id !== ctx.selected.id) deny();
+	if (read.selected.kind !== ctx.selected.kind || read.selected.id !== ctx.selected.id) deny("unavailable");
 	return read;
 }
 function resumeFrom(f: {
@@ -392,7 +392,7 @@ const entryRow = z.object({
 export async function plantEntry(tx: Pick<Tx, "execute">, ctx: OnboardingReadContext) {
 	const a = ctx.authority.actor;
 	if (a.status !== "active" || a.context.kind !== "seat" || a.context.role !== "owner" || ctx.selected.kind !== "plant")
-		deny();
+		deny("unavailable");
 	const plantId = ctx.selected.id;
 	const none = "00000000-0000-0000-0000-000000000000";
 	const live = liveRead({ ...liveAccess(ctx.authority), role: "owner" });
@@ -433,10 +433,10 @@ export async function plantEntry(tx: Pick<Tx, "execute">, ctx: OnboardingReadCon
    AND id::text IS DISTINCT FROM (SELECT result->'ownerSeat'->>'personId' FROM cr)) AS extra_people,
   coalesce((SELECT jsonb_agg(jsonb_build_object('accountId',account_id,'role',role,'personId',person_id,'lead',lead)) FROM cand),'[]') AS candidates,
   coalesce((SELECT jsonb_agg(to_jsonb(rd)) FROM rd),'[]') AS readings WHERE ${live}`);
-	if (!result.rows[0]) deny();
+	if (!result.rows[0]) deny("unavailable");
 	const r = entryRow.parse(result.rows[0]);
-	if (!r.account) deny();
-	if (!r.plant_id || !r.setup_account_id || r.setup_account_id !== a.accountId) deny();
+	if (!r.account) deny("unavailable");
+	if (!r.plant_id || !r.setup_account_id || r.setup_account_id !== a.accountId) deny("unavailable");
 	z.object({ ownerSeat: z.object({ personId: z.string().uuid() }) }).parse(r.creation);
 	const rows: ReadingRow[] = r.readings.map((x) => ({
 		reading: {

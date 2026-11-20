@@ -40,7 +40,7 @@ export function assignmentWriter(reminders: TaskReminders) {
 			return answer(tx, async () => {
 				const input = parse(c.createFollowUpRequest, raw);
 				return command(tx, context, "tasks.createFollowUp", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input,
 						plant = cmd.actor.plantId;
 					const due = dueColumns(v.due, cmd.actor.zone);
@@ -74,11 +74,11 @@ export function assignmentWriter(reminders: TaskReminders) {
 			return answer(tx, async () => {
 				const input = parse(c.assignFollowUpRequest, raw);
 				return command(tx, context, "tasks.assignFollowUp", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input,
 						plant = cmd.actor.plantId;
 					const row = await loadTask(tx, plant, v.taskId, true);
-					if (!row || !isFollowUp(row)) deny();
+					if (!row || !isFollowUp(row)) deny("unavailable");
 					if (row.revision !== input.expectedRevision) deny("conflict");
 					if (!isOpen(row)) deny("invalid_subject");
 					const held = idsOf(row.assignees),
@@ -122,7 +122,7 @@ export function assignmentWriter(reminders: TaskReminders) {
 			return answer(tx, async () => {
 				const input = parse(c.executeHandoffRequest, raw);
 				return command(tx, context, "tasks.executeHandoff", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input,
 						plant = cmd.actor.plantId;
 					const r = await tx.execute(sql`SELECT ${ownerName(plant, v.toAccountId)} AS recipient,
@@ -146,7 +146,7 @@ export function assignmentWriter(reminders: TaskReminders) {
 						reminderChanges = [];
 					for (const item of v.items) {
 						const row = rows.get(item.taskId);
-						if (!row || !isFollowUp(row)) deny();
+						if (!row || !isFollowUp(row)) deny("unavailable");
 						if (
 							row.revision !== item.expectedRevision ||
 							!isOpen(row) ||

@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { Add01Icon, CheckListIcon, Delete02Icon, Edit02Icon } from "@hugeicons/core-free-icons";
 import {
@@ -30,7 +31,7 @@ import {
 	useSaveIntent,
 	type SaveIntent,
 } from "../../../components/save/parts.tsx";
-import { asRecordId, asRevision, dayText, problemText, type Outcome } from "../model.ts";
+import { asRecordId, asRevision, dayText, problemText } from "../model.ts";
 import {
 	addResponsibility,
 	completeResponsibility,
