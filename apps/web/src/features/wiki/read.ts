@@ -5,7 +5,7 @@ import { z } from "zod";
 import { defineReads } from "../../server/platform/reads.ts";
 import type { ExportResult, GuideResult, OrderRead, OrderRow, SearchResult } from "./actions.ts";
 import { articlePath, parseSource, sourceInput } from "./model.ts";
-import { mountFor, organizationNames, plantContext, runSearch } from "./server.ts";
+import { mountFor, plantContext, runSearch } from "./server.ts";
 import { LOST, transient } from "../../server/platform/transient.ts";
 
 const search = z.strictObject({
@@ -96,7 +96,10 @@ export const GET = defineReads(
 				async () => {
 					const reply = await ready.mount.producer.listArticles(ready.mount.db, ready.actor, { page: 1 });
 					if (reply.status !== "ok") return { status: "denied" };
-					const names = await organizationNames(ready.mount, [...reply.value.churches, ...reply.value.networks]);
+					const names = await ready.mount.producer.listOrganizationNames(ready.mount.db, [
+						...reply.value.churches,
+						...reply.value.networks,
+					]);
 					const row = (id: string, kind: "church" | "network"): OrderRow => ({
 						id,
 						name: names.get(id) ?? `${kind === "church" ? "Church" : "Network"} ${id.slice(0, 4)}`,
