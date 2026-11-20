@@ -17,8 +17,9 @@ flowchart LR
   s0 -.- s0_st3(("load-failed (manual)"))
   s0 --- s0_b0["unread-filter<br/>tests + cases + browser presence"]
   s0 --- s0_b1["mark-read<br/>tests + cases"]
-  s0 --- s0_b2["milestones<br/>tests + cases"]
-  s0 --- s0_b3["digests<br/>tests + cases"]
+  s0 --- s0_b2["viewer-times<br/>tests"]
+  s0 --- s0_b3["milestones<br/>tests + cases"]
+  s0 --- s0_b4["digests<br/>tests + cases"]
   s1["notifications.email-preferences<br/>/email-preferences/[token]"]
   s1_link0 --> s1
   s1 -.- s1_st0(("invalid"))
@@ -98,6 +99,16 @@ Opening or marking an entry reads it; Mark all read reads everything shown, only
 - Cases: CASE-NTF-003
 - Test: `tests/integration/notifications/notifications.test.mts`: `AC:CASE-NTF-003 each feed entry names its subject page's record, digests and phases name none, and the entries are the same`
 - Test: `tests/unit/notifications/links.test.mts`: `AC:CASE-NTF-003 a linked entry is one link read or unread; an unlinked one is a button, then text`
+
+#### notifications.feed#viewer-times
+
+Each entry's time and its Today, Yesterday or Earlier day follow the viewer's own time zone, so two people see the same entry in their own time.
+
+- No operation: times are formatted in the browser, or on the server from the ef-zone cookie, from the instant the feed returns
+- Catalog: NTF-003
+- Test: `tests/unit/notifications/viewer-zone.test.mts`: `a planter in Pacific time sees a notification's time in Pacific time`
+- Test: `tests/unit/notifications/viewer-zone.test.mts`: `two people in different time zones each see the same notification in their own time`
+- Test: `tests/unit/notifications/viewer-zone.test.mts`: `the notifications page puts the same notification under each viewer's own day`
 
 #### notifications.feed#milestones
 

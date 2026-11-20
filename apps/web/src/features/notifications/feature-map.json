@@ -172,6 +172,29 @@
 					}
 				},
 				{
+					"id": "viewer-times",
+					"says": "Each entry's time and its Today, Yesterday or Earlier day follow the viewer's own time zone, so two people see the same entry in their own time.",
+					"catalog": ["NTF-003"],
+					"operations": [],
+					"noOperation": "times are formatted in the browser, or on the server from the ef-zone cookie, from the instant the feed returns",
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/unit/notifications/viewer-zone.test.mts",
+								"name": "a planter in Pacific time sees a notification's time in Pacific time"
+							},
+							{
+								"file": "tests/unit/notifications/viewer-zone.test.mts",
+								"name": "two people in different time zones each see the same notification in their own time"
+							},
+							{
+								"file": "tests/unit/notifications/viewer-zone.test.mts",
+								"name": "the notifications page puts the same notification under each viewer's own day"
+							}
+						]
+					}
+				},
+				{
 					"id": "milestones",
 					"says": "A forward phase move, a completed Launch milestone and sharing changes reach the right Owners, Admins and organizations once.",
 					"catalog": ["NTF-009"],
