@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
+import { and, eq, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 
 import { declareWrite, executeWrites } from "../operations/writes.ts";
@@ -138,20 +138,18 @@ const handoffRows = z.object({
 	targets: z.array(z.object({ id: z.uuid(), state: personRow.shape.state, linked_account_id: z.uuid().nullable() })),
 	seats: z.array(z.uuid()),
 });
-// The person's open duties, the members they move to and those members' seats, in one statement after the person lock and
-// never in it: tasks.references holds the person FOR SHARE while it adds a task, and only a statement that starts after the
-// lock sees that task (C88). The members are locked only when the duties match the choices one for one, because handoff
-// refuses a mismatch as a conflict before it looks at them, as it did when each read was its own statement.
 async function handoffReads(tx: Tx, ctx: Context, p: Person, choices: z.infer<typeof c.handoffChoice>[]) {
 	if (ctx.selected.kind !== "plant") return { duties: [], targets: [], seats: [] };
 	const plant = ctx.selected.id,
 		duties = choices.map((choice) => choice.dutyId),
 		matched = new Set(duties).size === duties.length,
 		targets = matched ? choices.flatMap((choice) => (choice.kind === "assign" ? [choice.toPersonId] : [])) : [];
-	const r = await tx.execute(sql`WITH duties AS MATERIALIZED (${lockingTasks(plant, openDutiesOf(p.id, p.linked_account_id))}),
+	const dutiesMatchChoices = sql`(SELECT count(*) FROM duties)=${duties.length}
+		AND NOT EXISTS (SELECT FROM duties d WHERE d.id<>ALL(${sql.param(duties)}::uuid[]))`;
+	const r =
+		await tx.execute(sql`WITH duties AS MATERIALIZED (${lockingTasks(plant, openDutiesOf(p.id, p.linked_account_id))}),
 		targets AS MATERIALIZED (SELECT x.id, x.state, x.linked_account_id FROM person x
-			WHERE x.id=ANY(${sql.param(targets)}::uuid[]) AND x.tenant_id=${plant}::uuid
-			AND (SELECT count(*) FROM duties)=${duties.length} AND NOT EXISTS (SELECT FROM duties d WHERE d.id<>ALL(${sql.param(duties)}::uuid[]))
+			WHERE x.id=ANY(${sql.param(targets)}::uuid[]) AND x.tenant_id=${plant}::uuid AND ${dutiesMatchChoices}
 			ORDER BY x.id FOR UPDATE OF x),
 		seats AS MATERIALIZED (SELECT s.account_id FROM seat s WHERE s.account_id IN (SELECT linked_account_id FROM targets)
 			AND s.plant_id=${plant}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp() FOR SHARE OF s)
@@ -360,7 +358,6 @@ async function retire(
 	reminders: TaskReminders,
 ) {
 	return mutation(tx, ctx, "people.deletePerson", input, async (_a, id, audit) => {
-		// The church's review revision is locked in the person's statement: the lock refreshes the plant row it reads (C88).
 		const { person: before, row } = await lockPersonWith(tx, ctx, input.input.personId, {
 			columns: sql`(SELECT material_revision::text FROM plant WHERE id=${ctx.selected.id}::uuid
 				AND subject.revision=${input.expectedRevision}::bigint AND subject.state<>'merged' FOR SHARE) AS review`,
@@ -682,8 +679,6 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 				candidates: string[] = [],
 				row: Record<string, unknown> = {};
 			if (input.selection.kind !== "first") {
-				// The account and plant lock is its own statement: a call that waits on the account must then see the Person the
-				// call before it linked or created, and only a statement that starts after the lock sees it (C88).
 				const locked =
 					await tx.execute(sql`WITH a AS MATERIALIZED (SELECT id FROM account WHERE id=${input.accountId}::uuid FOR UPDATE)
 	 SELECT (SELECT count(*) FROM a)::int AS accounts, (SELECT count(*) FROM (SELECT id FROM plant WHERE id=${selected.id}::uuid
@@ -697,18 +692,17 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 					selection.person.owner.kind === "plant"
 						? selection.person.personId
 						: null;
-				// Then one statement locks, in the old order, the Person already linked, the unlinked Persons whose email the
-				// account verified, and the reviewed Person. The later two lock nothing once a linked Person is found, and the
-				// reviewed Person waits on the candidates through the count, which only orders the locks.
 				const found = looks
 					? sql`, found AS MATERIALIZED (SELECT p.id FROM person p JOIN access_account_contact(${sql.param(input.accountId)}) a
 						ON lower(p.email)=lower(a.email) WHERE NOT EXISTS (SELECT FROM exact) AND p.plant_id=${sql.param(selected.id)}
 						AND p.state='live' AND p.linked_account_id IS NULL AND a.verified ORDER BY p.id LIMIT 100 FOR UPDATE OF p)`
 					: sql``;
+				const afterCandidates = sql`(SELECT count(*) FROM found)>=0`;
 				const subject = reviewed
-					? sql`, subject AS MATERIALIZED (${personQuery(tx, ctx, reviewed, sql`NOT EXISTS (SELECT FROM exact) AND (SELECT count(*) FROM found)>=0`).getSQL()} FOR UPDATE OF ${tables.person})`
+					? sql`, subject AS MATERIALIZED (${personQuery(tx, ctx, reviewed, sql`NOT EXISTS (SELECT FROM exact) AND ${afterCandidates}`).getSQL()} FOR UPDATE OF ${tables.person})`
 					: sql``;
-				const r = await tx.execute(sql`WITH exact AS MATERIALIZED (SELECT id FROM person WHERE plant_id=${selected.id}::uuid
+				const r =
+					await tx.execute(sql`WITH exact AS MATERIALIZED (SELECT id FROM person WHERE plant_id=${selected.id}::uuid
 					AND linked_account_id=${input.accountId}::uuid AND state='live' FOR UPDATE)${found}${subject}
 					SELECT (SELECT coalesce(json_agg(e.id),'[]') FROM exact e) AS exact,
 					${looks ? sql`(SELECT coalesce(json_agg(f.id ORDER BY f.id),'[]') FROM found f)` : sql`'[]'::json`} AS found

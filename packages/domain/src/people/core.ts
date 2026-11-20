@@ -180,8 +180,6 @@ export async function person(
 	if (!rows[0]!) deny("unavailable");
 	return personRow.parse(rows[0]!);
 }
-// Locks the person and reads the columns with it in one statement. Each column may read only rows it locks itself, or rows
-// no writer that holds the person adds or changes, because the statement's snapshot predates the person lock (C88).
 export type LockedReads = { columns: SQL };
 export async function lockPersonWith(tx: Tx, context: Pick<Context, "selected">, id: string, reads: LockedReads) {
 	const subject = sql`subject AS MATERIALIZED (${personQuery(tx, context, id).getSQL()} FOR UPDATE OF ${tables.person})`;

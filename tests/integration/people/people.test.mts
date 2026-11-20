@@ -570,7 +570,11 @@ test("INV-person-lock: a reviewed contact that changed, is linked elsewhere or i
 
 test("INV-person-lock: a second account link that waits on the account returns the Person the first one created", async () => {
 	const account = (await database.actor({ kind: "plant", id: plants[0] }, "member")).id;
-	const input = { accountId: account, owner: ctx().selected, selection: { kind: "create", displayName: "Linked once" } };
+	const input = {
+		accountId: account,
+		owner: ctx().selected,
+		selection: { kind: "create", displayName: "Linked once" },
+	};
 	let release, created;
 	const held = new Promise((resolve) => (release = resolve)),
 		holding = new Promise((resolve) => (created = resolve));
