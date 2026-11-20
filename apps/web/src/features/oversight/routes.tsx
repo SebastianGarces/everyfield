@@ -1,4 +1,5 @@
 import { signIn } from "@/server/sign-in";
+import type { SitePath } from "@everyfield/contracts/identity";
 import {
 	loadDirectory,
 	loadIntelligence,
@@ -28,7 +29,7 @@ const organizationViewer = cache(oversightViewer);
 
 type Params<K extends string> = { params: Promise<Record<K, string>> };
 
-async function organizationOnly(path: string, page: (viewer: OversightViewer) => Promise<ReactNode>) {
+async function organizationOnly(path: SitePath, page: (viewer: OversightViewer) => Promise<ReactNode>) {
 	const who = await organizationViewer();
 	if (who.kind === "signed_out") signIn(path);
 	if (who.kind !== "organization")
