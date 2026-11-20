@@ -1,4 +1,5 @@
 import { requestDatabase } from "@/server/database";
+import { viewerActor } from "@/server/request-context";
 import { privateStorage } from "@everyfield/db/schema";
 import { documentFormat, type ChurchCompare, type ChurchTemplateSummary } from "@everyfield/contracts/documents";
 import { documentsReader, documentsWriter } from "@everyfield/domain/documents";
@@ -8,7 +9,6 @@ import { defineReads } from "../../server/platform/reads.ts";
 import { refusedWith } from "./church/refusal.ts";
 import type { CopySource, OwnedView, Resolved, SavedFile } from "./model.ts";
 import { presentOwned, presentSaved, refused, runAs, storageMissing, type DocumentOutcome } from "./outcome.ts";
-import { documentActor } from "./server.ts";
 import { LOST, transient } from "../../server/platform/transient.ts";
 
 export type CompareResult =
@@ -17,7 +17,7 @@ type ChurchTemplates =
 	{ status: "ok"; templates: ChurchTemplateSummary[] } | { status: "refused"; message: string } | { status: "lost" };
 
 export const GET = defineReads(
-	async () => ({ actor: await documentActor() }),
+	async () => ({ actor: await viewerActor() }),
 	"unavailable",
 	(get) => ({
 		resolved: get(

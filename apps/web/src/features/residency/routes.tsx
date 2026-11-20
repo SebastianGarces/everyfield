@@ -1,4 +1,5 @@
 import { signIn } from "@/server/sign-in";
+import type { SitePath } from "@everyfield/contracts/identity";
 import { loadMyResidency, loadResidentReading, residentActor } from "./server";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
@@ -17,7 +18,7 @@ const refused = (
 	</div>
 );
 
-async function account(path: string) {
+async function account(path: SitePath) {
 	const who = await residentActor();
 	if (who === "signed_out") signIn(path);
 	return who;

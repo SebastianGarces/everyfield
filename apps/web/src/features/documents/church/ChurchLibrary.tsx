@@ -295,24 +295,27 @@ function PickerList({
 								</h3>
 							) : null}
 							<ul className="flex flex-col gap-3" aria-label={label}>
-								{items.map((t) => (
-									<TemplateCard
-										key={t.templateId}
-										template={t}
-										busy={chosen === t.templateId}
-										disabled={chosen !== null && chosen !== t.templateId}
-										onChoose={() => onChoose(t.templateId)}
-										onDelete={t.recordId ? () => remove(t.recordId!) : null}
-										onEdited={
-											t.recordId
-												? (details) => {
-														onEdited(t.recordId!, details);
-														setSaved(details.title);
-													}
-												: null
-										}
-									/>
-								))}
+								{items.map((t) => {
+									const { recordId } = t;
+									return (
+										<TemplateCard
+											key={t.templateId}
+											template={t}
+											busy={chosen === t.templateId}
+											disabled={chosen !== null && chosen !== t.templateId}
+											onChoose={() => onChoose(t.templateId)}
+											onDelete={recordId ? () => remove(recordId) : null}
+											onEdited={
+												recordId
+													? (details) => {
+															onEdited(recordId, details);
+															setSaved(details.title);
+														}
+													: null
+											}
+										/>
+									);
+								})}
 							</ul>
 						</section>
 					);

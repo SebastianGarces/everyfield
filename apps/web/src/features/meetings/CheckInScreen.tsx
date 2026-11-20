@@ -59,6 +59,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const door = useSaveIntent<DoorForm>({ explain: problemText });
 	const [draft, setDraft] = useState<PendingGuest | null>(null);
 	const m = data.meeting;
+	const { attendance } = data;
 	const final = data.attendance?.finalized != null;
 	const finalizer = admin || data.attendance?.viewerCanMarkAttendance === true;
 	const stale = () =>
@@ -122,7 +123,8 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 				...save,
 				send: (key) => setPresence(key, m.id, p.id, "attended"),
 				ok: (value) => {
-					const a = value.attendees[0]!;
+					const [a] = value.attendees;
+					if (!a) throw new Error("Marking a guest present answered no attendee");
 					const g: Guest = {
 						id: a.guestId,
 						revision: a.revision,
@@ -160,8 +162,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 		warmSeats();
 		door.open({ kind: "settle", input: null });
 	}
-	function submitSettle(input: SettleInput) {
-		const attendance = data.attendance!;
+	function submitSettle(input: SettleInput, attendance: NonNullable<CheckInData["attendance"]>) {
 		void door.save({
 			what: "Attendance",
 			done: "finalized",
@@ -323,18 +324,18 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						onClose={door.close}
 						onSubmit={submitWalkIn}
 					/>
-				) : door.editing?.kind === "settle" && data.attendance ? (
+				) : door.editing?.kind === "settle" && attendance ? (
 					<SettleDialog
 						open
 						mode="finalize"
 						meeting={m}
 						guests={data.guests}
-						attendance={data.attendance}
+						attendance={attendance}
 						onSeats={warmSeats}
 						initial={door.editing.input}
 						problem={door.problem}
 						onClose={door.close}
-						onSubmit={submitSettle}
+						onSubmit={(input) => submitSettle(input, attendance)}
 						onConflict={() => {
 							door.close();
 							settleConflict();
