@@ -124,6 +124,15 @@ type ReminderRow = Pick<
 	TaskRow,
 	"id" | "title" | "status" | "assignees" | "due_kind" | "due_date" | "due_at" | "deleted_at"
 > & { revision: string; plant_zone: string };
+function reminderDue(row: ReminderRow): ReminderSource["due"] {
+	if (row.due_kind === "undated") return { kind: "undated" };
+	if (row.due_kind === "date_only") {
+		if (row.due_date === null) throw Error(`Task ${row.id} is due on a date it does not store`);
+		return { kind: "date_only", date: row.due_date, zone: row.plant_zone };
+	}
+	if (row.due_at === null) throw Error(`Task ${row.id} is due at a time it does not store`);
+	return { kind: "timed", at: row.due_at.toISOString() };
+}
 function reminderSource(plantId: string, row: ReminderRow): ReminderSource {
 	return {
 		plantId,
@@ -131,12 +140,7 @@ function reminderSource(plantId: string, row: ReminderRow): ReminderSource {
 		revision: row.revision,
 		title: row.title,
 		assigneeIds: idsOf(row.assignees),
-		due:
-			row.due_kind === "undated"
-				? { kind: "undated" }
-				: row.due_kind === "date_only"
-					? { kind: "date_only", date: row.due_date!, zone: row.plant_zone }
-					: { kind: "timed", at: row.due_at!.toISOString() },
+		due: reminderDue(row),
 		open: OPEN(row.status) && row.deleted_at === null,
 		created: false,
 	};
@@ -501,7 +505,15 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 						...(p.category !== undefined ? { category: p.category } : {}),
 						...(p.due !== undefined ? dueColumns(p.due, cmd.actor.zone) : {}),
 						...(p.assigneeIds !== undefined
-							? { assignees: sortPeople(p.assigneeIds.map((id) => known.get(id)!)) }
+							? {
+									assignees: sortPeople(
+										p.assigneeIds.map((id) => {
+											const person = known.get(id);
+											if (!person) throw Error(`Assignee ${id} was neither held nor checked`);
+											return person;
+										}),
+									),
+								}
 							: {}),
 						...(relation ? { ...relation, relation_label: refs?.relationLabel ?? null } : {}),
 					};
