@@ -1115,29 +1115,35 @@ test("INV-statements an owner change locks its follow-ups and reads the new owne
 	const recipient = await c.seated("member");
 	await committed(c, recipient);
 	const task = ok(await write(c.owner, "createFollowUp", { requestKey: key(), input: { personId: rae } })).task;
-	const step = async (op, input) => {
-		let value;
-		const n = await counted(async () => {
-			value = ok(await write(c.owner, op, { requestKey: key(), ...input }));
-		});
-		return { n, value };
-	};
-	const assign = (from, ids) =>
-		step("assignFollowUp", { expectedRevision: from.revision, input: { taskId: task.id, assigneeIds: ids } });
-	const joined = await assign(task, [holder.id]);
-	const same = await assign(joined.value.task, [holder.id]);
-	const handed = await step("executeHandoff", {
-		input: {
-			fromAccountId: holder.id,
-			toAccountId: recipient.id,
-			items: [{ taskId: task.id, expectedRevision: joined.value.task.revision }],
-		},
-	});
+	const assign = (revision: string) =>
+		counted(async () =>
+			ok(
+				await write(c.owner, "assignFollowUp", {
+					requestKey: key(),
+					expectedRevision: revision,
+					input: { taskId: task.id, assigneeIds: [holder.id] },
+				}),
+			),
+		);
+	const joined = await assign(task.revision);
+	const same = await assign(joined.value.task.revision);
+	const handed = await counted(async () =>
+		ok(
+			await write(c.owner, "executeHandoff", {
+				requestKey: key(),
+				input: {
+					fromAccountId: holder.id,
+					toAccountId: recipient.id,
+					items: [{ taskId: task.id, expectedRevision: joined.value.task.revision }],
+				},
+			}),
+		),
+	);
 	assert.deepEqual(
 		[
-			joined.value.task.assignees.map((a) => a.accountId),
+			joined.value.task.assignees.map((a: { accountId: string }) => a.accountId),
 			same.value.outcome,
-			handed.value.moved.map((m) => m.taskId),
+			handed.value.moved.map((m: { taskId: string }) => m.taskId),
 			await rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${task.id}`),
 		],
 		[[holder.id], "noop", [task.id], [{ account_id: recipient.id }]],
