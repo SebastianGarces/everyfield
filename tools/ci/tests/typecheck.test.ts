@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { setTimeout as delay } from "node:timers/promises";
 import {
 	accessSync,
 	constants,
@@ -202,17 +201,17 @@ test("INV-typecheck: a failing typecheck:tools fails the run after every package
 });
 
 test("INV-typecheck: a hung typecheck:tools is killed with its process group and the run fails naming it", (t) => {
-	const hang = "echo 'tsc -p tests/slow/tsconfig.json'; (sleep 3; touch late) & sleep 30";
+	const hang = "echo 'tsc -p tests/slow/tsconfig.json'; sleep 30 & sleep 30";
 	const f = workspace({ "packages/a": { scripts: { typecheck: PASS } } }, { "typecheck:tools": hang });
 	t.after(f.close);
-	const started = performance.now();
 	const run = typecheck(f, { TYPECHECK_TOOLS_TIMEOUT_MS: "1000" }, "typecheck", 20_000);
-	assert.ok(performance.now() - started < 10_000, "the run ends at the timeout, not when the script would");
-	assert.equal(run.status, 1, run.stdout + run.stderr);
+	assert.equal(
+		run.status,
+		1,
+		`the background sleep holds the output pipe, so only a process-group kill ends the run before the 20 s limit: ${run.stdout}${run.stderr}`,
+	);
 	assert.match(run.stderr, /^typecheck:tools timed out after 1000 ms; its process group was killed\.$/m);
 	assert.match(run.stdout, /^typecheck:tools: tsc -p tests\/slow\/tsconfig\.json$/m);
-	spawnSync("sleep", ["3"]);
-	assert.equal(existsSync(join(f.root, "late")), false, "the script's background child died with it");
 });
 
 test("INV-typecheck: each checker's start line and output reach the log while it is still running", async (t) => {
@@ -228,11 +227,14 @@ test("INV-typecheck: each checker's start line and output reach the log while it
 			env: env({ CI: undefined, XDG_STATE_HOME: f.state, TYPECHECK_TIMEOUT_MS: timeoutMs }),
 		});
 		let out = "";
-		child.stdout.on("data", (chunk: Buffer) => (out += chunk));
 		const exited = new Promise((done) => child.on("close", done));
-		const deadline = Date.now() + 15_000;
-		while (!wanted.every((re) => re.test(out)) && Date.now() < deadline) await delay(50);
-		const running = wanted.every((re) => re.test(out)) && child.exitCode === null && child.signalCode === null;
+		const running = await new Promise<boolean>((done) => {
+			child.stdout.on("data", (chunk: Buffer) => {
+				out += chunk;
+				if (wanted.every((re) => re.test(out))) done(true);
+			});
+			child.on("close", () => done(false));
+		});
 		child.kill("SIGKILL");
 		await exited;
 		return { out, running };
