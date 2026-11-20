@@ -200,27 +200,34 @@ test("INV-typecheck: a failing typecheck:tools fails the run after every package
 	}
 });
 
-test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, tools/ci, tools/qa and ops/actionable-watch, and the own tsconfig.json of each typechecked tests folder", () => {
+test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, tools/ci, tools/qa and ops/actionable-watch, the own tsconfig.json of each typechecked tests folder, and one program for every typechecked integration folder", () => {
 	const projects = [
 		"tsconfig.tools.json",
 		"tests/unit/tsconfig.json",
 		"tests/ui/tsconfig.json",
 		"tests/evry/tsconfig.json",
-		"tests/integration/*/tsconfig.json",
+		"tests/integration/tsconfig.json",
 	];
-	assert.equal(rootPkg.scripts["typecheck:tools"], `node_modules/typescript-7/bin/tsc -b ${projects.join(" ")}`);
-	const integration = globSync("tests/integration/*/tsconfig.json", { cwd: repo }).sort();
-	assert.ok(integration.length > 0, "the integration glob finds a folder project");
-	const files = projects
-		.flatMap((glob) => (glob.includes("*") ? integration : [glob]))
-		.flatMap((project) => {
-			const listed = spawnSync(join(repo, "node_modules/typescript-7/bin/tsc"), ["-p", project, "--listFilesOnly"], {
-				cwd: repo,
-				encoding: "utf8",
-			});
-			assert.equal(listed.status, 0, listed.stderr);
-			return listed.stdout.split("\n").map((file) => file.trim().slice(repo.length + 1));
+	assert.equal(
+		rootPkg.scripts["typecheck:tools"],
+		`node_modules/typescript-7/bin/tsc -b ${projects.join(" ")} --builders 2 --checkers 2`,
+	);
+	assert.deepEqual(
+		globSync("tests/integration/*/tsconfig.json", { cwd: repo }),
+		[],
+		"an integration folder joins tests/integration/tsconfig.json's include, not a program of its own",
+	);
+	const included: string[] = JSON.parse(readFileSync(join(repo, "tests/integration/tsconfig.json"), "utf8")).include;
+	const folders = [...new Set(included.map((glob) => glob.split("/")[1]))];
+	assert.ok(folders.length > 0, "the integration program lists a folder");
+	const files = projects.flatMap((project) => {
+		const listed = spawnSync(join(repo, "node_modules/typescript-7/bin/tsc"), ["-p", project, "--listFilesOnly"], {
+			cwd: repo,
+			encoding: "utf8",
 		});
+		assert.equal(listed.status, 0, listed.stderr);
+		return listed.stdout.split("\n").map((file) => file.trim().slice(repo.length + 1));
+	});
 	for (const file of [
 		"scripts/fast-check.ts",
 		"tools/ci/typecheck.ts",
@@ -234,13 +241,11 @@ test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, too
 		"tests/evry/runtime/runs.test.mts",
 	])
 		assert.ok(files.includes(file), `${file} is in the tools program`);
-	for (const project of integration) {
-		const folder = project.slice(0, -"tsconfig.json".length);
+	for (const folder of folders)
 		assert.ok(
-			files.some((file) => file.startsWith(folder) && /\.m?ts$/.test(file)),
-			`${folder} is in the tools program`,
+			files.some((file) => file.startsWith(`tests/integration/${folder}/`) && /\.m?ts$/.test(file)),
+			`tests/integration/${folder}/ is in the tools program`,
 		);
-	}
 });
 
 test("INV-typecheck: every package's typecheck runs tsc, and its typecheck:bun the pinned bun 1.4.4, never a global bun", (t) => {
