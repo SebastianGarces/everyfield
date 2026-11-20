@@ -17,6 +17,7 @@ export const meetingStatusMachine = machine({
 		"meetings.correctOccurrence",
 	],
 	refusal: "status_transition",
+	refusalCodes: [{ event: "meetings.correctPracticeOccurrence", from: "cancelled", code: "practice_cancelled" }],
 	initial: [{ event: "meetings.schedule", to: "planning" }],
 	guards: { practice: (m: { readonly type: z.infer<typeof meetingType> }) => m.type === "prelaunch_practice" },
 	subjects: {
@@ -34,12 +35,7 @@ export const meetingStatusMachine = machine({
 		{ event: "meetings.changeStatus", from: "completed", to: "in_progress", unless: "practice" },
 		{ event: "meetings.changeStatus", from: "cancelled", to: "planning" },
 		{ event: "meetings.completePractice", from: open, to: "completed", when: "practice" },
-		{
-			event: "meetings.correctPracticeOccurrence",
-			from: [...open, "cancelled"],
-			to: ["completed", "planning"],
-			when: "practice",
-		},
+		{ event: "meetings.correctPracticeOccurrence", from: open, to: ["completed", "planning"], when: "practice" },
 	],
 	stays: [{ event: "meetings.correctOccurrence", in: ["completed"] }],
 	unchangedIsNoop: ["meetings.changeStatus"],

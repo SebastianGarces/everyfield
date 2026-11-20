@@ -64,6 +64,7 @@ const REFUSAL: Record<string, string> = {
 	team_unavailable: "That ministry is archived or not in this church.",
 	wrong_meeting_type: "Only a Vision meeting has this.",
 	status_transition: "This meeting's status does not allow that change.",
+	practice_cancelled: "A cancelled practice can't be corrected.",
 	nonexistent_local_time: "That time does not exist on that day, because the clocks change. Pick another time.",
 	ambiguous_local_time: "That time happens twice on that day, because the clocks change. Pick another time.",
 	invalid_subject: "Someone named here is not a current person in this church.",

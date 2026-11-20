@@ -1093,6 +1093,8 @@ export function refusalText(code: string | undefined, target: string | null, mee
 				return "Your seat no longer allows this change, so nothing was saved.";
 			case "status_transition":
 				return "The meeting's status no longer allows this change, so nothing was saved.";
+			case "practice_cancelled":
+				return "A cancelled practice can't be corrected, so nothing was saved.";
 			case "not_found":
 			case "source_unavailable":
 				return `${who} is no longer in Meetings, so nothing was saved.`;

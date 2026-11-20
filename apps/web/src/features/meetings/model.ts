@@ -276,6 +276,8 @@ export function problemText(code: string): string {
 			return "This kind of meeting does not have that.";
 		case "status_transition":
 			return "The meeting cannot move to that status from where it is now.";
+		case "practice_cancelled":
+			return "A cancelled practice can't be corrected. Nothing changed.";
 		case "nonexistent_local_time":
 			return "That time does not exist on that day, because the clocks spring forward. Choose another time.";
 		case "ambiguous_local_time":

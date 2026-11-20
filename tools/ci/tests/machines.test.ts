@@ -381,7 +381,7 @@ test("INV-machines: the coverage report fails until every declared edge, stay an
 		assert.equal(partial.status, 1);
 		assert.match(
 			partial.stdout,
-			/^meeting-status: edges 1\/26, stays 0\/1, refusals 0\/55, no-ops 0\/20, states 1\/5$/m,
+			/^meeting-status: edges 1\/24, stays 0\/1, refusals 0\/57, no-ops 0\/20, states 1\/5$/m,
 		);
 		assert.match(partial.stdout, /missing: edge meetings\.changeStatus planning ready/);
 	} finally {

@@ -278,3 +278,30 @@ test("AC:B02-016 INV-meetings-practice: a reviewed practice is completed once; a
 	assert.deepEqual([stale.outcome, stale.review.receipt?.code], ["refused", "revision_conflict"]);
 	assert.equal(await completions(), 1);
 });
+
+test("INV-meetings-cancelled-practice: a review to correct a cancelled practice says it can't be corrected, with no Approve", async () => {
+	const scheduled = (
+		await native<{ meeting: { id: string; revision: string } }>(owner, meetingsWriter.schedule as never, {
+			input: { type: "prelaunch_practice", title: "Called-off practice", date: localDate(-3), time: "10:00" },
+		})
+	).meeting;
+	await native(owner, meetingsWriter.changeStatus as never, {
+		expectedRevision: scheduled.revision,
+		input: { meetingId: scheduled.id, to: "cancelled" },
+	});
+	const row = sql`SELECT status, revision::text AS revision, actual_occurrence_at FROM meeting WHERE id=${scheduled.id}`;
+	const untouched = (await admin.execute(row)).rows[0];
+	const proposal = await (
+		await turn(owner)
+	)("meetings.correctPracticeOccurrence", {
+		meetingId: scheduled.id,
+		state: "completed",
+		reason: "It did happen",
+	});
+	assert.ok(proposal);
+	assert.equal(proposal.review.refusal, "A cancelled practice can't be corrected.");
+	await assert.rejects(
+		approveProposal(db, owner, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null),
+	);
+	assert.deepEqual((await admin.execute(row)).rows[0], untouched, "the cancelled practice stays as it was");
+});

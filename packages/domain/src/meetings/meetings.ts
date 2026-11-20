@@ -1,5 +1,5 @@
 import { localDateTime, resolveCalendar, timeZone } from "@everyfield/contracts/common";
-import { allows, fromStates, holds, meetingStatusMachine } from "@everyfield/contracts/machines";
+import { allows, fromStates, holds, meetingStatusMachine, refusalOf } from "@everyfield/contracts/machines";
 import * as c from "@everyfield/contracts/meetings";
 import { sql, type SQLWrapper } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
@@ -70,7 +70,8 @@ function update(before: MeetingRow, after: MeetingRow, now: Date, set: SQLWrappe
 }
 type StatusEvent = (typeof meetingStatusMachine.events)[number];
 function move(event: StatusEvent, before: MeetingRow, after: MeetingRow, now: Date, set: SQLWrapper[] = []) {
-	if (!allows(meetingStatusMachine, event, before.status, after.status, before)) deny(meetingStatusMachine.refusal);
+	if (!allows(meetingStatusMachine, event, before.status, after.status, before))
+		deny(refusalOf(meetingStatusMachine, event, before.status));
 	return [
 		sql`UPDATE meeting SET status = ${after.status}, ${sql.join([...set, sql`revision = revision + 1`], sql`, `)}
 			WHERE id = ${before.id}::uuid AND revision = ${before.revision}::bigint
