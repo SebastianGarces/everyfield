@@ -630,7 +630,7 @@ const NOTES = [
 
 test("INV-qa-seed: the QA seed fills a fresh database, and a second run changes no table's row count", async () => {
 	const { first, second, seeded, after, before, query } = await fresh();
-	assert.match(first, /QA seed wrote: .*church.*wiki, owner timezone, 13 check-in weeks\./);
+	assert.match(first, /QA seed wrote: .*church.*wiki, ministry templates, owner timezone, 13 check-in weeks\./);
 	assert.equal(second, "QA seed: the branch is already complete.");
 	assert.deepEqual(after, seeded);
 
@@ -897,8 +897,13 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 			`login ${QA_LOGINS.riverside}, church Riverside (QA), onboarding Riverside (QA), person Ana Lee in Riverside (QA), ` +
 			`${MULTIPLICATION}, ` +
 			"sending church Grace Fellowship (QA), affiliation with Grace Fellowship (QA), ",
-		", owner timezone, 13 check-in weeks.",
+		", ministry templates, owner timezone, 13 check-in weeks.",
 	]);
+	assert.deepEqual(
+		await old.query(`SELECT count(DISTINCT i.id)::int AS items, count(v.id)::int AS versions FROM reference_item i
+			JOIN reference_version v ON v.item_id = i.id WHERE i.kind = 'ministry_template'`),
+		[{ items: 10, versions: 10 }],
+	);
 	assert.deepEqual(oldRows(await church(), beforeChurch), oldRows(beforeChurch, beforeChurch));
 	assert.deepEqual(
 		(await logins()).filter(

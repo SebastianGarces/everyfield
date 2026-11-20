@@ -29,6 +29,8 @@ import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
 import { resendWebhook } from "../../apps/web/src/server/jobs/webhook-route.ts";
 import { FULL_ADDRESS, QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
 import { gatedTransaction } from "../../packages/domain/src/operations/writes.ts";
+import { canonical, hash, stableId } from "../../packages/reference/src/hash.ts";
+import { loadStarter } from "../../packages/reference/src/starter-load.ts";
 
 const CHURCH = "Harvest Point (QA)";
 const RIVERSIDE = { name: "Riverside (QA)", city: "Dallas", owner: "Rachel Moss" } as const;
@@ -86,7 +88,7 @@ function ok(what: string, reply: Reply): unknown {
 	return reply.value;
 }
 
-async function rows(db: Database, query: ReturnType<typeof sql>) {
+async function rows(db: Pick<Database, "execute">, query: ReturnType<typeof sql>) {
 	return (await db.execute(query)).rows as Record<string, unknown>[];
 }
 
@@ -614,6 +616,7 @@ async function fill(
 	const wikiWritten = await wiki(admin);
 	done.push(...(await wikiCases(admin, plantId, owner)));
 	if (wikiWritten) done.push("wiki");
+	if (await ministryTemplates(admin)) done.push("ministry templates");
 	done.push(...(await checkIns(admin, runtime, owner, plantId, ownerSession)));
 
 	for (const id of sessions.values()) await admin.execute(sql`DELETE FROM auth_session WHERE id=${id}`);
@@ -1339,6 +1342,42 @@ async function wiki(admin: Database): Promise<boolean> {
 			VALUES(${randomUUID()},${release},1,clock_timestamp(),'qa-seed','qa seed',0)`);
 	});
 	return true;
+}
+
+async function ministryTemplates(admin: Database): Promise<boolean> {
+	const starter = await loadStarter();
+	const source = starter.sources.find((s) => s.path === "docs/reference/ministry-role-templates.ts");
+	if (!source) throw Error("ministry templates: the reference starter has no ministry-role-templates.ts");
+	const templates = starter.catalogs.teams.map((row) => {
+		const key = String(row.teamKey),
+			body = canonical(row);
+		return { key, id: stableId("ministry_template:" + key), contentHash: hash(body) };
+	});
+	return admin.transaction(async (tx) => {
+		const [release] = await rows(
+			tx,
+			sql`SELECT r.id, r.release_key, r.artifact_locator FROM reference_activation a
+				JOIN reference_release r ON r.id = a.release_id ORDER BY a.activation_number DESC LIMIT 1`,
+		);
+		if (!release) throw Error("ministry templates: no active reference release");
+		let wrote = false;
+		for (const template of templates) {
+			await tx.execute(sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id)
+				VALUES(${template.id},'ministry_template',${template.key},${GLOBAL}) ON CONFLICT DO NOTHING`);
+			const [item] = await rows(
+				tx,
+				sql`SELECT i.id, EXISTS(SELECT 1 FROM reference_version v WHERE v.item_id = i.id) AS versioned
+					FROM reference_item i WHERE i.kind = 'ministry_template' AND i.canonical_key = ${template.key}`,
+			);
+			if (item!.versioned) continue;
+			const itemId = item!.id as string;
+			const revisionId = stableId(`${String(release.release_key)}:${itemId}:${template.contentHash}`);
+			await tx.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
+				VALUES(${stableId("version:" + revisionId)},${itemId},${release.id as string},1,${`${String(release.artifact_locator)}#${itemId}`},${template.contentHash},${`${source.path}@${source.sha256}`})`);
+			wrote = true;
+		}
+		return wrote;
+	});
 }
 
 const SOURCES = [
