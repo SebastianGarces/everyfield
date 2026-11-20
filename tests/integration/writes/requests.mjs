@@ -645,6 +645,54 @@ try {
 		],
 	);
 	assert.equal(outcomeCorrected.status, "ok", JSON.stringify(outcomeCorrected));
+	const followUp = async (due = sql`'undated',NULL`) => {
+		const [{ id, revision }] = (
+			await admin.execute(
+				sql`INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind,due_date,person_id,creator_id) VALUES(${plant.id},'Call Maria Santos','follow_up','medium','not_started',clock_timestamp(),${due},${maria.id},${owner.accountId}) RETURNING id, revision::text AS revision`,
+			)
+		).rows;
+		return { kind: "task", taskId: id, expectedRevision: revision };
+	};
+	const outcome = async (name, target, input) => {
+		const r = await act(`POST followups.recordOutcome (${name})`, `/people/${maria.id}`, followups, "recordOutcome", [
+			randomUUID(),
+			{ target, channel: "phone", notes: null, completeTask: false, ...input },
+		]);
+		assert.equal(r.status, "ok", JSON.stringify(r));
+		return r.value;
+	};
+	await outcome(
+		"person",
+		{ kind: "person", personId: maria.id },
+		{
+			outcome: "contacted",
+			occurredAt: tried.value.record.occurredAt,
+		},
+	);
+	const dropped = await outcome("no longer needed", await followUp(), { outcome: "no_longer_needed" });
+	assert.equal(dropped.task.status, "no_longer_needed");
+	const other = await followUp();
+	const [{ revision: triedRevision }] = (
+		await admin.execute(sql`SELECT revision::text AS revision FROM task WHERE id=${followUpId}`)
+	).rows;
+	const finished = await outcome(
+		"contacted, complete task",
+		{ kind: "task", taskId: followUpId, expectedRevision: triedRevision },
+		{ outcome: "contacted", occurredAt: tried.value.record.occurredAt, completeTask: true },
+	);
+	assert.deepEqual(
+		finished.record.alsoFinished.map((x) => x.taskId),
+		[other.taskId],
+	);
+	const dated = await followUp(sql`'date_only','2099-01-15'`);
+	await admin.execute(
+		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${plant.id},${dated.taskId},${owner.accountId})`,
+	);
+	const completed = await outcome("complete dated assigned task", dated, {
+		outcome: "attempted_no_contact",
+		completeTask: true,
+	});
+	assert.equal(completed.task.status, "complete");
 	const emailed = await act("POST people.createPerson (with email)", "/people", people, "createPerson", [
 		randomUUID(),
 		{ displayName: "Reachable guest", email: "guest@example.com" },

@@ -78,10 +78,10 @@ export async function profile(tx: Tx, accountId: string, d: typeof t.discovery.$
 	};
 }
 async function eligible(tx: Tx, ctx: WriteContext, kind: "planter" | "discovery") {
-	if (ctx.selected.kind !== "account") deny();
+	if (ctx.selected.kind !== "account") deny("unavailable");
 	const a = await actor(tx, ctx, true, true);
-	if (a.account.registration_state === "pending_domain" && a.account.registration_kind !== kind) deny();
-	if (!a.principal?.verified) deny();
+	if (a.account.registration_state === "pending_domain" && a.account.registration_kind !== kind) deny("unavailable");
+	if (!a.principal?.verified) deny("unavailable");
 	return { ...a, principal: a.principal };
 }
 async function provision(
@@ -120,7 +120,7 @@ async function provision(
 		owner: { kind: "plant", id: tenantId.parse(plantId) },
 		selection: { kind: "first", displayName },
 	});
-	if (linked.status !== "ok" || linked.value.status !== "linked") deny();
+	if (linked.status !== "ok" || linked.value.status !== "linked") deny("unavailable");
 	const creation = await entry.recorded(new Date(row.recorded));
 	cx.writes.push(
 		tx.insert(t.onboarding_setup).values({
@@ -151,11 +151,12 @@ async function provision(
 async function currentCreation<
 	T extends { plant: { id: string }; currentPhase: number; revision: string; materialRevision: string },
 >(tx: Tx, ctx: WriteContext, value: T) {
-	if (!(await liveOwner(tx, owner.parse({ kind: "plant", id: value.plant.id })))) deny();
+	if (!(await liveOwner(tx, owner.parse({ kind: "plant", id: value.plant.id })))) deny("unavailable");
 	const [plant] = await tx.select().from(t.plant).where(eq(t.plant.id, value.plant.id));
-	if (!plant) deny();
+	if (!plant) deny("unavailable");
 	const current = await currentActor(tx, ctx.session, { kind: "plant", id: tenantId.parse(plant.id) });
-	if (current.status !== "active" || current.context.kind !== "seat" || current.context.role !== "owner") deny();
+	if (current.status !== "active" || current.context.kind !== "seat" || current.context.role !== "owner")
+		deny("unavailable");
 	return {
 		...value,
 		status: "existing",
@@ -210,7 +211,7 @@ export function creation(effects: OnboardingEffects) {
 				const cx = await begin(tx, ctx, a.account.id, "discovery.create", q);
 				if (cx.kind === "replay") {
 					const [current] = await tx.select().from(t.discovery).where(eq(t.discovery.account_id, a.account.id));
-					if (!current || current.converted_at) deny();
+					if (!current || current.converted_at) deny("unavailable");
 					await seatless(tx, a.account.id);
 					return c.createDiscoveryResult.parse(cx.value);
 				}
@@ -277,7 +278,7 @@ export function creation(effects: OnboardingEffects) {
 						and(eq(t.discovery.id, q.input.discoveryId), eq(t.discovery.account_id, a.account.id), organizationsLocked),
 					)
 					.for("update");
-				if (!d || d.converted_at) deny();
+				if (!d || d.converted_at) deny("unavailable");
 				revision(q.expectedRevision, d.revision);
 				const links = await loadAffiliations(
 					tx,
@@ -295,7 +296,7 @@ export function creation(effects: OnboardingEffects) {
 						old.organization_id !== selection.organization.id ||
 						old.organization_kind !== selection.organization.organizationKind
 					)
-						deny();
+						deny("unavailable");
 					revision(selection.expectedRelationshipRevision, old.revision);
 					revision(selection.expectedConsentRevision, old.consent_revision);
 					selected.push({ old, selection });

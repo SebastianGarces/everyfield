@@ -132,8 +132,10 @@ export async function loadTask(tx: Tx, plantId: string, task: string | { obligat
 	const r = await tx.execute(sql`${taskQuery(plantId, which)} ${lock ? sql`FOR UPDATE OF t` : sql``}`);
 	return r.rows[0] ? lockedTask.parse(r.rows[0]) : null;
 }
+export const lockingTasks = (plantId: string, which: SQL) =>
+	sql`${taskQuery(plantId, which)} ORDER BY t.id FOR UPDATE OF t`;
 export async function lockTasks(tx: Tx, plantId: string, which: SQL) {
-	const r = await tx.execute(sql`${taskQuery(plantId, which)} ORDER BY t.id FOR UPDATE OF t`);
+	const r = await tx.execute(lockingTasks(plantId, which));
 	return z.array(lockedTask).parse(r.rows);
 }
 export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[]) {
@@ -150,7 +152,7 @@ async function gated(tx: Tx, viewer: Reader, query: SQL, admin = false) {
 	const live = liveRead({ session: viewer.session, owner: viewer.owner, seatId: viewer.seatId }, admin);
 	const r = await tx.execute(sql`SELECT g.live, q.* FROM (SELECT ${live} AS live) g
 		LEFT JOIN LATERAL (${query}) q ON g.live ORDER BY q.ord`);
-	if (r.rows[0]?.live !== true) deny();
+	if (r.rows[0]?.live !== true) deny("unavailable");
 	return r.rows.filter((row) => row.ord !== null);
 }
 
@@ -282,7 +284,7 @@ const sortKey = {
 
 function reader(authority: RequestActor, admin = false) {
 	const viewer = readerOf(authority);
-	if (admin && !administers(viewer)) deny();
+	if (admin && !administers(viewer)) deny("unavailable");
 	return viewer;
 }
 export const taskReader = {
@@ -411,7 +413,7 @@ export const taskReader = {
 					}),
 				)
 				.parse(found.filter((a) => a.id !== null));
-			if (!found.length && v.page === 1) deny();
+			if (!found.length && v.page === 1) deny("unavailable");
 			const total = rows[0]?.total ?? 0;
 			return c.statusHistory.parse({
 				taskId: v.taskId,
@@ -499,7 +501,7 @@ export const taskReader = {
 				ORDER BY k.created_at, k.id LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit})`,
 			);
 			const [head, ...items] = found;
-			if (!head || Number(head.ord) !== 0) deny();
+			if (!head || Number(head.ord) !== 0) deny("unavailable");
 			const total = z.int().parse(head.total);
 			const rows = z
 				.array(
@@ -542,7 +544,7 @@ export const taskReader = {
 					JOIN task q ON q.id=u.id AND q.plant_id=t.plant_id),'[]') AS items
 				FROM task t WHERE t.id=${v.taskId}::uuid AND t.plant_id=${viewer.plantId}::uuid AND t.deleted_at IS NULL`,
 			);
-			if (!found) deny();
+			if (!found) deny("unavailable");
 			const items = z
 				.array(z.object({ id: z.uuid(), title: z.string(), status: c.taskStatus, deleted: z.boolean() }))
 				.parse(found.items)
@@ -593,7 +595,7 @@ export const taskReader = {
 					AND o.status NOT IN ('complete','no_longer_needed')
 				WHERE t.id=${v.taskId}::uuid AND t.plant_id=${viewer.plantId}::uuid`,
 			);
-			if (!found) deny();
+			if (!found) deny("unavailable");
 			const row = z
 				.object({
 					series_id: z.uuid().nullable(),

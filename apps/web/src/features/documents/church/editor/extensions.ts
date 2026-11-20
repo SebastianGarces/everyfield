@@ -611,7 +611,7 @@ function headingNumbers(doc: PMNode) {
 			h2 += 1;
 			h3 = 0;
 		} else h3 += 1;
-		if (node.attrs.numbered) numbers.set(pos, level === 2 ? String(h2).padStart(2, "0") : `${h2}.${h3}`);
+		if (node.attrs.numbered) numbers.set(pos, level === 2 ? String(h2) : `${h2}.${h3}`);
 	});
 	return numbers;
 }

@@ -93,7 +93,9 @@ function toolsProject(root: string): { script: string; include: string[] } | und
 	const script: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts?.["typecheck:tools"];
 	if (typeof script !== "string") return undefined;
 	const projects = / -[bp] ((?:\S+\.json ?)+)/.exec(script)?.[1]?.trim().split(" ") ?? [];
-	const found = projects.filter((project) => existsSync(join(root, project)));
+	const found = projects.flatMap((project) =>
+		project.includes("*") ? globSync(project, { cwd: root }).sort() : existsSync(join(root, project)) ? [project] : [],
+	);
 	if (!found.length) return undefined;
 	const include = found.flatMap((project) => {
 		const config = JSON.parse(readFileSync(join(root, project), "utf8").replace(/^\s*\/\/.*$/gm, ""));

@@ -4,11 +4,8 @@ import * as tables from "@everyfield/db/tables";
 import { createHash } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { readBoundedBody } from "@everyfield/domain/operations";
-import { Refusal, safeBoundary, safeResponse } from "../platform/boundary.ts";
-import { transaction } from "../platform/database.ts";
-import { verifyCallback } from "../platform/webhook.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { transaction } from "./transaction.ts";
+import { logFailure } from "../log.ts";
 const provider_event_e = alias(tables.provider_event, "e");
 
 const kinds = [
@@ -115,11 +112,6 @@ async function apply(tx: Transaction, eventId: string) {
 		.onConflictDoNothing({ target: [tables.audit_event.subject_id, tables.audit_event.event_key] });
 	return "applied" as const;
 }
-export async function receiveMailCallback(db: Database, request: Request, secret: string) {
-	const raw = await readBoundedBody(request, 16_384);
-	if (!raw) throw new Refusal("invalid_input", 413);
-	return applyMailCallback(db, raw, verifyCallback(raw, request.headers, secret));
-}
 export async function applyMailCallback(db: Database, raw: Uint8Array, key: string) {
 	const body: unknown = JSON.parse(new TextDecoder().decode(raw));
 	const type = z.object({ type: z.string().min(1).max(64) }).parse(body).type;
@@ -181,15 +173,6 @@ export async function replayStoredCallbacks(db: Database) {
 async function applyStoredCallback(db: Database, eventId: string) {
 	return transaction(db, (tx) => apply(tx, eventId));
 }
-export function mailCallbackHandler(db: Database, secret: string) {
-	return (request: Request) =>
-		safeBoundary(async () => {
-			if (request.method !== "POST") return safeResponse({ code: "method_not_allowed" }, 405);
-			const result = await receiveMailCallback(db, request, secret);
-			return safeResponse(result, result.result === "pending" ? 202 : 200);
-		});
-}
-
 export async function callbackVisibility(
 	db: Database,
 	endpoint: "disabled" | "unverified" | "verified" = "unverified",

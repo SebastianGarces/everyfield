@@ -37,13 +37,13 @@ export const brandReader = {
 					AND f.purpose = 'brand_asset' AND f.state = 'ready'`);
 			const found = z.object({ ok: z.boolean().nullable(), file_id: z.string().nullable() }).parse(rows[0]);
 			if (found.ok !== true) deny("access_denied");
-			if (!found.file_id || !storage) deny();
+			if (!found.file_id || !storage) deny("unavailable");
 			const bytes = await readAuthorizedObject(db, storage, brandAssetReader(scope, "settings"), found.file_id).catch(
-				() => deny(),
+				() => deny("unavailable"),
 			);
-			const palette = await dominantColors(bytes).catch(() => deny());
+			const palette = await dominantColors(bytes).catch(() => deny("unavailable"));
 			const [suggestedPrimary] = palette;
-			if (!suggestedPrimary) deny();
+			if (!suggestedPrimary) deny("unavailable");
 			return c.suggestedColors.parse({ suggestedPrimary, palette, suggestedFrom: input.assetKind });
 		});
 	},
