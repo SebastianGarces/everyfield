@@ -711,8 +711,8 @@
 		"limit": 5
 	},
 	"jobs/notifications.sendOnboardingRelationships": {
-		"limit": 4,
-		"reads": "T-503: 3 reads in a row (read of seat, then read of account, then locked read of account+lifecycle_witness+mail+organization+plant+tenant); the follow-up merges them or says why they cannot be one statement."
+		"limit": 3,
+		"reads": "2 reads in a row: the owner seats and their contacts are one read, then mail.enqueueMany's locked read of the account roots, the prior mail and the lifecycle barriers. They cannot be one statement: the mail service takes finished intents, so the recipients (the actor plus each organization's owners) and their addresses are chosen in code between the two, and a recipient without an address is refused before the mail read."
 	},
 	"jobs/queue.checkpoint": {
 		"limit": 2
@@ -736,38 +736,35 @@
 		"limit": 4
 	},
 	"jobs/webhook.applyMailCallback": {
-		"limit": 15,
-		"retry": 10,
-		"reason": "Background job, not a user request. The provider event is stored in its own committed transaction first (timeout, insert), so a crash keeps the callback; then the apply transaction: timeout, the event and the mail locked, the mail state update, the address lock and suppression upsert for a bounce or complaint, the event marked processed, the job finished and the audit row. Its largest first run: 4 transaction, 3 locked read, 2 read, 6 write.",
-		"reads": "T-503: 2 reads in a row (locked read of provider_event, then locked read of mail); the follow-up merges them or says why they cannot be one statement."
+		"limit": 14,
+		"retry": 9,
+		"reason": "Background job, not a user request. The provider event is stored in its own committed transaction first (timeout, insert), so a crash keeps the callback; then the apply transaction: timeout, one locked read of the event and its mail, the mail state update, the address lock and suppression upsert for a bounce or complaint, the event marked processed, the job finished and the audit row. Its largest first run: 4 transaction, 2 locked read, 2 read, 6 write."
 	},
 	"jobs/webhook.applyStoredCallback": {
-		"limit": 9,
-		"reason": "Background job, not a user request: the scheduled runner's mail-callbacks step applies each stored provider callback whose email now has its provider id, one event per transaction, so the census measures one event and the bounded scan (at most 100 events) is not one budget. Statement timeout, event and mail locked reads, then mail, event, job and audit writes. Its largest first run: 2 transaction, 2 locked read, 1 read, 4 write.",
-		"reads": "T-503: 2 reads in a row (locked read of provider_event, then locked read of mail); the follow-up merges them or says why they cannot be one statement."
+		"limit": 8,
+		"reason": "Background job, not a user request: the scheduled runner's mail-callbacks step applies each stored provider callback whose email now has its provider id, one event per transaction, so the census measures one event and the bounded scan (at most 100 events) is not one budget. Statement timeout, one locked read of the event and its mail, then mail, event, job and audit writes. Its largest first run: 2 transaction, 1 locked read, 1 read, 4 write."
 	},
 	"lifecycle.purge": {
-		"limit": 28,
-		"reason": "Background deletion after the cancellation deadline, not a user request (RT-6a reviewed, kept). Three committed stages around the external storage removal so a crash resumes at the right stage: each stage authorizes, locks the root and re-reads the witness; the content purge and subject purge are one database function each; the owned-file removal adds its own claim and purge statements. The scheduled worker (T-128) authorizes each stage with its job's claim fence (one locked read per stage) and lists the subject's files once (one read), so a lost lease stops the purge before it writes. Its largest first run, one owned file: 8 transaction, 10 locked read, 7 read, 3 write.",
-		"reads": "T-503: 2 reads in a row (locked read of account, then locked read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
+		"limit": 25,
+		"reason": "Background deletion after the cancellation deadline, not a user request (RT-6a reviewed, kept). Three committed stages around the external storage removal so a crash resumes at the right stage: each stage authorizes, then locks the root and its witness in one statement; the content purge and subject purge are one database function each; the owned-file removal adds its own claim and purge statements. The scheduled worker (T-128) authorizes each stage with its job's claim fence (one locked read per stage) and lists the subject's files once (one read), so a lost lease stops the purge before it writes. Its largest first run, one owned file: 8 transaction, 7 locked read, 7 read, 3 write.",
+		"reads": "2 reads in a row, twice per purge. In the content and subject stages the root-and-witness lock is followed by the stage's purge function, which writes but is a SELECT of a database function, so the census reads it as a read; it may run only after code checks the witness's request, revision and state and refuses a conflict. In the owned-file removal the shared deleteUnreferencedObject helper locks the file and hands its identity to this job's callback, which reads the witness to decide whether the helper may delete."
 	},
 	"mail.dispatch": {
-		"limit": 21,
-		"reason": "Background job, not a user request. Two short transactions around the provider call, which must hold no lock: claim fence, mail lock, lifecycle and seat reads, address lock, suppression read, request lock, one write statement, checkpoint; then fence, one write statement with the outcome audit, finishClaim. RT-6a batched the writes (was 25 on main after #257); the repeated fence and finishClaim statements belong to the shared WP-031 queue. Its largest first run: 4 transaction, 9 locked read, 4 read, 4 write.",
-		"reads": "T-503: 2 reads in a row (locked read of mail, then locked read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
+		"limit": 20,
+		"reason": "Background job, not a user request. Two short transactions around the provider call, which must hold no lock: claim fence, one locked read of the mail with its lifecycle barriers, notice and email preference, the mount's authorization, address lock, suppression read, request lock, one write statement, checkpoint; then fence, one write statement with the outcome audit, finishClaim. RT-6a batched the writes (was 25 on main after #257); the repeated fence and finishClaim statements belong to the shared WP-031 queue. Its largest first run: 4 transaction, 8 locked read, 3 read, 5 write.",
+		"reads": "2 reads in a row: the one locked read of the mail with everything the mail service checks, then the mount's authorization. They cannot be one statement: each mail mount supplies its own authorize callback (seat, invitation, identity-proof, notice, affiliation or residency checks), and it runs only after code finds the mail current. When a mount's check sends no statement, the next is the address lock, which may be taken only after authorization passes."
 	},
 	"mail.enqueue": {
 		"limit": 3,
-		"reads": "T-503: 2 reads in a row (locked read of account+lifecycle_witness+mail+organization+plant+tenant, then locked read of account); the follow-up merges them or says why they cannot be one statement."
+		"reads": "2 reads in a row: the locked read of the account roots, prior mail and lifecycle barriers, then the mount's authorization. They cannot be one statement: each mail mount supplies its own authorize callback (seat, invitation, identity-proof, notice, affiliation or residency checks), and it runs only after code checks every intent's owner kind and barrier from the first read and refuses a mismatch, with the prior mail ids that read returned."
 	},
 	"mail.enqueueMany": {
 		"limit": 3,
-		"reads": "T-503: 2 reads in a row (locked read of account+lifecycle_witness+mail+organization+plant+tenant, then locked read of account+notice+task); the follow-up merges them or says why they cannot be one statement."
+		"reads": "2 reads in a row: the locked read of the account roots, prior mail and lifecycle barriers, then the mount's authorization. They cannot be one statement: each mail mount supplies its own authorize callback (seat, invitation, identity-proof, notice, affiliation or residency checks), and it runs only after code checks every intent's owner kind and barrier from the first read and refuses a mismatch, with the prior mail ids that read returned."
 	},
 	"mail.reconcileUnknownOutcome": {
-		"limit": 11,
-		"reason": "Background job, not a user request. The unlocked mail read decides whether the provider must be asked; after the provider lookup, which holds no lock, one transaction: the statement timeout, the mail locked, the recipient's live seat and the operator's grant locked, then the mail, job and audit writes. Its largest first run: 2 transaction, 3 locked read, 3 read, 3 write.",
-		"reads": "T-503: 2 reads in a row (locked read of mail, then locked read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
+		"limit": 8,
+		"reason": "Background job, not a user request. The unlocked mail read decides whether the provider must be asked; after the provider lookup, which holds no lock, one transaction: the statement timeout, one locked read of the mail with its lifecycle barriers, notice and email preference, the mount's authorization, then the mail, job and audit writes. Its largest first run: 2 transaction, 1 locked read, 2 read, 3 write."
 	},
 	"mail.recordProviderReceipt": {
 		"limit": 17,
@@ -1175,11 +1172,11 @@
 	},
 	"notifications.enqueue": {
 		"limit": 6,
-		"reads": "T-503: 2 reads in a row (locked read of affiliation+answer_review+article_editor_state+development_enrollment+launch_milestone+mail+meeting+notice+notification_preference+organization+phase_transition+seat+task+tenant, then locked read of seat); the follow-up merges them or says why they cannot be one statement."
+		"reads": "2 reads in a row: the locked read of each notice's source, owner, preferences and prior notice, then the mount's eligibility read. They cannot be one statement: each notification mount supplies its own eligible callback (reminder seats for church notices, account contacts for others, a recipient list the caller already holds for phase notices), and it runs only on the inputs the first read found live and deliverable, after code refuses an owner mismatch or a stale source."
 	},
 	"notifications.enqueueMany": {
 		"limit": 6,
-		"reads": "T-503: 2 reads in a row (locked read of affiliation+answer_review+article_editor_state+development_enrollment+launch_milestone+mail+meeting+notice+notification_preference+organization+phase_transition+seat+task+tenant, then locked read of seat); the follow-up merges them or says why they cannot be one statement."
+		"reads": "2 reads in a row: the locked read of each notice's source, owner, preferences and prior notice, then the mount's eligibility read. They cannot be one statement: each notification mount supplies its own eligible callback (reminder seats for church notices, account contacts for others, a recipient list the caller already holds for phase notices), and it runs only on the inputs the first read found live and deliverable, after code refuses an owner mismatch or a stale source."
 	},
 	"notifications.getPreferences": {
 		"limit": 1
@@ -1249,9 +1246,9 @@
 		"reason": "Above the pattern: the claim, setup and audit writes run beside one plant UPDATE that sets the completion time and both revisions. Its largest first run: 2 transaction, 1 locked read, 1 read, 3 write."
 	},
 	"onboarding.convertDiscovery": {
-		"limit": 16,
+		"limit": 15,
 		"retry": 7,
-		"reason": "Provisions a church from a discovery profile: gate, request-key read, seat lock, discovery lock with the linked organizations, links read, one statement for the plant with its owner seat and creation entry, the account's first Person (one write), new links, the shared relationship notices (owner and contact reads, mail authorization and insert), the discovery retirement (its time is in the reply) and one final statement. RT-6a brought it from 27; per HTTP request without relationships it is 12 (was 16), and the screen's entry reload after it is one statement. Its largest first run: 2 transaction, 5 locked read, 3 read, 6 write.",
+		"reason": "Provisions a church from a discovery profile: gate, request-key read, seat lock, discovery lock with the linked organizations, links read, one statement for the plant with its owner seat and creation entry, the account's first Person (one write), new links, the shared relationship notices (one owner-and-contact read, mail authorization and insert), the discovery retirement (its time is in the reply) and one final statement. RT-6a brought it from 27; per HTTP request without relationships it is 12 (was 16), and the screen's entry reload after it is one statement. Its largest first run: 2 transaction, 5 locked read, 2 read, 6 write.",
 		"reads": "T-506: 3 reads in a row (locked read of seat, then locked read of account+affiliation+discovery+organization+seat, then locked read of affiliation+organization); the follow-up merges them or says why they cannot be one statement."
 	},
 	"onboarding.createDiscovery": {
