@@ -1527,6 +1527,12 @@ test("INV-qa-seed: each Grace Austin (QA) and Hill Country login holds its seat 
 	assert.deepEqual(seen.resident.context, { kind: "account", owner: "account" });
 	assert.deepEqual([seen.endedResident.signedIn, seen.endedResident.session], ["signed_in", "active"]);
 	assert.deepEqual(seen.endedResident.context, { kind: "account", owner: "account" });
+	assert.deepEqual(
+		await query(`SELECT u.email, d.revision::text AS revision, d.converted_at FROM discovery d
+			JOIN account a ON a.id = d.account_id JOIN auth_user u ON u.id = a.auth_user_id
+			WHERE u.email IN ('${QA_LOGINS.endedResident}', '${QA_LOGINS.resident}') ORDER BY 1`),
+		[QA_LOGINS.endedResident, QA_LOGINS.resident].map((email) => ({ email, revision: "1", converted_at: null })),
+	);
 });
 
 test("INV-qa-seed: Casey linked through the residency invitation and shares milestone progress, not foundations", async () => {

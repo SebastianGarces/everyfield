@@ -23,6 +23,7 @@ import {
 	residentWriter,
 } from "../../../packages/domain/src/organizations/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { createOnboardingProducer, readOnboardingEntry } from "../../../packages/domain/src/onboarding/index.ts";
 
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 let f: Awaited<ReturnType<typeof fixture>>;
@@ -59,6 +60,45 @@ const navLink = async (a: Actor) => {
 		access: liveAccess(who),
 	});
 	return links.find((l) => l.sharing.status === "active")?.organizationName ?? null;
+};
+const onboarding = createOnboardingProducer({
+	relationships: async () => {
+		throw Error("no relationship notices here");
+	},
+	enqueue: async () => {
+		throw Error("no onboarding mail here");
+	},
+});
+const entryOf = async (a: Actor) =>
+	(
+		await readOnboardingEntry(
+			f.db,
+			onboarding,
+			{
+				status: "active",
+				accountId: a.id,
+				sessionId: a.session,
+				expiresAt: new Date(Date.now() + 3600000).toISOString(),
+			},
+			await authority(a),
+			true,
+		)
+	).kind;
+const discoveries = async (a: Actor) =>
+	(
+		await f.admin.execute(
+			sql`SELECT revision::text AS revision,lead_answer,journey_answer,launch_answer,converted_at,converted_plant_id,
+	 conversion_operation_id FROM discovery WHERE account_id=${a.id}::uuid`,
+		)
+	).rows;
+const fresh = {
+	revision: "1",
+	lead_answer: null,
+	journey_answer: null,
+	launch_answer: null,
+	converted_at: null,
+	converted_plant_id: null,
+	conversion_operation_id: null,
 };
 const mine = async () => ok(await readMyResidency(f.db, await authority(casey)));
 const milestoneOf = <T extends { title: string }>(list: T[], title: string) => list.find((m) => m.title === title)!;
@@ -100,6 +140,7 @@ async function accountState() {
 		await f.admin.execute(sql`SELECT (SELECT count(*)::int FROM seat WHERE account_id=${casey.id}::uuid) AS seats,
 	 (SELECT count(*)::int FROM affiliation WHERE account_id=${casey.id}::uuid) AS connections,
 	 (SELECT count(*)::int FROM residency_link WHERE account_id=${casey.id}::uuid) AS links,
+	 (SELECT count(*)::int FROM discovery WHERE account_id=${casey.id}::uuid) AS discoveries,
 	 (SELECT registration_kind FROM account WHERE id=${casey.id}::uuid) AS kind,
 	 (SELECT linked_account_id FROM person WHERE id=${caseyPerson}::uuid) AS linked`)
 	).rows[0];
@@ -326,6 +367,8 @@ test("AC:ADR1-004 someone with another email cannot accept; Casey's decline leav
 	const declined = await f.invitations.respondResident(casey.session, claim(sent, { decision: "decline" }));
 	assert.equal(declined.status, "declined");
 	assert.deepEqual(await accountState(), before);
+	assert.deepEqual(await discoveries(casey), []);
+	assert.equal(await entryOf(casey), "start");
 	assert.deepEqual(ok(await readMyResidency(f.db, await authority(casey))), { status: "not_linked" });
 });
 
@@ -340,6 +383,8 @@ test("AC:ADR1-004 AC:ADR1-013 Casey accepts sharing milestone progress only: no 
 	assert.equal(state.seats, 0);
 	assert.equal(state.kind, "discovery");
 	assert.equal(state.links, 1);
+	assert.deepEqual(await discoveries(casey), [fresh]);
+	assert.equal(await entryOf(casey), "discovery");
 	assert.equal((await authority(casey)).actor.context.kind, "account");
 	assert.deepEqual((await record(luis)).residency, { status: "linked" });
 	assert.equal(await navLink(casey), "Grace Austin");
@@ -660,6 +705,8 @@ test("AC:ADR1-003 AC:ADR1-013 Casey leaves: My residency is gone at once and Gra
 		input: { linkId: l.id, expectedConsentRevision: l.consent },
 	});
 	assert.deepEqual(await mine(), { status: "ended" });
+	assert.deepEqual(await discoveries(casey), [fresh]);
+	assert.equal(await entryOf(casey), "discovery");
 	assert.equal(await navLink(casey), null);
 	assert.deepEqual((await record(luis)).residency, { status: "not_linked" });
 	const shown = await enrollment(ana);
@@ -689,4 +736,40 @@ test("AC:ADR1-003 AC:ADR1-013 Casey leaves: My residency is gone at once and Gra
 	assert.deepEqual(ok(await readResidentReading(f.db, await authority(casey), { readingId: reading })), {
 		status: "unavailable",
 	});
+});
+
+test("AC:ADR1-004 Rae already in Discovery accepts a link: her one Discovery space keeps its answers and revision", async () => {
+	const raePerson = randomUUID();
+	const board = ok(await readPipelineBoard(f.db, await authority(dana), {}));
+	ok(
+		await pipelineWriter.addPerson(f.db, await authority(dana), {
+			personId: raePerson,
+			displayName: "Rae",
+			email: rae.email,
+			responsibleSeatId: null,
+			stageId: board.stages.find((s) => s.label === "Potential leader")!.id,
+		}),
+	);
+	await f.admin.execute(sql`INSERT INTO discovery(id,account_id,revision,lead_answer,journey_answer,launch_answer)
+	 VALUES(${randomUUID()},${rae.id}::uuid,3,'yes','discerning','no_date')`);
+	const kept = await discoveries(rae);
+	assert.deepEqual(kept, [
+		{ ...fresh, revision: "3", lead_answer: "yes", journey_answer: "discerning", launch_answer: "no_date" },
+	]);
+	const sent = await f.invitations.inviteResident(await authority(luis), {
+		requestKey: randomUUID(),
+		expectedRevision: (await record(luis, raePerson)).organizationRevision,
+		input: { organization: grace, personId: raePerson, recipientEmail: rae.email },
+	});
+	const invitation = {
+		invitationId: sent.invitation.invitationId as string,
+		proof: await f.proof(sent.invitation.invitationId),
+	};
+	const accepted = await f.invitations.respondResident(
+		rae.session,
+		claim(invitation, { decision: "accept", choices: { shareFoundations: false, shareMilestones: false } }),
+	);
+	assert.equal(accepted.status, "accepted");
+	assert.deepEqual(await discoveries(rae), kept);
+	assert.equal(await entryOf(rae), "discovery");
 });

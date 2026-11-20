@@ -494,6 +494,10 @@ export function createInvitationService(config: InvitationConfig) {
 					);
 					const link = lastWrite(cmd);
 					cmd.writes.push(
+						sql`INSERT INTO discovery(id,account_id,revision) SELECT ${randomUUID()}::uuid,${a.account_id}::uuid,1
+ WHERE NOT EXISTS(SELECT FROM seat WHERE account_id=${a.account_id}::uuid AND ended_at IS NULL) ON CONFLICT (account_id) DO NOTHING`,
+					);
+					cmd.writes.push(
 						tx
 							.update(t.person)
 							.set({ linked_account_id: a.account_id, revision: d.bump(p.revision) })
