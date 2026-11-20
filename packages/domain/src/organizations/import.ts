@@ -251,10 +251,9 @@ const stored = z.object({ digest: z.string(), result: C.pipelineImportResult });
 const REMEMBERED_MAX = 500;
 
 async function importPeople(db: Database, authority: RequestActor, raw: unknown) {
-	const seat = seatOf(authority);
-	if (!seat?.administrator) return { status: "refused" as const, refusal: { code: "unavailable" as const } };
 	const read = await answer<{ input: z.infer<typeof C.pipelineImportRequest>; sheet: Sheet }, C.PipelineImportRefusal>(
 		async () => {
+			if (!seatOf(authority)?.administrator) refuse();
 			const input = parse(C.pipelineImportRequest, raw);
 			const sheet = await sheetOf(input.fileName, input.file);
 			if (digestFile(input.file) !== input.fileDigest) refuse({ code: "file_changed" });
