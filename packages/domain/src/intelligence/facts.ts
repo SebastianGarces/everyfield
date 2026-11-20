@@ -4,7 +4,7 @@ import * as c from "@everyfield/contracts/intelligence";
 import type { CriterionKey, CriterionStatus } from "@everyfield/contracts/phases";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
@@ -13,6 +13,7 @@ import { effectiveAdult } from "../people/adult.ts";
 import { commitmentOf } from "../people/commitments/lifecycle.ts";
 import { compatible } from "../teams/training/reads.ts";
 import { eligibleOwner } from "../tasks/owner.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 const presence = z.strictObject({ count: z.int(), latestOn: z.string().nullable() });
 
@@ -424,13 +425,8 @@ const factsRow = z.object({
 	inputs: z.unknown(),
 });
 
-class Refusal extends Error {
-	readonly code: c.FactsError["code"];
-	constructor(code: c.FactsError["code"]) {
-		super(code);
-		this.code = code;
-	}
-}
+const refusals = defineRefusals(c.factsError);
+const deny: Deny<typeof c.factsError> = refusals.deny;
 
 export async function captureFacts(db: Pick<Database, "execute">, plant: string, at: string | null) {
 	const when = at === null ? sql`statement_timestamp()` : sql`${instant.parse(at)}::timestamptz`;
@@ -447,24 +443,18 @@ export function createFacts(config: { clock?: Clock } = {}) {
 			authority: RequestActor,
 			raw: unknown = {},
 		): Promise<c.FactsReply<c.PlantFacts>> {
-			try {
-				if (!c.readFactsRequest.safeParse(raw).success) throw new Refusal("invalid_input");
+			return refusals.settle(async () => {
+				if (!c.readFactsRequest.safeParse(raw).success) deny("invalid_input");
 				const viewer = plantViewer(authority);
-				if (!viewer || viewer.access.role === "member") throw new Refusal("access_denied");
+				if (!viewer || viewer.access.role === "member") deny("access_denied");
 				const at = config.clock
 					? sql`${new Date(config.clock.now()).toISOString()}::timestamptz`
 					: sql`statement_timestamp()`;
 				const { rows } = await db.execute(statement(viewer.plantId, liveRead(viewer.access, true), at));
 				const r = factsRow.parse(rows[0]);
-				if (!r.ok || !r.today || !r.at) throw new Refusal("access_denied");
-				return { status: "ok", value: buildFacts(factInputs.parse(r.inputs), r.at, r.today) };
-			} catch (error) {
-				if (!(error instanceof Refusal)) throw error;
-				return {
-					status: "refused",
-					error: c.factsError.parse({ code: error.code, details: {}, correlationId: randomUUID(), retry: "never" }),
-				};
-			}
+				if (!r.ok || !r.today || !r.at) deny("access_denied");
+				return buildFacts(factInputs.parse(r.inputs), r.at, r.today);
+			});
 		},
 	};
 }

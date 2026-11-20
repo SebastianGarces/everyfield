@@ -189,10 +189,10 @@ async function lockAttendance(
 		FOR UPDATE OF m`;
 	for (let attempt = 0; ; attempt++) {
 		const r = await tx.execute(query);
-		if (!r.rows[0]) deny();
+		if (!r.rows[0]) deny("unavailable");
 		const f = factsRow.parse(r.rows[0]);
 		if (f.snapshot_revision === f.attendance_revision || attempt > 0) {
-			if (!w.admin && !f.leads) deny();
+			if (!w.admin && !f.leads) deny("unavailable");
 			return f;
 		}
 	}
@@ -205,7 +205,7 @@ async function generated<T>(body: () => Promise<T>): Promise<T> {
 		if (!(error instanceof TaskRefusal)) throw error;
 		if (error.code === "invalid_subject" || error.code === "invalid_input" || error.code === "owner_ineligible")
 			deny(error.code, {});
-		deny();
+		deny("unavailable");
 	}
 }
 const committed = (s: Stage | null) => s !== null && COMMITTED.includes(s);
@@ -744,7 +744,7 @@ async function lockEvaluation(tx: Tx, w: Writer, meetingId: string) {
 		sql`ARRAY(SELECT b.id FROM obligation b WHERE b.meeting_id = ${meetingId}::uuid AND b.kind = 'evaluation')`,
 	)} AS tasks FROM meeting m WHERE m.plant_id = ${w.plant.id}::uuid
 		AND m.id = ${meetingId}::uuid AND m.retired_at IS NULL FOR UPDATE OF m`);
-	if (!r.rows[0]) deny();
+	if (!r.rows[0]) deny("unavailable");
 	const row = r.rows[0] as Record<string, unknown>;
 	return { ...evaluationFacts.parse(row), tasks: row.tasks };
 }
@@ -913,7 +913,7 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 					const i = input.input;
 					const e = await lockEvaluation(tx, w, i.meetingId);
 					const before = evaluationOf(e, true);
-					if (!before) deny();
+					if (!before) deny("unavailable");
 					if (before.revision !== input.expectedRevision) deny("conflict");
 					const scores = { ...before.scores, ...i.changes };
 					const notes = i.notes === undefined ? before.notes : i.notes;
@@ -975,7 +975,7 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 						JOIN person p ON p.id = g.person_id AND p.tenant_id = m.plant_id AND p.state = 'live'
 						WHERE m.plant_id = ${w.plant.id}::uuid AND m.id = ${i.meetingId}::uuid AND m.retired_at IS NULL
 						FOR SHARE OF m, g, p`);
-					if (!r.rows[0]) deny();
+					if (!r.rows[0]) deny("unavailable");
 					const row = z
 						.object({ meeting_id: z.uuid(), type: c.meetingType, guest_id: z.uuid(), now: date })
 						.parse(r.rows[0]);

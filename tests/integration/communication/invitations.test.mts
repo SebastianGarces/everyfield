@@ -6,7 +6,7 @@ import { notificationCategory, notificationChannels } from "../../../packages/co
 import { fixture } from "../identity/invitations-support.mts";
 import { resendRecorder } from "./resend-recorder.mts";
 import { queuedMailTransport } from "../../../apps/web/src/server/mail/transport.ts";
-import { createMailService, runDueMail } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService, runDueMail } from "../../../packages/domain/src/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { INVITATION_MAIL } from "../../../apps/web/src/server/invitations/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";

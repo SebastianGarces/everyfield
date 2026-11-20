@@ -1,9 +1,14 @@
 import type { Database } from "@everyfield/db/client";
-import { readAccountContacts } from "@everyfield/domain/identity";
-import { reminderRecipients } from "@everyfield/domain/tasks";
+import { readAccountContacts } from "../identity/index.ts";
+import { reminderRecipients } from "../tasks/index.ts";
 import "server-only";
-import type { MailKeys } from "../config.ts";
 import { createMailService, type AuthorizeMail, type MailTransport, type MailUnsubscribe } from "./mail.ts";
+
+export type MailKeys = Readonly<{
+	IDENTITY_MAIL_KEY: string;
+	IDENTITY_ADDRESS_KEY: string;
+	IDENTITY_MAIL_FROM: string;
+}>;
 import { createNotificationService } from "./notifications.ts";
 
 export function mountMailService(config: {

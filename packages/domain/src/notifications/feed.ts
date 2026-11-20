@@ -143,7 +143,7 @@ export async function readFeed(
 			),
 		);
 		const row = pageRow.parse({ ...result.rows[0], items: jsonValue(result.rows[0]?.items) });
-		if (!row.account_id) deny();
+		if (!row.account_id) deny("unavailable");
 		return feedValue(row.items);
 	});
 }
@@ -172,7 +172,7 @@ export async function readFeedPage(
 			),
 		);
 		const row = pageRow.parse({ ...result.rows[0], items: jsonValue(result.rows[0]?.items) });
-		if (!row.account_id) deny();
+		if (!row.account_id) deny("unavailable");
 		const head = headRow.parse(result.rows[0]);
 		return { feed: feedValue(row.items), unread: head.unread, revision: head.revision };
 	});
@@ -186,7 +186,7 @@ export async function readUnreadCount(db: Database, authority: RequestActor, raw
 				(SELECT count(*)::int FROM notice n WHERE ${noticeVisible()} AND n.read_at IS NULL
 					AND (${input.category ?? null}::text IS NULL OR split_part(n.logical_key,'/',2) = ${input.category ?? null})) AS count`);
 		const row = countRow.parse(result.rows[0]);
-		if (!row.account_id) deny();
+		if (!row.account_id) deny("unavailable");
 		return { count: row.count } satisfies z.output<typeof unreadCountResult>;
 	});
 }
@@ -224,7 +224,7 @@ async function mark(
 			COALESCE((SELECT json_agg(id) FROM ${markedFrom}), '[]'::json) AS visible_ids,
 			EXISTS(SELECT FROM updated) AS changed`);
 	const row = markRow.parse({ ...result.rows[0], visible_ids: jsonValue(result.rows[0]?.visible_ids) });
-	if (!row.me) deny();
+	if (!row.me) deny("unavailable");
 	if (!row.locked) deny("conflict");
 	return row;
 }

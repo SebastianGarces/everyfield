@@ -3,8 +3,8 @@ import { notificationCategory as category } from "@everyfield/contracts/settings
 import type { Transaction } from "@everyfield/db/client";
 import { and, eq, isNull, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import { readAccountContacts } from "@everyfield/domain/identity";
-import { reminderSeats } from "@everyfield/domain/tasks";
+import { readAccountContacts } from "../identity/index.ts";
+import { reminderSeats } from "../tasks/index.ts";
 import "server-only";
 import { z } from "zod";
 import { taskReminderTimes } from "./calendar.ts";
