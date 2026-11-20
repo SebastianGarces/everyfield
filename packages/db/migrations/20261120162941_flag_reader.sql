@@ -11,7 +11,6 @@ LEFT JOIN LATERAL (SELECT a.occurred_at FROM audit_event a
   WHERE a.tenant_id=f.tenant_id AND a.subject_id=f.id AND a.action='flags.changed'
   ORDER BY a.occurred_at DESC, a.id DESC LIMIT 1) c ON true
 WHERE f.tenant_id='00000000-0000-0000-0000-000000000000'::uuid;
-REVOKE ALL ON flag_rollout FROM PUBLIC, everyfield_runtime, everyfield_auth, everyfield_cleanup;
 DO $$ BEGIN
   EXECUTE format('GRANT USAGE ON SCHEMA %I TO everyfield_flag_reader',current_schema());
 END $$;
