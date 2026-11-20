@@ -11,7 +11,8 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
   dev stack status|check|down [--project <path>]
   dev logs [--project <path>] [args...]    portless preview logs of this worktree's preview
   dev check [--full]    the local checks this change needs (authors), or every check (--full, verifiers); writes a
-        checks.json record outside the repo and prints its path. Selection reads the coverage map of the latest
+        checks.json record outside the repo and prints its path. It rewrites the record as each check starts
+        ("complete": false, "running": <check>), so a run killed by a timeout names its check. Selection reads the coverage map of the latest
         green GitHub nightly (.github/workflows/nightly.yml), downloaded with gh; without one it runs everything
         --full takes about 9 minutes alone and about 15 minutes each with six evf check slots side by side, test:db
         on Docker Postgres included. Neither form runs the statement census: it runs as the census check

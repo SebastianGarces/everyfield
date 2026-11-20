@@ -55,7 +55,7 @@ export const spawnRunner: Runner = (command, args, { cwd, env }) => {
 	return { status: result.status ?? 1, stdout, output: `${stdout}${result.stderr ?? ""}${result.error ?? ""}` };
 };
 
-type Result = "passed" | "failed" | "skipped" | "not run";
+type Result = "passed" | "failed" | "skipped" | "not run" | "running";
 export type CheckRecord = {
 	head: string | null;
 	mergeBase: string | null;
@@ -64,6 +64,9 @@ export type CheckRecord = {
 	startedAt: string;
 	durationMs: number;
 	result: "passed" | "failed";
+	/** false while the run is still going: a run killed mid-check leaves this record, naming the check it was on. */
+	complete: boolean;
+	running: CheckId | null;
 	failures: string[];
 	checks: {
 		id: CheckId;
@@ -239,6 +242,31 @@ export function check({
 		tests: null,
 	}));
 	const checks: CheckRecord["checks"] = [];
+	const assemble = (running: CheckId | null): CheckRecord => {
+		const found = [...failures];
+		for (const c of checks)
+			if (c.result === "failed")
+				found.push(
+					c.detail ? `${c.id} failed: ${c.detail}` : c.tests === 0 ? `${c.id} reported 0 tests` : `${c.id} failed`,
+				);
+		if (running) found.push(`incomplete: ${running} was still running when this record was written`);
+		else for (const t of testRecords) if (t.run && t.tests === 0) found.push(`${t.file} reported 0 tests`);
+		return {
+			head: input.head,
+			mergeBase: input.mergeBase,
+			mode: selection.mode,
+			fullReasons: selection.fullReasons,
+			startedAt: new Date(started).toISOString(),
+			durationMs: Date.now() - started,
+			result: found.length ? "failed" : "passed",
+			complete: running === null,
+			running,
+			failures: [...new Set(found)],
+			checks,
+			tests: testRecords,
+		};
+	};
+	const progress = (running: CheckId) => writeRecord(home, root, "checks.json", assemble(running));
 	for (const id of Object.keys(CHECKS) as CheckId[]) {
 		const decision = id === "census" ? { run: false, reason: CENSUS_ELSEWHERE } : selection.checks[id];
 		const entry: CheckRecord["checks"][number] = {
@@ -251,6 +279,8 @@ export function check({
 		};
 		checks.push(entry);
 		if (!decision.run) continue;
+		entry.result = "running";
+		progress(id);
 		const t0 = Date.now();
 		const definition = CHECKS[id];
 		const exec = (command: string, args: string[], extra: Record<string, string> = {}) => {
@@ -339,24 +369,7 @@ export function check({
 	}
 	if (selection.mode === "selected" && !checks.some((c) => c.run))
 		failures.push("the diff selected no checks, so nothing proves it; run bin/dev check --full");
-	for (const c of checks)
-		if (c.result === "failed")
-			failures.push(
-				c.detail ? `${c.id} failed: ${c.detail}` : c.tests === 0 ? `${c.id} reported 0 tests` : `${c.id} failed`,
-			);
-	for (const t of testRecords) if (t.run && t.tests === 0) failures.push(`${t.file} reported 0 tests`);
-	const record: CheckRecord = {
-		head: input.head,
-		mergeBase: input.mergeBase,
-		mode: selection.mode,
-		fullReasons: selection.fullReasons,
-		startedAt: new Date(started).toISOString(),
-		durationMs: Date.now() - started,
-		result: failures.length ? "failed" : "passed",
-		failures: [...new Set(failures)],
-		checks,
-		tests: testRecords,
-	};
+	const record = assemble(null);
 	return { record, recordPath: writeRecord(home, root, "checks.json", record) };
 }
 
@@ -498,24 +511,34 @@ export function censusCheck({ root, all, home = ciHome(), run = spawnRunner, dat
 		tests: null,
 		durationMs: 0,
 	};
+	const assemble = (running: boolean): CheckRecord => {
+		const failures = [
+			...(entry.result === "failed" ? [`census failed: ${entry.detail}`] : []),
+			...(running ? ["incomplete: census was still running when this record was written"] : []),
+		];
+		return {
+			head,
+			mergeBase,
+			mode: all ? "full" : "selected",
+			fullReasons: all ? ["--all runs the census regardless of the diff"] : [],
+			startedAt: new Date(started).toISOString(),
+			durationMs: Date.now() - started,
+			result: failures.length ? "failed" : "passed",
+			complete: !running,
+			running: running ? "census" : null,
+			failures,
+			checks: [entry],
+			tests: [],
+		};
+	};
 	if (decision.run) {
+		entry.result = "running";
+		writeRecord(home, root, "census.json", assemble(true));
 		const env = checkEnv(`${checkTmp(root, home)}-census`);
 		census(entry, { root, env, run, scope: "census", ...database });
 		entry.durationMs = Date.now() - started;
 	}
-	const failures = entry.result === "failed" ? [`census failed: ${entry.detail}`] : [];
-	const record: CheckRecord = {
-		head,
-		mergeBase,
-		mode: all ? "full" : "selected",
-		fullReasons: all ? ["--all runs the census regardless of the diff"] : [],
-		startedAt: new Date(started).toISOString(),
-		durationMs: Date.now() - started,
-		result: failures.length ? "failed" : "passed",
-		failures,
-		checks: [entry],
-		tests: [],
-	};
+	const record = assemble(false);
 	return { record, recordPath: writeRecord(home, root, "census.json", record) };
 }
 

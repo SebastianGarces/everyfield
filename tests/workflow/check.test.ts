@@ -213,6 +213,53 @@ test("T-41 a non-empty diff that selects no checks fails, and so does a check th
 	});
 });
 
+test("INV-check-record: a run killed mid-check leaves a partial record naming the running check and each finished one's time", (t) => {
+	const { root, home } = repo(
+		t,
+		{ "docs/a.md": "b\n" },
+		{
+			"tools/qa/tests/a.test.ts": "\n",
+			"tools/app/tests/a.test.ts": "\n",
+			"ops/actionable-watch/test/a.test.mts": "\n",
+		},
+	);
+	const recordPath = join(home, "checks", root.split("/").at(-1)!, "checks.json");
+	const { run: base } = fake();
+	let seen: CheckRecord | undefined;
+	const run: Runner = (command, args, options) => {
+		if (args.includes("tools/ci/tests/a.test.ts")) {
+			seen = read(recordPath);
+			throw new Error("killed by the evf timeout");
+		}
+		return base(command, args, options);
+	};
+	assert.throws(() => check({ root, full: true, home, run }), /killed by the evf timeout/);
+	assert.deepEqual(read(recordPath), seen, "the kill leaves the record written when tools-ci started");
+	const partial = seen!;
+	assert.equal(partial.complete, false);
+	assert.equal(partial.running, "tools-ci");
+	assert.equal(partial.result, "failed");
+	assert.deepEqual(partial.failures, ["incomplete: tools-ci was still running when this record was written"]);
+	const byId = Object.fromEntries(partial.checks.map((c) => [c.id, c]));
+	assert.equal(byId["tools-ci"]!.result, "running");
+	for (const id of ["lint", "test:unit", "docs", "ci-coverage", "workflow"] as const) {
+		assert.equal(byId[id]!.result, "passed", id);
+		assert.equal(typeof byId[id]!.durationMs, "number", id);
+	}
+	assert.equal(byId.census!.result, "skipped");
+	assert.deepEqual(
+		partial.checks.slice(partial.checks.findIndex((c) => c.id === "tools-ci") + 1).map((c) => c.result),
+		partial.checks.slice(partial.checks.findIndex((c) => c.id === "tools-ci") + 1).map(() => "not run"),
+		"checks after the running one have not started",
+	);
+	const { record } = check({ root, full: true, home, run: base });
+	assert.deepEqual(
+		{ complete: record.complete, running: record.running, result: record.result },
+		{ complete: true, running: null, result: "passed" },
+	);
+	assert.deepEqual(read(recordPath), record, "a finished run replaces the partial record");
+});
+
 test("T-41 --full, the verifier mode, ignores selection: a docs-only diff runs every check", (t) => {
 	const { root, home } = repo(
 		t,
