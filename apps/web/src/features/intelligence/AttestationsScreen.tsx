@@ -84,6 +84,7 @@ import {
 	type Draft,
 	type SignalOutcome,
 } from "./signals-model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
 
 export function AttestationsScreen({ initial, viewerName }: { initial: AttestationsPage; viewerName: string }) {
 	const [page, setPage] = useState(initial);
@@ -162,9 +163,10 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		);
 	}
 	async function reload() {
-		const result = await sent(() => reloadAttestations());
+		const result = await reloadAttestations().catch(() => ({ status: "lost" }) as const);
 		if (result.status === "ok") setPage(result.value);
-		else toast({ message: "Everyfield could not be reached. Try again in a moment.", tone: "error" });
+		else
+			toast({ message: loadProblem(result, "Everyfield could not be reached. Try again in a moment."), tone: "error" });
 	}
 
 	async function saveCandidate(
