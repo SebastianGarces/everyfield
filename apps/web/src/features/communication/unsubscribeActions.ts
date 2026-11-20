@@ -1,12 +1,13 @@
 "use server";
 
+import type { Outcome } from "@everyfield/contracts/common";
 import {
 	applyMessagesOptOut,
 	undoMessagesOptOut,
 	type MessagesOptInResult,
 	type MessagesOptOutResult,
 } from "@everyfield/domain/communication";
-import type { Outcome } from "./model.ts";
+
 import { unsubscribeCall } from "./unsubscribe.ts";
 
 export async function applyUnsubscribe(token: string): Promise<Outcome<MessagesOptOutResult>> {

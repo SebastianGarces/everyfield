@@ -90,10 +90,11 @@ function env(extra: Record<string, string | undefined> = {}): NodeJS.ProcessEnv 
 	return out;
 }
 
-function typecheck(f: Fixture, extra: Record<string, string | undefined> = {}, script = "typecheck") {
+function typecheck(f: Fixture, extra: Record<string, string | undefined> = {}, script = "typecheck", timeout?: number) {
 	return spawnSync(process.execPath, [tool, script], {
 		cwd: f.root,
 		encoding: "utf8",
+		timeout,
 		env: env({ CI: undefined, XDG_STATE_HOME: f.state, ...extra }),
 	});
 }
@@ -115,14 +116,12 @@ test("INV-typecheck: pnpm typecheck exits 1 when any package's tsc finds errors,
 			"packages/b": { scripts: { typecheck: PASS } },
 		});
 		t.after(f.close);
-		const started = Date.now();
-		const run = typecheck(f, { TYPECHECK_TIMEOUT_MS: "1000" });
-		assert.equal(run.status, 1, `tsc ${name}: ${run.stdout}${run.stderr}`);
+		const run = typecheck(f, { TYPECHECK_TIMEOUT_MS: "1000" }, "typecheck", 20_000);
+		assert.equal(run.status, 1, `tsc ${name}, a hung checker is stopped by the timeout: ${run.stdout}${run.stderr}`);
 		assert.match(run.stderr, why, name);
 		assert.match(run.stderr, /typecheck failed in 1 of 2 packages/);
 		if (script.includes("TS2322"))
 			assert.match(run.stdout, /^packages\/a typecheck: src\/a\.ts\(3,5\): error TS2322: Type mismatch\.$/m);
-		assert.ok(Date.now() - started < 20_000, "a hung checker is stopped by the timeout");
 	}
 	const clean = workspace({
 		"packages/a": { scripts: { typecheck: PASS } },

@@ -36,13 +36,23 @@ export function EvryBot({
 	const sh = useRef<SVGLinearGradientElement>(null);
 	const live = useCallback((root: HTMLSpanElement | null) => {
 		if (!root) return;
+		const parts = {
+			path: path.current,
+			g: g.current,
+			left: eye0.current,
+			right: eye1.current,
+			hl: hl.current,
+			sh: sh.current,
+		};
+		if (!parts.path || !parts.g || !parts.left || !parts.right || !parts.hl || !parts.sh)
+			throw Error("EvryBot mounted without its SVG parts");
 		const handle = mountEvry({
 			root,
-			path: path.current!,
-			g: g.current!,
-			eyes: [eye0.current!, eye1.current!],
-			hl: hl.current!,
-			sh: sh.current!,
+			path: parts.path,
+			g: parts.g,
+			eyes: [parts.left, parts.right],
+			hl: parts.hl,
+			sh: parts.sh,
 		});
 		return () => handle.unmount();
 	}, []);

@@ -14,8 +14,8 @@ import {
 import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import { peopleMerge, peopleReader, peopleUnmerge, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { createPhaseWriter, phaseReader } from "../../../packages/domain/src/phases/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { seatedNotificationService } from "../../../apps/web/src/server/jobs/seated-notifications.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { seatedNotificationService } from "../../../packages/domain/src/jobs/seated-notifications.ts";
 import { launchNotices } from "../../../apps/web/src/features/launch/notices.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 

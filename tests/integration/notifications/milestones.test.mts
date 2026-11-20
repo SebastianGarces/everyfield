@@ -6,7 +6,7 @@ import * as S from "../organizations/support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createNotificationProducer } from "../../../packages/domain/src/notifications/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import {
 	authorizeNotificationMail,
 	createNotificationWorker,
