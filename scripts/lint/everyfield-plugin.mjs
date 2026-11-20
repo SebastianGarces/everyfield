@@ -1400,10 +1400,6 @@ export const WEB_SQL_HOLDERS = {
 		why: "the notification worker's mail authorizer reads which recipients still hold a grant for each queued notice mail",
 		movedBy: MAIL_AUTHORIZERS,
 	},
-	"apps/web/src/features/organizations/mount.ts": {
-		why: "an organization effect supersedes a plant's pending digest jobs with its own UPDATE of the job table",
-		movedBy: "a supersede operation in @everyfield/domain/jobs's queue (R-12 slice 20 follow-up, AP-S-17)",
-	},
 	"apps/web/src/features/settings/mail.ts": {
 		why: "the settings mail authorizer reads notice addresses and pending email-change proofs for queued account mail",
 		movedBy: MAIL_AUTHORIZERS,
