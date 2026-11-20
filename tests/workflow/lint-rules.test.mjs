@@ -1691,7 +1691,7 @@ export type Outcome<T> = Other<T>;
 	);
 });
 
-test("INV-lint: a context value built during render is reported through aliases, casts and conditionals; stable values are not", () => {
+test("INV-lint: a context value built during render is reported through aliases, casts, conditionals and outer bindings; every context and alias of one is a const named *Context; stable values are not", () => {
 	const source = `import React, { createContext, useCallback, useMemo } from "react";
 type T = { theme: string };
 const ThemeContext = createContext<object | null>(null);
@@ -1724,6 +1724,23 @@ export function B({ children, ...rest }: { children: unknown; a: string }) {
 export const Seat = createContext(null);
 export const Flag = React.createContext(false);
 export const SeatContext = createContext(null);
+const Settled = { theme: "fixed" };
+export function C({ items, theme, children }: { items: string[]; theme: string; children: unknown }) {
+	const outer = { theme };
+	const kept = useMemo(() => ({ theme }), [theme]);
+	return items.map((item) => (
+		<ThemeContext key={item} value={outer}>
+			<ThemeContext value={kept}>{children}</ThemeContext>
+			<ThemeContext value={Settled}>{children}</ThemeContext>
+			{[item].map((outer) => <ThemeContext key={outer} value={outer}>{children}</ThemeContext>)}
+		</ThemeContext>
+	));
+}
+const Alias = ThemeContext;
+const AliasContext = ThemeContext as typeof ThemeContext;
+export default createContext(null);
+export const contexts = { Ctx: createContext(null) };
+export const CastContext = createContext(null) as object;
 `;
 	assert.deepEqual(lint({ "packages/ui/src/x.tsx": source }), [
 		"packages/ui/src/x.tsx:13 stable-context-value",
@@ -1736,6 +1753,10 @@ export const SeatContext = createContext(null);
 		"packages/ui/src/x.tsx:28 stable-context-value",
 		"packages/ui/src/x.tsx:30 stable-context-value",
 		"packages/ui/src/x.tsx:31 stable-context-value",
+		"packages/ui/src/x.tsx:38 stable-context-value",
+		"packages/ui/src/x.tsx:45 stable-context-value",
+		"packages/ui/src/x.tsx:47 stable-context-value",
+		"packages/ui/src/x.tsx:48 stable-context-value",
 	]);
 });
 
