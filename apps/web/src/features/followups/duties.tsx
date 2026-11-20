@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { Add01Icon } from "@hugeicons/core-free-icons";
 import { accountId, personId } from "@everyfield/contracts/common";
@@ -30,15 +31,7 @@ import { AssigneePicker, forgetAssignees } from "../tasks/AssigneePicker.tsx";
 import { dueText, ownerText, ownerWarning } from "../tasks/model.ts";
 import { assignFollowUp, createFollowUp } from "./actions.ts";
 import { forgetOwners, ownerList, prefetchOwners, warmOn } from "./fetch.ts";
-import {
-	needsOwner,
-	OUTCOME_LABEL,
-	originText,
-	type Account,
-	type DutyItem,
-	type Outcome,
-	type Owner,
-} from "./model.ts";
+import { needsOwner, OUTCOME_LABEL, originText, type Account, type DutyItem, type Owner } from "./model.ts";
 import {
 	DialogNotice,
 	NoticeInDialog,

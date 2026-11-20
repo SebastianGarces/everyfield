@@ -1,6 +1,7 @@
 import { HANDOFF_LIMIT } from "@everyfield/contracts/followups";
 import { createStore, type StoreApi } from "zustand/vanilla";
-import { keepSelection, type HandoffPlan, type HandoffResult, type Outcome } from "./model.ts";
+import type { Outcome } from "@everyfield/contracts/common";
+import { keepSelection, type HandoffPlan, type HandoffResult } from "./model.ts";
 
 export type HandoffPort = { loadPlan: (from: string) => Promise<Outcome<HandoffPlan>> };
 

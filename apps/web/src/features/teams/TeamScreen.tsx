@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import {
 	Add01Icon,
@@ -37,7 +38,7 @@ import {
 	Tabs,
 	TabsList,
 	TabsPanel,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
@@ -87,7 +88,6 @@ import {
 	stampText,
 	type HistoryEntry,
 	type Member,
-	type Outcome,
 	type Role,
 	type SetupForm,
 } from "./model.ts";
@@ -114,7 +114,6 @@ type PersonFlow = { kind: "leader" } | { kind: "member"; role: Role | null };
 
 export function TeamScreen({ data: loaded }: { data: TeamView }) {
 	const router = useRouter();
-	const toast = useToast();
 	const [local, setLocal] = useState<{ from: TeamView; value: TeamView } | null>(null);
 	const data = local?.from === loaded ? local.value : loaded;
 	const setData = (change: (d: TeamView) => TeamView) =>

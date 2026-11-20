@@ -22,8 +22,8 @@ import {
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
 import { entryText, STEP_TEXT } from "../../../apps/web/src/features/overview/model.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { testDatabase, type Database } from "../../support/test-database.mts";
 import { nativePorts } from "./settings-ports.mts";
 import { seedHope } from "./golden-church.mts";

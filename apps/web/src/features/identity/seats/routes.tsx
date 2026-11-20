@@ -1,6 +1,6 @@
+import { signIn } from "@/server/sign-in";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { viewerOf } from "../../organizations/mount";
 import { NotAvailable } from "../../access/AccessStates";
 import { AFTER_SIGN_IN } from "../SignInScreen";
@@ -12,7 +12,7 @@ export const seatsMetadata: Metadata = { title: "Seats and invitations", robots:
 
 export async function SeatsPage() {
 	const who = await viewerOf();
-	if (who.kind === "signed_out") redirect("/signin?returnTo=%2Fsettings%2Fseats");
+	if (who.kind === "signed_out") signIn("/settings/seats");
 	const read = await loadSeats(await workspaceViewer());
 	if (read.status !== "ready")
 		return (

@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import {
 	Add01Icon,
@@ -22,14 +23,14 @@ import {
 	MenuTrigger,
 	Spinner,
 	StatePanel,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { useState, useTransition } from "react";
 import { localToday } from "../../../components/clock.ts";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
-import { dayText, type Outcome } from "../model.ts";
+import { dayText } from "../model.ts";
 import {
 	attestCompletion,
 	attestService,
@@ -82,7 +83,6 @@ export function TrainingTab({
 	canChange: boolean;
 	admin: boolean;
 }) {
-	const toast = useToast();
 	const lane = useSaveIntent<Flow>({ explain: problemText });
 	const training = useRead(trainings, teamId);
 	const [reloading, startReload] = useTransition();

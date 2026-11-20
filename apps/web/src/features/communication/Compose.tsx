@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { ArrowLeft01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, Field, Select } from "@everyfield/ui/controls";
@@ -32,7 +33,6 @@ import {
 	type Draft,
 	type Handoff,
 	type MeetingContext,
-	type Outcome,
 	type PageData,
 	type Step,
 } from "./model.ts";
