@@ -38,6 +38,7 @@ export function LoadableView<T>({
 			<StatePanel
 				tone="error"
 				title={state.title ?? "This did not load"}
+				icon={state.icon}
 				headingLevel="h3"
 				meta={state.meta}
 				actions={
@@ -48,7 +49,7 @@ export function LoadableView<T>({
 					) : undefined
 				}
 			>
-				Nothing was changed. Try again in a moment.
+				{state.text ?? "Nothing was changed. Try again in a moment."}
 			</StatePanel>
 		);
 	}

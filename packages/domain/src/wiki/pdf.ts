@@ -155,7 +155,7 @@ type Line = { text: string; code?: true };
 function diagramText(diagram: Diagram): string[] {
 	const node = (n: { label: string; detail?: string; note?: string }) =>
 		`${n.label}${n.detail ? ` - ${n.detail}` : ""}${n.note ? ` (${n.note})` : ""}`;
-	const lines = [diagram.title, `${diagram.type[0]!.toUpperCase()}${diagram.type.slice(1)} diagram`];
+	const lines = [diagram.title, `${diagram.type.charAt(0).toUpperCase()}${diagram.type.slice(1)} diagram`];
 	if (diagram.type === "hierarchy") {
 		const walk = (nodes: readonly HierarchyNode[], depth: number) => {
 			for (const n of nodes) {

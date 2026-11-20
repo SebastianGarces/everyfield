@@ -56,6 +56,7 @@ import {
 	withRemoved,
 	withRole,
 } from "./model";
+import { READ_FAILED, thrownRead } from "../../../components/read-failed.ts";
 
 async function send<T>(op: SeatOperation, command: unknown, schema: { parse: (v: unknown) => T }): Promise<T> {
 	const reply = await runSeatCommand(op, command);
@@ -77,7 +78,7 @@ type Load = { data: SeatsData } | { gone: true };
 export function SeatsScreen({ initial }: { initial: SeatsData }) {
 	const [state, setState] = useState<Load>({ data: initial });
 	const [refreshing, setRefreshing] = useState(false);
-	const [reloadFailed, setReloadFailed] = useState(false);
+	const [reloadFailed, setReloadFailed] = useState<"lost" | "failed" | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
 	const attempt = useRef(0);
 	const frameSeat = useOwnSeatChange();
@@ -85,13 +86,13 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 	const reload = useCallback(async () => {
 		const mine = ++attempt.current;
 		setRefreshing(true);
-		setReloadFailed(false);
+		setReloadFailed(null);
 		try {
 			const r = await readSeats();
 			if (mine !== attempt.current) return;
 			setState(r.status === "ready" ? { data: parseSeats(r) } : { gone: true });
-		} catch {
-			if (mine === attempt.current) setReloadFailed(true);
+		} catch (error) {
+			if (mine === attempt.current) setReloadFailed(thrownRead(error).status);
 		} finally {
 			if (mine === attempt.current) setRefreshing(false);
 		}
@@ -143,7 +144,11 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 			{reloadFailed ? (
 				<ProblemLine
 					problem="refused"
-					refused="The latest seats did not load. Check your connection, then load them again."
+					refused={
+						reloadFailed === "failed"
+							? READ_FAILED
+							: "The latest seats did not load. Check your connection, then load them again."
+					}
 					action={
 						<Button size="sm" variant="secondary" onClick={() => void reload()}>
 							Load again
@@ -335,7 +340,7 @@ function RosterCard({
 	onOwnSeat: OwnSeat;
 } & Changes) {
 	const roleIntent = useIntent<RoleCommand>("seat-role");
-	const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
+	const [more, setMore] = useState<"idle" | "loading" | "lost" | "failed">("idle");
 	const items = data.roster.items;
 	const next = data.roster.next;
 	const active = items
@@ -381,8 +386,8 @@ function RosterCard({
 			const page = seatListResult.parse(r.value);
 			onApply((d) => withPage(d, { list: "seats", value: page }));
 			setMore("idle");
-		} catch {
-			setMore("failed");
+		} catch (error) {
+			setMore(thrownRead(error).status);
 		}
 	}
 
@@ -497,9 +502,9 @@ function RosterCard({
 					<Button size="sm" variant="secondary" loading={more === "loading"} onClick={() => void loadMore()}>
 						Show more seats
 					</Button>
-					{more === "failed" ? (
+					{more === "lost" || more === "failed" ? (
 						<p role="alert" className="text-sm text-magenta-600">
-							More seats did not load. Try again.
+							{more === "failed" ? READ_FAILED : "More seats did not load. Try again."}
 						</p>
 					) : null}
 				</div>
@@ -550,7 +555,7 @@ function PendingCard({
 	const revoke = useIntent<InvitationCommand>("seat-revoke");
 	const [last, setLast] = useState<Action>("resend");
 	const [retryAt, setRetryAt] = useState<string | null>(null);
-	const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
+	const [more, setMore] = useState<"idle" | "loading" | "lost" | "failed">("idle");
 	const items = invitations.items;
 	const next = invitations.next;
 	const intent = last === "resend" ? resend : revoke;
@@ -615,8 +620,8 @@ function PendingCard({
 			const page = invitationListResult.parse(r.value);
 			onApply((d) => withPage(d, { list: "invitations", value: page }));
 			setMore("idle");
-		} catch {
-			setMore("failed");
+		} catch (error) {
+			setMore(thrownRead(error).status);
 		}
 	}
 
@@ -715,9 +720,9 @@ function PendingCard({
 					<Button size="sm" variant="secondary" loading={more === "loading"} onClick={() => void loadMore()}>
 						Show more invitations
 					</Button>
-					{more === "failed" ? (
+					{more === "lost" || more === "failed" ? (
 						<p role="alert" className="text-sm text-magenta-600">
-							More invitations did not load. Try again.
+							{more === "failed" ? READ_FAILED : "More invitations did not load. Try again."}
 						</p>
 					) : null}
 				</div>

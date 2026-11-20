@@ -1,5 +1,5 @@
 import type { Database, Transaction } from "@everyfield/db/client";
-import { eq, sql } from "@everyfield/db/query";
+import { eq, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import "server-only";
@@ -68,6 +68,17 @@ export function queueJobs(tx: Transaction, inputs: readonly JobInput[]) {
 			})),
 		)
 		.onConflictDoNothing();
+}
+const subjectJobSchema = enqueueSchema
+	.pick({ tenant: true, kind: true, maxAttempts: true })
+	.extend({ keyPrefix: z.string().min(1).max(256) });
+
+export function queueJobsFor(subjects: SQL, input: z.input<typeof subjectJobSchema>) {
+	const v = subjectJobSchema.parse(input);
+	return sql`INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts,
+  claim_generation)
+ SELECT ${v.tenant}::uuid, ${v.kind}::text, id, ${v.keyPrefix}::text || id::text, 'ready', clock_timestamp(), 0,
+  ${v.maxAttempts}::int, 0 FROM ${subjects} ON CONFLICT DO NOTHING`;
 }
 export async function enqueueJobs(tx: Transaction, inputs: readonly JobInput[]): Promise<string[]> {
 	const values = inputs.map((input) => enqueueSchema.parse(input));
@@ -148,7 +159,9 @@ WITH due AS (
 ) UPDATE job j SET state='claimed',attempt_count=attempt_count+1,claim_generation=claim_generation+1,
   lease_owner='${owner}',lease_until=clock_timestamp()+make_interval(secs=>${config.lease}),revision=revision+1
   FROM due WHERE j.id=due.id RETURNING j.*`)) as { rows: unknown[] }[];
-	return results[1]!.rows.map((row) => claimSchema.parse(row));
+	const [, claimed] = results;
+	if (!claimed) throw Error("The claim batch returned no claimed rows result");
+	return claimed.rows.map((row) => claimSchema.parse(row));
 }
 export async function lockClaim(tx: Transaction, claim: Claim): Promise<boolean> {
 	const r =
@@ -221,7 +234,9 @@ export async function finishJob(db: Database, claim: Claim, result: JobResult): 
 	const results = (await pool.query(`SET LOCAL statement_timeout = '5s';\n${finishStatement(claim, result)}`)) as {
 		rowCount: number | null;
 	}[];
-	return results[1]!.rowCount === 1;
+	const [, finished] = results;
+	if (!finished) throw Error("The finish batch returned no finish result");
+	return finished.rowCount === 1;
 }
 
 export async function recoverLease(db: Database, limit = 100): Promise<number> {
