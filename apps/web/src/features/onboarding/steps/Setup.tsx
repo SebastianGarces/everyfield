@@ -83,7 +83,7 @@ export function JourneyStep({ state, actions, resume, plantName }: Props) {
 	return (
 		<section data-onboarding-step="journey">
 			<StepHeading title={`Where is ${name} today?`}>
-				{name[0]!.toUpperCase() + name.slice(1)} is in Phase {current}, {phaseName(current)}. If you were already
+				{name.charAt(0).toUpperCase() + name.slice(1)} is in Phase {current}, {phaseName(current)}. If you were already
 				further along when you joined, pick that phase. We will not invent history for the phases before it.
 			</StepHeading>
 			<fieldset className="mx-auto mt-[34px] max-w-[820px]">
@@ -246,7 +246,10 @@ export function TeamStep({ state, actions, resume, plantName }: Props) {
 	const [problems, setProblems] = useState<ReturnType<typeof leadProblems>>({});
 	const [choiceProblem, setChoiceProblem] = useState<string | null>(null);
 	const name = churchName(plantName);
-	const back = () => actions.go(previousStep("team")!);
+	const back = () => {
+		const step = previousStep("team");
+		if (step) actions.go(step);
+	};
 	if (leadLocked(resume)) {
 		return (
 			<section data-onboarding-step="team">
