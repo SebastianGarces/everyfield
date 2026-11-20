@@ -340,6 +340,23 @@ test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, too
 		);
 });
 
+test("INV-typecheck: no tests/integration file declares a global, augments a module, references a declaration file or is one, so one folder's types never satisfy another folder in the shared integration program", () => {
+	const files = globSync("tests/integration/**/*.{ts,mts,cts}", { cwd: repo });
+	assert.ok(files.length > 0);
+	assert.deepEqual(
+		files.filter((file) => /\.d\.[mc]?ts$/.test(file)),
+		[],
+		"declaration files under tests/integration",
+	);
+	assert.deepEqual(
+		files.filter((file) =>
+			/\bdeclare\s+(?:global|module)\b|^\s*\/\/\/\s*<reference\b/m.test(readFileSync(join(repo, file), "utf8")),
+		),
+		[],
+		"declare global, declare module or a triple-slash reference under tests/integration",
+	);
+});
+
 test("INV-typecheck: every package's typecheck runs tsc, and its typecheck:bun the pinned bun 1.4.4, never a global bun", (t) => {
 	assert.equal(rootPkg.devDependencies.bun, "1.4.4");
 	assert.equal(rootPkg.scripts.typecheck, "node tools/ci/typecheck.ts");

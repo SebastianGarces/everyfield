@@ -1,7 +1,7 @@
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import { consentOperations } from "./consent.ts";
 export { readPipelineConsents } from "./consent.ts";
-import type { OrganizationEffects, RelationshipNotice } from "./core.ts";
+import type { OrganizationEffects, OrganizationRefusalCode, RelationshipNotice } from "./core.ts";
 import { getHistory } from "./history.ts";
 export { readHistory } from "./history.ts";
 import type { GeographyReference } from "./profile.ts";
@@ -35,7 +35,8 @@ export {
 	reviewJobOf,
 	reviewMailGrants,
 } from "./notifications.ts";
-export type { GeographyReference, OrganizationEffects, RelationshipNotice };
+export type { GeographyReference, OrganizationEffects, OrganizationRefusalCode, RelationshipNotice };
+export { OrganizationRefusal, refuse } from "./core.ts";
 
 export { idsIn, namesFor, pairOf, pendingFor, residencyLinks, subjectFacts, targetsFor } from "./reads.ts";
 export type { Kind, Viewer } from "./reads.ts";
