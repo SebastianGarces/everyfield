@@ -77,10 +77,12 @@ export async function liveOwner(tx: Transaction, selected: Owner, lock = true): 
 					),
 		);
 	const roots = await (lock ? query.for("share", { of: root }) : query);
+	const [only] = roots;
 	if (
 		roots.length !== 1 ||
-		roots[0]!.kind !== selected.kind ||
-		(selected.kind === "organization" && roots[0]!.organization_kind !== selected.organizationKind)
+		!only ||
+		only.kind !== selected.kind ||
+		(selected.kind === "organization" && only.organization_kind !== selected.organizationKind)
 	)
 		return false;
 	if (!lock) return true;
@@ -133,7 +135,8 @@ async function viewerRow(db: Executor, identity: SQL, requested?: Owner) {
 			(SELECT a.avatar_object_id FROM account a WHERE a.id=i.account_id) AS avatar
 		FROM identity i CROSS JOIN selected
 	`);
-	return r.rows.length === 1 ? r.rows[0]! : null;
+	const [row] = r.rows;
+	return r.rows.length === 1 && row ? row : null;
 }
 function actorOf(row: SessionRow) {
 	const { now, seats, selected_owner: selected, hidden } = row;
@@ -151,7 +154,8 @@ function actorOf(row: SessionRow) {
 				? { status: "active", accountId: row.account_id, context: { kind: "account", owner: selected } }
 				: { status: "unavailable" },
 		);
-	const seat = seats[0]! && seatRow.parse(seats[0]!);
+	const [first] = seats;
+	const seat = first ? seatRow.parse(first) : undefined;
 	if (
 		!seat ||
 		seat.accepted_at > now ||
