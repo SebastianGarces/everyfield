@@ -5,6 +5,7 @@ import {
 	createContext,
 	use,
 	useId,
+	useMemo,
 	useState,
 	type ComponentPropsWithRef,
 	type FocusEvent,
@@ -27,8 +28,10 @@ export function HoverGroup({
 }: { current?: string | null } & ComponentPropsWithRef<"div">) {
 	const layoutId = useId();
 	const [hovered, setHovered] = useState<string | null>(null);
+	const shown = hovered ?? current;
+	const group = useMemo(() => ({ layoutId, shown, hover: setHovered }), [layoutId, shown]);
 	return (
-		<GroupContext value={{ layoutId, shown: hovered ?? current, hover: setHovered }}>
+		<GroupContext value={group}>
 			<div
 				{...props}
 				className={cn("relative isolate", className)}

@@ -72,7 +72,7 @@ export function profileOperations(
 				const c = await beginCommand(tx, actor, selected, "organizations.updateProfile", q);
 				if (c.kind === "replay") return Q.mutationResult.parse(c.result);
 				await applyOrganizationProfile(tx, c, selected.id, q.input.patch, q.expectedRevision);
-				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
+				return finishCommand(tx, c, () => ({ status: "committed" }) satisfies z.output<typeof Q.mutationResult>);
 			});
 		},
 		async "organizations.correctReportingLocation"(tx, session, selected, raw) {
@@ -174,7 +174,7 @@ export function profileOperations(
 							revision: next,
 						}),
 					);
-				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
+				return finishCommand(tx, c, () => ({ status: "committed" }) satisfies z.output<typeof Q.mutationResult>);
 			});
 		},
 	};

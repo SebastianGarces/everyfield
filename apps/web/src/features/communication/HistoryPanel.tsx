@@ -57,10 +57,13 @@ import { pickSampleName } from "./fields.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
 import { createHistoryStore } from "./HistoryPanel.store.ts";
 import { useKeys } from "./useKeys.ts";
+import { READ_FAILED } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type PersonName = { id: string; displayName: string; email: string | null };
 
-function problem(result: Outcome<unknown>): string {
+function problem(result: Outcome<unknown> | ReadFailure): string {
+	if (result.status === "failed") return READ_FAILED;
 	if (result.status === "lost") return "Unable to reach the church records. Try again in a moment.";
 	if (result.status === "refused" && result.code === "not_found") return "That record is no longer here.";
 	if (result.status === "refused" && result.code === "access_denied")
@@ -85,7 +88,7 @@ type MoreItems = { items: HistoryItem[]; page: HistoryPage };
 
 const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 
-function loadPage(list: ListQuery, cursor: string | null): Promise<Outcome<HistoryPage | PersonHistory>> {
+function loadPage(list: ListQuery, cursor: string | null): Promise<Outcome<HistoryPage | PersonHistory> | ReadFailure> {
 	if (list.kind === "person") return readPersonHistory(list.personId, cursor ?? undefined);
 	if (list.kind === "meeting") return readMeetingHistory(list.meetingId, cursor ?? undefined);
 	return readHistory({

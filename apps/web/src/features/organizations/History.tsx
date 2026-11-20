@@ -8,6 +8,7 @@ import { NotAvailable } from "../access/AccessStates";
 import { historyReason, subjectOf } from "./model";
 import { formatDay } from "../../components/dates.ts";
 import type { History, HistoryItem, NameOf, RelationshipPair } from "./port";
+import { READ_FAILED, thrownRead } from "../../components/read-failed.ts";
 
 export type ReadHistory = (after: string | null) => Promise<{ status: "unavailable" } | History>;
 
@@ -28,7 +29,7 @@ export function HistoryList({
 	zone: string;
 }) {
 	const [pages, setPages] = useState<History[]>([first]);
-	const [state, setState] = useState<"idle" | "loading" | "failed" | "refused">("idle");
+	const [state, setState] = useState<"idle" | "loading" | "lost" | "failed" | "refused">("idle");
 	const last = pages[pages.length - 1]!;
 	const items = pages.flatMap((p) => p.items);
 
@@ -41,8 +42,8 @@ export function HistoryList({
 			if (page.status === "unavailable") return setState("refused");
 			setPages([...pages, page]);
 			setState("idle");
-		} catch {
-			setState("failed");
+		} catch (error) {
+			setState(thrownRead(error).status);
 		}
 	};
 
@@ -64,13 +65,15 @@ export function HistoryList({
 				</ol>
 			)}
 			<div aria-live="polite" className="empty:hidden">
-				{state === "failed" ? (
-					<p className="mt-3 text-sm text-magenta-600">Earlier history did not load. Nothing was changed.</p>
+				{state === "lost" || state === "failed" ? (
+					<p className="mt-3 text-sm text-magenta-600">
+						{state === "failed" ? READ_FAILED : "Earlier history did not load. Nothing was changed."}
+					</p>
 				) : null}
 			</div>
 			{last.next ? (
 				<Button variant="secondary" size="sm" className="mt-3" loading={state === "loading"} onClick={more}>
-					{state === "failed" ? "Try again" : "Show earlier history"}
+					{state === "lost" || state === "failed" ? "Try again" : "Show earlier history"}
 				</Button>
 			) : last.completeness === "partial" ? (
 				<p className="mt-3 text-sm text-text-3">History before this was not recorded.</p>
