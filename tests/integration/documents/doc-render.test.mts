@@ -120,8 +120,8 @@ test("AC:CASE-DOC-023 the conflict-of-interest policy prints its text, numbered 
 });
 
 for (const [id, title, firstHeading, lastHeading] of [
-	["child-protection-policy", "Child Protection Policy", "01 Purpose", "09 Records"],
-	["financial-controls-policy", "Financial Controls Policy", "01 Purpose", "09 Yearly review"],
+	["child-protection-policy", "Child Protection Policy", /(?<!\d)1 Purpose/, /(?<!\d)9 Records/],
+	["financial-controls-policy", "Financial Controls Policy", /(?<!\d)1 Purpose/, /(?<!\d)9 Yearly review/],
 ] as const)
 	test(`the ${title.toLowerCase()} renders to PDF and Word with the church filled in and the notice on every page`, async () => {
 		const template = docTemplateById(id)!;
@@ -132,7 +132,7 @@ for (const [id, title, firstHeading, lastHeading] of [
 		const pages = await pdfPages(pdf.bytes);
 		assert.match(pages[0]!, new RegExp(`${title} This policy says how Harbor City Church, a church plant`));
 		const text = pages.join("\n");
-		assert.ok(text.includes(firstHeading) && text.includes(lastHeading), "numbered headings");
+		assert.ok(firstHeading.test(text) && lastHeading.test(text), "numbered headings");
 		assert.ok(!text.includes("{church_name}"), "every church name is filled in");
 		for (const [i, page] of pages.entries()) {
 			assert.ok(page.includes(`| ${title}`), `page ${i + 1} footer`);
