@@ -8,6 +8,12 @@ const unescapeText = (value: string) =>
 		.replaceAll("&nbsp;", " ")
 		.replaceAll("&amp;", "&");
 
+function group(match: RegExpMatchArray, n: number): string {
+	const value = match[n];
+	if (value === undefined) throw new Error(`Group ${n} did not take part in the match "${match[0]}"`);
+	return value;
+}
+
 const LINK = /\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:)[^\s()"<>]+)\)/g;
 
 function styled(escaped: string): string {
@@ -22,7 +28,7 @@ function inline(line: string): string {
 	for (const match of line.matchAll(LINK)) {
 		const at = match.index ?? 0;
 		out += styled(escapeText(line.slice(last, at)));
-		out += `<a href="${escapeText(match[2]!)}">${styled(escapeText(match[1]!))}</a>`;
+		out += `<a href="${escapeText(group(match, 2))}">${styled(escapeText(group(match, 1)))}</a>`;
 		last = at + match[0].length;
 	}
 	return out + styled(escapeText(line.slice(last)));
@@ -37,49 +43,51 @@ export function textToBody(text: string): string {
 	const lines = text.replaceAll("\r\n", "\n").split("\n");
 	const blocks: string[] = [];
 	let i = 0;
-	while (i < lines.length) {
-		const line = lines[i]!;
+	const run = (pattern: RegExp) => {
+		const found: string[] = [];
+		let next: string | undefined;
+		let match: RegExpExecArray | null;
+		while ((next = lines[i]) !== undefined && (match = pattern.exec(next))) {
+			found.push(inline(group(match, 1)));
+			i += 1;
+		}
+		return found;
+	};
+	let line: string | undefined;
+	while ((line = lines[i]) !== undefined) {
 		if (!line.trim()) {
 			i += 1;
 			continue;
 		}
 		const heading = HEADING.exec(line);
 		if (heading) {
-			const level = heading[1]!.length;
-			blocks.push(`<h${level}>${inline(heading[2]!)}</h${level}>`);
+			const level = group(heading, 1).length;
+			blocks.push(`<h${level}>${inline(group(heading, 2))}</h${level}>`);
 			i += 1;
 			continue;
 		}
 		const list = BULLET.test(line) ? BULLET : NUMBER.test(line) ? NUMBER : null;
 		if (list) {
-			const items: string[] = [];
-			while (i < lines.length && list.test(lines[i]!)) {
-				items.push(`<li>${inline(list.exec(lines[i]!)![1]!)}</li>`);
-				i += 1;
-			}
+			const items = run(list).map((item) => `<li>${item}</li>`);
 			const tag = list === BULLET ? "ul" : "ol";
 			blocks.push(`<${tag}>${items.join("")}</${tag}>`);
 			continue;
 		}
 		if (QUOTE.test(line)) {
-			const parts: string[] = [];
-			while (i < lines.length && QUOTE.test(lines[i]!)) {
-				parts.push(inline(QUOTE.exec(lines[i]!)![1]!));
-				i += 1;
-			}
-			blocks.push(`<blockquote>${parts.join("<br />")}</blockquote>`);
+			blocks.push(`<blockquote>${run(QUOTE).join("<br />")}</blockquote>`);
 			continue;
 		}
 		const parts: string[] = [];
+		let next: string | undefined;
 		while (
-			i < lines.length &&
-			lines[i]!.trim() &&
-			!HEADING.test(lines[i]!) &&
-			!BULLET.test(lines[i]!) &&
-			!NUMBER.test(lines[i]!) &&
-			!QUOTE.test(lines[i]!)
+			(next = lines[i]) !== undefined &&
+			next.trim() &&
+			!HEADING.test(next) &&
+			!BULLET.test(next) &&
+			!NUMBER.test(next) &&
+			!QUOTE.test(next)
 		) {
-			parts.push(inline(lines[i]!));
+			parts.push(inline(next));
 			i += 1;
 		}
 		blocks.push(`<p>${parts.join("<br />")}</p>`);
@@ -116,14 +124,14 @@ export function bodyToTextResult(html: string): BodyText {
 			continue;
 		}
 		const closing = match[1] === "/";
-		const tag = match[2]!.toLowerCase();
+		const tag = group(match, 2).toLowerCase();
 		if (tag === "b" || tag === "strong") line += "**";
 		else if (tag === "i" || tag === "em") line += "*";
 		else if (tag === "br") line += "\n";
 		else if (tag === "u" || tag === "span") lossy = true;
 		else if (tag === "a") {
 			if (!closing) {
-				const target = /href\s*=\s*"([^"]*)"/i.exec(match[3]!)?.[1] ?? "";
+				const target = /href\s*=\s*"([^"]*)"/i.exec(group(match, 3))?.[1] ?? "";
 				href.push(unescapeText(target));
 				line += "[";
 			} else {
