@@ -27,7 +27,8 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 	const [problem, setProblem] = useState<string | null>(null);
 	const [refreshing, startRefresh] = useTransition();
 	const latest = view.history[0]?.runId ?? null;
-	const viewingLatest = view.run?.runId === latest;
+	const { run } = view;
+	const viewingLatest = run?.runId === latest;
 
 	const refresh = () =>
 		startRefresh(async () => {
@@ -86,7 +87,7 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 				) : null}
 			</Card>
 
-			{view.run ? (
+			{run ? (
 				<>
 					<nav
 						aria-label="Group by"
@@ -95,7 +96,7 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 						{LEVELS.map((l) => (
 							<Link
 								key={l}
-								href={href(l, viewingLatest ? null : view.run!.runId)}
+								href={href(l, viewingLatest ? null : run.runId)}
 								aria-current={view.level === l ? "page" : undefined}
 								className={cn(
 									"inline-flex flex-none items-center rounded-md px-3.5 py-2 font-medium whitespace-nowrap text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
