@@ -6,6 +6,8 @@ import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
 import { queueJobsFor } from "../jobs/queue.ts";
 
+export { authorizeOperatorMail } from "./operator-mail.ts";
+
 type Code = z.infer<typeof c.feedbackErrorCode>;
 class Refusal extends Error {
 	readonly code: Code;
