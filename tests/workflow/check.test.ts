@@ -623,7 +623,7 @@ test("INV-check-census: slack is no failure; the tightened limits.json lands in 
 	);
 });
 
-test("T-105 a full run runs every test:db one after another on one throwaway Postgres, and no census", (t) => {
+test("T-105 a full run runs every test:db but the census, one after another on one throwaway Postgres", (t) => {
 	callerEnv(t, { EVF_NODE_TEST_FLAGS: undefined });
 	const { root, home } = repo(t, { "docs/a.md": "b\n" }, DB_PACKAGES);
 	const { run, calls, commands } = fakeDb({
@@ -657,7 +657,7 @@ test("T-105 a full run runs every test:db one after another on one throwaway Pos
 	const password = started.find((a) => a.startsWith("POSTGRES_PASSWORD="))!.slice("POSTGRES_PASSWORD=".length);
 	assert.match(password, /^[0-9a-f]{36}$/);
 	assert.ok(!readFileSync(recordPath, "utf8").includes(password), "the record holds the password");
-	const order = commands().filter((c) => c.startsWith("docker") || /db:migrate|test:db|run build/.test(c));
+	const order = commands().filter((c) => c.startsWith("docker") || c.includes("db:migrate") || c.includes("test:db"));
 	assert.deepEqual(
 		order.map((c) => c.split(" ").slice(0, 2).join(" ")),
 		[
@@ -671,36 +671,33 @@ test("T-105 a full run runs every test:db one after another on one throwaway Pos
 			"docker rm",
 		],
 	);
-	assert.deepEqual(
-		order.filter((c) => c.startsWith("corepack")).map((c) => c.replace("corepack pnpm ", "")),
-		["db:migrate", "--filter @everyfield/db run test:db", "--filter @everyfield/evry run test:db"],
-	);
 	assert.ok(order.at(-1)!.endsWith(container));
+	assert.ok(!commands().some((c) => c.includes("@everyfield/domain")), commands().join("\n"));
 	const url = `postgres://ci:${password}@127.0.0.1:55432/everyfield_ci`;
-	const database = {
-		TMPDIR: checkTmp(root, home),
-		EVF_NODE_TEST_FLAGS: "--test-concurrency=3",
-		DATABASE_URL: url,
-		DATABASE_URL_UNPOOLED: url,
-		EARLY_ACCESS_TEST_DATABASE: "1",
-		CI: "true",
-	};
-	const usesDatabase = (c: Call) => /db:migrate|test:db/.test(c.command);
-	for (const c of calls.filter(usesDatabase)) {
-		const { PATH: _, ...rest } = c.env;
-		assert.deepEqual(rest, database, c.command);
-	}
-	for (const c of calls.filter((c) => !usesDatabase(c))) assert.equal(c.env.DATABASE_URL, undefined, c.command);
+	for (const c of calls.filter((c) => c.command.includes("db:migrate") || c.command.includes("test:db")))
+		assert.deepEqual(
+			{ ...c.env, PATH: undefined },
+			{
+				PATH: undefined,
+				TMPDIR: checkTmp(root, home),
+				EVF_NODE_TEST_FLAGS: "--test-concurrency=3",
+				DATABASE_URL: url,
+				DATABASE_URL_UNPOOLED: url,
+				EARLY_ACCESS_TEST_DATABASE: "1",
+				CI: "true",
+			},
+		);
+	for (const c of calls.filter((c) => !c.command.includes("db:migrate") && !c.command.includes("test:db")))
+		assert.equal(c.env.DATABASE_URL, undefined, c.command);
 });
 
 test("T-105 each database failure fails test:db and the run with its reason, never skipped or passed", async (t) => {
-	const both = (detail: string) => [`test:db failed: ${detail}`];
-	const cases: [Parameters<typeof fakeDb>[0]["fail"], string[], boolean][] = [
-		["docker", both("Docker cannot be reached: Cannot connect to the Docker daemon"), false],
-		["ready", both("the database was not ready within 0 s"), true],
-		["migrate", both("pnpm db:migrate failed on the throwaway database"), true],
-		["@everyfield/db", ["test:db failed: @everyfield/db test:db failed"], true],
-		["zero", ["test:db failed: @everyfield/db reported 0 tests"], true],
+	const cases: [Parameters<typeof fakeDb>[0]["fail"], string, boolean][] = [
+		["docker", "test:db failed: Docker cannot be reached: Cannot connect to the Docker daemon", false],
+		["ready", "test:db failed: the database was not ready within 0 s", true],
+		["migrate", "test:db failed: pnpm db:migrate failed on the throwaway database", true],
+		["@everyfield/db", "test:db failed: @everyfield/db test:db failed", true],
+		["zero", "test:db failed: @everyfield/db reported 0 tests", true],
 	];
 	for (const [fail, failure, started] of cases)
 		await t.test(String(fail), (t) => {
@@ -709,7 +706,7 @@ test("T-105 each database failure fails test:db and the run with its reason, nev
 			const { record } = check({ root, full: false, home, run, database: noWait });
 			assert.equal(dbEntry(record).result, "failed");
 			assert.equal(record.result, "failed");
-			assert.deepEqual(record.failures, failure);
+			assert.deepEqual(record.failures, [failure]);
 			const run_ = commands().find((c) => c.startsWith("docker run "));
 			assert.equal(Boolean(run_), started);
 			if (run_) {

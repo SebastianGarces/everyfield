@@ -84,7 +84,7 @@ function assertSelected(
 				id,
 				id in want.checks
 					? { run: true, reason: want.checks[id] }
-					: { run: false, reason: id === "census" ? NO_CENSUS : "no changed path selects it" },
+					: { run: false, reason: "no changed path selects it" },
 			]),
 		),
 	);
@@ -124,10 +124,8 @@ test("INV-ci-select: selection table: docs, one package, tools, lockfile, workfl
 			assert.deepEqual(selectChecks([path], map, context).checks.census, want);
 			assert.deepEqual(censusDecision(["docs/plan/context.md", path]), want, "bin/dev census decides the same");
 		}
-		for (const path of ["docs/plan/context.md", "apps/web/src/features/people/PersonCard.tsx"]) {
-			assert.deepEqual(selectChecks([path], map, context).checks.census, { run: false, reason: NO_CENSUS });
+		for (const path of ["docs/plan/context.md", "apps/web/src/features/people/PersonCard.tsx"])
 			assert.deepEqual(censusDecision([path]), { run: false, reason: NO_CENSUS });
-		}
 		assert.deepEqual(censusDecision([]), { run: false, reason: NO_CENSUS });
 		assert.deepEqual(censusDecision(null), { run: true, reason: "the diff could not be read" });
 	});

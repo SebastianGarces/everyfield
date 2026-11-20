@@ -339,7 +339,7 @@ export function selectChecks(
 				id,
 				why
 					? { run: true, reason: [...new Set(why)].join("; ") }
-					: { run: false, reason: id === "census" ? NO_CENSUS : "no changed path selects it" },
+					: { run: false, reason: "no changed path selects it" },
 			];
 		}),
 	) as Selection["checks"];
