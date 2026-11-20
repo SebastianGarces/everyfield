@@ -251,6 +251,15 @@ try {
 		),
 		board: value((await readPipelineBoard(runtime, casey.authority, {})) as Read, () => "read"),
 	};
+	const riley = await signIn(QA_LOGINS.endedResident);
+	out.endedResident = {
+		signedIn: riley.signedIn,
+		session: riley.session.status,
+		context: { kind: riley.authority.actor.context.kind, owner: riley.authority.actor.context.owner.kind },
+		residency: value((await readMyResidency(runtime, riley.authority)) as Read, (v) => v),
+		board: value((await readPipelineBoard(runtime, riley.authority, {})) as Read, () => "read"),
+		goals: value((await readPipelineGoals(runtime, riley.authority)) as Read, () => "read"),
+	};
 	const adapter = createOrganizationAdapter(
 		{ invitation: async () => {}, invalidate: () => sql`SELECT 1` },
 		{ candidates: async () => [] },
