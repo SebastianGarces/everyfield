@@ -477,9 +477,7 @@ function History({ taskId, first }: { taskId: string; first: Outcome<TaskHistory
 	if (page.status !== "ok")
 		return (
 			<Section title="Status history">
-				<p className="text-sm text-text-3">
-					{page.status === "failed" ? READ_FAILED : "The history did not load."}
-				</p>
+				<p className="text-sm text-text-3">{page.status === "failed" ? READ_FAILED : "The history did not load."}</p>
 				<Button
 					variant="ghost"
 					size="sm"

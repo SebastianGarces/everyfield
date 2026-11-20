@@ -1098,7 +1098,9 @@ function Toolbar({
 	const [teams, setTeams] = useState<{ id: string; label: string }[] | "loading" | "lost" | "failed" | null>(null);
 	const loadTeams = () => {
 		setTeams("loading");
-		relationOptions("team", "").then((r) => setTeams(r.status === "ok" ? r.value.items : r.status === "failed" ? "failed" : "lost"));
+		relationOptions("team", "").then((r) =>
+			setTeams(r.status === "ok" ? r.value.items : r.status === "failed" ? "failed" : "lost"),
+		);
 	};
 	const warmTeams = () => void (admin && teams === null && loadTeams());
 	const seen = rows.flatMap((r) =>
