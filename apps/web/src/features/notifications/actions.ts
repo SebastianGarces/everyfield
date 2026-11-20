@@ -3,13 +3,14 @@
 import { feedSubject } from "@everyfield/contracts/notifications";
 import type { RequestActor } from "@everyfield/domain/access";
 import { newRequestKey, type Outcome, type OptOut, type Reply } from "./model.ts";
-import { call, notificationActor, optOutReady, type Mount } from "./server.ts";
+import { viewerActor } from "@/server/request-context";
+import { call, optOutReady, type Mount } from "./server.ts";
 
 type Marked = { markedIds: string[] };
 type Marker = (m: Mount, actor: RequestActor) => Promise<Reply<Marked>>;
 
 async function mark(run: Marker): Promise<Outcome<Marked>> {
-	const actor = await notificationActor();
+	const actor = await viewerActor();
 	if (!actor) return { status: "refused", code: "access_denied" };
 	return call((m) => run(m, actor));
 }
