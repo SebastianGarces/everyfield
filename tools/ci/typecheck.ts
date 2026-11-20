@@ -123,7 +123,7 @@ async function typecheckTools(root: string): Promise<number> {
 	if (run.outcome === "timeout")
 		console.error(`typecheck:tools timed out after ${timeoutMs} ms; its process group was killed.`);
 	else console.error(`typecheck:tools failed (exit ${run.code ?? "signal"}).`);
-	return run.outcome === "timeout" ? 1 : run.code || 1;
+	return run.code || 1;
 }
 
 export type TypecheckScript = "typecheck" | "typecheck:bun";
