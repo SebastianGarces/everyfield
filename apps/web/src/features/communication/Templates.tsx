@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { ArrowLeft01Icon, Mail01Icon } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, EmptyState, Field, Input, Select } from "@everyfield/ui/controls";
@@ -18,7 +19,6 @@ import {
 	outcomeText,
 	templateCategories,
 	type MeetingType,
-	type Outcome,
 	type Template,
 	type TemplateCategory,
 } from "./model.ts";

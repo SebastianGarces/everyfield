@@ -1,0 +1,545 @@
+import { instant } from "@everyfield/contracts/common";
+import { notificationCategory as category } from "@everyfield/contracts/settings";
+import type { Transaction } from "@everyfield/db/client";
+import { and, eq, isNull, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { readAccountContacts } from "../identity/index.ts";
+import { reminderSeats } from "../tasks/index.ts";
+import "server-only";
+import { z } from "zod";
+import { taskReminderTimes } from "./calendar.ts";
+import { createMailService, type MailIntent } from "./mail.ts";
+const sourceSchema = z.strictObject({
+	kind: z.enum([
+		"task",
+		"meeting",
+		"affiliation",
+		"phase_transition",
+		"launch_milestone",
+		"article_editor_state",
+		"development_enrollment",
+		"answer_review",
+	]),
+	id: z.uuid(),
+	revision: z.string().regex(/^[1-9]\d*$/),
+});
+const noticeInput = z.strictObject({
+	owner: z.discriminatedUnion("kind", [
+		z.strictObject({ kind: z.literal("plant"), id: z.uuid() }),
+		z.strictObject({
+			kind: z.literal("organization"),
+			id: z.uuid(),
+			organizationKind: z.enum(["sending_church", "sending_network"]),
+		}),
+	]),
+	source: sourceSchema,
+	recipient: z.uuid(),
+	category,
+	occurrence: z.string().min(1).max(150),
+	eligibleAt: z.iso.datetime(),
+	title: z.string().min(1).max(500),
+	text: z.string().max(10_000),
+	mailText: z.string().min(1).max(10_000).optional(),
+	operation: z.uuid().nullable(),
+});
+export type NoticeInput = z.infer<typeof noticeInput>;
+const policy = {
+	task_due: { category: "task", purpose: "task_due", source: "task" },
+	task_overdue: { category: "task", purpose: "task_due", source: "task" },
+	meeting_announcement: {
+		category: "meeting",
+		purpose: "meeting_invitation",
+		source: "meeting",
+	},
+	meeting_reminder: {
+		category: "meeting",
+		purpose: "meeting_reminder",
+		source: "meeting",
+	},
+	planter_digest: { category: "digest", purpose: "planter_digest", source: null },
+	oversight_digest: { category: "digest", purpose: "oversight_digest", source: null },
+	relationship_milestone: {
+		category: "relationship",
+		purpose: "relationship_decision",
+		source: "affiliation",
+	},
+	sharing_milestone: {
+		category: "relationship",
+		purpose: "relationship_decision",
+		source: "affiliation",
+	},
+	phase_milestone: {
+		category: "phase",
+		purpose: "phase_transition",
+		source: "phase_transition",
+	},
+	launch_milestone: {
+		category: "launch",
+		purpose: "launch_milestone",
+		source: "launch_milestone",
+	},
+	wiki_upstream_review: {
+		category: "reference_update",
+		purpose: "reference_update",
+		source: "article_editor_state",
+	},
+	residency_confirmation: {
+		category: "residency",
+		purpose: "residency_confirmation",
+		source: "development_enrollment",
+	},
+	residency_feedback: { category: "residency", purpose: "residency_feedback", source: "development_enrollment" },
+	answer_review: { category: "review", purpose: "answer_review", source: "answer_review" },
+	scheduled_email_unsubscribe: { category: "communication", purpose: "communication_unsubscribed", source: null },
+} as const;
+export function createNotificationService(config: {
+	mail: ReturnType<typeof createMailService>;
+	eligible: (tx: Transaction, input: readonly NoticeInput[]) => Promise<readonly ({ address: string | null } | null)[]>;
+}) {
+	async function enqueueMany(tx: Transaction, inputs: readonly NoticeInput[]) {
+		const values = inputs.map((input) => noticeInput.parse(input));
+		const data = values.map((v, n) => {
+			const p = policy[v.category];
+			if (!p.source || p.source !== v.source.kind) throw Error("notification_source_mismatch");
+			return {
+				n,
+				owner: v.owner.id,
+				ownerKind: v.owner.kind,
+				organizationKind: v.owner.kind === "organization" ? v.owner.organizationKind : null,
+				source: v.source.id,
+				sourceKind: v.source.kind,
+				revision: v.source.revision,
+				recipient: v.recipient,
+				category: v.category,
+				key: `${v.owner.id}/${v.category}/${v.source.id}/${v.source.revision}/${v.occurrence}`,
+			};
+		});
+		if (!data.length) return [];
+		const result =
+			await tx.execute(sql`WITH input AS MATERIALIZED (SELECT * FROM jsonb_to_recordset(${JSON.stringify(data)}::jsonb) i(n int,owner uuid,"ownerKind" text,"organizationKind" text,source uuid,"sourceKind" text,revision bigint,recipient uuid,category text,key text)),
+ tasks AS MATERIALIZED (SELECT t.* FROM task t WHERE t.id IN (SELECT source FROM input WHERE "sourceKind"='task') ORDER BY t.id FOR SHARE),
+ meetings AS MATERIALIZED (SELECT m.* FROM meeting m WHERE m.id IN (SELECT source FROM input WHERE "sourceKind"='meeting') ORDER BY m.id FOR SHARE),
+ affiliations AS MATERIALIZED (SELECT a.* FROM affiliation a WHERE a.id IN (SELECT source FROM input WHERE "sourceKind"='affiliation') ORDER BY a.id FOR SHARE),
+ phases AS MATERIALIZED (SELECT p.* FROM phase_transition p WHERE p.id IN (SELECT source FROM input WHERE "sourceKind"='phase_transition') ORDER BY p.id FOR SHARE),
+ launches AS MATERIALIZED (SELECT l.* FROM launch_milestone l WHERE l.id IN (SELECT source FROM input WHERE "sourceKind"='launch_milestone') ORDER BY l.id FOR SHARE),
+ editors AS MATERIALIZED (SELECT e.* FROM article_editor_state e WHERE e.id IN (SELECT source FROM input WHERE "sourceKind"='article_editor_state') ORDER BY e.id FOR SHARE),
+ enrollments AS MATERIALIZED (SELECT e.id,e.organization_id FROM development_enrollment e WHERE e.id IN (SELECT source FROM input WHERE "sourceKind"='development_enrollment') ORDER BY e.id FOR SHARE),
+ reviews AS MATERIALIZED (SELECT r.id,r.organization_id FROM answer_review r WHERE r.id IN (SELECT source FROM input WHERE "sourceKind"='answer_review') ORDER BY r.id FOR SHARE),
+ admins AS MATERIALIZED (SELECT s.* FROM seat s WHERE s.account_id IN (SELECT recipient FROM input WHERE category='wiki_upstream_review') AND s.role IN ('owner','admin') AND s.ended_at IS NULL FOR SHARE)
+ SELECT i.n,t.kind,o.kind AS organization_kind,
+ CASE i."sourceKind" WHEN 'task' THEN EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND s.plant_id=i.owner AND s.revision=i.revision)
+ WHEN 'meeting' THEN EXISTS(SELECT FROM meetings s WHERE s.id=i.source AND s.plant_id=i.owner AND s.revision=i.revision)
+ WHEN 'affiliation' THEN EXISTS(SELECT FROM affiliations s WHERE s.id=i.source AND i.owner IN(s.plant_id,s.organization_id) AND s.revision>=i.revision)
+ WHEN 'phase_transition' THEN EXISTS(SELECT FROM phases s WHERE s.id=i.source AND (s.plant_id=i.owner OR EXISTS(SELECT FROM affiliation a WHERE a.plant_id=s.plant_id AND a.organization_id=i.owner AND a.ended_at IS NULL)) AND s.kind='movement' AND s.to_phase>s.from_phase AND i.revision=1)
+ WHEN 'launch_milestone' THEN EXISTS(SELECT FROM launches s WHERE s.id=i.source AND s.plant_id=i.owner AND s.revision=i.revision)
+ WHEN 'article_editor_state' THEN EXISTS(SELECT FROM editors s WHERE s.id=i.source AND s.organization_id=i.owner AND s.revision=i.revision)
+ WHEN 'development_enrollment' THEN EXISTS(SELECT FROM enrollments s WHERE s.id=i.source AND s.organization_id=i.owner)
+ WHEN 'answer_review' THEN EXISTS(SELECT FROM reviews s WHERE s.id=i.source AND s.organization_id=i.owner) ELSE false END AS source_live,
+ CASE i."sourceKind" WHEN 'task' THEN EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=s.id AND ta.account_id=i.recipient) AND s.deleted_at IS NULL AND s.status NOT IN ('complete','no_longer_needed'))
+ WHEN 'meeting' THEN EXISTS(SELECT FROM meetings s WHERE s.id=i.source AND s.status NOT IN ('cancelled','completed') AND s.starts_at>clock_timestamp())
+ WHEN 'launch_milestone' THEN EXISTS(SELECT FROM launches s WHERE s.id=i.source AND s.completed_at IS NOT NULL AND s.removed_at IS NULL)
+ ELSE true END AND (i.category<>'wiki_upstream_review' OR EXISTS(SELECT FROM admins s WHERE s.account_id=i.recipient AND s.organization_id=i.owner)) AS deliverable,
+ coalesce((SELECT enabled FROM notification_preference p WHERE p.account_id=i.recipient AND p.category=i.category AND p.channel='in_app'),i.category<>'planter_digest') AS in_app,
+ i.category<>'wiki_upstream_review' AND coalesce((SELECT enabled FROM notification_preference p WHERE p.account_id=i.recipient AND p.category=i.category AND p.channel='email'),true) AS email,
+ n.id AS old_id,n.title AS old_title,n.safe_body AS old_body,n.eligible_at AS old_at,(SELECT m.id FROM mail m WHERE m.notice_id=n.id LIMIT 1) AS old_mail
+ FROM input i LEFT JOIN tenant t ON t.id=i.owner LEFT JOIN organization o ON o.id=i.owner LEFT JOIN notice n ON n.recipient_id=i.recipient AND n.logical_key=i.key ORDER BY i.n`);
+		const rows = z
+			.array(
+				z.object({
+					n: z.number().int(),
+					kind: z.string().nullable(),
+					organization_kind: z.string().nullable(),
+					source_live: z.boolean(),
+					deliverable: z.boolean(),
+					in_app: z.boolean(),
+					email: z.boolean(),
+					old_id: z.uuid().nullable(),
+					old_title: z.string().nullable(),
+					old_body: z.string().nullable(),
+					old_at: z.coerce.date().nullable(),
+					old_mail: z.uuid().nullable(),
+				}),
+			)
+			.parse(result.rows);
+		const viable = rows.flatMap((r) => {
+			const v = values[r.n],
+				key = data[r.n]?.key;
+			if (!v || key === undefined) throw Error("notification_source_mismatch");
+			if (
+				r.kind !== v.owner.kind ||
+				(v.owner.kind === "organization" && r.organization_kind !== v.owner.organizationKind)
+			)
+				throw Error("notification_owner_mismatch");
+			if (!r.source_live) throw Error("notification_source_stale");
+			return r.deliverable ? [{ r, v, key }] : [];
+		});
+		const eligible = await config.eligible(
+			tx,
+			viable.map(({ v }) => v),
+		);
+		if (eligible.length !== viable.length) throw Error("notification_eligibility_mismatch");
+		const recipients = new Map(viable.map(({ r }, n) => [r.n, eligible[n]]));
+		const output = values.map(() => ({ notice: null as string | null, mail: null as string | null }));
+		const fresh = viable.flatMap(({ r, v, key }) => {
+			const recipient = recipients.get(r.n);
+			if (!recipient) return [];
+			if (r.old_id) {
+				if (
+					r.old_title !== v.title ||
+					r.old_body !== v.text ||
+					r.old_at?.toISOString() !== new Date(v.eligibleAt).toISOString()
+				)
+					throw Error("notification_identity_conflict");
+				output[r.n] = { notice: r.old_id, mail: r.old_mail };
+				return [];
+			}
+			return r.in_app || r.email ? [{ r, v, key, recipient, id: crypto.randomUUID() }] : [];
+		});
+		if (!fresh.length) return output;
+		const inserted = await tx
+			.insert(tables.notice)
+			.values(
+				fresh.map(({ r, v, key, id }) => ({
+					id,
+					tenant_id: v.owner.id,
+					recipient_id: v.recipient,
+					category: policy[v.category].category,
+					purpose: policy[v.category].purpose,
+					logical_key: key,
+					source_record_id: v.source.id,
+					source_revision: v.source.revision,
+					title: v.title,
+					safe_body: v.text,
+					eligible_at: new Date(v.eligibleAt),
+					created_at: new Date(),
+					archived_at: r.in_app ? null : new Date(),
+				})),
+			)
+			.onConflictDoUpdate({
+				target: [tables.notice.recipient_id, tables.notice.logical_key],
+				set: { logical_key: sql`excluded.logical_key` },
+			})
+			.returning();
+		const mailInput: MailIntent[] = [],
+			mailSlots: { notice: string | null; mail: string | null }[] = [];
+		for (const { r, v, key, recipient } of fresh) {
+			const row = inserted.find((n) => n.recipient_id === v.recipient && n.logical_key === key);
+			const slot = output[r.n];
+			if (
+				!row ||
+				row.title !== v.title ||
+				row.safe_body !== v.text ||
+				row.eligible_at.toISOString() !== new Date(v.eligibleAt).toISOString()
+			)
+				throw Error("notification_identity_conflict");
+			if (!slot) throw Error("notification_source_mismatch");
+			slot.notice = row.id;
+			if (r.email && recipient.address) {
+				mailSlots.push(slot);
+				mailInput.push({
+					owner: v.owner,
+					recipient: v.recipient,
+					address: recipient.address,
+					purpose: "notification",
+					logicalKey: "notice/" + row.id,
+					notice: row.id,
+					operation: v.operation,
+					eligibleAt: v.eligibleAt,
+					content: { subject: v.title, text: v.mailText ?? v.text },
+				});
+			}
+		}
+		const mail = await config.mail.enqueueMany(tx, mailInput);
+		mail.forEach((id, n) => {
+			const slot = mailSlots[n];
+			if (!slot) throw Error("notification_mail_unmatched");
+			slot.mail = id;
+		});
+		return output;
+	}
+	async function enqueue(tx: Transaction, input: NoticeInput) {
+		const [result] = await enqueueMany(tx, [input]);
+		if (!result) throw Error("notification_source_mismatch");
+		return result;
+	}
+
+	async function syncTaskReminders(
+		tx: Transaction,
+		inputs: readonly {
+			base: Omit<NoticeInput, "category" | "occurrence" | "eligibleAt" | "recipient" | "title">;
+			titles: Record<ReturnType<typeof taskReminderTimes>[number]["slot"], string>;
+			recipients: readonly string[];
+			due: Parameters<typeof taskReminderTimes>[0];
+			open: boolean;
+			asOf: string;
+			created?: boolean;
+		}[],
+	) {
+		const tenant = inputs[0]?.base.owner.id;
+		if (!tenant) return [];
+		if (
+			inputs.some(
+				(i) => i.base.owner.id !== tenant || i.base.source.kind !== "task" || (i.open && !i.recipients.length),
+			)
+		)
+			throw Error("notification_source_mismatch");
+		const sources = inputs
+			.filter((i) => !i.created)
+			.map((i) => ({ id: i.base.source.id, revision: i.base.source.revision, preserve: i.open }));
+		const sourceCount = new Set(sources.map((s) => s.id)).size;
+		const planned = inputs
+			.filter((i) => i.open)
+			.flatMap((i) => {
+				const asOf = instant.parse(i.asOf);
+				return [...i.recipients].sort().flatMap((recipient) =>
+					taskReminderTimes(i.due)
+						.filter((t) => t.at >= asOf)
+						.map((t) =>
+							noticeInput.parse({
+								...i.base,
+								title: i.titles[t.slot],
+								recipient,
+								category: t.slot === "due" ? "task_due" : "task_overdue",
+								occurrence: t.slot,
+								eligibleAt: t.at,
+							}),
+						),
+				);
+			})
+			.map((v) => ({ v, key: `${v.owner.id}/${v.category}/${v.source.id}/${v.source.revision}/${v.occurrence}` }));
+		const src = sql`src AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(sources)}::jsonb) i(id uuid,revision bigint,preserve boolean)),
+	    locked AS MATERIALIZED (SELECT t.id,t.plant_id,t.revision FROM task t JOIN src i ON t.id=i.id AND t.plant_id=${tenant} AND t.revision=i.revision FOR SHARE OF t)`;
+		const output: { notice: string | null; mail: string | null }[] = [];
+		const fresh: { v: NoticeInput; key: string; id: string; inApp: boolean }[] = [];
+		const mail: MailIntent[] = [];
+		if (planned.length) {
+			const cand = planned.map(({ v, key }, n) => ({
+				n,
+				source: v.source.id,
+				revision: v.source.revision,
+				recipient: v.recipient,
+				category: v.category,
+				key,
+			}));
+			const read =
+				await tx.execute(sql`WITH ${src}, cand AS MATERIALIZED (SELECT * FROM jsonb_to_recordset(${JSON.stringify(cand)}::jsonb) i(n int,source uuid,revision bigint,recipient uuid,category text,key text)),
+	    reached AS MATERIALIZED (SELECT DISTINCT n.source_record_id AS source,n.recipient_id AS recipient,split_part(n.logical_key,'/',2) AS category
+	      FROM notice n JOIN locked t ON n.tenant_id=t.plant_id AND n.source_record_id=t.id AND n.source_revision<>t.revision
+	      WHERE (n.archived_at IS NULL AND n.eligible_at<=clock_timestamp() AND (n.cancelled_at IS NULL OR n.cancelled_at>n.eligible_at))
+	        OR EXISTS(SELECT FROM mail m WHERE m.notice_id=n.id AND m.state IN ('dispatched','unknown','accepted','scheduled','sent'))),
+	    tasks AS MATERIALIZED (SELECT t.* FROM task t WHERE t.id IN (SELECT source FROM cand) ORDER BY t.id FOR SHARE),
+	    seats AS MATERIALIZED (${reminderSeats(tenant, sql`SELECT recipient FROM cand`)}),
+	    accounts AS MATERIALIZED (SELECT a.id FROM account a WHERE a.id IN (SELECT recipient FROM cand) ORDER BY a.id FOR SHARE),
+	    plants AS MATERIALIZED (SELECT p.id FROM plant p WHERE p.id=${tenant} FOR SHARE),
+	    barriers AS MATERIALIZED (SELECT w.opaque_subject_id AS id FROM lifecycle_witness w WHERE w.opaque_subject_id IN (SELECT recipient FROM cand UNION SELECT ${tenant}::uuid)
+	      AND w.state IN ('pending_deletion','purging','purged','revoked') FOR SHARE)
+	    SELECT i.n,(SELECT count(*) FROM locked)::int AS locked,(SELECT kind FROM tenant WHERE id=${tenant}) AS kind,
+	     (SELECT count(*) FROM accounts)+(SELECT count(*) FROM plants)>=0 AS rooted,
+	     EXISTS(SELECT FROM reached r WHERE r.source=i.source AND r.recipient=i.recipient AND r.category=i.category) AS reached,
+	     EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND s.plant_id=${tenant} AND s.revision=i.revision) AS source_live,
+	     EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=s.id AND ta.account_id=i.recipient) AND s.deleted_at IS NULL AND s.status NOT IN ('complete','no_longer_needed')) AS deliverable,
+	     coalesce((SELECT enabled FROM notification_preference p WHERE p.account_id=i.recipient AND p.category=i.category AND p.channel='in_app'),true) AS in_app,
+	     coalesce((SELECT enabled FROM notification_preference p WHERE p.account_id=i.recipient AND p.category=i.category AND p.channel='email'),true) AS email,
+	     (SELECT s.email FROM seats s WHERE s.account_id=i.recipient LIMIT 1) AS address,
+	     EXISTS(SELECT FROM barriers b WHERE b.id IN (i.recipient,${tenant})) AS blocked,
+	     n.id AS old_id,n.title AS old_title,n.safe_body AS old_body,n.eligible_at AS old_at,(SELECT m.id FROM mail m WHERE m.notice_id=n.id LIMIT 1) AS old_mail
+	    FROM cand i LEFT JOIN notice n ON n.recipient_id=i.recipient AND n.logical_key=i.key ORDER BY i.n`);
+			const rows = z
+				.array(
+					z.object({
+						n: z.number().int(),
+						locked: z.number().int(),
+						kind: z.string().nullable(),
+						reached: z.boolean(),
+						source_live: z.boolean(),
+						deliverable: z.boolean(),
+						in_app: z.boolean(),
+						email: z.boolean(),
+						address: z.email().nullable(),
+						blocked: z.boolean(),
+						old_id: z.uuid().nullable(),
+						old_title: z.string().nullable(),
+						old_body: z.string().nullable(),
+						old_at: z.coerce.date().nullable(),
+						old_mail: z.uuid().nullable(),
+					}),
+				)
+				.parse(read.rows);
+			if (rows[0]?.locked !== sourceCount) throw Error("notification_source_stale");
+			for (const r of rows.filter((r) => !r.reached)) {
+				const entry = planned[r.n];
+				if (!entry) throw Error("notification_source_mismatch");
+				const { v, key } = entry;
+				if (r.kind !== v.owner.kind) throw Error("notification_owner_mismatch");
+				if (!r.source_live) throw Error("notification_source_stale");
+				const result = { notice: null as string | null, mail: null as string | null };
+				output.push(result);
+				if (!r.deliverable || !r.address) continue;
+				if (r.old_id) {
+					if (
+						r.old_title !== v.title ||
+						r.old_body !== v.text ||
+						r.old_at?.toISOString() !== new Date(v.eligibleAt).toISOString()
+					)
+						throw Error("notification_identity_conflict");
+					Object.assign(result, { notice: r.old_id, mail: r.old_mail });
+					continue;
+				}
+				if (!r.in_app && !r.email) continue;
+				result.notice = crypto.randomUUID();
+				fresh.push({ v, key, id: result.notice, inApp: r.in_app });
+				if (!r.email) continue;
+				if (r.blocked) throw Error("mail_unavailable");
+				mail.push({
+					owner: v.owner,
+					recipient: v.recipient,
+					address: r.address,
+					purpose: "notification",
+					logicalKey: "notice/" + result.notice,
+					notice: result.notice,
+					operation: v.operation,
+					eligibleAt: v.eligibleAt,
+					content: { subject: v.title, text: v.text },
+				});
+			}
+		}
+		if (!sources.length && !fresh.length) return output;
+		const queued = config.mail.queued(mail);
+		queued.ids.forEach((id, n) => {
+			const slot = output.find((o) => o.notice === mail[n]?.notice);
+			if (!slot) throw Error("notification_mail_unmatched");
+			slot.mail = id;
+		});
+		const now = new Date().toISOString();
+		const notices = fresh.map(({ v, key, id, inApp }) => ({
+			id,
+			tenant: v.owner.id,
+			recipient: v.recipient,
+			category: policy[v.category].category,
+			purpose: policy[v.category].purpose,
+			key,
+			source: v.source.id,
+			revision: v.source.revision,
+			title: v.title,
+			body: v.text,
+			eligible: v.eligibleAt,
+			archived: inApp ? null : now,
+		}));
+		const write =
+			await tx.execute(sql`WITH ${src}, cancelled AS (UPDATE notice n SET cancelled_at=coalesce(n.cancelled_at,clock_timestamp()) FROM src i
+	      WHERE n.tenant_id=${tenant} AND n.source_record_id=i.id AND (NOT i.preserve OR n.source_revision<>i.revision)
+	        AND (SELECT count(*) FROM locked)=${sourceCount} RETURNING n.id),
+	    owed AS (UPDATE mail m SET state='cancelled' FROM notice n WHERE n.id=m.notice_id AND n.tenant_id=${tenant} AND n.source_record_id IN (SELECT id FROM src)
+	      AND (n.cancelled_at IS NOT NULL OR n.id IN (SELECT id FROM cancelled)) AND m.state IN ('pending','refused') RETURNING m.id),
+	    halted AS (UPDATE job j SET state='cancelled',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=j.revision+1,finished_at=clock_timestamp()
+	      FROM mail m JOIN notice n ON n.id=m.notice_id WHERE m.job_id=j.id AND n.tenant_id=${tenant} AND n.source_record_id IN (SELECT id FROM src)
+	      AND (n.cancelled_at IS NOT NULL OR n.id IN (SELECT id FROM cancelled)) AND (m.state='cancelled' OR m.id IN (SELECT id FROM owed))
+	      AND j.state IN ('ready','retry_wait','claimed') RETURNING j.id),
+	    notices AS (INSERT INTO notice(id,tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,safe_body,eligible_at,created_at,archived_at)
+	      SELECT id,tenant,recipient,category,purpose,key,source,revision,title,body,eligible,${now}::timestamptz,archived
+	      FROM jsonb_to_recordset(${JSON.stringify(notices)}::jsonb) i(id uuid,tenant uuid,recipient uuid,category text,purpose text,key text,source uuid,revision bigint,title text,body text,eligible timestamptz,archived timestamptz)
+	      ON CONFLICT (recipient_id,logical_key) DO NOTHING RETURNING id)
+	    ${mail.length ? sql`, ${queued.ctes}` : sql``}
+	    SELECT (SELECT count(*) FROM locked)::int AS locked,(SELECT count(*) FROM notices)::int AS notices,
+	     ${mail.length ? sql`(SELECT count(*) FROM mail_inserted m JOIN mail_input i ON i.id=m.id AND i.hash=m.payload_hash)::int` : sql`0`} AS mail`);
+		const done = z
+			.object({ locked: z.number().int(), notices: z.number().int(), mail: z.number().int() })
+			.parse(write.rows[0]);
+		if (done.locked !== sourceCount) throw Error("notification_source_stale");
+		if (done.notices !== notices.length) throw Error("notification_identity_conflict");
+		if (done.mail !== mail.length) throw Error("mail_identity_conflict");
+		return output;
+	}
+	return { enqueue, enqueueMany, syncTaskReminders };
+}
+export async function sendDiscoveryAssociationReceipt(
+	tx: Transaction,
+	mail: ReturnType<typeof createMailService>,
+	input: {
+		organization: string;
+		account: string;
+		occurrence: string;
+		operation: string;
+		content: MailIntent["content"];
+		address: (tx: Transaction, accounts: readonly string[]) => Promise<ReadonlyMap<string, string>>;
+		now: string;
+		verifyOccurrence: (tx: Transaction) => Promise<boolean>;
+	},
+) {
+	if (!(await input.verifyOccurrence(tx))) throw Error("association_occurrence_unavailable");
+	z.uuid().parse(input.operation);
+	const rows = await tx
+		.select({ account_id: tables.seat.account_id })
+		.from(tables.seat)
+		.where(
+			and(
+				and(eq(tables.seat.organization_id, input.organization), eq(tables.seat.role, "owner")),
+				isNull(tables.seat.ended_at),
+			),
+		)
+		.for("share");
+	const recipients = [...new Set([input.account, ...rows.map((r) => z.uuid().parse(r.account_id))])];
+	const addresses = await input.address(tx, recipients);
+	return mail.enqueueMany(
+		tx,
+		recipients.flatMap((recipient) => {
+			const address = addresses.get(recipient);
+			return address
+				? [
+						{
+							owner: { kind: "account", id: recipient },
+							recipient,
+							address,
+							purpose: "discovery_receipt",
+							logicalKey: `association/${input.operation}/${input.occurrence}/${recipient}`,
+							content: input.content,
+							operation: null,
+							notice: null,
+							eligibleAt: input.now,
+						},
+					]
+				: [];
+		}),
+	);
+}
+
+export async function sendOnboardingRelationships(
+	tx: Transaction,
+	inputs: readonly import("@everyfield/domain/organizations").RelationshipNotice[],
+	mail: ReturnType<typeof createMailService>,
+) {
+	if (!inputs.length) return;
+	const organizations = [...new Set(inputs.map((i) => i.pair.organization.id))];
+	const owners = await tx.execute(
+		sql`SELECT organization_id,account_id FROM seat WHERE organization_id=ANY(${sql.param(organizations)}::uuid[]) AND role='owner' AND ended_at IS NULL AND accepted_at<=clock_timestamp()`,
+	);
+	const notices = inputs.flatMap((i) =>
+		[
+			...new Set([
+				...(i.actorId ? [i.actorId] : []),
+				...owners.rows
+					.filter((r) => r.organization_id === i.pair.organization.id)
+					.map((r) => z.uuid().parse(r.account_id)),
+			]),
+		].map((recipient) => ({ i, recipient })),
+	);
+	const addresses = await readAccountContacts(tx, [...new Set(notices.map((n) => n.recipient))]);
+	await mail.enqueueMany(
+		tx,
+		notices.map(({ i, recipient }) => {
+			const address = addresses.get(recipient);
+			if (!address) throw Error("recipient_unavailable");
+			return {
+				owner: { kind: "account", id: recipient },
+				purpose: i.pair.kind === "discovery" ? "discovery_receipt" : "relationship_receipt",
+				logicalKey: "onboarding/relationship/" + i.eventId + "/" + recipient,
+				recipient,
+				address,
+				content: { subject: "Relationship updated", text: "A church relationship you are part of changed." },
+				operation: null,
+				notice: null,
+				eligibleAt: new Date().toISOString(),
+			};
+		}),
+	);
+}

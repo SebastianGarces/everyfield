@@ -6,7 +6,12 @@ import { fixture } from "../identity/invitations-support.mts";
 import { requestIdentity } from "../../../packages/contracts/src/common/index.ts";
 import { followUpDueDate } from "../../../packages/contracts/src/tasks/index.ts";
 import { within48Hours } from "../../../packages/contracts/src/followups/index.ts";
-import { auditTransaction, finishAudit, prepareWrite } from "../../../packages/domain/src/operations/writes.ts";
+import {
+	auditTransaction,
+	finishAudit,
+	prepareWrite,
+	gatedTransaction,
+} from "../../../packages/domain/src/operations/writes.ts";
 import {
 	authorizeTaskReminders,
 	createTaskWriter,
@@ -22,15 +27,15 @@ import {
 } from "../../../packages/domain/src/followups/index.ts";
 import { peopleReader, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { ok, refused } from "../../support/fixture.mts";
 
 let f, followups, tasks, reminders;
 const write = (who, op, input) => withFollowUpWrite(f.db, who.actor, (tx, ctx) => followups[op](tx, ctx, input));
 const taskWrite = (who, op, input) => withTaskWrite(f.db, who.actor, (tx, ctx) => tasks[op](tx, ctx, input));
-const read = (who, op, input) => f.db.transaction((tx) => followUpReader[op](tx, who.actor, input));
+const read = (who, op, input) => gatedTransaction(f.db, (tx) => followUpReader[op](tx, who.actor, input));
 const rows = async (q) => (await f.admin.execute(q)).rows;
 const key = () => randomUUID();
 const hours = (iso, h) => new Date(Date.parse(iso) + h * 3_600_000).toISOString();
@@ -47,7 +52,7 @@ async function church() {
 }
 async function person(c, name, fields = {}) {
 	const ctx = { session: c.owner.actor.session, selected: c.w };
-	const r = await f.db.transaction((tx) =>
+	const r = await gatedTransaction(f.db, (tx) =>
 		peopleWriter.createPerson(tx, ctx, { requestKey: key(), input: { displayName: name } }),
 	);
 	const id = ok(r).person.id;
@@ -315,7 +320,7 @@ test("AC:TARGET-COM-011 AC:TARGET-MTG-022 AC:ROLE43-008 contact log: only an eff
 	);
 	assert.deepEqual([done.task.status, done.record.contact, done.record.completedTask], ["complete", false, true]);
 	const activity = ok(
-		await f.db.transaction((tx) =>
+		await gatedTransaction(f.db, (tx) =>
 			peopleReader.getActivities(tx, new PeopleReadContext(c.owner.actor), { personId: alex, kinds: ["follow_up"] }),
 		),
 	);
@@ -512,7 +517,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 	const ctx = { session: c.owner.actor.session, selected: c.w };
 	const current = (await rows(sql`SELECT revision::text r FROM person WHERE id=${casey}`))[0].r;
 	ok(
-		await f.db.transaction((tx) =>
+		await gatedTransaction(f.db, (tx) =>
 			peopleWriter.changeStatus(
 				tx,
 				ctx,
@@ -604,6 +609,15 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 	const tally = ok(await read(c.owner, "listFollowUpOwners", { owner: eligible.id }));
 	assert.deepEqual([tally.matched, tally.owners.map((o) => [o.accountId, o.open])], [2, [[eligible.id, 2]]]);
 	assert.equal(back.assignees[0].accountId, eligible.id);
+});
+
+test("INV-paging a follow-up page past the end answers with the last page in the same read", async () => {
+	const c = await church();
+	for (const name of ["Ada", "Bea", "Cy"]) await person(c, name, { stage: "prospect" });
+	const past = ok(await read(c.owner, "followUpCoverage", { page: 9, limit: 2 }));
+	assert.deepEqual([past.page, past.items.length, past.total, past.next], [2, 1, 3, null]);
+	const empty = ok(await read(c.owner, "listFollowUpOwners", { page: 4, limit: 2 }));
+	assert.deepEqual([empty.page, empty.items, empty.matched, empty.next], [1, [], 0, null]);
 });
 
 test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or nothing; reads cost one statement", async () => {
@@ -740,7 +754,7 @@ test("AC:TARGET-PPL-007 INV-inactivity: a card warns after the church's inactivi
 	};
 	const levels = async () => {
 		const pipeline = ok(
-			await f.db.transaction((tx) => peopleReader.getPipelineData(tx, new PeopleReadContext(c.member.actor), {})),
+			await gatedTransaction(f.db, (tx) => peopleReader.getPipelineData(tx, new PeopleReadContext(c.member.actor), {})),
 		);
 		const cards = pipeline.groups.flatMap((g) => g.cards);
 		return Object.fromEntries(
@@ -803,7 +817,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 one owner view: every read names a fol
 	const shape = (o) => o && [o.accountId, o.eligible, o.reason];
 	const owners = ok(await read(c.member, "listFollowUpOwners", { personId: pia })).items;
 	const coverage = ok(await read(c.admin, "followUpCoverage", { personId: pia })).items[0].duties;
-	const list = ok(await f.db.transaction((tx) => taskReader.list(tx, c.admin.actor, {}))).items;
+	const list = ok(await gatedTransaction(f.db, (tx) => taskReader.list(tx, c.admin.actor, {}))).items;
 	for (const [account, [ok_, reason]] of Object.entries(expected)) {
 		const id = taskOf[account];
 		const views = [
@@ -873,9 +887,11 @@ test("AC:TARGET-TSK-012 task assignment, create and edit refuse a follow-up owne
 	).task;
 	assert.deepEqual([edited.assignees[0].accountId, edited.followUpOwners[0].eligible], [ready.id, true]);
 	const names = (r) => ok(r).items.map((i) => i.accountId);
-	const all = names(await f.db.transaction((tx) => taskReader.eligibleAssignees(tx, c.owner.actor, {})));
+	const all = names(await gatedTransaction(f.db, (tx) => taskReader.eligibleAssignees(tx, c.owner.actor, {})));
 	const eligibleOnly = names(
-		await f.db.transaction((tx) => taskReader.eligibleAssignees(tx, c.owner.actor, { purpose: "committed_follow_up" })),
+		await gatedTransaction(f.db, (tx) =>
+			taskReader.eligibleAssignees(tx, c.owner.actor, { purpose: "committed_follow_up" }),
+		),
 	);
 	assert.ok(all.includes(unlinked.id) && all.includes(ready.id));
 	assert.deepEqual(eligibleOnly, [ready.id]);
@@ -956,7 +972,7 @@ test("AC:TARGET-MTG-022 AC:TARGET-MTG-021 one follow-up state: a done follow-up 
 	);
 	assert.equal(ok(await read(c.owner, "listFollowUpOwners", { personId: sol })).items.length, 0);
 	const activity = ok(
-		await f.db.transaction((tx) =>
+		await gatedTransaction(f.db, (tx) =>
 			peopleReader.getActivities(tx, new PeopleReadContext(c.owner.actor), { personId: sol, kinds: ["follow_up"] }),
 		),
 	);
@@ -964,6 +980,51 @@ test("AC:TARGET-MTG-022 AC:TARGET-MTG-021 one follow-up state: a done follow-up 
 		activity.items.map((i) => [i.outcome, i.channel, i.notes]),
 		[["contacted", "phone", "Left a voicemail and texted."]],
 	);
+});
+
+test("INV-statements an outcome locks its task and reads its Person in one statement, whatever it finishes", async () => {
+	const c = await church();
+	const lee = await person(c, "Lee Park");
+	const origin = { at: "2026-09-14T15:00:00Z", date: "2026-09-14", zone: "America/Chicago" };
+	const vision = await generated(c, lee, "Vision C", origin);
+	const generatedTask = vision.obligation.task;
+	const followUp = async (input) =>
+		ok(await write(c.owner, "createFollowUp", { requestKey: key(), input: { personId: lee, ...input } })).task;
+	const save = async (target, outcome, extra = {}) => {
+		let saved;
+		const n = await counted(async () => {
+			saved = ok(await record(c.owner, target, outcome, { occurredAt: "2026-09-14T18:00:00Z", ...extra }));
+		});
+		return { n, saved };
+	};
+
+	const plain = await save(onTask(generatedTask), "attempted_no_contact");
+	assert.deepEqual(
+		[plain.n, plain.saved.task.status, plain.saved.lastConfirmedContactAt, plain.saved.record.meetingId],
+		[5, "not_started", null, vision.meetingId],
+	);
+	const byPerson = await save({ kind: "person", personId: lee }, "contacted");
+	assert.deepEqual(
+		[byPerson.n, byPerson.saved.task, byPerson.saved.lastConfirmedContactAt],
+		[5, null, "2026-09-14T18:00:00.000Z"],
+	);
+	const dropped = await save(onTask(await followUp({})), "no_longer_needed");
+	assert.deepEqual([dropped.n, dropped.saved.task.status], [5, "no_longer_needed"]);
+	const other = await followUp({ title: "Send Lee the packet" });
+	const finished = await save(onTask(plain.saved.task), "contacted", { completeTask: true });
+	assert.deepEqual(
+		[finished.n, finished.saved.task.status, finished.saved.record.alsoFinished.map((x) => [x.taskId, x.origin.kind])],
+		[5, "complete", [[other.id, "added"]]],
+	);
+
+	const holder = await c.seated("member");
+	await committed(c, holder, "leader");
+	const dated = await followUp({ assigneeIds: [holder.id], due: { kind: "local_date", date: "2099-01-15" } });
+	const due = sql`SELECT count(*)::int n FROM notice WHERE source_record_id=${dated.id} AND cancelled_at IS NULL`;
+	assert.deepEqual(await rows(due), [{ n: 2 }]);
+	const completed = await save(onTask(dated), "attempted_no_contact", { completeTask: true });
+	assert.deepEqual([completed.n, completed.saved.task.status], [6, "complete"]);
+	assert.deepEqual(await rows(due), [{ n: 0 }]);
 });
 
 test("AC:TARGET-MTG-022 a Member's contact finishes only the follow-ups they hold", async () => {

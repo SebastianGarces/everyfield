@@ -95,7 +95,13 @@ async function meeting(p: Owner, date: string, attended: string[], finalized = t
 const as = async (actor: { session: string }) => RequestActor.resolve(S.runtime, actor.session as never) as never;
 
 let N: Owner, N2: Owner, GA: Owner, S2: Owner, HP: Owner, EC: Owner, MF: Owner, OC: Owner, Q2: Owner, R: Owner;
-let networkOwner, networkAdmin, networkMember, graceOwner, emptyChurchOwner, hpOwner;
+type Identity = Awaited<ReturnType<typeof S.identity>>;
+let networkOwner: Identity,
+	networkAdmin: Identity,
+	networkMember: Identity,
+	graceOwner: Identity,
+	emptyChurchOwner: Identity,
+	hpOwner: Identity;
 let hpToN: string, hpToGA: string;
 let dana: string, marcus: string, two: string;
 

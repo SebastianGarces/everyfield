@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import type { Database } from "../../../packages/db/src/client.ts";
 import { SETUP_STEPS } from "../../../packages/contracts/src/dashboard/index.ts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { dashboardReader } from "../../../packages/domain/src/dashboard/index.ts";
@@ -23,9 +22,9 @@ import {
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
 import { entryText, STEP_TEXT } from "../../../apps/web/src/features/overview/model.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
-import { testDatabase } from "../../support/test-database.mts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
+import { testDatabase, type Database } from "../../support/test-database.mts";
 import { nativePorts } from "./settings-ports.mts";
 import { seedHope } from "./golden-church.mts";
 import {

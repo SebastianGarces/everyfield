@@ -1,7 +1,3 @@
-import { liveness } from "@everyfield/domain/operations";
-import { safeResponse } from "../../../server/platform/boundary";
-export const runtime = "nodejs";
+export { health as GET } from "../../../server/platform/health";
+
 export const dynamic = "force-dynamic";
-export function GET() {
-	return safeResponse(liveness());
-}

@@ -1,0 +1,187 @@
+import type { Database, Transaction } from "@everyfield/db/client";
+import { alias, and, asc, eq, isNull, sql } from "@everyfield/db/query";
+import * as tables from "@everyfield/db/tables";
+import { createHash } from "node:crypto";
+import "server-only";
+import { z } from "zod";
+import { transaction } from "./transaction.ts";
+import { logFailure } from "../log.ts";
+const provider_event_e = alias(tables.provider_event, "e");
+
+const kinds = [
+	"accepted",
+	"scheduled",
+	"sent",
+	"delivered",
+	"bounced",
+	"complained",
+	"opened",
+	"clicked",
+	"cancelled",
+] as const;
+const handled = z.enum(kinds.map((k) => `email.${k}` as const));
+const wire = z.object({
+	type: handled,
+	created_at: z.iso.datetime(),
+	data: z.object({ email_id: z.string().min(1).max(128), bounce: z.object({ type: z.string() }).optional() }),
+});
+const eventSchema = z.object({
+	id: z.uuid(),
+	message_id: z.string(),
+	kind: z.enum(kinds),
+	occurred_at: z.date(),
+	safe_payload: z.object({ hard_bounce: z.boolean() }),
+	processed_at: z.date().nullable(),
+});
+async function apply(tx: Transaction, eventId: string) {
+	const row = await tx.select().from(tables.provider_event).where(eq(tables.provider_event.id, eventId)).for("update");
+	const e = eventSchema.parse(row[0]);
+	if (e.processed_at) return "duplicate" as const;
+	const matches = await tx
+		.select({
+			id: tables.mail.id,
+			tenant_id: tables.mail.tenant_id,
+			address_hash: tables.mail.address_hash,
+			job_id: tables.mail.job_id,
+		})
+		.from(tables.mail)
+		.where(eq(tables.mail.provider_message_id, e.message_id))
+		.for("update");
+	if (matches.length !== 1) return "unmatched" as const;
+	const m = z
+		.object({ id: z.uuid(), tenant_id: z.uuid(), address_hash: z.string().nullable(), job_id: z.uuid().nullable() })
+		.parse(matches[0]);
+	const columns = {
+		accepted: "accepted_at",
+		scheduled: "accepted_at",
+		sent: "sent_at",
+		delivered: "delivered_at",
+		bounced: "bounced_at",
+		complained: "complained_at",
+		opened: "opened_at",
+		clicked: "clicked_at",
+		cancelled: "cancel_confirmed_at",
+	} as const;
+	const column = columns[e.kind];
+	const timestamp = tables.mail[column];
+	await tx
+		.update(tables.mail)
+		.set({
+			[column]: sql`CASE WHEN ${timestamp} IS NULL THEN ${e.occurred_at}::timestamptz ELSE least(${timestamp},${e.occurred_at}::timestamptz) END`,
+			state: sql`CASE WHEN ${tables.mail.state}='cancelled' THEN ${tables.mail.state}
+      WHEN ${e.kind}='cancelled' AND ${tables.mail.sent_at} IS NULL AND ${tables.mail.delivered_at} IS NULL THEN 'cancelled'
+      WHEN ${tables.mail.sent_at} IS NOT NULL OR ${tables.mail.delivered_at} IS NOT NULL OR ${e.kind} IN ('sent','delivered') THEN 'sent'
+      WHEN ${tables.mail.state} IN ('pending','dispatched','unknown') THEN 'accepted' ELSE ${tables.mail.state} END`,
+			provider_message_id: e.message_id,
+		})
+		.where(eq(tables.mail.id, m.id));
+	if (m.address_hash && (e.kind === "complained" || (e.kind === "bounced" && e.safe_payload.hard_bounce))) {
+		await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${m.address_hash},31))`);
+		await tx.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
+      VALUES(${m.address_hash},${e.kind === "complained" ? "complaint" : "hard_bounce"},${e.id},clock_timestamp()) ON CONFLICT(address_hash) DO UPDATE
+      SET reason=excluded.reason,source_event_id=excluded.source_event_id,suppressed_at=excluded.suppressed_at,
+      cleared_at=NULL,clear_operation_id=NULL,revision=suppression.revision+1`);
+	}
+	await tx
+		.update(tables.provider_event)
+		.set({ mail_id: m.id, processed_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)) })
+		.where(eq(tables.provider_event.id, e.id));
+	await tx
+		.update(tables.job)
+		.set({
+			state: "succeeded",
+			error_code: null,
+			finished_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+			revision: sql<unknown>`(${tables.job.revision} + 1)`,
+		})
+		.where(and(eq(tables.job.id, sql`${m.job_id}`), eq(tables.job.state, "reconcile")));
+	const action =
+		e.kind === "delivered" ? "mail.delivered" : e.kind === "cancelled" ? "mail.cancelled" : "mail.reconciled";
+	await tx
+		.insert(tables.audit_event)
+		.values({
+			tenant_id: m.tenant_id,
+			subject_id: m.id,
+			kind: "outcome",
+			occurred_at: sql`${e.occurred_at}`,
+			recorded_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+			system_cause: "provider_callback",
+			event_key: `provider/${e.id}`,
+			action: action,
+		})
+		.onConflictDoNothing({ target: [tables.audit_event.subject_id, tables.audit_event.event_key] });
+	return "applied" as const;
+}
+export async function applyMailCallback(db: Database, raw: Uint8Array, key: string) {
+	const body: unknown = JSON.parse(new TextDecoder().decode(raw));
+	const type = z.object({ type: z.string().min(1).max(64) }).parse(body).type;
+	if (!handled.safeParse(type).success) return { stored: false, result: "ignored" as const };
+	const v = wire.parse(body);
+	const kind = z.enum(kinds).parse(v.type.slice(6));
+	const hash = createHash("sha256").update(raw).digest("hex");
+	const id = await transaction(db, async (tx) => {
+		const r = await tx
+			.insert(tables.provider_event)
+			.values({
+				event_key: key,
+				message_id: v.data.email_id,
+				kind: kind,
+				occurred_at: sql`${v.created_at}`,
+				received_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+				payload_hash: hash,
+				safe_payload: { hard_bounce: kind === "bounced" && v.data.bounce?.type === "Permanent" },
+			})
+			.onConflictDoNothing({ target: [tables.provider_event.event_key] })
+			.returning({ id: tables.provider_event.id });
+		if (r[0]) return z.uuid().parse(r[0].id);
+		const old = await tx
+			.select({ id: tables.provider_event.id, payload_hash: tables.provider_event.payload_hash })
+			.from(tables.provider_event)
+			.where(eq(tables.provider_event.event_key, key));
+		if (old[0]?.payload_hash !== hash) throw Error("callback_identity_conflict");
+		return z.uuid().parse(old[0].id);
+	});
+	try {
+		return { stored: true, result: await transaction(db, (tx) => apply(tx, id)) };
+	} catch (error) {
+		logFailure({ component: "mail-callback", outcome: "apply_failed" }, error);
+		return { stored: true, result: "pending" as const };
+	}
+}
+export async function replayStoredCallbacks(db: Database) {
+	const rows = await db
+		.select({ id: provider_event_e.id })
+		.from(provider_event_e)
+		.where(
+			and(
+				isNull(provider_event_e.processed_at),
+				sql<unknown>`exists(SELECT (1)  FROM mail  AS m  WHERE (m .provider_message_id = e .message_id))`,
+			),
+		)
+		.orderBy(asc(provider_event_e.received_at), asc(provider_event_e.id))
+		.limit(100);
+	let applied = 0;
+	for (const row of rows) {
+		try {
+			if ((await applyStoredCallback(db, z.uuid().parse(row.id))) === "applied") applied++;
+		} catch (error) {
+			logFailure({ component: "mail-callback", outcome: "replay_failed" }, error);
+		}
+	}
+	return applied;
+}
+async function applyStoredCallback(db: Database, eventId: string) {
+	return transaction(db, (tx) => apply(tx, eventId));
+}
+export async function callbackVisibility(
+	db: Database,
+	endpoint: "disabled" | "unverified" | "verified" = "unverified",
+) {
+	const r = await db
+		.select({
+			pending: sql<number>`count(*) FILTER(WHERE ${provider_event_e.processed_at} IS NULL)::int`,
+			unmatched: sql<number>`count(*) FILTER(WHERE ${provider_event_e.processed_at} IS NULL AND NOT EXISTS(SELECT 1 FROM ${tables.mail} WHERE ${tables.mail.provider_message_id}=${provider_event_e.message_id}))::int`,
+		})
+		.from(provider_event_e);
+	return { endpoint, ...z.object({ pending: z.number().int(), unmatched: z.number().int() }).parse(r[0]) };
+}

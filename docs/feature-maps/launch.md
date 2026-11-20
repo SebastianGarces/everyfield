@@ -32,6 +32,7 @@ flowchart LR
 Launch Sunday's date and countdown, its readiness, and the outcome form once the day arrives.
 
 - Routes: `/launch`
+- Endpoints: `/launch/read`
 - Personas: `owner` write, `admin` write, `member` read, `visitor` none
 - Catalog: LCH-001, LCH-003, LCH-006, LCH-007, LCH-008
 
@@ -226,6 +227,6 @@ Launch history lists every date change, milestone and outcome with who made it a
 ```bash
 agent-browser find role button click --name "Show history" --exact
 agent-browser wait --load networkidle
-agent-browser find text "Launch Sunday set" text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Launch Sunday set\")"
 agent-browser find role button text --name "Refresh" --exact
 ```

@@ -36,7 +36,7 @@ import {
 	Tabs,
 	TabsList,
 	TabsPanel,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
@@ -59,12 +59,12 @@ import {
 	completePractice,
 	correctOccurrence,
 	correctPractice,
-	reloadMeeting,
 	correctEvaluation,
 	recordEvaluation,
 	saveOwnRsvp,
 	settleAttendance,
 } from "./actions.ts";
+import { reloadMeeting } from "./fetch.ts";
 import {
 	AttendanceCard,
 	attendanceAfter,
@@ -131,7 +131,6 @@ type MeetingForm = ({ kind: "held"; at: string } | { kind: "reason"; reason: Rea
 
 export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageData; canWrite: boolean }) {
 	const router = useRouter();
-	const toast = useToast();
 	const [server, setServer] = useState(loaded);
 	const [data, setData] = useState(loaded);
 	if (server !== loaded) {
@@ -868,7 +867,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							onClose={closeDialog}
 							onSubmit={(why) => {
 								const { id, displayTitle, revision } = m;
-								deleteFromList({ id, title: displayTitle, revision }, why, toast);
+								deleteFromList({ id, title: displayTitle, revision }, why);
 								router.push("/meetings");
 							}}
 						/>
@@ -935,7 +934,7 @@ function RsvpSummary({ guests, attended, started }: { guests: GuestRow[] | null;
 	const total = guests?.length ?? 0;
 	return (
 		<Card as="section" aria-labelledby="rsvps-title">
-			<CardHeader className="mb-3.5">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle id="rsvps-title">RSVPs</CardTitle>
 					<CardDescription>
@@ -982,7 +981,7 @@ function CardsSummary({ guests, cards }: { guests: GuestRow[] | null; cards: Mee
 	const fromOthers = cards.filter((c) => !attended.has(c.personId));
 	return (
 		<Card as="section" aria-labelledby="cards-title">
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle id="cards-title">Response cards</CardTitle>
 					<CardDescription>
@@ -1015,7 +1014,7 @@ function CardsSummary({ guests, cards }: { guests: GuestRow[] | null; cards: Mee
 function NotesCard({ notes }: { notes: string | null }) {
 	return (
 		<Card as="section" aria-labelledby="notes-title">
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle id="notes-title">Notes</CardTitle>
 				</CardHeading>
@@ -1040,7 +1039,7 @@ function Breakdown({
 }) {
 	return (
 		<div className={className}>
-			<h3 className="mb-1 font-sans text-xs font-semibold tracking-[0.04em] text-text-3 uppercase">{label}</h3>
+			<h3 className="section-label mb-1 font-sans text-text-3">{label}</h3>
 			<dl className="flex flex-col">
 				{CARD_RESPONSES.map((r) => (
 					<div

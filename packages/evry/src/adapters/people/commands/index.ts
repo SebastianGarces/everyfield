@@ -1,4 +1,3 @@
-import type { Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { contactColumns, peopleWriter, personFields } from "@everyfield/domain/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
@@ -15,6 +14,7 @@ import {
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 export const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
@@ -37,7 +37,7 @@ function reviewed<I, R extends z.ZodType>(spec: {
 	review(actor: EvryActor, input: I): SQL;
 	request: R;
 	run(
-		tx: Transaction,
+		tx: WriteTx,
 		context: PeopleContext,
 		request: z.output<R>,
 		reminders: TaskReminders,
@@ -94,12 +94,11 @@ const updatePerson = reviewed({
 		"Propose a change to one person's name, contact, address, source, notes or birth date. Nothing changes until the user approves the exact review.",
 	input: z.strictObject({ personId, patch }),
 	review(actor, value) {
-		const changes = Object.entries(value.patch).map(([field, after], n) => ({
-			n,
-			field,
-			col: columns.get(field)!,
-			after: after ?? null,
-		}));
+		const changes = Object.entries(value.patch).map(([field, after], n) => {
+			const col = columns.get(field);
+			if (col === undefined) throw new Error(`The patch field ${field} has no column`);
+			return { n, field, col, after: after ?? null };
+		});
 		return sql`SELECT jsonb_build_object('target',${person},
 				'changes',(SELECT jsonb_agg(jsonb_build_object('field',k.field,'before',to_jsonb(p)->k.col,'after',k.after) ORDER BY k.n)
 					FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) k(n int,field text,col text,after jsonb))) AS review,

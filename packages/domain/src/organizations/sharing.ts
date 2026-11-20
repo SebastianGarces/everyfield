@@ -1,9 +1,8 @@
 import { writeActor, loadAffiliations, type Reader } from "./core.ts";
 import { revision, type Owner, type sessionId } from "@everyfield/contracts/common";
-import { liveRead, type RequestActor } from "../access/session.ts";
+import { liveRead, type RequestActor, type WriteTx } from "../access/session.ts";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
-import type { Transaction } from "@everyfield/db/client";
 import { alias } from "@everyfield/db/columns";
 import { and, eq, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
@@ -42,7 +41,7 @@ const columns = {
 } as const;
 export function sharingOperations(
 	effects: OrganizationEffects,
-): Pick<OrganizationAdapter<Transaction>, "privacy.getSharing" | "privacy.setSharing"> {
+): Pick<OrganizationAdapter<WriteTx>, "privacy.getSharing" | "privacy.setSharing"> {
 	return {
 		async "privacy.getSharing"(tx, session, selected, raw) {
 			const q = Q.readSharingRequest.parse(raw),
@@ -91,7 +90,7 @@ export function sharingOperations(
 				checkRevision(q.expectedRevision, a.revision);
 				checkRevision(q.input.expectedConsentRevision, a.consent_revision);
 				await applySharingMutation(tx, a, c, { ...choices(a), [q.input.category]: q.input.enabled }, effects);
-				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
+				return finishCommand(tx, c, () => ({ status: "committed" }) satisfies z.output<typeof Q.mutationResult>);
 			});
 		},
 	};
@@ -128,7 +127,7 @@ export async function readPlantSharing(db: Reader, authority: RequestActor, orga
 }
 
 export async function readSharingDisclosure(
-	tx: Transaction,
+	tx: WriteTx,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
 	raw: unknown,
@@ -151,7 +150,7 @@ export async function readSharingDisclosure(
 	const row = disclosureRow.parse(r.rows[0]);
 	if (!row.allowed) return unavailable();
 	if (row.consent_revision === null)
-		return Q.sharingDisclosure.parse({
+		return {
 			kind: "first_invitation",
 			organization: pair.organization,
 			choices: {
@@ -163,7 +162,7 @@ export async function readSharingDisclosure(
 				activity: true,
 				shared_findings: true,
 			},
-		});
+		} satisfies z.output<typeof Q.sharingDisclosure>;
 	return Q.sharingDisclosure.parse({
 		kind: "existing_consent",
 		organization: pair.organization,
@@ -184,7 +183,7 @@ const disclosureRow = z.object({
 });
 
 export async function applySharingMutation(
-	tx: Transaction,
+	tx: WriteTx,
 	a: NonNullable<Awaited<ReturnType<typeof loadAffiliation>>>,
 	c: Extract<Awaited<ReturnType<typeof beginCommand>>, { kind: "new" }>,
 	nextChoices: ReturnType<typeof choices>,

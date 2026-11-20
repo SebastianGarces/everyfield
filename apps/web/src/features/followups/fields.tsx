@@ -54,7 +54,7 @@ export function OutcomeFields({
 					data-invalid={errors.outcome ? "true" : undefined}
 					value={draft.outcome}
 					onValueChange={(v) => onDraft(pickOutcome(draft, v as OutcomeValue))}
-					className="gap-2"
+					className="gap-y-2"
 				>
 					{outcomes.map((o) => (
 						<Radio
@@ -64,7 +64,6 @@ export function OutcomeFields({
 							description={OUTCOME_HINT[o]}
 							className={cn(
 								"rounded-card px-3.5 shadow-[inset_0_0_0_1px_var(--ef-line-2)] transition-[box-shadow] duration-150 has-[[data-state=checked]]:shadow-[inset_0_0_0_2px_var(--ef-ink)]",
-								errors.outcome && "shadow-[inset_0_0_0_1.5px_var(--ef-magenta-500)]",
 							)}
 						/>
 					))}
@@ -85,7 +84,7 @@ export function OutcomeFields({
 			{reached ? (
 				<Field label="How" optional>
 					<Select
-						value={draft.channel || undefined}
+						value={draft.channel}
 						onValueChange={(v) => set({ channel: v as Draft["channel"] })}
 						placeholder="Choose how"
 						options={CHANNELS.map((c) => ({ value: c, label: CHANNEL_LABEL[c] }))}
@@ -100,12 +99,7 @@ export function OutcomeFields({
 					hint={`Facts about this follow-up only, such as a good time to call back. ${draft.notes.length.toLocaleString("en-US")} of ${NOTES_MAX.toLocaleString("en-US")} characters.`}
 					error={errors.notes}
 				>
-					<Textarea
-						value={draft.notes}
-						onChange={(e) => set({ notes: e.target.value })}
-						rows={3}
-						className="min-h-20"
-					/>
+					<Textarea value={draft.notes} onChange={(e) => set({ notes: e.target.value })} rows={3} />
 				</Field>
 			) : null}
 

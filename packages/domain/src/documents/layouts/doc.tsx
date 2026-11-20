@@ -275,7 +275,7 @@ function heading(r: R, node: HeadingNode, key: number) {
 				{title}
 			</View>
 		);
-	const number = level2 ? String(r.run.h2).padStart(2, "0") : `${r.run.h2}.${r.run.h3}`;
+	const number = level2 ? String(r.run.h2) : `${r.run.h2}.${r.run.h3}`;
 	return (
 		<View
 			key={key}

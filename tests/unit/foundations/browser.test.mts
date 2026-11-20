@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { mock, test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -48,7 +49,7 @@ test("INV-debounce: only the last call runs, once; cancel, flush and detaching i
 	mock.timers.tick(200);
 	debouncer.run(() => ran.push("b"));
 	mock.timers.tick(299);
-	assert.deepEqual(ran, []);
+	assert.equal(ran.length, 0);
 	mock.timers.tick(1);
 	assert.deepEqual(ran, ["b"]);
 	mock.timers.tick(1000);
@@ -241,4 +242,46 @@ test("INV-minute-clock: one shared interval while anyone listens, none after, an
 	const stop = clock.subscribeMinute(() => {});
 	assert.equal(clock.minuteSnapshot(), 540_000, "subscribing refreshes a minute cached long ago");
 	stop();
+});
+
+test("INV-cn: a later class wins over an earlier conflicting one, and a font size keeps an explicit line height", async () => {
+	const { buttonVariants } = await import("../../../packages/ui/src/controls/index.ts");
+	const row = ui.cn(buttonVariants({ variant: "secondary" }), "flex-1").split(" ");
+	assert.ok(row.includes("flex-1") && !row.includes("flex-none"));
+	assert.equal(ui.cn("gap-[26px] max-app-sm:gap-5", "gap-5 max-app-sm:gap-3"), "gap-5 max-app-sm:gap-3");
+	assert.equal(ui.cn("text-md text-ink", "text-text-2"), "text-md text-text-2");
+	assert.equal(ui.cn("leading-[1.05] text-ink", "text-[52px]"), "leading-[1.05] text-ink text-[52px]");
+	assert.equal(ui.cn("text-display-lg text-ink", false, null, undefined), "text-display-lg text-ink");
+});
+
+test("INV-cn: every theme token in the stylesheets merges only within its own utility group", () => {
+	const sheets = [
+		"design/handoff/tokens.css",
+		"packages/ui/src/foundations/product.css",
+		"packages/ui/src/controls/controls.css",
+		"apps/web/src/styles/marketing.css",
+	].map((p) => readFileSync(root + p, "utf8"));
+	const checks: Record<string, (name: string) => [string, string, string]> = {
+		text: (n) => [`text-ink text-sm`, `text-${n}`, `text-ink text-${n}`],
+		shadow: (n) => [`shadow-none`, `shadow-${n}`, `shadow-${n}`],
+		radius: (n) => [`rounded-none`, `rounded-${n}`, `rounded-${n}`],
+		container: (n) => [`max-w-none`, `max-w-${n}`, `max-w-${n}`],
+		spacing: (n) => [`p-0`, `p-${n}`, `p-${n}`],
+		ease: (n) => [`ease-linear`, `ease-${n}`, `ease-${n}`],
+		animate: (n) => [`animate-none`, `animate-${n}`, `animate-${n}`],
+		font: (n) => [`font-semibold font-mono`, `font-${n}`, `font-semibold font-${n}`],
+	};
+	const seen = new Set<string>();
+	for (const css of sheets)
+		for (const [, group = "", name = ""] of css.matchAll(
+			/--(text|shadow|radius|container|spacing|ease|animate|font)-([a-z0-9]+(?:-[a-z0-9]+)*):/g,
+		)) {
+			if (seen.has(`${group}-${name}`)) continue;
+			seen.add(`${group}-${name}`);
+			const check = checks[group];
+			assert.ok(check, `${group} has a merge check`);
+			const [before, after, merged] = check(name);
+			assert.equal(ui.cn(before, after), merged, `${group} token ${name}`);
+		}
+	assert.ok(seen.size > 40);
 });
