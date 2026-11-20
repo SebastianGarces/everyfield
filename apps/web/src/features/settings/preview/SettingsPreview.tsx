@@ -29,6 +29,12 @@ import { RepliesControl } from "./RepliesControl";
 
 const BASE = "/design/settings";
 
+const RESTRICTED_PAGES: [href: string, label: string][] = [
+	["/design/restricted/account-deletion?state=pending", "Account deletion"],
+	["/design/restricted/workspace-deletion?state=pending", "Workspace deletion"],
+	["/design/restricted/confirm-email?proof=valid", "Confirm email"],
+];
+
 export function SettingsPreview() {
 	const search = useSearchParams();
 	const persona = parsePersona(search.get("as"));
@@ -211,13 +217,9 @@ function PreviewPage({
 					<CardTitle>Restricted pages</CardTitle>
 					<CardDescription>What a deletion request or an email link opens. No settings and no shell.</CardDescription>
 					<ul className="mt-4 flex flex-wrap gap-2">
-						{[
-							["/design/restricted/account-deletion?state=pending", "Account deletion"],
-							["/design/restricted/workspace-deletion?state=pending", "Workspace deletion"],
-							["/design/restricted/confirm-email?proof=valid", "Confirm email"],
-						].map(([href, label]) => (
+						{RESTRICTED_PAGES.map(([href, label]) => (
 							<li key={href}>
-								<Button variant="secondary" size="sm" onClick={() => router.push(href!)}>
+								<Button variant="secondary" size="sm" onClick={() => router.push(href)}>
 									{label}
 								</Button>
 							</li>
