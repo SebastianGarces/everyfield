@@ -406,6 +406,8 @@ test("INV-lint: free-form versions of every banned look still fail under apps/we
 		<span>01</span>
 		<div className="size-96 rounded-full bg-green-500 blur-3xl" />
 		<div className="bg-linear-to-r from-green-500 to-blue-500" />
+		<span className="font-semibold tracking-[0.09em] uppercase">Raw eyebrow</span>
+		<Display as="h1" size="hero">Above a Display heading</Display>
 	</section>
 );
 `;
@@ -419,6 +421,8 @@ test("INV-lint: free-form versions of every banned look still fail under apps/we
 		"10 counter",
 		"11 orb",
 		"12 gradient",
+		"13 eyebrow",
+		"13 tracking",
 	]);
 	const pad = "apps/web/src/marketing/home/Steps.tsx";
 	const steps = 'export const num = (i: number) => String(i + 1).padStart(2, "0");\n';

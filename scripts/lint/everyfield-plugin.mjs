@@ -2314,6 +2314,13 @@ const classesOf = (element) => {
 	return attr ? stringsIn(attr.value).flatMap((s) => s.split(/\s+/).filter(Boolean)) : [];
 };
 
+const elementName = (element) => {
+	const as = element.openingElement.attributes.find((a) => a.type === "JSXAttribute" && a.name?.name === "as");
+	return as?.value?.type === "Literal" && typeof as.value.value === "string"
+		? as.value.value
+		: (jsxName(element.openingElement.name) ?? "");
+};
+
 const staticValue = (node) =>
 	node?.type === "Literal"
 		? node.value
@@ -2425,9 +2432,9 @@ const noSlopStyling = ratcheted("no-slop-styling", (context, push) => {
 			for (let i = 0; i < kids.length - 1; i++) {
 				const [label, next] = [kids[i], kids[i + 1]];
 				if (label.type !== "JSXElement" || next.type !== "JSXElement") continue;
-				if (headingLike(jsxName(label.openingElement.name) ?? "", classesOf(label))) continue;
+				if (headingLike(elementName(label), classesOf(label))) continue;
 				if (!labelLike(classesOf(label))) continue;
-				if (headingLike(jsxName(next.openingElement.name) ?? "", classesOf(next)))
+				if (headingLike(elementName(next), classesOf(next)))
 					report(label, "eyebrow", `<${jsxName(label.openingElement.name)}> label`);
 			}
 		},
