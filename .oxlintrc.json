@@ -153,6 +153,66 @@
 			}
 		},
 		{
+			"files": ["packages/domain/src/**"],
+			"rules": {
+				"everyfield/domain-refusals": "error"
+			}
+		},
+		{
+			"files": ["packages/domain/src/operations/refusals.ts"],
+			"rules": {
+				"everyfield/domain-refusals": "off"
+			}
+		},
+		{
+			"files": ["packages/domain/src/feedback/index.ts"],
+			"rules": {
+				"everyfield/domain-refusals": "off"
+			}
+		},
+		{
+			"files": ["packages/domain/src/dashboard/index.ts"],
+			"rules": {
+				"everyfield/domain-refusals": "off"
+			}
+		},
+		{
+			"files": ["packages/domain/src/people/pipeline-metrics.ts"],
+			"rules": {
+				"everyfield/domain-refusals": "off"
+			}
+		},
+		{
+			"files": ["packages/domain/src/identity/**"],
+			"rules": {
+				"everyfield/domain-refusals": "off"
+			}
+		},
+		{
+			"files": ["packages/domain/src/settings/credentials.ts"],
+			"rules": {
+				"everyfield/domain-refusals": "off"
+			}
+		},
+		{
+			"files": ["packages/domain/src/organizations/seat.ts"],
+			"rules": {
+				"everyfield/domain-refusals": "off"
+			}
+		},
+		{
+			"files": ["packages/domain/src/organizations/core.ts"],
+			"rules": {
+				"everyfield/domain-refusals": "off"
+			}
+		},
+		{
+			"files": ["packages/domain/src/people/csv/sheet.ts"],
+			"rules": {
+				"everyfield/domain-refusals": "off"
+			}
+		},
+		{
 			"files": ["packages/domain/src/mail-recipients.ts", "packages/db/src/deployment.ts"],
 			"rules": {
 				"everyfield/pure-module": "error"

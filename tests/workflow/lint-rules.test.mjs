@@ -1562,6 +1562,35 @@ test("INV-lint: product code that recognises a caught error by its message text 
 	]);
 });
 
+test("INV-lint: a domain module that hand-builds a refusal class, retry or refusal reply is reported; defineRefusals and the exempted mechanisms are not", () => {
+	const source = `import { defineRefusals } from "./operations/refusals.ts";
+class Refusal extends Error {}
+export const Other = class TaskRefused extends Error {};
+const RETRY = { stale: "same_request", gone: "never" };
+const retries = new Map([["stale", "refresh"]]);
+export function reply(code: string, late: boolean) {
+	if (late) return { status: "refused" as const, error: { code, retry: "never" } };
+	return { status: late ? "ok" : "refused", error: { code, retry: late ? "refresh" : "never" } };
+}
+const refusals = defineRefusals(schema);
+export const { deny, refused, settle } = refusals;
+class RenderFailed extends Error {}
+export const ok = { status: "ok", retry: refusals, retryAt: "never" };
+export { Refusal, RETRY, retries, RenderFailed };
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/m.ts": source,
+			"packages/domain/src/operations/refusals.ts": source,
+			"packages/domain/src/feedback/index.ts": source,
+			"packages/domain/src/identity/x.ts": source,
+			"packages/evry/src/m.ts": source,
+			"apps/web/src/features/x/server.ts": source,
+		}).filter((hit) => hit.endsWith("domain-refusals")),
+		[2, 3, 4, 5, 7, 7, 8, 8].map((line) => `packages/domain/src/m.ts:${line} domain-refusals`),
+	);
+});
+
 test("INV-lint: a hand-written sign-in redirect in web code is reported, signIn and other redirects are not", () => {
 	const source = `import { redirect as go, notFound } from "next/navigation";
 import * as nav from "next/navigation";

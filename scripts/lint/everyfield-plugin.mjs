@@ -2617,6 +2617,46 @@ function leadingText(context, node, seen = new Set()) {
 	}
 	return null;
 }
+const RETRY_ELIGIBILITY = new Set(["never", "refresh", "same_request", "reconcile"]);
+const literalOutcomes = (node) => {
+	const at = unwrapped(node);
+	if (!at) return [];
+	if (at.type === "ConditionalExpression") return [...literalOutcomes(at.consequent), ...literalOutcomes(at.alternate)];
+	if (at.type === "LogicalExpression") return [...literalOutcomes(at.left), ...literalOutcomes(at.right)];
+	const text = literalArgument(at);
+	return text === null ? [] : [text];
+};
+const domainRefusals = {
+	meta: { type: "problem" },
+	create(context) {
+		const report = (node, what) =>
+			context.report({
+				node,
+				message: `${what} is hand-built. A domain module defines its refusals once with defineRefusals(errorSchema) from operations/refusals.ts and answers through its deny, refused and settle; retry comes from the contract.`,
+			});
+		const refusalClass = (node) => {
+			if (node.superClass && /Refus/.test(node.id?.name ?? "")) report(node, `The refusal class ${node.id.name}`);
+		};
+		return {
+			ClassDeclaration: refusalClass,
+			ClassExpression: refusalClass,
+			Property(node) {
+				if (node.parent?.type !== "ObjectExpression") return;
+				const key = keyName(node.key, node.computed);
+				if (key === "status" && literalOutcomes(node.value).includes("refused")) report(node, "A refusal reply");
+				if (key === "retry" && literalOutcomes(node.value).some((v) => RETRY_ELIGIBILITY.has(v)))
+					report(node, "A refusal's retry");
+			},
+			VariableDeclarator(node) {
+				const init = unwrapped(node.init);
+				if (node.id.type !== "Identifier" || !/retr(y|ies)/i.test(node.id.name)) return;
+				if (init?.type === "ObjectExpression" || (init?.type === "NewExpression" && init.callee.name === "Map"))
+					report(node, `The retry table ${node.id.name}`);
+			},
+		};
+	},
+};
+
 const signInRedirect = {
 	meta: { type: "problem" },
 	create(context) {
@@ -2693,5 +2733,6 @@ export default {
 		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
+		"domain-refusals": domainRefusals,
 	},
 };
