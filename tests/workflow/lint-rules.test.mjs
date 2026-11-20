@@ -1102,6 +1102,29 @@ export const p = require("node:process").env;
 	);
 });
 
+test("INV-web-sql: apps/web imports no database module outside the files that still hold SQL", () => {
+	const code = `import { sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import { eq } from "drizzle-orm";
+export { and } from "drizzle-orm/sql";
+export type Q = import("@everyfield/db/query").SQL;
+import type { Database } from "@everyfield/db/client";
+import { privateStorage } from "@everyfield/db/schema";
+export const later = () => import("@everyfield/db/query");
+export const used = [sql, t, eq, privateStorage] as unknown as Database;
+`;
+	const hits = lint({
+		"apps/web/src/features/x/server.ts": code,
+		"apps/web/src/features/wiki/server.ts": code,
+		"apps/web/src/features/settings/mail.ts": "export const none = 1;\n",
+		"packages/domain/src/x/index.ts": code,
+	}).filter((hit) => hit.endsWith(" web-database-imports"));
+	assert.deepEqual(hits, [
+		"apps/web/src/features/settings/mail.ts:1 web-database-imports",
+		...[1, 2, 3, 4, 5, 8].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`),
+	]);
+});
+
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
 	const code = `import "server-only";
 import { logFailure, logLine } from "@everyfield/domain/log";
