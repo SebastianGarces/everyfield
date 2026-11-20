@@ -104,13 +104,13 @@ export function RemoveDialog({
 						<DialogBody className="flex flex-col gap-4 text-md text-text-2">
 							<p className="text-pretty">
 								<span className="font-medium text-ink">Removed:</span> their name and contact details, their place on
-								the pipeline and stage history, staff notes, conversations, enrollments, milestone marks and
-								feedback. If they have an Everyfield account, their link to {organization} ends at once; their own
-								account stays as it is.
+								the pipeline and stage history, staff notes, conversations, enrollments, milestone marks and feedback.
+								If they have an Everyfield account, their link to {organization} ends at once; their own account stays
+								as it is.
 							</p>
 							<p className="text-pretty">
-								<span className="font-medium text-ink">Kept, without their name:</span> the activity record with names and
-								values taken out, and a record of this removal.
+								<span className="font-medium text-ink">Kept, without their name:</span> the activity record with names
+								and values taken out, and a record of this removal.
 							</p>
 							<p className="rounded-md bg-surface-2 px-3 py-2.5 text-sm text-pretty">
 								Not the same as retiring. Retire takes someone off the board but keeps their record, so you can restore

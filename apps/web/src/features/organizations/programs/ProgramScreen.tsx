@@ -389,9 +389,7 @@ function Enrollments({ program, onApplied }: { program: ProgramDetail; onApplied
 										{e.name}
 									</Link>
 									<p className="text-text-2">
-										{[e.cohort, e.stage, `Version ${e.versionNumber}`]
-											.filter(Boolean)
-											.join(" · ")}
+										{[e.cohort, e.stage, `Version ${e.versionNumber}`].filter(Boolean).join(" · ")}
 									</p>
 								</div>
 							</li>
