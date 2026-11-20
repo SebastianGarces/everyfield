@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { Add01Icon, CheckListIcon, Delete02Icon, Edit02Icon } from "@hugeicons/core-free-icons";
 import {
@@ -16,7 +17,7 @@ import {
 	Spinner,
 	StatePanel,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import type * as c from "@everyfield/contracts/teams/responsibilities";
 import { useId, useOptimistic, useRef, useState, useTransition } from "react";
@@ -30,7 +31,7 @@ import {
 	useSaveIntent,
 	type SaveIntent,
 } from "../../../components/save/parts.tsx";
-import { asRecordId, asRevision, dayText, problemText, type Outcome } from "../model.ts";
+import { asRecordId, asRevision, dayText, problemText } from "../model.ts";
 import {
 	addResponsibility,
 	completeResponsibility,
@@ -128,7 +129,6 @@ export function ResponsibilitiesPanel({
 	canOffer: boolean;
 	onTeamRevision: (revision: string) => void;
 }) {
-	const toast = useToast();
 	const [, startTransition] = useTransition();
 	const lane = useSaveIntent<TextForm>({ explain: problemText });
 	const ticks = useRowLanes(problemText);
@@ -440,7 +440,6 @@ function OfferCard({
 	onDecided: (result: OfferDecision, lines: readonly Line[], chosen: ReadonlySet<string>) => void;
 	onConflict: () => void;
 }) {
-	const toast = useToast();
 	const [, startTransition] = useTransition();
 	const preview = useRead(previews, teamId);
 	const [picked, setPicked] = useState<string[]>([]);

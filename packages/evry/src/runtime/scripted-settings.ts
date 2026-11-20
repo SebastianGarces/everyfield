@@ -1,6 +1,7 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
 import { ZONE_NAME } from "../catalog/labels.ts";
+import { captured } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Output = Record<string, unknown> & { rows?: Row[] };
@@ -26,15 +27,12 @@ function turnOutputs(prompt: Prompt): Output[] {
 }
 function lastAssistantText(prompt: Prompt) {
 	const start = prompt.findLastIndex((m) => m.role === "user");
-	for (let i = start - 1; i >= 0; i--) {
-		const m = prompt[i]!;
-		if (m.role === "assistant")
-			return m.content
-				.filter((p) => p.type === "text")
-				.map((p) => p.text)
-				.join(" ");
-	}
-	return "";
+	const m = start < 0 ? undefined : prompt.slice(0, start).findLast((message) => message.role === "assistant");
+	if (!m) return "";
+	return m.content
+		.filter((p) => p.type === "text")
+		.map((p) => p.text)
+		.join(" ");
 }
 const systemText = (prompt: Prompt) => prompt.flatMap((m) => (m.role === "system" ? [m.content] : [])).join("\n");
 
@@ -94,10 +92,10 @@ function churchDigest(text: string) {
 	if (/\bturn off\b/i.test(text)) return { cadence: "off" };
 	const at = /\bat\s+(\d{1,2})(?::(\d{2}))?\s*([ap])m\b/i.exec(text);
 	if (!at || (at[2] && at[2] !== "00")) return null;
-	const hour = (Number(at[1]) % 12) + (at[3]!.toLowerCase() === "p" ? 12 : 0);
+	const hour = (Number(at[1]) % 12) + (captured(at, 3).toLowerCase() === "p" ? 12 : 0);
 	if (/\bevery day\b/i.test(text)) return { cadence: "daily", hour };
 	const day = new RegExp(String.raw`\bon\s+(${WEEKDAY.join("|")})s?\b`, "i").exec(text);
-	return day ? { cadence: "weekly", weekday: WEEKDAY.indexOf(day[1]!.toLowerCase()), hour } : null;
+	return day ? { cadence: "weekly", weekday: WEEKDAY.indexOf(captured(day, 1).toLowerCase()), hour } : null;
 }
 const EMAIL = String.raw`([^\s@]+@[^\s@]+\.[A-Za-z]{2,})`;
 const NAME = String.raw`([A-Z][\w'-]+(?: [A-Z][\w'-]+)?)`;
@@ -143,7 +141,10 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 	);
 	if (invite) {
 		if (!offers("seats.invite")) return notOffered(options.prompt);
-		return propose("seats.invite", { email: invite[1]!.toLowerCase(), role: invite[2]!.toLowerCase() });
+		return propose("seats.invite", {
+			email: captured(invite, 1).toLowerCase(),
+			role: captured(invite, 2).toLowerCase(),
+		});
 	}
 
 	const pending = new RegExp(
@@ -151,11 +152,13 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 		"i",
 	).exec(text);
 	if (pending) {
-		const resend = pending[1]!.toLowerCase() === "resend";
+		const resend = captured(pending, 1).toLowerCase() === "resend";
 		const operation = resend ? "seats.resendInvitation" : "seats.revokeInvitation";
 		if (!offers(operation)) return notOffered(options.prompt);
 		if (!of("seats.listInvitations")) return call("seats_read", { operation: "seats.listInvitations", input: {} });
-		const found = rows("seats.listInvitations").find((r) => r.label.toLowerCase() === pending[2]!.toLowerCase());
+		const found = rows("seats.listInvitations").find(
+			(r) => r.label.toLowerCase() === captured(pending, 2).toLowerCase(),
+		);
 		if (!found) return say(`No invitation to ${pending[2]} is waiting.`);
 		return propose(operation, { invitationId: found.id });
 	}
@@ -166,16 +169,18 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 	const removal = new RegExp(String.raw`\b[Rr]emove\s+${NAME}(?:'s seat|\s+from\s+(?:our|the|this)\s+church)\b`).exec(
 		text,
 	);
-	if (role || removal) {
+	const seat = role ?? removal;
+	if (seat) {
 		const operation = role ? "seats.changeOrdinaryRole" : "seats.remove";
 		if (!offers(operation)) return notOffered(options.prompt);
 		if (!of("seats.list")) return call("seats_read", { operation: "seats.list", input: {} });
-		const name = (role ?? removal)![1]!.toLowerCase();
+		const name = captured(seat, 1).toLowerCase();
 		const found = rows("seats.list").filter((r) => r.label.toLowerCase().startsWith(name));
-		if (found.length !== 1) return say(`I can't find one seat for ${(role ?? removal)![1]}.`);
+		const [one] = found;
+		if (!one || found.length !== 1) return say(`I can't find one seat for ${captured(seat, 1)}.`);
 		return role
-			? propose(operation, { seatId: found[0]!.id, role: role[2]!.toLowerCase() })
-			: propose(operation, { seatId: found[0]!.id });
+			? propose(operation, { seatId: one.id, role: captured(role, 2).toLowerCase() })
+			: propose(operation, { seatId: one.id });
 	}
 
 	if (/\bchurch digest\b/i.test(text)) {
@@ -186,21 +191,20 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 
 	const zone = /\bchange\s+(?:our|the)\s+church(?:'s)?\s+time ?zone\s+to\s+(\w+)/i.exec(text);
 	if (zone && offers("plant.setTimezone")) {
-		const timeZone = ZONES[zone[1]!.toLowerCase()];
+		const timeZone = ZONES[captured(zone, 1).toLowerCase()];
 		return timeZone ? propose("plant.setTimezone", { timeZone }) : say(`Which time zone is ${zone[1]}?`);
 	}
 	const profile =
 		/\bupdate\s+(?:our|the)\s+church'?s\s+(name|street|city|state|province|country|description)\s+to\s+(.+?)\.?\s*$/i.exec(
 			text,
 		);
-	if (profile && offers("plant.updateProfile"))
-		return propose("plant.updateProfile", {
-			patch: { [PROFILE_FIELD[profile[1]!.toLowerCase()]!]: profile[2]!.trim() },
-		});
+	const profileField = profile && PROFILE_FIELD[captured(profile, 1).toLowerCase()];
+	if (profile && profileField && offers("plant.updateProfile"))
+		return propose("plant.updateProfile", { patch: { [profileField]: captured(profile, 2).trim() } });
 
 	const sharing = /\bwhat (?:are|do) we shar(?:e|ing) with\s+(.+?)\s*\??$/i.exec(text);
 	if (sharing && offers("privacy.getSharing")) {
-		const organization = sharing[1]!.replace(/^the\s+/i, "");
+		const organization = captured(sharing, 1).replace(/^the\s+/i, "");
 		if (!of("privacy.getSharing"))
 			return call("sharing_read", { operation: "privacy.getSharing", input: { organization } });
 		const [found] = rows("privacy.getSharing");
@@ -215,19 +219,25 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 	}
 	const change = /\b(stop|start)\s+sharing\s+(.+?)\s+with\s+(them|.+?)\.?\s*$/i.exec(text);
 	const ending = /\bend\s+(?:our|the)\s+connection\s+with\s+(.+?)\.?\s*$/i.exec(text);
-	if ((change && offers("privacy.setSharing")) || (ending && offers("associations.end"))) {
-		const named = (change ? change[3]! : ending![1]!).replace(/^the\s+/i, "");
+	const target = change ? captured(change, 3) : ending ? captured(ending, 1) : null;
+	if (target !== null && ((change && offers("privacy.setSharing")) || (ending && offers("associations.end")))) {
+		const named = target.replace(/^the\s+/i, "");
 		const organization = /^them$/i.test(named) ? undefined : named;
 		if (!of("privacy.getSharing"))
 			return call("sharing_read", { operation: "privacy.getSharing", input: organization ? { organization } : {} });
 		const found = rows("privacy.getSharing");
-		if (found.length !== 1)
+		const [connection] = found;
+		if (!connection || found.length !== 1)
 			return say(found.length ? "Which organization do you mean?" : "This church has no connection like that.");
-		const organizationId = String(found[0]!.fields.organizationId);
-		if (ending) return propose("associations.end", { organizationId });
-		const category = CATEGORY.find(([pattern]) => pattern.test(change![2]!))?.[1];
+		const organizationId = String(connection.fields.organizationId);
+		if (ending || !change) return propose("associations.end", { organizationId });
+		const category = CATEGORY.find(([pattern]) => pattern.test(captured(change, 2)))?.[1];
 		if (!category) return say(`Which category do you mean? You can share meetings, people totals, tasks and more.`);
-		return propose("privacy.setSharing", { organizationId, category, enabled: change![1]!.toLowerCase() === "start" });
+		return propose("privacy.setSharing", {
+			organizationId,
+			category,
+			enabled: captured(change, 1).toLowerCase() === "start",
+		});
 	}
 	const connect = new RegExp(
 		String.raw`\binvite\s+(.+?)\s+to\s+(?:be\s+)?(?:our\s+)?(?:sending church|network|connect)\b(?:.*?\bat\s+${EMAIL})?`,
@@ -235,7 +245,7 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 	).exec(text);
 	if (connect && offers("associations.invite"))
 		return propose("associations.invite", {
-			organizationName: connect[1]!.trim(),
+			organizationName: captured(connect, 1).trim(),
 			...(connect[2] ? { recipientEmail: connect[2].toLowerCase() } : {}),
 		});
 

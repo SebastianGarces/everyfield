@@ -14,7 +14,7 @@ import {
 	IntentLink,
 	Spinner,
 	StatePanel,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { useState, useTransition } from "react";
 import type { z } from "zod";
@@ -40,7 +40,6 @@ export function RosterUpdate({
 	onUpdated: (added: Guest[], removedPersonIds: string[]) => void;
 }) {
 	const team = meeting.team;
-	const toast = useToast();
 	const lane = useSaveIntent({ explain: rosterProblem });
 	const [, startTransition] = useTransition();
 	const [open, setOpen] = useState(false);

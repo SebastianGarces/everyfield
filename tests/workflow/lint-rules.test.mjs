@@ -934,7 +934,7 @@ export const e: string = "x";
 	assert.deepEqual(hits("packages/domain/src/notifications/x.ts"), [1, 3, 4, 7, 8]);
 	assert.deepEqual(hits("apps/web/src/features/x/mail.ts"), [1, 3, 4, 7, 8]);
 	assert.deepEqual(hits("packages/domain/src/communication/delivery.ts"), []);
-	assert.deepEqual(hits("apps/web/src/server/jobs/mail.ts"), []);
+	assert.deepEqual(hits("packages/domain/src/jobs/mail.ts"), []);
 });
 
 test("INV-actor: only the session module builds a RequestActor from a session, in product code; tests may forge one", () => {
@@ -1556,6 +1556,39 @@ test("INV-lint: product code that recognises a caught error by its message text 
 		"packages/domain/src/m.ts:2 no-error-message-match",
 		"packages/domain/src/m.ts:6 no-error-message-match",
 		"packages/domain/src/m.ts:8 no-error-message-match",
+	]);
+});
+
+test("INV-lint: a hand-written sign-in redirect in web code is reported, signIn and other redirects are not", () => {
+	const source = `import { redirect as go, notFound } from "next/navigation";
+import * as nav from "next/navigation";
+import { signIn } from "@/server/sign-in";
+const TO = "/signin?returnTo=%2Fhome";
+const BASE = "/signin";
+let moving = "/signin?returnTo=%2Fx";
+export function gate(path: string, out: boolean) {
+	if (out) go(\`/signin?returnTo=\${encodeURIComponent(path)}\`);
+	if (!path) go("/signin?returnTo=%2Fhome");
+	if (path === "/x") go("/signin?returnTo=" + encodeURIComponent(path));
+	if (path === "/a") nav.redirect(\`/signin?returnTo=\${path}\`);
+	if (path === "/b") go(TO);
+	if (path === "/c") go("/signin" + "?returnTo=" + path);
+	if (path === "/d") nav.permanentRedirect(\`\${BASE}?returnTo=\${path}\`);
+	if (path === "/y") go("/signin");
+	if (path === "/z") go("/home");
+	if (path === "/m") go(moving);
+	if (out) signIn(path);
+	notFound();
+}
+`;
+	assert.deepEqual(lint({ "apps/web/src/features/x/routes.tsx": source, "apps/web/src/server/sign-in.ts": source }), [
+		"apps/web/src/features/x/routes.tsx:10 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:11 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:12 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:13 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:14 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:8 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:9 sign-in-redirect",
 	]);
 });
 
