@@ -542,7 +542,7 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		const audits = await rowsOf(
 			sql`SELECT after_value FROM audit_event WHERE action = 'branding.changed' ORDER BY recorded_at DESC LIMIT 1`,
 		);
-		assert.deepEqual(Object.keys(Object(audits[0]?.after_value)).sort(), ["full_logo_alt", "full_logo_object_id"]);
+		assert.deepEqual(Object.keys(audits[0]?.after_value ?? {}).sort(), ["full_logo_alt", "full_logo_object_id"]);
 	});
 
 	test("AC:CASE-BRD-006 a cover photo is resized, not trimmed, and a removed slot queues its cleanup", async () => {
