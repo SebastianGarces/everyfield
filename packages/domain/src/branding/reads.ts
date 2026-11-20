@@ -44,7 +44,7 @@ export const brandReader = {
 			const palette = await dominantColors(bytes).catch(() => deny("unavailable"));
 			const [suggestedPrimary] = palette;
 			if (!suggestedPrimary) deny("unavailable");
-			return c.suggestedColors.parse({ suggestedPrimary, palette, suggestedFrom: input.assetKind });
+			return { suggestedPrimary, palette, suggestedFrom: input.assetKind } satisfies z.output<typeof c.suggestedColors>;
 		});
 	},
 

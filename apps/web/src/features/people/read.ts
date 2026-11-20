@@ -56,9 +56,11 @@ export const GET = defineReads(plantSeat, "access_denied", (get) => ({
 	column: get(column, async (viewer, v) => {
 		const request = c.listPeopleRequest.safeParse({ ...v.query, view: "pipeline", page: v.page, column: v.column });
 		if (!request.success) return invalid;
-		return outcome(await read(viewer, (tx, ctx) => peopleReader.getPipelineData(tx, ctx, request.data)), (r) =>
-			r.groups.find((g) => g.column === v.column)!,
-		);
+		return outcome(await read(viewer, (tx, ctx) => peopleReader.getPipelineData(tx, ctx, request.data)), (r) => {
+			const group = r.groups.find((g) => g.column === v.column);
+			if (!group) throw new Error(`The pipeline read has no ${v.column} column`);
+			return group;
+		});
 	}),
 	assessments: get(records, async (viewer, v) =>
 		outcome(

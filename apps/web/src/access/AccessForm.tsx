@@ -247,12 +247,16 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 	const progress = (step: number) =>
 		text.progress.replace("{step}", String(step + 1)).replace("{total}", String(STEP_COUNT));
 	const network = paths[s.who === "church" ? "church" : "network"];
+	const [contactStep, ...planterSteps] = paths.planter;
+	if (!contactStep) throw new Error("The access form has no contact step");
 	const titleOf = (st: FormState) =>
 		st.step === 0 || !st.who ? text.who.title : (paths[st.who][st.step - 1]?.title ?? "");
 
 	const read = (): Record<string, string> => {
+		const form = formRef.current;
+		if (!form) throw new Error("The access form is not mounted");
 		const out: Record<string, string> = {};
-		for (const [k, v] of new FormData(formRef.current!)) if (typeof v === "string") out[k] = v;
+		for (const [k, v] of new FormData(form)) if (typeof v === "string") out[k] = v;
 		return out;
 	};
 	const answers = (all: Record<string, string>) =>
@@ -419,8 +423,8 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 						</div>
 					</fieldset>
 
-					{fieldsView(paths.planter[0]!, 1)}
-					{paths.planter.slice(1).map((st, i) => fieldsView(st, i + 2, "planter"))}
+					{fieldsView(contactStep, 1)}
+					{planterSteps.map((st, i) => fieldsView(st, i + 2, "planter"))}
 					{network.slice(1).map((st, i) => fieldsView(st, i + 2, "network"))}
 
 					<div

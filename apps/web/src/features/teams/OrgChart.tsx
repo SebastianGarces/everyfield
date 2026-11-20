@@ -7,11 +7,13 @@ import { useState } from "react";
 import { exportChart } from "./fetch.ts";
 import type { ChartNode } from "./model.ts";
 import { LeaderLine, TeamIcon } from "./parts.tsx";
+import { loadProblem } from "../../components/read-failed.ts";
 
 type Tree = { root: ChartNode | null; children: ChartNode[] };
 function tree(nodes: readonly ChartNode[]): Tree {
 	const root = nodes.find((n) => n.parentId === null && nodes.some((c) => c.parentId === n.id)) ?? null;
-	const lone = root === null && nodes.length === 1 && nodes[0]!.parentId === null ? nodes[0]! : null;
+	const [only] = nodes;
+	const lone = root === null && only !== undefined && nodes.length === 1 && only.parentId === null ? only : null;
 	if (lone && lone.templateKey === "leadership") return { root: lone, children: [] };
 	return { root, children: nodes.filter((n) => n !== root) };
 }
@@ -178,7 +180,10 @@ function Exports({ archived, disabled }: { archived: boolean; disabled: boolean 
 		const r = await exportChart(archived).catch(() => ({ status: "lost" }) as const);
 		setBusy(null);
 		if (r.status !== "ok") {
-			toast({ message: "The chart did not download. Nothing changed. Try again in a moment.", tone: "error" });
+			toast({
+				message: loadProblem(r, "The chart did not download. Nothing changed. Try again in a moment."),
+				tone: "error",
+			});
 			return;
 		}
 		const blob = new Blob([kind === "svg" ? r.value.svg : r.value.pdf], {

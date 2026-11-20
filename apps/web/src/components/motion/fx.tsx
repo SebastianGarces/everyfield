@@ -22,7 +22,9 @@ export const useT = () => usePanelClock().t;
 
 type Register = (name: string) => (el: HTMLElement | null) => void;
 const TargetContext = createContext<Register | null>(null);
-export const TargetProvider = TargetContext;
+export function TargetProvider({ value, children }: { value: Register; children: ReactNode }) {
+	return <TargetContext value={value}>{children}</TargetContext>;
+}
 function useTarget(name: string | undefined) {
 	const register = useContext(TargetContext);
 	if (!name) return undefined;

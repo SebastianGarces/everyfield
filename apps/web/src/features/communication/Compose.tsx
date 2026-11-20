@@ -61,12 +61,12 @@ const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 async function open(id: string, handoff: Handoff | null): Promise<Opening> {
 	if (id !== "new") {
 		const draft = await readDraft(id);
-		if (draft.status === "lost") return { kind: "unreachable" };
+		if (draft.status === "lost" || draft.status === "failed") return { kind: "unreachable", read: draft.status };
 		return draft.status === "ok" ? { kind: "draft", draft: draft.value } : { kind: "missing" };
 	}
 	if (!handoff) return { kind: "new", meeting: null, template: null, guests: false, notes: [] };
 	const context = await readMeetingContext(handoff.meeting);
-	if (context.status === "lost") return { kind: "unreachable" };
+	if (context.status === "lost" || context.status === "failed") return { kind: "unreachable", read: context.status };
 	if (context.status !== "ok")
 		return {
 			kind: "new",
@@ -76,7 +76,7 @@ async function open(id: string, handoff: Handoff | null): Promise<Opening> {
 			notes: ["That meeting is not available. The message has no meeting."],
 		};
 	const found = handoff.template ? await readMeetingTemplate(context.value.type) : null;
-	if (found?.status === "lost") return { kind: "unreachable" };
+	if (found?.status === "lost" || found?.status === "failed") return { kind: "unreachable", read: found.status };
 	return {
 		kind: "new",
 		meeting: context.value,
@@ -90,7 +90,7 @@ async function open(id: string, handoff: Handoff | null): Promise<Opening> {
 }
 
 const openings = createRead(open, {
-	failed: (): Opening => ({ kind: "unreachable" }),
+	failed: (): Opening => ({ kind: "unreachable", read: "lost" }),
 	keep: (opening) => opening.kind !== "unreachable",
 });
 const meetingContexts = createRead((meetingId: string) => readMeetingContext(meetingId), {
@@ -139,7 +139,7 @@ export function Compose(props: ComposeProps) {
 		return (
 			<div className="flex flex-col items-start gap-3">
 				<p role="alert" className="text-md font-medium text-magenta-600">
-					{outcomeText({ status: "lost" })}
+					{outcomeText({ status: opened.read })}
 				</p>
 				<div className="flex flex-wrap gap-2">
 					<Button variant="secondary" onClick={opening.retry}>
@@ -355,6 +355,8 @@ function ComposeForm({
 	];
 
 	const stepIndex = STEPS.findIndex((s) => s.value === step);
+	const previousStep = STEPS[stepIndex - 1];
+	const nextStep = STEPS[stepIndex + 1];
 	const previewName = summary?.recipients[0]?.displayName ?? SAMPLE;
 	const chrome = { from: data.churchName, to: previewName, subject: form.subject };
 
@@ -519,12 +521,8 @@ function ComposeForm({
 					{reason ?? ""}
 				</p>
 				<div className="flex items-center gap-2">
-					{stepIndex > 0 ? (
-						<Button
-							variant="secondary"
-							onClick={() => void go(STEPS[stepIndex - 1]!.value)}
-							disabled={pending !== null}
-						>
+					{previousStep ? (
+						<Button variant="secondary" onClick={() => void go(previousStep.value)} disabled={pending !== null}>
 							Back
 						</Button>
 					) : null}
@@ -553,13 +551,13 @@ function ComposeForm({
 							Save draft
 						</Button>
 					) : null}
-					{stepIndex < STEPS.length - 1 ? (
+					{nextStep ? (
 						<Button
 							variant="primary"
 							aria-describedby="step-reason"
 							disabled={reason !== null || pending !== null}
 							loading={pending === "step"}
-							onClick={() => void go(STEPS[stepIndex + 1]!.value)}
+							onClick={() => void go(nextStep.value)}
 						>
 							Next
 						</Button>

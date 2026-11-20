@@ -90,7 +90,7 @@ export function sharingOperations(
 				checkRevision(q.expectedRevision, a.revision);
 				checkRevision(q.input.expectedConsentRevision, a.consent_revision);
 				await applySharingMutation(tx, a, c, { ...choices(a), [q.input.category]: q.input.enabled }, effects);
-				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
+				return finishCommand(tx, c, () => ({ status: "committed" }) satisfies z.output<typeof Q.mutationResult>);
 			});
 		},
 	};
@@ -150,7 +150,7 @@ export async function readSharingDisclosure(
 	const row = disclosureRow.parse(r.rows[0]);
 	if (!row.allowed) return unavailable();
 	if (row.consent_revision === null)
-		return Q.sharingDisclosure.parse({
+		return {
 			kind: "first_invitation",
 			organization: pair.organization,
 			choices: {
@@ -162,7 +162,7 @@ export async function readSharingDisclosure(
 				activity: true,
 				shared_findings: true,
 			},
-		});
+		} satisfies z.output<typeof Q.sharingDisclosure>;
 	return Q.sharingDisclosure.parse({
 		kind: "existing_consent",
 		organization: pair.organization,

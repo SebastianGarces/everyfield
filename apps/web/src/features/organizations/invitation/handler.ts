@@ -1,5 +1,5 @@
 import "server-only";
-import { command, invitationFor, namesFor, subjectFacts, viewerOf, type Reply } from "../mount";
+import { command, invitationFor, namesFor, subjectFacts, viewerOf, type RefusalCode, type Reply } from "../mount";
 import { z } from "zod";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
 import { parseJson } from "../../../server/platform/json.ts";
@@ -16,7 +16,7 @@ const request = z.discriminatedUnion("op", [
 const LIMIT = 16384;
 const headers = { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" };
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers });
-const refused = (code: string): Reply<never> => ({ status: "refused", code });
+const refused = (code: RefusalCode): Reply<never> => ({ status: "refused", code });
 
 async function read(invitationId: string, proof: string): Promise<RelationshipInvitationRead> {
 	const w = await viewerOf();

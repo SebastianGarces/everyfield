@@ -302,14 +302,14 @@ export function getOrganizationDraft(db: Database, authority: RequestActor, raw:
 	if (!owner)
 		return Promise.resolve({
 			status: "ok" as const,
-			value: organizationDraft.parse({
+			value: {
 				errorCode: "editorial_access_denied",
 				articleId: input.articleId,
 				organizationId: null,
 				body: null,
 				revisionNumber: null,
 				state: null,
-			}),
+			} satisfies z.output<typeof organizationDraft>,
 		});
 	return runRead(async () => {
 		const result = await db.execute(sql`
@@ -348,14 +348,14 @@ export function getOrganizationDraft(db: Database, authority: RequestActor, raw:
 			})
 			.parse(row);
 		if (!parsed.allowed) deny("access_denied");
-		return organizationDraft.parse({
+		return {
 			errorCode: null,
 			articleId: input.articleId,
 			organizationId: owner.id,
 			body: parsed.body,
 			revisionNumber: parsed.revision_number,
 			state: parsed.state,
-		});
+		} satisfies z.output<typeof organizationDraft>;
 	});
 }
 
@@ -429,11 +429,11 @@ export function emitUpstreamReview(db: Database, authority: RequestActor, raw: u
 		const recipients = z
 			.array(z.uuid())
 			.parse(typeof row.recipients === "string" ? JSON.parse(row.recipients) : row.recipients);
-		return upstreamReviewResult.parse({
+		return {
 			inAppCues: row.cues,
 			emailIntents: 0,
 			autoAdoptions: 0,
 			recipientIds: recipients,
-		});
+		} satisfies z.output<typeof upstreamReviewResult>;
 	});
 }
