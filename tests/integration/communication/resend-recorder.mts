@@ -76,6 +76,7 @@ export function resendRecorder(
 				addressKey: Buffer.alloc(32, 9),
 				from: "church@resend.dev",
 				origin: "https://app.example.test",
+				optOutKeys: null,
 			},
 			apiKey: "re_test_key",
 		},

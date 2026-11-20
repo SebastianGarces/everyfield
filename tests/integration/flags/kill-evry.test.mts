@@ -28,7 +28,7 @@ import { setServerEnv } from "../../support/server-env.mts";
 import { capturedLines, withSwitchOff } from "../../support/flags.mts";
 
 setServerEnv();
-const PAUSED = { flag: "evry-model-calls", operator: accounts.owner.id };
+const PAUSED = { flag: "evry-model-calls", operator: accounts.owner.id } as const;
 let owner: EvryActor;
 
 function countingModel() {
@@ -69,7 +69,7 @@ test("with evry-model-calls off, a turn already queued ends with the paused code
 	await submitTurn(db, owner, c.id, { requestKey: randomUUID(), text: "How many people are in our church?" });
 	const model = countingModel();
 	type Measured = { outcome: string; statements: number };
-	let refused: { create: Measured; submit: Measured; retry: Measured } | null = null;
+	const seen: { refused: { create: Measured; submit: Measured; retry: Measured } | null } = { refused: null };
 
 	await withSwitchOff(db, PAUSED, async () => {
 		const switches = await readSwitches(db);
@@ -102,7 +102,8 @@ test("with evry-model-calls off, a turn already queued ends with the paused code
 			),
 			retry: await statementsOf(() => retryTurn(db, owner, c.id, { requestKey: randomUUID() })),
 		}));
-		refused = attempt.value!;
+		const refused = attempt.value;
+		seen.refused = refused;
 		assert.deepEqual(
 			[refused.create.outcome, refused.submit.outcome, refused.retry.outcome],
 			["model_paused", "model_paused", "model_paused"],
@@ -121,6 +122,7 @@ test("with evry-model-calls off, a turn already queued ends with the paused code
 		retry: await statementsOf(() => retryTurn(db, owner, c.id, { requestKey: randomUUID() })),
 	};
 	assert.deepEqual([on.create.outcome, on.retry.outcome], ["ok", "ok"], "back on, with no restart or deploy");
+	const refused = seen.refused;
 	assert.ok(refused);
 	assert.ok(refused.create.statements <= on.create.statements, "a refused create sends no more statements");
 	assert.ok(refused.retry.statements <= on.retry.statements, "a refused retry sends no more statements");
@@ -131,7 +133,7 @@ test("with evry-model-calls off, a turn already queued ends with the paused code
 });
 
 test("a workspace override of evry-model-calls has no effect: the switch reads only its global value", async () => {
-	const scope = { kind: "workspace", id: plant };
+	const scope = { kind: "workspace", id: plant } as const;
 	await setFlag(db, { flag: "evry-model-calls", scope, value: false, operator: accounts.owner.id });
 	try {
 		const c = await createConversation(db, owner, { requestKey: randomUUID() });
@@ -172,7 +174,7 @@ test("with evry-model-calls off, a cron run reads the switch once, leaves assess
 	await withSwitchOff(db, PAUSED, async () => {
 		const start = queries.length;
 		const { value: response, lines } = await capturedLines(() => tick());
-		const body = (await response!.json()) as { steps: Record<string, { status: string }> };
+		const body = (await response.json()) as { steps: Record<string, { status: string }> };
 		assert.equal(body.steps.assessment?.status, "paused");
 		assert.equal(drafted.n, 0);
 		assert.equal(await touched(), 0, "every assessment job stays pending with no attempt");

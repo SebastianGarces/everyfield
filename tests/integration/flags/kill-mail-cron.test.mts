@@ -33,6 +33,7 @@ const ready = {
 		addressKey: Buffer.from(process.env.IDENTITY_ADDRESS_KEY!, "hex"),
 		from: process.env.IDENTITY_MAIL_FROM!,
 		origin: process.env.IDENTITY_ORIGIN!,
+		optOutKeys: null,
 	},
 	apiKey: "re_test_key",
 };

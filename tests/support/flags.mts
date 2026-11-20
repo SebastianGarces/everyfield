@@ -1,4 +1,4 @@
-import { setFlag, type FlagScope, type Registry } from "../../packages/domain/src/flags/index.ts";
+import { setFlag, type FlagScope, type KillSwitch, type Registry } from "../../packages/domain/src/flags/index.ts";
 
 type Change<R extends Registry> = Parameters<typeof setFlag<R>>[1];
 
@@ -23,7 +23,11 @@ export async function withFlag<R extends Registry, T>(
 	}
 }
 
-export async function withSwitchOff(db, { flag, operator }, body) {
+export async function withSwitchOff<T>(
+	db: Parameters<typeof setFlag>[0],
+	{ flag, operator }: { flag: KillSwitch; operator: Change<Registry>["operator"] },
+	body: () => Promise<T>,
+): Promise<T> {
 	await setFlag(db, { flag, scope: { kind: "global" }, value: false, operator });
 	try {
 		return await body();
@@ -32,20 +36,18 @@ export async function withSwitchOff(db, { flag, operator }, body) {
 	}
 }
 
-export function capturedLines(body) {
-	const lines = [];
+export type LogLine = Record<string, unknown>;
+
+export async function capturedLines<T>(body: () => T | Promise<T>): Promise<{ value: T; lines: LogLine[] }> {
+	const lines: LogLine[] = [];
 	const write = console.error;
-	console.error = (line, ...rest) => {
-		if (typeof line === "string" && line.startsWith("{")) lines.push(JSON.parse(line));
+	console.error = (line?: unknown, ...rest: unknown[]) => {
+		if (typeof line === "string" && line.startsWith("{")) lines.push(JSON.parse(line) as LogLine);
 		else write(line, ...rest);
 	};
-	return Promise.resolve()
-		.then(body)
-		.then(
-			(value) => ({ value, lines }),
-			(error) => ({ error, lines }),
-		)
-		.finally(() => {
-			console.error = write;
-		});
+	try {
+		return { value: await body(), lines };
+	} finally {
+		console.error = write;
+	}
 }

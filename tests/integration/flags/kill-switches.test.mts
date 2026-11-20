@@ -2,10 +2,13 @@ import "../platform/setup.mts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { fixture } from "../identity/invitations-support.mts";
-import { readSwitches, setFlag, switchedOff } from "../../../packages/domain/src/flags/index.ts";
+import { readSwitches, setFlag, switchedOff, type FlagScope } from "../../../packages/domain/src/flags/index.ts";
 import { capturedLines, withSwitchOff } from "../../support/flags.mts";
 
-let f, plant, operator;
+type Fixture = Awaited<ReturnType<typeof fixture>>;
+let f: Fixture;
+let plant: Awaited<ReturnType<Fixture["workspace"]>>;
+let operator: Awaited<ReturnType<Fixture["account"]>>;
 
 before(async () => {
 	f = await fixture();
@@ -17,7 +20,11 @@ after(() => f?.close());
 
 test("with no stored value every switch reads on, in one statement", async () => {
 	let statements = 0;
-	const counting = { execute: (query) => (statements++, f.db.execute(query)) };
+	const execute: Fixture["db"]["execute"] = (query) => {
+		statements++;
+		return f.db.execute(query);
+	};
+	const counting = { execute };
 	assert.deepEqual(await readSwitches(counting), {
 		"evry-model-calls": true,
 		"outbound-mail": true,
@@ -27,7 +34,8 @@ test("with no stored value every switch reads on, in one statement", async () =>
 });
 
 test("a switch reads only its global value: workspace and account overrides of a kill flag are ignored", async () => {
-	const set = (scope, value) => setFlag(f.db, { flag: "outbound-mail", scope, value, operator: operator.id });
+	const set = (scope: FlagScope, value: boolean | null) =>
+		setFlag(f.db, { flag: "outbound-mail", scope, value, operator: operator.id });
 	await set({ kind: "workspace", id: plant.id }, false);
 	await set({ kind: "account", id: operator.id }, false);
 	assert.equal((await readSwitches(f.db))["outbound-mail"], true);
