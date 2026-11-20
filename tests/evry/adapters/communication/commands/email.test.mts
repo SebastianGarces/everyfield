@@ -22,7 +22,7 @@ import {
 import { listMessages } from "../../../../../packages/evry/src/adapters/communication/reads/index.ts";
 import { transaction } from "../../../../../packages/domain/src/jobs/transaction.ts";
 import { replayStoredCallbacks } from "../../../../../packages/domain/src/jobs/webhook.ts";
-import { receiveMailCallback } from "../../../../../apps/web/src/server/jobs/webhook-route.ts";
+import { resendWebhook } from "../../../../../apps/web/src/server/jobs/webhook-route.ts";
 import { claimDue, finishClaim } from "../../../../../packages/domain/src/jobs/queue.ts";
 import {
 	accounts,
@@ -823,7 +823,7 @@ const inMessages = {
 			sql`SELECT provider_message_id AS id FROM mail WHERE logical_key LIKE ${"communication/" + id + "/%"} AND state='accepted'`,
 		);
 		for (const mail of held) {
-			const reply = await receiveMailCallback(db, signedCallback(mail.id, "sent"), CALLBACK_SECRET);
+			const reply = await (await resendWebhook(signedCallback(mail.id, "sent"), () => db, CALLBACK_SECRET)).json();
 			assert.ok(reply.stored, JSON.stringify(reply));
 		}
 		await replayStoredCallbacks(db);
