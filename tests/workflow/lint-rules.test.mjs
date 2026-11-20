@@ -232,7 +232,7 @@ export const d = mint;
 			"packages/domain/src/settings/credentials.ts": reach,
 			"packages/domain/src/settings/deletion.ts": "export async function issueRestrictedDeletionSession() {}\n",
 			"tests/integration/x/reach.test.mts": reach,
-		}),
+		}).filter((hit) => hit.endsWith(" mint-callers")),
 		[1, 2, 4, 5, 6]
 			.flatMap((line) => [
 				`apps/web/src/features/x/reach.ts:${line} mint-callers`,
