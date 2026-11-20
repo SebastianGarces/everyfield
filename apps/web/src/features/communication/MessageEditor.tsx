@@ -16,7 +16,7 @@ function openAt(el: HTMLTextAreaElement): Open | null {
 	const lines = before.split("\n");
 	const top = Math.min(el.clientHeight, 12 + lines.length * LINE) - el.scrollTop;
 	const left = Math.min(Math.max(0, el.clientWidth - 220), 12 + (lines.at(-1)?.length ?? 0) * 7.2);
-	return { from: caret - match[0].length, query: match[1]!.toLowerCase(), top, left };
+	return { from: caret - match[0].length, query: match[0].slice(2).toLowerCase(), top, left };
 }
 
 export function MessageEditor({
@@ -47,7 +47,8 @@ export function MessageEditor({
 	const [open, setOpen] = useState<Open | null>(null);
 	const fields = fieldsFor(hasMeeting);
 	const shown = open ? fields.filter((field) => field.key.startsWith(open.query)) : [];
-	const listed = open !== null && shown.length > 0;
+	const firstShown = shown[0];
+	const listed = open !== null && firstShown !== undefined;
 	const reopen = (el: HTMLTextAreaElement) => setOpen(openAt(el));
 
 	const insert = (field: MergeField, from?: number) => {
@@ -66,7 +67,7 @@ export function MessageEditor({
 		if (event.key === "Tab") {
 			event.preventDefault();
 			const active = list.current?.querySelector('[cmdk-item][aria-selected="true"]')?.getAttribute("data-value");
-			insert(shown.find((field) => field.key === active) ?? shown[0]!, open.from);
+			insert(shown.find((field) => field.key === active) ?? firstShown, open.from);
 		} else if (event.key === "Escape") {
 			event.preventDefault();
 			setOpen(null);

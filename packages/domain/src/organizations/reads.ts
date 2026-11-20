@@ -34,7 +34,7 @@ export async function namesFor(db: Database, viewer: Viewer, ids: string[]): Pro
 				? sql`EXISTS (SELECT 1 FROM seat s WHERE s.account_id=a.id AND s.ended_at IS NULL AND (s.plant_id=${workspace.id} OR s.organization_id=${workspace.id}))`
 				: sql`false`
 		})) n WHERE ${live(viewer)}`);
-	return Object.fromEntries(rows.rows.filter((r) => r.name).map((r) => [r.id, r.name!]));
+	return Object.fromEntries(rows.rows.flatMap((r) => (r.name ? [[r.id, r.name]] : [])));
 }
 
 export function idsIn(page: {

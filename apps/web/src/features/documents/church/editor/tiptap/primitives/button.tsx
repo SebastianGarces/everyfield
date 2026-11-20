@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
 
 import { cn, parseShortcutKeys } from "../tiptap-utils.ts";
 import { BUTTON, BUTTON_BASE, BUTTON_GROUP } from "../styles.ts";
-import { InToolbar } from "./toolbar.tsx";
+import { InToolbarContext } from "./toolbar.tsx";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 	className?: string;
@@ -32,7 +32,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 	({ className, children, tooltip, showTooltip = true, shortcutKeys, "aria-label": ariaLabel, ...props }, ref) => {
 		const shortcuts = React.useMemo(() => parseShortcutKeys({ shortcutKeys }), [shortcutKeys]);
 		const classes = className ? cn(BUTTON_BASE, className) : BUTTON;
-		const tabIndex = React.use(InToolbar) ? -1 : undefined;
+		const tabIndex = React.use(InToolbarContext) ? -1 : undefined;
 
 		if (!tooltip || !showTooltip) {
 			return (

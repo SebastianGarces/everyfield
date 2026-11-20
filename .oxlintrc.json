@@ -45,8 +45,10 @@
 		"everyfield/request-actor": "error",
 		"everyfield/provider-key-mint": "error",
 		"everyfield/no-comments": "error",
+		"everyfield/shared-outcome": "error",
 		"everyfield/server-log": "error",
 		"everyfield/no-effects": "error",
+		"everyfield/stable-context-value": "error",
 		"everyfield/storage-client": "error",
 		"everyfield/deployment-env": "error",
 		"everyfield/server-config": "error",
@@ -149,7 +151,29 @@
 			}
 		},
 		{
-			"files": ["packages/contracts/src/**", "packages/reference/src/**", "packages/ui/src/**", "packages/evry/src/**"],
+			"files": [
+				"packages/contracts/src/**",
+				"packages/reference/src/**",
+				"packages/ui/src/**",
+				"packages/evry/src/**",
+				"packages/domain/src/access/**",
+				"packages/domain/src/communication/**",
+				"packages/domain/src/feedback/**",
+				"packages/domain/src/flags/**",
+				"packages/domain/src/followups/**",
+				"packages/domain/src/identity/**",
+				"packages/domain/src/jobs/**",
+				"packages/domain/src/launch/**",
+				"packages/domain/src/meetings/**",
+				"packages/domain/src/operations/**",
+				"packages/domain/src/organizations/**",
+				"packages/domain/src/oversight/**",
+				"packages/domain/src/phases/**",
+				"packages/domain/src/settings/**",
+				"packages/domain/src/tasks/**",
+				"packages/domain/src/teams/**",
+				"packages/domain/src/wiki/**"
+			],
 			"rules": {
 				"typescript/no-non-null-assertion": "error"
 			}
@@ -164,6 +188,12 @@
 			"files": ["packages/domain/src/intelligence/**"],
 			"rules": {
 				"everyfield/private-care-scope": "off"
+			}
+		},
+		{
+			"files": ["packages/domain/src/**"],
+			"rules": {
+				"everyfield/domain-refusals": "error"
 			}
 		},
 		{

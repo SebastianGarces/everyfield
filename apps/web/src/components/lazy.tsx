@@ -26,14 +26,11 @@ export function lazyModule<M>(load: () => Promise<M>): LazyModule<M> {
 		loading = attempt;
 		return attempt;
 	};
-	const preload = () => {
-		if (!loading || loading.value?.status === "failed") start();
-	};
+	const live = () => (!loading || loading.value?.status === "failed" ? start() : loading);
 	return {
-		preload,
+		preload: live,
 		whenLoaded: (then) => {
-			preload();
-			const attempt = loading!;
+			const attempt = live();
 			if (attempt.status === "fulfilled") then();
 			else void attempt.then(then);
 		},

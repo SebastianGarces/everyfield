@@ -8,6 +8,10 @@ import { newTask } from "./writes.ts";
 const localDateOf = (at: Date, zone: TimeZone) =>
 	localDate.parse(new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(at));
 
+function timedAt(row: LockedTask) {
+	if (row.due_time === null) throw Error(`Timed task ${row.id} stores no due time`);
+	return row.due_time.slice(0, 8);
+}
 export function successorOf(row: LockedTask, at: Date): TaskRow[] | null {
 	const rule = row.rule;
 	if (!rule || rule.stopped || row.has_successor || row.parent_id) return null;
@@ -15,7 +19,7 @@ export function successorOf(row: LockedTask, at: Date): TaskRow[] | null {
 	const base = row.due_kind === "undated" ? localDateOf(at, zone) : localDate.parse(row.due_date);
 	const date = c.nextOccurrenceDate(base, rule.frequency);
 	if (rule.until && date > rule.until) return null;
-	const time = rule.local_time ? `${rule.local_time}:00` : row.due_kind === "timed" ? row.due_time!.slice(0, 8) : null;
+	const time = rule.local_time ? `${rule.local_time}:00` : row.due_kind === "timed" ? timedAt(row) : null;
 	let due: Pick<TaskRow, "due_kind" | "due_date" | "due_time" | "timezone" | "due_at">;
 	if (time) {
 		const r = resolveCalendar(localDateTime.parse(`${date}T${time}`), zone, "automatic");

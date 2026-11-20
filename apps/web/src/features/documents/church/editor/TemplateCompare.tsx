@@ -25,6 +25,8 @@ import { editorExtensions, type FieldValues } from "./extensions.ts";
 import { paletteVars } from "./paper.ts";
 import { blocksToEditor } from "./table-json.ts";
 import { WORD_MARK, wordMarks } from "./word-marks.ts";
+import { loadProblem, READ_FAILED, READ_FAILED_ICON } from "../../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../../components/get-reads.ts";
 
 type Props = {
 	docId: string;
@@ -35,18 +37,21 @@ type Props = {
 };
 
 export const templateCompares = createRead(
-	(docId: string) => compareWithTemplate(docId).catch((): CompareResult => ({ status: "lost" })),
-	{ failed: (): CompareResult => ({ status: "lost" }) },
+	(docId: string) => compareWithTemplate(docId).catch((): CompareResult | ReadFailure => ({ status: "lost" })),
+	{ failed: (): CompareResult | ReadFailure => ({ status: "lost" }) },
 );
 
 type Load = { kind: "loading" } | { kind: "ready"; compare: ChurchCompare } | { kind: "failed"; message: string };
 
-function loadOf(result: CompareResult | undefined): Load {
+function loadOf(result: CompareResult | ReadFailure | undefined): Load {
 	if (!result) return { kind: "loading" };
 	if (result.status === "ok") return { kind: "ready", compare: result.compare };
 	return {
 		kind: "failed",
-		message: result.status === "refused" ? result.message : "The connection dropped. Nothing was changed.",
+		message:
+			result.status === "refused"
+				? result.message
+				: loadProblem(result, "The connection dropped. Nothing was changed."),
 	};
 }
 
@@ -208,7 +213,12 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 				</div>
 			) : load.kind === "failed" ? (
 				<div className="rounded-card bg-surface-raised p-6 shadow-[0_0_0_1px_var(--ef-line)]">
-					<StatePanel tone="error" title="We could not compare this document" headingLevel="h3">
+					<StatePanel
+						tone="error"
+						title="We could not compare this document"
+						icon={load.message === READ_FAILED ? READ_FAILED_ICON : undefined}
+						headingLevel="h3"
+					>
 						{load.message}
 					</StatePanel>
 					<div className="mt-4 flex justify-center">
@@ -448,6 +458,12 @@ function DifferenceCard({
 	);
 }
 
+function titleLine(lines: WordRun[][]) {
+	const [line] = lines;
+	if (!line) throw new Error("A title comparison has no line");
+	return line;
+}
+
 function Side({
 	difference: d,
 	value,
@@ -465,7 +481,7 @@ function Side({
 		return (
 			<p className="text-[15px] text-ink">
 				{lines
-					? lines[0]!.map((run) => {
+					? titleLine(lines).map((run) => {
 							if (run.op === "kept") return run.text;
 							const Mark = WORD_MARK[run.op].nodeName;
 							return (

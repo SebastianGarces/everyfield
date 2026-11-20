@@ -40,9 +40,7 @@ export function wikiMount(): Mount {
 }
 
 export async function wikiActor(): Promise<RequestActor | null> {
-	const viewer = await getViewer();
-	if (viewer.status !== "active" || !viewer.authority) return null;
-	return viewer.authority;
+	return (await getViewer()).authority;
 }
 
 export function plantContext(actor: RequestActor): { plantId?: string; canOrder: boolean } {
@@ -315,8 +313,8 @@ export async function loadWiki(
 		let draft: WikiDraft | null = null;
 		let draftLost = false;
 		let feedback: WikiPageData["feedback"] = null;
-		if (hit) {
-			const current = currentRead!;
+		if (currentRead) {
+			const current = currentRead;
 			if (current.status !== "ok") return "lost";
 			const preferred = current.value.article;
 			const viewedReply = sourceRead ?? current;

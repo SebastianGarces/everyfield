@@ -224,9 +224,12 @@ export function withEntry<E extends { id: string }, A extends { items: E[]; next
 export function moveInOrder(ids: readonly string[], id: string, direction: "up" | "down"): string[] {
 	const from = ids.indexOf(id),
 		to = direction === "up" ? from - 1 : from + 1;
-	if (from < 0 || to < 0 || to >= ids.length) return [...ids];
+	const moving = ids[from];
+	const other = ids[to];
+	if (moving === undefined || other === undefined) return [...ids];
 	const next = [...ids];
-	[next[from], next[to]] = [next[to]!, next[from]!];
+	next[from] = other;
+	next[to] = moving;
 	return next;
 }
 

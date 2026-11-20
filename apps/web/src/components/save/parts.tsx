@@ -2,7 +2,17 @@
 
 import { Alert, Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
 import { cn, useFocusRequest, type IconSvgElement } from "@everyfield/ui/foundations";
-import { createContext, use, useId, useReducer, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+	createContext,
+	use,
+	useId,
+	useMemo,
+	useReducer,
+	useRef,
+	useState,
+	useSyncExternalStore,
+	type ReactNode,
+} from "react";
 import { SaveLane, waitOf, type LaneOptions, type Notice, type SaveSpec, type Wait } from "./model.ts";
 
 export function useSaveIntent<E extends { problem?: string }>(options: Pick<LaneOptions, "explain" | "busy">) {
@@ -218,7 +228,10 @@ const announced = new Set<string>();
 const noticeKey = (n: Notice) => `${n.id}:${n.tone}:${n.tone === "unknown" && n.checking}`;
 
 function recordShown(region: HTMLElement) {
-	for (const shown of region.querySelectorAll<HTMLElement>("[data-notice]")) announced.add(shown.dataset.notice!);
+	for (const shown of region.querySelectorAll<HTMLElement>("[data-notice]")) {
+		const key = shown.dataset.notice;
+		if (key !== undefined) announced.add(key);
+	}
 }
 
 function recordAnnounced(region: HTMLDivElement | null) {
@@ -237,8 +250,9 @@ export function SaveNotice({
 	return <NoticeRegion {...props} notice={dialogOpen ? null : props.notice} className={className} />;
 }
 
-export function NoticeInDialog({ children, ...props }: NoticeProps & { children: ReactNode }) {
-	return <NoticeContext value={props}>{children}</NoticeContext>;
+export function NoticeInDialog({ children, notice, busy, onDismiss }: NoticeProps & { children: ReactNode }) {
+	const value = useMemo(() => ({ notice, busy, onDismiss }), [notice, busy, onDismiss]);
+	return <NoticeContext value={value}>{children}</NoticeContext>;
 }
 
 export function DialogNotice() {

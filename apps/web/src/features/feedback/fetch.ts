@@ -1,8 +1,8 @@
 import type { FeedbackCategory, FeedbackStatus } from "@everyfield/contracts/feedback";
-import { getReads } from "../../components/get-reads.ts";
+import { readsFrom } from "../../components/get-reads.ts";
 import type { GET } from "./read.ts";
 
-const get = getReads<typeof GET>("/feedback/read");
+const get = readsFrom<typeof GET>("/feedback/read");
 
 export const loadSendContext = () => get("context");
 export const loadOwnFeedback = (cursor: string) => get("own", { cursor });
