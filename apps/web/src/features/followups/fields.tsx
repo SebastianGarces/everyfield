@@ -49,7 +49,6 @@ export function OutcomeFields({
 				</span>
 				<RadioGroup
 					aria-labelledby={groupLabel}
-					aria-describedby={errors.outcome ? groupError : undefined}
 					aria-required="true"
 					data-invalid={errors.outcome ? "true" : undefined}
 					value={draft.outcome}
@@ -62,6 +61,7 @@ export function OutcomeFields({
 							value={o}
 							label={OUTCOME_LABEL[o]}
 							description={OUTCOME_HINT[o]}
+							aria-describedby={errors.outcome ? groupError : undefined}
 							className={cn(
 								"rounded-card px-3.5 shadow-[inset_0_0_0_1px_var(--ef-line-2)] transition-[box-shadow] duration-150 has-[[data-state=checked]]:shadow-[inset_0_0_0_2px_var(--ef-ink)]",
 							)}

@@ -104,7 +104,7 @@ export function outcomeInput(
 ): { ok: true; input: OutcomeInput } | { ok: false; errors: DraftErrors } {
 	const { now } = opts;
 	const errors: DraftErrors = {};
-	if (!d.outcome) errors.outcome = "Choose what happened.";
+	if (!d.outcome) errors.outcome = "Choose an outcome.";
 	if (d.outcome === "contacted" && !d.when) errors.when = "Choose when you talked.";
 	let occurredAt: string | undefined;
 	if (d.when === "earlier" && d.stored && d.at === d.stored.at) occurredAt = d.stored.instant;

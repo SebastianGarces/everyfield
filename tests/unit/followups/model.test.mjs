@@ -16,6 +16,10 @@ import { ownerText } from "../../../apps/web/src/features/tasks/model.ts";
 const now = new Date("2026-10-21T15:00:00.000Z");
 
 test("AC:TARGET-MTG-022 contacted needs the person to say when; the time is never assumed", () => {
+	assert.deepEqual(outcomeInput(emptyDraft(), { completable: true, now }), {
+		ok: false,
+		errors: { outcome: "Choose an outcome." },
+	});
 	const d = pickOutcome(emptyDraft(), "contacted");
 	const missing = outcomeInput(d, { completable: true, now });
 	assert.equal(missing.ok, false);

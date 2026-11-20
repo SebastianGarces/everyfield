@@ -83,7 +83,11 @@ const FOCUSABLE =
 	'input:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
 function firstProblem(root: HTMLElement): HTMLElement | null {
 	const bad = root.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalid="true"]');
-	return (bad?.matches("input, textarea, button, select") ? bad : bad?.querySelector<HTMLElement>(FOCUSABLE)) ?? null;
+	if (!bad || bad.matches("input, textarea, button, select")) return bad;
+	return (
+		bad.querySelector<HTMLElement>(FOCUSABLE) ??
+		bad.querySelector<HTMLElement>('[role="radio"]:not([disabled])')
+	);
 }
 
 export function RecordDialog({
