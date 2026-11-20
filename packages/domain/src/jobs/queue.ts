@@ -78,7 +78,7 @@ export function queueJobsFor(subjects: SQL, input: z.input<typeof subjectJobSche
 	return sql`INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts,
   claim_generation)
  SELECT ${v.tenant}::uuid, ${v.kind}::text, id, ${v.keyPrefix}::text || id::text, 'ready', clock_timestamp(), 0,
-  ${v.maxAttempts}::int, 0 FROM ${subjects}`;
+  ${v.maxAttempts}::int, 0 FROM ${subjects} ON CONFLICT DO NOTHING`;
 }
 export async function enqueueJobs(tx: Transaction, inputs: readonly JobInput[]): Promise<string[]> {
 	const values = inputs.map((input) => enqueueSchema.parse(input));
