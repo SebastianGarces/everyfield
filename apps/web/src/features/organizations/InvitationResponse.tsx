@@ -22,7 +22,6 @@ export function InvitationExpired({
 	zone: string;
 	connectionsHref: string;
 }) {
-	const subject = subjectName(invitation.pair, nameOf);
 	const organization = nameOf(invitation.pair.organization);
 	return (
 		<Card className="mx-auto w-full max-w-[560px]">
@@ -36,9 +35,9 @@ export function InvitationExpired({
 					</Button>
 				}
 			>
-				{subject}&rsquo;s request to connect with {organization} expired on{" "}
-				<time dateTime={invitation.expiredAt}>{formatDay(invitation.expiredAt, zone)}</time>. To connect, ask{" "}
-				<span className="font-medium text-ink">{invitation.inviterDescription}</span> to send a new request.
+				The request from <span className="font-medium text-ink">{invitation.inviterDescription}</span> to connect with{" "}
+				{organization} expired on <time dateTime={invitation.expiredAt}>{formatDay(invitation.expiredAt, zone)}</time>.
+				To connect, ask them to send a new request.
 			</StatePanel>
 		</Card>
 	);
