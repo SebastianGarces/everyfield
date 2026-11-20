@@ -1,3 +1,4 @@
+import type { Lost } from "@everyfield/contracts/common";
 import type { ProgramKind, ProgramRefusal, ProgramRhythm } from "@everyfield/contracts/organizations";
 import { PIPELINE_PATH } from "../board/model";
 
@@ -37,7 +38,7 @@ export function formatMeeting(at: string, day: (value: string) => string) {
 	return `${day(at.slice(0, 10))} at ${time.format(new Date(`${at}Z`))}`;
 }
 
-export function programProblem(answer: { status: "refused"; refusal: ProgramRefusal } | { status: "lost" }) {
+export function programProblem(answer: { status: "refused"; refusal: ProgramRefusal } | Lost) {
 	if (answer.status === "lost") return "We couldn’t reach Everyfield. Nothing was saved. Try again.";
 	const r = answer.refusal;
 	switch (r.code) {
