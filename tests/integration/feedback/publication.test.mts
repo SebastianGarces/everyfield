@@ -217,7 +217,9 @@ test("AC:PUBLIC-SERIALIZER-001 AC:PUB57-003 INV-privacy the public issue is the 
 	assert.deepEqual((await triage(sent.id)).publication, { state: "published", heldReason: null, url: issue.url });
 
 	const own = ok(await feedbackWriter.listOwn(db, await authority(daniel), {}));
-	assert.equal(own.items.find((i: { id: string }) => i.id === sent.id).publicUrl, issue.url);
+	const mine = own.items.find((i) => i.id === sent.id);
+	assert.ok(mine, "the sender lists the sent report");
+	assert.equal(mine.publicUrl, issue.url);
 	assert.equal(
 		ok(await feedbackWriter.getOwnStatus(db, await authority(daniel), { feedbackId: sent.id })).publicUrl,
 		issue.url,
@@ -287,7 +289,9 @@ test("AC:PUB57-004 AC:FDB56-004 feedback from a private page names Application, 
 		],
 	);
 	const list = ok(await feedbackWriter["admin.list"](db, await authority(triager), {}));
-	assert.equal(list.items.find((i: { id: string }) => i.id === forged.id).publication.state, "held");
+	const listed = list.items.find((i) => i.id === forged.id);
+	assert.ok(listed, "triage lists the forged report");
+	assert.equal(listed.publication.state, "held");
 });
 
 test("AC:FDB56-001 AC:CASE-ADM-003 a lost GitHub reply is unknown, and the next run finds the issue by its reference in the stored repository instead of creating a second", async () => {
