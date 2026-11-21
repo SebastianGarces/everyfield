@@ -48,6 +48,7 @@
 		"everyfield/no-comments": "error",
 		"everyfield/shared-outcome": "error",
 		"everyfield/server-log": "error",
+		"everyfield/no-raw-error-log": "error",
 		"everyfield/no-effects": "error",
 		"everyfield/stable-context-value": "error",
 		"everyfield/storage-client": "error",

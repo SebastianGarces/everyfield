@@ -53,6 +53,15 @@ export type Formula =
 	| { op: "+" | "-" | "*" | "/"; a: Formula; b: Formula };
 type Token = { t: "num"; v: number } | { t: "id"; v: string } | { t: "-" | "+" | "*" | "/" | "(" | ")" | ":" };
 
+export class FormulaRejected extends Error {
+	readonly problem: string;
+	constructor(problem: string) {
+		super(problem);
+		this.name = "FormulaRejected";
+		this.problem = problem;
+	}
+}
+
 export function parseFormula(source: string): Formula {
 	const tokens: Token[] = [];
 	const re = /\s*(?:(\d+(?:\.\d+)?)|([a-z][a-z0-9_]*)|([-+*/():]))/y;
@@ -61,7 +70,7 @@ export function parseFormula(source: string): Formula {
 		if (/^\s*$/.test(source.slice(at))) break;
 		re.lastIndex = at;
 		const m = re.exec(source);
-		if (!m) throw new Error(`the formula "${source}" has an unexpected character at position ${at + 1}`);
+		if (!m) throw new FormulaRejected(`the formula "${source}" has an unexpected character at position ${at + 1}`);
 		at = re.lastIndex;
 		if (m[1] !== undefined) tokens.push({ t: "num", v: Number(m[1]) });
 		else if (m[2] !== undefined) tokens.push({ t: "id", v: m[2] });
@@ -71,13 +80,13 @@ export function parseFormula(source: string): Formula {
 	const peek = () => tokens[i];
 	const take = <T extends Token["t"]>(t?: T): Extract<Token, { t: T }> => {
 		const tok = tokens[i];
-		if (!tok || (t && tok.t !== t)) throw new Error(`the formula "${source}" is incomplete or malformed`);
+		if (!tok || (t && tok.t !== t)) throw new FormulaRejected(`the formula "${source}" is incomplete or malformed`);
 		i += 1;
 		return tok as Extract<Token, { t: T }>;
 	};
 	const factor = (): Formula => {
 		const tok = peek();
-		if (!tok) throw new Error(`the formula "${source}" ends too early`);
+		if (!tok) throw new FormulaRejected(`the formula "${source}" ends too early`);
 		if (tok.t === "-") {
 			take();
 			return { op: "neg", a: factor() };
@@ -99,7 +108,7 @@ export function parseFormula(source: string): Formula {
 			return { op: "sum", first, last };
 		}
 		if (tok.t === "id") return { op: "col", id: take("id").v };
-		throw new Error(`the formula "${source}" is malformed`);
+		throw new FormulaRejected(`the formula "${source}" is malformed`);
 	};
 	const term = (): Formula => {
 		let a = factor();
@@ -118,7 +127,8 @@ export function parseFormula(source: string): Formula {
 		return a;
 	};
 	const tree = expr();
-	if (i !== tokens.length) throw new Error(`the formula "${source}" has extra text after a complete expression`);
+	if (i !== tokens.length)
+		throw new FormulaRejected(`the formula "${source}" has extra text after a complete expression`);
 	return tree;
 }
 
@@ -569,7 +579,8 @@ function checkTable(node: Rec, attrs: Rec, where: string, ctx: Ctx) {
 			try {
 				tree = parseFormula(c.formula);
 			} catch (e) {
-				fail(at, (e as Error).message);
+				if (!(e instanceof FormulaRejected)) throw e;
+				fail(at, e.problem);
 				return;
 			}
 			for (const ref of formulaRefs(tree, ids as string[])) {
