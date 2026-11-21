@@ -226,10 +226,8 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 			return { ok: true, passages, usageTokens };
 		} catch (error) {
 			if (error instanceof WikiRefusal) throw error;
-			if (error instanceof EmbeddingRefusal)
-				return { ok: false, reason: error.message, usageTokens: error.usageTokens };
-			const reason = error instanceof Error && error.message ? error.message : "embedding_failed";
-			return { ok: false, reason, usageTokens: 0 };
+			if (error instanceof EmbeddingRefusal) return { ok: false, reason: error.code, usageTokens: error.usageTokens };
+			return { ok: false, reason: "embedding_failed", usageTokens: 0 };
 		}
 	}
 	async function installApprovedWiki(callerInput: unknown, input: unknown) {

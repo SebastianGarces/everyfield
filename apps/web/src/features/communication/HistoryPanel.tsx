@@ -3,7 +3,7 @@ import type { Outcome } from "@everyfield/contracts/common";
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, EmptyState, Field, Input, RowButton, Select } from "@everyfield/ui/controls";
-import { useMinuteClock } from "@everyfield/ui/foundations";
+import { useViewerNow, useViewerZone } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import { currentAddress } from "../../components/location.ts";
 import { createRead, useRead } from "../../components/read.tsx";
@@ -319,8 +319,9 @@ function ResultNotice({ notice }: { notice: Notice }) {
 function ScheduledPanel({ view, actions }: { view: MessageView; actions: ScheduledActions }) {
 	const [when_, setWhen] = useState("");
 	const [error, setError] = useState<string | undefined>();
-	const now = useMinuteClock();
-	const bounds = now === null ? null : windowBounds(new Date(now));
+	const now = useViewerNow();
+	const zone = useViewerZone();
+	const bounds = now === null || zone === null ? null : windowBounds(now, zone);
 	const busy = actions.pending !== null;
 	const state = view.totals.state;
 	const status = heldStatus(view);
