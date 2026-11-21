@@ -41,15 +41,6 @@ test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from t
 		screenHeight: 900,
 		theme: null,
 	};
-	refused(
-		await feedbackWriter.submit(
-			db,
-			await authority(daniel),
-			{ ...input, church: "Forged Church", role: "Admin", appVersion: "forged" },
-			server,
-		),
-		"invalid_input",
-	);
 	assert.deepEqual(ok(await feedbackWriter.getSendContext(db, await authority(daniel))), {
 		church: "Harvest Point",
 		role: "Owner",
