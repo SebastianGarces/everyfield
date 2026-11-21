@@ -113,14 +113,17 @@ async function seed(ch: Church) {
 		await assessments.requestRefresh(db, cedar.actor, { requestId: randomUUID() });
 		return runJob();
 	}
-	/** Runs the assessment job once with the scripted drafter: any queued demand is drafted and published. */
-	async function runJob() {
+	/**
+	 * Runs the assessment job once with the scripted drafter: any queued demand is drafted and published. Returns the
+	 * plant's view, or fails with the newest run's outcome when its assessment did not publish.
+	 */
+	async function runJob(plant: { id: string; name: string; actor: RequestActor } = cedar) {
 		await runAssessmentBatch(await job(), db, drafter(), 20);
-		const view = ok(await assessments.readAssessment(db, cedar.actor, {})) as c.AssessmentView;
+		const view = ok(await assessments.readAssessment(db, plant.actor, {})) as c.AssessmentView;
 		if (!view.current || view.newest) {
 			const runs = await ch.rows(sql`SELECT outcome,reason,drafts->-1->'violations' AS v FROM assessment_run
-				WHERE plant_id=${cedar.id} ORDER BY captured_at DESC LIMIT 1`);
-			throw new Error(`Cedar Creek's assessment did not publish: ${JSON.stringify(runs)}`);
+				WHERE plant_id=${plant.id} ORDER BY captured_at DESC LIMIT 1`);
+			throw new Error(`${plant.name}'s assessment did not publish: ${JSON.stringify(runs)}`);
 		}
 		return view;
 	}
@@ -176,8 +179,7 @@ async function seed(ch: Church) {
 	// Harvest Point's first assessment is published and its Owner opens it, so it is released to the network: Watch.
 	const harvest = plants["Harvest Point"]!;
 	await assessments.requestRefresh(db, harvest.actor, { requestId: randomUUID() });
-	await runAssessmentBatch(await job(), db, drafter(), 20);
-	const released = ok(await assessments.readAssessment(db, harvest.actor, {})) as c.AssessmentView;
+	const released = await runJob(harvest);
 	ok(await assessments.markAssessmentSeen(db, harvest.actor, { runId: released.current!.runId }));
 	const directorAuthority = await resolve(director.session);
 	/** A new Network Intelligence run, as the page's Refresh starts it. */
