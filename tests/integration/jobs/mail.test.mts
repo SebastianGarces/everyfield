@@ -23,6 +23,7 @@ import { protectedTemplate } from "../../../packages/domain/src/jobs/templates.t
 import { claimDue, recoverLease } from "../../../packages/domain/src/jobs/queue.ts";
 import { callbackVisibility } from "../../../packages/domain/src/jobs/webhook.ts";
 import { resendWebhook } from "../../../apps/web/src/server/jobs/webhook-route.ts";
+import { settleCaptured } from "../../../apps/web/src/server/mail/settle.ts";
 import { db, runtime, runtimeSettings, tenant, setup, teardown, due } from "./support.mts";
 const account = randomUUID(),
 	key = randomBytes(32),
@@ -394,6 +395,43 @@ test("INV-mail: a stored callback whose apply fails for a non-transient reason a
 			.rows[0].undelivered,
 		true,
 	);
+});
+test("INV-mail: captured mail settles each id on its own; one failing id neither stops nor fails the others", async () => {
+	const sent = [];
+	while (sent.length < 2) {
+		const id = await enqueue();
+		const [claim] = await claimDue(runtime, ["mail"]);
+		const out = await service.dispatch(claim);
+		assert.equal(out.kind, "accepted");
+		sent.push({ id, provider: out.id });
+	}
+	await db.execute(
+		querySql.raw(
+			`CREATE FUNCTION reject_first() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.id = '${sent[0].id}' THEN RAISE EXCEPTION 'synthetic_apply_failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_first BEFORE UPDATE ON mail FOR EACH ROW EXECUTE FUNCTION reject_first()`,
+		),
+	);
+	const lines = [];
+	const { error } = console;
+	console.error = (text) => lines.push(JSON.parse(text));
+	try {
+		await settleCaptured(
+			runtime,
+			sent.map((mail) => mail.provider),
+		);
+	} finally {
+		console.error = error;
+		await db.execute(querySql`DROP TRIGGER reject_first ON mail; DROP FUNCTION reject_first()`);
+	}
+	assert.deepEqual(lines, [
+		{ component: "mail-capture", outcome: "settle_failed", error: { name: "DrizzleQueryError", code: "P0001" } },
+	]);
+	const states = await db.execute(
+		querySql`SELECT id, sent_at IS NOT NULL sent FROM mail WHERE id IN (${querySql.param(sent[0].id)}, ${querySql.param(sent[1].id)})`,
+	);
+	assert.deepEqual(Object.fromEntries(states.rows.map((row) => [row.id, row.sent])), {
+		[sent[0].id]: false,
+		[sent[1].id]: true,
+	});
 });
 test("INV-recovery: only a freshly authorized operator can attach provider evidence after the replay window", async () => {
 	mode = "lost";
