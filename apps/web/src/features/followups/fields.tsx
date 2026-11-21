@@ -1,7 +1,8 @@
 "use client";
 
 import { Checkbox, Field, Input, Radio, RadioGroup, SegmentedControl, Select, Textarea } from "@everyfield/ui/controls";
-import { cn } from "@everyfield/ui/foundations";
+import { cn, useViewerNow, useViewerZone } from "@everyfield/ui/foundations";
+import { localInputAt } from "../../components/time.ts";
 import { useId } from "react";
 import {
 	CHANNEL_LABEL,
@@ -140,6 +141,8 @@ function WhenField({
 	required: boolean;
 }) {
 	const error = useId();
+	const now = useViewerNow();
+	const zone = useViewerZone();
 	return (
 		<div className="flex flex-col gap-1.5">
 			<span aria-hidden="true" className="text-sm font-medium text-ink-2">
@@ -181,7 +184,7 @@ function WhenField({
 					<Input
 						type="datetime-local"
 						value={draft.at}
-						max={localInputOf(new Date())}
+						max={now === null || zone === null ? undefined : localInputAt(now, zone)}
 						onChange={(e) => onDraft({ ...draft, at: e.target.value })}
 					/>
 				</Field>
