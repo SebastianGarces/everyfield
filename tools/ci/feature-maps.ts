@@ -157,15 +157,19 @@ const SPECIAL_ROUTES: Record<string, string> = {
 };
 const ROUTE_FILE = /^(page|route|robots|sitemap|manifest|icon|apple-icon|opengraph-image|twitter-image)\.(tsx?|jsx?)$/;
 const isGroup = (segment: string) => /^\(.+\)$/.test(segment);
+const isSlot = (segment: string) => segment.startsWith("@");
 
 export function appRoutes(root: string): Route[] {
-	return walk(root, APP_DIR, (file) => ROUTE_FILE.test(file.slice(file.lastIndexOf("/") + 1))).map((file) => {
-		const parts = file.slice(APP_DIR.length + 1).split("/");
-		const base = parts.pop()!.replace(/\.[^.]+$/, "");
-		const segments = parts.filter((s) => !isGroup(s));
-		if (base !== "page" && base !== "route") segments.push(SPECIAL_ROUTES[base] ?? base);
-		return { url: "/" + segments.join("/"), kind: base === "page" ? "page" : "handler", file };
-	});
+	const files = walk(root, APP_DIR, (file) => ROUTE_FILE.test(file.slice(file.lastIndexOf("/") + 1)));
+	return files
+		.filter((file) => !file.split("/").some(isSlot))
+		.map((file) => {
+			const parts = file.slice(APP_DIR.length + 1).split("/");
+			const base = parts.pop()!.replace(/\.[^.]+$/, "");
+			const segments = parts.filter((s) => !isGroup(s));
+			if (base !== "page" && base !== "route") segments.push(SPECIAL_ROUTES[base] ?? base);
+			return { url: "/" + segments.join("/"), kind: base === "page" ? "page" : "handler", file };
+		});
 }
 
 const STATE_FILE = /^(loading|error|not-found)\.tsx$/;

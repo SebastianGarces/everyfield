@@ -24,7 +24,7 @@ after(async () => {
 });
 const denied = (promise, code = "invitation_unavailable") =>
 	assert.rejects(promise, (e) => {
-		assert.equal(e.value?.code, code);
+		assert.equal(e.code, code);
 		return true;
 	});
 const count = async (table, predicate) =>
@@ -184,11 +184,7 @@ test("INV-expiry: an accept or resume that waits on the workspace lock past expi
 			await new Promise((resolve) => setTimeout(resolve, 3000));
 		});
 		const result = await claim;
-		assert.equal(
-			result.error?.value?.code,
-			"invitation_unavailable",
-			via + ": " + JSON.stringify(result.value ?? null),
-		);
+		assert.equal(result.error?.code, "invitation_unavailable", via + ": " + JSON.stringify(result.value ?? null));
 		assert.equal(await count(t.seat, eq(t.seat.account_id, s.recipient.id)), 0);
 		assert.equal((await f.admin.select().from(t.invitation).where(eq(t.invitation.id, id)))[0].state, "pending");
 	}
@@ -926,7 +922,7 @@ test("AC:ADR1-004 INV-person-reference: retirement and invitation revocation bea
 	});
 	const result = await claim;
 	assert.equal(
-		result.error?.value?.code,
+		result.error?.code,
 		"invitation_unavailable",
 		JSON.stringify({ databaseCode: result.error?.cause?.code }),
 	);
