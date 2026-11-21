@@ -80,6 +80,19 @@ const text = (value: unknown) => {
 	assert.ok(typeof value === "string", `expected text, got ${JSON.stringify(value)}`);
 	return value;
 };
+const present = <T,>(value: T | null | undefined, what: string): T => {
+	if (value === null || value === undefined) assert.fail("missing " + what);
+	return value;
+};
+const layoutOf = <L extends { documentClass: string }, C extends L["documentClass"]>(
+	layout: L,
+	documentClass: C,
+): Extract<L, { documentClass: C }> => {
+	const isClass = (candidate: L): candidate is Extract<L, { documentClass: C }> =>
+		candidate.documentClass === documentClass;
+	if (!isClass(layout)) assert.fail(`expected a ${documentClass} layout, got ${layout.documentClass}`);
+	return layout;
+};
 const objectAt = (key: unknown) => {
 	const bytes = client.objects.get(text(key));
 	if (!bytes) throw Error("no stored object at " + String(key));
@@ -232,10 +245,11 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 			}),
 		);
 		assert.equal(next.revision, "2");
-		assert.equal(next.colors.primary.badge, "passes_text");
-		assert.equal(next.colors.primary.textColor, "#FFFFFF");
+		const primary = present(next.colors.primary, "primary color");
+		assert.equal(primary.badge, "passes_text");
+		assert.equal(primary.textColor, "#FFFFFF");
 		assert.equal(next.accentColor, "#C9A227");
-		assert.equal(next.colors.accent.badge, "fails_text");
+		assert.equal(present(next.colors.accent, "accent color").badge, "fails_text");
 		refused(
 			await brandWriter.saveSettings(db, owner, { expectedRevision: "2", patch: { primaryColor: null } }),
 			"primary_required",
@@ -556,7 +570,7 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 	test("AC:CASE-BRD-006 a cover photo is resized, not trimmed, and a removed slot queues its cleanup", async () => {
 		const owner = await authority(0);
 		const kit = await attach(0, "cover_photo", "image/webp", photoWebp, "Sunday gathering", "8");
-		const fileId = kit.assets.cover_photo.fileId;
+		const fileId = present(kit.assets.cover_photo, "cover photo").fileId;
 		const key = await rowOf(sql`SELECT opaque_key, media_type FROM file_object WHERE id = ${fileId}::uuid`);
 		assert.equal(key.media_type, "image/jpeg");
 		const meta = await sharp(objectAt(key.opaque_key)).metadata();
@@ -593,12 +607,12 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		assert.equal(outward.colors.accent, "#C9A227");
 		assert.equal(outward.fonts.heading, "DM Serif Display");
 		assert.equal(outward.fallbackUsed, false);
-		assert.equal(outward.layout.coverLogo.alt, "Green logo");
+		assert.equal(present(layoutOf(outward.layout, "outward-facing").coverLogo, "cover logo").alt, "Green logo");
 		const off = ok(
 			await brandReader.resolveTheme(db, member, { documentClass: "outward-facing", useChurchBranding: false }),
 		);
 		assert.equal(off.kind, "everyfield-neutral");
-		assert.equal(off.layout.coverLogo, null);
+		assert.equal(layoutOf(off.layout, "outward-facing").coverLogo, null);
 		const other = ok(await brandReader.resolveTheme(db, await authority(3), { documentClass: "formal/legal" }));
 		assert.deepEqual([other.kind, other.churchName], ["everyfield-neutral", "Other Plant"]);
 	});
@@ -648,9 +662,8 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 
 	test("AC:CASE-BRD-001 reset deletes the kit, queues cleanup of every asset file and changes no generated file", async () => {
 		const owner = await authority(0);
-		const read = await brandReader.get(db, owner, {});
-		if (read.status !== "ok") assert.fail(JSON.stringify(read));
-		const heldFiles = Object.values(read.value.assets).flatMap((asset) => (asset ? [asset.fileId] : []));
+		const read = ok(await brandReader.get(db, owner, {}));
+		const heldFiles = Object.values(read.assets).flatMap((asset) => (asset ? [asset.fileId] : []));
 		assert.equal(heldFiles.length, 1);
 		const generated = async () =>
 			rowsOf(sql`SELECT id, sha256 FROM file_object WHERE purpose = 'generated' ORDER BY id`);
@@ -687,7 +700,7 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		assert.deepEqual(kit.colors, { primary: null, accent: null });
 		const theme = ok(await brandReader.resolveTheme(db, await authority(1), { documentClass: "operational" }));
 		assert.equal(theme.kind, "everyfield-neutral");
-		assert.equal(theme.layout.mark, null);
+		assert.equal(layoutOf(theme.layout, "operational").mark, null);
 		refused(
 			await brandWriter.saveSettings(db, await authority(0), { expectedRevision: "1", patch: { tagline: "Hi" } }),
 			"primary_required",
@@ -699,7 +712,13 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 			}),
 		);
 		assert.equal(
-			ok(await brandReader.resolveTheme(db, await authority(1), { documentClass: "operational" })).layout.mark.alt,
+			present(
+				layoutOf(
+					ok(await brandReader.resolveTheme(db, await authority(1), { documentClass: "operational" })).layout,
+					"operational",
+				).mark,
+				"mark",
+			).alt,
 			"Harvest mark",
 		);
 	});
@@ -707,7 +726,7 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 	test("AC:CASE-BRD-002 a held tag is answered from the authorized read with no storage read, and never for a revoked viewer", async () => {
 		const owner = await authority(0);
 		const kit = ok(await brandReader.get(db, owner, {}));
-		const fileId = kit.assets.mark.fileId;
+		const fileId = present(kit.assets.mark, "mark").fileId;
 		const sha256 = text((await rowOf(sql`SELECT sha256 FROM file_object WHERE id = ${fileId}::uuid`)).sha256);
 		const held = (stored: string) => stored === sha256;
 		const readsBefore = client.reads;
@@ -719,7 +738,7 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		assert.equal(client.reads, readsBefore);
 		const miss = ok(await readBrandAssetIfChanged(db, storage, owner, fileId, () => false));
 		assert.equal(client.reads, readsBefore + 1);
-		assert.deepEqual([sha(miss.bytes), miss.mediaType], [sha256, "image/png"]);
+		assert.deepEqual([sha(present(miss.bytes, "read bytes")), miss.mediaType], [sha256, "image/png"]);
 		for (const [who, code] of [
 			[1, "unavailable"],
 			[3, "unavailable"],

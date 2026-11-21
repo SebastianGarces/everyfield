@@ -184,7 +184,8 @@ test("no organization read carries the milestone's note, description, correction
 		await listPlants(S.runtime, await as(graceOwner)),
 		await getPlant(S.runtime, await as(graceOwner), HP.id),
 	];
-	assert.equal((await plan(HP)).path.kind === "milestone" && (await plan(HP)).path.reached?.note, NOTE);
+	const { path } = await plan(HP);
+	assert.equal(path.kind === "milestone" && path.reached?.note, NOTE);
 	const json = JSON.stringify(reads);
 	assert.doesNotMatch(json, /Private milestone note|Private correction reason|adopts its constitution/);
 	assert.doesNotMatch(json, /"(note|reason|history|entries|recordedBy|correctedBy|clearedBy)"/);
