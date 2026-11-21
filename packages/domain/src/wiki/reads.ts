@@ -281,10 +281,7 @@ async function meaningOf(
 		return meaningSkipped(error.code);
 	}
 	await recordSpend(db, "query", embedded.tokens);
-	const { vector } = embedded;
-	if (vector.length !== embedder.dimensions || vector.some((value) => !Number.isFinite(value)))
-		return meaningSkipped("bad_vector");
-	return { vector: `[${vector.join(",")}]` };
+	return { vector: `[${embedded.vector.join(",")}]` };
 }
 function meaningSql(meaning: Meaning | null, phase: number | null): SQL {
 	if (!meaning)
