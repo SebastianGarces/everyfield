@@ -660,13 +660,7 @@ function CardHead({
 	children?: ReactNode;
 }) {
 	return (
-		<ToneBand
-			id={id}
-			ref={ref}
-			tabIndex={-1}
-			tone={tone}
-			className="flex items-center gap-2.5 border-b px-4 py-3 font-sans text-sm font-semibold tracking-normal outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
-		>
+		<ToneBand id={id} ref={ref} tabIndex={-1} tone={tone}>
 			{spinning ? <Spinner size={16} /> : <Icon icon={icon} size={16} />}
 			<span className="min-w-0 flex-1">{title}</span>
 			{children ? <span className="font-medium tabular-nums">{children}</span> : null}

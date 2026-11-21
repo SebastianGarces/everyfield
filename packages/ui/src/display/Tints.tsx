@@ -9,15 +9,14 @@ const PILL_TONE = {
 } as const;
 export type PillTone = keyof typeof PILL_TONE;
 
-export function TonePill({ tone, className, ...props }: ComponentPropsWithRef<"span"> & { tone: PillTone }) {
+export function TonePill({ tone, ...props }: Omit<ComponentPropsWithRef<"span">, "className"> & { tone: PillTone }) {
 	return (
 		<span
+			{...props}
 			className={cn(
 				"inline-flex h-6 shrink-0 items-center rounded-full px-2.5 text-xs font-medium whitespace-nowrap",
 				PILL_TONE[tone],
-				className,
 			)}
-			{...props}
 		/>
 	);
 }
@@ -29,8 +28,8 @@ const TAG_TONE = {
 } as const;
 export type TagTone = keyof typeof TAG_TONE;
 
-export function ToneTag({ tone, className, ...props }: ComponentPropsWithRef<"span"> & { tone: TagTone }) {
-	return <span className={cn("rounded-sm px-1.5 py-0.5 text-xs font-medium", TAG_TONE[tone], className)} {...props} />;
+export function ToneTag({ tone, ...props }: Omit<ComponentPropsWithRef<"span">, "className"> & { tone: TagTone }) {
+	return <span {...props} className={cn("rounded-sm px-1.5 py-0.5 text-xs font-medium", TAG_TONE[tone])} />;
 }
 
 const BAND_TONE = {
@@ -41,6 +40,14 @@ const BAND_TONE = {
 } as const;
 export type BandTone = keyof typeof BAND_TONE;
 
-export function ToneBand({ tone, className, ...props }: ComponentPropsWithRef<"h3"> & { tone: BandTone }) {
-	return <h3 className={cn(className, BAND_TONE[tone])} {...props} />;
+export function ToneBand({ tone, ...props }: Omit<ComponentPropsWithRef<"h3">, "className"> & { tone: BandTone }) {
+	return (
+		<h3
+			{...props}
+			className={cn(
+				"flex items-center gap-2.5 border-b px-4 py-3 font-sans text-sm font-semibold tracking-normal outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset",
+				BAND_TONE[tone],
+			)}
+		/>
+	);
 }
