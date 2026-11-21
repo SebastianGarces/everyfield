@@ -1716,7 +1716,7 @@ const webDatabaseImports = {
 
 const classTokens = (value) => value.split(/\s+/).filter(Boolean);
 const MAGENTA_TINT = /^bg-magenta-(?:50|100)(?:\/\d+)?$/;
-const AMBER_TINT = /^bg-amber-(?:50|100)(?:\/\d+)?$/;
+const AMBER_TINT = /^bg-(?:amber-(?:50|100)|\[var\(--ef-amber-(?:50|100)\)\]|\(--ef-amber-(?:50|100)\))(?:\/\d+)?$/;
 const BOX_RADIUS = /^rounded(?:-[\w.[\]-]+)?$/;
 const PILL_RADIUS = /^rounded(?:-[a-z]{1,2})?-(?:full|pill)$/;
 const PADDING = /^p[xy]?-/;
@@ -1752,7 +1752,11 @@ const classParts = (node) =>
 					? [...classParts(node.left), ...classParts(node.right)]
 					: node.type === "ArrayExpression"
 						? node.elements.flatMap((element) => (element ? classParts(element) : []))
-						: [];
+						: node.type === "ObjectExpression"
+							? node.properties.flatMap((property) =>
+									property.type === "Property" && !property.computed ? classParts(property.key) : [],
+								)
+							: [];
 
 const sharedNotice = {
 	meta: { type: "problem" },
@@ -1793,7 +1797,17 @@ const attributeStrings = (attribute) =>
 	attribute.value?.type === "JSXExpressionContainer"
 		? stringsIn(attribute.value.expression)
 		: stringsIn(attribute.value);
-const hidingToken = (token) => token.replace(/^!|!$/g, "").split(":").at(-1) === "hidden";
+const HIDING_CLASSES = new Set(["hidden", "invisible"]);
+const hidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, "").split(":").at(-1));
+const OFF_VALUES = { hidden: [false], "aria-hidden": [false, "false"] };
+const switchedOff = (attribute, name) => {
+	const value = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
+	return value?.type === "Literal" && OFF_VALUES[name].includes(value.value);
+};
+const setAttribute = (element, name) => {
+	const attribute = jsxAttribute(element, name);
+	return attribute && !switchedOff(attribute, name) ? attribute : null;
+};
 
 const liveRegionInTree = {
 	meta: { type: "problem" },
@@ -1810,12 +1824,12 @@ const liveRegionInTree = {
 				if (!announces) return;
 				const className = jsxAttribute(node, "className");
 				const hiddenClass = className && attributeStrings(className).some((s) => s.split(/\s+/).some(hidingToken));
-				const hiddenAttribute = jsxAttribute(node, "hidden");
-				if (!hiddenClass && !hiddenAttribute) return;
+				const hiding = (hiddenClass && className) || setAttribute(node, "hidden") || setAttribute(node, "aria-hidden");
+				if (!hiding) return;
 				context.report({
-					node: hiddenClass ? className : hiddenAttribute,
+					node: hiding,
 					message:
-						"A live region (aria-live, or role status, alert or log) that is hidden is display:none, so it leaves the accessibility tree and what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
+						"A live region (aria-live, or role status, alert or log) that is hidden, invisible or aria-hidden leaves the accessibility tree, so what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
 				});
 			},
 		};
@@ -3340,13 +3354,45 @@ export const ORGANIZATION_SEAT_CHECKS = {
 		"organizationSeatContext is the one narrowing every domain and web gate shares",
 };
 const SEAT_CODE = /^(apps\/web\/src|packages\/domain\/src)\//;
-const unchained = (node) => (node?.type === "ChainExpression" ? node.expression : node);
-const kindOf = (node) => {
-	const at = unchained(node);
-	return at?.type === "MemberExpression" && memberName(at) === "kind" ? unchained(at.object) : null;
+const OWNER = { type: "Identifier", name: "owner" };
+const ownerRead = (node) => {
+	const at = unwrapped(node);
+	if (at?.type === "ConditionalExpression") return ownerRead(at.consequent) || ownerRead(at.alternate);
+	if (at?.type === "LogicalExpression") return ownerRead(at.left) || ownerRead(at.right);
+	return at?.type === "MemberExpression" && memberName(at) === "owner";
 };
-const namesOwner = (node) => (node?.type === "Identifier" ? node.name === "owner" : memberName(node) === "owner");
-const comparedKinds = (node) => {
+const seatNames = () => {
+	const kinds = new Map();
+	const owners = new Set();
+	const bind = (pattern, from) => {
+		if (pattern?.type !== "ObjectPattern") return;
+		for (const property of pattern.properties) {
+			if (property.type !== "Property") continue;
+			const key = keyName(property.key, property.computed);
+			const value = property.value.type === "AssignmentPattern" ? property.value.left : property.value;
+			if (key === "kind" && value.type === "Identifier") kinds.set(value.name, from);
+			if (key === "owner" && value.type === "Identifier") owners.add(value.name);
+			if (key === "owner") bind(value, OWNER);
+		}
+	};
+	const declare = (node) => {
+		const init = unwrapped(node.init);
+		if (node.id.type === "ObjectPattern") bind(node.id, init);
+		if (node.id.type !== "Identifier") return;
+		if (ownerRead(init)) owners.add(node.id.name);
+		if (init?.type === "MemberExpression" && memberName(init) === "kind")
+			kinds.set(node.id.name, unwrapped(init.object));
+	};
+	const kindOf = (node) => {
+		const at = unwrapped(node);
+		if (at?.type === "Identifier") return kinds.get(at.name) ?? null;
+		return at?.type === "MemberExpression" && memberName(at) === "kind" ? unwrapped(at.object) : null;
+	};
+	const namesOwner = (node) =>
+		node?.type === "Identifier" ? node.name === "owner" || owners.has(node.name) : memberName(node) === "owner";
+	return { declare, kindOf, namesOwner };
+};
+const comparedKinds = (node, kindOf) => {
 	if (node.type === "SwitchCase") return node.test ? [[kindOf(node.parent.discriminant), node.test]] : [];
 	return [
 		[kindOf(node.left), node.right],
@@ -3360,14 +3406,19 @@ const organizationSeatCheck = {
 		const path = repoPath(context.filename);
 		if (!SEAT_CODE.test(path)) return {};
 		const home = Object.hasOwn(ORGANIZATION_SEAT_CHECKS, path);
+		const names = seatNames();
+		const comparisons = [];
 		const seats = [];
 		const organizations = [];
 		const visit = (node) => {
 			if (node.type === "BinaryExpression" && !EQUALITY.has(node.operator)) return;
-			for (const [subject, value] of comparedKinds(node)) {
+			comparisons.push(node);
+		};
+		const sort = (node) => {
+			for (const [subject, value] of comparedKinds(node, names.kindOf)) {
 				if (!subject || value?.type !== "Literal") continue;
 				if (value.value === "seat") seats.push(nearestFunction(node));
-				if (value.value === "organization" && namesOwner(subject)) organizations.push(node);
+				if (value.value === "organization" && names.namesOwner(subject)) organizations.push(node);
 			}
 		};
 		const within = (fn, outer) => {
@@ -3377,7 +3428,9 @@ const organizationSeatCheck = {
 		return {
 			BinaryExpression: visit,
 			SwitchCase: visit,
+			VariableDeclarator: names.declare,
 			"Program:exit"(program) {
+				comparisons.forEach(sort);
 				const found = organizations.filter((node) => seats.some((fn) => within(nearestFunction(node), fn)));
 				if (home && found.length === 0)
 					context.report({
@@ -3428,6 +3481,16 @@ const strictContracts = {
 		const namespaces = new Set();
 		const loose = new Set();
 		const found = new Set();
+		const refuse = (node) => {
+			const name = declaredName(node);
+			if (name && Object.hasOwn(exempt, name)) found.add(name);
+			else
+				context.report({
+					node,
+					message:
+						"A contract schema is a z.strictObject with no strip, passthrough, loose or catchall, so a request with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
+				});
+		};
 		return {
 			ImportDeclaration(node) {
 				if (!/^zod(?:\/|$)/.test(node.source.value)) return;
@@ -3437,24 +3500,26 @@ const strictContracts = {
 					else if (LOOSE_OBJECTS.has(imported)) loose.add(spec.local.name);
 				}
 			},
+			ExportNamedDeclaration(node) {
+				if (!/^zod(?:\/|$)/.test(node.source?.value ?? "")) return;
+				for (const spec of node.specifiers) if (LOOSE_OBJECTS.has(nameOf(spec.local))) refuse(spec);
+			},
+			VariableDeclarator(node) {
+				const init = unwrapped(node.init);
+				if (node.id.type !== "ObjectPattern" || init?.type !== "Identifier" || !namespaces.has(init.name)) return;
+				for (const property of node.id.properties)
+					if (property.type === "Property" && LOOSE_OBJECTS.has(keyName(property.key, property.computed)))
+						refuse(property);
+			},
 			CallExpression(node) {
 				const callee = unwrapped(node.callee);
-				const isLoose =
-					(callee?.type === "Identifier" && loose.has(callee.name)) ||
-					(callee?.type === "MemberExpression" &&
-						callee.object.type === "Identifier" &&
-						namespaces.has(callee.object.name) &&
-						LOOSE_OBJECTS.has(memberName(callee))) ||
-					(callee?.type === "MemberExpression" && LOOSE_METHODS.has(memberName(callee)));
-				if (!isLoose) return;
-				const name = declaredName(node);
-				if (name && Object.hasOwn(exempt, name)) found.add(name);
-				else
-					context.report({
-						node,
-						message:
-							"A contract schema is a z.strictObject with no strip, passthrough, loose or catchall, so a request with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
-					});
+				if (callee?.type === "Identifier" && loose.has(callee.name)) refuse(node);
+			},
+			MemberExpression(node) {
+				const name = memberName(node);
+				const fromNamespace =
+					node.object.type === "Identifier" && namespaces.has(node.object.name) && LOOSE_OBJECTS.has(name);
+				if (fromNamespace || LOOSE_METHODS.has(name)) refuse(node);
 			},
 			"Program:exit"(program) {
 				for (const name of Object.keys(exempt))
