@@ -299,10 +299,7 @@ test("AC:B02-008 AC:B02-009 AC:B02-011 AC:B02-012 AC:B02-013 AC:B02-015 AC:B02-0
 	const cancelledRow = sql`SELECT status, revision::text, actual_occurrence_at,
 		(SELECT count(*)::int FROM audit_event WHERE subject_id = ${cancelled.id}) AS audits FROM meeting WHERE id = ${cancelled.id}::uuid`;
 	const untouched = (await admin.execute(cancelledRow)).rows[0];
-	for (const input of [
-		{ state: "completed", occurredAt: hours(1) },
-		{ state: "not_completed" },
-	])
+	for (const input of [{ state: "completed", occurredAt: hours(1) }, { state: "not_completed" }])
 		refused(
 			await run(meetings.correctPracticeOccurrence, {
 				requestKey: key(),
