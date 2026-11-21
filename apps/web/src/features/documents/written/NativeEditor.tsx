@@ -46,7 +46,15 @@ import { BlockShortcuts, LeaveDialog, SaveStatusText, type SaveStatus } from "..
 import { EditorToolbar } from "../church/editor/Toolbar.tsx";
 import { documentProblem, type WrittenView } from "../model.ts";
 import { CopiedNote, SECTION, TextRevisionNote } from "./notes.tsx";
-import { EMPTY, createNativeEditorStore, forgetMoved, keepForMove, sameDoc, takeMoved, toEditor } from "./NativeEditor.store.ts";
+import {
+	EMPTY,
+	createNativeEditorStore,
+	forgetMoved,
+	keepForMove,
+	sameDoc,
+	takeMoved,
+	toEditor,
+} from "./NativeEditor.store.ts";
 
 async function importWritten(file: File, params: Record<string, string>): Promise<DocumentOutcome<WrittenView>> {
 	try {
