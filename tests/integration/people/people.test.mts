@@ -858,7 +858,7 @@ test("AC:TARGET-PPL-008 every church seat who can see a note sees its author's n
 	const on = (a) => ({ session: a.session, selected: { kind: "plant", id: plant.id } });
 	const authors = [await seated("owner", "Ruth"), await seated("admin", "Orpah")];
 	const readers = [await seated("admin", "Naomi"), await seated("member", "Boaz")];
-	let p = ok(
+	const p = ok(
 		await tx((t) =>
 			write.createPerson(t, on(authors[0]), { requestKey: randomUUID(), input: { displayName: "Named notes" } }),
 		),
