@@ -1,1 +1,1 @@
-export { SettingsIndexDialog as default } from "@/features/settings/routes";
+export { SettingsIndexDialog as default } from "@/features/settings/dialog-routes";

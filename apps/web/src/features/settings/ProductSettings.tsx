@@ -34,7 +34,8 @@ import { uploadAvatarBytes } from "./flows/avatarBytes";
 import { sectionAt, type DialogSection } from "./model";
 import type { DeletionStatus, SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
 import type { SettingsDialogProps } from "./SettingsDialog";
-import { SettingsProvider } from "./store";
+import { createSettingsStore, type SettingsStore } from "./settings.store";
+import { SettingsStoreProvider } from "./store";
 
 const PORT: SettingsPort = {
 	getSection,
@@ -110,7 +111,7 @@ type SettingsDialogParts = {
 	section: DialogSection | null;
 	navigate: (key: SectionKey | null) => void;
 	openPage: (key: SectionKey) => void;
-	seedFits: boolean;
+	storeFor: (seed: SectionSeed | null) => SettingsStore;
 };
 
 export const SettingsDialogContext = createContext<SettingsDialogParts | null>(null);
@@ -163,12 +164,23 @@ export function useProductSettings(viewer: SettingsViewer | null, seedFits: bool
 		[section, underneath, refreshUnderneath, router, viewer],
 	);
 
+	const held = useRef<{ key: string; store: SettingsStore } | null>(null);
+	const storeFor = useCallback(
+		(seed: SectionSeed | null) => {
+			const key = viewer ? `${viewer.accountId}-${viewer.context}` : "";
+			if (held.current?.key !== key)
+				held.current = { key, store: createSettingsStore({ port, seed: seedFits ? seed : null }) };
+			return held.current.store;
+		},
+		[viewer, port, seedFits],
+	);
+
 	const parts = useMemo(
 		() =>
 			viewer
-				? { viewer, port, section, navigate, openPage: (key: SectionKey) => router.push(hrefFor(key)), seedFits }
+				? { viewer, port, section, navigate, openPage: (key: SectionKey) => router.push(hrefFor(key)), storeFor }
 				: null,
-		[viewer, port, section, navigate, router, seedFits],
+		[viewer, port, section, navigate, router, storeFor],
 	);
 	return { parts, open: (key: DialogSection) => navigate(key) };
 }
@@ -176,14 +188,9 @@ export function useProductSettings(viewer: SettingsViewer | null, seedFits: bool
 export function ProductSettingsDialog({ seed }: { seed: SectionSeed | null }) {
 	const parts = use(SettingsDialogContext);
 	if (!parts) return null;
-	const { viewer, port, section, navigate, openPage, seedFits } = parts;
+	const { viewer, section, navigate, openPage, storeFor } = parts;
 	return (
-		<SettingsProvider
-			key={`${viewer.accountId}-${viewer.context}`}
-			port={port}
-			viewer={viewer}
-			seed={seedFits ? seed : null}
-		>
+		<SettingsStoreProvider key={`${viewer.accountId}-${viewer.context}`} store={storeFor(seed)} viewer={viewer}>
 			<LazySettingsDialog
 				section={section}
 				onNavigate={navigate}
@@ -192,7 +199,7 @@ export function ProductSettingsDialog({ seed }: { seed: SectionSeed | null }) {
 				headerActions={<SettingsGuide />}
 				onDeletionRequested={(status) => loadPage(deletionPage(status))}
 			/>
-		</SettingsProvider>
+		</SettingsStoreProvider>
 	);
 }
 

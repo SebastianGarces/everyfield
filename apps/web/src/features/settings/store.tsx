@@ -15,6 +15,7 @@ import {
 	type SaveOutcome,
 	type SettingsReads,
 	type SettingsState,
+	type SettingsStore,
 } from "./settings.store";
 import { READ_FAILED, READ_FAILED_ICON } from "../../components/read-failed.ts";
 
@@ -33,6 +34,22 @@ export function SettingsProvider({
 	children: ReactNode;
 }) {
 	const store = useLocalStore(() => createSettingsStore({ port, seed }));
+	return (
+		<SettingsStoreProvider store={store} viewer={viewer}>
+			{children}
+		</SettingsStoreProvider>
+	);
+}
+
+export function SettingsStoreProvider({
+	store,
+	viewer,
+	children,
+}: {
+	store: SettingsStore;
+	viewer: SettingsViewer;
+	children: ReactNode;
+}) {
 	return (
 		<Settings.Provider value={store}>
 			<ViewerContext value={viewer}>{children}</ViewerContext>
