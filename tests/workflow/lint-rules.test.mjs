@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { REFUSAL_MECHANISMS } from "../../scripts/lint/everyfield-plugin.mjs";
+import { HAND_WRITTEN_NOTICES, REFUSAL_MECHANISMS } from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
@@ -1125,6 +1125,27 @@ import { pgTable } from "@everyfield/db/columns";
 		}).filter((hit) => hit.endsWith(" web-database-imports")),
 		[1, 2, 3, 4, 5, 8, 10].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`).sort(),
 	);
+});
+
+test("INV-lint: apps/web shows an error notice through the shared Alert, never a hand-written magenta box", () => {
+	const code = `export const A = () => <p className="rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">x</p>;
+export const B = (more) => \`flex bg-magenta-50 \${more} text-magenta-600\`;
+export const C = { error: "bg-magenta-50 text-magenta-600" };
+export const D = "bg-magenta-500 text-magenta-600";
+export const E = "bg-magenta-50 text-ink-2";
+`;
+	const [exempt] = Object.keys(HAND_WRITTEN_NOTICES);
+	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" shared-notice"));
+	assert.deepEqual(
+		reported({
+			"apps/web/src/features/x/Notice.tsx": code,
+			[exempt]: code,
+			"packages/ui/src/controls/x.tsx": code,
+		}),
+		[1, 2, 3].map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`),
+	);
+	assert.deepEqual(reported({ [exempt]: "export const none = 1;\n" }), [`${exempt}:1 shared-notice`]);
+	assert.ok(Object.keys(HAND_WRITTEN_NOTICES).length <= 23, "HAND_WRITTEN_NOTICES only shrinks");
 });
 
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
