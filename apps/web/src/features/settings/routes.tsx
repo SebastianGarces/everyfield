@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
-import { EMAIL_CHANGE_PROOF_COOKIE } from "@/proxy";
+import { readEmailChangeProof } from "@/server/email-change-proof";
 import { requireActor } from "@/server/sign-in";
 import { instant } from "@everyfield/contracts/common";
 import { confirmEmailChange } from "./actions";
@@ -42,6 +41,6 @@ export const confirmEmailMetadata: Metadata = {
 
 export async function ConfirmEmailPage() {
 	await requireActor("/confirm-email");
-	const proof = (await cookies()).get(EMAIL_CHANGE_PROOF_COOKIE)?.value ?? null;
-	return <ConfirmEmailScreen proof={proof} confirm={confirmEmailChange} accountHref="/settings/account" />;
+	const linked = (await readEmailChangeProof()) !== null;
+	return <ConfirmEmailScreen linked={linked} confirm={confirmEmailChange} accountHref="/settings/account" />;
 }

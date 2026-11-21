@@ -2,7 +2,7 @@ import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
 
 export const EMAIL_CHANGE_PROOF_COOKIE = "ef-email-change-proof";
-const EMAIL_CHANGE_PATH = "/confirm-email";
+export const EMAIL_CHANGE_PATH = "/confirm-email";
 
 function keepEmailChangeProof(request: NextRequest, proof: string) {
 	const clean = request.nextUrl.clone();
