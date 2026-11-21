@@ -13,7 +13,7 @@ import {
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { addressSuppressed, createMailService, type MailTransport } from "../../../packages/domain/src/jobs/mail.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { refuse } from "../../../packages/domain/src/identity/invitation-core.ts";
+import { deny } from "../../../packages/domain/src/identity/invitation-core.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
@@ -49,7 +49,7 @@ export async function fixture({
 	});
 	async function actor(session: string) {
 		const a = await gatedTransaction(db, (tx) => RequestActor.resolve(tx, sessionId.parse(session)));
-		if (!(a instanceof RequestActor)) refuse();
+		if (!(a instanceof RequestActor)) deny("invitation_unavailable");
 		return a;
 	}
 	const invitations = createInvitationService({

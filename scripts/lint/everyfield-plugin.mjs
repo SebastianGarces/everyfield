@@ -3012,15 +3012,6 @@ export const REFUSAL_MECHANISMS = {
 	"packages/domain/src/people/pipeline-metrics.ts": {
 		why: "Pipeline metrics answers a bare { code } refusal that its contract test pins; defineRefusals adds details, correlationId and retry",
 	},
-	"packages/domain/src/identity/budget.ts": {
-		why: "An identity refusal carries its HTTP status, and identity's handler answers it as HTTP JSON",
-	},
-	"packages/domain/src/identity/service.ts": {
-		why: "Identity's handler builds the identity safe error with its HTTP status from an identity refusal",
-	},
-	"packages/domain/src/identity/invitation-core.ts": {
-		why: "An invitation refusal carries a parsed safe error with retryAt details, the identity invitation mechanism",
-	},
 	"packages/domain/src/settings/credentials.ts": {
 		why: "Credential changes answer identity's credential outcome (a status with a correlationId and no retry)",
 	},
