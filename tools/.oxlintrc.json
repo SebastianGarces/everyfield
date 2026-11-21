@@ -6,6 +6,7 @@
 	"rules": {
 		"everyfield/resend-senders": "error",
 		"everyfield/no-comments": "error",
+		"everyfield/no-raw-error-log": "error",
 		"everyfield/no-effects": "error",
 		"everyfield/max-state": "error"
 	},
