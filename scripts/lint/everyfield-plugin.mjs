@@ -1742,7 +1742,6 @@ export const HAND_WRITTEN_NOTICES = {
 	"apps/web/src/features/people/PipelineBoard.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/people/corrections/parts.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/people/parts.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/tasks/TaskSheet.tsx": NOTICE_ADOPTION,
 };
 
 const noticeLook = (value) =>
