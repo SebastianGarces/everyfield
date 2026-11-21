@@ -10,6 +10,7 @@ import {
 	WifiDisconnected01Icon,
 } from "@hugeicons/core-free-icons";
 import {
+	Alert,
 	Button,
 	IconButton,
 	RowButton,
@@ -296,11 +297,7 @@ function Chat({
 					Evry reads the records you can see and answers with the sources it used. It never changes anything without
 					your approval.
 				</p>
-				{problem ? (
-					<p role="alert" className="text-sm text-magenta-600">
-						{problem}
-					</p>
-				) : null}
+				{problem ? <Alert role="alert">{problem}</Alert> : null}
 			</div>
 		);
 
@@ -356,11 +353,7 @@ function Chat({
 					</Button>
 				</div>
 			) : null}
-			{problem ? (
-				<p role="alert" className="text-sm text-magenta-600">
-					{problem}
-				</p>
-			) : null}
+			{problem ? <Alert role="alert">{problem}</Alert> : null}
 			<div aria-live="polite" className="sr-only">
 				{announcement}
 			</div>
@@ -456,23 +449,22 @@ function TurnView({
 							<p className="text-sm text-text-3">Stopping…</p>
 						) : null}
 						{notice ? (
-							<div
-								className={cn(
-									"flex flex-col gap-1 rounded-md px-4 py-3 text-sm",
-									notice.tone === "error" ? "bg-magenta-50 text-magenta-600" : "bg-surface-2 text-text-2",
-								)}
+							<Alert
+								tone={notice.tone}
+								title={notice.title}
+								actions={
+									canRetry ? (
+										<Button size="sm" variant="outline" loading={retrying} onClick={onRetry}>
+											Try again
+										</Button>
+									) : undefined
+								}
 							>
-								<p className="font-semibold text-ink">{notice.title}</p>
 								<p>{notice.text}</p>
 								{turn.end?.error ? (
 									<p className="text-xs text-text-3">Reference {turn.end.error.correlationId.slice(0, 8)}</p>
 								) : null}
-								{canRetry ? (
-									<Button size="sm" variant="outline" className="mt-2 self-start" loading={retrying} onClick={onRetry}>
-										Try again
-									</Button>
-								) : null}
-							</div>
+							</Alert>
 						) : null}
 					</div>
 				</div>
