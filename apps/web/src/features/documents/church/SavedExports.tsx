@@ -2,7 +2,7 @@
 
 import { Delete02Icon, Download01Icon, FileLockedIcon } from "@hugeicons/core-free-icons";
 import type { SavedExport } from "@everyfield/contracts/documents";
-import { Button, Card, ConfirmDialog, ConfirmRefused, EmptyState } from "@everyfield/ui/controls";
+import { Button, Card, ConfirmDialog, EmptyState } from "@everyfield/ui/controls";
 import { formatLocalTime, LocalTime, Tag, useLocalTime } from "@everyfield/ui/display";
 import { useBrowserZone } from "@everyfield/ui/foundations";
 import { cn } from "@everyfield/ui/foundations";
@@ -89,8 +89,8 @@ export function SavedExports({
 function DeleteExport({ saved, onDeleted }: { saved: SavedExport; onDeleted: (id: string) => void }) {
 	async function remove() {
 		const result = await deleteSavedExport(saved.documentId, saved.id).catch(() => ({ status: "lost" as const }));
-		if (result.status === "refused") throw new ConfirmRefused(result.message);
-		if (result.status === "lost") throw new ConfirmRefused("The connection dropped. Nothing was deleted. Try again.");
+		if (result.status === "refused") return { refused: result.message };
+		if (result.status === "lost") return { refused: "The connection dropped. Nothing was deleted. Try again." };
 		onDeleted(saved.id);
 	}
 	const label = `${FORMAT_LABEL[saved.format]} copy of revision ${saved.revision}`;

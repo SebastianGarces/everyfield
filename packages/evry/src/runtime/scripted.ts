@@ -132,6 +132,28 @@ function fileStep(text: string, system: string, result: Record<string, unknown> 
 	];
 }
 
+function documentStep(text: string, system: string, result: Record<string, unknown> | null, canPropose: boolean) {
+	if (!canPropose || !/\b(church |written )?document\b/i.test(text) || !/\b(make|turn|import|add)\b/i.test(text))
+		return null;
+	const newest = attachedFiles(system)[0];
+	const say = (t: string) => [{ type: "text" as const, text: t }];
+	if (!result) {
+		if (!newest)
+			return say("I can't see a file in this conversation. Attach it here with the paperclip and I'll import it.");
+		return [
+			toolCall("propose_change", { operation: "documents.importTextOrWord", input: { attachmentId: newest.id } }),
+		];
+	}
+	if (typeof result.problem === "string") return say(`I can't import that file. ${result.problem}`);
+	if (result.error === "attachment_gone")
+		return say("That file is gone: attached files last 24 hours. Please attach it again here and I'll import it.");
+	if (result.error === "attachment_elsewhere")
+		return say("I can't see that file in this conversation. Attach it here with the paperclip and I'll import it.");
+	if (typeof result.proposalId === "string")
+		return say("I prepared the import for your review. Nothing is added to Documents until you approve it.");
+	return null;
+}
+
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 function dateStep(text: string, result: Record<string, unknown> | null, canRead: boolean) {
 	const say = (t: string) => [{ type: "text" as const, text: t }];
@@ -998,6 +1020,7 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (assessed) return assessed;
 	const steps =
 		limitStep(text, system, result, canProposePeople) ??
+		documentStep(text, system, result, proposesOn(options, "documents")) ??
 		fileStep(text, system, result, canProposePeople) ??
 		dateStep(text, result, options.tools?.some((t) => t.name === "calendar_read") ?? false) ??
 		historyStep(text, result);
