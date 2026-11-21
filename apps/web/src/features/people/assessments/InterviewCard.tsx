@@ -401,7 +401,7 @@ function InterviewDialog({
 						<Radio key={r} value={r} label={RESULT_LABEL[r]} />
 					))}
 				</RadioGroup>
-				<div aria-live="polite" className="empty:hidden">
+				<div aria-live="polite" className="empty:sr-only">
 					{touched && draft.result === "" ? (
 						<p id={`${resultId}-error`} className="text-xs font-medium text-magenta-600">
 							Choose a result.
