@@ -108,8 +108,15 @@ matches (`launch.readDebrief` with `guestName`) gets the list and a question, an
 same conversation by picking a match or asking for a new Person. Three names make one card each, approved one at a
 time. A correction card changes only the fields named, keeps the outcome note, and one made stale on the Launch plan
 shows the outcome as it is now. Each refusal (not recorded, already a guest, no or long name, no or long reason, a date
-after today, a count out of range, the same values) makes no card, and the card itself refuses them too. The recorded
-suites leave these tools out too.
+after today, a count out of range, the same values) makes no card, and the card itself refuses them too. LAU-62 and
+LAU-63 (T-329) ask "are we ready to launch?" after the `readiness` setup holds two of three pre-launch services, moves
+the church to Training & Preparation and records Systems tested. The Owner's turn reads `launch.readWorkspace` and
+`phases.readReadiness` and ends `completed`, not at the pastoral boundary. It lists each milestone as met (with who
+completed it and when) or not met (with its open linked prep tasks), the pre-launch services held, and each exit
+criterion as phase readiness returns it. It says readiness is the planter's call, and neither golden LCH-02's forbid
+pattern nor the readiness-verdict wording in `packages/domain/src/intelligence/checks.ts` matches. A Member gets the
+milestones without the phase's criteria. Both turns change nothing: the Launch plan, tasks, phase and review cards read
+the same afterwards. The recorded suites leave these tools out too.
 
 ## The household and follow-up suites
 
