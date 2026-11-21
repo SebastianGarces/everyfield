@@ -29,6 +29,7 @@ import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
 import { resendWebhook } from "../../apps/web/src/server/jobs/webhook-route.ts";
 import { FULL_ADDRESS, QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
 import { gatedTransaction } from "../../packages/domain/src/operations/writes.ts";
+import { errorClass } from "../../packages/domain/src/log.ts";
 import { canonical, hash, stableId } from "../../packages/reference/src/hash.ts";
 import { loadStarter } from "../../packages/reference/src/starter-load.ts";
 
@@ -84,7 +85,7 @@ type Ctx = { session: string; selected: { kind: "plant"; id: string } };
 type Reply = { status: string; value?: unknown };
 
 function ok(what: string, reply: Reply): unknown {
-	if (reply.status !== "ok") throw Error(`${what}: ${JSON.stringify(reply)}`);
+	if (reply.status !== "ok") throw new SeedFailed(`${what}: ${JSON.stringify(reply)}`);
 	return reply.value;
 }
 
@@ -110,7 +111,22 @@ async function logins(admin: Database, password: string) {
 	}
 }
 
-class SeedRefusal extends Error {}
+class SeedRefusal extends Error {
+	readonly reason: string;
+	constructor(reason: string) {
+		super(reason);
+		this.name = "SeedRefusal";
+		this.reason = reason;
+	}
+}
+class SeedFailed extends Error {
+	readonly reason: string;
+	constructor(reason: string) {
+		super(reason);
+		this.name = "SeedFailed";
+		this.reason = reason;
+	}
+}
 
 function sharedAddress(env: Readonly<Record<string, string | undefined>>): string {
 	const first = (env.QA_TEST_RECIPIENTS ?? "").split(",")[0]!.trim();
@@ -193,7 +209,7 @@ async function fill(
 			password: QA_PASSWORD,
 			requestKey: randomUUID(),
 		});
-		if (!r.ok) throw Error(`register ${email}: ${r.status} ${await r.text()}`);
+		if (!r.ok) throw new SeedFailed(`register ${email}: ${r.status} ${await r.text()}`);
 		await admin.execute(sql`UPDATE auth_user SET email_verified=true WHERE email=${email}`);
 		if (active)
 			await admin.execute(
@@ -228,7 +244,7 @@ async function fill(
 		const open = sessions.get(email);
 		if (open) return open;
 		const signedIn = await call("sign-in/email", { email, password: QA_PASSWORD });
-		if (!signedIn.ok) throw Error(`sign in ${email}: ${signedIn.status}`);
+		if (!signedIn.ok) throw new SeedFailed(`sign in ${email}: ${signedIn.status}`);
 		const row = await rows(
 			admin,
 			sql`SELECT s.id FROM auth_session s JOIN auth_user u ON u.id=s.user_id WHERE u.email=${email}
@@ -438,7 +454,7 @@ async function fill(
 
 	if (!(await rows(admin, sql`SELECT 1 FROM document WHERE tenant_id=${plantId} AND title=${DOCUMENT}`)).length) {
 		const actor = await RequestActor.resolve(runtime, (await ctx()).session as never);
-		if (!(actor instanceof RequestActor)) throw Error(`document actor: ${JSON.stringify(actor)}`);
+		if (!(actor instanceof RequestActor)) throw new SeedFailed(`document actor: ${JSON.stringify(actor)}`);
 		ok(
 			"document",
 			await documentsWriter.saveNative(runtime, actor, {
@@ -715,7 +731,7 @@ async function multiplication(m: Multiplication): Promise<void> {
 
 	const authority = async (email: string) => {
 		const actor = await RequestActor.resolve(runtime, (await m.sessionOf(email)) as never);
-		if (!(actor instanceof RequestActor)) throw Error(`actor ${email}: ${JSON.stringify(actor)}`);
+		if (!(actor instanceof RequestActor)) throw new SeedFailed(`actor ${email}: ${JSON.stringify(actor)}`);
 		return actor;
 	};
 	const personOf = async (org: string, name: string) =>
@@ -1061,7 +1077,8 @@ async function multiplication(m: Multiplication): Promise<void> {
 				} as never,
 			),
 		);
-		if (left.status !== "committed") throw Error(`leave residency ${ENDED_RESIDENT.name}: ${JSON.stringify(left)}`);
+		if (left.status !== "committed")
+			throw new SeedFailed(`leave residency ${ENDED_RESIDENT.name}: ${JSON.stringify(left)}`);
 		done.push(`left residency ${ENDED_RESIDENT.name}`);
 	}
 
@@ -1183,7 +1200,7 @@ async function mailCases(
 		);
 		const scheduled = (await message())!;
 		const actor = await RequestActor.resolve(runtime, c.session as never);
-		if (!(actor instanceof RequestActor)) throw Error(`delivery actor: ${JSON.stringify(actor)}`);
+		if (!(actor instanceof RequestActor)) throw new SeedFailed(`delivery actor: ${JSON.stringify(actor)}`);
 		const accepting: DeliveryTransport = {
 			send: async (batch) => ({ outcome: "ids", ids: batch.messages.map(() => `qa-seed-${randomUUID()}`) }),
 			cancel: async (ids) => ids.map(() => ({ outcome: "unknown" })),
@@ -1200,7 +1217,7 @@ async function mailCases(
 			),
 		) as { acceptedCount: number; rejectedCount: number };
 		if (result.acceptedCount !== DELIVERY_TO.length - 1 || result.rejectedCount !== 1)
-			throw Error(`send delivery message: ${JSON.stringify(result)}`);
+			throw new SeedFailed(`send delivery message: ${JSON.stringify(result)}`);
 		const accepted = await rows(
 			admin,
 			sql`SELECT provider_message_id AS id FROM mail WHERE tenant_id=${p.plantId} AND purpose='communication'
@@ -1228,7 +1245,7 @@ async function mailCases(
 				secret,
 			);
 			const received = await response.text();
-			if (JSON.parse(received).result !== "applied") throw Error(`delivered callback: ${received}`);
+			if (JSON.parse(received).result !== "applied") throw new SeedFailed(`delivered callback: ${received}`);
 		}
 		done.push(`message ${DELIVERY}`);
 	}
@@ -1297,7 +1314,7 @@ async function checkIns(
 	let now = "";
 	const care = createPrivateCare({ clock: { now: () => now as Instant } });
 	const actor = await RequestActor.resolve(runtime, (await ownerSession()) as never);
-	if (!(actor instanceof RequestActor)) throw Error(`check-in actor: ${JSON.stringify(actor)}`);
+	if (!(actor instanceof RequestActor)) throw new SeedFailed(`check-in actor: ${JSON.stringify(actor)}`);
 	await gatedTransaction(runtime, async (tx) => {
 		for (const [index, [spiritual, family, financial, pace, note]] of CHECK_INS.entries()) {
 			now = times[index]!;
@@ -1405,7 +1422,7 @@ async function starterArticles(admin: Database) {
 			GROUP BY r.article_id ORDER BY 2, 3, 1 LIMIT 3`,
 	);
 	if (found.length < 3)
-		throw Error(
+		throw new SeedFailed(
 			`wiki: the active release has ${found.length} published global articles; articles A, B and C need three`,
 		);
 	return found.map((row) => row.article_id as string) as [string, string, string];
@@ -1515,7 +1532,14 @@ if (import.meta.main) {
 	try {
 		console.log(await seed(process.env));
 	} catch (error) {
-		console.error(error instanceof SeedRefusal ? `QA seed refused: ${error.message}` : `QA seed failed: ${error}`);
+		const failure = errorClass(error);
+		console.error(
+			error instanceof SeedRefusal
+				? `QA seed refused: ${error.reason}`
+				: error instanceof SeedFailed
+					? `QA seed failed: ${error.reason}`
+					: `QA seed failed: ${failure.name}${failure.code ? ` ${failure.code}` : ""}`,
+		);
 		process.exitCode = error instanceof SeedRefusal ? 2 : 1;
 	}
 }
