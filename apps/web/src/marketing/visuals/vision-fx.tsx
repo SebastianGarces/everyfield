@@ -10,7 +10,7 @@ import { onPageStateChange, runFrames } from "../playback";
 
 const N = [0, 380, 760, 1140, 1420, 1600, 1780] as const;
 const END = 2300;
-const at = (n: number) => N[Math.max(0, Math.min(n, N.length - 1))]!;
+const at = (n: number) => N[Math.max(0, Math.min(n, N.length - 1))] ?? N[0];
 const gap = (n: number) => at(n + 1) - at(n);
 const scaleY = (p: number) => "scaleY(" + p.toFixed(4) + ")";
 
