@@ -4,7 +4,6 @@ import { ADDRESS_UNREAD, outcomeText, unread } from "../../../apps/web/src/featu
 
 test("a failed or lost address read shows Maya's line with no error code or other try-again text", () => {
 	assert.equal(ADDRESS_UNREAD, "We couldn't load your church's address.");
-	assert.ok(!/try again/i.test(ADDRESS_UNREAD));
 	for (const status of ["failed", "lost"] as const) assert.equal(unread({ status }), true, status);
 });
 

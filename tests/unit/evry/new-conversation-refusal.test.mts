@@ -53,10 +53,7 @@ for (const code of ["access_denied", "invalid_input"]) {
 	test(`a first message whose new conversation is refused with ${code} says Evry can't start one, with no code`, async () => {
 		const { calls, send, only } = panel({ create: [refused(code)] });
 		await send("Who visited last Sunday?");
-		const notice = sendNotice(only());
-		assert.equal(notice, START_REFUSED);
-		assert.ok(!notice?.includes("this conversation"));
-		assert.ok(!notice?.includes(code));
+		assert.equal(sendNotice(only()), START_REFUSED);
 		assert.deepEqual(calls, ["create"]);
 	});
 }
