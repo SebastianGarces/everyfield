@@ -2,7 +2,7 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { ArrowLeft01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { Button, ConfirmDialog, Field, Select, TextButton } from "@everyfield/ui/controls";
+import { Alert, Button, ConfirmDialog, Field, Select, TextButton } from "@everyfield/ui/controls";
 import { Icon, useFocusOnChange } from "@everyfield/ui/foundations";
 import { useState, type ComponentProps } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
@@ -410,11 +410,7 @@ function ComposeForm({
 					{note}
 				</p>
 			))}
-			{problem ? (
-				<p role="alert" className="text-sm font-medium text-magenta-600">
-					{problem}
-				</p>
-			) : null}
+			{problem ? <Alert role="alert">{problem}</Alert> : null}
 
 			<h2
 				ref={heading}
