@@ -58,7 +58,7 @@ function fakePort(latest: string) {
 	return { port, calls, held: () => held };
 }
 
-test("INV-church-changed: a moved seat's send shows the church change, stops reading, and Reload reopens Evry with the message", async () => {
+test("INV-church-changed: a moved seat's send shows the church change and Reload reopens Evry for the new church with the message", async () => {
 	const { port, calls, held } = fakePort("church-a");
 	const store = createEvryPanelStore({ context: "plant:a", port });
 	store.getState().actions.show(true);

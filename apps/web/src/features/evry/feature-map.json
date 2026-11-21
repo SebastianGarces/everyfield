@@ -219,6 +219,24 @@
 						],
 						"cases": ["EVRY-RETRY-CANCEL"]
 					}
+				},
+				{
+					"id": "church-changed",
+					"says": "When the person's seat moved to another church while Evry was open, sending to the old church's conversation is refused as a church change with nothing written; the panel says so with Reload, which opens Evry for the new church with the message still in the box.",
+					"catalog": ["EVR-021"],
+					"operations": ["evry.submitTurn"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/evry/runtime/conversations.test.mts",
+								"name": "INV-church-changed: a seat moved to another church refuses the old church's conversation as church_changed and writes nothing"
+							},
+							{
+								"file": "tests/unit/evry/church-changed.test.mts",
+								"name": "INV-church-changed: a moved seat's send shows the church change and Reload reopens Evry for the new church with the message"
+							}
+						]
+					}
 				}
 			]
 		},
