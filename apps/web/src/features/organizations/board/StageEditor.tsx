@@ -10,13 +10,13 @@ import {
 	DialogFooter,
 	DialogHeader,
 	IconButton,
+	InlineAlert,
 	Input,
 	Select,
 } from "@everyfield/ui/controls";
 import { useState, useTransition } from "react";
 import { saveStages } from "./actions";
 import { KIND_LABEL, plural, refusalText, stageChanges } from "./model";
-import { Problem } from "../../../components/Problem.tsx";
 
 type Stage = PipelineBoard["stages"][number];
 type Row = { id: string; label: string; kind: string; revision: string | null; count: number };
@@ -95,7 +95,7 @@ function Editor({ stages, onSaved }: { stages: Stage[]; onSaved: () => void }) {
 						))}
 					</ul>
 					<p className="text-sm text-text-2">History keeps each stage’s name as it was when someone moved.</p>
-					<Problem text={problem} />
+					<InlineAlert live="polite">{problem}</InlineAlert>
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="ghost" onClick={() => setStep("edit")} disabled={saving}>
