@@ -1412,7 +1412,6 @@ const ERROR_CHIP = "a status chip in the error colour, not a notice";
 export const HAND_WRITTEN_NOTICES = {
 	"apps/web/src/components/Problem.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/communication/HistoryPanel.tsx": ERROR_CHIP,
-	"apps/web/src/features/communication/UnsubscribeScreen.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/documents/church/ChurchBranding.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/documents/church/EditTemplate.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/documents/church/editor/SaveAsTemplate.tsx": NOTICE_ADOPTION,
