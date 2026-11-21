@@ -1409,6 +1409,7 @@ const webDatabaseImports = {
 const NOTICE_ADOPTION =
 	"the R-06 adoption of the shared notice, held until the owner accepts the visual rulings in #855";
 const ERROR_CHIP = "a status chip in the error colour, not a notice";
+const ERROR_BAND = "a review card head band in the error colour, not a notice";
 export const HAND_WRITTEN_NOTICES = {
 	"apps/web/src/components/Problem.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/communication/HistoryPanel.tsx": ERROR_CHIP,
@@ -1416,9 +1417,8 @@ export const HAND_WRITTEN_NOTICES = {
 	"apps/web/src/features/documents/church/ChurchBranding.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/documents/church/EditTemplate.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/documents/church/editor/SaveAsTemplate.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/evry/conversation/EvryPanel.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/evry/review/PeopleChanges.tsx": ERROR_CHIP,
-	"apps/web/src/features/evry/review/ReviewCard.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/evry/review/ReviewCard.tsx": ERROR_BAND,
 	"apps/web/src/features/meetings/RsvpScreen.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/meetings/parts.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/notifications/OptOutScreen.tsx": NOTICE_ADOPTION,
