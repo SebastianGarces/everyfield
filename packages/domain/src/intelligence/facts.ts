@@ -82,6 +82,18 @@ const within = (date: string, from: string, to: string) => date >= from && date 
 type Named = { id: string; name: string };
 const byName = (a: Named, b: Named) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
 const max = (dates: string[]) => dates.reduce<string | null>((m, d) => (m === null || d > m ? d : m), null);
+const firstOnOf = (people: Acquiring[], adult: Acquiring["adult"]["value"]) =>
+	people.flatMap((p) => (p.adult.value === adult && p.firstOn ? [p.firstOn] : []));
+const acquiredOn = <P extends { firstOn: string | null }>(p: P): p is P & { firstOn: string } => p.firstOn !== null;
+const worshipCovered = (responsibilities: readonly { key: string; people: readonly unknown[] }[]) => {
+	const [worship] = responsibilities;
+	if (worship?.key !== "worship") throw new Error("the first ministry responsibility is not worship");
+	return worship.people.length > 0;
+};
+const committedOn = (commitment: { effectiveOn: string | null }) => {
+	if (commitment.effectiveOn === null) throw new Error("an active commitment has no date");
+	return commitment.effectiveOn;
+};
 
 type Acquiring = { adult: { value: "adult" | "child" | "unknown" }; firstOn: string | null };
 const acquiring = (p: FactInputs["people"][number], today: string) => {
@@ -89,7 +101,7 @@ const acquiring = (p: FactInputs["people"][number], today: string) => {
 	return {
 		adult: effectiveAdult(p.birth, p.manual ?? "unknown", today),
 		signed,
-		firstOn: signed.length ? signed.map((k) => k.on).sort()[0]! : null,
+		firstOn: signed.map((k) => k.on).sort()[0] ?? null,
 	};
 };
 
@@ -97,13 +109,18 @@ function growthClock(
 	people: Acquiring[],
 	today: string,
 ): Pick<z.input<typeof c.growth>, "status" | "reason" | "lastAcquiredOn" | "daysSince"> {
-	const last = max(people.filter((p) => p.adult.value === "adult" && p.firstOn).map((p) => p.firstOn!));
-	const unresolved = max(people.filter((p) => p.adult.value === "unknown" && p.firstOn).map((p) => p.firstOn!));
-	const daysSince = last === null ? null : c.daysBetween(last, today);
+	const last = max(firstOnOf(people, "adult"));
+	const unresolved = max(firstOnOf(people, "unknown"));
+	if (last === null)
+		return {
+			lastAcquiredOn: last,
+			daysSince: null,
+			status: "unknown",
+			reason: unresolved ? "unclassified_newer" : "no_acquisition",
+		};
+	const daysSince = c.daysBetween(last, today);
 	const clock = { lastAcquiredOn: last, daysSince };
-	if (daysSince === null)
-		return { ...clock, status: "unknown", reason: unresolved ? "unclassified_newer" : "no_acquisition" };
-	if (daysSince >= c.GROWTH_SLOWED_DAYS && unresolved !== null && unresolved > last!)
+	if (daysSince >= c.GROWTH_SLOWED_DAYS && unresolved !== null && unresolved > last)
 		return { ...clock, status: "unknown", reason: "unclassified_newer" };
 	if (daysSince < c.GROWTH_SLOWED_DAYS) return { ...clock, status: "on_track", reason: null };
 	return { ...clock, status: daysSince < c.GROWTH_STALLED_DAYS ? "slowed" : "stalled", reason: null };
@@ -164,19 +181,19 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 			.map((p) => ({
 				person: { id: p.id, name: p.name },
 				kinds: [...new Set((p.signed.length ? p.signed : p.cards).map((k) => k.kind))].sort(),
-				committedSince: p.commitment.effectiveOn!,
+				committedSince: committedOn(p.commitment),
 				adultFrom: p.adult.source === "birth_date" ? ("birth_date" as const) : ("recorded" as const),
 			}))
 			.sort((a, b) => byName(a.person, b.person)),
 		children: active.filter((p) => p.adult.value === "child").length,
 	};
 
-	const acquired = people.filter((p) => p.adult.value === "adult" && p.firstOn !== null);
-	const inCurrent = acquired.filter((p) => within(p.firstOn!, windowStart, today));
+	const acquired = people.filter((p) => p.adult.value === "adult").filter(acquiredOn);
+	const inCurrent = acquired.filter((p) => within(p.firstOn, windowStart, today));
 	const growth: z.input<typeof c.growth> = {
 		...growthClock(people, today),
 		current: inCurrent.length,
-		prior: acquired.filter((p) => within(p.firstOn!, priorStart, priorEnd)).length,
+		prior: acquired.filter((p) => within(p.firstOn, priorStart, priorEnd)).length,
 		currentWithdrawn: inCurrent.filter((p) => p.commitment.state !== "active").length,
 		windowStart,
 		priorStart,
@@ -292,7 +309,8 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		};
 	});
 	const answer = (key: c.SignalKey): CriterionStatus => {
-		const a = attestations.find((x) => x.key === key)!;
+		const a = attestations.find((x) => x.key === key);
+		if (!a) throw new Error(`no attestation for ${key}`);
 		return a.value === "yes" ? "met" : a.value === "not_yet" ? "not_met" : "unknown";
 	};
 
@@ -302,7 +320,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		committed_adults: committedAdults.status,
 		growth_trajectory: growth.status === "unknown" ? "unknown" : growth.status === "stalled" ? "not_met" : "met",
 		financial_base: answer("financial_base_established"),
-		worship_leader: coverage.responsibilities[0]!.people.length ? "met" : "unknown",
+		worship_leader: worshipCovered(coverage.responsibilities) ? "met" : "unknown",
 		all_team_leaders: coverage.status,
 		training_complete: training.status,
 		systems_tested: answer("systems_tested"),

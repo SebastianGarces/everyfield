@@ -83,7 +83,10 @@ export function checkDraft(raw: unknown, input: c.ModelInput): c.Violation[] {
 	}
 	const summary = { where: "summary", text: draft.summary, citations: points.flatMap((p) => p.citations) };
 	for (const p of [...points, summary]) {
-		const values = p.citations.flatMap((k) => (facts.has(k) ? [facts.get(k)!.value] : []));
+		const values = p.citations.flatMap((k) => {
+			const fact = facts.get(k);
+			return fact ? [fact.value] : [];
+		});
 		out.push(...numbersAndDates(p, values, input), ...wording(p), ...unknowns(p, facts));
 	}
 	return out;

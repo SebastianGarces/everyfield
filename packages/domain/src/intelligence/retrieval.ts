@@ -50,10 +50,13 @@ const retrievalRow = z.object({
 });
 
 export function sectionsOf(contentType: string, body: string): { section: string | null; text: string }[] {
-	const out: { section: string | null; lines: string[] }[] = [{ section: null, lines: [] }];
+	let current: { section: string | null; lines: string[] } = { section: null, lines: [] };
+	const out = [current];
 	for (const block of wikiBlocks(contentType, body)) {
-		if (block.kind === "heading") out.push({ section: block.text, lines: [] });
-		else out.at(-1)!.lines.push(...block.lines);
+		if (block.kind === "heading") {
+			current = { section: block.text, lines: [] };
+			out.push(current);
+		} else current.lines.push(...block.lines);
 	}
 	return out
 		.map((s) => ({ section: s.section, text: s.lines.join("\n").trim().slice(0, TEXT_MAX) }))
