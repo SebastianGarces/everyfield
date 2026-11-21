@@ -553,7 +553,6 @@ export function DocumentsScreen({
 										values: { ...(previous.templateId === selected.id ? previous.values : {}), [key]: value },
 									}))
 								}
-								onFormat={(next) => navigate({ template: selected.id, format: next })}
 								onPreview={() => runPreview(false)}
 								onDownload={() => runPreview(true)}
 								onSave={runSave}
@@ -592,7 +591,6 @@ function TemplatePanel({
 	creating,
 	createNote,
 	onDraft,
-	onFormat,
 	onPreview,
 	onDownload,
 	onSave,
@@ -616,7 +614,6 @@ function TemplatePanel({
 	creating: boolean;
 	createNote: string | null;
 	onDraft: (key: string, value: string) => void;
-	onFormat: (format: Format) => void;
 	onPreview: () => void;
 	onDownload: () => void;
 	onSave: () => void;
@@ -628,17 +625,7 @@ function TemplatePanel({
 				{template.name}
 			</h2>
 			<div className="flex flex-wrap items-center gap-2">
-				{template.formats.length > 1 ? (
-					<SegmentedControl
-						label="Format"
-						size="sm"
-						value={format}
-						onValueChange={onFormat}
-						options={template.formats.map((item) => ({ value: item, label: FORMAT_LABEL[item] }))}
-					/>
-				) : (
-					<Tag>{FORMAT_LABEL[format]}</Tag>
-				)}
+				<Tag>{FORMAT_LABEL[format]}</Tag>
 				{template.fillable ? <Tag tone="green">Fillable</Tag> : null}
 			</div>
 			{format === "pdf" && template.pageSize ? (
