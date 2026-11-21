@@ -24,6 +24,7 @@ import {
 } from "../../../packages/evry/src/context/compile.ts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { ATTACHMENTS } from "../../../packages/evry/src/attachments/store.ts";
+import { pdf } from "../../integration/platform/fixtures.mjs";
 import { EvryRefusal } from "../../../packages/evry/src/context/errors.ts";
 import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
 import { selectQualifiedModel, type Price } from "../../../packages/evry/src/runtime/model.ts";
@@ -272,6 +273,7 @@ export type Proposal = {
 	prepared: boolean;
 	review: Prepared["review"] | null;
 	error?: string;
+	saved?: { id: string; revision: number; digest: string };
 };
 export type Conversation = {
 	kind: "application" | "capabilities" | "pastoral_boundary";
@@ -304,7 +306,7 @@ function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attac
 		const c = await createConversation(db, actor, { requestKey: randomUUID() });
 		for (const f of files)
 			await db.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
-				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,'assistant_staging',${`private/${actor.owner.id}/${f.id}`},'text/csv',${f.bytes.length},
+				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,${f.pdf ? "commitment" : "assistant_staging"},${`private/${actor.owner.id}/${f.id}`},${f.pdf ? "application/pdf" : "text/csv"},${f.bytes.length},
 					'pending',${`evry-attachment/${c.id}/${f.id}`},0,clock_timestamp()+make_interval(hours=>${ATTACHMENTS.stagingHours}))`);
 		const submitted = await submitTurn(db, actor, c.id, {
 			requestKey: randomUUID(),
@@ -339,6 +341,7 @@ export type CaseFile = {
 	csv?: string;
 	docx?: string[];
 	base64?: string;
+	pdf?: true;
 	checked?: boolean;
 };
 type Attached = CaseFile & { bytes: Uint8Array };
@@ -346,14 +349,16 @@ const fill = (csv: string) =>
 	csv.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => byName(name)[field] ?? "");
 const HEADING = W.styles(W.style("Heading1", "heading 1"));
 const bytesOf = (f: CaseFile): Uint8Array =>
-	f.base64 !== undefined
-		? Buffer.from(f.base64, "base64")
-		: f.docx
-			? W.word(
-					f.docx.map((line) => (line.startsWith("# ") ? W.styled("Heading1", line.slice(2)) : W.p(line))).join(""),
-					{ styles: HEADING },
-				)
-			: new TextEncoder().encode(fill(f.csv ?? ""));
+	f.pdf
+		? pdf()
+		: f.base64 !== undefined
+			? Buffer.from(f.base64, "base64")
+			: f.docx
+				? W.word(
+						f.docx.map((line) => (line.startsWith("# ") ? W.styled("Heading1", line.slice(2)) : W.p(line))).join(""),
+						{ styles: HEADING },
+					)
+				: new TextEncoder().encode(fill(f.csv ?? ""));
 
 export async function converse(
 	church: GoldenChurch,
@@ -519,6 +524,7 @@ export async function converse(
 				}
 				card.prepared = true;
 				card.review = proposal.review;
+				card.saved = { id: proposal.id, revision: proposal.revision, digest: proposal.digest };
 				return proposalForModel({
 					...proposal,
 					review: pinnedContactTime(proposal.review, call.input),

@@ -4,6 +4,9 @@ import { gatedTransaction } from "../../../packages/domain/src/operations/writes
 import { readFileSync, writeFileSync } from "node:fs";
 import { readCatalog, READ_DOMAINS } from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
+import { approveProposal } from "../../../packages/evry/src/proposals/store.ts";
+import { executeProposal } from "../../../packages/evry/src/execution/execute.ts";
+import { claimDue, finishJob } from "../../../packages/domain/src/jobs/queue.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
 import { selectQualifiedModel } from "../../../packages/evry/src/runtime/model.ts";
@@ -80,7 +83,7 @@ type Eval = Checks & {
 		proposalsAll?: { operation: string; targets: string };
 	};
 	targetProbe?: { history: Turn[]; text: string; require: string[] };
-	setup?: { merge?: [source: string, survivor: string]; touch?: string };
+	setup?: { merge?: [source: string, survivor: string]; touch?: string; signed?: { text: string; file: CaseFile } };
 	finding?: Finding;
 	derivation?: string;
 	evidence?: string;
@@ -424,6 +427,22 @@ async function setUp(setup: NonNullable<Eval["setup"]>) {
 			}),
 		);
 		if (changed.status !== "ok") throw Error(`setup: edit refused (${changed.error.code})`);
+	}
+	if (setup.signed) {
+		const said = await converse(church, "owner", setup.signed.text, [], [setup.signed.file], scriptedModel);
+		const card = said.proposals.find((p) => p.operation === "people.createCommitment")?.saved;
+		if (!card) throw Error("setup: no commitment review");
+		const owner = church.actors.owner;
+		await approveProposal(church.db, owner, card.id, { revision: card.revision, digest: card.digest }, null);
+		const [claim] = await claimDue(church.db, ["evry_effect"], 1, 60);
+		if (!claim) throw Error("setup: the approval queued no effect");
+		const outcome = await executeProposal(
+			church.db,
+			{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
+			{ reminders: async () => undefined as never, phaseNotices: async () => undefined },
+		);
+		await finishJob(church.db, claim, { state: "succeeded" });
+		if (outcome !== "completed") throw Error(`setup: the approved commitment ${outcome}`);
 	}
 }
 
