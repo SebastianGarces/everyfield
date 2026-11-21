@@ -1719,7 +1719,7 @@ const errorNoticeLook = (value) => {
 	const tokens = classTokens(value);
 	return tokens.includes("bg-magenta-50") && tokens.includes("text-magenta-600");
 };
-const AMBER_TINT = /^bg-amber-(?:50|100)(?:\/\d+)?$/;
+const AMBER_TINT = /^bg-(?:amber-(?:50|100)|\[var\(--ef-amber-(?:50|100)\)\]|\(--ef-amber-(?:50|100)\))(?:\/\d+)?$/;
 const BOX_RADIUS = /^rounded(?:-[\w.[\]-]+)?$/;
 const PILL_RADIUS = /^rounded(?:-[a-z]{1,2})?-(?:full|pill)$/;
 const PADDING = /^p[xy]?-/;
@@ -1754,7 +1754,11 @@ const classParts = (node) =>
 					? [...classParts(node.left), ...classParts(node.right)]
 					: node.type === "ArrayExpression"
 						? node.elements.flatMap((element) => (element ? classParts(element) : []))
-						: [];
+						: node.type === "ObjectExpression"
+							? node.properties.flatMap((property) =>
+									property.type === "Property" && !property.computed ? classParts(property.key) : [],
+								)
+							: [];
 
 const sharedNotice = {
 	meta: { type: "problem" },
