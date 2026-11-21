@@ -1251,6 +1251,8 @@ export const U = () => <i className="size-2 rounded bg-amber-100 p-2" />;
 export const V = { amber: "bg-amber-50 text-amber-600 border-b-amber-300 px-4" };
 export const W = () => cn(memo(() => "rounded-md p-3"), "bg-amber-50");
 export const X = () => <p className={cn("rounded-md px-3 py-2", "bg-magenta-50", "text-magenta-600")}>x</p>;
+export const Y = () => <div className="h-full rounded-md bg-amber-50 p-4">x</div>;
+export const Z = () => <fieldset className="rounded-md bg-magenta-50 px-4 py-3 text-magenta-600">x</fieldset>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1258,7 +1260,7 @@ export const X = () => <p className={cn("rounded-md px-3 py-2", "bg-magenta-50",
 	}).filter((hit) => hit.endsWith(" shared-notice"));
 	assert.deepEqual(
 		reported.sort(),
-		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24]
+		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26]
 			.map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`)
 			.sort(),
 	);

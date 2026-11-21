@@ -1723,7 +1723,7 @@ const AMBER_TINT = /^bg-amber-(?:50|100)(?:\/\d+)?$/;
 const BOX_RADIUS = /^rounded(?:-[\w.[\]-]+)?$/;
 const PILL_RADIUS = /^rounded(?:-[a-z]{1,2})?-(?:full|pill)$/;
 const PADDING = /^p[xy]?-/;
-const CHIP_SIZE = /^(?:p|py)-(?:0|px|0\.5|1|1\.5)$|^(?:h|size)-/;
+const CHIP_SIZE = /^(?:p|py)-(?:0|px|0\.5|1|1\.5)$|^(?:h|size)-(?:\d+(?:\.\d+)?|px|\[[^\]]+\])$/;
 const warningNoticeLook = (value) => {
 	const tokens = classTokens(value);
 	return (
@@ -1761,14 +1761,14 @@ const sharedNotice = {
 	create(context) {
 		if (!WEB_CODE.test(repoPath(context.filename))) return {};
 		const check = (node, value) => {
-			if (value === null || formGroup(node)) return;
+			if (value === null) return;
 			if (errorNoticeLook(value))
 				context.report({
 					node,
 					message:
 						"An error notice is Alert or InlineAlert from @everyfield/ui/controls (tone, title, actions, live region and focus included); a chip or band in that colour is TonePill, ToneTag or ToneBand from @everyfield/ui/display. Do not hand-write the magenta box.",
 				});
-			else if (warningNoticeLook(value))
+			else if (warningNoticeLook(value) && !formGroup(node))
 				context.report({
 					node,
 					message:
