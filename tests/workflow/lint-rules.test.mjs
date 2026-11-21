@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { REFUSAL_MECHANISMS } from "../../scripts/lint/everyfield-plugin.mjs";
+import { HAND_WRITTEN_NOTICES, REFUSAL_MECHANISMS } from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
@@ -1127,6 +1127,27 @@ import { pgTable } from "@everyfield/db/columns";
 	);
 });
 
+test("INV-lint: apps/web shows an error notice through the shared Alert, never a hand-written magenta box", () => {
+	const code = `export const A = () => <p className="rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">x</p>;
+export const B = (more) => \`flex bg-magenta-50 \${more} text-magenta-600\`;
+export const C = { error: "bg-magenta-50 text-magenta-600" };
+export const D = "bg-magenta-500 text-magenta-600";
+export const E = "bg-magenta-50 text-ink-2";
+`;
+	const [exempt] = Object.keys(HAND_WRITTEN_NOTICES);
+	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" shared-notice"));
+	assert.deepEqual(
+		reported({
+			"apps/web/src/features/x/Notice.tsx": code,
+			[exempt]: code,
+			"packages/ui/src/controls/x.tsx": code,
+		}),
+		[1, 2, 3].map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`),
+	);
+	assert.deepEqual(reported({ [exempt]: "export const none = 1;\n" }), [`${exempt}:1 shared-notice`]);
+	assert.ok(Object.keys(HAND_WRITTEN_NOTICES).length <= 23, "HAND_WRITTEN_NOTICES only shrinks");
+});
+
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
 	const code = `import "server-only";
 import { logFailure, logLine } from "@everyfield/domain/log";
@@ -1654,6 +1675,61 @@ export function gate(path: string, out: boolean) {
 		"apps/web/src/features/x/routes.tsx:14 sign-in-redirect",
 		"apps/web/src/features/x/routes.tsx:8 sign-in-redirect",
 		"apps/web/src/features/x/routes.tsx:9 sign-in-redirect",
+	]);
+});
+
+test("INV-lint: a hand-written organization seat check in web code is reported outside the shared helper", () => {
+	const source = `import type { RequestActor } from "@everyfield/domain/access";
+export function a(authority: RequestActor | null) {
+	const context = authority?.actor.context;
+	if (!authority || context?.kind !== "seat" || context.owner.kind !== "organization") return null;
+	return context.owner;
+}
+export function b(authority: RequestActor) {
+	const context = authority.actor.context;
+	if (context.kind != "seat") return [];
+	return [1].filter(() => "organization" === context.owner.kind);
+}
+export function c(authority: RequestActor) {
+	const context = authority.actor.context;
+	switch (context.kind) {
+		case "seat":
+			switch (context.owner.kind) {
+				case "organization":
+					return context.owner;
+			}
+	}
+	return null;
+}
+export function d(authority: RequestActor) {
+	const context = authority.actor.context;
+	if (context.kind !== "seat") return null;
+	const { owner } = context;
+	return owner.kind === "organization" ? owner : null;
+}
+export function e(authority: RequestActor) {
+	const context = authority.actor.context;
+	return context.kind === "seat" && context.owner.kind === "plant";
+}
+export function f(owner: { kind: string }, seat: { kind: string }) {
+	return owner.kind === "organization" && seat.kind !== "account";
+}
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/server.ts": source,
+			"apps/web/src/server/request-context.ts": source,
+			"packages/domain/src/x/index.ts": source,
+		}),
+		[
+			"apps/web/src/features/x/server.ts:10 organization-seat",
+			"apps/web/src/features/x/server.ts:17 organization-seat",
+			"apps/web/src/features/x/server.ts:27 organization-seat",
+			"apps/web/src/features/x/server.ts:4 organization-seat",
+		],
+	);
+	assert.deepEqual(lint({ "apps/web/src/server/request-context.ts": "export const seat = 1;\n" }), [
+		"apps/web/src/server/request-context.ts:1 organization-seat",
 	]);
 });
 
