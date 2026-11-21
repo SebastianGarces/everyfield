@@ -3229,38 +3229,89 @@ const memberStatuses = (member) =>
 	propertiesOf(member)
 		.filter((m) => m.key.name === "status")
 		.flatMap((m) => statusLiterals(m.typeAnnotation?.typeAnnotation));
-const outcomeShaped = (body) => {
-	if (body.type !== "TSUnionType") return false;
-	const ok = body.types.filter((member) => memberStatuses(member).includes("ok"));
-	const statuses = new Set(body.types.flatMap(memberStatuses));
-	return (
-		ok.some((member) => propertiesOf(member).some((m) => m.key.name === "value")) &&
-		statuses.has("refused") &&
-		statuses.has("lost")
-	);
-};
+const referenceName = (type) =>
+	type?.type === "TSTypeReference" && type.typeName.type === "Identifier" ? type.typeName.name : null;
+const OUTCOME_MESSAGE = `Import Outcome from ${OUTCOME_SOURCE} and specialize it (type Name<T> = Shared<T, Code, Extra>), so every feature answers the same union.`;
 const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 	const path = repoPath(context.filename);
 	if (path === OUTCOME_MODULE || !OUTCOME_SCOPE.test(path)) return {};
-	const shared = new Set();
+	const shared = new Map();
+	const aliases = new Map();
+	const candidates = [];
+	const members = (type, seen) => {
+		if (type?.type === "TSUnionType") return type.types.flatMap((t) => members(t, seen));
+		const name = referenceName(type);
+		if (name && aliases.has(name) && !seen.has(name)) {
+			seen.add(name);
+			return members(aliases.get(name), seen);
+		}
+		return [type];
+	};
+	const statusesOf = (member) => (shared.get(referenceName(member)) === "Lost" ? ["lost"] : memberStatuses(member));
+	const outcomeShaped = (type) => {
+		if (type?.type !== "TSUnionType") return false;
+		const all = members(type, new Set());
+		const statuses = new Set(all.flatMap(statusesOf));
+		return (
+			all.some(
+				(member) => memberStatuses(member).includes("ok") && propertiesOf(member).some((m) => m.key.name === "value"),
+			) &&
+			statuses.has("refused") &&
+			statuses.has("lost")
+		);
+	};
+	const childTypes = (type) =>
+		[
+			...(type.types ?? []),
+			...(type.elementTypes ?? []),
+			...(type.typeArguments?.params ?? []),
+			type.elementType,
+			type.typeAnnotation,
+		].filter(Boolean);
+	const copyIn = (type) => (outcomeShaped(type) ? type : type && childTypes(type).map(copyIn).find(Boolean));
+	const reportInline = (type) => {
+		const copy = copyIn(type);
+		if (copy)
+			push({
+				node: copy,
+				fn: "inline",
+				message: `This inline union copies the request boundary's ok / refused / lost reply shape. ${OUTCOME_MESSAGE}`,
+			});
+	};
+	const inline = [];
+	const typeOf = (node) => inline.push(node.typeAnnotation);
 	return {
 		ImportDeclaration(node) {
 			if (node.source.value !== OUTCOME_SOURCE) return;
 			for (const spec of node.specifiers)
-				if (spec.type === "ImportSpecifier" && nameOf(spec.imported) === "Outcome") shared.add(spec.local.name);
+				if (spec.type === "ImportSpecifier") shared.set(spec.local.name, nameOf(spec.imported));
 		},
 		TSTypeAliasDeclaration(node) {
-			const body = node.typeAnnotation;
-			const copied =
-				node.id.name === "Outcome" && node.typeParameters
-					? !(body.type === "TSTypeReference" && body.typeName.type === "Identifier" && shared.has(body.typeName.name))
-					: outcomeShaped(body);
-			if (!copied) return;
-			push({
-				node: node.id,
-				fn: node.id.name,
-				message: `${node.id.name} copies the request boundary's ok / refused / lost reply shape. Import Outcome from ${OUTCOME_SOURCE} and specialize it (type ${node.id.name}<T> = Shared<T, Code, Extra>), so every feature answers the same union.`,
-			});
+			aliases.set(node.id.name, node.typeAnnotation);
+			candidates.push(node);
+		},
+		TSTypeAnnotation: typeOf,
+		TSAsExpression: typeOf,
+		TSSatisfiesExpression: typeOf,
+		TSTypeAssertion: typeOf,
+		TSTypeParameter(node) {
+			if (node.default) inline.push(node.default);
+		},
+		"Program:exit"() {
+			inline.forEach(reportInline);
+			for (const node of candidates) {
+				const body = node.typeAnnotation;
+				const copied =
+					node.id.name === "Outcome" && node.typeParameters
+						? shared.get(referenceName(body)) !== "Outcome"
+						: copyIn(body);
+				if (copied)
+					push({
+						node: node.id,
+						fn: node.id.name,
+						message: `${node.id.name} copies the request boundary's ok / refused / lost reply shape. ${OUTCOME_MESSAGE}`,
+					});
+			}
 		},
 	};
 });
