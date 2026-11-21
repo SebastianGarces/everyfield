@@ -24,7 +24,7 @@ import { createInvitationService } from "../../../packages/domain/src/identity/i
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
-import { refusedWith, waitingOnLock } from "../../support/fixture.mts";
+import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
 import type { OnboardingContext, OnboardingProducer } from "../../../packages/contracts/src/onboarding/server.ts";
 import type { Tx } from "../../../packages/domain/src/onboarding/core.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
@@ -38,10 +38,6 @@ type Value<K extends keyof Api> = Extract<Answer<K>, { status: "ok" }>["value"];
 type Calls = { [K in keyof Api]: (tx: Tx, context: OnboardingContext, raw: unknown) => Promise<Answer<K>> };
 type Selected = OnboardingContext["selected"];
 type Account = Awaited<ReturnType<typeof actor>>;
-const ok = <T,>(result: { status: "ok"; value: T } | { status: "refused" }): T => {
-	if (result.status !== "ok") assert.fail(JSON.stringify(result));
-	return result.value;
-};
 const present = <T,>(value: T | null | undefined, what: string): T => {
 	if (value === null || value === undefined) assert.fail("missing " + what);
 	return value;
