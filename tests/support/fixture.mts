@@ -6,7 +6,8 @@ import { testDatabase, type Capability, type Database, type TestDatabase } from 
 
 type Result = { status: string; value?: unknown; error?: { code?: string; details?: unknown } };
 
-export function ok(result: any): any {
+export function ok<T>(result: { status: "ok"; value: T } | { status: string }): T;
+export function ok(result: { status: string; value?: unknown }): unknown {
 	assert.equal(result.status, "ok", JSON.stringify(result));
 	return result.value;
 }
