@@ -25,10 +25,8 @@ import {
 	runDueMail,
 	type MailPayload,
 } from "../../../packages/domain/src/jobs/mail.ts";
-import {
-	authorizeNotificationMail,
-	createNotificationWorker,
-} from "../../../apps/web/src/features/notifications/worker.ts";
+import { authorizeNotificationMail } from "../../../packages/domain/src/jobs/notice-mail.ts";
+import { createNotificationWorker } from "../../../apps/web/src/features/notifications/worker.ts";
 
 const database = await fixture({ prefix: "answerreview", max: 6 });
 const { admin } = database;
