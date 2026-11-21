@@ -234,7 +234,7 @@ async function approve(who: EvryActor, proposal: Proposal) {
 }
 const commitmentCard = (turn: { results: Record<string, any>[]; reviews: (Proposal | null | undefined)[] }) => {
 	const id = turn.results.findLast((r) => r.operation === "evry.prepareProposal")?.result.proposalId;
-	const card = turn.reviews.find((r) => r?.id === id && r.operation === "people.createCommitment");
+	const card = turn.reviews.find((r) => r?.id === id && r?.operation === "people.createCommitment");
 	assert.ok(card, "this turn prepared a commitment review");
 	return card;
 };
