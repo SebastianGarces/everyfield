@@ -11,17 +11,18 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 (prompt, tools, tool choice, reasoning, output limit, response format, provider options). Every file has one shape:
 `model`, `recordedAt`, `spend` and `calls` (key to a recorded generate or stream call with its token usage).
 
-| Suite                 | Cases                                                                                                                    | What it scores                                                                          |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| `golden.test.mts`     | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (118 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades   |
-| `golden.test.mts`     | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge |
-| `classify.test.mts`   | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                           |
-| `households.test.mts` | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                  |
-| `followups.test.mts`  | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                     |
-| `settings.test.mts`   | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)    |
-| `onboarding.test.mts` | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                              |
-| `pipeline.test.mts`   | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                |
-| `launch.test.mts`     | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                 |
+| Suite                   | Cases                                                                                                                    | What it scores                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `golden.test.mts`       | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (118 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades   |
+| `golden.test.mts`       | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge |
+| `classify.test.mts`     | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                           |
+| `households.test.mts`   | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                  |
+| `followups.test.mts`    | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                     |
+| `settings.test.mts`     | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)    |
+| `onboarding.test.mts`   | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                              |
+| `pipeline.test.mts`     | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                |
+| `launch.test.mts`       | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                 |
+| `wiki-network.test.mts` | `wiki-network.cases.json`                                                                                                | A network's own Wiki versions: draft, change, publish and hide (scripted model)         |
 
 ## The settings suite (scripted model)
 
@@ -66,6 +67,17 @@ with `approve` is approved the way the card approves it: these writes run their 
 with the reason typed on the card for a stage move, and each result is read back through the Pipeline and Programs
 pages' own reads. Two more tests hold the boundaries: the read takes no search text and matches the native board for
 every seat, and a stage move proposal refuses any reason or text field. The recorded suites leave these tools out too.
+
+## The network Wiki suite (scripted model)
+
+`wiki-network.test.mts` scores the four organization Wiki writes (T-338: `wiki.organizationArticles.add`, `edit`,
+`publish` and `hide`) on the scripted model (`packages/evry/src/runtime/scripted-wiki-editor.ts`). `wiki-network-church.mts`
+gives Harvest Network, from the golden Wiki corpus, an Owner, an Admin and a Member, and removes its version of the vision
+meeting article so the Admin starts from the Wiki's. Hope Fellowship shares Harvest Network's Wiki. The cases run in order
+as one story: a declined draft, a draft asked without the contact's details, the approved draft, a change, a change made
+stale by an edit through the native writer, publishing, hiding, a draft refused because a version exists, the Owner's
+draft of another article, and the Member's and the church Owner's refusals. Each approved write runs the native Wiki
+writer in the approval request, and each result is read back as the network's editor and the church's Wiki page read it.
 
 ## The scripted assessment cases
 
