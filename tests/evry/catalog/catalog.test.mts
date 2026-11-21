@@ -398,3 +398,51 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		for (const op of orgWiki) assert.equal(plantSeat.includes(op), false, `${role} ${op}`);
 	}
 });
+
+test("INV-golden-guidance: the prompt and tools an Owner's model gets name the next weekday, the follow-up owner check, private care, sending a draft as shown, missed notifications, the import header, a new person's source and an invitation's meeting; a seat without the tool or context gets none of it", async () => {
+	const { compileContext } = await import("../../../packages/evry/src/context/compile.ts");
+	const sent = (actor: EvryActor) => {
+		const catalog = readCatalog(actor);
+		const { system } = compileContext({
+			actor,
+			catalog,
+			history: [],
+			text: "x",
+			references: [],
+			now: new Date("2026-11-09T15:00:00Z"),
+			state: null,
+			settingsGuidance: false,
+		});
+		const described = [...catalog.domains.flatMap((d) => d.operations), ...catalog.reviewedWrites].map(
+			(o): [string, string] => [o.operation, o.description],
+		);
+		return { system, tool: (operation: string) => new Map(described).get(operation) ?? "" };
+	};
+	const owner = sent(as("plant", "owner"));
+	assert.match(owner.system, /A weekday on its own, such as "Thursday's meeting", means the next one from today/);
+	assert.match(owner.system, /When the user names who should own follow-ups, read tasks\.eligibleAssignees first/);
+	assert.match(
+		owner.system,
+		/Private care, such as care notes about a person, stays in the Everyfield app: no tool reads it/,
+	);
+	assert.match(
+		owner.system,
+		/When the user says to send or save an email you drafted, propose it with the subject and body exactly/,
+	);
+	assert.match(
+		owner.tool("notifications.feed"),
+		/When the user asks what they missed or what is new, read this first with unread true/,
+	);
+	assert.match(
+		owner.tool("people.generateCsvTemplate"),
+		/Give the user its columns as one line.*there is no file to link/,
+	);
+	assert.match(owner.tool("people.createPerson"), /set source to match \(vision_meeting\).*it needs no meeting/);
+	assert.match(owner.tool("communication.preview"), /upcoming ones soonest first, then past ones latest first/);
+
+	const member = sent(as("plant", "member"));
+	assert.match(member.system, /Private care, such as care notes/);
+	assert.doesNotMatch(member.system, /When the user says to send or save an email you drafted/);
+	const account = sent(as("account", null));
+	assert.doesNotMatch(account.system, /Private care|send or save an email|A weekday on its own|should own follow-ups/);
+});

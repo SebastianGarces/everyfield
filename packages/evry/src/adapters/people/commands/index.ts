@@ -73,7 +73,7 @@ const createInput = createPersonRequest.shape.input;
 const createPerson = reviewed({
 	operation: "people.createPerson",
 	description:
-		"Propose adding one person to this church with their name, contact, address, stage, source and notes. Nothing changes until the user approves the exact review.",
+		"Propose adding one person to this church with their name, contact, address, stage, source and notes. When the user says how they came, such as to vision night, set source to match (vision_meeting) and keep the rest, such as who invited them, in sourceDetails: it needs no meeting, so don't ask which one. Nothing changes until the user approves the exact review.",
 	input: createInput,
 	review(_actor, value) {
 		const changes = Object.entries(value).flatMap(([field, after]) =>

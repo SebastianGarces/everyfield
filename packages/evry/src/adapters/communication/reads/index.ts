@@ -148,10 +148,13 @@ const previewInput = z.strictObject({
 		.describe("That meeting's local date, like 2026-10-15"),
 });
 
+const SOONEST = sql.raw(
+	"mt.starts_at < statement_timestamp(), CASE WHEN mt.starts_at >= statement_timestamp() THEN mt.starts_at END, mt.starts_at DESC, mt.id",
+);
 export const preview: ReadAdapter<z.infer<typeof previewInput>> = {
 	operation: "communication.preview",
 	description:
-		"Check an email you have drafted (subject and body) before it is saved or sent: exactly who its audience reaches. Each person row says leftOut: null when they get it, or why they are left out (no_address, unsubscribed, duplicate_address); the left-out come first: name every one of them with their reason in your answer, however large the audience. When the email is about a meeting, meetingWords or meetingOn also returns the church's matching meetings, newest first, so the email names the right one. Saves and sends nothing.",
+		"Check an email you have drafted (subject and body) before it is saved or sent: exactly who its audience reaches. Each person row says leftOut: null when they get it, or why they are left out (no_address, unsubscribed, duplicate_address); the left-out come first: name every one of them with their reason in your answer, however large the audience. When the email is about a meeting, meetingWords or meetingOn also returns the church's matching meetings, upcoming ones soonest first, then past ones latest first: the email is about the first one unless the user named another, so name it without asking which. Saves and sends nothing.",
 	input: previewInput,
 	allowed: inPlant,
 	async invoke(tx, actor, input): Promise<SourceResult> {
@@ -164,13 +167,14 @@ export const preview: ReadAdapter<z.infer<typeof previewInput>> = {
 		const wantMeeting = words.length > 0 || input.meetingOn !== undefined;
 		const r = await tx.execute(sql`WITH ${classifiedPeople(plant, input.audience, null)}
 			SELECT coalesce((SELECT jsonb_agg(jsonb_build_object('id',id,'name',name,'reason',reason) ORDER BY reason IS NULL,lower(name) COLLATE "C",id) FROM classified),'[]'::jsonb) AS people,
-				CASE WHEN ${wantMeeting} THEN coalesce((SELECT jsonb_agg(jsonb_build_object('id',x.id,'title',x.title,'type',x.type,'vision',x.vision_number,'starts',x.starts) ORDER BY x.starts_at DESC)
-					FROM (SELECT mt.id,mt.title,mt.type,mt.vision_number,mt.starts_at,${sql.raw(local("mt.starts_at", "mt.timezone"))} AS starts
+				CASE WHEN ${wantMeeting} THEN coalesce((SELECT jsonb_agg(jsonb_build_object('id',x.id,'title',x.title,'type',x.type,'vision',x.vision_number,'starts',x.starts) ORDER BY x.n)
+					FROM (SELECT mt.id,mt.title,mt.type,mt.vision_number,${sql.raw(local("mt.starts_at", "mt.timezone"))} AS starts,
+							row_number() OVER (ORDER BY ${SOONEST}) AS n
 						FROM meeting mt WHERE mt.plant_id=${plant}::uuid AND mt.status<>'cancelled'
 							AND (${input.meetingOn ?? null}::date IS NULL OR mt.local_date=${input.meetingOn ?? null}::date)
 							AND (cardinality(${sql.param(words)}::text[])=0 OR EXISTS(SELECT FROM unnest(${sql.param(words)}::text[]) w(p)
 								WHERE mt.title ILIKE w.p OR replace(mt.type,'_',' ') ILIKE w.p))
-						ORDER BY mt.starts_at DESC LIMIT 3) x),'[]'::jsonb) END AS meetings
+						ORDER BY ${SOONEST} LIMIT 3) x),'[]'::jsonb) END AS meetings
 			WHERE ${live(actor)}`);
 		if (!r.rows.length) throw new EvryRefusal("access_denied");
 		const found = z
