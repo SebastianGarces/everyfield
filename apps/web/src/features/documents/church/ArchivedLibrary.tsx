@@ -1,15 +1,7 @@
 "use client";
 
 import { Archive02Icon, ArchiveRestoreIcon } from "@hugeicons/core-free-icons";
-import {
-	Button,
-	Card,
-	ConfirmDialog,
-	ConfirmRefused,
-	EmptyState,
-	IntentLink,
-	PageHeader,
-} from "@everyfield/ui/controls";
+import { Button, Card, ConfirmDialog, EmptyState, IntentLink, PageHeader } from "@everyfield/ui/controls";
 import { Pagination, Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import type { ArchivedChurchSummary } from "@everyfield/contracts/documents";
@@ -86,8 +78,8 @@ export function ArchivedLibrary({ documents }: { documents: ArchivedChurchSummar
 function ArchivedRow({ doc }: { doc: ArchivedChurchSummary }) {
 	async function restore() {
 		const result: ChurchActionResult | undefined = await restoreChurchDocument(doc.id);
-		if (result?.status === "refused") throw new ConfirmRefused(result.message);
-		if (result?.status === "lost") throw new ConfirmRefused("The connection dropped. Nothing was restored.");
+		if (result?.status === "refused") return { refused: result.message };
+		if (result?.status === "lost") return { refused: "The connection dropped. Nothing was restored." };
 	}
 	return (
 		<li
