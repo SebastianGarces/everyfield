@@ -35,13 +35,9 @@ import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
-import { refused } from "../../support/fixture.mts";
+import { ok, refused } from "../../support/fixture.mts";
 import type { SQL } from "../../../packages/db/src/query.ts";
 
-const ok = <T,>(result: { status: "ok"; value: T } | { status: "refused" }): T => {
-	if (result.status !== "ok") assert.fail(JSON.stringify(result));
-	return result.value;
-};
 const present = <T,>(value: T | null | undefined, what: string): T => {
 	if (value === null || value === undefined) assert.fail("missing " + what);
 	return value;
