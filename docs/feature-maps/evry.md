@@ -188,14 +188,15 @@ Revise replaces the prepared change and voids the earlier approval; Cancel ends 
 
 #### evry.review#photo
 
-A photo attached in the panel is staged privately for one proposal; only its owner sees it while the review lasts, and approval needs it.
+A photo attached in the panel's one attach control is staged privately in that conversation; a People photo review shows it only to its owner while the review lasts, approval needs it, and the approved photo is bound to one person once.
 
-- No operation: the panel stages the photo through the Settings avatar upload (conversation/photoActions.ts) and the review card reads it back from packages/evry/src/proposals/store.ts; neither is an Evry catalog operation
+- No operation: the panel stages the photo as a conversation attachment (packages/evry/src/attachments/store.ts) and, for the user's own account photo, through the Settings avatar upload (conversation/photoActions.ts); the review card reads it back from packages/evry/src/proposals/store.ts; none is an Evry catalog operation
 - Catalog: EVR-025
 - Cases: UI45-003
-- Test: `tests/evry/adapters/people/commands/commands.test.mts`: `AC:UI45-003 a photo proposal's owner sees the exact staged upload while the review lasts; approval needs it`
+- Test: `tests/evry/adapters/people/commands/commands.test.mts`: `AC:UI45-003 a photo proposal's owner sees the exact attached photo while the review lasts; approval needs it`
+- Test: `tests/evry/runtime/photo-attachments.test.mts`: `an Owner's attached photo becomes Priya's People photo only after Approve, and the effect runs once`
 - Browser, presence proof only (the control is there; the tests prove the outcome), from state new-chat:
 
 ```bash
-agent-browser find role button text --name "Attach a photo" --exact
+agent-browser find role button text --name "Attach a file" --exact
 ```
