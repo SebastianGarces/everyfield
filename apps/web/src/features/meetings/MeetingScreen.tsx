@@ -244,9 +244,13 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	});
 	const final = data.attendance?.finalized != null;
 	const marker = data.attendance?.viewerCanMarkAttendance === true;
-	function submitSettle(input: SettleInput) {
-		const mode = settleLane.editing!.mode;
-		const attendance = data.attendance!;
+	const settledAttendance = data.attendance;
+	const settling = settleLane.editing;
+	function submitSettle(
+		input: SettleInput,
+		mode: SettleEditing["mode"],
+		attendance: NonNullable<typeof data.attendance>,
+	) {
 		const body = {
 			meetingId: m.id,
 			attendeeIds: input.attendeeIds,
@@ -421,22 +425,23 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	const waiting = settleLane.wait !== null || presence.busy;
 	const inviteHref = `/communication?meeting=${m.id}&template=invitation&recipients=guests`;
 	const checkInHref = `/meetings/${m.id}/check-in`;
-	const primary = next.primary ? (
-		next.primary === "send-invites" || next.primary === "check-in" ? (
+	const chosen = next.primary;
+	const primary = chosen ? (
+		chosen === "send-invites" || chosen === "check-in" ? (
 			<IntentLink
-				href={next.primary === "check-in" ? checkInHref : inviteHref}
+				href={chosen === "check-in" ? checkInHref : inviteHref}
 				className={buttonVariants({ variant: "primary" })}
 			>
-				{PRIMARY_LABEL[next.primary]}
+				{PRIMARY_LABEL[chosen]}
 			</IntentLink>
 		) : (
 			<Button
 				variant="primary"
-				aria-disabled={waiting && next.primary === "finalize" ? true : undefined}
+				aria-disabled={waiting && chosen === "finalize" ? true : undefined}
 				className={HELD}
-				onClick={() => runPrimary(next.primary!)}
+				onClick={() => runPrimary(chosen)}
 			>
-				{PRIMARY_LABEL[next.primary]}
+				{PRIMARY_LABEL[chosen]}
 			</Button>
 		)
 	) : null;
@@ -771,23 +776,22 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 					onRetry={() => history.load(saved.revision)}
 				/>
 			) : null}
-			{marker && data.attendance && data.guests && settleLane.editing ? (
+			{marker && settledAttendance && data.guests && settling ? (
 				<NoticeInDialog {...settleLane.noticeProps}>
 					<SettleDialog
 						open
-						mode={settleLane.editing.mode}
+						mode={settling.mode}
 						meeting={m}
 						guests={data.guests}
-						attendance={data.attendance}
+						attendance={settledAttendance}
 						onSeats={warmSeats}
-						initial={settleLane.editing.input}
+						initial={settling.input}
 						problem={settleLane.problem}
 						onClose={settleLane.close}
-						onSubmit={submitSettle}
+						onSubmit={(input) => submitSettle(input, settling.mode, settledAttendance)}
 						onConflict={(input) => {
-							const mode = settleLane.editing!.mode;
 							settleLane.close();
-							settleConflict(mode, input, data.attendance!);
+							settleConflict(settling.mode, input, settledAttendance);
 						}}
 					/>
 				</NoticeInDialog>

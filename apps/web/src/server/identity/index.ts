@@ -1,13 +1,16 @@
-import { sql } from "@everyfield/db/query";
 import "server-only";
 import { asLogId, logLine } from "@everyfield/domain/log";
 import { nextCookies } from "better-auth/next-js";
 import { after } from "next/server";
 import { createHmac } from "node:crypto";
 import { database } from "../database";
-import { z } from "zod";
 import { serverConfig, serverEnv, type ServerConfig } from "../config.ts";
-import { createIdentityService, trustedIdentityIp, type IdentityConfig } from "@everyfield/domain/identity";
+import {
+	authorizeAccountMail,
+	createIdentityService,
+	trustedIdentityIp,
+	type IdentityConfig,
+} from "@everyfield/domain/identity";
 import { invitationService } from "../invitations";
 import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "@everyfield/domain/jobs";
 import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
@@ -20,26 +23,8 @@ function identityMail(v: ServerConfig, transport?: MailTransport) {
 		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
 		addressKey,
 		from: v.IDENTITY_MAIL_FROM,
-		authorize: async (tx, mail) => {
-			const accounts = mail.map((m) => m.tenant);
-			const result = await tx.execute(
-				sql`SELECT a.id,c.email FROM account a CROSS JOIN LATERAL access_account_contact(a.id) c WHERE a.id=ANY(${sql.param(accounts)}::uuid[]) FOR SHARE OF a`,
-			);
-			const contacts = new Map(result.rows.map((row) => [z.uuid().parse(row.id), z.email().parse(row.email)]));
-			return new Set(
-				mail
-					.filter((m) => {
-						const email = contacts.get(m.tenant);
-						return (
-							m.recipient === m.tenant &&
-							["password_reset", "email_verification"].includes(m.purpose) &&
-							email &&
-							createHmac("sha256", addressKey).update(email).digest("hex") === m.addressHash
-						);
-					})
-					.map((m) => m.id),
-			);
-		},
+		authorize: (tx, mail) =>
+			authorizeAccountMail(tx, mail, (email) => createHmac("sha256", addressKey).update(email).digest("hex")),
 		transport,
 	});
 }

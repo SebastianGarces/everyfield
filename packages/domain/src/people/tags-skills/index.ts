@@ -26,14 +26,26 @@ const tagRow = z.object({
 	revision: z.string(),
 	linked: z.coerce.number(),
 	links: z.coerce.number(),
+	taken: z.uuid().nullable(),
 });
-async function readTags(tx: Tx, plant: string, id?: string, visible: SQL = sql`true`) {
+type TagFilter = { id: string; renamedTo?: string | undefined } | { name: string };
+const normalized = (name: string) => sql`lower(btrim(${name}))`;
+function tagWhere(filter?: TagFilter) {
+	if (!filter) return sql``;
+	return "id" in filter ? sql`AND t.id=${filter.id}::uuid` : sql`AND t.normalized_name=${normalized(filter.name)}`;
+}
+const takenBy = (filter?: TagFilter) =>
+	filter && "renamedTo" in filter && filter.renamedTo !== undefined
+		? sql`(SELECT x.id FROM tag x WHERE x.plant_id=t.plant_id AND x.normalized_name=${normalized(filter.renamedTo)} AND x.id<>t.id)`
+		: sql`NULL::uuid`;
+async function readTags(tx: Tx, plant: string, filter?: TagFilter, visible: SQL = sql`true`) {
 	const result = await tx.execute(sql`SELECT g.allowed,t.id,t.name,t.color,t.revision::text AS revision,
  (SELECT count(*) FROM person_tag pt JOIN person p ON p.id=pt.person_id AND p.tenant_id=pt.plant_id
    WHERE pt.tag_id=t.id AND pt.plant_id=t.plant_id AND p.state='live') AS linked,
- (SELECT count(*) FROM person_tag pt WHERE pt.tag_id=t.id AND pt.plant_id=t.plant_id) AS links
+ (SELECT count(*) FROM person_tag pt WHERE pt.tag_id=t.id AND pt.plant_id=t.plant_id) AS links,
+ ${takenBy(filter)} AS taken
  FROM (SELECT ${visible} AS allowed) g
- LEFT JOIN tag t ON g.allowed AND t.plant_id=${plant}::uuid ${id ? sql`AND t.id=${id}::uuid` : sql``}
+ LEFT JOIN tag t ON g.allowed AND t.plant_id=${plant}::uuid ${tagWhere(filter)}
  ORDER BY t.normalized_name,t.id`);
 	if (result.rows[0]?.allowed !== true) deny("unavailable");
 	return result.rows
@@ -41,11 +53,11 @@ async function readTags(tx: Tx, plant: string, id?: string, visible: SQL = sql`t
 		.map((row) => {
 			const r = tagRow.parse(row);
 			const tag = f.tag.parse({ id: r.id, name: r.name, color: r.color, revision: r.revision, linkedPeople: r.linked });
-			return { tag, links: r.links };
+			return { tag, links: r.links, taken: r.taken };
 		});
 }
-async function oneTag(tx: Tx, plant: string, id: string) {
-	const [found] = await readTags(tx, plant, id);
+async function oneTag(tx: Tx, plant: string, id: string, renamedTo?: string) {
+	const [found] = await readTags(tx, plant, { id, renamedTo });
 	if (!found) deny("unavailable");
 	return found;
 }
@@ -122,14 +134,9 @@ export const tagsAndSkills = {
 			const input = parse(f.createTagRequest, raw);
 			return f.tagMutationResult.parse(
 				await mutation<unknown>(tx, ctx, "people.createTag", input, async (_actor, receiptId, audit) => {
-					const [same] = await tx
-						.select({ id: tables.tag.id })
-						.from(tables.tag)
-						.where(
-							and(eq(tables.tag.plant_id, plant), sql`${tables.tag.normalized_name}=lower(btrim(${input.input.name}))`),
-						);
+					const [same] = await readTags(tx, plant, { name: input.input.name });
 					if (same) {
-						const { tag } = await oneTag(tx, plant, same.id);
+						const { tag } = same;
 						const value = { tag, outcome: "noop" as const, receiptId };
 						return { value, subject: tag.id, subjectType: "tag", action: "people.created", outcome: "noop" };
 					}
@@ -139,7 +146,7 @@ export const tagsAndSkills = {
 							id: tag.id,
 							plant_id: plant,
 							name: tag.name,
-							normalized_name: sql`lower(btrim(${tag.name}))`,
+							normalized_name: normalized(tag.name),
 							color: tag.color,
 						}),
 					);
@@ -160,7 +167,7 @@ export const tagsAndSkills = {
 			const input = parse(f.updateTagRequest, raw);
 			return f.tagMutationResult.parse(
 				await mutation<unknown>(tx, ctx, "people.updateTag", input, async (_actor, receiptId, audit) => {
-					const { tag: before } = await oneTag(tx, plant, input.input.tagId);
+					const { tag: before, taken } = await oneTag(tx, plant, input.input.tagId, input.input.name);
 					expectRevision(before.revision, input.expectedRevision);
 					const name = input.input.name ?? before.name,
 						color = input.input.color === undefined ? before.color : input.input.color;
@@ -168,20 +175,14 @@ export const tagsAndSkills = {
 						const value = { tag: before, outcome: "noop" as const, receiptId };
 						return { value, subject: before.id, subjectType: "tag", action: "people.updated", outcome: "noop" };
 					}
-					if (name.toLowerCase() !== before.name.toLowerCase()) {
-						const [taken] = await tx
-							.select({ id: tables.tag.id })
-							.from(tables.tag)
-							.where(and(eq(tables.tag.plant_id, plant), sql`${tables.tag.normalized_name}=lower(btrim(${name}))`));
-						if (taken && taken.id !== before.id) deny("conflict");
-					}
+					if (name.toLowerCase() !== before.name.toLowerCase() && taken) deny("conflict");
 					const after = { ...before, name, color, revision: next(before.revision) };
 					audit.writes.push(
 						tx
 							.update(tables.tag)
 							.set({
 								name,
-								normalized_name: sql`lower(btrim(${name}))`,
+								normalized_name: normalized(name),
 								color,
 								revision: sql`${tables.tag.revision}+1`,
 							})

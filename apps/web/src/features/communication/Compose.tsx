@@ -355,6 +355,8 @@ function ComposeForm({
 	];
 
 	const stepIndex = STEPS.findIndex((s) => s.value === step);
+	const previousStep = STEPS[stepIndex - 1];
+	const nextStep = STEPS[stepIndex + 1];
 	const previewName = summary?.recipients[0]?.displayName ?? SAMPLE;
 	const chrome = { from: data.churchName, to: previewName, subject: form.subject };
 
@@ -519,12 +521,8 @@ function ComposeForm({
 					{reason ?? ""}
 				</p>
 				<div className="flex items-center gap-2">
-					{stepIndex > 0 ? (
-						<Button
-							variant="secondary"
-							onClick={() => void go(STEPS[stepIndex - 1]!.value)}
-							disabled={pending !== null}
-						>
+					{previousStep ? (
+						<Button variant="secondary" onClick={() => void go(previousStep.value)} disabled={pending !== null}>
 							Back
 						</Button>
 					) : null}
@@ -553,13 +551,13 @@ function ComposeForm({
 							Save draft
 						</Button>
 					) : null}
-					{stepIndex < STEPS.length - 1 ? (
+					{nextStep ? (
 						<Button
 							variant="primary"
 							aria-describedby="step-reason"
 							disabled={reason !== null || pending !== null}
 							loading={pending === "step"}
-							onClick={() => void go(STEPS[stepIndex + 1]!.value)}
+							onClick={() => void go(nextStep.value)}
 						>
 							Next
 						</Button>

@@ -1396,34 +1396,6 @@ export const WEB_SQL_HOLDERS = {
 		why: "the operator-mail authorizer reads the feedback rows its queued mail names, inside the mail service's transaction",
 		movedBy: MAIL_AUTHORIZERS,
 	},
-	"apps/web/src/features/organizations/mount.ts": {
-		why: "an organization effect supersedes a plant's pending digest jobs with its own UPDATE of the job table",
-		movedBy: "a supersede operation in @everyfield/domain/jobs's queue (R-12 slice 20 follow-up, AP-S-17)",
-	},
-	"apps/web/src/features/settings/brand/server.ts": {
-		why: "the brand read looks up the church name beside the brand kit with its own plant select",
-		movedBy: "brandReader.get answering the church name (R-12 slice 8 rest, settings/brand group)",
-	},
-	"apps/web/src/features/settings/mail.ts": {
-		why: "the settings mail authorizer reads notice addresses and pending email-change proofs for queued account mail",
-		movedBy: MAIL_AUTHORIZERS,
-	},
-	"apps/web/src/features/settings/server.ts": {
-		why: "the settings sections ask whether an address is suppressed with their own suppression select",
-		movedBy: "a suppression read in @everyfield/domain/jobs beside the mail outbox (R-12 slice 20 follow-up, AP-S-17)",
-	},
-	"apps/web/src/features/wiki/server.ts": {
-		why: "the organization wiki editor reads its stored draft and current revision with its own select",
-		movedBy: "a wiki domain read of the editor state (R-12 slice 8 rest, wiki group)",
-	},
-	"apps/web/src/server/identity/index.ts": {
-		why: "the identity mail authorizer locks the accounts its queued mail names and reads their contact address",
-		movedBy: MAIL_AUTHORIZERS,
-	},
-	"apps/web/src/server/invitations/index.ts": {
-		why: "the invitation service's suppression check is an SQL fragment built in the app",
-		movedBy: MAIL_AUTHORIZERS,
-	},
 };
 const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
 

@@ -227,7 +227,7 @@ export function PersonDialog({
 	wait: Wait;
 	note?: ReactNode;
 	onClose: () => void;
-	onSubmit: (form: PersonForm) => void;
+	onSubmit: (form: PersonForm, person: PickedPerson) => void;
 }) {
 	const [f, setF] = useState(form);
 	const [touched, setTouched] = useState(false);
@@ -244,8 +244,9 @@ export function PersonDialog({
 			onClose={onClose}
 			onSubmit={() => {
 				setTouched(true);
-				if (noPerson || noRole) return false;
-				onSubmit(f);
+				const { person } = f;
+				if (person === null || noRole) return false;
+				onSubmit(f, person);
 				return true;
 			}}
 		>

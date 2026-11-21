@@ -14,6 +14,7 @@ import {
 	canReadPerson,
 	deny,
 	evidenceJson,
+	evidenceOf,
 	parse,
 	PeopleReadContext,
 	person,
@@ -23,7 +24,6 @@ import {
 	readReply,
 	Refusal,
 	type Context,
-	type Evidence,
 	type Tx,
 } from "./core.ts";
 import { personDuplicates, personDuplicatesJson } from "./duplicates.ts";
@@ -98,20 +98,6 @@ const pageRow = z.object({
 	duplicates: z.unknown(),
 	ministries: z.unknown(),
 });
-const evidence = (raw: unknown): Evidence[] =>
-	raw
-		? [
-				z
-					.object({
-						person_id: z.uuid(),
-						id: z.uuid(),
-						kind: z.enum(["core_group", "launch_team"]),
-						signed_on: z.string(),
-						revision: z.string(),
-					})
-					.parse(raw),
-			]
-		: [];
 const link = (p: { id: string; linked_account_id: string | null }) =>
 	c.accountLinkResult.parse(p.linked_account_id ? { status: "linked", personId: p.id } : { status: "unlinked" });
 
@@ -147,7 +133,10 @@ async function plantPage(
 	if (!result.rows[0]) deny("unavailable");
 	const row = pageRow.parse(result.rows[0]);
 	const p = pagePerson.parse(row.person);
-	const found = c.personResult.parse({ status: "available", person: projectWith(ctx, [p], evidence(row.evidence))[0] });
+	const found = c.personResult.parse({
+		status: "available",
+		person: projectWith(ctx, [p], evidenceOf(row.evidence))[0],
+	});
 	const survivor =
 		p.state === "merged" && p.merged_into_person_id
 			? await readReply(async () => {
@@ -155,7 +144,7 @@ async function plantPage(
 					const s = personRow.parse(row.survivor.person);
 					return c.personResult.parse({
 						status: "available",
-						person: projectWith(ctx, [s], evidence(row.survivor.evidence))[0],
+						person: projectWith(ctx, [s], evidenceOf(row.survivor.evidence))[0],
 					});
 				})
 			: null;

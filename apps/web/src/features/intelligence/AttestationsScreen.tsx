@@ -58,7 +58,10 @@ import {
 	answerLabel,
 	attentionCount,
 	candidateLine,
+	answerOf,
 	definitionOf,
+	groupOf,
+	recordOf,
 	draftOf,
 	draftReasons,
 	historyOf,
@@ -93,8 +96,11 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 	>(null);
 	const [keys] = useState(() => new Map<string, string>());
 	const keyFor = (payload: string) => {
-		if (!keys.has(payload)) keys.set(payload, crypto.randomUUID());
-		return keys.get(payload)!;
+		const known = keys.get(payload);
+		if (known !== undefined) return known;
+		const fresh = crypto.randomUUID();
+		keys.set(payload, fresh);
+		return fresh;
 	};
 	const sent = async <T,>(call: () => Promise<SignalOutcome<T>>): Promise<SignalOutcome<T>> => {
 		try {
@@ -103,7 +109,11 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 			return { status: "lost" };
 		}
 	};
-	const entryOf = (key: SignalKey) => page.signals.find((s) => s.key === key)!;
+	const entryOf = (key: SignalKey) => {
+		const entry = page.signals.find((s) => s.key === key);
+		if (!entry) throw new Error(`The attestations page has no ${key} signal`);
+		return entry;
+	};
 	const fail = (result: SignalOutcome<unknown>) => refusalText(result.status === "refused" ? result.error : null);
 
 	async function writeSignal(
@@ -367,8 +377,8 @@ function SignalRow({ entry, first, onOpen }: { entry: SignalEntry; first: boolea
 					<>
 						<b className="font-medium text-ink">{entry.authorName ?? "A church admin"}</b>
 						<br />
-						{shortDate(entry.asOf!)}
-						{entry.state === "answered" ? ` · ${agoText(entry.ageDays!)}` : ""}
+						{shortDate(recordOf(entry).asOf)}
+						{entry.state === "answered" ? ` · ${agoText(answerOf(entry).ageDays)}` : ""}
 						{entry.detail ? (
 							<>
 								<br />
@@ -472,7 +482,7 @@ function AnswerDialog({
 	onDone: (message: string) => void;
 }) {
 	const def = definitionOf(entry.key);
-	const group = SIGNAL_GROUPS.find((g) => g.id === def.group)!;
+	const group = groupOf(entry.key);
 	const [opened, setOpened] = useState(entry);
 	const [draft, setDraft] = useState<Draft>(() => draftOf(opened, page.today));
 	const [error, setError] = useState<string | null>(null);
@@ -621,6 +631,7 @@ function AnswerDialog({
 }
 
 type RowState = { pick: SignalValue | null; state: "idle" | "saving" | "saved" | "failed"; error: string | null };
+const UNTOUCHED: RowState = { pick: null, state: "idle", error: null };
 
 function RenewDialog({
 	entries,
@@ -638,19 +649,19 @@ function RenewDialog({
 	onReload: () => void;
 }) {
 	const [opened, setOpened] = useState(entries);
-	const [rows, setRows] = useState<Record<string, RowState>>(() =>
-		Object.fromEntries(opened.map((e) => [e.key, { pick: null, state: "idle", error: null } as RowState])),
-	);
-	const patch = (key: string, next: Partial<RowState>) => setRows((r) => ({ ...r, [key]: { ...r[key]!, ...next } }));
-	const picked = opened.filter((e) => rows[e.key]!.pick && rows[e.key]!.state !== "saved");
-	const busy = opened.some((e) => rows[e.key]!.state === "saving");
+	const [rows, setRows] = useState<Partial<Record<string, RowState>>>({});
+	const rowOf = (key: string) => rows[key] ?? UNTOUCHED;
+	const patch = (key: string, next: Partial<RowState>) =>
+		setRows((r) => ({ ...r, [key]: { ...(r[key] ?? UNTOUCHED), ...next } }));
+	const picked = opened.filter((e) => rowOf(e.key).pick && rowOf(e.key).state !== "saved");
+	const busy = opened.some((e) => rowOf(e.key).state === "saving");
 	if (!busy && entries.some((e, i) => e.revision !== opened[i]?.revision)) setOpened(entries);
 	const stale = (e: SignalEntry) => e.state === "answered" && e.renewal.status === "needs_renewing";
 
 	async function submit() {
 		await Promise.all(
 			picked.map(async (entry) => {
-				const row = rows[entry.key]!;
+				const row = rowOf(entry.key);
 				patch(entry.key, { state: "saving", error: null });
 				const failure =
 					entry.state === "answered" && row.pick === entry.value
@@ -665,7 +676,7 @@ function RenewDialog({
 			}),
 		);
 	}
-	const allDone = opened.every((e) => rows[e.key]!.state === "saved" || !rows[e.key]!.pick);
+	const allDone = opened.every((e) => rowOf(e.key).state === "saved" || !rowOf(e.key).pick);
 
 	return (
 		<Dialog open onOpenChange={(next) => (next || busy ? null : onClose())}>
@@ -683,7 +694,7 @@ function RenewDialog({
 				>
 					<DialogBody className="flex flex-col">
 						{opened.map((entry, i) => {
-							const row = rows[entry.key]!;
+							const row = rowOf(entry.key);
 							return (
 								<div
 									key={entry.key}
@@ -697,7 +708,7 @@ function RenewDialog({
 										<div className="mt-[3px] text-sm text-text-2">
 											{entry.state === "answered" ? (
 												<>
-													Last: {VALUE_LABEL[entry.value!]} · {agoText(entry.ageDays!)} ·{" "}
+													Last: {VALUE_LABEL[answerOf(entry).value]} · {agoText(answerOf(entry).ageDays)} ·{" "}
 													{stale(entry) ? (
 														<span className="font-semibold text-amber-600">needs renewing</span>
 													) : (
@@ -745,7 +756,7 @@ function RenewDialog({
 							Saved as true as of today, {shortDate(today)}.
 						</span>
 						<Button type="button" variant="secondary" disabled={busy} onClick={onClose}>
-							{allDone && opened.some((e) => rows[e.key]!.state === "saved") ? "Close" : "Cancel"}
+							{allDone && opened.some((e) => rowOf(e.key).state === "saved") ? "Close" : "Cancel"}
 						</Button>
 						<Button type="submit" variant="primary" loading={busy} disabled={!picked.length}>
 							Save answers

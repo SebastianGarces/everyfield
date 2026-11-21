@@ -87,7 +87,7 @@ export async function write<T, R extends Refusal = C.PipelineRefusal>(
 			const administrator = seat.role !== "member";
 			if (administratorOnly && !administrator) refuse();
 			const organization = selected.id;
-			const actor = locked!.actor.accountId;
+			const actor = locked.actor.accountId;
 			const token = hash([organization, actor]);
 			return run({
 				tx,
