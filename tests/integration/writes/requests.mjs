@@ -389,7 +389,7 @@ try {
 	};
 	const read = async (name, path, what, input, cookie = owner.cookie) =>
 		JSON.parse(await get(name, `${path}?what=${what}&in=${readInput(input)}`, cookie));
-	const act = async (name, page, file, action, args, cookie = owner.cookie) => {
+	const actReply = async (name, page, file, action, args, cookie = owner.cookie) => {
 		const r = await fetch(origin + page, {
 			method: "POST",
 			headers: {
@@ -406,8 +406,9 @@ try {
 		assert.equal(r.status, 200, `${name}: HTTP ${r.status}`);
 		const line = text.split("\n").find((l) => l.startsWith("1:"));
 		assert.ok(line, `${name}: no action result`);
-		return JSON.parse(line.slice(2));
+		return { result: JSON.parse(line.slice(2)), setCookies: r.headers.getSetCookie() };
 	};
+	const act = async (...request) => (await actReply(...request)).result;
 
 	const census = (
 		await admin.execute(
@@ -727,6 +728,19 @@ try {
 		},
 	]);
 	assert.equal(saved.status, "ok", JSON.stringify(saved));
+	const keptProof = await actReply(
+		null,
+		"/confirm-email",
+		settings,
+		"confirmEmailChange",
+		[],
+		`${owner.cookie}; ef-email-change-proof=${randomBytes(24).toString("base64url")}`,
+	);
+	assert.equal(keptProof.result.status, "refused", JSON.stringify(keptProof.result));
+	assert.ok(
+		keptProof.setCookies.some((c) => /^ef-email-change-proof=;/.test(c) && /Path=\/confirm-email/i.test(c)),
+		`confirmEmailChange answer ends the kept proof: ${JSON.stringify(keptProof.setCookies.map((c) => c.split("=")[0]))}`,
+	);
 	const brand = await act(
 		"POST settings.brand.saveSettings",
 		"/settings/brand",

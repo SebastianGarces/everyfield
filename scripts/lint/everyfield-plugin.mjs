@@ -103,22 +103,6 @@ export const TABLE_WRITERS = {
 	job: {
 		owner: "packages/domain/src/jobs/queue.ts",
 		why: "the job queue owns the row shape, the dedupe key and the conflict rule; build the insert with queueJobsFor or enqueueJobs",
-		holders: [
-			"packages/domain/src/branding/writes.ts",
-			"packages/domain/src/documents/church-writes.ts",
-			"packages/domain/src/intelligence/assessment-job.ts",
-			"packages/domain/src/intelligence/assessment.ts",
-			"packages/domain/src/jobs/digest.ts",
-			"packages/domain/src/jobs/mail.ts",
-			"packages/domain/src/meetings/notifications.ts",
-			"packages/domain/src/organizations/notifications.ts",
-			"packages/domain/src/organizations/reviews.ts",
-			"packages/domain/src/people/commitments/index.ts",
-			"packages/domain/src/people/csv/index.ts",
-			"packages/domain/src/people/fields/shared.ts",
-			"packages/evry/src/conversations/store.ts",
-			"packages/evry/src/proposals/store.ts",
-		],
 	},
 };
 const INSERT_INTO = /\b(?:insert|merge)\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
@@ -599,6 +583,194 @@ const serverLog = {
 	},
 };
 
+const ERROR_TEXT = new Set(["message", "stack"]);
+const ERROR_EVENTS = new Set(["error", "uncaughtException", "unhandledRejection", "messageerror"]);
+const ERROR_PARAM = /^(?:err|error|exception|[a-z]\w*Error)$/;
+const SECRET_NAME =
+	/(?:password|passphrase|secret|token|apikey|api_key|credential|cookie|authorization|payload|rawbody)$/i;
+const TEXT_SINK_CLASS = /(?:Error|Refusal|Refused|Failure)$/;
+const LOG_SINKS = new Set(["logLine", "logInfo", "logFailure", "asLogWord", "asLogId", "asLogHost", "asLogNames"]);
+export const RAW_ERROR_SCOPE =
+	/^(?:(?:apps\/web\/src|packages\/[^/]+\/src|ops|tools\/prod-identity)\/|tools\/qa\/(?!tests\/))/;
+export const RAW_ERROR_SITES = {
+	"packages/evry/src/adapters/native.ts": {
+		sites: 2,
+		why: "refusalOf passes on a message only when it is a code word ([a-z_]{3,40}); Evry's recorded refusals carry that word, so reading it another way would change recorded Evry results",
+	},
+	"packages/domain/src/documents/writes.ts": {
+		sites: 1,
+		why: "ImportRejected is thrown only with fixed copy literals in documents/unpack.ts, and that copy is the answer the person importing the file reads",
+	},
+	"packages/ui/src/controls/Dialog.tsx": {
+		sites: 2,
+		why: "ConfirmDialog shows the copy its onConfirm throws; the text stays in the viewer's browser, never in a log or record, and a server action's error reaches the browser already reduced to Next's digest",
+	},
+	"tools/qa/main.ts": {
+		sites: 1,
+		why: "only a QaError reaches the line, and a QaError is the tool's own copy from fail(), whose command output passed redactor.clean first",
+	},
+	"tools/qa/qa.ts": {
+		sites: 1,
+		why: "the cleanup line prints a QaError's own copy from fail(); any other error prints only its class name",
+	},
+	"tools/prod-identity/setup.ts": {
+		sites: 2,
+		why: "the operator's terminal line passes through redactor.clean, which holds every credential and generated key the tool read or made before it can fail",
+	},
+};
+
+const TYPE_WRAPPERS = new Set([
+	"TSAsExpression",
+	"TSNonNullExpression",
+	"TSSatisfiesExpression",
+	"TSTypeAssertion",
+	"ParenthesizedExpression",
+]);
+const outerOf = (node) => {
+	let at = node;
+	while (TYPE_WRAPPERS.has(at.parent?.type) && at.parent.expression === at) at = at.parent;
+	return at;
+};
+const textOfError = (ref) => {
+	let at = outerOf(ref);
+	while (at.parent?.type === "MemberExpression" && at.parent.object === at) {
+		const name = keyName(at.parent.property, at.parent.computed);
+		if (ERROR_TEXT.has(name)) return at.parent;
+		if (name !== "cause") return null;
+		at = outerOf(at.parent);
+	}
+	const p = at.parent;
+	if (!p) return null;
+	if (p.type === "TemplateLiteral") return at;
+	if (p.type === "BinaryExpression" && p.operator === "+") return at;
+	if (p.type === "AssignmentExpression" && p.operator === "+=" && p.right === at) return at;
+	if (p.type === "MemberExpression" && p.object === at && memberName(p) === "toString") return at;
+	if (p.type === "VariableDeclarator" && p.init === at && p.id.type === "ObjectPattern")
+		return p.id.properties.some((q) => q.type === "Property" && ERROR_TEXT.has(keyName(q.key, q.computed))) ? at : null;
+	if ((p.type !== "CallExpression" && p.type !== "NewExpression") || !p.arguments.includes(at)) return null;
+	const callee = p.callee;
+	const name = callee.type === "Identifier" ? callee.name : memberName(callee);
+	if (p.type === "NewExpression") return name && TEXT_SINK_CLASS.test(name) ? at : null;
+	if (name === "String" || name === "Error" || name === "inspect") return at;
+	if (name === "stringify" && callee.object?.type === "Identifier" && callee.object.name === "JSON") return at;
+	return callee.type === "MemberExpression" && callee.object.type === "Identifier" && callee.object.name === "console"
+		? at
+		: null;
+};
+
+const errorHandler = (node) => {
+	const p = node.parent;
+	if (p?.type !== "CallExpression" || !p.arguments.includes(node)) return false;
+	const name = memberName(p.callee);
+	const index = p.arguments.indexOf(node);
+	if (name === "catch") return index === 0;
+	if (name === "then") return index === 1;
+	if (["on", "once", "addEventListener", "addListener", "prependListener"].includes(name ?? ""))
+		return index === 1 && ERROR_EVENTS.has(literalArgument(p.arguments[0]) ?? "");
+	return false;
+};
+
+const rawErrorText = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!RAW_ERROR_SCOPE.test(path)) return {};
+		const allowed = RAW_ERROR_SITES[path];
+		const found = [];
+		const seen = new Set();
+		const follow = (variable) => {
+			if (!variable || seen.has(variable)) return;
+			seen.add(variable);
+			for (const reference of variable.references) {
+				const ref = reference.identifier;
+				if (!reference.isRead()) continue;
+				const hit = textOfError(ref);
+				if (hit) found.push({ node: hit, what: "a caught error's text" });
+				const value = outerOf(ref);
+				const p = value.parent;
+				if (p?.type === "VariableDeclarator" && p.init === value && p.id.type === "Identifier")
+					follow(context.sourceCode.getDeclaredVariables(p).find((v) => v.name === p.id.name));
+			}
+		};
+		const fromParam = (owner, param) => {
+			if (param?.type === "Identifier")
+				follow(context.sourceCode.getDeclaredVariables(owner).find((v) => v.name === param.name));
+			if (param?.type === "ObjectPattern")
+				for (const q of param.properties)
+					if (q.type === "Property" && ERROR_TEXT.has(keyName(q.key, q.computed)))
+						found.push({ node: q, what: "a caught error's text" });
+		};
+		const secrets = (node, sink) => {
+			if (!node || typeof node.type !== "string" || FUNCTIONS.has(node.type)) return;
+			const name =
+				node.type === "Identifier" && isValueReference(node)
+					? node.name
+					: node.type === "MemberExpression"
+						? memberName(node)
+						: null;
+			if (name && SECRET_NAME.test(name)) {
+				found.push({ node, what: `${name} in ${sink}` });
+				return;
+			}
+			for (const [key, value] of Object.entries(node))
+				if (key !== "parent" && !(node.type === "Property" && key === "key" && !node.computed))
+					for (const child of Array.isArray(value) ? value : [value]) secrets(child, sink);
+		};
+		const sinkName = (callee) => (callee.type === "Identifier" ? callee.name : memberName(callee));
+		const functionParams = (node) => {
+			if (errorHandler(node)) return fromParam(node, node.params[0]);
+			for (const param of node.params) {
+				const id = param.type === "AssignmentPattern" ? param.left : param;
+				if (id.type === "Identifier" && ERROR_PARAM.test(id.name)) fromParam(node, id);
+			}
+		};
+		return {
+			CatchClause(node) {
+				fromParam(node, node.param);
+			},
+			ArrowFunctionExpression: functionParams,
+			FunctionExpression: functionParams,
+			FunctionDeclaration: functionParams,
+			NewExpression(node) {
+				const name = sinkName(node.callee);
+				if (name && TEXT_SINK_CLASS.test(name)) for (const a of node.arguments) secrets(a, "error text");
+			},
+			CallExpression(node) {
+				const name = sinkName(node.callee);
+				if (name && (LOG_SINKS.has(name) || TEXT_SINK_CLASS.test(name)))
+					for (const a of node.arguments)
+						secrets(a, name.startsWith("as") || name.startsWith("log") ? "a log line" : "error text");
+				if (
+					node.callee.type === "MemberExpression" &&
+					node.callee.object.type === "Identifier" &&
+					node.callee.object.name === "console"
+				)
+					for (const a of node.arguments) secrets(a, "a log line");
+			},
+			ThrowStatement(node) {
+				if (node.argument?.type === "TemplateLiteral" || node.argument?.type === "Literal")
+					secrets(node.argument, "error text");
+			},
+			"Program:exit"(program) {
+				const unique = [...new Map(found.map((f) => [`${f.node.range?.[0] ?? f.node.start}`, f])).values()];
+				if (allowed) {
+					if (unique.length !== allowed.sites)
+						context.report({
+							node: program,
+							message: `${path} has ${unique.length} raw error or secret text sites; its RAW_ERROR_SITES entry allows exactly ${allowed.sites}. A new site is fixed, not allowed; when one goes, lower the entry.`,
+						});
+					return;
+				}
+				for (const { node, what } of unique)
+					context.report({
+						node,
+						message: `Never put ${what} into a log, error text or stored record: it can carry SQL, row values, provider payloads or secrets. Log through @everyfield/domain/log (logFailure takes the error and keeps its class and code), throw a typed error with a fixed code, or keep the value out.`,
+					});
+			},
+		};
+	},
+};
+
 const RUNTIME_MODULES =
 	/^(?:react|react-dom|next|server-only|client-only|zustand|@everyfield\/db|node:)(?:\/|$)|^node:/;
 const RUNTIME_GLOBALS = new Set([
@@ -1065,11 +1237,41 @@ const tickOnly = (node) =>
 	(node.type === "UnaryExpression" && node.operator === "void") ||
 	emptyResolve(node);
 
+export const PRODUCT_TIMERS = {
+	"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts": {
+		timer: "setInterval",
+		binding: "heartbeat",
+		within: "GET",
+		why: "the Evry conversation stream writes an SSE comment every 15 seconds so proxies and the browser keep an idle stream open while a turn runs; the interval is the keep-alive itself and nothing else marks when a quiet connection needs one",
+	},
+};
+
 const noTimers = ratcheted("no-timers", (context, push) => {
 	const seen = new Set();
+	const allowed = PRODUCT_TIMERS[repoPath(context.filename)];
+	let productTimerSeen = false;
+	const productTimer = (node) => {
+		const call = node.parent;
+		const declarator = call?.parent;
+		if (
+			productTimerSeen ||
+			node.type !== "Identifier" ||
+			node.name !== allowed?.timer ||
+			call.type !== "CallExpression" ||
+			call.callee !== node ||
+			declarator?.type !== "VariableDeclarator" ||
+			declarator.id.type !== "Identifier" ||
+			declarator.id.name !== allowed.binding
+		)
+			return false;
+		for (let p = declarator.parent; p; p = p.parent)
+			if (p.type === "VariableDeclarator" && p.id.type === "Identifier" && p.id.name === allowed.within)
+				return (productTimerSeen = true);
+		return false;
+	};
 	const report = (node, name) => {
 		const at = (node.range ?? [node.start, node.end]).join(":");
-		if (seen.has(at)) return;
+		if (seen.has(at) || productTimer(node)) return;
 		seen.add(at);
 		push({
 			node,
@@ -1526,27 +1728,9 @@ const NOTICE_ADOPTION =
 const ERROR_CHIP = "a status chip in the error colour, not a notice";
 export const HAND_WRITTEN_NOTICES = {
 	"apps/web/src/features/communication/HistoryPanel.tsx": ERROR_CHIP,
-	"apps/web/src/features/communication/UnsubscribeScreen.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/documents/church/ChurchBranding.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/documents/church/EditTemplate.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/documents/church/editor/SaveAsTemplate.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/evry/conversation/EvryPanel.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/evry/review/PeopleChanges.tsx": ERROR_CHIP,
 	"apps/web/src/features/evry/review/ReviewCard.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/meetings/RsvpScreen.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/meetings/parts.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/notifications/OptOutScreen.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/onboarding/parts.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/organizations/InviteDialog.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/organizations/data/DuplicatesScreen.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/organizations/parts.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/people/PipelineBoard.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/people/corrections/parts.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/people/parts.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/settings/SaveError.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/settings/flows/PasswordDialog.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/tasks/TaskSheet.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/teams/Setup.tsx": NOTICE_ADOPTION,
 };
 
 const noticeLook = (value) =>
@@ -2773,7 +2957,7 @@ const renderReads = {
 };
 
 const READ_NAME =
-	/^(?:load|read|get|list|find|search|suggest|preview|compare|reload|fetch|query|count|download|print)(?:[A-Z]|$)/;
+	/^(?:load|read|get|list|find|search|suggest|preview|compare|reload|fetch|query|count|download|print|resolve)(?:[A-Z]|$)/;
 
 const READ_HOME =
 	"Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through readsFrom in the feature's fetch.ts.";
@@ -2792,10 +2976,21 @@ const boundNames = (pattern) => {
 const declaresServer = (fn) =>
 	fn.body?.type === "BlockStatement" && fn.body.body.some((s) => s.directive === "use server");
 
+const SELECTION_INPUT =
+	"its input carries the selected person ids (up to 500, about 19.5 KB), too large for a GET address, so it stays a server action";
+export const SELECTION_READS = {
+	"apps/web/src/features/communication/actions.ts": { resolveAudience: SELECTION_INPUT },
+	"apps/web/src/features/teams/training/actions.ts": { previewRoster: SELECTION_INPUT },
+};
+
 const noReadActions = ratcheted("no-read-actions", (context, push) => {
 	const moduleActions = SERVER_ACTIONS.test(context.sourceCode.text);
-	const report = (node, name, where = `a read exported from a "use server" module`) =>
-		push({ node, fn: name, message: `${name} is ${where}. ${READ_HOME}` });
+	const selection = SELECTION_READS[repoPath(context.filename)] ?? {};
+	const seen = new Set();
+	const report = (node, name, where = `a read exported from a "use server" module`) => {
+		if (Object.hasOwn(selection, name)) seen.add(name);
+		else push({ node, fn: name, message: `${name} is ${where}. ${READ_HOME}` });
+	};
 	const exported = (id) => {
 		if (moduleActions && id && READ_NAME.test(id.name)) report(id, id.name);
 	};
@@ -2830,6 +3025,14 @@ const noReadActions = ratcheted("no-read-actions", (context, push) => {
 		FunctionDeclaration: inline,
 		FunctionExpression: inline,
 		ArrowFunctionExpression: inline,
+		"Program:exit"(node) {
+			for (const name of Object.keys(selection))
+				if (!seen.has(name))
+					context.report({
+						node,
+						message: `${name} is no longer a read action here: delete its SELECTION_READS entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+		},
 	};
 });
 
@@ -3018,15 +3221,6 @@ export const REFUSAL_MECHANISMS = {
 	"packages/domain/src/dashboard/index.ts": { why: `Dashboard refusals are a bare { code }: ${BARE_CODE}` },
 	"packages/domain/src/people/pipeline-metrics.ts": {
 		why: "Pipeline metrics answers a bare { code } refusal that its contract test pins; defineRefusals adds details, correlationId and retry",
-	},
-	"packages/domain/src/identity/budget.ts": {
-		why: "An identity refusal carries its HTTP status, and identity's handler answers it as HTTP JSON",
-	},
-	"packages/domain/src/identity/service.ts": {
-		why: "Identity's handler builds the identity safe error with its HTTP status from an identity refusal",
-	},
-	"packages/domain/src/identity/invitation-core.ts": {
-		why: "An invitation refusal carries a parsed safe error with retryAt details, the identity invitation mechanism",
 	},
 	"packages/domain/src/settings/credentials.ts": {
 		why: "Credential changes answer identity's credential outcome (a status with a correlationId and no retry)",
@@ -3330,6 +3524,7 @@ export default {
 		"provider-key-mint": providerKeyMint,
 		"no-comments": noComments,
 		"server-log": serverLog,
+		"no-raw-error-log": rawErrorText,
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
 		"deployment-env": deploymentEnv,
