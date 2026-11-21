@@ -1,6 +1,7 @@
 import * as c from "@everyfield/contracts/documents";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
+import { queueJobsFor } from "../jobs/queue.ts";
 import {
 	readAuthorizedObject,
 	StorageError,
@@ -931,12 +932,13 @@ export const churchWriter = {
 							AND d.church_archived_at IS NOT NULL)
 					RETURNING gd.id, gd.object_id
 				),
-				rel AS (
-					INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts, claim_generation)
-					SELECT ${scope.tenantId}::uuid, 'object_cleanup', del.object_id, 'export-deleted/' || del.id::text, 'ready', clock_timestamp(), 0, 4, 0
-					FROM del
-					ON CONFLICT DO NOTHING
-				),
+				rel AS (${queueJobsFor(sql`FROM del`, {
+					kind: "object_cleanup",
+					tenant: sql`${scope.tenantId}::uuid`,
+					subject: sql`del.object_id`,
+					key: sql`'export-deleted/' || del.id::text`,
+					conflict: "skip",
+				})}),
 				aud AS (
 					INSERT INTO audit_event (
 						tenant_id, actor_id, action, kind, subject_id, occurred_at, recorded_at, event_key, metadata

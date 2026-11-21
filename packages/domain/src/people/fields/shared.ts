@@ -4,6 +4,7 @@ import { and, eq, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
+import { queueJobsFor } from "../../jobs/queue.ts";
 import { deny, type Tx } from "../core.ts";
 
 export function plantId(ctx: { selected: Owner }): string {
@@ -85,25 +86,17 @@ export function expectRevision(actual: string, expected: string) {
 export const next = (rev: string) => String(BigInt(rev) + 1n);
 
 export function queueObjectCleanup(
-	tx: Tx,
 	plant: string,
 	fileId: string,
 	cause: "upload" | "release",
 	eligibleAt = sql`clock_timestamp()`,
 ) {
-	return tx
-		.insert(tables.job)
-		.values({
-			tenant_id: plant,
-			kind: "object_cleanup",
-			subject_record_id: fileId,
-			producer_key: `person-photo-${cause}/${fileId}`,
-			source_revision: null,
-			state: "ready",
-			eligible_at: eligibleAt,
-			attempt_count: 0,
-			max_attempts: 4,
-			claim_generation: "0",
-		})
-		.onConflictDoNothing();
+	return queueJobsFor(sql``, {
+		kind: "object_cleanup",
+		tenant: sql`${plant}::uuid`,
+		subject: sql`${fileId}::uuid`,
+		key: sql`${`person-photo-${cause}/${fileId}`}::text`,
+		eligibleAt,
+		conflict: "skip",
+	});
 }

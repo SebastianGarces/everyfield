@@ -8,6 +8,7 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import "server-only";
 import { z } from "zod";
 import { liveRead, writeVisibility, type RequestActor } from "../../access/session.ts";
+import { queueJobsFor } from "../../jobs/queue.ts";
 import { declareWrite, finishAudit, prepareWrite, gatedTransaction } from "../../operations/writes.ts";
 import {
 	authorize,
@@ -325,8 +326,14 @@ async function saveImport(
 		subject_id: plant,
 	});
 	claim.writes.push(
-		sql`INSERT INTO job(id,tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
- VALUES(${jobId}::uuid,${plant}::uuid,'people_import',${plant}::uuid,${"people-import/" + importId},'ready',clock_timestamp(),0,4,0)`,
+		queueJobsFor(sql``, {
+			kind: "people_import",
+			id: sql`${jobId}::uuid`,
+			tenant: sql`${plant}::uuid`,
+			subject: sql`${plant}::uuid`,
+			key: sql`${"people-import/" + importId}::text`,
+			conflict: "fail",
+		}),
 		sql`INSERT INTO person_import(id,tenant_id,job_id,actor_id,plan,upload)
  VALUES(${importId}::uuid,${plant}::uuid,${jobId}::uuid,${actorId}::uuid,${JSON.stringify(plan)}::jsonb,${upload})`,
 	);
@@ -534,10 +541,14 @@ export async function signPeopleImport(db: Database, storage: PrivateStorage, au
  SELECT ${id}::uuid,${plant}::uuid,'native_import',${key}::text,'text/csv',${String(input.byteLength)}::bigint,
   'pending',${"people-import/" + id}::text,0,clock_timestamp()+interval '1 hour'
  WHERE ${access(ctx, true)}
- RETURNING id,expires_at), cleanup AS (
- INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
- SELECT ${plant}::uuid,'object_cleanup',u.id,'people-import-upload/'||u.id,'ready',u.expires_at,0,4,0 FROM upload u
- ON CONFLICT DO NOTHING)
+ RETURNING id,expires_at), cleanup AS (${queueJobsFor(sql`FROM upload u`, {
+		kind: "object_cleanup",
+		tenant: sql`${plant}::uuid`,
+		subject: sql`u.id`,
+		key: sql`'people-import-upload/'||u.id`,
+		eligibleAt: sql`u.expires_at`,
+		conflict: "skip",
+ })})
  SELECT id FROM upload`);
 		if (!result.rows[0]) deny("unavailable");
 		const signed = await signPrivatePut(storage, key, "text/csv", input.byteLength).catch(() => deny("unavailable"));

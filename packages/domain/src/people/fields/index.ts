@@ -46,7 +46,7 @@ const photo = {
  INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
  VALUES (${id}::uuid,${plant}::uuid,'person_photo',${`private/${plant}/${randomUUID()}`},${input.mime},${input.byteLength},'pending',${id},0,clock_timestamp()+interval '15 minutes')
  ON CONFLICT (id) DO NOTHING
- RETURNING expires_at,media_type,max_bytes), cleanup AS (${queueObjectCleanup(tx, plant, id, "upload", sql`COALESCE((SELECT expires_at FROM upload),clock_timestamp())`).getSQL()})
+ RETURNING expires_at,media_type,max_bytes), cleanup AS (${queueObjectCleanup(plant, id, "upload", sql`COALESCE((SELECT expires_at FROM upload),clock_timestamp())`)})
  SELECT expires_at,media_type,max_bytes FROM upload
  UNION ALL SELECT expires_at,media_type,max_bytes FROM file_object
  WHERE id=${id}::uuid AND tenant_id=${plant}::uuid AND purpose='person_photo' AND NOT EXISTS(SELECT FROM upload)`);
@@ -85,7 +85,7 @@ const photo = {
 							.set({ photo_object_id: uploadId, revision: sql`${tables.person.revision}+1` })
 							.where(and(eq(tables.person.id, p.id), eq(tables.person.revision, p.revision))),
 					);
-					if (p.photo_object_id) audit.writes.push(queueObjectCleanup(tx, plant, p.photo_object_id, "release"));
+					if (p.photo_object_id) audit.writes.push(queueObjectCleanup(plant, p.photo_object_id, "release"));
 					return {
 						value: { photo: available, personRevision: next(p.revision), outcome: "changed", receiptId },
 						subject: p.id,
@@ -115,7 +115,7 @@ const photo = {
 							.update(tables.person)
 							.set({ photo_object_id: null, revision: sql`${tables.person.revision}+1` })
 							.where(and(eq(tables.person.id, p.id), eq(tables.person.revision, p.revision))),
-						queueObjectCleanup(tx, plant, p.photo_object_id, "release"),
+						queueObjectCleanup(plant, p.photo_object_id, "release"),
 					);
 					return {
 						value: { photo: { status: "absent" }, personRevision: next(p.revision), outcome: "changed", receiptId },

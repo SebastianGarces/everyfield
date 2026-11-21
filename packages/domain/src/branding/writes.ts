@@ -1,6 +1,7 @@
 import * as c from "@everyfield/contracts/branding";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
+import { queueJobsFor } from "../jobs/queue.ts";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
@@ -40,12 +41,14 @@ async function run(db: Database, query: SQL) {
 const gate = (scope: Scope) => sql`gate AS (SELECT ${scope.admin} AS ok)`;
 const current = (scope: Scope) =>
 	sql`cur AS (SELECT k.* FROM church_brand_kit k, gate WHERE gate.ok AND k.tenant_id = ${scope.plantId}::uuid)`;
-const releaseJobs = (scope: Scope, files: SQL, from: SQL) => sql`rel AS (
-	INSERT INTO job(tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts, claim_generation)
-	SELECT ${scope.plantId}::uuid, 'object_cleanup', v.id, 'brand-asset-release/' || v.id::text, 'ready', clock_timestamp(), 0, 4, 0
-	FROM ${from}, LATERAL (VALUES ${files}) v(id)
-	WHERE v.id IS NOT NULL
-	ON CONFLICT DO NOTHING)`;
+const releaseJobs = (scope: Scope, files: SQL, from: SQL) =>
+	sql`rel AS (${queueJobsFor(sql`FROM ${from}, LATERAL (VALUES ${files}) v(id) WHERE v.id IS NOT NULL`, {
+		kind: "object_cleanup",
+		tenant: sql`${scope.plantId}::uuid`,
+		subject: sql`v.id`,
+		key: sql`'brand-asset-release/' || v.id::text`,
+		conflict: "skip",
+	})})`;
 const audit = (scope: Scope, changed: SQL, kind: "edit" | "remove") => sql`aud AS (
 	INSERT INTO audit_event(tenant_id, actor_id, action, kind, subject_id, occurred_at, recorded_at, before_value, after_value, before_revision, after_revision, metadata)
 	SELECT ${scope.plantId}::uuid, ${scope.accountId}::uuid, 'branding.changed', ${kind}, ${scope.plantId}::uuid,
@@ -168,10 +171,14 @@ export const brandWriter = {
 						${uploadKeyOf(input.slot, input.mediaType, input.byteLength, id)}::text, 0, clock_timestamp() + ${`${STAGING_MINUTES} minutes`}::interval
 					FROM gate WHERE gate.ok
 					RETURNING id, expires_at),
-				cl AS (
-					INSERT INTO job(tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts, claim_generation)
-					SELECT ${scope.plantId}::uuid, 'object_cleanup', up.id, 'brand-asset-upload/' || up.id::text, 'ready', up.expires_at, 0, 4, 0
-					FROM up ON CONFLICT DO NOTHING)
+				cl AS (${queueJobsFor(sql`FROM up`, {
+					kind: "object_cleanup",
+					tenant: sql`${scope.plantId}::uuid`,
+					subject: sql`up.id`,
+					key: sql`'brand-asset-upload/' || up.id::text`,
+					eligibleAt: sql`up.expires_at`,
+					conflict: "skip",
+				})})
 				SELECT (SELECT ok FROM gate) AS ok, (SELECT id FROM up) AS id, (SELECT expires_at FROM up) AS expires_at`);
 			const row = z
 				.object({
