@@ -179,10 +179,10 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			if (!r.value.run) update((chat) => ({ ...chat, activeTurnId: null, stopping: false }));
 		};
 
-		const fail = (send: Send, reply: api.Reply<unknown>) =>
+		const fail = (send: Send, reply: api.Reply<unknown>, refused: "refused" | "unstarted" = "refused") =>
 			patchSend(
 				send.key,
-				reply.status === "refused" ? { state: "refused", error: reply.error } : { state: "unconfirmed", error: null },
+				reply.status === "refused" ? { state: refused, error: reply.error } : { state: "unconfirmed", error: null },
 			);
 
 		const patchSend = (key: string, patch: Partial<Send>) =>
@@ -206,7 +206,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 					return void (
 						created.status === "ok" && port.submitTurn(created.value.id, send.key, send.text, send.references)
 					);
-				if (created.status !== "ok") return fail(send, created);
+				if (created.status !== "ok") return fail(send, created, "unstarted");
 				if (createKey === key) createKey = null;
 				const made = created.value;
 				conversation = made;

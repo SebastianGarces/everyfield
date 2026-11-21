@@ -9,13 +9,21 @@ import {
 	CardHeading,
 	CardTitle,
 	Field,
+	InlineAlert,
 	Input,
 } from "@everyfield/ui/controls";
 import { useRef, useState, useTransition } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { restoreOwnSuppression } from "./actions.ts";
 import { readOwnSuppression } from "./fetch.ts";
-import { outcomeText, restoreText, type RestoreReport, type SuppressionReport } from "./model.ts";
+import {
+	ADDRESS_UNREAD,
+	outcomeText,
+	restoreText,
+	unread,
+	type RestoreReport,
+	type SuppressionReport,
+} from "./model.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
 const lost = <T,>(): Outcome<T> => ({ status: "lost" });
@@ -37,9 +45,10 @@ export function Address() {
 	const [pending, start] = useTransition();
 	const loaded = read.value !== undefined;
 	const report = read.value?.status === "ok" ? read.value.value : null;
+	const failed = unread(read.value);
 	const notice: Notice | null =
 		restored ??
-		(read.value && read.value.status !== "ok"
+		(read.value && read.value.status !== "ok" && !failed
 			? { text: outcomeText(read.value) ?? "Unable to read this address.", tone: "alert" }
 			: null);
 
@@ -86,6 +95,17 @@ export function Address() {
 					Checking this address.
 				</p>
 			)}
+			<InlineAlert
+				actions={
+					failed ? (
+						<Button size="sm" variant="outline" onClick={read.retry}>
+							Try again
+						</Button>
+					) : null
+				}
+			>
+				{failed ? ADDRESS_UNREAD : null}
+			</InlineAlert>
 			{notice ? (
 				<p
 					role={notice.tone}

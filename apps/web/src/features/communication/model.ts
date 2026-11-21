@@ -124,6 +124,11 @@ export function originLabel(template: Template): string {
 	return "Church template";
 }
 
+export const ADDRESS_UNREAD = "We couldn't load your church's address.";
+
+export const unread = <T>(result: Outcome<T> | ReadFailure | undefined): boolean =>
+	result?.status === "failed" || result?.status === "lost";
+
 export function outcomeText<T>(result: Outcome<T> | ReadFailure): string | null {
 	if (result.status === "ok") return null;
 	if (result.status === "failed") return READ_FAILED;
