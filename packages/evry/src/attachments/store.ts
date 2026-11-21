@@ -17,7 +17,8 @@ const MEDIA = {
 	docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 	doc: "application/msword",
 } as const;
-export const extensionOf = (name: string) => /\.(csv|txt|docx|doc)$/i.exec(name)?.[1]?.toLowerCase() as keyof typeof MEDIA;
+export const extensionOf = (name: string) =>
+	/\.(csv|txt|docx|doc)$/i.exec(name)?.[1]?.toLowerCase() as keyof typeof MEDIA;
 
 const stageInput = z.strictObject({
 	name: z
@@ -113,7 +114,12 @@ export async function stagedBytes(
 	return typeof object === "string" ? null : object.bytes;
 }
 
-export async function attachedFile(db: Database, actor: EvryActor, conversationId: string | null, attachmentId: string) {
+export async function attachedFile(
+	db: Database,
+	actor: EvryActor,
+	conversationId: string | null,
+	attachmentId: string,
+) {
 	if (!conversationId) throw new EvryRefusal("attachment_elsewhere");
 	const r = await db.execute(sql`SELECT ${attachmentsOf("c")} AS attachments FROM conversation c
 		WHERE c.id=${conversationId}::uuid AND c.account_id=${actor.accountId}::uuid AND c.tenant_id=${actor.owner.id}::uuid`);

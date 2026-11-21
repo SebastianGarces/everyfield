@@ -439,16 +439,9 @@ const generatedWriter = {
 			const input = parse(c.importDocumentRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny("unavailable");
-			let read: c.DocNode;
-			try {
-				read = readImport(input.bytes, input.format);
-			} catch (error) {
-				if (error instanceof ImportRejected) rejectInput("bytes", error.message);
-				throw error;
-			}
-			const parsed = c.nativeBody.safeParse(read);
-			if (!parsed.success) rejectInput("bytes", "This file is too large for one document.");
-			const body = JSON.stringify(parsed.data);
+			const read = parseImport(input.bytes, input.format);
+			if ("problem" in read) rejectInput("bytes", read.problem);
+			const body = JSON.stringify(read.body);
 			const hash = hashOf(body);
 			const replay = await rowsOf<OwnedRow & { ok: boolean; stored_hash: string | null }>(
 				db,
@@ -1000,6 +993,18 @@ function saveNative(db: Database, authority: RequestActor, raw: unknown) {
 	if (typeof raw === "object" && raw !== null && !("title" in raw))
 		return settle(() => churchWriter.saveChurch(db, authority, parse(c.saveChurchRequest, raw)));
 	return generatedWriter.saveNative(db, authority, raw);
+}
+
+export function parseImport(bytes: Uint8Array, format: "text" | "docx"): { body: c.DocNode } | { problem: string } {
+	let read: c.DocNode;
+	try {
+		read = readImport(bytes, format);
+	} catch (error) {
+		if (error instanceof ImportRejected) return { problem: error.message };
+		throw error;
+	}
+	const parsed = c.nativeBody.safeParse(read);
+	return parsed.success ? { body: parsed.data } : { problem: "This file is too large for one document." };
 }
 
 export const documentsWriter = {

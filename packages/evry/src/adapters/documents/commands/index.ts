@@ -222,7 +222,9 @@ export const designateCoreValues: ReviewedWrite<{ documentId: string }> = {
 const EXCERPT = 280;
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const importInput = z.strictObject({
-	attachmentId: z.uuid().describe("The attachmentId of a Word (.docx) or text (.txt) file attached in this conversation"),
+	attachmentId: z
+		.uuid()
+		.describe("The attachmentId of a Word (.docx) or text (.txt) file attached in this conversation"),
 	title: z
 		.string()
 		.trim()
@@ -251,17 +253,17 @@ export const importTextOrWord: ReviewedWrite<z.infer<typeof importInput>> = {
 		const file = await attachedFile(context.db, actor, context.conversationId, value.attachmentId);
 		const format = ["docx", "doc"].includes(extensionOf(file.name)) ? "docx" : "text";
 		const bytes = await context.files.read(file.id);
-		const domain = await import("@everyfield/domain/documents");
-		let body: ReturnType<typeof domain.readImport>;
-		try {
-			body = domain.readImport(bytes, format);
-		} catch (error) {
-			if (error instanceof domain.ImportRejected) throw new EvryRefusal("invalid_input", error.message);
-			throw error;
-		}
-		const words = nativeText(body).replace(/\s+/g, " ");
+		const read = (await import("@everyfield/domain/documents")).parseImport(bytes, format);
+		if ("problem" in read) throw new EvryRefusal("invalid_input", read.problem);
+		const words = nativeText(read.body).replace(/\s+/g, " ");
 		const excerpt = words.length > EXCERPT ? `${words.slice(0, EXCERPT).trimEnd()}…` : words;
-		const title = value.title ?? (file.name.replace(/\.[^.]+$/, "").trim().slice(0, TEMPLATE_NAME_MAX) || file.name);
+		const title =
+			value.title ??
+			(file.name
+				.replace(/\.[^.]+$/, "")
+				.trim()
+				.slice(0, TEMPLATE_NAME_MAX) ||
+				file.name);
 		const changes = [
 			{ field: "file", before: null, after: file.name },
 			{ field: "title", before: null, after: title },
@@ -278,7 +280,13 @@ export const importTextOrWord: ReviewedWrite<z.infer<typeof importInput>> = {
 		const authority = await authorityIn(tx, context);
 		if (!authority) return { refused: "access_denied" };
 		const storage = privateStorage();
-		const bytes = await stagedBytes(asDatabase(tx), storage, context.selected.id, saved.conversationId, saved.attachmentId);
+		const bytes = await stagedBytes(
+			asDatabase(tx),
+			storage,
+			context.selected.id,
+			saved.conversationId,
+			saved.attachmentId,
+		);
 		if (!bytes) return { refused: "attachment_gone" };
 		if (sha256(bytes) !== saved.sha256) return { refused: "file_changed" };
 		const reply = await (
@@ -294,9 +302,9 @@ export const importTextOrWord: ReviewedWrite<z.infer<typeof importInput>> = {
 };
 
 export const DOCUMENTS_COMMANDS = {
-	"documents.importTextOrWord": importTextOrWord,
 	"documents.createFromTemplate": createFromTemplate,
 	"documents.exportNative": exportNative,
 	"documents.archive": archive,
 	"documents.designateCoreValues": designateCoreValues,
+	"documents.importTextOrWord": importTextOrWord,
 } as const;

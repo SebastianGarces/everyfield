@@ -287,9 +287,13 @@ test("AC:CASE-DOC-016 AC:GAP-EVR-422 an attached Word file becomes a church docu
 	assert.equal(added.length, 1);
 	assert.equal(added[0]!.id, done.receipt?.receiptId);
 	assert.equal(added[0]!.title, "Welcome letter");
-	const blocks = (readNative(added[0]!.body).body.content as unknown as { type: string; attrs?: { level?: number }; content?: { text: string }[] }[]).map(
-		(b) => [b.type, b.attrs?.level ?? null, b.content?.map((t) => t.text).join("") ?? ""],
-	);
+	const blocks = (
+		readNative(added[0]!.body).body.content as unknown as {
+			type: string;
+			attrs?: { level?: number };
+			content?: { text: string }[];
+		}[]
+	).map((b) => [b.type, b.attrs?.level ?? null, b.content?.map((t) => t.text).join("") ?? ""]);
 	assert.deepEqual(blocks, [
 		["heading", 1, "Welcome to Hope Fellowship"],
 		["paragraph", null, "We are a church for the city of Austin."],
@@ -319,7 +323,13 @@ test("AC:CASE-DOC-016 AC:GAP-EVR-422 an attached Word file becomes a church docu
 });
 
 const REFUSED: [string, string, Buffer, "docx" | "text", string][] = [
-	["an old .doc", "Minutes.doc", Buffer.concat([Buffer.from([0xd0, 0xcf, 0x11, 0xe0]), Buffer.alloc(508)]), "docx", "Legacy Word documents are not accepted."],
+	[
+		"an old .doc",
+		"Minutes.doc",
+		Buffer.concat([Buffer.from([0xd0, 0xcf, 0x11, 0xe0]), Buffer.alloc(508)]),
+		"docx",
+		"Legacy Word documents are not accepted.",
+	],
 	[
 		"a .docx with macros",
 		"Budget.docx",

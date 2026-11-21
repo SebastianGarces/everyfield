@@ -1806,6 +1806,92 @@
 		}
 	},
 	{
+		"scenario_id": "docs",
+		"scenario": "Documents and knowledge",
+		"actor": "Planter preparing for the sending network or a core team night",
+		"area": "Documents / wiki",
+		"status": "Supported",
+		"case_id": "DOC-07",
+		"question": "make this a church document",
+		"expected_operation": "`documents.importTextOrWord` proposal from the attached .docx (Owner/Admin)",
+		"expected_answer": "A review card of the import: file, title and the start of its text; nothing in Documents before Approve",
+		"must_not": "Say the document was added; write the document text itself",
+		"eval": {
+			"attachments": [
+				{
+					"id": "5b6d1f0e-0000-4000-8000-00000000a011",
+					"name": "Welcome letter.docx",
+					"docx": [
+						"# Welcome to Hope Fellowship",
+						"We are a church for the city of Austin.",
+						"We gather on Sundays at 10 am."
+					]
+				}
+			],
+			"proposals": [
+				{
+					"operation": "documents.importTextOrWord",
+					"input": {
+						"attachmentId": "5b6d1f0e-0000-4000-8000-00000000a011"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/^(?![^\\n]*\\b(no|not|nothing|until|once|after|when|can['’]?t|won['’]?t)\\b)[^\\n]*\\b(has been|was|is now) (added|imported|saved|created)\\b/im"
+			],
+			"derivation": "The Owner attached a Word welcome letter in the Evry panel. Evry proposes the Documents import of that attachment; the review names the file and the title Welcome letter and shows the start of its text. Nothing is in Documents until the Owner approves."
+		}
+	},
+	{
+		"scenario_id": "docs",
+		"scenario": "Documents and knowledge",
+		"actor": "Planter preparing for the sending network or a core team night",
+		"area": "Documents / wiki",
+		"status": "Supported",
+		"case_id": "DOC-08",
+		"question": "make this a church document",
+		"expected_operation": "`documents.importTextOrWord` attempt, refused by the app's import",
+		"expected_answer": "Legacy Word documents are not accepted.",
+		"must_not": "Show a review card; offer to convert the file itself",
+		"eval": {
+			"attachments": [
+				{
+					"id": "5b6d1f0e-0000-4000-8000-00000000a012",
+					"name": "Old minutes.doc",
+					"base64": "0M8R4KGxGuEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+				}
+			],
+			"attempts": ["documents.importTextOrWord"],
+			"require": ["Legacy Word documents are not accepted."],
+			"derivation": "An old .doc file starts with the OLE signature, which the Documents import refuses with its own sentence. Evry says that sentence and prepares no review card."
+		}
+	},
+	{
+		"scenario_id": "docs",
+		"scenario": "Documents and knowledge",
+		"actor": "Planter preparing for the sending network or a core team night",
+		"area": "Documents / wiki",
+		"status": "Supported",
+		"case_id": "DOC-09",
+		"question": "turn this into a church document please",
+		"expected_operation": "`documents.importTextOrWord` attempt, refused by the app's import",
+		"expected_answer": "Text must be UTF-8.",
+		"must_not": "Show a review card; guess the file's text",
+		"eval": {
+			"attachments": [
+				{
+					"id": "5b6d1f0e-0000-4000-8000-00000000a013",
+					"name": "Announcements.txt",
+					"base64": "SGn//iE="
+				}
+			],
+			"attempts": ["documents.importTextOrWord"],
+			"require": ["Text must be UTF-8."],
+			"derivation": "The attached text file has bytes that are not UTF-8, which the Documents import refuses with its own sentence. Evry says that sentence and prepares no review card."
+		}
+	},
+	{
 		"scenario_id": "clean",
 		"scenario": "Data cleanup and import",
 		"actor": "Admin/ops volunteer, usually Owner or Admin seat",
