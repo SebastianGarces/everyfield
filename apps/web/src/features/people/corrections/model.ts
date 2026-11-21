@@ -26,8 +26,6 @@ export {
 	counted,
 	kindTitle,
 	listText,
-	type Blocker,
-	type InverseConflict,
 	type ReferenceKind,
 } from "@everyfield/contracts/people";
 import type { ReferenceKind } from "@everyfield/contracts/people";
