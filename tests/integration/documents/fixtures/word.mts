@@ -34,7 +34,8 @@ export const p = (runs: Runs = [], props = "") =>
 export const styled = (styleId: string, runs: Runs) => p(runs, `<w:pStyle w:val="${styleId}"/>`);
 export const numbered = (numId: string | number, runs: Runs, ilvl = 0) =>
 	p(runs, `<w:numPr><w:ilvl w:val="${ilvl}"/><w:numId w:val="${numId}"/></w:numPr>`);
-export const link = (id: string, text: string) => `<w:hyperlink r:id="${id}"><w:r><w:t>${text}</w:t></w:r></w:hyperlink>`;
+export const link = (id: string, text: string) =>
+	`<w:hyperlink r:id="${id}"><w:r><w:t>${text}</w:t></w:r></w:hyperlink>`;
 export const br = "<w:r><w:br/></w:r>";
 export const tab = "<w:r><w:tab/></w:r>";
 export const textBox = (inner: string) =>
@@ -42,7 +43,8 @@ export const textBox = (inner: string) =>
 
 export const table = (rows: string[], props = "") =>
 	`<w:tbl>${props ? `<w:tblPr>${props}</w:tblPr>` : ""}<w:tblGrid/>${rows.join("")}</w:tbl>`;
-export const row = (cells: string[], props = "") => `<w:tr>${props ? `<w:trPr>${props}</w:trPr>` : ""}${cells.join("")}</w:tr>`;
+export const row = (cells: string[], props = "") =>
+	`<w:tr>${props ? `<w:trPr>${props}</w:trPr>` : ""}${cells.join("")}</w:tr>`;
 export const headerRow = (cells: string[], value?: string) =>
 	row(cells, value === undefined ? "<w:tblHeader/>" : `<w:tblHeader w:val="${value}"/>`);
 export const cell = (blocks: Runs = "", props = "") =>
@@ -96,7 +98,8 @@ const PKG = 'xmlns="http://schemas.openxmlformats.org/package/2006/relationships
 export function textutilWord(paragraphs: string[], documentRels?: string) {
 	const run = (inner: string) =>
 		`<w:p><w:pPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Helvetica Light" w:hAnsi="Helvetica Light" w:cs="Helvetica Light"/><w:sz w:val="24"/><w:sz-cs w:val="24"/></w:rPr>${inner}</w:r></w:p>`;
-	const rel = (id: string, type: string, target: string) => `<Relationship Id="${id}" Type="${type}" Target="${target}"/>`;
+	const rel = (id: string, type: string, target: string) =>
+		`<Relationship Id="${id}" Type="${type}" Target="${target}"/>`;
 	const parts = {
 		"[Content_Types].xml": `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>`,
 		"_rels/.rels": `${XML}<Relationships ${PKG}>${rel("rId3", `${OFFICE}/extended-properties`, "docProps/app.xml")}${rel("rId2", "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties", "docProps/core.xml")}${rel("rId1", `${OFFICE}/officeDocument`, "word/document.xml")}</Relationships>`,
