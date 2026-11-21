@@ -3352,12 +3352,45 @@ export const ORGANIZATION_SEAT_CHECKS = {
 };
 const SEAT_CODE = /^(apps\/web\/src|packages\/domain\/src)\//;
 const unchained = (node) => (node?.type === "ChainExpression" ? node.expression : node);
-const kindOf = (node) => {
+const OWNER = { type: "Identifier", name: "owner" };
+const ownerRead = (node) => {
 	const at = unchained(node);
-	return at?.type === "MemberExpression" && memberName(at) === "kind" ? unchained(at.object) : null;
+	if (at?.type === "ConditionalExpression") return ownerRead(at.consequent) || ownerRead(at.alternate);
+	if (at?.type === "LogicalExpression") return ownerRead(at.left) || ownerRead(at.right);
+	return at?.type === "MemberExpression" && memberName(at) === "owner";
 };
-const namesOwner = (node) => (node?.type === "Identifier" ? node.name === "owner" : memberName(node) === "owner");
-const comparedKinds = (node) => {
+const seatNames = () => {
+	const kinds = new Map();
+	const owners = new Set();
+	const bind = (pattern, from) => {
+		if (pattern?.type !== "ObjectPattern") return;
+		for (const property of pattern.properties) {
+			if (property.type !== "Property") continue;
+			const key = keyName(property.key, property.computed);
+			const value = property.value.type === "AssignmentPattern" ? property.value.left : property.value;
+			if (key === "kind" && value.type === "Identifier") kinds.set(value.name, from);
+			if (key === "owner" && value.type === "Identifier") owners.add(value.name);
+			if (key === "owner") bind(value, OWNER);
+		}
+	};
+	const declare = (node) => {
+		const init = unchained(node.init);
+		if (node.id.type === "ObjectPattern") bind(node.id, init);
+		if (node.id.type !== "Identifier") return;
+		if (ownerRead(init)) owners.add(node.id.name);
+		if (init?.type === "MemberExpression" && memberName(init) === "kind")
+			kinds.set(node.id.name, unchained(init.object));
+	};
+	const kindOf = (node) => {
+		const at = unchained(node);
+		if (at?.type === "Identifier") return kinds.get(at.name) ?? null;
+		return at?.type === "MemberExpression" && memberName(at) === "kind" ? unchained(at.object) : null;
+	};
+	const namesOwner = (node) =>
+		node?.type === "Identifier" ? node.name === "owner" || owners.has(node.name) : memberName(node) === "owner";
+	return { declare, kindOf, namesOwner };
+};
+const comparedKinds = (node, kindOf) => {
 	if (node.type === "SwitchCase") return node.test ? [[kindOf(node.parent.discriminant), node.test]] : [];
 	return [
 		[kindOf(node.left), node.right],
@@ -3371,14 +3404,19 @@ const organizationSeatCheck = {
 		const path = repoPath(context.filename);
 		if (!SEAT_CODE.test(path)) return {};
 		const home = Object.hasOwn(ORGANIZATION_SEAT_CHECKS, path);
+		const names = seatNames();
+		const comparisons = [];
 		const seats = [];
 		const organizations = [];
 		const visit = (node) => {
 			if (node.type === "BinaryExpression" && !EQUALITY.has(node.operator)) return;
-			for (const [subject, value] of comparedKinds(node)) {
+			comparisons.push(node);
+		};
+		const sort = (node) => {
+			for (const [subject, value] of comparedKinds(node, names.kindOf)) {
 				if (!subject || value?.type !== "Literal") continue;
 				if (value.value === "seat") seats.push(nearestFunction(node));
-				if (value.value === "organization" && namesOwner(subject)) organizations.push(node);
+				if (value.value === "organization" && names.namesOwner(subject)) organizations.push(node);
 			}
 		};
 		const within = (fn, outer) => {
@@ -3388,7 +3426,9 @@ const organizationSeatCheck = {
 		return {
 			BinaryExpression: visit,
 			SwitchCase: visit,
+			VariableDeclarator: names.declare,
 			"Program:exit"(program) {
+				comparisons.forEach(sort);
 				const found = organizations.filter((node) => seats.some((fn) => within(nearestFunction(node), fn)));
 				if (home && found.length === 0)
 					context.report({

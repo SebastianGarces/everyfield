@@ -1829,7 +1829,7 @@ export function gate(path: string, out: boolean) {
 	]);
 });
 
-test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper", () => {
+test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper, through a destructured kind or a renamed owner too", () => {
 	const source = `import type { RequestActor } from "@everyfield/domain/access";
 export function a(authority: RequestActor | null) {
 	const context = authority?.actor.context;
@@ -1865,6 +1865,30 @@ export function e(authority: RequestActor) {
 export function f(owner: { kind: string }, seat: { kind: string }) {
 	return owner.kind === "organization" && seat.kind !== "account";
 }
+export function g(authority: RequestActor) {
+	const { kind, owner } = authority.actor.context;
+	if (kind !== "seat") return null;
+	return owner.kind === "organization" ? owner : null;
+}
+export function h(authority: RequestActor) {
+	const context = authority.actor.context;
+	if (context.kind !== "seat") return null;
+	const { owner: home } = context;
+	return home.kind === "organization" ? home : null;
+}
+export function i(authority: RequestActor) {
+	const context = authority.actor.context;
+	const holder = context.kind === "seat" ? context.owner : null;
+	return holder?.kind === "organization";
+}
+export function j(authority: RequestActor) {
+	const { kind: seatKind, owner: { kind: ownerKind } } = authority.actor.context;
+	return seatKind === "seat" && ownerKind === "organization";
+}
+export function k(authority: RequestActor, kind: string) {
+	const { owner } = authority.actor.context;
+	return kind === "seat" && owner.kind === "plant";
+}
 `;
 	assert.deepEqual(
 		lint({
@@ -1877,11 +1901,19 @@ export function f(owner: { kind: string }, seat: { kind: string }) {
 			"apps/web/src/features/x/server.ts:10 organization-seat",
 			"apps/web/src/features/x/server.ts:17 organization-seat",
 			"apps/web/src/features/x/server.ts:27 organization-seat",
+			"apps/web/src/features/x/server.ts:39 organization-seat",
 			"apps/web/src/features/x/server.ts:4 organization-seat",
+			"apps/web/src/features/x/server.ts:45 organization-seat",
+			"apps/web/src/features/x/server.ts:50 organization-seat",
+			"apps/web/src/features/x/server.ts:54 organization-seat",
 			"packages/domain/src/x/index.ts:10 organization-seat",
 			"packages/domain/src/x/index.ts:17 organization-seat",
 			"packages/domain/src/x/index.ts:27 organization-seat",
+			"packages/domain/src/x/index.ts:39 organization-seat",
 			"packages/domain/src/x/index.ts:4 organization-seat",
+			"packages/domain/src/x/index.ts:45 organization-seat",
+			"packages/domain/src/x/index.ts:50 organization-seat",
+			"packages/domain/src/x/index.ts:54 organization-seat",
 		],
 	);
 	assert.deepEqual(lint({ "packages/domain/src/access/organization-seat.ts": "export const seat = 1;\n" }), [
