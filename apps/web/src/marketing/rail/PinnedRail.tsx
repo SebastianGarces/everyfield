@@ -180,9 +180,9 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 				<span
 					ref={drive}
 					aria-hidden="true"
-					className="pointer-events-none invisible absolute inset-x-0 top-0 h-0 w-px mk-cx:motion-safe:top-[calc(-1*var(--rail-stick))] mk-cx:motion-safe:h-[calc(var(--rail-travel)+100vh)]"
+					className="pointer-events-none invisible absolute inset-x-0 top-0 h-0 w-px mk-pinned:top-[calc(-1*var(--rail-stick))] mk-pinned:h-[calc(var(--rail-travel)+100vh)]"
 				/>
-				<div ref={frame} className="mk-cx:motion-safe:sticky mk-cx:motion-safe:top-(--rail-stick)">
+				<div ref={frame} className="mk-pinned:sticky mk-pinned:top-(--rail-stick)">
 					{head}
 					<div
 						ref={rail}
@@ -203,19 +203,19 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 							}
 						}}
 						className={cn(
-							"snap-x snap-mandatory scroll-px-(--rail-inset) overflow-x-auto overflow-y-hidden overscroll-x-contain px-(--rail-inset) pt-1.5 pb-[22px] [scrollbar-width:none] max-mk-cx:cursor-grab motion-reduce:cursor-grab mk-cx:motion-safe:overflow-clip [&::-webkit-scrollbar]:hidden",
+							"snap-x snap-mandatory scroll-px-(--rail-inset) overflow-x-auto overflow-y-hidden overscroll-x-contain px-(--rail-inset) pt-1.5 pb-[22px] [scrollbar-width:none] max-mk-cx:cursor-grab motion-reduce:cursor-grab mk-pinned:overflow-clip [&::-webkit-scrollbar]:hidden",
 							dragging && "select-none max-mk-cx:cursor-grabbing motion-reduce:cursor-grabbing",
 						)}
 					>
 						<ol
 							ref={list}
-							className="flex w-max gap-(--rail-gap) mk-cx:motion-safe:[translate:var(--rail-from)] mk-cx:motion-safe:will-change-transform"
+							className="flex w-max gap-(--rail-gap) mk-pinned:[translate:var(--rail-from)] mk-pinned:will-change-transform"
 						>
 							{children}
 						</ol>
 					</div>
 				</div>
-				<div ref={room} aria-hidden="true" className="hidden h-(--rail-travel) mk-cx:motion-safe:block" />
+				<div ref={room} aria-hidden="true" className="hidden h-(--rail-travel) mk-pinned:block" />
 			</div>
 		</section>
 	);

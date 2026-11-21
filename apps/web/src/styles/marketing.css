@@ -433,6 +433,14 @@
 	);
 }
 
+@custom-variant mk-pinned {
+	@media (width >= 901px) and (prefers-reduced-motion: no-preference) {
+		&:where([data-js] *) {
+			@slot;
+		}
+	}
+}
+
 @utility mk-rail {
 	container-type: inline-size;
 	--rail-top: clamp(148px, 2.5vw + 126px, 162px);
