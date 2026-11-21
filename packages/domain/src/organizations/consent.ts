@@ -184,8 +184,8 @@ export function consentOperations(
 		async "pipelineSharing.setConsent"(tx, session, selected, raw) {
 			return auditSavepoint(tx, async () => {
 				const q = Q.setPipelineConsentRequest.parse(raw),
-					a = await loadAffiliation(tx, q.input.relationshipId, true),
-					actor = await writeActor(tx, session, selected);
+					actor = await writeActor(tx, session, selected),
+					a = await loadAffiliation(tx, q.input.relationshipId, true);
 				if (
 					!a ||
 					actor.status !== "active" ||
