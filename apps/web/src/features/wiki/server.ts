@@ -10,6 +10,7 @@ import {
 	type ArticleVersion,
 	articlePath,
 	listed,
+	pdfFilename,
 	sourceInput,
 	sourceRows,
 	treeModel,
@@ -460,4 +461,37 @@ export const progressRoute = mutatingRoute(async function progressRoute(request:
 export function mountFor(actor: RequestActor | null) {
 	if (!actor) return { status: "denied" as const };
 	return { status: "ready" as const, actor, mount: wikiMount() };
+}
+
+export async function pdfRoute(request: Request): Promise<Response> {
+	const articleId = new URL(request.url).searchParams.get("article") ?? "";
+	if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(articleId))
+		return new Response(null, { status: 404 });
+	const actor = await viewerActor();
+	if (!actor) return new Response(null, { status: 401 });
+	const mount = wikiMount();
+	try {
+		const [shown, made] = await Promise.all([
+			mount.producer.getArticle(mount.db, actor, { articleId }),
+			mount.producer.exportPdf(mount.db, actor, { articleId }),
+		]);
+		const article = shown.status === "ok" ? shown.value.article : null;
+		if (!article || made.status !== "ok" || made.value.errorCode) return new Response(null, { status: 404 });
+		const headers = { "cache-control": "private, no-store" };
+		if (made.value.bytes)
+			return new Response(Buffer.from(made.value.bytes, "base64"), {
+				headers: {
+					...headers,
+					"content-type": "application/pdf",
+					"content-disposition": `attachment; filename="${pdfFilename(article.slug)}"`,
+				},
+			});
+		if (made.value.html)
+			return new Response(made.value.html, { headers: { ...headers, "content-type": "text/html; charset=utf-8" } });
+		return new Response(null, { status: 404 });
+	} catch (error) {
+		if (!isTransient(error)) throw unexpected({ component: "wiki", outcome: "pdf-route-failed" }, error);
+		logFailure({ component: "wiki", outcome: "pdf-route-failed" }, error);
+		return new Response(null, { status: 503 });
+	}
 }

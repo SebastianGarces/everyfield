@@ -12,12 +12,13 @@ import {
 	upstreamReviewResult,
 	type WikiReply,
 } from "@everyfield/contracts/wiki";
+import type { PeopleContext } from "@everyfield/contracts/people";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
-import type { RequestActor } from "../access/session.ts";
-import { GLOBAL, deny, meSql, parse, refused, runRead, runWrite } from "./core.ts";
+import type { RequestActor, WriteTx } from "../access/session.ts";
+import { GLOBAL, claimedWrite, deny, meSql, ownWrite, parse, refused, runRead, runWrite, type Runner } from "./core.ts";
 
 type OrgValue = z.infer<typeof organizationArticleResult>;
 type Mine = z.infer<typeof feedbackMine>;
@@ -85,11 +86,19 @@ export function getMine(db: Database, authority: RequestActor, raw: unknown) {
 }
 
 export function setMine(db: Database, authority: RequestActor, raw: unknown) {
+	return saveVote(ownWrite(db, authority), authority, raw);
+}
+export async function setMineIn(tx: WriteTx, context: PeopleContext, raw: unknown) {
+	const claimed = await claimedWrite(tx, context.session, context.selected);
+	if (!claimed) return refused("access_denied");
+	return saveVote(claimed.run, claimed.authority, raw);
+}
+function saveVote(run: Runner, authority: RequestActor, raw: unknown) {
 	const input = parse(feedbackSetMineRequest, raw);
 	const context = authority.actor.context;
 	if (context.kind !== "seat" || context.owner.kind !== "plant") return Promise.resolve(refused("access_denied"));
 	const owner = context.owner;
-	return runWrite(db, authority, owner, "wiki.feedback.setMine", input, feedbackMine, async (tx) => {
+	return run(owner, "wiki.feedback.setMine", input, feedbackMine, async (tx) => {
 		const result = await tx.execute(sql`
 			WITH ${meSql(authority, owner)},
 			prior AS (

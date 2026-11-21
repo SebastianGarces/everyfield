@@ -4,16 +4,27 @@ import {
 	approvable,
 	carryOverText,
 	approvalLeft,
+	consequence,
 	digestSchedule,
 	editableChanges,
+	fieldLabel,
+	openCriteria,
 	reviewedNotices,
 	settingChanges,
 	isRequired,
+	itemField,
 	missingRequired,
+	openAfter,
+	operationTitle,
 	peopleResult,
 	phaseOf,
+	refusalText,
 	retryable,
 	reviseInput,
+	savedText,
+	showsBefore,
+	subjectName,
+	valueText,
 } from "../../../apps/web/src/features/evry/review/model.ts";
 
 const now = "2026-10-21T12:00:00Z";
@@ -114,6 +125,154 @@ test("AC:REQ-PPL-026 INV-revise-adult: adult or child is required only until a b
 		missingRequired(dated, { ...edits, birthDate: "", adultClassification: "" })?.field,
 		"adultClassification",
 	);
+});
+
+test("INV-review-tasks: task and follow-up reviews say their values in words and are approved as prepared", () => {
+	const task = { kind: "task", id: "44444444-4444-4444-8444-444444444444", label: "Order launch banners" };
+	const change = (field, before, after) => ({ field, before, after });
+	const of = (operation, target, changes) => review({ operation, review: { target, changes } });
+
+	assert.equal(valueText("status", "not_started"), "Not started");
+	assert.equal(valueText("status", "complete"), "Complete");
+	assert.equal(valueText("followUp", "no_longer_needed"), "No longer needed");
+	assert.equal(valueText("outcome", "contacted"), "Contacted (a conversation happened)");
+	assert.equal(valueText("outcome", "attempted_no_contact"), "Attempted, no conversation");
+	assert.equal(valueText("outcome", "administrative_completion"), "Administrative completion");
+	assert.equal(valueText("channel", "phone"), "Phone call");
+	assert.equal(valueText("due", "2026-11-16 America/Chicago"), "Mon, Nov 16, 2026");
+	assert.equal(
+		valueText("occurredAt", "2026-11-13 14:05 America/Chicago"),
+		"Fri, Nov 13, 2026, 2:05 PM (Chicago time)",
+	);
+	assert.equal(valueText("recurrence", "weekly on Mondays, America/Chicago"), "Weekly on Mondays (America/Chicago)");
+	assert.equal(valueText("recurrence", null), "Doesn't repeat");
+	assert.equal(valueText("owners", null), "Needs owner");
+	assert.equal(valueText("relatedTo", task.id), "A linked record", "an id is never shown");
+	assert.equal(fieldLabel("occurredAt"), "When");
+	assert.equal(operationTitle("followups.recordOutcome"), "Log a contact");
+
+	const complete = of("tasks.complete", task, [change("status", "not_started", "complete")]);
+	assert.equal(savedText(complete), "Saved. Order launch banners is complete.");
+	assert.deepEqual(openAfter(complete), { href: `/tasks?task=${task.id}`, label: "Open task" });
+	assert.deepEqual(editableChanges(complete), []);
+	assert.equal(editableChanges(review()).length, 1);
+	assert.equal(
+		refusalText("conflict", task.label, "tasks.complete"),
+		"Order launch banners changed after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.",
+	);
+
+	const bulk = of("tasks.bulkComplete", null, [
+		change("Order launch banners", "not_started", "complete"),
+		change("Buy coffee", "in_progress", "complete"),
+	]);
+	assert.equal(itemField("tasks.bulkComplete"), "status");
+	assert.equal(subjectName(bulk), "2 tasks");
+	assert.equal(savedText(bulk), "Saved. 2 tasks are complete.");
+	assert.deepEqual(openAfter(bulk), { href: "/tasks", label: "Open Tasks" });
+	const checklist = of("tasks.createSubtask", task, [change("Print bulletins", null, "added")]);
+	assert.equal(showsBefore(checklist, checklist.review.changes[0]), false, "a new item has no before");
+
+	const log = of("followups.recordOutcome", maria, [
+		change("outcome", null, "contacted"),
+		change("followUp", "not_started", "complete"),
+	]);
+	assert.equal(showsBefore(log, log.review.changes[0]), false);
+	assert.equal(showsBefore(log, log.review.changes[1]), true, "the follow-up's status before is shown");
+	assert.equal(savedText(log), "Saved. The contact with Maria Santos is logged.");
+	assert.deepEqual(openAfter(log), { href: `/people/${maria.id}`, label: "Open Maria Santos" });
+	assert.equal(savedText(review()), "Saved. Maria Santos is updated.");
+});
+
+test("INV-review-judgments: a recorded judgment's review shows exactly what was given, in the People screens' words", async () => {
+	const { afterOnly, editableChanges, fieldLabel, valueText } =
+		await import("../../../apps/web/src/features/evry/review/model.ts");
+	assert.equal(fieldLabel("chemistry"), "Team chemistry");
+	assert.equal(valueText("chemistry", { rating: "concern", notes: "Needs time" }), "Concern · Needs time");
+	assert.equal(valueText("committed", { score: 4, notes: null }), "4 of 5");
+	assert.equal(valueText("result", "qualified_with_notes"), "Qualified with notes");
+	assert.equal(valueText("occurredOn", "2026-10-12"), "Oct 12, 2026");
+	assert.equal(valueText("kind", "core_group"), "Core group");
+	assert.equal(valueText("commitment", "withdrawn"), "Withdrawn");
+	const interview = { operation: "people.createInterview" };
+	assert.equal(afterOnly(interview, "maturity"), true);
+	assert.equal(afterOnly(interview, "stage"), false);
+	assert.equal(afterOnly({ operation: "people.correctPersonRecord" }, "occurredOn"), false);
+	assert.equal(afterOnly({ operation: "people.mergePeople" }, "keeps"), true);
+	for (const operation of [
+		"people.createInterview",
+		"people.createAssessment",
+		"people.mergePeople",
+		"people.unmergePeople",
+	])
+		assert.deepEqual(
+			editableChanges({
+				operation,
+				review: { target: null, changes: [{ field: "occurredOn", before: null, after: "2026-10-12" }] },
+			}),
+			[],
+			operation,
+		);
+});
+
+const church = { kind: "plant", id: "22222222-2222-4222-8222-222222222222", label: "Hope Fellowship" };
+const CORE = { phase: 1, name: "Core Group Development" };
+const move = (to, direction, open) =>
+	review({
+		operation: "phases.transition",
+		review: {
+			target: church,
+			changes: [
+				{ field: "phase", before: CORE, after: to },
+				{ field: "direction", before: null, after: direction },
+				{ field: "reason", before: null, after: "Ready for launch teams" },
+				...(open ? [{ field: "openCriteria", before: null, after: open }] : []),
+			],
+		},
+	});
+
+test("INV-phase-review: a phase move names its phases, labels a move backward and never calls the church ready", () => {
+	const open = [{ label: "30 committed adults", status: "no data yet" }];
+	const forward = move({ phase: 2, name: "Launch Team Formation" }, "forward", open);
+	assert.equal(valueText("phase", CORE), "Core Group Development");
+	assert.equal(valueText("direction", "forward"), "Forward, to the next phase");
+	assert.deepEqual(openCriteria(forward), open);
+	assert.doesNotMatch(consequence(forward), /\bis ready\b/);
+	const backward = move({ phase: 0, name: "Discovery" }, "backward", null);
+	assert.equal(valueText("direction", "backward"), "Backward, to an earlier phase");
+	assert.equal(consequence(backward), "This is a move backward. The phase journey keeps every earlier move.");
+	assert.equal(openCriteria(backward), null);
+	assert.deepEqual(
+		editableChanges(forward).map((c) => c.field),
+		["reason"],
+	);
+	assert.deepEqual(reviseInput(forward, { reason: "Teams are forming" }), { toPhase: 2, reason: "Teams are forming" });
+});
+
+test("INV-phase-review: a signal review shows the signal's name and rebuilds its exact input", () => {
+	const PRAYER = { key: "prayer_rhythm_established", label: "Corporate prayer rhythm established" };
+	const facts = [
+		{ field: "signal", before: null, after: PRAYER },
+		{ field: "value", before: null, after: "yes" },
+		{ field: "asOf", before: null, after: "2026-11-09" },
+		{ field: "detail", before: null, after: "We started prayer and fasting this week." },
+	];
+	const attest = review({ operation: "signals.attest", review: { target: church, changes: facts } });
+	assert.equal(valueText("signal", PRAYER), "Corporate prayer rhythm established");
+	assert.equal(valueText("value", "not_yet"), "Not yet");
+	assert.equal(valueText("asOf", "today"), "Today, when you approve");
+	assert.deepEqual(reviseInput(attest, { detail: "We began praying and fasting together." }), {
+		key: PRAYER.key,
+		value: "yes",
+		asOf: "2026-11-09",
+		detail: "We began praying and fasting together.",
+	});
+	const retract = review({
+		operation: "signals.correct",
+		review: { target: church, changes: [facts[0], { field: "value", before: "yes", after: "retracted" }] },
+	});
+	assert.deepEqual(reviseInput(retract), { action: "retract", key: PRAYER.key });
+	const reaffirm = review({ operation: "signals.reaffirm", review: { target: church, changes: [facts[0]] } });
+	assert.deepEqual([reviseInput(reaffirm), editableChanges(reaffirm)], [{ key: PRAYER.key }, []]);
 });
 
 test("INV-notification-review a settings review groups each category's channels, a digest review names its schedule, and neither can be revised", () => {

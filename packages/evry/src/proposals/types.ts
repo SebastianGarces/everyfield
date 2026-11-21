@@ -8,12 +8,16 @@ import type { DeletionProducer, NativeAccountProducer, SettingsProducer } from "
 import type { DeliveryKeys, DeliveryTransport } from "@everyfield/domain/communication";
 import type { MailReport } from "@everyfield/contracts/communication";
 import type { PeopleContext } from "@everyfield/contracts/people";
+import type { PhaseNotices } from "@everyfield/domain/phases";
 import type { LaunchNotices } from "@everyfield/domain/launch";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
+import type { ConversationFiles } from "../catalog/types.ts";
 
 export type MailPort = { transport: DeliveryTransport; keys: DeliveryKeys };
+
+export type EffectPorts = { reminders: TaskReminders; phaseNotices: PhaseNotices };
 
 export type NativePorts = {
 	invitations(
@@ -31,7 +35,13 @@ export type NativePorts = {
 	launchNotices?: LaunchNotices;
 };
 
-export type ReviewContext = { db: Database; mail: MailPort | null; native: NativePorts | null };
+export type ReviewContext = {
+	db: Database;
+	mail: MailPort | null;
+	native: NativePorts | null;
+	conversationId: string | null;
+	files?: ConversationFiles | null;
+};
 
 export type NativeContext = { authority: RequestActor; ports: NativePorts | null };
 
@@ -68,7 +78,7 @@ export type ReviewedWrite<I> = {
 		context: PeopleContext,
 		args: unknown,
 		effectKey: string,
-		reminders: TaskReminders,
+		ports: EffectPorts,
 		native: NativeContext,
 	): Promise<EffectResult>;
 	approveNow?: {

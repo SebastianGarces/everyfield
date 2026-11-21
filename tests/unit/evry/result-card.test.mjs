@@ -513,6 +513,153 @@ test("INV-result-card-duplicate-pairs: listDuplicatePairs is a Duplicates to rev
 	);
 });
 
+test("INV-result-card-tasks: task rows say due, owner and overdue in words and open the task in Tasks", () => {
+	const T1 = "44444444-4444-4444-8444-444444444444";
+	const task = (id, label, fields) => ({ kind: "task", id, label, fields: { status: "not_started", ...fields } });
+	const view = cardView(
+		"tasks.list",
+		result("tasks.list", [
+			task(T1, "Order launch banners", { due: "2026-10-09", overdue: true, owners: "Ana Rivera", needsOwner: false }),
+			task(P1, "Research sound systems", { due: null, overdue: false, owners: null, needsOwner: true }),
+			task(P2, "Pray for the launch", {
+				due: "2026-11-15 09:30 America/Chicago",
+				owners: "you",
+				status: "in_progress",
+			}),
+			task(H, "Set out chairs", { owners: null, needsOwner: true, parentId: T1 }),
+		]),
+		null,
+	);
+	assert.equal(view.title, "Tasks");
+	assert.equal(view.summary, "4 tasks");
+	assert.equal(view.icon, "task");
+	assert.deepEqual(
+		view.rows.map((r) => [r.name, r.line, r.mark, r.avatar, r.href]),
+		[
+			[
+				"Order launch banners",
+				"Due Oct 9 · Ana Rivera",
+				{ kind: "status", text: "Overdue", warn: true },
+				"task",
+				`/tasks?task=${T1}`,
+			],
+			["Research sound systems", "Needs owner", null, "task", `/tasks?task=${P1}`],
+			[
+				"Pray for the launch",
+				"Due Nov 15, 9:30 AM · Yours",
+				{ kind: "status", text: "In progress", warn: false },
+				"task",
+				`/tasks?task=${P2}`,
+			],
+			["Set out chairs", "Needs owner", null, "task", `/tasks?task=${T1}`],
+		],
+	);
+	const count = cardView(
+		"tasks.count",
+		result(
+			"tasks.count",
+			[
+				{ kind: "tally", id: "status:not_started", label: "not_started", fields: { count: 3, of: "tasks" } },
+				{ kind: "tally", id: "checklist", label: "checklist rows", fields: { count: 2, complete: 1 } },
+			],
+			{ total: 5 },
+		),
+		null,
+	);
+	assert.equal(count.summary, "5 tasks");
+	assert.deepEqual(
+		count.rows.map((r) => [r.name, r.line]),
+		[
+			["Not started", "3 tasks"],
+			["Checklist items", "1 of 2 items done"],
+		],
+	);
+});
+
+test("INV-result-card-phases: the journey names the current phase and its start, and a criterion without data says so", () => {
+	const journey = cardView(
+		"phases.readHistory",
+		result("phases.readHistory", [
+			{
+				kind: "phase",
+				id: "current",
+				label: "Core Group Development",
+				fields: { current: true, phase: "1", since: "2026-08-03", timeZone: "America/Chicago", declarable: false },
+			},
+			{
+				kind: "phase",
+				id: "entry:1",
+				label: "Discovery",
+				fields: {
+					entry: "movement",
+					direction: "backward",
+					reason: "Starting over",
+					by: "Nate Ellis",
+					on: "2026-04-01",
+				},
+			},
+		]),
+		null,
+	);
+	assert.deepEqual(
+		[journey.title, journey.summary, journey.icon],
+		["Phase journey", "Core Group Development", "phase"],
+	);
+	assert.equal(journey.rows[0].line, "Current phase · since Aug 3, 2026");
+	assert.deepEqual(journey.rows[1].mark, { kind: "status", text: "Backward", warn: true });
+	assert.ok(journey.rows.every((r) => r.href === null));
+
+	const readiness = cardView(
+		"phases.readReadiness",
+		result("phases.readReadiness", [
+			{ kind: "phase", id: "1", label: "Core Group Development", fields: { next: "Launch Team Formation" } },
+			{ kind: "criterion", id: "committed_adults", label: "30 committed adults", fields: { status: "no data yet" } },
+			{ kind: "criterion", id: "worship_leader", label: "Worship leader identified", fields: { status: "met" } },
+		]),
+		null,
+	);
+	assert.deepEqual([readiness.title, readiness.summary], ["Exit criteria", "2 criteria"]);
+	assert.deepEqual(
+		readiness.rows.map((r) => [r.name, r.line]),
+		[
+			["Core Group Development", "Before Launch Team Formation"],
+			["30 committed adults", "No data yet"],
+			["Worship leader identified", "Met"],
+		],
+	);
+});
+
+test("INV-result-card-corrections: a correction row lists each field old to new, and a row in another shape breaks nothing", async () => {
+	const { cardView } = await import("../../../apps/web/src/features/evry/conversation/resultView.ts");
+	const row = (changes) => ({
+		kind: "correction",
+		id: "c1",
+		label: "interview corrected 2026-11-13",
+		fields: { recordType: "interview", correctedAt: "2026-11-13T18:00:00Z", reason: null, changes },
+	});
+	const result = (rows) => ({
+		operation: "people.listRecordCorrections",
+		status: "available",
+		rows,
+		total: rows.length,
+		page: 1,
+		next: null,
+		completeness: "complete",
+		exclusions: [],
+	});
+	const view = cardView(
+		"people.listRecordCorrections",
+		result([row(JSON.stringify([{ field: "occurredOn", old: "2026-11-12", new: "2026-10-02" }]))]),
+		null,
+	);
+	assert.deepEqual(view.rows[0].details, [{ label: "Date", value: "2026-11-12 → 2026-10-02" }]);
+	assert.equal(view.summary, "1 correction");
+	assert.equal(
+		cardView("people.listRecordCorrections", result([row("occurredOn: a -> b")]), null).rows[0].details,
+		undefined,
+	);
+});
+
 const M1 = "44444444-4444-4444-8444-444444444444";
 const M2 = "55555555-5555-4555-8555-555555555555";
 const M3 = "66666666-6666-4666-8666-666666666666";
@@ -588,6 +735,84 @@ test("INV-meetings-list: a meetings list row says when and where in the church's
 	);
 });
 
+test("INV-result-card-follow-ups: follow-up, contact log and account rows name owners, outcomes and roles in words", () => {
+	const follow = cardView(
+		"tasks.listFollowUpOwners",
+		result("tasks.listFollowUpOwners", [
+			{
+				kind: "follow_up",
+				id: H,
+				label: "Daniel Cruz",
+				fields: {
+					personId: P1,
+					needsOwner: true,
+					owners: null,
+					due: "2026-11-12",
+					overdue: true,
+					from: "meeting: Interest night",
+					lastOutcome: "attempted_no_contact",
+				},
+			},
+		]),
+		null,
+	);
+	assert.equal(follow.summary, "1 follow-up");
+	assert.deepEqual(
+		follow.rows.map((r) => [r.name, r.line, r.mark, r.avatar, r.photoFor, r.href]),
+		[
+			[
+				"Daniel Cruz",
+				"Nobody assigned · Due Nov 12 · From Interest night · Last: Attempt, no conversation",
+				{ kind: "status", text: "Overdue", warn: true },
+				"person",
+				P1,
+				`/people/${P1}`,
+			],
+		],
+	);
+	const contact = (id, outcome, channel, state = "effective") => ({
+		kind: "contact",
+		id,
+		label: outcome,
+		fields: { personId: P1, outcome, channel, occurredAt: "2026-11-05T21:30:00.000Z", recordedBy: "Ana Rivera", state },
+	});
+	const log = cardView(
+		"followups.listContactHistory",
+		result("followups.listContactHistory", [
+			contact(H, "contacted", "phone"),
+			contact(P2, "attempted_no_contact", "text", "corrected"),
+			contact(P1, "administrative_completion", null),
+		]),
+		null,
+	);
+	assert.equal(log.title, "Contact log");
+	assert.equal(log.summary, "3 entries");
+	assert.deepEqual(
+		log.rows.map((r) => [r.name, r.line, r.mark?.text ?? null, r.href]),
+		[
+			["Call — conversation", "Nov 5, 2026 · Recorded by Ana Rivera", null, `/people/${P1}`],
+			["Attempt, no conversation", "Nov 5, 2026 · Text message · Recorded by Ana Rivera", "Corrected", `/people/${P1}`],
+			["Admin completion", "Nov 5, 2026 · Recorded by Ana Rivera", null, `/people/${P1}`],
+		],
+	);
+	const seats = cardView(
+		"tasks.eligibleAssignees",
+		result("tasks.eligibleAssignees", [
+			{ kind: "account", id: H, label: "Nate Ellis", fields: { role: "owner", canOwnFollowUps: true, you: true } },
+			{ kind: "account", id: P1, label: "Carlos Mendez", fields: { role: "member", canOwnFollowUps: false } },
+		]),
+		null,
+	);
+	assert.equal(seats.summary, "2 accounts");
+	assert.deepEqual(
+		seats.rows.map((r) => [r.name, r.line, r.avatar, r.photoFor, r.href]),
+		[
+			["Nate Ellis", "You · Owner · Can own follow-ups", "person", null, null],
+			["Carlos Mendez", "Member · Can't own follow-ups", "person", null, null],
+		],
+	);
+});
+
 test("INV-meetings-agenda: the agenda card leads with the app's print link, opened in a new tab, then the saved sections in order", () => {
 	const view = cardView(
 		"meetings.readAgenda",
@@ -605,6 +830,54 @@ test("INV-meetings-agenda: the agenda card leads with the app's print link, open
 			["Welcome and coffee", "4:00 pm · 15 min", null, false],
 			["Our story and vision", "4:15 pm · 20 min", null, false],
 		],
+	);
+});
+
+test("INV-result-card-dates: calendar cards name the local date and time, the zone and a repeated or skipped time", () => {
+	const date = (operation, fields) =>
+		cardView(
+			operation,
+			result(operation, [{ kind: "date", id: "d", label: String(fields.local ?? "d"), fields }]),
+			null,
+		);
+	const today = date("calendar.getContext", {
+		zone: "America/Chicago",
+		today: "2026-10-13",
+		weekday: "Tuesday",
+		offset: "-05:00",
+		zoneName: "CDT",
+	});
+	assert.deepEqual([today.title, today.summary, today.icon], ["Today", "1 date", "date"]);
+	assert.deepEqual(
+		today.rows.map((r) => [r.name, r.line, r.mark, r.href]),
+		[["Tuesday · 2026-10-13", "America/Chicago · CDT", null, null]],
+	);
+	const fold = date("calendar.resolve", {
+		status: "ambiguous",
+		local: "2026-11-01T01:30",
+		zone: "America/New_York",
+		option1: "Sun, Nov 1, 2026, 1:30 AM EDT",
+		option2: "Sun, Nov 1, 2026, 1:30 AM EST",
+	});
+	assert.equal(fold.title, "Date check");
+	assert.deepEqual(
+		fold.rows.map((r) => [r.name, r.line, r.mark]),
+		[["Sun, Nov 1, 2026, 1:30 AM", "Happens twice · America/New_York", null]],
+	);
+	const gap = date("calendar.resolve", { status: "nonexistent", local: "2027-03-14T02:30", zone: "America/New_York" });
+	assert.deepEqual(
+		[gap.rows[0].name, gap.rows[0].line],
+		["Sun, Mar 14, 2027, 2:30 AM", "Skipped by the clocks · America/New_York"],
+	);
+	const exact = date("calendar.resolve", {
+		status: "exact",
+		local: "2026-11-20T09:00",
+		zone: "America/New_York",
+		shows: "Fri, Nov 20, 2026, 9:00 AM EST",
+	});
+	assert.deepEqual(
+		exact.rows.map((r) => [r.name, r.line, r.mark]),
+		[["Fri, Nov 20, 2026, 9:00 AM", "EST · America/New_York", null]],
 	);
 });
 
