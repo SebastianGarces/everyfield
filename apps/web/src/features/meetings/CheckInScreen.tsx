@@ -19,6 +19,7 @@ import {
 	SegmentedControl,
 	toast,
 	Toaster,
+	InlineAlert,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, prefersReducedMotion } from "@everyfield/ui/foundations";
@@ -37,7 +38,7 @@ import { attendanceAfter, settledText, SettleDialog, usePresence, warmSeats, typ
 import { PersonPicker, type PickedPerson } from "./dialogs.tsx";
 import { problemText, RSVP_LABEL, type Guest } from "./model.ts";
 import { attendeeOf, isPending, PENDING, withAttendees, type GuestRow, type PendingGuest } from "./page-state.ts";
-import { Problem, TabStack } from "./parts.tsx";
+import { TabStack } from "./parts.tsx";
 import type { CheckInData } from "./server.ts";
 
 export function CheckInScreen({ data, admin }: { data: CheckInData; admin: boolean }) {
@@ -565,7 +566,7 @@ function WalkInDialog({
 								}),
 							}}
 						/>
-						<Problem text={problem} />
+						<InlineAlert>{problem}</InlineAlert>
 					</DialogBody>
 					<DialogFooter>
 						<Button variant="outline" type="button" onClick={onClose}>

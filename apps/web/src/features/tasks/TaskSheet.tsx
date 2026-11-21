@@ -1,7 +1,8 @@
 "use client";
 
-import { Alert02Icon, ArrowDown01Icon, Delete02Icon, Link04Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon, Delete02Icon, Link04Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
 import {
+	Alert,
 	Button,
 	buttonVariants,
 	IntentLink,
@@ -198,15 +199,11 @@ export function TaskSheet({
 					<div className="empty:hidden">
 						{notices}
 						{edit?.problem ? (
-							<p
-								role="alert"
-								className="flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600"
-							>
-								<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
+							<Alert role="alert">
 								{edit.kind === "prerequisites"
 									? `What this task waits for was not saved. ${problemText(edit.problem as never)}`
 									: `How this task repeats was not saved. ${problemText(edit.problem as never)}`}
-							</p>
+							</Alert>
 						) : null}
 					</div>
 					{canAct ? (
