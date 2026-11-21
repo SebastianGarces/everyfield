@@ -22,7 +22,8 @@ const KINDS = [
 	{ ext: /\.png$/i, mediaType: "image/png", max: ATTACHMENTS.photoBytes },
 	{ ext: /\.webp$/i, mediaType: "image/webp", max: ATTACHMENTS.photoBytes },
 ] as const;
-export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+export const PHOTO_NAME = /\.(jpe?g|png|webp)$/i;
 const fileName = z
 	.string()
 	.trim()
@@ -142,7 +143,7 @@ export async function requireStagedPhoto(
 		.array(attachmentState)
 		.parse(r.rows[0]?.attachments ?? [])
 		.find((a) => a.id === attachmentId);
-	if (!file || !/\.(jpe?g|png|webp)$/i.test(file.name)) throw new EvryRefusal("attachment_elsewhere");
+	if (!file || !PHOTO_NAME.test(file.name)) throw new EvryRefusal("attachment_elsewhere");
 	if (file.status === "replaced") throw new EvryRefusal("file_changed");
 	if (file.status !== "available") throw new EvryRefusal("attachment_gone");
 }

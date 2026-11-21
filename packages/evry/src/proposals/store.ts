@@ -202,8 +202,7 @@ export async function readStagedPhoto(db: Database, storage: PrivateStorage | nu
 	);
 	const found = r.rows[0]?.upload as string | undefined;
 	if (!found) throw new EvryRefusal("not_found");
-	const { bytes, mediaType } = await stagedBytes(db, storage, actor, proposalId, found);
-	return { bytes, mediaType };
+	return stagedBytes(db, storage, actor, proposalId, found);
 }
 
 const approval = z.strictObject({

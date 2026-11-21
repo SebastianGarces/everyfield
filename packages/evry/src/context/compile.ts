@@ -11,6 +11,7 @@ import type { EvryActor } from "./actor.ts";
 import { scrub } from "./errors.ts";
 import { LIMITS } from "./limits.ts";
 import { present } from "../runtime/captured.ts";
+import { PHOTO_NAME } from "../attachments/store.ts";
 
 export const PASTORAL_BOUNDARY =
 	"I help with the church planting work recorded in Everyfield. I can't give pastoral or Biblical counsel, write prayers, or judge whether someone is spiritually ready or qualified. Your church's leaders are the right people for that. I can show what is recorded about a person, such as their stage and history.";
@@ -294,7 +295,6 @@ export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "rol
 	lines.push("", "I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.");
 	return lines.join("\n");
 }
-const PHOTO_FILE = /\.(jpe?g|png|webp)$/i;
 export type VerifiedReference = { kind: "person" | "photo" | "article"; id: string; label: string };
 
 export async function resolveReferences(
@@ -477,7 +477,7 @@ export function compileContext(input: {
 			? "A file the user attached is listed below with its attachmentId. To check a People spreadsheet, call people.previewImport with its attachmentId; it writes nothing. To import it, propose people.executeBulkImport with that attachmentId and the fileDigest of its latest check. A file that is not listed, such as one attached in another conversation, on a computer or at a link, can't be used here: ask the user to attach it in this conversation."
 			: "",
 		input.catalog.reviewedWrites.some((w) => w.operation === "people.setPersonPhoto") &&
-		input.state?.attachments.some((a) => PHOTO_FILE.test(a.name))
+		input.state?.attachments.some((a) => PHOTO_NAME.test(a.name))
 			? "To make a photo attached here (a .jpg, .jpeg, .png or .webp file in the list of attached files) someone's People photo, find the person, then propose people.setPersonPhoto with that photo's attachmentId as uploadId. Use only a photo listed as available; for any other, ask the user to attach it here. An \"Attached photo\" reference is only for the user's own account photo (account.finalizeAvatar)."
 			: "",
 		...taskRules(input.catalog),
