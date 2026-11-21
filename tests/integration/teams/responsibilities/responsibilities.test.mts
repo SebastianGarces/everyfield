@@ -734,9 +734,10 @@ test("AC:TARGET-TEAM-007 a custom team adds, ticks, edits and deletes its own re
 	);
 	assert.equal(edited.text, "Greet every guest");
 	assert.deepEqual(
-		ok(await responsibilityReader.listResponsibilities(db, await viewer(), { teamId: team.id })).items.map(
-			(item) => [item.text, item.completedOn],
-		),
+		ok(await responsibilityReader.listResponsibilities(db, await viewer(), { teamId: team.id })).items.map((item) => [
+			item.text,
+			item.completedOn,
+		]),
 		[["Greet every guest", ticked.completedOn]],
 	);
 	const removed = ok(
