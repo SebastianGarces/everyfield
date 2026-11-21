@@ -259,7 +259,7 @@ export function createNativeEditorStore({
 	});
 }
 
-export type MovedEditor = {
+type MovedEditor = {
 	readonly store: StoreApi<NativeEditorState>;
 	readonly body: ReturnType<Editor["getJSON"]>;
 	readonly caret: number | null;
