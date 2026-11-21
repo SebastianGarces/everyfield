@@ -3250,8 +3250,10 @@ const domainRefusals = {
 };
 
 export const ORGANIZATION_SEAT_CHECKS = {
-	"apps/web/src/server/request-context.ts": "organizationSeatOf is the one narrowing every web gate shares",
+	"packages/domain/src/access/organization-seat.ts":
+		"organizationSeatContext is the one narrowing every domain and web gate shares",
 };
+const SEAT_CODE = /^(apps\/web\/src|packages\/domain\/src)\//;
 const unchained = (node) => (node?.type === "ChainExpression" ? node.expression : node);
 const kindOf = (node) => {
 	const at = unchained(node);
@@ -3270,7 +3272,7 @@ const organizationSeatCheck = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
-		if (!WEB_CODE.test(path)) return {};
+		if (!SEAT_CODE.test(path)) return {};
 		const home = Object.hasOwn(ORGANIZATION_SEAT_CHECKS, path);
 		const seats = [];
 		const organizations = [];
@@ -3300,8 +3302,9 @@ const organizationSeatCheck = {
 				for (const node of found)
 					context.report({
 						node,
-						message:
-							"Read an organization seat with organizationSeat() or organizationSeatOf(actor) from @/server/request-context instead of checking the seat and its organization owner by hand.",
+						message: WEB_CODE.test(path)
+							? "Read an organization seat with organizationSeat() or organizationSeatOf(actor) from @/server/request-context instead of checking the seat and its organization owner by hand."
+							: "Read an organization seat with organizationSeatContext(authority) from packages/domain/src/access/organization-seat.ts instead of checking the seat and its organization owner by hand.",
 					});
 			},
 		};

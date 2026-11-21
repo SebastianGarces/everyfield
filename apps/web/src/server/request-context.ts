@@ -1,10 +1,15 @@
 import "server-only";
-import { readRequestViewer, type RequestActor } from "@everyfield/domain/access";
+import {
+	organizationSeatContext,
+	readRequestViewer,
+	type OrganizationSeatContext,
+	type RequestActor,
+} from "@everyfield/domain/access";
 import { signedSessionToken } from "@everyfield/domain/identity";
 import { peopleViewer } from "@everyfield/domain/people";
 import { sessionResult } from "@everyfield/contracts/identity";
 import { avatarReference } from "@everyfield/contracts/settings";
-import type { Owner, Refused } from "@everyfield/contracts/common";
+import type { Refused } from "@everyfield/contracts/common";
 import { requestDatabase } from "./database";
 import { serverConfigProblem } from "./config.ts";
 import { cookies, headers } from "next/headers";
@@ -77,17 +82,15 @@ export type PlantSeat = NonNullable<Viewer["people"]> & { accountName: string };
 
 export const seatOf = (v: Viewer): PlantSeat | null => v.people && { ...v.people, accountName: v.displayName ?? "" };
 
-type SeatContext = Extract<RequestActor["actor"]["context"], { kind: "seat" }>;
-
 export type OrganizationSeat = {
 	authority: RequestActor;
-	organization: Extract<Owner, { kind: "organization" }>;
-	role: SeatContext["role"];
+	organization: OrganizationSeatContext["owner"];
+	role: OrganizationSeatContext["role"];
 };
 
 export function organizationSeatOf(authority: RequestActor | null): OrganizationSeat | null {
-	const context = authority?.actor.context;
-	if (!authority || context?.kind !== "seat" || context.owner.kind !== "organization") return null;
+	const context = authority && organizationSeatContext(authority);
+	if (!authority || !context) return null;
 	return { authority, organization: context.owner, role: context.role };
 }
 
