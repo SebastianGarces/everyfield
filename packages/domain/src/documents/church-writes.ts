@@ -38,8 +38,8 @@ const hashOf = (text: string) => createHash("sha256").update(text, "utf8").diges
 
 function stableId(...parts: string[]) {
 	const h = createHash("sha256").update(parts.join("\0")).digest();
-	h[6] = (h[6]! & 0x0f) | 0x50;
-	h[8] = (h[8]! & 0x3f) | 0x80;
+	h[6] = (h.readUInt8(6) & 0x0f) | 0x50;
+	h[8] = (h.readUInt8(8) & 0x3f) | 0x80;
 	const x = h.subarray(0, 16).toString("hex");
 	return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20, 32)}`;
 }
@@ -320,7 +320,10 @@ function addedValues(body: c.DocDocument, template: c.DocTemplate, sources: Merg
 	const data: Record<string, string> = {};
 	if (!missing.length) return data;
 	const frozen = frozenData(template.fields, sources).data;
-	for (const field of missing) if (frozen[field.key] !== undefined) data[field.key] = frozen[field.key]!;
+	for (const field of missing) {
+		const value = frozen[field.key];
+		if (value !== undefined) data[field.key] = value;
+	}
 	return data;
 }
 

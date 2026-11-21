@@ -38,9 +38,15 @@ function tooltipFor(name: string) {
 	if (adopt)
 		return `Board member ${adopt[1]}: ${{ name: "name", role: "role", signature: "sign here", date: "date signed" }[adopt[2] as "name"]}`;
 	const row = /^(.+)_(\d+)_(\w+)$/.exec(name);
-	if (row) return `${title(row[1]!)} ${row[2]}: ${title(row[3]!).toLowerCase()}`;
+	if (row) {
+		const [, group = "", index, part = ""] = row;
+		return `${title(group)} ${index}: ${title(part).toLowerCase()}`;
+	}
 	const n = /^(.+)_(\d+)$/.exec(name);
-	if (n) return `${INDEXED[n[1]!] ?? title(n[1]!)} ${n[2]}`;
+	if (n) {
+		const [, group = "", index] = n;
+		return `${INDEXED[group] ?? title(group)} ${index}`;
+	}
 	return title(name);
 }
 const title = (s: string) => s.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
@@ -129,7 +135,8 @@ function linkWidgetsToForms(doc: PDFDocument) {
 	let key = 0;
 	for (let i = 0; i < nums.size(); i += 2) key = Math.max(key, (nums.lookup(i, PDFNumber) as PDFNumber).asNumber() + 1);
 	forms.forEach((form, i) => {
-		const widget = widgets[i]!;
+		const widget = widgets[i];
+		if (!widget) throw new Error("a form field has no widget");
 		const objr = doc.context.obj({ Type: "OBJR", Obj: widget.ref, Pg: widget.page });
 		form.dict.set(PDFName.of("K"), doc.context.obj([objr]));
 		widget.dict.set(PDFName.of("StructParent"), PDFNumber.of(key));
