@@ -11,6 +11,7 @@ import { sql, type SQLWrapper } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { seatHeld } from "../access/session.ts";
+import { queueJobsFor } from "../jobs/queue.ts";
 import type { Reader } from "./core.ts";
 import { displayTitle, meetingColumns, meetingRow, plantMeeting, type MeetingRow } from "./rows.ts";
 
@@ -46,17 +47,17 @@ export function syncReminderJobs(m: MeetingRow, asOf: Date): SQLWrapper[] {
 			AND state IN ('ready', 'retry_wait', 'claimed') AND NOT (producer_key = ANY(${sql.param(keys)}::text[]))`,
 	];
 	if (wanted.length)
-		writes.push(sql`INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, source_revision, state, eligible_at,
-			attempt_count, max_attempts, claim_generation)
-			SELECT ${sql.param(m.plant_id)}::uuid, 'notification', ${sql.param(m.id)}::uuid, w.key, ${sql.param(m.revision)}::bigint,
-				'ready', w.at, 0, 4, 0
-			FROM jsonb_to_recordset(${JSON.stringify(wanted)}::jsonb) w(key text, at timestamptz)
-			ON CONFLICT (kind, subject_record_id, producer_key) DO UPDATE SET state = 'ready', eligible_at = excluded.eligible_at,
-				source_revision = excluded.source_revision,
-				attempt_count = CASE WHEN job.state IN ('superseded', 'cancelled') THEN 0 ELSE job.attempt_count END,
-				finished_at = NULL, error_code = NULL, next_attempt_at = NULL, lease_owner = NULL, lease_until = NULL,
-				claim_generation = job.claim_generation + 1, revision = job.revision + 1
-			WHERE job.state IN ('ready', 'retry_wait', 'claimed', 'superseded', 'cancelled')`);
+		writes.push(
+			queueJobsFor(sql`FROM jsonb_to_recordset(${JSON.stringify(wanted)}::jsonb) w(key text, at timestamptz)`, {
+				kind: "notification",
+				tenant: sql`${sql.param(m.plant_id)}::uuid`,
+				subject: sql`${sql.param(m.id)}::uuid`,
+				key: sql`w.key`,
+				revision: sql`${sql.param(m.revision)}::bigint`,
+				eligibleAt: sql`w.at`,
+				conflict: "reopen",
+			}),
+		);
 	return writes;
 }
 

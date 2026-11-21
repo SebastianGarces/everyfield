@@ -2,6 +2,7 @@ import { sql, type SQLWrapper } from "@everyfield/db/query";
 import { z } from "zod";
 import { liveResidency, reviewShared } from "../access/pipeline.ts";
 import { seatHeld } from "../access/session.ts";
+import { queueJobsFor } from "../jobs/queue.ts";
 import type { Reader } from "./core.ts";
 
 export const milestone = z.enum(["approved", "ended", "sharing"]);
@@ -18,11 +19,14 @@ export function queueMilestoneJob(input: {
 	occurrence: Milestone;
 	revision: string;
 }): SQLWrapper {
-	return sql`INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, source_revision, state, eligible_at,
-		attempt_count, max_attempts, claim_generation)
-		VALUES (${sql.param(input.plantId)}::uuid, 'notification', ${sql.param(input.affiliationId)}::uuid,
-			${`affiliation/${input.occurrence}/${input.revision}`}, ${sql.param(input.revision)}::bigint, 'ready', clock_timestamp(), 0, 4, 0)
-		ON CONFLICT (kind, subject_record_id, producer_key) DO NOTHING`;
+	return queueJobsFor(sql``, {
+		kind: "notification",
+		tenant: sql`${sql.param(input.plantId)}::uuid`,
+		subject: sql`${sql.param(input.affiliationId)}::uuid`,
+		key: sql`${`affiliation/${input.occurrence}/${input.revision}`}::text`,
+		revision: sql`${sql.param(input.revision)}::bigint`,
+		conflict: "skipSameKey",
+	});
 }
 
 const holds = (occurrence: SQLWrapper) =>
@@ -80,10 +84,14 @@ export function queueResidencyJob(org: string, from: SQLWrapper, feedback: strin
 		feedback === null
 			? sql`'residency/confirmation/'||m.id::text||'/'||lk.id::text`
 			: sql`'residency/feedback/'||m.id::text||'/'||${feedback}::text||'/'||lk.id::text`;
-	return sql`INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, source_revision, state, eligible_at,
-		attempt_count, max_attempts, claim_generation)
-		SELECT ${org}::uuid, 'notification', x.id, ${key}, 1, 'ready', clock_timestamp(), 0, 4, 0 FROM ${from}
-		ON CONFLICT (kind, subject_record_id, producer_key) DO NOTHING`;
+	return queueJobsFor(sql`FROM ${from}`, {
+		kind: "notification",
+		tenant: sql`${org}::uuid`,
+		subject: sql`x.id`,
+		key,
+		revision: sql`1`,
+		conflict: "skipSameKey",
+	});
 }
 
 export function residencyJobOf(key: string) {

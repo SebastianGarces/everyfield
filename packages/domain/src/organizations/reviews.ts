@@ -5,6 +5,7 @@ import "server-only";
 import { z } from "zod";
 import { reviewShared } from "../access/pipeline.ts";
 import type { RequestActor } from "../access/session.ts";
+import { queueJobsFor } from "../jobs/queue.ts";
 import { eligibleSeat } from "./pipeline.ts";
 import { answer, one, parse, refuse, seatOf, write, type Executor } from "./seat.ts";
 
@@ -64,10 +65,7 @@ r AS (INSERT INTO answer_review (id,organization_id,person_id,note_id,reviewer_s
   clock_timestamp(),1 FROM ok ON CONFLICT (id) DO NOTHING RETURNING id,person_id),
 a AS (${w.audit({ action: "people.updated", kind: "create", subject: sql`r.person_id`, after: sql`1`, metadata: { category: "answer_review", reviewId: input.reviewId } })}
  FROM r RETURNING id),
-j AS (INSERT INTO job (tenant_id,kind,subject_record_id,producer_key,source_revision,state,eligible_at,attempt_count,max_attempts,
-  claim_generation)
- SELECT ${o}::uuid,'notification',r.id,'review/'||r.id::text,1,'ready',clock_timestamp(),0,4,0 FROM r
- ON CONFLICT (kind,subject_record_id,producer_key) DO NOTHING RETURNING id)
+j AS (${queueJobsFor(sql`FROM r`, { kind: "notification", tenant: sql`${o}::uuid`, subject: sql`r.id`, key: sql`'review/'||r.id::text`, revision: sql`1`, conflict: "skipSameKey", returning: true })})
 SELECT EXISTS(SELECT FROM n) AS found,EXISTS(SELECT FROM q) AS questions,${eligibleSeat(w, input.reviewerSeatId)} AS seat,EXISTS(SELECT FROM a) AND EXISTS(SELECT FROM j) AS added,
  (SELECT jsonb_build_object('note',x.note_id,'seat',x.reviewer_seat_id,'group',x.group_name,'questions',x.questions)
   FROM answer_review x WHERE x.id=${input.reviewId}::uuid AND x.organization_id=${o}::uuid) AS prior`,
