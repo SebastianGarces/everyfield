@@ -1723,46 +1723,24 @@ const webDatabaseImports = {
 	},
 };
 
-const NOTICE_ADOPTION =
-	"the R-06 adoption of the shared notice, held until the owner accepts the visual rulings in #855";
-const ERROR_CHIP = "a status chip in the error colour, not a notice";
-const ERROR_BAND = "a review card head band in the error colour, not a notice";
-export const HAND_WRITTEN_NOTICES = {
-	"apps/web/src/features/communication/HistoryPanel.tsx": ERROR_CHIP,
-	"apps/web/src/features/evry/review/PeopleChanges.tsx": ERROR_CHIP,
-	"apps/web/src/features/evry/review/ReviewCard.tsx": ERROR_BAND,
-};
-
 const noticeLook = (value) =>
 	value !== null && /(?:^|\s)bg-magenta-50(?:\s|$)/.test(value) && /(?:^|\s)text-magenta-600(?:\s|$)/.test(value);
 
 const sharedNotice = {
 	meta: { type: "problem" },
 	create(context) {
-		const path = repoPath(context.filename);
-		if (!WEB_CODE.test(path)) return {};
-		const exempt = Object.hasOwn(HAND_WRITTEN_NOTICES, path);
-		let looks = 0;
+		if (!WEB_CODE.test(repoPath(context.filename))) return {};
 		const check = (node, value) => {
-			if (!noticeLook(value)) return;
-			looks++;
-			if (!exempt)
+			if (noticeLook(value))
 				context.report({
 					node,
 					message:
-						"An error notice is Alert or InlineAlert from @everyfield/ui/controls (tone, title, actions, live region and focus included); do not hand-write the magenta box.",
+						"An error notice is Alert or InlineAlert from @everyfield/ui/controls (tone, title, actions, live region and focus included); a chip or band in that colour is TonePill, ToneTag or ToneBand from @everyfield/ui/display. Do not hand-write the magenta box.",
 				});
 		};
 		return {
 			Literal: (node) => check(node, text(node)),
 			TemplateLiteral: (node) => check(node, node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ")),
-			"Program:exit"(node) {
-				if (exempt && looks === 0)
-					context.report({
-						node,
-						message: `${path} no longer hand-writes an error notice: delete its HAND_WRITTEN_NOTICES entry in scripts/lint/everyfield-plugin.mjs.`,
-					});
-			},
 		};
 	},
 };

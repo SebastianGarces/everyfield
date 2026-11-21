@@ -15,7 +15,6 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
-	HAND_WRITTEN_NOTICES,
 	PRODUCT_TIMERS,
 	RAW_ERROR_SITES,
 	REFUSAL_MECHANISMS,
@@ -1234,18 +1233,14 @@ export const C = { error: "bg-magenta-50 text-magenta-600" };
 export const D = "bg-magenta-500 text-magenta-600";
 export const E = "bg-magenta-50 text-ink-2";
 `;
-	const [exempt] = Object.keys(HAND_WRITTEN_NOTICES);
-	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" shared-notice"));
+	const reported = lint({
+		"apps/web/src/features/x/Notice.tsx": code,
+		"packages/ui/src/controls/x.tsx": code,
+	}).filter((hit) => hit.endsWith(" shared-notice"));
 	assert.deepEqual(
-		reported({
-			"apps/web/src/features/x/Notice.tsx": code,
-			[exempt]: code,
-			"packages/ui/src/controls/x.tsx": code,
-		}),
+		reported,
 		[1, 2, 3].map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`),
 	);
-	assert.deepEqual(reported({ [exempt]: "export const none = 1;\n" }), [`${exempt}:1 shared-notice`]);
-	assert.ok(Object.keys(HAND_WRITTEN_NOTICES).length <= 3, "HAND_WRITTEN_NOTICES only shrinks");
 });
 
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
