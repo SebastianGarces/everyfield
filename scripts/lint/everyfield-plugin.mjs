@@ -116,8 +116,6 @@ export const TABLE_WRITERS = {
 			"packages/domain/src/people/commitments/index.ts",
 			"packages/domain/src/people/csv/index.ts",
 			"packages/domain/src/people/fields/shared.ts",
-			"packages/evry/src/conversations/store.ts",
-			"packages/evry/src/proposals/store.ts",
 		],
 	},
 };

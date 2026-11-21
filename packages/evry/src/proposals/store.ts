@@ -1,6 +1,7 @@
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { readAuthorizedObject, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
+import { queueJobsFor } from "@everyfield/domain/jobs";
 import { photoMediaType } from "@everyfield/domain/people";
 import { fromStates, proposalMachine, type ProposalSubject } from "@everyfield/contracts/machines";
 import { randomUUID } from "node:crypto";
@@ -48,8 +49,15 @@ const digest = (revision: SQL) =>
 	sql`encode(sha256(convert_to(jsonb_build_object('operation',p.operation,'revision',${revision},'args',r.args,'review',r.review)::text,'UTF8')),'hex')`;
 const expiry = sql`clock_timestamp()+make_interval(mins=>${REVIEW_MINUTES})`;
 const effectJob = <AliasName extends string>(job: string, alias: SqlLiteral<AliasName>) =>
-	sql`INSERT INTO job(id,tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
-		SELECT ${job}::uuid,tenant_id,'evry_effect',conversation_id,id||':'||revision||':'||${job},'ready',clock_timestamp(),0,1,0 FROM ${sql.raw(alias)}`;
+	queueJobsFor(sql`FROM ${sql.raw(alias)}`, {
+		kind: "evry_effect",
+		id: sql`${job}::uuid`,
+		tenant: sql`tenant_id`,
+		subject: sql`conversation_id`,
+		key: sql`id||':'||revision||':'||${job}`,
+		maxAttempts: 1,
+		conflict: "fail",
+	});
 const audit = <AliasName extends string>(action: string, kind: string, alias: SqlLiteral<AliasName>) =>
 	sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,metadata)
 		SELECT tenant_id,account_id,${action},${kind},'conversation',conversation_id,
