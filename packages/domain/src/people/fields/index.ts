@@ -146,8 +146,8 @@ const photo = {
 
 function uploadIdFor(plant: string, requestKey: string) {
 	const h = createHash("sha256").update(`person-photo-upload\0${plant}\0${requestKey}`).digest();
-	h[6] = (h[6]! & 0x0f) | 0x50;
-	h[8] = (h[8]! & 0x3f) | 0x80;
+	h[6] = (h.readUInt8(6) & 0x0f) | 0x50;
+	h[8] = (h.readUInt8(8) & 0x3f) | 0x80;
 	const x = h.subarray(0, 16).toString("hex");
 	return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20, 32)}`;
 }
