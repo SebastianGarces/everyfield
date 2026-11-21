@@ -12,7 +12,7 @@ const { InlineAlert, PageState } = await import("../../../packages/ui/src/contro
 const html = (props: Record<string, unknown>, children?: unknown) =>
 	renderToStaticMarkup(createElement(InlineAlert, props, children));
 
-test("INV-a11y: an inline alert keeps its live region in the page before the problem appears, so the problem is announced", () => {
+test("INV-a11y: an inline alert keeps its live region in the accessibility tree, with no box, before the problem appears, so the problem is announced", () => {
 	for (const [live, expected] of [
 		[undefined, "assertive"],
 		["polite", "polite"],
@@ -20,11 +20,11 @@ test("INV-a11y: an inline alert keeps its live region in the page before the pro
 		for (const empty of [null, undefined, false, ""]) {
 			assert.equal(
 				html({ live, id: "p" }, empty),
-				`<div id="p" aria-live="${expected}" aria-atomic="true" class="empty:hidden"></div>`,
+				`<div id="p" aria-live="${expected}" aria-atomic="true" class="empty:sr-only"></div>`,
 			);
 		}
 		const shown = html({ live }, "The meeting was not saved.");
-		assert.match(shown, new RegExp(`^<div aria-live="${expected}" aria-atomic="true" class="empty:hidden"><div `));
+		assert.match(shown, new RegExp(`^<div aria-live="${expected}" aria-atomic="true" class="empty:sr-only"><div `));
 		assert.match(shown, /The meeting was not saved\./);
 		assert.doesNotMatch(shown, /role="alert"/);
 	}
