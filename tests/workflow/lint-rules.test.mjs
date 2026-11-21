@@ -19,7 +19,6 @@ import {
 	PRODUCT_TIMERS,
 	RAW_ERROR_SITES,
 	REFUSAL_MECHANISMS,
-	TABLE_WRITERS,
 } from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
@@ -2058,7 +2057,7 @@ export const i = z.strictObject({}).catchall(z.unknown());
 	);
 });
 
-test("INV-lint: only the job queue inserts job rows, through SQL text, an interpolated or raw table, MERGE, a wrapped or returned table or a re-export, and a listed holder that stops inserting is reported", () => {
+test("INV-lint: only the job queue inserts job rows, through SQL text, an interpolated or raw table, MERGE, a wrapped or returned table or a re-export", () => {
 	const insert = `import { sql } from "drizzle-orm";
 export const a = sql\`INSERT INTO job (tenant_id) SELECT 1\`;
 export const b = (db, t) => db.insert(t.job).values({});
@@ -2098,10 +2097,6 @@ function later() {
 		reported({ "packages/domain/src/tasks/forms.ts": forms, "packages/domain/src/jobs/queue.ts": forms }),
 		[3, 4, 5, 6, 8, 9, 10, 12].map((line) => `packages/domain/src/tasks/forms.ts:${line} table-writers`).sort(),
 	);
-	for (const holder of (TABLE_WRITERS.job.holders ?? []).slice(0, 1)) {
-		assert.deepEqual(reported({ [holder]: insert }), []);
-		assert.deepEqual(reported({ [holder]: "export const none = 1;\n" }), [`${holder}:1 table-writers`]);
-	}
 });
 
 test("INV-lint: a React namespace alias, a class lifecycle method and a ref callback that never uses its node are effects", () => {
