@@ -20,6 +20,7 @@ import {
 	CardDescription,
 	CardTitle,
 	ConfirmDialog,
+	ConfirmRefused,
 	Field,
 	Input,
 	PageHeader,
@@ -598,7 +599,7 @@ function PendingCard({
 				(d) => withoutInvitation(d, invitation.invitationId),
 				`The invitation to ${invitation.recipientEmail} was revoked.`,
 			);
-		throw new Error(
+		throw new ConfirmRefused(
 			result.problem === "unknown"
 				? "We could not confirm this. Check your connection, then select Revoke again. It never revokes twice."
 				: result.problem === "busy"

@@ -37,6 +37,8 @@ export { CommandPalette, type CommandGroup, type CommandItem } from "./CommandPa
 export { DateRangePicker, formatRange, type DatePreset, type DateRange } from "./DateRangePicker";
 export {
 	ConfirmDialog,
+	ConfirmRefused,
+	confirmProblem,
 	Dialog,
 	DialogBody,
 	DialogClose,

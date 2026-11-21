@@ -11,6 +11,7 @@ import {
 import {
 	Button,
 	ConfirmDialog,
+	ConfirmRefused,
 	Field,
 	IconButton,
 	Input,
@@ -128,7 +129,7 @@ export default function NativeEditor({
 		if (!base.id) return;
 		const result = await archiveOwnedDocument(base.id, base.revision);
 		if (result.status !== "ok")
-			throw new Error(
+			throw new ConfirmRefused(
 				documentProblem(
 					result.status === "refused" ? result.code : "lost",
 					result.status === "refused" ? result.problem : undefined,
