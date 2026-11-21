@@ -3332,6 +3332,7 @@ export const LOOSE_CONTRACTS = {
 	},
 };
 const LOOSE_OBJECTS = new Set(["object", "looseObject"]);
+const LOOSE_METHODS = new Set(["strip", "passthrough", "loose", "catchall"]);
 const declaredName = (node) => {
 	let named = null;
 	for (let at = node; at; at = at.parent)
@@ -3363,7 +3364,8 @@ const strictContracts = {
 					(callee?.type === "MemberExpression" &&
 						callee.object.type === "Identifier" &&
 						namespaces.has(callee.object.name) &&
-						LOOSE_OBJECTS.has(memberName(callee)));
+						LOOSE_OBJECTS.has(memberName(callee))) ||
+					(callee?.type === "MemberExpression" && LOOSE_METHODS.has(memberName(callee)));
 				if (!isLoose) return;
 				const name = declaredName(node);
 				if (name && Object.hasOwn(exempt, name)) found.add(name);
@@ -3371,7 +3373,7 @@ const strictContracts = {
 					context.report({
 						node,
 						message:
-							"A contract schema is a z.strictObject, so a request with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
+							"A contract schema is a z.strictObject with no strip, passthrough, loose or catchall, so a request with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
 					});
 			},
 			"Program:exit"(program) {
