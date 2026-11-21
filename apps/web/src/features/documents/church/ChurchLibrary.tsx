@@ -275,7 +275,7 @@ function PickerList({
 				/>
 			</div>
 			<DialogBody ref={list} className={cn("flex flex-col gap-6 pt-1", pageCount > 1 ? "pb-4" : "pb-7")}>
-				<div role="status" className="empty:hidden">
+				<div role="status" className="empty:sr-only">
 					{saved ? (
 						<p className="rounded-md bg-surface-2 px-4 py-3 text-md text-text-2">
 							Saved “<span className="font-medium text-ink">{saved}</span>”. New documents from it take this name.

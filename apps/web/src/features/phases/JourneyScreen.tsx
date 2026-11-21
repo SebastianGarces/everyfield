@@ -171,7 +171,7 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 						</CardActions>
 					</CardHeader>
 					<Track current={journey.state.phase} />
-					<p aria-live="polite" className="mt-4 text-sm font-medium text-ink empty:hidden">
+					<p aria-live="polite" className="mt-4 text-sm font-medium text-ink empty:sr-only">
 						{receipt}
 					</p>
 					{journey.state.declarable ? (
