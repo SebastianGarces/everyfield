@@ -220,7 +220,7 @@ const noErrorMessageMatch = {
 
 const LOOSE_SCHEMA = new Set(["object", "looseObject"]);
 const LOOSE_METHOD = new Set(["passthrough", "loose", "strip"]);
-export const STRIP_SCHEMAS = { "packages/contracts/src/communication/requests.ts": "historyQuery" };
+const STRIP_SCHEMAS = { "packages/contracts/src/communication/requests.ts": "historyQuery" };
 const declaredName = (node) => {
 	let at = node.parent;
 	while (at && at.type !== "VariableDeclarator") at = at.parent;
