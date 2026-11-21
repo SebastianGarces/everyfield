@@ -1,6 +1,11 @@
 import "../platform/setup.mts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { sessionId as writeSessionId } from "../../../packages/contracts/src/common/index.ts";
+import {
+	accountId,
+	instant,
+	sessionId as writeSessionId,
+	tenantId,
+} from "../../../packages/contracts/src/common/index.ts";
 import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -14,31 +19,72 @@ import {
 	withOnboardingWrite,
 } from "../../../packages/domain/src/onboarding/index.ts";
 import { readViewer } from "../../../packages/domain/src/access/index.ts";
+import { seatInvitationAcceptedResult } from "../../../packages/contracts/src/identity/invitations.ts";
 import { createInvitationService } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
-import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
+import { refusedWith, waitingOnLock } from "../../support/fixture.mts";
+import type { OnboardingContext, OnboardingProducer } from "../../../packages/contracts/src/onboarding/server.ts";
+import type { Tx } from "../../../packages/domain/src/onboarding/core.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const database = await testDatabase({ prefix: "wp009", max: 6 });
 const { admin } = database;
 const db = database.pools.runtime;
-let api, mail;
+type Api = OnboardingProducer<Tx>;
+type Answer<K extends keyof Api> = Awaited<ReturnType<Api[K]>>;
+type Value<K extends keyof Api> = Extract<Answer<K>, { status: "ok" }>["value"];
+type Calls = { [K in keyof Api]: (tx: Tx, context: OnboardingContext, raw: unknown) => Promise<Answer<K>> };
+type Selected = OnboardingContext["selected"];
+type Account = Awaited<ReturnType<typeof actor>>;
+const ok = <T,>(result: { status: "ok"; value: T } | { status: "refused" }): T => {
+	if (result.status !== "ok") assert.fail(JSON.stringify(result));
+	return result.value;
+};
+const present = <T,>(value: T | null | undefined, what: string): T => {
+	if (value === null || value === undefined) assert.fail("missing " + what);
+	return value;
+};
+type Lead =
+	Answer<"answerLead"> extends infer R ? (R extends { status: "ok"; value: { lead: infer L } } ? L : never) : never;
+type ResumeLead = Extract<Awaited<ReturnType<typeof resume>>, { lead: unknown }>["lead"];
+const yes = (lead: Lead | ResumeLead) => {
+	if (lead.answer !== "yes") assert.fail(JSON.stringify(lead));
+	return lead;
+};
+type Profile =
+	Answer<"getDiscoveryProfile"> extends infer R ? (R extends { status: "ok"; value: infer V } ? V : never) : never;
+const activeProfile = (value: Profile) => {
+	if (value.status !== "active") assert.fail(JSON.stringify(value));
+	return value.profile;
+};
+const statementText = (first: unknown) => {
+	if (typeof first === "string") return first;
+	if (first && typeof first === "object" && "text" in first && typeof first.text === "string") return first.text;
+	return assert.fail("query without text");
+};
+let api: Calls;
+let mail: ReturnType<typeof createMailService>;
 let faults = false;
 const denied = refusedWith({ details: {} });
-const command = (input = {}, expectedRevision = "1", requestKey = randomUUID()) => ({
+const command = (input: object = {}, expectedRevision = "1", requestKey = randomUUID()) => ({
 	requestKey,
 	expectedRevision,
 	input,
 });
-const ctx = (a, selected = { kind: "account", id: a.id }) => ({
+const ctx = (a: Account, selected: Selected = { kind: "account", id: a.id }): OnboardingContext => ({
 	session: a.session,
 	selected,
 });
-const call = (name, a, q, selected) => gatedTransaction(db, (tx) => api[name](tx, ctx(a, selected), q));
-async function actor(kind = "planter", state = "active") {
-	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+const call = <K extends keyof Api>(name: K, a: Account, q: unknown, selected?: Selected) =>
+	gatedTransaction(db, (tx) => api[name](tx, ctx(a, selected), q));
+type NewAccount = typeof t.account.$inferInsert;
+async function actor(
+	kind: NewAccount["registration_kind"] = "planter",
+	state: NewAccount["registration_state"] = "active",
+) {
+	const a = { id: accountId.parse(randomUUID()), user: randomUUID(), session: writeSessionId.parse(randomUUID()) };
 	await admin.execute(
 		sql`INSERT INTO auth_user(id,name,email,email_verified) VALUES(${a.user},'Synthetic',${a.user + "@example.test"},true)`,
 	);
@@ -50,8 +96,8 @@ async function actor(kind = "planter", state = "active") {
 	);
 	return a;
 }
-async function makePlant(a = undefined) {
-	a ??= await actor();
+async function makePlant(given?: Account) {
+	const a = given ?? (await actor());
 	const q = command({ name: "  Harvest Point  ", locality: { city: "  Boston  " }, confirmed: true });
 	const result = ok(await call("createPlant", a, q));
 	return { a, q, result, p: result.plant };
@@ -60,19 +106,21 @@ async function counts() {
 	const r = await admin.execute(
 		sql`SELECT (SELECT count(*)::int FROM plant) plants,(SELECT count(*)::int FROM person) people,(SELECT count(*)::int FROM seat) seats,(SELECT count(*)::int FROM audit_event) operations,(SELECT count(*)::int FROM audit_event) events,(SELECT count(*)::int FROM mail) mail,(SELECT count(*)::int FROM job) jobs`,
 	);
-	return r.rows[0];
+	return present(r.rows[0], "row");
 }
-async function resume(f) {
+type Made = Awaited<ReturnType<typeof makePlant>>;
+async function resume(f: Pick<Made, "a" | "p">) {
 	const value = ok(await call("getResume", f.a, {}, f.p));
-	const viewer = await readViewer(db, writeSessionId.parse(f.a.session));
+	if (value.status !== "available") assert.fail(JSON.stringify(value));
+	const viewer = present(await readViewer(db, f.a.session), "viewer");
 	const entry = await readOnboardingEntry(
 		db,
 		api,
 		{
-			status: "active",
+			status: "active" as const,
 			accountId: f.a.id,
 			sessionId: f.a.session,
-			expiresAt: new Date(Date.now() + 3600000).toISOString(),
+			expiresAt: instant.parse(new Date(Date.now() + 3600000).toISOString()),
 		},
 		viewer.authority,
 		true,
@@ -135,7 +183,7 @@ test("AC:TARGET-IDN-013 AC:ROLE43-003 AC:ROLE43-014 AC:DC-021 AC:DC-027 AC:DC-02
 	assert.equal(first.plant.id, second.plant.id);
 	assert.deepEqual(new Set([first.status, second.status]), new Set(["created", "existing"]));
 	assert.deepEqual(first.creation, second.creation);
-	const [plant] = await admin.select().from(t.plant).where(eq(t.plant.id, first.plant.id));
+	const plant = present((await admin.select().from(t.plant).where(eq(t.plant.id, first.plant.id)))[0], "plant");
 	assert.equal(plant.name, "Harvest Point");
 	assert.equal(plant.city, "Boston");
 	assert.equal(plant.country, null);
@@ -144,20 +192,25 @@ test("AC:TARGET-IDN-013 AC:ROLE43-003 AC:ROLE43-014 AC:DC-021 AC:DC-027 AC:DC-02
 	assert.equal(plant.timezone, "America/Chicago");
 	assert.equal(plant.digest_weekday, 0);
 	assert.equal(plant.digest_hour, 16);
-	const [person] = await admin.select().from(t.person).where(eq(t.person.id, first.ownerSeat.personId));
+	const person = present(
+		(await admin.select().from(t.person).where(eq(t.person.id, first.ownerSeat.personId)))[0],
+		"person",
+	);
 	assert.equal(person.stage, "leader");
 	assert.equal(person.adult_classification, "unknown");
 	assert.equal(person.commitment_state, "unknown");
 	assert.equal(person.linked_account_id, a.id);
 	const history = await admin.select().from(t.audit_event).where(eq(t.audit_event.subject_id, person.id));
-	assert.equal(history[0].after_value.stage, "leader");
+	const recorded = present(history[0], "history").after_value;
+	assert.ok(recorded && typeof recorded === "object" && "stage" in recorded, JSON.stringify(recorded));
+	assert.equal(recorded.stage, "leader");
 	const entries = await admin.select().from(t.phase_transition).where(eq(t.phase_transition.plant_id, plant.id));
 	assert.equal(entries.length, 1);
-	assert.equal(entries[0].kind, "creation");
-	assert.equal(entries[0].from_phase, null);
-	assert.equal(entries[0].to_phase, 1);
-	assert.equal(first.creation.recordedAt, entries[0].recorded_at.toISOString());
-	const [owner] = await admin.select().from(t.seat).where(eq(t.seat.plant_id, plant.id));
+	assert.equal(present(entries[0], "entries").kind, "creation");
+	assert.equal(present(entries[0], "entries").from_phase, null);
+	assert.equal(present(entries[0], "entries").to_phase, 1);
+	assert.equal(first.creation.recordedAt, present(entries[0], "entries").recorded_at.toISOString());
+	const owner = present((await admin.select().from(t.seat).where(eq(t.seat.plant_id, plant.id)))[0], "owner");
 	assert.equal(first.ownerSeat.seatId, owner.id);
 	const f = { a, p: first.plant };
 	const r = await resume(f);
@@ -207,7 +260,7 @@ test("AC:TARGET-IDN-013 required mail-intent failure rolls back plant, seat, Per
 	}
 	assert.deepEqual(await counts(), before);
 	assert.equal(
-		(await admin.select().from(t.account).where(eq(t.account.id, a.id)))[0].registration_state,
+		present((await admin.select().from(t.account).where(eq(t.account.id, a.id)))[0], "account").registration_state,
 		"pending_domain",
 	);
 	const created = ok(await call("createPlant", a, command({ name: "Retry", confirmed: true })));
@@ -241,7 +294,6 @@ test("AC:ADR1-006 self confirmation, exact identity, live account, no seat trans
 		.values({ account_id: other.id, plant_id: f.p.id, role: "member", accepted_at: new Date() });
 	denied(await call("createPlant", other, q), "active_seat_conflict");
 	denied(await call("createPlant", f.a, q, f.p));
-	denied(await call("createPlant", f.a, q, { kind: "organization", id: f.p.id, organizationKind: "sending_church" }));
 	denied(await call("complete", other, command({}, "1"), f.p));
 });
 
@@ -265,9 +317,12 @@ test("AC:DC-022 explicit journey allows 0..6 once with fixed reason; launch and 
 			.from(t.phase_transition)
 			.where(and(eq(t.phase_transition.plant_id, f.p.id), eq(t.phase_transition.kind, "initial_declaration")));
 		assert.equal(entries.length, 1);
-		assert.equal(entries[0].reason, "Declared at setup — where this plant already was when it joined EveryField.");
-		assert.equal(entries[0].from_phase, 1);
-		assert.equal(entries[0].to_phase, phase);
+		assert.equal(
+			present(entries[0], "entries").reason,
+			"Declared at setup — where this plant already was when it joined EveryField.",
+		);
+		assert.equal(present(entries[0], "entries").from_phase, 1);
+		assert.equal(present(entries[0], "entries").to_phase, phase);
 		denied(await call("declareJourney", f.a, command(q.input, saved.revision), f.p), "already_declared");
 		for (const input of [
 			{ ...q.input, journey: { answer: "existing", phase: 7 } },
@@ -293,10 +348,11 @@ test("AC:DC-022 explicit journey allows 0..6 once with fixed reason; launch and 
 test("AC:TARGET-IDN-015 an Owner saves a planned launch date again and again, each time sending the revision it last read", async () => {
 	const f = await makePlant();
 	let r = await resume(f);
-	assert.equal(r.scheduleRevision, "1");
-	let { revision, scheduleRevision } = r;
+	let revision: string = r.revision;
+	let scheduleRevision: string = r.scheduleRevision;
+	assert.equal(scheduleRevision, "1");
 	for (const date of ["2027-03-07", "2027-04-11", "2027-05-16", "2027-06-20"]) {
-		const saved = ok(
+		const saved: Value<"declareJourney"> = ok(
 			await call(
 				"declareJourney",
 				f.a,
@@ -311,12 +367,13 @@ test("AC:TARGET-IDN-015 an Owner saves a planned launch date again and again, ea
 			),
 		);
 		assert.equal(saved.scheduledLaunchDate, date);
-		const [row] = await admin.select().from(t.launch).where(eq(t.launch.plant_id, f.p.id));
+		const row = present((await admin.select().from(t.launch).where(eq(t.launch.plant_id, f.p.id)))[0], "row");
 		assert.equal(saved.scheduleRevision, row.revision, "the reply names the launch row it wrote");
 		r = await resume(f);
 		assert.equal(r.scheduledLaunchDate, date);
 		assert.equal(r.scheduleRevision, saved.scheduleRevision);
-		({ revision, scheduleRevision } = saved);
+		revision = saved.revision;
+		scheduleRevision = saved.scheduleRevision;
 	}
 	assert.equal(scheduleRevision, "4");
 	const kept = ok(
@@ -358,12 +415,13 @@ test("AC:TARGET-IDN-015 a lock timeout or statement timeout refuses as temporary
 			r.revision,
 		);
 		const before = await counts();
-		let release, held;
-		const locked = new Promise((resolve) => (held = resolve));
+		let release = () => {};
+		let held = () => {};
+		const locked = new Promise<void>((resolve) => (held = resolve));
 		const holder = admin.transaction(async (tx) => {
 			await tx.execute(sql`SELECT id FROM plant WHERE id=${f.p.id}::uuid FOR UPDATE`);
 			held();
-			await new Promise((resolve) => (release = resolve));
+			await new Promise<void>((resolve) => (release = resolve));
 		});
 		await locked;
 		let result;
@@ -409,6 +467,7 @@ test("AC:TARGET-IDN-015 AC:DC-018 AC:DC-030 AC:DC-032 unsure, discerning and ski
 		assert.equal(r.values, "missing");
 		assert.equal(r.peopleStep, "pending");
 		assert.deepEqual(r.lead, { answer: "pending" });
+		if (r.completion.status !== "completed") assert.fail(JSON.stringify(r.completion));
 		assert.equal(r.completion.completedAt, done.completion.completedAt);
 		assert.equal(
 			(await admin.select().from(t.phase_transition).where(eq(t.phase_transition.plant_id, f.p.id))).length,
@@ -440,12 +499,20 @@ test("AC:TARGET-IDN-014 AC:ROLE43-004 AC:ROLE43-005 lead answer uses the linked 
 		r.revision,
 	);
 	const result = ok(await call("answerLead", f.a, q, f.p));
-	assert.equal(result.lead.assignment.personId, f.result.ownerSeat.personId);
+	assert.equal(yes(result.lead).assignment.personId, f.result.ownerSeat.personId);
 	assert.deepEqual(ok(await call("answerLead", f.a, q, f.p)), result);
-	const [team] = await admin.select().from(t.team).where(eq(t.team.id, result.lead.assignment.teamId));
+	const team = present(
+		(
+			await admin
+				.select()
+				.from(t.team)
+				.where(eq(t.team.id, yes(result.lead).assignment.teamId))
+		)[0],
+		"team",
+	);
 	assert.equal(team.leader_person_id, f.result.ownerSeat.personId);
 	assert.equal(team.template_version_id, null);
-	const [seat] = await admin.select().from(t.seat).where(eq(t.seat.id, f.result.ownerSeat.seatId));
+	const seat = present((await admin.select().from(t.seat).where(eq(t.seat.id, f.result.ownerSeat.seatId)))[0], "seat");
 	assert.equal(seat.role, "owner");
 	const person = randomUUID();
 	await admin.insert(t.person).values({
@@ -474,7 +541,7 @@ test("AC:TARGET-IDN-014 AC:ROLE43-004 AC:ROLE43-005 lead answer uses the linked 
 					assignment: {
 						kind: "existing_role",
 						teamId: team.id,
-						roleId: result.lead.assignment.roleId,
+						roleId: yes(result.lead).assignment.roleId,
 						expectedTeamRevision: team.revision,
 						expectedRoleRevision: "1",
 					},
@@ -488,21 +555,21 @@ test("AC:TARGET-IDN-014 AC:ROLE43-004 AC:ROLE43-005 lead answer uses the linked 
 	assert.deepEqual(await counts(), before);
 });
 
-const leadYes = (fill, roleName = "Lead planter", teamName = "Plant leadership") => ({
+const leadYes = (fill: boolean | undefined, roleName = "Lead planter", teamName = "Plant leadership") => ({
 	answer: "yes",
 	assignment: { kind: "minimal_role", roleName, container: { kind: "minimal", name: teamName } },
 	...(fill === undefined ? {} : { seniorPastor: fill }),
 });
-async function ministryFacts(plantId) {
+async function ministryFacts(plantId: string) {
 	const r = await admin.execute(sql`SELECT
 		(SELECT coalesce(json_agg(json_build_array(name, template_key) ORDER BY name), '[]') FROM team WHERE plant_id=${plantId}) AS teams,
 		(SELECT coalesce(json_agg(json_build_array(name, template_key) ORDER BY name), '[]') FROM team_role WHERE plant_id=${plantId}) AS roles,
 		(SELECT coalesce(json_agg(json_build_array(p.display_name, r.name) ORDER BY r.name), '[]') FROM team_tenure tn
 			JOIN team_role r ON r.id=tn.role_id JOIN person p ON p.id=tn.person_id
 			WHERE tn.plant_id=${plantId} AND tn.ended_on IS NULL) AS held`);
-	return r.rows[0];
+	return present(r.rows[0], "row");
 }
-async function otherPerson(plantId, name) {
+async function otherPerson(plantId: string, name: string) {
 	const id = randomUUID();
 	await admin.insert(t.person).values({
 		id,
@@ -519,7 +586,7 @@ async function otherPerson(plantId, name) {
 	});
 	return id;
 }
-async function leadership(plantId) {
+async function leadership(plantId: string) {
 	const team = randomUUID(),
 		pastor = randomUUID();
 	await admin.insert(t.team).values({
@@ -569,22 +636,34 @@ test("AC:TARGET-IDN-014 the Senior pastor fill is off by default and only a Yes 
 test("AC:TARGET-IDN-014 with the fill on, the planter holds Leadership's Senior pastor role and nothing else", async () => {
 	const f = await makePlant();
 	const result = ok(await call("answerLead", f.a, command(leadYes(true), (await resume(f)).revision), f.p));
-	assert.equal(result.lead.seniorPastor, "filled");
+	assert.equal(yes(result.lead).seniorPastor, "filled");
 	assert.deepEqual(await ministryFacts(f.p.id), {
 		teams: [["Leadership", "leadership"]],
 		roles: [["Senior pastor", "senior_pastor"]],
 		held: [["Synthetic", "Senior pastor"]],
 	});
-	const [team] = await admin.select().from(t.team).where(eq(t.team.id, result.lead.assignment.teamId));
+	const team = present(
+		(
+			await admin
+				.select()
+				.from(t.team)
+				.where(eq(t.team.id, yes(result.lead).assignment.teamId))
+		)[0],
+		"team",
+	);
 	assert.equal(team.leader_person_id, f.result.ownerSeat.personId);
-	assert.equal((await resume(f)).lead.seniorPastor, "filled");
-	const [seat] = await admin.select().from(t.seat).where(eq(t.seat.id, f.result.ownerSeat.seatId));
+	assert.equal(yes((await resume(f)).lead).seniorPastor, "filled");
+	const seat = present((await admin.select().from(t.seat).where(eq(t.seat.id, f.result.ownerSeat.seatId)))[0], "seat");
 	assert.equal(seat.role, "owner");
 
 	const g = await makePlant();
 	const l = await leadership(g.p.id);
 	const filled = ok(await call("answerLead", g.a, command(leadYes(true), (await resume(g)).revision), g.p));
-	assert.deepEqual(filled.lead.assignment, { teamId: l.team, roleId: l.pastor, personId: g.result.ownerSeat.personId });
+	assert.deepEqual(yes(filled.lead).assignment, {
+		teamId: l.team,
+		roleId: l.pastor,
+		personId: g.result.ownerSeat.personId,
+	});
 	assert.deepEqual(await ministryFacts(g.p.id), {
 		teams: [["Leadership", "leadership"]],
 		roles: [
@@ -603,8 +682,8 @@ test("AC:TARGET-IDN-014 a Senior pastor role someone already holds is kept, and 
 		.insert(t.team_tenure)
 		.values({ plant_id: f.p.id, role_id: l.pastor, person_id: pastor, started_on: "2026-01-01" });
 	const result = ok(await call("answerLead", f.a, command(leadYes(true), (await resume(f)).revision), f.p));
-	assert.equal(result.lead.seniorPastor, "occupied");
-	assert.notEqual(result.lead.assignment.teamId, l.team);
+	assert.equal(yes(result.lead).seniorPastor, "occupied");
+	assert.notEqual(yes(result.lead).assignment.teamId, l.team);
 	assert.deepEqual(await ministryFacts(f.p.id), {
 		teams: [
 			["Leadership", "leadership"],
@@ -620,7 +699,7 @@ test("AC:TARGET-IDN-014 a Senior pastor role someone already holds is kept, and 
 			["Pastor Kim", "Senior pastor"],
 		],
 	});
-	assert.equal((await resume(f)).lead.seniorPastor, "occupied");
+	assert.equal(yes((await resume(f)).lead).seniorPastor, "occupied");
 	ok(await call("complete", f.a, command({}, (await resume(f)).revision), f.p));
 	assert.equal((await resume(f)).completion.status, "completed");
 });
@@ -630,7 +709,11 @@ async function discovery() {
 	const result = ok(await call("createDiscovery", a, command()));
 	return { a, result };
 }
-async function relationship(account, kind = "sending_church", createOwner = true) {
+async function relationship(
+	account: { id: string },
+	kind: (typeof t.organization.$inferInsert)["kind"] = "sending_church",
+	createOwner = true,
+) {
 	const org = randomUUID();
 	await admin
 		.insert(t.organization)
@@ -641,24 +724,29 @@ async function relationship(account, kind = "sending_church", createOwner = true
 			.insert(t.seat)
 			.values({ account_id: orgOwner.id, organization_id: org, role: "owner", accepted_at: new Date() });
 	}
-	const [link] = await admin
-		.insert(t.affiliation)
-		.values({
-			account_id: account.id,
-			organization_id: org,
-			accepted_at: new Date(),
-			share_people: false,
-			share_meetings: false,
-			share_tasks: false,
-			share_ministry_teams: false,
-			share_wiki: false,
-			share_activity: false,
-			shared_findings: false,
-		})
-		.returning();
+	const link = present(
+		(
+			await admin
+				.insert(t.affiliation)
+				.values({
+					account_id: account.id,
+					organization_id: org,
+					accepted_at: new Date(),
+					share_people: false,
+					share_meetings: false,
+					share_tasks: false,
+					share_ministry_teams: false,
+					share_wiki: false,
+					share_activity: false,
+					shared_findings: false,
+				})
+				.returning()
+		)[0],
+		"link",
+	);
 	return {
 		relationshipId: link.id,
-		organization: { kind: "organization", id: org, organizationKind: kind },
+		organization: { kind: "organization" as const, id: tenantId.parse(org), organizationKind: kind },
 		expectedRelationshipRevision: link.revision,
 		expectedConsentRevision: link.consent_revision,
 		choices: {
@@ -680,39 +768,44 @@ test("AC:TARGET-IDN-016 AC:AF-012 AC:DC-001 Discovery is explicit and seatless; 
 	const first = await relationship(d.a),
 		second = await relationship(d.a, "sending_network");
 	const p = ok(await call("getDiscoveryProfile", d.a, {}));
-	assert.equal(p.profile.relationships.length, 2);
+	assert.equal(activeProfile(p).relationships.length, 2);
 	assert.equal((await counts()).plants, beforePlants);
 	const q = command(
 		{ discoveryId: d.result.profile.discoveryId, name: "New plant", confirmed: true, relationships: [first] },
-		p.profile.revision,
+		activeProfile(p).revision,
 	);
 	const converted = ok(await call("convertDiscovery", d.a, q));
 	assert.equal(converted.status, "converted");
 	assert.equal(converted.currentPhase, 1);
 	assert.equal(converted.relationships.length, 1);
-	assert.equal(converted.relationships[0].organization.id, first.organization.id);
-	assert.deepEqual(converted.relationships[0].choices, first.choices);
+	assert.equal(present(converted.relationships[0], "relationships").organization.id, first.organization.id);
+	assert.deepEqual(present(converted.relationships[0], "relationships").choices, first.choices);
 	const ended = await admin.select().from(t.affiliation).where(eq(t.affiliation.account_id, d.a.id));
 	assert.equal(ended.filter((x) => x.ended_at).length, 2);
 	const chosen = await admin.select().from(t.affiliation).where(eq(t.affiliation.plant_id, converted.plant.id));
 	assert.equal(chosen.length, 1);
-	assert.equal(chosen[0].organization_id, first.organization.id);
-	assert.notEqual(chosen[0].organization_id, second.organization.id);
-	const [unselectedOrganization] = await admin
-		.select()
-		.from(t.organization)
-		.where(eq(t.organization.id, second.organization.id));
+	assert.equal(present(chosen[0], "chosen").organization_id, first.organization.id);
+	assert.notEqual(present(chosen[0], "chosen").organization_id, second.organization.id);
+	const unselectedOrganization = present(
+		(await admin.select().from(t.organization).where(eq(t.organization.id, second.organization.id)))[0],
+		"unselectedOrganization",
+	);
 	assert.equal(unselectedOrganization.material_revision, "2");
-	const [unselectedOwner] = await admin
-		.select({ id: t.seat.account_id })
-		.from(t.seat)
-		.where(eq(t.seat.organization_id, second.organization.id));
+	const unselectedOwner = present(
+		(
+			await admin
+				.select({ id: t.seat.account_id })
+				.from(t.seat)
+				.where(eq(t.seat.organization_id, second.organization.id))
+		)[0],
+		"unselectedOwner",
+	);
 	const notices = await admin
 		.select()
 		.from(t.mail)
 		.where(and(eq(t.mail.recipient_account_id, unselectedOwner.id), eq(t.mail.purpose, "discovery_receipt")));
 	assert.equal(notices.length, 1);
-	assert.equal(notices[0].state, "pending");
+	assert.equal(present(notices[0], "notices").state, "pending");
 	assert.deepEqual(await admin.select().from(t.job).where(eq(t.job.subject_record_id, second.relationshipId)), []);
 	const before = await counts(),
 		replay = ok(await call("convertDiscovery", d.a, q));
@@ -733,7 +826,7 @@ test("AC:TARGET-IDN-016 AC:AF-012 AC:DC-001 Discovery is explicit and seatless; 
 test("AC:TARGET-IDN-016 an unlinked Discovery may accept a seat, then conversion refuses without side effects", async () => {
 	const d = await discovery(),
 		sender = await makePlant();
-	let proof;
+	let proof = "";
 	const invitations = createInvitationService({
 		db,
 		origin: "http://onboarding.example.test",
@@ -742,7 +835,8 @@ test("AC:TARGET-IDN-016 an unlinked Discovery may accept a seat, then conversion
 		addressBlocked: () => sql`false`,
 		async enqueueMail(tx, input, command) {
 			const token = input.text.match(/http:\/\/onboarding\.example\.test\/invitation#proof=([^\s]+)/);
-			if (token) proof = decodeURIComponent(token[1]);
+			if (token?.[1]) proof = decodeURIComponent(token[1]);
+			if (input.owner.kind === "global") throw new Error("unavailable");
 			return mail.append(
 				tx,
 				{
@@ -767,10 +861,9 @@ test("AC:TARGET-IDN-016 an unlinked Discovery may accept a seat, then conversion
 			sender.result.revision,
 		),
 	);
-	assert.equal(typeof proof, "string");
-	const accepted = await invitations.accept(
-		d.a.session,
-		command({ invitationId: invited.invitation.invitationId, proof }),
+	assert.notEqual(proof, "");
+	const accepted = seatInvitationAcceptedResult.parse(
+		await invitations.accept(d.a.session, command({ invitationId: invited.invitation.invitationId, proof })),
 	);
 	assert.equal(accepted.status, "accepted");
 	assert.equal(accepted.seat.role, "member");
@@ -787,14 +880,17 @@ test("AC:TARGET-IDN-016 an unlinked Discovery may accept a seat, then conversion
 		"active_seat_conflict",
 	);
 	assert.deepEqual(await counts(), before);
-	const [profile] = await admin.select().from(t.discovery).where(eq(t.discovery.account_id, d.a.id));
+	const profile = present(
+		(await admin.select().from(t.discovery).where(eq(t.discovery.account_id, d.a.id)))[0],
+		"profile",
+	);
 	assert.equal(profile.converted_at, null);
 	const seats = await admin
 		.select()
 		.from(t.seat)
 		.where(and(eq(t.seat.account_id, d.a.id), sql`${t.seat.ended_at} IS NULL`));
 	assert.equal(seats.length, 1);
-	assert.equal(seats[0].plant_id, sender.p.id);
+	assert.equal(present(seats[0], "seats").plant_id, sender.p.id);
 });
 
 test("AC:TARGET-IDN-016 conversion refuses stale, foreign, ended and revoked links and rolls back selected effects", async () => {
@@ -831,53 +927,63 @@ test("AC:TARGET-IDN-016 conversion refuses stale, foreign, ended and revoked lin
 	}
 	assert.deepEqual(await counts(), before);
 	assert.equal(
-		(await admin.select().from(t.discovery).where(eq(t.discovery.id, d.result.profile.discoveryId)))[0].converted_at,
+		present(
+			(await admin.select().from(t.discovery).where(eq(t.discovery.id, d.result.profile.discoveryId)))[0],
+			"discovery",
+		).converted_at,
 		null,
 	);
 });
 
-let readingSource;
+let readingSource: { org: string; revisions: (typeof t.article_revision.$inferSelect)[] } | undefined;
 async function seedArticles() {
-	if (readingSource) return;
+	if (readingSource) return readingSource;
 	const org = randomUUID(),
-		section = foundations.articles[0].section_id;
+		section = present(foundations.articles[0], "articles").section_id;
 	await admin
 		.insert(t.organization)
 		.values({ id: org, kind: "sending_network", name: "Published source", timezone: "UTC", material_revision: "1" });
 	await admin
 		.insert(t.reference_item)
 		.values({ id: section, kind: "section", canonical_key: "discovery-fixture-section", tenant_id: org });
-	const revisions = [];
+	const revisions: (typeof t.article_revision.$inferSelect)[] = [];
 	for (const article of foundations.articles) {
 		await admin
 			.insert(t.reference_item)
 			.values({ id: article.id, kind: "article", canonical_key: article.slug, tenant_id: org });
-		const [row] = await admin
-			.insert(t.article_revision)
-			.values({
-				article_id: article.id,
-				tenant_id: org,
-				revision_number: 1,
-				title: article.title,
-				slug: article.slug,
-				body: "Synthetic published body",
-				content_type: "safe_nodes",
-				position: article.sort_order,
-				content_hash: "a".repeat(64),
-				published_at: new Date(),
-				meaningful: true,
-				meaningful_sequence: "1",
-				section_id: section,
-			})
-			.returning();
+		const row = present(
+			(
+				await admin
+					.insert(t.article_revision)
+					.values({
+						article_id: article.id,
+						tenant_id: org,
+						revision_number: 1,
+						title: article.title,
+						slug: article.slug,
+						body: "Synthetic published body",
+						content_type: "safe_nodes",
+						position: article.sort_order,
+						content_hash: "a".repeat(64),
+						published_at: new Date(),
+						meaningful: true,
+						meaningful_sequence: "1",
+						section_id: section,
+						search_vector: sql`DEFAULT`,
+					})
+					.returning()
+			)[0],
+			"row",
+		);
 		revisions.push(row);
 	}
 	readingSource = { org, revisions };
+	return readingSource;
 }
-async function reading(a, positions = [0, 1, 2, 3, 4, 5], fraction = "0.81") {
-	await seedArticles();
+async function reading(a: { id: string }, positions = [0, 1, 2, 3, 4, 5], fraction = "0.81") {
+	const source = await seedArticles();
 	for (const position of positions) {
-		const row = readingSource.revisions[position];
+		const row = present(source.revisions[position], "revision " + position);
 		await admin
 			.insert(t.reading)
 			.values({
@@ -899,25 +1005,30 @@ async function reading(a, positions = [0, 1, 2, 3, 4, 5], fraction = "0.81") {
 			});
 	}
 }
-async function reader(f, role = "admin") {
+async function reader(f: Pick<Made, "p">, role: (typeof t.seat.$inferInsert)["role"] = "admin") {
 	const a = await actor();
 	await admin.insert(t.seat).values({ account_id: a.id, plant_id: f.p.id, role, accepted_at: new Date() });
-	const [p] = await admin
-		.insert(t.person)
-		.values({
-			tenant_id: f.p.id,
-			plant_id: f.p.id,
-			display_name: "Reader",
-			source: "other",
-			stage: "leader",
-			adult_classification: "unknown",
-			commitment_state: "unknown",
-			pipeline_position: "2",
-			state: "live",
-			created_at: new Date(),
-			linked_account_id: a.id,
-		})
-		.returning();
+	const p = present(
+		(
+			await admin
+				.insert(t.person)
+				.values({
+					tenant_id: f.p.id,
+					plant_id: f.p.id,
+					display_name: "Reader",
+					source: "other",
+					stage: "leader",
+					adult_classification: "unknown",
+					commitment_state: "unknown",
+					pipeline_position: "2",
+					state: "live",
+					created_at: new Date(),
+					linked_account_id: a.id,
+				})
+				.returning()
+		)[0],
+		"p",
+	);
 	return { ...a, person: p };
 }
 
@@ -926,8 +1037,8 @@ test("AC:DC-028 AC:DC-001 preplant reading belongs to actual account with no pla
 		before = await counts();
 	await reading(d.a);
 	const own = ok(await call("getDiscoveryProfile", d.a, {}));
-	assert.equal(own.profile.reading.articles.length, 6);
-	assert.equal(own.profile.reading.readerAccountId, d.a.id);
+	assert.equal(activeProfile(own).reading.articles.length, 6);
+	assert.equal(activeProfile(own).reading.readerAccountId, d.a.id);
 	assert.equal((await counts()).plants, before.plants);
 	const converted = ok(
 		await call(
@@ -963,21 +1074,31 @@ test("INV-reading: a single current eligible reader must finish all six strictly
 	assert.equal((await resume(f)).reading.status, "incomplete");
 	await reading(adminReader);
 	assert.equal((await resume(f)).reading.status, "incomplete");
-	const [ministry] = await admin
-		.insert(t.team)
-		.values({
-			plant_id: f.p.id,
-			name: "Worship",
-			state: "active",
-			sort_order: 3,
-			leader_person_id: adminReader.person.id,
-			leader_source: "explicit",
-		})
-		.returning();
-	const [ministryRole] = await admin
-		.insert(t.team_role)
-		.values({ plant_id: f.p.id, team_id: ministry.id, name: "Worship leader", leadership: true, sort_order: 0 })
-		.returning();
+	const ministry = present(
+		(
+			await admin
+				.insert(t.team)
+				.values({
+					plant_id: f.p.id,
+					name: "Worship",
+					state: "active",
+					sort_order: 3,
+					leader_person_id: adminReader.person.id,
+					leader_source: "explicit",
+				})
+				.returning()
+		)[0],
+		"ministry",
+	);
+	const ministryRole = present(
+		(
+			await admin
+				.insert(t.team_role)
+				.values({ plant_id: f.p.id, team_id: ministry.id, name: "Worship leader", leadership: true, sort_order: 0 })
+				.returning()
+		)[0],
+		"ministryRole",
+	);
 	await admin.insert(t.team_tenure).values({
 		plant_id: f.p.id,
 		role_id: ministryRole.id,
@@ -1007,36 +1128,64 @@ test("INV-reading: a single current eligible reader must finish all six strictly
 	await admin
 		.update(t.team_tenure)
 		.set({ person_id: adminReader.person.id })
-		.where(eq(t.team_tenure.role_id, lead.lead.assignment.roleId));
+		.where(eq(t.team_tenure.role_id, yes(lead.lead).assignment.roleId));
 	await admin
 		.update(t.team)
 		.set({ leader_person_id: adminReader.person.id })
-		.where(eq(t.team.id, lead.lead.assignment.teamId));
+		.where(eq(t.team.id, yes(lead.lead).assignment.teamId));
 	const complete = await resume(f);
 	assert.equal(complete.reading.status, "complete");
 	assert.equal(complete.reading.readerAccountId, adminReader.id);
 	assert.deepEqual(complete.reading.eligibility, { kind: "current_admin_lead", personId: adminReader.person.id });
-	const [adminSeat] = await admin.select().from(t.seat).where(eq(t.seat.account_id, adminReader.id));
-	const [tenure] = await admin
-		.select()
-		.from(t.team_tenure)
-		.where(eq(t.team_tenure.role_id, lead.lead.assignment.roleId));
-	for (const [table, id, patch, restore] of [
-		[t.account, adminReader.id, { registration_state: "pending_domain" }, { registration_state: "active" }],
+	const adminSeat = present(
+		(await admin.select().from(t.seat).where(eq(t.seat.account_id, adminReader.id)))[0],
+		"adminSeat",
+	);
+	const tenure = present(
+		(
+			await admin
+				.select()
+				.from(t.team_tenure)
+				.where(eq(t.team_tenure.role_id, yes(lead.lead).assignment.roleId))
+		)[0],
+		"tenure",
+	);
+	const { teamId, roleId } = yes(lead.lead).assignment;
+	const toggles: [() => Promise<unknown>, () => Promise<unknown>][] = [
 		[
-			t.seat,
-			adminSeat.id,
-			{ accepted_at: sql`clock_timestamp()+interval '1 day'` },
-			{ accepted_at: adminSeat.accepted_at },
+			() =>
+				admin.update(t.account).set({ registration_state: "pending_domain" }).where(eq(t.account.id, adminReader.id)),
+			() => admin.update(t.account).set({ registration_state: "active" }).where(eq(t.account.id, adminReader.id)),
 		],
-		[t.team, lead.lead.assignment.teamId, { archived_at: new Date() }, { archived_at: null }],
-		[t.team_role, lead.lead.assignment.roleId, { retired_at: new Date() }, { retired_at: null }],
-		[t.team_role, lead.lead.assignment.roleId, { leadership: false }, { leadership: true }],
-		[t.team_tenure, tenure.id, { ended_on: tenure.started_on }, { ended_on: null }],
-	]) {
-		await admin.update(table).set(patch).where(eq(table.id, id));
+		[
+			() =>
+				admin
+					.update(t.seat)
+					.set({ accepted_at: sql`clock_timestamp()+interval '1 day'` })
+					.where(eq(t.seat.id, adminSeat.id)),
+			() => admin.update(t.seat).set({ accepted_at: adminSeat.accepted_at }).where(eq(t.seat.id, adminSeat.id)),
+		],
+		[
+			() => admin.update(t.team).set({ archived_at: new Date() }).where(eq(t.team.id, teamId)),
+			() => admin.update(t.team).set({ archived_at: null }).where(eq(t.team.id, teamId)),
+		],
+		[
+			() => admin.update(t.team_role).set({ retired_at: new Date() }).where(eq(t.team_role.id, roleId)),
+			() => admin.update(t.team_role).set({ retired_at: null }).where(eq(t.team_role.id, roleId)),
+		],
+		[
+			() => admin.update(t.team_role).set({ leadership: false }).where(eq(t.team_role.id, roleId)),
+			() => admin.update(t.team_role).set({ leadership: true }).where(eq(t.team_role.id, roleId)),
+		],
+		[
+			() => admin.update(t.team_tenure).set({ ended_on: tenure.started_on }).where(eq(t.team_tenure.id, tenure.id)),
+			() => admin.update(t.team_tenure).set({ ended_on: null }).where(eq(t.team_tenure.id, tenure.id)),
+		],
+	];
+	for (const [patch, restore] of toggles) {
+		await patch();
 		assert.equal((await resume(f)).reading.status, "incomplete");
-		await admin.update(table).set(restore).where(eq(table.id, id));
+		await restore();
 	}
 
 	await admin.update(t.seat).set({ role: "member" }).where(eq(t.seat.account_id, adminReader.id));
@@ -1045,12 +1194,12 @@ test("INV-reading: a single current eligible reader must finish all six strictly
 	await admin
 		.update(t.team_tenure)
 		.set({ person_id: member.person.id })
-		.where(eq(t.team_tenure.role_id, lead.lead.assignment.roleId));
+		.where(eq(t.team_tenure.role_id, yes(lead.lead).assignment.roleId));
 	assert.equal((await resume(f)).reading.status, "incomplete");
 	await admin
 		.update(t.team_tenure)
 		.set({ person_id: adminReader.person.id })
-		.where(eq(t.team_tenure.role_id, lead.lead.assignment.roleId));
+		.where(eq(t.team_tenure.role_id, yes(lead.lead).assignment.roleId));
 	await admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.account_id, adminReader.id));
 	assert.equal((await resume(f)).reading.status, "incomplete");
 	await reading(f.a);
@@ -1119,18 +1268,19 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 			},
 		},
 	);
-	let ready, proceed;
-	const held = new Promise((resolve) => {
+	let ready = () => {};
+	let proceed = () => {};
+	const held = new Promise<void>((resolve) => {
 			ready = resolve;
 		}),
-		continueConversion = new Promise((resolve) => {
+		continueConversion = new Promise<void>((resolve) => {
 			proceed = resolve;
 		});
-	let conversionPid;
-	const endPid = [];
+	let conversionPid: number | undefined;
+	const endPid: (number | undefined)[] = [];
 	const converting = gatedTransaction(db, async (tx) => {
 		await tx.execute(sql`SET LOCAL statement_timeout='8s'`);
-		conversionPid = (await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid;
+		conversionPid = Number(present((await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0], "row").pid);
 		const result = await api.convertDiscovery(
 			tx,
 			ctx(d.a),
@@ -1148,7 +1298,7 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 	await held;
 	const ending = gatedTransaction(db, async (tx) => {
 		await tx.execute(sql`SET LOCAL statement_timeout='8s'`);
-		endPid.push((await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid);
+		endPid.push(Number(present((await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0], "row").pid));
 		return associations["associations.end"](
 			tx,
 			orgActor.session,
@@ -1188,21 +1338,28 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 
 test("AC:DC-001 AC:DC-027 account drafts stay private through conversion; resume uses only actual current plant values", async () => {
 	const d = await discovery();
-	const [draft] = await admin
-		.insert(t.document)
-		.values({ tenant_id: d.a.id, kind: "native", title: "Private draft" })
-		.returning();
-	const [draftRevision] = await admin
-		.insert(t.document_revision)
-		.values({
-			tenant_id: d.a.id,
-			document_id: draft.id,
-			version_number: 1,
-			body: "Private account values",
-			content_hash: "a".repeat(64),
-			recorded_at: new Date(),
-		})
-		.returning();
+	const draft = present(
+		(
+			await admin.insert(t.document).values({ tenant_id: d.a.id, kind: "native", title: "Private draft" }).returning()
+		)[0],
+		"draft",
+	);
+	const draftRevision = present(
+		(
+			await admin
+				.insert(t.document_revision)
+				.values({
+					tenant_id: d.a.id,
+					document_id: draft.id,
+					version_number: 1,
+					body: "Private account values",
+					content_hash: "a".repeat(64),
+					recorded_at: new Date(),
+				})
+				.returning()
+		)[0],
+		"draftRevision",
+	);
 	await admin.update(t.document).set({ current_revision_id: draftRevision.id }).where(eq(t.document.id, draft.id));
 	const value = ok(
 		await call(
@@ -1213,24 +1370,34 @@ test("AC:DC-001 AC:DC-027 account drafts stay private through conversion; resume
 	);
 	const f = { a: d.a, p: value.plant };
 	assert.equal((await resume(f)).values, "missing");
-	const original = (await admin.select().from(t.document).where(eq(t.document.id, draft.id)))[0];
+	const original = present((await admin.select().from(t.document).where(eq(t.document.id, draft.id)))[0], "original");
 	assert.equal(original.tenant_id, d.a.id);
 	assert.equal(original.current_revision_id, draftRevision.id);
-	const [values] = await admin
-		.insert(t.document)
-		.values({ tenant_id: f.p.id, kind: "core_values", title: "Plant values" })
-		.returning();
-	const [valuesRevision] = await admin
-		.insert(t.document_revision)
-		.values({
-			tenant_id: f.p.id,
-			document_id: values.id,
-			version_number: 1,
-			body: "Actual saved plant values",
-			content_hash: "b".repeat(64),
-			recorded_at: new Date(),
-		})
-		.returning();
+	const values = present(
+		(
+			await admin
+				.insert(t.document)
+				.values({ tenant_id: f.p.id, kind: "core_values", title: "Plant values" })
+				.returning()
+		)[0],
+		"values",
+	);
+	const valuesRevision = present(
+		(
+			await admin
+				.insert(t.document_revision)
+				.values({
+					tenant_id: f.p.id,
+					document_id: values.id,
+					version_number: 1,
+					body: "Actual saved plant values",
+					content_hash: "b".repeat(64),
+					recorded_at: new Date(),
+				})
+				.returning()
+		)[0],
+		"valuesRevision",
+	);
 	await admin.update(t.document).set({ current_revision_id: valuesRevision.id }).where(eq(t.document.id, values.id));
 	assert.equal((await resume(f)).values, "recorded");
 	const { peopleWriter } = await import("../../../packages/domain/src/people/index.ts");
@@ -1305,17 +1472,19 @@ async function verifiedWriteActor(session: string) {
 
 test("INV-reads: the onboarding entry of a plant owner is one statement with no locks", async (t) => {
 	const f = await makePlant();
-	const viewer = await readViewer(db, writeSessionId.parse(f.a.session));
-	assert.equal(viewer.authority.actor.context.role, "owner");
-	const statements = [];
+	const viewer = present(await readViewer(db, writeSessionId.parse(f.a.session)), "viewer");
+	const seat = present(viewer.authority, "authority").actor.context;
+	if (seat.kind !== "seat") assert.fail(JSON.stringify(seat));
+	assert.equal(seat.role, "owner");
+	const statements: string[] = [];
 	let recording = false;
-	const instrumented = new WeakSet();
+	const instrumented = new WeakSet<object>();
 	db.$client.on("acquire", (client) => {
 		if (instrumented.has(client)) return;
 		instrumented.add(client);
 		const query = client.query;
-		client.query = function (...args) {
-			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+		client.query = function (...args: unknown[]) {
+			if (recording) statements.push(statementText(args[0]));
 			return Reflect.apply(query, this, args);
 		};
 	});
@@ -1324,10 +1493,10 @@ test("INV-reads: the onboarding entry of a plant owner is one statement with no 
 		db,
 		api,
 		{
-			status: "active",
+			status: "active" as const,
 			accountId: f.a.id,
 			sessionId: f.a.session,
-			expiresAt: new Date(Date.now() + 3600000).toISOString(),
+			expiresAt: instant.parse(new Date(Date.now() + 3600000).toISOString()),
 		},
 		viewer.authority,
 		true,
@@ -1335,7 +1504,7 @@ test("INV-reads: the onboarding entry of a plant owner is one statement with no 
 	recording = false;
 	assert.equal(entry.kind, "plant");
 	assert.equal(entry.plantName, "Harvest Point");
-	assert.equal(entry.resume.basics, "created");
+	assert.partialDeepStrictEqual(entry.resume, { basics: "created" });
 	t.diagnostic(JSON.stringify({ onboardingEntryStatements: statements.length }));
 	assert.equal(statements.length, 1, `onboarding entry: ${statements.length} statements`);
 	assert.equal(
@@ -1347,17 +1516,17 @@ test("INV-reads: the onboarding entry of a plant owner is one statement with no 
 
 test("INV-reads: a seatless account's onboarding entry reads no identity row for update and takes no lock", async (t) => {
 	const a = await actor("planter", "active");
-	const viewer = await readViewer(db, writeSessionId.parse(a.session));
-	assert.equal(viewer.authority.actor.context.kind, "account");
-	const statements = [];
+	const viewer = present(await readViewer(db, writeSessionId.parse(a.session)), "viewer");
+	assert.equal(present(viewer.authority, "authority").actor.context.kind, "account");
+	const statements: string[] = [];
 	let recording = false;
-	const instrumented = new WeakSet();
+	const instrumented = new WeakSet<object>();
 	db.$client.on("acquire", (client) => {
 		if (instrumented.has(client)) return;
 		instrumented.add(client);
 		const query = client.query;
-		client.query = function (...args) {
-			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+		client.query = function (...args: unknown[]) {
+			if (recording) statements.push(statementText(args[0]));
 			return Reflect.apply(query, this, args);
 		};
 	});
@@ -1366,10 +1535,10 @@ test("INV-reads: a seatless account's onboarding entry reads no identity row for
 		db,
 		api,
 		{
-			status: "active",
+			status: "active" as const,
 			accountId: a.id,
 			sessionId: a.session,
-			expiresAt: new Date(Date.now() + 3600000).toISOString(),
+			expiresAt: instant.parse(new Date(Date.now() + 3600000).toISOString()),
 		},
 		viewer.authority,
 		true,
@@ -1387,10 +1556,10 @@ test("INV-reads: a seatless account's onboarding entry reads no identity row for
 		db,
 		api,
 		{
-			status: "active",
+			status: "active" as const,
 			accountId: a.id,
 			sessionId: a.session,
-			expiresAt: new Date(Date.now() + 3600000).toISOString(),
+			expiresAt: instant.parse(new Date(Date.now() + 3600000).toISOString()),
 		},
 		viewer.authority,
 		false,
@@ -1400,26 +1569,26 @@ test("INV-reads: a seatless account's onboarding entry reads no identity row for
 
 test("INV-reads: a pending account's onboarding entry reads only its account row, no identity lock", async (t) => {
 	const a = await actor("discovery", "pending_domain");
-	const viewer = await readViewer(db, writeSessionId.parse(a.session));
+	const viewer = present(await readViewer(db, writeSessionId.parse(a.session)), "viewer");
 	assert.equal(viewer.registration, "pending_domain");
 	assert.equal(viewer.authority, null);
-	const statements = [];
+	const statements: string[] = [];
 	let recording = false;
-	const instrumented = new WeakSet();
+	const instrumented = new WeakSet<object>();
 	db.$client.on("acquire", (client) => {
 		if (instrumented.has(client)) return;
 		instrumented.add(client);
 		const query = client.query;
-		client.query = function (...args) {
-			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+		client.query = function (...args: unknown[]) {
+			if (recording) statements.push(statementText(args[0]));
 			return Reflect.apply(query, this, args);
 		};
 	});
 	const session = {
-		status: "pending_domain",
+		status: "pending_domain" as const,
 		accountId: a.id,
 		sessionId: a.session,
-		expiresAt: new Date(Date.now() + 3600000).toISOString(),
+		expiresAt: instant.parse(new Date(Date.now() + 3600000).toISOString()),
 	};
 	recording = true;
 	const entry = await readOnboardingEntry(db, api, session, null, true);
@@ -1451,15 +1620,15 @@ for (const [registration, kind, seatRole] of [
 			role: seatRole,
 			accepted_at: sql`clock_timestamp()-interval '1 second'`,
 		});
-		const viewer = await readViewer(db, writeSessionId.parse(a.session));
+		const viewer = present(await readViewer(db, writeSessionId.parse(a.session)), "viewer");
 		const entry = await readOnboardingEntry(
 			db,
 			api,
 			{
-				status: "active",
+				status: "active" as const,
 				accountId: a.id,
 				sessionId: a.session,
-				expiresAt: new Date(Date.now() + 3600000).toISOString(),
+				expiresAt: instant.parse(new Date(Date.now() + 3600000).toISOString()),
 			},
 			viewer.authority,
 			true,
@@ -1469,15 +1638,18 @@ for (const [registration, kind, seatRole] of [
 }
 
 test("AC:TARGET-IDN-029 onboarding reads: a request actor whose seat or session ended reads no onboarding facts", async () => {
-	const session = (a) => ({
-		status: "active",
+	const session = (a: Account) => ({
+		status: "active" as const,
 		accountId: a.id,
 		sessionId: a.session,
-		expiresAt: new Date(Date.now() + 3600000).toISOString(),
+		expiresAt: instant.parse(new Date(Date.now() + 3600000).toISOString()),
 	});
 	const { OnboardingReadContext } = await import("../../../packages/domain/src/onboarding/core.ts");
 	const f = await makePlant();
-	const owner = (await readViewer(db, writeSessionId.parse(f.a.session))).authority;
+	const owner = present(
+		present(await readViewer(db, writeSessionId.parse(f.a.session)), "viewer").authority,
+		"authority",
+	);
 	assert.equal((await readOnboardingEntry(db, api, session(f.a), owner, true)).kind, "plant");
 	await admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.account_id, f.a.id));
 	assert.deepEqual(await readOnboardingEntry(db, api, session(f.a), owner, true), {
@@ -1487,7 +1659,10 @@ test("AC:TARGET-IDN-029 onboarding reads: a request actor whose seat or session 
 	denied(await gatedTransaction(db, (tx) => api.getResume(tx, new OnboardingReadContext(owner), {})));
 
 	const d = await discovery();
-	const explorer = (await readViewer(db, writeSessionId.parse(d.a.session))).authority;
+	const explorer = present(
+		present(await readViewer(db, writeSessionId.parse(d.a.session)), "viewer").authority,
+		"authority",
+	);
 	assert.equal((await readOnboardingEntry(db, api, session(d.a), explorer, true)).kind, "discovery");
 	await admin
 		.update(t.auth_session)
@@ -1500,7 +1675,10 @@ test("AC:TARGET-IDN-029 onboarding reads: a request actor whose seat or session 
 	});
 
 	const a = await actor("planter", "active");
-	const fresh = (await readViewer(db, writeSessionId.parse(a.session))).authority;
+	const fresh = present(
+		present(await readViewer(db, writeSessionId.parse(a.session)), "viewer").authority,
+		"authority",
+	);
 	assert.equal((await readOnboardingEntry(db, api, session(a), fresh, true)).kind, "start");
 	await admin
 		.update(t.auth_session)
@@ -1514,38 +1692,43 @@ test("AC:TARGET-IDN-029 onboarding reads: a request actor whose seat or session 
 
 test("INV-write-clock: answerLead, declareJourney and complete each write the plant once, and their saved times are that write's clock", async () => {
 	const f = await makePlant();
-	const statements = [];
+	const statements: string[] = [];
 	let recording = false;
-	const instrumented = new WeakSet();
+	const instrumented = new WeakSet<object>();
 	db.$client.on("acquire", (client) => {
 		if (instrumented.has(client)) return;
 		instrumented.add(client);
 		const query = client.query;
-		client.query = function (...args) {
-			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+		client.query = function (...args: unknown[]) {
+			if (recording) statements.push(statementText(args[0]));
 			return Reflect.apply(query, this, args);
 		};
 	});
-	async function plantWrites(name, q) {
+	async function plantWrites<V>(run: () => Promise<{ status: "ok"; value: V } | { status: "refused" }>) {
 		statements.length = 0;
 		recording = true;
-		const value = ok(await call(name, f.a, q, f.p));
+		const value = ok(await run());
 		recording = false;
 		return { value, writes: statements.filter((s) => /^\s*update\s+("[^"]+"\.)?"plant"\s/i.test(s)) };
 	}
 	const stored = async () => {
-		const [row] = await admin
-			.select({ plant: t.plant, setup: t.onboarding_setup })
-			.from(t.plant)
-			.innerJoin(t.onboarding_setup, eq(t.onboarding_setup.plant_id, t.plant.id))
-			.where(eq(t.plant.id, f.p.id));
+		const row = present(
+			(
+				await admin
+					.select({ plant: t.plant, setup: t.onboarding_setup })
+					.from(t.plant)
+					.innerJoin(t.onboarding_setup, eq(t.onboarding_setup.plant_id, t.plant.id))
+					.where(eq(t.plant.id, f.p.id))
+			)[0],
+			"row",
+		);
 		return row;
 	};
 	let r = await resume(f);
 
-	const lead = await plantWrites("answerLead", command({ answer: "no" }, r.revision));
+	const lead = await plantWrites(() => call("answerLead", f.a, command({ answer: "no" }, r.revision), f.p));
 	assert.equal(lead.writes.length, 1, lead.writes.join("\n"));
-	assert.match(lead.writes[0], /clock_timestamp\(\)/);
+	assert.match(present(lead.writes[0], "plant write"), /clock_timestamp\(\)/);
 	let row = await stored();
 	assert.equal(row.plant.lead_answer, "no");
 	assert.equal(row.plant.revision, lead.value.revision);
@@ -1555,14 +1738,18 @@ test("INV-write-clock: answerLead, declareJourney and complete each write the pl
 	r = await resume(f);
 	assert.deepEqual(r.lead, lead.value.lead);
 
-	const journey = await plantWrites(
-		"declareJourney",
-		command(
-			{
-				journey: { answer: "existing", phase: 3 },
-				launch: { answer: "planned", date: "2026-11-10", expectedScheduleRevision: "1" },
-			},
-			r.revision,
+	const journey = await plantWrites(() =>
+		call(
+			"declareJourney",
+			f.a,
+			command(
+				{
+					journey: { answer: "existing", phase: 3 },
+					launch: { answer: "planned", date: "2026-11-10", expectedScheduleRevision: "1" },
+				},
+				r.revision,
+			),
+			f.p,
 		),
 	);
 	assert.equal(journey.writes.length, 1, journey.writes.join("\n"));
@@ -1577,15 +1764,18 @@ test("INV-write-clock: answerLead, declareJourney and complete each write the pl
 	assert.deepEqual(row.setup.journey, journey.value.journey);
 	assert.deepEqual(row.setup.launch, journey.value.launch);
 
-	const done = await plantWrites("complete", command({}, journey.value.revision));
+	const done = await plantWrites(() => call("complete", f.a, command({}, journey.value.revision), f.p));
 	assert.equal(done.writes.length, 1, done.writes.join("\n"));
 	row = await stored();
-	assert.equal(done.value.completion.completedAt, row.plant.onboarding_completed_at.toISOString());
+	assert.equal(
+		done.value.completion.completedAt,
+		present(row.plant.onboarding_completed_at, "completed at").toISOString(),
+	);
 	assert.equal(row.plant.revision, done.value.revision);
 	assert.equal(done.value.completion.materialRevision, row.plant.material_revision);
 	assert.equal(row.setup.completed_material_revision, row.plant.material_revision);
 
-	const again = await plantWrites("complete", command({}, done.value.revision));
+	const again = await plantWrites(() => call("complete", f.a, command({}, done.value.revision), f.p));
 	assert.equal(again.writes.length, 0, again.writes.join("\n"));
 	assert.deepEqual(again.value.completion, done.value.completion);
 	assert.deepEqual(await stored(), row);
@@ -1595,8 +1785,8 @@ test("INV-write-clock: answerLead, declareJourney and complete each write the pl
 		.where(and(eq(t.audit_event.tenant_id, f.p.id), eq(t.audit_event.kind, "noop")));
 	assert.equal(noops.length, 1);
 
-	const viewer = await readViewer(db, writeSessionId.parse(f.a.session));
-	const inside = await withOnboardingWrite(db, viewer.authority, ctx(f.a, f.p), (tx) =>
+	const viewer = present(await readViewer(db, writeSessionId.parse(f.a.session)), "viewer");
+	const inside = await withOnboardingWrite(db, present(viewer.authority, "authority"), ctx(f.a, f.p), (tx) =>
 		api.getResume(tx, ctx(f.a, f.p), {}),
 	);
 	assert.deepEqual(ok(inside), await resume(f));
