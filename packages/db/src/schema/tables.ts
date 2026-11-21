@@ -2483,11 +2483,14 @@ export const mail = pgTable(
 			.default(sql`1`),
 		created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
 		address_hash: text("address_hash"),
-		refusal: text("refusal", { enum: ["unsubscribed"] }),
+		refusal: text("refusal", { enum: ["unsubscribed", "child"] }),
 		communication_id: uuid("communication_id"),
 	},
 	(table): PgTableExtraConfigValue[] => [
-		check("mail_refusal", sql`((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))`),
+		check(
+			"mail_refusal",
+			sql`((refusal IS NULL) OR ((refusal = ANY (ARRAY['unsubscribed'::text, 'child'::text])) AND (state = 'refused'::text)))`,
+		),
 		foreignKey({ name: "mail_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })
 			.onDelete("restrict")
 			.onUpdate("no action"),

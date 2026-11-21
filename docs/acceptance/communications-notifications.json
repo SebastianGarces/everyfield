@@ -4749,6 +4749,99 @@
       }
     },
     {
+      "id": "CASE-NTF-016-CHILD",
+      "requirement": "REQ-NTF-016",
+      "feature_ids": [
+        "NTF-016"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-016--NTF-016"
+      ],
+      "work_packages": [
+        "WP-028"
+      ],
+      "status": "future-not-run",
+      "description": "Admin A in plant P sends and schedules Messages email to people marked as a child (recorded, or by a birth date) together with adults, people whose Adult or child is not recorded and an adult whose household role is child; to only children; and changes markings between scheduling and the send time and after the send.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "mail-1": {
+          "fixture_type": "communication",
+          "id": "mail-1",
+          "plant": "P",
+          "status": "scheduled",
+          "recipients": [
+            "alex@example.test",
+            "kid@example.test"
+          ],
+          "body": "Hello {{name}}.",
+          "observed_state": "fixture-state-4"
+        },
+        "behavior-inputs": {
+          "fixture_type": "behavior_inputs",
+          "now": "2026-10-13T16:00:00Z",
+          "method": "POST"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-13T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "communication.scheduleReviewed",
+        "arguments": {
+          "subject": "P",
+          "communication": "mail-1"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "child_left_out_with_reason": true,
+          "other_recipients_sent": true,
+          "only_children_refused_nothing_queued": true,
+          "marked_child_before_send_time_skipped": true,
+          "marked_adult_before_send_time_sent": true,
+          "marked_adult_included_in_new_send": true,
+          "sent_email_unchanged_by_later_marking": true,
+          "not_recorded_or_household_child_blocked": false,
+          "child_counted_separately": true,
+          "staff_override": false
+        },
+        "event": null
+      }
+    },
+    {
       "id": "GAP-COM-012",
       "requirement": "Native drafts and provider schedule within 30 days; no SMS/inbound",
       "feature_ids": [
