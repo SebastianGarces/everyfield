@@ -67,12 +67,10 @@ export const NO_PROGRESS: DraftProgress = {
 	usage: { attempts: 0, inputTokens: 0, outputTokens: 0 },
 	pendingAttempts: 0,
 };
-export type Drafted = {
-	progress: DraftProgress;
-	published: c.DraftOutput | null;
-	reason: "invalid_drafts" | "attempts" | "budget" | "busy" | "model_unavailable" | "lost_claim" | null;
-	retryAfterMs: number | null;
-};
+export type Drafted = { progress: DraftProgress; retryAfterMs: number | null } & (
+	| { published: c.DraftOutput; reason: null }
+	| { published: null; reason: "invalid_drafts" | "attempts" | "budget" | "busy" | "model_unavailable" | "lost_claim" }
+);
 
 export async function draftWithin(
 	drafter: Drafter,
@@ -83,7 +81,7 @@ export async function draftWithin(
 ): Promise<Drafted> {
 	const B = c.ASSESSMENT_BUDGET;
 	let p: DraftProgress = { ...from, usage: { ...from.usage }, drafts: [...from.drafts] };
-	const stop = (reason: Drafted["reason"], retryAfterMs: number | null = null): Drafted => ({
+	const stop = (reason: NonNullable<Drafted["reason"]>, retryAfterMs: number | null = null): Drafted => ({
 		progress: p,
 		published: null,
 		reason,
@@ -148,7 +146,8 @@ export function publication(draft: c.DraftOutput, input: c.ModelInput) {
 		[...keys].map((k) => {
 			const p = passages.get(k);
 			if (p) return [k, { kind: "passage", ...p }];
-			const f = facts.get(k)!;
+			const f = facts.get(k);
+			if (!f) throw new Error(`the draft cites an unknown fact: ${k}`);
 			return [k, { kind: "fact", key: k, label: f.label, value: f.value }];
 		}),
 	);
@@ -241,9 +240,9 @@ SELECT (SELECT ok FROM gate) AS ok,
 	(SELECT h.held FROM x, LATERAL ${heldSql(sql`x.id`)} h) AS held`);
 				const r = readRow.parse(rows[0]);
 				if (!r.ok || r.current_phase === null) deny("access_denied");
-				const catalog = r.current ? await readCatalog() : null;
+				const current = r.current ? present(r.current, await readCatalog()) : null;
 				return {
-					current: r.current && present(r.current, catalog!),
+					current,
 					newest: newestOf(r),
 					currentPhase: r.current_phase,
 					seen: r.seen,
@@ -500,7 +499,13 @@ const storedCurrent = z.object({
 	activation: z.coerce.number().int(),
 	result: z.object({
 		draft: c.draftOutput,
-		citations: z.record(z.string(), z.object({ kind: z.enum(["fact", "passage"]) }).loose()),
+		citations: z.record(
+			z.string(),
+			z.discriminatedUnion("kind", [
+				z.object({ kind: z.literal("fact"), label: z.string() }).loose(),
+				z.object({ kind: z.literal("passage"), title: z.string(), section: z.string().nullable().optional() }).loose(),
+			]),
+		),
 	}),
 	delta: c.snapshotDelta.nullable(),
 	measuredOn: z.string(),
@@ -513,16 +518,12 @@ const storedCurrent = z.object({
 function present(row: z.infer<typeof storedCurrent>, catalog: Catalog): c.Assessment {
 	const draft = row.result.draft;
 	const label = (k: string) => {
-		const cite = row.result.citations[k] as {
-			kind: "fact" | "passage";
-			label?: string;
-			title?: string;
-			section?: string | null;
-		};
+		const cite = row.result.citations[k];
+		if (!cite) throw new Error(`the assessment cites an unknown key: ${k}`);
 		return {
 			key: k,
 			kind: cite.kind,
-			label: cite.kind === "fact" ? cite.label! : cite.section ? `${cite.title} — ${cite.section}` : cite.title!,
+			label: cite.kind === "fact" ? cite.label : cite.section ? `${cite.title} — ${cite.section}` : cite.title,
 		};
 	};
 	const point = (p: c.DraftPoint) => ({

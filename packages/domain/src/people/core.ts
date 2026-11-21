@@ -37,6 +37,20 @@ import * as c from "@everyfield/contracts/people";
 import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 export type Tx = WriteTx;
+export function only<T>(rows: readonly T[], what: string): T {
+	const [row] = rows;
+	if (row === undefined) throw Error(`${what} was not returned`);
+	return row;
+}
+export function known<K, V>(map: ReadonlyMap<K, V>, key: K, what: string): V {
+	const value = map.get(key);
+	if (value === undefined) throw Error(`${what} ${String(key)} was not read`);
+	return value;
+}
+function retiredAt(p: { id: string; retired_at: Date | null }) {
+	if (!p.retired_at) throw Error(`Person ${p.id} left the live state without a retirement time`);
+	return p.retired_at.toISOString();
+}
 export class PeopleReadContext {
 	readonly authority: RequestActor;
 	constructor(authority: RequestActor) {
@@ -177,8 +191,8 @@ export async function person(
 		return personRow.parse(checked[0]);
 	}
 	const rows = await (lock === true ? query.for("update", { of: tables.person }) : query);
-	if (!rows[0]!) deny("unavailable");
-	return personRow.parse(rows[0]!);
+	if (!rows[0]) deny("unavailable");
+	return personRow.parse(rows[0]);
 }
 export async function lockPersonWith(tx: Tx, context: Pick<Context, "selected">, id: string, columns: SQL) {
 	const subject = sql`subject AS MATERIALIZED (${personQuery(tx, context, id).getSQL()} FOR UPDATE OF ${tables.person})`;
@@ -209,7 +223,7 @@ export async function canReadPerson(tx: Tx, context: Context, p: Person, actor?:
 	return a;
 }
 export async function project(tx: Tx, context: Context, p: Person, gate: SQL) {
-	return (await projectPeople(tx, context, [p], gate))[0]!;
+	return only(await projectPeople(tx, context, [p], gate), `Projected person ${p.id}`);
 }
 export async function projectPeople(tx: Tx, context: Context, rows: Person[], gate: SQL) {
 	const people = await withToday(tx, context, rows);
@@ -296,10 +310,10 @@ export function projectWith(context: Pick<Context, "selected">, people: Person[]
 				p.state === "live"
 					? { state: "live" }
 					: p.state === "retired"
-						? { state: "retired", retiredAt: p.retired_at!.toISOString() }
+						? { state: "retired", retiredAt: retiredAt(p) }
 						: {
 								state: "merged",
-								retiredAt: p.retired_at!.toISOString(),
+								retiredAt: retiredAt(p),
 								survivorId: p.merged_into_person_id,
 							},
 		};

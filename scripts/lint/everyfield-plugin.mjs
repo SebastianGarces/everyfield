@@ -100,54 +100,117 @@ export const TABLE_WRITERS = {
 		owner: "packages/domain/src/phases/",
 		why: "the phases domain records every phase transition, including the one initial declaration a plant may make",
 	},
+	job: {
+		owner: "packages/domain/src/jobs/queue.ts",
+		why: "the job queue owns the row shape, the dedupe key and the conflict rule; build the insert with queueJobsFor or enqueueJobs",
+		holders: [
+			"packages/domain/src/branding/writes.ts",
+			"packages/domain/src/documents/church-writes.ts",
+			"packages/domain/src/intelligence/assessment-job.ts",
+			"packages/domain/src/intelligence/assessment.ts",
+			"packages/domain/src/jobs/digest.ts",
+			"packages/domain/src/jobs/mail.ts",
+			"packages/domain/src/meetings/notifications.ts",
+			"packages/domain/src/organizations/notifications.ts",
+			"packages/domain/src/organizations/reviews.ts",
+			"packages/domain/src/people/commitments/index.ts",
+			"packages/domain/src/people/csv/index.ts",
+			"packages/domain/src/people/fields/shared.ts",
+			"packages/evry/src/conversations/store.ts",
+			"packages/evry/src/proposals/store.ts",
+		],
+	},
 };
-const INSERT_INTO = /\binsert\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
+const INSERT_INTO = /\b(?:insert|merge)\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
+const INSERT_INTO_END = /\b(?:insert|merge)\s+into\s+(?:"?public"?\.)?$/i;
+const UNSEEN =
+	"This rule cannot follow a table returned by a helper from another module or passed in as an untyped value; review catches those.";
 
 const tableWriters = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
+		const held = Object.keys(TABLE_WRITERS).filter((table) => TABLE_WRITERS[table].holders?.includes(path));
+		const written = new Set();
 		const report = (node, table) => {
 			const { owner, why } = TABLE_WRITERS[table];
-			if (!path.startsWith(owner))
+			written.add(table);
+			if (!path.startsWith(owner) && !held.includes(table))
 				context.report({
 					node,
-					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here.`,
+					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here. ${UNSEEN}`,
 				});
 		};
+		const tableName = (name) =>
+			typeof name === "string" && Object.hasOwn(TABLE_WRITERS, name.toLowerCase()) ? name.toLowerCase() : undefined;
 		const check = (value, node) => {
-			for (const [, table] of value?.matchAll(INSERT_INTO) ?? [])
-				if (Object.hasOwn(TABLE_WRITERS, table.toLowerCase())) report(node, table.toLowerCase());
+			for (const [, table] of value?.matchAll(INSERT_INTO) ?? []) if (tableName(table)) report(node, tableName(table));
 		};
 		const aliases = new Map();
-		const tableOf = (node) =>
-			node?.type === "Identifier"
-				? aliases.get(node.name)
-				: node?.type === "MemberExpression" && Object.hasOwn(TABLE_WRITERS, memberName(node))
-					? memberName(node)
-					: undefined;
+		const returners = new Map();
+		const pending = [];
+		const tableOf = (raw) => {
+			const node = unwrapped(raw);
+			if (node?.type === "Identifier") return aliases.get(node.name);
+			if (node?.type === "MemberExpression") return tableName(memberName(node));
+			if (node?.type === "CallExpression") {
+				const callee = unwrapped(node.callee);
+				if (callee?.type === "Identifier") return returners.get(callee.name);
+				if (["raw", "identifier"].includes(memberName(callee))) return tableName(literalArgument(node.arguments[0]));
+			}
+			if (node?.type === "Literal") return tableName(text(node));
+			return undefined;
+		};
 		const bind = (id, table) => {
 			if (id?.type === "Identifier" && table) aliases.set(id.name, table);
+		};
+		const returned = (fn) =>
+			fn.body.type !== "BlockStatement"
+				? [fn.body]
+				: fn.body.body.filter((s) => s.type === "ReturnStatement").map((s) => s.argument);
+		const bindReturner = (id, fn) => {
+			const table = returned(fn).map(tableOf).find(Boolean);
+			if (id?.type === "Identifier" && table) returners.set(id.name, table);
 		};
 		return {
 			Literal: (node) => check(text(node), node),
 			TemplateElement: (node) => check(text(node), node),
-			ImportSpecifier: (node) => {
-				const imported = nameOf(node.imported);
-				if (Object.hasOwn(TABLE_WRITERS, imported)) bind(node.local, imported);
+			TemplateLiteral: (node) =>
+				node.quasis.forEach((quasi, i) => {
+					if (i < node.expressions.length && INSERT_INTO_END.test(text(quasi) ?? ""))
+						pending.push([node.expressions[i], node]);
+				}),
+			ImportSpecifier: (node) => bind(node.local, tableName(nameOf(node.imported))),
+			ExportSpecifier: (node) => {
+				const table = node.parent.source ? tableName(nameOf(node.local)) : aliases.get(nameOf(node.local));
+				if (table) report(node, table);
 			},
+			FunctionDeclaration: (node) => bindReturner(node.id, node),
 			VariableDeclarator: (node) => {
-				if (node.id.type === "Identifier") bind(node.id, tableOf(node.init));
+				const init = unwrapped(node.init);
+				if (init?.type === "ArrowFunctionExpression" || init?.type === "FunctionExpression")
+					bindReturner(node.id, init);
+				if (node.id.type === "Identifier") bind(node.id, tableOf(init));
 				if (node.id.type !== "ObjectPattern") return;
 				for (const p of node.id.properties) {
 					const key = p.type === "Property" ? keyName(p.key, p.computed) : null;
-					if (Object.hasOwn(TABLE_WRITERS, key))
-						bind(p.value.type === "AssignmentPattern" ? p.value.left : p.value, key);
+					if (tableName(key)) bind(p.value.type === "AssignmentPattern" ? p.value.left : p.value, tableName(key));
 				}
 			},
 			CallExpression: (node) => {
-				const table = tableOf(node.arguments[0]);
-				if (memberName(node.callee) === "insert" && table) report(node, table);
+				if (memberName(unwrapped(node.callee)) === "insert") pending.push([node.arguments[0], node]);
+			},
+			"Program:exit"(node) {
+				for (const [target, at] of pending) {
+					const table = tableOf(target);
+					if (table) report(at, table);
+				}
+				for (const table of held)
+					if (!written.has(table))
+						context.report({
+							node,
+							message: `${path} no longer inserts into ${table}: delete its holders entry under TABLE_WRITERS.${table} in scripts/lint/everyfield-plugin.mjs.`,
+						});
 			},
 		};
 	},
@@ -222,7 +285,14 @@ const unwrapped = (node) => {
 	let at = node;
 	while (
 		at &&
-		["TSAsExpression", "TSSatisfiesExpression", "TSNonNullExpression", "ParenthesizedExpression"].includes(at.type)
+		[
+			"TSAsExpression",
+			"TSSatisfiesExpression",
+			"TSNonNullExpression",
+			"TSTypeAssertion",
+			"ParenthesizedExpression",
+			"ChainExpression",
+		].includes(at.type)
 	)
 		at = at.expression;
 	return at;
@@ -339,6 +409,51 @@ const providerKeyMint = {
 			ExportSpecifier: (node) => (named(node.local) || named(node.exported)) && report(node),
 			TSQualifiedName: (node) => named(node.right) && report(node),
 			TSImportType: (node) => (named(node.qualifier) || named(node.qualifier?.right)) && report(node),
+		};
+	},
+};
+
+const SITE_PATH = "SitePath";
+const CASTS = new Set(["TSAsExpression", "TSTypeAssertion"]);
+const typeName = (node) => {
+	if (node.type === "TSTypeReference")
+		return node.typeName.type === "Identifier" ? node.typeName.name : nameOf(node.typeName.right);
+	return node.qualifier ? nameOf(node.qualifier.right ?? node.qualifier) : null;
+};
+
+const sitePathCast = {
+	meta: { type: "problem" },
+	create(context) {
+		const message = `Do not cast to ${SITE_PATH}: write the path as a literal or template that starts with "/" and a letter or digit, so the type proves it stays on this site. An untrusted return path goes through safeReturn.`;
+		const names = new Set([SITE_PATH]);
+		const aliases = new Map();
+		const casts = [];
+		return {
+			ImportSpecifier(node) {
+				if (nameOf(node.imported) === SITE_PATH) names.add(node.local.name);
+			},
+			"TSTypeReference, TSImportType"(node) {
+				const name = typeName(node);
+				if (!name) return;
+				for (let at = node; at.parent; at = at.parent) {
+					const parent = at.parent;
+					if (CASTS.has(parent.type) && parent.typeAnnotation === at) return void casts.push({ node: parent, name });
+					const named =
+						(parent.type === "TSTypeAliasDeclaration" && parent.typeAnnotation === at) ||
+						(parent.type === "TSTypeParameter" && parent.constraint === at)
+							? nameOf(parent.id ?? parent.name)
+							: null;
+					if (named) return void aliases.set(named, [...(aliases.get(named) ?? []), name]);
+					if (!parent.type.startsWith("TS")) return;
+				}
+			},
+			"Program:exit"() {
+				for (let size = 0; size !== names.size;) {
+					size = names.size;
+					for (const [alias, used] of aliases) if (used.some((name) => names.has(name))) names.add(alias);
+				}
+				for (const cast of casts) if (names.has(cast.name)) context.report({ node: cast.node, message });
+			},
 		};
 	},
 };
@@ -1390,37 +1505,79 @@ function handles(handler, body, param) {
 	return thrown || handed || (logged && !lost);
 }
 
-const MAIL_AUTHORIZERS = "the mail-authorizer move into @everyfield/domain (R-12 slice 20 follow-up, AP-S-17)";
-export const WEB_SQL_HOLDERS = {
-	"apps/web/src/features/notifications/worker.ts": {
-		why: "the notification worker's mail authorizer reads which recipients still hold a grant for each queued notice mail",
-		movedBy: MAIL_AUTHORIZERS,
-	},
-};
 const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
 
 const webDatabaseImports = {
 	meta: { type: "problem" },
 	create(context) {
+		if (!WEB_CODE.test(repoPath(context.filename))) return {};
+		return moduleSources((node, name) => {
+			if (DATABASE_MODULES.test(name))
+				context.report({
+					node,
+					message: `apps/web does not build SQL: ${name} belongs in @everyfield/domain. Call a domain operation, or move the statement into the domain module that owns its tables.`,
+				});
+		});
+	},
+};
+
+const NOTICE_ADOPTION =
+	"the R-06 adoption of the shared notice, held until the owner accepts the visual rulings in #855";
+const ERROR_CHIP = "a status chip in the error colour, not a notice";
+export const HAND_WRITTEN_NOTICES = {
+	"apps/web/src/components/Problem.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/communication/HistoryPanel.tsx": ERROR_CHIP,
+	"apps/web/src/features/communication/UnsubscribeScreen.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/documents/church/ChurchBranding.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/documents/church/EditTemplate.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/documents/church/editor/SaveAsTemplate.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/evry/conversation/EvryPanel.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/evry/review/PeopleChanges.tsx": ERROR_CHIP,
+	"apps/web/src/features/evry/review/ReviewCard.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/meetings/RsvpScreen.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/meetings/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/notifications/OptOutScreen.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/onboarding/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/organizations/InviteDialog.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/organizations/data/DuplicatesScreen.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/organizations/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/people/PipelineBoard.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/people/corrections/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/people/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/settings/SaveError.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/settings/flows/PasswordDialog.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/tasks/TaskSheet.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/teams/Setup.tsx": NOTICE_ADOPTION,
+};
+
+const noticeLook = (value) =>
+	value !== null && /(?:^|\s)bg-magenta-50(?:\s|$)/.test(value) && /(?:^|\s)text-magenta-600(?:\s|$)/.test(value);
+
+const sharedNotice = {
+	meta: { type: "problem" },
+	create(context) {
 		const path = repoPath(context.filename);
 		if (!WEB_CODE.test(path)) return {};
-		const holder = Object.hasOwn(WEB_SQL_HOLDERS, path);
-		let imports = 0;
+		const exempt = Object.hasOwn(HAND_WRITTEN_NOTICES, path);
+		let looks = 0;
+		const check = (node, value) => {
+			if (!noticeLook(value)) return;
+			looks++;
+			if (!exempt)
+				context.report({
+					node,
+					message:
+						"An error notice is Alert or InlineAlert from @everyfield/ui/controls (tone, title, actions, live region and focus included); do not hand-write the magenta box.",
+				});
+		};
 		return {
-			...moduleSources((node, name) => {
-				if (!DATABASE_MODULES.test(name)) return;
-				imports++;
-				if (!holder)
-					context.report({
-						node,
-						message: `apps/web does not build SQL: ${name} belongs in @everyfield/domain. Call a domain operation, or move the statement into the domain module that owns its tables.`,
-					});
-			}),
+			Literal: (node) => check(node, text(node)),
+			TemplateLiteral: (node) => check(node, node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ")),
 			"Program:exit"(node) {
-				if (holder && imports === 0)
+				if (exempt && looks === 0)
 					context.report({
 						node,
-						message: `${path} no longer imports a database module: delete its WEB_SQL_HOLDERS entry in scripts/lint/everyfield-plugin.mjs.`,
+						message: `${path} no longer hand-writes an error notice: delete its HAND_WRITTEN_NOTICES entry in scripts/lint/everyfield-plugin.mjs.`,
 					});
 			},
 		};
@@ -2930,6 +3087,65 @@ const domainRefusals = {
 	},
 };
 
+export const ORGANIZATION_SEAT_CHECKS = {
+	"apps/web/src/server/request-context.ts": "organizationSeatOf is the one narrowing every web gate shares",
+};
+const unchained = (node) => (node?.type === "ChainExpression" ? node.expression : node);
+const kindOf = (node) => {
+	const at = unchained(node);
+	return at?.type === "MemberExpression" && memberName(at) === "kind" ? unchained(at.object) : null;
+};
+const namesOwner = (node) => (node?.type === "Identifier" ? node.name === "owner" : memberName(node) === "owner");
+const comparedKinds = (node) => {
+	if (node.type === "SwitchCase") return node.test ? [[kindOf(node.parent.discriminant), node.test]] : [];
+	return [
+		[kindOf(node.left), node.right],
+		[kindOf(node.right), node.left],
+	];
+};
+
+const organizationSeatCheck = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!WEB_CODE.test(path)) return {};
+		const home = Object.hasOwn(ORGANIZATION_SEAT_CHECKS, path);
+		const seats = [];
+		const organizations = [];
+		const visit = (node) => {
+			if (node.type === "BinaryExpression" && !EQUALITY.has(node.operator)) return;
+			for (const [subject, value] of comparedKinds(node)) {
+				if (!subject || value?.type !== "Literal") continue;
+				if (value.value === "seat") seats.push(nearestFunction(node));
+				if (value.value === "organization" && namesOwner(subject)) organizations.push(node);
+			}
+		};
+		const within = (fn, outer) => {
+			for (let at = fn; at; at = nearestFunction(at)) if (at === outer) return true;
+			return outer === null;
+		};
+		return {
+			BinaryExpression: visit,
+			SwitchCase: visit,
+			"Program:exit"(program) {
+				const found = organizations.filter((node) => seats.some((fn) => within(nearestFunction(node), fn)));
+				if (home && found.length === 0)
+					context.report({
+						node: program,
+						message: `${path} no longer checks for an organization seat: delete its ORGANIZATION_SEAT_CHECKS entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+				if (home) return;
+				for (const node of found)
+					context.report({
+						node,
+						message:
+							"Read an organization seat with organizationSeat() or organizationSeatOf(actor) from @/server/request-context instead of checking the seat and its organization owner by hand.",
+					});
+			},
+		};
+	},
+};
+
 const signInRedirect = {
 	meta: { type: "problem" },
 	create(context) {
@@ -3111,6 +3327,7 @@ export default {
 		"no-timers": noTimers,
 		"raw-sql-literal": rawSqlLiteral,
 		"request-actor": requestActor,
+		"site-path-cast": sitePathCast,
 		"provider-key-mint": providerKeyMint,
 		"no-comments": noComments,
 		"server-log": serverLog,
@@ -3120,6 +3337,7 @@ export default {
 		"server-config": serverConfig,
 		"no-silent-catch": noSilentCatch,
 		"web-database-imports": webDatabaseImports,
+		"shared-notice": sharedNotice,
 		"no-cursor-utility": noCursorUtility,
 		"no-slop-styling": noSlopStyling,
 		"mint-callers": mintCallers,
@@ -3140,6 +3358,7 @@ export default {
 		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
+		"organization-seat": organizationSeatCheck,
 		"shared-outcome": sharedOutcome,
 		"domain-refusals": domainRefusals,
 		"stable-context-value": stableContextValue,
