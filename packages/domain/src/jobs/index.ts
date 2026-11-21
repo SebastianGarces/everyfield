@@ -54,6 +54,7 @@ export {
 	finishJob,
 	lockClaim,
 	queueJobs,
+	queueJobsFor,
 	recoverLease,
 	scanPage,
 	type Claim,
