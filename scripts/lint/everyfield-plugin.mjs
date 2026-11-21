@@ -1396,10 +1396,6 @@ export const WEB_SQL_HOLDERS = {
 		why: "the notification worker's mail authorizer reads which recipients still hold a grant for each queued notice mail",
 		movedBy: MAIL_AUTHORIZERS,
 	},
-	"apps/web/src/server/identity/index.ts": {
-		why: "the identity mail authorizer locks the accounts its queued mail names and reads their contact address",
-		movedBy: MAIL_AUTHORIZERS,
-	},
 };
 const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
 
