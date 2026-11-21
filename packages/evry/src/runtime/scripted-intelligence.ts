@@ -3,13 +3,6 @@ import { randomUUID } from "node:crypto";
 import { MEMBER_INTELLIGENCE } from "../catalog/catalog.ts";
 import { INTELLIGENCE_RULES, OVERSIGHT_RULES } from "../context/compile.ts";
 
-// The scripted model's Plant Intelligence and oversight requests (WP-073, WP-074), for local previews and tests only.
-// It answers through the same tools a model gets: committed adults, the scorecard, the assessment and what changed as
-// Plant Intelligence reads them, team health, a review card for a refresh, feedback or a task from a suggestion, and
-// for an organization seat its plants, one plant's totals and Network Intelligence patterns. Every number it says is
-// one a read returned. A reply the tools never serve is the product's own sentence from compile.ts, quoted only when
-// the prompt holds it, so the evals test the text the real model is given.
-
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind?: string; id: string; label: string; fields: Record<string, unknown> };
 type Output = Record<string, unknown> & {
@@ -44,7 +37,6 @@ const ADULTS = /\bcommitted adults?\b|\bare we at 30\b/i;
 const HEALTH = /\bhow healthy\b|\b(?:core )?team health\b|\bhealth of (?:our|the) (?:core )?team\b/i;
 const EXPLAIN = /\bexplain\b.*\bassessment\b|\bwhat does (?:the|this week'?s) assessment say\b/i;
 const CHANGED = /\bwhat(?:'s| has)? changed since\b|\bwhat moved\b/i;
-/** "turn the follow-up suggestion into tasks", "turn the second suggestion into a task". */
 const TO_TASKS = /\bturn (?:the |our )?(.+?) suggestions? into (?:a )?tasks?\b/i;
 const REFRESH = /\brefresh (?:the |our )?(?:plant intelligence )?assessment\b/i;
 const FEEDBACK = /\b(?:this|the) (?:finding|focus|suggestion) (?:wasn't|was not|isn't|is not) (useful|helpful)\b/i;
@@ -85,7 +77,6 @@ function plantStep(options: LanguageModelV4CallOptions, text: string, system: st
 	const asked = [ADULTS, HEALTH, EXPLAIN, CHANGED, TO_TASKS, REFRESH, FEEDBACK, USEFUL].some((r) => r.test(text));
 	if (!asked) return null;
 	if (proposed(outputs)) return say(REVIEW);
-	// A Member's seat has no Plant Intelligence: the screen's own words, and who asks for a refresh.
 	if (!reads) {
 		if (
 			(REFRESH.test(text) || FEEDBACK.test(text) || USEFUL.test(text)) &&
@@ -185,7 +176,7 @@ function plantStep(options: LanguageModelV4CallOptions, text: string, system: st
 		if (!assessment) return read("intelligence.readAssessment");
 		if (assessment.status === "not_found")
 			return say("There's no assessment yet, so there are no suggestions to turn into tasks.");
-		const which = tasks[1]!.toLowerCase();
+		const which = (tasks[1] ?? "").toLowerCase();
 		const suggestions = (assessment.rows ?? []).filter((r) => r.fields.role !== "positive");
 		const n = ORDINALS.indexOf(which);
 		const words = which.split(/[^a-z]+/).filter((w) => w.length > 3);
@@ -199,14 +190,14 @@ function plantStep(options: LanguageModelV4CallOptions, text: string, system: st
 			words[0] ??
 			point.label
 				.split(/\s+/)
-				.find((w) => w.length > 3)!
-				.toLowerCase();
+				.find((w) => w.length > 3)
+				?.toLowerCase();
 		const listed = lastOf(outputs, "tasks.list");
 		if (!listed) return call("tasks_read", { operation: "tasks.list", input: { search } });
 		const existing = listed.rows ?? [];
 		if (existing.length)
 			return say(
-				`You already have a task for this suggestion ("${point.label}"): **${existing[0]!.label}**. I won't add a duplicate.`,
+				`You already have a task for this suggestion ("${point.label}"): **${existing[0]?.label}**. I won't add a duplicate.`,
 			);
 		return can("tasks.create")
 			? call("propose_change", { operation: "tasks.create", input: { title: point.label } })
@@ -235,7 +226,7 @@ function organizationStep(options: LanguageModelV4CallOptions, text: string, sys
 			return say(
 				"Only an Owner or Admin of this organization gets the oversight digest, so there's nothing to change.",
 			);
-		const email = channel[1]!.toLowerCase() === "email";
+		const email = channel[1]?.toLowerCase() === "email";
 		return call("propose_change", {
 			operation: "notifications.setPreferences",
 			input: {
@@ -251,14 +242,14 @@ function organizationStep(options: LanguageModelV4CallOptions, text: string, sys
 	const region = REGION.exec(text);
 	if (region) {
 		if (!plants) return read("oversight.listPlants");
-		const plant = named(region[1]!.trim());
+		const plant = named((region[1] ?? "").trim());
 		if (!plant) return say(`I can't find ${region[1]} among your plants.`);
 		return say(OVERSIGHT_RULES.plantRegion(plant.label, String(plant.fields.region ?? "not set yet")));
 	}
 	const people = PEOPLE_AT.exec(text);
 	if (people) {
 		if (!plants) return read("oversight.listPlants");
-		const plant = named(people[1]!.trim());
+		const plant = named((people[1] ?? "").trim());
 		if (!plant) return say(`I can't find ${people[1]} among your plants.`);
 		const view = lastOf(outputs, "oversight.getPlant");
 		if (!view) return read("oversight.getPlant", { plantId: plant.id });
@@ -281,7 +272,7 @@ function organizationStep(options: LanguageModelV4CallOptions, text: string, sys
 	if (patterns) {
 		const out = lastOf(outputs, "organizationIntelligence.read");
 		if (!out) return read("organizationIntelligence.read", { level: "state" });
-		const where = patterns[1]!.trim();
+		const where = (patterns[1] ?? "").trim();
 		const rows = (out.rows ?? []).filter((r) => String(r.fields.group).toLowerCase() === where.toLowerCase());
 		if (!out.facts?.ranOn) return say("Network Intelligence hasn't run yet, so there are no patterns to show.");
 		if (!rows.length)
@@ -339,7 +330,6 @@ function organizationStep(options: LanguageModelV4CallOptions, text: string, sys
 	return null;
 }
 
-/** The scripted model's Plant Intelligence and oversight step, or null when the request is not one of them. */
 export function intelligenceStep(options: LanguageModelV4CallOptions, text: string) {
 	const system = systemText(options.prompt);
 	const outputs = turnOutputs(options.prompt);

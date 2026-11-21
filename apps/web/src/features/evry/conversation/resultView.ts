@@ -371,7 +371,6 @@ const VIEWS: Record<string, OpView> = {
 		beside: (r) => r.fields.match !== undefined,
 		empty: "No first-time guest names to show here.",
 	}),
-	// Plant Intelligence as its screen shows it (T-331): committed adults, the scorecard, findings and what changed.
 	"intelligence.readCommittedAdultCohort": items("Committed adults", {
 		icon: "item",
 		empty: "Plant Intelligence couldn't measure committed adults.",
@@ -391,7 +390,6 @@ const VIEWS: Record<string, OpView> = {
 		icon: "item",
 		empty: "Nothing measured changed since the assessment before.",
 	}),
-	// An organization's oversight as its own pages show it (T-331): counts, dates and plant names only.
 	"oversight.listPlants": items("Your plants", {
 		noun: ["plant", "plants"],
 		icon: "item",
@@ -850,7 +848,6 @@ const ENTRY: Record<string, string> = {
 	launch_sunday: "Held",
 };
 const CRITERION: Record<string, string> = {
-	// Plant Intelligence's scorecard says each criterion's status as its screen does (T-331).
 	Met: "Met",
 	"Not met": "Not met",
 	Unknown: "Unknown",

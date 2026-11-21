@@ -103,7 +103,6 @@ export type Operation =
 	| LaunchOperation
 	| IntelligenceOperation;
 
-/** Plant Intelligence's refresh and the reader's own rating of a finding (T-331), as the screen makes them. */
 export type IntelligenceOperation = "intelligence.requestRefresh" | "intelligence.submitFeedback";
 
 export type WikiEditorOperation =
@@ -520,7 +519,6 @@ const FIELD_LABEL: Record<string, string> = {
 	lead: "Lead",
 	setup: "Setup",
 	discovery: "Discovery",
-	// Plant Intelligence (T-331): the assessment a refresh replaces, and a finding's rating.
 	assessment: "Assessment",
 	rating: "Your rating",
 	comment: "Your comment",

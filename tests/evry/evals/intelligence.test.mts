@@ -1,9 +1,3 @@
-// The Plant Intelligence evals (T-331: WP-073, WP-074) on the scripted model. Each case in intelligence.cases.json is
-// asked the way the app asks it, for Cedar Creek Church's Owner, Admin and Member (intelligence-church.mts), with the
-// database clock pinned to the acceptance fixture's Oct 13, 2026. Each answer is checked against what the Plant
-// Intelligence screen itself reads (its own domain reads), and approved cards are read back through the screen's reads
-// or the Tasks list. No tool result or answer ever holds the Owner's private check-in. No paid model, network or
-// recording.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { sql } from "../../../packages/db/src/query.ts";
@@ -28,7 +22,6 @@ after(() => ch?.database.close());
 
 const actorOf = async (who: "owner" | "admin" | "member") => (await h.freshActor(ch.seats[who].session))!;
 const authority = async () => (await RequestActor.resolve(ch.db, ch.seats.owner.session as never)) as RequestActor;
-/** What /intelligence reads now: the assessment view and the measured facts. */
 const screen = async () => ({
 	view: ok(await assessments.readAssessment(ch.db, await authority(), {})),
 	facts: ok(await facts.readFacts(ch.db, await authority(), {})),
@@ -46,18 +39,14 @@ const LENS_STANDING = {
 } as const;
 
 const SETUP: Record<string, () => Promise<void>> = {
-	// The 2 people get a classification, and the job publishes the refresh INT-10 requested.
 	classified: async () => {
 		await ch.classify();
 		await ch.runJob();
 	},
 };
 type Got = Awaited<ReturnType<ReturnType<typeof harness>["ask"]>>;
-/** What each case shows or changes, checked against the screen's own reads. */
 const SETTLED: Record<string, (got: Got, actor: EvryActor) => Promise<void>> = {
 	"INT-01": async () => {
-		// The same count, certainty and date the Plant Intelligence screen shows (CA024), and the core group stage is no
-		// commitment: 10 people sit in it with no card.
 		const a = (await screen()).facts;
 		assert.deepEqual(
 			[a.committedAdults.known, a.committedAdults.exact, a.committedAdults.needsClassifying.length, a.today],
@@ -65,12 +54,10 @@ const SETTLED: Record<string, (got: Got, actor: EvryActor) => Promise<void>> = {
 		);
 	},
 	"INT-02": async (got) => {
-		// Each lens standing is the assessment's own.
 		const v = (await screen()).view.current!;
 		for (const l of v.lenses) assert.ok(got.answer.includes(`**${l.label}**: ${LENS_STANDING[l.standing]}`), l.label);
 	},
 	"INT-03": async (got) => {
-		// Each finding's cited facts are the values the screen's citation read resolves from the run's snapshot.
 		const v = (await screen()).view.current!;
 		for (const p of [v.focus, ...v.supporting, ...v.positives]) {
 			assert.ok(got.answer.includes(`**${p.title}**`), p.title);
@@ -88,7 +75,6 @@ const SETTLED: Record<string, (got: Got, actor: EvryActor) => Promise<void>> = {
 	"INT-05": async () => assert.equal(await tasksTitled(FOLLOW_UP), 1, "no duplicate"),
 	"INT-06": async () => assert.equal(await tasksTitled("Set a regular prayer rhythm"), 0),
 	"INT-07": async () => {
-		// Saved as the screen's feedback is: the Admin's own rating of the focus.
 		const admin = (await RequestActor.resolve(ch.db, ch.seats.admin.session as never)) as RequestActor;
 		const v = ok(await assessments.readAssessment(ch.db, admin, {}));
 		assert.deepEqual(
@@ -102,7 +88,6 @@ const SETTLED: Record<string, (got: Got, actor: EvryActor) => Promise<void>> = {
 		assert.equal(n.length, 0, "a Member requests nothing");
 	},
 	"INT-10": async () => {
-		// The screen now says a new assessment is being prepared, through the same request its Refresh makes.
 		assert.equal((await screen()).view.newest?.state, "preparing");
 		const audit = await ch.rows(sql`SELECT actor_id FROM audit_event WHERE tenant_id=${ch.cedar.id}
 			AND action='intelligence.refresh_requested' ORDER BY occurred_at DESC LIMIT 1`);
@@ -113,7 +98,6 @@ const SETTLED: Record<string, (got: Got, actor: EvryActor) => Promise<void>> = {
 		assert.deepEqual([a.exact, a.status], [30, "met"]);
 	},
 	"INT-12": async (got) => {
-		// What moved is the saved delta between the two published runs.
 		const v = (await screen()).view.current!;
 		assert.ok(v.delta?.changed.length, "the second run has a delta");
 		for (const x of v.delta!.changed) assert.ok(got.answer.includes(`**${x.label}**`), x.label);
@@ -127,7 +111,6 @@ test("AC:CA024 AC:INH-INTELLIGENCE-06 AC:TEAM-02 AC:TEAM-01 INV-privacy: Plant I
 		const got = await h.ask(actor, c.ask);
 		if (process.env.EVRY_EVAL_PRINT) console.log(`## ${c.id} (${c.actor}): ${c.ask}\n${got.answer}\n`);
 		const card = checkCase(c, got);
-		// No tool result the model was given, and no answer, holds the private check-in (criterion 6).
 		assert.ok(!got.results.includes(CANARY) && !got.answer.includes(CANARY), `${c.id} never reads the check-in`);
 		assert.doesNotMatch(got.answer, /spiritual(ly)? (mature|immature|maturity)/i, c.id);
 		if (card && c.approve) assert.equal(await h.approveAndRun(actor, card), "completed", c.id);

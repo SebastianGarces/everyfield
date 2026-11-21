@@ -35,7 +35,6 @@ import { intelligenceChurch, type IntelligenceChurch } from "../evals/intelligen
 
 const church = await goldenChurch();
 after(church.close);
-/** The Plant Intelligence and oversight fixture (T-331), built once when a probe first asks for it. */
 let intelligence: Promise<IntelligenceChurch> | null = null;
 let delta = false;
 const oversightChurch = () => (intelligence ??= intelligenceChurch("evrycards"));
@@ -264,7 +263,6 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"launch.readWorkspace": {},
 	"launch.readJournal": {},
 	"launch.readDebrief": {},
-	// Plant Intelligence and organization oversight (T-331), on their own fixture: Cedar Creek's Owner, the network's Admin.
 	...Object.fromEntries(
 		[
 			["intelligence.readCommittedAdultCohort", "owner"],

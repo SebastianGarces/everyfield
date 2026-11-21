@@ -156,18 +156,11 @@ function launchRules() {
 	].join("\n");
 }
 
-/**
- * What a church seat's Plant Intelligence tools never do (WP-073, WP-074), with the reply for each. The scripted model
- * quotes them, so the evals test the words the real model gets.
- */
 export const INTELLIGENCE_RULES = {
-	/** A refresh is an Owner's or Admin's, as on the Plant Intelligence screen. */
 	ownerOnly:
 		"Only an Owner or Admin can ask for a fresh Plant Intelligence assessment or rate its findings, so I can't request one for you. Nothing was requested.",
-	/** Prayer, theology and spiritual matters stay with the church's leaders: Evry makes no task of them. */
 	noSpiritualTasks:
 		"I don't turn suggestions about prayer, theology or anyone's spiritual life into tasks. Those stay with your church's leaders.",
-	/** Committed adults while someone with a commitment is unclassified. */
 	unclassified: "Until they're classified I can't say whether you're at 30 committed adults.",
 } as const;
 function intelligenceRules() {
@@ -179,17 +172,10 @@ function intelligenceRules() {
 	].join("\n");
 }
 
-/**
- * What an organization seat's oversight tools never do (WP-073, SAF-14, EVRY-ORG-CONTEXT), with the reply for each.
- * The scripted model quotes them, so the evals test the words the real model gets.
- */
 export const OVERSIGHT_RULES = {
-	/** Oversight sees each plant's shared totals, never its people. */
 	totalsOnly:
 		"Oversight shows totals only, so I can't list a plant's people, or read their notes, interviews or private care. Here is what that plant shares with you:",
-	/** Plants are never compared. */
 	noRanking: "I don't rank or score plants against each other.",
-	/** A plant's location and reporting Region are the plant's own (IDN-011, D-1529). */
 	plantRegion: (plant: string, region: string) =>
 		`I can't change that. Only ${plant}'s Owner or Admin can update its location and reporting Region, in their church settings. The Region I'm using now is ${region}. Nothing changed.`,
 } as const;

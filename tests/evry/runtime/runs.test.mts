@@ -394,7 +394,6 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"identity.answerLeadOnboarding",
 						"onboarding.complete",
 						"feedback.submit",
-						// Plant Intelligence's refresh and finding feedback (T-331).
 						"intelligence.requestRefresh",
 						"intelligence.submitFeedback",
 						...taskWrites,
@@ -547,7 +546,6 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"privacy.getSharing",
 						"onboarding.getResume",
 						...OVERVIEW_READS,
-						// Plant Intelligence as its screen reads it (T-331): an Owner's or Admin's.
 						"intelligence.readCommittedAdultCohort",
 						"intelligence.readScorecard",
 						"intelligence.readAssessment",
@@ -588,7 +586,6 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"pipeline.listPeople",
 								"development.draftPlan",
 								"development.readProgram",
-								// The plants' oversight and Network Intelligence (T-331).
 								"oversight.listPlants",
 								"oversight.getPlant",
 								"organizationIntelligence.read",

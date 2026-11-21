@@ -1,7 +1,3 @@
-// One Evry turn and one approval as the app runs them, for the Plant Intelligence and oversight suites (T-331): the
-// turn is submitted, claimed from the queue and run on the scripted model with the real catalog, reads and review
-// cards; an approval runs its effect once through the WP-031 queue. Returns what the turn read, said and proposed, and
-// every tool result the model was given, so a case can prove what never reached it.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -43,7 +39,6 @@ export const loadCases = (file: string) =>
 
 export function harness(db: Database, today: Date, native: NativePorts | null = null) {
 	const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
-	// The host clock in the database clock's frame, as the prompt states it (deps.now).
 	const shift = today.getTime() - Date.now();
 	const now = () => new Date(Date.now() + shift);
 	const freshActor = async (session: string) => {
@@ -67,7 +62,6 @@ export function harness(db: Database, today: Date, native: NativePorts | null = 
 		);
 		await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 		assert.equal(outcome, "succeeded", text);
-		// Every event of the conversation, page by page.
 		let read = await readConversation(db, actor, conversationId);
 		const events = [...read.events];
 		for (let page = read; page.events.length;) {
@@ -108,7 +102,6 @@ export function harness(db: Database, today: Date, native: NativePorts | null = 
 	return { ask, approveAndRun, freshActor };
 }
 
-/** The hard checks every case makes: the reads in order, each answer line, nothing absent, the card as given. */
 export function checkCase(
 	c: Case,
 	got: { reads: string[]; answer: string; proposals: Proposal[] },

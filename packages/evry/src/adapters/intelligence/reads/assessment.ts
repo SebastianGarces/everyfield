@@ -8,15 +8,8 @@ import { EvryRefusal } from "../../../context/errors.ts";
 import { plantAdmin } from "../../native.ts";
 import { dayText } from "../../pipeline/reads/index.ts";
 
-// Plant Intelligence as Evry reads it (WP-073): the same domain reads /intelligence makes (WP-040, WP-044), under the
-// asker's live Owner or Admin seat. Evry quotes the saved assessment and the measured facts; it never scores health or
-// writes a finding of its own. Committed adults are the facts' own count: only signed commitments count, never a
-// People stage, and the count stays Unknown while someone with a commitment has no adult or child classification
-// (PI-002, CA024). Private weekly check-ins have no read here, and no result names a person a fact counted.
-
 const assessments = createAssessments();
 const facts = createFacts();
-/** Where the planter reads all of this. */
 const SCREEN = "[Plant Intelligence](/intelligence)";
 
 type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
@@ -40,7 +33,6 @@ const result = (
 	exclusions,
 	facts,
 });
-/** No published assessment yet: the answer says so, never that the church is healthy. */
 const noAssessment = (operation: string): SourceResult => ({
 	operation,
 	status: "not_found",
@@ -53,7 +45,6 @@ const noAssessment = (operation: string): SourceResult => ({
 	facts: { assessed: false, screen: SCREEN },
 });
 
-/** A fact value in words, as the screen says it: Unknown for null, Yes or No, a date, or the number. */
 function factText(value: c.EvidenceFact["value"]): string | number {
 	if (value === null) return "Unknown";
 	if (typeof value === "boolean") return value ? "Yes" : "No";
@@ -130,7 +121,6 @@ export const readCommittedAdultCohort: ReadAdapter<Record<string, never>> = {
 	},
 };
 
-/** The current published assessment, or null before the first. */
 const currentOf = async (tx: Transaction, actor: EvryActor) =>
 	valueOf(await assessments.readAssessment(tx, actor.authority, {})).current;
 const assessedFacts = (a: c.Assessment) => ({
@@ -175,7 +165,6 @@ export const readScorecard: ReadAdapter<Record<string, never>> = {
 	},
 };
 
-/** At most this many cited facts are resolved per read: a draft cites at most eight per point, and repeats most. */
 const CITED = 16;
 export const readAssessment: ReadAdapter<Record<string, never>> = {
 	operation: "intelligence.readAssessment",
@@ -191,8 +180,6 @@ export const readAssessment: ReadAdapter<Record<string, never>> = {
 			...a.supporting.map((p) => ({ role: "supporting", p })),
 			...a.positives.map((p) => ({ role: "positive", p })),
 		];
-		// Each cited fact resolves against the run's own snapshot through the screen's citation read; a passage names
-		// its article. The people a fact counted stay on the screen.
 		const keys = [
 			...new Set(points.flatMap(({ p }) => p.citations.filter((x) => x.kind === "fact").map((x) => x.key))),
 		];
@@ -248,7 +235,6 @@ export const readAssessmentDelta: ReadAdapter<Record<string, never>> = {
 	},
 };
 
-/** The installed Plant Intelligence assessment reads. */
 export const ASSESSMENT_INTELLIGENCE_READS = [
 	readCommittedAdultCohort,
 	readScorecard,

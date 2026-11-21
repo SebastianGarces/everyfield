@@ -45,13 +45,7 @@ const unread = (ids: string[] | null) =>
 			${ids ? sql`AND n.id=ANY(${sql.param(ids)}::uuid[])` : sql``}`;
 const zone = (actor: EvryActor) => sql`(SELECT timezone FROM plant WHERE id=${actor.owner.id}::uuid)`;
 
-/**
- * The categories Settings > Notifications offers. Launch milestones send nothing yet (D-762), and the residency
- * categories reach only a linked resident, who holds no seat (T-365). The oversight digest and answers to review
- * (T-385) are an organization's own; every other category is a church's (inContext).
- */
 const settable = notificationCategory.exclude(["launch_milestone", ...residencyCategories]);
-/** The organization categories are an organization Owner's or Admin's; every other category is a church seat's. */
 const inContext = (actor: EvryActor, category: string) =>
 	(organizationCategories as readonly string[]).includes(category) === (actor.owner.kind === "organization");
 const choice = z
@@ -109,7 +103,6 @@ export const NOTIFICATION_COMMANDS = {
 				return sql`SELECT jsonb_build_object('target','null'::jsonb,'changes','[]'::jsonb,'refusal',
 					${actor.owner.kind === "organization" ? "Here only your organization's own notifications (the oversight digest and answers sent for review) can change. Change the others in the church you serve." : "The oversight digest is set in your sending church or network, not here."}::text) AS review,
 					'{}'::jsonb AS args`;
-			// Every channel of each category asked about, so the review also says which ones stay as they are.
 			const asked = new Map(value.choices.map((c) => [`${c.category}:${c.channel}`, c.enabled]));
 			const rows = [...new Set(value.choices.map((c) => c.category))].flatMap((category) =>
 				notificationChannels(category).map((channel) => ({

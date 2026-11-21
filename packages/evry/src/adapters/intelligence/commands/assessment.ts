@@ -8,15 +8,9 @@ import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../propos
 import { plantAdmin } from "../../native.ts";
 import { dayText } from "../../pipeline/reads/index.ts";
 
-// The Plant Intelligence reviewed writes (WP-074). The model only proposes; a person approves the exact card. Each runs
-// the screen's own command (assessment-actions.ts) once in the executor's transaction under the approving session's
-// live Owner or Admin seat: a refresh queues one assessment demand for the scheduled job, as the screen's Refresh does,
-// and feedback saves the reader's own rating of one finding. Neither writes an assessment, and Evry never drafts one.
-
 const assessments = createAssessments();
 type Card = { label: string; changes: { field: string; before: unknown; after: unknown }[]; notes: string[] };
 
-/** One write against the current published assessment. `prepare` decides the card, or null with nothing to change. */
 function assessmentWrite<I>(spec: {
 	operation: string;
 	description: string;
@@ -70,7 +64,6 @@ export const requestRefresh = assessmentWrite({
 				],
 			},
 			refusal: preparing ? "A new assessment is already being prepared, so there's nothing to request." : null,
-			// The request id is chosen once, here: approving the card again queues the same one request.
 			args: { requestId: randomUUID() },
 		};
 	},
@@ -79,10 +72,8 @@ export const requestRefresh = assessmentWrite({
 
 const RATING = { useful: "Useful", not_useful: "Not useful" } as const;
 const feedbackInput = z.strictObject({
-	/** The finding's ordinal from intelligence.readAssessment: 0 is the focus. */
 	ordinal: z.int().min(0).max(5),
 	rating: c.feedbackRating,
-	/** The user's own words about the finding, if they gave any. */
 	comment: z.string().max(c.FEEDBACK_COMMENT_MAX).optional(),
 });
 export const submitFeedback = assessmentWrite({
@@ -118,7 +109,6 @@ export const submitFeedback = assessmentWrite({
 	run: (tx, authority, args) => assessments.submitFeedback(tx, authority, args),
 });
 
-/** The installed Plant Intelligence reviewed writes, keyed by operation. */
 export const ASSESSMENT_INTELLIGENCE_COMMANDS = {
 	"intelligence.requestRefresh": requestRefresh,
 	"intelligence.submitFeedback": submitFeedback,

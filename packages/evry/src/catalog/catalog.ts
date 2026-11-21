@@ -2,7 +2,7 @@ import type { EvryActor } from "../context/actor.ts";
 import { CALENDAR_READS } from "../adapters/calendar/reads/index.ts";
 import { COMMUNICATION_READS } from "../adapters/communication/reads/index.ts";
 import { FOLLOWUP_READS } from "../adapters/followups/reads/index.ts";
-import { PHASE_READS, SIGNAL_READS } from "../adapters/intelligence/reads/index.ts";
+import { ASSESSMENT_INTELLIGENCE_READS, PHASE_READS, SIGNAL_READS } from "../adapters/intelligence/reads/index.ts";
 import { MEETINGS_READS } from "../adapters/meetings/reads/index.ts";
 import { DOCUMENTS_READS } from "../adapters/documents/reads/index.ts";
 import { NOTIFICATION_READS } from "../adapters/notifications/reads/index.ts";
@@ -15,7 +15,6 @@ import { ONBOARDING_READS } from "../adapters/onboarding/reads/index.ts";
 import { DASHBOARD_READS } from "../adapters/dashboard/reads/index.ts";
 import { FEEDBACK_READS } from "../adapters/feedback/reads/index.ts";
 import { PIPELINE_READS } from "../adapters/pipeline/reads/index.ts";
-import { ASSESSMENT_INTELLIGENCE_READS } from "../adapters/intelligence/reads/assessment.ts";
 import { OVERSIGHT_READS } from "../adapters/oversight/reads/index.ts";
 import { WIKI_READS } from "../adapters/wiki/reads/index.ts";
 import { LAUNCH_READS } from "../adapters/launch/reads/index.ts";
@@ -53,7 +52,6 @@ export const SELECT_RETURNED_ROWS = "evry.selectReturnedRows";
 
 export const MEMBER_PHASES =
 	"Your Member seat does not include the church's phase journey. Ask an Owner or Admin if you need it.";
-/** The /intelligence page's words to a Member, whose seat does not include Plant Intelligence or its refresh. */
 export const MEMBER_INTELLIGENCE =
 	"Your Member seat does not include the church's Plant Intelligence. Only an Owner or Admin can read it or ask for a refresh.";
 

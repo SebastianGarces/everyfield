@@ -6,14 +6,6 @@ import { EvryRefusal } from "../../../context/errors.ts";
 import { organizationSeat } from "../../native.ts";
 import { dayText } from "../../pipeline/reads/index.ts";
 
-// Organization oversight as Evry reads it (WP-073: oversight.listPlants, oversight.getPlant with its Launch readiness
-// and published summary, organizationIntelligence.read). Each calls the read the network's own pages make (/network,
-// a plant's page, Network Intelligence) under the seat's live authority, so Evry sees what those pages show and nothing
-// more (EVRY-ORG-CONTEXT). Every value is a count, a date, a fixed rule result, a plant's name or its published summary:
-// never a person, a note, an interview, private care or an assessment's words. The lead planter's name the Plants page
-// shows stays there. A plant that doesn't share Plant Intelligence findings reads as Not shared, never as zero, and
-// plants are never ranked or scored against each other (network rubric v1).
-
 const NOT_SHARED = "Not shared";
 const HEALTH: Record<C.Health, string> = {
 	limited_visibility: "Limited visibility",
@@ -31,7 +23,6 @@ const LAUNCH: Record<C.LaunchState, string> = {
 	completed: "Launched",
 };
 const place = (p: C.PlantDirectoryRow) => [p.city, p.stateProvince].filter(Boolean).join(", ") || null;
-/** What oversight never holds, said in every result so the answer can say it too. */
 const AGGREGATES_ONLY = "names, notes, interviews, private care and assessment text, which oversight never shows";
 
 const result = (operation: string, rows: SourceRow[], facts: SourceResult["facts"]): SourceResult => ({
@@ -49,7 +40,6 @@ const unavailable = (): never => {
 	throw new EvryRefusal("source_unavailable");
 };
 
-/** A plant's Launch as its page shows it: the shared status, readiness and published summary, or Not shared. */
 function launchFields(view: C.PlantView): Record<string, string | number | null> {
 	const l = view.launch;
 	if (l.status === "withheld") return { launch: NOT_SHARED };
@@ -65,7 +55,6 @@ function launchFields(view: C.PlantView): Record<string, string | number | null>
 	};
 }
 
-/** At most this many plants are read in one answer. */
 const PLANTS = 25;
 export const listOverseenPlants: ReadAdapter<Record<string, never>> = {
 	operation: "oversight.listPlants",
@@ -172,7 +161,6 @@ export const readOverseenPlant: ReadAdapter<{ plantId: string }> = {
 };
 
 const intelligenceInput = z.strictObject({
-	/** The grouping the Network Intelligence page offers: Region, state, country or the whole portfolio. */
 	level: C.level.optional(),
 });
 export const readNetworkIntelligence: ReadAdapter<z.infer<typeof intelligenceInput>> = {
@@ -222,5 +210,4 @@ export const readNetworkIntelligence: ReadAdapter<z.infer<typeof intelligenceInp
 	},
 };
 
-/** The installed organization oversight reads. */
 export const OVERSIGHT_READS = [listOverseenPlants, readOverseenPlant, readNetworkIntelligence] as const;

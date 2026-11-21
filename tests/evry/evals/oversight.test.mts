@@ -1,8 +1,3 @@
-// The organization oversight evals (T-331: WP-073, WP-074) on the scripted model. Each case in oversight.cases.json is
-// asked the way the app asks it, as North Texas Network's Admin or Member (intelligence-church.mts), with the database
-// clock pinned to Oct 13, 2026. Each answer is checked against what the network's own pages read (oversight.listPlants,
-// oversight.getPlant, Network Intelligence), and approved cards are read back through Settings' own read. No tool result
-// the model is given holds a person's name or an unpublished summary (SAF-14). No paid model, network or recording.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import * as C from "../../../packages/contracts/src/oversight/index.ts";
@@ -43,7 +38,6 @@ const SETUP: Record<string, () => Promise<void>> = { redeemerGrows: () => ch.red
 type Got = Awaited<ReturnType<ReturnType<typeof harness>["ask"]>>;
 const SETTLED: Record<string, (got: Got) => Promise<void>> = {
 	"OVS-01": async (got) => {
-		// Each plant's health as the Plants page shows it, Not shared for the plant that keeps its findings.
 		const directory = (await listPlants(ch.db, await authorityOf("director")))!;
 		assert.equal(directory.plants.length, 4);
 		for (const p of directory.plants) {
@@ -54,13 +48,11 @@ const SETTLED: Record<string, (got: Got) => Promise<void>> = {
 		region = await geography();
 	},
 	"OVS-02": async (got) => {
-		// SAF-14: no tool result the model was given holds a person's name.
 		for (const name of await ch.names()) assert.ok(!got.results.includes(name), `${name} never reaches the model`);
 		const view = (await getPlant(ch.db, await authorityOf("director"), ch.plants["Redeemer Church"]!.id))!;
 		assert.equal(view.sections.people.status === "shared" && view.sections.people.counts.total, 3);
 	},
 	"OVS-03": async (got) => {
-		// The pattern as the Network Intelligence page shows it at the state level.
 		const view = (await readIntelligence(ch.db, await authorityOf("director"), { level: "state", runId: null }))!;
 		const texas = view.groups.find((g) => g.label === "Texas")!;
 		assert.equal(texas.patterns.length, 1);
@@ -70,7 +62,6 @@ const SETTLED: Record<string, (got: Got) => Promise<void>> = {
 		for (const name of await ch.names()) assert.ok(!got.results.includes(name), name);
 	},
 	"OVS-04": async (got) => {
-		// Hill Country's launch date and draft summary are not shared, and never reach the model.
 		assert.ok(!got.results.includes("HILL-DRAFT"));
 		assert.ok(!got.results.includes("2026-10-23") && !got.results.includes("Oct 23, 2026"));
 	},
