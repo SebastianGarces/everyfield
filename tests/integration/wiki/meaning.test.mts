@@ -4,7 +4,7 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
+import { search } from "../../../packages/domain/src/wiki/reads.ts";
 import { wikiQueryEmbedder } from "../../../packages/reference/src/starter/verify/query.ts";
 import type { WikiEmbedFetch } from "../../../packages/reference/src/starter/verify/openai.ts";
 
@@ -154,7 +154,7 @@ async function reader() {
 }
 type Hit = { articleId: string; title: string; slug: string; snippet: string | null; sourceKind: string };
 async function searched(embedder: ReturnType<typeof wikiQueryEmbedder>, query: string) {
-	const value = ok(await createWikiProducer({ queryEmbedder: embedder }).search(db, await reader(), { query }));
+	const value = ok(await search(db, await reader(), { query }, embedder));
 	return { value, hits: (value.results ?? []) as Hit[] };
 }
 const keywordOnly = (query: string) => searched(null, query);

@@ -1,7 +1,7 @@
 import { EmbeddingRefusal, openAiWikiEmbedding, type WikiEmbedFetch } from "./openai.ts";
 
 export { EmbeddingRefusal } from "./openai.ts";
-export { DAILY_QUERY_CAP_USD, recordSpend, tokensFor, usdFor } from "./spend.ts";
+export { DAILY_QUERY_CAP_USD, recordSpend, tokensFor } from "./spend.ts";
 
 const QUERY_TIMEOUT_MS = 1500;
 

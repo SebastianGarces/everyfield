@@ -1,11 +1,11 @@
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 
-export const USD_PER_MILLION_TOKENS = 0.02;
+const USD_PER_MILLION_TOKENS = 0.02;
 export const RUN_CAP_USD = 1;
 export const DAILY_QUERY_CAP_USD = 0.25;
 
-export type SpendPurpose = "query" | "rebuild";
+type SpendPurpose = "query" | "rebuild";
 
 export const usdFor = (tokens: number) => (tokens * USD_PER_MILLION_TOKENS) / 1_000_000;
 export const tokensFor = (usd: number) => Math.floor((usd * 1_000_000) / USD_PER_MILLION_TOKENS);
