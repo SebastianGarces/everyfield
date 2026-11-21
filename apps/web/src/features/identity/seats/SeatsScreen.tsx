@@ -101,9 +101,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 	if ("gone" in state)
 		return (
 			<Shell title="Seats and invitations" subtitle={null}>
-				<div role="status" className="empty:sr-only">
-					{status ? <FormMessage tone="success">{status}</FormMessage> : null}
-				</div>
+				<FormMessage tone="success">{status}</FormMessage>
 				<Card>
 					<NotAvailable scope="section" headingLevel="h2" />
 				</Card>
@@ -138,9 +136,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 					: `People who can sign in to ${data.workspaceName}. Owners and Admins manage seats.`
 			}
 		>
-			<div role="status" className="empty:sr-only">
-				{status ? <FormMessage tone="success">{status}</FormMessage> : null}
-			</div>
+			<FormMessage tone="success">{status}</FormMessage>
 			{reloadFailed ? (
 				<ProblemLine
 					problem="refused"
