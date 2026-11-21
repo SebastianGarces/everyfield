@@ -6,6 +6,7 @@ import { sql } from "@everyfield/db/query";
 import { developmentHosts } from "@everyfield/db/development";
 import { approvedWiki } from "../manifest/approved.ts";
 import { referenceService } from "./service.ts";
+import { WikiRefusal } from "./snapshot.ts";
 
 const PUBLISHER_EMAIL = "wiki-publisher@example.test";
 
@@ -99,10 +100,12 @@ try {
 		console.log(JSON.stringify({ ...receipt, previousRelease: current?.release_key ?? null, changed: true }));
 	}
 } catch (error) {
-	const cause = error instanceof Error && error.cause instanceof Error ? `: ${error.cause.message}` : "";
-	console.error(
-		`Wiki install failed: ${error instanceof Error ? error.message.split("\n")[0] : "unknown error"}${cause}`,
-	);
+	const sqlState = (error as { code?: unknown } | null)?.code;
+	const failure =
+		error instanceof WikiRefusal
+			? error.code
+			: `${error instanceof Error ? error.name : typeof error}${typeof sqlState === "string" && /^[0-9A-Z]{5}$/.test(sqlState) ? ` ${sqlState}` : ""}`;
+	console.error(`Wiki install failed: ${failure}`);
 	process.exitCode = 1;
 } finally {
 	if (sessionId) await db.execute(sql`DELETE FROM auth_session WHERE id = ${sessionId}::uuid`);
