@@ -38,6 +38,7 @@ export { DateRangePicker, formatRange, type DatePreset, type DateRange } from ".
 export {
 	ConfirmDialog,
 	ConfirmRefused,
+	confirmProblem,
 	Dialog,
 	DialogBody,
 	DialogClose,
