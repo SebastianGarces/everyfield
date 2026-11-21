@@ -1950,7 +1950,7 @@ function later() {
 		reported({ "packages/domain/src/tasks/forms.ts": forms, "packages/domain/src/jobs/queue.ts": forms }),
 		[3, 4, 5, 6, 8, 9, 10, 12].map((line) => `packages/domain/src/tasks/forms.ts:${line} table-writers`).sort(),
 	);
-	for (const holder of TABLE_WRITERS.job.holders.slice(0, 1)) {
+	for (const holder of (TABLE_WRITERS.job.holders ?? []).slice(0, 1)) {
 		assert.deepEqual(reported({ [holder]: insert }), []);
 		assert.deepEqual(reported({ [holder]: "export const none = 1;\n" }), [`${holder}:1 table-writers`]);
 	}
