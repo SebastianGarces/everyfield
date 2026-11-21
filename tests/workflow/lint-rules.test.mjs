@@ -1266,7 +1266,7 @@ export const Z = () => <fieldset className="rounded-md bg-magenta-50 px-4 py-3 t
 	);
 });
 
-test("INV-a11y: a live region in apps/web or packages/ui is never hidden while empty, so it stays in the accessibility tree", () => {
+test("INV-a11y: a live region in apps/web or packages/ui is never hidden, invisible or aria-hidden, so it stays in the accessibility tree", () => {
 	const code = `export const A = ({ m }) => <div aria-live="polite" className="empty:hidden">{m}</div>;
 export const B = ({ m }) => <p role="status" className={cn("text-sm", !m && "hidden")}>{m}</p>;
 export const C = ({ m, tone }) => <div role={tone ? "alert" : "status"} hidden={!m}>{m}</div>;
@@ -1274,6 +1274,12 @@ export const D = ({ m, live }) => <div aria-live={live} className="mt-3 max-sm:h
 export const E = ({ m }) => <div aria-live="polite" className="empty:sr-only">{m}</div>;
 export const F = ({ m }) => <div aria-live="off" className="empty:hidden">{m}</div>;
 export const G = ({ m }) => <div role="note" className="empty:hidden overflow-hidden">{m}</div>;
+export const H = ({ m }) => <div role="status" className="text-sm empty:invisible">{m}</div>;
+export const I = ({ m }) => <p aria-live="polite" className={cn(!m && "invisible")}>{m}</p>;
+export const J = ({ m }) => <div role="alert" aria-hidden="true">{m}</div>;
+export const K = ({ m, open }) => <div role="status" aria-hidden={!open}>{m}</div>;
+export const L = ({ m }) => <div role="status" hidden={false} aria-hidden={false}>{m}</div>;
+export const M = ({ m }) => <div aria-live="polite" aria-hidden="false" className="visible">{m}</div>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1281,10 +1287,10 @@ export const G = ({ m }) => <div role="note" className="empty:hidden overflow-hi
 		"packages/domain/src/x.tsx": code,
 	}).filter((hit) => hit.endsWith(" live-region-in-tree"));
 	assert.deepEqual(
-		reported,
-		["apps/web/src/features/x/Notice.tsx", "packages/ui/src/controls/x.tsx"].flatMap((path) =>
-			[1, 2, 3, 4].map((line) => `${path}:${line} live-region-in-tree`),
-		),
+		reported.sort(),
+		["apps/web/src/features/x/Notice.tsx", "packages/ui/src/controls/x.tsx"]
+			.flatMap((path) => [1, 2, 3, 4, 8, 9, 10, 11].map((line) => `${path}:${line} live-region-in-tree`))
+			.sort(),
 	);
 });
 

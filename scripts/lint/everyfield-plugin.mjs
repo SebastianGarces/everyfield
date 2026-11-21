@@ -1795,7 +1795,16 @@ const attributeStrings = (attribute) =>
 	attribute.value?.type === "JSXExpressionContainer"
 		? stringsIn(attribute.value.expression)
 		: stringsIn(attribute.value);
-const hidingToken = (token) => token.replace(/^!|!$/g, "").split(":").at(-1) === "hidden";
+const HIDING_CLASSES = new Set(["hidden", "invisible"]);
+const hidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, "").split(":").at(-1));
+const switchedOff = (attribute) => {
+	const value = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
+	return value?.type === "Literal" && (value.value === false || value.value === "false");
+};
+const setAttribute = (element, name) => {
+	const attribute = jsxAttribute(element, name);
+	return attribute && !switchedOff(attribute) ? attribute : null;
+};
 
 const liveRegionInTree = {
 	meta: { type: "problem" },
@@ -1812,12 +1821,12 @@ const liveRegionInTree = {
 				if (!announces) return;
 				const className = jsxAttribute(node, "className");
 				const hiddenClass = className && attributeStrings(className).some((s) => s.split(/\s+/).some(hidingToken));
-				const hiddenAttribute = jsxAttribute(node, "hidden");
-				if (!hiddenClass && !hiddenAttribute) return;
+				const hiding = (hiddenClass && className) || setAttribute(node, "hidden") || setAttribute(node, "aria-hidden");
+				if (!hiding) return;
 				context.report({
-					node: hiddenClass ? className : hiddenAttribute,
+					node: hiding,
 					message:
-						"A live region (aria-live, or role status, alert or log) that is hidden is display:none, so it leaves the accessibility tree and what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
+						"A live region (aria-live, or role status, alert or log) that is hidden, invisible or aria-hidden leaves the accessibility tree, so what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
 				});
 			},
 		};
