@@ -2,11 +2,18 @@
 
 import type { PipelineRemovalReport } from "@everyfield/contracts/organizations";
 import { Alert02Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
+import {
+	Button,
+	Dialog,
+	DialogBody,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	InlineAlert,
+} from "@everyfield/ui/controls";
 import Link from "next/link";
 import { useState } from "react";
 import { PIPELINE_PATH, refusalText } from "../board/model";
-import { Problem } from "../../../components/Problem.tsx";
 import { removePerson } from "./actions";
 import { keptText, removedLines } from "./model";
 
@@ -116,7 +123,7 @@ export function RemoveDialog({
 								Not the same as retiring. Retire takes someone off the board but keeps their record, so you can restore
 								them later.
 							</p>
-							<Problem text={problem} />
+							<InlineAlert live="polite">{problem}</InlineAlert>
 						</DialogBody>
 						<DialogFooter>
 							<Button variant="ghost" disabled={pending} onClick={() => change(false)}>
