@@ -9,7 +9,7 @@ import { parsePreviewKit, type PreviewKit } from "../brand/fixtures";
 import { offeredSections, parseSectionKey, SECTION_LABEL } from "../model";
 import type { DeletionStatus, SectionKey } from "../port";
 import { SharingSection } from "../sections/SharingSection";
-import { LazySettingsDialog } from "../ProductSettings";
+import { LazySettingsDialog } from "../LazySettingsDialog";
 import { SettingsProvider } from "../store";
 import { createSettingsStore } from "../settings.store";
 import { useLocalStore } from "../../../components/store.ts";

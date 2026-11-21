@@ -3,9 +3,7 @@
 import { DASHBOARD_HOME } from "@everyfield/contracts/identity";
 import { avatarRoute } from "@everyfield/contracts/settings";
 import { useRouter } from "next/navigation";
-import { Dialog, DialogBody, DialogContent, DialogHeader } from "@everyfield/ui/controls";
-import { createContext, Suspense, use, useCallback, useMemo, useRef, useState } from "react";
-import { lazyModule, LoadFailed, Opened, useLazyModule, type Failure } from "../../components/lazy.tsx";
+import { createContext, use, useCallback, useMemo, useRef, useState } from "react";
 import { currentAddress, onTraversal, usePath, writeAddress } from "../../components/location.ts";
 import { loadPage } from "../identity/api";
 import { saveSourceOrder } from "../wiki/actions";
@@ -33,7 +31,7 @@ import { getSection, getBrand, suggestColors, readRegion, suggestRegion } from "
 import { uploadAvatarBytes } from "./flows/avatarBytes";
 import { sectionAt, type DialogSection } from "./model";
 import type { DeletionStatus, SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
-import type { SettingsDialogProps } from "./SettingsDialog";
+import { LazySettingsDialog, settingsDialog } from "./LazySettingsDialog";
 import { createSettingsStore, type SettingsStore } from "./settings.store";
 import { SettingsProvider } from "./store";
 
@@ -66,42 +64,6 @@ const PORT: SettingsPort = {
 	},
 };
 const hrefFor = (key: SectionKey) => `/settings/${key}`;
-
-const dialog = lazyModule(() => import("./SettingsDialog"));
-
-export function LazySettingsDialog(props: SettingsDialogProps) {
-	return (
-		<Opened open={props.section !== null}>
-			<Suspense fallback={null}>
-				<Loaded {...props} />
-			</Suspense>
-		</Opened>
-	);
-}
-
-function Loaded(props: SettingsDialogProps) {
-	const loaded = useLazyModule(dialog);
-	if (loaded.module) return <loaded.module.SettingsDialog {...props} />;
-	return <Failed {...props} failure={loaded} />;
-}
-
-function Failed({ section, onNavigate, failure }: SettingsDialogProps & { failure: Failure }) {
-	return (
-		<Dialog open={section !== null} onOpenChange={(open) => (open ? undefined : onNavigate(null))}>
-			<DialogContent
-				size="lg"
-				aria-describedby={undefined}
-				onCloseAutoFocus={failure.keepFocusOnRetry}
-				className="h-[min(720px,calc(100dvh-24px))] max-w-[1040px] overflow-hidden bg-surface"
-			>
-				<DialogHeader title="Settings" />
-				<DialogBody className="grid place-items-center">
-					<LoadFailed what="Settings" retry={failure.retry} />
-				</DialogBody>
-			</DialogContent>
-		</Dialog>
-	);
-}
 
 const pathOf = (href: string | null) => href?.split("?")[0] ?? null;
 
@@ -152,7 +114,7 @@ export function useProductSettings(viewer: SettingsViewer | null, seedFits: bool
 	const navigate = useCallback(
 		(key: SectionKey | null) => {
 			if (key)
-				dialog.whenLoaded(() => {
+				settingsDialog.whenLoaded(() => {
 					if (!section) setUnderneath(currentAddress());
 					writeAddress(hrefFor(key));
 				});

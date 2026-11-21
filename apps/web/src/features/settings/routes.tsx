@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
 import { EMAIL_CHANGE_PROOF_COOKIE } from "@/proxy";
 import { requireActor } from "@/server/sign-in";
 import { instant } from "@everyfield/contracts/common";
@@ -9,21 +8,6 @@ import { ConfirmEmailScreen } from "./restricted/ConfirmEmailScreen";
 import { AccountDeletionScreen } from "./restricted/AccountDeletionScreen";
 import { WorkspaceDeletionScreen } from "./restricted/WorkspaceDeletionScreen";
 import { restrictedStatus } from "./server";
-import { dialogSection } from "./model";
-
-export const settingsMetadata: Metadata = { title: "Settings", robots: { index: false, follow: false } };
-
-export async function SettingsSectionPage({ params }: { params: Promise<{ section: string }> }) {
-	const section = dialogSection((await params).section);
-	if (!section) notFound();
-	await requireActor(`/settings/${section}`);
-	return <h1 className="sr-only">Settings</h1>;
-}
-
-export async function SettingsIndexPage() {
-	await requireActor("/settings");
-	return <h1 className="sr-only">Settings</h1>;
-}
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const one = (value: string | string[] | undefined) => (typeof value === "string" ? value : null);
