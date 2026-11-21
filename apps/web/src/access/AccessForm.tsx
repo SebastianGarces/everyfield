@@ -7,7 +7,6 @@ import {
 	useId,
 	useRef,
 	useState,
-	useTransition,
 	type FormEvent,
 	type KeyboardEvent,
 	type ReactNode,
@@ -17,6 +16,8 @@ import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
 import { cn, useFocusRequest } from "@everyfield/ui/foundations";
 import { revealProps, revealRef } from "@/components/motion/Reveal";
+import { useLocalStore, useStore } from "@/components/store";
+import { createAccessFormStore } from "./AccessForm.store";
 import { stepAccessForm, submitAccessRequest } from "./actions";
 import { HONEYPOT, validateAccessRequest, type FieldErrorCode } from "./contract";
 import {
@@ -230,7 +231,9 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 	const [s, setS] = useState<FormState>(serverState);
 	const [said, setSaid] = useState("");
 	const [landed, setLanded] = useState<{ n: number; to: Focus }>({ n: 0, to: "step" });
-	const [sending, startTransition] = useTransition();
+	const store = useLocalStore(createAccessFormStore);
+	const sending = useStore(store, (state) => state.sending);
+	const { send } = useStore(store, (state) => state.actions);
 	const focusLanded = useFocusRequest<HTMLDivElement>(landed.n, (layout) => {
 		if (landed.to === "message") return msgRef.current;
 		const view = layout.querySelector<HTMLElement>("[data-view=current]");
@@ -290,7 +293,7 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 
 	function onSubmit(e: FormEvent<HTMLFormElement>) {
 		e.preventDefault();
-		if (sending) return;
+		if (store.getState().sending) return;
 		const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
 		const all = read();
 		const values = answers(all);
@@ -299,7 +302,7 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 		const who = s.who;
 		const v = validateAccessRequest(kindOf(who), values);
 		if (!v.ok) return land(withErrors(s, values, v.fieldErrors));
-		startTransition(async () => {
+		void send(async () => {
 			let n: FormState;
 			try {
 				const fields = { ...requestFields(who, values), [HONEYPOT]: all[HONEYPOT] ?? "" };
