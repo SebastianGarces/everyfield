@@ -28,7 +28,7 @@ const server = { appVersion: "3.0.0-test" };
 const send = async (who: Actor, input: Record<string, unknown>) =>
 	feedbackWriter.submit(db, await authority(who), { requestKey: randomUUID(), category: "bug", ...input }, server);
 
-test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from the seat, strips the address and saves a resend once", async () => {
+test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from the seat and refuses sent ones, strips the address and saves a resend once", async () => {
 	const key = randomUUID();
 	const input = {
 		requestKey: key,
@@ -40,15 +40,14 @@ test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from t
 		screenWidth: 1440,
 		screenHeight: 900,
 		theme: null,
-		church: "Forged Church",
-		role: "Admin",
-		appVersion: "forged",
 	};
 	assert.deepEqual(ok(await feedbackWriter.getSendContext(db, await authority(daniel))), {
 		church: "Harvest Point",
 		role: "Owner",
 		replyTo: daniel.email,
 	});
+	for (const forged of [{ church: "Forged Church" }, { role: "Admin" }, { appVersion: "forged" }])
+		refused(await feedbackWriter.submit(db, await authority(daniel), { ...input, ...forged }, server), "invalid_input");
 	const sent = ok(await feedbackWriter.submit(db, await authority(daniel), input, server));
 	assert.equal(sent.page, "Documents");
 	assert.equal(sent.replyTo, daniel.email);
@@ -117,10 +116,12 @@ test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from t
 		},
 	]);
 	await admin.execute(
-		queueJobsFor(sql`(SELECT ${sent.id}::uuid AS id) s`, {
-			tenant: daniel.id,
+		queueJobsFor(sql`FROM (SELECT ${sent.id}::uuid AS id) s`, {
 			kind: "feedback_publication",
-			keyPrefix: "feedback/",
+			tenant: sql`${daniel.id}::uuid`,
+			subject: sql`id`,
+			key: sql`'feedback/' || id::text`,
+			conflict: "skip",
 		}),
 	);
 	assert.deepEqual(

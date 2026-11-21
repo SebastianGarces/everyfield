@@ -89,3 +89,17 @@ export function nextMonday(asOf: string, zone: string): string {
 	const ahead = (8 - weekday) % 7 || 7;
 	return new Date(local + ahead * 86_400_000).toISOString().slice(0, 10);
 }
+
+export function localInputAt(instant: number, zone: string): string {
+	const parts = new Intl.DateTimeFormat("en-CA", {
+		timeZone: zone,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		hourCycle: "h23",
+	}).formatToParts(new Date(instant));
+	const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+	return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+}
