@@ -7,7 +7,7 @@ import {
 	ViewIcon,
 	ViewOffSlashIcon,
 } from "@hugeicons/core-free-icons";
-import { CardIcon, Input, type Tone } from "@everyfield/ui/controls";
+import { CardIcon, FieldButton, Input, type Tone } from "@everyfield/ui/controls";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useState, type ComponentPropsWithRef, type ReactNode } from "react";
 import { AuthHeading } from "./AuthFrame";
@@ -22,15 +22,12 @@ export function PasswordInput(props: Omit<ComponentPropsWithRef<typeof Input>, "
 			spellCheck={false}
 			autoCapitalize="none"
 			trailing={
-				<button
-					type="button"
-					aria-pressed={shown}
+				<FieldButton
+					icon={shown ? ViewOffSlashIcon : ViewIcon}
+					label="Show password"
+					pressed={shown}
 					onClick={() => setShown((v) => !v)}
-					className="-mr-2 grid size-9 flex-none place-items-center rounded-sm text-text-2 transition-[background-color] duration-150 hover:bg-hover hover:text-ink"
-				>
-					<Icon icon={shown ? ViewOffSlashIcon : ViewIcon} size={18} />
-					<span className="sr-only">Show password</span>
-				</button>
+				/>
 			}
 		/>
 	);

@@ -1,7 +1,7 @@
 "use client";
 
 import { Add01Icon, Cancel01Icon, Settings01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { Button, Input, Popover, PopoverContent, PopoverTrigger, Spinner } from "@everyfield/ui/controls";
+import { Button, Input, Popover, PopoverContent, PopoverTrigger, Spinner, TextButton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useOptimistic, useRef, useState, useTransition, type KeyboardEvent } from "react";
@@ -271,9 +271,9 @@ function TagPicker({
 				) : church.status !== "ok" ? (
 					<li role="alert" className="flex flex-col items-start gap-2 px-2.5 py-3 text-sm text-text-2">
 						<span>{loadProblem(church, "The church's tags did not load.")}</span>
-						<button type="button" onClick={onRetry} className="font-medium text-ink underline underline-offset-[3px]">
+						<TextButton onClick={onRetry} className="text-ink">
 							Try again
-						</button>
+						</TextButton>
 					</li>
 				) : (
 					<>

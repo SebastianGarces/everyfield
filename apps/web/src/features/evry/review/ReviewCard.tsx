@@ -27,6 +27,7 @@ import {
 	UserIcon,
 } from "@hugeicons/core-free-icons";
 import {
+	Alert,
 	Button,
 	Checkbox,
 	Field,
@@ -636,16 +637,14 @@ function Hint({ children }: { children: ReactNode }) {
 
 function NoticeLine({ notice }: { notice: Notice }) {
 	return (
-		<p
+		<Alert
 			ref={notice.tone === "error" ? focusOnMount : undefined}
 			tabIndex={-1}
-			className={cn(
-				"mx-4 mb-3 rounded-md px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus",
-				notice.tone === "error" ? "bg-magenta-50 text-magenta-600" : "bg-surface-2 text-text-2",
-			)}
+			tone={notice.tone}
+			className="mx-4 mb-3"
 		>
 			{notice.text}
-		</p>
+		</Alert>
 	);
 }
 
