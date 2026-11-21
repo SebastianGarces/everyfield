@@ -5,6 +5,8 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stableId } from "../../../packages/reference/src/hash.ts";
+import { loadStarter } from "../../../packages/reference/src/starter-load.ts";
 import { MAIL_KEYS, source, startQuietDatabase, stopQuietDatabase, type QuietDatabase } from "./fixtures.ts";
 
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
@@ -41,6 +43,7 @@ type Branch = {
 	b: string;
 	c: string;
 	releasesBefore: number;
+	url: string;
 };
 
 function connect(db: QuietDatabase) {
@@ -93,7 +96,7 @@ async function branch(
 	};
 	const run = seed();
 	assert.equal(run.status, 0, String(run.stderr));
-	return { query, seed, read, first: String(run.stdout), a, b, c, releasesBefore };
+	return { query, seed, read, first: String(run.stdout), a, b, c, releasesBefore, url: db.adminUrl };
 }
 
 let freshBranch: Promise<Branch> | undefined;
@@ -344,6 +347,52 @@ test("INV-qa-seed: on a branch of development the seed writes the same cases int
 		),
 		[{ revision_number: 2, seq: 2 }],
 	);
+});
+
+async function templatesHold(b: Branch) {
+	const keys = (await loadStarter()).catalogs.teams.map((row) => String(row.teamKey)).sort();
+	const items = await b.query(
+		`SELECT i.id, i.canonical_key AS key, i.tenant_id::text AS tenant, v.id AS version, v.version_number AS number,
+				(v.release_id = (SELECT release_id FROM reference_activation ORDER BY activation_number DESC LIMIT 1)) AS active
+			FROM reference_item i JOIN reference_version v ON v.item_id = i.id
+			WHERE i.kind = 'ministry_template' ORDER BY i.canonical_key`,
+	);
+	assert.deepEqual(
+		items.map((row) => ({ ...row, version: undefined })),
+		keys.map((key) => ({
+			id: stableId("ministry_template:" + key),
+			key,
+			tenant: GLOBAL,
+			version: undefined,
+			number: 1,
+			active: true,
+		})),
+	);
+	const probe = spawnSync(tsx, ["--conditions=react-server", "tools/qa/tests/qa-catalog-probe.ts"], {
+		cwd: source,
+		encoding: "utf8",
+		env: clean({ DATABASE_URL: b.url }),
+	});
+	assert.equal(probe.status, 0, probe.stderr);
+	const versionOf = new Map(items.map((row) => [row.key, row.version]));
+	assert.deepEqual(JSON.parse(probe.stdout), {
+		leadership: versionOf.get("senior_pastor"),
+		worship: versionOf.get("worship"),
+		childrens_ministry: versionOf.get("childrens_ministry"),
+		assimilation: versionOf.get("assimilation"),
+		small_groups: versionOf.get("small_groups"),
+		facilities: versionOf.get("facilities"),
+		promotion: versionOf.get("promotion"),
+		technology: versionOf.get("technology"),
+		prayer: versionOf.get("prayer"),
+	});
+}
+
+test("INV-qa-seed: the seed adds every ministry template, so each template key resolves a catalog version", async () => {
+	for (const b of [await fresh(), await development()]) {
+		assert.match(b.first, /, ministry templates,/);
+		await templatesHold(b);
+	}
 });
 
 test("INV-qa-seed: a second seed run writes nothing; the first run names the new parts", async () => {
