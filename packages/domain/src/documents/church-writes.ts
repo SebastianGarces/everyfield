@@ -18,6 +18,7 @@ import { docFormats, offeredFormats, renderDocFile, type DocFormat } from "./doc
 import { docTemplateById, publishedTemplate, sheetOf } from "./doc-templates.ts";
 import { fieldValues, frozenData, insertableValues, type MergeSources } from "./doc-values.ts";
 import { cleanOverrides } from "./merge.ts";
+import { contactLine, mergeSources } from "./template-fill.ts";
 import { fillStatementSlots } from "./network-statement.ts";
 import { RenderFailed, digestOf, renderEngineVersion } from "./render.ts";
 import {
@@ -198,11 +199,6 @@ function safeJson(text: string): unknown {
 	}
 }
 
-const contactLine = (kit: ReturnType<typeof dataFromRow> | null) =>
-	[kit?.website?.replace(/^https?:\/\//, "").replace(/\/$/, ""), kit?.phone, kit?.email]
-		.filter(Boolean)
-		.join("  ·  ") || null;
-
 function knownFields(template: c.DocTemplate, values: Record<string, string>) {
 	const known = new Set(template.fields.filter((f) => f.type !== "list").map((field) => field.key));
 	const foreign = Object.keys(values).find((key) => !known.has(key));
@@ -247,20 +243,6 @@ function templateSummary(row: TemplateRow) {
 			revision: Number(row.source_revision),
 		},
 	});
-}
-
-function mergeSources(plant: Awaited<ReturnType<typeof readPlant>>): MergeSources {
-	if (!plant.open) deny("access_denied");
-	if (!plant.subjectOk) deny("unavailable");
-	const { kit } = plant;
-	return {
-		churchName: plant.churchName ?? "",
-		pastorName: plant.pastorName,
-		tagline: kit?.tagline ?? null,
-		legalName: kit?.legalName ?? null,
-		contactLine: contactLine(kit),
-		meetingDate: null,
-	};
 }
 
 type TemplateSource = {
