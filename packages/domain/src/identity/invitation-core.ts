@@ -1,6 +1,6 @@
 import { writeAction } from "../operations/actions.ts";
 import { accountId, owner, requestIdentity, sessionId, type Owner } from "@everyfield/contracts/common";
-import { invitationError, seatError } from "@everyfield/contracts/identity";
+import { invitationOrSeatError } from "@everyfield/contracts/identity";
 import { invitationMachine, permits, type InvitationSubject } from "@everyfield/contracts/machines";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { eq, sql } from "@everyfield/db/query";
@@ -10,35 +10,13 @@ import "server-only";
 import { z } from "zod";
 import { currentActor, liveOwner, RequestActor, requestWrite, type WriteTx } from "../access/session.ts";
 import { canonical } from "../operations/canonical.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 import { auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
 import { rethrowWriteError } from "./budget.ts";
 export { currentActor };
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
-export class InvitationRefusal extends Error {
-	readonly value: z.infer<typeof invitationError> | z.infer<typeof seatError>;
-	constructor(value: z.infer<typeof invitationError> | z.infer<typeof seatError>) {
-		super(value.code);
-		this.value = value;
-	}
-}
-export function refuse(code = "invitation_unavailable", retryAt?: string): never {
-	throw new InvitationRefusal(
-		z.union([invitationError, seatError]).parse({
-			code,
-			details: retryAt ? { retryAt } : {},
-			correlationId: randomUUID(),
-			retry:
-				code === "invitation_rate_limited" ||
-				code === "invitation_cooldown" ||
-				code === "temporary" ||
-				code === "required_write_failed"
-					? "same_request"
-					: code === "conflict"
-						? "refresh"
-						: "never",
-		}),
-	);
-}
+export const invitationRefusals = defineRefusals(invitationOrSeatError);
+export const deny: Deny<typeof invitationOrSeatError> = invitationRefusals.deny;
 export async function lock(tx: Transaction, key: string) {
 	await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${key},8008))`);
 }
@@ -53,12 +31,13 @@ export async function identity(tx: Transaction, session: string) {
 	const r = await tx.execute(
 		sql`SELECT i.* FROM invitation_identity(${z.uuid().parse(session)}::uuid) i JOIN tenant t ON t.id=i.account_id AND t.kind='account'`,
 	);
-	if (!r.rows[0]) refuse();
+	if (!r.rows[0]) deny("invitation_unavailable");
 	return identityRow.parse(r.rows[0]);
 }
 export async function readAdministrator(tx: WriteTx, session: string, selected: Owner) {
 	const actor = await currentActor(tx, sessionId.parse(session), selected, false);
-	if (actor.status !== "active" || actor.context.kind !== "seat" || actor.context.role === "member") refuse();
+	if (actor.status !== "active" || actor.context.kind !== "seat" || actor.context.role === "member")
+		deny("invitation_unavailable");
 	return actor;
 }
 export async function writeAsAdministrator<T>(
@@ -70,7 +49,8 @@ export async function writeAsAdministrator<T>(
 	try {
 		return await auditTransaction(db, async (tx) => {
 			const bound = await authority.bind(tx, selected);
-			if (!bound || bound.actor.context.kind !== "seat" || bound.actor.context.role === "member") refuse();
+			if (!bound || bound.actor.context.kind !== "seat" || bound.actor.context.role === "member")
+				deny("invitation_unavailable");
 			return body(tx, bound);
 		});
 	} catch (error) {
@@ -93,8 +73,8 @@ export async function begin(
 		digest: hash(canonical(command)),
 	});
 	const claim = await prepareWrite(tx, request);
-	if (claim.kind === "unavailable") refuse();
-	if (claim.kind === "conflict") refuse("idempotency_conflict");
+	if (claim.kind === "unavailable") deny("invitation_unavailable");
+	if (claim.kind === "conflict") deny("idempotency_conflict");
 	if (claim.kind === "replay") {
 		return { kind: "replay" as const, result: claim.value };
 	}
@@ -144,8 +124,9 @@ export async function load(tx: Transaction, id: string) {
 		.innerJoin(t.tenant, eq(t.tenant.id, t.invitation.tenant_id))
 		.where(eq(t.invitation.id, id))
 		.for("update", { of: t.invitation });
-	if (!r || (r.invitation.purpose !== "seat" && r.invitation.purpose !== "residency_link")) refuse();
-	if (r.tenant !== "plant" && r.tenant !== "organization") refuse();
+	if (!r || (r.invitation.purpose !== "seat" && r.invitation.purpose !== "residency_link"))
+		deny("invitation_unavailable");
+	if (r.tenant !== "plant" && r.tenant !== "organization") deny("invitation_unavailable");
 	return { invitation: r.invitation, tenant: r.tenant };
 }
 export async function lockForWrite(tx: Transaction, id: string) {
@@ -160,8 +141,9 @@ export async function lockForWrite(tx: Transaction, id: string) {
 		.leftJoin(t.organization, eq(t.organization.id, t.tenant.id))
 		.where(eq(t.invitation.id, id))
 		.for("update", { of: t.invitation });
-	if (!r || (r.invitation.purpose !== "seat" && r.invitation.purpose !== "residency_link")) refuse();
-	if (r.kind !== "plant" && r.kind !== "organization") refuse();
+	if (!r || (r.invitation.purpose !== "seat" && r.invitation.purpose !== "residency_link"))
+		deny("invitation_unavailable");
+	if (r.kind !== "plant" && r.kind !== "organization") deny("invitation_unavailable");
 	const selected = owner.parse(
 		r.kind === "plant"
 			? { kind: "plant", id: r.invitation.tenant_id }
@@ -178,7 +160,7 @@ export async function lockForWrite(tx: Transaction, id: string) {
 		locked.data.kind !== selected.kind ||
 		(selected.kind === "organization" && locked.data.organization_kind !== selected.organizationKind)
 	)
-		refuse();
+		deny("invitation_unavailable");
 	return { invitation: r.invitation, selected, tenant: r.kind, now: new Date(locked.data.now) };
 }
 const lockedRoot = z.object({ kind: z.string(), organization_kind: z.string().nullable(), now: z.number() });
@@ -197,11 +179,11 @@ export async function workspace(tx: WriteTx, id: string) {
 		.leftJoin(t.organization, eq(t.organization.id, t.tenant.id))
 		.leftJoin(t.plant, eq(t.plant.id, t.tenant.id))
 		.where(eq(t.tenant.id, id));
-	if (!r || (r.kind !== "plant" && r.kind !== "organization")) refuse();
+	if (!r || (r.kind !== "plant" && r.kind !== "organization")) deny("invitation_unavailable");
 	const selected = owner.parse(
 		r.kind === "plant" ? { kind: "plant", id } : { kind: "organization", id, organizationKind: r.organizationKind },
 	);
-	if (!(await liveOwner(tx, selected))) refuse();
+	if (!(await liveOwner(tx, selected))) deny("invitation_unavailable");
 	return { selected, name: r.organizationName ?? r.plantName };
 }
 export async function now(tx: Transaction) {
@@ -240,7 +222,7 @@ export function current(
 ) {
 	const subject = subjectOf(i, tenant, at);
 	if (!permits(invitationMachine, event, i.state, to, subject) || (expected !== undefined && i.revision !== expected))
-		refuse();
+		deny("invitation_unavailable");
 	return subject;
 }
 export const bump = (r: string) => (BigInt(r) + 1n).toString();
