@@ -232,7 +232,6 @@ const probeRow = z.object({
 	dimensions: z.number().int().nullable(),
 	spent: z.coerce.number(),
 });
-const MEANING_DIMENSIONS = 1536;
 const MEANING_VECTOR = "public.vector(1536)";
 type Meaning = { vector: string };
 
@@ -264,13 +263,7 @@ async function meaningOf(
 				) rel ON true`)
 		).rows[0],
 	);
-	if (
-		!probe.allowed ||
-		probe.profile !== embedder.profile ||
-		probe.dimensions !== embedder.dimensions ||
-		embedder.dimensions !== MEANING_DIMENSIONS
-	)
-		return null;
+	if (!probe.allowed || probe.profile !== embedder.profile || probe.dimensions !== embedder.dimensions) return null;
 	if (probe.spent >= tokensFor(DAILY_QUERY_CAP_USD)) return meaningSkipped("daily_limit");
 	let embedded: Awaited<ReturnType<WikiQueryEmbedder["embed"]>>;
 	try {

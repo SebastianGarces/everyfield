@@ -208,16 +208,16 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 	}
 	async function planPassages(snapshot: ApprovedSnapshot, release: string): Promise<PlannedPassages | PassageFailure> {
 		let estimatedTokens = 0;
+		const failed = (reason: string, usageTokens: number): PassageFailure => ({
+			ok: false,
+			reason,
+			estimatedTokens,
+			usageTokens,
+		});
 		try {
 			const chunks = chunkEntries(wikiEntries(snapshot, release));
 			const texts = chunks.map((chunk) => chunk.text);
 			estimatedTokens = embedding.embedMany ? estimateTokens(texts) : 0;
-			const failed = (reason: string, usageTokens: number): PassageFailure => ({
-				ok: false,
-				reason,
-				estimatedTokens,
-				usageTokens,
-			});
 			let raws: readonly (readonly number[])[] = [];
 			let usageTokens = 0;
 			if (embedding.embedMany) {
@@ -256,9 +256,8 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 			return { ok: true, passages, estimatedTokens, usageTokens };
 		} catch (error) {
 			if (error instanceof WikiRefusal) throw error;
-			if (error instanceof EmbeddingRefusal)
-				return { ok: false, reason: error.code, estimatedTokens, usageTokens: error.usageTokens };
-			return { ok: false, reason: "embedding_failed", estimatedTokens, usageTokens: 0 };
+			if (error instanceof EmbeddingRefusal) return failed(error.code, error.usageTokens);
+			return failed("embedding_failed", 0);
 		}
 	}
 	async function installApprovedWiki(callerInput: unknown, input: unknown) {
