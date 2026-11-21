@@ -4743,6 +4743,83 @@
 		}
 	},
 	{
+		"case_id": "ADP-D-10",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "documents/commands",
+		"operation": "documents.importTextOrWord",
+		"near_miss": false,
+		"question": "make this a church document",
+		"eval": {
+			"attachments": [
+				{
+					"id": "5b6d1f0e-0000-4000-8000-00000000a011",
+					"name": "Welcome letter.docx",
+					"docx": [
+						"# Welcome to Hope Fellowship",
+						"We are a church for the city of Austin.",
+						"We gather on Sundays at 10 am."
+					]
+				}
+			],
+			"proposals": [
+				{
+					"operation": "documents.importTextOrWord",
+					"input": {
+						"attachmentId": "5b6d1f0e-0000-4000-8000-00000000a011"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/^(?![^\\n]*\\b(no|not|nothing|until|once|after|when|can['’]?t|won['’]?t)\\b)[^\\n]*\\b(has been|was|is now) (added|imported|saved|created)\\b/im"
+			],
+			"derivation": "The Owner attached a Word welcome letter in the Evry panel. Evry proposes the Documents import of that attachment; the review names the file and the title Welcome letter and shows the start of its text. Nothing is in Documents until the Owner approves."
+		}
+	},
+	{
+		"case_id": "ADP-D-11",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "documents/commands",
+		"operation": "documents.importTextOrWord",
+		"near_miss": false,
+		"question": "make this a church document",
+		"eval": {
+			"attachments": [
+				{
+					"id": "5b6d1f0e-0000-4000-8000-00000000a012",
+					"name": "Old minutes.doc",
+					"base64": "0M8R4KGxGuEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+				}
+			],
+			"attempts": ["documents.importTextOrWord"],
+			"require": ["Legacy Word documents are not accepted."],
+			"derivation": "An old .doc file starts with the OLE signature, which the Documents import refuses with its own sentence. Evry says that sentence and prepares no review card."
+		}
+	},
+	{
+		"case_id": "ADP-D-12",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "documents/commands",
+		"operation": "documents.importTextOrWord",
+		"near_miss": false,
+		"question": "turn this into a church document please",
+		"eval": {
+			"attachments": [
+				{
+					"id": "5b6d1f0e-0000-4000-8000-00000000a013",
+					"name": "Announcements.txt",
+					"base64": "SGn//iE="
+				}
+			],
+			"attempts": ["documents.importTextOrWord"],
+			"require": ["Text must be UTF-8."],
+			"derivation": "The attached text file has bytes that are not UTF-8, which the Documents import refuses with its own sentence. Evry says that sentence and prepares no review card."
+		}
+	},
+	{
 		"case_id": "ADP-MT-01",
 		"extra": true,
 		"adapter": "meetings/reads",

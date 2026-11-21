@@ -42,6 +42,7 @@ import {
 import type { RunLease } from "../../../packages/evry/src/runtime/run-store.ts";
 import type { MailPort } from "../../../packages/evry/src/proposals/types.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
+import * as W from "../../integration/documents/fixtures/word.mts";
 import { byName, NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
 import { SEAT_READS, SETTINGS_COMMANDS, SHARING_READS } from "../../../packages/evry/src/adapters/settings/index.ts";
 import { ONBOARDING_READS } from "../../../packages/evry/src/adapters/onboarding/reads/index.ts";
@@ -72,9 +73,11 @@ const LATER = new Set<string>([
 	...Object.keys(LAUNCH_COMMANDS),
 	...Object.keys(INVITATION_COMMANDS),
 	...WORKFLOW_READS.map((a) => a.operation),
+	"documents.importTextOrWord",
 	...Object.keys(WIKI_COMMANDS).filter((op) => op.startsWith("wiki.organizationArticles.")),
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
+const SCRIPTED_ONLY = new Set(["documents.importTextOrWord"]);
 
 type Usage = { input: number; output: number };
 type Call =
@@ -334,10 +337,27 @@ function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attac
 	return opened;
 }
 
-export type CaseFile = { id: string; name: string; csv: string; checked?: boolean };
+export type CaseFile = {
+	id: string;
+	name: string;
+	csv?: string;
+	docx?: string[];
+	base64?: string;
+	checked?: boolean;
+};
 type Attached = CaseFile & { bytes: Uint8Array };
 const fill = (csv: string) =>
 	csv.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => byName(name)[field] ?? "");
+const HEADING = W.styles(W.style("Heading1", "heading 1"));
+const bytesOf = (f: CaseFile): Uint8Array =>
+	f.base64 !== undefined
+		? Buffer.from(f.base64, "base64")
+		: f.docx
+			? W.word(
+					f.docx.map((line) => (line.startsWith("# ") ? W.styled("Heading1", line.slice(2)) : W.p(line))).join(""),
+					{ styles: HEADING },
+				)
+			: new TextEncoder().encode(fill(f.csv ?? ""));
 
 export async function converse(
 	church: GoldenChurch,
@@ -353,7 +373,8 @@ export async function converse(
 	const keys: string[] = [];
 	const inputs: string[] = [];
 	const model = override ?? golden.model(keys, inputs);
-	const catalog = readCatalog(actor, RECORDED);
+	const offered = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
+	const catalog = readCatalog(actor, offered);
 	const calls: ToolCall[] = [];
 	const proposals: Proposal[] = [];
 	const classified = await classifyRequest(model, text, AbortSignal.timeout(60_000));
@@ -375,7 +396,7 @@ export async function converse(
 				body: { text: "user" in t ? t.user : t.assistant },
 			}) as unknown as ConversationEvent,
 	);
-	const files: Attached[] = attachments.map((f) => ({ ...f, bytes: new TextEncoder().encode(fill(f.csv)) }));
+	const files: Attached[] = attachments.map((f) => ({ ...f, bytes: bytesOf(f) }));
 	const attachedAt = new Date(NOW.getTime() - 5 * 60_000);
 	const state = {
 		attachments: files.map((f) => ({
@@ -493,10 +514,12 @@ export async function converse(
 					MAIL,
 					null,
 					conversationFiles,
-				).catch((error) => (error instanceof EvryRefusal ? error.code : "unknown"));
-				if (typeof proposal === "string" || !proposal) {
-					card.error = proposal || "source_unavailable";
-					return { error: card.error };
+				).catch((error: unknown) =>
+					error instanceof EvryRefusal ? { error: error.code, problem: error.problem } : { error: "unknown" },
+				);
+				if (!proposal || "error" in proposal) {
+					card.error = proposal?.error ?? "source_unavailable";
+					return { error: card.error, ...(proposal?.problem && { problem: proposal.problem }) };
 				}
 				card.prepared = true;
 				card.review = proposal.review;
@@ -508,7 +531,7 @@ export async function converse(
 				});
 			}),
 		},
-		RECORDED,
+		offered,
 	);
 
 	const run = streamText({

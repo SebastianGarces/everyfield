@@ -277,7 +277,7 @@ export function d(run: () => void) {
 		].sort(),
 	);
 	const entries = Object.values(RAW_ERROR_SITES);
-	assert.ok(entries.length <= 6 && entries.reduce((n, e) => n + e.sites, 0) <= 9, "RAW_ERROR_SITES only shrinks");
+	assert.ok(entries.length <= 5 && entries.reduce((n, e) => n + e.sites, 0) <= 7, "RAW_ERROR_SITES only shrinks");
 	assert.ok(entries.every((e) => e.why.length > 40));
 });
 
@@ -1931,6 +1931,13 @@ export function p(authority: RequestActor) {
 	if (context.kind !== "seat") return null;
 	return [cast.kind === "organization", forced.kind === "organization", castKind === "organization"];
 }
+export function q(authority: RequestActor) {
+	const context = authority.actor.context;
+	const nestedKind = (context.owner as Owner).kind;
+	const { kind: spreadKind } = context.owner as Owner;
+	if (context.kind !== "seat") return null;
+	return [nestedKind === "organization", spreadKind === "organization", (context.owner as Owner).kind === "organization"];
+}
 `;
 	assert.deepEqual(
 		lint({
@@ -1955,6 +1962,9 @@ export function p(authority: RequestActor) {
 			"apps/web/src/features/x/server.ts:86 organization-seat",
 			"apps/web/src/features/x/server.ts:86 organization-seat",
 			"apps/web/src/features/x/server.ts:86 organization-seat",
+			"apps/web/src/features/x/server.ts:93 organization-seat",
+			"apps/web/src/features/x/server.ts:93 organization-seat",
+			"apps/web/src/features/x/server.ts:93 organization-seat",
 			"packages/domain/src/x/index.ts:10 organization-seat",
 			"packages/domain/src/x/index.ts:17 organization-seat",
 			"packages/domain/src/x/index.ts:27 organization-seat",
@@ -1970,6 +1980,9 @@ export function p(authority: RequestActor) {
 			"packages/domain/src/x/index.ts:86 organization-seat",
 			"packages/domain/src/x/index.ts:86 organization-seat",
 			"packages/domain/src/x/index.ts:86 organization-seat",
+			"packages/domain/src/x/index.ts:93 organization-seat",
+			"packages/domain/src/x/index.ts:93 organization-seat",
+			"packages/domain/src/x/index.ts:93 organization-seat",
 		],
 	);
 	assert.deepEqual(lint({ "packages/domain/src/access/organization-seat.ts": "export const seat = 1;\n" }), [
@@ -2028,6 +2041,31 @@ export type Outcome<T> = Other<T>;
 			"apps/web/src/features/x/copy.ts:1 shared-outcome",
 			"apps/web/src/features/x/foreign.ts:2 shared-outcome",
 			"packages/domain/src/m.ts:1 shared-outcome",
+		],
+	);
+});
+
+test("INV-lint: a local union of any name with the ok value / refused / lost statuses is reported; other status unions are not", () => {
+	const source = `import type { Outcome } from "@everyfield/contracts/common";
+export type SignalOutcome<T> = { status: "ok"; value: T } | { status: "refused"; error: string } | { status: "lost" };
+type Answer = { status: "ok"; value: number } | ({ status: "refused" } & { code: string }) | { status: "signed_out" | "lost" };
+export type Specialized<T> = Outcome<T, "access_denied", { error: string }> | { status: "signed_out" };
+type NoLost<T> = { status: "ok"; value: T } | { status: "refused"; code: string };
+type NoRefusal = { status: "ok"; value: number } | { status: "denied" | "lost" };
+type Polled = { status: "ok"; receipt: number } | { status: "refused" } | { status: "lost" };
+type Kind = { kind: "ok"; value: number } | { kind: "refused" } | { kind: "lost" };
+type Loose = { status: "ok" | "refused" | "lost"; value: number };
+type Swapped = { status: "ok"; receipt: number } | { status: "refused"; value: number } | { status: "lost" };
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/model.ts": source, "packages/domain/src/m.ts": source }).filter((hit) =>
+			hit.endsWith("shared-outcome"),
+		),
+		[
+			"apps/web/src/features/x/model.ts:2 shared-outcome",
+			"apps/web/src/features/x/model.ts:3 shared-outcome",
+			"packages/domain/src/m.ts:2 shared-outcome",
+			"packages/domain/src/m.ts:3 shared-outcome",
 		],
 	);
 });

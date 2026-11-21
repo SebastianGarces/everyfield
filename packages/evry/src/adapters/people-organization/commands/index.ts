@@ -19,7 +19,7 @@ import {
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import { attachmentState, attachmentsOf } from "../../../attachments/store.ts";
+import { attachedFile } from "../../../attachments/store.ts";
 import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { ownerOrAdmin } from "../../people/commands/index.ts";
 import { failure, problemText } from "../reads/index.ts";
@@ -633,18 +633,12 @@ const importInput = z
 	.refine((v) => (v.file === undefined) !== (v.attachmentId === undefined || v.fileDigest === undefined), {
 		message: "Give file, or attachmentId with fileDigest",
 	});
-const attachedFiles = z.array(attachmentState);
-
 async function importBytes(actor: EvryActor, value: z.infer<typeof importInput>, context: ReviewContext) {
 	if (value.file !== undefined) return new TextEncoder().encode(value.file);
-	if (!context.conversationId || !context.files) throw new EvryRefusal("attachment_elsewhere");
-	const r = await context.db.execute(sql`SELECT ${attachmentsOf("c")} AS attachments FROM conversation c
-		WHERE c.id=${context.conversationId}::uuid AND c.account_id=${actor.accountId}::uuid AND c.tenant_id=${actor.owner.id}::uuid`);
-	const file = attachedFiles.parse(r.rows[0]?.attachments ?? []).find((a) => a.id === value.attachmentId);
-	if (!file) throw new EvryRefusal("attachment_elsewhere");
-	if (file.status === "gone") throw new EvryRefusal("attachment_gone");
+	if (!context.files) throw new EvryRefusal("attachment_elsewhere");
+	const file = await attachedFile(context.db, actor, context.conversationId, present(value.attachmentId));
 	if (file.status === "replaced" || file.checkedDigest !== value.fileDigest) throw new EvryRefusal("file_changed");
-	return context.files.read(present(value.attachmentId));
+	return context.files.read(file.id);
 }
 
 export const executeBulkImport = reviewed({

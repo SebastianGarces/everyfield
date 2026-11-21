@@ -394,7 +394,7 @@ function RemoveTemplate({
 					? await deleteTemplate(keys.take("delete"), template.revision, template.templateId)
 					: await archiveTemplate(keys.take("archive"), template.revision, template.templateId);
 				keys.settle(kind, result);
-				if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to update the template.");
+				if (result.status !== "ok") return { refused: outcomeText(result) ?? "Unable to update the template." };
 				const removed = template.templateId;
 				if (result.value.templates) setTemplates(result.value.templates);
 				else setTemplates((rows) => rows.filter((row) => row.templateId !== removed));

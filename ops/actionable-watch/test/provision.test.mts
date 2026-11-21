@@ -229,28 +229,16 @@ function cli(args: string[]): Promise<{ code: number; stdout: string; stderr: st
 function until(signal: AbortSignal, dir: string, check: () => Promise<boolean>) {
 	return new Promise<void>((resolve, reject) => {
 		const watcher = watch(dir, { recursive: true, signal });
-		const poll = setInterval(() => void settle(), 50);
-		const stop = () => {
-			clearInterval(poll);
-			watcher.close();
-		};
-		signal.addEventListener(
-			"abort",
-			() => {
-				stop();
-				reject(signal.reason);
-			},
-			{ once: true },
-		);
+		signal.addEventListener("abort", () => reject(signal.reason), { once: true });
 		const settle = () =>
 			check().then(
 				(done) => {
 					if (!done) return;
-					stop();
+					watcher.close();
 					resolve();
 				},
 				(error: unknown) => {
-					stop();
+					watcher.close();
 					reject(error);
 				},
 			);

@@ -10,7 +10,7 @@ import {
 	type TaskWriter,
 } from "@everyfield/domain/tasks";
 import "server-only";
-import { outcomeOf } from "@everyfield/contracts/common";
+import { outcomeOf, withError } from "@everyfield/contracts/common";
 import { HISTORY_PAGE } from "../followups/model.ts";
 import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } from "./model.ts";
 import { tasksMount } from "./mount.ts";
@@ -18,18 +18,13 @@ import { readTx, guardedWrite } from "../../server/platform/tx.ts";
 
 const administers = (v: Pick<PlantSeat, "role">) => v.role !== "member";
 
-const outcome = <T>(reply: TaskReply<T>): Outcome<T> =>
-	reply.status === "ok"
-		? { status: "ok", value: reply.value }
-		: { status: "refused", code: reply.error.code, error: reply.error };
-
 export async function write<T>(
 	viewer: PlantSeat,
 	run: (writer: TaskWriter, tx: WriteTx, context: TaskContext) => Promise<TaskReply<T>>,
 ): Promise<Outcome<T>> {
 	const mount = tasksMount();
 	return guardedWrite("tasks", async () =>
-		outcome(await withTaskWrite(mount.db, viewer.authority, (tx, ctx) => run(mount.writer, tx, ctx))),
+		withError(await withTaskWrite(mount.db, viewer.authority, (tx, ctx) => run(mount.writer, tx, ctx))),
 	);
 }
 
@@ -37,12 +32,13 @@ export const templates = createTemplateReader();
 
 export const reader = {
 	offer: (tx: WriteTx, v: PlantSeat, transitionId?: string) =>
-		templates.readPhaseOffer(tx, v.authority, transitionId ? { transitionId } : {}).then(outcome),
-	list: (tx: WriteTx, v: PlantSeat, q: TaskQuery) => taskReader.list(tx, v.authority, listRequest(q)).then(outcome),
-	count: (tx: WriteTx, v: PlantSeat, q: TaskQuery) => taskReader.count(tx, v.authority, countRequest(q)).then(outcome),
-	get: (tx: WriteTx, v: PlantSeat, taskId: string) => taskReader.get(tx, v.authority, { taskId }).then(outcome),
+		templates.readPhaseOffer(tx, v.authority, transitionId ? { transitionId } : {}).then(withError),
+	list: (tx: WriteTx, v: PlantSeat, q: TaskQuery) => taskReader.list(tx, v.authority, listRequest(q)).then(withError),
+	count: (tx: WriteTx, v: PlantSeat, q: TaskQuery) =>
+		taskReader.count(tx, v.authority, countRequest(q)).then(withError),
+	get: (tx: WriteTx, v: PlantSeat, taskId: string) => taskReader.get(tx, v.authority, { taskId }).then(withError),
 	history: (tx: WriteTx, v: PlantSeat, taskId: string, page = 1) =>
-		taskReader.statusHistory(tx, v.authority, { taskId, page, limit: 50 }).then(outcome),
+		taskReader.statusHistory(tx, v.authority, { taskId, page, limit: 50 }).then(withError),
 };
 
 export async function loadTask(tx: WriteTx, viewer: PlantSeat, taskId: string) {
@@ -52,10 +48,10 @@ export async function loadTask(tx: WriteTx, viewer: PlantSeat, taskId: string) {
 	const task = found.value.task;
 	const history = await reader.history(tx, viewer, taskId);
 	const prerequisites = task.prerequisiteIds.length
-		? await taskReader.listPrerequisites(tx, viewer.authority, { taskId }).then(outcome)
+		? await taskReader.listPrerequisites(tx, viewer.authority, { taskId }).then(withError)
 		: null;
 	const occurrence = task.recurrence
-		? await taskReader.findOpenOccurrence(tx, viewer.authority, { taskId }).then(outcome)
+		? await taskReader.findOpenOccurrence(tx, viewer.authority, { taskId }).then(withError)
 		: null;
 	const contacts =
 		task.relation?.kind === "person" && !task.parentId

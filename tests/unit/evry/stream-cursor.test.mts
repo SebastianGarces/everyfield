@@ -1,42 +1,51 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { test } from "node:test";
 
 type Calls = { read: number[]; observe: number[] };
 const calls: Calls = ((globalThis as { __streamCursorCalls?: Calls }).__streamCursorCalls = { read: [], observe: [] });
 
-const stub = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-const stubs: Record<string, string> = {
-	"@everyfield/evry": stub(`
-		const calls = globalThis.__streamCursorCalls;
-		export const flushTraces = () => {};
-		export const approveProposal = undefined, cancelProposal = undefined, cancelTurn = undefined, checkProposal = undefined, createConversation = undefined, listConversations = undefined, openLatestConversation = undefined, pipelineListsPeople = undefined, readCatalog = undefined, readReview = undefined, readStagedPhoto = undefined, retryTurn = undefined, retryUnresolvedEffects = undefined, reviseProposal = undefined, stageAttachment = undefined, submitTurn = undefined;
-		export const projectError = (error) => ({ message: String(error) });
-		export const readConversation = async (_db, _actor, _id, after) => { calls.read.push(after); };
-		export async function* observeRun(_db, _actor, _id, after) { calls.observe.push(after); }
-	`),
-	"next/server": stub(`export const after = () => {};`),
-	"server-only": stub(""),
-	"@everyfield/db/schema": stub(`export const privateStorage = () => ({});`),
-	"../platform/boundary": stub(`export const mutatingRoute = (handler) => handler; export const privateHeaders = {};`),
-	"../platform/json.ts": stub(`export const parseJson = JSON.parse;`),
-	"../database": stub(`export const requestDatabase = () => ({});`),
-	"./native": stub(`export const evryNative = () => ({});`),
-	"./index": stub(`
-		export const requestActor = async () => ({});
-		export const errorResponse = (error) => new Response(String(error), { status: 500 });
-		export const drainEffects = () => {};
-		export const drainTurns = () => {};
-		export const evryMail = () => ({});
-		export const evryResponse = () => new Response();
-	`),
+const httpUrl = new URL("../../../apps/web/src/server/evry/http.ts", import.meta.url);
+const streamPathFakes: Record<string, string> = {
+	flushTraces: "() => {}",
+	projectError: "(error) => ({ message: String(error) })",
+	readConversation: "async (_db, _actor, _id, after) => { globalThis.__streamCursorCalls.read.push(after); }",
+	observeRun: "async function* (_db, _actor, _id, after) { globalThis.__streamCursorCalls.observe.push(after); }",
+	after: "() => {}",
+	requestDatabase: "() => ({})",
+	requestActor: "async () => ({})",
+	errorResponse: "(error) => new Response(String(error), { status: 500 })",
 };
+const imports = new Map<string, Set<string>>();
+for (const [, clause = "", specifier] of readFileSync(httpUrl, "utf8").matchAll(
+	/^import\s+(?!type\s)(?:([\w$*\s{},]+?)\s+from\s+)?["']([^"']+)["']/gm,
+)) {
+	const names = imports.get(specifier!) ?? imports.set(specifier!, new Set()).get(specifier!)!;
+	for (const part of clause.match(/\{([^}]*)\}/)?.[1]?.split(",") ?? []) {
+		const name = part.trim().split(/\s+as\s+/)[0]!;
+		if (name && !name.startsWith("type ")) names.add(name);
+	}
+	if (/^\s*[\w$]+\s*(,|$)/.test(clause)) names.add("default");
+}
+const stubs = new Map(
+	[...imports].map(([specifier, names]) => {
+		const exports = [...names].map((name) =>
+			name === "default"
+				? "export default () => {};"
+				: `export const ${name} = ${streamPathFakes[name] ?? "() => {}"};`,
+		);
+		return [specifier, `data:text/javascript,${encodeURIComponent(exports.join("\n"))}`];
+	}),
+);
 registerHooks({
 	resolve: (specifier, context, next) =>
-		specifier in stubs ? { url: stubs[specifier]!, shortCircuit: true } : next(specifier, context),
+		context.parentURL === httpUrl.href && stubs.has(specifier)
+			? { url: stubs.get(specifier)!, shortCircuit: true }
+			: next(specifier, context),
 });
 
-const { conversationStreamGet } = (await import("../../../apps/web/src/server/evry/http.ts")) as {
+const { conversationStreamGet } = (await import(httpUrl.href)) as {
 	conversationStreamGet: (request: Request, context: { params: Promise<{ id: string }> }) => Promise<Response>;
 };
 

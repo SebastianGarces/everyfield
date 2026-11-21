@@ -217,7 +217,13 @@ test("a Member reads documents but gets no document change to propose", async ()
 		allowedWrites(await actor("owner"))
 			.filter((w) => w.operation.startsWith("documents."))
 			.map((w) => w.operation),
-		["documents.createFromTemplate", "documents.exportNative", "documents.archive", "documents.designateCoreValues"],
+		[
+			"documents.createFromTemplate",
+			"documents.exportNative",
+			"documents.archive",
+			"documents.designateCoreValues",
+			"documents.importTextOrWord",
+		],
 	);
 	assert.equal(
 		(await read(member, "documents.read", { documentId: docs.october.id })).rows[0]!.fields.text,
