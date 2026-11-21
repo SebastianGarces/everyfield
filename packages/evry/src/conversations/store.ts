@@ -1,5 +1,6 @@
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
+import { queueJobsFor } from "@everyfield/domain/jobs";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
@@ -179,9 +180,15 @@ export async function submitTurn(
 				AND NOT ${liveRun("c")}
 				AND ${currentAuthority(actor)}
 			RETURNING c.id,c.tenant_id,c.account_id,c.last_sequence
-		), run AS (
-			INSERT INTO job(id,tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
-			SELECT ${turnId}::uuid,tenant_id,'assistant_turn',id,${turnId},'ready',clock_timestamp(),0,1,0 FROM conv
+		), run AS (${queueJobsFor(sql`FROM conv`, {
+			kind: "assistant_turn",
+			id: sql`${turnId}::uuid`,
+			tenant: sql`tenant_id`,
+			subject: sql`id`,
+			key: sql`${turnId}::text`,
+			maxAttempts: 1,
+			conflict: "fail",
+		})}
 		), message AS (
 			INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body,request_key)
 			SELECT id,last_sequence,${turnId}::uuid,'user_message',${JSON.stringify(body)}::jsonb,${input.requestKey} FROM conv
