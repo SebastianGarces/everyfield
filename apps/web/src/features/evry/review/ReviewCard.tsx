@@ -38,7 +38,7 @@ import {
 	Spinner,
 	Textarea,
 } from "@everyfield/ui/controls";
-import { Avatar, StageChip } from "@everyfield/ui/display";
+import { Avatar, ERROR_SOFT, StageChip } from "@everyfield/ui/display";
 import { cn, focusOnMount, Icon, useFocusRequest, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
 import {
@@ -171,7 +171,7 @@ const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; ti
 const HEAD_TONE: Record<Tone, string> = {
 	amber: "bg-amber-50 text-amber-600 border-b-[color-mix(in_srgb,var(--ef-amber-500)_20%,transparent)]",
 	green: "bg-green-50 text-green-700 border-b-[color-mix(in_srgb,var(--ef-green-500)_20%,transparent)]",
-	magenta: "bg-magenta-50 text-magenta-600 border-b-[color-mix(in_srgb,var(--ef-magenta-500)_20%,transparent)]",
+	magenta: `${ERROR_SOFT} border-b-[color-mix(in_srgb,var(--ef-magenta-500)_20%,transparent)]`,
 	gray: "bg-surface-2 text-text-2 border-b-line",
 };
 

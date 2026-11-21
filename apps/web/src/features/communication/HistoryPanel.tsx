@@ -3,6 +3,7 @@ import type { Outcome } from "@everyfield/contracts/common";
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { Alert, Button, ConfirmDialog, EmptyState, Field, Input, RowButton, Select } from "@everyfield/ui/controls";
+import { ERROR_SOFT } from "@everyfield/ui/display";
 import { useMinuteClock } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import { currentAddress } from "../../components/location.ts";
@@ -175,15 +176,15 @@ function useHistory(list: ListQuery) {
 const stateTone: Record<HubState, string> = {
 	draft: "bg-surface-2 text-text-2",
 	scheduled: "bg-amber-100 text-amber-600",
-	not_scheduled: "bg-magenta-50 text-magenta-600",
+	not_scheduled: ERROR_SOFT,
 	unsubscribed: "bg-surface-2 text-text-2",
 	sending: "bg-amber-100 text-amber-600",
 	sent: "bg-green-100 text-green-700",
 	logged: "bg-surface-2 text-text-2",
 	cancelled: "bg-surface-2 text-text-2",
-	cancel_unconfirmed: "bg-magenta-50 text-magenta-600",
-	time_unconfirmed: "bg-magenta-50 text-magenta-600",
-	failed: "bg-magenta-50 text-magenta-600",
+	cancel_unconfirmed: ERROR_SOFT,
+	time_unconfirmed: ERROR_SOFT,
+	failed: ERROR_SOFT,
 	unknown: "bg-surface-2 text-text-2",
 };
 

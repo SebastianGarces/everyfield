@@ -1,4 +1,5 @@
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
+import { ERROR_SOFT } from "@everyfield/ui/display";
 import { Icon, cn } from "@everyfield/ui/foundations";
 import { ROW_OUTCOME, emptyText, fieldLabel, valueText, type Change, type Review, type ReviewedRow } from "./model.ts";
 
@@ -95,7 +96,7 @@ const OUTCOME_TONE: Record<ReviewedRow["outcome"], string> = {
 	create: "bg-green-50 text-green-700",
 	create_and_review: "bg-green-50 text-green-700",
 	skip: "bg-surface-raised text-text-2 shadow-[inset_0_0_0_1px_var(--ef-line)]",
-	fail: "bg-magenta-50 text-magenta-600",
+	fail: ERROR_SOFT,
 };
 
 export function ImportRows({ review }: { review: Review }) {
