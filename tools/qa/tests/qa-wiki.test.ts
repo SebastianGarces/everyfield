@@ -614,6 +614,6 @@ test("INV-qa-seed: the seed's own wiki has three articles, and a release with fe
 	assert.equal(r.status, 1, r.stdout);
 	assert.match(
 		r.stderr,
-		/QA seed failed: Error: wiki: the active release has 2 published global articles; articles A, B and C need three/,
+		/QA seed failed: wiki: the active release has 2 published global articles; articles A, B and C need three/,
 	);
 });
