@@ -53,11 +53,13 @@ const off = {
 } satisfies z.output<typeof sharingChoices>;
 export const pending = { status: "pending" } as const;
 const startRow = z.object({ seats: z.number().int(), setup: z.boolean(), discovery: z.boolean() });
+function liveAffiliationsOf(accountId: string) {
+	const where = and(eq(t.affiliation.account_id, accountId), isNull(t.affiliation.ended_at));
+	if (!where) throw Error("An affiliation filter has no condition");
+	return where;
+}
 export async function profile(tx: Tx, accountId: string, d: typeof t.discovery.$inferSelect) {
-	const links = await loadAffiliations(
-		tx,
-		and(eq(t.affiliation.account_id, accountId), isNull(t.affiliation.ended_at))!,
-	);
+	const links = await loadAffiliations(tx, liveAffiliationsOf(accountId));
 	const relationships = links
 		.filter((a) => a.active)
 		.map(
@@ -240,7 +242,7 @@ export function creation(effects: OnboardingEffects) {
 						.set({ registration_state: "active", revision: sql`${t.account.revision}+1` })
 						.where(eq(t.account.id, a.account.id)),
 				);
-				await event(tx, cx, d!.id, "identity.domain_accepted", "create");
+				await event(tx, cx, d.id, "identity.domain_accepted", "create");
 				await effects.enqueue(
 					tx,
 					{
@@ -252,7 +254,7 @@ export function creation(effects: OnboardingEffects) {
 					},
 					cx,
 				);
-				const savedProfile = await profile(tx, a.account.id, d!);
+				const savedProfile = await profile(tx, a.account.id, d);
 				return finish(tx, cx, c.createDiscoveryResult, () => ({
 					status: "active",
 					profile: savedProfile,
@@ -281,11 +283,7 @@ export function creation(effects: OnboardingEffects) {
 					.for("update");
 				if (!d || d.converted_at) deny("unavailable");
 				revision(q.expectedRevision, d.revision);
-				const links = await loadAffiliations(
-					tx,
-					and(eq(t.affiliation.account_id, a.account.id), isNull(t.affiliation.ended_at))!,
-					true,
-				);
+				const links = await loadAffiliations(tx, liveAffiliationsOf(a.account.id), true);
 				const selected = [];
 				for (const selection of [...q.input.relationships].sort((a, b) =>
 					a.relationshipId.localeCompare(b.relationshipId),
@@ -327,8 +325,9 @@ export function creation(effects: OnboardingEffects) {
 							.returning()
 					: [];
 				for (const { old, selection } of selected) {
-					const link = newLinks.find((link) => link.organization_id === old.organization_id)!;
-					const id = await event(tx, cx, link!.id, "affiliation.approved", "accept");
+					const link = newLinks.find((link) => link.organization_id === old.organization_id);
+					if (!link) throw Error(`Conversion wrote no relationship for organization ${old.organization_id}`);
+					const id = await event(tx, cx, link.id, "affiliation.approved", "accept");
 
 					setAuditDetails(
 						cx,
@@ -342,18 +341,18 @@ export function creation(effects: OnboardingEffects) {
 					notices.push({
 						eventId: id,
 						actorId: a.account.id,
-						relationshipId: link!.id,
+						relationshipId: link.id,
 						pair: { kind: "plant", subject: result.plant, organization: selection.organization },
 						kind: "relationship_approved",
-						revision: link!.revision,
+						revision: link.revision,
 						operationId: cx.id,
 					});
 					relationships.push(
 						c.conversionRelationship.parse({
-							relationshipId: link!.id,
+							relationshipId: link.id,
 							organization: selection.organization,
-							revision: link!.revision,
-							consentRevision: link!.consent_revision,
+							revision: link.revision,
+							consentRevision: link.consent_revision,
 							choices: selection.choices,
 						}),
 					);
@@ -405,6 +404,8 @@ export function creation(effects: OnboardingEffects) {
 					})
 					.where(eq(t.discovery.id, d.id))
 					.returning();
+				const convertedAt = converted?.converted_at;
+				if (!convertedAt) throw Error(`Discovery ${d.id} was converted without a conversion time`);
 				await event(tx, cx, d.id, "identity.domain_accepted", "retire");
 				await effects.enqueue(
 					tx,
@@ -423,7 +424,7 @@ export function creation(effects: OnboardingEffects) {
 					status: "converted",
 					...facts,
 					discoveryId: d.id,
-					convertedAt: converted!.converted_at!.toISOString(),
+					convertedAt: convertedAt.toISOString(),
 					relationships,
 					documentProposals: [],
 				}));
