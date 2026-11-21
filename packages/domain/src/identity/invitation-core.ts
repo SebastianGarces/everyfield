@@ -1,5 +1,6 @@
 import { writeAction } from "../operations/actions.ts";
-import { accountId, owner, requestIdentity, sessionId, type Owner } from "@everyfield/contracts/common";
+import { accountId, requestIdentity, sessionId, type Owner } from "@everyfield/contracts/common";
+import { tenantOwner } from "@everyfield/contracts/access";
 import { invitationOrSeatError } from "@everyfield/contracts/identity";
 import { invitationMachine, permits, type InvitationSubject } from "@everyfield/contracts/machines";
 import type { Database, Transaction } from "@everyfield/db/client";
@@ -144,7 +145,7 @@ export async function lockForWrite(tx: Transaction, id: string) {
 	if (!r || (r.invitation.purpose !== "seat" && r.invitation.purpose !== "residency_link"))
 		deny("invitation_unavailable");
 	if (r.kind !== "plant" && r.kind !== "organization") deny("invitation_unavailable");
-	const selected = owner.parse(
+	const selected = tenantOwner.parse(
 		r.kind === "plant"
 			? { kind: "plant", id: r.invitation.tenant_id }
 			: { kind: "organization", id: r.invitation.tenant_id, organizationKind: r.organizationKind },
@@ -166,8 +167,9 @@ export async function lockForWrite(tx: Transaction, id: string) {
 const lockedRoot = z.object({ kind: z.string(), organization_kind: z.string().nullable(), now: z.number() });
 export async function workspace(tx: WriteTx, id: string) {
 	const bound = requestWrite(tx);
-	if (bound?.selected.id === id && bound.selected.kind !== "account")
-		return { selected: bound.selected, name: bound.plant?.name ?? bound.organization?.name ?? null };
+	const held = bound?.selected;
+	if (held?.id === id && (held.kind === "plant" || held.kind === "organization"))
+		return { selected: held, name: bound?.plant?.name ?? bound?.organization?.name ?? null };
 	const [r] = await tx
 		.select({
 			kind: t.tenant.kind,
@@ -180,7 +182,7 @@ export async function workspace(tx: WriteTx, id: string) {
 		.leftJoin(t.plant, eq(t.plant.id, t.tenant.id))
 		.where(eq(t.tenant.id, id));
 	if (!r || (r.kind !== "plant" && r.kind !== "organization")) deny("invitation_unavailable");
-	const selected = owner.parse(
+	const selected = tenantOwner.parse(
 		r.kind === "plant" ? { kind: "plant", id } : { kind: "organization", id, organizationKind: r.organizationKind },
 	);
 	if (!(await liveOwner(tx, selected))) deny("invitation_unavailable");
