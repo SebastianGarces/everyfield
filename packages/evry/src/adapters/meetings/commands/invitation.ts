@@ -83,7 +83,6 @@ const savedPlan = z.object({
 		held: z.int(),
 		recipientsDigest: z.string(),
 	}),
-	recipe: z.uuid().nullable(),
 });
 type Saved = z.infer<typeof savedPlan>;
 const person = z.object({ id: z.uuid(), email: z.string().nullable(), optedOutAt: z.string().nullable() });
@@ -168,7 +167,7 @@ const classifiedRow = z.object({
 	first_name: z.string(),
 });
 
-type Recipe = { id: string; approvedAt: string; title: string };
+type Recipe = { approvedAt: string; title: string };
 async function review(
 	actor: EvryActor,
 	plan: Plan,
@@ -231,7 +230,6 @@ async function review(
 		newGuestIds: r.guests.filter((g) => !facts.on.has(g.id)).map((g) => g.id),
 		fingerprint: resolved.fingerprint,
 		mail: { subject, bodyHtml, leftOut: r.left_out_ids, held: r.held, recipientsDigest: mail.digest },
-		recipe: recipe?.id ?? null,
 	};
 	const live = facts.target
 		? sql`WHERE EXISTS(SELECT FROM meeting m WHERE m.id=${facts.target.id}::uuid AND m.plant_id=${plant}::uuid AND m.retired_at IS NULL)`
@@ -334,7 +332,7 @@ export const prepareMeetingInvitation: ReviewedWrite<Plan> = {
 		}),
 };
 
-const recipeRow = z.object({ id: z.uuid(), input: z.unknown(), approved: z.string(), title: z.string() });
+const recipeRow = z.object({ input: z.unknown(), approved: z.string(), title: z.string() });
 export const reuseRecipe: ReviewedWrite<z.infer<typeof reuseInput>> = {
 	operation: "evry.reuseRecipe",
 	description:
@@ -343,7 +341,7 @@ export const reuseRecipe: ReviewedWrite<z.infer<typeof reuseInput>> = {
 	...sends,
 	async review(actor, input, context) {
 		const r = await context.db.execute(sql`
-			SELECT p.id::text, p.input, to_char(p.approved_at AT TIME ZONE pl.timezone,'Mon FMDD') AS approved,
+			SELECT p.input, to_char(p.approved_at AT TIME ZONE pl.timezone,'Mon FMDD') AS approved,
 				coalesce(p.review->'changes'->0->'after'->>'title','a meeting') AS title
 			FROM proposal p JOIN plant pl ON pl.id=p.tenant_id
 				JOIN meeting old ON old.id=(p.receipt->>'meetingId')::uuid AND old.plant_id=p.tenant_id
@@ -356,7 +354,7 @@ export const reuseRecipe: ReviewedWrite<z.infer<typeof reuseInput>> = {
 		const row = recipeRow.parse(r.rows[0]);
 		const old = savedPlan.pick({ audience: true, custom: true }).parse(row.input);
 		const plan: Plan = { meetingId: input.meetingId, audience: old.audience as Audience };
-		return review(actor, plan, context, { id: row.id, approvedAt: row.approved, title: row.title }, old.custom);
+		return review(actor, plan, context, { approvedAt: row.approved, title: row.title }, old.custom);
 	},
 };
 
