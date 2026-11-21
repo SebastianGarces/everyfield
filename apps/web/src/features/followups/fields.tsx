@@ -143,6 +143,7 @@ function WhenField({
 	const error = useId();
 	const now = useViewerNow();
 	const zone = useViewerZone();
+	const latest = now === null || zone === null ? undefined : localInputAt(now, zone);
 	return (
 		<div className="flex flex-col gap-1.5">
 			<span aria-hidden="true" className="text-sm font-medium text-ink-2">
@@ -160,7 +161,11 @@ function WhenField({
 					}
 					value={draft.when as "now" | "earlier"}
 					onValueChange={(when) =>
-						onDraft({ ...draft, when, at: when === "earlier" && !draft.at ? localInputOf(new Date()) : draft.at })
+						onDraft({
+							...draft,
+							when,
+							at: when === "earlier" && !draft.at ? (latest ?? localInputOf(new Date())) : draft.at,
+						})
 					}
 					options={[
 						{ value: "now", label: "Just now" },
@@ -184,7 +189,7 @@ function WhenField({
 					<Input
 						type="datetime-local"
 						value={draft.at}
-						max={now === null || zone === null ? undefined : localInputAt(now, zone)}
+						max={latest}
 						onChange={(e) => onDraft({ ...draft, at: e.target.value })}
 					/>
 				</Field>
