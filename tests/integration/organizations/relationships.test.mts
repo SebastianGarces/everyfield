@@ -561,6 +561,23 @@ test("INV-lock-order: a link write locks its gate's account, seat and root, then
 		{ table: "organization", id: s.o.id },
 		{ table: "affiliation", id: s.link },
 	];
+	const sharing = (s: Setup, expectedRevision?: string) =>
+		S.command(
+			{
+				plant: s.subject,
+				organization: s.o,
+				relationshipId: s.link,
+				expectedConsentRevision: "1",
+				category: "people",
+				enabled: false,
+			},
+			expectedRevision,
+		);
+	const consent = (s: Setup, expectedRevision?: string) =>
+		S.command({ relationshipId: s.link, sharePipelineTotals: true }, expectedRevision);
+	const staleUnbound =
+		(name: "privacy.setSharing" | "pipelineSharing.setConsent", input: typeof sharing) => (s: Setup) =>
+			S.tx((c) => S.api[name](c, s.sa.session, s.sa.selected, input(s, "2") as never));
 	const rows = [
 		{
 			name: "the organization ends a Discovery link",
@@ -598,29 +615,33 @@ test("INV-lock-order: a link write locks its gate's account, seat and root, then
 			name: "the plant changes a sharing choice",
 			subject: "plant" as const,
 			organization: "sending_church" as const,
-			run: (s: Setup) =>
-				S.call(
-					"privacy.setSharing",
-					s.sa,
-					S.command({
-						plant: s.subject,
-						organization: s.o,
-						relationshipId: s.link,
-						expectedConsentRevision: "1",
-						category: "people",
-						enabled: false,
-					}),
-				),
+			run: (s: Setup) => S.call("privacy.setSharing", s.sa, sharing(s)),
 			order: subjectSide,
+		},
+		{
+			name: "the plant changes a sharing choice from a stale revision in a transaction whose gate is not bound yet",
+			subject: "plant" as const,
+			organization: "sending_church" as const,
+			run: staleUnbound("privacy.setSharing", sharing),
+			order: subjectSide,
+			outcome: { refused: "stale_revision" },
 		},
 		{
 			name: "the sending church changes pipeline consent",
 			subject: "sending_church" as const,
 			organization: "sending_network" as const,
 			share: false,
-			run: (s: Setup) =>
-				S.call("pipelineSharing.setConsent", s.sa, S.command({ relationshipId: s.link, sharePipelineTotals: true })),
+			run: (s: Setup) => S.call("pipelineSharing.setConsent", s.sa, consent(s)),
 			order: subjectSide,
+		},
+		{
+			name: "the sending church changes pipeline consent from a stale revision in a transaction whose gate is not bound yet",
+			subject: "sending_church" as const,
+			organization: "sending_network" as const,
+			share: false,
+			run: staleUnbound("pipelineSharing.setConsent", consent),
+			order: subjectSide,
+			outcome: { refused: "stale_revision" },
 		},
 	];
 	const pid = async (c: { execute: typeof S.db.execute }) =>
@@ -659,7 +680,7 @@ test("INV-lock-order: a link write locks its gate's account, seat and root, then
 					held = order[step];
 				if (!held) throw Error("The lock order has no step " + step);
 				const untouched = row.untouched?.(s);
-				let write!: Promise<PromiseSettledResult<unknown>>;
+				let write!: Promise<unknown>;
 				await S.db.transaction(async (side) => {
 					if (untouched)
 						await side.execute(
@@ -668,10 +689,7 @@ test("INV-lock-order: a link write locks its gate's account, seat and root, then
 					await S.db.transaction(async (hold) => {
 						await hold.execute(lock(held));
 						const holder = await pid(hold);
-						write = row.run(s).then(
-							(value) => ({ status: "fulfilled" as const, value }),
-							(reason) => ({ status: "rejected" as const, reason }),
-						);
+						write = row.run(s).catch((reason: Error) => ({ refused: reason.message }));
 						await S.waitingOnLock();
 						const waits = await S.runtime.execute(
 							sql`SELECT pg_blocking_pids(a.pid) AS by FROM pg_stat_activity a WHERE a.usename=current_user AND a.wait_event_type='Lock' AND a.pid<>pg_backend_pid()`,
@@ -688,7 +706,7 @@ test("INV-lock-order: a link write locks its gate's account, seat and root, then
 							`while it waits on the ${held.table}, the write holds every earlier lock and no later one`,
 						);
 					});
-					assert.deepEqual(await write, { status: "fulfilled", value: { status: "committed" } });
+					assert.deepEqual(await write, row.outcome ?? { status: "committed" });
 				});
 			}
 		});
