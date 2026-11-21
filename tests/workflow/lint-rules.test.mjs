@@ -1662,6 +1662,61 @@ export function gate(path: string, out: boolean) {
 	]);
 });
 
+test("INV-lint: a hand-written organization seat check in web code is reported outside the shared helper", () => {
+	const source = `import type { RequestActor } from "@everyfield/domain/access";
+export function a(authority: RequestActor | null) {
+	const context = authority?.actor.context;
+	if (!authority || context?.kind !== "seat" || context.owner.kind !== "organization") return null;
+	return context.owner;
+}
+export function b(authority: RequestActor) {
+	const context = authority.actor.context;
+	if (context.kind != "seat") return [];
+	return [1].filter(() => "organization" === context.owner.kind);
+}
+export function c(authority: RequestActor) {
+	const context = authority.actor.context;
+	switch (context.kind) {
+		case "seat":
+			switch (context.owner.kind) {
+				case "organization":
+					return context.owner;
+			}
+	}
+	return null;
+}
+export function d(authority: RequestActor) {
+	const context = authority.actor.context;
+	if (context.kind !== "seat") return null;
+	const { owner } = context;
+	return owner.kind === "organization" ? owner : null;
+}
+export function e(authority: RequestActor) {
+	const context = authority.actor.context;
+	return context.kind === "seat" && context.owner.kind === "plant";
+}
+export function f(owner: { kind: string }, seat: { kind: string }) {
+	return owner.kind === "organization" && seat.kind !== "account";
+}
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/server.ts": source,
+			"apps/web/src/server/request-context.ts": source,
+			"packages/domain/src/x/index.ts": source,
+		}),
+		[
+			"apps/web/src/features/x/server.ts:10 organization-seat",
+			"apps/web/src/features/x/server.ts:17 organization-seat",
+			"apps/web/src/features/x/server.ts:27 organization-seat",
+			"apps/web/src/features/x/server.ts:4 organization-seat",
+		],
+	);
+	assert.deepEqual(lint({ "apps/web/src/server/request-context.ts": "export const seat = 1;\n" }), [
+		"apps/web/src/server/request-context.ts:1 organization-seat",
+	]);
+});
+
 test("INV-lint: a local generic Outcome type is reported unless it specializes the shared Outcome", () => {
 	const specialized = `import type { Outcome as Shared } from "@everyfield/contracts/common";
 export type Outcome<T> = Shared<T, "access_denied", { reason?: string }>;

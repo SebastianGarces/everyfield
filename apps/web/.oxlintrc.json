@@ -86,6 +86,7 @@
 		"everyfield/no-error-message-match": "error",
 		"everyfield/no-slop-styling": "error",
 		"everyfield/sign-in-redirect": "error",
+		"everyfield/organization-seat": "error",
 		"everyfield/shared-outcome": "error",
 		"everyfield/web-database-imports": "error",
 		"no-restricted-imports": [

@@ -2930,6 +2930,65 @@ const domainRefusals = {
 	},
 };
 
+export const ORGANIZATION_SEAT_CHECKS = {
+	"apps/web/src/server/request-context.ts": "organizationSeatOf is the one narrowing every web gate shares",
+};
+const unchained = (node) => (node?.type === "ChainExpression" ? node.expression : node);
+const kindOf = (node) => {
+	const at = unchained(node);
+	return at?.type === "MemberExpression" && memberName(at) === "kind" ? unchained(at.object) : null;
+};
+const namesOwner = (node) => (node?.type === "Identifier" ? node.name === "owner" : memberName(node) === "owner");
+const comparedKinds = (node) => {
+	if (node.type === "SwitchCase") return node.test ? [[kindOf(node.parent.discriminant), node.test]] : [];
+	return [
+		[kindOf(node.left), node.right],
+		[kindOf(node.right), node.left],
+	];
+};
+
+const organizationSeatCheck = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!WEB_CODE.test(path)) return {};
+		const home = Object.hasOwn(ORGANIZATION_SEAT_CHECKS, path);
+		const seats = [];
+		const organizations = [];
+		const visit = (node) => {
+			if (node.type === "BinaryExpression" && !EQUALITY.has(node.operator)) return;
+			for (const [subject, value] of comparedKinds(node)) {
+				if (!subject || value?.type !== "Literal") continue;
+				if (value.value === "seat") seats.push(nearestFunction(node));
+				if (value.value === "organization" && namesOwner(subject)) organizations.push(node);
+			}
+		};
+		const within = (fn, outer) => {
+			for (let at = fn; at; at = nearestFunction(at)) if (at === outer) return true;
+			return outer === null;
+		};
+		return {
+			BinaryExpression: visit,
+			SwitchCase: visit,
+			"Program:exit"(program) {
+				const found = organizations.filter((node) => seats.some((fn) => within(nearestFunction(node), fn)));
+				if (home && found.length === 0)
+					context.report({
+						node: program,
+						message: `${path} no longer checks for an organization seat: delete its ORGANIZATION_SEAT_CHECKS entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+				if (home) return;
+				for (const node of found)
+					context.report({
+						node,
+						message:
+							"Read an organization seat with organizationSeat() or organizationSeatOf(actor) from @/server/request-context instead of checking the seat and its organization owner by hand.",
+					});
+			},
+		};
+	},
+};
+
 const signInRedirect = {
 	meta: { type: "problem" },
 	create(context) {
@@ -3140,6 +3199,7 @@ export default {
 		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
+		"organization-seat": organizationSeatCheck,
 		"shared-outcome": sharedOutcome,
 		"domain-refusals": domainRefusals,
 		"stable-context-value": stableContextValue,
