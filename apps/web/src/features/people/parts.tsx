@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert02Icon } from "@hugeicons/core-free-icons";
-import { Icon, useHydrated } from "@everyfield/ui/foundations";
+import { Icon, useViewerZone } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useSyncExternalStore, type ComponentProps } from "react";
@@ -70,9 +70,9 @@ const DATE = { month: "short", day: "numeric", year: "numeric" } as const;
 const TIME = { ...DATE, hour: "numeric", minute: "2-digit" } as const;
 const DAY = new Intl.DateTimeFormat("en-US", { ...DATE, timeZone: "UTC" });
 export function When({ at, withTime = false }: { at: string; withTime?: boolean }) {
-	const browser = useHydrated();
+	const zone = useViewerZone() ?? "UTC";
 	const parts = Object.fromEntries(
-		new Intl.DateTimeFormat("en-US", { ...(withTime ? TIME : DATE), ...(browser ? {} : { timeZone: "UTC" }) })
+		new Intl.DateTimeFormat("en-US", { ...(withTime ? TIME : DATE), timeZone: zone })
 			.formatToParts(new Date(at))
 			.map((p) => [p.type, p.value]),
 	);
