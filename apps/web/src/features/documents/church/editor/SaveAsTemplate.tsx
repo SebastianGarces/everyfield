@@ -20,6 +20,7 @@ import {
 	RadioGroup,
 	SegmentedControl,
 	Textarea,
+	InlineAlert,
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
@@ -240,14 +241,7 @@ export function SaveAsTemplateDialog({
 								it fills in your church&apos;s details as they are then.
 							</p>
 						</div>
-						<div aria-live="assertive" className="empty:hidden">
-							{error ? (
-								<p className="flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">
-									<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-									{error}
-								</p>
-							) : null}
-						</div>
+						<InlineAlert>{error}</InlineAlert>
 					</DialogBody>
 				</form>
 				<DialogFooter>

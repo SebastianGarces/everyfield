@@ -12,6 +12,7 @@ import {
 	SearchInput,
 	Select,
 	Spinner,
+	TextButton,
 } from "@everyfield/ui/controls";
 import { useFocusRequest } from "@everyfield/ui/foundations";
 import { useState } from "react";
@@ -289,9 +290,9 @@ export function JoinHouseholdDialog({
 							) : read.value.status !== "ok" ? (
 								<p role="alert" className="px-4 py-4 text-sm text-text-2">
 									{loadProblem(read.value, "Households did not load.")}{" "}
-									<button type="button" className="font-medium text-ink underline" onClick={read.retry}>
+									<TextButton className="text-ink" onClick={read.retry}>
 										Try again
-									</button>
+									</TextButton>
 								</p>
 							) : none ? (
 								<div className="flex flex-col items-start gap-3 px-4 py-4">

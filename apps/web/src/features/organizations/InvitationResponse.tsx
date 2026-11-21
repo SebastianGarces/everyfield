@@ -1,7 +1,7 @@
 "use client";
 
 import { respondInvitationRequest } from "@everyfield/contracts/organizations";
-import { CheckmarkCircle02Icon, HierarchyIcon } from "@hugeicons/core-free-icons";
+import { CheckmarkCircle02Icon, Clock01Icon, HierarchyIcon } from "@hugeicons/core-free-icons";
 import { Button, Card, CardIcon, ConfirmDialog, StatePanel } from "@everyfield/ui/controls";
 import { useState } from "react";
 import { NotAvailable } from "../access/AccessStates";
@@ -9,7 +9,39 @@ import { useIntent } from "../../components/intent.ts";
 import { NEVER_SHARED, subjectName } from "./model";
 import { formatDay } from "../../components/dates.ts";
 import { PrivateLine, ProblemLine } from "./parts";
-import type { NameOf, Invitation, Run } from "./port";
+import type { ExpiredInvitation, NameOf, Invitation, Run } from "./port";
+
+export function InvitationExpired({
+	invitation,
+	nameOf,
+	zone,
+	connectionsHref,
+}: {
+	invitation: ExpiredInvitation;
+	nameOf: NameOf;
+	zone: string;
+	connectionsHref: string;
+}) {
+	const organization = nameOf(invitation.pair.organization);
+	return (
+		<Card className="mx-auto w-full max-w-[560px]">
+			<StatePanel
+				icon={Clock01Icon}
+				title="This request has expired"
+				headingLevel="h1"
+				actions={
+					<Button asChild variant="secondary">
+						<a href={connectionsHref}>Go to connected churches</a>
+					</Button>
+				}
+			>
+				The request from <span className="font-medium text-ink">{invitation.inviterDescription}</span> to connect with{" "}
+				{organization} expired on <time dateTime={invitation.expiredAt}>{formatDay(invitation.expiredAt, zone)}</time>.
+				To connect, ask them to send a new request.
+			</StatePanel>
+		</Card>
+	);
+}
 
 export function InvitationResponse({
 	invitation,

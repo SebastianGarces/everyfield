@@ -3,12 +3,14 @@
 import type { mergeResult, mergeReview, organizationDuplicatePairs } from "@everyfield/contracts/people";
 import { Tick02Icon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import {
+	Alert,
 	Button,
 	CalloutLabel,
 	CalloutText,
 	Card,
 	CardBody,
 	EmptyState,
+	InlineAlert,
 	PageHeader,
 	Radio,
 	RadioGroup,
@@ -19,7 +21,6 @@ import { createRead, useRead } from "../../../components/read.tsx";
 import type { z } from "zod";
 import { blockerText, counted, FIELD_LABEL, fieldText, type Columns } from "../../people/corrections/model";
 import { PIPELINE_PATH } from "../board/model";
-import { Problem } from "../../../components/Problem.tsx";
 import { mergePeople, undoMerge } from "./actions";
 import { reviewMerge } from "../board/fetch";
 import { READ_FAILED } from "../../../components/read-failed.ts";
@@ -161,8 +162,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 				</RadioGroup>
 			</fieldset>
 			{review && blocked ? (
-				<div role="alert" className="rounded-md bg-magenta-50 px-3 py-2.5 text-sm text-magenta-600">
-					<p className="font-medium">These records can’t be merged</p>
+				<Alert role="alert" title="These records can’t be merged">
 					<ul className="mt-1 flex flex-col gap-1">
 						{review.blockers.causes.map((cause) => (
 							<li key={cause}>
@@ -171,7 +171,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 						))}
 					</ul>
 					<p className="mt-1.5">Nothing changed.</p>
-				</div>
+				</Alert>
 			) : null}
 			{review && !blocked ? (
 				<>
@@ -211,7 +211,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 							. {name("source")}’s stage history and conversations show on {name("survivor")}’s record.
 						</p>
 					) : null}
-					<Problem text={shownProblem} />
+					<InlineAlert live="polite">{shownProblem}</InlineAlert>
 					<div>
 						<Button variant="primary" disabled={!ready} loading={busy} onClick={merge}>
 							Merge into {name("survivor")}
@@ -219,7 +219,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 					</div>
 				</>
 			) : (
-				<Problem text={shownProblem} />
+				<InlineAlert live="polite">{shownProblem}</InlineAlert>
 			)}
 		</div>
 	);
@@ -257,7 +257,7 @@ function MergeDone({ merged, people }: { merged: Merged; people: Pair["person"][
 					{source} is now part of {survivor}: their stage history, enrollments and conversations are on one record.
 				</CalloutText>
 			</Card>
-			<Problem text={problem} />
+			<InlineAlert live="polite">{problem}</InlineAlert>
 			<div className="flex flex-wrap gap-2">
 				<Button variant="primary" asChild>
 					<Link href={`${PIPELINE_PATH}/${merged.survivorId}`}>Open {survivor}</Link>

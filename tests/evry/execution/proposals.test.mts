@@ -32,6 +32,12 @@ import { accounts, actor, admin, db, people, plant, queries, setup, sql, teardow
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
+const noPorts = {
+	reminders: noReminders,
+	phaseNotices: async () => {
+		throw Error("unexpected phase notice");
+	},
+};
 
 before(setup);
 after(teardown);
@@ -49,7 +55,7 @@ async function effects() {
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	if (!claim) return null;
 	const start = queries.length;
-	const outcome = await executeProposal(db, lease(claim), noReminders);
+	const outcome = await executeProposal(db, lease(claim), noPorts);
 	const statements = counted(start);
 	if (outcome !== "lost")
 		await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
@@ -68,7 +74,7 @@ async function stalledEffect(during: (claim: Claim) => Promise<void>, leaseSecon
 	let running: Promise<string> | undefined;
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`SELECT id FROM plant WHERE id=${plant} FOR UPDATE`);
-		running = executeProposal(db, lease(claim), noReminders);
+		running = executeProposal(db, lease(claim), noPorts);
 		await waitingOnLock(admin, { blockedBy: await backendPid(tx) });
 		await during(claim);
 	});
@@ -358,7 +364,7 @@ test("AC:EVRY-LEASE-FENCE AC:INH-REGRESSION-RETRY AC:INH-EDGES-12: an executor s
 	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
 	assert.equal(counted(start), 1);
 	assert.equal((await effects())?.outcome, "completed");
-	assert.equal(await executeProposal(db, lease(stalled!), noReminders), "lost");
+	assert.equal(await executeProposal(db, lease(stalled!), noPorts), "lost");
 	const retry = await retryUnresolvedEffects(db, owner, proposal.id);
 	assert.deepEqual([retry.retried, retry.proposal.outcome], [false, "completed"]);
 	assert.equal(await effects(), null);
@@ -419,7 +425,7 @@ test("AC:EVRY-LEASE-FENCE an executor whose lease expires while it waits for the
 	let running: Promise<string> | undefined;
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`SELECT id FROM job WHERE id=${claim.id} FOR UPDATE`);
-		running = executeProposal(db, lease(claim), noReminders);
+		running = executeProposal(db, lease(claim), noPorts);
 		await waitingOnLock(admin, { blockedBy: await backendPid(tx) });
 		await tx.execute(sql`UPDATE job SET lease_until=clock_timestamp()-interval '1 millisecond' WHERE id=${claim.id}`);
 	});
@@ -459,7 +465,7 @@ test("INV-effect-recovery: an approved effect that no worker took within 60 s re
 	assert.equal(counted(start), 1);
 	assert.deepEqual(await effectJobs(proposal.id), ["superseded", "ready"]);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
-	assert.equal(await executeProposal(db, lease(claim!), noReminders), "completed");
+	assert.equal(await executeProposal(db, lease(claim!), noPorts), "completed");
 	const shown = await readReview(db, owner, proposal.id);
 	assert.deepEqual([shown.outcome, shown.executing], ["completed", false]);
 	assert.equal(await transaction(db, (tx) => finishClaim(tx, claim!, { state: "succeeded" })), true);
