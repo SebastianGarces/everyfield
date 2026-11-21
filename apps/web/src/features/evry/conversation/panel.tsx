@@ -8,7 +8,9 @@ import { storeContext, useLocalStore, useStore } from "@/components/store";
 import * as api from "./api.ts";
 import { createEvryPanelStore, type EvryPanelState, type EvryPort } from "./EvryPanel.store.ts";
 import { checkPhoto, stageAttached } from "./PhotoAttach.tsx";
+import { putFile } from "./attachments.ts";
 
+<<<<<<< HEAD
 const HELD = "ef-evry-held-draft";
 
 function heldDraft() {
@@ -37,13 +39,21 @@ const PORT: EvryPort = {
 	holdDraft,
 	reloadPage: () => window.location.reload(),
 };
+=======
+const PORT: EvryPort = { ...api, checkPhoto, stagePhoto: stageAttached, putFile };
+>>>>>>> origin/main
 export const Panel = storeContext<EvryPanelState>("EvryPanel");
 
 const panel = lazyModule(() => import("./EvryPanel.tsx"));
 
-type PanelProps = { inPlant: boolean; context: string };
+type PanelProps = { inPlant: boolean; canAttach: boolean; context: string };
 
-export function useEvryPanel({ inPlant, off = false, context }: PanelProps & { off?: boolean }) {
+export function useEvryPanel({
+	inPlant,
+	canAttach = false,
+	off = false,
+	context,
+}: Omit<PanelProps, "canAttach"> & { canAttach?: boolean; off?: boolean }) {
 	const store = useLocalStore(() => createEvryPanelStore({ context, port: PORT }));
 	const hydrated = useHydrated();
 	const open = useStore(store, (s) => s.open) && hydrated;
@@ -57,7 +67,7 @@ export function useEvryPanel({ inPlant, off = false, context }: PanelProps & { o
 			<Panel.Provider value={store}>
 				<Opened open={open}>
 					<Suspense fallback={null}>
-						<Loaded inPlant={inPlant} context={context} />
+						<Loaded inPlant={inPlant} canAttach={canAttach} context={context} />
 					</Suspense>
 				</Opened>
 			</Panel.Provider>

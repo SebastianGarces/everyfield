@@ -17,7 +17,7 @@ function create(v: ServerConfig) {
 		authorize: authorizePhaseNotices,
 	});
 	const notices: PhaseNotices = phaseNotices((eligible) => createNotificationService({ mail, eligible }));
-	return { db, writer: createPhaseWriter({ notices }) };
+	return { db, notices, writer: createPhaseWriter({ notices }) };
 }
 export function phasesMount() {
 	mount ??= create(serverConfig());

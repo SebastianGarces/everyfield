@@ -24,6 +24,9 @@ type ErrorCode =
 	| "review_expired"
 	| "review_closed"
 	| "photo_unavailable"
+	| "not_assigned"
+	| "assignee_ineligible"
+	| "owner_ineligible"
 	| "unknown";
 
 export type ProjectedError = {
@@ -33,7 +36,7 @@ export type ProjectedError = {
 	outcome: "unknown" | "refused";
 };
 
-export type Reference = { kind: "person" | "photo"; id: string };
+export type Reference = { kind: "person" | "photo"; id: string } | { kind: "article"; slug: string };
 export type SourceRow = {
 	kind:
 		| "person"
@@ -44,6 +47,9 @@ export type SourceRow = {
 		| "file"
 		| "import"
 		| "message"
+		| "record"
+		| "merge"
+		| "correction"
 		| "notice"
 		| "setting"
 		| "digest"
@@ -53,6 +59,15 @@ export type SourceRow = {
 		| "meeting"
 		| "responsibility"
 		| "template"
+		| "task"
+		| "tally"
+		| "history"
+		| "follow_up"
+		| "contact"
+		| "account"
+		| "phase"
+		| "criterion"
+		| "signal"
 		| "venue"
 		| "item"
 		| "seat"
@@ -61,7 +76,10 @@ export type SourceRow = {
 		| "step"
 		| "relationship"
 		| "stage"
-		| "milestone";
+		| "milestone"
+		| "date"
+		| "article"
+		| "document";
 	id: string;
 	label: string;
 	fields: Record<string, unknown>;
@@ -92,7 +110,7 @@ type StopReason =
 
 type Saved<K extends string, B> = { sequence: number; turnId: string | null; kind: K; body: B; createdAt: string };
 export type ConversationEvent =
-	| Saved<"user_message", { text: string; references?: Reference[]; retryOf?: number }>
+	| Saved<"user_message", { text: string; references?: Reference[]; attachments?: Attachment[]; retryOf?: number }>
 	| Saved<"assistant_text", { text: string; withheld?: boolean }>
 	| Saved<"tool_result", { operation: string; result: SourceResult; originalTotal?: number | null }>
 	| Saved<
@@ -100,10 +118,13 @@ export type ConversationEvent =
 			{ state: "completed" | "stopped" | "failed"; reason: StopReason; error?: ProjectedError; withheld?: boolean }
 	  >;
 
+export type Attachment = { id: string; name: string };
+
 export type Send = {
 	key: string;
 	text: string;
 	references: Reference[];
+	attachments: Attachment[];
 	state: "sending" | "unconfirmed" | "refused";
 	error: ProjectedError | null;
 	sequence: number | null;
@@ -185,7 +206,7 @@ export type TurnEnd = { state: "completed" | "stopped" | "failed"; reason: StopR
 
 export type Turn = {
 	id: string;
-	ask: { sequence: number; text: string; retried: boolean } | null;
+	ask: { sequence: number; text: string; retried: boolean; attachments: Attachment[] } | null;
 	blocks: Block[];
 	end: TurnEnd | null;
 };
@@ -198,7 +219,12 @@ export function turnsOf(events: readonly ConversationEvent[], live: Readonly<Rec
 		if (!turn) turns.set(id, (turn = { id, ask: null, blocks: [], end: null }));
 		switch (e.kind) {
 			case "user_message":
-				turn.ask = { sequence: e.sequence, text: e.body.text, retried: e.body.retryOf !== undefined };
+				turn.ask = {
+					sequence: e.sequence,
+					text: e.body.text,
+					retried: e.body.retryOf !== undefined,
+					attachments: e.body.attachments ?? [],
+				};
 				break;
 			case "assistant_text": {
 				const last = turn.blocks.at(-1);
@@ -304,6 +330,14 @@ export function endNotice(end: TurnEnd | null): Notice | null {
 				title: "Evry could not read a record",
 				text: "A record Evry needed was not available. Nothing was changed. Try again.",
 			};
+		case "not_assigned":
+		case "owner_ineligible":
+		case "assignee_ineligible":
+			return {
+				tone: "error",
+				title: "Evry can't prepare this change",
+				text: `${TASK_REFUSAL[end.error.code]} Nothing was changed.`,
+			};
 		case "access_denied":
 		case "not_found":
 			return {
@@ -319,6 +353,12 @@ export function endNotice(end: TurnEnd | null): Notice | null {
 			};
 	}
 }
+
+export const TASK_REFUSAL = {
+	not_assigned: "You can only change tasks assigned to you.",
+	owner_ineligible: "That person can't own follow-ups.",
+	assignee_ineligible: "That person has no seat that can hold tasks.",
+} as const satisfies Partial<Record<ErrorCode, string>>;
 
 export function sendNotice(send: Send): string | null {
 	if (send.state === "sending") return null;
@@ -342,10 +382,20 @@ export const resendable = (send: Send) =>
 	send.state === "unconfirmed" || (send.state === "refused" && send.error?.retry !== "never");
 
 const PERSON_PAGE = /^\/people\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
+const ARTICLE_PAGE = /^\/wiki\/(.+?)\/?$/;
 
 export function pageReferences(pathname: string | null): Reference[] {
 	const id = pathname ? PERSON_PAGE.exec(pathname)?.[1] : undefined;
-	return id ? [{ kind: "person", id: id.toLowerCase() }] : [];
+	if (id) return [{ kind: "person", id: id.toLowerCase() }];
+	const path = pathname ? ARTICLE_PAGE.exec(pathname)?.[1] : undefined;
+	if (!path || path.endsWith("/edit")) return [];
+	try {
+		const slug = path.split("/").map(decodeURIComponent).join("/");
+		return slug.length <= 300 ? [{ kind: "article", slug }] : [];
+	} catch (error) {
+		if (error instanceof URIError) return [];
+		throw error;
+	}
 }
 
 export const MAX_MESSAGE = 8_000;
