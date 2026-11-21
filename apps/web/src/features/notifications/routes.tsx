@@ -1,14 +1,12 @@
 import { signIn } from "@/server/sign-in";
 import { Card, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { parseQuery, querySearch } from "./model.ts";
 import { NotificationsScreen } from "./NotificationsScreen.tsx";
 import { OptOutScreen, type OptOutView } from "./OptOutScreen.tsx";
 import { viewerActor } from "@/server/request-context";
 import { call, loadFeedPage, optOutReady } from "./server.ts";
 import { params } from "../../components/search-params.ts";
-import { viewerZone, ZONE_COOKIE } from "../../components/viewer-zone.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export const notificationsMetadata: Metadata = { title: "Notifications", robots: { index: false, follow: false } };
@@ -29,8 +27,7 @@ export async function NotificationsPage({ searchParams }: { searchParams: Search
 				</Card>
 			</>
 		);
-	const zone = viewerZone((await cookies()).get(ZONE_COOKIE)?.value);
-	return <NotificationsScreen initial={loaded.value} served={zone ? { zone, now: loaded.value.at } : null} />;
+	return <NotificationsScreen initial={loaded.value} />;
 }
 
 export const optOutMetadata: Metadata = {
