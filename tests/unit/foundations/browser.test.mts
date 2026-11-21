@@ -39,6 +39,24 @@ test("INV-hydration: every browser hook renders its neutral server value, so hyd
 	});
 });
 
+test("INV-hydration: inside ProductRoot the viewer zone and time render the served values on the server", () => {
+	function Probe() {
+		return createElement("output", null, JSON.stringify({ zone: ui.useViewerZone(), now: ui.useViewerNow() }));
+	}
+	const read = (node: unknown) =>
+		JSON.parse(
+			renderToStaticMarkup(node)
+				.replace(/^.*<output>|<\/output>.*$/gs, "")
+				.replaceAll("&quot;", '"'),
+		);
+	assert.deepEqual(read(createElement(Probe)), { zone: null, now: null });
+	const served = { zone: "America/Chicago", now: 1_790_000_000_000 };
+	assert.deepEqual(
+		read(createElement(ui.ProductRoot, { initialTheme: "light", served }, createElement(Probe))),
+		served,
+	);
+});
+
 test("INV-debounce: only the last call runs, once; cancel, flush and detaching its node settle what is pending", (t) => {
 	mock.timers.enable({ apis: ["setTimeout"] });
 	t.after(() => mock.timers.reset());

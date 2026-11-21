@@ -13,6 +13,7 @@ import {
 	MenuTrigger,
 } from "@everyfield/ui/controls";
 import { PersonCard, PipelineColumn, StageChip, StatusBadge } from "@everyfield/ui/display";
+import { useViewerNow } from "@everyfield/ui/foundations";
 import { useMemo, useState, type DragEvent } from "react";
 import type { z } from "zod";
 import { reorderPipeline } from "./actions.ts";
@@ -333,17 +334,19 @@ function CardBadges({ card }: { card: CardData }) {
 				</StatusBadge>
 			) : null}
 			{quiet !== "none" ? (
-				<StatusBadge status={quiet === "alert" ? "risk" : "attention"} size="sm" suppressHydrationWarning>
-					Quiet {quietDays(card.inactivity.lastActivityAt)}
+				<StatusBadge status={quiet === "alert" ? "risk" : "attention"} size="sm">
+					<QuietFor since={card.inactivity.lastActivityAt} />
 				</StatusBadge>
 			) : null}
 		</span>
 	);
 }
 
-function quietDays(lastActivityAt: string): string {
-	const days = Math.max(1, Math.floor((Date.now() - Date.parse(lastActivityAt)) / 86_400_000));
-	return `${days} ${days === 1 ? "day" : "days"}`;
+function QuietFor({ since }: { since: string }) {
+	const now = useViewerNow();
+	if (now === null) return "Quiet";
+	const days = Math.max(1, Math.floor((now - Date.parse(since)) / 86_400_000));
+	return `Quiet ${days} ${days === 1 ? "day" : "days"}`;
 }
 
 function MoveMenu({

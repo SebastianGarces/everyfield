@@ -2,7 +2,7 @@
 
 import { toast } from "@everyfield/ui/controls";
 import type { Loadable } from "@everyfield/ui/display";
-import { useBrowserZone, useDocumentHidden, useMinuteClock } from "@everyfield/ui/foundations";
+import { useDocumentHidden, useViewerNow, useViewerZone } from "@everyfield/ui/foundations";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { createRead, useReadWith } from "../../components/read.tsx";
 import { storeContext, useLocalStore } from "../../components/store.ts";
@@ -87,9 +87,9 @@ export function useReadElsewhere(): (ids: readonly string[]) => void {
 
 const lost = () => ({ status: "lost" }) as const;
 
-export function useClock(served: Clock | null = null): Clock | null {
-	const zone = useBrowserZone() ?? served?.zone ?? null;
-	const now = useMinuteClock() ?? served?.now ?? null;
+export function useClock(): Clock | null {
+	const zone = useViewerZone();
+	const now = useViewerNow();
 	return useMemo(() => (zone === null || now === null ? null : { zone, now }), [zone, now]);
 }
 

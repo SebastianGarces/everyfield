@@ -2,7 +2,7 @@
 
 import { MotionConfig } from "motion/react";
 import { createContext, use, useCallback, useMemo, useRef, useState, type ReactNode, type AnimationEvent } from "react";
-import { prefersReducedMotion, useHydrated } from "./browser";
+import { prefersReducedMotion, ServedClockContext, useHydrated, type ServedClock } from "./browser";
 import { notePress } from "./focus";
 import { THEME_COOKIE, type ProductTheme } from "./theme";
 
@@ -32,7 +32,15 @@ function fadeTo(el: HTMLDivElement, next: ProductTheme) {
 
 let chosen: ProductTheme | null = null;
 
-export function ProductRoot({ initialTheme, children }: { initialTheme: ProductTheme; children: ReactNode }) {
+export function ProductRoot({
+	initialTheme,
+	served,
+	children,
+}: {
+	initialTheme: ProductTheme;
+	served: ServedClock;
+	children: ReactNode;
+}) {
 	const [theme, setThemeState] = useState(() => chosen ?? initialTheme);
 	const root = useRef<HTMLDivElement>(null);
 	const hydrated = useHydrated();
@@ -59,7 +67,7 @@ export function ProductRoot({ initialTheme, children }: { initialTheme: ProductT
 					onPointerDownCapture={notePress}
 					className="min-h-dvh bg-frame font-sans text-md text-text"
 				>
-					{children}
+					<ServedClockContext value={served}>{children}</ServedClockContext>
 				</div>
 			</MotionConfig>
 		</ThemeContext>
