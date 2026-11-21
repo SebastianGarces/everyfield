@@ -347,7 +347,7 @@ test("INV-member-capabilities: a Member who may change only their own notificati
 	assert.doesNotMatch(describeCatalog(catalog(["people.updatePerson"])), /Owner or Admin/);
 });
 
-test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, the organization profile change, the stage move and the program create; every seat reads its pipeline and programs and may propose a next version, which only a program's director gets a card for", () => {
+test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, the organization profile change, the stage move, the program create and the four organization Wiki writes; every seat reads its pipeline and programs and may propose a next version, which only a program's director gets a card for", () => {
 	const id = "00000000-0000-4000-8000-0000000000a1";
 	const actor = (owner: EvryActor["owner"], contextKind: EvryActor["contextKind"], role: EvryActor["role"]) =>
 		({
@@ -369,6 +369,12 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 	};
 	const oversight = ["notifications.previewOversightDigest", "notifications.oversightDigestCadence.set"];
 	const pipeline = ["pipeline.listPeople", "development.draftPlan", "development.readProgram"];
+	const orgWiki = [
+		"wiki.organizationArticles.add",
+		"wiki.organizationArticles.edit",
+		"wiki.organizationArticles.publish",
+		"wiki.organizationArticles.hide",
+	];
 	for (const role of ["owner", "admin"] as const)
 		assert.deepEqual(
 			tools(actor(organization, "sending_church", role)),
@@ -380,6 +386,7 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 				"pipeline.proposeStageMove",
 				"development.saveProgram",
 				"development.draftNextVersion",
+				...orgWiki,
 			],
 			role,
 		);
@@ -395,5 +402,9 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 	]);
 	const plantOwner = tools(actor({ kind: "plant", id } as EvryActor["owner"], "plant", "owner"));
 	assert.ok(plantOwner.includes("notifications.previewPlanterDigest"));
-	for (const op of oversight) assert.equal(plantOwner.includes(op), false, op);
+	for (const op of [...oversight, ...orgWiki]) assert.equal(plantOwner.includes(op), false, op);
+	for (const role of ["admin", "member"] as const) {
+		const plantSeat = tools(actor({ kind: "plant", id } as EvryActor["owner"], "plant", role));
+		for (const op of orgWiki) assert.equal(plantSeat.includes(op), false, `${role} ${op}`);
+	}
 });

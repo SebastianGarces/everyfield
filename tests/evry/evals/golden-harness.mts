@@ -55,6 +55,7 @@ import { LAUNCH_READS } from "../../../packages/evry/src/adapters/launch/reads/i
 import { LAUNCH_COMMANDS } from "../../../packages/evry/src/adapters/launch/commands/index.ts";
 import { INVITATION_COMMANDS } from "../../../packages/evry/src/adapters/meetings/commands/invitation.ts";
 import { WORKFLOW_READS } from "../../../packages/evry/src/adapters/meetings/reads/workflows.ts";
+import { WIKI_COMMANDS } from "../../../packages/evry/src/adapters/wiki/commands/index.ts";
 
 const LATER = new Set<string>([
 	...SEAT_READS.map((a) => a.operation),
@@ -71,6 +72,7 @@ const LATER = new Set<string>([
 	...Object.keys(LAUNCH_COMMANDS),
 	...Object.keys(INVITATION_COMMANDS),
 	...WORKFLOW_READS.map((a) => a.operation),
+	...Object.keys(WIKI_COMMANDS).filter((op) => op.startsWith("wiki.organizationArticles.")),
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
 

@@ -119,6 +119,15 @@ function pipelineRules() {
 	].join("\n");
 }
 
+const wikiEditorOnly = (kind: EvryActor["contextKind"]) =>
+	`Only an Owner or Admin of your ${kind === "sending_network" ? "network" : "sending church"} can edit its Wiki. Nothing was prepared.`;
+function wikiEditorRules(kind: EvryActor["contextKind"]) {
+	return [
+		`When the user asks to draft, change, publish or hide your organization's own version of a Wiki article and no tool offers it, prepare nothing and reply: ${wikiEditorOnly(kind)}`,
+		"Prepare one review card for the one step asked, naming the article by its title or key words: wiki.organizationArticles.add for a first draft, wiki.organizationArticles.edit to change one paragraph, wiki.organizationArticles.publish or wiki.organizationArticles.hide. Add or change only the text the user gave, in their own words, and never write Wiki content of your own. When the user asks to add something but gives no text for it, such as a contact's name and email, ask for it and prepare nothing.",
+	].join("\n");
+}
+
 export const LAUNCH_RULES = {
 	ownerOnly:
 		"Only an Owner or Admin can change the Launch plan: move or postpone Launch Sunday, mark a milestone complete or reopen it, record or correct its numbers, name its guests, or submit the debrief or publish the summary. Nothing was prepared.",
@@ -159,7 +168,7 @@ function roleRule(actor: EvryActor) {
 	const setup =
 		actor.contextKind === "plant"
 			? ` ${SETUP_RULE} When the user asks to answer the lead question and no tool offers it, prepare nothing and reply: ${LEAD_RULE}\nWhen the user asks to change the Launch plan and no tool offers it, prepare nothing and reply: ${LAUNCH_RULES.ownerOnly}\n${launchRules()}`
-			: `\n${pipelineRules()}`;
+			: `\n${pipelineRules()}\n${wikiEditorRules(actor.contextKind)}`;
 	return `The user's role here is ${actor.role}. When the user asks for a change none of your tools offers, prepare nothing and say who can make it: Only an Owner or Admin can ${scope}.${setup}`;
 }
 
@@ -237,7 +246,11 @@ const WRITE_AREAS: { prefix: string; text: string }[] = [
 		text: "Prepare meeting changes for your review, as your seat allows: scheduling, RSVPs, guests, kits and attendance.",
 	},
 	{ prefix: "phases.", text: "Prepare a phase move or a recorded signal for your review." },
-	{ prefix: "wiki.", text: "Bookmark or rate a Wiki article for your review." },
+	{ prefix: "wiki.bookmarks.", text: "Bookmark or rate a Wiki article for your review." },
+	{
+		prefix: "wiki.organizationArticles.",
+		text: "Prepare your organization's own version of a Wiki article for your review: draft it, change its text, publish it or hide it.",
+	},
 	{
 		prefix: "documents.",
 		text: "Prepare Church Documents for your review: start one from a template, save a file, archive one or mark your core values.",
@@ -475,7 +488,7 @@ export function compileContext(input: {
 			: "",
 		...taskRules(input.catalog),
 		recordedJudgments(input.catalog),
-		input.catalog.domains.some((d) => d.domain === "wiki") ? WIKI_RULE : "",
+		input.actor.contextKind === "plant" && input.catalog.domains.some((d) => d.domain === "wiki") ? WIKI_RULE : "",
 		...guidance,
 		`Context: ${input.actor.contextKind}. Current time (trusted server clock): ${input.now.toISOString()}.`,
 		describeCatalog(input.catalog),

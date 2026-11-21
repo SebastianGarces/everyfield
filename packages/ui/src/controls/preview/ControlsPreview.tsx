@@ -1175,6 +1175,11 @@ function AlertsSection() {
 						be saved twice.
 					</Alert>
 				</Specimen>
+				<Specimen label="Warning">
+					<Alert tone="warning" title="Written for Phase 2">
+						Your church is now in Phase 3. This assessment keeps the Phase 2 criteria and standings.
+					</Alert>
+				</Specimen>
 				<Specimen label="Neutral">
 					<Alert
 						tone="neutral"

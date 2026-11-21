@@ -95,7 +95,7 @@ const privateCareScope = {
 	},
 };
 
-export const TABLE_WRITERS = {
+const TABLE_WRITERS = {
 	phase_transition: {
 		owner: "packages/domain/src/phases/",
 		why: "the phases domain records every phase transition, including the one initial declaration a plant may make",
@@ -114,12 +114,9 @@ const tableWriters = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
-		const held = Object.keys(TABLE_WRITERS).filter((table) => TABLE_WRITERS[table].holders?.includes(path));
-		const written = new Set();
 		const report = (node, table) => {
 			const { owner, why } = TABLE_WRITERS[table];
-			written.add(table);
-			if (!path.startsWith(owner) && !held.includes(table))
+			if (!path.startsWith(owner))
 				context.report({
 					node,
 					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here. ${UNSEEN}`,
@@ -184,17 +181,11 @@ const tableWriters = {
 			CallExpression: (node) => {
 				if (memberName(unwrapped(node.callee)) === "insert") pending.push([node.arguments[0], node]);
 			},
-			"Program:exit"(node) {
+			"Program:exit"() {
 				for (const [target, at] of pending) {
 					const table = tableOf(target);
 					if (table) report(at, table);
 				}
-				for (const table of held)
-					if (!written.has(table))
-						context.report({
-							node,
-							message: `${path} no longer inserts into ${table}: delete its holders entry under TABLE_WRITERS.${table} in scripts/lint/everyfield-plugin.mjs.`,
-						});
 			},
 		};
 	},
@@ -1238,10 +1229,10 @@ const tickOnly = (node) =>
 	emptyResolve(node);
 
 export const PRODUCT_TIMERS = {
-	"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts": {
+	"apps/web/src/server/evry/http.ts": {
 		timer: "setInterval",
 		binding: "heartbeat",
-		within: "GET",
+		within: "conversationStreamGet",
 		why: "the Evry conversation stream writes an SSE comment every 15 seconds so proxies and the browser keep an idle stream open while a turn runs; the interval is the keep-alive itself and nothing else marks when a quiet connection needs one",
 	},
 };
@@ -1723,24 +1714,110 @@ const webDatabaseImports = {
 	},
 };
 
-const noticeLook = (value) =>
-	value !== null && /(?:^|\s)bg-magenta-50(?:\s|$)/.test(value) && /(?:^|\s)text-magenta-600(?:\s|$)/.test(value);
+const classTokens = (value) => value.split(/\s+/).filter(Boolean);
+const MAGENTA_TINT = /^bg-magenta-(?:50|100)(?:\/\d+)?$/;
+const AMBER_TINT = /^bg-amber-(?:50|100)(?:\/\d+)?$/;
+const BOX_RADIUS = /^rounded(?:-[\w.[\]-]+)?$/;
+const PILL_RADIUS = /^rounded(?:-[a-z]{1,2})?-(?:full|pill)$/;
+const PADDING = /^p[xy]?-/;
+const CHIP_SIZE = /^(?:p|py)-(?:0|px|0\.5|1|1\.5)$|^(?:h|size)-(?:\d+(?:\.\d+)?|px|\[[^\]]+\])$/;
+const tintedBox = (tokens, tint) =>
+	tokens.some((t) => tint.test(t)) &&
+	tokens.some((t) => BOX_RADIUS.test(t)) &&
+	!tokens.some((t) => PILL_RADIUS.test(t)) &&
+	tokens.some((t) => PADDING.test(t)) &&
+	!tokens.some((t) => CHIP_SIZE.test(t));
+const errorNoticeLook = (value) => {
+	const tokens = classTokens(value);
+	return (tokens.includes("bg-magenta-50") && tokens.includes("text-magenta-600")) || tintedBox(tokens, MAGENTA_TINT);
+};
+const warningNoticeLook = (value) => tintedBox(classTokens(value), AMBER_TINT);
+const noticeLook = (value) => errorNoticeLook(value) || warningNoticeLook(value);
+const formGroup = (node) => {
+	for (let at = node.parent; at && at.type !== "JSXElement"; at = at.parent)
+		if (at.type === "JSXOpeningElement") return at.name.type === "JSXIdentifier" && at.name.name === "fieldset";
+	return false;
+};
+const templateText = (node) => node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ");
+const classParts = (node) =>
+	node.type === "Literal"
+		? typeof node.value === "string"
+			? [node.value]
+			: []
+		: node.type === "TemplateLiteral"
+			? [templateText(node)]
+			: node.type === "ConditionalExpression"
+				? [...classParts(node.consequent), ...classParts(node.alternate)]
+				: node.type === "LogicalExpression"
+					? [...classParts(node.left), ...classParts(node.right)]
+					: node.type === "ArrayExpression"
+						? node.elements.flatMap((element) => (element ? classParts(element) : []))
+						: [];
 
 const sharedNotice = {
 	meta: { type: "problem" },
 	create(context) {
 		if (!WEB_CODE.test(repoPath(context.filename))) return {};
 		const check = (node, value) => {
-			if (noticeLook(value))
+			if (value === null) return;
+			if (errorNoticeLook(value))
 				context.report({
 					node,
 					message:
 						"An error notice is Alert or InlineAlert from @everyfield/ui/controls (tone, title, actions, live region and focus included); a chip or band in that colour is TonePill, ToneTag or ToneBand from @everyfield/ui/display. Do not hand-write the magenta box.",
 				});
+			else if (warningNoticeLook(value) && !formGroup(node))
+				context.report({
+					node,
+					message:
+						'A warning notice is Alert or InlineAlert with tone="warning" from @everyfield/ui/controls (icon, title, actions, live region and focus included); a chip or band in amber is TonePill, ToneTag or ToneBand from @everyfield/ui/display. Do not hand-write the amber box.',
+				});
 		};
 		return {
 			Literal: (node) => check(node, text(node)),
-			TemplateLiteral: (node) => check(node, node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ")),
+			TemplateLiteral: (node) => check(node, templateText(node)),
+			CallExpression(node) {
+				const parts = node.arguments.flatMap(classParts);
+				if (parts.length < 2 || parts.some(noticeLook)) return;
+				check(node, parts.join(" "));
+			},
+		};
+	},
+};
+
+const LIVE_REGION_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
+const LIVE_ROLES = new Set(["status", "alert", "log"]);
+const jsxAttribute = (element, name) =>
+	element.attributes.find((a) => a.type === "JSXAttribute" && a.name.name === name);
+const attributeStrings = (attribute) =>
+	attribute.value?.type === "JSXExpressionContainer"
+		? stringsIn(attribute.value.expression)
+		: stringsIn(attribute.value);
+const hidingToken = (token) => token.replace(/^!|!$/g, "").split(":").at(-1) === "hidden";
+
+const liveRegionInTree = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!LIVE_REGION_CODE.test(repoPath(context.filename))) return {};
+		return {
+			JSXOpeningElement(node) {
+				const live = jsxAttribute(node, "aria-live");
+				const role = jsxAttribute(node, "role");
+				const liveValues = live ? attributeStrings(live) : [];
+				const announces =
+					(live && !(liveValues.length && liveValues.every((value) => value === "off"))) ||
+					(role && attributeStrings(role).some((value) => LIVE_ROLES.has(value)));
+				if (!announces) return;
+				const className = jsxAttribute(node, "className");
+				const hiddenClass = className && attributeStrings(className).some((s) => s.split(/\s+/).some(hidingToken));
+				const hiddenAttribute = jsxAttribute(node, "hidden");
+				if (!hiddenClass && !hiddenAttribute) return;
+				context.report({
+					node: hiddenClass ? className : hiddenAttribute,
+					message:
+						"A live region (aria-live, or role status, alert or log) that is hidden is display:none, so it leaves the accessibility tree and what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
+				});
+			},
 		};
 	},
 };
@@ -3259,8 +3336,10 @@ const domainRefusals = {
 };
 
 export const ORGANIZATION_SEAT_CHECKS = {
-	"apps/web/src/server/request-context.ts": "organizationSeatOf is the one narrowing every web gate shares",
+	"packages/domain/src/access/organization-seat.ts":
+		"organizationSeatContext is the one narrowing every domain and web gate shares",
 };
+const SEAT_CODE = /^(apps\/web\/src|packages\/domain\/src)\//;
 const unchained = (node) => (node?.type === "ChainExpression" ? node.expression : node);
 const kindOf = (node) => {
 	const at = unchained(node);
@@ -3279,7 +3358,7 @@ const organizationSeatCheck = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
-		if (!WEB_CODE.test(path)) return {};
+		if (!SEAT_CODE.test(path)) return {};
 		const home = Object.hasOwn(ORGANIZATION_SEAT_CHECKS, path);
 		const seats = [];
 		const organizations = [];
@@ -3309,9 +3388,81 @@ const organizationSeatCheck = {
 				for (const node of found)
 					context.report({
 						node,
-						message:
-							"Read an organization seat with organizationSeat() or organizationSeatOf(actor) from @/server/request-context instead of checking the seat and its organization owner by hand.",
+						message: WEB_CODE.test(path)
+							? "Read an organization seat with organizationSeat() or organizationSeatOf(actor) from @/server/request-context instead of checking the seat and its organization owner by hand."
+							: "Read an organization seat with organizationSeatContext(authority) from packages/domain/src/access/organization-seat.ts instead of checking the seat and its organization owner by hand.",
 					});
+			},
+		};
+	},
+};
+
+export const LOOSE_CONTRACTS = {
+	"packages/contracts/src/people/csv/index.ts": {
+		importValues:
+			"it parses the createPersonRequest input of each CSV row, which also carries stage, adultClassification and birthDate; it drops them on purpose",
+	},
+	"packages/contracts/src/communication/results.ts": {
+		mailReport:
+			"it parses proposal receipts stored by earlier code, whose reports may hold keys the schema no longer names",
+	},
+	"packages/contracts/src/communication/requests.ts": {
+		historyQuery:
+			"it is the lenient history query: listHistory normalizes each value itself and drops a query key it does not name",
+	},
+};
+const LOOSE_OBJECTS = new Set(["object", "looseObject"]);
+const LOOSE_METHODS = new Set(["strip", "passthrough", "loose", "catchall"]);
+const declaredName = (node) => {
+	let named = null;
+	for (let at = node; at; at = at.parent)
+		if (at.type === "VariableDeclarator" && at.id.type === "Identifier") named = at.id.name;
+	return named;
+};
+
+const strictContracts = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		const exempt = LOOSE_CONTRACTS[path] ?? {};
+		const namespaces = new Set();
+		const loose = new Set();
+		const found = new Set();
+		return {
+			ImportDeclaration(node) {
+				if (!/^zod(?:\/|$)/.test(node.source.value)) return;
+				for (const spec of node.specifiers) {
+					const imported = spec.type === "ImportSpecifier" ? nameOf(spec.imported) : null;
+					if (spec.type !== "ImportSpecifier" || imported === "z") namespaces.add(spec.local.name);
+					else if (LOOSE_OBJECTS.has(imported)) loose.add(spec.local.name);
+				}
+			},
+			CallExpression(node) {
+				const callee = unwrapped(node.callee);
+				const isLoose =
+					(callee?.type === "Identifier" && loose.has(callee.name)) ||
+					(callee?.type === "MemberExpression" &&
+						callee.object.type === "Identifier" &&
+						namespaces.has(callee.object.name) &&
+						LOOSE_OBJECTS.has(memberName(callee))) ||
+					(callee?.type === "MemberExpression" && LOOSE_METHODS.has(memberName(callee)));
+				if (!isLoose) return;
+				const name = declaredName(node);
+				if (name && Object.hasOwn(exempt, name)) found.add(name);
+				else
+					context.report({
+						node,
+						message:
+							"A contract schema is a z.strictObject with no strip, passthrough, loose or catchall, so a request with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
+					});
+			},
+			"Program:exit"(program) {
+				for (const name of Object.keys(exempt))
+					if (!found.has(name))
+						context.report({
+							node: program,
+							message: `${path} no longer builds ${name} from a loose object: delete its LOOSE_CONTRACTS entry in scripts/lint/everyfield-plugin.mjs.`,
+						});
 			},
 		};
 	},
@@ -3531,8 +3682,10 @@ export default {
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
 		"organization-seat": organizationSeatCheck,
+		"strict-contracts": strictContracts,
 		"shared-outcome": sharedOutcome,
 		"domain-refusals": domainRefusals,
 		"stable-context-value": stableContextValue,
+		"live-region-in-tree": liveRegionInTree,
 	},
 };

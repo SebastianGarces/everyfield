@@ -254,7 +254,7 @@ function BeforeJoining() {
 					setJoined(shared.length ? `Joined. Sharing ${shared.join(" and ")}.` : "Joined. Nothing is shared.");
 				}}
 			/>
-			<p role="status" className="text-center text-sm text-text-2 empty:hidden">
+			<p role="status" className="text-center text-sm text-text-2 empty:sr-only">
 				{joined}
 			</p>
 		</div>

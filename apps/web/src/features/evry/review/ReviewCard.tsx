@@ -232,7 +232,7 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				: mail
 					? mailRefusalText(review.receipt?.code)
 					: review && isWiki(review.operation)
-						? wikiRefusalText(review.receipt?.code)
+						? wikiRefusalText(review.receipt?.code, review.operation)
 						: review && isDocument(review.operation)
 							? documentRefusalText(review.receipt?.code)
 							: review && isSettings(review.operation)

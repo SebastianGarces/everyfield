@@ -302,6 +302,12 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		"communication.templates.list",
 	];
 	const wikiWrites = ["wiki.bookmarks.set", "wiki.feedback.setMine"];
+	const orgWikiWrites = [
+		"wiki.organizationArticles.add",
+		"wiki.organizationArticles.edit",
+		"wiki.organizationArticles.publish",
+		"wiki.organizationArticles.hide",
+	];
 	const wikiReads = [
 		"wiki.search",
 		"wiki.referenceExcerpt",
@@ -427,6 +433,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"pipeline.proposeStageMove",
 								"development.saveProgram",
 								"development.draftNextVersion",
+								...orgWikiWrites,
 							]
 						: ["onboarding.createPlant", "discovery.create", "discovery.convertToPlant"],
 		);

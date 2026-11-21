@@ -145,14 +145,16 @@ function Editor({
 	const [sample] = useState(() => pickSampleName(template?.templateId ?? "new"));
 	if (missing && !current) {
 		return (
-			<div className="flex flex-col items-start gap-3">
-				<p role="alert" className="text-md font-medium text-magenta-600">
-					That template is not here. It may have been archived or deleted.
-				</p>
-				<Button variant="secondary" onClick={() => onSelect(null)}>
-					Back to templates
-				</Button>
-			</div>
+			<Alert
+				role="alert"
+				actions={
+					<Button variant="secondary" onClick={() => onSelect(null)}>
+						Back to templates
+					</Button>
+				}
+			>
+				That template is not here. It may have been archived or deleted.
+			</Alert>
 		);
 	}
 	const system = current?.origin === "system";

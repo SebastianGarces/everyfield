@@ -10,15 +10,9 @@ import {
 	type Readiness,
 } from "@everyfield/contracts/phases";
 import type { HistoryEntry } from "@everyfield/contracts/launch";
+import { ArrowRight01Icon, Calendar03Icon, Flag02Icon, Route02Icon, StartUp02Icon } from "@hugeicons/core-free-icons";
 import {
-	Alert02Icon,
-	ArrowRight01Icon,
-	Calendar03Icon,
-	Flag02Icon,
-	Route02Icon,
-	StartUp02Icon,
-} from "@hugeicons/core-free-icons";
-import {
+	Alert,
 	Button,
 	Card,
 	CardActions,
@@ -171,7 +165,7 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 						</CardActions>
 					</CardHeader>
 					<Track current={journey.state.phase} />
-					<p aria-live="polite" className="mt-4 text-sm font-medium text-ink empty:hidden">
+					<p aria-live="polite" className="mt-4 text-sm font-medium text-ink empty:sr-only">
 						{receipt}
 					</p>
 					{journey.state.declarable ? (
@@ -487,14 +481,11 @@ function MoveDialog({
 				>
 					<DialogBody className="flex flex-col gap-5">
 						{draft.changed ? (
-							<div role="alert" className="flex gap-3 rounded-md bg-amber-100 px-4 py-3 text-sm text-ink">
-								<Icon icon={Alert02Icon} size={18} className="mt-0.5 flex-none text-amber-600" />
-								<p>
-									Someone changed this church while you were reviewing. It is now in Phase {draft.changed.phase} ·{" "}
-									{atPhase(catalog.phases, draft.changed.phase, "catalog entry").name}. Your reason is kept. Check the
-									move and try again.
-								</p>
-							</div>
+							<Alert role="alert" tone="warning">
+								Someone changed this church while you were reviewing. It is now in Phase {draft.changed.phase} ·{" "}
+								{atPhase(catalog.phases, draft.changed.phase, "catalog entry").name}. Your reason is kept. Check the
+								move and try again.
+							</Alert>
 						) : null}
 						<Field label="Move to">
 							<Select
