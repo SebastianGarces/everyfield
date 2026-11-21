@@ -17,13 +17,11 @@ export const plantMetadata: Metadata = { title: "Plant", ...hidden };
 export const rosterMetadata: Metadata = { title: "Sending churches", ...hidden };
 export const sendingChurchMetadata: Metadata = { title: "Sending church", ...hidden };
 
-const organizationViewer = cache(organizationSeat);
-
 type Params<K extends string> = { params: Promise<Record<K, string>> };
 
 async function organizationOnly(path: SitePath, page: (viewer: OrganizationSeat) => Promise<ReactNode>) {
 	await requireActor(path);
-	const viewer = await organizationViewer();
+	const viewer = await organizationSeat();
 	if (!viewer)
 		return (
 			<Card className="mx-auto mt-12 max-w-[560px]">
@@ -94,7 +92,7 @@ const intelligenceFor = cache(async (viewer: OrganizationSeat, shownLevel: Level
 );
 
 export async function intelligenceMetadata({ searchParams }: Search): Promise<Metadata> {
-	const viewer = await organizationViewer();
+	const viewer = await organizationSeat();
 	if (!viewer) return { title: "Intelligence", ...hidden };
 	const { shownLevel, run } = intelligenceQuery(await searchParams);
 	const loaded = await intelligenceFor(viewer, shownLevel, run);
