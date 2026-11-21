@@ -229,7 +229,7 @@ export function TriageItem({ initial, setup }: { initial: TriageDetail; setup: P
 						onValueChange={change}
 						options={STATUSES.map((s) => ({ value: s, label: STATUS_NAME[s] }))}
 					/>
-					<div aria-live="polite" className="empty:hidden">
+					<div aria-live="polite" className="empty:sr-only">
 						{notice ? (
 							<p
 								role={notice.tone === "error" ? "alert" : undefined}

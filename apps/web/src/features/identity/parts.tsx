@@ -35,7 +35,7 @@ export function PasswordInput(props: Omit<ComponentPropsWithRef<typeof Input>, "
 
 export function FormMessage({ tone, children }: { tone: "error" | "success"; children: ReactNode }) {
 	return (
-		<div role={tone === "error" ? "alert" : "status"} className="empty:hidden">
+		<div role={tone === "error" ? "alert" : "status"} className="empty:sr-only">
 			{children ? (
 				<p
 					className={cn(

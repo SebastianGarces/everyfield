@@ -64,7 +64,7 @@ export function ChoiceField<V extends string>({
 					)}
 				/>
 			</div>
-			<div aria-live="polite" className="empty:hidden">
+			<div aria-live="polite" className="empty:sr-only">
 				{error ? (
 					<p id={`${id}-error`} className="text-xs font-medium text-magenta-600">
 						{error}
@@ -89,7 +89,7 @@ export function ShowEarlier({
 			<Button size="sm" variant="ghost" loading={loading} onClick={onClick}>
 				Show earlier
 			</Button>
-			<span aria-live="polite" className="text-xs text-text-3 empty:hidden">
+			<span aria-live="polite" className="text-xs text-text-3 empty:sr-only">
 				{failed === "failed" ? READ_FAILED : failed ? "Earlier records did not load. Try again." : ""}
 			</span>
 		</div>
