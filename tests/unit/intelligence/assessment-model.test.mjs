@@ -50,7 +50,14 @@ const appDir = fileURLToPath(new URL("../../../apps/web/src/app/", import.meta.u
 const staticPages = new Set(
 	readdirSync(appDir, { recursive: true })
 		.filter((f) => f.endsWith("page.tsx") && !f.includes("["))
-		.map((f) => `/${f.split("/").slice(0, -1).filter((s) => !s.startsWith("(")).join("/")}`),
+		.map(
+			(f) =>
+				`/${f
+					.split("/")
+					.slice(0, -1)
+					.filter((s) => !s.startsWith("("))
+					.join("/")}`,
+		),
 );
 
 test("every next step opens a page that exists, and follow-ups open the follow-ups list", () => {
