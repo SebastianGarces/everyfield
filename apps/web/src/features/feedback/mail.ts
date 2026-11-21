@@ -1,5 +1,4 @@
 import "server-only";
-import { sql } from "@everyfield/db/query";
 import { createHmac } from "node:crypto";
 import { z } from "zod";
 import { database } from "../../server/database.ts";
@@ -12,10 +11,10 @@ import {
 	type OperatorMail,
 	type OperatorNotice,
 } from "@everyfield/domain/jobs";
+import { authorizeOperatorMail } from "@everyfield/domain/feedback";
 import { serverConfig, serverEnv, type ServerConfig, type ServerEnv } from "../../server/config.ts";
 
 const operatorAddress = z.email().max(320);
-const KEY = /^feedback\/([0-9a-f-]{36})$/;
 
 const operatorInbox = (source: ServerEnv) => operatorAddress.safeParse(source.FEEDBACK_OPERATOR_EMAIL).data ?? null;
 
@@ -29,20 +28,7 @@ function feedbackMailService(v: ServerConfig, address: string, transport?: MailT
 		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
 		addressKey,
 		from: v.IDENTITY_MAIL_FROM,
-		authorize: async (tx, list) => {
-			const wanted = list.flatMap((m) => {
-				const key = KEY.exec(m.logicalKey);
-				return key && m.purpose === "notification" && m.recipient === null && m.addressHash === inbox
-					? [{ id: m.id, feedback: key[1], account: m.tenant }]
-					: [];
-			});
-			if (!wanted.length) return new Set();
-			const found = await tx.execute(
-				sql`SELECT w.id FROM jsonb_to_recordset(${JSON.stringify(wanted)}::jsonb) w(id uuid,feedback uuid,account uuid)
- JOIN feedback f ON f.id=w.feedback AND f.account_id=w.account`,
-			);
-			return new Set(found.rows.map((r) => z.uuid().parse(r.id)));
-		},
+		authorize: (tx, list) => authorizeOperatorMail(tx, list, inbox),
 		transport,
 	});
 }

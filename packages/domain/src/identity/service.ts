@@ -27,8 +27,8 @@ import "server-only";
 import { z } from "zod";
 import { readBoundedBody } from "../operations/body.ts";
 import { identityAuth } from "./auth.ts";
-import { attemptBudget, IdentityRefusal, RateLimited, transaction } from "./budget.ts";
-import { InvitationRefusal } from "./invitation-core.ts";
+import { attemptBudget, deny, identityRefusals, transaction } from "./budget.ts";
+import { invitationRefusals } from "./invitation-core.ts";
 import type { createInvitationService } from "./invitations.ts";
 import { readIdentityAccount, readIdentitySession, userRow } from "./reads.ts";
 
@@ -62,6 +62,21 @@ const headers = {
 };
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers });
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
+const HTTP_STATUS = {
+	invalid_input: 422,
+	access_denied: 403,
+	unavailable: 503,
+	invalid_subject: 422,
+	conflict: 409,
+	temporary: 503,
+	unknown: 503,
+	unauthenticated: 401,
+	invalid_credentials: 401,
+	invalid_proof: 400,
+	rate_limited: 429,
+	admission_unavailable: 503,
+	idempotency_conflict: 409,
+} satisfies Record<z.output<typeof identityError>["code"], number>;
 
 export function createIdentityService(config: IdentityConfig) {
 	const origin = new URL(config.origin).origin;
@@ -126,7 +141,7 @@ export function createIdentityService(config: IdentityConfig) {
 	}
 	async function session(request: Request) {
 		const response = await call(request, "get-session");
-		if (!response.ok) throw new IdentityRefusal("unavailable", 503);
+		if (!response.ok) deny("unavailable");
 		const raw: unknown = await response.json();
 		if (!raw)
 			return {
@@ -143,17 +158,16 @@ export function createIdentityService(config: IdentityConfig) {
 		for (const value of source.headers.getSetCookie()) result.headers.append("set-cookie", value);
 		return result;
 	}
-	async function boundedBody(request: Request): Promise<unknown> {
+	async function bodyBytes(request: Request) {
 		if (request.headers.get("content-type")?.split(";")[0] !== "application/json" || !request.body)
-			throw new IdentityRefusal("invalid_input", 422);
-		const bytes = await readBoundedBody(request, 24576).catch(() => {
-			throw new IdentityRefusal("invalid_input", 422);
-		});
-		if (!bytes) throw new IdentityRefusal("invalid_input", 413);
+			deny("invalid_input");
+		return readBoundedBody(request, 24576).catch(() => deny("invalid_input"));
+	}
+	function jsonBody(bytes: Uint8Array): unknown {
 		try {
 			return JSON.parse(Buffer.from(bytes).toString("utf8"));
 		} catch {
-			throw new IdentityRefusal("invalid_input", 422);
+			deny("invalid_input");
 		}
 	}
 	async function handle(request: Request): Promise<Response> {
@@ -161,7 +175,7 @@ export function createIdentityService(config: IdentityConfig) {
 		try {
 			const url = new URL(request.url),
 				path = url.pathname.replace(/^\/api\/auth\//, "");
-			if (request.headers.get("host") !== new URL(origin).host) throw new IdentityRefusal("origin_denied", 403);
+			if (request.headers.get("host") !== new URL(origin).host) deny("access_denied");
 			const gets = ["get-session", "registration-status", "registration-options", "recover-invalid-session"];
 			const posts = [
 				"register",
@@ -205,7 +219,7 @@ export function createIdentityService(config: IdentityConfig) {
 					return json({ next: invalidSessionReturn(url.searchParams.get("returnTo")) });
 				const s = await session(request);
 				if (path === "registration-status") {
-					if (s.value.status === "unauthenticated") throw new IdentityRefusal("unauthenticated", 401);
+					if (s.value.status === "unauthenticated") deny("unauthenticated");
 					return cookies(
 						json({ status: s.value.status, accountId: s.value.accountId } satisfies z.output<
 							typeof registrationStatus
@@ -215,11 +229,13 @@ export function createIdentityService(config: IdentityConfig) {
 				}
 				return cookies(json(s.value), s.response);
 			}
-			if (request.headers.get("origin") !== origin) throw new IdentityRefusal("origin_denied", 403);
+			if (request.headers.get("origin") !== origin) deny("access_denied");
 			const suppliedIp = config.trustedIp(request),
 				ip = suppliedIp && isIP(suppliedIp) ? suppliedIp : null;
 			const registration = path === "register" ? await budget.reserve("registration", null, ip) : null;
-			const input = await boundedBody(request);
+			const bytes = await bodyBytes(request);
+			if (!bytes) return json(identityRefusals.refused("invalid_input", {}, correlationId).error, 413);
+			const input = jsonBody(bytes);
 			if (path === "register") {
 				const v = registrationRequest.parse(input);
 				const invitation =
@@ -290,14 +306,14 @@ export function createIdentityService(config: IdentityConfig) {
 					reservation = await budget.reserve("login", v.email, ip);
 				const result = await call(request, path, { email: v.email, password: v.password });
 				await budget.finish(reservation, result.ok);
-				if (!result.ok) throw new IdentityRefusal("invalid_credentials", 401);
+				if (!result.ok) deny("invalid_credentials");
 				const resultBody = z.object({ user: z.object({ id: z.uuid() }) }).parse(await result.json());
 				if (!(await account(resultBody.user.id))) {
 					const exists = await config.db
 						.select({ id: tables.account.id })
 						.from(tables.account)
 						.where(eq(tables.account.auth_user_id, resultBody.user.id));
-					if (exists.length) throw new IdentityRefusal("unauthenticated", 401);
+					if (exists.length) deny("unauthenticated");
 					const native = await config.authDb
 						.select({ email: tables.auth_user.email, created_at: tables.auth_user.created_at })
 						.from(tables.auth_user)
@@ -355,30 +371,30 @@ export function createIdentityService(config: IdentityConfig) {
 						),
 					);
 				const [found] = proof;
-				if (!found) throw new IdentityRefusal("invalid_proof", 400);
+				if (!found) deny("invalid_proof");
 				const authUser = z.uuid().parse(found.value),
 					a = await account(authUser);
-				if (!a) throw new IdentityRefusal("invalid_proof", 400);
+				if (!a) deny("invalid_proof");
 				const credential = await config.authDb
 					.select({ password_hash: tables.auth_account.password_hash })
 					.from(tables.auth_account)
 					.where(and(eq(tables.auth_account.user_id, authUser), eq(tables.auth_account.provider_id, "credential")));
 				const hash = z.string().parse(credential[0]?.password_hash);
-				if (await verifyPassword({ hash, password: v.newPassword })) throw new IdentityRefusal("invalid_input", 422);
+				if (await verifyPassword({ hash, password: v.newPassword })) deny("invalid_input");
 				await event(a.id, correlationId, "identity.credential_observed");
 				let result: Response;
 				try {
 					result = await call(request, path, { token: v.proof, newPassword: v.newPassword });
 				} catch {
 					config.diagnostic({ correlationId, outcome: "unknown" });
-					throw new IdentityRefusal("unavailable", 503);
+					deny("unavailable");
 				}
 				if (!result.ok) {
 					if (result.status >= 500) {
 						config.diagnostic({ correlationId, outcome: "unknown" });
-						throw new IdentityRefusal("unavailable", 503);
+						deny("unavailable");
 					}
-					throw new IdentityRefusal("invalid_proof", 400);
+					deny("invalid_proof");
 				}
 				try {
 					const user = await config.authDb
@@ -404,26 +420,26 @@ export function createIdentityService(config: IdentityConfig) {
 			if (path === "verify-email") {
 				const v = verifyEmailRequest.parse(input),
 					response = await call(request, `verify-email?token=${encodeURIComponent(v.proof)}`);
-				if (!response.ok) throw new IdentityRefusal("invalid_proof", 400);
+				if (!response.ok) deny("invalid_proof");
 				return json({ status: "email_verified" });
 			}
 			if (path === "sign-out") {
 				selfSessionRequest.parse(input);
 				const response = await call(request, path, {});
-				if (!response.ok) throw new IdentityRefusal("unavailable", 503);
+				if (!response.ok) deny("unavailable");
 				return cookies(json({ status: "signed_out" }), response);
 			}
 			const s = await session(request);
-			if (s.value.status === "unauthenticated") throw new IdentityRefusal("unauthenticated", 401);
+			if (s.value.status === "unauthenticated") deny("unauthenticated");
 			if (path === "revoke-other-sessions") {
 				selfSessionRequest.parse(input);
 				const response = await call(request, path, {});
-				if (!response.ok) throw new IdentityRefusal("unauthenticated", 401);
+				if (!response.ok) deny("unauthenticated");
 				return cookies(json({ status: "other_sessions_revoked" }), s.response);
 			}
 			const v = resumeRegistrationRequest.parse(input);
 			if (v.invitationProof) {
-				if (!config.invitations) throw new IdentityRefusal("unavailable", 503);
+				if (!config.invitations) deny("unavailable");
 				const accepted = seatInvitationAcceptedResult.parse(
 					await config.invitations.resume(s.value.sessionId, v.invitationProof, v.requestKey),
 				);
@@ -440,27 +456,16 @@ export function createIdentityService(config: IdentityConfig) {
 				s.response,
 			);
 		} catch (error) {
-			if (error instanceof InvitationRefusal) return json(error.value, error.value.code === "temporary" ? 503 : 400);
-			const refusal =
-				error instanceof IdentityRefusal
-					? error
-					: error instanceof z.ZodError
-						? new IdentityRefusal("invalid_input", 422)
-						: new IdentityRefusal("unavailable", 503);
+			if (error instanceof invitationRefusals.Refusal) {
+				const refusal = invitationRefusals.refusalOf(error).error;
+				return json(refusal, refusal.code === "temporary" ? 503 : 400);
+			}
+			const { error: refusal } =
+				error instanceof identityRefusals.Refusal
+					? identityRefusals.refused(error.code, error.details, correlationId)
+					: identityRefusals.refused(error instanceof z.ZodError ? "invalid_input" : "unavailable", {}, correlationId);
 			if (refusal.code === "unavailable") config.diagnostic({ correlationId, outcome: "unknown" });
-			const code = refusal.code === "origin_denied" ? "access_denied" : refusal.code;
-			return json(
-				identityError.parse({
-					code,
-					details:
-						refusal instanceof RateLimited
-							? { retryAt: new Date(Date.now() + refusal.windowMinutes * 60_000).toISOString() }
-							: {},
-					correlationId,
-					retry: code === "rate_limited" || code === "admission_unavailable" ? "same_request" : "never",
-				}),
-				refusal.status,
-			);
+			return json(refusal, HTTP_STATUS[refusal.code]);
 		}
 	}
 	async function event(

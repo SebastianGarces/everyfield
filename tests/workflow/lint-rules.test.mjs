@@ -14,7 +14,13 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { REFUSAL_MECHANISMS, WEB_SQL_HOLDERS } from "../../scripts/lint/everyfield-plugin.mjs";
+import {
+	HAND_WRITTEN_NOTICES,
+	PRODUCT_TIMERS,
+	RAW_ERROR_SITES,
+	REFUSAL_MECHANISMS,
+	TABLE_WRITERS,
+} from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
@@ -205,6 +211,77 @@ export const d = [c, warn, nodeConsole, err, stderr, stdout, error];
 	);
 });
 
+test("INV-privacy: a caught error's text or a secret never reaches a log, error text or stored record, and the exempt list only shrinks", () => {
+	const source = `import { asLogWord, logFailure, logLine } from "@everyfield/domain/log";
+export async function a(run: () => Promise<void>, token: string, password: string) {
+	try {
+		await run();
+	} catch (error) {
+		const failure = error;
+		logLine({ event: "x", why: asLogWord(\`\${error}\`) });
+		throw new Error(failure.message);
+	}
+	try {
+		await run();
+	} catch ({ stack }) {
+		return stack;
+	}
+	run().catch((e) => String(e));
+	run().then(undefined, (e) => JSON.stringify(e.cause));
+	process.on("unhandledRejection", (reason) => "x" + reason);
+	logLine({ event: "x", key: asLogWord(password) });
+	throw new Error(\`refused \${token}\`);
+}
+export const b = (error: unknown) => (error instanceof Error ? error.stack : null);
+export async function c(run: () => Promise<void>, items: { message: string }[]) {
+	try {
+		await run();
+	} catch (error) {
+		logFailure({ event: "x" }, error);
+		if (error instanceof RangeError && error.name === "RangeError") throw new Error("refused", { cause: error });
+		throw error;
+	}
+	return items.map((e) => \`\${e.message}\`);
+}
+export function d(run: () => void) {
+	try {
+		run();
+	} catch (error) {
+		const typed = error as Error;
+		const name = (error as Error).message;
+		const trace = typed.stack;
+		const inner = error!.cause!.message;
+		return [name, trace, inner, (error satisfies unknown)["message"]];
+	}
+}
+`;
+	const lines = [7, 8, 12, 15, 16, 17, 18, 19, 21, 37, 38, 39, 40];
+	const listed = Object.keys(RAW_ERROR_SITES)[0];
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/x.ts": source,
+			"apps/web/src/features/x/server.ts": source,
+			"ops/x/run.mts": source,
+			"tools/prod-identity/x.ts": source,
+			"tools/ci/x.ts": source,
+			"tests/integration/x/x.test.mts": source,
+			[listed]: source,
+		}).filter((hit) => hit.endsWith(" no-raw-error-log")),
+		[
+			`${listed}:1 no-raw-error-log`,
+			...[
+				"packages/domain/src/x.ts",
+				"apps/web/src/features/x/server.ts",
+				"ops/x/run.mts",
+				"tools/prod-identity/x.ts",
+			].flatMap((file) => lines.map((line) => `${file}:${line} no-raw-error-log`)),
+		].sort(),
+	);
+	const entries = Object.values(RAW_ERROR_SITES);
+	assert.ok(entries.length <= 6 && entries.reduce((n, e) => n + e.sites, 0) <= 9, "RAW_ERROR_SITES only shrinks");
+	assert.ok(entries.every((e) => e.why.length > 40));
+});
+
 test("INV-lint: a fifth state hook in a component or hook is reported, a nested callback's is not", () => {
 	const five = (name) =>
 		`export function ${name}() {\n\tconst a = useState(0);\n\tconst b = useState(0);\n\tconst c = React.useState(0);\n\tconst [d] = useReducer((s) => s, 0);\n\tconst [e] = useState(0);\n\tconst nested = () => useState(0);\n\treturn [a, b, c, d, e, nested];\n}\n`;
@@ -270,6 +347,29 @@ export async function run() {
 		]),
 	);
 	assert.deepEqual(lint(files), places.flatMap((p) => lines.map((line) => `${p}:${line} no-timers`)).sort());
+});
+
+test("INV-lint: the Evry stream keep-alive is the one listed product timer: one heartbeat setInterval in GET, any other timer there is reported", () => {
+	const stream = `export const GET = () => {
+	const heartbeat = setInterval(() => {}, 15_000);
+	setTimeout(() => {}, 0);
+	const second = setInterval(() => {}, 15_000);
+	const viaGlobal = globalThis.setInterval(() => {}, 15_000);
+	return [heartbeat, second, viaGlobal];
+};
+export const other = () => setInterval(() => {}, 15_000);
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts": stream,
+			"apps/web/src/app/api/evry/conversations/[id]/route.ts": stream,
+		}).filter((hit) => hit.endsWith(" no-timers")),
+		[
+			...[2, 3, 4, 5, 8].map((line) => `apps/web/src/app/api/evry/conversations/[id]/route.ts:${line} no-timers`),
+			...[3, 4, 5, 8].map((line) => `apps/web/src/app/api/evry/conversations/[id]/stream/route.ts:${line} no-timers`),
+		],
+	);
+	assert.equal(Object.keys(PRODUCT_TIMERS).length, 1, "PRODUCT_TIMERS only shrinks");
 });
 
 test("INV-lint: every comment except a shebang and a bundler ignore inside import() is reported, JSX comments included", () => {
@@ -1106,7 +1206,7 @@ export const p = require("node:process").env;
 	);
 });
 
-test("INV-web-sql: apps/web imports no database module outside the files that still hold SQL", () => {
+test("INV-web-sql: apps/web imports no database module", () => {
 	const code = `import { sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { eq } from "drizzle-orm";
@@ -1118,20 +1218,34 @@ export const later = () => import("@everyfield/db/query");
 export const used = [sql, t, eq, privateStorage, pgTable] as unknown as Database;
 import { pgTable } from "@everyfield/db/columns";
 `;
-	const hits = lint({
-		"apps/web/src/features/x/server.ts": code,
-		"apps/web/src/features/wiki/server.ts": code,
-		"apps/web/src/features/settings/mail.ts": "export const none = 1;\n",
-		"packages/domain/src/x/index.ts": code,
-	}).filter((hit) => hit.endsWith(" web-database-imports"));
 	assert.deepEqual(
-		hits,
-		[
-			"apps/web/src/features/settings/mail.ts:1 web-database-imports",
-			...[1, 2, 3, 4, 5, 8, 10].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`),
-		].sort(),
+		lint({
+			"apps/web/src/features/x/server.ts": code,
+			"packages/domain/src/x/index.ts": code,
+		}).filter((hit) => hit.endsWith(" web-database-imports")),
+		[1, 2, 3, 4, 5, 8, 10].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`).sort(),
 	);
-	assert.ok(Object.keys(WEB_SQL_HOLDERS).length <= 5, "WEB_SQL_HOLDERS only shrinks");
+});
+
+test("INV-lint: apps/web shows an error notice through the shared Alert, never a hand-written magenta box", () => {
+	const code = `export const A = () => <p className="rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">x</p>;
+export const B = (more) => \`flex bg-magenta-50 \${more} text-magenta-600\`;
+export const C = { error: "bg-magenta-50 text-magenta-600" };
+export const D = "bg-magenta-500 text-magenta-600";
+export const E = "bg-magenta-50 text-ink-2";
+`;
+	const [exempt] = Object.keys(HAND_WRITTEN_NOTICES);
+	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" shared-notice"));
+	assert.deepEqual(
+		reported({
+			"apps/web/src/features/x/Notice.tsx": code,
+			[exempt]: code,
+			"packages/ui/src/controls/x.tsx": code,
+		}),
+		[1, 2, 3].map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`),
+	);
+	assert.deepEqual(reported({ [exempt]: "export const none = 1;\n" }), [`${exempt}:1 shared-notice`]);
+	assert.ok(Object.keys(HAND_WRITTEN_NOTICES).length <= 3, "HAND_WRITTEN_NOTICES only shrinks");
 });
 
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
@@ -1207,7 +1321,7 @@ export async function m(run, refusalOf) {
 			"packages/domain/src/people/x.ts": code.replace('import "server-only";\n', ""),
 			"apps/web/src/features/x/Client.tsx": `"use client";\n${code.replace('import "server-only";\n', "")}`,
 			"apps/web/src/server/platform/transient.ts": code,
-		}),
+		}).filter((hit) => hit.endsWith(" no-silent-catch")),
 		[
 			...hits.map((line) => `apps/web/src/features/x/server.ts:${line} no-silent-catch`),
 			...hits.map((line) => `apps/web/src/server/jobs/x.ts:${line - 1} no-silent-catch`),
@@ -1589,13 +1703,18 @@ test("INV-lint: product code that recognises a caught error by its message text,
 	return /x/.test(parsed.message) && error instanceof Error && error.message;
 }
 `;
-	assert.deepEqual(lint({ "packages/domain/src/m.ts": source, "tests/unit/m.test.mts": source }), [
-		"packages/domain/src/m.ts:10 no-error-message-match",
-		"packages/domain/src/m.ts:11 no-error-message-match",
-		"packages/domain/src/m.ts:2 no-error-message-match",
-		"packages/domain/src/m.ts:6 no-error-message-match",
-		"packages/domain/src/m.ts:8 no-error-message-match",
-	]);
+	assert.deepEqual(
+		lint({ "packages/domain/src/m.ts": source, "tests/unit/m.test.mts": source }).filter((hit) =>
+			hit.endsWith(" no-error-message-match"),
+		),
+		[
+			"packages/domain/src/m.ts:10 no-error-message-match",
+			"packages/domain/src/m.ts:11 no-error-message-match",
+			"packages/domain/src/m.ts:2 no-error-message-match",
+			"packages/domain/src/m.ts:6 no-error-message-match",
+			"packages/domain/src/m.ts:8 no-error-message-match",
+		],
+	);
 });
 
 test("INV-lint: a domain module that hand-builds a refusal class, retry or refusal reply is reported; defineRefusals and the listed mechanisms are not, and a listed file that no longer needs its entry is reported too", () => {
@@ -1662,6 +1781,89 @@ export function gate(path: string, out: boolean) {
 		"apps/web/src/features/x/routes.tsx:8 sign-in-redirect",
 		"apps/web/src/features/x/routes.tsx:9 sign-in-redirect",
 	]);
+});
+
+test("INV-lint: a hand-written organization seat check in web code is reported outside the shared helper", () => {
+	const source = `import type { RequestActor } from "@everyfield/domain/access";
+export function a(authority: RequestActor | null) {
+	const context = authority?.actor.context;
+	if (!authority || context?.kind !== "seat" || context.owner.kind !== "organization") return null;
+	return context.owner;
+}
+export function b(authority: RequestActor) {
+	const context = authority.actor.context;
+	if (context.kind != "seat") return [];
+	return [1].filter(() => "organization" === context.owner.kind);
+}
+export function c(authority: RequestActor) {
+	const context = authority.actor.context;
+	switch (context.kind) {
+		case "seat":
+			switch (context.owner.kind) {
+				case "organization":
+					return context.owner;
+			}
+	}
+	return null;
+}
+export function d(authority: RequestActor) {
+	const context = authority.actor.context;
+	if (context.kind !== "seat") return null;
+	const { owner } = context;
+	return owner.kind === "organization" ? owner : null;
+}
+export function e(authority: RequestActor) {
+	const context = authority.actor.context;
+	return context.kind === "seat" && context.owner.kind === "plant";
+}
+export function f(owner: { kind: string }, seat: { kind: string }) {
+	return owner.kind === "organization" && seat.kind !== "account";
+}
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/server.ts": source,
+			"apps/web/src/server/request-context.ts": source,
+			"packages/domain/src/x/index.ts": source,
+		}),
+		[
+			"apps/web/src/features/x/server.ts:10 organization-seat",
+			"apps/web/src/features/x/server.ts:17 organization-seat",
+			"apps/web/src/features/x/server.ts:27 organization-seat",
+			"apps/web/src/features/x/server.ts:4 organization-seat",
+		],
+	);
+	assert.deepEqual(lint({ "apps/web/src/server/request-context.ts": "export const seat = 1;\n" }), [
+		"apps/web/src/server/request-context.ts:1 organization-seat",
+	]);
+});
+
+test("INV-lint: a cast to SitePath is reported in any linted file, a typed literal or template is not", () => {
+	const source = `import type { SitePath, SitePath as Path } from "@everyfield/contracts/identity";
+import type * as identity from "@everyfield/contracts/identity";
+type Back = Path | null;
+type Many = Back[];
+export function paths<T extends SitePath>(raw: string, id: string) {
+	const a = raw as SitePath;
+	const b = <Path>raw;
+	const c = raw as unknown as Back;
+	const d = [raw] as Many;
+	const e = raw as identity.SitePath;
+	const f = raw as import("@everyfield/contracts/identity").SitePath;
+	const g = raw as T;
+	const h: SitePath = \`/documents/\${id}\`;
+	const i = "/wiki" satisfies SitePath;
+	const j = raw as string;
+	return [a, b, c, d, e, f, g, h, i, j];
+}
+`;
+	const hits = (path) =>
+		lint({ [path]: source })
+			.filter((hit) => hit.endsWith("site-path-cast"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10))
+			.sort((a, b) => a - b);
+	assert.deepEqual(hits("apps/web/src/features/x/server.ts"), [6, 7, 8, 9, 10, 11, 12]);
+	assert.deepEqual(hits("packages/contracts/src/identity/x.ts"), [6, 7, 8, 9, 10, 11, 12]);
 });
 
 test("INV-lint: a local generic Outcome type is reported unless it specializes the shared Outcome", () => {
@@ -1811,6 +2013,52 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 			"packages/domain/src/tasks/x.ts:4 table-writers",
 		],
 	);
+});
+
+test("INV-lint: only the job queue inserts job rows, through SQL text, an interpolated or raw table, MERGE, a wrapped or returned table or a re-export, and a listed holder that stops inserting is reported", () => {
+	const insert = `import { sql } from "drizzle-orm";
+export const a = sql\`INSERT INTO job (tenant_id) SELECT 1\`;
+export const b = (db, t) => db.insert(t.job).values({});
+export const c = sql\`INSERT INTO job_link (id) SELECT 1\`;
+`;
+	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" table-writers"));
+	assert.deepEqual(
+		reported({
+			"packages/domain/src/tasks/x.ts": insert,
+			"packages/evry/src/x.ts": insert,
+			"packages/domain/src/jobs/queue.ts": insert,
+		}),
+		[
+			"packages/domain/src/tasks/x.ts:2 table-writers",
+			"packages/domain/src/tasks/x.ts:3 table-writers",
+			"packages/evry/src/x.ts:2 table-writers",
+			"packages/evry/src/x.ts:3 table-writers",
+		],
+	);
+	const forms = `import { sql } from "drizzle-orm";
+import * as tables from "@everyfield/db/tables";
+export const a = sql\`INSERT INTO \${tables.job} (tenant_id) SELECT 1\`;
+export const b = sql\`insert into public.\${sql.raw("job")} (tenant_id) SELECT 1\`;
+export const c = (db) => db.insert(tables.job as any).values({});
+export const d = (db) => db.insert(tables.job!).values({});
+const pick = () => tables.job;
+export const e = (db) => db.insert(pick()).values({});
+export const f = sql\`MERGE INTO job j USING x ON false WHEN NOT MATCHED THEN INSERT (tenant_id) VALUES (1)\`;
+export { job as jobTable } from "@everyfield/db/tables";
+export const g = sql\`SELECT id FROM \${tables.job} WHERE \${sql.raw("job")}.id IS NULL\`;
+export const h = (db) => db.insert(later()).values({});
+function later() {
+	return tables.job;
+}
+`;
+	assert.deepEqual(
+		reported({ "packages/domain/src/tasks/forms.ts": forms, "packages/domain/src/jobs/queue.ts": forms }),
+		[3, 4, 5, 6, 8, 9, 10, 12].map((line) => `packages/domain/src/tasks/forms.ts:${line} table-writers`).sort(),
+	);
+	for (const holder of (TABLE_WRITERS.job.holders ?? []).slice(0, 1)) {
+		assert.deepEqual(reported({ [holder]: insert }), []);
+		assert.deepEqual(reported({ [holder]: "export const none = 1;\n" }), [`${holder}:1 table-writers`]);
+	}
 });
 
 test("INV-lint: a React namespace alias, a class lifecycle method and a ref callback that never uses its node are effects", () => {
@@ -2093,14 +2341,14 @@ export function Unrelated({ pick }) {
 test("INV-lint: only an overlay's lazy entry imports it, so no static chain from a product page reaches it; the parts its sections share import freely", () => {
 	const settings = "apps/web/src/features/settings";
 	const files = {
-		[`${settings}/ProductSettings.tsx`]:
+		[`${settings}/LazySettingsDialog.tsx`]:
 			'import type { SettingsDialogProps } from "./SettingsDialog";\nexport const load = () => import("./SettingsDialog");\nexport type P = SettingsDialogProps;\n',
 		[`${settings}/sections/ChurchSection.tsx`]:
 			'import { SectionBody } from "../SettingsDialog";\nimport { SaveFooter } from "../SectionParts";\nexport const parts = [SectionBody, SaveFooter];\n',
 		[`${settings}/brand/BrandSection.tsx`]:
 			'import { SectionBody } from "../SettingsDialog";\nexport const parts = [SectionBody];\n',
 		[`${settings}/preview/SettingsPreview.tsx`]:
-			'import { SettingsDialog } from "../SettingsDialog";\nimport { LazySettingsDialog } from "../ProductSettings";\nexport const dialogs = [SettingsDialog, LazySettingsDialog];\n',
+			'import { SettingsDialog } from "../SettingsDialog";\nimport { LazySettingsDialog } from "../LazySettingsDialog";\nexport const dialogs = [SettingsDialog, LazySettingsDialog];\n',
 		"apps/web/src/features/evry/conversation/panel.tsx":
 			'import { SettingsDialog } from "../../settings/SettingsDialog";\nexport const load = () => import("./EvryPanel.tsx");\nexport const dialog = SettingsDialog;\n',
 		"apps/web/src/features/shell/Frame.tsx":
@@ -2187,6 +2435,21 @@ test("INV-lint: a read exported from a server action module, under its own name 
 			"apps/web/src/features/x/hidden.ts:4 no-read-actions",
 			"apps/web/src/features/x/hidden.ts:4 no-read-actions",
 			"apps/web/src/features/x/hidden.ts:5 no-read-actions",
+		],
+	);
+});
+
+test("INV-lint: a resolve read action is reported unless SELECTION_READS names it for its file, and a named read that is gone is reported", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/communication/actions.ts": `"use server";\nexport async function resolveAudience() {}\nexport async function resolveOther() {}\n`,
+			"apps/web/src/features/teams/training/actions.ts": `"use server";\nexport async function saveRoster() {}\n`,
+			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function previewRoster() {}\n`,
+		}).filter((hit) => hit.endsWith("no-read-actions")),
+		[
+			"apps/web/src/features/communication/actions.ts:3 no-read-actions",
+			"apps/web/src/features/teams/training/actions.ts:1 no-read-actions",
+			"apps/web/src/features/x/actions.ts:2 no-read-actions",
 		],
 	);
 });

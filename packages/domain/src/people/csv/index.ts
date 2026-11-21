@@ -8,13 +8,16 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import "server-only";
 import { z } from "zod";
 import { liveRead, writeVisibility, type RequestActor } from "../../access/session.ts";
+import { queueJobsFor } from "../../jobs/queue.ts";
 import { declareWrite, finishAudit, prepareWrite, gatedTransaction } from "../../operations/writes.ts";
 import {
 	authorize,
 	authorizeCachedWrite,
 	deny,
 	hash,
+	known as readEntry,
 	lockOwner,
+	only,
 	parse,
 	PeopleReadContext,
 	readReply,
@@ -74,7 +77,7 @@ function readRow(row: number, header: string[], fields: string[]): FileRow {
 		return { row, status: "invalid", problems: [{ column: null, code: "column_count" }] };
 	const cell = (column: ImportColumn) => {
 		const k = header.indexOf(column),
-			v = k < 0 ? "" : fields[k]!.trim();
+			v = k < 0 ? "" : (fields[k] ?? "").trim();
 		return v === "" ? null : v;
 	};
 	const firstName = cell("first_name"),
@@ -154,9 +157,12 @@ function findDuplicates(file: ReadFile, people: Match[]) {
 		if (r.status !== "valid") continue;
 		const signals = [r.email && "e:" + r.email, r.phone && "p:" + r.phone].filter((s) => !!s) as string[];
 		const existing = [...new Set(signals.flatMap((s) => known.get(s) ?? []))].sort(
-			(a, b) => order.get(a)! - order.get(b)!,
+			(a, b) => readEntry(order, a, "Person order") - readEntry(order, b, "Person order"),
 		);
-		const earlier = signals.flatMap((s) => (first.has(s) ? [first.get(s)!] : []));
+		const earlier = signals.flatMap((s) => {
+			const at = first.get(s);
+			return at === undefined ? [] : [at];
+		});
 		findings.set(r.row, { existing, earlier: earlier.length ? Math.min(...earlier) : null });
 		for (const s of signals) if (!first.has(s)) first.set(s, r.row);
 	}
@@ -169,7 +175,7 @@ function findDuplicates(file: ReadFile, people: Match[]) {
 
 function rowPersonId(importId: string, row: number): string {
 	const h = createHash("sha256").update(`${importId}/${row}`).digest("hex");
-	const variant = ((parseInt(h[16]!, 16) & 3) | 8).toString(16);
+	const variant = ((parseInt(h.charAt(16), 16) & 3) | 8).toString(16);
 	return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
@@ -197,12 +203,12 @@ function planImport(
 			plan.invalid.push({ row: r.row, problems: r.problems });
 			continue;
 		}
-		const choice = byRow.get(r.row)!;
+		const choice = byRow.get(r.row);
 		if (choice === "skip") {
 			plan.skip.push(r.row);
 			continue;
 		}
-		const finding = findings.get(r.row)!;
+		const finding = readEntry(findings, r.row, "Finding for row");
 		const earlier =
 			finding.earlier !== null && byRow.get(finding.earlier) !== "skip" ? rowPersonId(importId, finding.earlier) : null;
 		const reviewWith = choice === "create_and_review" ? (finding.existing[0]?.id ?? earlier) : null;
@@ -326,8 +332,14 @@ async function saveImport(
 		subject_id: plant,
 	});
 	claim.writes.push(
-		sql`INSERT INTO job(id,tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
- VALUES(${jobId}::uuid,${plant}::uuid,'people_import',${plant}::uuid,${"people-import/" + importId},'ready',clock_timestamp(),0,4,0)`,
+		queueJobsFor(sql``, {
+			kind: "people_import",
+			id: sql`${jobId}::uuid`,
+			tenant: sql`${plant}::uuid`,
+			subject: sql`${plant}::uuid`,
+			key: sql`${"people-import/" + importId}::text`,
+			conflict: "fail",
+		}),
 		sql`INSERT INTO person_import(id,tenant_id,job_id,actor_id,plan,upload)
  VALUES(${importId}::uuid,${plant}::uuid,${jobId}::uuid,${actorId}::uuid,${JSON.stringify(plan)}::jsonb,${upload})`,
 	);
@@ -413,10 +425,12 @@ async function writeBatch(
 		church = owner.parse({ kind: "plant", id: plant }),
 		start = Math.max(Date.now(), clock.next);
 	clock.next = start + batch.length;
-	const people = batch.map((r, i) =>
-		newPerson({ selected: church }, r.values, null, rowPersonId(importId, r.row), new Date(start + i)),
-	);
-	const links = batch.map((r, i) => ({ id: people[i]!.id, row: r.row, review_with: r.reviewWith }));
+	const written = batch.map((r, i) => ({
+		row: r,
+		person: newPerson({ selected: church }, r.values, null, rowPersonId(importId, r.row), new Date(start + i)),
+	}));
+	const people = written.map((w) => w.person);
+	const links = written.map(({ row: r, person }) => ({ id: person.id, row: r.row, review_with: r.reviewWith }));
 	const result =
 		await db.execute(sql`WITH allowed AS (SELECT ${holds(lease)} AND ${actorAuthority(actorId, church)} AS ok),
  created AS (INSERT INTO person SELECT * FROM jsonb_populate_recordset(NULL::person,${JSON.stringify(people, dropNulls)}::jsonb)
@@ -476,7 +490,7 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 	const pending: SavedRow[] = savedPlan
 		.parse(loaded.plan)
 		.create.filter((r) => !done.has(r.row))
-		.map((r) => ({ ...r, values: values.get(r.row)! }));
+		.map((r) => ({ ...r, values: readEntry(values, r.row, "Values of row") }));
 	const failed: FailedRow[] = [...loaded.failed];
 	let lost = false;
 	const clock = { next: 0 };
@@ -498,7 +512,7 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 			const why = rowFailure(error);
 			if (!why) throw error;
 			if (batch.length === 1) {
-				failed.push({ row: batch[0]!.row, reason: "row_write_failed", ...why });
+				failed.push({ row: only(batch, "The failed row").row, reason: "row_write_failed", ...why });
 				if (Date.now() - savedAt > 10_000) await save();
 			} else {
 				const half = Math.ceil(batch.length / 2);
@@ -535,10 +549,14 @@ export async function signPeopleImport(db: Database, storage: PrivateStorage, au
  SELECT ${id}::uuid,${plant}::uuid,'native_import',${key}::text,'text/csv',${String(input.byteLength)}::bigint,
   'pending',${"people-import/" + id}::text,0,clock_timestamp()+interval '1 hour'
  WHERE ${access(ctx, true)}
- RETURNING id,expires_at), cleanup AS (
- INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
- SELECT ${plant}::uuid,'object_cleanup',u.id,'people-import-upload/'||u.id,'ready',u.expires_at,0,4,0 FROM upload u
- ON CONFLICT DO NOTHING)
+ RETURNING id,expires_at), cleanup AS (${queueJobsFor(sql`FROM upload u`, {
+		kind: "object_cleanup",
+		tenant: sql`${plant}::uuid`,
+		subject: sql`u.id`,
+		key: sql`'people-import-upload/'||u.id`,
+		eligibleAt: sql`u.expires_at`,
+		conflict: "skip",
+ })})
  SELECT id FROM upload`);
 		if (!result.rows[0]) deny("unavailable");
 		const signed = await signPrivatePut(storage, key, "text/csv", input.byteLength).catch(() => deny("unavailable"));
@@ -615,7 +633,7 @@ export const peopleCsv = {
 			const { findings, reviewDigest } = findDuplicates(file, state.people);
 			const rows = file.rows.map((r) => {
 				if (r.status === "invalid") return r;
-				const f = findings.get(r.row)!;
+				const f = readEntry(findings, r.row, "Finding for row");
 				return {
 					row: r.row,
 					status: r.status,
@@ -677,10 +695,11 @@ export const peopleCsv = {
 				);
 			if (!row.allowed) deny("unavailable");
 			if (!row.id || !row.state) return { status: "none" } satisfies z.output<typeof c.latestImportReceipt>;
+			if (!row.at) throw Error(`Import ${row.id} has no occurrence time`);
 			return c.latestImportReceipt.parse({
 				status: "available",
 				requestKey: row.request_key,
-				importedAt: row.at!.toISOString(),
+				importedAt: row.at.toISOString(),
 				receipt: receiptOf(row.id, loadState(row.state)),
 			});
 		});

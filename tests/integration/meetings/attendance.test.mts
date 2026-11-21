@@ -506,6 +506,7 @@ test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, compute
 	refused(await record(owner, v), "status_transition");
 	ok(await finalize(owner, v, [alex]));
 	refused(await record(owner, v, { scores: { ...scores(1), attendanceScore: 6 } }), "invalid_input");
+	refused(await record(owner, v, { average: 5 }), "invalid_input");
 
 	refused(await record(owner, v, { average: 5, notes: "Room was cold" }), "invalid_input");
 	const [a, b] = await Promise.all([
