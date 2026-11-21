@@ -60,7 +60,6 @@ export async function fixture({
 		addressBlocked: (email) => addressSuppressed(hash(email.trim().toLowerCase())),
 		enqueueMail: async (tx, m, command) => {
 			if (mailFault) throw Error("synthetic_outbox_failure");
-			if (m.owner.kind === "global") throw Error("invitation mail has no global owner");
 			return mail.append(
 				tx,
 				{

@@ -1,4 +1,5 @@
 import { sameOwner, type Owner } from "@everyfield/contracts/common";
+import { tenantOwner } from "@everyfield/contracts/access";
 import * as c from "@everyfield/contracts/identity";
 import { fromStates, invitationMachine } from "@everyfield/contracts/machines";
 import type { AccountPersonProducer } from "@everyfield/contracts/people";
@@ -13,7 +14,7 @@ import { timedTransaction, timeouts, transaction } from "./budget.ts";
 import { lastWrite } from "../operations/writes.ts";
 import * as d from "./invitation-core.ts";
 export interface InvitationMail {
-	owner: Owner;
+	owner: z.output<typeof tenantOwner>;
 	invitationId: string;
 	operationId: string;
 	recipientEmail: string;
