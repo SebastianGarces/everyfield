@@ -3,6 +3,7 @@ import { asLogId, logLine } from "@everyfield/domain/log";
 import { nextCookies } from "better-auth/next-js";
 import { after } from "next/server";
 import { createHmac } from "node:crypto";
+import { endEmailChangeProofOnSessionChange } from "../email-change-proof.ts";
 import { database } from "../database";
 import { serverConfig, serverEnv, type ServerConfig } from "../config.ts";
 import {
@@ -84,4 +85,6 @@ export function requestAuth() {
 	return identityMount().auth;
 }
 
-export const identityWrite = mutatingRoute(identityHandler);
+export const identityWrite = mutatingRoute(async (request: Request) =>
+	endEmailChangeProofOnSessionChange(request, await identityHandler(request)),
+);

@@ -25,6 +25,7 @@ import {
 	Spinner,
 	Textarea,
 	toast,
+	InlineAlert,
 } from "@everyfield/ui/controls";
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useRef, useState } from "react";
@@ -58,7 +59,6 @@ import {
 	type Presence,
 	type Scores,
 } from "./model.ts";
-import { Problem } from "./parts.tsx";
 import { choiceOf, chosenOf, createSettleStore, selectUnchanged } from "./SettleForm.store.ts";
 import { loadProblem } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
@@ -542,7 +542,7 @@ function SettleForm({
 							/>
 						</Field>
 					) : null}
-					<Problem text={problem} />
+					<InlineAlert>{problem}</InlineAlert>
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose}>
@@ -961,7 +961,7 @@ function EvaluationForm({
 							/>
 						</Field>
 					) : null}
-					<Problem text={issues.length === 0 ? problem : named.dialog.join(" ") || undefined} />
+					<InlineAlert>{issues.length === 0 ? problem : named.dialog.join(" ") || undefined}</InlineAlert>
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose}>

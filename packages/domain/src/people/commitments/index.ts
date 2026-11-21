@@ -16,6 +16,7 @@ import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { writeVisibility, type RequestActor } from "../../access/session.ts";
+import { queueJobsFor } from "../../jobs/queue.ts";
 import { lastWrite } from "../../operations/writes.ts";
 import {
 	authorizeCachedWrite,
@@ -466,10 +467,14 @@ export async function signCommitmentDocument(
   'pending',${id}::text,0,clock_timestamp()+interval '15 minutes'
  FROM person p WHERE p.id=${input.personId}::uuid AND p.tenant_id=${plant}::uuid AND p.plant_id=${plant}::uuid
  AND p.state='live' AND ${documentWriter(ctx, actorId, plant)}
- RETURNING id,expires_at), cleanup AS (
- INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
- SELECT ${plant}::uuid,'object_cleanup',u.id,'commitment-upload/'||u.id,'ready',u.expires_at,0,4,0 FROM upload u
- ON CONFLICT DO NOTHING)
+ RETURNING id,expires_at), cleanup AS (${queueJobsFor(sql`FROM upload u`, {
+		kind: "object_cleanup",
+		tenant: sql`${plant}::uuid`,
+		subject: sql`u.id`,
+		key: sql`'commitment-upload/'||u.id`,
+		eligibleAt: sql`u.expires_at`,
+		conflict: "skip",
+ })})
  SELECT id FROM upload`);
 		if (!result.rows[0]) deny("unavailable");
 		if (input.mime === "application/pdf") warmCommitmentParser();

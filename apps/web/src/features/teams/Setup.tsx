@@ -10,6 +10,7 @@ import {
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
+	InlineAlert,
 	Spinner,
 	StatePanel,
 } from "@everyfield/ui/controls";
@@ -137,11 +138,7 @@ function SetupBody({ lane, present = NONE, into, onDone, form }: SetupProps & { 
 			/>
 			<DialogBody className="flex flex-col gap-4 pb-1">
 				<DialogNotice />
-				{lane.problem ? (
-					<p role="alert" className="rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">
-						{lane.problem}
-					</p>
-				) : null}
+				<InlineAlert>{lane.problem}</InlineAlert>
 				{catalog === null ? (
 					<p role="status" className="flex items-center gap-2 py-6 text-sm text-text-3">
 						<Spinner size={16} /> Loading the templates…
