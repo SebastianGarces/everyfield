@@ -11,6 +11,7 @@ import {
 	MenuLabel,
 	MenuSeparator,
 	MenuTrigger,
+	InlineAlert,
 } from "@everyfield/ui/controls";
 import { PersonCard, PipelineColumn, StageChip, StatusBadge } from "@everyfield/ui/display";
 import { useViewerNow } from "@everyfield/ui/foundations";
@@ -295,15 +296,13 @@ function Column({
 					</Button>
 				) : null}
 				<FormProblem code={more_.problem} />
-				<div aria-live="assertive" className="empty:hidden">
-					{order.errors.order ? (
-						<p className="rounded-md bg-magenta-50 px-3 py-2.5 text-sm text-magenta-600">
-							{order.errors.order === "conflict"
-								? "The order changed somewhere else. The column now shows the latest order; try the move again."
-								: problemText(order.errors.order)}
-						</p>
-					) : null}
-				</div>
+				<InlineAlert>
+					{order.errors.order
+						? order.errors.order === "conflict"
+							? "The order changed somewhere else. The column now shows the latest order; try the move again."
+							: problemText(order.errors.order)
+						: null}
+				</InlineAlert>
 				<p role="status" className="sr-only">
 					{said}
 				</p>
