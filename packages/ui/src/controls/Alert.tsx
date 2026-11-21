@@ -1,15 +1,16 @@
 "use client";
 
-import { Alert02Icon, InformationCircleIcon } from "@hugeicons/core-free-icons";
+import { Alert02Icon, CheckmarkCircle02Icon, InformationCircleIcon } from "@hugeicons/core-free-icons";
 import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cn, Icon, useFocusRequest, type FocusRequest, type IconSvgElement } from "../foundations";
 
-export type AlertTone = "error" | "warning" | "neutral";
+export type AlertTone = "error" | "warning" | "success" | "neutral";
 export type AlertLive = "assertive" | "polite";
 
 const TONE: Record<AlertTone, { box: string; title: string; icon: IconSvgElement }> = {
 	error: { box: "bg-magenta-50 text-magenta-600", title: "text-magenta-600", icon: Alert02Icon },
 	warning: { box: "bg-amber-50 text-amber-600", title: "text-amber-600", icon: Alert02Icon },
+	success: { box: "bg-green-100 text-green-700", title: "text-green-700", icon: CheckmarkCircle02Icon },
 	neutral: { box: "bg-surface-2 text-text-2", title: "text-ink", icon: InformationCircleIcon },
 };
 
