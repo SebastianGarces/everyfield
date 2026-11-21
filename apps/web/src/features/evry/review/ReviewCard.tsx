@@ -56,7 +56,7 @@ import {
 } from "react";
 import { STAGE_KEY, type StageValue } from "../../people/model.ts";
 import * as api from "./api.ts";
-import { MAIL_CONSEQUENCE, MailChanges, MailResult } from "./MailChanges.tsx";
+import { InvitationChanges, MAIL_CONSEQUENCE, MailChanges, MailResult } from "./MailChanges.tsx";
 import { NoticeChanges } from "./NoticeChanges.tsx";
 import { CurrentState, ImportResult, ImportRows, PeopleResult, ReviewedPeople } from "./PeopleChanges.tsx";
 import {
@@ -91,6 +91,10 @@ import {
 	mailHead,
 	launchRefusalText,
 	mailRefusalText,
+	invitationRefusalText,
+	INVITATION_CONSEQUENCE,
+	isInvitation,
+	sendsMail,
 	missingRequired,
 	openAfter,
 	openCriteria,
@@ -189,7 +193,7 @@ const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; ti
 
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
 	const who = review?.review.target?.label ?? null;
-	const mail = !!review && isMail(review.operation);
+	const mail = !!review && sendsMail(review.operation);
 	const tasks = !!review && isTasks(review.operation);
 	const record = tasks && review.review.target?.kind !== "person" ? "task" : "person";
 	if (review && view === "pending" && review.review.refusal) return review.review.refusal;
@@ -222,7 +226,9 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 			if (review && isLaunch(review.operation)) return launchRefusalText(review.receipt?.code);
 			if (review?.receipt?.current?.length)
 				return `A record in the ${who ?? "change"} changed after Evry prepared this, so it couldn't be applied and nothing was changed for anyone. This is how they are now. Ask Evry to prepare it again.`;
-			return mail
+			return review && isInvitation(review.operation)
+				? invitationRefusalText(review.receipt?.code)
+				: mail
 				? mailRefusalText(review.receipt?.code)
 				: review && isWiki(review.operation)
 					? wikiRefusalText(review.receipt?.code)
@@ -389,7 +395,16 @@ export function ReviewCard({
 				<>
 					<div className="flex flex-col gap-3 px-4 py-3.5">
 						<Affects review={review} />
-						{isMail(review.operation) ? (
+						{isInvitation(review.operation) ? (
+							<>
+								<InvitationChanges review={review} />
+								{view === "completed" ? <MailResult review={review} /> : null}
+								{review.review.notes?.length ? <Notes notes={review.review.notes} /> : null}
+								{view === "pending" && !review.review.refusal ? (
+									<p className="text-sm text-text-2">{INVITATION_CONSEQUENCE}</p>
+								) : null}
+							</>
+						) : isMail(review.operation) ? (
 							<>
 								<MailChanges review={review} />
 								{view === "completed" ? <MailResult review={review} /> : null}

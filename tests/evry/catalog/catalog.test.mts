@@ -134,6 +134,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"venues.list",
 		"venues.get",
 		"venues.history",
+		"evry.readWorkflowHint",
 		"seats.list",
 		"seats.listInvitations",
 		"privacy.getSharing",

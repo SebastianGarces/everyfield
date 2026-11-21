@@ -286,6 +286,13 @@ const VIEWS: Record<string, OpView> = {
 		counts: "step",
 		empty: "This church has no setup in progress for you.",
 	},
+	"evry.readWorkflowHint": {
+		title: "Suggested steps",
+		noun: ["step", "steps"],
+		icon: "step",
+		counts: "step",
+		empty: "Your role can't take any of these steps.",
+	},
 	"dashboard.availableActions": {
 		title: "Next steps",
 		noun: ["step", "steps"],

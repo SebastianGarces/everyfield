@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import { onboardingStep } from "./scripted-onboarding.ts";
 import { launchStep } from "./scripted-launch.ts";
 import { overviewStep } from "./scripted-overview.ts";
+import { invitationStep } from "./scripted-invitation.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
 import { TASK_DATA, taskStep } from "./scripted-tasks.ts";
 import { assessmentStep } from "./scripted-assessments.ts";
@@ -968,6 +969,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (options.responseFormat?.type === "json")
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
+	const invitation = invitationStep(options, text);
+	if (invitation) return invitation;
 	const overview = overviewStep(options, text);
 	if (overview) return overview;
 	const pipeline = pipelineStep(options, text);
