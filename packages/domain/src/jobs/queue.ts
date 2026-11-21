@@ -69,16 +69,35 @@ export function queueJobs(tx: Transaction, inputs: readonly JobInput[]) {
 		)
 		.onConflictDoNothing();
 }
-const subjectJobSchema = enqueueSchema
-	.pick({ tenant: true, kind: true, maxAttempts: true })
-	.extend({ keyPrefix: z.string().min(1).max(256) });
+const jobRowsSchema = z.object({ kind: jobKind, maxAttempts: z.number().int().min(1).max(10).default(4) });
+const onConflict = {
+	fail: sql``,
+	skip: sql` ON CONFLICT DO NOTHING`,
+	skipSameKey: sql` ON CONFLICT (kind, subject_record_id, producer_key) DO NOTHING`,
+	reopen: sql` ON CONFLICT (kind, subject_record_id, producer_key) DO UPDATE SET state = 'ready',
+  eligible_at = excluded.eligible_at, source_revision = excluded.source_revision,
+  attempt_count = CASE WHEN job.state IN ('superseded', 'cancelled') THEN 0 ELSE job.attempt_count END,
+  finished_at = NULL, error_code = NULL, next_attempt_at = NULL, lease_owner = NULL, lease_until = NULL,
+  claim_generation = job.claim_generation + 1, revision = job.revision + 1
+ WHERE job.state IN ('ready', 'retry_wait', 'claimed', 'superseded', 'cancelled')`,
+} as const;
+export type JobRows = z.input<typeof jobRowsSchema> & {
+	tenant: SQL;
+	subject: SQL;
+	key: SQL;
+	id?: SQL;
+	revision?: SQL;
+	eligibleAt?: SQL;
+	conflict: keyof typeof onConflict;
+	returning?: boolean;
+};
 
-export function queueJobsFor(subjects: SQL, input: z.input<typeof subjectJobSchema>) {
-	const v = subjectJobSchema.parse(input);
-	return sql`INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts,
-  claim_generation)
- SELECT ${v.tenant}::uuid, ${v.kind}::text, id, ${v.keyPrefix}::text || id::text, 'ready', clock_timestamp(), 0,
-  ${v.maxAttempts}::int, 0 FROM ${subjects} ON CONFLICT DO NOTHING`;
+export function queueJobsFor(source: SQL, rows: JobRows) {
+	const v = jobRowsSchema.parse({ kind: rows.kind, maxAttempts: rows.maxAttempts });
+	return sql`INSERT INTO job (${rows.id ? sql`id, ` : sql``}tenant_id, kind, subject_record_id, producer_key, source_revision, state,
+  eligible_at, attempt_count, max_attempts, claim_generation)
+ SELECT ${rows.id ? sql`${rows.id}, ` : sql``}${rows.tenant}, ${v.kind}::text, ${rows.subject}, ${rows.key}, ${rows.revision ?? sql`NULL::bigint`},
+  'ready', ${rows.eligibleAt ?? sql`clock_timestamp()`}, 0, ${v.maxAttempts}::int, 0 ${source}${onConflict[rows.conflict]}${rows.returning ? sql` RETURNING id` : sql``}`;
 }
 export async function enqueueJobs(tx: Transaction, inputs: readonly JobInput[]): Promise<string[]> {
 	const values = inputs.map((input) => enqueueSchema.parse(input));

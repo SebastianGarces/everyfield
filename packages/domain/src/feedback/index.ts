@@ -175,7 +175,7 @@ ins AS (
  FROM gate WHERE gate.ok
  ON CONFLICT (account_id, request_key) DO NOTHING
  RETURNING id, category, page_label, submitted_at
-), job AS (${queueJobsFor(sql`ins`, { tenant: account, kind: "feedback_publication", keyPrefix: "feedback/" })}
+), job AS (${queueJobsFor(sql`FROM ins`, { kind: "feedback_publication", tenant: sql`${account}::uuid`, subject: sql`id`, key: sql`'feedback/' || id::text`, conflict: "skip" })}
 ), aud AS (
  INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_id)
  SELECT ${account}::uuid, ${account}::uuid, 'feedback.received', 'create', id FROM ins RETURNING 1

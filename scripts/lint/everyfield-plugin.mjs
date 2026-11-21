@@ -100,6 +100,26 @@ export const TABLE_WRITERS = {
 		owner: "packages/domain/src/phases/",
 		why: "the phases domain records every phase transition, including the one initial declaration a plant may make",
 	},
+	job: {
+		owner: "packages/domain/src/jobs/queue.ts",
+		why: "the job queue owns the row shape, the dedupe key and the conflict rule; build the insert with queueJobsFor or enqueueJobs",
+		holders: [
+			"packages/domain/src/branding/writes.ts",
+			"packages/domain/src/documents/church-writes.ts",
+			"packages/domain/src/intelligence/assessment-job.ts",
+			"packages/domain/src/intelligence/assessment.ts",
+			"packages/domain/src/jobs/digest.ts",
+			"packages/domain/src/jobs/mail.ts",
+			"packages/domain/src/meetings/notifications.ts",
+			"packages/domain/src/organizations/notifications.ts",
+			"packages/domain/src/organizations/reviews.ts",
+			"packages/domain/src/people/commitments/index.ts",
+			"packages/domain/src/people/csv/index.ts",
+			"packages/domain/src/people/fields/shared.ts",
+			"packages/evry/src/conversations/store.ts",
+			"packages/evry/src/proposals/store.ts",
+		],
+	},
 };
 const INSERT_INTO = /\binsert\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
 
@@ -107,9 +127,12 @@ const tableWriters = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
+		const held = Object.keys(TABLE_WRITERS).filter((table) => TABLE_WRITERS[table].holders?.includes(path));
+		const written = new Set();
 		const report = (node, table) => {
 			const { owner, why } = TABLE_WRITERS[table];
-			if (!path.startsWith(owner))
+			written.add(table);
+			if (!path.startsWith(owner) && !held.includes(table))
 				context.report({
 					node,
 					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here.`,
@@ -148,6 +171,14 @@ const tableWriters = {
 			CallExpression: (node) => {
 				const table = tableOf(node.arguments[0]);
 				if (memberName(node.callee) === "insert" && table) report(node, table);
+			},
+			"Program:exit"(node) {
+				for (const table of held)
+					if (!written.has(table))
+						context.report({
+							node,
+							message: `${path} no longer inserts into ${table}: delete its holders entry under TABLE_WRITERS.${table} in scripts/lint/everyfield-plugin.mjs.`,
+						});
 			},
 		};
 	},

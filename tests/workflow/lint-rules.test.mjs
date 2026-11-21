@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { REFUSAL_MECHANISMS, WEB_SQL_HOLDERS } from "../../scripts/lint/everyfield-plugin.mjs";
+import { REFUSAL_MECHANISMS, TABLE_WRITERS, WEB_SQL_HOLDERS } from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
@@ -1809,6 +1809,32 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 			"packages/domain/src/tasks/x.ts:4 table-writers",
 		],
 	);
+});
+
+test("INV-lint: only the job queue inserts job rows, and a listed holder that stops inserting is reported", () => {
+	const insert = `import { sql } from "drizzle-orm";
+export const a = sql\`INSERT INTO job (tenant_id) SELECT 1\`;
+export const b = (db, t) => db.insert(t.job).values({});
+export const c = sql\`INSERT INTO job_link (id) SELECT 1\`;
+`;
+	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" table-writers"));
+	assert.deepEqual(
+		reported({
+			"packages/domain/src/tasks/x.ts": insert,
+			"packages/evry/src/x.ts": insert,
+			"packages/domain/src/jobs/queue.ts": insert,
+		}),
+		[
+			"packages/domain/src/tasks/x.ts:2 table-writers",
+			"packages/domain/src/tasks/x.ts:3 table-writers",
+			"packages/evry/src/x.ts:2 table-writers",
+			"packages/evry/src/x.ts:3 table-writers",
+		],
+	);
+	for (const holder of TABLE_WRITERS.job.holders.slice(0, 1)) {
+		assert.deepEqual(reported({ [holder]: insert }), []);
+		assert.deepEqual(reported({ [holder]: "export const none = 1;\n" }), [`${holder}:1 table-writers`]);
+	}
 });
 
 test("INV-lint: a React namespace alias, a class lifecycle method and a ref callback that never uses its node are effects", () => {

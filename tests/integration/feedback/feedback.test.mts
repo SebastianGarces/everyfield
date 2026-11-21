@@ -121,10 +121,12 @@ test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from t
 		},
 	]);
 	await admin.execute(
-		queueJobsFor(sql`(SELECT ${sent.id}::uuid AS id) s`, {
-			tenant: daniel.id,
+		queueJobsFor(sql`FROM (SELECT ${sent.id}::uuid AS id) s`, {
 			kind: "feedback_publication",
-			keyPrefix: "feedback/",
+			tenant: sql`${daniel.id}::uuid`,
+			subject: sql`id`,
+			key: sql`'feedback/' || id::text`,
+			conflict: "skip",
 		}),
 	);
 	assert.deepEqual(
