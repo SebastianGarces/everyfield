@@ -368,7 +368,67 @@ export const other = () => setInterval(() => {}, 15_000);
 			...[2, 3, 4, 5, 8].map((line) => `apps/web/src/server/evry/index.ts:${line} no-timers`),
 		],
 	);
-	assert.equal(Object.keys(PRODUCT_TIMERS).length, 1, "PRODUCT_TIMERS only shrinks");
+});
+
+test("INV-lint: each listed product timer exempts its one call site, a new timer in the same file is reported and a listed timer that is gone is reported as stale", () => {
+	assert.deepEqual(
+		Object.entries(PRODUCT_TIMERS).flatMap(([path, sites]) => sites.map((s) => `${path} ${s.timer} ${s.within}`)),
+		[
+			"apps/web/src/server/evry/http.ts setInterval conversationStreamGet",
+			"packages/evry/src/runtime/turn.ts setTimeout run",
+			"packages/evry/src/runtime/model.ts setTimeout transientRetry",
+			"packages/evry/src/runtime/observe.ts setTimeout timerPause",
+			"packages/db/src/schema/validate-file.ts setTimeout parser",
+			"packages/db/src/schema/validate-file.ts setTimeout parseOnce",
+			"apps/web/src/features/documents/church/editor/table-extension.ts requestAnimationFrame observer",
+		],
+	);
+	const paths = Object.keys(PRODUCT_TIMERS);
+	const added = "export const later = () => setTimeout(() => {}, 0);\n";
+	const real = Object.fromEntries(paths.map((p) => [p, readFileSync(join(repo, p), "utf8") + added]));
+	const lastLine = (p) => real[p].split("\n").length - 1;
+	const timerHits = (files) => lint(files).filter((hit) => hit.endsWith(" no-timers"));
+	assert.deepEqual(timerHits(real), paths.map((p) => `${p}:${lastLine(p)} no-timers`).sort());
+	const twice = `export async function parser() {
+	if (retry) {
+		const timer = setInterval(() => {}, 1);
+		return timer;
+	}
+	const again = setTimeout(() => {}, 1);
+	const timer = setTimeout(() => {}, 1);
+	if (retry) {
+		const timer = setTimeout(() => {}, 1);
+		return timer;
+	}
+	return [timer, again];
+}
+export function parseOnce() {
+	const timer = defer(setTimeout);
+	return [timer, setTimeout(() => {}, 1)];
+}
+export function other() {
+	const timer = setTimeout(() => {}, 1);
+	return timer;
+}
+`;
+	const frames = `export const observer = () => {
+	requestAnimationFrame(draw);
+	requestAnimationFrame(widths);
+};
+export const other = () => requestAnimationFrame(widths);
+`;
+	assert.deepEqual(
+		timerHits({
+			"packages/db/src/schema/validate-file.ts": twice,
+			"apps/web/src/features/documents/church/editor/table-extension.ts": frames,
+			"packages/evry/src/runtime/turn.ts": "export const gone = 1;\n",
+		}),
+		[
+			...[2, 5].map((line) => `apps/web/src/features/documents/church/editor/table-extension.ts:${line} no-timers`),
+			...[1, 3, 6, 9, 15, 16, 19].map((line) => `packages/db/src/schema/validate-file.ts:${line} no-timers`),
+			"packages/evry/src/runtime/turn.ts:1 no-timers",
+		].sort(),
+	);
 });
 
 test("INV-lint: every comment except a shebang and a bundler ignore inside import() is reported, JSX comments included", () => {
