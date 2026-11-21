@@ -10,15 +10,25 @@ const stubs: Record<string, string> = {
 	"@everyfield/evry": stub(`
 		const calls = globalThis.__streamCursorCalls;
 		export const flushTraces = () => {};
+		export const approveProposal = undefined, cancelProposal = undefined, cancelTurn = undefined, checkProposal = undefined, createConversation = undefined, listConversations = undefined, openLatestConversation = undefined, pipelineListsPeople = undefined, readCatalog = undefined, readReview = undefined, readStagedPhoto = undefined, retryTurn = undefined, retryUnresolvedEffects = undefined, reviseProposal = undefined, stageAttachment = undefined, submitTurn = undefined;
 		export const projectError = (error) => ({ message: String(error) });
 		export const readConversation = async (_db, _actor, _id, after) => { calls.read.push(after); };
 		export async function* observeRun(_db, _actor, _id, after) { calls.observe.push(after); }
 	`),
 	"next/server": stub(`export const after = () => {};`),
-	"@/server/database": stub(`export const requestDatabase = () => ({});`),
-	"@/server/evry": stub(`
+	"server-only": stub(""),
+	"@everyfield/db/schema": stub(`export const privateStorage = () => ({});`),
+	"../platform/boundary": stub(`export const mutatingRoute = (handler) => handler; export const privateHeaders = {};`),
+	"../platform/json.ts": stub(`export const parseJson = JSON.parse;`),
+	"../database": stub(`export const requestDatabase = () => ({});`),
+	"./native": stub(`export const evryNative = () => ({});`),
+	"./index": stub(`
 		export const requestActor = async () => ({});
 		export const errorResponse = (error) => new Response(String(error), { status: 500 });
+		export const drainEffects = () => {};
+		export const drainTurns = () => {};
+		export const evryMail = () => ({});
+		export const evryResponse = () => new Response();
 	`),
 };
 registerHooks({
@@ -26,16 +36,19 @@ registerHooks({
 		specifier in stubs ? { url: stubs[specifier]!, shortCircuit: true } : next(specifier, context),
 });
 
-const { GET } = (await import("../../../apps/web/src/app/api/evry/conversations/[id]/stream/route.ts")) as {
-	GET: (request: Request, context: { params: Promise<{ id: string }> }) => Promise<Response>;
+const { conversationStreamGet } = (await import("../../../apps/web/src/server/evry/http.ts")) as {
+	conversationStreamGet: (request: Request, context: { params: Promise<{ id: string }> }) => Promise<Response>;
 };
 
 async function cursorFor(after: string) {
 	calls.read.length = 0;
 	calls.observe.length = 0;
-	const response = await GET(new Request(`https://x.test/api/evry/conversations/c1/stream?after=${after}`), {
-		params: Promise.resolve({ id: "c1" }),
-	});
+	const response = await conversationStreamGet(
+		new Request(`https://x.test/api/evry/conversations/c1/stream?after=${after}`),
+		{
+			params: Promise.resolve({ id: "c1" }),
+		},
+	);
 	assert.equal(response.status, 200);
 	assert.match(await response.text(), /event: idle/);
 	return { read: [...calls.read], observe: [...calls.observe] };
