@@ -287,11 +287,7 @@ function Chat({
 					Evry reads the records you can see and answers with the sources it used. It never changes anything without
 					your approval.
 				</p>
-				{problem ? (
-					<Alert role="alert" className="text-left">
-						{problem}
-					</Alert>
-				) : null}
+				{problem ? <Alert role="alert" className="text-left">{problem}</Alert> : null}
 			</div>
 		);
 
