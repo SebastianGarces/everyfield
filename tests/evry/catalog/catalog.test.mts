@@ -207,7 +207,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 const as = (contextKind: EvryActor["contextKind"], role: EvryActor["role"]): EvryActor => ({
 	authority: null as never,
 	accountId: "5b6d1f0e-0000-4000-8000-000000000f01",
-	session: "5b6d1f0e-0000-4000-8000-000000000f21",
+	session: "5b6d1f0e-0000-4000-8000-000000000f21" as EvryActor["session"],
 	owner: (contextKind === "account" || contextKind === "plant"
 		? { kind: contextKind, id: "5b6d1f0e-0000-4000-8000-000000000001" }
 		: { kind: "organization", id: "5b6d1f0e-0000-4000-8000-000000000003", organizationKind: contextKind }) as never,

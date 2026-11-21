@@ -2,6 +2,7 @@ import type { Database } from "@everyfield/db/client";
 import { sql, type SqlLiteral } from "@everyfield/db/query";
 import { readPrivateUpload, signPrivatePut, type PrivateStorage } from "@everyfield/db/schema";
 import { liveRead } from "@everyfield/domain/access";
+import { queueJobsFor } from "@everyfield/domain/jobs";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
@@ -50,11 +51,14 @@ export async function stageAttachment(
 			SELECT ${id}::uuid,c.tenant_id,'assistant_staging',${key}::text,'text/csv',${input.byteLength}::bigint,'pending',
 				${uploadKey(conversationId, id)}::text,0,clock_timestamp()+make_interval(hours=>${ATTACHMENTS.stagingHours}) FROM c
 			RETURNING id,tenant_id,expires_at
-		), cleanup AS (
-			INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
-			SELECT tenant_id,'object_cleanup',id,'evry-attachment/'||id,'ready',expires_at,0,4,0 FROM upload
-			ON CONFLICT DO NOTHING
-		)
+		), cleanup AS (${queueJobsFor(sql`FROM upload`, {
+			kind: "object_cleanup",
+			tenant: sql`upload.tenant_id`,
+			subject: sql`upload.id`,
+			key: sql`'evry-attachment/' || upload.id::text`,
+			eligibleAt: sql`upload.expires_at`,
+			conflict: "skip",
+		})})
 		SELECT id FROM upload`);
 	if (!r.rows.length) throw new EvryRefusal("not_found");
 	const signed = await signPrivatePut(storage, key, "text/csv", input.byteLength).catch(() => {

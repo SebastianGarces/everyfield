@@ -534,7 +534,7 @@ export const addNote = reviewed({
 			FROM person p WHERE ${livePerson(actor, sql`${value.personId}::uuid`)}`;
 	},
 	run: async (tx, context, args: object, key) =>
-		done(await peopleWriter.addNote(tx, context, { ...args, requestKey: key } as never), noteReceipt),
+		done(await peopleWriter.addNote(tx, context, { ...args, requestKey: key }), noteReceipt),
 });
 
 const liveNote = (actor: EvryActor, noteId: string) =>
@@ -558,7 +558,7 @@ export const editNote = reviewed({
 			${liveNote(actor, value.noteId)}`;
 	},
 	run: async (tx, context, args: object, key) =>
-		done(await peopleWriter.editNote(tx, context, { ...args, requestKey: key } as never), noteReceipt),
+		done(await peopleWriter.editNote(tx, context, { ...args, requestKey: key }), noteReceipt),
 });
 export const deleteNote = reviewed({
 	operation: "people.deleteNote",
@@ -573,7 +573,7 @@ export const deleteNote = reviewed({
 			${liveNote(actor, value.noteId)}`;
 	},
 	run: async (tx, context, args: object, key) =>
-		done(await peopleWriter.deleteNote(tx, context, { ...args, requestKey: key } as never), noteReceipt),
+		done(await peopleWriter.deleteNote(tx, context, { ...args, requestKey: key }), noteReceipt),
 });
 
 type Preview = z.infer<typeof importPreview>;
