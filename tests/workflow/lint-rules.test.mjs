@@ -1800,7 +1800,7 @@ export function gate(path: string, out: boolean) {
 	]);
 });
 
-test("INV-lint: a hand-written organization seat check in web code is reported outside the shared helper", () => {
+test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper", () => {
 	const source = `import type { RequestActor } from "@everyfield/domain/access";
 export function a(authority: RequestActor | null) {
 	const context = authority?.actor.context;
@@ -1840,18 +1840,23 @@ export function f(owner: { kind: string }, seat: { kind: string }) {
 	assert.deepEqual(
 		lint({
 			"apps/web/src/features/x/server.ts": source,
-			"apps/web/src/server/request-context.ts": source,
+			"packages/domain/src/access/organization-seat.ts": source,
 			"packages/domain/src/x/index.ts": source,
+			"packages/contracts/src/x/index.ts": source,
 		}),
 		[
 			"apps/web/src/features/x/server.ts:10 organization-seat",
 			"apps/web/src/features/x/server.ts:17 organization-seat",
 			"apps/web/src/features/x/server.ts:27 organization-seat",
 			"apps/web/src/features/x/server.ts:4 organization-seat",
+			"packages/domain/src/x/index.ts:10 organization-seat",
+			"packages/domain/src/x/index.ts:17 organization-seat",
+			"packages/domain/src/x/index.ts:27 organization-seat",
+			"packages/domain/src/x/index.ts:4 organization-seat",
 		],
 	);
-	assert.deepEqual(lint({ "apps/web/src/server/request-context.ts": "export const seat = 1;\n" }), [
-		"apps/web/src/server/request-context.ts:1 organization-seat",
+	assert.deepEqual(lint({ "packages/domain/src/access/organization-seat.ts": "export const seat = 1;\n" }), [
+		"packages/domain/src/access/organization-seat.ts:1 organization-seat",
 	]);
 });
 
