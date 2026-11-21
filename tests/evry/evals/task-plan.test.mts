@@ -295,14 +295,14 @@ async function between(kind: NonNullable<Case["between"]>) {
 			),
 		);
 	else {
-		const t = await native<{ task: { revision: string } }>((tx, x) =>
-			taskReader.get(tx, x, { taskId: taskId("insurance") }),
+		const revision = String(
+			(await admin.execute(sql`SELECT revision FROM task WHERE id=${taskId("insurance")}`)).rows[0]!.revision,
 		);
 		ok(
 			await withTaskWrite(db, a, (tx, ctx) =>
 				tasks.edit(tx, ctx, {
 					requestKey: randomUUID(),
-					expectedRevision: t.task.revision,
+					expectedRevision: revision,
 					input: { taskId: taskId("insurance"), patch: { priority: "high" } },
 				}),
 			),
