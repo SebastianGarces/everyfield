@@ -528,7 +528,7 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-ID
 	assert.deepEqual(preview.plants, [church.id]);
 	assert.equal(preview.lines.length, 1);
 	assert.equal(JSON.stringify(preview).includes("PRIVATE-CARE-MARKER"), false);
-	assert.equal(preview.lines[0].count, 1);
+	assert.equal(preview.lines[0]?.count, 1);
 	const quiet = ok(
 		await api.readOversightDigest(db, await actor(southOwner.session), {
 			organizationId: south.id,

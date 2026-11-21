@@ -102,7 +102,7 @@
 		"limit": 2
 	},
 	"GET /settings/brand": {
-		"limit": 3
+		"limit": 2
 	},
 	"GET /settings/sharing": {
 		"limit": 2
@@ -1278,7 +1278,8 @@
 	},
 	"onboarding/core.withOnboardingWrite": {
 		"limit": 8,
-		"reason": "BEGIN and COMMIT around onboarding.createDiscovery: the write gate, the lifecycle read, the setup check, the account's affiliations and wiki readings, which the discovery copies, and the discovery insert. Its largest first run: 2 transaction, 1 locked read, 4 read, 1 write."
+		"reason": "BEGIN and COMMIT around onboarding.createDiscovery: the write gate, the lifecycle read, the setup check, the account's affiliations and wiki readings, which the discovery copies, and the discovery insert. Its largest first run: 2 transaction, 1 locked read, 4 read, 1 write.",
+		"retry": 3
 	},
 	"organizations.associations.acceptInvitation": {
 		"limit": 4

@@ -13,7 +13,7 @@ import {
 	MenuTrigger,
 	Select,
 } from "@everyfield/ui/controls";
-import { useMinuteClock } from "@everyfield/ui/foundations";
+import { useViewerNow, useViewerZone } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import { PreviewStage } from "./EmailFrame.tsx";
 import { textToBody } from "./body.ts";
@@ -67,8 +67,9 @@ export function ReviewStep({
 	const [picking, setPicking] = useState(false);
 	const [custom, setCustom] = useState("");
 	const [customError, setCustomError] = useState<string | undefined>();
-	const now = useMinuteClock();
-	const bounds = now === null ? null : windowBounds(new Date(now));
+	const now = useViewerNow();
+	const zone = useViewerZone();
+	const bounds = now === null || zone === null ? null : windowBounds(now, zone);
 	const safe = Math.min(index, Math.max(0, recipients.length - 1));
 	const name = recipients[safe]?.displayName ?? sampleName;
 	const eligible = summary?.eligibleRecipients ?? 0;

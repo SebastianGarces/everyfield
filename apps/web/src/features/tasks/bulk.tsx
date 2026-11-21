@@ -11,6 +11,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 	Select,
+	TextButton,
 } from "@everyfield/ui/controls";
 import { useId, useRef, useState, type FormEvent } from "react";
 import type { Wait } from "../../components/save/model.ts";
@@ -204,13 +205,13 @@ export function BulkReport({
 			<ul className="flex flex-col">
 				{report.unchanged.map((t) => (
 					<li key={t.id} className="border-t border-line py-2 text-sm first:border-t-0">
-						<button
-							type="button"
+						<TextButton
 							onClick={() => onOpen(t.id)}
-							className="inline-flex min-h-6 items-center rounded-xs text-left font-medium text-ink underline-offset-[3px] hover:underline"
+							underline="hover"
+							className="inline-flex min-h-6 items-center text-ink"
 						>
 							{t.title}
-						</button>
+						</TextButton>
 						<span className="text-text-2"> · {bulkOutcomeText(t.outcome, report.kind)}</span>
 					</li>
 				))}

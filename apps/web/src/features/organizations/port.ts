@@ -1,6 +1,7 @@
 import type {
 	OrganizationOperations,
 	RelationshipPair,
+	expiredInvitationResult,
 	invitationResult,
 	relationshipHistoryResult,
 	relationshipProjection,
@@ -16,6 +17,7 @@ export type Run = <K extends OperationName>(operation: K, input: Ops[K]["input"]
 
 export type Relationship = z.infer<typeof relationshipProjection>;
 export type Invitation = z.infer<typeof invitationResult>;
+export type ExpiredInvitation = z.infer<typeof expiredInvitationResult>;
 export type Disclosure = z.infer<typeof sharingDisclosure>;
 export type Choices = z.infer<typeof sharingChoices>;
 export type Category = keyof Choices;

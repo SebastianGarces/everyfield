@@ -1,6 +1,7 @@
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import type { discoveryProfileResult, resumeResult } from "@everyfield/contracts/onboarding";
+import { sessionResult } from "@everyfield/contracts/identity";
 import { readOnboardingEntry } from "@everyfield/domain/onboarding";
 import { z } from "zod";
 import foundations from "../../../../../../docs/reference/discovery-foundations.json" with { type: "json" };
@@ -38,13 +39,13 @@ const none = (operation: string, why: string): SourceResult => ({
 });
 export async function onboardingEntry(tx: Database | Transaction, actor: EvryActor, native: NativePorts | null) {
 	if (!native) throw new EvryRefusal("source_unavailable");
-	const session = {
-		status: "active" as const,
+	const session = sessionResult.parse({
+		status: "active",
 		accountId: actor.accountId,
 		sessionId: actor.session,
 		expiresAt: new Date(Date.now() + 60_000).toISOString(),
-	};
-	return readOnboardingEntry(tx, native.onboarding, session as never, actor.authority, true);
+	});
+	return readOnboardingEntry(tx, native.onboarding, session, actor.authority, true);
 }
 
 const step = (id: string, label: string, saved: boolean, answer: string | null): SourceRow => ({
