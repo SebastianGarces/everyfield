@@ -171,13 +171,11 @@ export function relationshipCommands(
 			};
 			const stale = { purpose: purposes[pair.kind], tenant: tenants[pair.kind], fresh: false } as const;
 			await tx.execute(
-				sql`UPDATE invitation i SET state='expired',revision=i.revision+1 FROM relationship_invitation r
+				sql`WITH expired AS (UPDATE invitation i SET state='expired',revision=i.revision+1 FROM relationship_invitation r
 		WHERE r.invitation_id=i.id AND i.tenant_id=${subject.id} AND i.recipient_email=${q.input.recipientEmail}
 		AND i.state = ANY(${sql.param(fromStates(invitationMachine, "associations.invite", "expired", stale))}::text[])
-		AND coalesce(i.resent_at,i.created_at)<=clock_timestamp()-interval '720 hours'`,
-			);
-			await tx.execute(
-				sql`INSERT INTO admission_attempt(id,kind,identifier_hash,workspace_key,reserved_at,state,expires_at) VALUES(${addressId}::uuid,'relationship_invite',${addressKey},'relationship-address',clock_timestamp(),'counted',clock_timestamp()+interval '720 hours') ON CONFLICT(id) DO UPDATE SET expires_at=greatest(admission_attempt.expires_at,excluded.expires_at)`,
+		AND coalesce(i.resent_at,i.created_at)<=clock_timestamp()-interval '720 hours' RETURNING 1)
+		INSERT INTO admission_attempt(id,kind,identifier_hash,workspace_key,reserved_at,state,expires_at) VALUES(${addressId}::uuid,'relationship_invite',${addressKey},'relationship-address',clock_timestamp(),'counted',clock_timestamp()+interval '720 hours') ON CONFLICT(id) DO UPDATE SET expires_at=greatest(admission_attempt.expires_at,excluded.expires_at)`,
 			);
 			const facts = inviteFacts.parse(
 				(
