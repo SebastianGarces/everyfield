@@ -18,6 +18,8 @@ import {
 	projectPeople,
 	readReply,
 	type Person,
+	known,
+	only,
 } from "./core.ts";
 import { effectiveAdultSql, plantTodaySql } from "./adult.ts";
 import type { RequestActor } from "../access/session.ts";
@@ -93,12 +95,13 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 	const input = parse(c.listPeopleRequest, raw);
 	const { gate } = await authorizeRead(tx, ctx);
 	const filters = peopleFilters(ctx, input, gate);
-	const { total, allowed } = (
+	const { total, allowed } = only(
 		await tx
 			.select({ total: count(), allowed: sql<boolean>`${gate}` })
 			.from(tables.person)
-			.where(and(...filters))
-	)[0]!;
+			.where(and(...filters)),
+		"The people count",
+	);
 	if (!allowed) deny("unavailable");
 	const result = await tx
 		.select({
@@ -256,7 +259,7 @@ export const peopleReader: PeopleReader<Tx> = {
 				return {
 					column: name,
 					revision,
-					cards: page.slice(0, input.limit).map((r) => projected.get(r.id)!),
+					cards: page.slice(0, input.limit).map((r) => known(projected, r.id, "Projected card")),
 					total: own[0]?.total ?? 0,
 					next: page.length > input.limit ? input.page + 1 : null,
 				};
@@ -330,7 +333,7 @@ export const peopleReader: PeopleReader<Tx> = {
 								warning: !t.due_date ? "missing_due_date" : t.due_date < t.today ? "overdue" : "none",
 							})),
 							coverage: tasks.length ? "covered" : "uncovered",
-							inactivity: activity.get(person.id)!,
+							inactivity: known(activity, person.id, "Activity of person"),
 						};
 					}),
 				})),

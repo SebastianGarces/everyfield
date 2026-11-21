@@ -112,7 +112,11 @@ export const recordCorrections = {
 					if ("occurredOn" in changes && changes.occurredOn) notFuture(p, changes.occurredOn);
 					const set = Object.assign(
 						{},
-						...changed.map(({ field }) => (def.fields[field]!.write as (v: unknown) => object)(after[field])),
+						...changed.map(({ field }) => {
+							const spec = def.fields[field];
+							if (!spec) throw Error(`Record field ${field} has no writer`);
+							return (spec.write as (v: unknown) => object)(after[field]);
+						}),
 					) as Record<string, unknown>;
 					audit.writes.push(
 						sql`UPDATE ${table} SET ${sql.join(

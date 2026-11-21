@@ -12,9 +12,9 @@ export class SheetRefused extends Error {
 		this.problem = problem;
 	}
 }
-const refuse = (problem: SheetProblem): never => {
+function refuse(problem: SheetProblem): never {
 	throw new SheetRefused(problem);
-};
+}
 
 export type Sheet = { header: string[]; rows: string[][] };
 
@@ -30,14 +30,14 @@ export async function readSheet(bytes: Uint8Array, fileName: string, limits: She
 	const table = format === "csv" ? readCsv(bytes, limits) : await readXlsx(bytes, limits);
 	const [first, ...rest] = table;
 	if (!first) refuse("file_empty");
-	let width = first!.length;
-	while (width > 0 && first![width - 1]!.trim() === "") width--;
+	let width = first.length;
+	while (width > 0 && first[width - 1]?.trim() === "") width--;
 	if (width === 0) refuse("no_header");
 	if (width > limits.columns) refuse("column_limit");
 	const rows = rest.filter((r) => r.some((v) => v.trim() !== ""));
 	if (rows.length === 0) refuse("no_rows");
 	if (rows.length > limits.rows) refuse("row_limit");
-	return { header: first!.slice(0, width).map((t) => t.trim()), rows };
+	return { header: first.slice(0, width).map((t) => t.trim()), rows };
 }
 
 const lines = (value: string) => value.replace(/\r\n?/g, "\n");
@@ -63,7 +63,8 @@ const EXPANDED_MAX = 64 * 1024 * 1024;
 const EOCD = 0x06054b50,
 	CENTRAL = 0x02014b50;
 function declaredSize(b: Uint8Array): number | null {
-	const u16 = (o: number) => b[o]! | (b[o + 1]! << 8);
+	const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
+	const u16 = (o: number) => view.getUint16(o, true);
 	const u32 = (o: number) => (u16(o) | (u16(o + 2) << 16)) >>> 0;
 	for (let end = b.length - 22; end >= Math.max(0, b.length - 22 - 0xffff); end--) {
 		if (u32(end) !== EOCD) continue;
@@ -91,9 +92,9 @@ async function readXlsx(bytes: Uint8Array, limits: SheetLimits): Promise<string[
 	}
 	const sheet = book.worksheets[0];
 	if (!sheet || sheet.actualRowCount === 0) refuse("file_empty");
-	if (sheet!.actualRowCount > limits.rows + 1) refuse("row_limit");
+	if (sheet.actualRowCount > limits.rows + 1) refuse("row_limit");
 	const table: string[][] = [];
-	sheet!.eachRow({ includeEmpty: false }, (row) => {
+	sheet.eachRow({ includeEmpty: false }, (row) => {
 		const cells: string[] = [];
 		row.eachCell({ includeEmpty: true }, (cell, column) => {
 			cells[column - 1] = cell.type === ExcelJS.ValueType.Formula ? "=" + cell.formula : cellText(cell.value);

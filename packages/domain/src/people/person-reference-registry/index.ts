@@ -79,10 +79,18 @@ export function parseReferences(raw: unknown): Reference[] {
 	return z
 		.array(referenceRow)
 		.parse(raw)
-		.map((x) => ({ kind: kindOf.get(x.k)!, id: x.id, revision: x.r }));
+		.map((x) => {
+			const kind = kindOf.get(x.k);
+			if (!kind) throw Error(`Reference column ${x.k} is not registered`);
+			return { kind, id: x.id, revision: x.r };
+		});
 }
-export const treatmentOf = (kind: Kind) => registry.find((e) => e.kind === kind)!.treatment;
-export const registrationOf = (kind: Kind) => registry.find((e) => e.kind === kind)!;
+export function registrationOf(kind: Kind) {
+	const registration = registry.find((e) => e.kind === kind);
+	if (!registration) throw Error(`Reference kind ${kind} is not registered`);
+	return registration;
+}
+export const treatmentOf = (kind: Kind) => registrationOf(kind).treatment;
 
 export async function lockPair(tx: Tx, owner: string, ids: SQL) {
 	await tx.execute(sql`SELECT p.id FROM person p WHERE p.tenant_id=${owner}::uuid AND p.id IN (${ids})
