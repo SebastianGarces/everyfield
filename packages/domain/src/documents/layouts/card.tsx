@@ -58,7 +58,8 @@ export function cardDocument(ctx: Ctx, spec: CardSpec) {
 	));
 	const tagline = theme.tagline ?? spec.neutralTagline;
 	const contact = contactLine(ctx);
-	const second = spec.fields.slice(2);
+	const [nameField, contactField, ...second] = spec.fields;
+	if (!nameField || !contactField) throw new Error("a card needs a name and a contact field");
 	const page = (
 		<Page size={CARD} margin={CARD_MARGIN}>
 			<View style={{ backgroundColor: p.primary, padding: 12, flexDirection: "row", height: 96 }}>
@@ -93,8 +94,8 @@ export function cardDocument(ctx: Ctx, spec: CardSpec) {
 			})}
 			<View style={{ borderTopWidth: 1, borderBottomWidth: 1, borderColor: p.ink }}>{rows}</View>
 			<View style={{ flexDirection: "row", gap: SP[2], marginTop: SP[3] }}>
-				{Field(ctx, spec.fields[0]!.label, 128, 17, { name: spec.fields[0]!.name })}
-				{Field(ctx, spec.fields[1]!.label, W - 128 - SP[2], 17, { name: spec.fields[1]!.name })}
+				{Field(ctx, nameField.label, 128, 17, { name: nameField.name })}
+				{Field(ctx, contactField.label, W - 128 - SP[2], 17, { name: contactField.name })}
 			</View>
 			{second.length ? (
 				<View style={{ flexDirection: "row", gap: SP[2], marginTop: SP[2] }}>
