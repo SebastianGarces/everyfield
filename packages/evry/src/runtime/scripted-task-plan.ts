@@ -61,7 +61,7 @@ const OWNER_ONLY: Record<string, string> = {
 	handoff: "Only an Owner or Admin can hand off follow-ups.",
 	prerequisites: "Only an Owner or Admin can change which tasks a task waits on.",
 };
-export const NO_TASK_CONTEXT =
+const NO_TASK_CONTEXT =
 	"I can't change tasks or follow-ups in this context. Switch to a church to change its tasks. I prepared nothing.";
 const REVIEWED = "I prepared a review. Nothing changes until you approve it.";
 

@@ -50,7 +50,6 @@ type Case = {
 	ask: string;
 	calls: string[];
 	answer?: string[];
-	absent?: string[];
 	proposal?: Expected;
 	between?: "declineOffer" | "editTask";
 	approve?: true;
@@ -281,9 +280,6 @@ const CHECKS = {
 	async prerequisitesStale() {
 		assert.deepEqual(await prerequisitesOf("insurance"), [], "the stale card changed nothing");
 	},
-	async nothing(before: Snapshot, after: Snapshot) {
-		assert.deepEqual(after, before);
-	},
 };
 
 async function between(kind: NonNullable<Case["between"]>) {
@@ -361,7 +357,6 @@ for (const c of cases)
 		const seen = `observed answer: ${turn.answer}\nreads: ${turn.reads.join(", ")}`;
 		assert.deepEqual(turn.reads, c.calls, seen);
 		for (const want of c.answer ?? []) assert.ok(turn.answer.includes(want), `${c.id} says "${want}"\n${seen}`);
-		for (const not of c.absent ?? []) assert.ok(!turn.answer.includes(not), `${c.id} never says "${not}"\n${seen}`);
 		if (!c.proposal) {
 			assert.equal(turn.proposals.length, 0, `${c.id} makes no card\n${seen}`);
 			assert.deepEqual(await snapshot(), start, `${c.id} changes nothing`);
