@@ -51,7 +51,7 @@ import {
 	Combobox,
 	CommandPalette,
 	ConfirmDialog,
-	ConfirmRefused,
+	type ConfirmRefusal,
 	DateRangePicker,
 	Dialog,
 	DialogBody,
@@ -796,15 +796,13 @@ function OverlaysSection({ paletteShortcut }: { paletteShortcut: ShortcutMark })
 	const [guide, setGuide] = useState(false);
 	const [answer, setAnswer] = useState<((hidden: boolean) => void) | null>(null);
 	const hide = () =>
-		new Promise<void>((resolve, reject) =>
+		new Promise<ConfirmRefusal | void>((resolve) =>
 			setAnswer(() => (hidden: boolean) => {
 				setAnswer(null);
-				if (!hidden) {
-					reject(
-						new ConfirmRefused("The article did not hide because the connection dropped. Nothing changed. Try again."),
-					);
-					return;
-				}
+				if (!hidden)
+					return resolve({
+						refused: "The article did not hide because the connection dropped. Nothing changed. Try again.",
+					});
 				toast({ message: "Article hidden." });
 				resolve();
 			}),

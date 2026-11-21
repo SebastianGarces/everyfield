@@ -5,7 +5,6 @@ import type * as people from "@everyfield/contracts/people";
 import {
 	Button,
 	ConfirmDialog,
-	ConfirmRefused,
 	Dialog,
 	DialogBody,
 	DialogContent,
@@ -511,9 +510,9 @@ export function RestoreDialog({
 					toPerson: (v) => v.person,
 				});
 				if (result === null)
-					throw new ConfirmRefused("Another change to this person is still saving. Try again in a moment.");
+					return { refused: "Another change to this person is still saving. Try again in a moment." };
 				if (isConflict(result)) onConflict();
-				if (result.status !== "ok") throw new ConfirmRefused(problemText(problemOf(result) ?? "unavailable"));
+				if (result.status !== "ok") return { refused: problemText(problemOf(result) ?? "unavailable") };
 				onSaved(result.value.receipt, { kind: "activity", action: "restored" });
 			}}
 		/>

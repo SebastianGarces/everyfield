@@ -20,7 +20,6 @@ import {
 	CardDescription,
 	CardTitle,
 	ConfirmDialog,
-	ConfirmRefused,
 	Field,
 	Input,
 	PageHeader,
@@ -599,13 +598,14 @@ function PendingCard({
 				(d) => withoutInvitation(d, invitation.invitationId),
 				`The invitation to ${invitation.recipientEmail} was revoked.`,
 			);
-		throw new ConfirmRefused(
-			result.problem === "unknown"
-				? "We could not confirm this. Check your connection, then select Revoke again. It never revokes twice."
-				: result.problem === "busy"
-					? "Another change is still on its way. Wait for it, then try again."
-					: "The invitation was not revoked. It may have been accepted already. Reload the list.",
-		);
+		return {
+			refused:
+				result.problem === "unknown"
+					? "We could not confirm this. Check your connection, then select Revoke again. It never revokes twice."
+					: result.problem === "busy"
+						? "Another change is still on its way. Wait for it, then try again."
+						: "The invitation was not revoked. It may have been accepted already. Reload the list.",
+		};
 	}
 
 	async function loadMore() {
