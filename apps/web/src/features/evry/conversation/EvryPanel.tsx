@@ -344,20 +344,25 @@ function Chat({
 				</p>
 			) : null}
 			{stream === "lost" && state.activeTurnId ? (
-				<div role="alert" className="flex items-center gap-3 rounded-md bg-surface-2 px-4 py-3 text-sm text-text-2">
-					<Icon icon={WifiDisconnected01Icon} size={16} className="flex-none text-text-3" />
-					<span className="flex-1">The connection to Evry was lost. Evry keeps working on the answer.</span>
-					<Button
-						size="sm"
-						variant="outline"
-						onClick={() => {
-							actions.reconnect();
-							focusComposer();
-						}}
-					>
-						Reconnect
-					</Button>
-				</div>
+				<Alert
+					role="alert"
+					tone="warning"
+					icon={WifiDisconnected01Icon}
+					actions={
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={() => {
+								actions.reconnect();
+								focusComposer();
+							}}
+						>
+							Reconnect
+						</Button>
+					}
+				>
+					The connection to Evry was lost. Evry keeps working on the answer.
+				</Alert>
 			) : null}
 			{problem ? <Alert role="alert">{problem}</Alert> : null}
 			<div aria-live="polite" className="sr-only">

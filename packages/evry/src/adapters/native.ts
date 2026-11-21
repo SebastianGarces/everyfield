@@ -1,10 +1,11 @@
+import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import type { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import type { EffectResult, NativeContext, NativePorts, ReviewContext, ReviewedWrite } from "../proposals/types.ts";
-import type { WriteTx } from "@everyfield/domain/access";
+import type { RequestActor, WriteTx } from "@everyfield/domain/access";
 
 export const plantAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
@@ -46,6 +47,36 @@ export function settled<T>(reply: { status: "ok"; value: T } | { status: "refuse
 export function committed<T extends { status: string }>(result: T): T {
 	if (result.status === "unavailable") throw new Error("unavailable");
 	return result;
+}
+
+export function approvedNow<I>(spec: {
+	operation: string;
+	description: string;
+	input: z.ZodType<I>;
+	allowed?: (actor: EvryActor) => boolean;
+	review: ReviewedWrite<I>["review"];
+	reason: boolean;
+	run(
+		db: Database,
+		authority: RequestActor,
+		args: Record<string, unknown>,
+		reason: string | null,
+	): Promise<EffectResult>;
+	current?(p: SQL): SQL;
+}): ReviewedWrite<I> {
+	return {
+		operation: spec.operation,
+		description: spec.description,
+		input: spec.input,
+		allowed: spec.allowed ?? organizationAdmin,
+		review: spec.review,
+		execute: async () => ({ refused: "review_closed" }),
+		approveNow: {
+			reason: spec.reason,
+			run: (db, authority, args, reason) => spec.run(db, authority, args as Record<string, unknown>, reason),
+		},
+		...(spec.current && { current: spec.current }),
+	};
 }
 
 type Receipt = { receiptId?: string; revision?: string };

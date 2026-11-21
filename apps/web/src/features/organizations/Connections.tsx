@@ -88,7 +88,7 @@ export function Connections({
 					/>
 				) : null}
 			</div>
-			<p role="status" className="mt-3 text-sm text-green-700 empty:hidden">
+			<p role="status" className="mt-3 text-sm text-green-700 empty:sr-only">
 				{status}
 			</p>
 			<LoadableView
