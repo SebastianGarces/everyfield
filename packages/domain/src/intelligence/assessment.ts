@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { Catalog } from "@everyfield/contracts/phases";
 import { liveRead, type RequestActor } from "../access/session.ts";
 import { plantViewer } from "../documents/access.ts";
+import { queueJobsFor } from "../jobs/queue.ts";
 import { readCatalog } from "../phases/catalog.ts";
 import { checkDraft } from "./checks.ts";
 import { sectionsOf, textHash } from "./retrieval.ts";
@@ -198,9 +199,16 @@ export function createAssessments(config: { clock?: Clock } = {}) {
 				const id = q.data.requestId;
 				const { rows } =
 					await db.execute(sql`WITH gate AS (SELECT ${s.ok} AND NOT ${plantHidden(sql`${s.plant}::uuid`)} AS ok),
-j AS (INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
-	SELECT ${s.plant}::uuid,'assessment',${s.plant}::uuid,${"manual/" + id},'ready',${now()},0,10,0 WHERE (SELECT ok FROM gate)
-	ON CONFLICT DO NOTHING RETURNING id),
+j AS (${queueJobsFor(sql`WHERE (SELECT ok FROM gate)`, {
+						kind: "assessment",
+						tenant: sql`${s.plant}::uuid`,
+						subject: sql`${s.plant}::uuid`,
+						key: sql`${"manual/" + id}::text`,
+						eligibleAt: now(),
+						maxAttempts: 10,
+						conflict: "skip",
+						returning: true,
+					})}),
 a AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,event_key,request_key,metadata)
 	SELECT ${s.plant}::uuid,${s.me}::uuid,'intelligence.refresh_requested','create','plant',${s.plant}::uuid,
 		${"assessment-refresh:" + id},${id},jsonb_build_object('requestId',${id}::text) FROM j RETURNING 1)

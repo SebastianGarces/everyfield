@@ -14,7 +14,7 @@ import {
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { claimDue, finishClaim, finishJob, lockClaim, type Claim } from "./queue.ts";
+import { claimDue, finishClaim, finishJob, lockClaim, queueJobsFor, type Claim } from "./queue.ts";
 import { MAIL_PASSES, type AuthorizeMail, type createMailService } from "./mail.ts";
 import { transaction } from "./transaction.ts";
 import { logLine } from "../log.ts";
@@ -57,16 +57,21 @@ export async function planDigests(db: Database, asOf: string): Promise<{ started
 			INSERT INTO digest_coverage(tenant_id, recipient_id, purpose, cadence, timezone, covered_through)
 			SELECT owner, recipient, purpose, cadence, zone, period_end FROM due WHERE coverage IS NULL LIMIT ${PLAN_LIMIT}
 			ON CONFLICT (tenant_id, recipient_id, purpose) DO NOTHING RETURNING id
-		), queued AS (
-			INSERT INTO job(tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts, claim_generation)
-			SELECT d.owner, 'digest', d.recipient, 'digest/' || d.purpose || '/' || d.owner || '/' || d.period_end, 'ready',
-				clock_timestamp(), 0, 4, 0
-			FROM due d
+		), queued AS (${queueJobsFor(
+			sql`FROM due d
 			WHERE d.coverage IS NOT NULL AND (d.covered_through IS NULL OR d.covered_through < d.period_end)
 				AND NOT EXISTS (SELECT FROM job j WHERE j.kind = 'digest' AND j.subject_record_id = d.recipient
 					AND j.producer_key = 'digest/' || d.purpose || '/' || d.owner || '/' || d.period_end)
-			LIMIT ${PLAN_LIMIT}
-			ON CONFLICT DO NOTHING RETURNING id
+			LIMIT ${PLAN_LIMIT}`,
+			{
+				kind: "digest",
+				tenant: sql`d.owner`,
+				subject: sql`d.recipient`,
+				key: sql`'digest/' || d.purpose || '/' || d.owner || '/' || d.period_end`,
+				conflict: "skip",
+				returning: true,
+			},
+		)}
 		)
 		SELECT (SELECT count(*) FROM started)::int AS started, (SELECT count(*) FROM queued)::int AS queued`);
 	return z.object({ started: z.number().int(), queued: z.number().int() }).parse(r.rows[0]);

@@ -106,10 +106,6 @@ export const TABLE_WRITERS = {
 		holders: [
 			"packages/domain/src/branding/writes.ts",
 			"packages/domain/src/documents/church-writes.ts",
-			"packages/domain/src/intelligence/assessment-job.ts",
-			"packages/domain/src/intelligence/assessment.ts",
-			"packages/domain/src/jobs/digest.ts",
-			"packages/domain/src/jobs/mail.ts",
 			"packages/domain/src/meetings/notifications.ts",
 			"packages/domain/src/organizations/notifications.ts",
 			"packages/domain/src/organizations/reviews.ts",

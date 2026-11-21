@@ -5,6 +5,7 @@ import { sql } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
+import { queueJobsFor } from "../jobs/queue.ts";
 import { logFailure } from "../log.ts";
 import { pgCode } from "../wiki/core.ts";
 import {
@@ -207,9 +208,16 @@ SELECT EXISTS(SELECT FROM r) AS ok`);
 	next_attempt_at=(SELECT t FROM w),revision=revision+1 WHERE id IN (SELECT id FROM lk) AND EXISTS(SELECT FROM r) RETURNING 1)`
 			: finish(outcome === "superseded" ? "superseded" : "failed", reason);
 		const followup = extra.followup
-			? sql`, f AS (INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,
-	claim_generation) SELECT r.plant_id,'assessment',r.plant_id,'followup/'||r.id::text,'ready',${now()},0,10,0 FROM r
-	ON CONFLICT DO NOTHING RETURNING 1)`
+			? sql`, f AS (${queueJobsFor(sql`FROM r`, {
+					kind: "assessment",
+					tenant: sql`r.plant_id`,
+					subject: sql`r.plant_id`,
+					key: sql`'followup/'||r.id::text`,
+					eligibleAt: now(),
+					maxAttempts: 10,
+					conflict: "skip",
+					returning: true,
+				})})`
 			: sql``;
 		await db.execute(sql`WITH ${lock(j)},
 w AS (SELECT ${deferred ? later(extra.waitMs!) : sql`NULL::timestamptz`} AS t),
@@ -339,9 +347,16 @@ d AS (SELECT plant,1 AS rank,'change/'||floor(extract(epoch FROM changed_at)*100
 		WHERE (current_as_of IS NULL OR current_as_of<=${stale}) AND (NOT held OR last_as_of<=${stale})),
 q AS (SELECT DISTINCT ON (d.plant) d.plant,d.key FROM d WHERE NOT EXISTS(SELECT FROM job j WHERE j.kind='assessment'
 	AND j.subject_record_id=d.plant AND j.producer_key=d.key) ORDER BY d.plant,d.rank),
-ins AS (INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,
-	claim_generation) SELECT plant,'assessment',plant,key,'ready',${t},0,10,0 FROM (SELECT * FROM q ORDER BY plant LIMIT ${limit}) q
-	ON CONFLICT DO NOTHING RETURNING 1)
+ins AS (${queueJobsFor(sql`FROM (SELECT * FROM q ORDER BY plant LIMIT ${limit}) q`, {
+				kind: "assessment",
+				tenant: sql`plant`,
+				subject: sql`plant`,
+				key: sql`key`,
+				eligibleAt: t,
+				maxAttempts: 10,
+				conflict: "skip",
+				returning: true,
+			})})
 SELECT count(*)::int AS n FROM ins`);
 			return z.object({ n: z.int() }).parse(rows[0]).n;
 		},
