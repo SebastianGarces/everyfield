@@ -262,13 +262,7 @@ export const importTextOrWord: ReviewedWrite<z.infer<typeof importInput>> = {
 			.filter(Boolean)
 			.join(" · ");
 		const excerpt = words.length > EXCERPT ? `${words.slice(0, EXCERPT).trimEnd()}…` : words;
-		const title =
-			value.title ??
-			(file.name
-				.replace(/\.[^.]+$/, "")
-				.trim()
-				.slice(0, TEMPLATE_NAME_MAX) ||
-				file.name);
+		const title = value.title ?? (file.name.replace(/\.[^.]+$/, "").trim() || file.name);
 		const changes = [
 			{ field: "file", before: null, after: file.name },
 			{ field: "title", before: null, after: title },

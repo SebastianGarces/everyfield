@@ -1268,7 +1268,6 @@ export function documentResult(review: Review): { href: string; label: string } 
 				: { href: "/documents", label: "Open Documents" };
 		case "documents.designateCoreValues":
 			return { href: `/documents/written/${target.id}`, label: `Open ${target.label}` };
-
 		default:
 			return null;
 	}
