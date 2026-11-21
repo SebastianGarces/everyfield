@@ -294,7 +294,7 @@ test("INV-mount-mail: the relationship mount sends only relationship invitations
 	for (const key of keys) assert.notDeepEqual(await mailState(key), ["accepted"], key);
 });
 
-test("INV-mount-mail: a relationship invitation resent on day 29 keeps its original expiry in the result and the mail", async () => {
+test("INV-mount-mail: a relationship invitation resent on day 29 restarts its 30 days in the result and the mail", async () => {
 	const invitee = `${randomUUID()}@example.test`;
 	const c = await connection();
 	const made = await c.invite(invitee);
@@ -305,10 +305,12 @@ test("INV-mount-mail: a relationship invitation resent on day 29 keeps its origi
 	);
 	const [{ created_at }] = (await admin.execute(sql`SELECT created_at FROM invitation WHERE id = ${made.invitationId}`))
 		.rows as { created_at: Date | string }[];
-	const original = new Date(new Date(created_at).getTime() + 30 * 86_400_000);
 	const resent = await c.resendInvitation(made.invitationId, made.revision);
 	assert.equal(resent.status, "pending");
-	assert.equal(resent.expiresAt, original.toISOString());
+	const [{ resent_at }] = (await admin.execute(sql`SELECT resent_at FROM invitation WHERE id = ${made.invitationId}`))
+		.rows as { resent_at: Date | string }[];
+	const restarted = new Date(new Date(resent_at).getTime() + 30 * 86_400_000);
+	assert.equal(resent.expiresAt, restarted.toISOString());
 
 	const { body } = await tick({ organization: organizationMailPass(transport()) });
 	assert.deepEqual(body.steps["organization-mail"], { status: "ok", count: 1 });
@@ -316,7 +318,7 @@ test("INV-mount-mail: a relationship invitation resent on day 29 keeps its origi
 	assert.equal(calls.length, 1);
 	const mail = calls[0]!.body as { to: string; text: string };
 	assert.equal(mail.to, invitee);
-	assert.ok(mail.text.includes(`It works until ${day.format(original)} (UTC).`), mail.text);
-	const extended = new Date(new Date(created_at).getTime() + 59 * 86_400_000);
-	assert.ok(!mail.text.includes(day.format(extended)), mail.text);
+	assert.ok(mail.text.includes(`It works until ${day.format(restarted)} (UTC).`), mail.text);
+	const original = new Date(new Date(created_at).getTime() + 30 * 86_400_000);
+	assert.ok(!mail.text.includes(day.format(original)), mail.text);
 });

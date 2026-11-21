@@ -69,7 +69,7 @@ Send saves the feedback as the author's own; Sent feedback then lists it.
 - Operations: feedback.submit, feedback.listOwn
 - Catalog: ADM-001
 - Cases: CASE-ADM-001
-- Test: `tests/integration/feedback/feedback.test.mts`: `AC:CASE-ADM-001 the dialog saves its details, takes church and role from the seat, strips the address and saves a resend once`
+- Test: `tests/integration/feedback/feedback.test.mts`: `AC:CASE-ADM-001 the dialog saves its details, takes church and role from the seat and refuses sent ones, strips the address and saves a resend once`
 - Test: `tests/integration/feedback/feedback.test.mts`: `AC:CASE-ADM-001 AC:PUB57-002 INV-privacy: the author lists only their own feedback, 25 at a time, without private details`
 - Browser, behavior proof (acts and checks the result), from state open:
 

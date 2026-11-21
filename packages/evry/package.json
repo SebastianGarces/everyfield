@@ -22,6 +22,7 @@
 		"@everyfield/contracts": "workspace:*",
 		"@everyfield/db": "workspace:*",
 		"@everyfield/domain": "workspace:*",
+		"@langfuse/core": "6.0.1",
 		"@langfuse/otel": "6.0.1",
 		"@langfuse/tracing": "6.0.1",
 		"@langfuse/vercel-ai-sdk": "6.0.1",

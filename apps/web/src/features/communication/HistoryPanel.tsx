@@ -2,7 +2,7 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
-import { Button, ConfirmDialog, EmptyState, Field, Input, Select } from "@everyfield/ui/controls";
+import { Alert, Button, ConfirmDialog, EmptyState, Field, Input, RowButton, Select } from "@everyfield/ui/controls";
 import { useViewerNow, useViewerZone } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import { currentAddress } from "../../components/location.ts";
@@ -213,11 +213,10 @@ function MessageButton({
 	onSelect: (item: HistoryItem) => void;
 }) {
 	return (
-		<button
-			type="button"
+		<RowButton
 			aria-current={selected ? "true" : undefined}
 			onClick={() => onSelect(item)}
-			className="flex min-h-[72px] w-full flex-col items-start gap-1 rounded-md px-3 py-2.5 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] aria-[current=true]:bg-surface-2"
+			className="min-h-[72px] flex-col items-start gap-1 rounded-md px-3 py-2.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] aria-[current=true]:bg-surface-2"
 		>
 			<span className="flex w-full items-center justify-between gap-2">
 				<span className="min-w-0 truncate font-medium text-ink">{item.subject?.trim() || "No subject"}</span>
@@ -226,7 +225,7 @@ function MessageButton({
 			<span className="text-sm text-text-3">
 				{rowTime(item)} · {recipientCount(item.reachable, item.state)}
 			</span>
-		</button>
+		</RowButton>
 	);
 }
 
@@ -575,11 +574,7 @@ function Detail({
 							Review follow-up
 						</Button>
 					</div>
-					{reviewError ? (
-						<p role="alert" className="text-sm font-medium text-magenta-600">
-							{reviewError}
-						</p>
-					) : null}
+					{reviewError ? <Alert role="alert">{reviewError}</Alert> : null}
 					{review ? (
 						<div className="flex flex-col items-start gap-2 text-sm text-text-2">
 							<p>{review.confirmedDelivery ? "At least one delivery is confirmed." : "No delivery is confirmed."}</p>
@@ -827,14 +822,17 @@ function Browser({
 						</p>
 					) : null}
 					{history.error ? (
-						<div className="flex flex-col items-start gap-3 px-2">
-							<p role="alert" className="text-sm font-medium text-magenta-600">
-								{history.error}
-							</p>
-							<Button variant="secondary" onClick={history.reload}>
-								Try again
-							</Button>
-						</div>
+						<Alert
+							role="alert"
+							className="mx-2"
+							actions={
+								<Button variant="secondary" onClick={history.reload}>
+									Try again
+								</Button>
+							}
+						>
+							{history.error}
+						</Alert>
 					) : null}
 					{history.pending !== "list" && !history.error && history.items.length === 0 ? (
 						<EmptyState icon={Mail01Icon} title={emptyTitle}>
@@ -879,11 +877,7 @@ function Browser({
 							Loading the message.
 						</p>
 					) : null}
-					{detailError ? (
-						<p role="alert" className="text-sm font-medium text-magenta-600">
-							{detailError}
-						</p>
-					) : null}
+					{detailError ? <Alert role="alert">{detailError}</Alert> : null}
 					{view ? (
 						<Detail
 							view={view}
@@ -1150,11 +1144,7 @@ export function History({
 					Clear filters
 				</Button>
 			) : null}
-			{scopeNote ? (
-				<p role="alert" className="text-sm font-medium text-magenta-600">
-					{scopeNote}
-				</p>
-			) : null}
+			{scopeNote ? <Alert role="alert">{scopeNote}</Alert> : null}
 			<Browser
 				key={firstPages.key(list)}
 				canWrite={canWrite}

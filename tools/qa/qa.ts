@@ -20,6 +20,7 @@ import {
 	drivePid,
 	driverLogPath,
 	fail,
+	QaError,
 	readPreviews,
 	removePreview,
 	repoHome,
@@ -160,7 +161,9 @@ export function qaUp(root: string, branch: string, recipients: string[] = []): n
 		try {
 			qaDown(root, id);
 		} catch (cleanup) {
-			console.error(`qa up: cleanup failed (${(cleanup as Error).message}). Run: bin/qa down ${id}`);
+			const why =
+				cleanup instanceof QaError ? cleanup.message : cleanup instanceof Error ? cleanup.name : typeof cleanup;
+			console.error(`qa up: cleanup failed (${why}). Run: bin/qa down ${id}`);
 		}
 		throw error;
 	}

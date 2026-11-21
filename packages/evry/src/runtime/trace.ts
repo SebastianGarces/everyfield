@@ -1,10 +1,13 @@
+import { LANGFUSE_SDK_VERSION } from "@langfuse/core";
 import { LangfuseSpanProcessor } from "@langfuse/otel";
 import { propagateAttributes, startObservation } from "@langfuse/tracing";
 import { LangfuseVercelAiSdkIntegration } from "@langfuse/vercel-ai-sdk";
-import { context, diag, DiagLogLevel, type DiagLogger, trace, TraceFlags } from "@opentelemetry/api";
+import { type Attributes, context, diag, DiagLogLevel, type DiagLogger, trace, TraceFlags } from "@opentelemetry/api";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
 import { ExportResultCode } from "@opentelemetry/core";
-import { type SpanExporter, TracerProvider } from "@opentelemetry/sdk-trace";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { CompressionAlgorithm } from "@opentelemetry/otlp-exporter-base";
+import { type ReadableSpan, type SpanExporter, TracerProvider } from "@opentelemetry/sdk-trace";
 import { registerTelemetry } from "ai";
 import { asLogHost, asLogWord, logFailure, logInfo, logLine } from "@everyfield/domain/log";
 import { createHash } from "node:crypto";
@@ -46,29 +49,68 @@ const diagLogger: DiagLogger = {
 const DEFAULT_BASE_URL = "https://cloud.langfuse.com";
 const ENVIRONMENT = /^(?!langfuse)[a-z0-9_-]+$/;
 
-function watchExports(processor: LangfuseSpanProcessor) {
-	const exporter = (processor as unknown as { processor?: { _exporter?: SpanExporter } }).processor?._exporter;
-	if (!exporter) return;
-	const send = exporter.export.bind(exporter);
-	exporter.export = (spans, done) => {
-		state.exported += spans.length;
-		send(spans, (result) => {
-			if (result.code !== ExportResultCode.SUCCESS) {
-				const status = (result.error as { code?: unknown } | undefined)?.code;
-				quietly(() =>
-					logFailure(
-						{
-							component: "evry",
-							event: "trace_export_failed",
-							code: "FAILED",
-							httpStatus: typeof status === "number" ? status : null,
-						},
-						result.error ?? null,
-					),
-				);
+const BATCH_BYTES_DEFAULT = 64 * 1024 * 1024;
+
+const batchBytesMax = (raw: string | undefined) => {
+	const limit = /^\d+$/.test(raw?.trim() ?? "") ? Number(raw) : 0;
+	return Number.isSafeInteger(limit) && limit > 0 ? limit : BATCH_BYTES_DEFAULT;
+};
+
+const textBytes = (attributes: Attributes) =>
+	Object.entries(attributes).reduce(
+		(bytes, [key, value]) =>
+			bytes +
+			key.length +
+			[value].flat().reduce<number>((n, item) => n + (typeof item === "string" ? item.length : 0), 0),
+		0,
+	);
+
+const batchBytes = (spans: ReadableSpan[]) =>
+	spans.reduce(
+		(bytes, span) =>
+			bytes +
+			span.name.length +
+			(span.status.message?.length ?? 0) +
+			textBytes(span.attributes) +
+			span.events.reduce((n, event) => n + event.name.length + textBytes(event.attributes ?? {}), 0) +
+			span.links.reduce((n, link) => n + textBytes(link.attributes ?? {}), 0),
+		0,
+	);
+
+const exportFailed = (code: "FAILED" | "TOO_LARGE", httpStatus: number | null, error: unknown) =>
+	quietly(() => logFailure({ component: "evry", event: "trace_export_failed", code, httpStatus }, error));
+
+function langfuseExporter(publicKey: string, secretKey: string, baseUrl: string, bytesMax: number): SpanExporter {
+	const otlp = new OTLPTraceExporter({
+		url: `${baseUrl}/api/public/otel/v1/traces`,
+		headers: {
+			Authorization: `Basic ${Buffer.from(`${publicKey}:${secretKey}`).toString("base64")}`,
+			"x-langfuse-sdk-name": "javascript",
+			"x-langfuse-sdk-version": LANGFUSE_SDK_VERSION,
+			"x-langfuse-public-key": publicKey,
+			"x-langfuse-ingestion-version": "4",
+		},
+		timeoutMillis: 5000,
+		compression: CompressionAlgorithm.GZIP,
+	});
+	return {
+		export(spans, done) {
+			state.exported += spans.length;
+			if (batchBytes(spans) > bytesMax) {
+				const error = new RangeError("span batch over the byte limit");
+				exportFailed("TOO_LARGE", null, error);
+				return done({ code: ExportResultCode.FAILED, error });
 			}
-			done(result);
-		});
+			otlp.export(spans, (result) => {
+				if (result.code !== ExportResultCode.SUCCESS) {
+					const status = (result.error as { code?: unknown } | undefined)?.code;
+					exportFailed("FAILED", typeof status === "number" ? status : null, result.error ?? null);
+				}
+				done(result);
+			});
+		},
+		forceFlush: () => otlp.forceFlush(),
+		shutdown: () => otlp.shutdown(),
 	};
 }
 
@@ -85,20 +127,20 @@ export function registerTracing(env: Record<string, string | undefined> = proces
 		environment: environment === undefined ? null : asLogWord(environment),
 		environmentValid,
 	} as const;
-	const reason =
-		!publicKey || !secretKey
-			? "missing_keys"
-			: !url
-				? "invalid_base_url"
-				: !environmentValid
-					? "invalid_environment"
-					: undefined;
-	if (reason) {
+	const disabled = (reason: "missing_keys" | "invalid_base_url" | "invalid_environment") => {
 		quietly(() => logLine({ ...config, event: "tracing_disabled", reason }));
 		return false;
-	}
-	const processor = new LangfuseSpanProcessor({ publicKey, secretKey, baseUrl, environment });
-	watchExports(processor);
+	};
+	if (!publicKey || !secretKey) return disabled("missing_keys");
+	if (!url) return disabled("invalid_base_url");
+	if (!environmentValid) return disabled("invalid_environment");
+	const exporter = langfuseExporter(
+		publicKey,
+		secretKey,
+		baseUrl,
+		batchBytesMax(env.LANGFUSE_OTEL_MAX_BATCH_SIZE_BYTES),
+	);
+	const processor = new LangfuseSpanProcessor({ publicKey, secretKey, baseUrl, environment, exporter });
 	diag.setLogger(diagLogger, DiagLogLevel.WARN);
 	quietly(() => logInfo({ ...config, event: "tracing_registered" }));
 	if (!context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable()))
