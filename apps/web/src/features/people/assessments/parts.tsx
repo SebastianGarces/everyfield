@@ -2,6 +2,7 @@
 
 import { Button, SegmentedControl } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
+import { UNREADABLE_DOCUMENT } from "@everyfield/contracts/people";
 import { useId, useState, type ReactNode } from "react";
 import type { Outcome } from "../../../components/save/model.ts";
 import { problemText } from "../parts.tsx";
@@ -18,7 +19,7 @@ export function recordProblem(code: string): string {
 		case "storage_unavailable":
 			return "Document storage is not set up yet. Save without the document, or try again later.";
 		case "unreadable_document":
-			return "This file could not be read as a PDF, JPG or PNG. Choose another file of 10 MB or less.";
+			return UNREADABLE_DOCUMENT;
 		case "upload_failed":
 			return "The document did not upload, and nothing was saved. Try again in a moment.";
 		case "upload_lost":

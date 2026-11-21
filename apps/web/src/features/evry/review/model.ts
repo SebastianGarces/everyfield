@@ -369,6 +369,7 @@ const FIELD_LABEL: Record<string, string> = {
 	kind: "Commitment",
 	witness: "Witness",
 	cardNotes: "Notes",
+	document: "Signed document",
 	commitment: "Commitment",
 	effectiveOn: "From",
 	cardVoided: "Voided",
@@ -1656,6 +1657,15 @@ export function refusalText(code: string | undefined, target: string | null, ope
 	if (operation && isTasks(operation)) return taskRefusalText(code, target);
 	const meetings = !!operation && isMeetings(operation);
 	const who = target ?? (meetings ? "This meeting" : "this person");
+	if (operation === "people.createCommitment")
+		switch (code) {
+			case "attachment_gone":
+				return "The attached document is no longer available: attached files last 24 hours. Nothing was recorded. Attach it again and ask Evry again.";
+			case "file_changed":
+				return "A newer file with the same name was attached after Evry prepared this, so nothing was recorded. Ask Evry again with the file you mean.";
+			case "attachment_used":
+				return "The attached document is already the signed document of another commitment card, so nothing was recorded.";
+		}
 	if (meetings)
 		switch (code) {
 			case "revision_conflict":

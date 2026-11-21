@@ -4,27 +4,35 @@ import { readPrivateUpload, signPrivatePut, type PrivateStorage } from "@everyfi
 import { liveRead } from "@everyfield/domain/access";
 import { queueJobsFor } from "@everyfield/domain/jobs";
 import { randomUUID } from "node:crypto";
+import { COMMITMENT_MAX_BYTES } from "@everyfield/contracts/people";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
 
 export const ATTACHMENTS = { csvBytes: 10 * 1024 * 1024, perTurn: 10, stagingHours: 24 } as const;
+const KINDS = {
+	csv: { mediaType: "text/csv", purpose: "assistant_staging", bytes: ATTACHMENTS.csvBytes },
+	pdf: { mediaType: "application/pdf", purpose: "commitment", bytes: COMMITMENT_MAX_BYTES },
+} as const;
+const kindOf = (name: string) => (/\.pdf$/i.test(name) ? KINDS.pdf : KINDS.csv);
 
-const stageInput = z.strictObject({
-	name: z
-		.string()
-		.trim()
-		.min(1)
-		.max(200)
-		.regex(/\.csv$/i),
-	byteLength: z.int().min(1).max(ATTACHMENTS.csvBytes),
-});
+const stageInput = z
+	.strictObject({
+		name: z
+			.string()
+			.trim()
+			.min(1)
+			.max(200)
+			.regex(/\.(csv|pdf)$/i),
+		byteLength: z.int().min(1),
+	})
+	.refine((v) => v.byteLength <= kindOf(v.name).bytes);
 export const attachment = z.strictObject({ id: z.uuid(), name: stageInput.shape.name });
 
 const uploadKey = (conversationId: string, id: string) => `evry-attachment/${conversationId}/${id}`;
 const staged = <F extends string, C extends string>(f: SqlLiteral<F>, c: SqlLiteral<C>) =>
-	`${f}.purpose='assistant_staging' AND ${f}.upload_key='evry-attachment/'||${c}.id||'/'||${f}.id`;
+	`${f}.purpose IN ('assistant_staging','commitment') AND ${f}.upload_key='evry-attachment/'||${c}.id||'/'||${f}.id`;
 export const stagedIn = <F extends string, C extends string>(f: SqlLiteral<F>, c: SqlLiteral<C>) =>
 	sql.raw(staged(f, c));
 const canAttach = (actor: EvryActor) =>
@@ -41,6 +49,7 @@ export async function stageAttachment(
 	if (!parsed.success) throw new EvryRefusal("invalid_input");
 	if (!storage || !canAttach(actor)) throw new EvryRefusal("access_denied");
 	const { input } = parsed.data;
+	const kind = kindOf(input.name);
 	const id = randomUUID();
 	const key = `private/${actor.owner.id}/${id}`;
 	const r = await db.execute(sql`WITH c AS (
@@ -48,7 +57,7 @@ export async function stageAttachment(
 				AND c.tenant_id=${actor.owner.id}::uuid AND ${currentAuthority(actor)}
 		), upload AS (
 			INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
-			SELECT ${id}::uuid,c.tenant_id,'assistant_staging',${key}::text,'text/csv',${input.byteLength}::bigint,'pending',
+			SELECT ${id}::uuid,c.tenant_id,${kind.purpose}::text,${key}::text,${kind.mediaType}::text,${input.byteLength}::bigint,'pending',
 				${uploadKey(conversationId, id)}::text,0,clock_timestamp()+make_interval(hours=>${ATTACHMENTS.stagingHours}) FROM c
 			RETURNING id,tenant_id,expires_at
 		), cleanup AS (${queueJobsFor(sql`FROM upload`, {
@@ -61,7 +70,7 @@ export async function stageAttachment(
 		})})
 		SELECT id FROM upload`);
 	if (!r.rows.length) throw new EvryRefusal("not_found");
-	const signed = await signPrivatePut(storage, key, "text/csv", input.byteLength).catch(() => {
+	const signed = await signPrivatePut(storage, key, kind.mediaType, input.byteLength).catch(() => {
 		throw new EvryRefusal("source_unavailable");
 	});
 	return { attachment: { id, name: input.name }, upload: signed };
@@ -111,3 +120,23 @@ export const attachmentState = z.object({
 	status: z.enum(["available", "replaced", "gone"]),
 	checkedDigest: z.string().nullable(),
 });
+
+export type StagedStatus = z.infer<typeof attachmentState>["status"] | "used";
+export async function stagedFile(
+	db: Pick<Database, "execute">,
+	tenantId: string,
+	conversationId: string,
+	attachmentId: string,
+): Promise<{ name: string; status: StagedStatus } | null> {
+	const r = await db.execute(sql`SELECT x->>'name' AS name,
+			CASE WHEN f.id IS NOT NULL AND file_is_referenced(f.id) THEN 'used' ELSE x->>'status' END AS status
+		FROM conversation c CROSS JOIN LATERAL jsonb_array_elements(${attachmentsOf("c")}) x
+		LEFT JOIN file_object f ON f.id=(x->>'id')::uuid AND f.tenant_id=c.tenant_id
+		WHERE c.id=${conversationId}::uuid AND c.tenant_id=${tenantId}::uuid AND x->>'id'=${attachmentId}::text`);
+	return (
+		z
+			.object({ name: z.string(), status: z.enum(["available", "replaced", "gone", "used"]) })
+			.optional()
+			.parse(r.rows[0]) ?? null
+	);
+}
