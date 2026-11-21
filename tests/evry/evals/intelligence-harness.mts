@@ -20,8 +20,8 @@ import {
 	type NativePorts,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 
 type Change = { field: string; before: unknown; after: unknown };
 type Case = {
@@ -98,7 +98,7 @@ export function harness(db: Database, today: Date, native: NativePorts | null = 
 		const outcome = await executeProposal(
 			db,
 			{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-			async () => undefined,
+			{ reminders: async () => undefined as never, phaseNotices: async () => undefined },
 			null,
 			native,
 		);
