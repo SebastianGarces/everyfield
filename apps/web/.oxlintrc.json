@@ -1298,7 +1298,9 @@
 		{
 			"files": [
 				"src/access/**",
+				"src/app/access/**",
 				"src/components/**",
+				"src/marketing/**",
 				"src/server/**",
 				"src/features/access/**",
 				"src/features/identity/**",
