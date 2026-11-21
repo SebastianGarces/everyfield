@@ -12,6 +12,7 @@ const { admin: db } = database;
 const publisher = { actorId: randomUUID(), userId: randomUUID(), sessionId: randomUUID() };
 const OPENAI = { EVF_WIKI_EMBEDDINGS: "openai", OPENAI_API_KEY: "sk-test-rebuild" };
 const TOKENS_PER_TEXT = 7;
+const SIGNED_ZERO = 4242;
 
 function provider() {
 	const seen = { calls: 0, texts: 0 };
@@ -19,16 +20,14 @@ function provider() {
 		const { input } = JSON.parse(String(init.body)) as { input: string[] };
 		seen.calls += 1;
 		seen.texts += input.length;
-		return new Response(
-			JSON.stringify({
-				data: input.map((_, index) => ({
-					index,
-					embedding: Array.from({ length: 1536 }, (_, at) => (at === index % 1536 ? 1 : 0)),
-				})),
-				usage: { total_tokens: input.length * TOKENS_PER_TEXT },
-			}),
-			{ status: 200 },
-		);
+		const body = JSON.stringify({
+			data: input.map((_, index) => ({
+				index,
+				embedding: Array.from({ length: 1536 }, (_, at) => (at === 0 ? SIGNED_ZERO : (at * 7 + index) / 9973)),
+			})),
+			usage: { total_tokens: input.length * TOKENS_PER_TEXT },
+		});
+		return new Response(body.replaceAll(`[${SIGNED_ZERO},`, "[-0.0,"), { status: 200 });
 	};
 	return { seen, fetch };
 }
@@ -73,7 +72,7 @@ test("an OpenAI rebuild whose estimate passes the run cap refuses before any cal
 	assert.deepEqual(await ledger(), []);
 });
 
-test("an OpenAI rebuild under the $1.00 cap records the tokens and cost its provider reported", async () => {
+test("an OpenAI rebuild under the $1.00 cap, with vectors holding -0.0 as OpenAI sends them, activates and records the tokens and cost its provider reported", async () => {
 	const { seen, fetch } = provider();
 	const rebuilt = await referenceService(db, { env: OPENAI, fetch }).rebuildEmbeddings(publisher, command("R2", "1"));
 	assert.equal(rebuilt.activated, true);

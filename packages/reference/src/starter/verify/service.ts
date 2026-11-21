@@ -242,7 +242,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 				const raw = raws[index];
 				if (!raw || raw.length !== embedding.dimensions || raw.some((value) => !Number.isFinite(value)))
 					return failed("incomplete_candidate", usageTokens);
-				const vector = raw.map((value) => Math.fround(value));
+				const vector = raw.map((value) => (value === 0 ? 0 : Math.fround(value)));
 				passages.push({
 					key: chunk.key,
 					revisionId: chunk.revisionId,
