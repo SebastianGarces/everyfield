@@ -205,7 +205,7 @@ export async function invitationFor(
 	const reply = await query(m, authority, viewer.selected, (tx, s, o) =>
 		readAnswerableInvitation(tx, s, o, { invitationId, proof }),
 	);
-	return reply.status === "ok" && reply.value.status === "pending" ? reply.value : null;
+	return reply.status === "ok" && reply.value.status !== "unavailable" ? reply.value : null;
 }
 
 export {
