@@ -671,20 +671,22 @@
 				{
 					"operation": "people.listPeople",
 					"input": {
-						"stages": ["prospect"]
+						"stages": ["prospect"],
+						"city": "~austin"
 					}
 				}
 			],
+			"noSearch": true,
 			"names": {
 				"allowed": ["stage=prospect&city=Austin"],
 				"all": "stage=prospect&city=Austin",
 				"orPartial": true
 			},
-			"derivation": "13 of the 57 prospects live in Austin; listPeople has no city filter, so Evry pages the prospects and filters the returned rows, or says it stopped early.",
+			"forbid": ["/\\b(0|no|zero) prospects\\b/i"],
+			"derivation": "13 of the 57 prospects live in Austin; listPeople filters by the recorded city (the People list read, extended with a city filter), so one read returns all 13.",
 			"target": {
 				"names": {
-					"all": "stage=prospect&city=Austin",
-					"orPartial": true
+					"all": "stage=prospect&city=Austin"
 				}
 			},
 			"finding": {
@@ -715,12 +717,20 @@
 				"/\\b4\\b[^\\n]{0,40}follow|follow[^\\n]{0,40}\\b4\\b/i",
 				"/\\b2\\b[^\\n]{0,40}interview|interview[^\\n]{0,40}\\b2\\b/i",
 				"/\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i",
+				"/\\b3\\b[^\\n]{0,40}leader|leader[^\\n]{0,40}\\b3\\b/i",
+				"/\\b2\\b[^\\n]{0,40}launch|launch[^\\n]{0,40}\\b2\\b/i",
 				"/\\b57\\b|more|partial|next page|at least|first 24|24\\+|\\bpages\\b|page 2/i"
 			],
 			"forbid": ["/\\b(rank|ranked|score|scored|top prospects?)\\b/i"],
-			"derivation": "Board columns: 57 prospect (paged at 24), 11 attendee, 4 following_up, 2 interviewed, 5 core_group.",
+			"derivation": "Board columns: 57 prospect (paged at 24), 11 attendee, 4 following_up, 2 interviewed, and the core_group column's 10: 5 core_group, 3 leader and 2 launch_team, each counted in the read's facts.",
 			"target": {
-				"require": ["/\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"]
+				"require": [
+					"/\\b57\\b[^\\n]{0,40}prospect|prospect[^\\n]{0,40}\\b57\\b/i",
+					"/\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i",
+					"/\\b3\\b[^\\n]{0,40}leader|leader[^\\n]{0,40}\\b3\\b/i",
+					"/\\b2\\b[^\\n]{0,40}launch|launch[^\\n]{0,40}\\b2\\b/i",
+					"/more|next page|page 2|continues|first (page|24)/i"
+				]
 			},
 			"finding": {
 				"checks": ["says /\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"],
@@ -894,10 +904,16 @@
 			"clarify": true,
 			"require": [
 				"/inactive['\\\"”]? (isn['’]?t|is not) an? (stage|status|option)|no ['\\\"“]?inactive['\\\"”]? (stage|status|option)|isn['’]?t an? ['\\\"“]?inactive|doesn['’]?t (have|include) an? ['\\\"“]?inactive|not an? (pipeline )?(stage|status)|there['’]?s no ['\\\"“]?inactive/i",
-				"/(prospect[\\s\\S]*leader)|remov/i"
+				"/prospect[\\s\\S]*attendee[\\s\\S]*follow[\\s\\S]*interview[\\s\\S]*core[\\s\\S]*launch[\\s\\S]*leader/i",
+				"/remov/i"
 			],
+			"derivation": "There is no inactive stage: the answer names the seven stages in order and offers to remove Sam Patel with a reason (people.deletePerson), with no review card until the user accepts.",
 			"target": {
-				"require": ["/(prospect[\\s\\S]*leader)|remov/i"]
+				"require": [
+					"/prospect[\\s\\S]*attendee[\\s\\S]*follow[\\s\\S]*interview[\\s\\S]*core[\\s\\S]*launch[\\s\\S]*leader/i",
+					"/remov/i",
+					"/reason/i"
+				]
 			}
 		}
 	},

@@ -2022,6 +2022,36 @@
 		}
 	},
 	{
+		"case_id": "ADP-C-14",
+		"extra": true,
+		"adapter": "people/commands",
+		"operation": "people.deletePerson",
+		"near_miss": false,
+		"question": "yes, remove him. He moved to Dallas.",
+		"eval": {
+			"history": [
+				{
+					"user": "Mark Sam Patel as inactive"
+				},
+				{
+					"assistant": "There's no inactive stage in People. The seven stages are prospect, attendee, following up, interviewed, core group, launch team and leader. Sam Patel is in core group. I can prepare a review to remove Sam from your current people, with a reason. Do you want that?"
+				}
+			],
+			"proposals": [
+				{
+					"operation": "people.deletePerson",
+					"input": {
+						"personId": "@Sam Patel",
+						"reason": "/dallas|moved/i"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": ["/I['’]?(ve| have) (deleted|removed)|has been removed/i"],
+			"derivation": "Accepting PIP-07's removal offer makes one removal review for Sam Patel with the user's reason. Nothing changes until it is approved."
+		}
+	},
+	{
 		"case_id": "ADP-NT-01",
 		"extra": true,
 		"adapter": "notifications/reads",

@@ -407,6 +407,7 @@ export const getActivities: ReadAdapter<z.infer<typeof activityInput>> = {
 	},
 };
 
+const COMMITTED = ["core_group", "launch_team", "leader"] as const;
 const pipelineInput = z.strictObject({
 	search: z.string().trim().max(255).optional().describe("Name, email or phone text to match"),
 	stages: z.array(stage).max(7).optional(),
@@ -416,7 +417,7 @@ const pipelineInput = z.strictObject({
 export const getPipelineData: ReadAdapter<z.infer<typeof pipelineInput>> = {
 	operation: "people.getPipelineData",
 	description:
-		"Read this church's pipeline board: name, city, stage, column, inactivity and coverage. It does not rank people or return contact values.",
+		"Read this church's pipeline board: name, city, stage, column, inactivity and coverage, with each column's exact count in facts. The core_group column also holds launch team and leaders: facts count each stage when the whole column is on the page; otherwise list people by stage. Cards are one page of each column. It does not rank people or return contact values.",
 	input: pipelineInput,
 	allowed: inPlant,
 	async invoke(tx, actor, input) {
@@ -431,16 +432,24 @@ export const getPipelineData: ReadAdapter<z.infer<typeof pipelineInput>> = {
 			(soonest, group) => (group.next !== null && (soonest === null || group.next < soonest) ? group.next : soonest),
 			null,
 		);
-		return result(
-			"people.getPipelineData",
-			"available",
-			pipelineRows(actor, found),
-			total,
-			request.page,
-			next,
-			found.completeness,
-			["email", "phone", "notes", "birth date", "duty ids", "private care"],
-		);
+		const facts: NonNullable<SourceResult["facts"]> = {};
+		for (const group of found.groups) if (group.total !== null) facts[`column.${group.column}`] = group.total;
+		const core = found.groups.find((group) => group.column === "core_group");
+		if (core && core.total !== null && core.cards.length === core.total)
+			for (const s of COMMITTED) facts[`stage.${s}`] = core.cards.filter((card) => card.person.stage === s).length;
+		return {
+			...result(
+				"people.getPipelineData",
+				"available",
+				pipelineRows(actor, found),
+				total,
+				request.page,
+				next,
+				found.completeness,
+				["email", "phone", "notes", "birth date", "duty ids", "private care"],
+			),
+			facts,
+		};
 	},
 };
 
