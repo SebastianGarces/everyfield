@@ -149,6 +149,11 @@ const CASES: Case[] = [
 		},
 	},
 	{
+		name: "communication mailReport send",
+		schema: mailReport,
+		valid: { kind: "send", confirmation: "confirmed", accepted: 3, refused: 0, unknown: 0, leftOut: 1 },
+	},
+	{
 		name: "communication mailReport reschedule",
 		schema: mailReport,
 		valid: { kind: "reschedule", confirmation: "confirmed", scheduledAt: AT, open: 0, sent: 3 },
