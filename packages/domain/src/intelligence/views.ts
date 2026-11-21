@@ -32,7 +32,7 @@ export function lensesOf(facts: unknown, draft: c.DraftOutput): c.LensTile[] {
 			const a = f?.attestations.find((x) => x.key === key);
 			return {
 				key,
-				label: c.SIGNAL_DEFINITIONS.find((d) => d.key === key)!.label,
+				label: c.definitionOf(key).label,
 				answered: a?.state === "answered",
 				asOf: a?.state === "answered" ? a.asOf : null,
 				needsRenewing: a?.renewal.status === "needs_renewing",
@@ -116,7 +116,8 @@ export function trendOf(cells: z.infer<typeof trendCells>): c.TrendValue[] {
 	return c.TREND_FACTS.map(({ key }, i) => {
 		const cell = cells[i];
 		if (!cell) return { state: "not_measured" };
-		if (cell.status === "unknown" && UNKNOWN_WITH_STATUS.has(key.split(".")[0]!)) return { state: "unknown" };
+		const [group = key] = key.split(".");
+		if (cell.status === "unknown" && UNKNOWN_WITH_STATUS.has(group)) return { state: "unknown" };
 		return typeof cell.value === "number" ? { state: "measured", value: cell.value } : { state: "unknown" };
 	});
 }

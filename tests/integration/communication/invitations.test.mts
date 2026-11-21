@@ -155,7 +155,7 @@ test("AC:CASE-NTF-011 an invitation to an address blocked after a bounce is not 
 		await assert.rejects(
 			resident ? f.invitations.inviteResident(actor, command) : f.invitations.invite(actor, command),
 			(error) => {
-				assert.equal(error.value?.code, "address_blocked");
+				assert.equal(error.code, "address_blocked");
 				return true;
 			},
 		);
