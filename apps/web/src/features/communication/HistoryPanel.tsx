@@ -2,7 +2,17 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
-import { Alert, Button, ConfirmDialog, EmptyState, Field, Input, RowButton, Select } from "@everyfield/ui/controls";
+import {
+	Alert,
+	Button,
+	ConfirmDialog,
+	ConfirmRefused,
+	EmptyState,
+	Field,
+	Input,
+	RowButton,
+	Select,
+} from "@everyfield/ui/controls";
 import { TonePill, type PillTone } from "@everyfield/ui/display";
 import { useViewerNow, useViewerZone } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
@@ -910,10 +920,10 @@ function Browser({
 				confirmLabel="Save follow-up"
 				onConfirm={async () => {
 					if (!selected || !review || review.eligibleIds.length === 0 || !review.confirmedDelivery)
-						throw new Error("Review the follow-up before you save it.");
+						throw new ConfirmRefused("Review the follow-up before you save it.");
 					const result = await saveResend(keys.take("resend"), selected);
 					keys.settle("resend", result);
-					if (result.status !== "ok") throw new Error(problem(result));
+					if (result.status !== "ok") throw new ConfirmRefused(problem(result));
 					const fresh = await readDraft(result.value.communicationId);
 					if (fresh.status !== "ok") {
 						setReviewed({
@@ -945,17 +955,17 @@ function Browser({
 				]}
 				confirmLabel="Send email"
 				onConfirm={async () => {
-					if (!view) throw new Error("Open a scheduled email before you send it.");
+					if (!view) throw new ConfirmRefused("Open a scheduled email before you send it.");
 					const id = view.detail.communicationId;
 					const result = await sendReviewed(keys.take("send"), view.detail.revision, id);
 					keys.settle("send", result);
-					if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to send the email.");
+					if (result.status !== "ok") throw new ConfirmRefused(outcomeText(result) ?? "Unable to send the email.");
 					setNotice(id, {
 						text: deliveryText(result.value),
 						tone: result.value.status === "accepted" ? "status" : "alert",
 					});
 					await refresh(id);
-					if (result.value.status === "failed") throw new Error(deliveryText(result.value));
+					if (result.value.status === "failed") throw new ConfirmRefused(deliveryText(result.value));
 				}}
 			/>
 			<ConfirmDialog
@@ -970,11 +980,12 @@ function Browser({
 				confirmLabel="Cancel scheduled email"
 				tone="danger"
 				onConfirm={async () => {
-					if (!view) throw new Error("Open a scheduled email before you cancel it.");
+					if (!view) throw new ConfirmRefused("Open a scheduled email before you cancel it.");
 					const id = view.detail.communicationId;
 					const result = await cancelScheduled(keys.take("cancel"), view.detail.revision, id);
 					keys.settle("cancel", result);
-					if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to cancel the scheduled email.");
+					if (result.status !== "ok")
+						throw new ConfirmRefused(outcomeText(result) ?? "Unable to cancel the scheduled email.");
 					setNotice(id, {
 						text: cancelText(result.value),
 						tone: result.value.scheduledCancel === "reconcile" ? "alert" : "status",
