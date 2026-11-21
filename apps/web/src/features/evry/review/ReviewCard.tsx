@@ -38,7 +38,7 @@ import {
 	Spinner,
 	Textarea,
 } from "@everyfield/ui/controls";
-import { Avatar, StageChip } from "@everyfield/ui/display";
+import { Avatar, StageChip, ToneBand, type BandTone } from "@everyfield/ui/display";
 import { cn, focusOnMount, Icon, useFocusRequest, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
 import {
@@ -154,7 +154,7 @@ const UNKNOWN_TEXT: Record<Action, string> = {
 
 type StagedPhoto = { status: "idle" | "loading" | "gone" | "lost" } | { status: "ready"; src: string };
 
-type Tone = "amber" | "green" | "magenta" | "gray";
+type Tone = BandTone;
 const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; title: string; tone: Tone }> = {
 	pending: { icon: Edit02Icon, title: "Review before saving", tone: "amber" },
 	running: { icon: Edit02Icon, title: "Saving…", tone: "amber" },
@@ -167,12 +167,6 @@ const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; ti
 	unknown: { icon: Alert02Icon, title: "Not confirmed", tone: "amber" },
 	photo_unavailable: { icon: ImageNotFound01Icon, title: "Photo not available", tone: "gray" },
 	unavailable: { icon: SquareLock02Icon, title: "Not available to you", tone: "gray" },
-};
-const HEAD_TONE: Record<Tone, string> = {
-	amber: "bg-amber-50 text-amber-600 border-b-[color-mix(in_srgb,var(--ef-amber-500)_20%,transparent)]",
-	green: "bg-green-50 text-green-700 border-b-[color-mix(in_srgb,var(--ef-green-500)_20%,transparent)]",
-	magenta: "bg-magenta-50 text-magenta-600 border-b-[color-mix(in_srgb,var(--ef-magenta-500)_20%,transparent)]",
-	gray: "bg-surface-2 text-text-2 border-b-line",
 };
 
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
@@ -666,19 +660,11 @@ function CardHead({
 	children?: ReactNode;
 }) {
 	return (
-		<h3
-			id={id}
-			ref={ref}
-			tabIndex={-1}
-			className={cn(
-				"flex items-center gap-2.5 border-b px-4 py-3 font-sans text-sm font-semibold tracking-normal outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset",
-				HEAD_TONE[tone],
-			)}
-		>
+		<ToneBand id={id} ref={ref} tabIndex={-1} tone={tone}>
 			{spinning ? <Spinner size={16} /> : <Icon icon={icon} size={16} />}
 			<span className="min-w-0 flex-1">{title}</span>
 			{children ? <span className="font-medium tabular-nums">{children}</span> : null}
-		</h3>
+		</ToneBand>
 	);
 }
 
