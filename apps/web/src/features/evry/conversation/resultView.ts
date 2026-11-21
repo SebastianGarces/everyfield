@@ -244,6 +244,21 @@ const VIEWS: Record<string, OpView> = {
 		shownOnly: true,
 		empty: "This phase has no exit criteria.",
 	},
+	"intelligence.readExitCriteria": {
+		title: "Exit criteria",
+		noun: ["criterion", "criteria"],
+		icon: "criterion",
+		counts: "criterion",
+		shownOnly: true,
+		empty: "This phase has no exit criteria.",
+	},
+	"intelligence.readJourney": {
+		title: "Journey",
+		noun: ["step", "steps"],
+		icon: "phase",
+		counts: "phase",
+		empty: "This church's journey is not available.",
+	},
 	"signals.listDefinitions": {
 		title: "Signals",
 		noun: ["signal", "signals"],
@@ -812,6 +827,7 @@ const ENTRY: Record<string, string> = {
 	initial_declaration: "Declared as",
 	movement: "Moved to",
 	launch_sunday: "Held",
+	launch_date: "",
 };
 const CRITERION: Record<string, string> = {
 	met: "Met",
@@ -1403,12 +1419,17 @@ function rowView(operation: string, row: SourceRow): RowView {
 			if (typeof fields.entry === "string")
 				return {
 					...plain,
-					name: `${ENTRY[fields.entry] ?? words(fields.entry)} ${row.label}`,
-					line: joined(text(fields.reason), text(fields.by), phaseDay(fields.on)),
+					name: `${ENTRY[fields.entry] ?? words(fields.entry)} ${row.label}`.trim(),
+					line: joined(
+						phaseDay(fields.toDate) ? `to ${phaseDay(fields.toDate)}` : null,
+						text(fields.reason),
+						text(fields.by),
+						phaseDay(fields.on),
+					),
 					mark: fields.direction === "backward" ? { kind: "status", text: "Backward", warn: true } : null,
 					avatar: "phase",
 				};
-			if (operation === "phases.readReadiness")
+			if (operation === "phases.readReadiness" || operation === "intelligence.readExitCriteria")
 				return {
 					...plain,
 					name: row.label,
@@ -1425,7 +1446,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 		}
 		case "criterion": {
 			const status = CRITERION[String(fields.status)];
-			return { ...plain, name: row.label, line: status ?? null, avatar: "criterion" };
+			return { ...plain, name: row.label, line: joined(status ?? null, text(fields.reading)), avatar: "criterion" };
 		}
 		case "signal":
 			if (operation === "signals.getHistory")

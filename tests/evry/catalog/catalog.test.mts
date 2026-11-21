@@ -106,6 +106,8 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"phases.readCatalog",
 		"phases.readHistory",
 		"phases.readReadiness",
+		"intelligence.readExitCriteria",
+		"intelligence.readJourney",
 		"signals.listDefinitions",
 		"signals.getHistory",
 		"meetings.list",
@@ -217,7 +219,13 @@ const as = (contextKind: EvryActor["contextKind"], role: EvryActor["role"]): Evr
 	selfPersonId: null,
 });
 const PHASE_TOOLS = {
-	phases: ["phases.readCatalog", "phases.readHistory", "phases.readReadiness"],
+	phases: [
+		"phases.readCatalog",
+		"phases.readHistory",
+		"phases.readReadiness",
+		"intelligence.readExitCriteria",
+		"intelligence.readJourney",
+	],
 	signals: ["signals.listDefinitions", "signals.getHistory"],
 	writes: ["phases.declare", "phases.transition", "signals.attest", "signals.correct", "signals.reaffirm"],
 };

@@ -67,6 +67,8 @@ const LATER = new Set<string>([
 	...Object.keys(PIPELINE_COMMANDS),
 	...LAUNCH_READS.map((a) => a.operation),
 	...Object.keys(LAUNCH_COMMANDS),
+	"intelligence.readExitCriteria",
+	"intelligence.readJourney",
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
 

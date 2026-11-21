@@ -826,7 +826,11 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 
 test("INV-evry-golden: every golden and adapter case passes its hard checks on the recorded model; alpha gaps and judge grades are reported", async (t) => {
 	const only = process.env.EVRY_EVAL_CASES?.split(",").map((s) => s.trim());
-	const cases = [...golden, ...extras].filter((c) => !only || only.includes(c.case_id));
+	const held = extras.filter((c) => !RECORDED(c.operation)).map((c) => c.case_id);
+	const cases = [...golden, ...extras.filter((c) => RECORDED(c.operation))].filter(
+		(c) => !only || only.includes(c.case_id),
+	);
+	if (held.length) t.diagnostic(`held for the batched re-record (operation in LATER): ${held.join(", ")}`);
 	const rows = await pool(cases, recording ? 6 : 8, runCase);
 	const spend = saveRecording();
 	if (process.env.EVRY_EVAL_REPORT) {

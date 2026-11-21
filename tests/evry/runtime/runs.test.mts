@@ -527,6 +527,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"phases.readCatalog",
 						"phases.readHistory",
 						"phases.readReadiness",
+						"intelligence.readExitCriteria",
+						"intelligence.readJourney",
 						"signals.listDefinitions",
 						"signals.getHistory",
 						...MEETINGS_READS,

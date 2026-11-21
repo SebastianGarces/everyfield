@@ -202,6 +202,8 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"phases.readCatalog": {},
 	"phases.readHistory": {},
 	"phases.readReadiness": {},
+	"intelligence.readExitCriteria": {},
+	"intelligence.readJourney": {},
 	"signals.listDefinitions": {},
 	"signals.getHistory": {},
 	"meetings.list": { window: "upcoming" },
