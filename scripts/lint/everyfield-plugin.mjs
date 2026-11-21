@@ -1421,7 +1421,6 @@ export const HAND_WRITTEN_NOTICES = {
 	"apps/web/src/features/evry/review/ReviewCard.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/meetings/RsvpScreen.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/meetings/parts.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/notifications/OptOutScreen.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/onboarding/parts.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/organizations/InviteDialog.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/organizations/data/DuplicatesScreen.tsx": NOTICE_ADOPTION,
