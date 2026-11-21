@@ -2045,6 +2045,31 @@ export type Outcome<T> = Other<T>;
 	);
 });
 
+test("INV-lint: a local union of any name with the ok value / refused / lost statuses is reported; other status unions are not", () => {
+	const source = `import type { Outcome } from "@everyfield/contracts/common";
+export type SignalOutcome<T> = { status: "ok"; value: T } | { status: "refused"; error: string } | { status: "lost" };
+type Answer = { status: "ok"; value: number } | ({ status: "refused" } & { code: string }) | { status: "signed_out" | "lost" };
+export type Specialized<T> = Outcome<T, "access_denied", { error: string }> | { status: "signed_out" };
+type NoLost<T> = { status: "ok"; value: T } | { status: "refused"; code: string };
+type NoRefusal = { status: "ok"; value: number } | { status: "denied" | "lost" };
+type Polled = { status: "ok"; receipt: number } | { status: "refused" } | { status: "lost" };
+type Kind = { kind: "ok"; value: number } | { kind: "refused" } | { kind: "lost" };
+type Loose = { status: "ok" | "refused" | "lost"; value: number };
+type Swapped = { status: "ok"; receipt: number } | { status: "refused"; value: number } | { status: "lost" };
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/model.ts": source, "packages/domain/src/m.ts": source }).filter((hit) =>
+			hit.endsWith("shared-outcome"),
+		),
+		[
+			"apps/web/src/features/x/model.ts:2 shared-outcome",
+			"apps/web/src/features/x/model.ts:3 shared-outcome",
+			"packages/domain/src/m.ts:2 shared-outcome",
+			"packages/domain/src/m.ts:3 shared-outcome",
+		],
+	);
+});
+
 test("INV-lint: a context value built during render is reported through aliases, casts, conditionals and outer bindings; every context and alias of one is a const named *Context; stable values are not", () => {
 	const source = `import React, { createContext, useCallback, useMemo } from "react";
 type T = { theme: string };
