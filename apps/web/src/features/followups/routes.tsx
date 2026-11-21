@@ -3,8 +3,7 @@ import { requireSeat } from "@/server/sign-in";
 import type { SitePath } from "@everyfield/contracts/identity";
 import { recordId } from "@everyfield/contracts/common";
 import { followUpReader } from "@everyfield/domain/followups";
-import { LockKeyIcon } from "@hugeicons/core-free-icons";
-import { buttonVariants, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import { buttonVariants, Card, PageState, Skeleton } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -26,30 +25,18 @@ async function gate(returnTo: SitePath, title: string): Promise<{ viewer: PlantS
 	if (viewer) return { viewer };
 	return {
 		blocked: (
-			<Blocked title={title}>
-				<StatePanel tone="lock" icon={LockKeyIcon} title="Follow-ups are not part of your seat" headingLevel="h2">
-					Follow-ups belong to a church plant workspace. Your account has no current seat in one, so there is nothing to
-					show here.
-				</StatePanel>
-			</Blocked>
+			<PageState page={title} tone="lock" title="Follow-ups are not part of your seat">
+				Follow-ups belong to a church plant workspace. Your account has no current seat in one, so there is nothing to
+				show here.
+			</PageState>
 		),
 	};
 }
 
-function Blocked({ title, children }: { title: string; children: ReactNode }) {
-	return (
-		<>
-			<PageHeader size="xl" title={title} />
-			<Card>{children}</Card>
-		</>
-	);
-}
 const LoadFailed = ({ title }: { title: string }) => (
-	<Blocked title={title}>
-		<StatePanel tone="error" title="We could not load this follow-up" headingLevel="h2">
-			This is a loading problem. Nothing was changed. Reload the page in a moment.
-		</StatePanel>
-	</Blocked>
+	<PageState page={title} tone="error" title="We could not load this follow-up">
+		This is a loading problem. Nothing was changed. Reload the page in a moment.
+	</PageState>
 );
 
 export async function FollowUpCallPage({ params }: { params: Promise<{ taskId: string }> }) {
@@ -64,19 +51,17 @@ export async function FollowUpCallPage({ params }: { params: Promise<{ taskId: s
 	if (loaded.value.kind === "missing") notFound();
 	if (loaded.value.kind === "not_follow_up")
 		return (
-			<Blocked title="Follow-up">
-				<StatePanel
-					title="This task is not a follow-up with a person"
-					headingLevel="h2"
-					actions={
-						<Link href={`/tasks?task=${loaded.value.taskId}`} className={buttonVariants({ variant: "secondary" })}>
-							Open the task
-						</Link>
-					}
-				>
-					Outcomes are recorded on follow-ups that name a person. Open the task to work on it there.
-				</StatePanel>
-			</Blocked>
+			<PageState
+				page="Follow-up"
+				title="This task is not a follow-up with a person"
+				actions={
+					<Link href={`/tasks?task=${loaded.value.taskId}`} className={buttonVariants({ variant: "secondary" })}>
+						Open the task
+					</Link>
+				}
+			>
+				Outcomes are recorded on follow-ups that name a person. Open the task to work on it there.
+			</PageState>
 		);
 	return <CallScreen initial={loaded.value.call} accountId={viewer.accountId} admin={administers(viewer)} />;
 }
@@ -111,11 +96,9 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 	});
 	if (loaded.status !== "ok")
 		return (
-			<Blocked title="Follow-ups">
-				<StatePanel tone="error" title="We could not load follow-ups" headingLevel="h2">
-					This is a loading problem, not an empty list. Reload the page in a moment.
-				</StatePanel>
-			</Blocked>
+			<PageState page="Follow-ups" tone="error" title="We could not load follow-ups">
+				This is a loading problem, not an empty list. Reload the page in a moment.
+			</PageState>
 		);
 	return (
 		<Fresh loading={<FollowUpsLoading />}>

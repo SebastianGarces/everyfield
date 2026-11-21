@@ -440,7 +440,7 @@ test("AC:MW-CASE-023 a fault in a required write of the seat removal returns req
 		WHEN (NEW.action = 'membership.ended' AND NEW.subject_id = '${s.seatB.seatId}') EXECUTE FUNCTION fail_removal()`),
 	);
 	try {
-		await assert.rejects(removeSeat(s, await removal(s)), (e: any) => e.value?.code === "required_write_failed");
+		await assert.rejects(removeSeat(s, await removal(s)), (e: any) => e.code === "required_write_failed");
 	} finally {
 		await c0.admin.execute(sql.raw(`DROP TRIGGER fail_removal ON audit_event; DROP FUNCTION fail_removal()`));
 	}

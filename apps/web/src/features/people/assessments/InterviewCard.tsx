@@ -14,6 +14,7 @@ import {
 	Radio,
 	RadioGroup,
 	Textarea,
+	TextButton,
 	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
@@ -217,16 +218,16 @@ export function InterviewCard({
 					) : null}
 					{earlier.length > 0 || history.next !== null ? (
 						<div className="mt-3 border-t border-line pt-3">
-							<button
-								type="button"
+							<TextButton
 								aria-expanded={open}
 								onClick={() => setOpen(!open)}
-								className="rounded-xs text-sm font-medium text-ink-2 underline-offset-[3px] hover:underline"
+								underline="hover"
+								className="text-sm text-ink-2"
 							>
 								{open
 									? "Hide earlier interviews"
 									: `Earlier interviews (${Math.max(history.total - 1, earlier.length)})`}
-							</button>
+							</TextButton>
 							{open ? (
 								<>
 									<ul className="mt-2 flex flex-col">
