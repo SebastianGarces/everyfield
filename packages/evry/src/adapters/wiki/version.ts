@@ -14,7 +14,7 @@ type FixedNode =
 	| { type: "table"; rows: Run[][][] }
 	| { type: "code"; language: "text"; text: string }
 	| { type: "diagram"; info: string; source: string };
-export type EditorNode = TextNode | ListNode | FixedNode;
+type EditorNode = TextNode | ListNode | FixedNode;
 
 const run = (text: string): Run[] => [{ type: "text", text, marks: [] }];
 const paragraph = (text: string): TextNode => ({ type: "paragraph", children: run(text) });
@@ -54,7 +54,7 @@ function withTexts(node: EditorNode, next: string[]): EditorNode {
 export const editorBody = (nodes: readonly EditorNode[]) => JSON.stringify({ format: EDITOR_FORMAT, blocks: nodes });
 export const bodyFits = (nodes: readonly EditorNode[]) => organizationBodyFits(editorBody(nodes));
 export const withParagraph = (nodes: readonly EditorNode[], text: string) => [...nodes, paragraph(text)];
-export type Replaced = { nodes: EditorNode[]; before: string; after: string } | { found: number };
+type Replaced = { nodes: EditorNode[]; before: string; after: string } | { found: number };
 export function replaceParagraph(nodes: readonly EditorNode[], about: string, text: string): Replaced {
 	const words = about.toLowerCase();
 	const found = nodes.flatMap(texts).filter((t) => t.toLowerCase().includes(words)).length;
@@ -75,7 +75,7 @@ export function replaceParagraph(nodes: readonly EditorNode[], about: string, te
 	return { nodes: next, before, after: text };
 }
 
-export type VersionState = "none" | "draft" | "published" | "hidden";
+type VersionState = "none" | "draft" | "published" | "hidden";
 export type OrganizationVersion = {
 	articleId: string;
 	revisionId: string;
@@ -86,7 +86,6 @@ export type OrganizationVersion = {
 	revision: string;
 	state: VersionState;
 	hasDraft: boolean;
-	from: "draft" | "published" | "hidden" | "wiki";
 	body: string;
 	nodes: EditorNode[];
 };
@@ -111,15 +110,11 @@ export async function organizationVersion(db: Database, actor: EvryActor, query:
 	const state: VersionState =
 		stored.state === "published" ? "published" : stored.state === "hide" ? "hidden" : stored.state ? "draft" : "none";
 	const base = stored.draftBody
-		? { body: stored.draftBody, type: stored.draftType ?? "safe_nodes", from: "draft" as const }
+		? { body: stored.draftBody, type: stored.draftType ?? "safe_nodes" }
 		: stored.currentBody
-			? {
-					body: stored.currentBody,
-					type: stored.currentType ?? article.contentType,
-					from: state === "hidden" ? ("hidden" as const) : ("published" as const),
-				}
+			? { body: stored.currentBody, type: stored.currentType ?? article.contentType }
 			: article.body
-				? { body: article.body, type: article.contentType, from: "wiki" as const }
+				? { body: article.body, type: article.contentType }
 				: null;
 	if (!base) throw new EvryRefusal("not_found");
 	return {
@@ -132,7 +127,6 @@ export async function organizationVersion(db: Database, actor: EvryActor, query:
 		revision: stored.revision,
 		state,
 		hasDraft: stored.draftBody !== null,
-		from: base.from,
 		body: base.body,
 		nodes: nodesOf(wikiBlocks(base.type, base.body)),
 	};

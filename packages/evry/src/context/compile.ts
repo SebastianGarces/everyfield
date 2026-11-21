@@ -119,7 +119,7 @@ function pipelineRules() {
 	].join("\n");
 }
 
-export const wikiEditorOnly = (kind: EvryActor["contextKind"]) =>
+const wikiEditorOnly = (kind: EvryActor["contextKind"]) =>
 	`Only an Owner or Admin of your ${kind === "sending_network" ? "network" : "sending church"} can edit its Wiki. Nothing was prepared.`;
 function wikiEditorRules(kind: EvryActor["contextKind"]) {
 	return [

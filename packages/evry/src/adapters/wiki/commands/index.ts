@@ -197,7 +197,7 @@ export const editOrganizationArticle = approvedNow({
 		const v = await organizationVersion(db, actor, value.article);
 		if (v.state === "none")
 			return refused(v, `${v.organization} has no version of ${v.title} yet. Ask me to draft one first.`);
-		const where = `${v.organization}'s ${v.from === "draft" ? "draft" : "version"} of ${v.title}`;
+		const where = `${v.organization}'s ${v.hasDraft ? "draft" : "version"} of ${v.title}`;
 		const replaced = replaceParagraph(v.nodes, value.about, value.text);
 		if ("found" in replaced)
 			return refused(
