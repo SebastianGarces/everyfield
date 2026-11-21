@@ -852,6 +852,49 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 	);
 });
 
+test("AC:TARGET-PPL-008 every church seat who can see a note sees its author's name, and it stays after the author's seat ends", async () => {
+	const plant = await database.plant({ timezone: "America/New_York" });
+	const seated = async (role, name) => database.actor(plant, role, { user: { name } });
+	const on = (a) => ({ session: a.session, selected: { kind: "plant", id: plant.id } });
+	const authors = [await seated("owner", "Ruth"), await seated("admin", "Orpah")];
+	const readers = [await seated("admin", "Naomi"), await seated("member", "Boaz")];
+	let p = ok(
+		await tx((t) =>
+			write.createPerson(t, on(authors[0]), { requestKey: randomUUID(), input: { displayName: "Named notes" } }),
+		),
+	).person;
+	let revision = p.revision;
+	for (const author of authors) {
+		const added = ok(
+			await tx((t) =>
+				write.addNote(t, on(author), {
+					requestKey: randomUUID(),
+					expectedRevision: revision,
+					input: { personId: p.id, body: `Note from ${author.id}` },
+				}),
+			),
+		);
+		revision = added.personRevision;
+	}
+	const names = async (reader) =>
+		ok(await tx((t) => read.getActivities(t, on(reader), { personId: p.id, kinds: ["note"] }))).items.map((a) => [
+			a.body,
+			a.authorName,
+		]);
+	const expected = [
+		[`Note from ${authors[1].id}`, "Orpah"],
+		[`Note from ${authors[0].id}`, "Ruth"],
+	];
+	for (const reader of [...authors, ...readers]) assert.deepEqual(await names(reader), expected);
+	await admin.execute(
+		sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id IN (${sql.join(
+			authors.map((a) => sql`${a.id}::uuid`),
+			sql`,`,
+		)})`,
+	);
+	for (const reader of readers) assert.deepEqual(await names(reader), expected);
+});
+
 test("AC:CA014 BUG-37313a5c7 explicit adult classification retains genuine historical acquisition rather than creating a join today, and refuses a day after the church's today", async () => {
 	const p = await create("Historical commitment");
 	const commitment = randomUUID();
