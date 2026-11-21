@@ -343,6 +343,51 @@ const providerKeyMint = {
 	},
 };
 
+const SITE_PATH = "SitePath";
+const CASTS = new Set(["TSAsExpression", "TSTypeAssertion"]);
+const typeName = (node) => {
+	if (node.type === "TSTypeReference")
+		return node.typeName.type === "Identifier" ? node.typeName.name : nameOf(node.typeName.right);
+	return node.qualifier ? nameOf(node.qualifier.right ?? node.qualifier) : null;
+};
+
+const sitePathCast = {
+	meta: { type: "problem" },
+	create(context) {
+		const message = `Do not cast to ${SITE_PATH}: write the path as a literal or template that starts with "/" and a letter or digit, so the type proves it stays on this site. An untrusted return path goes through safeReturn.`;
+		const names = new Set([SITE_PATH]);
+		const aliases = new Map();
+		const casts = [];
+		return {
+			ImportSpecifier(node) {
+				if (nameOf(node.imported) === SITE_PATH) names.add(node.local.name);
+			},
+			"TSTypeReference, TSImportType"(node) {
+				const name = typeName(node);
+				if (!name) return;
+				for (let at = node; at.parent; at = at.parent) {
+					const parent = at.parent;
+					if (CASTS.has(parent.type) && parent.typeAnnotation === at) return void casts.push({ node: parent, name });
+					const named =
+						(parent.type === "TSTypeAliasDeclaration" && parent.typeAnnotation === at) ||
+						(parent.type === "TSTypeParameter" && parent.constraint === at)
+							? nameOf(parent.id ?? parent.name)
+							: null;
+					if (named) return void aliases.set(named, [...(aliases.get(named) ?? []), name]);
+					if (!parent.type.startsWith("TS")) return;
+				}
+			},
+			"Program:exit"() {
+				for (let size = 0; size !== names.size;) {
+					size = names.size;
+					for (const [alias, used] of aliases) if (used.some((name) => names.has(name))) names.add(alias);
+				}
+				for (const cast of casts) if (names.has(cast.name)) context.report({ node: cast.node, message });
+			},
+		};
+	},
+};
+
 const requestActor = {
 	meta: { type: "problem" },
 	create(context) {
@@ -1390,45 +1435,79 @@ function handles(handler, body, param) {
 	return thrown || handed || (logged && !lost);
 }
 
-const MAIL_AUTHORIZERS = "the mail-authorizer move into @everyfield/domain (R-12 slice 20 follow-up, AP-S-17)";
-export const WEB_SQL_HOLDERS = {
-	"apps/web/src/features/feedback/mail.ts": {
-		why: "the operator-mail authorizer reads the feedback rows its queued mail names, inside the mail service's transaction",
-		movedBy: MAIL_AUTHORIZERS,
-	},
-	"apps/web/src/features/notifications/worker.ts": {
-		why: "the notification worker's mail authorizer reads which recipients still hold a grant for each queued notice mail",
-		movedBy: MAIL_AUTHORIZERS,
-	},
-	"apps/web/src/server/identity/index.ts": {
-		why: "the identity mail authorizer locks the accounts its queued mail names and reads their contact address",
-		movedBy: MAIL_AUTHORIZERS,
-	},
-};
 const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
 
 const webDatabaseImports = {
 	meta: { type: "problem" },
 	create(context) {
+		if (!WEB_CODE.test(repoPath(context.filename))) return {};
+		return moduleSources((node, name) => {
+			if (DATABASE_MODULES.test(name))
+				context.report({
+					node,
+					message: `apps/web does not build SQL: ${name} belongs in @everyfield/domain. Call a domain operation, or move the statement into the domain module that owns its tables.`,
+				});
+		});
+	},
+};
+
+const NOTICE_ADOPTION =
+	"the R-06 adoption of the shared notice, held until the owner accepts the visual rulings in #855";
+const ERROR_CHIP = "a status chip in the error colour, not a notice";
+export const HAND_WRITTEN_NOTICES = {
+	"apps/web/src/components/Problem.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/communication/HistoryPanel.tsx": ERROR_CHIP,
+	"apps/web/src/features/communication/UnsubscribeScreen.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/documents/church/ChurchBranding.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/documents/church/EditTemplate.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/documents/church/editor/SaveAsTemplate.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/evry/conversation/EvryPanel.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/evry/review/PeopleChanges.tsx": ERROR_CHIP,
+	"apps/web/src/features/evry/review/ReviewCard.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/meetings/RsvpScreen.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/meetings/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/notifications/OptOutScreen.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/onboarding/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/organizations/InviteDialog.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/organizations/data/DuplicatesScreen.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/organizations/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/people/PipelineBoard.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/people/corrections/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/people/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/settings/SaveError.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/settings/flows/PasswordDialog.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/tasks/TaskSheet.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/teams/Setup.tsx": NOTICE_ADOPTION,
+};
+
+const noticeLook = (value) =>
+	value !== null && /(?:^|\s)bg-magenta-50(?:\s|$)/.test(value) && /(?:^|\s)text-magenta-600(?:\s|$)/.test(value);
+
+const sharedNotice = {
+	meta: { type: "problem" },
+	create(context) {
 		const path = repoPath(context.filename);
 		if (!WEB_CODE.test(path)) return {};
-		const holder = Object.hasOwn(WEB_SQL_HOLDERS, path);
-		let imports = 0;
+		const exempt = Object.hasOwn(HAND_WRITTEN_NOTICES, path);
+		let looks = 0;
+		const check = (node, value) => {
+			if (!noticeLook(value)) return;
+			looks++;
+			if (!exempt)
+				context.report({
+					node,
+					message:
+						"An error notice is Alert or InlineAlert from @everyfield/ui/controls (tone, title, actions, live region and focus included); do not hand-write the magenta box.",
+				});
+		};
 		return {
-			...moduleSources((node, name) => {
-				if (!DATABASE_MODULES.test(name)) return;
-				imports++;
-				if (!holder)
-					context.report({
-						node,
-						message: `apps/web does not build SQL: ${name} belongs in @everyfield/domain. Call a domain operation, or move the statement into the domain module that owns its tables.`,
-					});
-			}),
+			Literal: (node) => check(node, text(node)),
+			TemplateLiteral: (node) => check(node, node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ")),
 			"Program:exit"(node) {
-				if (holder && imports === 0)
+				if (exempt && looks === 0)
 					context.report({
 						node,
-						message: `${path} no longer imports a database module: delete its WEB_SQL_HOLDERS entry in scripts/lint/everyfield-plugin.mjs.`,
+						message: `${path} no longer hand-writes an error notice: delete its HAND_WRITTEN_NOTICES entry in scripts/lint/everyfield-plugin.mjs.`,
 					});
 			},
 		};
@@ -2938,6 +3017,65 @@ const domainRefusals = {
 	},
 };
 
+export const ORGANIZATION_SEAT_CHECKS = {
+	"apps/web/src/server/request-context.ts": "organizationSeatOf is the one narrowing every web gate shares",
+};
+const unchained = (node) => (node?.type === "ChainExpression" ? node.expression : node);
+const kindOf = (node) => {
+	const at = unchained(node);
+	return at?.type === "MemberExpression" && memberName(at) === "kind" ? unchained(at.object) : null;
+};
+const namesOwner = (node) => (node?.type === "Identifier" ? node.name === "owner" : memberName(node) === "owner");
+const comparedKinds = (node) => {
+	if (node.type === "SwitchCase") return node.test ? [[kindOf(node.parent.discriminant), node.test]] : [];
+	return [
+		[kindOf(node.left), node.right],
+		[kindOf(node.right), node.left],
+	];
+};
+
+const organizationSeatCheck = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!WEB_CODE.test(path)) return {};
+		const home = Object.hasOwn(ORGANIZATION_SEAT_CHECKS, path);
+		const seats = [];
+		const organizations = [];
+		const visit = (node) => {
+			if (node.type === "BinaryExpression" && !EQUALITY.has(node.operator)) return;
+			for (const [subject, value] of comparedKinds(node)) {
+				if (!subject || value?.type !== "Literal") continue;
+				if (value.value === "seat") seats.push(nearestFunction(node));
+				if (value.value === "organization" && namesOwner(subject)) organizations.push(node);
+			}
+		};
+		const within = (fn, outer) => {
+			for (let at = fn; at; at = nearestFunction(at)) if (at === outer) return true;
+			return outer === null;
+		};
+		return {
+			BinaryExpression: visit,
+			SwitchCase: visit,
+			"Program:exit"(program) {
+				const found = organizations.filter((node) => seats.some((fn) => within(nearestFunction(node), fn)));
+				if (home && found.length === 0)
+					context.report({
+						node: program,
+						message: `${path} no longer checks for an organization seat: delete its ORGANIZATION_SEAT_CHECKS entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+				if (home) return;
+				for (const node of found)
+					context.report({
+						node,
+						message:
+							"Read an organization seat with organizationSeat() or organizationSeatOf(actor) from @/server/request-context instead of checking the seat and its organization owner by hand.",
+					});
+			},
+		};
+	},
+};
+
 const signInRedirect = {
 	meta: { type: "problem" },
 	create(context) {
@@ -3119,6 +3257,7 @@ export default {
 		"no-timers": noTimers,
 		"raw-sql-literal": rawSqlLiteral,
 		"request-actor": requestActor,
+		"site-path-cast": sitePathCast,
 		"provider-key-mint": providerKeyMint,
 		"no-comments": noComments,
 		"server-log": serverLog,
@@ -3128,6 +3267,7 @@ export default {
 		"server-config": serverConfig,
 		"no-silent-catch": noSilentCatch,
 		"web-database-imports": webDatabaseImports,
+		"shared-notice": sharedNotice,
 		"no-cursor-utility": noCursorUtility,
 		"no-slop-styling": noSlopStyling,
 		"mint-callers": mintCallers,
@@ -3148,6 +3288,7 @@ export default {
 		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
+		"organization-seat": organizationSeatCheck,
 		"shared-outcome": sharedOutcome,
 		"domain-refusals": domainRefusals,
 		"stable-context-value": stableContextValue,

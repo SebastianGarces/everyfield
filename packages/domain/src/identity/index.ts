@@ -1,6 +1,7 @@
 import "server-only";
 export { trustedIdentityIp } from "./ingress.ts";
 export { InvitationRefusal } from "./invitation-core.ts";
+export { authorizeAccountMail } from "./account-mail.ts";
 export { authorizeInvitationMail } from "./invitation-mail.ts";
 export { createInvitationService } from "./invitations.ts";
 export type { InvitationConfig, InvitationMail } from "./invitations.ts";
