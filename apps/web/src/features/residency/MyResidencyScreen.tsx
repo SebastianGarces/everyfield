@@ -18,6 +18,7 @@ import {
 	CardHeading,
 	CardTitle,
 	EmptyState,
+	InlineAlert,
 	PageHeader,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
@@ -28,7 +29,6 @@ import { useEffect, useRef, useState } from "react";
 import { markSubjectRead } from "../notifications/actions";
 import { useReadElsewhere } from "../notifications/feed";
 import { formatPlainDate } from "../../components/dates.ts";
-import { Problem } from "../../components/Problem.tsx";
 import { programProblem, KIND } from "../organizations/programs/model";
 import { useResidency } from "./context.ts";
 import { markMilestone } from "./actions";
@@ -320,7 +320,7 @@ function MilestoneRow({
 					) : (
 						<span className="text-text-3">Not done yet</span>
 					)}
-					<Problem text={problem} />
+					<InlineAlert live="polite">{problem}</InlineAlert>
 				</div>
 				{c ? null : (
 					<Button size="sm" variant="secondary" className="flex-none max-app-sm:ml-[30px]" onClick={mark}>

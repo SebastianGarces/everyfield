@@ -104,7 +104,7 @@ async function runNext() {
 	const outcome = await executeProposal(
 		db,
 		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-		noReminders,
+		{ reminders: noReminders, phaseNotices: async () => undefined },
 	);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	return outcome;
@@ -334,6 +334,10 @@ test("INV-notification-tools an organization login is offered its oversight dige
 			"pipeline.proposeStageMove",
 			"development.saveProgram",
 			"development.draftNextVersion",
+			"wiki.organizationArticles.add",
+			"wiki.organizationArticles.edit",
+			"wiki.organizationArticles.publish",
+			"wiki.organizationArticles.hide",
 		],
 	);
 	const plantTools = modelTools(owner, { read: async () => ({}), select: async () => ({}), propose: async () => ({}) });

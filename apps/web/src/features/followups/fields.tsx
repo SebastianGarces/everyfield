@@ -69,7 +69,7 @@ export function OutcomeFields({
 						/>
 					))}
 				</RadioGroup>
-				<div aria-live="polite" className="empty:hidden">
+				<div aria-live="polite" className="empty:sr-only">
 					{errors.outcome ? (
 						<p id={groupError} className="text-xs font-medium text-magenta-600">
 							{errors.outcome}
@@ -177,7 +177,7 @@ function WhenField({
 					)}
 				/>
 			</div>
-			<div aria-live="polite" className="empty:hidden">
+			<div aria-live="polite" className="empty:sr-only">
 				{errors.when ? (
 					<p id={error} className="text-xs font-medium text-magenta-600">
 						{errors.when}

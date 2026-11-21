@@ -11,7 +11,7 @@ import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
 import { fence, type RunLease } from "../runtime/run-store.ts";
-import type { MailPort, NativePorts, ReviewedWrite } from "./types.ts";
+import type { MailPort, NativePorts, ReviewContext, ReviewedWrite } from "./types.ts";
 import {
 	currentReview,
 	mine,
@@ -80,11 +80,12 @@ export async function prepareProposal(
 	raw: unknown,
 	mail: MailPort | null = null,
 	native: NativePorts | null = null,
+	files: ReviewContext["files"] = null,
 ): Promise<Proposal | null> {
 	const call = parse(proposeInput, raw);
 	const write = adapter(actor, call.operation);
 	const input = parse(write.input, call.input);
-	const reviewSql = await write.review(actor, input, { db, mail, native });
+	const reviewSql = await write.review(actor, input, { db, mail, native, conversationId, files });
 	if (!reviewSql) return null;
 	const r = await db.execute(sql`
 		WITH r AS (${reviewSql}),
@@ -92,16 +93,20 @@ export async function prepareProposal(
 			SELECT c.id,c.tenant_id,c.account_id FROM conversation c
 			WHERE c.id=${conversationId}::uuid AND c.account_id=${actor.accountId}::uuid AND c.tenant_id=${actor.owner.id}::uuid
 				AND c.active_turn_id=${lease.turnId}::uuid AND ${fence(lease)} AND ${currentAuthority(actor)}
+		), applied AS (
+			SELECT FROM c,r JOIN proposal q ON true WHERE q.conversation_id=c.id AND q.operation=${write.operation}
+				AND q.outcome='completed' AND coalesce(q.input->'input',q.input)=coalesce(r.args->'input',r.args)
 		), p AS (
 			INSERT INTO proposal(tenant_id,account_id,conversation_id,operation,revision,input,review,digest,state,expires_at)
 			SELECT c.tenant_id,c.account_id,c.id,${write.operation},1,r.args,r.review,
 				encode(sha256(convert_to(jsonb_build_object('operation',${write.operation}::text,'revision',1,'args',r.args,'review',r.review)::text,'UTF8')),'hex'),
-				'pending',${expiry} FROM c,r
+				'pending',${expiry} FROM c,r WHERE NOT EXISTS(SELECT FROM applied)
 			RETURNING *
 		), audit AS (${audit("evry.proposal_prepared", "create", "p")})
-		SELECT ${projection("p")} AS proposal FROM p`);
-	const [row] = r.rows;
-	return row ? proposalRow.parse(row.proposal) : null;
+		SELECT (SELECT ${projection("p")} FROM p) AS proposal, EXISTS(SELECT FROM applied) AS applied`);
+	const [row] = r.rows as { proposal: unknown; applied: boolean }[];
+	if (row?.applied) throw new EvryRefusal("already_applied");
+	return row?.proposal ? proposalRow.parse(row.proposal) : null;
 }
 
 const reviseInput = z.strictObject({ operation, revision: z.int().min(1), input: z.unknown() });
@@ -117,7 +122,7 @@ export async function reviseProposal(
 	const change = parse(reviseInput, raw);
 	const write = adapter(actor, change.operation);
 	const input = parse(write.input, change.input);
-	const reviewSql = await write.review(actor, input, { db, mail, native });
+	const reviewSql = await write.review(actor, input, { db, mail, native, conversationId: null });
 	if (!reviewSql) throw new EvryRefusal("not_found");
 	const r = await db.execute(sql`
 		WITH r AS (${reviewSql}),
