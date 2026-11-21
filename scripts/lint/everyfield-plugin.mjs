@@ -1390,36 +1390,19 @@ function handles(handler, body, param) {
 	return thrown || handed || (logged && !lost);
 }
 
-const MAIL_AUTHORIZERS = "the mail-authorizer move into @everyfield/domain (R-12 slice 20 follow-up, AP-S-17)";
-export const WEB_SQL_HOLDERS = {
-};
 const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
 
 const webDatabaseImports = {
 	meta: { type: "problem" },
 	create(context) {
-		const path = repoPath(context.filename);
-		if (!WEB_CODE.test(path)) return {};
-		const holder = Object.hasOwn(WEB_SQL_HOLDERS, path);
-		let imports = 0;
-		return {
-			...moduleSources((node, name) => {
-				if (!DATABASE_MODULES.test(name)) return;
-				imports++;
-				if (!holder)
-					context.report({
-						node,
-						message: `apps/web does not build SQL: ${name} belongs in @everyfield/domain. Call a domain operation, or move the statement into the domain module that owns its tables.`,
-					});
-			}),
-			"Program:exit"(node) {
-				if (holder && imports === 0)
-					context.report({
-						node,
-						message: `${path} no longer imports a database module: delete its WEB_SQL_HOLDERS entry in scripts/lint/everyfield-plugin.mjs.`,
-					});
-			},
-		};
+		if (!WEB_CODE.test(repoPath(context.filename))) return {};
+		return moduleSources((node, name) => {
+			if (DATABASE_MODULES.test(name))
+				context.report({
+					node,
+					message: `apps/web does not build SQL: ${name} belongs in @everyfield/domain. Call a domain operation, or move the statement into the domain module that owns its tables.`,
+				});
+		});
 	},
 };
 

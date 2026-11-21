@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { REFUSAL_MECHANISMS, WEB_SQL_HOLDERS } from "../../scripts/lint/everyfield-plugin.mjs";
+import { REFUSAL_MECHANISMS } from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
@@ -1106,7 +1106,7 @@ export const p = require("node:process").env;
 	);
 });
 
-test("INV-web-sql: apps/web imports no database module outside the files that still hold SQL", () => {
+test("INV-web-sql: apps/web imports no database module", () => {
 	const code = `import { sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { eq } from "drizzle-orm";
@@ -1118,18 +1118,13 @@ export const later = () => import("@everyfield/db/query");
 export const used = [sql, t, eq, privateStorage, pgTable] as unknown as Database;
 import { pgTable } from "@everyfield/db/columns";
 `;
-	const [holder] = Object.keys(WEB_SQL_HOLDERS);
-	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" web-database-imports"));
 	assert.deepEqual(
-		reported({
+		lint({
 			"apps/web/src/features/x/server.ts": code,
-			[holder]: code,
 			"packages/domain/src/x/index.ts": code,
-		}),
+		}).filter((hit) => hit.endsWith(" web-database-imports")),
 		[1, 2, 3, 4, 5, 8, 10].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`).sort(),
 	);
-	assert.deepEqual(reported({ [holder]: "export const none = 1;\n" }), [`${holder}:1 web-database-imports`]);
-	assert.ok(Object.keys(WEB_SQL_HOLDERS).length <= 0, "WEB_SQL_HOLDERS only shrinks");
 });
 
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
