@@ -1245,7 +1245,7 @@ export const E = "bg-magenta-50 text-ink-2";
 		[1, 2, 3].map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`),
 	);
 	assert.deepEqual(reported({ [exempt]: "export const none = 1;\n" }), [`${exempt}:1 shared-notice`]);
-	assert.ok(Object.keys(HAND_WRITTEN_NOTICES).length <= 20, "HAND_WRITTEN_NOTICES only shrinks");
+	assert.ok(Object.keys(HAND_WRITTEN_NOTICES).length <= 19, "HAND_WRITTEN_NOTICES only shrinks");
 });
 
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
