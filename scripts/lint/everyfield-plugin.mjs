@@ -1392,10 +1392,6 @@ function handles(handler, body, param) {
 
 const MAIL_AUTHORIZERS = "the mail-authorizer move into @everyfield/domain (R-12 slice 20 follow-up, AP-S-17)";
 export const WEB_SQL_HOLDERS = {
-	"apps/web/src/features/feedback/mail.ts": {
-		why: "the operator-mail authorizer reads the feedback rows its queued mail names, inside the mail service's transaction",
-		movedBy: MAIL_AUTHORIZERS,
-	},
 	"apps/web/src/features/notifications/worker.ts": {
 		why: "the notification worker's mail authorizer reads which recipients still hold a grant for each queued notice mail",
 		movedBy: MAIL_AUTHORIZERS,
