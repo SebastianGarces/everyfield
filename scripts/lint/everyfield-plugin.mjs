@@ -1736,6 +1736,43 @@ const sharedNotice = {
 	},
 };
 
+const LIVE_REGION_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
+const LIVE_ROLES = new Set(["status", "alert", "log"]);
+const jsxAttribute = (element, name) =>
+	element.attributes.find((a) => a.type === "JSXAttribute" && a.name.name === name);
+const attributeStrings = (attribute) =>
+	attribute.value?.type === "JSXExpressionContainer"
+		? stringsIn(attribute.value.expression)
+		: stringsIn(attribute.value);
+const hidingToken = (token) => token.replace(/^!|!$/g, "").split(":").at(-1) === "hidden";
+
+const liveRegionInTree = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!LIVE_REGION_CODE.test(repoPath(context.filename))) return {};
+		return {
+			JSXOpeningElement(node) {
+				const live = jsxAttribute(node, "aria-live");
+				const role = jsxAttribute(node, "role");
+				const liveValues = live ? attributeStrings(live) : [];
+				const announces =
+					(live && !(liveValues.length && liveValues.every((value) => value === "off"))) ||
+					(role && attributeStrings(role).some((value) => LIVE_ROLES.has(value)));
+				if (!announces) return;
+				const className = jsxAttribute(node, "className");
+				const hiddenClass = className && attributeStrings(className).some((s) => s.split(/\s+/).some(hidingToken));
+				const hiddenAttribute = jsxAttribute(node, "hidden");
+				if (!hiddenClass && !hiddenAttribute) return;
+				context.report({
+					node: hiddenClass ? className : hiddenAttribute,
+					message:
+						"A live region (aria-live, or role status, alert or log) that is hidden is display:none, so it leaves the accessibility tree and what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
+				});
+			},
+		};
+	},
+};
+
 const DOMAIN_JOBS = /^packages\/domain\/src\/jobs\//;
 const noSilentCatch = {
 	meta: { type: "problem" },
@@ -3597,5 +3634,6 @@ export default {
 		"shared-outcome": sharedOutcome,
 		"domain-refusals": domainRefusals,
 		"stable-context-value": stableContextValue,
+		"live-region-in-tree": liveRegionInTree,
 	},
 };

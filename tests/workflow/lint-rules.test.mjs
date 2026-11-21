@@ -1243,6 +1243,28 @@ export const E = "bg-magenta-50 text-ink-2";
 	);
 });
 
+test("INV-a11y: a live region in apps/web or packages/ui is never hidden while empty, so it stays in the accessibility tree", () => {
+	const code = `export const A = ({ m }) => <div aria-live="polite" className="empty:hidden">{m}</div>;
+export const B = ({ m }) => <p role="status" className={cn("text-sm", !m && "hidden")}>{m}</p>;
+export const C = ({ m, tone }) => <div role={tone ? "alert" : "status"} hidden={!m}>{m}</div>;
+export const D = ({ m, live }) => <div aria-live={live} className="mt-3 max-sm:hidden!">{m}</div>;
+export const E = ({ m }) => <div aria-live="polite" className="empty:sr-only">{m}</div>;
+export const F = ({ m }) => <div aria-live="off" className="empty:hidden">{m}</div>;
+export const G = ({ m }) => <div role="note" className="empty:hidden overflow-hidden">{m}</div>;
+`;
+	const reported = lint({
+		"apps/web/src/features/x/Notice.tsx": code,
+		"packages/ui/src/controls/x.tsx": code,
+		"packages/domain/src/x.tsx": code,
+	}).filter((hit) => hit.endsWith(" live-region-in-tree"));
+	assert.deepEqual(
+		reported,
+		["apps/web/src/features/x/Notice.tsx", "packages/ui/src/controls/x.tsx"].flatMap((path) =>
+			[1, 2, 3, 4].map((line) => `${path}:${line} live-region-in-tree`),
+		),
+	);
+});
+
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
 	const code = `import "server-only";
 import { logFailure, logLine } from "@everyfield/domain/log";

@@ -58,7 +58,8 @@
 		"everyfield/max-state": "error",
 		"everyfield/mint-callers": "error",
 		"everyfield/no-sql-comments": "error",
-		"everyfield/no-slop-styling": "error"
+		"everyfield/no-slop-styling": "error",
+		"everyfield/live-region-in-tree": "error"
 	},
 	"overrides": [
 		{
