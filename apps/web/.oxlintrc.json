@@ -71,6 +71,7 @@
 		"everyfield/resend-senders": "error",
 		"everyfield/raw-sql-literal": "error",
 		"everyfield/request-actor": "error",
+		"everyfield/site-path-cast": "error",
 		"everyfield/provider-key-mint": "error",
 		"everyfield/no-comments": "error",
 		"everyfield/server-log": "error",

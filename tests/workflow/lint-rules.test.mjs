@@ -1662,6 +1662,34 @@ export function gate(path: string, out: boolean) {
 	]);
 });
 
+test("INV-lint: a cast to SitePath is reported in any linted file, a typed literal or template is not", () => {
+	const source = `import type { SitePath, SitePath as Path } from "@everyfield/contracts/identity";
+import type * as identity from "@everyfield/contracts/identity";
+type Back = Path | null;
+type Many = Back[];
+export function paths<T extends SitePath>(raw: string, id: string) {
+	const a = raw as SitePath;
+	const b = <Path>raw;
+	const c = raw as unknown as Back;
+	const d = [raw] as Many;
+	const e = raw as identity.SitePath;
+	const f = raw as import("@everyfield/contracts/identity").SitePath;
+	const g = raw as T;
+	const h: SitePath = \`/documents/\${id}\`;
+	const i = "/wiki" satisfies SitePath;
+	const j = raw as string;
+	return [a, b, c, d, e, f, g, h, i, j];
+}
+`;
+	const hits = (path) =>
+		lint({ [path]: source })
+			.filter((hit) => hit.endsWith("site-path-cast"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10))
+			.sort((a, b) => a - b);
+	assert.deepEqual(hits("apps/web/src/features/x/server.ts"), [6, 7, 8, 9, 10, 11, 12]);
+	assert.deepEqual(hits("packages/contracts/src/identity/x.ts"), [6, 7, 8, 9, 10, 11, 12]);
+});
+
 test("INV-lint: a local generic Outcome type is reported unless it specializes the shared Outcome", () => {
 	const specialized = `import type { Outcome as Shared } from "@everyfield/contracts/common";
 export type Outcome<T> = Shared<T, "access_denied", { reason?: string }>;
