@@ -14,7 +14,12 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { HAND_WRITTEN_NOTICES, PRODUCT_TIMERS, REFUSAL_MECHANISMS, TABLE_WRITERS } from "../../scripts/lint/everyfield-plugin.mjs";
+import {
+	HAND_WRITTEN_NOTICES,
+	PRODUCT_TIMERS,
+	REFUSAL_MECHANISMS,
+	TABLE_WRITERS,
+} from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
