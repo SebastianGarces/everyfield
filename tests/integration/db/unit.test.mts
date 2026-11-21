@@ -56,3 +56,27 @@ test("INV-jobs: a queued job row holds identifiers, keys, state and timing, neve
 		"tenant_id",
 	]);
 });
+
+test("INV-token-at-rest: a column that names a token, proof or secret stores its digest, outside the listed exemptions", async () => {
+	const { getTableColumns, getTableName, is, Table } = await import("../../../packages/db/src/query.ts");
+	const tables = await import("../../../packages/db/src/schema/tables.ts");
+	const libraryOwned = "library-owned; changing them needs an auth-library change";
+	const exempt: Record<string, string> = {
+		"auth_session.token": libraryOwned,
+		"auth_account.access_token": libraryOwned,
+		"auth_account.refresh_token": libraryOwned,
+		"auth_account.id_token": libraryOwned,
+		"audit_event.actor_token": "a pseudonym digest of the acting account, never a credential",
+	};
+	const credential = /(^|_)(tokens?|secrets?|proofs?|nonce|otp|password|passcode|credentials?|api_key|bearer)(_|$)/;
+	const storesValue = new Set(["string", "json", "buffer"]);
+	const raw = Object.values(tables)
+		.filter((value) => is(value, Table))
+		.flatMap((table) =>
+			Object.values(getTableColumns(table))
+				.filter((c) => storesValue.has(c.dataType) && credential.test(c.name) && !/_(hash|digest)$/.test(c.name))
+				.map((c) => `${getTableName(table)}.${c.name}`),
+		)
+		.sort();
+	assert.deepEqual(raw, Object.keys(exempt).sort());
+});
