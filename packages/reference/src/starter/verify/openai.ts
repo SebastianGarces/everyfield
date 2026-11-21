@@ -7,16 +7,14 @@ const BATCH = 64;
 export type WikiEmbedFetch = (url: string, init: RequestInit) => Promise<Response>;
 
 export class EmbeddingRefusal extends Error {
+	readonly code: string;
 	readonly usageTokens: number;
-	constructor(reason: string, usageTokens = 0) {
-		super(reason);
+	constructor(code: string, usageTokens = 0) {
+		super(code);
 		this.name = "EmbeddingRefusal";
+		this.code = code;
 		this.usageTokens = usageTokens;
 	}
-}
-
-function redact(message: string, key: string): string {
-	return message.split(key).join("redacted");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -44,23 +42,15 @@ async function requestBatch(
 			},
 			body: JSON.stringify({ model: MODEL, input, encoding_format: "float" }),
 		});
-	} catch (error) {
-		throw new EmbeddingRefusal(redact(error instanceof Error ? error.message : "openai_request_failed", key));
+	} catch {
+		throw new EmbeddingRefusal("openai_request_failed");
 	}
-	if (!response.ok) {
-		let detail = "";
-		try {
-			detail = await response.text();
-		} catch {
-			detail = "";
-		}
-		throw new EmbeddingRefusal(redact(`openai_http_${response.status}:${detail.slice(0, 180)}`, key));
-	}
+	if (!response.ok) throw new EmbeddingRefusal(`openai_http_${response.status}`);
 	let payload: unknown;
 	try {
 		payload = await response.json();
-	} catch (error) {
-		throw new EmbeddingRefusal(redact(error instanceof Error ? error.message : "openai_response", key));
+	} catch {
+		throw new EmbeddingRefusal("openai_response");
 	}
 	const reported = usageTokens(payload);
 	const data = isRecord(payload) ? payload.data : undefined;
@@ -96,12 +86,8 @@ async function embedMany(
 			totalTokens += batch.totalTokens;
 			vectors.push(...batch.vectors);
 		} catch (error) {
-			const reported = error instanceof EmbeddingRefusal ? error.usageTokens : 0;
-			const reason =
-				error instanceof EmbeddingRefusal
-					? error.message
-					: redact(error instanceof Error ? error.message : "openai_request_failed", key);
-			throw new EmbeddingRefusal(reason, totalTokens + reported);
+			if (!(error instanceof EmbeddingRefusal)) throw new EmbeddingRefusal("openai_request_failed", totalTokens);
+			throw new EmbeddingRefusal(error.code, totalTokens + error.usageTokens);
 		}
 	}
 	return { vectors, totalTokens };

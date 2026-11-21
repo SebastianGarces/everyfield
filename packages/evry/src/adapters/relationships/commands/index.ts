@@ -36,7 +36,7 @@ export const invite = nativeWrite({
 		};
 		const disclosure = await gatedTransaction(db, async (tx) => {
 			actor.authority.observe(tx);
-			return readSharingDisclosure(tx, actor.session as never, actor.owner, pair);
+			return readSharingDisclosure(tx, actor.session, actor.owner, pair);
 		});
 		const shared =
 			"choices" in disclosure

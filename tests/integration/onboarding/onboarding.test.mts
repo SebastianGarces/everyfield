@@ -832,7 +832,6 @@ test("AC:TARGET-IDN-016 an unlinked Discovery may accept a seat, then conversion
 		async enqueueMail(tx, input, command) {
 			const token = input.text.match(/http:\/\/onboarding\.example\.test\/invitation#proof=([^\s]+)/);
 			if (token?.[1]) proof = decodeURIComponent(token[1]);
-			if (input.owner.kind === "global") throw new Error("unavailable");
 			return mail.append(
 				tx,
 				{

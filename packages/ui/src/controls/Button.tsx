@@ -103,3 +103,52 @@ export function IconButton({ icon, label, variant, size, className, ...props }: 
 		</button>
 	);
 }
+
+export const textButtonVariants = cva("rounded-xs text-left font-medium underline-offset-[3px]", {
+	variants: { underline: { always: "underline", hover: "hover:underline" } },
+	defaultVariants: { underline: "always" },
+});
+
+export function TextButton({
+	underline,
+	className,
+	...props
+}: ComponentPropsWithRef<"button"> & VariantProps<typeof textButtonVariants>) {
+	return <button type="button" className={cn(textButtonVariants({ underline }), className)} {...props} />;
+}
+
+type FieldButtonProps = Omit<ComponentPropsWithRef<"button">, "children" | "aria-label" | "aria-pressed"> & {
+	icon: IconSvgElement;
+	label: string;
+	pressed: boolean;
+};
+
+export function FieldButton({ icon, label, pressed, className, ...props }: FieldButtonProps) {
+	return (
+		<button
+			type="button"
+			aria-pressed={pressed}
+			className={cn(
+				"-mr-2 grid size-9 flex-none place-items-center rounded-sm text-text-2 transition-[background-color] duration-150 hover:bg-hover hover:text-ink",
+				className,
+			)}
+			{...props}
+		>
+			<Icon icon={icon} size={18} />
+			<span className="sr-only">{label}</span>
+		</button>
+	);
+}
+
+export function RowButton({ className, ...props }: ComponentPropsWithRef<"button">) {
+	return (
+		<button
+			type="button"
+			className={cn(
+				"flex w-full text-left transition-[background-color] duration-150 hover:bg-hover disabled:opacity-45",
+				className,
+			)}
+			{...props}
+		/>
+	);
+}
