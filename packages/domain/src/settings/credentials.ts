@@ -9,7 +9,7 @@ import * as n from "@everyfield/contracts/settings/native";
 import type { CredentialProducer, SettingsContext } from "@everyfield/contracts/settings/server";
 import { identityAuth } from "../identity/auth.ts";
 import { executeWrites, gatedTransaction } from "../operations/writes.ts";
-import { attemptBudget, IdentityRefusal } from "../identity/budget.ts";
+import { attemptBudget, identityRefusals } from "../identity/budget.ts";
 import { writeVisibility } from "../access/session.ts";
 import { now, hash, deny, Refusal, recover, parse } from "./core.ts";
 import { issueRestrictedDeletionSession } from "./deletion.ts";
@@ -199,7 +199,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 			});
 			return { status: "ok" as const, value: opened };
 		} catch (e) {
-			if (e instanceof Refusal || e instanceof IdentityRefusal || e instanceof z.ZodError)
+			if (e instanceof Refusal || e instanceof identityRefusals.Refusal || e instanceof z.ZodError)
 				return { status: "refused" as const, code: e instanceof Refusal ? e.code : "proof_invalid" };
 			throw e;
 		}
@@ -262,7 +262,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 				if (committedAccount) return reportingPending(committedAccount, "email_changed", correlationId);
 				return credentialOutcome.parse({
 					status:
-						e instanceof Refusal || e instanceof IdentityRefusal || e instanceof z.ZodError || isRefused(e)
+						e instanceof Refusal || e instanceof identityRefusals.Refusal || e instanceof z.ZodError || isRefused(e)
 							? "refused"
 							: "unknown",
 					correlationId,
@@ -303,7 +303,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 				if (reservation) await budget.finish(reservation, false);
 				return credentialOutcome.parse({
 					status:
-						e instanceof Refusal || e instanceof IdentityRefusal || e instanceof z.ZodError || isRefused(e)
+						e instanceof Refusal || e instanceof identityRefusals.Refusal || e instanceof z.ZodError || isRefused(e)
 							? "refused"
 							: "unknown",
 					correlationId,

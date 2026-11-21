@@ -35,11 +35,15 @@ export const claimSchema = z.object({
 	checkpoint_key: z.string().nullable(),
 });
 export type Claim = z.infer<typeof claimSchema>;
+const KEY_PART =
+	"(?:[a-z][a-z_-]{0,39}(?:_[0-9]{1,4})?|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9]{1,19}|[0-9]{4}-[0-9]{2}-[0-9]{2}(?:T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]{1,6})?Z)?)";
+export const JOB_KEY_PATTERN = `^${KEY_PART}(?:[/:]${KEY_PART}){0,15}$`;
+const jobKey = z.string().max(512).regex(new RegExp(JOB_KEY_PATTERN));
 const enqueueSchema = z.strictObject({
 	tenant: z.uuid(),
 	kind: jobKind,
 	subject: z.uuid().nullable(),
-	key: z.string().min(1).max(512),
+	key: jobKey,
 	revision: z
 		.string()
 		.regex(/^[1-9]\d*$/)
@@ -96,7 +100,7 @@ export function queueJobsFor(source: SQL, rows: JobRows) {
 	const v = jobRowsSchema.parse({ kind: rows.kind, maxAttempts: rows.maxAttempts });
 	return sql`INSERT INTO job (${rows.id ? sql`id, ` : sql``}tenant_id, kind, subject_record_id, producer_key, source_revision, state,
   eligible_at, attempt_count, max_attempts, claim_generation)
- SELECT ${rows.id ? sql`${rows.id}, ` : sql``}${rows.tenant}, ${v.kind}::text, ${rows.subject}, ${rows.key}, ${rows.revision ?? sql`NULL::bigint`},
+ SELECT ${rows.id ? sql`${rows.id}, ` : sql``}${rows.tenant}, ${v.kind}::text, ${rows.subject}, substring((${rows.key})::text FROM ${JOB_KEY_PATTERN}::text), ${rows.revision ?? sql`NULL::bigint`},
   'ready', ${rows.eligibleAt ?? sql`clock_timestamp()`}, 0, ${v.maxAttempts}::int, 0 ${source}${onConflict[rows.conflict]}${rows.returning ? sql` RETURNING id` : sql``}`;
 }
 export async function enqueueJobs(tx: Transaction, inputs: readonly JobInput[]): Promise<string[]> {
@@ -284,7 +288,7 @@ export async function recoverLease(db: Database, limit = 100): Promise<number> {
 	});
 }
 export async function checkpoint(tx: Transaction, claim: Claim, key: string): Promise<boolean> {
-	z.string().min(1).max(256).parse(key);
+	jobKey.parse(key);
 	if (!(await lockClaim(tx, claim))) return false;
 	await tx
 		.update(tables.job)

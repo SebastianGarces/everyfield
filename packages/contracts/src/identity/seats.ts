@@ -4,7 +4,7 @@ import { instant } from "../common/time.ts";
 import { accountId, defineSafeError, recordId, revision, role, safeError } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
 import { avatarReference } from "../settings/results.ts";
-import { ordinarySeatRole } from "./invitations.ts";
+import { invitationError, ordinarySeatRole } from "./invitations.ts";
 
 export const listSeatsRequest = z.strictObject({ workspace: tenantOwner, after: recordId.optional() });
 const ordinaryTarget = z.strictObject({ seatId: recordId, expectedRole: ordinarySeatRole });
@@ -95,9 +95,10 @@ export const seatMutationResult = z
 			.refine((v) => new Set(v.map((d) => d.dutyId)).size === v.length),
 	})
 	.refine((v) => v.outcome === "partial" || v.duties.every((d) => d.status !== "remaining"));
-export const seatError = z.discriminatedUnion("code", [
-	...safeError.options,
+const seatRefusals = [
 	defineSafeError("protected_owner", {}, "never"),
 	defineSafeError("removal_too_large", {}, "never"),
 	defineSafeError("required_write_failed", {}, "same_request"),
-]);
+] as const;
+export const seatError = z.discriminatedUnion("code", [...safeError.options, ...seatRefusals]);
+export const invitationOrSeatError = z.discriminatedUnion("code", [...invitationError.options, ...seatRefusals]);

@@ -41,8 +41,8 @@ function driveRail(track: HTMLSpanElement | null, geo: Geo) {
 
 const cardsOf = (list: HTMLOListElement | null) => [...(list?.children ?? [])] as HTMLElement[];
 function stepOf(list: HTMLOListElement | null, rail: HTMLDivElement | null) {
-	const c = cardsOf(list);
-	return c.length > 1 ? c[1]!.offsetLeft - c[0]!.offsetLeft : (rail?.clientWidth ?? 0);
+	const [first, second] = cardsOf(list);
+	return first && second ? second.offsetLeft - first.offsetLeft : (rail?.clientWidth ?? 0);
 }
 
 export function PinnedRail({ id, headingId, head, children }: Props) {
@@ -121,7 +121,7 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 		else if (e.key === "End") dest = n - 1;
 		if (dest < 0) return;
 		e.preventDefault();
-		all[dest]!.focus({ preventScroll: true });
+		all[dest]?.focus({ preventScroll: true });
 		if (!geo && rail.current)
 			rail.current.scrollTo({
 				left: Math.max(0, Math.min(rail.current.scrollWidth - rail.current.clientWidth, dest * step())),

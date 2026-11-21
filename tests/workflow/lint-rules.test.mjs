@@ -14,7 +14,13 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { HAND_WRITTEN_NOTICES, REFUSAL_MECHANISMS, TABLE_WRITERS } from "../../scripts/lint/everyfield-plugin.mjs";
+import {
+	HAND_WRITTEN_NOTICES,
+	PRODUCT_TIMERS,
+	RAW_ERROR_SITES,
+	REFUSAL_MECHANISMS,
+	TABLE_WRITERS,
+} from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
@@ -205,6 +211,77 @@ export const d = [c, warn, nodeConsole, err, stderr, stdout, error];
 	);
 });
 
+test("INV-privacy: a caught error's text or a secret never reaches a log, error text or stored record, and the exempt list only shrinks", () => {
+	const source = `import { asLogWord, logFailure, logLine } from "@everyfield/domain/log";
+export async function a(run: () => Promise<void>, token: string, password: string) {
+	try {
+		await run();
+	} catch (error) {
+		const failure = error;
+		logLine({ event: "x", why: asLogWord(\`\${error}\`) });
+		throw new Error(failure.message);
+	}
+	try {
+		await run();
+	} catch ({ stack }) {
+		return stack;
+	}
+	run().catch((e) => String(e));
+	run().then(undefined, (e) => JSON.stringify(e.cause));
+	process.on("unhandledRejection", (reason) => "x" + reason);
+	logLine({ event: "x", key: asLogWord(password) });
+	throw new Error(\`refused \${token}\`);
+}
+export const b = (error: unknown) => (error instanceof Error ? error.stack : null);
+export async function c(run: () => Promise<void>, items: { message: string }[]) {
+	try {
+		await run();
+	} catch (error) {
+		logFailure({ event: "x" }, error);
+		if (error instanceof RangeError && error.name === "RangeError") throw new Error("refused", { cause: error });
+		throw error;
+	}
+	return items.map((e) => \`\${e.message}\`);
+}
+export function d(run: () => void) {
+	try {
+		run();
+	} catch (error) {
+		const typed = error as Error;
+		const name = (error as Error).message;
+		const trace = typed.stack;
+		const inner = error!.cause!.message;
+		return [name, trace, inner, (error satisfies unknown)["message"]];
+	}
+}
+`;
+	const lines = [7, 8, 12, 15, 16, 17, 18, 19, 21, 37, 38, 39, 40];
+	const listed = Object.keys(RAW_ERROR_SITES)[0];
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/x.ts": source,
+			"apps/web/src/features/x/server.ts": source,
+			"ops/x/run.mts": source,
+			"tools/prod-identity/x.ts": source,
+			"tools/ci/x.ts": source,
+			"tests/integration/x/x.test.mts": source,
+			[listed]: source,
+		}).filter((hit) => hit.endsWith(" no-raw-error-log")),
+		[
+			`${listed}:1 no-raw-error-log`,
+			...[
+				"packages/domain/src/x.ts",
+				"apps/web/src/features/x/server.ts",
+				"ops/x/run.mts",
+				"tools/prod-identity/x.ts",
+			].flatMap((file) => lines.map((line) => `${file}:${line} no-raw-error-log`)),
+		].sort(),
+	);
+	const entries = Object.values(RAW_ERROR_SITES);
+	assert.ok(entries.length <= 6 && entries.reduce((n, e) => n + e.sites, 0) <= 9, "RAW_ERROR_SITES only shrinks");
+	assert.ok(entries.every((e) => e.why.length > 40));
+});
+
 test("INV-lint: a fifth state hook in a component or hook is reported, a nested callback's is not", () => {
 	const five = (name) =>
 		`export function ${name}() {\n\tconst a = useState(0);\n\tconst b = useState(0);\n\tconst c = React.useState(0);\n\tconst [d] = useReducer((s) => s, 0);\n\tconst [e] = useState(0);\n\tconst nested = () => useState(0);\n\treturn [a, b, c, d, e, nested];\n}\n`;
@@ -270,6 +347,29 @@ export async function run() {
 		]),
 	);
 	assert.deepEqual(lint(files), places.flatMap((p) => lines.map((line) => `${p}:${line} no-timers`)).sort());
+});
+
+test("INV-lint: the Evry stream keep-alive is the one listed product timer: one heartbeat setInterval in GET, any other timer there is reported", () => {
+	const stream = `export const GET = () => {
+	const heartbeat = setInterval(() => {}, 15_000);
+	setTimeout(() => {}, 0);
+	const second = setInterval(() => {}, 15_000);
+	const viaGlobal = globalThis.setInterval(() => {}, 15_000);
+	return [heartbeat, second, viaGlobal];
+};
+export const other = () => setInterval(() => {}, 15_000);
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts": stream,
+			"apps/web/src/app/api/evry/conversations/[id]/route.ts": stream,
+		}).filter((hit) => hit.endsWith(" no-timers")),
+		[
+			...[2, 3, 4, 5, 8].map((line) => `apps/web/src/app/api/evry/conversations/[id]/route.ts:${line} no-timers`),
+			...[3, 4, 5, 8].map((line) => `apps/web/src/app/api/evry/conversations/[id]/stream/route.ts:${line} no-timers`),
+		],
+	);
+	assert.equal(Object.keys(PRODUCT_TIMERS).length, 1, "PRODUCT_TIMERS only shrinks");
 });
 
 test("INV-lint: every comment except a shebang and a bundler ignore inside import() is reported, JSX comments included", () => {
@@ -1145,7 +1245,7 @@ export const E = "bg-magenta-50 text-ink-2";
 		[1, 2, 3].map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`),
 	);
 	assert.deepEqual(reported({ [exempt]: "export const none = 1;\n" }), [`${exempt}:1 shared-notice`]);
-	assert.ok(Object.keys(HAND_WRITTEN_NOTICES).length <= 20, "HAND_WRITTEN_NOTICES only shrinks");
+	assert.ok(Object.keys(HAND_WRITTEN_NOTICES).length <= 9, "HAND_WRITTEN_NOTICES only shrinks");
 });
 
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
@@ -1221,7 +1321,7 @@ export async function m(run, refusalOf) {
 			"packages/domain/src/people/x.ts": code.replace('import "server-only";\n', ""),
 			"apps/web/src/features/x/Client.tsx": `"use client";\n${code.replace('import "server-only";\n', "")}`,
 			"apps/web/src/server/platform/transient.ts": code,
-		}),
+		}).filter((hit) => hit.endsWith(" no-silent-catch")),
 		[
 			...hits.map((line) => `apps/web/src/features/x/server.ts:${line} no-silent-catch`),
 			...hits.map((line) => `apps/web/src/server/jobs/x.ts:${line - 1} no-silent-catch`),
@@ -1603,13 +1703,18 @@ test("INV-lint: product code that recognises a caught error by its message text,
 	return /x/.test(parsed.message) && error instanceof Error && error.message;
 }
 `;
-	assert.deepEqual(lint({ "packages/domain/src/m.ts": source, "tests/unit/m.test.mts": source }), [
-		"packages/domain/src/m.ts:10 no-error-message-match",
-		"packages/domain/src/m.ts:11 no-error-message-match",
-		"packages/domain/src/m.ts:2 no-error-message-match",
-		"packages/domain/src/m.ts:6 no-error-message-match",
-		"packages/domain/src/m.ts:8 no-error-message-match",
-	]);
+	assert.deepEqual(
+		lint({ "packages/domain/src/m.ts": source, "tests/unit/m.test.mts": source }).filter((hit) =>
+			hit.endsWith(" no-error-message-match"),
+		),
+		[
+			"packages/domain/src/m.ts:10 no-error-message-match",
+			"packages/domain/src/m.ts:11 no-error-message-match",
+			"packages/domain/src/m.ts:2 no-error-message-match",
+			"packages/domain/src/m.ts:6 no-error-message-match",
+			"packages/domain/src/m.ts:8 no-error-message-match",
+		],
+	);
 });
 
 test("INV-lint: a domain module that hand-builds a refusal class, retry or refusal reply is reported; defineRefusals and the listed mechanisms are not, and a listed file that no longer needs its entry is reported too", () => {
@@ -1950,7 +2055,7 @@ function later() {
 		reported({ "packages/domain/src/tasks/forms.ts": forms, "packages/domain/src/jobs/queue.ts": forms }),
 		[3, 4, 5, 6, 8, 9, 10, 12].map((line) => `packages/domain/src/tasks/forms.ts:${line} table-writers`).sort(),
 	);
-	for (const holder of TABLE_WRITERS.job.holders.slice(0, 1)) {
+	for (const holder of (TABLE_WRITERS.job.holders ?? []).slice(0, 1)) {
 		assert.deepEqual(reported({ [holder]: insert }), []);
 		assert.deepEqual(reported({ [holder]: "export const none = 1;\n" }), [`${holder}:1 table-writers`]);
 	}
@@ -2236,14 +2341,14 @@ export function Unrelated({ pick }) {
 test("INV-lint: only an overlay's lazy entry imports it, so no static chain from a product page reaches it; the parts its sections share import freely", () => {
 	const settings = "apps/web/src/features/settings";
 	const files = {
-		[`${settings}/ProductSettings.tsx`]:
+		[`${settings}/LazySettingsDialog.tsx`]:
 			'import type { SettingsDialogProps } from "./SettingsDialog";\nexport const load = () => import("./SettingsDialog");\nexport type P = SettingsDialogProps;\n',
 		[`${settings}/sections/ChurchSection.tsx`]:
 			'import { SectionBody } from "../SettingsDialog";\nimport { SaveFooter } from "../SectionParts";\nexport const parts = [SectionBody, SaveFooter];\n',
 		[`${settings}/brand/BrandSection.tsx`]:
 			'import { SectionBody } from "../SettingsDialog";\nexport const parts = [SectionBody];\n',
 		[`${settings}/preview/SettingsPreview.tsx`]:
-			'import { SettingsDialog } from "../SettingsDialog";\nimport { LazySettingsDialog } from "../ProductSettings";\nexport const dialogs = [SettingsDialog, LazySettingsDialog];\n',
+			'import { SettingsDialog } from "../SettingsDialog";\nimport { LazySettingsDialog } from "../LazySettingsDialog";\nexport const dialogs = [SettingsDialog, LazySettingsDialog];\n',
 		"apps/web/src/features/evry/conversation/panel.tsx":
 			'import { SettingsDialog } from "../../settings/SettingsDialog";\nexport const load = () => import("./EvryPanel.tsx");\nexport const dialog = SettingsDialog;\n',
 		"apps/web/src/features/shell/Frame.tsx":
@@ -2330,6 +2435,21 @@ test("INV-lint: a read exported from a server action module, under its own name 
 			"apps/web/src/features/x/hidden.ts:4 no-read-actions",
 			"apps/web/src/features/x/hidden.ts:4 no-read-actions",
 			"apps/web/src/features/x/hidden.ts:5 no-read-actions",
+		],
+	);
+});
+
+test("INV-lint: a resolve read action is reported unless SELECTION_READS names it for its file, and a named read that is gone is reported", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/communication/actions.ts": `"use server";\nexport async function resolveAudience() {}\nexport async function resolveOther() {}\n`,
+			"apps/web/src/features/teams/training/actions.ts": `"use server";\nexport async function saveRoster() {}\n`,
+			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function previewRoster() {}\n`,
+		}).filter((hit) => hit.endsWith("no-read-actions")),
+		[
+			"apps/web/src/features/communication/actions.ts:3 no-read-actions",
+			"apps/web/src/features/teams/training/actions.ts:1 no-read-actions",
+			"apps/web/src/features/x/actions.ts:2 no-read-actions",
 		],
 	);
 });
