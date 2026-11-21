@@ -175,7 +175,9 @@ async function stagedBytes(
 		WHERE ${staged(actor, proposalId, sql`${upload}::uuid`)}`);
 	const attached = r.rows[0] as { key: string; mediaType: string } | undefined;
 	const bytes = attached
-		? await readPrivateUpload(storage, attached.key, ATTACHMENTS.photoBytes).then((o) => (typeof o === "string" ? null : o.bytes))
+		? await readPrivateUpload(storage, attached.key, ATTACHMENTS.photoBytes).then((o) =>
+				typeof o === "string" ? null : o.bytes,
+			)
 		: await readAuthorizedObject(db, storage, account(actor, proposalId), upload).catch(() => null);
 	const mediaType = bytes && photoMediaType(bytes);
 	if (!bytes || !mediaType || (attached && attached.mediaType !== mediaType)) throw new EvryRefusal("not_found");

@@ -26,7 +26,12 @@ before(async () => {
 after(teardown);
 
 const conversation = async (who: EvryActor) => (await createConversation(db, who, { requestKey: randomUUID() })).id;
-async function say(who: EvryActor, conversationId: string, text: string, attachments: { id: string; name: string }[] = []) {
+async function say(
+	who: EvryActor,
+	conversationId: string,
+	text: string,
+	attachments: { id: string; name: string }[] = [],
+) {
 	await submitTurn(db, who, conversationId, { requestKey: randomUUID(), text, attachments });
 	assert.equal(await work(undefined, { storage: files.storage }), "succeeded");
 	const page = await readConversation(db, who, conversationId);
@@ -48,8 +53,8 @@ const priyaPhoto = async () =>
 	(await admin.execute(sql`SELECT photo_object_id FROM person WHERE id=${priya}::uuid`)).rows[0]!.photo_object_id;
 const proposals = async (conversationId: string) =>
 	Number(
-		(await admin.execute(sql`SELECT count(*)::int n FROM proposal WHERE conversation_id=${conversationId}::uuid`)).rows[0]!
-			.n,
+		(await admin.execute(sql`SELECT count(*)::int n FROM proposal WHERE conversation_id=${conversationId}::uuid`))
+			.rows[0]!.n,
 	);
 const stagedRows = async (conversationId: string) =>
 	Number(
@@ -65,7 +70,10 @@ test("an Owner's attached photo becomes Priya's People photo only after Approve,
 	const here = await conversation(owner);
 	const photo = await attachPhoto(owner, here);
 	const asked = await say(owner, here, "use this as Priya Shah's photo", [photo]);
-	assert.match(asked.text, /review to make it Priya Shah's People photo\. Their photo stays as it is until you approve it/);
+	assert.match(
+		asked.text,
+		/review to make it Priya Shah's People photo\. Their photo stays as it is until you approve it/,
+	);
 	const [card] = asked.reviews;
 	assert.ok(card);
 	assert.deepEqual(
@@ -79,7 +87,12 @@ test("an Owner's attached photo becomes Priya's People photo only after Approve,
 	assert.equal((await approveProposal(db, owner, card.id, witness, files.storage)).replayed, true);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	assert.ok(claim);
-	const lease = { jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation };
+	const lease = {
+		jobId: claim.id,
+		tenantId: claim.tenant_id,
+		leaseOwner: claim.lease_owner,
+		generation: claim.claim_generation,
+	};
 	const ports = { reminders: async () => {}, phaseNotices: async () => {} } as never;
 	assert.equal(await executeProposal(db, lease, ports), "completed");
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: "succeeded" }));
@@ -149,7 +162,10 @@ test("INV-attachment-expiry: a photo unused for 24 hours is gone: Evry asks for 
 	assert.equal(await runDueObjectCleanup(db, files.storage, 10), 1);
 	assert.deepEqual(files.deleted, [key]);
 	assert.equal(files.objects.has(key), false);
-	assert.equal((await admin.execute(sql`SELECT state FROM file_object WHERE id=${old}::uuid`)).rows[0]!.state, "purged");
+	assert.equal(
+		(await admin.execute(sql`SELECT state FROM file_object WHERE id=${old}::uuid`)).rows[0]!.state,
+		"purged",
+	);
 	assert.equal(await priyaPhoto(), current);
 });
 
@@ -161,4 +177,38 @@ test("a Member who asks to make a photo Priya's is told an Owner or Admin has to
 	assert.match(asked.text, /An Owner or Admin of this church has to set someone's People photo/);
 	assert.deepEqual(asked.reviews, []);
 	assert.equal(await proposals(here), 0);
+});
+
+test("INV-file-identity: only a pending staged JPG, PNG or WebP with its digest can become a ready person photo; every other purpose change is refused", async () => {
+	const owner = await actor("owner");
+	const here = await conversation(owner);
+	const photo = await attachPhoto(owner, here, "other.png");
+	const csv = await files.attach(owner, here, "people.csv", Buffer.from("first_name\nPriya"));
+	const digest = "0".repeat(64);
+	const outcome = (update: Promise<unknown>) =>
+		update.then(
+			() => "changed",
+			(e: { cause?: { message?: string } }) => e.cause?.message,
+		);
+	const claim = (id: string, purpose: string) =>
+		outcome(
+			admin.execute(
+				sql`UPDATE file_object SET purpose=${purpose},state='ready',byte_count=1,sha256=${digest} WHERE id=${id}::uuid`,
+			),
+		);
+	assert.equal(await claim(csv.id, "person_photo"), "immutable_file_identity", "a CSV is not a photo");
+	assert.equal(await claim(photo.id, "avatar"), "immutable_file_identity", "only a person photo");
+	assert.equal(
+		await outcome(
+			admin.execute(sql`UPDATE file_object SET purpose='person_photo',state='ready' WHERE id=${photo.id}::uuid`),
+		),
+		"immutable_file_identity",
+		"no digest, no claim",
+	);
+	assert.equal(await claim(photo.id, "person_photo"), "changed");
+	assert.equal(
+		await outcome(admin.execute(sql`UPDATE file_object SET purpose='assistant_staging' WHERE id=${photo.id}::uuid`)),
+		"immutable_file_identity",
+		"a claimed photo stays a person photo",
+	);
 });

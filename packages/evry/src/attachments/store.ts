@@ -9,7 +9,12 @@ import type { EvryActor } from "../context/actor.ts";
 import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
 
-export const ATTACHMENTS = { csvBytes: 10 * 1024 * 1024, photoBytes: 5 * 1024 * 1024, perTurn: 10, stagingHours: 24 } as const;
+export const ATTACHMENTS = {
+	csvBytes: 10 * 1024 * 1024,
+	photoBytes: 5 * 1024 * 1024,
+	perTurn: 10,
+	stagingHours: 24,
+} as const;
 
 const KINDS = [
 	{ ext: /\.csv$/i, mediaType: "text/csv", max: ATTACHMENTS.csvBytes },

@@ -558,7 +558,8 @@ function Composer({
 			picked.some((p) => p.state === "uploading")
 		)
 			return;
-		const photos = attached?.status === "ready" && attached.avatarId ? [{ kind: "photo" as const, id: attached.avatarId }] : [];
+		const photos =
+			attached?.status === "ready" && attached.avatarId ? [{ kind: "photo" as const, id: attached.avatarId }] : [];
 		onSend(value, [...(usePage ? page : []), ...photos]);
 	};
 	const onSubmit = (e: FormEvent) => {
@@ -652,7 +653,7 @@ function Composer({
 											? "Say what Evry should do with the file."
 											: photo?.status === "ready"
 												? "Say what Evry should do with the photo."
-											: "Enter sends. Shift+Enter adds a line."}
+												: "Enter sends. Shift+Enter adds a line."}
 					</p>
 					<div className="flex flex-none items-center gap-1">
 						<AttachButton

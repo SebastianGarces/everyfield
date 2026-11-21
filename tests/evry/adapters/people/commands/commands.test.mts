@@ -270,11 +270,8 @@ const refusal = (p: Promise<unknown>) =>
 		(e: { code?: string }) => e.code,
 	);
 const fileRow = async (id: string) =>
-	(
-		await admin.execute(
-			sql`SELECT purpose,state,sha256,byte_count::int AS bytes FROM file_object WHERE id=${id}::uuid`,
-		)
-	).rows[0] as { purpose: string; state: string; sha256: string | null; bytes: number | null };
+	(await admin.execute(sql`SELECT purpose,state,sha256,byte_count::int AS bytes FROM file_object WHERE id=${id}::uuid`))
+		.rows[0] as { purpose: string; state: string; sha256: string | null; bytes: number | null };
 
 test("AC:PROVIDER48-002 a photo change binds only a photo attached in this conversation, runs once, and can't bind it to a second person; removal releases it", async () => {
 	const owner = await actor("owner");
@@ -313,7 +310,9 @@ test("AC:PROVIDER48-002 a photo change binds only a photo attached in this conve
 		bytes: png.length,
 	});
 	assert.equal(
-		await refusal(approveProposal(db, owner, rival.id, { revision: rival.revision, digest: rival.digest }, photos.storage)),
+		await refusal(
+			approveProposal(db, owner, rival.id, { revision: rival.revision, digest: rival.digest }, photos.storage),
+		),
 		"photo_unavailable",
 		"the bound photo can't be approved for a second person",
 	);

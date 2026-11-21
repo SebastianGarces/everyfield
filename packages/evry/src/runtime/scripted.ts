@@ -98,11 +98,17 @@ function photoStep(text: string, system: string, result: Record<string, unknown>
 		return say("I can't see a photo in this conversation. Attach it here with the paperclip, then ask me again.");
 	if (!result) return [toolCall("people_read", { operation: "people.listPeople", input: { search: name } })];
 	if (typeof result.proposalId === "string")
-		return say(`I prepared a review to make it ${name}'s People photo. Their photo stays as it is until you approve it.`);
+		return say(
+			`I prepared a review to make it ${name}'s People photo. Their photo stays as it is until you approve it.`,
+		);
 	if (result.operation !== "people.listPeople") return null;
 	const rows = (result.rows as { id: string; label: string }[] | undefined) ?? [];
 	if (rows.length !== 1)
-		return say(rows.length ? `I found ${rows.length} people named ${name}. Which one do you mean?` : `I can't find ${name} in this church.`);
+		return say(
+			rows.length
+				? `I found ${rows.length} people named ${name}. Which one do you mean?`
+				: `I can't find ${name} in this church.`,
+		);
 	return [
 		toolCall("propose_change", {
 			operation: "people.setPersonPhoto",
