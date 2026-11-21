@@ -12,7 +12,20 @@ import {
 	retryTurn,
 	submitTurn,
 } from "../../../packages/evry/src/index.ts";
-import { accounts, actor, admin, counts, db, freshActor, otherPlant, queries, setup, sql, teardown, work } from "./support.mts";
+import {
+	accounts,
+	actor,
+	admin,
+	counts,
+	db,
+	freshActor,
+	otherPlant,
+	queries,
+	setup,
+	sql,
+	teardown,
+	work,
+} from "./support.mts";
 
 before(setup);
 after(teardown);
@@ -143,7 +156,10 @@ test("INV-church-changed: a seat moved to another church refuses the old church'
 	const seatless = (await freshActor(accounts.mover.session))!;
 	assert.equal(seatless.seatId, null);
 	await refused(() => submitTurn(db, seatless, c.id, { requestKey: randomUUID(), text: "no new church" }), "not_found");
-	await refused(() => submitTurn(db, before, c.id, { requestKey: randomUUID(), text: "no new church" }), "access_denied");
+	await refused(
+		() => submitTurn(db, before, c.id, { requestKey: randomUUID(), text: "no new church" }),
+		"access_denied",
+	);
 
 	await admin.execute(
 		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${mover},${otherPlant},'member',clock_timestamp())`,
