@@ -7872,8 +7872,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "tokens": {
-          "name": "tokens",
+        "usage": {
+          "name": "usage",
           "type": "bigint",
           "primaryKey": false,
           "notNull": true
@@ -7898,9 +7898,9 @@
           "name": "embedding_spend_purpose",
           "value": "\"embedding_spend\".\"purpose\" IN ('query','rebuild')"
         },
-        "embedding_spend_tokens": {
-          "name": "embedding_spend_tokens",
-          "value": "\"embedding_spend\".\"tokens\" >= 0"
+        "embedding_spend_usage": {
+          "name": "embedding_spend_usage",
+          "value": "\"embedding_spend\".\"usage\" >= 0"
         }
       },
       "isRLSEnabled": false

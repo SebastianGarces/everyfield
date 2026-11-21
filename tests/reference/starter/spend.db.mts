@@ -40,7 +40,7 @@ const command = (release: string, expectedActivation: string) => ({
 	target: approvedWiki.target,
 });
 const ledger = async () =>
-	(await db.execute(sql`SELECT purpose, tokens::text AS tokens FROM embedding_spend ORDER BY purpose`)).rows;
+	(await db.execute(sql`SELECT purpose, usage::text AS tokens FROM embedding_spend ORDER BY purpose`)).rows;
 
 before(async () => {
 	await db.execute(sql`INSERT INTO auth_user(id, email, email_verified, name)

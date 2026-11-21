@@ -5817,12 +5817,12 @@ export const embedding_spend = pgTable(
 		id: uuid("id").primaryKey().defaultRandom(),
 		day: date("day", { mode: "string" }).notNull(),
 		purpose: text("purpose", { enum: ["query", "rebuild"] }).notNull(),
-		tokens: int64("tokens").notNull(),
+		usage: int64("usage").notNull(),
 	},
 	(t): PgTableExtraConfigValue[] => [
 		unique("embedding_spend_day_key").on(t.day, t.purpose),
 		check("embedding_spend_purpose", sql`${t.purpose} IN ('query','rebuild')`),
-		check("embedding_spend_tokens", sql`${t.tokens} >= 0`),
+		check("embedding_spend_usage", sql`${t.usage} >= 0`),
 	],
 );
 

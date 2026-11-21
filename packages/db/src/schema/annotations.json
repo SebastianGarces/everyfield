@@ -18520,7 +18520,7 @@
 				"future_case_ids": [],
 				"scope": "reference",
 				"invariants": [
-					"Tokens only grow: each provider call adds the tokens it reported in one upsert.",
+					"Usage only grows: each provider call adds the tokens it reported in one upsert.",
 					"A search reads the day's query tokens before calling the provider and calls it only while they are under the daily limit."
 				],
 				"revision": "One row per day and purpose; each recorded call adds its tokens in one statement.",
@@ -18538,7 +18538,7 @@
 				"purpose": {
 					"note": ""
 				},
-				"tokens": {
+				"usage": {
 					"note": ""
 				}
 			},

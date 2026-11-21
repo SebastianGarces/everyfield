@@ -172,7 +172,7 @@ const spent = async () =>
 	Number(
 		(
 			await admin.execute(
-				sql`SELECT COALESCE(sum(tokens),0)::text AS n FROM embedding_spend WHERE purpose='query' AND day=(clock_timestamp() AT TIME ZONE 'UTC')::date`,
+				sql`SELECT COALESCE(sum(usage),0)::text AS n FROM embedding_spend WHERE purpose='query' AND day=(clock_timestamp() AT TIME ZONE 'UTC')::date`,
 			)
 		).rows[0]?.n,
 	);

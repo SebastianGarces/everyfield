@@ -232,7 +232,9 @@ const probeRow = z.object({
 	dimensions: z.number().int().nullable(),
 	spent: z.coerce.number(),
 });
-type Meaning = { vector: string; dimensions: number };
+const MEANING_DIMENSIONS = 1536;
+const MEANING_VECTOR = "public.vector(1536)";
+type Meaning = { vector: string };
 
 function meaningSkipped(reason: string): null {
 	logLine({ component: "wiki", outcome: "meaning-skipped", reason: asLogWord(reason) });
@@ -251,7 +253,7 @@ async function meaningOf(
 				SELECT EXISTS (SELECT FROM me) AS allowed, rel.embedding_profile AS profile,
 					rel.embedding_dimensions AS dimensions,
 					COALESCE((
-						SELECT tokens FROM embedding_spend
+						SELECT usage FROM embedding_spend
 						WHERE day = (clock_timestamp() AT TIME ZONE 'UTC')::date AND purpose = 'query'
 					), 0) AS spent
 				FROM (SELECT 1) one
@@ -262,7 +264,13 @@ async function meaningOf(
 				) rel ON true`)
 		).rows[0],
 	);
-	if (!probe.allowed || probe.profile !== embedder.profile || probe.dimensions !== embedder.dimensions) return null;
+	if (
+		!probe.allowed ||
+		probe.profile !== embedder.profile ||
+		probe.dimensions !== embedder.dimensions ||
+		embedder.dimensions !== MEANING_DIMENSIONS
+	)
+		return null;
 	if (probe.spent >= tokensFor(DAILY_QUERY_CAP_USD)) return meaningSkipped("daily_limit");
 	let embedded: Awaited<ReturnType<WikiQueryEmbedder["embed"]>>;
 	try {
@@ -276,11 +284,11 @@ async function meaningOf(
 	const { vector } = embedded;
 	if (vector.length !== embedder.dimensions || vector.some((value) => !Number.isFinite(value)))
 		return meaningSkipped("bad_vector");
-	return { vector: `[${vector.join(",")}]`, dimensions: embedder.dimensions };
+	return { vector: `[${vector.join(",")}]` };
 }
 function meaningSql(meaning: Meaning | null, phase: number | null): SQL {
 	if (!meaning) return sql`SELECT NULL::uuid AS article_id, NULL::text AS content, NULL::float8 AS distance WHERE false`;
-	const type = sql.raw(`public.vector(${meaning.dimensions})`);
+	const type = sql.raw(MEANING_VECTOR);
 	const distance = sql`ps.embedding::${type} OPERATOR(public.<=>) ${meaning.vector}::${type}`;
 	return sql`
 		SELECT DISTINCT ON (p.article_id) p.article_id,
@@ -290,7 +298,7 @@ function meaningSql(meaning: Meaning | null, phase: number | null): SQL {
 			SELECT ps.revision_id, ps.ordinal, ps.content, ${distance} AS distance
 			FROM passage ps
 			WHERE ps.release_id = (SELECT release_id FROM release)
-				AND public.vector_dims(ps.embedding) = ${sql.raw(String(meaning.dimensions))}
+				AND public.vector_dims(ps.embedding) = 1536
 			ORDER BY ${distance}
 			LIMIT ${MEANING_PASSAGES}
 		) m

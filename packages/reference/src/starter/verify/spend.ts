@@ -17,7 +17,7 @@ export function estimateTokens(texts: readonly string[]): number {
 export async function recordSpend(db: Database, purpose: SpendPurpose, tokens: number): Promise<void> {
 	if (tokens <= 0) return;
 	await db.execute(sql`
-		INSERT INTO embedding_spend(day, purpose, tokens)
+		INSERT INTO embedding_spend(day, purpose, usage)
 		VALUES ((clock_timestamp() AT TIME ZONE 'UTC')::date, ${purpose}, ${tokens}::bigint)
-		ON CONFLICT (day, purpose) DO UPDATE SET tokens = embedding_spend.tokens + EXCLUDED.tokens`);
+		ON CONFLICT (day, purpose) DO UPDATE SET usage = embedding_spend.usage + EXCLUDED.usage`);
 }

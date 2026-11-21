@@ -19995,7 +19995,7 @@
       "future_case_ids": [],
       "scope": "reference",
       "invariants": [
-        "Tokens only grow: each provider call adds the tokens it reported in one upsert.",
+        "Usage only grows: each provider call adds the tokens it reported in one upsert.",
         "A search reads the day's query tokens before calling the provider and calls it only while they are under the daily limit."
       ],
       "revision": "One row per day and purpose; each recorded call adds its tokens in one statement.",
@@ -20024,7 +20024,7 @@
         },
         {
           "note": "",
-          "name": "tokens",
+          "name": "usage",
           "type": "bigint",
           "nullable": false
         }
@@ -20043,7 +20043,7 @@
       "foreign_keys": [],
       "checks": [
         "\"embedding_spend\".\"purpose\" IN ('query','rebuild')",
-        "\"embedding_spend\".\"tokens\" >= 0"
+        "\"embedding_spend\".\"usage\" >= 0"
       ],
       "indexes": {},
       "constraint_names": {
@@ -20054,7 +20054,7 @@
         "foreign": [],
         "checks": [
           "embedding_spend_purpose",
-          "embedding_spend_tokens"
+          "embedding_spend_usage"
         ]
       },
       "policies": {},
