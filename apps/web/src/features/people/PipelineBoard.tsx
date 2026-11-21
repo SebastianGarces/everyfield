@@ -198,8 +198,7 @@ function Column({
 	const own = useLocalStore(() => createPersonStore<{ revision: string }, null>({ revision: group.revision }));
 	const columnRevision = answer?.revision ?? group.revision;
 	const store = useMemo(() => withServer(own, { revision: columnRevision }), [own, columnRevision]);
-	const order0 = usePersonState(store);
-	const order = { ...order0, errors: { ...order0.errors, order: "conflict" } };
+	const order = usePersonState(store);
 	const [said, setSaid] = useState("");
 	const filtered = isFiltered(query);
 	const complete = !filtered && !more_.next && cards.length <= 100;
