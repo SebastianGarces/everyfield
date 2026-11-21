@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { REFUSAL_MECHANISMS, WEB_SQL_HOLDERS } from "../../scripts/lint/everyfield-plugin.mjs";
+import { REFUSAL_MECHANISMS } from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
@@ -1106,7 +1106,7 @@ export const p = require("node:process").env;
 	);
 });
 
-test("INV-web-sql: apps/web imports no database module outside the files that still hold SQL", () => {
+test("INV-web-sql: apps/web imports no database module", () => {
 	const code = `import { sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { eq } from "drizzle-orm";
@@ -1118,18 +1118,13 @@ export const later = () => import("@everyfield/db/query");
 export const used = [sql, t, eq, privateStorage, pgTable] as unknown as Database;
 import { pgTable } from "@everyfield/db/columns";
 `;
-	const [holder] = Object.keys(WEB_SQL_HOLDERS);
-	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" web-database-imports"));
 	assert.deepEqual(
-		reported({
+		lint({
 			"apps/web/src/features/x/server.ts": code,
-			[holder]: code,
 			"packages/domain/src/x/index.ts": code,
-		}),
+		}).filter((hit) => hit.endsWith(" web-database-imports")),
 		[1, 2, 3, 4, 5, 8, 10].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`).sort(),
 	);
-	assert.deepEqual(reported({ [holder]: "export const none = 1;\n" }), [`${holder}:1 web-database-imports`]);
-	assert.ok(Object.keys(WEB_SQL_HOLDERS).length <= 1, "WEB_SQL_HOLDERS only shrinks");
 });
 
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
@@ -1660,6 +1655,34 @@ export function gate(path: string, out: boolean) {
 		"apps/web/src/features/x/routes.tsx:8 sign-in-redirect",
 		"apps/web/src/features/x/routes.tsx:9 sign-in-redirect",
 	]);
+});
+
+test("INV-lint: a cast to SitePath is reported in any linted file, a typed literal or template is not", () => {
+	const source = `import type { SitePath, SitePath as Path } from "@everyfield/contracts/identity";
+import type * as identity from "@everyfield/contracts/identity";
+type Back = Path | null;
+type Many = Back[];
+export function paths<T extends SitePath>(raw: string, id: string) {
+	const a = raw as SitePath;
+	const b = <Path>raw;
+	const c = raw as unknown as Back;
+	const d = [raw] as Many;
+	const e = raw as identity.SitePath;
+	const f = raw as import("@everyfield/contracts/identity").SitePath;
+	const g = raw as T;
+	const h: SitePath = \`/documents/\${id}\`;
+	const i = "/wiki" satisfies SitePath;
+	const j = raw as string;
+	return [a, b, c, d, e, f, g, h, i, j];
+}
+`;
+	const hits = (path) =>
+		lint({ [path]: source })
+			.filter((hit) => hit.endsWith("site-path-cast"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10))
+			.sort((a, b) => a - b);
+	assert.deepEqual(hits("apps/web/src/features/x/server.ts"), [6, 7, 8, 9, 10, 11, 12]);
+	assert.deepEqual(hits("packages/contracts/src/identity/x.ts"), [6, 7, 8, 9, 10, 11, 12]);
 });
 
 test("INV-lint: a local generic Outcome type is reported unless it specializes the shared Outcome", () => {

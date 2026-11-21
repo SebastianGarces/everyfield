@@ -343,6 +343,51 @@ const providerKeyMint = {
 	},
 };
 
+const SITE_PATH = "SitePath";
+const CASTS = new Set(["TSAsExpression", "TSTypeAssertion"]);
+const typeName = (node) => {
+	if (node.type === "TSTypeReference")
+		return node.typeName.type === "Identifier" ? node.typeName.name : nameOf(node.typeName.right);
+	return node.qualifier ? nameOf(node.qualifier.right ?? node.qualifier) : null;
+};
+
+const sitePathCast = {
+	meta: { type: "problem" },
+	create(context) {
+		const message = `Do not cast to ${SITE_PATH}: write the path as a literal or template that starts with "/" and a letter or digit, so the type proves it stays on this site. An untrusted return path goes through safeReturn.`;
+		const names = new Set([SITE_PATH]);
+		const aliases = new Map();
+		const casts = [];
+		return {
+			ImportSpecifier(node) {
+				if (nameOf(node.imported) === SITE_PATH) names.add(node.local.name);
+			},
+			"TSTypeReference, TSImportType"(node) {
+				const name = typeName(node);
+				if (!name) return;
+				for (let at = node; at.parent; at = at.parent) {
+					const parent = at.parent;
+					if (CASTS.has(parent.type) && parent.typeAnnotation === at) return void casts.push({ node: parent, name });
+					const named =
+						(parent.type === "TSTypeAliasDeclaration" && parent.typeAnnotation === at) ||
+						(parent.type === "TSTypeParameter" && parent.constraint === at)
+							? nameOf(parent.id ?? parent.name)
+							: null;
+					if (named) return void aliases.set(named, [...(aliases.get(named) ?? []), name]);
+					if (!parent.type.startsWith("TS")) return;
+				}
+			},
+			"Program:exit"() {
+				for (let size = 0; size !== names.size;) {
+					size = names.size;
+					for (const [alias, used] of aliases) if (used.some((name) => names.has(name))) names.add(alias);
+				}
+				for (const cast of casts) if (names.has(cast.name)) context.report({ node: cast.node, message });
+			},
+		};
+	},
+};
+
 const requestActor = {
 	meta: { type: "problem" },
 	create(context) {
@@ -1390,40 +1435,19 @@ function handles(handler, body, param) {
 	return thrown || handed || (logged && !lost);
 }
 
-const MAIL_AUTHORIZERS = "the mail-authorizer move into @everyfield/domain (R-12 slice 20 follow-up, AP-S-17)";
-export const WEB_SQL_HOLDERS = {
-	"apps/web/src/features/notifications/worker.ts": {
-		why: "the notification worker's mail authorizer reads which recipients still hold a grant for each queued notice mail",
-		movedBy: MAIL_AUTHORIZERS,
-	},
-};
 const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
 
 const webDatabaseImports = {
 	meta: { type: "problem" },
 	create(context) {
-		const path = repoPath(context.filename);
-		if (!WEB_CODE.test(path)) return {};
-		const holder = Object.hasOwn(WEB_SQL_HOLDERS, path);
-		let imports = 0;
-		return {
-			...moduleSources((node, name) => {
-				if (!DATABASE_MODULES.test(name)) return;
-				imports++;
-				if (!holder)
-					context.report({
-						node,
-						message: `apps/web does not build SQL: ${name} belongs in @everyfield/domain. Call a domain operation, or move the statement into the domain module that owns its tables.`,
-					});
-			}),
-			"Program:exit"(node) {
-				if (holder && imports === 0)
-					context.report({
-						node,
-						message: `${path} no longer imports a database module: delete its WEB_SQL_HOLDERS entry in scripts/lint/everyfield-plugin.mjs.`,
-					});
-			},
-		};
+		if (!WEB_CODE.test(repoPath(context.filename))) return {};
+		return moduleSources((node, name) => {
+			if (DATABASE_MODULES.test(name))
+				context.report({
+					node,
+					message: `apps/web does not build SQL: ${name} belongs in @everyfield/domain. Call a domain operation, or move the statement into the domain module that owns its tables.`,
+				});
+		});
 	},
 };
 
@@ -3111,6 +3135,7 @@ export default {
 		"no-timers": noTimers,
 		"raw-sql-literal": rawSqlLiteral,
 		"request-actor": requestActor,
+		"site-path-cast": sitePathCast,
 		"provider-key-mint": providerKeyMint,
 		"no-comments": noComments,
 		"server-log": serverLog,
