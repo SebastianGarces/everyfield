@@ -94,10 +94,10 @@ export default function NativeEditor({
 				doc,
 				port: {
 					...port,
-					created: (id, editor) => {
+					created: (id, editor, kept) => {
 						const href = `/documents/written/${id}`;
 						if (leaveRequestNow()) return writeAddress(href, { replace: true });
-						keepForMove(id, store, editor);
+						keepForMove(id, kept, editor);
 						movePage(href, () => router.replace(href, { scroll: false }));
 					},
 				},

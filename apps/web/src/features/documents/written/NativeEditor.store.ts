@@ -41,7 +41,7 @@ export type NativeEditorPort = {
 	}) => Promise<DocumentOutcome<Written>>;
 	importFile: (file: File, params: Record<string, string>) => Promise<DocumentOutcome<WrittenView>>;
 	designate: (documentId: string, revision: string) => Promise<DocumentOutcome<Pick<Written, "revision" | "kind">>>;
-	created: (id: string, editor: Editor) => void;
+	created: (id: string, editor: Editor, store: StoreApi<NativeEditorState>) => void;
 };
 
 export type Saved = {
@@ -86,12 +86,12 @@ export function createNativeEditorStore({
 	const chain = new SaveChain();
 	let importKey: string | null = null;
 
-	return createStore<NativeEditorState>()((set, get) => {
+	return createStore<NativeEditorState>()((set, get, store) => {
 		const savedNow = (editor: Editor) =>
 			sameDoc(get().saved.doc, editor.state.doc) && get().title.trim() === get().saved.title;
 
 		const created = (id: string, editor: Editor) => {
-			if (!get().saved.id) port.created(id, editor);
+			if (!get().saved.id) port.created(id, editor, store);
 		};
 
 		const saveNow = (editor: Editor): Promise<boolean> => {
