@@ -84,10 +84,7 @@ const FOCUSABLE =
 function firstProblem(root: HTMLElement): HTMLElement | null {
 	const bad = root.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalid="true"]');
 	if (!bad || bad.matches("input, textarea, button, select")) return bad;
-	return (
-		bad.querySelector<HTMLElement>(FOCUSABLE) ??
-		bad.querySelector<HTMLElement>('[role="radio"]:not([disabled])')
-	);
+	return bad.querySelector<HTMLElement>(FOCUSABLE) ?? bad.querySelector<HTMLElement>('[role="radio"]:not([disabled])');
 }
 
 export function RecordDialog({
