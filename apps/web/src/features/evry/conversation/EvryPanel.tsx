@@ -9,7 +9,17 @@ import {
 	Unlink01Icon,
 	WifiDisconnected01Icon,
 } from "@hugeicons/core-free-icons";
-import { Alert, Button, IconButton, SearchInput, Sheet, Skeleton, StatePanel, Tooltip } from "@everyfield/ui/controls";
+import {
+	Alert,
+	Button,
+	IconButton,
+	RowButton,
+	SearchInput,
+	Sheet,
+	Skeleton,
+	StatePanel,
+	Tooltip,
+} from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { cn, createDebouncer, EvryBot, Icon, useFocusRequest, type EvryMood } from "@everyfield/ui/foundations";
 import { usePathname } from "next/navigation";
@@ -287,7 +297,11 @@ function Chat({
 					Evry reads the records you can see and answers with the sources it used. It never changes anything without
 					your approval.
 				</p>
-				{problem ? <Alert role="alert" className="text-left">{problem}</Alert> : null}
+				{problem ? (
+					<Alert role="alert" className="text-left">
+						{problem}
+					</Alert>
+				) : null}
 			</div>
 		);
 
@@ -733,19 +747,18 @@ function History({
 				<ul aria-busy={loading || undefined} className="-mx-2 flex flex-col">
 					{(items ?? []).map((item) => (
 						<li key={item.id}>
-							<button
-								type="button"
+							<RowButton
 								aria-current={item.id === current ? "true" : undefined}
 								data-focus-inset=""
 								onClick={() => onSelect(item.id)}
-								className="flex min-h-11 w-full items-center gap-3 rounded-md px-2 py-2.5 text-left transition-[background-color] hover:bg-hover aria-[current=true]:bg-surface-2"
+								className="min-h-11 items-center gap-3 rounded-md px-2 py-2.5 aria-[current=true]:bg-surface-2"
 							>
 								<span className="min-w-0 flex-1">
 									<span className="block truncate text-sm font-medium text-ink">{item.title}</span>
 									<span className="block text-xs text-text-3">{when(item.updatedAt)}</span>
 								</span>
 								{item.activeTurnId ? <span className="flex-none text-xs text-text-3">Answering</span> : null}
-							</button>
+							</RowButton>
 						</li>
 					))}
 				</ul>
