@@ -1419,8 +1419,6 @@ export const HAND_WRITTEN_NOTICES = {
 	"apps/web/src/features/evry/conversation/EvryPanel.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/evry/review/PeopleChanges.tsx": ERROR_CHIP,
 	"apps/web/src/features/evry/review/ReviewCard.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/meetings/RsvpScreen.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/meetings/parts.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/notifications/OptOutScreen.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/onboarding/parts.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/organizations/InviteDialog.tsx": NOTICE_ADOPTION,
