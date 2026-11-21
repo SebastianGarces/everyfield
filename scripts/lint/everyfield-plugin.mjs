@@ -2641,7 +2641,7 @@ const renderReads = {
 };
 
 const READ_NAME =
-	/^(?:load|read|get|list|find|search|suggest|preview|compare|reload|fetch|query|count|download|print)(?:[A-Z]|$)/;
+	/^(?:load|read|get|list|find|search|suggest|preview|compare|reload|fetch|query|count|download|print|resolve)(?:[A-Z]|$)/;
 
 const READ_HOME =
 	"Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through readsFrom in the feature's fetch.ts.";
@@ -2660,10 +2660,21 @@ const boundNames = (pattern) => {
 const declaresServer = (fn) =>
 	fn.body?.type === "BlockStatement" && fn.body.body.some((s) => s.directive === "use server");
 
+const SELECTION_INPUT =
+	"its input carries the selected person ids (up to 500, about 19.5 KB), too large for a GET address, so it stays a server action";
+export const SELECTION_READS = {
+	"apps/web/src/features/communication/actions.ts": { resolveAudience: SELECTION_INPUT },
+	"apps/web/src/features/teams/training/actions.ts": { previewRoster: SELECTION_INPUT },
+};
+
 const noReadActions = ratcheted("no-read-actions", (context, push) => {
 	const moduleActions = SERVER_ACTIONS.test(context.sourceCode.text);
-	const report = (node, name, where = `a read exported from a "use server" module`) =>
-		push({ node, fn: name, message: `${name} is ${where}. ${READ_HOME}` });
+	const selection = SELECTION_READS[repoPath(context.filename)] ?? {};
+	const seen = new Set();
+	const report = (node, name, where = `a read exported from a "use server" module`) => {
+		if (Object.hasOwn(selection, name)) seen.add(name);
+		else push({ node, fn: name, message: `${name} is ${where}. ${READ_HOME}` });
+	};
 	const exported = (id) => {
 		if (moduleActions && id && READ_NAME.test(id.name)) report(id, id.name);
 	};
@@ -2698,6 +2709,14 @@ const noReadActions = ratcheted("no-read-actions", (context, push) => {
 		FunctionDeclaration: inline,
 		FunctionExpression: inline,
 		ArrowFunctionExpression: inline,
+		"Program:exit"(node) {
+			for (const name of Object.keys(selection))
+				if (!seen.has(name))
+					context.report({
+						node,
+						message: `${name} is no longer a read action here: delete its SELECTION_READS entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+		},
 	};
 });
 
