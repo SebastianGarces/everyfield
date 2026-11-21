@@ -17,6 +17,7 @@
 				"member": "read",
 				"network": "read",
 				"resident": "read",
+				"signup": "read",
 				"visitor": "none"
 			},
 			"states": [
@@ -111,6 +112,33 @@
 							"absent": {
 								"role": "link",
 								"name": "People"
+							}
+						}
+					]
+				},
+				{
+					"id": "pending",
+					"reach": {
+						"persona": "signup",
+						"open": "/onboarding",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "button",
+							"name": "account menu",
+							"match": "contains"
+						},
+						{
+							"absent": {
+								"role": "link",
+								"name": "Wiki"
+							}
+						},
+						{
+							"absent": {
+								"role": "link",
+								"name": "Documents"
 							}
 						}
 					]

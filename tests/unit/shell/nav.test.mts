@@ -7,8 +7,8 @@ const labels = (viewer: NavViewer) => {
 	return { links: [...nav.main, ...nav.pages].map((link) => link.label), guide: nav.guide };
 };
 
-test("an account with no church yet is offered neither Wiki nor the wiki Guide, only Documents", () => {
-	assert.deepEqual(labels({ context: "pending" }), { links: ["Documents"], guide: false });
+test("an account with no church yet is offered no rail links and no wiki Guide, since it can open none of them", () => {
+	assert.deepEqual(labels({ context: "pending" }), { links: [], guide: false });
 });
 
 test("once the account creates or joins a church, every seat sees Wiki and the Guide", () => {
