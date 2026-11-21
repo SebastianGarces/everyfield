@@ -6,7 +6,7 @@ import { readBrand } from "./brand/server";
 import { readSection, settingsViewerOf } from "./server";
 import { dialogSection, firstSection, offeredSections, sectionRequest, type DialogSection } from "./model";
 import type { SectionSeed, SettingsViewer } from "./port";
-import { ProductSettingsDialog } from "./ProductSettings";
+import { ProductSettingsDialog } from "./SettingsDialogSlot";
 
 function sectionSeed(viewer: SettingsViewer | null, section: DialogSection | null): SectionSeed | null {
 	if (viewer && section === "brand" && offeredSections(viewer, []).includes("brand"))

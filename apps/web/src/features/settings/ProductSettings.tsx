@@ -3,7 +3,7 @@
 import { DASHBOARD_HOME } from "@everyfield/contracts/identity";
 import { avatarRoute } from "@everyfield/contracts/settings";
 import { useRouter } from "next/navigation";
-import { createContext, use, useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { currentAddress, onTraversal, usePath, writeAddress } from "../../components/location.ts";
 import { loadPage } from "../identity/api";
 import { saveSourceOrder } from "../wiki/actions";
@@ -31,9 +31,9 @@ import { getSection, getBrand, suggestColors, readRegion, suggestRegion } from "
 import { uploadAvatarBytes } from "./flows/avatarBytes";
 import { sectionAt, type DialogSection } from "./model";
 import type { DeletionStatus, SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
-import { LazySettingsDialog, settingsDialog } from "./LazySettingsDialog";
+import { settingsDialog } from "./LazySettingsDialog";
+import type { SettingsDialogParts } from "./SettingsDialogSlot";
 import { createSettingsStore, type SettingsStore } from "./settings.store";
-import { SettingsProvider } from "./store";
 
 const PORT: SettingsPort = {
 	getSection,
@@ -66,17 +66,6 @@ const PORT: SettingsPort = {
 const hrefFor = (key: SectionKey) => `/settings/${key}`;
 
 const pathOf = (href: string | null) => href?.split("?")[0] ?? null;
-
-type SettingsDialogParts = {
-	viewer: SettingsViewer;
-	port: SettingsPort;
-	section: DialogSection | null;
-	navigate: (key: SectionKey | null) => void;
-	openPage: (key: SectionKey) => void;
-	storeFor: (seed: SectionSeed | null) => SettingsStore;
-};
-
-export const SettingsDialogContext = createContext<SettingsDialogParts | null>(null);
 
 export function useProductSettings(viewer: SettingsViewer | null, seedFits: boolean) {
 	const path = usePath();
@@ -137,32 +126,25 @@ export function useProductSettings(viewer: SettingsViewer | null, seedFits: bool
 		[viewer, port, seedFits],
 	);
 
-	const parts = useMemo(
+	const parts = useMemo<SettingsDialogParts | null>(
 		() =>
 			viewer
-				? { viewer, port, section, navigate, openPage: (key: SectionKey) => router.push(hrefFor(key)), storeFor }
+				? {
+						viewer,
+						section,
+						navigate,
+						storeFor,
+						dialog: {
+							hrefFor,
+							pages: { sections: ["seats", "sharing"], open: (key: SectionKey) => router.push(hrefFor(key)) },
+							headerActions: <SettingsGuide />,
+							onDeletionRequested: (status: DeletionStatus | null) => loadPage(deletionPage(status)),
+						},
+					}
 				: null,
-		[viewer, port, section, navigate, router, storeFor],
+		[viewer, section, navigate, router, storeFor],
 	);
 	return { parts, open: (key: DialogSection) => navigate(key) };
-}
-
-export function ProductSettingsDialog({ seed }: { seed: SectionSeed | null }) {
-	const parts = use(SettingsDialogContext);
-	if (!parts) return null;
-	const { viewer, section, navigate, openPage, storeFor } = parts;
-	return (
-		<SettingsProvider key={`${viewer.accountId}-${viewer.context}`} store={storeFor(seed)} viewer={viewer}>
-			<LazySettingsDialog
-				section={section}
-				onNavigate={navigate}
-				hrefFor={hrefFor}
-				pages={{ sections: ["seats", "sharing"], open: openPage }}
-				headerActions={<SettingsGuide />}
-				onDeletionRequested={(status) => loadPage(deletionPage(status))}
-			/>
-		</SettingsProvider>
-	);
 }
 
 function deletionPage(status: DeletionStatus | null): string {

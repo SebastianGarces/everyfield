@@ -19,7 +19,8 @@ import { SettingsOpenerContext } from "../settings/opener";
 import { shellNav } from "./nav.ts";
 import { ResidencyContext, useResidency, type ResidencyState } from "../residency/context.ts";
 import type { SettingsViewer } from "../settings/port";
-import { ProductSettingsDialog, SettingsDialogContext, useProductSettings } from "../settings/ProductSettings";
+import { useProductSettings } from "../settings/ProductSettings";
+import { ProductSettingsDialog, SettingsDialogContext } from "../settings/SettingsDialogSlot";
 import type { Role } from "../people/server.ts";
 import { useWikiChrome, WikiChrome } from "../wiki/chrome.tsx";
 
