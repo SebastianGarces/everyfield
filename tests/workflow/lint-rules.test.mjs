@@ -348,8 +348,8 @@ export async function run() {
 	assert.deepEqual(lint(files), places.flatMap((p) => lines.map((line) => `${p}:${line} no-timers`)).sort());
 });
 
-test("INV-lint: the Evry stream keep-alive is the one listed product timer: one heartbeat setInterval in GET, any other timer there is reported", () => {
-	const stream = `export const GET = () => {
+test("INV-lint: the Evry stream keep-alive is the one listed product timer: one heartbeat setInterval in conversationStreamGet, any other timer there is reported", () => {
+	const stream = `export const conversationStreamGet = () => {
 	const heartbeat = setInterval(() => {}, 15_000);
 	setTimeout(() => {}, 0);
 	const second = setInterval(() => {}, 15_000);
@@ -360,12 +360,12 @@ export const other = () => setInterval(() => {}, 15_000);
 `;
 	assert.deepEqual(
 		lint({
-			"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts": stream,
-			"apps/web/src/app/api/evry/conversations/[id]/route.ts": stream,
+			"apps/web/src/server/evry/http.ts": stream,
+			"apps/web/src/server/evry/index.ts": stream,
 		}).filter((hit) => hit.endsWith(" no-timers")),
 		[
-			...[2, 3, 4, 5, 8].map((line) => `apps/web/src/app/api/evry/conversations/[id]/route.ts:${line} no-timers`),
-			...[3, 4, 5, 8].map((line) => `apps/web/src/app/api/evry/conversations/[id]/stream/route.ts:${line} no-timers`),
+			...[3, 4, 5, 8].map((line) => `apps/web/src/server/evry/http.ts:${line} no-timers`),
+			...[2, 3, 4, 5, 8].map((line) => `apps/web/src/server/evry/index.ts:${line} no-timers`),
 		],
 	);
 	assert.equal(Object.keys(PRODUCT_TIMERS).length, 1, "PRODUCT_TIMERS only shrinks");
