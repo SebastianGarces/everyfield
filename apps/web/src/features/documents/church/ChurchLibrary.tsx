@@ -12,6 +12,7 @@ import {
 	Button,
 	Card,
 	ConfirmDialog,
+	ConfirmRefused,
 	Dialog,
 	DialogBody,
 	DialogContent,
@@ -192,8 +193,8 @@ function TemplatePicker({
 
 	async function remove(recordId: string) {
 		const result = await deleteChurchTemplate(recordId);
-		if (result.status === "refused") throw new Error(result.message);
-		if (result.status === "lost") throw new Error("The connection dropped. Nothing was deleted. Try again.");
+		if (result.status === "refused") throw new ConfirmRefused(result.message);
+		if (result.status === "lost") throw new ConfirmRefused("The connection dropped. Nothing was deleted. Try again.");
 		setRemoved((prior) => new Set(prior).add(recordId));
 	}
 

@@ -277,7 +277,7 @@ export function d(run: () => void) {
 		].sort(),
 	);
 	const entries = Object.values(RAW_ERROR_SITES);
-	assert.ok(entries.length <= 6 && entries.reduce((n, e) => n + e.sites, 0) <= 9, "RAW_ERROR_SITES only shrinks");
+	assert.ok(entries.length <= 5 && entries.reduce((n, e) => n + e.sites, 0) <= 7, "RAW_ERROR_SITES only shrinks");
 	assert.ok(entries.every((e) => e.why.length > 40));
 });
 

@@ -7,7 +7,17 @@ import {
 	type residentChoices,
 } from "@everyfield/contracts/organizations";
 import { UserGroupIcon } from "@hugeicons/core-free-icons";
-import { Button, Card, CardIcon, Checkbox, ConfirmDialog, Skeleton, Spinner, Switch } from "@everyfield/ui/controls";
+import {
+	Button,
+	Card,
+	CardIcon,
+	Checkbox,
+	ConfirmDialog,
+	ConfirmRefused,
+	Skeleton,
+	Spinner,
+	Switch,
+} from "@everyfield/ui/controls";
 import { LoadableView, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useId, useState } from "react";
 import type { z } from "zod";
@@ -218,7 +228,7 @@ function ActiveResidency({
 			frame.left();
 			return reload();
 		}
-		throw new Error(
+		throw new ConfirmRefused(
 			result.problem === "refused"
 				? "You did not leave. Your sharing changed somewhere else. Close this and check again."
 				: result.problem === "busy"

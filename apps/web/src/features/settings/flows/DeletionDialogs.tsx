@@ -4,6 +4,7 @@ import { Delete02Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
 	ConfirmDialog,
+	ConfirmRefused,
 	Dialog,
 	DialogBody,
 	DialogContent,
@@ -145,7 +146,7 @@ export function AccountDeletionDialog({
 				);
 				if (result.ok) return onRequested(result.value);
 				if (UNCERTAIN.has(result.refusal.code)) return onRequested(null);
-				throw new Error(`${result.refusal.message} Reference ${result.refusal.reference}.`);
+				throw new ConfirmRefused(`${result.refusal.message} Reference ${result.refusal.reference}.`);
 			}}
 		/>
 	);

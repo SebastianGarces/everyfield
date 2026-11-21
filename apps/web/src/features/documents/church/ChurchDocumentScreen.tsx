@@ -9,7 +9,7 @@ import {
 	type ExportFormat,
 	type SavedExport,
 } from "@everyfield/contracts/documents";
-import { Alert, Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
+import { Alert, Button, ConfirmDialog, ConfirmRefused, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { LocalTime, Tag } from "@everyfield/ui/display";
 import dynamic from "next/dynamic";
 import { startTransition, useActionState, useOptimistic, useRef, useState } from "react";
@@ -127,14 +127,14 @@ export function ChurchDocumentScreen({
 
 	async function remove() {
 		const result: ChurchActionResult | undefined = await deleteChurchDocument(doc.id, revision);
-		if (result?.status === "refused") throw new Error(result.message);
-		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was deleted.");
+		if (result?.status === "refused") throw new ConfirmRefused(result.message);
+		if (result?.status === "lost") throw new ConfirmRefused("The connection dropped. Nothing was deleted.");
 	}
 
 	async function archive() {
 		const result: ChurchActionResult | undefined = await archiveChurchDocument(doc.id, revision);
-		if (result?.status === "refused") throw new Error(result.message);
-		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was archived.");
+		if (result?.status === "refused") throw new ConfirmRefused(result.message);
+		if (result?.status === "lost") throw new ConfirmRefused("The connection dropped. Nothing was archived.");
 	}
 
 	return (

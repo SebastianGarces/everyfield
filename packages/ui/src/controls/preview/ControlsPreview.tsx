@@ -51,6 +51,7 @@ import {
 	Combobox,
 	CommandPalette,
 	ConfirmDialog,
+	ConfirmRefused,
 	DateRangePicker,
 	Dialog,
 	DialogBody,
@@ -799,7 +800,9 @@ function OverlaysSection({ paletteShortcut }: { paletteShortcut: ShortcutMark })
 			setAnswer(() => (hidden: boolean) => {
 				setAnswer(null);
 				if (!hidden) {
-					reject(new Error("The article did not hide because the connection dropped. Nothing changed. Try again."));
+					reject(
+						new ConfirmRefused("The article did not hide because the connection dropped. Nothing changed. Try again."),
+					);
 					return;
 				}
 				toast({ message: "Article hidden." });

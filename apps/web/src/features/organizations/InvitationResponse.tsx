@@ -2,7 +2,7 @@
 
 import { respondInvitationRequest } from "@everyfield/contracts/organizations";
 import { CheckmarkCircle02Icon, Clock01Icon, HierarchyIcon } from "@hugeicons/core-free-icons";
-import { Button, Card, CardIcon, ConfirmDialog, StatePanel } from "@everyfield/ui/controls";
+import { Button, Card, CardIcon, ConfirmDialog, ConfirmRefused, StatePanel } from "@everyfield/ui/controls";
 import { useState } from "react";
 import { NotAvailable } from "../access/AccessStates";
 import { useIntent } from "../../components/intent.ts";
@@ -108,8 +108,8 @@ export function InvitationResponse({
 		const result = await respond("decline");
 		if (result.ok) return setOutcome("declined");
 		if (result.problem === "refused") return setOutcome("refused");
-		if (result.problem === "busy") throw new Error("Finish accepting first: use Try again on the page.");
-		throw new Error("We could not confirm your answer. Check your connection, then try again.");
+		if (result.problem === "busy") throw new ConfirmRefused("Finish accepting first: use Try again on the page.");
+		throw new ConfirmRefused("We could not confirm your answer. Check your connection, then try again.");
 	};
 
 	return (

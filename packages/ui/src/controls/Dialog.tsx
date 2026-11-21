@@ -92,6 +92,18 @@ export function DialogFooter({ className, ...props }: ComponentPropsWithRef<"div
 	);
 }
 
+export class ConfirmRefused extends Error {
+	override name = "ConfirmRefused";
+	constructor(readonly copy: string) {
+		super(copy);
+	}
+}
+
+const UNFINISHED = "The action did not finish. Try again.";
+
+export const confirmProblem = (error: unknown) =>
+	error instanceof ConfirmRefused && error.copy ? error.copy : UNFINISHED;
+
 type ConfirmDialogProps = {
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
@@ -140,7 +152,7 @@ export function ConfirmDialog({
 			onOpenChange?.(false);
 		} catch (e) {
 			setPending(false);
-			setError(e instanceof Error && e.message ? e.message : "The action did not finish. Try again.");
+			setError(confirmProblem(e));
 		}
 	};
 
