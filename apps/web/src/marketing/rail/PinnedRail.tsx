@@ -4,10 +4,12 @@ import { useReduced } from "@/components/motion/scene";
 import { cn, observeSize, useMediaQuery } from "@everyfield/ui/foundations";
 import { NativeAnimation, scroll } from "motion/react";
 import {
+	Children,
 	useCallback,
 	useMemo,
 	useRef,
 	useState,
+	type CSSProperties,
 	type FocusEvent,
 	type KeyboardEvent,
 	type PointerEvent,
@@ -17,10 +19,8 @@ import { clamp } from "@/components/motion/curves";
 
 type Props = { id: string; headingId: string; head: ReactNode; children: ReactNode };
 
-type Geo = { a: number; travel: number; stick: number; inset: number; vw: number; fh: number; pinTop: number };
+type Geo = { a: number; travel: number; stick: number; inset: number; vw: number; pinTop: number };
 const WIDE = "(min-width: 901px)";
-const START = 0.55,
-	LEAD = 1;
 
 function driveRail(track: HTMLSpanElement | null, geo: Geo) {
 	const list = track?.parentElement?.querySelector("ol");
@@ -28,7 +28,7 @@ function driveRail(track: HTMLSpanElement | null, geo: Geo) {
 	const anim = new NativeAnimation({
 		element: list,
 		name: "transform",
-		keyframes: [`translate3d(${geo.a.toFixed(2)}px,0,0)`, `translate3d(${(geo.a - geo.travel).toFixed(2)}px,0,0)`],
+		keyframes: ["translate3d(0,0,0)", `translate3d(${(-geo.travel).toFixed(2)}px,0,0)`],
 		duration: 1000,
 		ease: "linear",
 	});
@@ -51,6 +51,7 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 	const probe = useRef<HTMLSpanElement>(null);
 	const rail = useRef<HTMLDivElement>(null);
 	const list = useRef<HTMLOListElement>(null);
+	const room = useRef<HTMLDivElement>(null);
 	const wide = useMediaQuery(WIDE);
 	const [geo, setGeo] = useState<Geo | null>(null);
 	const pinned = wide && !reduced;
@@ -65,8 +66,9 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 					const F = frame.current,
 						Ra = rail.current,
 						L = list.current,
-						Pr = probe.current;
-					if (!F || !Ra || !L || !Pr || !pinned) {
+						Pr = probe.current,
+						Ro = room.current;
+					if (!F || !Ra || !L || !Pr || !Ro || !pinned) {
 						setGeo(null);
 						return;
 					}
@@ -74,12 +76,11 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 						vh = window.innerHeight;
 					const inset = parseFloat(getComputedStyle(Ra).paddingLeft) || 0;
 					const top = parseFloat(getComputedStyle(Pr).top) || 0;
-					const fh = F.offsetHeight,
-						stick = Math.min(top, vh - fh - 16);
-					const a = Math.max(0, START * vw - inset - LEAD * stepOf(L, Ra)),
-						z = Math.min(vw - 2 * inset - L.scrollWidth, a);
+					const stick = Math.min(top, vh - F.offsetHeight - 16);
+					const a = parseFloat(getComputedStyle(L).translate) || 0,
+						travel = Ro.getBoundingClientRect().height;
 					const pinTop = R.getBoundingClientRect().top + window.scrollY;
-					const next = { a, travel: Math.max(0, a - z), stick, inset, vw, fh, pinTop };
+					const next = { a, travel, stick, inset, vw, pinTop };
 					setGeo((g) => (g && JSON.stringify(g) === JSON.stringify(next) ? g : next));
 				},
 				{ also: () => [document.body], fonts: true, viewport: true },
@@ -171,17 +172,17 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 		<section
 			ref={measured}
 			id={id}
-			className="relative scroll-mt-[88px] py-section max-mk-sm:scroll-mt-[76px] [--phc-top:clamp(148px,2.5vw+126px,162px)]"
+			style={{ "--cards": Children.count(children) } as CSSProperties}
+			className="mk-rail relative scroll-mt-[88px] py-section max-mk-sm:scroll-mt-[76px]"
 		>
-			<span ref={probe} aria-hidden="true" className="pointer-events-none invisible absolute top-(--phc-top) size-0" />
-			<div className="relative" style={geo ? { height: geo.fh + geo.travel } : undefined}>
+			<span ref={probe} aria-hidden="true" className="pointer-events-none invisible absolute top-(--rail-top) size-0" />
+			<div className="relative" style={geo ? ({ "--rail-stick": `${geo.stick}px` } as CSSProperties) : undefined}>
 				<span
 					ref={drive}
 					aria-hidden="true"
-					className="pointer-events-none invisible absolute inset-x-0 w-px"
-					style={geo ? { top: -geo.stick, height: `calc(${geo.travel}px + 100vh)` } : { top: 0, height: 0 }}
+					className="pointer-events-none invisible absolute inset-x-0 top-0 h-0 w-px mk-cx:motion-safe:top-[calc(-1*var(--rail-stick))] mk-cx:motion-safe:h-[calc(var(--rail-travel)+100vh)]"
 				/>
-				<div ref={frame} className={cn(pinned && "sticky")} style={geo ? { top: geo.stick } : undefined}>
+				<div ref={frame} className="mk-cx:motion-safe:sticky mk-cx:motion-safe:top-(--rail-stick)">
 					{head}
 					<div
 						ref={rail}
@@ -202,20 +203,19 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 							}
 						}}
 						className={cn(
-							"[--phc-in:max(var(--spacing-page),calc((100%-var(--container-mk))/2+var(--spacing-page)))] px-(--phc-in) pt-1.5 pb-[22px]",
-							pinned
-								? "overflow-clip"
-								: cn(
-										"cursor-grab snap-x snap-mandatory scroll-px-(--phc-in) overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-										dragging && "cursor-grabbing select-none",
-									),
+							"snap-x snap-mandatory scroll-px-(--rail-inset) overflow-x-auto overflow-y-hidden overscroll-x-contain px-(--rail-inset) pt-1.5 pb-[22px] [scrollbar-width:none] max-mk-cx:cursor-grab motion-reduce:cursor-grab mk-cx:motion-safe:overflow-clip [&::-webkit-scrollbar]:hidden",
+							dragging && "select-none max-mk-cx:cursor-grabbing motion-reduce:cursor-grabbing",
 						)}
 					>
-						<ol ref={list} className={cn("flex w-max gap-4", pinned && "will-change-transform")}>
+						<ol
+							ref={list}
+							className="flex w-max gap-(--rail-gap) mk-cx:motion-safe:[translate:var(--rail-from)] mk-cx:motion-safe:will-change-transform"
+						>
 							{children}
 						</ol>
 					</div>
 				</div>
+				<div ref={room} aria-hidden="true" className="hidden h-(--rail-travel) mk-cx:motion-safe:block" />
 			</div>
 		</section>
 	);

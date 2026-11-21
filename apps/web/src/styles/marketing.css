@@ -433,6 +433,21 @@
 	);
 }
 
+@utility mk-rail {
+	container-type: inline-size;
+	--rail-top: clamp(148px, 2.5vw + 126px, 162px);
+	--rail-stick: var(--rail-top);
+	--rail-card: clamp(296px, 26vw, 372px);
+	--rail-gap: 16px;
+	--rail-inset: max(var(--spacing-page), calc((100cqw - var(--container-mk)) / 2 + var(--spacing-page)));
+	--rail-from: max(0px, calc(0.55 * 100cqw - var(--rail-inset) - var(--rail-card) - var(--rail-gap)));
+	--rail-to: min(
+		var(--rail-from),
+		calc(100cqw - 2 * var(--rail-inset) - var(--cards) * (var(--rail-card) + var(--rail-gap)) + var(--rail-gap))
+	);
+	--rail-travel: max(0px, calc(var(--rail-from) - var(--rail-to)));
+}
+
 @utility mk-leaders-shade {
 	--ld: rgb(from var(--color-ink) calc(r* 0.7) calc(g* 0.7) calc(b* 0.7));
 	background: linear-gradient(
