@@ -23,6 +23,7 @@
 				"/api/evry/open",
 				"/api/evry/conversations",
 				"/api/evry/conversations/[id]",
+				"/api/evry/conversations/[id]/attachments",
 				"/api/evry/conversations/[id]/turns",
 				"/api/evry/conversations/[id]/stream",
 				"/api/evry/conversations/[id]/cancel",

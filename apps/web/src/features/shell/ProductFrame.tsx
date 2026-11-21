@@ -77,8 +77,10 @@ function Frame({ name, photo, settings, settingsDialog, seedFits, children }: Fr
 	const dialog = useProductSettings(settings, seedFits);
 	const pathname = usePathname();
 	const privatePage = evryOff(pathname);
+	const role = settings && settings.context !== "account" ? settings.role : null;
 	const evry = useEvryPanel({
 		inPlant: settings?.context === "plant",
+		canAttach: settings?.context === "plant" && (role === "owner" || role === "admin"),
 		off: privatePage,
 		context:
 			settings?.context === "plant"
@@ -90,7 +92,6 @@ function Frame({ name, photo, settings, settingsDialog, seedFits, children }: Fr
 	const bell = useNotificationBell();
 	const wiki = useWikiChrome();
 	const [feedback, setFeedback] = useState(false);
-	const role = settings && settings.context !== "account" ? settings.role : null;
 	const { linked } = useResidency();
 	const account = !settings || settings.context === "account";
 	const banner =

@@ -1,5 +1,6 @@
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type * as api from "./api.ts";
+import { FILE_REFUSED, refusal, type Picked } from "./attachments.ts";
 import {
 	answerText,
 	cursor,
@@ -9,6 +10,7 @@ import {
 	mergeLive,
 	opened,
 	turnsOf,
+	type Attachment,
 	type Conversation,
 	type ConversationEvent,
 	type ProjectedError,
@@ -25,10 +27,18 @@ export type View = "chat" | "history";
 
 export type EvryPort = Pick<
 	typeof api,
-	"openLatest" | "readConversation" | "createConversation" | "submitTurn" | "retryTurn" | "cancelTurn" | "streamUrl"
+	| "openLatest"
+	| "readConversation"
+	| "createConversation"
+	| "submitTurn"
+	| "retryTurn"
+	| "cancelTurn"
+	| "streamUrl"
+	| "stageAttachment"
 > & {
 	checkPhoto: (file: File) => Attached | null;
 	stagePhoto: (file: File, src: string) => Promise<Attached>;
+	putFile: (url: string, headers: Record<string, string>, file: File) => Promise<boolean>;
 };
 
 export type EvryPanelState = {
@@ -37,6 +47,8 @@ export type EvryPanelState = {
 	draft: string;
 	startedIn: string;
 	photo: Attached | null;
+	files: Picked[];
+	fileNotice: string | null;
 	chat: State;
 	load: Load;
 	pipeline: boolean;
@@ -54,6 +66,8 @@ export type EvryPanelState = {
 		edit: (send: Send) => void;
 		attach: (file: File) => void;
 		clearPhoto: () => void;
+		addFiles: (files: readonly File[]) => void;
+		removeFile: (key: string) => void;
 		reload: () => void;
 		cancel: () => void;
 		retry: (turnId: string) => void;
@@ -194,6 +208,42 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				return { ...chat, sends };
 			});
 
+		const ensureConversation = async (): Promise<Conversation | null> => {
+			const known = get().chat.conversation;
+			if (known) return known;
+			const view = shown;
+			const key = (createKey ??= crypto.randomUUID());
+			const created = await port.createConversation(key);
+			if (created.status !== "ok" || shown !== view) return null;
+			if (createKey === key) createKey = null;
+			const made = created.value;
+			update((chat) => ({ ...chat, conversation: made }));
+			return made;
+		};
+
+		const patchFile = (key: string, next: Partial<Picked>) =>
+			set({ files: get().files.map((p) => (p.key === key ? { ...p, ...next } : p)) });
+
+		const upload = async (file: File, key: string) => {
+			const conversation = await ensureConversation();
+			if (!conversation) return patchFile(key, { state: "failed" });
+			patchFile(key, { conversationId: conversation.id });
+			const staged = await port.stageAttachment(conversation.id, file.name, file.size);
+			if (staged.status !== "ok") {
+				if (staged.status === "refused")
+					set({ fileNotice: FILE_REFUSED[staged.error.code] ?? "That file could not be attached." });
+				return patchFile(key, { state: "failed" });
+			}
+			const put = await port.putFile(staged.value.upload.url, staged.value.upload.headers, file);
+			if (!put) return patchFile(key, { state: "failed" });
+			patchFile(key, { state: "ready", attachment: staged.value.attachment });
+		};
+
+		const readyFiles = (conversationId: string | null): Attachment[] =>
+			get()
+				.files.filter((p) => p.state === "ready" && p.conversationId === conversationId)
+				.flatMap((p) => (p.attachment ? [p.attachment] : []));
+
 		const deliver = async (send: Send) => {
 			const view = shown;
 			const here = () => shown === view;
@@ -204,7 +254,8 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				const created = await port.createConversation(key);
 				if (!here())
 					return void (
-						created.status === "ok" && port.submitTurn(created.value.id, send.key, send.text, send.references)
+						created.status === "ok" &&
+						port.submitTurn(created.value.id, send.key, send.text, send.references, send.attachments)
 					);
 				if (created.status !== "ok") return fail(send, created, "unstarted");
 				if (createKey === key) createKey = null;
@@ -212,7 +263,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				conversation = made;
 				update((chat) => ({ ...chat, conversation: made }));
 			}
-			const r = await port.submitTurn(conversation.id, send.key, send.text, send.references);
+			const r = await port.submitTurn(conversation.id, send.key, send.text, send.references, send.attachments);
 			if (!here()) return;
 			if (r.status !== "ok") return fail(send, r);
 			patchSend(send.key, { sequence: r.value.sequence });
@@ -300,6 +351,8 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			draft: "",
 			startedIn: init.context,
 			photo: null,
+			files: [],
+			fileNotice: null,
 			chat: EMPTY,
 			load: "idle",
 			pipeline: false,
@@ -322,8 +375,16 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 						set({ startedIn: context });
 						if (get().chat.conversation) get().actions.newChat();
 					}
-					const s: Send = { key: crypto.randomUUID(), text, references, state: "sending", error: null, sequence: null };
-					update((chat) => ({ ...chat, sends: [...chat.sends, s] }), { draft: "" });
+					const s: Send = {
+						key: crypto.randomUUID(),
+						text,
+						references,
+						attachments: readyFiles(get().chat.conversation?.id ?? null),
+						state: "sending",
+						error: null,
+						sequence: null,
+					};
+					update((chat) => ({ ...chat, sends: [...chat.sends, s] }), { draft: "", files: [], fileNotice: null });
 					dropPhoto();
 					void deliver(s);
 				},
@@ -342,6 +403,36 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 					});
 				},
 				clearPhoto: dropPhoto,
+				addFiles: (picked) => {
+					let count = get().files.length;
+					let fileNotice: string | null = null;
+					const added: { file: File; key: string }[] = [];
+					for (const file of picked) {
+						const problem = refusal(file, count);
+						if (problem) {
+							fileNotice = problem;
+							continue;
+						}
+						count++;
+						added.push({ file, key: crypto.randomUUID() });
+					}
+					set({
+						fileNotice,
+						files: [
+							...get().files,
+							...added.map(({ file, key }) => ({
+								key,
+								name: file.name,
+								size: file.size,
+								conversationId: null,
+								state: "uploading" as const,
+								attachment: null,
+							})),
+						],
+					});
+					for (const { file, key } of added) void upload(file, key);
+				},
+				removeFile: (key) => set({ files: get().files.filter((p) => p.key !== key) }),
 				reload: () => void reload(),
 				cancel: () =>
 					void (async () => {

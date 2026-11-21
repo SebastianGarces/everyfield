@@ -3,12 +3,14 @@
 import {
 	Alert02Icon,
 	ArrowRight02Icon,
+	BookOpen01Icon,
 	Calendar03Icon,
 	Location01Icon,
 	Briefcase01Icon,
 	CheckListIcon,
 	Cancel01Icon,
 	CheckmarkCircle02Icon,
+	File02Icon,
 	Clock01Icon,
 	Edit02Icon,
 	FileImportIcon,
@@ -20,6 +22,7 @@ import {
 	Mortarboard01Icon,
 	StartUp02Icon,
 	SquareLock02Icon,
+	Task01Icon,
 	Tag01Icon,
 	Tick02Icon,
 	UserAdd01Icon,
@@ -57,7 +60,6 @@ import { MAIL_CONSEQUENCE, MailChanges, MailResult } from "./MailChanges.tsx";
 import { NoticeChanges } from "./NoticeChanges.tsx";
 import { CurrentState, ImportResult, ImportRows, PeopleResult, ReviewedPeople } from "./PeopleChanges.tsx";
 import {
-	addsOnly,
 	asksReason,
 	approvable,
 	choicesFor,
@@ -67,20 +69,31 @@ import {
 	consequence,
 	carryOver,
 	carryOverText,
+	documentRefusalText,
+	documentResult,
+	isDocument,
 	editableChanges,
 	fieldKind,
 	fieldLabel,
 	hasBirthDate,
+	intelligencePage,
+	intelligenceRefusalText,
+	isIntelligence,
 	isMail,
 	isMeetings,
 	isNotification,
 	isTeams,
 	isRequired,
+	isTasks,
+	itemField,
+	isWiki,
 	MAIL_DISMISSED,
 	mailHead,
 	launchRefusalText,
 	mailRefusalText,
 	missingRequired,
+	openAfter,
+	openCriteria,
 	operationTitle,
 	peopleResult,
 	phaseOf,
@@ -97,8 +110,13 @@ import {
 	retryable,
 	reviseInput,
 	SHARE_CHOICES,
+	savedText,
+	showsBefore,
 	shownChanges,
+	subjectName,
+	targetHref,
 	valueText,
+	wikiRefusalText,
 	linkEdit,
 	type CarryOver,
 	type Change,
@@ -172,6 +190,8 @@ const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; ti
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
 	const who = review?.review.target?.label ?? null;
 	const mail = !!review && isMail(review.operation);
+	const tasks = !!review && isTasks(review.operation);
+	const record = tasks && review.review.target?.kind !== "person" ? "task" : "person";
 	if (review && view === "pending" && review.review.refusal) return review.review.refusal;
 	if (mail) {
 		if (view === "pending" && review.stale)
@@ -188,9 +208,9 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				? "The message in this change is no longer available to you, so Evry can't show this change or its result."
 				: "The message in this change is no longer available to you. Nothing was changed.";
 	}
+	const intelligence = !!review && isIntelligence(review.operation);
 	switch (view) {
 		case "pending":
-			if (review?.review.refusal) return review.review.refusal;
 			return review && review.revision > 1
 				? `You revised this change. Only revision ${review.revision} can be approved.`
 				: null;
@@ -204,13 +224,19 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				return `A record in the ${who ?? "change"} changed after Evry prepared this, so it couldn't be applied and nothing was changed for anyone. This is how they are now. Ask Evry to prepare it again.`;
 			return mail
 				? mailRefusalText(review.receipt?.code)
-				: review && isSettings(review.operation)
-					? settingsRefusalText(review.receipt?.code)
-					: refusalText(review?.receipt?.code, who, !!review && isMeetings(review.operation));
+				: review && isWiki(review.operation)
+					? wikiRefusalText(review.receipt?.code)
+					: review && isDocument(review.operation)
+						? documentRefusalText(review.receipt?.code)
+						: review && isSettings(review.operation)
+							? settingsRefusalText(review.receipt?.code)
+							: intelligence
+								? intelligenceRefusalText(review.receipt?.code)
+								: refusalText(review?.receipt?.code, who, review?.operation);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
-				: "Evry can't confirm that this was saved, and the approval expired. Open the person to check.";
+				: `Evry can't confirm that this was saved, and the approval expired. ${intelligence ? "Open the phase journey or attestations" : tasks ? "Open Tasks" : "Open the person"} to check.`;
 		case "unknown":
 			return UNKNOWN_TEXT[unknown ?? "approve"];
 		case "photo_unavailable":
@@ -223,10 +249,12 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				: "This review expired, so nothing was changed. Prepare it again to check the current values.";
 		case "cancelled":
 			return "You cancelled this change. Nothing was changed.";
-		case "withheld":
+		case "withheld": {
+			const what = review && isWiki(review.operation) ? "The article" : `The ${record}`;
 			return review?.status === "approved"
-				? "The person in this change is no longer available to you, so Evry can't show this change or its result."
-				: "The person in this change is no longer available to you. Nothing was changed.";
+				? `${what} in this change is no longer available to you, so Evry can't show this change or its result.`
+				: `${what} in this change is no longer available to you. Nothing was changed.`;
+		}
 		case "unavailable":
 			return "You can't see this change now, so Evry can't show its result. Changes like this need an Owner or Admin seat in this church.";
 		default:
@@ -245,8 +273,7 @@ function announcement(view: View, review: Review | null, lapsed: boolean, unknow
 	if (completedMail) return completedMail.title;
 	if (view === "completed" && review && peopleResult(review)) return `${peopleResult(review)}.`;
 	if (view === "completed" && review?.receipt?.import) return "Import saved.";
-	if (view === "completed")
-		return review?.review.target ? `Saved. ${review.review.target.label} is updated.` : "Saved.";
+	if (view === "completed") return review ? savedText(review) : "Saved.";
 	return [head, note(view, review, lapsed, unknown)].filter(Boolean).join(". ");
 }
 
@@ -455,6 +482,7 @@ function Footer({
 	onRevise: () => void;
 }) {
 	const who = review.review.target;
+	const open = openAfter(review);
 	const other = (action: string) => r.busy !== null && r.busy !== action;
 	const cancel = (
 		<Button
@@ -534,7 +562,7 @@ function Footer({
 					</Button>
 				) : who ? (
 					<Button size="sm" variant="secondary" asChild>
-						<IntentLink href={`/people/${who.id}`}>Open {who.label}</IntentLink>
+						<IntentLink href={targetHref(who)}>Open {who.label}</IntentLink>
 					</Button>
 				) : null}
 				<span className="flex-1" />
@@ -566,12 +594,21 @@ function Footer({
 							</IntentLink>
 						</Button>
 					</>
+				) : isDocument(review.operation) ? (
+					<DocumentLink review={review} />
 				) : isNotification(review.operation) ? (
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink
 							href={review.operation.startsWith("notifications.mark") ? "/notifications" : "/settings/notifications"}
 						>
 							{review.operation.startsWith("notifications.mark") ? "Open notifications" : "Open settings"}
+							<Icon icon={ArrowRight02Icon} size={16} />
+						</IntentLink>
+					</Button>
+				) : isIntelligence(review.operation) ? (
+					<Button size="sm" variant="ghost" asChild>
+						<IntentLink href={intelligencePage(review.operation).href}>
+							{intelligencePage(review.operation).label}
 							<Icon icon={ArrowRight02Icon} size={16} />
 						</IntentLink>
 					</Button>
@@ -596,10 +633,10 @@ function Footer({
 							<Icon icon={ArrowRight02Icon} size={16} />
 						</IntentLink>
 					</Button>
-				) : who?.kind === "person" && review.operation !== "people.deletePerson" && !review.review.withheld ? (
+				) : open ? (
 					<Button size="sm" variant="ghost" asChild>
-						<IntentLink href={`/people/${who.id}`}>
-							Open {who.label}
+						<IntentLink href={open.href}>
+							{open.label}
 							<Icon icon={ArrowRight02Icon} size={16} />
 						</IntentLink>
 					</Button>
@@ -622,6 +659,18 @@ function Footer({
 		<div key={view} className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
 			{body}
 		</div>
+	) : null;
+}
+
+function DocumentLink({ review }: { review: Review }) {
+	const result = documentResult(review);
+	return result ? (
+		<Button size="sm" variant="ghost" asChild>
+			<IntentLink href={result.href}>
+				{result.label}
+				<Icon icon={ArrowRight02Icon} size={16} />
+			</IntentLink>
+		</Button>
 	) : null;
 }
 
@@ -679,12 +728,17 @@ const NOTIFICATION_SUBJECT: Partial<Record<string, string>> = {
 const RECORD_GLYPH: Partial<Record<NonNullable<Review["review"]["target"]>["kind"], IconSvgElement>> = {
 	person: UserIcon,
 	message: Mail01Icon,
+	task: Task01Icon,
 	team: UserGroupIcon,
 	role: Briefcase01Icon,
 	training: Mortarboard01Icon,
 	responsibility: CheckListIcon,
+	plant: UserGroupIcon,
+	document: File02Icon,
+	template: File02Icon,
 	household: Home01Icon,
 	tag: Tag01Icon,
+	article: BookOpen01Icon,
 	meeting: Calendar03Icon,
 	venue: Location01Icon,
 };
@@ -715,6 +769,7 @@ function Affects({ review }: { review: Review }) {
 	const tag = !kind && review.review.changes.find((c) => c.field === "tag" || c.field === "createTag")?.after;
 	const imported = review.operation === "people.executeBulkImport";
 	const program = review.operation === "development.saveProgram" || review.operation === "development.draftNextVersion";
+	const task = isTasks(review.operation) && kind !== "person";
 	const record = isTeams(review.operation) ? ((target && RECORD_GLYPH[target.kind]) ?? UserGroupIcon) : null;
 	const glyph = own
 		? Notification01Icon
@@ -725,28 +780,34 @@ function Affects({ review }: { review: Review }) {
 					? StartUp02Icon
 					: imported
 						? FileImportIcon
-						: kind === "household"
-							? Home01Icon
-							: kind === "tag" || tag
-								? Tag01Icon
-								: mail
-									? Mail01Icon
-									: create
-										? UserAdd01Icon
-										: null));
+						: task
+							? Task01Icon
+							: kind === "household" || kind === "article"
+								? RECORD_GLYPH[kind]
+								: kind === "tag" || tag
+									? Tag01Icon
+									: mail
+										? Mail01Icon
+										: isDocument(review.operation)
+											? File02Icon
+											: create
+												? UserAdd01Icon
+												: null));
 	const name = own
 		? (NOTIFICATION_SUBJECT[review.operation] ?? "Your notifications")
 		: imported
 			? "People import"
-			: tag
-				? String(tag)
-				: mail
-					? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
-					: create
-						? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
-						: record && !target
-							? String(review.review.changes.find((c) => c.field === "name")?.after ?? "New ministries")
-							: (target?.label ?? "Not available");
+			: isTasks(review.operation)
+				? subjectName(review)
+				: tag
+					? String(tag)
+					: mail
+						? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
+						: create
+							? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
+							: record && !target
+								? String(review.review.changes.find((c) => c.field === "name")?.after ?? "New ministries")
+								: (target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
 			{glyph ? (
@@ -779,6 +840,8 @@ function Value({ field, value, before }: { field: string; value: unknown; before
 	if (text === null) return <span className="text-text-3 italic">{emptyText(field, !before)}</span>;
 	if (field === "stage" && typeof value === "string" && value in STAGE_KEY)
 		return <StageChip stage={STAGE_KEY[value as StageValue]}>{text}</StageChip>;
+	if (field === "direction" && value === "backward")
+		return <span className="font-medium text-magenta-600">{text}</span>;
 	return (
 		<span className={cn("min-w-0 [overflow-wrap:anywhere]", before ? "text-text-2" : "font-medium text-ink")}>
 			{text}
@@ -923,19 +986,33 @@ function Notes({ notes }: { notes: string[] }) {
 }
 
 function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
-	const changes = shownChanges(review);
+	const changes = shownChanges(review).filter((c) => c.field !== "openCriteria");
 	if (!changes.length) return null;
-	const create = addsOnly(review.operation);
-	const fresh = (c: Change) =>
-		(isMeetings(review.operation) ||
-			isLaunch(review.operation) ||
-			review.operation === "development.draftNextVersion") &&
-		(c.before === null || c.before === undefined);
+	const item = itemField(review.operation);
+	const values = (c: Change, field: string) => (
+		<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+			{showsBefore(review, c) ? (
+				<>
+					<span className="sr-only">from </span>
+					<Value field={field} value={c.before} before />
+					<Icon icon={ArrowRight02Icon} size={16} className="text-text-3" />
+					<span className="sr-only"> to </span>
+				</>
+			) : null}
+			<Value field={field} value={c.after} />
+		</dd>
+	);
+	const open = openCriteria(review);
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
-			{changes.map((c: Change) => {
+			{changes.map((c: Change, n) => {
 				const link = carryOver(c);
-				return c.field === "photo" && review.review.target ? (
+				return item ? (
+					<div key={n} className="flex min-w-0 flex-col gap-0.5">
+						<dt className="font-medium break-words text-ink">{c.field}</dt>
+						{values(c, item)}
+					</div>
+				) : c.field === "photo" && review.review.target ? (
 					<PhotoChange
 						key={c.field}
 						review={review}
@@ -949,20 +1026,29 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 				) : (
 					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_minmax(0,1fr)] items-baseline gap-x-3">
 						<dt className="text-text-2">{fieldLabel(c.field, review.operation)}</dt>
-						<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-							{create || c.field === "reason" || fresh(c) ? null : (
-								<>
-									<span className="sr-only">from </span>
-									<Value field={c.field} value={c.before} before />
-									<Icon icon={ArrowRight02Icon} size={16} className="text-text-3" />
-									<span className="sr-only"> to </span>
-								</>
-							)}
-							<Value field={c.field} value={c.after} />
-						</dd>
+						{values(c, c.field)}
 					</div>
 				);
 			})}
+			{open ? (
+				<div className="grid grid-cols-[minmax(88px,auto)_1fr] items-baseline gap-x-3">
+					<dt className="text-text-2">{fieldLabel("openCriteria")}</dt>
+					<dd>
+						{open.length ? (
+							<ul className="flex flex-col gap-1">
+								{open.map((x) => (
+									<li key={x.label} className="flex flex-wrap items-baseline justify-between gap-x-3">
+										<span className="font-medium break-words text-ink">{x.label}</span>
+										<span className="text-xs text-text-3">{x.status.charAt(0).toUpperCase() + x.status.slice(1)}</span>
+									</li>
+								))}
+							</ul>
+						) : (
+							<span className="text-text-2">Every exit criterion is met</span>
+						)}
+					</dd>
+				</div>
+			) : null}
 		</dl>
 	);
 }
