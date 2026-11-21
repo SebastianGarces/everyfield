@@ -3,7 +3,7 @@ import type { Outcome } from "@everyfield/contracts/common";
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { Alert, Button, ConfirmDialog, EmptyState, Field, Input, RowButton, Select } from "@everyfield/ui/controls";
-import { ERROR_SOFT } from "@everyfield/ui/display";
+import { TonePill, type PillTone } from "@everyfield/ui/display";
 import { useMinuteClock } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import { currentAddress } from "../../components/location.ts";
@@ -173,29 +173,23 @@ function useHistory(list: ListQuery) {
 	return { items, page, error, pending, more: loadMore, reload, patch };
 }
 
-const stateTone: Record<HubState, string> = {
-	draft: "bg-surface-2 text-text-2",
-	scheduled: "bg-amber-100 text-amber-600",
-	not_scheduled: ERROR_SOFT,
-	unsubscribed: "bg-surface-2 text-text-2",
-	sending: "bg-amber-100 text-amber-600",
-	sent: "bg-green-100 text-green-700",
-	logged: "bg-surface-2 text-text-2",
-	cancelled: "bg-surface-2 text-text-2",
-	cancel_unconfirmed: ERROR_SOFT,
-	time_unconfirmed: ERROR_SOFT,
-	failed: ERROR_SOFT,
-	unknown: "bg-surface-2 text-text-2",
+const stateTone: Record<HubState, PillTone> = {
+	draft: "neutral",
+	scheduled: "attention",
+	not_scheduled: "error",
+	unsubscribed: "neutral",
+	sending: "attention",
+	sent: "positive",
+	logged: "neutral",
+	cancelled: "neutral",
+	cancel_unconfirmed: "error",
+	time_unconfirmed: "error",
+	failed: "error",
+	unknown: "neutral",
 };
 
 function StateBadge({ state }: { state: HubState }) {
-	return (
-		<span
-			className={`inline-flex h-6 shrink-0 items-center rounded-full px-2.5 text-xs font-medium whitespace-nowrap ${stateTone[state]}`}
-		>
-			{hubLabel[state]}
-		</span>
-	);
+	return <TonePill tone={stateTone[state]}>{hubLabel[state]}</TonePill>;
 }
 
 function rowTime(item: HistoryItem): string {

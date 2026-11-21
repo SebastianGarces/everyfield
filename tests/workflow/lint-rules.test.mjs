@@ -1133,10 +1133,6 @@ export const B = (more) => \`flex bg-magenta-50 \${more} text-magenta-600\`;
 export const C = { error: "bg-magenta-50 text-magenta-600" };
 export const D = "bg-magenta-500 text-magenta-600";
 export const E = "bg-magenta-50 text-ink-2";
-export const F = \`rounded-md \${ERROR_SOFT} px-3 py-2 text-sm\`;
-export const G = cn("rounded-md p-3", ERROR_SOFT);
-export const H = \`\${ERROR_SOFT} border-b-line\`;
-export const I = cn(ERROR_SOFT, "rounded-pill px-2");
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1144,7 +1140,7 @@ export const I = cn(ERROR_SOFT, "rounded-pill px-2");
 	}).filter((hit) => hit.endsWith(" shared-notice"));
 	assert.deepEqual(
 		reported,
-		[1, 2, 3, 6, 7].map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`),
+		[1, 2, 3].map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`),
 	);
 });
 

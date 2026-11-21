@@ -11,5 +11,3 @@ export const TINT: Record<Tone, string> = {
 	teal: "bg-teal-100 text-teal-600",
 	ink: "bg-surface-2 text-ink-2",
 };
-
-export const ERROR_SOFT = "bg-magenta-50 text-magenta-600";
