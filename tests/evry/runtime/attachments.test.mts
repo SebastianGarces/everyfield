@@ -271,7 +271,7 @@ test("AC:CASE-DOC-016 AC:GAP-EVR-422 an attached Word file becomes a church docu
 			["title", "Welcome letter"],
 			[
 				"text",
-				"Welcome to Hope Fellowship We are a church for the city of Austin. Our Sundays We gather at 10 am at the Eastside school.",
+				"Welcome to Hope Fellowship · We are a church for the city of Austin. · Our Sundays · We gather at 10 am at the Eastside school.",
 			],
 		],
 	);

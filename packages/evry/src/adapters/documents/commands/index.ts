@@ -255,7 +255,11 @@ export const importTextOrWord: ReviewedWrite<z.infer<typeof importInput>> = {
 		const bytes = await context.files.read(file.id);
 		const read = (await import("@everyfield/domain/documents")).parseImport(bytes, format);
 		if ("problem" in read) throw new EvryRefusal("invalid_input", read.problem);
-		const words = nativeText(read.body).replace(/\s+/g, " ");
+		const words = nativeText(read.body)
+			.split("\n")
+			.map((line) => line.replace(/\s+/g, " ").trim())
+			.filter(Boolean)
+			.join(" · ");
 		const excerpt = words.length > EXCERPT ? `${words.slice(0, EXCERPT).trimEnd()}…` : words;
 		const title =
 			value.title ??

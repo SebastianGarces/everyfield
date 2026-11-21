@@ -797,7 +797,7 @@ function Affects({ review }: { review: Review }) {
 		? (NOTIFICATION_SUBJECT[review.operation] ?? "Your notifications")
 		: imported
 			? "People import"
-			: isTasks(review.operation)
+			: isTasks(review.operation) || review.operation === "documents.importTextOrWord"
 				? subjectName(review)
 				: tag
 					? String(tag)
