@@ -2,6 +2,7 @@
 
 import * as S from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
+import { forgetEmailChangeProof, readEmailChangeProof } from "@/server/email-change-proof";
 import { drainObjectCleanup } from "@/server/jobs/drain-object-cleanup";
 import type {
 	AvatarResult,
@@ -86,10 +87,13 @@ export async function requestEmailChange(request: unknown): Promise<Reply<{ stat
 	return credential(N.requestEmailChange, request, (ops, context, r) => ops.requestEmailChange(context, r));
 }
 
-export async function confirmEmailChange(request: unknown): Promise<CredentialOutcome> {
-	return outcome(
+export async function confirmEmailChange(): Promise<CredentialOutcome> {
+	const request = { proof: await readEmailChangeProof() };
+	const answer = outcome(
 		await credential(N.confirmEmailChange, request, (ops, context, r) => ops.confirmEmailChange(context, r)),
 	);
+	await forgetEmailChangeProof();
+	return answer;
 }
 
 export async function changePassword(request: unknown): Promise<CredentialOutcome> {
