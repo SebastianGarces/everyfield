@@ -2341,14 +2341,14 @@ export function Unrelated({ pick }) {
 test("INV-lint: only an overlay's lazy entry imports it, so no static chain from a product page reaches it; the parts its sections share import freely", () => {
 	const settings = "apps/web/src/features/settings";
 	const files = {
-		[`${settings}/ProductSettings.tsx`]:
+		[`${settings}/LazySettingsDialog.tsx`]:
 			'import type { SettingsDialogProps } from "./SettingsDialog";\nexport const load = () => import("./SettingsDialog");\nexport type P = SettingsDialogProps;\n',
 		[`${settings}/sections/ChurchSection.tsx`]:
 			'import { SectionBody } from "../SettingsDialog";\nimport { SaveFooter } from "../SectionParts";\nexport const parts = [SectionBody, SaveFooter];\n',
 		[`${settings}/brand/BrandSection.tsx`]:
 			'import { SectionBody } from "../SettingsDialog";\nexport const parts = [SectionBody];\n',
 		[`${settings}/preview/SettingsPreview.tsx`]:
-			'import { SettingsDialog } from "../SettingsDialog";\nimport { LazySettingsDialog } from "../ProductSettings";\nexport const dialogs = [SettingsDialog, LazySettingsDialog];\n',
+			'import { SettingsDialog } from "../SettingsDialog";\nimport { LazySettingsDialog } from "../LazySettingsDialog";\nexport const dialogs = [SettingsDialog, LazySettingsDialog];\n',
 		"apps/web/src/features/evry/conversation/panel.tsx":
 			'import { SettingsDialog } from "../../settings/SettingsDialog";\nexport const load = () => import("./EvryPanel.tsx");\nexport const dialog = SettingsDialog;\n',
 		"apps/web/src/features/shell/Frame.tsx":

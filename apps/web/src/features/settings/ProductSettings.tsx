@@ -3,9 +3,7 @@
 import { DASHBOARD_HOME } from "@everyfield/contracts/identity";
 import { avatarRoute } from "@everyfield/contracts/settings";
 import { useRouter } from "next/navigation";
-import { Dialog, DialogBody, DialogContent, DialogHeader } from "@everyfield/ui/controls";
-import { Suspense, useRef, useState } from "react";
-import { lazyModule, LoadFailed, Opened, useLazyModule, type Failure } from "../../components/lazy.tsx";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { currentAddress, onTraversal, usePath, writeAddress } from "../../components/location.ts";
 import { loadPage } from "../identity/api";
 import { saveSourceOrder } from "../wiki/actions";
@@ -33,8 +31,9 @@ import { getSection, getBrand, suggestColors, readRegion, suggestRegion } from "
 import { uploadAvatarBytes } from "./flows/avatarBytes";
 import { sectionAt, type DialogSection } from "./model";
 import type { DeletionStatus, SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
-import type { SettingsDialogProps } from "./SettingsDialog";
-import { SettingsProvider } from "./store";
+import { settingsDialog } from "./LazySettingsDialog";
+import type { SettingsDialogParts } from "./SettingsDialogSlot";
+import { createSettingsStore, type SettingsStore } from "./settings.store";
 
 const PORT: SettingsPort = {
 	getSection,
@@ -66,45 +65,9 @@ const PORT: SettingsPort = {
 };
 const hrefFor = (key: SectionKey) => `/settings/${key}`;
 
-const dialog = lazyModule(() => import("./SettingsDialog"));
-
-export function LazySettingsDialog(props: SettingsDialogProps) {
-	return (
-		<Opened open={props.section !== null}>
-			<Suspense fallback={null}>
-				<Loaded {...props} />
-			</Suspense>
-		</Opened>
-	);
-}
-
-function Loaded(props: SettingsDialogProps) {
-	const loaded = useLazyModule(dialog);
-	if (loaded.module) return <loaded.module.SettingsDialog {...props} />;
-	return <Failed {...props} failure={loaded} />;
-}
-
-function Failed({ section, onNavigate, failure }: SettingsDialogProps & { failure: Failure }) {
-	return (
-		<Dialog open={section !== null} onOpenChange={(open) => (open ? undefined : onNavigate(null))}>
-			<DialogContent
-				size="lg"
-				aria-describedby={undefined}
-				onCloseAutoFocus={failure.keepFocusOnRetry}
-				className="h-[min(720px,calc(100dvh-24px))] max-w-[1040px] overflow-hidden bg-surface"
-			>
-				<DialogHeader title="Settings" />
-				<DialogBody className="grid place-items-center">
-					<LoadFailed what="Settings" retry={failure.retry} />
-				</DialogBody>
-			</DialogContent>
-		</Dialog>
-	);
-}
-
 const pathOf = (href: string | null) => href?.split("?")[0] ?? null;
 
-export function useProductSettings(viewer: SettingsViewer | null, seed: SectionSeed | null = null) {
+export function useProductSettings(viewer: SettingsViewer | null, seedFits: boolean) {
 	const path = usePath();
 	const router = useRouter();
 	const section = sectionAt(path, viewer);
@@ -112,11 +75,11 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 	if (!section && pathOf(underneath) !== path) setUnderneath(path);
 
 	const refreshAfterClose = useRef<(() => void) | null>(null);
-	const refreshUnderneath = () => {
+	const refreshUnderneath = useCallback(() => {
 		const refresh = refreshAfterClose.current;
 		refreshAfterClose.current = null;
 		refresh?.();
-	};
+	}, []);
 	const [port] = useState<SettingsPort>(() => ({
 		...PORT,
 		wiki: {
@@ -137,31 +100,51 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 		},
 	}));
 
-	const navigate = (key: SectionKey | null) => {
-		if (key)
-			dialog.whenLoaded(() => {
-				if (!section) setUnderneath(currentAddress());
-				writeAddress(hrefFor(key));
-			});
-		else if (underneath) {
-			writeAddress(underneath);
-			refreshUnderneath();
-		} else router.push(viewer?.context === "plant" ? DASHBOARD_HOME : "/settings/sharing");
-	};
+	const navigate = useCallback(
+		(key: SectionKey | null) => {
+			if (key)
+				settingsDialog.whenLoaded(() => {
+					if (!section) setUnderneath(currentAddress());
+					writeAddress(hrefFor(key));
+				});
+			else if (underneath) {
+				writeAddress(underneath);
+				refreshUnderneath();
+			} else router.push(viewer?.context === "plant" ? DASHBOARD_HOME : "/settings/sharing");
+		},
+		[section, underneath, refreshUnderneath, router, viewer],
+	);
 
-	const element = viewer ? (
-		<SettingsProvider key={`${viewer.accountId}-${viewer.context}`} port={port} viewer={viewer} seed={seed}>
-			<LazySettingsDialog
-				section={section}
-				onNavigate={navigate}
-				hrefFor={hrefFor}
-				pages={{ sections: ["seats", "sharing"], open: (key) => router.push(hrefFor(key)) }}
-				headerActions={<SettingsGuide />}
-				onDeletionRequested={(status) => loadPage(deletionPage(status))}
-			/>
-		</SettingsProvider>
-	) : null;
-	return { element, open: (key: DialogSection) => navigate(key) };
+	const held = useRef<{ key: string; store: SettingsStore } | null>(null);
+	const storeFor = useCallback(
+		(seed: SectionSeed | null) => {
+			const key = viewer ? `${viewer.accountId}-${viewer.context}` : "";
+			if (held.current?.key !== key)
+				held.current = { key, store: createSettingsStore({ port, seed: seedFits ? seed : null }) };
+			return held.current.store;
+		},
+		[viewer, port, seedFits],
+	);
+
+	const parts = useMemo<SettingsDialogParts | null>(
+		() =>
+			viewer
+				? {
+						viewer,
+						section,
+						navigate,
+						storeFor,
+						dialog: {
+							hrefFor,
+							pages: { sections: ["seats", "sharing"], open: (key: SectionKey) => router.push(hrefFor(key)) },
+							headerActions: <SettingsGuide />,
+							onDeletionRequested: (status: DeletionStatus | null) => loadPage(deletionPage(status)),
+						},
+					}
+				: null,
+		[viewer, section, navigate, router, storeFor],
+	);
+	return { parts, open: (key: DialogSection) => navigate(key) };
 }
 
 function deletionPage(status: DeletionStatus | null): string {
