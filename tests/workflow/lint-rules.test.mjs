@@ -1931,6 +1931,13 @@ export function p(authority: RequestActor) {
 	if (context.kind !== "seat") return null;
 	return [cast.kind === "organization", forced.kind === "organization", castKind === "organization"];
 }
+export function q(authority: RequestActor) {
+	const context = authority.actor.context;
+	const nestedKind = (context.owner as Owner).kind;
+	const { kind: spreadKind } = context.owner as Owner;
+	if (context.kind !== "seat") return null;
+	return [nestedKind === "organization", spreadKind === "organization", (context.owner as Owner).kind === "organization"];
+}
 `;
 	assert.deepEqual(
 		lint({
@@ -1955,6 +1962,9 @@ export function p(authority: RequestActor) {
 			"apps/web/src/features/x/server.ts:86 organization-seat",
 			"apps/web/src/features/x/server.ts:86 organization-seat",
 			"apps/web/src/features/x/server.ts:86 organization-seat",
+			"apps/web/src/features/x/server.ts:93 organization-seat",
+			"apps/web/src/features/x/server.ts:93 organization-seat",
+			"apps/web/src/features/x/server.ts:93 organization-seat",
 			"packages/domain/src/x/index.ts:10 organization-seat",
 			"packages/domain/src/x/index.ts:17 organization-seat",
 			"packages/domain/src/x/index.ts:27 organization-seat",
@@ -1970,6 +1980,9 @@ export function p(authority: RequestActor) {
 			"packages/domain/src/x/index.ts:86 organization-seat",
 			"packages/domain/src/x/index.ts:86 organization-seat",
 			"packages/domain/src/x/index.ts:86 organization-seat",
+			"packages/domain/src/x/index.ts:93 organization-seat",
+			"packages/domain/src/x/index.ts:93 organization-seat",
+			"packages/domain/src/x/index.ts:93 organization-seat",
 		],
 	);
 	assert.deepEqual(lint({ "packages/domain/src/access/organization-seat.ts": "export const seat = 1;\n" }), [
