@@ -2070,6 +2070,31 @@ type Swapped = { status: "ok"; receipt: number } | { status: "refused"; value: n
 	);
 });
 
+test("INV-lint: an inline ok value / refused / lost union in a return, parameter, variable or property annotation is reported through local aliases and the shared Lost under any local name; shared and imported replies are not", () => {
+	const source = `import type { Lost as Gone, Outcome } from "@everyfield/contracts/common";
+import type { MeetingsReply } from "@everyfield/domain/meetings";
+async function read(): Promise<Reply<number> | { status: "lost" }> {}
+function take(answer: { status: "ok"; value: number } | { status: "refused" } | Gone) {}
+const held: Array<{ status: "ok"; value: number } | { status: "refused" | "lost" }> = [];
+type Holder = { answer: Reply<string> | Gone };
+export type Load<T> = { status: "ok"; value: T } | { status: "refused" } | Gone;
+const shared = (): Promise<Outcome<number> | { status: "deleted" }> => read();
+function imported(reply: MeetingsReply<number> | Gone) {}
+let noValue: { status: "ok"; receipt: number } | { status: "refused" } | Gone;
+const plain: Reply<number> = read();
+type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
+type Self = Self | { status: "lost" };
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/server.ts": source, "packages/domain/src/m.ts": source }).filter((hit) =>
+			hit.endsWith("shared-outcome"),
+		),
+		["apps/web/src/features/x/server.ts", "packages/domain/src/m.ts"].flatMap((path) =>
+			[3, 4, 5, 6, 7].map((line) => `${path}:${line} shared-outcome`),
+		),
+	);
+});
+
 test("INV-lint: a context value built during render is reported through aliases, casts, conditionals and outer bindings; every context and alias of one is a const named *Context; stable values are not", () => {
 	const source = `import React, { createContext, useCallback, useMemo } from "react";
 type T = { theme: string };
