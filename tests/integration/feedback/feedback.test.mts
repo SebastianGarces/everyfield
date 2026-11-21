@@ -24,10 +24,6 @@ const authority = async (who: Actor) => {
 	return actor;
 };
 const rowsOf = async (query: ReturnType<typeof sql>) => (await admin.execute(query)).rows;
-const valueOf = <T,>(result: { status: "ok"; value: T } | { status: "refused" }) => {
-	if (result.status !== "ok") assert.fail(JSON.stringify(result));
-	return result.value;
-};
 const server = { appVersion: "3.0.0-test" };
 const send = async (who: Actor, input: Record<string, unknown>) =>
 	feedbackWriter.submit(db, await authority(who), { requestKey: randomUUID(), category: "bug", ...input }, server);
@@ -165,10 +161,10 @@ test("AC:CASE-ADM-001 AC:PUB57-002 INV-privacy: the author lists only their own 
 	const ids: string[] = [];
 	for (let i = 0; i < 27; i++) ids.push(ok(await send(author, { description: `Item ${i}`, category: "question" })).id);
 	ok(await send(other, { description: "Someone else's" }));
-	const first = valueOf(await feedbackWriter.listOwn(db, await authority(author), {}));
+	const first = ok(await feedbackWriter.listOwn(db, await authority(author), {}));
 	assert.equal(first.items.length, 25);
 	assert.ok(first.next);
-	const second = valueOf(await feedbackWriter.listOwn(db, await authority(author), { cursor: first.next }));
+	const second = ok(await feedbackWriter.listOwn(db, await authority(author), { cursor: first.next }));
 	assert.equal(second.items.length, 2);
 	assert.equal(second.next, null);
 	const listed = [...first.items, ...second.items];
@@ -193,7 +189,7 @@ test("AC:CASE-ADM-002 AC:PUB57-002 a triager filters, moves a status with histor
 	ok(await send(daniel, { description: "An idea", category: "suggestion" }));
 	const t = await authority(triager);
 	assert.equal(await authorizeTriage(db, t), true);
-	const listed = valueOf(await feedbackWriter["admin.list"](db, t, { status: "new", category: "bug" }));
+	const listed = ok(await feedbackWriter["admin.list"](db, t, { status: "new", category: "bug" }));
 	assert.ok(listed.items.every((i) => i.status === "new" && i.category === "bug"));
 	const item = listed.items.find((i) => i.id === sent.id);
 	assert.ok(item);
