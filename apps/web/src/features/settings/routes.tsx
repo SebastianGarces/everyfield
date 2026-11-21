@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { EMAIL_CHANGE_PROOF_COOKIE, PATH_HEADER } from "@/proxy";
+import { PATH_HEADER } from "@/proxy";
+import { readEmailChangeProof } from "@/server/email-change-proof";
 import { getViewer } from "@/server/request-context";
-import { signIn } from "@/server/sign-in";
+import { requireActor } from "@/server/sign-in";
 import { instant } from "@everyfield/contracts/common";
 import { confirmEmailChange } from "./actions";
 import { readBrand } from "./brand/server";
@@ -19,14 +20,12 @@ export const settingsMetadata: Metadata = { title: "Settings", robots: { index: 
 export async function SettingsSectionPage({ params }: { params: Promise<{ section: string }> }) {
 	const section = dialogSection((await params).section);
 	if (!section) notFound();
-	const v = await getViewer();
-	if (v.status === "unauthenticated") signIn(`/settings/${section}`);
+	await requireActor(`/settings/${section}`);
 	return <h1 className="sr-only">Settings</h1>;
 }
 
 export async function SettingsIndexPage() {
-	const v = await getViewer();
-	if (v.status === "unauthenticated") signIn("/settings");
+	await requireActor("/settings");
 	return <h1 className="sr-only">Settings</h1>;
 }
 
@@ -71,8 +70,7 @@ export const confirmEmailMetadata: Metadata = {
 };
 
 export async function ConfirmEmailPage() {
-	const v = await getViewer();
-	if (v.status === "unauthenticated") signIn("/confirm-email");
-	const proof = (await cookies()).get(EMAIL_CHANGE_PROOF_COOKIE)?.value ?? null;
-	return <ConfirmEmailScreen proof={proof} confirm={confirmEmailChange} accountHref="/settings/account" />;
+	await requireActor("/confirm-email");
+	const linked = (await readEmailChangeProof()) !== null;
+	return <ConfirmEmailScreen linked={linked} confirm={confirmEmailChange} accountHref="/settings/account" />;
 }

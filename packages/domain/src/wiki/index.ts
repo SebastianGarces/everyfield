@@ -32,7 +32,9 @@ import {
 	setMine,
 } from "./editorial.ts";
 import { recordView, setBookmark, setSourceOrder, updateProgress } from "./writes.ts";
+import { getReadingRevision, listCompletedArticles, listOrganizationNames, readEditorState } from "./page.ts";
 
+export type { StoredEditor } from "./page.ts";
 export type WikiConfig = { renderPdf?: PdfRenderer };
 
 export function createWikiProducer(config: WikiConfig = {}) {
@@ -67,5 +69,9 @@ export function createWikiProducer(config: WikiConfig = {}) {
 		publishOrganizationArticle,
 		getOrganizationDraft,
 		emitUpstreamReview,
+		readEditorState,
+		getReadingRevision,
+		listCompletedArticles,
+		listOrganizationNames,
 	};
 }

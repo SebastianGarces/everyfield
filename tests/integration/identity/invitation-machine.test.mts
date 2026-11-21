@@ -67,7 +67,7 @@ async function settle(promise) {
 		const value = await promise;
 		return value?.status === "refused" ? { refused: value.refusal?.code ?? value.error?.code } : { ok: value };
 	} catch (error) {
-		return { refused: error.value?.code ?? error.message };
+		return { refused: error.code ?? error.message };
 	}
 }
 
