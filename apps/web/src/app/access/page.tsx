@@ -54,10 +54,11 @@ const TITLES: Record<Who, [string, string, string]> = {
 const paths = Object.fromEntries(
 	WHO.map((who) => [
 		who,
-		FIELD_STEPS[kindOf(who)].map((names, i): StepSpec => ({
-			title: TITLES[who][i]!,
-			fields: names.map((n) => field(n, who)),
-		})),
+		FIELD_STEPS[kindOf(who)].map((names, i): StepSpec => {
+			const title = TITLES[who][i];
+			if (!title) throw new Error(`marketing-copy.json: access_page step ${i + 1} for ${who} has no title`);
+			return { title, fields: names.map((n) => field(n, who)) };
+		}),
 	]),
 ) as Record<Who, StepSpec[]>;
 

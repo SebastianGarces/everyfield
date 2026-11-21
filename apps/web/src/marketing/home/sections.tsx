@@ -25,11 +25,13 @@ export function EvryCards() {
 					{E.cards.map(([icon, title, body], i) => (
 						<li key={title} className="flex min-w-0 flex-col border border-mk-ink-06 bg-white shadow-mk-card">
 							<div className="relative isolate mx-2 mt-2 flex h-[clamp(176px,15vw,220px)] items-end overflow-hidden p-[18px] max-[600px]:h-[168px]">
-								<Backdrop
-									bg={EVRY_PHOTOS[i]!}
-									sizes="(max-width: 600px) 100vw, (max-width: 1100px) 50vw, 460px"
-									className="absolute inset-0 -z-1"
-								/>
+								{EVRY_PHOTOS[i] && (
+									<Backdrop
+										bg={EVRY_PHOTOS[i]}
+										sizes="(max-width: 600px) 100vw, (max-width: 1100px) 50vw, 460px"
+										className="absolute inset-0 -z-1"
+									/>
+								)}
 								<FrostIcon icon={icon} />
 							</div>
 							<div className="px-5 pt-[18px] pb-[22px]">
