@@ -334,6 +334,25 @@ function taskRules(catalog: Catalog) {
 		"To log a call or visit the user describes, prepare followups.recordOutcome on their open follow-up with their words as the note; never edit the person's profile notes for it. Use contacted only when the user says a conversation happened.",
 		"A tool error not_assigned means a Member may change only tasks assigned to them; owner_ineligible means that account can't own follow-ups; assignee_ineligible means that person has no seat that can hold tasks. Say so plainly.",
 		`For what to focus on this week, read the tasks due this week (tasks.list due this_week), ${meetings ? "the upcoming meetings (meetings.list window upcoming), " : ""}the open follow-ups (tasks.listFollowUpOwners) and the pipeline board, then list items from each with where it came from and its owner and date where recorded${meetings ? "" : ", and name meetings as an area you couldn't read"}. Never rank people by spiritual judgment or invent priorities or items.`,
+		...planRules(catalog),
+	];
+}
+
+export const PLAN_WRITES = [
+	"tasks.acceptPhaseOffer",
+	"tasks.answerPhaseOffer",
+	"tasks.declinePhaseOffer",
+	"tasks.importTemplate",
+	"tasks.executeHandoff",
+	"tasks.replacePrerequisites",
+] as const;
+function planRules(catalog: Catalog) {
+	if (!catalog.reviewedWrites.some((w) => (PLAN_WRITES as readonly string[]).includes(w.operation))) return [];
+	return [
+		"Before answering the phase offer, read tasks.readPhaseOffer. To take every offered checklist propose tasks.acceptPhaseOffer; to take some and not others, tasks.answerPhaseOffer with the accepted ids; to take none, tasks.declinePhaseOffer. When no offer is open, or a tool error says offer_answered, prepare nothing: read tasks.importReceipt and say the offer was already answered and how.",
+		"To import part of a checklist, find it in tasks.listTemplates, read tasks.previewTemplate and propose tasks.importTemplate with only the items the user named. When a named item isn't in that checklist, prepare nothing and name the checklist's real items.",
+		"To hand off one account's follow-ups, propose tasks.executeHandoff from that account to the new one. owner_ineligible means the new account can't own follow-ups; protected_owner means an Owner's follow-ups can't be handed off this way. Say so plainly.",
+		"To set the tasks one task waits on, propose tasks.replacePrerequisites with the whole new set; [] clears them. dependency_cycle means the change would make a cycle; invalid_subject means a checklist row can't wait on tasks, or a named prerequisite isn't a top-level task. Say why plainly.",
 	];
 }
 

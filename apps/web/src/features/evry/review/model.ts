@@ -145,6 +145,12 @@ type TaskOperation =
 	| "tasks.createFollowUp"
 	| "tasks.assignFollowUp"
 	| "tasks.reopenObligation"
+	| "tasks.acceptPhaseOffer"
+	| "tasks.answerPhaseOffer"
+	| "tasks.declinePhaseOffer"
+	| "tasks.importTemplate"
+	| "tasks.executeHandoff"
+	| "tasks.replacePrerequisites"
 	| "followups.recordOutcome"
 	| "followups.correctOutcome";
 
@@ -320,6 +326,7 @@ export const retryable = (review: Review, lapsed: boolean) =>
 	(review.outcome === "failed" || review.outcome === "unknown") && !lapsed;
 
 const FIELD_LABEL: Record<string, string> = {
+	prerequisites: "Waits on",
 	displayName: "Name",
 	pipelineStage: "Stage",
 	programKind: "Kind",
@@ -717,6 +724,11 @@ const ITEM_FIELD: Partial<Record<Operation, string>> = {
 	"tasks.setSubtaskCompletion": "status",
 	"tasks.removeSubtask": "status",
 	"tasks.assignFollowUp": "owners",
+	"tasks.acceptPhaseOffer": "checklist",
+	"tasks.answerPhaseOffer": "checklist",
+	"tasks.declinePhaseOffer": "checklist",
+	"tasks.importTemplate": "due",
+	"tasks.executeHandoff": "owners",
 };
 export const itemField = (operation: Operation) => ITEM_FIELD[operation] ?? null;
 const CREATES = new Set<Operation>([
@@ -790,6 +802,17 @@ export function savedText(review: Review): string {
 			return `Saved. ${name} has a new follow-up.`;
 		case "tasks.assignFollowUp":
 			return "Saved. The follow-up owners are updated.";
+		case "tasks.acceptPhaseOffer":
+		case "tasks.answerPhaseOffer":
+			return "Saved. The phase offer is answered, and its new tasks are in Tasks.";
+		case "tasks.declinePhaseOffer":
+			return "Saved. The phase offer is declined. No task was added.";
+		case "tasks.importTemplate":
+			return `Saved. The ${name} tasks are in Tasks.`;
+		case "tasks.executeHandoff":
+			return "Saved. The follow-ups have their new owner.";
+		case "tasks.replacePrerequisites":
+			return `Saved. What ${name} waits on is updated.`;
 		case "followups.recordOutcome":
 			return `Saved. The contact with ${name} is logged.`;
 		case "followups.correctOutcome":
@@ -808,6 +831,7 @@ export function openAfter(review: Review): { href: string; label: string } | nul
 			: null;
 	if (who?.kind === "person") return { href: `/people/${who.id}`, label: `Open ${who.label}` };
 	if (review.operation === "tasks.delete") return { href: "/tasks", label: "Open Tasks" };
+	if (review.operation === "tasks.executeHandoff") return { href: "/tasks/follow-ups", label: "Open Follow-ups" };
 	return who?.kind === "task"
 		? { href: `/tasks?task=${who.id}`, label: "Open task" }
 		: { href: "/tasks", label: "Open Tasks" };
@@ -819,7 +843,7 @@ export const approvable = (review: Pick<Review, "operation">, uploadShown: boole
 export function emptyText(field: string, after: boolean) {
 	if (field === "photo") return "No photo";
 	if (field === "feedback") return "No vote";
-	if (field === "household" || field === "householdRole") return "None";
+	if (field === "household" || field === "householdRole" || field === "prerequisites") return "None";
 	if (after && ["note", "skill", "category", "proficiency", "tag", "removedMilestones"].includes(field))
 		return "Removed";
 	return "Empty";
@@ -875,6 +899,12 @@ const TITLE: Record<Operation, string> = {
 	"tasks.createFollowUp": "Add a follow-up",
 	"tasks.assignFollowUp": "Assign follow-ups",
 	"tasks.reopenObligation": "Reopen a follow-up",
+	"tasks.acceptPhaseOffer": "Accept the phase checklists",
+	"tasks.answerPhaseOffer": "Answer the phase offer",
+	"tasks.declinePhaseOffer": "Decline the phase checklists",
+	"tasks.importTemplate": "Import a checklist",
+	"tasks.executeHandoff": "Hand off follow-ups",
+	"tasks.replacePrerequisites": "Set what a task waits on",
 	"followups.recordOutcome": "Log a contact",
 	"followups.correctOutcome": "Correct a contact log entry",
 	"people.createInterview": "Record an interview",
@@ -1712,6 +1742,18 @@ function taskRefusalText(code: string | undefined, target: string | null): strin
 			return `${TASK_REFUSAL[code]} Nothing was saved.`;
 		case "open_successor":
 			return "Another occurrence of this task is open, so nothing was saved.";
+		case "offer_answered":
+			return "The phase offer was answered after Evry prepared this, so this review is out of date and nothing was created. Ask Evry how it was answered.";
+		case "stale_catalog":
+			return "Everyfield's checklists changed after Evry prepared this, so nothing was created. Ask Evry to prepare it again.";
+		case "dependency_cycle":
+			return "That would make the tasks wait on each other in a cycle, so nothing was saved.";
+		case "invalid_subject":
+			return "Only a top-level task can wait on other tasks, so nothing was saved.";
+		case "protected_owner":
+			return "An Owner's follow-ups can't be handed off this way, so nothing was moved.";
+		case "handoff_target_ineligible":
+			return "That person can no longer own follow-ups, so nothing was moved. Ask Evry to prepare it again.";
 		case "protected_source":
 			return "A meeting made this task, so it can't be changed this way. Nothing was saved.";
 		case "nonexistent_local_time":

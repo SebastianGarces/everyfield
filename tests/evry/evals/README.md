@@ -11,17 +11,18 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 (prompt, tools, tool choice, reasoning, output limit, response format, provider options). Every file has one shape:
 `model`, `recordedAt`, `spend` and `calls` (key to a recorded generate or stream call with its token usage).
 
-| Suite                 | Cases                                                                                                                    | What it scores                                                                          |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| `golden.test.mts`     | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (118 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades   |
-| `golden.test.mts`     | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge |
-| `classify.test.mts`   | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                           |
-| `households.test.mts` | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                  |
-| `followups.test.mts`  | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                     |
-| `settings.test.mts`   | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)    |
-| `onboarding.test.mts` | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                              |
-| `pipeline.test.mts`   | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                |
-| `launch.test.mts`     | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                 |
+| Suite                 | Cases                                                                                                                    | What it scores                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `golden.test.mts`     | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (118 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades    |
+| `golden.test.mts`     | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge  |
+| `classify.test.mts`   | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                            |
+| `households.test.mts` | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                   |
+| `followups.test.mts`  | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                      |
+| `settings.test.mts`   | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)     |
+| `onboarding.test.mts` | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                               |
+| `pipeline.test.mts`   | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                 |
+| `launch.test.mts`     | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                  |
+| `task-plan.test.mts`  | `task-plan.cases.json`                                                                                                   | Phase offer, checklist import, follow-up handoff and prerequisite cards (scripted model) |
 
 ## The settings suite (scripted model)
 
@@ -110,6 +111,23 @@ time. A correction card changes only the fields named, keeps the outcome note, a
 shows the outcome as it is now. Each refusal (not recorded, already a guest, no or long name, no or long reason, a date
 after today, a count out of range, the same values) makes no card, and the card itself refuses them too. The recorded
 suites leave these tools out too.
+
+## The task plan suite (scripted model)
+
+`task-plan.test.mts` scores six reviewed writes (T-347, WP-068) on the scripted model
+(`packages/evry/src/runtime/scripted-task-plan.ts`), not a recording (D-1997): accepting every checklist of the phase
+offer (`tasks.acceptPhaseOffer`), accepting some and declining the rest (`tasks.answerPhaseOffer`, which answers as the
+Tasks page's offer does, D-1996), declining them all (`tasks.declinePhaseOffer`), importing named items of one checklist
+(`tasks.importTemplate`), handing one seat's open follow-ups to another (`tasks.executeHandoff`) and setting what a task
+waits on (`tasks.replacePrerequisites`). It runs on the golden church (`goldenChurch()`), whose phase 1 offer from the
+Aug 3 move is open, plus one fixture row: Ana's attempted call to Daniel Cruz, so the handoff has contact history to
+leave unchanged. Each case is a real turn (`runTurn`) with the real catalog, reads and review card; a case with
+`approve` is approved and its effect runs once through the WP-031 queue, and its `check` reads the result back through
+the readers the Tasks and Follow-ups pages use. `setup: openOffer` reopens the offer before a case. `between` changes
+the offer or the task natively after the card is shown, and the approval must end refused (`offer_answered`,
+`revision_conflict`) with nothing created. The suite also holds the refusals: an answered offer, an item the checklist
+doesn't hold, a handoff to a seat that can't own follow-ups or from an Owner, a cycle and a checklist row, a Member
+(only an Owner or Admin, D-1998) and an organization seat. The recorded suites leave these six writes out too.
 
 ## The household and follow-up suites
 

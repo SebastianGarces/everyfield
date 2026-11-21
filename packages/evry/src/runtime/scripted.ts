@@ -11,6 +11,7 @@ import { launchStep } from "./scripted-launch.ts";
 import { overviewStep } from "./scripted-overview.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
 import { TASK_DATA, taskStep } from "./scripted-tasks.ts";
+import { planStep } from "./scripted-task-plan.ts";
 import { assessmentStep } from "./scripted-assessments.ts";
 import { mailStep, proposesOn } from "./scripted-mail.ts";
 import { MEMBER_PHASES } from "../catalog/catalog.ts";
@@ -968,6 +969,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (options.responseFormat?.type === "json")
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
+	const plan = planStep(options, text);
+	if (plan) return plan;
 	const overview = overviewStep(options, text);
 	if (overview) return overview;
 	const pipeline = pipelineStep(options, text);
