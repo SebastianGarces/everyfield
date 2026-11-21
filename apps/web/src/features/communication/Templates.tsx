@@ -2,16 +2,7 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { ArrowLeft01Icon, Mail01Icon } from "@hugeicons/core-free-icons";
-import {
-	Alert,
-	Button,
-	ConfirmDialog,
-	ConfirmRefused,
-	EmptyState,
-	Field,
-	Input,
-	Select,
-} from "@everyfield/ui/controls";
+import { Alert, Button, ConfirmDialog, EmptyState, Field, Input, Select } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useState, useTransition } from "react";
 import { useLocalStore, useStore } from "../../components/store.ts";
@@ -403,7 +394,7 @@ function RemoveTemplate({
 					? await deleteTemplate(keys.take("delete"), template.revision, template.templateId)
 					: await archiveTemplate(keys.take("archive"), template.revision, template.templateId);
 				keys.settle(kind, result);
-				if (result.status !== "ok") throw new ConfirmRefused(outcomeText(result) ?? "Unable to update the template.");
+				if (result.status !== "ok") return { refused: outcomeText(result) ?? "Unable to update the template." };
 				const removed = template.templateId;
 				if (result.value.templates) setTemplates(result.value.templates);
 				else setTemplates((rows) => rows.filter((row) => row.templateId !== removed));
