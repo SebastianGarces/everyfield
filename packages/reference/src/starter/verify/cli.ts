@@ -100,11 +100,17 @@ try {
 		console.log(JSON.stringify({ ...receipt, previousRelease: current?.release_key ?? null, changed: true }));
 	}
 } catch (error) {
-	const sqlState = (error as { code?: unknown } | null)?.code;
+	const chain: string[] = [];
+	let sqlState = "";
+	for (let at: unknown = error; at instanceof Error && chain.length < 4; at = at.cause) {
+		const code = (at as { code?: unknown }).code;
+		if (!sqlState && typeof code === "string" && /^[0-9A-Z]{5}$/.test(code)) sqlState = code;
+		chain.push(at.constructor.name === "Error" ? at.name : at.constructor.name);
+	}
 	const failure =
 		error instanceof WikiRefusal
 			? error.code
-			: `${error instanceof Error ? error.name : typeof error}${typeof sqlState === "string" && /^[0-9A-Z]{5}$/.test(sqlState) ? ` ${sqlState}` : ""}`;
+			: `${chain.join(" from ") || typeof error}${sqlState ? ` ${sqlState}` : ""}`;
 	console.error(`Wiki install failed: ${failure}`);
 	process.exitCode = 1;
 } finally {

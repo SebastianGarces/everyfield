@@ -237,8 +237,19 @@ export async function c(run: () => Promise<void>, items: { message: string }[]) 
 	}
 	return items.map((e) => \`\${e.message}\`);
 }
+export function d(run: () => void) {
+	try {
+		run();
+	} catch (error) {
+		const typed = error as Error;
+		const name = (error as Error).message;
+		const trace = typed.stack;
+		const inner = error!.cause!.message;
+		return [name, trace, inner, (error satisfies unknown)["message"]];
+	}
+}
 `;
-	const lines = [7, 8, 12, 15, 16, 17, 18, 19, 21];
+	const lines = [7, 8, 12, 15, 16, 17, 18, 19, 21, 37, 38, 39, 40];
 	const listed = Object.keys(RAW_ERROR_SITES)[0];
 	assert.deepEqual(
 		lint({
@@ -261,7 +272,7 @@ export async function c(run: () => Promise<void>, items: { message: string }[]) 
 		].sort(),
 	);
 	const entries = Object.values(RAW_ERROR_SITES);
-	assert.ok(entries.length <= 4 && entries.reduce((n, e) => n + e.sites, 0) <= 7, "RAW_ERROR_SITES only shrinks");
+	assert.ok(entries.length <= 6 && entries.reduce((n, e) => n + e.sites, 0) <= 9, "RAW_ERROR_SITES only shrinks");
 	assert.ok(entries.every((e) => e.why.length > 40));
 });
 

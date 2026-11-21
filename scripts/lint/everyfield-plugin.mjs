@@ -536,7 +536,8 @@ const SECRET_NAME =
 	/(?:password|passphrase|secret|token|apikey|api_key|credential|cookie|authorization|payload|rawbody)$/i;
 const TEXT_SINK_CLASS = /(?:Error|Refusal|Refused|Failure)$/;
 const LOG_SINKS = new Set(["logLine", "logInfo", "logFailure", "asLogWord", "asLogId", "asLogHost", "asLogNames"]);
-export const RAW_ERROR_SCOPE = /^(?:apps\/web\/src|packages\/[^/]+\/src|ops|tools\/prod-identity)\//;
+export const RAW_ERROR_SCOPE =
+	/^(?:(?:apps\/web\/src|packages\/[^/]+\/src|ops|tools\/prod-identity)\/|tools\/qa\/(?!tests\/))/;
 export const RAW_ERROR_SITES = {
 	"packages/evry/src/adapters/native.ts": {
 		sites: 2,
@@ -550,21 +551,40 @@ export const RAW_ERROR_SITES = {
 		sites: 2,
 		why: "ConfirmDialog shows the copy its onConfirm throws; the text stays in the viewer's browser, never in a log or record, and a server action's error reaches the browser already reduced to Next's digest",
 	},
+	"tools/qa/main.ts": {
+		sites: 1,
+		why: "only a QaError reaches the line, and a QaError is the tool's own copy from fail(), whose command output passed redactor.clean first",
+	},
+	"tools/qa/qa.ts": {
+		sites: 1,
+		why: "the cleanup line prints a QaError's own copy from fail(); any other error prints only its class name",
+	},
 	"tools/prod-identity/setup.ts": {
 		sites: 2,
 		why: "the operator's terminal line passes through redactor.clean, which holds every credential and generated key the tool read or made before it can fail",
 	},
 };
 
+const TYPE_WRAPPERS = new Set([
+	"TSAsExpression",
+	"TSNonNullExpression",
+	"TSSatisfiesExpression",
+	"TSTypeAssertion",
+	"ParenthesizedExpression",
+]);
+const outerOf = (node) => {
+	let at = node;
+	while (TYPE_WRAPPERS.has(at.parent?.type) && at.parent.expression === at) at = at.parent;
+	return at;
+};
 const textOfError = (ref) => {
-	let at = ref;
-	while (at.parent?.type === "MemberExpression" && at.parent.object === at && !at.parent.computed) {
-		const name = at.parent.property.name;
+	let at = outerOf(ref);
+	while (at.parent?.type === "MemberExpression" && at.parent.object === at) {
+		const name = keyName(at.parent.property, at.parent.computed);
 		if (ERROR_TEXT.has(name)) return at.parent;
 		if (name !== "cause") return null;
-		at = at.parent;
+		at = outerOf(at.parent);
 	}
-	while (["TSAsExpression", "TSNonNullExpression", "TSSatisfiesExpression"].includes(at.parent?.type)) at = at.parent;
 	const p = at.parent;
 	if (!p) return null;
 	if (p.type === "TemplateLiteral") return at;
@@ -612,8 +632,9 @@ const rawErrorText = {
 				if (!reference.isRead()) continue;
 				const hit = textOfError(ref);
 				if (hit) found.push({ node: hit, what: "a caught error's text" });
-				const p = ref.parent;
-				if (p?.type === "VariableDeclarator" && p.init === ref && p.id.type === "Identifier")
+				const value = outerOf(ref);
+				const p = value.parent;
+				if (p?.type === "VariableDeclarator" && p.init === value && p.id.type === "Identifier")
 					follow(context.sourceCode.getDeclaredVariables(p).find((v) => v.name === p.id.name));
 			}
 		};
