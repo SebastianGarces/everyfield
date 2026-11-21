@@ -4,7 +4,7 @@ import { timeText } from "@everyfield/contracts/common";
 
 import { Alert02Icon, Calendar03Icon, Location01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import type * as c from "@everyfield/contracts/meetings";
-import { Button } from "@everyfield/ui/controls";
+import { Button, InlineAlert } from "@everyfield/ui/controls";
 import { Icon, LogoMark } from "@everyfield/ui/foundations";
 import { useOptimistic, useState, useTransition, type ReactNode } from "react";
 import type { z } from "zod";
@@ -145,22 +145,17 @@ function Invitation({ token, view }: { token: string; view: Open }) {
 						</Button>
 					</div>
 				)}
-				{problem ? (
-					<div
-						role="alert"
-						className="flex flex-col items-start gap-2.5 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600"
-					>
-						<p className="flex items-start gap-2">
-							<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-							{LINK_PROBLEM[problem] ?? problemText(problem)}
-						</p>
-						{problem === "unknown" ? (
+				<InlineAlert
+					actions={
+						problem === "unknown" ? (
 							<Button variant="secondary" size="sm" loading={pending} onClick={checkAgain}>
 								Check again
 							</Button>
-						) : null}
-					</div>
-				) : null}
+						) : undefined
+					}
+				>
+					{problem ? (LINK_PROBLEM[problem] ?? problemText(problem)) : null}
+				</InlineAlert>
 				<p className="text-center text-xs text-text-3">
 					No account needed. This link is only for you, so please do not share it.
 				</p>
