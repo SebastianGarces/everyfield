@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { REFUSAL_MECHANISMS } from "../../scripts/lint/everyfield-plugin.mjs";
+import { PRODUCT_TIMERS, REFUSAL_MECHANISMS } from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
@@ -270,6 +270,30 @@ export async function run() {
 		]),
 	);
 	assert.deepEqual(lint(files), places.flatMap((p) => lines.map((line) => `${p}:${line} no-timers`)).sort());
+});
+
+test("INV-lint: the Evry stream keep-alive interval is the one listed product timer, and only inside its stream", () => {
+	const stream = `export const GET = () => {
+	const heartbeat = setInterval(() => {}, 15_000);
+	setTimeout(() => {}, 0);
+	return heartbeat;
+};
+export const other = () => setInterval(() => {}, 15_000);
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts": stream,
+			"apps/web/src/app/api/evry/conversations/[id]/route.ts": stream,
+		}).filter((hit) => hit.endsWith(" no-timers")),
+		[
+			"apps/web/src/app/api/evry/conversations/[id]/route.ts:2 no-timers",
+			"apps/web/src/app/api/evry/conversations/[id]/route.ts:3 no-timers",
+			"apps/web/src/app/api/evry/conversations/[id]/route.ts:6 no-timers",
+			"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts:3 no-timers",
+			"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts:6 no-timers",
+		],
+	);
+	assert.equal(Object.keys(PRODUCT_TIMERS).length, 1, "PRODUCT_TIMERS only shrinks");
 });
 
 test("INV-lint: every comment except a shebang and a bundler ignore inside import() is reported, JSX comments included", () => {
