@@ -91,6 +91,7 @@ export type Operation =
 	| "notifications.oversightDigestCadence.set"
 	| "wiki.bookmarks.set"
 	| "wiki.feedback.setMine"
+	| WikiEditorOperation
 	| TeamsOperation
 	| "phases.declare"
 	| "phases.transition"
@@ -100,6 +101,14 @@ export type Operation =
 	| SettingsOperation
 	| PipelineOperation
 	| LaunchOperation;
+
+export type WikiEditorOperation =
+	| "wiki.organizationArticles.add"
+	| "wiki.organizationArticles.edit"
+	| "wiki.organizationArticles.publish"
+	| "wiki.organizationArticles.hide";
+export const isWikiEditor = (operation: Operation): operation is WikiEditorOperation =>
+	operation.startsWith("wiki.organizationArticles.");
 
 export type LaunchOperation =
 	| "launch.schedule"
@@ -382,6 +391,9 @@ const FIELD_LABEL: Record<string, string> = {
 	movesBack: "Moves back",
 	detailsGoBack: "Details back",
 	bookmarked: "Bookmark",
+	addedText: "Added text",
+	articleText: "Text",
+	organizationVersion: "Your version",
 	feedback: "Your feedback",
 	household: "Household",
 	householdRole: "Role",
@@ -762,6 +774,7 @@ export function subjectName(review: Review): string {
 
 export function savedText(review: Review): string {
 	const who = review.review.target?.label;
+	if (isWikiEditor(review.operation)) return WIKI_EDITOR_SAVED[review.operation](who ?? "the article");
 	if (!isTasks(review.operation)) return who ? `Saved. ${who} is updated.` : "Saved.";
 	const name = subjectName(review);
 	const status = review.review.changes.find((c) => c.field === "status")?.after;
@@ -803,9 +816,19 @@ export function savedText(review: Review): string {
 	}
 }
 
+const WIKI_EDITOR_SAVED: Record<WikiEditorOperation, (title: string) => string> = {
+	"wiki.organizationArticles.add": (t) =>
+		`Saved. Your draft of ${t} is in your Wiki editor. Churches keep seeing the Wiki's version.`,
+	"wiki.organizationArticles.edit": (t) => `Saved. Your draft of ${t} is updated.`,
+	"wiki.organizationArticles.publish": (t) => `Published. Churches that share your Wiki now see your version of ${t}.`,
+	"wiki.organizationArticles.hide": (t) =>
+		`Hidden. Churches no longer see your version of ${t}, and can open the Wiki's standard version instead.`,
+};
+
 export function openAfter(review: Review): { href: string; label: string } | null {
 	const who = review.review.target;
 	if (review.review.withheld || isMail(review.operation)) return null;
+	if (isWikiEditor(review.operation)) return who?.href ? { href: who.href, label: "Open the Wiki editor" } : null;
 	if (!isTasks(review.operation))
 		return who?.kind === "person" && review.operation !== "people.deletePerson"
 			? { href: targetHref(who), label: `Open ${who.label}` }
@@ -892,6 +915,10 @@ const TITLE: Record<Operation, string> = {
 	"people.unmergePeople": "Undo a merge",
 	"wiki.bookmarks.set": "Bookmark an article",
 	"wiki.feedback.setMine": "Rate an article",
+	"wiki.organizationArticles.add": "Draft your Wiki version",
+	"wiki.organizationArticles.edit": "Change your Wiki draft",
+	"wiki.organizationArticles.publish": "Publish your Wiki version",
+	"wiki.organizationArticles.hide": "Hide your Wiki version",
 	"seats.invite": "Invite someone",
 	"seats.resendInvitation": "Resend an invitation",
 	"seats.revokeInvitation": "Revoke an invitation",
@@ -1426,6 +1453,7 @@ const ADDS = new Set<Operation>([
 	"discovery.create",
 	"discovery.convertToPlant",
 	"development.saveProgram",
+	"wiki.organizationArticles.add",
 ]);
 export const seatsAccount = (operation: Operation) =>
 	operation === "onboarding.createPlant" || operation === "discovery.convertToPlant";
@@ -1741,7 +1769,16 @@ function taskRefusalText(code: string | undefined, target: string | null): strin
 	}
 }
 
-export function wikiRefusalText(code: string | undefined): string {
+export function wikiRefusalText(code: string | undefined, operation: Operation): string {
+	if (isWikiEditor(operation))
+		switch (code) {
+			case "revision_conflict":
+				return "The article changed in your Wiki editor after Evry prepared this, so nothing was saved. Open the editor to see it as it is now, or ask Evry to prepare it again.";
+			case "access_denied":
+				return "Your seat no longer allows editing this organization's Wiki, so nothing was saved.";
+			default:
+				return "The Wiki refused this change, so nothing was saved.";
+		}
 	switch (code) {
 		case "revision_conflict":
 			return "Your bookmark changed on the Wiki after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.";

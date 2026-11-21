@@ -334,6 +334,10 @@ test("INV-notification-tools an organization login is offered its oversight dige
 			"pipeline.proposeStageMove",
 			"development.saveProgram",
 			"development.draftNextVersion",
+			"wiki.organizationArticles.add",
+			"wiki.organizationArticles.edit",
+			"wiki.organizationArticles.publish",
+			"wiki.organizationArticles.hide",
 		],
 	);
 	const plantTools = modelTools(owner, { read: async () => ({}), select: async () => ({}), propose: async () => ({}) });

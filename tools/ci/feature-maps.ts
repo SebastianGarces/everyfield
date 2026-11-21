@@ -68,7 +68,7 @@ type Persona = {
 	seed?: "qa";
 };
 type LoadedMap = { file: string; map: FeatureMap };
-type Route = { url: string; kind: "page" | "handler"; file: string };
+type Route = { url: string; kind: "page" | "handler"; file: string; slot?: boolean };
 type NavItem = { label: string; href: string };
 type ShellNav = (viewer: unknown) => { main: readonly NavItem[]; pages: readonly NavItem[] };
 
@@ -161,15 +161,14 @@ const isSlot = (segment: string) => segment.startsWith("@");
 
 export function appRoutes(root: string): Route[] {
 	const files = walk(root, APP_DIR, (file) => ROUTE_FILE.test(file.slice(file.lastIndexOf("/") + 1)));
-	return files
-		.filter((file) => !file.split("/").some(isSlot))
-		.map((file) => {
-			const parts = file.slice(APP_DIR.length + 1).split("/");
-			const base = parts.pop()!.replace(/\.[^.]+$/, "");
-			const segments = parts.filter((s) => !isGroup(s));
-			if (base !== "page" && base !== "route") segments.push(SPECIAL_ROUTES[base] ?? base);
-			return { url: "/" + segments.join("/"), kind: base === "page" ? "page" : "handler", file };
-		});
+	return files.map((file) => {
+		const parts = file.slice(APP_DIR.length + 1).split("/");
+		const base = parts.pop()!.replace(/\.[^.]+$/, "");
+		const segments = parts.filter((s) => !isGroup(s) && !isSlot(s));
+		if (base !== "page" && base !== "route") segments.push(SPECIAL_ROUTES[base] ?? base);
+		const route: Route = { url: "/" + segments.join("/"), kind: base === "page" ? "page" : "handler", file };
+		return parts.some(isSlot) ? { ...route, slot: true } : route;
+	});
 }
 
 const STATE_FILE = /^(loading|error|not-found)\.tsx$/;
@@ -490,8 +489,12 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 		}
 	}
 
-	const routes = appRoutes(root);
+	const allRoutes = appRoutes(root);
+	const routes = allRoutes.filter((r) => !r.slot);
 	const byUrl = new Map(routes.map((r) => [r.url, r] as const));
+	for (const route of allRoutes)
+		if (route.slot && !byUrl.has(route.url))
+			problems.push(`${route.file}: slot page renders into ${route.url}, which no page owns`);
 	const owner = new Map<string, { surface: Surface; map: LoadedMap; kind: "page" | "handler" }>();
 	const surfaceIds = new Map<string, Surface>();
 	for (const loadedMap of maps) {
@@ -1211,7 +1214,7 @@ export function writeDocs(root: string): string[] {
 	if (problems.length) return problems;
 	const pending = ((readJson(root, PENDING_FILE) as { routes?: string[] }).routes ?? []).length;
 	const personas = readJson(root, PERSONAS_FILE) as Record<string, Persona>;
-	const docs = renderDocs(maps, personas, pending, appRoutes(root).length);
+	const docs = renderDocs(maps, personas, pending, appRoutes(root).filter((r) => !r.slot).length);
 	for (const path of walk(root, DOCS_DIR, (f) => f.endsWith(".md"))) if (!docs.has(path)) rmSync(join(root, path));
 	mkdirSync(join(root, DOCS_DIR), { recursive: true });
 	for (const [path, content] of docs) writeFileSync(join(root, path), content);

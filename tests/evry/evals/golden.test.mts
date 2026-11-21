@@ -820,6 +820,10 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			"pipeline.proposeStageMove",
 			"development.saveProgram",
 			"development.draftNextVersion",
+			"wiki.organizationArticles.add",
+			"wiki.organizationArticles.edit",
+			"wiki.organizationArticles.publish",
+			"wiki.organizationArticles.hide",
 		],
 	);
 });

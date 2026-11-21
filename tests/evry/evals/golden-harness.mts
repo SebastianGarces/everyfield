@@ -54,6 +54,7 @@ import { PIPELINE_READS } from "../../../packages/evry/src/adapters/pipeline/rea
 import { PIPELINE_COMMANDS } from "../../../packages/evry/src/adapters/pipeline/commands/index.ts";
 import { LAUNCH_READS } from "../../../packages/evry/src/adapters/launch/reads/index.ts";
 import { LAUNCH_COMMANDS } from "../../../packages/evry/src/adapters/launch/commands/index.ts";
+import { WIKI_COMMANDS } from "../../../packages/evry/src/adapters/wiki/commands/index.ts";
 
 const LATER = new Set<string>([
 	...SEAT_READS.map((a) => a.operation),
@@ -69,6 +70,7 @@ const LATER = new Set<string>([
 	...LAUNCH_READS.map((a) => a.operation),
 	...Object.keys(LAUNCH_COMMANDS),
 	"documents.importTextOrWord",
+	...Object.keys(WIKI_COMMANDS).filter((op) => op.startsWith("wiki.organizationArticles.")),
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
 const SCRIPTED_ONLY = new Set(["documents.importTextOrWord"]);
