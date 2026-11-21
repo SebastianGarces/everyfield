@@ -51,6 +51,15 @@ test("AC: a warning notice is amber, keeps its title and actions, and can show i
 	assert.equal(svg(notice({ tone: "error" })), svg(shown));
 });
 
+test("AC: a success notice is green and shows the check mark, not the warning sign", () => {
+	const notice = (tone: string) => renderToStaticMarkup(createElement(Alert, { tone }, "Another link is on its way."));
+	const shown = notice("success");
+	assert.match(shown, /^<div data-tone="success" class="[^"]*\bbg-green-50 text-green-700"/);
+	assert.match(shown, /Another link is on its way\./);
+	const svg = (html: string) => html.match(/<svg[\s\S]*?<\/svg>/)?.[0];
+	assert.notEqual(svg(shown), svg(notice("error")));
+});
+
 test("INV-a11y: an inline alert asked to take focus can be focused by script but stays out of the tab order", () => {
 	assert.match(html({ focus: 1 }, "Choose a stage."), /tabindex="-1"/);
 	assert.doesNotMatch(html({}, "Choose a stage."), /tabindex/);

@@ -266,24 +266,24 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 						</p>
 					) : null}
 					{failure ? (
-						<div
+						<Alert
 							role="alert"
-							className="mt-4 flex flex-wrap items-center gap-3 rounded-md bg-magenta-50 px-4 py-3 text-sm text-ink-2"
+							className="mt-4"
+							actions={
+								conflict ? (
+									<Button size="sm" variant="secondary" loading={paging} onClick={() => load(1)}>
+										Load the latest
+									</Button>
+								) : null
+							}
 						>
-							<span className="min-w-0 flex-1">
-								{failure.error
-									? correcting
-										? "Your correction was not saved. "
-										: "Your check-in was not saved. "
-									: null}
-								{failure.failed ? READ_FAILED : refusalText(failure.error)}
-							</span>
-							{conflict ? (
-								<Button size="sm" variant="secondary" loading={paging} onClick={() => load(1)}>
-									Load the latest
-								</Button>
-							) : null}
-						</div>
+							{failure.error
+								? correcting
+									? "Your correction was not saved. "
+									: "Your check-in was not saved. "
+								: null}
+							{failure.failed ? READ_FAILED : refusalText(failure.error)}
+						</Alert>
 					) : null}
 					<div className="mt-4 flex items-center justify-between gap-3 max-app-sm:flex-col-reverse max-app-sm:items-stretch">
 						<span className="min-w-0 flex-1 text-sm text-text-3">
