@@ -4,7 +4,7 @@ import { DASHBOARD_HOME } from "@everyfield/contracts/identity";
 import { avatarRoute } from "@everyfield/contracts/settings";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogBody, DialogContent, DialogHeader } from "@everyfield/ui/controls";
-import { Suspense, useRef, useState } from "react";
+import { createContext, Suspense, use, useCallback, useMemo, useRef, useState } from "react";
 import { lazyModule, LoadFailed, Opened, useLazyModule, type Failure } from "../../components/lazy.tsx";
 import { currentAddress, onTraversal, usePath, writeAddress } from "../../components/location.ts";
 import { loadPage } from "../identity/api";
@@ -104,7 +104,18 @@ function Failed({ section, onNavigate, failure }: SettingsDialogProps & { failur
 
 const pathOf = (href: string | null) => href?.split("?")[0] ?? null;
 
-export function useProductSettings(viewer: SettingsViewer | null, seed: SectionSeed | null = null) {
+type SettingsDialogParts = {
+	viewer: SettingsViewer;
+	port: SettingsPort;
+	section: DialogSection | null;
+	navigate: (key: SectionKey | null) => void;
+	openPage: (key: SectionKey) => void;
+	seedFits: boolean;
+};
+
+export const SettingsDialogContext = createContext<SettingsDialogParts | null>(null);
+
+export function useProductSettings(viewer: SettingsViewer | null, seedFits: boolean) {
 	const path = usePath();
 	const router = useRouter();
 	const section = sectionAt(path, viewer);
@@ -112,11 +123,11 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 	if (!section && pathOf(underneath) !== path) setUnderneath(path);
 
 	const refreshAfterClose = useRef<(() => void) | null>(null);
-	const refreshUnderneath = () => {
+	const refreshUnderneath = useCallback(() => {
 		const refresh = refreshAfterClose.current;
 		refreshAfterClose.current = null;
 		refresh?.();
-	};
+	}, []);
 	const [port] = useState<SettingsPort>(() => ({
 		...PORT,
 		wiki: {
@@ -137,31 +148,52 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 		},
 	}));
 
-	const navigate = (key: SectionKey | null) => {
-		if (key)
-			dialog.whenLoaded(() => {
-				if (!section) setUnderneath(currentAddress());
-				writeAddress(hrefFor(key));
-			});
-		else if (underneath) {
-			writeAddress(underneath);
-			refreshUnderneath();
-		} else router.push(viewer?.context === "plant" ? DASHBOARD_HOME : "/settings/sharing");
-	};
+	const navigate = useCallback(
+		(key: SectionKey | null) => {
+			if (key)
+				dialog.whenLoaded(() => {
+					if (!section) setUnderneath(currentAddress());
+					writeAddress(hrefFor(key));
+				});
+			else if (underneath) {
+				writeAddress(underneath);
+				refreshUnderneath();
+			} else router.push(viewer?.context === "plant" ? DASHBOARD_HOME : "/settings/sharing");
+		},
+		[section, underneath, refreshUnderneath, router, viewer],
+	);
 
-	const element = viewer ? (
-		<SettingsProvider key={`${viewer.accountId}-${viewer.context}`} port={port} viewer={viewer} seed={seed}>
+	const parts = useMemo(
+		() =>
+			viewer
+				? { viewer, port, section, navigate, openPage: (key: SectionKey) => router.push(hrefFor(key)), seedFits }
+				: null,
+		[viewer, port, section, navigate, router, seedFits],
+	);
+	return { parts, open: (key: DialogSection) => navigate(key) };
+}
+
+export function ProductSettingsDialog({ seed }: { seed: SectionSeed | null }) {
+	const parts = use(SettingsDialogContext);
+	if (!parts) return null;
+	const { viewer, port, section, navigate, openPage, seedFits } = parts;
+	return (
+		<SettingsProvider
+			key={`${viewer.accountId}-${viewer.context}`}
+			port={port}
+			viewer={viewer}
+			seed={seedFits ? seed : null}
+		>
 			<LazySettingsDialog
 				section={section}
 				onNavigate={navigate}
 				hrefFor={hrefFor}
-				pages={{ sections: ["seats", "sharing"], open: (key) => router.push(hrefFor(key)) }}
+				pages={{ sections: ["seats", "sharing"], open: openPage }}
 				headerActions={<SettingsGuide />}
 				onDeletionRequested={(status) => loadPage(deletionPage(status))}
 			/>
 		</SettingsProvider>
-	) : null;
-	return { element, open: (key: DialogSection) => navigate(key) };
+	);
 }
 
 function deletionPage(status: DeletionStatus | null): string {

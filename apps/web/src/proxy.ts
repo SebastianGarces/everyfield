@@ -1,7 +1,6 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
 
-export const PATH_HEADER = "x-everyfield-path";
 export const EMAIL_CHANGE_PROOF_COOKIE = "ef-email-change-proof";
 const EMAIL_CHANGE_PATH = "/confirm-email";
 
@@ -27,9 +26,7 @@ export function proxy(request: NextRequest) {
 		signin.searchParams.set("returnTo", request.nextUrl.pathname + request.nextUrl.search);
 		return NextResponse.redirect(signin);
 	}
-	const headers = new Headers(request.headers);
-	headers.set(PATH_HEADER, request.nextUrl.pathname);
-	return NextResponse.next({ request: { headers } });
+	return NextResponse.next();
 }
 
 export const config = {
