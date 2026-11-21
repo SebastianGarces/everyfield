@@ -2120,6 +2120,149 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 	ok(await section(fresh, { section: "account" }));
 });
 
+test("INV-statements: settings writes lock their related rows in one statement each", async () => {
+	instrument(db);
+	const counted = async (body) => {
+		statements.length = 0;
+		recording = true;
+		try {
+			return { value: await body(), count: statements.length };
+		} finally {
+			recording = false;
+		}
+	};
+	const calls = { preview: 0, apply: 0 };
+	const producer = settingsApi({
+		...producerDeps,
+		personalCalendar: {
+			preview: async () => void calls.preview++,
+			apply: async () => !!++calls.apply,
+		},
+	});
+	const owner = await credentialActor();
+	const f = await plant(owner);
+	const solo = await credentialActor();
+	await credentialSeat(f.p, "member");
+	await admin.insert(t.task).values({
+		id: randomUUID(),
+		plant_id: f.p.id,
+		title: "Future task",
+		category: "general",
+		priority: "medium",
+		status: "not_started",
+		created_at: new Date(),
+		due_kind: "date_only",
+		due_date: "2099-01-15",
+	});
+	const run = (body, selected = undefined) =>
+		counted(async () => ok(await gatedTransaction(db, (tx) => body(tx, ctx(owner, selected)))));
+
+	const personal = await run((tx, c) => producer.previewPersonalTimezone(tx, c, { timeZone: "Europe/Paris" }));
+	const personalSet = await run((tx, c) =>
+		producer.setPersonalTimezone(
+			tx,
+			c,
+			command({ timeZone: "Europe/Paris", previewId: personal.value.previewId, confirmed: true }, "1"),
+		),
+	);
+	assert.deepEqual(personalSet.value.preference, { status: "confirmed", timeZone: "Europe/Paris", revision: "2" });
+	assert.deepEqual(calls, { preview: 1, apply: 1 });
+	const seatless = await gatedTransaction(db, (tx) =>
+		producer.previewPersonalTimezone(tx, ctx(solo), { timeZone: "Asia/Tokyo" }),
+	);
+	ok(
+		await gatedTransaction(db, (tx) =>
+			producer.setPersonalTimezone(
+				tx,
+				ctx(solo),
+				command({ timeZone: "Asia/Tokyo", previewId: ok(seatless).previewId, confirmed: true }, "1"),
+			),
+		),
+	);
+	assert.deepEqual(calls, { preview: 1, apply: 1 });
+
+	const church = await run(
+		(tx, c) => producer.previewPlantTimezone(tx, c, { plant: f.p, timeZone: "America/New_York" }),
+		f.p,
+	);
+	const churchSet = await run(
+		(tx, c) =>
+			producer.setPlantTimezone(
+				tx,
+				c,
+				command(
+					{ plant: f.p, timeZone: "America/New_York", previewId: church.value.previewId },
+					church.value.expectedRevision,
+				),
+			),
+		f.p,
+	);
+	assert.equal(churchSet.value.status, "changed");
+
+	const [root] = await admin.select().from(t.plant).where(eq(t.plant.id, f.p.id));
+	const viewer = await viewerOf(owner);
+	const requested = await counted(async () =>
+		ok(
+			await withSettingsWrite(db, viewer.authority, ctx(owner, f.p), (tx) =>
+				producer.requestWorkspaceDeletion(tx, ctx(owner, f.p), command({ plant: f.p, confirmed: true }, root.revision)),
+			),
+		),
+	);
+	assert.equal(requested.value.status, "pending_deletion");
+	const opened = await openWorkspace(owner);
+	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
+	const cancel = () =>
+		gatedTransaction(db, (tx) =>
+			producer.cancelWorkspaceDeletion(tx, opened.value.session, command(request, requested.value.revision)),
+		);
+	const [ownerSeat] = await admin.select().from(t.seat).where(eq(t.seat.account_id, owner.id));
+	const revoked = {
+		kind: "seat",
+		opaque_subject_id: ownerSeat.id,
+		seat_id: ownerSeat.id,
+		request_revision: "1",
+		state: "revoked",
+		witness_checkpoint: "1",
+		cleanup_state: "not_started",
+	};
+	await admin.insert(t.lifecycle_witness).values(revoked);
+	denied(await cancel());
+	await admin.delete(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, ownerSeat.id));
+	await admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, ownerSeat.id));
+	denied(await cancel());
+	await admin.update(t.seat).set({ ended_at: null }).where(eq(t.seat.id, ownerSeat.id));
+	const cancelled = await counted(async () => ok(await cancel()));
+	assert.equal(cancelled.value.status, "cancelled");
+
+	const [account] = await admin.select().from(t.account).where(eq(t.account.id, solo.id));
+	const pending = ok(await call("requestAccountDeletion", solo, command({ confirmed: true }, account.revision)));
+	const openedAccount = await counted(() =>
+		producerDeps.credentials.openAccountDeletion({ email: solo.email, password: solo.password }, null),
+	);
+	assert.equal(openedAccount.value.status, "ok");
+	assert.deepEqual(openedAccount.value.value.subject, { kind: "account", id: solo.id });
+	assert.equal(openedAccount.value.value.requestId, pending.requestId);
+
+	assert.deepEqual(
+		{
+			previewPersonalTimezone: personal.count,
+			setPersonalTimezone: personalSet.count,
+			setPlantTimezone: churchSet.count,
+			requestWorkspaceDeletion: requested.count,
+			cancelWorkspaceDeletion: cancelled.count,
+			openAccountDeletion: openedAccount.count,
+		},
+		{
+			previewPersonalTimezone: 7,
+			setPersonalTimezone: 9,
+			setPlantTimezone: 9,
+			requestWorkspaceDeletion: 8,
+			cancelWorkspaceDeletion: 8,
+			openAccountDeletion: 5,
+		},
+	);
+});
+
 test("INV-account-revision people/peo-3: Your account and notifications share one revision; a save in one moves the other's and the old revision is refused", async () => {
 	const a = await seated(await actor());
 	const account = ok(await section(a, { section: "account" }));
