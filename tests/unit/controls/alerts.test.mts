@@ -7,7 +7,7 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = createRequire(root + "apps/web/package.json");
 const { renderToStaticMarkup } = web("react-dom/server");
 const { createElement } = web("react");
-const { InlineAlert, PageState } = await import("../../../packages/ui/src/controls/index.ts");
+const { Alert, InlineAlert, PageState } = await import("../../../packages/ui/src/controls/index.ts");
 
 const html = (props: Record<string, unknown>, children?: unknown) =>
 	renderToStaticMarkup(createElement(InlineAlert, props, children));
@@ -28,6 +28,27 @@ test("INV-a11y: an inline alert keeps its live region in the accessibility tree,
 		assert.match(shown, /The meeting was not saved\./);
 		assert.doesNotMatch(shown, /role="alert"/);
 	}
+});
+
+test("AC: a warning notice is amber, keeps its title and actions, and can show its own icon in place of the warning sign", () => {
+	const notice = (props: Record<string, unknown>) =>
+		renderToStaticMarkup(
+			createElement(
+				Alert,
+				{ tone: "warning", title: "Connection lost", actions: "Reconnect", ...props },
+				"Evry keeps working.",
+			),
+		);
+	const shown = notice({});
+	assert.match(shown, /^<div data-tone="warning" class="[^"]*\bbg-amber-50 text-amber-600"/);
+	assert.match(
+		shown,
+		/<p class="font-semibold text-amber-600">Connection lost<\/p>Evry keeps working\.<div[^>]*>Reconnect<\/div>/,
+	);
+	const { WifiDisconnected01Icon } = web("@hugeicons/core-free-icons");
+	const svg = (html: string) => html.match(/<svg[\s\S]*?<\/svg>/)?.[0];
+	assert.notEqual(svg(notice({ icon: WifiDisconnected01Icon })), svg(shown));
+	assert.equal(svg(notice({ tone: "error" })), svg(shown));
 });
 
 test("INV-a11y: an inline alert asked to take focus can be focused by script but stays out of the tab order", () => {
