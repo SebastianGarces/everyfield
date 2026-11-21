@@ -126,7 +126,9 @@
 				"tests/integration/platform/**",
 				"tests/integration/writes/**",
 				"tests/integration/branding/**",
+				"tests/integration/db/**",
 				"tests/integration/flags/**",
+				"tests/integration/followups/**",
 				"tests/integration/oversight/**",
 				"tests/integration/phases/**"
 			],
