@@ -18,9 +18,9 @@ import type { WriteTx } from "@everyfield/domain/access";
 
 export const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
-const target = (actor: EvryActor, personId: string) =>
+export const target = (actor: EvryActor, personId: string) =>
 	sql`FROM person p WHERE p.id=${personId}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
-const person = sql`jsonb_build_object('kind','person','id',p.id,'label',p.display_name)`;
+export const person = sql`jsonb_build_object('kind','person','id',p.id,'label',p.display_name)`;
 const change = (field: string, before: SQL, after: unknown) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before},'after',${JSON.stringify(after ?? null)}::jsonb)`;
 const openTasks = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('kind','needs_owner','dutyId',t.id,'expectedRevision',t.revision::text) ORDER BY t.id),'[]'::jsonb)
@@ -29,12 +29,12 @@ const openTasks = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('kind','need
 const tasksChange = (handoffs: SQL) =>
 	sql`CASE WHEN jsonb_array_length(${handoffs})>0 THEN jsonb_build_array(jsonb_build_object('field','openTasksNeedingOwner','before',NULL,'after',jsonb_array_length(${handoffs}))) ELSE '[]'::jsonb END`;
 
-type Receipt = { receiptId: string; revision: string };
-function reviewed<I, R extends z.ZodType>(spec: {
+export type Receipt = { receiptId: string; revision: string };
+export function reviewed<I, R extends z.ZodType>(spec: {
 	operation: string;
 	description: string;
 	input: z.ZodType<I>;
-	review(actor: EvryActor, input: I): SQL;
+	review: ReviewedWrite<I>["review"];
 	request: R;
 	run(
 		tx: WriteTx,
@@ -49,9 +49,9 @@ function reviewed<I, R extends z.ZodType>(spec: {
 		input: spec.input,
 		allowed: ownerOrAdmin,
 		review: spec.review,
-		async execute(tx, context, args, effectKey, reminders): Promise<EffectResult> {
+		async execute(tx, context, args, effectKey, ports): Promise<EffectResult> {
 			const request = spec.request.parse({ ...z.object({}).loose().parse(args), requestKey: effectKey });
-			const reply = await spec.run(tx, context, request, reminders);
+			const reply = await spec.run(tx, context, request, ports.reminders);
 			if (reply.status !== "ok") return { refused: reply.error.code };
 			return { receiptId: reply.value.receiptId, revision: reply.value.revision };
 		},

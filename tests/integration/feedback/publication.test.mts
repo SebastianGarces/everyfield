@@ -130,7 +130,7 @@ const cron = (feedbackPublication: ReturnType<typeof feedbackPublicationMount>) 
 		db,
 		storage: null,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		mail: null,
 		digests: null,
 		feedbackPublication,

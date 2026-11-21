@@ -2,7 +2,7 @@ import { privateStorage } from "@everyfield/db/schema";
 import { cleanupDatabase, jobDatabase } from "@/server/database";
 import { digestMailPass, digestsMount } from "@/server/jobs/digest-mount";
 import { noticeMailPass, notificationsMount } from "@/features/notifications/worker";
-import { tasksMount } from "@/features/tasks/mount";
+import { evryEffectPorts } from "@/server/evry";
 import { runDueInvitationMail } from "@/server/invitations";
 import { identityMailPass } from "@/server/identity";
 import { organizationMailPass } from "@/features/organizations/mount";
@@ -29,7 +29,7 @@ export const GET = configured(function GET(request: Request): Promise<Response> 
 			db,
 			storage: privateStorage(),
 			cleanup: cleanupDatabase(),
-			reminders: tasksMount().reminders,
+			effects: evryEffectPorts(),
 			digests: digestsMount(db),
 			notifications: notificationsMount(db),
 			feedbackPublication: feedbackPublicationMount(db),

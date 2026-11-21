@@ -1,0 +1,3 @@
+{
+	"public": ["adapters/tasks/values.ts", "attachments/store.ts", "calendar/resolve.ts"]
+}

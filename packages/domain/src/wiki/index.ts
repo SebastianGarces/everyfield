@@ -30,9 +30,14 @@ import {
 	hideOrganizationArticle,
 	publishOrganizationArticle,
 	setMine,
+	setMineIn,
 } from "./editorial.ts";
-import { recordView, setBookmark, setSourceOrder, updateProgress } from "./writes.ts";
+import { recordView, setBookmark, setBookmarkIn, setSourceOrder, updateProgress } from "./writes.ts";
 import { getReadingRevision, listCompletedArticles, listOrganizationNames, readEditorState } from "./page.ts";
+
+export const wikiEffects = { setBookmark: setBookmarkIn, setMine: setMineIn };
+
+export { sectionExcerpt } from "./excerpt.ts";
 
 export type { StoredEditor } from "./page.ts";
 export type WikiConfig = { renderPdf?: PdfRenderer };
