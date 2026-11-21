@@ -120,8 +120,8 @@ An Owner or Admin attaches a Word or text file in the panel and asks for a churc
 - Operations: documents.importTextOrWord
 - Catalog: EVR-021, DOC-016
 - Cases: CASE-DOC-016
-- Test: `tests/evry/runtime/attachments.test.mts`: `AC:CASE-DOC-016 AC:GAP-EVR-422 an attached Word file becomes a church document through one review: nothing is in Documents until Approve, then one document with the file's headings and paragraphs, however often it is approved or retried`
-- Test: `tests/evry/runtime/attachments.test.mts`: `AC:CASE-DOC-016 a file larger than the import limit is refused with the import's size message and nothing is written`
+- Test: `tests/evry/adapters/documents/import.test.mts`: `AC:CASE-DOC-016 AC:GAP-EVR-422 an attached Word file becomes a church document through one review: nothing is in Documents until Approve, then one document with the file's headings and paragraphs, however often it is approved or retried`
+- Test: `tests/evry/adapters/documents/import.test.mts`: `AC:CASE-DOC-016 a file larger than the import limit is refused with the import's size message and nothing is written`
 - Browser, presence proof only (the control is there; the tests prove the outcome), from state new-chat:
 
 ```bash

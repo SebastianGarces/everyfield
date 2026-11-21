@@ -229,11 +229,11 @@
 					"proof": {
 						"tests": [
 							{
-								"file": "tests/evry/runtime/attachments.test.mts",
+								"file": "tests/evry/adapters/documents/import.test.mts",
 								"name": "AC:CASE-DOC-016 AC:GAP-EVR-422 an attached Word file becomes a church document through one review: nothing is in Documents until Approve, then one document with the file's headings and paragraphs, however often it is approved or retried"
 							},
 							{
-								"file": "tests/evry/runtime/attachments.test.mts",
+								"file": "tests/evry/adapters/documents/import.test.mts",
 								"name": "AC:CASE-DOC-016 a file larger than the import limit is refused with the import's size message and nothing is written"
 							}
 						],

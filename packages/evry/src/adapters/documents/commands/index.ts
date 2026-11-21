@@ -12,6 +12,7 @@ import {
 	type DocumentsReply,
 } from "@everyfield/contracts/documents";
 import { createHash } from "node:crypto";
+import { parseImport } from "@everyfield/domain/documents/import";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
@@ -253,7 +254,7 @@ export const importTextOrWord: ReviewedWrite<z.infer<typeof importInput>> = {
 		const file = await attachedFile(context.db, actor, context.conversationId, value.attachmentId);
 		const format = ["docx", "doc"].includes(extensionOf(file.name)) ? "docx" : "text";
 		const bytes = await context.files.read(file.id);
-		const read = (await import("@everyfield/domain/documents")).parseImport(bytes, format);
+		const read = parseImport(bytes, format);
 		if ("problem" in read) throw new EvryRefusal("invalid_input", read.problem);
 		const words = nativeText(read.body)
 			.split("\n")

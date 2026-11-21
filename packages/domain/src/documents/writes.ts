@@ -35,7 +35,7 @@ import {
 	storeBytes,
 	type Scope,
 } from "./scope.ts";
-import { ImportRejected, readImport } from "./unpack.ts";
+import { parseImport } from "./unpack.ts";
 
 type OwnedRow = {
 	id: string;
@@ -993,18 +993,6 @@ function saveNative(db: Database, authority: RequestActor, raw: unknown) {
 	if (typeof raw === "object" && raw !== null && !("title" in raw))
 		return settle(() => churchWriter.saveChurch(db, authority, parse(c.saveChurchRequest, raw)));
 	return generatedWriter.saveNative(db, authority, raw);
-}
-
-export function parseImport(bytes: Uint8Array, format: "text" | "docx"): { body: c.DocNode } | { problem: string } {
-	let read: c.DocNode;
-	try {
-		read = readImport(bytes, format);
-	} catch (error) {
-		if (error instanceof ImportRejected) return { problem: error.message };
-		throw error;
-	}
-	const parsed = c.nativeBody.safeParse(read);
-	return parsed.success ? { body: parsed.data } : { problem: "This file is too large for one document." };
 }
 
 export const documentsWriter = {
