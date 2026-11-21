@@ -1,5 +1,6 @@
 import { requestDatabase } from "@/server/database";
 import { viewerActor } from "@/server/request-context";
+import { withError } from "@everyfield/contracts/common";
 import type {
 	AssessmentHistory,
 	AssessmentReply,
@@ -28,7 +29,7 @@ export async function runAssessment<T>(
 	const db = requestDatabase();
 	return transient(
 		{ component: "assessment", outcome: `${component}_failed` },
-		() => body(assessments, db, authority),
+		async () => withError(await body(assessments, db, authority)),
 		LOST,
 	);
 }

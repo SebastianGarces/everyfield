@@ -6,12 +6,11 @@ import { useRead } from "../../components/read.tsx";
 import { storeContext, useShallow } from "../../components/store.ts";
 import { isDirty, isSaving, visible } from "./drafts";
 import { errorReference, errorText } from "./model";
-import type { Refusal } from "./save";
+import { OFFLINE, type Outcome, type Refusal } from "./save";
 import type { GetSectionRequest, SectionKey, SectionResult, SettingsPort, SettingsViewer } from "./port";
 import {
 	withAccountRevision,
 	selectDirtyKeys,
-	type SaveOutcome,
 	type SettingsReads,
 	type SettingsState,
 	type SettingsStore,
@@ -67,7 +66,7 @@ export function useDraft<T>(
 	dirty: boolean;
 	saving: boolean;
 	refusal: Refusal | null;
-	save: (work: (sent: T) => Promise<SaveOutcome<T>>) => Promise<void>;
+	save: (work: (sent: T) => Promise<Outcome<T>>, lost?: Refusal) => Promise<void>;
 	serverChanged: (server: T) => void;
 } {
 	const book = Settings.useSelect((state) => state.book);
@@ -78,7 +77,8 @@ export function useDraft<T>(
 		saving: isSaving(book, key),
 		refusal: book.refusals[key] ?? null,
 		setDraft: (next: T) => actions.edit(key, next, saved),
-		save: (work) => actions.save(key, saved, work as (sent: unknown) => Promise<SaveOutcome<unknown>>),
+		save: (work, lost = OFFLINE) =>
+			actions.save(key, saved, work as (sent: unknown) => Promise<Outcome<unknown>>, lost),
 		serverChanged: (server: T) => actions.observe(key, server),
 	};
 }
