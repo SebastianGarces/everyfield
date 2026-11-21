@@ -89,8 +89,9 @@ export type OrganizationSeat = {
 };
 
 export function organizationSeatOf(authority: RequestActor | null): OrganizationSeat | null {
-	const context = authority && organizationSeatContext(authority);
-	if (!authority || !context) return null;
+	if (!authority) return null;
+	const context = organizationSeatContext(authority);
+	if (!context) return null;
 	return { authority, organization: context.owner, role: context.role };
 }
 
