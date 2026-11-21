@@ -15,6 +15,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
+	LOOSE_CONTRACTS,
 	PRODUCT_TIMERS,
 	RAW_ERROR_SITES,
 	REFUSAL_MECHANISMS,
@@ -2007,6 +2008,39 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 			"packages/domain/src/tasks/x.ts:3 table-writers",
 			"packages/domain/src/tasks/x.ts:4 table-writers",
 		],
+	);
+});
+
+test("INV-lint: a contract schema is a z.strictObject unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
+	const loose = `import { z } from "zod";
+import * as zz from "zod/v4";
+import { object as plain } from "zod";
+export const a = z.object({ id: z.string() });
+export const b = z
+	.object({ id: z.string() })
+	.strip();
+export const c = zz.looseObject({ id: z.string() });
+export const d = plain({ id: z.string() });
+export const e = z.strictObject({ id: z.string(), item: z.strictObject({}) });
+`;
+	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" strict-contracts"));
+	assert.deepEqual(reported({ "packages/contracts/src/x/index.ts": loose, "packages/domain/src/x.ts": loose }), [
+		"packages/contracts/src/x/index.ts:4 strict-contracts",
+		"packages/contracts/src/x/index.ts:5 strict-contracts",
+		"packages/contracts/src/x/index.ts:8 strict-contracts",
+		"packages/contracts/src/x/index.ts:9 strict-contracts",
+	]);
+	const [path, names] = Object.entries(LOOSE_CONTRACTS)[0];
+	const [name] = Object.keys(names);
+	assert.deepEqual(reported({ [path]: `import { z } from "zod";\nexport const ${name} = z.object({});\n` }), []);
+	assert.deepEqual(reported({ [path]: `import { z } from "zod";\nexport const ${name} = z.strictObject({});\n` }), [
+		`${path}:1 strict-contracts`,
+	]);
+	assert.deepEqual(
+		reported({
+			[path]: `import { z } from "zod";\nexport const ${name} = z.object({});\nexport const other = z.object({});\n`,
+		}),
+		[`${path}:3 strict-contracts`],
 	);
 });
 
