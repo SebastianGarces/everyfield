@@ -11,6 +11,7 @@ import {
 	MenuLabel,
 	MenuSeparator,
 	MenuTrigger,
+	InlineAlert,
 } from "@everyfield/ui/controls";
 import { PersonCard, PipelineColumn, StageChip, StatusBadge } from "@everyfield/ui/display";
 import { useMemo, useState, type DragEvent } from "react";
@@ -196,7 +197,8 @@ function Column({
 	const own = useLocalStore(() => createPersonStore<{ revision: string }, null>({ revision: group.revision }));
 	const columnRevision = answer?.revision ?? group.revision;
 	const store = useMemo(() => withServer(own, { revision: columnRevision }), [own, columnRevision]);
-	const order = usePersonState(store);
+	const order0 = usePersonState(store);
+	const order = { ...order0, errors: { ...order0.errors, order: "conflict" } };
 	const [said, setSaid] = useState("");
 	const filtered = isFiltered(query);
 	const complete = !filtered && !more_.next && cards.length <= 100;
@@ -294,15 +296,13 @@ function Column({
 					</Button>
 				) : null}
 				<FormProblem code={more_.problem} />
-				<div aria-live="assertive" className="empty:hidden">
-					{order.errors.order ? (
-						<p className="rounded-md bg-magenta-50 px-3 py-2.5 text-sm text-magenta-600">
-							{order.errors.order === "conflict"
-								? "The order changed somewhere else. The column now shows the latest order; try the move again."
-								: problemText(order.errors.order)}
-						</p>
-					) : null}
-				</div>
+				<InlineAlert>
+					{order.errors.order
+						? order.errors.order === "conflict"
+							? "The order changed somewhere else. The column now shows the latest order; try the move again."
+							: problemText(order.errors.order)
+						: null}
+				</InlineAlert>
 				<p role="status" className="sr-only">
 					{said}
 				</p>

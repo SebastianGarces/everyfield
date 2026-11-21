@@ -1,7 +1,7 @@
 "use client";
 
-import { Alert02Icon } from "@hugeicons/core-free-icons";
-import { Icon, useHydrated } from "@everyfield/ui/foundations";
+import { InlineAlert } from "@everyfield/ui/controls";
+import { useHydrated } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useSyncExternalStore, type ComponentProps } from "react";
@@ -39,16 +39,7 @@ export function problemText(code: string): string {
 }
 
 export function FormProblem({ code, id }: { code: string | undefined; id?: string }) {
-	return (
-		<div aria-live="assertive" id={id} className="empty:hidden">
-			{code ? (
-				<p className="flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">
-					<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-					{problemText(code)}
-				</p>
-			) : null}
-		</div>
-	);
+	return <InlineAlert id={id}>{code ? problemText(code) : null}</InlineAlert>;
 }
 
 export function usePersonStore<P extends Saved & { id: string }, D>(person: P): [PersonStore<P, D>, PersonState<P, D>] {
