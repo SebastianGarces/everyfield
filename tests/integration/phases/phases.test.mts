@@ -36,11 +36,7 @@ const one = async (q: SQL) => {
 	return row;
 };
 const history = (who: Seated) => phaseReader.readHistory(f.db, who.actor);
-const historyOf = async (who: Seated) => {
-	const result = await history(who);
-	if (result.status !== "ok") assert.fail(JSON.stringify(result));
-	return result.value;
-};
+const historyOf = async (who: Seated) => ok(await history(who));
 const declare = (who: Seated, phase: unknown, expectedRevision: string, requestKey = randomUUID()) =>
 	writer.declare(f.db, who.actor, { requestKey, expectedRevision, input: { phase } });
 const move = (who: Seated, toPhase: unknown, reason: string, expectedRevision: string, requestKey = randomUUID()) =>
@@ -276,6 +272,7 @@ test("AC:DC-022 onboarding and the journey view share one declaration slot", asy
 	const { plant, owner } = await church();
 	const ctx = { session: owner.session, selected: plant };
 	const resume = ok(await gatedTransaction(f.db, (tx) => onboarding.getResume(tx, ctx, {})));
+	assert.ok(resume.status === "available", JSON.stringify(resume));
 	const journey = {
 		requestKey: randomUUID(),
 		expectedRevision: resume.revision,
@@ -336,12 +333,15 @@ test("AC:PHASE-CASE-009 phases are integers 0 to 6, reasons are trimmed and the 
 	);
 	assert.deepEqual(await footprint(plant), before);
 	const moved = ok(await move(owner, 0, "  return to actual Discovery context  ", revision));
+	assert.ok(moved.outcome === "moved" && moved.entry.kind === "movement", JSON.stringify(moved));
 	assert.equal(moved.entry.reason, "return to actual Discovery context");
 	assert.equal(
 		(await one(sql`SELECT reason FROM phase_transition WHERE plant_id=${plant.id} AND kind='movement'`)).reason,
 		"return to actual Discovery context",
 	);
-	assert.equal(ok(await move(owner, 1, "x".repeat(2000), moved.state.revision)).entry.reason.length, 2000);
+	const long = ok(await move(owner, 1, "x".repeat(2000), moved.state.revision));
+	assert.ok(long.outcome === "moved" && long.entry.kind === "movement", JSON.stringify(long));
+	assert.equal(long.entry.reason.length, 2000);
 });
 
 test("AC:PHASE-CASE-007 a reasoned move records from, to, direction, reason, actor and time; the history only grows", async () => {

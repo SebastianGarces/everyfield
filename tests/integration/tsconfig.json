@@ -25,12 +25,16 @@
 		"./followups/**/*.mts",
 		"./notifications/**/*.ts",
 		"./notifications/**/*.mts",
+		"./onboarding/**/*.ts",
+		"./onboarding/**/*.mts",
 		"./oversight/**/*.ts",
 		"./oversight/**/*.mts",
 		"./phases/**/*.ts",
 		"./phases/**/*.mts",
 		"./platform/**/*.ts",
 		"./platform/**/*.mts",
+		"./wiki/**/*.ts",
+		"./wiki/**/*.mts",
 		"./writes/**/*.ts",
 		"./writes/**/*.mts"
 	]
