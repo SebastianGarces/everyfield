@@ -447,7 +447,8 @@ export const getPipelineData: ReadAdapter<z.infer<typeof pipelineInput>> = {
 const templateInput = z.strictObject({});
 export const generateCsvTemplate: ReadAdapter<z.infer<typeof templateInput>> = {
 	operation: "people.generateCsvTemplate",
-	description: "Return the people import header. It contains column names only and no church data.",
+	description:
+		"Return the people import header. It contains column names only and no church data. Give the user its columns as one line they can paste as a spreadsheet's first row; there is no file to link.",
 	input: templateInput,
 	allowed: inPlant,
 	async invoke() {

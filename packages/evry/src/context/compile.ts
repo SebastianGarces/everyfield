@@ -326,7 +326,7 @@ function taskRules(catalog: Catalog) {
 	const meetings = has("meetings");
 	return [
 		"Tasks and follow-ups: a task row with followUp: true is a person follow-up. When you list tasks, list follow-ups apart and call them follow-ups; never merge them into one count without saying so. Report each task's owners and due date as the row gives them, and an exact total.",
-		'Follow-up owners are accounts. When a follow-up has no owner (needsOwner), say nobody is assigned; never guess or suggest who is following up. Assign only accounts that tasks.eligibleAssignees returns; for a follow-up, only accounts with canOwnFollowUps. If the user names someone who can\'t own follow-ups, say so and ask what to do before preparing any change. "me" names the signed-in user.',
+		'Follow-up owners are accounts. When a follow-up has no owner (needsOwner), say nobody is assigned; never guess or suggest who is following up. Assign only accounts that tasks.eligibleAssignees returns; for a follow-up, only accounts with canOwnFollowUps. When the user names who should own follow-ups, read tasks.eligibleAssignees first, before the people or follow-ups: if a named person can\'t own follow-ups, say so and ask what to do before reading further or preparing any change. "me" names the signed-in user.',
 		"Contact history (followups.listContactHistory) holds only what people recorded. Name who recorded each outcome and when, in the church's time. Only an outcome with conversationHappened: true is a conversation that happened; say an attempt is an attempt and an administrative completion is not a conversation. With no recorded outcome, say that no call is recorded, never that nobody called. You can't read sent emails yet: say so when asked about emails or about who has heard from the church.",
 		meetings
 			? 'Never infer who attended or who came for the first time from pipeline stage. For first-time guests of a meeting, find the meeting (meetings.list window past), read its attendance (meetings.listAttendance: visit "first time"), then its follow-ups (followups.readObligations with its meetingId, state open), and list each first-time guest with an open follow-up and its owners.'
@@ -354,6 +354,9 @@ const estimate = (text: string) => Math.ceil(text.length / 4);
 const TOOL_ALLOWANCE = 1_000;
 
 const NOT_TRACKED = "Everyfield does not track background checks.";
+const PRIVATE_CARE =
+	"Private care, such as care notes about a person, stays in the Everyfield app: no tool reads it. When asked about it, call no tool and look no one up: say private care is only in the app, and never say whether any exists.";
+const EMAIL_HANDOFF = new Set(["communication.saveDraft", "communication.sendReviewed"]);
 
 const when = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
 function outcomeOf(r: ConversationState["reviews"][number]): string {
@@ -455,6 +458,10 @@ export function compileContext(input: {
 			? `The user is ${ROLE_NAME[role]} of this church.${churchWrites ? "" : " Only an Owner or Admin of this church can change people, emails or imports. When the user asks for such a change, tell them an Owner or Admin has to make it, and prepare nothing."}`
 			: "",
 		`${NOT_TRACKED} When asked about something Everyfield does not track, say plainly that Everyfield doesn't track it, and call no tool for it.`,
+		input.actor.contextKind === "plant" ? PRIVATE_CARE : "",
+		input.catalog.reviewedWrites.some((w) => EMAIL_HANDOFF.has(w.operation))
+			? "When the user says to send or save an email you drafted, propose it with the subject and body exactly as you last showed them: change nothing they didn't ask for, and if something in it looks wrong, ask before proposing."
+			: "",
 		unavailable.length
 			? `Not in Evry yet: ${unavailable.map((c) => c.text).join(" ")} When asked for one of these, say plainly that you can't do it yet and name what is missing; don't search other records for it. You may offer what you can do instead, such as the tag or skill with the same name.`
 			: "",
@@ -465,7 +472,7 @@ export function compileContext(input: {
 			? `Before removing people as a group (a stage, a household, a tag or everyone), or changing more than five people at once, read the exact scope, tell the user what it covers and how many people that is, and ask them to confirm before preparing anything. A change the user spelled out for a few people, such as a new address for everyone in one household, needs no confirmation: prepare it. Never prepare more than ${LIMITS.reviewCards} review cards in one turn.`
 			: "",
 		ops.has("calendar.resolve")
-			? 'Before a local date and time goes into a review card, check it with calendar.resolve: if it is ambiguous, ask which of the two times the user means, naming both; if it does not exist that day, say so and ask for another time. Read words like today, Friday or next week against calendar.getContext, and when you can\'t tell which date the user means, such as "the 5th" or "Friday-ish", ask. Name the chosen local date, time and time zone.'
+			? 'Before a local date and time goes into a review card, check it with calendar.resolve: if it is ambiguous, ask which of the two times the user means, naming both; if it does not exist that day, say so and ask for another time. Read words like today, Friday or next week against calendar.getContext, and when you can\'t tell which date the user means, such as "the 5th" or "Friday-ish", ask. A weekday on its own, such as "Thursday\'s meeting", means the next one from today (today if it is that day): use it and don\'t ask which week. Name the chosen local date, time and time zone.'
 			: "",
 		ops.has("people.getActivities")
 			? "For a person's history, read people.getActivities page by page, give each item with the date it happened (occurredAt), and offer the next page when more exist."
