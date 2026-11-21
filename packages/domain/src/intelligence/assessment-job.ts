@@ -212,7 +212,7 @@ SELECT EXISTS(SELECT FROM r) AS ok`);
 	ON CONFLICT DO NOTHING RETURNING 1)`
 			: sql``;
 		await db.execute(sql`WITH ${lock(j)},
-w AS (SELECT ${deferred ? later(extra.waitMs!) : sql`NULL::timestamptz`} AS t),
+w AS (SELECT ${deferred && extra.waitMs !== undefined ? later(extra.waitMs) : sql`NULL::timestamptz`} AS t),
 r AS (UPDATE assessment_run SET outcome=${outcome},reason=${reason},${counters(p)},
 	retry_at=(SELECT t FROM w),settled_at=${deferred ? sql`NULL` : sql`clock_timestamp()`}
 	WHERE id=${run.id}::uuid AND outcome IN ('pending','deferred') AND EXISTS(SELECT FROM lk)
@@ -259,10 +259,11 @@ SELECT EXISTS(SELECT FROM r) AS published,EXISTS(SELECT FROM lk) AS claimed,(SEL
 		let from: DraftProgress = NO_PROGRESS;
 		if (j.run) {
 			if (j.run.outcome !== "pending" && j.run.outcome !== "deferred") return close(db, j, "succeeded", "settled");
+			if (!j.run.model_input) throw new Error("an open assessment run has no model input");
 			run = {
 				id: j.run.id,
 				plant: j.plant,
-				input: j.run.model_input!,
+				input: j.run.model_input,
 				asOf: j.run.as_of,
 				revision: j.run.source_revision,
 				deadline: Date.parse(j.run.deadline_at),
@@ -301,7 +302,7 @@ SELECT EXISTS(SELECT FROM r) AS published,EXISTS(SELECT FROM lk) AS claimed,(SEL
 			return settleRun(db, j, run, p, "superseded", "changed_input", { followup: !!current });
 		let outcome;
 		try {
-			outcome = await publish(db, j, run, p, drafted.published!);
+			outcome = await publish(db, j, run, p, drafted.published);
 		} catch (error) {
 			logFailure({ component: "assessment", outcome: "persistence" }, error);
 			return settleRun(db, j, run, p, "failed", "persistence");
