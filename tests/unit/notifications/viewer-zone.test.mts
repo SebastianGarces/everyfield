@@ -18,8 +18,8 @@ const now = Date.parse("2026-11-20T15:00:00.000Z");
 const pacific: Clock = { zone: "America/Los_Angeles", now };
 const eastern: Clock = { zone: "America/New_York", now };
 
-const notice = (eligibleAt: string, id = "0f6b1c1e-3f43-4f7a-9d83-5d0c2f3e9b11"): FeedItem => ({
-	id,
+const notice = (eligibleAt: string): FeedItem => ({
+	id: "0f6b1c1e-3f43-4f7a-9d83-5d0c2f3e9b11",
 	category: "task_due",
 	title: "Call the venue",
 	body: null,
