@@ -135,7 +135,8 @@ function sourceDir(relsName: string) {
 
 function insidePackage(target: string, dir: readonly string[]) {
 	const path = target.startsWith("/") ? [] : [...dir];
-	for (const part of target.split(/[?#]/, 1)[0]!.split("/")) {
+	const [file = ""] = target.split(/[?#]/, 1);
+	for (const part of file.split("/")) {
 		if (part === "..") {
 			if (!path.length) return false;
 			path.pop();
@@ -187,16 +188,21 @@ type Open = {
 };
 type Node = { type: string; attrs?: Record<string, unknown>; content?: Node[]; text?: string; marks?: unknown[] };
 
+function schemaNode(name: string) {
+	const node = FORMAT_SCHEMA.nodes[name];
+	if (!node) throw new Error(`The document format has no ${name} node.`);
+	return node;
+}
 const LIST_MAX = Math.min(
-	FORMAT_SCHEMA.nodes.bulletList!.content!.max ?? Infinity,
-	FORMAT_SCHEMA.nodes.orderedList!.content!.max ?? Infinity,
+	schemaNode("bulletList").content?.max ?? Infinity,
+	schemaNode("orderedList").content?.max ?? Infinity,
 );
 const CHAIN_MAX = 20;
-const LABEL_MAX = FORMAT_SCHEMA.nodes.table!.attrs.columns!.of!.props!.label!.max ?? 80;
+const LABEL_MAX = schemaNode("table").attrs.columns?.of?.props?.label?.max ?? 80;
 const OFF = new Set(["0", "false", "off"]);
 const val = (body: string, tag: string) => {
 	const found = new RegExp(String.raw`<w:${tag}\b[^>]*?\bw:val\s*=\s*"([^"]*)"`).exec(body);
-	return found ? decodeEntities(found[1]!) : null;
+	return found ? decodeEntities(found[1] ?? "") : null;
 };
 const int = (value: string | null) => {
 	const n = value === null ? NaN : Number.parseInt(value, 10);
@@ -205,9 +211,9 @@ const int = (value: string | null) => {
 
 function readStyles(xml: string | undefined) {
 	const styles = new Map<string, Style>();
-	for (const found of (xml ?? "").matchAll(/<w:style\b([^>]*)>([\s\S]*?)<\/w:style>/g)) {
-		const id = attr(found[1]!, "w:styleId");
-		const body = found[2]!.replace(/<w:pPrChange\b[\s\S]*?<\/w:pPrChange>/g, "");
+	for (const [, head = "", inner = ""] of (xml ?? "").matchAll(/<w:style\b([^>]*)>([\s\S]*?)<\/w:style>/g)) {
+		const id = attr(head, "w:styleId");
+		const body = inner.replace(/<w:pPrChange\b[\s\S]*?<\/w:pPrChange>/g, "");
 		if (id === null || styles.has(id)) continue;
 		styles.set(decodeEntities(id), {
 			name: (val(body, "name") ?? "").trim().toLowerCase(),
@@ -244,24 +250,25 @@ function headingOf(styles: Map<string, Style>, open: Open): 1 | 2 | 3 | null {
 function readNumbering(xml: string | undefined, styles: Map<string, Style>): Numbering {
 	const levels = (body: string) => {
 		const out = new Map<number, string>();
-		for (const lvl of body.matchAll(/<w:lvl\b([^>]*)>([\s\S]*?)<\/w:lvl>/g)) {
-			const ilvl = int(attr(lvl[1]!, "w:ilvl"));
-			const fmt = val(lvl[2]!, "numFmt");
+		for (const [, head = "", inner = ""] of body.matchAll(/<w:lvl\b([^>]*)>([\s\S]*?)<\/w:lvl>/g)) {
+			const ilvl = int(attr(head, "w:ilvl"));
+			const fmt = val(inner, "numFmt");
 			if (ilvl !== null && fmt !== null && !out.has(ilvl)) out.set(ilvl, fmt);
 		}
 		return out;
 	};
 	const abstracts = new Map<string, { levels: Map<number, string>; link: string | null }>();
-	for (const found of (xml ?? "").matchAll(/<w:abstractNum\b([^>]*)>([\s\S]*?)<\/w:abstractNum>/g)) {
-		const id = attr(found[1]!, "w:abstractNumId");
+	for (const [, head = "", inner = ""] of (xml ?? "").matchAll(
+		/<w:abstractNum\b([^>]*)>([\s\S]*?)<\/w:abstractNum>/g,
+	)) {
+		const id = attr(head, "w:abstractNumId");
 		if (id !== null && !abstracts.has(id))
-			abstracts.set(id, { levels: levels(found[2]!), link: val(found[2]!, "numStyleLink") });
+			abstracts.set(id, { levels: levels(inner), link: val(inner, "numStyleLink") });
 	}
 	const nums = new Map<string, { abstract: string | null; overrides: Map<number, string> }>();
-	for (const found of (xml ?? "").matchAll(/<w:num\b([^>]*)>([\s\S]*?)<\/w:num>/g)) {
-		const id = attr(found[1]!, "w:numId");
-		if (id !== null && !nums.has(id))
-			nums.set(id, { abstract: val(found[2]!, "abstractNumId"), overrides: levels(found[2]!) });
+	for (const [, head = "", inner = ""] of (xml ?? "").matchAll(/<w:num\b([^>]*)>([\s\S]*?)<\/w:num>/g)) {
+		const id = attr(head, "w:numId");
+		if (id !== null && !nums.has(id)) nums.set(id, { abstract: val(inner, "abstractNumId"), overrides: levels(inner) });
 	}
 	const format = (numId: string, hops: number): "bullet" | "ordered" | null => {
 		const num = nums.get(numId);
@@ -321,14 +328,15 @@ function cellLine(items: Inline[]) {
 	for (const item of items) {
 		if (item.type === "hardBreak") gap = out.length > 0;
 		else if (item.text) {
-			if (gap && !/\s$/.test(out.at(-1)!.text) && !/^\s/.test(item.text))
+			const last = out.at(-1);
+			if (gap && last && !/\s$/.test(last.text) && !/^\s/.test(item.text))
 				out.push({ type: "text", text: " ", href: null });
 			gap = false;
 			out.push({ ...item });
 		}
 	}
-	while (out.length && !(out[0]!.text = out[0]!.text.trimStart())) out.shift();
-	while (out.length && !(out.at(-1)!.text = out.at(-1)!.text.trimEnd())) out.pop();
+	for (let first = out[0]; first && !(first.text = first.text.trimStart()); first = out[0]) out.shift();
+	for (let last = out.at(-1); last && !(last.text = last.text.trimEnd()); last = out.at(-1)) out.pop();
 	return out;
 }
 
@@ -351,11 +359,13 @@ function wordTables(rows: WordRow[]): Node[] | null {
 		while (cells.length < width) cells.push([]);
 		return cells;
 	});
-	const labels = rows[0]?.header ? grid[0]!.map((cell) => cell.map((piece) => piece.text).join("")) : null;
-	const header = !!labels && labels.every((label) => label.length <= LABEL_MAX);
+	const [first] = grid;
+	const labels = rows[0]?.header && first ? first.map((cell) => cell.map((piece) => piece.text).join("")) : null;
+	const headerLabels = labels?.every((label) => label.length <= LABEL_MAX) ? labels : null;
+	const header = headerLabels !== null;
 	const columns = Array.from({ length: width }, (_, i) => ({
 		id: `c${i + 1}`,
-		label: header ? labels![i]! : `Column ${i + 1}`,
+		label: headerLabels?.[i] ?? `Column ${i + 1}`,
 		type: "text",
 		width: 0,
 	}));
@@ -518,12 +528,9 @@ function wordBody(xml: string, word: Word): DocNode {
 		else if (name === "w:tab") add({ type: "text", text: " ", href: links.at(-1) ?? null });
 	}
 	if (inText) add({ type: "text", text: decodeEntities(xml.slice(textFrom)), href: links.at(-1) ?? null });
-	while (stack.length) {
-		const open = stack.pop()!;
-		if (!(open.split && !open.inline.length)) emit(open);
-	}
+	for (let open = stack.pop(); open; open = stack.pop()) if (!(open.split && !open.inline.length)) emit(open);
 	if (!printable) throw new ImportRejected("Imported text is empty.");
-	while (blocks.length && blocks.at(-1)!.type === "paragraph" && !blocks.at(-1)!.content) blocks.pop();
+	for (let last = blocks.at(-1); last?.type === "paragraph" && !last.content; last = blocks.at(-1)) blocks.pop();
 	return { type: "doc", content: blocks } as DocNode;
 }
 
@@ -538,16 +545,16 @@ const xmlChar = (n: number) =>
 
 function decodeEntities(value: string) {
 	return value.replace(/&(?:#(\d{1,7})|#x([0-9a-fA-F]{1,6})|(lt|gt|quot|apos|amp));/g, (whole, dec, hex, named) => {
-		if (named) return NAMED[named]!;
+		if (named) return NAMED[named] ?? whole;
 		const n = dec ? Number.parseInt(dec, 10) : Number.parseInt(hex, 16);
 		return xmlChar(n) ? String.fromCodePoint(n) : whole;
 	});
 }
 
 function u16(bytes: Uint8Array, offset: number) {
-	return bytes[offset]! | (bytes[offset + 1]! << 8);
+	return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint16(offset, true);
 }
 
 function u32(bytes: Uint8Array, offset: number) {
-	return (bytes[offset]! | (bytes[offset + 1]! << 8) | (bytes[offset + 2]! << 16) | (bytes[offset + 3]! << 24)) >>> 0;
+	return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(offset, true);
 }

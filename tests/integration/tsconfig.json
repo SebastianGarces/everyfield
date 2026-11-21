@@ -33,6 +33,8 @@
 		"./phases/**/*.mts",
 		"./platform/**/*.ts",
 		"./platform/**/*.mts",
+		"./wiki/**/*.ts",
+		"./wiki/**/*.mts",
 		"./writes/**/*.ts",
 		"./writes/**/*.mts"
 	]
