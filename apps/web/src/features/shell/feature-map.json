@@ -120,14 +120,13 @@
 					"id": "pending",
 					"reach": {
 						"persona": "signup",
-						"open": "/onboarding",
+						"open": "/documents",
 						"seed": "qa"
 					},
 					"expect": [
 						{
-							"role": "button",
-							"name": "account menu",
-							"match": "contains"
+							"role": "link",
+							"name": "Set up your church"
 						},
 						{
 							"absent": {

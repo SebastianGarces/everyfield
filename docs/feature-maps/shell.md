@@ -92,12 +92,12 @@ agent-browser find role link text --name "My residency" --exact
 ! agent-browser find role link text --name "People" --exact
 ```
 
-- **pending**: button containing "account menu"; no link "Wiki"; no link "Documents". As `signup`, on the QA seed:
+- **pending**: link "Set up your church"; no link "Wiki"; no link "Documents". As `signup`, on the QA seed:
 
 ```bash
-agent-browser open "$ORIGIN/onboarding"
+agent-browser open "$ORIGIN/documents"
 agent-browser wait --load networkidle
-agent-browser find role button text --name "account menu"
+agent-browser find role link text --name "Set up your church" --exact
 ! agent-browser find role link text --name "Wiki" --exact
 ! agent-browser find role link text --name "Documents" --exact
 ```
