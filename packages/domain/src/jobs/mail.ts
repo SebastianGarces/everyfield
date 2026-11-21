@@ -9,7 +9,15 @@ import { executeWrites } from "../operations/index.ts";
 import type { ProviderKey } from "@everyfield/contracts/common";
 import { IDENTITY_LINK_SECONDS } from "@everyfield/contracts/identity";
 import { issueMailOptOutToken, parseKeyRing, type OptOutKeyRing } from "../notifications/index.ts";
-import { finishClaim, lockClaim, checkpoint, claimSchema, DEFAULT_LEASE_SECONDS, type Claim } from "./queue.ts";
+import {
+	finishClaim,
+	lockClaim,
+	checkpoint,
+	claimSchema,
+	DEFAULT_LEASE_SECONDS,
+	queueJobsFor,
+	type Claim,
+} from "./queue.ts";
 import { transaction } from "./transaction.ts";
 import { logFailure, logLine } from "../log.ts";
 
@@ -305,18 +313,15 @@ export function createMailService(config: {
 			tx
 				.insert(tables.mail_request_member)
 				.values({ request_id: request, tenant_id: v.owner.id, mail_id: id, position: 0 }),
-			tx.insert(tables.job).values({
-				id: job,
-				tenant_id: v.owner.id,
+			queueJobsFor(sql``, {
 				kind: "mail",
-				subject_record_id: id,
-				producer_key: id + "/1",
-				source_revision: "1",
-				state: "ready",
-				eligible_at: new Date(v.eligibleAt),
-				attempt_count: 0,
-				max_attempts: 4,
-				claim_generation: "0",
+				id: sql`${job}::uuid`,
+				tenant: sql`${v.owner.id}::uuid`,
+				subject: sql`${id}::uuid`,
+				key: sql`${id + "/1"}::text`,
+				revision: sql`1`,
+				eligibleAt: sql`${new Date(v.eligibleAt).toISOString()}::timestamptz`,
+				conflict: "fail",
 			}),
 		);
 		return id;
@@ -375,10 +380,17 @@ export function createMailService(config: {
     INSERT INTO mail_request(id,tenant_id,provider_key,request_hash) SELECT i.request,i.tenant,'mail/'||i.request::text,i.hash FROM mail_input i JOIN mail_inserted m ON m.id=i.id RETURNING id,tenant_id
    ), mail_members AS (
     INSERT INTO mail_request_member(request_id,tenant_id,mail_id,position) SELECT r.id,i.tenant,i.id,0 FROM mail_input i JOIN mail_requests r ON r.id=i.request RETURNING mail_id
-   ), mail_jobs AS (
-    INSERT INTO job(id,tenant_id,kind,subject_record_id,producer_key,source_revision,state,eligible_at,attempt_count,max_attempts,claim_generation)
-    SELECT i.job,i.tenant,'mail',i.id,i.id::text||'/1',1,'ready',i.eligible,0,4,0 FROM mail_input i JOIN mail_members m ON m.mail_id=i.id RETURNING id
-   )`;
+   ), mail_jobs AS (${queueJobsFor(sql`FROM mail_input i JOIN mail_members m ON m.mail_id=i.id`, {
+			kind: "mail",
+			id: sql`i.job`,
+			tenant: sql`i.tenant`,
+			subject: sql`i.id`,
+			key: sql`i.id::text||'/1'`,
+			revision: sql`1`,
+			eligibleAt: sql`i.eligible`,
+			conflict: "fail",
+			returning: true,
+		})})`;
 	}
 	async function enqueueMany(tx: Transaction, inputs: readonly MailIntent[]): Promise<string[]> {
 		const intents = sealIntents(inputs);

@@ -2,14 +2,27 @@
 
 import {
 	Add01Icon,
+	Attachment01Icon,
+	Cancel01Icon,
 	Clock01Icon,
+	Csv01Icon,
 	Link01Icon,
 	SentIcon,
 	StopIcon,
 	Unlink01Icon,
 	WifiDisconnected01Icon,
 } from "@hugeicons/core-free-icons";
-import { Button, IconButton, SearchInput, Sheet, Skeleton, StatePanel, Tooltip } from "@everyfield/ui/controls";
+import {
+	Alert,
+	Button,
+	IconButton,
+	RowButton,
+	SearchInput,
+	Sheet,
+	Skeleton,
+	StatePanel,
+	Tooltip,
+} from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { cn, createDebouncer, EvryBot, Icon, useFocusRequest, type EvryMood } from "@everyfield/ui/foundations";
 import { usePathname } from "next/navigation";
@@ -48,6 +61,7 @@ import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
 import { useRowPhotos } from "./useRowPhotos.ts";
 import { AttachButton, AttachedPhoto } from "./PhotoAttach.tsx";
+import { ATTACH, fileSize, type Picked } from "./attachments.ts";
 import type { Stream } from "./EvryPanel.store.ts";
 
 const useActions = () => Panel.useSelect((s) => s.actions);
@@ -96,7 +110,7 @@ function followEnd() {
 	};
 }
 
-export function EvryPanel({ inPlant, context }: { inPlant: boolean; context: string }) {
+export function EvryPanel({ inPlant, canAttach, context }: { inPlant: boolean; canAttach: boolean; context: string }) {
 	const actions = useActions();
 	const open = Panel.useSelect((s) => s.open);
 	const view = Panel.useSelect((s) => s.view);
@@ -167,6 +181,8 @@ export function EvryPanel({ inPlant, context }: { inPlant: boolean; context: str
 						busy={chat.activeTurnId !== null}
 						stopping={chat.stopping}
 						disabled={load !== "ready"}
+						conversationId={chat.conversation?.id ?? null}
+						canAttach={canAttach}
 						onSend={(text, references) => {
 							stick();
 							actions.send(text, references, context);
@@ -287,11 +303,7 @@ function Chat({
 					Evry reads the records you can see and answers with the sources it used. It never changes anything without
 					your approval.
 				</p>
-				{problem ? (
-					<p role="alert" className="text-sm text-magenta-600">
-						{problem}
-					</p>
-				) : null}
+				{problem ? <Alert role="alert">{problem}</Alert> : null}
 			</div>
 		);
 
@@ -347,11 +359,7 @@ function Chat({
 					</Button>
 				</div>
 			) : null}
-			{problem ? (
-				<p role="alert" className="text-sm text-magenta-600">
-					{problem}
-				</p>
-			) : null}
+			{problem ? <Alert role="alert">{problem}</Alert> : null}
 			<div aria-live="polite" className="sr-only">
 				{announcement}
 			</div>
@@ -403,6 +411,7 @@ function TurnView({
 					<UserBubble>
 						<span className="sr-only">You: </span>
 						{turn.ask.text}
+						<SentFiles files={turn.ask.attachments} />
 					</UserBubble>
 				)
 			) : null}
@@ -447,23 +456,22 @@ function TurnView({
 							<p className="text-sm text-text-3">Stopping…</p>
 						) : null}
 						{notice ? (
-							<div
-								className={cn(
-									"flex flex-col gap-1 rounded-md px-4 py-3 text-sm",
-									notice.tone === "error" ? "bg-magenta-50 text-magenta-600" : "bg-surface-2 text-text-2",
-								)}
+							<Alert
+								tone={notice.tone}
+								title={notice.title}
+								actions={
+									canRetry ? (
+										<Button size="sm" variant="outline" loading={retrying} onClick={onRetry}>
+											Try again
+										</Button>
+									) : undefined
+								}
 							>
-								<p className="font-semibold text-ink">{notice.title}</p>
 								<p>{notice.text}</p>
 								{turn.end?.error ? (
 									<p className="text-xs text-text-3">Reference {turn.end.error.correlationId.slice(0, 8)}</p>
 								) : null}
-								{canRetry ? (
-									<Button size="sm" variant="outline" className="mt-2 self-start" loading={retrying} onClick={onRetry}>
-										Try again
-									</Button>
-								) : null}
-							</div>
+							</Alert>
 						) : null}
 					</div>
 				</div>
@@ -479,6 +487,7 @@ function SendView({ send, onResend, onEdit }: { send: Send; onResend: () => void
 			<UserBubble muted={send.state === "sending"}>
 				<span className="sr-only">You: </span>
 				{send.text}
+				<SentFiles files={send.attachments} />
 			</UserBubble>
 			{notice ? (
 				<div role="alert" className="flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600">
@@ -506,6 +515,8 @@ function Composer({
 	busy,
 	stopping,
 	disabled,
+	conversationId,
+	canAttach,
 	onSend,
 	onStop,
 	suggestions,
@@ -514,6 +525,8 @@ function Composer({
 	busy: boolean;
 	stopping: boolean;
 	disabled: boolean;
+	conversationId: string | null;
+	canAttach: boolean;
 	onSend: (text: string, references: Reference[]) => void;
 	onStop: () => void;
 	suggestions: string[];
@@ -522,18 +535,31 @@ function Composer({
 	const panel = Panel.useStoreApi();
 	const draft = Panel.useSelect((s) => s.draft);
 	const photo = Panel.useSelect((s) => s.photo);
+	const files = Panel.useSelect((s) => s.files);
+	const fileNotice = Panel.useSelect((s) => s.fileNotice);
+	const picker = useRef<HTMLInputElement>(null);
 	const pathname = usePathname();
 	const [usePage, setUsePage] = useState(true);
 	const page = pageReferences(pathname);
 	const hint = useId();
 	const text = draft.trim();
 	const tooLong = draft.length > MAX_MESSAGE;
-	const canSend = !disabled && !busy && text.length > 0 && !tooLong && photo?.status !== "uploading";
+	const shown = files.filter((p) => p.conversationId === null || p.conversationId === conversationId);
+	const uploading = files.some((p) => p.state === "uploading");
+	const canSend = !disabled && !busy && text.length > 0 && !tooLong && !uploading && photo?.status !== "uploading";
 
 	const submit = (chosen?: string) => {
-		const { draft: now, photo: attached } = panel.getState();
+		const { draft: now, photo: attached, files: picked } = panel.getState();
 		const value = chosen ?? now.trim();
-		if (disabled || busy || !value || value.length > MAX_MESSAGE || attached?.status === "uploading") return;
+		if (
+			disabled ||
+			busy ||
+			!value ||
+			value.length > MAX_MESSAGE ||
+			attached?.status === "uploading" ||
+			picked.some((p) => p.state === "uploading")
+		)
+			return;
 		const photos = attached?.status === "ready" ? [{ kind: "photo" as const, id: attached.id }] : [];
 		onSend(value, [...(usePage ? page : []), ...photos]);
 	};
@@ -569,7 +595,7 @@ function Composer({
 				<div className="flex items-center gap-2">
 					{usePage ? (
 						<Tag tone="green" icon={Link01Icon}>
-							Using the person on this page
+							{page[0]?.kind === "article" ? "Using the article on this page" : "Using the person on this page"}
 						</Tag>
 					) : (
 						<Tag icon={Unlink01Icon}>Page left out</Tag>
@@ -587,6 +613,13 @@ function Composer({
 						: "focus-within:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
 				)}
 			>
+				{shown.length ? (
+					<ul aria-label="Attached files" className="mb-2 flex flex-wrap gap-2">
+						{shown.map((p) => (
+							<FileChip key={p.key} file={p} onRemove={() => actions.removeFile(p.key)} />
+						))}
+					</ul>
+				) : null}
 				{photo ? <AttachedPhoto photo={photo} onRemove={actions.clearPhoto} /> : null}
 				<label className="sr-only" htmlFor={`${hint}-input`}>
 					Message Evry
@@ -604,35 +637,109 @@ function Composer({
 					className="block max-h-40 min-h-12 w-full resize-none bg-transparent text-md text-ink outline-none [field-sizing:content] placeholder:text-text-3"
 				/>
 				<div className="mt-1 flex items-center justify-between gap-3">
-					<p id={hint} className={cn("text-xs", tooLong ? "text-magenta-600" : "text-text-3")}>
+					<p
+						id={hint}
+						role={fileNotice ? "alert" : undefined}
+						className={cn("text-xs", tooLong || fileNotice ? "text-magenta-600" : "text-text-3")}
+					>
 						{tooLong
 							? `Shorten this message to ${MAX_MESSAGE.toLocaleString()} characters (now ${draft.length.toLocaleString()}).`
-							: busy
-								? "Evry is answering. You can stop it."
-								: "Enter sends. Shift+Enter adds a line."}
+							: fileNotice
+								? fileNotice
+								: busy
+									? "Evry is answering. You can stop it."
+									: uploading
+										? "Attaching the file…"
+										: shown.length
+											? "Say what Evry should do with the file."
+											: "Enter sends. Shift+Enter adds a line."}
 					</p>
-					{busy ? (
-						<Button size="sm" variant="secondary" icon={StopIcon} loading={stopping} onClick={onStop}>
-							Stop
-						</Button>
-					) : (
-						<div className="flex flex-none items-center gap-1">
-							<AttachButton disabled={disabled} onFile={actions.attach} />
-							<Button
-								type="submit"
-								size="sm"
-								variant="primary"
-								icon={SentIcon}
-								disabled={!canSend}
-								className="w-[34px]"
-							>
-								<span className="sr-only">Send</span>
+					<div className="flex flex-none items-center gap-1">
+						{canAttach ? (
+							<>
+								<input
+									ref={picker}
+									type="file"
+									accept={ATTACH.accept}
+									multiple
+									hidden
+									onChange={(e) => {
+										actions.addFiles([...(e.target.files ?? [])]);
+										e.target.value = "";
+									}}
+								/>
+								<Tooltip content="Attach a CSV">
+									<IconButton
+										icon={Attachment01Icon}
+										label="Attach a CSV file"
+										size="sm"
+										disabled={disabled || busy}
+										onClick={() => picker.current?.click()}
+									/>
+								</Tooltip>
+							</>
+						) : null}
+						{busy ? (
+							<Button size="sm" variant="secondary" icon={StopIcon} loading={stopping} onClick={onStop}>
+								Stop
 							</Button>
-						</div>
-					)}
+						) : (
+							<>
+								<AttachButton disabled={disabled} onFile={actions.attach} />
+								<Button
+									type="submit"
+									size="sm"
+									variant="primary"
+									icon={SentIcon}
+									disabled={!canSend}
+									className="w-[34px]"
+								>
+									<span className="sr-only">Send</span>
+								</Button>
+							</>
+						)}
+					</div>
 				</div>
 			</div>
 		</form>
+	);
+}
+
+function FileChip({ file, onRemove }: { file: Picked; onRemove: () => void }) {
+	return (
+		<li
+			className={cn(
+				"flex h-[34px] max-w-full items-center gap-2 rounded-pill bg-surface-2 py-1 pr-1 pl-3 text-sm",
+				file.state === "failed" && "bg-magenta-50",
+			)}
+		>
+			<Icon icon={Csv01Icon} size={16} className="flex-none text-text-2" />
+			<span className="min-w-0 truncate text-ink">{file.name}</span>
+			<span className={cn("flex-none text-xs", file.state === "failed" ? "text-magenta-600" : "text-text-3")}>
+				{file.state === "uploading" ? "Attaching…" : file.state === "failed" ? "Couldn't attach" : fileSize(file.size)}
+			</span>
+			<IconButton
+				icon={Cancel01Icon}
+				label={`Remove ${file.name}`}
+				size="sm"
+				className="size-[26px]"
+				onClick={onRemove}
+			/>
+		</li>
+	);
+}
+
+function SentFiles({ files }: { files: readonly { id: string; name: string }[] }) {
+	if (!files.length) return null;
+	return (
+		<ul aria-label="Attached files" className="mt-2 flex flex-wrap gap-1.5">
+			{files.map((f) => (
+				<li key={f.id} className="flex items-center gap-1.5 rounded-pill bg-white/12 px-2.5 py-1 text-sm">
+					<Icon icon={Csv01Icon} size={16} className="flex-none" />
+					<span className="min-w-0 truncate">{f.name}</span>
+				</li>
+			))}
+		</ul>
 	);
 }
 
@@ -742,19 +849,18 @@ function History({
 				<ul aria-busy={loading || undefined} className="-mx-2 flex flex-col">
 					{(items ?? []).map((item) => (
 						<li key={item.id}>
-							<button
-								type="button"
+							<RowButton
 								aria-current={item.id === current ? "true" : undefined}
 								data-focus-inset=""
 								onClick={() => onSelect(item.id)}
-								className="flex min-h-11 w-full items-center gap-3 rounded-md px-2 py-2.5 text-left transition-[background-color] hover:bg-hover aria-[current=true]:bg-surface-2"
+								className="min-h-11 items-center gap-3 rounded-md px-2 py-2.5 aria-[current=true]:bg-surface-2"
 							>
 								<span className="min-w-0 flex-1">
 									<span className="block truncate text-sm font-medium text-ink">{item.title}</span>
 									<span className="block text-xs text-text-3">{when(item.updatedAt)}</span>
 								</span>
 								{item.activeTurnId ? <span className="flex-none text-xs text-text-3">Answering</span> : null}
-							</button>
+							</RowButton>
 						</li>
 					))}
 				</ul>

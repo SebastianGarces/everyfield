@@ -1,7 +1,7 @@
 import { getViewer } from "@/server/request-context";
 import { requireActor } from "@/server/sign-in";
 import { recordId } from "@everyfield/contracts/common";
-import { Button, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import { Button, Card, PageState, Skeleton } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { NotAvailable } from "../../access/AccessStates";
@@ -93,62 +93,48 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 
 function Unavailable() {
 	return (
-		<>
-			<PageHeader size="xl" title="Church documents" />
-			<Card>
-				<StatePanel tone="lock" title="Church documents need a church plant seat" headingLevel="h2">
-					Sign in with a seat on a church plant to read its documents.
-				</StatePanel>
-			</Card>
-		</>
+		<PageState page="Church documents" tone="lock" title="Church documents need a church plant seat">
+			Sign in with a seat on a church plant to read its documents.
+		</PageState>
 	);
 }
 
 function Missing() {
 	return (
-		<>
-			<PageHeader breadcrumb={[{ label: "Church documents", href: "/documents/church" }]} title="Document not found" />
-			<Card>
-				<StatePanel tone="neutral" title="This document is not available" headingLevel="h2">
-					It may have been deleted, or it belongs to another church plant.
-				</StatePanel>
-			</Card>
-		</>
+		<PageState
+			page="Document not found"
+			breadcrumb={[{ label: "Church documents", href: "/documents/church" }]}
+			tone="neutral"
+			title="This document is not available"
+		>
+			It may have been deleted, or it belongs to another church plant.
+		</PageState>
 	);
 }
 
 function Deleted() {
 	return (
-		<>
-			<PageHeader breadcrumb={[{ label: "Church documents", href: "/documents/church" }]} title="Document deleted" />
-			<Card>
-				<StatePanel
-					tone="neutral"
-					title="This document was deleted"
-					headingLevel="h2"
-					actions={
-						<Button asChild variant="primary">
-							<Link href="/documents/church">Back to Church documents</Link>
-						</Button>
-					}
-				>
-					Its saved exports can no longer be opened or downloaded.
-				</StatePanel>
-			</Card>
-		</>
+		<PageState
+			page="Document deleted"
+			breadcrumb={[{ label: "Church documents", href: "/documents/church" }]}
+			tone="neutral"
+			title="This document was deleted"
+			actions={
+				<Button asChild variant="primary">
+					<Link href="/documents/church">Back to Church documents</Link>
+				</Button>
+			}
+		>
+			Its saved exports can no longer be opened or downloaded.
+		</PageState>
 	);
 }
 
 function Failed() {
 	return (
-		<>
-			<PageHeader size="xl" title="Church documents" />
-			<Card>
-				<StatePanel tone="error" title="We could not load church documents" headingLevel="h2">
-					This is a loading problem. Nothing was changed. Try again in a moment.
-				</StatePanel>
-			</Card>
-		</>
+		<PageState page="Church documents" tone="error" title="We could not load church documents">
+			This is a loading problem. Nothing was changed. Try again in a moment.
+		</PageState>
 	);
 }
 

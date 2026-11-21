@@ -16,6 +16,7 @@ import {
 	retryTurn,
 	retryUnresolvedEffects,
 	reviseProposal,
+	stageAttachment,
 	submitTurn,
 } from "@everyfield/evry";
 import { mutatingRoute, privateHeaders } from "../platform/boundary";
@@ -69,6 +70,13 @@ export const conversationTurnsPost = mutatingRoute(async (request: Request, { pa
 		if (!submitted.replayed) drainTurns();
 		return submitted;
 	});
+});
+
+export const conversationAttachmentsPost = mutatingRoute(async (request: Request, { params }: IdParams) => {
+	const { id } = await params;
+	return evryResponse(async (db, actor) =>
+		stageAttachment(db, privateStorage(), actor, id, parseJson(await request.text()) ?? null),
+	);
 });
 
 export const openGet = () =>
