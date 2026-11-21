@@ -1524,21 +1524,36 @@ const webDatabaseImports = {
 const noticeLook = (value) =>
 	value !== null && /(?:^|\s)bg-magenta-50(?:\s|$)/.test(value) && /(?:^|\s)text-magenta-600(?:\s|$)/.test(value);
 
+const boxLook = (value) =>
+	value !== null &&
+	/(?:^|\s)rounded(?:-(?:xs|sm|md|lg|xl|card))?(?:\s|$)/.test(value) &&
+	/(?:^|\s)p[xy]?-\S+/.test(value);
+const isErrorSoft = (node) =>
+	(node.type === "Identifier" && node.name === "ERROR_SOFT") ||
+	(node.type === "MemberExpression" && !node.computed && node.property.name === "ERROR_SOFT");
+const quasiText = (node) => node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ");
+const classText = (node) =>
+	node.type === "Literal" ? text(node) : node.type === "TemplateLiteral" ? quasiText(node) : null;
+
 const sharedNotice = {
 	meta: { type: "problem" },
 	create(context) {
 		if (!WEB_CODE.test(repoPath(context.filename))) return {};
-		const check = (node, value) => {
-			if (noticeLook(value))
-				context.report({
-					node,
-					message:
-						"An error notice is Alert or InlineAlert from @everyfield/ui/controls (tone, title, actions, live region and focus included); a chip or band in that colour takes ERROR_SOFT from @everyfield/ui/display. Do not hand-write the magenta box.",
-				});
-		};
+		const report = (node) =>
+			context.report({
+				node,
+				message:
+					"An error notice is Alert or InlineAlert from @everyfield/ui/controls (tone, title, actions, live region and focus included); a chip or band in that colour takes ERROR_SOFT from @everyfield/ui/display, never with box padding and corners. Do not hand-write the magenta box.",
+			});
 		return {
-			Literal: (node) => check(node, text(node)),
-			TemplateLiteral: (node) => check(node, node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ")),
+			Literal: (node) => noticeLook(text(node)) && report(node),
+			TemplateLiteral(node) {
+				const value = quasiText(node);
+				if (noticeLook(value) || (node.expressions.some(isErrorSoft) && boxLook(value))) report(node);
+			},
+			CallExpression(node) {
+				if (node.arguments.some(isErrorSoft) && node.arguments.some((arg) => boxLook(classText(arg)))) report(node);
+			},
 		};
 	},
 };
