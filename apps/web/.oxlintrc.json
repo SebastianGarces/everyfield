@@ -88,6 +88,7 @@
 		"everyfield/sign-in-redirect": "error",
 		"everyfield/shared-outcome": "error",
 		"everyfield/web-database-imports": "error",
+		"everyfield/shared-notice": "error",
 		"no-restricted-imports": [
 			"error",
 			{

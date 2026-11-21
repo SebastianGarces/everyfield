@@ -1406,6 +1406,69 @@ const webDatabaseImports = {
 	},
 };
 
+const NOTICE_ADOPTION =
+	"the R-06 adoption of the shared notice, held until the owner accepts the visual rulings in #855";
+const ERROR_CHIP = "a status chip in the error colour, not a notice";
+export const HAND_WRITTEN_NOTICES = {
+	"apps/web/src/components/Problem.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/communication/HistoryPanel.tsx": ERROR_CHIP,
+	"apps/web/src/features/communication/UnsubscribeScreen.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/documents/church/ChurchBranding.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/documents/church/EditTemplate.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/documents/church/editor/SaveAsTemplate.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/evry/conversation/EvryPanel.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/evry/review/PeopleChanges.tsx": ERROR_CHIP,
+	"apps/web/src/features/evry/review/ReviewCard.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/meetings/RsvpScreen.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/meetings/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/notifications/OptOutScreen.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/onboarding/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/organizations/InviteDialog.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/organizations/data/DuplicatesScreen.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/organizations/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/people/PipelineBoard.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/people/corrections/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/people/parts.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/settings/SaveError.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/settings/flows/PasswordDialog.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/tasks/TaskSheet.tsx": NOTICE_ADOPTION,
+	"apps/web/src/features/teams/Setup.tsx": NOTICE_ADOPTION,
+};
+
+const noticeLook = (value) =>
+	value !== null && /(?:^|\s)bg-magenta-50(?:\s|$)/.test(value) && /(?:^|\s)text-magenta-600(?:\s|$)/.test(value);
+
+const sharedNotice = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!WEB_CODE.test(path)) return {};
+		const exempt = Object.hasOwn(HAND_WRITTEN_NOTICES, path);
+		let looks = 0;
+		const check = (node, value) => {
+			if (!noticeLook(value)) return;
+			looks++;
+			if (!exempt)
+				context.report({
+					node,
+					message:
+						"An error notice is Alert or InlineAlert from @everyfield/ui/controls (tone, title, actions, live region and focus included); do not hand-write the magenta box.",
+				});
+		};
+		return {
+			Literal: (node) => check(node, text(node)),
+			TemplateLiteral: (node) => check(node, node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ")),
+			"Program:exit"(node) {
+				if (exempt && looks === 0)
+					context.report({
+						node,
+						message: `${path} no longer hand-writes an error notice: delete its HAND_WRITTEN_NOTICES entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+			},
+		};
+	},
+};
+
 const DOMAIN_JOBS = /^packages\/domain\/src\/jobs\//;
 const noSilentCatch = {
 	meta: { type: "problem" },
@@ -3099,6 +3162,7 @@ export default {
 		"server-config": serverConfig,
 		"no-silent-catch": noSilentCatch,
 		"web-database-imports": webDatabaseImports,
+		"shared-notice": sharedNotice,
 		"no-cursor-utility": noCursorUtility,
 		"no-slop-styling": noSlopStyling,
 		"mint-callers": mintCallers,
