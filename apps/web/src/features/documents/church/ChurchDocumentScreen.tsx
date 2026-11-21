@@ -9,7 +9,7 @@ import {
 	type ExportFormat,
 	type SavedExport,
 } from "@everyfield/contracts/documents";
-import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
+import { Alert, Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { LocalTime, Tag } from "@everyfield/ui/display";
 import dynamic from "next/dynamic";
 import { startTransition, useActionState, useOptimistic, useRef, useState } from "react";
@@ -219,12 +219,9 @@ export function ChurchDocumentScreen({
 				</p>
 			) : null}
 			{shownError?.at === null ? (
-				<p
-					role="alert"
-					className="mb-4 rounded-md bg-magenta-100 px-4 py-3 text-md text-magenta-600 shadow-[0_0_0_1px_var(--ef-line)]"
-				>
+				<Alert role="alert" className="mb-4">
 					{shownError.message}
-				</p>
+				</Alert>
 			) : null}
 			{doc.archived ? null : (
 				<ChurchBranding

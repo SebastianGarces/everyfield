@@ -1253,11 +1253,19 @@ export const W = () => cn(memo(() => "rounded-md p-3"), "bg-amber-50");
 export const X = () => <p className={cn("rounded-md px-3 py-2", "bg-magenta-50", "text-magenta-600")}>x</p>;
 export const Y = () => <div className="h-full rounded-md bg-amber-50 p-4">x</div>;
 export const Z = () => <fieldset className="rounded-md bg-magenta-50 px-4 py-3 text-magenta-600">x</fieldset>;
-export const AA = (on) => cn("rounded-md px-4 py-3", { "bg-amber-50": on });
-export const AB = () => <p className="rounded-md bg-[var(--ef-amber-50)] px-4 py-3">x</p>;
-export const AC = () => <p className="rounded-lg bg-(--ef-amber-100)/80 p-3">x</p>;
-export const AD = (on) => cn("rounded-md px-4 py-3", { "bg-surface-2": on, open: on });
-export const AE = () => <span className="rounded-pill bg-[var(--ef-amber-100)] px-2 py-0.5">x</span>;
+export const AA = () => <p role="alert" className="rounded-md bg-magenta-100 px-3 py-2 text-sm text-magenta-600">x</p>;
+export const AB = () => <p className="m-0 rounded-lg bg-magenta-100 px-3 py-2.5 text-sm text-ink">x</p>;
+export const AC = ({ t }) => <p className={cn("flex rounded-md px-3.5 py-3", t === "error" ? "bg-magenta-100" : "bg-green-100")}>x</p>;
+export const AD = () => <div className="rounded-md bg-magenta-50 px-4 py-3 text-ink-2">x</div>;
+export const AE = { magenta: "bg-magenta-100 text-magenta-600" };
+export const AF = () => <span className="grid size-[34px] place-items-center rounded-pill bg-magenta-100 text-magenta-600">x</span>;
+export const AG = () => <span className="rounded-md bg-magenta-100 px-2 py-0.5 text-magenta-600">x</span>;
+export const AH = "px-4 py-3.5 bg-magenta-100 text-mk-danger-ink";
+export const AI = (on) => cn("rounded-md px-4 py-3", { "bg-amber-50": on });
+export const AJ = () => <p className="rounded-md bg-[var(--ef-amber-50)] px-4 py-3">x</p>;
+export const AK = () => <p className="rounded-lg bg-(--ef-amber-100)/80 p-3">x</p>;
+export const AL = (on) => cn("rounded-md px-4 py-3", { "bg-surface-2": on, open: on });
+export const AM = () => <span className="rounded-pill bg-[var(--ef-amber-100)] px-2 py-0.5">x</span>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1265,7 +1273,7 @@ export const AE = () => <span className="rounded-pill bg-[var(--ef-amber-100)] p
 	}).filter((hit) => hit.endsWith(" shared-notice"));
 	assert.deepEqual(
 		reported.sort(),
-		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29]
+		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37]
 			.map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`)
 			.sort(),
 	);
