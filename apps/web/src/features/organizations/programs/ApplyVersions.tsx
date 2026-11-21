@@ -1,10 +1,17 @@
 "use client";
 
 import type { VersionReview } from "@everyfield/contracts/organizations";
-import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
+import {
+	Button,
+	Dialog,
+	DialogBody,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	InlineAlert,
+} from "@everyfield/ui/controls";
 import { useState, useTransition, type FormEvent } from "react";
 import { createRead, useRead } from "../../../components/read.tsx";
-import { Problem } from "../../../components/Problem.tsx";
 import { applyVersions } from "./actions";
 import { reviewVersions } from "./fetch.ts";
 import { programProblem } from "./model";
@@ -127,7 +134,7 @@ function ApplyVersionsReview({
 				description="Review what changes for each person. Nothing is saved until you confirm, and everyone listed moves together."
 			/>
 			<DialogBody className="flex flex-col gap-5">
-				<Problem text={loadProblem ?? problem} />
+				<InlineAlert live="polite">{loadProblem ?? problem}</InlineAlert>
 				{reviews ? (
 					shown.length ? (
 						shown.map((r) => (
