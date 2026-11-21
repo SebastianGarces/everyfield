@@ -64,7 +64,7 @@ export function InlineAlert({
 	...alert
 }: AlertProps & { live?: AlertLive }) {
 	return (
-		<div id={id} aria-live={live} aria-atomic="true" className={cn("empty:hidden", className)}>
+		<div id={id} aria-live={live} aria-atomic="true" className={cn("empty:sr-only", className)}>
 			{isEmpty(children) ? null : <Alert {...alert}>{children}</Alert>}
 		</div>
 	);
