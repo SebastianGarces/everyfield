@@ -11,6 +11,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	Select,
 } from "@everyfield/ui/controls";
@@ -18,7 +19,6 @@ import { useActionState, useState } from "react";
 import { sendAnswers, withdrawReview } from "./actions";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { refusalText } from "./model";
-import { Problem } from "../../../components/Problem.tsx";
 
 type Staff = PipelineBoard["staff"];
 type Answer = Awaited<ReturnType<typeof sendAnswers>>;
@@ -118,7 +118,7 @@ function SendForm({
 						options={staff.map((s) => ({ value: s.seatId, label: s.name }))}
 					/>
 				</Field>
-				<Problem text={problem} />
+				<InlineAlert live="polite">{problem}</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving} disabled={!ready}>
