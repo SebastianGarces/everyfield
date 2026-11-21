@@ -19,7 +19,7 @@ export function SessionActions({ className }: { className?: string }) {
 		setBusy("sign_out");
 		setMessage(null);
 		const result = await identityApi.signOut();
-		if (result.ok) {
+		if (result.status === "ok") {
 			loadPage("/signin");
 			return;
 		}
@@ -32,15 +32,15 @@ export function SessionActions({ className }: { className?: string }) {
 		setMessage(null);
 		const result = await identityApi.revokeOtherSessions();
 		setBusy(null);
-		if (result.ok) {
+		if (result.status === "ok") {
 			setMessage({ tone: "success", text: "Your other devices are signed out." });
 			return;
 		}
-		if (result.error.code === "unauthenticated") {
+		if (result.status === "refused" && result.code === "unauthenticated") {
 			loadPage(invalidSessionReturn(window.location.pathname + window.location.search));
 			return;
 		}
-		setMessage({ tone: "error", text: refusalMessage("session", result.error) });
+		setMessage({ tone: "error", text: refusalMessage("session", result) });
 	}
 
 	return (
