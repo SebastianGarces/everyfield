@@ -2098,7 +2098,7 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 	);
 });
 
-test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
+test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased, destructured or re-exported, unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
 	const loose = `import { z } from "zod";
 import * as zz from "zod/v4";
 import { object as plain } from "zod";
@@ -2113,6 +2113,13 @@ export const f = z.strictObject({}).strip();
 export const g = z.strictObject({}).passthrough();
 export const h = z.strictObject({}).loose();
 export const i = z.strictObject({}).catchall(z.unknown());
+export const j = z.strictObject({}).strip.bind(z.strictObject({}))();
+const { object: o, strictObject } = z;
+export const k = o({});
+const aliased = z.object;
+export const l = aliased({});
+export { looseObject } from "zod";
+export const m = strictObject({ id: z.string() });
 `;
 	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" strict-contracts"));
 	assert.deepEqual(reported({ "packages/contracts/src/x/index.ts": loose, "packages/domain/src/x.ts": loose }), [
@@ -2120,6 +2127,10 @@ export const i = z.strictObject({}).catchall(z.unknown());
 		"packages/contracts/src/x/index.ts:12 strict-contracts",
 		"packages/contracts/src/x/index.ts:13 strict-contracts",
 		"packages/contracts/src/x/index.ts:14 strict-contracts",
+		"packages/contracts/src/x/index.ts:15 strict-contracts",
+		"packages/contracts/src/x/index.ts:16 strict-contracts",
+		"packages/contracts/src/x/index.ts:18 strict-contracts",
+		"packages/contracts/src/x/index.ts:20 strict-contracts",
 		"packages/contracts/src/x/index.ts:4 strict-contracts",
 		"packages/contracts/src/x/index.ts:5 strict-contracts",
 		"packages/contracts/src/x/index.ts:5 strict-contracts",
