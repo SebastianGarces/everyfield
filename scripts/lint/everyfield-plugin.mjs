@@ -3311,6 +3311,77 @@ const organizationSeatCheck = {
 	},
 };
 
+export const LOOSE_CONTRACTS = {
+	"packages/contracts/src/people/csv/index.ts": {
+		importValues:
+			"it parses the createPersonRequest input of each CSV row, which also carries stage, adultClassification and birthDate; it drops them on purpose",
+	},
+	"packages/contracts/src/communication/results.ts": {
+		mailReport:
+			"it parses proposal receipts stored by earlier code, whose reports may hold keys the schema no longer names",
+	},
+	"packages/contracts/src/communication/requests.ts": {
+		historyQuery:
+			"it is the lenient history query: listHistory normalizes each value itself and drops a query key it does not name",
+	},
+};
+const LOOSE_OBJECTS = new Set(["object", "looseObject"]);
+const LOOSE_METHODS = new Set(["strip", "passthrough", "loose", "catchall"]);
+const declaredName = (node) => {
+	let named = null;
+	for (let at = node; at; at = at.parent)
+		if (at.type === "VariableDeclarator" && at.id.type === "Identifier") named = at.id.name;
+	return named;
+};
+
+const strictContracts = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		const exempt = LOOSE_CONTRACTS[path] ?? {};
+		const namespaces = new Set();
+		const loose = new Set();
+		const found = new Set();
+		return {
+			ImportDeclaration(node) {
+				if (!/^zod(?:\/|$)/.test(node.source.value)) return;
+				for (const spec of node.specifiers) {
+					const imported = spec.type === "ImportSpecifier" ? nameOf(spec.imported) : null;
+					if (spec.type !== "ImportSpecifier" || imported === "z") namespaces.add(spec.local.name);
+					else if (LOOSE_OBJECTS.has(imported)) loose.add(spec.local.name);
+				}
+			},
+			CallExpression(node) {
+				const callee = unwrapped(node.callee);
+				const isLoose =
+					(callee?.type === "Identifier" && loose.has(callee.name)) ||
+					(callee?.type === "MemberExpression" &&
+						callee.object.type === "Identifier" &&
+						namespaces.has(callee.object.name) &&
+						LOOSE_OBJECTS.has(memberName(callee))) ||
+					(callee?.type === "MemberExpression" && LOOSE_METHODS.has(memberName(callee)));
+				if (!isLoose) return;
+				const name = declaredName(node);
+				if (name && Object.hasOwn(exempt, name)) found.add(name);
+				else
+					context.report({
+						node,
+						message:
+							"A contract schema is a z.strictObject with no strip, passthrough, loose or catchall, so a request with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
+					});
+			},
+			"Program:exit"(program) {
+				for (const name of Object.keys(exempt))
+					if (!found.has(name))
+						context.report({
+							node: program,
+							message: `${path} no longer builds ${name} from a loose object: delete its LOOSE_CONTRACTS entry in scripts/lint/everyfield-plugin.mjs.`,
+						});
+			},
+		};
+	},
+};
+
 const signInRedirect = {
 	meta: { type: "problem" },
 	create(context) {
@@ -3525,6 +3596,7 @@ export default {
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
 		"organization-seat": organizationSeatCheck,
+		"strict-contracts": strictContracts,
 		"shared-outcome": sharedOutcome,
 		"domain-refusals": domainRefusals,
 		"stable-context-value": stableContextValue,

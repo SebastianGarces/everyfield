@@ -14,7 +14,12 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { PRODUCT_TIMERS, RAW_ERROR_SITES, REFUSAL_MECHANISMS } from "../../scripts/lint/everyfield-plugin.mjs";
+import {
+	LOOSE_CONTRACTS,
+	PRODUCT_TIMERS,
+	RAW_ERROR_SITES,
+	REFUSAL_MECHANISMS,
+} from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
@@ -2007,6 +2012,53 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 			"packages/domain/src/tasks/x.ts:3 table-writers",
 			"packages/domain/src/tasks/x.ts:4 table-writers",
 		],
+	);
+});
+
+test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
+	const loose = `import { z } from "zod";
+import * as zz from "zod/v4";
+import { object as plain } from "zod";
+export const a = z.object({ id: z.string() });
+export const b = z
+	.object({ id: z.string() })
+	.strip();
+export const c = zz.looseObject({ id: z.string() });
+export const d = plain({ id: z.string() });
+export const e = z.strictObject({ id: z.string(), item: z.strictObject({}) });
+export const f = z.strictObject({}).strip();
+export const g = z.strictObject({}).passthrough();
+export const h = z.strictObject({}).loose();
+export const i = z.strictObject({}).catchall(z.unknown());
+`;
+	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" strict-contracts"));
+	assert.deepEqual(reported({ "packages/contracts/src/x/index.ts": loose, "packages/domain/src/x.ts": loose }), [
+		"packages/contracts/src/x/index.ts:11 strict-contracts",
+		"packages/contracts/src/x/index.ts:12 strict-contracts",
+		"packages/contracts/src/x/index.ts:13 strict-contracts",
+		"packages/contracts/src/x/index.ts:14 strict-contracts",
+		"packages/contracts/src/x/index.ts:4 strict-contracts",
+		"packages/contracts/src/x/index.ts:5 strict-contracts",
+		"packages/contracts/src/x/index.ts:5 strict-contracts",
+		"packages/contracts/src/x/index.ts:8 strict-contracts",
+		"packages/contracts/src/x/index.ts:9 strict-contracts",
+	]);
+	const listed = Object.values(LOOSE_CONTRACTS);
+	assert.ok(
+		listed.length <= 3 && listed.reduce((n, names) => n + Object.keys(names).length, 0) <= 3,
+		"LOOSE_CONTRACTS only shrinks",
+	);
+	const [path, names] = Object.entries(LOOSE_CONTRACTS)[0];
+	const [name] = Object.keys(names);
+	assert.deepEqual(reported({ [path]: `import { z } from "zod";\nexport const ${name} = z.object({});\n` }), []);
+	assert.deepEqual(reported({ [path]: `import { z } from "zod";\nexport const ${name} = z.strictObject({});\n` }), [
+		`${path}:1 strict-contracts`,
+	]);
+	assert.deepEqual(
+		reported({
+			[path]: `import { z } from "zod";\nexport const ${name} = z.object({});\nexport const other = z.object({});\n`,
+		}),
+		[`${path}:3 strict-contracts`],
 	);
 });
 
