@@ -1714,19 +1714,35 @@ const webDatabaseImports = {
 	},
 };
 
-const noticeLook = (value) =>
-	value !== null && /(?:^|\s)bg-magenta-50(?:\s|$)/.test(value) && /(?:^|\s)text-magenta-600(?:\s|$)/.test(value);
+const classToken = (value, token) => new RegExp(`(?:^|\\s)${token}(?:\\s|$)`).test(value);
+const errorNoticeLook = (value) => classToken(value, "bg-magenta-50") && classToken(value, "text-magenta-600");
+const warningNoticeLook = (value) =>
+	classToken(value, "bg-amber-(?:50|100)") &&
+	classToken(value, "rounded-(?:md|card)") &&
+	classToken(value, "py-(?:2\\.5|3)");
+const formGroup = (node) => {
+	for (let at = node.parent; at && at.type !== "JSXElement"; at = at.parent)
+		if (at.type === "JSXOpeningElement") return at.name.type === "JSXIdentifier" && at.name.name === "fieldset";
+	return false;
+};
 
 const sharedNotice = {
 	meta: { type: "problem" },
 	create(context) {
 		if (!WEB_CODE.test(repoPath(context.filename))) return {};
 		const check = (node, value) => {
-			if (noticeLook(value))
+			if (value === null) return;
+			if (errorNoticeLook(value))
 				context.report({
 					node,
 					message:
 						"An error notice is Alert or InlineAlert from @everyfield/ui/controls (tone, title, actions, live region and focus included); a chip or band in that colour is TonePill, ToneTag or ToneBand from @everyfield/ui/display. Do not hand-write the magenta box.",
+				});
+			else if (warningNoticeLook(value) && !formGroup(node))
+				context.report({
+					node,
+					message:
+						'A warning notice is Alert or InlineAlert with tone="warning" from @everyfield/ui/controls (icon, title, actions, live region and focus included); a chip or band in amber is TonePill, ToneTag or ToneBand from @everyfield/ui/display. Do not hand-write the amber box.',
 				});
 		};
 		return {
