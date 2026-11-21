@@ -1730,7 +1730,6 @@ const ERROR_BAND = "a review card head band in the error colour, not a notice";
 export const HAND_WRITTEN_NOTICES = {
 	"apps/web/src/components/Problem.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/communication/HistoryPanel.tsx": ERROR_CHIP,
-	"apps/web/src/features/communication/UnsubscribeScreen.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/evry/review/PeopleChanges.tsx": ERROR_CHIP,
 	"apps/web/src/features/evry/review/ReviewCard.tsx": ERROR_BAND,
 };

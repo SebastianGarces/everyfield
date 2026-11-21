@@ -2,7 +2,7 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { ArrowLeft01Icon, Mail01Icon } from "@hugeicons/core-free-icons";
-import { Button, ConfirmDialog, EmptyState, Field, Input, Select } from "@everyfield/ui/controls";
+import { Alert, Button, ConfirmDialog, EmptyState, Field, Input, Select } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useState, useTransition } from "react";
 import { useLocalStore, useStore } from "../../components/store.ts";
@@ -254,11 +254,7 @@ function Editor({
 					{status}
 				</p>
 			) : null}
-			{issues.form ? (
-				<p role="alert" className="text-sm font-medium text-magenta-600">
-					{issues.form}
-				</p>
-			) : null}
+			{issues.form ? <Alert role="alert">{issues.form}</Alert> : null}
 			<div className="grid items-start gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
 				<div className="flex min-w-0 flex-col gap-5">
 					<Field label="Name" error={issues.name}>
