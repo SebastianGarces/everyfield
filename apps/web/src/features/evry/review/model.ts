@@ -83,6 +83,7 @@ export type Operation =
 	| "documents.exportNative"
 	| "documents.archive"
 	| "documents.designateCoreValues"
+	| "documents.importTextOrWord"
 	| "notifications.markSelectedRead"
 	| "notifications.markAllVisibleRead"
 	| "notifications.setPreferences"
@@ -512,6 +513,7 @@ const FIELD_LABEL: Record<string, string> = {
 	version: "Version",
 	list: "Leaves",
 	documentType: "Type",
+	file: "File",
 };
 const KIND_LABEL: Record<string, string> = { core_group: "Core group", launch_team: "Launch team" };
 const COMMITMENT_LABEL: Record<string, string> = { active: "Active", withdrawn: "Withdrawn", unknown: "Not recorded" };
@@ -750,6 +752,8 @@ export function subjectName(review: Review): string {
 	const { target, changes } = review.review;
 	if (target) return target.label;
 	if (review.operation === "tasks.create") return String(changes.find((c) => c.field === "title")?.after ?? "New task");
+	if (review.operation === "documents.importTextOrWord")
+		return String(changes.find((c) => c.field === "title")?.after ?? "New document");
 	const n = changes.length;
 	if (review.operation === "tasks.assignFollowUp")
 		return `${n.toLocaleString()} ${n === 1 ? "follow-up" : "follow-ups"}`;
@@ -924,6 +928,7 @@ const TITLE: Record<Operation, string> = {
 	"documents.exportNative": "Save a file of this document",
 	"documents.archive": "Archive a document",
 	"documents.designateCoreValues": "Mark as your core values",
+	"documents.importTextOrWord": "New document from a file",
 	"notifications.markSelectedRead": "Mark notifications read",
 	"notifications.markAllVisibleRead": "Mark all notifications read",
 	"notifications.setPreferences": "Change notification settings",
@@ -1240,9 +1245,14 @@ const DOCUMENT_CONSEQUENCE: Partial<Record<Operation, string>> = {
 	"documents.exportNative": "The file is saved with the document in Church Documents, where it downloads.",
 	"documents.archive": "It leaves its list and stays readable. Nothing is deleted.",
 	"documents.designateCoreValues": "Evry marks your own document. It never writes core values for your church.",
+	"documents.importTextOrWord": "The new document opens in Documents with the file's text, for your church to edit.",
 };
 
 export function documentResult(review: Review): { href: string; label: string } | null {
+	if (review.operation === "documents.importTextOrWord")
+		return review.receipt?.receiptId
+			? { href: `/documents/written/${review.receipt.receiptId}`, label: "Open the new document" }
+			: null;
 	const target = review.review.target;
 	if (!target || review.review.withheld) return null;
 	switch (review.operation) {
@@ -1258,6 +1268,7 @@ export function documentResult(review: Review): { href: string; label: string } 
 				: { href: "/documents", label: "Open Documents" };
 		case "documents.designateCoreValues":
 			return { href: `/documents/written/${target.id}`, label: `Open ${target.label}` };
+
 		default:
 			return null;
 	}
@@ -1272,6 +1283,10 @@ export function documentRefusalText(code: string | undefined): string {
 			return "Your seat no longer allows this change, so nothing was saved.";
 		case "render_failed":
 			return "The file could not be made, so nothing was saved. Try again later.";
+		case "attachment_gone":
+			return "The attached file is no longer available, so nothing was saved. Attach it again and ask Evry.";
+		case "file_changed":
+			return "The attached file changed after Evry prepared the review, so nothing was saved. Ask Evry to prepare it again.";
 		default:
 			return "Documents refused this change, so nothing was saved.";
 	}

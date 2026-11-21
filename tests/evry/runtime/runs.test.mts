@@ -394,6 +394,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"documents.exportNative",
 						"documents.archive",
 						"documents.designateCoreValues",
+						"documents.importTextOrWord",
 						"launch.schedule",
 						"launch.postpone",
 						"launch.recordOutcome",

@@ -1,6 +1,7 @@
 import type { Database } from "@everyfield/db/client";
 import { sql, type SqlLiteral } from "@everyfield/db/query";
 import { readPrivateUpload, signPrivatePut, type PrivateStorage } from "@everyfield/db/schema";
+import { IMPORT_BYTES_MAX, IMPORT_TOO_LARGE } from "@everyfield/contracts/documents";
 import { liveRead } from "@everyfield/domain/access";
 import { queueJobsFor } from "@everyfield/domain/jobs";
 import { randomUUID } from "node:crypto";
@@ -9,7 +10,14 @@ import type { EvryActor } from "../context/actor.ts";
 import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
 
-export const ATTACHMENTS = { csvBytes: 10 * 1024 * 1024, perTurn: 10, stagingHours: 24 } as const;
+export const ATTACHMENTS = { bytes: IMPORT_BYTES_MAX, perTurn: 10, stagingHours: 24 } as const;
+const MEDIA = {
+	csv: "text/csv",
+	txt: "text/plain",
+	docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+	doc: "application/msword",
+} as const;
+export const extensionOf = (name: string) => /\.(csv|txt|docx|doc)$/i.exec(name)?.[1]?.toLowerCase() as keyof typeof MEDIA;
 
 const stageInput = z.strictObject({
 	name: z
@@ -17,8 +25,8 @@ const stageInput = z.strictObject({
 		.trim()
 		.min(1)
 		.max(200)
-		.regex(/\.csv$/i),
-	byteLength: z.int().min(1).max(ATTACHMENTS.csvBytes),
+		.regex(/\.(csv|txt|docx|doc)$/i),
+	byteLength: z.int().min(1).max(ATTACHMENTS.bytes),
 });
 export const attachment = z.strictObject({ id: z.uuid(), name: stageInput.shape.name });
 
@@ -41,6 +49,7 @@ export async function stageAttachment(
 	if (!parsed.success) throw new EvryRefusal("invalid_input");
 	if (!storage || !canAttach(actor)) throw new EvryRefusal("access_denied");
 	const { input } = parsed.data;
+	const media = MEDIA[extensionOf(input.name)];
 	const id = randomUUID();
 	const key = `private/${actor.owner.id}/${id}`;
 	const r = await db.execute(sql`WITH c AS (
@@ -48,7 +57,7 @@ export async function stageAttachment(
 				AND c.tenant_id=${actor.owner.id}::uuid AND ${currentAuthority(actor)}
 		), upload AS (
 			INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
-			SELECT ${id}::uuid,c.tenant_id,'assistant_staging',${key}::text,'text/csv',${input.byteLength}::bigint,'pending',
+			SELECT ${id}::uuid,c.tenant_id,'assistant_staging',${key}::text,${media}::text,${input.byteLength}::bigint,'pending',
 				${uploadKey(conversationId, id)}::text,0,clock_timestamp()+make_interval(hours=>${ATTACHMENTS.stagingHours}) FROM c
 			RETURNING id,tenant_id,expires_at
 		), cleanup AS (${queueJobsFor(sql`FROM upload`, {
@@ -61,7 +70,7 @@ export async function stageAttachment(
 		})})
 		SELECT id FROM upload`);
 	if (!r.rows.length) throw new EvryRefusal("not_found");
-	const signed = await signPrivatePut(storage, key, "text/csv", input.byteLength).catch(() => {
+	const signed = await signPrivatePut(storage, key, media, input.byteLength).catch(() => {
 		throw new EvryRefusal("source_unavailable");
 	});
 	return { attachment: { id, name: input.name }, upload: signed };
@@ -82,10 +91,39 @@ export async function readAttachment(
 	const row = r.rows[0] as { key: string; live: boolean } | undefined;
 	if (!row) throw new EvryRefusal("attachment_elsewhere");
 	if (!row.live || !storage) throw new EvryRefusal("attachment_gone");
-	const object = await readPrivateUpload(storage, row.key, ATTACHMENTS.csvBytes);
-	if (object === "too_large") throw new EvryRefusal("invalid_input");
+	const object = await readPrivateUpload(storage, row.key, ATTACHMENTS.bytes);
+	if (object === "too_large") throw new EvryRefusal("invalid_input", IMPORT_TOO_LARGE);
 	if (object === "missing") throw new EvryRefusal("attachment_gone");
 	return object.bytes;
+}
+
+export async function stagedBytes(
+	db: Database,
+	storage: PrivateStorage | null,
+	tenantId: string,
+	conversationId: string,
+	attachmentId: string,
+): Promise<Uint8Array | null> {
+	const r = await db.execute(sql`SELECT f.opaque_key AS key FROM file_object f WHERE f.id=${attachmentId}::uuid
+		AND f.tenant_id=${tenantId}::uuid AND f.purpose='assistant_staging'
+		AND f.upload_key=${uploadKey(conversationId, attachmentId)}::text AND f.state='pending' AND f.expires_at>clock_timestamp()`);
+	const key = (r.rows[0] as { key: string } | undefined)?.key;
+	if (!key || !storage) return null;
+	const object = await readPrivateUpload(storage, key, ATTACHMENTS.bytes);
+	return typeof object === "string" ? null : object.bytes;
+}
+
+export async function attachedFile(db: Database, actor: EvryActor, conversationId: string | null, attachmentId: string) {
+	if (!conversationId) throw new EvryRefusal("attachment_elsewhere");
+	const r = await db.execute(sql`SELECT ${attachmentsOf("c")} AS attachments FROM conversation c
+		WHERE c.id=${conversationId}::uuid AND c.account_id=${actor.accountId}::uuid AND c.tenant_id=${actor.owner.id}::uuid`);
+	const file = z
+		.array(attachmentState)
+		.parse(r.rows[0]?.attachments ?? [])
+		.find((a) => a.id === attachmentId);
+	if (!file) throw new EvryRefusal("attachment_elsewhere");
+	if (file.status === "gone") throw new EvryRefusal("attachment_gone");
+	return file;
 }
 
 export const attachmentsOf = <C extends string>(c: SqlLiteral<C>) =>

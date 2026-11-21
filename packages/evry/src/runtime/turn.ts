@@ -321,8 +321,10 @@ async function run(
 					deps.mail,
 					deps.native ?? null,
 					filesOf(fresh),
-				).catch((error) => (error instanceof EvryRefusal ? error.code : "unknown"));
-				if (typeof proposal === "string") return { error: proposal };
+				).catch((error: unknown) =>
+					error instanceof EvryRefusal ? { error: error.code, ...(error.problem && { problem: error.problem }) } : { error: "unknown" },
+				);
+				if (proposal && "error" in proposal) return proposal;
 				if (!proposal) return { error: "source_unavailable" };
 				const target = proposal.review.target;
 				const sequence = await save("tool_result", {

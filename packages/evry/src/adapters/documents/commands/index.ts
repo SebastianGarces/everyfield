@@ -4,10 +4,19 @@ import { sql, type SQL } from "@everyfield/db/query";
 import { privateStorage } from "@everyfield/db/schema";
 import { liveRead, RequestActor } from "@everyfield/domain/access";
 import { docTemplateSummaries, templateFill, type TemplateFill } from "@everyfield/domain/documents/fill";
-import { LEGAL_NOTICE, nativeText, readNative, type DocumentsReply } from "@everyfield/contracts/documents";
+import {
+	LEGAL_NOTICE,
+	nativeText,
+	readNative,
+	TEMPLATE_NAME_MAX,
+	type DocumentsReply,
+} from "@everyfield/contracts/documents";
+import { createHash } from "node:crypto";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
+import { EvryRefusal } from "../../../context/errors.ts";
+import { attachedFile, extensionOf, stagedBytes } from "../../../attachments/store.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 
 const ownerOrAdmin = (actor: EvryActor) =>
@@ -210,7 +219,82 @@ export const designateCoreValues: ReviewedWrite<{ documentId: string }> = {
 	},
 };
 
+const EXCERPT = 280;
+const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
+const importInput = z.strictObject({
+	attachmentId: z.uuid().describe("The attachmentId of a Word (.docx) or text (.txt) file attached in this conversation"),
+	title: z
+		.string()
+		.trim()
+		.min(1)
+		.max(TEMPLATE_NAME_MAX)
+		.optional()
+		.describe("The new document's title, only when the user names one; otherwise the file's name is used"),
+});
+const importArgs = z.object({
+	input: z.object({
+		conversationId: z.uuid(),
+		attachmentId: z.uuid(),
+		title: z.string(),
+		format: z.enum(["text", "docx"]),
+		sha256: z.string(),
+	}),
+});
+export const importTextOrWord: ReviewedWrite<z.infer<typeof importInput>> = {
+	operation: "documents.importTextOrWord",
+	description:
+		"Propose making a new written document in Documents from a Word (.docx) or text (.txt) file attached in this conversation, the same import as the Documents page. The review names the file and the title and shows the start of the imported text. When the app refuses the file, the result carries its problem: tell the user that sentence as written, and prepare nothing else. Nothing changes until the user approves the exact review.",
+	input: importInput,
+	allowed: ownerOrAdmin,
+	async review(actor, value, context) {
+		if (!context.files) throw new EvryRefusal("attachment_elsewhere");
+		const file = await attachedFile(context.db, actor, context.conversationId, value.attachmentId);
+		const format = ["docx", "doc"].includes(extensionOf(file.name)) ? "docx" : "text";
+		const bytes = await context.files.read(file.id);
+		const domain = await import("@everyfield/domain/documents");
+		let body: ReturnType<typeof domain.readImport>;
+		try {
+			body = domain.readImport(bytes, format);
+		} catch (error) {
+			if (error instanceof domain.ImportRejected) throw new EvryRefusal("invalid_input", error.message);
+			throw error;
+		}
+		const words = nativeText(body).replace(/\s+/g, " ");
+		const excerpt = words.length > EXCERPT ? `${words.slice(0, EXCERPT).trimEnd()}…` : words;
+		const title = value.title ?? (file.name.replace(/\.[^.]+$/, "").trim().slice(0, TEMPLATE_NAME_MAX) || file.name);
+		const changes = [
+			{ field: "file", before: null, after: file.name },
+			{ field: "title", before: null, after: title },
+			{ field: "text", before: null, after: excerpt },
+		];
+		const args = {
+			input: { conversationId: context.conversationId, attachmentId: file.id, title, format, sha256: sha256(bytes) },
+		};
+		return sql`SELECT jsonb_build_object('target',NULL,'changes',${JSON.stringify(changes)}::jsonb) AS review,
+			${JSON.stringify(args)}::jsonb AS args`;
+	},
+	async execute(tx, context, args, effectKey) {
+		const saved = importArgs.parse(args).input;
+		const authority = await authorityIn(tx, context);
+		if (!authority) return { refused: "access_denied" };
+		const storage = privateStorage();
+		const bytes = await stagedBytes(asDatabase(tx), storage, context.selected.id, saved.conversationId, saved.attachmentId);
+		if (!bytes) return { refused: "attachment_gone" };
+		if (sha256(bytes) !== saved.sha256) return { refused: "file_changed" };
+		const reply = await (
+			await writer()
+		).importTextOrWord(
+			asDatabase(tx),
+			authority,
+			{ title: saved.title, format: saved.format, bytes, expectedRevision: "0", requestKey: effectKey },
+			storage,
+		);
+		return done(reply, (doc) => ({ id: doc.id, revision: doc.revision }));
+	},
+};
+
 export const DOCUMENTS_COMMANDS = {
+	"documents.importTextOrWord": importTextOrWord,
 	"documents.createFromTemplate": createFromTemplate,
 	"documents.exportNative": exportNative,
 	"documents.archive": archive,
