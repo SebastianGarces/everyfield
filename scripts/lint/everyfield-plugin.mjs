@@ -588,13 +588,9 @@ export const RAW_ERROR_SITES = {
 		sites: 2,
 		why: "refusalOf passes on a message only when it is a code word ([a-z_]{3,40}); Evry's recorded refusals carry that word, so reading it another way would change recorded Evry results",
 	},
-	"packages/domain/src/documents/writes.ts": {
+	"packages/domain/src/documents/unpack.ts": {
 		sites: 1,
 		why: "ImportRejected is thrown only with fixed copy literals in documents/unpack.ts, and that copy is the answer the person importing the file reads",
-	},
-	"packages/ui/src/controls/Dialog.tsx": {
-		sites: 2,
-		why: "ConfirmDialog shows the copy its onConfirm throws; the text stays in the viewer's browser, never in a log or record, and a server action's error reaches the browser already reduced to Next's digest",
 	},
 	"tools/qa/main.ts": {
 		sites: 1,

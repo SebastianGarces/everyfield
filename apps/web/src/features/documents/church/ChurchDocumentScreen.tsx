@@ -127,14 +127,14 @@ export function ChurchDocumentScreen({
 
 	async function remove() {
 		const result: ChurchActionResult | undefined = await deleteChurchDocument(doc.id, revision);
-		if (result?.status === "refused") throw new Error(result.message);
-		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was deleted.");
+		if (result?.status === "refused") return { refused: result.message };
+		if (result?.status === "lost") return { refused: "The connection dropped. Nothing was deleted." };
 	}
 
 	async function archive() {
 		const result: ChurchActionResult | undefined = await archiveChurchDocument(doc.id, revision);
-		if (result?.status === "refused") throw new Error(result.message);
-		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was archived.");
+		if (result?.status === "refused") return { refused: result.message };
+		if (result?.status === "lost") return { refused: "The connection dropped. Nothing was archived." };
 	}
 
 	return (

@@ -396,7 +396,7 @@ export function WikiEditor({
 					confirmLabel="Publish article"
 					onConfirm={async () => {
 						const message = await commit("publish");
-						if (message) throw new Error(message);
+						if (message) return { refused: message };
 					}}
 				/>
 				<ConfirmDialog
@@ -412,7 +412,7 @@ export function WikiEditor({
 					confirmLabel="Hide this source"
 					onConfirm={async () => {
 						const message = await commit("hide");
-						if (message) throw new Error(message);
+						if (message) return { refused: message };
 					}}
 				/>
 			</form>

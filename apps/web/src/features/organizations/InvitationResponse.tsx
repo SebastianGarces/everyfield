@@ -108,8 +108,8 @@ export function InvitationResponse({
 		const result = await respond("decline");
 		if (result.ok) return setOutcome("declined");
 		if (result.problem === "refused") return setOutcome("refused");
-		if (result.problem === "busy") throw new Error("Finish accepting first: use Try again on the page.");
-		throw new Error("We could not confirm your answer. Check your connection, then try again.");
+		if (result.problem === "busy") return { refused: "Finish accepting first: use Try again on the page." };
+		return { refused: "We could not confirm your answer. Check your connection, then try again." };
 	};
 
 	return (
