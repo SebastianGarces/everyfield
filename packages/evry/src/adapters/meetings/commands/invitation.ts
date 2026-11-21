@@ -66,7 +66,9 @@ const reuseInput = z.strictObject({
 	meetingId: id.describe("This time's meeting from meetings.list"),
 	recipeId: id
 		.optional()
-		.describe("A completed invitation review; leave it out for the last one approved for an earlier meeting of this kind"),
+		.describe(
+			"A completed invitation review; leave it out for the last one approved for an earlier meeting of this kind",
+		),
 });
 
 const savedPlan = z.object({
@@ -94,7 +96,8 @@ const person = z.object({ id: z.uuid(), email: z.string().nullable(), optedOutAt
 type Reader = ReviewContext["db"] | WriteTx;
 async function members(db: Reader, plant: string, households: string[]) {
 	if (!households.length) return [];
-	const r = await db.execute(sql`SELECT p.id::text FROM person p WHERE p.plant_id=${plant}::uuid AND p.tenant_id=${plant}::uuid
+	const r =
+		await db.execute(sql`SELECT p.id::text FROM person p WHERE p.plant_id=${plant}::uuid AND p.tenant_id=${plant}::uuid
 		AND p.state='live' AND p.household_id=ANY(${sql.param(households)}::uuid[]) ORDER BY p.id`);
 	return z
 		.array(z.object({ id: z.uuid() }))
@@ -147,7 +150,8 @@ async function meetingFacts(actor: EvryActor, plan: Plan, context: ReviewContext
 	const reply = await previewMeetingsWrite(db, actor.authority, (tx, ctx) =>
 		meetingsWriter.schedule(tx, ctx, { requestKey: randomUUID(), input }),
 	);
-	if (reply.status !== "ok") throw new EvryRefusal(reply.error.code === "invalid_input" ? "invalid_input" : "access_denied");
+	if (reply.status !== "ok")
+		throw new EvryRefusal(reply.error.code === "invalid_input" ? "invalid_input" : "access_denied");
 	const m = reply.value.meeting;
 	const facts: Facts = {
 		target: null,
@@ -181,7 +185,11 @@ async function review(
 	const found = await meetingFacts(actor, plan, context);
 	if (!found) return null;
 	const { facts } = found;
-	const wanted = { groups: plan.audience.groups, householdIds: plan.audience.householdIds, personIds: plan.audience.personIds };
+	const wanted = {
+		groups: plan.audience.groups,
+		householdIds: plan.audience.householdIds,
+		personIds: plan.audience.personIds,
+	};
 	const resolved = await resolve(context.db, plant, wanted);
 	const mail = await audienceFacts(context, plant, resolved.value);
 	if (!mail) return null;
@@ -207,7 +215,9 @@ async function review(
 			change("meeting", facts.shown),
 			change(
 				"guests",
-				r.guests.map((g) => (facts.on.has(g.id) ? { name: g.name, note: "Already on the guest list" } : { name: g.name })),
+				r.guests.map((g) =>
+					facts.on.has(g.id) ? { name: g.name, note: "Already on the guest list" } : { name: g.name },
+				),
 			),
 			change("subject", subject),
 			change("recipients", r.recipients),
@@ -322,7 +332,10 @@ export const prepareMeetingInvitation: ReviewedWrite<Plan> = {
 	operation: "evry.prepareMeetingInvitation",
 	description:
 		"Invite people to a meeting in one review: the meeting (an existing one, or a new one when none exists yet), every guest added to it, and the invitation email with who gets it and who is left out and why. Give either meetingId or meeting. Ask which venue first when several match. Nothing is created, added or sent until the user approves.",
-	input: planInput.refine((p) => (p.meetingId === undefined) !== (p.meeting === undefined), "Give meetingId or meeting"),
+	input: planInput.refine(
+		(p) => (p.meetingId === undefined) !== (p.meeting === undefined),
+		"Give meetingId or meeting",
+	),
 	...sends,
 	review: (actor, plan, context) =>
 		review(actor, plan, context, null, {

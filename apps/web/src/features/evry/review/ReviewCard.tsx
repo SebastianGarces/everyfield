@@ -118,6 +118,7 @@ import {
 	showsBefore,
 	shownChanges,
 	subjectName,
+	invitationName,
 	targetHref,
 	valueText,
 	wikiRefusalText,
@@ -229,16 +230,16 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 			return review && isInvitation(review.operation)
 				? invitationRefusalText(review.receipt?.code)
 				: mail
-				? mailRefusalText(review.receipt?.code)
-				: review && isWiki(review.operation)
-					? wikiRefusalText(review.receipt?.code)
-					: review && isDocument(review.operation)
-						? documentRefusalText(review.receipt?.code)
-						: review && isSettings(review.operation)
-							? settingsRefusalText(review.receipt?.code)
-							: intelligence
-								? intelligenceRefusalText(review.receipt?.code)
-								: refusalText(review?.receipt?.code, who, review?.operation);
+					? mailRefusalText(review.receipt?.code)
+					: review && isWiki(review.operation)
+						? wikiRefusalText(review.receipt?.code)
+						: review && isDocument(review.operation)
+							? documentRefusalText(review.receipt?.code)
+							: review && isSettings(review.operation)
+								? settingsRefusalText(review.receipt?.code)
+								: intelligence
+									? intelligenceRefusalText(review.receipt?.code)
+									: refusalText(review?.receipt?.code, who, review?.operation);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
@@ -793,36 +794,40 @@ function Affects({ review }: { review: Review }) {
 				? Mortarboard01Icon
 				: isLaunch(review.operation)
 					? StartUp02Icon
-					: imported
-						? FileImportIcon
-						: task
-							? Task01Icon
-							: kind === "household" || kind === "article"
-								? RECORD_GLYPH[kind]
-								: kind === "tag" || tag
-									? Tag01Icon
-									: mail
-										? Mail01Icon
-										: isDocument(review.operation)
-											? File02Icon
-											: create
-												? UserAdd01Icon
-												: null));
+					: isInvitation(review.operation)
+						? Calendar03Icon
+						: imported
+							? FileImportIcon
+							: task
+								? Task01Icon
+								: kind === "household" || kind === "article"
+									? RECORD_GLYPH[kind]
+									: kind === "tag" || tag
+										? Tag01Icon
+										: mail
+											? Mail01Icon
+											: isDocument(review.operation)
+												? File02Icon
+												: create
+													? UserAdd01Icon
+													: null));
 	const name = own
 		? (NOTIFICATION_SUBJECT[review.operation] ?? "Your notifications")
 		: imported
 			? "People import"
 			: isTasks(review.operation)
 				? subjectName(review)
-				: tag
-					? String(tag)
-					: mail
-						? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
-						: create
-							? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
-							: record && !target
-								? String(review.review.changes.find((c) => c.field === "name")?.after ?? "New ministries")
-								: (target?.label ?? "Not available");
+				: isInvitation(review.operation)
+					? invitationName(review)
+					: tag
+						? String(tag)
+						: mail
+							? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
+							: create
+								? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
+								: record && !target
+									? String(review.review.changes.find((c) => c.field === "name")?.after ?? "New ministries")
+									: (target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
 			{glyph ? (

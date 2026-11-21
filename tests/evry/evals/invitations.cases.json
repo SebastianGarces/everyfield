@@ -12,7 +12,10 @@
 			"expected_answer": "Later: one review that shows guest binding and the invitation together",
 			"must_not": "Send an invitation directly",
 			"calls": ["people.listHouseholds", "meetings.list"],
-			"answer": ["One review shows every step together", "Nothing is created, added or sent until you approve the review."],
+			"answer": [
+				"One review shows every step together",
+				"Nothing is created, added or sent until you approve the review."
+			],
 			"proposal": {
 				"operation": "evry.prepareMeetingInvitation",
 				"target": "Vision night",
@@ -30,7 +33,9 @@
 			"actor": "owner",
 			"ask": "set up a vision meeting Tuesday at Northside and invite the core group",
 			"calls": ["venues.list"],
-			"answer": ["2 saved venues match \"Northside\": Northside Community Center and Northside Library. Which one should it be?"]
+			"answer": [
+				"2 saved venues match \"Northside\": Northside Community Center and Northside Library. Which one should it be?"
+			]
 		},
 		{
 			"id": "INV-03",
@@ -39,11 +44,19 @@
 			"continues": true,
 			"ask": "Northside Library",
 			"calls": ["venues.list"],
-			"answer": ["I prepared the new vision meeting and the invitation for the core group.", "Left out of the email: Tom Reyes"],
+			"answer": [
+				"I prepared the new vision meeting and the invitation for the core group.",
+				"Left out of the email: Tom Reyes"
+			],
 			"proposal": {
 				"operation": "evry.prepareMeetingInvitation",
 				"target": null,
-				"meeting": { "title": "Vision Meeting #3", "when": "Tue, Oct 20, 2026, 6:30 PM CDT", "venue": "Northside Library", "isNew": true },
+				"meeting": {
+					"title": "Vision Meeting #3",
+					"when": "Tue, Oct 20, 2026, 6:30 PM CDT",
+					"venue": "Northside Library",
+					"isNew": true
+				},
 				"guests": ["Grace Holt", "Marcus Webb", "Nina Patel", "Tom Reyes"],
 				"recipients": ["Grace Holt", "Marcus Webb", "Nina Patel"],
 				"leftOut": [["Tom Reyes", "unsubscribed"]],
@@ -112,7 +125,10 @@
 			"calls": ["evry.readWorkflowHint"],
 			"steps": ["meetings.finalizeAttendance", "followups.recordOutcome", "meetings.schedule"],
 			"answer": ["1. Mark who came and finalize attendance.", "3. Schedule the next vision night."],
-			"forbid": ["/Score the night|Create a follow-up|thank-you|Invite guests/i", "/\\b(pray|prayer|scripture|biblical|spiritual|pastoral|God)\\b/i"]
+			"forbid": [
+				"/Score the night|Create a follow-up|thank-you|Invite guests/i",
+				"/\\b(pray|prayer|scripture|biblical|spiritual|pastoral|God)\\b/i"
+			]
 		},
 		{
 			"id": "INV-08",

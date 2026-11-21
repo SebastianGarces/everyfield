@@ -171,9 +171,18 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		assert.ok(op, id);
 		assert.deepEqual([op.model_tool, op.kind, op.durable_write, generated.has(id)], [true, "query", false, true], id);
 	}
+	const recipeSteps = ["meetings.schedule", "meetings.inviteGuest", "communication.sendReviewed"];
 	for (const [id, write] of Object.entries(REVIEWED_WRITES)) {
 		const op = operations.get(id);
 		assert.ok(op, id);
+		if (id.startsWith("evry.")) {
+			assert.deepEqual([op.evry, op.model_tool, op.kind, op.durable_write], [true, false, "command", true], id);
+			for (const step of recipeSteps) {
+				const native = operations.get(step);
+				assert.deepEqual([native?.model_tool, native?.evry_review], [true, true], `${id} step ${step}`);
+			}
+			continue;
+		}
 		assert.deepEqual(
 			[op.model_tool, op.kind, op.durable_write, op.evry_review, generated.has(id)],
 			"approveNow" in write && write.approveNow?.reason

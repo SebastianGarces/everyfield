@@ -76,8 +76,9 @@ const golden = new Map(
 		}[]
 	).map((g) => [g.case_id, g]),
 );
-const cases = (JSON.parse(readFileSync(new URL("./invitations.cases.json", import.meta.url), "utf8")) as { cases: Case[] })
-	.cases;
+const cases = (
+	JSON.parse(readFileSync(new URL("./invitations.cases.json", import.meta.url), "utf8")) as { cases: Case[] }
+).cases;
 
 const sent: { to: string[]; subject: string; text: string[] }[] = [];
 const mail: MailPort = {
@@ -194,7 +195,10 @@ const handedOff = (message: string) =>
 	);
 const effects = async () => ({
 	meetings: Number((await rows(sql`SELECT count(*)::int AS n FROM meeting WHERE plant_id=${plant}`))[0]!.n),
-	guests: Number((await rows(sql`SELECT count(*)::int AS n FROM participation WHERE removed_at IS NULL AND plant_id=${plant}`))[0]!.n),
+	guests: Number(
+		(await rows(sql`SELECT count(*)::int AS n FROM participation WHERE removed_at IS NULL AND plant_id=${plant}`))[0]!
+			.n,
+	),
 	messages: (await messages()).length,
 	provider: sent.length,
 });
@@ -226,68 +230,75 @@ before(async () => {
 	await sinceLastMonth(admin, db, plant, people);
 	const [message] = await messages();
 	lastMonth = { proposal: setup.proposals[0]!.id, message: String(message!.id) };
-	assert.deepEqual(sent.splice(0).flatMap((s) => s.to).sort(), [
-		"grace.holt@example.test",
-		"marcus.webb@example.test",
-		"tom.reyes@example.test",
-	]);
+	assert.deepEqual(
+		sent
+			.splice(0)
+			.flatMap((s) => s.to)
+			.sort(),
+		["grace.holt@example.test", "marcus.webb@example.test", "tom.reyes@example.test"],
+	);
 });
 after(() => close?.());
 
-const CHECKS: Record<string, { before?: () => Promise<unknown>; after?: (p: Proposal, seen: unknown) => Promise<void> }> =
-	{
-		"INV-01": {
-			before: async () => {
-				const [m] = await meetingOf("Vision night", "2026-10-15");
-				assert.deepEqual(await guestsOf(String(m!.id)), [], "no guest is added before approval");
-				return { meeting: String(m!.id) };
-			},
-			after: async (p, seen) => {
-				const s = seen as { meeting: string };
-				assert.deepEqual(await guestsOf(s.meeting), ["Luis Garcia", "Maria Garcia", "Sofia Garcia"]);
-				const message = (await messages()).at(-1)!;
-				assert.deepEqual([message.meeting, message.subject], [s.meeting, "You're invited: Vision night"]);
-				assert.deepEqual(await handedOff(String(message.id)), ["Luis Garcia", "Maria Garcia"]);
-				assert.deepEqual(sent.flatMap((x) => x.to).sort(), ["luis.garcia@example.test", "maria.garcia@example.test"]);
-				const card = await readReview(db, await actorOf("owner"), p.id);
-				assert.equal(card.receipt?.meetingId, s.meeting);
-				assert.deepEqual(
-					[card.receipt?.report?.confirmation, card.receipt?.report?.accepted, card.receipt?.report?.leftOut],
-					["confirmed", 2, 1],
-				);
-			},
+const CHECKS: Record<
+	string,
+	{ before?: () => Promise<unknown>; after?: (p: Proposal, seen: unknown) => Promise<void> }
+> = {
+	"INV-01": {
+		before: async () => {
+			const [m] = await meetingOf("Vision night", "2026-10-15");
+			assert.deepEqual(await guestsOf(String(m!.id)), [], "no guest is added before approval");
+			return { meeting: String(m!.id) };
 		},
-		"INV-03": {
-			before: async () => {
-				assert.deepEqual(await rows(sql`SELECT id FROM meeting WHERE plant_id=${plant} AND local_date='2026-10-20'`), []);
-			},
-			after: async (p) => {
-				const [m] = await rows(
-					sql`SELECT m.id::text, m.venue_name, to_char(m.local_time,'HH24:MI') AS at FROM meeting m WHERE m.plant_id=${plant} AND m.local_date='2026-10-20'`,
-				);
-				assert.deepEqual([m!.venue_name, m!.at], ["Northside Library", "18:30"]);
-				assert.deepEqual(await guestsOf(String(m!.id)), ["Grace Holt", "Marcus Webb", "Nina Patel", "Tom Reyes"]);
-				const to = sent.flatMap((x) => x.to).sort();
-				assert.deepEqual(to, ["grace.holt@example.test", "marcus.webb@example.test", "nina.patel@example.test"]);
-				assert.ok(!to.includes("tom.reyes@example.test"), "the unsubscribed member receives nothing");
-				assert.equal((await readReview(db, await actorOf("owner"), p.id)).receipt?.meetingId, m!.id);
-			},
+		after: async (p, seen) => {
+			const s = seen as { meeting: string };
+			assert.deepEqual(await guestsOf(s.meeting), ["Luis Garcia", "Maria Garcia", "Sofia Garcia"]);
+			const message = (await messages()).at(-1)!;
+			assert.deepEqual([message.meeting, message.subject], [s.meeting, "You're invited: Vision night"]);
+			assert.deepEqual(await handedOff(String(message.id)), ["Luis Garcia", "Maria Garcia"]);
+			assert.deepEqual(sent.flatMap((x) => x.to).sort(), ["luis.garcia@example.test", "maria.garcia@example.test"]);
+			const card = await readReview(db, await actorOf("owner"), p.id);
+			assert.equal(card.receipt?.meetingId, s.meeting);
+			assert.deepEqual(
+				[card.receipt?.report?.confirmation, card.receipt?.report?.accepted, card.receipt?.report?.leftOut],
+				["confirmed", 2, 1],
+			);
 		},
-		"INV-04": {
-			before: async () => ({ proposal: await proposalBytes(lastMonth.proposal), message: await messageBytes(lastMonth.message) }),
-			after: async (p, seen) => {
-				const s = seen as { proposal: unknown; message: unknown };
-				assert.notEqual(p.id, lastMonth.proposal);
-				assert.deepEqual(await proposalBytes(lastMonth.proposal), s.proposal, "last month's receipt is unchanged");
-				assert.deepEqual(await messageBytes(lastMonth.message), s.message, "last month's message is unchanged");
-				assert.deepEqual(sent.flatMap((x) => x.to).sort(), [
-					"grace.holt@example.test",
-					"marcus.webb@example.test",
-					"nina.patel@example.test",
-				]);
-			},
+	},
+	"INV-03": {
+		before: async () => {
+			assert.deepEqual(await rows(sql`SELECT id FROM meeting WHERE plant_id=${plant} AND local_date='2026-10-20'`), []);
 		},
-	};
+		after: async (p) => {
+			const [m] = await rows(
+				sql`SELECT m.id::text, m.venue_name, to_char(m.local_time,'HH24:MI') AS at FROM meeting m WHERE m.plant_id=${plant} AND m.local_date='2026-10-20'`,
+			);
+			assert.deepEqual([m!.venue_name, m!.at], ["Northside Library", "18:30"]);
+			assert.deepEqual(await guestsOf(String(m!.id)), ["Grace Holt", "Marcus Webb", "Nina Patel", "Tom Reyes"]);
+			const to = sent.flatMap((x) => x.to).sort();
+			assert.deepEqual(to, ["grace.holt@example.test", "marcus.webb@example.test", "nina.patel@example.test"]);
+			assert.ok(!to.includes("tom.reyes@example.test"), "the unsubscribed member receives nothing");
+			assert.equal((await readReview(db, await actorOf("owner"), p.id)).receipt?.meetingId, m!.id);
+		},
+	},
+	"INV-04": {
+		before: async () => ({
+			proposal: await proposalBytes(lastMonth.proposal),
+			message: await messageBytes(lastMonth.message),
+		}),
+		after: async (p, seen) => {
+			const s = seen as { proposal: unknown; message: unknown };
+			assert.notEqual(p.id, lastMonth.proposal);
+			assert.deepEqual(await proposalBytes(lastMonth.proposal), s.proposal, "last month's receipt is unchanged");
+			assert.deepEqual(await messageBytes(lastMonth.message), s.message, "last month's message is unchanged");
+			assert.deepEqual(sent.flatMap((x) => x.to).sort(), [
+				"grace.holt@example.test",
+				"marcus.webb@example.test",
+				"nina.patel@example.test",
+			]);
+		},
+	},
+};
 
 test("AC:PREP-04 AC:INH-MEETINGS-08 INV-evry-recipes: every multi-step request passes on the scripted model with one review, no effect before approval and a fresh approval on reuse", async () => {
 	let conversation: string | undefined;
@@ -302,7 +313,10 @@ test("AC:PREP-04 AC:INH-MEETINGS-08 INV-evry-recipes: every multi-step request p
 		conversation = turn.conversationId;
 		assert.deepEqual(turn.reads, c.calls, `${c.id} reads`);
 		for (const text of c.answer)
-			assert.ok(turn.answer.includes(text), `${c.id} answer ${JSON.stringify(turn.answer)} has ${JSON.stringify(text)}`);
+			assert.ok(
+				turn.answer.includes(text),
+				`${c.id} answer ${JSON.stringify(turn.answer)} has ${JSON.stringify(text)}`,
+			);
 		for (const f of c.forbid ?? []) assert.doesNotMatch(turn.answer, regex(f), `${c.id} must not match ${f}`);
 		if (c.steps) {
 			assert.deepEqual(turn.steps, c.steps, `${c.id} steps`);
@@ -320,7 +334,11 @@ test("AC:PREP-04 AC:INH-MEETINGS-08 INV-evry-recipes: every multi-step request p
 		const [p] = turn.proposals as [Proposal];
 		const e = c.proposal;
 		assert.equal(p.operation, e.operation, c.id);
-		assert.deepEqual([p.status, p.approvedAt, p.outcome], ["pending", null, null], `${c.id}: nothing runs before approval`);
+		assert.deepEqual(
+			[p.status, p.approvedAt, p.outcome],
+			["pending", null, null],
+			`${c.id}: nothing runs before approval`,
+		);
 		assert.equal(p.review.target?.label ?? null, e.target, `${c.id} target`);
 		assert.equal(p.review.refusal, undefined, `${c.id} refusal`);
 		if (e.meeting) {
@@ -334,7 +352,11 @@ test("AC:PREP-04 AC:INH-MEETINGS-08 INV-evry-recipes: every multi-step request p
 			);
 			assert.deepEqual(p.review.notes ?? null, e.notes, `${c.id} notes`);
 		}
-		assert.deepEqual(await effects(), start, `${c.id}: no meeting, guest or message write and no provider call before approval`);
+		assert.deepEqual(
+			await effects(),
+			start,
+			`${c.id}: no meeting, guest or message write and no provider call before approval`,
+		);
 		const seen = await CHECKS[c.id]?.before?.();
 		if (!c.approve) continue;
 		assert.equal(await approveAndRun(actor, p), "completed", `${c.id} runs once approved`);
@@ -349,7 +371,9 @@ test("INV-evry-recipes: a reused invitation whose audience changed after its rev
 	const turn = await ask(owner, "do the same invite for this month's vision night");
 	const [p] = turn.proposals as [Proposal];
 	assert.equal(p.operation, "evry.reuseRecipe");
-	await admin.execute(sql`INSERT INTO person_email_opt_out(plant_id,person_id) VALUES(${plant},${people["Grace Holt"]})`);
+	await admin.execute(
+		sql`INSERT INTO person_email_opt_out(plant_id,person_id) VALUES(${plant},${people["Grace Holt"]})`,
+	);
 	const before = await effects();
 	assert.equal(await approveAndRun(owner, p), "refused");
 	const card = await readReview(db, owner, p.id);

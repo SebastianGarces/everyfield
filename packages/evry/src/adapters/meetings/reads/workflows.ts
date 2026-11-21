@@ -9,7 +9,11 @@ const FOLLOW_UP = [
 	["tasks.createFollowUp", "Create a follow-up with each first-time guest", "create a follow-up with <name>"],
 	["followups.recordOutcome", "Log each follow-up call, text or visit", "log that I called <name>, <what happened>"],
 	["communication.sendReviewed", "Email the guests a thank-you", "email the vision night guests a thank-you"],
-	["evry.prepareMeetingInvitation", "Invite guests to the next vision night", "invite <a family> to the next vision meeting"],
+	[
+		"evry.prepareMeetingInvitation",
+		"Invite guests to the next vision night",
+		"invite <a family> to the next vision meeting",
+	],
 	["meetings.schedule", "Schedule the next vision night", "set up a vision meeting next thursday 7pm at the <venue>"],
 ] as const;
 const HINTS = { vision_night_follow_up: { title: "Follow-up after vision night", steps: FOLLOW_UP } } as const;

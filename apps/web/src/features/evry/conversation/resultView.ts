@@ -1540,6 +1540,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "step":
 			if (operation.startsWith("dashboard."))
 				return { ...plain, href: text(fields.href), name: row.label, line: "From Overview", avatar: null };
+			if (operation === "evry.readWorkflowHint")
+				return { ...plain, name: row.label, line: `Say "${text(fields.say)}"`, avatar: null };
 			return {
 				...plain,
 				href: "/onboarding",

@@ -103,7 +103,9 @@ export function invitationStep(options: LanguageModelV4CallOptions, text: string
 			});
 		const steps = rowsOf(last, "step");
 		if (!steps.length)
-			return say("Your seat can't take the follow-up steps after a vision night. An Owner or Admin of this church can.");
+			return say(
+				"Your seat can't take the follow-up steps after a vision night. An Owner or Admin of this church can.",
+			);
 		return say(
 			"Here is a follow-up plan after vision night, using what Everyfield can do for your role:",
 			"",

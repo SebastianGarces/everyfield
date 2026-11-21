@@ -224,7 +224,12 @@ const CORE_GROUP = [
 ] as const;
 export const NORTHSIDE = ["Northside Community Center", "Northside Library"] as const;
 
-export async function seedInvitations(admin: Database, runtime: Database, plant: string, people: Record<string, string>) {
+export async function seedInvitations(
+	admin: Database,
+	runtime: Database,
+	plant: string,
+	people: Record<string, string>,
+) {
 	const home = randomUUID();
 	await admin.execute(sql`INSERT INTO household(id,plant_id,name) VALUES(${home},${plant},'Garcia household')`);
 	const ids: Record<string, string> = {};
@@ -236,9 +241,7 @@ export async function seedInvitations(admin: Database, runtime: Database, plant:
 	}
 	ids["Tom Reyes"] = await addPerson(admin, runtime, plant, "Tom Reyes", 40);
 	for (const [name, email] of CORE_GROUP)
-		await admin.execute(
-			sql`UPDATE person SET stage='core_group',email=${email} WHERE id=${ids[name] ?? people[name]}`,
-		);
+		await admin.execute(sql`UPDATE person SET stage='core_group',email=${email} WHERE id=${ids[name] ?? people[name]}`);
 	for (const name of NORTHSIDE)
 		await admin.execute(sql`INSERT INTO venue(plant_id,name,address) VALUES(${plant},${name},'Austin, TX')`);
 	await schedule(admin, runtime, plant, {
@@ -256,8 +259,15 @@ export async function backdateLastMonth(admin: Database, plant: string) {
 		updated_at=updated_at-interval '30 days',expires_at=expires_at-interval '30 days' WHERE tenant_id=${plant}`);
 }
 
-export async function sinceLastMonth(admin: Database, runtime: Database, plant: string, people: Record<string, string>) {
-	await admin.execute(sql`INSERT INTO person_email_opt_out(plant_id,person_id) VALUES(${plant},${people["Tom Reyes"]})`);
+export async function sinceLastMonth(
+	admin: Database,
+	runtime: Database,
+	plant: string,
+	people: Record<string, string>,
+) {
+	await admin.execute(
+		sql`INSERT INTO person_email_opt_out(plant_id,person_id) VALUES(${plant},${people["Tom Reyes"]})`,
+	);
 	await admin.execute(
 		sql`UPDATE person SET stage='core_group',email='nina.patel@example.test' WHERE id=${people["Nina Patel"]}`,
 	);

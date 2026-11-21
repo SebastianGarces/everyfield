@@ -748,6 +748,11 @@ export const showsBefore = (review: Pick<Review, "operation">, change: Change) =
 
 export const isTasks = (operation: Operation) => operation.startsWith("tasks.") || operation.startsWith("followups.");
 
+export function invitationName(review: Review): string {
+	const meeting = review.review.changes.find((c) => c.field === "meeting")?.after as { title?: unknown } | undefined;
+	return typeof meeting?.title === "string" ? meeting.title : (review.review.target?.label ?? "Meeting invitation");
+}
+
 export function subjectName(review: Review): string {
 	const { target, changes } = review.review;
 	if (target) return target.label;
