@@ -7,6 +7,7 @@ import {
 	Clock01Icon,
 	Csv01Icon,
 	Link01Icon,
+	Pdf01Icon,
 	SentIcon,
 	StopIcon,
 	Unlink01Icon,
@@ -668,10 +669,10 @@ function Composer({
 										e.target.value = "";
 									}}
 								/>
-								<Tooltip content="Attach a CSV">
+								<Tooltip content="Attach a CSV or PDF">
 									<IconButton
 										icon={Attachment01Icon}
-										label="Attach a CSV file"
+										label="Attach a CSV or PDF file"
 										size="sm"
 										disabled={disabled || busy}
 										onClick={() => picker.current?.click()}
@@ -705,6 +706,8 @@ function Composer({
 	);
 }
 
+const fileIcon = (name: string) => (/\.pdf$/i.test(name) ? Pdf01Icon : Csv01Icon);
+
 function FileChip({ file, onRemove }: { file: Picked; onRemove: () => void }) {
 	return (
 		<li
@@ -713,7 +716,7 @@ function FileChip({ file, onRemove }: { file: Picked; onRemove: () => void }) {
 				file.state === "failed" && "bg-magenta-50",
 			)}
 		>
-			<Icon icon={Csv01Icon} size={16} className="flex-none text-text-2" />
+			<Icon icon={fileIcon(file.name)} size={16} className="flex-none text-text-2" />
 			<span className="min-w-0 truncate text-ink">{file.name}</span>
 			<span className={cn("flex-none text-xs", file.state === "failed" ? "text-magenta-600" : "text-text-3")}>
 				{file.state === "uploading" ? "Attaching…" : file.state === "failed" ? "Couldn't attach" : fileSize(file.size)}
@@ -735,7 +738,7 @@ function SentFiles({ files }: { files: readonly { id: string; name: string }[] }
 		<ul aria-label="Attached files" className="mt-2 flex flex-wrap gap-1.5">
 			{files.map((f) => (
 				<li key={f.id} className="flex items-center gap-1.5 rounded-pill bg-white/12 px-2.5 py-1 text-sm">
-					<Icon icon={Csv01Icon} size={16} className="flex-none" />
+					<Icon icon={fileIcon(f.name)} size={16} className="flex-none" />
 					<span className="min-w-0 truncate">{f.name}</span>
 				</li>
 			))}
