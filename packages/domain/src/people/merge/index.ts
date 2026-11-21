@@ -112,11 +112,13 @@ function plan(
 	let stage = null,
 		commitment = null;
 	if (kind === "plant") {
-		const result = order[Math.max(order.indexOf(source.stage!), order.indexOf(survivor.stage!))]!;
-		stage = { source: source.stage!, survivor: survivor.stage!, result };
+		if (source.stage === null || survivor.stage === null) throw Error("A plant person has no stage");
+		const result = order[Math.max(order.indexOf(source.stage), order.indexOf(survivor.stage))];
+		if (!result) throw Error(`Stages ${source.stage} and ${survivor.stage} are not in the pipeline order`);
+		stage = { source: source.stage, survivor: survivor.stage, result };
 		if (result !== survivor.stage) {
 			set.stage = result;
-			if (!sameColumn(survivor.stage!, result)) set.pipeline_position = freshPosition(survivor.id);
+			if (!sameColumn(survivor.stage, result)) set.pipeline_position = freshPosition(survivor.id);
 		}
 		commitment = commitmentOf({
 			cards: [...survivor.commitment.cards, ...source.commitment.cards],

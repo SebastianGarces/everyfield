@@ -71,9 +71,11 @@ SELECT g.ok, pl.timezone,
 }
 
 function measure(r: Row, q: z.infer<typeof pipelineMetricsRequest>): z.input<typeof pipelineMetrics> {
+	const { opens_at, closes_at, timezone } = r;
+	if (!opens_at || !closes_at || !timezone) throw Error("Pipeline metrics have no window");
 	const asOf = Date.parse(q.asOf);
-	const opens = Date.parse(r.opens_at!);
-	const closes = Math.min(Date.parse(r.closes_at!), asOf + 1);
+	const opens = Date.parse(opens_at);
+	const closes = Math.min(Date.parse(closes_at), asOf + 1);
 	const persons = new Map((r.persons ?? []).map((x) => [x.id, x]));
 	const moves = new Map<string, Move[]>();
 	for (const e of r.events ?? []) {
@@ -94,7 +96,11 @@ function measure(r: Row, q: z.infer<typeof pipelineMetricsRequest>): z.input<typ
 		if (!head?.live) continue;
 		groups.set(x.canonical, [...(groups.get(x.canonical) ?? []), x.id]);
 	}
-	const created = (id: string) => Date.parse(persons.get(id)!.createdAt);
+	const created = (id: string) => {
+		const person = persons.get(id);
+		if (!person) throw Error(`Pipeline person ${id} was not read`);
+		return Date.parse(person.createdAt);
+	};
 
 	const currentStageCounts = Object.fromEntries(STAGES.map((s) => [s, 0])) as Record<Stage, number>;
 	for (const id of groups.keys()) {
@@ -127,7 +133,7 @@ function measure(r: Row, q: z.infer<typeof pipelineMetricsRequest>): z.input<typ
 	return {
 		asOf: q.asOf,
 		sourceRevision: (r.events ?? []).length,
-		window: { from: q.from, through: q.through, timeZone: r.timezone! },
+		window: { from: q.from, through: q.through, timeZone: timezone },
 		unit: "distinct_canonical_people",
 		currentStageCounts,
 		transition: q.transition,

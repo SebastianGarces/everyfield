@@ -238,7 +238,8 @@ export const saveExportRoute = mutatingRoute(async function saveExportRoute(
 	} | null;
 	if (!body || typeof body.revision !== "string" || !/^[0-9]{1,7}$/.test(body.revision))
 		return answer(refused("invalid_input"));
-	const [actor, viewer] = await Promise.all([viewerActor(), getViewer()]);
+	const viewer = await getViewer();
+	const actor = viewer.authority;
 	if (!actor) return answer(refused("access_denied"));
 	const db = requestDatabase();
 	return transient(
