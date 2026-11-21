@@ -1715,25 +1715,23 @@ const webDatabaseImports = {
 };
 
 const classTokens = (value) => value.split(/\s+/).filter(Boolean);
-const errorNoticeLook = (value) => {
-	const tokens = classTokens(value);
-	return tokens.includes("bg-magenta-50") && tokens.includes("text-magenta-600");
-};
+const MAGENTA_TINT = /^bg-magenta-(?:50|100)(?:\/\d+)?$/;
 const AMBER_TINT = /^bg-amber-(?:50|100)(?:\/\d+)?$/;
 const BOX_RADIUS = /^rounded(?:-[\w.[\]-]+)?$/;
 const PILL_RADIUS = /^rounded(?:-[a-z]{1,2})?-(?:full|pill)$/;
 const PADDING = /^p[xy]?-/;
 const CHIP_SIZE = /^(?:p|py)-(?:0|px|0\.5|1|1\.5)$|^(?:h|size)-(?:\d+(?:\.\d+)?|px|\[[^\]]+\])$/;
-const warningNoticeLook = (value) => {
+const tintedBox = (tokens, tint) =>
+	tokens.some((t) => tint.test(t)) &&
+	tokens.some((t) => BOX_RADIUS.test(t)) &&
+	!tokens.some((t) => PILL_RADIUS.test(t)) &&
+	tokens.some((t) => PADDING.test(t)) &&
+	!tokens.some((t) => CHIP_SIZE.test(t));
+const errorNoticeLook = (value) => {
 	const tokens = classTokens(value);
-	return (
-		tokens.some((t) => AMBER_TINT.test(t)) &&
-		tokens.some((t) => BOX_RADIUS.test(t)) &&
-		!tokens.some((t) => PILL_RADIUS.test(t)) &&
-		tokens.some((t) => PADDING.test(t)) &&
-		!tokens.some((t) => CHIP_SIZE.test(t))
-	);
+	return (tokens.includes("bg-magenta-50") && tokens.includes("text-magenta-600")) || tintedBox(tokens, MAGENTA_TINT);
 };
+const warningNoticeLook = (value) => tintedBox(classTokens(value), AMBER_TINT);
 const noticeLook = (value) => errorNoticeLook(value) || warningNoticeLook(value);
 const formGroup = (node) => {
 	for (let at = node.parent; at && at.type !== "JSXElement"; at = at.parent)
