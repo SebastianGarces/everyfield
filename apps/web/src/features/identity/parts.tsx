@@ -1,14 +1,8 @@
 "use client";
 
-import {
-	Alert02Icon,
-	CheckmarkCircle02Icon,
-	LockKeyIcon,
-	ViewIcon,
-	ViewOffSlashIcon,
-} from "@hugeicons/core-free-icons";
-import { CardIcon, FieldButton, Input, type Tone } from "@everyfield/ui/controls";
-import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
+import { LockKeyIcon, ViewIcon, ViewOffSlashIcon } from "@hugeicons/core-free-icons";
+import { Alert, CardIcon, FieldButton, Input, type Tone } from "@everyfield/ui/controls";
+import type { IconSvgElement } from "@everyfield/ui/foundations";
 import { useState, type ComponentPropsWithRef, type ReactNode } from "react";
 import { AuthHeading } from "./AuthFrame";
 
@@ -36,17 +30,7 @@ export function PasswordInput(props: Omit<ComponentPropsWithRef<typeof Input>, "
 export function FormMessage({ tone, children }: { tone: "error" | "success"; children: ReactNode }) {
 	return (
 		<div role={tone === "error" ? "alert" : "status"} className="empty:sr-only">
-			{children ? (
-				<p
-					className={cn(
-						"flex items-start gap-2.5 rounded-md px-3.5 py-3 text-sm font-medium",
-						tone === "error" ? "bg-magenta-100 text-magenta-600" : "bg-green-100 text-green-700",
-					)}
-				>
-					<Icon icon={tone === "error" ? Alert02Icon : CheckmarkCircle02Icon} size={18} className="mt-px flex-none" />
-					<span>{children}</span>
-				</p>
-			) : null}
+			{children ? <Alert tone={tone}>{children}</Alert> : null}
 		</div>
 	);
 }
