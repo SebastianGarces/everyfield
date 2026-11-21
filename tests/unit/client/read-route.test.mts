@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { readsFrom, refusalAs } from "../../../apps/web/src/components/get-reads.ts";
 import { defineReads } from "../../../apps/web/src/server/platform/reads.ts";
 
-const { z } = createRequire(new URL("../../../apps/web/package.json", import.meta.url))("zod") as typeof import("zod");
+const { z } = createRequire(new URL("../../../apps/web/package.json", import.meta.url))("zod");
 
 const featureRefusals = {
 	communication: { status: "refused", code: "access_denied" },
