@@ -1226,7 +1226,7 @@ import { pgTable } from "@everyfield/db/columns";
 	);
 });
 
-test("INV-lint: apps/web shows an error or warning notice through the shared Alert, never a hand-written magenta or amber box", () => {
+test("INV-lint: apps/web shows an error or warning notice through the shared Alert, never a hand-written magenta or amber box, in cn object syntax or an amber token tint too", () => {
 	const code = `export const A = () => <p className="rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">x</p>;
 export const B = (more) => \`flex bg-magenta-50 \${more} text-magenta-600\`;
 export const C = { error: "bg-magenta-50 text-magenta-600" };
@@ -1261,6 +1261,11 @@ export const AE = { magenta: "bg-magenta-100 text-magenta-600" };
 export const AF = () => <span className="grid size-[34px] place-items-center rounded-pill bg-magenta-100 text-magenta-600">x</span>;
 export const AG = () => <span className="rounded-md bg-magenta-100 px-2 py-0.5 text-magenta-600">x</span>;
 export const AH = "px-4 py-3.5 bg-magenta-100 text-mk-danger-ink";
+export const AI = (on) => cn("rounded-md px-4 py-3", { "bg-amber-50": on });
+export const AJ = () => <p className="rounded-md bg-[var(--ef-amber-50)] px-4 py-3">x</p>;
+export const AK = () => <p className="rounded-lg bg-(--ef-amber-100)/80 p-3">x</p>;
+export const AL = (on) => cn("rounded-md px-4 py-3", { "bg-surface-2": on, open: on });
+export const AM = () => <span className="rounded-pill bg-[var(--ef-amber-100)] px-2 py-0.5">x</span>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1268,13 +1273,13 @@ export const AH = "px-4 py-3.5 bg-magenta-100 text-mk-danger-ink";
 	}).filter((hit) => hit.endsWith(" shared-notice"));
 	assert.deepEqual(
 		reported.sort(),
-		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30]
+		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37]
 			.map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`)
 			.sort(),
 	);
 });
 
-test("INV-a11y: a live region in apps/web or packages/ui is never hidden while empty, so it stays in the accessibility tree", () => {
+test("INV-a11y: a live region in apps/web or packages/ui is never hidden, invisible or aria-hidden, so it stays in the accessibility tree", () => {
 	const code = `export const A = ({ m }) => <div aria-live="polite" className="empty:hidden">{m}</div>;
 export const B = ({ m }) => <p role="status" className={cn("text-sm", !m && "hidden")}>{m}</p>;
 export const C = ({ m, tone }) => <div role={tone ? "alert" : "status"} hidden={!m}>{m}</div>;
@@ -1282,6 +1287,13 @@ export const D = ({ m, live }) => <div aria-live={live} className="mt-3 max-sm:h
 export const E = ({ m }) => <div aria-live="polite" className="empty:sr-only">{m}</div>;
 export const F = ({ m }) => <div aria-live="off" className="empty:hidden">{m}</div>;
 export const G = ({ m }) => <div role="note" className="empty:hidden overflow-hidden">{m}</div>;
+export const H = ({ m }) => <div role="status" className="text-sm empty:invisible">{m}</div>;
+export const I = ({ m }) => <p aria-live="polite" className={cn(!m && "invisible")}>{m}</p>;
+export const J = ({ m }) => <div role="alert" aria-hidden="true">{m}</div>;
+export const K = ({ m, open }) => <div role="status" aria-hidden={!open}>{m}</div>;
+export const L = ({ m }) => <div role="status" hidden={false} aria-hidden={false}>{m}</div>;
+export const M = ({ m }) => <div aria-live="polite" aria-hidden="false" className="visible">{m}</div>;
+export const N = ({ m }) => <div role="status" hidden="false">{m}</div>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1289,10 +1301,10 @@ export const G = ({ m }) => <div role="note" className="empty:hidden overflow-hi
 		"packages/domain/src/x.tsx": code,
 	}).filter((hit) => hit.endsWith(" live-region-in-tree"));
 	assert.deepEqual(
-		reported,
-		["apps/web/src/features/x/Notice.tsx", "packages/ui/src/controls/x.tsx"].flatMap((path) =>
-			[1, 2, 3, 4].map((line) => `${path}:${line} live-region-in-tree`),
-		),
+		reported.sort(),
+		["apps/web/src/features/x/Notice.tsx", "packages/ui/src/controls/x.tsx"]
+			.flatMap((path) => [1, 2, 3, 4, 8, 9, 10, 11, 14].map((line) => `${path}:${line} live-region-in-tree`))
+			.sort(),
 	);
 });
 
@@ -1831,7 +1843,7 @@ export function gate(path: string, out: boolean) {
 	]);
 });
 
-test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper", () => {
+test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper, through a destructured kind or a renamed owner too", () => {
 	const source = `import type { RequestActor } from "@everyfield/domain/access";
 export function a(authority: RequestActor | null) {
 	const context = authority?.actor.context;
@@ -1867,6 +1879,58 @@ export function e(authority: RequestActor) {
 export function f(owner: { kind: string }, seat: { kind: string }) {
 	return owner.kind === "organization" && seat.kind !== "account";
 }
+export function g(authority: RequestActor) {
+	const { kind, owner } = authority.actor.context;
+	if (kind !== "seat") return null;
+	return owner.kind === "organization" ? owner : null;
+}
+export function h(authority: RequestActor) {
+	const context = authority.actor.context;
+	if (context.kind !== "seat") return null;
+	const { owner: home } = context;
+	return home.kind === "organization" ? home : null;
+}
+export function i(authority: RequestActor) {
+	const context = authority.actor.context;
+	const holder = context.kind === "seat" ? context.owner : null;
+	return holder?.kind === "organization";
+}
+export function j(authority: RequestActor) {
+	const { kind: seatKind, owner: { kind: ownerKind } } = authority.actor.context;
+	return seatKind === "seat" && ownerKind === "organization";
+}
+export function k(authority: RequestActor, kind: string) {
+	const { owner } = authority.actor.context;
+	return kind === "seat" && owner.kind === "plant";
+}
+export function l(authority: RequestActor) {
+	const context = authority.actor.context;
+	return context.kind === "seat" && late.kind === "organization";
+}
+const late = current.owner;
+export function m(authority: RequestActor, fallback: Owner) {
+	const context = authority.actor.context;
+	const either = fallback || context.owner;
+	return context.kind === "seat" && either.kind === "organization";
+}
+export function n(authority: RequestActor, fallback: Owner) {
+	const context = authority.actor.context;
+	const { owner: defaulted = fallback } = context;
+	return context.kind === "seat" && defaulted.kind === "organization";
+}
+export function o(authority: RequestActor) {
+	const context = authority.actor.context;
+	const aliasedKind = context.owner.kind;
+	return context.kind === "seat" && aliasedKind === "organization";
+}
+export function p(authority: RequestActor) {
+	const context = authority.actor.context;
+	const cast = context.owner as Owner;
+	const forced = context.owner!;
+	const castKind = context.owner.kind as string;
+	if (context.kind !== "seat") return null;
+	return [cast.kind === "organization", forced.kind === "organization", castKind === "organization"];
+}
 `;
 	assert.deepEqual(
 		lint({
@@ -1879,11 +1943,33 @@ export function f(owner: { kind: string }, seat: { kind: string }) {
 			"apps/web/src/features/x/server.ts:10 organization-seat",
 			"apps/web/src/features/x/server.ts:17 organization-seat",
 			"apps/web/src/features/x/server.ts:27 organization-seat",
+			"apps/web/src/features/x/server.ts:39 organization-seat",
 			"apps/web/src/features/x/server.ts:4 organization-seat",
+			"apps/web/src/features/x/server.ts:45 organization-seat",
+			"apps/web/src/features/x/server.ts:50 organization-seat",
+			"apps/web/src/features/x/server.ts:54 organization-seat",
+			"apps/web/src/features/x/server.ts:62 organization-seat",
+			"apps/web/src/features/x/server.ts:68 organization-seat",
+			"apps/web/src/features/x/server.ts:73 organization-seat",
+			"apps/web/src/features/x/server.ts:78 organization-seat",
+			"apps/web/src/features/x/server.ts:86 organization-seat",
+			"apps/web/src/features/x/server.ts:86 organization-seat",
+			"apps/web/src/features/x/server.ts:86 organization-seat",
 			"packages/domain/src/x/index.ts:10 organization-seat",
 			"packages/domain/src/x/index.ts:17 organization-seat",
 			"packages/domain/src/x/index.ts:27 organization-seat",
+			"packages/domain/src/x/index.ts:39 organization-seat",
 			"packages/domain/src/x/index.ts:4 organization-seat",
+			"packages/domain/src/x/index.ts:45 organization-seat",
+			"packages/domain/src/x/index.ts:50 organization-seat",
+			"packages/domain/src/x/index.ts:54 organization-seat",
+			"packages/domain/src/x/index.ts:62 organization-seat",
+			"packages/domain/src/x/index.ts:68 organization-seat",
+			"packages/domain/src/x/index.ts:73 organization-seat",
+			"packages/domain/src/x/index.ts:78 organization-seat",
+			"packages/domain/src/x/index.ts:86 organization-seat",
+			"packages/domain/src/x/index.ts:86 organization-seat",
+			"packages/domain/src/x/index.ts:86 organization-seat",
 		],
 	);
 	assert.deepEqual(lint({ "packages/domain/src/access/organization-seat.ts": "export const seat = 1;\n" }), [
@@ -2068,7 +2154,7 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 	);
 });
 
-test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
+test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased, destructured or re-exported, unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
 	const loose = `import { z } from "zod";
 import * as zz from "zod/v4";
 import { object as plain } from "zod";
@@ -2083,6 +2169,14 @@ export const f = z.strictObject({}).strip();
 export const g = z.strictObject({}).passthrough();
 export const h = z.strictObject({}).loose();
 export const i = z.strictObject({}).catchall(z.unknown());
+export const j = z.strictObject({}).strip.bind(z.strictObject({}))();
+const { object: o, strictObject } = z;
+export const k = o({});
+const aliased = z.object;
+export const l = aliased({});
+export { looseObject } from "zod";
+export const m = strictObject({ id: z.string() });
+const { looseObject: viaCast } = z as typeof z;
 `;
 	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" strict-contracts"));
 	assert.deepEqual(reported({ "packages/contracts/src/x/index.ts": loose, "packages/domain/src/x.ts": loose }), [
@@ -2090,6 +2184,11 @@ export const i = z.strictObject({}).catchall(z.unknown());
 		"packages/contracts/src/x/index.ts:12 strict-contracts",
 		"packages/contracts/src/x/index.ts:13 strict-contracts",
 		"packages/contracts/src/x/index.ts:14 strict-contracts",
+		"packages/contracts/src/x/index.ts:15 strict-contracts",
+		"packages/contracts/src/x/index.ts:16 strict-contracts",
+		"packages/contracts/src/x/index.ts:18 strict-contracts",
+		"packages/contracts/src/x/index.ts:20 strict-contracts",
+		"packages/contracts/src/x/index.ts:22 strict-contracts",
 		"packages/contracts/src/x/index.ts:4 strict-contracts",
 		"packages/contracts/src/x/index.ts:5 strict-contracts",
 		"packages/contracts/src/x/index.ts:5 strict-contracts",
