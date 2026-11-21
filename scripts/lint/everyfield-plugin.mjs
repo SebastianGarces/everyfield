@@ -1739,7 +1739,6 @@ export const HAND_WRITTEN_NOTICES = {
 	"apps/web/src/features/organizations/InviteDialog.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/organizations/data/DuplicatesScreen.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/organizations/parts.tsx": NOTICE_ADOPTION,
-	"apps/web/src/features/tasks/TaskSheet.tsx": NOTICE_ADOPTION,
 };
 
 const noticeLook = (value) =>
