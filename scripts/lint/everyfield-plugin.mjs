@@ -1732,6 +1732,7 @@ export const HAND_WRITTEN_NOTICES = {
 	"apps/web/src/features/communication/HistoryPanel.tsx": ERROR_CHIP,
 	"apps/web/src/features/communication/UnsubscribeScreen.tsx": NOTICE_ADOPTION,
 	"apps/web/src/features/evry/review/PeopleChanges.tsx": ERROR_CHIP,
+	"apps/web/src/features/evry/review/ReviewCard.tsx": ERROR_BAND,
 };
 
 const noticeLook = (value) =>
