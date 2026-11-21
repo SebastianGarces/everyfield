@@ -137,7 +137,7 @@
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {
-		* {
+		:not([data-product-root], [data-product-root] *) {
 			transition: none !important;
 			animation: none !important;
 		}
