@@ -203,7 +203,7 @@ export function relationshipCommands(
 			if (facts.pending) refuse("pending_invitation");
 			if (facts.address_pending) refuse("address_pending");
 			const id = randomUUID(),
-				expiry = expiryOf({ created_at: facts.now, resent_at: null }),
+				expiry = new Date(facts.now.getTime() + 30 * DAY).toISOString(),
 				proof = randomBytes(32).toString("base64url");
 			const description =
 				subject.kind === "account"
