@@ -64,7 +64,7 @@ export function WorkspaceDeletionDialog({
 		const result = await write.run(input, (requestKey) =>
 			request({ requestKey, expectedRevision: section.revision, input }),
 		);
-		if (result.ok) onRequested(result.value);
+		if (result.status === "ok") onRequested(result.value);
 	};
 
 	return (
@@ -144,9 +144,9 @@ export function AccountDeletionDialog({
 				const result = await write.run(input, (requestKey) =>
 					port.requestAccountDeletion({ requestKey, expectedRevision: section.revision, input }),
 				);
-				if (result.ok) return onRequested(result.value);
-				if (UNCERTAIN.has(result.refusal.code)) return onRequested(null);
-				throw new ConfirmRefused(`${result.refusal.message} Reference ${result.refusal.reference}.`);
+				if (result.status === "ok") return onRequested(result.value);
+				if (result.status === "lost" || UNCERTAIN.has(result.code)) return onRequested(null);
+				throw new ConfirmRefused(`${result.message} Reference ${result.reference}.`);
 			}}
 		/>
 	);
