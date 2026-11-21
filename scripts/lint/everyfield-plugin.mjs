@@ -1229,10 +1229,10 @@ const tickOnly = (node) =>
 	emptyResolve(node);
 
 export const PRODUCT_TIMERS = {
-	"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts": {
+	"apps/web/src/server/evry/http.ts": {
 		timer: "setInterval",
 		binding: "heartbeat",
-		within: "GET",
+		within: "conversationStreamGet",
 		why: "the Evry conversation stream writes an SSE comment every 15 seconds so proxies and the browser keep an idle stream open while a turn runs; the interval is the keep-alive itself and nothing else marks when a quiet connection needs one",
 	},
 };
