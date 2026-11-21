@@ -1714,24 +1714,75 @@ const webDatabaseImports = {
 	},
 };
 
-const noticeLook = (value) =>
-	value !== null && /(?:^|\s)bg-magenta-50(?:\s|$)/.test(value) && /(?:^|\s)text-magenta-600(?:\s|$)/.test(value);
+const classTokens = (value) => value.split(/\s+/).filter(Boolean);
+const errorNoticeLook = (value) => {
+	const tokens = classTokens(value);
+	return tokens.includes("bg-magenta-50") && tokens.includes("text-magenta-600");
+};
+const AMBER_TINT = /^bg-amber-(?:50|100)(?:\/\d+)?$/;
+const BOX_RADIUS = /^rounded(?:-[\w.[\]-]+)?$/;
+const PILL_RADIUS = /^rounded(?:-[a-z]{1,2})?-(?:full|pill)$/;
+const PADDING = /^p[xy]?-/;
+const CHIP_SIZE = /^(?:p|py)-(?:0|px|0\.5|1|1\.5)$|^(?:h|size)-(?:\d+(?:\.\d+)?|px|\[[^\]]+\])$/;
+const warningNoticeLook = (value) => {
+	const tokens = classTokens(value);
+	return (
+		tokens.some((t) => AMBER_TINT.test(t)) &&
+		tokens.some((t) => BOX_RADIUS.test(t)) &&
+		!tokens.some((t) => PILL_RADIUS.test(t)) &&
+		tokens.some((t) => PADDING.test(t)) &&
+		!tokens.some((t) => CHIP_SIZE.test(t))
+	);
+};
+const noticeLook = (value) => errorNoticeLook(value) || warningNoticeLook(value);
+const formGroup = (node) => {
+	for (let at = node.parent; at && at.type !== "JSXElement"; at = at.parent)
+		if (at.type === "JSXOpeningElement") return at.name.type === "JSXIdentifier" && at.name.name === "fieldset";
+	return false;
+};
+const templateText = (node) => node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ");
+const classParts = (node) =>
+	node.type === "Literal"
+		? typeof node.value === "string"
+			? [node.value]
+			: []
+		: node.type === "TemplateLiteral"
+			? [templateText(node)]
+			: node.type === "ConditionalExpression"
+				? [...classParts(node.consequent), ...classParts(node.alternate)]
+				: node.type === "LogicalExpression"
+					? [...classParts(node.left), ...classParts(node.right)]
+					: node.type === "ArrayExpression"
+						? node.elements.flatMap((element) => (element ? classParts(element) : []))
+						: [];
 
 const sharedNotice = {
 	meta: { type: "problem" },
 	create(context) {
 		if (!WEB_CODE.test(repoPath(context.filename))) return {};
 		const check = (node, value) => {
-			if (noticeLook(value))
+			if (value === null) return;
+			if (errorNoticeLook(value))
 				context.report({
 					node,
 					message:
 						"An error notice is Alert or InlineAlert from @everyfield/ui/controls (tone, title, actions, live region and focus included); a chip or band in that colour is TonePill, ToneTag or ToneBand from @everyfield/ui/display. Do not hand-write the magenta box.",
 				});
+			else if (warningNoticeLook(value) && !formGroup(node))
+				context.report({
+					node,
+					message:
+						'A warning notice is Alert or InlineAlert with tone="warning" from @everyfield/ui/controls (icon, title, actions, live region and focus included); a chip or band in amber is TonePill, ToneTag or ToneBand from @everyfield/ui/display. Do not hand-write the amber box.',
+				});
 		};
 		return {
 			Literal: (node) => check(node, text(node)),
-			TemplateLiteral: (node) => check(node, node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ")),
+			TemplateLiteral: (node) => check(node, templateText(node)),
+			CallExpression(node) {
+				const parts = node.arguments.flatMap(classParts);
+				if (parts.length < 2 || parts.some(noticeLook)) return;
+				check(node, parts.join(" "));
+			},
 		};
 	},
 };

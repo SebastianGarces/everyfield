@@ -1226,20 +1226,43 @@ import { pgTable } from "@everyfield/db/columns";
 	);
 });
 
-test("INV-lint: apps/web shows an error notice through the shared Alert, never a hand-written magenta box", () => {
+test("INV-lint: apps/web shows an error or warning notice through the shared Alert, never a hand-written magenta or amber box", () => {
 	const code = `export const A = () => <p className="rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">x</p>;
 export const B = (more) => \`flex bg-magenta-50 \${more} text-magenta-600\`;
 export const C = { error: "bg-magenta-50 text-magenta-600" };
 export const D = "bg-magenta-500 text-magenta-600";
 export const E = "bg-magenta-50 text-ink-2";
+export const F = () => <div role="alert" className="flex gap-3 rounded-md bg-amber-100 px-4 py-3 text-sm text-ink">x</div>;
+export const G = (on) => (on ? "m-0 rounded-card bg-amber-50 px-3 py-2.5 text-sm" : "text-ink");
+export const H = { amber: "bg-amber-100 text-amber-600" };
+export const I = () => <span className="rounded-md bg-amber-100 px-2.5 py-1 text-amber-600">x</span>;
+export const J = () => <span className="rounded-full bg-amber-100 px-3 py-3 text-amber-600">x</span>;
+export const K = () => <fieldset className="flex flex-col gap-1 rounded-md bg-amber-50 px-4 py-3">x</fieldset>;
+export const L = "data-[highlight=true]:*:bg-amber-50 rounded-md py-3";
+export const M = () => <p className="rounded-lg bg-amber-50 p-3 text-sm">x</p>;
+export const N = () => <p className="rounded bg-amber-100/80 px-4 py-4">x</p>;
+export const O = ({ c }) => <p className={cn("rounded-xl px-4 py-2", c && "text-sm", "bg-amber-50")}>x</p>;
+export const P = (on) => cn("rounded-md p-2", on ? "bg-amber-100" : "bg-surface-2");
+export const Q = (more) => cn(\`rounded-md px-3 \${more}\`, "bg-amber-50/60");
+export const R = () => <span className={cn("inline-flex h-6 rounded-md px-2", "bg-amber-100 text-amber-600")}>x</span>;
+export const S = () => <span className="rounded-pill bg-amber-100 px-2.5 py-0.5">x</span>;
+export const T = () => <span className="rounded-md bg-amber-50 p-1">x</span>;
+export const U = () => <i className="size-2 rounded bg-amber-100 p-2" />;
+export const V = { amber: "bg-amber-50 text-amber-600 border-b-amber-300 px-4" };
+export const W = () => cn(memo(() => "rounded-md p-3"), "bg-amber-50");
+export const X = () => <p className={cn("rounded-md px-3 py-2", "bg-magenta-50", "text-magenta-600")}>x</p>;
+export const Y = () => <div className="h-full rounded-md bg-amber-50 p-4">x</div>;
+export const Z = () => <fieldset className="rounded-md bg-magenta-50 px-4 py-3 text-magenta-600">x</fieldset>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
 		"packages/ui/src/controls/x.tsx": code,
 	}).filter((hit) => hit.endsWith(" shared-notice"));
 	assert.deepEqual(
-		reported,
-		[1, 2, 3].map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`),
+		reported.sort(),
+		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26]
+			.map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`)
+			.sort(),
 	);
 });
 
