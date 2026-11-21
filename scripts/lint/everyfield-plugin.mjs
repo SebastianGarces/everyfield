@@ -103,14 +103,7 @@ export const TABLE_WRITERS = {
 	job: {
 		owner: "packages/domain/src/jobs/queue.ts",
 		why: "the job queue owns the row shape, the dedupe key and the conflict rule; build the insert with queueJobsFor or enqueueJobs",
-		holders: [
-			"packages/domain/src/intelligence/assessment-job.ts",
-			"packages/domain/src/intelligence/assessment.ts",
-			"packages/domain/src/jobs/digest.ts",
-			"packages/domain/src/jobs/mail.ts",
-			"packages/evry/src/conversations/store.ts",
-			"packages/evry/src/proposals/store.ts",
-		],
+		holders: ["packages/evry/src/conversations/store.ts", "packages/evry/src/proposals/store.ts"],
 	},
 };
 const INSERT_INTO = /\b(?:insert|merge)\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
