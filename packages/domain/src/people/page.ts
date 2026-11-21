@@ -163,12 +163,13 @@ async function plantPage(
 			}
 		: null;
 	const page = (raw: unknown) => history(plant, records, raw);
+	const recordRows = row.records;
 	const recordParts =
-		parts.records && row.records
+		parts.records && recordRows
 			? {
-					assessments: part(() => assessmentsOf(p.id, page(row.records!.assessments))),
-					interviews: part(() => interviewsOf(p.id, page(row.records!.interviews))),
-					commitments: part(() => commitmentsOf(p.id, page(row.records!.commitments))),
+					assessments: part(() => assessmentsOf(p.id, page(recordRows.assessments))),
+					interviews: part(() => interviewsOf(p.id, page(recordRows.interviews))),
+					commitments: part(() => commitmentsOf(p.id, page(recordRows.commitments))),
 				}
 			: parts.records
 				? { assessments: null, interviews: null, commitments: null }
