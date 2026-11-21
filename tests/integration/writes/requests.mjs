@@ -592,7 +592,7 @@ try {
 				headers: { cookie: member.cookie },
 			})
 		).json();
-	assert.deepEqual(await duties({ page: 1 }), { status: "refused", code: "invalid_input" });
+	assert.deepEqual(await duties({ page: 1 }), { status: "refused", code: "invalid_input", route: true });
 	const personDuties = await duties({ personId, page: 1 });
 	assert.equal(personDuties.status, "ok", JSON.stringify(personDuties));
 	const tagKey = randomUUID();
