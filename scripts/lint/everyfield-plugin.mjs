@@ -1801,13 +1801,14 @@ const attributeStrings = (attribute) =>
 		: stringsIn(attribute.value);
 const HIDING_CLASSES = new Set(["hidden", "invisible"]);
 const hidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, "").split(":").at(-1));
-const switchedOff = (attribute) => {
+const OFF_VALUES = { hidden: [false], "aria-hidden": [false, "false"] };
+const switchedOff = (attribute, name) => {
 	const value = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
-	return value?.type === "Literal" && (value.value === false || value.value === "false");
+	return value?.type === "Literal" && OFF_VALUES[name].includes(value.value);
 };
 const setAttribute = (element, name) => {
 	const attribute = jsxAttribute(element, name);
-	return attribute && !switchedOff(attribute) ? attribute : null;
+	return attribute && !switchedOff(attribute, name) ? attribute : null;
 };
 
 const liveRegionInTree = {
@@ -3355,10 +3356,9 @@ export const ORGANIZATION_SEAT_CHECKS = {
 		"organizationSeatContext is the one narrowing every domain and web gate shares",
 };
 const SEAT_CODE = /^(apps\/web\/src|packages\/domain\/src)\//;
-const unchained = (node) => (node?.type === "ChainExpression" ? node.expression : node);
 const OWNER = { type: "Identifier", name: "owner" };
 const ownerRead = (node) => {
-	const at = unchained(node);
+	const at = unwrapped(node);
 	if (at?.type === "ConditionalExpression") return ownerRead(at.consequent) || ownerRead(at.alternate);
 	if (at?.type === "LogicalExpression") return ownerRead(at.left) || ownerRead(at.right);
 	return at?.type === "MemberExpression" && memberName(at) === "owner";
@@ -3378,17 +3378,17 @@ const seatNames = () => {
 		}
 	};
 	const declare = (node) => {
-		const init = unchained(node.init);
+		const init = unwrapped(node.init);
 		if (node.id.type === "ObjectPattern") bind(node.id, init);
 		if (node.id.type !== "Identifier") return;
 		if (ownerRead(init)) owners.add(node.id.name);
 		if (init?.type === "MemberExpression" && memberName(init) === "kind")
-			kinds.set(node.id.name, unchained(init.object));
+			kinds.set(node.id.name, unwrapped(init.object));
 	};
 	const kindOf = (node) => {
-		const at = unchained(node);
+		const at = unwrapped(node);
 		if (at?.type === "Identifier") return kinds.get(at.name) ?? null;
-		return at?.type === "MemberExpression" && memberName(at) === "kind" ? unchained(at.object) : null;
+		return at?.type === "MemberExpression" && memberName(at) === "kind" ? unwrapped(at.object) : null;
 	};
 	const namesOwner = (node) =>
 		node?.type === "Identifier" ? node.name === "owner" || owners.has(node.name) : memberName(node) === "owner";

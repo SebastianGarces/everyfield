@@ -1285,6 +1285,7 @@ export const J = ({ m }) => <div role="alert" aria-hidden="true">{m}</div>;
 export const K = ({ m, open }) => <div role="status" aria-hidden={!open}>{m}</div>;
 export const L = ({ m }) => <div role="status" hidden={false} aria-hidden={false}>{m}</div>;
 export const M = ({ m }) => <div aria-live="polite" aria-hidden="false" className="visible">{m}</div>;
+export const N = ({ m }) => <div role="status" hidden="false">{m}</div>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1294,7 +1295,7 @@ export const M = ({ m }) => <div aria-live="polite" aria-hidden="false" classNam
 	assert.deepEqual(
 		reported.sort(),
 		["apps/web/src/features/x/Notice.tsx", "packages/ui/src/controls/x.tsx"]
-			.flatMap((path) => [1, 2, 3, 4, 8, 9, 10, 11].map((line) => `${path}:${line} live-region-in-tree`))
+			.flatMap((path) => [1, 2, 3, 4, 8, 9, 10, 11, 14].map((line) => `${path}:${line} live-region-in-tree`))
 			.sort(),
 	);
 });
@@ -1894,6 +1895,34 @@ export function k(authority: RequestActor, kind: string) {
 	const { owner } = authority.actor.context;
 	return kind === "seat" && owner.kind === "plant";
 }
+export function l(authority: RequestActor) {
+	const context = authority.actor.context;
+	return context.kind === "seat" && late.kind === "organization";
+}
+const late = current.owner;
+export function m(authority: RequestActor, fallback: Owner) {
+	const context = authority.actor.context;
+	const either = fallback || context.owner;
+	return context.kind === "seat" && either.kind === "organization";
+}
+export function n(authority: RequestActor, fallback: Owner) {
+	const context = authority.actor.context;
+	const { owner: defaulted = fallback } = context;
+	return context.kind === "seat" && defaulted.kind === "organization";
+}
+export function o(authority: RequestActor) {
+	const context = authority.actor.context;
+	const aliasedKind = context.owner.kind;
+	return context.kind === "seat" && aliasedKind === "organization";
+}
+export function p(authority: RequestActor) {
+	const context = authority.actor.context;
+	const cast = context.owner as Owner;
+	const forced = context.owner!;
+	const castKind = context.owner.kind as string;
+	if (context.kind !== "seat") return null;
+	return [cast.kind === "organization", forced.kind === "organization", castKind === "organization"];
+}
 `;
 	assert.deepEqual(
 		lint({
@@ -1911,6 +1940,13 @@ export function k(authority: RequestActor, kind: string) {
 			"apps/web/src/features/x/server.ts:45 organization-seat",
 			"apps/web/src/features/x/server.ts:50 organization-seat",
 			"apps/web/src/features/x/server.ts:54 organization-seat",
+			"apps/web/src/features/x/server.ts:62 organization-seat",
+			"apps/web/src/features/x/server.ts:68 organization-seat",
+			"apps/web/src/features/x/server.ts:73 organization-seat",
+			"apps/web/src/features/x/server.ts:78 organization-seat",
+			"apps/web/src/features/x/server.ts:86 organization-seat",
+			"apps/web/src/features/x/server.ts:86 organization-seat",
+			"apps/web/src/features/x/server.ts:86 organization-seat",
 			"packages/domain/src/x/index.ts:10 organization-seat",
 			"packages/domain/src/x/index.ts:17 organization-seat",
 			"packages/domain/src/x/index.ts:27 organization-seat",
@@ -1919,6 +1955,13 @@ export function k(authority: RequestActor, kind: string) {
 			"packages/domain/src/x/index.ts:45 organization-seat",
 			"packages/domain/src/x/index.ts:50 organization-seat",
 			"packages/domain/src/x/index.ts:54 organization-seat",
+			"packages/domain/src/x/index.ts:62 organization-seat",
+			"packages/domain/src/x/index.ts:68 organization-seat",
+			"packages/domain/src/x/index.ts:73 organization-seat",
+			"packages/domain/src/x/index.ts:78 organization-seat",
+			"packages/domain/src/x/index.ts:86 organization-seat",
+			"packages/domain/src/x/index.ts:86 organization-seat",
+			"packages/domain/src/x/index.ts:86 organization-seat",
 		],
 	);
 	assert.deepEqual(lint({ "packages/domain/src/access/organization-seat.ts": "export const seat = 1;\n" }), [
@@ -2125,6 +2168,7 @@ const aliased = z.object;
 export const l = aliased({});
 export { looseObject } from "zod";
 export const m = strictObject({ id: z.string() });
+const { looseObject: viaCast } = z as typeof z;
 `;
 	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" strict-contracts"));
 	assert.deepEqual(reported({ "packages/contracts/src/x/index.ts": loose, "packages/domain/src/x.ts": loose }), [
@@ -2136,6 +2180,7 @@ export const m = strictObject({ id: z.string() });
 		"packages/contracts/src/x/index.ts:16 strict-contracts",
 		"packages/contracts/src/x/index.ts:18 strict-contracts",
 		"packages/contracts/src/x/index.ts:20 strict-contracts",
+		"packages/contracts/src/x/index.ts:22 strict-contracts",
 		"packages/contracts/src/x/index.ts:4 strict-contracts",
 		"packages/contracts/src/x/index.ts:5 strict-contracts",
 		"packages/contracts/src/x/index.ts:5 strict-contracts",
