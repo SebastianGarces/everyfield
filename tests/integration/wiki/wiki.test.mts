@@ -1,4 +1,4 @@
-import { fixture, refused } from "../../support/fixture.mts";
+import { fixture, ok, refused } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
@@ -14,10 +14,6 @@ import type { SQL } from "../../../packages/db/src/query.ts";
 import { sectionExcerpt } from "../../../packages/domain/src/wiki/excerpt.ts";
 import { assertCleanEnd, PHASE_ROWS, seedBody, sourceSection } from "./excerpt-checks.mjs";
 
-const ok = <T,>(result: { status: "ok"; value: T } | { status: "refused" }): T => {
-	if (result.status !== "ok") assert.fail(JSON.stringify(result));
-	return result.value;
-};
 type SessionId = ReturnType<typeof sessionId.parse>;
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 const database = await fixture({ prefix: "wp034", max: 6 });
