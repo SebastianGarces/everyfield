@@ -3260,12 +3260,26 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 			statuses.has("lost")
 		);
 	};
-	const inlineCopy = (type) =>
-		outcomeShaped(type)
-			? type
-			: type?.type === "TSTypeReference"
-				? (type.typeArguments?.params ?? []).map(inlineCopy).find(Boolean)
-				: undefined;
+	const childTypes = (type) =>
+		[
+			...(type.types ?? []),
+			...(type.elementTypes ?? []),
+			...(type.typeArguments?.params ?? []),
+			type.elementType,
+			type.typeAnnotation,
+		].filter(Boolean);
+	const copyIn = (type) => (outcomeShaped(type) ? type : type && childTypes(type).map(copyIn).find(Boolean));
+	const reportInline = (type) => {
+		const copy = copyIn(type);
+		if (copy)
+			push({
+				node: copy,
+				fn: "inline",
+				message: `This inline union copies the request boundary's ok / refused / lost reply shape. ${OUTCOME_MESSAGE}`,
+			});
+	};
+	const inline = [];
+	const typeOf = (node) => inline.push(node.typeAnnotation);
 	return {
 		ImportDeclaration(node) {
 			if (node.source.value !== OUTCOME_SOURCE) return;
@@ -3276,26 +3290,21 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 			aliases.set(node.id.name, node.typeAnnotation);
 			candidates.push(node);
 		},
-		TSTypeAnnotation(node) {
-			candidates.push(node);
+		TSTypeAnnotation: typeOf,
+		TSAsExpression: typeOf,
+		TSSatisfiesExpression: typeOf,
+		TSTypeAssertion: typeOf,
+		TSTypeParameter(node) {
+			if (node.default) inline.push(node.default);
 		},
 		"Program:exit"() {
+			inline.forEach(reportInline);
 			for (const node of candidates) {
-				if (node.type === "TSTypeAnnotation") {
-					const copy = inlineCopy(node.typeAnnotation);
-					if (copy)
-						push({
-							node: copy,
-							fn: "inline",
-							message: `This inline union copies the request boundary's ok / refused / lost reply shape. ${OUTCOME_MESSAGE}`,
-						});
-					continue;
-				}
 				const body = node.typeAnnotation;
 				const copied =
 					node.id.name === "Outcome" && node.typeParameters
 						? shared.get(referenceName(body)) !== "Outcome"
-						: outcomeShaped(body);
+						: copyIn(body);
 				if (copied)
 					push({
 						node: node.id,
