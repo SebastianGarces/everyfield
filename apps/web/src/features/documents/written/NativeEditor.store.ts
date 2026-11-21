@@ -266,24 +266,31 @@ export type MovedEditor = {
 	readonly titleFocused: boolean;
 };
 
-const moving = new Map<string, { store: StoreApi<NativeEditorState>; editor: Editor }>();
+type Kept = { store: StoreApi<NativeEditorState>; editor: Editor; titleFocused: boolean; last: MovedEditor | null };
+
+const moving = new Map<string, Kept>();
+
+const snapshot = (kept: Kept): MovedEditor => ({
+	store: kept.store,
+	body: kept.editor.getJSON(),
+	caret: kept.titleFocused ? null : kept.editor.state.selection.to,
+	titleFocused: kept.titleFocused,
+});
 
 export function keepForMove(id: string, store: StoreApi<NativeEditorState>, editor: Editor): void {
-	moving.set(id, { store, editor });
+	const kept: Kept = { store, editor, titleFocused: document.activeElement instanceof HTMLInputElement, last: null };
+	editor.on("destroy", () => {
+		kept.last = snapshot(kept);
+	});
+	moving.set(id, kept);
 }
 
 export function takeMoved(id: string | undefined): MovedEditor | null {
 	const kept = id === undefined ? undefined : moving.get(id);
 	if (!kept) return null;
-	if (kept.editor.isDestroyed) {
-		moving.delete(id!);
-		return null;
-	}
-	const titleFocused = document.activeElement instanceof HTMLInputElement;
-	return {
-		store: kept.store,
-		body: kept.editor.getJSON(),
-		caret: titleFocused ? null : kept.editor.state.selection.to,
-		titleFocused,
-	};
+	return kept.editor.isDestroyed ? kept.last : snapshot(kept);
+}
+
+export function forgetMoved(id: string): void {
+	moving.delete(id);
 }
