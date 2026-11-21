@@ -1291,11 +1291,9 @@
 			}
 		},
 		{
-			"files": ["src/features/documents/church/editor/tiptap/**"],
+			"files": ["src/features/documents/church/editor/tiptap/primitives/tooltip.tsx"],
 			"rules": {
-				"react/set-state-in-effect": "off",
-				"react/refs": "off",
-				"react/immutability": "off"
+				"react/refs": "off"
 			},
 			"plugins": ["react"]
 		},
