@@ -30,7 +30,7 @@ for (const [name, engine] of ENGINES) {
 		() =>
 			withPage(engine, async (page) => {
 				await signInAs(page, seed().landing.unfinished);
-				await page.waitForURL(at("/onboarding"), { timeout: 60_000 });
+				await page.waitForURL(at("/onboarding", "?step=journey"), { timeout: 60_000 });
 			}),
 	);
 
@@ -41,7 +41,7 @@ for (const [name, engine] of ENGINES) {
 			for (const back of ["/people", "/tasks", "/overview?setup=done", "/home"])
 				await withPage(engine, async (page) => {
 					await signInAs(page, seed().landing.unfinished, "/signin?returnTo=" + encodeURIComponent(back));
-					await page.waitForURL(at("/onboarding"), { timeout: 60_000 });
+					await page.waitForURL(at("/onboarding", "?step=journey"), { timeout: 60_000 });
 				});
 		},
 	);
@@ -49,7 +49,7 @@ for (const [name, engine] of ENGINES) {
 	test(`AC:TARGET-IDN-001 (${name}): a new account lands on /onboarding`, { timeout: 90_000 }, () =>
 		withPage(engine, async (page) => {
 			await signInAs(page, seed().landing.pending);
-			await page.waitForURL(at("/onboarding"), { timeout: 60_000 });
+			await page.waitForURL(at("/onboarding", "?step=church"), { timeout: 60_000 });
 		}),
 	);
 
@@ -103,7 +103,7 @@ for (const [name, engine] of ENGINES) {
 		() =>
 			withPage(engine, async (page) => {
 				await signInAs(page, seed().landing.pending);
-				await page.waitForURL(at("/onboarding"), { timeout: 60_000 });
+				await page.waitForURL(at("/onboarding", "?step=church"), { timeout: 60_000 });
 				await page.goto(BASE + "/signin");
 				const setup = page.getByRole("link", { name: "Set up your church" });
 				await setup.waitFor();
