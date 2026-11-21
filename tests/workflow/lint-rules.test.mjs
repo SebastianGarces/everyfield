@@ -1806,7 +1806,7 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 	);
 });
 
-test("INV-lint: only the job queue inserts job rows, and a listed holder that stops inserting is reported", () => {
+test("INV-lint: only the job queue inserts job rows, through SQL text, an interpolated or raw table, MERGE, a wrapped or returned table or a re-export, and a listed holder that stops inserting is reported", () => {
 	const insert = `import { sql } from "drizzle-orm";
 export const a = sql\`INSERT INTO job (tenant_id) SELECT 1\`;
 export const b = (db, t) => db.insert(t.job).values({});
@@ -1825,6 +1825,26 @@ export const c = sql\`INSERT INTO job_link (id) SELECT 1\`;
 			"packages/evry/src/x.ts:2 table-writers",
 			"packages/evry/src/x.ts:3 table-writers",
 		],
+	);
+	const forms = `import { sql } from "drizzle-orm";
+import * as tables from "@everyfield/db/tables";
+export const a = sql\`INSERT INTO \${tables.job} (tenant_id) SELECT 1\`;
+export const b = sql\`insert into public.\${sql.raw("job")} (tenant_id) SELECT 1\`;
+export const c = (db) => db.insert(tables.job as any).values({});
+export const d = (db) => db.insert(tables.job!).values({});
+const pick = () => tables.job;
+export const e = (db) => db.insert(pick()).values({});
+export const f = sql\`MERGE INTO job j USING x ON false WHEN NOT MATCHED THEN INSERT (tenant_id) VALUES (1)\`;
+export { job as jobTable } from "@everyfield/db/tables";
+export const g = sql\`SELECT id FROM \${tables.job} WHERE \${sql.raw("job")}.id IS NULL\`;
+export const h = (db) => db.insert(later()).values({});
+function later() {
+	return tables.job;
+}
+`;
+	assert.deepEqual(
+		reported({ "packages/domain/src/tasks/forms.ts": forms, "packages/domain/src/jobs/queue.ts": forms }),
+		[3, 4, 5, 6, 8, 9, 10, 12].map((line) => `packages/domain/src/tasks/forms.ts:${line} table-writers`).sort(),
 	);
 	for (const holder of TABLE_WRITERS.job.holders.slice(0, 1)) {
 		assert.deepEqual(reported({ [holder]: insert }), []);
