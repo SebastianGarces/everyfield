@@ -294,7 +294,7 @@ function PublicIssue({ item, setup }: { item: TriageDetail; setup: PublicationSe
 				) : null}
 				<KeyValue size="sm" k="Team email" value={<Tag tone={mail.tone}>{mail.text}</Tag>} />
 			</KeyValueList>
-			{held ? <p className="m-0 rounded-md bg-magenta-100 px-3 py-2.5 text-sm text-ink">{HELD_REASON[held]}</p> : null}
+			{held ? <Alert>{HELD_REASON[held]}</Alert> : null}
 			{item.operatorMail === "failed" || item.operatorMail === "unknown" ? (
 				<Alert tone="warning">
 					{item.operatorMail === "failed"
