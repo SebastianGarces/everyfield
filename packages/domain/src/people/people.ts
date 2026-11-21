@@ -28,6 +28,8 @@ import {
 	projectWith,
 	reply,
 	replyWithoutSavepoint,
+	known,
+	only,
 } from "./core.ts";
 import type { Context, Evidence, WriteContext, Tx, Person } from "./core.ts";
 import { columnStages, isCommitted, openDutiesOf } from "./pipeline.ts";
@@ -41,7 +43,7 @@ export function appendPerson(
 	writes: SQLWrapper[],
 	linkedAccountId: string | null = null,
 ) {
-	return appendPeople(tx, context, [newPerson(context, raw, linkedAccountId)], writes)[0]!;
+	return only(appendPeople(tx, context, [newPerson(context, raw, linkedAccountId)], writes), "The appended person");
 }
 export function appendPeople(
 	tx: Tx,
@@ -111,7 +113,7 @@ export function freshPosition(id: string, at = new Date()): string {
 		.toString()
 		.padStart(15, "0")}`;
 }
-export const sameColumn = (a: string, b: string) => a === b || (isCommitted(a) && isCommitted(b));
+export const sameColumn = (a: string | null, b: string | null) => a === b || (isCommitted(a) && isCommitted(b));
 export function columnsChanged(plantId: string, stages: readonly (string | null)[]): SQLWrapper {
 	const columns = [...new Set(stages.filter((s) => s !== null).map((s) => (isCommitted(s) ? "core_group" : s)))];
 	return sql`INSERT INTO people_column(plant_id, column_name, revision) SELECT ${plantId}::uuid, c, 2 FROM unnest(${sql.param(columns)}::text[]) c ON CONFLICT (plant_id, column_name) DO UPDATE SET revision = people_column.revision + 1`;
@@ -127,7 +129,9 @@ async function output(
 	evidence?: Evidence[],
 ) {
 	return {
-		person: evidence ? projectWith(ctx, [p], evidence)[0]! : await project(tx, ctx, p, lockedWrite),
+		person: evidence
+			? only(projectWith(ctx, [p], evidence), `Projected person ${p.id}`)
+			: await project(tx, ctx, p, lockedWrite),
 		receiptId: id,
 		outcome,
 		needsOwner,
@@ -175,7 +179,7 @@ async function handoff(
 
 	const needsOwner: string[] = [];
 	const changes = duties.map((duty) => {
-		const choice = byId.get(recordId.parse(duty.id))!;
+		const choice = known(byId, recordId.parse(duty.id), "Duty choice");
 		if (choice.expectedRevision !== duty.revision) deny("conflict");
 		if (choice.kind !== "assign") {
 			needsOwner.push(duty.id);
@@ -200,7 +204,8 @@ async function handoff(
 				SELECT 1`,
 		);
 		const moved = changes.map(({ id, account }) => {
-			const row = duties.find((duty) => duty.id === id)!;
+			const row = duties.find((duty) => duty.id === id);
+			if (!row) throw Error(`Moved duty ${id} was not read`);
 			const held = row.assignees.some((a) => a.accountId === source);
 			const kept = held ? row.assignees.filter((a) => a.accountId !== source && a.accountId !== account) : [];
 			return reminderChange(ctx.selected.id, row, {
@@ -269,7 +274,7 @@ export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 					const leaving = isCommitted(before.stage) && !isCommitted(input.input.stage);
 					const needsOwner = !noop && leaving ? await handoff(tx, ctx, before, input.input.handoffs, reminders) : [];
 					if (!leaving && input.input.handoffs.length) deny("invalid_input");
-					const position = sameColumn(before.stage!, input.input.stage)
+					const position = sameColumn(before.stage, input.input.stage)
 						? before.pipeline_position
 						: freshPosition(before.id);
 					if (!noop)
@@ -283,7 +288,7 @@ export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 								})
 								.where(eq(tables.person.id, before.id)),
 						);
-					if (!noop && !sameColumn(before.stage!, input.input.stage))
+					if (!noop && !sameColumn(before.stage, input.input.stage))
 						audit.writes.push(columnsChanged(ctx.selected.id, [before.stage, input.input.stage]));
 					const after = personRow.parse({
 						...before,
@@ -503,7 +508,7 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 				if (meetingId) {
 					const r = z.array(z.uuid()).parse(row.participations);
 					if (r.length !== 1) deny("unavailable");
-					participation = r[0]!;
+					participation = only(r, "The meeting participation");
 				}
 				if (!("body" in input.input)) deny("invalid_input");
 				audit.writes.push(
@@ -647,7 +652,7 @@ async function pipelineOrder(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.
 			);
 			if (BigInt(found.revision) - 1n !== BigInt(input.expectedRevision)) deny("conflict");
 			const before = await person(tx, ctx, moving, true);
-			if (before.state !== "live" || !stages.includes(before.stage!)) deny("conflict");
+			if (before.state !== "live" || before.stage === null || !stages.includes(before.stage)) deny("conflict");
 			if (!found.found) deny("conflict");
 			const after = personRow.parse({
 				...before,
@@ -710,12 +715,12 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 					SELECT (SELECT coalesce(json_agg(e.id),'[]') FROM exact e) AS exact,
 					${looks ? sql`(SELECT coalesce(json_agg(f.id ORDER BY f.id),'[]') FROM found f)` : sql`'[]'::json`} AS found
 					${reviewed ? sql`, s.*` : sql``} FROM (SELECT 1) seed ${reviewed ? sql`LEFT JOIN subject s ON true` : sql``}`);
-				row = r.rows[0]!;
+				row = only(r.rows, "The account person row");
 				const exact = z.array(z.uuid()).parse(row.exact);
 				if (exact.length)
 					return c.accountPersonResolution.parse({
 						status: "linked",
-						personId: exact[0]!,
+						personId: exact[0],
 					});
 				candidates = z.array(z.uuid()).parse(row.found);
 			}
