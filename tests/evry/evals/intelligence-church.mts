@@ -59,8 +59,11 @@ async function seed(ch: Church) {
 	const job = async () =>
 		jobAt(
 			String(
-				(await ch.one(sql`SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS t`))
-					.t,
+				(
+					await ch.one(
+						sql`SELECT to_char((clock_timestamp()+interval '1 millisecond') AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS t`,
+					)
+				).t,
 			),
 		);
 	const resolve = async (session: string) => (await RequestActor.resolve(db, session as never)) as RequestActor;
