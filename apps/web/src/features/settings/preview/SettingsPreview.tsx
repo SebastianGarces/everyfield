@@ -11,6 +11,8 @@ import type { DeletionStatus, SectionKey } from "../port";
 import { SharingSection } from "../sections/SharingSection";
 import { LazySettingsDialog } from "../ProductSettings";
 import { SettingsProvider } from "../store";
+import { createSettingsStore } from "../settings.store";
+import { useLocalStore } from "../../../components/store.ts";
 import {
 	createFixturePort,
 	parsePersona,
@@ -70,6 +72,7 @@ function PreviewSession({
 	const section = parseSectionKey(params.section?.[0]);
 	const [replies] = useState(() => createReplies(held));
 	const [fixture] = useState(() => createFixturePort(persona, { kit, wiki, faults: faults.map(parseFault), replies }));
+	const store = useLocalStore(() => createSettingsStore({ port: fixture.port, seed: null }));
 	const query = (extra = "") =>
 		`?as=${persona}${held ? "&hold=1" : ""}${kit !== "none" ? `&kit=${kit}` : ""}${wiki !== "unordered" ? `&wiki=${wiki}` : ""}${extra}`;
 	const hrefFor = (key: SectionKey) => `${BASE}/${key}${query()}`;
@@ -85,7 +88,7 @@ function PreviewSession({
 
 	return (
 		<ShellPreview role={persona === "member" ? "member" : "owner"}>
-			<SettingsProvider port={fixture.port} viewer={viewer}>
+			<SettingsProvider store={store} viewer={viewer}>
 				<PreviewPage persona={persona} query={query} fixture={fixture.controls} replies={replies} />
 				<LazySettingsDialog
 					section={section}

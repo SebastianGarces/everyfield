@@ -35,7 +35,7 @@ import { sectionAt, type DialogSection } from "./model";
 import type { DeletionStatus, SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
 import type { SettingsDialogProps } from "./SettingsDialog";
 import { createSettingsStore, type SettingsStore } from "./settings.store";
-import { SettingsStoreProvider } from "./store";
+import { SettingsProvider } from "./store";
 
 const PORT: SettingsPort = {
 	getSection,
@@ -190,7 +190,7 @@ export function ProductSettingsDialog({ seed }: { seed: SectionSeed | null }) {
 	if (!parts) return null;
 	const { viewer, section, navigate, openPage, storeFor } = parts;
 	return (
-		<SettingsStoreProvider key={`${viewer.accountId}-${viewer.context}`} store={storeFor(seed)} viewer={viewer}>
+		<SettingsProvider key={`${viewer.accountId}-${viewer.context}`} store={storeFor(seed)} viewer={viewer}>
 			<LazySettingsDialog
 				section={section}
 				onNavigate={navigate}
@@ -199,7 +199,7 @@ export function ProductSettingsDialog({ seed }: { seed: SectionSeed | null }) {
 				headerActions={<SettingsGuide />}
 				onDeletionRequested={(status) => loadPage(deletionPage(status))}
 			/>
-		</SettingsStoreProvider>
+		</SettingsProvider>
 	);
 }
 

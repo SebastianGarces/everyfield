@@ -3,13 +3,12 @@
 import type { Loadable } from "@everyfield/ui/display";
 import { createContext, use, type ReactNode } from "react";
 import { useRead } from "../../components/read.tsx";
-import { storeContext, useLocalStore, useShallow } from "../../components/store.ts";
+import { storeContext, useShallow } from "../../components/store.ts";
 import { isDirty, isSaving, visible } from "./drafts";
 import { errorReference, errorText } from "./model";
 import type { Refusal } from "./save";
-import type { GetSectionRequest, SectionKey, SectionResult, SectionSeed, SettingsPort, SettingsViewer } from "./port";
+import type { GetSectionRequest, SectionKey, SectionResult, SettingsPort, SettingsViewer } from "./port";
 import {
-	createSettingsStore,
 	withAccountRevision,
 	selectDirtyKeys,
 	type SaveOutcome,
@@ -23,25 +22,6 @@ const Settings = storeContext<SettingsState>("Settings");
 const ViewerContext = createContext<SettingsViewer | null>(null);
 
 export function SettingsProvider({
-	port,
-	viewer,
-	seed = null,
-	children,
-}: {
-	port: SettingsPort;
-	viewer: SettingsViewer;
-	seed?: SectionSeed | null;
-	children: ReactNode;
-}) {
-	const store = useLocalStore(() => createSettingsStore({ port, seed }));
-	return (
-		<SettingsStoreProvider store={store} viewer={viewer}>
-			{children}
-		</SettingsStoreProvider>
-	);
-}
-
-export function SettingsStoreProvider({
 	store,
 	viewer,
 	children,
