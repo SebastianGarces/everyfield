@@ -155,6 +155,12 @@ async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor:
 	};
 }
 
+const movedChurch = (actor: EvryActor, id: string): SQL =>
+	actor.seatId
+		? sql`(EXISTS(SELECT FROM conversation m WHERE m.id=${id}::uuid AND m.account_id=${actor.accountId}::uuid
+				AND m.tenant_id<>${actor.owner.id}::uuid AND m.context_kind<>'account') AND ${currentAuthority(actor)})`
+		: sql`false`;
+
 const submitted = z.object({ turnId: z.uuid(), sequence: z.coerce.number() });
 export type Submitted = z.infer<typeof submitted> & { replayed: boolean };
 
@@ -199,10 +205,12 @@ export async function submitTurn(
 		)
 		SELECT (SELECT jsonb_build_object('turnId',${turnId}::uuid,'sequence',last_sequence) FROM conv) AS submitted,
 			(SELECT to_jsonb(known) FROM known) AS known,
-			(SELECT ${liveRun("c")} FROM conversation c WHERE c.id=${id}::uuid AND ${owned(actor, "c")}) AS active`);
-	const row = r.rows[0] as { submitted: unknown; known: unknown; active: boolean | null };
+			(SELECT ${liveRun("c")} FROM conversation c WHERE c.id=${id}::uuid AND ${owned(actor, "c")}) AS active,
+			${movedChurch(actor, id)} AS moved`);
+	const row = r.rows[0] as { submitted: unknown; known: unknown; active: boolean | null; moved: boolean };
 	if (row.submitted) return { ...submitted.parse(row.submitted), replayed: false };
 	if (row.known) return { ...submitted.parse(row.known), replayed: true };
+	if (row.moved) throw new EvryRefusal("church_changed");
 	if (row.active === null) throw new EvryRefusal("not_found");
 	throw new EvryRefusal(row.active ? "run_active" : "access_denied");
 }

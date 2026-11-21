@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 export type EvryErrorCode =
 	| "not_found"
 	| "access_denied"
+	| "church_changed"
 	| "invalid_input"
 	| "run_active"
 	| "model_unavailable"
@@ -25,6 +26,7 @@ export class EvryRefusal extends Error {
 const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	not_found: "never",
 	access_denied: "never",
+	church_changed: "never",
 	invalid_input: "never",
 	run_active: "same_request",
 	model_unavailable: "new_turn",
