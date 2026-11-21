@@ -232,8 +232,12 @@ async function approve(who: EvryActor, proposal: Proposal) {
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	return readReview(db, who, proposal.id);
 }
-const commitmentCard = (reviews: (Proposal | null | undefined)[]) =>
-	reviews.findLast((r) => r?.operation === "people.createCommitment")!;
+const commitmentCard = (turn: { results: Record<string, any>[]; reviews: (Proposal | null | undefined)[] }) => {
+	const id = turn.results.findLast((r) => r.operation === "evry.prepareProposal")?.result.proposalId;
+	const card = turn.reviews.find((r) => r?.id === id && r.operation === "people.createCommitment");
+	assert.ok(card, "this turn prepared a commitment review");
+	return card;
+};
 const cardsOf = async (personId: string) =>
 	(
 		await admin.execute(
@@ -251,7 +255,7 @@ test("INV-evry-commitment-document: an attached signed PDF rides the commitment 
 	const here = await conversation(owner);
 	const card = await attachBytes(owner, here, "alex-signed-card.pdf", pdfBytes);
 	const said = await say(owner, here, "Alex Rivera signed the core group commitment on Oct 4", [card]);
-	const review = commitmentCard(said.reviews);
+	const review = commitmentCard(said);
 	assert.equal(review.status, "pending");
 	assert.equal(review.review.refusal, undefined);
 	const changes = changesOf(review);
@@ -304,7 +308,7 @@ test("INV-evry-commitment-document: a renamed non-PDF, a replaced file and a doc
 	const fake = await conversation(owner);
 	const renamed = await attachBytes(owner, fake, "card.pdf", Buffer.from(LAUNCH_FORM));
 	const unreadable = commitmentCard(
-		(await say(owner, fake, "Alex Chen signed the core group commitment on Oct 4", [renamed])).reviews,
+		await say(owner, fake, "Alex Chen signed the core group commitment on Oct 4", [renamed]),
 	);
 	assert.equal(unreadable.review.refusal, UNREADABLE_DOCUMENT);
 	await assert.rejects(
@@ -314,11 +318,9 @@ test("INV-evry-commitment-document: a renamed non-PDF, a replaced file and a doc
 	const twice = await conversation(owner);
 	const shared = await attachBytes(owner, twice, "shared-card.pdf", pdfBytes);
 	const first = commitmentCard(
-		(await say(owner, twice, "Alex Chen signed the core group commitment on Oct 4", [shared])).reviews,
+		await say(owner, twice, "Alex Chen signed the core group commitment on Oct 4", [shared]),
 	);
-	const second = commitmentCard(
-		(await say(owner, twice, "Casey Reed signed the launch team commitment on Oct 5")).reviews,
-	);
+	const second = commitmentCard(await say(owner, twice, "Casey Reed signed the launch team commitment on Oct 5"));
 	assert.equal(changesOf(second).document, "shared-card.pdf");
 	assert.equal((await approve(owner, first)).outcome, "completed");
 	const again = await approve(owner, second);
@@ -328,7 +330,7 @@ test("INV-evry-commitment-document: a renamed non-PDF, a replaced file and a doc
 	const swapped = await conversation(owner);
 	const old = await attachBytes(owner, swapped, "casey-card.pdf", pdfBytes);
 	const stale = commitmentCard(
-		(await say(owner, swapped, "Casey Reed signed the core group commitment on Oct 4", [old])).reviews,
+		await say(owner, swapped, "Casey Reed signed the core group commitment on Oct 4", [old]),
 	);
 	const newer = await attachBytes(owner, swapped, "casey-card.pdf", pdfBytes);
 	await say(owner, swapped, "here is the right scan", [newer]);
@@ -338,23 +340,33 @@ test("INV-evry-commitment-document: a renamed non-PDF, a replaced file and a doc
 	assert.equal(await referenced(old.id), false);
 });
 
-test("INV-evry-commitment-document: a staged PDF that expires before approval records nothing", async () => {
+test("INV-evry-commitment-document: a staged PDF past its 24 hours records nothing, whether it lapsed before the review or was cleaned up before approval", async () => {
 	const owner = await actor("owner");
 	const here = await conversation(owner);
-	const id = randomUUID();
-	const key = `private/${plant}/${id}`;
-	files.objects.set(key, Buffer.from(pdfBytes));
-	await admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
-		VALUES(${id}::uuid,${plant}::uuid,'commitment',${key},'application/pdf',${pdfBytes.length},'pending',${`evry-attachment/${here}/${id}`},0,clock_timestamp()+interval '4 seconds')`);
-	const review = commitmentCard(
-		(await say(owner, here, "Casey Reed signed the core group commitment on Oct 6", [{ id, name: "short-lived.pdf" }]))
-			.reviews,
-	);
-	assert.equal(changesOf(review).document, "short-lived.pdf");
-	await admin.execute(
-		sql`SELECT pg_sleep(greatest(0,extract(epoch FROM (SELECT expires_at FROM file_object WHERE id=${id}::uuid)-clock_timestamp())+0.1))`,
-	);
-	const lapsed = await approve(owner, review);
-	assert.deepEqual([lapsed.outcome, lapsed.receipt?.code], ["refused", "attachment_gone"]);
+	const stage = async (name: string, expires: string, at: string) => {
+		const id = randomUUID();
+		const key = `private/${plant}/${id}`;
+		files.objects.set(key, Buffer.from(pdfBytes));
+		await admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
+			VALUES(${id}::uuid,${plant}::uuid,'commitment',${key},'application/pdf',${pdfBytes.length},'pending',${`evry-attachment/${here}/${id}`},0,clock_timestamp()+${expires}::interval)`);
+		await admin.execute(sql`WITH c AS (UPDATE conversation SET last_sequence=last_sequence+1 WHERE id=${here}::uuid RETURNING id,last_sequence)
+			INSERT INTO conversation_event(conversation_id,sequence,kind,body,created_at)
+			SELECT id,last_sequence,'user_message',${JSON.stringify({ text: "Here is the card", references: [], attachments: [{ id, name }] })}::jsonb,
+				clock_timestamp()-${at}::interval FROM c`);
+		return { id, key };
+	};
+	await stage("lapsed-card.pdf", "-1 second", "24 hours");
+	const lapsed = commitmentCard(await say(owner, here, "Casey Reed signed the core group commitment on Oct 6"));
+	assert.equal(changesOf(lapsed).document, "lapsed-card.pdf");
+	assert.match(lapsed.review.refusal ?? "", /no longer available: attached files last 24 hours/);
+
+	const later = await stage("cleaned-card.pdf", "1 hour", "23 hours");
+	const review = commitmentCard(await say(owner, here, "Casey Reed signed the core group commitment on Oct 6"));
+	assert.deepEqual([changesOf(review).document, review.review.refusal], ["cleaned-card.pdf", undefined]);
+	await admin.execute(sql`INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
+		VALUES(${plant}::uuid,'object_cleanup',${later.id}::uuid,${"evry-attachment/" + later.id},'ready',clock_timestamp()-interval '1 second',0,4,0)`);
+	assert.equal(await runDueObjectCleanup(db, files.storage, 10), 1);
+	const gone = await approve(owner, review);
+	assert.deepEqual([gone.outcome, gone.receipt?.code], ["refused", "attachment_gone"]);
 	assert.deepEqual(await cardsOf(people.casey), []);
 });
