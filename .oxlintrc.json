@@ -181,7 +181,8 @@
 		{
 			"files": ["packages/domain/src/**"],
 			"rules": {
-				"everyfield/domain-refusals": "error"
+				"everyfield/domain-refusals": "error",
+				"everyfield/organization-seat": "error"
 			}
 		},
 		{
