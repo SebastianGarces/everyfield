@@ -95,7 +95,7 @@ const privateCareScope = {
 	},
 };
 
-export const TABLE_WRITERS = {
+const TABLE_WRITERS = {
 	phase_transition: {
 		owner: "packages/domain/src/phases/",
 		why: "the phases domain records every phase transition, including the one initial declaration a plant may make",
@@ -114,12 +114,9 @@ const tableWriters = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
-		const held = Object.keys(TABLE_WRITERS).filter((table) => TABLE_WRITERS[table].holders?.includes(path));
-		const written = new Set();
 		const report = (node, table) => {
 			const { owner, why } = TABLE_WRITERS[table];
-			written.add(table);
-			if (!path.startsWith(owner) && !held.includes(table))
+			if (!path.startsWith(owner))
 				context.report({
 					node,
 					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here. ${UNSEEN}`,
@@ -184,17 +181,11 @@ const tableWriters = {
 			CallExpression: (node) => {
 				if (memberName(unwrapped(node.callee)) === "insert") pending.push([node.arguments[0], node]);
 			},
-			"Program:exit"(node) {
+			"Program:exit"() {
 				for (const [target, at] of pending) {
 					const table = tableOf(target);
 					if (table) report(at, table);
 				}
-				for (const table of held)
-					if (!written.has(table))
-						context.report({
-							node,
-							message: `${path} no longer inserts into ${table}: delete its holders entry under TABLE_WRITERS.${table} in scripts/lint/everyfield-plugin.mjs.`,
-						});
 			},
 		};
 	},
