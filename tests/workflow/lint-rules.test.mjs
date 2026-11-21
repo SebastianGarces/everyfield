@@ -2055,6 +2055,7 @@ type NoRefusal = { status: "ok"; value: number } | { status: "denied" | "lost" }
 type Polled = { status: "ok"; receipt: number } | { status: "refused" } | { status: "lost" };
 type Kind = { kind: "ok"; value: number } | { kind: "refused" } | { kind: "lost" };
 type Loose = { status: "ok" | "refused" | "lost"; value: number };
+type Swapped = { status: "ok"; receipt: number } | { status: "refused"; value: number } | { status: "lost" };
 `;
 	assert.deepEqual(
 		lint({ "apps/web/src/features/x/model.ts": source, "packages/domain/src/m.ts": source }).filter((hit) =>
