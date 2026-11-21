@@ -201,6 +201,7 @@ flowchart LR
   rail -- "Notifications" --> f12s0
   f16s0 --> f12s0
   links -.-> f12s1
+  rail -- "Set up your church" --> f13s0
   f16s0 --> f13s0
   links -.-> f13s0
   f13s0 --> f13s1
