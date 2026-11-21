@@ -478,10 +478,7 @@ export function InvitationChanges({ review }: { review: Review }) {
 				<Row label="Subject">
 					<New>{text(find(review, "subject")?.after)}</New>
 				</Row>
-				<People
-					label="Will get it"
-					names={listOf<{ name: string }>(find(review, "recipients")?.after).map((r) => ({ name: r.name }))}
-				/>
+				<People label="Will get it" names={listOf<{ name: string }>(find(review, "recipients")?.after)} />
 				<People
 					label="Left out"
 					names={leftOutNames(listOf<{ name: string; reason: string }>(find(review, "leftOut")?.after))}

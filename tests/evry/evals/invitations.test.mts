@@ -259,10 +259,12 @@ const CHECKS: Record<
 			assert.deepEqual(sent.flatMap((x) => x.to).sort(), ["luis.garcia@example.test", "maria.garcia@example.test"]);
 			const card = await readReview(db, await actorOf("owner"), p.id);
 			assert.equal(card.receipt?.meetingId, s.meeting);
-			assert.deepEqual(
-				[card.receipt?.report?.confirmation, card.receipt?.report?.accepted, card.receipt?.report?.leftOut],
-				["confirmed", 2, 1],
-			);
+			const report = card.receipt?.report;
+			assert.deepEqual(report?.kind === "send" ? [report.confirmation, report.accepted, report.leftOut] : report, [
+				"confirmed",
+				2,
+				1,
+			]);
 		},
 	},
 	"INV-03": {

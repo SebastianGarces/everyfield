@@ -64,11 +64,6 @@ const planInput = z.strictObject({
 type Plan = z.infer<typeof planInput>;
 const reuseInput = z.strictObject({
 	meetingId: id.describe("This time's meeting from meetings.list"),
-	recipeId: id
-		.optional()
-		.describe(
-			"A completed invitation review; leave it out for the last one approved for an earlier meeting of this kind",
-		),
 });
 
 const savedPlan = z.object({
@@ -185,12 +180,7 @@ async function review(
 	const found = await meetingFacts(actor, plan, context);
 	if (!found) return null;
 	const { facts } = found;
-	const wanted = {
-		groups: plan.audience.groups,
-		householdIds: plan.audience.householdIds,
-		personIds: plan.audience.personIds,
-	};
-	const resolved = await resolve(context.db, plant, wanted);
+	const resolved = await resolve(context.db, plant, plan.audience);
 	const mail = await audienceFacts(context, plant, resolved.value);
 	if (!mail) return null;
 	const [raw] = (
@@ -235,7 +225,7 @@ async function review(
 	};
 	const args: Saved = {
 		meeting: found.saved,
-		audience: wanted,
+		audience: plan.audience,
 		custom,
 		guestIds: r.guests.map((g) => g.id),
 		newGuestIds: r.guests.filter((g) => !facts.on.has(g.id)).map((g) => g.id),
@@ -360,20 +350,12 @@ export const reuseRecipe: ReviewedWrite<z.infer<typeof reuseInput>> = {
 				JOIN meeting t ON t.id=${input.meetingId}::uuid AND t.plant_id=p.tenant_id
 			WHERE p.tenant_id=${actor.owner.id}::uuid AND p.account_id=${actor.accountId}::uuid AND p.outcome='completed'
 				AND p.operation IN ('evry.prepareMeetingInvitation','evry.reuseRecipe')
-				AND CASE WHEN ${input.recipeId ?? null}::uuid IS NULL THEN old.id<>t.id AND old.type=t.type AND old.starts_at<t.starts_at
-					ELSE p.id=${input.recipeId ?? null}::uuid END
+				AND old.id<>t.id AND old.type=t.type AND old.starts_at<t.starts_at
 			ORDER BY old.starts_at DESC, p.approved_at DESC, p.id LIMIT 1`);
 		if (!r.rows.length) return null;
 		const row = recipeRow.parse(r.rows[0]);
 		const old = savedPlan.pick({ audience: true, custom: true }).parse(row.input);
-		const plan: Plan = {
-			meetingId: input.meetingId,
-			audience: {
-				groups: old.audience.groups as Audience["groups"],
-				householdIds: old.audience.householdIds,
-				personIds: old.audience.personIds,
-			},
-		};
+		const plan: Plan = { meetingId: input.meetingId, audience: old.audience as Audience };
 		return review(actor, plan, context, { id: row.id, approvedAt: row.approved, title: row.title }, old.custom);
 	},
 };
