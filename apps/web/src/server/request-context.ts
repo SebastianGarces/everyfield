@@ -95,9 +95,9 @@ export async function viewerActor(): Promise<RequestActor | null> {
 	return (await getViewer()).authority;
 }
 
-export async function organizationSeat(): Promise<OrganizationSeat | null> {
-	return organizationSeatOf(await viewerActor());
-}
+export const organizationSeat = cache(async (): Promise<OrganizationSeat | null> =>
+	organizationSeatOf(await viewerActor()),
+);
 
 export async function plantSeat(): Promise<PlantSeat | null> {
 	return seatOf(await getViewer());
