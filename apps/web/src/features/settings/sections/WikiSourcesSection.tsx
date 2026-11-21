@@ -136,7 +136,7 @@ function OrderEditor({ view }: { view: WikiOrderView }) {
 		<>
 			<SectionBody>
 				<div ref={body} className="mt-4 flex flex-col gap-4">
-					<div aria-live="polite" className="empty:hidden">
+					<div aria-live="polite" className="empty:sr-only">
 						{saved && !dirty ? (
 							<p className="flex flex-wrap items-center gap-2.5 text-sm text-text-2">
 								<StatusBadge status="positive" size="sm" fill="soft">

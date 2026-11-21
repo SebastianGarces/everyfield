@@ -365,7 +365,7 @@ export function WikiEditor({
 					</Button>
 				</div>
 				<div className="sticky bottom-0 z-[2] -mx-6 -mb-8 flex flex-col gap-3 rounded-b-card border-t border-line bg-surface px-6 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] max-app-sm:-mx-4 max-app-sm:px-4 sm:-mx-11 sm:px-11">
-					<div role="alert" className="empty:hidden">
+					<div role="alert" className="empty:sr-only">
 						{formError && formError !== EMPTY_TEXT ? (
 							<p className="text-sm font-medium text-magenta-600">{formError}</p>
 						) : null}
