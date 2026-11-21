@@ -182,13 +182,9 @@ export function EvryPanel({ inPlant, canAttach, context }: { inPlant: boolean; c
 						ref={composerRef}
 						busy={chat.activeTurnId !== null}
 						stopping={chat.stopping}
-<<<<<<< HEAD
 						disabled={load !== "ready" || moved}
-=======
-						disabled={load !== "ready"}
 						conversationId={chat.conversation?.id ?? null}
 						canAttach={canAttach}
->>>>>>> origin/main
 						onSend={(text, references) => {
 							stick();
 							actions.send(text, references, context);

@@ -10,7 +10,6 @@ import { createEvryPanelStore, type EvryPanelState, type EvryPort } from "./Evry
 import { checkPhoto, stageAttached } from "./PhotoAttach.tsx";
 import { putFile } from "./attachments.ts";
 
-<<<<<<< HEAD
 const HELD = "ef-evry-held-draft";
 
 function heldDraft() {
@@ -35,13 +34,11 @@ const PORT: EvryPort = {
 	...api,
 	checkPhoto,
 	stagePhoto: stageAttached,
+	putFile,
 	heldDraft,
 	holdDraft,
 	reloadPage: () => window.location.reload(),
 };
-=======
-const PORT: EvryPort = { ...api, checkPhoto, stagePhoto: stageAttached, putFile };
->>>>>>> origin/main
 export const Panel = storeContext<EvryPanelState>("EvryPanel");
 
 const panel = lazyModule(() => import("./EvryPanel.tsx"));

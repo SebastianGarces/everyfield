@@ -38,13 +38,10 @@ export type EvryPort = Pick<
 > & {
 	checkPhoto: (file: File) => Attached | null;
 	stagePhoto: (file: File, src: string) => Promise<Attached>;
-<<<<<<< HEAD
+	putFile: (url: string, headers: Record<string, string>, file: File) => Promise<boolean>;
 	heldDraft: () => string | null;
 	holdDraft: (draft: string | null) => void;
 	reloadPage: () => void;
-=======
-	putFile: (url: string, headers: Record<string, string>, file: File) => Promise<boolean>;
->>>>>>> origin/main
 };
 
 export type EvryPanelState = {
