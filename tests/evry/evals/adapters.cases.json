@@ -4745,6 +4745,7 @@
 	{
 		"case_id": "ADP-D-10",
 		"extra": true,
+		"model": "scripted",
 		"adapter": "documents/commands",
 		"operation": "documents.importTextOrWord",
 		"near_miss": false,
@@ -4779,6 +4780,7 @@
 	{
 		"case_id": "ADP-D-11",
 		"extra": true,
+		"model": "scripted",
 		"adapter": "documents/commands",
 		"operation": "documents.importTextOrWord",
 		"near_miss": false,
@@ -4799,6 +4801,7 @@
 	{
 		"case_id": "ADP-D-12",
 		"extra": true,
+		"model": "scripted",
 		"adapter": "documents/commands",
 		"operation": "documents.importTextOrWord",
 		"near_miss": false,

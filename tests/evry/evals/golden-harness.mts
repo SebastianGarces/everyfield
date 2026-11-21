@@ -68,8 +68,10 @@ const LATER = new Set<string>([
 	...Object.keys(PIPELINE_COMMANDS),
 	...LAUNCH_READS.map((a) => a.operation),
 	...Object.keys(LAUNCH_COMMANDS),
+	"documents.importTextOrWord",
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
+const SCRIPTED_ONLY = new Set(["documents.importTextOrWord"]);
 
 type Usage = { input: number; output: number };
 type Call =
@@ -365,7 +367,8 @@ export async function converse(
 	const keys: string[] = [];
 	const inputs: string[] = [];
 	const model = override ?? golden.model(keys, inputs);
-	const catalog = readCatalog(actor, RECORDED);
+	const offered = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
+	const catalog = readCatalog(actor, offered);
 	const calls: ToolCall[] = [];
 	const proposals: Proposal[] = [];
 	const classified = await classifyRequest(model, text, AbortSignal.timeout(60_000));
@@ -522,7 +525,7 @@ export async function converse(
 				});
 			}),
 		},
-		RECORDED,
+		offered,
 	);
 
 	const run = streamText({
