@@ -25,9 +25,7 @@ const hash = () => randomBytes(32).toString("hex");
 const axis = (index: number) => Array.from({ length: DIMENSIONS }, (_, at) => (at === index ? 1 : 0));
 const mix = (a: number, b: number, weight: number) => {
 	const norm = Math.hypot(weight, 1 - weight);
-	return Array.from({ length: DIMENSIONS }, (_, at) =>
-		at === a ? weight / norm : at === b ? (1 - weight) / norm : 0,
-	);
+	return Array.from({ length: DIMENSIONS }, (_, at) => (at === a ? weight / norm : at === b ? (1 - weight) / norm : 0));
 };
 type Article = { id: string; title: string; slug: string; body: string; vector: number[]; published?: boolean };
 const article = (title: string, slug: string, body: string, vector: number[], published = true): Article => ({
@@ -51,7 +49,12 @@ const A = {
 		"A vision meeting checklist: chairs, coffee and sign-up cards.",
 		axis(3),
 	),
-	story: article("Telling Your Story", "core/story", "Practice telling why this church matters to the city.", mix(0, 5, 0.5)),
+	story: article(
+		"Telling Your Story",
+		"core/story",
+		"Practice telling why this church matters to the city.",
+		mix(0, 5, 0.5),
+	),
 	budget: article("Budget Basics", "core/budget", "Plan the first year of giving and spending.", mix(0, 6, 0.9)),
 	coaching: article("Weekly Check-ins", "core/coaching", "Meet your coach every week.", axis(0)),
 	hidden: article("Hidden Guidance", "core/hidden", "Guidance this network hides.", axis(0)),
@@ -78,10 +81,9 @@ function openAi(calls: Calls, usage = 5): WikiEmbedFetch {
 		calls.inputs.push(...input);
 		const vector = QUESTIONS[input[0] ?? ""];
 		if (!vector) return new Response("unknown", { status: 500 });
-		return new Response(
-			JSON.stringify({ data: [{ index: 0, embedding: vector }], usage: { total_tokens: usage } }),
-			{ status: 200 },
-		);
+		return new Response(JSON.stringify({ data: [{ index: 0, embedding: vector }], usage: { total_tokens: usage } }), {
+			status: 200,
+		});
 	};
 }
 const counter = (): Calls => ({ count: 0, inputs: [] });
@@ -266,7 +268,12 @@ const FAILURES: [string, Record<string, string>, WikiEmbedFetch, string][] = [
 			}),
 		"openai_dimensions",
 	],
-	["a body that is not JSON", OPENAI, async () => new Response(`<html>${KEY}</html>`, { status: 200 }), "openai_response"],
+	[
+		"a body that is not JSON",
+		OPENAI,
+		async () => new Response(`<html>${KEY}</html>`, { status: 200 }),
+		"openai_response",
+	],
 ];
 
 test("with the provider unconfigured, search is exactly today's keyword search and calls nothing", async () => {

@@ -287,7 +287,8 @@ async function meaningOf(
 	return { vector: `[${vector.join(",")}]` };
 }
 function meaningSql(meaning: Meaning | null, phase: number | null): SQL {
-	if (!meaning) return sql`SELECT NULL::uuid AS article_id, NULL::text AS content, NULL::float8 AS distance WHERE false`;
+	if (!meaning)
+		return sql`SELECT NULL::uuid AS article_id, NULL::text AS content, NULL::float8 AS distance WHERE false`;
 	const type = sql.raw(MEANING_VECTOR);
 	const distance = sql`ps.embedding::${type} OPERATOR(public.<=>) ${meaning.vector}::${type}`;
 	return sql`

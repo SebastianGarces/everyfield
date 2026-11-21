@@ -52,7 +52,7 @@ before(async () => {
 	close = database.close;
 	db = database.pools.runtime;
 	admin = database.admin;
-	await seedHope(admin, { seatNames: true });
+	await seedHope(database.admin, { seatNames: true });
 	await admin.execute(sql`UPDATE reference_release SET embedding_profile='openai-text-embedding-3-small',
 		embedding_dimensions=${DIMENSIONS} WHERE id=${WIKI.release}`);
 	const globals = [WIKI.vision.global, WIKI.planted.global, WIKI.drafted.global, ...WIKI.phaseTwo.map((a) => a.global)];
@@ -131,7 +131,7 @@ test("INV-evry-wiki-meaning: Evry's wiki.search finds the vision meeting article
 });
 
 test("INV-evry-wiki-meaning-adapter: wiki.search returns the vision meeting passage and link for a question with none of its words, with an unchanged input schema", async () => {
-	assert.deepEqual(Object.keys(search.input.shape), ["query"]);
+	assert.deepEqual(Object.keys((search.input as unknown as { shape: Record<string, unknown> }).shape), ["query"]);
 	const result = await invokeRead(db, owner, search as never, { query: QUESTION });
 	assert.deepEqual(result, {
 		operation: "wiki.search",
