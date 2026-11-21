@@ -3,6 +3,7 @@ import type {
 	CellNode,
 	ColumnSpec,
 	EveryfieldDoc,
+	Tile,
 	InlineNode,
 	ParagraphNode,
 	Region,
@@ -43,6 +44,10 @@ type W = DocxCtx & {
 };
 
 const onFill = (w: W) => (w.fill && w.fill !== w.p.muted ? textOn(w.fill, w.p.ink) : null);
+const fillText = (w: W) => {
+	const color = onFill(w);
+	return color ? { color } : {};
+};
 
 type RunStyle = {
 	bold?: boolean;
@@ -173,7 +178,7 @@ function list(w: W, items: { content: ParagraphNode[] }[], ordered: boolean) {
 		.flatMap((item) =>
 			item.content.map((p, i) =>
 				para(
-					runs(w, p.content, onFill(w) ? { color: onFill(w)! } : {}),
+					runs(w, p.content, fillText(w)),
 					`<w:pStyle w:val="ListParagraph"/>${i === 0 ? `<w:numPr><w:ilvl w:val="0"/><w:numId w:val="${id}"/></w:numPr>` : ""}`,
 				),
 			),
@@ -446,10 +451,10 @@ function numbering(w: W) {
 	return `${HEAD}<w:numbering ${NS}><w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="singleLevel"/>${lvl("bullet", "•")}</w:abstractNum><w:abstractNum w:abstractNumId="3"><w:multiLevelType w:val="singleLevel"/>${lvl("decimal", "%1.")}</w:abstractNum>${nums.join("")}</w:numbering>`;
 }
 
-function tiled(w: W) {
+function tiled(w: W, tile: Tile) {
 	const page = w.doc.page;
-	const tile = page.tile!;
-	const tb = tileBox(page)!;
+	const tb = tileBox(page);
+	if (!tb) throw new Error("the page has no size");
 	const cellWidth = Math.floor(tb.width * TW);
 	const inner: W = { ...w, width: cellWidth - 2 * tile.padding * TW };
 	const card = () =>
@@ -515,7 +520,7 @@ export function renderDocDocx(
 		headings: { h2: 0, h3: 0 },
 		drawings: { n: 0 },
 	};
-	const body = doc.page.tile ? tiled(w) : blocks(w, doc.body.content ?? []);
+	const body = doc.page.tile ? tiled(w, doc.page.tile) : blocks(w, doc.body.content ?? []);
 
 	const regions = { header: doc.page.header ?? null, footer: doc.page.footer ?? null };
 	const titlePg = !doc.page.tile && Object.values(regions).some((reg) => reg && reg.pages !== "all");

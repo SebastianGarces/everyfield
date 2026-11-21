@@ -49,6 +49,10 @@ export type ReadingRow = {
 	kind: string;
 	organizationKind: string | null;
 };
+function completedAt(reading: ReadingRow["reading"]) {
+	if (!reading.completed_at) throw Error(`Reading of ${reading.article_id} has no completion time`);
+	return reading.completed_at;
+}
 function readingValue(accountId: string, rows: readonly ReadingRow[]) {
 	return c.ownDiscoveryReading.parse({
 		readerAccountId: accountId,
@@ -63,7 +67,7 @@ function readingValue(accountId: string, rows: readonly ReadingRow[]) {
 					revision: String(s.revision_number),
 				},
 				scrollRatio: Number(r.completed_fraction),
-				readAt: r.completed_at!.toISOString(),
+				readAt: completedAt(r).toISOString(),
 			})),
 	});
 }
