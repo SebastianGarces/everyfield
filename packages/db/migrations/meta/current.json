@@ -7849,6 +7849,62 @@
       },
       "isRLSEnabled": false
     },
+    "public.embedding_spend": {
+      "name": "embedding_spend",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "day": {
+          "name": "day",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tokens": {
+          "name": "tokens",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "embedding_spend_day_key": {
+          "name": "embedding_spend_day_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "day",
+            "purpose"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "embedding_spend_purpose": {
+          "name": "embedding_spend_purpose",
+          "value": "\"embedding_spend\".\"purpose\" IN ('query','rebuild')"
+        },
+        "embedding_spend_tokens": {
+          "name": "embedding_spend_tokens",
+          "value": "\"embedding_spend\".\"tokens\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.enrollment_milestone": {
       "name": "enrollment_milestone",
       "schema": "",
@@ -16167,6 +16223,22 @@
           "isUnique": false,
           "concurrently": false,
           "method": "btree",
+          "with": {}
+        },
+        "passage_embedding_1536": {
+          "name": "passage_embedding_1536",
+          "columns": [
+            {
+              "expression": "((\"embedding\")::public.vector(1536)) public.vector_cosine_ops",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "public.vector_dims(\"passage\".\"embedding\") = 1536",
+          "concurrently": false,
+          "method": "hnsw",
           "with": {}
         }
       },
