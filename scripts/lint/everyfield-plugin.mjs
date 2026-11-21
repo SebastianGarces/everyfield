@@ -998,6 +998,7 @@ const tickOnly = (node) =>
 export const PRODUCT_TIMERS = {
 	"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts": {
 		timer: "setInterval",
+		binding: "heartbeat",
 		within: "GET",
 		why: "the Evry conversation stream writes an SSE comment every 15 seconds so proxies and the browser keep an idle stream open while a turn runs; the interval is the keep-alive itself and nothing else marks when a quiet connection needs one",
 	},
@@ -1006,15 +1007,29 @@ export const PRODUCT_TIMERS = {
 const noTimers = ratcheted("no-timers", (context, push) => {
 	const seen = new Set();
 	const allowed = PRODUCT_TIMERS[repoPath(context.filename)];
-	const productTimer = (node, name) => {
-		if (name !== allowed?.timer) return false;
-		for (let p = node.parent; p; p = p.parent)
-			if (p.type === "VariableDeclarator" && p.id.type === "Identifier" && p.id.name === allowed.within) return true;
+	let productTimerSeen = false;
+	const productTimer = (node) => {
+		const call = node.parent;
+		const declarator = call?.parent;
+		if (
+			productTimerSeen ||
+			node.type !== "Identifier" ||
+			node.name !== allowed?.timer ||
+			call.type !== "CallExpression" ||
+			call.callee !== node ||
+			declarator?.type !== "VariableDeclarator" ||
+			declarator.id.type !== "Identifier" ||
+			declarator.id.name !== allowed.binding
+		)
+			return false;
+		for (let p = declarator.parent; p; p = p.parent)
+			if (p.type === "VariableDeclarator" && p.id.type === "Identifier" && p.id.name === allowed.within)
+				return (productTimerSeen = true);
 		return false;
 	};
 	const report = (node, name) => {
 		const at = (node.range ?? [node.start, node.end]).join(":");
-		if (seen.has(at) || productTimer(node, name)) return;
+		if (seen.has(at) || productTimer(node)) return;
 		seen.add(at);
 		push({
 			node,
