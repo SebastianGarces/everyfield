@@ -13,6 +13,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import {
 	Button,
+	buttonVariants,
 	Card,
 	CardTitle,
 	Checkbox,
@@ -20,6 +21,7 @@ import {
 	EmptyState,
 	FilterChip,
 	IconButton,
+	IntentLink,
 	Menu,
 	MenuContent,
 	MenuItem,
@@ -31,9 +33,8 @@ import {
 	PageHeader,
 	SearchInput,
 	SegmentedControl,
+	TextButton,
 	toast,
-	buttonVariants,
-	IntentLink,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, Pagination, StatusBadge } from "@everyfield/ui/display";
 import { cn, createDebouncer, Icon } from "@everyfield/ui/foundations";
@@ -1009,17 +1010,14 @@ function TaskRow({
 			) : null}
 			<DoneBox task={task} canAct={canAct} wait={wait} describedBy={waiting ? hint : undefined} onToggle={onToggle} />
 			<div className="min-w-0 flex-1">
-				<button
-					type="button"
+				<TextButton
+					underline="hover"
 					onClick={onOpen}
 					{...intentHandlers(onWarm)}
-					className={cn(
-						"rounded-xs text-left font-medium text-ink decoration-text-3 underline-offset-[3px] hover:underline",
-						settled && "text-text-3 line-through",
-					)}
+					className={cn("text-ink decoration-text-3", settled && "text-text-3 line-through")}
 				>
 					{task.title}
-				</button>
+				</TextButton>
 				{waiting ? (
 					<span id={hint} className="ml-2 text-xs whitespace-nowrap text-text-2">
 						{wait === "saving" ? "Saving…" : "Check the last save first."}

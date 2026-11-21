@@ -22,21 +22,21 @@ const TEXT: Record<CredentialOutcome["status"], { title: string; body: string }>
 };
 
 export function ConfirmEmailScreen({
-	proof,
+	linked,
 	confirm,
 	accountHref,
 }: {
-	proof: string | null;
-	confirm: (request: { proof: string }) => Promise<CredentialOutcome>;
+	linked: boolean;
+	confirm: () => Promise<CredentialOutcome>;
 	accountHref: string;
 }) {
-	const [outcome, setOutcome] = useState<CredentialOutcome["status"] | null>(proof ? null : "refused");
+	const [outcome, setOutcome] = useState<CredentialOutcome["status"] | null>(linked ? null : "refused");
 	const [pending, startConfirm] = useTransition();
 
 	const run = () => {
-		if (pending || outcome || !proof) return;
+		if (pending || outcome) return;
 		startConfirm(async () => {
-			const status = await confirm({ proof }).then(
+			const status = await confirm().then(
 				(reply) => reply.status,
 				(): CredentialOutcome["status"] => "unknown",
 			);
