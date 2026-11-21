@@ -294,6 +294,7 @@ export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "rol
 	lines.push("", "I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.");
 	return lines.join("\n");
 }
+const PHOTO_FILE = /\.(jpe?g|png|webp)$/i;
 export type VerifiedReference = { kind: "person" | "photo" | "article"; id: string; label: string };
 
 export async function resolveReferences(
@@ -391,8 +392,10 @@ function savedFacts(state: ConversationState | null) {
 							? `available until ${when(present(a.availableUntil))}`
 							: a.status === "replaced"
 								? "replaced by a newer file with the same name"
-								: "gone: attached files last 24 hours; ask the user to attach it again"
-					}${a.status !== "gone" ? (a.checkedDigest ? `; checked: fileDigest ${a.checkedDigest}` : "; not checked yet") : ""}`,
+								: a.status === "used"
+									? "used: it is already someone's People photo; to use it again, ask the user to attach it again"
+									: "gone: attached files last 24 hours; ask the user to attach it again"
+					}${a.status === "available" || a.status === "replaced" ? (a.checkedDigest ? `; checked: fileDigest ${a.checkedDigest}` : "; not checked yet") : ""}`,
 			),
 		);
 	if (state.reviews.length)
@@ -472,6 +475,10 @@ export function compileContext(input: {
 			: "",
 		ops.has("people.previewImport")
 			? "A file the user attached is listed below with its attachmentId. To check a People spreadsheet, call people.previewImport with its attachmentId; it writes nothing. To import it, propose people.executeBulkImport with that attachmentId and the fileDigest of its latest check. A file that is not listed, such as one attached in another conversation, on a computer or at a link, can't be used here: ask the user to attach it in this conversation."
+			: "",
+		input.catalog.reviewedWrites.some((w) => w.operation === "people.setPersonPhoto") &&
+		input.state?.attachments.some((a) => PHOTO_FILE.test(a.name))
+			? "To make a photo attached here (a .jpg, .jpeg, .png or .webp file in the list of attached files) someone's People photo, find the person, then propose people.setPersonPhoto with that photo's attachmentId as uploadId. Use only a photo listed as available; for any other, ask the user to attach it here. An \"Attached photo\" reference is only for the user's own account photo (account.finalizeAvatar)."
 			: "",
 		...taskRules(input.catalog),
 		recordedJudgments(input.catalog),

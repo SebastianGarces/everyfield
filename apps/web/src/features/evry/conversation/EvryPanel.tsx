@@ -2,7 +2,6 @@
 
 import {
 	Add01Icon,
-	Attachment01Icon,
 	Cancel01Icon,
 	Clock01Icon,
 	Csv01Icon,
@@ -60,8 +59,8 @@ import { ReviewCard } from "../review/ReviewCard.tsx";
 import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
 import { useRowPhotos } from "./useRowPhotos.ts";
-import { AttachButton, AttachedPhoto } from "./PhotoAttach.tsx";
-import { ATTACH, fileSize, type Picked } from "./attachments.ts";
+import { AttachButton, PhotoChip, SentFileIcon } from "./PhotoAttach.tsx";
+import { fileSize, type Picked } from "./attachments.ts";
 import type { Stream } from "./EvryPanel.store.ts";
 
 const useActions = () => Panel.useSelect((s) => s.actions);
@@ -537,7 +536,6 @@ function Composer({
 	const photo = Panel.useSelect((s) => s.photo);
 	const files = Panel.useSelect((s) => s.files);
 	const fileNotice = Panel.useSelect((s) => s.fileNotice);
-	const picker = useRef<HTMLInputElement>(null);
 	const pathname = usePathname();
 	const [usePage, setUsePage] = useState(true);
 	const page = pageReferences(pathname);
@@ -560,7 +558,7 @@ function Composer({
 			picked.some((p) => p.state === "uploading")
 		)
 			return;
-		const photos = attached?.status === "ready" ? [{ kind: "photo" as const, id: attached.id }] : [];
+		const photos = attached?.status === "ready" && attached.avatarId ? [{ kind: "photo" as const, id: attached.avatarId }] : [];
 		onSend(value, [...(usePage ? page : []), ...photos]);
 	};
 	const onSubmit = (e: FormEvent) => {
@@ -613,14 +611,14 @@ function Composer({
 						: "focus-within:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
 				)}
 			>
-				{shown.length ? (
+				{shown.length || photo ? (
 					<ul aria-label="Attached files" className="mb-2 flex flex-wrap gap-2">
+						{photo ? <PhotoChip photo={photo} onRemove={actions.clearPhoto} /> : null}
 						{shown.map((p) => (
 							<FileChip key={p.key} file={p} onRemove={() => actions.removeFile(p.key)} />
 						))}
 					</ul>
 				) : null}
-				{photo ? <AttachedPhoto photo={photo} onRemove={actions.clearPhoto} /> : null}
 				<label className="sr-only" htmlFor={`${hint}-input`}>
 					Message Evry
 				</label>
@@ -648,55 +646,35 @@ function Composer({
 								? fileNotice
 								: busy
 									? "Evry is answering. You can stop it."
-									: uploading
+									: uploading || photo?.status === "uploading"
 										? "Attaching the file…"
 										: shown.length
 											? "Say what Evry should do with the file."
+											: photo?.status === "ready"
+												? "Say what Evry should do with the photo."
 											: "Enter sends. Shift+Enter adds a line."}
 					</p>
 					<div className="flex flex-none items-center gap-1">
-						{canAttach ? (
-							<>
-								<input
-									ref={picker}
-									type="file"
-									accept={ATTACH.accept}
-									multiple
-									hidden
-									onChange={(e) => {
-										actions.addFiles([...(e.target.files ?? [])]);
-										e.target.value = "";
-									}}
-								/>
-								<Tooltip content="Attach a CSV">
-									<IconButton
-										icon={Attachment01Icon}
-										label="Attach a CSV file"
-										size="sm"
-										disabled={disabled || busy}
-										onClick={() => picker.current?.click()}
-									/>
-								</Tooltip>
-							</>
-						) : null}
+						<AttachButton
+							disabled={disabled || busy}
+							church={canAttach}
+							onFiles={(picked) => actions.addFiles(picked, canAttach)}
+						/>
 						{busy ? (
 							<Button size="sm" variant="secondary" icon={StopIcon} loading={stopping} onClick={onStop}>
 								Stop
 							</Button>
 						) : (
-							<>
-								<AttachButton disabled={disabled} onFile={actions.attach} />
-								<Button
-									type="submit"
-									size="sm"
-									variant="primary"
-									icon={SentIcon}
-									disabled={!canSend}
-									className="w-[34px]"
-								>
-									<span className="sr-only">Send</span>
-								</Button>
-							</>
+							<Button
+								type="submit"
+								size="sm"
+								variant="primary"
+								icon={SentIcon}
+								disabled={!canSend}
+								className="w-[34px]"
+							>
+								<span className="sr-only">Send</span>
+							</Button>
 						)}
 					</div>
 				</div>
@@ -735,7 +713,7 @@ function SentFiles({ files }: { files: readonly { id: string; name: string }[] }
 		<ul aria-label="Attached files" className="mt-2 flex flex-wrap gap-1.5">
 			{files.map((f) => (
 				<li key={f.id} className="flex items-center gap-1.5 rounded-pill bg-white/12 px-2.5 py-1 text-sm">
-					<Icon icon={Csv01Icon} size={16} className="flex-none" />
+					<SentFileIcon name={f.name} />
 					<span className="min-w-0 truncate">{f.name}</span>
 				</li>
 			))}

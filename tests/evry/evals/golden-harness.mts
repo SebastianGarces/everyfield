@@ -299,7 +299,7 @@ function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attac
 		const c = await createConversation(db, actor, { requestKey: randomUUID() });
 		for (const f of files)
 			await db.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
-				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,'assistant_staging',${`private/${actor.owner.id}/${f.id}`},'text/csv',${f.bytes.length},
+				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,'assistant_staging',${`private/${actor.owner.id}/${f.id}`},${isPng(f) ? "image/png" : "text/csv"},${f.bytes.length},
 					'pending',${`evry-attachment/${c.id}/${f.id}`},0,clock_timestamp()+make_interval(hours=>${ATTACHMENTS.stagingHours}))`);
 		const submitted = await submitTurn(db, actor, c.id, {
 			requestKey: randomUUID(),
@@ -328,8 +328,13 @@ function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attac
 	return opened;
 }
 
-export type CaseFile = { id: string; name: string; csv: string; checked?: boolean };
+export type CaseFile = { id: string; name: string; csv?: string; checked?: boolean };
 type Attached = CaseFile & { bytes: Uint8Array };
+const isPng = (f: CaseFile) => /\.png$/i.test(f.name);
+const PNG = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
+	"base64",
+);
 const fill = (csv: string) =>
 	csv.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => byName(name)[field] ?? "");
 
@@ -369,7 +374,10 @@ export async function converse(
 				body: { text: "user" in t ? t.user : t.assistant },
 			}) as unknown as ConversationEvent,
 	);
-	const files: Attached[] = attachments.map((f) => ({ ...f, bytes: new TextEncoder().encode(fill(f.csv)) }));
+	const files: Attached[] = attachments.map((f) => ({
+		...f,
+		bytes: isPng(f) ? new Uint8Array(PNG) : new TextEncoder().encode(fill(f.csv ?? "")),
+	}));
 	const attachedAt = new Date(NOW.getTime() - 5 * 60_000);
 	const state = {
 		attachments: files.map((f) => ({
