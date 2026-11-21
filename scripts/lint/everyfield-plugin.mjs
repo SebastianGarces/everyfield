@@ -100,54 +100,117 @@ export const TABLE_WRITERS = {
 		owner: "packages/domain/src/phases/",
 		why: "the phases domain records every phase transition, including the one initial declaration a plant may make",
 	},
+	job: {
+		owner: "packages/domain/src/jobs/queue.ts",
+		why: "the job queue owns the row shape, the dedupe key and the conflict rule; build the insert with queueJobsFor or enqueueJobs",
+		holders: [
+			"packages/domain/src/branding/writes.ts",
+			"packages/domain/src/documents/church-writes.ts",
+			"packages/domain/src/intelligence/assessment-job.ts",
+			"packages/domain/src/intelligence/assessment.ts",
+			"packages/domain/src/jobs/digest.ts",
+			"packages/domain/src/jobs/mail.ts",
+			"packages/domain/src/meetings/notifications.ts",
+			"packages/domain/src/organizations/notifications.ts",
+			"packages/domain/src/organizations/reviews.ts",
+			"packages/domain/src/people/commitments/index.ts",
+			"packages/domain/src/people/csv/index.ts",
+			"packages/domain/src/people/fields/shared.ts",
+			"packages/evry/src/conversations/store.ts",
+			"packages/evry/src/proposals/store.ts",
+		],
+	},
 };
-const INSERT_INTO = /\binsert\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
+const INSERT_INTO = /\b(?:insert|merge)\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
+const INSERT_INTO_END = /\b(?:insert|merge)\s+into\s+(?:"?public"?\.)?$/i;
+const UNSEEN =
+	"This rule cannot follow a table returned by a helper from another module or passed in as an untyped value; review catches those.";
 
 const tableWriters = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
+		const held = Object.keys(TABLE_WRITERS).filter((table) => TABLE_WRITERS[table].holders?.includes(path));
+		const written = new Set();
 		const report = (node, table) => {
 			const { owner, why } = TABLE_WRITERS[table];
-			if (!path.startsWith(owner))
+			written.add(table);
+			if (!path.startsWith(owner) && !held.includes(table))
 				context.report({
 					node,
-					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here.`,
+					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here. ${UNSEEN}`,
 				});
 		};
+		const tableName = (name) =>
+			typeof name === "string" && Object.hasOwn(TABLE_WRITERS, name.toLowerCase()) ? name.toLowerCase() : undefined;
 		const check = (value, node) => {
-			for (const [, table] of value?.matchAll(INSERT_INTO) ?? [])
-				if (Object.hasOwn(TABLE_WRITERS, table.toLowerCase())) report(node, table.toLowerCase());
+			for (const [, table] of value?.matchAll(INSERT_INTO) ?? []) if (tableName(table)) report(node, tableName(table));
 		};
 		const aliases = new Map();
-		const tableOf = (node) =>
-			node?.type === "Identifier"
-				? aliases.get(node.name)
-				: node?.type === "MemberExpression" && Object.hasOwn(TABLE_WRITERS, memberName(node))
-					? memberName(node)
-					: undefined;
+		const returners = new Map();
+		const pending = [];
+		const tableOf = (raw) => {
+			const node = unwrapped(raw);
+			if (node?.type === "Identifier") return aliases.get(node.name);
+			if (node?.type === "MemberExpression") return tableName(memberName(node));
+			if (node?.type === "CallExpression") {
+				const callee = unwrapped(node.callee);
+				if (callee?.type === "Identifier") return returners.get(callee.name);
+				if (["raw", "identifier"].includes(memberName(callee))) return tableName(literalArgument(node.arguments[0]));
+			}
+			if (node?.type === "Literal") return tableName(text(node));
+			return undefined;
+		};
 		const bind = (id, table) => {
 			if (id?.type === "Identifier" && table) aliases.set(id.name, table);
+		};
+		const returned = (fn) =>
+			fn.body.type !== "BlockStatement"
+				? [fn.body]
+				: fn.body.body.filter((s) => s.type === "ReturnStatement").map((s) => s.argument);
+		const bindReturner = (id, fn) => {
+			const table = returned(fn).map(tableOf).find(Boolean);
+			if (id?.type === "Identifier" && table) returners.set(id.name, table);
 		};
 		return {
 			Literal: (node) => check(text(node), node),
 			TemplateElement: (node) => check(text(node), node),
-			ImportSpecifier: (node) => {
-				const imported = nameOf(node.imported);
-				if (Object.hasOwn(TABLE_WRITERS, imported)) bind(node.local, imported);
+			TemplateLiteral: (node) =>
+				node.quasis.forEach((quasi, i) => {
+					if (i < node.expressions.length && INSERT_INTO_END.test(text(quasi) ?? ""))
+						pending.push([node.expressions[i], node]);
+				}),
+			ImportSpecifier: (node) => bind(node.local, tableName(nameOf(node.imported))),
+			ExportSpecifier: (node) => {
+				const table = node.parent.source ? tableName(nameOf(node.local)) : aliases.get(nameOf(node.local));
+				if (table) report(node, table);
 			},
+			FunctionDeclaration: (node) => bindReturner(node.id, node),
 			VariableDeclarator: (node) => {
-				if (node.id.type === "Identifier") bind(node.id, tableOf(node.init));
+				const init = unwrapped(node.init);
+				if (init?.type === "ArrowFunctionExpression" || init?.type === "FunctionExpression")
+					bindReturner(node.id, init);
+				if (node.id.type === "Identifier") bind(node.id, tableOf(init));
 				if (node.id.type !== "ObjectPattern") return;
 				for (const p of node.id.properties) {
 					const key = p.type === "Property" ? keyName(p.key, p.computed) : null;
-					if (Object.hasOwn(TABLE_WRITERS, key))
-						bind(p.value.type === "AssignmentPattern" ? p.value.left : p.value, key);
+					if (tableName(key)) bind(p.value.type === "AssignmentPattern" ? p.value.left : p.value, tableName(key));
 				}
 			},
 			CallExpression: (node) => {
-				const table = tableOf(node.arguments[0]);
-				if (memberName(node.callee) === "insert" && table) report(node, table);
+				if (memberName(unwrapped(node.callee)) === "insert") pending.push([node.arguments[0], node]);
+			},
+			"Program:exit"(node) {
+				for (const [target, at] of pending) {
+					const table = tableOf(target);
+					if (table) report(at, table);
+				}
+				for (const table of held)
+					if (!written.has(table))
+						context.report({
+							node,
+							message: `${path} no longer inserts into ${table}: delete its holders entry under TABLE_WRITERS.${table} in scripts/lint/everyfield-plugin.mjs.`,
+						});
 			},
 		};
 	},
@@ -222,7 +285,14 @@ const unwrapped = (node) => {
 	let at = node;
 	while (
 		at &&
-		["TSAsExpression", "TSSatisfiesExpression", "TSNonNullExpression", "ParenthesizedExpression"].includes(at.type)
+		[
+			"TSAsExpression",
+			"TSSatisfiesExpression",
+			"TSNonNullExpression",
+			"TSTypeAssertion",
+			"ParenthesizedExpression",
+			"ChainExpression",
+		].includes(at.type)
 	)
 		at = at.expression;
 	return at;
