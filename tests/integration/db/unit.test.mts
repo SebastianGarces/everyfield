@@ -68,13 +68,18 @@ test("INV-token-at-rest: a column that names a token, proof or secret stores its
 		"auth_account.id_token": libraryOwned,
 		"audit_event.actor_token": "a pseudonym digest of the acting account, never a credential",
 	};
-	const credential = /(^|_)(tokens?|secrets?|proofs?|nonce|otp|password|passcode|credentials?|api_key|bearer)(_|$)/;
-	const storesValue = new Set(["string", "json", "buffer"]);
+	const credential =
+		/(^|_)(tokens?|secrets?|proofs?|nonces?|otp|passwords?|passwd|passcodes?|credentials?|api_keys?|private_keys?|signing_keys?|jwts?|bearer)(_|$)/;
+	const holdsNoValue = new Set(["number", "bigint", "boolean", "date"]);
+	const words = (name: string) => name.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
 	const raw = Object.values(tables)
 		.filter((value) => is(value, Table))
 		.flatMap((table) =>
 			Object.values(getTableColumns(table))
-				.filter((c) => storesValue.has(c.dataType) && credential.test(c.name) && !/_(hash|digest)$/.test(c.name))
+				.filter(
+					(c) =>
+						!holdsNoValue.has(c.dataType) && credential.test(words(c.name)) && !/_(hash|digest)$/.test(words(c.name)),
+				)
 				.map((c) => `${getTableName(table)}.${c.name}`),
 		)
 		.sort();
