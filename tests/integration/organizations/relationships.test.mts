@@ -358,7 +358,8 @@ test("discovery invitations expire after 30 days: the receiver sees who to ask, 
 	const DAY = 86_400_000,
 		clock = async () =>
 			new Date(String((await S.db.execute(sql`SELECT clock_timestamp()::text AS now`)).rows[0]!.now)).getTime(),
-		near = (iso: string, at: number) => assert.ok(Math.abs(new Date(iso).getTime() - at) < 60_000, `${iso} is near ${new Date(at).toISOString()}`),
+		near = (iso: string, at: number) =>
+			assert.ok(Math.abs(new Date(iso).getTime() - at) < 60_000, `${iso} is near ${new Date(at).toISOString()}`),
 		set = (id: string, created: string, resent: string | null) =>
 			S.db.execute(
 				sql`UPDATE invitation SET created_at=clock_timestamp()-${created}::interval, resent_at=${resent === null ? null : sql`clock_timestamp()-${resent}::interval`} WHERE id=${sql.param(id)}`,
