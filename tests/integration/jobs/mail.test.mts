@@ -354,7 +354,7 @@ test("INV-mail: callbacks persist unknown IDs, reject wrong secrets, replay with
 	assert.equal((await db.execute(querySql`SELECT count(*)::int n FROM provider_event`)).rows[0].n, prior);
 	await db.execute(querySql`DROP TRIGGER reject_callback ON provider_event; DROP FUNCTION reject_callback()`);
 	await db.execute(
-		querySql`CREATE FUNCTION reject_projection() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_apply_failure'; END $$; CREATE TRIGGER reject_projection BEFORE UPDATE ON mail FOR EACH ROW EXECUTE FUNCTION reject_projection()`,
+		querySql`CREATE FUNCTION reject_projection() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_conflict' USING ERRCODE = 'serialization_failure'; END $$; CREATE TRIGGER reject_projection BEFORE UPDATE ON mail FOR EACH ROW EXECUTE FUNCTION reject_projection()`,
 	);
 	const pending = await webhook(await callback(unknown, "sent"));
 	assert.equal(pending.status, 202);
@@ -362,6 +362,38 @@ test("INV-mail: callbacks persist unknown IDs, reject wrong secrets, replay with
 	assert.deepEqual(await callbackVisibility(runtime, "disabled"), { endpoint: "disabled", pending: 2, unmatched: 0 });
 	await db.execute(querySql`DROP TRIGGER reject_projection ON mail; DROP FUNCTION reject_projection()`);
 	assert.equal(requests.length, count);
+});
+
+test("INV-mail: a stored callback whose apply fails for a non-transient reason answers 503 and stays pending for replay", async () => {
+	const id = await enqueue();
+	const [claim] = await claimDue(runtime, ["mail"]);
+	const out = await service.dispatch(claim);
+	assert.equal(out.kind, "accepted");
+	const before = await callbackVisibility(runtime, "disabled");
+	await db.execute(
+		querySql`CREATE FUNCTION reject_projection() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_apply_failure'; END $$; CREATE TRIGGER reject_projection BEFORE UPDATE ON mail FOR EACH ROW EXECUTE FUNCTION reject_projection()`,
+	);
+	const lines = [];
+	const { error } = console;
+	console.error = (text) => lines.push(JSON.parse(text));
+	let failed;
+	try {
+		failed = await webhook(await callback(out.id, "delivered"));
+	} finally {
+		console.error = error;
+		await db.execute(querySql`DROP TRIGGER reject_projection ON mail; DROP FUNCTION reject_projection()`);
+	}
+	assert.equal(failed.status, 503);
+	assert.equal((await failed.json()).code, "unavailable");
+	assert.deepEqual(lines, [
+		{ component: "route", outcome: "failed", error: { name: "DrizzleQueryError", code: "P0001" } },
+	]);
+	assert.deepEqual(await callbackVisibility(runtime, "disabled"), { ...before, pending: before.pending + 1 });
+	assert.equal(
+		(await db.execute(querySql`SELECT delivered_at IS NULL undelivered FROM mail WHERE id=${querySql.param(id)}`))
+			.rows[0].undelivered,
+		true,
+	);
 });
 test("INV-recovery: only a freshly authorized operator can attach provider evidence after the replay window", async () => {
 	mode = "lost";
