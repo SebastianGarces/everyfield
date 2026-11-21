@@ -77,7 +77,8 @@ export function planFrom(d: PlanDraft): { plan: ProgramPlan } | { problem: strin
 function move<T>(list: T[], index: number, by: -1 | 1) {
 	const next = [...list];
 	const [item] = next.splice(index, 1);
-	next.splice(index + by, 0, item!);
+	if (item === undefined) return list;
+	next.splice(index + by, 0, item);
 	return next;
 }
 

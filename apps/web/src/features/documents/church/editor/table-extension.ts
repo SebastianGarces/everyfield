@@ -162,8 +162,8 @@ function leaveTable(view: EditorView, tablePos: number, direction: 1 | -1): bool
 	const edge = direction > 0 ? inside.at(-1) : inside[0];
 	if (!edge) return false;
 	let at = all.indexOf(edge) + direction;
-	while (all[at] && (dom.contains(all[at]!) || all[at]!.contains(dom))) at += direction;
-	const next = all[at];
+	let next = all[at];
+	while (next && (dom.contains(next) || next.contains(dom))) next = all[(at += direction)];
 	if (next) next.focus();
 	else (document.activeElement as HTMLElement | null)?.blur();
 	return true;

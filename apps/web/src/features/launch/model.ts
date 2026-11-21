@@ -253,8 +253,11 @@ export function requestKeys(fresh: () => string) {
 	return {
 		keyFor(intent: readonly unknown[]) {
 			const id = JSON.stringify(intent);
-			if (!keys.has(id)) keys.set(id, fresh());
-			return keys.get(id)!;
+			const known = keys.get(id);
+			if (known !== undefined) return known;
+			const key = fresh();
+			keys.set(id, key);
+			return key;
 		},
 		settle(intent: readonly unknown[]) {
 			keys.delete(JSON.stringify(intent));

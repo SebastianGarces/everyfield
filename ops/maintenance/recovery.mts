@@ -21,19 +21,27 @@ export const manifestSchema = z.strictObject({
 	subjects: z.array(z.strictObject({ id: z.uuid(), expiresAt: z.iso.datetime() })).max(10000),
 });
 const DAY = 86_400_000;
+export class ManifestRefused extends Error {
+	readonly code: string;
+	constructor(code: string) {
+		super(code);
+		this.name = "ManifestRefused";
+		this.code = code;
+	}
+}
 export function validateCandidate(input, now, originalExpiries = new Map()) {
 	const m = manifestSchema.parse(input);
 	const created = Date.parse(m.createdAt),
 		expires = Date.parse(m.expiresAt);
 	if (created > now.getTime() || expires <= now.getTime() || expires > created + 7 * DAY || expires <= created)
-		throw Error("copy_expired_or_invalid");
+		throw new ManifestRefused("copy_expired_or_invalid");
 	const ids = [m.database.id, ...m.objects.map((o) => o.id)];
 	if (new Set(ids).size !== ids.length || new Set(m.subjects.map((s) => s.id)).size !== m.subjects.length)
-		throw Error("duplicate_manifest_identity");
+		throw new ManifestRefused("duplicate_manifest_identity");
 	for (const subject of m.subjects) {
 		const prior = originalExpiries.get(subject.id);
 		if (Date.parse(subject.expiresAt) <= now.getTime() || (prior && Date.parse(subject.expiresAt) > Date.parse(prior)))
-			throw Error("subject_expired_or_reset");
+			throw new ManifestRefused("subject_expired_or_reset");
 	}
 	return {
 		manifest: m,

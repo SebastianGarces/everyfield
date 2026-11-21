@@ -30,7 +30,8 @@ export function HistoryList({
 }) {
 	const [pages, setPages] = useState<History[]>([first]);
 	const [state, setState] = useState<"idle" | "loading" | "lost" | "failed" | "refused">("idle");
-	const last = pages[pages.length - 1]!;
+	const last = pages.at(-1);
+	if (!last) throw new Error("The history has no first page");
 	const items = pages.flatMap((p) => p.items);
 
 	if (state === "refused") return <NotAvailable scope="section" />;

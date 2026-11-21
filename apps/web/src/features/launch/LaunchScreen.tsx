@@ -171,7 +171,7 @@ export function LaunchScreen({
 			<OutcomeCard plan={plan} admin={viewer.admin} keys={keys} onPlan={setPlan} />
 			{plan.outcome ? <DebriefCard plan={plan} admin={viewer.admin} keys={keys} onPlan={setPlan} /> : null}
 			{viewer.admin && plan.summary && plan.debrief?.submitted ? (
-				<SummaryCard plan={plan} keys={keys} onPlan={setPlan} />
+				<SummaryCard plan={plan} summary={plan.summary} keys={keys} onPlan={setPlan} />
 			) : null}
 		</>
 	);
@@ -258,6 +258,10 @@ function PreparationNotice({ plan }: { plan: Plan }) {
 function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: () => void }) {
 	const c = countdown(plan.launch, plan.today);
 	const date = plan.launch?.targetDate ?? null;
+	const windowStart = () => {
+		if (date === null) throw new Error("A launch that is ahead has no target date");
+		return longDate(addDays(date, -28));
+	};
 	const body = (() => {
 		switch (c.kind) {
 			case "none":
@@ -299,7 +303,7 @@ function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: 
 					title: c.window ? "Inside the four-week launch window" : "Before the launch window",
 					text: c.window
 						? "These are the weeks the Playbook's final readiness milestones are for."
-						: "The final four weeks start on " + longDate(addDays(date!, -28)) + ".",
+						: "The final four weeks start on " + windowStart() + ".",
 				};
 			case "completed":
 				return {

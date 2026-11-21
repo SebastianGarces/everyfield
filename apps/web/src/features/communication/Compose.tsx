@@ -2,7 +2,7 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { ArrowLeft01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { Button, ConfirmDialog, Field, Select } from "@everyfield/ui/controls";
+import { Alert, Button, ConfirmDialog, Field, Select, TextButton } from "@everyfield/ui/controls";
 import { Icon, useFocusOnChange } from "@everyfield/ui/foundations";
 import { useState, type ComponentProps } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
@@ -360,6 +360,8 @@ function ComposeForm({
 	];
 
 	const stepIndex = STEPS.findIndex((s) => s.value === step);
+	const previousStep = STEPS[stepIndex - 1];
+	const nextStep = STEPS[stepIndex + 1];
 	const previewName = summary?.recipients[0]?.displayName ?? SAMPLE;
 	const chrome = { from: data.churchName, to: previewName, subject: form.subject };
 
@@ -413,11 +415,7 @@ function ComposeForm({
 					{note}
 				</p>
 			))}
-			{problem ? (
-				<p role="alert" className="text-sm font-medium text-magenta-600">
-					{problem}
-				</p>
-			) : null}
+			{problem ? <Alert role="alert">{problem}</Alert> : null}
 
 			<h2
 				ref={heading}
@@ -464,9 +462,8 @@ function ComposeForm({
 								{undo ? (
 									<p role="status" className="text-sm text-text-2">
 										Template applied.{" "}
-										<button
-											type="button"
-											className="font-medium text-ink underline underline-offset-[3px]"
+										<TextButton
+											className="text-ink"
 											onClick={() => {
 												actions.edit((c) => ({
 													...c,
@@ -479,7 +476,7 @@ function ComposeForm({
 											}}
 										>
 											Undo
-										</button>
+										</TextButton>
 									</p>
 								) : null}
 							</div>
@@ -524,12 +521,8 @@ function ComposeForm({
 					{reason ?? ""}
 				</p>
 				<div className="flex items-center gap-2">
-					{stepIndex > 0 ? (
-						<Button
-							variant="secondary"
-							onClick={() => void go(STEPS[stepIndex - 1]!.value)}
-							disabled={pending !== null}
-						>
+					{previousStep ? (
+						<Button variant="secondary" onClick={() => void go(previousStep.value)} disabled={pending !== null}>
 							Back
 						</Button>
 					) : null}
@@ -558,13 +551,13 @@ function ComposeForm({
 							Save draft
 						</Button>
 					) : null}
-					{stepIndex < STEPS.length - 1 ? (
+					{nextStep ? (
 						<Button
 							variant="primary"
 							aria-describedby="step-reason"
 							disabled={reason !== null || pending !== null}
 							loading={pending === "step"}
-							onClick={() => void go(STEPS[stepIndex + 1]!.value)}
+							onClick={() => void go(nextStep.value)}
 						>
 							Next
 						</Button>

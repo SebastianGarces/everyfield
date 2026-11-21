@@ -5,6 +5,7 @@ import {
 	daysBetween,
 	renewalOf,
 	SIGNAL_DEFINITIONS,
+	SIGNAL_GROUPS,
 	SIGNAL_QUESTION_VERSION,
 	type AttestationsPage,
 	type CandidateEntry,
@@ -22,12 +23,31 @@ export type SignalOutcome<T> =
 	{ status: "ok"; value: T } | { status: "refused"; error: SignalError } | { status: "lost" };
 
 export const VALUE_LABEL: Record<SignalValue, string> = { yes: "Yes", not_yet: "Not yet" };
-export const definitionOf = (key: SignalKey) => SIGNAL_DEFINITIONS.find((d) => d.key === key)!;
+export function definitionOf(key: SignalKey) {
+	const definition = SIGNAL_DEFINITIONS.find((d) => d.key === key);
+	if (!definition) throw new Error(`No signal definition for ${key}`);
+	return definition;
+}
+export function groupOf(key: SignalKey) {
+	const { group } = definitionOf(key);
+	const found = SIGNAL_GROUPS.find((g) => g.id === group);
+	if (!found) throw new Error(`No signal group ${group}`);
+	return found;
+}
+export function answerOf(entry: SignalEntry) {
+	if (entry.state !== "answered" || entry.value === null || entry.asOf === null || entry.ageDays === null)
+		throw new Error(`The ${entry.key} signal has no answer`);
+	return { value: entry.value, asOf: entry.asOf, ageDays: entry.ageDays };
+}
+export function recordOf(entry: SignalEntry) {
+	if (entry.asOf === null || entry.recordedAt === null) throw new Error(`The ${entry.key} signal was never recorded`);
+	return { asOf: entry.asOf, recordedAt: entry.recordedAt };
+}
 export const signalsIn = (page: AttestationsPage, group: string) =>
 	page.signals.filter((s) => definitionOf(s.key).group === group);
 
 export function answerLabel(entry: SignalEntry) {
-	if (entry.state === "answered") return VALUE_LABEL[entry.value!];
+	if (entry.state === "answered") return VALUE_LABEL[answerOf(entry).value];
 	return entry.state === "retracted" ? "Retracted" : "Not answered";
 }
 export const agoText = (days: number) => (days === 0 ? "today" : days === 1 ? "1 day ago" : `${days} days ago`);
@@ -97,7 +117,7 @@ export function reaffirmed(
 ): SignalEntry {
 	return stated(
 		entry,
-		{ value: entry.value!, asOf: today, detail: entry.detail ?? "", reference: entry.reference ?? "" },
+		{ value: answerOf(entry).value, asOf: today, detail: entry.detail ?? "", reference: entry.reference ?? "" },
 		today,
 		recordedAt,
 		authorName,
@@ -109,13 +129,14 @@ export function withSignal(page: AttestationsPage, entry: SignalEntry): Attestat
 	return { ...page, signals, counts: countsOf(signals) };
 }
 export function historyLine(entry: SignalEntry, kind: HumanRevision["kind"], value: SignalValue | null): HumanRevision {
+	const { asOf, recordedAt } = recordOf(entry);
 	return {
 		id: crypto.randomUUID() as HumanRevision["id"],
 		key: entry.key,
 		revision: Number(entry.revision),
 		kind,
 		value,
-		asOf: entry.asOf!,
+		asOf,
 		detail: entry.detail,
 		reference: entry.reference,
 		personId: null,
@@ -125,7 +146,7 @@ export function historyLine(entry: SignalEntry, kind: HumanRevision["kind"], val
 		attended: null,
 		volunteered: null,
 		authorName: entry.authorName,
-		recordedAt: entry.recordedAt!,
+		recordedAt,
 		questionVersion: SIGNAL_QUESTION_VERSION,
 	};
 }
@@ -144,8 +165,10 @@ const KIND_LABEL: Record<HumanRevision["kind"], string> = {
 };
 export function historyText(line: HumanRevision) {
 	if (line.key === "leadership_candidate") {
-		const days = daysBetween(line.periodStart!, line.periodEnd!) + 1;
-		return `${KIND_LABEL[line.kind]} · ${shortDate(line.periodStart!)} to ${shortDate(line.periodEnd!)} · ${days} days`;
+		const { periodStart, periodEnd } = line;
+		if (periodStart === null || periodEnd === null) throw new Error("A leadership candidate revision has no period");
+		const days = daysBetween(periodStart, periodEnd) + 1;
+		return `${KIND_LABEL[line.kind]} · ${shortDate(periodStart)} to ${shortDate(periodEnd)} · ${days} days`;
 	}
 	if (line.kind === "retracted") return "Retracted";
 	const head = line.kind === "reaffirmed" ? "Still true" : line.kind === "corrected" ? "Corrected to" : "Answered";

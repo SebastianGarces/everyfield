@@ -102,8 +102,8 @@ const day = (instant: number, zone: string) =>
 		instant,
 	);
 function dayDistance(instant: number, clock: Clock): number {
-	const [a, b] = [day(instant, clock.zone), day(clock.now, clock.zone)].map((d) => Date.parse(`${d}T00:00:00Z`));
-	return Math.round((b! - a!) / 86_400_000);
+	const midnight = (at: number) => Date.parse(`${day(at, clock.zone)}T00:00:00Z`);
+	return Math.round((midnight(clock.now) - midnight(instant)) / 86_400_000);
 }
 
 export function timeLabel(eligibleAt: string, clock: Clock): string {

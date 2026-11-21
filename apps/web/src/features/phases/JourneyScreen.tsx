@@ -45,6 +45,7 @@ import { FactsSection } from "../intelligence/FactsSection.tsx";
 import { IntelligenceTabs } from "../intelligence/IntelligenceTabs.tsx";
 import { declarePhase, movePhase } from "./actions.ts";
 import {
+	atPhase,
 	entryDate,
 	entryDetail,
 	entryTitle,
@@ -88,7 +89,8 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 	const [lost, setLost] = useState<LostAttempts>({ move: null, declare: null });
 	const keys = useRef<ReturnType<typeof requestKeys> | null>(null);
 	const keysNow = () => (keys.current ??= requestKeys(() => crypto.randomUUID()));
-	const phase = catalog.phases[journey.state.phase]!;
+	const phase = atPhase(catalog.phases, journey.state.phase, "catalog entry");
+	const currentReadiness = atPhase(readiness, journey.state.phase, "readiness");
 	const actor = { accountId: viewer.accountId, displayName: viewer.name } as JourneyEntry["actor"];
 	const busy = journey.entries.some(isPending);
 
@@ -180,7 +182,7 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 							</Button>
 						</div>
 					) : null}
-					<Signs readiness={readiness[journey.state.phase]!} />
+					<Signs readiness={currentReadiness} />
 				</Card>
 				<Timeline entries={journey.entries} launchDates={launchDates} timeZone={history.timeZone} />
 			</div>
@@ -191,7 +193,7 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 					draft={dialog.draft}
 					current={journey.state.phase}
 					catalog={catalog}
-					readiness={readiness[journey.state.phase]!}
+					readiness={currentReadiness}
 					onChange={editMove}
 					onSubmit={submitMove}
 				/>
@@ -489,7 +491,8 @@ function MoveDialog({
 								<Icon icon={Alert02Icon} size={18} className="mt-0.5 flex-none text-amber-600" />
 								<p>
 									Someone changed this church while you were reviewing. It is now in Phase {draft.changed.phase} ·{" "}
-									{catalog.phases[draft.changed.phase]!.name}. Your reason is kept. Check the move and try again.
+									{atPhase(catalog.phases, draft.changed.phase, "catalog entry").name}. Your reason is kept. Check the
+									move and try again.
 								</p>
 							</div>
 						) : null}

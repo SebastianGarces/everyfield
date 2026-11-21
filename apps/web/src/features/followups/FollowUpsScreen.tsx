@@ -93,11 +93,12 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 			const totals = totalsAfter(v.totals, moves);
 			if (filter === "any") return { ...v, totals };
 			const gone = v.rows.filter((r) => coverageOf(r.duties) !== filter);
+			const [first] = gone;
 			return {
 				totals,
 				rows: v.rows.filter((r) => coverageOf(r.duties) === filter),
-				moved: gone.length
-					? `${gone.map((r) => r.person.label).join(", ")} moved to ${COVERAGE_LABEL[coverageOf(gone[0]!.duties)]}.`
+				moved: first
+					? `${gone.map((r) => r.person.label).join(", ")} moved to ${COVERAGE_LABEL[coverageOf(first.duties)]}.`
 					: v.moved,
 			};
 		});

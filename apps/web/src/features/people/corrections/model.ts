@@ -1,3 +1,4 @@
+import type { SitePath } from "@everyfield/contracts/identity";
 import { sendTwice, type Outcome } from "../../../components/save/model.ts";
 import { CLASSIFICATION_LABEL, SOURCE_LABEL, type ClassificationValue, type SourceValue } from "../model.ts";
 
@@ -189,7 +190,7 @@ export function defaultSurvivor(
 	return a.createdAt <= b.createdAt ? a.id : b.id;
 }
 
-export function pairHref(personId: string, withId: string, keep?: string): string {
+export function pairHref(personId: string, withId: string, keep?: string): SitePath {
 	const q = new URLSearchParams({ person: personId, with: withId });
 	if (keep) q.set("keep", keep);
 	return `/people/duplicates?${q.toString()}`;
