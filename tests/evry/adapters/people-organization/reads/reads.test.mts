@@ -237,7 +237,16 @@ test("AC:AC-EVR-113--EVR-113 AC:AC-EVR-READ--EVR-113 AC:AC-EVR-114--EVR-114 AC:A
 				kind: "household",
 				id: home,
 				label: "Rivera Home",
-				fields: { name: "Rivera Home", city: "Oak Park", memberCount: "2", revision: "1" },
+				fields: {
+					name: "Rivera Home",
+					street: STREET,
+					city: "Oak Park",
+					stateProvince: null,
+					postalCode: POSTAL,
+					country: null,
+					memberCount: "2",
+					revision: "1",
+				},
 			},
 			{
 				kind: "person",
@@ -256,9 +265,9 @@ test("AC:AC-EVR-113--EVR-113 AC:AC-EVR-READ--EVR-113 AC:AC-EVR-114--EVR-114 AC:A
 		page: 1,
 		next: null,
 		completeness: "complete",
-		exclusions: ["street", "postal code", "state", "country", "email", "phone"],
+		exclusions: ["members' email", "members' phone"],
 	});
-	hidden(both, [STREET, POSTAL, PERSON_STREET, EMAIL, PHONE, "Former Home"]);
+	hidden(both, [PERSON_STREET, EMAIL, PHONE, "Former Home"]);
 	const members = await invokeRead(db, member, getHouseholdMembers, { householdId: home });
 	assert.deepEqual(members, { ...both, operation: "people.getHouseholdMembers" });
 	const byPerson = await invokeRead(db, member, getHousehold, { personId: values.personId.parse(people.alexRivera) });
@@ -274,7 +283,7 @@ test("AC:AC-EVR-113--EVR-113 AC:AC-EVR-READ--EVR-113 AC:AC-EVR-114--EVR-114 AC:A
 		page: 1,
 		next: null,
 		completeness: "complete",
-		exclusions: ["street", "postal code", "state", "country", "email", "phone"],
+		exclusions: ["members' email", "members' phone"],
 	});
 	assert.equal((await invokeRead(db, member, getHousehold, { householdId: foreignHome })).status, "not_found");
 	assert.equal(
