@@ -262,10 +262,11 @@ test("INV-privacy: one person's read gives each church seat the email and phone 
 					fields: { city: null, stage: "prospect", email: EMAIL, phone: PHONE },
 				},
 			]);
+			assert.match(String(one.facts?.note), /email and phone only when the user asks for contact details/);
 			const none = await invokeRead(db, seat, getPerson, { personId: people.alexChen });
 			assert.deepEqual(
-				[none.rows[0]?.fields.email, none.rows[0]?.fields.phone, JSON.stringify(none).includes(EMAIL)],
-				[null, null, false],
+				[none.rows[0]?.fields.email, none.rows[0]?.fields.phone, JSON.stringify(none).includes(EMAIL), none.facts],
+				[null, null, false, undefined],
 			);
 			const listed = await invokeRead(db, seat, listPeople, { search: "Casey" });
 			assert.deepEqual(

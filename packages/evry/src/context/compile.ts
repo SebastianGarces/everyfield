@@ -27,7 +27,7 @@ export async function classifyRequest(model: LanguageModelV4, text: string, sign
 		maxOutputTokens: 32,
 		output: Output.object({ schema: requestKind }),
 		system:
-			"Classify the user's request to EveryField's church-planting assistant. pastoral_boundary: the user asks for pastoral or Biblical counsel, a prayer to be written, or a judgment of a person's spiritual readiness or suitability. capabilities: the user asks what the assistant can do. application: anything else, including records that merely mention prayer, and questions about the church's launch, its Launch plan or its phase readiness, such as whether the church is ready to launch or to move to the next phase.",
+			"Classify the user's request to EveryField's church-planting assistant. pastoral_boundary: the user asks for pastoral or Biblical counsel, a prayer to be written, or a judgment of a person's spiritual readiness or suitability. capabilities: the user asks only what the assistant can do in general, such as what it can do or help with, and names nothing to read, find or change. application: anything else, including any request to read, find, change or set something, questions about the church's records, templates, tags, checklists, Wiki, settings or notifications, planning the church's work, such as what to focus on this week, short replies such as yes, records that merely mention prayer, and questions about the church's launch, its Launch plan or its phase readiness, such as whether the church is ready to launch or to move to the next phase.",
 		prompt: scrub(text),
 		telemetry: { functionId: "evry.classify" },
 	});

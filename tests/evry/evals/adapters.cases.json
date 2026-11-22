@@ -802,6 +802,14 @@
 		"near_miss": false,
 		"question": "what's the Okafors' address?",
 		"eval": {
+			"finding": {
+				"checks": [
+					"calls people.listHouseholds {\"search\":\"~okafor\"}",
+					"asks a clarifying question",
+					"says /Leander/"
+				],
+				"note": "T-577 batched re-record of T-546 and T-550 (D-2210): in 3 samples the model twice read people instead of households and once gave both addresses without asking; the ask-once rule names only people. Failing checks set from the report (D-958, D-1151)."
+			},
 			"as": "admin",
 			"calls": [
 				{
@@ -4277,7 +4285,6 @@
 			"derivation": "The matching prayer signal, in the Owner's words, dated this week (NOW is Monday Nov 9, 2026).",
 			"finding": {
 				"checks": [
-					"classified application",
 					"proposes signals.attest {\"key\":\"/^prayer_(rhythm_established|in_gatherings)$/\",\"value\":\"yes\",\"asOf\":\"/^2026-11-(09|1[0-5])$/\",\"detail\":\"~prayer and fasting\"}",
 					"says /review|approv/i"
 				],
