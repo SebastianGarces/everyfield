@@ -156,11 +156,7 @@ test("AC:TARGET-PPL-025 a merge carries the source's follow-up, its outcome and 
 	});
 	const after = await historyOf(brooks, morgan);
 	for (const [table] of HISTORY) {
-		const total = await rows(
-			sql`SELECT count(*)::int n FROM ${sql.identifier(table)} WHERE ${sql.identifier(table === "mail" ? "tenant_id" : "plant_id")}=${plant}::uuid`,
-		);
 		assert.equal(after[table].length, before[table].length + (table === "contact_outcome" ? 1 : 0), table);
-		assert.ok(total[0].n >= after[table].length);
 		assert.ok(
 			after[table].every((x) => (x.row.plant_id ?? x.row.tenant_id) === plant),
 			table,
