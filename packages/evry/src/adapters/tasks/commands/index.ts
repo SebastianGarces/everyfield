@@ -1,9 +1,17 @@
 import type { WriteTx } from "@everyfield/domain/access";
 import { gatedTransaction } from "@everyfield/domain/operations";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
-import { createTaskWriter, taskReader, type TaskReminders } from "@everyfield/domain/tasks";
+import { createTaskWriter, createTemplateReader, taskReader, type TaskReminders } from "@everyfield/domain/tasks";
 import type { PeopleContext } from "@everyfield/contracts/people";
-import { category, priority, recurrenceFrequency, taskStatus, title } from "@everyfield/contracts/tasks";
+import {
+	category,
+	phaseOffer,
+	priority,
+	recurrenceFrequency,
+	taskStatus,
+	templateKey,
+	title,
+} from "@everyfield/contracts/tasks";
 import { z } from "zod";
 import { id, localDue, dueOf as nativeDue } from "../values.ts";
 import type { EvryActor } from "../../../context/actor.ts";
@@ -503,6 +511,227 @@ export const removeSubtask = checklistWrite({
 		"Propose removing checklist rows from one task, optionally adding or ticking rows of the same checklist in the same review.",
 });
 
+const templates = createTemplateReader();
+const dayText = (date: string) =>
+	new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
+		new Date(`${date}T12:00:00Z`),
+	);
+const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+const card = (review: unknown, args: unknown) => sql`SELECT ${json(review)} AS review, ${json(args)} AS args`;
+
+type Open = Extract<z.infer<typeof phaseOffer>, { status: "open" }>;
+async function openOffer(context: ReviewContext, actor: EvryActor): Promise<Open> {
+	const offer = await gatedTransaction(context.db, async (tx) =>
+		value(await templates.readPhaseOffer(tx, actor.authority, {})),
+	);
+	if (offer.status === "open") return offer;
+	const r = await context.db.execute(sql`SELECT t.offer_answer IS NOT NULL AS answered FROM phase_transition t
+		WHERE t.plant_id=${actor.owner.id}::uuid AND t.kind='movement' ORDER BY t.occurred_at DESC, t.id DESC LIMIT 1`);
+	throw new EvryRefusal(r.rows[0]?.answered === true ? "offer_answered" : "not_found");
+}
+function offerReview(offer: Open, accepted: readonly string[]) {
+	const taken = offer.checklists.filter((k) => accepted.includes(k.key));
+	const created = taken.reduce((n, k) => n + k.tasks.length, 0);
+	return {
+		target: { kind: "template", id: offer.transition.id, label: `Phase ${offer.transition.toPhase} checklists` },
+		changes: offer.checklists.map((k) =>
+			accepted.includes(k.key)
+				? { field: `Accept ${k.name}`, before: null, after: k.tasks.map((t) => `${t.title}, due ${dayText(t.due)}`) }
+				: { field: `Decline ${k.name}`, before: null, after: "No tasks" },
+		),
+		notes: created
+			? [
+					`${plural(created, "new task", "new tasks")}, assigned to you. Due dates count from the phase move on ${dayText(offer.transition.anchorDate)}, so some may already be past.`,
+				]
+			: ["No task is created, and the offer closes for this phase move."],
+	};
+}
+type Answered =
+	{ status: "ok"; value: { receiptId: string; created: unknown[] } } | { status: "refused"; error: { code: string } };
+const answered = (reply: Answered): EffectResult =>
+	reply.status === "ok"
+		? { receiptId: reply.value.receiptId, revision: String(reply.value.created.length) }
+		: { refused: reply.error.code };
+const offerArgs = z.object({
+	input: z.object({ transitionId: id, catalogVersion: z.int().optional(), checklistKeys: z.array(z.string()) }),
+});
+
+function offerWrite<I>(spec: {
+	operation: string;
+	description: string;
+	input: z.ZodType<I>;
+	accepted(offer: Open, input: I): readonly string[];
+}) {
+	return reviewed<I>({
+		operation: spec.operation,
+		description: spec.description,
+		input: spec.input,
+		allowed: ownerOrAdmin,
+		async review(actor, input, context) {
+			const offer = await openOffer(context, actor);
+			const accepted = spec.accepted(offer, input);
+			if (accepted.some((key) => !offer.checklists.some((k) => k.key === key))) throw new EvryRefusal("invalid_input");
+			const checklistKeys = offer.checklists.filter((k) => accepted.includes(k.key)).map((k) => k.key);
+			return card(offerReview(offer, checklistKeys), {
+				input: {
+					transitionId: offer.transition.id,
+					...(checklistKeys.length ? { catalogVersion: offer.catalogVersion } : {}),
+					checklistKeys,
+				},
+			});
+		},
+		async run(tx, context, args, key, reminders) {
+			const { transitionId, catalogVersion, checklistKeys } = offerArgs.parse(args).input;
+			const tasks = writer(reminders);
+			const requestKey = key("offer");
+			return answered(
+				checklistKeys.length
+					? await tasks.acceptPhaseOffer(tx, context, {
+							requestKey,
+							input: { transitionId, catalogVersion, checklistKeys },
+						})
+					: await tasks.declinePhaseOffer(tx, context, { requestKey, input: { transitionId } }),
+			);
+		},
+	});
+}
+
+export const acceptPhaseOffer = offerWrite<Record<string, never>>({
+	operation: "tasks.acceptPhaseOffer",
+	description:
+		"Propose accepting every checklist the open phase offer holds (tasks.readPhaseOffer): one review listing each checklist and the tasks it creates, as the Tasks page's offer does.",
+	input: z.strictObject({}),
+	accepted: (offer) => offer.checklists.map((k) => k.key),
+});
+const answerInput = z.strictObject({
+	accept: z
+		.array(templateKey)
+		.max(20)
+		.refine((keys) => new Set(keys).size === keys.length, "repeated checklist")
+		.describe("Ids of the offered checklists to accept, from tasks.readPhaseOffer; every other one is declined"),
+});
+export const answerPhaseOffer = offerWrite<z.infer<typeof answerInput>>({
+	operation: "tasks.answerPhaseOffer",
+	description:
+		"Propose answering the open phase offer checklist by checklist: accept the named checklists and decline the rest, on one review. [] declines them all.",
+	input: answerInput,
+	accepted: (_offer, input) => input.accept,
+});
+export const declinePhaseOffer = offerWrite<Record<string, never>>({
+	operation: "tasks.declinePhaseOffer",
+	description: "Propose declining every checklist the open phase offer holds. No task is created.",
+	input: z.strictObject({}),
+	accepted: () => [],
+});
+
+const importInput = z.strictObject({
+	checklistKey: templateKey.describe("A checklist id from tasks.listTemplates"),
+	itemKeys: z
+		.array(templateKey)
+		.min(1)
+		.max(100)
+		.refine((keys) => new Set(keys).size === keys.length, "repeated item")
+		.describe('Item keys from tasks.previewTemplate: the part of a row id after "/"'),
+});
+export const importTemplate = reviewed<z.infer<typeof importInput>>({
+	operation: "tasks.importTemplate",
+	description:
+		"Propose importing chosen items of one Everyfield checklist as tasks, due from today as tasks.previewTemplate shows them. Only items the checklist holds.",
+	input: importInput,
+	allowed: ownerOrAdmin,
+	async review(actor, v, context) {
+		const preview = await gatedTransaction(context.db, async (tx) =>
+			value(await templates.previewTemplate(tx, actor.authority, { checklistKey: v.checklistKey })),
+		);
+		const k = preview.checklist;
+		const items = v.itemKeys.map((key) => k.tasks.find((t) => t.key === key));
+		if (items.some((t) => !t)) throw new EvryRefusal("invalid_input");
+		return card(
+			{
+				target: { kind: "template", id: k.key, label: k.name },
+				changes: items.map((t) => ({ field: t?.title, before: null, after: t?.due })),
+				notes: [
+					`${plural(items.length, "new task", "new tasks")}, assigned to you. Due dates count from today; approved on a later day, they move with it.`,
+				],
+			},
+			{ input: { catalogVersion: preview.catalogVersion, checklistKey: k.key, itemKeys: v.itemKeys } },
+		);
+	},
+	async run(tx, context, args, key, reminders) {
+		const a = z.object({ input: z.unknown() }).parse(args);
+		const reply = await writer(reminders).importTemplate(tx, context, { requestKey: key("import"), input: a.input });
+		return reply.status === "ok"
+			? { receiptId: reply.value.receiptId, revision: String(reply.value.tasks.length) }
+			: { refused: reply.error.code };
+	},
+});
+
+const prerequisitesInput = z.strictObject({
+	taskId: id.describe("A top-level task id from tasks.list"),
+	prerequisiteIds: z
+		.array(id)
+		.max(50)
+		.refine((ids) => new Set(ids).size === ids.length, "repeated task")
+		.describe("The whole new set of top-level tasks it waits on; [] clears them"),
+});
+const prerequisiteFacts = z.object({
+	title: z.string(),
+	subtask: z.boolean(),
+	revision: z.string(),
+	before: z.array(z.string()),
+	after: z.array(z.string().nullable()),
+	added: z.int(),
+	valid: z.int(),
+	cycle: z.boolean(),
+});
+export const replacePrerequisites = reviewed<z.infer<typeof prerequisitesInput>>({
+	operation: "tasks.replacePrerequisites",
+	description:
+		"Propose the whole set of tasks one top-level task waits on (its prerequisites), shown before and after on one review; [] clears them. Prerequisites are advisory.",
+	input: prerequisitesInput,
+	allowed: ownerOrAdmin,
+	async review(actor, v, context) {
+		const plant = actor.owner.id;
+		const ids = sql.param([...v.prerequisiteIds]);
+		const r = await context.db
+			.execute(sql`SELECT t.title, t.parent_id IS NOT NULL AS subtask, t.revision::text AS revision,
+				(SELECT coalesce(jsonb_agg(p.title ORDER BY x.n),'[]') FROM unnest(t.prerequisite_ids) WITH ORDINALITY x(id,n)
+					JOIN task p ON p.id=x.id AND p.plant_id=t.plant_id) AS before,
+				(SELECT coalesce(jsonb_agg(p.title ORDER BY x.n),'[]') FROM unnest(${ids}::uuid[]) WITH ORDINALITY x(id,n)
+					LEFT JOIN task p ON p.id=x.id AND p.plant_id=t.plant_id AND p.deleted_at IS NULL) AS after,
+				a.added, (SELECT count(*)::int FROM task p WHERE p.id=ANY(a.ids) AND p.id<>t.id AND p.plant_id=t.plant_id
+					AND p.parent_id IS NULL AND p.deleted_at IS NULL) AS valid,
+				EXISTS(WITH RECURSIVE reach(id) AS (SELECT unnest(a.ids)
+					UNION SELECT u.id FROM reach r JOIN task k ON k.id=r.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL
+						CROSS JOIN LATERAL unnest(k.prerequisite_ids) u(id))
+					SELECT FROM reach WHERE id=t.id) AS cycle
+			FROM task t CROSS JOIN LATERAL (SELECT coalesce(array_agg(x),'{}') AS ids, count(x)::int AS added
+				FROM unnest(${ids}::uuid[]) x WHERE NOT x=ANY(t.prerequisite_ids)) a
+			WHERE t.id=${v.taskId}::uuid AND t.plant_id=${plant}::uuid AND t.deleted_at IS NULL`);
+		if (!r.rows[0]) throw new EvryRefusal("not_found");
+		const f = prerequisiteFacts.parse(r.rows[0]);
+		if (f.subtask || f.valid !== f.added) throw new EvryRefusal("invalid_subject");
+		if (f.cycle) throw new EvryRefusal("dependency_cycle");
+		return card(
+			{
+				target: { kind: "task", id: v.taskId, label: f.title },
+				changes: [{ field: "prerequisites", before: f.before, after: f.after }],
+			},
+			{ expectedRevision: f.revision, input: { taskId: v.taskId, prerequisiteIds: v.prerequisiteIds } },
+		);
+	},
+	async run(tx, context, args, key, reminders) {
+		const a = z.object({ expectedRevision: z.string(), input: z.unknown() }).parse(args);
+		return done(
+			await writer(reminders).replacePrerequisites(tx, context, {
+				requestKey: key("prerequisites"),
+				expectedRevision: a.expectedRevision,
+				input: a.input,
+			}),
+		);
+	},
+});
+
 export const TASK_COMMANDS = {
 	"tasks.create": createTask,
 	"tasks.configureRecurrence": configureRecurrence,
@@ -518,4 +747,9 @@ export const TASK_COMMANDS = {
 	"tasks.createSubtask": createSubtask,
 	"tasks.setSubtaskCompletion": setSubtaskCompletion,
 	"tasks.removeSubtask": removeSubtask,
+	"tasks.acceptPhaseOffer": acceptPhaseOffer,
+	"tasks.answerPhaseOffer": answerPhaseOffer,
+	"tasks.declinePhaseOffer": declinePhaseOffer,
+	"tasks.importTemplate": importTemplate,
+	"tasks.replacePrerequisites": replacePrerequisites,
 } as const;

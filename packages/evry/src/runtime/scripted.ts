@@ -14,6 +14,7 @@ import { invitationStep } from "./scripted-invitation.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
 import { wikiEditorStep } from "./scripted-wiki-editor.ts";
 import { TASK_DATA, taskStep } from "./scripted-tasks.ts";
+import { planStep } from "./scripted-task-plan.ts";
 import { assessmentStep } from "./scripted-assessments.ts";
 import { mailStep, proposesOn } from "./scripted-mail.ts";
 import { MEMBER_PHASES } from "../catalog/catalog.ts";
@@ -993,6 +994,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (options.responseFormat?.type === "json")
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
+	const plan = planStep(options, text);
+	if (plan) return plan;
 	const intelligence = intelligenceStep(options, text);
 	if (intelligence) return intelligence;
 	const invitation = invitationStep(options, text);
