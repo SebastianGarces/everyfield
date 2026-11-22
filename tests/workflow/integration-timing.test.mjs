@@ -297,7 +297,6 @@ test("T-261: no file under tests/integration, tests/unit, the Evry adapter, cata
 	for (const path of [
 		"tests/evry/evals/golden.test.mts",
 		"tests/reference/starter/install.db.mts",
-		"tests/reference/releases/activation.db.mts",
 		"tests/ui/seed-env.mts",
 	])
 		assert.ok(

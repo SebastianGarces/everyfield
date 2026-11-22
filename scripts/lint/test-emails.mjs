@@ -1,7 +1,7 @@
 import { matchesGlob } from "node:path";
 
 const SCOPE = ["tests/**", "tools/**/tests/**", "ops/**/test/**"];
-export const EMAIL_EXEMPT = {
+const EMAIL_EXEMPT = {
 	"tests/evry/evals/*.json":
 		"recorded eval cases: an edit forces a paid re-record (D-1292), and their addresses are model inputs already sent",
 };
