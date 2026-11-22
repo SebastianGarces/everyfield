@@ -62,9 +62,11 @@ test("a confirmed mark-all drops the ids its cutoff covers and keeps the rest", 
 		mark([middle, early], middle.eligibleAt),
 	]);
 	assert.equal(marks.length, 1);
-	assert.deepEqual([...marks[0].ids].sort(), ["elsewhere", "late"]);
-	assert.equal(marks[0].cutoff, middle.eligibleAt);
-	assert.deepEqual([...marks[0].eligible.keys()], ["late"]);
+	const [only] = marks;
+	assert.ok(only);
+	assert.deepEqual([...only.ids].sort(), ["elsewhere", "late"]);
+	assert.equal(only.cutoff, middle.eligibleAt);
+	assert.deepEqual([...only.eligible.keys()], ["late"]);
 });
 
 test("a later cutoff that confirms after an earlier one prunes to the later cutoff", () => {
@@ -74,8 +76,10 @@ test("a later cutoff that confirms after an earlier one prunes to the later cuto
 		mark([late, middle], late.eligibleAt),
 	]);
 	assert.equal(marks.length, 1);
-	assert.deepEqual([...marks[0].ids], []);
-	assert.equal(marks[0].cutoff, late.eligibleAt);
+	const [only] = marks;
+	assert.ok(only);
+	assert.deepEqual([...only.ids], []);
+	assert.equal(only.cutoff, late.eligibleAt);
 });
 
 const cases: [string, StandingMark[]][] = [
