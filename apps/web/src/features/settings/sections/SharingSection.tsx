@@ -157,7 +157,7 @@ function Choices({
 
 	return (
 		<>
-			<div aria-live="polite" className="mt-3 empty:hidden">
+			<div aria-live="polite" className="mt-3 empty:sr-only">
 				{refusal ? (
 					<SaveError
 						message={refusal.message}

@@ -49,7 +49,7 @@ export function useAssets({
 	const inOrder = (job: () => Promise<UploadOutcome>): Promise<UploadOutcome> => {
 		const run = async () => {
 			const outcome = await job();
-			if (outcome.ok) setKit(outcome.kit);
+			if (outcome.status === "ok") setKit(outcome.value);
 			return outcome;
 		};
 		const next = queue.current.then(run, run);
@@ -90,15 +90,15 @@ export function useAssets({
 	const cancel = (slot: AssetSlot) => patch(slot, { pick: null, note: null });
 
 	const finish = (slot: AssetSlot, pick: Pick, outcome: UploadOutcome) => {
-		if (outcome.ok) {
-			setKit(outcome.kit);
+		if (outcome.status === "ok") {
+			setKit(outcome.value);
 			patch(slot, { pick: null, note: null });
 			if (canSuggest(slot)) void suggest(slot);
 			return;
 		}
-		const { error } = outcome;
 		const idle = { ...pick, status: "ready" as const };
-		if (!error) return patch(slot, { pick: idle, note: OFFLINE_NOTE });
+		if (outcome.status === "lost") return patch(slot, { pick: idle, note: OFFLINE_NOTE });
+		const { error } = outcome;
 		if (error.code === "alt_text_required")
 			return patch(slot, { pick: { ...idle, altError: ALT_REQUIRED }, note: null });
 		const note: Note = { message: assetMessage(error), reference: errorReference(error) };
@@ -128,16 +128,17 @@ export function useAssets({
 		setKit(withoutAsset(before, slot));
 		patch(slot, { note: null });
 		const outcome = await inOrder(() => removeAsset(port, slot, latestKit().revision));
-		if (outcome.ok) return setKit(outcome.kit);
+		if (outcome.status === "ok") return setKit(outcome.value);
 		setKit(before);
 		patch(slot, {
-			note: outcome.error
-				? {
-						message: assetMessage(outcome.error),
-						reference: errorReference(outcome.error),
-						conflict: outcome.error.code === "conflict",
-					}
-				: OFFLINE_NOTE,
+			note:
+				outcome.status === "refused"
+					? {
+							message: assetMessage(outcome.error),
+							reference: errorReference(outcome.error),
+							conflict: outcome.code === "conflict",
+						}
+					: OFFLINE_NOTE,
 		});
 	};
 

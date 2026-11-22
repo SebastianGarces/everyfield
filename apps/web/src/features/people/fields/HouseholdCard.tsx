@@ -241,7 +241,7 @@ export function HouseholdCard({
 					) : null
 				}
 			/>
-			<p role="status" aria-live="polite" className="-mt-1 mb-2 text-xs text-text-3 empty:hidden">
+			<p role="status" aria-live="polite" className="-mt-1 mb-2 text-xs text-text-3 empty:sr-only">
 				{saving ? "Saving…" : notice}
 			</p>
 			<SaveNotice {...lane.noticeProps} dialogOpen={editing !== null} />

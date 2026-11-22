@@ -1,5 +1,5 @@
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
+import { viewerActor } from "@/server/request-context";
 import type { Activity, DashboardReply, Metrics, OverviewFrame } from "@everyfield/contracts/dashboard";
 import type { LaunchReply, Plan } from "@everyfield/contracts/launch";
 import type { AssessmentReply, AssessmentView } from "@everyfield/contracts/intelligence";
@@ -23,7 +23,7 @@ async function load<T, C extends string>(
 		authority: RequestActor,
 	) => Promise<DashboardReply<T> | LaunchReply<T> | AssessmentReply<T>>,
 ): Promise<Loaded<T>> {
-	const authority = (await getViewer()).authority;
+	const authority = await viewerActor();
 	if (!authority) return { status: "lost" };
 	const db = requestDatabase();
 	return transient(

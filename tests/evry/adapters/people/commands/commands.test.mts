@@ -34,6 +34,12 @@ import type { PrivateStorage } from "../../../../../packages/db/src/schema/stora
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
+const noPorts = {
+	reminders: noReminders,
+	phaseNotices: async () => {
+		throw Error("unexpected phase notice");
+	},
+};
 
 before(setup);
 after(teardown);
@@ -80,7 +86,7 @@ async function approveAndRun(who: EvryActor, proposal: Proposal, storage: Privat
 			leaseOwner: claim.lease_owner,
 			generation: claim.claim_generation,
 		},
-		noReminders,
+		noPorts,
 	);
 	const statements = counted(start);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
@@ -236,7 +242,7 @@ test("AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE a retirement runs 
 	const { outcome, statements, review } = await approveAndRun(owner, proposal);
 	assert.equal(outcome, "completed");
 	console.log(JSON.stringify({ effect: "people.deletePerson", statements }));
-	assert.equal(statements, 10);
+	assert.equal(statements, 9);
 	assert.deepEqual([(await personRow(p2)).state, await personRow(p1)], ["retired", p1Before]);
 	assert.deepEqual(await effectAudits(proposal.id), [
 		{ actor_id: owner.accountId, action: "people.retired", subject_id: p2 },
@@ -378,7 +384,7 @@ test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while th
 			leaseOwner: claim.lease_owner,
 			generation: claim.claim_generation,
 		},
-		noReminders,
+		noPorts,
 	);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	assert.equal(outcome, "completed");

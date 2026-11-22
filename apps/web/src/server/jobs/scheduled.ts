@@ -4,8 +4,7 @@ import type { PrivateStorage } from "@everyfield/db/schema";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { createAssessmentJob, runAssessmentBatch, type Drafter } from "@everyfield/domain/intelligence";
 import { deleteExpiredImportFiles } from "@everyfield/domain/people";
-import type { TaskReminders } from "@everyfield/domain/tasks";
-import { closeLostJobs } from "@everyfield/evry";
+import { closeLostJobs, type EffectPorts } from "@everyfield/evry";
 import {
 	cancelUnsubscribedHeld,
 	runDueScheduled,
@@ -49,7 +48,7 @@ export function scheduledJobs(config: {
 	db: Database;
 	storage: PrivateStorage | null;
 	cleanup: Database | null;
-	reminders: TaskReminders | null;
+	effects: EffectPorts | null;
 	mail: ((limit: number, until: number) => Promise<number>) | null;
 	messages?: ((limit: number, until: number) => Promise<number>) | null;
 	mountMail?: Partial<Record<Exclude<MailPassName, "mail">, MailPass | null>>;
@@ -63,7 +62,7 @@ export function scheduledJobs(config: {
 		const db = config.db;
 		const until = Date.now() + START_MS;
 		const asOf = (config.now?.() ?? new Date()).toISOString();
-		const { storage, cleanup, reminders, digests, mail } = config;
+		const { storage, cleanup, effects, digests, mail } = config;
 		const messages = config.messages ?? null;
 		const notifications = config.notifications ?? null;
 		const feedbackPublication = config.feedbackPublication ?? null;
@@ -81,7 +80,7 @@ export function scheduledJobs(config: {
 			["object-cleanup", "removed", storage && (() => runDueObjectCleanup(db, storage, 4, until))],
 			["documents-orphans", null, storage && (() => sweepOrphans(db, storage))],
 			["lifecycle-purge", "purged", cleanup && storage && (() => runDuePurges(db, cleanup, storage, 2, until))],
-			["evry-effect", "effects", reminders && (() => runEffects(db, reminders, 4, until))],
+			["evry-effect", "effects", effects && (() => runEffects(db, effects, 4, until))],
 			["assistant-turn", "turns", () => runTurns(db, 4, until)],
 			["digest-planning", "planned", digests && (() => planDigests(db, asOf))],
 			["digest-delivery", "digests", digests && (() => digests.run(db, asOf, undefined, until))],
@@ -128,7 +127,7 @@ export function scheduledJobs(config: {
 				report[component] = { status: "failed" };
 			}
 		}
-		const failed = Object.keys(report).filter((component) => report[component]!.status === "failed");
+		const failed = Object.entries(report).flatMap(([component, step]) => (step.status === "failed" ? [component] : []));
 		return Response.json(
 			{ status: failed.length ? "failed" : "ok", ...counts, failed, steps: report },
 			{ status: failed.length ? 500 : 200 },

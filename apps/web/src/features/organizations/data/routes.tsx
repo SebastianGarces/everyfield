@@ -1,5 +1,6 @@
-import { signIn } from "@/server/sign-in";
-import { pipelineActor, pipelinePeopleRead } from "../pipeline-mount";
+import { organizationSeatOf } from "@/server/request-context";
+import { requireActor } from "@/server/sign-in";
+import { pipelinePeopleRead } from "../pipeline-mount";
 import { listOrganizationDuplicatePairs } from "@everyfield/domain/people";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
@@ -12,9 +13,8 @@ export const duplicatesMetadata: Metadata = { title: "Possible duplicates", robo
 const PATH = `${PIPELINE_PATH}/duplicates`;
 
 export async function DuplicatesPage() {
-	const who = await pipelineActor();
-	if (who.kind === "signed_out") signIn(PATH);
-	const pairs = who.kind === "seat" ? await pipelinePeopleRead(listOrganizationDuplicatePairs) : null;
+	const seat = organizationSeatOf(await requireActor(PATH));
+	const pairs = seat ? await pipelinePeopleRead(listOrganizationDuplicatePairs) : null;
 	if (pairs?.status !== "ok")
 		return (
 			<div className="py-12">

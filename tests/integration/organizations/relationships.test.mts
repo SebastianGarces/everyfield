@@ -4,11 +4,11 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
-import { readAnswerableInvitation } from "../../../packages/domain/src/organizations/index.ts";
+import { pendingFor, readAnswerableInvitation } from "../../../packages/domain/src/organizations/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/index.ts";
+import { liveAccess } from "../../../packages/domain/src/access/session.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
-import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 after(S.teardown);
 const accepted = (v: unknown) => {
 	const r = Q.acceptedInvitationResult.parse(v);
@@ -350,6 +350,76 @@ test("INV-invitation-detail: only the addressed receiving Owner or Admin can rea
 	assert.deepEqual(await read(oa), { status: "unavailable" });
 });
 
+test("discovery invitations expire after 30 days: the receiver sees who to ask, a new request goes through, and a resend restarts the 30 days", async () => {
+	const o = await S.tenant("sending_church"),
+		oa = await S.identity(o),
+		d = await S.identity();
+	await S.db.execute(sql`INSERT INTO discovery(account_id) VALUES(${sql.param(d.account)})`);
+	const DAY = 86_400_000,
+		clock = async () =>
+			new Date(String((await S.db.execute(sql`SELECT clock_timestamp()::text AS now`)).rows[0]!.now)).getTime(),
+		near = (iso: string, at: number) =>
+			assert.ok(Math.abs(new Date(iso).getTime() - at) < 60_000, `${iso} is near ${new Date(at).toISOString()}`),
+		set = (id: string, created: string, resent: string | null) =>
+			S.db.execute(
+				sql`UPDATE invitation SET created_at=clock_timestamp()-${created}::interval, resent_at=${resent === null ? null : sql`clock_timestamp()-${resent}::interval`} WHERE id=${sql.param(id)}`,
+			),
+		state = async (id: string) =>
+			(await S.db.execute(sql`SELECT state FROM invitation WHERE id=${sql.param(id)}`)).rows[0]!.state,
+		read = (invitationId: string) =>
+			S.tx((c) =>
+				readAnswerableInvitation(c, oa.session, oa.selected, { invitationId, proof: S.proofs.get(invitationId) }),
+			),
+		sender = async () => {
+			const authority = await S.tx((c) => RequestActor.resolve(c, d.session));
+			if (!(authority instanceof RequestActor)) throw Error();
+			const viewer = {
+				kind: "discovery" as const,
+				session: authority.session,
+				accountId: d.account,
+				selected: d.selected,
+				canManage: true,
+				access: liveAccess(authority),
+			};
+			return pendingFor(S.runtime as never, viewer);
+		};
+
+	const first = await invite(d, o, oa.email);
+	await set(first.invitationId, "29 days", null);
+	const resent = pending(
+		await S.call("associations.resendInvitation", d, S.command({ invitationId: first.invitationId })),
+	);
+	near(resent.expiresAt, (await clock()) + 30 * DAY);
+	const [listed] = await sender();
+	assert.equal(listed?.invitationId, first.invitationId);
+	assert.equal(listed?.expiresAt.slice(0, 16), resent.expiresAt.slice(0, 16));
+	await set(first.invitationId, "31 days", "1 day");
+	const shown = await read(first.invitationId);
+	assert.equal(shown.status, "pending");
+	if (shown.status === "pending") near(shown.expiresAt, (await clock()) + 29 * DAY);
+
+	await set(first.invitationId, "62 days", "31 days");
+	assert.deepEqual(await sender(), []);
+	const expired = await read(first.invitationId);
+	assert.equal(expired.status, "expired");
+	if (expired.status !== "expired") throw Error();
+	assert.deepEqual(expired.pair, first.pair);
+	assert.equal(expired.inviterDescription, first.inviterDescription);
+	near(expired.expiredAt, (await clock()) - DAY);
+	const old = S.command(
+		{ invitationId: first.invitationId, proof: S.proofs.get(first.invitationId), decision: "accept" },
+		"2",
+	);
+	await assert.rejects(S.call("associations.acceptInvitation", oa, old), /unavailable/);
+	assert.equal(await state(first.invitationId), "pending");
+
+	const second = await invite(d, o, oa.email);
+	assert.equal(await state(first.invitationId), "expired");
+	assert.equal((await read(first.invitationId)).status, "expired");
+	await assert.rejects(S.call("associations.acceptInvitation", oa, { ...old, expectedRevision: "3" }), /unavailable/);
+	assert.equal((await approve(second, oa)).relationship.pair.kind, "discovery");
+});
+
 test("AC:TARGET-IDN-021 a Discovery conversion and an organization ending that link at the same time both finish", async () => {
 	const onboarding = createOnboardingProducer({
 		relationships: (c, inputs) => sendOnboardingRelationships(c, inputs, S.mail),
@@ -458,16 +528,56 @@ test("INV-lock-order: a subject-side write and the organization ending that link
 		});
 });
 
-test("INV-lock-order: a link write holds its gate's account and root and the organization before the link, and never locks the subject side for the organization", async (t) => {
+test("INV-lock-order: a link write locks its gate's account, seat and root, then the organization, then the link, and never locks the subject side for the organization", async (t) => {
 	type Tenant = Awaited<ReturnType<typeof S.tenant>>;
 	type Identity = Awaited<ReturnType<typeof S.identity>>;
 	type Setup = { subject: S.Actor["selected"]; sa: Identity; o: Tenant; oa: Identity; link: string; pair: unknown };
+	type Locked = { table: "account" | "seat" | "plant" | "organization" | "affiliation"; id: string };
 	const end = (actor: (s: Setup) => S.Actor) => (s: Setup) =>
 		S.call(
 			"associations.end",
 			actor(s),
 			S.command({ relationshipId: s.link, pair: s.pair, confirmed: true, reason: null }),
 		);
+	const gate = async (a: Identity): Promise<Locked[]> => {
+		if (a.selected.kind === "account") return [{ table: "account", id: a.account }];
+		const seat = await S.db.execute(
+			sql`SELECT id FROM seat WHERE account_id=${sql.param(a.account)} AND ended_at IS NULL`,
+		);
+		const [only] = seat.rows as { id: string }[];
+		if (!only || seat.rows.length !== 1) throw Error("The actor has no single live seat");
+		return [
+			{ table: "account", id: a.account },
+			{ table: "seat", id: only.id },
+			{ table: a.selected.kind === "plant" ? "plant" : "organization", id: a.selected.id },
+		];
+	};
+	const organizationSide = async (s: Setup): Promise<Locked[]> => [
+		...(await gate(s.oa)),
+		{ table: "affiliation", id: s.link },
+	];
+	const subjectSide = async (s: Setup): Promise<Locked[]> => [
+		...(await gate(s.sa)),
+		{ table: "organization", id: s.o.id },
+		{ table: "affiliation", id: s.link },
+	];
+	const sharing = (s: Setup, expectedRevision?: string) =>
+		S.command(
+			{
+				plant: s.subject,
+				organization: s.o,
+				relationshipId: s.link,
+				expectedConsentRevision: "1",
+				category: "people",
+				enabled: false,
+			},
+			expectedRevision,
+		);
+	const consent = (s: Setup, expectedRevision?: string) =>
+		S.command({ relationshipId: s.link, sharePipelineTotals: true }, expectedRevision);
+	const staleUnbound =
+		(name: "privacy.setSharing" | "pipelineSharing.setConsent", input: typeof sharing) => (s: Setup) =>
+			S.tx((c) => S.api[name](c, s.sa.session, s.sa.selected, input(s, "2") as never));
 	const rows = [
 		{
 			name: "the organization ends a Discovery link",
@@ -475,7 +585,7 @@ test("INV-lock-order: a link write holds its gate's account and root and the org
 			organization: "sending_church" as const,
 			share: false,
 			run: end((s) => s.oa),
-			held: (s: Setup) => [s.oa.account, s.o.id],
+			order: organizationSide,
 			untouched: (s: Setup) => s.subject.id,
 		},
 		{
@@ -483,7 +593,7 @@ test("INV-lock-order: a link write holds its gate's account and root and the org
 			subject: "plant" as const,
 			organization: "sending_church" as const,
 			run: end((s) => s.oa),
-			held: (s: Setup) => [s.oa.account, s.o.id],
+			order: organizationSide,
 			untouched: (s: Setup) => s.subject.id,
 		},
 		{
@@ -492,101 +602,112 @@ test("INV-lock-order: a link write holds its gate's account and root and the org
 			organization: "sending_church" as const,
 			share: false,
 			run: end((s) => s.sa),
-			held: (s: Setup) => [s.sa.account, s.subject.id, s.o.id],
+			order: subjectSide,
 		},
 		{
 			name: "the plant ends its link",
 			subject: "plant" as const,
 			organization: "sending_church" as const,
 			run: end((s) => s.sa),
-			held: (s: Setup) => [s.sa.account, s.subject.id, s.o.id],
+			order: subjectSide,
 		},
 		{
 			name: "the plant changes a sharing choice",
 			subject: "plant" as const,
 			organization: "sending_church" as const,
-			run: (s: Setup) =>
-				S.call(
-					"privacy.setSharing",
-					s.sa,
-					S.command({
-						plant: s.subject,
-						organization: s.o,
-						relationshipId: s.link,
-						expectedConsentRevision: "1",
-						category: "people",
-						enabled: false,
-					}),
-				),
-			held: (s: Setup) => [s.sa.account, s.subject.id, s.o.id],
+			run: (s: Setup) => S.call("privacy.setSharing", s.sa, sharing(s)),
+			order: subjectSide,
+		},
+		{
+			name: "the plant changes a sharing choice from a stale revision in a transaction whose gate is not bound yet",
+			subject: "plant" as const,
+			organization: "sending_church" as const,
+			run: staleUnbound("privacy.setSharing", sharing),
+			order: subjectSide,
+			outcome: { refused: "stale_revision" },
 		},
 		{
 			name: "the sending church changes pipeline consent",
 			subject: "sending_church" as const,
 			organization: "sending_network" as const,
 			share: false,
-			run: (s: Setup) =>
-				S.call("pipelineSharing.setConsent", s.sa, S.command({ relationshipId: s.link, sharePipelineTotals: true })),
-			held: (s: Setup) => [s.sa.account, s.subject.id, s.o.id],
+			run: (s: Setup) => S.call("pipelineSharing.setConsent", s.sa, consent(s)),
+			order: subjectSide,
+		},
+		{
+			name: "the sending church changes pipeline consent from a stale revision in a transaction whose gate is not bound yet",
+			subject: "sending_church" as const,
+			organization: "sending_network" as const,
+			share: false,
+			run: staleUnbound("pipelineSharing.setConsent", consent),
+			order: subjectSide,
+			outcome: { refused: "stale_revision" },
 		},
 	];
 	const pid = async (c: { execute: typeof S.db.execute }) =>
 		((await c.execute(sql`SELECT pg_backend_pid() AS pid`)).rows[0] as { pid: number }).pid;
-	const locked = async (id: string) => {
+	const lock = (row: Locked, nowait = false) =>
+		sql`SELECT 1 FROM ${sql.identifier(row.table)} WHERE id=${sql.param(row.id)} FOR NO KEY UPDATE${sql.raw(nowait ? " NOWAIT" : "")}`;
+	const locked = async (row: Locked) => {
 		try {
-			await S.db.execute(
-				sql`SELECT (SELECT 1 FROM account WHERE id=${sql.param(id)} FOR NO KEY UPDATE NOWAIT),(SELECT 1 FROM plant WHERE id=${sql.param(id)} FOR NO KEY UPDATE NOWAIT),(SELECT 1 FROM organization WHERE id=${sql.param(id)} FOR NO KEY UPDATE NOWAIT)`,
-			);
+			await S.db.execute(lock(row, true));
 			return false;
 		} catch (e) {
 			if ((e as { cause?: { code?: string } }).cause?.code === "55P03") return true;
 			throw e;
 		}
 	};
+	const setup = async (row: (typeof rows)[number]): Promise<Setup> => {
+		const subject = row.subject === "discovery" ? undefined : await S.tenant(row.subject),
+			sa = await S.identity(subject),
+			o = await S.tenant(row.organization),
+			oa = await S.identity(o);
+		if (row.subject === "discovery")
+			await S.db.execute(sql`INSERT INTO discovery(account_id) VALUES(${sql.param(sa.account)})`);
+		const link = await S.affiliation(sa.selected, o, row.share ?? true),
+			pair =
+				row.subject === "discovery"
+					? { kind: "discovery", accountId: sa.account, organization: o }
+					: { kind: row.subject, subject: sa.selected, organization: o };
+		return { subject: sa.selected, sa, o, oa, link, pair };
+	};
 	for (const row of rows)
 		await t.test(row.name, async () => {
-			const subject = row.subject === "discovery" ? undefined : await S.tenant(row.subject),
-				sa = await S.identity(subject),
-				o = await S.tenant(row.organization),
-				oa = await S.identity(o);
-			if (row.subject === "discovery")
-				await S.db.execute(sql`INSERT INTO discovery(account_id) VALUES(${sql.param(sa.account)})`);
-			const link = await S.affiliation(sa.selected, o, row.share ?? true),
-				pair =
-					row.subject === "discovery"
-						? { kind: "discovery", accountId: sa.account, organization: o }
-						: { kind: row.subject, subject: sa.selected, organization: o },
-				s: Setup = { subject: sa.selected, sa, o, oa, link, pair };
-			const untouched = row.untouched?.(s);
-			let write!: Promise<PromiseSettledResult<unknown>>;
-			await S.db.transaction(async (side) => {
-				if (untouched)
-					await side.execute(
-						sql`SELECT (SELECT 1 FROM account WHERE id=${sql.param(untouched)} FOR UPDATE),(SELECT 1 FROM plant WHERE id=${sql.param(untouched)} FOR UPDATE)`,
-					);
-				await gatedTransaction(S.db, async (hold) => {
-					await hold.execute(sql`SELECT 1 FROM affiliation WHERE id=${sql.param(link)} FOR UPDATE`);
-					const holder = await pid(hold);
-					write = row.run(s).then(
-						(value) => ({ status: "fulfilled" as const, value }),
-						(reason) => ({ status: "rejected" as const, reason }),
-					);
-					await S.waitingOnLock();
-					const waits = await S.runtime.execute(
-						sql`SELECT pg_blocking_pids(a.pid) AS by FROM pg_stat_activity a WHERE a.usename=current_user AND a.wait_event_type='Lock' AND a.pid<>pg_backend_pid()`,
-					);
-					assert.deepEqual(
-						waits.rows.map((r) => (r as { by: number[] }).by),
-						[[holder]],
-						"the write waits on the link alone",
-					);
-					assert.deepEqual(
-						await Promise.all(row.held(s).map(locked)),
-						row.held(s).map(() => true),
-						"the gate's account and root and the organization are held before the link",
-					);
+			const steps = (await row.order(await setup(row))).length;
+			for (let step = 0; step < steps; step++) {
+				const s = await setup(row),
+					order = await row.order(s),
+					held = order[step];
+				if (!held) throw Error("The lock order has no step " + step);
+				const untouched = row.untouched?.(s);
+				let write!: Promise<unknown>;
+				await S.db.transaction(async (side) => {
+					if (untouched)
+						await side.execute(
+							sql`SELECT (SELECT 1 FROM account WHERE id=${sql.param(untouched)} FOR UPDATE),(SELECT 1 FROM plant WHERE id=${sql.param(untouched)} FOR UPDATE)`,
+						);
+					await S.db.transaction(async (hold) => {
+						await hold.execute(lock(held));
+						const holder = await pid(hold);
+						write = row.run(s).catch((reason: Error) => ({ refused: reason.message }));
+						await S.waitingOnLock();
+						const waits = await S.runtime.execute(
+							sql`SELECT pg_blocking_pids(a.pid) AS by FROM pg_stat_activity a WHERE a.usename=current_user AND a.wait_event_type='Lock' AND a.pid<>pg_backend_pid()`,
+						);
+						assert.deepEqual(
+							waits.rows.map((r) => (r as { by: number[] }).by),
+							[[holder]],
+							`the write waits on the ${held.table} alone`,
+						);
+						const others = order.filter((_, i) => i !== step);
+						assert.deepEqual(
+							await Promise.all(others.map(async (r) => [r.table, await locked(r)])),
+							others.map((r, i) => [r.table, i < step]),
+							`while it waits on the ${held.table}, the write holds every earlier lock and no later one`,
+						);
+					});
+					assert.deepEqual(await write, row.outcome ?? { status: "committed" });
 				});
-				assert.deepEqual(await write, { status: "fulfilled", value: { status: "committed" } });
-			});
+			}
 		});
 });

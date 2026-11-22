@@ -43,9 +43,12 @@
 		"everyfield/resend-senders": "error",
 		"everyfield/raw-sql-literal": "error",
 		"everyfield/request-actor": "error",
+		"everyfield/site-path-cast": "error",
 		"everyfield/provider-key-mint": "error",
 		"everyfield/no-comments": "error",
+		"everyfield/shared-outcome": "error",
 		"everyfield/server-log": "error",
+		"everyfield/no-raw-error-log": "error",
 		"everyfield/no-effects": "error",
 		"everyfield/stable-context-value": "error",
 		"everyfield/storage-client": "error",
@@ -55,7 +58,9 @@
 		"everyfield/max-state": "error",
 		"everyfield/mint-callers": "error",
 		"everyfield/no-sql-comments": "error",
-		"everyfield/no-slop-styling": "error"
+		"everyfield/no-slop-styling": "error",
+		"everyfield/live-region-in-tree": "error",
+		"everyfield/one-top-level-before": "error"
 	},
 	"overrides": [
 		{
@@ -125,7 +130,9 @@
 				"tests/integration/platform/**",
 				"tests/integration/writes/**",
 				"tests/integration/branding/**",
+				"tests/integration/db/**",
 				"tests/integration/flags/**",
+				"tests/integration/followups/**",
 				"tests/integration/oversight/**",
 				"tests/integration/phases/**"
 			],
@@ -155,22 +162,16 @@
 				"packages/reference/src/**",
 				"packages/ui/src/**",
 				"packages/evry/src/**",
-				"packages/domain/src/access/**",
-				"packages/domain/src/feedback/**",
-				"packages/domain/src/flags/**",
-				"packages/domain/src/followups/**",
-				"packages/domain/src/identity/**",
-				"packages/domain/src/jobs/**",
-				"packages/domain/src/launch/**",
-				"packages/domain/src/operations/**",
-				"packages/domain/src/oversight/**",
-				"packages/domain/src/phases/**",
-				"packages/domain/src/settings/**",
-				"packages/domain/src/teams/**",
-				"packages/domain/src/wiki/**"
+				"packages/domain/src/**"
 			],
 			"rules": {
 				"typescript/no-non-null-assertion": "error"
+			}
+		},
+		{
+			"files": ["packages/contracts/src/**"],
+			"rules": {
+				"everyfield/strict-contracts": "error"
 			}
 		},
 		{
@@ -183,6 +184,13 @@
 			"files": ["packages/domain/src/intelligence/**"],
 			"rules": {
 				"everyfield/private-care-scope": "off"
+			}
+		},
+		{
+			"files": ["packages/domain/src/**"],
+			"rules": {
+				"everyfield/domain-refusals": "error",
+				"everyfield/organization-seat": "error"
 			}
 		},
 		{

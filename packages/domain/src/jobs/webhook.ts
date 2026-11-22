@@ -5,8 +5,9 @@ import { createHash } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { transaction } from "./transaction.ts";
-import { logFailure } from "../log.ts";
+import { errorClass, isTransient, logFailure } from "../log.ts";
 const provider_event_e = alias(tables.provider_event, "e");
+const retryLater = (error: unknown) => isTransient(error) || errorClass(error).code === "57014";
 
 const kinds = [
 	"accepted",
@@ -144,6 +145,7 @@ export async function applyMailCallback(db: Database, raw: Uint8Array, key: stri
 	try {
 		return { stored: true, result: await transaction(db, (tx) => apply(tx, id)) };
 	} catch (error) {
+		if (!retryLater(error)) throw error;
 		logFailure({ component: "mail-callback", outcome: "apply_failed" }, error);
 		return { stored: true, result: "pending" as const };
 	}

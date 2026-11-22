@@ -53,7 +53,7 @@ const feedInput = z.strictObject({
 export const feed: ReadAdapter<z.infer<typeof feedInput>> = {
 	operation: "notifications.feed",
 	description:
-		"The user's own notifications, newest first, as the bell shows them: each with its category, title, church-local time and whether it is read. Reading never marks anything read.",
+		"The user's own notifications, newest first, as the bell shows them: each with its category, title, church-local time and whether it is read. When the user asks what they missed or what is new, read this first with unread true: total is the exact unread count; give it with the unread notices grouped by category. Reading never marks anything read.",
 	input: feedInput,
 	allowed: inPlant,
 	async invoke(tx, actor, input) {

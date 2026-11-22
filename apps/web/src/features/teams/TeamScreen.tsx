@@ -101,6 +101,17 @@ import type { TeamView } from "./server.ts";
 import { loadProblem, failedIcon } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
+type Picked = NonNullable<PersonForm["person"]>;
+const onlyOpenRole = (open: readonly { id: string }[]) => {
+	const [only] = open;
+	return only !== undefined && open.length === 1 ? only.id : null;
+};
+const earliest = (days: readonly string[]) => {
+	const [first] = [...days].sort();
+	if (first === undefined) throw new Error("A member serves in no role");
+	return first;
+};
+
 const histories = createRead(({ teamId }: { teamId: string; revision: string }) => teamHistory(teamId), {
 	failed: (): Outcome<{ entries: HistoryEntry[] }> | ReadFailure => ({ status: "lost" }),
 });
@@ -225,8 +236,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			ok: () => toast({ tone: "success", message: to ? `${t.name} is archived.` : `${t.name} is restored.` }),
 		});
 	}
-	function appoint(form: PersonForm) {
-		const person = form.person!;
+	function appoint(form: PersonForm, person: Picked) {
 		save(peopleLane, {
 			what: "The leader",
 			done: "appointed",
@@ -279,9 +289,8 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			ok: () => toast({ tone: "success", message: `${role.name} is retired. Its history stays.` }),
 		});
 	}
-	function fill(form: PersonForm) {
+	function fill(form: PersonForm, person: Picked) {
 		const role = roles?.find((r) => r.id === form.roleId);
-		const person = form.person!;
 		if (!role) return;
 		save(peopleLane, {
 			what: `${person.name} in ${role.name}`,
@@ -601,7 +610,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 						form={
 							peopleLane.editing ?? {
 								person: null,
-								roleId: flow?.kind === "member" ? (flow.role?.id ?? (open.length === 1 ? open[0]!.id : null)) : null,
+								roleId: flow?.kind === "member" ? (flow.role?.id ?? onlyOpenRole(open)) : null,
 							}
 						}
 						open={open}
@@ -619,10 +628,10 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 							setFlow(null);
 							peopleLane.close();
 						}}
-						onSubmit={(form, kind) => {
+						onSubmit={(form, kind, person) => {
 							setFlow(null);
-							if (kind === "leader") appoint(form);
-							else fill(form);
+							if (kind === "leader") appoint(form, person);
+							else fill(form, person);
 						}}
 					/>
 				) : null}
@@ -721,7 +730,7 @@ function PersonFlowDialog({
 	problem?: string;
 	wait: ReturnType<typeof useSaveIntent>["wait"];
 	onClose: () => void;
-	onSubmit: (form: PersonForm, kind: PersonFlow["kind"]) => void;
+	onSubmit: (form: PersonForm, kind: PersonFlow["kind"], person: Picked) => void;
 }) {
 	if (flow.kind === "leader")
 		return (
@@ -742,7 +751,7 @@ function PersonFlowDialog({
 					</p>
 				}
 				onClose={onClose}
-				onSubmit={(f) => onSubmit(f, "leader")}
+				onSubmit={(f, person) => onSubmit(f, "leader", person)}
 			/>
 		);
 	const fixed = flow.role;
@@ -761,7 +770,7 @@ function PersonFlowDialog({
 			problem={problem}
 			wait={wait}
 			onClose={onClose}
-			onSubmit={(f) => onSubmit(fixed ? { ...f, roleId: fixed.id } : f, "member")}
+			onSubmit={(f, person) => onSubmit(fixed ? { ...f, roleId: fixed.id } : f, "member", person)}
 		/>
 	);
 }
@@ -1023,7 +1032,7 @@ function PeopleCard({
 									</IntentLink>
 									<p className="text-sm text-text-3">
 										{p.roles.map((r) => r.roleName).join(", ")} · since{" "}
-										{dayText(p.roles.map((r) => r.startedOn).sort()[0]!)}
+										{dayText(earliest(p.roles.map((r) => r.startedOn)))}
 									</p>
 								</div>
 								{can ? (
