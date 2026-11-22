@@ -328,8 +328,9 @@ export const readIntelligenceHistory: ReadAdapter<z.infer<typeof historyInput>> 
 			const href = viewHref(level, shownId);
 			const groups = view.groups.filter((g) => !input.place || placeMatches(g, input.place));
 			let earlier: C.IntelligenceView | null = null;
-			if (input.changes && view.run) {
-				const at = view.history.findIndex((h) => h.runId === view.run!.runId);
+			const shown = view.run;
+			if (input.changes && shown) {
+				const at = view.history.findIndex((h) => h.runId === shown.runId);
 				const before = view.history[at + 1];
 				earlier = before ? await readIntelligence(tx, actor.authority, { level, runId: before.runId }) : null;
 				facts.earlierRanOn = earlier?.run ? runText(earlier.run.ranAt, earlier.timeZone) : null;

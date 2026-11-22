@@ -1,5 +1,5 @@
 import * as C from "@everyfield/contracts/oversight";
-import { sql } from "@everyfield/db/query";
+import { sql, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRows, type RequestActor } from "../access/session.ts";
@@ -7,7 +7,8 @@ import { linkActive, type Reader } from "../organizations/core.ts";
 import { areaOf } from "../organizations/geography.ts";
 import { seatOf } from "../organizations/seat.ts";
 
-const iso = (column: string) => sql.raw(`to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`);
+const iso = <VName extends string>(v: SqlLiteral<VName>) =>
+	sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 const row = z.object({
 	name: z.string().nullable(),
 	timezone: z.string(),

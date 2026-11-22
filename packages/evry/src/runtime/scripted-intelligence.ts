@@ -281,8 +281,8 @@ function placeStep(
 	const region = REGION_PATTERNS.exec(text);
 	if (region) {
 		const place = (region[1] ?? "").trim();
-		if (!history.length) return read(HISTORY, { level: "region", place });
-		const out = history[0]!;
+		const [out] = history;
+		if (!out) return read(HISTORY, { level: "region", place });
 		if (!out.facts?.ranOn) return say(notRun);
 		if (out.facts.placeNotFound) return say(String(out.facts.placeNotFound));
 		if (!locations) return read(LOCATIONS);
@@ -311,8 +311,8 @@ function placeStep(
 	if (all) {
 		const place = (all[1] ?? "").trim();
 		const level = place ? levelOf(place) : "portfolio";
-		if (!history.length) return read(HISTORY, { level, place: place || "Whole portfolio" });
-		const out = history[0]!;
+		const [out] = history;
+		if (!out) return read(HISTORY, { level, place: place || "Whole portfolio" });
 		if (!out.facts?.ranOn) return say(notRun);
 		if (out.facts.placeNotFound) return say(String(out.facts.placeNotFound));
 		return say(
@@ -322,8 +322,8 @@ function placeStep(
 
 	const pattern = WHERE_PATTERN.exec(text);
 	if (pattern) {
-		if (!history.length) return read(HISTORY, {});
-		const out = history[0]!;
+		const [out] = history;
+		if (!out) return read(HISTORY, {});
 		if (!out.facts?.ranOn) return say(notRun);
 		const words = (pattern[1] ?? "")
 			.toLowerCase()
@@ -331,9 +331,10 @@ function placeStep(
 			.filter((w) => w && !["the", "a", "an"].includes(w));
 		const matches = (r: Row) => words.every((w) => r.label.toLowerCase().includes(w));
 		const holds = rowsOf(out, "pattern").filter(matches);
-		if (!holds.length)
+		const [first] = holds;
+		if (!first)
 			return say(`Network Intelligence shows no ${pattern[1]} pattern at any level in the run of ${ranOn(out)}.`);
-		const title = holds[0]!.label;
+		const title = first.label;
 		const without = rowsOf(out, "group").filter(
 			(g) => !holds.some((p) => p.fields.group === g.label && p.fields.level === g.fields.level),
 		);
@@ -428,8 +429,8 @@ function placeStep(
 		const runs = rowsOf(history[0], "run");
 		const before = runs[1];
 		if (!before) return say(runs.length ? "There's only one Network Intelligence run so far." : notRun);
-		if (history.length < 2) return read(HISTORY, { level, place, runId: before.id });
-		const out = history[1]!;
+		const [, out] = history;
+		if (!out) return read(HISTORY, { level, place, runId: before.id });
 		if (out.facts?.placeNotFound) return say(String(out.facts.placeNotFound));
 		return say(
 			[`In the earlier run, on ${ranOn(out)}, Network Intelligence showed:`, "", ...groupLines(out)].join("\n"),
@@ -440,8 +441,8 @@ function placeStep(
 	if (changed) {
 		const place = (changed[1] ?? "").trim();
 		const level = levelOf(place);
-		if (!history.length) return read(HISTORY, { level, place, changes: true });
-		const out = history[0]!;
+		const [out] = history;
+		if (!out) return read(HISTORY, { level, place, changes: true });
 		if (!out.facts?.ranOn) return say(notRun);
 		if (!out.facts.earlierRunId)
 			return say("There's only one Network Intelligence run so far, so nothing has changed yet.");
