@@ -3841,6 +3841,54 @@ const stableContextValue = {
 	},
 };
 
+const TEST_MODULES = new Set(["node:test", "test"]);
+
+const oneTopLevelBefore = {
+	meta: { type: "problem" },
+	create(context) {
+		const hooks = new Set();
+		const hosts = new Set();
+		const namespaces = new Set();
+		const isHook = (callee) => {
+			if (callee.type === "Identifier") return hooks.has(callee.name);
+			if (callee.type !== "MemberExpression" || memberName(callee) !== "before") return false;
+			const object = callee.object;
+			if (object.type === "Identifier") return hosts.has(object.name) || namespaces.has(object.name);
+			return (
+				object.type === "MemberExpression" &&
+				object.object.type === "Identifier" &&
+				namespaces.has(object.object.name) &&
+				["test", "default"].includes(memberName(object))
+			);
+		};
+		return {
+			ImportDeclaration(node) {
+				if (!TEST_MODULES.has(node.source.value)) return;
+				for (const spec of node.specifiers) {
+					if (spec.type === "ImportNamespaceSpecifier") namespaces.add(spec.local.name);
+					else if (spec.type === "ImportDefaultSpecifier") hosts.add(spec.local.name);
+					else if (nameOf(spec.imported) === "before") hooks.add(spec.local.name);
+					else if (["test", "default"].includes(nameOf(spec.imported))) hosts.add(spec.local.name);
+				}
+			},
+			"Program:exit"(program) {
+				const calls = program.body
+					.filter((statement) => statement.type === "ExpressionStatement")
+					.map((statement) =>
+						statement.expression.type === "AwaitExpression" ? statement.expression.argument : statement.expression,
+					)
+					.filter((call) => call.type === "CallExpression" && isHook(call.callee));
+				for (const call of calls.slice(1))
+					context.report({
+						node: call,
+						message:
+							"node:test starts a top-level before hook the moment it is registered, so a second one runs at the same time as the first. Put the file's setup in one before hook and await each step in order.",
+					});
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -3893,5 +3941,6 @@ export default {
 		"domain-refusals": domainRefusals,
 		"stable-context-value": stableContextValue,
 		"live-region-in-tree": liveRegionInTree,
+		"one-top-level-before": oneTopLevelBefore,
 	},
 };
