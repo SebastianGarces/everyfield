@@ -1230,6 +1230,7 @@ export const PRODUCT_TIMERS = {
 			timer: "setInterval",
 			binding: "heartbeat",
 			within: "conversationStreamGet",
+			delay: "15_000",
 			why: "the Evry conversation stream writes an SSE comment every 15 seconds so proxies and the browser keep an idle stream open while a turn runs; the interval is the keep-alive itself and nothing else marks when a quiet connection needs one",
 		},
 	],
@@ -1238,6 +1239,7 @@ export const PRODUCT_TIMERS = {
 			timer: "setTimeout",
 			binding: "wall",
 			within: "run",
+			delay: "LIMITS.wallMs",
 			why: "an Evry turn stops at its LIMITS.wallMs wall-time budget so a hung model or tool call cannot hold the run lease; the deadline is the limit itself and no event marks it",
 		},
 	],
@@ -1246,6 +1248,7 @@ export const PRODUCT_TIMERS = {
 			timer: "setTimeout",
 			binding: "timer",
 			within: "transientRetry",
+			delay: "ms",
 			why: "a transient model error is retried after the LIMITS.modelRetryDelaysMs backoff; the wait is the backoff itself and the turn's abort signal cancels it",
 		},
 	],
@@ -1254,6 +1257,7 @@ export const PRODUCT_TIMERS = {
 			timer: "setTimeout",
 			binding: "timer",
 			within: "timerPause",
+			delay: "ms",
 			why: "a conversation observer re-reads the store every pollMs so it still sees events written by another instance; the pause is the poll interval and the abort signal ends it",
 		},
 	],
@@ -1262,12 +1266,14 @@ export const PRODUCT_TIMERS = {
 			timer: "setTimeout",
 			binding: "timer",
 			within: "parser",
+			delay: "STARTUP_MS",
 			why: "a PDF parser worker that is not ready within STARTUP_MS counts as crashed, so a stuck worker cannot hold an upload; the deadline is the product limit",
 		},
 		{
 			timer: "setTimeout",
 			binding: "timer",
 			within: "parseOnce",
+			delay: "parseMs",
 			why: "a PDF parse that runs past parseMs is refused and its worker stopped, so one file cannot hold the parser; the deadline is the product limit",
 		},
 	],
@@ -1294,7 +1300,7 @@ const timerDepth = (node) => {
 	return depth;
 };
 
-const timerSite = (node, site) => {
+const timerSite = (context, node, site) => {
 	const call = node.parent;
 	if (node.name !== site.timer || call?.type !== "CallExpression" || call.callee !== node) return false;
 	const [nearest, ...outer] = declaredFunctions(call);
@@ -1302,6 +1308,7 @@ const timerSite = (node, site) => {
 		call.parent?.type === "VariableDeclarator" &&
 		call.parent.id.type === "Identifier" &&
 		call.parent.id.name === site.binding &&
+		context.sourceCode.getText(call.arguments[1]) === site.delay &&
 		nearest !== undefined &&
 		functionBinding(nearest) === site.within &&
 		!outer.some((fn) => functionBinding(fn) === site.within)
@@ -1322,7 +1329,7 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 		const at = (node.range ?? [node.start, node.end]).join(":");
 		if (seen.has(at)) return;
 		seen.add(at);
-		const site = sites.find((s) => timerSite(node, s));
+		const site = sites.find((s) => timerSite(context, node, s));
 		if (site) candidates.get(site).push({ node, name });
 		else hit(node, name);
 	};
@@ -1383,7 +1390,7 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 					push({
 						node: program,
 						fn: null,
-						message: `The listed product timer ${site.timer} ${site.binding} in ${site.within} is gone: delete its entry from PRODUCT_TIMERS in scripts/lint/everyfield-plugin.mjs.`,
+						message: `The listed product timer ${site.timer} ${site.binding} in ${site.within} with delay ${site.delay} is gone: delete its entry from PRODUCT_TIMERS in scripts/lint/everyfield-plugin.mjs.`,
 					});
 			}
 		},

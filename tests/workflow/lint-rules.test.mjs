@@ -372,14 +372,16 @@ export const other = () => setInterval(() => {}, 15_000);
 
 test("INV-lint: each listed product timer exempts its one call site, a new timer in the same file is reported and a listed timer that is gone is reported as stale", () => {
 	assert.deepEqual(
-		Object.entries(PRODUCT_TIMERS).flatMap(([path, sites]) => sites.map((s) => `${path} ${s.timer} ${s.within}`)),
+		Object.entries(PRODUCT_TIMERS).flatMap(([path, sites]) =>
+			sites.map((s) => `${path} ${s.timer} ${s.within} ${s.delay}`),
+		),
 		[
-			"apps/web/src/server/evry/http.ts setInterval conversationStreamGet",
-			"packages/evry/src/runtime/turn.ts setTimeout run",
-			"packages/evry/src/runtime/model.ts setTimeout transientRetry",
-			"packages/evry/src/runtime/observe.ts setTimeout timerPause",
-			"packages/db/src/schema/validate-file.ts setTimeout parser",
-			"packages/db/src/schema/validate-file.ts setTimeout parseOnce",
+			"apps/web/src/server/evry/http.ts setInterval conversationStreamGet 15_000",
+			"packages/evry/src/runtime/turn.ts setTimeout run LIMITS.wallMs",
+			"packages/evry/src/runtime/model.ts setTimeout transientRetry ms",
+			"packages/evry/src/runtime/observe.ts setTimeout timerPause ms",
+			"packages/db/src/schema/validate-file.ts setTimeout parser STARTUP_MS",
+			"packages/db/src/schema/validate-file.ts setTimeout parseOnce parseMs",
 		],
 	);
 	const paths = Object.keys(PRODUCT_TIMERS);
@@ -393,10 +395,10 @@ test("INV-lint: each listed product timer exempts its one call site, a new timer
 		const timer = setInterval(() => {}, 1);
 		return timer;
 	}
-	const again = setTimeout(() => {}, 1);
-	const timer = setTimeout(() => {}, 1);
+	const again = setTimeout(() => {}, STARTUP_MS);
+	const timer = setTimeout(() => {}, STARTUP_MS);
 	if (retry) {
-		const timer = setTimeout(() => {}, 1);
+		const timer = setTimeout(() => {}, STARTUP_MS);
 		return timer;
 	}
 	return [timer, again];
@@ -422,23 +424,23 @@ export function other() {
 	);
 });
 
-test("INV-lint: a listed product timer exempts the shallowest matching call whose nearest named function is the listed one, so a timer placed before it or in a nested function is the one reported", () => {
+test("INV-lint: a listed product timer exempts only the call with its callee, binding, delay and nearest named function, the shallowest on a tie, so a timer placed before it or in a nested function is the one reported", () => {
 	const turn = `export async function run() {
 	if (retry) {
-		const wall = setTimeout(() => {}, 1);
+		const wall = setTimeout(() => {}, LIMITS.wallMs);
 		clearTimeout(wall);
 	}
 	const kick = () => {
-		const wall = setTimeout(() => {}, 1);
+		const wall = setTimeout(() => {}, LIMITS.wallMs);
 		return wall;
 	};
-	const wall = setTimeout(() => {}, 1);
+	const wall = setTimeout(() => {}, LIMITS.wallMs);
 	return [wall, kick];
 }
 `;
 	const observe = `export const timerPause = () => {
 	const helper = () => {
-		const timer = setTimeout(() => {}, 1);
+		const timer = setTimeout(() => {}, ms);
 		return timer;
 	};
 	return helper;
@@ -446,29 +448,37 @@ test("INV-lint: a listed product timer exempts the shallowest matching call whos
 `;
 	const validate = `export function parser() {
 	function parser() {
-		const timer = setTimeout(() => {}, 1);
+		const timer = setTimeout(() => {}, STARTUP_MS);
 		return timer;
 	}
 	return parser;
 }
 export function parseOnce() {
 	return new Promise((resolve) => {
-		const timer = setTimeout(resolve, 1);
+		const timer = setTimeout(resolve, parseMs);
 		return timer;
 	});
 }
 `;
-	const model = `export const transientRetry = memo(() => {
-	const timer = setTimeout(() => {}, 1);
-	return timer;
-});
+	const model = `export const transientRetry = memo(
+	(
+		sleep = (ms) =>
+			new Promise((resolve) => {
+				const timer = setTimeout(resolve, ms);
+				return timer;
+			}),
+	) => {
+		const timer = setTimeout(sleep, 0);
+		return timer;
+	},
+);
 `;
 	const stream = `export const conversationStreamGet = (ready) => {
 	if (ready) {
-		const heartbeat = setInterval(() => {}, 1);
+		const heartbeat = setInterval(() => {}, 15_000);
 		return heartbeat;
 	} else {
-		const heartbeat = setInterval(() => {}, 1);
+		const heartbeat = setInterval(() => {}, 15_000);
 		return heartbeat;
 	}
 };
@@ -485,6 +495,7 @@ export function parseOnce() {
 			"apps/web/src/server/evry/http.ts:6 no-timers",
 			"packages/db/src/schema/validate-file.ts:1 no-timers",
 			"packages/db/src/schema/validate-file.ts:3 no-timers",
+			"packages/evry/src/runtime/model.ts:9 no-timers",
 			"packages/evry/src/runtime/observe.ts:1 no-timers",
 			"packages/evry/src/runtime/observe.ts:3 no-timers",
 			"packages/evry/src/runtime/turn.ts:3 no-timers",
