@@ -2,6 +2,7 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import {
+	Alert,
 	Button,
 	Card,
 	CardDescription,
@@ -37,11 +38,7 @@ export function Address() {
 	const [pending, start] = useTransition();
 	const loaded = read.value !== undefined;
 	const report = read.value?.status === "ok" ? read.value.value : null;
-	const notice: Notice | null =
-		restored ??
-		(read.value && read.value.status !== "ok"
-			? { text: outcomeText(read.value) ?? "Unable to read this address.", tone: "alert" }
-			: null);
+	const unread = read.value && read.value.status !== "ok" ? read.value : null;
 
 	const onRestore = () => {
 		const trimmed = reason.trim();
@@ -86,12 +83,24 @@ export function Address() {
 					Checking this address.
 				</p>
 			)}
-			{notice ? (
-				<p
-					role={notice.tone}
-					className={notice.tone === "alert" ? "text-sm font-medium text-magenta-600" : "text-md text-ink"}
+			{unread ? (
+				<Alert
+					role="alert"
+					actions={
+						<Button variant="secondary" onClick={read.retry}>
+							Try again
+						</Button>
+					}
 				>
-					{notice.text}
+					{outcomeText(unread) ?? "Unable to read this address."}
+				</Alert>
+			) : null}
+			{restored ? (
+				<p
+					role={restored.tone}
+					className={restored.tone === "alert" ? "text-sm font-medium text-magenta-600" : "text-md text-ink"}
+				>
+					{restored.text}
 				</p>
 			) : null}
 			{report ? (
