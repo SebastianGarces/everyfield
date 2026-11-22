@@ -17,6 +17,9 @@ export function dashboardCases(t, who) {
 			check: (v) => assert.ok(v === "complete" || v === "incomplete"),
 			control: (v) => assert.ok(v === "complete" || v === "incomplete"),
 		}),
+		r("readPlantName", () => dashboardReader.readPlantName(db, who.actor), {
+			value: "Synthetic plant",
+		}),
 		r("readSetupGaps", () => dashboardReader.readSetupGaps(db, who.actor), {
 			check: (v) => assert.ok(v.gaps.includes("add_people")),
 			control: (v) => assert.ok(!v.gaps.includes("add_people")),

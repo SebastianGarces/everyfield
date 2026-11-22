@@ -488,7 +488,8 @@ function TurnView({
 }
 
 function SendView({ send, onResend, onEdit }: { send: Send; onResend: () => void; onEdit: () => void }) {
-	const notice = sendNotice(send);
+	const churchName = Panel.useSelect((s) => s.churchName);
+	const notice = sendNotice(send, churchName);
 	return (
 		<li className="flex flex-col items-end gap-2">
 			<UserBubble muted={send.state === "sending"}>
