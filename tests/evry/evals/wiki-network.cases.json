@@ -1,0 +1,175 @@
+{
+	"model": "scripted",
+	"cases": [
+		{
+			"id": "WNE-01",
+			"criterion": 1,
+			"actor": "admin",
+			"ask": "Draft our own version of the vision meeting article that adds our coaching contact: Ruth Okafor, ruth.okafor@harvest.example.test",
+			"proposal": {
+				"operation": "wiki.organizationArticles.add",
+				"target": "Running Your Vision Meeting",
+				"changes": [
+					{
+						"field": "addedText",
+						"before": null,
+						"after": "Coaching contact: Ruth Okafor, ruth.okafor@harvest.example.test"
+					}
+				],
+				"notes": [
+					"This saves a draft of Harvest Network's own version of Running Your Vision Meeting",
+					"Churches connected to Harvest Network keep seeing the Wiki's version until you publish it."
+				]
+			},
+			"answer": ["review card", "Nothing is saved until you approve it"],
+			"decline": true
+		},
+		{
+			"id": "WNE-02",
+			"criterion": 1,
+			"actor": "admin",
+			"ask": "Draft our own version of the vision meeting article that adds our coaching contact",
+			"answer": ["Tell me the coaching contact word for word", "Nothing was prepared."]
+		},
+		{
+			"id": "WNE-03",
+			"criterion": 2,
+			"actor": "admin",
+			"ask": "Draft our own version of the vision meeting article that adds our coaching contact: Ruth Okafor, ruth.okafor@harvest.example.test",
+			"proposal": {
+				"operation": "wiki.organizationArticles.add",
+				"target": "Running Your Vision Meeting",
+				"changes": [
+					{
+						"field": "addedText",
+						"before": null,
+						"after": "Coaching contact: Ruth Okafor, ruth.okafor@harvest.example.test"
+					}
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "WNE-04",
+			"criterion": 3,
+			"actor": "admin",
+			"ask": "Change our coaching contact in the vision meeting article to Sam Ortiz, sam.ortiz@harvest.example.test",
+			"proposal": {
+				"operation": "wiki.organizationArticles.edit",
+				"target": "Running Your Vision Meeting",
+				"changes": [
+					{
+						"field": "articleText",
+						"before": "Coaching contact: Ruth Okafor, ruth.okafor@harvest.example.test",
+						"after": "Coaching contact: Sam Ortiz, sam.ortiz@harvest.example.test"
+					}
+				],
+				"notes": ["This updates the draft of Harvest Network's version of Running Your Vision Meeting."]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "WNE-05",
+			"criterion": 6,
+			"actor": "admin",
+			"ask": "Change our coaching contact in the vision meeting article to Lee Grant, lee.grant@harvest.example.test",
+			"proposal": {
+				"operation": "wiki.organizationArticles.edit",
+				"target": "Running Your Vision Meeting",
+				"changes": [
+					{
+						"field": "articleText",
+						"before": "Coaching contact: Sam Ortiz, sam.ortiz@harvest.example.test",
+						"after": "Coaching contact: Lee Grant, lee.grant@harvest.example.test"
+					}
+				]
+			},
+			"approve": true,
+			"outcome": "refused"
+		},
+		{
+			"id": "WNE-06",
+			"criterion": 4,
+			"actor": "admin",
+			"ask": "Publish our version of the vision meeting article",
+			"proposal": {
+				"operation": "wiki.organizationArticles.publish",
+				"target": "Running Your Vision Meeting",
+				"changes": [{ "field": "organizationVersion", "before": "Draft, not published", "after": "Published" }],
+				"notes": [
+					"Churches connected to Harvest Network that share its Wiki will see this version of Running Your Vision Meeting in place of the Wiki's."
+				]
+			},
+			"answer": ["publish your version of Running Your Vision Meeting"],
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "WNE-07",
+			"criterion": 5,
+			"actor": "admin",
+			"ask": "Hide our version of the vision meeting article",
+			"proposal": {
+				"operation": "wiki.organizationArticles.hide",
+				"target": "Running Your Vision Meeting",
+				"changes": [{ "field": "organizationVersion", "before": "Published", "after": "Hidden" }],
+				"notes": [
+					"Churches connected to Harvest Network no longer see its version of Running Your Vision Meeting. Their Wiki page says this source is hidden, and they can open another source, such as the Wiki's standard version.",
+					"Harvest Network's version history is kept."
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "WNE-08",
+			"criterion": 1,
+			"actor": "admin",
+			"ask": "Draft our own version of the vision meeting article that adds our coaching contact: Ruth Okafor, ruth.okafor@harvest.example.test",
+			"proposal": {
+				"operation": "wiki.organizationArticles.add",
+				"target": "Running Your Vision Meeting",
+				"changes": [],
+				"refusal": "Harvest Network already has its own version of Running Your Vision Meeting. Ask me to change its text instead."
+			},
+			"answer": ["already has its own version", "Nothing was prepared."]
+		},
+		{
+			"id": "WNE-09",
+			"criterion": 7,
+			"actor": "owner",
+			"ask": "Draft our own version of the launch team roles article that adds our coaching contact: Ruth Okafor, ruth.okafor@harvest.example.test",
+			"proposal": {
+				"operation": "wiki.organizationArticles.add",
+				"target": "Launch Team Roles",
+				"changes": [
+					{
+						"field": "addedText",
+						"before": null,
+						"after": "Coaching contact: Ruth Okafor, ruth.okafor@harvest.example.test"
+					}
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "WNE-10",
+			"criterion": 8,
+			"actor": "member",
+			"operation": "wiki.organizationArticles.add",
+			"ask": "Draft our own version of the vision meeting article that adds our coaching contact: Ruth Okafor, ruth.okafor@harvest.example.test",
+			"answer": ["Only an Owner or Admin of your network can edit its Wiki. Nothing was prepared."]
+		},
+		{
+			"id": "WNE-11",
+			"criterion": 9,
+			"actor": "church",
+			"operation": "wiki.organizationArticles.edit",
+			"ask": "Edit the vision meeting article in our Wiki to add our coaching contact: Ruth Okafor, ruth.okafor@harvest.example.test",
+			"answer": ["churches keep their own writing in Church Documents"]
+		}
+	]
+}

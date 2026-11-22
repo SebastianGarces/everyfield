@@ -223,7 +223,7 @@
 				},
 				{
 					"id": "church-changed",
-					"says": "When the person's seat moved to another church while Evry was open, sending to the old church's conversation is refused as a church change with nothing written; the panel says so with Reload, which opens Evry for the new church with the message still in the box.",
+					"says": "After a seat moves church, a send to the old church's conversation is refused with nothing written; Reload opens Evry for the new church with the message kept.",
 					"catalog": ["EVR-021"],
 					"operations": ["evry.submitTurn"],
 					"proof": {
@@ -231,12 +231,38 @@
 							{
 								"file": "tests/evry/runtime/conversations.test.mts",
 								"name": "INV-church-changed: a seat moved to another church refuses the old church's conversation as church_changed and writes nothing"
-							},
-							{
-								"file": "tests/unit/evry/church-changed.test.mts",
-								"name": "INV-church-changed: a moved seat's send shows the church change and Reload reopens Evry for the new church with the message"
 							}
 						]
+					}
+				},
+				{
+					"id": "attach-and-import",
+					"says": "An Owner or Admin attaches a Word or text file in the panel and asks for a church document: Evry shows a review of the import, refuses any file the Documents import refuses with that import's own sentence, and the document is in Documents only after Approve.",
+					"catalog": ["EVR-021", "DOC-016"],
+					"operations": ["documents.importTextOrWord"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/evry/adapters/documents/import.test.mts",
+								"name": "AC:CASE-DOC-016 AC:GAP-EVR-422 an attached Word file becomes a church document through one review: nothing is in Documents until Approve, then one document with the file's headings and paragraphs, however often it is approved or retried"
+							},
+							{
+								"file": "tests/evry/adapters/documents/import.test.mts",
+								"name": "AC:CASE-DOC-016 a file larger than the import limit is refused with the import's size message and nothing is written"
+							}
+						],
+						"cases": ["CASE-DOC-016"],
+						"browser": {
+							"kind": "presence",
+							"state": "new-chat",
+							"steps": [],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Attach a CSV, Word, text or PDF file"
+								}
+							]
+						}
 					}
 				}
 			]

@@ -211,3 +211,69 @@ export async function seatMember(admin: Database, plant: string) {
 export async function crowdActivity(admin: Database, runtime: Database, plant: string) {
 	for (let n = 1; n <= 15; n++) await addPerson(admin, runtime, plant, `Guest ${String(n).padStart(2, "0")}`);
 }
+
+const GARCIAS = [
+	["Luis Garcia", "luis.garcia@example.test", "head"],
+	["Maria Garcia", "maria.garcia@example.test", "spouse"],
+	["Sofia Garcia", null, "child"],
+] as const;
+const CORE_GROUP = [
+	["Grace Holt", "grace.holt@example.test"],
+	["Marcus Webb", "marcus.webb@example.test"],
+	["Tom Reyes", "tom.reyes@example.test"],
+] as const;
+export const NORTHSIDE = ["Northside Community Center", "Northside Library"] as const;
+
+export async function seedInvitations(
+	admin: Database,
+	runtime: Database,
+	plant: string,
+	people: Record<string, string>,
+) {
+	const home = randomUUID();
+	await admin.execute(sql`INSERT INTO household(id,plant_id,name) VALUES(${home},${plant},'Garcia household')`);
+	const ids: Record<string, string> = {};
+	for (const [name, email, role] of GARCIAS) {
+		ids[name] = await addPerson(admin, runtime, plant, name);
+		await admin.execute(
+			sql`UPDATE person SET email=${email},household_id=${home},household_role=${role} WHERE id=${ids[name]}`,
+		);
+	}
+	ids["Tom Reyes"] = await addPerson(admin, runtime, plant, "Tom Reyes", 40);
+	for (const [name, email] of CORE_GROUP)
+		await admin.execute(sql`UPDATE person SET stage='core_group',email=${email} WHERE id=${ids[name] ?? people[name]}`);
+	for (const name of NORTHSIDE)
+		await admin.execute(sql`INSERT INTO venue(plant_id,name,address) VALUES(${plant},${name},'Austin, TX')`);
+	await schedule(admin, runtime, plant, {
+		type: "vision_meeting",
+		title: "September vision night",
+		date: await localDay(admin, plant, 1),
+	});
+	return { household: home, people: ids };
+}
+
+export async function backdateLastMonth(admin: Database, plant: string) {
+	await admin.execute(sql`UPDATE meeting SET local_date=local_date-30,starts_at=starts_at-interval '30 days'
+		WHERE plant_id=${plant} AND title='September vision night'`);
+	await admin.execute(sql`UPDATE proposal SET created_at=created_at-interval '30 days',approved_at=approved_at-interval '30 days',
+		updated_at=updated_at-interval '30 days',expires_at=expires_at-interval '30 days' WHERE tenant_id=${plant}`);
+}
+
+export async function sinceLastMonth(
+	admin: Database,
+	runtime: Database,
+	plant: string,
+	people: Record<string, string>,
+) {
+	await admin.execute(
+		sql`INSERT INTO person_email_opt_out(plant_id,person_id) VALUES(${plant},${people["Tom Reyes"]})`,
+	);
+	await admin.execute(
+		sql`UPDATE person SET stage='core_group',email='nina.patel@example.test' WHERE id=${people["Nina Patel"]}`,
+	);
+	await schedule(admin, runtime, plant, {
+		type: "vision_meeting",
+		title: "Vision night",
+		date: await localDay(admin, plant, 2),
+	});
+}

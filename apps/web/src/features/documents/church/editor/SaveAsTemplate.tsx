@@ -1,12 +1,13 @@
 "use client";
 
-import { Alert02Icon, FloppyDiskIcon } from "@hugeicons/core-free-icons";
+import { FloppyDiskIcon } from "@hugeicons/core-free-icons";
 import {
 	TEMPLATE_DESCRIPTION_MAX,
 	TEMPLATE_NAME_MAX,
 	type ChurchTemplateSummary,
 } from "@everyfield/contracts/documents";
 import {
+	Alert,
 	Button,
 	Dialog,
 	DialogBody,
@@ -15,15 +16,14 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	Radio,
 	RadioGroup,
 	SegmentedControl,
 	Textarea,
-	InlineAlert,
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
-import { Icon } from "@everyfield/ui/foundations";
 import { useId, useState, useTransition, type FormEvent } from "react";
 import { createRead, useRead } from "../../../../components/read.tsx";
 import { saveChurchTemplate, updateChurchTemplate } from "../actions.ts";
@@ -169,15 +169,9 @@ export function SaveAsTemplateDialog({
 							/>
 						) : null}
 						{unsaved ? (
-							<div className="flex flex-col gap-3 rounded-md bg-amber-100 px-4 py-3 text-md text-ink">
-								<p className="flex items-start gap-2.5">
-									<Icon icon={Alert02Icon} size={18} className="mt-0.5 flex-none text-amber-600" />
-									<span>
-										Your latest changes are not saved yet. The template copies the saved document, so save them first to
-										include them.
-									</span>
-								</p>
-								<div>
+							<Alert
+								tone="warning"
+								actions={
 									<Button
 										variant="secondary"
 										size="sm"
@@ -187,8 +181,11 @@ export function SaveAsTemplateDialog({
 									>
 										Save changes
 									</Button>
-								</div>
-							</div>
+								}
+							>
+								Your latest changes are not saved yet. The template copies the saved document, so save them first to
+								include them.
+							</Alert>
 						) : null}
 						{updating && templates ? (
 							<>
