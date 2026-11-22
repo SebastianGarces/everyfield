@@ -3621,17 +3621,19 @@ const ownerRead = (node) => {
 	if (at?.type === "LogicalExpression") return ownerRead(at.left) || ownerRead(at.right);
 	return at?.type === "MemberExpression" && memberName(at) === "owner";
 };
+const REBINDING = new Set(["=", "||=", "&&=", "??="]);
 const seatNames = (context) => {
 	const kinds = new Map();
 	const owners = new Set();
 	const variable = (id) => variableOf(context, id);
+	const holds = (name, subject) => kinds.set(name, [...(kinds.get(name) ?? []), subject]);
 	const bind = (pattern, from) => {
 		if (pattern?.type !== "ObjectPattern") return;
 		for (const property of pattern.properties) {
 			if (property.type !== "Property") continue;
 			const key = keyName(property.key, property.computed);
 			const value = property.value.type === "AssignmentPattern" ? property.value.left : property.value;
-			if (key === "kind" && value.type === "Identifier") kinds.set(variable(value), from);
+			if (key === "kind" && value.type === "Identifier") holds(variable(value), from);
 			if (key === "owner" && value.type === "Identifier") owners.add(variable(value));
 			if (key === "owner") bind(value, OWNER);
 		}
@@ -3649,25 +3651,20 @@ const seatNames = (context) => {
 		if (id.type !== "Identifier") return;
 		const name = variable(id);
 		if (ownerRead(init)) owners.add(name);
-		if (init?.type === "MemberExpression" && memberName(init) === "kind") kinds.set(name, unwrapped(init.object));
+		if (init?.type === "MemberExpression" && memberName(init) === "kind") holds(name, unwrapped(init.object));
 		if (name) aliases.set(name, [...(aliases.get(name) ?? []), ...rebound(init)]);
 	};
 	const declare = (node) => assign(node.id, node.init);
 	const reassign = (node) => {
-		if (node.operator === "=") assign(node.left, node.right);
+		if (REBINDING.has(node.operator)) assign(node.left, node.right);
 	};
 	const kindOf = (node, seen = new Set()) => {
 		const at = unwrapped(node);
-		if (at?.type === "MemberExpression") return memberName(at) === "kind" ? unwrapped(at.object) : null;
+		if (at?.type === "MemberExpression") return memberName(at) === "kind" ? [unwrapped(at.object)] : [];
 		const name = at?.type === "Identifier" ? variable(at) : null;
-		if (!name || seen.has(name)) return null;
+		if (!name || seen.has(name)) return [];
 		seen.add(name);
-		if (kinds.has(name)) return kinds.get(name);
-		for (const target of aliases.get(name) ?? []) {
-			const subject = kindOf(target, seen);
-			if (subject) return subject;
-		}
-		return null;
+		return [...(kinds.get(name) ?? []), ...(aliases.get(name) ?? []).flatMap((target) => kindOf(target, seen))];
 	};
 	const namesOwner = (node, seen = new Set()) => {
 		if (node?.type !== "Identifier") return memberName(node) === "owner";
@@ -3680,10 +3677,11 @@ const seatNames = (context) => {
 	return { declare, reassign, kindOf, namesOwner };
 };
 const comparedKinds = (node, kindOf) => {
-	if (node.type === "SwitchCase") return node.test ? [[kindOf(node.parent.discriminant), node.test]] : [];
+	if (node.type === "SwitchCase")
+		return node.test ? kindOf(node.parent.discriminant).map((subject) => [subject, node.test]) : [];
 	return [
-		[kindOf(node.left), node.right],
-		[kindOf(node.right), node.left],
+		...kindOf(node.left).map((subject) => [subject, node.right]),
+		...kindOf(node.right).map((subject) => [subject, node.left]),
 	];
 };
 
@@ -3705,7 +3703,8 @@ const organizationSeatCheck = {
 			for (const [subject, value] of comparedKinds(node, names.kindOf)) {
 				if (!subject || value?.type !== "Literal") continue;
 				if (value.value === "seat") seats.push(nearestFunction(node));
-				if (value.value === "organization" && names.namesOwner(subject)) organizations.push(node);
+				if (value.value === "organization" && names.namesOwner(subject) && !organizations.includes(node))
+					organizations.push(node);
 			}
 		};
 		const within = (fn, outer) => {
