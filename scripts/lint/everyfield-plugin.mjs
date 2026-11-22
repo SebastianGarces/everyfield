@@ -1809,12 +1809,18 @@ const formGroup = (node) => {
 const templateText = (node) => node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ");
 const concatenated = (node) =>
 	node.type === "BinaryExpression" && node.operator === "+"
-		? [concatenated(node.left), concatenated(node.right)].reduce((a, b) => (a && b ? [...a, ...b] : null))
+		? [concatenatedOperand(node.left, node.right), concatenatedOperand(node.right, node.left)].reduce((a, b) =>
+				a && b ? [...a, ...b] : null,
+			)
 		: node.type === "Literal" && typeof node.value === "string"
 			? [node.value]
 			: node.type === "TemplateLiteral"
 				? [templateText(node)]
 				: null;
+const concatenatedOperand = (side, other) =>
+	side.type === "Literal" && typeof side.value === "number"
+		? concatenated(other) && [String(side.value)]
+		: concatenated(side);
 const classParts = (node) =>
 	node.type === "Literal"
 		? typeof node.value === "string"
@@ -3383,7 +3389,19 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 	const imported = new Map();
 	const namespaces = new Map();
 	const aliases = new Map();
+	const interfaces = new Map();
 	const candidates = [];
+	const interfaceParts = (name, seen) => {
+		if (seen.has(name)) return [];
+		seen.add(name);
+		if (aliases.has(name)) return [aliases.get(name)];
+		return (interfaces.get(name) ?? []).flatMap((block) => [
+			block.body,
+			...(block.extends ?? []).flatMap((h) =>
+				h.expression.type === "Identifier" ? interfaceParts(h.expression.name, seen) : [],
+			),
+		]);
+	};
 	const members = (type, seen) => {
 		if (type?.type === "TSUnionType") return type.types.flatMap((t) => members(t, seen));
 		const name = referenceName(type);
@@ -3391,6 +3409,7 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 			seen.add(name);
 			return members(aliases.get(name), seen);
 		}
+		if (name && interfaces.has(name)) return [{ type: "TSIntersectionType", types: interfaceParts(name, new Set()) }];
 		return [type];
 	};
 	const pieceOf = (member) => {
@@ -3454,7 +3473,7 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 			candidates.push(node);
 		},
 		TSInterfaceDeclaration(node) {
-			aliases.set(node.id.name, node.body);
+			interfaces.set(node.id.name, [...(interfaces.get(node.id.name) ?? []), node]);
 		},
 		TSTypeAnnotation: typeOf,
 		TSAsExpression: typeOf,

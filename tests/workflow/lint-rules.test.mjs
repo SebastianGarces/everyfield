@@ -1424,6 +1424,10 @@ export const AT = (on) => cn("rounded-md px-4 py-3", { ["bg-surface-" + "2"]: on
 export const AU = () => cn("rounded-md px-3", "bg-amber-" + "50");
 export const AV = "rounded-md bg-amber-" + "100 px-4" + " py-3";
 export const AW = () => <p className={"rounded-md bg-amber-50 px-4 py-3" + " text-sm"}>x</p>;
+export const AX = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-" + 50]: on });
+export const AY = (on) => cn("rounded-lg p-3", { ["bg-magenta-" + 1 + 0 + 0]: on });
+export const AZ = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-" + (5 + 0)]: on, [5 + 0 + "bg-amber-50"]: on });
+export const BA = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-" + (1 + "00")]: on });
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1431,7 +1435,7 @@ export const AW = () => <p className={"rounded-md bg-amber-50 px-4 py-3" + " tex
 	}).filter((hit) => hit.endsWith(" shared-notice"));
 	assert.deepEqual(
 		reported.sort(),
-		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37, 40, 41, 43, 44, 47, 48, 49]
+		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37, 40, 41, 43, 44, 47, 48, 49, 50, 51, 53]
 			.map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`)
 			.sort(),
 	);
@@ -2354,6 +2358,36 @@ async function read(): Promise<Ok<number> | No | Gone> {}
 		),
 		["apps/web/src/features/x/model.ts", "packages/domain/src/m.ts"]
 			.flatMap((path) => [7, 8, 11].map((line) => `${path}:${line} shared-outcome`))
+			.sort(),
+	);
+});
+
+test("INV-lint: an interface Outcome part is read with every block of its name and the same-file interfaces and aliases it extends", () => {
+	const source = `import type { Lost } from "@everyfield/contracts/common";
+interface Base { status: "ok" }
+interface Ok<T> extends Base { value: T }
+interface Valued<T> { value: T }
+interface Merged<T> { value: T }
+interface Merged<T> { status: "ok" }
+type Tagged = { status: "refused" };
+interface No extends Tagged { code: string }
+interface Deep<T> extends Ok<T>, Valued<T> {}
+interface Loop extends Loop2 { status: "ok" }
+interface Loop2 extends Loop { receipt: number }
+interface Elsewhere extends Imported { status: "ok" }
+export type A<T> = Ok<T> | No | Lost;
+type B<T> = Merged<T> | No | Lost;
+type C<T> = Deep<T> | No | Lost;
+type D = Loop | No | Lost;
+type E = Elsewhere | No | Lost;
+type F<T> = Valued<T> | No | Lost;
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/model.ts": source, "packages/domain/src/m.ts": source }).filter((hit) =>
+			hit.endsWith("shared-outcome"),
+		),
+		["apps/web/src/features/x/model.ts", "packages/domain/src/m.ts"]
+			.flatMap((path) => [13, 14, 15].map((line) => `${path}:${line} shared-outcome`))
 			.sort(),
 	);
 });
