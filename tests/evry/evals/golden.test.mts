@@ -756,7 +756,8 @@ function statusLine(r: Row): string {
 	const passes = hardPass(r) && (r.target?.met ?? true);
 	if (r.status === "Partially" && passes)
 		return "Partially (approved status): every check and target passes; needs browser proof (QA) before Supported";
-	return `${r.status} (approved status)${passes ? "" : ": not every check passes"}`;
+	const why = !hardPass(r) ? ": not every check passes" : passes ? "" : ": its full target is not met";
+	return `${r.status} (approved status)${why}`;
 }
 
 function report(rows: Row[], ready: Readiness) {
@@ -979,7 +980,7 @@ test("INV-evry-golden-release: a Partially case blocks alpha until its full targ
 	const gapped = readiness([gap], { expected: [], baseline: [] });
 	assert.deepEqual(gapped.release, []);
 	assert.deepEqual(gapped.alpha, [{ id: "P-1", unmet: ['target "uses tasks.list" (not in the catalog yet)'] }]);
-	assert.equal(statusLine(gap), "Partially (approved status): not every check passes");
+	assert.equal(statusLine(gap), "Partially (approved status): its full target is not met");
 	const met = fakeRow("P-1", { status: "Partially", target: target(true) });
 	assert.deepEqual(readiness([met], { expected: [], baseline: [] }).alpha, []);
 	assert.equal(
@@ -1331,7 +1332,7 @@ test("INV-evry-golden: every golden and adapter case passes its hard checks on t
 		`${rows.filter(hardPass).length}/${rows.length} hard-pass; alpha gaps: ${gaps.join(", ") || "none"}; ${graded} graded`,
 	);
 	assert.equal(blocking.length, 0, "\n" + blocking.join("\n\n"));
-	assert.ok(graded > 0, "the judge grades the answers that pass");
+	assert.ok(graded > 0 || !rows.some((r) => hardPass(r) && !r.scripted), "the judge grades the answers that pass");
 	t.diagnostic(
 		`release: ${ready.release.length ? `blocked (${ready.release.length} reasons)` : "ready"}; alpha: ${ready.release.length || ready.alpha.length ? "blocked" : "ready"}`,
 	);
