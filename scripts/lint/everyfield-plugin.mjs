@@ -1806,9 +1806,7 @@ const classParts = (node) =>
 					: node.type === "ArrayExpression"
 						? node.elements.flatMap((element) => (element ? classParts(element) : []))
 						: node.type === "ObjectExpression"
-							? node.properties.flatMap((property) =>
-									property.type === "Property" && !property.computed ? classParts(property.key) : [],
-								)
+							? node.properties.flatMap((property) => (property.type === "Property" ? classParts(property.key) : []))
 							: [];
 
 const sharedNotice = {
@@ -1852,7 +1850,7 @@ const attributeStrings = (attribute) =>
 		: stringsIn(attribute.value);
 const HIDING_CLASSES = new Set(["hidden", "invisible"]);
 const hidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, "").split(":").at(-1));
-const OFF_VALUES = { hidden: [false], "aria-hidden": [false, "false"] };
+const OFF_VALUES = { hidden: [false], inert: [false], "aria-hidden": [false, "false"] };
 const switchedOff = (attribute, name) => {
 	const value = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
 	return value?.type === "Literal" && OFF_VALUES[name].includes(value.value);
@@ -1873,16 +1871,21 @@ const liveRegionInTree = {
 				const liveValues = live ? attributeStrings(live) : [];
 				const announces =
 					(live && !(liveValues.length && liveValues.every((value) => value === "off"))) ||
-					(role && attributeStrings(role).some((value) => LIVE_ROLES.has(value)));
+					(role && attributeStrings(role).some((value) => LIVE_ROLES.has(value))) ||
+					(!live && !role && node.name.type === "JSXIdentifier" && node.name.name === "output");
 				if (!announces) return;
 				const className = jsxAttribute(node, "className");
 				const hiddenClass = className && attributeStrings(className).some((s) => s.split(/\s+/).some(hidingToken));
-				const hiding = (hiddenClass && className) || setAttribute(node, "hidden") || setAttribute(node, "aria-hidden");
+				const hiding =
+					(hiddenClass && className) ||
+					setAttribute(node, "hidden") ||
+					setAttribute(node, "inert") ||
+					setAttribute(node, "aria-hidden");
 				if (!hiding) return;
 				context.report({
 					node: hiding,
 					message:
-						"A live region (aria-live, or role status, alert or log) that is hidden, invisible or aria-hidden leaves the accessibility tree, so what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
+						"A live region (aria-live, role status, alert or log, or an output element) that is hidden, invisible, inert or aria-hidden leaves the accessibility tree, so what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
 				});
 			},
 		};
@@ -3660,13 +3663,18 @@ const strictContracts = {
 					else if (LOOSE_OBJECTS.has(imported)) loose.add(spec.local.name);
 				}
 			},
+			ExportAllDeclaration(node) {
+				if (/^zod(?:\/|$)/.test(node.source.value)) refuse(node);
+			},
 			ExportNamedDeclaration(node) {
 				if (!/^zod(?:\/|$)/.test(node.source?.value ?? "")) return;
 				for (const spec of node.specifiers) if (LOOSE_OBJECTS.has(nameOf(spec.local))) refuse(spec);
 			},
 			VariableDeclarator(node) {
 				const init = unwrapped(node.init);
-				if (node.id.type !== "ObjectPattern" || init?.type !== "Identifier" || !namespaces.has(init.name)) return;
+				if (init?.type !== "Identifier" || !namespaces.has(init.name)) return;
+				if (node.id.type === "Identifier") namespaces.add(node.id.name);
+				if (node.id.type !== "ObjectPattern") return;
 				for (const property of node.id.properties)
 					if (property.type === "Property" && LOOSE_OBJECTS.has(keyName(property.key, property.computed)))
 						refuse(property);
