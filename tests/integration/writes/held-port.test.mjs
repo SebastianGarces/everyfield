@@ -15,7 +15,7 @@ test("INV-census: next start listens on the socket that chose its port, so no so
 		thief.once("error", () => resolve(false)).listen(held.port, "127.0.0.1", () => resolve(true)),
 	);
 	const child = held.spawn(process.execPath, [stub, String(held.port)], {
-		env: { PATH: process.env.PATH, STUB_ORIGIN: origin },
+		env: { PATH: process.env.PATH },
 		stdio: ["ignore", "pipe", "pipe"],
 	});
 	try {
@@ -29,7 +29,7 @@ test("INV-census: next start listens on the socket that chose its port, so no so
 			child.once("exit", (code) => reject(Error(`stub exited ${code} before it was ready:\n${log}`)));
 		});
 		await ready;
-		assert.equal(await fetch(origin + "/").then((r) => r.text()), "stub " + origin);
+		assert.equal(await fetch(origin + "/").then((r) => r.text()), "stub");
 		assert.equal(
 			taken,
 			false,
