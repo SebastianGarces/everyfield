@@ -25,6 +25,7 @@ import { currentActor } from "@everyfield/domain/access";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { canonical } from "../operations/canonical.ts";
+import { DomainRefusal } from "../operations/refusals.ts";
 import { finishAudit, prepareWrite } from "../operations/writes.ts";
 
 export { currentActor, sameOwner };
@@ -42,13 +43,7 @@ export type OrganizationRefusalCode =
 	| "request_conflict"
 	| "resend_cooldown"
 	| "stale_revision";
-export class OrganizationRefusal extends Error {
-	readonly code: OrganizationRefusalCode;
-	constructor(code: OrganizationRefusalCode) {
-		super(code);
-		this.code = code;
-	}
-}
+export class OrganizationRefusal extends DomainRefusal<OrganizationRefusalCode> {}
 export function refuse(code: OrganizationRefusalCode = "unavailable"): never {
 	throw new OrganizationRefusal(code);
 }

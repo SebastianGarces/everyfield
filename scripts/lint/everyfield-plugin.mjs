@@ -584,10 +584,6 @@ const LOG_SINKS = new Set(["logLine", "logInfo", "logFailure", "asLogWord", "asL
 export const RAW_ERROR_SCOPE =
 	/^(?:(?:apps\/web\/src|packages\/[^/]+\/src|ops|tools\/prod-identity)\/|tools\/qa\/(?!tests\/))/;
 export const RAW_ERROR_SITES = {
-	"packages/evry/src/adapters/native.ts": {
-		sites: 2,
-		why: "refusalOf passes on a message only when it is a code word ([a-z_]{3,40}); Evry's recorded refusals carry that word, so reading it another way would change recorded Evry results",
-	},
 	"packages/domain/src/documents/unpack.ts": {
 		sites: 1,
 		why: "ImportRejected is thrown only with fixed copy literals in documents/unpack.ts, and that copy is the answer the person importing the file reads",

@@ -27,7 +27,7 @@ import {
 	type WikiArticle,
 	type WikiReply,
 } from "@everyfield/contracts/wiki";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import {
 	DAILY_QUERY_CAP_USD,
@@ -168,7 +168,7 @@ export function listArticles(
 		return listValue(page.articles, page.nextCursor, page.row);
 	});
 }
-export function getArticle(db: Database, authority: RequestActor, raw: unknown) {
+export function getArticle(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(articleRequest, raw);
 		const page = await readPage(
@@ -301,7 +301,7 @@ function meaningSql(meaning: Meaning | null, phase: number | null): SQL {
 }
 
 export async function search(
-	db: Database,
+	db: Database | Transaction,
 	authority: RequestActor,
 	raw: unknown,
 	embedder: WikiQueryEmbedder | null = wikiQueryEmbedder(process.env),
@@ -596,7 +596,7 @@ export function readingRecent(db: Database, authority: RequestActor, raw: unknow
 		return { articles: (row.articles ?? []).map(present) } satisfies z.output<typeof recentResult>;
 	});
 }
-export async function readingResume(db: Database, authority: RequestActor, raw: unknown) {
+export async function readingResume(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	const recent = await readingRecent(db, authority, raw ?? {});
 	if (recent.status !== "ok") return recent;
 	return {
@@ -684,7 +684,7 @@ export function readingStats(db: Database, authority: RequestActor, raw: unknown
 		} satisfies z.output<typeof statsResult>;
 	});
 }
-export function recommendForPhase(db: Database, authority: RequestActor, raw: unknown) {
+export function recommendForPhase(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(recommendRequest, raw);
 		const access = accessFor(authority);

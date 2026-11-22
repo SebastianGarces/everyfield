@@ -1,5 +1,5 @@
 import * as c from "@everyfield/contracts/documents";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import {
 	createAuthorizedDownload,
@@ -410,7 +410,7 @@ const generatedWriter = {
 		});
 	},
 
-	async archive(db: Database, authority: RequestActor, raw: unknown) {
+	async archive(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.documentRevisionRequest, raw);
 			const scope = editScope(authority);
@@ -422,7 +422,7 @@ const generatedWriter = {
 		});
 	},
 
-	async designateCoreValues(db: Database, authority: RequestActor, raw: unknown) {
+	async designateCoreValues(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.documentRevisionRequest, raw);
 			const scope = editScope(authority);
@@ -434,7 +434,12 @@ const generatedWriter = {
 		});
 	},
 
-	async importTextOrWord(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
+	async importTextOrWord(
+		db: Database | Transaction,
+		authority: RequestActor,
+		raw: unknown,
+		storage: PrivateStorage | null,
+	) {
 		return settle(async () => {
 			const input = parse(c.importDocumentRequest, raw);
 			const scope = editScope(authority);

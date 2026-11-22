@@ -1,5 +1,5 @@
 import * as c from "@everyfield/contracts/documents";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { queueJobsFor } from "../jobs/queue.ts";
 import {
@@ -335,7 +335,7 @@ const listKey = (view: c.CompareView, items: readonly c.DocDifference[]) =>
 	`sha256:${hashOf(JSON.stringify([view, items]))}`;
 
 export const churchWriter = {
-	async createFromTemplate(db: Database, authority: RequestActor, raw: unknown) {
+	async createFromTemplate(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.createFromTemplateRequest, raw);
 			const scope = adminScope(authority);
@@ -646,7 +646,12 @@ export const churchWriter = {
 		});
 	},
 
-	async exportNative(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
+	async exportNative(
+		db: Database | Transaction,
+		authority: RequestActor,
+		raw: unknown,
+		storage: PrivateStorage | null,
+	) {
 		return settle(async () => {
 			const input = parse(c.exportNativeRequest, raw);
 			const scope = readerScope(authority);
@@ -1457,7 +1462,7 @@ export const churchWriter = {
 		});
 	},
 
-	async archiveChurch(db: Database, authority: RequestActor, raw: unknown) {
+	async archiveChurch(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.archiveChurchRequest, raw);
 			const scope = adminScope(authority);

@@ -14,11 +14,10 @@ import {
 	nativeWrite,
 	finishAudit,
 	prepareWrite,
-	WriteUnavailable,
 	type AuditWrite,
 	gatedTransaction,
 } from "../operations/writes.ts";
-import { defineRefusals, type Deny } from "../operations/refusals.ts";
+import { defineRefusals, WriteUnavailable, type Deny } from "../operations/refusals.ts";
 
 export type Tx = WriteTx;
 export type Reader = Pick<Transaction, "execute">;
