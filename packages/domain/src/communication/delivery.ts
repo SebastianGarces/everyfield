@@ -367,7 +367,12 @@ async function prepare(
 		})
 		.sort((a, b) => a.id.localeCompare(b.id));
 	const seen = new Set<string>();
-	const unique = people.filter((row) => (seen.has(row.id) ? false : (seen.add(row.id), true)));
+	const address = (row: (typeof people)[number]) => (row.email ?? "").trim().toLowerCase();
+	const out = new Set(leftOut);
+	const reached = new Set(people.filter((row) => !out.has(row.id)).map(address));
+	const unique = people.filter((row) =>
+		seen.has(row.id) || (out.has(row.id) && reached.has(address(row))) ? false : (seen.add(row.id), true),
+	);
 	const rows = unique.map((person, index) => {
 		const address = person.email.toLowerCase();
 		const id = randomUUID();

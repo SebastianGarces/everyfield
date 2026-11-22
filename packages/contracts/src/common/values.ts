@@ -52,6 +52,13 @@ export const outcomeOf = <T, E extends { code: string }>(reply: Reply<T, E> | Lo
 		: reply.status === "ok"
 			? { status: "ok", value: reply.value }
 			: reply;
+export const refusedWith = <E extends { code: string }>(error: E): Refused<E["code"], { error: E }> => ({
+	status: "refused",
+	code: error.code,
+	error,
+});
+export const withError = <T, E extends { code: string }>(reply: Reply<T, E>): Outcome<T, E["code"], { error: E }> =>
+	reply.status === "ok" ? reply : refusedWith(reply.error);
 export type RetryEligibility = "never" | "refresh" | "same_request" | "reconcile";
 export function defineSafeError<
 	const Code extends string,

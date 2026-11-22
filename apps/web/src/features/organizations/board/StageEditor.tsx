@@ -169,7 +169,7 @@ function Editor({ stages, onSaved }: { stages: Stage[]; onSaved: () => void }) {
 										{`Counts as ${KIND_LABEL[row.kind]} · ${plural(row.count, "person", "people")}`}
 									</p>
 								)}
-								<div aria-live="polite" className="empty:hidden">
+								<div aria-live="polite" className="empty:sr-only">
 									{blocked === row.id ? (
 										<p className="px-1 text-sm font-medium text-ink">
 											{`“${row.label}” can’t be deleted while ${plural(row.count, "person is", "people are")} in it. Move them to another stage first.`}

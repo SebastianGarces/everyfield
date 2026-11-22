@@ -150,7 +150,14 @@ export const actorAttribution = z.discriminatedUnion("kind", [
 ]);
 const activityBase = { id: recordId, occurredAt: instant, recordedAt: instant, actor: actorAttribution };
 export const activity = z.discriminatedUnion("kind", [
-	z.strictObject({ ...activityBase, kind: z.literal("note"), revision, body: longText, editedAt: instant.nullable() }),
+	z.strictObject({
+		...activityBase,
+		kind: z.literal("note"),
+		revision,
+		body: longText,
+		editedAt: instant.nullable(),
+		authorName: z.string().min(1).nullable(),
+	}),
 	z.strictObject({ ...activityBase, kind: z.literal("note_removed"), revision }),
 	z.strictObject({ ...activityBase, kind: z.literal("stage_changed"), from: stage, to: stage }),
 	z.strictObject({

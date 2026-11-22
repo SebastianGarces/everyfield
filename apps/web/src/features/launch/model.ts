@@ -13,10 +13,11 @@ import {
 	type Plan,
 	type SummaryProblem,
 } from "@everyfield/contracts/launch";
+import type { Outcome as Shared } from "@everyfield/contracts/common";
 import { READ_FAILED } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; error: LaunchError } | { status: "lost" };
+export type Outcome<T> = Shared<T, LaunchError["code"], { error: LaunchError }>;
 
 export async function sent<R extends { status: string }>(call: () => Promise<R>): Promise<R | { status: "lost" }> {
 	try {

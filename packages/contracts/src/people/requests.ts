@@ -52,6 +52,7 @@ export const ownAccountPersonRequest = z.strictObject({});
 export const listPeopleRequest = z.strictObject({
 	...pageInput,
 	search: z.string().trim().max(255).optional(),
+	city: z.string().trim().min(1).max(255).optional(),
 	view: z.enum(["list", "card", "pipeline"]).default("list"),
 	stages: z.array(stage).max(7).default([]),
 	sources: z.array(recruitmentSource).max(8).default([]),

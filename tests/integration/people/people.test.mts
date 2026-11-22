@@ -223,6 +223,32 @@ test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and page n
 	);
 });
 
+test("INV-people: the city filter matches the recorded city whole, ignoring case, never a name, and joins the stage filter", async () => {
+	const a = await create("City filter Ada", { city: "Austin" }),
+		b = await create("City filter Ben", { city: "austin", stage: "attendee" });
+	await create("City filter Cy", { city: "South Austin" });
+	await create("City filter Austin Dee", { city: "Round Rock" });
+	await create("City filter Eve");
+	const ids = (page) => page.items.map((p) => p.id).sort();
+	const all = ok(await tx((t) => read.listPeople(t, ctx(1), { search: "City filter", city: " AUSTIN " })));
+	assert.deepEqual([ids(all), all.total, all.next], [[a.id, b.id].sort(), 2, null]);
+	const prospects = ok(
+		await tx((t) => read.listPeople(t, ctx(1), { search: "City filter", city: "austin", stages: ["prospect"] })),
+	);
+	assert.deepEqual([ids(prospects), prospects.total], [[a.id], 1]);
+	const board = ok(await tx((t) => read.getPipelineData(t, ctx(), { search: "City filter", city: "Austin" })));
+	assert.deepEqual(
+		board.groups.map((g) => [g.column, g.total, g.cards.map((c) => c.person.id)]),
+		[
+			["prospect", 1, [a.id]],
+			["attendee", 1, [b.id]],
+			["following_up", 0, []],
+			["interviewed", 0, []],
+			["core_group", 0, []],
+		],
+	);
+	refused(await tx((t) => read.listPeople(t, ctx(), { search: "City filter", city: "" })), "invalid_input");
+});
 test("BUG-PR110: people pages retain microseconds across 25 equal timestamp keys", async (t) => {
 	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
 	t.after(() => admin.execute(sql`DELETE FROM person WHERE id=ANY(${sql.param(ids)}::uuid[])`));
@@ -850,6 +876,49 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 		ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"] }))).items[0].kind,
 		"note_removed",
 	);
+});
+
+test("AC:TARGET-PPL-008 every church seat who can see a note sees its author's name, and it stays after the author's seat ends", async () => {
+	const plant = await database.plant({ timezone: "America/New_York" });
+	const seated = async (role, name) => database.actor(plant, role, { user: { name } });
+	const on = (a) => ({ session: a.session, selected: { kind: "plant", id: plant.id } });
+	const authors = [await seated("owner", "Ruth"), await seated("admin", "Orpah")];
+	const readers = [await seated("admin", "Naomi"), await seated("member", "Boaz")];
+	const p = ok(
+		await tx((t) =>
+			write.createPerson(t, on(authors[0]), { requestKey: randomUUID(), input: { displayName: "Named notes" } }),
+		),
+	).person;
+	let revision = p.revision;
+	for (const author of authors) {
+		const added = ok(
+			await tx((t) =>
+				write.addNote(t, on(author), {
+					requestKey: randomUUID(),
+					expectedRevision: revision,
+					input: { personId: p.id, body: `Note from ${author.id}` },
+				}),
+			),
+		);
+		revision = added.personRevision;
+	}
+	const names = async (reader) =>
+		ok(await tx((t) => read.getActivities(t, on(reader), { personId: p.id, kinds: ["note"] }))).items.map((a) => [
+			a.body,
+			a.authorName,
+		]);
+	const expected = [
+		[`Note from ${authors[1].id}`, "Orpah"],
+		[`Note from ${authors[0].id}`, "Ruth"],
+	];
+	for (const reader of [...authors, ...readers]) assert.deepEqual(await names(reader), expected);
+	await admin.execute(
+		sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id IN (${sql.join(
+			authors.map((a) => sql`${a.id}::uuid`),
+			sql`,`,
+		)})`,
+	);
+	for (const reader of readers) assert.deepEqual(await names(reader), expected);
 });
 
 test("AC:CA014 BUG-37313a5c7 explicit adult classification retains genuine historical acquisition rather than creating a join today, and refuses a day after the church's today", async () => {
