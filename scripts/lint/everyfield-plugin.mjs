@@ -1378,7 +1378,13 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 		},
 		"Program:exit"(program) {
 			for (const [site, found] of candidates) {
-				if (found.length !== 1) for (const c of found) hit(c.node, c.name);
+				if (found.length > 1)
+					for (const c of found)
+						push({
+							node: c.node,
+							fn: enclosingName(c.node),
+							message: `${found.length} calls match the listed product timer ${site.timer} ${site.binding} in ${site.within} with delay ${site.delay}, which exempts exactly one. One of them is the listed product timer: keep it. Remove the copy that was added, or give a new timer its own binding and delay and its own reason.`,
+						});
 				if (!found.length)
 					push({
 						node: program,

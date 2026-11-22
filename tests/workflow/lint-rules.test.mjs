@@ -73,7 +73,7 @@ const GROUPS = [
 	{ config: ".oxlintrc.json", cwd: ".", owns: () => true },
 ];
 
-function lintIn(dir, paths, code = /^everyfield\(([\w-]+)\)$/) {
+function lintIn(dir, paths, code = /^everyfield\(([\w-]+)\)$/, messages = false) {
 	const hits = [];
 	for (const group of GROUPS) {
 		const mine = paths.filter((path) => GROUPS.find((g) => g.owns(path)) === group);
@@ -87,13 +87,15 @@ function lintIn(dir, paths, code = /^everyfield\(([\w-]+)\)$/) {
 		for (const d of JSON.parse(ran.stdout.slice(ran.stdout.indexOf("{"))).diagnostics) {
 			const rule = code.exec(d.code ?? "")?.[1];
 			if (rule && rule !== "resend-senders")
-				hits.push(`${relative(dir, resolve(cwd, d.filename))}:${d.labels?.[0]?.span.line ?? 1} ${rule}`);
+				hits.push(
+					`${relative(dir, resolve(cwd, d.filename))}:${d.labels?.[0]?.span.line ?? 1} ${rule}${messages ? ` ${d.message}` : ""}`,
+				);
 		}
 	}
 	return hits.sort();
 }
 
-const lint = (files, lintData) => lintIn(sandbox(files, lintData), Object.keys(files));
+const lint = (files, lintData, messages) => lintIn(sandbox(files, lintData), Object.keys(files), undefined, messages);
 
 const EFFECTS = `import * as R from "react";
 import React2, { useEffect as ue, useLayoutEffect } from "react";
@@ -424,16 +426,18 @@ export function other() {
 	);
 });
 
-test("INV-lint: a listed product timer is exempt only while exactly one call matches it, so a same-delay copy added shallower in the real function reports both calls", () => {
+test("INV-lint: a listed product timer is exempt only while exactly one call matches it, so a same-delay copy added shallower in the real function reports both calls with a message that names the listed timer and asks to remove the copy", () => {
 	const path = "packages/evry/src/runtime/model.ts";
 	const real = readFileSync(join(repo, path), "utf8");
 	const site = "\t\t\tconst timer = setTimeout(resolve, ms);\n";
 	const body = "): LanguageModelV4Middleware {\n";
 	const copied = real.replace(body, `${body}\tconst timer = setTimeout(() => 1, ms);\n`);
 	const line = (text, at) => text.slice(0, text.indexOf(at)).split("\n").length;
+	const message =
+		"2 calls match the listed product timer setTimeout timer in transientRetry with delay ms, which exempts exactly one. One of them is the listed product timer: keep it. Remove the copy that was added, or give a new timer its own binding and delay and its own reason.";
 	assert.deepEqual(
-		lint({ [path]: copied }).filter((hit) => hit.endsWith(" no-timers")),
-		[line(copied, site), line(copied, body) + 1].map((n) => `${path}:${n} no-timers`).sort(),
+		lint({ [path]: copied }, undefined, true).filter((hit) => hit.includes(" no-timers ")),
+		[line(copied, site), line(copied, body) + 1].map((n) => `${path}:${n} no-timers ${message}`).sort(),
 	);
 });
 
