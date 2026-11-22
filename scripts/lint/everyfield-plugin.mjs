@@ -1921,15 +1921,23 @@ const alwaysHidden = (element) => {
 		})
 	);
 };
+const portalElement = (element) =>
+	/Portal$/.test(
+		element.name.type === "JSXMemberExpression"
+			? element.name.property.name
+			: element.name.type === "JSXIdentifier"
+				? element.name.name
+				: "",
+	);
+const portalCall = (node) =>
+	(node.callee.type === "Identifier" ? node.callee.name : memberName(node.callee)) === "createPortal";
 const insideHiddenElement = (node) => {
-	for (let child = node.parent, at = child.parent; at; child = at, at = at.parent)
-		if (
-			at.type === "JSXElement" &&
-			child !== at.openingElement &&
-			domElement(at.openingElement) &&
-			alwaysHidden(at.openingElement)
-		)
-			return true;
+	for (let child = node.parent, at = child.parent; at; child = at, at = at.parent) {
+		if (at.type === "CallExpression" && portalCall(at)) return false;
+		if (at.type !== "JSXElement" || child === at.openingElement) continue;
+		if (portalElement(at.openingElement)) return false;
+		if (domElement(at.openingElement) && alwaysHidden(at.openingElement)) return true;
+	}
 	return false;
 };
 
