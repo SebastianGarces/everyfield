@@ -3984,6 +3984,12 @@ const stableContextValue = {
 const TEST_HOSTS = new Set(["test", "it", "default"]);
 
 const CONFIRM_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
+const SETTLERS = new Set(["then", "catch", "finally"]);
+const isCall = (node) => (node?.type === "ChainExpression" ? node.expression : node)?.type === "CallExpression";
+const awaitedCall = (node) => node?.type === "AwaitExpression" && isCall(node.argument);
+const voidedCall = (node) => node?.type === "UnaryExpression" && node.operator === "void" && isCall(node.argument);
+const settledCall = (node) =>
+	isCall(node) && SETTLERS.has(memberName((node.type === "ChainExpression" ? node.expression : node).callee));
 const confirmKeepsRefusal = {
 	meta: { type: "problem" },
 	create(context) {
@@ -4003,23 +4009,49 @@ const confirmKeepsRefusal = {
 			}
 			return null;
 		};
+		const unread = (declarator) =>
+			!context.sourceCode
+				.getDeclaredVariables(declarator)
+				.some((variable) => variable.references.some((reference) => reference.isRead()));
+		const dropping = (statements, found, floating) => {
+			for (const statement of statements) {
+				if (statement.type === "TryStatement") {
+					dropping(statement.block.body, found, floating);
+					dropping(statement.finalizer?.body ?? [], found, floating);
+					continue;
+				}
+				if (statement.type === "VariableDeclaration") {
+					if (statement.declarations.some((d) => awaitedCall(d.init) && unread(d))) found.push(statement);
+					continue;
+				}
+				if (statement.type !== "ExpressionStatement") continue;
+				const expression = statement.expression;
+				if (awaitedCall(expression) || voidedCall(expression) || settledCall(expression)) found.push(statement);
+				else if (isCall(expression)) floating.push(statement);
+			}
+		};
+		const report = (node) =>
+			context.report({
+				node,
+				message:
+					"This onConfirm drops the answer of a call, so a refusal the call returns never reaches the dialog. Return it (return handler()), or turn its refusal into return { refused } here.",
+			});
 		return {
 			JSXAttribute(node) {
 				if (node.name.name !== "onConfirm" || node.value?.type !== "JSXExpressionContainer") return;
 				const fn = handlerOf(node.value.expression);
-				if (fn?.body.type !== "BlockStatement") return;
+				if (!fn) return;
+				if (fn.body.type !== "BlockStatement") {
+					if (voidedCall(fn.body)) report(fn.body);
+					return;
+				}
 				if (walkOwn(fn.body, (n) => n.type === "ReturnStatement" && n.argument !== null)) return;
-				for (const statement of fn.body.body)
-					if (
-						statement.type === "ExpressionStatement" &&
-						statement.expression.type === "AwaitExpression" &&
-						statement.expression.argument.type === "CallExpression"
-					)
-						context.report({
-							node: statement,
-							message:
-								"This onConfirm awaits a call and drops its answer, so a refusal the call returns never reaches the dialog. Return it (return handler()), or turn its refusal into return { refused } here.",
-						});
+				const found = [];
+				const floating = [];
+				dropping(fn.body.body, found, floating);
+				const awaits = walkOwn(fn.body, (n) => n.type === "AwaitExpression");
+				if (fn.async && !awaits && floating.length) found.push(floating.at(-1));
+				for (const statement of found) report(statement);
 			},
 		};
 	},
