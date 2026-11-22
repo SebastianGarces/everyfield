@@ -1,7 +1,7 @@
 import { sql } from "@everyfield/db/query";
 import { createFollowUpWriter } from "@everyfield/domain/followups";
 import { createTaskWriter, type TaskReminders } from "@everyfield/domain/tasks";
-import { channel, outcome } from "@everyfield/contracts/followups";
+import { channel, HANDOFF_LIMIT, outcome } from "@everyfield/contracts/followups";
 import { priority, title } from "@everyfield/contracts/tasks";
 import { z } from "zod";
 import { id, localDue, dueOf as nativeDue } from "../../tasks/values.ts";
@@ -251,6 +251,73 @@ export const assignFollowUp = reviewed<z.infer<typeof assignInput>>({
 	},
 });
 
+const handoffInput = z
+	.strictObject({
+		fromAccountId: assignee.describe('The account whose open follow-ups move, from tasks.eligibleAssignees, or "me"'),
+		toAccountId: assignee.describe('The account that takes them; it must be able to own follow-ups, or "me"'),
+	})
+	.refine((v) => v.fromAccountId !== v.toAccountId, "same account");
+const handoffFacts = z.object({
+	owner: z.boolean(),
+	rows: z.array(z.object({ taskId: id, revision: z.string(), person: z.string(), owners: z.string().nullable() })),
+});
+export const executeHandoff = reviewed<z.infer<typeof handoffInput>>({
+	operation: "tasks.executeHandoff",
+	description:
+		"Propose handing all of one account's open follow-ups to another account that can own follow-ups, listed one by one on a single review. An Owner's follow-ups can't be handed off this way.",
+	input: handoffInput,
+	allowed: ownerOrAdmin,
+	async review(actor, v, context) {
+		const [from] = (await namedAccounts(context, actor, [v.fromAccountId], "any")).ids;
+		const to = await namedAccounts(context, actor, [v.toAccountId], "committed_follow_up");
+		const [toId] = to.ids;
+		if (!from || !toId || from === toId) throw new EvryRefusal("invalid_input");
+		const plant = actor.owner.id;
+		const r = await context.db.execute(sql`SELECT
+			EXISTS(SELECT FROM seat s WHERE s.account_id=${from}::uuid AND s.plant_id=${plant}::uuid AND s.role='owner' AND s.ended_at IS NULL) AS owner,
+			(SELECT coalesce(jsonb_agg(jsonb_build_object('taskId',t.id,'revision',t.revision::text,'person',t.person,
+				'owners',t.owners) ORDER BY lower(t.person),t.id),'[]') FROM (
+				SELECT t.id,t.revision,p.display_name AS person,${ownersOf("t")}#>>'{}' AS owners FROM task t
+				JOIN person p ON p.id=t.person_id AND p.tenant_id=t.plant_id AND p.state='live'
+				WHERE t.plant_id=${plant}::uuid AND t.deleted_at IS NULL AND ${openFollowUp}
+					AND EXISTS(SELECT FROM task_assignee a WHERE a.task_id=t.id AND a.account_id=${from}::uuid)
+				ORDER BY t.id LIMIT ${HANDOFF_LIMIT}) t) AS rows`);
+		const facts = handoffFacts.parse(r.rows[0]);
+		if (facts.owner) throw new EvryRefusal("protected_owner");
+		if (!facts.rows.length) throw new EvryRefusal("not_found");
+		const names = await accountNamer(context, actor, "any");
+		const [fromName] = names([from]).names;
+		const [toName] = to.names;
+		const after = (owners: string | null) => {
+			const kept = (owners ?? "").split(", ").filter((n) => n && n !== fromName && n !== toName);
+			return [...kept, toName]
+				.sort((a, b) => present(a).toLowerCase().localeCompare(present(b).toLowerCase()))
+				.join(", ");
+		};
+		return sql`SELECT ${json({
+			target: { kind: "account", id: from, label: `${fromName}'s follow-ups` },
+			changes: facts.rows.map((t) => ({ field: t.person, before: t.owners, after: after(t.owners) })),
+			notes: ["Contact history and each person's notes stay as they are."],
+		})} AS review, ${json({
+			input: {
+				fromAccountId: from,
+				toAccountId: toId,
+				items: facts.rows.map((t) => ({ taskId: t.taskId, expectedRevision: t.revision })),
+			},
+		})} AS args`;
+	},
+	async run(tx, context, args, key, reminders) {
+		const a = z.object({ input: z.unknown() }).parse(args);
+		const reply = await followUps(reminders).executeHandoff(tx, context, {
+			requestKey: key("handoff"),
+			input: a.input,
+		});
+		return reply.status === "ok"
+			? { receiptId: reply.value.receiptId, revision: String(reply.value.moved.length) }
+			: { refused: reply.error.code };
+	},
+});
+
 const reopenInput = z.strictObject({
 	obligationId: id.describe("An obligationId from followups.readObligations"),
 });
@@ -287,6 +354,7 @@ export const reopenObligation = reviewed<z.infer<typeof reopenInput>>({
 export const FOLLOWUP_COMMANDS = {
 	"tasks.createFollowUp": createFollowUp,
 	"tasks.assignFollowUp": assignFollowUp,
+	"tasks.executeHandoff": executeHandoff,
 	"tasks.reopenObligation": reopenObligation,
 	"followups.recordOutcome": recordOutcome,
 	"followups.correctOutcome": correctOutcome,
