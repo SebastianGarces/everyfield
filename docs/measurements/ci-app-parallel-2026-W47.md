@@ -47,12 +47,59 @@ Median step times, successful jobs: checkout 4 s, Shared setup 16 s, Prettier 21
 
 ## After
 
-Pending: the app job's run time on this change's own pull request CI runs (at least 2 green runs), read with
-`node tools/ci/ci-timing.ts`, with the per-step breakdown of the critical path.
+The app job of this change's pull request CI (PR #1287, head 37998d7f5), two green runs: run 45078016305 attempt 1
+(job 137379538009, 2026-11-22T22:29:42Z, pushed) and attempt 2 (job 137385331631, 2026-11-22T22:49:36Z, a rerun of the app
+job only, on the same head). `ci-timing.ts --last` takes the latest runs and cannot pick one run, so setup and run
+were summed from each job's steps (`gh run view 45078016305 --attempt N --json jobs`, whole seconds) with ci-timing's
+own rule: a step is setup when its name matches `SETUP_STEPS`, and every other non-skipped step is run.
 
-Locally (Apple silicon, many more cores than the runner), the five checks of the first version (with `check-comments.mjs`) took 14.8 s together, against 13.5 s for
-the longest alone. On the 4 vCPU runner the five commands' CPU work is expected to saturate the cores, so the step
-should take longer than its longest command (types, 31 s).
+Main had changed since the before window: types took 63-92 s instead of 31 s, unit tests 72-102 s instead of 57 s, and
+knip was added. So a third column shows current main, still sequential: the 6 latest green push runs of ci.yml on main
+(45055038548 to 45072676930, 2026-11-22T18:25:55Z to 2026-11-22T21:32:35Z), read the same way.
+
+| app job | Before (W47 window, median of 35) | Current main, sequential (median of 6) | After, attempt 1 | After, attempt 2 |
+|---|---|---|---|---|
+| Run (non-setup steps) | 194 s | 242 s | 188 s | 186 s |
+| Setup | 21 s | 22 s | 15 s | 24 s |
+| Wall time (start to end) | 225 s | 267.5 s | 205 s | 213 s |
+
+Critical path after the change, attempt 1 / attempt 2:
+
+| Step | Time |
+|---|---|
+| Set up job, checkout, Shared setup | 14 s / 23 s |
+| `LibreOffice` cache restore, background start | 1 s / 3 s |
+| Parallel step (all 5 commands) | 120 s / 111 s |
+| Wait for the background install | 0 s / 0 s |
+| Cache save (skipped: package set unchanged) | 0 s / 0 s |
+| Package unit tests | 67 s / 72 s |
+| Post steps, complete job | 1 s / 1 s |
+
+Each command's own time in the parallel step, from the runner's `[label] exit 0 after T s` lines, attempt 1 /
+attempt 2: knip 14.1 / 11.9 s, lint 71.5 / 64.1 s, logs 79.3 / 68.1 s, prettier 90.1 / 76.2 s, types 120.3 /
+110.4 s. On current main, run one after another, the same five take (medians) Prettier 23 s, lint 19.5 s, types
+65.5 s, knip 3 s, server log privacy 18.5 s: 129.5 s in all.
+
+### What limits it
+
+The job is 55-63 s faster than current main (267.5 s to 205-213 s) and 12-20 s faster than the before window, but it is
+still above the 2 min target (3.4-3.6 min). Two things limit it:
+
+- **CPU saturation in the parallel step.** The five commands share the runner's 4 vCPUs, and types, lint and Prettier
+  each use several threads. Together they take 111-120 s, against 129.5 s one after another, so running them at once
+  saves only 10-19 s. Types alone takes 65.5 s on main, but 110-120 s in the parallel step. The background `dpkg`
+  install also runs during this step. Memory was not measured on the runner. No command failed or was killed.
+- **The unit tests come after it.** Package unit tests are one 67-72 s command and run after the static checks, so
+  the critical path is setup (15-24 s) + parallel step (111-120 s) + unit tests (67-72 s).
+
+Most of the saving comes from the install overlap: on main the cache restore, apt install and fonts take about 35 s
+(median 3 + 28.5 + 3.5 s), and here the wait step takes 0 s.
+
+The fallback the spec names is the static/unit split. From these numbers, a `unit` job would take about setup 22 s +
+install 35 s + unit tests 74 s ≈ 2.2 min, and a `static` job with all five commands about 22 s + 111-120 s ≈ 2.2-2.4
+min. Splitting types into its own job would bring the static side to about 22 s + 65.5 s ≈ 1.5 min. So a split cuts
+the app's wall time to about 2.2 min at the cost of one or two more jobs per run under the 20-job cap. This change
+does not make that split: it is proposed with these numbers for the re-measure slice (T-466).
 
 ## Re-measure after landing
 
