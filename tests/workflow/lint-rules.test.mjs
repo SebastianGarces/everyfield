@@ -2179,6 +2179,77 @@ type No = { status: "refused" };
 	);
 });
 
+test("INV-lint: a union that writes part of the ok value / refused / lost shape beside a contracts reply, a namespace Lost or under quoted keys and template statuses is reported; a union of contracts replies and the shared Lost alone is not", () => {
+	const source = `import type { Lost, Reply as Base } from "@everyfield/contracts/common";
+import type * as common from "@everyfield/contracts/common";
+import type { MeetingsReply, meetingsError } from "@everyfield/contracts/meetings";
+import type * as teams from "@everyfield/contracts/teams";
+import type { DomainReply } from "@everyfield/domain/meetings";
+type Composed<T> = MeetingsReply<T> | Lost;
+type Spaced<T> = teams.TeamsReply<T> | common.Lost;
+type Extra<T> = MeetingsReply<T> | Lost | { status: "deleted" };
+type Through<T> = Composed<T> | { status: "signed_out" };
+type Shared<T> = common.Outcome<T> | { status: "deleted" };
+type HandLost<T> = MeetingsReply<T> | { status: "lost" };
+type SpacedHand<T> = teams.TeamsReply<T> | { status: "lost" };
+type BaseHand<T> = Base<T, string> | { status: "lost" };
+type SpacedBase<T> = common.Reply<T, string> | { status: "lost" };
+type HandReply<T> = { status: "ok"; value: T } | { status: "refused" } | common.Lost;
+type Quoted<T> = { "status": "ok"; ["value"]: T } | { 'status': "refused" } | { "status": "lost" };
+type Template<T> = { status: \`ok\`; value: T } | { status: \`refused\` } | { status: \`lost\` };
+type Foreign<T> = DomainReply<T> | { status: "lost" };
+type NotReply = meetingsError | { status: "refused" } | { status: "lost" };
+type OtherSpace<T> = other.MeetingsReply<T> | { status: "lost" };
+type Numeric<T> = { status: 1; value: T } | { status: "refused" } | Lost;
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/server.ts": source }).filter((hit) => hit.endsWith("shared-outcome")),
+		[11, 12, 13, 14, 15, 16, 17].map((line) => `apps/web/src/features/x/server.ts:${line} shared-outcome`),
+	);
+});
+
+test("INV-lint: an onConfirm that awaits a call as a statement and never returns a value is reported, inline or through a local function or const; one that returns, awaits in a branch or only awaits a value is not", () => {
+	const source = `import { ConfirmDialog } from "@everyfield/ui/controls";
+async function named() {
+	await handler();
+}
+const wrapped = async () => {
+	await handler();
+	close();
+};
+let later = async () => { await handler(); };
+const made = make();
+export function A({ handler, x }) {
+	return [
+		<ConfirmDialog onConfirm={async () => { await handler(); }} />,
+		<ConfirmDialog onConfirm={named} />,
+		<ConfirmDialog onConfirm={wrapped} />,
+		<ConfirmDialog onConfirm={async function () { await handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { const run = async () => { return 1; }; await run(); }} />,
+		<ConfirmDialog onConfirm={async () => { await handler(); return; }} />,
+		<ConfirmDialog onConfirm={() => handler()} />,
+		<ConfirmDialog onConfirm={async () => { return await handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { const r = await handler(); if (r) return r; }} />,
+		<ConfirmDialog onConfirm={async () => { if (x) await handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { await prepare(); return handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { await handler; }} />,
+		<ConfirmDialog onConfirm={async () => { handler(); }} />,
+		<ConfirmDialog onConfirm={later} />,
+		<ConfirmDialog onConfirm={made} />,
+		<ConfirmDialog onCancel={async () => { await handler(); }} />,
+	];
+}
+`;
+	const hits = (path) =>
+		lint({ [path]: source })
+			.filter((hit) => hit.endsWith(" confirm-keeps-refusal"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10))
+			.sort((a, b) => a - b);
+	assert.deepEqual(hits("apps/web/src/features/x/Confirm.tsx"), [3, 6, 13, 16, 17, 18]);
+	assert.deepEqual(hits("packages/ui/src/controls/Confirm.tsx"), [3, 6, 13, 16, 17, 18]);
+	assert.deepEqual(hits("packages/domain/src/x/Confirm.tsx"), []);
+});
+
 test("INV-lint: a context value built during render is reported through aliases, casts, conditionals and outer bindings; every context and alias of one is a const named *Context; stable values are not", () => {
 	const source = `import React, { createContext, useCallback, useMemo } from "react";
 type T = { theme: string };
