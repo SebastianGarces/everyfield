@@ -2808,6 +2808,20 @@ test("INV-lint: a server action parameter typed as a trusted shape is reported, 
 	);
 });
 
+test("INV-lint: a server action that mints its own request key is reported, a key from the client, other ids, previews and client modules are not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\nimport { newRequestKey } from "./model.ts";\nimport { randomUUID } from "node:crypto";\nexport async function markSubjectRead(raw: unknown) {\n\treturn save({ requestKey: newRequestKey(), expectedRevision: "1", input: raw });\n}\nexport async function undo(raw: unknown) {\n\treturn save({ requestKey: crypto.randomUUID(), input: raw });\n}\nexport async function again(raw: unknown) {\n\tconst requestKey = randomUUID();\n\treturn save({ requestKey, input: raw });\n}\nexport async function fine(request: unknown) {\n\treturn save(request);\n}\nexport async function note(requestKey: string) {\n\treturn save({ requestKey, input: { noteId: crypto.randomUUID() } });\n}\nexport async function previewIt(input: unknown) {\n\treturn previewWrite(() => save({ requestKey: crypto.randomUUID(), input }));\n}\nconst save = async (x: unknown) => x;\nconst previewWrite = async (f: () => unknown) => f();\n`,
+			"apps/web/src/features/x/Card.tsx": `export const send = (save: (x: unknown) => void) => save({ requestKey: crypto.randomUUID() });\n`,
+		}).filter((hit) => hit.endsWith("client-request-key")),
+		[
+			"apps/web/src/features/x/actions.ts:11 client-request-key",
+			"apps/web/src/features/x/actions.ts:5 client-request-key",
+			"apps/web/src/features/x/actions.ts:8 client-request-key",
+		],
+	);
+});
+
 test("INV-lint: a second top-level node:test before hook is reported in any import form, one before with other hooks and suite-level befores are not", () => {
 	const named = `import test, { before, beforeEach, after, describe } from "node:test";
 before(async () => {});

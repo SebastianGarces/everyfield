@@ -3267,6 +3267,36 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 	};
 });
 
+const KEY_MINTS = new Set(["newRequestKey", "randomUUID"]);
+const keySlot = (node) =>
+	(node.parent?.type === "Property" && node.parent.value === node && nameOf(node.parent.key) === "requestKey") ||
+	(node.parent?.type === "VariableDeclarator" &&
+		node.parent.id.type === "Identifier" &&
+		/requestKey/i.test(node.parent.id.name));
+const insidePreview = (node) => {
+	for (let at = node.parent; at; at = at.parent)
+		if (at.type === "CallExpression" && /^preview/.test(calleeName(at.callee) ?? "")) return true;
+	return false;
+};
+const clientRequestKey = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!SERVER_ACTIONS.test(context.sourceCode.text)) return {};
+		return {
+			CallExpression(node) {
+				const name = calleeName(node.callee);
+				if (!KEY_MINTS.has(name ?? "")) return;
+				if (name === "randomUUID" && !keySlot(node)) return;
+				if (insidePreview(node)) return;
+				context.report({
+					node,
+					message: `A server action mints its own request key with ${name}(), so a retry of the same request reaches the server under a new key and runs again. Make the key in the client once per user intent and take it as a parameter. A preview that always rolls back may mint one.`,
+				});
+			},
+		};
+	},
+};
+
 export const OUTCOME_MODULE = "packages/contracts/src/common/values.ts";
 const OUTCOME_SOURCE = "@everyfield/contracts/common";
 const OUTCOME_SCOPE = /^(apps\/web\/src|packages\/[^/]+\/src)\//;
@@ -3936,6 +3966,7 @@ export default {
 		"render-reads": renderReads,
 		"no-read-actions": noReadActions,
 		"action-params-unknown": actionParamsUnknown,
+		"client-request-key": clientRequestKey,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
 		"organization-seat": organizationSeatCheck,
