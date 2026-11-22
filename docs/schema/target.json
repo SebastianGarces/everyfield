@@ -31503,13 +31503,6 @@
             "revision_id",
             "ordinal"
           ]
-        },
-        {
-          "columns": [
-            "revision_id",
-            "ordinal"
-          ],
-          "where": "(release_id IS NULL)"
         }
       ],
       "foreign_keys": [
@@ -31588,28 +31581,6 @@
         "((release_id IS NULL) = (tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid))"
       ],
       "indexes": {
-        "passage_organization_uq": {
-          "name": "passage_organization_uq",
-          "isUnique": true,
-          "where": "(release_id IS NULL)",
-          "columns": [
-            {
-              "expression": "revision_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "ordinal",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "passage_ref_0": {
           "name": "passage_ref_0",
           "isUnique": false,

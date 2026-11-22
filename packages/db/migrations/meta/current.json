@@ -16147,28 +16147,6 @@
         }
       },
       "indexes": {
-        "passage_organization_uq": {
-          "name": "passage_organization_uq",
-          "columns": [
-            {
-              "expression": "revision_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "ordinal",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "(release_id IS NULL)",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "passage_ref_0": {
           "name": "passage_ref_0",
           "columns": [

@@ -3294,9 +3294,6 @@ export const passage = pgTable(
 			.onUpdate("no action"),
 		primaryKey({ name: "passage_pkey", columns: [table.id] }),
 		unique("passage_uq_0").on(table.release_id, table.revision_id, table.ordinal),
-		uniqueIndex("passage_organization_uq")
-			.using("btree", table.revision_id.asc().nullsLast(), table.ordinal.asc().nullsLast())
-			.where(sql`(release_id IS NULL)`),
 		check(
 			"passage_release_owner",
 			sql`((release_id IS NULL) = (tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid))`,
