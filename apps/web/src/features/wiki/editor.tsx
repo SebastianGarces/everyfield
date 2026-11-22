@@ -1,7 +1,7 @@
 "use client";
 
 import { organizationBodyFits } from "@everyfield/contracts/wiki";
-import { Button, ConfirmDialog, ConfirmRefused, Field, Select, Textarea } from "@everyfield/ui/controls";
+import { Button, ConfirmDialog, Field, Select, Textarea } from "@everyfield/ui/controls";
 import { useFocusRequest } from "@everyfield/ui/foundations";
 import { useReducer, useRef, useState, useTransition } from "react";
 import { hideWikiSource, publishWikiArticle, saveWikiDraft, type OrgResult } from "./actions.ts";
@@ -396,7 +396,7 @@ export function WikiEditor({
 					confirmLabel="Publish article"
 					onConfirm={async () => {
 						const message = await commit("publish");
-						if (message) throw new ConfirmRefused(message);
+						if (message) return { refused: message };
 					}}
 				/>
 				<ConfirmDialog
@@ -412,7 +412,7 @@ export function WikiEditor({
 					confirmLabel="Hide this source"
 					onConfirm={async () => {
 						const message = await commit("hide");
-						if (message) throw new ConfirmRefused(message);
+						if (message) return { refused: message };
 					}}
 				/>
 			</form>

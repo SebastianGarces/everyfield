@@ -7,17 +7,7 @@ import {
 	type residentChoices,
 } from "@everyfield/contracts/organizations";
 import { UserGroupIcon } from "@hugeicons/core-free-icons";
-import {
-	Button,
-	Card,
-	CardIcon,
-	Checkbox,
-	ConfirmDialog,
-	ConfirmRefused,
-	Skeleton,
-	Spinner,
-	Switch,
-} from "@everyfield/ui/controls";
+import { Button, Card, CardIcon, Checkbox, ConfirmDialog, Skeleton, Spinner, Switch } from "@everyfield/ui/controls";
 import { LoadableView, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useId, useState } from "react";
 import type { z } from "zod";
@@ -228,13 +218,14 @@ function ActiveResidency({
 			frame.left();
 			return reload();
 		}
-		throw new ConfirmRefused(
-			result.problem === "refused"
-				? "You did not leave. Your sharing changed somewhere else. Close this and check again."
-				: result.problem === "busy"
-					? "A sharing change is still unconfirmed. Close this, then use Load latest."
-					: "We could not confirm that you left. Check your connection, then try again.",
-		);
+		return {
+			refused:
+				result.problem === "refused"
+					? "You did not leave. Your sharing changed somewhere else. Close this and check again."
+					: result.problem === "busy"
+						? "A sharing change is still unconfirmed. Close this, then use Load latest."
+						: "We could not confirm that you left. Check your connection, then try again.",
+		};
 	};
 
 	return (

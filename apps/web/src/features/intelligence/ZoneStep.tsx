@@ -44,7 +44,7 @@ export function ZoneStep({ name }: { name: string }) {
 
 	const save = async () => {
 		const result = await send();
-		if (!result?.ok) return;
+		if (result?.status !== "ok") return;
 		setSaved(true);
 		startOpening(() => router.refresh());
 	};
