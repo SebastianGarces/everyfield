@@ -1422,7 +1422,7 @@ export const AW = () => <p className={"rounded-md bg-amber-50 px-4 py-3" + " tex
 	);
 });
 
-test("INV-a11y: a live region in apps/web or packages/ui (an output element included) is never hidden, invisible, inert or aria-hidden, so it stays in the accessibility tree", () => {
+test("INV-a11y: a live region in apps/web or packages/ui (an output element included) is never hidden, invisible, inert or aria-hidden, nor inside an element that is, so it stays in the accessibility tree", () => {
 	const code = `export const A = ({ m }) => <div aria-live="polite" className="empty:hidden">{m}</div>;
 export const B = ({ m }) => <p role="status" className={cn("text-sm", !m && "hidden")}>{m}</p>;
 export const C = ({ m, tone }) => <div role={tone ? "alert" : "status"} hidden={!m}>{m}</div>;
@@ -1444,6 +1444,27 @@ export const R = ({ m }) => <output aria-live="off" className="hidden">{m}</outp
 export const S = ({ m }) => <output role="presentation" hidden>{m}</output>;
 export const T = ({ m }) => <output inert>{m}</output>;
 export const U = ({ m }) => <section className="hidden">{m}</section>;
+export const V = ({ m }) => <section inert><div role="status">{m}</div></section>;
+export const W = ({ m }) => <div role="status" inert={undefined} hidden={undefined} aria-hidden={undefined}>{m}</div>;
+export const X = ({ items }) => <div aria-hidden="true"><ul>{items.map((i) => <li key={i} role="status">{i}</li>)}</ul></div>;
+export const Y = ({ m }) => <div className="hidden md:block"><p aria-live="polite">{m}</p></div>;
+export const Z = ({ m }) => <div className="empty:hidden"><div role="alert">{m}</div></div>;
+export const AA = ({ m, open }) => <div hidden={!open}><p role="alert">{m}</p></div>;
+export const AB = ({ m, done }) => <div className={cn("grid", done && "invisible")}><p role="status">{m}</p></div>;
+export const AC = ({ m }) => <Panel hidden><p role="status">{m}</p></Panel>;
+export const AD = () => <div hidden title={<span role="status" />}>x</div>;
+export const AE = ({ m }) => <section inert={false}><output>{m}</output></section>;
+export const AF = ({ m }) => <div className={cn("hidden", "md:flex")}><output>{m}</output></div>;
+export const AG = ({ m }) => <div aria-hidden={undefined} hidden={undefined}><output>{m}</output></div>;
+export const AH = ({ m }) => <div className={\`invisible\`}><output>{m}</output></div>;
+export const AI = ({ m }) => (
+	<div inert="">
+		<p role="status">{m}</p>
+	</div>
+);
+export const AJ = ({ m }) => <div className="sm:hidden max-md:hidden group-hover:hidden"><p role="status">{m}</p></div>;
+export const AK = ({ m }) => <div className="data-[state=closed]:hidden before:hidden [&:empty]:hidden"><output>{m}</output></div>;
+export const AL = ({ m }) => <div className={cn("grid", clsx("invisible"))}><output>{m}</output></div>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1454,7 +1475,9 @@ export const U = ({ m }) => <section className="hidden">{m}</section>;
 		reported.sort(),
 		["apps/web/src/features/x/Notice.tsx", "packages/ui/src/controls/x.tsx"]
 			.flatMap((path) =>
-				[1, 2, 3, 4, 8, 9, 10, 11, 14, 15, 16, 20].map((line) => `${path}:${line} live-region-in-tree`),
+				[1, 2, 3, 4, 8, 9, 10, 11, 14, 15, 16, 20, 22, 24, 25, 32, 34, 37, 42].map(
+					(line) => `${path}:${line} live-region-in-tree`,
+				),
 			)
 			.sort(),
 	);

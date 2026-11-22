@@ -1889,13 +1889,49 @@ const attributeStrings = (attribute) =>
 const HIDING_CLASSES = new Set(["hidden", "invisible"]);
 const hidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, "").split(":").at(-1));
 const OFF_VALUES = { hidden: [false], inert: [false], "aria-hidden": [false, "false"] };
+const attributeValue = (attribute) =>
+	attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
 const switchedOff = (attribute, name) => {
-	const value = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
-	return value?.type === "Literal" && OFF_VALUES[name].includes(value.value);
+	const value = attributeValue(attribute);
+	return (
+		(value?.type === "Literal" && OFF_VALUES[name].includes(value.value)) ||
+		(value?.type === "Identifier" && value.name === "undefined")
+	);
 };
 const setAttribute = (element, name) => {
 	const attribute = jsxAttribute(element, name);
 	return attribute && !switchedOff(attribute, name) ? attribute : null;
+};
+const domElement = (element) => element.name.type === "JSXIdentifier" && /^[a-z]/.test(element.name.name);
+const fixedStrings = (node) =>
+	node?.type === "Literal" && typeof node.value === "string"
+		? [node.value]
+		: node?.type === "TemplateLiteral" && !node.expressions.length
+			? [templateText(node)]
+			: node?.type === "CallExpression"
+				? node.arguments.flatMap((argument) => fixedStrings(argument))
+				: [];
+const unprefixedHidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, ""));
+const alwaysHidden = (element) => {
+	const className = jsxAttribute(element, "className");
+	return (
+		(className && fixedStrings(attributeValue(className)).some((s) => classTokens(s).some(unprefixedHidingToken))) ||
+		["hidden", "inert", "aria-hidden"].some((name) => {
+			const attribute = setAttribute(element, name);
+			return attribute && (!attribute.value || attributeValue(attribute).type === "Literal");
+		})
+	);
+};
+const insideHiddenElement = (node) => {
+	for (let child = node.parent, at = child.parent; at; child = at, at = at.parent)
+		if (
+			at.type === "JSXElement" &&
+			child !== at.openingElement &&
+			domElement(at.openingElement) &&
+			alwaysHidden(at.openingElement)
+		)
+			return true;
+	return false;
 };
 
 const liveRegionInTree = {
@@ -1919,7 +1955,15 @@ const liveRegionInTree = {
 					setAttribute(node, "hidden") ||
 					setAttribute(node, "inert") ||
 					setAttribute(node, "aria-hidden");
-				if (!hiding) return;
+				if (!hiding) {
+					if (insideHiddenElement(node))
+						context.report({
+							node,
+							message:
+								"This live region sits inside an element that is hidden, invisible, inert or aria-hidden, so it leaves the accessibility tree with it and what fills it is not announced. Keep the live region outside that element, or keep the element in the tree.",
+						});
+					return;
+				}
 				context.report({
 					node: hiding,
 					message:
