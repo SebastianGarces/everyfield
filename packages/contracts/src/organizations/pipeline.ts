@@ -146,6 +146,11 @@ export const pipelineBoard = z.strictObject({
 	staff: z.array(staff.extend({ role: z.enum(["owner", "admin", "member"]) })),
 	retiredCount: z.int().min(0),
 });
+export const pipelineChoices = z.strictObject({
+	organizationName: z.string(),
+	stages: z.array(pipelineStage.pick({ id: true, label: true, kind: true })),
+	staff: pipelineBoard.shape.staff,
+});
 
 const historyBase = { id: recordId, on: localDate, actor: z.string().nullable() };
 export const pipelineHistoryEntry = z.discriminatedUnion("kind", [
@@ -296,6 +301,7 @@ export const pipelineExport = z.strictObject({
 export type PipelineExport = z.infer<typeof pipelineExport>;
 export type PipelineReply<T> = { status: "ok"; value: T } | { status: "refused"; refusal: PipelineRefusal };
 export type PipelineBoard = z.infer<typeof pipelineBoard>;
+export type PipelineChoices = z.infer<typeof pipelineChoices>;
 export type PipelinePersonRecord = z.infer<typeof pipelinePersonRecord>;
 export type PipelineBoardQuery = z.infer<typeof pipelineBoardQuery>;
 export type PipelineGoals = z.infer<typeof pipelineGoals>;

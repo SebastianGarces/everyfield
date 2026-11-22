@@ -85,7 +85,7 @@ async function lockVenue(tx: Tx, w: Writer, id: string) {
 	const r = await tx.execute(
 		sql`SELECT ${columns} FROM venue v WHERE v.id = ${id}::uuid AND v.plant_id = ${w.plant.id}::uuid FOR UPDATE`,
 	);
-	if (!r.rows[0]) deny();
+	if (!r.rows[0]) deny("unavailable");
 	return venue(venueRow.parse(r.rows[0]));
 }
 type Venue = z.infer<typeof c.venue>;
@@ -203,7 +203,7 @@ export const venuesReader = {
 						WHERE a.tenant_id = v.plant_id AND a.subject_id = v.id ORDER BY a.occurred_at DESC, a.id DESC LIMIT 100) h) AS history
 				FROM venue v WHERE v.id = ${input.venueId}::uuid AND v.plant_id = ${viewer.plantId}::uuid`,
 			);
-			if (!found) return c.venueResult.parse({ status: "unavailable" });
+			if (!found) return { status: "unavailable" } satisfies z.output<typeof c.venueResult>;
 			const row = venueRow.extend({ history: z.array(historyRow).nullable() }).parse(found);
 			return c.venueResult.parse({ status: "available", venue: venue(row), history: (row.history ?? []).map(entry) });
 		});

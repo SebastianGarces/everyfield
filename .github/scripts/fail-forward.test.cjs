@@ -18,6 +18,11 @@ function provider() {
       get: async ({ issue_number }) => ({ data: issues.find(i => i.number === issue_number) }),
       listForRepo: () => {},
       createComment: async ({ issue_number, body }) => { comments.push({ issue_number, body }); return { data: {} }; },
+      addLabels: async ({ issue_number, labels }) => {
+        const issue = issues.find(issue => issue.number === issue_number);
+        for (const name of labels) if (!issue.labels.some(label => label.name === name)) issue.labels.push({ name });
+        return { data: issue.labels };
+      },
       create: async input => {
         const issue = { ...input, state: 'open', number: issues.length + 1, html_url: `https://github.com/SebastianGarces/everyfield/issues/${issues.length + 1}`, labels: input.labels.map(name => ({ name })) };
         issues.push(issue); return { data: issue };
@@ -218,4 +223,22 @@ test('INV-ci-incident: a nightly run that never started is reported on the night
   assert.equal(await report({ ...p, context: ci({ path: '.github/workflows/nightly.yml', event: 'schedule', conclusion: 'startup_failure' }) }), 1);
   assert.equal(p.issues[0].title, 'P0: Nightly failed on main');
   assert.match(p.issues[0].body, /Nightly did not start \(startup_failure\)/);
+});
+
+test('INV-ci-incident: a green retry at the failed commit marks the incident flaky and leaves it open', async () => {
+  for (const workflow of [{}, { path: '.github/workflows/nightly.yml', event: 'schedule' }]) {
+    const p = provider();
+    assert.equal(await report({ ...p, context: ci(workflow) }), 1);
+    p.github.rest.repos.compareCommitsWithBasehead = async () => ({ data: { status: 'identical' } });
+    assert.equal(await report({ ...p, context: ci({ ...workflow, conclusion: 'success' }) }), 1);
+    assert.equal(p.issues[0].state, 'open');
+    assert.notEqual(p.issues[0].state_reason, 'completed');
+    assert.deepEqual(p.issues[0].labels.map(x => x.name), ['P0', 'internal-breakage', 'flaky']);
+    assert.deepEqual(p.comments.map(c => c.body), [`Passed on a retry at the same commit ${'a'.repeat(40)}: this is a flake. Find the root cause, or delete the test and write down why.`]);
+    assert.equal(await report({ ...p, context: ci({ ...workflow, conclusion: 'success' }) }), undefined);
+    p.github.rest.repos.compareCommitsWithBasehead = async () => ({ data: { status: 'ahead' } });
+    assert.equal(await report({ ...p, context: ci({ ...workflow, conclusion: 'success', head_sha: 'c'.repeat(40) }) }), undefined);
+    assert.equal(p.issues[0].state, 'open');
+    assert.equal(p.comments.length, 1);
+  }
 });

@@ -17,15 +17,16 @@ import {
 	DialogHeader,
 	Field,
 	IconButton,
+	InlineAlert,
 	Input,
 	Select,
 	Textarea,
 } from "@everyfield/ui/controls";
 import { useActionState, useState } from "react";
-import { readGoals, saveGoal } from "./actions";
+import { saveGoal } from "./actions";
+import { readGoals } from "./fetch.ts";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { goalHeadline, KIND_LABEL, monthLabel, plural, refusalText } from "./model";
-import { Problem } from "../../../components/Problem.tsx";
 
 type Goal = PipelineGoals["goals"][number];
 const MAX_COUNTS = 4;
@@ -178,7 +179,7 @@ function Figure({ term, value }: { term: string; value: string }) {
 function Today({ data }: { data: PipelineGoals }) {
 	return (
 		<Card>
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle size="sm">Your pipeline today</CardTitle>
 					<CardDescription>As of {formatPlainDate(data.asOf)}</CardDescription>
@@ -220,7 +221,7 @@ function Conversations({ data }: { data: PipelineGoals }) {
 	const { months, quarters } = data.conversations;
 	return (
 		<Card>
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle size="sm">Leadership conversations</CardTitle>
 					<CardDescription>“I see in you” conversations staff logged, by the day they happened.</CardDescription>
@@ -448,7 +449,7 @@ function GoalForm({
 						{preview}
 					</p>
 				) : null}
-				<Problem text={problem} />
+				<InlineAlert live="polite">{problem}</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>
@@ -511,7 +512,7 @@ function CountsEditor({
 										/>
 									</div>
 								</div>
-								<div aria-live="polite" className="empty:hidden">
+								<div aria-live="polite" className="empty:sr-only">
 									{problem?.label || problem?.kind ? (
 										<p className="text-xs font-medium text-magenta-600">
 											{[problem.label, problem.kind].filter(Boolean).join(" ")}

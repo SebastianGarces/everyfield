@@ -3,25 +3,18 @@
 import { DASHBOARD_HOME } from "@everyfield/contracts/identity";
 import { avatarRoute } from "@everyfield/contracts/settings";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { currentAddress, onTraversal, usePath, writeAddress } from "../../components/location.ts";
 import { loadPage } from "../identity/api";
-import { readSourceOrder, saveSourceOrder } from "../wiki/actions";
-import { readRegion, saveRegion, suggestRegion } from "./region";
-import { SettingsGuide } from "../wiki/client.tsx";
-import {
-	finalizeAssetUpload,
-	getBrand,
-	requestAssetUpload,
-	resetBrand,
-	saveBrand,
-	suggestColors,
-} from "./brand/actions";
+import { saveSourceOrder } from "../wiki/actions";
+import { readSourceOrder } from "../wiki/fetch.ts";
+import { saveRegion } from "./region";
+import { SettingsGuide } from "../wiki/chrome.tsx";
+import { finalizeAssetUpload, requestAssetUpload, resetBrand, saveBrand } from "./brand/actions";
 import { assetSrc, uploadBytes } from "./brand/bytes";
 import {
 	changePassword,
 	finalizeAvatar,
-	getSection,
 	previewPersonalTimezone,
 	previewPlantTimezone,
 	removeAvatar,
@@ -34,11 +27,13 @@ import {
 	setPersonalTimezone,
 	setPlantTimezone,
 } from "./actions";
+import { getSection, getBrand, suggestColors, readRegion, suggestRegion } from "./fetch.ts";
 import { uploadAvatarBytes } from "./flows/avatarBytes";
 import { sectionAt, type DialogSection } from "./model";
 import type { DeletionStatus, SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
-import { SettingsDialog } from "./SettingsDialog";
-import { SettingsProvider } from "./store";
+import { settingsDialog } from "./LazySettingsDialog";
+import type { SettingsDialogParts } from "./SettingsDialogSlot";
+import { createSettingsStore, type SettingsStore } from "./settings.store";
 
 const PORT: SettingsPort = {
 	getSection,
@@ -72,7 +67,7 @@ const hrefFor = (key: SectionKey) => `/settings/${key}`;
 
 const pathOf = (href: string | null) => href?.split("?")[0] ?? null;
 
-export function useProductSettings(viewer: SettingsViewer | null, seed: SectionSeed | null = null) {
+export function useProductSettings(viewer: SettingsViewer | null, seedFits: boolean) {
 	const path = usePath();
 	const router = useRouter();
 	const section = sectionAt(path, viewer);
@@ -80,11 +75,11 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 	if (!section && pathOf(underneath) !== path) setUnderneath(path);
 
 	const refreshAfterClose = useRef<(() => void) | null>(null);
-	const refreshUnderneath = () => {
+	const refreshUnderneath = useCallback(() => {
 		const refresh = refreshAfterClose.current;
 		refreshAfterClose.current = null;
 		refresh?.();
-	};
+	}, []);
 	const [port] = useState<SettingsPort>(() => ({
 		...PORT,
 		wiki: {
@@ -105,29 +100,51 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 		},
 	}));
 
-	const navigate = (key: SectionKey | null) => {
-		if (key) {
-			if (!section) setUnderneath(currentAddress());
-			writeAddress(hrefFor(key));
-		} else if (underneath) {
-			writeAddress(underneath);
-			refreshUnderneath();
-		} else router.push(viewer?.context === "plant" ? DASHBOARD_HOME : "/settings/sharing");
-	};
+	const navigate = useCallback(
+		(key: SectionKey | null) => {
+			if (key)
+				settingsDialog.whenLoaded(() => {
+					if (!section) setUnderneath(currentAddress());
+					writeAddress(hrefFor(key));
+				});
+			else if (underneath) {
+				writeAddress(underneath);
+				refreshUnderneath();
+			} else router.push(viewer?.context === "plant" ? DASHBOARD_HOME : "/settings/sharing");
+		},
+		[section, underneath, refreshUnderneath, router, viewer],
+	);
 
-	const element = viewer ? (
-		<SettingsProvider key={`${viewer.accountId}-${viewer.context}`} port={port} viewer={viewer} seed={seed}>
-			<SettingsDialog
-				section={section}
-				onNavigate={navigate}
-				hrefFor={hrefFor}
-				pages={{ sections: ["seats", "sharing"], open: (key) => router.push(hrefFor(key)) }}
-				headerActions={<SettingsGuide />}
-				onDeletionRequested={(status) => loadPage(deletionPage(status))}
-			/>
-		</SettingsProvider>
-	) : null;
-	return { element, open: (key: DialogSection) => navigate(key) };
+	const held = useRef<{ key: string; store: SettingsStore } | null>(null);
+	const storeFor = useCallback(
+		(seed: SectionSeed | null) => {
+			const key = viewer ? `${viewer.accountId}-${viewer.context}` : "";
+			if (held.current?.key !== key)
+				held.current = { key, store: createSettingsStore({ port, seed: seedFits ? seed : null }) };
+			return held.current.store;
+		},
+		[viewer, port, seedFits],
+	);
+
+	const parts = useMemo<SettingsDialogParts | null>(
+		() =>
+			viewer
+				? {
+						viewer,
+						section,
+						navigate,
+						storeFor,
+						dialog: {
+							hrefFor,
+							pages: { sections: ["seats", "sharing"], open: (key: SectionKey) => router.push(hrefFor(key)) },
+							headerActions: <SettingsGuide />,
+							onDeletionRequested: (status: DeletionStatus | null) => loadPage(deletionPage(status)),
+						},
+					}
+				: null,
+		[viewer, section, navigate, router, storeFor],
+	);
+	return { parts, open: (key: DialogSection) => navigate(key) };
 }
 
 function deletionPage(status: DeletionStatus | null): string {

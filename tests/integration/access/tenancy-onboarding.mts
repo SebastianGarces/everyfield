@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { createOnboardingProducer, readOnboardingEntry } from "../../../packages/domain/src/onboarding/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const producer = createOnboardingProducer({ relationships: async () => {}, enqueue: async () => {} });
 const planters = {};
@@ -17,7 +18,7 @@ async function planter(t, name) {
 		VALUES(${p.session},${p.user},${randomUUID()},clock_timestamp()+interval '1 day')`);
 	const ctx = { session: p.session, selected: { kind: "account", id: p.id } };
 	const created = ok(
-		await f.db.transaction((tx) =>
+		await gatedTransaction(f.db, (tx) =>
 			producer.createPlant(tx, ctx, {
 				requestKey: key(),
 				expectedRevision: "1",

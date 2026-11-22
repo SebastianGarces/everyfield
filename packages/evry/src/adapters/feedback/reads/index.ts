@@ -1,4 +1,3 @@
-import type { Database } from "@everyfield/db/client";
 import type { FeedbackCategory, FeedbackReply, FeedbackStatus, OwnFeedback } from "@everyfield/contracts/feedback";
 import { feedbackWriter } from "@everyfield/domain/feedback";
 import { z } from "zod";
@@ -58,7 +57,7 @@ export const FEEDBACK_READS = [
 		input: z.strictObject({}),
 		allowed: plantSeat,
 		async invoke(tx, actor): Promise<SourceResult> {
-			const page = valueOf(await feedbackWriter.listOwn(tx as Database, actor.authority, {}));
+			const page = valueOf(await feedbackWriter.listOwn(tx, actor.authority, {}));
 			if (!page) return { ...answer("feedback.listOwn", []), status: "not_found" };
 			return answer("feedback.listOwn", page.items.map(row), page.next !== null);
 		},
@@ -70,7 +69,7 @@ export const FEEDBACK_READS = [
 		input: z.strictObject({ feedbackId: z.uuid() }),
 		allowed: plantSeat,
 		async invoke(tx, actor, input): Promise<SourceResult> {
-			const found = valueOf(await feedbackWriter.getOwnStatus(tx as Database, actor.authority, input));
+			const found = valueOf(await feedbackWriter.getOwnStatus(tx, actor.authority, input));
 			return answer("feedback.getOwnStatus", found ? [row(found)] : []);
 		},
 	} satisfies ReadAdapter<{ feedbackId: string }>,

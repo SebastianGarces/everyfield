@@ -106,22 +106,18 @@ export function Swatches({
 						tabIndex={on ? 0 : -1}
 						data-token={token}
 						data-active-state={on ? "on" : "off"}
-						className={cn("size-8 min-w-8 justify-center p-0 !rounded-full", on && "shadow-[0_0_0_2px_var(--ef-ink)]")}
+						className={cn("size-8 min-w-8 justify-center p-0 rounded-full", on && "shadow-[0_0_0_2px_var(--ef-ink)]")}
 						onMouseDown={keepSelection}
 						onKeyDown={(event) => rove(event, index, TOKENS, onChange)}
 						onClick={() => onChange(token)}
 					>
 						<span
 							aria-hidden="true"
-							className="block size-5 rounded-full shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ef-ink)_30%,transparent)]"
-							style={
-								color
-									? { background: color }
-									: {
-											background:
-												"linear-gradient(135deg, transparent 45%, var(--ef-magenta-500) 45% 55%, transparent 55%)",
-										}
-							}
+							className={cn(
+								"block size-5 rounded-full shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ef-ink)_30%,transparent)]",
+								!color && "ef-none-swatch",
+							)}
+							style={color ? { background: color } : undefined}
 						/>
 					</Button>
 				);

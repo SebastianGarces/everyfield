@@ -6,9 +6,10 @@ import { notificationCategory, notificationChannels } from "../../../packages/co
 import { fixture } from "../identity/invitations-support.mts";
 import { resendRecorder } from "./resend-recorder.mts";
 import { queuedMailTransport } from "../../../apps/web/src/server/mail/transport.ts";
-import { createMailService, runDueMail } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService, runDueMail } from "../../../packages/domain/src/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { INVITATION_MAIL } from "../../../apps/web/src/server/invitations/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f;
 const rows = async (query) => (await f.admin.execute(query)).rows;
@@ -45,11 +46,10 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 	);
 	const secret = "cron-" + randomUUID();
 	const tick = scheduledJobs({
-		secret,
 		db: f.db,
 		storage: null,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: null,
 		mail: (limit, until) => runDueMail(f.db, f.mail, INVITATION_MAIL, limit, until),
 	});
@@ -110,7 +110,7 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 				lookup: async () => ({ kind: "unknown" }),
 			},
 		});
-		const other = await f.db.transaction((tx) =>
+		const other = await gatedTransaction(f.db, (tx) =>
 			organizationMail.enqueue(tx, {
 				owner: { kind: "plant", id: s.w.id },
 				purpose: "relationship_invitation",
@@ -155,7 +155,7 @@ test("AC:CASE-NTF-011 an invitation to an address blocked after a bounce is not 
 		await assert.rejects(
 			resident ? f.invitations.inviteResident(actor, command) : f.invitations.invite(actor, command),
 			(error) => {
-				assert.equal(error.value?.code, "address_blocked");
+				assert.equal(error.code, "address_blocked");
 				return true;
 			},
 		);

@@ -1,7 +1,9 @@
-import { loadPipelineBoard, pipelineActor } from "@/server/organizations/pipeline";
+import { organizationSeatOf } from "@/server/request-context";
+import { requireActor } from "@/server/sign-in";
+import { loadPipelineBoard } from "../pipeline-mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { LANDING_ROUTE } from "@everyfield/contracts/identity";
 import { NotAvailable } from "../../access/AccessStates";
 import { PIPELINE_PATH } from "../board/model";
 import { PipelineImportScreen } from "./ImportScreen";
@@ -10,14 +12,13 @@ export const importMetadata: Metadata = { title: "Import people", robots: { inde
 const PATH = `${PIPELINE_PATH}/import`;
 
 export async function PipelineImportPage() {
-	const who = await pipelineActor();
-	if (who.kind === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(PATH)}`);
-	const board = who.kind === "seat" ? await loadPipelineBoard(who.authority, {}) : null;
+	const seat = organizationSeatOf(await requireActor(PATH));
+	const board = seat ? await loadPipelineBoard(seat.authority, {}) : null;
 	if (board?.status !== "ok" || board.value.audience !== "administrator")
 		return (
 			<div className="py-12">
 				<Card className="mx-auto max-w-[560px]">
-					<NotAvailable scope="page" homeHref={PIPELINE_PATH} />
+					<NotAvailable scope="page" homeHref={LANDING_ROUTE} />
 				</Card>
 			</div>
 		);

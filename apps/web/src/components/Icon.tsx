@@ -1,5 +1,5 @@
+import { cn } from "@everyfield/ui/foundations";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
-import { cn } from "./cn";
 
 export function Icon({
 	icon,

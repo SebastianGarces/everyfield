@@ -10,8 +10,9 @@ const day = (offset: number) =>
 const hours = (h: number) => new Date(Date.parse(AS_OF) + h * 3_600_000).toISOString();
 
 type Person = FactInputs["people"][number];
+type PersonOver = Partial<Person> & { signed?: number[]; kind?: "core_group" | "launch_team" };
 let n = 0;
-function person(over: Partial<Person> & { signed?: number[]; kind?: "core_group" | "launch_team" } = {}): Person {
+function person(over: PersonOver = {}): Person {
 	const { signed = [-60], kind = "core_group", ...rest } = over;
 	return {
 		id: randomUUID(),
@@ -40,7 +41,7 @@ const empty = (): FactInputs => ({
 });
 const facts = (over: Partial<FactInputs>, today = TODAY, asOf = AS_OF) =>
 	buildFacts(factInputs.parse({ ...empty(), ...over }), asOf as never, today);
-const adults = (count: number, over: Partial<Person> = {}) => Array.from({ length: count }, () => person(over));
+const adults = (count: number, over: PersonOver = {}) => Array.from({ length: count }, () => person(over));
 
 test("AC:CA001 AC:CA003 30 adults across core group and launch team count once each; children and withdrawn people do not count", () => {
 	const both = adults(10).map((p) => ({

@@ -17,6 +17,7 @@ import {
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { signedSessionToken } from "../../../packages/domain/src/identity/index.ts";
 import { createHmac } from "node:crypto";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 let f;
 let recording = false;
 let statements = [];
@@ -69,7 +70,7 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 	});
 	await ready;
 	try {
-		const during = await f.db.transaction(async (tx) => {
+		const during = await gatedTransaction(f.db, async (tx) => {
 			await tx.execute(sql`SET LOCAL lock_timeout='250ms'`);
 			return readViewer(tx, sessionId.parse(s.sender.session));
 		});
@@ -102,7 +103,7 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 	assert.deepEqual(sharing.value[relationshipId].sharing.choices.people, false);
 	assert.equal(sharing.value[relationshipId].relationshipRevision, "1");
 	const disclosure = await count(() =>
-		f.db.transaction((tx) => {
+		gatedTransaction(f.db, (tx) => {
 			authority.observe(tx);
 			return readSharingDisclosure(tx, authority.session, s.w, {
 				kind: "plant",
@@ -118,7 +119,7 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 		["BEGIN", "SELECT", "COMMIT"],
 	);
 	const observed = await count(() =>
-		f.db.transaction(async (tx) => {
+		gatedTransaction(f.db, async (tx) => {
 			authority.observe(tx);
 			return [
 				await currentActor(tx, authority.session, s.w),
@@ -206,7 +207,7 @@ test("INV-reads: a resident's own residency read reuses the observed actor and t
 	assert.equal(viewer.authority.actor.context.kind, "account");
 	const authority = viewer.authority;
 	const residency = await count(() =>
-		f.db.transaction((tx) => {
+		gatedTransaction(f.db, (tx) => {
 			authority.observe(tx);
 			return readOwnResidency(tx, authority.session, s.w, { personId: person });
 		}),

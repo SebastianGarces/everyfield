@@ -1,3 +1,4 @@
+import type { Outcome as Shared } from "@everyfield/contracts/common";
 import { dateText, timeText } from "@everyfield/contracts/common";
 import { meetingStatusMachine, targets } from "@everyfield/contracts/machines";
 import type * as c from "@everyfield/contracts/meetings";
@@ -25,10 +26,11 @@ export type Factor = keyof Scores;
 export type Classification = z.infer<typeof c.classification>;
 export type Finalization = z.infer<typeof c.finalizationResult>;
 
-export type Outcome<T> =
-	| { status: "ok"; value: T }
-	| { status: "refused"; code: string; choices?: { instant: string; offsetSeconds: number }[]; issues?: Issue[] }
-	| { status: "lost" };
+export type Outcome<T> = Shared<
+	T,
+	string,
+	{ choices?: { instant: string; offsetSeconds: number }[]; issues?: Issue[] }
+>;
 
 export type Issue = { path: string; problem: string };
 
@@ -173,8 +175,10 @@ const PAGE_SIZE = 24;
 export type MeetingsQuery = { window: Window; type: MeetingType | null; status: MeetingStatus | null; page: number };
 export const DEFAULT_QUERY: MeetingsQuery = { window: "all", type: null, status: null, page: 1 };
 
-const pick = <T extends string>(all: readonly T[], raw: string[]): T | null =>
-	raw.length === 1 && (all as readonly string[]).includes(raw[0]!) ? (raw[0] as T) : null;
+const pick = <T extends string>(all: readonly T[], raw: string[]): T | null => {
+	const [only] = raw;
+	return raw.length === 1 ? (all.find((value) => value === only) ?? null) : null;
+};
 
 export function parseQuery(params: URLSearchParams): MeetingsQuery {
 	const page = Number(params.get("page"));

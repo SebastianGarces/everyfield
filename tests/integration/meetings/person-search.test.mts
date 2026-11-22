@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { searchPeople } from "../../../packages/domain/src/people/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, plant, other, owner, member;
 let statements = 0;
@@ -13,7 +14,7 @@ const rows = (name, email, phone = null, w = plant, state = "live") =>
 		commitment_state,pipeline_position,state,created_at) VALUES(${randomUUID()},${w.id},${w.id},${name},${email},${phone},
 		'other','prospect','unknown','unknown',0,${state},clock_timestamp())`);
 const search = async (query, who = owner, w = plant) => {
-	const r = await f.db.transaction((tx) =>
+	const r = await gatedTransaction(f.db, (tx) =>
 		searchPeople(tx, { session: who.session, selected: { kind: "plant", id: w.id } }, query),
 	);
 	assert.equal(r.status, "ok", JSON.stringify(r));
@@ -107,7 +108,7 @@ test("INV-access the search keeps the live access check, returns at most 8 and s
 	assert.equal(many, none);
 	assert.equal(phone, none);
 	const outsider = await f.account();
-	const outsiderSearch = await f.db.transaction((tx) =>
+	const outsiderSearch = await gatedTransaction(f.db, (tx) =>
 		searchPeople(tx, { session: outsider.session, selected: { kind: "plant", id: plant.id } }, "s"),
 	);
 	assert.equal(outsiderSearch.status, "refused");

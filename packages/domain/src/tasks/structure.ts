@@ -28,6 +28,7 @@ import {
 	mutation,
 	newTask,
 	noop,
+	recount,
 	reminderChange,
 	references,
 	setStatus,
@@ -39,10 +40,11 @@ import {
 
 const now = () => instant.parse(new Date().toISOString());
 const OPEN = (s: string) => !(c.settledStatus as readonly string[]).includes(s);
-const ruleOf = (row: TaskRow) =>
-	row.rule && !row.rule.stopped
-		? { frequency: row.rule.frequency, until: row.rule.until, localTime: row.rule.local_time }
-		: null;
+const liveRule = (row: TaskRow) => (row.rule && !row.rule.stopped ? row.rule : null);
+const ruleOf = (row: TaskRow) => {
+	const rule = liveRule(row);
+	return rule ? { frequency: rule.frequency, until: rule.until, localTime: rule.local_time } : null;
+};
 
 export function structureWriter(reminders: TaskReminders) {
 	return {
@@ -52,9 +54,9 @@ export function structureWriter(reminders: TaskReminders) {
 				return command(tx, context, "tasks.createSubtask", input, async (cmd) => {
 					const v = input.input;
 					const parent = await loadTask(tx, cmd.actor.plantId, v.parentId, true);
-					if (!parent || parent.deleted_at) deny();
+					if (!parent || parent.deleted_at) deny("unavailable");
 					const admin = administers(cmd.actor);
-					if (!admin && !parent.assignees.some((a) => a.accountId === cmd.actor.accountId)) deny();
+					if (!admin && !parent.assignees.some((a) => a.accountId === cmd.actor.accountId)) deny("unavailable");
 					if (!admin && v.assigneeIds !== undefined) deny("access_denied");
 					if (parent.parent_id) deny("invalid_subject");
 					if (parent.child_total >= 500) deny("invalid_input");
@@ -84,7 +86,7 @@ export function structureWriter(reminders: TaskReminders) {
 				const input = parse(c.setSubtaskCompletionRequest, raw);
 				return command(tx, context, "tasks.setSubtaskCompletion", input, async (cmd) => {
 					const row = await current(tx, cmd, input.input.taskId, input.expectedRevision, true);
-					if (row.parent_id !== input.input.parentId) deny();
+					if (row.parent_id !== input.input.parentId) deny("unavailable");
 					return changeTo(tx, cmd, reminders, row, { status: input.input.complete ? "complete" : "not_started" });
 				});
 			});
@@ -93,9 +95,9 @@ export function structureWriter(reminders: TaskReminders) {
 			return reply(tx, async () => {
 				const input = parse(c.removeSubtaskRequest, raw);
 				return command(tx, context, "tasks.removeSubtask", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const row = await current(tx, cmd, input.input.taskId, input.expectedRevision, false);
-					if (row.parent_id !== input.input.parentId) deny();
+					if (row.parent_id !== input.input.parentId) deny("unavailable");
 					const next: TaskRow = { ...row, deleted_at: new Date(), revision: bump(row.revision) };
 					cmd.writes.push(...update(cmd.actor.plantId, row, next));
 					auditRow(cmd, {
@@ -114,7 +116,7 @@ export function structureWriter(reminders: TaskReminders) {
 			return reply(tx, async () => {
 				const input = parse(c.replacePrerequisitesRequest, raw);
 				return command(tx, context, "tasks.replacePrerequisites", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input;
 					const row = await current(tx, cmd, v.taskId, input.expectedRevision, false);
 					if (row.parent_id) deny("invalid_subject");
@@ -164,26 +166,28 @@ export function structureWriter(reminders: TaskReminders) {
 			return reply(tx, async () => {
 				const input = parse(c.configureRecurrenceRequest, raw);
 				return command(tx, context, "tasks.configureRecurrence", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input;
 					const row = await current(tx, cmd, v.taskId, input.expectedRevision, false);
 					if (row.parent_id) deny("invalid_subject");
 					if (row.obligation_id) deny("protected_source");
-					const before = ruleOf(row),
+					const live = liveRule(row),
+						before = ruleOf(row),
 						after = v.rule;
 					const plant = cmd.actor.plantId;
 					if (JSON.stringify(before) === JSON.stringify(after))
 						return { value: mutation(cmd, noop(cmd, row).row, "noop") };
 					let next: TaskRow = { ...row, revision: bump(row.revision) };
 					if (!after) {
+						if (!live) throw Error(`Task ${row.id} stops a recurrence it does not hold`);
 						cmd.writes.push(
 							sql`UPDATE recurrence SET stopped_at=clock_timestamp(), revision=revision+1
 								WHERE id=${row.series_id}::uuid AND plant_id=${plant}::uuid`,
 							sql`UPDATE task SET revision=revision+1 WHERE id=${row.id}::uuid AND plant_id=${plant}::uuid
 								AND revision=${row.revision}::bigint`,
 						);
-						next = { ...next, rule: { ...row.rule!, stopped: true } };
-					} else if (before) {
+						next = { ...next, rule: { ...live, stopped: true } };
+					} else if (live) {
 						cmd.writes.push(
 							sql`UPDATE recurrence SET interval=${after.frequency}, end_date=${after.until}::date,
 								local_time=${after.localTime}::time, revision=revision+1
@@ -191,7 +195,7 @@ export function structureWriter(reminders: TaskReminders) {
 							sql`UPDATE task SET revision=revision+1 WHERE id=${row.id}::uuid AND plant_id=${plant}::uuid
 								AND revision=${row.revision}::bigint`,
 						);
-						next = { ...next, rule: { ...row.rule!, ...stored(after) } };
+						next = { ...next, rule: { ...live, ...stored(after) } };
 					} else {
 						const seriesId = randomUUID();
 						cmd.writes.push(
@@ -224,7 +228,7 @@ export function structureWriter(reminders: TaskReminders) {
 					const r = setStatus(tx, cmd, row, { status: "complete" });
 					return {
 						value: c.occurrenceMutation.parse({
-							...mutation(cmd, r.row, r.outcome),
+							...mutation(cmd, r.row, r.outcome, r.recounted),
 							successor: r.successor && detailOf(r.successor, now()),
 						}),
 						after: syncAll(reminders, tx, r.changes),
@@ -242,7 +246,7 @@ export function structureWriter(reminders: TaskReminders) {
 						if (row.status === "no_longer_needed") return "closed";
 						if (row.status === "complete") return "noop";
 						const r = setStatus(tx, cmd, row, { status: "complete", source: "bulk" });
-						return { row: r.row.revision, changes: r.changes, successor: r.successor };
+						return { row: r.row, changes: r.changes, successor: r.successor };
 					}),
 				);
 			});
@@ -251,7 +255,7 @@ export function structureWriter(reminders: TaskReminders) {
 			return reply(tx, async () => {
 				const input = parse(c.bulkRescheduleRequest, raw);
 				return command(tx, context, "tasks.bulkReschedule", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const due = dueColumns(input.due, cmd.actor.zone);
 					return bulk(tx, cmd, input.items, (row) => {
 						if (!OPEN(row.status)) return "closed";
@@ -270,7 +274,7 @@ export function structureWriter(reminders: TaskReminders) {
 							afterRevision: next.revision,
 							source: "bulk",
 						});
-						return { row: next.revision, changes: [reminderChange(cmd.actor.plantId, row, next)] };
+						return { row: next, changes: [reminderChange(cmd.actor.plantId, row, next)] };
 					});
 				});
 			});
@@ -285,7 +289,7 @@ export function structureWriter(reminders: TaskReminders) {
 			row: LockedTask,
 		) =>
 			| z.infer<typeof c.bulkOutcome>
-			| { row: string; changes: readonly ReturnType<typeof reminderChange>[]; successor?: TaskRow | null },
+			| { row: TaskRow; changes: readonly ReturnType<typeof reminderChange>[]; successor?: TaskRow | null },
 	) {
 		const selected = [...new Map(items.map((i) => [i.taskId, i])).values()];
 		const rows = await loadTasks(
@@ -294,6 +298,7 @@ export function structureWriter(reminders: TaskReminders) {
 			selected.map((i) => i.taskId),
 		);
 		const pending: ReturnType<typeof reminderChange>[] = [];
+		const moves: Parameters<typeof recount>[0][number][] = [];
 		const remaining: string[] = [];
 		const asOf = now();
 		const results = selected.map((item) => {
@@ -312,7 +317,8 @@ export function structureWriter(reminders: TaskReminders) {
 			const r = apply(row);
 			if (typeof r === "string") return done(r);
 			pending.push(...r.changes);
-			return done("changed", r.row, r.successor ?? null);
+			moves.push({ from: row, to: r.row });
+			return done("changed", r.row.revision, r.successor ?? null);
 		});
 		return {
 			value: c.bulkResult.parse({
@@ -320,6 +326,7 @@ export function structureWriter(reminders: TaskReminders) {
 				items: results,
 				changed: results.filter((r) => r.outcome === "changed").length,
 				remaining,
+				recounted: recount(moves),
 			}),
 			after: syncAll(reminders, tx, pending),
 		};

@@ -18,6 +18,7 @@
 			"id": "launch.plan",
 			"says": "Launch Sunday's date and countdown, its readiness, and the outcome form once the day arrives.",
 			"routes": ["/launch"],
+			"endpoints": ["/launch/read"],
 			"catalog": ["LCH-001", "LCH-003", "LCH-006", "LCH-007", "LCH-008"],
 			"reach": [
 				{

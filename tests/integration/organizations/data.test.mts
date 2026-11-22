@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 
 import { fixture } from "../../support/fixture.mts";
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/session.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import {
 	pipelineWriter,
 	readPipelineBoard,
@@ -50,7 +51,7 @@ const refusedWith = (r: { status: string; refusal?: { code: string }; error?: { 
 const rows = async (q: ReturnType<typeof sql>) => (await admin.execute(q)).rows as Record<string, unknown>[];
 const exported = async (a: Actor = dana) => ok(await readPipelineExport(db, await authority(a)));
 const record = async (personId: string) => ok(await readPipelinePersonRecord(db, await authority(dana), { personId }));
-const tx = <T,>(body: (t: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>) => db.transaction(body);
+const tx = <T,>(body: (t: WriteTx) => Promise<T>) => gatedTransaction(db, body);
 function table(text: string) {
 	const lines = text.replace(/^﻿/, "").split("\r\n");
 	const start = lines.findIndex((l) => l.startsWith("record,person_id,"));

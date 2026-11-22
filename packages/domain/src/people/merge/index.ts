@@ -112,11 +112,13 @@ function plan(
 	let stage = null,
 		commitment = null;
 	if (kind === "plant") {
-		const result = order[Math.max(order.indexOf(source.stage!), order.indexOf(survivor.stage!))]!;
-		stage = { source: source.stage!, survivor: survivor.stage!, result };
+		if (source.stage === null || survivor.stage === null) throw Error("A plant person has no stage");
+		const result = order[Math.max(order.indexOf(source.stage), order.indexOf(survivor.stage))];
+		if (!result) throw Error(`Stages ${source.stage} and ${survivor.stage} are not in the pipeline order`);
+		stage = { source: source.stage, survivor: survivor.stage, result };
 		if (result !== survivor.stage) {
 			set.stage = result;
-			if (!sameColumn(survivor.stage!, result)) set.pipeline_position = freshPosition(survivor.id);
+			if (!sameColumn(survivor.stage, result)) set.pipeline_position = freshPosition(survivor.id);
 		}
 		commitment = commitmentOf({
 			cards: [...survivor.commitment.cards, ...source.commitment.cards],
@@ -179,11 +181,11 @@ async function readPair(tx: Tx, owner: string, input: { sourceId: string; surviv
 	const row = z.object({ allowed: z.boolean(), source: z.unknown(), survivor: z.unknown() }).parse(result.rows[0]);
 	const source = parseFacts(row.source),
 		survivor = parseFacts(row.survivor);
-	if (!row.allowed || !source || !survivor || source.state !== "live" || survivor.state !== "live") deny();
+	if (!row.allowed || !source || !survivor || source.state !== "live" || survivor.state !== "live") deny("unavailable");
 	return { source, survivor };
 }
 const ownerKind = (ctx: Pick<Context, "selected">) => {
-	if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny();
+	if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny("unavailable");
 	return ctx.selected.kind;
 };
 
@@ -351,7 +353,7 @@ export const peopleMerge = {
 			const row = z
 				.object({ state: z.enum(["live", "retired", "merged"]), destination: z.uuid(), merge_id: z.uuid().nullable() })
 				.safeParse(result.rows[0]);
-			if (!row.success) deny();
+			if (!row.success) deny("unavailable");
 			return c.mergedPersonDestination.parse({
 				personId: input.personId,
 				status: row.data.state,
@@ -362,7 +364,7 @@ export const peopleMerge = {
 	},
 	async findDuplicates(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
-			if (ctx.selected.kind !== "organization") deny();
+			if (ctx.selected.kind !== "organization") deny("unavailable");
 			const input = parse(c.organizationDuplicatesRequest, raw);
 			const gate = adminRead(ctx);
 			const result = await tx.execute(sql`SELECT p.display_name,p.email,p.phone FROM person p WHERE ${gate}
@@ -371,7 +373,7 @@ export const peopleMerge = {
 			const p = z
 				.object({ display_name: z.string(), email: z.string().nullable(), phone: z.string().nullable() })
 				.safeParse(result.rows[0]);
-			if (!p.success) deny();
+			if (!p.success) deny("unavailable");
 			return matchPeople(
 				tx,
 				ctx.selected.id,

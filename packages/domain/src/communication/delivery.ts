@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "@everyfield/db/query";
 import type { Database } from "@everyfield/db/client";
+import type { ProviderKey } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/communication";
 import {
 	plainText,
@@ -37,11 +38,13 @@ export type DeliveryMessage = {
 	headers?: Readonly<Record<string, string>>;
 };
 export type DeliveryBatch =
-	{ outcome: "ids"; ids: readonly (string | null)[] } | { outcome: "unknown" } | { outcome: "refused" };
+	| { outcome: "ids"; ids: readonly (string | null)[]; afterRecord?: (db: Database) => Promise<void> }
+	| { outcome: "unknown" }
+	| { outcome: "refused" };
 export type ProviderAnswer = { outcome: "done" | "sent" | "unknown" };
 export type DeliveryTransport = {
 	send(
-		batch: { key: string; messages: readonly DeliveryMessage[]; scheduledAt: string | null },
+		batch: { key: ProviderKey; messages: readonly DeliveryMessage[]; scheduledAt: string | null },
 		signal: AbortSignal,
 	): Promise<DeliveryBatch>;
 	cancel(providerIds: readonly string[], signal: AbortSignal): Promise<ProviderAnswer[]>;
@@ -63,7 +66,7 @@ type Mode = "now" | "scheduled" | "lookup";
 type Batch = {
 	requestId: string;
 	attemptId: string;
-	providerKey: string;
+	providerKey: ProviderKey;
 	expired: boolean;
 	members: Member[];
 	messages: ReadonlyMap<number, DeliveryMessage | null>;
@@ -255,11 +258,12 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 	return loadedSchema.parse(raw ?? { allowed: false });
 }
 
+const providerKey = z.string().transform((key) => key as ProviderKey);
 const sealedPayload = z.object({ v: z.literal(1), sealed: z.string() });
 const storedBatches = z.array(
 	z.object({
 		requestId: z.uuid(),
-		providerKey: z.string(),
+		providerKey,
 		attemptId: z.uuid(),
 		expired: z.boolean(),
 		members: z.array(
@@ -329,7 +333,12 @@ async function openLoaded(db: Database, actor: Actor, communicationId: string, e
 	const digest = hash({ subject: found.subject, body: found.body_html, people: parts.people, emails: parts.emails });
 	if (found.review_digest !== digest)
 		deny("stale_review", { previewBody: found.body_html, scriptExecution: false, providerCalls: 0 });
-	return { found: { ...found, people }, audience, parts, digest };
+	return {
+		found: { ...found, id: found.id, subject: found.subject, body_html: found.body_html, people },
+		audience,
+		parts,
+		digest,
+	};
 }
 
 async function prepare(
@@ -352,12 +361,20 @@ async function prepare(
 	const people = z
 		.array(z.object({ id: z.uuid(), email: z.string().nullable(), displayName: z.string(), n: z.number() }))
 		.parse(asJson(found.people) ?? [])
-		.filter((row) => row.email?.trim())
+		.flatMap((row) => {
+			const email = row.email?.trim();
+			return email ? [{ ...row, email }] : [];
+		})
 		.sort((a, b) => a.id.localeCompare(b.id));
 	const seen = new Set<string>();
-	const unique = people.filter((row) => (seen.has(row.id) ? false : (seen.add(row.id), true)));
+	const address = (row: (typeof people)[number]) => (row.email ?? "").trim().toLowerCase();
+	const out = new Set(leftOut);
+	const reached = new Set(people.filter((row) => !out.has(row.id)).map(address));
+	const unique = people.filter((row) =>
+		seen.has(row.id) || (out.has(row.id) && reached.has(address(row))) ? false : (seen.add(row.id), true),
+	);
 	const rows = unique.map((person, index) => {
-		const address = person.email!.trim().toLowerCase();
+		const address = person.email.toLowerCase();
 		const id = randomUUID();
 		const token = canLink && guests.has(person.id) ? newRsvpToken() : null;
 		const merge: Record<MergeKey, string> = {
@@ -367,11 +384,11 @@ async function prepare(
 		const unsubscribe = keys.optOutKeys
 			? `${keys.origin}/unsubscribe/${messagesOptOutToken(keys.optOutKeys, { plantId: actor.plantId, personId: person.id })}`
 			: null;
-		const html = renderEmailHtml(found.body_html!, merge, {
+		const html = renderEmailHtml(found.body_html, merge, {
 			churchName: found.church_name ?? "",
 			...(unsubscribe ? { unsubscribeUrl: unsubscribe } : {}),
 		});
-		const body = plainText(renderBody(found.body_html!, merge)) || found.subject!;
+		const body = plainText(renderBody(found.body_html, merge)) || found.subject;
 		const text = unsubscribe ? `${body}\n\n--\nUnsubscribe: ${unsubscribe}` : body;
 		const headers = unsubscribe
 			? { "List-Unsubscribe": `<${unsubscribe}/one-click>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
@@ -415,22 +432,25 @@ async function prepare(
 			batch,
 			id: randomUUID(),
 			attempt: randomUUID(),
-			provider_key: `communication/${found.id}/${requestHash}`,
+			provider_key: providerKey.parse(`communication/${found.id}/${requestHash}`),
 			request_hash: requestHash,
 		};
 	});
-	const minted = found.meeting_id !== null && rows.some((row) => row.token_hash !== null);
+	const meetingId = found.meeting_id;
+	const minted = meetingId !== null && rows.some((row) => row.token_hash !== null);
 	const waiting = mode === "scheduled" ? "scheduled" : "dispatched";
 	const tokens = minted
 		? sql`,
 			ins_tok AS (${rsvpTokenUpdate(
 				actor.plantId,
-				found.meeting_id!,
+				meetingId,
 				sql`(SELECT i.person AS person_id, i.token_hash FROM input i JOIN ins_mail m ON m.id = i.id AND m.state IN ('dispatched', 'scheduled')
 					WHERE i.token_hash IS NOT NULL)`,
 			)})`
 		: sql``;
 	const issued = minted ? sql`(SELECT count(*) FROM ins_tok)` : sql`0`;
+	const firstGroup = groups[0];
+	if (!firstGroup) throw Error(`Communication ${found.id} reached dispatch with no recipient`);
 	const stored = one(
 		await db.execute(sql`WITH gate AS (SELECT ${adminGate(actor)} AS allowed),
 			input AS (
@@ -495,7 +515,7 @@ async function prepare(
 			ins_audit AS (
 				INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, after_value)
 				SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'communication.send_intended', 'outcome', 'record',
-					${found.id}::uuid, ${"dispatch/" + groups[0]!.provider_key}, '{}'::jsonb,
+					${found.id}::uuid, ${"dispatch/" + firstGroup.provider_key}, '{}'::jsonb,
 					jsonb_build_object('recipients', (SELECT count(*) FROM ins_mail), 'rsvpLinks', ${issued})
 				WHERE EXISTS (SELECT 1 FROM ins_mail)
 				ON CONFLICT (subject_id, event_key) DO NOTHING
@@ -518,7 +538,12 @@ async function prepare(
 	if (written.size !== rows.length || stored.attempts !== groups.length) deny("conflict");
 	return groups.map((group) => {
 		const members = rows.filter((row) => row.batch === group.batch);
-		const state = (id: string) => written.get(id)!.state;
+		const writtenOf = (id: string) => {
+			const row = written.get(id);
+			if (!row) throw Error(`Mail ${id} was counted as written but not returned`);
+			return row;
+		};
+		const state = (id: string) => writtenOf(id).state;
 		return {
 			requestId: group.id,
 			attemptId: group.attempt,
@@ -532,7 +557,7 @@ async function prepare(
 				provider: null,
 				scheduledAt: heldUntil,
 				cancelRequested: false,
-				unsubscribed: written.get(row.id)!.unsubscribed,
+				unsubscribed: writtenOf(row.id).unsubscribed,
 			})),
 			messages: new Map(
 				members
@@ -541,7 +566,7 @@ async function prepare(
 						row.position,
 						{
 							to: row.to,
-							subject: found.subject!,
+							subject: found.subject,
 							html: row.html,
 							text: row.text,
 							...(row.headers ? { headers: row.headers } : {}),
@@ -626,11 +651,15 @@ async function handOffBatch(transport: DeliveryTransport, batch: Batch) {
 	const open = batch.members.filter((row) => row.state === "dispatched" || row.state === "unknown");
 	if (!open.length) return null;
 	if (batch.expired) return { sent: false, lost: false, updates: applyIds({ outcome: "unknown" }, open) };
-	const ready = open.filter((row) => batch.messages.get(row.position));
+	const ready = open.flatMap((row) => {
+		const message = batch.messages.get(row.position);
+		return message ? [{ ...row, message }] : [];
+	});
 	const updates: Update[] = open
 		.filter((row) => !batch.messages.get(row.position))
 		.map((row) => ({ id: row.id, outcome: row.state === "unknown" ? "unknown" : "refused", providerId: null }));
-	if (!ready.length) return { sent: false, lost: false, updates };
+	const [first] = ready;
+	if (!first) return { sent: false, lost: false, updates };
 	const sent = !open.some((row) => row.state === "unknown");
 	let answer: DeliveryBatch;
 	let lost = false;
@@ -638,8 +667,8 @@ async function handOffBatch(transport: DeliveryTransport, batch: Batch) {
 		answer = await transport.send(
 			{
 				key: batch.providerKey,
-				messages: ready.map((row) => batch.messages.get(row.position)!),
-				scheduledAt: ready[0]!.scheduledAt,
+				messages: ready.map((row) => row.message),
+				scheduledAt: first.scheduledAt,
 			},
 			signal(),
 		);
@@ -647,7 +676,8 @@ async function handOffBatch(transport: DeliveryTransport, batch: Batch) {
 		lost = true;
 		answer = { outcome: "unknown" };
 	}
-	return { sent, lost, updates: [...updates, ...applyIds(answer, ready)] };
+	const afterRecord = answer.outcome === "ids" ? answer.afterRecord : undefined;
+	return { sent, lost, updates: [...updates, ...applyIds(answer, ready)], afterRecord };
 }
 
 async function handoff(
@@ -667,6 +697,7 @@ async function handoff(
 		deny("schedule_window_exceeded", { providerHandoffs: 0 });
 	const batches = await prepare(db, actor, opened, ready, mode, heldUntil, input.input.leftOut ?? []);
 	const answered: Answered[] = [];
+	const afterRecord: ((db: Database) => Promise<void>)[] = [];
 	let providerCalls = 0;
 	let lost = false;
 	for (const batch of batches) {
@@ -675,8 +706,10 @@ async function handoff(
 		if (result.sent) providerCalls += 1;
 		lost ||= result.lost;
 		if (result.updates) answered.push({ batch, updates: result.updates });
+		if (result.afterRecord) afterRecord.push(result.afterRecord);
 	}
 	if (answered.length) await record(db, staff(actor), input.input.communicationId, answered);
+	for (const settle of afterRecord) await settle(db);
 	const next = new Map(answered.flatMap(({ updates }) => updates.map((row) => [row.id, row])));
 	const members = batches.flatMap((batch) =>
 		batch.members.map((row) => {
@@ -722,18 +755,21 @@ async function loadHandoff(db: Database, actor: Actor, communicationId: string, 
 	if (found.allowed !== true) deny("access_denied");
 	if (!found.id) deny("not_found");
 	if (found.revision !== expectedRevision) deny("conflict");
-	return { found, members: batchesOf(found.batches, actor.plantId).flatMap((batch) => batch.members) };
+	return {
+		found: { ...found, id: found.id },
+		members: batchesOf(found.batches, actor.plantId).flatMap((batch) => batch.members),
+	};
 }
 
 async function askEach(
 	open: readonly Member[],
 	ask: (providerIds: readonly string[]) => Promise<readonly ProviderAnswer[]>,
 ): Promise<Answer[]> {
-	const asked = open.filter((row) => row.provider !== null);
+	const asked = open.flatMap((row) => (row.provider === null ? [] : [{ id: row.id, provider: row.provider }]));
 	if (!asked.length) return [];
 	let replies: readonly ProviderAnswer[];
 	try {
-		replies = await ask(asked.map((row) => row.provider!));
+		replies = await ask(asked.map((row) => row.provider));
 	} catch {
 		return [];
 	}
@@ -821,7 +857,7 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 			next = answered(next, answers, (row) => ({ ...row, state: "cancelled" }));
 			if (answers.length) {
 				const openCount = next.filter(holding).length;
-				await recordAnswers(db, actor, found.id!, answers, null, {
+				await recordAnswers(db, actor, found.id, answers, null, {
 					eventKey: openCount === 0 ? `cancel-confirmed/${found.id}` : `cancel-check/${input.requestKey}`,
 					after: {
 						cancelled: answers.filter((answer) => answer.outcome === "done").length,
@@ -833,7 +869,7 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 		}
 		const held = local.length > 0 || next.some((row) => row.provider !== null || holding(row));
 		const openCount = next.filter(holding).length;
-		return c.cancelScheduledResult.parse({
+		return {
 			newHandoffs: 0,
 			scheduledCancel: !held ? "none" : openCount > 0 ? "reconcile" : "confirmed",
 			sentRecalled: false,
@@ -844,7 +880,7 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 			confirmedCount: next.filter((row) => row.state === "cancelled").length,
 			sentCount: next.filter((row) => row.state === "sent").length,
 			openCount,
-		});
+		} satisfies z.output<typeof c.cancelScheduledResult>;
 	});
 }
 
@@ -859,7 +895,9 @@ export function replaceScheduled(db: Database, authority: RequestActor, raw: unk
 		const replacementAllowed =
 			members.some((row) => row.state === "cancelled") &&
 			members.every((row) => row.state === "cancelled" || row.state === "refused" || row.state === "failed");
-		return c.replaceScheduledResult.parse({ replacementAllowed, replacementIntents: 0, blindResends: 0 });
+		return { replacementAllowed, replacementIntents: 0, blindResends: 0 } satisfies z.output<
+			typeof c.replaceScheduledResult
+		>;
 	});
 }
 
@@ -906,7 +944,7 @@ export function rescheduleDispatched(
 			next = answered(members, answers, (row) => ({ ...row, scheduledAt: requested }));
 			if (answers.length) {
 				const left = open.length - answers.length;
-				await recordAnswers(db, actor, found.id!, answers, requested, {
+				await recordAnswers(db, actor, found.id, answers, requested, {
 					eventKey: left === 0 ? `time-confirmed/${found.id}/${requested}` : `time-check/${input.requestKey}`,
 					after: {
 						scheduled_at: requested,
@@ -923,7 +961,7 @@ export function rescheduleDispatched(
 			rescheduleStatus: still.length ? "unknown" : "accepted",
 			newCommunications: 0,
 			scheduledAt: requested,
-			heldAt: still.map((row) => row.scheduledAt!).sort()[0] ?? null,
+			heldAt: still.flatMap((row) => (row.scheduledAt === null ? [] : [row.scheduledAt])).sort()[0] ?? null,
 			confirmedCount: next.filter((row) => waiting(row) || (row.state === "accepted" && row.scheduledAt === requested))
 				.length,
 			sentCount: next.filter((row) => row.state === "sent").length,
@@ -1003,7 +1041,9 @@ export function restoreOwnSuppression(db: Database, authority: RequestActor, raw
 				)
 				SELECT count(*)::int AS clears FROM updated`),
 		) as { clears?: number };
-		return c.restoreSuppressionResult.parse({ suppressionClears: updated?.clears ?? 0, newSends: 0 });
+		return { suppressionClears: updated?.clears ?? 0, newSends: 0 } satisfies z.output<
+			typeof c.restoreSuppressionResult
+		>;
 	});
 }
 
@@ -1025,7 +1065,7 @@ export function sendTransactionalMail(
 		const attemptId = randomUUID();
 		const logical = `password_reset/${actor.accountId}/${input.requestKey}`;
 		const payloadHash = hash({ purpose: "password_reset", accountId: actor.accountId, address, from: ready.from });
-		const providerKey = `password_reset/${payloadHash}/${input.requestKey}`;
+		const resetKey = providerKey.parse(`password_reset/${payloadHash}/${input.requestKey}`);
 		const sealed = seal(
 			ready.encryptionKey,
 			JSON.stringify({ subject: rendered.subject, text: rendered.text, html: rendered.html, from: ready.from }),
@@ -1045,7 +1085,7 @@ export function sendTransactionalMail(
 					RETURNING id
 				), req AS (
 					INSERT INTO mail_request (id, tenant_id, provider_key, request_hash, first_dispatched_at)
-					SELECT ${requestId}::uuid, ${actor.plantId}::uuid, ${providerKey}, ${payloadHash}, clock_timestamp()
+					SELECT ${requestId}::uuid, ${actor.plantId}::uuid, ${resetKey}, ${payloadHash}, clock_timestamp()
 					FROM ins RETURNING id
 				), mem AS (
 					INSERT INTO mail_request_member (request_id, tenant_id, mail_id, position)
@@ -1070,7 +1110,7 @@ export function sendTransactionalMail(
 			try {
 				const batch = await transport.send(
 					{
-						key: providerKey,
+						key: resetKey,
 						messages: [{ to: address, subject: rendered.subject, html: rendered.html, text: rendered.text }],
 						scheduledAt: null,
 					},
@@ -1089,7 +1129,9 @@ export function sendTransactionalMail(
 			await db.execute(sql`UPDATE mail_attempt SET outcome = ${deliveryStatus === "accepted" ? "accepted" : deliveryStatus === "refused" ? "refused" : "unknown"},
 				completed_at = clock_timestamp() WHERE id = ${attemptId}::uuid`);
 		}
-		return c.transactionalResult.parse({ purposeMailAttempted: true, deliveryStatus, sentAt: null });
+		return { purposeMailAttempted: true, deliveryStatus, sentAt: null } satisfies z.output<
+			typeof c.transactionalResult
+		>;
 	});
 }
 
@@ -1099,7 +1141,7 @@ const churchClosing = (tenant: SQL) => sql`EXISTS (SELECT 1 FROM lifecycle_witne
 const claimedSchema = z.object({
 	request_id: z.uuid(),
 	tenant_id: z.uuid(),
-	provider_key: z.string(),
+	provider_key: providerKey,
 	attempt_id: z.uuid(),
 	communication_id: z.uuid(),
 	members: z.array(
@@ -1203,6 +1245,7 @@ export async function runDueScheduled(
 		};
 		const result = await handOffBatch(transport, batch);
 		await record(db, who, claimed.communication_id, [{ batch, updates: result?.updates ?? [] }]);
+		await result?.afterRecord?.(db);
 	}
 	return handled;
 }

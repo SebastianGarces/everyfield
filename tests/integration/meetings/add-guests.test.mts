@@ -12,6 +12,7 @@ import {
 } from "../../../packages/domain/src/meetings/index.ts";
 import { readPersonPage } from "../../../packages/domain/src/people/index.ts";
 import { ok, refused } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, plant, other, owner, member, foreign;
 const attendance = createAttendanceWriter({ reminders: async () => {} });
@@ -193,7 +194,7 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-011 one write adds People and new contacts
 	);
 	assert.equal(audit.length, 3);
 	const page = ok(
-		await f.db.transaction((t) =>
+		await gatedTransaction(f.db, (t) =>
 			readPersonPage(t, { session: owner.session, selected: { kind: "plant", id: plant.id } }, { personId: mara }, 50),
 		),
 	);
@@ -266,7 +267,7 @@ test("INV-statements: adding 1 person and adding 6 (some new contacts) send the 
 	assert.equal(six, oneGuest);
 	assert.ok(oneGuest <= 6, `${oneGuest} statements`);
 	const direct = (input, requestKey = key()) =>
-		f.db.transaction((t) =>
+		gatedTransaction(f.db, (t) =>
 			guestsWriter.addGuests(
 				t,
 				{ session: owner.session, selected: { kind: "plant", id: plant.id } },

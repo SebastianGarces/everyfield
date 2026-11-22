@@ -27,7 +27,7 @@ const MINUTE = `'YYYY-MM-DD"T"HH24:MI:SS'`;
 export async function readMyResidency(db: Executor, authority: RequestActor): Promise<Reply<C.MyResidency>> {
 	return answer<C.MyResidency, C.ProgramRefusal>(async () => {
 		const me = residentOf(authority);
-		if (!me) return C.myResidency.parse({ status: "not_linked" });
+		if (!me) return { status: "not_linked" } satisfies z.output<typeof C.myResidency>;
 		const r = await db.execute(sql`WITH g AS (SELECT ${me.live} AS allowed), ${linkCte(me.accountId)},
 o AS (SELECT o.name,coalesce(acc.personal_timezone,o.timezone) AS tz,
  (clock_timestamp() AT TIME ZONE coalesce(acc.personal_timezone,o.timezone))::date AS today,o.timezone AS church_tz
@@ -73,12 +73,19 @@ SELECT g.allowed,(SELECT jsonb_build_object('organizationName',o.name,'timezone'
       AND c.tenant_id=st.organization_id WHERE st.organization_id=r.organization_id AND st.article_id=r.article_id
       AND st.state='published') END AS slug) z
    WHERE r.version_id=e.version_id AND r.organization_id=e.organization_id),'[]'::jsonb))
-  ORDER BY e.started_on,e.id) FROM e CROSS JOIN o),'[]'::jsonb) AS enrollments
+  ORDER BY e.started_on,e.id) FROM e CROSS JOIN o),'[]'::jsonb) AS enrollments,
+ EXISTS(SELECT FROM residency_link x WHERE x.account_id=${me.accountId}::uuid AND x.ended_at IS NOT NULL) AS ended
 FROM g`);
 		const row = z
-			.object({ allowed: z.boolean(), link: z.record(z.string(), z.unknown()).nullable(), enrollments: z.unknown() })
+			.object({
+				allowed: z.boolean(),
+				link: z.record(z.string(), z.unknown()).nullable(),
+				enrollments: z.unknown(),
+				ended: z.boolean(),
+			})
 			.parse(r.rows[0]);
-		if (!row.allowed || !row.link) return C.myResidency.parse({ status: "not_linked" });
+		if (!row.allowed) return C.myResidency.parse({ status: "not_linked" });
+		if (!row.link) return { status: row.ended ? "ended" : "not_linked" } satisfies z.output<typeof C.myResidency>;
 		return C.myResidency.parse({ status: "linked", ...row.link, enrollments: row.enrollments });
 	});
 }
@@ -91,7 +98,7 @@ export async function readResidentReading(
 	return answer<C.ResidentReadingResult, C.ProgramRefusal>(async () => {
 		const me = residentOf(authority);
 		const { readingId } = parse(C.residentReadingRequest, raw);
-		if (!me) return C.residentReadingResult.parse({ status: "unavailable" });
+		if (!me) return { status: "unavailable" } satisfies z.output<typeof C.residentReadingResult>;
 		const r = await db.execute(sql`WITH g AS (SELECT ${me.live} AS allowed), ${linkCte(me.accountId)},
 r AS (SELECT r.* FROM l JOIN development_enrollment e ON e.person_id=l.person_id AND e.organization_id=l.organization_id
  AND e.status='active' JOIN development_reading r ON r.version_id=e.version_id AND r.organization_id=e.organization_id

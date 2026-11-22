@@ -1,7 +1,7 @@
 import { localDate } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
-import type { Database } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import type { Database, Transaction } from "@everyfield/db/client";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createLaunchReader, createLaunchWriter } from "@everyfield/domain/launch";
 import { z } from "zod";
@@ -49,7 +49,7 @@ function launchWrite<I, L = undefined>(spec: {
 	lookup?(db: Database, actor: EvryActor, input: I): Promise<L | null>;
 	prepare(plan: c.Plan, input: I, found: L): Prepared | null;
 	run(
-		tx: Database,
+		tx: Transaction,
 		authority: RequestActor,
 		args: Record<string, unknown>,
 		key: string,
@@ -79,13 +79,7 @@ function launchWrite<I, L = undefined>(spec: {
 			return sql`SELECT ${JSON.stringify(review)}::jsonb AS review, ${JSON.stringify(p.args)}::jsonb AS args`;
 		},
 		async execute(tx, _context, args, effectKey, _reminders, native) {
-			return spec.run(
-				tx as unknown as Database,
-				native.authority,
-				args as Record<string, unknown>,
-				effectKey,
-				native.ports,
-			);
+			return spec.run(tx, native.authority, args as Record<string, unknown>, effectKey, native.ports);
 		},
 		current: spec.current ?? launchSundayNow,
 	};
@@ -495,7 +489,7 @@ const correctionInput = z.strictObject({
 	decisions: z.int().nullable().optional(),
 	reason: z.string().max(4000),
 });
-const fieldId = (field: string) =>
+const fieldId = <FieldName extends string>(field: SqlLiteral<FieldName>) =>
 	sql.raw(`overlay(overlay(md5(x.id::text||':${field}') placing '4' from 13) placing '8' from 17)::uuid`);
 const outcomeNow = (p: SQL) => sql`(SELECT jsonb_build_array(
 	jsonb_build_object('id',${fieldId("actualDate")},'label','Date held','value',
@@ -526,7 +520,8 @@ export const correctOutcome = launchWrite({
 		const changed = named.filter((k) => now[k] !== was[k]);
 		const shown = (k: OutcomeField, v: string | number | null) =>
 			k === "actualDate" ? (v === null ? null : launchDay(String(v))) : countShown(v as number | null);
-		const checked = o && c.checkOutcome({ ...now, actualDate: now.actualDate!, note: o.note }, plan.today);
+		const notInFuture = now.actualDate ?? plan.today;
+		const checked = o && c.checkOutcome({ ...now, actualDate: notInFuture, note: o.note }, plan.today);
 		const note = c.checkNote(input.reason, true);
 		const recordedAs = named.map((k) => `${FIELD_WORDS[k]} ${shown(k, was[k])}`).join(" and ");
 		const refusal = !o

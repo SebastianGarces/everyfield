@@ -107,10 +107,12 @@ export const assigneeOptions = z.strictObject({
 export const relationOptions = z.strictObject({
 	items: z.array(z.strictObject({ id: recordId, label: z.string() })).max(20),
 });
+export const recounted = z.array(z.strictObject({ taskId: recordId, openPrerequisites: count }));
 export const taskMutation = z.strictObject({
 	task: taskDetail,
 	receiptId: operationId,
 	outcome: z.enum(["changed", "noop"]),
+	recounted,
 });
 export const subtaskPage = z.strictObject({
 	parentId: recordId,
@@ -185,6 +187,7 @@ export const bulkResult = z.strictObject({
 		.max(100),
 	changed: count,
 	remaining: z.array(recordId).max(100),
+	recounted,
 });
 export const taskError = z.discriminatedUnion("code", [
 	...safeError.options,

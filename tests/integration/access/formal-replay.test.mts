@@ -11,11 +11,12 @@ import {
 	createIdentityService,
 	createInvitationService,
 	createSeatService,
-	InvitationRefusal,
+	invitationRefusals,
 } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer, peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 type Value = string | number | boolean | Value[] | { [key: string]: Value };
 type Entries = Record<string, Record<string, Value>>;
@@ -103,7 +104,7 @@ async function outcome(run: () => Promise<unknown>, success = "allowed"): Promis
 		if (result && result.status === "refused") return `refused (${result.error?.code})`;
 		return success;
 	} catch (error) {
-		if (error instanceof InvitationRefusal) return `refused (${error.value.code})`;
+		if (error instanceof invitationRefusals.Refusal) return `refused (${error.code})`;
 		if (error instanceof Error && error.name === "ZodError") return "refused (invalid_input)";
 		return `threw ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`;
 	}
@@ -159,7 +160,7 @@ class World {
 		return s;
 	}
 	async authority(key: string) {
-		const actor = await fx.pools.runtime.transaction((tx) =>
+		const actor = await gatedTransaction(fx.pools.runtime, (tx) =>
 			RequestActor.resolve(tx, sessionId.parse(this.session(key).id)),
 		);
 		if (!(actor instanceof RequestActor)) throw new Unresolved(actor.status);

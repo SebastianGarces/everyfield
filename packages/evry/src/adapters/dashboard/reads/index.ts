@@ -11,8 +11,7 @@ import {
 import { dashboardReader } from "@everyfield/domain/dashboard";
 import { z } from "zod";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
-import { phaseText } from "../../../catalog/labels.ts";
-import { localWhen, TYPE_LABEL } from "../../meetings/shared.ts";
+import { localWhen, phaseText, TYPE_LABEL } from "../../../catalog/labels.ts";
 import { plantSeat } from "../../native.ts";
 
 const STEP: Record<SetupStep, { title: string; action: string; href: string }> = {

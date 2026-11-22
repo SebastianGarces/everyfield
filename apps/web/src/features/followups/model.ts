@@ -1,6 +1,5 @@
 import type * as c from "@everyfield/contracts/followups";
 import { FOLLOW_UP_WINDOW_MS } from "@everyfield/contracts/followups";
-import type { FollowUpReply } from "@everyfield/domain/followups";
 import type { z } from "zod";
 import { lacksOwner } from "../tasks/model.ts";
 
@@ -40,11 +39,6 @@ export function preferredOwners(items: readonly Pick<ObligationItem, "kind" | "s
 	for (const set of held.values()) if (best === null || set.n > best.n) best = set;
 	return best ? best.ids : [];
 }
-
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
-
-export const outcomeOf = <T>(reply: FollowUpReply<T>): Outcome<T> =>
-	reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };
 
 export const OUTCOMES: readonly OutcomeValue[] = [
 	"contacted",
@@ -106,9 +100,9 @@ export type OutcomeInput = {
 
 export function outcomeInput(
 	d: Draft,
-	opts: { completable: boolean; now?: Date },
+	opts: { completable: boolean; now: Date },
 ): { ok: true; input: OutcomeInput } | { ok: false; errors: DraftErrors } {
-	const now = opts.now ?? new Date();
+	const { now } = opts;
 	const errors: DraftErrors = {};
 	if (!d.outcome) errors.outcome = "Choose what happened.";
 	if (d.outcome === "contacted" && !d.when) errors.when = "Choose when you talked.";
@@ -172,7 +166,7 @@ export function withOutcome(items: readonly OutcomeItem[], m: Pick<OutcomeMutati
 export const recentAfter = (items: readonly OutcomeItem[], m: Pick<OutcomeMutation, "record" | "previous">) =>
 	withOutcome(items, m).slice(0, 3);
 
-export function windowAt(originAt: string, now = Date.now()): { open: true; hoursLeft: number } | { open: false } {
+export function windowAt(originAt: string, now: number): { open: true; hoursLeft: number } | { open: false } {
 	const left = Date.parse(originAt) + FOLLOW_UP_WINDOW_MS - now;
 	if (Date.parse(originAt) > now || left < 0) return { open: false };
 	return { open: true, hoursLeft: Math.floor(left / 3_600_000) };

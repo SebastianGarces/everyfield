@@ -52,7 +52,7 @@ export const declareJourney = nativeWrite({
 			${setup(actor)} AND coalesce(os.journey->'value'->>'answer','')<>'existing'`;
 	},
 	async run(tx, context, request, { ports }) {
-		const r = settled(await ports.onboarding.declareJourney(tx, onboardingContext(context), request as never));
+		const r = settled(await ports.onboarding.declareJourney(tx, onboardingContext(context), request));
 		return { revision: r.revision };
 	},
 });
@@ -103,7 +103,7 @@ export const answerLead = nativeWrite({
 			${setup(actor)} AND os.lead->>'answer'<>'yes'`;
 	},
 	async run(tx, context, request, { ports }) {
-		const r = settled(await ports.onboarding.answerLead(tx, onboardingContext(context), request as never));
+		const r = settled(await ports.onboarding.answerLead(tx, onboardingContext(context), request));
 		return { revision: r.revision };
 	},
 });
@@ -124,7 +124,7 @@ export const complete = nativeWrite({
 			${setup(actor)} AND pl.onboarding_completed_at IS NULL`;
 	},
 	async run(tx, context, request, { ports }) {
-		const r = settled(await ports.onboarding.complete(tx, onboardingContext(context), request as never));
+		const r = settled(await ports.onboarding.complete(tx, onboardingContext(context), request));
 		return { revision: r.revision };
 	},
 });
@@ -168,7 +168,7 @@ export const createPlant = nativeWrite({
 			${seatless(actor)}`;
 	},
 	async run(tx, context, request, { ports }) {
-		const r = settled(await ports.onboarding.createPlant(tx, onboardingContext(context), request as never));
+		const r = settled(await ports.onboarding.createPlant(tx, onboardingContext(context), request));
 		return { receiptId: r.plant.id, revision: r.revision };
 	},
 });
@@ -189,7 +189,7 @@ export const createDiscovery = nativeWrite({
 			${seatless(actor)} AND NOT EXISTS(SELECT FROM discovery d WHERE d.account_id=a.id)`;
 	},
 	async run(tx, context, request, { ports }) {
-		const r = settled(await ports.onboarding.createDiscovery(tx, onboardingContext(context), request as never));
+		const r = settled(await ports.onboarding.createDiscovery(tx, onboardingContext(context), request));
 		return { receiptId: r.profile.discoveryId, revision: r.profile.revision };
 	},
 });
@@ -271,7 +271,7 @@ export const convertToPlant = nativeWrite({
 				AND d.revision=${profile.revision}::bigint AND NOT EXISTS(SELECT FROM seat s WHERE s.account_id=a.id AND s.ended_at IS NULL)`;
 	},
 	async run(tx, context, request, { ports }) {
-		const r = settled(await ports.onboarding.convertDiscovery(tx, onboardingContext(context), request as never));
+		const r = settled(await ports.onboarding.convertDiscovery(tx, onboardingContext(context), request));
 		return { receiptId: r.plant.id, revision: r.revision };
 	},
 });

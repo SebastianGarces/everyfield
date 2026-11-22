@@ -17,6 +17,21 @@ export function focusIfLost<T extends HTMLElement>(node: T): T | null {
 	return active === null || active === node.ownerDocument.body ? node : null;
 }
 
+let pressed: HTMLElement | null = null;
+
+export function notePress(event: { target: EventTarget | null }): void {
+	pressed =
+		event.target instanceof Element
+			? event.target.closest<HTMLElement>("button, a[href], [role='button'], [tabindex]")
+			: null;
+}
+
+export function focusOrigin(active: Element | null): HTMLElement | null {
+	const lost = !(active instanceof HTMLElement) || active === active.ownerDocument.body;
+	if (pressed?.isConnected && (lost || (active !== pressed && active.contains(pressed)))) return pressed;
+	return lost ? null : active;
+}
+
 export function focusOnMount(node: HTMLElement | null): void {
 	node?.focus();
 }

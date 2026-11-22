@@ -161,7 +161,7 @@ agent-browser find role heading text --name "Export people" --exact
 One person: profile, stage and its history, Activity, records, photo and commitment documents.
 
 - Routes: `/people/[personId]`
-- Endpoints: `/people/[personId]/photo/[versionId]`, `/people/[personId]/commitments/[commitmentId]/document`
+- Endpoints: `/people/[personId]/photo/[versionId]`, `/people/[personId]/commitments/[commitmentId]/document`, `/people/read`
 - Personas: `owner` write, `admin` write, `member` read
 - Catalog: PPL-002, PPL-003, PPL-005, PPL-006, PPL-008, PPL-014
 
@@ -242,8 +242,8 @@ Change stage moves a person to another stage with a reason, after the recorded-e
 ```bash
 agent-browser find role button click --name "Change stage" --exact
 agent-browser wait --load networkidle
-agent-browser find text "New stage" text --exact
-agent-browser find text "Reason" text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"New stage\")"
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Reason\")"
 ```
 
 #### people.person#retire-restore

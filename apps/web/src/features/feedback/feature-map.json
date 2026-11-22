@@ -79,7 +79,7 @@
 						"tests": [
 							{
 								"file": "tests/integration/feedback/feedback.test.mts",
-								"name": "AC:CASE-ADM-001 the dialog saves its details, takes church and role from the seat, strips the address and saves a resend once"
+								"name": "AC:CASE-ADM-001 the dialog saves its details, takes church and role from the seat and refuses sent ones, strips the address and saves a resend once"
 							},
 							{
 								"file": "tests/integration/feedback/feedback.test.mts",
@@ -139,6 +139,7 @@
 			"id": "feedback.own",
 			"says": "Sent feedback: what you sent with Send feedback and where each one stands.",
 			"routes": ["/feedback", "/feedback/[feedbackId]"],
+			"endpoints": ["/feedback/read"],
 			"catalog": ["ADM-001"],
 			"reach": [
 				{

@@ -35,7 +35,7 @@ import { useOptimistic, useState, useTransition, type ComponentProps } from "rea
 import type { z } from "zod";
 import { currentAddress, useAddress, writeAddress } from "../../components/location.ts";
 import { useLocalStore, useStore } from "../../components/store.ts";
-import { loadPeopleView } from "./actions.ts";
+import { loadPeopleView } from "./fetch.ts";
 import { AddPersonDialog } from "./AddPersonDialog.tsx";
 import { ExportDialog } from "./import-export/ExportDialog.tsx";
 import {

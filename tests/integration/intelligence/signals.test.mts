@@ -7,6 +7,7 @@ import { createSignals } from "../../../packages/domain/src/intelligence/index.t
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { MANUAL_SIGNALS } from "../../../docs/reference/manual-signals.ts";
 import { ok, refusedWith } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, signals;
 let now = "2026-10-13T16:00:00.000Z";
@@ -36,7 +37,7 @@ async function seated(w, role = "admin") {
 }
 async function person(who, displayName) {
 	return ok(
-		await f.db.transaction((tx) =>
+		await gatedTransaction(f.db, (tx) =>
 			peopleWriter.createPerson(
 				tx,
 				{ session: who.session, selected: { kind: "plant", id: who.w.id } },

@@ -1,7 +1,7 @@
 "use client";
 
 import { BookOpen01Icon, CheckListIcon } from "@hugeicons/core-free-icons";
-import { Button, Card, CardTitle, Checkbox, IntentLink, useToast } from "@everyfield/ui/controls";
+import { Alert, Button, Card, CardTitle, Checkbox, IntentLink, toast } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useRef, useState } from "react";
 import { answerOffer } from "./actions.ts";
@@ -31,7 +31,6 @@ export function PhaseOffer({
 	year: number;
 	onAdded: (tasks: TaskItem[]) => void;
 }) {
-	const toast = useToast();
 	const [card, setCard] = useState<Offer>(initial);
 	const [chosen, setChosen] = useState<ReadonlySet<string>>(() => new Set());
 	const [saving, setSaving] = useState<"accept" | "decline" | null>(null);
@@ -153,9 +152,9 @@ export function PhaseOffer({
 				</div>
 			) : null}
 			{problem ? (
-				<p role="alert" className="rounded-md bg-surface px-4 py-2.5 text-sm text-ink">
+				<Alert tone="neutral" role="alert">
 					{problem}
-				</p>
+				</Alert>
 			) : null}
 			<div className="flex flex-wrap items-center gap-2.5">
 				<Button

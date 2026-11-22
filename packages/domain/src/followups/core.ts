@@ -1,47 +1,22 @@
-import { correlationId, instant } from "@everyfield/contracts/common";
+import { instant } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/followups";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
-import { randomUUID } from "node:crypto";
 import "server-only";
 import { boundWrite, liveRead, type RequestActor } from "../access/session.ts";
-import { auditSavepoint, declareWrite, nativeWrite, WriteUnavailable } from "../operations/writes.ts";
+import { auditSavepoint, declareWrite, nativeWrite } from "../operations/writes.ts";
 import { TaskRefusal, type Reader, type TaskContext, type Tx } from "../tasks/core.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 export type FollowUpReply<T> = { status: "ok"; value: T } | { status: "refused"; error: c.FollowUpError };
-type Code = c.FollowUpError["code"];
-
-class FollowUpRefusal extends Error {
-	readonly code: Code;
-	readonly details: Record<string, unknown>;
-	constructor(code: Code, details: Record<string, unknown> = {}) {
-		super(code);
-		this.code = code;
-		this.details = details;
-	}
-}
-export function refuse(code: Code): never {
-	throw new FollowUpRefusal(code);
-}
-const retryOf = new Map(c.followUpError.options.map((o) => [o.shape.code.value, o.shape.retry.value]));
-function refused(code: Code, details: Record<string, unknown> = {}): FollowUpReply<never> {
-	return {
-		status: "refused",
-		error: c.followUpError.parse({
-			code,
-			details,
-			correlationId: correlationId.parse(randomUUID()),
-			retry: retryOf.get(code),
-		}),
-	};
-}
+const refusals = defineRefusals(c.followUpError, { writeUnavailable: "unavailable" });
+export const refuse: Deny<typeof c.followUpError> = refusals.deny;
 export async function readAnswer<T>(body: () => Promise<T>): Promise<FollowUpReply<T>> {
 	try {
 		return { status: "ok", value: await body() };
 	} catch (error) {
-		if (error instanceof WriteUnavailable) return refused("unavailable");
-		if (error instanceof TaskRefusal || error instanceof FollowUpRefusal) return refused(error.code, error.details);
-		throw error;
+		if (error instanceof TaskRefusal) return refusals.refused(error.code, error.details);
+		return refusals.refusalOf(error);
 	}
 }
 export async function answer<T>(tx: Tx, body: () => Promise<T>): Promise<FollowUpReply<T>> {
@@ -58,7 +33,7 @@ export async function withFollowUpWrite<T>(
 		nativeWrite(db, authority, selected, async (tx) => {
 			await declareWrite(tx, "established");
 			const result = await body(tx, { session: authority.session, selected });
-			if (result.status === "refused") throw new FollowUpRefusal(result.error.code, result.error.details);
+			if (result.status === "refused") throw new refusals.Refusal(result.error.code, result.error.details);
 			return result.value;
 		}),
 	);

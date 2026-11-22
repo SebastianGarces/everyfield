@@ -4,21 +4,21 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
-import { RequestActor } from "../../../packages/domain/src/access/index.ts";
-import { executeWrites } from "../../../packages/domain/src/operations/writes.ts";
+import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/index.ts";
+import { executeWrites, gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { testDatabase } from "../../support/test-database.mts";
 import { seeds } from "../../support/fixture.mts";
 import { resendRecorder } from "../communication/resend-recorder.mts";
 import { queuedMailTransport } from "../../../apps/web/src/server/mail/transport.ts";
 import { settingsMail, settingsMailPass } from "../../../apps/web/src/features/settings/mail.ts";
 import { identityMailEnqueue, identityMailPass } from "../../../apps/web/src/server/identity/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { onboardingMailPass, onboardingMount } from "../../../apps/web/src/features/onboarding/mount.ts";
 import {
 	current as organizationMount,
 	organizationMailPass,
-} from "../../../apps/web/src/server/organizations/index.ts";
+} from "../../../apps/web/src/features/organizations/mount.ts";
 
 const database = await testDatabase({ prefix: "t127", roles: { runtime: ["runtime"], auth: ["auth"] }, max: 6 });
 const { admin } = database;
@@ -50,11 +50,10 @@ const secret = "cron-" + randomUUID();
 type Body = { status: string; mailed: number; steps: Record<string, { status: string; count?: unknown }> };
 async function tick(mountMail: Parameters<typeof scheduledJobs>[0]["mountMail"]) {
 	const response = await scheduledJobs({
-		secret,
 		db,
 		storage: null,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: null,
 		mail: null,
 		mountMail,
@@ -90,8 +89,8 @@ async function connection() {
 	const church = owner.parse(await seed.organization("sending_church", { name: "First Church" }));
 	const m = organizationMount()!;
 	const session = sessionId.parse(actor.session);
-	const run = <T,>(body: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>) =>
-		m.db.transaction(async (tx) => {
+	const run = <T,>(body: (tx: WriteTx) => Promise<T>) =>
+		gatedTransaction(m.db, async (tx) => {
 			if (!(await RequestActor.claimWrite(tx, session, plant))) throw Error("unavailable");
 			return body(tx);
 		});
@@ -159,7 +158,7 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 		VALUES(${changer.id},'email_change',${hex()},${newAddress},clock_timestamp()+interval '1 hour')`);
 	const settings = settingsMail()!;
 	const correlationId = randomUUID();
-	await db.transaction(async (tx) => {
+	await gatedTransaction(db, async (tx) => {
 		const writes: Parameters<typeof executeWrites>[1][number][] = [];
 		await settings.deliverVerification(tx, { accountId: changer.id, address: newAddress, token: "t-" + hex() }, writes);
 		await settings.securityNotice(
@@ -172,7 +171,7 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 
 	const founder = await planter();
 	const onboarding = onboardingMount()!;
-	await onboarding.db.transaction((tx) =>
+	await gatedTransaction(onboarding.db, (tx) =>
 		onboarding.producer.createPlant(
 			tx,
 			{ session: founder.session, selected: { kind: "account", id: founder.id } } as never,
@@ -194,7 +193,7 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 	const foreign = [`invitation/${randomUUID()}/1`];
 	const association = `association/${randomUUID()}/1/${reader.id}`;
 	for (const logicalKey of [...foreign, association])
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			permissive.enqueue(tx, {
 				owner: { kind: "account", id: reader.id },
 				purpose: "discovery_receipt",
@@ -254,7 +253,48 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 	assert.equal(quiet.status, 200);
 });
 
-test("INV-mount-mail: a relationship invitation resent on day 29 keeps its original expiry in the result and the mail", async () => {
+test("INV-mount-mail: the relationship mount sends only relationship invitations to a typed address, nothing else under its keys", async () => {
+	const reader = await seed.actor(null);
+	const permissive = createMailService({
+		db,
+		encryptionKey: Buffer.from(process.env.IDENTITY_MAIL_KEY!, "hex"),
+		addressKey: Buffer.from(process.env.IDENTITY_ADDRESS_KEY!, "hex"),
+		from: "other@example.test",
+		authorize: async (_tx, list) => new Set(list.map((m) => m.id)),
+	});
+	const queued = [
+		{ purpose: "relationship_invitation", recipient: reader.id },
+		{ purpose: "discovery_receipt", recipient: null },
+	] as const;
+	const keys: string[] = [];
+	for (const mail of queued) {
+		const logicalKey = `relationship/${randomUUID()}/1`;
+		keys.push(logicalKey);
+		await db.transaction((tx) =>
+			permissive.enqueue(tx, {
+				owner: { kind: "account", id: reader.id },
+				purpose: mail.purpose,
+				logicalKey,
+				recipient: mail.recipient,
+				address: reader.email,
+				content: { subject: "Other", text: "Other" },
+				operation: null,
+				notice: null,
+				eligibleAt: new Date().toISOString(),
+			}),
+		);
+	}
+	resend.take();
+	const { body } = await tick({ organization: organizationMailPass(transport()) });
+	assert.equal(body.steps["organization-mail"]?.status, "ok");
+	assert.deepEqual(
+		resend.take().filter((c) => (c.body as { to: string }).to === reader.email),
+		[],
+	);
+	for (const key of keys) assert.notDeepEqual(await mailState(key), ["accepted"], key);
+});
+
+test("INV-mount-mail: a relationship invitation resent on day 29 restarts its 30 days in the result and the mail", async () => {
 	const invitee = `${randomUUID()}@example.test`;
 	const c = await connection();
 	const made = await c.invite(invitee);
@@ -265,10 +305,12 @@ test("INV-mount-mail: a relationship invitation resent on day 29 keeps its origi
 	);
 	const [{ created_at }] = (await admin.execute(sql`SELECT created_at FROM invitation WHERE id = ${made.invitationId}`))
 		.rows as { created_at: Date | string }[];
-	const original = new Date(new Date(created_at).getTime() + 30 * 86_400_000);
 	const resent = await c.resendInvitation(made.invitationId, made.revision);
 	assert.equal(resent.status, "pending");
-	assert.equal(resent.expiresAt, original.toISOString());
+	const [{ resent_at }] = (await admin.execute(sql`SELECT resent_at FROM invitation WHERE id = ${made.invitationId}`))
+		.rows as { resent_at: Date | string }[];
+	const restarted = new Date(new Date(resent_at).getTime() + 30 * 86_400_000);
+	assert.equal(resent.expiresAt, restarted.toISOString());
 
 	const { body } = await tick({ organization: organizationMailPass(transport()) });
 	assert.deepEqual(body.steps["organization-mail"], { status: "ok", count: 1 });
@@ -276,7 +318,7 @@ test("INV-mount-mail: a relationship invitation resent on day 29 keeps its origi
 	assert.equal(calls.length, 1);
 	const mail = calls[0]!.body as { to: string; text: string };
 	assert.equal(mail.to, invitee);
-	assert.ok(mail.text.includes(`It works until ${day.format(original)} (UTC).`), mail.text);
-	const extended = new Date(new Date(created_at).getTime() + 59 * 86_400_000);
-	assert.ok(!mail.text.includes(day.format(extended)), mail.text);
+	assert.ok(mail.text.includes(`It works until ${day.format(restarted)} (UTC).`), mail.text);
+	const original = new Date(new Date(created_at).getTime() + 30 * 86_400_000);
+	assert.ok(!mail.text.includes(day.format(original)), mail.text);
 });

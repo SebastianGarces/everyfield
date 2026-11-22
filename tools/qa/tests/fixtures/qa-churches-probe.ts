@@ -5,6 +5,7 @@ import { RequestActor } from "../../../../packages/domain/src/access/session.ts"
 import { createIdentityService } from "../../../../packages/domain/src/identity/index.ts";
 import { peopleReader } from "../../../../packages/domain/src/people/index.ts";
 import { QA_LOGINS, QA_PASSWORD, QA_ROLES, roleUrl } from "../../qa-guard.ts";
+import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const ORIGIN = "https://qa-probe.everyfield.invalid";
 const source = process.env.DATABASE_URL!,
@@ -52,7 +53,7 @@ const plants = { harvest: await plantOf("Harvest Point (QA)"), riverside: await 
 
 async function people(sessionId: string, plant: string) {
 	const ctx = { session: sessionId, selected: { kind: "plant", id: plant } } as never;
-	const reply = (await runtime.transaction((tx) =>
+	const reply = (await gatedTransaction(runtime, (tx) =>
 		peopleReader.listPeople(tx as never, ctx, { page: 1, limit: 100 } as never),
 	)) as {
 		status: string;

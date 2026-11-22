@@ -18,9 +18,13 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Await, createRead, useRead } from "../../components/read.tsx";
-import { copyToChurch, loadCopySources, loadWrittenDocuments, type DocumentOutcome } from "./actions.ts";
+import { copyToChurch } from "./actions.ts";
+import type { DocumentOutcome } from "./outcome.ts";
+import { loadCopySources, loadWrittenDocuments } from "./fetch.ts";
 import { documentProblem, type CopySource, type OwnedView } from "./model.ts";
 import { SECTION } from "./written/notes.tsx";
+import { loadProblem } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type Scope = "church" | "account";
 
@@ -34,11 +38,13 @@ const ROW =
 	"flex min-h-11 w-full flex-wrap items-center justify-between gap-2 rounded-md bg-surface-raised px-4 py-3 text-left shadow-[0_0_0_1px_var(--ef-line)] transition-shadow duration-150 hover:bg-surface focus-visible:shadow-[0_0_0_2px_var(--ef-ink),0_0_0_5px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)] focus-visible:outline-none disabled:opacity-60";
 
 const writtenDocuments = createRead(() => loadWrittenDocuments(), {
-	failed: (): DocumentOutcome<{ documents: OwnedView[]; evidence: string | null }> => ({ status: "lost" }),
+	failed: (): DocumentOutcome<{ documents: OwnedView[]; evidence: string | null }> | ReadFailure => ({
+		status: "lost",
+	}),
 });
 
 const copySources = createRead(() => loadCopySources(), {
-	failed: (): DocumentOutcome<CopySource[]> => ({ status: "lost" }),
+	failed: (): DocumentOutcome<CopySource[]> | ReadFailure => ({ status: "lost" }),
 });
 
 export function NativeDocuments({ written, canEdit }: { written: Scope; canEdit: boolean }) {
@@ -102,7 +108,7 @@ export function NativeDocuments({ written, canEdit }: { written: Scope; canEdit:
 									</Button>
 								}
 							>
-								This is a loading problem. Nothing was changed.
+								{loadProblem(result, "This is a loading problem. Nothing was changed.")}
 							</EmptyState>
 						</Card>
 					) : (
@@ -207,7 +213,9 @@ function UseForChurch({ onClose }: { onClose: () => void }) {
 					>
 						{(loaded) =>
 							loaded.status !== "ok" ? (
-								<p className="text-sm">Your documents did not load. Close this and try again.</p>
+								<p className="text-sm">
+									{loadProblem(loaded, "Your documents did not load. Close this and try again.")}
+								</p>
 							) : loaded.value.length === 0 ? (
 								<p className="text-sm text-pretty">
 									You have no documents of your own with text yet. Write one in Your documents first, then copy it here.

@@ -8,7 +8,9 @@ type Listener = () => void;
 type EntryChange = { navigationType: "push" | "replace" | "reload" | "traverse" | null };
 type EntryChanges = {
 	addEventListener(type: "currententrychange", listener: (event: EntryChange) => void): void;
+	addEventListener(type: "navigatesuccess", listener: () => void): void;
 	removeEventListener(type: "currententrychange", listener: (event: EntryChange) => void): void;
+	removeEventListener(type: "navigatesuccess", listener: () => void): void;
 };
 
 export type AddressParams = Omit<URLSearchParams, "append" | "delete" | "set" | "sort">;
@@ -72,6 +74,27 @@ const storeWindow: LinkWindow = {
 	},
 };
 
+const ROUTER_MARKS = new Set(["__NA", "_N"]);
+const withoutRouterMarks = (state: unknown) =>
+	state && typeof state === "object"
+		? Object.fromEntries(Object.entries(state).filter(([key]) => !ROUTER_MARKS.has(key)))
+		: state;
+
+const routerWindow: LinkWindow = {
+	get location() {
+		return window.location;
+	},
+	history: {
+		get state() {
+			return withoutRouterMarks(window.history.state);
+		},
+		replaceState: storeWindow.history.replaceState,
+	},
+	get sessionStorage() {
+		return window.sessionStorage;
+	},
+};
+
 const readLinkValues = () => {
 	for (const reader of linkValueReaders) reader();
 };
@@ -81,6 +104,7 @@ function takeLinkValue(): void {
 }
 
 function traversed() {
+	spent = null;
 	const from = shown === null ? null : urlOf(shown);
 	takeLinkValue();
 	shown = fullAddress();
@@ -97,7 +121,14 @@ export function routerTransitionStarted(href: string, type: RouterNavigation): v
 	const to = target.pathname + target.search;
 	knownAddress();
 	if (type !== "traverse" && to === currentAddress()) return;
+	spent = null;
 	for (const listener of [...navigations]) listener(to + target.hash, type);
+}
+
+function routerArrived() {
+	if (!oneTimeLinkValue(ONE_TIME_LINK_VALUES, routerWindow, true)?.value) return;
+	readLinkValues();
+	for (const listener of changes) listener();
 }
 
 function routerWrote(event: EntryChange) {
@@ -106,7 +137,12 @@ function routerWrote(event: EntryChange) {
 	shown = fullAddress();
 }
 
-type Installed = { popstate: () => void; hashchange: () => void; entry: (event: EntryChange) => void };
+type Installed = {
+	popstate: () => void;
+	hashchange: () => void;
+	entry: (event: EntryChange) => void;
+	arrived: () => void;
+};
 const INSTALLED = Symbol.for("everyfield.location");
 
 if (typeof window !== "undefined") {
@@ -117,11 +153,13 @@ if (typeof window !== "undefined") {
 		window.removeEventListener("popstate", previous.popstate);
 		window.removeEventListener("hashchange", previous.hashchange);
 		navigation?.removeEventListener("currententrychange", previous.entry);
+		navigation?.removeEventListener("navigatesuccess", previous.arrived);
 	}
-	host[INSTALLED] = { popstate: traversed, hashchange: hashChanged, entry: routerWrote };
+	host[INSTALLED] = { popstate: traversed, hashchange: hashChanged, entry: routerWrote, arrived: routerArrived };
 	window.addEventListener("popstate", traversed);
 	window.addEventListener("hashchange", hashChanged);
 	navigation?.addEventListener("currententrychange", routerWrote);
+	navigation?.addEventListener("navigatesuccess", routerArrived);
 }
 
 const subscribe = (listener: Listener) => {
@@ -199,7 +237,10 @@ const subscribeLinkValue = (listener: Listener) => {
 	return () => void linkValueReaders.delete(listener);
 };
 
-function linkValueNow(name: OneTimeLinkName): string | null {
+let spent: { readonly name: OneTimeLinkName; readonly value: string } | null = null;
+
+export function currentOneTimeLinkValue(name: OneTimeLinkName): string | null {
+	if (spent?.name === name && window.location.pathname === ONE_TIME_LINK_VALUES[name].path) return spent.value;
 	const at = oneTimeLinkValue(ONE_TIME_LINK_VALUES, storeWindow, false);
 	if (at?.name !== name) return null;
 	if (at.value !== null || at.key === null) return at.value;
@@ -213,7 +254,7 @@ function linkValueNow(name: OneTimeLinkName): string | null {
 export function useOneTimeLinkValue(name: OneTimeLinkName): string | null | undefined {
 	return useSyncExternalStore(
 		subscribeLinkValue,
-		() => linkValueNow(name),
+		() => currentOneTimeLinkValue(name),
 		() => undefined,
 	);
 }
@@ -234,4 +275,10 @@ export function forgetOneTimeLinkValue(name: OneTimeLinkName): void {
 	if (at.key !== null) removeStored(at.key);
 	readLinkValues();
 	if (at.value !== null) for (const listener of changes) listener();
+}
+
+export function spendOneTimeLinkValue(name: OneTimeLinkName): void {
+	const value = currentOneTimeLinkValue(name);
+	forgetOneTimeLinkValue(name);
+	spent = value === null ? null : { name, value };
 }

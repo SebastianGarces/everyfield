@@ -40,6 +40,15 @@ test("INV-feature-maps: a route owned by no map and not pending fails, naming th
 	]);
 });
 
+test("INV-feature-maps: a slot page renders into a page's URL; one whose URL no page owns fails", async () => {
+	const root = fixture();
+	put(root, "apps/web/src/app/(product)/@dialog/things/page.tsx", "export default function ThingDialog() {}\n");
+	put(root, "apps/web/src/app/(product)/@dialog/fresh/page.tsx", "export default function FreshDialog() {}\n");
+	assert.deepEqual(await problems(root), [
+		"apps/web/src/app/(product)/@dialog/fresh/page.tsx: slot page renders into /fresh, which no page owns",
+	]);
+});
+
 test("INV-feature-maps: a pending route that a map now owns, and a route added to the pending list, both fail", async () => {
 	const root = fixture();
 	writeFileSync(join(root, "apps/web/feature-maps.pending.json"), JSON.stringify({ routes: ["/later", "/things"] }));
@@ -199,6 +208,32 @@ test("INV-feature-maps: a name must equal a whole string or JSX text in scope; p
 	]);
 });
 
+test("INV-feature-maps: a name from a module imported through @/, or from the JSON that module imports, is in scope; JSON one step further is not", async () => {
+	const root = fixture();
+	put(root, "apps/web/design/copy.json", { headline: "Things for everyone", more: { line: "Deeper thing" } });
+	put(root, "apps/web/design/deeper.json", { line: "Far thing" });
+	put(root, "apps/web/src/copy/index.ts", 'import raw from "../../design/copy.json";\nexport const COPY = raw;\n');
+	put(root, "apps/web/src/copy/far.ts", 'import raw from "../../design/deeper.json";\nexport const FAR = raw;\n');
+	put(
+		root,
+		"apps/web/src/features/things/copy.ts",
+		'import { COPY } from "@/copy/index";\nexport const TITLE = COPY.headline;\n',
+	);
+	put(root, "apps/web/src/copy/relay.ts", 'export { FAR } from "./far";\n');
+	put(root, "apps/web/src/features/things/relay.ts", 'import { FAR } from "@/copy/relay";\nexport const R = FAR;\n');
+	editMap(root, (map) => {
+		surface(map).states[0]!.expect = [
+			{ role: "heading", name: "Things for everyone" },
+			{ text: "Deeper thing" },
+			{ text: "Far thing" },
+		];
+	});
+	const scope = "apps/web/src/features/things (and what it imports), packages/ui/src, the shell or tools/qa/qa-seed.ts";
+	assert.deepEqual(await problems(root), [
+		at(`things.list state populated: no string literal or JSX text in ${scope} equals "Far thing"`),
+	]);
+});
+
 test("INV-feature-maps: seed data a step names must be in the QA seed, and a login must be a QA login", async () => {
 	const root = fixture();
 	editMap(root, (map) => {
@@ -343,14 +378,11 @@ test("INV-feature-maps: an absent observable names something that must not be on
 	]);
 });
 
-test("INV-feature-maps: on a surface that polls, every action is followed by a check that waits", async () => {
+test("INV-feature-maps: on a surface that polls, every action is followed by a check that waits, and any text check waits", async () => {
 	const root = fixture();
 	editMap(root, (map) => {
 		Object.assign(surface(map), { polls: "the previews keep fetching" });
-		surface(map).states[0]!.expect = [
-			{ text: "All things", match: "contains" },
-			{ role: "heading", name: "All things" },
-		];
+		surface(map).states[0]!.expect = [{ text: "All things" }, { role: "heading", name: "All things" }];
 		behavior(map).proof.browser.steps.push({ click: { role: "button", name: "Open thing" } });
 	});
 	assert.deepEqual(await problems(root), [
@@ -362,9 +394,7 @@ test("INV-feature-maps: on a surface that polls, every action is followed by a c
 		surface(map).states[0]!.expect = [{ role: "heading", name: "All things" }];
 	});
 	assert.deepEqual(await problems(fixed), [
-		at(
-			'things.list state populated: things.list polls, so the check after "open" must wait (URL, noText or contains text)',
-		),
+		at('things.list state populated: things.list polls, so the check after "open" must wait (URL, noText or text)'),
 	]);
 });
 

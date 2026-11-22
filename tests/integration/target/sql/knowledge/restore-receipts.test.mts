@@ -8,12 +8,13 @@ import { createLifecycleCleanup, deletionOperations } from "../../../../../packa
 import { RequestActor } from "../../../../../packages/domain/src/access/session.ts";
 import { feedbackWriter } from "../../../../../packages/domain/src/feedback/index.ts";
 import { runDueScheduled } from "../../../../../packages/domain/src/communication/index.ts";
-import { queueJobs } from "../../../../../apps/web/src/server/jobs/queue.ts";
-import { runDueFeedbackPublication } from "../../../../../apps/web/src/server/jobs/feedback-publication.ts";
+import { queueJobs } from "../../../../../packages/domain/src/jobs/queue.ts";
+import { runDueFeedbackPublication } from "../../../../../packages/domain/src/jobs/feedback-publication.ts";
 import { readCurrentManifest, restoreWithCurrentManifest } from "../../../../../ops/maintenance/restore.mts";
 import { testDatabase } from "../../../../support/test-database.mts";
 import { ok, seeds } from "../../../../support/fixture.mts";
 import { closedTo, dropTarget, freezeClock, objectStore, operator, snapshot, type Store } from "./support.mts";
+import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
 const IMAGE_AT = new Date("2026-09-06T12:00:00.000Z");
 const REQUESTED = new Date("2026-09-06T15:00:00.000Z");
@@ -114,7 +115,7 @@ before(async () => {
 	const [account] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
 	const subject = { kind: "account" as const, id: a.id };
 	const requested = ok(
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			api.requestAccountDeletion(
 				tx,
 				{ session: a.session, selected: subject },

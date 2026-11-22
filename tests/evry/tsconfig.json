@@ -1,0 +1,17 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"lib": ["dom", "dom.iterable", "ESNext"],
+		"allowImportingTsExtensions": true,
+		"allowJs": true,
+		"jsx": "react-jsx",
+		"typeRoots": ["../../apps/web/node_modules/@types"],
+		"types": ["node"],
+		"paths": {
+			"@/*": ["../../apps/web/src/*"],
+			"@ai-sdk/provider": ["../../packages/evry/node_modules/@ai-sdk/provider"],
+			"@opentelemetry/api": ["../../packages/evry/node_modules/@opentelemetry/api"]
+		}
+	},
+	"include": ["./**/*.ts", "./**/*.mts"]
+}

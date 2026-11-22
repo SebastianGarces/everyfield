@@ -11,6 +11,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 	Select,
+	TextButton,
 } from "@everyfield/ui/controls";
 import { useId, useRef, useState, type FormEvent } from "react";
 import type { Wait } from "../../components/save/model.ts";
@@ -60,7 +61,7 @@ export function BulkBar({
 					aria-label="Select every task on this page"
 					checked={all ? true : "indeterminate"}
 					onCheckedChange={onAll}
-					className="bg-on-ink-soft shadow-[inset_0_0_0_1.5px_var(--ef-on-ink)] data-[state=checked]:bg-on-ink-soft data-[state=indeterminate]:bg-on-ink-soft"
+					className="data-[state=checked]:bg-on-ink-soft data-[state=indeterminate]:bg-on-ink-soft"
 				/>
 			</label>
 			<span className="flex flex-1 flex-col app-sm:min-w-48">
@@ -125,7 +126,7 @@ export function BulkBar({
 				icon={Cancel01Icon}
 				label="Clear the selection"
 				size="sm"
-				className={`shadow-none ${onInk}`}
+				className="shadow-none text-on-ink focus-visible:outline-on-ink"
 				onClick={onClear}
 			/>
 		</div>
@@ -204,13 +205,13 @@ export function BulkReport({
 			<ul className="flex flex-col">
 				{report.unchanged.map((t) => (
 					<li key={t.id} className="border-t border-line py-2 text-sm first:border-t-0">
-						<button
-							type="button"
+						<TextButton
 							onClick={() => onOpen(t.id)}
-							className="inline-flex min-h-6 items-center rounded-xs text-left font-medium text-ink underline-offset-[3px] hover:underline"
+							underline="hover"
+							className="inline-flex min-h-6 items-center text-ink"
 						>
 							{t.title}
-						</button>
+						</TextButton>
 						<span className="text-text-2"> · {bulkOutcomeText(t.outcome, report.kind)}</span>
 					</li>
 				))}

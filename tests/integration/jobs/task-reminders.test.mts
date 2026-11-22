@@ -4,11 +4,12 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { db, runtime, tenant, setup, teardown } from "./support.mts";
 import { authorizeTaskReminders, reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
-import { taskReminderTimes } from "../../../apps/web/src/server/jobs/calendar.ts";
-import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
+import { taskReminderTimes } from "../../../packages/domain/src/jobs/calendar.ts";
+import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let reminders, mail, sent;
 const people = {};
@@ -98,7 +99,7 @@ async function put(name, t) {
 		created: t.created ?? false,
 	};
 }
-const sync = (sources) => runtime.transaction((tx) => reminders(tx, sources));
+const sync = (sources) => gatedTransaction(runtime, (tx) => reminders(tx, sources));
 const times = (due) =>
 	Object.fromEntries(taskReminderTimes(due.kind === "date_only" ? { ...due, zone } : due).map((t) => [t.slot, t.at]));
 

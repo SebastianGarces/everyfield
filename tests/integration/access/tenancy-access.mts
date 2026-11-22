@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { sql } from "../../../packages/db/src/query.ts";
-import { liveAccess } from "../../../packages/domain/src/access/index.ts";
+import { liveAccess, organizationSeatContext } from "../../../packages/domain/src/access/index.ts";
 
 const seats = new Map();
 export async function seedAccess(t) {
@@ -22,6 +22,13 @@ export function accessCases(t, who) {
 					value: own(who),
 					control: (value) => assert.deepEqual(value, own(t.ownerA)),
 				},
+			},
+		],
+		[
+			"access:organizationSeatContext",
+			{
+				run: async () => ({ status: "ok", value: organizationSeatContext(who.actor) }),
+				expected: { value: null, control: null },
 			},
 		],
 	];

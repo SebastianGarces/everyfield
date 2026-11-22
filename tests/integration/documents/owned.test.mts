@@ -234,7 +234,7 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 					storage,
 				),
 			);
-			assert.equal(again.id, made.id);
+			assert.deepEqual(again, made);
 			assert.equal(await countOf("file_object", `WHERE upload_key = 'generated:${P}:make-${format}'`), 1);
 			saved[format] = { made, stored };
 		}

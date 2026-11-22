@@ -1,3 +1,13 @@
+@property --ef-text-w {
+	syntax: "<length>";
+	inherits: true;
+	initial-value: 0px;
+}
+@property --ef-box-w {
+	syntax: "<length>";
+	inherits: true;
+	initial-value: 0px;
+}
 .ef-sheet {
 	container-type: inline-size;
 	width: 100%;
@@ -13,11 +23,14 @@
 	--paper-muted: #edf0f4;
 	--paper-accent: var(--tok-primary-text);
 	--paper-primary: var(--paper-text);
+	--ef-paper-w: min(var(--page-w), 100cqi);
+	--ef-paper-pad: clamp(16px, var(--pad-x), 8cqi);
+	--ef-text-w: calc(var(--ef-paper-w) - 2 * var(--ef-paper-pad));
 	position: relative;
 	box-sizing: border-box;
-	width: min(var(--page-w), 100%);
+	width: var(--ef-paper-w);
 	min-height: var(--page-h);
-	padding: clamp(16px, var(--pad-y), 12cqi) clamp(16px, var(--pad-x), 8cqi);
+	padding: clamp(16px, var(--pad-y), 12cqi) var(--ef-paper-pad);
 	background: white;
 	color: var(--paper-ink);
 	font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
@@ -31,9 +44,10 @@
 	flex-direction: column;
 }
 .ef-paper.ef-snippet {
-	width: 100%;
+	--ef-paper-w: 100cqi;
+	--ef-paper-pad: 18px;
 	min-height: 0;
-	padding: 14px 18px;
+	padding: 14px var(--ef-paper-pad);
 	box-shadow: 0 0 0 1px var(--ef-line);
 	border-radius: 4px;
 }
@@ -117,7 +131,7 @@
 	font-weight: 700;
 	color: var(--paper-quiet);
 	text-transform: uppercase;
-	letter-spacing: 0.06em;
+	letter-spacing: var(--ef-label-tracking);
 	margin-bottom: 4px;
 }
 .ef-paper [data-ef-align="center"] {
@@ -136,7 +150,7 @@
 	letter-spacing: 0;
 }
 .ef-paper h1 {
-	font-family: var(--font-dm-serif-display), "DM Serif Display", Georgia, serif;
+	font-family: var(--ef-font-display);
 	font-weight: 400;
 	font-size: 40px;
 	line-height: 1.1;
@@ -259,7 +273,7 @@
 	color: var(--ef-text-3, var(--paper-quiet));
 	font-size: 12px;
 	font-weight: 600;
-	letter-spacing: 0.04em;
+	letter-spacing: var(--ef-label-tracking);
 	text-transform: uppercase;
 	user-select: none;
 }
@@ -291,7 +305,7 @@
 	font-size: 12px;
 	font-weight: 700;
 	line-height: 1.4;
-	letter-spacing: 0.06em;
+	letter-spacing: var(--ef-label-tracking);
 	text-transform: uppercase;
 }
 .ef-paper span[data-ef-node="field"],
@@ -431,7 +445,7 @@
 .ef-paper .ef-writein-kind {
 	font-size: 11px;
 	font-weight: 700;
-	letter-spacing: 0.06em;
+	letter-spacing: var(--ef-label-tracking);
 	text-transform: uppercase;
 	color: var(--paper-quiet);
 }
@@ -546,7 +560,7 @@
 	font-size: 11px;
 	font-weight: 700;
 	line-height: 1;
-	letter-spacing: 0.06em;
+	letter-spacing: var(--ef-label-tracking);
 	text-transform: uppercase;
 	color: var(--paper-quiet);
 	user-select: none;
@@ -580,12 +594,15 @@
 	line-height: 1.35;
 }
 .ef-paper .ef-table-scroll {
+	container-type: inline-size;
 	max-width: 100%;
 	overflow-x: auto;
 	overscroll-behavior-x: contain;
 	scrollbar-width: thin;
 }
 .ef-paper .ef-table-grid {
+	--ef-box-w: 100cqi;
+	--ef-share: min(1, tan(atan2(var(--ef-box-w), var(--ef-text-w))));
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
@@ -648,7 +665,7 @@
 	font: inherit;
 	font-size: 11px;
 	font-weight: 700;
-	letter-spacing: 0.05em;
+	letter-spacing: var(--ef-label-tracking);
 	text-transform: uppercase;
 	color: inherit;
 	cursor: text;
@@ -839,7 +856,6 @@
 	border-radius: 999px;
 	font-size: 11px;
 	font-weight: 700;
-	letter-spacing: 0.02em;
 	background: #ddf2e6;
 	color: #025232;
 }
@@ -885,7 +901,7 @@
 .ef-paper .ef-slot-label {
 	font-size: 11px;
 	font-weight: 700;
-	letter-spacing: 0.06em;
+	letter-spacing: var(--ef-label-tracking);
 	text-transform: uppercase;
 	color: var(--paper-text-quiet);
 	margin-bottom: 4px;

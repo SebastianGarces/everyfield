@@ -8,6 +8,7 @@ import { chainSendNow } from "../../../apps/web/src/features/communication/sendN
 import { addressAad, mailAddressHash } from "../../../packages/domain/src/communication/delivery.ts";
 import { sealAddress } from "./sealed-address.mts";
 import { ok } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, plant, owner;
 const keys = {
@@ -17,7 +18,7 @@ const keys = {
 	origin: "https://app.example.test",
 };
 const read = (op, input, deliveryKeys) =>
-	f.db.transaction((tx) => communicationWriter[op](tx, owner.actor, input, deliveryKeys));
+	gatedTransaction(f.db, (tx) => communicationWriter[op](tx, owner.actor, input, deliveryKeys));
 
 async function person(name, email) {
 	const id = randomUUID();

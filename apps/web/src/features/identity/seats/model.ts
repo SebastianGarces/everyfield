@@ -1,7 +1,7 @@
 import { tenantOwner } from "@everyfield/contracts/access";
 import { invitationListResult, seatListResult } from "@everyfield/contracts/identity";
 import type { z } from "zod";
-import type { SeatsRead } from "./actions";
+import type { SeatsRead } from "./server";
 import { formatDay } from "../../../components/dates.ts";
 
 export type Roster = z.infer<typeof seatListResult>;

@@ -17,12 +17,12 @@ export function storeContext<S>(name: string): {
 	useSelect: <T>(selector: (state: S) => T) => T;
 	useStoreApi: () => StoreApi<S>;
 } {
-	const Provider = createContext<StoreApi<S> | null>(null);
+	const StoreContext = createContext<StoreApi<S> | null>(null);
 	const useStoreApi = () => {
-		const store = use(Provider);
+		const store = use(StoreContext);
 		if (!store) throw new Error(`${name} needs its store provider above it.`);
 		return store;
 	};
 	const useSelect = <T>(selector: (state: S) => T) => useStore(useStoreApi(), selector);
-	return { Provider, useStoreApi, useSelect };
+	return { Provider: StoreContext, useStoreApi, useSelect };
 }

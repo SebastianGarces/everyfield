@@ -24,8 +24,8 @@ const article = z.object({
 	related_article_slugs: z.array(z.string()),
 });
 export async function packageCheckout(root: URL, expectedCatalogSha256: string): Promise<ReferenceEntry[]> {
-	const report = await verifyCheckout(root, expectedCatalogSha256);
-	if (!report.ok) throw Error(report.issues[0]!.code);
+	const [issue] = (await verifyCheckout(root, expectedCatalogSha256)).issues;
+	if (issue) throw Error(issue.code);
 	return packageStarter(await loadStarter(), await loadApprovedSnapshot(root));
 }
 export function packageStarter(starter: Starter, wiki: ApprovedSnapshot): ReferenceEntry[] {
@@ -117,9 +117,10 @@ export function planGeneration(
 ) {
 	profile.parse(configuredProfile);
 	const freezeSource = starter.sources.find((s) => s.path === "docs/reference/discovery-foundations.json");
+	if (!freezeSource) throw Error("discovery_foundations_missing");
 	const discovery = z
 		.object({ articles: z.array(z.object({ id: z.uuid() })).length(6) })
-		.parse(JSON.parse(freezeSource!.body));
+		.parse(JSON.parse(freezeSource.body));
 	return {
 		key,
 		profile: configuredProfile,
@@ -212,20 +213,23 @@ function validateParsed(input: unknown, policy: ValidationPolicy): ValidationRep
 	);
 	const sections = new Map(value.entries.filter((e) => e.kind === "section").map((e) => [e.id, e]));
 	const articles = value.entries.filter((e) => e.kind === "article"),
-		slugs = new Set(articles.map((a) => a.slug!));
-	reject(slugs.size === articles.length, "duplicate_slug");
+		slugs = new Set(articles.flatMap((a) => (a.slug === undefined ? [] : [a.slug])));
+	reject(new Set(articles.map((a) => a.slug)).size === articles.length, "duplicate_slug");
 	for (const s of sections.values()) {
 		const seen = new Set<string>([s.id]);
 		let parent = s.parentId;
 		while (parent) {
-			if (seen.has(parent) || !sections.has(parent)) {
+			const above = sections.get(parent);
+			if (seen.has(parent) || !above) {
 				blockers.add("invalid_topology");
 				break;
 			}
 			seen.add(parent);
-			parent = sections.get(parent)!.parentId;
+			parent = above.parentId;
 		}
-		if (s.parentId) reject(s.slug!.startsWith(sections.get(s.parentId)?.slug + "/"), "invalid_topology");
+		if (!s.parentId) continue;
+		if (s.slug === undefined) throw Error("section_slug_missing");
+		reject(s.slug.startsWith(sections.get(s.parentId)?.slug + "/"), "invalid_topology");
 	}
 	for (const e of articles) {
 		const parsed = article.safeParse(JSON.parse(e.body));
@@ -235,11 +239,12 @@ function validateParsed(input: unknown, policy: ValidationPolicy): ValidationRep
 		}
 		reject(
 			parsed.data.id === e.id &&
+				e.slug !== undefined &&
 				parsed.data.slug === e.slug &&
 				parsed.data.section_id === e.sectionId &&
 				!!e.sectionId &&
 				sections.has(e.sectionId) &&
-				e.slug!.startsWith(sections.get(e.sectionId)?.slug + "/"),
+				e.slug.startsWith(sections.get(e.sectionId)?.slug + "/"),
 			"invalid_topology",
 		);
 		reject(

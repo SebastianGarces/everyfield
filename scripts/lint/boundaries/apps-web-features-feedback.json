@@ -1,5 +1,5 @@
 {
 	"public": {
-		"FeedbackDialog.tsx": "the feedback dialog the shell composes into the frame"
+		"FeedbackOverlay.tsx": "the feedback dialog the shell composes into the frame; the dialog itself loads on first open"
 	}
 }

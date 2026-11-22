@@ -8,7 +8,8 @@ import { useState } from "react";
 import type { AffiliationPatch, PlantOwner, Relationship, SectionResult } from "../port";
 import { newRequestKey } from "../port";
 import { OFFLINE_REFERENCE, refusalOf, type Refusal } from "../save";
-import { AutoSaveFooter, SaveError, SectionBody } from "../SettingsDialog";
+import { AutoSaveFooter, SectionBody } from "../SectionParts";
+import { SaveError } from "../SaveError";
 import { useSection, useSettings } from "../store";
 
 type Affiliation = Extract<SectionResult, { section: "affiliations" }>;
@@ -156,7 +157,7 @@ function Choices({
 
 	return (
 		<>
-			<div aria-live="polite" className="mt-3 empty:hidden">
+			<div aria-live="polite" className="mt-3 empty:sr-only">
 				{refusal ? (
 					<SaveError
 						message={refusal.message}

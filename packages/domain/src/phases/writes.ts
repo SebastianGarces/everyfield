@@ -181,14 +181,17 @@ export function createPhaseWriter(config: { notices: PhaseNotices }) {
 					if (r.prior) return transitionAnswer(replay(r.prior, identity));
 					if (!r.result) return null;
 					const answer = transitionAnswer(r.result);
-					if (answer.outcome === "moved" && r.recipients.length)
+					if (answer.outcome === "moved" && r.recipients.length) {
+						const { entry } = answer;
+						if (entry.kind !== "movement") throw Error(`A phase move answered with a ${entry.kind} entry`);
 						await config.notices(tx, {
 							plantName: r.plant_name ?? "",
-							transitionId: answer.entry.id,
-							fromPhase: answer.entry.fromPhase!,
-							toPhase: answer.entry.toPhase,
+							transitionId: entry.id,
+							fromPhase: entry.fromPhase,
+							toPhase: entry.toPhase,
 							recipients: r.recipients,
 						});
+					}
 					return answer;
 				});
 				if (answer) return answer;

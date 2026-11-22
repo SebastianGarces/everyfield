@@ -1,6 +1,6 @@
 "use server";
 
-import { residentCall } from "@/server/organizations/residency";
+import { residentCall } from "./server";
 import { residentWriter } from "@everyfield/domain/organizations";
 
 export async function markMilestone(input: unknown) {

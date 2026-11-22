@@ -1,4 +1,4 @@
-import { deliveryTransport } from "../../../apps/web/src/server/mail/transport.ts";
+import { deliveryTransport, type CaptureOptions } from "../../../apps/web/src/server/mail/transport.ts";
 
 export type Recorded = { method: string; path: string; idempotencyKey: string | null; body: unknown };
 type Held = { id: string; to: string; scheduledAt: string | null; lastEvent: string };
@@ -6,8 +6,10 @@ type Fault = "fail" | "drop";
 
 export function resendRecorder(
 	env: Readonly<Record<string, string | undefined>> = process.env,
-	settle: (ids: readonly string[]) => void = () => {
-		throw new Error("a provider transport never settles captures");
+	capture: CaptureOptions = {
+		settle: async () => {
+			throw new Error("a provider transport never settles captures");
+		},
 	},
 ) {
 	const requests: Recorded[] = [];
@@ -78,7 +80,7 @@ export function resendRecorder(
 			apiKey: "re_test_key",
 		},
 		fetchFake as typeof fetch,
-		settle,
+		capture,
 		env,
 	);
 

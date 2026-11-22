@@ -8,11 +8,12 @@ import { fixture, type Actor, type Workspace } from "../../support/fixture.mts";
 import {
 	createInvitationService,
 	createSeatService,
-	InvitationRefusal,
+	invitationRefusals,
 } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const table = JSON.parse(readFileSync(new URL("../../../formal/permissions/outcomes.json", import.meta.url), "utf8"))
 	.rows as string[][];
@@ -49,7 +50,7 @@ after(async () => {
 });
 
 async function resolved(actor: Actor) {
-	const authority = await fx.pools.runtime.transaction((tx) =>
+	const authority = await gatedTransaction(fx.pools.runtime, (tx) =>
 		RequestActor.resolve(tx, sessionId.parse(actor.session)),
 	);
 	assert.ok(authority instanceof RequestActor, JSON.stringify(authority));
@@ -60,7 +61,8 @@ async function outcome(run: () => Promise<unknown>) {
 		await run();
 		return "allow";
 	} catch (error) {
-		if (error instanceof InvitationRefusal || (error instanceof Error && error.name === "ZodError")) return "refuse";
+		if (error instanceof invitationRefusals.Refusal || (error instanceof Error && error.name === "ZodError"))
+			return "refuse";
 		throw error;
 	}
 }

@@ -1,10 +1,11 @@
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
+import { gatedTransaction } from "@everyfield/domain/operations";
 import type { EvryActor } from "../context/actor.ts";
 import { EvryRefusal } from "../context/errors.ts";
 import { LIMITS } from "../context/limits.ts";
 import type { NativePorts } from "../proposals/types.ts";
-import type { ReadAdapter, SourceResult } from "./types.ts";
+import type { ConversationFiles, ReadAdapter, SourceResult } from "./types.ts";
 
 export async function invokeRead<I>(
 	db: Database,
@@ -12,10 +13,21 @@ export async function invokeRead<I>(
 	adapter: ReadAdapter<I>,
 	input: I,
 	native: NativePorts | null = null,
+	files?: ConversationFiles,
 ): Promise<SourceResult> {
 	if (!adapter.allowed(actor)) throw new EvryRefusal("access_denied");
-	return db.transaction(async (tx) => {
+	const loaded = adapter.load
+		? await adapter.load(
+				input,
+				files ?? {
+					read: async () => {
+						throw new EvryRefusal("attachment_elsewhere");
+					},
+				},
+			)
+		: undefined;
+	return gatedTransaction(db, async (tx) => {
 		await tx.execute(sql.raw(`SET LOCAL statement_timeout = ${LIMITS.readTimeoutMs}`));
-		return adapter.invoke(tx, actor, input, native);
+		return adapter.invoke(tx, actor, input, native, loaded);
 	});
 }

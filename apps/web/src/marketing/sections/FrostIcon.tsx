@@ -1,5 +1,5 @@
+import { cn } from "@everyfield/ui/foundations";
 import { Icon } from "@/components/Icon";
-import { cn } from "@/components/cn";
 import { ICONS, type IconName } from "../icons";
 
 const SIZE = {

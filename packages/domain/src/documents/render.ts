@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { renderDocumentWithLayout } from "@formepdf/core";
+import type { ReactElement } from "react";
+import { renderDocumentWithLayout, type ElementInfo } from "@formepdf/core";
 import { hash } from "../operations/canonical.ts";
 import type { AgendaMeeting } from "./agenda-meeting.ts";
 import { fontDigests } from "./fonts.ts";
@@ -57,15 +58,15 @@ export type PdfRender = {
 	fields: { name: string; type: "Sig" | "Tx" | "Btn"; tooltip: string }[];
 };
 
-export async function renderPdfElement(element: unknown): Promise<PdfRender> {
-	const laid = await renderDocumentWithLayout(element as never);
+export async function renderPdfElement(element: ReactElement): Promise<PdfRender> {
+	const laid = await renderDocumentWithLayout(element);
 	const text = laid.layout.pages.map((page) => {
 		const lines: string[] = [];
-		const walk = (node: { textContent?: string; nodeType?: string; children?: unknown[] }) => {
+		const walk = (node: ElementInfo) => {
 			if (node.nodeType === "TextLine" && node.textContent) lines.push(node.textContent);
-			for (const child of node.children ?? []) walk(child as never);
+			for (const child of node.children ?? []) walk(child);
 		};
-		for (const node of page.elements) walk(node as never);
+		for (const node of page.elements) walk(node);
 		return lines;
 	});
 	const done = await finishForm(laid.pdf);

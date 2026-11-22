@@ -21,7 +21,7 @@ import {
 	CardHeading,
 	CardTitle,
 	IntentLink,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
@@ -35,7 +35,6 @@ import { PROMPT_TEXT, STEP_TEXT } from "./model.ts";
 const PROMPT_OF: Partial<Record<SetupStep, PromptKey>> = Object.fromEntries(PROMPTS.map((p) => [PROMPT_STEP[p], p]));
 
 export function GetStarted({ frame }: { frame: OverviewFrame }) {
-	const toast = useToast();
 	const [hidden, setHidden] = useState<ReadonlySet<PromptKey>>(new Set());
 	const admin = frame.role !== "member";
 	const prompts = frame.prompts.filter((p) => !hidden.has(p));

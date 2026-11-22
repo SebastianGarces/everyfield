@@ -1,6 +1,3 @@
-"""Rebuild EF Figures from DM Sans (OFL, Reserved Font Name rules: the derived family has a new name).
-DM Sans has no tnum feature, so every digit gets the widest digit advance and its outline is re-centred.
-Run from packages/domain with: python3 scripts/make-ef-figures.py   (needs fontTools)."""
 from pathlib import Path
 from fontTools.ttLib import TTFont
 

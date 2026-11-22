@@ -74,7 +74,7 @@ function ViewTabs({ kind, current }: { kind: OrganizationKind; current: Organiza
 	const tab = (active: boolean) =>
 		cn(
 			"inline-flex items-center gap-2 rounded-md px-3.5 py-2 font-medium text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
-			active && "bg-surface-raised text-ink shadow-[var(--ef-shadow-raised)]",
+			active && "bg-surface-raised shadow-[var(--ef-shadow-raised)]",
 		);
 	const { label, tabs } = VIEWS[kind];
 	return (
@@ -555,17 +555,10 @@ function SectionCard({
 	);
 }
 
-function Big({ value, unit, tone }: { value: ReactNode; unit: ReactNode; tone?: "attention" }) {
+function Big({ value, unit }: { value: ReactNode; unit: ReactNode }) {
 	return (
 		<p className="flex items-end gap-2.5">
-			<span
-				className={cn(
-					"num font-display text-[32px] leading-none tracking-[-0.02em] text-ink",
-					tone && "text-[var(--ef-amber-display)]",
-				)}
-			>
-				{value}
-			</span>
+			<span className="num font-display text-[32px] leading-none tracking-[-0.02em] text-ink">{value}</span>
 			<span className="pb-0.5 text-md text-text-2">{unit}</span>
 		</p>
 	);
@@ -608,7 +601,7 @@ function SectionCounts({
 			return (
 				<div className="flex gap-8">
 					<Big value={t.open} unit="open" />
-					<Big value={t.overdue} unit="overdue" tone={t.overdue ? "attention" : undefined} />
+					<Big value={t.overdue} unit="overdue" />
 				</div>
 			);
 		}

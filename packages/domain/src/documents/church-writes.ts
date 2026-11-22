@@ -1,7 +1,13 @@
 import * as c from "@everyfield/contracts/documents";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
-import { readAuthorizedObject, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
+import { queueJobsFor } from "../jobs/queue.ts";
+import {
+	readAuthorizedObject,
+	StorageError,
+	type PrivateStorage,
+	type ResourceAuthorizer,
+} from "@everyfield/db/schema";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import type { RequestActor } from "../access/session.ts";
@@ -12,6 +18,7 @@ import { docFormats, offeredFormats, renderDocFile, type DocFormat } from "./doc
 import { docTemplateById, publishedTemplate, sheetOf } from "./doc-templates.ts";
 import { fieldValues, frozenData, insertableValues, type MergeSources } from "./doc-values.ts";
 import { cleanOverrides } from "./merge.ts";
+import { contactLine, mergeSources } from "./template-fill.ts";
 import { fillStatementSlots } from "./network-statement.ts";
 import { RenderFailed, digestOf, renderEngineVersion } from "./render.ts";
 import {
@@ -33,8 +40,8 @@ const hashOf = (text: string) => createHash("sha256").update(text, "utf8").diges
 
 function stableId(...parts: string[]) {
 	const h = createHash("sha256").update(parts.join("\0")).digest();
-	h[6] = (h[6]! & 0x0f) | 0x50;
-	h[8] = (h[8]! & 0x3f) | 0x80;
+	h[6] = (h.readUInt8(6) & 0x0f) | 0x50;
+	h[8] = (h.readUInt8(8) & 0x3f) | 0x80;
 	const x = h.subarray(0, 16).toString("hex");
 	return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20, 32)}`;
 }
@@ -192,11 +199,6 @@ function safeJson(text: string): unknown {
 	}
 }
 
-const contactLine = (kit: ReturnType<typeof dataFromRow> | null) =>
-	[kit?.website?.replace(/^https?:\/\//, "").replace(/\/$/, ""), kit?.phone, kit?.email]
-		.filter(Boolean)
-		.join("  ·  ") || null;
-
 function knownFields(template: c.DocTemplate, values: Record<string, string>) {
 	const known = new Set(template.fields.filter((f) => f.type !== "list").map((field) => field.key));
 	const foreign = Object.keys(values).find((key) => !known.has(key));
@@ -241,21 +243,6 @@ function templateSummary(row: TemplateRow) {
 			revision: Number(row.source_revision),
 		},
 	});
-}
-
-type Kit = ReturnType<typeof dataFromRow> | null;
-
-function mergeSources(plant: Awaited<ReturnType<typeof readPlant>>, kit: Kit): MergeSources {
-	if (!plant.open) deny("access_denied");
-	if (!plant.subjectOk) deny("unavailable");
-	return {
-		churchName: plant.churchName ?? "",
-		pastorName: plant.pastorName,
-		tagline: kit?.tagline ?? null,
-		legalName: kit?.legalName ?? null,
-		contactLine: contactLine(kit),
-		meetingDate: null,
-	};
 }
 
 type TemplateSource = {
@@ -311,22 +298,20 @@ export async function templateStatus(body: c.DocDocument, templates: TemplateSou
 	return statusAgainst(body, await followedTemplate(body, null, null, templates));
 }
 
-async function addedValues(db: Database, scope: Scope, body: c.DocDocument, template: c.DocTemplate, kit: Kit) {
+function addedValues(body: c.DocDocument, template: c.DocTemplate, sources: MergeSources) {
 	const missing = c.missingFields(body, template);
 	const data: Record<string, string> = {};
 	if (!missing.length) return data;
-	const plant = await readPlant(
-		db,
-		{ ...scope, plantId: scope.tenantId },
-		{ personId: null, meetingId: null, teamId: null },
-	);
-	const frozen = frozenData(template.fields, mergeSources(plant, kit)).data;
-	for (const field of missing) if (frozen[field.key] !== undefined) data[field.key] = frozen[field.key]!;
+	const frozen = frozenData(template.fields, sources).data;
+	for (const field of missing) {
+		const value = frozen[field.key];
+		if (value !== undefined) data[field.key] = value;
+	}
 	return data;
 }
 
 async function compareSubject(db: Database, scope: Scope, documentId: string, templates: TemplateSource) {
-	const found = await readChurchWithKit(db, scope, documentId, { admin: true, template: true });
+	const found = await readChurchWithKit(db, scope, documentId, { admin: true, sources: true, template: true });
 	if (!found) deny("unavailable");
 	const { body } = found.doc;
 	const followed = await followedTemplate(body, found.doc.templateId, found.churchTemplate, templates);
@@ -363,18 +348,12 @@ export const churchWriter = {
 				db,
 				{ ...scope, plantId: scope.tenantId },
 				{ personId: null, meetingId: null, teamId: null },
+				churchTemplate
+					? sql`(SELECT ${churchTemplateOf(scope, churchTemplate)} WHERE ${gateSql(scope, true)})`
+					: undefined,
 			);
-			const kitRows = await rowsOf<{
-				kit: Record<string, unknown> | null;
-				church_template: { title: string; body: string } | null;
-			}>(
-				db,
-				sql`SELECT (SELECT to_jsonb(k) FROM church_brand_kit k WHERE k.tenant_id = ${scope.tenantId}::uuid) AS kit,
-					${churchTemplate ? churchTemplateOf(scope, churchTemplate) : sql`NULL::json`} AS church_template
-				FROM (SELECT ${gateSql(scope, true)} AS ok) g WHERE g.ok`,
-			);
-			const sources = mergeSources(plant, kitRows[0]?.kit ? dataFromRow(kitRows[0].kit) : null);
-			const stored = kitRows[0]?.church_template ?? null;
+			const sources = mergeSources(plant);
+			const stored = plant.extra as { title: string; body: string } | null;
 			const template = builtIn ?? storedTemplate(stored?.body ?? null) ?? deny("unavailable");
 			const title = stored?.title ?? template.title;
 			if (!builtIn) knownFields(template, cleaned.values);
@@ -570,13 +549,13 @@ export const churchWriter = {
 		return settle(async () => {
 			const input = parse(c.churchCompareRequest, raw);
 			const scope = adminScope(authority);
-			const { doc, body, origin, followed, template, hash, kit, lists, keys } = await compareSubject(
+			const { doc, body, origin, followed, template, hash, sources, lists, keys } = await compareSubject(
 				db,
 				scope,
 				input.documentId,
 				templates,
 			);
-			const added = await addedValues(db, scope, body, template, kit);
+			const added = addedValues(body, template, sources);
 			const missing = c.missingFields(body, template);
 			return c.churchCompare.parse({
 				documentId: doc.id,
@@ -604,7 +583,7 @@ export const churchWriter = {
 		return settle(async () => {
 			const input = parse(c.acceptTemplateRequest, raw);
 			const scope = adminScope(authority);
-			const { doc, body, template, hash, kit, followed, lists, keys } = await compareSubject(
+			const { doc, body, template, hash, sources, followed, lists, keys } = await compareSubject(
 				db,
 				scope,
 				input.documentId,
@@ -615,7 +594,7 @@ export const churchWriter = {
 			const count = (lists[input.view] ?? []).length;
 			if (input.accept !== "all" && input.accept.some((id) => id >= count))
 				rejectInput("accept", "That change is not in the compare.");
-			const added = await addedValues(db, scope, body, template, kit);
+			const added = addedValues(body, template, sources);
 			const options = { origin: { template: template.id, version: template.version, hash }, values: added };
 			const next = c.docDocument.safeParse(
 				input.view === "changes" && followed.base
@@ -785,7 +764,7 @@ export const churchWriter = {
 					});
 			} catch (error) {
 				if (postgresCode(error) !== "23505") {
-					if (postgresCode(error) === "42501" || postgresCode(error) === "23514") deny();
+					if (postgresCode(error) === "42501" || postgresCode(error) === "23514") deny("unavailable");
 					throw error;
 				}
 			}
@@ -909,7 +888,7 @@ export const churchWriter = {
 				return allowed[0]?.ok === true ? { kind: "account", actorId: scope.accountId } : null;
 			};
 			const bytes = await readAuthorizedObject(db, storage, authorize, row.object_id).catch((error: unknown) =>
-				error instanceof Error && error.message === "unavailable" ? deny("unavailable") : Promise.reject(error),
+				error instanceof StorageError && error.code === "unavailable" ? deny("unavailable") : Promise.reject(error),
 			);
 			return c.churchFile.parse({
 				documentId: input.documentId,
@@ -938,12 +917,13 @@ export const churchWriter = {
 							AND d.church_archived_at IS NOT NULL)
 					RETURNING gd.id, gd.object_id
 				),
-				rel AS (
-					INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts, claim_generation)
-					SELECT ${scope.tenantId}::uuid, 'object_cleanup', del.object_id, 'export-deleted/' || del.id::text, 'ready', clock_timestamp(), 0, 4, 0
-					FROM del
-					ON CONFLICT DO NOTHING
-				),
+				rel AS (${queueJobsFor(sql`FROM del`, {
+					kind: "object_cleanup",
+					tenant: sql`${scope.tenantId}::uuid`,
+					subject: sql`del.object_id`,
+					key: sql`'export-deleted/' || del.id::text`,
+					conflict: "skip",
+				})}),
 				aud AS (
 					INSERT INTO audit_event (
 						tenant_id, actor_id, action, kind, subject_id, occurred_at, recorded_at, event_key, metadata

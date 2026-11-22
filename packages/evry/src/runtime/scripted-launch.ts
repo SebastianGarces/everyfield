@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { GUEST_NAME_MAX } from "@everyfield/contracts/launch";
 import { launchDay } from "../adapters/launch/reads/index.ts";
 import { LAUNCH_RULES } from "../context/compile.ts";
+import { captured } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind?: string; id: string; label: string; fields: Record<string, unknown> };
@@ -34,11 +35,8 @@ function turnOutputs(prompt: Prompt): Output[] {
 const systemText = (prompt: Prompt) => prompt.flatMap((m) => (m.role === "system" ? [m.content] : [])).join("\n");
 function lastAssistantText(prompt: Prompt) {
 	const start = prompt.findLastIndex((m) => m.role === "user");
-	for (let i = start - 1; i >= 0; i--) {
-		const m = prompt[i]!;
-		if (m.role === "assistant") return m.content.flatMap((p) => (p.type === "text" ? [p.text] : [])).join(" ");
-	}
-	return "";
+	const m = start < 0 ? undefined : prompt.slice(0, start).findLast((message) => message.role === "assistant");
+	return m ? m.content.flatMap((p) => (p.type === "text" ? [p.text] : [])).join(" ") : "";
 }
 
 const COUNTDOWN =
@@ -100,7 +98,7 @@ function matching(out: Output, name: string) {
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 function dateOn(words: string, today: string): string | null {
 	const m = /^([a-z]+)\.? (\d{1,2})(?:st|nd|rd|th)?(?:,? (\d{4}))?$/i.exec(words.trim());
-	const month = m ? MONTHS.indexOf(m[1]!.slice(0, 3).toLowerCase()) : -1;
+	const month = m ? MONTHS.indexOf(captured(m, 1).slice(0, 3).toLowerCase()) : -1;
 	if (!m || month < 0) return null;
 	const day = Number(m[2]);
 	const iso = (y: number) => `${y}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -133,20 +131,20 @@ const DATE_HELD =
 	/\b(?:date|held|happened|was on)\b(?:\s+(?:to|as|on|was))?\s+([a-z]+\.? \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)/i;
 function correctionOf(text: string, today: string) {
 	const held = DATE_HELD.exec(text);
-	const rest = held ? text.replace(held[1]!, "") : text;
+	const rest = held ? text.replace(captured(held, 1), "") : text;
 	const count = (field: string) => {
 		if (UNKNOWN(field).test(text)) return null;
 		const n = COUNT(field).exec(rest)?.[1]?.replace(/,+$/, "");
 		return n === undefined ? undefined : Number(n.replace(/,/g, ""));
 	};
 	const fields: { actualDate?: string | null; attendance?: number | null; decisions?: number | null } = {};
-	if (held) fields.actualDate = pastDateOn(held[1]!, today);
+	if (held) fields.actualDate = pastDateOn(captured(held, 1), today);
 	const attendance = count("attendance");
 	if (attendance !== undefined) fields.attendance = attendance;
 	const decisions = count("decisions");
 	if (decisions !== undefined) fields.decisions = decisions;
 	const reason = reasonOf(/(?:[,;:–—]|\bbecause\b)\s*(.+)$/i.exec(rest)?.[1] ?? "");
-	return { fields, reason, unread: held ? held[1]! : null };
+	return { fields, reason, unread: held ? captured(held, 1) : null };
 }
 const countSaid = (n: unknown) => (n === null ? "Not recorded" : String(n));
 
@@ -287,9 +285,16 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 	const writes =
 		asked.move || asked.postpone || asked.record || asked.submit || asked.publish || asked.guest || asked.correct;
 	if (writes && !offers("launch.schedule")) return rule(LAUNCH_RULES.ownerOnly);
-	if (guest || fresh || pick) {
+	const guestAsk: GuestAsk | null = guest
+		? { kind: "add", match: guest }
+		: fresh
+			? { kind: "fresh", match: fresh }
+			: pick && asked_for
+				? { kind: "pick", match: pick, name: asked_for }
+				: null;
+	if (guestAsk) {
 		if (!offers("launch.addGuestAttendance")) return rule(LAUNCH_RULES.ownerOnly);
-		return guestStep(outputs, guest, fresh, pick, asked_for);
+		return guestStep(outputs, guestAsk);
 	}
 	if (asked.correct) {
 		if (!offers("launch.correctOutcome")) return rule(LAUNCH_RULES.ownerOnly);
@@ -299,13 +304,14 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 	if (toggle) {
 		const operation = complete ? "launch.completeMilestone" : "launch.reopenMilestone";
 		if (!offers(operation)) return rule(LAUNCH_RULES.ownerOnly);
-		const name = toggle[1]!.trim();
+		const name = captured(toggle, 1).trim();
 		if (DERIVED.test(name)) return rule(LAUNCH_RULES.derived);
 		const workspace = found("launch.readWorkspace");
 		if (!workspace) return read("launch.readWorkspace", { filter: "all" });
 		const matches = matching(workspace, name);
-		if (proposed) return say(milestoneProposed(Boolean(complete), matches[0]));
-		if (!matches.length)
+		const [m] = matches;
+		if (proposed) return say(milestoneProposed(Boolean(complete), m));
+		if (!m)
 			return say(
 				`No launch milestone on the Launch plan matches "${name}", so I prepared nothing. Ask me which launch milestones are left to see them by name.`,
 			);
@@ -313,7 +319,6 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 			return say(
 				`More than one launch milestone matches "${name}":\n${matches.map((m) => `- **${m.label}**`).join("\n")}\n\nWhich one do you mean? I prepared nothing.`,
 			);
-		const m = matches[0]!;
 		const done = m.fields.completed === true;
 		const marked = done || m.fields.needsReview === true;
 		if (complete && done) return say(`**${m.label}** is already complete on the Launch plan, so I prepared nothing.`);
@@ -321,14 +326,14 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 			return say(`**${m.label}** isn't complete, so there's nothing to reopen. I prepared nothing.`);
 		return propose(operation, { milestoneId: m.id });
 	}
-	if (proposed) return say(proposedText(asked, last!));
+	if (proposed && last) return say(proposedText(asked, last));
 
 	const countdown = found("launch.readCountdown");
-	if (asked.move) {
+	if (move) {
 		if (!countdown) return read("launch.readCountdown");
-		const date = dateOn(move![1]!, String(countdown.facts?.today));
-		if (!date) return say(`I couldn't read "${move![1]}" as a date. Say it like "March 14".`);
-		const reason = reasonOf(move![2] ?? "");
+		const date = dateOn(captured(move, 1), String(countdown.facts?.today));
+		if (!date) return say(`I couldn't read "${move[1]}" as a date. Say it like "March 14".`);
+		const reason = reasonOf(move[2] ?? "");
 		if (!reason && countdown.facts?.countdown !== "none")
 			return say("Why is Launch Sunday moving? The reason stays in the Launch history, so tell me in your own words.");
 		return propose("launch.schedule", { date, reason });
@@ -401,13 +406,11 @@ const strip = (name: string) =>
 		.trim()
 		.replace(/^["“”']+|["“”']+$/g, "")
 		.trim();
-function guestStep(
-	outputs: Output[],
-	guest: RegExpExecArray | null,
-	fresh: RegExpExecArray | null,
-	pick: RegExpExecArray | null,
-	askedFor: string | null,
-): LanguageModelV4Content[] {
+type GuestAsk =
+	| { kind: "add"; match: RegExpExecArray }
+	| { kind: "fresh"; match: RegExpExecArray }
+	| { kind: "pick"; match: RegExpExecArray; name: string };
+function guestStep(outputs: Output[], ask: GuestAsk): LanguageModelV4Content[] {
 	const wait = "Nothing changes until you approve it.";
 	const read = (input: Record<string, unknown>) => call("launch_read", { operation: "launch.readDebrief", input });
 	const propose = (input: unknown) => call("propose_change", { operation: "launch.addGuestAttendance", input });
@@ -417,12 +420,12 @@ function guestStep(
 	const matchesOf = (name: string) =>
 		(reads.find((o) => o.facts?.guestName === name)?.rows ?? []).filter((r) => r.fields.match === name);
 
-	if (pick) {
-		const name = askedFor!;
+	if (ask.kind === "pick") {
+		const { match: pick, name } = ask;
 		const out = reads.find((o) => o.facts?.guestName === name);
 		if (!out) return read({ guestName: name });
 		const matches = matchesOf(name);
-		const at = ORDINAL[pick[1]!.toLowerCase()] ?? Number(pick[1]) - 1;
+		const at = ORDINAL[captured(pick, 1).toLowerCase()] ?? Number(pick[1]) - 1;
 		const m = matches[at];
 		if (proposals.length)
 			return say(
@@ -436,8 +439,8 @@ function guestStep(
 			return say(`**${m.label}** is already named as a Launch Sunday guest, so I prepared nothing.`);
 		return propose({ personId: m.id });
 	}
-	if (fresh) {
-		const name = strip(fresh[1]!);
+	if (ask.kind === "fresh") {
+		const name = strip(captured(ask.match, 1));
 		if (!reads.length) return read({});
 		if (proposals.length)
 			return say(
@@ -446,7 +449,9 @@ function guestStep(
 		return propose({ displayName: name });
 	}
 
-	const names = guest![1]!.split(/\s*,\s*(?:and\s+)?|\s+and\s+/).map(strip);
+	const names = captured(ask.match, 1)
+		.split(/\s*,\s*(?:and\s+)?|\s+and\s+/)
+		.map(strip);
 	const valid = names.filter((n) => n && n.length <= GUEST_NAME_MAX);
 	for (const name of valid) if (!reads.some((o) => o.facts?.guestName === name)) return read({ guestName: name });
 	const carded = new Set(proposals.map((o) => o.rows?.[0]?.label));
@@ -544,8 +549,11 @@ function proposedText(asked: Record<string, boolean>, out: Output) {
 		return `I prepared a review card to move Launch Sunday from ${String(date?.before ?? "no date")} to ${String(date?.after)}, with your reason. Prep tasks and your phase stay as they are. ${wait}`;
 	}
 	if (asked.postpone) return `I prepared a review card to postpone the launch, with your reason. ${wait}`;
-	if (asked.record)
-		return `I prepared a review card to record Launch Sunday${of("attendance") ? ` with attendance ${String(of("attendance")!.after)}` : ""}${of("guestAnswer") ? ` and the debrief's guest answer "${String(of("guestAnswer")!.after)}"` : ""}. No people are created from these numbers. ${wait}`;
+	if (asked.record) {
+		const attendance = of("attendance"),
+			answer = of("guestAnswer");
+		return `I prepared a review card to record Launch Sunday${attendance ? ` with attendance ${String(attendance.after)}` : ""}${answer ? ` and the debrief's guest answer "${String(answer.after)}"` : ""}. No people are created from these numbers. ${wait}`;
+	}
 	if (asked.submit)
 		return `I prepared a review card to submit the Launch debrief. Submitting publishes nothing. ${wait}`;
 	const body = of("summary")?.after;

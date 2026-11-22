@@ -27,12 +27,13 @@ export async function SignInPage({ searchParams }: { searchParams: Search }) {
 
 export const homeMetadata: Metadata = { title: "Home", robots: { index: false, follow: false } };
 export async function HomePage({ searchParams }: { searchParams: Search }) {
-	const returnTo = one((await searchParams).returnTo);
-	const viewer = await getViewer();
-	if (!viewer || viewer.status === "unauthenticated") redirect("/signin");
-	const db = requestDatabase();
+	const [search, viewer] = await Promise.all([searchParams, getViewer()]);
+	const returnTo = one(search.returnTo);
+	if (viewer.status === "unauthenticated") redirect("/signin");
 	const plant =
-		viewer.status === "active" && db ? await dashboardReader.resolveHome(db, viewer.authority ?? null) : "none";
+		viewer.status === "active"
+			? await dashboardReader.resolveHome(requestDatabase(), viewer.authority ?? null)
+			: "none";
 	redirect(landingFor({ status: viewer.status, plant, returnTo }));
 }
 

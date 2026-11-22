@@ -7,17 +7,17 @@ import {
 	useId,
 	useRef,
 	useState,
-	useTransition,
 	type FormEvent,
 	type KeyboardEvent,
 	type ReactNode,
 } from "react";
 import { buttonClass } from "@/components/ButtonLink";
-import { cn } from "@/components/cn";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
-import { useFocusRequest } from "@everyfield/ui/foundations";
+import { cn, useFocusRequest } from "@everyfield/ui/foundations";
 import { revealProps, revealRef } from "@/components/motion/Reveal";
+import { useLocalStore, useStore } from "@/components/store";
+import { createAccessFormStore } from "./AccessForm.store";
 import { stepAccessForm, submitAccessRequest } from "./actions";
 import { HONEYPOT, validateAccessRequest, type FieldErrorCode } from "./contract";
 import {
@@ -231,7 +231,9 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 	const [s, setS] = useState<FormState>(serverState);
 	const [said, setSaid] = useState("");
 	const [landed, setLanded] = useState<{ n: number; to: Focus }>({ n: 0, to: "step" });
-	const [sending, startTransition] = useTransition();
+	const store = useLocalStore(createAccessFormStore);
+	const sending = useStore(store, (state) => state.sending);
+	const { send } = useStore(store, (state) => state.actions);
 	const focusLanded = useFocusRequest<HTMLDivElement>(landed.n, (layout) => {
 		if (landed.to === "message") return msgRef.current;
 		const view = layout.querySelector<HTMLElement>("[data-view=current]");
@@ -248,12 +250,16 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 	const progress = (step: number) =>
 		text.progress.replace("{step}", String(step + 1)).replace("{total}", String(STEP_COUNT));
 	const network = paths[s.who === "church" ? "church" : "network"];
+	const [contactStep, ...planterSteps] = paths.planter;
+	if (!contactStep) throw new Error("The access form has no contact step");
 	const titleOf = (st: FormState) =>
 		st.step === 0 || !st.who ? text.who.title : (paths[st.who][st.step - 1]?.title ?? "");
 
 	const read = (): Record<string, string> => {
+		const form = formRef.current;
+		if (!form) throw new Error("The access form is not mounted");
 		const out: Record<string, string> = {};
-		for (const [k, v] of new FormData(formRef.current!)) if (typeof v === "string") out[k] = v;
+		for (const [k, v] of new FormData(form)) if (typeof v === "string") out[k] = v;
 		return out;
 	};
 	const answers = (all: Record<string, string>) =>
@@ -287,7 +293,7 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 
 	function onSubmit(e: FormEvent<HTMLFormElement>) {
 		e.preventDefault();
-		if (sending) return;
+		if (store.getState().sending) return;
 		const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
 		const all = read();
 		const values = answers(all);
@@ -296,7 +302,7 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 		const who = s.who;
 		const v = validateAccessRequest(kindOf(who), values);
 		if (!v.ok) return land(withErrors(s, values, v.fieldErrors));
-		startTransition(async () => {
+		void send(async () => {
 			let n: FormState;
 			try {
 				const fields = { ...requestFields(who, values), [HONEYPOT]: all[HONEYPOT] ?? "" };
@@ -400,7 +406,6 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 										"[transition:border-color_.15s,background-color_.15s,box-shadow_.15s] hover:border-ink/40 motion-reduce:transition-none",
 										"has-checked:border-ink has-checked:bg-white has-checked:shadow-[inset_0_0_0_1px_var(--color-ink)]",
 										"has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-green-600",
-										whoErr && "border-magenta-600",
 									)}
 								>
 									<input
@@ -421,8 +426,8 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 						</div>
 					</fieldset>
 
-					{fieldsView(paths.planter[0]!, 1)}
-					{paths.planter.slice(1).map((st, i) => fieldsView(st, i + 2, "planter"))}
+					{fieldsView(contactStep, 1)}
+					{planterSteps.map((st, i) => fieldsView(st, i + 2, "planter"))}
 					{network.slice(1).map((st, i) => fieldsView(st, i + 2, "network"))}
 
 					<div

@@ -1,13 +1,12 @@
 import { requestIdentity, sameOwner, type Owner, type sessionId } from "@everyfield/contracts/common";
-import { meetingsError, type MeetingsError, type MeetingsReply } from "@everyfield/contracts/meetings";
+import { meetingsError, type MeetingsReply } from "@everyfield/contracts/meetings";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { eq, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import { randomUUID } from "node:crypto";
 import { hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
-import { boundWrite, liveRead, RequestActor, type requestWrite } from "../access/session.ts";
+import { boundWrite, liveRead, RequestActor, type requestWrite, type WriteTx } from "../access/session.ts";
 import {
 	auditSavepoint,
 	declareWrite,
@@ -17,56 +16,24 @@ import {
 	prepareWrite,
 	WriteUnavailable,
 	type AuditWrite,
+	gatedTransaction,
 } from "../operations/writes.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
-export type Tx = Transaction;
+export type Tx = WriteTx;
 export type Reader = Pick<Transaction, "execute">;
 export type MeetingsContext = { session: z.infer<typeof sessionId>; selected: Owner };
 
-type Code = MeetingsError["code"];
-export class Refusal extends Error {
-	readonly code: Code;
-	readonly details: object;
-	constructor(code: Code, details: object) {
-		super(code);
-		this.code = code;
-		this.details = details;
-	}
-}
-export function deny(code: Code = "unavailable", details: object = {}): never {
-	throw new Refusal(code, details);
-}
-function refused(error: Refusal): MeetingsReply<never> {
-	return {
-		status: "refused",
-		error: meetingsError.parse({
-			code: error.code,
-			details: error.details,
-			correlationId: randomUUID(),
-			retry:
-				error.code === "conflict" || error.code === "owner_ineligible"
-					? "refresh"
-					: error.code === "required_write_failed"
-						? "same_request"
-						: "never",
-		}),
-	};
-}
-async function settle<T>(body: () => Promise<T>): Promise<MeetingsReply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (error instanceof WriteUnavailable) return refused(new Refusal("unavailable", {}));
-		if (error instanceof Refusal) return refused(error);
-		throw error;
-	}
-}
+const refusals = defineRefusals(meetingsError, { writeUnavailable: "unavailable" });
+export const { Refusal, refused } = refusals;
+const { settle } = refusals;
+export const deny: Deny<typeof meetingsError> = refusals.deny;
 const databaseError = z.object({ cause: z.object({ code: z.string().regex(/^[0-9A-Z]{5}$/) }) });
 async function settleWrite<T>(body: () => Promise<T>): Promise<MeetingsReply<T>> {
 	try {
 		return await settle(body);
 	} catch (error) {
-		if (databaseError.safeParse(error).success) return refused(new Refusal("required_write_failed", {}));
+		if (databaseError.safeParse(error).success) return refusals.refused("required_write_failed");
 		throw error;
 	}
 }
@@ -113,17 +80,15 @@ export async function previewMeetingsWrite<T>(
 ): Promise<MeetingsReply<T>> {
 	const selected = authority.actor.context.owner;
 	return settleWrite(() =>
-		db
-			.transaction(async (tx) => {
-				if (!(await authority.bind(tx, selected))) throw new WriteUnavailable();
-				const result = await body(tx, { session: authority.session, selected });
-				if (result.status === "refused") throw new Refusal(result.error.code, result.error.details);
-				throw new Preview(result.value);
-			})
-			.catch((error: unknown) => {
-				if (error instanceof Preview) return error.value as T;
-				throw error;
-			}),
+		gatedTransaction(db, async (tx) => {
+			if (!(await authority.bind(tx, selected))) throw new WriteUnavailable();
+			const result = await body(tx, { session: authority.session, selected });
+			if (result.status === "refused") throw new Refusal(result.error.code, result.error.details);
+			throw new Preview(result.value);
+		}).catch((error: unknown) => {
+			if (error instanceof Preview) return error.value as T;
+			throw error;
+		}),
 	);
 }
 export async function read<T>(
@@ -132,7 +97,7 @@ export async function read<T>(
 ): Promise<MeetingsReply<T>> {
 	return settle(() => {
 		const actor = authority.actor;
-		if (actor.context.kind !== "seat" || actor.context.owner.kind !== "plant") deny();
+		if (actor.context.kind !== "seat" || actor.context.owner.kind !== "plant") deny("unavailable");
 		return body({
 			plantId: actor.context.owner.id,
 			accountId: actor.accountId,
@@ -149,7 +114,7 @@ export async function one(db: Reader, v: Viewer, query: SQL, admin = false) {
 		AS access_live, ${liveRead(v.access, true)} AS access_admin) a
 		LEFT JOIN LATERAL (SELECT true AS access_found, x.* FROM (${query}) x LIMIT 1) q ON a.access_live`);
 	const row = r.rows[0] as Record<string, unknown>;
-	if (row.access_live !== true) deny();
+	if (row.access_live !== true) deny("unavailable");
 	return { row: row.access_found === true ? row : undefined, admin: row.access_admin === true };
 }
 
@@ -162,7 +127,7 @@ async function writer(tx: Tx, ctx: MeetingsContext): Promise<Writer> {
 	let bound = await lockedWrite(tx);
 	if (!bound || bound.authority.session !== ctx.session || !sameOwner(bound.selected, ctx.selected))
 		bound = (await RequestActor.claimWrite(tx, ctx.session, ctx.selected)) ?? undefined;
-	if (!bound?.plant || bound.actor.context.kind !== "seat") deny();
+	if (!bound?.plant || bound.actor.context.kind !== "seat") deny("unavailable");
 	return { accountId: bound.actor.accountId, admin: bound.actor.context.role !== "member", plant: bound.plant };
 }
 
@@ -236,7 +201,7 @@ export async function command<T>(
 	options: { member?: boolean } = {},
 ): Promise<T> {
 	const w = await writer(tx, ctx);
-	if (!w.admin && !options.member) deny();
+	if (!w.admin && !options.member) deny("unavailable");
 	const identity = requestIdentity.parse({
 		owner: ctx.selected,
 		actorId: w.accountId,
@@ -246,7 +211,7 @@ export async function command<T>(
 	});
 	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "conflict") deny("conflict");
-	if (claim.kind === "unavailable") deny();
+	if (claim.kind === "unavailable") deny("unavailable");
 	if (claim.kind === "replay") return claim.value as T;
 	const change = await body(w, claim);
 	const changed = (change.outcome ?? "changed") === "changed";

@@ -87,7 +87,7 @@ export function avatarOperations(
 			reply(tx, async (s) => {
 				const v = parse(q.getAvatarRequest, raw);
 				const a = await self(s, ctx, "read");
-				if (a.account.avatar_object_id !== v.versionId) deny();
+				if (a.account.avatar_object_id !== v.versionId) deny("unavailable");
 				const [file] = await s
 					.select({ id: t.file_object.id })
 					.from(t.file_object)
@@ -99,7 +99,7 @@ export function avatarOperations(
 						),
 					)
 					.for("share");
-				if (!file) deny();
+				if (!file) deny("unavailable");
 				return q.avatarResult.parse({ status: "available", avatar: { accountId: a.account.id, versionId: file.id } });
 			}),
 		finalizeAvatar: (tx, ctx, raw) =>
@@ -126,7 +126,7 @@ export function avatarOperations(
 						),
 					)
 					.for("update");
-				if (!f) deny();
+				if (!f) deny("unavailable");
 				await change(s, c, a.account, f.id);
 				await finish(s, c, resultRecord, () => ({}));
 				return saved;
@@ -136,7 +136,7 @@ export function avatarOperations(
 				const v = parse(q.removeAvatarRequest, raw);
 				const a = await self(s, ctx);
 				const c = await begin(s, { ...ctx }, a.account.id, "account.removeAvatar", v);
-				const absent = q.avatarResult.parse({ status: "absent" });
+				const absent = { status: "absent" } satisfies z.output<typeof q.avatarResult>;
 				if (c.kind === "replay") return absent;
 				revision(v.expectedRevision, a.account.revision);
 				await change(s, c, a.account, null);
@@ -211,7 +211,7 @@ export async function uploadAvatar(
 			),
 		)
 		.returning();
-	if (!file) deny();
+	if (!file) deny("unavailable");
 	return putPrivateObject(db, storage, uploadAuthorization(ctx), {
 		tenantId: file.tenant_id,
 		purpose: "avatar",

@@ -11,16 +11,19 @@ import { popSurface } from "./Popover";
 
 export type SelectOption = { value: string; label: string; disabled?: boolean };
 
-type SelectProps = Omit<ComponentPropsWithRef<typeof SelectPrimitive.Root>, "children"> & {
-	options: SelectOption[];
-	placeholder?: string;
-	invalid?: boolean;
-	id?: string;
-	"aria-label"?: string;
-	renderValue?: (option: SelectOption) => ReactNode;
-	renderOption?: (option: SelectOption) => ReactNode;
-	className?: string;
-};
+type Chosen = { value: string; defaultValue?: never } | { value?: never; defaultValue: string };
+
+type SelectProps = Omit<ComponentPropsWithRef<typeof SelectPrimitive.Root>, "children" | "value" | "defaultValue"> &
+	Chosen & {
+		options: SelectOption[];
+		placeholder?: string;
+		invalid?: boolean;
+		id?: string;
+		"aria-label"?: string;
+		renderValue?: (option: SelectOption) => ReactNode;
+		renderOption?: (option: SelectOption) => ReactNode;
+		className?: string;
+	};
 
 export function Select({
 	options,

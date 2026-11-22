@@ -1,7 +1,6 @@
 "use client";
 
 import { StatusBadge } from "@everyfield/ui/display";
-import { useRef } from "react";
 import { When } from "../people/parts.tsx";
 import { CHANNEL_LABEL, OUTCOME_LABEL, OUTCOME_STATUS, originText, type OutcomeItem } from "./model.ts";
 
@@ -71,19 +70,4 @@ export function LastContact({ at }: { at: string | null }) {
 	) : (
 		<>Last contact unknown</>
 	);
-}
-
-export function useOpener() {
-	const el = useRef<HTMLElement | null>(null);
-	return {
-		mark: (e: { currentTarget: HTMLElement }) => {
-			el.current = e.currentTarget;
-		},
-		returnFocus: (e: Event) => {
-			const target = el.current;
-			if (!target?.isConnected) return;
-			e.preventDefault();
-			target.focus({ preventScroll: true });
-		},
-	};
 }

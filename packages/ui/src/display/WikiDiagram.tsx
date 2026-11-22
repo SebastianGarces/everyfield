@@ -13,8 +13,6 @@ export type WikiDiagramData =
 	| { readonly type: "stages" | "timeline"; readonly title: string; readonly nodes: readonly WikiDiagramNode[] }
 	| { readonly type: "hierarchy"; readonly title: string; readonly nodes: readonly WikiDiagramTreeNode[] };
 
-const RESET = "m-0! list-none! p-0! [&>li]:my-0!";
-
 export function WikiDiagram({
 	diagram,
 	summary,
@@ -47,7 +45,7 @@ export function WikiDiagram({
 			{diagram.type === "hierarchy" ? <Tree nodes={diagram.nodes} root /> : null}
 			{diagram.type === "timeline" ? <Timeline nodes={diagram.nodes} /> : null}
 			{loop ? (
-				<p className="m-0! mt-4! flex items-center gap-2 text-sm text-text-2">
+				<p className="mt-4 flex items-center gap-2 text-sm text-text-2">
 					<ReturnIcon />
 					<span>
 						<span className="font-medium text-ink">Repeats:</span> {loop}
@@ -130,13 +128,7 @@ function Flow({ nodes, loop }: { nodes: readonly WikiDiagramNode[]; loop: string
 	return (
 		<div className="relative">
 			<ol
-				className={cn(
-					RESET,
-					"flex flex-col",
-					across && "@xl:flex-row",
-					loop && "pl-6!",
-					loop && across && "@xl:pb-6! @xl:pl-0!",
-				)}
+				className={cn("flex flex-col", across && "@xl:flex-row", loop && "pl-6", loop && across && "@xl:pb-6 @xl:pl-0")}
 			>
 				{nodes.map((node, index) => (
 					<li key={index} className={cn("flex min-w-0 flex-col", across && "@xl:flex-1 @xl:flex-row")}>
@@ -191,12 +183,12 @@ function ReturnRail({ across }: { across: boolean }) {
 
 function Stages({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 	return (
-		<ol className={cn(RESET, "grid gap-3 @md:grid-cols-2", nodes.length % 3 === 0 && "@2xl:grid-cols-3")}>
+		<ol className={cn("grid gap-3 @md:grid-cols-2", nodes.length % 3 === 0 && "@2xl:grid-cols-3")}>
 			{nodes.map((node, index) => (
 				<li key={index} className="flex">
 					<Card className="flex-1 border-t-[3px] border-green-500 pt-3">
 						<span aria-hidden="true" className="num mb-1.5 block text-[22px] leading-none text-green-700">
-							{String(index + 1).padStart(2, "0")}
+							{index + 1}
 						</span>
 						<Text node={node} />
 					</Card>
@@ -260,8 +252,10 @@ const RING: Record<number, readonly (readonly [number, number])[]> = {
 
 function Cycle({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 	const ring = RING[nodes.length];
-	const place = (index: number) =>
-		ring ? ({ "--row": ring[index]![0], "--col": ring[index]![1] } as CSSProperties) : undefined;
+	const place = (index: number) => {
+		const cell = ring?.[index];
+		return cell ? ({ "--row": cell[0], "--col": cell[1] } as CSSProperties) : undefined;
+	};
 	return (
 		<div className="relative">
 			{ring ? (
@@ -272,10 +266,9 @@ function Cycle({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 			) : null}
 			<ol
 				className={cn(
-					RESET,
-					"relative flex flex-col pl-6!",
+					"relative flex flex-col pl-6",
 					ring &&
-						"@xl:grid @xl:grid-cols-[1fr_minmax(96px,0.7fr)_1fr] @xl:items-center @xl:gap-x-4 @xl:gap-y-5 @xl:pl-0!",
+						"@xl:grid @xl:grid-cols-[1fr_minmax(96px,0.7fr)_1fr] @xl:items-center @xl:gap-x-4 @xl:gap-y-5 @xl:pl-0",
 				)}
 			>
 				{nodes.map((node, index) => (
@@ -324,13 +317,12 @@ function Cycle({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 
 function Tree({ nodes, root = false }: { nodes: readonly WikiDiagramTreeNode[]; root?: boolean }) {
 	return (
-		<ul className={cn(RESET, !root && "mt-2! ml-4! pl-5!")}>
+		<ul className={cn(!root && "mt-2 ml-4 pl-5")}>
 			{nodes.map((node, index) => (
 				<li
 					key={index}
 					className={cn(
 						"relative",
-						!root && "mt-2!",
 						!root &&
 							"before:absolute before:-top-2 before:-left-5 before:h-[calc(1.5rem+0.5rem)] before:w-4 before:rounded-bl-md before:border-b-[1.75px] before:border-l-[1.75px] before:border-text-3 before:content-['']",
 						!root &&
@@ -338,7 +330,7 @@ function Tree({ nodes, root = false }: { nodes: readonly WikiDiagramTreeNode[]; 
 							"after:absolute after:top-0 after:bottom-[-0.5rem] after:-left-5 after:border-l-[1.75px] after:border-text-3 after:content-['']",
 					)}
 				>
-					<Card className={cn(root ? "bg-surface-raised" : "py-2.5", "inline-block max-w-full")}>
+					<Card className={cn(root && "bg-surface-raised", "inline-block max-w-full")}>
 						<Text node={node} />
 					</Card>
 					{node.children.length ? <Tree nodes={node.children} /> : null}
@@ -359,7 +351,7 @@ function Timeline({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 					across && "@xl:top-[29px] @xl:right-0 @xl:bottom-auto @xl:left-0 @xl:h-[1.75px] @xl:w-auto",
 				)}
 			/>
-			<ol className={cn(RESET, "relative flex flex-col", across && "@xl:flex-row @xl:gap-3")}>
+			<ol className={cn("relative flex flex-col", across && "@xl:flex-row @xl:gap-3")}>
 				{nodes.map((node, index) => (
 					<li
 						key={index}
@@ -368,12 +360,7 @@ function Timeline({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 							across && "@xl:flex-1 @xl:pb-0 @xl:pl-0",
 						)}
 					>
-						<span
-							className={cn(
-								"block min-h-5 text-xs font-semibold tracking-wide text-green-700 uppercase",
-								across && "@xl:h-5",
-							)}
-						>
+						<span className={cn("section-label block min-h-5 text-green-700", across && "@xl:h-5")}>
 							{node.note ?? ""}
 						</span>
 						<span

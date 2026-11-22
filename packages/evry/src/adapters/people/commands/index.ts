@@ -1,4 +1,3 @@
-import type { Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { contactColumns, peopleWriter, personFields } from "@everyfield/domain/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
@@ -15,12 +14,13 @@ import {
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 export const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
-const target = (actor: EvryActor, personId: string) =>
+export const target = (actor: EvryActor, personId: string) =>
 	sql`FROM person p WHERE p.id=${personId}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
-const person = sql`jsonb_build_object('kind','person','id',p.id,'label',p.display_name)`;
+export const person = sql`jsonb_build_object('kind','person','id',p.id,'label',p.display_name)`;
 const change = (field: string, before: SQL, after: unknown) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before},'after',${JSON.stringify(after ?? null)}::jsonb)`;
 const openTasks = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('kind','needs_owner','dutyId',t.id,'expectedRevision',t.revision::text) ORDER BY t.id),'[]'::jsonb)
@@ -29,15 +29,15 @@ const openTasks = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('kind','need
 const tasksChange = (handoffs: SQL) =>
 	sql`CASE WHEN jsonb_array_length(${handoffs})>0 THEN jsonb_build_array(jsonb_build_object('field','openTasksNeedingOwner','before',NULL,'after',jsonb_array_length(${handoffs}))) ELSE '[]'::jsonb END`;
 
-type Receipt = { receiptId: string; revision: string };
-function reviewed<I, R extends z.ZodType>(spec: {
+export type Receipt = { receiptId: string; revision: string };
+export function reviewed<I, R extends z.ZodType>(spec: {
 	operation: string;
 	description: string;
 	input: z.ZodType<I>;
-	review(actor: EvryActor, input: I): SQL;
+	review: ReviewedWrite<I>["review"];
 	request: R;
 	run(
-		tx: Transaction,
+		tx: WriteTx,
 		context: PeopleContext,
 		request: z.output<R>,
 		reminders: TaskReminders,
@@ -49,9 +49,9 @@ function reviewed<I, R extends z.ZodType>(spec: {
 		input: spec.input,
 		allowed: ownerOrAdmin,
 		review: spec.review,
-		async execute(tx, context, args, effectKey, reminders): Promise<EffectResult> {
+		async execute(tx, context, args, effectKey, ports): Promise<EffectResult> {
 			const request = spec.request.parse({ ...z.object({}).loose().parse(args), requestKey: effectKey });
-			const reply = await spec.run(tx, context, request, reminders);
+			const reply = await spec.run(tx, context, request, ports.reminders);
 			if (reply.status !== "ok") return { refused: reply.error.code };
 			return { receiptId: reply.value.receiptId, revision: reply.value.revision };
 		},
@@ -73,7 +73,7 @@ const createInput = createPersonRequest.shape.input;
 const createPerson = reviewed({
 	operation: "people.createPerson",
 	description:
-		"Propose adding one person to this church with their name, contact, address, stage, source and notes. Nothing changes until the user approves the exact review.",
+		"Propose adding one person to this church with their name, contact, address, stage, source and notes. When the user says how they came, such as to vision night, set source to match (vision_meeting) and keep the rest, such as who invited them, in sourceDetails: it needs no meeting, so don't ask which one. Nothing changes until the user approves the exact review.",
 	input: createInput,
 	review(_actor, value) {
 		const changes = Object.entries(value).flatMap(([field, after]) =>
@@ -94,12 +94,11 @@ const updatePerson = reviewed({
 		"Propose a change to one person's name, contact, address, source, notes or birth date. Nothing changes until the user approves the exact review.",
 	input: z.strictObject({ personId, patch }),
 	review(actor, value) {
-		const changes = Object.entries(value.patch).map(([field, after], n) => ({
-			n,
-			field,
-			col: columns.get(field)!,
-			after: after ?? null,
-		}));
+		const changes = Object.entries(value.patch).map(([field, after], n) => {
+			const col = columns.get(field);
+			if (col === undefined) throw new Error(`The patch field ${field} has no column`);
+			return { n, field, col, after: after ?? null };
+		});
 		return sql`SELECT jsonb_build_object('target',${person},
 				'changes',(SELECT jsonb_agg(jsonb_build_object('field',k.field,'before',to_jsonb(p)->k.col,'after',k.after) ORDER BY k.n)
 					FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) k(n int,field text,col text,after jsonb))) AS review,

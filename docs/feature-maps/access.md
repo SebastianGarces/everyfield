@@ -6,10 +6,15 @@ Personas, sign-in and what the checker cannot catch: [README](README.md).
 ```mermaid
 flowchart LR
   s0_link0(["link /design/access/{flow}"])
+  s1_link0(["link /api/cron/access-retention"])
   s0["access.design-preview<br/>/design/access/[flow]"]
   s0_link0 --> s0
   s0 -.- s0_st0(("staff-notes"))
   s0 -.- s0_st1(("pending"))
+  s1["access.request-retention<br/>no page"]
+  s1_link0 --> s1
+  s1 -.- s1_st0(("refused"))
+  s1 --- s1_b0["expire-access-requests<br/>tests"]
 ```
 
 ## Surfaces
@@ -46,3 +51,33 @@ agent-browser find role heading text --name "Finish setting up" --exact
 agent-browser find role link text --name "Set up your church" --exact
 ```
 
+### access.request-retention
+
+The daily cron that expires old early-access requests: it refuses any caller without the cron secret.
+
+- Routes: none
+- Endpoints: `/api/cron/access-retention`
+- Personas: `visitor` none
+
+Reach:
+
+- Link `/api/cron/access-retention`
+
+States:
+
+- **refused**: URL `/api/cron/access-retention`. As `visitor`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/api/cron/access-retention"
+agent-browser wait --load networkidle
+agent-browser wait --url "**/api/cron/access-retention"
+```
+
+#### access.request-retention#expire-access-requests
+
+The daily run deletes early-access requests after twelve months and clears stored IP addresses older than thirty days; without the cron secret it changes nothing.
+
+- Operations: marketing.expireAccessRequests
+- Catalog: ADM-006
+- Test: `packages/domain/test/requests.test.ts`: `INV-access: scheduled retention deletes after twelve months and clears only IPs older than thirty days`
+- Test: `packages/domain/test/requests.test.ts`: `INV-access: cron requires a configured secret and refuses unauthorized retention`

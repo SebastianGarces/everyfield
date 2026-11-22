@@ -1,8 +1,9 @@
-import { pipelineActor } from "@/server/organizations/pipeline";
-import { loadEnrollment, loadProgram, loadPrograms } from "@/server/organizations/programs";
+import { organizationSeatOf } from "@/server/request-context";
+import { requireActor } from "@/server/sign-in";
+import { loadEnrollment, loadProgram, loadPrograms } from "./mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { LANDING_ROUTE, type SitePath } from "@everyfield/contracts/identity";
 import { NotAvailable } from "../../access/AccessStates";
 import { EnrollmentScreen } from "./EnrollmentScreen";
 import { enrollmentHref, programHref, PROGRAMS_PATH } from "./model";
@@ -15,47 +16,43 @@ export const programsMetadata: Metadata = { title: "Programs", robots: { index: 
 const refused = (
 	<div className="py-12">
 		<Card className="mx-auto max-w-[560px]">
-			<NotAvailable scope="page" homeHref={PROGRAMS_PATH} />
+			<NotAvailable scope="page" homeHref={LANDING_ROUTE} />
 		</Card>
 	</div>
 );
 
-async function seat(path: string) {
-	const who = await pipelineActor();
-	if (who.kind === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(path)}`);
-	return who.kind === "seat" ? who.authority : null;
-}
+const seat = async (path: SitePath) => organizationSeatOf(await requireActor(path));
 
 export async function ProgramsPage() {
-	const authority = await seat(PROGRAMS_PATH);
-	if (!authority) return refused;
-	const list = await loadPrograms(authority);
+	const found = await seat(PROGRAMS_PATH);
+	if (!found) return refused;
+	const list = await loadPrograms(found.authority);
 	if (list.status !== "ok") return refused;
 	return <ProgramsScreen list={list.value} />;
 }
 
 export async function NewProgramPage() {
-	const authority = await seat(`${PROGRAMS_PATH}/new`);
-	if (!authority) return refused;
-	const list = await loadPrograms(authority);
+	const found = await seat(`${PROGRAMS_PATH}/new`);
+	if (!found) return refused;
+	const list = await loadPrograms(found.authority);
 	if (list.status !== "ok" || !list.value.administrator) return refused;
 	return <NewProgram list={list.value} />;
 }
 
 export async function ProgramPage({ params }: { params: Promise<{ programId: string }> }) {
 	const { programId } = await params;
-	const authority = await seat(programHref(programId));
-	if (!authority) return refused;
-	const program = await loadProgram(authority, programId);
+	const found = await seat(programHref(programId));
+	if (!found) return refused;
+	const program = await loadProgram(found.authority, programId);
 	if (program.status !== "ok") return refused;
-	return <ProgramScreen initial={program.value} organizationId={authority.actor.context.owner.id} />;
+	return <ProgramScreen initial={program.value} organizationId={found.organization.id} />;
 }
 
 export async function EnrollmentPage({ params }: { params: Promise<{ enrollmentId: string }> }) {
 	const { enrollmentId } = await params;
-	const authority = await seat(enrollmentHref(enrollmentId));
-	if (!authority) return refused;
-	const enrollment = await loadEnrollment(authority, enrollmentId);
+	const found = await seat(enrollmentHref(enrollmentId));
+	if (!found) return refused;
+	const enrollment = await loadEnrollment(found.authority, enrollmentId);
 	if (enrollment.status !== "ok") return refused;
 	return <EnrollmentScreen initial={enrollment.value} />;
 }

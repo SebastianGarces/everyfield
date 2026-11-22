@@ -1,5 +1,6 @@
 import "server-only";
 import sharp from "sharp";
+import { StorageError } from "./storage-error.ts";
 
 const PIXEL_LIMIT = 16_000_000;
 const LOGO_SIDE = 2000;
@@ -66,7 +67,7 @@ export async function processBrandAsset(
 		if (alpha && alpha.max === 0) throw Error("blank");
 		return { bytes: png, mediaType: "image/png" };
 	} catch {
-		throw Error("invalid_file");
+		throw new StorageError("invalid_file");
 	}
 }
 

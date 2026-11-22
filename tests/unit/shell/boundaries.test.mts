@@ -6,13 +6,13 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = createRequire(root + "apps/web/package.json");
 const { renderToStaticMarkup } = web("react-dom/server");
-const { createElement, isValidElement } = web("react");
+const { createElement, isValidElement }: typeof import("react") = web("react");
 const { FrameNotFound, RootNotFound } = await import("../../../apps/web/src/features/boundaries/NotFound.tsx");
 const { FrameError, GlobalErrorDocument, RootError } =
 	await import("../../../apps/web/src/features/boundaries/Errors.tsx");
 
 type Props = { error: Error & { digest?: string }; reset: () => void };
-type Boundary = (props: Props) => unknown;
+type Boundary = (props: Props) => import("react").ReactNode;
 
 const ERRORS: [string, Boundary][] = [
 	["frame error", FrameError],

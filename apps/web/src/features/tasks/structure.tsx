@@ -1,7 +1,7 @@
 "use client";
 
 import { Add01Icon, Cancel01Icon, Link04Icon, RepeatIcon } from "@hugeicons/core-free-icons";
-import { Button, Field, IconButton, Input, SearchInput, Select, Spinner } from "@everyfield/ui/controls";
+import { Button, Field, IconButton, Input, RowButton, SearchInput, Select, Spinner } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, createDebouncer, focusIfLost, Icon, useFocusRequest } from "@everyfield/ui/foundations";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -27,6 +27,7 @@ import {
 } from "./model.ts";
 import { DoneBox } from "./parts.tsx";
 import { warmAssignees } from "./AssigneePicker.tsx";
+import { READ_FAILED, loadProblem } from "../../components/read-failed.ts";
 
 export function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
 	return (
@@ -118,8 +119,7 @@ export function Steps({
 								<span
 									className={cn(
 										"min-w-0 flex-1 text-ink [overflow-wrap:anywhere]",
-										isSettled(s.status) && "text-text-3 line-through",
-										pending && "text-text-2",
+										isSettled(s.status) ? "text-text-3 line-through" : pending && "text-text-2",
 									)}
 								>
 									{s.title}
@@ -178,10 +178,10 @@ function AddStep({
 	const [title, setTitle] = useState("");
 	const [who, setWho] = useState(INHERIT);
 	const [touched, setTouched] = useState(false);
-	const [seats, setSeats] = useState<{ value: string; label: string }[] | "loading" | "failed" | null>(null);
+	const [seats, setSeats] = useState<{ value: string; label: string }[] | "loading" | "lost" | "failed" | null>(null);
 	const input = useRef<HTMLInputElement>(null);
 	const warm = () => {
-		if (seats !== null && seats !== "failed") return;
+		if (seats !== null && seats !== "lost" && seats !== "failed") return;
 		setSeats("loading");
 		warmAssignees().then((r) =>
 			setSeats(
@@ -190,7 +190,9 @@ function AddStep({
 							value: s.accountId,
 							label: s.accountId === you ? `${s.displayName} (you)` : s.displayName,
 						}))
-					: "failed",
+					: r.status === "failed"
+						? "failed"
+						: "lost",
 			),
 		);
 	};
@@ -241,7 +243,13 @@ function AddStep({
 				<span className="contents" onPointerOver={warm} onFocusCapture={warm}>
 					<Field
 						label="Assigned to"
-						hint={seats === "failed" ? "The list of people did not load. Open the list again to retry." : undefined}
+						hint={
+							seats === "failed"
+								? READ_FAILED
+								: seats === "lost"
+									? "The list of people did not load. Open the list again to retry."
+									: undefined
+						}
 					>
 						<Select
 							value={who}
@@ -458,7 +466,9 @@ function PrerequisiteEditor({
 						<Spinner size={14} /> Looking for tasks…
 					</p>
 				) : found === "failed" ? (
-					<p className="px-1 py-2 text-sm text-magenta-600">The tasks did not load. Change the search to try again.</p>
+					<p className="px-1 py-2 text-sm text-magenta-600">
+						{loadProblem(read.value, "The tasks did not load. Change the search to try again.")}
+					</p>
 				) : offered.length === 0 ? (
 					<p className="px-1 py-2 text-sm text-text-3">
 						{search ? "No other task matches." : "No other task can be added."}
@@ -467,18 +477,17 @@ function PrerequisiteEditor({
 					<ul aria-label="Tasks you can add" className="max-h-[220px] overflow-y-auto">
 						{offered.map((c) => (
 							<li key={c.id}>
-								<button
-									type="button"
+								<RowButton
 									disabled={full}
 									onClick={() =>
 										setChosen((x) => [...x, { ...c, deleted: false, blocking: blocks({ ...c, deleted: false }) }])
 									}
-									className="flex min-h-11 w-full items-center gap-2 rounded-sm px-2 text-left hover:bg-hover disabled:opacity-45"
+									className="min-h-11 items-center gap-2 rounded-sm px-2"
 								>
 									<Icon icon={Add01Icon} size={16} className="flex-none text-text-3" />
 									<span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{c.title}</span>
 									{isSettled(c.status) ? <span className="text-sm text-text-3">{STATUS_LABEL[c.status]}</span> : null}
-								</button>
+								</RowButton>
 							</li>
 						))}
 					</ul>

@@ -1,5 +1,5 @@
 import type { OrganizationOperations as Ops } from "@everyfield/contracts/organizations";
-import type { Reply } from "@/server/organizations";
+import type { Reply } from "../mount";
 import type { RelationshipInvitationRead } from "./handler.ts";
 
 type Respond = Ops["associations.respondInvitation"];

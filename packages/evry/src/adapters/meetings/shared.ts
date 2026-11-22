@@ -5,6 +5,7 @@ import { meetingsReader } from "@everyfield/domain/meetings";
 import { z } from "zod";
 import type { EvryActor } from "../../context/actor.ts";
 import { EvryRefusal } from "../../context/errors.ts";
+import { localWhen } from "../../catalog/labels.ts";
 import type { SourceRow } from "../../catalog/types.ts";
 
 export const id = z.string().regex(/^[0-9a-f-]{36}$/);
@@ -29,23 +30,6 @@ export async function meeting(db: Pick<Transaction, "execute">, actor: EvryActor
 	return m?.status === "available" ? m.meeting : null;
 }
 
-const part = (at: Date, zone: string, options: Intl.DateTimeFormatOptions) =>
-	new Intl.DateTimeFormat("en-US", { ...options, timeZone: zone }).format(at);
-export function localWhen(instant: string, zone: string) {
-	const at = new Date(instant);
-	return `${part(at, zone, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}, ${part(at, zone, {
-		hour: "numeric",
-		minute: "2-digit",
-		timeZoneName: "short",
-	})}`;
-}
-
-export const TYPE_LABEL: Record<string, string> = {
-	vision_meeting: "Vision meeting",
-	orientation: "Orientation",
-	team_meeting: "Team meeting",
-	prelaunch_practice: "Pre-launch practice",
-};
 export const RSVP: Record<string, string> = { confirmed: "yes", declined: "no", pending: "no answer" };
 
 type Summary = z.infer<typeof meetingSummary>;

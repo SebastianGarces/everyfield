@@ -4,25 +4,29 @@ import type { PrivateStorage } from "@everyfield/db/schema";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { createAssessmentJob, runAssessmentBatch, type Drafter } from "@everyfield/domain/intelligence";
 import { deleteExpiredImportFiles } from "@everyfield/domain/people";
-import type { TaskReminders } from "@everyfield/domain/tasks";
-import { closeLostJobs } from "@everyfield/evry";
+import { closeLostJobs, type EffectPorts } from "@everyfield/evry";
 import {
 	cancelUnsubscribedHeld,
 	runDueScheduled,
 	type DeliveryKeys,
 	type DeliveryTransport,
 } from "@everyfield/domain/communication";
-import { timingSafeEqual } from "node:crypto";
 import "server-only";
 import { runEffects, runTurns } from "../evry/worker.ts";
 import { runDueImports } from "../../features/people/import-export/run-imports.ts";
-import { transaction } from "../platform/database.ts";
-import { planDigests, type DigestWorker } from "./digest.ts";
-import { runDuePurges } from "./lifecycle-purge.ts";
-import { expireStaleMail, type MailPass, type MailPassName } from "./mail.ts";
+import {
+	transaction,
+	runDuePurges,
+	runDueObjectCleanup,
+	expireStaleMail,
+	type MailPass,
+	type MailPassName,
+	replayStoredCallbacks,
+	planDigests,
+	type DigestWorker,
+} from "@everyfield/domain/jobs";
 import type { NotificationWorker } from "../../features/notifications/worker.ts";
-import { runDueObjectCleanup } from "./object-cleanup.ts";
-import { replayStoredCallbacks } from "./webhook.ts";
+import { asLogWord, logLine } from "@everyfield/domain/log";
 
 const START_MS = 60_000;
 
@@ -41,11 +45,10 @@ export function scheduledMessages(db: Database, transport: DeliveryTransport, ke
 }
 
 export function scheduledJobs(config: {
-	secret: string | undefined;
-	db: Database | null;
+	db: Database;
 	storage: PrivateStorage | null;
 	cleanup: Database | null;
-	reminders: TaskReminders | null;
+	effects: EffectPorts | null;
 	mail: ((limit: number, until: number) => Promise<number>) | null;
 	messages?: ((limit: number, until: number) => Promise<number>) | null;
 	mountMail?: Partial<Record<Exclude<MailPassName, "mail">, MailPass | null>>;
@@ -55,17 +58,11 @@ export function scheduledJobs(config: {
 	assessments?: { drafter: Drafter } | null;
 	now?: () => Date;
 }) {
-	return async (request: Request): Promise<Response> => {
-		if (!config.secret) return Response.json({ status: "unavailable" }, { status: 503 });
-		const expected = Buffer.from(`Bearer ${config.secret}`);
-		const actual = Buffer.from(request.headers.get("authorization") ?? "");
-		if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
-			return Response.json({ status: "unauthorized" }, { status: 401 });
+	return async (): Promise<Response> => {
 		const db = config.db;
-		if (!db) return Response.json({ status: "unavailable" }, { status: 503 });
 		const until = Date.now() + START_MS;
 		const asOf = (config.now?.() ?? new Date()).toISOString();
-		const { storage, cleanup, reminders, digests, mail } = config;
+		const { storage, cleanup, effects, digests, mail } = config;
 		const messages = config.messages ?? null;
 		const notifications = config.notifications ?? null;
 		const feedbackPublication = config.feedbackPublication ?? null;
@@ -83,7 +80,7 @@ export function scheduledJobs(config: {
 			["object-cleanup", "removed", storage && (() => runDueObjectCleanup(db, storage, 4, until))],
 			["documents-orphans", null, storage && (() => sweepOrphans(db, storage))],
 			["lifecycle-purge", "purged", cleanup && storage && (() => runDuePurges(db, cleanup, storage, 2, until))],
-			["evry-effect", "effects", reminders && (() => runEffects(db, reminders, 4, until))],
+			["evry-effect", "effects", effects && (() => runEffects(db, effects, 4, until))],
 			["assistant-turn", "turns", () => runTurns(db, 4, until)],
 			["digest-planning", "planned", digests && (() => planDigests(db, asOf))],
 			["digest-delivery", "digests", digests && (() => digests.run(db, asOf, undefined, until))],
@@ -126,11 +123,11 @@ export function scheduledJobs(config: {
 				report[component] = { status: "ok", count: count ?? null };
 				if (key) counts[key] = count;
 			} catch {
-				console.error(JSON.stringify({ component, runner: "scheduled-jobs", outcome: "error" }));
+				logLine({ component: asLogWord(component), runner: "scheduled-jobs", outcome: "error" });
 				report[component] = { status: "failed" };
 			}
 		}
-		const failed = Object.keys(report).filter((component) => report[component]!.status === "failed");
+		const failed = Object.entries(report).flatMap(([component, step]) => (step.status === "failed" ? [component] : []));
 		return Response.json(
 			{ status: failed.length ? "failed" : "ok", ...counts, failed, steps: report },
 			{ status: failed.length ? 500 : 200 },

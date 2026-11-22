@@ -26,8 +26,12 @@ import { RESIDENCY_TEMPLATE } from "../../packages/contracts/src/organizations/p
 import { accountPersonProducer, peopleWriter, personFields } from "../../packages/domain/src/people/index.ts";
 import { createTaskWriter } from "../../packages/domain/src/tasks/index.ts";
 import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
-import { receiveMailCallback } from "../../apps/web/src/server/jobs/webhook.ts";
+import { resendWebhook } from "../../apps/web/src/server/jobs/webhook-route.ts";
 import { FULL_ADDRESS, QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
+import { gatedTransaction } from "../../packages/domain/src/operations/writes.ts";
+import { errorClass } from "../../packages/domain/src/log.ts";
+import { canonical, hash, stableId } from "../../packages/reference/src/hash.ts";
+import { loadStarter } from "../../packages/reference/src/starter-load.ts";
 
 const CHURCH = "Harvest Point (QA)";
 const RIVERSIDE = { name: "Riverside (QA)", city: "Dallas", owner: "Rachel Moss" } as const;
@@ -81,11 +85,11 @@ type Ctx = { session: string; selected: { kind: "plant"; id: string } };
 type Reply = { status: string; value?: unknown };
 
 function ok(what: string, reply: Reply): unknown {
-	if (reply.status !== "ok") throw Error(`${what}: ${JSON.stringify(reply)}`);
+	if (reply.status !== "ok") throw new SeedFailed(`${what}: ${JSON.stringify(reply)}`);
 	return reply.value;
 }
 
-async function rows(db: Database, query: ReturnType<typeof sql>) {
+async function rows(db: Pick<Database, "execute">, query: ReturnType<typeof sql>) {
 	return (await db.execute(query)).rows as Record<string, unknown>[];
 }
 
@@ -107,7 +111,22 @@ async function logins(admin: Database, password: string) {
 	}
 }
 
-class SeedRefusal extends Error {}
+class SeedRefusal extends Error {
+	readonly reason: string;
+	constructor(reason: string) {
+		super(reason);
+		this.name = "SeedRefusal";
+		this.reason = reason;
+	}
+}
+class SeedFailed extends Error {
+	readonly reason: string;
+	constructor(reason: string) {
+		super(reason);
+		this.name = "SeedFailed";
+		this.reason = reason;
+	}
+}
 
 function sharedAddress(env: Readonly<Record<string, string | undefined>>): string {
 	const first = (env.QA_TEST_RECIPIENTS ?? "").split(",")[0]!.trim();
@@ -190,7 +209,7 @@ async function fill(
 			password: QA_PASSWORD,
 			requestKey: randomUUID(),
 		});
-		if (!r.ok) throw Error(`register ${email}: ${r.status} ${await r.text()}`);
+		if (!r.ok) throw new SeedFailed(`register ${email}: ${r.status} ${await r.text()}`);
 		await admin.execute(sql`UPDATE auth_user SET email_verified=true WHERE email=${email}`);
 		if (active)
 			await admin.execute(
@@ -225,7 +244,7 @@ async function fill(
 		const open = sessions.get(email);
 		if (open) return open;
 		const signedIn = await call("sign-in/email", { email, password: QA_PASSWORD });
-		if (!signedIn.ok) throw Error(`sign in ${email}: ${signedIn.status}`);
+		if (!signedIn.ok) throw new SeedFailed(`sign in ${email}: ${signedIn.status}`);
 		const row = await rows(
 			admin,
 			sql`SELECT s.id FROM auth_session s JOIN auth_user u ON u.id=s.user_id WHERE u.email=${email}
@@ -239,7 +258,7 @@ async function fill(
 
 	const noop = async () => {};
 	const onboarding = createOnboardingProducer({ relationships: noop, enqueue: noop });
-	const write = <T>(run: (tx: never) => Promise<T>) => runtime.transaction((tx) => run(tx as never));
+	const write = <T>(run: (tx: never) => Promise<T>) => gatedTransaction(runtime, (tx) => run(tx as never));
 	async function church(name: string, city: string, ownerAccount: string, ownerEmail: string, label: string) {
 		let id = (await rows(admin, sql`SELECT id FROM plant WHERE name=${name} ORDER BY id LIMIT 1`))[0]?.id as
 			string | undefined;
@@ -435,7 +454,7 @@ async function fill(
 
 	if (!(await rows(admin, sql`SELECT 1 FROM document WHERE tenant_id=${plantId} AND title=${DOCUMENT}`)).length) {
 		const actor = await RequestActor.resolve(runtime, (await ctx()).session as never);
-		if (!(actor instanceof RequestActor)) throw Error(`document actor: ${JSON.stringify(actor)}`);
+		if (!(actor instanceof RequestActor)) throw new SeedFailed(`document actor: ${JSON.stringify(actor)}`);
 		ok(
 			"document",
 			await documentsWriter.saveNative(runtime, actor, {
@@ -518,7 +537,7 @@ async function fill(
 				WHERE r.${column}=${subject.id} AND r.organization_id=${organization.id} AND i.state='pending'`,
 		);
 		for (const i of stale)
-			await runtime.transaction((tx) =>
+			await gatedTransaction(runtime, (tx) =>
 				organizations["associations.revokeInvitation"](
 					tx,
 					s,
@@ -542,7 +561,7 @@ async function fill(
 			subject.kind === "plant"
 				? { kind: "plant", subject, organization }
 				: { kind: "sending_church", subject, organization };
-		const invited = await runtime.transaction((tx) =>
+		const invited = await gatedTransaction(runtime, (tx) =>
 			organizations["associations.invite"](
 				tx,
 				s,
@@ -551,7 +570,7 @@ async function fill(
 			),
 		);
 		const answer = (await sessionOf(recipient)) as never;
-		await runtime.transaction((tx) =>
+		await gatedTransaction(runtime, (tx) =>
 			organizations["associations.acceptInvitation"](
 				tx,
 				answer,
@@ -613,6 +632,7 @@ async function fill(
 	const wikiWritten = await wiki(admin);
 	done.push(...(await wikiCases(admin, plantId, owner)));
 	if (wikiWritten) done.push("wiki");
+	if (await ministryTemplates(admin)) done.push("ministry templates");
 	done.push(...(await checkIns(admin, runtime, owner, plantId, ownerSession)));
 
 	for (const id of sessions.values()) await admin.execute(sql`DELETE FROM auth_session WHERE id=${id}`);
@@ -629,6 +649,7 @@ const GRACE_STAFF = [
 	{ name: "Ben Carter", login: QA_LOGINS.graceMember, role: "member" },
 ] as const;
 const RESIDENT = { name: "Casey Lee", login: QA_LOGINS.resident } as const;
+const ENDED_RESIDENT = { name: "Riley Hart", login: QA_LOGINS.endedResident } as const;
 const HILL_OWNER = { name: "Ruth Calder", login: QA_LOGINS.hillOwner } as const;
 const PROGRAM = "Church planting residency";
 const MILESTONES = {
@@ -698,6 +719,7 @@ async function multiplication(m: Multiplication): Promise<void> {
 	for (const s of GRACE_STAFF)
 		accounts.set(s.login, await m.account(s.name, s.login, { kind: "sending_church", name: GRACE }));
 	const caseyAccount = await m.account(RESIDENT.name, RESIDENT.login, { kind: "discovery" });
+	const endedAccount = await m.account(ENDED_RESIDENT.name, ENDED_RESIDENT.login, { kind: "discovery" });
 	const ruth = await m.account(HILL_OWNER.name, HILL_OWNER.login, { kind: "sending_network", name: HILL });
 
 	const grace = await m.organizationRow("sending_church", GRACE);
@@ -709,7 +731,7 @@ async function multiplication(m: Multiplication): Promise<void> {
 
 	const authority = async (email: string) => {
 		const actor = await RequestActor.resolve(runtime, (await m.sessionOf(email)) as never);
-		if (!(actor instanceof RequestActor)) throw Error(`actor ${email}: ${JSON.stringify(actor)}`);
+		if (!(actor instanceof RequestActor)) throw new SeedFailed(`actor ${email}: ${JSON.stringify(actor)}`);
 		return actor;
 	};
 	const personOf = async (org: string, name: string) =>
@@ -917,26 +939,29 @@ async function multiplication(m: Multiplication): Promise<void> {
 		done.push(`feedback on ${MILESTONES.preach}`);
 	}
 
-	const linked = sql`SELECT 1 FROM residency_link WHERE account_id=${caseyAccount} AND organization_id=${grace.id} AND ended_at IS NULL`;
-	if (!(await rows(admin, linked)).length) {
-		const proofs = new Map<string, string>();
-		const invitations = createInvitationService({
-			db: runtime,
-			origin: ORIGIN,
-			budgetSecret: randomBytes(32).toString("hex"),
-			people: accountPersonProducer,
-			addressBlocked: () => sql`false`,
-			enqueueMail: async (_tx, mail) => {
-				const proof = /#proof=(\S+)/.exec(mail.text)?.[1];
-				if (proof) proofs.set(mail.invitationId, decodeURIComponent(proof));
-				return "";
-			},
-		});
+	const proofs = new Map<string, string>();
+	const invitations = createInvitationService({
+		db: runtime,
+		origin: ORIGIN,
+		budgetSecret: randomBytes(32).toString("hex"),
+		people: accountPersonProducer,
+		addressBlocked: () => sql`false`,
+		enqueueMail: async (_tx, mail) => {
+			const proof = /#proof=(\S+)/.exec(mail.text)?.[1];
+			if (proof) proofs.set(mail.invitationId, decodeURIComponent(proof));
+			return "";
+		},
+	});
+	async function linkResident(
+		personId: string,
+		login: string,
+		choices: { shareFoundations: boolean; shareMilestones: boolean },
+	) {
 		const luis = await authority(QA_LOGINS.graceAdmin);
 		for (const i of await rows(
 			admin,
 			sql`SELECT id, revision::text AS revision FROM invitation WHERE tenant_id=${grace.id} AND purpose='residency_link'
-				AND resident_person_id=${casey} AND state='pending'`,
+				AND resident_person_id=${personId} AND state='pending'`,
 		))
 			await invitations.revoke(luis, {
 				requestKey: randomUUID(),
@@ -948,19 +973,18 @@ async function multiplication(m: Multiplication): Promise<void> {
 		const sent = await invitations.inviteResident(luis, {
 			requestKey: randomUUID(),
 			expectedRevision: revision,
-			input: { organization: grace, personId: casey, recipientEmail: RESIDENT.login },
+			input: { organization: grace, personId, recipientEmail: login },
 		});
 		const invitationId = sent.invitation.invitationId as string;
-		await invitations.respondResident(await m.sessionOf(RESIDENT.login), {
+		await invitations.respondResident(await m.sessionOf(login), {
 			requestKey: randomUUID(),
 			expectedRevision: "1",
-			input: {
-				invitationId,
-				proof: proofs.get(invitationId)!,
-				decision: "accept",
-				choices: { shareFoundations: false, shareMilestones: true },
-			},
+			input: { invitationId, proof: proofs.get(invitationId)!, decision: "accept", choices },
 		});
+	}
+	const linked = sql`SELECT 1 FROM residency_link WHERE account_id=${caseyAccount} AND organization_id=${grace.id} AND ended_at IS NULL`;
+	if (!(await rows(admin, linked)).length) {
+		await linkResident(casey, RESIDENT.login, { shareFoundations: false, shareMilestones: true });
 		done.push(`residency link ${RESIDENT.name}`);
 	}
 	const vision = await milestoneId(MILESTONES.vision);
@@ -1025,6 +1049,39 @@ async function multiplication(m: Multiplication): Promise<void> {
 		done.push(`conversation with ${c.about}`);
 	}
 
+	const endedLink = async () =>
+		(
+			await rows(
+				admin,
+				sql`SELECT id, revision::text AS revision, consent_revision::text AS consent, ended_at IS NOT NULL AS ended
+					FROM residency_link WHERE account_id=${endedAccount} AND organization_id=${grace.id} ORDER BY accepted_at LIMIT 1`,
+			)
+		)[0] as { id: string; revision: string; consent: string; ended: boolean } | undefined;
+	if (!(await endedLink())) {
+		const person = await place(grace.id, QA_LOGINS.graceOwner, ENDED_RESIDENT.name, ENDED_RESIDENT.login, null);
+		await linkResident(person, ENDED_RESIDENT.login, { shareFoundations: false, shareMilestones: true });
+		done.push(`residency link ${ENDED_RESIDENT.name}`);
+	}
+	const ended = (await endedLink())!;
+	if (!ended.ended) {
+		const s = (await m.sessionOf(ENDED_RESIDENT.login)) as never;
+		const left = await gatedTransaction(runtime, (tx) =>
+			m.organizations["residency.leave"](
+				tx,
+				s,
+				{ kind: "account", id: endedAccount } as never,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: ended.revision,
+					input: { linkId: ended.id, expectedConsentRevision: ended.consent },
+				} as never,
+			),
+		);
+		if (left.status !== "committed")
+			throw new SeedFailed(`leave residency ${ENDED_RESIDENT.name}: ${JSON.stringify(left)}`);
+		done.push(`left residency ${ENDED_RESIDENT.name}`);
+	}
+
 	if (await m.relate(grace, hill, QA_LOGINS.graceOwner, HILL_OWNER.login)) done.push(`connection ${GRACE} to ${HILL}`);
 	const link = (
 		await rows(
@@ -1036,7 +1093,7 @@ async function multiplication(m: Multiplication): Promise<void> {
 	)[0]! as { id: string; revision: string; shared: boolean };
 	if (!link.shared) {
 		const s = (await m.sessionOf(QA_LOGINS.graceOwner)) as never;
-		await runtime.transaction((tx) =>
+		await gatedTransaction(runtime, (tx) =>
 			m.organizations["pipelineSharing.setConsent"](
 				tx,
 				s,
@@ -1118,7 +1175,7 @@ async function mailCases(
 		for (const name of DELIVERY_TO) personIds.push((await p.personId(name))!.id);
 		ok(
 			"delivery message",
-			await runtime.transaction((tx) =>
+			await gatedTransaction(runtime, (tx) =>
 				communicationWriter.saveDraft(tx as never, c as never, {
 					requestKey: randomUUID(),
 					input: {
@@ -1133,7 +1190,7 @@ async function mailCases(
 		const at = new Date(Math.ceil((Date.now() + 60_000) / 60_000) * 60_000).toISOString();
 		ok(
 			"schedule delivery message",
-			await runtime.transaction((tx) =>
+			await gatedTransaction(runtime, (tx) =>
 				communicationWriter.scheduleReviewed(tx as never, c as never, {
 					requestKey: randomUUID(),
 					expectedRevision: draft.revision,
@@ -1143,7 +1200,7 @@ async function mailCases(
 		);
 		const scheduled = (await message())!;
 		const actor = await RequestActor.resolve(runtime, c.session as never);
-		if (!(actor instanceof RequestActor)) throw Error(`delivery actor: ${JSON.stringify(actor)}`);
+		if (!(actor instanceof RequestActor)) throw new SeedFailed(`delivery actor: ${JSON.stringify(actor)}`);
 		const accepting: DeliveryTransport = {
 			send: async (batch) => ({ outcome: "ids", ids: batch.messages.map(() => `qa-seed-${randomUUID()}`) }),
 			cancel: async (ids) => ids.map(() => ({ outcome: "unknown" })),
@@ -1160,7 +1217,7 @@ async function mailCases(
 			),
 		) as { acceptedCount: number; rejectedCount: number };
 		if (result.acceptedCount !== DELIVERY_TO.length - 1 || result.rejectedCount !== 1)
-			throw Error(`send delivery message: ${JSON.stringify(result)}`);
+			throw new SeedFailed(`send delivery message: ${JSON.stringify(result)}`);
 		const accepted = await rows(
 			admin,
 			sql`SELECT provider_message_id AS id FROM mail WHERE tenant_id=${p.plantId} AND purpose='communication'
@@ -1178,16 +1235,17 @@ async function mailCases(
 			const signature = createHmac("sha256", Buffer.from(secret.slice(6), "base64"))
 				.update(`${id}.${stamp}.${raw}`)
 				.digest("base64");
-			const received = await receiveMailCallback(
-				runtime,
-				new Request(`${ORIGIN}/api/webhooks/mail`, {
+			const response = await resendWebhook(
+				new Request(`${ORIGIN}/api/webhooks/resend`, {
 					method: "POST",
 					headers: { "svix-id": id, "svix-timestamp": stamp, "svix-signature": `v1,${signature}` },
 					body: raw,
 				}),
+				() => runtime,
 				secret,
 			);
-			if (received.result !== "applied") throw Error(`delivered callback: ${JSON.stringify(received)}`);
+			const received = await response.text();
+			if (JSON.parse(received).result !== "applied") throw new SeedFailed(`delivered callback: ${received}`);
 		}
 		done.push(`message ${DELIVERY}`);
 	}
@@ -1256,8 +1314,8 @@ async function checkIns(
 	let now = "";
 	const care = createPrivateCare({ clock: { now: () => now as Instant } });
 	const actor = await RequestActor.resolve(runtime, (await ownerSession()) as never);
-	if (!(actor instanceof RequestActor)) throw Error(`check-in actor: ${JSON.stringify(actor)}`);
-	await runtime.transaction(async (tx) => {
+	if (!(actor instanceof RequestActor)) throw new SeedFailed(`check-in actor: ${JSON.stringify(actor)}`);
+	await gatedTransaction(runtime, async (tx) => {
 		for (const [index, [spiritual, family, financial, pace, note]] of CHECK_INS.entries()) {
 			now = times[index]!;
 			ok(
@@ -1303,6 +1361,42 @@ async function wiki(admin: Database): Promise<boolean> {
 	return true;
 }
 
+async function ministryTemplates(admin: Database): Promise<boolean> {
+	const starter = await loadStarter();
+	const source = starter.sources.find((s) => s.path === "docs/reference/ministry-role-templates.ts");
+	if (!source) throw Error("ministry templates: the reference starter has no ministry-role-templates.ts");
+	const templates = starter.catalogs.teams.map((row) => {
+		const key = String(row.teamKey),
+			body = canonical(row);
+		return { key, id: stableId("ministry_template:" + key), contentHash: hash(body) };
+	});
+	return admin.transaction(async (tx) => {
+		const [release] = await rows(
+			tx,
+			sql`SELECT r.id, r.release_key, r.artifact_locator FROM reference_activation a
+				JOIN reference_release r ON r.id = a.release_id ORDER BY a.activation_number DESC LIMIT 1`,
+		);
+		if (!release) throw Error("ministry templates: no active reference release");
+		let wrote = false;
+		for (const template of templates) {
+			await tx.execute(sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id)
+				VALUES(${template.id},'ministry_template',${template.key},${GLOBAL}) ON CONFLICT DO NOTHING`);
+			const [item] = await rows(
+				tx,
+				sql`SELECT i.id, EXISTS(SELECT 1 FROM reference_version v WHERE v.item_id = i.id) AS versioned
+					FROM reference_item i WHERE i.kind = 'ministry_template' AND i.canonical_key = ${template.key}`,
+			);
+			if (item!.versioned) continue;
+			const itemId = item!.id as string;
+			const revisionId = stableId(`${String(release.release_key)}:${itemId}:${template.contentHash}`);
+			await tx.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
+				VALUES(${stableId("version:" + revisionId)},${itemId},${release.id as string},1,${`${String(release.artifact_locator)}#${itemId}`},${template.contentHash},${`${source.path}@${source.sha256}`})`);
+			wrote = true;
+		}
+		return wrote;
+	});
+}
+
 const SOURCES = [
 	{ kind: "sending_church", name: "Grace Fellowship (QA)", version: "church version", acceptedDaysAgo: 30 },
 	{ kind: "sending_network", name: "Harvest Network (QA)", version: "network version", acceptedDaysAgo: 20 },
@@ -1328,7 +1422,7 @@ async function starterArticles(admin: Database) {
 			GROUP BY r.article_id ORDER BY 2, 3, 1 LIMIT 3`,
 	);
 	if (found.length < 3)
-		throw Error(
+		throw new SeedFailed(
 			`wiki: the active release has ${found.length} published global articles; articles A, B and C need three`,
 		);
 	return found.map((row) => row.article_id as string) as [string, string, string];
@@ -1438,7 +1532,14 @@ if (import.meta.main) {
 	try {
 		console.log(await seed(process.env));
 	} catch (error) {
-		console.error(error instanceof SeedRefusal ? `QA seed refused: ${error.message}` : `QA seed failed: ${error}`);
+		const failure = errorClass(error);
+		console.error(
+			error instanceof SeedRefusal
+				? `QA seed refused: ${error.reason}`
+				: error instanceof SeedFailed
+					? `QA seed failed: ${error.reason}`
+					: `QA seed failed: ${failure.name}${failure.code ? ` ${failure.code}` : ""}`,
+		);
 		process.exitCode = error instanceof SeedRefusal ? 2 : 1;
 	}
 }

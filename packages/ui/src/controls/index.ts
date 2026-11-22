@@ -1,5 +1,14 @@
 export { Alert, InlineAlert, type AlertLive, type AlertProps, type AlertTone } from "./Alert";
-export { Button, buttonVariants, IconButton, iconButtonVariants } from "./Button";
+export {
+	Button,
+	buttonVariants,
+	FieldButton,
+	IconButton,
+	iconButtonVariants,
+	RowButton,
+	TextButton,
+	textButtonVariants,
+} from "./Button";
 export {
 	CalloutLabel,
 	CalloutText,
@@ -22,10 +31,14 @@ export {
 } from "./Card";
 export { Checkbox, Radio, RadioGroup, Switch } from "./Choice";
 export { Combobox, FilterChip, type ComboboxOption } from "./Combobox";
+export { Command, keepKeyInField } from "./Command";
+export { Count } from "./Count";
 export { CommandPalette, type CommandGroup, type CommandItem } from "./CommandPalette";
 export { DateRangePicker, formatRange, type DatePreset, type DateRange } from "./DateRangePicker";
 export {
 	ConfirmDialog,
+	settleConfirm,
+	type ConfirmRefusal,
 	Dialog,
 	DialogBody,
 	DialogClose,
@@ -66,4 +79,4 @@ export { Select, type SelectOption } from "./Select";
 export { Spinner } from "./Spinner";
 export { EmptyState, PageState, Skeleton, StatePanel, type StateTone } from "./States";
 export { CountChip, SegmentedControl, Tab, Tabs, TabsList, TabsPanel, type SegmentOption } from "./Tabs";
-export { ToastProvider, useToast, type ToastInput, type ToastTone } from "./Toast";
+export { toast, Toaster, type ToastInput, type ToastTone } from "./Toaster";

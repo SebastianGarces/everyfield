@@ -65,7 +65,7 @@ export async function readAssociationAudience(db: Database, authority: RequestAc
 				) recipients), '[]'::json) AS ids`);
 		const row = idsRow.parse({ ...result.rows[0], ids: jsonValue(result.rows[0]?.ids) });
 		if (!row.allowed) deny("access_denied");
-		return associationAudienceResult.parse({ recipientIds: row.ids });
+		return { recipientIds: row.ids } satisfies z.output<typeof associationAudienceResult>;
 	});
 }
 
@@ -91,7 +91,7 @@ export async function readAssociationReceipt(db: Database, authority: RequestAct
 				), '[]'::json) AS recipients`);
 		const row = receiptRow.parse({ ...result.rows[0], recipients: jsonValue(result.rows[0]?.recipients) });
 		if (!row.allowed) deny("access_denied");
-		return associationReceiptResult.parse({ recipients: row.recipients });
+		return { recipients: row.recipients } satisfies z.output<typeof associationReceiptResult>;
 	});
 }
 
@@ -118,7 +118,7 @@ export async function readMeetingAudience(db: Database, authority: RequestActor,
 				) ids), '[]'::json) AS ids`);
 		const row = idsRow.parse({ ...result.rows[0], ids: jsonValue(result.rows[0]?.ids) });
 		if (!row.allowed) deny("access_denied");
-		return meetingAudienceResult.parse({ recipientIds: row.ids });
+		return { recipientIds: row.ids } satisfies z.output<typeof meetingAudienceResult>;
 	});
 }
 
@@ -142,7 +142,7 @@ export function cancelTaskReminders(db: Database, authority: RequestActor, raw: 
 				.array(z.object({ id: z.uuid() }))
 				.parse(result.rows)
 				.map((row) => row.id);
-			const row = cancelRow.parse({ ids });
+			const row = { ids } satisfies z.output<typeof cancelRow>;
 			audit(cmd, {
 				subjectId: input.input.taskId,
 				kind: row.ids.length ? "edit" : "noop",

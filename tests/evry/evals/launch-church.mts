@@ -8,6 +8,7 @@ import { createLaunchWriter } from "../../../packages/domain/src/launch/writes.t
 import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { ACTOR_SPECS, PLANT, type ActorName } from "./golden-church.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 export const ZONE = "America/Chicago";
 export const today = () =>
@@ -174,7 +175,7 @@ export async function seedNeedsReview(db: Database) {
 export const MATCH = { name: "Maria Lopez", email: "maria.lopez@example.test" } as const;
 export const OUTCOME_NOTE = "Rain in the morning, so the overflow room opened late.";
 export async function seedGuestMatch(db: Database) {
-	const r = await db.transaction((tx) =>
+	const r = await gatedTransaction(db, (tx) =>
 		peopleWriter.createPerson(
 			tx as never,
 			{ session: sessionOf("owner"), selected: { kind: "plant", id: PLANT } } as never,

@@ -67,8 +67,8 @@ const emptyAudience = { groups: [] as string[], teamIds: [] as string[], personI
 
 function forkId(plantId: string, sourceKey: string): string {
 	const bytes = createHash("sha256").update(`${plantId}\0${sourceKey}`).digest();
-	bytes[6] = (bytes[6]! & 0x0f) | 0x50;
-	bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+	bytes[6] = (bytes.readUInt8(6) & 0x0f) | 0x50;
+	bytes[8] = (bytes.readUInt8(8) & 0x3f) | 0x80;
 	const hex = bytes.subarray(0, 16).toString("hex");
 	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
@@ -383,22 +383,17 @@ export const communicationWriter = {
 type DraftValue = z.infer<typeof c.draftResult>;
 async function saveDraft(tx: Tx, context: CommunicationContext, raw: unknown): Promise<DraftValue> {
 	const input = parse(c.saveDraftRequest, raw);
-	if (input.input.communicationId && !input.expectedRevision) deny("invalid_input");
+	const editing = input.input.communicationId
+		? { id: input.input.communicationId, expectedRevision: input.expectedRevision ?? deny("invalid_input") }
+		: null;
 	return command(tx, context, "communication.saveDraft", input, async (cmd) => {
 		if (!administers(cmd.actor)) deny("access_denied");
 		const meetingId = input.input.meetingId ?? null;
 		const templateId = input.input.templateId ?? null;
 		await subjects(tx, cmd.actor, context.session, meetingId, templateId);
 		const body = storedBody(input.input.bodyHtml);
-		if (input.input.communicationId) {
-			const current = await lockDraft(
-				tx,
-				cmd.actor,
-				context.session,
-				input.input.communicationId,
-				input.expectedRevision!,
-				["draft"],
-			);
+		if (editing) {
+			const current = await lockDraft(tx, cmd.actor, context.session, editing.id, editing.expectedRevision, ["draft"]);
 			const next = {
 				subject: input.input.subject === undefined ? current.subject : input.input.subject,
 				body_html: input.input.bodyHtml === undefined ? current.body_html : body,
@@ -536,7 +531,8 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 			const parts = reviewedParts(people);
 			if (!parts.people.length) deny("invalid_input");
 			const shown = input.input.recipientsDigest;
-			if (shown && shown !== recipientsDigest(people)) deny("stale_review", { providerHandoffs: 0 });
+			if (shown && shown !== recipientsDigest(people))
+				deny("stale_review", { previewBody: current.body_html, scriptExecution: false, providerCalls: 0 });
 			const digest = reviewedDigest(current.subject, current.body_html, parts.people, parts.emails);
 			const revision = bump(current.revision);
 			const scheduled = {
@@ -813,7 +809,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown, previe
 	const digest = reviewedDigest(found.subject, sourceBody ? sourceBody : null, parts.people, parts.emails);
 	if (input.audienceChangedAfterReview || (found.review_digest !== null && found.review_digest !== digest))
 		deny("stale_review", { previewBody, scriptExecution: false, providerCalls: 0 });
-	return c.previewResult.parse({
+	return {
 		previewBody,
 		previewHtml: renderEmailHtml(input.bodyHtml, merge, { churchName: found.church_name ?? "" }, "preview"),
 		scriptExecution: false,
@@ -821,7 +817,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown, previe
 		eligibleEmails: summary.eligibleEmails,
 		excludedMissingEmail: summary.missingEmailExclusions,
 		duplicateAddressesRemoved: summary.duplicateAddressesRemoved,
-	});
+	} satisfies z.output<typeof c.previewResult>;
 }
 async function audience(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.resolveAudienceRequest, request);
@@ -880,7 +876,7 @@ async function merge(tx: Tx, authority: RequestActor, raw: unknown) {
 		.parse(one(await tx.execute(sql`SELECT ${communicationAccess(reader, reader.session, true)} AS allowed`)));
 	requireAllowed(found.allowed);
 	const bodyHtml = renderBody(input.bodyHtml, input.merge);
-	return c.mergeResult.parse({ bodyHtml, bodyText: plainText(bodyHtml) });
+	return { bodyHtml, bodyText: plainText(bodyHtml) } satisfies z.output<typeof c.mergeResult>;
 }
 async function templates(tx: Tx, authority: RequestActor) {
 	const reader = readerOf(authority);
@@ -946,7 +942,10 @@ async function meetingTemplate(tx: Tx, authority: RequestActor, raw: unknown) {
 			template.meetingType === input.meetingType &&
 			!template.archived,
 	);
-	return fork ?? asSystem(systemInvitation(input.meetingType)!);
+	if (fork) return fork;
+	const system = systemInvitation(input.meetingType);
+	if (!system) throw Error(`No system invitation for ${input.meetingType} meetings`);
+	return asSystem(system);
 }
 async function getDraft(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.recordRequest, request);

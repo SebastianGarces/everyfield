@@ -5,18 +5,8 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { personRow } from "../../../catalog/person-row.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
-import {
-	day,
-	inPlant,
-	localWhen,
-	meeting,
-	meetingId,
-	meetingRow,
-	ownerOrAdmin,
-	RSVP,
-	value,
-	venueId,
-} from "../shared.ts";
+import { localWhen } from "../../../catalog/labels.ts";
+import { day, inPlant, meeting, meetingId, meetingRow, ownerOrAdmin, RSVP, value, venueId } from "../shared.ts";
 
 type Row = SourceRow;
 type Fields = Row["fields"];

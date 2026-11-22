@@ -10,7 +10,7 @@ import {
 	type BrandKitData,
 	type LetterheadKey,
 } from "@everyfield/contracts/branding";
-import { sql } from "@everyfield/db/query";
+import { sql, type SqlLiteral } from "@everyfield/db/query";
 import { colorView } from "./color.ts";
 
 export const LETTERHEAD_COLUMNS: Record<LetterheadKey, string> = {
@@ -67,7 +67,7 @@ export const assetColumn = (slot: AssetSlot) => sql.identifier(`${slot}_object_i
 export const altColumn = (slot: AssetSlot) => sql.identifier(`${slot}_alt`);
 export const SLOT_ID_COLUMNS = ASSET_SLOTS.map(assetColumn);
 
-export const slotValues = (row: string) =>
+export const slotValues = <RowName extends string>(row: SqlLiteral<RowName>) =>
 	sql.join(
 		ASSET_SLOTS.map((slot) => sql`(${sql.raw(row)}.${assetColumn(slot)})`),
 		sql`, `,

@@ -18,6 +18,7 @@ import {
 	readPersonPage,
 	personFields as fields,
 } from "../../../packages/domain/src/people/index.ts";
+import { gatedTransaction, lockedWrite, nativeWrite } from "../../../packages/domain/src/operations/writes.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -51,7 +52,7 @@ const orgCtx = () =>
 		organizationKind: "sending_church",
 	});
 async function tx(body) {
-	return db.transaction(body);
+	return gatedTransaction(db, body);
 }
 
 async function create(name = "Jamie", fields = {}) {
@@ -222,6 +223,32 @@ test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and page n
 	);
 });
 
+test("INV-people: the city filter matches the recorded city whole, ignoring case, never a name, and joins the stage filter", async () => {
+	const a = await create("City filter Ada", { city: "Austin" }),
+		b = await create("City filter Ben", { city: "austin", stage: "attendee" });
+	await create("City filter Cy", { city: "South Austin" });
+	await create("City filter Austin Dee", { city: "Round Rock" });
+	await create("City filter Eve");
+	const ids = (page) => page.items.map((p) => p.id).sort();
+	const all = ok(await tx((t) => read.listPeople(t, ctx(1), { search: "City filter", city: " AUSTIN " })));
+	assert.deepEqual([ids(all), all.total, all.next], [[a.id, b.id].sort(), 2, null]);
+	const prospects = ok(
+		await tx((t) => read.listPeople(t, ctx(1), { search: "City filter", city: "austin", stages: ["prospect"] })),
+	);
+	assert.deepEqual([ids(prospects), prospects.total], [[a.id], 1]);
+	const board = ok(await tx((t) => read.getPipelineData(t, ctx(), { search: "City filter", city: "Austin" })));
+	assert.deepEqual(
+		board.groups.map((g) => [g.column, g.total, g.cards.map((c) => c.person.id)]),
+		[
+			["prospect", 1, [a.id]],
+			["attendee", 1, [b.id]],
+			["following_up", 0, []],
+			["interviewed", 0, []],
+			["core_group", 0, []],
+		],
+	);
+	refused(await tx((t) => read.listPeople(t, ctx(), { search: "City filter", city: "" })), "invalid_input");
+});
 test("BUG-PR110: people pages retain microseconds across 25 equal timestamp keys", async (t) => {
 	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
 	t.after(() => admin.execute(sql`DELETE FROM person WHERE id=ANY(${sql.param(ids)}::uuid[])`));
@@ -496,6 +523,101 @@ test("AC:TARGET-PPL-006 assigning a duty to someone already on it keeps them on 
 	);
 });
 
+test("INV-person-lock: retiring locks the person and the review, then the duty and the member it moves to, and refuses as before", async () => {
+	const leaving = await create("Hands off"),
+		takes = await create("Takes over"),
+		member = (await database.actor({ kind: "plant", id: plants[0] }, "member")).id;
+	await admin.execute(sql`UPDATE person SET linked_account_id=${sql.param(member)} WHERE id=${sql.param(takes.id)}`);
+	const duty = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id) VALUES(${sql.param(duty)},${sql.param(plants[0])},'Visit','follow_up','medium','not_started',clock_timestamp(),'undated',${sql.param(leaving.id)})`,
+	);
+	const review = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: leaving.id }))).reviewRevision;
+	const retire = (reviewRevision, handoffs, expectedRevision = leaving.revision) =>
+		tx((t) =>
+			write.retirePerson(
+				t,
+				ctx(),
+				{
+					requestKey: randomUUID(),
+					expectedRevision,
+					input: { personId: leaving.id, reason: "Retire", reviewRevision, handoffs },
+				},
+				noReminders,
+			),
+		);
+	const assign = [{ kind: "assign", dutyId: duty, expectedRevision: "1", toPersonId: takes.id }];
+	refused(await retire(review, assign, String(BigInt(leaving.revision) + 1n)), "conflict");
+	refused(await retire(String(BigInt(review) + 1n), assign), "conflict");
+	refused(await retire(review, []), "conflict");
+	refused(await retire(review, [...assign, ...assign]), "conflict");
+	refused(await retire(review, [{ ...assign[0], toPersonId: leaving.id }]), "invalid_subject");
+	let release, locked;
+	const held = new Promise((resolve) => (release = resolve)),
+		holding = new Promise((resolve) => (locked = resolve));
+	const other = admin.transaction(async (b) => {
+		await b.execute(sql`SELECT 1 FROM person WHERE id=${sql.param(takes.id)}::uuid FOR UPDATE`);
+		locked();
+		await held;
+	});
+	await holding;
+	const mine = retire(review, assign);
+	assert.ok(await waitingOnLock(db), "the retirement waits for the member the duty moves to");
+	release();
+	await other;
+	assert.equal(ok(await mine).person.lifecycle.state, "retired");
+	assert.deepEqual(
+		(await admin.execute(sql`SELECT account_id FROM task_assignee WHERE task_id=${sql.param(duty)}`)).rows,
+		[{ account_id: member }],
+	);
+});
+
+test("INV-person-lock: a reviewed contact that changed, is linked elsewhere or is no candidate is refused as before", async () => {
+	const account = (await database.actor({ kind: "plant", id: plants[0] }, "member")).id;
+	const contact = await create("Reviewed contact", { email: account + "@example.test" }),
+		other = await create("Not a contact", { email: "someone-else@example.test" });
+	const review = (person, revision = person.revision) =>
+		tx((t) =>
+			accounts.ensureAccountPerson(t, {
+				accountId: account,
+				owner: ctx().selected,
+				selection: {
+					kind: "reviewed_contact",
+					person: { owner: ctx().selected, personId: person.id, revision, state: "live" },
+				},
+			}),
+		);
+	refused(await review(contact, String(BigInt(contact.revision) + 1n)), "conflict");
+	refused(await review(other));
+	refused(await review({ id: randomUUID(), revision: "1" }));
+	assert.equal(ok(await review(contact)).personId, contact.id);
+	assert.deepEqual(ok(await review(other)), { status: "linked", personId: contact.id });
+});
+
+test("INV-person-lock: a second account link that waits on the account returns the Person the first one created", async () => {
+	const account = (await database.actor({ kind: "plant", id: plants[0] }, "member")).id;
+	const input = {
+		accountId: account,
+		owner: ctx().selected,
+		selection: { kind: "create", displayName: "Linked once" },
+	};
+	let release, created;
+	const held = new Promise((resolve) => (release = resolve)),
+		holding = new Promise((resolve) => (created = resolve));
+	const first = tx(async (t) => {
+		const r = await accounts.ensureAccountPerson(t, input);
+		created();
+		await held;
+		return r;
+	});
+	await holding;
+	const second = tx((t) => accounts.ensureAccountPerson(t, input));
+	assert.ok(await waitingOnLock(db), "the second call waits for the account");
+	release();
+	const linked = ok(await first).personId;
+	assert.deepEqual(ok(await second), { status: "linked", personId: linked });
+});
+
 test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, complete handoffs, retirement and guarded restore", async () => {
 	let p = await create("Lifecycle");
 	const result = ok(
@@ -754,6 +876,49 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 		ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"] }))).items[0].kind,
 		"note_removed",
 	);
+});
+
+test("AC:TARGET-PPL-008 every church seat who can see a note sees its author's name, and it stays after the author's seat ends", async () => {
+	const plant = await database.plant({ timezone: "America/New_York" });
+	const seated = async (role, name) => database.actor(plant, role, { user: { name } });
+	const on = (a) => ({ session: a.session, selected: { kind: "plant", id: plant.id } });
+	const authors = [await seated("owner", "Ruth"), await seated("admin", "Orpah")];
+	const readers = [await seated("admin", "Naomi"), await seated("member", "Boaz")];
+	const p = ok(
+		await tx((t) =>
+			write.createPerson(t, on(authors[0]), { requestKey: randomUUID(), input: { displayName: "Named notes" } }),
+		),
+	).person;
+	let revision = p.revision;
+	for (const author of authors) {
+		const added = ok(
+			await tx((t) =>
+				write.addNote(t, on(author), {
+					requestKey: randomUUID(),
+					expectedRevision: revision,
+					input: { personId: p.id, body: `Note from ${author.id}` },
+				}),
+			),
+		);
+		revision = added.personRevision;
+	}
+	const names = async (reader) =>
+		ok(await tx((t) => read.getActivities(t, on(reader), { personId: p.id, kinds: ["note"] }))).items.map((a) => [
+			a.body,
+			a.authorName,
+		]);
+	const expected = [
+		[`Note from ${authors[1].id}`, "Orpah"],
+		[`Note from ${authors[0].id}`, "Ruth"],
+	];
+	for (const reader of [...authors, ...readers]) assert.deepEqual(await names(reader), expected);
+	await admin.execute(
+		sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id IN (${sql.join(
+			authors.map((a) => sql`${a.id}::uuid`),
+			sql`,`,
+		)})`,
+	);
+	for (const reader of readers) assert.deepEqual(await names(reader), expected);
 });
 
 test("AC:CA014 BUG-37313a5c7 explicit adult classification retains genuine historical acquisition rather than creating a join today, and refuses a day after the church's today", async () => {
@@ -1441,6 +1606,18 @@ test("INV-reads (C22): a People read holds no lock on the reader's session, so s
 			}
 		});
 	assert.deepEqual(waited, []);
+});
+
+test("BUG-locked-actor: a second copy of the session module reads the actor the write gate locked", async () => {
+	const seated = await seatedReader("admin", { kind: "plant", id: plants[0] });
+	const authority = seated.reader.authority;
+	const second = await import("../../../packages/domain/src/access/session.ts?second-copy");
+	assert.notEqual(second.requestWrite, (await import("../../../packages/domain/src/access/session.ts")).requestWrite);
+	const seen = await nativeWrite(db, authority, authority.actor.context.owner, async (tx) => {
+		const locked = await lockedWrite(tx);
+		return [locked?.actor.accountId, second.requestWrite(tx)?.actor.accountId, second.boundWrite(tx)?.selected];
+	});
+	assert.deepEqual(seen, [authority.actor.accountId, authority.actor.accountId, authority.actor.context.owner]);
 });
 
 test("INV-revocation INV-idempotency: a native write checks the seat in its own statement, and a retry replays", async () => {

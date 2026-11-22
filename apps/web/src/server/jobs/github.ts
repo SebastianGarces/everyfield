@@ -1,15 +1,10 @@
 import { z } from "zod";
+import { serverEnv, type ServerEnv } from "../config.ts";
+import { logFailure } from "@everyfield/domain/log";
+import type { IssueClient } from "@everyfield/domain/jobs";
 
 const GITHUB_TIMEOUT_MS = 10_000;
 const GITHUB_API = "https://api.github.com";
-
-export type IssueLink = { number: number; url: string };
-export type CreateOutcome = { kind: "created"; issue: IssueLink } | { kind: "refused" } | { kind: "unknown" };
-export type SearchOutcome = { kind: "found"; issues: IssueLink[] } | { kind: "failed" };
-export interface IssueClient {
-	create(repository: string, issue: { title: string; body: string }): Promise<CreateOutcome>;
-	search(repository: string, reference: string): Promise<SearchOutcome>;
-}
 
 const repositoryName = z.string().regex(/^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/);
 
@@ -24,8 +19,13 @@ const env = z.object({
 	FEEDBACK_GITHUB_TOKEN: z.string().min(1),
 	FEEDBACK_GITHUB_API: z.url().optional(),
 });
-export function githubConfig(source: Readonly<Record<string, string | undefined>> = process.env): GitHubConfig | null {
-	const parsed = env.safeParse(source);
+export function githubConfig(source: ServerEnv = serverEnv()): GitHubConfig | null {
+	const parsed = env.safeParse({
+		FEEDBACK_GITHUB_REPOSITORY: source.FEEDBACK_GITHUB_REPOSITORY,
+		FEEDBACK_GITHUB_REPOSITORY_ID: source.FEEDBACK_GITHUB_REPOSITORY_ID,
+		FEEDBACK_GITHUB_TOKEN: source.FEEDBACK_GITHUB_TOKEN,
+		FEEDBACK_GITHUB_API: source.FEEDBACK_GITHUB_API,
+	});
 	if (!parsed.success) return null;
 	const v = parsed.data;
 	return {
@@ -80,7 +80,8 @@ export function githubIssues(
 				return found.success
 					? { kind: "created", issue: { number: found.data.number, url: found.data.html_url } }
 					: { kind: "unknown" };
-			} catch {
+			} catch (error) {
+				logFailure({ component: "github", outcome: "create_failed" }, error);
 				return { kind: "unknown" };
 			}
 		},
@@ -96,7 +97,8 @@ export function githubIssues(
 					.filter((item) => !item.pull_request && item.body?.includes(`Reference: ${reference}.`))
 					.map((item) => ({ number: item.number, url: item.html_url }));
 				return { kind: "found", issues };
-			} catch {
+			} catch (error) {
+				logFailure({ component: "github", outcome: "search_failed" }, error);
 				return { kind: "failed" };
 			}
 		},

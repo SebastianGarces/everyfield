@@ -3,6 +3,7 @@
 import { inviteRelationshipRequest } from "@everyfield/contracts/organizations";
 import { HierarchyIcon } from "@hugeicons/core-free-icons";
 import {
+	Alert,
 	Button,
 	Dialog,
 	DialogBody,
@@ -22,6 +23,7 @@ import { useIntent } from "../../components/intent.ts";
 import { emailProblem, kindLabel } from "./model";
 import { ProblemLine } from "./parts";
 import type { Disclosure, Invitation, Organization, RelationshipPair, Run } from "./port";
+import { READ_FAILED, thrownRead } from "../../components/read-failed.ts";
 
 export type InviteTarget = { pair: RelationshipPair; name: string };
 
@@ -88,7 +90,7 @@ export function InviteDialog({
 
 type InviteCommand = ReturnType<typeof inviteRelationshipRequest.parse>;
 type DisclosureRead = { asked: object; id: string } & (
-	{ status: "loading" } | { status: "ready"; value: Disclosure | null } | { status: "failed" }
+	{ status: "loading" } | { status: "ready"; value: Disclosure | null } | { status: "failed"; read: "lost" | "failed" }
 );
 
 function InviteForm({
@@ -128,7 +130,7 @@ function InviteForm({
 		setDisclosure({ asked, id, status: "loading" });
 		readDisclosure(picked.pair).then(
 			(value) => answer({ asked, id, status: "ready", value }),
-			() => answer({ asked, id, status: "failed" }),
+			(error: unknown) => answer({ asked, id, status: "failed", read: thrownRead(error).status }),
 		);
 	};
 
@@ -207,21 +209,22 @@ function InviteForm({
 							shownDisclosure.status === "ready" && shownDisclosure.value ? (
 								<SharingDisclosure disclosure={shownDisclosure.value} organizationName={target.name} />
 							) : (
-								<div
+								<Alert
 									role="alert"
-									className="flex flex-wrap items-center gap-3 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600"
+									actions={
+										shownDisclosure.status === "failed" ? (
+											<Button size="sm" variant="secondary" onClick={() => askDisclosure(target)}>
+												Try again
+											</Button>
+										) : undefined
+									}
 								>
-									<p className="min-w-0 flex-1">
-										{shownDisclosure.status === "failed"
-											? `What ${target.name} would see did not load. Nothing was sent.`
-											: `${target.name} cannot be asked from here right now. Nothing was sent.`}
-									</p>
-									{shownDisclosure.status === "failed" ? (
-										<Button size="sm" variant="secondary" onClick={() => askDisclosure(target)}>
-											Try again
-										</Button>
-									) : null}
-								</div>
+									{shownDisclosure.status === "failed"
+										? shownDisclosure.read === "failed"
+											? READ_FAILED
+											: `What ${target.name} would see did not load. Nothing was sent.`
+										: `${target.name} cannot be asked from here right now. Nothing was sent.`}
+								</Alert>
 							)
 						) : (
 							<div aria-busy="true">

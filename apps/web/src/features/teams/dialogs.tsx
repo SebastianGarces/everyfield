@@ -86,7 +86,7 @@ export function TeamDialog({
 				<legend className="mb-1 text-sm font-medium text-ink-2">State</legend>
 				<RadioGroup value={f.state} onValueChange={(v) => set({ state: v as TeamState })} aria-label="State">
 					{STATES.map((s) => (
-						<Radio key={s} value={s} label={STATE_LABEL[s]} description={STATE_HINT[s]} className="py-2" />
+						<Radio key={s} value={s} label={STATE_LABEL[s]} description={STATE_HINT[s]} />
 					))}
 				</RadioGroup>
 			</fieldset>
@@ -227,7 +227,7 @@ export function PersonDialog({
 	wait: Wait;
 	note?: ReactNode;
 	onClose: () => void;
-	onSubmit: (form: PersonForm) => void;
+	onSubmit: (form: PersonForm, person: PickedPerson) => void;
 }) {
 	const [f, setF] = useState(form);
 	const [touched, setTouched] = useState(false);
@@ -244,8 +244,9 @@ export function PersonDialog({
 			onClose={onClose}
 			onSubmit={() => {
 				setTouched(true);
-				if (noPerson || noRole) return false;
-				onSubmit(f);
+				const { person } = f;
+				if (person === null || noRole) return false;
+				onSubmit(f, person);
 				return true;
 			}}
 		>
