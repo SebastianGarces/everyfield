@@ -1294,12 +1294,6 @@ const declaredFunctions = (node) => {
 	return found;
 };
 
-const timerDepth = (node) => {
-	let depth = 0;
-	for (let p = node.parent; p; p = p.parent) depth++;
-	return depth;
-};
-
 const timerSite = (context, node, site) => {
 	const call = node.parent;
 	if (node.name !== site.timer || call?.type !== "CallExpression" || call.callee !== node) return false;
@@ -1384,9 +1378,8 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 		},
 		"Program:exit"(program) {
 			for (const [site, found] of candidates) {
-				const exempt = found.reduce((best, c) => (timerDepth(c.node) < timerDepth(best.node) ? c : best), found[0]);
-				for (const c of found) if (c !== exempt) hit(c.node, c.name);
-				if (!exempt)
+				if (found.length !== 1) for (const c of found) hit(c.node, c.name);
+				if (!found.length)
 					push({
 						node: program,
 						fn: null,

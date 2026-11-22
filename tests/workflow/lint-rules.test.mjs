@@ -418,13 +418,26 @@ export function other() {
 			"packages/evry/src/runtime/turn.ts": "export const gone = 1;\n",
 		}),
 		[
-			...[1, 3, 6, 9, 15, 16, 19].map((line) => `packages/db/src/schema/validate-file.ts:${line} no-timers`),
+			...[1, 3, 6, 7, 9, 15, 16, 19].map((line) => `packages/db/src/schema/validate-file.ts:${line} no-timers`),
 			"packages/evry/src/runtime/turn.ts:1 no-timers",
 		].sort(),
 	);
 });
 
-test("INV-lint: a listed product timer exempts only the call with its callee, binding, delay and nearest named function, the shallowest on a tie, so a timer placed before it or in a nested function is the one reported", () => {
+test("INV-lint: a listed product timer is exempt only while exactly one call matches it, so a same-delay copy added shallower in the real function reports both calls", () => {
+	const path = "packages/evry/src/runtime/model.ts";
+	const real = readFileSync(join(repo, path), "utf8");
+	const site = "\t\t\tconst timer = setTimeout(resolve, ms);\n";
+	const body = "): LanguageModelV4Middleware {\n";
+	const copied = real.replace(body, `${body}\tconst timer = setTimeout(() => 1, ms);\n`);
+	const line = (text, at) => text.slice(0, text.indexOf(at)).split("\n").length;
+	assert.deepEqual(
+		lint({ [path]: copied }).filter((hit) => hit.endsWith(" no-timers")),
+		[line(copied, site), line(copied, body) + 1].map((n) => `${path}:${n} no-timers`).sort(),
+	);
+});
+
+test("INV-lint: a listed product timer exempts only the call with its callee, binding, delay and nearest named function, so a timer in a nested function is reported and two matching calls are both reported", () => {
 	const turn = `export async function run() {
 	if (retry) {
 		const wall = setTimeout(() => {}, LIMITS.wallMs);
@@ -492,12 +505,14 @@ export function parseOnce() {
 			"apps/web/src/server/evry/http.ts": stream,
 		}).filter((hit) => hit.endsWith(" no-timers")),
 		[
+			"apps/web/src/server/evry/http.ts:3 no-timers",
 			"apps/web/src/server/evry/http.ts:6 no-timers",
 			"packages/db/src/schema/validate-file.ts:1 no-timers",
 			"packages/db/src/schema/validate-file.ts:3 no-timers",
 			"packages/evry/src/runtime/model.ts:9 no-timers",
 			"packages/evry/src/runtime/observe.ts:1 no-timers",
 			"packages/evry/src/runtime/observe.ts:3 no-timers",
+			"packages/evry/src/runtime/turn.ts:10 no-timers",
 			"packages/evry/src/runtime/turn.ts:3 no-timers",
 			"packages/evry/src/runtime/turn.ts:7 no-timers",
 		],
