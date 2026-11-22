@@ -2807,3 +2807,91 @@ test("INV-lint: a server action parameter typed as a trusted shape is reported, 
 		],
 	);
 });
+
+test("INV-lint: a second top-level node:test before hook is reported in any import form, one before with other hooks and suite-level befores are not", () => {
+	const named = `import test, { before, beforeEach, after, describe } from "node:test";
+before(async () => {});
+before(async () => {});
+test.before(() => {});
+beforeEach(() => {});
+after(() => {});
+describe("s", () => {
+	before(() => {});
+	before(() => {});
+});
+`;
+	const aliased = `import { before as setupHook, test as t } from "node:test";
+setupHook(() => {});
+t.before(() => {});
+`;
+	const namespaced = `import * as nt from "node:test";
+nt.before(() => {});
+nt.test.before(() => {});
+nt.default.before(() => {});
+nt.it.before(() => {});
+`;
+	const viaIt = `import { it } from "node:test";
+it.before(() => {});
+it.before(() => {});
+`;
+	const destructured = `import test from "node:test";
+const { before, after } = test;
+const { before: setup } = test;
+before(() => {});
+setup(() => {});
+after(() => {});
+`;
+	const bare = `import run from "node:test";
+run.before(() => {});
+await run.before(() => {});
+`;
+	const single = `import test, { before, beforeEach, after, describe } from "node:test";
+before(async () => {});
+beforeEach(() => {});
+after(() => {});
+test.beforeEach(() => {});
+const config = { before: () => {} };
+const { before: configured } = config;
+configured();
+describe("s", () => {
+	before(() => {});
+	before(() => {});
+});
+test("a", () => {});
+`;
+	const local = `const before = (f) => f();
+before(() => {});
+before(() => {});
+`;
+	const other = `import test, { before } from "./hooks.mts";
+before(() => {});
+test.before(() => {});
+`;
+	assert.deepEqual(
+		lint({
+			"tests/integration/x/named.test.mts": named,
+			"tests/evry/x/aliased.test.mts": aliased,
+			"tests/unit/x/namespaced.test.mts": namespaced,
+			"tests/contracts/common/bare.test.mjs": bare,
+			"tests/unit/x/it.test.mts": viaIt,
+			"tests/unit/x/destructured.test.mts": destructured,
+			"tests/workflow/single.test.mjs": single,
+			"tests/ui/local.test.mts": local,
+			"tests/ui/other.test.mts": other,
+			"tools/ci/named.test.ts": named,
+		}).filter((hit) => hit.endsWith(" one-top-level-before")),
+		[
+			"tests/contracts/common/bare.test.mjs:3 one-top-level-before",
+			"tests/evry/x/aliased.test.mts:3 one-top-level-before",
+			"tests/integration/x/named.test.mts:3 one-top-level-before",
+			"tests/integration/x/named.test.mts:4 one-top-level-before",
+			"tests/unit/x/destructured.test.mts:5 one-top-level-before",
+			"tests/unit/x/it.test.mts:3 one-top-level-before",
+			"tests/unit/x/namespaced.test.mts:3 one-top-level-before",
+			"tests/unit/x/namespaced.test.mts:4 one-top-level-before",
+			"tests/unit/x/namespaced.test.mts:5 one-top-level-before",
+			"tools/ci/named.test.ts:3 one-top-level-before",
+			"tools/ci/named.test.ts:4 one-top-level-before",
+		],
+	);
+});
