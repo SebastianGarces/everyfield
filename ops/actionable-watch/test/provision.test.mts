@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { once } from "node:events";
 import { constants, watch } from "node:fs";
-import { chmod, type FileHandle, mkdtemp, open, readdir, readFile, stat, utimes, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, open, readdir, readFile, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
+import { promisify } from "node:util";
 import { readWebhookConfig } from "../io.mts";
 import {
 	osascriptPrompt,
@@ -204,7 +205,7 @@ describe("INV-watch-provision: the real prompt", () => {
 async function fakeOsascript(dir: string, url: string, key: string, gateOnFifos = false): Promise<string> {
 	await writeFile(join(dir, "url.in"), url);
 	await writeFile(join(dir, "key.in"), key);
-	if (gateOnFifos) for (const f of ["started", "go"]) await run("/usr/bin/mkfifo", ["-m", "600", join(dir, f)]);
+	if (gateOnFifos) await promisify(execFile)("/usr/bin/mkfifo", ["-m", "600", join(dir, "started"), join(dir, "go")]);
 	const bin = join(dir, "osascript");
 	await writeFile(
 		bin,
@@ -217,10 +218,6 @@ ${gateOnFifos ? `if [ $f = url.in ]; then printf 'started\\n' > "$D/started"; ca
 		{ mode: 0o755 },
 	);
 	return bin;
-}
-
-function run(bin: string, args: string[]): Promise<void> {
-	return new Promise((resolve, reject) => execFile(bin, args, (err) => (err ? reject(err) : resolve())));
 }
 
 function unblockOnAbort(signal: AbortSignal, fifo: string, other: number) {
@@ -242,7 +239,7 @@ async function readFifo(signal: AbortSignal, fifo: string): Promise<string> {
 	}
 }
 
-async function openFifoForWrite(signal: AbortSignal, fifo: string): Promise<FileHandle> {
+async function openFifoForWrite(signal: AbortSignal, fifo: string) {
 	const done = unblockOnAbort(signal, fifo, constants.O_RDONLY);
 	try {
 		return await open(fifo, "w");
@@ -254,11 +251,7 @@ async function openFifoForWrite(signal: AbortSignal, fifo: string): Promise<File
 async function armedKernelWatch(signal: AbortSignal, path: string) {
 	const before = await stat(path);
 	const watcher = watch(path, { signal });
-	const aborted = new Promise<never>((_, reject) =>
-		signal.addEventListener("abort", () => reject(signal.reason), { once: true }),
-	);
-	aborted.catch(() => undefined);
-	const nextEvent = () => Promise.race([once(watcher, "change"), aborted]);
+	const nextEvent = () => once(watcher, "change", { signal });
 	const armed = nextEvent();
 	await utimes(path, before.atime, before.mtime);
 	await armed;
