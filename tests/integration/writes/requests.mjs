@@ -31,8 +31,8 @@ assert.ok(
 	"No production build in apps/web/.next. Run `corepack pnpm build` first.",
 );
 
-const held = await holdPort("127.0.0.1");
-const { port } = held;
+const nextPort = await holdPort("127.0.0.1");
+const { port } = nextPort;
 const origin = `http://127.0.0.1:${port}`;
 const readInput = (input) => encodeURIComponent(JSON.stringify(input));
 const database = await testDatabase({ prefix: "wp011rq", roles: { runtime: ["runtime"], auth: ["auth"] }, max: 2 });
@@ -306,7 +306,7 @@ try {
 	});
 	await new Promise((resolve) => bucket.listen(0, "127.0.0.1", resolve));
 
-	server = held.spawn(
+	server = nextPort.spawn(
 		process.execPath,
 		[web + "node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", String(port)],
 		{
