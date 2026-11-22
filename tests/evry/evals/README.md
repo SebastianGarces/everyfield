@@ -23,7 +23,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `pipeline.test.mts`     | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                |
 | `launch.test.mts`       | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                 |
 | `wiki-network.test.mts` | `wiki-network.cases.json`                                                                                                | A network's own Wiki versions: draft, change, publish and hide (scripted model)         |
-| `wiki-meaning.test.mts` | `wiki-meaning.cases.json`                                                                                                | `wiki.search` by meaning on fixed vectors: the vision meeting article (scripted model)  |
+| `wiki-meaning.test.mts` | `wiki-meaning.cases.json`                                                                                                | `wiki.search` by meaning on fixed vectors: global and network articles (scripted model) |
 
 ## The settings suite (scripted model)
 
@@ -77,7 +77,10 @@ global article, sets `EVF_WIKI_EMBEDDINGS=openai` with a fake key in the test pr
 stub that answers the embeddings endpoint with a fixed question vector and fails any other URL. While Harvest Network's
 own version of the vision meeting article is what the church sees, the global passage is not a hit (WMS-01). Once that
 version is removed, the question "getting people excited about our church's direction", which shares no keyword with the
-article, finds it and Evry answers from it (WMS-02). A second test asserts the adapter's exact result.
+article, finds it and Evry answers from it (WMS-02). A second test asserts the adapter's exact result. Then Harvest
+Network's admin publishes its own version of the thank-you notes article and the publish job embeds it through the same
+stub (T-552); a question with none of its words finds that version and Evry answers from it as the network's version
+(WMS-03), and a third test asserts that exact result.
 
 ## The network Wiki suite (scripted model)
 

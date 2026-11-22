@@ -288,7 +288,10 @@ function meaningSql(meaning: Meaning | null, phase: number | null): SQL {
 		FROM (
 			SELECT ps.revision_id, ps.ordinal, ps.content, ${distance} AS distance
 			FROM passage ps
-			WHERE ps.release_id = (SELECT release_id FROM release)
+			WHERE (
+					ps.release_id = (SELECT release_id FROM release)
+					OR (ps.release_id IS NULL AND ps.tenant_id IN (SELECT org_id FROM links))
+				)
 				AND public.vector_dims(ps.embedding) = 1536
 			ORDER BY ${distance}
 			LIMIT ${MEANING_PASSAGES}
