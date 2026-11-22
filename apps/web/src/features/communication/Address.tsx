@@ -16,14 +16,7 @@ import { useRef, useState, useTransition } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { restoreOwnSuppression } from "./actions.ts";
 import { readOwnSuppression } from "./fetch.ts";
-import {
-	ADDRESS_UNREAD,
-	outcomeText,
-	restoreText,
-	unread,
-	type RestoreReport,
-	type SuppressionReport,
-} from "./model.ts";
+import { outcomeText, restoreText, type RestoreReport, type SuppressionReport } from "./model.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
 const lost = <T,>(): Outcome<T> => ({ status: "lost" });
@@ -45,7 +38,7 @@ export function Address() {
 	const [pending, start] = useTransition();
 	const loaded = read.value !== undefined;
 	const report = read.value?.status === "ok" ? read.value.value : null;
-	const failed = unread(read.value);
+	const failed = read.value?.status === "failed" || read.value?.status === "lost";
 	const notice: Notice | null =
 		restored ??
 		(read.value && read.value.status !== "ok" && !failed
@@ -104,7 +97,7 @@ export function Address() {
 					) : null
 				}
 			>
-				{failed ? ADDRESS_UNREAD : null}
+				{failed ? "We couldn't load your church's address." : null}
 			</InlineAlert>
 			{notice ? (
 				<p
