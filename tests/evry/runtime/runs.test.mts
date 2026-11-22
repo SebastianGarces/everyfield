@@ -37,6 +37,7 @@ import {
 	otherPlant,
 	queries,
 	setup,
+	statementListeners,
 	statements,
 	sql,
 	teardown,
@@ -1299,11 +1300,21 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 	const owner = await actor("owner");
 	await analyze();
 	const turnJob = (id: string) => sql`kind='assistant_turn' AND subject_record_id=${id}`;
-	const observed = async (id: string, ms: number) => {
+	const observed = async (id: string, reads: number) => {
 		const seen = [];
-		const started = Date.now();
-		for await (const e of observeConversation(db, owner, id, 0, AbortSignal.timeout(ms), 20)) seen.push(e);
-		return { seen, ended: Date.now() - started < ms - 200 };
+		const budget = new AbortController();
+		const signal = AbortSignal.any([budget.signal, AbortSignal.timeout(60_000)]);
+		let polled = 0;
+		const count = (text: string) => {
+			if (text.includes("AS run_live") && ++polled > reads) budget.abort();
+		};
+		statementListeners.add(count);
+		try {
+			for await (const e of observeConversation(db, owner, id, 0, signal, 20)) seen.push(e);
+		} finally {
+			statementListeners.delete(count);
+		}
+		return { seen, ended: !signal.aborted };
 	};
 	const cases: [string, (id: string) => Promise<unknown>][] = [
 		[
@@ -1331,7 +1342,7 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 		await lose(id);
 		const { turnId } = (await readConversation(db, owner, id)).run ?? {};
 		assert.deepEqual((await readConversation(db, owner, id)).run, { turnId, state: "lost" }, name);
-		const first = await observed(id, 3_000);
+		const first = await observed(id, 3);
 		assert.ok(first.ended, `${name}: the stream ends instead of polling a dead run`);
 		const end = first.seen.at(-1)!;
 		assert.deepEqual(
@@ -1342,7 +1353,7 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 		assert.equal((await readConversation(db, owner, id)).run, null, name);
 		const job = await admin.execute(sql`SELECT state FROM job WHERE ${turnJob(id)}`);
 		assert.equal(job.rows[0]!.state, "failed", name);
-		const again = await observed(id, 3_000);
+		const again = await observed(id, 3);
 		assert.equal(again.seen.filter((e) => e.kind === "status").length, 1, name);
 		await submitTurn(db, owner, id, { requestKey: randomUUID(), text: "Find Casey again" });
 		assert.equal(await work(), "succeeded", name);
@@ -1350,7 +1361,7 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 
 	const waiting = await ask(owner, "Find Casey");
 	assert.equal((await readConversation(db, owner, waiting)).run?.state, "running");
-	const live = await observed(waiting, 500);
+	const live = await observed(waiting, 3);
 	assert.deepEqual([live.ended, live.seen.map((e) => e.kind)], [false, ["user_message"]]);
 	await assert.rejects(
 		() => submitTurn(db, owner, waiting, { requestKey: randomUUID(), text: "Another" }),
