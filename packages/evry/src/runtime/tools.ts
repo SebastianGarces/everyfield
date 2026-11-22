@@ -86,8 +86,10 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 		scrub(
 			JSON.stringify({
 				proposalId: proposal.id,
-				status: "awaiting_approval",
-				expiresAt: proposal.expiresAt,
+				...(proposal.review.refusal
+					? { status: "refused", refusal: proposal.review.refusal }
+					: { status: "awaiting_approval", expiresAt: proposal.expiresAt }),
+				...(proposal.review.refusal ? { refusal: proposal.review.refusal } : {}),
 				rows: target
 					? [
 							{
@@ -103,6 +105,7 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 							...people,
 						]
 					: people,
+				...(target ? {} : { changes: proposal.review.changes }),
 			}),
 		),
 	) as ModelReply;

@@ -41,12 +41,13 @@ jobs:
         run: |
           (set +e; GITHUB_OUTPUT="$RUNNER_TEMP/libreoffice.out" bash tools/ci/libreoffice.sh "${{ runner.arch }}" > "$RUNNER_TEMP/libreoffice.log" 2>&1; echo $? > "$RUNNER_TEMP/libreoffice.status") < /dev/null > /dev/null 2>&1 &
           echo $! > "$RUNNER_TEMP/libreoffice.pid"
-      - name: Prettier, lint, types and server log privacy at once (each line names its command)
+      - name: Prettier, lint, types, knip and server log privacy at once (each line names its command)
         run: |
           node tools/ci/parallel.ts \
             "prettier=pnpm format:check" \
             "lint=pnpm lint" \
             "types=pnpm typecheck" \
+            "knip=pnpm knip" \
             "logs=pnpm test:logs"
         env:
           NEXT_TELEMETRY_DISABLED: "1"
@@ -117,6 +118,9 @@ jobs:
       - name: Feature maps (routes, proofs and diagrams)
         if: ${{ !cancelled() }}
         run: corepack pnpm feature-maps
+      - name: Added migrations work with the code before and after them (expand, then a marked contract)
+        if: ${{ !cancelled() }}
+        run: corepack pnpm migrations:safety
       - name: QA preview tool
         if: ${{ !cancelled() }}
         run: node --test --disable-warning=ExperimentalWarning tools/qa/tests/*.test.ts

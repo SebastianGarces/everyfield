@@ -1,14 +1,22 @@
 "use client";
 
 import {
+	Activity01Icon,
 	Award01Icon,
+	BookOpen01Icon,
 	Briefcase01Icon,
 	Calendar03Icon,
+	Call02Icon,
 	CheckListIcon,
 	CheckmarkCircle02Icon,
 	Clock01Icon,
+	Edit02Icon,
+	GitMergeIcon,
+	Note01Icon,
 	Location01Icon,
 	File01Icon,
+	Flag01Icon,
+	File02Icon,
 	Home01Icon,
 	LayoutTemplateIcon,
 	Link01Icon,
@@ -18,6 +26,7 @@ import {
 	Settings02Icon,
 	Mortarboard01Icon,
 	Tag01Icon,
+	Task01Icon,
 	UserGroupIcon,
 	UserIcon,
 	UserMultipleIcon,
@@ -40,6 +49,16 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	activity: Clock01Icon,
 	file: File01Icon,
 	message: Mail01Icon,
+	task: Task01Icon,
+	tally: Task01Icon,
+	history: Clock01Icon,
+	follow_up: Call02Icon,
+	contact: Call02Icon,
+	account: UserIcon,
+	record: Note01Icon,
+	merge: GitMergeIcon,
+	correction: Edit02Icon,
+	article: BookOpen01Icon,
 	notice: Notification01Icon,
 	setting: Settings02Icon,
 	digest: CheckListIcon,
@@ -48,7 +67,11 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	training: Mortarboard01Icon,
 	meeting: Calendar03Icon,
 	responsibility: CheckListIcon,
+	document: File02Icon,
 	template: LayoutTemplateIcon,
+	phase: Flag01Icon,
+	criterion: CheckListIcon,
+	signal: Activity01Icon,
 	venue: Location01Icon,
 	item: CheckListIcon,
 	seat: UserIcon,
@@ -57,6 +80,7 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	step: CheckmarkCircle02Icon,
 	relationship: Link01Icon,
 	stage: UserMultipleIcon,
+	date: Calendar03Icon,
 	milestone: CheckmarkCircle02Icon,
 };
 
@@ -82,7 +106,7 @@ export function ResultCard({
 	photos: Readonly<Record<string, string>>;
 }) {
 	const [all, setAll] = useState(false);
-	const { title, summary, icon, rows, facts } = cardView(operation, result, originalTotal);
+	const { title, summary, icon, rows, facts, links } = cardView(operation, result, originalTotal);
 	const shown = rows.length;
 	const rowClass = "flex min-h-11 items-center gap-3 rounded-md px-2 py-2 text-ink";
 
@@ -126,9 +150,27 @@ export function ResultCard({
 								<Mark mark={view.mark} />
 							</>
 						);
+						const full = view.details?.length ? (
+							<dl className="mx-2 mb-2 grid grid-cols-[minmax(3rem,max-content)_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-md bg-surface-2 px-3 py-2 text-sm">
+								{view.details.map((d) => (
+									<div key={d.label} className="contents">
+										<dt className="max-w-32 text-text-2">{d.label}</dt>
+										<dd className="min-w-0 break-words text-ink">{d.value}</dd>
+									</div>
+								))}
+							</dl>
+						) : null;
 						return (
 							<li key={view.key}>
-								{view.href && view.newTab ? (
+								{view.href && view.download ? (
+									<a
+										href={view.href}
+										data-focus-inset=""
+										className={cn(rowClass, "transition-[background-color] hover:bg-hover")}
+									>
+										{body}
+									</a>
+								) : view.href && view.newTab ? (
 									<a
 										href={view.href}
 										target="_blank"
@@ -146,9 +188,24 @@ export function ResultCard({
 									>
 										{body}
 									</IntentLink>
+								) : view.file ? (
+									<a
+										href={view.file}
+										download
+										data-focus-inset=""
+										className={cn(rowClass, "transition-[background-color] hover:bg-hover")}
+									>
+										{body}
+									</a>
 								) : (
 									<div className={rowClass}>{body}</div>
 								)}
+								{full}
+								{view.quote ? (
+									<blockquote className="mx-2 mb-2 border-l-2 border-line-2 pl-3 text-sm whitespace-pre-line text-ink-2">
+										{view.quote}
+									</blockquote>
+								) : null}
 							</li>
 						);
 					})}
@@ -171,6 +228,19 @@ export function ResultCard({
 					{facts.map((fact) => (
 						<p key={fact}>{fact}</p>
 					))}
+					{links.length ? (
+						<p className="flex flex-wrap gap-x-4 gap-y-1">
+							{links.map((link) => (
+								<IntentLink
+									key={link.href}
+									href={link.href}
+									className="font-medium text-ink underline underline-offset-2"
+								>
+									{link.label}
+								</IntentLink>
+							))}
+						</p>
+					) : null}
 				</div>
 			) : null}
 		</section>

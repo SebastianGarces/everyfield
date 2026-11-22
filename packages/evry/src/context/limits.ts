@@ -12,6 +12,7 @@ export const LIMITS = {
 	references: 64,
 	sectionChars: 16_000,
 	selectedRows: 24,
+	reviewCards: 10,
 } as const;
 
 export type StopReason =

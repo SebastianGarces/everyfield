@@ -9,13 +9,13 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	Select,
 } from "@everyfield/ui/controls";
 import { useActionState, useState } from "react";
 import { addPerson, editPerson } from "./actions";
 import { refusalText } from "./model";
-import { Problem } from "../../../components/Problem.tsx";
 
 type Staff = PipelineChoices["staff"];
 type Stages = PipelineChoices["stages"];
@@ -147,7 +147,7 @@ function Form({
 						/>
 					</Field>
 				)}
-				<Problem text={saving ? null : state.problem} />
+				<InlineAlert live="polite">{saving ? null : state.problem}</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>

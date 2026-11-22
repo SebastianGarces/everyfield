@@ -16,9 +16,12 @@ export function rowsInOrder(rows: OrderRow[], ids: string[]): OrderRow[] {
 
 export function moved(ids: string[], index: number, step: -1 | 1): string[] {
 	const to = index + step;
-	if (to < 0 || to >= ids.length) return ids;
+	const moving = ids[index];
+	const other = ids[to];
+	if (moving === undefined || other === undefined) return ids;
 	const next = ids.slice();
-	[next[index], next[to]] = [next[to]!, next[index]!];
+	next[index] = other;
+	next[to] = moving;
 	return next;
 }
 

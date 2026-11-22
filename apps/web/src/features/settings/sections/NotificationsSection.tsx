@@ -138,7 +138,7 @@ function Preferences({
 
 	return (
 		<SectionBody>
-			<div aria-live="polite" className="empty:hidden">
+			<div aria-live="polite" className="empty:sr-only">
 				{refusal ? (
 					<SaveError
 						message={refusal.refusal.message}

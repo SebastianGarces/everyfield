@@ -7,6 +7,7 @@ import { createOrganizationAdapter } from "../../../packages/domain/src/organiza
 import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { supersedeDigests } from "../../../packages/domain/src/jobs/digest.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 
 const database = await testDatabase({ prefix: "wp007", max: 8 });
@@ -83,12 +84,7 @@ export const effects = {
 			writes,
 		);
 	},
-	invalidate(
-		_c: WriteTx,
-		v: Parameters<import("../../../packages/domain/src/organizations/index.ts").OrganizationEffects["invalidate"]>[1],
-	) {
-		return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${sql.param(v.sourceId)} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`;
-	},
+	invalidate: (_c: WriteTx, v: { sourceId: string }) => supersedeDigests(v.sourceId),
 };
 export const api = createOrganizationAdapter(effects, { candidates: async () => [] });
 export const command = (input: unknown, expectedRevision = "1", requestKey = randomUUID()) => ({

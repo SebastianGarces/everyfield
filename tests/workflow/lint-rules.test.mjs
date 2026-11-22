@@ -14,7 +14,12 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { REFUSAL_MECHANISMS, WEB_SQL_HOLDERS } from "../../scripts/lint/everyfield-plugin.mjs";
+import {
+	LOOSE_CONTRACTS,
+	PRODUCT_TIMERS,
+	RAW_ERROR_SITES,
+	REFUSAL_MECHANISMS,
+} from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
@@ -205,6 +210,77 @@ export const d = [c, warn, nodeConsole, err, stderr, stdout, error];
 	);
 });
 
+test("INV-privacy: a caught error's text or a secret never reaches a log, error text or stored record, and the exempt list only shrinks", () => {
+	const source = `import { asLogWord, logFailure, logLine } from "@everyfield/domain/log";
+export async function a(run: () => Promise<void>, token: string, password: string) {
+	try {
+		await run();
+	} catch (error) {
+		const failure = error;
+		logLine({ event: "x", why: asLogWord(\`\${error}\`) });
+		throw new Error(failure.message);
+	}
+	try {
+		await run();
+	} catch ({ stack }) {
+		return stack;
+	}
+	run().catch((e) => String(e));
+	run().then(undefined, (e) => JSON.stringify(e.cause));
+	process.on("unhandledRejection", (reason) => "x" + reason);
+	logLine({ event: "x", key: asLogWord(password) });
+	throw new Error(\`refused \${token}\`);
+}
+export const b = (error: unknown) => (error instanceof Error ? error.stack : null);
+export async function c(run: () => Promise<void>, items: { message: string }[]) {
+	try {
+		await run();
+	} catch (error) {
+		logFailure({ event: "x" }, error);
+		if (error instanceof RangeError && error.name === "RangeError") throw new Error("refused", { cause: error });
+		throw error;
+	}
+	return items.map((e) => \`\${e.message}\`);
+}
+export function d(run: () => void) {
+	try {
+		run();
+	} catch (error) {
+		const typed = error as Error;
+		const name = (error as Error).message;
+		const trace = typed.stack;
+		const inner = error!.cause!.message;
+		return [name, trace, inner, (error satisfies unknown)["message"]];
+	}
+}
+`;
+	const lines = [7, 8, 12, 15, 16, 17, 18, 19, 21, 37, 38, 39, 40];
+	const listed = Object.keys(RAW_ERROR_SITES)[0];
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/x.ts": source,
+			"apps/web/src/features/x/server.ts": source,
+			"ops/x/run.mts": source,
+			"tools/prod-identity/x.ts": source,
+			"tools/ci/x.ts": source,
+			"tests/integration/x/x.test.mts": source,
+			[listed]: source,
+		}).filter((hit) => hit.endsWith(" no-raw-error-log")),
+		[
+			`${listed}:1 no-raw-error-log`,
+			...[
+				"packages/domain/src/x.ts",
+				"apps/web/src/features/x/server.ts",
+				"ops/x/run.mts",
+				"tools/prod-identity/x.ts",
+			].flatMap((file) => lines.map((line) => `${file}:${line} no-raw-error-log`)),
+		].sort(),
+	);
+	const entries = Object.values(RAW_ERROR_SITES);
+	assert.ok(entries.length <= 5 && entries.reduce((n, e) => n + e.sites, 0) <= 7, "RAW_ERROR_SITES only shrinks");
+	assert.ok(entries.every((e) => e.why.length > 40));
+});
+
 test("INV-lint: a fifth state hook in a component or hook is reported, a nested callback's is not", () => {
 	const five = (name) =>
 		`export function ${name}() {\n\tconst a = useState(0);\n\tconst b = useState(0);\n\tconst c = React.useState(0);\n\tconst [d] = useReducer((s) => s, 0);\n\tconst [e] = useState(0);\n\tconst nested = () => useState(0);\n\treturn [a, b, c, d, e, nested];\n}\n`;
@@ -270,6 +346,80 @@ export async function run() {
 		]),
 	);
 	assert.deepEqual(lint(files), places.flatMap((p) => lines.map((line) => `${p}:${line} no-timers`)).sort());
+});
+
+test("INV-lint: the Evry stream keep-alive is the one listed product timer: one heartbeat setInterval in conversationStreamGet, any other timer there is reported", () => {
+	const stream = `export const conversationStreamGet = () => {
+	const heartbeat = setInterval(() => {}, 15_000);
+	setTimeout(() => {}, 0);
+	const second = setInterval(() => {}, 15_000);
+	const viaGlobal = globalThis.setInterval(() => {}, 15_000);
+	return [heartbeat, second, viaGlobal];
+};
+export const other = () => setInterval(() => {}, 15_000);
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/server/evry/http.ts": stream,
+			"apps/web/src/server/evry/index.ts": stream,
+		}).filter((hit) => hit.endsWith(" no-timers")),
+		[
+			...[3, 4, 5, 8].map((line) => `apps/web/src/server/evry/http.ts:${line} no-timers`),
+			...[2, 3, 4, 5, 8].map((line) => `apps/web/src/server/evry/index.ts:${line} no-timers`),
+		],
+	);
+});
+
+test("INV-lint: each listed product timer exempts its one call site, a new timer in the same file is reported and a listed timer that is gone is reported as stale", () => {
+	assert.deepEqual(
+		Object.entries(PRODUCT_TIMERS).flatMap(([path, sites]) => sites.map((s) => `${path} ${s.timer} ${s.within}`)),
+		[
+			"apps/web/src/server/evry/http.ts setInterval conversationStreamGet",
+			"packages/evry/src/runtime/turn.ts setTimeout run",
+			"packages/evry/src/runtime/model.ts setTimeout transientRetry",
+			"packages/evry/src/runtime/observe.ts setTimeout timerPause",
+			"packages/db/src/schema/validate-file.ts setTimeout parser",
+			"packages/db/src/schema/validate-file.ts setTimeout parseOnce",
+		],
+	);
+	const paths = Object.keys(PRODUCT_TIMERS);
+	const added = "export const later = () => setTimeout(() => {}, 0);\n";
+	const real = Object.fromEntries(paths.map((p) => [p, readFileSync(join(repo, p), "utf8") + added]));
+	const lastLine = (p) => real[p].split("\n").length - 1;
+	const timerHits = (files) => lint(files).filter((hit) => hit.endsWith(" no-timers"));
+	assert.deepEqual(timerHits(real), paths.map((p) => `${p}:${lastLine(p)} no-timers`).sort());
+	const twice = `export async function parser() {
+	if (retry) {
+		const timer = setInterval(() => {}, 1);
+		return timer;
+	}
+	const again = setTimeout(() => {}, 1);
+	const timer = setTimeout(() => {}, 1);
+	if (retry) {
+		const timer = setTimeout(() => {}, 1);
+		return timer;
+	}
+	return [timer, again];
+}
+export function parseOnce() {
+	const timer = defer(setTimeout);
+	return [timer, setTimeout(() => {}, 1)];
+}
+export function other() {
+	const timer = setTimeout(() => {}, 1);
+	return timer;
+}
+`;
+	assert.deepEqual(
+		timerHits({
+			"packages/db/src/schema/validate-file.ts": twice,
+			"packages/evry/src/runtime/turn.ts": "export const gone = 1;\n",
+		}),
+		[
+			...[1, 3, 6, 9, 15, 16, 19].map((line) => `packages/db/src/schema/validate-file.ts:${line} no-timers`),
+			"packages/evry/src/runtime/turn.ts:1 no-timers",
+		].sort(),
+	);
 });
 
 test("INV-lint: every comment except a shebang and a bundler ignore inside import() is reported, JSX comments included", () => {
@@ -868,14 +1018,14 @@ const commitAll = (dir, message) => {
 	return git(dir, "rev-parse", "HEAD");
 };
 
-test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, Python, plist, ignore-file and new migration comments and every directive", () => {
+test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, Python, plist, ignore-file and new migration comments, except a migration's contract marker with a reason, and every directive", () => {
 	const files = {
 		"packages/ui/src/a.css": `a { color: red; } /* why */\n.b::after { content: "/* not */"; }\n`,
 		"tsconfig.x.json": `{\n\t// why\n\t"a": "http://x"\n}\n`,
 		".github/workflows/x.yml": `name: x # why\non: "#not"\n`,
 		"bin/tool": `#!/bin/sh\n# why\necho "#not"\n`,
 		".gitignore": `# why\nnode_modules\n`,
-		"packages/db/migrations/20990101000000_new.sql": `select '--not';\n-- why\n`,
+		"packages/db/migrations/20990101000000_new.sql": `select '--not';\n-- why\n-- contract: nothing reads it\n-- contract:\n`,
 		"packages/ui/src/b.ts": `export const a = 1;\n// ${DISABLE} x\n/* ${OX_DISABLE} */\n`,
 		"docs/x.css": `/* exempt */\n`,
 		"tools/x.py": `#!/usr/bin/env python3\nprint(f"PR #{1}", '#not', """\n# not\n""")  # why\n`,
@@ -898,7 +1048,7 @@ test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, Python, plist, 
 		".gitignore:1: 1",
 		"bin/tool:2: 1",
 		"ops/x.plist:2: 1",
-		"packages/db/migrations/20990101000000_new.sql:2: 1",
+		"packages/db/migrations/20990101000000_new.sql:2: 2",
 		"packages/ui/src/a.css:1: 1",
 		"packages/ui/src/b.ts: 2",
 		"tools/x.py:4: 1",
@@ -1106,7 +1256,7 @@ export const p = require("node:process").env;
 	);
 });
 
-test("INV-web-sql: apps/web imports no database module outside the files that still hold SQL", () => {
+test("INV-web-sql: apps/web imports no database module", () => {
 	const code = `import { sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { eq } from "drizzle-orm";
@@ -1118,20 +1268,95 @@ export const later = () => import("@everyfield/db/query");
 export const used = [sql, t, eq, privateStorage, pgTable] as unknown as Database;
 import { pgTable } from "@everyfield/db/columns";
 `;
-	const hits = lint({
-		"apps/web/src/features/x/server.ts": code,
-		"apps/web/src/features/wiki/server.ts": code,
-		"apps/web/src/features/settings/mail.ts": "export const none = 1;\n",
-		"packages/domain/src/x/index.ts": code,
-	}).filter((hit) => hit.endsWith(" web-database-imports"));
 	assert.deepEqual(
-		hits,
-		[
-			"apps/web/src/features/settings/mail.ts:1 web-database-imports",
-			...[1, 2, 3, 4, 5, 8, 10].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`),
-		].sort(),
+		lint({
+			"apps/web/src/features/x/server.ts": code,
+			"packages/domain/src/x/index.ts": code,
+		}).filter((hit) => hit.endsWith(" web-database-imports")),
+		[1, 2, 3, 4, 5, 8, 10].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`).sort(),
 	);
-	assert.ok(Object.keys(WEB_SQL_HOLDERS).length <= 9, "WEB_SQL_HOLDERS only shrinks");
+});
+
+test("INV-lint: apps/web shows an error or warning notice through the shared Alert, never a hand-written magenta or amber box, in cn object syntax or an amber token tint too", () => {
+	const code = `export const A = () => <p className="rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">x</p>;
+export const B = (more) => \`flex bg-magenta-50 \${more} text-magenta-600\`;
+export const C = { error: "bg-magenta-50 text-magenta-600" };
+export const D = "bg-magenta-500 text-magenta-600";
+export const E = "bg-magenta-50 text-ink-2";
+export const F = () => <div role="alert" className="flex gap-3 rounded-md bg-amber-100 px-4 py-3 text-sm text-ink">x</div>;
+export const G = (on) => (on ? "m-0 rounded-card bg-amber-50 px-3 py-2.5 text-sm" : "text-ink");
+export const H = { amber: "bg-amber-100 text-amber-600" };
+export const I = () => <span className="rounded-md bg-amber-100 px-2.5 py-1 text-amber-600">x</span>;
+export const J = () => <span className="rounded-full bg-amber-100 px-3 py-3 text-amber-600">x</span>;
+export const K = () => <fieldset className="flex flex-col gap-1 rounded-md bg-amber-50 px-4 py-3">x</fieldset>;
+export const L = "data-[highlight=true]:*:bg-amber-50 rounded-md py-3";
+export const M = () => <p className="rounded-lg bg-amber-50 p-3 text-sm">x</p>;
+export const N = () => <p className="rounded bg-amber-100/80 px-4 py-4">x</p>;
+export const O = ({ c }) => <p className={cn("rounded-xl px-4 py-2", c && "text-sm", "bg-amber-50")}>x</p>;
+export const P = (on) => cn("rounded-md p-2", on ? "bg-amber-100" : "bg-surface-2");
+export const Q = (more) => cn(\`rounded-md px-3 \${more}\`, "bg-amber-50/60");
+export const R = () => <span className={cn("inline-flex h-6 rounded-md px-2", "bg-amber-100 text-amber-600")}>x</span>;
+export const S = () => <span className="rounded-pill bg-amber-100 px-2.5 py-0.5">x</span>;
+export const T = () => <span className="rounded-md bg-amber-50 p-1">x</span>;
+export const U = () => <i className="size-2 rounded bg-amber-100 p-2" />;
+export const V = { amber: "bg-amber-50 text-amber-600 border-b-amber-300 px-4" };
+export const W = () => cn(memo(() => "rounded-md p-3"), "bg-amber-50");
+export const X = () => <p className={cn("rounded-md px-3 py-2", "bg-magenta-50", "text-magenta-600")}>x</p>;
+export const Y = () => <div className="h-full rounded-md bg-amber-50 p-4">x</div>;
+export const Z = () => <fieldset className="rounded-md bg-magenta-50 px-4 py-3 text-magenta-600">x</fieldset>;
+export const AA = () => <p role="alert" className="rounded-md bg-magenta-100 px-3 py-2 text-sm text-magenta-600">x</p>;
+export const AB = () => <p className="m-0 rounded-lg bg-magenta-100 px-3 py-2.5 text-sm text-ink">x</p>;
+export const AC = ({ t }) => <p className={cn("flex rounded-md px-3.5 py-3", t === "error" ? "bg-magenta-100" : "bg-green-100")}>x</p>;
+export const AD = () => <div className="rounded-md bg-magenta-50 px-4 py-3 text-ink-2">x</div>;
+export const AE = { magenta: "bg-magenta-100 text-magenta-600" };
+export const AF = () => <span className="grid size-[34px] place-items-center rounded-pill bg-magenta-100 text-magenta-600">x</span>;
+export const AG = () => <span className="rounded-md bg-magenta-100 px-2 py-0.5 text-magenta-600">x</span>;
+export const AH = "px-4 py-3.5 bg-magenta-100 text-mk-danger-ink";
+export const AI = (on) => cn("rounded-md px-4 py-3", { "bg-amber-50": on });
+export const AJ = () => <p className="rounded-md bg-[var(--ef-amber-50)] px-4 py-3">x</p>;
+export const AK = () => <p className="rounded-lg bg-(--ef-amber-100)/80 p-3">x</p>;
+export const AL = (on) => cn("rounded-md px-4 py-3", { "bg-surface-2": on, open: on });
+export const AM = () => <span className="rounded-pill bg-[var(--ef-amber-100)] px-2 py-0.5">x</span>;
+`;
+	const reported = lint({
+		"apps/web/src/features/x/Notice.tsx": code,
+		"packages/ui/src/controls/x.tsx": code,
+	}).filter((hit) => hit.endsWith(" shared-notice"));
+	assert.deepEqual(
+		reported.sort(),
+		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37]
+			.map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`)
+			.sort(),
+	);
+});
+
+test("INV-a11y: a live region in apps/web or packages/ui is never hidden, invisible or aria-hidden, so it stays in the accessibility tree", () => {
+	const code = `export const A = ({ m }) => <div aria-live="polite" className="empty:hidden">{m}</div>;
+export const B = ({ m }) => <p role="status" className={cn("text-sm", !m && "hidden")}>{m}</p>;
+export const C = ({ m, tone }) => <div role={tone ? "alert" : "status"} hidden={!m}>{m}</div>;
+export const D = ({ m, live }) => <div aria-live={live} className="mt-3 max-sm:hidden!">{m}</div>;
+export const E = ({ m }) => <div aria-live="polite" className="empty:sr-only">{m}</div>;
+export const F = ({ m }) => <div aria-live="off" className="empty:hidden">{m}</div>;
+export const G = ({ m }) => <div role="note" className="empty:hidden overflow-hidden">{m}</div>;
+export const H = ({ m }) => <div role="status" className="text-sm empty:invisible">{m}</div>;
+export const I = ({ m }) => <p aria-live="polite" className={cn(!m && "invisible")}>{m}</p>;
+export const J = ({ m }) => <div role="alert" aria-hidden="true">{m}</div>;
+export const K = ({ m, open }) => <div role="status" aria-hidden={!open}>{m}</div>;
+export const L = ({ m }) => <div role="status" hidden={false} aria-hidden={false}>{m}</div>;
+export const M = ({ m }) => <div aria-live="polite" aria-hidden="false" className="visible">{m}</div>;
+export const N = ({ m }) => <div role="status" hidden="false">{m}</div>;
+`;
+	const reported = lint({
+		"apps/web/src/features/x/Notice.tsx": code,
+		"packages/ui/src/controls/x.tsx": code,
+		"packages/domain/src/x.tsx": code,
+	}).filter((hit) => hit.endsWith(" live-region-in-tree"));
+	assert.deepEqual(
+		reported.sort(),
+		["apps/web/src/features/x/Notice.tsx", "packages/ui/src/controls/x.tsx"]
+			.flatMap((path) => [1, 2, 3, 4, 8, 9, 10, 11, 14].map((line) => `${path}:${line} live-region-in-tree`))
+			.sort(),
+	);
 });
 
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
@@ -1207,7 +1432,7 @@ export async function m(run, refusalOf) {
 			"packages/domain/src/people/x.ts": code.replace('import "server-only";\n', ""),
 			"apps/web/src/features/x/Client.tsx": `"use client";\n${code.replace('import "server-only";\n', "")}`,
 			"apps/web/src/server/platform/transient.ts": code,
-		}),
+		}).filter((hit) => hit.endsWith(" no-silent-catch")),
 		[
 			...hits.map((line) => `apps/web/src/features/x/server.ts:${line} no-silent-catch`),
 			...hits.map((line) => `apps/web/src/server/jobs/x.ts:${line - 1} no-silent-catch`),
@@ -1574,7 +1799,7 @@ export const p = (read: () => Promise<string[] | null>) => read().catch(() => nu
 	);
 });
 
-test("INV-lint: product code that recognises a caught error by its message text is reported", () => {
+test("INV-lint: product code that recognises a caught error by its message text, by comparison or pattern, is reported", () => {
 	const source = `export function f(error: unknown, p: Promise<void>) {
 	if (error instanceof Error && error.message === "unavailable") return 1;
 	try {
@@ -1584,14 +1809,23 @@ test("INV-lint: product code that recognises a caught error by its message text 
 	}
 	p.catch((err) => err.message.startsWith("stale"));
 	const parsed = { message: "x" };
-	return parsed.message === "x" && error instanceof Error && error.message;
+	if (error instanceof Error && /^[a-z_]+$/.test(error.message)) return 4;
+	if (error instanceof Error && error.message.match(/stale/)) return 5;
+	return /x/.test(parsed.message) && error instanceof Error && error.message;
 }
 `;
-	assert.deepEqual(lint({ "packages/domain/src/m.ts": source, "tests/unit/m.test.mts": source }), [
-		"packages/domain/src/m.ts:2 no-error-message-match",
-		"packages/domain/src/m.ts:6 no-error-message-match",
-		"packages/domain/src/m.ts:8 no-error-message-match",
-	]);
+	assert.deepEqual(
+		lint({ "packages/domain/src/m.ts": source, "tests/unit/m.test.mts": source }).filter((hit) =>
+			hit.endsWith(" no-error-message-match"),
+		),
+		[
+			"packages/domain/src/m.ts:10 no-error-message-match",
+			"packages/domain/src/m.ts:11 no-error-message-match",
+			"packages/domain/src/m.ts:2 no-error-message-match",
+			"packages/domain/src/m.ts:6 no-error-message-match",
+			"packages/domain/src/m.ts:8 no-error-message-match",
+		],
+	);
 });
 
 test("INV-lint: a domain module that hand-builds a refusal class, retry or refusal reply is reported; defineRefusals and the listed mechanisms are not, and a listed file that no longer needs its entry is reported too", () => {
@@ -1660,7 +1894,280 @@ export function gate(path: string, out: boolean) {
 	]);
 });
 
-test("INV-lint: a context value built during render is reported through aliases, casts and conditionals; stable values are not", () => {
+test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper, through a destructured kind or a renamed owner too", () => {
+	const source = `import type { RequestActor } from "@everyfield/domain/access";
+export function a(authority: RequestActor | null) {
+	const context = authority?.actor.context;
+	if (!authority || context?.kind !== "seat" || context.owner.kind !== "organization") return null;
+	return context.owner;
+}
+export function b(authority: RequestActor) {
+	const context = authority.actor.context;
+	if (context.kind != "seat") return [];
+	return [1].filter(() => "organization" === context.owner.kind);
+}
+export function c(authority: RequestActor) {
+	const context = authority.actor.context;
+	switch (context.kind) {
+		case "seat":
+			switch (context.owner.kind) {
+				case "organization":
+					return context.owner;
+			}
+	}
+	return null;
+}
+export function d(authority: RequestActor) {
+	const context = authority.actor.context;
+	if (context.kind !== "seat") return null;
+	const { owner } = context;
+	return owner.kind === "organization" ? owner : null;
+}
+export function e(authority: RequestActor) {
+	const context = authority.actor.context;
+	return context.kind === "seat" && context.owner.kind === "plant";
+}
+export function f(owner: { kind: string }, seat: { kind: string }) {
+	return owner.kind === "organization" && seat.kind !== "account";
+}
+export function g(authority: RequestActor) {
+	const { kind, owner } = authority.actor.context;
+	if (kind !== "seat") return null;
+	return owner.kind === "organization" ? owner : null;
+}
+export function h(authority: RequestActor) {
+	const context = authority.actor.context;
+	if (context.kind !== "seat") return null;
+	const { owner: home } = context;
+	return home.kind === "organization" ? home : null;
+}
+export function i(authority: RequestActor) {
+	const context = authority.actor.context;
+	const holder = context.kind === "seat" ? context.owner : null;
+	return holder?.kind === "organization";
+}
+export function j(authority: RequestActor) {
+	const { kind: seatKind, owner: { kind: ownerKind } } = authority.actor.context;
+	return seatKind === "seat" && ownerKind === "organization";
+}
+export function k(authority: RequestActor, kind: string) {
+	const { owner } = authority.actor.context;
+	return kind === "seat" && owner.kind === "plant";
+}
+export function l(authority: RequestActor) {
+	const context = authority.actor.context;
+	return context.kind === "seat" && late.kind === "organization";
+}
+const late = current.owner;
+export function m(authority: RequestActor, fallback: Owner) {
+	const context = authority.actor.context;
+	const either = fallback || context.owner;
+	return context.kind === "seat" && either.kind === "organization";
+}
+export function n(authority: RequestActor, fallback: Owner) {
+	const context = authority.actor.context;
+	const { owner: defaulted = fallback } = context;
+	return context.kind === "seat" && defaulted.kind === "organization";
+}
+export function o(authority: RequestActor) {
+	const context = authority.actor.context;
+	const aliasedKind = context.owner.kind;
+	return context.kind === "seat" && aliasedKind === "organization";
+}
+export function p(authority: RequestActor) {
+	const context = authority.actor.context;
+	const cast = context.owner as Owner;
+	const forced = context.owner!;
+	const castKind = context.owner.kind as string;
+	if (context.kind !== "seat") return null;
+	return [cast.kind === "organization", forced.kind === "organization", castKind === "organization"];
+}
+export function q(authority: RequestActor) {
+	const context = authority.actor.context;
+	const nestedKind = (context.owner as Owner).kind;
+	const { kind: spreadKind } = context.owner as Owner;
+	if (context.kind !== "seat") return null;
+	return [nestedKind === "organization", spreadKind === "organization", (context.owner as Owner).kind === "organization"];
+}
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/server.ts": source,
+			"packages/domain/src/access/organization-seat.ts": source,
+			"packages/domain/src/x/index.ts": source,
+			"packages/contracts/src/x/index.ts": source,
+		}),
+		[
+			"apps/web/src/features/x/server.ts:10 organization-seat",
+			"apps/web/src/features/x/server.ts:17 organization-seat",
+			"apps/web/src/features/x/server.ts:27 organization-seat",
+			"apps/web/src/features/x/server.ts:39 organization-seat",
+			"apps/web/src/features/x/server.ts:4 organization-seat",
+			"apps/web/src/features/x/server.ts:45 organization-seat",
+			"apps/web/src/features/x/server.ts:50 organization-seat",
+			"apps/web/src/features/x/server.ts:54 organization-seat",
+			"apps/web/src/features/x/server.ts:62 organization-seat",
+			"apps/web/src/features/x/server.ts:68 organization-seat",
+			"apps/web/src/features/x/server.ts:73 organization-seat",
+			"apps/web/src/features/x/server.ts:78 organization-seat",
+			"apps/web/src/features/x/server.ts:86 organization-seat",
+			"apps/web/src/features/x/server.ts:86 organization-seat",
+			"apps/web/src/features/x/server.ts:86 organization-seat",
+			"apps/web/src/features/x/server.ts:93 organization-seat",
+			"apps/web/src/features/x/server.ts:93 organization-seat",
+			"apps/web/src/features/x/server.ts:93 organization-seat",
+			"packages/domain/src/x/index.ts:10 organization-seat",
+			"packages/domain/src/x/index.ts:17 organization-seat",
+			"packages/domain/src/x/index.ts:27 organization-seat",
+			"packages/domain/src/x/index.ts:39 organization-seat",
+			"packages/domain/src/x/index.ts:4 organization-seat",
+			"packages/domain/src/x/index.ts:45 organization-seat",
+			"packages/domain/src/x/index.ts:50 organization-seat",
+			"packages/domain/src/x/index.ts:54 organization-seat",
+			"packages/domain/src/x/index.ts:62 organization-seat",
+			"packages/domain/src/x/index.ts:68 organization-seat",
+			"packages/domain/src/x/index.ts:73 organization-seat",
+			"packages/domain/src/x/index.ts:78 organization-seat",
+			"packages/domain/src/x/index.ts:86 organization-seat",
+			"packages/domain/src/x/index.ts:86 organization-seat",
+			"packages/domain/src/x/index.ts:86 organization-seat",
+			"packages/domain/src/x/index.ts:93 organization-seat",
+			"packages/domain/src/x/index.ts:93 organization-seat",
+			"packages/domain/src/x/index.ts:93 organization-seat",
+		],
+	);
+	assert.deepEqual(lint({ "packages/domain/src/access/organization-seat.ts": "export const seat = 1;\n" }), [
+		"packages/domain/src/access/organization-seat.ts:1 organization-seat",
+	]);
+});
+
+test("INV-lint: a cast to SitePath is reported in any linted file, a typed literal or template is not", () => {
+	const source = `import type { SitePath, SitePath as Path } from "@everyfield/contracts/identity";
+import type * as identity from "@everyfield/contracts/identity";
+type Back = Path | null;
+type Many = Back[];
+export function paths<T extends SitePath>(raw: string, id: string) {
+	const a = raw as SitePath;
+	const b = <Path>raw;
+	const c = raw as unknown as Back;
+	const d = [raw] as Many;
+	const e = raw as identity.SitePath;
+	const f = raw as import("@everyfield/contracts/identity").SitePath;
+	const g = raw as T;
+	const h: SitePath = \`/documents/\${id}\`;
+	const i = "/wiki" satisfies SitePath;
+	const j = raw as string;
+	return [a, b, c, d, e, f, g, h, i, j];
+}
+`;
+	const hits = (path) =>
+		lint({ [path]: source })
+			.filter((hit) => hit.endsWith("site-path-cast"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10))
+			.sort((a, b) => a - b);
+	assert.deepEqual(hits("apps/web/src/features/x/server.ts"), [6, 7, 8, 9, 10, 11, 12]);
+	assert.deepEqual(hits("packages/contracts/src/identity/x.ts"), [6, 7, 8, 9, 10, 11, 12]);
+});
+
+test("INV-lint: a local generic Outcome type is reported unless it specializes the shared Outcome", () => {
+	const specialized = `import type { Outcome as Shared } from "@everyfield/contracts/common";
+export type Outcome<T> = Shared<T, "access_denied", { reason?: string }>;
+`;
+	const copy = `export type Outcome<T> = { status: "ok"; value: T } | { status: "lost" };\n`;
+	const foreign = `import type { Outcome as Other } from "./other.ts";
+export type Outcome<T> = Other<T>;
+`;
+	const plain = `export type Outcome = "lost" | "passed";\n`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/types.ts": specialized,
+			"apps/web/src/features/x/copy.ts": copy,
+			"apps/web/src/features/x/foreign.ts": foreign,
+			"apps/web/src/features/x/other.ts": copy.replace("Outcome", "Other"),
+			"apps/web/src/features/x/plain.ts": plain,
+			"packages/domain/src/m.ts": copy,
+			"packages/contracts/src/common/values.ts": copy,
+		}),
+		[
+			"apps/web/src/features/x/copy.ts:1 shared-outcome",
+			"apps/web/src/features/x/foreign.ts:2 shared-outcome",
+			"packages/domain/src/m.ts:1 shared-outcome",
+		],
+	);
+});
+
+test("INV-lint: a local union of any name with the ok value / refused / lost statuses is reported; other status unions are not", () => {
+	const source = `import type { Outcome } from "@everyfield/contracts/common";
+export type SignalOutcome<T> = { status: "ok"; value: T } | { status: "refused"; error: string } | { status: "lost" };
+type Answer = { status: "ok"; value: number } | ({ status: "refused" } & { code: string }) | { status: "signed_out" | "lost" };
+export type Specialized<T> = Outcome<T, "access_denied", { error: string }> | { status: "signed_out" };
+type NoLost<T> = { status: "ok"; value: T } | { status: "refused"; code: string };
+type NoRefusal = { status: "ok"; value: number } | { status: "denied" | "lost" };
+type Polled = { status: "ok"; receipt: number } | { status: "refused" } | { status: "lost" };
+type Kind = { kind: "ok"; value: number } | { kind: "refused" } | { kind: "lost" };
+type Loose = { status: "ok" | "refused" | "lost"; value: number };
+type Swapped = { status: "ok"; receipt: number } | { status: "refused"; value: number } | { status: "lost" };
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/model.ts": source, "packages/domain/src/m.ts": source }).filter((hit) =>
+			hit.endsWith("shared-outcome"),
+		),
+		[
+			"apps/web/src/features/x/model.ts:2 shared-outcome",
+			"apps/web/src/features/x/model.ts:3 shared-outcome",
+			"packages/domain/src/m.ts:2 shared-outcome",
+			"packages/domain/src/m.ts:3 shared-outcome",
+		],
+	);
+});
+
+test("INV-lint: an inline ok value / refused / lost union in any annotation, alias body, generic default or cast, nested in arrays, tuples, intersections or type arguments, is reported through local aliases and the shared Lost under any local name; shared and imported replies are not", () => {
+	const source = `import type { Lost as Gone, Outcome } from "@everyfield/contracts/common";
+import type { MeetingsReply } from "@everyfield/domain/meetings";
+async function read(): Promise<Reply<number> | { status: "lost" }> {}
+function take(answer: { status: "ok"; value: number } | { status: "refused" } | Gone) {}
+const held: Array<{ status: "ok"; value: number } | { status: "refused" | "lost" }> = [];
+type Holder = { answer: Reply<string> | Gone };
+export type Load<T> = { status: "ok"; value: T } | { status: "refused" } | Gone;
+const shared = (): Promise<Outcome<number> | { status: "deleted" }> => read();
+function imported(reply: MeetingsReply<number> | Gone) {}
+let noValue: { status: "ok"; receipt: number } | { status: "refused" } | Gone;
+const plain: Reply<number> = read();
+type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
+type Self = Self | { status: "lost" };
+const arr: (Ok | No | Gone)[] = [];
+const frozen: readonly (Ok | No | Gone)[] = [];
+async function maybe(): Promise<Ok | No | Gone> | null {}
+const pair: [Ok | No | Gone, number] = [read(), 1];
+const named: [answer?: Ok | No | Gone] = [];
+const extra: (Ok | No | Gone) & { extra: 1 } = read();
+type Later = Promise<Ok | No | Gone>;
+type Keyed = Record<string, Ok | No | Gone>;
+function pick<T = Ok | No | Gone>() {}
+type Defaulted<T = Ok | No | Gone> = T;
+const cast = read() as Ok | No | Gone;
+const checked = read() satisfies Ok | No | Gone;
+const old = <Ok | No | Gone>read();
+const rest: [...(Ok | No | Gone)[]] = [];
+const fine: (Outcome<number> | { status: "deleted" })[] = [];
+type Ok = { status: "ok"; value: number };
+type No = { status: "refused" };
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/server.ts": source, "packages/domain/src/m.ts": source }).filter((hit) =>
+			hit.endsWith("shared-outcome"),
+		),
+		["apps/web/src/features/x/server.ts", "packages/domain/src/m.ts"]
+			.flatMap((path) =>
+				[3, 4, 5, 6, 7, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27].map(
+					(line) => `${path}:${line} shared-outcome`,
+				),
+			)
+			.sort(),
+	);
+});
+
+test("INV-lint: a context value built during render is reported through aliases, casts, conditionals and outer bindings; every context and alias of one is a const named *Context; stable values are not", () => {
 	const source = `import React, { createContext, useCallback, useMemo } from "react";
 type T = { theme: string };
 const ThemeContext = createContext<object | null>(null);
@@ -1693,6 +2200,23 @@ export function B({ children, ...rest }: { children: unknown; a: string }) {
 export const Seat = createContext(null);
 export const Flag = React.createContext(false);
 export const SeatContext = createContext(null);
+const Settled = { theme: "fixed" };
+export function C({ items, theme, children }: { items: string[]; theme: string; children: unknown }) {
+	const outer = { theme };
+	const kept = useMemo(() => ({ theme }), [theme]);
+	return items.map((item) => (
+		<ThemeContext key={item} value={outer}>
+			<ThemeContext value={kept}>{children}</ThemeContext>
+			<ThemeContext value={Settled}>{children}</ThemeContext>
+			{[item].map((outer) => <ThemeContext key={outer} value={outer}>{children}</ThemeContext>)}
+		</ThemeContext>
+	));
+}
+const Alias = ThemeContext;
+const AliasContext = ThemeContext as typeof ThemeContext;
+export default createContext(null);
+export const contexts = { Ctx: createContext(null) };
+export const CastContext = createContext(null) as object;
 `;
 	assert.deepEqual(lint({ "packages/ui/src/x.tsx": source }), [
 		"packages/ui/src/x.tsx:13 stable-context-value",
@@ -1705,6 +2229,10 @@ export const SeatContext = createContext(null);
 		"packages/ui/src/x.tsx:28 stable-context-value",
 		"packages/ui/src/x.tsx:30 stable-context-value",
 		"packages/ui/src/x.tsx:31 stable-context-value",
+		"packages/ui/src/x.tsx:38 stable-context-value",
+		"packages/ui/src/x.tsx:45 stable-context-value",
+		"packages/ui/src/x.tsx:47 stable-context-value",
+		"packages/ui/src/x.tsx:48 stable-context-value",
 	]);
 });
 
@@ -1758,6 +2286,108 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 			"packages/domain/src/tasks/x.ts:3 table-writers",
 			"packages/domain/src/tasks/x.ts:4 table-writers",
 		],
+	);
+});
+
+test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased, destructured or re-exported, unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
+	const loose = `import { z } from "zod";
+import * as zz from "zod/v4";
+import { object as plain } from "zod";
+export const a = z.object({ id: z.string() });
+export const b = z
+	.object({ id: z.string() })
+	.strip();
+export const c = zz.looseObject({ id: z.string() });
+export const d = plain({ id: z.string() });
+export const e = z.strictObject({ id: z.string(), item: z.strictObject({}) });
+export const f = z.strictObject({}).strip();
+export const g = z.strictObject({}).passthrough();
+export const h = z.strictObject({}).loose();
+export const i = z.strictObject({}).catchall(z.unknown());
+export const j = z.strictObject({}).strip.bind(z.strictObject({}))();
+const { object: o, strictObject } = z;
+export const k = o({});
+const aliased = z.object;
+export const l = aliased({});
+export { looseObject } from "zod";
+export const m = strictObject({ id: z.string() });
+const { looseObject: viaCast } = z as typeof z;
+`;
+	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" strict-contracts"));
+	assert.deepEqual(reported({ "packages/contracts/src/x/index.ts": loose, "packages/domain/src/x.ts": loose }), [
+		"packages/contracts/src/x/index.ts:11 strict-contracts",
+		"packages/contracts/src/x/index.ts:12 strict-contracts",
+		"packages/contracts/src/x/index.ts:13 strict-contracts",
+		"packages/contracts/src/x/index.ts:14 strict-contracts",
+		"packages/contracts/src/x/index.ts:15 strict-contracts",
+		"packages/contracts/src/x/index.ts:16 strict-contracts",
+		"packages/contracts/src/x/index.ts:18 strict-contracts",
+		"packages/contracts/src/x/index.ts:20 strict-contracts",
+		"packages/contracts/src/x/index.ts:22 strict-contracts",
+		"packages/contracts/src/x/index.ts:4 strict-contracts",
+		"packages/contracts/src/x/index.ts:5 strict-contracts",
+		"packages/contracts/src/x/index.ts:5 strict-contracts",
+		"packages/contracts/src/x/index.ts:8 strict-contracts",
+		"packages/contracts/src/x/index.ts:9 strict-contracts",
+	]);
+	const listed = Object.values(LOOSE_CONTRACTS);
+	assert.ok(
+		listed.length <= 3 && listed.reduce((n, names) => n + Object.keys(names).length, 0) <= 3,
+		"LOOSE_CONTRACTS only shrinks",
+	);
+	const [path, names] = Object.entries(LOOSE_CONTRACTS)[0];
+	const [name] = Object.keys(names);
+	assert.deepEqual(reported({ [path]: `import { z } from "zod";\nexport const ${name} = z.object({});\n` }), []);
+	assert.deepEqual(reported({ [path]: `import { z } from "zod";\nexport const ${name} = z.strictObject({});\n` }), [
+		`${path}:1 strict-contracts`,
+	]);
+	assert.deepEqual(
+		reported({
+			[path]: `import { z } from "zod";\nexport const ${name} = z.object({});\nexport const other = z.object({});\n`,
+		}),
+		[`${path}:3 strict-contracts`],
+	);
+});
+
+test("INV-lint: only the job queue inserts job rows, through SQL text, an interpolated or raw table, MERGE, a wrapped or returned table or a re-export", () => {
+	const insert = `import { sql } from "drizzle-orm";
+export const a = sql\`INSERT INTO job (tenant_id) SELECT 1\`;
+export const b = (db, t) => db.insert(t.job).values({});
+export const c = sql\`INSERT INTO job_link (id) SELECT 1\`;
+`;
+	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" table-writers"));
+	assert.deepEqual(
+		reported({
+			"packages/domain/src/tasks/x.ts": insert,
+			"packages/evry/src/x.ts": insert,
+			"packages/domain/src/jobs/queue.ts": insert,
+		}),
+		[
+			"packages/domain/src/tasks/x.ts:2 table-writers",
+			"packages/domain/src/tasks/x.ts:3 table-writers",
+			"packages/evry/src/x.ts:2 table-writers",
+			"packages/evry/src/x.ts:3 table-writers",
+		],
+	);
+	const forms = `import { sql } from "drizzle-orm";
+import * as tables from "@everyfield/db/tables";
+export const a = sql\`INSERT INTO \${tables.job} (tenant_id) SELECT 1\`;
+export const b = sql\`insert into public.\${sql.raw("job")} (tenant_id) SELECT 1\`;
+export const c = (db) => db.insert(tables.job as any).values({});
+export const d = (db) => db.insert(tables.job!).values({});
+const pick = () => tables.job;
+export const e = (db) => db.insert(pick()).values({});
+export const f = sql\`MERGE INTO job j USING x ON false WHEN NOT MATCHED THEN INSERT (tenant_id) VALUES (1)\`;
+export { job as jobTable } from "@everyfield/db/tables";
+export const g = sql\`SELECT id FROM \${tables.job} WHERE \${sql.raw("job")}.id IS NULL\`;
+export const h = (db) => db.insert(later()).values({});
+function later() {
+	return tables.job;
+}
+`;
+	assert.deepEqual(
+		reported({ "packages/domain/src/tasks/forms.ts": forms, "packages/domain/src/jobs/queue.ts": forms }),
+		[3, 4, 5, 6, 8, 9, 10, 12].map((line) => `packages/domain/src/tasks/forms.ts:${line} table-writers`).sort(),
 	);
 });
 
@@ -2041,14 +2671,14 @@ export function Unrelated({ pick }) {
 test("INV-lint: only an overlay's lazy entry imports it, so no static chain from a product page reaches it; the parts its sections share import freely", () => {
 	const settings = "apps/web/src/features/settings";
 	const files = {
-		[`${settings}/ProductSettings.tsx`]:
+		[`${settings}/LazySettingsDialog.tsx`]:
 			'import type { SettingsDialogProps } from "./SettingsDialog";\nexport const load = () => import("./SettingsDialog");\nexport type P = SettingsDialogProps;\n',
 		[`${settings}/sections/ChurchSection.tsx`]:
 			'import { SectionBody } from "../SettingsDialog";\nimport { SaveFooter } from "../SectionParts";\nexport const parts = [SectionBody, SaveFooter];\n',
 		[`${settings}/brand/BrandSection.tsx`]:
 			'import { SectionBody } from "../SettingsDialog";\nexport const parts = [SectionBody];\n',
 		[`${settings}/preview/SettingsPreview.tsx`]:
-			'import { SettingsDialog } from "../SettingsDialog";\nimport { LazySettingsDialog } from "../ProductSettings";\nexport const dialogs = [SettingsDialog, LazySettingsDialog];\n',
+			'import { SettingsDialog } from "../SettingsDialog";\nimport { LazySettingsDialog } from "../LazySettingsDialog";\nexport const dialogs = [SettingsDialog, LazySettingsDialog];\n',
 		"apps/web/src/features/evry/conversation/panel.tsx":
 			'import { SettingsDialog } from "../../settings/SettingsDialog";\nexport const load = () => import("./EvryPanel.tsx");\nexport const dialog = SettingsDialog;\n',
 		"apps/web/src/features/shell/Frame.tsx":
@@ -2139,6 +2769,21 @@ test("INV-lint: a read exported from a server action module, under its own name 
 	);
 });
 
+test("INV-lint: a resolve read action is reported unless SELECTION_READS names it for its file, and a named read that is gone is reported", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/communication/actions.ts": `"use server";\nexport async function resolveAudience() {}\nexport async function resolveOther() {}\n`,
+			"apps/web/src/features/teams/training/actions.ts": `"use server";\nexport async function saveRoster() {}\n`,
+			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function previewRoster() {}\n`,
+		}).filter((hit) => hit.endsWith("no-read-actions")),
+		[
+			"apps/web/src/features/communication/actions.ts:3 no-read-actions",
+			"apps/web/src/features/teams/training/actions.ts:1 no-read-actions",
+			"apps/web/src/features/x/actions.ts:2 no-read-actions",
+		],
+	);
+});
+
 test("INV-lint: a server action parameter typed as a trusted shape is reported, also wrapped in a call or re-exported, unknown, primitives, FormData and their unions are not", () => {
 	assert.deepEqual(
 		lint({
@@ -2159,6 +2804,94 @@ test("INV-lint: a server action parameter typed as a trusted shape is reported, 
 			"apps/web/src/features/x/again.ts:3 action-params-unknown",
 			"apps/web/src/features/x/wrapped.ts:3 action-params-unknown",
 			"apps/web/src/features/x/wrapped.ts:4 action-params-unknown",
+		],
+	);
+});
+
+test("INV-lint: a second top-level node:test before hook is reported in any import form, one before with other hooks and suite-level befores are not", () => {
+	const named = `import test, { before, beforeEach, after, describe } from "node:test";
+before(async () => {});
+before(async () => {});
+test.before(() => {});
+beforeEach(() => {});
+after(() => {});
+describe("s", () => {
+	before(() => {});
+	before(() => {});
+});
+`;
+	const aliased = `import { before as setupHook, test as t } from "node:test";
+setupHook(() => {});
+t.before(() => {});
+`;
+	const namespaced = `import * as nt from "node:test";
+nt.before(() => {});
+nt.test.before(() => {});
+nt.default.before(() => {});
+nt.it.before(() => {});
+`;
+	const viaIt = `import { it } from "node:test";
+it.before(() => {});
+it.before(() => {});
+`;
+	const destructured = `import test from "node:test";
+const { before, after } = test;
+const { before: setup } = test;
+before(() => {});
+setup(() => {});
+after(() => {});
+`;
+	const bare = `import run from "node:test";
+run.before(() => {});
+await run.before(() => {});
+`;
+	const single = `import test, { before, beforeEach, after, describe } from "node:test";
+before(async () => {});
+beforeEach(() => {});
+after(() => {});
+test.beforeEach(() => {});
+const config = { before: () => {} };
+const { before: configured } = config;
+configured();
+describe("s", () => {
+	before(() => {});
+	before(() => {});
+});
+test("a", () => {});
+`;
+	const local = `const before = (f) => f();
+before(() => {});
+before(() => {});
+`;
+	const other = `import test, { before } from "./hooks.mts";
+before(() => {});
+test.before(() => {});
+`;
+	assert.deepEqual(
+		lint({
+			"tests/integration/x/named.test.mts": named,
+			"tests/evry/x/aliased.test.mts": aliased,
+			"tests/unit/x/namespaced.test.mts": namespaced,
+			"tests/contracts/common/bare.test.mjs": bare,
+			"tests/unit/x/it.test.mts": viaIt,
+			"tests/unit/x/destructured.test.mts": destructured,
+			"tests/workflow/single.test.mjs": single,
+			"tests/ui/local.test.mts": local,
+			"tests/ui/other.test.mts": other,
+			"tools/ci/named.test.ts": named,
+		}).filter((hit) => hit.endsWith(" one-top-level-before")),
+		[
+			"tests/contracts/common/bare.test.mjs:3 one-top-level-before",
+			"tests/evry/x/aliased.test.mts:3 one-top-level-before",
+			"tests/integration/x/named.test.mts:3 one-top-level-before",
+			"tests/integration/x/named.test.mts:4 one-top-level-before",
+			"tests/unit/x/destructured.test.mts:5 one-top-level-before",
+			"tests/unit/x/it.test.mts:3 one-top-level-before",
+			"tests/unit/x/namespaced.test.mts:3 one-top-level-before",
+			"tests/unit/x/namespaced.test.mts:4 one-top-level-before",
+			"tests/unit/x/namespaced.test.mts:5 one-top-level-before",
+			"tools/ci/named.test.ts:3 one-top-level-before",
+			"tools/ci/named.test.ts:4 one-top-level-before",
 		],
 	);
 });

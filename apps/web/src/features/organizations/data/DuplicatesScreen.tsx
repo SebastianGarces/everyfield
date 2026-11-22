@@ -3,12 +3,14 @@
 import type { mergeResult, mergeReview, organizationDuplicatePairs } from "@everyfield/contracts/people";
 import { Tick02Icon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import {
+	Alert,
 	Button,
 	CalloutLabel,
 	CalloutText,
 	Card,
 	CardBody,
 	EmptyState,
+	InlineAlert,
 	PageHeader,
 	Radio,
 	RadioGroup,
@@ -19,7 +21,6 @@ import { createRead, useRead } from "../../../components/read.tsx";
 import type { z } from "zod";
 import { blockerText, counted, FIELD_LABEL, fieldText, type Columns } from "../../people/corrections/model";
 import { PIPELINE_PATH } from "../board/model";
-import { Problem } from "../../../components/Problem.tsx";
 import { mergePeople, undoMerge } from "./actions";
 import { reviewMerge } from "../board/fetch";
 import { READ_FAILED } from "../../../components/read-failed.ts";
@@ -111,7 +112,8 @@ function MergeReview({ pair }: { pair: Pair }) {
 	const [problem, setProblem] = useState<string | null>(null);
 	const [merged, setMerged] = useState<Merged | null>(null);
 	const [busy, startMerge] = useTransition();
-	const sourceId = keep ? people.find((p) => p.id !== keep)!.id : "";
+	const otherThan = (id: string) => (pair.person.id !== id ? pair.person : pair.with);
+	const sourceId = keep ? otherThan(keep).id : "";
 	const answer = useRead(keep ? mergeReviews : null, sourceId, keep ?? "").value;
 	const review = answer?.status === "ok" ? answer.value : null;
 	const shownProblem = answer && answer.status !== "ok" ? problemText(answer) : problem;
@@ -119,7 +121,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 
 	const choose = (survivorId: string) => {
 		setProblem(null);
-		mergeReviews.prefetch(people.find((p) => p.id !== survivorId)!.id, survivorId);
+		mergeReviews.prefetch(otherThan(survivorId).id, survivorId);
 		setKeep(survivorId);
 	};
 
@@ -129,7 +131,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 	const blocked = review ? review.blockers.causes.length > 0 : false;
 	const ready = review !== null && !blocked && review.fields.every((f) => choices[f.field]);
 	const merge = () => {
-		if (!review) return;
+		if (!review || keep === null) return;
 		startMerge(async () => {
 			setProblem(null);
 			const answer = await mergePeople({
@@ -143,7 +145,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 			}).catch(() => ({ status: "lost" }) as const);
 			if (answer.status === "ok") setMerged(answer.value);
 			else if (answer.status === "refused" && answer.error.code === "merge_blocked")
-				void mergeReviews.retry(sourceId, keep!);
+				void mergeReviews.retry(sourceId, keep);
 			else setProblem(problemText(answer));
 		});
 	};
@@ -160,8 +162,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 				</RadioGroup>
 			</fieldset>
 			{review && blocked ? (
-				<div role="alert" className="rounded-md bg-magenta-50 px-3 py-2.5 text-sm text-magenta-600">
-					<p className="font-medium">These records can’t be merged</p>
+				<Alert role="alert" title="These records can’t be merged">
 					<ul className="mt-1 flex flex-col gap-1">
 						{review.blockers.causes.map((cause) => (
 							<li key={cause}>
@@ -170,7 +171,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 						))}
 					</ul>
 					<p className="mt-1.5">Nothing changed.</p>
-				</div>
+				</Alert>
 			) : null}
 			{review && !blocked ? (
 				<>
@@ -210,7 +211,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 							. {name("source")}’s stage history and conversations show on {name("survivor")}’s record.
 						</p>
 					) : null}
-					<Problem text={shownProblem} />
+					<InlineAlert live="polite">{shownProblem}</InlineAlert>
 					<div>
 						<Button variant="primary" disabled={!ready} loading={busy} onClick={merge}>
 							Merge into {name("survivor")}
@@ -218,7 +219,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 					</div>
 				</>
 			) : (
-				<Problem text={shownProblem} />
+				<InlineAlert live="polite">{shownProblem}</InlineAlert>
 			)}
 		</div>
 	);
@@ -228,8 +229,13 @@ function MergeDone({ merged, people }: { merged: Merged; people: Pair["person"][
 	const [problem, setProblem] = useState<string | null>(null);
 	const [undone, setUndone] = useState(false);
 	const [busy, startUndo] = useTransition();
-	const survivor = people.find((p) => p.id === merged.survivorId)!.displayName;
-	const source = people.find((p) => p.id === merged.sourceId)!.displayName;
+	const nameOf = (id: string) => {
+		const person = people.find((p) => p.id === id);
+		if (!person) throw new Error(`The merged pair has no person ${id}`);
+		return person.displayName;
+	};
+	const survivor = nameOf(merged.survivorId);
+	const source = nameOf(merged.sourceId);
 	if (undone)
 		return (
 			<Card variant="callout" tone="green">
@@ -251,7 +257,7 @@ function MergeDone({ merged, people }: { merged: Merged; people: Pair["person"][
 					{source} is now part of {survivor}: their stage history, enrollments and conversations are on one record.
 				</CalloutText>
 			</Card>
-			<Problem text={problem} />
+			<InlineAlert live="polite">{problem}</InlineAlert>
 			<div className="flex flex-wrap gap-2">
 				<Button variant="primary" asChild>
 					<Link href={`${PIPELINE_PATH}/${merged.survivorId}`}>Open {survivor}</Link>

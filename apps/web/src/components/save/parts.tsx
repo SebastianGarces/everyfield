@@ -228,7 +228,10 @@ const announced = new Set<string>();
 const noticeKey = (n: Notice) => `${n.id}:${n.tone}:${n.tone === "unknown" && n.checking}`;
 
 function recordShown(region: HTMLElement) {
-	for (const shown of region.querySelectorAll<HTMLElement>("[data-notice]")) announced.add(shown.dataset.notice!);
+	for (const shown of region.querySelectorAll<HTMLElement>("[data-notice]")) {
+		const key = shown.dataset.notice;
+		if (key !== undefined) announced.add(key);
+	}
 }
 
 function recordAnnounced(region: HTMLDivElement | null) {
@@ -265,7 +268,7 @@ function NoticeRegion({ notice, busy, onDismiss, className }: NoticeProps & { cl
 	const isNew = now.isNew;
 	const body = notice ? <NoticeBody notice={notice} busy={busy} onDismiss={onDismiss} /> : null;
 	return (
-		<div ref={recordAnnounced} aria-live="assertive" className={cn("empty:hidden", className)}>
+		<div ref={recordAnnounced} aria-live="assertive" className={cn("empty:sr-only", className)}>
 			{body && !isNew ? <div aria-live="off">{body}</div> : body}
 		</div>
 	);

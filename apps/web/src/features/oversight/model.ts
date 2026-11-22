@@ -212,9 +212,10 @@ const RESULT: { [R in RuleId]: Record<Shared["results"][R], Label> } = {
 		unknown: UNKNOWN("Training"),
 	},
 };
+const labelOf = <R extends RuleId>(id: R, result: Shared["results"][R]): Label => RESULT[id][result];
 export function resultLabels(row: IntelligenceRow): Label[] {
 	if (row.status === "not_shared") return [{ label: "Not shared", status: "unknown" }];
-	return RULE_IDS.map((id) => (RESULT[id] as Record<string, Label>)[row.results[id]]!);
+	return RULE_IDS.map((id) => labelOf(id, row.results[id]));
 }
 
 export function concernLenses(a: ReleasedAssessment): string | null {
