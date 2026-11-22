@@ -37,9 +37,11 @@ async function guestOfMeeting() {
 		person = randomUUID(),
 		address = `${person}@example.test`;
 	const startsAt = new Date(Date.now() + 3 * 86_400_000);
-	await f.admin.execute(sql`INSERT INTO meeting(id,plant_id,type,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
+	await f.admin
+		.execute(sql`INSERT INTO meeting(id,plant_id,type,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
 		VALUES(${meeting},${plant.id},'orientation',${startsAt.toISOString().slice(0, 10)},'18:00','America/Chicago',${startsAt.toISOString()},'1','planning',1)`);
-	await f.admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
+	await f.admin
+		.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at)
 		VALUES(${person},${plant.id},${plant.id},'Ann Lee',${address},'other','prospect','unknown','unknown',0,'live',clock_timestamp())`);
 	await f.admin.execute(sql`INSERT INTO participation(id,plant_id,meeting_id,person_id,roster_member,rsvp,presence)
@@ -73,7 +75,11 @@ async function sendInvite(meeting: string, person: string) {
 		await communicationWriter.dispatchAttempt(
 			f.db,
 			owner.actor,
-			{ requestKey: randomUUID(), expectedRevision: accepted.revision, input: { communicationId: saved.communicationId } },
+			{
+				requestKey: randomUUID(),
+				expectedRevision: accepted.revision,
+				input: { communicationId: saved.communicationId },
+			},
 			{
 				async send(batch) {
 					sent.push(...batch.messages);
