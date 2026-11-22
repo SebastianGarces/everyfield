@@ -1317,6 +1317,9 @@ export const AJ = () => <p className="rounded-md bg-[var(--ef-amber-50)] px-4 py
 export const AK = () => <p className="rounded-lg bg-(--ef-amber-100)/80 p-3">x</p>;
 export const AL = (on) => cn("rounded-md px-4 py-3", { "bg-surface-2": on, open: on });
 export const AM = () => <span className="rounded-pill bg-[var(--ef-amber-100)] px-2 py-0.5">x</span>;
+export const AN = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-50"]: on });
+export const AO = (on) => cn("rounded-lg p-3", { [\`bg-magenta-100\`]: on });
+export const AP = (on, tone) => cn("rounded-md px-4 py-3", { [tone]: on });
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1324,13 +1327,13 @@ export const AM = () => <span className="rounded-pill bg-[var(--ef-amber-100)] p
 	}).filter((hit) => hit.endsWith(" shared-notice"));
 	assert.deepEqual(
 		reported.sort(),
-		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37]
+		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37, 40, 41]
 			.map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`)
 			.sort(),
 	);
 });
 
-test("INV-a11y: a live region in apps/web or packages/ui is never hidden, invisible or aria-hidden, so it stays in the accessibility tree", () => {
+test("INV-a11y: a live region in apps/web or packages/ui (an output element included) is never hidden, invisible, inert or aria-hidden, so it stays in the accessibility tree", () => {
 	const code = `export const A = ({ m }) => <div aria-live="polite" className="empty:hidden">{m}</div>;
 export const B = ({ m }) => <p role="status" className={cn("text-sm", !m && "hidden")}>{m}</p>;
 export const C = ({ m, tone }) => <div role={tone ? "alert" : "status"} hidden={!m}>{m}</div>;
@@ -1345,6 +1348,13 @@ export const K = ({ m, open }) => <div role="status" aria-hidden={!open}>{m}</di
 export const L = ({ m }) => <div role="status" hidden={false} aria-hidden={false}>{m}</div>;
 export const M = ({ m }) => <div aria-live="polite" aria-hidden="false" className="visible">{m}</div>;
 export const N = ({ m }) => <div role="status" hidden="false">{m}</div>;
+export const O = ({ m, busy }) => <div aria-live="polite" inert={busy}>{m}</div>;
+export const P = ({ m }) => <output className="empty:hidden">{m}</output>;
+export const Q = ({ m }) => <div role="status" inert={false}>{m}</div>;
+export const R = ({ m }) => <output aria-live="off" className="hidden">{m}</output>;
+export const S = ({ m }) => <output role="presentation" hidden>{m}</output>;
+export const T = ({ m }) => <output inert>{m}</output>;
+export const U = ({ m }) => <section className="hidden">{m}</section>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1354,7 +1364,9 @@ export const N = ({ m }) => <div role="status" hidden="false">{m}</div>;
 	assert.deepEqual(
 		reported.sort(),
 		["apps/web/src/features/x/Notice.tsx", "packages/ui/src/controls/x.tsx"]
-			.flatMap((path) => [1, 2, 3, 4, 8, 9, 10, 11, 14].map((line) => `${path}:${line} live-region-in-tree`))
+			.flatMap((path) =>
+				[1, 2, 3, 4, 8, 9, 10, 11, 14, 15, 16, 20].map((line) => `${path}:${line} live-region-in-tree`),
+			)
 			.sort(),
 	);
 });
@@ -2289,7 +2301,7 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 	);
 });
 
-test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased, destructured or re-exported, unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
+test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased (the namespace too), destructured or re-exported (export * included), unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
 	const loose = `import { z } from "zod";
 import * as zz from "zod/v4";
 import { object as plain } from "zod";
@@ -2312,6 +2324,16 @@ export const l = aliased({});
 export { looseObject } from "zod";
 export const m = strictObject({ id: z.string() });
 const { looseObject: viaCast } = z as typeof z;
+const y = z;
+export const n = y.object({});
+const w = y as typeof z;
+export const o2 = w.strictObject({ id: y.string() });
+export * from "zod";
+export * as zod from "zod/v4";
+const other = { object: (shape) => shape };
+const q = other;
+export const p = q.object({});
+export * from "./more";
 `;
 	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" strict-contracts"));
 	assert.deepEqual(reported({ "packages/contracts/src/x/index.ts": loose, "packages/domain/src/x.ts": loose }), [
@@ -2324,6 +2346,9 @@ const { looseObject: viaCast } = z as typeof z;
 		"packages/contracts/src/x/index.ts:18 strict-contracts",
 		"packages/contracts/src/x/index.ts:20 strict-contracts",
 		"packages/contracts/src/x/index.ts:22 strict-contracts",
+		"packages/contracts/src/x/index.ts:24 strict-contracts",
+		"packages/contracts/src/x/index.ts:27 strict-contracts",
+		"packages/contracts/src/x/index.ts:28 strict-contracts",
 		"packages/contracts/src/x/index.ts:4 strict-contracts",
 		"packages/contracts/src/x/index.ts:5 strict-contracts",
 		"packages/contracts/src/x/index.ts:5 strict-contracts",
