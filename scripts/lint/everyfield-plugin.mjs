@@ -1273,46 +1273,58 @@ export const PRODUCT_TIMERS = {
 	],
 };
 
-const namedAncestor = (node, name) => {
-	for (let p = node.parent; p; p = p.parent)
-		if (
-			(p.type === "VariableDeclarator" || p.type === "FunctionDeclaration") &&
-			p.id?.type === "Identifier" &&
-			p.id.name === name
-		)
-			return true;
-	return false;
+const functionBinding = (fn) => {
+	if (fn.id?.name) return fn.id.name;
+	let node = fn;
+	while (node.parent?.type === "CallExpression" && node.parent.arguments.includes(node)) node = node.parent;
+	return node.parent?.type === "VariableDeclarator" && node.parent.id.type === "Identifier"
+		? node.parent.id.name
+		: null;
+};
+
+const declaredFunctions = (node) => {
+	const found = [];
+	for (let p = node.parent; p; p = p.parent) if (FUNCTIONS.has(p.type) && functionBinding(p)) found.push(p);
+	return found;
+};
+
+const timerDepth = (node) => {
+	let depth = 0;
+	for (let p = node.parent; p; p = p.parent) depth++;
+	return depth;
 };
 
 const timerSite = (node, site) => {
 	const call = node.parent;
 	if (node.name !== site.timer || call?.type !== "CallExpression" || call.callee !== node) return false;
+	const [nearest, ...outer] = declaredFunctions(call);
 	return (
 		call.parent?.type === "VariableDeclarator" &&
 		call.parent.id.type === "Identifier" &&
 		call.parent.id.name === site.binding &&
-		namedAncestor(call, site.within)
+		nearest !== undefined &&
+		functionBinding(nearest) === site.within &&
+		!outer.some((fn) => functionBinding(fn) === site.within)
 	);
 };
 
 const noTimers = ratcheted("no-timers", (context, push) => {
 	const seen = new Set();
 	const sites = PRODUCT_TIMERS[repoPath(context.filename)] ?? [];
-	const matched = new Set();
-	const productTimer = (node) => {
-		const site = sites.find((s) => !matched.has(s) && timerSite(node, s));
-		if (site) matched.add(site);
-		return site !== undefined;
-	};
-	const report = (node, name) => {
-		const at = (node.range ?? [node.start, node.end]).join(":");
-		if (seen.has(at) || productTimer(node)) return;
-		seen.add(at);
+	const candidates = new Map(sites.map((site) => [site, []]));
+	const hit = (node, name) =>
 		push({
 			node,
 			fn: enclosingName(node),
 			message: `${name} waits for time to pass instead of reacting to what the code waits for. Fix the ordering at its cause: act in the event handler, on the state change, on the promise or on the DOM node that is ready. A timer that is itself the product behavior (a countdown, a toast's lifetime, a poll, a typing debounce) needs an entry in ${survivorFile(context)} with its reason, which waits for the owner.`,
 		});
+	const report = (node, name) => {
+		const at = (node.range ?? [node.start, node.end]).join(":");
+		if (seen.has(at)) return;
+		seen.add(at);
+		const site = sites.find((s) => timerSite(node, s));
+		if (site) candidates.get(site).push({ node, name });
+		else hit(node, name);
 	};
 	let timerImports = new Set();
 	let timerSpaces = new Set();
@@ -1364,13 +1376,16 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 			if (delayed) report(node, "scheduler.postTask with a delay");
 		},
 		"Program:exit"(program) {
-			for (const site of sites)
-				if (!matched.has(site))
+			for (const [site, found] of candidates) {
+				const exempt = found.reduce((best, c) => (timerDepth(c.node) < timerDepth(best.node) ? c : best), found[0]);
+				for (const c of found) if (c !== exempt) hit(c.node, c.name);
+				if (!exempt)
 					push({
 						node: program,
 						fn: null,
 						message: `The listed product timer ${site.timer} ${site.binding} in ${site.within} is gone: delete its entry from PRODUCT_TIMERS in scripts/lint/everyfield-plugin.mjs.`,
 					});
+			}
 		},
 	};
 	return merge(
@@ -3493,17 +3508,24 @@ const ownerRead = (node) => {
 	if (at?.type === "LogicalExpression") return ownerRead(at.left) || ownerRead(at.right);
 	return at?.type === "MemberExpression" && memberName(at) === "owner";
 };
-const seatNames = () => {
+const seatNames = (context) => {
 	const kinds = new Map();
 	const owners = new Set();
+	const variable = (id) => {
+		for (let scope = context.sourceCode.getScope(id); scope; scope = scope.upper) {
+			const found = scope.set?.get(id.name);
+			if (found) return found;
+		}
+		return null;
+	};
 	const bind = (pattern, from) => {
 		if (pattern?.type !== "ObjectPattern") return;
 		for (const property of pattern.properties) {
 			if (property.type !== "Property") continue;
 			const key = keyName(property.key, property.computed);
 			const value = property.value.type === "AssignmentPattern" ? property.value.left : property.value;
-			if (key === "kind" && value.type === "Identifier") kinds.set(value.name, from);
-			if (key === "owner" && value.type === "Identifier") owners.add(value.name);
+			if (key === "kind" && value.type === "Identifier") kinds.set(variable(value), from);
+			if (key === "owner" && value.type === "Identifier") owners.add(variable(value));
 			if (key === "owner") bind(value, OWNER);
 		}
 	};
@@ -3511,17 +3533,17 @@ const seatNames = () => {
 		const init = unwrapped(node.init);
 		if (node.id.type === "ObjectPattern") bind(node.id, init);
 		if (node.id.type !== "Identifier") return;
-		if (ownerRead(init)) owners.add(node.id.name);
+		if (ownerRead(init)) owners.add(variable(node.id));
 		if (init?.type === "MemberExpression" && memberName(init) === "kind")
-			kinds.set(node.id.name, unwrapped(init.object));
+			kinds.set(variable(node.id), unwrapped(init.object));
 	};
 	const kindOf = (node) => {
 		const at = unwrapped(node);
-		if (at?.type === "Identifier") return kinds.get(at.name) ?? null;
+		if (at?.type === "Identifier") return kinds.get(variable(at)) ?? null;
 		return at?.type === "MemberExpression" && memberName(at) === "kind" ? unwrapped(at.object) : null;
 	};
 	const namesOwner = (node) =>
-		node?.type === "Identifier" ? node.name === "owner" || owners.has(node.name) : memberName(node) === "owner";
+		node?.type === "Identifier" ? node.name === "owner" || owners.has(variable(node)) : memberName(node) === "owner";
 	return { declare, kindOf, namesOwner };
 };
 const comparedKinds = (node, kindOf) => {
@@ -3538,7 +3560,7 @@ const organizationSeatCheck = {
 		const path = repoPath(context.filename);
 		if (!SEAT_CODE.test(path)) return {};
 		const home = Object.hasOwn(ORGANIZATION_SEAT_CHECKS, path);
-		const names = seatNames();
+		const names = seatNames(context);
 		const comparisons = [];
 		const seats = [];
 		const organizations = [];
@@ -3865,6 +3887,8 @@ const oneTopLevelBefore = {
 			VariableDeclarator(node) {
 				const from = node.init;
 				if (node.id.type !== "ObjectPattern" || from?.type !== "Identifier") return;
+				const statement = node.parent.parent?.type === "ExportNamedDeclaration" ? node.parent.parent : node.parent;
+				if (statement.parent?.type !== "Program") return;
 				if (!hosts.has(from.name) && !namespaces.has(from.name)) return;
 				for (const property of node.id.properties)
 					if (
