@@ -183,6 +183,7 @@ const MEMBER_MEETINGS_READS = [
 	"venues.list",
 	"venues.get",
 	"venues.history",
+	"evry.readWorkflowHint",
 ];
 const MEETINGS_READS = [
 	"meetings.list",
@@ -211,6 +212,7 @@ const MEETINGS_READS = [
 	"venues.list",
 	"venues.get",
 	"venues.history",
+	"evry.readWorkflowHint",
 ];
 const MEMBER_MEETINGS_WRITES = [
 	"meetings.schedule",
@@ -378,6 +380,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"signals.correct",
 						"signals.reaffirm",
 						...MEETINGS_WRITES,
+						"evry.prepareMeetingInvitation",
+						"evry.reuseRecipe",
 						"seats.invite",
 						"seats.resendInvitation",
 						"seats.revokeInvitation",
@@ -778,6 +782,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"tasks_read",
 			"teams_read",
 			"wiki_read",
+			"workflows_read",
 		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",
 	);

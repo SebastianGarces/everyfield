@@ -45,6 +45,7 @@ export type Operation =
 	| "communication.templates.create"
 	| "communication.templates.fork"
 	| "communication.templates.update"
+	| InvitationOperation
 	| "meetings.schedule"
 	| "meetings.edit"
 	| "meetings.changeStatus"
@@ -302,6 +303,7 @@ export type Review = {
 	executing: boolean;
 	receipt: {
 		receiptId?: string;
+		meetingId?: string;
 		revision?: string;
 		code?: string;
 		report?: MailReport;
@@ -767,6 +769,11 @@ export const showsBefore = (review: Pick<Review, "operation">, change: Change) =
 
 export const isTasks = (operation: Operation) => operation.startsWith("tasks.") || operation.startsWith("followups.");
 
+export function invitationName(review: Review): string {
+	const meeting = review.review.changes.find((c) => c.field === "meeting")?.after as { title?: unknown } | undefined;
+	return typeof meeting?.title === "string" ? meeting.title : (review.review.target?.label ?? "Meeting invitation");
+}
+
 export function subjectName(review: Review): string {
 	const { target, changes } = review.review;
 	if (target) return target.label;
@@ -834,6 +841,8 @@ const WIKI_EDITOR_SAVED: Record<WikiEditorOperation, (title: string) => string> 
 
 export function openAfter(review: Review): { href: string; label: string } | null {
 	const who = review.review.target;
+	if (isInvitation(review.operation) && review.receipt?.meetingId)
+		return { href: `/meetings/${review.receipt.meetingId}`, label: "Open the meeting" };
 	if (review.review.withheld || isMail(review.operation)) return null;
 	if (isWikiEditor(review.operation)) return who?.href ? { href: who.href, label: "Open the Wiki editor" } : null;
 	if (!isTasks(review.operation))
@@ -873,6 +882,8 @@ export const shownChanges = (review: Pick<Review, "operation" | "review">) =>
 	);
 
 const TITLE: Record<Operation, string> = {
+	"evry.prepareMeetingInvitation": "Invite people to a meeting",
+	"evry.reuseRecipe": "Repeat an invitation",
 	...TEAMS_TITLE,
 	"communication.saveDraft": "Save an email draft",
 	"communication.scheduleReviewed": "Schedule an email",
@@ -1055,6 +1066,23 @@ export const openCriteria = (review: Review) => {
 
 export type MailOperation = Extract<Operation, `communication.${string}`>;
 export const isMail = (operation: Operation): operation is MailOperation => operation.startsWith("communication.");
+export type InvitationOperation = "evry.prepareMeetingInvitation" | "evry.reuseRecipe";
+export const isInvitation = (operation: Operation): operation is InvitationOperation =>
+	operation === "evry.prepareMeetingInvitation" || operation === "evry.reuseRecipe";
+export const sendsMail = (operation: Operation) => isMail(operation) || isInvitation(operation);
+export const INVITATION_CONSEQUENCE =
+	"Approving does every step above at once: the meeting, the guests, then the email to exactly these people. Accepted is not delivered: Messages shows each delivery when the email service reports it.";
+export function invitationRefusalText(code: string | undefined): string {
+	switch (code) {
+		case "stale_review":
+		case "revision_conflict":
+			return "The meeting or the people changed since the review, so nothing was added or sent. Ask Evry to review it again.";
+		case "access_denied":
+			return "Your seat no longer allows this, so nothing was added or sent.";
+		default:
+			return "Everyfield refused this invitation, so nothing was added or sent.";
+	}
+}
 export const isWiki = (operation: Operation) => operation.startsWith("wiki.");
 export const targetHref = (target: NonNullable<Review["review"]["target"]>) => target.href ?? `/people/${target.id}`;
 export const isMeetings = (operation: Operation) =>
@@ -1180,6 +1208,8 @@ export const MAIL_DISMISSED: Partial<Record<Operation, string>> = {
 	"communication.replaceScheduledReviewed":
 		"You closed this review. The message still sends as it was, at its set time.",
 	"communication.sendReviewed": "You closed this review. Nothing was sent or saved.",
+	"evry.prepareMeetingInvitation": "You closed this review. Nothing was created, added or sent.",
+	"evry.reuseRecipe": "You closed this review. Nothing was added or sent.",
 	"communication.executeResend": "You closed this review. Nothing was resent.",
 	"communication.retryProvenFailed": "You closed this review. Nothing was sent again.",
 	"communication.deleteDraft": "You closed this review. The draft stays saved.",
@@ -1198,8 +1228,17 @@ export function mailHead(
 	review: Review,
 	phase: string,
 ): { title: string; tone: "amber" | "green" | "magenta" | "gray" } | null {
-	if (!isMail(review.operation)) return null;
-	if (phase === "pending")
+	if (isInvitation(review.operation)) {
+		if (phase === "pending")
+			return {
+				title: review.review.refusal ? "Can't prepare this invitation" : "Review every step before approving",
+				tone: "amber",
+			};
+		if (phase === "completed" && review.receipt?.report?.confirmation === "confirmed")
+			return { title: "Guests added and invitation sent", tone: "green" };
+	}
+	if (!sendsMail(review.operation)) return null;
+	if (phase === "pending" && isMail(review.operation))
 		return {
 			title: review.stale
 				? "Message changed"

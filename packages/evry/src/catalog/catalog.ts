@@ -4,6 +4,7 @@ import { COMMUNICATION_READS } from "../adapters/communication/reads/index.ts";
 import { FOLLOWUP_READS } from "../adapters/followups/reads/index.ts";
 import { ASSESSMENT_INTELLIGENCE_READS, PHASE_READS, SIGNAL_READS } from "../adapters/intelligence/reads/index.ts";
 import { MEETINGS_READS } from "../adapters/meetings/reads/index.ts";
+import { WORKFLOW_READS } from "../adapters/meetings/reads/workflows.ts";
 import { DOCUMENTS_READS } from "../adapters/documents/reads/index.ts";
 import { NOTIFICATION_READS } from "../adapters/notifications/reads/index.ts";
 import { ORGANIZATION_READS } from "../adapters/people-organization/reads/index.ts";
@@ -34,6 +35,7 @@ export const READ_DOMAINS = {
 	phases: PHASE_READS,
 	signals: SIGNAL_READS,
 	meetings: MEETINGS_READS,
+	workflows: WORKFLOW_READS,
 	seats: SEAT_READS,
 	sharing: SHARING_READS,
 	onboarding: ONBOARDING_READS,

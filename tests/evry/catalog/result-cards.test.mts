@@ -237,6 +237,7 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"meetings.readAnalytics": { meetingId: MEETINGS.lastNight },
 	"meetings.previewRosterImport": { meetingId: MEETINGS.training },
 	"venues.list": {},
+	"evry.readWorkflowHint": { workflow: "vision_night_follow_up" },
 	"venues.get": { venueId: MEETINGS.coffee },
 	"venues.history": { venueId: MEETINGS.coffee },
 	"seats.list": {},
