@@ -5,7 +5,12 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { getPreferences } from "../../../packages/domain/src/notifications/index.ts";
 import { getPlant, listPlants, readIntelligence } from "../../../packages/domain/src/oversight/index.ts";
-import { OVERSIGHT_READS } from "../../../packages/evry/src/adapters/oversight/reads/index.ts";
+import {
+	OVERSIGHT_READS,
+	readIntelligenceHistory,
+	readPlantLocationHistory,
+	readPlantLocations,
+} from "../../../packages/evry/src/adapters/oversight/reads/index.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { ok } from "../../support/fixture.mts";
@@ -202,13 +207,10 @@ const SETTLED: Record<string, (got: Got) => Promise<void>> = {
 	"OVS-22": async (got) => assert.equal(got.answer, answers.get("OVS-16")),
 	"OVS-23": async () => {
 		const actor = (await h.freshActor(ch.seats.otherDirector.session))!;
-		const reads = new Map(OVERSIGHT_READS.map((a) => [a.operation, a]));
 		const results = [
-			await invokeRead(ch.db, actor, reads.get("organizationIntelligence.readLocations")!, {}),
-			await invokeRead(ch.db, actor, reads.get("organizationIntelligence.readHistory")!, {}),
-			await invokeRead(ch.db, actor, reads.get("organizationIntelligence.readLocationHistory")!, {
-				plantId: id("Harvest Point"),
-			}),
+			await invokeRead(ch.db, actor, readPlantLocations, {}),
+			await invokeRead(ch.db, actor, readIntelligenceHistory, {}),
+			await invokeRead(ch.db, actor, readPlantLocationHistory, { plantId: id("Harvest Point") }),
 		];
 		assert.deepEqual(
 			results.map((r) => [r.status, r.rows.length]),
