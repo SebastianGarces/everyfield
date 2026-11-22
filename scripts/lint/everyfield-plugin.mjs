@@ -1230,6 +1230,7 @@ export const PRODUCT_TIMERS = {
 			timer: "setInterval",
 			binding: "heartbeat",
 			within: "conversationStreamGet",
+			delay: "15_000",
 			why: "the Evry conversation stream writes an SSE comment every 15 seconds so proxies and the browser keep an idle stream open while a turn runs; the interval is the keep-alive itself and nothing else marks when a quiet connection needs one",
 		},
 	],
@@ -1238,6 +1239,7 @@ export const PRODUCT_TIMERS = {
 			timer: "setTimeout",
 			binding: "wall",
 			within: "run",
+			delay: "LIMITS.wallMs",
 			why: "an Evry turn stops at its LIMITS.wallMs wall-time budget so a hung model or tool call cannot hold the run lease; the deadline is the limit itself and no event marks it",
 		},
 	],
@@ -1246,6 +1248,7 @@ export const PRODUCT_TIMERS = {
 			timer: "setTimeout",
 			binding: "timer",
 			within: "transientRetry",
+			delay: "ms",
 			why: "a transient model error is retried after the LIMITS.modelRetryDelaysMs backoff; the wait is the backoff itself and the turn's abort signal cancels it",
 		},
 	],
@@ -1254,6 +1257,7 @@ export const PRODUCT_TIMERS = {
 			timer: "setTimeout",
 			binding: "timer",
 			within: "timerPause",
+			delay: "ms",
 			why: "a conversation observer re-reads the store every pollMs so it still sees events written by another instance; the pause is the poll interval and the abort signal ends it",
 		},
 	],
@@ -1262,57 +1266,72 @@ export const PRODUCT_TIMERS = {
 			timer: "setTimeout",
 			binding: "timer",
 			within: "parser",
+			delay: "STARTUP_MS",
 			why: "a PDF parser worker that is not ready within STARTUP_MS counts as crashed, so a stuck worker cannot hold an upload; the deadline is the product limit",
 		},
 		{
 			timer: "setTimeout",
 			binding: "timer",
 			within: "parseOnce",
+			delay: "parseMs",
 			why: "a PDF parse that runs past parseMs is refused and its worker stopped, so one file cannot hold the parser; the deadline is the product limit",
 		},
 	],
 };
 
-const namedAncestor = (node, name) => {
-	for (let p = node.parent; p; p = p.parent)
-		if (
-			(p.type === "VariableDeclarator" || p.type === "FunctionDeclaration") &&
-			p.id?.type === "Identifier" &&
-			p.id.name === name
-		)
-			return true;
-	return false;
+const functionBinding = (fn) => {
+	if (fn.id?.name) return fn.id.name;
+	let node = fn;
+	while (node.parent?.type === "CallExpression" && node.parent.arguments.includes(node)) node = node.parent;
+	return node.parent?.type === "VariableDeclarator" && node.parent.id.type === "Identifier"
+		? node.parent.id.name
+		: null;
 };
 
-const timerSite = (node, site) => {
+const declaredFunctions = (node) => {
+	const found = [];
+	for (let p = node.parent; p; p = p.parent) if (FUNCTIONS.has(p.type) && functionBinding(p)) found.push(p);
+	return found;
+};
+
+const timerDepth = (node) => {
+	let depth = 0;
+	for (let p = node.parent; p; p = p.parent) depth++;
+	return depth;
+};
+
+const timerSite = (context, node, site) => {
 	const call = node.parent;
 	if (node.name !== site.timer || call?.type !== "CallExpression" || call.callee !== node) return false;
+	const [nearest, ...outer] = declaredFunctions(call);
 	return (
 		call.parent?.type === "VariableDeclarator" &&
 		call.parent.id.type === "Identifier" &&
 		call.parent.id.name === site.binding &&
-		namedAncestor(call, site.within)
+		context.sourceCode.getText(call.arguments[1]) === site.delay &&
+		nearest !== undefined &&
+		functionBinding(nearest) === site.within &&
+		!outer.some((fn) => functionBinding(fn) === site.within)
 	);
 };
 
 const noTimers = ratcheted("no-timers", (context, push) => {
 	const seen = new Set();
 	const sites = PRODUCT_TIMERS[repoPath(context.filename)] ?? [];
-	const matched = new Set();
-	const productTimer = (node) => {
-		const site = sites.find((s) => !matched.has(s) && timerSite(node, s));
-		if (site) matched.add(site);
-		return site !== undefined;
-	};
-	const report = (node, name) => {
-		const at = (node.range ?? [node.start, node.end]).join(":");
-		if (seen.has(at) || productTimer(node)) return;
-		seen.add(at);
+	const candidates = new Map(sites.map((site) => [site, []]));
+	const hit = (node, name) =>
 		push({
 			node,
 			fn: enclosingName(node),
 			message: `${name} waits for time to pass instead of reacting to what the code waits for. Fix the ordering at its cause: act in the event handler, on the state change, on the promise or on the DOM node that is ready. A timer that is itself the product behavior (a countdown, a toast's lifetime, a poll, a typing debounce) needs an entry in ${survivorFile(context)} with its reason, which waits for the owner.`,
 		});
+	const report = (node, name) => {
+		const at = (node.range ?? [node.start, node.end]).join(":");
+		if (seen.has(at)) return;
+		seen.add(at);
+		const site = sites.find((s) => timerSite(context, node, s));
+		if (site) candidates.get(site).push({ node, name });
+		else hit(node, name);
 	};
 	let timerImports = new Set();
 	let timerSpaces = new Set();
@@ -1364,13 +1383,16 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 			if (delayed) report(node, "scheduler.postTask with a delay");
 		},
 		"Program:exit"(program) {
-			for (const site of sites)
-				if (!matched.has(site))
+			for (const [site, found] of candidates) {
+				const exempt = found.reduce((best, c) => (timerDepth(c.node) < timerDepth(best.node) ? c : best), found[0]);
+				for (const c of found) if (c !== exempt) hit(c.node, c.name);
+				if (!exempt)
 					push({
 						node: program,
 						fn: null,
-						message: `The listed product timer ${site.timer} ${site.binding} in ${site.within} is gone: delete its entry from PRODUCT_TIMERS in scripts/lint/everyfield-plugin.mjs.`,
+						message: `The listed product timer ${site.timer} ${site.binding} in ${site.within} with delay ${site.delay} is gone: delete its entry from PRODUCT_TIMERS in scripts/lint/everyfield-plugin.mjs.`,
 					});
+			}
 		},
 	};
 	return merge(
@@ -1806,9 +1828,7 @@ const classParts = (node) =>
 					: node.type === "ArrayExpression"
 						? node.elements.flatMap((element) => (element ? classParts(element) : []))
 						: node.type === "ObjectExpression"
-							? node.properties.flatMap((property) =>
-									property.type === "Property" && !property.computed ? classParts(property.key) : [],
-								)
+							? node.properties.flatMap((property) => (property.type === "Property" ? classParts(property.key) : []))
 							: [];
 
 const sharedNotice = {
@@ -1852,7 +1872,7 @@ const attributeStrings = (attribute) =>
 		: stringsIn(attribute.value);
 const HIDING_CLASSES = new Set(["hidden", "invisible"]);
 const hidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, "").split(":").at(-1));
-const OFF_VALUES = { hidden: [false], "aria-hidden": [false, "false"] };
+const OFF_VALUES = { hidden: [false], inert: [false], "aria-hidden": [false, "false"] };
 const switchedOff = (attribute, name) => {
 	const value = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
 	return value?.type === "Literal" && OFF_VALUES[name].includes(value.value);
@@ -1873,16 +1893,21 @@ const liveRegionInTree = {
 				const liveValues = live ? attributeStrings(live) : [];
 				const announces =
 					(live && !(liveValues.length && liveValues.every((value) => value === "off"))) ||
-					(role && attributeStrings(role).some((value) => LIVE_ROLES.has(value)));
+					(role && attributeStrings(role).some((value) => LIVE_ROLES.has(value))) ||
+					(!live && !role && node.name.type === "JSXIdentifier" && node.name.name === "output");
 				if (!announces) return;
 				const className = jsxAttribute(node, "className");
 				const hiddenClass = className && attributeStrings(className).some((s) => s.split(/\s+/).some(hidingToken));
-				const hiding = (hiddenClass && className) || setAttribute(node, "hidden") || setAttribute(node, "aria-hidden");
+				const hiding =
+					(hiddenClass && className) ||
+					setAttribute(node, "hidden") ||
+					setAttribute(node, "inert") ||
+					setAttribute(node, "aria-hidden");
 				if (!hiding) return;
 				context.report({
 					node: hiding,
 					message:
-						"A live region (aria-live, or role status, alert or log) that is hidden, invisible or aria-hidden leaves the accessibility tree, so what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
+						"A live region (aria-live, role status, alert or log, or an output element) that is hidden, invisible, inert or aria-hidden leaves the accessibility tree, so what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
 				});
 			},
 		};
@@ -3301,28 +3326,39 @@ export const OUTCOME_MODULE = "packages/contracts/src/common/values.ts";
 const OUTCOME_SOURCE = "@everyfield/contracts/common";
 const OUTCOME_SCOPE = /^(apps\/web\/src|packages\/[^/]+\/src)\//;
 const statusLiterals = (type) =>
-	type?.type === "TSLiteralType" && typeof type.literal.value === "string"
-		? [type.literal.value]
+	type?.type === "TSLiteralType"
+		? [keyName(type.literal, false)]
 		: type?.type === "TSUnionType"
 			? type.types.flatMap(statusLiterals)
 			: [];
 const propertiesOf = (member) =>
 	member.type === "TSTypeLiteral"
-		? member.members.filter((m) => m.type === "TSPropertySignature" && m.key.type === "Identifier")
+		? member.members.flatMap((m) =>
+				m.type === "TSPropertySignature" ? [{ name: keyName(m.key, m.computed), type: m.typeAnnotation }] : [],
+			)
 		: member.type === "TSIntersectionType"
 			? member.types.flatMap(propertiesOf)
 			: [];
 const memberStatuses = (member) =>
 	propertiesOf(member)
-		.filter((m) => m.key.name === "status")
-		.flatMap((m) => statusLiterals(m.typeAnnotation?.typeAnnotation));
+		.filter((m) => m.name === "status")
+		.flatMap((m) => statusLiterals(m.type?.typeAnnotation));
 const referenceName = (type) =>
 	type?.type === "TSTypeReference" && type.typeName.type === "Identifier" ? type.typeName.name : null;
+const REPLY_SOURCE = /^@everyfield\/contracts\/[\w/-]+$/;
+const sharedPiece = (source, name) =>
+	source === OUTCOME_SOURCE && name === "Lost"
+		? "lost"
+		: (source === OUTCOME_SOURCE && name === "Reply") || /\wReply$/.test(name)
+			? "reply"
+			: null;
 const OUTCOME_MESSAGE = `Import Outcome from ${OUTCOME_SOURCE} and specialize it (type Name<T> = Shared<T, Code, Extra>), so every feature answers the same union.`;
 const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 	const path = repoPath(context.filename);
 	if (path === OUTCOME_MODULE || !OUTCOME_SCOPE.test(path)) return {};
 	const shared = new Map();
+	const imported = new Map();
+	const namespaces = new Map();
 	const aliases = new Map();
 	const candidates = [];
 	const members = (type, seen) => {
@@ -3334,18 +3370,29 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 		}
 		return [type];
 	};
-	const statusesOf = (member) => (shared.get(referenceName(member)) === "Lost" ? ["lost"] : memberStatuses(member));
+	const pieceOf = (member) => {
+		if (member?.type !== "TSTypeReference") return null;
+		const { typeName } = member;
+		if (typeName.type === "Identifier") return imported.get(typeName.name) ?? null;
+		return typeName.type === "TSQualifiedName" &&
+			typeName.left.type === "Identifier" &&
+			namespaces.has(typeName.left.name)
+			? sharedPiece(namespaces.get(typeName.left.name), typeName.right.name)
+			: null;
+	};
+	const statusesOf = (member) =>
+		({ lost: ["lost"], reply: ["ok", "refused"] })[pieceOf(member)] ?? memberStatuses(member);
+	const okValue = (member) =>
+		pieceOf(member) === "reply" ||
+		(memberStatuses(member).includes("ok") && propertiesOf(member).some((m) => m.name === "value"));
+	const shaped = (all) => {
+		const statuses = new Set(all.flatMap(statusesOf));
+		return all.some(okValue) && statuses.has("refused") && statuses.has("lost");
+	};
 	const outcomeShaped = (type) => {
 		if (type?.type !== "TSUnionType") return false;
 		const all = members(type, new Set());
-		const statuses = new Set(all.flatMap(statusesOf));
-		return (
-			all.some(
-				(member) => memberStatuses(member).includes("ok") && propertiesOf(member).some((m) => m.key.name === "value"),
-			) &&
-			statuses.has("refused") &&
-			statuses.has("lost")
-		);
+		return shaped(all) && !shaped(all.filter(pieceOf));
 	};
 	const childTypes = (type) =>
 		[
@@ -3369,9 +3416,15 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 	const typeOf = (node) => inline.push(node.typeAnnotation);
 	return {
 		ImportDeclaration(node) {
-			if (node.source.value !== OUTCOME_SOURCE) return;
+			const source = node.source.value;
+			if (!REPLY_SOURCE.test(source)) return;
 			for (const spec of node.specifiers)
-				if (spec.type === "ImportSpecifier") shared.set(spec.local.name, nameOf(spec.imported));
+				if (spec.type === "ImportNamespaceSpecifier") namespaces.set(spec.local.name, source);
+				else if (spec.type === "ImportSpecifier") {
+					const piece = sharedPiece(source, nameOf(spec.imported));
+					if (piece) imported.set(spec.local.name, piece);
+					if (source === OUTCOME_SOURCE) shared.set(spec.local.name, nameOf(spec.imported));
+				}
 		},
 		TSTypeAliasDeclaration(node) {
 			aliases.set(node.id.name, node.typeAnnotation);
@@ -3523,17 +3576,18 @@ const ownerRead = (node) => {
 	if (at?.type === "LogicalExpression") return ownerRead(at.left) || ownerRead(at.right);
 	return at?.type === "MemberExpression" && memberName(at) === "owner";
 };
-const seatNames = () => {
+const seatNames = (context) => {
 	const kinds = new Map();
 	const owners = new Set();
+	const variable = (id) => variableOf(context, id);
 	const bind = (pattern, from) => {
 		if (pattern?.type !== "ObjectPattern") return;
 		for (const property of pattern.properties) {
 			if (property.type !== "Property") continue;
 			const key = keyName(property.key, property.computed);
 			const value = property.value.type === "AssignmentPattern" ? property.value.left : property.value;
-			if (key === "kind" && value.type === "Identifier") kinds.set(value.name, from);
-			if (key === "owner" && value.type === "Identifier") owners.add(value.name);
+			if (key === "kind" && value.type === "Identifier") kinds.set(variable(value), from);
+			if (key === "owner" && value.type === "Identifier") owners.add(variable(value));
 			if (key === "owner") bind(value, OWNER);
 		}
 	};
@@ -3541,17 +3595,17 @@ const seatNames = () => {
 		const init = unwrapped(node.init);
 		if (node.id.type === "ObjectPattern") bind(node.id, init);
 		if (node.id.type !== "Identifier") return;
-		if (ownerRead(init)) owners.add(node.id.name);
+		if (ownerRead(init)) owners.add(variable(node.id));
 		if (init?.type === "MemberExpression" && memberName(init) === "kind")
-			kinds.set(node.id.name, unwrapped(init.object));
+			kinds.set(variable(node.id), unwrapped(init.object));
 	};
 	const kindOf = (node) => {
 		const at = unwrapped(node);
-		if (at?.type === "Identifier") return kinds.get(at.name) ?? null;
+		if (at?.type === "Identifier") return kinds.get(variable(at)) ?? null;
 		return at?.type === "MemberExpression" && memberName(at) === "kind" ? unwrapped(at.object) : null;
 	};
 	const namesOwner = (node) =>
-		node?.type === "Identifier" ? node.name === "owner" || owners.has(node.name) : memberName(node) === "owner";
+		node?.type === "Identifier" ? node.name === "owner" || owners.has(variable(node)) : memberName(node) === "owner";
 	return { declare, kindOf, namesOwner };
 };
 const comparedKinds = (node, kindOf) => {
@@ -3568,7 +3622,7 @@ const organizationSeatCheck = {
 		const path = repoPath(context.filename);
 		if (!SEAT_CODE.test(path)) return {};
 		const home = Object.hasOwn(ORGANIZATION_SEAT_CHECKS, path);
-		const names = seatNames();
+		const names = seatNames(context);
 		const comparisons = [];
 		const seats = [];
 		const organizations = [];
@@ -3662,13 +3716,18 @@ const strictContracts = {
 					else if (LOOSE_OBJECTS.has(imported)) loose.add(spec.local.name);
 				}
 			},
+			ExportAllDeclaration(node) {
+				if (/^zod(?:\/|$)/.test(node.source.value)) refuse(node);
+			},
 			ExportNamedDeclaration(node) {
 				if (!/^zod(?:\/|$)/.test(node.source?.value ?? "")) return;
 				for (const spec of node.specifiers) if (LOOSE_OBJECTS.has(nameOf(spec.local))) refuse(spec);
 			},
 			VariableDeclarator(node) {
 				const init = unwrapped(node.init);
-				if (node.id.type !== "ObjectPattern" || init?.type !== "Identifier" || !namespaces.has(init.name)) return;
+				if (init?.type !== "Identifier" || !namespaces.has(init.name)) return;
+				if (node.id.type === "Identifier") namespaces.add(node.id.name);
+				if (node.id.type !== "ObjectPattern") return;
 				for (const property of node.id.properties)
 					if (property.type === "Property" && LOOSE_OBJECTS.has(keyName(property.key, property.computed)))
 						refuse(property);
@@ -3864,6 +3923,48 @@ const stableContextValue = {
 
 const TEST_HOSTS = new Set(["test", "it", "default"]);
 
+const CONFIRM_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
+const confirmKeepsRefusal = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!CONFIRM_CODE.test(repoPath(context.filename))) return {};
+		const handlerOf = (node) => {
+			if (FUNCTIONS.has(node?.type)) return node;
+			if (node?.type !== "Identifier") return null;
+			for (let scope = context.sourceCode.getScope(node); scope; scope = scope.upper) {
+				const def = scope.set?.get(node.name)?.defs?.[0];
+				if (!def) continue;
+				if (def.node.type === "FunctionDeclaration") return def.node;
+				return def.node.type === "VariableDeclarator" &&
+					def.parent?.kind === "const" &&
+					FUNCTIONS.has(def.node.init?.type)
+					? def.node.init
+					: null;
+			}
+			return null;
+		};
+		return {
+			JSXAttribute(node) {
+				if (node.name.name !== "onConfirm" || node.value?.type !== "JSXExpressionContainer") return;
+				const fn = handlerOf(node.value.expression);
+				if (fn?.body.type !== "BlockStatement") return;
+				if (walkOwn(fn.body, (n) => n.type === "ReturnStatement" && n.argument !== null)) return;
+				for (const statement of fn.body.body)
+					if (
+						statement.type === "ExpressionStatement" &&
+						statement.expression.type === "AwaitExpression" &&
+						statement.expression.argument.type === "CallExpression"
+					)
+						context.report({
+							node: statement,
+							message:
+								"This onConfirm awaits a call and drops its answer, so a refusal the call returns never reaches the dialog. Return it (return handler()), or turn its refusal into return { refused } here.",
+						});
+			},
+		};
+	},
+};
+
 const oneTopLevelBefore = {
 	meta: { type: "problem" },
 	create(context) {
@@ -3895,6 +3996,8 @@ const oneTopLevelBefore = {
 			VariableDeclarator(node) {
 				const from = node.init;
 				if (node.id.type !== "ObjectPattern" || from?.type !== "Identifier") return;
+				const statement = node.parent.parent?.type === "ExportNamedDeclaration" ? node.parent.parent : node.parent;
+				if (statement.parent?.type !== "Program") return;
 				if (!hosts.has(from.name) && !namespaces.has(from.name)) return;
 				for (const property of node.id.properties)
 					if (
@@ -3976,5 +4079,6 @@ export default {
 		"stable-context-value": stableContextValue,
 		"live-region-in-tree": liveRegionInTree,
 		"one-top-level-before": oneTopLevelBefore,
+		"confirm-keeps-refusal": confirmKeepsRefusal,
 	},
 };

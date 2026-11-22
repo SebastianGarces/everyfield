@@ -372,14 +372,16 @@ export const other = () => setInterval(() => {}, 15_000);
 
 test("INV-lint: each listed product timer exempts its one call site, a new timer in the same file is reported and a listed timer that is gone is reported as stale", () => {
 	assert.deepEqual(
-		Object.entries(PRODUCT_TIMERS).flatMap(([path, sites]) => sites.map((s) => `${path} ${s.timer} ${s.within}`)),
+		Object.entries(PRODUCT_TIMERS).flatMap(([path, sites]) =>
+			sites.map((s) => `${path} ${s.timer} ${s.within} ${s.delay}`),
+		),
 		[
-			"apps/web/src/server/evry/http.ts setInterval conversationStreamGet",
-			"packages/evry/src/runtime/turn.ts setTimeout run",
-			"packages/evry/src/runtime/model.ts setTimeout transientRetry",
-			"packages/evry/src/runtime/observe.ts setTimeout timerPause",
-			"packages/db/src/schema/validate-file.ts setTimeout parser",
-			"packages/db/src/schema/validate-file.ts setTimeout parseOnce",
+			"apps/web/src/server/evry/http.ts setInterval conversationStreamGet 15_000",
+			"packages/evry/src/runtime/turn.ts setTimeout run LIMITS.wallMs",
+			"packages/evry/src/runtime/model.ts setTimeout transientRetry ms",
+			"packages/evry/src/runtime/observe.ts setTimeout timerPause ms",
+			"packages/db/src/schema/validate-file.ts setTimeout parser STARTUP_MS",
+			"packages/db/src/schema/validate-file.ts setTimeout parseOnce parseMs",
 		],
 	);
 	const paths = Object.keys(PRODUCT_TIMERS);
@@ -393,10 +395,10 @@ test("INV-lint: each listed product timer exempts its one call site, a new timer
 		const timer = setInterval(() => {}, 1);
 		return timer;
 	}
-	const again = setTimeout(() => {}, 1);
-	const timer = setTimeout(() => {}, 1);
+	const again = setTimeout(() => {}, STARTUP_MS);
+	const timer = setTimeout(() => {}, STARTUP_MS);
 	if (retry) {
-		const timer = setTimeout(() => {}, 1);
+		const timer = setTimeout(() => {}, STARTUP_MS);
 		return timer;
 	}
 	return [timer, again];
@@ -419,6 +421,86 @@ export function other() {
 			...[1, 3, 6, 9, 15, 16, 19].map((line) => `packages/db/src/schema/validate-file.ts:${line} no-timers`),
 			"packages/evry/src/runtime/turn.ts:1 no-timers",
 		].sort(),
+	);
+});
+
+test("INV-lint: a listed product timer exempts only the call with its callee, binding, delay and nearest named function, the shallowest on a tie, so a timer placed before it or in a nested function is the one reported", () => {
+	const turn = `export async function run() {
+	if (retry) {
+		const wall = setTimeout(() => {}, LIMITS.wallMs);
+		clearTimeout(wall);
+	}
+	const kick = () => {
+		const wall = setTimeout(() => {}, LIMITS.wallMs);
+		return wall;
+	};
+	const wall = setTimeout(() => {}, LIMITS.wallMs);
+	return [wall, kick];
+}
+`;
+	const observe = `export const timerPause = () => {
+	const helper = () => {
+		const timer = setTimeout(() => {}, ms);
+		return timer;
+	};
+	return helper;
+};
+`;
+	const validate = `export function parser() {
+	function parser() {
+		const timer = setTimeout(() => {}, STARTUP_MS);
+		return timer;
+	}
+	return parser;
+}
+export function parseOnce() {
+	return new Promise((resolve) => {
+		const timer = setTimeout(resolve, parseMs);
+		return timer;
+	});
+}
+`;
+	const model = `export const transientRetry = memo(
+	(
+		sleep = (ms) =>
+			new Promise((resolve) => {
+				const timer = setTimeout(resolve, ms);
+				return timer;
+			}),
+	) => {
+		const timer = setTimeout(sleep, 0);
+		return timer;
+	},
+);
+`;
+	const stream = `export const conversationStreamGet = (ready) => {
+	if (ready) {
+		const heartbeat = setInterval(() => {}, 15_000);
+		return heartbeat;
+	} else {
+		const heartbeat = setInterval(() => {}, 15_000);
+		return heartbeat;
+	}
+};
+`;
+	assert.deepEqual(
+		lint({
+			"packages/evry/src/runtime/turn.ts": turn,
+			"packages/evry/src/runtime/observe.ts": observe,
+			"packages/db/src/schema/validate-file.ts": validate,
+			"packages/evry/src/runtime/model.ts": model,
+			"apps/web/src/server/evry/http.ts": stream,
+		}).filter((hit) => hit.endsWith(" no-timers")),
+		[
+			"apps/web/src/server/evry/http.ts:6 no-timers",
+			"packages/db/src/schema/validate-file.ts:1 no-timers",
+			"packages/db/src/schema/validate-file.ts:3 no-timers",
+			"packages/evry/src/runtime/model.ts:9 no-timers",
+			"packages/evry/src/runtime/observe.ts:1 no-timers",
+			"packages/evry/src/runtime/observe.ts:3 no-timers",
+			"packages/evry/src/runtime/turn.ts:3 no-timers",
+			"packages/evry/src/runtime/turn.ts:7 no-timers",
+		],
 	);
 });
 
@@ -1317,6 +1399,9 @@ export const AJ = () => <p className="rounded-md bg-[var(--ef-amber-50)] px-4 py
 export const AK = () => <p className="rounded-lg bg-(--ef-amber-100)/80 p-3">x</p>;
 export const AL = (on) => cn("rounded-md px-4 py-3", { "bg-surface-2": on, open: on });
 export const AM = () => <span className="rounded-pill bg-[var(--ef-amber-100)] px-2 py-0.5">x</span>;
+export const AN = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-50"]: on });
+export const AO = (on) => cn("rounded-lg p-3", { [\`bg-magenta-100\`]: on });
+export const AP = (on, tone) => cn("rounded-md px-4 py-3", { [tone]: on });
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1324,13 +1409,13 @@ export const AM = () => <span className="rounded-pill bg-[var(--ef-amber-100)] p
 	}).filter((hit) => hit.endsWith(" shared-notice"));
 	assert.deepEqual(
 		reported.sort(),
-		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37]
+		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37, 40, 41]
 			.map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`)
 			.sort(),
 	);
 });
 
-test("INV-a11y: a live region in apps/web or packages/ui is never hidden, invisible or aria-hidden, so it stays in the accessibility tree", () => {
+test("INV-a11y: a live region in apps/web or packages/ui (an output element included) is never hidden, invisible, inert or aria-hidden, so it stays in the accessibility tree", () => {
 	const code = `export const A = ({ m }) => <div aria-live="polite" className="empty:hidden">{m}</div>;
 export const B = ({ m }) => <p role="status" className={cn("text-sm", !m && "hidden")}>{m}</p>;
 export const C = ({ m, tone }) => <div role={tone ? "alert" : "status"} hidden={!m}>{m}</div>;
@@ -1345,6 +1430,13 @@ export const K = ({ m, open }) => <div role="status" aria-hidden={!open}>{m}</di
 export const L = ({ m }) => <div role="status" hidden={false} aria-hidden={false}>{m}</div>;
 export const M = ({ m }) => <div aria-live="polite" aria-hidden="false" className="visible">{m}</div>;
 export const N = ({ m }) => <div role="status" hidden="false">{m}</div>;
+export const O = ({ m, busy }) => <div aria-live="polite" inert={busy}>{m}</div>;
+export const P = ({ m }) => <output className="empty:hidden">{m}</output>;
+export const Q = ({ m }) => <div role="status" inert={false}>{m}</div>;
+export const R = ({ m }) => <output aria-live="off" className="hidden">{m}</output>;
+export const S = ({ m }) => <output role="presentation" hidden>{m}</output>;
+export const T = ({ m }) => <output inert>{m}</output>;
+export const U = ({ m }) => <section className="hidden">{m}</section>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1354,7 +1446,9 @@ export const N = ({ m }) => <div role="status" hidden="false">{m}</div>;
 	assert.deepEqual(
 		reported.sort(),
 		["apps/web/src/features/x/Notice.tsx", "packages/ui/src/controls/x.tsx"]
-			.flatMap((path) => [1, 2, 3, 4, 8, 9, 10, 11, 14].map((line) => `${path}:${line} live-region-in-tree`))
+			.flatMap((path) =>
+				[1, 2, 3, 4, 8, 9, 10, 11, 14, 15, 16, 20].map((line) => `${path}:${line} live-region-in-tree`),
+			)
 			.sort(),
 	);
 });
@@ -1894,7 +1988,7 @@ export function gate(path: string, out: boolean) {
 	]);
 });
 
-test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper, through a destructured kind or a renamed owner too", () => {
+test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper, through a destructured kind or a renamed owner too, and a same-named parameter in another function is not an owner", () => {
 	const source = `import type { RequestActor } from "@everyfield/domain/access";
 export function a(authority: RequestActor | null) {
 	const context = authority?.actor.context;
@@ -1988,6 +2082,14 @@ export function q(authority: RequestActor) {
 	const { kind: spreadKind } = context.owner as Owner;
 	if (context.kind !== "seat") return null;
 	return [nestedKind === "organization", spreadKind === "organization", (context.owner as Owner).kind === "organization"];
+}
+export function r(authority: RequestActor) {
+	const picked = authority.actor.context.owner;
+	const { kind: pickedKind } = authority.actor.context.owner;
+	return [picked, pickedKind];
+}
+export function s(picked: Owner, pickedKind: string, item: { kind: string }) {
+	return item.kind === "seat" && (picked.kind === "organization" || pickedKind === "organization");
 }
 `;
 	assert.deepEqual(
@@ -2167,6 +2269,77 @@ type No = { status: "refused" };
 	);
 });
 
+test("INV-lint: a union that writes part of the ok value / refused / lost shape beside a contracts reply, a namespace Lost or under quoted keys and template statuses is reported; a union of contracts replies and the shared Lost alone is not", () => {
+	const source = `import type { Lost, Reply as Base } from "@everyfield/contracts/common";
+import type * as common from "@everyfield/contracts/common";
+import type { MeetingsReply, meetingsError } from "@everyfield/contracts/meetings";
+import type * as teams from "@everyfield/contracts/teams";
+import type { DomainReply } from "@everyfield/domain/meetings";
+type Composed<T> = MeetingsReply<T> | Lost;
+type Spaced<T> = teams.TeamsReply<T> | common.Lost;
+type Extra<T> = MeetingsReply<T> | Lost | { status: "deleted" };
+type Through<T> = Composed<T> | { status: "signed_out" };
+type Shared<T> = common.Outcome<T> | { status: "deleted" };
+type HandLost<T> = MeetingsReply<T> | { status: "lost" };
+type SpacedHand<T> = teams.TeamsReply<T> | { status: "lost" };
+type BaseHand<T> = Base<T, string> | { status: "lost" };
+type SpacedBase<T> = common.Reply<T, string> | { status: "lost" };
+type HandReply<T> = { status: "ok"; value: T } | { status: "refused" } | common.Lost;
+type Quoted<T> = { "status": "ok"; ["value"]: T } | { 'status': "refused" } | { "status": "lost" };
+type Template<T> = { status: \`ok\`; value: T } | { status: \`refused\` } | { status: \`lost\` };
+type Foreign<T> = DomainReply<T> | { status: "lost" };
+type NotReply = meetingsError | { status: "refused" } | { status: "lost" };
+type OtherSpace<T> = other.MeetingsReply<T> | { status: "lost" };
+type Numeric<T> = { status: 1; value: T } | { status: "refused" } | Lost;
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/server.ts": source }).filter((hit) => hit.endsWith("shared-outcome")),
+		[11, 12, 13, 14, 15, 16, 17].map((line) => `apps/web/src/features/x/server.ts:${line} shared-outcome`),
+	);
+});
+
+test("INV-lint: an onConfirm that awaits a call as a statement and never returns a value is reported, inline or through a local function or const; one that returns, awaits in a branch or only awaits a value is not", () => {
+	const source = `import { ConfirmDialog } from "@everyfield/ui/controls";
+async function named() {
+	await handler();
+}
+const wrapped = async () => {
+	await handler();
+	close();
+};
+let later = async () => { await handler(); };
+const made = make();
+export function A({ handler, x }) {
+	return [
+		<ConfirmDialog onConfirm={async () => { await handler(); }} />,
+		<ConfirmDialog onConfirm={named} />,
+		<ConfirmDialog onConfirm={wrapped} />,
+		<ConfirmDialog onConfirm={async function () { await handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { const run = async () => { return 1; }; await run(); }} />,
+		<ConfirmDialog onConfirm={async () => { await handler(); return; }} />,
+		<ConfirmDialog onConfirm={() => handler()} />,
+		<ConfirmDialog onConfirm={async () => { return await handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { const r = await handler(); if (r) return r; }} />,
+		<ConfirmDialog onConfirm={async () => { if (x) await handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { await prepare(); return handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { await handler; }} />,
+		<ConfirmDialog onConfirm={async () => { handler(); }} />,
+		<ConfirmDialog onConfirm={later} />,
+		<ConfirmDialog onConfirm={made} />,
+		<ConfirmDialog onCancel={async () => { await handler(); }} />,
+	];
+}
+`;
+	const hits = (path) =>
+		lint({ [path]: source })
+			.filter((hit) => hit.endsWith(" confirm-keeps-refusal"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10))
+			.sort((a, b) => a - b);
+	assert.deepEqual(hits("apps/web/src/features/x/Confirm.tsx"), [3, 6, 13, 16, 17, 18]);
+	assert.deepEqual(hits("packages/ui/src/controls/Confirm.tsx"), [3, 6, 13, 16, 17, 18]);
+	assert.deepEqual(hits("packages/domain/src/x/Confirm.tsx"), []);
+});
+
 test("INV-lint: a context value built during render is reported through aliases, casts, conditionals and outer bindings; every context and alias of one is a const named *Context; stable values are not", () => {
 	const source = `import React, { createContext, useCallback, useMemo } from "react";
 type T = { theme: string };
@@ -2289,7 +2462,7 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 	);
 });
 
-test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased, destructured or re-exported, unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
+test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased (the namespace too), destructured or re-exported (export * included), unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
 	const loose = `import { z } from "zod";
 import * as zz from "zod/v4";
 import { object as plain } from "zod";
@@ -2312,6 +2485,16 @@ export const l = aliased({});
 export { looseObject } from "zod";
 export const m = strictObject({ id: z.string() });
 const { looseObject: viaCast } = z as typeof z;
+const y = z;
+export const n = y.object({});
+const w = y as typeof z;
+export const o2 = w.strictObject({ id: y.string() });
+export * from "zod";
+export * as zod from "zod/v4";
+const other = { object: (shape) => shape };
+const q = other;
+export const p = q.object({});
+export * from "./more";
 `;
 	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" strict-contracts"));
 	assert.deepEqual(reported({ "packages/contracts/src/x/index.ts": loose, "packages/domain/src/x.ts": loose }), [
@@ -2324,6 +2507,9 @@ const { looseObject: viaCast } = z as typeof z;
 		"packages/contracts/src/x/index.ts:18 strict-contracts",
 		"packages/contracts/src/x/index.ts:20 strict-contracts",
 		"packages/contracts/src/x/index.ts:22 strict-contracts",
+		"packages/contracts/src/x/index.ts:24 strict-contracts",
+		"packages/contracts/src/x/index.ts:27 strict-contracts",
+		"packages/contracts/src/x/index.ts:28 strict-contracts",
 		"packages/contracts/src/x/index.ts:4 strict-contracts",
 		"packages/contracts/src/x/index.ts:5 strict-contracts",
 		"packages/contracts/src/x/index.ts:5 strict-contracts",
@@ -2822,7 +3008,7 @@ test("INV-lint: a server action that mints its own request key is reported, a ke
 	);
 });
 
-test("INV-lint: a second top-level node:test before hook is reported in any import form, one before with other hooks and suite-level befores are not", () => {
+test("INV-lint: a second top-level node:test before hook is reported in any import form, one before with other hooks, suite-level befores and a before destructured inside a function are not", () => {
 	const named = `import test, { before, beforeEach, after, describe } from "node:test";
 before(async () => {});
 before(async () => {});
@@ -2881,6 +3067,18 @@ before(() => {});
 before(() => {});
 test.before(() => {});
 `;
+	const scoped = `import test from "node:test";
+import { before } from "./hooks.mts";
+export const { before: exported } = test;
+export function local() {
+	const { before } = test;
+	return before;
+}
+before(() => {});
+before(() => {});
+exported(() => {});
+exported(() => {});
+`;
 	assert.deepEqual(
 		lint({
 			"tests/integration/x/named.test.mts": named,
@@ -2892,6 +3090,7 @@ test.before(() => {});
 			"tests/workflow/single.test.mjs": single,
 			"tests/ui/local.test.mts": local,
 			"tests/ui/other.test.mts": other,
+			"tests/ui/scoped.test.mts": scoped,
 			"tools/ci/named.test.ts": named,
 		}).filter((hit) => hit.endsWith(" one-top-level-before")),
 		[
@@ -2899,6 +3098,7 @@ test.before(() => {});
 			"tests/evry/x/aliased.test.mts:3 one-top-level-before",
 			"tests/integration/x/named.test.mts:3 one-top-level-before",
 			"tests/integration/x/named.test.mts:4 one-top-level-before",
+			"tests/ui/scoped.test.mts:11 one-top-level-before",
 			"tests/unit/x/destructured.test.mts:5 one-top-level-before",
 			"tests/unit/x/it.test.mts:3 one-top-level-before",
 			"tests/unit/x/namespaced.test.mts:3 one-top-level-before",
