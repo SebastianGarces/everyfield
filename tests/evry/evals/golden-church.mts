@@ -130,6 +130,7 @@ export const HOUSEHOLDS = [
 	{ id: id(0xa6), name: "Garcia household", city: "Austin" },
 	{ id: id(0xa7), name: "Johnson household", city: "Cedar Park" },
 	{ id: id(0xa8), name: "Lee household", city: "Round Rock" },
+	{ id: id(0xa9), name: "Okafor household", city: "Leander", street: "77 Birch Ln" },
 ] as const;
 const home = (name: string) => HOUSEHOLDS.find((h) => h.name.startsWith(name))!.id;
 export const TAGS = [

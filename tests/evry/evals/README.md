@@ -171,7 +171,7 @@ Then the real system prompt runs with the tools the turn gives the actor, built 
 (`modelTools` in `packages/evry/src/runtime/tools.ts`): the domain read tools, `select_returned_rows` and
 `propose_change`. Every read runs the real adapter through `invokeRead` against Hope Fellowship, which
 `golden-church.mts` seeds as real records into an isolated schema (`tests/support/test-database.mts`): 84 live people,
-2 removed people, 8 households, tags, skills, notes, photos, open tasks, two import receipts (the earlier one left two
+2 removed people, 9 households (two named Okafor household), tags, skills, notes, photos, open tasks, two import receipts (the earlier one left two
 open review pairs and one dismissed pair), five current ministries and one archived one with their roles, people,
 required training, a Playbook checklist and measured team meetings, a phase journey (declared at Discovery, Core Group
 Development since Aug 3, 2026), one answered manual signal, the Owner's Struggling private check-in, documents (its

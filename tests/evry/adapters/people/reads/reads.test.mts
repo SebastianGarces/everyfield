@@ -4,8 +4,10 @@ import { randomUUID } from "node:crypto";
 import { invokeRead, readCatalog } from "../../../../../packages/evry/src/index.ts";
 import {
 	checkForDuplicates,
+	getPerson,
 	getPersonPhoto,
 	listDuplicatePairs,
+	listPeople,
 	verifyPeople,
 } from "../../../../../packages/evry/src/adapters/people/reads/index.ts";
 import {
@@ -242,4 +244,43 @@ test("AC:TARGET-PPL-016 the import review pairs read lists this church's open pa
 		(e: { code?: string }) => e.code === "access_denied",
 	);
 	assert.equal(counted(before), 0);
+});
+
+test("INV-privacy: one person's read gives each church seat the email and phone the native read returns; a list, another church and an organization seat get none", async () => {
+	const EMAIL = "casey.reed@example.test";
+	const PHONE = "(512) 555-0142";
+	await admin.execute(sql`UPDATE person SET email=${EMAIL}, phone=${PHONE} WHERE id=${people.casey}`);
+	try {
+		for (const who of ["owner", "member"] as const) {
+			const seat = await actor(who);
+			const one = await invokeRead(db, seat, getPerson, { personId: people.casey });
+			assert.deepEqual(one.rows, [
+				{
+					kind: "person",
+					id: people.casey,
+					label: "Casey Reed",
+					fields: { city: null, stage: "prospect", email: EMAIL, phone: PHONE },
+				},
+			]);
+			const none = await invokeRead(db, seat, getPerson, { personId: people.alexChen });
+			assert.deepEqual(
+				[none.rows[0]?.fields.email, none.rows[0]?.fields.phone, JSON.stringify(none).includes(EMAIL)],
+				[null, null, false],
+			);
+			const listed = await invokeRead(db, seat, listPeople, { search: "Casey" });
+			assert.deepEqual(
+				listed.rows.map((r) => [r.label, r.fields]),
+				[["Casey Reed", { city: null, stage: "prospect" }]],
+			);
+		}
+		const foreign = await invokeRead(db, await actor("foreign"), getPerson, { personId: people.casey });
+		assert.deepEqual([foreign.status, foreign.rows], ["not_found", []]);
+		const organization = await actor("orgOwner");
+		await assert.rejects(
+			() => invokeRead(db, organization, getPerson, { personId: people.casey }),
+			(e: { code?: string }) => e.code === "access_denied",
+		);
+	} finally {
+		await admin.execute(sql`UPDATE person SET email=NULL, phone=NULL WHERE id=${people.casey}`);
+	}
 });

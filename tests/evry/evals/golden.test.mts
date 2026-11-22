@@ -125,12 +125,11 @@ const RERECORD =
 const church = await goldenChurch();
 after(church.close);
 
+const fill = (p: string, as = (v: string) => v) =>
+	p.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => as(byName(name)[field]!));
 function pattern(p: string): RegExp {
-	const filled = p.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") =>
-		escape(byName(name)[field]!),
-	);
-	const m = /^\/([\s\S]+)\/([a-z]*)$/.exec(filled);
-	return m ? new RegExp(m[1]!, m[2]) : new RegExp(escape(filled), "i");
+	const m = /^\/([\s\S]+)\/([a-z]*)$/.exec(p);
+	return m ? new RegExp(fill(m[1]!, escape), m[2]) : new RegExp(escape(fill(p)), "i");
 }
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -494,7 +493,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 				detail: `classified ${c.kind}`,
 			},
 			...score(spec, c, { area, given }),
-			...gates(c, given),
+			...gates(c, [given, ...(spec.require ?? []).map((p) => fill(p))].join("\n")),
 		];
 		if (spec.cantYet) row.offersInstead = OFFERS_INSTEAD.test(c.answer);
 		if (spec.target) {
@@ -677,7 +676,14 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 	assert.deepEqual(totals, [3, 2, 5, 2, 4, 11, 57]);
 	const prospects = await read("people.listPeople", { stages: ["prospect"], limit: 100 });
 	assert.equal(prospects.rows.filter((r) => r.fields.city === "Austin").length, 13);
-	assert.equal((await read("people.listHouseholds", { limit: 100 })).total, 8);
+	assert.equal((await read("people.listHouseholds", { limit: 100 })).total, 9);
+	assert.deepEqual(
+		(await read("people.listHouseholds", { search: "Okafor" })).rows.map((r) => [r.fields.city, r.fields.memberCount]),
+		[
+			["Austin", "2"],
+			["Leander", "0"],
+		],
+	);
 	assert.deepEqual(labels(await read("people.getHousehold", { personId: byName("Alex Rivera").id })), [
 		"Alex Rivera",
 		"Ana Rivera",

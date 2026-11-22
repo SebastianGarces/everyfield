@@ -56,11 +56,11 @@ test("INV-evry-self: only the user's own row carries you; the list and its total
 			kind: "person",
 			id: people.alexRivera,
 			label: "Alex Rivera",
-			fields: { city: "Chicago", stage: "prospect", you: true },
+			fields: { city: "Chicago", stage: "prospect", email: null, phone: null, you: true },
 		},
 	]);
 	const other = await invokeRead(db, owner, getPerson, { personId: people.alexChen });
-	assert.deepEqual(other.rows[0]!.fields, { city: "Evanston", stage: "prospect" });
+	assert.deepEqual(other.rows[0]!.fields, { city: "Evanston", stage: "prospect", email: null, phone: null });
 
 	const board = await invokeRead(db, owner, getPipelineData, { limit: 100 });
 	const youRows = board.rows.filter((r) => r.fields.you === true);

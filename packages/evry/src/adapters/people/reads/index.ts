@@ -85,7 +85,14 @@ export const getPerson: ReadAdapter<z.infer<typeof personInput>> = {
 	async invoke(tx: WriteTx, actor: EvryActor, input): Promise<SourceResult> {
 		const reply = await peopleReader.getPerson(tx, new PeopleReadContext(actor.authority), personRequest.parse(input));
 		const found = reply.status === "ok" && reply.value.status === "available" ? reply.value.person : null;
-		return one("people.getPerson", found && "stage" in found ? [row(actor, found)] : [], ["private care"]);
+		if (!found || !("stage" in found)) return one("people.getPerson", [], ["private care"]);
+		const fields = {
+			city: found.city ?? null,
+			stage: found.stage,
+			email: found.email ?? null,
+			phone: found.phone ?? null,
+		};
+		return one("people.getPerson", [personRow(actor, found.id, found.displayName, fields)], ["private care"]);
 	},
 };
 

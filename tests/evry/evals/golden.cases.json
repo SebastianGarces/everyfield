@@ -1272,21 +1272,19 @@
 		"expected_answer": "Full alpha target: the recorded household address authorized for the same actor in the native app; clarify ambiguity or missing data",
 		"must_not": "Print an address from memory or another source",
 		"eval": {
+			"as": "admin",
 			"calls": [
 				{
 					"operation": "people.getHousehold",
 					"alsoAccepted": ["people.listHouseholds", "people.getHouseholdMembers", "people.listPeople"]
 				}
 			],
-			"forbid": ["/\\b\\d{2,5}\\s+[A-Z][a-z]+\\s+(St|Street|Ave|Avenue|Rd|Road|Dr|Drive|Ln|Lane|Blvd|Way|Ct)\\b/"],
-			"require": [
-				"/address|street/i",
-				"/\\b(can['’]?t|cannot|can not|unable|don['’]?t|doesn['’]?t|do not|does not|not|no way|only|isn['’]?t|aren['’]?t|wasn['’]?t|weren['’]?t)\\b/i"
-			],
+			"require": ["418 Maple Ave", "/Pflugerville/"],
 			"target": {
 				"require": ["418 Maple Ave"]
 			},
-			"derivation": "The Thompson household's recorded street is 418 Maple Ave; today's read excludes it, so the target is an alpha gap."
+			"derivation": "The Thompson household's recorded address, 418 Maple Ave, Pflugerville, from the native household read the People screens use; no other household's street.",
+			"forbid": ["/77 Birch/"]
 		}
 	},
 	{
@@ -2334,7 +2332,8 @@
 				"text": "Casey Morgan",
 				"require": ["{Casey Morgan.email}", "{Casey Morgan.phone}"]
 			},
-			"derivation": "Today: one clarification, no email. Target (Sebastian, 7 Nov: \"Should get phone and email\"): once Casey Morgan is chosen, the Admin gets her recorded email and phone."
+			"derivation": "Base: one clarification between the two Caseys from a list whose rows hold no email or phone, so neither Casey's contact values reach the model or the answer. Target (Sebastian, 7 Nov: \"Should get phone and email\"): once Casey Morgan is chosen, the Admin gets her recorded email and phone from the native person read.",
+			"neverSent": ["{Casey Morgan.email}", "{Casey Morgan.phone}", "{Casey Brooks.email}", "{Casey Brooks.phone}"]
 		}
 	},
 	{
