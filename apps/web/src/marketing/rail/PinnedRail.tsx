@@ -5,7 +5,6 @@ import { cn, observeSize, useMediaQuery } from "@everyfield/ui/foundations";
 import { NativeAnimation, scroll } from "motion/react";
 import {
 	Children,
-	useCallback,
 	useMemo,
 	useRef,
 	useState,
@@ -19,7 +18,7 @@ import { clamp } from "@/components/motion/curves";
 
 type Props = { id: string; headingId: string; head: ReactNode; children: ReactNode };
 
-type Geo = { a: number; travel: number; stick: number; inset: number; vw: number; pinTop: number };
+type Geo = { a: number; travel: number; stick: number; inset: number; vw: number };
 const WIDE = "(min-width: 901px)";
 
 function driveRail(track: HTMLSpanElement | null, geo: Geo) {
@@ -47,6 +46,7 @@ function stepOf(list: HTMLOListElement | null, rail: HTMLDivElement | null) {
 
 export function PinnedRail({ id, headingId, head, children }: Props) {
 	const reduced = useReduced();
+	const pin = useRef<HTMLDivElement>(null);
 	const frame = useRef<HTMLDivElement>(null);
 	const probe = useRef<HTMLSpanElement>(null);
 	const rail = useRef<HTMLDivElement>(null);
@@ -79,8 +79,7 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 					const stick = Math.min(top, vh - F.offsetHeight - 16);
 					const a = parseFloat(getComputedStyle(L).translate) || 0,
 						travel = Ro.getBoundingClientRect().height;
-					const pinTop = R.getBoundingClientRect().top + window.scrollY;
-					const next = { a, travel, stick, inset, vw, pinTop };
+					const next = { a, travel, stick, inset, vw };
 					setGeo((g) => (g && JSON.stringify(g) === JSON.stringify(next) ? g : next));
 				},
 				{ also: () => [document.body], fonts: true, viewport: true },
@@ -90,22 +89,32 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 
 	const drive = useMemo(() => (geo ? (track: HTMLSpanElement | null) => driveRail(track, geo) : undefined), [geo]);
 
-	const progress = useCallback(
-		(y: number) => (geo && geo.travel ? clamp((y - geo.pinTop + geo.stick) / geo.travel) : 0),
-		[geo],
-	);
-
+	const arrowFocus = useRef(false);
+	const slide = (k: number, behavior: ScrollBehavior) => {
+		const Ra = rail.current;
+		if (!Ra) return;
+		Ra.scrollTo({ left: Math.max(0, Math.min(Ra.scrollWidth - Ra.clientWidth, k * step())), behavior });
+	};
 	const onFocus = (e: FocusEvent) => {
 		const c = (e.target as Element).closest<HTMLElement>("[data-card]");
-		const section = e.currentTarget.closest("section");
-		if (!c || !geo || !section) return;
-		const cur = geo.a - geo.travel * progress(window.scrollY),
+		if (!c) return;
+		if (!geo) {
+			const Ra = rail.current;
+			if (!Ra || arrowFocus.current || !c.matches(":focus-visible")) return;
+			const cr = c.getBoundingClientRect(),
+				rr = Ra.getBoundingClientRect(),
+				inset = parseFloat(getComputedStyle(Ra).paddingLeft) || 0;
+			if (cr.left < rr.left + inset - 1 || cr.right > rr.right - inset + 1) slide(cards().indexOf(c), "instant");
+			return;
+		}
+		if (!pin.current) return;
+		const pt = pin.current.getBoundingClientRect().top;
+		const cur = geo.a - (geo.travel ? geo.travel * clamp((geo.stick - pt) / geo.travel) : 0),
 			l = geo.inset + cur + c.offsetLeft,
 			r = l + c.offsetWidth;
 		let nx = cur;
 		if (l < geo.inset) nx = cur + (geo.inset - l);
 		else if (r > geo.vw - geo.inset) nx = cur - (r - (geo.vw - geo.inset));
-		const pt = section.getBoundingClientRect().top;
 		if (nx === cur && pt <= geo.stick + 1 && pt >= geo.stick - geo.travel - 1) return;
 		const p = geo.travel ? clamp((geo.a - nx) / geo.travel) : 0;
 		window.scrollTo({ top: Math.round(window.scrollY + pt - geo.stick + p * geo.travel), behavior: "instant" });
@@ -122,12 +131,10 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 		else if (e.key === "End") dest = n - 1;
 		if (dest < 0) return;
 		e.preventDefault();
+		arrowFocus.current = true;
 		all[dest]?.focus({ preventScroll: true });
-		if (!geo && rail.current)
-			rail.current.scrollTo({
-				left: Math.max(0, Math.min(rail.current.scrollWidth - rail.current.clientWidth, dest * step())),
-				behavior: reduced ? "auto" : "smooth",
-			});
+		arrowFocus.current = false;
+		if (!geo) slide(dest, reduced ? "auto" : "smooth");
 	};
 
 	const drag = useRef<{ x: number; s: number; moved: boolean; id: number } | null>(null);
@@ -176,7 +183,11 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 			className="mk-rail relative scroll-mt-[88px] py-section max-mk-sm:scroll-mt-[76px]"
 		>
 			<span ref={probe} aria-hidden="true" className="pointer-events-none invisible absolute top-(--rail-top) size-0" />
-			<div className="relative" style={geo ? ({ "--rail-stick": `${geo.stick}px` } as CSSProperties) : undefined}>
+			<div
+				ref={pin}
+				className="relative"
+				style={geo ? ({ "--rail-stick": `${geo.stick}px` } as CSSProperties) : undefined}
+			>
 				<span
 					ref={drive}
 					aria-hidden="true"

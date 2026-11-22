@@ -435,3 +435,56 @@ export function MailResult({ review }: { review: Review }) {
 	}
 	return <div className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">{lines}</div>;
 }
+
+type InvitedMeeting = { title: string; when: string; venue: string | null; isNew: boolean };
+const asInvited = (value: unknown): InvitedMeeting | null =>
+	value && typeof value === "object" && "when" in value ? (value as InvitedMeeting) : null;
+const listOf = <T,>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+
+function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+	return (
+		<li className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
+			<h3 className="font-medium text-ink">
+				<span className="tabular-nums text-text-2">{n}.</span> {title}
+			</h3>
+			<dl className="flex flex-col gap-3">{children}</dl>
+		</li>
+	);
+}
+
+export function InvitationChanges({ review }: { review: Review }) {
+	const meeting = asInvited(find(review, "meeting")?.after);
+	const guests = listOf<{ name: string; note?: string }>(find(review, "guests")?.after);
+	const added = guests.filter((g) => !g.note).length;
+	return (
+		<ol className="flex flex-col gap-2" aria-label="Every step in this review">
+			<Step n={1} title={meeting?.isNew ? "Create the meeting" : "The meeting"}>
+				<Row label="Meeting">
+					<New>{meeting?.title ?? "Not found"}</New>
+				</Row>
+				<Row label="When">
+					<New>{meeting?.when ?? ""}</New>
+				</Row>
+				{meeting?.venue ? (
+					<Row label="Venue">
+						<New>{meeting.venue}</New>
+					</Row>
+				) : null}
+			</Step>
+			<Step n={2} title={`Add ${added} ${added === 1 ? "guest" : "guests"}`}>
+				<People label="Guests" names={guests} />
+			</Step>
+			<Step n={3} title="Send the invitation email">
+				<Row label="Subject">
+					<New>{text(find(review, "subject")?.after)}</New>
+				</Row>
+				<People label="Will get it" names={listOf<{ name: string }>(find(review, "recipients")?.after)} />
+				<People
+					label="Left out"
+					names={leftOutNames(listOf<{ name: string; reason: string }>(find(review, "leftOut")?.after))}
+				/>
+				<Block label="What each person sees">{text(find(review, "content")?.after)}</Block>
+			</Step>
+		</ol>
+	);
+}

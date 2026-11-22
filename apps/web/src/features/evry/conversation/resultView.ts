@@ -286,6 +286,13 @@ const VIEWS: Record<string, OpView> = {
 		counts: "step",
 		empty: "This church has no setup in progress for you.",
 	},
+	"evry.readWorkflowHint": {
+		title: "Suggested steps",
+		noun: ["step", "steps"],
+		icon: "step",
+		counts: "step",
+		empty: "Your role can't take any of these steps.",
+	},
 	"dashboard.availableActions": {
 		title: "Next steps",
 		noun: ["step", "steps"],
@@ -1533,6 +1540,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "step":
 			if (operation.startsWith("dashboard."))
 				return { ...plain, href: text(fields.href), name: row.label, line: "From Overview", avatar: null };
+			if (operation === "evry.readWorkflowHint")
+				return { ...plain, name: row.label, line: `Say "${text(fields.say)}"`, avatar: null };
 			return {
 				...plain,
 				href: "/onboarding",
