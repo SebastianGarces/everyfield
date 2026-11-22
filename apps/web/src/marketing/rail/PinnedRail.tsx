@@ -89,9 +89,25 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 
 	const drive = useMemo(() => (geo ? (track: HTMLSpanElement | null) => driveRail(track, geo) : undefined), [geo]);
 
+	const arrowFocus = useRef(false);
+	const slide = (k: number, behavior: ScrollBehavior) => {
+		const Ra = rail.current;
+		if (!Ra) return;
+		Ra.scrollTo({ left: Math.max(0, Math.min(Ra.scrollWidth - Ra.clientWidth, k * step())), behavior });
+	};
 	const onFocus = (e: FocusEvent) => {
 		const c = (e.target as Element).closest<HTMLElement>("[data-card]");
-		if (!c || !geo || !pin.current) return;
+		if (!c) return;
+		if (!geo) {
+			const Ra = rail.current;
+			if (!Ra || arrowFocus.current || !c.matches(":focus-visible")) return;
+			const cr = c.getBoundingClientRect(),
+				rr = Ra.getBoundingClientRect(),
+				inset = parseFloat(getComputedStyle(Ra).paddingLeft) || 0;
+			if (cr.left < rr.left + inset - 1 || cr.right > rr.right - inset + 1) slide(cards().indexOf(c), "instant");
+			return;
+		}
+		if (!pin.current) return;
 		const pt = pin.current.getBoundingClientRect().top;
 		const cur = geo.a - (geo.travel ? geo.travel * clamp((geo.stick - pt) / geo.travel) : 0),
 			l = geo.inset + cur + c.offsetLeft,
@@ -115,12 +131,10 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 		else if (e.key === "End") dest = n - 1;
 		if (dest < 0) return;
 		e.preventDefault();
+		arrowFocus.current = true;
 		all[dest]?.focus({ preventScroll: true });
-		if (!geo && rail.current)
-			rail.current.scrollTo({
-				left: Math.max(0, Math.min(rail.current.scrollWidth - rail.current.clientWidth, dest * step())),
-				behavior: reduced ? "auto" : "smooth",
-			});
+		arrowFocus.current = false;
+		if (!geo) slide(dest, reduced ? "auto" : "smooth");
 	};
 
 	const drag = useRef<{ x: number; s: number; moved: boolean; id: number } | null>(null);
