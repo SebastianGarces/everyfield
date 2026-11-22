@@ -1271,14 +1271,6 @@ export const PRODUCT_TIMERS = {
 			why: "a PDF parse that runs past parseMs is refused and its worker stopped, so one file cannot hold the parser; the deadline is the product limit",
 		},
 	],
-	"apps/web/src/features/documents/church/editor/table-extension.ts": [
-		{
-			timer: "requestAnimationFrame",
-			argument: "widths",
-			within: "observer",
-			why: "the table re-measures its column widths a frame after its scroll box resizes, because measuring inside the ResizeObserver resizes the observed box again in the same frame (the observer loop error)",
-		},
-	],
 };
 
 const namedAncestor = (node, name) => {
@@ -1295,13 +1287,12 @@ const namedAncestor = (node, name) => {
 const timerSite = (node, site) => {
 	const call = node.parent;
 	if (node.name !== site.timer || call?.type !== "CallExpression" || call.callee !== node) return false;
-	const held =
-		site.binding === undefined
-			? call.arguments[0]?.type === "Identifier" && call.arguments[0].name === site.argument
-			: call.parent?.type === "VariableDeclarator" &&
-				call.parent.id.type === "Identifier" &&
-				call.parent.id.name === site.binding;
-	return held && namedAncestor(call, site.within);
+	return (
+		call.parent?.type === "VariableDeclarator" &&
+		call.parent.id.type === "Identifier" &&
+		call.parent.id.name === site.binding &&
+		namedAncestor(call, site.within)
+	);
 };
 
 const noTimers = ratcheted("no-timers", (context, push) => {
@@ -1378,7 +1369,7 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 					push({
 						node: program,
 						fn: null,
-						message: `The listed product timer ${site.timer} ${site.binding ?? `(${site.argument})`} in ${site.within} is gone: delete its entry from PRODUCT_TIMERS in scripts/lint/everyfield-plugin.mjs.`,
+						message: `The listed product timer ${site.timer} ${site.binding} in ${site.within} is gone: delete its entry from PRODUCT_TIMERS in scripts/lint/everyfield-plugin.mjs.`,
 					});
 		},
 	};
