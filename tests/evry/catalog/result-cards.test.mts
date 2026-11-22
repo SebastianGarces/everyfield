@@ -31,9 +31,18 @@ import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
 import { randomUUID } from "node:crypto";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { intelligenceChurch, type IntelligenceChurch } from "../evals/intelligence-church.mts";
 
 const church = await goldenChurch();
 after(church.close);
+let intelligence: Promise<IntelligenceChurch> | null = null;
+let delta = false;
+const oversightChurch = () => (intelligence ??= intelligenceChurch("evrycards"));
+after(async () => (intelligence ? (await intelligence).database.close() : undefined));
+const oversightActor = async (who: "owner" | "director") => {
+	const ch = await oversightChurch();
+	return evryActor((await readViewer(ch.db, ch.seats[who].session as never))!.authority!);
+};
 const native = nativePorts();
 await seedSetup(church.admin, church.db, native);
 const setupActor = async (session: string) => evryActor((await readViewer(church.db, session as never))!.authority!);
@@ -255,6 +264,33 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"launch.readWorkspace": {},
 	"launch.readJournal": {},
 	"launch.readDebrief": {},
+	...Object.fromEntries(
+		[
+			["intelligence.readCommittedAdultCohort", "owner"],
+			["intelligence.readScorecard", "owner"],
+			["intelligence.readAssessment", "owner"],
+			["intelligence.readAssessmentDelta", "owner"],
+			["oversight.listPlants", "director"],
+			["organizationIntelligence.read", "director"],
+		].map(([op, who]) => [
+			op,
+			async () => {
+				const ch = await oversightChurch();
+				if (op === "intelligence.readAssessmentDelta" && !delta) {
+					await ch.classify();
+					await ch.publish();
+					delta = true;
+				}
+				return invokeRead(ch.db, await oversightActor(who as "owner"), adapters.get(op!)!, {});
+			},
+		]),
+	),
+	"oversight.getPlant": async () => {
+		const ch = await oversightChurch();
+		return invokeRead(ch.db, await oversightActor("director"), adapters.get("oversight.getPlant")!, {
+			plantId: ch.plants["Redeemer Church"]!.id,
+		});
+	},
 	...Object.fromEntries(
 		["dashboard.availableActions", "dashboard.metrics", "dashboard.activity", "dashboard.readSetupGaps"].map((op) => [
 			op,

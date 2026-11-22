@@ -324,11 +324,20 @@ test("INV-notification-tools an organization login is offered its oversight dige
 	assert.ok("notifications_read" in tools);
 	assert.deepEqual(
 		readCatalog(org).domains.flatMap((d) => d.operations.map((o) => o.operation)),
-		["notifications.previewOversightDigest", "pipeline.listPeople", "development.draftPlan", "development.readProgram"],
+		[
+			"notifications.previewOversightDigest",
+			"pipeline.listPeople",
+			"development.draftPlan",
+			"development.readProgram",
+			"oversight.listPlants",
+			"oversight.getPlant",
+			"organizationIntelligence.read",
+		],
 	);
 	assert.deepEqual(
 		readCatalog(org).reviewedWrites.map((w) => w.operation),
 		[
+			"notifications.setPreferences",
 			"notifications.oversightDigestCadence.set",
 			"organizations.updateProfile",
 			"pipeline.proposeStageMove",

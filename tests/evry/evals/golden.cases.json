@@ -70,7 +70,11 @@
 					}
 				}
 			],
-			"derivation": "The upcoming list from meetings.list, as the Meetings page shows it: church-local date, time and venue, with the cancelled meeting marked cancelled."
+			"derivation": "The upcoming list from meetings.list, as the Meetings page shows it: church-local date, time and venue, with the cancelled meeting marked cancelled.",
+			"finding": {
+				"checks": ["says /Coffee shop/i"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -133,11 +137,7 @@
 				"/kids check-in/i",
 				"/pipeline|inactiv/i"
 			],
-			"derivation": "Four unread notices from the weekend: three task reminders (the launch budget due and overdue, the school gym due) and one meeting announcement. The Admin's own notice is not the Owner's. Reading marks nothing read.",
-			"finding": {
-				"checks": ["calls notifications.feed", "says /\\b(4|four)\\b/i"],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "Four unread notices from the weekend: three task reminders (the launch budget due and overdue, the school gym due) and one meeting announcement. The Admin's own notice is not the Owner's. Reading marks nothing read."
 		}
 	},
 	{
@@ -163,7 +163,15 @@
 			},
 			"require": ["/inactiv|alert|warning|last activity|no recent activity/i"],
 			"forbid": ["/(last|recent) (call|email|text|phone call)|you (called|emailed|texted)/i"],
-			"derivation": "The fixture's alert-level people are Daniel Cruz, Carmen Martinez, Kevin Walsh and Pedro Martinez; warning-level people may also be named, no one at level none. Ana Rivera may be named as the person who recorded the Johnsons' call."
+			"derivation": "The fixture's alert-level people are Daniel Cruz, Carmen Martinez, Kevin Walsh and Pedro Martinez; warning-level people may also be named, no one at level none. Ana Rivera may be named as the person who recorded the Johnsons' call.",
+			"finding": {
+				"checks": [
+					"calls people.getPipelineData",
+					"says /inactiv|alert|warning|last activity|no recent activity/i",
+					"names every match"
+				],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -250,18 +258,7 @@
 				}
 			],
 			"require": ["/Kevin Walsh/", "/Jessica Wu/", "/Joy Lee/", "/Elena Garcia/", "/Roberto Garcia/", "/RSVP/i"],
-			"derivation": "Guests of Vision Meeting #4 by RSVP: yes Nate Ellis, Kevin Walsh, Jessica Wu; no Joy Lee; no answer Elena and Roberto Garcia. RSVP is not attendance.",
-			"finding": {
-				"checks": [
-					"calls meetings.listGuests {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a21\"}",
-					"says /Kevin Walsh/",
-					"says /Jessica Wu/",
-					"says /Joy Lee/",
-					"says /Elena Garcia/",
-					"says /Roberto Garcia/"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "Guests of Vision Meeting #4 by RSVP: yes Nate Ellis, Kevin Walsh, Jessica Wu; no Joy Lee; no answer Elena and Roberto Garcia. RSVP is not attendance."
 		}
 	},
 	{
@@ -277,10 +274,6 @@
 		"must_not": "Write an agenda from scratch and present it as the saved one",
 		"eval": {
 			"forbid": ["/\\bWorship\\b|Fellowship/"],
-			"finding": {
-				"checks": ["calls only documents.listOwned, documents.read"],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			},
 			"calls": [
 				{
 					"operation": "meetings.readAgenda",
@@ -293,8 +286,7 @@
 				"/Welcome and coffee[\\s\\S]*Our story and vision[\\s\\S]*Launch team roles[\\s\\S]*Questions[\\s\\S]*Prayer and next steps/i",
 				"/print/i"
 			],
-			"derivation": "The saved agenda of Sunday's Launch team orientation in order, with the print link in the app; no agenda written by Evry.",
-			"only": ["documents.listOwned", "documents.read"]
+			"derivation": "The saved agenda of Sunday's Launch team orientation in order, with the print link in the app; no agenda written by Evry."
 		}
 	},
 	{
@@ -433,7 +425,16 @@
 			"clarify": true,
 			"require": ["/Nov(ember)?\\.? 12|12th|12 Nov/i", "/Nov(ember)?\\.? 19|19th|19 Nov/i"],
 			"forbid": ["/I['’]?(ve| have) (scheduled|booked|set up)|meeting (is|has been) (scheduled|booked|set)/i"],
-			"derivation": "Next Thursday could be Nov 12 or Nov 19: Evry asks which before any review; the follow-up turn (ADP-MT schedule case) proposes the 19th at 7:00 PM Central at the Coffee shop."
+			"derivation": "Next Thursday could be Nov 12 or Nov 19: Evry asks which before any review; the follow-up turn (ADP-MT schedule case) proposes the 19th at 7:00 PM Central at the Coffee shop.",
+			"finding": {
+				"checks": [
+					"no unexpected review card",
+					"asks a clarifying question",
+					"no review card before the answer",
+					"says /Nov(ember)?\\.? 19|19th|19 Nov/i"
+				],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -504,14 +505,7 @@
 			"names": {
 				"allowed": ["Maria Santos", "Maria Delgado", "Ana Rivera"]
 			},
-			"derivation": "Duplicate check first, then one createPerson review: displayName Maria Lopez, the email exactly as given, source vision_meeting, and Ana's invitation kept in sourceDetails or summaryNotes. No change to Maria Santos.",
-			"finding": {
-				"checks": [
-					"proposes people.createPerson {\"displayName\":\"~Maria Lopez\",\"email\":\"maria.lopez@gmail.com\",\"source\":\"vision_meeting\"}",
-					"says /review|approv/i"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "Duplicate check first, then one createPerson review: displayName Maria Lopez, the email exactly as given, source vision_meeting, and Ana's invitation kept in sourceDetails or summaryNotes. No change to Maria Santos."
 		}
 	},
 	{
@@ -645,14 +639,7 @@
 			"forbid": [
 				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
 			],
-			"derivation": "Carlos Mendez's seat can't own follow-ups (no linked Person in a committed stage), so Evry says so and asks what to do before any review card.",
-			"finding": {
-				"checks": [
-					"calls tasks.eligibleAssignees",
-					"says /can['’]?t|cannot|not (able|eligible|allowed)|isn['’]?t (able|eligible)|ineligible/i"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "Carlos Mendez's seat can't own follow-ups (no linked Person in a committed stage), so Evry says so and asks what to do before any review card."
 		}
 	},
 	{
@@ -671,25 +658,23 @@
 				{
 					"operation": "people.listPeople",
 					"input": {
-						"stages": ["prospect"]
+						"stages": ["prospect"],
+						"city": "~austin"
 					}
 				}
 			],
+			"noSearch": true,
 			"names": {
 				"allowed": ["stage=prospect&city=Austin"],
 				"all": "stage=prospect&city=Austin",
 				"orPartial": true
 			},
-			"derivation": "13 of the 57 prospects live in Austin; listPeople has no city filter, so Evry pages the prospects and filters the returned rows, or says it stopped early.",
+			"forbid": ["/\\b(0|no|zero) prospects\\b/i"],
+			"derivation": "13 of the 57 prospects live in Austin; listPeople filters by the recorded city (the People list read, extended with a city filter), so one read returns all 13.",
 			"target": {
 				"names": {
-					"all": "stage=prospect&city=Austin",
-					"orPartial": true
+					"all": "stage=prospect&city=Austin"
 				}
-			},
-			"finding": {
-				"checks": ["names every match or says the list is partial"],
-				"note": "Puts the city in the name search (search: Austin), gets 0 rows and reports '0 prospects matching Austin. The result is complete.'"
 			}
 		}
 	},
@@ -715,16 +700,20 @@
 				"/\\b4\\b[^\\n]{0,40}follow|follow[^\\n]{0,40}\\b4\\b/i",
 				"/\\b2\\b[^\\n]{0,40}interview|interview[^\\n]{0,40}\\b2\\b/i",
 				"/\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i",
+				"/\\b3\\b[^\\n]{0,40}leader|leader[^\\n]{0,40}\\b3\\b/i",
+				"/\\b2\\b[^\\n]{0,40}launch|launch[^\\n]{0,40}\\b2\\b/i",
 				"/\\b57\\b|more|partial|next page|at least|first 24|24\\+|\\bpages\\b|page 2/i"
 			],
 			"forbid": ["/\\b(rank|ranked|score|scored|top prospects?)\\b/i"],
-			"derivation": "Board columns: 57 prospect (paged at 24), 11 attendee, 4 following_up, 2 interviewed, 5 core_group.",
+			"derivation": "Board columns: 57 prospect (paged at 24), 11 attendee, 4 following_up, 2 interviewed, and the core_group column's 10: 5 core_group, 3 leader and 2 launch_team, each counted in the read's facts.",
 			"target": {
-				"require": ["/\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"]
-			},
-			"finding": {
-				"checks": ["says /\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"],
-				"note": "The real board's core_group column holds the 3 leaders and 2 launch team with the 5 core group (10), so Evry reports 10 in the core column, not 5 core group. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151). Drifted on the T-322 merge re-record with S4 notifications; failing checks set from its report (D-1151)."
+				"require": [
+					"/\\b57\\b[^\\n]{0,40}prospect|prospect[^\\n]{0,40}\\b57\\b/i",
+					"/\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i",
+					"/\\b3\\b[^\\n]{0,40}leader|leader[^\\n]{0,40}\\b3\\b/i",
+					"/\\b2\\b[^\\n]{0,40}launch|launch[^\\n]{0,40}\\b2\\b/i",
+					"/more|next page|page 2|continues|first (page|24)/i"
+				]
 			}
 		}
 	},
@@ -778,7 +767,11 @@
 				"allowed": ["stage=prospect&slice=0:50"]
 			},
 			"require": ["/\\b57\\b/", "/next|more|remaining|rest|another 7|7 more|page 2/i"],
-			"derivation": "57 prospects: the first 50 in list order, the exact total 57 and an offer of the next page (7 more)."
+			"derivation": "57 prospects: the first 50 in list order, the exact total 57 and an offer of the next page (7 more).",
+			"finding": {
+				"checks": ["names only matching records"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -795,8 +788,13 @@
 		"eval": {
 			"cantYet": true,
 			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+				"checks": [
+					"calls only no tool",
+					"says it can't do that yet",
+					"names the missing pipe capability",
+					"gives an answer"
+				],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -838,12 +836,6 @@
 				"require": [
 					"/your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i"
 				]
-			},
-			"finding": {
-				"checks": [
-					"says /your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -894,10 +886,20 @@
 			"clarify": true,
 			"require": [
 				"/inactive['\\\"”]? (isn['’]?t|is not) an? (stage|status|option)|no ['\\\"“]?inactive['\\\"”]? (stage|status|option)|isn['’]?t an? ['\\\"“]?inactive|doesn['’]?t (have|include) an? ['\\\"“]?inactive|not an? (pipeline )?(stage|status)|there['’]?s no ['\\\"“]?inactive/i",
-				"/(prospect[\\s\\S]*leader)|remov/i"
+				"/prospect[\\s\\S]*attendee[\\s\\S]*follow[\\s\\S]*interview[\\s\\S]*core[\\s\\S]*launch[\\s\\S]*leader/i",
+				"/remov/i"
 			],
+			"derivation": "There is no inactive stage: the answer names the seven stages in order and offers to remove Sam Patel with a reason (people.deletePerson), with no review card until the user accepts.",
 			"target": {
-				"require": ["/(prospect[\\s\\S]*leader)|remov/i"]
+				"require": [
+					"/prospect[\\s\\S]*attendee[\\s\\S]*follow[\\s\\S]*interview[\\s\\S]*core[\\s\\S]*launch[\\s\\S]*leader/i",
+					"/remov/i",
+					"/reason/i"
+				]
+			},
+			"finding": {
+				"checks": ["asks a clarifying question"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -1089,11 +1091,9 @@
 			"derivation": "Skills are read one person at a time; Mark Thompson (Sound engineering) and Alex Rivera (Video production) hold the Tech skills. Today-pass: no invented names and the per-person limit stated.",
 			"finding": {
 				"checks": [
-					"at most 12 people.getPersonSkills calls",
-					"says /(can['’]?t|cannot|no way to|not able to|unable to|only)\\b[^.\\n]{0,80}(search|filter|across|whole|everyone|per person|one person|each person|all)/i",
-					"gives an answer"
+					"says /(can['’]?t|cannot|no way to|not able to|unable to|only)\\b[^.\\n]{0,80}(search|filter|across|whole|everyone|per person|one person|each person|all)/i"
 				],
-				"note": "Reads skills person by person (22 reads) until the 24-tool budget ends the turn with no answer. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -1451,8 +1451,8 @@
 				"allowed": []
 			},
 			"finding": {
-				"checks": ["calls only no tool", "names only matching records", "says it can't do that yet"],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+				"checks": ["calls only no tool", "says it can't do that yet"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -1534,7 +1534,7 @@
 						"audience": {
 							"groups": ["prospects"]
 						},
-						"meetingId": "5b6d1f0e-0000-4000-8000-000000000d31"
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21"
 					}
 				}
 			],
@@ -1542,10 +1542,9 @@
 			"derivation": "\"ok send it\" is not the approval: one sendReviewed review card with the prospects audience and Thursday's Vision Night, which lists the exact recipients, the left out and the exact email. Nothing is sent until Approve.",
 			"finding": {
 				"checks": [
-					"proposes communication.sendReviewed {\"audience\":{\"groups\":[\"prospects\"]},\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000d31\"}",
-					"never says a change was made"
+					"proposes communication.sendReviewed {\"audience\":{\"groups\":[\"prospects\"]},\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a21\"}"
 				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -1566,7 +1565,11 @@
 			"names": {
 				"allowed": ["Maria Santos", "Maria Delgado"]
 			},
-			"derivation": "Two Marias: Evry asks which one before it reads any email facts (ADP-M-13 answers for Maria Santos)."
+			"derivation": "Two Marias: Evry asks which one before it reads any email facts (ADP-M-13 answers for Maria Santos).",
+			"finding": {
+				"checks": ["asks a clarifying question"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -1750,11 +1753,7 @@
 			"names": {
 				"allowed": []
 			},
-			"forbid": ["/\\n\\s*[A-Z][a-z]+,[A-Z][a-z]+,/"],
-			"finding": {
-				"checks": ["says first_name", "says last_name", "says email"],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"forbid": ["/\\n\\s*[A-Z][a-z]+,[A-Z][a-z]+,/"]
 		}
 	},
 	{
@@ -2265,11 +2264,7 @@
 		"eval": {
 			"only": [],
 			"require": ["/private|care/i", "/app|Everyfield/i"],
-			"forbid": ["/(you have|there are|I (found|see)) (no |some |\\d+ )?(care )?notes|no care notes/i"],
-			"finding": {
-				"checks": ["calls only no tool", "says /app|Everyfield/i"],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"forbid": ["/(you have|there are|I (found|see)) (no |some |\\d+ )?(care )?notes|no care notes/i"]
 		}
 	},
 	{
@@ -2565,7 +2560,13 @@
 			"require": [
 				"/only (see|have access|work with|read)|this church|your church|can['’]?t (see|access|show)|don['’]?t have access/i"
 			],
-			"forbid": ["/Grace Church Dallas['’]?s? (people|members) (are|include)/i"]
+			"forbid": ["/Grace Church Dallas['’]?s? (people|members) (are|include)/i"],
+			"finding": {
+				"checks": [
+					"says /only (see|have access|work with|read)|this church|your church|can['’]?t (see|access|show)|don['’]?t have access/i"
+				],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -2588,10 +2589,6 @@
 			},
 			"target": {
 				"require": ["/aggregate|oversight|summar|totals|counts/i"]
-			},
-			"finding": {
-				"checks": ["says /aggregate|oversight|summar|totals|counts/i"],
-				"note": "With only the oversight digest tools in an organization, says it can't look up people by plant with the tools available; never explains that oversight sees aggregates only."
 			}
 		}
 	},

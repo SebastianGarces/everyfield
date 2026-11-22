@@ -399,6 +399,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"identity.answerLeadOnboarding",
 						"onboarding.complete",
 						"feedback.submit",
+						"intelligence.requestRefresh",
+						"intelligence.submitFeedback",
 						...taskWrites,
 						...wikiWrites,
 						"documents.createFromTemplate",
@@ -430,6 +432,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						]
 					: who === "orgOwner"
 						? [
+								"notifications.setPreferences",
 								"notifications.oversightDigestCadence.set",
 								"organizations.updateProfile",
 								"pipeline.proposeStageMove",
@@ -548,6 +551,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"privacy.getSharing",
 						"onboarding.getResume",
 						...OVERVIEW_READS,
+						"intelligence.readCommittedAdultCohort",
+						"intelligence.readScorecard",
+						"intelligence.readAssessment",
+						"intelligence.readAssessmentDelta",
 						"calendar.getContext",
 						"calendar.resolve",
 						...wikiReads,
@@ -584,6 +591,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"pipeline.listPeople",
 								"development.draftPlan",
 								"development.readProgram",
+								"oversight.listPlants",
+								"oversight.getPlant",
+								"organizationIntelligence.read",
 							]
 						: who === "seatless"
 							? ["discovery.getProfile"]
@@ -755,6 +765,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"documents_read",
 			"feedback_read",
 			"followups_read",
+			"intelligence_read",
 			"launch_read",
 			"meetings_read",
 			"notifications_read",

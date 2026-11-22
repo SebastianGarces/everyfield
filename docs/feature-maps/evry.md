@@ -125,7 +125,7 @@ An Owner or Admin attaches a Word or text file in the panel and asks for a churc
 - Browser, presence proof only (the control is there; the tests prove the outcome), from state new-chat:
 
 ```bash
-agent-browser find role button text --name "Attach a CSV, Word or text file" --exact
+agent-browser find role button text --name "Attach a CSV, Word, text or PDF file" --exact
 ```
 
 ### evry.review
