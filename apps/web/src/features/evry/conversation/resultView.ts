@@ -286,6 +286,13 @@ const VIEWS: Record<string, OpView> = {
 		counts: "step",
 		empty: "This church has no setup in progress for you.",
 	},
+	"evry.readWorkflowHint": {
+		title: "Suggested steps",
+		noun: ["step", "steps"],
+		icon: "step",
+		counts: "step",
+		empty: "Your role can't take any of these steps.",
+	},
 	"dashboard.availableActions": {
 		title: "Next steps",
 		noun: ["step", "steps"],
@@ -370,6 +377,40 @@ const VIEWS: Record<string, OpView> = {
 		noun: ["named guest", "named guests"],
 		beside: (r) => r.fields.match !== undefined,
 		empty: "No first-time guest names to show here.",
+	}),
+	"intelligence.readCommittedAdultCohort": items("Committed adults", {
+		icon: "item",
+		empty: "Plant Intelligence couldn't measure committed adults.",
+	}),
+	"intelligence.readScorecard": items("Plant Intelligence scorecard", {
+		noun: ["lens or criterion", "lenses and criteria"],
+		icon: "item",
+		empty: "No assessment has been published yet.",
+	}),
+	"intelligence.readAssessment": items("Latest assessment", {
+		noun: ["finding", "findings"],
+		icon: "item",
+		empty: "No assessment has been published yet.",
+	}),
+	"intelligence.readAssessmentDelta": items("What changed", {
+		noun: ["change", "changes"],
+		icon: "item",
+		empty: "Nothing measured changed since the assessment before.",
+	}),
+	"oversight.listPlants": items("Your plants", {
+		noun: ["plant", "plants"],
+		icon: "item",
+		empty: "No plant is linked to this organization yet.",
+	}),
+	"oversight.getPlant": items("Plant totals", {
+		noun: ["plant", "plants"],
+		icon: "item",
+		empty: "That plant isn't linked to this organization.",
+	}),
+	"organizationIntelligence.read": items("Network Intelligence", {
+		noun: ["pattern", "patterns"],
+		icon: "item",
+		empty: "No pattern: each needs two or more plants with the same finding.",
 	}),
 	"development.draftPlan": {
 		title: "Who can direct a program",
@@ -814,6 +855,10 @@ const ENTRY: Record<string, string> = {
 	launch_sunday: "Held",
 };
 const CRITERION: Record<string, string> = {
+	Met: "Met",
+	"Not met": "Not met",
+	Unknown: "Unknown",
+	"Not tracked": "Not tracked",
 	met: "Met",
 	"not met": "Not met",
 	"no data yet": "No data yet",
@@ -1533,6 +1578,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "step":
 			if (operation.startsWith("dashboard."))
 				return { ...plain, href: text(fields.href), name: row.label, line: "From Overview", avatar: null };
+			if (operation === "evry.readWorkflowHint")
+				return { ...plain, name: row.label, line: `Say "${text(fields.say)}"`, avatar: null };
 			return {
 				...plain,
 				href: "/onboarding",
@@ -1989,6 +2036,26 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 			return typeof f.rsvp === "string" ? (RSVP_TEXT[f.rsvp] ?? f.rsvp) : null;
 		case "meetings.hasHistory":
 			return f.hasHistory ? "Meetings are on record" : "No meeting on record";
+		case "intelligence.readCommittedAdultCohort":
+			return joined(
+				f.exact === null ? `At least ${String(f.known)}` : String(f.exact),
+				typeof f.needsClassifying === "number" && f.needsClassifying
+					? count(f.needsClassifying, "needs classifying", "need classifying")
+					: null,
+				text(f.measuredOn) ? `Measured ${String(f.measuredOn)}` : null,
+			);
+		case "intelligence.readScorecard":
+			return joined(text(f.standing), text(f.evidence));
+		case "intelligence.readAssessment":
+			return joined(text(f.severity), text(f.cites));
+		case "intelligence.readAssessmentDelta":
+			return `${String(f.before)} → ${String(f.after)}`;
+		case "oversight.listPlants":
+			return joined(`Health ${String(f.health)}`, `Launch ${String(f.launch)}`, text(f.region));
+		case "oversight.getPlant":
+			return joined(`People ${String(f.people)}`, `Tasks ${String(f.tasks)}`, `Launch ${String(f.launch)}`);
+		case "organizationIntelligence.read":
+			return joined(text(f.group), text(f.plants));
 		case "launch.readCountdown":
 			return joined(
 				text(f.status),

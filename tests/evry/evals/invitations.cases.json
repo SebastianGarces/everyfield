@@ -1,0 +1,142 @@
+{
+	"suite": "invitations",
+	"model": "scripted",
+	"note": "T-328: multi-step requests (meeting invitations, reused plans and the vision-night follow-up hint), asked on the scripted model with the real adapters, approvals, meeting and communication writes and a fake mail service, on the acceptance fixture church (setup-church.mts seedOverview + seedInvitations, America/Chicago, database clock pinned to Tue Oct 13, 2026). The Garcia household has three members, Luis and Maria with email and Sofia without. The core group was Grace Holt, Marcus Webb and Tom Reyes when the Owner, Casey Rivera, approved last month's invitation to the September vision night through Evry (setup drives that approval for real, then moves it 30 days back). Since then Tom unsubscribed and Nina Patel joined the core group. Thursday's Vision night (Oct 15) exists; no meeting is on Tuesday Oct 20. Two saved venues match Northside. Cases run in this order; `continues` keeps the previous case's conversation, and each later case sees the earlier approved changes.",
+	"cases": [
+		{
+			"id": "INV-01",
+			"criterion": [1, 2],
+			"golden": "PREP-04",
+			"actor": "owner",
+			"ask": "invite the Garcia family to the next vision meeting",
+			"expected_answer": "Later: one review that shows guest binding and the invitation together",
+			"must_not": "Send an invitation directly",
+			"calls": ["people.listHouseholds", "meetings.list"],
+			"answer": [
+				"One review shows every step together",
+				"Nothing is created, added or sent until you approve the review."
+			],
+			"proposal": {
+				"operation": "evry.prepareMeetingInvitation",
+				"target": "Vision night",
+				"meeting": { "title": "Vision night", "when": "Thu, Oct 15, 2026, 6:30 PM CDT", "venue": null, "isNew": false },
+				"guests": ["Luis Garcia", "Maria Garcia", "Sofia Garcia"],
+				"recipients": ["Luis Garcia", "Maria Garcia"],
+				"leftOut": [["Sofia Garcia", "no_address"]],
+				"notes": null
+			},
+			"approve": true
+		},
+		{
+			"id": "INV-02",
+			"criterion": 3,
+			"actor": "owner",
+			"ask": "set up a vision meeting Tuesday at Northside and invite the core group",
+			"calls": ["venues.list"],
+			"answer": [
+				"2 saved venues match \"Northside\": Northside Community Center and Northside Library. Which one should it be?"
+			]
+		},
+		{
+			"id": "INV-03",
+			"criterion": [4, 5],
+			"actor": "owner",
+			"continues": true,
+			"ask": "Northside Library",
+			"calls": ["venues.list"],
+			"answer": [
+				"I prepared the new vision meeting and the invitation for the core group.",
+				"Left out of the email: Tom Reyes"
+			],
+			"proposal": {
+				"operation": "evry.prepareMeetingInvitation",
+				"target": null,
+				"meeting": {
+					"title": "Vision Meeting #3",
+					"when": "Tue, Oct 20, 2026, 6:30 PM CDT",
+					"venue": "Northside Library",
+					"isNew": true
+				},
+				"guests": ["Grace Holt", "Marcus Webb", "Nina Patel", "Tom Reyes"],
+				"recipients": ["Grace Holt", "Marcus Webb", "Nina Patel"],
+				"leftOut": [["Tom Reyes", "unsubscribed"]],
+				"notes": null
+			},
+			"approve": true
+		},
+		{
+			"id": "INV-04",
+			"criterion": [6, 7],
+			"actor": "owner",
+			"ask": "do the same invite for this month's vision night",
+			"calls": ["meetings.list"],
+			"answer": ["Last month's approval doesn't carry over."],
+			"proposal": {
+				"operation": "evry.reuseRecipe",
+				"target": "Vision night",
+				"meeting": { "title": "Vision night", "when": "Thu, Oct 15, 2026, 6:30 PM CDT", "venue": null, "isNew": false },
+				"guests": ["Grace Holt", "Marcus Webb", "Nina Patel", "Tom Reyes"],
+				"recipients": ["Grace Holt", "Marcus Webb", "Nina Patel"],
+				"leftOut": [["Tom Reyes", "unsubscribed"]],
+				"notes": [
+					"Same invitation as the one you approved on Sep 13 for September vision night. The meeting and the people are worked out again from today's records, and it needs your approval again."
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "INV-05",
+			"criterion": [8, 9],
+			"actor": "owner",
+			"ask": "help me plan follow-up after vision night",
+			"operation": "evry.readWorkflowHint",
+			"calls": ["evry.readWorkflowHint"],
+			"steps": [
+				"meetings.finalizeAttendance",
+				"meetings.recordEvaluation",
+				"tasks.createFollowUp",
+				"followups.recordOutcome",
+				"communication.sendReviewed",
+				"evry.prepareMeetingInvitation",
+				"meetings.schedule"
+			],
+			"answer": [
+				"1. Mark who came and finalize attendance.",
+				"3. Create a follow-up with each first-time guest. Say \"create a follow-up with <name>\".",
+				"Each step opens its own review card when you ask for it. Nothing runs from this list."
+			],
+			"forbid": ["/\\b(pray|prayer|scripture|biblical|spiritual|pastoral|God)\\b/i"]
+		},
+		{
+			"id": "INV-06",
+			"criterion": 8,
+			"actor": "owner",
+			"ask": "create a follow-up with Ana Ruiz",
+			"calls": ["people.listPeople"],
+			"answer": ["I prepared the follow-up for your review."],
+			"proposal": { "operation": "tasks.createFollowUp", "target": "Ana Ruiz" }
+		},
+		{
+			"id": "INV-07",
+			"criterion": 9,
+			"actor": "member",
+			"ask": "help me plan follow-up after vision night",
+			"operation": "evry.readWorkflowHint",
+			"calls": ["evry.readWorkflowHint"],
+			"steps": ["meetings.finalizeAttendance", "followups.recordOutcome", "meetings.schedule"],
+			"answer": ["1. Mark who came and finalize attendance.", "3. Schedule the next vision night."],
+			"forbid": [
+				"/Score the night|Create a follow-up|thank-you|Invite guests/i",
+				"/\\b(pray|prayer|scripture|biblical|spiritual|pastoral|God)\\b/i"
+			]
+		},
+		{
+			"id": "INV-08",
+			"criterion": 2,
+			"actor": "member",
+			"ask": "invite the Garcia family to the next vision meeting",
+			"calls": [],
+			"answer": ["An Owner or Admin has to make that change."]
+		}
+	]
+}

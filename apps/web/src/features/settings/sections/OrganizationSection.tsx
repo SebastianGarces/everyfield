@@ -149,17 +149,17 @@ function OrganizationForm({
 					name: sent.gatheringName.trim() || null,
 					description: sent.gatheringDescription.trim() || null,
 				};
-			if (Object.keys(patch).length === 0) return { ok: true, server: formOf(values) };
+			if (Object.keys(patch).length === 0) return { status: "ok", value: formOf(values) };
 			const input = { section: "organization" as const, organization: values.organization, patch };
 			const result = await attempt("organization-profile", (requestKey) =>
 				port.saveSection({ requestKey, expectedRevision: values.revision, input }),
 			);
-			if (!result.ok) return { ok: false, refusal: result.refusal };
+			if (result.status !== "ok") return result;
 			const current = result.value.current;
 			replace(current);
 			const now =
 				current.section === "organization" && current.values.status === "available" ? formOf(current.values) : saved;
-			return { ok: true, server: now };
+			return { status: "ok", value: now };
 		});
 	};
 

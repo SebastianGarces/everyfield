@@ -1,6 +1,7 @@
 import { organizationSeatOf, viewerActor } from "@/server/request-context";
 import { requestDatabase } from "@/server/database";
-import { humanCredit, type WikiArticle } from "@everyfield/contracts/wiki";
+import type { Lost } from "@everyfield/contracts/common";
+import { humanCredit, type WikiArticle, type WikiReply } from "@everyfield/contracts/wiki";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createWikiProducer, type StoredEditor } from "@everyfield/domain/wiki";
@@ -28,7 +29,6 @@ import { LOST, transient, unexpected } from "../../server/platform/transient.ts"
 
 type Producer = ReturnType<typeof createWikiProducer>;
 type Mount = { db: Database; producer: Producer };
-type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
 
 const MOUNT: unique symbol = Symbol.for("everyfield.web.wiki");
 const slot = globalThis as { [MOUNT]?: Mount };
@@ -88,7 +88,7 @@ async function articleOf(
 	actor: RequestActor,
 	articleId: string,
 	source: SourceChoice,
-): Promise<Reply<Got> | { status: "lost" }> {
+): Promise<WikiReply<Got> | Lost> {
 	return transient(
 		{ component: "wiki", outcome: "article-failed" },
 		async () => {

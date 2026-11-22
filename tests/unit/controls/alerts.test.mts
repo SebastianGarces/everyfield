@@ -7,12 +7,12 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = createRequire(root + "apps/web/package.json");
 const { renderToStaticMarkup } = web("react-dom/server");
 const { createElement } = web("react");
-const { InlineAlert, PageState } = await import("../../../packages/ui/src/controls/index.ts");
+const { Alert, InlineAlert, PageState } = await import("../../../packages/ui/src/controls/index.ts");
 
 const html = (props: Record<string, unknown>, children?: unknown) =>
 	renderToStaticMarkup(createElement(InlineAlert, props, children));
 
-test("INV-a11y: an inline alert keeps its live region in the page before the problem appears, so the problem is announced", () => {
+test("INV-a11y: an inline alert keeps its live region in the accessibility tree, with no box, before the problem appears, so the problem is announced", () => {
 	for (const [live, expected] of [
 		[undefined, "assertive"],
 		["polite", "polite"],
@@ -20,14 +20,44 @@ test("INV-a11y: an inline alert keeps its live region in the page before the pro
 		for (const empty of [null, undefined, false, ""]) {
 			assert.equal(
 				html({ live, id: "p" }, empty),
-				`<div id="p" aria-live="${expected}" aria-atomic="true" class="empty:hidden"></div>`,
+				`<div id="p" aria-live="${expected}" aria-atomic="true" class="empty:sr-only"></div>`,
 			);
 		}
 		const shown = html({ live }, "The meeting was not saved.");
-		assert.match(shown, new RegExp(`^<div aria-live="${expected}" aria-atomic="true" class="empty:hidden"><div `));
+		assert.match(shown, new RegExp(`^<div aria-live="${expected}" aria-atomic="true" class="empty:sr-only"><div `));
 		assert.match(shown, /The meeting was not saved\./);
 		assert.doesNotMatch(shown, /role="alert"/);
 	}
+});
+
+test("AC: a warning notice is amber, keeps its title and actions, and can show its own icon in place of the warning sign", () => {
+	const notice = (props: Record<string, unknown>) =>
+		renderToStaticMarkup(
+			createElement(
+				Alert,
+				{ tone: "warning", title: "Connection lost", actions: "Reconnect", ...props },
+				"Evry keeps working.",
+			),
+		);
+	const shown = notice({});
+	assert.match(shown, /^<div data-tone="warning" class="[^"]*\bbg-amber-50 text-amber-600"/);
+	assert.match(
+		shown,
+		/<p class="font-semibold text-amber-600">Connection lost<\/p>Evry keeps working\.<div[^>]*>Reconnect<\/div>/,
+	);
+	const { WifiDisconnected01Icon } = web("@hugeicons/core-free-icons");
+	const svg = (html: string) => html.match(/<svg[\s\S]*?<\/svg>/)?.[0];
+	assert.notEqual(svg(notice({ icon: WifiDisconnected01Icon })), svg(shown));
+	assert.equal(svg(notice({ tone: "error" })), svg(shown));
+});
+
+test("AC: a success notice is green and shows the check mark, not the warning sign", () => {
+	const notice = (tone: string) => renderToStaticMarkup(createElement(Alert, { tone }, "Another link is on its way."));
+	const shown = notice("success");
+	assert.match(shown, /^<div data-tone="success" class="[^"]*\bbg-green-50 text-green-700"/);
+	assert.match(shown, /Another link is on its way\./);
+	const svg = (html: string) => html.match(/<svg[\s\S]*?<\/svg>/)?.[0];
+	assert.notEqual(svg(shown), svg(notice("error")));
 });
 
 test("INV-a11y: an inline alert asked to take focus can be focused by script but stays out of the tab order", () => {

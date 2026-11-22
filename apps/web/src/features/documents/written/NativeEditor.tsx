@@ -128,13 +128,13 @@ export default function NativeEditor({
 		if (!base.id) return;
 		const result = await archiveOwnedDocument(base.id, base.revision);
 		if (result.status !== "ok")
-			throw new Error(
-				documentProblem(
+			return {
+				refused: documentProblem(
 					result.status === "refused" ? result.code : "lost",
 					result.status === "refused" ? result.problem : undefined,
 					"This document was not archived. Try again.",
 				),
-			);
+			};
 		router.push("/documents");
 	}
 

@@ -1,7 +1,9 @@
 import { sql, type SQL } from "@everyfield/db/query";
 import {
 	assessments,
+	checkCommitmentDocument,
 	commitments,
+	type CheckedDocument,
 	interviews,
 	peopleMerge,
 	peopleUnmerge,
@@ -9,11 +11,11 @@ import {
 } from "@everyfield/domain/people";
 import {
 	commitmentKind,
+	commitmentMime,
 	correctCommitmentRequest,
 	correctPersonRecordRequest,
 	counted,
 	createAssessmentRequest,
-	createCommitmentRequest,
 	createInterviewRequest,
 	criterionRating,
 	fourCs,
@@ -25,15 +27,22 @@ import {
 	mergePeopleRequest,
 	reactivateCommitmentRequest,
 	stage,
+	UNREADABLE_DOCUMENT,
 	unmergePeopleRequest,
 	withdrawCommitmentRequest,
+	type PeopleContext,
 	type PeopleReply,
 } from "@everyfield/contracts/people";
+import type { WriteTx } from "@everyfield/domain/access";
 import { gatedTransaction } from "@everyfield/domain/operations";
 import { z } from "zod";
 import { person, reviewed, target, type Receipt } from "../../people/commands/index.ts";
 import { mergeReviewOf, unmergePreviewOf } from "../reads/index.ts";
 import { date, id } from "../ids.ts";
+import { stagedFile } from "../../../attachments/store.ts";
+import type { EvryActor } from "../../../context/actor.ts";
+import { EvryRefusal } from "../../../context/errors.ts";
+import type { ReviewContext } from "../../../proposals/types.ts";
 
 const json = (value: unknown) => sql`${JSON.stringify(value)}::jsonb`;
 const change = (field: string, after: unknown, before: SQL = sql`NULL`) =>
@@ -99,7 +108,41 @@ const commitmentInput = z.strictObject({
 		.optional()
 		.describe("Only a witness the user named: a person in this church, or a name outside it"),
 	notes,
+	attachmentId: id
+		.optional()
+		.describe("The signed card's PDF, by its attachmentId, when the user attached it in this conversation"),
 });
+const DOCUMENT_REFUSAL = {
+	gone: "The attached document is no longer available: attached files last 24 hours. Attach it again.",
+	replaced: "A newer file with the same name was attached after this one. Ask again with the file you mean.",
+	used: "The attached document is already the signed document of another commitment card.",
+} as const;
+type Attached = { name: string; refusal: string } | { name: string; document: CheckedDocument; conversationId: string };
+async function attachedDocument(actor: EvryActor, attachmentId: string, context: ReviewContext): Promise<Attached> {
+	if (!context.conversationId || !context.files) throw new EvryRefusal("attachment_elsewhere");
+	const file = await stagedFile(context.db, actor.owner.id, context.conversationId, attachmentId);
+	if (!file) throw new EvryRefusal("attachment_elsewhere");
+	if (file.status !== "available") return { name: file.name, refusal: DOCUMENT_REFUSAL[file.status] };
+	const bytes = await context.files.read(attachmentId).catch(() => null);
+	if (!bytes) return { name: file.name, refusal: DOCUMENT_REFUSAL.gone };
+	const document = await checkCommitmentDocument(attachmentId, bytes, "application/pdf");
+	return document
+		? { name: file.name, document, conversationId: context.conversationId }
+		: { name: file.name, refusal: UNREADABLE_DOCUMENT };
+}
+const checkedDocument = z.strictObject({
+	uploadId: z.uuid(),
+	mediaType: commitmentMime,
+	byteCount: z.int(),
+	sha256: z.string(),
+});
+const commitmentRequest = z.strictObject({
+	requestKey: z.string(),
+	input: z.looseObject({}),
+	document: checkedDocument.optional(),
+	conversationId: z.uuid().optional(),
+});
+const attachedArgs = z.object({ document: checkedDocument.optional(), conversationId: z.uuid().optional() });
 const lifecycleInput = z.strictObject({
 	personId: id,
 	effectiveOn: date.describe("The date it takes effect, YYYY-MM-DD"),
@@ -275,39 +318,66 @@ export const ASSESSMENT_COMMANDS = {
 		request: createAssessmentRequest,
 		run: async (tx, context, request) => personRevision(await assessments.createAssessment(tx, context, request)),
 	}),
-	"people.createCommitment": reviewed({
-		operation: "people.createCommitment",
-		description:
-			"Propose recording a signed commitment card for one person exactly as the user gave it: the kind (core group or launch team), the date it was signed, and any witness or notes they gave. An earlier stage moves to core group. Nothing is recorded until the user approves the exact review.",
-		input: commitmentInput,
-		review(actor, v) {
-			const input = {
-				personId: v.personId,
-				kind: v.kind,
-				occurredOn: v.occurredOn,
-				witness: v.witness ?? null,
-				notes: v.notes ?? null,
-			};
-			const witness =
-				v.witness && "personId" in v.witness
-					? sql`(SELECT to_jsonb(w.display_name) FROM person w WHERE w.id=${v.witness.personId}::uuid AND w.tenant_id=p.tenant_id
+	"people.createCommitment": {
+		...reviewed({
+			operation: "people.createCommitment",
+			description:
+				"Propose recording a signed commitment card for one person exactly as the user gave it: the kind (core group or launch team), the date it was signed, any witness or notes they gave, and the signed card's PDF when they attached it here. An earlier stage moves to core group. Nothing is recorded until the user approves the exact review.",
+			input: commitmentInput,
+			async review(actor, v, context) {
+				const file = v.attachmentId ? await attachedDocument(actor, v.attachmentId, context) : null;
+				const document = file && "document" in file ? file : null;
+				const input = {
+					personId: v.personId,
+					kind: v.kind,
+					occurredOn: v.occurredOn,
+					witness: v.witness ?? null,
+					notes: v.notes ?? null,
+					...(document && { documentUploadId: document.document.uploadId }),
+				};
+				const witness =
+					v.witness && "personId" in v.witness
+						? sql`(SELECT to_jsonb(w.display_name) FROM person w WHERE w.id=${v.witness.personId}::uuid AND w.tenant_id=p.tenant_id
 						AND w.plant_id=p.plant_id AND w.state='live' AND w.id<>p.id)`
-					: null;
-			const list = [
-				change("kind", v.kind),
-				change("occurredOn", v.occurredOn),
-				...(witness ? [sql`jsonb_build_object('field','witness','before',NULL,'after',${witness})`] : []),
-				...(v.witness && "external" in v.witness ? [change("witness", v.witness.external)] : []),
-				...(v.notes ? [change("cardNotes", v.notes)] : []),
-			];
-			return sql`SELECT jsonb_build_object('target',${person},'changes',${changes(list)}||${advance("core_group")})
-					||${refusal([future(v.occurredOn), ...(witness ? [[sql`${witness} IS NULL`, "That witness is not a current person in this church."] as [SQL, string]] : [])])} AS review,
-				jsonb_build_object('input',${json(input)}) AS args
+						: null;
+				const list = [
+					change("kind", v.kind),
+					change("occurredOn", v.occurredOn),
+					...(witness ? [sql`jsonb_build_object('field','witness','before',NULL,'after',${witness})`] : []),
+					...(v.witness && "external" in v.witness ? [change("witness", v.witness.external)] : []),
+					...(v.notes ? [change("cardNotes", v.notes)] : []),
+					...(file ? [change("document", file.name)] : []),
+				];
+				const refusals: [SQL, string][] = [
+					future(v.occurredOn),
+					...(witness
+						? [[sql`${witness} IS NULL`, "That witness is not a current person in this church."] as [SQL, string]]
+						: []),
+					...(file && "refusal" in file ? [[sql`true`, file.refusal] as [SQL, string]] : []),
+				];
+				const args = {
+					input,
+					...(document && { document: document.document, conversationId: document.conversationId }),
+				};
+				return sql`SELECT jsonb_build_object('target',${person},'changes',${changes(list)}||${advance("core_group")})
+					||${refusal(refusals)} AS review,
+				${json(args)} AS args
 				${target(actor, v.personId)}`;
+			},
+			request: commitmentRequest,
+			run: async (tx, context, { requestKey, input, document }) =>
+				personRevision(await commitments.createCommitment(tx, context, { requestKey, input }, document ?? null)),
+		}),
+		async recheck(tx: WriteTx, context: PeopleContext, args: unknown) {
+			const { document, conversationId } = attachedArgs.parse(args);
+			if (!document || !conversationId) return null;
+			const file = await stagedFile(tx, context.selected.id, conversationId, document.uploadId);
+			if (!file || file.status === "gone") return "attachment_gone";
+			if (file.status === "replaced") return "file_changed";
+			if (file.status === "used") return "attachment_used";
+			return null;
 		},
-		request: createCommitmentRequest,
-		run: async (tx, context, request) => personRevision(await commitments.createCommitment(tx, context, request)),
-	}),
+	},
 	"people.withdrawCommitment": lifecycle("people.withdrawCommitment"),
 	"people.reactivateCommitment": lifecycle("people.reactivateCommitment"),
 	"people.correctCommitmentLifecycle": reviewed({

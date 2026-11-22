@@ -1,6 +1,13 @@
+import { IMPORT_BYTES_MAX, IMPORT_TOO_LARGE } from "@everyfield/contracts/documents";
 import type { Attachment } from "./model.ts";
 
-export const ATTACH = { bytes: 10 * 1024 * 1024, perMessage: 10, accept: ".csv,text/csv" } as const;
+export const ATTACH = {
+	bytes: IMPORT_BYTES_MAX,
+	perMessage: 10,
+	accept: ".csv,.docx,.doc,.txt,.pdf,text/csv,text/plain,application/pdf",
+} as const;
+export const isCsv = (name: string) => /\.csv$/i.test(name);
+export const isPdf = (name: string) => /\.pdf$/i.test(name);
 
 export type Picked = {
 	key: string;
@@ -15,10 +22,15 @@ export const fileSize = (bytes: number) =>
 	bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 export function refusal(file: { name: string; size: number }, count: number): string | null {
-	if (!/\.csv$/i.test(file.name))
-		return "Evry can check CSV files only. Save the spreadsheet as CSV and attach it again.";
+	if (!/\.(csv|docx|doc|txt|pdf)$/i.test(file.name))
+		return "Evry can take CSV, Word (.docx), text (.txt) and PDF files. Save the file as one of those and attach it again.";
 	if (file.size === 0) return `${file.name} is empty.`;
-	if (file.size > ATTACH.bytes) return `${file.name} is larger than 10 MB. Split it into smaller files.`;
+	if (file.size > ATTACH.bytes)
+		return isCsv(file.name)
+			? `${file.name} is larger than 10 MB. Split it into smaller files.`
+			: isPdf(file.name)
+				? `${file.name} is larger than 10 MB. Attach a file of 10 MB or less.`
+				: IMPORT_TOO_LARGE;
 	if (count >= ATTACH.perMessage) return "You can attach up to 10 files to one message.";
 	return null;
 }
