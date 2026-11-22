@@ -177,7 +177,9 @@ export function recorder(name: string) {
 		return (real = selected.model);
 	}
 
-	function model(keys: string[] = [], inputs: string[] = []): LanguageModelV4 {
+	function model(keys: string[] = [], inputs: string[] = [], repetition = 1): LanguageModelV4 {
+		const keyOf = (options: LanguageModelV4CallOptions) =>
+			repetition === 1 ? callKey(options) : `${callKey(options)}~r${repetition}`;
 		const known = (key: string) => used.get(key) ?? loaded?.calls[key];
 		const missing = (key: string): never => {
 			throw new MissingRecording(
@@ -190,7 +192,7 @@ export function recorder(name: string) {
 			modelId: loaded?.model ?? "recording",
 			supportedUrls: {},
 			async doGenerate(options) {
-				const key = callKey(options);
+				const key = keyOf(options);
 				keys.push(key);
 				inputs.push(JSON.stringify({ prompt: options.prompt, tools: options.tools }));
 				let call = known(key);
@@ -209,7 +211,7 @@ export function recorder(name: string) {
 				};
 			},
 			async doStream(options) {
-				const key = callKey(options);
+				const key = keyOf(options);
 				keys.push(key);
 				inputs.push(JSON.stringify({ prompt: options.prompt, tools: options.tools }));
 				const call = known(key);
@@ -374,12 +376,13 @@ export async function converse(
 	attachments: CaseFile[] = [],
 	override?: LanguageModelV4,
 	page?: string,
+	repetition = 1,
 ): Promise<Conversation> {
 	const { db } = church;
 	const actor = church.actors[as];
 	const keys: string[] = [];
 	const inputs: string[] = [];
-	const model = override ?? golden.model(keys, inputs);
+	const model = override ?? golden.model(keys, inputs, repetition);
 	const offered = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
 	const catalog = readCatalog(actor, offered);
 	const calls: ToolCall[] = [];
