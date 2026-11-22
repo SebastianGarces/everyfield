@@ -100,12 +100,10 @@ export function clean<T>(value: T): T {
 	return walk(value) as T;
 }
 
-export class EditorJsonError extends Error {
-	readonly path: string;
+class EditorJsonError extends Error {
 	constructor(path: string, expected: string) {
 		super(`${path} is not ${expected}`);
 		this.name = "EditorJsonError";
-		this.path = path;
 	}
 }
 
@@ -416,7 +414,7 @@ export function documentFrom(base: DocDocument, editorJson: Json): DocDocument {
 		...(footer === undefined ? {} : { footer }),
 	};
 	const { data: baseData, ...envelope } = base;
-	const fields = attrs?.fields ?? undefined;
+	const fields = attrs?.fields;
 	const data = attrs ? opt(json)(attrs.data, "doc.attrs.data") : baseData;
 	const next: DocNode = clean({ type: "doc", content: blocks(body, "doc.content") });
 	return {
