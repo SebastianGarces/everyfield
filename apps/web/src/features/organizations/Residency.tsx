@@ -218,13 +218,14 @@ function ActiveResidency({
 			frame.left();
 			return reload();
 		}
-		throw new Error(
-			result.problem === "refused"
-				? "You did not leave. Your sharing changed somewhere else. Close this and check again."
-				: result.problem === "busy"
-					? "A sharing change is still unconfirmed. Close this, then use Load latest."
-					: "We could not confirm that you left. Check your connection, then try again.",
-		);
+		return {
+			refused:
+				result.problem === "refused"
+					? "You did not leave. Your sharing changed somewhere else. Close this and check again."
+					: result.problem === "busy"
+						? "A sharing change is still unconfirmed. Close this, then use Load latest."
+						: "We could not confirm that you left. Check your connection, then try again.",
+		};
 	};
 
 	return (

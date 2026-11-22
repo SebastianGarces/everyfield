@@ -1,4 +1,5 @@
 import { sameOwner, type Owner } from "@everyfield/contracts/common";
+import { tenantOwner } from "@everyfield/contracts/access";
 import * as c from "@everyfield/contracts/identity";
 import { fromStates, invitationMachine } from "@everyfield/contracts/machines";
 import type { AccountPersonProducer } from "@everyfield/contracts/people";
@@ -13,7 +14,7 @@ import { timedTransaction, timeouts, transaction } from "./budget.ts";
 import { lastWrite } from "../operations/writes.ts";
 import * as d from "./invitation-core.ts";
 export interface InvitationMail {
-	owner: Owner;
+	owner: z.output<typeof tenantOwner>;
 	invitationId: string;
 	operationId: string;
 	recipientEmail: string;
@@ -110,6 +111,10 @@ export function createInvitationService(config: InvitationConfig) {
 					: `${i.inviter_description} invited you to link your account to ${name}. You can accept or decline. This link does not add a workspace seat.\n\nReview the invitation: ${url.href}\n\nExpires ${d.expires(i).toISOString()}.`,
 		});
 	}
+	function residentOf(i: { resident_person_id: string | null }) {
+		if (i.resident_person_id === null) d.deny("invitation_unavailable");
+		return i.resident_person_id;
+	}
 	async function activePerson(tx: WriteTx, organization: string, id: string) {
 		const [p] = await tx
 			.select()
@@ -125,7 +130,7 @@ export function createInvitationService(config: InvitationConfig) {
 				),
 			)
 			.for("update");
-		if (!p) d.refuse();
+		if (!p) d.deny("invitation_unavailable");
 		return p;
 	}
 	async function lockSourcePerson(
@@ -162,9 +167,9 @@ export function createInvitationService(config: InvitationConfig) {
 				reserved: z.number().int(),
 			})
 			.parse(result.rows[0]);
-		if (row.blocked) d.refuse("address_blocked");
-		if (row.n >= 3) d.refuse("invitation_rate_limited", z.date().parse(row.retry).toISOString());
-		if (row.found || row.reserved !== 1) d.refuse();
+		if (row.blocked) d.deny("address_blocked");
+		if (row.n >= 3) d.deny("invitation_rate_limited", { retryAt: z.date().parse(row.retry).toISOString() });
+		if (row.found || row.reserved !== 1) d.deny("invitation_unavailable");
 	}
 	async function invite(session: RequestActor, raw: unknown, resident = false) {
 		const v = resident ? c.inviteResidentRequest.parse(raw) : c.inviteSeatRequest.parse(raw),
@@ -174,9 +179,9 @@ export function createInvitationService(config: InvitationConfig) {
 			const inviter = bound.principal;
 			const cmd = await d.begin(tx, selected, a.accountId, resident ? "residency.invite" : "seats.invite", v);
 			if (cmd.kind === "replay") return c.invitationSentResult.parse(cmd.result);
-			if (v.expectedRevision !== (bound.plant?.revision ?? bound.organization?.revision)) d.refuse("conflict");
+			if (v.expectedRevision !== (bound.plant?.revision ?? bound.organization?.revision)) d.deny("conflict");
 			if ("personId" in v.input && (await activePerson(tx, selected.id, v.input.personId)).linked_account_id)
-				d.refuse();
+				d.deny("invitation_unavailable");
 			await charge(tx, selected, v.input.recipientEmail, resident);
 			const proof = randomBytes(32).toString("base64url"),
 				id = randomUUID();
@@ -208,7 +213,7 @@ export function createInvitationService(config: InvitationConfig) {
 		const v = c.listInvitationsRequest.parse(raw),
 			a = authority.actor;
 		if (a.context.kind !== "seat" || a.context.role === "member" || !sameOwner(a.context.owner, v.workspace))
-			d.refuse();
+			d.deny("invitation_unavailable");
 		const found = await liveRows(
 			config.db,
 			liveRead(liveAccess(authority), true),
@@ -219,7 +224,7 @@ export function createInvitationService(config: InvitationConfig) {
  AND i.created_at>clock_timestamp()-interval '720 hours' ${v.after ? sql`AND i.id>${v.after}::uuid` : sql``}
  ORDER BY i.id LIMIT 101`,
 		);
-		if (!found) d.refuse();
+		if (!found) d.deny("invitation_unavailable");
 		const rows = listRow
 			.array()
 			.parse(found)
@@ -228,7 +233,7 @@ export function createInvitationService(config: InvitationConfig) {
 		return c.invitationListResult.parse({
 			workspace: v.workspace,
 			items,
-			next: rows.length > 100 ? items.at(-1)!.invitationId : null,
+			next: rows.length > 100 ? (items.at(-1)?.invitationId ?? null) : null,
 			completeness: rows.length > 100 ? "partial" : "complete",
 		});
 	}
@@ -246,7 +251,7 @@ export function createInvitationService(config: InvitationConfig) {
 						gt(t.invitation.created_at, sql`clock_timestamp()-interval '720 hours'`),
 					),
 				);
-			if (!observed) return c.invitationDescriptionResult.parse({ status: "unavailable" });
+			if (!observed) return { status: "unavailable" } satisfies z.output<typeof c.invitationDescriptionResult>;
 			await lockSourcePerson(tx, observed);
 			const { invitation: i, tenant } = await d.load(tx, observed.id);
 			await d.pending(
@@ -256,8 +261,9 @@ export function createInvitationService(config: InvitationConfig) {
 				i.purpose === "seat" ? "seats.acceptInvitation" : "residency.respondInvitation",
 				"accepted",
 			);
-			if (i.token_hash !== d.hash(v.proof) || i.resident_person_id !== observed.resident_person_id) d.refuse();
-			if (i.purpose === "residency_link") await activePerson(tx, i.tenant_id, i.resident_person_id!);
+			if (i.token_hash !== d.hash(v.proof) || i.resident_person_id !== observed.resident_person_id)
+				d.deny("invitation_unavailable");
+			if (i.purpose === "residency_link") await activePerson(tx, i.tenant_id, residentOf(i));
 			const p = await description(tx, i);
 			return c.invitationDescriptionResult.parse({
 				status: p.status,
@@ -269,21 +275,22 @@ export function createInvitationService(config: InvitationConfig) {
 				expiresAt: p.expiresAt,
 			});
 		}).catch((e) => {
-			if (e instanceof d.InvitationRefusal) return c.invitationDescriptionResult.parse({ status: "unavailable" });
+			if (e instanceof d.invitationRefusals.Refusal)
+				return c.invitationDescriptionResult.parse({ status: "unavailable" });
 			throw e;
 		});
 	}
 	async function change(session: RequestActor, raw: unknown, resend: boolean) {
 		const v = (resend ? c.resendInvitationRequest : c.revokeInvitationRequest).parse(raw);
 		const selected = session.actor.context.owner;
-		if (selected.kind !== "plant" && selected.kind !== "organization") d.refuse();
+		if (selected.kind !== "plant" && selected.kind !== "organization") d.deny("invitation_unavailable");
 		return d.writeAsAdministrator(config.db, session, selected, async (tx, bound) => {
 			const a = bound.actor;
 			const [source] = await tx
 				.select()
 				.from(t.invitation)
 				.where(and(eq(t.invitation.id, v.input.invitationId), eq(t.invitation.tenant_id, selected.id)));
-			if (!source) d.refuse();
+			if (!source) d.deny("invitation_unavailable");
 			await lockSourcePerson(tx, source);
 			const { invitation: i, tenant } = await d.load(tx, v.input.invitationId),
 				event = resend ? "seats.resendInvitation" : "seats.revokeInvitation",
@@ -291,20 +298,20 @@ export function createInvitationService(config: InvitationConfig) {
 			if (cmd.kind === "replay")
 				return resend ? c.invitationSentResult.parse(cmd.result) : c.invitationRevokedResult.parse(cmd.result);
 			const subject = await d.pending(tx, i, tenant, event, resend ? "pending" : "revoked", v.expectedRevision);
-			if (resend && i.purpose === "residency_link") await activePerson(tx, i.tenant_id, i.resident_person_id!);
+			if (resend && i.purpose === "residency_link") await activePerson(tx, i.tenant_id, residentOf(i));
 			const after = d.bump(i.revision);
 			let updated = i;
 
 			if (resend) {
 				const retry = new Date((i.resent_at ?? i.created_at).getTime() + 60000);
-				if (retry > (await d.now(tx))) d.refuse("invitation_cooldown", retry.toISOString());
+				if (retry > (await d.now(tx))) d.deny("invitation_cooldown", { retryAt: retry.toISOString() });
 				const proof = randomBytes(32).toString("base64url");
 				const [changedInvitation] = await tx
 					.update(t.invitation)
 					.set({ token_hash: d.hash(proof), resent_at: sql`clock_timestamp()`, revision: after })
 					.where(eq(t.invitation.id, i.id))
 					.returning();
-				if (!changedInvitation) d.refuse();
+				if (!changedInvitation) d.deny("invitation_unavailable");
 				updated = changedInvitation;
 				await mail(tx, updated, cmd, proof);
 			} else
@@ -342,22 +349,28 @@ export function createInvitationService(config: InvitationConfig) {
 	) {
 		const parse = (value: unknown) =>
 			resident ? c.respondResidentInvitationRequest.parse(value) : c.acceptSeatInvitationRequest.parse(value);
-		const given = resume ? null : parse(raw);
+		const entry:
+			| { kind: "resume"; resume: { proof: string; requestKey: string } }
+			| { kind: "given"; given: ReturnType<typeof parse> } = resume
+			? { kind: "resume", resume }
+			: { kind: "given", given: parse(raw) };
 		return timedTransaction(config.db, async (tx) => {
 			const found = await tx.execute(sql`SELECT ${timeouts} AS timeouts, id, tenant_id, purpose, resident_person_id,
  revision::text AS revision, state, pg_advisory_xact_lock(hashtextextended(concat('workspace-seats/',tenant_id),8008))
- FROM invitation WHERE ${resume ? sql`token_hash=${d.hash(resume.proof)} AND purpose='seat'` : sql`id=${given!.input.invitationId}::uuid`}`);
+ FROM invitation WHERE ${entry.kind === "resume" ? sql`token_hash=${d.hash(entry.resume.proof)} AND purpose='seat'` : sql`id=${entry.given.input.invitationId}::uuid`}`);
 			const [source] = sourceRow.array().parse(found.rows);
-			if (!source) d.refuse();
+			if (!source) d.deny("invitation_unavailable");
 			const v =
-				given ??
-				parse({
-					requestKey: resume!.requestKey,
-					expectedRevision: source.state === "accepted" ? (BigInt(source.revision) - 1n).toString() : source.revision,
-					input: { invitationId: source.id, proof: resume!.proof },
-				});
+				entry.kind === "given"
+					? entry.given
+					: parse({
+							requestKey: entry.resume.requestKey,
+							expectedRevision:
+								source.state === "accepted" ? (BigInt(source.revision) - 1n).toString() : source.revision,
+							input: { invitationId: source.id, proof: entry.resume.proof },
+						});
 			const a = await d.identity(tx, session);
-			if (!a.verified) d.refuse();
+			if (!a.verified) d.deny("invitation_unavailable");
 			await lockSourcePerson(tx, source);
 			const { invitation: i, selected, tenant, now } = await d.lockForWrite(tx, v.input.invitationId);
 			if (
@@ -366,8 +379,8 @@ export function createInvitationService(config: InvitationConfig) {
 				i.token_hash !== d.hash(v.input.proof) ||
 				i.recipient_email !== a.email
 			)
-				d.refuse();
-			if (resident && selected.kind !== "organization") d.refuse();
+				d.deny("invitation_unavailable");
+			if (resident && selected.kind !== "organization") d.deny("invitation_unavailable");
 			const cmd = await d.begin(
 				tx,
 				selected,
@@ -387,11 +400,11 @@ export function createInvitationService(config: InvitationConfig) {
 						and(
 							eq(t.residency_link.organization_id, selected.id),
 							eq(t.residency_link.account_id, a.account_id),
-							eq(t.residency_link.person_id, i.resident_person_id!),
+							eq(t.residency_link.person_id, residentOf(i)),
 							isNull(t.residency_link.ended_at),
 						),
 					);
-				if (live) d.refuse("already_linked");
+				if (live) d.deny("already_linked");
 			}
 			const event = resident ? "residency.respondInvitation" : "seats.acceptInvitation";
 			const declined = "decision" in v.input && v.input.decision === "decline";
@@ -411,8 +424,8 @@ export function createInvitationService(config: InvitationConfig) {
 					);
 			let result: () => unknown;
 			if (resident) {
-				const p = await activePerson(tx, selected.id, i.resident_person_id!);
-				if (p.linked_account_id !== null && p.linked_account_id !== a.account_id) d.refuse();
+				const p = await activePerson(tx, selected.id, residentOf(i));
+				if (p.linked_account_id !== null && p.linked_account_id !== a.account_id) d.deny("invitation_unavailable");
 				const decision = c.respondResidentInvitationRequest.parse(raw).input;
 				if (decision.decision === "decline") {
 					cmd.writes.push(claim("declined"));
@@ -428,13 +441,13 @@ export function createInvitationService(config: InvitationConfig) {
 								isNull(t.residency_link.ended_at),
 							),
 						);
-					if (competing.length) d.refuse();
+					if (competing.length) d.deny("invitation_unavailable");
 					let [affiliation] = await tx
 						.select()
 						.from(t.affiliation)
 						.where(and(eq(t.affiliation.organization_id, selected.id), eq(t.affiliation.account_id, a.account_id)))
 						.for("update", { noWait: true });
-					if (affiliation?.ended_at) d.refuse();
+					if (affiliation?.ended_at) d.deny("invitation_unavailable");
 					if (!affiliation) {
 						[affiliation] = await tx
 							.insert(t.affiliation)
@@ -464,7 +477,7 @@ export function createInvitationService(config: InvitationConfig) {
 							),
 						)
 						.for("share");
-					if (blocked.length) d.refuse();
+					if (blocked.length) d.deny("invitation_unavailable");
 					const id = randomUUID(),
 						choices = decision.choices;
 					cmd.writes.push(
@@ -483,6 +496,10 @@ export function createInvitationService(config: InvitationConfig) {
 						}),
 					);
 					const link = lastWrite(cmd);
+					cmd.writes.push(
+						sql`INSERT INTO discovery(id,account_id,revision) SELECT ${randomUUID()}::uuid,${a.account_id}::uuid,1
+ WHERE NOT EXISTS(SELECT FROM seat WHERE account_id=${a.account_id}::uuid AND ended_at IS NULL) ON CONFLICT (account_id) DO NOTHING`,
+					);
 					cmd.writes.push(
 						tx
 							.update(t.person)
@@ -503,13 +520,14 @@ export function createInvitationService(config: InvitationConfig) {
 						});
 				}
 			} else {
-				if (!i.role || (selected.kind !== "plant" && selected.kind !== "organization")) d.refuse();
+				if (!i.role || (selected.kind !== "plant" && selected.kind !== "organization"))
+					d.deny("invitation_unavailable");
 				const held =
 					await tx.execute(sql`WITH s AS MATERIALIZED (SELECT id FROM seat WHERE account_id=${a.account_id}::uuid
  AND ended_at IS NULL FOR UPDATE), f AS MATERIALIZED (SELECT id FROM affiliation WHERE account_id=${a.account_id}::uuid
  AND ended_at IS NULL FOR UPDATE) SELECT (SELECT count(*) FROM s)::int AS seats, (SELECT count(*) FROM f)::int AS links`);
 				const { seats, links } = heldRow.parse(held.rows[0]);
-				if (seats || links) d.refuse();
+				if (seats || links) d.deny("invitation_unavailable");
 				const id = randomUUID();
 				let seat: unknown = { kind: "organization", workspace: selected, seatId: id, role: i.role };
 				if (selected.kind === "plant") {
@@ -518,7 +536,7 @@ export function createInvitationService(config: InvitationConfig) {
 						owner: selected,
 						selection: { kind: "create", displayName: a.display_name },
 					});
-					if (linked.status !== "ok" || linked.value.status !== "linked") d.refuse();
+					if (linked.status !== "ok" || linked.value.status !== "linked") d.deny("invitation_unavailable");
 					seat = { kind: "plant", workspace: selected, seatId: id, role: i.role, personId: linked.value.personId };
 				}
 				cmd.writes.push(

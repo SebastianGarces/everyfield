@@ -1,6 +1,11 @@
+import { z } from "zod";
 import { timeText } from "@everyfield/contracts/common";
-import { sendTimeShort } from "../review/model.ts";
+import { fourCs, interviewCriteria } from "@everyfield/contracts/people";
+import { correctedFieldLabel, correctedValueText } from "../../people/corrections/model.ts";
+import { fieldLabel, LEFT_OUT_REASON, sendTimeShort, valueText } from "../review/model.ts";
+import { CHANNEL_LABEL } from "../../followups/model.ts";
 import { STAGE_LABEL, type StageValue } from "../../people/model.ts";
+import { CATEGORY_LABEL } from "../../tasks/model.ts";
 import { CATEGORY_TEXT } from "../../settings/model.ts";
 import type { SourceResult, SourceRow } from "./model.ts";
 
@@ -11,12 +16,17 @@ type OpView = {
 	title: string;
 	noun: readonly [string, string];
 	icon: Glyph;
-	counts: Kind;
+	counts: Kind | "all";
 	shownOnly?: true;
+	totalOnly?: true;
+	quiet?: true;
+	countIf?: (row: SourceRow) => boolean;
 	headed?: true;
 	beside?: (row: SourceRow) => boolean;
 	empty: string;
 	countAnswer?: string;
+	summary?: (result: SourceResult) => string;
+	emptyLinks?: readonly { href: string; label: string }[];
 };
 
 const NO_PERSON = "No person in this church matches, or you can't see them.";
@@ -52,12 +62,59 @@ const venues = (title: string): OpView => ({
 	counts: "venue",
 	empty: "No saved venue matches.",
 });
+const documents = (title: string, rest: Partial<OpView> = {}): OpView => ({
+	title,
+	noun: ["document", "documents"],
+	icon: "document",
+	counts: "document",
+	empty: "No document in this church matches, or you can't see it.",
+	...rest,
+});
 const rows = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	title,
 	noun: ["row", "rows"],
 	icon: "file",
 	counts: "import",
 	empty: "This file has no rows to show.",
+	...rest,
+});
+const calendar = (title: string): OpView => ({
+	title,
+	noun: ["date", "dates"],
+	icon: "date",
+	counts: "date",
+	empty: "This church's calendar is not available.",
+});
+
+const task = (title: string, rest: Partial<OpView> = {}): OpView => ({
+	title,
+	noun: ["task", "tasks"],
+	icon: "task",
+	counts: "task",
+	empty: "No task in this church matches, or you can't see it.",
+	...rest,
+});
+const followUps = (title: string, rest: Partial<OpView> = {}): OpView => ({
+	title,
+	noun: ["follow-up", "follow-ups"],
+	icon: "follow_up",
+	counts: "follow_up",
+	empty: "No open follow-up matches, or you can't see it.",
+	...rest,
+});
+
+const records = (
+	title: string,
+	noun: readonly [string, string],
+	empty: string,
+	rest: Partial<OpView> = {},
+): OpView => ({ title, noun, icon: "record", counts: "record", empty, ...rest });
+
+const wiki = (title: string, rest: Partial<OpView> & Pick<OpView, "empty">): OpView => ({
+	title,
+	noun: ["article", "articles"],
+	icon: "article",
+	counts: "article",
 	...rest,
 });
 
@@ -125,6 +182,82 @@ const VIEWS: Record<string, OpView> = {
 		icon: "file",
 		countAnswer: "Download the file from the People page.",
 	}),
+	"people.getInterviews": records("Interviews", ["interview", "interviews"], "This person has no recorded interview."),
+	"people.getAssessments": records(
+		"4 C's assessments",
+		["assessment", "assessments"],
+		"This person has no recorded 4 C's assessment.",
+	),
+	"people.getCommitments": records("Commitment", ["card", "cards"], "This person has no commitment recorded.", {
+		countIf: (row) => row.fields.record === "commitment",
+	}),
+	"people.getCommitmentDownload": records(
+		"Signed document",
+		["document", "documents"],
+		"This card has no signed document on file.",
+	),
+	"people.getMergeReview": {
+		title: "Merge review",
+		noun: ["person", "people"],
+		icon: "merge",
+		counts: "person",
+		shownOnly: true,
+		empty: NO_PERSON,
+	},
+	"people.previewUnmerge": records("Undo merge", ["merge", "merges"], "No merge in this church matches.", {
+		icon: "merge",
+		counts: "merge",
+	}),
+	"people.listRecordCorrections": records(
+		"Corrections",
+		["correction", "corrections"],
+		"No record of this person was corrected.",
+		{
+			icon: "correction",
+			counts: "correction",
+		},
+	),
+	"people.mergedPersonDestination": records("Where this record leads", ["record", "records"], NO_PERSON, {
+		icon: "merge",
+		counts: "merge",
+	}),
+	"phases.readHistory": {
+		title: "Phase journey",
+		noun: ["entry", "entries"],
+		icon: "phase",
+		counts: "phase",
+		empty: "This church's phase journey is not available.",
+		summary: (result) => result.rows.find((r) => r.id === "current")?.label ?? "Not found",
+	},
+	"phases.readCatalog": {
+		title: "Phases",
+		noun: ["phase", "phases"],
+		icon: "phase",
+		counts: "phase",
+		empty: "The phases are not available.",
+	},
+	"phases.readReadiness": {
+		title: "Exit criteria",
+		noun: ["criterion", "criteria"],
+		icon: "criterion",
+		counts: "criterion",
+		shownOnly: true,
+		empty: "This phase has no exit criteria.",
+	},
+	"signals.listDefinitions": {
+		title: "Signals",
+		noun: ["signal", "signals"],
+		icon: "signal",
+		counts: "signal",
+		empty: "The signals are not available.",
+	},
+	"signals.getHistory": {
+		title: "Signal history",
+		noun: ["entry", "entries"],
+		icon: "signal",
+		counts: "signal",
+		empty: "No signal has been recorded yet.",
+	},
 	"seats.list": {
 		title: "Seats",
 		noun: ["seat", "seats"],
@@ -152,6 +285,13 @@ const VIEWS: Record<string, OpView> = {
 		icon: "step",
 		counts: "step",
 		empty: "This church has no setup in progress for you.",
+	},
+	"evry.readWorkflowHint": {
+		title: "Suggested steps",
+		noun: ["step", "steps"],
+		icon: "step",
+		counts: "step",
+		empty: "Your role can't take any of these steps.",
 	},
 	"dashboard.availableActions": {
 		title: "Next steps",
@@ -257,6 +397,109 @@ const VIEWS: Record<string, OpView> = {
 		counts: "message",
 		empty: "No draft or scheduled message in this church matches.",
 	},
+	"tasks.list": task("Tasks"),
+	"tasks.count": task("Task count", { icon: "tally", counts: "tally", totalOnly: true }),
+	"tasks.get": task("Task", { quiet: true, empty: "This task is not available, or you can't see it." }),
+	"tasks.statusHistory": {
+		title: "Status history",
+		noun: ["change", "changes"],
+		icon: "history",
+		counts: "history",
+		empty: "This task has no status changes to show, or you can't see it.",
+	},
+	"tasks.listSubtasks": task("Checklist", {
+		noun: ["item", "items"],
+		empty: "This task has no checklist, or you can't see it.",
+	}),
+	"tasks.listPrerequisites": task("Waits on", { empty: "This task doesn't wait on another task." }),
+	"tasks.prerequisiteCandidates": task("Tasks it could wait on", { empty: "No other task matches." }),
+	"tasks.findOpenOccurrence": task("Open occurrence", {
+		quiet: true,
+		empty: "This task doesn't repeat, or every occurrence of it is settled.",
+	}),
+	"tasks.eligibleAssignees": {
+		title: "Who can hold tasks",
+		noun: ["account", "accounts"],
+		icon: "person",
+		counts: "account",
+		empty: "Nobody in this church has a seat that can hold tasks.",
+	},
+	"tasks.relationOptions": {
+		title: "Link options",
+		noun: ["match", "matches"],
+		icon: "task",
+		counts: "all",
+		empty: "Nothing in this church matches that name.",
+	},
+	"tasks.listTemplates": {
+		title: "Task checklists",
+		noun: ["checklist", "checklists"],
+		icon: "template",
+		counts: "template",
+		empty: "No checklist is available.",
+	},
+	"tasks.previewTemplate": {
+		title: "Checklist preview",
+		noun: ["task", "tasks"],
+		icon: "template",
+		counts: "template",
+		quiet: true,
+		empty: "This checklist is not available.",
+	},
+	"tasks.readPhaseOffer": {
+		title: "Phase checklists",
+		noun: ["item", "items"],
+		icon: "template",
+		counts: "all",
+		empty: "No checklist is offered after the latest phase move.",
+	},
+	"tasks.importReceipt": {
+		title: "Checklist imports",
+		noun: ["import", "imports"],
+		icon: "template",
+		counts: "template",
+		empty: "No checklist was imported yet, or you can't see it.",
+	},
+	"tasks.listFollowUpOwners": followUps("Follow-ups"),
+	"tasks.planHandoff": followUps("Handoff plan", { empty: "This account holds no open follow-ups." }),
+	"followups.readObligations": followUps("Meeting follow-ups", {
+		empty: "No meeting follow-up matches, or you can't see it.",
+	}),
+	"followups.listContactHistory": {
+		title: "Contact log",
+		noun: ["entry", "entries"],
+		icon: "contact",
+		counts: "contact",
+		empty: "Nothing is recorded in this contact log. That doesn't prove nobody reached out.",
+	},
+	"tasks.followUpCoverage": people("Follow-up coverage"),
+	"communication.preview": people("Who it reaches", {
+		empty: "Nobody in this church is in that audience, or you can't see them.",
+	}),
+	"communication.get": people("Email results", {
+		icon: "message",
+		empty: "No email in Messages matches, or you can't see it.",
+	}),
+	"communication.forPerson": {
+		title: "Emails",
+		noun: ["email", "emails"],
+		icon: "message",
+		counts: "message",
+		shownOnly: true,
+		empty: "Messages has no email to this person.",
+	},
+	"communication.templates.list": {
+		title: "Email templates",
+		noun: ["template", "templates"],
+		icon: "template",
+		counts: "template",
+		empty: "No email template is available.",
+	},
+	"communication.resendCandidates": people("Resend", {
+		icon: "message",
+		shownOnly: true,
+		empty: "That email is not in Messages, or you can't see it.",
+	}),
 	"meetings.list": meetings("Meetings", { empty: "No meeting in this church matches." }),
 	"meetings.get": meetings("Meeting"),
 	"meetings.hasHistory": items("Meeting history", { noun: ["answer", "answers"] }),
@@ -333,7 +576,36 @@ const VIEWS: Record<string, OpView> = {
 		shownOnly: true,
 		empty: "Your oversight digest has nothing owed yet.",
 	},
+	"calendar.getContext": calendar("Today"),
+	"calendar.resolve": calendar("Date check"),
+	"wiki.search": wiki("Wiki articles", { empty: "No Wiki article to show." }),
+	"wiki.referenceExcerpt": wiki("From the Wiki", { empty: "This article is not in your Wiki, or you can't read it." }),
+	"wiki.recommendForPhase": wiki("Suggested reading", { empty: "The Wiki has no suggestions for your phase." }),
+	"wiki.reading.resume": wiki("Where you left off", { empty: "You haven't opened a Wiki article yet." }),
+	"wiki.article.exportPdf": wiki("Wiki PDF", {
+		noun: ["file", "files"],
+		empty: "This article is not in your Wiki, or you can't read it.",
+	}),
+	"documents.listOwned": documents("Documents"),
+	"documents.read": documents("Document", { empty: "That document is not in this church, or you can't see it." }),
+	"documents.readCoreValuesEvidence": documents("Core values", {
+		empty: "No document is marked as your core values yet. Mark one of your written documents in Documents.",
+		emptyLinks: [
+			{ href: "/documents", label: "Documents" },
+			{ href: "/documents/church", label: "Church Documents" },
+		],
+	}),
+	"documents.templates.list": {
+		title: "Templates",
+		noun: ["template", "templates"],
+		icon: "template",
+		counts: "template",
+		empty: "No template matches.",
+	},
 };
+const NEVER_EMAILED = people("No email recorded", {
+	empty: "Every live person in this church has had an email from Messages.",
+});
 const ministries = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	title,
 	noun: ["ministry", "ministries"],
@@ -450,6 +722,36 @@ const fallback: OpView = {
 	counts: "person",
 	empty: "Nothing in this church matches, or you can't see it.",
 };
+function localName(local: string) {
+	const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
+	if (!m) return local;
+	const wall = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5])));
+	return new Intl.DateTimeFormat("en-US", {
+		timeZone: "UTC",
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	}).format(wall);
+}
+const DATE_STATUS: Record<string, string> = {
+	ambiguous: "Happens twice",
+	nonexistent: "Skipped by the clocks",
+	invalid_date: "Not a date",
+};
+const RESULT: Record<string, string> = {
+	waiting: "Waiting for its send time",
+	checking: "Result still being checked",
+	sent: "Sent, delivery not confirmed yet",
+	delivered: "Delivered",
+	opened: "Delivered, open recorded",
+	bounced: "Bounced",
+	failed: "Not sent",
+	cancelled: "Cancelled",
+	unsubscribed: "Unsubscribed, not sent",
+};
 const HOUSEHOLD_DETAIL = new Set(["people.getHousehold", "people.getHouseholdMembers"]);
 const ROLE: Record<string, string> = { head: "Head", spouse: "Spouse", child: "Child", other: "Other" };
 const SKILL: Record<string, string> = {
@@ -493,7 +795,8 @@ const ROW_OUTCOME: Record<string, string> = {
 
 const count = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const text = (value: unknown) => (typeof value === "string" && value ? value : null);
-const num = (value: unknown) => (typeof value === "string" && value !== "" ? Number(value) : Number.NaN);
+const num = (value: unknown) =>
+	typeof value === "number" ? value : typeof value === "string" && value !== "" ? Number(value) : Number.NaN;
 const joined = (...parts: (string | null)[]) => parts.filter(Boolean).join(" · ") || null;
 const stage = (value: unknown) => (typeof value === "string" ? (STAGE_LABEL[value as StageValue] ?? value) : null);
 const words = (value: string) => {
@@ -502,14 +805,105 @@ const words = (value: string) => {
 };
 const label = (table: Record<string, string>, value: unknown) =>
 	typeof value === "string" && value ? (table[value] ?? words(value)) : null;
+const phaseDay = (value: unknown) =>
+	typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
+		? new Date(`${value}T00:00:00Z`).toLocaleDateString("en-US", {
+				month: "short",
+				day: "numeric",
+				year: "numeric",
+				timeZone: "UTC",
+			})
+		: null;
+const ENTRY: Record<string, string> = {
+	creation: "Started in",
+	initial_declaration: "Declared as",
+	movement: "Moved to",
+	launch_sunday: "Held",
+};
+const CRITERION: Record<string, string> = {
+	met: "Met",
+	"not met": "Not met",
+	"no data yet": "No data yet",
+	"not tracked": "Not tracked",
+};
+const SIGNAL_KIND: Record<string, string> = {
+	answered: "Recorded",
+	corrected: "Corrected",
+	retracted: "Retracted",
+	reaffirmed: "Still true",
+};
+const ANSWER: Record<string, string> = { yes: "Yes", not_yet: "Not yet" };
 const categoryText = (value: unknown) =>
 	typeof value === "string" ? (CATEGORY_TEXT[value as keyof typeof CATEGORY_TEXT]?.label ?? words(value)) : null;
 const day = (value: unknown) => {
+	const local = typeof value === "string" ? /^(\d{4}-\d{2}-\d{2}) \d{2}:\d{2} /.exec(value) : null;
+	if (local)
+		return new Date(`${local[1]}T12:00:00Z`).toLocaleDateString("en-US", {
+			month: "short",
+			day: "numeric",
+			year: "numeric",
+			timeZone: "UTC",
+		});
 	const at = typeof value === "string" ? new Date(value) : null;
 	return at && !Number.isNaN(at.getTime())
 		? at.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 		: null;
 };
+
+const localDay = (value: unknown) => {
+	const m = typeof value === "string" ? /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}):(\d{2}))?/.exec(value) : null;
+	if (!m) return null;
+	const at = new Date(`${m[1]}T${m[2] ?? "00"}:${m[3] ?? "00"}:00Z`);
+	if (Number.isNaN(at.getTime())) return null;
+	const date = at.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+	return m[2]
+		? `${date}, ${at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" })}`
+		: date;
+};
+const due = (value: unknown) => (localDay(value) ? `Due ${localDay(value)}` : null);
+const owners = (value: unknown) => {
+	const names = text(value);
+	return names === "you" ? "Yours" : names;
+};
+const TASK_STATUS: Record<string, string> = {
+	not_started: "Not started",
+	in_progress: "In progress",
+	blocked: "Blocked",
+	complete: "Complete",
+	no_longer_needed: "No longer needed",
+};
+const OBLIGATION_STATE: Record<string, string> = {
+	open: "Open",
+	complete: "Complete",
+	no_longer_needed: "No longer needed",
+	superseded: "Replaced",
+};
+const OUTCOME: Record<string, string> = {
+	contacted: "Conversation",
+	attempted_no_contact: "Attempt, no conversation",
+	administrative_completion: "Admin completion",
+	no_longer_needed: "No longer needed",
+};
+const CHANNEL: Record<string, string> = CHANNEL_LABEL;
+const CONVERSATION_BY: Record<string, string> = {
+	phone: "Call",
+	text: "Text",
+	in_person: "In person",
+	video: "Video call",
+	email: "Email",
+};
+const ROLE_WORD: Record<string, string> = { owner: "Owner", admin: "Admin", member: "Member" };
+const CATEGORY: Record<string, string> = CATEGORY_LABEL;
+const COVERAGE: Record<string, string> = {
+	needs_owner: "Follow-up needs an owner",
+	uncovered: "No open follow-up",
+};
+const capital = (value: unknown) => {
+	const s = text(value);
+	return s ? s.charAt(0).toUpperCase() + s.slice(1) : null;
+};
+const keyWords = (value: string) =>
+	/^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(value) ? words(value.replaceAll("-", " ")) : value;
 
 type RowMark =
 	| { kind: "stage"; stage: string }
@@ -524,7 +918,11 @@ export type RowView = {
 	avatar: Exclude<Kind, "import"> | null;
 	photoFor: string | null;
 	href: string | null;
+	details?: { label: string; value: string }[];
+	download?: true;
 	newTab?: true;
+	file?: string;
+	quote?: string;
 };
 export type CardView = {
 	title: string;
@@ -532,7 +930,16 @@ export type CardView = {
 	icon: Glyph;
 	rows: RowView[];
 	facts: string[];
+	links: { href: string; label: string }[];
 };
+
+const plainExcerpt = (excerpt: string) =>
+	excerpt
+		.replace(/<\/?[A-Za-z][^>]*>/g, "")
+		.replace(/^#{1,6}\s+/gm, "")
+		.replace(/\*\*|__|`/g, "")
+		.replace(/\n{3,}/g, "\n\n")
+		.trim();
 
 function activityLine(fields: Record<string, unknown>) {
 	const stageChange = fields.from && fields.to ? `${stage(fields.from)} → ${stage(fields.to)}` : null;
@@ -541,6 +948,85 @@ function activityLine(fields: Record<string, unknown>) {
 			? `${text(fields.householdFrom) ?? "No household"} → ${text(fields.householdTo) ?? "No household"}`
 			: null;
 	return joined(stageChange, home, day(fields.occurredAt));
+}
+
+const corrected = z.array(z.object({ field: z.string(), old: z.unknown(), new: z.unknown() }));
+function correctionDetails(value: unknown) {
+	let raw: unknown = null;
+	try {
+		raw = typeof value === "string" ? JSON.parse(value) : null;
+	} catch {}
+	const parsed = corrected.safeParse(raw);
+	return parsed.success
+		? parsed.data.map((c) => ({
+				label: correctedFieldLabel(c.field),
+				value: `${correctedValueText(c.old)} → ${correctedValueText(c.new)}`,
+			}))
+		: undefined;
+}
+const detail = (field: string, value: unknown) => {
+	const v = valueText(field, value);
+	return v ? { label: fieldLabel(field), value: v } : null;
+};
+const details = (...items: ({ label: string; value: string } | null)[]) =>
+	items.filter((x): x is { label: string; value: string } => x !== null);
+function recordRow(row: SourceRow, plain: Pick<RowView, "key" | "mark" | "href" | "photoFor">): RowView {
+	const f = row.fields;
+	const judged = (k: string, score: boolean) =>
+		detail(
+			k,
+			score ? { score: Number(f[k]), notes: f[`${k}Notes`] ?? null } : { rating: f[k], notes: f[`${k}Notes`] ?? null },
+		);
+	switch (f.record) {
+		case "interview":
+			return {
+				...plain,
+				name: `Interview on ${valueText("occurredOn", f.occurredOn) ?? "an unknown date"}`,
+				line: valueText("result", f.result),
+				avatar: "record",
+				details: details(
+					...interviewCriteria.map((k) => judged(k, false)),
+					detail("result", f.result),
+					detail("nextSteps", f.nextSteps),
+				),
+			};
+		case "assessment":
+			return {
+				...plain,
+				name: `4 C's on ${valueText("occurredOn", f.occurredOn) ?? "an unknown date"}`,
+				line: typeof f.total === "string" ? `Total ${f.total} of 20` : null,
+				avatar: "record",
+				details: details(...fourCs.map((k) => judged(k, true)), detail("total", f.total)),
+			};
+		case "commitment_status":
+			return {
+				...plain,
+				name: `Commitment: ${valueText("commitment", f.state) ?? "Not recorded"}`,
+				line: f.effectiveOn ? `Since ${valueText("effectiveOn", f.effectiveOn)}` : null,
+				avatar: "record",
+			};
+		case "commitment":
+			return {
+				...plain,
+				name: `${valueText("kind", f.kind) ?? "Commitment"} card, signed ${valueText("occurredOn", f.occurredOn) ?? ""}`.trim(),
+				line: joined(f.voided === true ? "Voided" : null, f.document === "attached" ? "Signed document on file" : null),
+				avatar: "record",
+				details: details(detail("witness", f.witness), detail("cardNotes", f.notes)),
+			};
+		case "commitment_document":
+			return {
+				...plain,
+				name: "Download the signed document",
+				line: joined(
+					text(f.mediaType) === "application/pdf" ? "PDF" : text(f.mediaType) ? "Image" : null,
+					num(f.byteCount) > 0 ? `${Math.max(1, Math.round(num(f.byteCount) / 1024))} KB` : null,
+				),
+				avatar: "file",
+				href: text(f.href),
+				download: true,
+			};
+	}
+	return { ...plain, name: row.label, line: null, avatar: "record" };
 }
 
 function rowView(operation: string, row: SourceRow): RowView {
@@ -679,6 +1165,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			};
 		}
 		case "team": {
+			if (operation === "tasks.relationOptions") return { ...plain, name: row.label, line: "Team", avatar: "team" };
 			const percent = (v: unknown) => (typeof v === "number" ? `${v}%` : null);
 			const health =
 				"staffingPercent" in fields
@@ -781,16 +1268,37 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "responsibility",
 			};
 		case "template":
+			if (operation.startsWith("tasks.")) return templateView(operation, row, key);
 			return {
 				...plain,
 				name: row.label,
 				line:
-					fields.alreadyHere === true
-						? joined("Already here", text(fields.newRoles) ? `Adds ${fields.newRoles}` : "Nothing new")
-						: joined(text(fields.newRoles) ? `Adds ${fields.newRoles}` : null, text(fields.roles)),
+					"origin" in fields
+						? fields.origin === "system"
+							? "System template · copy it to edit"
+							: "Church template"
+						: fields.alreadyHere === true
+							? joined("Already here", text(fields.newRoles) ? `Adds ${fields.newRoles}` : "Nothing new")
+							: joined(text(fields.newRoles) ? `Adds ${fields.newRoles}` : null, text(fields.roles)),
 				avatar: "template",
 			};
 		case "message":
+			if (typeof fields.result === "string")
+				return {
+					...plain,
+					name: row.label,
+					line: joined(RESULT[fields.result] ?? fields.result, text(fields.sentAt)),
+					avatar: null,
+				};
+			if (typeof fields.results === "string")
+				return { ...plain, name: row.label, line: joined(text(fields.sentAt), fields.results), avatar: null };
+			if ("tooSoon" in fields)
+				return {
+					...plain,
+					name: row.label,
+					line: fields.tooSoon ? `Can resend from ${text(fields.resendFrom)}` : joined("Sent", text(fields.sentAt)),
+					avatar: null,
+				};
 			return {
 				...plain,
 				name: row.label,
@@ -800,15 +1308,164 @@ function rowView(operation: string, row: SourceRow): RowView {
 						: "Draft",
 				avatar: null,
 			};
-		case "meeting": {
-			if (!operation.startsWith("meetings."))
+		case "task":
+			return taskView(operation, row, key);
+		case "tally": {
+			const n = num(fields.count);
+			const done = num(fields.complete);
+			return {
+				...plain,
+				name: row.id === "checklist" ? "Checklist items" : (label(TASK_STATUS, row.label) ?? ""),
+				line: Number.isFinite(done)
+					? `${done.toLocaleString()} of ${count(n || 0, "item", "items")} done`
+					: count(n || 0, "task", "tasks"),
+				avatar: "tally",
+			};
+		}
+		case "history":
+			return {
+				...plain,
+				name: fields.from ? `${label(TASK_STATUS, fields.from)} → ${label(TASK_STATUS, fields.to)}` : "Created",
+				line: joined(day(fields.occurredAt), text(fields.by) ? `By ${fields.by}` : null),
+				avatar: "history",
+			};
+		case "follow_up":
+			return followUpView(operation, row, key);
+		case "contact": {
+			const outcome = String(fields.outcome ?? row.label);
+			const by = CONVERSATION_BY[String(fields.channel)];
+			const personId = text(fields.personId);
+			return {
+				key,
+				name:
+					outcome === "contacted" ? (by ? `${by} — conversation` : "Conversation") : (label(OUTCOME, outcome) ?? ""),
+				line: joined(
+					day(fields.occurredAt),
+					outcome === "contacted" ? null : label(CHANNEL, fields.channel),
+					text(fields.recordedBy) ? `Recorded by ${fields.recordedBy}` : null,
+				),
+				mark:
+					fields.state === "corrected"
+						? { kind: "status", text: "Corrected", warn: false }
+						: fields.state === "voided"
+							? { kind: "status", text: "Withdrawn", warn: false }
+							: null,
+				avatar: "contact",
+				photoFor: null,
+				href: personId ? `/people/${personId}` : null,
+			};
+		}
+		case "account":
+			return {
+				...plain,
+				name: row.label,
+				line: joined(
+					fields.you === true ? "You" : null,
+					label(ROLE_WORD, fields.role),
+					fields.canOwnFollowUps === true
+						? "Can own follow-ups"
+						: fields.canOwnFollowUps === false
+							? "Can't own follow-ups"
+							: null,
+					fields.canTakeThem === true ? "Can take them" : null,
+				),
+				avatar: "person",
+			};
+		case "record":
+			return recordRow(row, plain);
+		case "merge": {
+			const blocked = text(fields.blocked);
+			return {
+				...plain,
+				name: row.label,
+				line: blocked
+					? null
+					: joined(
+							text(fields.moves) ? `Moves over: ${text(fields.moves)}` : null,
+							text(fields.movesBack) ? `Moves back: ${text(fields.movesBack)}` : null,
+							fields.status === "merged" ? "Merged into another person" : null,
+						),
+				mark: blocked ? { kind: "status", text: "Can't run", warn: true } : null,
+				avatar: "merge",
+				details: blocked ? [{ label: "Why", value: blocked }] : undefined,
+			};
+		}
+		case "correction":
+			return {
+				...plain,
+				name: `${words(String(fields.recordType ?? "Record"))} corrected ${day(fields.correctedAt) ?? ""}`.trim(),
+				line: text(fields.reason),
+				avatar: "correction",
+				details: correctionDetails(fields.changes),
+			};
+		case "phase": {
+			if (fields.current === true && operation === "phases.readHistory")
+				return {
+					...plain,
+					name: row.label,
+					line: joined("Current phase", phaseDay(fields.since) ? `since ${phaseDay(fields.since)}` : null),
+					mark: { kind: "status", text: "Now", warn: false },
+					avatar: "phase",
+				};
+			if (typeof fields.entry === "string")
+				return {
+					...plain,
+					name: `${ENTRY[fields.entry] ?? words(fields.entry)} ${row.label}`,
+					line: joined(text(fields.reason), text(fields.by), phaseDay(fields.on)),
+					mark: fields.direction === "backward" ? { kind: "status", text: "Backward", warn: true } : null,
+					avatar: "phase",
+				};
+			if (operation === "phases.readReadiness")
+				return {
+					...plain,
+					name: row.label,
+					line: text(fields.next) ? `Before ${text(fields.next)}` : "Final phase",
+					avatar: "phase",
+				};
+			const criteria = text(fields.exitCriteria)?.split("; ").length ?? 0;
+			return {
+				...plain,
+				name: `${text(fields.phase) ?? ""} ${row.label}`.trim(),
+				line: criteria ? count(criteria, "exit criterion", "exit criteria") : "Final phase",
+				avatar: "phase",
+			};
+		}
+		case "criterion": {
+			const status = CRITERION[String(fields.status)];
+			return { ...plain, name: row.label, line: status ?? null, avatar: "criterion" };
+		}
+		case "signal":
+			if (operation === "signals.getHistory")
 				return {
 					...plain,
 					name: row.label,
 					line: joined(
-						day(String(fields.date) + "T12:00:00Z"),
-						text(fields.status) ? words(String(fields.status)) : null,
+						SIGNAL_KIND[String(fields.kind)] ?? null,
+						ANSWER[String(fields.value)] ?? null,
+						phaseDay(fields.asOf) ? `as of ${phaseDay(fields.asOf)}` : null,
+						text(fields.by),
 					),
+					avatar: "signal",
+				};
+			return {
+				...plain,
+				name: row.label,
+				line: joined(text(fields.description), fields.reaffirms === true ? "Renew every 30 days" : null),
+				avatar: "signal",
+			};
+		case "meeting": {
+			if (operation === "tasks.relationOptions")
+				return { ...plain, name: row.label, line: "Meeting", avatar: "meeting", href: `/meetings/${row.id}` };
+			if (!operation.startsWith("meetings."))
+				return {
+					...plain,
+					name: row.label,
+					line: text(fields.startsAt)
+						? text(fields.startsAt)
+						: joined(
+								day(String(fields.date) + "T12:00:00Z"),
+								text(fields.status) ? words(String(fields.status)) : null,
+							),
 					avatar: "meeting",
 					href: `/meetings/${row.id}`,
 				};
@@ -883,6 +1540,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "step":
 			if (operation.startsWith("dashboard."))
 				return { ...plain, href: text(fields.href), name: row.label, line: "From Overview", avatar: null };
+			if (operation === "evry.readWorkflowHint")
+				return { ...plain, name: row.label, line: `Say "${text(fields.say)}"`, avatar: null };
 			return {
 				...plain,
 				href: "/onboarding",
@@ -928,6 +1587,44 @@ function rowView(operation: string, row: SourceRow): RowView {
 				line: `${text(fields.relationship)} · ${typeof fields.shares === "string" ? `Shares ${fields.shares}` : "Shares nothing"}`,
 				avatar: null,
 			};
+		case "date": {
+			if (operation === "calendar.getContext")
+				return {
+					...plain,
+					name: joined(text(fields.weekday), text(fields.today)) ?? row.label,
+					line: joined(text(fields.zone), text(fields.zoneName)),
+					avatar: "date",
+				};
+			const status = String(fields.status);
+			return {
+				...plain,
+				name: status === "invalid_date" ? row.label : localName(String(fields.local ?? row.label)),
+				line: joined(
+					status === "exact" ? (text(fields.shows)?.split(" ").at(-1) ?? null) : (DATE_STATUS[status] ?? "Not a date"),
+					text(fields.zone),
+				),
+				avatar: "date",
+			};
+		}
+		case "document":
+			return {
+				...plain,
+				name: row.label,
+				line: joined(
+					text(fields.type),
+					fields.archived === true ? "Archived" : null,
+					text(fields.updatedOn) ? `Changed ${day(`${fields.updatedOn}T12:00:00Z`)}` : null,
+				),
+				avatar: "document",
+				href: text(fields.link),
+			};
+		case "template":
+			return {
+				...plain,
+				name: row.label,
+				line: joined(typeof fields.version === "string" ? `Version ${fields.version}` : null, text(fields.notice)),
+				avatar: "template",
+			};
 		case "notice":
 			return {
 				...plain,
@@ -963,6 +1660,35 @@ function rowView(operation: string, row: SourceRow): RowView {
 						avatar: "digest",
 					}
 				: { ...plain, name: row.label, line: null, avatar: null };
+		case "article": {
+			const whose =
+				fields.source === "network"
+					? "Your network's version"
+					: fields.source === "church"
+						? "Your sending church's version"
+						: null;
+			const line =
+				operation === "wiki.search"
+					? text(fields.snippet)
+					: operation === "wiki.reading.resume"
+						? joined(text(fields.read) && `${String(fields.read)} read`, fields.completed === true ? "Finished" : null)
+						: operation === "wiki.recommendForPhase"
+							? text(fields.phase)
+							: operation === "wiki.article.exportPdf"
+								? "Download the PDF"
+								: text(fields.section);
+			return {
+				...plain,
+				name: row.label,
+				line: joined(line, whose),
+				avatar: "article",
+				href: operation === "wiki.article.exportPdf" ? null : text(fields.href),
+				...(operation === "wiki.article.exportPdf" && text(fields.pdfHref) ? { file: text(fields.pdfHref) ?? "" } : {}),
+				...(operation === "wiki.referenceExcerpt" && text(fields.excerpt)
+					? { quote: plainExcerpt(text(fields.excerpt) ?? "") }
+					: {}),
+			};
+		}
 		case "person":
 			break;
 	}
@@ -1002,6 +1728,16 @@ function rowView(operation: string, row: SourceRow): RowView {
 			photoFor: null,
 			href,
 		};
+	if (operation === "people.getMergeReview")
+		return {
+			key,
+			name: row.label,
+			line: fields.role === "stays" ? "Stays" : "Merges in",
+			mark: null,
+			avatar: "person",
+			photoFor: row.id,
+			href,
+		};
 	if (operation === "people.listDuplicatePairs")
 		return {
 			key,
@@ -1018,6 +1754,38 @@ function rowView(operation: string, row: SourceRow): RowView {
 			name: row.label,
 			line: null,
 			mark: { kind: "match", exact: fields.match === "exact" },
+			avatar: "person",
+			photoFor: row.id,
+			href,
+		};
+	if (operation === "tasks.followUpCoverage")
+		return {
+			key,
+			name: row.label,
+			line:
+				fields.coverage === "owned"
+					? text(fields.owners)
+						? `Followed up by ${fields.owners}`
+						: "Has an open follow-up"
+					: (COVERAGE[String(fields.coverage)] ?? null),
+			mark: typeof fields.stage === "string" ? { kind: "stage", stage: fields.stage } : null,
+			avatar: "person",
+			photoFor: row.id,
+			href,
+		};
+	if ("leftOut" in fields || "result" in fields || fields.email === "no email recorded")
+		return {
+			key,
+			name: row.label,
+			line:
+				typeof fields.leftOut === "string"
+					? `Left out: ${LEFT_OUT_REASON[fields.leftOut] ?? fields.leftOut}`
+					: typeof fields.result === "string"
+						? (RESULT[fields.result] ?? fields.result)
+						: fields.email === "no email recorded"
+							? "No email recorded"
+							: "Gets it",
+			mark: null,
 			avatar: "person",
 			photoFor: row.id,
 			href,
@@ -1072,6 +1840,116 @@ function rowView(operation: string, row: SourceRow): RowView {
 		avatar: "person",
 		photoFor: row.id,
 		href,
+	};
+}
+
+function taskView(operation: string, row: SourceRow, key: string): RowView {
+	const { fields } = row;
+	const child = text(fields.parentId) !== null;
+	const deleted = fields.deleted === true;
+	const settled = fields.status === "complete" || fields.status === "no_longer_needed";
+	const mark: RowMark = deleted
+		? { kind: "status", text: "Deleted", warn: false }
+		: fields.overdue === true && !settled
+			? { kind: "status", text: "Overdue", warn: true }
+			: fields.blocking === true
+				? { kind: "status", text: "Not done yet", warn: true }
+				: fields.status && fields.status !== "not_started"
+					? { kind: "status", text: label(TASK_STATUS, fields.status) ?? "", warn: false }
+					: null;
+	const owner = fields.needsOwner === true ? "Needs owner" : owners(fields.owners);
+	const phase =
+		fields.fromPhase !== undefined && fields.toPhase !== undefined
+			? `Added after the move to Phase ${fields.toPhase}`
+			: null;
+	const line =
+		operation === "tasks.readPhaseOffer"
+			? phase
+			: joined(
+					due(fields.due),
+					owner,
+					fields.followUp === true && text(fields.person)
+						? `Follow-up with ${fields.person}`
+						: capital(fields.relatedTo),
+					text(fields.checklist),
+					fields.status === "complete" ? (day(fields.completedAt) ? `Done ${day(fields.completedAt)}` : null) : null,
+				);
+	return {
+		key,
+		name: row.label,
+		line,
+		mark,
+		avatar: "task",
+		photoFor: null,
+		href: deleted ? null : `/tasks?task=${child ? String(fields.parentId) : row.id}`,
+	};
+}
+
+function followUpView(operation: string, row: SourceRow, key: string): RowView {
+	const { fields } = row;
+	const personId = text(fields.personId);
+	const owner = fields.needsOwner === true ? "Nobody assigned" : owners(fields.owners);
+	const origin = text(fields.from);
+	const from = origin?.startsWith("meeting: ") ? `From ${origin.slice(9)}` : origin ? capital(origin) : null;
+	const obligation = operation === "followups.readObligations";
+	const open = obligation ? fields.state === "open" : true;
+	const mark: RowMark =
+		fields.overdue === true && open
+			? { kind: "status", text: "Overdue", warn: true }
+			: obligation && fields.state !== "open"
+				? { kind: "status", text: label(OBLIGATION_STATE, fields.state) ?? "", warn: false }
+				: null;
+	const line = obligation
+		? joined(
+				text(fields.meeting)
+					? `From ${fields.meeting}${localDay(fields.meetingDate) ? ` (${localDay(fields.meetingDate)})` : ""}`
+					: null,
+				open ? owner : null,
+				open ? due(fields.due) : null,
+				fields.completedWith ? (label(OUTCOME, fields.completedWith) ?? null) : null,
+				fields.contacted === true ? "Contact recorded" : null,
+			)
+		: joined(owner, due(fields.due), from, fields.lastOutcome ? `Last: ${label(OUTCOME, fields.lastOutcome)}` : null);
+	return {
+		key,
+		name: row.label,
+		line,
+		mark,
+		avatar: personId ? "person" : "follow_up",
+		photoFor: personId,
+		href: personId ? `/people/${personId}` : null,
+	};
+}
+
+function templateView(operation: string, row: SourceRow, key: string): RowView {
+	const { fields } = row;
+	const plain = { key, mark: null, href: null, photoFor: null, avatar: "template" } as const;
+	if (operation === "tasks.importReceipt")
+		return {
+			...plain,
+			name: keyWords(row.label),
+			line: joined(
+				capital(fields.receipt),
+				day(fields.at),
+				count(num(fields.tasksCreated) || 0, "task created", "tasks created"),
+			),
+		};
+	const tasks = num(fields.taskCount);
+	if (!Number.isFinite(tasks))
+		return { ...plain, name: row.label, line: joined(due(fields.due), label({}, fields.priority)), avatar: null };
+	return {
+		...plain,
+		name: row.label,
+		line: joined(
+			`Phase ${fields.phase}`,
+			label(CATEGORY, fields.category),
+			count(tasks, "task", "tasks"),
+			fields.toPhase !== undefined ? `Offered after the move to Phase ${fields.toPhase}` : null,
+		),
+		mark:
+			fields.currentPhase !== undefined && fields.currentPhase === fields.phase
+				? { kind: "status", text: "Current phase", warn: false }
+				: null,
 	};
 }
 
@@ -1175,23 +2053,34 @@ function shownRows(operation: string, view: OpView, result: SourceResult) {
 }
 
 export function cardView(operation: string, result: SourceResult, originalTotal: number | null): CardView {
-	const view = VIEWS[operation] ?? fallback;
+	const view =
+		operation === "communication.forPerson" && result.rows.some((r) => r.kind === "person")
+			? NEVER_EMAILED
+			: (VIEWS[operation] ?? fallback);
 	const [one, many] = view.noun;
 	const rows = shownRows(operation, view, result);
 	const counted = view.countAnswer
 		? 0
-		: rows.filter((r, n) => r.kind === view.counts && !(view.headed && n === 0) && !view.beside?.(r)).length;
+		: rows.filter(
+				(r, n) =>
+					(view.counts === "all" || r.kind === view.counts) &&
+					!(view.headed && n === 0) &&
+					!view.beside?.(r) &&
+					(!view.countIf || view.countIf(r)),
+			).length;
 	const photo = operation === "people.getPersonPhoto";
-	const missing = result.status === "not_found" || (photo && !rows.length);
+	const missing = result.status === "not_found" || ((photo || view.quiet) && !rows.length);
 	const summary = missing
 		? "Not found"
-		: photo
-			? ""
-			: view.countAnswer
-				? count(result.total ?? 0, one, many)
-				: view.shownOnly || result.total === null || result.total === counted
-					? count(counted, one, many)
-					: `${counted.toLocaleString()} of ${result.total.toLocaleString()}`;
+		: view.summary
+			? view.summary(result)
+			: photo || view.quiet
+				? ""
+				: view.countAnswer || view.totalOnly
+					? count(result.total ?? 0, one, many)
+					: view.shownOnly || result.total === null || result.total === counted
+						? count(counted, one, many)
+						: `${counted.toLocaleString()} of ${result.total.toLocaleString()}`;
 	const facts: string[] = [];
 	if (missing || !result.rows.length) facts.push(view.empty);
 	if (result.withheldRows)
@@ -1242,5 +2131,6 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 		icon: view.icon === "person" && rows.length > 1 ? "people" : view.icon,
 		rows: rows.map((row) => rowView(operation, row)),
 		facts,
+		links: missing || !result.rows.length ? [...(view.emptyLinks ?? [])] : [],
 	};
 }

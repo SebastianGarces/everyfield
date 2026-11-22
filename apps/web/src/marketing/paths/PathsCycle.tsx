@@ -58,7 +58,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos 
 		[autoplay, n],
 	);
 
-	const wk = w ? w.items[k]! : 0;
+	const wk = w?.items[k] ?? 0;
 	const vars = (
 		w
 			? {

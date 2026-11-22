@@ -35,7 +35,7 @@ import {
 	storeBytes,
 	type Scope,
 } from "./scope.ts";
-import { ImportRejected, readImport } from "./unpack.ts";
+import { parseImport } from "./unpack.ts";
 
 type OwnedRow = {
 	id: string;
@@ -290,9 +290,9 @@ const generatedWriter = {
 			const scope = generateScope(authority);
 			if (!scope) deny("unavailable");
 			const found = await historyRows(db, scope, null);
-			return c.generatedHistory.parse({
+			return {
 				entries: found.map((row) => generatedFrom(row, scope.tenantId, row.template_id)),
-			});
+			} satisfies z.output<typeof c.generatedHistory>;
 		});
 	},
 
@@ -387,7 +387,8 @@ const generatedWriter = {
 			);
 			if (!found[0] || found[0].ok !== true) deny("unavailable");
 			const text = found[0].body ? c.nativeText(c.readNative(found[0].body).body) : "";
-			if (!found[0].id || !text) return c.coreValuesEvidence.parse({ documentId: null, text: null });
+			if (!found[0].id || !text)
+				return { documentId: null, text: null } satisfies z.output<typeof c.coreValuesEvidence>;
 			return c.coreValuesEvidence.parse({ documentId: found[0].id, text });
 		});
 	},
@@ -438,16 +439,9 @@ const generatedWriter = {
 			const input = parse(c.importDocumentRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny("unavailable");
-			let read: c.DocNode;
-			try {
-				read = readImport(input.bytes, input.format);
-			} catch (error) {
-				if (error instanceof ImportRejected) rejectInput("bytes", error.message);
-				throw error;
-			}
-			const parsed = c.nativeBody.safeParse(read);
-			if (!parsed.success) rejectInput("bytes", "This file is too large for one document.");
-			const body = JSON.stringify(parsed.data);
+			const read = parseImport(input.bytes, input.format);
+			if ("problem" in read) rejectInput("bytes", read.problem);
+			const body = JSON.stringify(read.body);
 			const hash = hashOf(body);
 			const replay = await rowsOf<OwnedRow & { ok: boolean; stored_hash: string | null }>(
 				db,

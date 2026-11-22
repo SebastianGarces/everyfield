@@ -14,12 +14,13 @@ import {
 	type Template,
 } from "./model.ts";
 import type { SendPlan } from "./ReviewStep.tsx";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 export type Opening =
 	| { kind: "draft"; draft: Draft }
 	| { kind: "new"; meeting: MeetingContext | null; template: Template | null; guests: boolean; notes: string[] }
 	| { kind: "missing" }
-	| { kind: "unreachable" };
+	| { kind: "unreachable"; read: "lost" | "failed" };
 
 export type Opened = Exclude<Opening, { kind: "missing" } | { kind: "unreachable" }>;
 
@@ -31,7 +32,7 @@ export type Undo = {
 };
 
 export const recipientSearches = createRead((text: string) => searchRecipients(text), {
-	failed: (): Outcome<{ people: Recipient[] }> => ({ status: "lost" }),
+	failed: (): Outcome<{ people: Recipient[] }> | ReadFailure => ({ status: "lost" }),
 });
 
 export type PersonSearch = { query: string; searched: string; open: boolean };

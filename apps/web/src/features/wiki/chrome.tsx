@@ -80,10 +80,12 @@ function GuideUnavailable({ open, onOpenChange }: OverlayProps) {
 	);
 }
 
-const Chrome = createContext<{ openSearch: () => void; toggleGuide: () => void; guideOpen: boolean } | null>(null);
+const ChromeContext = createContext<{ openSearch: () => void; toggleGuide: () => void; guideOpen: boolean } | null>(
+	null,
+);
 
 export function useWikiChrome() {
-	return use(Chrome);
+	return use(ChromeContext);
 }
 
 export function WikiChrome({ children }: { children: ReactNode }) {
@@ -107,7 +109,7 @@ export function WikiChrome({ children }: { children: ReactNode }) {
 		[pathname, guide],
 	);
 	return (
-		<Chrome value={chrome}>
+		<ChromeContext value={chrome}>
 			{children}
 			<Opened open={searchPath === pathname}>
 				<Suspense fallback={null}>
@@ -122,7 +124,7 @@ export function WikiChrome({ children }: { children: ReactNode }) {
 					<GuideOverlay open={guide} onOpenChange={setGuide} />
 				</Suspense>
 			</Opened>
-		</Chrome>
+		</ChromeContext>
 	);
 }
 

@@ -3297,6 +3297,9 @@ export const passage = pgTable(
 		index("passage_ref_1").using("btree", table.revision_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("passage_ref_2").using("btree", table.tenant_id.asc().nullsLast()),
 		index("passage_ref_3").using("btree", table.id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
+		index("passage_embedding_1536")
+			.using("hnsw", sql`((${table.embedding})::public.vector(1536)) public.vector_cosine_ops`)
+			.where(sql`public.vector_dims(${table.embedding}) = 1536`),
 	],
 );
 export const people_column = pgTable(
@@ -5805,6 +5808,21 @@ export const model_spend = pgTable(
 		unique("model_spend_month_key").on(t.month),
 		check("model_spend_month", sql`${t.month}=date_trunc('month',${t.month})::date`),
 		check("model_spend_charged", sql`${t.charged_micro_usd} >= 0`),
+	],
+);
+
+export const embedding_spend = pgTable(
+	"embedding_spend",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		day: date("day", { mode: "string" }).notNull(),
+		purpose: text("purpose", { enum: ["query", "rebuild"] }).notNull(),
+		usage: int64("usage").notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		unique("embedding_spend_day_key").on(t.day, t.purpose),
+		check("embedding_spend_purpose", sql`${t.purpose} IN ('query','rebuild')`),
+		check("embedding_spend_usage", sql`${t.usage} >= 0`),
 	],
 );
 

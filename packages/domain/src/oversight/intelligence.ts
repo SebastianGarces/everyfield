@@ -209,7 +209,7 @@ export async function readIntelligence(
 		level: request.level,
 		run,
 		history,
-		groups: run ? groupsOf(request.level, r.shown_on!, r.rows, r.unshared, r.ratings) : [],
+		groups: run && r.shown_on !== null ? groupsOf(request.level, r.shown_on, r.rows, r.unshared, r.ratings) : [],
 		geographyReleases: [...releases].sort().map(([key, credit]) => ({ key, credit })),
 		canRefresh: seat.administrator,
 	});

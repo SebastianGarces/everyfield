@@ -40,6 +40,8 @@ import {
 	offerResponsibilities,
 } from "./actions.ts";
 import { listResponsibilities, previewResponsibilities, readTeamRevision } from "../fetch.ts";
+import { READ_FAILED, READ_FAILED_ICON } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
 type Page = z.infer<typeof c.responsibilityPage>;
 type Item = Page["items"][number];
@@ -86,11 +88,12 @@ function acceptedRows(
 	selected: ReadonlySet<string>,
 ): Item[] | null {
 	if (lines.length !== createdIds.length) return null;
-	return lines.flatMap((line, index) =>
-		selected.has(line.key)
+	return lines.flatMap((line, index) => {
+		const createdId = createdIds[index];
+		return createdId !== undefined && selected.has(line.key)
 			? [
 					{
-						id: asRecordId(createdIds[index]!),
+						id: asRecordId(createdId),
 						revision: asRevision("1"),
 						sourceLine: line.key,
 						text: line.text,
@@ -98,20 +101,22 @@ function acceptedRows(
 						completedOn: null,
 					},
 				]
-			: [],
-	);
+			: [];
+	});
 }
 
-const lostPage = (): Outcome<Page> => ({ status: "lost" });
+const lostPage = (): Outcome<Page> | ReadFailure => ({ status: "lost" });
 const loadPage = (teamId: string, page: number) => listResponsibilities(teamId, page);
 const pages = createRead(loadPage, { failed: lostPage });
 const previews = createRead((teamId: string) => previewResponsibilities(teamId), {
-	failed: (): Outcome<Preview> => ({ status: "lost" }),
+	failed: (): Outcome<Preview> | ReadFailure => ({ status: "lost" }),
 });
 
-const emptyPage = (result: Outcome<Page>) => result.status === "ok" && result.value.items.length === 0;
+const emptyPage = (result: Outcome<Page> | ReadFailure) => result.status === "ok" && result.value.items.length === 0;
 
-type TextForm = { mode: "add" | "edit"; text: string; id?: string; revision?: string; problem?: string };
+type TextForm =
+	| { mode: "add"; text: string; problem?: string }
+	| { mode: "edit"; text: string; id: string; revision: string; problem?: string };
 type OfferDecision = Extract<Awaited<ReturnType<typeof offerResponsibilities>>, { status: "ok" }>["value"];
 
 export function ResponsibilitiesPanel({
@@ -146,8 +151,7 @@ export function ResponsibilitiesPanel({
 	const items = loaded?.status === "ok" ? loaded.value.items : null;
 	if (loaded?.status === "ok" && loaded.value.offer !== lastOffer) setLastOffer(loaded.value.offer);
 	const offer = loaded?.status === "ok" ? loaded.value.offer : lastOffer;
-	const listPhase =
-		loaded === undefined || loaded.status === "ok" ? null : loaded.status === "lost" ? "lost" : "refused";
+	const listPhase = loaded === undefined || loaded.status === "ok" ? null : loaded.status;
 	const [shown, project] = useOptimistic<Row[], RowChange>(items ?? [], applyRows);
 	const rows = items === null ? null : shown;
 
@@ -231,14 +235,14 @@ export function ResponsibilitiesPanel({
 			});
 			return;
 		}
-		const id = form.id!;
+		const { id, revision } = form;
 		startTransition(async () => {
 			project({ kind: "text", id, text });
 			await lane.save({
 				what: short(text),
 				done: "saved",
 				form,
-				send: (key) => editResponsibility(key, form.revision!, id, text),
+				send: (key) => editResponsibility(key, revision, id, text),
 				ok: (result) => {
 					startTransition(() =>
 						edit((current) => ({
@@ -348,10 +352,17 @@ export function ResponsibilitiesPanel({
 					{addButton}
 				</CardHeader>
 				{listPhase !== null ? (
-					<StatePanel tone="error" title="Responsibilities did not load" headingLevel="h3">
-						{listPhase === "lost"
-							? "This is a loading problem. Nothing was changed. Open this tab again in a moment."
-							: "You cannot see these responsibilities. Your seat may have changed."}
+					<StatePanel
+						tone="error"
+						title="Responsibilities did not load"
+						icon={listPhase === "failed" ? READ_FAILED_ICON : undefined}
+						headingLevel="h3"
+					>
+						{listPhase === "refused"
+							? "You cannot see these responsibilities. Your seat may have changed."
+							: listPhase === "failed"
+								? READ_FAILED
+								: "This is a loading problem. Nothing was changed. Open this tab again in a moment."}
 					</StatePanel>
 				) : rows === null ? (
 					<div className="flex justify-center py-8" role="status">

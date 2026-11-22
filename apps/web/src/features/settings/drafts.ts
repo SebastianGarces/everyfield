@@ -69,18 +69,13 @@ export function begin<K extends string, R>(
 	};
 }
 
-export function finish<K extends string, R>(
-	book: Book<K, R>,
-	key: K,
-	outcome: { ok: true } | { ok: false; refusal: R },
-	server: unknown,
-): Book<K, R> {
+export function finish<K extends string, R>(book: Book<K, R>, key: K, refusal: R | null, server: unknown): Book<K, R> {
 	const flight = book.inFlight[key];
 	const inFlight = without(book.inFlight, key);
-	const refusals = outcome.ok ? without(book.refusals, key) : { ...book.refusals, [key]: outcome.refusal };
+	const refusals = refusal === null ? without(book.refusals, key) : { ...book.refusals, [key]: refusal };
 	const edit = book.edits[key];
 	if (!edit) return { ...book, inFlight, refusals };
-	const sentUnchanged = outcome.ok && flight !== undefined && same(edit.value, flight.sent);
+	const sentUnchanged = refusal === null && flight !== undefined && same(edit.value, flight.sent);
 	const edits = sentUnchanged || same(edit.value, server) ? without(book.edits, key) : book.edits;
 	return { edits, inFlight, refusals };
 }

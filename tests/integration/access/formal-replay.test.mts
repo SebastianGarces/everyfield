@@ -11,7 +11,7 @@ import {
 	createIdentityService,
 	createInvitationService,
 	createSeatService,
-	InvitationRefusal,
+	invitationRefusals,
 } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer, peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -104,7 +104,7 @@ async function outcome(run: () => Promise<unknown>, success = "allowed"): Promis
 		if (result && result.status === "refused") return `refused (${result.error?.code})`;
 		return success;
 	} catch (error) {
-		if (error instanceof InvitationRefusal) return `refused (${error.value.code})`;
+		if (error instanceof invitationRefusals.Refusal) return `refused (${error.code})`;
 		if (error instanceof Error && error.name === "ZodError") return "refused (invalid_input)";
 		return `threw ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`;
 	}

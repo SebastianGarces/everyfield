@@ -125,7 +125,8 @@ async function schedule(tx: Tx, plant: typeof t.plant.$inferSelect, zone: string
 async function readClock(tx: Tx, id: string, clock?: Clock) {
 	if (clock) return { at: new Date(clock.now()) };
 	const [row] = await tx.select({ at: now }).from(t.account).where(eq(t.account.id, id));
-	return row!;
+	if (!row) throw Error(`No account ${id} to read the clock against`);
+	return row;
 }
 export function timezoneOperations(
 	effects: SettingsEffects,

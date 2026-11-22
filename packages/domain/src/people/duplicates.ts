@@ -262,7 +262,7 @@ function pairWrite(change: "dismiss" | "restore", tx: Tx, ctx: WriteContext, raw
 ) SELECT EXISTS(SELECT FROM pair) AS found,EXISTS(SELECT FROM audit) AS changed`);
 		const row = changeRow.parse(r.rows[0]);
 		if (!row.found) deny("pair_unavailable");
-		return c.duplicatePairChange.parse({ outcome: row.changed ? "changed" : "noop" });
+		return { outcome: row.changed ? "changed" : "noop" } satisfies z.output<typeof c.duplicatePairChange>;
 	});
 }
 export async function dismissDuplicatePair(tx: Tx, ctx: WriteContext, raw: unknown) {

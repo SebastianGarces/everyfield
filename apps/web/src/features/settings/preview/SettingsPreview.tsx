@@ -9,8 +9,10 @@ import { parsePreviewKit, type PreviewKit } from "../brand/fixtures";
 import { offeredSections, parseSectionKey, SECTION_LABEL } from "../model";
 import type { DeletionStatus, SectionKey } from "../port";
 import { SharingSection } from "../sections/SharingSection";
-import { LazySettingsDialog } from "../ProductSettings";
+import { LazySettingsDialog } from "../LazySettingsDialog";
 import { SettingsProvider } from "../store";
+import { createSettingsStore } from "../settings.store";
+import { useLocalStore } from "../../../components/store.ts";
 import {
 	createFixturePort,
 	parsePersona,
@@ -28,6 +30,12 @@ import { createReplies, type Replies } from "./replies";
 import { RepliesControl } from "./RepliesControl";
 
 const BASE = "/design/settings";
+
+const RESTRICTED_PAGES: [href: string, label: string][] = [
+	["/design/restricted/account-deletion?state=pending", "Account deletion"],
+	["/design/restricted/workspace-deletion?state=pending", "Workspace deletion"],
+	["/design/restricted/confirm-email?proof=valid", "Confirm email"],
+];
 
 export function SettingsPreview() {
 	const search = useSearchParams();
@@ -64,6 +72,7 @@ function PreviewSession({
 	const section = parseSectionKey(params.section?.[0]);
 	const [replies] = useState(() => createReplies(held));
 	const [fixture] = useState(() => createFixturePort(persona, { kit, wiki, faults: faults.map(parseFault), replies }));
+	const store = useLocalStore(() => createSettingsStore({ port: fixture.port, seed: null }));
 	const query = (extra = "") =>
 		`?as=${persona}${held ? "&hold=1" : ""}${kit !== "none" ? `&kit=${kit}` : ""}${wiki !== "unordered" ? `&wiki=${wiki}` : ""}${extra}`;
 	const hrefFor = (key: SectionKey) => `${BASE}/${key}${query()}`;
@@ -79,7 +88,7 @@ function PreviewSession({
 
 	return (
 		<ShellPreview role={persona === "member" ? "member" : "owner"}>
-			<SettingsProvider port={fixture.port} viewer={viewer}>
+			<SettingsProvider store={store} viewer={viewer}>
 				<PreviewPage persona={persona} query={query} fixture={fixture.controls} replies={replies} />
 				<LazySettingsDialog
 					section={section}
@@ -211,13 +220,9 @@ function PreviewPage({
 					<CardTitle>Restricted pages</CardTitle>
 					<CardDescription>What a deletion request or an email link opens. No settings and no shell.</CardDescription>
 					<ul className="mt-4 flex flex-wrap gap-2">
-						{[
-							["/design/restricted/account-deletion?state=pending", "Account deletion"],
-							["/design/restricted/workspace-deletion?state=pending", "Workspace deletion"],
-							["/design/restricted/confirm-email?proof=valid", "Confirm email"],
-						].map(([href, label]) => (
+						{RESTRICTED_PAGES.map(([href, label]) => (
 							<li key={href}>
-								<Button variant="secondary" size="sm" onClick={() => router.push(href!)}>
+								<Button variant="secondary" size="sm" onClick={() => router.push(href)}>
 									{label}
 								</Button>
 							</li>

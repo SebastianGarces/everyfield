@@ -1,5 +1,6 @@
 "use client";
 
+import { READ_FAILED } from "../../components/read-failed.ts";
 import { MessageEdit01Icon } from "@hugeicons/core-free-icons";
 import type { OwnFeedback, OwnFeedbackPage } from "@everyfield/contracts/feedback";
 import { Button, Card, EmptyState } from "@everyfield/ui/controls";
@@ -29,15 +30,15 @@ function PublicLink({ url }: { url: string }) {
 export function OwnFeedbackList({ initial }: { initial: OwnFeedbackPage }) {
 	const [items, setItems] = useState(initial.items);
 	const [next, setNext] = useState(initial.next);
-	const [failed, setFailed] = useState(false);
+	const [failed, setFailed] = useState<"lost" | "failed" | null>(null);
 	const [pending, start] = useTransition();
 
 	function more() {
 		if (!next) return;
-		setFailed(false);
+		setFailed(null);
 		start(async () => {
 			const r = await loadOwnFeedback(next);
-			if (r.status !== "ok") return setFailed(true);
+			if (r.status !== "ok") return setFailed(r.status === "failed" ? "failed" : "lost");
 			setItems((shown) => [...shown, ...r.value.items]);
 			setNext(r.value.next);
 		});
@@ -76,7 +77,7 @@ export function OwnFeedbackList({ initial }: { initial: OwnFeedbackPage }) {
 				<div className="flex items-center justify-center gap-3 pt-4">
 					{failed ? (
 						<span role="alert" className="text-sm text-magenta-600">
-							The next feedback did not load. Try again.
+							{failed === "failed" ? READ_FAILED : "The next feedback did not load. Try again."}
 						</span>
 					) : null}
 					{next ? (

@@ -17,6 +17,7 @@ import {
 	DialogHeader,
 	Field,
 	IconButton,
+	InlineAlert,
 	Input,
 	Select,
 	Textarea,
@@ -26,7 +27,6 @@ import { saveGoal } from "./actions";
 import { readGoals } from "./fetch.ts";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { goalHeadline, KIND_LABEL, monthLabel, plural, refusalText } from "./model";
-import { Problem } from "../../../components/Problem.tsx";
 
 type Goal = PipelineGoals["goals"][number];
 const MAX_COUNTS = 4;
@@ -449,7 +449,7 @@ function GoalForm({
 						{preview}
 					</p>
 				) : null}
-				<Problem text={problem} />
+				<InlineAlert live="polite">{problem}</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>
@@ -512,7 +512,7 @@ function CountsEditor({
 										/>
 									</div>
 								</div>
-								<div aria-live="polite" className="empty:hidden">
+								<div aria-live="polite" className="empty:sr-only">
 									{problem?.label || problem?.kind ? (
 										<p className="text-xs font-medium text-magenta-600">
 											{[problem.label, problem.kind].filter(Boolean).join(" ")}

@@ -15,7 +15,7 @@
 		"lint:test-names": "node tools/ci/test-names.ts",
 		"typecheck": "node tools/ci/typecheck.ts",
 		"typecheck:bun": "node tools/ci/typecheck.ts typecheck:bun",
-		"typecheck:tools": "node_modules/typescript-7/bin/tsc -b tsconfig.tools.json tests/unit/tsconfig.json tests/ui/tsconfig.json tests/evry/tsconfig.json tests/integration/*/tsconfig.json",
+		"typecheck:tools": "node tools/ci/typecheck.ts typecheck:tools -p tsconfig.tools.json tests/unit/tsconfig.json tests/ui/tsconfig.json tests/evry/tsconfig.json tests/integration/tsconfig.json",
 		"access:export": "pnpm --filter @everyfield/db export",
 		"db:migrate": "pnpm --filter @everyfield/domain migrate",
 		"test:early-access": "pnpm --filter @everyfield/domain test",
@@ -26,6 +26,7 @@
 		"machines:write": "node tools/ci/machines.ts --write",
 		"feature-maps": "node tools/ci/feature-maps.ts --check",
 		"knip": "knip --include files,exports,types",
+		"migrations:safety": "node tools/ci/migration-safety.ts",
 		"review-proof": "node tools/ci/review-proof.ts",
 		"format": "prettier --write \"{apps,ops,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\"",
 		"format:check": "prettier --check \"{apps,ops,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\""

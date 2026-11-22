@@ -62,8 +62,8 @@ export async function writeActor(tx: WriteTx, session: string, selected: Owner) 
 	return bound.actor;
 }
 export const subjectOwner = (pair: RelationshipPair): Owner =>
-	pair.kind === "discovery" ? owner.parse({ kind: "account", id: pair.accountId }) : pair.subject;
-export const endpointValues = (pair: RelationshipPair) => [
+	pair.kind === "discovery" ? ({ kind: "account", id: pair.accountId } satisfies z.output<typeof owner>) : pair.subject;
+export const endpointValues = (pair: RelationshipPair): [string | null, string | null, string | null, string] => [
 	pair.kind === "plant" ? pair.subject.id : null,
 	pair.kind === "discovery" ? pair.accountId : null,
 	pair.kind === "sending_church" ? pair.subject.id : null,
@@ -150,7 +150,7 @@ export const projection = (a: Affiliation) =>
 		endedAt: a.ended_at?.toISOString() ?? null,
 	});
 export const choices = (a: Affiliation) =>
-	sharingChoices.parse({
+	({
 		people: a.share_people,
 		meetings: a.share_meetings,
 		tasks: a.share_tasks,
@@ -158,7 +158,7 @@ export const choices = (a: Affiliation) =>
 		wiki: a.share_wiki,
 		activity: a.share_activity,
 		shared_findings: a.shared_findings,
-	});
+	}) satisfies z.output<typeof sharingChoices>;
 export const active = (a: Affiliation) => a.active;
 export interface OrganizationEffects {
 	invitation(
@@ -276,5 +276,5 @@ type PairColumns = Record<"plant_id" | "account_id" | "sending_church_id" | "org
 export const pairMatch = (t: PairColumns, pair: RelationshipPair) => {
 	const [plant, account, church, organization] = endpointValues(pair);
 	const nullable = (v: string | null | undefined) => (v ? uuid(v) : sql`NULL::uuid`);
-	return sql`${t.plant_id} IS NOT DISTINCT FROM ${nullable(plant)} AND ${t.account_id} IS NOT DISTINCT FROM ${nullable(account)} AND ${t.sending_church_id} IS NOT DISTINCT FROM ${nullable(church)} AND ${t.organization_id}=${uuid(organization!)}`;
+	return sql`${t.plant_id} IS NOT DISTINCT FROM ${nullable(plant)} AND ${t.account_id} IS NOT DISTINCT FROM ${nullable(account)} AND ${t.sending_church_id} IS NOT DISTINCT FROM ${nullable(church)} AND ${t.organization_id}=${uuid(organization)}`;
 };

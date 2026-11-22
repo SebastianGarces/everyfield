@@ -12,12 +12,14 @@ import {
 	upstreamReviewResult,
 	type WikiReply,
 } from "@everyfield/contracts/wiki";
+import type { PeopleContext } from "@everyfield/contracts/people";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
-import type { RequestActor } from "../access/session.ts";
-import { GLOBAL, deny, meSql, parse, refused, runRead, runWrite } from "./core.ts";
+import type { RequestActor, WriteTx } from "../access/session.ts";
+import { organizationSeatContext } from "../access/organization-seat.ts";
+import { GLOBAL, claimedWrite, deny, meSql, ownWrite, parse, refused, runRead, runWrite, type Runner } from "./core.ts";
 
 type OrgValue = z.infer<typeof organizationArticleResult>;
 type Mine = z.infer<typeof feedbackMine>;
@@ -41,8 +43,8 @@ function deniedOrg(): OrgValue {
 	return orgValue({ errorCode: "editorial_access_denied" });
 }
 function orgEditor(authority: RequestActor, organizationId: string): Owner | null {
-	const context = authority.actor.context;
-	if (context.kind !== "seat" || context.owner.kind !== "organization") return null;
+	const context = organizationSeatContext(authority);
+	if (!context) return null;
 	if (context.role !== "owner" && context.role !== "admin") return null;
 	if (context.owner.id !== organizationId) return null;
 	if (context.owner.organizationKind !== "sending_church" && context.owner.organizationKind !== "sending_network")
@@ -85,11 +87,19 @@ export function getMine(db: Database, authority: RequestActor, raw: unknown) {
 }
 
 export function setMine(db: Database, authority: RequestActor, raw: unknown) {
+	return saveVote(ownWrite(db, authority), authority, raw);
+}
+export async function setMineIn(tx: WriteTx, context: PeopleContext, raw: unknown) {
+	const claimed = await claimedWrite(tx, context.session, context.selected);
+	if (!claimed) return refused("access_denied");
+	return saveVote(claimed.run, claimed.authority, raw);
+}
+function saveVote(run: Runner, authority: RequestActor, raw: unknown) {
 	const input = parse(feedbackSetMineRequest, raw);
 	const context = authority.actor.context;
 	if (context.kind !== "seat" || context.owner.kind !== "plant") return Promise.resolve(refused("access_denied"));
 	const owner = context.owner;
-	return runWrite(db, authority, owner, "wiki.feedback.setMine", input, feedbackMine, async (tx) => {
+	return run(owner, "wiki.feedback.setMine", input, feedbackMine, async (tx) => {
 		const result = await tx.execute(sql`
 			WITH ${meSql(authority, owner)},
 			prior AS (
@@ -302,14 +312,14 @@ export function getOrganizationDraft(db: Database, authority: RequestActor, raw:
 	if (!owner)
 		return Promise.resolve({
 			status: "ok" as const,
-			value: organizationDraft.parse({
+			value: {
 				errorCode: "editorial_access_denied",
 				articleId: input.articleId,
 				organizationId: null,
 				body: null,
 				revisionNumber: null,
 				state: null,
-			}),
+			} satisfies z.output<typeof organizationDraft>,
 		});
 	return runRead(async () => {
 		const result = await db.execute(sql`
@@ -348,14 +358,14 @@ export function getOrganizationDraft(db: Database, authority: RequestActor, raw:
 			})
 			.parse(row);
 		if (!parsed.allowed) deny("access_denied");
-		return organizationDraft.parse({
+		return {
 			errorCode: null,
 			articleId: input.articleId,
 			organizationId: owner.id,
 			body: parsed.body,
 			revisionNumber: parsed.revision_number,
 			state: parsed.state,
-		});
+		} satisfies z.output<typeof organizationDraft>;
 	});
 }
 
@@ -429,11 +439,11 @@ export function emitUpstreamReview(db: Database, authority: RequestActor, raw: u
 		const recipients = z
 			.array(z.uuid())
 			.parse(typeof row.recipients === "string" ? JSON.parse(row.recipients) : row.recipients);
-		return upstreamReviewResult.parse({
+		return {
 			inAppCues: row.cues,
 			emailIntents: 0,
 			autoAdoptions: 0,
 			recipientIds: recipients,
-		});
+		} satisfies z.output<typeof upstreamReviewResult>;
 	});
 }

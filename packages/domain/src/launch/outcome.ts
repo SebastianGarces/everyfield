@@ -187,7 +187,7 @@ export function outcomeCommands(clock: Clock) {
 		kind: !submit ? (l.draft ? "edit" : "create") : corrected ? "correct" : "create",
 		subjectType: "launch_debrief",
 		subjectId: sql`w.id`,
-		before: corrected ? { version: l.submitted!.version, ...guest(l.submitted!.answers) } : null,
+		before: corrected && l.submitted ? { version: l.submitted.version, ...guest(l.submitted.answers) } : null,
 		after: { version, ...guest(a) },
 		metadata: { event: submit ? "debrief_submitted" : "debrief_draft_saved" },
 		from: "w",

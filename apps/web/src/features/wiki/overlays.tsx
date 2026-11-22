@@ -23,6 +23,8 @@ import { searchWiki } from "./fetch.ts";
 import { guides } from "./guides.ts";
 import { PHASE_NAME, snippetParts } from "./model.ts";
 import { ArticleBody } from "./prose.tsx";
+import { READ_FAILED, loadProblem, failedIcon } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 const PHASES = [
 	{ value: "all", label: "All phases" },
@@ -34,7 +36,7 @@ const SEARCH_DELAY_MS = 250;
 const searches = createRead(
 	(text: string, phase: string, page: number, source: string | null) =>
 		searchWiki(text, phase === "all" ? null : Number(phase), page, source),
-	{ failed: (): SearchResult => ({ status: "lost" }) },
+	{ failed: (): SearchResult | ReadFailure => ({ status: "lost" }) },
 );
 
 type Asked = { text: string; phase: string; page: number; source: string | null };
@@ -45,7 +47,7 @@ export function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 	const [asked, setAsked] = useState<Asked>({ text: "", phase: "all", page: 1, source: null });
 	const [pause] = useState(() => createDebouncer(SEARCH_DELAY_MS));
 	const found = useRead(asked.text ? searches : null, asked.text, asked.phase, asked.page, asked.source);
-	const [shown, setShown] = useState<{ page: number; result: SearchResult } | null>(null);
+	const [shown, setShown] = useState<{ page: number; result: SearchResult | ReadFailure } | null>(null);
 	const latest = !asked.text ? null : found.value ? { page: asked.page, result: found.value } : shown;
 	if (latest?.result !== shown?.result) setShown(latest);
 	const pending = query.trim() !== asked.text || found.status === "loading";
@@ -107,7 +109,15 @@ export function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 	);
 }
 
-function SearchBody({ result, pending, query }: { result: SearchResult | null; pending: boolean; query: string }) {
+function SearchBody({
+	result,
+	pending,
+	query,
+}: {
+	result: SearchResult | ReadFailure | null;
+	pending: boolean;
+	query: string;
+}) {
 	if (!query || (!result && !pending)) return <p className="text-text-2">Type a word to search the wiki.</p>;
 	if (!result) return <p className="text-text-2">Searching.</p>;
 	if (!pending) return <SearchResults result={result} />;
@@ -121,11 +131,11 @@ function SearchBody({ result, pending, query }: { result: SearchResult | null; p
 	);
 }
 
-function SearchResults({ result }: { result: SearchResult }) {
-	if (result.status === "lost")
+function SearchResults({ result }: { result: SearchResult | ReadFailure }) {
+	if (result.status === "lost" || result.status === "failed")
 		return (
-			<StatePanel tone="error" title="Search could not be loaded" headingLevel="h3">
-				This is a loading problem. Try again.
+			<StatePanel tone="error" title="Search could not be loaded" icon={failedIcon(result)} headingLevel="h3">
+				{loadProblem(result, "This is a loading problem. Try again.")}
 			</StatePanel>
 		);
 	if (result.status === "unavailable")
@@ -198,11 +208,12 @@ export function GuideSheet({ open, onOpenChange }: { open: boolean; onOpenChange
 	);
 }
 
-function GuideBody({ result }: { result: GuideResult | null }) {
+function GuideBody({ result }: { result: GuideResult | ReadFailure | null }) {
 	if (!result) return <p>Loading the guide.</p>;
 	if (result.status === "missing") return <p>No guide for this page.</p>;
 	if (result.status === "denied") return <p>Sign in to read the guide.</p>;
 	if (result.status === "unavailable") return <p>The guide could not be loaded. Try again.</p>;
+	if (result.status === "failed") return <p>{READ_FAILED}</p>;
 	return (
 		<article className="flex flex-col gap-4">
 			<header>

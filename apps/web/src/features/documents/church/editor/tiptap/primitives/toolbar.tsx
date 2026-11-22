@@ -7,7 +7,7 @@ type BaseProps = React.HTMLAttributes<HTMLDivElement>;
 
 const ITEMS = 'button:not([disabled]), [role="button"]:not([disabled]), [tabindex]:not([disabled])';
 
-export const InToolbar = React.createContext(false);
+export const InToolbarContext = React.createContext(false);
 
 const FOCUSABLE =
 	'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex], [contenteditable="true"]';
@@ -81,7 +81,7 @@ export const Toolbar = React.forwardRef<HTMLDivElement, BaseProps>(
 					if (!event.currentTarget.contains(event.relatedTarget)) setEntry(true);
 				}}
 			>
-				<InToolbar value>{children}</InToolbar>
+				<InToolbarContext value>{children}</InToolbarContext>
 			</div>
 		);
 	},

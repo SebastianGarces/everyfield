@@ -11,15 +11,19 @@ import type {
 } from "@ai-sdk/provider";
 import { readCatalog, SELECT_RETURNED_ROWS } from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
+import { previewImport } from "../../../packages/evry/src/adapters/people-organization/reads/index.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { verifyPeople } from "../../../packages/evry/src/adapters/people/reads/index.ts";
 import type { EvryActor } from "../../../packages/evry/src/context/actor.ts";
 import {
+	capabilitiesAnswer,
 	classifyRequest,
 	compileContext,
-	describeCatalog,
 	PASTORAL_BOUNDARY,
+	resolveReferences,
 } from "../../../packages/evry/src/context/compile.ts";
+import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
+import { ATTACHMENTS } from "../../../packages/evry/src/attachments/store.ts";
 import { EvryRefusal } from "../../../packages/evry/src/context/errors.ts";
 import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
 import { selectQualifiedModel, type Price } from "../../../packages/evry/src/runtime/model.ts";
@@ -38,7 +42,8 @@ import {
 import type { RunLease } from "../../../packages/evry/src/runtime/run-store.ts";
 import type { MailPort } from "../../../packages/evry/src/proposals/types.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
-import { NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
+import * as W from "../../integration/documents/fixtures/word.mts";
+import { byName, NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
 import { SEAT_READS, SETTINGS_COMMANDS, SHARING_READS } from "../../../packages/evry/src/adapters/settings/index.ts";
 import { ONBOARDING_READS } from "../../../packages/evry/src/adapters/onboarding/reads/index.ts";
 import { ONBOARDING_COMMANDS } from "../../../packages/evry/src/adapters/onboarding/commands/index.ts";
@@ -49,6 +54,9 @@ import { PIPELINE_READS } from "../../../packages/evry/src/adapters/pipeline/rea
 import { PIPELINE_COMMANDS } from "../../../packages/evry/src/adapters/pipeline/commands/index.ts";
 import { LAUNCH_READS } from "../../../packages/evry/src/adapters/launch/reads/index.ts";
 import { LAUNCH_COMMANDS } from "../../../packages/evry/src/adapters/launch/commands/index.ts";
+import { INVITATION_COMMANDS } from "../../../packages/evry/src/adapters/meetings/commands/invitation.ts";
+import { WORKFLOW_READS } from "../../../packages/evry/src/adapters/meetings/reads/workflows.ts";
+import { WIKI_COMMANDS } from "../../../packages/evry/src/adapters/wiki/commands/index.ts";
 
 const LATER = new Set<string>([
 	...SEAT_READS.map((a) => a.operation),
@@ -63,8 +71,13 @@ const LATER = new Set<string>([
 	...Object.keys(PIPELINE_COMMANDS),
 	...LAUNCH_READS.map((a) => a.operation),
 	...Object.keys(LAUNCH_COMMANDS),
+	...Object.keys(INVITATION_COMMANDS),
+	...WORKFLOW_READS.map((a) => a.operation),
+	"documents.importTextOrWord",
+	...Object.keys(WIKI_COMMANDS).filter((op) => op.startsWith("wiki.organizationArticles.")),
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
+const SCRIPTED_ONLY = new Set(["documents.importTextOrWord"]);
 
 type Usage = { input: number; output: number };
 type Call =
@@ -80,6 +93,18 @@ export type Recorded = {
 const RealDate = Date;
 
 export const recording = process.env.EVRY_EVAL_RECORD === "1";
+
+async function capped<T>(call: () => PromiseLike<T>): Promise<T> {
+	for (let attempt = 0; ; attempt++) {
+		try {
+			return await call();
+		} catch (error) {
+			const status = (error as { statusCode?: number }).statusCode;
+			if (status !== 429 || attempt >= 8) throw error;
+			await new Promise((done) => setTimeout(done, 2_000 * (attempt + 1)));
+		}
+	}
+}
 
 export const callKey = ({
 	prompt,
@@ -149,7 +174,7 @@ export function recorder(name: string) {
 		return (real = selected.model);
 	}
 
-	function model(keys: string[] = []): LanguageModelV4 {
+	function model(keys: string[] = [], inputs: string[] = []): LanguageModelV4 {
 		const known = (key: string) => used.get(key) ?? loaded?.calls[key];
 		const missing = (key: string): never => {
 			throw new MissingRecording(
@@ -164,9 +189,10 @@ export function recorder(name: string) {
 			async doGenerate(options) {
 				const key = callKey(options);
 				keys.push(key);
+				inputs.push(JSON.stringify({ prompt: options.prompt, tools: options.tools }));
 				let call = known(key);
 				if (!call && recording) {
-					const out = await realModel().doGenerate(options);
+					const out = await capped(() => realModel().doGenerate(options));
 					call = { kind: "generate", content: out.content.filter((c) => c.type === "text"), usage: usageOf(out.usage) };
 					fresh.push(call.usage);
 				}
@@ -182,13 +208,14 @@ export function recorder(name: string) {
 			async doStream(options) {
 				const key = callKey(options);
 				keys.push(key);
+				inputs.push(JSON.stringify({ prompt: options.prompt, tools: options.tools }));
 				const call = known(key);
 				if (call?.kind === "stream") {
 					used.set(key, call);
 					return { stream: new ReadableStream({ start: (c) => (call.parts.forEach((p) => c.enqueue(p)), c.close()) }) };
 				}
 				if (!recording) return missing(key);
-				const out = await realModel().doStream(options);
+				const out = await capped(() => realModel().doStream(options));
 				const parts: LanguageModelV4StreamPart[] = [];
 				const saved: Call = { kind: "stream", parts, usage: { input: 0, output: 0 } };
 				return {
@@ -197,7 +224,7 @@ export function recorder(name: string) {
 						new TransformStream({
 							transform(part, controller) {
 								parts.push(part);
-								if (part.type === "finish") {
+								if (part.type === "finish" && !parts.some((p) => p.type === "error")) {
 									saved.usage = usageOf(part.usage);
 									fresh.push(saved.usage);
 									used.set(key, saved);
@@ -256,6 +283,7 @@ export type Conversation = {
 	proposals: Proposal[];
 	answer: string;
 	keys: string[];
+	inputs: string[];
 	failed?: string;
 };
 
@@ -275,10 +303,26 @@ const MAIL: MailPort = {
 const MAX_STEPS = LIMITS.toolCalls + 1;
 
 let opening: Promise<unknown> = Promise.resolve();
-function openConversation(db: GoldenChurch["db"], actor: EvryActor) {
+function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attached[] = []) {
 	const opened = opening.then(async () => {
 		const c = await createConversation(db, actor, { requestKey: randomUUID() });
-		const submitted = await submitTurn(db, actor, c.id, { requestKey: randomUUID(), text: "Golden eval" });
+		for (const f of files)
+			await db.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
+				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,'assistant_staging',${`private/${actor.owner.id}/${f.id}`},'text/csv',${f.bytes.length},
+					'pending',${`evry-attachment/${c.id}/${f.id}`},0,clock_timestamp()+make_interval(hours=>${ATTACHMENTS.stagingHours}))`);
+		const submitted = await submitTurn(db, actor, c.id, {
+			requestKey: randomUUID(),
+			text: "Golden eval",
+			attachments: files.map((f) => ({ id: f.id, name: f.name })),
+		});
+		for (const f of files.filter((x) => x.checked)) {
+			const result = await invokeRead(db, actor, previewImport as ReadAdapter<unknown>, { attachmentId: f.id }, null, {
+				read: async () => f.bytes,
+			});
+			await db.execute(sql`WITH c AS (UPDATE conversation SET last_sequence=last_sequence+1 WHERE id=${c.id}::uuid RETURNING id,last_sequence)
+				INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
+				SELECT id,last_sequence,${submitted.turnId}::uuid,'tool_result',${JSON.stringify({ operation: "people.previewImport", input: { attachmentId: f.id }, result })}::jsonb FROM c`);
+		}
 		const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
 		if (claim?.id !== submitted.turnId) throw Error("another assistant turn was due: the eval schema is not its own");
 		const lease: RunLease = {
@@ -293,17 +337,44 @@ function openConversation(db: GoldenChurch["db"], actor: EvryActor) {
 	return opened;
 }
 
+export type CaseFile = {
+	id: string;
+	name: string;
+	csv?: string;
+	docx?: string[];
+	base64?: string;
+	checked?: boolean;
+};
+type Attached = CaseFile & { bytes: Uint8Array };
+const fill = (csv: string) =>
+	csv.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => byName(name)[field] ?? "");
+const HEADING = W.styles(W.style("Heading1", "heading 1"));
+const bytesOf = (f: CaseFile): Uint8Array =>
+	f.base64 !== undefined
+		? Buffer.from(f.base64, "base64")
+		: f.docx
+			? W.word(
+					f.docx.map((line) => (line.startsWith("# ") ? W.styled("Heading1", line.slice(2)) : W.p(line))).join(""),
+					{ styles: HEADING },
+				)
+			: new TextEncoder().encode(fill(f.csv ?? ""));
+
 export async function converse(
 	church: GoldenChurch,
 	as: ActorName,
 	text: string,
 	history: Turn[] = [],
+	attachments: CaseFile[] = [],
+	override?: LanguageModelV4,
+	page?: string,
 ): Promise<Conversation> {
 	const { db } = church;
 	const actor = church.actors[as];
 	const keys: string[] = [];
-	const model = golden.model(keys);
-	const catalog = readCatalog(actor, RECORDED);
+	const inputs: string[] = [];
+	const model = override ?? golden.model(keys, inputs);
+	const offered = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
+	const catalog = readCatalog(actor, offered);
 	const calls: ToolCall[] = [];
 	const proposals: Proposal[] = [];
 	const classified = await classifyRequest(model, text, AbortSignal.timeout(60_000));
@@ -313,7 +384,8 @@ export async function converse(
 			calls,
 			proposals,
 			keys,
-			answer: classified.kind === "pastoral_boundary" ? PASTORAL_BOUNDARY : describeCatalog(catalog),
+			inputs,
+			answer: classified.kind === "pastoral_boundary" ? PASTORAL_BOUNDARY : capabilitiesAnswer(catalog, actor),
 		};
 
 	const events = history.map(
@@ -324,15 +396,38 @@ export async function converse(
 				body: { text: "user" in t ? t.user : t.assistant },
 			}) as unknown as ConversationEvent,
 	);
+	const files: Attached[] = attachments.map((f) => ({ ...f, bytes: bytesOf(f) }));
+	const attachedAt = new Date(NOW.getTime() - 5 * 60_000);
+	const state = {
+		attachments: files.map((f) => ({
+			id: f.id,
+			name: f.name,
+			attachedAt,
+			availableUntil: new Date(attachedAt.getTime() + ATTACHMENTS.stagingHours * 3_600_000),
+			status: "available" as const,
+			checkedDigest: f.checked ? createHash("sha256").update(f.bytes).digest("hex") : null,
+		})),
+		reviews: [],
+	};
 	const context = compileContext({
 		actor,
 		catalog,
 		history: events,
 		text,
-		references: [],
+		references: await resolveReferences(db, actor, page ? [{ kind: "article", slug: page }] : []),
 		now: NOW,
+		state,
 		settingsGuidance: false,
 	});
+	const conversationFiles = {
+		read: async (id: string) => {
+			const f = files.find((x) => x.id === id);
+			if (!f) throw new EvryRefusal("attachment_elsewhere");
+			return f.bytes;
+		},
+	};
+	let cards = 0;
+	const saved = new Set<ToolCall>();
 	const results = new Map<number, SourceResult>();
 	let sequence = 0;
 	let toolCalls = 0;
@@ -362,9 +457,14 @@ export async function converse(
 				calls.push(call);
 				const resultId = ++sequence;
 				try {
-					call.result = await invokeRead(db, actor, adapter, input);
+					call.result = await invokeRead(db, actor, adapter, input, null, conversationFiles);
 					return keep(resultId, call.result);
 				} catch (error) {
+					if (
+						error instanceof EvryRefusal &&
+						(error.code === "attachment_elsewhere" || error.code === "attachment_gone")
+					)
+						return ((call.error = error.code), { error: error.code });
 					const code = error instanceof EvryRefusal ? error.code : "source_unavailable";
 					call.error = code;
 					failed ??= code;
@@ -393,28 +493,45 @@ export async function converse(
 				});
 			}),
 			propose: inOrder(async (call: { operation: string; input: unknown }) => {
+				if (++cards > LIMITS.reviewCards) return { error: "review_limit" };
 				if (!admit()) return { error: "tool_budget" };
 				const card: Proposal = { operation: call.operation, input: call.input, prepared: false, review: null };
 				proposals.push(card);
 				const number = proposals.length;
-				const open = await (conversation ??= openConversation(db, actor));
-				const proposal = await prepareProposal(db, actor, open.lease, open.id, call, MAIL).catch((error) =>
-					error instanceof EvryRefusal ? error.code : "unknown",
+				const open = await (conversation ??= openConversation(db, actor, files));
+				for (const check of calls.filter((x) => x.operation === "people.previewImport" && x.result && !saved.has(x))) {
+					saved.add(check);
+					await db.execute(sql`WITH c AS (UPDATE conversation SET last_sequence=last_sequence+1 WHERE id=${open.id}::uuid RETURNING id,last_sequence)
+					INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
+					SELECT id,last_sequence,${open.lease.turnId}::uuid,'tool_result',${JSON.stringify({ operation: check.operation, input: check.input, result: check.result })}::jsonb FROM c`);
+				}
+				const proposal = await prepareProposal(
+					db,
+					actor,
+					open.lease,
+					open.id,
+					call,
+					MAIL,
+					null,
+					conversationFiles,
+				).catch((error: unknown) =>
+					error instanceof EvryRefusal ? { error: error.code, problem: error.problem } : { error: "unknown" },
 				);
-				if (typeof proposal === "string" || !proposal) {
-					card.error = proposal || "source_unavailable";
-					return { error: card.error };
+				if (!proposal || "error" in proposal) {
+					card.error = proposal?.error ?? "source_unavailable";
+					return { error: card.error, ...(proposal?.problem && { problem: proposal.problem }) };
 				}
 				card.prepared = true;
 				card.review = proposal.review;
 				return proposalForModel({
 					...proposal,
+					review: pinnedContactTime(proposal.review, call.input),
 					id: `5b6d1f0e-0000-4000-8000-${(0x7000 + number).toString(16).padStart(12, "0")}`,
 					expiresAt: new Date(NOW.getTime() + REVIEW_MINUTES * 60_000),
 				});
 			}),
 		},
-		RECORDED,
+		offered,
 	);
 
 	const run = streamText({
@@ -435,7 +552,30 @@ export async function converse(
 		else if (part.type === "error" && !abort.signal.aborted) failure ??= part.error;
 	}
 	if (failure) throw failure;
-	return { kind: "application", calls, proposals, answer, keys, ...(failed ? { failed } : {}) };
+	return { kind: "application", calls, proposals, answer, keys, inputs, ...(failed ? { failed } : {}) };
+}
+
+function pinnedContactTime<R extends { changes: { field: string; after: unknown }[] }>(review: R, input: unknown): R {
+	if ((input as { occurred?: unknown } | null)?.occurred === undefined) return review;
+	const changes = review.changes.map((c) => {
+		const zone = c.field === "occurredAt" && typeof c.after === "string" ? c.after.split(" ").at(-1) : undefined;
+		if (!zone?.includes("/")) return c;
+		const part = (type: string) =>
+			new Intl.DateTimeFormat("en-US", {
+				timeZone: zone,
+				year: "numeric",
+				month: "2-digit",
+				day: "2-digit",
+				hour: "2-digit",
+				minute: "2-digit",
+				hourCycle: "h23",
+			})
+				.formatToParts(NOW)
+				.find((p) => p.type === type)!.value;
+		const now = `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")} ${zone}`;
+		return String(c.after) >= now ? { ...c, after: now } : c;
+	});
+	return { ...review, changes };
 }
 
 export const RUBRIC = {

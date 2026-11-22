@@ -93,9 +93,11 @@ export function assignmentWriter(reminders: TaskReminders) {
 					const next: TaskRow = {
 						...row,
 						assignees: sortPeople(
-							v.assigneeIds.map(
-								(id) => row.assignees.find((a) => a.accountId === id) ?? added.find((a) => a.accountId === id)!,
-							),
+							v.assigneeIds.map((id) => {
+								const person = row.assignees.find((a) => a.accountId === id) ?? added.find((a) => a.accountId === id);
+								if (!person) throw Error(`assignee ${id} was neither held nor checked`);
+								return person;
+							}),
 						),
 					};
 					const changed = JSON.stringify(idsOf(row.assignees)) !== JSON.stringify(idsOf(next.assignees));

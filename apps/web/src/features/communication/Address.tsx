@@ -16,6 +16,7 @@ import { createRead, useRead } from "../../components/read.tsx";
 import { restoreOwnSuppression } from "./actions.ts";
 import { readOwnSuppression } from "./fetch.ts";
 import { outcomeText, restoreText, type RestoreReport, type SuppressionReport } from "./model.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 import { useKeys } from "./useKeys.ts";
@@ -23,7 +24,7 @@ import { useKeys } from "./useKeys.ts";
 type Notice = { text: string; tone: "alert" | "status" };
 
 export const ownSuppression = createRead(() => readOwnSuppression(), {
-	failed: (): Outcome<SuppressionReport> => ({ status: "lost" }),
+	failed: (): Outcome<SuppressionReport> | ReadFailure => ({ status: "lost" }),
 });
 
 export function Address() {

@@ -136,7 +136,7 @@ export function avatarOperations(
 				const v = parse(q.removeAvatarRequest, raw);
 				const a = await self(s, ctx);
 				const c = await begin(s, { ...ctx }, a.account.id, "account.removeAvatar", v);
-				const absent = q.avatarResult.parse({ status: "absent" });
+				const absent = { status: "absent" } satisfies z.output<typeof q.avatarResult>;
 				if (c.kind === "replay") return absent;
 				revision(v.expectedRevision, a.account.revision);
 				await change(s, c, a.account, null);
