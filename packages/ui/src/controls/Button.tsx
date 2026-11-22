@@ -5,7 +5,7 @@ import { cn, Icon, type IconSvgElement } from "../foundations";
 import { Spinner } from "./Spinner";
 
 export const buttonVariants = cva(
-	"relative inline-flex flex-none items-center justify-center gap-2 whitespace-nowrap font-medium select-none transition-[background-color,box-shadow,translate,opacity] duration-150 active:translate-y-px disabled:opacity-45 disabled:active:translate-y-0",
+	"relative inline-flex flex-none items-center justify-center gap-2 whitespace-nowrap font-medium select-none transition-[background-color,box-shadow,translate,opacity] duration-150 motion-reduce:transition-[background-color,box-shadow,opacity] active:translate-y-px disabled:opacity-45 disabled:active:translate-y-0",
 	{
 		variants: {
 			variant: {
