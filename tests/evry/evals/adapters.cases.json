@@ -1160,6 +1160,7 @@
 		"near_miss": false,
 		"question": "what tasks do I have due this week?",
 		"eval": {
+			"journey": "own-task",
 			"calls": [
 				{
 					"operation": "tasks.list",
@@ -1559,6 +1560,7 @@
 		"near_miss": false,
 		"question": "add a task to order name tags by Friday and give it to Lena",
 		"eval": {
+			"journey": "own-task",
 			"proposals": [
 				{
 					"operation": "tasks.create",
@@ -2394,6 +2396,7 @@
 		"near_miss": false,
 		"question": "stop emailing me task reminders",
 		"eval": {
+			"journey": "notification",
 			"proposals": [
 				{
 					"operation": "notifications.setPreferences",
@@ -5927,6 +5930,7 @@
 		"near_miss": false,
 		"question": "add Carlos Mendez to thursday's vision night guest list",
 		"eval": {
+			"journey": "invitation",
 			"proposals": [
 				{
 					"operation": "meetings.inviteGuest",
@@ -6666,6 +6670,7 @@
 		"near_miss": false,
 		"question": "can I download Ana Rivera's signed commitment card?",
 		"eval": {
+			"journey": "commitment",
 			"calls": [
 				{
 					"operation": "people.getCommitments",
@@ -6758,6 +6763,7 @@
 		"near_miss": true,
 		"question": "what's on Ana Rivera's commitment card?",
 		"eval": {
+			"journey": "commitment",
 			"as": "member",
 			"only": ["people.listPeople", "people.getPerson"],
 			"require": ["/\\bOwners?\\b.{0,12}\\bAdmins?\\b|\\bAdmins?\\b.{0,12}\\bOwners?\\b/i"],

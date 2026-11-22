@@ -1806,9 +1806,7 @@ const classParts = (node) =>
 					: node.type === "ArrayExpression"
 						? node.elements.flatMap((element) => (element ? classParts(element) : []))
 						: node.type === "ObjectExpression"
-							? node.properties.flatMap((property) =>
-									property.type === "Property" && !property.computed ? classParts(property.key) : [],
-								)
+							? node.properties.flatMap((property) => (property.type === "Property" ? classParts(property.key) : []))
 							: [];
 
 const sharedNotice = {
@@ -1852,7 +1850,7 @@ const attributeStrings = (attribute) =>
 		: stringsIn(attribute.value);
 const HIDING_CLASSES = new Set(["hidden", "invisible"]);
 const hidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, "").split(":").at(-1));
-const OFF_VALUES = { hidden: [false], "aria-hidden": [false, "false"] };
+const OFF_VALUES = { hidden: [false], inert: [false], "aria-hidden": [false, "false"] };
 const switchedOff = (attribute, name) => {
 	const value = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
 	return value?.type === "Literal" && OFF_VALUES[name].includes(value.value);
@@ -1873,16 +1871,21 @@ const liveRegionInTree = {
 				const liveValues = live ? attributeStrings(live) : [];
 				const announces =
 					(live && !(liveValues.length && liveValues.every((value) => value === "off"))) ||
-					(role && attributeStrings(role).some((value) => LIVE_ROLES.has(value)));
+					(role && attributeStrings(role).some((value) => LIVE_ROLES.has(value))) ||
+					(!live && !role && node.name.type === "JSXIdentifier" && node.name.name === "output");
 				if (!announces) return;
 				const className = jsxAttribute(node, "className");
 				const hiddenClass = className && attributeStrings(className).some((s) => s.split(/\s+/).some(hidingToken));
-				const hiding = (hiddenClass && className) || setAttribute(node, "hidden") || setAttribute(node, "aria-hidden");
+				const hiding =
+					(hiddenClass && className) ||
+					setAttribute(node, "hidden") ||
+					setAttribute(node, "inert") ||
+					setAttribute(node, "aria-hidden");
 				if (!hiding) return;
 				context.report({
 					node: hiding,
 					message:
-						"A live region (aria-live, or role status, alert or log) that is hidden, invisible or aria-hidden leaves the accessibility tree, so what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
+						"A live region (aria-live, role status, alert or log, or an output element) that is hidden, invisible, inert or aria-hidden leaves the accessibility tree, so what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
 				});
 			},
 		};
@@ -3271,28 +3274,39 @@ export const OUTCOME_MODULE = "packages/contracts/src/common/values.ts";
 const OUTCOME_SOURCE = "@everyfield/contracts/common";
 const OUTCOME_SCOPE = /^(apps\/web\/src|packages\/[^/]+\/src)\//;
 const statusLiterals = (type) =>
-	type?.type === "TSLiteralType" && typeof type.literal.value === "string"
-		? [type.literal.value]
+	type?.type === "TSLiteralType"
+		? [keyName(type.literal, false)]
 		: type?.type === "TSUnionType"
 			? type.types.flatMap(statusLiterals)
 			: [];
 const propertiesOf = (member) =>
 	member.type === "TSTypeLiteral"
-		? member.members.filter((m) => m.type === "TSPropertySignature" && m.key.type === "Identifier")
+		? member.members.flatMap((m) =>
+				m.type === "TSPropertySignature" ? [{ name: keyName(m.key, m.computed), type: m.typeAnnotation }] : [],
+			)
 		: member.type === "TSIntersectionType"
 			? member.types.flatMap(propertiesOf)
 			: [];
 const memberStatuses = (member) =>
 	propertiesOf(member)
-		.filter((m) => m.key.name === "status")
-		.flatMap((m) => statusLiterals(m.typeAnnotation?.typeAnnotation));
+		.filter((m) => m.name === "status")
+		.flatMap((m) => statusLiterals(m.type?.typeAnnotation));
 const referenceName = (type) =>
 	type?.type === "TSTypeReference" && type.typeName.type === "Identifier" ? type.typeName.name : null;
+const REPLY_SOURCE = /^@everyfield\/contracts\/[\w/-]+$/;
+const sharedPiece = (source, name) =>
+	source === OUTCOME_SOURCE && name === "Lost"
+		? "lost"
+		: (source === OUTCOME_SOURCE && name === "Reply") || /\wReply$/.test(name)
+			? "reply"
+			: null;
 const OUTCOME_MESSAGE = `Import Outcome from ${OUTCOME_SOURCE} and specialize it (type Name<T> = Shared<T, Code, Extra>), so every feature answers the same union.`;
 const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 	const path = repoPath(context.filename);
 	if (path === OUTCOME_MODULE || !OUTCOME_SCOPE.test(path)) return {};
 	const shared = new Map();
+	const imported = new Map();
+	const namespaces = new Map();
 	const aliases = new Map();
 	const candidates = [];
 	const members = (type, seen) => {
@@ -3304,18 +3318,29 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 		}
 		return [type];
 	};
-	const statusesOf = (member) => (shared.get(referenceName(member)) === "Lost" ? ["lost"] : memberStatuses(member));
+	const pieceOf = (member) => {
+		if (member?.type !== "TSTypeReference") return null;
+		const { typeName } = member;
+		if (typeName.type === "Identifier") return imported.get(typeName.name) ?? null;
+		return typeName.type === "TSQualifiedName" &&
+			typeName.left.type === "Identifier" &&
+			namespaces.has(typeName.left.name)
+			? sharedPiece(namespaces.get(typeName.left.name), typeName.right.name)
+			: null;
+	};
+	const statusesOf = (member) =>
+		({ lost: ["lost"], reply: ["ok", "refused"] })[pieceOf(member)] ?? memberStatuses(member);
+	const okValue = (member) =>
+		pieceOf(member) === "reply" ||
+		(memberStatuses(member).includes("ok") && propertiesOf(member).some((m) => m.name === "value"));
+	const shaped = (all) => {
+		const statuses = new Set(all.flatMap(statusesOf));
+		return all.some(okValue) && statuses.has("refused") && statuses.has("lost");
+	};
 	const outcomeShaped = (type) => {
 		if (type?.type !== "TSUnionType") return false;
 		const all = members(type, new Set());
-		const statuses = new Set(all.flatMap(statusesOf));
-		return (
-			all.some(
-				(member) => memberStatuses(member).includes("ok") && propertiesOf(member).some((m) => m.key.name === "value"),
-			) &&
-			statuses.has("refused") &&
-			statuses.has("lost")
-		);
+		return shaped(all) && !shaped(all.filter(pieceOf));
 	};
 	const childTypes = (type) =>
 		[
@@ -3339,9 +3364,15 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 	const typeOf = (node) => inline.push(node.typeAnnotation);
 	return {
 		ImportDeclaration(node) {
-			if (node.source.value !== OUTCOME_SOURCE) return;
+			const source = node.source.value;
+			if (!REPLY_SOURCE.test(source)) return;
 			for (const spec of node.specifiers)
-				if (spec.type === "ImportSpecifier") shared.set(spec.local.name, nameOf(spec.imported));
+				if (spec.type === "ImportNamespaceSpecifier") namespaces.set(spec.local.name, source);
+				else if (spec.type === "ImportSpecifier") {
+					const piece = sharedPiece(source, nameOf(spec.imported));
+					if (piece) imported.set(spec.local.name, piece);
+					if (source === OUTCOME_SOURCE) shared.set(spec.local.name, nameOf(spec.imported));
+				}
 		},
 		TSTypeAliasDeclaration(node) {
 			aliases.set(node.id.name, node.typeAnnotation);
@@ -3632,13 +3663,18 @@ const strictContracts = {
 					else if (LOOSE_OBJECTS.has(imported)) loose.add(spec.local.name);
 				}
 			},
+			ExportAllDeclaration(node) {
+				if (/^zod(?:\/|$)/.test(node.source.value)) refuse(node);
+			},
 			ExportNamedDeclaration(node) {
 				if (!/^zod(?:\/|$)/.test(node.source?.value ?? "")) return;
 				for (const spec of node.specifiers) if (LOOSE_OBJECTS.has(nameOf(spec.local))) refuse(spec);
 			},
 			VariableDeclarator(node) {
 				const init = unwrapped(node.init);
-				if (node.id.type !== "ObjectPattern" || init?.type !== "Identifier" || !namespaces.has(init.name)) return;
+				if (init?.type !== "Identifier" || !namespaces.has(init.name)) return;
+				if (node.id.type === "Identifier") namespaces.add(node.id.name);
+				if (node.id.type !== "ObjectPattern") return;
 				for (const property of node.id.properties)
 					if (property.type === "Property" && LOOSE_OBJECTS.has(keyName(property.key, property.computed)))
 						refuse(property);
@@ -3834,6 +3870,48 @@ const stableContextValue = {
 
 const TEST_HOSTS = new Set(["test", "it", "default"]);
 
+const CONFIRM_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
+const confirmKeepsRefusal = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!CONFIRM_CODE.test(repoPath(context.filename))) return {};
+		const handlerOf = (node) => {
+			if (FUNCTIONS.has(node?.type)) return node;
+			if (node?.type !== "Identifier") return null;
+			for (let scope = context.sourceCode.getScope(node); scope; scope = scope.upper) {
+				const def = scope.set?.get(node.name)?.defs?.[0];
+				if (!def) continue;
+				if (def.node.type === "FunctionDeclaration") return def.node;
+				return def.node.type === "VariableDeclarator" &&
+					def.parent?.kind === "const" &&
+					FUNCTIONS.has(def.node.init?.type)
+					? def.node.init
+					: null;
+			}
+			return null;
+		};
+		return {
+			JSXAttribute(node) {
+				if (node.name.name !== "onConfirm" || node.value?.type !== "JSXExpressionContainer") return;
+				const fn = handlerOf(node.value.expression);
+				if (fn?.body.type !== "BlockStatement") return;
+				if (walkOwn(fn.body, (n) => n.type === "ReturnStatement" && n.argument !== null)) return;
+				for (const statement of fn.body.body)
+					if (
+						statement.type === "ExpressionStatement" &&
+						statement.expression.type === "AwaitExpression" &&
+						statement.expression.argument.type === "CallExpression"
+					)
+						context.report({
+							node: statement,
+							message:
+								"This onConfirm awaits a call and drops its answer, so a refusal the call returns never reaches the dialog. Return it (return handler()), or turn its refusal into return { refused } here.",
+						});
+			},
+		};
+	},
+};
+
 const oneTopLevelBefore = {
 	meta: { type: "problem" },
 	create(context) {
@@ -3945,5 +4023,6 @@ export default {
 		"stable-context-value": stableContextValue,
 		"live-region-in-tree": liveRegionInTree,
 		"one-top-level-before": oneTopLevelBefore,
+		"confirm-keeps-refusal": confirmKeepsRefusal,
 	},
 };

@@ -1317,6 +1317,9 @@ export const AJ = () => <p className="rounded-md bg-[var(--ef-amber-50)] px-4 py
 export const AK = () => <p className="rounded-lg bg-(--ef-amber-100)/80 p-3">x</p>;
 export const AL = (on) => cn("rounded-md px-4 py-3", { "bg-surface-2": on, open: on });
 export const AM = () => <span className="rounded-pill bg-[var(--ef-amber-100)] px-2 py-0.5">x</span>;
+export const AN = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-50"]: on });
+export const AO = (on) => cn("rounded-lg p-3", { [\`bg-magenta-100\`]: on });
+export const AP = (on, tone) => cn("rounded-md px-4 py-3", { [tone]: on });
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1324,13 +1327,13 @@ export const AM = () => <span className="rounded-pill bg-[var(--ef-amber-100)] p
 	}).filter((hit) => hit.endsWith(" shared-notice"));
 	assert.deepEqual(
 		reported.sort(),
-		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37]
+		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37, 40, 41]
 			.map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`)
 			.sort(),
 	);
 });
 
-test("INV-a11y: a live region in apps/web or packages/ui is never hidden, invisible or aria-hidden, so it stays in the accessibility tree", () => {
+test("INV-a11y: a live region in apps/web or packages/ui (an output element included) is never hidden, invisible, inert or aria-hidden, so it stays in the accessibility tree", () => {
 	const code = `export const A = ({ m }) => <div aria-live="polite" className="empty:hidden">{m}</div>;
 export const B = ({ m }) => <p role="status" className={cn("text-sm", !m && "hidden")}>{m}</p>;
 export const C = ({ m, tone }) => <div role={tone ? "alert" : "status"} hidden={!m}>{m}</div>;
@@ -1345,6 +1348,13 @@ export const K = ({ m, open }) => <div role="status" aria-hidden={!open}>{m}</di
 export const L = ({ m }) => <div role="status" hidden={false} aria-hidden={false}>{m}</div>;
 export const M = ({ m }) => <div aria-live="polite" aria-hidden="false" className="visible">{m}</div>;
 export const N = ({ m }) => <div role="status" hidden="false">{m}</div>;
+export const O = ({ m, busy }) => <div aria-live="polite" inert={busy}>{m}</div>;
+export const P = ({ m }) => <output className="empty:hidden">{m}</output>;
+export const Q = ({ m }) => <div role="status" inert={false}>{m}</div>;
+export const R = ({ m }) => <output aria-live="off" className="hidden">{m}</output>;
+export const S = ({ m }) => <output role="presentation" hidden>{m}</output>;
+export const T = ({ m }) => <output inert>{m}</output>;
+export const U = ({ m }) => <section className="hidden">{m}</section>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1354,7 +1364,9 @@ export const N = ({ m }) => <div role="status" hidden="false">{m}</div>;
 	assert.deepEqual(
 		reported.sort(),
 		["apps/web/src/features/x/Notice.tsx", "packages/ui/src/controls/x.tsx"]
-			.flatMap((path) => [1, 2, 3, 4, 8, 9, 10, 11, 14].map((line) => `${path}:${line} live-region-in-tree`))
+			.flatMap((path) =>
+				[1, 2, 3, 4, 8, 9, 10, 11, 14, 15, 16, 20].map((line) => `${path}:${line} live-region-in-tree`),
+			)
 			.sort(),
 	);
 });
@@ -2167,6 +2179,77 @@ type No = { status: "refused" };
 	);
 });
 
+test("INV-lint: a union that writes part of the ok value / refused / lost shape beside a contracts reply, a namespace Lost or under quoted keys and template statuses is reported; a union of contracts replies and the shared Lost alone is not", () => {
+	const source = `import type { Lost, Reply as Base } from "@everyfield/contracts/common";
+import type * as common from "@everyfield/contracts/common";
+import type { MeetingsReply, meetingsError } from "@everyfield/contracts/meetings";
+import type * as teams from "@everyfield/contracts/teams";
+import type { DomainReply } from "@everyfield/domain/meetings";
+type Composed<T> = MeetingsReply<T> | Lost;
+type Spaced<T> = teams.TeamsReply<T> | common.Lost;
+type Extra<T> = MeetingsReply<T> | Lost | { status: "deleted" };
+type Through<T> = Composed<T> | { status: "signed_out" };
+type Shared<T> = common.Outcome<T> | { status: "deleted" };
+type HandLost<T> = MeetingsReply<T> | { status: "lost" };
+type SpacedHand<T> = teams.TeamsReply<T> | { status: "lost" };
+type BaseHand<T> = Base<T, string> | { status: "lost" };
+type SpacedBase<T> = common.Reply<T, string> | { status: "lost" };
+type HandReply<T> = { status: "ok"; value: T } | { status: "refused" } | common.Lost;
+type Quoted<T> = { "status": "ok"; ["value"]: T } | { 'status': "refused" } | { "status": "lost" };
+type Template<T> = { status: \`ok\`; value: T } | { status: \`refused\` } | { status: \`lost\` };
+type Foreign<T> = DomainReply<T> | { status: "lost" };
+type NotReply = meetingsError | { status: "refused" } | { status: "lost" };
+type OtherSpace<T> = other.MeetingsReply<T> | { status: "lost" };
+type Numeric<T> = { status: 1; value: T } | { status: "refused" } | Lost;
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/server.ts": source }).filter((hit) => hit.endsWith("shared-outcome")),
+		[11, 12, 13, 14, 15, 16, 17].map((line) => `apps/web/src/features/x/server.ts:${line} shared-outcome`),
+	);
+});
+
+test("INV-lint: an onConfirm that awaits a call as a statement and never returns a value is reported, inline or through a local function or const; one that returns, awaits in a branch or only awaits a value is not", () => {
+	const source = `import { ConfirmDialog } from "@everyfield/ui/controls";
+async function named() {
+	await handler();
+}
+const wrapped = async () => {
+	await handler();
+	close();
+};
+let later = async () => { await handler(); };
+const made = make();
+export function A({ handler, x }) {
+	return [
+		<ConfirmDialog onConfirm={async () => { await handler(); }} />,
+		<ConfirmDialog onConfirm={named} />,
+		<ConfirmDialog onConfirm={wrapped} />,
+		<ConfirmDialog onConfirm={async function () { await handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { const run = async () => { return 1; }; await run(); }} />,
+		<ConfirmDialog onConfirm={async () => { await handler(); return; }} />,
+		<ConfirmDialog onConfirm={() => handler()} />,
+		<ConfirmDialog onConfirm={async () => { return await handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { const r = await handler(); if (r) return r; }} />,
+		<ConfirmDialog onConfirm={async () => { if (x) await handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { await prepare(); return handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { await handler; }} />,
+		<ConfirmDialog onConfirm={async () => { handler(); }} />,
+		<ConfirmDialog onConfirm={later} />,
+		<ConfirmDialog onConfirm={made} />,
+		<ConfirmDialog onCancel={async () => { await handler(); }} />,
+	];
+}
+`;
+	const hits = (path) =>
+		lint({ [path]: source })
+			.filter((hit) => hit.endsWith(" confirm-keeps-refusal"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10))
+			.sort((a, b) => a - b);
+	assert.deepEqual(hits("apps/web/src/features/x/Confirm.tsx"), [3, 6, 13, 16, 17, 18]);
+	assert.deepEqual(hits("packages/ui/src/controls/Confirm.tsx"), [3, 6, 13, 16, 17, 18]);
+	assert.deepEqual(hits("packages/domain/src/x/Confirm.tsx"), []);
+});
+
 test("INV-lint: a context value built during render is reported through aliases, casts, conditionals and outer bindings; every context and alias of one is a const named *Context; stable values are not", () => {
 	const source = `import React, { createContext, useCallback, useMemo } from "react";
 type T = { theme: string };
@@ -2289,7 +2372,7 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 	);
 });
 
-test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased, destructured or re-exported, unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
+test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased (the namespace too), destructured or re-exported (export * included), unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
 	const loose = `import { z } from "zod";
 import * as zz from "zod/v4";
 import { object as plain } from "zod";
@@ -2312,6 +2395,16 @@ export const l = aliased({});
 export { looseObject } from "zod";
 export const m = strictObject({ id: z.string() });
 const { looseObject: viaCast } = z as typeof z;
+const y = z;
+export const n = y.object({});
+const w = y as typeof z;
+export const o2 = w.strictObject({ id: y.string() });
+export * from "zod";
+export * as zod from "zod/v4";
+const other = { object: (shape) => shape };
+const q = other;
+export const p = q.object({});
+export * from "./more";
 `;
 	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" strict-contracts"));
 	assert.deepEqual(reported({ "packages/contracts/src/x/index.ts": loose, "packages/domain/src/x.ts": loose }), [
@@ -2324,6 +2417,9 @@ const { looseObject: viaCast } = z as typeof z;
 		"packages/contracts/src/x/index.ts:18 strict-contracts",
 		"packages/contracts/src/x/index.ts:20 strict-contracts",
 		"packages/contracts/src/x/index.ts:22 strict-contracts",
+		"packages/contracts/src/x/index.ts:24 strict-contracts",
+		"packages/contracts/src/x/index.ts:27 strict-contracts",
+		"packages/contracts/src/x/index.ts:28 strict-contracts",
 		"packages/contracts/src/x/index.ts:4 strict-contracts",
 		"packages/contracts/src/x/index.ts:5 strict-contracts",
 		"packages/contracts/src/x/index.ts:5 strict-contracts",
