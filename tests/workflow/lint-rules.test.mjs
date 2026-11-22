@@ -2623,6 +2623,48 @@ export function A({ handler, x }) {
 	);
 });
 
+test("INV-lint: an onConfirm reads a plain nested block like its body, and a never-awaiting async handler is reported at its last call that is not the setter of a same-file useState", () => {
+	const source = `import React, { useState } from "react";
+const setLater = (value) => value;
+export function A({ handler, setOpen }) {
+	const [busy, setBusy] = useState(false);
+	const [count, setCount] = React.useState(0);
+	const [setFirst] = useState(null);
+	const { setX } = useStore();
+	const [, setMemo] = useMemo(() => [], []);
+	const [, setPair] = pair;
+	const [open, toggle] = useState(false);
+	return [
+		<ConfirmDialog onConfirm={async () => { { await handler(); } }} />,
+		<ConfirmDialog onConfirm={async () => { { { handler().then(close); } } }} />,
+		<ConfirmDialog onConfirm={async () => { handler(); setBusy(true); }} />,
+		<ConfirmDialog onConfirm={async () => { setOpen(false); }} />,
+		<ConfirmDialog onConfirm={async () => { setLater(1); }} />,
+		<ConfirmDialog onConfirm={async () => { setFirst(1); }} />,
+		<ConfirmDialog onConfirm={async () => { setX(1); }} />,
+		<ConfirmDialog onConfirm={async () => { setMemo(1); }} />,
+		<ConfirmDialog onConfirm={async () => { setBusy(true); }} />,
+		<ConfirmDialog onConfirm={async () => { bump(count); setCount(0); }} />,
+		<ConfirmDialog onConfirm={async () => { { setBusy(true); } }} />,
+		<ConfirmDialog onConfirm={async () => { { if (busy) await handler(); } }} />,
+		<ConfirmDialog onConfirm={async () => { { await handler(); } return handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { setCount(1); }} />,
+		<ConfirmDialog onConfirm={async () => { setPair(1); }} />,
+		<ConfirmDialog onConfirm={async () => { toggle(!open); }} />,
+		<ConfirmDialog onConfirm={async () => { handler?.(); }} />,
+		<ConfirmDialog onConfirm={async () => { setBusy?.(true); }} />,
+	];
+}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/Confirm.tsx": source })
+			.filter((hit) => hit.endsWith(" confirm-keeps-refusal"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10))
+			.sort((a, b) => a - b),
+		[12, 13, 14, 15, 16, 17, 18, 19, 21, 26, 28],
+	);
+});
+
 test("INV-lint: a context value built during render is reported through aliases, casts, conditionals and outer bindings; every context and alias of one is a const named *Context; stable values are not", () => {
 	const source = `import React, { createContext, useCallback, useMemo } from "react";
 type T = { theme: string };

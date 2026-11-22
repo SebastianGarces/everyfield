@@ -4004,11 +4004,11 @@ const TEST_HOSTS = new Set(["test", "it", "default"]);
 
 const CONFIRM_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
 const SETTLERS = new Set(["then", "catch", "finally"]);
-const isCall = (node) => (node?.type === "ChainExpression" ? node.expression : node)?.type === "CallExpression";
+const callOf = (node) => (node?.type === "ChainExpression" ? node.expression : node);
+const isCall = (node) => callOf(node)?.type === "CallExpression";
 const awaitedCall = (node) => node?.type === "AwaitExpression" && isCall(node.argument);
 const voidedCall = (node) => node?.type === "UnaryExpression" && node.operator === "void" && isCall(node.argument);
-const settledCall = (node) =>
-	isCall(node) && SETTLERS.has(memberName((node.type === "ChainExpression" ? node.expression : node).callee));
+const settledCall = (node) => isCall(node) && SETTLERS.has(memberName(callOf(node).callee));
 const confirmKeepsRefusal = {
 	meta: { type: "problem" },
 	create(context) {
@@ -4032,8 +4032,24 @@ const confirmKeepsRefusal = {
 			!context.sourceCode
 				.getDeclaredVariables(declarator)
 				.some((variable) => variable.references.some((reference) => reference.isRead()));
+		const stateSetter = (callee) => {
+			const def = context.sourceCode.getScope(callee).references.find((reference) => reference.identifier === callee)
+				?.resolved?.defs[0];
+			const declarator = def?.node;
+			return (
+				declarator?.type === "VariableDeclarator" &&
+				declarator.id.type === "ArrayPattern" &&
+				declarator.id.elements[1] === def.name &&
+				declarator.init?.type === "CallExpression" &&
+				calleeName(declarator.init.callee) === "useState"
+			);
+		};
 		const dropping = (statements, found, floating) => {
 			for (const statement of statements) {
+				if (statement.type === "BlockStatement") {
+					dropping(statement.body, found, floating);
+					continue;
+				}
 				if (statement.type === "TryStatement") {
 					dropping(statement.block.body, found, floating);
 					dropping(statement.finalizer?.body ?? [], found, floating);
@@ -4046,7 +4062,7 @@ const confirmKeepsRefusal = {
 				if (statement.type !== "ExpressionStatement") continue;
 				const expression = statement.expression;
 				if (awaitedCall(expression) || voidedCall(expression) || settledCall(expression)) found.push(statement);
-				else if (isCall(expression)) floating.push(statement);
+				else if (isCall(expression) && !stateSetter(callOf(expression).callee)) floating.push(statement);
 			}
 		};
 		const report = (node) =>
