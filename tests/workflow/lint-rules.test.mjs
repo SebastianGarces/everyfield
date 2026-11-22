@@ -380,7 +380,6 @@ test("INV-lint: each listed product timer exempts its one call site, a new timer
 			"packages/evry/src/runtime/observe.ts setTimeout timerPause",
 			"packages/db/src/schema/validate-file.ts setTimeout parser",
 			"packages/db/src/schema/validate-file.ts setTimeout parseOnce",
-			"apps/web/src/features/documents/church/editor/table-extension.ts requestAnimationFrame observer",
 		],
 	);
 	const paths = Object.keys(PRODUCT_TIMERS);
@@ -411,20 +410,12 @@ export function other() {
 	return timer;
 }
 `;
-	const frames = `export const observer = () => {
-	requestAnimationFrame(draw);
-	requestAnimationFrame(widths);
-};
-export const other = () => requestAnimationFrame(widths);
-`;
 	assert.deepEqual(
 		timerHits({
 			"packages/db/src/schema/validate-file.ts": twice,
-			"apps/web/src/features/documents/church/editor/table-extension.ts": frames,
 			"packages/evry/src/runtime/turn.ts": "export const gone = 1;\n",
 		}),
 		[
-			...[2, 5].map((line) => `apps/web/src/features/documents/church/editor/table-extension.ts:${line} no-timers`),
 			...[1, 3, 6, 9, 15, 16, 19].map((line) => `packages/db/src/schema/validate-file.ts:${line} no-timers`),
 			"packages/evry/src/runtime/turn.ts:1 no-timers",
 		].sort(),
