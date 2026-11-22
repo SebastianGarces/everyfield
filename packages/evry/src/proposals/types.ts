@@ -59,6 +59,7 @@ export const importOutcome = z.object({
 export const currentPerson = z.object({ id: z.uuid(), label: z.string(), value: z.string().nullable() });
 type EffectDone = {
 	receiptId?: string;
+	meetingId?: string;
 	revision: string;
 	report?: MailReport;
 	people?: z.infer<typeof personOutcome>[];

@@ -900,3 +900,32 @@ test("INV-result-card-launch-guests: a guest name's People matches are listed un
 		["Ana Silva", "Ben Cho", "Maria Lopez"],
 	);
 });
+
+test("INV-evry-recipes: suggested follow-up steps say what to ask for and link nowhere, so no step runs from the list", () => {
+	const step = (id, label, say) => ({
+		kind: "step",
+		id,
+		label,
+		fields: { order: 1, operation: id, say, review: "its own review card" },
+	});
+	const view = cardView(
+		"evry.readWorkflowHint",
+		result("evry.readWorkflowHint", [
+			step(
+				"meetings.finalizeAttendance",
+				"Mark who came and finalize attendance",
+				"mark <names> as attended and finalize",
+			),
+			step("tasks.createFollowUp", "Create a follow-up with each first-time guest", "create a follow-up with <name>"),
+		]),
+		null,
+	);
+	assert.equal(view.title, "Suggested steps");
+	assert.deepEqual(
+		view.rows.map((r) => [r.name, r.line, r.href, r.mark]),
+		[
+			["Mark who came and finalize attendance", 'Say "mark <names> as attended and finalize"', null, null],
+			["Create a follow-up with each first-time guest", 'Say "create a follow-up with <name>"', null, null],
+		],
+	);
+});
