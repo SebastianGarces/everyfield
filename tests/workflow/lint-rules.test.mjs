@@ -372,14 +372,16 @@ export const other = () => setInterval(() => {}, 15_000);
 
 test("INV-lint: each listed product timer exempts its one call site, a new timer in the same file is reported and a listed timer that is gone is reported as stale", () => {
 	assert.deepEqual(
-		Object.entries(PRODUCT_TIMERS).flatMap(([path, sites]) => sites.map((s) => `${path} ${s.timer} ${s.within}`)),
+		Object.entries(PRODUCT_TIMERS).flatMap(([path, sites]) =>
+			sites.map((s) => `${path} ${s.timer} ${s.within} ${s.delay}`),
+		),
 		[
-			"apps/web/src/server/evry/http.ts setInterval conversationStreamGet",
-			"packages/evry/src/runtime/turn.ts setTimeout run",
-			"packages/evry/src/runtime/model.ts setTimeout transientRetry",
-			"packages/evry/src/runtime/observe.ts setTimeout timerPause",
-			"packages/db/src/schema/validate-file.ts setTimeout parser",
-			"packages/db/src/schema/validate-file.ts setTimeout parseOnce",
+			"apps/web/src/server/evry/http.ts setInterval conversationStreamGet 15_000",
+			"packages/evry/src/runtime/turn.ts setTimeout run LIMITS.wallMs",
+			"packages/evry/src/runtime/model.ts setTimeout transientRetry ms",
+			"packages/evry/src/runtime/observe.ts setTimeout timerPause ms",
+			"packages/db/src/schema/validate-file.ts setTimeout parser STARTUP_MS",
+			"packages/db/src/schema/validate-file.ts setTimeout parseOnce parseMs",
 		],
 	);
 	const paths = Object.keys(PRODUCT_TIMERS);
@@ -393,10 +395,10 @@ test("INV-lint: each listed product timer exempts its one call site, a new timer
 		const timer = setInterval(() => {}, 1);
 		return timer;
 	}
-	const again = setTimeout(() => {}, 1);
-	const timer = setTimeout(() => {}, 1);
+	const again = setTimeout(() => {}, STARTUP_MS);
+	const timer = setTimeout(() => {}, STARTUP_MS);
 	if (retry) {
-		const timer = setTimeout(() => {}, 1);
+		const timer = setTimeout(() => {}, STARTUP_MS);
 		return timer;
 	}
 	return [timer, again];
@@ -419,6 +421,86 @@ export function other() {
 			...[1, 3, 6, 9, 15, 16, 19].map((line) => `packages/db/src/schema/validate-file.ts:${line} no-timers`),
 			"packages/evry/src/runtime/turn.ts:1 no-timers",
 		].sort(),
+	);
+});
+
+test("INV-lint: a listed product timer exempts only the call with its callee, binding, delay and nearest named function, the shallowest on a tie, so a timer placed before it or in a nested function is the one reported", () => {
+	const turn = `export async function run() {
+	if (retry) {
+		const wall = setTimeout(() => {}, LIMITS.wallMs);
+		clearTimeout(wall);
+	}
+	const kick = () => {
+		const wall = setTimeout(() => {}, LIMITS.wallMs);
+		return wall;
+	};
+	const wall = setTimeout(() => {}, LIMITS.wallMs);
+	return [wall, kick];
+}
+`;
+	const observe = `export const timerPause = () => {
+	const helper = () => {
+		const timer = setTimeout(() => {}, ms);
+		return timer;
+	};
+	return helper;
+};
+`;
+	const validate = `export function parser() {
+	function parser() {
+		const timer = setTimeout(() => {}, STARTUP_MS);
+		return timer;
+	}
+	return parser;
+}
+export function parseOnce() {
+	return new Promise((resolve) => {
+		const timer = setTimeout(resolve, parseMs);
+		return timer;
+	});
+}
+`;
+	const model = `export const transientRetry = memo(
+	(
+		sleep = (ms) =>
+			new Promise((resolve) => {
+				const timer = setTimeout(resolve, ms);
+				return timer;
+			}),
+	) => {
+		const timer = setTimeout(sleep, 0);
+		return timer;
+	},
+);
+`;
+	const stream = `export const conversationStreamGet = (ready) => {
+	if (ready) {
+		const heartbeat = setInterval(() => {}, 15_000);
+		return heartbeat;
+	} else {
+		const heartbeat = setInterval(() => {}, 15_000);
+		return heartbeat;
+	}
+};
+`;
+	assert.deepEqual(
+		lint({
+			"packages/evry/src/runtime/turn.ts": turn,
+			"packages/evry/src/runtime/observe.ts": observe,
+			"packages/db/src/schema/validate-file.ts": validate,
+			"packages/evry/src/runtime/model.ts": model,
+			"apps/web/src/server/evry/http.ts": stream,
+		}).filter((hit) => hit.endsWith(" no-timers")),
+		[
+			"apps/web/src/server/evry/http.ts:6 no-timers",
+			"packages/db/src/schema/validate-file.ts:1 no-timers",
+			"packages/db/src/schema/validate-file.ts:3 no-timers",
+			"packages/evry/src/runtime/model.ts:9 no-timers",
+			"packages/evry/src/runtime/observe.ts:1 no-timers",
+			"packages/evry/src/runtime/observe.ts:3 no-timers",
+			"packages/evry/src/runtime/turn.ts:3 no-timers",
+			"packages/evry/src/runtime/turn.ts:7 no-timers",
+		],
 	);
 });
 
@@ -1906,7 +1988,7 @@ export function gate(path: string, out: boolean) {
 	]);
 });
 
-test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper, through a destructured kind or a renamed owner too", () => {
+test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper, through a destructured kind or a renamed owner too, and a same-named parameter in another function is not an owner", () => {
 	const source = `import type { RequestActor } from "@everyfield/domain/access";
 export function a(authority: RequestActor | null) {
 	const context = authority?.actor.context;
@@ -2000,6 +2082,14 @@ export function q(authority: RequestActor) {
 	const { kind: spreadKind } = context.owner as Owner;
 	if (context.kind !== "seat") return null;
 	return [nestedKind === "organization", spreadKind === "organization", (context.owner as Owner).kind === "organization"];
+}
+export function r(authority: RequestActor) {
+	const picked = authority.actor.context.owner;
+	const { kind: pickedKind } = authority.actor.context.owner;
+	return [picked, pickedKind];
+}
+export function s(picked: Owner, pickedKind: string, item: { kind: string }) {
+	return item.kind === "seat" && (picked.kind === "organization" || pickedKind === "organization");
 }
 `;
 	assert.deepEqual(
@@ -2904,7 +2994,7 @@ test("INV-lint: a server action parameter typed as a trusted shape is reported, 
 	);
 });
 
-test("INV-lint: a second top-level node:test before hook is reported in any import form, one before with other hooks and suite-level befores are not", () => {
+test("INV-lint: a second top-level node:test before hook is reported in any import form, one before with other hooks, suite-level befores and a before destructured inside a function are not", () => {
 	const named = `import test, { before, beforeEach, after, describe } from "node:test";
 before(async () => {});
 before(async () => {});
@@ -2963,6 +3053,18 @@ before(() => {});
 before(() => {});
 test.before(() => {});
 `;
+	const scoped = `import test from "node:test";
+import { before } from "./hooks.mts";
+export const { before: exported } = test;
+export function local() {
+	const { before } = test;
+	return before;
+}
+before(() => {});
+before(() => {});
+exported(() => {});
+exported(() => {});
+`;
 	assert.deepEqual(
 		lint({
 			"tests/integration/x/named.test.mts": named,
@@ -2974,6 +3076,7 @@ test.before(() => {});
 			"tests/workflow/single.test.mjs": single,
 			"tests/ui/local.test.mts": local,
 			"tests/ui/other.test.mts": other,
+			"tests/ui/scoped.test.mts": scoped,
 			"tools/ci/named.test.ts": named,
 		}).filter((hit) => hit.endsWith(" one-top-level-before")),
 		[
@@ -2981,6 +3084,7 @@ test.before(() => {});
 			"tests/evry/x/aliased.test.mts:3 one-top-level-before",
 			"tests/integration/x/named.test.mts:3 one-top-level-before",
 			"tests/integration/x/named.test.mts:4 one-top-level-before",
+			"tests/ui/scoped.test.mts:11 one-top-level-before",
 			"tests/unit/x/destructured.test.mts:5 one-top-level-before",
 			"tests/unit/x/it.test.mts:3 one-top-level-before",
 			"tests/unit/x/namespaced.test.mts:3 one-top-level-before",
