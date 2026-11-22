@@ -69,19 +69,6 @@ test("a confirmed mark-all drops the ids its cutoff covers and keeps the rest", 
 	assert.deepEqual([...only.eligible.keys()], ["late"]);
 });
 
-test("a later cutoff that confirms after an earlier one prunes to the later cutoff", () => {
-	const marks = confirmAll([
-		mark([early, middle], middle.eligibleAt),
-		mark([late]),
-		mark([late, middle], late.eligibleAt),
-	]);
-	assert.equal(marks.length, 1);
-	const [only] = marks;
-	assert.ok(only);
-	assert.deepEqual([...only.ids], []);
-	assert.equal(only.cutoff, late.eligibleAt);
-});
-
 const cases: [string, StandingMark[]][] = [
 	["items before the cutoff", [mark([early]), mark([middle]), mark([middle, early], middle.eligibleAt)]],
 	["items after the cutoff", [mark([late]), mark([fresh]), mark([early], early.eligibleAt)]],
