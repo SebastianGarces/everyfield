@@ -1018,14 +1018,14 @@ const commitAll = (dir, message) => {
 	return git(dir, "rev-parse", "HEAD");
 };
 
-test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, Python, plist, ignore-file and new migration comments and every directive", () => {
+test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, Python, plist, ignore-file and new migration comments, except a migration's contract marker with a reason, and every directive", () => {
 	const files = {
 		"packages/ui/src/a.css": `a { color: red; } /* why */\n.b::after { content: "/* not */"; }\n`,
 		"tsconfig.x.json": `{\n\t// why\n\t"a": "http://x"\n}\n`,
 		".github/workflows/x.yml": `name: x # why\non: "#not"\n`,
 		"bin/tool": `#!/bin/sh\n# why\necho "#not"\n`,
 		".gitignore": `# why\nnode_modules\n`,
-		"packages/db/migrations/20990101000000_new.sql": `select '--not';\n-- why\n`,
+		"packages/db/migrations/20990101000000_new.sql": `select '--not';\n-- why\n-- contract: nothing reads it\n-- contract:\n`,
 		"packages/ui/src/b.ts": `export const a = 1;\n// ${DISABLE} x\n/* ${OX_DISABLE} */\n`,
 		"docs/x.css": `/* exempt */\n`,
 		"tools/x.py": `#!/usr/bin/env python3\nprint(f"PR #{1}", '#not', """\n# not\n""")  # why\n`,
@@ -1048,7 +1048,7 @@ test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, Python, plist, 
 		".gitignore:1: 1",
 		"bin/tool:2: 1",
 		"ops/x.plist:2: 1",
-		"packages/db/migrations/20990101000000_new.sql:2: 1",
+		"packages/db/migrations/20990101000000_new.sql:2: 2",
 		"packages/ui/src/a.css:1: 1",
 		"packages/ui/src/b.ts: 2",
 		"tools/x.py:4: 1",
