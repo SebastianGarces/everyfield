@@ -236,7 +236,6 @@ const SETTLED: Record<string, (got: Got) => Promise<void>> = {
 				`- **${text.title}**: ${text.lines.join(" ")} Plants: ${link("Harvest Point")}, ${link("Redeemer Church")}.`,
 			),
 		);
-		answers.set("earlier", got.answer);
 	},
 	"OVS-26": async (got) => {
 		const latest = await view("state");

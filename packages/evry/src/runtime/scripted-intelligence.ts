@@ -226,6 +226,8 @@ const PLACE_ASKS = [
 	WHICH_REGION,
 	NO_REGION,
 	REGION_CHANGED,
+	EARLIER,
+	CHANGED_IN,
 ];
 
 const HISTORY = "organizationIntelligence.readHistory";
@@ -467,7 +469,7 @@ function organizationStep(options: LanguageModelV4CallOptions, text: string, sys
 	if (!tools.some((t) => t.name === "oversight_read")) return null;
 	if (
 		JSON.stringify(tools.find((t) => t.name === "oversight_read")).includes(LOCATIONS) &&
-		[...PLACE_ASKS, EARLIER, CHANGED_IN].some((r) => r.test(text))
+		PLACE_ASKS.some((r) => r.test(text))
 	) {
 		if (proposed(outputs)) return say(REVIEW);
 		return placeStep(text, outputs, (operation, input = {}) => call("oversight_read", { operation, input }));
