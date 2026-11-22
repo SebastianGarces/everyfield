@@ -19,11 +19,13 @@ import {
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
+import { attachedFile } from "../../../attachments/store.ts";
+import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { ownerOrAdmin } from "../../people/commands/index.ts";
 import { failure, problemText } from "../reads/index.ts";
 import type { WriteTx } from "@everyfield/domain/access";
 import { gatedTransaction } from "@everyfield/domain/operations";
+import { present } from "../../../runtime/captured.ts";
 
 type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
 type Run<A> = (tx: WriteTx, context: PeopleContext, args: A, key: string) => Promise<EffectResult>;
@@ -532,7 +534,7 @@ export const addNote = reviewed({
 			FROM person p WHERE ${livePerson(actor, sql`${value.personId}::uuid`)}`;
 	},
 	run: async (tx, context, args: object, key) =>
-		done(await peopleWriter.addNote(tx, context, { ...args, requestKey: key } as never), noteReceipt),
+		done(await peopleWriter.addNote(tx, context, { ...args, requestKey: key }), noteReceipt),
 });
 
 const liveNote = (actor: EvryActor, noteId: string) =>
@@ -556,7 +558,7 @@ export const editNote = reviewed({
 			${liveNote(actor, value.noteId)}`;
 	},
 	run: async (tx, context, args: object, key) =>
-		done(await peopleWriter.editNote(tx, context, { ...args, requestKey: key } as never), noteReceipt),
+		done(await peopleWriter.editNote(tx, context, { ...args, requestKey: key }), noteReceipt),
 });
 export const deleteNote = reviewed({
 	operation: "people.deleteNote",
@@ -571,7 +573,7 @@ export const deleteNote = reviewed({
 			${liveNote(actor, value.noteId)}`;
 	},
 	run: async (tx, context, args: object, key) =>
-		done(await peopleWriter.deleteNote(tx, context, { ...args, requestKey: key } as never), noteReceipt),
+		done(await peopleWriter.deleteNote(tx, context, { ...args, requestKey: key }), noteReceipt),
 });
 
 type Preview = z.infer<typeof importPreview>;
@@ -605,20 +607,47 @@ function plan(preview: Preview, chosen: Map<number, Choice>) {
 	}
 	return { rows, choices, refusal };
 }
-export const executeBulkImport = reviewed({
-	operation: "people.executeBulkImport",
-	description:
-		"Propose importing a people CSV (the same text people.previewImport takes): the review shows each row's planned outcome, and rows that match someone are skipped unless the user chose otherwise. Nothing is imported until the user approves the exact review.",
-	input: z.strictObject({
-		file: z.string().min(1).max(importLimits.bytes).describe("CSV text that uses the import template columns"),
+const importInput = z
+	.strictObject({
+		file: z
+			.string()
+			.min(1)
+			.max(importLimits.bytes)
+			.optional()
+			.describe("CSV text that uses the import template columns, when the user pasted it"),
+		attachmentId: z
+			.uuid()
+			.optional()
+			.describe("The attachmentId of a file attached in this conversation, instead of file"),
+		fileDigest: z
+			.string()
+			.regex(/^[0-9a-f]{64}$/)
+			.optional()
+			.describe("With attachmentId: the fileDigest of that file's latest people.previewImport check here"),
 		choices: z
 			.array(z.strictObject({ row: z.int().min(1), choice: importChoice }))
 			.max(importLimits.rows)
 			.optional()
 			.describe("Only rows the user decided differently from the preview's suggestion"),
-	}),
+	})
+	.refine((v) => (v.file === undefined) !== (v.attachmentId === undefined || v.fileDigest === undefined), {
+		message: "Give file, or attachmentId with fileDigest",
+	});
+async function importBytes(actor: EvryActor, value: z.infer<typeof importInput>, context: ReviewContext) {
+	if (value.file !== undefined) return new TextEncoder().encode(value.file);
+	if (!context.files) throw new EvryRefusal("attachment_elsewhere");
+	const file = await attachedFile(context.db, actor, context.conversationId, present(value.attachmentId));
+	if (file.status === "replaced" || file.checkedDigest !== value.fileDigest) throw new EvryRefusal("file_changed");
+	return context.files.read(file.id);
+}
+
+export const executeBulkImport = reviewed({
+	operation: "people.executeBulkImport",
+	description:
+		"Propose importing a people CSV: pasted text (file, the same text people.previewImport takes) or a file attached in this conversation (attachmentId with the fileDigest of its latest people.previewImport check). The review shows each row's planned outcome, and rows that match someone are skipped unless the user chose otherwise. Nothing is imported until the user approves the exact review.",
+	input: importInput,
 	async review(actor, value, context) {
-		const bytes = new TextEncoder().encode(value.file);
+		const bytes = await importBytes(actor, value, context);
 		const preview = (await gatedTransaction(context.db, (tx) =>
 			peopleCsv.previewImport(tx, new PeopleReadContext(actor.authority), { file: bytes }),
 		)) as Reply<Preview>;
@@ -627,9 +656,11 @@ export const executeBulkImport = reviewed({
 			if (preview.error.code === "unavailable") return null;
 			throw new EvryRefusal("invalid_input");
 		}
+		if (value.fileDigest !== undefined && preview.value.fileDigest !== value.fileDigest)
+			throw new EvryRefusal("file_changed");
 		const { rows, choices, refusal } = plan(preview.value, new Map(value.choices?.map((c) => [c.row, c.choice])));
 		const args: ImportArgs = {
-			file: value.file,
+			file: new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes),
 			fileDigest: preview.value.fileDigest,
 			reviewDigest: preview.value.reviewDigest,
 			choices,

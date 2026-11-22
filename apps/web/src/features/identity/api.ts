@@ -8,14 +8,15 @@ import {
 	registrationResult,
 	signedOutResult,
 } from "@everyfield/contracts/identity";
+import type { Outcome as Shared } from "@everyfield/contracts/common";
 import { z } from "zod";
 
-export type Refusal = { code: z.infer<typeof identityError>["code"]; retryAt: string | null };
-export type Outcome<T> = { ok: true; value: T } | { ok: false; error: Refusal };
+export type Outcome<T> = Shared<T, z.infer<typeof identityError>["code"], { retryAt: string | null }>;
+export type Refusal = Exclude<Outcome<unknown>, { status: "ok" }>;
 
 const signedInResult = z.strictObject({ status: z.literal("signed_in"), returnTo: z.string().nullable() });
 
-const UNAVAILABLE: Refusal = { code: "unavailable", retryAt: null };
+const UNAVAILABLE = { status: "refused", code: "unavailable", retryAt: null } as const;
 
 async function call<T>(path: string, schema: z.ZodType<T>, body?: unknown): Promise<Outcome<T>> {
 	let response: Response;
@@ -27,18 +28,19 @@ async function call<T>(path: string, schema: z.ZodType<T>, body?: unknown): Prom
 			...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
 		});
 	} catch {
-		return { ok: false, error: UNAVAILABLE };
+		return { status: "lost" };
 	}
 	const raw: unknown = await response.json().catch(() => null);
 	if (response.ok) {
 		const value = schema.safeParse(raw);
-		return value.success ? { ok: true, value: value.data } : { ok: false, error: UNAVAILABLE };
+		return value.success ? { status: "ok", value: value.data } : UNAVAILABLE;
 	}
 	const error = identityError.safeParse(raw);
-	if (!error.success) return { ok: false, error: UNAVAILABLE };
+	if (!error.success) return UNAVAILABLE;
 	return {
-		ok: false,
-		error: { code: error.data.code, retryAt: error.data.code === "rate_limited" ? error.data.details.retryAt : null },
+		status: "refused",
+		code: error.data.code,
+		retryAt: error.data.code === "rate_limited" ? error.data.details.retryAt : null,
 	};
 }
 

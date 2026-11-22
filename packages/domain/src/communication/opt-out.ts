@@ -31,19 +31,19 @@ const tokenInput = z.strictObject({ token: z.string().min(1).max(2048) });
 const subkey = (key: Buffer, label: "token" | "siv") =>
 	createHmac("sha256", key).update(`everyfield/messages-opt-out/${label}`).digest();
 
-function ringOf(ring: OptOutKeyRing) {
+function ringOf(ring: OptOutKeyRing): [Buffer, ...Buffer[]] {
 	if (ring.current.length !== 32) throw new Error("opt_out_key");
 	return [ring.current, ...(ring.previous ?? [])];
 }
 
 function seal(ring: OptOutKeyRing, value: Claim, nonce: (claimJson: string) => Buffer) {
 	const json = JSON.stringify(value);
-	return sealClaim(subkey(ringOf(ring)[0]!, "token"), json, nonce(json));
+	return sealClaim(subkey(ringOf(ring)[0], "token"), json, nonce(json));
 }
 
 export function messagesOptOutToken(ring: OptOutKeyRing, input: { plantId: string; personId: string }): string {
 	return seal(ring, { v: 1, kind: "messages", purpose: "disable", ...input }, (json) =>
-		createHmac("sha256", subkey(ringOf(ring)[0]!, "siv"))
+		createHmac("sha256", subkey(ringOf(ring)[0], "siv"))
 			.update(json)
 			.digest()
 			.subarray(0, 12),

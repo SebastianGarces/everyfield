@@ -1,5 +1,6 @@
 import type { PlantSeat } from "@/server/request-context";
 import { requireSeat } from "@/server/sign-in";
+import type { SitePath } from "@everyfield/contracts/identity";
 import { privateStorage } from "@everyfield/db/schema";
 import { LockKeyIcon, UserSearch01Icon } from "@hugeicons/core-free-icons";
 import { personRequest } from "@everyfield/contracts/people";
@@ -17,7 +18,7 @@ import { loadPeople, loadPerson } from "./server.ts";
 import { params } from "../../components/search-params.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
-export async function gate(returnTo: string): Promise<{ viewer: PlantSeat } | { blocked: ReactNode }> {
+export async function gate(returnTo: SitePath): Promise<{ viewer: PlantSeat } | { blocked: ReactNode }> {
 	const viewer = await requireSeat(returnTo);
 	if (viewer) return { viewer };
 	return {
@@ -38,7 +39,7 @@ export async function gate(returnTo: string): Promise<{ viewer: PlantSeat } | { 
 export const peopleMetadata: Metadata = { title: "People", robots: { index: false, follow: false } };
 export async function PeoplePage({ searchParams }: { searchParams: Search }) {
 	const query = parseQuery(params(await searchParams));
-	const g = await gate("/people" + querySearch(query));
+	const g = await gate(`/people${querySearch(query)}`);
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
 

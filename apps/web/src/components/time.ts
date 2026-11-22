@@ -3,7 +3,7 @@ const zoneCache = new Map<string, string>();
 export function zoneLabel(zone: string): string {
 	const hit = zoneCache.get(zone);
 	if (hit) return hit;
-	const city = zone.split("/").pop()!.replaceAll("_", " ");
+	const city = zone.slice(zone.lastIndexOf("/") + 1).replaceAll("_", " ");
 	let generic = "";
 	try {
 		generic =
@@ -58,8 +58,9 @@ export function formatMoment(instant: string, zone: string): string {
 
 export function formatLocalDate(date: string): string {
 	const [y, m, d] = date.split("-").map(Number);
+	if (y === undefined || m === undefined || d === undefined) throw new RangeError(`Not a local date: ${date}`);
 	return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" }).format(
-		new Date(Date.UTC(y!, m! - 1, d!)),
+		new Date(Date.UTC(y, m - 1, d)),
 	);
 }
 
@@ -78,9 +79,27 @@ export function nextMonday(asOf: string, zone: string): string {
 		day: "2-digit",
 		weekday: "short",
 	}).formatToParts(new Date(asOf));
-	const get = (type: string) => parts.find((p) => p.type === type)!.value;
+	const get = (type: Intl.DateTimeFormatPartTypes) => {
+		const part = parts.find((p) => p.type === type);
+		if (!part) throw new RangeError(`No ${type} in the local date`);
+		return part.value;
+	};
 	const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(get("weekday"));
 	const local = Date.UTC(Number(get("year")), Number(get("month")) - 1, Number(get("day")));
 	const ahead = (8 - weekday) % 7 || 7;
 	return new Date(local + ahead * 86_400_000).toISOString().slice(0, 10);
+}
+
+export function localInputAt(instant: number, zone: string): string {
+	const parts = new Intl.DateTimeFormat("en-CA", {
+		timeZone: zone,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		hourCycle: "h23",
+	}).formatToParts(new Date(instant));
+	const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+	return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
 }

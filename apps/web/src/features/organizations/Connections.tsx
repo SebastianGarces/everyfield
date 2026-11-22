@@ -88,7 +88,7 @@ export function Connections({
 					/>
 				) : null}
 			</div>
-			<p role="status" className="mt-3 text-sm text-green-700 empty:hidden">
+			<p role="status" className="mt-3 text-sm text-green-700 empty:sr-only">
 				{status}
 			</p>
 			<LoadableView
@@ -413,8 +413,7 @@ function PendingList({
 							<div className="min-w-0 flex-1 basis-48">
 								<p className="font-semibold text-ink">{name}</p>
 								<p className="text-sm text-text-3">
-									Invitation sent · expires{" "}
-									<time dateTime={invitation.expiresAt}>{formatDay(invitation.expiresAt, zone)}</time>
+									Pending, expires <time dateTime={invitation.expiresAt}>{formatDay(invitation.expiresAt, zone)}</time>
 								</p>
 							</div>
 							{canManage ? (
