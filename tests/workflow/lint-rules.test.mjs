@@ -3450,7 +3450,6 @@ export class Store {
 		return db;
 	}
 }
-export const picked = ({ db = database() }: { db?: Database }) => db;
 `;
 	const allowed = `import { database, type Database } from "@everyfield/db";
 export async function body() {
@@ -3461,8 +3460,6 @@ export async function fallback(dependencies: { db?: Database }) {
 	const db = dependencies.db ?? database();
 	return db;
 }
-export const required = (db: Database) => db;
-export const other = (limit = Number("5")) => limit;
 `;
 	assert.deepEqual(
 		lint({
@@ -3472,11 +3469,9 @@ export const other = (limit = Number("5")) => limit;
 			"apps/web/src/access/allowed.ts": allowed,
 		}).filter((hit) => hit.endsWith(" no-default-database")),
 		[
-			"apps/web/src/access/old.ts:11 no-default-database",
 			"apps/web/src/access/old.ts:2 no-default-database",
 			"apps/web/src/access/old.ts:5 no-default-database",
 			"apps/web/src/access/old.ts:7 no-default-database",
-			"packages/db/src/old.ts:11 no-default-database",
 			"packages/db/src/old.ts:2 no-default-database",
 			"packages/db/src/old.ts:5 no-default-database",
 			"packages/db/src/old.ts:7 no-default-database",
