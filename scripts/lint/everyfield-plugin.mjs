@@ -1294,12 +1294,6 @@ const declaredFunctions = (node) => {
 	return found;
 };
 
-const timerDepth = (node) => {
-	let depth = 0;
-	for (let p = node.parent; p; p = p.parent) depth++;
-	return depth;
-};
-
 const timerSite = (context, node, site) => {
 	const call = node.parent;
 	if (node.name !== site.timer || call?.type !== "CallExpression" || call.callee !== node) return false;
@@ -1384,9 +1378,8 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 		},
 		"Program:exit"(program) {
 			for (const [site, found] of candidates) {
-				const exempt = found.reduce((best, c) => (timerDepth(c.node) < timerDepth(best.node) ? c : best), found[0]);
-				for (const c of found) if (c !== exempt) hit(c.node, c.name);
-				if (!exempt)
+				if (found.length !== 1) for (const c of found) hit(c.node, c.name);
+				if (!found.length)
 					push({
 						node: program,
 						fn: null,
@@ -1814,6 +1807,14 @@ const formGroup = (node) => {
 	return false;
 };
 const templateText = (node) => node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ");
+const concatenated = (node) =>
+	node.type === "BinaryExpression" && node.operator === "+"
+		? [concatenated(node.left), concatenated(node.right)].reduce((a, b) => (a && b ? [...a, ...b] : null))
+		: node.type === "Literal" && typeof node.value === "string"
+			? [node.value]
+			: node.type === "TemplateLiteral"
+				? [templateText(node)]
+				: null;
 const classParts = (node) =>
 	node.type === "Literal"
 		? typeof node.value === "string"
@@ -1829,7 +1830,9 @@ const classParts = (node) =>
 						? node.elements.flatMap((element) => (element ? classParts(element) : []))
 						: node.type === "ObjectExpression"
 							? node.properties.flatMap((property) => (property.type === "Property" ? classParts(property.key) : []))
-							: [];
+							: node.type === "BinaryExpression"
+								? [concatenated(node)?.join("")].filter(Boolean)
+								: [];
 
 const sharedNotice = {
 	meta: { type: "problem" },
@@ -1853,6 +1856,12 @@ const sharedNotice = {
 		return {
 			Literal: (node) => check(node, text(node)),
 			TemplateLiteral: (node) => check(node, templateText(node)),
+			BinaryExpression(node) {
+				const parts = concatenated(node);
+				if (!parts || parts.some(noticeLook) || (node.parent.type === "BinaryExpression" && concatenated(node.parent)))
+					return;
+				check(node, parts.join(""));
+			},
 			CallExpression(node) {
 				const parts = node.arguments.flatMap(classParts);
 				if (parts.length < 2 || parts.some(noticeLook)) return;
@@ -1873,13 +1882,49 @@ const attributeStrings = (attribute) =>
 const HIDING_CLASSES = new Set(["hidden", "invisible"]);
 const hidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, "").split(":").at(-1));
 const OFF_VALUES = { hidden: [false], inert: [false], "aria-hidden": [false, "false"] };
+const attributeValue = (attribute) =>
+	attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
 const switchedOff = (attribute, name) => {
-	const value = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
-	return value?.type === "Literal" && OFF_VALUES[name].includes(value.value);
+	const value = attributeValue(attribute);
+	return (
+		(value?.type === "Literal" && OFF_VALUES[name].includes(value.value)) ||
+		(value?.type === "Identifier" && value.name === "undefined")
+	);
 };
 const setAttribute = (element, name) => {
 	const attribute = jsxAttribute(element, name);
 	return attribute && !switchedOff(attribute, name) ? attribute : null;
+};
+const domElement = (element) => element.name.type === "JSXIdentifier" && /^[a-z]/.test(element.name.name);
+const fixedStrings = (node) =>
+	node?.type === "Literal" && typeof node.value === "string"
+		? [node.value]
+		: node?.type === "TemplateLiteral" && !node.expressions.length
+			? [templateText(node)]
+			: node?.type === "CallExpression"
+				? node.arguments.flatMap((argument) => fixedStrings(argument))
+				: [];
+const unprefixedHidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, ""));
+const alwaysHidden = (element) => {
+	const className = jsxAttribute(element, "className");
+	return (
+		(className && fixedStrings(attributeValue(className)).some((s) => classTokens(s).some(unprefixedHidingToken))) ||
+		["hidden", "inert", "aria-hidden"].some((name) => {
+			const attribute = setAttribute(element, name);
+			return attribute && (!attribute.value || attributeValue(attribute).type === "Literal");
+		})
+	);
+};
+const insideHiddenElement = (node) => {
+	for (let child = node.parent, at = child.parent; at; child = at, at = at.parent)
+		if (
+			at.type === "JSXElement" &&
+			child !== at.openingElement &&
+			domElement(at.openingElement) &&
+			alwaysHidden(at.openingElement)
+		)
+			return true;
+	return false;
 };
 
 const liveRegionInTree = {
@@ -1903,7 +1948,15 @@ const liveRegionInTree = {
 					setAttribute(node, "hidden") ||
 					setAttribute(node, "inert") ||
 					setAttribute(node, "aria-hidden");
-				if (!hiding) return;
+				if (!hiding) {
+					if (insideHiddenElement(node))
+						context.report({
+							node,
+							message:
+								"This live region sits inside an element that is hidden, invisible, inert or aria-hidden, so it leaves the accessibility tree with it and what fills it is not announced. Keep the live region outside that element, or keep the element in the tree.",
+						});
+					return;
+				}
 				context.report({
 					node: hiding,
 					message:
@@ -3302,8 +3355,8 @@ const statusLiterals = (type) =>
 			? type.types.flatMap(statusLiterals)
 			: [];
 const propertiesOf = (member) =>
-	member.type === "TSTypeLiteral"
-		? member.members.flatMap((m) =>
+	member.type === "TSTypeLiteral" || member.type === "TSInterfaceBody"
+		? (member.members ?? member.body).flatMap((m) =>
 				m.type === "TSPropertySignature" ? [{ name: keyName(m.key, m.computed), type: m.typeAnnotation }] : [],
 			)
 		: member.type === "TSIntersectionType"
@@ -3399,6 +3452,9 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 		TSTypeAliasDeclaration(node) {
 			aliases.set(node.id.name, node.typeAnnotation);
 			candidates.push(node);
+		},
+		TSInterfaceDeclaration(node) {
+			aliases.set(node.id.name, node.body);
 		},
 		TSTypeAnnotation: typeOf,
 		TSAsExpression: typeOf,
@@ -3561,22 +3617,48 @@ const seatNames = (context) => {
 			if (key === "owner") bind(value, OWNER);
 		}
 	};
-	const declare = (node) => {
-		const init = unwrapped(node.init);
-		if (node.id.type === "ObjectPattern") bind(node.id, init);
-		if (node.id.type !== "Identifier") return;
-		if (ownerRead(init)) owners.add(variable(node.id));
-		if (init?.type === "MemberExpression" && memberName(init) === "kind")
-			kinds.set(variable(node.id), unwrapped(init.object));
-	};
-	const kindOf = (node) => {
+	const aliases = new Map();
+	const rebound = (node) => {
 		const at = unwrapped(node);
-		if (at?.type === "Identifier") return kinds.get(variable(at)) ?? null;
-		return at?.type === "MemberExpression" && memberName(at) === "kind" ? unwrapped(at.object) : null;
+		if (at?.type === "ConditionalExpression") return [...rebound(at.consequent), ...rebound(at.alternate)];
+		if (at?.type === "LogicalExpression") return [...rebound(at.left), ...rebound(at.right)];
+		return at?.type === "Identifier" ? [at] : [];
 	};
-	const namesOwner = (node) =>
-		node?.type === "Identifier" ? node.name === "owner" || owners.has(variable(node)) : memberName(node) === "owner";
-	return { declare, kindOf, namesOwner };
+	const assign = (id, value) => {
+		const init = unwrapped(value);
+		if (id.type === "ObjectPattern") bind(id, init);
+		if (id.type !== "Identifier") return;
+		const name = variable(id);
+		if (ownerRead(init)) owners.add(name);
+		if (init?.type === "MemberExpression" && memberName(init) === "kind") kinds.set(name, unwrapped(init.object));
+		if (name) aliases.set(name, [...(aliases.get(name) ?? []), ...rebound(init)]);
+	};
+	const declare = (node) => assign(node.id, node.init);
+	const reassign = (node) => {
+		if (node.operator === "=") assign(node.left, node.right);
+	};
+	const kindOf = (node, seen = new Set()) => {
+		const at = unwrapped(node);
+		if (at?.type === "MemberExpression") return memberName(at) === "kind" ? unwrapped(at.object) : null;
+		const name = at?.type === "Identifier" ? variable(at) : null;
+		if (!name || seen.has(name)) return null;
+		seen.add(name);
+		if (kinds.has(name)) return kinds.get(name);
+		for (const target of aliases.get(name) ?? []) {
+			const subject = kindOf(target, seen);
+			if (subject) return subject;
+		}
+		return null;
+	};
+	const namesOwner = (node, seen = new Set()) => {
+		if (node?.type !== "Identifier") return memberName(node) === "owner";
+		if (node.name === "owner") return true;
+		const name = variable(node);
+		if (!name || seen.has(name)) return false;
+		seen.add(name);
+		return owners.has(name) || (aliases.get(name) ?? []).some((target) => namesOwner(target, seen));
+	};
+	return { declare, reassign, kindOf, namesOwner };
 };
 const comparedKinds = (node, kindOf) => {
 	if (node.type === "SwitchCase") return node.test ? [[kindOf(node.parent.discriminant), node.test]] : [];
@@ -3615,6 +3697,7 @@ const organizationSeatCheck = {
 			BinaryExpression: visit,
 			SwitchCase: visit,
 			VariableDeclarator: names.declare,
+			AssignmentExpression: names.reassign,
 			"Program:exit"(program) {
 				comparisons.forEach(sort);
 				const found = organizations.filter((node) => seats.some((fn) => within(nearestFunction(node), fn)));
@@ -3894,6 +3977,12 @@ const stableContextValue = {
 const TEST_HOSTS = new Set(["test", "it", "default"]);
 
 const CONFIRM_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
+const SETTLERS = new Set(["then", "catch", "finally"]);
+const isCall = (node) => (node?.type === "ChainExpression" ? node.expression : node)?.type === "CallExpression";
+const awaitedCall = (node) => node?.type === "AwaitExpression" && isCall(node.argument);
+const voidedCall = (node) => node?.type === "UnaryExpression" && node.operator === "void" && isCall(node.argument);
+const settledCall = (node) =>
+	isCall(node) && SETTLERS.has(memberName((node.type === "ChainExpression" ? node.expression : node).callee));
 const confirmKeepsRefusal = {
 	meta: { type: "problem" },
 	create(context) {
@@ -3913,23 +4002,49 @@ const confirmKeepsRefusal = {
 			}
 			return null;
 		};
+		const unread = (declarator) =>
+			!context.sourceCode
+				.getDeclaredVariables(declarator)
+				.some((variable) => variable.references.some((reference) => reference.isRead()));
+		const dropping = (statements, found, floating) => {
+			for (const statement of statements) {
+				if (statement.type === "TryStatement") {
+					dropping(statement.block.body, found, floating);
+					dropping(statement.finalizer?.body ?? [], found, floating);
+					continue;
+				}
+				if (statement.type === "VariableDeclaration") {
+					if (statement.declarations.some((d) => awaitedCall(d.init) && unread(d))) found.push(statement);
+					continue;
+				}
+				if (statement.type !== "ExpressionStatement") continue;
+				const expression = statement.expression;
+				if (awaitedCall(expression) || voidedCall(expression) || settledCall(expression)) found.push(statement);
+				else if (isCall(expression)) floating.push(statement);
+			}
+		};
+		const report = (node) =>
+			context.report({
+				node,
+				message:
+					"This onConfirm drops the answer of a call, so a refusal the call returns never reaches the dialog. Return it (return handler()), or turn its refusal into return { refused } here.",
+			});
 		return {
 			JSXAttribute(node) {
 				if (node.name.name !== "onConfirm" || node.value?.type !== "JSXExpressionContainer") return;
 				const fn = handlerOf(node.value.expression);
-				if (fn?.body.type !== "BlockStatement") return;
+				if (!fn) return;
+				if (fn.body.type !== "BlockStatement") {
+					if (voidedCall(fn.body)) report(fn.body);
+					return;
+				}
 				if (walkOwn(fn.body, (n) => n.type === "ReturnStatement" && n.argument !== null)) return;
-				for (const statement of fn.body.body)
-					if (
-						statement.type === "ExpressionStatement" &&
-						statement.expression.type === "AwaitExpression" &&
-						statement.expression.argument.type === "CallExpression"
-					)
-						context.report({
-							node: statement,
-							message:
-								"This onConfirm awaits a call and drops its answer, so a refusal the call returns never reaches the dialog. Return it (return handler()), or turn its refusal into return { refused } here.",
-						});
+				const found = [];
+				const floating = [];
+				dropping(fn.body.body, found, floating);
+				const awaits = walkOwn(fn.body, (n) => n.type === "AwaitExpression");
+				if (fn.async && !awaits && floating.length) found.push(floating.at(-1));
+				for (const statement of found) report(statement);
 			},
 		};
 	},

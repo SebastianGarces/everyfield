@@ -418,13 +418,26 @@ export function other() {
 			"packages/evry/src/runtime/turn.ts": "export const gone = 1;\n",
 		}),
 		[
-			...[1, 3, 6, 9, 15, 16, 19].map((line) => `packages/db/src/schema/validate-file.ts:${line} no-timers`),
+			...[1, 3, 6, 7, 9, 15, 16, 19].map((line) => `packages/db/src/schema/validate-file.ts:${line} no-timers`),
 			"packages/evry/src/runtime/turn.ts:1 no-timers",
 		].sort(),
 	);
 });
 
-test("INV-lint: a listed product timer exempts only the call with its callee, binding, delay and nearest named function, the shallowest on a tie, so a timer placed before it or in a nested function is the one reported", () => {
+test("INV-lint: a listed product timer is exempt only while exactly one call matches it, so a same-delay copy added shallower in the real function reports both calls", () => {
+	const path = "packages/evry/src/runtime/model.ts";
+	const real = readFileSync(join(repo, path), "utf8");
+	const site = "\t\t\tconst timer = setTimeout(resolve, ms);\n";
+	const body = "): LanguageModelV4Middleware {\n";
+	const copied = real.replace(body, `${body}\tconst timer = setTimeout(() => 1, ms);\n`);
+	const line = (text, at) => text.slice(0, text.indexOf(at)).split("\n").length;
+	assert.deepEqual(
+		lint({ [path]: copied }).filter((hit) => hit.endsWith(" no-timers")),
+		[line(copied, site), line(copied, body) + 1].map((n) => `${path}:${n} no-timers`).sort(),
+	);
+});
+
+test("INV-lint: a listed product timer exempts only the call with its callee, binding, delay and nearest named function, so a timer in a nested function is reported and two matching calls are both reported", () => {
 	const turn = `export async function run() {
 	if (retry) {
 		const wall = setTimeout(() => {}, LIMITS.wallMs);
@@ -492,12 +505,14 @@ export function parseOnce() {
 			"apps/web/src/server/evry/http.ts": stream,
 		}).filter((hit) => hit.endsWith(" no-timers")),
 		[
+			"apps/web/src/server/evry/http.ts:3 no-timers",
 			"apps/web/src/server/evry/http.ts:6 no-timers",
 			"packages/db/src/schema/validate-file.ts:1 no-timers",
 			"packages/db/src/schema/validate-file.ts:3 no-timers",
 			"packages/evry/src/runtime/model.ts:9 no-timers",
 			"packages/evry/src/runtime/observe.ts:1 no-timers",
 			"packages/evry/src/runtime/observe.ts:3 no-timers",
+			"packages/evry/src/runtime/turn.ts:10 no-timers",
 			"packages/evry/src/runtime/turn.ts:3 no-timers",
 			"packages/evry/src/runtime/turn.ts:7 no-timers",
 		],
@@ -1359,7 +1374,7 @@ import { pgTable } from "@everyfield/db/columns";
 	);
 });
 
-test("INV-lint: apps/web shows an error or warning notice through the shared Alert, never a hand-written magenta or amber box, in cn object syntax or an amber token tint too", () => {
+test("INV-lint: apps/web shows an error or warning notice through the shared Alert, never a hand-written magenta or amber box, in cn object syntax, literal concatenation or an amber token tint too", () => {
 	const code = `export const A = () => <p className="rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">x</p>;
 export const B = (more) => \`flex bg-magenta-50 \${more} text-magenta-600\`;
 export const C = { error: "bg-magenta-50 text-magenta-600" };
@@ -1402,6 +1417,13 @@ export const AM = () => <span className="rounded-pill bg-[var(--ef-amber-100)] p
 export const AN = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-50"]: on });
 export const AO = (on) => cn("rounded-lg p-3", { [\`bg-magenta-100\`]: on });
 export const AP = (on, tone) => cn("rounded-md px-4 py-3", { [tone]: on });
+export const AQ = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-" + "50"]: on });
+export const AR = (on) => cn("rounded-lg p-3", { ["bg-" + "magenta-" + \`100\`]: on });
+export const AS = (on, t) => cn("rounded-md px-4 py-3", { ["bg-amber-" + t]: on, ["bg-amber-50" + t]: on, ["bg-amber-" + \`\${t}50\`]: on });
+export const AT = (on) => cn("rounded-md px-4 py-3", { ["bg-surface-" + "2"]: on, ["bg-amber-" == "50"]: on });
+export const AU = () => cn("rounded-md px-3", "bg-amber-" + "50");
+export const AV = "rounded-md bg-amber-" + "100 px-4" + " py-3";
+export const AW = () => <p className={"rounded-md bg-amber-50 px-4 py-3" + " text-sm"}>x</p>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1409,13 +1431,13 @@ export const AP = (on, tone) => cn("rounded-md px-4 py-3", { [tone]: on });
 	}).filter((hit) => hit.endsWith(" shared-notice"));
 	assert.deepEqual(
 		reported.sort(),
-		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37, 40, 41]
+		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37, 40, 41, 43, 44, 47, 48, 49]
 			.map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`)
 			.sort(),
 	);
 });
 
-test("INV-a11y: a live region in apps/web or packages/ui (an output element included) is never hidden, invisible, inert or aria-hidden, so it stays in the accessibility tree", () => {
+test("INV-a11y: a live region in apps/web or packages/ui (an output element included) is never hidden, invisible, inert or aria-hidden, nor inside an element that is, so it stays in the accessibility tree", () => {
 	const code = `export const A = ({ m }) => <div aria-live="polite" className="empty:hidden">{m}</div>;
 export const B = ({ m }) => <p role="status" className={cn("text-sm", !m && "hidden")}>{m}</p>;
 export const C = ({ m, tone }) => <div role={tone ? "alert" : "status"} hidden={!m}>{m}</div>;
@@ -1437,6 +1459,27 @@ export const R = ({ m }) => <output aria-live="off" className="hidden">{m}</outp
 export const S = ({ m }) => <output role="presentation" hidden>{m}</output>;
 export const T = ({ m }) => <output inert>{m}</output>;
 export const U = ({ m }) => <section className="hidden">{m}</section>;
+export const V = ({ m }) => <section inert><div role="status">{m}</div></section>;
+export const W = ({ m }) => <div role="status" inert={undefined} hidden={undefined} aria-hidden={undefined}>{m}</div>;
+export const X = ({ items }) => <div aria-hidden="true"><ul>{items.map((i) => <li key={i} role="status">{i}</li>)}</ul></div>;
+export const Y = ({ m }) => <div className="hidden md:block"><p aria-live="polite">{m}</p></div>;
+export const Z = ({ m }) => <div className="empty:hidden"><div role="alert">{m}</div></div>;
+export const AA = ({ m, open }) => <div hidden={!open}><p role="alert">{m}</p></div>;
+export const AB = ({ m, done }) => <div className={cn("grid", done && "invisible")}><p role="status">{m}</p></div>;
+export const AC = ({ m }) => <Panel hidden><p role="status">{m}</p></Panel>;
+export const AD = () => <div hidden title={<span role="status" />}>x</div>;
+export const AE = ({ m }) => <section inert={false}><output>{m}</output></section>;
+export const AF = ({ m }) => <div className={cn("hidden", "md:flex")}><output>{m}</output></div>;
+export const AG = ({ m }) => <div aria-hidden={undefined} hidden={undefined}><output>{m}</output></div>;
+export const AH = ({ m }) => <div className={\`invisible\`}><output>{m}</output></div>;
+export const AI = ({ m }) => (
+	<div inert="">
+		<p role="status">{m}</p>
+	</div>
+);
+export const AJ = ({ m }) => <div className="sm:hidden max-md:hidden group-hover:hidden"><p role="status">{m}</p></div>;
+export const AK = ({ m }) => <div className="data-[state=closed]:hidden before:hidden [&:empty]:hidden"><output>{m}</output></div>;
+export const AL = ({ m }) => <div className={cn("grid", clsx("invisible"))}><output>{m}</output></div>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1447,7 +1490,9 @@ export const U = ({ m }) => <section className="hidden">{m}</section>;
 		reported.sort(),
 		["apps/web/src/features/x/Notice.tsx", "packages/ui/src/controls/x.tsx"]
 			.flatMap((path) =>
-				[1, 2, 3, 4, 8, 9, 10, 11, 14, 15, 16, 20].map((line) => `${path}:${line} live-region-in-tree`),
+				[1, 2, 3, 4, 8, 9, 10, 11, 14, 15, 16, 20, 22, 24, 25, 32, 34, 37, 42].map(
+					(line) => `${path}:${line} live-region-in-tree`,
+				),
 			)
 			.sort(),
 	);
@@ -1988,7 +2033,7 @@ export function gate(path: string, out: boolean) {
 	]);
 });
 
-test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper, through a destructured kind or a renamed owner too, and a same-named parameter in another function is not an owner", () => {
+test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper, through a destructured kind, a renamed owner or an alias of either too, and a same-named parameter in another function is not an owner", () => {
 	const source = `import type { RequestActor } from "@everyfield/domain/access";
 export function a(authority: RequestActor | null) {
 	const context = authority?.actor.context;
@@ -2091,6 +2136,55 @@ export function r(authority: RequestActor) {
 export function s(picked: Owner, pickedKind: string, item: { kind: string }) {
 	return item.kind === "seat" && (picked.kind === "organization" || pickedKind === "organization");
 }
+export function t(authority: RequestActor) {
+	const context = authority.actor.context;
+	const { owner: o } = context;
+	const o2 = o;
+	const o3 = o2 as Owner;
+	const kind2 = o3.kind;
+	const kind3 = kind2;
+	const { kind: kind4 } = o2;
+	if (context.kind !== "seat") return null;
+	return [o2.kind === "organization", o3.kind === "organization", kind3 === "organization", kind4 === "organization"];
+}
+export function u(authority: RequestActor, fallback: Owner) {
+	const context = authority.actor.context;
+	const { kind: seatKind, owner: o } = context;
+	const seatKind2 = seatKind;
+	let o2;
+	o2 = fallback ?? o;
+	let o3: Owner;
+	({ owner: o3 } = context);
+	const o4 = seatKind2 ? fallback : o3;
+	return seatKind2 === "seat" && [o2.kind === "organization", o3.kind === "organization", o4.kind === "organization"];
+}
+export function v(authority: RequestActor, o: Owner) {
+	const context = authority.actor.context;
+	const o2 = o;
+	let o3 = o2;
+	o3 = o3;
+	let label = "the ";
+	label += context.owner.kind;
+	return context.kind === "seat" && [o2.kind === "organization", o3.kind === "organization", label === "organization"];
+}
+export function w(authority: RequestActor, item: { kind: string }) {
+	const context = authority.actor.context;
+	const { owner: o } = context;
+	const o2 = o;
+	const check = (o2: { kind: string }) => o2.kind === "organization";
+	return context.kind === "seat" && o2 && check(item);
+}
+export function x(authority: RequestActor, fallback: Owner | null) {
+	const context = authority.actor.context;
+	const { owner: o } = context;
+	let o5: Owner;
+	if (!fallback) o5 = o;
+	else o5 = fallback;
+	const o6 = fallback ? fallback : (o as Owner);
+	let tag = fallback;
+	tag = tag;
+	return tag === "seat" && context.kind === "seat" && [o5.kind === "organization", o6.kind === "organization"];
+}
 `;
 	assert.deepEqual(
 		lint({
@@ -2101,6 +2195,15 @@ export function s(picked: Owner, pickedKind: string, item: { kind: string }) {
 		}),
 		[
 			"apps/web/src/features/x/server.ts:10 organization-seat",
+			"apps/web/src/features/x/server.ts:112 organization-seat",
+			"apps/web/src/features/x/server.ts:112 organization-seat",
+			"apps/web/src/features/x/server.ts:112 organization-seat",
+			"apps/web/src/features/x/server.ts:112 organization-seat",
+			"apps/web/src/features/x/server.ts:123 organization-seat",
+			"apps/web/src/features/x/server.ts:123 organization-seat",
+			"apps/web/src/features/x/server.ts:123 organization-seat",
+			"apps/web/src/features/x/server.ts:150 organization-seat",
+			"apps/web/src/features/x/server.ts:150 organization-seat",
 			"apps/web/src/features/x/server.ts:17 organization-seat",
 			"apps/web/src/features/x/server.ts:27 organization-seat",
 			"apps/web/src/features/x/server.ts:39 organization-seat",
@@ -2119,6 +2222,15 @@ export function s(picked: Owner, pickedKind: string, item: { kind: string }) {
 			"apps/web/src/features/x/server.ts:93 organization-seat",
 			"apps/web/src/features/x/server.ts:93 organization-seat",
 			"packages/domain/src/x/index.ts:10 organization-seat",
+			"packages/domain/src/x/index.ts:112 organization-seat",
+			"packages/domain/src/x/index.ts:112 organization-seat",
+			"packages/domain/src/x/index.ts:112 organization-seat",
+			"packages/domain/src/x/index.ts:112 organization-seat",
+			"packages/domain/src/x/index.ts:123 organization-seat",
+			"packages/domain/src/x/index.ts:123 organization-seat",
+			"packages/domain/src/x/index.ts:123 organization-seat",
+			"packages/domain/src/x/index.ts:150 organization-seat",
+			"packages/domain/src/x/index.ts:150 organization-seat",
 			"packages/domain/src/x/index.ts:17 organization-seat",
 			"packages/domain/src/x/index.ts:27 organization-seat",
 			"packages/domain/src/x/index.ts:39 organization-seat",
@@ -2223,6 +2335,29 @@ type Swapped = { status: "ok"; receipt: number } | { status: "refused"; value: n
 	);
 });
 
+test("INV-lint: an ok value / refused / lost union is reported when its parts are interfaces; an interface without the ok value is not", () => {
+	const source = `import type { Lost } from "@everyfield/contracts/common";
+interface Ok<T> { status: "ok"; value: T }
+export interface No { "status": "refused"; code: string }
+interface Gone { status: "lost" }
+interface Receipt { status: "ok"; receipt: number }
+interface Kind { kind: "ok"; value: number }
+export type Load<T> = Ok<T> | No | Gone;
+type Shared<T> = Ok<T> | No | Lost;
+type Polled = Receipt | No | Gone;
+type Kinds = Kind | No | Gone;
+async function read(): Promise<Ok<number> | No | Gone> {}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/model.ts": source, "packages/domain/src/m.ts": source }).filter((hit) =>
+			hit.endsWith("shared-outcome"),
+		),
+		["apps/web/src/features/x/model.ts", "packages/domain/src/m.ts"]
+			.flatMap((path) => [7, 8, 11].map((line) => `${path}:${line} shared-outcome`))
+			.sort(),
+	);
+});
+
 test("INV-lint: an inline ok value / refused / lost union in any annotation, alias body, generic default or cast, nested in arrays, tuples, intersections or type arguments, is reported through local aliases and the shared Lost under any local name; shared and imported replies are not", () => {
 	const source = `import type { Lost as Gone, Outcome } from "@everyfield/contracts/common";
 import type { MeetingsReply } from "@everyfield/domain/meetings";
@@ -2323,7 +2458,6 @@ export function A({ handler, x }) {
 		<ConfirmDialog onConfirm={async () => { if (x) await handler(); }} />,
 		<ConfirmDialog onConfirm={async () => { await prepare(); return handler(); }} />,
 		<ConfirmDialog onConfirm={async () => { await handler; }} />,
-		<ConfirmDialog onConfirm={async () => { handler(); }} />,
 		<ConfirmDialog onConfirm={later} />,
 		<ConfirmDialog onConfirm={made} />,
 		<ConfirmDialog onCancel={async () => { await handler(); }} />,
@@ -2338,6 +2472,60 @@ export function A({ handler, x }) {
 	assert.deepEqual(hits("apps/web/src/features/x/Confirm.tsx"), [3, 6, 13, 16, 17, 18]);
 	assert.deepEqual(hits("packages/ui/src/controls/Confirm.tsx"), [3, 6, 13, 16, 17, 18]);
 	assert.deepEqual(hits("packages/domain/src/x/Confirm.tsx"), []);
+});
+
+test("INV-lint: an onConfirm that settles, voids, guards in try, optionally awaits, awaits into an unread const or never awaits a call is reported; a read const, a guarded void, a sync call, a call after an await or a returned value is not", () => {
+	const source = `import { ConfirmDialog } from "@everyfield/ui/controls";
+const guarded = async () => {
+	try {
+		await handler();
+	} finally {
+		close();
+	}
+};
+const cleaned = async () => {
+	try {
+		close();
+	} finally {
+		await handler?.();
+	}
+};
+const idle = async () => {
+	setBusy(true);
+	handler();
+};
+export function A({ handler, x }) {
+	return [
+		<ConfirmDialog onConfirm={() => { handler().then(close); }} />,
+		<ConfirmDialog onConfirm={() => { handler?.().catch(close); }} />,
+		<ConfirmDialog onConfirm={guarded} />,
+		<ConfirmDialog onConfirm={cleaned} />,
+		<ConfirmDialog onConfirm={async () => { await handler?.(); }} />,
+		<ConfirmDialog onConfirm={async () => { const r = await handler(); }} />,
+		<ConfirmDialog onConfirm={() => void handler()} />,
+		<ConfirmDialog onConfirm={() => { void handler?.(); }} />,
+		<ConfirmDialog onConfirm={async () => { handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { const { status } = await handler(); }} />,
+		<ConfirmDialog onConfirm={idle} />,
+		<ConfirmDialog onConfirm={async () => { const r = await handler(); show(r); }} />,
+		<ConfirmDialog onConfirm={async () => { const r = await handler; }} />,
+		<ConfirmDialog onConfirm={() => void (x && handler())} />,
+		<ConfirmDialog onConfirm={() => { handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { show(await prepare()); handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { try { close(); } catch { await handler(); } }} />,
+		<ConfirmDialog onConfirm={() => handler().then(close)} />,
+		<ConfirmDialog onConfirm={() => { store.getState().actions.discard(); }} />,
+		<ConfirmDialog onConfirm={() => !handler()} />,
+	];
+}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/Confirm.tsx": source })
+			.filter((hit) => hit.endsWith(" confirm-keeps-refusal"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10))
+			.sort((a, b) => a - b),
+		[4, 13, 18, 22, 23, 26, 27, 28, 29, 30, 31],
+	);
 });
 
 test("INV-lint: a context value built during render is reported through aliases, casts, conditionals and outer bindings; every context and alias of one is a const named *Context; stable values are not", () => {
