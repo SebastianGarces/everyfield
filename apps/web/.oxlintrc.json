@@ -1373,6 +1373,7 @@
 				"everyfield/render-reads": "error",
 				"everyfield/no-read-actions": "error",
 				"everyfield/action-params-unknown": "error",
+				"everyfield/client-request-key": "error",
 				"everyfield/failure-not-empty": "error"
 			}
 		},
