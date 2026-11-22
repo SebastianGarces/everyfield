@@ -20,6 +20,10 @@ export type EvryErrorCode =
 	| "not_assigned"
 	| "assignee_ineligible"
 	| "owner_ineligible"
+	| "offer_answered"
+	| "invalid_subject"
+	| "dependency_cycle"
+	| "protected_owner"
 	| "unknown";
 
 export class EvryRefusal extends Error {
@@ -52,6 +56,10 @@ const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	not_assigned: "never",
 	assignee_ineligible: "never",
 	owner_ineligible: "never",
+	offer_answered: "never",
+	invalid_subject: "never",
+	dependency_cycle: "never",
+	protected_owner: "never",
 	unknown: "new_turn",
 };
 

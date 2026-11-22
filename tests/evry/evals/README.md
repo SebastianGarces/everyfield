@@ -26,6 +26,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `intelligence.test.mts` | `intelligence.cases.json`                                                                                                | Plant Intelligence reads, refresh, feedback and tasks from suggestions (scripted model)     |
 | `oversight.test.mts`    | `oversight.cases.json`                                                                                                   | An organization seat's oversight, Network Intelligence and digest settings (scripted model) |
 | `wiki-meaning.test.mts` | `wiki-meaning.cases.json`                                                                                                | `wiki.search` by meaning on fixed vectors: global and network articles (scripted model)     |
+| `task-plan.test.mts`    | `task-plan.cases.json`                                                                                                   | Phase offer, checklist import, follow-up handoff and prerequisite cards (scripted model)    |
 
 ## The settings suite (scripted model)
 
@@ -145,6 +146,23 @@ criterion as phase readiness returns it. It says readiness is the planter's call
 pattern nor the readiness-verdict wording in `packages/domain/src/intelligence/checks.ts` matches. A Member gets the
 milestones without the phase's criteria. Both turns change nothing: the Launch plan, tasks, phase and review cards read
 the same afterwards. The recorded suites leave these tools out too.
+
+## The task plan suite (scripted model)
+
+`task-plan.test.mts` scores six reviewed writes (T-347, WP-068) on the scripted model
+(`packages/evry/src/runtime/scripted-task-plan.ts`), not a recording (D-1997): accepting every checklist of the phase
+offer (`tasks.acceptPhaseOffer`), accepting some and declining the rest (`tasks.answerPhaseOffer`, which answers as the
+Tasks page's offer does, D-1996), declining them all (`tasks.declinePhaseOffer`), importing named items of one checklist
+(`tasks.importTemplate`), handing one seat's open follow-ups to another (`tasks.executeHandoff`) and setting what a task
+waits on (`tasks.replacePrerequisites`). It runs on the golden church (`goldenChurch()`), whose phase 1 offer from the
+Aug 3 move is open, plus one fixture row: Ana's attempted call to Daniel Cruz, so the handoff has contact history to
+leave unchanged. Each case is a real turn (`runTurn`) with the real catalog, reads and review card; a case with
+`approve` is approved and its effect runs once through the WP-031 queue, and its `check` reads the result back through
+the readers the Tasks and Follow-ups pages use. `setup: openOffer` reopens the offer before a case. `between` changes
+the offer or the task natively after the card is shown, and the approval must end refused (`offer_answered`,
+`revision_conflict`) with nothing created. The suite also holds the refusals: an answered offer, an item the checklist
+doesn't hold, a handoff to a seat that can't own follow-ups or from an Owner, a cycle and a checklist row, a Member
+(only an Owner or Admin, D-1998) and an organization seat. The recorded suites leave these six writes out too.
 
 ## The household and follow-up suites
 
