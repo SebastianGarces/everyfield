@@ -2,7 +2,7 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { ArrowLeft01Icon, Mail01Icon } from "@hugeicons/core-free-icons";
-import { Button, ConfirmDialog, EmptyState, Field, Input, Select } from "@everyfield/ui/controls";
+import { Alert, Button, ConfirmDialog, EmptyState, Field, Input, Select } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useState, useTransition } from "react";
 import { useLocalStore, useStore } from "../../components/store.ts";
@@ -145,14 +145,16 @@ function Editor({
 	const [sample] = useState(() => pickSampleName(template?.templateId ?? "new"));
 	if (missing && !current) {
 		return (
-			<div className="flex flex-col items-start gap-3">
-				<p role="alert" className="text-md font-medium text-magenta-600">
-					That template is not here. It may have been archived or deleted.
-				</p>
-				<Button variant="secondary" onClick={() => onSelect(null)}>
-					Back to templates
-				</Button>
-			</div>
+			<Alert
+				role="alert"
+				actions={
+					<Button variant="secondary" onClick={() => onSelect(null)}>
+						Back to templates
+					</Button>
+				}
+			>
+				That template is not here. It may have been archived or deleted.
+			</Alert>
 		);
 	}
 	const system = current?.origin === "system";
@@ -254,11 +256,7 @@ function Editor({
 					{status}
 				</p>
 			) : null}
-			{issues.form ? (
-				<p role="alert" className="text-sm font-medium text-magenta-600">
-					{issues.form}
-				</p>
-			) : null}
+			{issues.form ? <Alert role="alert">{issues.form}</Alert> : null}
 			<div className="grid items-start gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
 				<div className="flex min-w-0 flex-col gap-5">
 					<Field label="Name" error={issues.name}>
@@ -396,7 +394,7 @@ function RemoveTemplate({
 					? await deleteTemplate(keys.take("delete"), template.revision, template.templateId)
 					: await archiveTemplate(keys.take("archive"), template.revision, template.templateId);
 				keys.settle(kind, result);
-				if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to update the template.");
+				if (result.status !== "ok") return { refused: outcomeText(result) ?? "Unable to update the template." };
 				const removed = template.templateId;
 				if (result.value.templates) setTemplates(result.value.templates);
 				else setTemplates((rows) => rows.filter((row) => row.templateId !== removed));

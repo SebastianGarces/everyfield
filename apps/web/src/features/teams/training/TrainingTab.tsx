@@ -164,7 +164,9 @@ export function TrainingTab({
 					refused,
 				});
 				return;
-			case "assign":
+			case "assign": {
+				const { rosterDigest } = form;
+				if (rosterDigest === null) return;
 				void lane.save({
 					what: `Who must finish ${form.programName}`,
 					done: "saved",
@@ -173,7 +175,7 @@ export function TrainingTab({
 						saveRoster(key, form.revision, {
 							programId: form.programId,
 							personIds: form.personIds,
-							rosterDigest: form.rosterDigest!,
+							rosterDigest,
 						}),
 					ok: (value) => {
 						setPrograms((rows) => applyRoster(rows, value));
@@ -187,26 +189,28 @@ export function TrainingTab({
 					refused,
 				});
 				return;
+			}
 			case "complete":
 			case "redo":
-			case "revoke":
-				if (!form.personId) return;
+			case "revoke": {
+				const { personId } = form;
+				if (!personId) return;
 				void lane.save({
 					what: form.kind === "revoke" ? `The completion of ${form.programName}` : form.programName,
 					done: form.kind === "revoke" ? "revoked" : "recorded",
 					form,
 					send: (key) =>
 						form.kind === "revoke"
-							? revokeCompletion(key, form.revision, { personId: form.personId!, programId: form.programId })
+							? revokeCompletion(key, form.revision, { personId, programId: form.programId })
 							: form.kind === "redo"
 								? recompleteTraining(key, form.revision, {
-										personId: form.personId!,
+										personId,
 										programId: form.programId,
 										earnedOn: form.earnedOn,
 									})
 								: attestCompletion(key, form.revision, {
 										kind: "program",
-										personId: form.personId!,
+										personId,
 										programId: form.programId,
 										earnedOn: form.earnedOn,
 									}),
@@ -218,15 +222,17 @@ export function TrainingTab({
 					refused,
 				});
 				return;
-			case "service":
-				if (!form.personId) return;
+			}
+			case "service": {
+				const { personId } = form;
+				if (!personId) return;
 				void lane.save({
 					what: "Attendance and serving",
 					done: "recorded",
 					form,
 					send: (key) =>
 						attestService(key, {
-							personId: form.personId!,
+							personId,
 							attendanceDays: Number(form.attendanceDays),
 							volunteerDays: Number(form.volunteerDays),
 						}),
@@ -242,6 +248,7 @@ export function TrainingTab({
 					refused,
 				});
 				return;
+			}
 		}
 	}
 

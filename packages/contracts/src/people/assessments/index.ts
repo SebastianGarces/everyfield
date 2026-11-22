@@ -43,6 +43,8 @@ export const createInterviewRequest = z.strictObject({
 export const commitmentKind = z.enum(["core_group", "launch_team"]);
 export const commitmentMime = z.enum(["application/pdf", "image/jpeg", "image/png"]);
 export const COMMITMENT_MAX_BYTES = 10 * 1024 * 1024;
+export const UNREADABLE_DOCUMENT =
+	"This file could not be read as a PDF, JPG or PNG. Choose another file of 10 MB or less.";
 export const witnessInput = z.union([
 	z.strictObject({ personId }),
 	z.strictObject({ external: z.string().trim().min(1).max(200) }),

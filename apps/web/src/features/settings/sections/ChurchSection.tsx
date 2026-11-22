@@ -150,7 +150,7 @@ function ChurchForm({
 					? { kind: "digest" as const, value: sent.digest }
 					: null,
 			].filter((c) => c !== null);
-			if (changes.length === 0) return { ok: true, server: saved };
+			if (changes.length === 0) return { status: "ok", value: saved };
 			const result = await attempt("plant-settings", (requestKey) =>
 				port.saveChurch({
 					requestKey,
@@ -158,10 +158,10 @@ function ChurchForm({
 					input: { plant: section.plant, changes },
 				}),
 			);
-			if (!result.ok) return { ok: false, refusal: result.refusal };
+			if (result.status !== "ok") return result;
 			const current = result.value.current.section === "plant" ? result.value.current : section;
 			replace(current);
-			return { ok: true, server: formOf(current.values) };
+			return { status: "ok", value: formOf(current.values) };
 		});
 	};
 

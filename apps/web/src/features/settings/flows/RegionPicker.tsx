@@ -85,7 +85,8 @@ export function ReportingRegion({ onSaved }: { onSaved: () => void }) {
 }
 
 function suggestedChoice(found: RegionSuggestion[], saved: Ready["region"]): string | null {
-	if (found.length === 1) return found[0]!.regionItemId;
+	const [only] = found;
+	if (only && found.length === 1) return only.regionItemId;
 	if (found.length === 0) return UNRESOLVED;
 	return found.find((c) => c.area.code === saved?.code)?.regionItemId ?? null;
 }

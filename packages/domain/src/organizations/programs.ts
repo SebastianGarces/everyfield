@@ -141,7 +141,7 @@ FROM g`);
 			})
 			.parse(r.rows[0]);
 		if (!row.allowed || !row.program) refuse();
-		const { directorSeatId, ...program } = row.program!;
+		const { directorSeatId, ...program } = row.program;
 		return C.programDetail.parse({
 			...program,
 			viewer: { administrator: seat.administrator, director: directorSeatId === seat.seatId },
@@ -237,7 +237,7 @@ FROM g`);
 			})
 			.parse(r.rows[0]);
 		if (!row.allowed || !row.enrollment) refuse();
-		const { directorSeatId, ...enrollment } = row.enrollment!;
+		const { directorSeatId, ...enrollment } = row.enrollment;
 		return C.enrollmentDetail.parse({
 			...enrollment,
 			viewer: { administrator: seat.administrator, director: directorSeatId === seat.seatId },
@@ -295,6 +295,11 @@ const reviewRow = z.object({
 	finished: z.array(z.string()),
 });
 
+function firstStage<S>(stages: readonly S[]): S {
+	const [first] = stages;
+	if (first === undefined) throw Error("A development program has no stage");
+	return first;
+}
 function versionReview(r: z.infer<typeof reviewRow>): C.VersionReview {
 	const finished = new Set(r.finished);
 	const before = new Map(r.from.map((m) => [m.lineage, m]));
@@ -323,7 +328,7 @@ function versionReview(r: z.infer<typeof reviewRow>): C.VersionReview {
 		carried: r.to.filter((m) => finished.has(m.lineage)).map((m) => m.title),
 		stage: r.stage,
 		stages: r.stages,
-		stageId: (r.stages.find((s) => s.label.trim().toLowerCase() === label) ?? r.stages[0]!).id,
+		stageId: (r.stages.find((s) => s.label.trim().toLowerCase() === label) ?? firstStage(r.stages)).id,
 	});
 }
 
@@ -536,7 +541,8 @@ SELECT EXISTS(SELECT FROM x) AS found,coalesce((SELECT director_seat_id=${w.seat
 			}),
 		);
 		if (!row.readings) refuse({ code: "invalid_input", field: "readings" });
-		return { revision: row.revision! };
+		if (row.revision === null) throw Error(`Program ${input.programId} saved a plan without a revision`);
+		return { revision: row.revision };
 	});
 }
 

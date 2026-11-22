@@ -1,7 +1,6 @@
 import { outcomeOf } from "@everyfield/contracts/common";
 import { requestDatabase } from "@/server/database";
 import { serverEnv } from "@/server/config";
-import { getViewer } from "@/server/request-context";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createNotificationProducer, parseKeyRing } from "@everyfield/domain/notifications";
@@ -24,10 +23,6 @@ export function notificationsMount(): Mount {
 		mount = { db: requestDatabase(), producer, optOut: ring !== null };
 	}
 	return mount;
-}
-
-export async function notificationActor(): Promise<RequestActor | null> {
-	return (await getViewer()).authority ?? null;
 }
 
 export async function call<T>(run: (m: Mount) => Promise<Reply<T>>): Promise<Outcome<T>> {

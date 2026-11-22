@@ -9,6 +9,7 @@ export const CHECKS = {
 	census: { kind: "census" },
 	docs: { kind: "command", command: ["python3", "docs/check-all.py"] },
 	"ci-coverage": { kind: "command", command: ["node", "tools/ci/ci-tests.ts"] },
+	"migration-safety": { kind: "command", command: ["node", "tools/ci/migration-safety.ts"] },
 	workflow: { kind: "suite", root: "tests/workflow", files: "tests/workflow/*.test.{mjs,ts}" },
 	"tools-ci": { kind: "suite", root: "tools/ci/tests", files: "tools/ci/tests/*.test.ts" },
 	"tools-qa": { kind: "suite", root: "tools/qa/tests", files: "tools/qa/tests/*.test.ts" },
@@ -102,6 +103,11 @@ export const RULES: readonly Rule[] = [
 			"tests/unit/**",
 		],
 		checks: ["feature-maps"],
+	},
+	{
+		name: "added migrations",
+		paths: ["packages/db/migrations/**", "tools/ci/migration-safety.ts"],
+		checks: ["migration-safety"],
 	},
 	{
 		name: "role prompts and evf roles",

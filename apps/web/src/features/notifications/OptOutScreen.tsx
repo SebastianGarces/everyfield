@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert02Icon, Mail01Icon, MailRemove01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { Button, buttonVariants } from "@everyfield/ui/controls";
+import { Button, buttonVariants, InlineAlert } from "@everyfield/ui/controls";
 import { Icon, LogoMark, type IconSvgElement } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useState, useTransition, type ReactNode } from "react";
@@ -67,6 +67,7 @@ function Choice({ token, category, emailEnabled }: { token: string; category: Ca
 			() => applyEmailOptOut(token),
 			(r) => ({ kind: "off", undoToken: r.undoToken }),
 		);
+	const undoable = done?.kind === "off" ? done.undoToken : null;
 	const turnOn = (undoToken: string) =>
 		run(
 			() => undoEmailOptOut(undoToken),
@@ -105,23 +106,15 @@ function Choice({ token, category, emailEnabled }: { token: string; category: Ca
 					<Button variant="primary" className="w-full" loading={pending} onClick={turnOff}>
 						Turn off these emails
 					</Button>
-				) : done.kind === "off" && done.undoToken ? (
+				) : undoable ? (
 					<div className="flex flex-col gap-2">
-						<Button variant="secondary" className="w-full" loading={pending} onClick={() => turnOn(done.undoToken!)}>
+						<Button variant="secondary" className="w-full" loading={pending} onClick={() => turnOn(undoable)}>
 							Turn them back on
 						</Button>
 						<p className="text-center text-xs text-text-3">You can turn them back on here for one hour.</p>
 					</div>
 				) : null}
-				{problem ? (
-					<p
-						role="alert"
-						className="flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600"
-					>
-						<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-						{problem}
-					</p>
-				) : null}
+				<InlineAlert>{problem}</InlineAlert>
 				<SignIn quiet />
 			</div>
 		</Shell>
