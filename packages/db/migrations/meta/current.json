@@ -7896,7 +7896,7 @@
       "checkConstraints": {
         "embedding_spend_purpose": {
           "name": "embedding_spend_purpose",
-          "value": "\"embedding_spend\".\"purpose\" IN ('query','rebuild')"
+          "value": "\"embedding_spend\".\"purpose\" IN ('query','rebuild','publish')"
         },
         "embedding_spend_usage": {
           "name": "embedding_spend_usage",
@@ -10434,7 +10434,7 @@
         },
         "job_ck_1": {
           "name": "job_ck_1",
-          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text, 'feedback_publication'::text, 'assessment'::text]))"
+          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text, 'feedback_publication'::text, 'assessment'::text, 'wiki_embedding'::text]))"
         },
         "job_ck_2": {
           "name": "job_ck_2",
@@ -16101,7 +16101,7 @@
           "name": "release_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "revision_id": {
           "name": "revision_id",
@@ -16322,7 +16322,12 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "passage_release_owner": {
+          "name": "passage_release_owner",
+          "value": "((release_id IS NULL) = (tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid))"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.people_column": {
