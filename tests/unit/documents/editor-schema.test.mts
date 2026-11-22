@@ -513,7 +513,12 @@ test("AC:CASE-DOC-022 a table whose editor JSON lacks a required part fails with
 	assert.throws(() => tableOf(noColumns), { name: "EditorJsonError", message: "table.attrs.columns is not a list" });
 	const noLabel = schema.nodeFromJSON({
 		type: "table",
-		attrs: { columns: [{ id: "item", label: "Item", type: "text", width: 1 }, { id: "qty", type: "number", width: 1 }] },
+		attrs: {
+			columns: [
+				{ id: "item", label: "Item", type: "text", width: 1 },
+				{ id: "qty", type: "number", width: 1 },
+			],
+		},
 		content: [row],
 	});
 	assert.throws(() => tableOf(noLabel), {

@@ -46,11 +46,7 @@ export function editorContent(doc: DocDocument): Json {
 	return {
 		type: "doc",
 		attrs: { page, fields: doc.fields, ...(doc.data === undefined ? {} : { data: doc.data }) },
-		content: [
-			...region("header"),
-			...blocksToEditor(withSlotLines(doc.body.content ?? [])),
-			...region("footer"),
-		],
+		content: [...region("header"), ...blocksToEditor(withSlotLines(doc.body.content ?? [])), ...region("footer")],
 	};
 }
 
