@@ -7,7 +7,7 @@ import { holdPort } from "./held-port.mjs";
 
 const stub = fileURLToPath(new URL("./fixtures/listen-stub.mjs", import.meta.url));
 
-test("INV-census: a server started on a held port comes up even when another socket tries to take that port first", async () => {
+test("INV-census: next start listens on the socket that chose its port, so no socket takes a freed port first (EADDRINUSE race)", async () => {
 	const held = await holdPort("127.0.0.1");
 	const origin = `http://127.0.0.1:${held.port}`;
 	const thief = createServer();
