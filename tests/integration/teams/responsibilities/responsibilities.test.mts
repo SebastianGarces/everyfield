@@ -722,3 +722,82 @@ test("AC:TARGET-TEAM-007 every template key maps to a frozen catalog team or the
 	assert.equal((await playbookTeam("senior_pastor")).version, freeze.artifactSha256);
 	assert.equal((await playbookTeam("not-a-team")).description, null);
 });
+
+test("INV-tenancy a non-admin cannot change a missing, foreign or other team's line, or lead an archived team or as a retired person", async () => {
+	const linked = await admin.execute(
+		sql`SELECT id FROM person WHERE linked_account_id=${actors[1].id} AND tenant_id=${P} AND state='live'`,
+	);
+	const lead = linked.rows[0]?.id ?? (await person("Line gate lead", actors[1].id));
+	const led = await makeTemplateTeam("Gate led duties", null);
+	const other = await makeTemplateTeam("Gate other duties", null);
+	const foreign = ok(
+		await run(teamsWriter.create, { requestKey: key(), input: { name: "Gate foreign duties" } }, 3),
+	).team;
+	ok(
+		await run(teamsWriter.appointLeader, {
+			requestKey: key(),
+			expectedRevision: (await offerOf(led.id)).revision,
+			input: { teamId: led.id, personId: lead },
+		}),
+	);
+	const line = async (plant, teamId) => {
+		const id = randomUUID();
+		await admin.execute(sql`INSERT INTO responsibility (id, plant_id, team_id, source_version_id, source_line, text, sort_order)
+			VALUES (${id}, ${plant}, ${teamId}, (SELECT id FROM reference_version ORDER BY id LIMIT 1),
+				${"custom:" + id}, 'Gate line', 1)`);
+		return id;
+	};
+	const mine = await line(P, led.id);
+	const theirs = await line(P, other.id);
+	const abroad = await line(Q, foreign.id);
+	const writes = [
+		[responsibilityWriter.editResponsibility, (responsibilityId) => ({ responsibilityId, text: "Gate probe" })],
+		[responsibilityWriter.completeResponsibility, (responsibilityId) => ({ responsibilityId, done: true })],
+		[responsibilityWriter.deleteResponsibility, (responsibilityId) => ({ responsibilityId })],
+	];
+	const revision = async (id) =>
+		(await admin.execute(sql`SELECT revision::text AS r FROM responsibility WHERE id=${id}`)).rows[0]?.r ?? "1";
+	const denied = async (responsibilityId) => {
+		for (const [op, input] of writes)
+			refused(
+				await run(
+					op,
+					{ requestKey: key(), expectedRevision: await revision(responsibilityId), input: input(responsibilityId) },
+					1,
+				),
+				"access_denied",
+			);
+	};
+	const stored = () =>
+		admin.execute(sql`SELECT text, completed_on, removed_at, revision::text AS revision FROM responsibility
+			WHERE id IN (${mine}, ${theirs}, ${abroad}) ORDER BY id`);
+	const unchanged = (await stored()).rows;
+	for (const responsibilityId of [randomUUID(), abroad, theirs]) await denied(responsibilityId);
+	await admin.execute(sql`UPDATE team SET archived_at=clock_timestamp() WHERE id=${led.id}`);
+	await denied(mine);
+	await admin.execute(sql`UPDATE team SET archived_at=NULL WHERE id=${led.id}`);
+	await admin.execute(sql`UPDATE person SET state='retired' WHERE id=${lead}`);
+	try {
+		await denied(mine);
+	} finally {
+		await admin.execute(sql`UPDATE person SET state='live' WHERE id=${lead}`);
+	}
+	assert.deepEqual((await stored()).rows, unchanged);
+	for (const [responsibilityId, who] of [
+		[mine, 1],
+		[theirs, 2],
+	])
+		for (const [op, input] of writes)
+			ok(
+				await run(
+					op,
+					{ requestKey: key(), expectedRevision: await revision(responsibilityId), input: input(responsibilityId) },
+					who,
+				),
+			);
+	assert.equal(
+		await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE id IN (${mine}, ${theirs}) AND removed_at IS NOT NULL
+			AND completed_on IS NOT NULL AND text='Gate probe'`),
+		2,
+	);
+});

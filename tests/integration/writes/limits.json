@@ -1646,8 +1646,8 @@
 		"reads": "T-506: 2 reads in a row (locked read of reference_release, then read of reference_release); the follow-up merges them or says why they cannot be one statement."
 	},
 	"reference.rebuildEmbeddings": {
-		"limit": 24,
-		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 9 read, 7 write.",
+		"limit": 25,
+		"reason": "Activates through reference.promote, after one write that adds the provider's reported tokens to embedding_spend. Its largest first run: 4 transaction, 4 locked read, 9 read, 8 write.",
 		"reads": "T-506: 2 reads in a row (read of account+auth_session, then locked read of account+platform_grant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"seats.appointAdmin": {
@@ -1868,9 +1868,8 @@
 		"reason": "A non-admin leader checks that they lead the team. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
 	},
 	"teams.appointLeader": {
-		"limit": 7,
-		"reason": "The appointment locks the person row as well as the team. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
-		"reads": "T-500: 2 reads in a row (locked read of person+team+team_role+team_tenure, then locked read of person); the follow-up merges them or says why they cannot be one statement."
+		"limit": 6,
+		"retry": 5
 	},
 	"teams.archive": {
 		"limit": 6,
@@ -1881,16 +1880,13 @@
 		"retry": 5
 	},
 	"teams.attestCompletion": {
-		"limit": 7,
-		"retry": 5,
-		"reason": "Attest locks the program, the person and the latest credit before it inserts the earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
-		"reads": "T-500: 2 reads in a row (locked read of training_program, then locked read of person+team_role+team_tenure+training_assignment+training_credit); the follow-up merges them or says why they cannot be one statement."
+		"limit": 6,
+		"retry": 5
 	},
 	"teams.completeResponsibility": {
-		"limit": 8,
+		"limit": 7,
 		"retry": 5,
-		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
-		"reads": "T-500: 2 reads in a row (read of responsibility, then read of person+team); the follow-up merges them or says why they cannot be one statement."
+		"reason": "A non-admin leader resolves the responsibility team and checks that they lead it in one read. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
 	},
 	"teams.correctTenure": {
 		"limit": 6,
@@ -1912,31 +1908,26 @@
 		"retry": 5
 	},
 	"teams.deleteResponsibility": {
-		"limit": 8,
+		"limit": 7,
 		"retry": 5,
-		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
-		"reads": "T-500: 2 reads in a row (read of responsibility, then read of person+team); the follow-up merges them or says why they cannot be one statement."
+		"reason": "A non-admin leader resolves the responsibility team and checks that they lead it in one read. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
 	},
 	"teams.edit": {
 		"limit": 6,
 		"retry": 6
 	},
 	"teams.editResponsibility": {
-		"limit": 8,
+		"limit": 7,
 		"retry": 5,
-		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
-		"reads": "T-500: 2 reads in a row (read of responsibility, then read of person+team); the follow-up merges them or says why they cannot be one statement."
+		"reason": "A non-admin leader resolves the responsibility team and checks that they lead it in one read. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
 	},
 	"teams.editRole": {
-		"limit": 8,
+		"limit": 7,
 		"retry": 5,
-		"reason": "A non-admin leader resolves the role team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
-		"reads": "T-500: 2 reads in a row (read of team_role, then read of person+team); the follow-up merges them or says why they cannot be one statement."
+		"reason": "A non-admin leader resolves the role team and checks that they lead it in one read. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
 	},
 	"teams.endMembership": {
-		"limit": 7,
-		"reason": "Ending a membership counts the open tenures after the team lock. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write.",
-		"reads": "T-500: 2 reads in a row (locked read of person+team+team_role+team_tenure, then read of person+team_role+team_tenure); the follow-up merges them or says why they cannot be one statement."
+		"limit": 6
 	},
 	"teams.initialize": {
 		"limit": 6,
@@ -1974,25 +1965,20 @@
 		"limit": 1
 	},
 	"teams.recompleteTraining": {
-		"limit": 7,
-		"retry": 5,
-		"reason": "Recomplete locks the program, the person and the latest credit before it appends an earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
-		"reads": "T-500: 2 reads in a row (locked read of training_program, then locked read of person+team_role+team_tenure+training_assignment+training_credit); the follow-up merges them or says why they cannot be one statement."
+		"limit": 6,
+		"retry": 5
 	},
 	"teams.restore": {
 		"limit": 6
 	},
 	"teams.retireRole": {
-		"limit": 8,
+		"limit": 7,
 		"retry": 5,
-		"reason": "A non-admin leader resolves the role team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
-		"reads": "T-500: 2 reads in a row (read of team_role, then read of person+team); the follow-up merges them or says why they cannot be one statement."
+		"reason": "A non-admin leader resolves the role team and checks that they lead it in one read. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
 	},
 	"teams.revokeCompletion": {
-		"limit": 7,
-		"retry": 6,
-		"reason": "Revoke locks the program, the person and the latest credit before it inserts the revoked row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
-		"reads": "T-500: 2 reads in a row (locked read of training_program, then locked read of person+team_role+team_tenure+training_assignment+training_credit); the follow-up merges them or says why they cannot be one statement."
+		"limit": 6,
+		"retry": 6
 	},
 	"teams.setRequiredTrainingParticipants": {
 		"limit": 8,
@@ -2050,7 +2036,8 @@
 		"limit": 1
 	},
 	"wiki.search": {
-		"limit": 4,
+		"limit": 6,
+		"reason": "Keyword search is the transaction, its lock timeout and one search statement (4). A meaning search on an embedded release first reads the release's profile and the day's query tokens with the session (1) and, after the one provider call, adds the reported tokens to embedding_spend (1). Its largest first run: 2 transaction, 3 read, 1 write.",
 		"retry": 4
 	},
 	"wiki.setBookmark": {

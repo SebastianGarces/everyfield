@@ -217,3 +217,4 @@ export const INTELLIGENCE_COMMANDS = {
 	"signals.correct": correctSignal,
 	"signals.reaffirm": reaffirmSignal,
 } as const;
+export { ASSESSMENT_INTELLIGENCE_COMMANDS } from "./assessment.ts";

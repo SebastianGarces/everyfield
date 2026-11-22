@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { seeds } from "../../support/fixture.mts";
+import { seeds, waitingOnLock } from "../../support/fixture.mts";
 import { liveAccess, RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import {
@@ -693,6 +693,57 @@ test("AC:ADR1-014 church reading opens only from Casey's own list; another churc
 	assert.deepEqual(ok(await readResidentReading(f.db, await authority(casey), { readingId: team.id })), {
 		status: "unavailable",
 	});
+});
+
+test("INV-lock-order: a resident's sharing change or leave from a stale revision, in a transaction whose gate is not bound yet, locks her account before the residency link", async (t) => {
+	const owner = { kind: "account" as const, id: casey.id };
+	const lock = (table: "account" | "residency_link", id: string, nowait = false) =>
+		sql`SELECT 1 FROM ${sql.identifier(table)} WHERE id=${sql.param(id)} FOR NO KEY UPDATE${sql.raw(nowait ? " NOWAIT" : "")}`;
+	const locked = async (table: "account" | "residency_link", id: string) => {
+		try {
+			await f.admin.execute(lock(table, id, true));
+			return false;
+		} catch (e) {
+			if ((e as { cause?: { code?: string } }).cause?.code === "55P03") return true;
+			throw e;
+		}
+	};
+	for (const name of ["residency.setSharing", "residency.leave"] as const)
+		await t.test(name, async () => {
+			const l = (await linkRow())!;
+			const input = {
+				requestKey: randomUUID(),
+				expectedRevision: String(BigInt(l.revision) + 1n),
+				input: {
+					linkId: l.id,
+					expectedConsentRevision: l.consent,
+					...(name === "residency.setSharing" ? { choices: { shareFoundations: true, shareMilestones: true } } : {}),
+				},
+			};
+			const order = [
+				{ table: "account" as const, id: casey.id },
+				{ table: "residency_link" as const, id: l.id },
+			];
+			for (const [step, held] of order.entries()) {
+				let write!: Promise<unknown>;
+				await f.admin.transaction(async (hold) => {
+					await hold.execute(lock(held.table, held.id));
+					const holder = ((await hold.execute(sql`SELECT pg_backend_pid() AS pid`)).rows[0] as { pid: number }).pid;
+					write = gatedTransaction(f.db, (tx) =>
+						adapter[name](tx, sessionId.parse(casey.session), owner, input as never),
+					).catch((reason: Error) => ({ refused: reason.message }));
+					await waitingOnLock(f.db, { blockedBy: holder });
+					const other = order[1 - step]!;
+					assert.equal(
+						await locked(other.table, other.id),
+						step === 1,
+						`while it waits on the ${held.table}, the write holds the ${other.table} only if it comes earlier`,
+					);
+				});
+				assert.deepEqual(await write, { refused: "stale_revision" });
+			}
+			assert.deepEqual(await linkRow(), l);
+		});
 });
 
 test("AC:ADR1-003 AC:ADR1-013 Casey leaves: My residency is gone at once and Grace Austin sees her as not linked; its own facts stay", async () => {

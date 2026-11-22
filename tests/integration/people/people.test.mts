@@ -223,6 +223,32 @@ test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and page n
 	);
 });
 
+test("INV-people: the city filter matches the recorded city whole, ignoring case, never a name, and joins the stage filter", async () => {
+	const a = await create("City filter Ada", { city: "Austin" }),
+		b = await create("City filter Ben", { city: "austin", stage: "attendee" });
+	await create("City filter Cy", { city: "South Austin" });
+	await create("City filter Austin Dee", { city: "Round Rock" });
+	await create("City filter Eve");
+	const ids = (page) => page.items.map((p) => p.id).sort();
+	const all = ok(await tx((t) => read.listPeople(t, ctx(1), { search: "City filter", city: " AUSTIN " })));
+	assert.deepEqual([ids(all), all.total, all.next], [[a.id, b.id].sort(), 2, null]);
+	const prospects = ok(
+		await tx((t) => read.listPeople(t, ctx(1), { search: "City filter", city: "austin", stages: ["prospect"] })),
+	);
+	assert.deepEqual([ids(prospects), prospects.total], [[a.id], 1]);
+	const board = ok(await tx((t) => read.getPipelineData(t, ctx(), { search: "City filter", city: "Austin" })));
+	assert.deepEqual(
+		board.groups.map((g) => [g.column, g.total, g.cards.map((c) => c.person.id)]),
+		[
+			["prospect", 1, [a.id]],
+			["attendee", 1, [b.id]],
+			["following_up", 0, []],
+			["interviewed", 0, []],
+			["core_group", 0, []],
+		],
+	);
+	refused(await tx((t) => read.listPeople(t, ctx(), { search: "City filter", city: "" })), "invalid_input");
+});
 test("BUG-PR110: people pages retain microseconds across 25 equal timestamp keys", async (t) => {
 	const ids = Array.from({ length: 25 }, () => randomUUID()).sort();
 	t.after(() => admin.execute(sql`DELETE FROM person WHERE id=ANY(${sql.param(ids)}::uuid[])`));

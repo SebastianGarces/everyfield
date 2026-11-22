@@ -29,9 +29,19 @@ import {
 } from "@everyfield/contracts/wiki";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
+import {
+	DAILY_QUERY_CAP_USD,
+	EmbeddingRefusal,
+	recordSpend,
+	tokensFor,
+	wikiQueryEmbedder,
+	type WikiQueryEmbedder,
+} from "@everyfield/reference/wiki-embedding";
 import "server-only";
 import { z } from "zod";
+import type { Owner } from "@everyfield/contracts/common";
 import type { RequestActor } from "../access/session.ts";
+import { asLogWord, logLine } from "../log.ts";
 import {
 	articleJson,
 	catalogQuery,
@@ -209,7 +219,96 @@ function plainText(text: SQL): SQL {
 		text,
 	)})`;
 }
-export async function search(db: Database, authority: RequestActor, raw: unknown) {
+const MEANING_PASSAGES = 40;
+const MEANING_DISTANCE = 0.7;
+const BLEND = 60;
+const HEADLINE = "MaxFragments=1, MinWords=5, MaxWords=20";
+const SNIPPET_WORDS = 20;
+const SPACES = "\\s+";
+const PARTIAL_WORD = "^\\S*\\s+";
+const probeRow = z.object({
+	allowed: z.boolean(),
+	profile: z.string().nullable(),
+	dimensions: z.number().int().nullable(),
+	spent: z.coerce.number(),
+});
+const MEANING_VECTOR = "public.vector(1536)";
+type Meaning = { vector: string };
+
+function meaningSkipped(reason: string): null {
+	logLine({ component: "wiki", outcome: "meaning-skipped", reason: asLogWord(reason) });
+	return null;
+}
+async function meaningOf(
+	db: Database,
+	authority: RequestActor,
+	owner: Owner,
+	embedder: WikiQueryEmbedder,
+	query: string,
+): Promise<Meaning | null> {
+	const probe = probeRow.parse(
+		(
+			await db.execute(sql`WITH ${meSql(authority, owner)}
+				SELECT EXISTS (SELECT FROM me) AS allowed, rel.embedding_profile AS profile,
+					rel.embedding_dimensions AS dimensions,
+					COALESCE((
+						SELECT usage FROM embedding_spend
+						WHERE day = (clock_timestamp() AT TIME ZONE 'UTC')::date AND purpose = 'query'
+					), 0) AS spent
+				FROM (SELECT 1) one
+				LEFT JOIN LATERAL (
+					SELECT r.embedding_profile, r.embedding_dimensions
+					FROM reference_activation a JOIN reference_release r ON r.id = a.release_id
+					ORDER BY a.activation_number DESC LIMIT 1
+				) rel ON true`)
+		).rows[0],
+	);
+	if (!probe.allowed || probe.profile !== embedder.profile || probe.dimensions !== embedder.dimensions) return null;
+	if (probe.spent >= tokensFor(DAILY_QUERY_CAP_USD)) return meaningSkipped("daily_limit");
+	let embedded: Awaited<ReturnType<WikiQueryEmbedder["embed"]>>;
+	try {
+		embedded = await embedder.embed(query);
+	} catch (error) {
+		if (!(error instanceof EmbeddingRefusal)) return meaningSkipped("embedding_failed");
+		await recordSpend(db, "query", error.usageTokens);
+		return meaningSkipped(error.code);
+	}
+	await recordSpend(db, "query", embedded.tokens);
+	return { vector: `[${embedded.vector.join(",")}]` };
+}
+function meaningSql(meaning: Meaning | null, phase: number | null): SQL {
+	if (!meaning)
+		return sql`SELECT NULL::uuid AS article_id, NULL::text AS content, NULL::float8 AS distance WHERE false`;
+	const type = sql.raw(MEANING_VECTOR);
+	const distance = sql`ps.embedding::${type} OPERATOR(public.<=>) ${meaning.vector}::${type}`;
+	return sql`
+		SELECT DISTINCT ON (p.article_id) p.article_id,
+			CASE WHEN m.ordinal = 0 THEN m.content ELSE regexp_replace(m.content, ${PARTIAL_WORD}, '') END AS content,
+			m.distance
+		FROM (
+			SELECT ps.revision_id, ps.ordinal, ps.content, ${distance} AS distance
+			FROM passage ps
+			WHERE (
+					ps.release_id = (SELECT release_id FROM release)
+					OR (ps.release_id IS NULL AND ps.tenant_id IN (SELECT org_id FROM links))
+				)
+				AND public.vector_dims(ps.embedding) = 1536
+			ORDER BY ${distance}
+			LIMIT ${MEANING_PASSAGES}
+		) m
+		JOIN picked p ON p.revision_id = m.revision_id
+		WHERE m.distance <= ${MEANING_DISTANCE}
+			AND NOT p.hidden
+			AND (${phase === null}::boolean OR p.phase = ${phase ?? 0})
+		ORDER BY p.article_id, m.distance`;
+}
+
+export async function search(
+	db: Database,
+	authority: RequestActor,
+	raw: unknown,
+	embedder: WikiQueryEmbedder | null = wikiQueryEmbedder(process.env),
+) {
 	return runRead(async () => {
 		const input = parse(searchRequest, raw);
 		const access = accessFor(authority);
@@ -224,28 +323,51 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 		const page = input.page ?? 1;
 		const offset = (page - 1) * PAGE;
 		const phase = input.phase ?? null;
+		const meaning = embedder ? await meaningOf(db, authority, access.owner, embedder, input.query) : null;
+		const words = sql`websearch_to_tsquery('english', ${input.query})`;
 		try {
 			const result = await db.transaction(async (tx) => {
-				await tx.execute(sql`SELECT set_config('lock_timeout','1s',true)`);
+				await tx.execute(
+					meaning
+						? sql`SELECT set_config('lock_timeout','1s',true), set_config('hnsw.iterative_scan','relaxed_order',true)`
+						: sql`SELECT set_config('lock_timeout','1s',true)`,
+				);
 				return tx.execute(sql`WITH ${corpusCtes(access, source)},
-					scored AS (
-						SELECT p.*, ts_rank(r.search_vector, websearch_to_tsquery('english', ${input.query})) AS text_rank
+					keyword AS (
+						SELECT p.article_id, ts_rank(r.search_vector, ${words}) AS text_rank
 						FROM picked p
 						JOIN article_revision r ON r.id = p.revision_id
 						WHERE NOT p.hidden
 							AND (${phase === null}::boolean OR p.phase = ${phase ?? 0})
-							AND r.search_vector @@ websearch_to_tsquery('english', ${input.query})
+							AND r.search_vector @@ ${words}
+					),
+					meaning AS (${meaningSql(meaning, phase)}),
+					scored AS (
+						SELECT p.*, k.article_id IS NOT NULL AS keyword_hit, m.content AS meaning_text,
+							COALESCE(k.position = 1, false) AS keyword_first,
+							COALESCE(1.0 / (${BLEND} + k.position), 0) + COALESCE(1.0 / (${BLEND} + m.position), 0) AS blend
+						FROM picked p
+						LEFT JOIN (
+							SELECT article_id, row_number() OVER (ORDER BY text_rank DESC, article_id) AS position FROM keyword
+						) k ON k.article_id = p.article_id
+						LEFT JOIN (
+							SELECT article_id, content, row_number() OVER (ORDER BY distance, article_id) AS position FROM meaning
+						) m ON m.article_id = p.article_id
+						WHERE k.article_id IS NOT NULL OR m.article_id IS NOT NULL
 					)
 					SELECT
 						EXISTS (SELECT FROM me) AS allowed,
 						(SELECT count(*)::int FROM scored) AS total,
 						COALESCE((
-							SELECT json_agg(${articleJson()} ORDER BY p.text_rank DESC, p.article_id)
+							SELECT json_agg(${articleJson()} ORDER BY p.keyword_first DESC, p.blend DESC, p.article_id)
 							FROM (
-								SELECT s.*, ts_headline('english', ${plainText(sql`coalesce(wiki_search_words(s.content_type, s.body), s.excerpt, s.title, '')`)}, websearch_to_tsquery('english', ${input.query}), 'MaxFragments=1, MinWords=5, MaxWords=20') AS snippet
+								SELECT s.*, CASE WHEN s.keyword_hit
+									THEN ts_headline('english', ${plainText(sql`coalesce(wiki_search_words(s.content_type, s.body), s.excerpt, s.title, '')`)}, ${words}, ${HEADLINE})
+									ELSE array_to_string((regexp_split_to_array(${plainText(sql`s.meaning_text`)}, ${SPACES}))[1:${SNIPPET_WORDS}::int], ' ')
+								END AS snippet
 								FROM (
 									SELECT * FROM scored
-									ORDER BY text_rank DESC, article_id
+									ORDER BY keyword_first DESC, blend DESC, article_id
 									OFFSET ${offset} LIMIT ${PAGE}
 								) s
 							) p

@@ -28,9 +28,11 @@ export type EvryErrorCode =
 
 export class EvryRefusal extends Error {
 	readonly code: EvryErrorCode;
-	constructor(code: EvryErrorCode) {
+	readonly problem: string | null;
+	constructor(code: EvryErrorCode, problem: string | null = null) {
 		super(code);
 		this.code = code;
+		this.problem = problem;
 	}
 }
 

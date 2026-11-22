@@ -5,6 +5,7 @@ import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
+import { organizationSeatContext } from "../access/organization-seat.ts";
 import { plantViewer } from "../documents/access.ts";
 import { readPlantSetupComplete } from "../identity/reads.ts";
 
@@ -97,9 +98,10 @@ const frameRow = z.object({
 
 export const dashboardReader = {
 	async resolveHome(db: Db, authority: RequestActor | null): Promise<PlantSetup> {
-		const context = authority?.actor.context;
-		if (!authority || context?.kind !== "seat") return "none";
-		if (context.owner.kind === "organization") return "organization";
+		if (!authority) return "none";
+		if (organizationSeatContext(authority)) return "organization";
+		const context = authority.actor.context;
+		if (context.kind !== "seat" || context.owner.kind !== "plant") return "none";
 		return (await readPlantSetupComplete(db, authority.session, context.owner)) ? "complete" : "incomplete";
 	},
 

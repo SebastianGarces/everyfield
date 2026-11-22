@@ -75,6 +75,7 @@ export function peopleFilters(
 			sql`(strpos(lower(${tables.person.display_name}),${term})>0 OR strpos(lower(coalesce(${tables.person.email},'')),${term})>0 OR strpos(lower(coalesce(${tables.person.phone},'')),${term})>0)`,
 		);
 	}
+	if (input.city) filters.push(sql`lower(trim(${tables.person.city}))=${input.city.toLowerCase()}`);
 	if (input.stages.length) filters.push(inArray(tables.person.stage, input.stages));
 	if (input.sources.length) filters.push(inArray(tables.person.source, input.sources));
 	if (input.tags.length)

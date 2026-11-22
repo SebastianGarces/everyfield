@@ -305,13 +305,13 @@ function JoinForm({
 			requestKey,
 			invitationProof: proof,
 		});
-		if (!registered.ok) {
+		if (registered.status !== "ok") {
 			setBusy(false);
-			setRefusal(refusalMessage("register", registered.error));
+			setRefusal(refusalMessage("register", registered));
 			return;
 		}
 		const signedIn = await identityApi.signIn({ email: email.data, password });
-		if (signedIn.ok) {
+		if (signedIn.status === "ok") {
 			onJoined(email.data);
 			return;
 		}
@@ -576,7 +576,7 @@ function useConfirmationLink() {
 	const send = async (email: string) => {
 		setSent("sending");
 		const r = await identityApi.sendVerification(email);
-		setSent(r.ok ? "sent" : "failed");
+		setSent(r.status === "ok" ? "sent" : "failed");
 	};
 	return { sent, send };
 }

@@ -18,6 +18,8 @@ import { sql } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor, WriteTx } from "../access/session.ts";
+import { organizationSeatContext } from "../access/organization-seat.ts";
+import { queueJobsFor } from "../jobs/queue.ts";
 import { GLOBAL, claimedWrite, deny, meSql, ownWrite, parse, refused, runRead, runWrite, type Runner } from "./core.ts";
 
 type OrgValue = z.infer<typeof organizationArticleResult>;
@@ -42,8 +44,8 @@ function deniedOrg(): OrgValue {
 	return orgValue({ errorCode: "editorial_access_denied" });
 }
 function orgEditor(authority: RequestActor, organizationId: string): Owner | null {
-	const context = authority.actor.context;
-	if (context.kind !== "seat" || context.owner.kind !== "organization") return null;
+	const context = organizationSeatContext(authority);
+	if (!context) return null;
 	if (context.role !== "owner" && context.role !== "admin") return null;
 	if (context.owner.id !== organizationId) return null;
 	if (context.owner.organizationKind !== "sending_church" && context.owner.organizationKind !== "sending_network")
@@ -261,7 +263,18 @@ async function mutate(
 				FROM ins
 				WHERE NOT EXISTS (SELECT FROM editor)
 				RETURNING state
-			)
+			)${
+				mode === "publish"
+					? sql`,
+			embedding AS (${queueJobsFor(sql`FROM ins`, {
+				kind: "wiki_embedding",
+				tenant: sql`${owner.id}::uuid`,
+				subject: sql`ins.id`,
+				key: sql`'wiki_embedding/' || ins.id::text`,
+				conflict: "skip",
+			})})`
+					: sql``
+			}
 			SELECT
 				EXISTS (SELECT FROM me) AS allowed,
 				EXISTS (SELECT FROM base) AS has_base,

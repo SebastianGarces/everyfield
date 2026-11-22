@@ -34,11 +34,11 @@ const storage = {
 const shared = globalThis as Record<symbol, { configured?: unknown; checks: WeakMap<object, unknown> } | undefined>;
 (shared[Symbol.for("everyfield.db.privateStorage")] ??= { checks: new WeakMap() }).configured = storage;
 
-before(setup);
 after(teardown);
 
 let docs: Record<"draft" | "agenda" | "policy" | "other", Seeded>;
 before(async () => {
+	await setup();
 	docs = {
 		draft: await seedDocument(plant, "native", "Values Draft", "Prayer comes before planning.", 5),
 		agenda: await seedDocument(plant, "native", "Vision Meeting Agenda", "6:30 PM Welcome", 4),
