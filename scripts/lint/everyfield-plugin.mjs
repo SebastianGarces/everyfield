@@ -1814,6 +1814,14 @@ const formGroup = (node) => {
 	return false;
 };
 const templateText = (node) => node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ");
+const concatenated = (node) =>
+	node.type === "BinaryExpression" && node.operator === "+"
+		? [concatenated(node.left), concatenated(node.right)].reduce((a, b) => (a && b ? [...a, ...b] : null))
+		: node.type === "Literal" && typeof node.value === "string"
+			? [node.value]
+			: node.type === "TemplateLiteral"
+				? [templateText(node)]
+				: null;
 const classParts = (node) =>
 	node.type === "Literal"
 		? typeof node.value === "string"
@@ -1829,7 +1837,9 @@ const classParts = (node) =>
 						? node.elements.flatMap((element) => (element ? classParts(element) : []))
 						: node.type === "ObjectExpression"
 							? node.properties.flatMap((property) => (property.type === "Property" ? classParts(property.key) : []))
-							: [];
+							: node.type === "BinaryExpression"
+								? [concatenated(node)?.join("")].filter(Boolean)
+								: [];
 
 const sharedNotice = {
 	meta: { type: "problem" },
@@ -1853,6 +1863,12 @@ const sharedNotice = {
 		return {
 			Literal: (node) => check(node, text(node)),
 			TemplateLiteral: (node) => check(node, templateText(node)),
+			BinaryExpression(node) {
+				const parts = concatenated(node);
+				if (!parts || parts.some(noticeLook) || (node.parent.type === "BinaryExpression" && concatenated(node.parent)))
+					return;
+				check(node, parts.join(""));
+			},
 			CallExpression(node) {
 				const parts = node.arguments.flatMap(classParts);
 				if (parts.length < 2 || parts.some(noticeLook)) return;
@@ -3302,8 +3318,8 @@ const statusLiterals = (type) =>
 			? type.types.flatMap(statusLiterals)
 			: [];
 const propertiesOf = (member) =>
-	member.type === "TSTypeLiteral"
-		? member.members.flatMap((m) =>
+	member.type === "TSTypeLiteral" || member.type === "TSInterfaceBody"
+		? (member.members ?? member.body).flatMap((m) =>
 				m.type === "TSPropertySignature" ? [{ name: keyName(m.key, m.computed), type: m.typeAnnotation }] : [],
 			)
 		: member.type === "TSIntersectionType"
@@ -3399,6 +3415,9 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 		TSTypeAliasDeclaration(node) {
 			aliases.set(node.id.name, node.typeAnnotation);
 			candidates.push(node);
+		},
+		TSInterfaceDeclaration(node) {
+			aliases.set(node.id.name, node.body);
 		},
 		TSTypeAnnotation: typeOf,
 		TSAsExpression: typeOf,

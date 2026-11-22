@@ -1359,7 +1359,7 @@ import { pgTable } from "@everyfield/db/columns";
 	);
 });
 
-test("INV-lint: apps/web shows an error or warning notice through the shared Alert, never a hand-written magenta or amber box, in cn object syntax or an amber token tint too", () => {
+test("INV-lint: apps/web shows an error or warning notice through the shared Alert, never a hand-written magenta or amber box, in cn object syntax, literal concatenation or an amber token tint too", () => {
 	const code = `export const A = () => <p className="rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">x</p>;
 export const B = (more) => \`flex bg-magenta-50 \${more} text-magenta-600\`;
 export const C = { error: "bg-magenta-50 text-magenta-600" };
@@ -1402,6 +1402,13 @@ export const AM = () => <span className="rounded-pill bg-[var(--ef-amber-100)] p
 export const AN = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-50"]: on });
 export const AO = (on) => cn("rounded-lg p-3", { [\`bg-magenta-100\`]: on });
 export const AP = (on, tone) => cn("rounded-md px-4 py-3", { [tone]: on });
+export const AQ = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-" + "50"]: on });
+export const AR = (on) => cn("rounded-lg p-3", { ["bg-" + "magenta-" + \`100\`]: on });
+export const AS = (on, t) => cn("rounded-md px-4 py-3", { ["bg-amber-" + t]: on, ["bg-amber-50" + t]: on, ["bg-amber-" + \`\${t}50\`]: on });
+export const AT = (on) => cn("rounded-md px-4 py-3", { ["bg-surface-" + "2"]: on, ["bg-amber-" == "50"]: on });
+export const AU = () => cn("rounded-md px-3", "bg-amber-" + "50");
+export const AV = "rounded-md bg-amber-" + "100 px-4" + " py-3";
+export const AW = () => <p className={"rounded-md bg-amber-50 px-4 py-3" + " text-sm"}>x</p>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1409,7 +1416,7 @@ export const AP = (on, tone) => cn("rounded-md px-4 py-3", { [tone]: on });
 	}).filter((hit) => hit.endsWith(" shared-notice"));
 	assert.deepEqual(
 		reported.sort(),
-		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37, 40, 41]
+		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37, 40, 41, 43, 44, 47, 48, 49]
 			.map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`)
 			.sort(),
 	);
@@ -2220,6 +2227,29 @@ type Swapped = { status: "ok"; receipt: number } | { status: "refused"; value: n
 			"packages/domain/src/m.ts:2 shared-outcome",
 			"packages/domain/src/m.ts:3 shared-outcome",
 		],
+	);
+});
+
+test("INV-lint: an ok value / refused / lost union is reported when its parts are interfaces; an interface without the ok value is not", () => {
+	const source = `import type { Lost } from "@everyfield/contracts/common";
+interface Ok<T> { status: "ok"; value: T }
+export interface No { "status": "refused"; code: string }
+interface Gone { status: "lost" }
+interface Receipt { status: "ok"; receipt: number }
+interface Kind { kind: "ok"; value: number }
+export type Load<T> = Ok<T> | No | Gone;
+type Shared<T> = Ok<T> | No | Lost;
+type Polled = Receipt | No | Gone;
+type Kinds = Kind | No | Gone;
+async function read(): Promise<Ok<number> | No | Gone> {}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/model.ts": source, "packages/domain/src/m.ts": source }).filter((hit) =>
+			hit.endsWith("shared-outcome"),
+		),
+		["apps/web/src/features/x/model.ts", "packages/domain/src/m.ts"]
+			.flatMap((path) => [7, 8, 11].map((line) => `${path}:${line} shared-outcome`))
+			.sort(),
 	);
 });
 
