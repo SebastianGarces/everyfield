@@ -1378,7 +1378,13 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 		},
 		"Program:exit"(program) {
 			for (const [site, found] of candidates) {
-				if (found.length !== 1) for (const c of found) hit(c.node, c.name);
+				if (found.length > 1)
+					for (const c of found)
+						push({
+							node: c.node,
+							fn: enclosingName(c.node),
+							message: `${found.length} calls match the listed product timer ${site.timer} ${site.binding} in ${site.within} with delay ${site.delay}, which exempts exactly one. One of them is the listed product timer: keep it. Remove the copy that was added, or give a new timer its own binding and delay and its own reason.`,
+						});
 				if (!found.length)
 					push({
 						node: program,
@@ -1809,12 +1815,18 @@ const formGroup = (node) => {
 const templateText = (node) => node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ");
 const concatenated = (node) =>
 	node.type === "BinaryExpression" && node.operator === "+"
-		? [concatenated(node.left), concatenated(node.right)].reduce((a, b) => (a && b ? [...a, ...b] : null))
+		? [concatenatedOperand(node.left, node.right), concatenatedOperand(node.right, node.left)].reduce((a, b) =>
+				a && b ? [...a, ...b] : null,
+			)
 		: node.type === "Literal" && typeof node.value === "string"
 			? [node.value]
 			: node.type === "TemplateLiteral"
 				? [templateText(node)]
 				: null;
+const concatenatedOperand = (side, other) =>
+	side.type === "Literal" && typeof side.value === "number"
+		? concatenated(other) && [String(side.value)]
+		: concatenated(side);
 const classParts = (node) =>
 	node.type === "Literal"
 		? typeof node.value === "string"
@@ -1915,15 +1927,23 @@ const alwaysHidden = (element) => {
 		})
 	);
 };
+const portalElement = (element) =>
+	/Portal$/.test(
+		element.name.type === "JSXMemberExpression"
+			? element.name.property.name
+			: element.name.type === "JSXIdentifier"
+				? element.name.name
+				: "",
+	);
+const portalCall = (node) =>
+	(node.callee.type === "Identifier" ? node.callee.name : memberName(node.callee)) === "createPortal";
 const insideHiddenElement = (node) => {
-	for (let child = node.parent, at = child.parent; at; child = at, at = at.parent)
-		if (
-			at.type === "JSXElement" &&
-			child !== at.openingElement &&
-			domElement(at.openingElement) &&
-			alwaysHidden(at.openingElement)
-		)
-			return true;
+	for (let child = node.parent, at = child.parent; at; child = at, at = at.parent) {
+		if (at.type === "CallExpression" && portalCall(at)) return false;
+		if (at.type !== "JSXElement" || child === at.openingElement) continue;
+		if (portalElement(at.openingElement)) return false;
+		if (domElement(at.openingElement) && alwaysHidden(at.openingElement)) return true;
+	}
 	return false;
 };
 
@@ -3383,7 +3403,19 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 	const imported = new Map();
 	const namespaces = new Map();
 	const aliases = new Map();
+	const interfaces = new Map();
 	const candidates = [];
+	const interfaceParts = (name, seen) => {
+		if (seen.has(name)) return [];
+		seen.add(name);
+		if (aliases.has(name)) return [aliases.get(name)];
+		return (interfaces.get(name) ?? []).flatMap((block) => [
+			block.body,
+			...(block.extends ?? []).flatMap((h) =>
+				h.expression.type === "Identifier" ? interfaceParts(h.expression.name, seen) : [],
+			),
+		]);
+	};
 	const members = (type, seen) => {
 		if (type?.type === "TSUnionType") return type.types.flatMap((t) => members(t, seen));
 		const name = referenceName(type);
@@ -3391,6 +3423,7 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 			seen.add(name);
 			return members(aliases.get(name), seen);
 		}
+		if (name && interfaces.has(name)) return [{ type: "TSIntersectionType", types: interfaceParts(name, new Set()) }];
 		return [type];
 	};
 	const pieceOf = (member) => {
@@ -3454,7 +3487,7 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 			candidates.push(node);
 		},
 		TSInterfaceDeclaration(node) {
-			aliases.set(node.id.name, node.body);
+			interfaces.set(node.id.name, [...(interfaces.get(node.id.name) ?? []), node]);
 		},
 		TSTypeAnnotation: typeOf,
 		TSAsExpression: typeOf,
@@ -3602,17 +3635,19 @@ const ownerRead = (node) => {
 	if (at?.type === "LogicalExpression") return ownerRead(at.left) || ownerRead(at.right);
 	return at?.type === "MemberExpression" && memberName(at) === "owner";
 };
+const REBINDING = new Set(["=", "||=", "&&=", "??="]);
 const seatNames = (context) => {
 	const kinds = new Map();
 	const owners = new Set();
 	const variable = (id) => variableOf(context, id);
+	const holds = (name, subject) => kinds.set(name, [...(kinds.get(name) ?? []), subject]);
 	const bind = (pattern, from) => {
 		if (pattern?.type !== "ObjectPattern") return;
 		for (const property of pattern.properties) {
 			if (property.type !== "Property") continue;
 			const key = keyName(property.key, property.computed);
 			const value = property.value.type === "AssignmentPattern" ? property.value.left : property.value;
-			if (key === "kind" && value.type === "Identifier") kinds.set(variable(value), from);
+			if (key === "kind" && value.type === "Identifier") holds(variable(value), from);
 			if (key === "owner" && value.type === "Identifier") owners.add(variable(value));
 			if (key === "owner") bind(value, OWNER);
 		}
@@ -3630,25 +3665,20 @@ const seatNames = (context) => {
 		if (id.type !== "Identifier") return;
 		const name = variable(id);
 		if (ownerRead(init)) owners.add(name);
-		if (init?.type === "MemberExpression" && memberName(init) === "kind") kinds.set(name, unwrapped(init.object));
+		if (init?.type === "MemberExpression" && memberName(init) === "kind") holds(name, unwrapped(init.object));
 		if (name) aliases.set(name, [...(aliases.get(name) ?? []), ...rebound(init)]);
 	};
 	const declare = (node) => assign(node.id, node.init);
 	const reassign = (node) => {
-		if (node.operator === "=") assign(node.left, node.right);
+		if (REBINDING.has(node.operator)) assign(node.left, node.right);
 	};
 	const kindOf = (node, seen = new Set()) => {
 		const at = unwrapped(node);
-		if (at?.type === "MemberExpression") return memberName(at) === "kind" ? unwrapped(at.object) : null;
+		if (at?.type === "MemberExpression") return memberName(at) === "kind" ? [unwrapped(at.object)] : [];
 		const name = at?.type === "Identifier" ? variable(at) : null;
-		if (!name || seen.has(name)) return null;
+		if (!name || seen.has(name)) return [];
 		seen.add(name);
-		if (kinds.has(name)) return kinds.get(name);
-		for (const target of aliases.get(name) ?? []) {
-			const subject = kindOf(target, seen);
-			if (subject) return subject;
-		}
-		return null;
+		return [...(kinds.get(name) ?? []), ...(aliases.get(name) ?? []).flatMap((target) => kindOf(target, seen))];
 	};
 	const namesOwner = (node, seen = new Set()) => {
 		if (node?.type !== "Identifier") return memberName(node) === "owner";
@@ -3661,10 +3691,11 @@ const seatNames = (context) => {
 	return { declare, reassign, kindOf, namesOwner };
 };
 const comparedKinds = (node, kindOf) => {
-	if (node.type === "SwitchCase") return node.test ? [[kindOf(node.parent.discriminant), node.test]] : [];
+	if (node.type === "SwitchCase")
+		return node.test ? kindOf(node.parent.discriminant).map((subject) => [subject, node.test]) : [];
 	return [
-		[kindOf(node.left), node.right],
-		[kindOf(node.right), node.left],
+		...kindOf(node.left).map((subject) => [subject, node.right]),
+		...kindOf(node.right).map((subject) => [subject, node.left]),
 	];
 };
 
@@ -3686,7 +3717,8 @@ const organizationSeatCheck = {
 			for (const [subject, value] of comparedKinds(node, names.kindOf)) {
 				if (!subject || value?.type !== "Literal") continue;
 				if (value.value === "seat") seats.push(nearestFunction(node));
-				if (value.value === "organization" && names.namesOwner(subject)) organizations.push(node);
+				if (value.value === "organization" && names.namesOwner(subject) && !organizations.includes(node))
+					organizations.push(node);
 			}
 		};
 		const within = (fn, outer) => {
@@ -3978,11 +4010,11 @@ const TEST_HOSTS = new Set(["test", "it", "default"]);
 
 const CONFIRM_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
 const SETTLERS = new Set(["then", "catch", "finally"]);
-const isCall = (node) => (node?.type === "ChainExpression" ? node.expression : node)?.type === "CallExpression";
+const callOf = (node) => (node?.type === "ChainExpression" ? node.expression : node);
+const isCall = (node) => callOf(node)?.type === "CallExpression";
 const awaitedCall = (node) => node?.type === "AwaitExpression" && isCall(node.argument);
 const voidedCall = (node) => node?.type === "UnaryExpression" && node.operator === "void" && isCall(node.argument);
-const settledCall = (node) =>
-	isCall(node) && SETTLERS.has(memberName((node.type === "ChainExpression" ? node.expression : node).callee));
+const settledCall = (node) => isCall(node) && SETTLERS.has(memberName(callOf(node).callee));
 const confirmKeepsRefusal = {
 	meta: { type: "problem" },
 	create(context) {
@@ -4006,8 +4038,24 @@ const confirmKeepsRefusal = {
 			!context.sourceCode
 				.getDeclaredVariables(declarator)
 				.some((variable) => variable.references.some((reference) => reference.isRead()));
+		const stateSetter = (callee) => {
+			const def = context.sourceCode.getScope(callee).references.find((reference) => reference.identifier === callee)
+				?.resolved?.defs[0];
+			const declarator = def?.node;
+			return (
+				declarator?.type === "VariableDeclarator" &&
+				declarator.id.type === "ArrayPattern" &&
+				declarator.id.elements[1] === def.name &&
+				declarator.init?.type === "CallExpression" &&
+				calleeName(declarator.init.callee) === "useState"
+			);
+		};
 		const dropping = (statements, found, floating) => {
 			for (const statement of statements) {
+				if (statement.type === "BlockStatement") {
+					dropping(statement.body, found, floating);
+					continue;
+				}
 				if (statement.type === "TryStatement") {
 					dropping(statement.block.body, found, floating);
 					dropping(statement.finalizer?.body ?? [], found, floating);
@@ -4020,7 +4068,7 @@ const confirmKeepsRefusal = {
 				if (statement.type !== "ExpressionStatement") continue;
 				const expression = statement.expression;
 				if (awaitedCall(expression) || voidedCall(expression) || settledCall(expression)) found.push(statement);
-				else if (isCall(expression)) floating.push(statement);
+				else if (isCall(expression) && !stateSetter(callOf(expression).callee)) floating.push(statement);
 			}
 		};
 		const report = (node) =>
