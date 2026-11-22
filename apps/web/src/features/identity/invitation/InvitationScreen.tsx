@@ -305,13 +305,13 @@ function JoinForm({
 			requestKey,
 			invitationProof: proof,
 		});
-		if (!registered.ok) {
+		if (registered.status !== "ok") {
 			setBusy(false);
-			setRefusal(refusalMessage("register", registered.error));
+			setRefusal(refusalMessage("register", registered));
 			return;
 		}
 		const signedIn = await identityApi.signIn({ email: email.data, password });
-		if (signedIn.ok) {
+		if (signedIn.status === "ok") {
 			onJoined(email.data);
 			return;
 		}
@@ -457,7 +457,8 @@ function SeatFlow({
 			tabStore.release();
 			onRefused();
 		}
-		if (result.problem === "unknown") onHeld(tabStore.held(proof)!);
+		const kept = result.problem === "unknown" ? tabStore.held(proof) : null;
+		if (kept) onHeld(kept);
 	}
 
 	if (!signedIn)
@@ -575,7 +576,7 @@ function useConfirmationLink() {
 	const send = async (email: string) => {
 		setSent("sending");
 		const r = await identityApi.sendVerification(email);
-		setSent(r.ok ? "sent" : "failed");
+		setSent(r.status === "ok" ? "sent" : "failed");
 	};
 	return { sent, send };
 }
@@ -634,7 +635,8 @@ function ResidentAnswer({ description, proof, refreshing, onRefused, onHeld, joi
 			tabStore.release();
 			onRefused();
 		}
-		if (result.problem === "unknown") onHeld(tabStore.held(proof)!);
+		const kept = result.problem === "unknown" ? tabStore.held(proof) : null;
+		if (kept) onHeld(kept);
 	};
 
 	if (done) return <ResidentOutcome done={done} organizationName={description.workspaceName} />;

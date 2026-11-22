@@ -1,5 +1,6 @@
-import { signIn } from "@/server/sign-in";
-import { loadPipelineBoard, pipelineActor } from "../pipeline-mount";
+import { organizationSeatOf } from "@/server/request-context";
+import { requireActor } from "@/server/sign-in";
+import { loadPipelineBoard } from "../pipeline-mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { LANDING_ROUTE } from "@everyfield/contracts/identity";
@@ -11,9 +12,8 @@ export const importMetadata: Metadata = { title: "Import people", robots: { inde
 const PATH = `${PIPELINE_PATH}/import`;
 
 export async function PipelineImportPage() {
-	const who = await pipelineActor();
-	if (who.kind === "signed_out") signIn(PATH);
-	const board = who.kind === "seat" ? await loadPipelineBoard(who.authority, {}) : null;
+	const seat = organizationSeatOf(await requireActor(PATH));
+	const board = seat ? await loadPipelineBoard(seat.authority, {}) : null;
 	if (board?.status !== "ok" || board.value.audience !== "administrator")
 		return (
 			<div className="py-12">

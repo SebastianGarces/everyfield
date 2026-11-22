@@ -175,8 +175,10 @@ const PAGE_SIZE = 24;
 export type MeetingsQuery = { window: Window; type: MeetingType | null; status: MeetingStatus | null; page: number };
 export const DEFAULT_QUERY: MeetingsQuery = { window: "all", type: null, status: null, page: 1 };
 
-const pick = <T extends string>(all: readonly T[], raw: string[]): T | null =>
-	raw.length === 1 && (all as readonly string[]).includes(raw[0]!) ? (raw[0] as T) : null;
+const pick = <T extends string>(all: readonly T[], raw: string[]): T | null => {
+	const [only] = raw;
+	return raw.length === 1 ? (all.find((value) => value === only) ?? null) : null;
+};
 
 export function parseQuery(params: URLSearchParams): MeetingsQuery {
 	const page = Number(params.get("page"));

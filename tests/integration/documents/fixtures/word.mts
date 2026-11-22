@@ -1,7 +1,10 @@
 import { crc32, deflateRawSync } from "node:zlib";
 
-export function storedZip(entries) {
-	const parts = [];
+type Entry = { name: string; data: string | Uint8Array; deflate?: boolean };
+type Runs = string | string[];
+
+export function storedZip(entries: Entry[]) {
+	const parts: Buffer[] = [];
 	for (const entry of entries) {
 		const name = Buffer.from(entry.name);
 		const data = Buffer.from(entry.data);
@@ -23,36 +26,38 @@ const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main
 const R = 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
 const HYPERLINK = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
 
-export const p = (runs = [], props = "") =>
+export const p = (runs: Runs = [], props = "") =>
 	`<w:p>${props ? `<w:pPr>${props}</w:pPr>` : ""}${[runs]
 		.flat()
 		.map((run) => (run.startsWith("<") ? run : `<w:r><w:t xml:space="preserve">${run}</w:t></w:r>`))
 		.join("")}</w:p>`;
-export const styled = (styleId, runs) => p(runs, `<w:pStyle w:val="${styleId}"/>`);
-export const numbered = (numId, runs, ilvl = 0) =>
+export const styled = (styleId: string, runs: Runs) => p(runs, `<w:pStyle w:val="${styleId}"/>`);
+export const numbered = (numId: string | number, runs: Runs, ilvl = 0) =>
 	p(runs, `<w:numPr><w:ilvl w:val="${ilvl}"/><w:numId w:val="${numId}"/></w:numPr>`);
-export const link = (id, text) => `<w:hyperlink r:id="${id}"><w:r><w:t>${text}</w:t></w:r></w:hyperlink>`;
+export const link = (id: string, text: string) =>
+	`<w:hyperlink r:id="${id}"><w:r><w:t>${text}</w:t></w:r></w:hyperlink>`;
 export const br = "<w:r><w:br/></w:r>";
 export const tab = "<w:r><w:tab/></w:r>";
-export const textBox = (inner) =>
+export const textBox = (inner: string) =>
 	`<w:r><mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice Requires="wps"><w:drawing><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx></w:drawing></mc:Choice><mc:Fallback><w:pict><v:textbox><w:txbxContent>${inner}</w:txbxContent></v:textbox></w:pict></mc:Fallback></mc:AlternateContent></w:r>`;
 
-export const table = (rows, props = "") =>
+export const table = (rows: string[], props = "") =>
 	`<w:tbl>${props ? `<w:tblPr>${props}</w:tblPr>` : ""}<w:tblGrid/>${rows.join("")}</w:tbl>`;
-export const row = (cells, props = "") => `<w:tr>${props ? `<w:trPr>${props}</w:trPr>` : ""}${cells.join("")}</w:tr>`;
-export const headerRow = (cells, value) =>
+export const row = (cells: string[], props = "") =>
+	`<w:tr>${props ? `<w:trPr>${props}</w:trPr>` : ""}${cells.join("")}</w:tr>`;
+export const headerRow = (cells: string[], value?: string) =>
 	row(cells, value === undefined ? "<w:tblHeader/>" : `<w:tblHeader w:val="${value}"/>`);
-export const cell = (blocks = "", props = "") =>
+export const cell = (blocks: Runs = "", props = "") =>
 	`<w:tc>${props ? `<w:tcPr>${props}</w:tcPr>` : ""}${[blocks]
 		.flat()
 		.map((block) => (block.startsWith("<") ? block : p(block)))
 		.join("")}</w:tc>`;
 
-export const style = (id, name, inner = "") =>
+export const style = (id: string, name: string, inner = "") =>
 	`<w:style w:type="paragraph" w:styleId="${id}"><w:name w:val="${name}"/>${inner}</w:style>`;
-export const styles = (...list) => `<?xml version="1.0"?><w:styles ${W}>${list.join("")}</w:styles>`;
+export const styles = (...list: string[]) => `<?xml version="1.0"?><w:styles ${W}>${list.join("")}</w:styles>`;
 
-export const numbering = (...lists) =>
+export const numbering = (...lists: [numId: string | number, formats: string[]][]) =>
 	`<?xml version="1.0"?><w:numbering ${W}>` +
 	lists
 		.map(
@@ -65,7 +70,7 @@ export const numbering = (...lists) =>
 	lists.map(([numId], i) => `<w:num w:numId="${numId}"><w:abstractNumId w:val="${i}"/></w:num>`).join("") +
 	"</w:numbering>";
 
-export const rels = (...list) =>
+export const rels = (...list: [id: string, target: string, external?: boolean][]) =>
 	`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${list
 		.map(
 			([id, target, external = true]) =>
@@ -73,8 +78,8 @@ export const rels = (...list) =>
 		)
 		.join("")}</Relationships>`;
 
-export function word(body, parts = {}) {
-	const entries = [
+export function word(body: string, parts: { styles?: string; numbering?: string; rels?: string } = {}) {
+	const entries: Entry[] = [
 		{
 			name: "word/document.xml",
 			data: `<?xml version="1.0"?><w:document ${W} ${R}><w:body>${body}</w:body></w:document>`,
@@ -90,10 +95,11 @@ const OFFICE = "http://schemas.openxmlformats.org/officeDocument/2006/relationsh
 const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
 const PKG = 'xmlns="http://schemas.openxmlformats.org/package/2006/relationships"';
 
-export function textutilWord(paragraphs, documentRels) {
-	const run = (inner) =>
+export function textutilWord(paragraphs: string[], documentRels?: string) {
+	const run = (inner: string) =>
 		`<w:p><w:pPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Helvetica Light" w:hAnsi="Helvetica Light" w:cs="Helvetica Light"/><w:sz w:val="24"/><w:sz-cs w:val="24"/></w:rPr>${inner}</w:r></w:p>`;
-	const rel = (id, type, target) => `<Relationship Id="${id}" Type="${type}" Target="${target}"/>`;
+	const rel = (id: string, type: string, target: string) =>
+		`<Relationship Id="${id}" Type="${type}" Target="${target}"/>`;
 	const parts = {
 		"[Content_Types].xml": `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>`,
 		"_rels/.rels": `${XML}<Relationships ${PKG}>${rel("rId3", `${OFFICE}/extended-properties`, "docProps/app.xml")}${rel("rId2", "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties", "docProps/core.xml")}${rel("rId1", `${OFFICE}/officeDocument`, "word/document.xml")}</Relationships>`,

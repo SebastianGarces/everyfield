@@ -509,9 +509,10 @@ export function RestoreDialog({
 					fresh,
 					toPerson: (v) => v.person,
 				});
-				if (result === null) throw new Error("Another change to this person is still saving. Try again in a moment.");
+				if (result === null)
+					return { refused: "Another change to this person is still saving. Try again in a moment." };
 				if (isConflict(result)) onConflict();
-				if (result.status !== "ok") throw new Error(problemText(problemOf(result) ?? "unavailable"));
+				if (result.status !== "ok") return { refused: problemText(problemOf(result) ?? "unavailable") };
 				onSaved(result.value.receipt, { kind: "activity", action: "restored" });
 			}}
 		/>

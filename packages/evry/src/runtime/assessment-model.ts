@@ -107,7 +107,11 @@ export function languageJudge(model: LanguageModelV4): LanguageJudge {
 			({ text } = await dispatch(model, JUDGE_SYSTEM, { draft }, JUDGE_OUTPUT_TOKENS, signal));
 		} catch (error) {
 			const detail =
-				error instanceof ModelUnavailable || error instanceof ProviderBusy ? error.message : "provider_error";
+				error instanceof ModelUnavailable
+					? "model_unavailable"
+					: error instanceof ProviderBusy
+						? `provider_busy_${error.status}`
+						: "provider_error";
 			return { status: "judge_failed", detail };
 		}
 		const grade = c.languageGrade.safeParse(parsed(text));

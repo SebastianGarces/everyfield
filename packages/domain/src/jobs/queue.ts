@@ -17,6 +17,7 @@ const jobKind = z.enum([
 	"evry_effect",
 	"feedback_publication",
 	"assessment",
+	"wiki_embedding",
 ]);
 export type JobKind = z.infer<typeof jobKind>;
 export const DEFAULT_LEASE_SECONDS = 300;
@@ -35,11 +36,15 @@ export const claimSchema = z.object({
 	checkpoint_key: z.string().nullable(),
 });
 export type Claim = z.infer<typeof claimSchema>;
+const KEY_PART =
+	"(?:[a-z][a-z_-]{0,39}(?:_[0-9]{1,4})?|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9]{1,19}|[0-9]{4}-[0-9]{2}-[0-9]{2}(?:T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]{1,6})?Z)?)";
+export const JOB_KEY_PATTERN = `^${KEY_PART}(?:[/:]${KEY_PART}){0,15}$`;
+const jobKey = z.string().max(512).regex(new RegExp(JOB_KEY_PATTERN));
 const enqueueSchema = z.strictObject({
 	tenant: z.uuid(),
 	kind: jobKind,
 	subject: z.uuid().nullable(),
-	key: z.string().min(1).max(512),
+	key: jobKey,
 	revision: z
 		.string()
 		.regex(/^[1-9]\d*$/)
@@ -69,16 +74,35 @@ export function queueJobs(tx: Transaction, inputs: readonly JobInput[]) {
 		)
 		.onConflictDoNothing();
 }
-const subjectJobSchema = enqueueSchema
-	.pick({ tenant: true, kind: true, maxAttempts: true })
-	.extend({ keyPrefix: z.string().min(1).max(256) });
+const jobRowsSchema = z.object({ kind: jobKind, maxAttempts: z.number().int().min(1).max(10).default(4) });
+const onConflict = {
+	fail: sql``,
+	skip: sql` ON CONFLICT DO NOTHING`,
+	skipSameKey: sql` ON CONFLICT (kind, subject_record_id, producer_key) DO NOTHING`,
+	reopen: sql` ON CONFLICT (kind, subject_record_id, producer_key) DO UPDATE SET state = 'ready',
+  eligible_at = excluded.eligible_at, source_revision = excluded.source_revision,
+  attempt_count = CASE WHEN job.state IN ('superseded', 'cancelled') THEN 0 ELSE job.attempt_count END,
+  finished_at = NULL, error_code = NULL, next_attempt_at = NULL, lease_owner = NULL, lease_until = NULL,
+  claim_generation = job.claim_generation + 1, revision = job.revision + 1
+ WHERE job.state IN ('ready', 'retry_wait', 'claimed', 'superseded', 'cancelled')`,
+} as const;
+export type JobRows = z.input<typeof jobRowsSchema> & {
+	tenant: SQL;
+	subject: SQL;
+	key: SQL;
+	id?: SQL;
+	revision?: SQL;
+	eligibleAt?: SQL;
+	conflict: keyof typeof onConflict;
+	returning?: boolean;
+};
 
-export function queueJobsFor(subjects: SQL, input: z.input<typeof subjectJobSchema>) {
-	const v = subjectJobSchema.parse(input);
-	return sql`INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts,
-  claim_generation)
- SELECT ${v.tenant}::uuid, ${v.kind}::text, id, ${v.keyPrefix}::text || id::text, 'ready', clock_timestamp(), 0,
-  ${v.maxAttempts}::int, 0 FROM ${subjects} ON CONFLICT DO NOTHING`;
+export function queueJobsFor(source: SQL, rows: JobRows) {
+	const v = jobRowsSchema.parse({ kind: rows.kind, maxAttempts: rows.maxAttempts });
+	return sql`INSERT INTO job (${rows.id ? sql`id, ` : sql``}tenant_id, kind, subject_record_id, producer_key, source_revision, state,
+  eligible_at, attempt_count, max_attempts, claim_generation)
+ SELECT ${rows.id ? sql`${rows.id}, ` : sql``}${rows.tenant}, ${v.kind}::text, ${rows.subject}, substring((${rows.key})::text FROM ${JOB_KEY_PATTERN}::text), ${rows.revision ?? sql`NULL::bigint`},
+  'ready', ${rows.eligibleAt ?? sql`clock_timestamp()`}, 0, ${v.maxAttempts}::int, 0 ${source}${onConflict[rows.conflict]}${rows.returning ? sql` RETURNING id` : sql``}`;
 }
 export async function enqueueJobs(tx: Transaction, inputs: readonly JobInput[]): Promise<string[]> {
 	const values = inputs.map((input) => enqueueSchema.parse(input));
@@ -188,6 +212,9 @@ const JOB_CODES = [
 	"provider_unknown",
 	"provider_refused",
 	"nothing_to_delete",
+	"not_configured",
+	"profile_mismatch",
+	"over_cap",
 ] as const;
 type JobCode = (typeof JOB_CODES)[number];
 export type JobResult =
@@ -229,6 +256,14 @@ function finishStatement(claim: Claim, result: JobResult) {
 export async function finishClaim(tx: Transaction, claim: Claim, result: JobResult): Promise<boolean> {
 	return (await tx.execute(sql.raw(finishStatement(claim, result)))).rowCount === 1;
 }
+export async function deferClaim(tx: Transaction, claim: Claim, eligibleAt: SQL): Promise<boolean> {
+	const r =
+		await tx.execute(sql`UPDATE job SET state='ready', attempt_count=GREATEST(attempt_count-1,0), eligible_at=${eligibleAt},
+  next_attempt_at=NULL, lease_owner=NULL, lease_until=NULL, revision=revision+1
+ WHERE id=${claim.id} AND tenant_id=${claim.tenant_id} AND state='claimed' AND claim_generation=${claim.claim_generation}
+  AND lease_owner=${claim.lease_owner} AND lease_until>clock_timestamp()`);
+	return r.rowCount === 1;
+}
 export async function finishJob(db: Database, claim: Claim, result: JobResult): Promise<boolean> {
 	const pool = (db as Database & { $client: { query(text: string): Promise<unknown> } }).$client;
 	const results = (await pool.query(`SET LOCAL statement_timeout = '5s';\n${finishStatement(claim, result)}`)) as {
@@ -265,7 +300,7 @@ export async function recoverLease(db: Database, limit = 100): Promise<number> {
 	});
 }
 export async function checkpoint(tx: Transaction, claim: Claim, key: string): Promise<boolean> {
-	z.string().min(1).max(256).parse(key);
+	jobKey.parse(key);
 	if (!(await lockClaim(tx, claim))) return false;
 	await tx
 		.update(tables.job)

@@ -58,9 +58,13 @@ export type DebriefStore = StoreApi<DebriefState>;
 
 const DRAFT_PAUSE_MS = 900;
 
-export function createDebriefStore(init: { plan: Plan; port: DebriefPort }): DebriefStore {
-	const d = init.plan.debrief!;
-	const timeZone = init.plan.timeZone;
+export function createDebriefStore(init: {
+	debrief: NonNullable<Plan["debrief"]>;
+	timeZone: string;
+	port: DebriefPort;
+}): DebriefStore {
+	const d = init.debrief;
+	const timeZone = init.timeZone;
 	const pause = createDebouncer(DRAFT_PAUSE_MS);
 	let held = d.draft ? { id: d.draft.id, revision: d.draft.revision } : null;
 	let dirty = false;

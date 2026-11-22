@@ -181,9 +181,10 @@ function ComingUp({ rows }: { rows: MondayDemo["coming"] }) {
 	return (
 		<DashCard>
 			<DashHead title="Coming up" sub="This week and next" />
-			{rows.map((r, i) => (
-				<ListRow key={r[0]} tone={COMING[i]![0]} icon={ICONS[COMING[i]![1]]} title={r[0]} sub={r[1]} />
-			))}
+			{rows.map(
+				(r, i) =>
+					COMING[i] && <ListRow key={r[0]} tone={COMING[i][0]} icon={ICONS[COMING[i][1]]} title={r[0]} sub={r[1]} />,
+			)}
 		</DashCard>
 	);
 }
@@ -199,17 +200,20 @@ function NeedsYou({ rows }: { rows: MondayDemo["needs"] }) {
 		<DashCard>
 			<DashHead title="Needs you" sub="4 things this week" right={<More />} />
 			<div>
-				{rows.map((r, i) => (
-					<ListRow
-						key={r[0]}
-						first={i === 0}
-						tone={NEEDS[i]![0]}
-						icon={ICONS[NEEDS[i]![1]]}
-						title={r[0]}
-						sub={r[1]}
-						end={<Icon icon={ICONS.arrow} className="text-text-3" />}
-					/>
-				))}
+				{rows.map(
+					(r, i) =>
+						NEEDS[i] && (
+							<ListRow
+								key={r[0]}
+								first={i === 0}
+								tone={NEEDS[i][0]}
+								icon={ICONS[NEEDS[i][1]]}
+								title={r[0]}
+								sub={r[1]}
+								end={<Icon icon={ICONS.arrow} className="text-text-3" />}
+							/>
+						),
+				)}
 			</div>
 		</DashCard>
 	);
