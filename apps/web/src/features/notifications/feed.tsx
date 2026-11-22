@@ -79,7 +79,7 @@ export function useReadElsewhere(): (ids: readonly string[]) => void {
 	const { stand, confirm } = Account.useSelect((s) => s.actions);
 	return (ids) => {
 		const token = {};
-		stand({ token, ids: new Set(ids), cutoff: null });
+		stand({ token, ids: new Set(ids), cutoff: null, eligible: new Map() });
 		confirm(token);
 		void unreadCount.refresh(account);
 	};
@@ -188,6 +188,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		cutoff: string | null = null,
 	) => {
 		const envelope = { requestKey: newRequestKey(), expectedRevision: revision.current ?? "0" };
+		const eligible = new Map((shown?.items ?? []).filter((i) => ids.has(i.id)).map((i) => [i.id, i.eligibleAt]));
 		if (!query.category && shown && !countIsNewer) setCount(account, shown.unread, shown.at);
 		const go = async () => {
 			const token = {};
@@ -195,7 +196,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 				s.status === "ready" ? { ...s, items: markedRead(s.items, ids), unread: Math.max(0, s.unread - drop) } : s,
 			);
 			adjustCount(account, -drop);
-			stand({ token, ids, cutoff });
+			stand({ token, ids, cutoff, eligible });
 			const r = await deliver(envelope, run);
 			if (r.status === "ok") {
 				confirm(token);
