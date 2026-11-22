@@ -3841,7 +3841,7 @@ const stableContextValue = {
 	},
 };
 
-const TEST_MODULES = new Set(["node:test", "test"]);
+const TEST_HOSTS = new Set(["test", "it", "default"]);
 
 const oneTopLevelBefore = {
 	meta: { type: "problem" },
@@ -3858,18 +3858,30 @@ const oneTopLevelBefore = {
 				object.type === "MemberExpression" &&
 				object.object.type === "Identifier" &&
 				namespaces.has(object.object.name) &&
-				["test", "default"].includes(memberName(object))
+				TEST_HOSTS.has(memberName(object))
 			);
 		};
 		return {
 			ImportDeclaration(node) {
-				if (!TEST_MODULES.has(node.source.value)) return;
+				if (node.source.value !== "node:test") return;
 				for (const spec of node.specifiers) {
 					if (spec.type === "ImportNamespaceSpecifier") namespaces.add(spec.local.name);
 					else if (spec.type === "ImportDefaultSpecifier") hosts.add(spec.local.name);
 					else if (nameOf(spec.imported) === "before") hooks.add(spec.local.name);
-					else if (["test", "default"].includes(nameOf(spec.imported))) hosts.add(spec.local.name);
+					else if (TEST_HOSTS.has(nameOf(spec.imported))) hosts.add(spec.local.name);
 				}
+			},
+			VariableDeclarator(node) {
+				const from = node.init;
+				if (node.id.type !== "ObjectPattern" || from?.type !== "Identifier") return;
+				if (!hosts.has(from.name) && !namespaces.has(from.name)) return;
+				for (const property of node.id.properties)
+					if (
+						property.type === "Property" &&
+						property.value.type === "Identifier" &&
+						keyName(property.key, property.computed) === "before"
+					)
+						hooks.add(property.value.name);
 			},
 			"Program:exit"(program) {
 				const calls = program.body

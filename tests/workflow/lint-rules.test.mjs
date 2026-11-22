@@ -2837,8 +2837,20 @@ t.before(() => {});
 nt.before(() => {});
 nt.test.before(() => {});
 nt.default.before(() => {});
+nt.it.before(() => {});
 `;
-	const bare = `import run from "test";
+	const viaIt = `import { it } from "node:test";
+it.before(() => {});
+it.before(() => {});
+`;
+	const destructured = `import test from "node:test";
+const { before, after } = test;
+const { before: setup } = test;
+before(() => {});
+setup(() => {});
+after(() => {});
+`;
+	const bare = `import run from "node:test";
 run.before(() => {});
 await run.before(() => {});
 `;
@@ -2847,6 +2859,9 @@ before(async () => {});
 beforeEach(() => {});
 after(() => {});
 test.beforeEach(() => {});
+const config = { before: () => {} };
+const { before: configured } = config;
+configured();
 describe("s", () => {
 	before(() => {});
 	before(() => {});
@@ -2867,6 +2882,8 @@ test.before(() => {});
 			"tests/evry/x/aliased.test.mts": aliased,
 			"tests/unit/x/namespaced.test.mts": namespaced,
 			"tests/contracts/common/bare.test.mjs": bare,
+			"tests/unit/x/it.test.mts": viaIt,
+			"tests/unit/x/destructured.test.mts": destructured,
 			"tests/workflow/single.test.mjs": single,
 			"tests/ui/local.test.mts": local,
 			"tests/ui/other.test.mts": other,
@@ -2877,8 +2894,11 @@ test.before(() => {});
 			"tests/evry/x/aliased.test.mts:3 one-top-level-before",
 			"tests/integration/x/named.test.mts:3 one-top-level-before",
 			"tests/integration/x/named.test.mts:4 one-top-level-before",
+			"tests/unit/x/destructured.test.mts:5 one-top-level-before",
+			"tests/unit/x/it.test.mts:3 one-top-level-before",
 			"tests/unit/x/namespaced.test.mts:3 one-top-level-before",
 			"tests/unit/x/namespaced.test.mts:4 one-top-level-before",
+			"tests/unit/x/namespaced.test.mts:5 one-top-level-before",
 			"tools/ci/named.test.ts:3 one-top-level-before",
 			"tools/ci/named.test.ts:4 one-top-level-before",
 		],
