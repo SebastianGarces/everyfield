@@ -437,12 +437,11 @@ test("INV-lint: a listed product timer exempts the shallowest matching call whos
 }
 `;
 	const observe = `export const timerPause = () => {
-	const timerPause = () => {
+	const helper = () => {
 		const timer = setTimeout(() => {}, 1);
 		return timer;
 	};
-	const timer = setTimeout(() => {}, 1);
-	return [timer, timerPause];
+	return helper;
 };
 `;
 	const validate = `export function parser() {
@@ -486,6 +485,7 @@ export function parseOnce() {
 			"apps/web/src/server/evry/http.ts:6 no-timers",
 			"packages/db/src/schema/validate-file.ts:1 no-timers",
 			"packages/db/src/schema/validate-file.ts:3 no-timers",
+			"packages/evry/src/runtime/observe.ts:1 no-timers",
 			"packages/evry/src/runtime/observe.ts:3 no-timers",
 			"packages/evry/src/runtime/turn.ts:3 no-timers",
 			"packages/evry/src/runtime/turn.ts:7 no-timers",

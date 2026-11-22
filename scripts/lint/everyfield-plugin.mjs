@@ -3511,13 +3511,7 @@ const ownerRead = (node) => {
 const seatNames = (context) => {
 	const kinds = new Map();
 	const owners = new Set();
-	const variable = (id) => {
-		for (let scope = context.sourceCode.getScope(id); scope; scope = scope.upper) {
-			const found = scope.set?.get(id.name);
-			if (found) return found;
-		}
-		return null;
-	};
+	const variable = (id) => variableOf(context, id);
 	const bind = (pattern, from) => {
 		if (pattern?.type !== "ObjectPattern") return;
 		for (const property of pattern.properties) {
