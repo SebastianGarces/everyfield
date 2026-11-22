@@ -8,6 +8,7 @@ import {
 	digestSchedule,
 	editableChanges,
 	fieldLabel,
+	invitationName,
 	openCriteria,
 	reviewedNotices,
 	settingChanges,
@@ -410,4 +411,31 @@ test("INV-church-digest-review a church digest schedule review reads as the chur
 	assert.equal(valueText("digestSchedule", "Daily at 7:00 AM"), "Daily at 7:00 AM");
 	assert.deepEqual(editableChanges(schedule), []);
 	assert.equal(operationTitle(schedule.operation), "Change the church digest schedule");
+});
+
+test("INV-evry-recipes: an invitation review is named after its meeting, new or existing, and opens the meeting once done", () => {
+	const meeting = { kind: "meeting", id: "44444444-4444-4444-8444-444444444444", label: "Vision night" };
+	const step = (title) => ({
+		field: "meeting",
+		before: null,
+		after: { title, when: "Tue, Oct 20, 2026, 6:30 PM CDT", venue: "Northside Library", isNew: true },
+	});
+	const created = review({
+		operation: "evry.prepareMeetingInvitation",
+		review: { target: null, changes: [step("Vision Meeting #3")] },
+	});
+	assert.equal(invitationName(created), "Vision Meeting #3");
+	const existing = review({
+		operation: "evry.reuseRecipe",
+		review: { target: meeting, changes: [step("Vision night")] },
+	});
+	assert.equal(invitationName(existing), "Vision night");
+	assert.equal(openAfter(created), null);
+	assert.deepEqual(
+		openAfter({ ...existing, status: "approved", outcome: "completed", receipt: { meetingId: meeting.id } }),
+		{
+			href: `/meetings/${meeting.id}`,
+			label: "Open the meeting",
+		},
+	);
 });

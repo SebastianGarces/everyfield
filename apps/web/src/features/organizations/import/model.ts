@@ -1,3 +1,4 @@
+import type { Outcome } from "@everyfield/contracts/common";
 import type {
 	PipelineColumnChoice,
 	PipelineImportPreview,
@@ -8,8 +9,7 @@ import type {
 export type Preview = PipelineImportPreview;
 export type Result = PipelineImportResult;
 export type Row = Preview["rows"][number];
-export type Answer<T> =
-	{ status: "ok"; value: T } | { status: "refused"; refusal: PipelineImportRefusal } | { status: "lost" };
+export type Answer<T> = Outcome<T, PipelineImportRefusal["code"], { refusal: PipelineImportRefusal }>;
 export type Notice = { title: string; text: string };
 export type Decision = "skip" | "add";
 export const NOBODY = "none";

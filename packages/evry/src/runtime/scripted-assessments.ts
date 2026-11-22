@@ -23,6 +23,12 @@ const userTexts = (prompt: Prompt) =>
 const assistantTexts = (prompt: Prompt) =>
 	prompt.flatMap((m) => (m.role === "assistant" ? m.content.flatMap((p) => (p.type === "text" ? [p.text] : [])) : []));
 
+function attachedPdf(prompt: Prompt) {
+	const system = prompt.find((m) => m.role === "system");
+	const listed = system ? /^- "[^"]+\.pdf" attachmentId ([0-9a-f-]{36}),/im.exec(system.content) : null;
+	return listed?.[1] ?? null;
+}
+
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 function today(prompt: Prompt) {
 	const system = prompt.find((m) => m.role === "system");
@@ -81,8 +87,8 @@ const RESULT_WORDS: Record<string, string> = {
 
 function named(text: string) {
 	return (
-		/\b([A-Z][a-z]+(?: [A-Z][a-z]+)?)['’]s\b/.exec(text)?.[1] ??
-		/\b([A-Z][a-z]+(?: [A-Z][a-z]+)?) signed\b/.exec(text)?.[1] ??
+		/\b([A-Z][a-z]+(?: [A-Z][a-z]+)?)(?: \([^)]+\))?['’]s\b/.exec(text)?.[1] ??
+		/\b([A-Z][a-z]+(?: [A-Z][a-z]+)?)(?: \([^)]+\))? signed\b/.exec(text)?.[1] ??
 		null
 	);
 }
@@ -284,10 +290,15 @@ export function assessmentStep(
 	const rows = found.rows ?? [];
 	const exact = rows.filter((r) => same(r.label, intent.name));
 	const word = rows.filter((r) => r.label.toLowerCase().startsWith(`${intent.name.toLowerCase()} `));
-	const matches = exact.length === 1 ? exact : word.length ? word : rows;
+	const candidates = exact.length === 1 ? exact : word.length ? word : rows;
+	const cityOf = (r: Row) => (typeof r.fields.city === "string" ? r.fields.city : "");
+	const inCity = candidates.filter((r) => cityOf(r) && new RegExp(`\\b${cityOf(r)}\\b`, "i").test(text));
+	const matches = inCity.length === 1 ? inCity : candidates;
 	if (!matches.length) return say(`I can't find ${intent.name} in this church.`);
 	if (matches.length > 1)
-		return say(`I found ${matches.length} matches: ${matches.map((r) => r.label).join(", ")}. Which one do you mean?`);
+		return say(
+			`I found ${matches.length} matches: ${matches.map((r) => (cityOf(r) ? `${r.label} (${cityOf(r)})` : r.label)).join(", ")}. Which one do you mean?`,
+		);
 	const person = present(matches[0]);
 	const personId = person.id;
 
@@ -350,8 +361,15 @@ export function assessmentStep(
 				occurredOn: intent.occurredOn,
 				...Object.fromEntries(Object.entries(intent.scores).map(([k, score]) => [k, { score }])),
 			});
-		case "record_commitment":
-			return propose("people.createCommitment", { personId, kind: intent.commitment, occurredOn: intent.occurredOn });
+		case "record_commitment": {
+			const pdf = attachedPdf(prompt);
+			return propose("people.createCommitment", {
+				personId,
+				kind: intent.commitment,
+				occurredOn: intent.occurredOn,
+				...(pdf && { attachmentId: pdf }),
+			});
+		}
 		case "lifecycle":
 			return propose(intent.to === "withdrawn" ? "people.withdrawCommitment" : "people.reactivateCommitment", {
 				personId,

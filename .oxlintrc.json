@@ -58,19 +58,15 @@
 		"everyfield/max-state": "error",
 		"everyfield/mint-callers": "error",
 		"everyfield/no-sql-comments": "error",
-		"everyfield/no-slop-styling": "error"
+		"everyfield/no-slop-styling": "error",
+		"everyfield/live-region-in-tree": "error",
+		"everyfield/one-top-level-before": "error"
 	},
 	"overrides": [
 		{
 			"files": ["packages/*/src/**"],
 			"rules": {
 				"everyfield/no-error-message-match": "error"
-			}
-		},
-		{
-			"files": ["packages/contracts/src/**"],
-			"rules": {
-				"everyfield/strict-contract-objects": "error"
 			}
 		},
 		{
@@ -173,6 +169,12 @@
 			}
 		},
 		{
+			"files": ["packages/contracts/src/**"],
+			"rules": {
+				"everyfield/strict-contracts": "error"
+			}
+		},
+		{
 			"files": ["packages/evry/src/**", "packages/domain/src/**"],
 			"rules": {
 				"everyfield/private-care-scope": "error"
@@ -187,7 +189,8 @@
 		{
 			"files": ["packages/domain/src/**"],
 			"rules": {
-				"everyfield/domain-refusals": "error"
+				"everyfield/domain-refusals": "error",
+				"everyfield/organization-seat": "error"
 			}
 		},
 		{

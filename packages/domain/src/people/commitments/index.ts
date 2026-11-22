@@ -177,12 +177,24 @@ async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn
 	});
 }
 
-type CheckedDocument = {
+export type CheckedDocument = {
 	uploadId: string;
 	mediaType: z.infer<typeof c.commitmentMime>;
 	byteCount: number;
 	sha256: string;
 };
+export async function checkCommitmentDocument(
+	uploadId: string,
+	bytes: Uint8Array,
+	mediaType: z.infer<typeof c.commitmentMime>,
+): Promise<CheckedDocument | null> {
+	const readable = await validateCommitment(bytes, mediaType).then(
+		() => true,
+		() => false,
+	);
+	if (!readable) return null;
+	return { uploadId, mediaType, byteCount: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") };
+}
 
 type CardInput = z.output<typeof c.createCommitmentRequest>["input"];
 const witnessOf = (k: CardInput) => (k.witness && "personId" in k.witness ? k.witness.personId : null);
@@ -506,15 +518,8 @@ export async function saveCommitmentDocument(
 		const object = await readPrivateObject(storage, documentKey(plant, uploadId), c.COMMITMENT_MAX_BYTES);
 		const mime = c.commitmentMime.safeParse(object?.mediaType);
 		if (!object || !mime.success) deny("unavailable");
-		await validateCommitment(object.bytes, mime.data).catch(() =>
-			deny("invalid_input", { reason: "unreadable_document" }),
-		);
-		const document: CheckedDocument = {
-			uploadId,
-			mediaType: mime.data,
-			byteCount: object.bytes.length,
-			sha256: createHash("sha256").update(object.bytes).digest("hex"),
-		};
+		const document = await checkCommitmentDocument(uploadId, object.bytes, mime.data);
+		if (!document) deny("invalid_input", { reason: "unreadable_document" });
 		return { request, document };
 	});
 	if (checked.status !== "ok") return checked;
