@@ -73,7 +73,7 @@ export {
 	MenuTrigger,
 } from "./Menu";
 export { Breadcrumb, PageHeader, type Crumb } from "./PageHeader";
-export { ProblemText, type ProblemTextSize } from "./ProblemText";
+export { ProblemText } from "./ProblemText";
 export { usePortalContainer } from "./overlay-portal";
 export { Popover, PopoverAnchor, PopoverClose, PopoverContent, PopoverTrigger, Tooltip, TooltipSep } from "./Popover";
 export { Select, type SelectOption } from "./Select";

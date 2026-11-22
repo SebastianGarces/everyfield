@@ -3,10 +3,8 @@ import { cn, Icon, type IconSvgElement } from "../foundations";
 
 const SIZE = { xs: "text-xs font-medium", sm: "text-sm" } as const;
 
-export type ProblemTextSize = keyof typeof SIZE;
-
 type ProblemTextProps = Omit<ComponentPropsWithoutRef<"p">, "role" | "style"> & {
-	size?: ProblemTextSize;
+	size?: keyof typeof SIZE;
 	icon?: IconSvgElement;
 	as?: "p" | "span";
 	live?: "alert" | "region";
