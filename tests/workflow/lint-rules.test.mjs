@@ -1256,6 +1256,74 @@ export const p = require("node:process").env;
 	);
 });
 
+test("INV-lint: the meetings next-step table is a model module", () => {
+	const file = "apps/web/src/features/meetings/next-step.ts";
+	assert.deepEqual(lint({ [file]: 'import "server-only";\nexport const at = () => Date.now();\n' }), [
+		`${file}:1 model-module`,
+		`${file}:2 model-module`,
+	]);
+	assert.deepEqual(
+		lint({ [file]: 'import type { MeetingStatus } from "./model.ts";\nexport const s = (m: MeetingStatus) => m;\n' }),
+		[],
+	);
+});
+
+test("INV-lint: a follow-up outcome action never revalidates or refreshes, in any import form; the overlay rule still holds there", () => {
+	const rules = /^(?:everyfield|eslint)\(([\w-]+)\)$/;
+	const actions = "apps/web/src/features/followups/actions.ts";
+	const code = `import { revalidatePath } from "next/cache";
+import { revalidateTag as tag } from "next/cache";
+import * as cache from "next/cache";
+export { refresh } from "next/cache";
+import { unstable_cache } from "next/cache";
+import { EvryPanel } from "./EvryPanel.tsx";
+export const used = [revalidatePath, tag, cache, unstable_cache, EvryPanel];
+`;
+	const dir = sandbox({
+		[actions]: code,
+		"apps/web/src/features/followups/EvryPanel.tsx": "export const EvryPanel = 1;\n",
+	});
+	assert.deepEqual(
+		lintIn(dir, [actions], rules).filter((hit) => hit.endsWith(" no-restricted-imports")),
+		[1, 2, 3, 4, 6].map((line) => `${actions}:${line} no-restricted-imports`),
+	);
+	const tasks = "apps/web/src/features/tasks/actions.ts";
+	assert.deepEqual(
+		lint({ [tasks]: 'import { revalidatePath } from "next/cache";\nexport const r = revalidatePath;\n' }).filter(
+			(hit) => hit.endsWith(" no-restricted-imports"),
+		),
+		[],
+	);
+});
+
+test("INV-lint: only the outbox route imports the dev outbox reader, and only the dev outbox route imports the outbox route, through any import form", () => {
+	const outbox = "apps/web/src/features/communication/outbox.ts";
+	const route = "apps/web/src/features/communication/outbox-route.ts";
+	const dev = "apps/web/src/app/api/dev/outbox/route.ts";
+	const send = "apps/web/src/features/communication/send.ts";
+	const capture = "apps/web/src/server/mail/capture.ts";
+	const files = {
+		[outbox]: "export const readOutbox = () => [];\n",
+		[route]: 'import { readOutbox } from "./outbox.ts";\nexport const outboxRoute = () => readOutbox();\n',
+		[dev]: 'export { outboxRoute as GET } from "../../../../features/communication/outbox-route";\n',
+		[send]: `import { readOutbox } from "./outbox";
+export const later = () => import("./outbox.ts");
+export type R = typeof import("@/features/communication/outbox-route");
+export const used = readOutbox;
+`,
+		[capture]: 'export { readOutbox } from "../../features/communication/outbox.ts";\n',
+	};
+	assert.deepEqual(
+		lint(files).filter((hit) => hit.endsWith(" private-importers")),
+		[
+			`${send}:1 private-importers`,
+			`${send}:2 private-importers`,
+			`${send}:3 private-importers`,
+			`${capture}:1 private-importers`,
+		],
+	);
+});
+
 test("INV-web-sql: apps/web imports no database module", () => {
 	const code = `import { sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
