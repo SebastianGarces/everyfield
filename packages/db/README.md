@@ -170,3 +170,20 @@ python3 docs/schema/render-docs.py
 
 The ER diagram is generated on demand and not committed (it is ignored by git). To view it, run
 `python3 docs/schema/render-diagram.py` and open `docs/schema/schema-diagram.html`.
+
+## Early-access pool
+
+Early access still uses its own pool: `database()` from `@everyfield/db`, opened from
+`DATABASE_URL`. The rest of the app uses the shared request database, which is
+configured from the `IDENTITY_*` values. The pool stays for now because Production
+does not have those values yet, so early access cannot move there (D-2116).
+
+`expireAccessRequests`, `exportAccessRequests`, `reserveAccessRequest` and
+`recordAccessMail` take the database as a required parameter. Each caller names the
+pool it uses: the access-retention cron and `scripts/export.ts` pass `database()`, and
+the domain's `receiveAccessRequest` passes `dependencies.db ?? database()` (D-2241).
+The `everyfield/no-default-database` lint rule refuses a parameter that defaults to
+`database()`, so a caller never picks the pool without seeing it.
+
+The pool goes in T-574, which moves early access to the shared request database and
+deletes the `DATABASE_URL` pool.

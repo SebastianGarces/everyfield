@@ -4128,6 +4128,41 @@ const confirmKeepsRefusal = {
 	},
 };
 
+const callsDatabase = (node) =>
+	walkOwn(node, (n) => n.type === "CallExpression" && calleeName(unwrapped(n.callee)) === "database");
+const PARAMETER_PARTS = new Set([
+	"ObjectPattern",
+	"ArrayPattern",
+	"Property",
+	"RestElement",
+	"AssignmentPattern",
+	"TSParameterProperty",
+]);
+const parameterOwner = (pattern) => {
+	let node = pattern;
+	for (let at = pattern.parent; at; node = at, at = at.parent) {
+		if (FUNCTIONS.has(at.type)) return at.params.includes(node) ? at : null;
+		if (!PARAMETER_PARTS.has(at.type)) return null;
+	}
+	return null;
+};
+
+const noDefaultDatabase = {
+	meta: { type: "problem" },
+	create(context) {
+		return {
+			AssignmentPattern(node) {
+				if (!parameterOwner(node) || !callsDatabase(node.right)) return;
+				context.report({
+					node,
+					message:
+						"A default parameter that calls database() picks a pool the caller never sees. Make the database a required parameter and have each caller pass the one it uses.",
+				});
+			},
+		};
+	},
+};
+
 const oneTopLevelBefore = {
 	meta: { type: "problem" },
 	create(context) {
@@ -4243,5 +4278,6 @@ export default {
 		"live-region-in-tree": liveRegionInTree,
 		"one-top-level-before": oneTopLevelBefore,
 		"confirm-keeps-refusal": confirmKeepsRefusal,
+		"no-default-database": noDefaultDatabase,
 	},
 };

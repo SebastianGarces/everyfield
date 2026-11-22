@@ -115,6 +115,12 @@
 	},
 	"overrides": [
 		{
+			"files": ["src/**"],
+			"rules": {
+				"everyfield/no-default-database": "error"
+			}
+		},
+		{
 			"files": ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
 			"rules": {
 				"react/display-name": "error",
