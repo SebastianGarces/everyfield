@@ -27,7 +27,7 @@ import {
 	IconButton,
 	Textarea,
 } from "@everyfield/ui/controls";
-import { cn, Icon } from "@everyfield/ui/foundations";
+import { cn, Icon, prefersReducedMotion } from "@everyfield/ui/foundations";
 import { RadioGroup } from "radix-ui";
 import { startTransition, useActionState, useOptimistic, useRef, useState, useTransition } from "react";
 import { correctCheckIn, saveCheckIn } from "./actions.ts";
@@ -155,7 +155,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 		setTarget(week && week.ordinal !== thisWeek.ordinal ? week : null);
 		setDraft(formOf(week ?? thisWeek));
 		formRef.current?.focus({ preventScroll: true });
-		cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+		cardRef.current?.scrollIntoView({ behavior: prefersReducedMotion() ? "instant" : "smooth", block: "start" });
 	};
 	const answer = (area: CareArea, level: CareLevel) =>
 		setDraft((d) => ({ ...d, answers: { ...d.answers, [area]: level } }));

@@ -368,7 +368,58 @@ export const other = () => setInterval(() => {}, 15_000);
 			...[2, 3, 4, 5, 8].map((line) => `apps/web/src/server/evry/index.ts:${line} no-timers`),
 		],
 	);
-	assert.equal(Object.keys(PRODUCT_TIMERS).length, 1, "PRODUCT_TIMERS only shrinks");
+});
+
+test("INV-lint: each listed product timer exempts its one call site, a new timer in the same file is reported and a listed timer that is gone is reported as stale", () => {
+	assert.deepEqual(
+		Object.entries(PRODUCT_TIMERS).flatMap(([path, sites]) => sites.map((s) => `${path} ${s.timer} ${s.within}`)),
+		[
+			"apps/web/src/server/evry/http.ts setInterval conversationStreamGet",
+			"packages/evry/src/runtime/turn.ts setTimeout run",
+			"packages/evry/src/runtime/model.ts setTimeout transientRetry",
+			"packages/evry/src/runtime/observe.ts setTimeout timerPause",
+			"packages/db/src/schema/validate-file.ts setTimeout parser",
+			"packages/db/src/schema/validate-file.ts setTimeout parseOnce",
+		],
+	);
+	const paths = Object.keys(PRODUCT_TIMERS);
+	const added = "export const later = () => setTimeout(() => {}, 0);\n";
+	const real = Object.fromEntries(paths.map((p) => [p, readFileSync(join(repo, p), "utf8") + added]));
+	const lastLine = (p) => real[p].split("\n").length - 1;
+	const timerHits = (files) => lint(files).filter((hit) => hit.endsWith(" no-timers"));
+	assert.deepEqual(timerHits(real), paths.map((p) => `${p}:${lastLine(p)} no-timers`).sort());
+	const twice = `export async function parser() {
+	if (retry) {
+		const timer = setInterval(() => {}, 1);
+		return timer;
+	}
+	const again = setTimeout(() => {}, 1);
+	const timer = setTimeout(() => {}, 1);
+	if (retry) {
+		const timer = setTimeout(() => {}, 1);
+		return timer;
+	}
+	return [timer, again];
+}
+export function parseOnce() {
+	const timer = defer(setTimeout);
+	return [timer, setTimeout(() => {}, 1)];
+}
+export function other() {
+	const timer = setTimeout(() => {}, 1);
+	return timer;
+}
+`;
+	assert.deepEqual(
+		timerHits({
+			"packages/db/src/schema/validate-file.ts": twice,
+			"packages/evry/src/runtime/turn.ts": "export const gone = 1;\n",
+		}),
+		[
+			...[1, 3, 6, 9, 15, 16, 19].map((line) => `packages/db/src/schema/validate-file.ts:${line} no-timers`),
+			"packages/evry/src/runtime/turn.ts:1 no-timers",
+		].sort(),
+	);
 });
 
 test("INV-lint: every comment except a shebang and a bundler ignore inside import() is reported, JSX comments included", () => {
@@ -967,14 +1018,14 @@ const commitAll = (dir, message) => {
 	return git(dir, "rev-parse", "HEAD");
 };
 
-test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, Python, plist, ignore-file and new migration comments and every directive", () => {
+test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, Python, plist, ignore-file and new migration comments, except a migration's contract marker with a reason, and every directive", () => {
 	const files = {
 		"packages/ui/src/a.css": `a { color: red; } /* why */\n.b::after { content: "/* not */"; }\n`,
 		"tsconfig.x.json": `{\n\t// why\n\t"a": "http://x"\n}\n`,
 		".github/workflows/x.yml": `name: x # why\non: "#not"\n`,
 		"bin/tool": `#!/bin/sh\n# why\necho "#not"\n`,
 		".gitignore": `# why\nnode_modules\n`,
-		"packages/db/migrations/20990101000000_new.sql": `select '--not';\n-- why\n`,
+		"packages/db/migrations/20990101000000_new.sql": `select '--not';\n-- why\n-- contract: nothing reads it\n-- contract:\n`,
 		"packages/ui/src/b.ts": `export const a = 1;\n// ${DISABLE} x\n/* ${OX_DISABLE} */\n`,
 		"docs/x.css": `/* exempt */\n`,
 		"tools/x.py": `#!/usr/bin/env python3\nprint(f"PR #{1}", '#not', """\n# not\n""")  # why\n`,
@@ -997,7 +1048,7 @@ test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, Python, plist, 
 		".gitignore:1: 1",
 		"bin/tool:2: 1",
 		"ops/x.plist:2: 1",
-		"packages/db/migrations/20990101000000_new.sql:2: 1",
+		"packages/db/migrations/20990101000000_new.sql:2: 2",
 		"packages/ui/src/a.css:1: 1",
 		"packages/ui/src/b.ts: 2",
 		"tools/x.py:4: 1",
@@ -2753,6 +2804,94 @@ test("INV-lint: a server action parameter typed as a trusted shape is reported, 
 			"apps/web/src/features/x/again.ts:3 action-params-unknown",
 			"apps/web/src/features/x/wrapped.ts:3 action-params-unknown",
 			"apps/web/src/features/x/wrapped.ts:4 action-params-unknown",
+		],
+	);
+});
+
+test("INV-lint: a second top-level node:test before hook is reported in any import form, one before with other hooks and suite-level befores are not", () => {
+	const named = `import test, { before, beforeEach, after, describe } from "node:test";
+before(async () => {});
+before(async () => {});
+test.before(() => {});
+beforeEach(() => {});
+after(() => {});
+describe("s", () => {
+	before(() => {});
+	before(() => {});
+});
+`;
+	const aliased = `import { before as setupHook, test as t } from "node:test";
+setupHook(() => {});
+t.before(() => {});
+`;
+	const namespaced = `import * as nt from "node:test";
+nt.before(() => {});
+nt.test.before(() => {});
+nt.default.before(() => {});
+nt.it.before(() => {});
+`;
+	const viaIt = `import { it } from "node:test";
+it.before(() => {});
+it.before(() => {});
+`;
+	const destructured = `import test from "node:test";
+const { before, after } = test;
+const { before: setup } = test;
+before(() => {});
+setup(() => {});
+after(() => {});
+`;
+	const bare = `import run from "node:test";
+run.before(() => {});
+await run.before(() => {});
+`;
+	const single = `import test, { before, beforeEach, after, describe } from "node:test";
+before(async () => {});
+beforeEach(() => {});
+after(() => {});
+test.beforeEach(() => {});
+const config = { before: () => {} };
+const { before: configured } = config;
+configured();
+describe("s", () => {
+	before(() => {});
+	before(() => {});
+});
+test("a", () => {});
+`;
+	const local = `const before = (f) => f();
+before(() => {});
+before(() => {});
+`;
+	const other = `import test, { before } from "./hooks.mts";
+before(() => {});
+test.before(() => {});
+`;
+	assert.deepEqual(
+		lint({
+			"tests/integration/x/named.test.mts": named,
+			"tests/evry/x/aliased.test.mts": aliased,
+			"tests/unit/x/namespaced.test.mts": namespaced,
+			"tests/contracts/common/bare.test.mjs": bare,
+			"tests/unit/x/it.test.mts": viaIt,
+			"tests/unit/x/destructured.test.mts": destructured,
+			"tests/workflow/single.test.mjs": single,
+			"tests/ui/local.test.mts": local,
+			"tests/ui/other.test.mts": other,
+			"tools/ci/named.test.ts": named,
+		}).filter((hit) => hit.endsWith(" one-top-level-before")),
+		[
+			"tests/contracts/common/bare.test.mjs:3 one-top-level-before",
+			"tests/evry/x/aliased.test.mts:3 one-top-level-before",
+			"tests/integration/x/named.test.mts:3 one-top-level-before",
+			"tests/integration/x/named.test.mts:4 one-top-level-before",
+			"tests/unit/x/destructured.test.mts:5 one-top-level-before",
+			"tests/unit/x/it.test.mts:3 one-top-level-before",
+			"tests/unit/x/namespaced.test.mts:3 one-top-level-before",
+			"tests/unit/x/namespaced.test.mts:4 one-top-level-before",
+			"tests/unit/x/namespaced.test.mts:5 one-top-level-before",
+			"tools/ci/named.test.ts:3 one-top-level-before",
+			"tools/ci/named.test.ts:4 one-top-level-before",
 		],
 	);
 });

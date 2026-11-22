@@ -1225,36 +1225,84 @@ const tickOnly = (node) =>
 	emptyResolve(node);
 
 export const PRODUCT_TIMERS = {
-	"apps/web/src/server/evry/http.ts": {
-		timer: "setInterval",
-		binding: "heartbeat",
-		within: "conversationStreamGet",
-		why: "the Evry conversation stream writes an SSE comment every 15 seconds so proxies and the browser keep an idle stream open while a turn runs; the interval is the keep-alive itself and nothing else marks when a quiet connection needs one",
-	},
+	"apps/web/src/server/evry/http.ts": [
+		{
+			timer: "setInterval",
+			binding: "heartbeat",
+			within: "conversationStreamGet",
+			why: "the Evry conversation stream writes an SSE comment every 15 seconds so proxies and the browser keep an idle stream open while a turn runs; the interval is the keep-alive itself and nothing else marks when a quiet connection needs one",
+		},
+	],
+	"packages/evry/src/runtime/turn.ts": [
+		{
+			timer: "setTimeout",
+			binding: "wall",
+			within: "run",
+			why: "an Evry turn stops at its LIMITS.wallMs wall-time budget so a hung model or tool call cannot hold the run lease; the deadline is the limit itself and no event marks it",
+		},
+	],
+	"packages/evry/src/runtime/model.ts": [
+		{
+			timer: "setTimeout",
+			binding: "timer",
+			within: "transientRetry",
+			why: "a transient model error is retried after the LIMITS.modelRetryDelaysMs backoff; the wait is the backoff itself and the turn's abort signal cancels it",
+		},
+	],
+	"packages/evry/src/runtime/observe.ts": [
+		{
+			timer: "setTimeout",
+			binding: "timer",
+			within: "timerPause",
+			why: "a conversation observer re-reads the store every pollMs so it still sees events written by another instance; the pause is the poll interval and the abort signal ends it",
+		},
+	],
+	"packages/db/src/schema/validate-file.ts": [
+		{
+			timer: "setTimeout",
+			binding: "timer",
+			within: "parser",
+			why: "a PDF parser worker that is not ready within STARTUP_MS counts as crashed, so a stuck worker cannot hold an upload; the deadline is the product limit",
+		},
+		{
+			timer: "setTimeout",
+			binding: "timer",
+			within: "parseOnce",
+			why: "a PDF parse that runs past parseMs is refused and its worker stopped, so one file cannot hold the parser; the deadline is the product limit",
+		},
+	],
+};
+
+const namedAncestor = (node, name) => {
+	for (let p = node.parent; p; p = p.parent)
+		if (
+			(p.type === "VariableDeclarator" || p.type === "FunctionDeclaration") &&
+			p.id?.type === "Identifier" &&
+			p.id.name === name
+		)
+			return true;
+	return false;
+};
+
+const timerSite = (node, site) => {
+	const call = node.parent;
+	if (node.name !== site.timer || call?.type !== "CallExpression" || call.callee !== node) return false;
+	return (
+		call.parent?.type === "VariableDeclarator" &&
+		call.parent.id.type === "Identifier" &&
+		call.parent.id.name === site.binding &&
+		namedAncestor(call, site.within)
+	);
 };
 
 const noTimers = ratcheted("no-timers", (context, push) => {
 	const seen = new Set();
-	const allowed = PRODUCT_TIMERS[repoPath(context.filename)];
-	let productTimerSeen = false;
+	const sites = PRODUCT_TIMERS[repoPath(context.filename)] ?? [];
+	const matched = new Set();
 	const productTimer = (node) => {
-		const call = node.parent;
-		const declarator = call?.parent;
-		if (
-			productTimerSeen ||
-			node.type !== "Identifier" ||
-			node.name !== allowed?.timer ||
-			call.type !== "CallExpression" ||
-			call.callee !== node ||
-			declarator?.type !== "VariableDeclarator" ||
-			declarator.id.type !== "Identifier" ||
-			declarator.id.name !== allowed.binding
-		)
-			return false;
-		for (let p = declarator.parent; p; p = p.parent)
-			if (p.type === "VariableDeclarator" && p.id.type === "Identifier" && p.id.name === allowed.within)
-				return (productTimerSeen = true);
-		return false;
+		const site = sites.find((s) => !matched.has(s) && timerSite(node, s));
+		if (site) matched.add(site);
+		return site !== undefined;
 	};
 	const report = (node, name) => {
 		const at = (node.range ?? [node.start, node.end]).join(":");
@@ -1314,6 +1362,15 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 				(options.type !== "ObjectExpression" ||
 					options.properties.some((p) => p.type !== "Property" || keyName(p.key, p.computed) === "delay"));
 			if (delayed) report(node, "scheduler.postTask with a delay");
+		},
+		"Program:exit"(program) {
+			for (const site of sites)
+				if (!matched.has(site))
+					push({
+						node: program,
+						fn: null,
+						message: `The listed product timer ${site.timer} ${site.binding} in ${site.within} is gone: delete its entry from PRODUCT_TIMERS in scripts/lint/everyfield-plugin.mjs.`,
+					});
 		},
 	};
 	return merge(
@@ -3775,6 +3832,66 @@ const stableContextValue = {
 	},
 };
 
+const TEST_HOSTS = new Set(["test", "it", "default"]);
+
+const oneTopLevelBefore = {
+	meta: { type: "problem" },
+	create(context) {
+		const hooks = new Set();
+		const hosts = new Set();
+		const namespaces = new Set();
+		const isHook = (callee) => {
+			if (callee.type === "Identifier") return hooks.has(callee.name);
+			if (callee.type !== "MemberExpression" || memberName(callee) !== "before") return false;
+			const object = callee.object;
+			if (object.type === "Identifier") return hosts.has(object.name) || namespaces.has(object.name);
+			return (
+				object.type === "MemberExpression" &&
+				object.object.type === "Identifier" &&
+				namespaces.has(object.object.name) &&
+				TEST_HOSTS.has(memberName(object))
+			);
+		};
+		return {
+			ImportDeclaration(node) {
+				if (node.source.value !== "node:test") return;
+				for (const spec of node.specifiers) {
+					if (spec.type === "ImportNamespaceSpecifier") namespaces.add(spec.local.name);
+					else if (spec.type === "ImportDefaultSpecifier") hosts.add(spec.local.name);
+					else if (nameOf(spec.imported) === "before") hooks.add(spec.local.name);
+					else if (TEST_HOSTS.has(nameOf(spec.imported))) hosts.add(spec.local.name);
+				}
+			},
+			VariableDeclarator(node) {
+				const from = node.init;
+				if (node.id.type !== "ObjectPattern" || from?.type !== "Identifier") return;
+				if (!hosts.has(from.name) && !namespaces.has(from.name)) return;
+				for (const property of node.id.properties)
+					if (
+						property.type === "Property" &&
+						property.value.type === "Identifier" &&
+						keyName(property.key, property.computed) === "before"
+					)
+						hooks.add(property.value.name);
+			},
+			"Program:exit"(program) {
+				const calls = program.body
+					.filter((statement) => statement.type === "ExpressionStatement")
+					.map((statement) =>
+						statement.expression.type === "AwaitExpression" ? statement.expression.argument : statement.expression,
+					)
+					.filter((call) => call.type === "CallExpression" && isHook(call.callee));
+				for (const call of calls.slice(1))
+					context.report({
+						node: call,
+						message:
+							"node:test starts a top-level before hook the moment it is registered, so a second one runs at the same time as the first. Put the file's setup in one before hook and await each step in order.",
+					});
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -3827,5 +3944,6 @@ export default {
 		"domain-refusals": domainRefusals,
 		"stable-context-value": stableContextValue,
 		"live-region-in-tree": liveRegionInTree,
+		"one-top-level-before": oneTopLevelBefore,
 	},
 };
