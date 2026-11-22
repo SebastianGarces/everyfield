@@ -114,7 +114,7 @@ export function ChurchLibrary({ documents, templates, churchTemplates, canManage
 									<Icon
 										icon={ArrowRight01Icon}
 										size={18}
-										className="text-text-3 transition-transform duration-150 group-hover:translate-x-0.5 max-app-sm:hidden"
+										className="text-text-3 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none max-app-sm:hidden"
 									/>
 								</IntentLink>
 							</li>
