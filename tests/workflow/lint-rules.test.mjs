@@ -1995,7 +1995,7 @@ export function gate(path: string, out: boolean) {
 	]);
 });
 
-test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper, through a destructured kind or a renamed owner too, and a same-named parameter in another function is not an owner", () => {
+test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper, through a destructured kind, a renamed owner or an alias of either too, and a same-named parameter in another function is not an owner", () => {
 	const source = `import type { RequestActor } from "@everyfield/domain/access";
 export function a(authority: RequestActor | null) {
 	const context = authority?.actor.context;
@@ -2098,6 +2098,55 @@ export function r(authority: RequestActor) {
 export function s(picked: Owner, pickedKind: string, item: { kind: string }) {
 	return item.kind === "seat" && (picked.kind === "organization" || pickedKind === "organization");
 }
+export function t(authority: RequestActor) {
+	const context = authority.actor.context;
+	const { owner: o } = context;
+	const o2 = o;
+	const o3 = o2 as Owner;
+	const kind2 = o3.kind;
+	const kind3 = kind2;
+	const { kind: kind4 } = o2;
+	if (context.kind !== "seat") return null;
+	return [o2.kind === "organization", o3.kind === "organization", kind3 === "organization", kind4 === "organization"];
+}
+export function u(authority: RequestActor, fallback: Owner) {
+	const context = authority.actor.context;
+	const { kind: seatKind, owner: o } = context;
+	const seatKind2 = seatKind;
+	let o2;
+	o2 = fallback ?? o;
+	let o3: Owner;
+	({ owner: o3 } = context);
+	const o4 = seatKind2 ? fallback : o3;
+	return seatKind2 === "seat" && [o2.kind === "organization", o3.kind === "organization", o4.kind === "organization"];
+}
+export function v(authority: RequestActor, o: Owner) {
+	const context = authority.actor.context;
+	const o2 = o;
+	let o3 = o2;
+	o3 = o3;
+	let label = "the ";
+	label += context.owner.kind;
+	return context.kind === "seat" && [o2.kind === "organization", o3.kind === "organization", label === "organization"];
+}
+export function w(authority: RequestActor, item: { kind: string }) {
+	const context = authority.actor.context;
+	const { owner: o } = context;
+	const o2 = o;
+	const check = (o2: { kind: string }) => o2.kind === "organization";
+	return context.kind === "seat" && o2 && check(item);
+}
+export function x(authority: RequestActor, fallback: Owner | null) {
+	const context = authority.actor.context;
+	const { owner: o } = context;
+	let o5: Owner;
+	if (!fallback) o5 = o;
+	else o5 = fallback;
+	const o6 = fallback ? fallback : (o as Owner);
+	let tag = fallback;
+	tag = tag;
+	return tag === "seat" && context.kind === "seat" && [o5.kind === "organization", o6.kind === "organization"];
+}
 `;
 	assert.deepEqual(
 		lint({
@@ -2108,6 +2157,15 @@ export function s(picked: Owner, pickedKind: string, item: { kind: string }) {
 		}),
 		[
 			"apps/web/src/features/x/server.ts:10 organization-seat",
+			"apps/web/src/features/x/server.ts:112 organization-seat",
+			"apps/web/src/features/x/server.ts:112 organization-seat",
+			"apps/web/src/features/x/server.ts:112 organization-seat",
+			"apps/web/src/features/x/server.ts:112 organization-seat",
+			"apps/web/src/features/x/server.ts:123 organization-seat",
+			"apps/web/src/features/x/server.ts:123 organization-seat",
+			"apps/web/src/features/x/server.ts:123 organization-seat",
+			"apps/web/src/features/x/server.ts:150 organization-seat",
+			"apps/web/src/features/x/server.ts:150 organization-seat",
 			"apps/web/src/features/x/server.ts:17 organization-seat",
 			"apps/web/src/features/x/server.ts:27 organization-seat",
 			"apps/web/src/features/x/server.ts:39 organization-seat",
@@ -2126,6 +2184,15 @@ export function s(picked: Owner, pickedKind: string, item: { kind: string }) {
 			"apps/web/src/features/x/server.ts:93 organization-seat",
 			"apps/web/src/features/x/server.ts:93 organization-seat",
 			"packages/domain/src/x/index.ts:10 organization-seat",
+			"packages/domain/src/x/index.ts:112 organization-seat",
+			"packages/domain/src/x/index.ts:112 organization-seat",
+			"packages/domain/src/x/index.ts:112 organization-seat",
+			"packages/domain/src/x/index.ts:112 organization-seat",
+			"packages/domain/src/x/index.ts:123 organization-seat",
+			"packages/domain/src/x/index.ts:123 organization-seat",
+			"packages/domain/src/x/index.ts:123 organization-seat",
+			"packages/domain/src/x/index.ts:150 organization-seat",
+			"packages/domain/src/x/index.ts:150 organization-seat",
 			"packages/domain/src/x/index.ts:17 organization-seat",
 			"packages/domain/src/x/index.ts:27 organization-seat",
 			"packages/domain/src/x/index.ts:39 organization-seat",
