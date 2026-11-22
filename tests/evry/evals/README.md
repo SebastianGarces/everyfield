@@ -25,7 +25,8 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `wiki-network.test.mts` | `wiki-network.cases.json`                                                                                                | A network's own Wiki versions: draft, change, publish and hide (scripted model)             |
 | `intelligence.test.mts` | `intelligence.cases.json`                                                                                                | Plant Intelligence reads, refresh, feedback and tasks from suggestions (scripted model)     |
 | `oversight.test.mts`    | `oversight.cases.json`                                                                                                   | An organization seat's oversight, Network Intelligence and digest settings (scripted model) |
-| `wiki-meaning.test.mts` | `wiki-meaning.cases.json`                                                                                                | `wiki.search` by meaning on fixed vectors: the vision meeting article (scripted model)      |
+| `wiki-meaning.test.mts` | `wiki-meaning.cases.json`                                                                                                | `wiki.search` by meaning on fixed vectors: global and network articles (scripted model)     |
+| `task-plan.test.mts`    | `task-plan.cases.json`                                                                                                   | Phase offer, checklist import, follow-up handoff and prerequisite cards (scripted model)    |
 
 ## The settings suite (scripted model)
 
@@ -79,7 +80,10 @@ global article, sets `EVF_WIKI_EMBEDDINGS=openai` with a fake key in the test pr
 stub that answers the embeddings endpoint with a fixed question vector and fails any other URL. While Harvest Network's
 own version of the vision meeting article is what the church sees, the global passage is not a hit (WMS-01). Once that
 version is removed, the question "getting people excited about our church's direction", which shares no keyword with the
-article, finds it and Evry answers from it (WMS-02). A second test asserts the adapter's exact result.
+article, finds it and Evry answers from it (WMS-02). A second test asserts the adapter's exact result. Then Harvest
+Network's admin publishes its own version of the thank-you notes article and the publish job embeds it through the same
+stub (T-552); a question with none of its words finds that version and Evry answers from it as the network's version
+(WMS-03), and a third test asserts that exact result.
 
 ## The network Wiki suite (scripted model)
 
@@ -133,8 +137,32 @@ matches (`launch.readDebrief` with `guestName`) gets the list and a question, an
 same conversation by picking a match or asking for a new Person. Three names make one card each, approved one at a
 time. A correction card changes only the fields named, keeps the outcome note, and one made stale on the Launch plan
 shows the outcome as it is now. Each refusal (not recorded, already a guest, no or long name, no or long reason, a date
-after today, a count out of range, the same values) makes no card, and the card itself refuses them too. The recorded
-suites leave these tools out too.
+after today, a count out of range, the same values) makes no card, and the card itself refuses them too. LAU-62 and
+LAU-63 (T-329) ask "are we ready to launch?" after the `readiness` setup holds two of three pre-launch services, moves
+the church to Training & Preparation and records Systems tested. The Owner's turn reads `launch.readWorkspace` and
+`phases.readReadiness` and ends `completed`, not at the pastoral boundary. It lists each milestone as met (with who
+completed it and when) or not met (with its open linked prep tasks), the pre-launch services held, and each exit
+criterion as phase readiness returns it. It says readiness is the planter's call, and neither golden LCH-02's forbid
+pattern nor the readiness-verdict wording in `packages/domain/src/intelligence/checks.ts` matches. A Member gets the
+milestones without the phase's criteria. Both turns change nothing: the Launch plan, tasks, phase and review cards read
+the same afterwards. The recorded suites leave these tools out too.
+
+## The task plan suite (scripted model)
+
+`task-plan.test.mts` scores six reviewed writes (T-347, WP-068) on the scripted model
+(`packages/evry/src/runtime/scripted-task-plan.ts`), not a recording (D-1997): accepting every checklist of the phase
+offer (`tasks.acceptPhaseOffer`), accepting some and declining the rest (`tasks.answerPhaseOffer`, which answers as the
+Tasks page's offer does, D-1996), declining them all (`tasks.declinePhaseOffer`), importing named items of one checklist
+(`tasks.importTemplate`), handing one seat's open follow-ups to another (`tasks.executeHandoff`) and setting what a task
+waits on (`tasks.replacePrerequisites`). It runs on the golden church (`goldenChurch()`), whose phase 1 offer from the
+Aug 3 move is open, plus one fixture row: Ana's attempted call to Daniel Cruz, so the handoff has contact history to
+leave unchanged. Each case is a real turn (`runTurn`) with the real catalog, reads and review card; a case with
+`approve` is approved and its effect runs once through the WP-031 queue, and its `check` reads the result back through
+the readers the Tasks and Follow-ups pages use. `setup: openOffer` reopens the offer before a case. `between` changes
+the offer or the task natively after the card is shown, and the approval must end refused (`offer_answered`,
+`revision_conflict`) with nothing created. The suite also holds the refusals: an answered offer, an item the checklist
+doesn't hold, a handoff to a seat that can't own follow-ups or from an Owner, a cycle and a checklist row, a Member
+(only an Owner or Admin, D-1998) and an organization seat. The recorded suites leave these six writes out too.
 
 ## The household and follow-up suites
 
@@ -225,6 +253,11 @@ EVRY_EVAL_REPORT=/tmp/evry-golden.md node --conditions=react-server --test tests
 The golden, household and follow-up suites need a database `testDatabase` accepts: the shared development database, or a throwaway local
 Postgres the way CI runs one (`DATABASE_URL=postgres://ci:ci@localhost:5432/everyfield_ci`, `CI=true`,
 `EARLY_ACCESS_TEST_DATABASE=1`, then `pnpm db:migrate`). Each run creates its own schema and drops it afterwards.
+
+`test:db` runs four files at a time (its two `tsx` documents files, two at a time). Each file is its own process with its own schema, login roles, pinned database clock
+and host clock, so the files share no rows, clocks or ports. What they do share is Postgres's lock table: one schema's
+migration or drop takes thousands of locks, so `testDatabase` runs both under the migration lock, one at a time
+(`tests/evry/runtime/schema-locks.test.mts`).
 
 The report (and `/tmp/evry-golden.md.json`) shows, for every case: the case ID, scenario, actor, question, expected
 answer, observed answer, tool calls, review cards, each hard check with the text it passed or failed on, the alpha

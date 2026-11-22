@@ -55,6 +55,7 @@ import { PIPELINE_READS } from "../../../packages/evry/src/adapters/pipeline/rea
 import { PIPELINE_COMMANDS } from "../../../packages/evry/src/adapters/pipeline/commands/index.ts";
 import { LAUNCH_READS } from "../../../packages/evry/src/adapters/launch/reads/index.ts";
 import { LAUNCH_COMMANDS } from "../../../packages/evry/src/adapters/launch/commands/index.ts";
+import { PLAN_WRITES } from "../../../packages/evry/src/context/compile.ts";
 import { INVITATION_COMMANDS } from "../../../packages/evry/src/adapters/meetings/commands/invitation.ts";
 import { WORKFLOW_READS } from "../../../packages/evry/src/adapters/meetings/reads/workflows.ts";
 import { WIKI_COMMANDS } from "../../../packages/evry/src/adapters/wiki/commands/index.ts";
@@ -72,6 +73,7 @@ const LATER = new Set<string>([
 	...Object.keys(PIPELINE_COMMANDS),
 	...LAUNCH_READS.map((a) => a.operation),
 	...Object.keys(LAUNCH_COMMANDS),
+	...PLAN_WRITES,
 	...Object.keys(INVITATION_COMMANDS),
 	...WORKFLOW_READS.map((a) => a.operation),
 	"documents.importTextOrWord",
