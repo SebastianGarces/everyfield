@@ -1,4 +1,3 @@
-import type { Database } from "@everyfield/db/client";
 import type { WriteTx } from "@everyfield/domain/access";
 import { sql, type SQL } from "@everyfield/db/query";
 import { privateStorage } from "@everyfield/db/schema";
@@ -33,7 +32,6 @@ async function authorityIn(tx: WriteTx, context: PeopleContext) {
 	const claimed = await RequestActor.claimWrite(tx, context.session, context.selected);
 	return claimed?.authority ?? null;
 }
-const asDatabase = (tx: WriteTx) => tx as unknown as Database;
 const writer = async () => (await import("@everyfield/domain/documents")).documentsWriter;
 const done = <T>(reply: DocumentsReply<T>, receipt: (value: T) => { id: string; revision: string }): EffectResult => {
 	if (reply.status !== "ok") return { refused: reply.error.code };
@@ -104,7 +102,7 @@ export const createFromTemplate: ReviewedWrite<z.infer<typeof createInput>> = {
 		if (!authority) return { refused: "access_denied" };
 		const reply = await (
 			await writer()
-		).createFromTemplate(asDatabase(tx), authority, {
+		).createFromTemplate(tx, authority, {
 			templateId: saved.input.templateId,
 			requestKey: effectKey,
 		});
@@ -140,7 +138,7 @@ export const exportNative: ReviewedWrite<z.infer<typeof exportInput>> = {
 		if (!authority) return { refused: "access_denied" };
 		const reply = await (
 			await writer()
-		).exportNative(asDatabase(tx), authority, { ...saved.input, requestKey: effectKey }, privateStorage());
+		).exportNative(tx, authority, { ...saved.input, requestKey: effectKey }, privateStorage());
 		return done(reply, (file) => ({ id: file.id, revision: file.revision }));
 	},
 };
@@ -169,10 +167,10 @@ export const archive: ReviewedWrite<{ documentId: string }> = {
 		const authority = await authorityIn(tx, context);
 		if (!authority) return { refused: "access_denied" };
 		if (saved.store === "church") {
-			const reply = await (await writer()).archiveChurch(asDatabase(tx), authority, saved.input);
+			const reply = await (await writer()).archiveChurch(tx, authority, saved.input);
 			return done(reply, (doc) => ({ id: doc.documentId, revision: saved.input.expectedRevision }));
 		}
-		const reply = await (await writer()).archive(asDatabase(tx), authority, saved.input);
+		const reply = await (await writer()).archive(tx, authority, saved.input);
 		return done(reply, (doc) => ({ id: doc.id, revision: doc.revision }));
 	},
 };
@@ -215,7 +213,7 @@ export const designateCoreValues: ReviewedWrite<{ documentId: string }> = {
 		const saved = designateArgs.parse(args);
 		const authority = await authorityIn(tx, context);
 		if (!authority) return { refused: "access_denied" };
-		const reply = await (await writer()).designateCoreValues(asDatabase(tx), authority, saved.input);
+		const reply = await (await writer()).designateCoreValues(tx, authority, saved.input);
 		return done(reply, (doc) => ({ id: doc.id, revision: doc.revision }));
 	},
 };
@@ -279,19 +277,13 @@ export const importTextOrWord: ReviewedWrite<z.infer<typeof importInput>> = {
 		const authority = await authorityIn(tx, context);
 		if (!authority) return { refused: "access_denied" };
 		const storage = privateStorage();
-		const bytes = await stagedBytes(
-			asDatabase(tx),
-			storage,
-			context.selected.id,
-			saved.conversationId,
-			saved.attachmentId,
-		);
+		const bytes = await stagedBytes(tx, storage, context.selected.id, saved.conversationId, saved.attachmentId);
 		if (!bytes) return { refused: "attachment_gone" };
 		if (sha256(bytes) !== saved.sha256) return { refused: "file_changed" };
 		const reply = await (
 			await writer()
 		).importTextOrWord(
-			asDatabase(tx),
+			tx,
 			authority,
 			{ title: saved.title, format: saved.format, bytes, expectedRevision: "0", requestKey: effectKey },
 			storage,

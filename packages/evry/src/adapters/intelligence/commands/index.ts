@@ -1,4 +1,3 @@
-import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import * as s from "@everyfield/contracts/intelligence";
 import { localDate } from "@everyfield/contracts/common";
@@ -42,7 +41,7 @@ export const declarePhase: ReviewedWrite<z.infer<typeof declareInput>> = {
 	},
 	async execute(tx, _context, args, effectKey, ports, native): Promise<EffectResult> {
 		const writer = createPhaseWriter({ notices: ports.phaseNotices });
-		const reply = await writer.declare(tx as unknown as Database, native.authority, {
+		const reply = await writer.declare(tx, native.authority, {
 			...z.object({}).loose().parse(args),
 			requestKey: effectKey,
 		});
@@ -84,7 +83,7 @@ export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 	},
 	async execute(tx, _context, args, effectKey, ports, native): Promise<EffectResult> {
 		const writer = createPhaseWriter({ notices: ports.phaseNotices });
-		const reply = await writer.transition(tx as unknown as Database, native.authority, {
+		const reply = await writer.transition(tx, native.authority, {
 			...z.object({}).loose().parse(args),
 			requestKey: effectKey,
 		});

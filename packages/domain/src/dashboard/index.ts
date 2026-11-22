@@ -105,6 +105,17 @@ export const dashboardReader = {
 		return (await readPlantSetupComplete(db, authority.session, context.owner)) ? "complete" : "incomplete";
 	},
 
+	async readPlantName(db: Db, authority: RequestActor) {
+		return settle(async () => {
+			const scope = scopeOf(authority);
+			const { rows } = await db.execute(sql`SELECT pl.name FROM (SELECT ${scope.live} AS ok) g
+	JOIN plant pl ON g.ok AND pl.id=${scope.plantId}::uuid`);
+			const r = z.object({ name: z.string() }).safeParse(rows[0]);
+			if (!r.success) return deny();
+			return r.data.name;
+		});
+	},
+
 	async readSetupGaps(db: Db, authority: RequestActor) {
 		return settle(async () => {
 			const scope = scopeOf(authority);

@@ -359,10 +359,21 @@ export const TASK_REFUSAL = {
 	assignee_ineligible: "That person has no seat that can hold tasks.",
 } as const satisfies Partial<Record<ErrorCode, string>>;
 
-export function sendNotice(send: Send): string | null {
+function startNotice(code: ErrorCode | undefined, churchName: string | null): string {
+	switch (code) {
+		case "access_denied":
+			return `You don't have access to Evry for ${churchName?.trim() || "this church"} yet. Ask whoever manages your church's Everyfield account to add you.`;
+		case "invalid_input":
+			return "Evry couldn't start a new conversation. Please try again.";
+		default:
+			return "Evry can't start a new conversation right now. Please try again in a moment.";
+	}
+}
+
+export function sendNotice(send: Send, churchName: string | null = null): string | null {
 	if (send.state === "sending") return null;
 	if (send.state === "unconfirmed") return "Not confirmed. Check your connection, then send it again.";
-	if (send.state === "unstarted") return "Evry can't start a new conversation right now. Please try again in a moment.";
+	if (send.state === "unstarted") return startNotice(send.error?.code, churchName);
 	switch (send.error?.code) {
 		case "run_active":
 			return "Not sent. Evry is still answering your last message. Stop it or wait, then send again.";
