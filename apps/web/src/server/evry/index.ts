@@ -6,6 +6,7 @@ import { after } from "next/server";
 import { privateHeaders } from "../platform/boundary";
 import { requestDatabase } from "../database";
 import { getViewer } from "../request-context";
+import { phasesMount } from "../../features/phases/mount.ts";
 import { tasksMount } from "../../features/tasks/mount.ts";
 import { runEffects, runTurns } from "./worker";
 
@@ -24,6 +25,8 @@ const status = {
 	review_expired: 409,
 	review_closed: 409,
 	photo_unavailable: 409,
+	attachment_gone: 409,
+	attachment_elsewhere: 404,
 } as const;
 export function errorResponse(error: unknown) {
 	const projected = projectError(error);
@@ -48,10 +51,12 @@ export function drainTurns() {
 	});
 }
 
+export const evryEffectPorts = () => ({ reminders: tasksMount().reminders, phaseNotices: phasesMount().notices });
+
 export function drainEffects() {
 	after(async () => {
 		const db = requestDatabase();
-		await runEffects(db, await readSwitches(db), tasksMount().reminders, 4);
+		await runEffects(db, await readSwitches(db), evryEffectPorts(), 4);
 	});
 }
 

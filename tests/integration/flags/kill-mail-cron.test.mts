@@ -47,7 +47,7 @@ async function tick() {
 		db,
 		storage: null,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: null,
 		mail: spy("mail"),
 		messages: spy("messages"),

@@ -58,6 +58,12 @@ const STEPS = [
 	{ key: "done", label: "Done" },
 ] as const;
 
+const choiceFor = (choices: Map<number, Choice>, row: number) => {
+	const choice = choices.get(row);
+	if (choice === undefined) throw new Error(`Valid import row ${row} has no choice`);
+	return choice;
+};
+
 export function Steps({ current }: { current: StepKey }) {
 	const at = STEPS.findIndex((s) => s.key === current);
 	return (
@@ -398,7 +404,7 @@ export function ReviewStep({
 								<RowItem
 									key={r.row}
 									row={r}
-									choice={r.status === "valid" ? choices.get(r.row)! : null}
+									choice={r.status === "valid" ? choiceFor(choices, r.row) : null}
 									reviewable={r.status === "valid" && canReview(r, choices)}
 									onChoice={(c) => choose(new Map(choices).set(r.row, c))}
 									nameOf={(n) => nameOf(preview, n)}

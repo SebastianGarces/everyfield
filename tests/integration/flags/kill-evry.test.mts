@@ -157,7 +157,7 @@ test("with evry-model-calls off, a cron run reads the switch once, leaves assess
 		db,
 		storage: null,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: null,
 		mail: null,
 		assessments: { drafter: drafter as never },

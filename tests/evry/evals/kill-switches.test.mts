@@ -82,6 +82,7 @@ test("KILL-01 with Evry's model calls off, a natural question gets the paused an
 			key: "k",
 			text: c.question,
 			references: [],
+			attachments: [],
 			state: "refused",
 			error: { code: "model_paused", correlationId: randomUUID(), retry: "new_turn", outcome: "refused" },
 			sequence: null,
@@ -104,7 +105,7 @@ test("KILL-02 with outbound mail off, asking Evry to schedule an email gets an h
 				send: async (batch: unknown) => (sends.push(batch), { outcome: "refused" as const }),
 			},
 		};
-		return converse(church, "owner", c.question, c.eval.history ?? [], { recorded, mail });
+		return converse(church, "owner", c.question, c.eval.history ?? [], [], undefined, undefined, { recorded, mail });
 	});
 	const failures: string[] = [];
 	for (const expected of c.eval.proposals ?? []) {

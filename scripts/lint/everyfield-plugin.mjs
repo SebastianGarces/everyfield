@@ -95,13 +95,20 @@ const privateCareScope = {
 	},
 };
 
-export const TABLE_WRITERS = {
+const TABLE_WRITERS = {
 	phase_transition: {
 		owner: "packages/domain/src/phases/",
 		why: "the phases domain records every phase transition, including the one initial declaration a plant may make",
 	},
+	job: {
+		owner: "packages/domain/src/jobs/queue.ts",
+		why: "the job queue owns the row shape, the dedupe key and the conflict rule; build the insert with queueJobsFor or enqueueJobs",
+	},
 };
-const INSERT_INTO = /\binsert\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
+const INSERT_INTO = /\b(?:insert|merge)\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
+const INSERT_INTO_END = /\b(?:insert|merge)\s+into\s+(?:"?public"?\.)?$/i;
+const UNSEEN =
+	"This rule cannot follow a table returned by a helper from another module or passed in as an untyped value; review catches those.";
 
 const tableWriters = {
 	meta: { type: "problem" },
@@ -112,42 +119,73 @@ const tableWriters = {
 			if (!path.startsWith(owner))
 				context.report({
 					node,
-					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here.`,
+					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here. ${UNSEEN}`,
 				});
 		};
+		const tableName = (name) =>
+			typeof name === "string" && Object.hasOwn(TABLE_WRITERS, name.toLowerCase()) ? name.toLowerCase() : undefined;
 		const check = (value, node) => {
-			for (const [, table] of value?.matchAll(INSERT_INTO) ?? [])
-				if (Object.hasOwn(TABLE_WRITERS, table.toLowerCase())) report(node, table.toLowerCase());
+			for (const [, table] of value?.matchAll(INSERT_INTO) ?? []) if (tableName(table)) report(node, tableName(table));
 		};
 		const aliases = new Map();
-		const tableOf = (node) =>
-			node?.type === "Identifier"
-				? aliases.get(node.name)
-				: node?.type === "MemberExpression" && Object.hasOwn(TABLE_WRITERS, memberName(node))
-					? memberName(node)
-					: undefined;
+		const returners = new Map();
+		const pending = [];
+		const tableOf = (raw) => {
+			const node = unwrapped(raw);
+			if (node?.type === "Identifier") return aliases.get(node.name);
+			if (node?.type === "MemberExpression") return tableName(memberName(node));
+			if (node?.type === "CallExpression") {
+				const callee = unwrapped(node.callee);
+				if (callee?.type === "Identifier") return returners.get(callee.name);
+				if (["raw", "identifier"].includes(memberName(callee))) return tableName(literalArgument(node.arguments[0]));
+			}
+			if (node?.type === "Literal") return tableName(text(node));
+			return undefined;
+		};
 		const bind = (id, table) => {
 			if (id?.type === "Identifier" && table) aliases.set(id.name, table);
+		};
+		const returned = (fn) =>
+			fn.body.type !== "BlockStatement"
+				? [fn.body]
+				: fn.body.body.filter((s) => s.type === "ReturnStatement").map((s) => s.argument);
+		const bindReturner = (id, fn) => {
+			const table = returned(fn).map(tableOf).find(Boolean);
+			if (id?.type === "Identifier" && table) returners.set(id.name, table);
 		};
 		return {
 			Literal: (node) => check(text(node), node),
 			TemplateElement: (node) => check(text(node), node),
-			ImportSpecifier: (node) => {
-				const imported = nameOf(node.imported);
-				if (Object.hasOwn(TABLE_WRITERS, imported)) bind(node.local, imported);
+			TemplateLiteral: (node) =>
+				node.quasis.forEach((quasi, i) => {
+					if (i < node.expressions.length && INSERT_INTO_END.test(text(quasi) ?? ""))
+						pending.push([node.expressions[i], node]);
+				}),
+			ImportSpecifier: (node) => bind(node.local, tableName(nameOf(node.imported))),
+			ExportSpecifier: (node) => {
+				const table = node.parent.source ? tableName(nameOf(node.local)) : aliases.get(nameOf(node.local));
+				if (table) report(node, table);
 			},
+			FunctionDeclaration: (node) => bindReturner(node.id, node),
 			VariableDeclarator: (node) => {
-				if (node.id.type === "Identifier") bind(node.id, tableOf(node.init));
+				const init = unwrapped(node.init);
+				if (init?.type === "ArrowFunctionExpression" || init?.type === "FunctionExpression")
+					bindReturner(node.id, init);
+				if (node.id.type === "Identifier") bind(node.id, tableOf(init));
 				if (node.id.type !== "ObjectPattern") return;
 				for (const p of node.id.properties) {
 					const key = p.type === "Property" ? keyName(p.key, p.computed) : null;
-					if (Object.hasOwn(TABLE_WRITERS, key))
-						bind(p.value.type === "AssignmentPattern" ? p.value.left : p.value, key);
+					if (tableName(key)) bind(p.value.type === "AssignmentPattern" ? p.value.left : p.value, tableName(key));
 				}
 			},
 			CallExpression: (node) => {
-				const table = tableOf(node.arguments[0]);
-				if (memberName(node.callee) === "insert" && table) report(node, table);
+				if (memberName(unwrapped(node.callee)) === "insert") pending.push([node.arguments[0], node]);
+			},
+			"Program:exit"() {
+				for (const [target, at] of pending) {
+					const table = tableOf(target);
+					if (table) report(at, table);
+				}
 			},
 		};
 	},
@@ -222,7 +260,14 @@ const unwrapped = (node) => {
 	let at = node;
 	while (
 		at &&
-		["TSAsExpression", "TSSatisfiesExpression", "TSNonNullExpression", "ParenthesizedExpression"].includes(at.type)
+		[
+			"TSAsExpression",
+			"TSSatisfiesExpression",
+			"TSNonNullExpression",
+			"TSTypeAssertion",
+			"ParenthesizedExpression",
+			"ChainExpression",
+		].includes(at.type)
 	)
 		at = at.expression;
 	return at;
@@ -339,6 +384,51 @@ const providerKeyMint = {
 			ExportSpecifier: (node) => (named(node.local) || named(node.exported)) && report(node),
 			TSQualifiedName: (node) => named(node.right) && report(node),
 			TSImportType: (node) => (named(node.qualifier) || named(node.qualifier?.right)) && report(node),
+		};
+	},
+};
+
+const SITE_PATH = "SitePath";
+const CASTS = new Set(["TSAsExpression", "TSTypeAssertion"]);
+const typeName = (node) => {
+	if (node.type === "TSTypeReference")
+		return node.typeName.type === "Identifier" ? node.typeName.name : nameOf(node.typeName.right);
+	return node.qualifier ? nameOf(node.qualifier.right ?? node.qualifier) : null;
+};
+
+const sitePathCast = {
+	meta: { type: "problem" },
+	create(context) {
+		const message = `Do not cast to ${SITE_PATH}: write the path as a literal or template that starts with "/" and a letter or digit, so the type proves it stays on this site. An untrusted return path goes through safeReturn.`;
+		const names = new Set([SITE_PATH]);
+		const aliases = new Map();
+		const casts = [];
+		return {
+			ImportSpecifier(node) {
+				if (nameOf(node.imported) === SITE_PATH) names.add(node.local.name);
+			},
+			"TSTypeReference, TSImportType"(node) {
+				const name = typeName(node);
+				if (!name) return;
+				for (let at = node; at.parent; at = at.parent) {
+					const parent = at.parent;
+					if (CASTS.has(parent.type) && parent.typeAnnotation === at) return void casts.push({ node: parent, name });
+					const named =
+						(parent.type === "TSTypeAliasDeclaration" && parent.typeAnnotation === at) ||
+						(parent.type === "TSTypeParameter" && parent.constraint === at)
+							? nameOf(parent.id ?? parent.name)
+							: null;
+					if (named) return void aliases.set(named, [...(aliases.get(named) ?? []), name]);
+					if (!parent.type.startsWith("TS")) return;
+				}
+			},
+			"Program:exit"() {
+				for (let size = 0; size !== names.size;) {
+					size = names.size;
+					for (const [alias, used] of aliases) if (used.some((name) => names.has(name))) names.add(alias);
+				}
+				for (const cast of casts) if (names.has(cast.name)) context.report({ node: cast.node, message });
+			},
 		};
 	},
 };
@@ -481,6 +571,190 @@ const serverLog = {
 				},
 			},
 		);
+	},
+};
+
+const ERROR_TEXT = new Set(["message", "stack"]);
+const ERROR_EVENTS = new Set(["error", "uncaughtException", "unhandledRejection", "messageerror"]);
+const ERROR_PARAM = /^(?:err|error|exception|[a-z]\w*Error)$/;
+const SECRET_NAME =
+	/(?:password|passphrase|secret|token|apikey|api_key|credential|cookie|authorization|payload|rawbody)$/i;
+const TEXT_SINK_CLASS = /(?:Error|Refusal|Refused|Failure)$/;
+const LOG_SINKS = new Set(["logLine", "logInfo", "logFailure", "asLogWord", "asLogId", "asLogHost", "asLogNames"]);
+export const RAW_ERROR_SCOPE =
+	/^(?:(?:apps\/web\/src|packages\/[^/]+\/src|ops|tools\/prod-identity)\/|tools\/qa\/(?!tests\/))/;
+export const RAW_ERROR_SITES = {
+	"packages/evry/src/adapters/native.ts": {
+		sites: 2,
+		why: "refusalOf passes on a message only when it is a code word ([a-z_]{3,40}); Evry's recorded refusals carry that word, so reading it another way would change recorded Evry results",
+	},
+	"packages/domain/src/documents/unpack.ts": {
+		sites: 1,
+		why: "ImportRejected is thrown only with fixed copy literals in documents/unpack.ts, and that copy is the answer the person importing the file reads",
+	},
+	"tools/qa/main.ts": {
+		sites: 1,
+		why: "only a QaError reaches the line, and a QaError is the tool's own copy from fail(), whose command output passed redactor.clean first",
+	},
+	"tools/qa/qa.ts": {
+		sites: 1,
+		why: "the cleanup line prints a QaError's own copy from fail(); any other error prints only its class name",
+	},
+	"tools/prod-identity/setup.ts": {
+		sites: 2,
+		why: "the operator's terminal line passes through redactor.clean, which holds every credential and generated key the tool read or made before it can fail",
+	},
+};
+
+const TYPE_WRAPPERS = new Set([
+	"TSAsExpression",
+	"TSNonNullExpression",
+	"TSSatisfiesExpression",
+	"TSTypeAssertion",
+	"ParenthesizedExpression",
+]);
+const outerOf = (node) => {
+	let at = node;
+	while (TYPE_WRAPPERS.has(at.parent?.type) && at.parent.expression === at) at = at.parent;
+	return at;
+};
+const textOfError = (ref) => {
+	let at = outerOf(ref);
+	while (at.parent?.type === "MemberExpression" && at.parent.object === at) {
+		const name = keyName(at.parent.property, at.parent.computed);
+		if (ERROR_TEXT.has(name)) return at.parent;
+		if (name !== "cause") return null;
+		at = outerOf(at.parent);
+	}
+	const p = at.parent;
+	if (!p) return null;
+	if (p.type === "TemplateLiteral") return at;
+	if (p.type === "BinaryExpression" && p.operator === "+") return at;
+	if (p.type === "AssignmentExpression" && p.operator === "+=" && p.right === at) return at;
+	if (p.type === "MemberExpression" && p.object === at && memberName(p) === "toString") return at;
+	if (p.type === "VariableDeclarator" && p.init === at && p.id.type === "ObjectPattern")
+		return p.id.properties.some((q) => q.type === "Property" && ERROR_TEXT.has(keyName(q.key, q.computed))) ? at : null;
+	if ((p.type !== "CallExpression" && p.type !== "NewExpression") || !p.arguments.includes(at)) return null;
+	const callee = p.callee;
+	const name = callee.type === "Identifier" ? callee.name : memberName(callee);
+	if (p.type === "NewExpression") return name && TEXT_SINK_CLASS.test(name) ? at : null;
+	if (name === "String" || name === "Error" || name === "inspect") return at;
+	if (name === "stringify" && callee.object?.type === "Identifier" && callee.object.name === "JSON") return at;
+	return callee.type === "MemberExpression" && callee.object.type === "Identifier" && callee.object.name === "console"
+		? at
+		: null;
+};
+
+const errorHandler = (node) => {
+	const p = node.parent;
+	if (p?.type !== "CallExpression" || !p.arguments.includes(node)) return false;
+	const name = memberName(p.callee);
+	const index = p.arguments.indexOf(node);
+	if (name === "catch") return index === 0;
+	if (name === "then") return index === 1;
+	if (["on", "once", "addEventListener", "addListener", "prependListener"].includes(name ?? ""))
+		return index === 1 && ERROR_EVENTS.has(literalArgument(p.arguments[0]) ?? "");
+	return false;
+};
+
+const rawErrorText = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!RAW_ERROR_SCOPE.test(path)) return {};
+		const allowed = RAW_ERROR_SITES[path];
+		const found = [];
+		const seen = new Set();
+		const follow = (variable) => {
+			if (!variable || seen.has(variable)) return;
+			seen.add(variable);
+			for (const reference of variable.references) {
+				const ref = reference.identifier;
+				if (!reference.isRead()) continue;
+				const hit = textOfError(ref);
+				if (hit) found.push({ node: hit, what: "a caught error's text" });
+				const value = outerOf(ref);
+				const p = value.parent;
+				if (p?.type === "VariableDeclarator" && p.init === value && p.id.type === "Identifier")
+					follow(context.sourceCode.getDeclaredVariables(p).find((v) => v.name === p.id.name));
+			}
+		};
+		const fromParam = (owner, param) => {
+			if (param?.type === "Identifier")
+				follow(context.sourceCode.getDeclaredVariables(owner).find((v) => v.name === param.name));
+			if (param?.type === "ObjectPattern")
+				for (const q of param.properties)
+					if (q.type === "Property" && ERROR_TEXT.has(keyName(q.key, q.computed)))
+						found.push({ node: q, what: "a caught error's text" });
+		};
+		const secrets = (node, sink) => {
+			if (!node || typeof node.type !== "string" || FUNCTIONS.has(node.type)) return;
+			const name =
+				node.type === "Identifier" && isValueReference(node)
+					? node.name
+					: node.type === "MemberExpression"
+						? memberName(node)
+						: null;
+			if (name && SECRET_NAME.test(name)) {
+				found.push({ node, what: `${name} in ${sink}` });
+				return;
+			}
+			for (const [key, value] of Object.entries(node))
+				if (key !== "parent" && !(node.type === "Property" && key === "key" && !node.computed))
+					for (const child of Array.isArray(value) ? value : [value]) secrets(child, sink);
+		};
+		const sinkName = (callee) => (callee.type === "Identifier" ? callee.name : memberName(callee));
+		const functionParams = (node) => {
+			if (errorHandler(node)) return fromParam(node, node.params[0]);
+			for (const param of node.params) {
+				const id = param.type === "AssignmentPattern" ? param.left : param;
+				if (id.type === "Identifier" && ERROR_PARAM.test(id.name)) fromParam(node, id);
+			}
+		};
+		return {
+			CatchClause(node) {
+				fromParam(node, node.param);
+			},
+			ArrowFunctionExpression: functionParams,
+			FunctionExpression: functionParams,
+			FunctionDeclaration: functionParams,
+			NewExpression(node) {
+				const name = sinkName(node.callee);
+				if (name && TEXT_SINK_CLASS.test(name)) for (const a of node.arguments) secrets(a, "error text");
+			},
+			CallExpression(node) {
+				const name = sinkName(node.callee);
+				if (name && (LOG_SINKS.has(name) || TEXT_SINK_CLASS.test(name)))
+					for (const a of node.arguments)
+						secrets(a, name.startsWith("as") || name.startsWith("log") ? "a log line" : "error text");
+				if (
+					node.callee.type === "MemberExpression" &&
+					node.callee.object.type === "Identifier" &&
+					node.callee.object.name === "console"
+				)
+					for (const a of node.arguments) secrets(a, "a log line");
+			},
+			ThrowStatement(node) {
+				if (node.argument?.type === "TemplateLiteral" || node.argument?.type === "Literal")
+					secrets(node.argument, "error text");
+			},
+			"Program:exit"(program) {
+				const unique = [...new Map(found.map((f) => [`${f.node.range?.[0] ?? f.node.start}`, f])).values()];
+				if (allowed) {
+					if (unique.length !== allowed.sites)
+						context.report({
+							node: program,
+							message: `${path} has ${unique.length} raw error or secret text sites; its RAW_ERROR_SITES entry allows exactly ${allowed.sites}. A new site is fixed, not allowed; when one goes, lower the entry.`,
+						});
+					return;
+				}
+				for (const { node, what } of unique)
+					context.report({
+						node,
+						message: `Never put ${what} into a log, error text or stored record: it can carry SQL, row values, provider payloads or secrets. Log through @everyfield/domain/log (logFailure takes the error and keeps its class and code), throw a typed error with a fixed code, or keep the value out.`,
+					});
+			},
+		};
 	},
 };
 
@@ -950,11 +1224,89 @@ const tickOnly = (node) =>
 	(node.type === "UnaryExpression" && node.operator === "void") ||
 	emptyResolve(node);
 
+export const PRODUCT_TIMERS = {
+	"apps/web/src/server/evry/http.ts": [
+		{
+			timer: "setInterval",
+			binding: "heartbeat",
+			within: "conversationStreamGet",
+			why: "the Evry conversation stream writes an SSE comment every 15 seconds so proxies and the browser keep an idle stream open while a turn runs; the interval is the keep-alive itself and nothing else marks when a quiet connection needs one",
+		},
+	],
+	"packages/evry/src/runtime/turn.ts": [
+		{
+			timer: "setTimeout",
+			binding: "wall",
+			within: "run",
+			why: "an Evry turn stops at its LIMITS.wallMs wall-time budget so a hung model or tool call cannot hold the run lease; the deadline is the limit itself and no event marks it",
+		},
+	],
+	"packages/evry/src/runtime/model.ts": [
+		{
+			timer: "setTimeout",
+			binding: "timer",
+			within: "transientRetry",
+			why: "a transient model error is retried after the LIMITS.modelRetryDelaysMs backoff; the wait is the backoff itself and the turn's abort signal cancels it",
+		},
+	],
+	"packages/evry/src/runtime/observe.ts": [
+		{
+			timer: "setTimeout",
+			binding: "timer",
+			within: "timerPause",
+			why: "a conversation observer re-reads the store every pollMs so it still sees events written by another instance; the pause is the poll interval and the abort signal ends it",
+		},
+	],
+	"packages/db/src/schema/validate-file.ts": [
+		{
+			timer: "setTimeout",
+			binding: "timer",
+			within: "parser",
+			why: "a PDF parser worker that is not ready within STARTUP_MS counts as crashed, so a stuck worker cannot hold an upload; the deadline is the product limit",
+		},
+		{
+			timer: "setTimeout",
+			binding: "timer",
+			within: "parseOnce",
+			why: "a PDF parse that runs past parseMs is refused and its worker stopped, so one file cannot hold the parser; the deadline is the product limit",
+		},
+	],
+};
+
+const namedAncestor = (node, name) => {
+	for (let p = node.parent; p; p = p.parent)
+		if (
+			(p.type === "VariableDeclarator" || p.type === "FunctionDeclaration") &&
+			p.id?.type === "Identifier" &&
+			p.id.name === name
+		)
+			return true;
+	return false;
+};
+
+const timerSite = (node, site) => {
+	const call = node.parent;
+	if (node.name !== site.timer || call?.type !== "CallExpression" || call.callee !== node) return false;
+	return (
+		call.parent?.type === "VariableDeclarator" &&
+		call.parent.id.type === "Identifier" &&
+		call.parent.id.name === site.binding &&
+		namedAncestor(call, site.within)
+	);
+};
+
 const noTimers = ratcheted("no-timers", (context, push) => {
 	const seen = new Set();
+	const sites = PRODUCT_TIMERS[repoPath(context.filename)] ?? [];
+	const matched = new Set();
+	const productTimer = (node) => {
+		const site = sites.find((s) => !matched.has(s) && timerSite(node, s));
+		if (site) matched.add(site);
+		return site !== undefined;
+	};
 	const report = (node, name) => {
 		const at = (node.range ?? [node.start, node.end]).join(":");
-		if (seen.has(at)) return;
+		if (seen.has(at) || productTimer(node)) return;
 		seen.add(at);
 		push({
 			node,
@@ -1010,6 +1362,15 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 				(options.type !== "ObjectExpression" ||
 					options.properties.some((p) => p.type !== "Property" || keyName(p.key, p.computed) === "delay"));
 			if (delayed) report(node, "scheduler.postTask with a delay");
+		},
+		"Program:exit"(program) {
+			for (const site of sites)
+				if (!matched.has(site))
+					push({
+						node: program,
+						fn: null,
+						message: `The listed product timer ${site.timer} ${site.binding} in ${site.within} is gone: delete its entry from PRODUCT_TIMERS in scripts/lint/everyfield-plugin.mjs.`,
+					});
 		},
 	};
 	return merge(
@@ -1390,70 +1751,139 @@ function handles(handler, body, param) {
 	return thrown || handed || (logged && !lost);
 }
 
-const MAIL_AUTHORIZERS = "the mail-authorizer move into @everyfield/domain (R-12 slice 20 follow-up, AP-S-17)";
-export const WEB_SQL_HOLDERS = {
-	"apps/web/src/features/feedback/mail.ts": {
-		why: "the operator-mail authorizer reads the feedback rows its queued mail names, inside the mail service's transaction",
-		movedBy: MAIL_AUTHORIZERS,
-	},
-	"apps/web/src/features/notifications/worker.ts": {
-		why: "the notification worker's mail authorizer reads which recipients still hold a grant for each queued notice mail",
-		movedBy: MAIL_AUTHORIZERS,
-	},
-	"apps/web/src/features/organizations/mount.ts": {
-		why: "an organization effect supersedes a plant's pending digest jobs with its own UPDATE of the job table",
-		movedBy: "a supersede operation in @everyfield/domain/jobs's queue (R-12 slice 20 follow-up, AP-S-17)",
-	},
-	"apps/web/src/features/settings/brand/server.ts": {
-		why: "the brand read looks up the church name beside the brand kit with its own plant select",
-		movedBy: "brandReader.get answering the church name (R-12 slice 8 rest, settings/brand group)",
-	},
-	"apps/web/src/features/settings/mail.ts": {
-		why: "the settings mail authorizer reads notice addresses and pending email-change proofs for queued account mail",
-		movedBy: MAIL_AUTHORIZERS,
-	},
-	"apps/web/src/features/settings/server.ts": {
-		why: "the settings sections ask whether an address is suppressed with their own suppression select",
-		movedBy: "a suppression read in @everyfield/domain/jobs beside the mail outbox (R-12 slice 20 follow-up, AP-S-17)",
-	},
-	"apps/web/src/features/wiki/server.ts": {
-		why: "the organization wiki editor reads its stored draft and current revision with its own select",
-		movedBy: "a wiki domain read of the editor state (R-12 slice 8 rest, wiki group)",
-	},
-	"apps/web/src/server/identity/index.ts": {
-		why: "the identity mail authorizer locks the accounts its queued mail names and reads their contact address",
-		movedBy: MAIL_AUTHORIZERS,
-	},
-	"apps/web/src/server/invitations/index.ts": {
-		why: "the invitation service's suppression check is an SQL fragment built in the app",
-		movedBy: MAIL_AUTHORIZERS,
-	},
-};
 const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
 
 const webDatabaseImports = {
 	meta: { type: "problem" },
 	create(context) {
-		const path = repoPath(context.filename);
-		if (!WEB_CODE.test(path)) return {};
-		const holder = Object.hasOwn(WEB_SQL_HOLDERS, path);
-		let imports = 0;
+		if (!WEB_CODE.test(repoPath(context.filename))) return {};
+		return moduleSources((node, name) => {
+			if (DATABASE_MODULES.test(name))
+				context.report({
+					node,
+					message: `apps/web does not build SQL: ${name} belongs in @everyfield/domain. Call a domain operation, or move the statement into the domain module that owns its tables.`,
+				});
+		});
+	},
+};
+
+const classTokens = (value) => value.split(/\s+/).filter(Boolean);
+const MAGENTA_TINT = /^bg-magenta-(?:50|100)(?:\/\d+)?$/;
+const AMBER_TINT = /^bg-(?:amber-(?:50|100)|\[var\(--ef-amber-(?:50|100)\)\]|\(--ef-amber-(?:50|100)\))(?:\/\d+)?$/;
+const BOX_RADIUS = /^rounded(?:-[\w.[\]-]+)?$/;
+const PILL_RADIUS = /^rounded(?:-[a-z]{1,2})?-(?:full|pill)$/;
+const PADDING = /^p[xy]?-/;
+const CHIP_SIZE = /^(?:p|py)-(?:0|px|0\.5|1|1\.5)$|^(?:h|size)-(?:\d+(?:\.\d+)?|px|\[[^\]]+\])$/;
+const tintedBox = (tokens, tint) =>
+	tokens.some((t) => tint.test(t)) &&
+	tokens.some((t) => BOX_RADIUS.test(t)) &&
+	!tokens.some((t) => PILL_RADIUS.test(t)) &&
+	tokens.some((t) => PADDING.test(t)) &&
+	!tokens.some((t) => CHIP_SIZE.test(t));
+const errorNoticeLook = (value) => {
+	const tokens = classTokens(value);
+	return (tokens.includes("bg-magenta-50") && tokens.includes("text-magenta-600")) || tintedBox(tokens, MAGENTA_TINT);
+};
+const warningNoticeLook = (value) => tintedBox(classTokens(value), AMBER_TINT);
+const noticeLook = (value) => errorNoticeLook(value) || warningNoticeLook(value);
+const formGroup = (node) => {
+	for (let at = node.parent; at && at.type !== "JSXElement"; at = at.parent)
+		if (at.type === "JSXOpeningElement") return at.name.type === "JSXIdentifier" && at.name.name === "fieldset";
+	return false;
+};
+const templateText = (node) => node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ");
+const classParts = (node) =>
+	node.type === "Literal"
+		? typeof node.value === "string"
+			? [node.value]
+			: []
+		: node.type === "TemplateLiteral"
+			? [templateText(node)]
+			: node.type === "ConditionalExpression"
+				? [...classParts(node.consequent), ...classParts(node.alternate)]
+				: node.type === "LogicalExpression"
+					? [...classParts(node.left), ...classParts(node.right)]
+					: node.type === "ArrayExpression"
+						? node.elements.flatMap((element) => (element ? classParts(element) : []))
+						: node.type === "ObjectExpression"
+							? node.properties.flatMap((property) =>
+									property.type === "Property" && !property.computed ? classParts(property.key) : [],
+								)
+							: [];
+
+const sharedNotice = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!WEB_CODE.test(repoPath(context.filename))) return {};
+		const check = (node, value) => {
+			if (value === null) return;
+			if (errorNoticeLook(value))
+				context.report({
+					node,
+					message:
+						"An error notice is Alert or InlineAlert from @everyfield/ui/controls (tone, title, actions, live region and focus included); a chip or band in that colour is TonePill, ToneTag or ToneBand from @everyfield/ui/display. Do not hand-write the magenta box.",
+				});
+			else if (warningNoticeLook(value) && !formGroup(node))
+				context.report({
+					node,
+					message:
+						'A warning notice is Alert or InlineAlert with tone="warning" from @everyfield/ui/controls (icon, title, actions, live region and focus included); a chip or band in amber is TonePill, ToneTag or ToneBand from @everyfield/ui/display. Do not hand-write the amber box.',
+				});
+		};
 		return {
-			...moduleSources((node, name) => {
-				if (!DATABASE_MODULES.test(name)) return;
-				imports++;
-				if (!holder)
-					context.report({
-						node,
-						message: `apps/web does not build SQL: ${name} belongs in @everyfield/domain. Call a domain operation, or move the statement into the domain module that owns its tables.`,
-					});
-			}),
-			"Program:exit"(node) {
-				if (holder && imports === 0)
-					context.report({
-						node,
-						message: `${path} no longer imports a database module: delete its WEB_SQL_HOLDERS entry in scripts/lint/everyfield-plugin.mjs.`,
-					});
+			Literal: (node) => check(node, text(node)),
+			TemplateLiteral: (node) => check(node, templateText(node)),
+			CallExpression(node) {
+				const parts = node.arguments.flatMap(classParts);
+				if (parts.length < 2 || parts.some(noticeLook)) return;
+				check(node, parts.join(" "));
+			},
+		};
+	},
+};
+
+const LIVE_REGION_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
+const LIVE_ROLES = new Set(["status", "alert", "log"]);
+const jsxAttribute = (element, name) =>
+	element.attributes.find((a) => a.type === "JSXAttribute" && a.name.name === name);
+const attributeStrings = (attribute) =>
+	attribute.value?.type === "JSXExpressionContainer"
+		? stringsIn(attribute.value.expression)
+		: stringsIn(attribute.value);
+const HIDING_CLASSES = new Set(["hidden", "invisible"]);
+const hidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, "").split(":").at(-1));
+const OFF_VALUES = { hidden: [false], "aria-hidden": [false, "false"] };
+const switchedOff = (attribute, name) => {
+	const value = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
+	return value?.type === "Literal" && OFF_VALUES[name].includes(value.value);
+};
+const setAttribute = (element, name) => {
+	const attribute = jsxAttribute(element, name);
+	return attribute && !switchedOff(attribute, name) ? attribute : null;
+};
+
+const liveRegionInTree = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!LIVE_REGION_CODE.test(repoPath(context.filename))) return {};
+		return {
+			JSXOpeningElement(node) {
+				const live = jsxAttribute(node, "aria-live");
+				const role = jsxAttribute(node, "role");
+				const liveValues = live ? attributeStrings(live) : [];
+				const announces =
+					(live && !(liveValues.length && liveValues.every((value) => value === "off"))) ||
+					(role && attributeStrings(role).some((value) => LIVE_ROLES.has(value)));
+				if (!announces) return;
+				const className = jsxAttribute(node, "className");
+				const hiddenClass = className && attributeStrings(className).some((s) => s.split(/\s+/).some(hidingToken));
+				const hiding = (hiddenClass && className) || setAttribute(node, "hidden") || setAttribute(node, "aria-hidden");
+				if (!hiding) return;
+				context.report({
+					node: hiding,
+					message:
+						"A live region (aria-live, or role status, alert or log) that is hidden, invisible or aria-hidden leaves the accessibility tree, so what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
+				});
 			},
 		};
 	},
@@ -2649,7 +3079,7 @@ const renderReads = {
 };
 
 const READ_NAME =
-	/^(?:load|read|get|list|find|search|suggest|preview|compare|reload|fetch|query|count|download|print)(?:[A-Z]|$)/;
+	/^(?:load|read|get|list|find|search|suggest|preview|compare|reload|fetch|query|count|download|print|resolve)(?:[A-Z]|$)/;
 
 const READ_HOME =
 	"Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through readsFrom in the feature's fetch.ts.";
@@ -2668,10 +3098,21 @@ const boundNames = (pattern) => {
 const declaresServer = (fn) =>
 	fn.body?.type === "BlockStatement" && fn.body.body.some((s) => s.directive === "use server");
 
+const SELECTION_INPUT =
+	"its input carries the selected person ids (up to 500, about 19.5 KB), too large for a GET address, so it stays a server action";
+export const SELECTION_READS = {
+	"apps/web/src/features/communication/actions.ts": { resolveAudience: SELECTION_INPUT },
+	"apps/web/src/features/teams/training/actions.ts": { previewRoster: SELECTION_INPUT },
+};
+
 const noReadActions = ratcheted("no-read-actions", (context, push) => {
 	const moduleActions = SERVER_ACTIONS.test(context.sourceCode.text);
-	const report = (node, name, where = `a read exported from a "use server" module`) =>
-		push({ node, fn: name, message: `${name} is ${where}. ${READ_HOME}` });
+	const selection = SELECTION_READS[repoPath(context.filename)] ?? {};
+	const seen = new Set();
+	const report = (node, name, where = `a read exported from a "use server" module`) => {
+		if (Object.hasOwn(selection, name)) seen.add(name);
+		else push({ node, fn: name, message: `${name} is ${where}. ${READ_HOME}` });
+	};
 	const exported = (id) => {
 		if (moduleActions && id && READ_NAME.test(id.name)) report(id, id.name);
 	};
@@ -2706,6 +3147,14 @@ const noReadActions = ratcheted("no-read-actions", (context, push) => {
 		FunctionDeclaration: inline,
 		FunctionExpression: inline,
 		ArrowFunctionExpression: inline,
+		"Program:exit"(node) {
+			for (const name of Object.keys(selection))
+				if (!seen.has(name))
+					context.report({
+						node,
+						message: `${name} is no longer a read action here: delete its SELECTION_READS entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+		},
 	};
 });
 
@@ -2821,26 +3270,105 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 export const OUTCOME_MODULE = "packages/contracts/src/common/values.ts";
 const OUTCOME_SOURCE = "@everyfield/contracts/common";
 const OUTCOME_SCOPE = /^(apps\/web\/src|packages\/[^/]+\/src)\//;
+const statusLiterals = (type) =>
+	type?.type === "TSLiteralType" && typeof type.literal.value === "string"
+		? [type.literal.value]
+		: type?.type === "TSUnionType"
+			? type.types.flatMap(statusLiterals)
+			: [];
+const propertiesOf = (member) =>
+	member.type === "TSTypeLiteral"
+		? member.members.filter((m) => m.type === "TSPropertySignature" && m.key.type === "Identifier")
+		: member.type === "TSIntersectionType"
+			? member.types.flatMap(propertiesOf)
+			: [];
+const memberStatuses = (member) =>
+	propertiesOf(member)
+		.filter((m) => m.key.name === "status")
+		.flatMap((m) => statusLiterals(m.typeAnnotation?.typeAnnotation));
+const referenceName = (type) =>
+	type?.type === "TSTypeReference" && type.typeName.type === "Identifier" ? type.typeName.name : null;
+const OUTCOME_MESSAGE = `Import Outcome from ${OUTCOME_SOURCE} and specialize it (type Name<T> = Shared<T, Code, Extra>), so every feature answers the same union.`;
 const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 	const path = repoPath(context.filename);
 	if (path === OUTCOME_MODULE || !OUTCOME_SCOPE.test(path)) return {};
-	const shared = new Set();
+	const shared = new Map();
+	const aliases = new Map();
+	const candidates = [];
+	const members = (type, seen) => {
+		if (type?.type === "TSUnionType") return type.types.flatMap((t) => members(t, seen));
+		const name = referenceName(type);
+		if (name && aliases.has(name) && !seen.has(name)) {
+			seen.add(name);
+			return members(aliases.get(name), seen);
+		}
+		return [type];
+	};
+	const statusesOf = (member) => (shared.get(referenceName(member)) === "Lost" ? ["lost"] : memberStatuses(member));
+	const outcomeShaped = (type) => {
+		if (type?.type !== "TSUnionType") return false;
+		const all = members(type, new Set());
+		const statuses = new Set(all.flatMap(statusesOf));
+		return (
+			all.some(
+				(member) => memberStatuses(member).includes("ok") && propertiesOf(member).some((m) => m.key.name === "value"),
+			) &&
+			statuses.has("refused") &&
+			statuses.has("lost")
+		);
+	};
+	const childTypes = (type) =>
+		[
+			...(type.types ?? []),
+			...(type.elementTypes ?? []),
+			...(type.typeArguments?.params ?? []),
+			type.elementType,
+			type.typeAnnotation,
+		].filter(Boolean);
+	const copyIn = (type) => (outcomeShaped(type) ? type : type && childTypes(type).map(copyIn).find(Boolean));
+	const reportInline = (type) => {
+		const copy = copyIn(type);
+		if (copy)
+			push({
+				node: copy,
+				fn: "inline",
+				message: `This inline union copies the request boundary's ok / refused / lost reply shape. ${OUTCOME_MESSAGE}`,
+			});
+	};
+	const inline = [];
+	const typeOf = (node) => inline.push(node.typeAnnotation);
 	return {
 		ImportDeclaration(node) {
 			if (node.source.value !== OUTCOME_SOURCE) return;
 			for (const spec of node.specifiers)
-				if (spec.type === "ImportSpecifier" && nameOf(spec.imported) === "Outcome") shared.add(spec.local.name);
+				if (spec.type === "ImportSpecifier") shared.set(spec.local.name, nameOf(spec.imported));
 		},
 		TSTypeAliasDeclaration(node) {
-			if (node.id.name !== "Outcome" || !node.typeParameters) return;
-			const body = node.typeAnnotation;
-			if (body.type === "TSTypeReference" && body.typeName.type === "Identifier" && shared.has(body.typeName.name))
-				return;
-			push({
-				node: node.id,
-				fn: "Outcome",
-				message: `A local Outcome<T> type copies the request boundary's reply shape. Import Outcome from ${OUTCOME_SOURCE} and specialize it (type Outcome<T> = Shared<T, Code, Extra>), so every feature answers the same ok / refused / lost union.`,
-			});
+			aliases.set(node.id.name, node.typeAnnotation);
+			candidates.push(node);
+		},
+		TSTypeAnnotation: typeOf,
+		TSAsExpression: typeOf,
+		TSSatisfiesExpression: typeOf,
+		TSTypeAssertion: typeOf,
+		TSTypeParameter(node) {
+			if (node.default) inline.push(node.default);
+		},
+		"Program:exit"() {
+			inline.forEach(reportInline);
+			for (const node of candidates) {
+				const body = node.typeAnnotation;
+				const copied =
+					node.id.name === "Outcome" && node.typeParameters
+						? shared.get(referenceName(body)) !== "Outcome"
+						: copyIn(body);
+				if (copied)
+					push({
+						node: node.id,
+						fn: node.id.name,
+						message: `${node.id.name} copies the request boundary's ok / refused / lost reply shape. ${OUTCOME_MESSAGE}`,
+					});
+			}
 		},
 	};
 });
@@ -2895,15 +3423,6 @@ export const REFUSAL_MECHANISMS = {
 	"packages/domain/src/people/pipeline-metrics.ts": {
 		why: "Pipeline metrics answers a bare { code } refusal that its contract test pins; defineRefusals adds details, correlationId and retry",
 	},
-	"packages/domain/src/identity/budget.ts": {
-		why: "An identity refusal carries its HTTP status, and identity's handler answers it as HTTP JSON",
-	},
-	"packages/domain/src/identity/service.ts": {
-		why: "Identity's handler builds the identity safe error with its HTTP status from an identity refusal",
-	},
-	"packages/domain/src/identity/invitation-core.ts": {
-		why: "An invitation refusal carries a parsed safe error with retryAt details, the identity invitation mechanism",
-	},
 	"packages/domain/src/settings/credentials.ts": {
 		why: "Credential changes answer identity's credential outcome (a status with a correlationId and no retry)",
 	},
@@ -2957,6 +3476,190 @@ const domainRefusals = {
 						node,
 						message: `${path} no longer builds its own refusals: delete its REFUSAL_MECHANISMS entry in scripts/lint/everyfield-plugin.mjs.`,
 					});
+			},
+		};
+	},
+};
+
+export const ORGANIZATION_SEAT_CHECKS = {
+	"packages/domain/src/access/organization-seat.ts":
+		"organizationSeatContext is the one narrowing every domain and web gate shares",
+};
+const SEAT_CODE = /^(apps\/web\/src|packages\/domain\/src)\//;
+const OWNER = { type: "Identifier", name: "owner" };
+const ownerRead = (node) => {
+	const at = unwrapped(node);
+	if (at?.type === "ConditionalExpression") return ownerRead(at.consequent) || ownerRead(at.alternate);
+	if (at?.type === "LogicalExpression") return ownerRead(at.left) || ownerRead(at.right);
+	return at?.type === "MemberExpression" && memberName(at) === "owner";
+};
+const seatNames = () => {
+	const kinds = new Map();
+	const owners = new Set();
+	const bind = (pattern, from) => {
+		if (pattern?.type !== "ObjectPattern") return;
+		for (const property of pattern.properties) {
+			if (property.type !== "Property") continue;
+			const key = keyName(property.key, property.computed);
+			const value = property.value.type === "AssignmentPattern" ? property.value.left : property.value;
+			if (key === "kind" && value.type === "Identifier") kinds.set(value.name, from);
+			if (key === "owner" && value.type === "Identifier") owners.add(value.name);
+			if (key === "owner") bind(value, OWNER);
+		}
+	};
+	const declare = (node) => {
+		const init = unwrapped(node.init);
+		if (node.id.type === "ObjectPattern") bind(node.id, init);
+		if (node.id.type !== "Identifier") return;
+		if (ownerRead(init)) owners.add(node.id.name);
+		if (init?.type === "MemberExpression" && memberName(init) === "kind")
+			kinds.set(node.id.name, unwrapped(init.object));
+	};
+	const kindOf = (node) => {
+		const at = unwrapped(node);
+		if (at?.type === "Identifier") return kinds.get(at.name) ?? null;
+		return at?.type === "MemberExpression" && memberName(at) === "kind" ? unwrapped(at.object) : null;
+	};
+	const namesOwner = (node) =>
+		node?.type === "Identifier" ? node.name === "owner" || owners.has(node.name) : memberName(node) === "owner";
+	return { declare, kindOf, namesOwner };
+};
+const comparedKinds = (node, kindOf) => {
+	if (node.type === "SwitchCase") return node.test ? [[kindOf(node.parent.discriminant), node.test]] : [];
+	return [
+		[kindOf(node.left), node.right],
+		[kindOf(node.right), node.left],
+	];
+};
+
+const organizationSeatCheck = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!SEAT_CODE.test(path)) return {};
+		const home = Object.hasOwn(ORGANIZATION_SEAT_CHECKS, path);
+		const names = seatNames();
+		const comparisons = [];
+		const seats = [];
+		const organizations = [];
+		const visit = (node) => {
+			if (node.type === "BinaryExpression" && !EQUALITY.has(node.operator)) return;
+			comparisons.push(node);
+		};
+		const sort = (node) => {
+			for (const [subject, value] of comparedKinds(node, names.kindOf)) {
+				if (!subject || value?.type !== "Literal") continue;
+				if (value.value === "seat") seats.push(nearestFunction(node));
+				if (value.value === "organization" && names.namesOwner(subject)) organizations.push(node);
+			}
+		};
+		const within = (fn, outer) => {
+			for (let at = fn; at; at = nearestFunction(at)) if (at === outer) return true;
+			return outer === null;
+		};
+		return {
+			BinaryExpression: visit,
+			SwitchCase: visit,
+			VariableDeclarator: names.declare,
+			"Program:exit"(program) {
+				comparisons.forEach(sort);
+				const found = organizations.filter((node) => seats.some((fn) => within(nearestFunction(node), fn)));
+				if (home && found.length === 0)
+					context.report({
+						node: program,
+						message: `${path} no longer checks for an organization seat: delete its ORGANIZATION_SEAT_CHECKS entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+				if (home) return;
+				for (const node of found)
+					context.report({
+						node,
+						message: WEB_CODE.test(path)
+							? "Read an organization seat with organizationSeat() or organizationSeatOf(actor) from @/server/request-context instead of checking the seat and its organization owner by hand."
+							: "Read an organization seat with organizationSeatContext(authority) from packages/domain/src/access/organization-seat.ts instead of checking the seat and its organization owner by hand.",
+					});
+			},
+		};
+	},
+};
+
+export const LOOSE_CONTRACTS = {
+	"packages/contracts/src/people/csv/index.ts": {
+		importValues:
+			"it parses the createPersonRequest input of each CSV row, which also carries stage, adultClassification and birthDate; it drops them on purpose",
+	},
+	"packages/contracts/src/communication/results.ts": {
+		mailReport:
+			"it parses proposal receipts stored by earlier code, whose reports may hold keys the schema no longer names",
+	},
+	"packages/contracts/src/communication/requests.ts": {
+		historyQuery:
+			"it is the lenient history query: listHistory normalizes each value itself and drops a query key it does not name",
+	},
+};
+const LOOSE_OBJECTS = new Set(["object", "looseObject"]);
+const LOOSE_METHODS = new Set(["strip", "passthrough", "loose", "catchall"]);
+const declaredName = (node) => {
+	let named = null;
+	for (let at = node; at; at = at.parent)
+		if (at.type === "VariableDeclarator" && at.id.type === "Identifier") named = at.id.name;
+	return named;
+};
+
+const strictContracts = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		const exempt = LOOSE_CONTRACTS[path] ?? {};
+		const namespaces = new Set();
+		const loose = new Set();
+		const found = new Set();
+		const refuse = (node) => {
+			const name = declaredName(node);
+			if (name && Object.hasOwn(exempt, name)) found.add(name);
+			else
+				context.report({
+					node,
+					message:
+						"A contract schema is a z.strictObject with no strip, passthrough, loose or catchall, so a request with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
+				});
+		};
+		return {
+			ImportDeclaration(node) {
+				if (!/^zod(?:\/|$)/.test(node.source.value)) return;
+				for (const spec of node.specifiers) {
+					const imported = spec.type === "ImportSpecifier" ? nameOf(spec.imported) : null;
+					if (spec.type !== "ImportSpecifier" || imported === "z") namespaces.add(spec.local.name);
+					else if (LOOSE_OBJECTS.has(imported)) loose.add(spec.local.name);
+				}
+			},
+			ExportNamedDeclaration(node) {
+				if (!/^zod(?:\/|$)/.test(node.source?.value ?? "")) return;
+				for (const spec of node.specifiers) if (LOOSE_OBJECTS.has(nameOf(spec.local))) refuse(spec);
+			},
+			VariableDeclarator(node) {
+				const init = unwrapped(node.init);
+				if (node.id.type !== "ObjectPattern" || init?.type !== "Identifier" || !namespaces.has(init.name)) return;
+				for (const property of node.id.properties)
+					if (property.type === "Property" && LOOSE_OBJECTS.has(keyName(property.key, property.computed)))
+						refuse(property);
+			},
+			CallExpression(node) {
+				const callee = unwrapped(node.callee);
+				if (callee?.type === "Identifier" && loose.has(callee.name)) refuse(node);
+			},
+			MemberExpression(node) {
+				const name = memberName(node);
+				const fromNamespace =
+					node.object.type === "Identifier" && namespaces.has(node.object.name) && LOOSE_OBJECTS.has(name);
+				if (fromNamespace || LOOSE_METHODS.has(name)) refuse(node);
+			},
+			"Program:exit"(program) {
+				for (const name of Object.keys(exempt))
+					if (!found.has(name))
+						context.report({
+							node: program,
+							message: `${path} no longer builds ${name} from a loose object: delete its LOOSE_CONTRACTS entry in scripts/lint/everyfield-plugin.mjs.`,
+						});
 			},
 		};
 	},
@@ -3031,17 +3734,36 @@ const restNamed = (pattern, name) => {
 	if (pattern.type === "AssignmentPattern") return restNamed(pattern.left, name);
 	return false;
 };
-function bindingOf(fn, name) {
-	if (!fn) return null;
+const declares = (pattern, name) => {
+	if (!pattern) return false;
+	if (pattern.type === "Identifier") return pattern.name === name;
+	if (pattern.type === "RestElement") return declares(pattern.argument, name);
+	if (pattern.type === "AssignmentPattern") return declares(pattern.left, name);
+	if (pattern.type === "Property") return declares(pattern.value, name);
+	if (pattern.type === "ObjectPattern") return pattern.properties.some((p) => declares(p, name));
+	if (pattern.type === "ArrayPattern") return pattern.elements.some((p) => declares(p, name));
+	if (pattern.type === "TSParameterProperty") return declares(pattern.parameter, name);
+	return false;
+};
+function ownBinding(fn, name) {
 	if (fn.params.some((param) => restNamed(param, name))) return { rest: true };
+	if (fn.params.some((param) => declares(param, name))) return { param: true };
 	let found = null;
 	walkOwn(fn.body, (node) => {
 		if (node.type !== "VariableDeclarator") return false;
-		if (node.id.type === "Identifier" && node.id.name === name) found = { init: node.init };
+		if (node.id.type === "Identifier" && node.id.name === name) found = { init: node.init, fn };
 		else if (restNamed(node.id, name)) found = { rest: true };
+		else if (declares(node.id, name)) found = { param: true };
 		return found !== null;
 	});
 	return found;
+}
+function bindingOf(fn, name) {
+	for (let at = fn; at; at = enclosingFunction(at)) {
+		const found = ownBinding(at, name);
+		if (found) return found;
+	}
+	return null;
 }
 function builtInline(node, fn, seen = new Set()) {
 	const value = unwrapValue(node);
@@ -3054,7 +3776,7 @@ function builtInline(node, fn, seen = new Set()) {
 	if (value.type !== "Identifier" || seen.has(value.name)) return false;
 	seen.add(value.name);
 	const binding = bindingOf(fn, value.name);
-	return binding?.rest === true || (binding?.init ? builtInline(binding.init, fn, seen) : false);
+	return binding?.rest === true || (binding?.init ? builtInline(binding.init, binding.fn, seen) : false);
 }
 const isCreateContext = (node) => {
 	const call = unwrapValue(node);
@@ -3066,16 +3788,31 @@ const isCreateContext = (node) => {
 	);
 };
 
+const contextNamed = (id) => id.type === "Identifier" && id.name.endsWith("Context");
+
 const stableContextValue = {
 	meta: { type: "problem" },
 	create(context) {
 		return {
+			CallExpression(node) {
+				if (!isCreateContext(node)) return;
+				let at = node;
+				while (WRAPPERS.has(at.parent?.type)) at = at.parent;
+				const named =
+					at.parent?.type === "VariableDeclarator" && at.parent.init === at ? contextNamed(at.parent.id) : false;
+				if (named) return;
+				context.report({
+					node,
+					message:
+						"Bind a createContext result to a const named *Context, so the stable-value check sees every provider of it.",
+				});
+			},
 			VariableDeclarator(node) {
-				if (!isCreateContext(node.init)) return;
-				if (node.id.type === "Identifier" && node.id.name.endsWith("Context")) return;
+				const init = unwrapValue(node.init);
+				if (init?.type !== "Identifier" || !init.name.endsWith("Context") || contextNamed(node.id)) return;
 				context.report({
 					node: node.id,
-					message: "Name a createContext result *Context, so the stable-value check sees every provider of it.",
+					message: "Name an alias of a context *Context, so the stable-value check sees every provider of it.",
 				});
 			},
 			JSXOpeningElement(node) {
@@ -3095,6 +3832,66 @@ const stableContextValue = {
 	},
 };
 
+const TEST_HOSTS = new Set(["test", "it", "default"]);
+
+const oneTopLevelBefore = {
+	meta: { type: "problem" },
+	create(context) {
+		const hooks = new Set();
+		const hosts = new Set();
+		const namespaces = new Set();
+		const isHook = (callee) => {
+			if (callee.type === "Identifier") return hooks.has(callee.name);
+			if (callee.type !== "MemberExpression" || memberName(callee) !== "before") return false;
+			const object = callee.object;
+			if (object.type === "Identifier") return hosts.has(object.name) || namespaces.has(object.name);
+			return (
+				object.type === "MemberExpression" &&
+				object.object.type === "Identifier" &&
+				namespaces.has(object.object.name) &&
+				TEST_HOSTS.has(memberName(object))
+			);
+		};
+		return {
+			ImportDeclaration(node) {
+				if (node.source.value !== "node:test") return;
+				for (const spec of node.specifiers) {
+					if (spec.type === "ImportNamespaceSpecifier") namespaces.add(spec.local.name);
+					else if (spec.type === "ImportDefaultSpecifier") hosts.add(spec.local.name);
+					else if (nameOf(spec.imported) === "before") hooks.add(spec.local.name);
+					else if (TEST_HOSTS.has(nameOf(spec.imported))) hosts.add(spec.local.name);
+				}
+			},
+			VariableDeclarator(node) {
+				const from = node.init;
+				if (node.id.type !== "ObjectPattern" || from?.type !== "Identifier") return;
+				if (!hosts.has(from.name) && !namespaces.has(from.name)) return;
+				for (const property of node.id.properties)
+					if (
+						property.type === "Property" &&
+						property.value.type === "Identifier" &&
+						keyName(property.key, property.computed) === "before"
+					)
+						hooks.add(property.value.name);
+			},
+			"Program:exit"(program) {
+				const calls = program.body
+					.filter((statement) => statement.type === "ExpressionStatement")
+					.map((statement) =>
+						statement.expression.type === "AwaitExpression" ? statement.expression.argument : statement.expression,
+					)
+					.filter((call) => call.type === "CallExpression" && isHook(call.callee));
+				for (const call of calls.slice(1))
+					context.report({
+						node: call,
+						message:
+							"node:test starts a top-level before hook the moment it is registered, so a second one runs at the same time as the first. Put the file's setup in one before hook and await each step in order.",
+					});
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -3109,15 +3906,18 @@ export default {
 		"no-timers": noTimers,
 		"raw-sql-literal": rawSqlLiteral,
 		"request-actor": requestActor,
+		"site-path-cast": sitePathCast,
 		"provider-key-mint": providerKeyMint,
 		"no-comments": noComments,
 		"server-log": serverLog,
+		"no-raw-error-log": rawErrorText,
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
 		"deployment-env": deploymentEnv,
 		"server-config": serverConfig,
 		"no-silent-catch": noSilentCatch,
 		"web-database-imports": webDatabaseImports,
+		"shared-notice": sharedNotice,
 		"no-cursor-utility": noCursorUtility,
 		"no-slop-styling": noSlopStyling,
 		"mint-callers": mintCallers,
@@ -3138,8 +3938,12 @@ export default {
 		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
+		"organization-seat": organizationSeatCheck,
+		"strict-contracts": strictContracts,
 		"shared-outcome": sharedOutcome,
 		"domain-refusals": domainRefusals,
 		"stable-context-value": stableContextValue,
+		"live-region-in-tree": liveRegionInTree,
+		"one-top-level-before": oneTopLevelBefore,
 	},
 };

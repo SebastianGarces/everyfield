@@ -389,6 +389,15 @@ export const mailReport = z.discriminatedUnion("kind", [
 		leftOut: count.optional(),
 	}),
 	z.object({
+		kind: z.literal("send"),
+		confirmation: z.enum(["confirmed", "not_confirmed", "refused"]),
+		accepted: count,
+		refused: count,
+		unknown: count,
+		leftOut: count,
+		code: z.string().optional(),
+	}),
+	z.object({
 		kind: z.literal("replace_stopped"),
 		confirmation: z.enum(["not_confirmed", "blocked", "refused"]),
 		cancelled: count,

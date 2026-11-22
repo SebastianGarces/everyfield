@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
 	accessSync,
 	constants,
@@ -76,6 +76,19 @@ function workspace(
 	};
 }
 
+function tools(f: Fixture, projects: Record<string, string>): string {
+	mkdirSync(join(f.root, "node_modules/typescript-7/bin"), { recursive: true });
+	writeFileSync(join(f.root, "node_modules/typescript-7/bin/tsc"), '#!/bin/sh\nexec sh "$3"\n', { mode: 0o755 });
+	for (const [project, body] of Object.entries(projects)) {
+		mkdirSync(join(f.root, project, ".."), { recursive: true });
+		writeFileSync(join(f.root, project), body);
+	}
+	const pkg = JSON.parse(readFileSync(join(f.root, "package.json"), "utf8"));
+	pkg.scripts["typecheck:tools"] = `node tools/ci/typecheck.ts typecheck:tools -p ${Object.keys(projects).join(" ")}`;
+	writeFileSync(join(f.root, "package.json"), JSON.stringify(pkg));
+	return pkg.scripts["typecheck:tools"];
+}
+
 function checkable(root: string, dir: string) {
 	symlinkSync(join(repo, "node_modules"), join(root, "node_modules"));
 	writeFileSync(
@@ -134,14 +147,12 @@ test("INV-typecheck: pnpm typecheck exits 1 when any package's tsc finds errors,
 });
 
 test("INV-typecheck: pnpm typecheck runs no bun check, prints no shadow line and writes no shadow log", (t) => {
-	const f = workspace(
-		{
-			"packages/a": { scripts: { typecheck: PASS, "typecheck:bun": "touch ../../bun-ran; exit 1" } },
-			"packages/b": { scripts: { typecheck: PASS } },
-		},
-		{ "typecheck:tools": PASS },
-	);
+	const f = workspace({
+		"packages/a": { scripts: { typecheck: PASS, "typecheck:bun": "touch ../../bun-ran; exit 1" } },
+		"packages/b": { scripts: { typecheck: PASS } },
+	});
 	t.after(f.close);
+	tools(f, { "tsconfig.tools.json": PASS });
 	const run = typecheck(f, { HOME: f.state });
 	assert.equal(run.status, 0, run.stderr);
 	assert.equal(existsSync(join(f.root, "bun-ran")), false, "typecheck:bun never ran");
@@ -151,53 +162,133 @@ test("INV-typecheck: pnpm typecheck runs no bun check, prints no shadow line and
 
 test("INV-typecheck: pnpm typecheck:bun runs each package's bun check and no tsc or typecheck:tools", (t) => {
 	const FAIL = "printf 'src/a.ts(3,5): error TS2322: Type mismatch.\\n'; exit 1";
-	const tools = { "typecheck:tools": "touch tools-ran; exit 2" };
-	const f = workspace(
-		{
-			"packages/a": { scripts: { typecheck: "touch ../../tsc-ran; exit 1", "typecheck:bun": FAIL } },
-			"packages/b": { scripts: { typecheck: PASS, "typecheck:bun": PASS } },
-			"packages/c": { scripts: { typecheck: PASS } },
-		},
-		tools,
-	);
+	const toolsRan = { "tsconfig.tools.json": "touch tools-ran; exit 2" };
+	const f = workspace({
+		"packages/a": { scripts: { typecheck: "touch ../../tsc-ran; exit 1", "typecheck:bun": FAIL } },
+		"packages/b": { scripts: { typecheck: PASS, "typecheck:bun": PASS } },
+		"packages/c": { scripts: { typecheck: PASS } },
+	});
 	t.after(f.close);
+	tools(f, toolsRan);
 	const run = typecheck(f, {}, "typecheck:bun");
 	assert.equal(run.status, 1, run.stderr);
 	assert.match(run.stdout, /^packages\/a typecheck:bun: src\/a\.ts\(3,5\): error TS2322: Type mismatch\.$/m);
 	assert.match(run.stderr, /typecheck:bun failed in 1 of 2 packages:\n  packages\/a: type errors/);
 	for (const marker of ["tsc-ran", "tools-ran"]) assert.equal(existsSync(join(f.root, marker)), false, marker);
-	const clean = workspace({ "packages/b": { scripts: { "typecheck:bun": PASS } } }, tools);
+	const clean = workspace({ "packages/b": { scripts: { "typecheck:bun": PASS } } });
 	t.after(clean.close);
+	tools(clean, toolsRan);
 	const passed = typecheck(clean, {}, "typecheck:bun");
 	assert.equal(passed.status, 0, passed.stderr);
 	assert.match(passed.stderr, /typecheck:bun: bun check found no type errors in 1 packages/);
 	assert.equal(existsSync(join(clean.root, "tools-ran")), false);
 	const wrong = spawnSync(process.execPath, [tool, "typecheck:tsc"], { cwd: clean.root, encoding: "utf8" });
 	assert.equal(wrong.status, 2);
-	assert.match(wrong.stderr, /usage: node tools\/ci\/typecheck\.ts \[typecheck\|typecheck:bun\]/);
+	assert.match(
+		wrong.stderr,
+		/usage: node tools\/ci\/typecheck\.ts \[typecheck\|typecheck:bun\|typecheck:tools -p <tsconfig\.json>\.\.\.\]/,
+	);
 });
 
-test("INV-typecheck: a failing typecheck:tools fails the run after every package's tsc", (t) => {
+test("INV-typecheck: a failing typecheck:tools project fails the run after every package's tsc and every other project", (t) => {
 	const FAIL = "printf 'src/a.ts(3,5): error TS2322: Type mismatch.\\n'; exit 1";
+	const TOOLS_FAIL = "printf 'tools/qa/a.ts(1,1): error TS2322: Type mismatch.\\n'; exit 2";
 	const cases: Array<[string, string, number]> = [
 		[PASS, "exit 0", 0],
-		[PASS, "printf 'tools/qa/a.ts(1,1): error TS2322: Type mismatch.\\n'; exit 2", 2],
+		[PASS, TOOLS_FAIL, 2],
 		[FAIL, "exit 2", 1],
 		[FAIL, "exit 0", 1],
 	];
-	for (const [pkg, tools, status] of cases) {
-		const f = workspace(
-			{
-				"packages/a": { scripts: { typecheck: pkg } },
-				"packages/b": { scripts: { typecheck: PASS } },
-			},
-			{ "typecheck:tools": tools },
-		);
+	for (const [pkg, first, status] of cases) {
+		const f = workspace({
+			"packages/a": { scripts: { typecheck: pkg } },
+			"packages/b": { scripts: { typecheck: PASS } },
+		});
 		t.after(f.close);
+		tools(f, { "tsconfig.tools.json": first, "tests/unit/tsconfig.json": "touch second-ran" });
 		const run = typecheck(f);
-		assert.equal(run.status, status, `${pkg} / ${tools}: ${run.stderr}`);
-		if (status === 2) assert.match(run.stderr, /typecheck:tools failed/);
+		assert.equal(run.status, status, `${pkg} / ${first}: ${run.stderr}`);
+		assert.equal(existsSync(join(f.root, "second-ran")), true, "the next project still runs");
+		if (status === 2) {
+			assert.match(run.stderr, /^typecheck:tools failed in tsconfig\.tools\.json \(exit 2\)\.$/m);
+			assert.match(run.stdout, /^typecheck:tools: tools\/qa\/a\.ts\(1,1\): error TS2322/m);
+		}
 	}
+});
+
+test("INV-typecheck: typecheck:tools run alone checks each project in turn and prints tsc's lines unprefixed", (t) => {
+	const f = workspace({});
+	t.after(f.close);
+	const script = tools(f, {
+		"tsconfig.tools.json": "printf 'tools/qa/a.ts(1,1): error TS2322: Type mismatch.\\n'; exit 2",
+		"tests/unit/tsconfig.json": "touch second-ran",
+	});
+	const run = spawnSync("sh", ["-c", script.replace(/^node tools\/ci\/typecheck\.ts/, `node ${tool}`)], {
+		cwd: f.root,
+		encoding: "utf8",
+		env: env(),
+	});
+	assert.equal(run.status, 2, run.stdout + run.stderr);
+	assert.match(run.stdout, /^tsc -p tsconfig\.tools\.json\ntools\/qa\/a\.ts\(1,1\): error TS2322/m);
+	assert.match(run.stdout, /^tsc -p tests\/unit\/tsconfig\.json$/m);
+	assert.equal(existsSync(join(f.root, "second-ran")), true);
+});
+
+test("INV-typecheck: a typecheck:tools script outside the shared -p form fails the run naming the form", (t) => {
+	const f = workspace({ "packages/a": { scripts: { typecheck: PASS } } }, { "typecheck:tools": "tsc -b x.json" });
+	t.after(f.close);
+	const run = typecheck(f);
+	assert.equal(run.status, 1, run.stderr);
+	assert.match(run.stderr, /typecheck:tools must read `node tools\/ci\/typecheck\.ts typecheck:tools -p/);
+});
+
+test("INV-typecheck: a hung typecheck:tools project is killed with its process group and the run fails naming it", (t) => {
+	const f = workspace({ "packages/a": { scripts: { typecheck: PASS } } });
+	t.after(f.close);
+	tools(f, { "tests/slow/tsconfig.json": "sleep 30 & sleep 30", "tests/unit/tsconfig.json": "touch next-ran" });
+	const run = typecheck(f, { TYPECHECK_TOOLS_TIMEOUT_MS: "1000" }, "typecheck", 20_000);
+	assert.equal(
+		run.status,
+		1,
+		`the background sleep holds the output pipe, so only a process-group kill ends the run before the 20 s limit: ${run.stdout}${run.stderr}`,
+	);
+	assert.match(
+		run.stderr,
+		/^typecheck:tools timed out after 1000 ms in tests\/slow\/tsconfig\.json; its process group was killed\.$/m,
+	);
+	assert.match(run.stdout, /^typecheck:tools: tsc -p tests\/slow\/tsconfig\.json$/m);
+	assert.equal(existsSync(join(f.root, "next-ran")), false, "the spent budget starts no further project");
+});
+
+test("INV-typecheck: each checker's start line and output reach the log while it is still running", async (t) => {
+	const f = workspace({ "packages/a": { scripts: { typecheck: "echo checking-a; sleep 30" } } });
+	t.after(f.close);
+	tools(f, { "tests/stuck/tsconfig.json": "echo checking-stuck; sleep 30" });
+	const seen = async (timeoutMs: string, wanted: RegExp[]) => {
+		const child = spawn(process.execPath, [tool], {
+			cwd: f.root,
+			env: env({ CI: undefined, XDG_STATE_HOME: f.state, TYPECHECK_TIMEOUT_MS: timeoutMs }),
+		});
+		let out = "";
+		const exited = new Promise((done) => child.on("close", done));
+		const running = await new Promise<boolean>((done) => {
+			child.stdout.on("data", (chunk: Buffer) => {
+				out += chunk;
+				if (wanted.every((re) => re.test(out))) done(true);
+			});
+			child.on("close", () => done(false));
+		});
+		child.kill("SIGKILL");
+		await exited;
+		return { out, running };
+	};
+	const pkg = await seen("20000", [/^packages\/a typecheck: started$/m, /^packages\/a typecheck: checking-a$/m]);
+	assert.ok(pkg.running, `the package lines were printed before its checker ended: ${pkg.out}`);
+	const stuck = await seen("500", [
+		/^typecheck:tools: tsc -p tests\/stuck\/tsconfig\.json$/m,
+		/^typecheck:tools: checking-stuck$/m,
+	]);
+	assert.ok(stuck.running, `the tools lines were printed before the project's tsc ended: ${stuck.out}`);
 });
 
 test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, tools/ci, tools/qa and ops/actionable-watch, the own tsconfig.json of each typechecked tests folder, and one program for every typechecked integration folder", () => {
@@ -210,7 +301,8 @@ test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, too
 	];
 	assert.equal(
 		rootPkg.scripts["typecheck:tools"],
-		`node_modules/typescript-7/bin/tsc -b ${projects.join(" ")} --builders 2 --checkers 2`,
+		`node tools/ci/typecheck.ts typecheck:tools -p ${projects.join(" ")}`,
+		"one tsc process per project in turn, so only one program is in memory at a time",
 	);
 	assert.deepEqual(
 		globSync("tests/integration/*/tsconfig.json", { cwd: repo }),

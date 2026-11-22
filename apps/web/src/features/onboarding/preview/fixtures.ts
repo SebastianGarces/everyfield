@@ -138,9 +138,11 @@ function world(persona: Persona): World {
 		replays: new Map(),
 	};
 	const plant = () => {
+		const resume = freshResume(id());
 		w.plantName = "Harvest Point";
-		w.resume = freshResume(id());
+		w.resume = resume;
 		w.registration = "active";
+		return resume;
 	};
 	switch (persona) {
 		case "planter":
@@ -173,18 +175,17 @@ function world(persona: Persona): World {
 			break;
 		case "resume":
 		case "pastor-held":
-			plant();
-			Object.assign(w.resume!, {
+			Object.assign(plant(), {
 				revision: "3",
 				journey: { status: "saved", value: { answer: "unsure" }, savedAt: now() },
 				launch: { status: "saved", value: { answer: "no_date" }, savedAt: now() },
 			});
 			break;
-		case "declared":
-			plant();
+		case "declared": {
+			const resume = plant();
 			w.declared = true;
 			w.scheduleRevision = "1";
-			Object.assign(w.resume!, {
+			Object.assign(resume, {
 				revision: "3",
 				currentPhase: 3,
 				journey: { status: "saved", value: { answer: "existing", phase: 3 }, savedAt: now() },
@@ -197,9 +198,9 @@ function world(persona: Persona): World {
 				scheduleRevision: "1",
 			});
 			break;
+		}
 		case "finished":
-			plant();
-			Object.assign(w.resume!, {
+			Object.assign(plant(), {
 				revision: "5",
 				materialRevision: "5",
 				journey: { status: "saved", value: { answer: "skip" }, savedAt: now() },
@@ -257,7 +258,8 @@ function create(w: World, op: "createPlant" | "convertDiscovery", cmd: Command, 
 		currentPhase: 1,
 	};
 	if (op === "createPlant") return { status: "created", ...base, initialSharing: OFF };
-	const d = w.discovery!;
+	const d = w.discovery;
+	if (!d) throw new Error("Only a discovery can finish into a church");
 	const kept = (input.relationships as Raw[]).map((s) => ({
 		relationshipId: id(),
 		organization: s.organization,

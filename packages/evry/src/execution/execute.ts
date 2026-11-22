@@ -5,14 +5,13 @@ import { CommunicationRefusal } from "@everyfield/domain/communication";
 import { MeetingsRefusal } from "@everyfield/domain/meetings";
 import { Refusal } from "@everyfield/domain/people";
 import { TeamsRefusal } from "@everyfield/domain/teams";
-import type { TaskReminders } from "@everyfield/domain/tasks";
 import { owner, sessionId } from "@everyfield/contracts/common";
 import { fromStates, proposalMachine, type ProposalSubject } from "@everyfield/contracts/machines";
 import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
 import { REVIEWED_WRITES, staleMessage } from "../proposals/store.ts";
 import { refusalCode } from "../proposals/review.ts";
-import type { EffectResult, MailPort, NativePorts, ReviewedWrite } from "../proposals/types.ts";
+import type { EffectPorts, EffectResult, MailPort, NativePorts, ReviewedWrite } from "../proposals/types.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
 import { logRefusal } from "@everyfield/domain/flags";
 
@@ -79,7 +78,7 @@ class Refused extends Error {
 export async function executeProposal(
 	db: Database,
 	lease: EffectLease,
-	reminders: TaskReminders,
+	ports: EffectPorts,
 	mail: MailPort | null = null,
 	native: NativePorts | null = null,
 ): Promise<EffectOutcome> {
@@ -119,7 +118,7 @@ export async function executeProposal(
 				const changed = await write.recheck?.(tx, context, p.input);
 				if (changed) throw new Refused(changed);
 			}
-			const result = await write.execute(tx, context, p.input, effectKey, reminders, {
+			const result = await write.execute(tx, context, p.input, effectKey, ports, {
 				authority: claimed.authority,
 				ports: native,
 			});

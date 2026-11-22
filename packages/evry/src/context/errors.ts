@@ -14,13 +14,23 @@ export type EvryErrorCode =
 	| "review_expired"
 	| "review_closed"
 	| "photo_unavailable"
+	| "attachment_elsewhere"
+	| "attachment_gone"
+	| "file_changed"
+	| "review_limit"
+	| "already_applied"
+	| "not_assigned"
+	| "assignee_ineligible"
+	| "owner_ineligible"
 	| "unknown";
 
 export class EvryRefusal extends Error {
 	readonly code: EvryErrorCode;
-	constructor(code: EvryErrorCode) {
+	readonly problem: string | null;
+	constructor(code: EvryErrorCode, problem: string | null = null) {
 		super(code);
 		this.code = code;
+		this.problem = problem;
 	}
 }
 
@@ -38,6 +48,14 @@ const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	review_expired: "never",
 	review_closed: "never",
 	photo_unavailable: "never",
+	attachment_elsewhere: "never",
+	attachment_gone: "never",
+	file_changed: "never",
+	review_limit: "never",
+	already_applied: "never",
+	not_assigned: "never",
+	assignee_ineligible: "never",
+	owner_ineligible: "never",
 	unknown: "new_turn",
 };
 

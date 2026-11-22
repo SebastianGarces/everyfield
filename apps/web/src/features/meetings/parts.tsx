@@ -1,7 +1,6 @@
 "use client";
 
 import {
-	Alert02Icon,
 	Calendar03Icon,
 	PresentationBarChart01Icon,
 	UserGroupIcon,
@@ -9,7 +8,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { CardIcon } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon, useFocusRequest } from "@everyfield/ui/foundations";
+import { cn, useFocusRequest } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import { PersonLink } from "../people/parts.tsx";
 import { statusView, TYPE_TONE, type MeetingStatus, type MeetingType } from "./model.ts";
@@ -77,19 +76,6 @@ export function RsvpBar({
 			{pending ? <span className="bg-amber-500" style={{ flex: pending }} /> : null}
 			{other ? <span className="bg-surface-3" style={{ flex: other }} /> : null}
 		</span>
-	);
-}
-
-export function Problem({ text, className }: { text: string | undefined; className?: string }) {
-	return (
-		<div aria-live="assertive" className={cn("empty:hidden", className)}>
-			{text ? (
-				<p className="flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">
-					<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-					{text}
-				</p>
-			) : null}
-		</div>
 	);
 }
 

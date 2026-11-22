@@ -75,8 +75,8 @@ export async function smallChurch<A extends string>(spec: SmallChurchSpec<A>): P
 				await run(sql`INSERT INTO task(id,plant_id,title,category,priority,status,creator_id,created_at,due_kind,person_id)
 					VALUES(${id(++task)},${PLANT},${`Follow up with ${p.name}`},'follow_up','medium','not_started',${owner},'2026-10-20T15:00:00.000Z','undated',${p.id})`);
 			if ((p.inactivity ?? "none") !== "alert")
-				await run(sql`INSERT INTO contact_outcome(plant_id,person_id,outcome,occurred_at,recorded_at,contact_channel)
-					SELECT ${PLANT},${p.id},'contacted',t,t,'phone'
+				await run(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,after_revision)
+					SELECT ${PLANT},${owner},'followup.recorded','outcome','person',${p.id},t,t,1
 					FROM (SELECT clock_timestamp()-make_interval(days=>${p.inactivity === "warning" ? 10 : 2}) AS t) x`);
 		}
 		const db = database.pools.runtime;
@@ -138,7 +138,7 @@ export async function converse(model: LanguageModelV4, db: Database, actor: Evry
 		system: context.system,
 		messages: context.messages,
 		tools,
-		stopWhen: stepCountIs(4),
+		stopWhen: stepCountIs(8),
 		maxRetries: 0,
 		maxOutputTokens: LIMITS.outputTokensPerCall,
 		onError: () => undefined,

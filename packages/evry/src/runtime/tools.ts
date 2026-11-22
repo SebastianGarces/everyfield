@@ -79,7 +79,7 @@ const REFUSAL_DETAIL: Partial<Record<string, string>> = {
 		"Sending email is paused for everyone right now, so nothing was prepared, scheduled or sent. Tell the user that email is paused, that nothing was sent, and that they can ask again later.",
 };
 
-export function refusalForModel(code: string): ModelReply {
+export function refusalForModel(code: string): { error: string; detail?: string } {
 	const detail = REFUSAL_DETAIL[code];
 	return detail ? { error: code, detail } : { error: code };
 }
@@ -96,8 +96,10 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 		scrub(
 			JSON.stringify({
 				proposalId: proposal.id,
-				status: "awaiting_approval",
-				expiresAt: proposal.expiresAt,
+				...(proposal.review.refusal
+					? { status: "refused", refusal: proposal.review.refusal }
+					: { status: "awaiting_approval", expiresAt: proposal.expiresAt }),
+				...(proposal.review.refusal ? { refusal: proposal.review.refusal } : {}),
 				rows: target
 					? [
 							{
@@ -113,6 +115,7 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 							...people,
 						]
 					: people,
+				...(target ? {} : { changes: proposal.review.changes }),
 			}),
 		),
 	) as ModelReply;

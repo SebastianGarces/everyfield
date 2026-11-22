@@ -1,10 +1,11 @@
 import type { Database } from "@everyfield/db/client";
-import type { TaskReminders } from "@everyfield/domain/tasks";
 import { readViewer } from "@everyfield/domain/access";
 import { sessionId } from "@everyfield/contracts/common";
 import { switchedOff, type Switches } from "@everyfield/domain/flags";
+import { privateStorage } from "@everyfield/db/schema";
 import {
 	CLAIM_SECONDS,
+	type EffectPorts,
 	evryActor,
 	executeProposal,
 	flushTraces,
@@ -47,7 +48,14 @@ export async function runTurns(
 			if (!claim) break;
 			switchedOff(switches, "evry-model-calls", "evry.runTurn");
 			const outcome = await runTurn(
-				{ db: pool, model, freshActor, mail: evryMail(!switches["outbound-mail"]), native: evryNative() },
+				{
+					db: pool,
+					model,
+					freshActor,
+					mail: evryMail(!switches["outbound-mail"]),
+					storage: privateStorage(),
+					native: evryNative(),
+				},
 				{
 					turnId: claim.id,
 					tenantId: claim.tenant_id,
@@ -67,7 +75,7 @@ export async function runTurns(
 export async function runEffects(
 	pool: Database,
 	switches: Switches,
-	reminders: TaskReminders,
+	ports: EffectPorts,
 	limit: number,
 	until = Infinity,
 ) {
@@ -78,7 +86,7 @@ export async function runEffects(
 		const outcome = await executeProposal(
 			pool,
 			{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-			reminders,
+			ports,
 			evryMail(!switches["outbound-mail"]),
 			evryNative(),
 		);
