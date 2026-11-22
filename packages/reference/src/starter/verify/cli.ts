@@ -9,6 +9,7 @@ import { referenceService } from "./service.ts";
 import { WikiRefusal } from "./snapshot.ts";
 
 const PUBLISHER_EMAIL = "wiki-publisher@example.test";
+const EMBEDDED_RELEASE = `${approvedWiki.version}-embedded`;
 
 function fail(message: string): never {
 	console.error(message);
@@ -16,7 +17,12 @@ function fail(message: string): never {
 }
 
 const { values } = parseArgs({
-	options: { production: { type: "boolean" }, operator: { type: "string" }, schema: { type: "string" } },
+	options: {
+		production: { type: "boolean" },
+		operator: { type: "string" },
+		schema: { type: "string" },
+		rebuild: { type: "boolean" },
+	},
 });
 let target: URL;
 try {
@@ -75,10 +81,30 @@ try {
 			SELECT a.activation_number::text AS number, r.release_key FROM reference_activation a
 			JOIN reference_release r ON r.id = a.release_id ORDER BY a.activation_number DESC LIMIT 1`)
 	).rows[0] as { number: string; release_key: string } | undefined;
-	if (current?.release_key === approvedWiki.version) {
+	const wanted = values.rebuild ? [EMBEDDED_RELEASE] : [approvedWiki.version, EMBEDDED_RELEASE];
+	if (current && wanted.includes(current.release_key)) {
 		console.log(
 			JSON.stringify({ activeRelease: current.release_key, activationNumber: current.number, changed: false }),
 		);
+	} else if (values.rebuild) {
+		if (!current) fail("Install the approved Wiki first: run this command without --rebuild.");
+		const operator = await publisher(db);
+		sessionId = randomUUID();
+		await db.execute(sql`INSERT INTO auth_session(id, user_id, token, expires_at)
+			VALUES (${sessionId}::uuid, ${operator.userId}::uuid, ${randomBytes(32).toString("hex")}, now() + interval '10 minutes')`);
+		const receipt = await referenceService(db).rebuildEmbeddings(
+			{ ...operator, sessionId },
+			{
+				release: EMBEDDED_RELEASE,
+				manifestSha256: approvedWiki.manifestSha256,
+				payloadSha256: approvedWiki.payloadSha256,
+				requestKey: `wiki-rebuild:${EMBEDDED_RELEASE}:${current.number}`,
+				expectedActivation: current.number,
+				target: approvedWiki.target,
+			},
+		);
+		console.log(JSON.stringify({ ...receipt, previousRelease: current.release_key, changed: receipt.activated }));
+		if (!receipt.activated) process.exitCode = 1;
 	} else {
 		const operator = await publisher(db);
 		sessionId = randomUUID();

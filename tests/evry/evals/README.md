@@ -23,6 +23,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `pipeline.test.mts`     | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                |
 | `launch.test.mts`       | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                 |
 | `wiki-network.test.mts` | `wiki-network.cases.json`                                                                                                | A network's own Wiki versions: draft, change, publish and hide (scripted model)         |
+| `wiki-meaning.test.mts` | `wiki-meaning.cases.json`                                                                                                | `wiki.search` by meaning on fixed vectors: the vision meeting article (scripted model)  |
 
 ## The settings suite (scripted model)
 
@@ -67,6 +68,16 @@ with `approve` is approved the way the card approves it: these writes run their 
 with the reason typed on the card for a stage move, and each result is read back through the Pipeline and Programs
 pages' own reads. Two more tests hold the boundaries: the read takes no search text and matches the native board for
 every seat, and a stage move proposal refuses any reason or text field. The recorded suites leave these tools out too.
+
+## The Wiki meaning suite (scripted model, fixed vectors)
+
+`wiki-meaning.test.mts` scores meaning-based `wiki.search` (T-339) on the scripted model with no provider call. It gives
+Hope Fellowship's golden Wiki release the `openai-text-embedding-3-small` profile and one fixed 1536-dimension vector per
+global article, sets `EVF_WIKI_EMBEDDINGS=openai` with a fake key in the test process only, and replaces `fetch` with a
+stub that answers the embeddings endpoint with a fixed question vector and fails any other URL. While Harvest Network's
+own version of the vision meeting article is what the church sees, the global passage is not a hit (WMS-01). Once that
+version is removed, the question "getting people excited about our church's direction", which shares no keyword with the
+article, finds it and Evry answers from it (WMS-02). A second test asserts the adapter's exact result.
 
 ## The network Wiki suite (scripted model)
 
