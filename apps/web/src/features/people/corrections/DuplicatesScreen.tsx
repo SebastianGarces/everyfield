@@ -357,8 +357,11 @@ function PairReview({
 						<div className="mt-3 border-t border-line pt-2.5">
 							<p className="text-xs font-semibold text-ink-2">
 								{review.openFollowUps.length === 1
-									? `This open follow-up stays open on ${first(survivor.displayName)}`
-									: `All ${review.openFollowUps.length} open follow-ups stay open on ${first(survivor.displayName)}`}
+									? "This open follow-up stays open"
+									: review.openFollowUps.length === 2
+										? "Both open follow-ups stay open"
+										: `All ${review.openFollowUps.length} open follow-ups stay open`}{" "}
+								on {first(survivor.displayName)}
 							</p>
 							<ul className="mt-1.5 flex flex-col gap-1 text-xs text-text-2">
 								{review.openFollowUps.map((f) => (
