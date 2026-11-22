@@ -3,6 +3,11 @@
 	inherits: true;
 	initial-value: 0px;
 }
+@property --ef-box-w {
+	syntax: "<length>";
+	inherits: true;
+	initial-value: 0px;
+}
 .ef-sheet {
 	container-type: inline-size;
 	width: 100%;
@@ -596,7 +601,8 @@
 	scrollbar-width: thin;
 }
 .ef-paper .ef-table-grid {
-	--ef-share: min(1, tan(atan2(100cqi, var(--ef-text-w))));
+	--ef-box-w: 100cqi;
+	--ef-share: min(1, tan(atan2(var(--ef-box-w), var(--ef-text-w))));
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
