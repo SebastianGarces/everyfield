@@ -19,6 +19,7 @@ const conversation = (id: string) => ({
 const refused = (code: ProjectedError["code"]) =>
 	({
 		status: "refused",
+		code,
 		error: { code, correlationId: "x", retry: "never", outcome: "refused" },
 	}) as const;
 
