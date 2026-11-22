@@ -194,7 +194,8 @@
 			"answer": [
 				"Here is where your 4 plants are placed for Network Intelligence:",
 				"Fort Worth, TX, US. Region: Dallas-Fort Worth-Arlington, TX (metro area).",
-				"Austin, TX, US. Region: No Region set. Findings: Not shared."
+				"Austin, TX, US. Region: No Region set. Findings: Not shared.",
+				"See how they group in [Network Intelligence's Region view](/network/intelligence?level=region)."
 			],
 			"absent": ["street", "latitude", "longitude"]
 		},

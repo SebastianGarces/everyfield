@@ -360,6 +360,7 @@ function placeStep(
 		if (!locations) return read(LOCATIONS);
 		const rows = locations.rows ?? [];
 		if (!rows.length) return say("No plant is linked to this organization, so there are no plant locations to show.");
+		const regionView = `See how they group in [Network Intelligence's Region view](${String(locations.facts?.regionView)}).`;
 		const which = WHICH_REGION.exec(text) ?? REGION_CHANGED.exec(text);
 		if (which) {
 			const plant = plantNamed(which[1] ?? "");
@@ -367,8 +368,8 @@ function placeStep(
 			if (WHICH_REGION.test(text))
 				return say(
 					plant.fields.region === "No Region set"
-						? `[${plant.label}](${fieldText(plant, "href")}) is in ${placeOf(plant)} and has no Region set. It still counts in ${listed(fieldText(plant, "countsIn").split(", "))}.`
-						: `[${plant.label}](${fieldText(plant, "href")}) is in ${placeOf(plant)}. Its reporting Region is ${fieldText(plant, "region")}.`,
+						? `[${plant.label}](${fieldText(plant, "href")}) is in ${placeOf(plant)} and has no Region set. It still counts in ${listed(fieldText(plant, "countsIn").split(", "))}. ${regionView}`
+						: `[${plant.label}](${fieldText(plant, "href")}) is in ${placeOf(plant)}. Its reporting Region is ${fieldText(plant, "region")}. ${regionView}`,
 				);
 			const saved = lastOf(outputs, LOCATION_HISTORY);
 			if (!saved) return read(LOCATION_HISTORY, { plantId: plant.id });
@@ -402,6 +403,7 @@ function placeStep(
 					),
 					"",
 					"A plant with no Region set still counts at the state, country and whole-portfolio levels. Only each plant's Owner or Admin can set its Region.",
+					regionView,
 				].join("\n"),
 			);
 		}
@@ -412,6 +414,8 @@ function placeStep(
 					(r) =>
 						`- [${r.label}](${fieldText(r, "href")}): ${placeOf(r)}. Region: ${fieldText(r, "region")}.${findingsNote(r)}`,
 				),
+				"",
+				regionView,
 			].join("\n"),
 		);
 	}

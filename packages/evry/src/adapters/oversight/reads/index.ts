@@ -373,7 +373,7 @@ export const readIntelligenceHistory: ReadAdapter<z.infer<typeof historyInput>> 
 export const readPlantLocations: ReadAdapter<Record<string, never>> = {
 	operation: "organizationIntelligence.readLocations",
 	description:
-		"Where each linked plant is placed for Network Intelligence now, as its oversight page shows it: city, state or province, country and reporting Region (No Region set when there is none), the groups it counts in (a plant with no Region set still counts in its state, its country and the Whole portfolio), whether it shares Plant Intelligence findings (Not shared when it doesn't) and href to its page. Never a street address or coordinates",
+		"Where each linked plant is placed for Network Intelligence now, as its oversight page shows it: city, state or province, country and reporting Region (No Region set when there is none), the groups it counts in (a plant with no Region set still counts in its state, its country and the Whole portfolio), whether it shares Plant Intelligence findings (Not shared when it doesn't) and href to its page; regionView links the page's Region view. Never a street address or coordinates",
 	input: z.strictObject({}),
 	allowed: organizationSeat,
 	async invoke(tx, actor): Promise<SourceResult> {
@@ -397,7 +397,10 @@ export const readPlantLocations: ReadAdapter<Record<string, never>> = {
 			});
 		}
 		return {
-			...result("organizationIntelligence.readLocations", rows, { organization: directory.organizationName }),
+			...result("organizationIntelligence.readLocations", rows, {
+				organization: directory.organizationName,
+				regionView: viewHref("region", null),
+			}),
 			total: directory.plants.length,
 			completeness: directory.plants.length > PLANTS ? "partial" : "complete",
 		};
