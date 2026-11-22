@@ -1,4 +1,4 @@
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 
 const USD_PER_MILLION_TOKENS = 0.02;
@@ -15,7 +15,7 @@ export function estimateTokens(texts: readonly string[]): number {
 	return texts.reduce((total, text) => total + Math.ceil(Buffer.byteLength(text) / 3) + 1, 0);
 }
 
-export async function recordSpend(db: Database | Transaction, purpose: SpendPurpose, tokens: number): Promise<void> {
+export async function recordSpend(db: Database, purpose: SpendPurpose, tokens: number): Promise<void> {
 	if (tokens <= 0) return;
 	await db.execute(sql`
 		INSERT INTO embedding_spend(day, purpose, usage)
