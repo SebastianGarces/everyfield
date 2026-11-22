@@ -124,7 +124,7 @@ export type Send = {
 	text: string;
 	references: Reference[];
 	attachments: Attachment[];
-	state: "sending" | "unconfirmed" | "refused";
+	state: "sending" | "unconfirmed" | "refused" | "unstarted";
 	error: ProjectedError | null;
 	sequence: number | null;
 };
@@ -362,6 +362,7 @@ export const TASK_REFUSAL = {
 export function sendNotice(send: Send): string | null {
 	if (send.state === "sending") return null;
 	if (send.state === "unconfirmed") return "Not confirmed. Check your connection, then send it again.";
+	if (send.state === "unstarted") return "Evry can't start a new conversation right now. Please try again in a moment.";
 	switch (send.error?.code) {
 		case "run_active":
 			return "Not sent. Evry is still answering your last message. Stop it or wait, then send again.";
@@ -376,7 +377,9 @@ export function sendNotice(send: Send): string | null {
 }
 
 export const resendable = (send: Send) =>
-	send.state === "unconfirmed" || (send.state === "refused" && send.error?.retry !== "never");
+	send.state === "unconfirmed" ||
+	send.state === "unstarted" ||
+	(send.state === "refused" && send.error?.retry !== "never");
 
 const PERSON_PAGE = /^\/people\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
 const ARTICLE_PAGE = /^\/wiki\/(.+?)\/?$/;
