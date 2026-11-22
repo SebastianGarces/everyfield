@@ -10,7 +10,7 @@ import { INVITATION_COMMANDS } from "../adapters/meetings/commands/invitation.ts
 import { NOTIFICATION_COMMANDS } from "../adapters/notifications/commands/index.ts";
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
 import { FOLLOWUP_COMMANDS } from "../adapters/followups/commands/index.ts";
-import { INTELLIGENCE_COMMANDS } from "../adapters/intelligence/commands/index.ts";
+import { ASSESSMENT_INTELLIGENCE_COMMANDS, INTELLIGENCE_COMMANDS } from "../adapters/intelligence/commands/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
 import { ASSESSMENT_COMMANDS } from "../adapters/people-assessments/commands/index.ts";
 import { SETTINGS_COMMANDS } from "../adapters/settings/index.ts";
@@ -43,6 +43,7 @@ export const REVIEWED_WRITES = {
 	...ONBOARDING_COMMANDS,
 	...FEEDBACK_COMMANDS,
 	...PIPELINE_COMMANDS,
+	...ASSESSMENT_INTELLIGENCE_COMMANDS,
 	...TASK_COMMANDS,
 	...FOLLOWUP_COMMANDS,
 	...WIKI_COMMANDS,

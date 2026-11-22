@@ -245,7 +245,7 @@
 							"expect": [
 								{
 									"role": "button",
-									"name": "Attach a CSV, Word or text file"
+									"name": "Attach a CSV, Word, text or PDF file"
 								}
 							]
 						}

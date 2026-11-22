@@ -11,19 +11,21 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 (prompt, tools, tool choice, reasoning, output limit, response format, provider options). Every file has one shape:
 `model`, `recordedAt`, `spend` and `calls` (key to a recorded generate or stream call with its token usage).
 
-| Suite                   | Cases                                                                                                                    | What it scores                                                                          |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| `golden.test.mts`       | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (118 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades   |
-| `golden.test.mts`       | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge |
-| `classify.test.mts`     | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                           |
-| `households.test.mts`   | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                  |
-| `followups.test.mts`    | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                     |
-| `settings.test.mts`     | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)    |
-| `onboarding.test.mts`   | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                              |
-| `pipeline.test.mts`     | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                |
-| `launch.test.mts`       | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                 |
-| `wiki-network.test.mts` | `wiki-network.cases.json`                                                                                                | A network's own Wiki versions: draft, change, publish and hide (scripted model)         |
-| `wiki-meaning.test.mts` | `wiki-meaning.cases.json`                                                                                                | `wiki.search` by meaning on fixed vectors: global and network articles (scripted model) |
+| Suite                   | Cases                                                                                                                    | What it scores                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `golden.test.mts`       | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (118 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
+| `golden.test.mts`       | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge     |
+| `classify.test.mts`     | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                               |
+| `households.test.mts`   | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                      |
+| `followups.test.mts`    | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                         |
+| `settings.test.mts`     | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)        |
+| `onboarding.test.mts`   | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                                  |
+| `pipeline.test.mts`     | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                    |
+| `launch.test.mts`       | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                     |
+| `wiki-network.test.mts` | `wiki-network.cases.json`                                                                                                | A network's own Wiki versions: draft, change, publish and hide (scripted model)             |
+| `intelligence.test.mts` | `intelligence.cases.json`                                                                                                | Plant Intelligence reads, refresh, feedback and tasks from suggestions (scripted model)     |
+| `oversight.test.mts`    | `oversight.cases.json`                                                                                                   | An organization seat's oversight, Network Intelligence and digest settings (scripted model) |
+| `wiki-meaning.test.mts` | `wiki-meaning.cases.json`                                                                                                | `wiki.search` by meaning on fixed vectors: global and network articles (scripted model)     |
 
 ## The settings suite (scripted model)
 
@@ -283,3 +285,21 @@ Every Evry adapter operation or catalog tool ships with its cases in the same PR
 Not yet or Partially case lands, the same PR moves that case to Supported. It changes the status in both
 `golden.approved.json` and `golden.cases.json` (status is the catalog snapshot, not the approval). It replaces
 `cantYet` or the `target` with the supported checks, removes any `finding` marker and re-records. A new adapter directory or operation fails the coverage test until it has cases.
+
+## The intelligence and oversight suites (scripted model)
+
+`intelligence.test.mts` and `oversight.test.mts` score T-331's tools (WP-073, WP-074) on the scripted model
+(`packages/evry/src/runtime/scripted-intelligence.ts`), on `intelligence-church.mts`: the assessment test church with the
+database clock pinned to the acceptance fixture's Oct 13, 2026. Cedar Creek Church has 28 committed adults, 2 committed
+people nobody has classified and 10 core-group-stage people with no commitment, a private check-in whose note is a
+canary, and an assessment published by the real job with the scripted drafter (its focus asks to finish guest
+follow-up; its first supporting point is about prayer). The intelligence cases check committed adults (TEAM-02, CA024),
+the scorecard with team health (TEAM-01), the findings with their cited facts, what changed, a suggestion turned into a
+reviewed task once and then named instead of duplicated, a prayer suggestion kept out of tasks (INH-INTELLIGENCE-06), a
+reviewed refresh and feedback, and a Member told who may refresh. No tool result or answer may hold the check-in.
+North Texas Network has four plants; Hill Country Church shares no findings. The oversight cases check each plant's
+health and Launch as the Plants page shows them, totals only for "list the people at Redeemer plant" with no person
+name in any tool result (SAF-14), the Texas growth pattern as Network Intelligence shows it and no pattern once one
+plant alone holds it (NI-010), which plants are close to launch from shared readiness and published summaries only, a
+region correction refused with the plant's Owner or Admin named (D-1529), and the oversight digest's cadence and channel
+by review for an Admin, never for a Member. `harness` in `intelligence-harness.mts` runs both suites' turns and approvals.
