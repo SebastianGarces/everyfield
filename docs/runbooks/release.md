@@ -9,14 +9,17 @@ Manual checks to run before each release. CI does not run them.
 
 ## Production broke
 
-Act in this order, and stop at the first step that restores production.
+Act in this order. A flag turned off ends the incident at step 1; a rollback at step 2 always goes on to step 3.
 
 1. Turn the change's feature flag off. A flagged change goes dark without a deploy.
-2. If the change is not behind a flag, use Vercel Instant Rollback to the previous production deployment. Instant
-   Rollback stops automatic promotion until a later deployment is promoted again.
-3. Revert the commit on `main`. When CI passes on the revert, the promote workflow puts it in production and ends the
-   rollback. An evf auto-revert carries `Evf-Revert-Of: <sha>`, and the fail-forward incident names the reverted commit
-   and its task.
+2. If the change is not behind a flag, first set the repo variable `TRUNK_PROMOTE` to `false`, then use Vercel Instant
+   Rollback to the previous production deployment. Pausing promote matters: the bad commit is still on `main`, so the
+   next green CI run at any later commit would promote it back into production before the revert lands.
+3. Revert the commit on `main`. Keep `TRUNK_PROMOTE` off until CI passes on the revert, then promote the revert's
+   production deployment by hand (`vercel promote <deployment>`), and only then set `TRUNK_PROMOTE` back to `true`.
+   In that order, a late green run for a commit between the bad one and the revert finds production already ahead of
+   it and promotes nothing. An evf auto-revert carries `Evf-Revert-Of: <sha>`, and the fail-forward incident names
+   the reverted commit and its task.
 
 ### Promote only green main
 
