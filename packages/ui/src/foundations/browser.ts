@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { createContext, use, useCallback, useSyncExternalStore } from "react";
 import { minuteSnapshot, subscribeMinute } from "./minute-clock";
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
@@ -61,4 +61,16 @@ export function useBrowserZone(): string | null {
 
 export function useMinuteClock(): number | null {
 	return useSyncExternalStore(subscribeMinute, minuteSnapshot, () => null);
+}
+
+export type ServedClock = { zone: string | null; now: number | null };
+
+export const ServedClockContext = createContext<ServedClock>({ zone: null, now: null });
+
+export function useViewerZone(): string | null {
+	return useBrowserZone() ?? use(ServedClockContext).zone;
+}
+
+export function useViewerNow(): number | null {
+	return useMinuteClock() ?? use(ServedClockContext).now;
 }

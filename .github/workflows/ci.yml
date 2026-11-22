@@ -36,6 +36,8 @@ jobs:
         run: pnpm lint
       - name: Types
         run: pnpm typecheck
+      - name: Unused files, exports and types (knip)
+        run: pnpm knip
       - name: Server log privacy (next dev with synthetic passwords)
         run: pnpm test:logs
         env:

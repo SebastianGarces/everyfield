@@ -60,19 +60,23 @@ export function TrendsScreen({ history, catalog }: { history: AssessmentHistory;
 										<td className="py-2.5 pr-4 whitespace-nowrap text-ink-2" title={catalog.phases[r.phase]?.name}>
 											Phase {r.phase}
 										</td>
-										{r.values.map((v, i) => (
-											<td
-												key={TREND_FACTS[i]!.key}
-												data-trend={TREND_FACTS[i]!.key}
-												data-state={v.state}
-												className={cn(
-													"py-2.5 pr-4 text-right whitespace-nowrap",
-													v.state === "measured" ? "num font-medium text-ink" : "text-xs text-text-3",
-												)}
-											>
-												{trendText(v)}
-											</td>
-										))}
+										{r.values.map((v, i) => {
+											const fact = TREND_FACTS[i];
+											if (!fact) throw new Error(`Assessment ${r.runId} has more values than trend facts`);
+											return (
+												<td
+													key={fact.key}
+													data-trend={fact.key}
+													data-state={v.state}
+													className={cn(
+														"py-2.5 pr-4 text-right whitespace-nowrap",
+														v.state === "measured" ? "num font-medium text-ink" : "text-xs text-text-3",
+													)}
+												>
+													{trendText(v)}
+												</td>
+											);
+										})}
 									</tr>
 								))}
 							</tbody>

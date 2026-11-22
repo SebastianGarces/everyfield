@@ -93,11 +93,12 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 			const totals = totalsAfter(v.totals, moves);
 			if (filter === "any") return { ...v, totals };
 			const gone = v.rows.filter((r) => coverageOf(r.duties) !== filter);
+			const [first] = gone;
 			return {
 				totals,
 				rows: v.rows.filter((r) => coverageOf(r.duties) === filter),
-				moved: gone.length
-					? `${gone.map((r) => r.person.label).join(", ")} moved to ${COVERAGE_LABEL[coverageOf(gone[0]!.duties)]}.`
+				moved: first
+					? `${gone.map((r) => r.person.label).join(", ")} moved to ${COVERAGE_LABEL[coverageOf(first.duties)]}.`
 					: v.moved,
 			};
 		});
@@ -175,7 +176,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 					/>
 					<SaveNotice {...lane.noticeProps} dialogOpen={adding !== null} className="" />
 					<SaveNotice {...handoff.lane.noticeProps} dialogOpen={handoff.open} className="" />
-					<p role="status" className="text-sm text-text-2 empty:hidden">
+					<p role="status" className="text-sm text-text-2 empty:sr-only">
 						{moved}
 					</p>
 					{rows.length === 0 ? (

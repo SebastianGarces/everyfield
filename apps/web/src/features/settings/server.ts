@@ -4,9 +4,7 @@ import { owner, sessionId, type Owner } from "@everyfield/contracts/common";
 import { sectionResult, settingsError, type SettingsError } from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
 import type { SettingsReply } from "@everyfield/contracts/settings/server";
-import { and, eq, isNull } from "@everyfield/db/query";
 import { privateStorage, StorageError } from "@everyfield/db/schema";
-import * as t from "@everyfield/db/tables";
 import type { RequestActor, WriteTx } from "@everyfield/domain/access";
 import { personalCalendar } from "@everyfield/domain/intelligence";
 import { trustedIdentityIp } from "@everyfield/domain/identity";
@@ -28,7 +26,7 @@ import { createHmac, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { serverConfig, serverEnv, type ServerConfig } from "../../server/config.ts";
 import { database } from "../../server/database.ts";
-import { enqueueJob, queueJobs } from "@everyfield/domain/jobs";
+import { enqueueJob, queueJobs, suppressionOf } from "@everyfield/domain/jobs";
 import { current as organizationMount } from "../organizations/mount.ts";
 import { getViewer } from "../../server/request-context.ts";
 import { settingsMail } from "./mail.ts";
@@ -67,14 +65,7 @@ function create(v: ServerConfig) {
 		organizations: organizations.adapter,
 		organizationEffects: organizations.effects,
 		effects,
-		async suppression(db, email) {
-			const rows = await db
-				.select({ id: t.suppression.id })
-				.from(t.suppression)
-				.where(and(eq(t.suppression.address_hash, addressHash(email)), isNull(t.suppression.cleared_at)))
-				.limit(1);
-			return rows.length ? "suppressed" : "clear";
-		},
+		suppression: (db, email) => suppressionOf(db, addressHash(email)),
 	});
 	const avatar = avatarOperations({
 		queue: (tx, i) =>

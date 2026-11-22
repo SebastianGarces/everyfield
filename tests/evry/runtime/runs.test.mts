@@ -37,6 +37,7 @@ import {
 	otherPlant,
 	queries,
 	setup,
+	statementListeners,
 	statements,
 	sql,
 	teardown,
@@ -223,7 +224,7 @@ const MEMBER_MEETINGS_WRITES = [
 ];
 const MEETINGS_WRITES = Object.keys(MEETINGS_COMMANDS);
 
-test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral requests get the fixed boundary before any tool; capabilities follow the current catalog", async () => {
+test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-01 pastoral requests get the fixed boundary before any tool; capabilities follow the current catalog and the role, with what is coming later", async () => {
 	const owner = await actor("owner");
 	const pastoral = await ask(
 		owner,
@@ -238,10 +239,19 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 
 	const can = await ask(owner, "What can you do for me?");
 	assert.equal(await work(), "succeeded");
-	assert.match(
-		(await events(owner, can)).text,
-		/List people in this church[\s\S]*Read one person[\s\S]*review and approval/,
-	);
+	const owned = (await events(owner, can)).text;
+	assert.match(owned, /Find and count the people[\s\S]*Prepare changes to people[\s\S]*review and approve/);
+	const member = await actor("member");
+	const asked = await ask(member, "hi! what are you able to do?");
+	assert.equal(await work(), "succeeded");
+	const memberAnswer = (await events(member, asked)).text;
+	assert.match(memberAnswer, /Find and count the people/);
+	assert.match(memberAnswer, /made by an Owner or Admin of this church/);
+	assert.match(memberAnswer, /Read the Launch plan/);
+	assert.doesNotMatch(memberAnswer, /Coming later/);
+	assert.doesNotMatch(memberAnswer, /Tasks and reminders|Documents and the wiki/);
+	assert.doesNotMatch(memberAnswer, /Prepare (changes|emails)|propose/i);
+	assert.notEqual(memberAnswer, owned);
 	const seatless = await actor("seatless");
 	const none = await ask(seatless, "What can you do for me?");
 	assert.equal(await work(), "succeeded");
@@ -249,6 +259,61 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 		(await events(seatless, none)).text,
 		/own Discovery space[\s\S]*starting a new church[\s\S]*private Discovery space/,
 	);
+	const memberTaskWrites = [
+		"tasks.complete",
+		"tasks.completeOccurrence",
+		"tasks.reopen",
+		"tasks.changeStatus",
+		"tasks.waive",
+		"tasks.bulkComplete",
+		"tasks.createSubtask",
+		"tasks.setSubtaskCompletion",
+		"tasks.reopenObligation",
+		"followups.recordOutcome",
+		"followups.correctOutcome",
+	];
+	const taskWrites = [
+		"tasks.create",
+		"tasks.configureRecurrence",
+		"tasks.edit",
+		"tasks.complete",
+		"tasks.completeOccurrence",
+		"tasks.reopen",
+		"tasks.changeStatus",
+		"tasks.waive",
+		"tasks.delete",
+		"tasks.bulkComplete",
+		"tasks.bulkReschedule",
+		"tasks.createSubtask",
+		"tasks.setSubtaskCompletion",
+		"tasks.removeSubtask",
+		"tasks.createFollowUp",
+		"tasks.assignFollowUp",
+		"tasks.reopenObligation",
+		"followups.recordOutcome",
+		"followups.correctOutcome",
+	];
+	const mailReads = [
+		"communication.list",
+		"communication.preview",
+		"communication.get",
+		"communication.forPerson",
+		"communication.templates.list",
+	];
+	const wikiWrites = ["wiki.bookmarks.set", "wiki.feedback.setMine"];
+	const orgWikiWrites = [
+		"wiki.organizationArticles.add",
+		"wiki.organizationArticles.edit",
+		"wiki.organizationArticles.publish",
+		"wiki.organizationArticles.hide",
+	];
+	const wikiReads = [
+		"wiki.search",
+		"wiki.referenceExcerpt",
+		"wiki.recommendForPhase",
+		"wiki.reading.resume",
+		"wiki.article.exportPdf",
+	];
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -262,6 +327,15 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.deletePerson",
 						"people.setPersonPhoto",
 						"people.removePersonPhoto",
+						"people.createInterview",
+						"people.createAssessment",
+						"people.createCommitment",
+						"people.withdrawCommitment",
+						"people.reactivateCommitment",
+						"people.correctCommitmentLifecycle",
+						"people.correctPersonRecord",
+						"people.mergePeople",
+						"people.unmergePeople",
 						"people.addToHousehold",
 						"people.createHouseholdWithHead",
 						"people.updateHousehold",
@@ -286,11 +360,23 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"communication.rescheduleReviewed",
 						"communication.cancelScheduledReviewed",
 						"communication.replaceScheduledReviewed",
+						"communication.sendReviewed",
+						"communication.executeResend",
+						"communication.retryProvenFailed",
+						"communication.deleteDraft",
+						"communication.templates.create",
+						"communication.templates.fork",
+						"communication.templates.update",
 						"notifications.markSelectedRead",
 						"notifications.markAllVisibleRead",
 						"notifications.setPreferences",
 						"notifications.digestCadence.set",
 						...Object.keys(REVIEWED_WRITES).filter((op) => op.startsWith("teams.")),
+						"phases.declare",
+						"phases.transition",
+						"signals.attest",
+						"signals.correct",
+						"signals.reaffirm",
 						...MEETINGS_WRITES,
 						"seats.invite",
 						"seats.resendInvitation",
@@ -309,6 +395,13 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"identity.answerLeadOnboarding",
 						"onboarding.complete",
 						"feedback.submit",
+						...taskWrites,
+						...wikiWrites,
+						"documents.createFromTemplate",
+						"documents.exportNative",
+						"documents.archive",
+						"documents.designateCoreValues",
+						"documents.importTextOrWord",
 						"launch.schedule",
 						"launch.postpone",
 						"launch.recordOutcome",
@@ -328,6 +421,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"account.finalizeAvatar",
 							"account.requestDeletion",
 							"feedback.submit",
+							...memberTaskWrites,
+							...wikiWrites,
 						]
 					: who === "orgOwner"
 						? [
@@ -336,6 +431,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 								"pipeline.proposeStageMove",
 								"development.saveProgram",
 								"development.draftNextVersion",
+								...orgWikiWrites,
 							]
 						: ["onboarding.createPlant", "discovery.create", "discovery.convertToPlant"],
 		);
@@ -349,6 +445,39 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 			"feedback.getOwnStatus",
 		];
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
+		const memberTaskReads = [
+			"tasks.list",
+			"tasks.count",
+			"tasks.get",
+			"tasks.statusHistory",
+			"tasks.listSubtasks",
+			"tasks.listPrerequisites",
+			"tasks.findOpenOccurrence",
+			"tasks.listFollowUpOwners",
+			"followups.readObligations",
+			"followups.listContactHistory",
+		];
+		const ownerTaskReads = [
+			"tasks.list",
+			"tasks.count",
+			"tasks.get",
+			"tasks.statusHistory",
+			"tasks.listSubtasks",
+			"tasks.listPrerequisites",
+			"tasks.prerequisiteCandidates",
+			"tasks.findOpenOccurrence",
+			"tasks.eligibleAssignees",
+			"tasks.relationOptions",
+			"tasks.listTemplates",
+			"tasks.previewTemplate",
+			"tasks.readPhaseOffer",
+			"tasks.importReceipt",
+			"tasks.listFollowUpOwners",
+			"followups.readObligations",
+			"followups.listContactHistory",
+			"tasks.followUpCoverage",
+			"tasks.planHandoff",
+		];
 		const ownerReads = [...peopleReads, "people.listDuplicatePairs"];
 		const organizationReads = [
 			"people.exportPeople",
@@ -361,6 +490,12 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 			"people.getPipelineData",
 			"people.listHouseholds",
 			"people.listTags",
+		];
+		const documentsReads = [
+			"documents.listOwned",
+			"documents.read",
+			"documents.readCoreValuesEvidence",
+			"documents.templates.list",
 		];
 		assert.deepEqual(
 			operations,
@@ -379,17 +514,40 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.listHouseholds",
 						"people.listTags",
 						"people.previewImport",
+						"people.getInterviews",
+						"people.getAssessments",
+						"people.getCommitments",
+						"people.getCommitmentDownload",
+						"people.getMergeReview",
+						"people.previewUnmerge",
+						"people.listRecordCorrections",
+						"people.mergedPersonDestination",
 						"communication.list",
+						"communication.preview",
+						"communication.get",
+						"communication.forPerson",
+						"communication.templates.list",
+						"communication.resendCandidates",
+						...ownerTaskReads,
 						"notifications.feed",
 						"notifications.preferences.get",
 						"notifications.previewPlanterDigest",
 						...teamsReads,
+						"phases.readCatalog",
+						"phases.readHistory",
+						"phases.readReadiness",
+						"signals.listDefinitions",
+						"signals.getHistory",
 						...MEETINGS_READS,
 						"seats.list",
 						"seats.listInvitations",
 						"privacy.getSharing",
 						"onboarding.getResume",
 						...OVERVIEW_READS,
+						"calendar.getContext",
+						"calendar.resolve",
+						...wikiReads,
+						...documentsReads,
 						"launch.readCountdown",
 						"launch.readWorkspace",
 						"launch.readJournal",
@@ -399,7 +557,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 					? [
 							...peopleReads,
 							...organizationReads,
-							"communication.list",
+							...mailReads,
+							...memberTaskReads,
 							"notifications.feed",
 							"notifications.preferences.get",
 							...teamsReads,
@@ -407,6 +566,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"seats.list",
 							"privacy.getSharing",
 							...OVERVIEW_READS,
+							"calendar.getContext",
+							"calendar.resolve",
+							...wikiReads,
+							...documentsReads,
 							"launch.readCountdown",
 							"launch.readWorkspace",
 							"launch.readDebrief",
@@ -582,20 +745,28 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 	assert.deepEqual(
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
 		[
+			"calendar_read",
 			"communication_read",
 			"dashboard_read",
+			"documents_read",
 			"feedback_read",
+			"followups_read",
 			"launch_read",
 			"meetings_read",
 			"notifications_read",
 			"onboarding_read",
+			"peopleAssessments_read",
 			"peopleOrganization_read",
 			"people_read",
+			"phases_read",
 			"propose_change",
 			"seats_read",
 			"select_returned_rows",
 			"sharing_read",
+			"signals_read",
+			"tasks_read",
 			"teams_read",
+			"wiki_read",
 		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",
 	);
@@ -1118,11 +1289,21 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 	const owner = await actor("owner");
 	await analyze();
 	const turnJob = (id: string) => sql`kind='assistant_turn' AND subject_record_id=${id}`;
-	const observed = async (id: string, ms: number) => {
+	const observed = async (id: string, reads: number) => {
 		const seen = [];
-		const started = Date.now();
-		for await (const e of observeConversation(db, owner, id, 0, AbortSignal.timeout(ms), 20)) seen.push(e);
-		return { seen, ended: Date.now() - started < ms - 200 };
+		const budget = new AbortController();
+		const signal = AbortSignal.any([budget.signal, AbortSignal.timeout(60_000)]);
+		let polled = 0;
+		const count = (text: string) => {
+			if (text.includes("AS run_live") && ++polled > reads) budget.abort();
+		};
+		statementListeners.add(count);
+		try {
+			for await (const e of observeConversation(db, owner, id, 0, signal, 20)) seen.push(e);
+		} finally {
+			statementListeners.delete(count);
+		}
+		return { seen, ended: !signal.aborted };
 	};
 	const cases: [string, (id: string) => Promise<unknown>][] = [
 		[
@@ -1150,7 +1331,7 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 		await lose(id);
 		const { turnId } = (await readConversation(db, owner, id)).run ?? {};
 		assert.deepEqual((await readConversation(db, owner, id)).run, { turnId, state: "lost" }, name);
-		const first = await observed(id, 3_000);
+		const first = await observed(id, 3);
 		assert.ok(first.ended, `${name}: the stream ends instead of polling a dead run`);
 		const end = first.seen.at(-1)!;
 		assert.deepEqual(
@@ -1161,7 +1342,7 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 		assert.equal((await readConversation(db, owner, id)).run, null, name);
 		const job = await admin.execute(sql`SELECT state FROM job WHERE ${turnJob(id)}`);
 		assert.equal(job.rows[0]!.state, "failed", name);
-		const again = await observed(id, 3_000);
+		const again = await observed(id, 3);
 		assert.equal(again.seen.filter((e) => e.kind === "status").length, 1, name);
 		await submitTurn(db, owner, id, { requestKey: randomUUID(), text: "Find Casey again" });
 		assert.equal(await work(), "succeeded", name);
@@ -1169,7 +1350,7 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 
 	const waiting = await ask(owner, "Find Casey");
 	assert.equal((await readConversation(db, owner, waiting)).run?.state, "running");
-	const live = await observed(waiting, 500);
+	const live = await observed(waiting, 3);
 	assert.deepEqual([live.ended, live.seen.map((e) => e.kind)], [false, ["user_message"]]);
 	await assert.rejects(
 		() => submitTurn(db, owner, waiting, { requestKey: randomUUID(), text: "Another" }),

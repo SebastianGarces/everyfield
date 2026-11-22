@@ -1,7 +1,6 @@
-import { getViewer } from "@/server/request-context";
-import { signIn } from "@/server/sign-in";
+import { requireActor } from "@/server/sign-in";
 import { TEXT_TEMPLATE_IDS } from "@everyfield/domain/documents";
-import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import { PageState, Skeleton } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { DocumentsScreen } from "./DocumentsScreen.tsx";
 import { parseQuery } from "./model.ts";
@@ -13,10 +12,9 @@ export const documentsMetadata: Metadata = { title: "Documents", robots: { index
 
 export async function DocumentsPage({ searchParams }: { searchParams: Search }) {
 	const query = parseQuery(params(await searchParams));
-	const viewer = await getViewer();
-	if (viewer.status === "unauthenticated") signIn("/documents");
-	if (viewer.status !== "active" || !viewer.authority) return <Unavailable />;
-	const loaded = await loadDocuments(viewer.authority, query);
+	const authority = await requireActor("/documents");
+	if (!authority) return <Unavailable />;
+	const loaded = await loadDocuments(authority, query);
 	if (loaded.status === "lost") return <Failed />;
 	if (loaded.status === "refused") return <Unavailable />;
 	return (
@@ -25,37 +23,27 @@ export async function DocumentsPage({ searchParams }: { searchParams: Search }) 
 			version={loaded.version}
 			context={loaded.context}
 			canPreview={loaded.canPreview}
-			canEdit={canEditDocuments(viewer.authority)}
+			canEdit={canEditDocuments(authority)}
 			canStore={canStoreDocuments()}
 			textTemplates={TEXT_TEMPLATE_IDS}
-			written={writtenScope(viewer.authority)}
+			written={writtenScope(authority)}
 		/>
 	);
 }
 
 function Unavailable() {
 	return (
-		<>
-			<PageHeader size="xl" title="Documents" />
-			<Card>
-				<StatePanel tone="lock" title="Documents are not available for this account" headingLevel="h2">
-					Sign in with an active account to read the template library.
-				</StatePanel>
-			</Card>
-		</>
+		<PageState page="Documents" tone="lock" title="Documents are not available for this account">
+			Sign in with an active account to read the template library.
+		</PageState>
 	);
 }
 
 function Failed() {
 	return (
-		<>
-			<PageHeader size="xl" title="Documents" />
-			<Card>
-				<StatePanel tone="error" title="We could not load documents" headingLevel="h2">
-					This is a loading problem. Nothing was changed. Try again in a moment.
-				</StatePanel>
-			</Card>
-		</>
+		<PageState page="Documents" tone="error" title="We could not load documents">
+			This is a loading problem. Nothing was changed. Try again in a moment.
+		</PageState>
 	);
 }
 

@@ -4,6 +4,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveAccess, liveRead, liveRows, type RequestActor } from "../access/session.ts";
+import { organizationSeatContext } from "../access/organization-seat.ts";
 import { createLaunchReader, offersTo } from "../launch/reads.ts";
 import { linkActive, type Reader } from "../organizations/core.ts";
 import { areaOf, latestGeography } from "../organizations/geography.ts";
@@ -14,8 +15,7 @@ export { requestIntelligenceRefresh, readIntelligence, submitIntelligenceFeedbac
 
 type Organization = Extract<Owner, { kind: "organization" }>;
 function organizationOf(authority: RequestActor): Organization | null {
-	const context = authority.actor.context;
-	return context.kind === "seat" && context.owner.kind === "organization" ? context.owner : null;
+	return organizationSeatContext(authority)?.owner ?? null;
 }
 const live = (authority: RequestActor) => liveRead(liveAccess(authority));
 

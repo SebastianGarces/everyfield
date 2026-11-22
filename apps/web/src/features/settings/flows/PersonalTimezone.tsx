@@ -5,7 +5,7 @@ import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader }
 import { StatusBadge } from "@everyfield/ui/display";
 import { useState } from "react";
 import type { TimezonePreference } from "../port";
-import type { Outcome, Refusal } from "../save";
+import { refusalFor, type Outcome, type Refusal } from "../save";
 import { SaveError } from "../SaveError";
 import { useFlows } from "../store";
 import { formatInstant, formatLocalDate, nextMonday, zoneLabel } from "../../../components/time.ts";
@@ -75,8 +75,8 @@ export function PersonalTimezone({
 				}}
 				onSettled={(result) => {
 					setPending(null);
-					if (result.ok) onSaved(result.value);
-					else setFailure(result.refusal);
+					if (result.status === "ok") onSaved(result.value);
+					else setFailure(refusalFor(result));
 				}}
 			/>
 		</div>
@@ -112,7 +112,7 @@ function PersonalTimezoneDialog({
 		if (!preview) return;
 		onSaving({ status: "confirmed", timeZone: preview.newZone, revision: preview.expectedRevision });
 		const result = await send();
-		if (result) onSettled(result.ok ? { ok: true, value: result.value.preference } : result);
+		if (result) onSettled(result.status === "ok" ? { status: "ok", value: result.value.preference } : result);
 	};
 
 	return (

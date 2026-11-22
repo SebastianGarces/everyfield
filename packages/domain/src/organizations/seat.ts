@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { liveAccess, liveRead, type RequestActor } from "../access/session.ts";
+import { organizationSeatContext } from "../access/organization-seat.ts";
 import { hash } from "../operations/canonical.ts";
 import { declareWrite, lockedWrite, nativeWrite, WriteUnavailable } from "../operations/writes.ts";
 
@@ -24,8 +25,8 @@ export function refuse(refusal: Refusal = { code: "unavailable" }): never {
 }
 
 export function seatOf(authority: RequestActor) {
-	const context = authority.actor.context;
-	if (context.kind !== "seat" || context.owner.kind !== "organization") return null;
+	const context = organizationSeatContext(authority);
+	if (!context) return null;
 	return {
 		organization: context.owner.id,
 		seatId: context.seatId,
@@ -87,7 +88,7 @@ export async function write<T, R extends Refusal = C.PipelineRefusal>(
 			const administrator = seat.role !== "member";
 			if (administratorOnly && !administrator) refuse();
 			const organization = selected.id;
-			const actor = locked!.actor.accountId;
+			const actor = locked.actor.accountId;
 			const token = hash([organization, actor]);
 			return run({
 				tx,
