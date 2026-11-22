@@ -258,15 +258,13 @@ async function armedKernelWatch(signal: AbortSignal, path: string) {
 	return {
 		async replaced() {
 			try {
-				// Arm the next event before each inode check, so a rename that
-				// lands during the stat still wakes this wait.
 				for (;;) {
-					const next = nextEvent();
+					const eventArmedBeforeCheck = nextEvent();
 					if ((await stat(path)).ino !== before.ino) {
-						next.catch(() => {});
+						eventArmedBeforeCheck.catch(() => {});
 						return;
 					}
-					await next;
+					await eventArmedBeforeCheck;
 				}
 			} finally {
 				watcher.close();
