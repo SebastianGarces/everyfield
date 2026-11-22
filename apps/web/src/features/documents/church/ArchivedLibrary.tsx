@@ -78,8 +78,8 @@ export function ArchivedLibrary({ documents }: { documents: ArchivedChurchSummar
 function ArchivedRow({ doc }: { doc: ArchivedChurchSummary }) {
 	async function restore() {
 		const result: ChurchActionResult | undefined = await restoreChurchDocument(doc.id);
-		if (result?.status === "refused") throw new Error(result.message);
-		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was restored.");
+		if (result?.status === "refused") return { refused: result.message };
+		if (result?.status === "lost") return { refused: "The connection dropped. Nothing was restored." };
 	}
 	return (
 		<li

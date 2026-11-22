@@ -44,8 +44,8 @@ export function RecoverScreen() {
 		if (sent) setSent({ to: sent.to, again: false });
 		const result = await identityApi.requestPasswordRecovery(email);
 		setBusy(false);
-		if (!result.ok) {
-			setRefusal(refusalMessage("recover", result.error));
+		if (result.status !== "ok") {
+			setRefusal(refusalMessage("recover", result));
 			return;
 		}
 		setSent({ to: email, again: sent !== null });
@@ -189,14 +189,14 @@ export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null
 		setBusy(true);
 		const result = await identityApi.recoverPassword({ proof, newPassword, confirmPassword });
 		setBusy(false);
-		if (result.ok) return setState("done");
-		if (result.error.code === "invalid_proof") return setState("expired");
-		if (result.error.code === "invalid_input") {
-			setErrors({ newPassword: refusalMessage("reset", result.error) });
+		if (result.status === "ok") return setState("done");
+		if (result.status === "refused" && result.code === "invalid_proof") return setState("expired");
+		if (result.status === "refused" && result.code === "invalid_input") {
+			setErrors({ newPassword: refusalMessage("reset", result) });
 			newRef.current?.focus();
 			return;
 		}
-		setRefusal(refusalMessage("reset", result.error));
+		setRefusal(refusalMessage("reset", result));
 	}
 
 	return (
@@ -248,9 +248,9 @@ export function VerifyEmailScreen({ proof: linkProof }: { proof: string | null }
 		setRefusal(null);
 		const result = await identityApi.verifyEmail(proof);
 		setBusy(false);
-		if (result.ok) return setState("done");
-		if (result.error.code === "invalid_proof") return setState("expired");
-		setRefusal(refusalMessage("session", result.error));
+		if (result.status === "ok") return setState("done");
+		if (result.status === "refused" && result.code === "invalid_proof") return setState("expired");
+		setRefusal(refusalMessage("session", result));
 	}
 
 	return (

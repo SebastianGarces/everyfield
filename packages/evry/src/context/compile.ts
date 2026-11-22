@@ -119,6 +119,15 @@ function pipelineRules() {
 	].join("\n");
 }
 
+const wikiEditorOnly = (kind: EvryActor["contextKind"]) =>
+	`Only an Owner or Admin of your ${kind === "sending_network" ? "network" : "sending church"} can edit its Wiki. Nothing was prepared.`;
+function wikiEditorRules(kind: EvryActor["contextKind"]) {
+	return [
+		`When the user asks to draft, change, publish or hide your organization's own version of a Wiki article and no tool offers it, prepare nothing and reply: ${wikiEditorOnly(kind)}`,
+		"Prepare one review card for the one step asked, naming the article by its title or key words: wiki.organizationArticles.add for a first draft, wiki.organizationArticles.edit to change one paragraph, wiki.organizationArticles.publish or wiki.organizationArticles.hide. Add or change only the text the user gave, in their own words, and never write Wiki content of your own. When the user asks to add something but gives no text for it, such as a contact's name and email, ask for it and prepare nothing.",
+	].join("\n");
+}
+
 export const LAUNCH_RULES = {
 	ownerOnly:
 		"Only an Owner or Admin can change the Launch plan: move or postpone Launch Sunday, mark a milestone complete or reopen it, record or correct its numbers, name its guests, or submit the debrief or publish the summary. Nothing was prepared.",
@@ -147,6 +156,38 @@ function launchRules() {
 	].join("\n");
 }
 
+export const INTELLIGENCE_RULES = {
+	ownerOnly:
+		"Only an Owner or Admin can ask for a fresh Plant Intelligence assessment or rate its findings, so I can't request one for you. Nothing was requested.",
+	noSpiritualTasks:
+		"I don't turn suggestions about prayer, theology or anyone's spiritual life into tasks. Those stay with your church's leaders.",
+	unclassified: "Until they're classified I can't say whether you're at 30 committed adults.",
+} as const;
+function intelligenceRules() {
+	return [
+		`Committed adults come only from intelligence.readCommittedAdultCohort, the Plant Intelligence screen's own count: a People stage, core group included, is never a commitment. Give the known count and the date it was measured. When exact is null, say how many people with a commitment need an adult or child classification and add: ${INTELLIGENCE_RULES.unclassified} When the criterion is met, say so.`,
+		"For Plant Intelligence, quote the assessment: its standings, findings, the facts each finding cites and what changed, with the date it measured them and a link to [Plant Intelligence](/intelligence). Team health comes from teams.aggregateHealth with its dates. Never give your own opinion of health, never add a finding, and never judge anyone's spiritual maturity. Private weekly check-ins are never read or quoted.",
+		`To turn an assessment suggestion into tasks, read intelligence.readAssessment and then tasks.list with words from the suggestion. When an open task already covers it, name that task and propose nothing. Otherwise propose tasks.create for the practical step only. When the suggestion is about prayer, theology or anyone's spiritual life, propose nothing and reply: ${INTELLIGENCE_RULES.noSpiritualTasks}`,
+		`A refresh or feedback on a finding is a review card (intelligence.requestRefresh, intelligence.submitFeedback). When no tool offers it, prepare nothing and reply: ${INTELLIGENCE_RULES.ownerOnly}`,
+	].join("\n");
+}
+
+export const OVERSIGHT_RULES = {
+	totalsOnly:
+		"Oversight shows totals only, so I can't list a plant's people, or read their notes, interviews or private care. Here is what that plant shares with you:",
+	noRanking: "I don't rank or score plants against each other.",
+	plantRegion: (plant: string, region: string) =>
+		`I can't change that. Only ${plant}'s Owner or Admin can update its location and reporting Region, in their church settings. The Region I'm using now is ${region}. Nothing changed.`,
+} as const;
+function oversightRules() {
+	return [
+		"Plant oversight comes only from oversight.listPlants, oversight.getPlant and organizationIntelligence.read: what this organization's own pages show. A plant that doesn't share Plant Intelligence findings is Not shared, never zero or healthy.",
+		`When the user asks for a plant's people, notes, interviews, care or assessment text, read only that plant's totals with oversight.getPlant and reply first: ${OVERSIGHT_RULES.totalsOnly} Never name a person.`,
+		`Quote Network Intelligence patterns as organizationIntelligence.read gives them, with the plants they name. A pattern always has two or more plants: one plant alone is never a pattern. Never rank or score plants; when asked to, reply: ${OVERSIGHT_RULES.noRanking} Which plants are close to launch comes only from each plant's shared Launch readiness and published summary.`,
+		`A plant's location and reporting Region belong to that plant. When the user asks to change one, read oversight.listPlants, prepare nothing and reply: ${OVERSIGHT_RULES.plantRegion("<the plant>", "<its region from oversight.listPlants>")}`,
+	].join("\n");
+}
+
 function roleRule(actor: EvryActor) {
 	if (actor.role === null)
 		return actor.contextKind === "account"
@@ -158,8 +199,8 @@ function roleRule(actor: EvryActor) {
 			: "invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs";
 	const setup =
 		actor.contextKind === "plant"
-			? ` ${SETUP_RULE} When the user asks to answer the lead question and no tool offers it, prepare nothing and reply: ${LEAD_RULE}\nWhen the user asks to change the Launch plan and no tool offers it, prepare nothing and reply: ${LAUNCH_RULES.ownerOnly}\n${launchRules()}`
-			: `\n${pipelineRules()}`;
+			? ` ${SETUP_RULE} When the user asks to answer the lead question and no tool offers it, prepare nothing and reply: ${LEAD_RULE}\nWhen the user asks to change the Launch plan and no tool offers it, prepare nothing and reply: ${LAUNCH_RULES.ownerOnly}\n${launchRules()}\n${intelligenceRules()}`
+			: `\n${pipelineRules()}\n${wikiEditorRules(actor.contextKind)}\n${oversightRules()}`;
 	return `The user's role here is ${actor.role}. When the user asks for a change none of your tools offers, prepare nothing and say who can make it: Only an Owner or Admin can ${scope}.${setup}`;
 }
 
@@ -214,6 +255,9 @@ const READ_AREAS: Record<string, string> = {
 	dashboard: "Read your church's overview: its numbers, recent activity and what setup still needs.",
 	feedback: "Read the feedback you sent about Everyfield and where each one stands.",
 	launch: "Read the Launch plan: the countdown, milestones, Launch history and Launch Sunday's guests.",
+	intelligence:
+		"Read your Plant Intelligence: committed adults, the scorecard, the latest assessment and what changed.",
+	oversight: "Read how your plants are doing, as your oversight pages show them, and Network Intelligence.",
 };
 const WRITE_AREAS: { prefix: string; text: string }[] = [
 	{
@@ -237,7 +281,11 @@ const WRITE_AREAS: { prefix: string; text: string }[] = [
 		text: "Prepare meeting changes for your review, as your seat allows: scheduling, RSVPs, guests, kits and attendance.",
 	},
 	{ prefix: "phases.", text: "Prepare a phase move or a recorded signal for your review." },
-	{ prefix: "wiki.", text: "Bookmark or rate a Wiki article for your review." },
+	{ prefix: "wiki.bookmarks.", text: "Bookmark or rate a Wiki article for your review." },
+	{
+		prefix: "wiki.organizationArticles.",
+		text: "Prepare your organization's own version of a Wiki article for your review: draft it, change its text, publish it or hide it.",
+	},
 	{
 		prefix: "documents.",
 		text: "Prepare Church Documents for your review: start one from a template, save a file, archive one or mark your core values.",
@@ -249,6 +297,10 @@ const WRITE_AREAS: { prefix: string; text: string }[] = [
 	{ prefix: "launch.", text: "Prepare Launch plan changes for your review, as your seat allows." },
 	{ prefix: "feedback.", text: "Send feedback about Everyfield after you review it." },
 	{ prefix: "pipeline.", text: "Prepare a pipeline stage move or a new program for your review." },
+	{
+		prefix: "intelligence.",
+		text: "Prepare a Plant Intelligence refresh, or your feedback on a finding, for your review.",
+	},
 	{
 		prefix: "onboarding.declareJourney",
 		text: "Prepare your church's setup answers for your review, and finish setup.",
@@ -326,7 +378,7 @@ function taskRules(catalog: Catalog) {
 	const meetings = has("meetings");
 	return [
 		"Tasks and follow-ups: a task row with followUp: true is a person follow-up. When you list tasks, list follow-ups apart and call them follow-ups; never merge them into one count without saying so. Report each task's owners and due date as the row gives them, and an exact total.",
-		'Follow-up owners are accounts. When a follow-up has no owner (needsOwner), say nobody is assigned; never guess or suggest who is following up. Assign only accounts that tasks.eligibleAssignees returns; for a follow-up, only accounts with canOwnFollowUps. If the user names someone who can\'t own follow-ups, say so and ask what to do before preparing any change. "me" names the signed-in user.',
+		'Follow-up owners are accounts. When a follow-up has no owner (needsOwner), say nobody is assigned; never guess or suggest who is following up. Assign only accounts that tasks.eligibleAssignees returns; for a follow-up, only accounts with canOwnFollowUps. When the user names who should own follow-ups, read tasks.eligibleAssignees first, before the people or follow-ups: if a named person can\'t own follow-ups, say so and ask what to do before reading further or preparing any change. "me" names the signed-in user.',
 		"Contact history (followups.listContactHistory) holds only what people recorded. Name who recorded each outcome and when, in the church's time. Only an outcome with conversationHappened: true is a conversation that happened; say an attempt is an attempt and an administrative completion is not a conversation. With no recorded outcome, say that no call is recorded, never that nobody called. You can't read sent emails yet: say so when asked about emails or about who has heard from the church.",
 		meetings
 			? 'Never infer who attended or who came for the first time from pipeline stage. For first-time guests of a meeting, find the meeting (meetings.list window past), read its attendance (meetings.listAttendance: visit "first time"), then its follow-ups (followups.readObligations with its meetingId, state open), and list each first-time guest with an open follow-up and its owners.'
@@ -354,6 +406,9 @@ const estimate = (text: string) => Math.ceil(text.length / 4);
 const TOOL_ALLOWANCE = 1_000;
 
 const NOT_TRACKED = "Everyfield does not track background checks.";
+const PRIVATE_CARE =
+	"Private care, such as care notes about a person, stays in the Everyfield app: no tool reads it. When asked about it, call no tool and look no one up: say private care is only in the app, and never say whether any exists.";
+const EMAIL_HANDOFF = new Set(["communication.saveDraft", "communication.sendReviewed"]);
 
 const when = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
 function outcomeOf(r: ConversationState["reviews"][number]): string {
@@ -455,6 +510,10 @@ export function compileContext(input: {
 			? `The user is ${ROLE_NAME[role]} of this church.${churchWrites ? "" : " Only an Owner or Admin of this church can change people, emails or imports. When the user asks for such a change, tell them an Owner or Admin has to make it, and prepare nothing."}`
 			: "",
 		`${NOT_TRACKED} When asked about something Everyfield does not track, say plainly that Everyfield doesn't track it, and call no tool for it.`,
+		input.actor.contextKind === "plant" ? PRIVATE_CARE : "",
+		input.catalog.reviewedWrites.some((w) => EMAIL_HANDOFF.has(w.operation))
+			? "When the user says to send or save an email you drafted, propose it with the subject and body exactly as you last showed them: change nothing they didn't ask for, and if something in it looks wrong, ask before proposing."
+			: "",
 		unavailable.length
 			? `Not in Evry yet: ${unavailable.map((c) => c.text).join(" ")} When asked for one of these, say plainly that you can't do it yet and name what is missing; don't search other records for it. You may offer what you can do instead, such as the tag or skill with the same name.`
 			: "",
@@ -465,7 +524,7 @@ export function compileContext(input: {
 			? `Before removing people as a group (a stage, a household, a tag or everyone), or changing more than five people at once, read the exact scope, tell the user what it covers and how many people that is, and ask them to confirm before preparing anything. A change the user spelled out for a few people, such as a new address for everyone in one household, needs no confirmation: prepare it. Never prepare more than ${LIMITS.reviewCards} review cards in one turn.`
 			: "",
 		ops.has("calendar.resolve")
-			? 'Before a local date and time goes into a review card, check it with calendar.resolve: if it is ambiguous, ask which of the two times the user means, naming both; if it does not exist that day, say so and ask for another time. Read words like today, Friday or next week against calendar.getContext, and when you can\'t tell which date the user means, such as "the 5th" or "Friday-ish", ask. Name the chosen local date, time and time zone.'
+			? 'Before a local date and time goes into a review card, check it with calendar.resolve: if it is ambiguous, ask which of the two times the user means, naming both; if it does not exist that day, say so and ask for another time. Read words like today, Friday or next week against calendar.getContext, and when you can\'t tell which date the user means, such as "the 5th" or "Friday-ish", ask. A weekday on its own, such as "Thursday\'s meeting", means the next one from today (today if it is that day): use it and don\'t ask which week. Name the chosen local date, time and time zone.'
 			: "",
 		ops.has("people.getActivities")
 			? "For a person's history, read people.getActivities page by page, give each item with the date it happened (occurredAt), and offer the next page when more exist."
@@ -475,7 +534,7 @@ export function compileContext(input: {
 			: "",
 		...taskRules(input.catalog),
 		recordedJudgments(input.catalog),
-		input.catalog.domains.some((d) => d.domain === "wiki") ? WIKI_RULE : "",
+		input.actor.contextKind === "plant" && input.catalog.domains.some((d) => d.domain === "wiki") ? WIKI_RULE : "",
 		...guidance,
 		`Context: ${input.actor.contextKind}. Current time (trusted server clock): ${input.now.toISOString()}.`,
 		describeCatalog(input.catalog),

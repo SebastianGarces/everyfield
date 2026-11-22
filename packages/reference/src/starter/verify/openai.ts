@@ -31,6 +31,7 @@ async function requestBatch(
 	input: readonly string[],
 	key: string,
 	fetchImpl: WikiEmbedFetch,
+	timeoutMs: number | null,
 ): Promise<{ vectors: number[][]; totalTokens: number }> {
 	let response: Response;
 	try {
@@ -41,9 +42,12 @@ async function requestBatch(
 				"content-type": "application/json",
 			},
 			body: JSON.stringify({ model: MODEL, input, encoding_format: "float" }),
+			...(timeoutMs === null ? {} : { signal: AbortSignal.timeout(timeoutMs) }),
 		});
-	} catch {
-		throw new EmbeddingRefusal("openai_request_failed");
+	} catch (error) {
+		throw new EmbeddingRefusal(
+			error instanceof Error && error.name === "TimeoutError" ? "openai_timeout" : "openai_request_failed",
+		);
 	}
 	if (!response.ok) throw new EmbeddingRefusal(`openai_http_${response.status}`);
 	let payload: unknown;
@@ -75,6 +79,7 @@ async function embedMany(
 	texts: readonly string[],
 	env: Record<string, string | undefined>,
 	fetchImpl: WikiEmbedFetch,
+	timeoutMs: number | null,
 ): Promise<{ vectors: number[][]; totalTokens: number }> {
 	const key = env.OPENAI_API_KEY ?? "";
 	if (key.length === 0) throw new EmbeddingRefusal("openai_key_missing");
@@ -82,7 +87,7 @@ async function embedMany(
 	let totalTokens = 0;
 	for (let start = 0; start < texts.length; start += BATCH) {
 		try {
-			const batch = await requestBatch(texts.slice(start, start + BATCH), key, fetchImpl);
+			const batch = await requestBatch(texts.slice(start, start + BATCH), key, fetchImpl, timeoutMs);
 			totalTokens += batch.totalTokens;
 			vectors.push(...batch.vectors);
 		} catch (error) {
@@ -93,10 +98,14 @@ async function embedMany(
 	return { vectors, totalTokens };
 }
 
-export function openAiWikiEmbedding(env: Record<string, string | undefined>, fetchImpl: WikiEmbedFetch = fetch) {
+export function openAiWikiEmbedding(
+	env: Record<string, string | undefined>,
+	fetchImpl: WikiEmbedFetch = fetch,
+	timeoutMs: number | null = null,
+) {
 	return {
 		profile: PROFILE,
 		dimensions: DIMENSIONS,
-		embedMany: (texts: readonly string[]) => embedMany(texts, env, fetchImpl),
+		embedMany: (texts: readonly string[]) => embedMany(texts, env, fetchImpl, timeoutMs),
 	};
 }

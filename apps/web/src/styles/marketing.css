@@ -137,7 +137,7 @@
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {
-		* {
+		:not([data-product-root], [data-product-root] *) {
 			transition: none !important;
 			animation: none !important;
 		}
@@ -431,6 +431,29 @@
 		rgb(from var(--color-ink) r g b / 0.5) 40%,
 		rgb(from var(--color-ink) r g b / 0) 72%
 	);
+}
+
+@custom-variant mk-pinned {
+	@media (width >= 901px) and (prefers-reduced-motion: no-preference) {
+		&:where([data-js] *) {
+			@slot;
+		}
+	}
+}
+
+@utility mk-rail {
+	container-type: inline-size;
+	--rail-top: clamp(148px, 2.5vw + 126px, 162px);
+	--rail-stick: var(--rail-top);
+	--rail-card: clamp(296px, 26vw, 372px);
+	--rail-gap: 16px;
+	--rail-inset: max(var(--spacing-page), calc((100cqw - var(--container-mk)) / 2 + var(--spacing-page)));
+	--rail-from: max(0px, calc(0.55 * 100cqw - var(--rail-inset) - var(--rail-card) - var(--rail-gap)));
+	--rail-to: min(
+		var(--rail-from),
+		calc(100cqw - 2 * var(--rail-inset) - var(--cards) * (var(--rail-card) + var(--rail-gap)) + var(--rail-gap))
+	);
+	--rail-travel: max(0px, calc(var(--rail-from) - var(--rail-to)));
 }
 
 @utility mk-leaders-shade {
