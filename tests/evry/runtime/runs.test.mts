@@ -594,6 +594,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"oversight.listPlants",
 								"oversight.getPlant",
 								"organizationIntelligence.read",
+								"organizationIntelligence.readHistory",
+								"organizationIntelligence.readLocations",
+								"organizationIntelligence.readLocationHistory",
 							]
 						: who === "seatless"
 							? ["discovery.getProfile"]

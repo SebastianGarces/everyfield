@@ -412,6 +412,21 @@ const VIEWS: Record<string, OpView> = {
 		icon: "item",
 		empty: "No pattern: each needs two or more plants with the same finding.",
 	}),
+	"organizationIntelligence.readHistory": items("Network Intelligence by place", {
+		noun: ["row", "rows"],
+		icon: "item",
+		empty: "Network Intelligence hasn't run yet.",
+	}),
+	"organizationIntelligence.readLocations": items("Where your plants are", {
+		noun: ["plant", "plants"],
+		icon: "item",
+		empty: "No plant is linked to this organization yet.",
+	}),
+	"organizationIntelligence.readLocationHistory": items("Saved locations", {
+		noun: ["location", "locations"],
+		icon: "item",
+		empty: "That plant has no saved location here.",
+	}),
 	"development.draftPlan": {
 		title: "Who can direct a program",
 		noun: ["staff member", "staff members"],
@@ -1537,7 +1552,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "item":
 			return {
 				...plain,
-				href: /^(dashboard|feedback)\./.test(operation) ? text(fields.href) : null,
+				href: /^(dashboard|feedback|organizationIntelligence)\./.test(operation) ? text(fields.href) : null,
 				name: row.label,
 				line: itemLine(operation, fields),
 				mark: itemMark(operation, fields),
@@ -2056,6 +2071,20 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 			return joined(`People ${String(f.people)}`, `Tasks ${String(f.tasks)}`, `Launch ${String(f.launch)}`);
 		case "organizationIntelligence.read":
 			return joined(text(f.group), text(f.plants));
+		case "organizationIntelligence.readHistory":
+			return f.row === "run"
+				? f.latest
+					? "Latest run"
+					: "Earlier run"
+				: joined(text(f.change), text(f.level), text(f.group), text(f.plants), text(f.noPattern));
+		case "organizationIntelligence.readLocations":
+			return joined(
+				[f.city, f.stateProvince, f.country].filter((x) => typeof x === "string" && x).join(", ") || null,
+				text(f.region),
+				f.findings === "Not shared" ? "Not shared" : null,
+			);
+		case "organizationIntelligence.readLocationHistory":
+			return joined(text(f.region), text(f.effective) ? `From ${String(f.effective)}` : null);
 		case "launch.readCountdown":
 			return joined(
 				text(f.status),
