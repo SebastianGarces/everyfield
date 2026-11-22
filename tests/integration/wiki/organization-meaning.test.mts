@@ -31,6 +31,15 @@ const api = createWikiProducer();
 
 const axis = (index: number) => Array.from({ length: DIMENSIONS }, (_, at) => (at === index ? 1 : 0));
 const vectorText = (vector: number[]) => `[${vector.join(",")}]`;
+let seed = 552;
+const stored = (vector: number[]) => {
+	const noisy = vector.map((value) => {
+		seed = (seed * 1103515245 + 12345) % 2147483648;
+		return value + (seed / 2147483648 - 0.5) * 0.006;
+	});
+	const norm = Math.hypot(...noisy);
+	return noisy.map((value) => value / norm);
+};
 const mix = (a: number, b: number, weight: number) => {
 	const norm = Math.hypot(weight, 1 - weight);
 	return Array.from({ length: DIMENSIONS }, (_, at) => (at === a ? weight / norm : at === b ? (1 - weight) / norm : 0));
@@ -99,12 +108,17 @@ const QUESTION_VECTORS: Record<string, number[]> = {
 
 type Calls = { count: number; inputs: string[] };
 const counter = (): Calls => ({ count: 0, inputs: [] });
-function provider(table: Record<string, number[]>, calls: Calls, usage = 7): WikiEmbedFetch {
+function provider(
+	table: Record<string, number[]>,
+	calls: Calls,
+	usage = 7,
+	shape = (vector: number[]) => vector,
+): WikiEmbedFetch {
 	return async (_url, init) => {
 		calls.count += 1;
 		const { input } = JSON.parse(String(init.body)) as { input: string[] };
 		calls.inputs.push(...input);
-		const vectors = input.map((text) => table[text]);
+		const vectors = input.map((text) => table[text] && shape(table[text]));
 		if (vectors.some((vector) => !vector)) return new Response("unknown", { status: 500 });
 		return new Response(
 			JSON.stringify({
@@ -115,7 +129,8 @@ function provider(table: Record<string, number[]>, calls: Calls, usage = 7): Wik
 		);
 	};
 }
-const passages = (calls: Calls, usage?: number) => wikiPassageEmbedder(OPENAI, provider(PASSAGE_VECTORS, calls, usage));
+const passages = (calls: Calls, usage?: number) =>
+	wikiPassageEmbedder(OPENAI, provider(PASSAGE_VECTORS, calls, usage, stored));
 const questions = (calls = counter()) => wikiQueryEmbedder(OPENAI, provider(QUESTION_VECTORS, calls));
 const forbidden: WikiEmbedFetch = async () => assert.fail("the provider is never called here");
 
@@ -139,7 +154,7 @@ before(async () => {
 		await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id)
 			VALUES(${revision},${a.id},${GLOBAL},${release},1,${a.title},${a.slug},${a.title},${a.body},'safe_mdx',1,1,${hash()},clock_timestamp(),true,1,${section})`);
 		await admin.execute(sql`INSERT INTO passage(release_id,revision_id,tenant_id,ordinal,content,content_hash,embedding,embedding_checksum)
-			VALUES(${release},${revision},${GLOBAL},0,${a.body},${hash()},${vectorText(a.vector)}::public.vector,${hash()})`);
+			VALUES(${release},${revision},${GLOBAL},0,${a.body},${hash()},${vectorText(stored(a.vector))}::public.vector,${hash()})`);
 	}
 	await admin.execute(sql`INSERT INTO reference_activation(id,release_id,activation_number,activated_at,actor_tombstone,reason,expected_prior_number)
 		VALUES(${randomUUID()},${release},1,clock_timestamp(),'synthetic','test',0)`);
@@ -345,10 +360,9 @@ test("other organizations' passages never crowd a church's own network version o
 			sql`SELECT current_revision_id AS id FROM article_editor_state WHERE organization_id=${N2} AND article_id=${ARTICLES.other.id}`,
 		)
 	).rows[0] as { id: string };
-	const closer = vectorText(mix(0, 11, 0.9));
 	for (let ordinal = 1; ordinal <= 45; ordinal++)
 		await admin.execute(sql`INSERT INTO passage(revision_id,tenant_id,ordinal,content,content_hash,embedding,embedding_checksum)
-			VALUES(${other.id},${N2},${ordinal},${VERSIONS.other},${hash()},${closer}::public.vector,${hash()})`);
+			VALUES(${other.id},${N2},${ordinal},${VERSIONS.other},${hash()},${vectorText(stored(mix(0, 11, 0.9)))}::public.vector,${hash()})`);
 	try {
 		assert.deepEqual(await hits(database.actors.owner, CROWDED), [
 			expected(ARTICLES.coaching, coaching, VERSIONS.coaching),
