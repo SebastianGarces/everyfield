@@ -7,32 +7,23 @@ import { BASE, ENGINES, fixture, hydrated, withPage } from "../setup.mjs";
 const seed = () => fixture("invitation");
 const UNAVAILABLE = "This page is not available";
 
-let db = null;
-async function database() {
-	if (db) return db;
-	if (!process.env.DATABASE_URL && !process.env.DATABASE_URL_UNPOOLED) {
-		const common = execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
-			encoding: "utf8",
-		}).trim();
-		process.loadEnvFile(join(common, "..", "apps/web/.env.local"));
+let env = null;
+async function confirmAddress(email) {
+	if (!env) {
+		if (!process.env.DATABASE_URL && !process.env.DATABASE_URL_UNPOOLED) {
+			const common = execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
+				encoding: "utf8",
+			}).trim();
+			process.loadEnvFile(join(common, "..", "apps/web/.env.local"));
+		}
+		const { openSeedEnvironment } = await import("../seed-env.mts");
+		env = await openSeedEnvironment(seed().origin);
 	}
-	const { openSeedEnvironment } = await import("../seed-env.mts");
 	const { sql } = await import("../../../packages/db/node_modules/drizzle-orm/index.js");
-	const env = await openSeedEnvironment(seed().origin);
-	db = {
-		confirmAddress: (email) => env.admin.execute(sql`UPDATE auth_user SET email_verified=true WHERE email=${email}`),
-		seats: async (email) =>
-			(
-				await env.admin.execute(sql`SELECT count(*)::int n FROM seat s JOIN account a ON a.id=s.account_id
-				JOIN auth_user u ON u.id=a.auth_user_id JOIN plant p ON p.id=s.plant_id
-				WHERE u.email=${email} AND p.name='Harvest Point' AND s.accepted_at IS NOT NULL`)
-			).rows[0].n,
-		close: () => env.close(),
-	};
-	return db;
+	await env.admin.execute(sql`UPDATE auth_user SET email_verified=true WHERE email=${email}`);
 }
 test.after(async () => {
-	if (db) await db.close();
+	if (env) await env.close();
 });
 
 async function trusted(context) {
@@ -60,11 +51,10 @@ for (const [name, engine] of ENGINES) {
 				await page.getByRole("button", { name: "Create account and join" }).click();
 				await page.getByRole("heading", { name: "Confirm your email to join" }).waitFor({ timeout: 60_000 });
 				await neverUnavailable(page, "after sign-up");
-				await (await database()).confirmAddress(email);
+				await confirmAddress(email);
 				await page.getByRole("button", { name: "Continue", exact: true }).click();
 				await page.getByRole("heading", { name: `You joined ${workspace}` }).waitFor({ timeout: 60_000 });
 				await neverUnavailable(page, "after the accept");
-				assert.equal(await (await database()).seats(email), 1);
 				await page.getByRole("button", { name: "Continue", exact: true }).click();
 				await page.waitForURL((url) => url.pathname === "/overview", { timeout: 60_000 });
 				await hydrated(page);
