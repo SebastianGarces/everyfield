@@ -1,14 +1,8 @@
 name: Deploy production
 
-# Production builds here on a free runner, not on Vercel's build machines (T-584). Vercel's own git build for main
-# stays on until a run of this workflow has deployed a main commit and the site served it; then apps/web/vercel.json
-# turns git deployments off for every branch.
-
 on:
   push:
     branches: [main]
-    # A commit deploys when it touches something the build or the running app reads. Later "!" lines win, so
-    # markdown and tests inside these trees, and everything outside them, do not deploy.
     paths:
       - "apps/web/**"
       - "packages/**"
@@ -18,7 +12,6 @@ on:
       - "tsconfig.base.json"
       - "tsconfig.json"
       - "patches/**"
-      # Read by app code outside apps/web and packages: JSON imports and the marketing CSS.
       - "docs/reference/**"
       - "design/handoff/**"
       - "design/marketing-copy.json"
@@ -47,7 +40,6 @@ jobs:
     timeout-minutes: 30
     env:
       NEXT_TELEMETRY_DISABLED: "1"
-      # The CLI reads these from the environment, so the token never appears in a command line or the log.
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
