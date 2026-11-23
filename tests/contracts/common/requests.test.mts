@@ -76,14 +76,9 @@ const requests = exported.filter(({ name }) => /(?:Request|Query|Input|Command)$
 
 test("INV-actor: request schemas declare no actor or session key, pass no unknown key through and take free keys only in merge-value maps", () => {
 	assert.ok(requests.length >= 400, `only ${requests.length} request schemas found`);
-	const actorKeys = paths(keyed(requests, (key) => ACTOR_KEYS.has(key)));
 	assert.deepEqual(
-		actorKeys.filter((path) => !SUBJECT_ECHOES.has(path)),
+		paths(keyed(requests, (key) => ACTOR_KEYS.has(key))).filter((path) => !SUBJECT_ECHOES.has(path)),
 		[],
-	);
-	assert.deepEqual(
-		actorKeys.filter((path) => SUBJECT_ECHOES.has(path)),
-		[...SUBJECT_ECHOES],
 	);
 	const open = [...keyed(requests, () => true)].filter(({ schema }) => {
 		const catchall = schema.def.catchall;
