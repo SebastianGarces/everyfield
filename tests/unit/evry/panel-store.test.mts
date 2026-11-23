@@ -33,6 +33,9 @@ function panelWith(readOther: () => Promise<Awaited<ReturnType<EvryPort["readCon
 			id === OTHER
 				? readOther()
 				: { status: "ok", value: { conversation: conversation(id), run: null, events: [], reviews: {}, more: false } },
+		heldDraft: () => null,
+		holdDraft: () => {},
+		reloadPage: () => {},
 	} as unknown as EvryPort;
 	return createEvryPanelStore({ context: "plant:p", port });
 }

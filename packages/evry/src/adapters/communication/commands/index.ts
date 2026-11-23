@@ -24,10 +24,18 @@ import { meetingOpenSql } from "@everyfield/domain/meetings";
 import { z } from "zod";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import type { EvryActor } from "../../../context/actor.ts";
-import type { EffectResult, MailPort, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
+import {
+	savedInput,
+	savedRevision,
+	type EffectResult,
+	type MailPort,
+	type ReviewContext,
+	type ReviewedWrite,
+} from "../../../proposals/types.ts";
 import { held, resendCandidates, unanswered, untouchedMail } from "../reads/index.ts";
 import {
 	audienceInput,
+	audiencePerson,
 	audienceRefusal,
 	classifiedPeople,
 	leftOutIds,
@@ -86,11 +94,15 @@ const acceptedWindow = (at: SQL): SQL =>
 const withRefusal = (refusal: SQL, review: SQL): SQL =>
 	sql`${review} || CASE WHEN ${refusal} IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('refusal',${refusal}) END`;
 
-const savedArgs = z.object({ expectedRevision: z.string(), input: z.object({ communicationId: z.uuid() }) });
-const savedTime = savedArgs.extend({ input: z.object({ communicationId: z.uuid(), scheduledAt: z.string() }) });
-const savedSchedule = savedArgs.extend({
+const savedDelete = z.strictObject({
+	expectedRevision: z.string(),
+	input: z.strictObject({ communicationId: z.uuid() }),
+});
+const savedCancel = savedDelete.extend({ untouched: z.int() });
+const savedTime = savedCancel.extend({ input: z.strictObject({ communicationId: z.uuid(), scheduledAt: z.string() }) });
+const savedSchedule = savedCancel.extend({
 	leftOut: z.array(z.uuid()),
-	input: z.object({ communicationId: z.uuid(), scheduledAt: z.string(), recipientsDigest: z.string() }),
+	input: z.strictObject({ communicationId: z.uuid(), scheduledAt: z.string(), recipientsDigest: z.string() }),
 });
 const untouched = sql.raw(untouchedMail("c"));
 
@@ -109,7 +121,7 @@ async function recipientOutcomes(db: Database, authority: RequestActor, communic
 				AND m.state NOT IN ('refused','failed')
 			ORDER BY lower(p.display_name) COLLATE "C",p.id`,
 	);
-	return z.array(z.object({ name: z.string(), outcome: recipientOutcome })).parse(r.rows);
+	return z.array(z.strictObject({ name: z.string(), outcome: recipientOutcome })).parse(r.rows);
 }
 
 const draftInput = z.strictObject({
@@ -132,7 +144,7 @@ export const saveDraft: ReviewedWrite<z.infer<typeof draftInput>> = {
 			jsonb_build_object('input',jsonb_build_object('subject',${value.subject}::text,'bodyHtml',${html}::text,'audience',${JSON.stringify(value.audience)}::jsonb)) AS args`;
 	},
 	async execute(tx, context, args, effectKey): Promise<EffectResult> {
-		const { input } = z.object({ input: z.unknown() }).parse(args);
+		const { input } = savedInput.parse(args);
 		return done(await communicationWriter.saveDraft(tx, context, { requestKey: `${effectKey}:draft`, input }));
 	},
 };
@@ -172,7 +184,7 @@ export async function audienceFacts(context: ReviewContext, plantId: string, aud
 	const raw = row.people;
 	const hashes = Object.fromEntries(
 		z
-			.array(z.object({ email: z.string().nullable() }))
+			.array(audiencePerson)
 			.parse(raw)
 			.flatMap((p) => {
 				const address = p.email?.trim().toLowerCase();
@@ -219,7 +231,7 @@ export const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 		);
 		if (!found.rows.length) return null;
 		const draft = z
-			.object({ audience: z.unknown(), body_html: z.string().nullable(), revision: z.string() })
+			.strictObject({ audience: z.unknown(), body_html: z.string().nullable(), revision: z.string() })
 			.parse(found.rows[0]);
 		const facts = await audienceFacts(context, actor.owner.id, audienceInput.parse(draft.audience ?? {}));
 		if (!facts) return null;
@@ -299,7 +311,10 @@ async function moveTime(
 		sql`SELECT c.revision::text AS revision,${iso(sql`c.scheduled_at`)} AS scheduled_at FROM communication c
 			WHERE c.id=${communicationId}::uuid AND c.plant_id=${authority.actor.context.owner.id}::uuid`,
 	);
-	const now = z.object({ revision: z.string(), scheduled_at: z.string().nullable() }).optional().parse(found.rows[0]);
+	const now = z
+		.strictObject({ revision: z.string(), scheduled_at: z.string().nullable() })
+		.optional()
+		.parse(found.rows[0]);
 	const expectedRevision = now?.scheduled_at === scheduledAt ? now.revision : saved.expectedRevision;
 	const moved = await communicationWriter.rescheduleDispatched(
 		db,
@@ -321,10 +336,12 @@ async function moveTime(
 		},
 	};
 }
-const checkedOnly = async (_tx: WriteTx, _context: unknown, args: unknown): Promise<EffectResult> => {
-	const saved = savedArgs.parse(args);
-	return { receiptId: saved.input.communicationId, revision: saved.expectedRevision };
-};
+const checkedOnly =
+	(saved: z.ZodType<{ expectedRevision: string; input: { communicationId: string } }>) =>
+	async (_tx: WriteTx, _context: unknown, args: unknown): Promise<EffectResult> => {
+		const { expectedRevision, input } = saved.parse(args);
+		return { receiptId: input.communicationId, revision: expectedRevision };
+	};
 
 export const reschedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 	operation: "communication.rescheduleReviewed",
@@ -347,7 +364,7 @@ export const reschedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 			FROM communication c WHERE c.id=${value.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid
 				AND c.state='scheduled' AND ${held}>0`;
 	},
-	execute: checkedOnly,
+	execute: checkedOnly(savedTime),
 	reach: (db, authority, args, effectKey, _first, mail) => moveTime(db, authority, args, `${effectKey}:move`, mail),
 	check: (db, authority, args, keys, mail) => moveTime(db, authority, args, `${keys.checkKey}:move`, mail),
 };
@@ -360,7 +377,7 @@ async function cancelStep(
 	requestKey: string,
 	mail: MailPort,
 ): Promise<EffectResult> {
-	const saved = savedArgs.parse(args);
+	const saved = savedCancel.parse(args);
 	const { communicationId } = saved.input;
 	const cancelled = await communicationWriter.cancelScheduledReviewed(
 		db,
@@ -400,7 +417,7 @@ export const cancel: ReviewedWrite<z.infer<typeof cancelInput>> = {
 			FROM communication c WHERE c.id=${value.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid
 				AND c.state='scheduled' AND ${held}>0`;
 	},
-	execute: checkedOnly,
+	execute: checkedOnly(savedCancel),
 	reach: (db, authority, args, effectKey, _first, mail) => cancelStep(db, authority, args, `${effectKey}:cancel`, mail),
 	check: (db, authority, args, keys, mail) => cancelStep(db, authority, args, `${keys.checkKey}:cancel`, mail),
 };
@@ -417,10 +434,10 @@ const replaceInput = z.strictObject({
 	audience: audienceInput.optional().describe("The new audience, when the recipients change"),
 });
 
-const savedReplace = savedArgs.extend({
+const savedReplace = savedCancel.extend({
 	leftOut: z.array(z.uuid()),
 	recipientsDigest: z.string(),
-	input: z.object({
+	input: z.strictObject({
 		communicationId: z.uuid(),
 		subject: z.string(),
 		bodyHtml: z.string(),
@@ -544,7 +561,7 @@ export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 			sql`SELECT c.body_html,c.audience FROM communication c WHERE c.id=${value.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid AND c.state='scheduled'`,
 		);
 		if (!found.rows.length) return null;
-		const before = z.object({ body_html: z.string().nullable(), audience: z.unknown() }).parse(found.rows[0]);
+		const before = z.strictObject({ body_html: z.string().nullable(), audience: z.unknown() }).parse(found.rows[0]);
 		const html = value.body === undefined ? null : paragraphs(value.body);
 		const oldAudience = audienceInput.parse(before.audience ?? {});
 		const facts = await audienceFacts(context, actor.owner.id, value.audience ?? oldAudience);
@@ -594,7 +611,7 @@ export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 		if (!row) throw new Error("The audience query returned no row");
 		return recipientsDigest(row.people) === saved.recipientsDigest ? null : "stale_review";
 	},
-	execute: checkedOnly,
+	execute: checkedOnly(savedReplace),
 	reach: (db, authority, args, effectKey, _first, mail) =>
 		replaceStep(db, authority, args, { cancelKey: `${effectKey}:cancel`, buildKey: effectKey }, mail),
 	check: (db, authority, args, keys, mail) =>
@@ -614,7 +631,7 @@ export async function scheduleNow(
 	const now = await tx.execute(
 		sql`SELECT state,revision::text AS revision FROM communication WHERE id=${communicationId}::uuid AND plant_id=${context.selected.id}::uuid`,
 	);
-	const found = z.object({ state: z.string(), revision: z.string() }).optional().parse(now.rows[0]);
+	const found = z.strictObject({ state: z.string(), revision: z.string() }).optional().parse(now.rows[0]);
 	if (found?.state === "scheduled") return { receiptId: communicationId, revision: found.revision };
 	return done(
 		await communicationWriter.scheduleReviewed(tx, context, {
@@ -696,14 +713,20 @@ const sendInput = z.strictObject({
 	audience: audienceInput.optional(),
 	meetingId: z.uuid().optional().describe("The meeting the email is about, from communication.preview"),
 });
-const savedSend = z.object({
+const savedSend = z.strictObject({
 	expectedRevision: z.string().nullable(),
+	untouched: z.int().optional(),
 	leftOut: z.array(z.uuid()),
 	held: z.number().int(),
 	recipientsDigest: z.string(),
 	input: z.union([
-		z.object({ communicationId: z.uuid() }),
-		z.object({ subject: z.string(), bodyHtml: z.string(), audience: audienceInput, meetingId: z.uuid().nullable() }),
+		z.strictObject({ communicationId: z.uuid() }),
+		z.strictObject({
+			subject: z.string(),
+			bodyHtml: z.string(),
+			audience: audienceInput,
+			meetingId: z.uuid().nullable(),
+		}),
 	]),
 });
 const contentFor = (html: string) => readable(renderBody(html, { name: SAMPLE_NAME, rsvp_link: "" }));
@@ -738,7 +761,7 @@ export const send: ReviewedWrite<z.infer<typeof sendInput>> = {
 			);
 			if (!found.rows.length) return null;
 			const row = z
-				.object({
+				.strictObject({
 					subject: z.string().nullable(),
 					body_html: z.string().nullable(),
 					audience: z.unknown(),
@@ -829,10 +852,12 @@ export async function readReceipt(db: Database, authority: RequestActor, keys: {
 }
 
 const resendInput = z.strictObject({ communicationId: messageId.describe("A sent message id from communication.get") });
-const savedResend = z.object({
+const savedResend = z.strictObject({
+	expectedRevision: z.string(),
+	untouched: z.int(),
 	eligible: z.array(z.uuid()),
 	excluded: z.array(z.uuid()),
-	input: z.object({ communicationId: z.uuid(), selection: z.string() }),
+	input: z.strictObject({ communicationId: z.uuid(), selection: z.string() }),
 });
 type Selection = "delivered_nonopeners" | "proven_failed";
 
@@ -860,7 +885,8 @@ function resendWrite({
 			const found = await context.db.execute(
 				sql`SELECT c.body_html FROM communication c WHERE c.id=${value.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid`,
 			);
-			const html = z.object({ body_html: z.string().nullable() }).optional().parse(found.rows[0])?.body_html ?? "";
+			const html =
+				z.strictObject({ body_html: z.string().nullable() }).optional().parse(found.rows[0])?.body_html ?? "";
 			const content = contentFor(html).replaceAll(SAMPLE_NAME, present(eligible[0]).label);
 			const names = (rows: typeof people, reason: boolean) =>
 				sql`${JSON.stringify(rows.map((r) => (reason ? { name: r.label, reason: r.fields.leftOut } : { name: r.label })))}::jsonb`;
@@ -930,7 +956,7 @@ export const deleteDraft: ReviewedWrite<z.infer<typeof draftId>> = {
 			sql`SELECT c.audience FROM communication c WHERE c.id=${value.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid AND c.state='draft'`,
 		);
 		if (!found.rows.length) return null;
-		const audience = audienceInput.parse(z.object({ audience: z.unknown() }).parse(found.rows[0]).audience ?? {});
+		const audience = audienceInput.parse(z.strictObject({ audience: z.unknown() }).parse(found.rows[0]).audience ?? {});
 		return sql`SELECT jsonb_build_object('target','null'::jsonb,'changes',jsonb_build_array(
 				${change("draft", sql`to_jsonb(coalesce(nullif(c.subject,''),'Untitled draft'))`, sql`NULL::jsonb`)},
 				${change("audience", null, audienceShape(actor.owner.id, audience))})) AS review,
@@ -938,7 +964,7 @@ export const deleteDraft: ReviewedWrite<z.infer<typeof draftId>> = {
 			FROM communication c WHERE c.id=${value.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid AND c.state='draft'`;
 	},
 	async execute(tx, context, args, effectKey): Promise<EffectResult> {
-		const saved = savedArgs.parse(args);
+		const saved = savedDelete.parse(args);
 		return done(
 			await communicationWriter.deleteDraft(tx, context, {
 				requestKey: `${effectKey}:delete`,
@@ -983,7 +1009,7 @@ export const createTemplate: ReviewedWrite<z.infer<typeof createInput>> = {
 				'subject',${value.subject}::text,'bodyHtml',${html}::text)) AS args`;
 	},
 	async execute(tx, context, args, effectKey): Promise<EffectResult> {
-		const { input } = z.object({ input: z.unknown() }).parse(args);
+		const { input } = savedInput.parse(args);
 		return templateDone(
 			await communicationWriter.createTemplate(tx, context, { requestKey: `${effectKey}:template`, input }),
 		);
@@ -1009,7 +1035,7 @@ export const forkTemplate: ReviewedWrite<z.infer<typeof forkInput>> = {
 			jsonb_build_object('input',jsonb_build_object('sourceKey',${source.sourceKey}::text)) AS args`;
 	},
 	async execute(tx, context, args, effectKey): Promise<EffectResult> {
-		const { input } = z.object({ input: z.unknown() }).parse(args);
+		const { input } = savedInput.parse(args);
 		return templateDone(
 			await communicationWriter.forkTemplate(tx, context, { requestKey: `${effectKey}:fork`, input }),
 		);
@@ -1022,7 +1048,7 @@ const updateInput = z.strictObject({
 	subject: z.string().trim().min(1).max(500).optional(),
 	body: z.string().trim().min(1).max(20_000).optional().describe("The new body as plain text"),
 });
-const templateRow = z.object({
+const templateRow = z.strictObject({
 	revision: z.string(),
 	name: z.string(),
 	description: z.string().nullable(),
@@ -1076,7 +1102,7 @@ export const updateTemplate: ReviewedWrite<z.infer<typeof updateInput>> = {
 			jsonb_build_object('expectedRevision',${t.revision}::text,'input',jsonb_build_object('templateId',${value.templateId}::uuid,'patch',${JSON.stringify(patch)}::jsonb)) AS args`;
 	},
 	async execute(tx, context, args, effectKey): Promise<EffectResult> {
-		const saved = z.object({ expectedRevision: z.string(), input: z.unknown() }).parse(args);
+		const saved = savedRevision.parse(args);
 		return templateDone(
 			await communicationWriter.updateTemplate(tx, context, {
 				requestKey: `${effectKey}:template`,

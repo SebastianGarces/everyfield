@@ -2,8 +2,6 @@ import { createDatabase, closeDatabase } from "../../packages/db/src/client.ts";
 import { sql } from "../../packages/db/src/query.ts";
 import { parseArgs } from "node:util";
 import { randomBytes } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
 import { loadControl, readPrivateBytes, readPrivateJson, developmentConnection } from "./control.mts";
 import {
 	migrate as applyVersionedMigration,
@@ -12,7 +10,7 @@ import {
 } from "../../packages/db/src/schema/migrate.ts";
 import { validateCandidate } from "./recovery.mts";
 import { OPERATION, readCurrentManifest, restoreWithCurrentManifest } from "./restore.mts";
-import { COPY_OPERATION, createEncryptedCopy } from "./copy.mts";
+import { BackupDirectory, COPY_OPERATION, createEncryptedCopy } from "./copy.mts";
 import { READINESS_OPERATION, readiness } from "./readiness.mts";
 
 const commands = [
@@ -66,19 +64,7 @@ async function main() {
 	}
 	if (command === "backup-copy") {
 		if (!values.key || !values.out || !values.snapshot === !values.recopy) throw Error("copy_arguments_required");
-		const out = values.out;
-		const safe = (key: string) => {
-			if (!/^copy\/[0-9-]{10}\/[0-9a-f-]{36}\/(manifest\.json|key|database|objects\/[0-9a-f-]{36})$/.test(key))
-				throw Error("copy_key_invalid");
-			return join(out, key);
-		};
-		const store = {
-			put: async (key: string, bytes: Uint8Array) => {
-				await mkdir(dirname(safe(key)), { recursive: true, mode: 0o700 });
-				await writeFile(safe(key), bytes, { mode: 0o600, flag: "wx" });
-			},
-			get: (key: string) => readPrivateBytes(safe(key), SNAPSHOT_LIMIT).catch(() => null),
-		};
+		const store = new BackupDirectory(values.out);
 		let source;
 		if (values.recopy) source = { copy: values.recopy };
 		else {

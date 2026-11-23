@@ -2,11 +2,11 @@
 
 import {
 	Add01Icon,
-	Attachment01Icon,
 	Cancel01Icon,
 	Clock01Icon,
 	Csv01Icon,
 	File02Icon,
+	Image01Icon,
 	Link01Icon,
 	Pdf01Icon,
 	SentIcon,
@@ -45,6 +45,7 @@ import { createRead, useRead } from "@/components/read";
 import * as api from "./api.ts";
 import { Panel } from "./panel.tsx";
 import {
+	churchChanged,
 	endNotice,
 	MAX_MESSAGE,
 	pageReferences,
@@ -59,12 +60,14 @@ import {
 	type Turn,
 } from "./model.ts";
 import { ReviewCard } from "../review/ReviewCard.tsx";
+import { ChurchChanged } from "./ChurchChanged.tsx";
 import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
 import { useRowPhotos } from "./useRowPhotos.ts";
-import { AttachButton, AttachedPhoto } from "./PhotoAttach.tsx";
+import { AttachButton, PhotoChip } from "./PhotoAttach.tsx";
 import { ATTACH, fileSize, isCsv, isPdf, type Picked } from "./attachments.ts";
 import type { Stream } from "./EvryPanel.store.ts";
+import type { Church } from "../review/ReviewCard.store.ts";
 
 const useActions = () => Panel.useSelect((s) => s.actions);
 
@@ -119,6 +122,7 @@ export function EvryPanel({ inPlant, canAttach, context }: { inPlant: boolean; c
 	const chat = Panel.useSelect((s) => s.chat);
 	const load = Panel.useSelect((s) => s.load);
 	const pipeline = Panel.useSelect((s) => s.pipeline);
+	const moved = Panel.useSelect((s) => s.churchChanged);
 	const [chatVisits, setChatVisits] = useState(0);
 	const [{ box, content, stick }] = useState(followEnd);
 	const composer = useRef<HTMLTextAreaElement>(null);
@@ -182,7 +186,7 @@ export function EvryPanel({ inPlant, canAttach, context }: { inPlant: boolean; c
 						ref={composerRef}
 						busy={chat.activeTurnId !== null}
 						stopping={chat.stopping}
-						disabled={load !== "ready"}
+						disabled={load !== "ready" || moved}
 						conversationId={chat.conversation?.id ?? null}
 						canAttach={canAttach}
 						onSend={(text, references) => {
@@ -265,8 +269,10 @@ function Chat({
 	const actions = useActions();
 	const state = Panel.useSelect((s) => s.chat);
 	const load = Panel.useSelect((s) => s.load);
-	const photos = useRowPhotos(turns);
+	const moved = Panel.useSelect((s) => s.churchChanged);
+	const photos = useRowPhotos(turns, moved);
 	const problem = Panel.useSelect((s) => s.problem);
+	const churchNotice = Panel.useSelect((s) => s.churchNotice);
 	const retrying = Panel.useSelect((s) => s.retrying);
 	const announcement = Panel.useSelect((s) => s.announcement);
 	const lastTurn = turns.at(-1);
@@ -306,6 +312,11 @@ function Chat({
 					your approval.
 				</p>
 				{problem ? <Alert role="alert">{problem}</Alert> : null}
+				{churchNotice ? (
+					<ChurchChanged className="w-full text-left" onReload={() => actions.reloadForChurch()}>
+						{churchNotice}
+					</ChurchChanged>
+				) : null}
 			</div>
 		);
 
@@ -318,7 +329,7 @@ function Chat({
 						turn={turn}
 						active={turn.id === state.activeTurnId}
 						stopping={state.stopping}
-						canRetry={turn === lastTurn && retryable(state, turns)}
+						canRetry={turn === lastTurn && !moved && retryable(state, turns)}
 						retrying={retrying}
 						reviews={state.reviews}
 						photos={photos}
@@ -367,6 +378,7 @@ function Chat({
 				</Alert>
 			) : null}
 			{problem ? <Alert role="alert">{problem}</Alert> : null}
+			{churchNotice ? <ChurchChanged onReload={() => actions.reloadForChurch()}>{churchNotice}</ChurchChanged> : null}
 			<div aria-live="polite" className="sr-only">
 				{announcement}
 			</div>
@@ -406,6 +418,13 @@ function TurnView({
 	photos: Readonly<Record<string, string>>;
 	onRetry: () => void;
 }) {
+	const panel = Panel.useStoreApi();
+	const [church] = useState<Church>(() => ({
+		changed: () => panel.getState().churchChanged,
+		refused: (id) => panel.getState().churchRefused === id,
+		leave: (id) => panel.getState().actions.leaveChurch(id),
+		reload: () => panel.getState().actions.reloadForChurch(),
+	}));
 	const notice = endNotice(turn.end);
 	const waiting = active && !turn.blocks.length;
 	const hasAnswer = turn.blocks.length > 0 || waiting || notice;
@@ -454,6 +473,7 @@ function TurnView({
 									proposalId={block.proposalId}
 									target={block.target}
 									seed={reviews[block.proposalId]}
+									church={church}
 								/>
 							),
 						)}
@@ -488,7 +508,9 @@ function TurnView({
 }
 
 function SendView({ send, onResend, onEdit }: { send: Send; onResend: () => void; onEdit: () => void }) {
-	const notice = sendNotice(send);
+	const churchName = Panel.useSelect((s) => s.churchName);
+	const actions = useActions();
+	const notice = sendNotice(send, churchName);
 	return (
 		<li className="flex flex-col items-end gap-2">
 			<UserBubble muted={send.state === "sending"}>
@@ -496,7 +518,11 @@ function SendView({ send, onResend, onEdit }: { send: Send; onResend: () => void
 				{send.text}
 				<SentFiles files={send.attachments} />
 			</UserBubble>
-			{notice ? (
+			{churchChanged(send) ? (
+				<ChurchChanged className="w-full" onReload={() => actions.reloadForChurch(send)}>
+					Reload to use Evry for your new church. Your message comes with you, ready to send.
+				</ChurchChanged>
+			) : notice ? (
 				<div role="alert" className="flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600">
 					<p>{notice}</p>
 					<div className="flex gap-2">
@@ -544,7 +570,6 @@ function Composer({
 	const photo = Panel.useSelect((s) => s.photo);
 	const files = Panel.useSelect((s) => s.files);
 	const fileNotice = Panel.useSelect((s) => s.fileNotice);
-	const picker = useRef<HTMLInputElement>(null);
 	const pathname = usePathname();
 	const [usePage, setUsePage] = useState(true);
 	const page = pageReferences(pathname);
@@ -567,7 +592,8 @@ function Composer({
 			picked.some((p) => p.state === "uploading")
 		)
 			return;
-		const photos = attached?.status === "ready" ? [{ kind: "photo" as const, id: attached.id }] : [];
+		const photos =
+			attached?.status === "ready" && attached.avatarId ? [{ kind: "photo" as const, id: attached.avatarId }] : [];
 		onSend(value, [...(usePage ? page : []), ...photos]);
 	};
 	const onSubmit = (e: FormEvent) => {
@@ -619,7 +645,7 @@ function Composer({
 				onDrop={(e) => {
 					if (!canAttach || disabled || busy || !e.dataTransfer.files.length) return;
 					e.preventDefault();
-					actions.addFiles([...e.dataTransfer.files]);
+					actions.addFiles([...e.dataTransfer.files], canAttach);
 				}}
 				className={cn(
 					"rounded-card bg-surface-raised px-4 pt-3 pb-2.5 shadow-[0_0_0_1px_var(--ef-line-2)] transition-[box-shadow] duration-150",
@@ -628,14 +654,14 @@ function Composer({
 						: "focus-within:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
 				)}
 			>
-				{shown.length ? (
+				{shown.length || photo ? (
 					<ul aria-label="Attached files" className="mb-2 flex flex-wrap gap-2">
+						{photo ? <PhotoChip photo={photo} onRemove={actions.clearPhoto} /> : null}
 						{shown.map((p) => (
 							<FileChip key={p.key} file={p} onRemove={() => actions.removeFile(p.key)} />
 						))}
 					</ul>
 				) : null}
-				{photo ? <AttachedPhoto photo={photo} onRemove={actions.clearPhoto} /> : null}
 				<label className="sr-only" htmlFor={`${hint}-input`}>
 					Message Evry
 				</label>
@@ -663,55 +689,35 @@ function Composer({
 								? fileNotice
 								: busy
 									? "Evry is answering. You can stop it."
-									: uploading
+									: uploading || photo?.status === "uploading"
 										? "Attaching the file…"
 										: shown.length
 											? "Say what Evry should do with the file."
-											: "Enter sends. Shift+Enter adds a line."}
+											: photo?.status === "ready"
+												? "Say what Evry should do with the photo."
+												: "Enter sends. Shift+Enter adds a line."}
 					</p>
 					<div className="flex flex-none items-center gap-1">
-						{canAttach ? (
-							<>
-								<input
-									ref={picker}
-									type="file"
-									accept={ATTACH.accept}
-									multiple
-									hidden
-									onChange={(e) => {
-										actions.addFiles([...(e.target.files ?? [])]);
-										e.target.value = "";
-									}}
-								/>
-								<Tooltip content="Attach a CSV, Word, text or PDF file">
-									<IconButton
-										icon={Attachment01Icon}
-										label="Attach a CSV, Word, text or PDF file"
-										size="sm"
-										disabled={disabled || busy}
-										onClick={() => picker.current?.click()}
-									/>
-								</Tooltip>
-							</>
-						) : null}
+						<AttachButton
+							disabled={disabled || busy}
+							church={canAttach}
+							onFiles={(picked) => actions.addFiles(picked, canAttach)}
+						/>
 						{busy ? (
 							<Button size="sm" variant="secondary" icon={StopIcon} loading={stopping} onClick={onStop}>
 								Stop
 							</Button>
 						) : (
-							<>
-								<AttachButton disabled={disabled} onFile={actions.attach} />
-								<Button
-									type="submit"
-									size="sm"
-									variant="primary"
-									icon={SentIcon}
-									disabled={!canSend}
-									className="w-[34px]"
-								>
-									<span className="sr-only">Send</span>
-								</Button>
-							</>
+							<Button
+								type="submit"
+								size="sm"
+								variant="primary"
+								icon={SentIcon}
+								disabled={!canSend}
+								className="w-[34px]"
+							>
+								<span className="sr-only">Send</span>
+							</Button>
 						)}
 					</div>
 				</div>
@@ -720,7 +726,8 @@ function Composer({
 	);
 }
 
-const fileIcon = (name: string) => (isPdf(name) ? Pdf01Icon : isCsv(name) ? Csv01Icon : File02Icon);
+const fileIcon = (name: string) =>
+	ATTACH.photoName.test(name) ? Image01Icon : isPdf(name) ? Pdf01Icon : isCsv(name) ? Csv01Icon : File02Icon;
 
 function FileChip({ file, onRemove }: { file: Picked; onRemove: () => void }) {
 	return (

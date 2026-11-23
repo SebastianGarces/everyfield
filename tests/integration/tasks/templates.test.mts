@@ -551,9 +551,9 @@ test("AC:TARGET-TSK-016 create, edit and import keep the typed text, drop unsafe
 	assert.equal(normalizeDescription("   \n\t "), "");
 	assert.equal(
 		normalizeDescription(
-			"First line\nsecond line\r\n\r\n- one\n- **two** and *three*\n\n[site](https://example.org) [mail](mailto:a@b.co)",
+			"First line\nsecond line\r\n\r\n- one\n- **two** and *three*\n\n[site](https://example.org) [mail](mailto:a@b.test)",
 		),
-		"First line\nsecond line\n\n- one\n- **two** and *three*\n\n[site](https://example.org) [mail](mailto:a@b.co)",
+		"First line\nsecond line\n\n- one\n- **two** and *three*\n\n[site](https://example.org) [mail](mailto:a@b.test)",
 	);
 	assert.equal(
 		normalizeDescription('<img src=x onerror="alert(1)">Hi <b onclick="x()">there</b>'),

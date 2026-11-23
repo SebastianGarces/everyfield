@@ -22,7 +22,7 @@ const capability = z.strictObject({
 const count = z.union([z.number().int().nonnegative(), z.string().regex(/^\d+$/)]).transform(BigInt);
 const witness = z.looseObject({
 	id: z.uuid(),
-	kind: z.enum(["account", "plant", "seat", "affiliation"]),
+	kind: z.enum(["account", "plant"]),
 	opaque_subject_id: z.uuid(),
 	state: z.enum(deletionMachine.states),
 	request_id: z.uuid().nullable(),

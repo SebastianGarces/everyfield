@@ -166,7 +166,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 					<ul className="mt-1 flex flex-col gap-1">
 						{review.blockers.causes.map((cause) => (
 							<li key={cause}>
-								{blockerText(cause, { source: name("source"), survivor: name("survivor") }, review.blockers.references)}
+								{blockerText(cause, { source: name("source"), survivor: name("survivor") }, review.blockers)}
 							</li>
 						))}
 					</ul>
@@ -229,6 +229,7 @@ function MergeDone({ merged, people }: { merged: Merged; people: Pair["person"][
 	const [problem, setProblem] = useState<string | null>(null);
 	const [undone, setUndone] = useState(false);
 	const [busy, startUndo] = useTransition();
+	const [undoKey] = useState(() => crypto.randomUUID());
 	const nameOf = (id: string) => {
 		const person = people.find((p) => p.id === id);
 		if (!person) throw new Error(`The merged pair has no person ${id}`);
@@ -268,9 +269,11 @@ function MergeDone({ merged, people }: { merged: Merged; people: Pair["person"][
 					onClick={() =>
 						startUndo(async () => {
 							setProblem(null);
-							const answer = await undoMerge(crypto.randomUUID(), merged.mergeId).catch(
-								() => ({ status: "lost" }) as const,
-							);
+							const answer = await undoMerge({
+								requestKey: undoKey,
+								expectedRevision: merged.survivorRevision,
+								input: { mergeId: merged.mergeId },
+							}).catch(() => ({ status: "lost" }) as const);
 							if (answer.status === "ok") setUndone(true);
 							else setProblem(problemText(answer));
 						})
