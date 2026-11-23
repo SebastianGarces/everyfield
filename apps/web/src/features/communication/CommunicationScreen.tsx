@@ -22,7 +22,10 @@ addAddressRule("communication: an unsaved new message starts at Who", (to) => {
 
 export function CommunicationScreen({ data, canWrite }: { data: PageData; canWrite: boolean }) {
 	const address = useAddress();
-	const route = parseRoute(Object.fromEntries(address.params.entries()));
+	const [page, setPage] = useState(address);
+	const here = address.pathname === "/communication";
+	if (here && address !== page) setPage(address);
+	const route = parseRoute(Object.fromEntries((here ? address : page).params.entries()));
 	const [templates, setTemplates] = useState<Template[]>(data.templates);
 	const [banner, setBanner] = useState<string | null>(null);
 
@@ -108,6 +111,7 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 							selected={route.template}
 							onSelect={(id) => go({ kind: "templates", template: id })}
 							churchName={data.churchName}
+							mailingAddress={data.mailingAddress}
 							origin={data.origin}
 						/>
 					) : route.kind === "address" && canWrite ? (
@@ -134,6 +138,7 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 								go({ kind: "compose", id: draft.communicationId, step: "review", handoff: null });
 							}}
 							churchName={data.churchName}
+							mailingAddress={data.mailingAddress}
 							origin={data.origin}
 							banner={banner}
 						/>

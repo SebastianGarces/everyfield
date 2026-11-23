@@ -5,7 +5,7 @@ import {
 	pipelineDuty,
 } from "@everyfield/contracts/access";
 import { owner, type Owner, type sessionId } from "@everyfield/contracts/common";
-import { alias, and, eq, isNull, sql } from "@everyfield/db/query";
+import { alias, and, eq, isNull, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
@@ -21,7 +21,7 @@ export async function readPipelinePerson(
 	raw: unknown,
 ) {
 	const input = organizationPersonRequest.safeParse(raw);
-	const unavailable = () => pipelineAccessResult.parse({ status: "unavailable" });
+	const unavailable = () => ({ status: "unavailable" }) satisfies z.output<typeof pipelineAccessResult>;
 	if (!input.success || selected.kind !== "organization") return unavailable();
 	const actor = await currentActor(tx, session, selected, false);
 	if (actor.status !== "active" || actor.context.kind !== "seat") return unavailable();
@@ -83,14 +83,15 @@ export async function readPipelinePerson(
 
 	if (director.length) duties.push({ kind: "program_director", canReadStaffNotes: false });
 	return duties.length
-		? pipelineAccessResult.parse({ status: "allowed", organization: selected, personId: input.data.personId, duties })
+		? ({ status: "allowed", organization: selected, personId: input.data.personId, duties } satisfies z.output<
+				typeof pipelineAccessResult
+			>)
 		: unavailable();
 }
 
 export const liveResidency = sql<boolean>`(l.ended_at IS NULL AND l.accepted_at<=clock_timestamp()
  AND EXISTS(SELECT FROM affiliation a WHERE a.id=l.affiliation_id AND a.organization_id=l.organization_id
-  AND a.account_id=l.account_id AND a.ended_at IS NULL AND a.accepted_at<=clock_timestamp()
-  AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.affiliation_id=a.id AND w.state NOT IN ('active','cancelled')))
+  AND a.account_id=l.account_id AND a.ended_at IS NULL AND a.accepted_at<=clock_timestamp())
  AND EXISTS(SELECT FROM invitation i WHERE i.id=l.invitation_id AND i.tenant_id=l.organization_id
   AND i.accepted_account_id=l.account_id AND i.state='accepted' AND i.purpose='residency_link' AND i.resident_person_id=l.person_id)
  AND EXISTS(SELECT FROM person p WHERE p.id=l.person_id AND p.tenant_id=l.organization_id
@@ -126,14 +127,25 @@ export async function readOwnResidency(
 		)
 	).rows;
 
-	if (links.length !== 1) return null;
+	const [link] = links;
+	if (links.length !== 1 || !link) return null;
 	return ownResidencyProjection.parse({
 		organization,
 		personId: input.data.personId,
-		linkId: links[0]!.id,
-		revision: links[0]!.revision,
+		linkId: link.id,
+		revision: link.revision,
 	});
 }
+
+export const ownResidency = (
+	session: z.infer<typeof sessionId>,
+	account: Owner,
+	link: { organizationId: SQL; personId: SQL },
+) => sql<boolean>`(EXISTS(SELECT FROM organization ro JOIN tenant rt ON rt.id=ro.id WHERE ro.id=${link.organizationId}
+  AND rt.kind='organization' AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=ro.id
+   AND w.kind='organization' AND w.state NOT IN ('active','cancelled')))
+ AND (SELECT count(*) FROM residency_link l WHERE l.organization_id=${link.organizationId} AND l.person_id=${link.personId}
+  AND l.account_id=${account.id}::uuid AND ${liveResidency} AND ${liveRead({ session, owner: account })})=1)`;
 
 const isAdministrator = (actor: { context: { kind: string; role?: string } }) =>
 	actor.context.kind === "seat" && actor.context.role !== "member";

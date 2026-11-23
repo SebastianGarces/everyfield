@@ -166,10 +166,10 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 			const lock = milestoneLock.parse(rows[0]);
 			if (lock.prior) {
 				const stored = storedMilestone.parse(replay(lock.prior, identity));
-				return c.milestoneResult.parse({
+				return {
 					outcome: stored.outcome,
 					milestone: milestoneOf(stored.milestone, stored.practices),
-				});
+				} satisfies z.output<typeof c.milestoneResult>;
 			}
 			if (!lock.ok || !lock.milestone) deny("access_denied");
 			const m = milestoneOf(lock.milestone, lock.practices);

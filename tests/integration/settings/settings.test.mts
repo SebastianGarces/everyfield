@@ -1,5 +1,5 @@
 import "../platform/setup.mts";
-import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
@@ -17,8 +17,8 @@ import { issueRestrictedDeletionSession } from "../../../packages/domain/src/set
 import { settingsApi } from "./settings-api.mts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
-import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { enqueueJob, queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/seats.ts";
@@ -136,7 +136,9 @@ before(async () => {
 			return sql`UPDATE job SET state='superseded' WHERE subject_record_id=${sql.param(i.sourceId)} AND kind='digest' AND state='ready'`;
 		},
 	};
-	const organizations = createOrganizationAdapter(organizationEffects, { candidates: async () => [] });
+	const organizations = createOrganizationAdapter(organizationEffects, {
+		candidates: () => sql`SELECT NULL::uuid WHERE false`,
+	});
 	const credentials = createAccountCredentials({
 		db,
 		authDb,
@@ -377,7 +379,7 @@ test("AC:TARGET-IDN-031 AC:TARGET-IDN-032 AC:TARGET-TSK-018 personal zones canon
 	assert.equal(ok(await section(a, { section: "account" })).personalTimezone.timeZone, "America/Chicago");
 });
 
-test("INV-private-calendar: revoked seat keeps its personal preference but cannot invoke the author calendar", async () => {
+test("INV-private-calendar: ended seat keeps its personal preference but cannot invoke the author calendar", async () => {
 	const f = await plant();
 	const calls = { preview: 0, apply: 0 };
 	const producer = settingsApi({
@@ -405,16 +407,7 @@ test("INV-private-calendar: revoked seat keeps its personal preference but canno
 	const first = ok(await preview("America/New_York"));
 	assert.equal(ok(await apply(first)).preference.timeZone, "America/New_York");
 	assert.deepEqual(calls, { preview: 1, apply: 1 });
-	const [seat] = await admin.select().from(t.seat).where(eq(t.seat.account_id, f.a.id));
-	await admin.insert(t.lifecycle_witness).values({
-		kind: "seat",
-		opaque_subject_id: seat.id,
-		seat_id: seat.id,
-		request_revision: "1",
-		state: "revoked",
-		witness_checkpoint: "1",
-		cleanup_state: "not_started",
-	});
+	await admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.account_id, f.a.id));
 	const next = ok(await preview("Europe/Paris"));
 	assert.deepEqual(ok(await apply(next)).preference, { status: "confirmed", timeZone: "Europe/Paris", revision: "3" });
 	assert.deepEqual(calls, { preview: 1, apply: 1 });
@@ -1521,9 +1514,9 @@ test("AC:TARGET-TSK-018 frozen schedule previews disclose fold/gap policy and ig
 });
 
 test("AC:TARGET-IDN-012 exact task preference reaches enqueue and dispatch; church digest OFF stops owed delivery", async () => {
-	const { createNotificationService } = await import("../../../apps/web/src/server/jobs/notifications.ts");
-	const { createDigestWorker, planDigests } = await import("../../../apps/web/src/server/jobs/digest.ts");
-	const { claimDue } = await import("../../../apps/web/src/server/jobs/queue.ts");
+	const { createNotificationService } = await import("../../../packages/domain/src/jobs/notifications.ts");
+	const { createDigestWorker, planDigests } = await import("../../../packages/domain/src/jobs/digest.ts");
+	const { claimDue } = await import("../../../packages/domain/src/jobs/queue.ts");
 	const f = await plant(),
 		task = randomUUID();
 	await insertTasks(admin, [
@@ -1911,7 +1904,6 @@ test("INV-authority: a settings read checks seat, role, session and lifecycle ag
 		{ section: "teams", plant: f.p, teamId: team.id },
 		{ section: "affiliations", plant: f.p, organization: org.o },
 	];
-	const seatOf = async (a) => (await admin.select().from(t.seat).where(eq(t.seat.account_id, a.id)))[0];
 	const cases = [
 		[
 			"admin downgraded to member",
@@ -1924,23 +1916,6 @@ test("INV-authority: a settings read checks seat, role, session and lifecycle ag
 			() => seat(f.p),
 			church,
 			(a) => admin.update(t.seat).set({ ended_at: new Date(), revision: "2" }).where(eq(t.seat.account_id, a.id)),
-		],
-		[
-			"admin seat revoked by a lifecycle witness",
-			() => seat(f.p),
-			church,
-			async (a) => {
-				const s = await seatOf(a);
-				await admin.insert(t.lifecycle_witness).values({
-					kind: "seat",
-					opaque_subject_id: s.id,
-					seat_id: s.id,
-					request_revision: "1",
-					state: "revoked",
-					witness_checkpoint: "1",
-					cleanup_state: "not_started",
-				});
-			},
 		],
 		[
 			"organization seat removed",
@@ -2118,6 +2093,137 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 	const fresh = await login(a);
 	assert.notEqual(await viewerOf(fresh), null);
 	ok(await section(fresh, { section: "account" }));
+});
+
+test("INV-statements: settings writes lock their related rows in one statement each", async () => {
+	instrument(db);
+	const counted = async (body) => {
+		statements.length = 0;
+		recording = true;
+		try {
+			return { value: await body(), count: statements.length };
+		} finally {
+			recording = false;
+		}
+	};
+	const calls = { preview: 0, apply: 0 };
+	const producer = settingsApi({
+		...producerDeps,
+		personalCalendar: {
+			preview: async () => void calls.preview++,
+			apply: async () => !!++calls.apply,
+		},
+	});
+	const owner = await credentialActor();
+	const f = await plant(owner);
+	const solo = await credentialActor();
+	await credentialSeat(f.p, "member");
+	await admin.insert(t.task).values({
+		id: randomUUID(),
+		plant_id: f.p.id,
+		title: "Future task",
+		category: "general",
+		priority: "medium",
+		status: "not_started",
+		created_at: new Date(),
+		due_kind: "date_only",
+		due_date: "2099-01-15",
+	});
+	const run = (body, selected = undefined) =>
+		counted(async () => ok(await gatedTransaction(db, (tx) => body(tx, ctx(owner, selected)))));
+
+	const personal = await run((tx, c) => producer.previewPersonalTimezone(tx, c, { timeZone: "Europe/Paris" }));
+	const personalSet = await run((tx, c) =>
+		producer.setPersonalTimezone(
+			tx,
+			c,
+			command({ timeZone: "Europe/Paris", previewId: personal.value.previewId, confirmed: true }, "1"),
+		),
+	);
+	assert.deepEqual(personalSet.value.preference, { status: "confirmed", timeZone: "Europe/Paris", revision: "2" });
+	assert.deepEqual(calls, { preview: 1, apply: 1 });
+	const seatless = await gatedTransaction(db, (tx) =>
+		producer.previewPersonalTimezone(tx, ctx(solo), { timeZone: "Asia/Tokyo" }),
+	);
+	ok(
+		await gatedTransaction(db, (tx) =>
+			producer.setPersonalTimezone(
+				tx,
+				ctx(solo),
+				command({ timeZone: "Asia/Tokyo", previewId: ok(seatless).previewId, confirmed: true }, "1"),
+			),
+		),
+	);
+	assert.deepEqual(calls, { preview: 1, apply: 1 });
+
+	const church = await run(
+		(tx, c) => producer.previewPlantTimezone(tx, c, { plant: f.p, timeZone: "America/New_York" }),
+		f.p,
+	);
+	const churchSet = await run(
+		(tx, c) =>
+			producer.setPlantTimezone(
+				tx,
+				c,
+				command(
+					{ plant: f.p, timeZone: "America/New_York", previewId: church.value.previewId },
+					church.value.expectedRevision,
+				),
+			),
+		f.p,
+	);
+	assert.equal(churchSet.value.status, "changed");
+
+	const [root] = await admin.select().from(t.plant).where(eq(t.plant.id, f.p.id));
+	const viewer = await viewerOf(owner);
+	const requested = await counted(async () =>
+		ok(
+			await withSettingsWrite(db, viewer.authority, ctx(owner, f.p), (tx) =>
+				producer.requestWorkspaceDeletion(tx, ctx(owner, f.p), command({ plant: f.p, confirmed: true }, root.revision)),
+			),
+		),
+	);
+	assert.equal(requested.value.status, "pending_deletion");
+	const opened = await openWorkspace(owner);
+	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
+	const cancel = () =>
+		gatedTransaction(db, (tx) =>
+			producer.cancelWorkspaceDeletion(tx, opened.value.session, command(request, requested.value.revision)),
+		);
+	const [ownerSeat] = await admin.select().from(t.seat).where(eq(t.seat.account_id, owner.id));
+	await admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, ownerSeat.id));
+	denied(await cancel());
+	await admin.update(t.seat).set({ ended_at: null }).where(eq(t.seat.id, ownerSeat.id));
+	const cancelled = await counted(async () => ok(await cancel()));
+	assert.equal(cancelled.value.status, "cancelled");
+
+	const [account] = await admin.select().from(t.account).where(eq(t.account.id, solo.id));
+	const pending = ok(await call("requestAccountDeletion", solo, command({ confirmed: true }, account.revision)));
+	const openedAccount = await counted(() =>
+		producerDeps.credentials.openAccountDeletion({ email: solo.email, password: solo.password }, null),
+	);
+	assert.equal(openedAccount.value.status, "ok");
+	assert.deepEqual(openedAccount.value.value.subject, { kind: "account", id: solo.id });
+	assert.equal(openedAccount.value.value.requestId, pending.requestId);
+
+	assert.deepEqual(
+		{
+			previewPersonalTimezone: personal.count,
+			setPersonalTimezone: personalSet.count,
+			setPlantTimezone: churchSet.count,
+			requestWorkspaceDeletion: requested.count,
+			cancelWorkspaceDeletion: cancelled.count,
+			openAccountDeletion: openedAccount.count,
+		},
+		{
+			previewPersonalTimezone: 7,
+			setPersonalTimezone: 9,
+			setPlantTimezone: 9,
+			requestWorkspaceDeletion: 8,
+			cancelWorkspaceDeletion: 8,
+			openAccountDeletion: 5,
+		},
+	);
 });
 
 test("INV-account-revision people/peo-3: Your account and notifications share one revision; a save in one moves the other's and the old revision is refused", async () => {

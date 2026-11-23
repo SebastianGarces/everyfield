@@ -2,10 +2,13 @@
 
 import { Button, SegmentedControl } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
+import { UNREADABLE_DOCUMENT } from "@everyfield/contracts/people";
 import { useId, useState, type ReactNode } from "react";
 import type { Outcome } from "../../../components/save/model.ts";
 import { problemText } from "../parts.tsx";
 import { withCorrections, withRecord } from "./model.ts";
+import { READ_FAILED } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
 export function recordProblem(code: string): string {
 	switch (code) {
@@ -16,7 +19,7 @@ export function recordProblem(code: string): string {
 		case "storage_unavailable":
 			return "Document storage is not set up yet. Save without the document, or try again later.";
 		case "unreadable_document":
-			return "This file could not be read as a PDF, JPG or PNG. Choose another file of 10 MB or less.";
+			return UNREADABLE_DOCUMENT;
 		case "upload_failed":
 			return "The document did not upload, and nothing was saved. Try again in a moment.";
 		case "upload_lost":
@@ -62,7 +65,7 @@ export function ChoiceField<V extends string>({
 					)}
 				/>
 			</div>
-			<div aria-live="polite" className="empty:hidden">
+			<div aria-live="polite" className="empty:sr-only">
 				{error ? (
 					<p id={`${id}-error`} className="text-xs font-medium text-magenta-600">
 						{error}
@@ -73,14 +76,22 @@ export function ChoiceField<V extends string>({
 	);
 }
 
-export function ShowEarlier({ loading, failed, onClick }: { loading: boolean; failed: boolean; onClick: () => void }) {
+export function ShowEarlier({
+	loading,
+	failed,
+	onClick,
+}: {
+	loading: boolean;
+	failed: "lost" | "failed" | null;
+	onClick: () => void;
+}) {
 	return (
 		<div className="mt-2 flex flex-wrap items-center gap-3">
 			<Button size="sm" variant="ghost" loading={loading} onClick={onClick}>
 				Show earlier
 			</Button>
-			<span aria-live="polite" className="text-xs text-text-3 empty:hidden">
-				{failed ? "Earlier records did not load. Try again." : ""}
+			<span aria-live="polite" className="text-xs text-text-3 empty:sr-only">
+				{failed === "failed" ? READ_FAILED : failed ? "Earlier records did not load. Try again." : ""}
 			</span>
 		</div>
 	);
@@ -96,11 +107,11 @@ type Dated = { id: string; occurredOn: string; recordedAt: string };
 
 export function useHistory<R extends Dated & { revision: string }>(
 	initial: Page<R> | null,
-	load: (page: number) => Promise<Outcome<Page<R>>>,
+	load: (page: number) => Promise<Outcome<Page<R>> | ReadFailure>,
 	pushed: readonly R[] = [],
 ) {
 	const [page, setPage] = useState<Page<R>>(initial ?? { items: [], next: null, total: 0 });
-	const [state, setState] = useState<"idle" | "loading" | "failed">("idle");
+	const [state, setState] = useState<"idle" | "loading" | "lost" | "failed">("idle");
 	const add = (record: R) =>
 		setPage((p) => ({
 			...p,
@@ -112,7 +123,7 @@ export function useHistory<R extends Dated & { revision: string }>(
 		if (next === null || state === "loading") return;
 		setState("loading");
 		const r = await load(next).catch((): Outcome<Page<R>> => ({ status: "lost" }));
-		if (r.status !== "ok") return setState("failed");
+		if (r.status !== "ok") return setState(r.status === "failed" ? "failed" : "lost");
 		setState("idle");
 		setPage((p) => ({
 			items: [...p.items, ...r.value.items.filter((x) => !p.items.some((y) => y.id === x.id))],
@@ -121,5 +132,13 @@ export function useHistory<R extends Dated & { revision: string }>(
 		}));
 	}
 	const items = withCorrections(page.items, pushed);
-	return { ...page, items, setPage, add, more, loading: state === "loading", failed: state === "failed" };
+	return {
+		...page,
+		items,
+		setPage,
+		add,
+		more,
+		loading: state === "loading",
+		failed: state === "lost" || state === "failed" ? state : null,
+	};
 }

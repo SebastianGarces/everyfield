@@ -1,48 +1,15 @@
-import type { Database } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { counted } from "@everyfield/contracts/common";
+import { sql } from "@everyfield/db/query";
 import { programKind, programPlan, programRhythm, type ProgramDetail } from "@everyfield/contracts/organizations";
-import type { RequestActor } from "@everyfield/domain/access";
 import { pipelineWriter, programWriter, readProgram } from "@everyfield/domain/organizations";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
-import { change, organizationAdmin, organizationSeat, target } from "../../native.ts";
+import { approvedNow, change, organizationSeat, target } from "../../native.ts";
 
 const settled = (
 	reply: { status: "ok"; value: { revision: string } } | { status: "refused"; refusal: { code: string } },
 ) => (reply.status === "ok" ? { revision: reply.value.revision } : { refused: reply.refusal.code });
-
-function approvedNow<I>(spec: {
-	operation: string;
-	description: string;
-	input: z.ZodType<I>;
-	allowed?: (actor: EvryActor) => boolean;
-	review: ReviewedWrite<I>["review"];
-	reason: boolean;
-	run(
-		db: Database,
-		authority: RequestActor,
-		args: Record<string, unknown>,
-		reason: string | null,
-	): Promise<EffectResult>;
-	current?(p: SQL): SQL;
-}): ReviewedWrite<I> {
-	return {
-		operation: spec.operation,
-		description: spec.description,
-		input: spec.input,
-		allowed: spec.allowed ?? organizationAdmin,
-		review: spec.review,
-		execute: async () => ({ refused: "review_closed" }),
-		approveNow: {
-			reason: spec.reason,
-			run: (db, authority, args, reason) => spec.run(db, authority, args as Record<string, unknown>, reason),
-		},
-		...(spec.current && { current: spec.current }),
-	};
-}
 
 export const proposeStageMove = approvedNow({
 	operation: "pipeline.proposeStageMove",
@@ -91,8 +58,8 @@ const planInput = z.strictObject({
 		)
 		.max(100),
 });
-const monthsText = (n: number) => `${n} ${n === 1 ? "month" : "months"}`;
-const rangeText = (min: number, max: number) => (min === max ? monthsText(min) : `${min}–${monthsText(max)}`);
+const rangeText = (min: number, max: number) =>
+	min === max ? counted(min, "month") : `${min}–${counted(max, "month")}`;
 
 export const saveProgram = approvedNow({
 	operation: "development.saveProgram",
@@ -124,7 +91,7 @@ export const saveProgram = approvedNow({
 		return sql`SELECT jsonb_build_object('target',${target("organization", sql`o.id`, sql`${value.name}::text`)},
 				'changes',jsonb_build_array(${after("programKind", KIND_TEXT[value.kind])},${after("name", value.name)},
 					jsonb_build_object('field','director','before',NULL,'after',coalesce(i.display_name,'Staff')),
-					${after("expectedLength", monthsText(value.expectedMonths))},${after("rhythm", RHYTHM_TEXT[value.rhythm])},
+					${after("expectedLength", counted(value.expectedMonths, "month"))},${after("rhythm", RHYTHM_TEXT[value.rhythm])},
 					${after(
 						"stages",
 						value.stages.map((s) => `${s.label}, ${rangeText(s.minMonths, s.maxMonths)}`),
@@ -191,9 +158,14 @@ export function nextVersionReview(program: ProgramDetail, value: NextPlan) {
 		readings: base.readings.map((r) => ({ revisionId: r.revisionId })),
 	});
 	if (!plan.success) throw new EvryRefusal("invalid_input");
+	const baseOf = (lineage: string) => {
+		const was = byLineage.get(lineage);
+		if (!was) throw new Error("A kept milestone has no base milestone");
+		return was;
+	};
 	const kept = milestones.filter((m) => byLineage.has(m.lineage));
 	const edited = kept.filter((m) => {
-		const was = byLineage.get(m.lineage)!;
+		const was = baseOf(m.lineage);
 		return was.title !== m.title || was.description !== m.description || was.handsOn !== m.handsOn;
 	});
 	const added = milestones.filter((m) => !byLineage.has(m.lineage));
@@ -209,8 +181,8 @@ export function nextVersionReview(program: ProgramDetail, value: NextPlan) {
 			? [
 					{
 						field: "expectedLength",
-						before: monthsText(base.expectedMonths),
-						after: monthsText(value.plan.expectedMonths),
+						before: counted(base.expectedMonths, "month"),
+						after: counted(value.plan.expectedMonths, "month"),
 					},
 				]
 			: []),
@@ -222,7 +194,7 @@ export function nextVersionReview(program: ProgramDetail, value: NextPlan) {
 			? [
 					{
 						field: "changedMilestones",
-						before: edited.map((m) => byLineage.get(m.lineage)!.title),
+						before: edited.map((m) => baseOf(m.lineage).title),
 						after: edited.map((m) => m.title),
 					},
 				]
@@ -232,7 +204,7 @@ export function nextVersionReview(program: ProgramDetail, value: NextPlan) {
 			? [
 					{
 						field: "milestoneOrder",
-						before: keptOrder.map((l) => byLineage.get(l)!.title),
+						before: keptOrder.map((l) => baseOf(l).title),
 						after: kept.map((m) => m.title),
 					},
 				]
@@ -242,7 +214,7 @@ export function nextVersionReview(program: ProgramDetail, value: NextPlan) {
 	const stays = [
 		...(base.rhythm === value.plan.rhythm ? [`Meets: ${RHYTHM_TEXT[base.rhythm]}`] : []),
 		...(base.expectedMonths === value.plan.expectedMonths
-			? [`Expected length: ${monthsText(base.expectedMonths)}`]
+			? [`Expected length: ${counted(base.expectedMonths, "month")}`]
 			: []),
 		...(sameStages ? [`Stages: ${list(base.stages.map(stageText))}`] : []),
 		...(same.length

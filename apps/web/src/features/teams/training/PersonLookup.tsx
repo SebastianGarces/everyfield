@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { Certificate01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -17,7 +18,7 @@ import { useState } from "react";
 import { localToday } from "../../../components/clock.ts";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { PersonPicker } from "../../meetings/dialogs.tsx";
-import { dayText, plural } from "../model.ts";
+import { dayText } from "../model.ts";
 import { loadPersonTraining } from "../fetch.ts";
 import {
 	latestByProgram,
@@ -29,8 +30,11 @@ import {
 	type PersonLoad,
 	type ShownProgram,
 } from "./model.ts";
+import { loadProblem, failedIcon } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
-type PersonRead = { status: "ok"; value: PersonLoad } | { status: "lost" };
+type Loaded = { [K in keyof PersonLoad]: PersonLoad[K] | ReadFailure };
+type PersonRead = { status: "ok"; value: Loaded } | { status: "lost" };
 
 const personTraining = createRead(
 	({ personId }: { personId: string; tick: number }): Promise<PersonRead> =>
@@ -128,7 +132,7 @@ function PersonResult({
 	onRetry,
 }: {
 	person: { id: string; name: string };
-	load: PersonLoad;
+	load: Loaded;
 	programs: readonly ShownProgram[];
 	canRecordService: boolean;
 	canWrite: (program: ShownProgram) => boolean;
@@ -146,6 +150,7 @@ function PersonResult({
 				<StatePanel
 					tone="error"
 					title="The summary did not load"
+					icon={failedIcon(summary)}
 					headingLevel="h3"
 					actions={
 						<Button variant="secondary" onClick={onRetry}>
@@ -153,7 +158,9 @@ function PersonResult({
 						</Button>
 					}
 				>
-					{summary.status === "refused" ? problemText(summary.code) : "Nothing was changed. Try again in a moment."}
+					{summary.status === "refused"
+						? problemText(summary.code)
+						: loadProblem(summary, "Nothing was changed. Try again in a moment.")}
 				</StatePanel>
 			)}
 			{credits.status === "ok" ? (
@@ -170,6 +177,7 @@ function PersonResult({
 				<StatePanel
 					tone="error"
 					title="The history did not load"
+					icon={failedIcon(credits)}
 					headingLevel="h3"
 					actions={
 						<Button variant="secondary" onClick={onRetry}>
@@ -177,7 +185,9 @@ function PersonResult({
 						</Button>
 					}
 				>
-					{credits.status === "refused" ? problemText(credits.code) : "Nothing was changed. Try again in a moment."}
+					{credits.status === "refused"
+						? problemText(credits.code)
+						: loadProblem(credits, "Nothing was changed. Try again in a moment.")}
 				</StatePanel>
 			)}
 		</div>
@@ -201,7 +211,7 @@ function Summary({ summary }: { summary: Extract<PersonLoad["summary"], { status
 					))}
 				</ul>
 			)}
-			<p className="text-sm text-text-2">{plural(summary.concurrentAssignments, "current role")}</p>
+			<p className="text-sm text-text-2">{counted(summary.concurrentAssignments, "current role")}</p>
 			<div className="flex flex-col items-start gap-2">
 				<StatusBadge status={complete ? "positive" : "unknown"}>
 					{complete ? "Required training is complete" : "Not marked complete"}
@@ -322,8 +332,9 @@ function ProgramHistory({
 	busy: boolean;
 	onOpen: (form: Flow) => void;
 }) {
-	const name = row.program?.name ?? "A program";
-	const writable = row.program ? canWrite(row.program) : false;
+	const { program } = row;
+	const name = program?.name ?? "A program";
+	const writable = program ? canWrite(program) : false;
 	const events = credits
 		.filter((credit) => credit.programId === row.id)
 		.slice()
@@ -344,21 +355,21 @@ function ProgramHistory({
 					))}
 				</ul>
 			) : null}
-			{writable && row.program ? (
+			{writable && program ? (
 				<div className="flex flex-wrap gap-2">
 					{earned ? (
 						<>
 							<Button
 								variant="danger"
 								disabled={busy}
-								onClick={() => onOpen(personForm("revoke", localToday(), row.program!, person))}
+								onClick={() => onOpen(personForm("revoke", localToday(), program, person))}
 							>
 								Revoke completion
 							</Button>
 							<Button
 								variant="outline"
 								disabled={busy}
-								onClick={() => onOpen(personForm("redo", localToday(), row.program!, person))}
+								onClick={() => onOpen(personForm("redo", localToday(), program, person))}
 							>
 								Record again
 							</Button>
@@ -367,7 +378,7 @@ function ProgramHistory({
 						<Button
 							variant="primary"
 							disabled={busy}
-							onClick={() => onOpen(personForm("complete", localToday(), row.program!, person))}
+							onClick={() => onOpen(personForm("complete", localToday(), program, person))}
 						>
 							Record completion
 						</Button>

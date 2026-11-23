@@ -1,6 +1,5 @@
 import type * as c from "@everyfield/contracts/followups";
 import { FOLLOW_UP_WINDOW_MS } from "@everyfield/contracts/followups";
-import type { FollowUpReply } from "@everyfield/domain/followups";
 import type { z } from "zod";
 import { lacksOwner } from "../tasks/model.ts";
 
@@ -40,11 +39,6 @@ export function preferredOwners(items: readonly Pick<ObligationItem, "kind" | "s
 	for (const set of held.values()) if (best === null || set.n > best.n) best = set;
 	return best ? best.ids : [];
 }
-
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
-
-export const outcomeOf = <T>(reply: FollowUpReply<T>): Outcome<T> =>
-	reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };
 
 export const OUTCOMES: readonly OutcomeValue[] = [
 	"contacted",
@@ -110,13 +104,14 @@ export function outcomeInput(
 ): { ok: true; input: OutcomeInput } | { ok: false; errors: DraftErrors } {
 	const { now } = opts;
 	const errors: DraftErrors = {};
-	if (!d.outcome) errors.outcome = "Choose what happened.";
+	if (!d.outcome) errors.outcome = "Choose an outcome.";
 	if (d.outcome === "contacted" && !d.when) errors.when = "Choose when you talked.";
 	let occurredAt: string | undefined;
 	if (d.when === "earlier" && d.stored && d.at === d.stored.at) occurredAt = d.stored.instant;
 	else if (d.when === "earlier") {
 		const parsed = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(d.at) ? new Date(d.at) : null;
-		if (!parsed || Number.isNaN(parsed.getTime())) errors.at = "Enter the date and time it happened.";
+		const { from, through } = contactRange(now);
+		if (!parsed || Number.isNaN(parsed.getTime()) || parsed < from || parsed >= through) errors.at = rangeText(from);
 		else if (parsed.getTime() > now.getTime()) errors.at = "This time is in the future. Choose a time that has passed.";
 		else occurredAt = parsed.toISOString();
 	} else if (d.when === "now") occurredAt = now.toISOString();
@@ -141,6 +136,13 @@ export function reasonOf(text: string): { ok: true; reason: string } | { ok: fal
 	if (reason.length > 500) return { ok: false, error: "Keep the reason under 500 characters." };
 	return { ok: true, reason };
 }
+
+export function contactRange(now: Date): { from: Date; through: Date } {
+	const [y, m, d] = [now.getFullYear(), now.getMonth(), now.getDate()];
+	return { from: new Date(y - 1, m, d), through: new Date(y, m, d + 1) };
+}
+const rangeText = (from: Date) =>
+	`Pick a date between ${from.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} and today`;
 
 export function localInputOf(at: string | Date): string {
 	const d = new Date(at);

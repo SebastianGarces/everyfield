@@ -96,7 +96,7 @@ export function reviewed<I, R extends z.ZodType>(spec: {
 		allowed: admin,
 		review: spec.review,
 		async execute(tx, context, args, effectKey): Promise<EffectResult> {
-			const request = spec.request.parse({ ...z.object({}).loose().parse(args), requestKey: effectKey });
+			const request = spec.request.parse({ ...z.record(z.string(), z.unknown()).parse(args), requestKey: effectKey });
 			const reply = await spec.run(tx, context, request);
 			if (reply.status !== "ok") return { refused: reply.error.code };
 			return receipt(reply.value as Record<string, unknown>);

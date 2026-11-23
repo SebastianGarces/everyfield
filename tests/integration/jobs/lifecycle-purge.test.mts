@@ -1,3 +1,4 @@
+import "../platform/setup.mts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
@@ -10,7 +11,7 @@ import { createOrganizationAdapter } from "../../../packages/domain/src/organiza
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
-import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { ok } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
@@ -77,7 +78,9 @@ before(async () => {
 		securityNotice: async () => {},
 	});
 	api = settingsApi({
-		organizations: createOrganizationAdapter(organizationEffects, { candidates: async () => [] }),
+		organizations: createOrganizationAdapter(organizationEffects, {
+			candidates: () => sql`SELECT NULL::uuid WHERE false`,
+		}),
 		organizationEffects,
 		effects: { replan: async () => {} },
 		suppression: async () => "unavailable",
@@ -107,7 +110,7 @@ before(async () => {
 			throw Error("not expected");
 		},
 	});
-	tick = scheduledJobs({ db, storage, cleanup: cleanupDb, reminders: null, digests: null, mail: null });
+	tick = scheduledJobs({ db, storage, cleanup: cleanupDb, effects: null, digests: null, mail: null });
 });
 after(database.close);
 
@@ -338,7 +341,7 @@ test("INV-executor: without the cleanup login the tick skips the purge, runs the
 		{ storage, cleanup: null },
 		{ storage: null, cleanup: cleanupDb },
 	]) {
-		const skip = scheduledJobs({ db, reminders: null, digests: null, mail: null, ...config });
+		const skip = scheduledJobs({ db, effects: null, digests: null, mail: null, ...config });
 		const response = await skip(
 			new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${cron}` } }),
 		);

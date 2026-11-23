@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import {
 	MAX_REMOVAL_ITEMS,
 	removalReviewResult,
@@ -26,12 +27,16 @@ import { ProblemLine } from "../../organizations/parts";
 import { runSeatCommand } from "./actions";
 import { readRemovalReview } from "./fetch.ts";
 import type { Seat } from "./model";
+import { READ_FAILED, thrownRead } from "../../../components/read-failed.ts";
 
 type Review = z.infer<typeof removalReviewResult>;
 type Duty = Review["duties"][number];
 type RemoveCommand = ReturnType<typeof removeSeatRequest.parse>;
 type Load = { attempt: number } & (
-	{ status: "loading" } | { status: "failed" } | { status: "too_large" } | { status: "ready"; review: Review }
+	| { status: "loading" }
+	| { status: "failed"; read: "lost" | "failed" }
+	| { status: "too_large" }
+	| { status: "ready"; review: Review }
 );
 
 const NEEDS_OWNER = "needs_owner";
@@ -85,8 +90,9 @@ export function RemoveDialog({
 			if (r.status !== "ok") throw new Error(r.code);
 			const review = removalReviewResult.parse(r.value);
 			setLoad((l) => (l.attempt === attempt ? { attempt, status: "ready", review } : l));
-		} catch {
-			setLoad((l) => (l.attempt === attempt ? { attempt, status: "failed" } : l));
+		} catch (error) {
+			const read = thrownRead(error).status;
+			setLoad((l) => (l.attempt === attempt ? { attempt, status: "failed", read } : l));
 		}
 	}
 
@@ -140,8 +146,8 @@ export function RemoveDialog({
 			const moved = result.reply.duties.filter((d) => d.status === "moved").length;
 			const waiting = result.reply.duties.filter((d) => d.status === "needs_owner").length;
 			const handed = [
-				moved ? `${moved} ${moved === 1 ? "duty has" : "duties have"} a new owner` : null,
-				waiting ? `${waiting} ${waiting === 1 ? "duty needs" : "duties need"} an owner` : null,
+				moved ? `${counted(moved, "duty has", "duties have")} a new owner` : null,
+				waiting ? `${counted(waiting, "duty needs", "duties need")} an owner` : null,
 			].filter(Boolean);
 			setOpen(false);
 			onRemoved(
@@ -181,7 +187,11 @@ export function RemoveDialog({
 						) : load.status === "failed" ? (
 							<ProblemLine
 								problem="refused"
-								refused="Their open work did not load. Check your connection, then try again."
+								refused={
+									load.read === "failed"
+										? READ_FAILED
+										: "Their open work did not load. Check your connection, then try again."
+								}
 								action={
 									<Button size="sm" variant="secondary" onClick={() => void read(load.attempt + 1)}>
 										Try again

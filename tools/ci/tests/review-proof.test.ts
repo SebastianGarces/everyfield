@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { machines } from "../../../packages/contracts/src/machines/index.ts";
 import { checkMachines } from "../machines.ts";
-import { reviewProof } from "../review-proof.ts";
+import { DIMENSIONS, reviewProof } from "../review-proof.ts";
 import { fixture, put } from "./feature-map-fixture.ts";
 
 const ROUTE = "apps/web/src/app/(product)/things/page.tsx";
@@ -42,6 +42,8 @@ function run(
 		for (const m of machines) put(root, m.proof, "");
 		put(root, WRITER, "const insert = sql`INSERT INTO meeting (id, status) VALUES (${id}::uuid, 'planning')`;\n");
 		put(root, SCHEMA, schema(STATES));
+		put(root, "design/everyfield-ui.html", '<section class="page" data-page="things" data-width="wide">\n');
+		put(root, "design/everyfield-marketing.html", 'var PAGES = [\n  { id: "home", name: "Home", path: "/" }\n];\n');
 		const git = (...args: string[]) => execFileSync("git", args, { cwd: root, stdio: "ignore" });
 		git("init", "-q");
 		git("add", "-A");
@@ -57,7 +59,21 @@ function run(
 	}
 }
 
-const BOTH = { "proof/things.list/phone.png": png(390), "proof/things.list/desktop.png": png(1440) };
+const SHOTS = { "proof/things.list/phone.png": png(390), "proof/things.list/desktop.png": png(1440) };
+const scoresAt = (score: number) =>
+	Object.fromEntries(DIMENSIONS.map((d) => [d, { score, reason: `${d} matches the things section` }]));
+const scores = (over: Record<string, unknown> = {}) =>
+	JSON.stringify({
+		reference: { prototype: "design/everyfield-ui.html", section: "things" },
+		widths: { "390": scoresAt(9), "1440": scoresAt(9) },
+		...over,
+	});
+const DESIGN = {
+	"design-match/things.list/scores.json": scores(),
+	"design-match/things.list/390.png": png(800),
+	"design-match/things.list/1440.png": png(2904),
+};
+const BOTH = { ...SHOTS, ...DESIGN };
 const missing = (width: number) => (problem: string) =>
 	problem.startsWith(`things.list: has no ${width} px screenshot and no recording in `);
 
@@ -82,7 +98,7 @@ test("INV-review-proof: a diff of only tooling, docs, tests or agent instruction
 });
 
 test("INV-review-proof: a changed mapped route requires its surface at both widths, and a filled folder passes", () => {
-	const empty = run([ROUTE], []);
+	const empty = run([ROUTE], [], DESIGN);
 	assert.equal(empty.needed, true);
 	assert.equal(empty.problems.length, 2);
 	assert.ok(empty.problems.some(missing(390)) && empty.problems.some(missing(1440)), empty.problems.join("\n"));
@@ -90,10 +106,10 @@ test("INV-review-proof: a changed mapped route requires its surface at both widt
 });
 
 test("INV-review-proof: a folder missing one width fails naming the surface and width; a recording alone is enough", () => {
-	const phoneOnly = run([ROUTE], ["things.list"], { "proof/things.list/phone.png": png(390) });
+	const phoneOnly = run([ROUTE], ["things.list"], { ...DESIGN, "proof/things.list/phone.png": png(390) });
 	assert.equal(phoneOnly.problems.length, 1);
 	assert.ok(missing(1440)(phoneOnly.problems[0]!), phoneOnly.problems[0]);
-	assert.deepEqual(run([ROUTE], ["things.list"], { "proof/things.list/flow.webm": "webm" }).problems, []);
+	assert.deepEqual(run([ROUTE], ["things.list"], { ...DESIGN, "proof/things.list/flow.webm": "webm" }).problems, []);
 });
 
 test("INV-review-proof: a changed mapped feature needs at least one of its surfaces proved", () => {
@@ -107,7 +123,7 @@ test("INV-review-proof: other product code needs at least one proved surface", (
 	assert.deepEqual(run([PACKAGE_FILE, "apps/web/next.config.ts"], []).problems, [
 		`the diff changes product code that no mapped surface owns (${PACKAGE_FILE}, apps/web/next.config.ts); prove at least one surface it affects`,
 	]);
-	assert.deepEqual(run([PACKAGE_FILE], ["things.list"], BOTH).problems, []);
+	assert.deepEqual(run([PACKAGE_FILE], ["things.list"], SHOTS).problems, []);
 });
 
 test("INV-review-proof: a PNG that is not the true 390 or 1440 px viewport, a non-PNG and an unknown surface id are refused", () => {
@@ -132,7 +148,109 @@ test("INV-review-proof: each proved surface prints its map entry and the files f
 			"|---|---|---|---|---|",
 			'| things.list | things | `owner`, `admin`: rail "Things"<br>access: `owner` write, `admin` read, `visitor` none | **#open**: test `tests/integration/things.test.mts`: AC:CASE-THING-1 an Owner opens a thing; cases CASE-THING-1; browser behavior proof from state populated | [desktop.png](proof/things.list/desktop.png) (1440 px)<br>[phone.png](proof/things.list/phone.png) (390 px) |',
 			"",
+			DESIGN_TABLE,
 		].join("\n"),
+	);
+});
+
+const designRow = (width: number) =>
+	`| things.list | ${width} | \`design/everyfield-ui.html\` section \`things\` | ${DIMENSIONS.map((d) => `9: ${d} matches the things section`).join(" | ")} | [${width}.png](design-match/things.list/${width}.png) |`;
+const DESIGN_TABLE = [
+	"### Design match",
+	"",
+	"Pass bar: every score at least 8.5 of 10.",
+	"",
+	"| Surface | Width | Reference | Hierarchy | Spacing | Color | Type | Copy | Side by side |",
+	"|---|---|---|---|---|---|---|---|---|",
+	designRow(390),
+	designRow(1440),
+	"",
+].join("\n");
+
+test("INV-review-proof: a UI diff's proved surface prints the Design match table; a non-UI diff needs no scores", () => {
+	const ui = run([FEATURE_FILE], ["things.list"], BOTH);
+	assert.deepEqual(ui.problems, []);
+	assert.ok(ui.report.endsWith(`|\n\n${DESIGN_TABLE}`), ui.report);
+	const backend = run([PACKAGE_FILE], ["things.list"], SHOTS);
+	assert.deepEqual(backend.problems, []);
+	assert.doesNotMatch(backend.report, /Design match/);
+	assert.deepEqual(run(["tools/ci/review-proof.ts"], []).problems, []);
+});
+
+test("INV-review-proof: an approved reference and a marketing page are valid references", () => {
+	for (const reference of [
+		{ approved: "https://mobbin.com/screens/abc" },
+		{ prototype: "design/everyfield-marketing.html", section: "home" },
+	]) {
+		const result = run([ROUTE], ["things.list"], {
+			...BOTH,
+			"design-match/things.list/scores.json": scores({ reference }),
+		});
+		assert.deepEqual(result.problems, [], JSON.stringify(reference));
+	}
+});
+
+test("INV-review-proof: design match fails naming the surface for each missing or failing part", () => {
+	const problems = (files: Record<string, Buffer | string>) =>
+		run([ROUTE], ["things.list"], { ...BOTH, ...files }).problems.map((p) =>
+			p.replace(/ \/\S+\/design-match\//, " <evidence>/design-match/"),
+		);
+	const withScores = (over: Record<string, unknown>) =>
+		problems({ "design-match/things.list/scores.json": scores(over) });
+	const at390 = (entries: Record<string, unknown>) => ({
+		widths: { "390": { ...scoresAt(9), ...entries }, "1440": scoresAt(9) },
+	});
+
+	assert.deepEqual(
+		run([ROUTE], ["things.list"], SHOTS).problems.map((p) =>
+			p.replace(/ \/\S+\/design-match\//, " <evidence>/design-match/"),
+		),
+		[
+			"things.list: has no design-match scores file <evidence>/design-match/things.list/scores.json; the reviewer scores it (verify-preview 4)",
+		],
+	);
+	assert.deepEqual(
+		problems({ "design-match/things.list/scores.json": "{" }).map((p) => p.split(" is not JSON")[0]),
+		["things.list: design-match/things.list/scores.json"],
+	);
+	const { copy: _copy, ...noCopy } = scoresAt(9);
+	assert.deepEqual(withScores({ widths: { "390": noCopy, "1440": scoresAt(9) } }), [
+		"things.list: 390 px copy has no score",
+	]);
+	assert.deepEqual(withScores({ widths: { "390": scoresAt(9) } }), [
+		"things.list: design-match/things.list/scores.json has no 1440 px scores",
+	]);
+	assert.deepEqual(withScores(at390({ color: { score: 11, reason: "brighter than the design" } })), [
+		"things.list: 390 px color scores 11, outside 0-10",
+	]);
+	assert.deepEqual(withScores(at390({ color: { score: -1, reason: "x" } })), [
+		"things.list: 390 px color scores -1, outside 0-10",
+	]);
+	assert.deepEqual(withScores(at390({ spacing: { score: 8.4, reason: "cards sit 8 px apart; the design has 16" } })), [
+		"things.list: 390 px spacing scores 8.4, below the 8.5 pass bar: cards sit 8 px apart; the design has 16",
+	]);
+	assert.deepEqual(withScores(at390({ spacing: { score: 8.5, reason: "close enough" } })), [], "8.5 passes");
+	assert.deepEqual(withScores(at390({ type: { score: 9, reason: "  " } })), [
+		"things.list: 390 px type has an empty reason",
+	]);
+	assert.deepEqual(withScores({ reference: { prototype: "design/everyfield-ui.html", section: "gadgets" } }), [
+		'things.list: design/everyfield-ui.html has no section "gadgets"; sections: things',
+	]);
+	assert.deepEqual(withScores({ reference: { prototype: "design/other.html", section: "things" } }), [
+		'things.list: reference.prototype is "design/other.html"; use design/everyfield-ui.html or design/everyfield-marketing.html, or set reference.approved',
+	]);
+	assert.deepEqual(withScores({ reference: undefined }), [
+		"things.list: the scores file names no reference; set reference.prototype and reference.section, or reference.approved",
+	]);
+	assert.deepEqual(problems({ "design-match/things.list/1440.png": png(1440) }), [
+		"things.list: design-match/things.list/1440.png is 1440 px wide; a 1440 px side-by-side holds the built screen and the reference (at least 2880 px)",
+	]);
+	assert.deepEqual(
+		run([ROUTE], ["things.list"], { ...SHOTS, "design-match/things.list/scores.json": scores() }).problems,
+		[
+			"things.list: has no 390 px side-by-side PNG design-match/things.list/390.png (built screen and reference in one image)",
+			"things.list: has no 1440 px side-by-side PNG design-match/things.list/1440.png (built screen and reference in one image)",
+		],
 	);
 });
 

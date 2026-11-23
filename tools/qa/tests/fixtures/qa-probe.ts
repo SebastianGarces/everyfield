@@ -9,6 +9,8 @@ import {
 	createOrganizationAdapter,
 	idsIn,
 	namesFor,
+	pendingFor,
+	readAnswerableInvitation,
 	readEnrollment,
 	readHistory,
 	readMyResidency,
@@ -251,9 +253,18 @@ try {
 		),
 		board: value((await readPipelineBoard(runtime, casey.authority, {})) as Read, () => "read"),
 	};
+	const riley = await signIn(QA_LOGINS.endedResident);
+	out.endedResident = {
+		signedIn: riley.signedIn,
+		session: riley.session.status,
+		context: { kind: riley.authority.actor.context.kind, owner: riley.authority.actor.context.owner.kind },
+		residency: value((await readMyResidency(runtime, riley.authority)) as Read, (v) => v),
+		board: value((await readPipelineBoard(runtime, riley.authority, {})) as Read, () => "read"),
+		goals: value((await readPipelineGoals(runtime, riley.authority)) as Read, () => "read"),
+	};
 	const adapter = createOrganizationAdapter(
 		{ invitation: async () => {}, invalidate: () => sql`SELECT 1` },
-		{ candidates: async () => [] },
+		{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 	);
 	const ruth = await signIn(QA_LOGINS.hillOwner);
 	const hill = ruth.authority.actor.context.owner;
@@ -267,7 +278,37 @@ try {
 			} as never,
 		),
 	);
+	const nico = await signIn(QA_LOGINS.discoverySender);
+	const nicoContext = nico.authority.actor.context;
+	out.discoverySender = {
+		signedIn: nico.signedIn,
+		session: nico.session.status,
+		context: { kind: nicoContext.kind, owner: nicoContext.owner.kind },
+		pending: await pendingFor(runtime, {
+			kind: "discovery",
+			session: nico.session.sessionId as Viewer["session"],
+			accountId: nico.session.accountId,
+			selected: nicoContext.owner,
+			canManage: true,
+			access: liveAccess(nico.authority),
+		} as Viewer),
+	};
+	const expiredLink = {
+		invitationId: process.env.QA_EXPIRED_INVITATION,
+		proof: process.env.QA_EXPIRED_PROOF,
+	};
+	out.expiredRequest = await gatedTransaction(runtime, (tx) =>
+		readAnswerableInvitation(tx as never, ruth.session.sessionId as never, hill as never, expiredLink),
+	);
 	const daniel = await signIn(QA_LOGINS.owner);
+	out.expiredRequestAsPlanter = await gatedTransaction(runtime, (tx) =>
+		readAnswerableInvitation(
+			tx as never,
+			daniel.session.sessionId as never,
+			daniel.authority.actor.context.owner as never,
+			expiredLink,
+		),
+	);
 	(out.owner as Record<string, unknown>).pipeline = {
 		board: value((await readPipelineBoard(runtime, daniel.authority, {})) as Read, () => "read"),
 		goals: value((await readPipelineGoals(runtime, daniel.authority)) as Read, () => "read"),

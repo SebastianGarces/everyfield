@@ -1,10 +1,11 @@
 "use client";
 
-import { dateText } from "@everyfield/contracts/common";
+import { counted, dateText } from "@everyfield/contracts/common";
 
 import { CheckListIcon, Clock01Icon, Edit02Icon, StarIcon } from "@hugeicons/core-free-icons";
 import { averageOf } from "@everyfield/contracts/meetings";
 import {
+	Alert,
 	Button,
 	Card,
 	CardDescription,
@@ -25,6 +26,8 @@ import {
 	Spinner,
 	Textarea,
 	toast,
+	InlineAlert,
+	ProblemText,
 } from "@everyfield/ui/controls";
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useRef, useState } from "react";
@@ -40,7 +43,6 @@ import {
 	CLASSIFICATION_LABEL,
 	deltaText,
 	FACTORS,
-	peopleText,
 	PRESENCE_LABEL,
 	PRESENCE_TONE,
 	problemText,
@@ -58,8 +60,9 @@ import {
 	type Presence,
 	type Scores,
 } from "./model.ts";
-import { Problem } from "./parts.tsx";
 import { choiceOf, chosenOf, createSettleStore, selectUnchanged } from "./SettleForm.store.ts";
+import { loadProblem } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type Who = { personId: string; displayName: string };
 type PresenceAnswer = Extract<Awaited<ReturnType<typeof setPresence>>, { status: "ok" }>["value"];
@@ -249,7 +252,7 @@ function Growth({ analytics }: { analytics: Analytics | null }) {
 		</span>
 	);
 }
-const deltaPeople = (d: number) => `${d > 0 ? "+" : d < 0 ? "−" : ""}${peopleText(Math.abs(d))}`;
+const deltaPeople = (d: number) => `${d > 0 ? "+" : d < 0 ? "−" : ""}${counted(Math.abs(d), "person", "people")}`;
 
 function Work({ tasks }: { tasks: Analytics["tasks"] }) {
 	const f = tasks.followUps;
@@ -457,15 +460,15 @@ function SettleForm({
 								))}
 							</div>
 							{touched && unchanged ? (
-								<p className="mt-1 text-xs font-medium text-magenta-600" role="alert">
-									Add or remove at least one person, or close this.
-								</p>
+								<ProblemText className="mt-1">Add or remove at least one person, or close this.</ProblemText>
 							) : null}
 						</fieldset>
 					) : (
 						<section aria-labelledby="settle-who">
 							<h3 id="settle-who" className="text-sm font-medium text-ink-2">
-								{ids.length === 0 ? "Nobody is marked as attended" : `${peopleText(ids.length)} attended`}
+								{ids.length === 0
+									? "Nobody is marked as attended"
+									: `${counted(ids.length, "person", "people")} attended`}
 							</h3>
 							{ids.length ? (
 								<p className="mt-1 text-md text-text-2">{ids.map((id) => name.get(id)).join(", ")}</p>
@@ -474,34 +477,40 @@ function SettleForm({
 							)}
 						</section>
 					)}
-					<section aria-labelledby="settle-effects" aria-live="polite" aria-busy={!settled || undefined}>
+					<section aria-labelledby="settle-effects">
 						<h3 id="settle-effects" className="text-sm font-medium text-ink-2">
 							{reconcile ? "What this changes" : "What finalizing does"}
 						</h3>
-						{unchanged ? (
-							<p className="mt-1.5 text-md text-text-3">Add or remove someone to see what changes.</p>
-						) : !settled ? (
-							<p role="status" className="mt-1.5 flex items-center gap-2 text-md text-text-3">
-								<Spinner size={14} /> Working out exactly what this creates…
-							</p>
-						) : effects.status !== "ok" ? (
-							<div role="alert" className="mt-1.5 flex flex-wrap items-center justify-between gap-3">
-								<p className="min-w-0 flex-1 text-md text-magenta-600">
-									{effects.status === "lost"
-										? "The list of what this creates did not load. Nothing was changed."
-										: problemText(effects.code)}
+						<div aria-live="polite" aria-busy={!settled || undefined}>
+							{unchanged ? (
+								<p className="mt-1.5 text-md text-text-3">Add or remove someone to see what changes.</p>
+							) : !settled ? (
+								<p role="status" className="mt-1.5 flex items-center gap-2 text-md text-text-3">
+									<Spinner size={14} /> Working out exactly what this creates…
 								</p>
-								<Button ref={retryRef} variant="secondary" size="sm" type="button" onClick={actions.retry}>
-									Try again
-								</Button>
-							</div>
-						) : (
-							<ul className="mt-1.5 flex list-disc flex-col gap-1 pl-5 text-md text-text-2">
-								{effectLines(effects.value, meeting, name, mode).map((line) => (
-									<li key={line}>{line}</li>
-								))}
-							</ul>
-						)}
+							) : effects.status === "ok" ? (
+								<ul className="mt-1.5 flex list-disc flex-col gap-1 pl-5 text-md text-text-2">
+									{effectLines(effects.value, meeting, name, mode).map((line) => (
+										<li key={line}>{line}</li>
+									))}
+								</ul>
+							) : null}
+						</div>
+						{!unchanged && settled && effects.status !== "ok" ? (
+							<Alert
+								role="alert"
+								className="mt-1.5"
+								actions={
+									<Button ref={retryRef} variant="secondary" size="sm" type="button" onClick={actions.retry}>
+										Try again
+									</Button>
+								}
+							>
+								{effects.status === "lost"
+									? "The list of what this creates did not load. Nothing was changed."
+									: problemText(effects.code)}
+							</Alert>
+						) : null}
 					</section>
 					{vision ? (
 						<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
@@ -540,7 +549,7 @@ function SettleForm({
 							/>
 						</Field>
 					) : null}
-					<Problem text={problem} />
+					<InlineAlert>{problem}</InlineAlert>
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose}>
@@ -610,10 +619,10 @@ export function settledText(r: Finalization, title: string, mode: "finalize" | "
 	if (r.outcome === "noop") return `${title}: attendance was already final with these people. Nothing changed.`;
 	const parts = [
 		mode === "finalize" ? `${title}: attendance is final.` : `${title}: attendance is corrected.`,
-		created ? `${created} follow-up ${created === 1 ? "call" : "calls"} created.` : null,
+		created ? `${counted(created, "follow-up call")} created.` : null,
 		closed ? `${closed} closed as no longer needed.` : null,
-		r.stageChanges.length ? `${peopleText(r.stageChanges.length)} moved to Attendee.` : null,
-		unowned ? `${unowned} ${unowned === 1 ? "call needs" : "calls need"} an owner.` : null,
+		r.stageChanges.length ? `${counted(r.stageChanges.length, "person", "people")} moved to Attendee.` : null,
+		unowned ? `${counted(unowned, "call needs", "calls need")} an owner.` : null,
 		evaluation ? `The evaluation task ${evaluation.needsOwner ? "needs an owner" : "is assigned"}.` : null,
 	];
 	return parts.filter(Boolean).join(" ");
@@ -854,7 +863,8 @@ function EvaluationForm({
 	const [reason, setReason] = useState(initial?.reason ?? "");
 	const [touched, setTouched] = useState(false);
 	const missing = FACTORS.filter((f) => scores[f.key] === undefined);
-	const complete = missing.length === 0;
+	const [firstMissing] = missing;
+	const complete = firstMissing === undefined;
 	const changed =
 		correcting &&
 		(FACTORS.some((f) => scores[f.key] !== evaluation.scores[f.key]) || notes.trim() !== (evaluation.notes ?? ""));
@@ -868,8 +878,8 @@ function EvaluationForm({
 				onSubmit={(e) => {
 					e.preventDefault();
 					setTouched(true);
-					if (!complete) {
-						first.current?.querySelector<HTMLElement>(`[data-factor="${missing[0]!.key}"] button`)?.focus();
+					if (firstMissing) {
+						first.current?.querySelector<HTMLElement>(`[data-factor="${firstMissing.key}"] button`)?.focus();
 						return;
 					}
 					if (correcting && !changed)
@@ -901,11 +911,7 @@ function EvaluationForm({
 											{f.label}
 										</p>
 										<p className="text-sm text-text-3">{f.hint}</p>
-										{bad || refusal ? (
-											<p className="text-xs font-medium text-magenta-600" role="alert">
-												{refusal ?? "Choose a score."}
-											</p>
-										) : null}
+										{bad || refusal ? <ProblemText>{refusal ?? "Choose a score."}</ProblemText> : null}
 									</div>
 									<SegmentedControl
 										label={`${f.label} score, 1 to 5`}
@@ -958,7 +964,7 @@ function EvaluationForm({
 							/>
 						</Field>
 					) : null}
-					<Problem text={issues.length === 0 ? problem : named.dialog.join(" ") || undefined} />
+					<InlineAlert>{issues.length === 0 ? problem : named.dialog.join(" ") || undefined}</InlineAlert>
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose}>
@@ -976,7 +982,7 @@ function EvaluationForm({
 type History = Extract<Awaited<ReturnType<typeof evaluationHistory>>, { status: "ok" }>["value"];
 
 export function useEvaluationHistory(meetingId: string) {
-	const [got, setGot] = useState<{ revision: string; value: Outcome<History> } | null>(null);
+	const [got, setGot] = useState<{ revision: string; value: Outcome<History> | ReadFailure } | null>(null);
 	const asked = useRef<string | null>(null);
 	function load(revision: string) {
 		if (asked.current === revision) return;
@@ -1000,7 +1006,7 @@ export function HistoryDialog({
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	history: { revision: string; value: Outcome<History> } | null;
+	history: { revision: string; value: Outcome<History> | ReadFailure } | null;
 	revision: string;
 	onRetry: () => void;
 }) {
@@ -1016,7 +1022,7 @@ export function HistoryDialog({
 						</p>
 					) : r.status !== "ok" ? (
 						<div role="alert" className="flex flex-col items-start gap-3 py-2">
-							<p className="text-md text-text-2">The history did not load. Nothing was changed.</p>
+							<p className="text-md text-text-2">{loadProblem(r, "The history did not load. Nothing was changed.")}</p>
 							<Button variant="secondary" size="sm" onClick={onRetry}>
 								Try again
 							</Button>

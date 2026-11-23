@@ -1,7 +1,7 @@
 import "server-only";
 import type { Database } from "@everyfield/db/client";
 import { runPeopleImport } from "@everyfield/domain/people";
-import { claimDue, finishJob, recoverLease } from "../../../server/jobs/queue.ts";
+import { claimDue, finishJob, recoverLease } from "@everyfield/domain/jobs";
 import { logFailure } from "@everyfield/domain/log";
 
 export async function runDueImports(pool: Database, limit = 4, until = Infinity) {

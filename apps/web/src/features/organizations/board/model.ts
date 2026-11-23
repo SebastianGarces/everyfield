@@ -1,3 +1,5 @@
+import { counted } from "@everyfield/contracts/common";
+import type { Lost } from "@everyfield/contracts/common";
 import { STARTER_STAGES, type PipelineBoardQuery, type PipelineRefusal } from "@everyfield/contracts/organizations";
 
 export const PIPELINE_PATH = "/organization/pipeline";
@@ -40,7 +42,7 @@ const FIELD_PROBLEM: Record<string, string> = {
 	responsibleSeatId: "That staff member no longer has a seat here. Choose someone else.",
 };
 
-export function refusalText(answer: { status: "refused"; refusal: PipelineRefusal } | { status: "lost" }) {
+export function refusalText(answer: { status: "refused"; refusal: PipelineRefusal } | Lost) {
 	if (answer.status === "lost") return "We couldn’t reach Everyfield. Nothing was saved. Try again.";
 	const r = answer.refusal;
 	switch (r.code) {
@@ -51,7 +53,7 @@ export function refusalText(answer: { status: "refused"; refusal: PipelineRefusa
 				FIELD_PROBLEM[(r.field ?? "").replace(/\.\d+(?=\.|$)/g, "")] ?? "Check the highlighted fields and try again."
 			);
 		case "stage_occupied":
-			return `This stage still has ${r.people === 1 ? "1 person" : `${r.people} people`} in it. Move them to another stage first.`;
+			return `This stage still has ${counted(r.people, "person", "people")} in it. Move them to another stage first.`;
 		default:
 			return "You don’t have access to make this change.";
 	}
@@ -59,8 +61,6 @@ export function refusalText(answer: { status: "refused"; refusal: PipelineRefusa
 
 export const changedText = (name: string, stage: string) =>
 	`Someone else changed ${name} while you were working. ${name} is now in ${stage}. Nothing was saved, so check the record, then try again.`;
-
-export const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 
 export function stageChanges(
 	saved: readonly { id: string; label: string }[],
@@ -83,8 +83,8 @@ export function stageChanges(
 }
 
 export function goalHeadline(goal: { leaderTarget: number; plantTarget: number; targetYear: number }) {
-	const leaders = goal.leaderTarget ? `Develop ${plural(goal.leaderTarget, "leader")}` : "";
-	const plants = goal.plantTarget ? `plant ${plural(goal.plantTarget, "church", "churches")}` : "";
+	const leaders = goal.leaderTarget ? `Develop ${counted(goal.leaderTarget, "leader")}` : "";
+	const plants = goal.plantTarget ? `plant ${counted(goal.plantTarget, "church", "churches")}` : "";
 	const aim = leaders && plants ? `${leaders} to ${plants}` : leaders || plants.replace(/^p/, "P");
 	return aim ? `${aim} by ${goal.targetYear}` : `Goal for ${goal.targetYear}`;
 }

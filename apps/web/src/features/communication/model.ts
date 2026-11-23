@@ -1,5 +1,9 @@
+import { counted } from "@everyfield/contracts/common";
+import type { Outcome } from "@everyfield/contracts/common";
 import type { hubStates as contractHubStates } from "@everyfield/contracts/communication";
 import { audienceGroups } from "@everyfield/contracts/communication/values";
+import { READ_FAILED } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type ContractHubState = (typeof contractHubStates)[number];
 
@@ -72,16 +76,28 @@ export type AudienceSummary = {
 	recipients: { id: string; displayName: string; email: string }[];
 	complete: boolean;
 	unsubscribedExclusions: { id: string; displayName: string; unsubscribedAt: string }[];
+	childExclusions: { id: string; displayName: string }[];
 };
+
+export const CHILD_RULE = "Messages are not sent to people marked as a child.";
+
+export function noRecipientReason(summary: AudienceSummary | null, fallback: string): string {
+	const children = summary?.childExclusions ?? [];
+	const [only] = children;
+	if (summary && summary.eligibleRecipients === 0 && only)
+		return children.length === 1 && summary.resolvedDistinctPeople === 1
+			? `${only.displayName} is marked as a child. ${CHILD_RULE}`
+			: `No one here can get this email. ${CHILD_RULE}`;
+	return fallback;
+}
 
 export type PageData = {
 	templates: Template[];
 	teams: Team[];
 	churchName: string;
+	mailingAddress: string | null;
 	origin: string;
 };
-
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
 
 function refusalText(code: string): string {
 	switch (code) {
@@ -103,8 +119,12 @@ function refusalText(code: string): string {
 			return "That meeting or template is not in this church.";
 		case "invalid_input":
 			return "Check the subject, the message, and that at least one person can receive it.";
+		case "children_only":
+			return `Not sent. Everyone you chose who has an email address is marked as a child. ${CHILD_RULE}`;
 		case "rsvp_needs_meeting":
 			return "This message has an RSVP link. Start it from the meeting, or remove the RSVP line.";
+		case "mailing_address_missing":
+			return "Sending is held. Add your church's mailing address in Church profile, then send again. Nothing was sent.";
 		case "unavailable":
 			return "Email delivery is not set up on this server. Nothing was sent.";
 		default:
@@ -123,8 +143,9 @@ export function originLabel(template: Template): string {
 	return "Church template";
 }
 
-export function outcomeText<T>(result: Outcome<T>): string | null {
+export function outcomeText<T>(result: Outcome<T> | ReadFailure): string | null {
 	if (result.status === "ok") return null;
+	if (result.status === "failed") return READ_FAILED;
 	if (result.status === "lost") return "Unable to reach the church records. Try again in a moment.";
 	return refusalText(result.code);
 }
@@ -135,6 +156,7 @@ export type DeliveryReport = {
 	rejectedCount: number;
 	unknownCount: number;
 	unsubscribedCount: number;
+	childCount: number;
 };
 
 type ProviderTally = { confirmedCount: number; sentCount: number; openCount: number };
@@ -151,20 +173,23 @@ export type RestoreReport = { suppressionClears: number };
 
 const counts = (report: DeliveryReport) =>
 	`Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No answer ${report.unknownCount}.` +
-	unsubscribedNote(report.unsubscribedCount);
+	leftOutNote(report.unsubscribedCount, report.childCount);
 
-const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
+export const leftOutNote = (unsubscribed: number, child: number) =>
+	(unsubscribed > 0 ? ` Unsubscribed ${unsubscribed}.` : "") + (child > 0 ? ` Marked as a child ${child}.` : "");
 
-export const unsubscribedNote = (count: number) => (count > 0 ? ` Unsubscribed ${count}.` : "");
-
-export function refusedAllText(unsubscribed: number, refused: number): string {
+export function refusedAllText(unsubscribed: number, refused: number, child: number): string {
+	if (child > 0)
+		return unsubscribed + refused === 0
+			? `Every recipient is marked as a child. ${CHILD_RULE}`
+			: `Some recipients are marked as a child. ${CHILD_RULE} The rest unsubscribed or the email service refused them.`;
 	if (unsubscribed === 0) return `The email service refused all ${refused}.`;
 	if (refused === 0) return "Every recipient unsubscribed from this church's email.";
 	return "Some recipients unsubscribed from this church's email and the email service refused the rest.";
 }
 
 const refusedAll = (report: DeliveryReport, outcome: "sent" | "scheduled") =>
-	`Not ${outcome}. ${refusedAllText(report.unsubscribedCount, report.rejectedCount)}`;
+	`Not ${outcome}. ${refusedAllText(report.unsubscribedCount, report.rejectedCount, report.childCount)}`;
 
 export function deliveryText(report: DeliveryReport): string {
 	if (report.acceptedCount > 0) return `The email service accepted it and sends it now. ${counts(report)}`;
@@ -175,7 +200,7 @@ export function deliveryText(report: DeliveryReport): string {
 
 export function scheduleText(report: DeliveryReport, when: string): string {
 	if (report.acceptedCount > 0)
-		return `Scheduled for ${when}. It goes to ${people(report.acceptedCount)} then.${unsubscribedNote(report.unsubscribedCount)}`;
+		return `Scheduled for ${when}. It goes to ${counted(report.acceptedCount, "person", "people")} then.${leftOutNote(report.unsubscribedCount, report.childCount)}`;
 	if (report.unknownCount > 0)
 		return `Not confirmed. The email service gave no answer. ${counts(report)} Check result to ask it again.`;
 	return `${refusedAll(report, "scheduled")} ${counts(report)} The message stays saved in Messages.`;
@@ -194,7 +219,7 @@ export function cancelText(report: CancelReport): string {
 			? `${wentOut(report.sentCount)} Nothing was cancelled.`
 			: `${wentOut(report.sentCount)} The email service stopped the other ${report.confirmedCount}.`;
 	if (report.confirmedCount === 0) return "Not cancelled.";
-	return `Cancelled for ${people(report.confirmedCount)}. No email went out.`;
+	return `Cancelled for ${counted(report.confirmedCount, "person", "people")}. No email went out.`;
 }
 
 export function replaceText(report: ReplaceReport): string {
@@ -222,8 +247,10 @@ export function restoreText(report: RestoreReport): string {
 export const hubStates = [
 	"draft",
 	"scheduled",
+	"held",
 	"not_scheduled",
 	"unsubscribed",
+	"child",
 	"sending",
 	"sent",
 	"logged",
@@ -237,8 +264,10 @@ export type HubState = (typeof hubStates)[number];
 export const hubLabel: Record<HubState, string> = {
 	draft: "Draft",
 	scheduled: "Scheduled",
+	held: "Held: no mailing address",
 	not_scheduled: "Not scheduled",
 	unsubscribed: "Not sent: unsubscribed",
+	child: "Not sent: marked as a child",
 	sending: "Sending",
 	sent: "Sent",
 	logged: "Logged",
@@ -290,6 +319,7 @@ export type DeliveryTotals = {
 	failed: number;
 	suppressed: number;
 	unsubscribed: number;
+	child: number;
 	unknown: number;
 	cancelled: number;
 	cancelOpen: number;

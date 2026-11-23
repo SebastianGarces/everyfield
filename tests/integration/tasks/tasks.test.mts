@@ -21,10 +21,10 @@ import {
 	withTaskWrite,
 } from "../../../packages/domain/src/tasks/index.ts";
 import { peopleReader, peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
-import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 
 let f, writer, reminders, mail, sent, plant, other, owner, member, admin2, foreign;
 const write = (who, op, input) => withTaskWrite(f.db, who.actor, (tx, ctx) => writer[op](tx, ctx, input));
@@ -1750,6 +1750,46 @@ test("INV-statements: a page read sends the same statements for one assignee or 
 		await counted(() => read(owner, "listSubtasks", { parentId: id })),
 	];
 	assert.deepEqual(await each(three.id), await each(one.id));
+});
+
+test("INV-statements: an edit, a subtask and a prerequisite change lock their task and read what they join in one statement", async () => {
+	const p = await person("Jo Lane");
+	const t = await create(owner, { title: "Set up" });
+	const before = await create(owner, { title: "Book the room" });
+	const step = async (op, input, expectedRevision) => {
+		let task;
+		const n = await counted(async () => {
+			task = ok(await write(owner, op, { requestKey: randomUUID(), expectedRevision, input })).task;
+		});
+		return { n, task };
+	};
+	const renamed = await step("edit", { taskId: t.id, patch: { title: "Set up chairs" } }, t.revision);
+	const related = await step(
+		"edit",
+		{ taskId: t.id, patch: { relation: { kind: "person", id: p } } },
+		renamed.task.revision,
+	);
+	const assigned = await step("edit", { taskId: t.id, patch: { assigneeIds: [member.id] } }, related.task.revision);
+	const child = await step(
+		"createSubtask",
+		{ parentId: t.id, title: "Count chairs", assigneeIds: [admin2.id] },
+		assigned.task.revision,
+	);
+	const blocked = await step(
+		"replacePrerequisites",
+		{ taskId: t.id, prerequisiteIds: [before.id] },
+		assigned.task.revision,
+	);
+	assert.deepEqual(
+		[
+			related.task.relation,
+			assigned.task.assignees.map((a) => a.accountId),
+			child.task.assignees.map((a) => a.accountId),
+			blocked.task.openPrerequisites,
+		],
+		[{ kind: "person", id: p, label: "Jo Lane" }, [member.id], [admin2.id], 1],
+	);
+	assert.deepEqual([renamed.n, related.n, assigned.n, child.n, blocked.n], [5, 5, 5, 5, 5]);
 });
 
 test("AC:TARGET-TSK-014 each assignee gets their own reminders, and removing one withdraws only theirs", async () => {

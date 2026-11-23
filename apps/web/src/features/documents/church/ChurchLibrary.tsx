@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import {
 	Add01Icon,
 	Archive02Icon,
@@ -12,6 +13,7 @@ import {
 	Button,
 	Card,
 	ConfirmDialog,
+	type ConfirmRefusal,
 	Dialog,
 	DialogBody,
 	DialogContent,
@@ -19,6 +21,7 @@ import {
 	DialogTrigger,
 	EmptyState,
 	IconButton,
+	InlineAlert,
 	IntentLink,
 	PageHeader,
 	SearchInput,
@@ -113,7 +116,7 @@ export function ChurchLibrary({ documents, templates, churchTemplates, canManage
 									<Icon
 										icon={ArrowRight01Icon}
 										size={18}
-										className="text-text-3 transition-transform duration-150 group-hover:translate-x-0.5 max-app-sm:hidden"
+										className="text-text-3 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none max-app-sm:hidden"
 									/>
 								</IntentLink>
 							</li>
@@ -192,8 +195,8 @@ function TemplatePicker({
 
 	async function remove(recordId: string) {
 		const result = await deleteChurchTemplate(recordId);
-		if (result.status === "refused") throw new Error(result.message);
-		if (result.status === "lost") throw new Error("The connection dropped. Nothing was deleted. Try again.");
+		if (result.status === "refused") return { refused: result.message };
+		if (result.status === "lost") return { refused: "The connection dropped. Nothing was deleted. Try again." };
 		setRemoved((prior) => new Set(prior).add(recordId));
 	}
 
@@ -244,7 +247,7 @@ function PickerList({
 	chosen: string | null;
 	message: string | null;
 	onChoose: (templateId: string) => void;
-	onRemove: (recordId: string) => Promise<void>;
+	onRemove: (recordId: string) => Promise<ConfirmRefusal | void>;
 	onEdited: (recordId: string, details: TemplateDetails) => void;
 }) {
 	const [search, setSearch] = useState("");
@@ -256,7 +259,8 @@ function PickerList({
 	const shown = found.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
 	async function remove(recordId: string) {
-		await onRemove(recordId);
+		const refusal = await onRemove(recordId);
+		if (refusal) return refusal;
 		setSaved(null);
 		setPage((current) => Math.min(current, Math.max(1, Math.ceil((found.length - 1) / PAGE_SIZE))));
 	}
@@ -275,7 +279,7 @@ function PickerList({
 				/>
 			</div>
 			<DialogBody ref={list} className={cn("flex flex-col gap-6 pt-1", pageCount > 1 ? "pb-4" : "pb-7")}>
-				<div role="status" className="empty:hidden">
+				<div role="status" className="empty:sr-only">
 					{saved ? (
 						<p className="rounded-md bg-surface-2 px-4 py-3 text-md text-text-2">
 							Saved “<span className="font-medium text-ink">{saved}</span>”. New documents from it take this name.
@@ -295,36 +299,35 @@ function PickerList({
 								</h3>
 							) : null}
 							<ul className="flex flex-col gap-3" aria-label={label}>
-								{items.map((t) => (
-									<TemplateCard
-										key={t.templateId}
-										template={t}
-										busy={chosen === t.templateId}
-										disabled={chosen !== null && chosen !== t.templateId}
-										onChoose={() => onChoose(t.templateId)}
-										onDelete={t.recordId ? () => remove(t.recordId!) : null}
-										onEdited={
-											t.recordId
-												? (details) => {
-														onEdited(t.recordId!, details);
-														setSaved(details.title);
-													}
-												: null
-										}
-									/>
-								))}
+								{items.map((t) => {
+									const { recordId } = t;
+									return (
+										<TemplateCard
+											key={t.templateId}
+											template={t}
+											busy={chosen === t.templateId}
+											disabled={chosen !== null && chosen !== t.templateId}
+											onChoose={() => onChoose(t.templateId)}
+											onDelete={recordId ? () => remove(recordId) : null}
+											onEdited={
+												recordId
+													? (details) => {
+															onEdited(recordId, details);
+															setSaved(details.title);
+														}
+													: null
+											}
+										/>
+									);
+								})}
 							</ul>
 						</section>
 					);
 				})}
-				{message ? (
-					<p role="alert" className="text-md text-magenta-600">
-						{message}
-					</p>
-				) : null}
+				<InlineAlert>{message}</InlineAlert>
 			</DialogBody>
 			<p role="status" className="sr-only">
-				{found.length === 1 ? "1 template" : `${found.length} templates`}
+				{counted(found.length, "template")}
 			</p>
 			{pageCount > 1 ? (
 				<div className="flex flex-none flex-wrap items-center justify-between gap-3 px-7 pt-4 pb-6 shadow-[0_-1px_0_var(--ef-line)] max-app-sm:px-5 max-app-sm:pb-5">
@@ -358,7 +361,7 @@ function TemplateCard({
 	busy: boolean;
 	disabled: boolean;
 	onChoose: () => void;
-	onDelete: (() => Promise<void>) | null;
+	onDelete: (() => Promise<ConfirmRefusal | void>) | null;
 	onEdited: ((details: TemplateDetails) => void) | null;
 }) {
 	const [editing, setEditing] = useState(false);

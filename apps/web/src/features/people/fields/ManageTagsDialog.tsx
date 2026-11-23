@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { Delete02Icon, Edit02Icon, MoreHorizontalIcon, Tag01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -20,6 +21,7 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 	Skeleton,
+	ProblemText,
 } from "@everyfield/ui/controls";
 import { TINT, type Tone } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
@@ -31,13 +33,15 @@ import { FormProblem, problemText } from "../parts.tsx";
 import { createChurchTag, deleteChurchTag, updateChurchTag } from "./actions.ts";
 import { listChurchTags } from "../fetch.ts";
 import { TAG_COLOR_LABEL, TAG_COLORS, tagLook, type ChurchTag } from "./model.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
-export const churchTags = createRead((): Promise<Outcome<ChurchTag[]>> => listChurchTags(), {
+export const churchTags = createRead((): Promise<Outcome<ChurchTag[]> | ReadFailure> => listChurchTags(), {
 	failed: () => ({ status: "lost" }) as const,
 });
 const byName = (a: { name: string }, b: { name: string }) =>
 	a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-const problem = (r: Outcome<unknown>) => (r.status === "ok" ? undefined : r.status === "lost" ? "lost" : r.code);
+const problem = (r: Exclude<Outcome<unknown> | ReadFailure, { status: "ok" }>) =>
+	r.status === "refused" ? r.code : r.status;
 export const tagProblem = (code: string) =>
 	code === "conflict"
 		? "Another tag already has this name, or the tag changed. Check the list and try again."
@@ -77,7 +81,7 @@ export function ManageTagsDialog({
 	async function confirmDelete(tag: ChurchTag) {
 		setRowProblem(null);
 		const r = await listChurchTags().catch(() => ({ status: "lost" }) as const);
-		if (r.status !== "ok") return setRowProblem({ id: tag.id, text: tagProblem(problem(r)!) });
+		if (r.status !== "ok") return setRowProblem({ id: tag.id, text: tagProblem(problem(r)) });
 		save(() => r.value);
 		const now = r.value.find((t) => t.id === tag.id);
 		if (now) setDeleting(now);
@@ -198,7 +202,7 @@ export function ManageTagsDialog({
 											)}
 											<span className="min-w-0 flex-1 truncate font-medium text-ink">{t.name}</span>
 											<span className="text-sm text-text-3 tabular-nums">
-												{t.linkedPeople} {t.linkedPeople === 1 ? "person" : "people"}
+												{counted(t.linkedPeople, "person", "people")}
 											</span>
 											{t.id.startsWith("new:") ? (
 												<span role="status" className="text-xs text-text-3">
@@ -231,11 +235,7 @@ export function ManageTagsDialog({
 											)}
 										</div>
 									)}
-									{rowProblem?.id === t.id ? (
-										<p role="alert" className="mt-1 text-xs font-medium text-magenta-600">
-											{rowProblem.text}
-										</p>
-									) : null}
+									{rowProblem?.id === t.id ? <ProblemText className="mt-1">{rowProblem.text}</ProblemText> : null}
 								</li>
 							))}
 						</ul>
@@ -256,7 +256,7 @@ export function ManageTagsDialog({
 					consequences={[
 						deleting.linkedPeople === 0
 							? "Nobody has this tag now."
-							: `It comes off ${deleting.linkedPeople} ${deleting.linkedPeople === 1 ? "person" : "people"}.`,
+							: `It comes off ${counted(deleting.linkedPeople, "person", "people")}.`,
 						"Their history keeps a record of the tag.",
 					]}
 					confirmLabel="Delete tag"

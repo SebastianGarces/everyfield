@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { APPLY_VERSION_LIMIT, type ProgramDetail, type ProgramVersion } from "@everyfield/contracts/organizations";
 import { Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import {
@@ -18,6 +19,7 @@ import {
 	DialogHeader,
 	DialogTrigger,
 	Field,
+	InlineAlert,
 	Input,
 	PageHeader,
 	SegmentedControl,
@@ -28,7 +30,6 @@ import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition, type ReactNode } from "react";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { PIPELINE_PATH } from "../board/model";
-import { Problem } from "../../../components/Problem.tsx";
 import { enroll, publishVersion, savePlan } from "./actions";
 import { rereadProgram } from "./fetch.ts";
 import { ApplyVersionsDialog, versionReviews } from "./ApplyVersions";
@@ -55,9 +56,7 @@ export function ProgramScreen({ initial, organizationId }: { initial: ProgramDet
 		return null;
 	}
 
-	const status = published
-		? `Version ${published.number} published ${formatPlainDate(published.publishedOn!)}`
-		: `Draft of Version ${nextNumber}`;
+	const status = published ? publishedText(published) : `Draft of Version ${nextNumber}`;
 
 	return (
 		<div className="flex flex-col gap-5">
@@ -127,7 +126,7 @@ export function ProgramScreen({ initial, organizationId }: { initial: ProgramDet
 					<span className="text-text-2">Nobody can be enrolled until the director publishes it.</span>
 				) : null}
 			</div>
-			<Problem text={editing ? null : problem} />
+			<InlineAlert live="polite">{editing ? null : problem}</InlineAlert>
 
 			<div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-5 max-app-md:grid-cols-1">
 				<Card>
@@ -170,6 +169,19 @@ export function ProgramScreen({ initial, organizationId }: { initial: ProgramDet
 	);
 }
 
+type Version = NonNullable<ProgramDetail["draft"] | ProgramDetail["published"]>;
+
+function baseOf({ draft, published }: ProgramDetail): { kind: "draft" | "published"; version: Version } {
+	if (draft) return { kind: "draft", version: draft };
+	if (published) return { kind: "published", version: published };
+	throw new Error("The program has neither a draft nor a published version");
+}
+
+function publishedText(version: Version) {
+	if (version.publishedOn === null) throw new Error(`Version ${version.number} is published without a date`);
+	return `Version ${version.number} published ${formatPlainDate(version.publishedOn)}`;
+}
+
 function PlanEditing({
 	program,
 	nextNumber,
@@ -181,10 +193,10 @@ function PlanEditing({
 	onCancel: () => void;
 	onSaved: () => Promise<void>;
 }) {
-	const { published, draft } = program;
-	const [editing, setEditing] = useState<PlanDraft>(() => draftFrom((draft ?? published)!));
+	const [editing, setEditing] = useState<PlanDraft>(() => draftFrom(baseOf(program).version));
 	const [problem, setProblem] = useState<string | null>(null);
 	const [saving, startSaving] = useTransition();
+	const base = baseOf(program);
 
 	const save = () => {
 		const built = planFrom(editing);
@@ -203,14 +215,14 @@ function PlanEditing({
 
 	return (
 		<>
-			{!draft ? (
+			{base.kind === "published" ? (
 				<p className="text-sm text-text-2">
-					Version {published!.number} stays as it is. Saving starts the draft of Version {nextNumber}, and people
-					already enrolled keep Version {published!.number}.
+					Version {base.version.number} stays as it is. Saving starts the draft of Version {nextNumber}, and people
+					already enrolled keep Version {base.version.number}.
 				</p>
 			) : null}
 			<PlanEditor value={editing} onChange={setEditing} />
-			<Problem text={problem} />
+			<InlineAlert live="polite">{problem}</InlineAlert>
 			<div className="flex flex-wrap justify-end gap-2">
 				<Button variant="ghost" onClick={onCancel} disabled={saving}>
 					Cancel
@@ -337,7 +349,7 @@ function Enrollments({ program, onApplied }: { program: ProgramDetail; onApplied
 						onClick={onApply}
 					>
 						{chosen.length
-							? `Apply Version ${current} to ${chosen.length === 1 ? "1 person" : `${chosen.length} people`}`
+							? `Apply Version ${current} to ${counted(chosen.length, "person", "people")}`
 							: `Apply Version ${current}`}
 					</Button>
 				) : null}
@@ -555,7 +567,7 @@ function EnrollForm({
 						<Input type="time" name="meetingTime" defaultValue={values.meetingTime} />
 					</Field>
 				</div>
-				<Problem text={saving ? null : state.problem} />
+				<InlineAlert live="polite">{saving ? null : state.problem}</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>

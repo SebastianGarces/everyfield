@@ -1,46 +1,33 @@
+import type { Outcome } from "@everyfield/contracts/common";
 import { requestDatabase } from "@/server/database";
+import { outcomeOf, type Lost } from "@everyfield/contracts/common";
 import { read as readMeetings, type Viewer } from "../meetings/server.ts";
 import { meetingsReader } from "@everyfield/domain/meetings";
 import type { TeamsReply } from "@everyfield/contracts/teams";
 import type { Database } from "@everyfield/db/client";
 import { teamsReader, withParents, withTeamsWrite } from "@everyfield/domain/teams";
 import "server-only";
-import type { ChartNode, ListedTeam, Member, Outcome, Role, Team } from "./model.ts";
-import { LOST, transient } from "../../server/platform/transient.ts";
+import type { ChartNode, ListedTeam, Member, Role, Team } from "./model.ts";
+import { readDb, guardedWrite } from "../../server/platform/tx.ts";
 import type { WriteTx } from "@everyfield/domain/access";
 
 export type { Viewer };
 export const isAdmin = (v: Viewer) => v.role === "owner" || v.role === "admin";
 
-type Reply<T> = TeamsReply<T> | { status: "failed" };
+type Reply<T> = TeamsReply<T> | Lost;
 type Authority = Viewer["authority"];
 
 async function read<T>(viewer: Viewer, run: (db: Database, a: Authority) => Promise<TeamsReply<T>>): Promise<Reply<T>> {
-	const db = requestDatabase();
-	return transient({ component: "teams", outcome: "read_failed" }, () => run(db, viewer.authority), {
-		status: "failed",
-	});
+	return readDb("teams", (db) => run(db, viewer.authority));
 }
 
 export async function write<T>(
 	viewer: Viewer,
 	run: (tx: WriteTx, context: Parameters<Parameters<typeof withTeamsWrite>[2]>[1]) => Promise<TeamsReply<T>>,
 ): Promise<Outcome<T>> {
-	const db = requestDatabase();
-	return transient(
-		{ component: "teams", outcome: "write_failed" },
-		async () => {
-			return outcome(await withTeamsWrite(db, viewer.authority, run));
-		},
-		LOST,
-	);
+	return guardedWrite("teams", async () => outcomeOf(await withTeamsWrite(requestDatabase(), viewer.authority, run)));
 }
 
-export function outcome<T>(reply: Reply<T>): Outcome<T> {
-	if (reply.status === "failed") return { status: "lost" };
-	if (reply.status === "refused") return { status: "refused", code: reply.error.code };
-	return { status: "ok", value: reply.value };
-}
 const value = <T>(r: Reply<T>): T | null => (r.status === "ok" ? r.value : null);
 
 const chartOf = (teams: readonly ListedTeam[]): ChartNode[] =>
@@ -72,7 +59,7 @@ export async function loadTeam(viewer: Viewer, teamId: string) {
 		read(viewer, (db, a) => teamsReader.listMembers(db, a, { teamId })),
 		readMeetings(viewer, (db, a) => meetingsReader.list(db, a, { teamId, limit: 50 })),
 	]);
-	if (list.status === "failed") return { status: "failed" } as const;
+	if (list.status === "lost") return { status: "failed" } as const;
 	const teams = list.status === "ok" ? list.value.items : [];
 	const team = teams.find((t) => t.id === teamId);
 	if (!team) return { status: "missing" } as const;
@@ -92,7 +79,7 @@ export async function loadTeam(viewer: Viewer, teamId: string) {
 }
 
 export const readMinistries = async (viewer: Viewer): Promise<Outcome<Pick<Team, "id" | "name">[]>> => {
-	const r = outcome(await read(viewer, (db, a) => teamsReader.list(db, a, {})));
+	const r = outcomeOf(await read(viewer, (db, a) => teamsReader.list(db, a, {})));
 	return r.status === "ok" ? { status: "ok", value: r.value.items.map((t) => ({ id: t.id, name: t.name })) } : r;
 };
 export const readRevision = (viewer: Viewer, teamId: string) =>

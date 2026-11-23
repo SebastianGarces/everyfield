@@ -13,5 +13,5 @@ export async function resolveSelf(db: Pick<Database, "execute">, actor: EvryActo
 			AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })}
 		LIMIT 1`);
 	const first = r.rows[0];
-	return first ? z.object({ id: z.uuid() }).parse(first).id : null;
+	return first ? z.strictObject({ id: z.uuid() }).parse(first).id : null;
 }

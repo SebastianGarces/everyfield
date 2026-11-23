@@ -15,8 +15,8 @@ import {
 import { READ_DOMAINS } from "../../../../../packages/evry/src/catalog/catalog.ts";
 import { ORGANIZATION_COMMANDS } from "../../../../../packages/evry/src/adapters/people-organization/commands/index.ts";
 import { runDueImports } from "../../../../../apps/web/src/features/people/import-export/run-imports.ts";
-import { transaction } from "../../../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../../packages/domain/src/jobs/queue.ts";
 import { accounts, actor, admin, db, plant, setup, sql, teardown } from "../../../runtime/support.mts";
 
 const noReminders = async () => {
@@ -47,7 +47,7 @@ async function approveAndRun(who: EvryActor, proposal: Proposal) {
 	const outcome = await executeProposal(
 		db,
 		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-		noReminders,
+		{ reminders: noReminders, phaseNotices: async () => undefined },
 	);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	return { outcome, review: await readReview(db, who, proposal.id) };

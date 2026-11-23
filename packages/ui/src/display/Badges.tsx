@@ -185,10 +185,11 @@ const AVATAR_SIZE: Record<AvatarSize, string> = {
 };
 
 export function initials(name: string): string {
-	const words = name.trim().split(/\s+/).filter(Boolean);
-	if (words.length === 0) return "?";
-	if (words.length === 1) return words[0]!.slice(0, 2).toUpperCase();
-	return (words[0]![0]! + words[words.length - 1]![0]!).toUpperCase();
+	const [first, ...rest] = name.trim().split(/\s+/).filter(Boolean);
+	if (!first) return "?";
+	const last = rest.at(-1);
+	if (!last) return first.slice(0, 2).toUpperCase();
+	return (first.charAt(0) + last.charAt(0)).toUpperCase();
 }
 
 export function Avatar({

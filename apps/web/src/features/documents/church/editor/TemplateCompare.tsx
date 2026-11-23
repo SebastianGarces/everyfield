@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { ArrowLeft01Icon, CheckmarkCircle02Icon, Refresh01Icon } from "@hugeicons/core-free-icons";
 import {
 	wordChanges,
@@ -13,7 +14,7 @@ import {
 	type PageLayout,
 	type WordRun,
 } from "@everyfield/contracts/documents";
-import { Button, Checkbox, SegmentedControl, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import { Alert, Button, Checkbox, SegmentedControl, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
 import { useId, useMemo, useState } from "react";
 import { createRead, useRead } from "../../../../components/read.tsx";
@@ -25,6 +26,8 @@ import { editorExtensions, type FieldValues } from "./extensions.ts";
 import { paletteVars } from "./paper.ts";
 import { blocksToEditor } from "./table-json.ts";
 import { WORD_MARK, wordMarks } from "./word-marks.ts";
+import { loadProblem, READ_FAILED, READ_FAILED_ICON } from "../../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../../components/get-reads.ts";
 
 type Props = {
 	docId: string;
@@ -35,18 +38,21 @@ type Props = {
 };
 
 export const templateCompares = createRead(
-	(docId: string) => compareWithTemplate(docId).catch((): CompareResult => ({ status: "lost" })),
-	{ failed: (): CompareResult => ({ status: "lost" }) },
+	(docId: string) => compareWithTemplate(docId).catch((): CompareResult | ReadFailure => ({ status: "lost" })),
+	{ failed: (): CompareResult | ReadFailure => ({ status: "lost" }) },
 );
 
 type Load = { kind: "loading" } | { kind: "ready"; compare: ChurchCompare } | { kind: "failed"; message: string };
 
-function loadOf(result: CompareResult | undefined): Load {
+function loadOf(result: CompareResult | ReadFailure | undefined): Load {
 	if (!result) return { kind: "loading" };
 	if (result.status === "ok") return { kind: "ready", compare: result.compare };
 	return {
 		kind: "failed",
-		message: result.status === "refused" ? result.message : "The connection dropped. Nothing was changed.",
+		message:
+			result.status === "refused"
+				? result.message
+				: loadProblem(result, "The connection dropped. Nothing was changed."),
 	};
 }
 
@@ -193,11 +199,7 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 	return (
 		<section aria-labelledby={headingId} className="flex flex-col gap-4">
 			{header}
-			{notice ? (
-				<p role="alert" className="rounded-lg bg-magenta-100 px-4 py-3 text-sm text-pretty text-magenta-700">
-					{notice}
-				</p>
-			) : null}
+			{notice ? <Alert role="alert">{notice}</Alert> : null}
 			{load.kind === "loading" ? (
 				<div aria-busy="true" className="flex flex-col gap-3">
 					<span className="sr-only" role="status">
@@ -208,7 +210,12 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 				</div>
 			) : load.kind === "failed" ? (
 				<div className="rounded-card bg-surface-raised p-6 shadow-[0_0_0_1px_var(--ef-line)]">
-					<StatePanel tone="error" title="We could not compare this document" headingLevel="h3">
+					<StatePanel
+						tone="error"
+						title="We could not compare this document"
+						icon={load.message === READ_FAILED ? READ_FAILED_ICON : undefined}
+						headingLevel="h3"
+					>
 						{load.message}
 					</StatePanel>
 					<div className="mt-4 flex justify-center">
@@ -328,14 +335,14 @@ function Differences({
 			<p className="text-sm text-pretty text-text-2">
 				{view === "changes" ? (
 					<>
-						{total === 1 ? "1 change" : `${total} changes`} the template made since version{" "}
+						{counted(total, "change")} the template made since version{" "}
 						<span className="tabular-nums">{compare.baseVersion}</span>, in reading order. Your own edits are not
 						listed. Choose the changes to take; everything else keeps your version.
 					</>
 				) : (
 					<>
-						{total === 1 ? "1 difference" : `${total} differences`} from the current template, in reading order. Choose
-						the ones to take from the template; everything else keeps your version.
+						{counted(total, "difference")} from the current template, in reading order. Choose the ones to take from the
+						template; everything else keeps your version.
 					</>
 				)}
 			</p>
@@ -374,7 +381,7 @@ function Differences({
 						disabled={busy !== null || count === 0}
 						onClick={() => onAccept([...chosen].sort((a, b) => a - b))}
 					>
-						{count === 0 ? "Accept chosen" : count === 1 ? "Accept 1 change" : `Accept ${count} changes`}
+						{count === 0 ? "Accept chosen" : `Accept ${counted(count, "change")}`}
 					</Button>
 				</div>
 			</div>
@@ -427,13 +434,13 @@ function DifferenceCard({
 			<div className={sides.length === 2 || goneFromTemplate ? "grid gap-3 app-md:grid-cols-2" : "grid gap-3"}>
 				{sides.map((side) => (
 					<div key={side.who} className="flex min-w-0 flex-col gap-1.5">
-						<p className="text-xs font-semibold tracking-wide text-text-3 uppercase">{side.who}</p>
+						<p className="section-label text-text-3">{side.who}</p>
 						<Side difference={d} value={side.value} lines={side.lines} values={values} brand={brand} />
 					</div>
 				))}
 				{goneFromTemplate ? (
 					<div className="flex min-w-0 flex-col gap-1.5">
-						<p className="text-xs font-semibold tracking-wide text-text-3 uppercase">Template, new version</p>
+						<p className="section-label text-text-3">Template, new version</p>
 						<p className="text-[15px] text-text-2">The template removed this.</p>
 					</div>
 				) : null}
@@ -446,6 +453,12 @@ function DifferenceCard({
 			/>
 		</li>
 	);
+}
+
+function titleLine(lines: WordRun[][]) {
+	const [line] = lines;
+	if (!line) throw new Error("A title comparison has no line");
+	return line;
 }
 
 function Side({
@@ -465,7 +478,7 @@ function Side({
 		return (
 			<p className="text-[15px] text-ink">
 				{lines
-					? lines[0]!.map((run) => {
+					? titleLine(lines).map((run) => {
 							if (run.op === "kept") return run.text;
 							const Mark = WORD_MARK[run.op].nodeName;
 							return (

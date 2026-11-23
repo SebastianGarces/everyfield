@@ -1,6 +1,6 @@
 "use client";
 
-import { durationText, sectionStarts, timeText } from "@everyfield/contracts/common";
+import { counted, durationText, sectionStarts, timeText } from "@everyfield/contracts/common";
 
 import {
 	Add01Icon,
@@ -123,7 +123,8 @@ export function AgendaCard({
 			) : (
 				<ol className="flex flex-col gap-2.5">
 					{sections.map((s, i) => {
-						const start = starts[i]!;
+						const start = starts[i];
+						if (start === undefined) throw new Error(`Agenda section ${s.id} has no start time`);
 						return (
 							<li
 								key={s.id}
@@ -183,8 +184,12 @@ function AgendaForm({
 		setRows((all) => all.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 	const move = (i: number, by: -1 | 1) =>
 		setRows((all) => {
+			const moved = all[i];
+			const swapped = all[i + by];
+			if (moved === undefined || swapped === undefined) return all;
 			const next = [...all];
-			[next[i], next[i + by]] = [next[i + by]!, next[i]!];
+			next[i] = swapped;
+			next[i + by] = moved;
 			return next;
 		});
 
@@ -194,7 +199,7 @@ function AgendaForm({
 			tone="amber"
 			size="lg"
 			title="Edit agenda"
-			description={`${rows.length} ${rows.length === 1 ? "section" : "sections"} · ${durationText(total)}`}
+			description={`${counted(rows.length, "section")} · ${durationText(total)}`}
 			action="Save agenda"
 			problem={problem}
 			wait={wait}

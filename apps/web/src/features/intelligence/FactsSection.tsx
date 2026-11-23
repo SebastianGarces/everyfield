@@ -1,6 +1,7 @@
 "use client";
 
-import { SIGNAL_DEFINITIONS, type PlantFacts } from "@everyfield/contracts/intelligence";
+import { counted } from "@everyfield/contracts/common";
+import type { PlantFacts } from "@everyfield/contracts/intelligence";
 import {
 	Button,
 	Card,
@@ -42,7 +43,7 @@ import {
 	visionValue,
 	type Verdict,
 } from "./facts-model.ts";
-import { renewalLabel, VALUE_LABEL } from "./signals-model.ts";
+import { definitionOf, renewalLabel, VALUE_LABEL } from "./signals-model.ts";
 
 export function FactsSection({ facts }: { facts: PlantFacts }) {
 	const [evidence, setEvidence] = useState(false);
@@ -82,7 +83,7 @@ export function FactsSection({ facts }: { facts: PlantFacts }) {
 					{childrenNote(a) ? <p>{childrenNote(a)}</p> : null}
 					{a.evidence.length ? (
 						<Button className="mt-1 self-start" variant="outline" size="sm" onClick={() => setEvidence(true)}>
-							See the {a.evidence.length} counted {a.evidence.length === 1 ? "adult" : "adults"}
+							See the {counted(a.evidence.length, "counted adult")}
 						</Button>
 					) : null}
 				</Fact>
@@ -125,7 +126,7 @@ export function FactsSection({ facts }: { facts: PlantFacts }) {
 					</h3>
 					<ul className="mt-2 flex flex-col gap-2 text-sm">
 						{facts.attestations.map((x) => {
-							const d = SIGNAL_DEFINITIONS.find((s) => s.key === x.key)!;
+							const d = definitionOf(x.key);
 							return (
 								<li key={x.key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
 									<span className="min-w-0 text-ink-2">{d.label}</span>
@@ -166,7 +167,7 @@ export function FactsSection({ facts }: { facts: PlantFacts }) {
 				<Dialog open onOpenChange={(next) => (next ? null : setEvidence(false))}>
 					<DialogContent>
 						<DialogHeader
-							title={`${a.evidence.length} counted ${a.evidence.length === 1 ? "adult" : "adults"}`}
+							title={counted(a.evidence.length, "counted adult")}
 							description="Each adult once, with the commitment that counts them."
 						/>
 						<DialogBody>

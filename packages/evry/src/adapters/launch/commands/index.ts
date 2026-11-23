@@ -1,4 +1,4 @@
-import { localDate } from "@everyfield/contracts/common";
+import { countWord, localDate } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
@@ -225,10 +225,10 @@ export const recordOutcome = launchWrite({
 	},
 	async run(db, authority, args, key) {
 		const a = z
-			.object({
+			.strictObject({
 				record: z.record(z.string(), z.unknown()),
 				debrief: z
-					.object({ draftId: z.string().nullable(), expectedRevision: z.string(), answers: z.unknown() })
+					.strictObject({ draftId: z.string().nullable(), expectedRevision: z.string(), answers: z.unknown() })
 					.nullable(),
 			})
 			.parse(args);
@@ -359,7 +359,7 @@ export const completeMilestone = launchWrite({
 			changes: [{ field: "milestone", before: milestoneState(m), after: "Complete" }],
 			notes: [
 				open.length
-					? `${open.length} of its ${m.tasks.length} prep tasks ${open.length === 1 ? "is still open and stays" : "are still open and stay"} open: ${open.map((t) => t.title).join("; ")}.`
+					? `${open.length} of its ${m.tasks.length} prep tasks ${countWord(open.length, "is still open and stays", "are still open and stay")} open: ${open.map((t) => t.title).join("; ")}.`
 					: "Every prep task linked to it is done.",
 				...(earlier
 					? [
@@ -520,7 +520,8 @@ export const correctOutcome = launchWrite({
 		const changed = named.filter((k) => now[k] !== was[k]);
 		const shown = (k: OutcomeField, v: string | number | null) =>
 			k === "actualDate" ? (v === null ? null : launchDay(String(v))) : countShown(v as number | null);
-		const checked = o && c.checkOutcome({ ...now, actualDate: now.actualDate!, note: o.note }, plan.today);
+		const notInFuture = now.actualDate ?? plan.today;
+		const checked = o && c.checkOutcome({ ...now, actualDate: notInFuture, note: o.note }, plan.today);
 		const note = c.checkNote(input.reason, true);
 		const recordedAs = named.map((k) => `${FIELD_WORDS[k]} ${shown(k, was[k])}`).join(" and ");
 		const refusal = !o

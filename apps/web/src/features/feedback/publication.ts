@@ -1,6 +1,6 @@
 import "server-only";
 import type { Database } from "@everyfield/db/client";
-import { runDueFeedbackPublication } from "../../server/jobs/feedback-publication.ts";
+import { runDueFeedbackPublication } from "@everyfield/domain/jobs";
 import { githubConfig, githubIssues } from "../../server/jobs/github.ts";
 import { operatorMail } from "./mail.ts";
 import { serverEnv, type ServerEnv } from "../../server/config.ts";

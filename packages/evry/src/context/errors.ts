@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 export type EvryErrorCode =
 	| "not_found"
 	| "access_denied"
+	| "church_changed"
 	| "invalid_input"
 	| "run_active"
 	| "model_unavailable"
@@ -12,19 +13,34 @@ export type EvryErrorCode =
 	| "review_expired"
 	| "review_closed"
 	| "photo_unavailable"
+	| "attachment_elsewhere"
+	| "attachment_gone"
+	| "file_changed"
+	| "review_limit"
+	| "already_applied"
+	| "not_assigned"
+	| "assignee_ineligible"
+	| "owner_ineligible"
+	| "offer_answered"
+	| "invalid_subject"
+	| "dependency_cycle"
+	| "protected_owner"
 	| "unknown";
 
 export class EvryRefusal extends Error {
 	readonly code: EvryErrorCode;
-	constructor(code: EvryErrorCode) {
+	readonly problem: string | null;
+	constructor(code: EvryErrorCode, problem: string | null = null) {
 		super(code);
 		this.code = code;
+		this.problem = problem;
 	}
 }
 
 const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	not_found: "never",
 	access_denied: "never",
+	church_changed: "never",
 	invalid_input: "never",
 	run_active: "same_request",
 	model_unavailable: "new_turn",
@@ -34,6 +50,18 @@ const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	review_expired: "never",
 	review_closed: "never",
 	photo_unavailable: "never",
+	attachment_elsewhere: "never",
+	attachment_gone: "never",
+	file_changed: "never",
+	review_limit: "never",
+	already_applied: "never",
+	not_assigned: "never",
+	assignee_ineligible: "never",
+	owner_ineligible: "never",
+	offer_answered: "never",
+	invalid_subject: "never",
+	dependency_cycle: "never",
+	protected_owner: "never",
 	unknown: "new_turn",
 };
 

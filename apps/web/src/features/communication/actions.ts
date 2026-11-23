@@ -1,5 +1,6 @@
 "use server";
 
+import type { Outcome } from "@everyfield/contracts/common";
 import {
 	communicationWriter,
 	type CommunicationContext,
@@ -11,7 +12,6 @@ import type {
 	CancelReport,
 	DeliveryReport,
 	Draft,
-	Outcome,
 	ReplaceReport,
 	RescheduleReport,
 	RestoreReport,
@@ -123,6 +123,7 @@ export async function sendReviewed(
 			rejectedCount: result.value.rejectedCount,
 			unknownCount: result.value.unknownCount,
 			unsubscribedCount: result.value.unsubscribedCount,
+			childCount: result.value.childCount,
 		},
 	};
 }
@@ -150,6 +151,7 @@ export async function reconcileDelivery(
 			rejectedCount: result.value.rejectedCount,
 			unknownCount: result.value.unknownCount,
 			unsubscribedCount: result.value.unsubscribedCount,
+			childCount: result.value.childCount,
 		},
 	};
 }

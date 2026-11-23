@@ -1,3 +1,4 @@
+import { counted } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/intelligence";
 import { ProviderBusy, type DraftCall, type Drafter, type DraftReply } from "@everyfield/domain/intelligence";
 
@@ -64,7 +65,7 @@ function lines(input: c.ModelInput): Line[] {
 					topic: "growth",
 					state: growth === "on_track" ? "good" : "concern",
 					title: growth === "on_track" ? "New adults keep joining" : "Momentum has slowed",
-					body: `The newest adult commitment was ${v("growth.daysSince")} days ago, and ${v("growth.current")} ${v("growth.current") === 1 ? "adult" : "adults"} committed in the last ${v("growth.stalledDays")} days.`,
+					body: `The newest adult commitment was ${v("growth.daysSince")} days ago, and ${counted(Number(v("growth.current")), "adult")} committed in the last ${v("growth.stalledDays")} days.`,
 					facts: ["growth.status", "growth.daysSince", "growth.current", "growth.stalledDays"],
 				},
 	);
@@ -147,11 +148,12 @@ export function scriptedDraft(input: c.ModelInput): c.DraftOutput {
 	};
 	const ordered = (["concern", "neutral", "good"] as const).flatMap((state) => all.filter((l) => l.state === state));
 	const [focus, a, b] = ordered;
+	if (!focus || !a || !b) throw new Error("A launch assessment needs at least three lines");
 	const positives = all.filter((l) => l.state === "good" && l !== focus && l !== a && l !== b).slice(0, 3);
 	return {
-		summary: `This looks at your launch progress in Phase ${input.phase}. The main thing to look at now: ${focus!.title.toLowerCase()}.`,
-		focus: point(focus!),
-		supporting: [point(a!), point(b!)],
+		summary: `This looks at your launch progress in Phase ${input.phase}. The main thing to look at now: ${focus.title.toLowerCase()}.`,
+		focus: point(focus),
+		supporting: [point(a), point(b)],
 		positives: positives.map(point),
 	};
 }

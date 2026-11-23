@@ -5,6 +5,7 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter } from "../../../packages/domain/src/communication/index.ts";
 import { ok } from "../../support/fixture.mts";
+import { MAILING } from "./church-address.mts";
 
 let f, plant, owner, other;
 const keys = {
@@ -62,7 +63,7 @@ async function seated(name) {
 
 before(async () => {
 	f = await fixture();
-	plant = await f.workspace();
+	plant = await f.workspace("plant", MAILING);
 	owner = await seated("Pat Owner");
 	other = await seated("Robin Admin");
 });

@@ -1,4 +1,4 @@
-import { localDate } from "@everyfield/contracts/common";
+import { counted, localDate, type Outcome } from "@everyfield/contracts/common";
 import type {
 	AssessedCriterion,
 	Assessment,
@@ -10,7 +10,7 @@ import type {
 } from "@everyfield/contracts/intelligence";
 
 export type ActionOutcome<T> =
-	{ status: "ok"; value: T } | { status: "refused"; error: AssessmentError } | { status: "signed_out" | "lost" };
+	Outcome<T, AssessmentError["code"], { error: AssessmentError }> | { status: "signed_out" };
 
 type Status = "positive" | "measured" | "attention" | "risk" | "unknown";
 
@@ -91,14 +91,14 @@ export function nextSteps(facts: PlantFacts): { title: string; detail: string; h
 	const a = facts.committedAdults;
 	if (a.needsClassifying.length)
 		steps.push({
-			title: `Record adult or child for ${plural(a.needsClassifying.length, "person", "people")} with a commitment`,
+			title: `Record adult or child for ${counted(a.needsClassifying.length, "person", "people")} with a commitment`,
 			detail: "Committed adults stay Unknown until everyone with a commitment is classified.",
 			href: "/people",
 		});
 	if (a.status !== "met")
 		steps.push({
 			title: "Record commitments as people join",
-			detail: `${plural(a.known, "committed adult")} known so far. The Phase 1 criterion is 30.`,
+			detail: `${counted(a.known, "committed adult")} known so far. The Phase 1 criterion is 30.`,
 			href: "/people",
 		});
 	if (facts.vision.status === "unknown")
@@ -111,7 +111,7 @@ export function nextSteps(facts: PlantFacts): { title: string; detail: string; h
 		steps.push({
 			title: "Track follow-ups after meetings",
 			detail: "Follow-ups are measured once one is due and recorded.",
-			href: "/follow-ups",
+			href: "/tasks/follow-ups",
 		});
 	if (facts.coverage.filled < facts.coverage.slots)
 		steps.push({
@@ -122,13 +122,12 @@ export function nextSteps(facts: PlantFacts): { title: string; detail: string; h
 	const unanswered = facts.attestations.filter((s) => s.state !== "answered").length;
 	if (unanswered)
 		steps.push({
-			title: `Answer ${plural(unanswered, "attestation")}`,
+			title: `Answer ${counted(unanswered, "attestation")}`,
 			detail: "Prayer, generosity and readiness rest on your answers until Everyfield can count them.",
 			href: "/intelligence/attestations",
 		});
 	return steps;
 }
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 export const trendText = (v: TrendValue) =>
 	v.state === "measured" ? String(v.value) : v.state === "unknown" ? "Unknown" : "Not measured";

@@ -5,35 +5,14 @@ import "server-only";
 import { createHmac, randomUUID } from "node:crypto";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
-import { refuse } from "./invitation-core.ts";
+import { identityError } from "@everyfield/contracts/identity";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
+import { deny as denyInvitation } from "./invitation-core.ts";
 import type { WriteTx } from "../access/session.ts";
 
-type IdentityRefusalCode =
-	| "invalid_input"
-	| "invalid_credentials"
-	| "invalid_proof"
-	| "unauthenticated"
-	| "unavailable"
-	| "admission_unavailable"
-	| "rate_limited"
-	| "origin_denied"
-	| "idempotency_conflict";
-export class IdentityRefusal extends Error {
-	readonly code: IdentityRefusalCode;
-	readonly status: number;
-	constructor(code: IdentityRefusalCode, status: number) {
-		super(code);
-		this.code = code;
-		this.status = status;
-	}
-}
-export class RateLimited extends IdentityRefusal {
-	readonly windowMinutes: number;
-	constructor(windowMinutes: number) {
-		super("rate_limited", 429);
-		this.windowMinutes = windowMinutes;
-	}
-}
+export const identityRefusals = defineRefusals(identityError);
+const { Refusal } = identityRefusals;
+export const deny: Deny<typeof identityError> = identityRefusals.deny;
 export const timeouts = sql`set_config('statement_timeout','10s',true)||set_config('lock_timeout','5s',true)`;
 export function transaction<T>(db: Database | Transaction, body: (tx: WriteTx) => Promise<T>): Promise<T> {
 	return timedTransaction(db, async (tx) => {
@@ -49,9 +28,9 @@ export async function timedTransaction<T>(db: Database | Transaction, body: (tx:
 	}
 }
 export function rethrowWriteError(error: unknown): never {
-	if (error instanceof WriteUnavailable) refuse();
+	if (error instanceof WriteUnavailable) denyInvitation("invitation_unavailable");
 	const storage = z.object({ cause: z.object({ code: z.string() }) }).safeParse(error);
-	if (storage.success && ["55P03", "57014"].includes(storage.data.cause.code)) refuse("temporary");
+	if (storage.success && ["55P03", "57014"].includes(storage.data.cause.code)) denyInvitation("temporary");
 	throw error;
 }
 
@@ -74,7 +53,7 @@ export function attemptBudget(db: Database, key: string) {
 		identifier: string | null,
 		ip: string | null,
 	) {
-		if (kind === "registration" && !ip) throw new IdentityRefusal("admission_unavailable", 503);
+		if (kind === "registration" && !ip) deny("admission_unavailable");
 		const identifierHash = identifier ? hash(identifier) : null,
 			ipHash = ip ? hash(ip) : null;
 		const [minutes, identifierLimit, ipLimit] =
@@ -98,16 +77,18 @@ WITH expired AS (DELETE FROM admission_attempt WHERE expires_at<=clock_timestamp
   OR (${ipValue}::text IS NOT NULL AND ips>=${ipLimit}))
  RETURNING id`),
 			);
-			if (!inserted.length) throw new RateLimited(minutes);
+			if (!inserted.length) deny("rate_limited", { retryAt: new Date(Date.now() + minutes * 60_000).toISOString() });
 			return { id, kind, identifierHash };
 		} catch (error) {
-			if (error instanceof IdentityRefusal) throw error;
-			throw new IdentityRefusal("admission_unavailable", 503);
+			if (error instanceof Refusal) throw error;
+			deny("admission_unavailable");
 		}
 	}
 	async function locked(statement: SQL) {
 		const results = (await db.execute(statement)) as unknown as { rows: unknown[] }[];
-		return results[1]!.rows;
+		const [, reserved] = results;
+		if (!reserved) throw Error("The budget batch returned no locked rows result");
+		return reserved.rows;
 	}
 	async function finish(reservation: Awaited<ReturnType<typeof reserve>>, success: boolean) {
 		const r = reservation,

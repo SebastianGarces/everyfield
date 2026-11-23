@@ -1,5 +1,6 @@
 "use client";
 
+import { counted, countWord } from "@everyfield/contracts/common";
 import {
 	Add01Icon,
 	Delete02Icon,
@@ -13,6 +14,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import {
 	Button,
+	buttonVariants,
 	Card,
 	CardTitle,
 	Checkbox,
@@ -20,6 +22,7 @@ import {
 	EmptyState,
 	FilterChip,
 	IconButton,
+	IntentLink,
 	Menu,
 	MenuContent,
 	MenuItem,
@@ -31,9 +34,8 @@ import {
 	PageHeader,
 	SearchInput,
 	SegmentedControl,
+	TextButton,
 	toast,
-	buttonVariants,
-	IntentLink,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, Pagination, StatusBadge } from "@everyfield/ui/display";
 import { cn, createDebouncer, Icon } from "@everyfield/ui/foundations";
@@ -128,6 +130,8 @@ import {
 } from "./TasksScreen.store.ts";
 import { PhaseOffer } from "./PhaseOffer.tsx";
 import { Templates } from "./Templates.tsx";
+import { READ_FAILED } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 export type TasksAnswer = {
 	query: TaskQuery;
@@ -145,6 +149,12 @@ const GROUP: Record<Group["key"], { label: string; tone: "risk" | "measured" | "
 	all: null,
 };
 const lost = { status: "lost" } as const;
+type BulkChange = { kind: "complete" } | { kind: "reschedule"; due: DueInput };
+const changedRevision = (item: BulkResult["items"][number] | undefined): string | null => {
+	if (item?.outcome !== "changed") return null;
+	if (item.revision === null) throw new Error("A changed task came back without its revision");
+	return item.revision;
+};
 const targetOf = (a: StatusAction): Status =>
 	a.kind === "complete"
 		? "complete"
@@ -240,14 +250,14 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 		setDetails((d) => ({ ...d, [id]: { status: "loading" } }));
 		loadTask(id)
 			.catch(() => lost)
-			.then((r: Outcome<TaskLoad>) => {
+			.then((r: Outcome<TaskLoad> | ReadFailure) => {
 				actions.stopLoading(id);
 				setDetails((d) => ({
 					...d,
 					[id]:
 						r.status === "ok"
 							? { status: "ok", ...r.value }
-							: { status: "failed", code: r.status === "lost" ? "lost" : r.code },
+							: { status: "failed", code: r.status === "refused" ? r.code : r.status },
 				}));
 			});
 	};
@@ -347,7 +357,12 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 			),
 		);
 		if (fresh.size)
-			setItems((rows) => rows.map((r) => (fresh.has(r.id) ? { ...r, openPrerequisites: fresh.get(r.id)! } : r)));
+			setItems((rows) =>
+				rows.map((r) => {
+					const openPrerequisites = fresh.get(r.id);
+					return openPrerequisites === undefined ? r : { ...r, openPrerequisites };
+				}),
+			);
 	};
 
 	const addSuccessor = (pred: Pick<TaskItem, "id">, next: TaskDetail) => {
@@ -559,19 +574,20 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 		});
 	};
 
-	const runBulk = (kind: Report["kind"], due: DueInput | null, selectedTasks: TaskItem[]) => {
+	const runBulk = (change: BulkChange, selectedTasks: TaskItem[]) => {
+		const { kind } = change;
 		const chosen = selectedTasks.filter((t) => !isSettled(t.status));
 		if (!chosen.length) return;
 		setReport(null);
 		const items = chosen.map((t) => ({ taskId: t.id, expectedRevision: t.revision }));
 		const after = (t: TaskItem, revision: string): TaskItem =>
-			kind === "complete"
+			change.kind === "complete"
 				? { ...t, revision: revision as never, status: "complete", completedAt: new Date().toISOString() as never }
 				: {
 						...t,
 						revision: revision as never,
-						due: due as TaskItem["due"],
-						overdue: previewOverdue(due!, localToday()),
+						due: change.due as TaskItem["due"],
+						overdue: previewOverdue(change.due, localToday()),
 					};
 		actions.startBulk(
 			selectedTasks.map((t) => t.id),
@@ -585,8 +601,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 							else setPending({ kind: "row", id: t.id, row: after(t, t.revision) });
 					},
 					{
-						what: `The change to ${chosen.length} ${chosen.length === 1 ? "task" : "tasks"}`,
-						send: (key) => (kind === "complete" ? bulkComplete(key, items) : bulkReschedule(key, items, due)),
+						what: `The change to ${counted(chosen.length, "task")}`,
+						send: (key) =>
+							change.kind === "complete" ? bulkComplete(key, items) : bulkReschedule(key, items, change.due),
 						ok: (result: BulkResult) => {
 							const byId = new Map(chosen.map((t) => [t.id, t]));
 							const outcome = new Map(result.items.map((i) => [i.taskId, i]));
@@ -597,17 +614,17 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 							let moved = 0;
 							const nextCounts = (c: TaskCounts) =>
 								rows.reduce((acc, row) => {
-									const i = outcome.get(row.id);
-									if (i?.outcome === "changed") return countsAfter(acc, row, after(row, i.revision!));
+									const revision = changedRevision(outcome.get(row.id));
+									if (revision !== null) return countsAfter(acc, row, after(row, revision));
 									if (gone.has(row.id)) return countsAfter(acc, row, null);
 									return acc;
 								}, c);
 							for (const row of rows) if (gone.has(row.id)) moved++;
 							setItems((list) =>
 								list.flatMap((row) => {
-									const i = outcome.get(row.id);
 									if (gone.has(row.id)) return [];
-									return i?.outcome === "changed" ? [after(row, i.revision!)] : [row];
+									const revision = changedRevision(outcome.get(row.id));
+									return revision !== null ? [after(row, revision)] : [row];
 								}),
 							);
 							setCounts(nextCounts);
@@ -633,7 +650,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 								const n = result.changed;
 								return toast({
 									tone: "success",
-									message: `${kind === "complete" ? "Completed" : "Rescheduled"} ${n} ${n === 1 ? "task" : "tasks"}.`,
+									message: `${kind === "complete" ? "Completed" : "Rescheduled"} ${counted(n, "task")}.`,
 								});
 							}
 							setReport({ kind, changed: result.changed, unchanged, remaining: result.remaining.length });
@@ -712,7 +729,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 					? openForm(task.id, { kind: "edit", task: r.value.task })
 					: toast({
 							tone: "error",
-							message: `“${task.title}” did not open. ${r.status === "lost" ? "Check your connection and try again." : problemText(r.code)}`,
+							message: `“${task.title}” did not open. ${r.status === "lost" ? "Check your connection and try again." : problemText(r.status === "refused" ? r.code : r.status)}`,
 						}),
 			);
 	};
@@ -796,47 +813,50 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 								onNew={() => openForm(NEW, { kind: "edit", task: null })}
 							/>
 						) : (
-							groups.map((g) => (
-								<section key={g.key} aria-labelledby={GROUP[g.key] ? `group-${g.key}` : undefined}>
-									{GROUP[g.key] ? (
-										<h2
-											id={`group-${g.key}`}
-											className="flex items-center gap-2 px-3 pt-[18px] pb-2 font-sans text-sm font-semibold tracking-normal text-text-2"
-										>
-											<StatusBadge status={GROUP[g.key]!.tone} size="sm">
-												{GROUP[g.key]!.label}
-											</StatusBadge>
-											<span className="font-normal text-text-3">
-												{g.items.length}
-												<span className="sr-only"> {g.items.length === 1 ? "task" : "tasks"}</span>
-											</span>
-										</h2>
-									) : null}
-									<ul aria-label={GROUP[g.key]?.label ?? "Tasks"}>
-										{g.items.map((t) => (
-											<TaskRow
-												key={t.id}
-												task={t}
-												year={year}
-												you={viewer.accountId}
-												admin={admin}
-												canAct={canAct(t) && !t.id.startsWith(PENDING_PREFIX)}
-												selected={admin && !t.id.startsWith(PENDING_PREFIX) ? selected.has(t.id) : null}
-												onSelect={() => toggleSelected(t.id)}
-												wait={lanes.of(t.id).wait()}
-												notice={noticeOf(lanes.of(t.id))}
-												modal={modal}
-												onToggle={() => toggle(t)}
-												onAction={(a) => act(t, a)}
-												onOpen={() => !t.id.startsWith(PENDING_PREFIX) && open(t.id)}
-												onWarm={() => !t.id.startsWith(PENDING_PREFIX) && warm(t.id)}
-												onEdit={() => edit(t)}
-												onDelete={() => setDeleting(t)}
-											/>
-										))}
-									</ul>
-								</section>
-							))
+							groups.map((g) => {
+								const heading = GROUP[g.key];
+								return (
+									<section key={g.key} aria-labelledby={heading ? `group-${g.key}` : undefined}>
+										{heading ? (
+											<h2
+												id={`group-${g.key}`}
+												className="flex items-center gap-2 px-3 pt-[18px] pb-2 font-sans text-sm font-semibold tracking-normal text-text-2"
+											>
+												<StatusBadge status={heading.tone} size="sm">
+													{heading.label}
+												</StatusBadge>
+												<span className="font-normal text-text-3">
+													{g.items.length}
+													<span className="sr-only"> {countWord(g.items.length, "task")}</span>
+												</span>
+											</h2>
+										) : null}
+										<ul aria-label={heading?.label ?? "Tasks"}>
+											{g.items.map((t) => (
+												<TaskRow
+													key={t.id}
+													task={t}
+													year={year}
+													you={viewer.accountId}
+													admin={admin}
+													canAct={canAct(t) && !t.id.startsWith(PENDING_PREFIX)}
+													selected={admin && !t.id.startsWith(PENDING_PREFIX) ? selected.has(t.id) : null}
+													onSelect={() => toggleSelected(t.id)}
+													wait={lanes.of(t.id).wait()}
+													notice={noticeOf(lanes.of(t.id))}
+													modal={modal}
+													onToggle={() => toggle(t)}
+													onAction={(a) => act(t, a)}
+													onOpen={() => !t.id.startsWith(PENDING_PREFIX) && open(t.id)}
+													onWarm={() => !t.id.startsWith(PENDING_PREFIX) && warm(t.id)}
+													onEdit={() => edit(t)}
+													onDelete={() => setDeleting(t)}
+												/>
+											))}
+										</ul>
+									</section>
+								);
+							})
 						)}
 					</div>
 					{admin && chosen.length ? (
@@ -850,8 +870,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 							wait={bulkWait}
 							actions={bulkActions(chosen.map((t) => t.status))}
 							onKeepOpen={() => setSelected(new Set(chosen.filter((t) => !isSettled(t.status)).map((t) => t.id)))}
-							onComplete={() => runBulk("complete", null, chosen)}
-							onReschedule={(due) => runBulk("reschedule", due, chosen)}
+							onComplete={() => runBulk({ kind: "complete" }, chosen)}
+							onReschedule={(due) => runBulk({ kind: "reschedule", due }, chosen)}
 						/>
 					) : null}
 					{total > 0 ? (
@@ -925,9 +945,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 				description="The task leaves every list and stops sending reminders."
 				consequences={[
 					...(deleting && deleting.checklist.total > 0
-						? [
-								`Its ${deleting.checklist.total} ${deleting.checklist.total === 1 ? "step is" : "steps are"} deleted with it.`,
-							]
+						? [`Its ${counted(deleting.checklist.total, "step is", "steps are")} deleted with it.`]
 						: []),
 					"Its status history is kept.",
 					...(deleting?.managed ? ["The meeting will not create this task again."] : []),
@@ -991,17 +1009,14 @@ function TaskRow({
 			) : null}
 			<DoneBox task={task} canAct={canAct} wait={wait} describedBy={waiting ? hint : undefined} onToggle={onToggle} />
 			<div className="min-w-0 flex-1">
-				<button
-					type="button"
+				<TextButton
+					underline="hover"
 					onClick={onOpen}
 					{...intentHandlers(onWarm)}
-					className={cn(
-						"rounded-xs text-left font-medium text-ink decoration-text-3 underline-offset-[3px] hover:underline",
-						settled && "text-text-3 line-through",
-					)}
+					className={cn("text-ink decoration-text-3", settled && "text-text-3 line-through")}
 				>
 					{task.title}
-				</button>
+				</TextButton>
 				{waiting ? (
 					<span id={hint} className="ml-2 text-xs whitespace-nowrap text-text-2">
 						{wait === "saving" ? "Saving…" : "Check the last save first."}
@@ -1093,10 +1108,12 @@ function Toolbar({
 	rows: readonly TaskItem[];
 }) {
 	const single = <T extends string>(list: readonly T[], v: string[]) => list.find((x) => x === v.at(-1));
-	const [teams, setTeams] = useState<{ id: string; label: string }[] | "loading" | "failed" | null>(null);
+	const [teams, setTeams] = useState<{ id: string; label: string }[] | "loading" | "lost" | "failed" | null>(null);
 	const loadTeams = () => {
 		setTeams("loading");
-		relationOptions("team", "").then((r) => setTeams(r.status === "ok" ? r.value.items : "failed"));
+		relationOptions("team", "").then((r) =>
+			setTeams(r.status === "ok" ? r.value.items : r.status === "failed" ? "failed" : "lost"),
+		);
 	};
 	const warmTeams = () => void (admin && teams === null && loadTeams());
 	const seen = rows.flatMap((r) =>
@@ -1151,7 +1168,11 @@ function Toolbar({
 					searchLabel="Search teams"
 					multiple={false}
 					loading={teams === "loading"}
-					error={teams === "failed" ? { message: "The teams did not load.", onRetry: loadTeams } : undefined}
+					error={
+						teams === "lost" || teams === "failed"
+							? { message: teams === "failed" ? READ_FAILED : "The teams did not load.", onRetry: loadTeams }
+							: undefined
+					}
 					emptyText={admin ? "No active teams" : "No team is named on this page"}
 					options={teamOptions}
 					value={query.teamId ? [query.teamId] : []}
@@ -1275,7 +1296,7 @@ function Summary({ counts, query }: { counts: TaskCounts; query: TaskQuery }) {
 			<div className="mt-3 flex items-end gap-3">
 				<span className="num font-display text-[40px] leading-[0.95] tracking-[-0.03em] text-ink">{open}</span>
 				<span className="pb-1 text-sm text-text-2">
-					{open === 1 ? "open task" : "open tasks"}
+					{countWord(open, "open task")}
 					{isFiltered(query) ? " match the filters" : ""}
 				</span>
 			</div>

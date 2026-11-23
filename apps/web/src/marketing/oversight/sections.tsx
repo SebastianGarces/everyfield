@@ -31,7 +31,7 @@ export function EveryPlant() {
 					<Backdrop bg="field" sizes="(max-width: 1440px) 100vw, 1440px" className="absolute inset-0 -z-1" />
 					{G.groups.map((g) => (
 						<div key={g.label}>
-							<span className="mb-3.5 inline-block bg-mk-canvas-94 px-2.5 pt-[7px] pb-1.5 type-sm leading-[1.3] font-semibold tracking-[.09em] text-ink uppercase">
+							<span className="mb-3.5 inline-block bg-mk-canvas-94 px-2.5 pt-[7px] pb-1.5 mk-label type-sm leading-[1.3] font-semibold text-ink">
 								{g.label}
 							</span>
 							<ul className="m-0 grid list-none grid-cols-4 gap-4 p-0 max-[1100px]:grid-cols-2 max-[560px]:grid-cols-1">
@@ -103,7 +103,7 @@ export function TrustCards() {
 				<ul className="m-0 grid list-none grid-cols-4 gap-[clamp(20px,3vw,40px)] p-0 max-mk-lg:grid-cols-2 max-mk-sm:grid-cols-1">
 					{T.items.map((x, i) => (
 						<li key={x.title} className="flex flex-col gap-3 bg-white p-[26px] shadow-mk-card">
-							<MintIcon icon={TRUST_ICONS[i]!} />
+							{TRUST_ICONS[i] && <MintIcon icon={TRUST_ICONS[i]} />}
 							<Display as="h3" size="h3">
 								{x.title}
 							</Display>

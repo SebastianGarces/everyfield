@@ -1,5 +1,7 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { counted } from "@everyfield/contracts/common";
+import { captured } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind: string; id: string; label: string; fields: Record<string, unknown> };
@@ -55,7 +57,7 @@ function churchToday(prompt: Prompt, zone: string) {
 	return new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(clock ? new Date(clock) : new Date());
 }
 
-const AREA: Record<string, string> = {
+const AREA: Record<(typeof WEEK_READS)[number][1], string> = {
 	"dashboard.availableActions": "Overview's next steps",
 	"dashboard.metrics": "your overdue task count (Tasks)",
 	"meetings.list": "this week's meetings (Meetings)",
@@ -71,25 +73,25 @@ const FOLLOW_UP: Record<string, string> = { warning: "no recent activity", alert
 
 function weekAnswer(prompt: Prompt, outputs: Output[]) {
 	const of = (operation: string) => outputs.findLast((o) => o.operation === operation);
-	const ok = (o: Output | undefined) => o && !o.error && o.status === "available";
+	const ok = (o: Output | undefined): o is Output => !!o && !o.error && o.status === "available";
 	const frame = of("dashboard.availableActions");
 	const zone = String(of("dashboard.activity")?.facts?.timeZone ?? "America/Chicago");
-	const today = ok(frame) ? String(frame!.facts?.today) : churchToday(prompt, zone);
+	const today = ok(frame) ? String(frame.facts?.today) : churchToday(prompt, zone);
 	const end = addDays(today, 6);
 	const lines = [`Here is your week, ${short(today)} to ${short(end)}, from what Everyfield has recorded:`];
 
 	if (ok(frame)) {
-		const steps = frame!.rows ?? [];
+		const steps = frame.rows ?? [];
 		if (steps.length) {
 			lines.push("", "**Next steps** (from Overview):");
 			for (const s of steps) lines.push(`- [${s.label}](${String(s.fields.href)})`);
-		} else if (frame!.facts?.role === "member")
+		} else if (frame.facts?.role === "member")
 			lines.push("", "Overview offers your seat no next steps: an Owner or Admin takes those (from Overview).");
 		else lines.push("", "Overview has no next steps for you right now (from Overview).");
 	}
 	const meetings = of("meetings.list");
 	if (ok(meetings)) {
-		const week = (meetings!.rows ?? []).filter(
+		const week = (meetings.rows ?? []).filter(
 			(m) => m.kind === "meeting" && String(m.fields.date) >= today && String(m.fields.date) <= end,
 		);
 		if (week.length) {
@@ -102,7 +104,7 @@ function weekAnswer(prompt: Prompt, outputs: Output[]) {
 	}
 	const pipeline = of("people.getPipelineData");
 	if (ok(pipeline)) {
-		const marked = (pipeline!.rows ?? [])
+		const marked = (pipeline.rows ?? [])
 			.filter((p) => p.kind === "person" && FOLLOW_UP[String(p.fields.inactivity)] && p.fields.you !== true)
 			.sort((a, b) => a.label.localeCompare(b.label));
 		if (marked.length) {
@@ -112,15 +114,15 @@ function weekAnswer(prompt: Prompt, outputs: Output[]) {
 	}
 	const metrics = of("dashboard.metrics");
 	if (ok(metrics)) {
-		const overdue = Number(metrics!.facts?.myOverdueTasks ?? 0);
+		const overdue = Number(metrics.facts?.myOverdueTasks ?? 0);
 		lines.push(
 			"",
 			overdue
-				? `**Overdue tasks** (from Tasks): you have ${overdue} overdue ${overdue === 1 ? "task" : "tasks"}. [Open My tasks](/tasks?view=my)`
+				? `**Overdue tasks** (from Tasks): you have ${counted(overdue, "overdue task")}. [Open My tasks](/tasks?view=my)`
 				: "You have no overdue tasks (from Tasks).",
 		);
 	}
-	const failed = WEEK_READS.filter(([, op]) => !ok(of(op))).map(([, op]) => AREA[op]!);
+	const failed = WEEK_READS.filter(([, op]) => !ok(of(op))).map(([, op]) => AREA[op]);
 	if (failed.length)
 		lines.push(
 			"",
@@ -143,7 +145,7 @@ function addedAnswer(prompt: Prompt, activity: Output) {
 	const cut = activity.facts?.more === true && (!oldest || String(oldest.fields.date) >= since);
 	const lines = added.length
 		? [
-				`${cut ? "At least " : ""}${added.length} ${added.length === 1 ? "person was" : "people were"} added to People in the last month (since ${short(since)}), as Overview's activity shows:`,
+				`${cut ? "At least " : ""}${counted(added.length, "person was", "people were")} added to People in the last month (since ${short(since)}), as Overview's activity shows:`,
 				...added.map(
 					(e) =>
 						`- [${e.label.replace(/ added to People$/, "")}${e.fields.you === true ? " (you)" : ""}](${String(e.fields.href)}), added ${short(String(e.fields.date))}`,
@@ -166,7 +168,7 @@ function gapsAnswer(gaps: Output) {
 	if (!rows.length) return say("Every setup step Overview lists is done.");
 	const linked = rows.every((r) => typeof r.fields.href === "string");
 	return say(
-		`Overview lists ${rows.length} setup ${rows.length === 1 ? "step" : "steps"} still open:`,
+		`Overview lists ${counted(rows.length, "setup step")} still open:`,
 		...rows.map((r) => (typeof r.fields.href === "string" ? `- [${r.label}](${r.fields.href})` : `- ${r.label}`)),
 		...(linked ? [] : ["", "An Owner or Admin of this church takes these steps."]),
 	);
@@ -209,7 +211,7 @@ export function overviewStep(options: LanguageModelV4CallOptions, text: string):
 				"Here is your feedback to review. It goes to the Everyfield team only once you approve it, and you'll find it in [Sent feedback](/feedback).",
 			);
 		if (last?.error) return say(`I couldn't prepare that feedback (${String(last.error)}).`);
-		const words = sentence(send[1]!.trim());
+		const words = sentence(captured(send, 1).trim());
 		return call("propose_change", "feedback.submit", { category: categoryOf(words), description: words });
 	}
 	if ((SENT.test(text) || STATUS.test(text)) && offers("feedback.listOwn")) {
@@ -231,7 +233,7 @@ export function overviewStep(options: LanguageModelV4CallOptions, text: string):
 		const rows = list.rows ?? [];
 		if (!rows.length) return say("You haven't sent any feedback yet.");
 		return say(
-			`You have sent ${rows.length === 1 ? "1 piece" : `${rows.length} pieces`} of feedback${list.completeness === "partial" ? " that I can show" : ""}, newest first:`,
+			`You have sent ${counted(rows.length, "piece")} of feedback${list.completeness === "partial" ? " that I can show" : ""}, newest first:`,
 			...rows.map(feedbackLine),
 			"",
 			"See them in [Sent feedback](/feedback).",

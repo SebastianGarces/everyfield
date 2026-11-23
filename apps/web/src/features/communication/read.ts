@@ -1,3 +1,4 @@
+import type { Outcome } from "@everyfield/contracts/common";
 import { historyQuery } from "@everyfield/contracts/communication";
 import { communicationWriter } from "@everyfield/domain/communication";
 import { meetingsReader } from "@everyfield/domain/meetings";
@@ -16,7 +17,6 @@ import type {
 	MessageDetail,
 	MessageView,
 	NamedRecipient,
-	Outcome,
 	PersonHistory,
 	Recipient,
 	ResendReview,
@@ -83,7 +83,7 @@ export const GET = defineReads(seat, "access_denied", (get) => ({
 	context: get(z.strictObject({ meetingId: z.string() }), async ({ viewer }, v): Promise<Outcome<MeetingContext>> => {
 		if (!canWrite(viewer)) return denied;
 		const context = await readMeeting(viewer, (db, a) => meetingsReader.communicationContext(db, a, v));
-		if (context.status === "failed") return { status: "lost" };
+		if (context.status === "lost") return context;
 		if (context.status === "refused") return { status: "refused", code: "not_found" };
 		const { meeting: m, guests } = context.value;
 		return {
@@ -150,13 +150,16 @@ export const GET = defineReads(seat, "access_denied", (get) => ({
 					})
 				: Promise.resolve(denied),
 	),
-	preview: get(z.undefined(), async ({ viewer }): Promise<Outcome<{ churchName: string; origin: string }>> => {
-		const origin = appOrigin();
-		if (origin === null) return { status: "refused", code: "unavailable" };
-		return read(viewer, async (tx) => {
-			const church = await communicationWriter.readChurchName(tx, viewer.authority);
-			if (church.status !== "ok") return church;
-			return { status: "ok", value: { churchName: church.value.churchName, origin } };
-		});
-	}),
+	preview: get(
+		z.undefined(),
+		async ({ viewer }): Promise<Outcome<{ churchName: string; mailingAddress: string | null; origin: string }>> => {
+			const origin = appOrigin();
+			if (origin === null) return { status: "refused", code: "unavailable" };
+			return read(viewer, async (tx) => {
+				const church = await communicationWriter.readChurchName(tx, viewer.authority);
+				if (church.status !== "ok") return church;
+				return { status: "ok", value: { ...church.value, origin } };
+			});
+		},
+	),
 }));

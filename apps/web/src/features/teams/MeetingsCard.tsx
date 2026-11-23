@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { Calendar03Icon, CalendarAdd01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -17,7 +18,6 @@ import { SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import { problemText, whenText, type Summary } from "../meetings/model.ts";
 import { MeetingStatusBadge } from "../meetings/parts.tsx";
 import { PlanMeetingDialog } from "../meetings/PlanMeetingDialog.tsx";
-import { plural } from "./model.ts";
 import type { TeamView } from "./server.ts";
 
 export function MeetingsCard({
@@ -53,7 +53,7 @@ export function MeetingsCard({
 						<CardDescription>
 							{meetings.total > items.length
 								? `The latest ${items.length} of ${meetings.total}`
-								: plural(items.length, "team meeting")}
+								: counted(items.length, "team meeting")}
 						</CardDescription>
 					) : null}
 				</CardHeading>
@@ -96,7 +96,7 @@ function Group({
 }) {
 	return (
 		<section aria-label={`${title} meetings`} className="flex flex-col gap-1">
-			<h3 className="font-sans text-xs font-semibold tracking-wide text-text-3 uppercase">{title}</h3>
+			<h3 className="section-label font-sans text-text-3">{title}</h3>
 			{meetings.length === 0 ? (
 				<p className="py-1 text-sm text-text-3">{empty}</p>
 			) : (

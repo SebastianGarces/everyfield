@@ -1,5 +1,6 @@
 "use client";
 
+import { counted, countWord } from "@everyfield/contracts/common";
 import { ArrowDataTransferHorizontalIcon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -23,6 +24,7 @@ import { problemText, type Account, type HandoffPlan, type HandoffResult } from 
 import { useRead } from "../../components/read.tsx";
 import { DialogNotice, NoticeInDialog, SaveButton, useSaveIntent } from "../../components/save/parts.tsx";
 import { useLocalStore, useStore } from "../../components/store.ts";
+import { loadProblem } from "../../components/read-failed.ts";
 
 type Seat = { accountId: string; displayName: string; role: string };
 
@@ -45,7 +47,7 @@ export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => voi
 			items: chosen.slice(0, HANDOFF_LIMIT).map((d) => ({ taskId: d.taskId, expectedRevision: d.revision })),
 		};
 		await lane.save({
-			what: `Moving ${input.items.length} follow-up${input.items.length === 1 ? "" : "s"}`,
+			what: `Moving ${counted(input.items.length, "follow-up")}`,
 			send: (key) => executeHandoff(key, input),
 			ok: (value) => {
 				actions.settle(value);
@@ -129,13 +131,12 @@ export function HandoffDialog({
 							{result ? (
 								<div role="status" className="flex flex-col gap-2 text-sm text-ink-2">
 									<p className="font-medium text-ink">
-										Moved {result.moved.length} follow-up{result.moved.length === 1 ? "" : "s"} to{" "}
-										{result.to.displayName}.
+										Moved {counted(result.moved.length, "follow-up")} to {result.to.displayName}.
 									</p>
 									<p>
 										{result.remainingTotal === 0
 											? `${sourceName ?? "They"} has no open follow-ups left.`
-											: `${result.remainingTotal} open follow-up${result.remainingTotal === 1 ? "" : "s"} still belong to ${sourceName ?? "them"}. Review them next, or leave them; they show as Needs owner while ${sourceName ?? "they"} cannot own follow-ups.`}
+											: `${counted(result.remainingTotal, "open follow-up")} still belong to ${sourceName ?? "them"}. Review them next, or leave them; they show as Needs owner while ${sourceName ?? "they"} cannot own follow-ups.`}
 									</p>
 								</div>
 							) : (
@@ -152,9 +153,10 @@ export function HandoffDialog({
 											options={sourceOptions(seats?.status === "ok" ? seats.value.items : [], former)}
 										/>
 									</Field>
-									{seats?.status === "refused" || seats?.status === "lost" ? (
+									{seats && seats.status !== "ok" ? (
 										<p className="text-sm text-text-2">
-											The current seats did not load. People who can no longer own follow-ups are still listed.
+											{loadProblem(seats, "The current seats did not load.")} People who can no longer own follow-ups
+											are still listed.
 										</p>
 									) : null}
 									{from && plan === null ? (
@@ -164,7 +166,7 @@ export function HandoffDialog({
 									) : null}
 									{plan && plan.status !== "ok" ? (
 										<p className="text-sm text-text-2">
-											Their follow-ups did not load. Choose the person again to retry.
+											{loadProblem(plan, "Their follow-ups did not load. Choose the person again to retry.")}
 										</p>
 									) : null}
 									{p ? <Review plan={p} selected={selected} onSelected={setSelected} /> : null}
@@ -219,7 +221,7 @@ export function HandoffDialog({
 											saving={lane.saving}
 											blocked={chosen.length ? null : "Choose at least one follow-up."}
 										>
-											{`Move ${Math.min(chosen.length, HANDOFF_LIMIT)} follow-up${chosen.length === 1 ? "" : "s"}`}
+											{`Move ${Math.min(chosen.length, HANDOFF_LIMIT)} ${countWord(chosen.length, "follow-up")}`}
 										</SaveButton>
 									) : null}
 								</>

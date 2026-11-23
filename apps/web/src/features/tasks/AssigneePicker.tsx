@@ -5,6 +5,7 @@ import { Combobox } from "@everyfield/ui/controls";
 import { createRead, useRead } from "../../components/read.tsx";
 import { assigneeOptions } from "./fetch.ts";
 import { assigneeName } from "./model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
 
 type Purpose = "any" | "committed_follow_up";
 export type Held = { accountId: string; displayName: string; warning?: string | null };
@@ -14,7 +15,9 @@ const seats = createRead((purpose: Purpose) => assigneeOptions(purpose), {
 	fresh: Infinity,
 });
 export const warmAssignees = (purpose: Purpose = "any") => seats.get(purpose);
-export const forgetAssignees = () => seats.forget();
+export const reloadAssignees = () => {
+	for (const purpose of ["any", "committed_follow_up"] as const) if (seats.peek(purpose)) void seats.refresh(purpose);
+};
 
 export function AssigneePicker({
 	value,
@@ -75,7 +78,7 @@ export function AssigneePicker({
 				error={
 					failed
 						? {
-								message: "The list of people did not load.",
+								message: loadProblem(read.value, "The list of people did not load."),
 								onRetry: read.retry,
 							}
 						: undefined

@@ -7,6 +7,7 @@ import {
 	plainText,
 	renderBody,
 	renderEmailHtml,
+	renderEmailText,
 	renderTransactional,
 	scheduleAccepted,
 	usesRsvpLink,
@@ -14,7 +15,8 @@ import {
 } from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
-import { audiencePeople, reviewedParts } from "./audience.ts";
+import { churchAddressSql, churchMailingAddress, hasMailingAddressSql } from "./address.ts";
+import { childSql, reviewedParts, storedAudiencePeople } from "./audience.ts";
 import { z } from "zod";
 import { administers, deny, hash, parse, readReply, readerOf } from "./core.ts";
 import { meetingOpenSql, newRsvpToken, rsvpTokenDigest, rsvpTokenUpdate } from "../meetings/tokens.ts";
@@ -60,8 +62,10 @@ type Member = {
 	provider: string | null;
 	scheduledAt: string | null;
 	cancelRequested: boolean;
-	unsubscribed: boolean;
+	leftOut: LeftOut;
 };
+type LeftOut = "unsubscribed" | "child" | null;
+const leftOutValue = z.enum(["unsubscribed", "child"]).nullable();
 type Mode = "now" | "scheduled" | "lookup";
 type Batch = {
 	requestId: string;
@@ -132,17 +136,18 @@ function requireActor(authority: RequestActor) {
 }
 function counts(members: readonly Member[]) {
 	const accepted = members.filter(
-		(row) => row.state === "accepted" || row.state === "sent" || row.state === "scheduled",
+		(row) => !row.leftOut && (row.state === "accepted" || row.state === "sent" || row.state === "scheduled"),
 	);
 	const rejected = members.filter(
-		(row) => !row.unsubscribed && (row.state === "refused" || row.state === "failed" || row.state === "cancelled"),
+		(row) => !row.leftOut && (row.state === "refused" || row.state === "failed" || row.state === "cancelled"),
 	);
 	const unknown = members.filter((row) => row.state === "unknown" || row.state === "dispatched");
 	return {
 		acceptedCount: accepted.length,
 		rejectedCount: rejected.length,
 		unknownCount: unknown.length,
-		unsubscribedCount: members.filter((row) => row.unsubscribed).length,
+		unsubscribedCount: members.filter((row) => row.leftOut === "unsubscribed").length,
+		childCount: members.filter((row) => row.leftOut === "child").length,
 		confirmedRecipientIds: accepted.map((row) => row.personId).filter((id): id is string => id !== null),
 	};
 }
@@ -200,16 +205,18 @@ const loadedSchema = z.object({
 	meeting_open: z.boolean().nullable(),
 	guests: z.unknown().nullable(),
 	church_name: z.string().nullable(),
+	church_address: z.unknown().nullable(),
 });
 
 type Loaded = z.infer<typeof loadedSchema>;
 
-async function loadAudience(db: Database, actor: Actor, communicationId: string): Promise<Loaded> {
+async function loadAudience(db: Database, actor: Actor, communicationId: string, resolve = false): Promise<Loaded> {
 	const gate = adminGate(actor);
 	const raw = one(
 		await db.execute(sql`SELECT g.allowed, c.id, c.revision::text AS revision, c.state, c.subject, c.body_html, c.body_text,
 			c.audience, c.review_digest, c.meeting_id,
 			(SELECT pl.name FROM plant pl WHERE pl.id = c.plant_id) AS church_name,
+			${churchAddressSql(sql`c.plant_id`)} AS church_address,
 			CASE WHEN c.meeting_id IS NULL THEN false ELSE EXISTS (
 				SELECT 1 FROM meeting mt WHERE mt.id = c.meeting_id AND mt.plant_id = c.plant_id AND ${meetingOpenSql("mt")}
 			) END AS meeting_open,
@@ -218,7 +225,7 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 				WHERE pt.meeting_id = c.meeting_id AND pt.plant_id = c.plant_id AND pt.removed_at IS NULL
 			) END AS guests,
 			to_char(c.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS scheduled_at,
-			'[]'::jsonb AS people,
+			${resolve ? sql`CASE WHEN c.id IS NULL THEN '[]'::jsonb ELSE ${storedAudiencePeople(actor.plantId, sql`c.audience`)} END` : sql`'[]'::jsonb`} AS people,
 			CASE WHEN c.id IS NULL THEN 0 ELSE (
 				SELECT count(*)::int FROM jsonb_array_elements_text(coalesce(c.audience->'personIds', '[]'::jsonb)) e(value)
 				WHERE NOT EXISTS (
@@ -237,7 +244,8 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 							'provider', m.provider_message_id,
 							'scheduledAt', to_char(m.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 							'cancelRequested', m.cancel_requested_at IS NOT NULL,
-							'unsubscribed', m.refusal IS NOT DISTINCT FROM 'unsubscribed',
+							'leftOut', CASE WHEN m.refusal IS NOT NULL THEN m.refusal
+								WHEN m.state = 'scheduled' AND ${childSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} THEN 'child' END,
 							'payload', CASE WHEN m.state IN ('dispatched', 'unknown') THEN m.frozen_payload END,
 							'address', CASE WHEN m.state IN ('dispatched', 'unknown') THEN m.recipient_address_encrypted END
 						) ORDER BY mem.position) AS members
@@ -275,7 +283,7 @@ const storedBatches = z.array(
 				provider: z.string().nullable(),
 				scheduledAt: z.string().nullable(),
 				cancelRequested: z.boolean(),
-				unsubscribed: z.boolean(),
+				leftOut: leftOutValue,
 				payload: sealedPayload.nullable(),
 				address: z.string().nullable(),
 			}),
@@ -315,25 +323,25 @@ function batchesOf(raw: unknown, tenantId: string, encryptionKey?: Uint8Array): 
 }
 
 async function openLoaded(db: Database, actor: Actor, communicationId: string, expectedRevision: string) {
-	const found = loadedSchema.parse(await loadAudience(db, actor, communicationId));
+	const found = await loadAudience(db, actor, communicationId, true);
 	if (found.allowed !== true) deny("access_denied");
 	if (!found.id) deny("not_found");
 	if (found.revision !== expectedRevision || found.state !== "scheduled") deny("conflict");
 	if (!found.subject || !found.body_html) deny("invalid_input");
 	if ((found.foreign_people ?? 0) > 0) deny("access_denied");
 	const audience = c.audienceInput.parse(asJson(found.audience) ?? { groups: [], teamIds: [], personIds: [] });
-	const resolved = one(
-		await db.execute(sql`SELECT g.allowed, q.people FROM (SELECT ${adminGate(actor)} AS allowed) g
-			LEFT JOIN LATERAL (SELECT ${audiencePeople(actor.plantId, audience)} AS people) q ON g.allowed`),
-	) as { allowed?: boolean; people?: unknown } | undefined;
-	if (resolved?.allowed !== true) deny("access_denied");
-	const people = resolved.people ?? [];
+	const people = found.people ?? [];
 	const parts = reviewedParts(people);
 	if (!parts.people.length) deny("invalid_input");
 	const digest = hash({ subject: found.subject, body: found.body_html, people: parts.people, emails: parts.emails });
 	if (found.review_digest !== digest)
 		deny("stale_review", { previewBody: found.body_html, scriptExecution: false, providerCalls: 0 });
-	return { found: { ...found, people }, audience, parts, digest };
+	return {
+		found: { ...found, id: found.id, subject: found.subject, body_html: found.body_html, people },
+		audience,
+		parts,
+		digest,
+	};
 }
 
 async function prepare(
@@ -349,19 +357,37 @@ async function prepare(
 	const frozen = batchesOf(found.batches, actor.plantId, keys.encryptionKey);
 	if (frozen.length) return frozen;
 	if (mode === "lookup") deny("not_found");
+	const mailingAddress = churchMailingAddress(found.church_address);
+	if (mailingAddress === null) deny("mailing_address_missing");
 	const linked = usesRsvpLink(found.body_html);
 	const canLink = linked && new URL(keys.origin).protocol === "https:";
 	if (linked && (!found.meeting_id || !found.meeting_open)) deny("rsvp_needs_meeting");
 	const guests = new Set(z.array(z.uuid()).parse(asJson(found.guests) ?? []));
 	const people = z
-		.array(z.object({ id: z.uuid(), email: z.string().nullable(), displayName: z.string(), n: z.number() }))
+		.array(
+			z.object({
+				id: z.uuid(),
+				email: z.string().nullable(),
+				displayName: z.string(),
+				n: z.number(),
+				child: z.boolean(),
+			}),
+		)
 		.parse(asJson(found.people) ?? [])
-		.filter((row) => row.email?.trim())
+		.flatMap((row) => {
+			const email = row.email?.trim();
+			return email ? [{ ...row, email }] : [];
+		})
 		.sort((a, b) => a.id.localeCompare(b.id));
 	const seen = new Set<string>();
-	const unique = people.filter((row) => (seen.has(row.id) ? false : (seen.add(row.id), true)));
+	const address = (row: (typeof people)[number]) => (row.email ?? "").trim().toLowerCase();
+	const out = new Set(leftOut);
+	const reached = new Set(people.filter((row) => !out.has(row.id)).map(address));
+	const unique = people.filter((row) =>
+		seen.has(row.id) || (out.has(row.id) && reached.has(address(row))) ? false : (seen.add(row.id), true),
+	);
 	const rows = unique.map((person, index) => {
-		const address = person.email!.trim().toLowerCase();
+		const address = person.email.toLowerCase();
 		const id = randomUUID();
 		const token = canLink && guests.has(person.id) ? newRsvpToken() : null;
 		const merge: Record<MergeKey, string> = {
@@ -371,12 +397,13 @@ async function prepare(
 		const unsubscribe = keys.optOutKeys
 			? `${keys.origin}/unsubscribe/${messagesOptOutToken(keys.optOutKeys, { plantId: actor.plantId, personId: person.id })}`
 			: null;
-		const html = renderEmailHtml(found.body_html!, merge, {
+		const context = {
 			churchName: found.church_name ?? "",
+			mailingAddress,
 			...(unsubscribe ? { unsubscribeUrl: unsubscribe } : {}),
-		});
-		const body = plainText(renderBody(found.body_html!, merge)) || found.subject!;
-		const text = unsubscribe ? `${body}\n\n--\nUnsubscribe: ${unsubscribe}` : body;
+		};
+		const html = renderEmailHtml(found.body_html, merge, context);
+		const text = renderEmailText(plainText(renderBody(found.body_html, merge)) || found.subject, context);
 		const headers = unsubscribe
 			? { "List-Unsubscribe": `<${unsubscribe}/one-click>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
 			: undefined;
@@ -392,6 +419,7 @@ async function prepare(
 		return {
 			id,
 			person: person.id,
+			child: person.child,
 			logical_key: `communication/${found.id}/${person.id}`,
 			payload_hash: payloadHash,
 			token_hash: token ? rsvpTokenDigest(token) : null,
@@ -423,23 +451,26 @@ async function prepare(
 			request_hash: requestHash,
 		};
 	});
-	const minted = found.meeting_id !== null && rows.some((row) => row.token_hash !== null);
+	const meetingId = found.meeting_id;
+	const minted = meetingId !== null && rows.some((row) => row.token_hash !== null);
 	const waiting = mode === "scheduled" ? "scheduled" : "dispatched";
 	const tokens = minted
 		? sql`,
 			ins_tok AS (${rsvpTokenUpdate(
 				actor.plantId,
-				found.meeting_id!,
+				meetingId,
 				sql`(SELECT i.person AS person_id, i.token_hash FROM input i JOIN ins_mail m ON m.id = i.id AND m.state IN ('dispatched', 'scheduled')
 					WHERE i.token_hash IS NOT NULL)`,
 			)})`
 		: sql``;
 	const issued = minted ? sql`(SELECT count(*) FROM ins_tok)` : sql`0`;
+	const firstGroup = groups[0];
+	if (!firstGroup) throw Error(`Communication ${found.id} reached dispatch with no recipient`);
 	const stored = one(
 		await db.execute(sql`WITH gate AS (SELECT ${adminGate(actor)} AS allowed),
 			input AS (
-				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
-					id uuid, person uuid, logical_key text, payload_hash text, token_hash text, address_hash text, payload jsonb, address text,
+				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, child, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, child, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
+					id uuid, person uuid, child boolean, logical_key text, payload_hash text, token_hash text, address_hash text, payload jsonb, address text,
 					batch int, position int
 				)
 			),
@@ -453,12 +484,13 @@ async function prepare(
 					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at, refusal)
 				SELECT i.id, ${actor.plantId}::uuid, i.person, 'communication', ${found.id}::uuid, i.logical_key, i.payload_hash, ${loaded.digest},
 					i.payload, i.address, i.address_hash,
-					CASE WHEN i.unsubscribed OR EXISTS (
+					CASE WHEN i.unsubscribed OR i.refuse_child OR EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
 					) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
 					clock_timestamp(), ${heldUntil}::timestamptz,
-					CASE WHEN i.unsubscribed THEN 'unsubscribed' END
-				FROM (SELECT i.*, ${optedOutSql(sql`${actor.plantId}::uuid`, sql`i.person`)} AS unsubscribed FROM input i) i
+					CASE WHEN i.refuse_child THEN 'child' WHEN i.unsubscribed THEN 'unsubscribed' END
+				FROM (SELECT i.*, ${optedOutSql(sql`${actor.plantId}::uuid`, sql`i.person`)} AS unsubscribed,
+					i.child AND ${mode !== "scheduled"}::boolean AS refuse_child FROM input i) i
 				JOIN gate g ON g.allowed
 				WHERE EXISTS (
 					SELECT 1 FROM communication c
@@ -499,7 +531,7 @@ async function prepare(
 			ins_audit AS (
 				INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, after_value)
 				SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'communication.send_intended', 'outcome', 'record',
-					${found.id}::uuid, ${"dispatch/" + groups[0]!.provider_key}, '{}'::jsonb,
+					${found.id}::uuid, ${"dispatch/" + firstGroup.provider_key}, '{}'::jsonb,
 					jsonb_build_object('recipients', (SELECT count(*) FROM ins_mail), 'rsvpLinks', ${issued})
 				WHERE EXISTS (SELECT 1 FROM ins_mail)
 				ON CONFLICT (subject_id, event_key) DO NOTHING
@@ -507,7 +539,7 @@ async function prepare(
 			)
 			SELECT (SELECT allowed FROM gate) AS allowed,
 				(SELECT count(*)::int FROM ins_attempt) AS attempts,
-				coalesce((SELECT jsonb_agg(jsonb_build_object('id', m.id, 'state', m.state, 'unsubscribed', m.refusal IS NOT NULL))
+				coalesce((SELECT jsonb_agg(jsonb_build_object('id', m.id, 'state', m.state, 'refusal', m.refusal))
 					FROM ins_mail m), '[]'::jsonb) AS members,
 				(SELECT count(*) FROM ins_mem) AS members_written,
 				(SELECT count(*) FROM ins_audit) AS audits`),
@@ -515,14 +547,19 @@ async function prepare(
 	if (stored?.allowed !== true) deny("access_denied");
 	const written = new Map(
 		z
-			.array(z.object({ id: z.uuid(), state: z.string(), unsubscribed: z.boolean() }))
+			.array(z.object({ id: z.uuid(), state: z.string(), refusal: leftOutValue }))
 			.parse(asJson(stored.members) ?? [])
 			.map((row) => [row.id, row]),
 	);
 	if (written.size !== rows.length || stored.attempts !== groups.length) deny("conflict");
 	return groups.map((group) => {
 		const members = rows.filter((row) => row.batch === group.batch);
-		const state = (id: string) => written.get(id)!.state;
+		const writtenOf = (id: string) => {
+			const row = written.get(id);
+			if (!row) throw Error(`Mail ${id} was counted as written but not returned`);
+			return row;
+		};
+		const state = (id: string) => writtenOf(id).state;
 		return {
 			requestId: group.id,
 			attemptId: group.attempt,
@@ -536,7 +573,7 @@ async function prepare(
 				provider: null,
 				scheduledAt: heldUntil,
 				cancelRequested: false,
-				unsubscribed: written.get(row.id)!.unsubscribed,
+				leftOut: writtenOf(row.id).refusal ?? (state(row.id) === "scheduled" && row.child ? "child" : null),
 			})),
 			messages: new Map(
 				members
@@ -545,7 +582,7 @@ async function prepare(
 						row.position,
 						{
 							to: row.to,
-							subject: found.subject!,
+							subject: found.subject,
 							html: row.html,
 							text: row.text,
 							...(row.headers ? { headers: row.headers } : {}),
@@ -630,11 +667,15 @@ async function handOffBatch(transport: DeliveryTransport, batch: Batch) {
 	const open = batch.members.filter((row) => row.state === "dispatched" || row.state === "unknown");
 	if (!open.length) return null;
 	if (batch.expired) return { sent: false, lost: false, updates: applyIds({ outcome: "unknown" }, open) };
-	const ready = open.filter((row) => batch.messages.get(row.position));
+	const ready = open.flatMap((row) => {
+		const message = batch.messages.get(row.position);
+		return message ? [{ ...row, message }] : [];
+	});
 	const updates: Update[] = open
 		.filter((row) => !batch.messages.get(row.position))
 		.map((row) => ({ id: row.id, outcome: row.state === "unknown" ? "unknown" : "refused", providerId: null }));
-	if (!ready.length) return { sent: false, lost: false, updates };
+	const [first] = ready;
+	if (!first) return { sent: false, lost: false, updates };
 	const sent = !open.some((row) => row.state === "unknown");
 	let answer: DeliveryBatch;
 	let lost = false;
@@ -642,8 +683,8 @@ async function handOffBatch(transport: DeliveryTransport, batch: Batch) {
 		answer = await transport.send(
 			{
 				key: batch.providerKey,
-				messages: ready.map((row) => batch.messages.get(row.position)!),
-				scheduledAt: ready[0]!.scheduledAt,
+				messages: ready.map((row) => row.message),
+				scheduledAt: first.scheduledAt,
 			},
 			signal(),
 		);
@@ -730,18 +771,21 @@ async function loadHandoff(db: Database, actor: Actor, communicationId: string, 
 	if (found.allowed !== true) deny("access_denied");
 	if (!found.id) deny("not_found");
 	if (found.revision !== expectedRevision) deny("conflict");
-	return { found, members: batchesOf(found.batches, actor.plantId).flatMap((batch) => batch.members) };
+	return {
+		found: { ...found, id: found.id },
+		members: batchesOf(found.batches, actor.plantId).flatMap((batch) => batch.members),
+	};
 }
 
 async function askEach(
 	open: readonly Member[],
 	ask: (providerIds: readonly string[]) => Promise<readonly ProviderAnswer[]>,
 ): Promise<Answer[]> {
-	const asked = open.filter((row) => row.provider !== null);
+	const asked = open.flatMap((row) => (row.provider === null ? [] : [{ id: row.id, provider: row.provider }]));
 	if (!asked.length) return [];
 	let replies: readonly ProviderAnswer[];
 	try {
-		replies = await ask(asked.map((row) => row.provider!));
+		replies = await ask(asked.map((row) => row.provider));
 	} catch {
 		return [];
 	}
@@ -829,7 +873,7 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 			next = answered(next, answers, (row) => ({ ...row, state: "cancelled" }));
 			if (answers.length) {
 				const openCount = next.filter(holding).length;
-				await recordAnswers(db, actor, found.id!, answers, null, {
+				await recordAnswers(db, actor, found.id, answers, null, {
 					eventKey: openCount === 0 ? `cancel-confirmed/${found.id}` : `cancel-check/${input.requestKey}`,
 					after: {
 						cancelled: answers.filter((answer) => answer.outcome === "done").length,
@@ -841,7 +885,7 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 		}
 		const held = local.length > 0 || next.some((row) => row.provider !== null || holding(row));
 		const openCount = next.filter(holding).length;
-		return c.cancelScheduledResult.parse({
+		return {
 			newHandoffs: 0,
 			scheduledCancel: !held ? "none" : openCount > 0 ? "reconcile" : "confirmed",
 			sentRecalled: false,
@@ -852,7 +896,7 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 			confirmedCount: next.filter((row) => row.state === "cancelled").length,
 			sentCount: next.filter((row) => row.state === "sent").length,
 			openCount,
-		});
+		} satisfies z.output<typeof c.cancelScheduledResult>;
 	});
 }
 
@@ -867,7 +911,9 @@ export function replaceScheduled(db: Database, authority: RequestActor, raw: unk
 		const replacementAllowed =
 			members.some((row) => row.state === "cancelled") &&
 			members.every((row) => row.state === "cancelled" || row.state === "refused" || row.state === "failed");
-		return c.replaceScheduledResult.parse({ replacementAllowed, replacementIntents: 0, blindResends: 0 });
+		return { replacementAllowed, replacementIntents: 0, blindResends: 0 } satisfies z.output<
+			typeof c.replaceScheduledResult
+		>;
 	});
 }
 
@@ -914,7 +960,7 @@ export function rescheduleDispatched(
 			next = answered(members, answers, (row) => ({ ...row, scheduledAt: requested }));
 			if (answers.length) {
 				const left = open.length - answers.length;
-				await recordAnswers(db, actor, found.id!, answers, requested, {
+				await recordAnswers(db, actor, found.id, answers, requested, {
 					eventKey: left === 0 ? `time-confirmed/${found.id}/${requested}` : `time-check/${input.requestKey}`,
 					after: {
 						scheduled_at: requested,
@@ -931,7 +977,7 @@ export function rescheduleDispatched(
 			rescheduleStatus: still.length ? "unknown" : "accepted",
 			newCommunications: 0,
 			scheduledAt: requested,
-			heldAt: still.map((row) => row.scheduledAt!).sort()[0] ?? null,
+			heldAt: still.flatMap((row) => (row.scheduledAt === null ? [] : [row.scheduledAt])).sort()[0] ?? null,
 			confirmedCount: next.filter((row) => waiting(row) || (row.state === "accepted" && row.scheduledAt === requested))
 				.length,
 			sentCount: next.filter((row) => row.state === "sent").length,
@@ -1011,7 +1057,9 @@ export function restoreOwnSuppression(db: Database, authority: RequestActor, raw
 				)
 				SELECT count(*)::int AS clears FROM updated`),
 		) as { clears?: number };
-		return c.restoreSuppressionResult.parse({ suppressionClears: updated?.clears ?? 0, newSends: 0 });
+		return { suppressionClears: updated?.clears ?? 0, newSends: 0 } satisfies z.output<
+			typeof c.restoreSuppressionResult
+		>;
 	});
 }
 
@@ -1097,12 +1145,14 @@ export function sendTransactionalMail(
 			await db.execute(sql`UPDATE mail_attempt SET outcome = ${deliveryStatus === "accepted" ? "accepted" : deliveryStatus === "refused" ? "refused" : "unknown"},
 				completed_at = clock_timestamp() WHERE id = ${attemptId}::uuid`);
 		}
-		return c.transactionalResult.parse({ purposeMailAttempted: true, deliveryStatus, sentAt: null });
+		return { purposeMailAttempted: true, deliveryStatus, sentAt: null } satisfies z.output<
+			typeof c.transactionalResult
+		>;
 	});
 }
 
 const churchClosing = (tenant: SQL) => sql`EXISTS (SELECT 1 FROM lifecycle_witness w
-	WHERE w.opaque_subject_id = ${tenant} AND w.state IN ('pending_deletion', 'purging', 'purged', 'revoked'))`;
+	WHERE w.opaque_subject_id = ${tenant} AND w.state IN ('pending_deletion', 'purging', 'purged'))`;
 
 const claimedSchema = z.object({
 	request_id: z.uuid(),
@@ -1116,7 +1166,7 @@ const claimedSchema = z.object({
 			id: z.uuid(),
 			state: z.string(),
 			personId: z.uuid().nullable(),
-			unsubscribed: z.boolean(),
+			leftOut: leftOutValue,
 			payload: sealedPayload.nullable(),
 			address: z.string().nullable(),
 		}),
@@ -1130,6 +1180,7 @@ async function claimDue(db: Database) {
 				JOIN mail_request_member mem ON mem.mail_id = m.id AND mem.tenant_id = m.tenant_id
 				WHERE m.purpose = 'communication' AND m.state = 'scheduled' AND m.scheduled_at IS NOT NULL
 					AND m.scheduled_at <= clock_timestamp() AND NOT ${churchClosing(sql`m.tenant_id`)}
+					AND ${hasMailingAddressSql(sql`m.tenant_id`)}
 				ORDER BY m.scheduled_at, mem.request_id
 				LIMIT 1
 			), locked AS MATERIALIZED (
@@ -1139,6 +1190,7 @@ async function claimDue(db: Database) {
 			), decided AS MATERIALIZED (
 				SELECT m.id, mem.position,
 					${optedOutSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} AS unsubscribed,
+					${childSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} AS child,
 					EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL) AS blocked
 				FROM locked r
 				JOIN mail_request_member mem ON mem.request_id = r.id AND mem.tenant_id = r.tenant_id
@@ -1146,8 +1198,8 @@ async function claimDue(db: Database) {
 				WHERE m.state = 'scheduled'
 			), flipped AS (
 				UPDATE mail m SET
-					state = CASE WHEN d.unsubscribed OR d.blocked THEN 'refused' ELSE 'dispatched' END,
-					refusal = CASE WHEN d.unsubscribed THEN 'unsubscribed' END,
+					state = CASE WHEN d.child OR d.unsubscribed OR d.blocked THEN 'refused' ELSE 'dispatched' END,
+					refusal = CASE WHEN d.child THEN 'child' WHEN d.unsubscribed THEN 'unsubscribed' END,
 					scheduled_at = NULL
 				FROM decided d
 				WHERE m.id = d.id AND m.state = 'scheduled'
@@ -1158,7 +1210,7 @@ async function claimDue(db: Database) {
 				(SELECT a.id FROM mail_attempt a WHERE a.request_id = r.id AND a.attempt_number = 1) AS attempt_id,
 				(SELECT split_part(f.logical_key, '/', 2) FROM flipped f LIMIT 1) AS communication_id,
 				coalesce((SELECT jsonb_agg(jsonb_build_object('position', f.position, 'id', f.id, 'state', f.state,
-					'personId', f.recipient_person_id, 'unsubscribed', f.refusal IS NOT NULL,
+					'personId', f.recipient_person_id, 'leftOut', f.refusal,
 					'payload', f.frozen_payload, 'address', f.recipient_address_encrypted) ORDER BY f.position)
 					FROM flipped f), '[]'::jsonb) AS members
 			FROM locked r
@@ -1195,7 +1247,7 @@ export async function runDueScheduled(
 			provider: null,
 			scheduledAt: null,
 			cancelRequested: false,
-			unsubscribed: row.unsubscribed,
+			leftOut: row.leftOut,
 		}));
 		const batch: Batch = {
 			requestId: claimed.request_id,

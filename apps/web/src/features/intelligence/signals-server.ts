@@ -1,4 +1,5 @@
 import { requestDatabase } from "@/server/database";
+import { refusedWith, withError } from "@everyfield/contracts/common";
 import {
 	signalError,
 	type AttestationsPage,
@@ -11,46 +12,33 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { createSignals, type Signals } from "@everyfield/domain/intelligence";
 import "server-only";
 import type { SignalOutcome } from "./signals-model.ts";
-import { careViewer, type CareViewer } from "./server.ts";
-import { isTransient, logFailure, type LogWord } from "@everyfield/domain/log";
-import { unexpected } from "../../server/platform/transient.ts";
+import { plantSeat, type PlantSeat } from "@/server/request-context";
+import { LOST, transient } from "../../server/platform/transient.ts";
+import { readDb } from "../../server/platform/tx.ts";
 
 const signals = createSignals();
 
-const report = <O extends string>(outcome: LogWord<O>, error: unknown) =>
-	logFailure({ component: "signals", outcome }, error);
-
-export async function loadAttestations(viewer: CareViewer): Promise<SignalOutcome<AttestationsPage>> {
-	const db = requestDatabase();
-	try {
-		return await signals.readAttestations(db, viewer.authority, {});
-	} catch (error) {
-		if (!isTransient(error)) throw unexpected({ component: "signals", outcome: "read_failed" }, error);
-		report("read_failed", error);
-		return { status: "lost" };
-	}
+export async function loadAttestations(viewer: PlantSeat): Promise<SignalOutcome<AttestationsPage>> {
+	return readDb("signals", async (db) => withError(await signals.readAttestations(db, viewer.authority, {})));
 }
 
 export async function runSignals<T extends SignalWriteResult | CandidateWriteResult | AttestationsPage>(
 	body: (signals: Signals, db: Database, authority: RequestActor) => Promise<SignalReply<T>>,
 ): Promise<SignalOutcome<T>> {
-	const viewer = await careViewer();
+	const viewer = await plantSeat();
 	if (!viewer)
-		return {
-			status: "refused",
-			error: signalError.parse({
+		return refusedWith(
+			signalError.parse({
 				code: "access_denied",
 				details: {},
 				correlationId: crypto.randomUUID(),
 				retry: "never",
 			}),
-		};
+		);
 	const db = requestDatabase();
-	try {
-		return await body(signals, db, viewer.authority);
-	} catch (error) {
-		if (!isTransient(error)) throw unexpected({ component: "signals", outcome: "call_failed" }, error);
-		report("call_failed", error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "signals", outcome: "call_failed" },
+		async () => withError(await body(signals, db, viewer.authority)),
+		LOST,
+	);
 }

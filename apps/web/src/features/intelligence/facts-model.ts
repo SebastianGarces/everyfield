@@ -1,3 +1,4 @@
+import { counted, countWord } from "@everyfield/contracts/common";
 import type {
 	Cohesion,
 	CommittedAdults,
@@ -16,8 +17,10 @@ export const dayLabel = (date: string) =>
 	new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
 		new Date(date + "T00:00:00Z"),
 	);
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-const days = (n: number) => plural(n, "day");
+const knownDay = (date: string | null, what: string) => {
+	if (date === null) throw new RangeError(`${what} has no date`);
+	return dayLabel(date);
+};
 
 export const adultsVerdict = (a: CommittedAdults): Verdict =>
 	a.status === "met"
@@ -28,12 +31,12 @@ export const adultsVerdict = (a: CommittedAdults): Verdict =>
 export const adultsValue = (a: CommittedAdults) => (a.exact !== null ? String(a.exact) : "Unknown");
 export function adultsDetail(a: CommittedAdults): string {
 	if (a.exact === null)
-		return `At least ${a.known} committed ${a.known === 1 ? "adult" : "adults"}. ${plural(a.needsClassifying.length, "person needs", "people need")} an adult or child classification before the count is known.`;
-	return `${plural(a.exact, "committed adult")}, each counted once across core group and launch team.`;
+		return `At least ${counted(a.known, "committed adult")}. ${counted(a.needsClassifying.length, "person needs", "people need")} an adult or child classification before the count is known.`;
+	return `${counted(a.exact, "committed adult")}, each counted once across core group and launch team.`;
 }
 export const childrenNote = (a: CommittedAdults) =>
 	a.children
-		? `${plural(a.children, "child", "children")} with a commitment ${a.children === 1 ? "is" : "are"} not counted.`
+		? `${counted(a.children, "child", "children")} with a commitment ${countWord(a.children, "is", "are")} not counted.`
 		: null;
 export const KIND_LABEL = { core_group: "Core group", launch_team: "Launch team" } as const;
 
@@ -43,13 +46,13 @@ export const GROWTH_LABEL: Record<Growth["status"], Verdict> = {
 	stalled: { status: "risk", label: "Growth has stalled" },
 	unknown: UNKNOWN,
 };
-export const growthValue = (g: Growth) => (g.daysSince === null ? "Unknown" : days(g.daysSince));
+export const growthValue = (g: Growth) => (g.daysSince === null ? "Unknown" : counted(g.daysSince, "day"));
 export function growthDetail(g: Growth): string {
-	const windows = `${plural(g.current, "new adult")} in the last 28 days${g.currentWithdrawn ? ` (${g.currentWithdrawn} since withdrew, still counted as new)` : ""}, ${g.prior} in the 28 days before.`;
+	const windows = `${counted(g.current, "new adult")} in the last 28 days${g.currentWithdrawn ? ` (${g.currentWithdrawn} since withdrew, still counted as new)` : ""}, ${g.prior} in the 28 days before.`;
 	if (g.reason === "no_acquisition") return "No committed adult has a commitment date yet.";
 	if (g.reason === "unclassified_newer")
 		return `Someone who signed more recently has no adult or child classification, so the growth clock cannot be read. ${windows}`;
-	return `Since the newest first-time committed adult signed on ${dayLabel(g.lastAcquiredOn!)}. ${windows}`;
+	return `Since the newest first-time committed adult signed on ${knownDay(g.lastAcquiredOn, "The newest acquisition")}. ${windows}`;
 }
 
 export const VISION_LABEL: Record<VisionRhythm["status"], Verdict> = {
@@ -59,13 +62,13 @@ export const VISION_LABEL: Record<VisionRhythm["status"], Verdict> = {
 	direct: { status: "risk", label: "Past the 28-day mark" },
 	unknown: UNKNOWN,
 };
-export const visionValue = (v: VisionRhythm) => (v.daysSince === null ? "Unknown" : days(v.daysSince));
+export const visionValue = (v: VisionRhythm) => (v.daysSince === null ? "Unknown" : counted(v.daysSince, "day"));
 export function visionDetail(v: VisionRhythm): string {
 	if (v.reason === "no_attendance") return "No attendance is recorded yet, so the Vision rhythm cannot be measured.";
 	const next = v.nextScheduledOn ? ` Next scheduled ${dayLabel(v.nextScheduledOn)}; it counts once it is held.` : "";
 	if (v.reason === "no_vision_meeting") return `No Vision meeting has been held with attendance yet.${next}`;
 	const seen = v.lastAttendance.length === 2 ? ` ${v.lastAttendance[1]} then ${v.lastAttendance[0]} attended.` : "";
-	return `Since the last completed Vision meeting on ${dayLabel(v.lastHeldOn!)}.${seen}${next}`;
+	return `Since the last completed Vision meeting on ${knownDay(v.lastHeldOn, "The last Vision meeting")}.${seen}${next}`;
 }
 
 export const COHESION_LABEL: Record<Cohesion["status"], Verdict> = {
@@ -90,17 +93,17 @@ export function followUpsDetail(f: FollowUps): string {
 	];
 	if (f.noLongerNeeded)
 		parts.push(
-			`${f.noLongerNeeded} left out because ${f.noLongerNeeded === 1 ? "it was" : "they were"} no longer needed.`,
+			`${f.noLongerNeeded} left out because ${countWord(f.noLongerNeeded, "it was", "they were")} no longer needed.`,
 		);
 	if (f.pending) parts.push(`${f.pending} still inside the 48 hours.`);
 	if (f.unmeasured) parts.push(`${f.unmeasured} could not be measured.`);
 	return parts.join(" ");
 }
 export const contactLine = (f: FollowUps) =>
-	`Recorded contact: ${plural(f.contacted, "follow-up")}. A ticked task is not contact.`;
+	`Recorded contact: ${counted(f.contacted, "follow-up")}. A ticked task is not contact.`;
 
 export const coverageValue = (c: PlantFacts["coverage"]) =>
-	`${c.filled} of ${c.slots} filled, ${plural(c.people, "person", "people")}`;
+	`${c.filled} of ${c.slots} filled, ${counted(c.people, "person", "people")}`;
 
 export const trainingVerdict = (t: Training): Verdict =>
 	t.status === "met"
@@ -115,4 +118,6 @@ export const trainingDetail = (t: Training) =>
 		: "People who completed each required program they are assigned to.";
 
 export const presenceLine = (count: number, latestOn: string | null, noun: string) =>
-	count === 0 ? `No ${noun} recorded.` : `${plural(count, noun)} recorded, latest ${dayLabel(latestOn!)}.`;
+	count === 0
+		? `No ${noun} recorded.`
+		: `${counted(count, noun)} recorded, latest ${knownDay(latestOn, `The latest ${noun}`)}.`;

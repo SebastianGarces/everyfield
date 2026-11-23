@@ -20,6 +20,7 @@ import {
 	drivePid,
 	driverLogPath,
 	fail,
+	QaError,
 	readPreviews,
 	removePreview,
 	repoHome,
@@ -109,6 +110,15 @@ export function parseTestRecipients(raw: string): string[] | string {
 	return entries;
 }
 
+const SEED_LINK = /^QA link, ([A-Za-z][A-Za-z ]*): (\/[a-z/-]+\?invitation=[0-9a-f-]{36}#[A-Za-z0-9_-]+)$/;
+
+export function seedLinks(stdout: string, origin: string): string[] {
+	return stdout.split("\n").flatMap((line) => {
+		const link = SEED_LINK.exec(line.trim());
+		return link ? [`${link[1]}: ${origin}${link[2]}`] : [];
+	});
+}
+
 export function qaUp(root: string, branch: string, recipients: string[] = []): number {
 	if (!/^[A-Za-z0-9._/-]+$/.test(branch) || branch.startsWith("-")) fail(`${branch} is not a branch name.`);
 	const redactor = new Redactor();
@@ -130,7 +140,8 @@ export function qaUp(root: string, branch: string, recipients: string[] = []): n
 		deployment: null,
 		created_at: new Date().toISOString(),
 	});
-	let cron = "";
+	let cron = "",
+		links: string[] = [];
 	console.error(`qa up: ${id} for ${branch} at ${head.slice(0, 12)}, Neon branch off ${parent.name}.`);
 	try {
 		const created = json<{ branch: NeonBranch }>(
@@ -152,7 +163,15 @@ export function qaUp(root: string, branch: string, recipients: string[] = []): n
 		};
 		const direct = cs(),
 			pooled = cs("--pooled");
-		const { deployment, cronSecret } = deployCheckout(root, redactor, { id, head, url, direct, pooled, recipients });
+		const { deployment, cronSecret, seeded } = deployCheckout(root, redactor, {
+			id,
+			head,
+			url,
+			direct,
+			pooled,
+			recipients,
+		});
+		links = seedLinks(seeded, url);
 		writeCronSecret(root, id, cronSecret);
 		cron = scheduledSends(root, id, deployment);
 	} catch (error) {
@@ -160,13 +179,18 @@ export function qaUp(root: string, branch: string, recipients: string[] = []): n
 		try {
 			qaDown(root, id);
 		} catch (cleanup) {
-			console.error(`qa up: cleanup failed (${(cleanup as Error).message}). Run: bin/qa down ${id}`);
+			const why =
+				cleanup instanceof QaError ? cleanup.message : cleanup instanceof Error ? cleanup.name : typeof cleanup;
+			console.error(`qa up: cleanup failed (${why}). Run: bin/qa down ${id}`);
 		}
 		throw error;
 	}
-	console.log(`QA preview ${id}\n${url}`);
+	console.log([`QA preview ${id}`, url, ...links].join("\n"));
 	console.error(
 		`Sign in as ${QA_LOGINS.owner} (also qa-admin, qa-member; Riverside (QA): ${QA_LOGINS.riverside}). Remove it with: bin/qa down ${id}. Runbook: docs/runbooks/qa-preview.md`,
+	);
+	console.error(
+		`Ended residency: sign in as ${QA_LOGINS.endedResident} to see the ended-residency message on /my-residency.`,
 	);
 	console.error(
 		recipients.length
@@ -208,7 +232,7 @@ function deployCheckout(
 	root: string,
 	redactor: Redactor,
 	p: { id: string; head: string; url: string; direct: string; pooled: string; recipients: string[] },
-): { deployment: string; cronSecret: string } {
+): { deployment: string; cronSecret: string; seeded: string } {
 	const checkout = mkdtempSync(join(tmpdir(), "evf-qa-"));
 	tool(redactor, "git", ["-C", root, "worktree", "add", "--quiet", "--detach", checkout, p.head]);
 	try {
@@ -224,7 +248,7 @@ function deployCheckout(
 		const mailKeys = { IDENTITY_MAIL_KEY: key(), IDENTITY_ADDRESS_KEY: key() };
 		redactor.add(rolePassword, ...Object.values(mailKeys));
 		console.error("qa up: seeding the test churches.");
-		tool(
+		const seeded = tool(
 			redactor,
 			"corepack",
 			["pnpm", "--filter", "@everyfield/domain", "exec", "tsx", "--conditions=react-server", `../../${seed}`],
@@ -237,7 +261,7 @@ function deployCheckout(
 					QA_TEST_RECIPIENTS: p.recipients.length ? p.recipients.join(",") : undefined,
 				},
 			},
-		);
+		).stdout;
 		const cronSecret = key();
 		const settings: Record<string, string> = {
 			DATABASE_URL: p.pooled,
@@ -249,7 +273,6 @@ function deployCheckout(
 			...mailKeys,
 			NOTIFICATION_OPT_OUT_KEYS: randomBytes(32).toString("base64"),
 			CRON_SECRET: cronSecret,
-			FLAGS_SECRET: randomBytes(32).toString("base64url"),
 			LIFECYCLE_CLEANUP_DATABASE_URL: p.direct,
 			...(p.recipients.length ? { EMAIL_TEST_RECIPIENTS: p.recipients.join(",") } : {}),
 		};
@@ -264,7 +287,7 @@ function deployCheckout(
 		if (!deployment) fail("vercel deploy printed no deployment URL.");
 		setDeployment(root, p.id, deployment);
 		tool(redactor, "vercel", ["alias", "set", deployment, aliasHost(p.id), "--scope", VERCEL.orgId], { cwd: checkout });
-		return { deployment, cronSecret };
+		return { deployment, cronSecret, seeded };
 	} finally {
 		spawnSync("git", ["-C", root, "worktree", "remove", "--force", checkout], { encoding: "utf8" });
 		rmSync(checkout, { recursive: true, force: true });

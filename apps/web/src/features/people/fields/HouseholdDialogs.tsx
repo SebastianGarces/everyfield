@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { Copy01Icon, Home01Icon, Logout01Icon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
 import {
@@ -12,6 +13,7 @@ import {
 	SearchInput,
 	Select,
 	Spinner,
+	TextButton,
 } from "@everyfield/ui/controls";
 import { useFocusRequest } from "@everyfield/ui/foundations";
 import { useState } from "react";
@@ -24,6 +26,8 @@ import { problemText } from "../parts.tsx";
 import { findHouseholds } from "../fetch.ts";
 import { createJoinHouseholdStore } from "./JoinHouseholdDialog.store.ts";
 import { addressLine, ROLE_LABEL, ROLES, type Household, type HouseholdRole, type HouseholdSummary } from "./model.ts";
+import { loadProblem } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 export type Address = { street: string; city: string; stateProvince: string; postalCode: string; country: string };
@@ -95,7 +99,7 @@ function AddressFields({ value, onChange }: { value: Address; onChange: (a: Addr
 	);
 }
 
-type Found = Outcome<{ items: HouseholdSummary[]; total: number }>;
+type Found = Outcome<{ items: HouseholdSummary[]; total: number }> | ReadFailure;
 export const households = createRead((q: string): Promise<Found> => findHouseholds(q), {
 	failed: () => ({ status: "lost" }) as const,
 });
@@ -286,10 +290,10 @@ export function JoinHouseholdDialog({
 								</div>
 							) : read.value.status !== "ok" ? (
 								<p role="alert" className="px-4 py-4 text-sm text-text-2">
-									Households did not load.{" "}
-									<button type="button" className="font-medium text-ink underline" onClick={read.retry}>
+									{loadProblem(read.value, "Households did not load.")}{" "}
+									<TextButton className="text-ink" onClick={read.retry}>
 										Try again
-									</button>
+									</TextButton>
 								</p>
 							) : none ? (
 								<div className="flex flex-col items-start gap-3 px-4 py-4">
@@ -322,9 +326,7 @@ export function JoinHouseholdDialog({
 											className="border-t border-line first:border-t-0"
 											label={h.name}
 											description={[
-												h.memberCount === 0
-													? "No members"
-													: `${h.memberCount} ${h.memberCount === 1 ? "member" : "members"}`,
+												h.memberCount === 0 ? "No members" : counted(h.memberCount, "member"),
 												addressLine(h),
 											]
 												.filter(Boolean)
@@ -383,9 +385,7 @@ export function CopyAddressDialog({
 			tone="blue"
 			title="Copy address to members"
 			description="Every member below gets the household address. Check the list first."
-			action={
-				changes.length ? `Copy to ${changes.length} ${changes.length === 1 ? "person" : "people"}` : "Copy address"
-			}
+			action={changes.length ? `Copy to ${counted(changes.length, "person", "people")}` : "Copy address"}
 			onClose={onClose}
 			problem={problem}
 			wait={wait}

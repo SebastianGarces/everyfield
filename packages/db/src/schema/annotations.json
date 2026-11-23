@@ -1510,8 +1510,8 @@
 				"evry_effect"
 			],
 			"job.state": ["ready", "claimed", "retry_wait", "reconcile", "succeeded", "failed", "cancelled", "superseded"],
-			"lifecycle_witness.kind": ["account", "plant", "seat", "affiliation"],
-			"lifecycle_witness.state": ["active", "pending_deletion", "purging", "purged", "cancelled", "revoked"],
+			"lifecycle_witness.kind": ["account", "plant"],
+			"lifecycle_witness.state": ["pending_deletion", "purging", "purged", "cancelled"],
 			"lifecycle_witness.cleanup_state": ["not_started", "in_progress", "inaccessible", "confirmed"],
 			"tenant.kind": ["account", "plant", "organization", "global"],
 			"record.kind": [
@@ -1729,7 +1729,7 @@
 				"other"
 			],
 			"development_program.kind": ["apprenticeship", "residency"],
-			"development_enrollment.status": ["active", "completed", "withdrawn"],
+			"development_enrollment.status": ["active", "completed"],
 			"schema_migration.provenance": ["original", "adopted"],
 			"people_column.column_name": ["prospect", "attendee", "following_up", "interviewed", "core_group"],
 			"meeting_kit_item.category": ["essential", "materials", "setup", "av", "organization"],
@@ -10244,7 +10244,7 @@
 			"table": {
 				"name": "passage",
 				"domain": "reference",
-				"purpose": "Rebuildable exact source passage with complete embedding provenance. Model, dimensions and chunker are pinned by release; organization rights inherit the source revision.",
+				"purpose": "Rebuildable exact source passage with complete embedding provenance. Model, dimensions and chunker are pinned by release; organization rights inherit the source revision. An organization's published version has release-free rows its publish job embeds with the active release's profile (T-552).",
 				"library_owned": false,
 				"jsonb_keys": {},
 				"capabilities": ["CAP-C-009"],
@@ -10290,7 +10290,7 @@
 					"note": ""
 				},
 				"release_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+					"note": "Real FK for global passages; NULL exactly for an organization version's passages, which carry no release (passage_release_owner)."
 				},
 				"revision_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
@@ -11514,7 +11514,7 @@
 					"note": ""
 				},
 				"refusal": {
-					"note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; null otherwise. A blocked address keeps its suppression row instead."
+					"note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; child when the person was marked as a child at send time (no override); null otherwise. A blocked address keeps its suppression row instead."
 				},
 				"communication_id": {
 					"note": "The Messages message this recipient send belongs to, set on every communication mail insert; null for other purposes. History, delivery and meeting reads join on it instead of a logical_key prefix."
@@ -13231,7 +13231,7 @@
 			"table": {
 				"name": "lifecycle_witness",
 				"domain": "operations",
-				"purpose": "Body-free independently synchronized deletion, credential and access witness with stable opaque subject key after live-root purge. A body-free affiliation witness may retain its independently legitimate organization counterparty. Restricted backup/restore inventory and checksummed receipts live solely in the external recovery artifact, not the live database.",
+				"purpose": "Body-free account and church workspace deletion witness with stable opaque subject key after live-root purge. Restricted backup/restore inventory and checksummed receipts live solely in the external recovery artifact, not the live database.",
 				"library_owned": false,
 				"jsonb_keys": {},
 				"capabilities": ["CAP-A-015", "CAP-A-052"],
@@ -13359,12 +13359,6 @@
 				"cleanup_state": {
 					"note": ""
 				},
-				"seat_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"affiliation_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
 				"requester_opaque_id": {
 					"note": "Historical non-content subject key; retained after the live requester FK is cleared."
 				},
@@ -13389,20 +13383,6 @@
 					}
 				},
 				"requester_id->account(id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"seat_id->seat(id)": {
-					"scope_exception": "Body-free revocation witness identifies a seat endpoint; synchronized witness writer validates exact seat kind and original identity before clearing live linkage on purge.",
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"affiliation_id->affiliation(id)": {
-					"scope_exception": "Body-free revocation witness identifies a relationship endpoint; synchronized witness writer validates exact affiliation identity and permitted counterparty before clearing live linkage on purge.",
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -18495,6 +18475,50 @@
 					"note": ""
 				},
 				"charged_micro_usd": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {}
+		},
+		"embedding_spend": {
+			"table": {
+				"name": "embedding_spend",
+				"domain": "reference",
+				"purpose": "Paid Wiki embedding tokens used per UTC day in this database, one row each for search questions, release rebuilds and organization publish jobs (T-339, D-2042, T-552). Search and publish embedding each stop calling the provider once their own day's tokens pass the daily limit; each rebuild adds the tokens its run reported.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-009"],
+				"replaces": [],
+				"producer_work_packages": ["WP-033"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-033"],
+					"rule": "T-339 meaning-based Wiki search spend ledger through Drizzle Kit."
+				},
+				"feature_ids": ["PI-017", "REF-007"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "reference",
+				"invariants": [
+					"Usage only grows: each provider call adds the tokens it reported in one upsert.",
+					"A search reads the day's query tokens before calling the provider and calls it only while they are under the daily limit."
+				],
+				"revision": "One row per day and purpose; each recorded call adds its tokens in one statement.",
+				"idempotency": "Each provider call is recorded once, after it returns.",
+				"deletion": "Holds no personal or tenant data; account and tenant purges leave it unchanged.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"day": {
+					"note": ""
+				},
+				"purpose": {
+					"note": ""
+				},
+				"usage": {
 					"note": ""
 				}
 			},

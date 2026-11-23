@@ -2361,6 +2361,7 @@
       ],
       "owning_paths": [
         "apps/web/src/server/jobs/",
+        "packages/domain/src/jobs/",
         "tests/integration/jobs/"
       ],
       "acceptance_gates": [

@@ -1,8 +1,10 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { counted, countWord } from "@everyfield/contracts/common";
 import { GUEST_NAME_MAX } from "@everyfield/contracts/launch";
 import { launchDay } from "../adapters/launch/reads/index.ts";
 import { LAUNCH_RULES } from "../context/compile.ts";
+import { captured } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind?: string; id: string; label: string; fields: Record<string, unknown> };
@@ -34,11 +36,8 @@ function turnOutputs(prompt: Prompt): Output[] {
 const systemText = (prompt: Prompt) => prompt.flatMap((m) => (m.role === "system" ? [m.content] : [])).join("\n");
 function lastAssistantText(prompt: Prompt) {
 	const start = prompt.findLastIndex((m) => m.role === "user");
-	for (let i = start - 1; i >= 0; i--) {
-		const m = prompt[i]!;
-		if (m.role === "assistant") return m.content.flatMap((p) => (p.type === "text" ? [p.text] : [])).join(" ");
-	}
-	return "";
+	const m = start < 0 ? undefined : prompt.slice(0, start).findLast((message) => message.role === "assistant");
+	return m ? m.content.flatMap((p) => (p.type === "text" ? [p.text] : [])).join(" ") : "";
 }
 
 const COUNTDOWN =
@@ -47,6 +46,8 @@ const MILESTONES = /\bmilestones?\b/i;
 const BLOCKED = /\b(?:blocked|overdue|late|behind)\b/i;
 const GOAL = /\blaunch[- ]team\b.*\bgoal\b|\bgoal\b.*\blaunch[- ]team\b/i;
 const GUESTS = /\bguests?\b.*\blaunch sunday\b|\blaunch sunday\b.*\bguests?\b|\bcame to (?:the )?launch\b/i;
+const READY =
+	/\b(?:are|is) (?:we|the church|our church|it)\b.*\bready\b.*\blaunch|\b(?:ready (?:to|for) launch|launch[- ]ready)\b/i;
 const CHANGED = /\bwhat(?:'s| has)? changed\b.*\blaunch\b|\blaunch\b.*\bchanged\b/i;
 const MOVE =
 	/\b(?:push|move|change|reschedule|set)\b(?: the| our)? launch(?: sunday| date)?\b.*?\bto ([a-z]+\.? \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)(.*)$/i;
@@ -100,7 +101,7 @@ function matching(out: Output, name: string) {
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 function dateOn(words: string, today: string): string | null {
 	const m = /^([a-z]+)\.? (\d{1,2})(?:st|nd|rd|th)?(?:,? (\d{4}))?$/i.exec(words.trim());
-	const month = m ? MONTHS.indexOf(m[1]!.slice(0, 3).toLowerCase()) : -1;
+	const month = m ? MONTHS.indexOf(captured(m, 1).slice(0, 3).toLowerCase()) : -1;
 	if (!m || month < 0) return null;
 	const day = Number(m[2]);
 	const iso = (y: number) => `${y}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -115,7 +116,6 @@ const reasonOf = (rest: string) =>
 		.replace(/^because\s+/i, "")
 		.replace(/[.!]\s*$/, "")
 		.trim() || null;
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 function pastDateOn(words: string, today: string): string | null {
 	const next = dateOn(words, today);
@@ -133,20 +133,20 @@ const DATE_HELD =
 	/\b(?:date|held|happened|was on)\b(?:\s+(?:to|as|on|was))?\s+([a-z]+\.? \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)/i;
 function correctionOf(text: string, today: string) {
 	const held = DATE_HELD.exec(text);
-	const rest = held ? text.replace(held[1]!, "") : text;
+	const rest = held ? text.replace(captured(held, 1), "") : text;
 	const count = (field: string) => {
 		if (UNKNOWN(field).test(text)) return null;
 		const n = COUNT(field).exec(rest)?.[1]?.replace(/,+$/, "");
 		return n === undefined ? undefined : Number(n.replace(/,/g, ""));
 	};
 	const fields: { actualDate?: string | null; attendance?: number | null; decisions?: number | null } = {};
-	if (held) fields.actualDate = pastDateOn(held[1]!, today);
+	if (held) fields.actualDate = pastDateOn(captured(held, 1), today);
 	const attendance = count("attendance");
 	if (attendance !== undefined) fields.attendance = attendance;
 	const decisions = count("decisions");
 	if (decisions !== undefined) fields.decisions = decisions;
 	const reason = reasonOf(/(?:[,;:–—]|\bbecause\b)\s*(.+)$/i.exec(rest)?.[1] ?? "");
-	return { fields, reason, unread: held ? held[1]! : null };
+	return { fields, reason, unread: held ? captured(held, 1) : null };
 }
 const countSaid = (n: unknown) => (n === null ? "Not recorded" : String(n));
 
@@ -161,37 +161,77 @@ function countdownText(f: Record<string, unknown>) {
 		case "today":
 			return `Launch Sunday is today, ${String(f.plannedDate)}.`;
 		case "overdue":
-			return `Launch Sunday was planned for ${String(f.plannedDate)}, ${plural(Number(f.daysOverdue), "day", "days")} ago, and it isn't recorded yet.`;
+			return `Launch Sunday was planned for ${String(f.plannedDate)}, ${counted(Number(f.daysOverdue), "day")} ago, and it isn't recorded yet.`;
 		default:
-			return `${plural(Number(f.daysLeft), "day", "days")} until Launch Sunday, ${String(f.plannedDate)}, as the Launch plan counts it from today in ${String(f.timeZone)}.`;
+			return `${counted(Number(f.daysLeft), "day")} until Launch Sunday, ${String(f.plannedDate)}, as the Launch plan counts it from today in ${String(f.timeZone)}.`;
 	}
 }
 
+const prepText = (t: Row) =>
+	`${t.label}${t.fields.dueDate ? ` (due ${String(t.fields.dueDate)}${t.fields.overdue ? ", overdue" : ""})` : ""}`;
 function milestonesText(out: Output) {
 	const f = out.facts ?? {};
 	const rows = out.rows ?? [];
 	const milestones = rows.filter((r) => r.kind === "milestone");
 	const tasks = (id: string) => rows.filter((r) => r.kind === "item" && r.fields.milestoneId === id);
-	const taskText = (t: Row) =>
-		`${t.label}${t.fields.dueDate ? ` (due ${String(t.fields.dueDate)}${t.fields.overdue ? ", overdue" : ""})` : ""}`;
 	if (f.filter === "blocked") {
 		if (!milestones.length) return "No open launch milestone has an overdue linked prep task.";
 		const lines = milestones.map(
 			(m) =>
 				`- **${m.label}**: ${tasks(m.id)
 					.filter((t) => t.fields.overdue)
-					.map(taskText)
+					.map(prepText)
 					.join("; ")}`,
 		);
-		return `${plural(milestones.length, "launch milestone has", "launch milestones have")} an overdue prep task linked to it on the Launch plan:\n${lines.join("\n")}\n\nOnly a milestone's own linked prep tasks count.`;
+		return `${counted(milestones.length, "launch milestone has", "launch milestones have")} an overdue prep task linked to it on the Launch plan:\n${lines.join("\n")}\n\nOnly a milestone's own linked prep tasks count.`;
 	}
 	if (!milestones.length)
 		return `All ${String(f.milestonesTotal)} launch milestones are marked complete on the Launch plan.`;
 	const lines = milestones.map((m) => {
 		const open = tasks(m.id);
-		return `- **${m.label}**: ${String(m.fields.done)} of ${String(m.fields.total)} tasks done${open.length ? `. Open: ${open.map(taskText).join("; ")}` : ""}`;
+		return `- **${m.label}**: ${String(m.fields.done)} of ${String(m.fields.total)} tasks done${open.length ? `. Open: ${open.map(prepText).join("; ")}` : ""}`;
 	});
 	return `${milestones.length} of ${String(f.milestonesTotal)} launch milestones are still open, as the Launch plan shows them:\n${lines.join("\n")}`;
+}
+
+function readinessText(workspace: Output, phases: Output | undefined) {
+	const f = workspace.facts ?? {};
+	const rows = workspace.rows ?? [];
+	const milestones = rows
+		.filter((r) => r.kind === "milestone")
+		.map((m) => {
+			const v = m.fields;
+			const held =
+				typeof v.practicesHeld === "number" ? ` ${v.practicesHeld} of ${String(v.practicesRequired)} held.` : "";
+			const by = `${String(v.completedBy)} on ${String(v.completedOn)}`;
+			if (v.completed === true) return `- **${m.label}**: met.${held} Completed by ${by}.`;
+			const open = rows.filter((r) => r.kind === "item" && r.fields.milestoneId === m.id);
+			const review =
+				v.needsReview === true ? ` Completed by ${by}, but a linked prep task has been reopened since.` : "";
+			const tasks = open.length
+				? ` Open: ${open.map(prepText).join("; ")}.`
+				: " No open prep tasks; no one has completed it yet.";
+			return `- **${m.label}**: not met.${held}${review}${tasks}`;
+		});
+	const head = `${String(f.milestonesDone)} of ${String(f.milestonesTotal)} launch readiness milestones are met on the Launch plan:`;
+	const phase = (phases?.rows ?? []).find((r) => r.kind === "phase");
+	const criteria = (phases?.rows ?? []).filter((r) => r.kind === "criterion");
+	const exit = !phases
+		? ["Phase readiness is for Owners and Admins, so I left the phase's exit criteria out."]
+		: phase?.fields.terminal === true || !criteria.length
+			? [`${String(phase?.label)} has no exit criteria to show.`]
+			: [
+					`Exit criteria for leaving ${String(phase?.label)} for ${String(phase?.fields.next)}, as phase readiness shows them:`,
+					...criteria.map((c) => `- ${c.label}: ${String(c.fields.status)}`),
+				];
+	return [
+		head,
+		...milestones,
+		"",
+		...exit,
+		"",
+		"This is what your records show. Readiness is your call, not mine, and I changed nothing.",
+	].join("\n");
 }
 
 function guestsText(out: Output) {
@@ -202,9 +242,9 @@ function guestsText(out: Output) {
 	const named = Number(f.guestsNamed ?? 0);
 	const head =
 		f.namesVisible === false
-			? `${plural(named, "first-time guest is", "first-time guests are")} named on the Launch plan for ${String(f.actualDate)}. Only an Owner or Admin sees their names.`
+			? `${counted(named, "first-time guest is", "first-time guests are")} named on the Launch plan for ${String(f.actualDate)}. Only an Owner or Admin sees their names.`
 			: named
-				? `${plural(named, "first-time guest is", "first-time guests are")} named on the Launch plan for ${String(f.actualDate)}: ${guests.map((g) => g.label).join(", ")}.`
+				? `${counted(named, "first-time guest is", "first-time guests are")} named on the Launch plan for ${String(f.actualDate)}: ${guests.map((g) => g.label).join(", ")}.`
 				: `No first-time guests are named on the Launch plan for ${String(f.actualDate)} yet.`;
 	const attendance = typeof f.attendance === "number" ? f.attendance : null;
 	const notes = [
@@ -212,7 +252,7 @@ function guestsText(out: Output) {
 			? `The recorded attendance was ${attendance}, so not everyone who came is named.`
 			: "",
 		typeof f.guestsNotNamed === "number" && f.guestsNotNamed > 0
-			? `The debrief says ${plural(f.guestsNotNamed, "guest wasn't", "guests weren't")} entered by name.`
+			? `The debrief says ${counted(f.guestsNotNamed, "guest wasn't", "guests weren't")} entered by name.`
 			: "",
 	].filter(Boolean);
 	return [head, ...notes].join(" ");
@@ -269,6 +309,7 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 		countdown: COUNTDOWN.test(text),
 		milestones: MILESTONES.test(text),
 		goal: GOAL.test(text),
+		ready: READY.test(text),
 		guests: GUESTS.test(text),
 		changed: CHANGED.test(text),
 		move: Boolean(move),
@@ -287,9 +328,16 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 	const writes =
 		asked.move || asked.postpone || asked.record || asked.submit || asked.publish || asked.guest || asked.correct;
 	if (writes && !offers("launch.schedule")) return rule(LAUNCH_RULES.ownerOnly);
-	if (guest || fresh || pick) {
+	const guestAsk: GuestAsk | null = guest
+		? { kind: "add", match: guest }
+		: fresh
+			? { kind: "fresh", match: fresh }
+			: pick && asked_for
+				? { kind: "pick", match: pick, name: asked_for }
+				: null;
+	if (guestAsk) {
 		if (!offers("launch.addGuestAttendance")) return rule(LAUNCH_RULES.ownerOnly);
-		return guestStep(outputs, guest, fresh, pick, asked_for);
+		return guestStep(outputs, guestAsk);
 	}
 	if (asked.correct) {
 		if (!offers("launch.correctOutcome")) return rule(LAUNCH_RULES.ownerOnly);
@@ -299,13 +347,14 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 	if (toggle) {
 		const operation = complete ? "launch.completeMilestone" : "launch.reopenMilestone";
 		if (!offers(operation)) return rule(LAUNCH_RULES.ownerOnly);
-		const name = toggle[1]!.trim();
+		const name = captured(toggle, 1).trim();
 		if (DERIVED.test(name)) return rule(LAUNCH_RULES.derived);
 		const workspace = found("launch.readWorkspace");
 		if (!workspace) return read("launch.readWorkspace", { filter: "all" });
 		const matches = matching(workspace, name);
-		if (proposed) return say(milestoneProposed(Boolean(complete), matches[0]));
-		if (!matches.length)
+		const [m] = matches;
+		if (proposed) return say(milestoneProposed(Boolean(complete), m));
+		if (!m)
 			return say(
 				`No launch milestone on the Launch plan matches "${name}", so I prepared nothing. Ask me which launch milestones are left to see them by name.`,
 			);
@@ -313,7 +362,6 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 			return say(
 				`More than one launch milestone matches "${name}":\n${matches.map((m) => `- **${m.label}**`).join("\n")}\n\nWhich one do you mean? I prepared nothing.`,
 			);
-		const m = matches[0]!;
 		const done = m.fields.completed === true;
 		const marked = done || m.fields.needsReview === true;
 		if (complete && done) return say(`**${m.label}** is already complete on the Launch plan, so I prepared nothing.`);
@@ -321,14 +369,14 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 			return say(`**${m.label}** isn't complete, so there's nothing to reopen. I prepared nothing.`);
 		return propose(operation, { milestoneId: m.id });
 	}
-	if (proposed) return say(proposedText(asked, last!));
+	if (proposed && last) return say(proposedText(asked, last));
 
 	const countdown = found("launch.readCountdown");
-	if (asked.move) {
+	if (move) {
 		if (!countdown) return read("launch.readCountdown");
-		const date = dateOn(move![1]!, String(countdown.facts?.today));
-		if (!date) return say(`I couldn't read "${move![1]}" as a date. Say it like "March 14".`);
-		const reason = reasonOf(move![2] ?? "");
+		const date = dateOn(captured(move, 1), String(countdown.facts?.today));
+		if (!date) return say(`I couldn't read "${move[1]}" as a date. Say it like "March 14".`);
+		const reason = reasonOf(move[2] ?? "");
 		if (!reason && countdown.facts?.countdown !== "none")
 			return say("Why is Launch Sunday moving? The reason stays in the Launch history, so tell me in your own words.");
 		return propose("launch.schedule", { date, reason });
@@ -364,12 +412,20 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 			return say("Launch Sunday isn't recorded yet, so there's nothing to summarize.");
 		return propose("launch.publishDebriefSummary", { body: summaryFrom(debrief.facts) });
 	}
+	if (asked.ready) {
+		const workspace = found("launch.readWorkspace");
+		if (!workspace) return read("launch.readWorkspace", { filter: "all" });
+		const phases = found("phases.readReadiness");
+		if (!phases && offers("phases.readReadiness"))
+			return call("phases_read", { operation: "phases.readReadiness", input: {} });
+		return say(readinessText(workspace, phases));
+	}
 	if (asked.goal) {
 		const people = outputs.findLast((o) => o.operation === "people.listPeople");
 		if (!people) return call("people_read", { operation: "people.listPeople", input: { stages: ["launch_team"] } });
 		const n = Number(people.total ?? 0);
 		const goal = system.includes(LAUNCH_RULES.noGoal) ? ` ${LAUNCH_RULES.noGoal}` : "";
-		return say(`${plural(n, "person is", "people are")} in Launch team.${goal}`);
+		return say(`${counted(n, "person is", "people are")} in Launch team.${goal}`);
 	}
 	if (asked.guests) {
 		const debrief = found("launch.readDebrief");
@@ -401,13 +457,11 @@ const strip = (name: string) =>
 		.trim()
 		.replace(/^["“”']+|["“”']+$/g, "")
 		.trim();
-function guestStep(
-	outputs: Output[],
-	guest: RegExpExecArray | null,
-	fresh: RegExpExecArray | null,
-	pick: RegExpExecArray | null,
-	askedFor: string | null,
-): LanguageModelV4Content[] {
+type GuestAsk =
+	| { kind: "add"; match: RegExpExecArray }
+	| { kind: "fresh"; match: RegExpExecArray }
+	| { kind: "pick"; match: RegExpExecArray; name: string };
+function guestStep(outputs: Output[], ask: GuestAsk): LanguageModelV4Content[] {
 	const wait = "Nothing changes until you approve it.";
 	const read = (input: Record<string, unknown>) => call("launch_read", { operation: "launch.readDebrief", input });
 	const propose = (input: unknown) => call("propose_change", { operation: "launch.addGuestAttendance", input });
@@ -417,12 +471,12 @@ function guestStep(
 	const matchesOf = (name: string) =>
 		(reads.find((o) => o.facts?.guestName === name)?.rows ?? []).filter((r) => r.fields.match === name);
 
-	if (pick) {
-		const name = askedFor!;
+	if (ask.kind === "pick") {
+		const { match: pick, name } = ask;
 		const out = reads.find((o) => o.facts?.guestName === name);
 		if (!out) return read({ guestName: name });
 		const matches = matchesOf(name);
-		const at = ORDINAL[pick[1]!.toLowerCase()] ?? Number(pick[1]) - 1;
+		const at = ORDINAL[captured(pick, 1).toLowerCase()] ?? Number(pick[1]) - 1;
 		const m = matches[at];
 		if (proposals.length)
 			return say(
@@ -430,14 +484,14 @@ function guestStep(
 			);
 		if (!m)
 			return say(
-				`I found ${plural(matches.length, "Person", "People")} matching **${name}**, so I can't tell which one you mean. I prepared nothing.`,
+				`I found ${counted(matches.length, "Person", "People")} matching **${name}**, so I can't tell which one you mean. I prepared nothing.`,
 			);
 		if (m.fields.alreadyGuest === true)
 			return say(`**${m.label}** is already named as a Launch Sunday guest, so I prepared nothing.`);
 		return propose({ personId: m.id });
 	}
-	if (fresh) {
-		const name = strip(fresh[1]!);
+	if (ask.kind === "fresh") {
+		const name = strip(captured(ask.match, 1));
 		if (!reads.length) return read({});
 		if (proposals.length)
 			return say(
@@ -446,7 +500,9 @@ function guestStep(
 		return propose({ displayName: name });
 	}
 
-	const names = guest![1]!.split(/\s*,\s*(?:and\s+)?|\s+and\s+/).map(strip);
+	const names = captured(ask.match, 1)
+		.split(/\s*,\s*(?:and\s+)?|\s+and\s+/)
+		.map(strip);
 	const valid = names.filter((n) => n && n.length <= GUEST_NAME_MAX);
 	for (const name of valid) if (!reads.some((o) => o.facts?.guestName === name)) return read({ guestName: name });
 	const carded = new Set(proposals.map((o) => o.rows?.[0]?.label));
@@ -528,7 +584,7 @@ function milestoneProposed(completing: boolean, m: Row | undefined) {
 	if (!completing) return `I prepared a review card to reopen **${label}**. Its prep tasks stay as they are. ${wait}`;
 	const open = Number(m?.fields.openTasks ?? 0);
 	const tasks = open
-		? ` ${open} of its ${String(m?.fields.total)} prep tasks ${open === 1 ? "is still open and stays" : "are still open and stay"} open.`
+		? ` ${open} of its ${String(m?.fields.total)} prep tasks ${countWord(open, "is still open and stays", "are still open and stay")} open.`
 		: "";
 	const review = m?.fields.needsReview === true ? " It confirms the earlier completion." : "";
 	return `I prepared a review card to mark **${label}** complete.${tasks}${review} ${wait}`;
@@ -544,8 +600,11 @@ function proposedText(asked: Record<string, boolean>, out: Output) {
 		return `I prepared a review card to move Launch Sunday from ${String(date?.before ?? "no date")} to ${String(date?.after)}, with your reason. Prep tasks and your phase stay as they are. ${wait}`;
 	}
 	if (asked.postpone) return `I prepared a review card to postpone the launch, with your reason. ${wait}`;
-	if (asked.record)
-		return `I prepared a review card to record Launch Sunday${of("attendance") ? ` with attendance ${String(of("attendance")!.after)}` : ""}${of("guestAnswer") ? ` and the debrief's guest answer "${String(of("guestAnswer")!.after)}"` : ""}. No people are created from these numbers. ${wait}`;
+	if (asked.record) {
+		const attendance = of("attendance"),
+			answer = of("guestAnswer");
+		return `I prepared a review card to record Launch Sunday${attendance ? ` with attendance ${String(attendance.after)}` : ""}${answer ? ` and the debrief's guest answer "${String(answer.after)}"` : ""}. No people are created from these numbers. ${wait}`;
+	}
 	if (asked.submit)
 		return `I prepared a review card to submit the Launch debrief. Submitting publishes nothing. ${wait}`;
 	const body = of("summary")?.after;

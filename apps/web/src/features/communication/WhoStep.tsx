@@ -1,7 +1,9 @@
 "use client";
+import { counted } from "@everyfield/contracts/common";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
-import { Combobox, Command, Field, keepKeyInField, Spinner } from "@everyfield/ui/controls";
+import { Alert, Combobox, Command, Field, keepKeyInField, Spinner, ProblemText } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useId, useState, type ElementType, type KeyboardEvent } from "react";
@@ -9,21 +11,25 @@ import { createRead, useRead, useReadWith } from "../../components/read.tsx";
 import { useStore } from "../../components/store.ts";
 import { resolveAudience } from "./actions.ts";
 import { recipientSearches, type ComposeStore } from "./Compose.store.ts";
-import { audienceSize, plural } from "./composeModel.ts";
+import { audienceSize } from "./composeModel.ts";
 import {
 	audienceGroups,
+	CHILD_RULE,
 	groupLabel,
 	type Audience,
 	type AudienceSummary,
-	type Outcome,
 	type Recipient,
 	type Team,
 } from "./model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
 
 const MAX_CHIPS = 8;
 
 const onDay = (iso: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(iso));
 const unsubscribedReason = (iso: string) => `Unsubscribed from this church's email on ${onDay(iso)}`;
+
+const leftOutCount = (summary: AudienceSummary) =>
+	summary.childExclusions.length + summary.missingEmailExclusions.length + summary.unsubscribedExclusions.length;
 
 const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 
@@ -121,7 +127,7 @@ function ChosenChip({ value, label, remove }: { value: string; label: string; re
 	const count = useRead(chipCounts, value).value;
 	return (
 		<Chip
-			label={`${label}${count?.status === "ok" ? ` · ${plural(count.value.eligibleRecipients, "person", "people")}` : ""}`}
+			label={`${label}${count?.status === "ok" ? ` · ${counted(count.value.eligibleRecipients, "person", "people")}` : ""}`}
 			remove={remove}
 			removeLabel={`Remove ${label}`}
 		/>
@@ -162,7 +168,7 @@ function Counts({
 		{ label: "Will get this email", value: summary?.eligibleRecipients ?? (empty ? 0 : null) },
 		{
 			label: "Left out",
-			value: summary ? summary.missingEmailExclusions.length + summary.unsubscribedExclusions.length : empty ? 0 : null,
+			value: summary ? leftOutCount(summary) : empty ? 0 : null,
 		},
 	];
 	return (
@@ -177,18 +183,20 @@ function Counts({
 					</div>
 				))}
 			</div>
-			{failed ? (
-				<p role="alert" className="text-sm font-medium text-magenta-600">
-					{failed}
-				</p>
-			) : null}
+			{failed ? <Alert role="alert">{failed}</Alert> : null}
 			{summary ? (
 				<section aria-label="Left out, and why" className="flex max-w-3xl flex-col gap-2">
 					<h3 className="text-sm font-medium text-ink-2">Left out, and why</h3>
-					{summary.missingEmailExclusions.length + summary.unsubscribedExclusions.length === 0 ? (
+					{leftOutCount(summary) === 0 ? (
 						<p className="text-sm text-text-2">Everyone selected can get this email.</p>
 					) : (
 						<ul className="flex flex-col gap-1">
+							{summary.childExclusions.map((person) => (
+								<li key={person.id} className="flex flex-wrap justify-between gap-x-3 text-md text-ink">
+									<span>{person.displayName}</span>
+									<span className="text-text-2">Marked as a child</span>
+								</li>
+							))}
 							{summary.unsubscribedExclusions.map((person) => (
 								<li key={person.id} className="flex flex-wrap justify-between gap-x-3 text-md text-ink">
 									<span>{person.displayName}</span>
@@ -203,6 +211,11 @@ function Counts({
 							))}
 						</ul>
 					)}
+					{summary.childExclusions.length > 0 ? (
+						<p className="text-sm text-text-2">
+							{CHILD_RULE} If a marking is wrong, correct Adult or child on the person&rsquo;s record.
+						</p>
+					) : null}
 					{summary.unsubscribedExclusions.length > 0 ? (
 						<p className="text-sm text-text-2">
 							Only the person can undo an unsubscribe, from the link in an email. Staff cannot clear it.
@@ -210,7 +223,7 @@ function Counts({
 					) : null}
 					{summary.duplicateAddressesRemoved > 0 ? (
 						<p className="text-sm text-text-2">
-							{plural(summary.duplicateAddressesRemoved, "duplicate address", "duplicate addresses")} removed.
+							{counted(summary.duplicateAddressesRemoved, "duplicate address", "duplicate addresses")} removed.
 						</p>
 					) : null}
 				</section>
@@ -237,7 +250,7 @@ function ToField({
 	const answer = useReadWith(searched ? recipientSearches : null, [searched], { showPrevious: true });
 	const found = answer.value;
 	const results = found?.status === "ok" ? found.value.people : [];
-	const status = found && found.status !== "ok" ? "The search did not load. Try again." : null;
+	const status = found && found.status !== "ok" ? loadProblem(found, "The search did not load. Try again.") : null;
 	const byId = new Map(known.map((person) => [person.id, person]));
 	const people = form.people.map((person) => ({
 		...person,
@@ -276,8 +289,9 @@ function ToField({
 				event.preventDefault();
 				actions.openList(false);
 			}
-		} else if (event.key === "Backspace" && query === "" && people.length > 0) {
-			remove(people.at(-1)!.id);
+		} else if (event.key === "Backspace" && query === "") {
+			const last = people.at(-1);
+			if (last) remove(last.id);
 		}
 	};
 
@@ -354,7 +368,7 @@ function ToField({
 						</button>
 					) : null}
 					{locked ? null : (
-						<Command.Input asChild value={shown.map((person) => person.id).join(" ")}>
+						<Command.Input asChild value={listed ? shown.map((person) => person.id).join(" ") : ""}>
 							<input
 								id={inputId}
 								aria-label="Add a person"
@@ -411,9 +425,9 @@ function ToField({
 				) : null}
 			</Command>
 			{status ? (
-				<p role="alert" className="mt-1 text-sm font-medium text-magenta-600">
+				<ProblemText size="sm" className="mt-1">
 					{status}
-				</p>
+				</ProblemText>
 			) : null}
 		</Field>
 	);

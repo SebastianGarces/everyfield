@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { LockKeyIcon, Note01Icon, RefreshIcon, UserRemove01Icon } from "@hugeicons/core-free-icons";
 import type { OrganizationNotesResult, PipelineAccessResult } from "@everyfield/contracts/access";
 import {
@@ -10,6 +11,7 @@ import {
 	CardHeading,
 	CardTitle,
 	EmptyState,
+	InlineAlert,
 	Skeleton,
 	StatePanel,
 } from "@everyfield/ui/controls";
@@ -81,7 +83,7 @@ export function StaffNotesPanel({
 			const next = await readPage(after);
 			if (next.status !== "allowed") return setMore((m) => ({ ...m, status: "unavailable" }));
 			setMore((m) => ({ pages: [...m.pages, next], status: "idle" }));
-			setAnnounce(next.notes.length === 1 ? "1 more note loaded." : `${next.notes.length} more notes loaded.`);
+			setAnnounce(`${counted(next.notes.length, "more note")} loaded.`);
 		} catch {
 			setMore((m) => ({ ...m, status: "failed" }));
 		}
@@ -158,11 +160,9 @@ export function StaffNotesPanel({
 							<Button variant="secondary" loading={more.status === "loading"} onClick={() => void loadMore()}>
 								{more.status === "failed" ? "Try again" : "Show more notes"}
 							</Button>
-							{more.status === "failed" ? (
-								<p role="alert" className="text-sm text-magenta-600">
-									We could not load more notes. The notes above are still current.
-								</p>
-							) : null}
+							<InlineAlert className="min-w-0 flex-1 basis-64">
+								{more.status === "failed" ? "We could not load more notes. The notes above are still current." : null}
+							</InlineAlert>
 						</div>
 					) : null}
 				</>

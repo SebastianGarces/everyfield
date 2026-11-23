@@ -1,7 +1,6 @@
 "use client";
 
 import {
-	Alert02Icon,
 	Coins01Icon,
 	CrownIcon,
 	HandPrayerIcon,
@@ -24,6 +23,7 @@ import {
 	type SignalValue,
 } from "@everyfield/contracts/intelligence";
 import {
+	Alert,
 	Button,
 	Card,
 	CardActions,
@@ -39,6 +39,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	PageHeader,
 	Textarea,
@@ -58,7 +59,10 @@ import {
 	answerLabel,
 	attentionCount,
 	candidateLine,
+	answerOf,
 	definitionOf,
+	groupOf,
+	recordOf,
 	draftOf,
 	draftReasons,
 	historyOf,
@@ -84,6 +88,7 @@ import {
 	type Draft,
 	type SignalOutcome,
 } from "./signals-model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
 
 export function AttestationsScreen({ initial, viewerName }: { initial: AttestationsPage; viewerName: string }) {
 	const [page, setPage] = useState(initial);
@@ -92,8 +97,11 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 	>(null);
 	const [keys] = useState(() => new Map<string, string>());
 	const keyFor = (payload: string) => {
-		if (!keys.has(payload)) keys.set(payload, crypto.randomUUID());
-		return keys.get(payload)!;
+		const known = keys.get(payload);
+		if (known !== undefined) return known;
+		const fresh = crypto.randomUUID();
+		keys.set(payload, fresh);
+		return fresh;
 	};
 	const sent = async <T,>(call: () => Promise<SignalOutcome<T>>): Promise<SignalOutcome<T>> => {
 		try {
@@ -102,7 +110,11 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 			return { status: "lost" };
 		}
 	};
-	const entryOf = (key: SignalKey) => page.signals.find((s) => s.key === key)!;
+	const entryOf = (key: SignalKey) => {
+		const entry = page.signals.find((s) => s.key === key);
+		if (!entry) throw new Error(`The attestations page has no ${key} signal`);
+		return entry;
+	};
 	const fail = (result: SignalOutcome<unknown>) => refusalText(result.status === "refused" ? result.error : null);
 
 	async function writeSignal(
@@ -162,9 +174,10 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		);
 	}
 	async function reload() {
-		const result = await sent(() => reloadAttestations());
+		const result = await reloadAttestations().catch(() => ({ status: "lost" }) as const);
 		if (result.status === "ok") setPage(result.value);
-		else toast({ message: "Everyfield could not be reached. Try again in a moment.", tone: "error" });
+		else
+			toast({ message: loadProblem(result, "Everyfield could not be reached. Try again in a moment."), tone: "error" });
 	}
 
 	async function saveCandidate(
@@ -365,8 +378,8 @@ function SignalRow({ entry, first, onOpen }: { entry: SignalEntry; first: boolea
 					<>
 						<b className="font-medium text-ink">{entry.authorName ?? "A church admin"}</b>
 						<br />
-						{shortDate(entry.asOf!)}
-						{entry.state === "answered" ? ` · ${agoText(entry.ageDays!)}` : ""}
+						{shortDate(recordOf(entry).asOf)}
+						{entry.state === "answered" ? ` · ${agoText(answerOf(entry).ageDays)}` : ""}
 						{entry.detail ? (
 							<>
 								<br />
@@ -438,15 +451,17 @@ function Choice({
 
 function Failure({ text, onReload }: { text: string; onReload: () => void }) {
 	return (
-		<div role="alert" className="flex gap-3 rounded-md bg-amber-100 px-4 py-3 text-sm text-ink">
-			<Icon icon={Alert02Icon} size={18} className="mt-0.5 flex-none text-amber-600" />
-			<div className="min-w-0 flex-1">
-				<p>{text}</p>
-				<Button type="button" variant="ghost" size="sm" className="mt-1.5 -ml-2" onClick={onReload}>
+		<Alert
+			role="alert"
+			tone="warning"
+			actions={
+				<Button type="button" variant="ghost" size="sm" onClick={onReload}>
 					Load the latest answers
 				</Button>
-			</div>
-		</div>
+			}
+		>
+			{text}
+		</Alert>
 	);
 }
 
@@ -470,7 +485,7 @@ function AnswerDialog({
 	onDone: (message: string) => void;
 }) {
 	const def = definitionOf(entry.key);
-	const group = SIGNAL_GROUPS.find((g) => g.id === def.group)!;
+	const group = groupOf(entry.key);
 	const [opened, setOpened] = useState(entry);
 	const [draft, setDraft] = useState<Draft>(() => draftOf(opened, page.today));
 	const [error, setError] = useState<string | null>(null);
@@ -619,6 +634,7 @@ function AnswerDialog({
 }
 
 type RowState = { pick: SignalValue | null; state: "idle" | "saving" | "saved" | "failed"; error: string | null };
+const UNTOUCHED: RowState = { pick: null, state: "idle", error: null };
 
 function RenewDialog({
 	entries,
@@ -636,19 +652,19 @@ function RenewDialog({
 	onReload: () => void;
 }) {
 	const [opened, setOpened] = useState(entries);
-	const [rows, setRows] = useState<Record<string, RowState>>(() =>
-		Object.fromEntries(opened.map((e) => [e.key, { pick: null, state: "idle", error: null } as RowState])),
-	);
-	const patch = (key: string, next: Partial<RowState>) => setRows((r) => ({ ...r, [key]: { ...r[key]!, ...next } }));
-	const picked = opened.filter((e) => rows[e.key]!.pick && rows[e.key]!.state !== "saved");
-	const busy = opened.some((e) => rows[e.key]!.state === "saving");
+	const [rows, setRows] = useState<Partial<Record<string, RowState>>>({});
+	const rowOf = (key: string) => rows[key] ?? UNTOUCHED;
+	const patch = (key: string, next: Partial<RowState>) =>
+		setRows((r) => ({ ...r, [key]: { ...(r[key] ?? UNTOUCHED), ...next } }));
+	const picked = opened.filter((e) => rowOf(e.key).pick && rowOf(e.key).state !== "saved");
+	const busy = opened.some((e) => rowOf(e.key).state === "saving");
 	if (!busy && entries.some((e, i) => e.revision !== opened[i]?.revision)) setOpened(entries);
 	const stale = (e: SignalEntry) => e.state === "answered" && e.renewal.status === "needs_renewing";
 
 	async function submit() {
 		await Promise.all(
 			picked.map(async (entry) => {
-				const row = rows[entry.key]!;
+				const row = rowOf(entry.key);
 				patch(entry.key, { state: "saving", error: null });
 				const failure =
 					entry.state === "answered" && row.pick === entry.value
@@ -663,7 +679,7 @@ function RenewDialog({
 			}),
 		);
 	}
-	const allDone = opened.every((e) => rows[e.key]!.state === "saved" || !rows[e.key]!.pick);
+	const allDone = opened.every((e) => rowOf(e.key).state === "saved" || !rowOf(e.key).pick);
 
 	return (
 		<Dialog open onOpenChange={(next) => (next || busy ? null : onClose())}>
@@ -681,7 +697,7 @@ function RenewDialog({
 				>
 					<DialogBody className="flex flex-col">
 						{opened.map((entry, i) => {
-							const row = rows[entry.key]!;
+							const row = rowOf(entry.key);
 							return (
 								<div
 									key={entry.key}
@@ -695,7 +711,7 @@ function RenewDialog({
 										<div className="mt-[3px] text-sm text-text-2">
 											{entry.state === "answered" ? (
 												<>
-													Last: {VALUE_LABEL[entry.value!]} · {agoText(entry.ageDays!)} ·{" "}
+													Last: {VALUE_LABEL[answerOf(entry).value]} · {agoText(answerOf(entry).ageDays)} ·{" "}
 													{stale(entry) ? (
 														<span className="font-semibold text-amber-600">needs renewing</span>
 													) : (
@@ -708,14 +724,6 @@ function RenewDialog({
 												"Not answered yet"
 											)}
 										</div>
-										{row.state === "failed" ? (
-											<div role="alert" className="mt-2 text-sm font-medium text-magenta-600">
-												{row.error}{" "}
-												<button type="button" className="underline" onClick={onReload}>
-													Load the latest answers
-												</button>
-											</div>
-										) : null}
 									</div>
 									{row.state === "saved" ? (
 										<span className="inline-flex items-center gap-1.5 text-sm font-semibold text-green-700">
@@ -730,6 +738,16 @@ function RenewDialog({
 											onChange={(pick) => patch(entry.key, { pick, state: "idle", error: null })}
 										/>
 									)}
+									<InlineAlert
+										className="col-span-full -mt-2"
+										actions={
+											<Button variant="ghost" size="sm" onClick={onReload}>
+												Load the latest answers
+											</Button>
+										}
+									>
+										{row.state === "failed" ? row.error : null}
+									</InlineAlert>
 								</div>
 							);
 						})}
@@ -743,7 +761,7 @@ function RenewDialog({
 							Saved as true as of today, {shortDate(today)}.
 						</span>
 						<Button type="button" variant="secondary" disabled={busy} onClick={onClose}>
-							{allDone && opened.some((e) => rows[e.key]!.state === "saved") ? "Close" : "Cancel"}
+							{allDone && opened.some((e) => rowOf(e.key).state === "saved") ? "Close" : "Cancel"}
 						</Button>
 						<Button type="submit" variant="primary" loading={busy} disabled={!picked.length}>
 							Save answers

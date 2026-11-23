@@ -4,10 +4,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { GLOBAL_TENANT, setFlag } from "../../../packages/domain/src/flags/index.ts";
-import { FlagError, removalAsk, runFlag } from "../../../tools/flag/flag.ts";
+import {
+	GLOBAL_TENANT,
+	setFlag,
+	type FlagDeclaration,
+	type FlagScope,
+} from "../../../packages/domain/src/flags/index.ts";
+import { FlagError, removalAsk, runFlag, type Evf, type EvfResult } from "../../../tools/flag/flag.ts";
+import type { Workspace } from "../../support/fixture.mts";
 
-const flag = (kind, extra = {}) => ({
+const flag = (kind: FlagDeclaration["kind"], extra: Partial<FlagDeclaration> = {}): FlagDeclaration => ({
 	owner: "Tests",
 	task: "T-471",
 	kind,
@@ -29,7 +35,10 @@ const declared = {
 	"cli-stale-override": flag("release"),
 };
 
-let f, plant, account, operator;
+type Fixture = Awaited<ReturnType<typeof fixture>>;
+type Account = Awaited<ReturnType<Fixture["account"]>>;
+type Answers = Record<string, EvfResult | ((args: readonly string[]) => EvfResult)>;
+let f: Fixture, plant: Workspace, account: Account, operator: Account;
 before(async () => {
 	f = await fixture();
 	plant = await f.workspace();
@@ -38,9 +47,9 @@ before(async () => {
 });
 after(() => f?.close());
 
-function stubEvf(answers = {}) {
-	const calls = [];
-	const evf = (args) => {
+function stubEvf(answers: Answers = {}) {
+	const calls: string[][] = [];
+	const evf: Evf = (args) => {
 		calls.push([...args]);
 		const answer = answers[args.slice(0, 2).join(" ")];
 		if (typeof answer === "function") return answer(args);
@@ -49,9 +58,9 @@ function stubEvf(answers = {}) {
 	return { evf, calls };
 }
 
-async function cli(argv, { evf = stubEvf().evf, ci = false } = {}) {
-	const out = [];
-	const err = [];
+async function cli(argv: readonly string[], { evf = stubEvf().evf, ci = false }: { evf?: Evf; ci?: boolean } = {}) {
+	const out: string[] = [];
+	const err: string[] = [];
 	try {
 		await runFlag(argv, {
 			db: f.admin,
@@ -69,12 +78,14 @@ async function cli(argv, { evf = stubEvf().evf, ci = false } = {}) {
 	}
 }
 
-const stored = async (name) =>
+const scopeOf = (metadata: unknown) =>
+	typeof metadata === "object" && metadata !== null && "scope" in metadata ? metadata.scope : undefined;
+const stored = async (name: string) =>
 	(
 		await f.admin.execute(sql`SELECT f.tenant_id::text AS tenant, f.value FROM feature_flag f WHERE f.name=${name}
  ORDER BY f.tenant_id`)
 	).rows;
-const audits = async (name) =>
+const audits = async (name: string) =>
 	(
 		await f.admin.execute(sql`SELECT a.tenant_id::text AS tenant, a.actor_id::text AS actor, a.system_cause AS cause,
  a.before_value->'value' AS before, a.after_value->'value' AS after, a.metadata
@@ -147,7 +158,7 @@ test("set --workspace and --account (by id or sign-in email) store the override 
 	const acc = await cli(["set", "cli-target", "off", "--account", account.id]);
 	assert.deepEqual(acc.out, [`cli-target: off for account ${account.id}.`]);
 	assert.deepEqual(
-		(await stored("cli-target")).sort((a, b) => a.tenant.localeCompare(b.tenant)),
+		(await stored("cli-target")).sort((a, b) => String(a.tenant).localeCompare(String(b.tenant))),
 		[
 			{ tenant: plant.id, value: true },
 			{ tenant: account.id, value: false },
@@ -179,13 +190,13 @@ test("set --workspace and --account (by id or sign-in email) store the override 
 	assert.equal((await audits("cli-target")).length, 2, "setting the value a flag already holds writes no audit row");
 	const cleared = await cli(["set", "cli-target", "clear", "--account", account.email.toUpperCase()]);
 	assert.deepEqual(cleared.out, [`cli-target: cleared for account ${account.id}.`]);
-	assert.equal((await audits("cli-target")).at(-1).after, null);
+	assert.equal((await audits("cli-target")).at(-1)?.after, null);
 	assert.ok(!(await cli(["show", "cli-target"])).out.some((line) => line.includes(account.id)));
 });
 
 test("set refuses a wrong-kind, unknown or missing id and a missing scope, and writes nothing", async () => {
 	const before = [await stored("cli-target"), await audits("cli-target")];
-	const refusals = [
+	const refusals: [string[], number, string][] = [
 		[
 			["set", "cli-target", "on", "--workspace", account.id],
 			1,
@@ -233,14 +244,14 @@ test("set refuses a wrong-kind, unknown or missing id and a missing scope, and w
 	assert.deepEqual([await stored("cli-target"), await audits("cli-target")], before);
 });
 
-const flip = (state, decision = null) => ({
+const flip = (state: string, decision: string | null = null): Answers => ({
 	"flip status": (args) => ({ status: 0, stdout: JSON.stringify({ flag: args[2], state, decision }), stderr: "" }),
 });
 
 test("set --all turns a release flag on for everyone only when evf flip status says approved", async () => {
 	const ask = 'Ask with: evf flip request cli-flip --task T-471 --note "<why it may go on for everyone>"';
 	const lead = "Refused: turning the release flag cli-flip on for everyone needs an approved flip.";
-	const cases = [
+	const cases: [Answers, string][] = [
 		[flip("open", "D-9001"), `${lead} evf flip status says open (D-9001). ${ask}`],
 		[flip("declined", "D-9002"), `${lead} evf flip status says declined (D-9002). ${ask}`],
 		[flip("none"), `${lead} evf flip status says none. ${ask}`],
@@ -280,7 +291,7 @@ test("set --all turns a release flag on for everyone only when evf flip status s
 	assert.deepEqual([on.code, on.out], [0, ["cli-flip: on for everyone (flip D-9003 approved)."]]);
 	assert.deepEqual(await stored("cli-flip"), [{ tenant: GLOBAL_TENANT, value: true }]);
 	assert.deepEqual(
-		(await audits("cli-flip")).map((a) => [a.tenant, a.cause, a.after, a.metadata.scope]),
+		(await audits("cli-flip")).map((a) => [a.tenant, a.cause, a.after, scopeOf(a.metadata)]),
 		[[GLOBAL_TENANT, "bin/flag", true, "global"]],
 	);
 });
@@ -301,7 +312,7 @@ test("turning a flag off for everyone, clearing it, and a kill or ops flag need 
 	assert.deepEqual(await stored("cli-flip-kill"), [{ tenant: GLOBAL_TENANT, value: true }]);
 });
 
-async function onForEveryone(name, days, scope = { kind: "global" }) {
+async function onForEveryone(name: keyof typeof declared, days: number, scope: FlagScope = { kind: "global" }) {
 	await setFlag(f.admin, { flag: name, scope, value: true, operator: operator.id }, declared);
 	await f.admin.execute(sql`UPDATE audit_event a SET occurred_at=clock_timestamp()-make_interval(days=>${days}::int)
  FROM feature_flag f WHERE f.id=a.subject_id AND f.name=${name} AND a.action='flags.changed'`);
@@ -319,6 +330,7 @@ test("stale lists release flags on for everyone and unchanged for 14 or more day
 			.execute(sql`SELECT max(a.occurred_at) AS at FROM audit_event a JOIN feature_flag f ON f.id=a.subject_id
  WHERE f.name='cli-stale-15'`)
 	).rows;
+	assert.ok(typeof row?.at === "string", JSON.stringify(row));
 	const since = new Date(row.at);
 	const day = since.toISOString().slice(0, 10);
 	const ask = removalAsk("cli-stale-15", declared["cli-stale-15"], since).replaceAll("'", "'\\''");
@@ -334,12 +346,12 @@ test("stale lists release flags on for everyone and unchanged for 14 or more day
 });
 
 test("stale --file files each removal once through evf and skips a flag whose removal task is already open", async () => {
-	const open = [];
-	let asked = null;
+	const open: { id: number; label: string | undefined; lifecycle: string; title: string }[] = [];
+	let asked: string | null = null;
 	const { evf, calls } = stubEvf({
 		"task list": () => ({ status: 0, stdout: JSON.stringify(open), stderr: "" }),
 		"task new": (args) => {
-			asked = readFileSync(args[args.indexOf("--ask-file") + 1], "utf8");
+			asked = readFileSync(String(args[args.indexOf("--ask-file") + 1]), "utf8");
 			open.push({ id: 9100, label: args[args.indexOf("--label") + 1], lifecycle: "open", title: "x" });
 			return { status: 0, stdout: "Filed T-9100.\n", stderr: "" };
 		},
@@ -351,7 +363,8 @@ test("stale --file files each removal once through evf and skips a flag whose re
 		calls.map((c) => c.slice(0, 2).join(" ")),
 		["task list", "task new"],
 	);
-	const filed = calls[1];
+	const [, filed] = calls;
+	assert.ok(filed);
 	assert.deepEqual(filed.slice(0, 8), [
 		"task",
 		"new",
@@ -362,7 +375,7 @@ test("stale --file files each removal once through evf and skips a flag whose re
 		"--author",
 		"bin/flag stale",
 	]);
-	assert.match(asked, /^Remove the release flag cli-stale-15 \(owner Nora, from T-471\)\. /);
+	assert.match(String(asked), /^Remove the release flag cli-stale-15 \(owner Nora, from T-471\)\. /);
 	const rerun = await cli(["stale", "--file"], { evf });
 	assert.equal(rerun.out.at(-1), "skipped cli-stale-15: T-9100 is already open.");
 	assert.equal(calls.filter((c) => c[1] === "new").length, 1, "the rerun files nothing");

@@ -1,7 +1,8 @@
 "use client";
 
+import { countWord } from "@everyfield/contracts/common";
 import { Add01Icon, Cancel01Icon, Settings01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { Button, Input, Popover, PopoverContent, PopoverTrigger, Spinner } from "@everyfield/ui/controls";
+import { Button, Input, Popover, PopoverContent, PopoverTrigger, Spinner, TextButton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useOptimistic, useRef, useState, useTransition, type KeyboardEvent } from "react";
@@ -14,6 +15,8 @@ import { listChurchTags } from "../fetch.ts";
 import { ManageTagsDialog } from "./ManageTagsDialog.tsx";
 import { tagLook, type ChurchTag, type PersonTag } from "./model.ts";
 import { churchTags, tagProblem } from "./ManageTagsDialog.tsx";
+import { loadProblem } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
 type Change = { add: PersonTag } | { remove: string };
 const byName = (a: { name: string }, b: { name: string }) =>
@@ -39,7 +42,7 @@ export function TagsField({
 			: current.filter((t) => t.id !== change.remove),
 	);
 	const [, start] = useTransition();
-	const [church, setChurch] = useState<Outcome<ChurchTag[]> | null>(null);
+	const [church, setChurch] = useState<Outcome<ChurchTag[]> | ReadFailure | null>(null);
 	const [open, setOpen] = useState(false);
 	const [managing, setManaging] = useState(false);
 	const loading = useRef(false);
@@ -210,7 +213,7 @@ function TagPicker({
 	onManage,
 	onRetry,
 }: {
-	church: Outcome<ChurchTag[]> | null;
+	church: Outcome<ChurchTag[]> | ReadFailure | null;
 	chosen: PersonTag[];
 	wait: Wait;
 	onToggle: (tag: PersonTag) => void;
@@ -239,7 +242,8 @@ function TagPicker({
 		if (e.key !== "Enter") return;
 		e.preventDefault();
 		if (wait) return;
-		if (matches.length === 1) onToggle(matches[0]!);
+		const [only] = matches;
+		if (only && matches.length === 1) onToggle(only);
 		else if (canCreate) {
 			onCreate(term);
 			setQuery("");
@@ -267,10 +271,10 @@ function TagPicker({
 					</li>
 				) : church.status !== "ok" ? (
 					<li role="alert" className="flex flex-col items-start gap-2 px-2.5 py-3 text-sm text-text-2">
-						<span>The church&apos;s tags did not load.</span>
-						<button type="button" onClick={onRetry} className="font-medium text-ink underline underline-offset-[3px]">
+						<span>{loadProblem(church, "The church's tags did not load.")}</span>
+						<TextButton onClick={onRetry} className="text-ink">
 							Try again
-						</button>
+						</TextButton>
 					</li>
 				) : (
 					<>
@@ -310,7 +314,7 @@ function TagPicker({
 										<span className="ml-auto text-xs text-text-3 tabular-nums">
 											<span className="sr-only">, </span>
 											{t.linkedPeople}
-											<span className="sr-only"> {t.linkedPeople === 1 ? "person" : "people"}</span>
+											<span className="sr-only"> {countWord(t.linkedPeople, "person", "people")}</span>
 										</span>
 									</button>
 								</li>
