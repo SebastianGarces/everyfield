@@ -65,6 +65,12 @@
 	},
 	"overrides": [
 		{
+			"files": ["packages/**"],
+			"rules": {
+				"everyfield/no-default-database": "error"
+			}
+		},
+		{
 			"files": ["packages/*/src/**"],
 			"rules": {
 				"everyfield/no-error-message-match": "error"

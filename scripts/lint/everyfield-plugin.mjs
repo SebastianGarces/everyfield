@@ -4128,6 +4128,24 @@ const confirmKeepsRefusal = {
 	},
 };
 
+const noDefaultDatabase = {
+	meta: { type: "problem" },
+	create(context) {
+		return {
+			AssignmentPattern(node) {
+				if (!FUNCTIONS.has(node.parent?.type)) return;
+				if (!walkOwn(node.right, (n) => n.type === "CallExpression" && calleeName(unwrapped(n.callee)) === "database"))
+					return;
+				context.report({
+					node,
+					message:
+						"A default parameter that calls database() picks a pool the caller never sees. Make the database a required parameter and have each caller pass the one it uses.",
+				});
+			},
+		};
+	},
+};
+
 const oneTopLevelBefore = {
 	meta: { type: "problem" },
 	create(context) {
@@ -4243,5 +4261,6 @@ export default {
 		"live-region-in-tree": liveRegionInTree,
 		"one-top-level-before": oneTopLevelBefore,
 		"confirm-keeps-refusal": confirmKeepsRefusal,
+		"no-default-database": noDefaultDatabase,
 	},
 };
