@@ -16,6 +16,7 @@ export const communicationError = z.discriminatedUnion("code", [
 	defineSafeError("not_found", {}, "never"),
 	defineSafeError("rsvp_needs_meeting", {}, "never"),
 	defineSafeError("mailing_address_missing", {}, "never"),
+	defineSafeError("children_only", { providerCalls: z.literal(0) }, "never"),
 	defineSafeError(
 		"missing_merge_variable",
 		{ missing: z.array(z.string()).min(1), providerCalls: z.literal(0) },
@@ -79,6 +80,7 @@ export const audienceResult = z.strictObject({
 	unsubscribedExclusions: z
 		.array(z.strictObject({ id: recordId, displayName: z.string(), unsubscribedAt: instant }))
 		.max(200),
+	childExclusions: z.array(z.strictObject({ id: recordId, displayName: z.string() })).max(200),
 });
 export const recipientResult = z.strictObject({
 	people: z
@@ -110,6 +112,7 @@ export const dispatchResult = z.strictObject({
 	rejectedCount: z.number().int().nonnegative(),
 	unknownCount: z.number().int().nonnegative(),
 	unsubscribedCount: z.number().int().nonnegative(),
+	childCount: z.number().int().nonnegative(),
 	uncertain: z.boolean(),
 	failed: z.boolean(),
 	providerCalls: z.number().int().nonnegative(),
@@ -169,6 +172,7 @@ export const hubStates = [
 	"held",
 	"not_scheduled",
 	"unsubscribed",
+	"child",
 	"sending",
 	"sent",
 	"logged",
@@ -222,6 +226,7 @@ export const deliveryTotalsResult = z.strictObject({
 	failed: z.number().int().nonnegative(),
 	suppressed: z.number().int().nonnegative(),
 	unsubscribed: z.number().int().nonnegative(),
+	child: z.number().int().nonnegative(),
 	unknown: z.number().int().nonnegative(),
 	cancelled: z.number().int().nonnegative(),
 	cancelOpen: z.number().int().nonnegative(),

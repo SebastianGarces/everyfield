@@ -17,6 +17,7 @@
 				"member": "read",
 				"network": "read",
 				"resident": "read",
+				"signup": "read",
 				"visitor": "none"
 			},
 			"states": [
@@ -111,6 +112,32 @@
 							"absent": {
 								"role": "link",
 								"name": "People"
+							}
+						}
+					]
+				},
+				{
+					"id": "pending",
+					"reach": {
+						"persona": "signup",
+						"open": "/documents",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "link",
+							"name": "Set up your church"
+						},
+						{
+							"absent": {
+								"role": "link",
+								"name": "Wiki"
+							}
+						},
+						{
+							"absent": {
+								"role": "link",
+								"name": "Documents"
 							}
 						}
 					]
