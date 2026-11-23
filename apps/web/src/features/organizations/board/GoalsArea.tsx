@@ -1,6 +1,6 @@
 "use client";
 
-import { counted, countWord } from "@everyfield/contracts/common";
+import { counted, countWord, dayText } from "@everyfield/contracts/common";
 import type { PipelineGoals } from "@everyfield/contracts/organizations";
 import { Delete02Icon, Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import {
@@ -26,7 +26,6 @@ import {
 import { useActionState, useState } from "react";
 import { saveGoal } from "./actions";
 import { readGoals } from "./fetch.ts";
-import { formatPlainDate } from "../../../components/dates.ts";
 import { goalHeadline, KIND_LABEL, monthLabel, refusalText } from "./model";
 
 type Goal = PipelineGoals["goals"][number];
@@ -136,11 +135,11 @@ function GoalItem({ goal, asOf, onEdit }: { goal: Goal; asOf: string; onEdit: ((
 }
 
 function ChosenCounts({ goal, asOf, canEdit }: { goal: Goal; asOf: string; canEdit: boolean }) {
-	const since = formatPlainDate(goal.countingFrom);
+	const since = dayText(goal.countingFrom);
 	return (
 		<section aria-label="What this goal counts" className="mt-1 flex flex-col gap-2">
 			<p className="text-xs text-text-3">
-				Counting from {since} · As of {formatPlainDate(asOf)}
+				Counting from {since} · As of {dayText(asOf)}
 			</p>
 			{goal.counts.length ? (
 				<dl className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-2">
@@ -183,7 +182,7 @@ function Today({ data }: { data: PipelineGoals }) {
 			<CardHeader>
 				<CardHeading>
 					<CardTitle size="sm">Your pipeline today</CardTitle>
-					<CardDescription>As of {formatPlainDate(data.asOf)}</CardDescription>
+					<CardDescription>As of {dayText(data.asOf)}</CardDescription>
 				</CardHeading>
 			</CardHeader>
 			<dl className="flex flex-col text-sm">

@@ -1,6 +1,6 @@
 "use client";
 
-import { counted } from "@everyfield/contracts/common";
+import { counted, dayText } from "@everyfield/contracts/common";
 import { APPLY_VERSION_LIMIT, type ProgramDetail, type ProgramVersion } from "@everyfield/contracts/organizations";
 import { Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import {
@@ -28,7 +28,6 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition, type ReactNode } from "react";
-import { formatPlainDate } from "../../../components/dates.ts";
 import { PIPELINE_PATH } from "../board/model";
 import { enroll, publishVersion, savePlan } from "./actions";
 import { rereadProgram } from "./fetch.ts";
@@ -179,7 +178,7 @@ function baseOf({ draft, published }: ProgramDetail): { kind: "draft" | "publish
 
 function publishedText(version: Version) {
 	if (version.publishedOn === null) throw new Error(`Version ${version.number} is published without a date`);
-	return `Version ${version.number} published ${formatPlainDate(version.publishedOn)}`;
+	return `Version ${version.number} published ${dayText(version.publishedOn)}`;
 }
 
 function PlanEditing({
@@ -241,7 +240,7 @@ function PlanView({ version, organizationId }: { version: ProgramVersion; organi
 			<dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
 				<Detail term="Version">
 					{version.publishedOn
-						? `Version ${version.number}, published ${formatPlainDate(version.publishedOn)}`
+						? `Version ${version.number}, published ${dayText(version.publishedOn)}`
 						: `Version ${version.number}, draft`}
 				</Detail>
 				<Detail term="Meeting rhythm">{RHYTHM[version.rhythm]}</Detail>
