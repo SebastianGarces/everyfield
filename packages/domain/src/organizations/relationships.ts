@@ -86,7 +86,7 @@ async function loadInvitation(tx: WriteTx, id: string, session: z.infer<typeof s
 	const inviterLive = sql`i.inviter_id IS NOT NULL AND EXISTS(SELECT FROM account a WHERE a.id=i.inviter_id) AND NOT ${witnessHides("account", sql`i.inviter_id`)}
 		AND CASE WHEN r.account_id IS NOT NULL THEN i.inviter_id=r.account_id AND ${discoveryOpen(account)} AND ${seatless(account)}
 		ELSE EXISTS(SELECT FROM seat s2 WHERE s2.account_id=i.inviter_id AND coalesce(s2.plant_id,s2.organization_id)=coalesce(r.plant_id,r.sending_church_id)
-			AND s2.role IN ('owner','admin') AND s2.ended_at IS NULL AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.seat_id=s2.id)) END`;
+			AND s2.role IN ('owner','admin') AND s2.ended_at IS NULL) END`;
 	const rows = await tx.execute(
 		sql`SELECT i.id,i.purpose,i.recipient_email,i.token_hash,i.state,i.created_at,i.resent_at,i.revision,
 		r.plant_id,r.account_id,r.sending_church_id,r.organization_id,r.inviter_description,o.kind AS organization_kind,s.kind AS subject_kind,
