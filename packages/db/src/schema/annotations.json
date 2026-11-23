@@ -1510,8 +1510,8 @@
 				"evry_effect"
 			],
 			"job.state": ["ready", "claimed", "retry_wait", "reconcile", "succeeded", "failed", "cancelled", "superseded"],
-			"lifecycle_witness.kind": ["account", "plant", "seat", "affiliation"],
-			"lifecycle_witness.state": ["active", "pending_deletion", "purging", "purged", "cancelled", "revoked"],
+			"lifecycle_witness.kind": ["account", "plant"],
+			"lifecycle_witness.state": ["pending_deletion", "purging", "purged", "cancelled"],
 			"lifecycle_witness.cleanup_state": ["not_started", "in_progress", "inaccessible", "confirmed"],
 			"tenant.kind": ["account", "plant", "organization", "global"],
 			"record.kind": [
@@ -1729,7 +1729,7 @@
 				"other"
 			],
 			"development_program.kind": ["apprenticeship", "residency"],
-			"development_enrollment.status": ["active", "completed", "withdrawn"],
+			"development_enrollment.status": ["active", "completed"],
 			"schema_migration.provenance": ["original", "adopted"],
 			"people_column.column_name": ["prospect", "attendee", "following_up", "interviewed", "core_group"],
 			"meeting_kit_item.category": ["essential", "materials", "setup", "av", "organization"],
@@ -13231,7 +13231,7 @@
 			"table": {
 				"name": "lifecycle_witness",
 				"domain": "operations",
-				"purpose": "Body-free independently synchronized deletion, credential and access witness with stable opaque subject key after live-root purge. A body-free affiliation witness may retain its independently legitimate organization counterparty. Restricted backup/restore inventory and checksummed receipts live solely in the external recovery artifact, not the live database.",
+				"purpose": "Body-free account and church workspace deletion witness with stable opaque subject key after live-root purge. Restricted backup/restore inventory and checksummed receipts live solely in the external recovery artifact, not the live database.",
 				"library_owned": false,
 				"jsonb_keys": {},
 				"capabilities": ["CAP-A-015", "CAP-A-052"],
@@ -13395,14 +13395,14 @@
 					}
 				},
 				"seat_id->seat(id)": {
-					"scope_exception": "Body-free revocation witness identifies a seat endpoint; synchronized witness writer validates exact seat kind and original identity before clearing live linkage on purge.",
+					"scope_exception": "Always null: no witness kind names a seat, and a later slice drops the column.",
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
 					}
 				},
 				"affiliation_id->affiliation(id)": {
-					"scope_exception": "Body-free revocation witness identifies a relationship endpoint; synchronized witness writer validates exact affiliation identity and permitted counterparty before clearing live linkage on purge.",
+					"scope_exception": "Always null: no witness kind names an affiliation, and a later slice drops the column.",
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."

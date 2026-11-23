@@ -332,6 +332,9 @@ test("INV-notification-tools an organization login is offered its oversight dige
 			"oversight.listPlants",
 			"oversight.getPlant",
 			"organizationIntelligence.read",
+			"organizationIntelligence.readHistory",
+			"organizationIntelligence.readLocations",
+			"organizationIntelligence.readLocationHistory",
 		],
 	);
 	assert.deepEqual(

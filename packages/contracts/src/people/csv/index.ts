@@ -89,7 +89,7 @@ export const rowProblem = z.strictObject({
 	code: z.enum(["name_required", "invalid_email", "too_long", "invalid_source", "column_count"]),
 });
 const cell = z.string().nullable();
-export const importValues = z.object({
+export const importValues = z.strictObject({
 	displayName: z.string(),
 	firstName: cell,
 	lastName: cell,

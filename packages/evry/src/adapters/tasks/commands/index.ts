@@ -16,7 +16,13 @@ import { z } from "zod";
 import { id, localDue, dueOf as nativeDue } from "../values.ts";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
+import {
+	savedInput,
+	savedRevision,
+	type EffectResult,
+	type ReviewContext,
+	type ReviewedWrite,
+} from "../../../proposals/types.ts";
 import { inPlant, ownerOrAdmin, value } from "../reads/index.ts";
 import { present } from "../../../runtime/captured.ts";
 
@@ -98,7 +104,7 @@ export function reviewed<I>(spec: {
 	};
 }
 const writer = (reminders: TaskReminders) => createTaskWriter({ reminders });
-const saved = z.object({ expectedRevision: z.string(), input: z.record(z.string(), z.unknown()) });
+const saved = z.strictObject({ expectedRevision: z.string(), input: z.record(z.string(), z.unknown()) });
 
 const taskId = id.describe("A task id from an earlier result");
 
@@ -249,7 +255,7 @@ const createTask = reviewed<z.infer<typeof createInput>>({
 			jsonb_build_object('input',${json(input)},'recurrence',${json(v.recurrence ?? null)}) AS args`;
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ input: z.unknown(), recurrence: recurrence.nullable() }).parse(args);
+		const a = z.strictObject({ input: z.unknown(), recurrence: recurrence.nullable() }).parse(args);
 		const tasks = writer(reminders);
 		const created = await tasks.create(tx, context, { requestKey: key("create"), input: a.input });
 		if (created.status !== "ok" || !a.recurrence) return done(created);
@@ -383,7 +389,7 @@ const bulkComplete = reviewed<z.infer<typeof bulkCompleteInput>>({
 		);
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ items: z.array(z.unknown()) }).parse(args);
+		const a = z.strictObject({ items: z.array(z.unknown()) }).parse(args);
 		return bulkDone(await writer(reminders).bulkComplete(tx, context, { requestKey: key("bulk"), items: a.items }));
 	},
 });
@@ -402,7 +408,7 @@ const bulkReschedule = reviewed<z.infer<typeof rescheduleInput>>({
 		);
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ items: z.array(z.unknown()), due: z.unknown() }).parse(args);
+		const a = z.strictObject({ items: z.array(z.unknown()), due: z.unknown() }).parse(args);
 		return bulkDone(
 			await writer(reminders).bulkReschedule(tx, context, { requestKey: key("bulk"), items: a.items, due: a.due }),
 		);
@@ -419,11 +425,11 @@ const checklistInput = z.strictObject({
 	remove: z.array(id).max(20).default([]).describe("Checklist row ids to remove"),
 });
 type Checklist = z.infer<typeof checklistInput>;
-const checklistArgs = z.object({
+const checklistArgs = z.strictObject({
 	parentId: id,
 	parentRevision: z.string(),
 	add: z.array(z.string()),
-	rows: z.array(z.object({ taskId: id, revision: z.string(), complete: z.boolean().nullable() })),
+	rows: z.array(z.strictObject({ taskId: id, revision: z.string(), complete: z.boolean().nullable() })),
 });
 function checklistWrite({
 	operation,
@@ -552,8 +558,8 @@ const answered = (reply: Answered): EffectResult =>
 	reply.status === "ok"
 		? { receiptId: reply.value.receiptId, revision: String(reply.value.created.length) }
 		: { refused: reply.error.code };
-const offerArgs = z.object({
-	input: z.object({ transitionId: id, catalogVersion: z.int().optional(), checklistKeys: z.array(z.string()) }),
+const offerArgs = z.strictObject({
+	input: z.strictObject({ transitionId: id, catalogVersion: z.int().optional(), checklistKeys: z.array(z.string()) }),
 });
 
 function offerWrite<I>(spec: {
@@ -658,7 +664,7 @@ export const importTemplate = reviewed<z.infer<typeof importInput>>({
 		);
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ input: z.unknown() }).parse(args);
+		const a = savedInput.parse(args);
 		const reply = await writer(reminders).importTemplate(tx, context, { requestKey: key("import"), input: a.input });
 		return reply.status === "ok"
 			? { receiptId: reply.value.receiptId, revision: String(reply.value.tasks.length) }
@@ -674,7 +680,7 @@ const prerequisitesInput = z.strictObject({
 		.refine((ids) => new Set(ids).size === ids.length, "repeated task")
 		.describe("The whole new set of top-level tasks it waits on; [] clears them"),
 });
-const prerequisiteFacts = z.object({
+const prerequisiteFacts = z.strictObject({
 	title: z.string(),
 	subtask: z.boolean(),
 	revision: z.string(),
@@ -721,7 +727,7 @@ export const replacePrerequisites = reviewed<z.infer<typeof prerequisitesInput>>
 		);
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ expectedRevision: z.string(), input: z.unknown() }).parse(args);
+		const a = savedRevision.parse(args);
 		return done(
 			await writer(reminders).replacePrerequisites(tx, context, {
 				requestKey: key("prerequisites"),

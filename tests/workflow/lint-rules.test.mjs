@@ -1357,6 +1357,74 @@ export const p = require("node:process").env;
 	);
 });
 
+test("INV-lint: the meetings next-step table is a model module", () => {
+	const file = "apps/web/src/features/meetings/next-step.ts";
+	assert.deepEqual(lint({ [file]: 'import "server-only";\nexport const at = () => Date.now();\n' }), [
+		`${file}:1 model-module`,
+		`${file}:2 model-module`,
+	]);
+	assert.deepEqual(
+		lint({ [file]: 'import type { MeetingStatus } from "./model.ts";\nexport const s = (m: MeetingStatus) => m;\n' }),
+		[],
+	);
+});
+
+test("INV-lint: a follow-up outcome action never revalidates or refreshes, in any import form; the overlay rule still holds there", () => {
+	const rules = /^(?:everyfield|eslint)\(([\w-]+)\)$/;
+	const actions = "apps/web/src/features/followups/actions.ts";
+	const code = `import { revalidatePath } from "next/cache";
+import { revalidateTag as tag } from "next/cache";
+import * as cache from "next/cache";
+export { refresh } from "next/cache";
+import { unstable_cache } from "next/cache";
+import { EvryPanel } from "./EvryPanel.tsx";
+export const used = [revalidatePath, tag, cache, unstable_cache, EvryPanel];
+`;
+	const dir = sandbox({
+		[actions]: code,
+		"apps/web/src/features/followups/EvryPanel.tsx": "export const EvryPanel = 1;\n",
+	});
+	assert.deepEqual(
+		lintIn(dir, [actions], rules).filter((hit) => hit.endsWith(" no-restricted-imports")),
+		[1, 2, 3, 4, 6].map((line) => `${actions}:${line} no-restricted-imports`),
+	);
+	const tasks = "apps/web/src/features/tasks/actions.ts";
+	assert.deepEqual(
+		lint({ [tasks]: 'import { revalidatePath } from "next/cache";\nexport const r = revalidatePath;\n' }).filter(
+			(hit) => hit.endsWith(" no-restricted-imports"),
+		),
+		[],
+	);
+});
+
+test("INV-lint: only the outbox route imports the dev outbox reader, and only the dev outbox route imports the outbox route, through any import form", () => {
+	const outbox = "apps/web/src/features/communication/outbox.ts";
+	const route = "apps/web/src/features/communication/outbox-route.ts";
+	const dev = "apps/web/src/app/api/dev/outbox/route.ts";
+	const send = "apps/web/src/features/communication/send.ts";
+	const capture = "apps/web/src/server/mail/capture.ts";
+	const files = {
+		[outbox]: "export const readOutbox = () => [];\n",
+		[route]: 'import { readOutbox } from "./outbox.ts";\nexport const outboxRoute = () => readOutbox();\n',
+		[dev]: 'export { outboxRoute as GET } from "../../../../features/communication/outbox-route";\n',
+		[send]: `import { readOutbox } from "./outbox";
+export const later = () => import("./outbox.ts");
+export type R = typeof import("@/features/communication/outbox-route");
+export const used = readOutbox;
+`,
+		[capture]: 'export { readOutbox } from "../../features/communication/outbox.ts";\n',
+	};
+	assert.deepEqual(
+		lint(files).filter((hit) => hit.endsWith(" private-importers")),
+		[
+			`${send}:1 private-importers`,
+			`${send}:2 private-importers`,
+			`${send}:3 private-importers`,
+			`${capture}:1 private-importers`,
+		],
+	);
+});
+
 test("INV-web-sql: apps/web imports no database module", () => {
 	const code = `import { sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
@@ -2791,7 +2859,7 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 	);
 });
 
-test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased (the namespace too), destructured or re-exported (export * included), unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
+test("INV-lint: an object schema in packages/contracts or packages/evry is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased (the namespace too), destructured or re-exported (export * included), unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
 	const loose = `import { z } from "zod";
 import * as zz from "zod/v4";
 import { object as plain } from "zod";
@@ -2826,28 +2894,20 @@ export const p = q.object({});
 export * from "./more";
 `;
 	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" strict-contracts"));
-	assert.deepEqual(reported({ "packages/contracts/src/x/index.ts": loose, "packages/domain/src/x.ts": loose }), [
-		"packages/contracts/src/x/index.ts:11 strict-contracts",
-		"packages/contracts/src/x/index.ts:12 strict-contracts",
-		"packages/contracts/src/x/index.ts:13 strict-contracts",
-		"packages/contracts/src/x/index.ts:14 strict-contracts",
-		"packages/contracts/src/x/index.ts:15 strict-contracts",
-		"packages/contracts/src/x/index.ts:16 strict-contracts",
-		"packages/contracts/src/x/index.ts:18 strict-contracts",
-		"packages/contracts/src/x/index.ts:20 strict-contracts",
-		"packages/contracts/src/x/index.ts:22 strict-contracts",
-		"packages/contracts/src/x/index.ts:24 strict-contracts",
-		"packages/contracts/src/x/index.ts:27 strict-contracts",
-		"packages/contracts/src/x/index.ts:28 strict-contracts",
-		"packages/contracts/src/x/index.ts:4 strict-contracts",
-		"packages/contracts/src/x/index.ts:5 strict-contracts",
-		"packages/contracts/src/x/index.ts:5 strict-contracts",
-		"packages/contracts/src/x/index.ts:8 strict-contracts",
-		"packages/contracts/src/x/index.ts:9 strict-contracts",
-	]);
+	const hits = [11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 27, 28, 4, 5, 5, 8, 9];
+	assert.deepEqual(
+		reported({
+			"packages/contracts/src/x/index.ts": loose,
+			"packages/evry/src/adapters/x/commands/index.ts": loose,
+			"packages/domain/src/x.ts": loose,
+		}),
+		["packages/contracts/src/x/index.ts", "packages/evry/src/adapters/x/commands/index.ts"].flatMap((path) =>
+			hits.map((line) => `${path}:${line} strict-contracts`),
+		),
+	);
 	const listed = Object.values(LOOSE_CONTRACTS);
 	assert.ok(
-		listed.length <= 3 && listed.reduce((n, names) => n + Object.keys(names).length, 0) <= 3,
+		listed.length <= 1 && listed.reduce((n, names) => n + Object.keys(names).length, 0) <= 1,
 		"LOOSE_CONTRACTS only shrinks",
 	);
 	const [path, names] = Object.entries(LOOSE_CONTRACTS)[0];

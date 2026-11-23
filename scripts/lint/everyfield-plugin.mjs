@@ -3058,6 +3058,30 @@ const featureBoundaries = ratcheted("feature-boundaries", (context, push) => {
 	};
 });
 
+const PRIVATE_IMPORTERS = {
+	"apps/web/src/features/communication/outbox.ts": {
+		importers: ["apps/web/src/features/communication/outbox-route.ts"],
+		why: "it reads the dev outbox folder, so the send path stays free of directory reads and the production bundle does not trace the filesystem",
+	},
+	"apps/web/src/features/communication/outbox-route.ts": {
+		importers: ["apps/web/src/app/api/dev/outbox/route.ts"],
+		why: "it serves the dev mail capture, and only the dev outbox route may expose it",
+	},
+};
+
+const privateImporters = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		return moduleSources((node, spec) => {
+			const { to } = resolveImport(from, spec);
+			const rule = to && PRIVATE_IMPORTERS[to];
+			if (rule && !rule.importers.includes(from))
+				context.report({ node, message: `Only ${rule.importers.join(", ")} imports ${to}: ${rule.why}.` });
+		});
+	},
+};
+
 const READ_ROUTE = /^apps\/web\/src\/app\/(?:.+\/)?(?:page\.tsx|layout\.tsx|route\.ts)$/;
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const SERVER_ACTIONS = /^\s*["']use server["']/;
@@ -3782,14 +3806,6 @@ const organizationSeatCheck = {
 };
 
 export const LOOSE_CONTRACTS = {
-	"packages/contracts/src/people/csv/index.ts": {
-		importValues:
-			"it parses the createPersonRequest input of each CSV row, which also carries stage, adultClassification and birthDate; it drops them on purpose",
-	},
-	"packages/contracts/src/communication/results.ts": {
-		mailReport:
-			"it parses proposal receipts stored by earlier code, whose reports may hold keys the schema no longer names",
-	},
 	"packages/contracts/src/communication/requests.ts": {
 		historyQuery:
 			"it is the lenient history query: listHistory normalizes each value itself and drops a query key it does not name",
@@ -3819,7 +3835,7 @@ const strictContracts = {
 				context.report({
 					node,
 					message:
-						"A contract schema is a z.strictObject with no strip, passthrough, loose or catchall, so a request with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
+						"An object schema in packages/contracts or packages/evry is a z.strictObject with no strip, passthrough, loose or catchall, so a value with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
 				});
 		};
 		return {
@@ -4243,6 +4259,7 @@ export default {
 		"no-render-writes": noRenderWrites,
 		"no-render-get-state": noRenderGetState,
 		"feature-boundaries": featureBoundaries,
+		"private-importers": privateImporters,
 		"no-sql-comments": noSqlComments,
 		"no-error-message-match": noErrorMessageMatch,
 		"route-reads": routeReads,

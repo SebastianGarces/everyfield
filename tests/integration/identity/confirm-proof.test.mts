@@ -7,11 +7,13 @@ import { cookie, fixture, password, register } from "./support.mts";
 
 let f: Awaited<ReturnType<typeof fixture>>;
 let identityWrite: (request: Request) => Promise<Response>;
+let endEmailChangeProofOnSessionChange: (request: Request, response: Response) => Promise<Response>;
 before(async () => {
 	f = await fixture();
 	setServerEnv({ ...f.previewSettings, IDENTITY_ORIGIN: f.origin });
 	process.env.VERCEL = "1";
 	({ identityWrite } = await import("../../../apps/web/src/server/identity/index.ts"));
+	({ endEmailChangeProofOnSessionChange } = await import("../../../apps/web/src/server/email-change-proof.ts"));
 });
 after(async () => {
 	const pools = (globalThis as { [key: symbol]: Map<string, Database> | undefined })[
@@ -62,4 +64,14 @@ test("INV-proof-link: signing in elsewhere, registering or signing out ends a ke
 		requestKey: randomUUID(),
 	});
 	assert.deepEqual([other.status, other.ended], [200, true]);
+});
+
+test("INV-proof-link: a successful sign-in, registration or sign-out reply that is not JSON ends a kept email-change proof", async () => {
+	for (const path of ["sign-in/email", "register", "sign-out"]) {
+		const reply = await endEmailChangeProofOnSessionChange(
+			new Request(`${f.origin}/api/auth/${path}`, { method: "POST" }),
+			new Response("<p>done</p>", { status: 200, headers: { "content-type": "text/html" } }),
+		);
+		assert.deepEqual([path, reply.status, reply.headers.getSetCookie().includes(ENDED)], [path, 200, true]);
+	}
 });
