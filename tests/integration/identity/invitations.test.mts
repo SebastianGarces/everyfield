@@ -56,6 +56,24 @@ test("AC:TARGET-IDN-017 AC:TARGET-IDN-003 AC:ROLE43-006 ordinary invitation hide
 	assert.match(sent.text, /\/invitation#proof=\S+/);
 	assert.doesNotMatch(sent.text, /[?&]proof=/);
 });
+test("INV-invitations: opening a seat invitation with its live proof writes nothing and the proof still accepts it", async () => {
+	const s = await f.setup(),
+		i = await f.invitation(s);
+	const state = async () =>
+		JSON.stringify({
+			invitation: await f.admin
+				.select()
+				.from(t.invitation)
+				.where(eq(t.invitation.id, i.result.invitation.invitationId)),
+			audit: await count(t.audit_event, sql`true`),
+			seats: await count(t.seat, sql`true`),
+		});
+	const before = await state();
+	assert.equal((await f.invitations.describe({ proof: i.proof })).status, "pending");
+	assert.equal(await state(), before);
+	const accepted = await f.invitations.accept(s.recipient.session, i.claim);
+	assert.equal(accepted.seat.role, "member");
+});
 test("AC:TARGET-IDN-002 AC:TARGET-IDN-030 AC:SCHEMA-002 INV-acceptance: concurrent same-intent claim activates one seat, Person, receipt and security intent", async () => {
 	const s = await f.setup(),
 		i = await f.invitation(s),
@@ -820,6 +838,31 @@ test("AC:ROLE43-006 INV-settings-member INV-invitations: pending and Member acto
 	await denied(f.invitations.list(await f.actor(s.recipient.session), { workspace: s.w }));
 	const changed = { ...i.command, input: { ...i.command.input, role: "admin" } };
 	await denied(f.invitations.invite(await f.actor(s.sender.session), changed), "idempotency_conflict");
+});
+
+test("INV-invitations: a seat invite or invitation list naming another workspace than the session's is refused and writes nothing", async () => {
+	const s = await f.setup(),
+		other = await f.setup(),
+		pending = await f.invitation(other);
+	const writes = async () => ({
+		invitations: await count(t.invitation, sql`true`),
+		audit: await count(t.audit_event, sql`true`),
+		mail: f.effects.length,
+	});
+	const before = await writes();
+	const sender = await f.actor(s.sender.session);
+	for (const role of ["member", "admin"])
+		await denied(
+			f.invitations.invite(sender, {
+				requestKey: key(),
+				expectedRevision: "1",
+				input: { workspace: other.w, role, recipientEmail: key() + "@example.test" },
+			}),
+		);
+	await denied(f.invitations.list(sender, { workspace: other.w }));
+	await denied(f.invitations.list(sender, { workspace: other.w, after: pending.result.invitation.invitationId }));
+	await f.dispatch();
+	assert.deepEqual(await writes(), before);
 });
 
 test("INV-invite-revision: a stale workspace revision refuses as conflict, a duplicate pending invitation stays unavailable", async () => {

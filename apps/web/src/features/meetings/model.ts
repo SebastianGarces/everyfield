@@ -1,5 +1,5 @@
 import type { Outcome as Shared } from "@everyfield/contracts/common";
-import { dateText, timeText } from "@everyfield/contracts/common";
+import { dateText, daysBetween, timeText } from "@everyfield/contracts/common";
 import { meetingStatusMachine, targets } from "@everyfield/contracts/machines";
 import type * as c from "@everyfield/contracts/meetings";
 import type { Status } from "@everyfield/ui/display";
@@ -238,8 +238,7 @@ function civilDate(instant: string, zone: string): string {
 	);
 }
 export function untilText(m: { localDate: string; zone: string }, now: string): string {
-	const day = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
-	const days = Math.round(day(m.localDate) - day(civilDate(now, m.zone)));
+	const days = daysBetween(civilDate(now, m.zone), m.localDate);
 	if (days <= 0) return "today";
 	if (days === 1) return "tomorrow";
 	if (days < 14) return `in ${days} days`;

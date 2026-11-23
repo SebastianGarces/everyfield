@@ -1,4 +1,4 @@
-import { counted, countWord } from "@everyfield/contracts/common";
+import { counted, countWord, dayText } from "@everyfield/contracts/common";
 import type {
 	Cohesion,
 	CommittedAdults,
@@ -13,13 +13,9 @@ import type { Status } from "@everyfield/ui/display";
 export type Verdict = { status: Status; label: string };
 const UNKNOWN: Verdict = { status: "unknown", label: "Unknown" };
 
-export const dayLabel = (date: string) =>
-	new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
-		new Date(date + "T00:00:00Z"),
-	);
 const knownDay = (date: string | null, what: string) => {
 	if (date === null) throw new RangeError(`${what} has no date`);
-	return dayLabel(date);
+	return dayText(date);
 };
 
 export const adultsVerdict = (a: CommittedAdults): Verdict =>
@@ -65,7 +61,7 @@ export const VISION_LABEL: Record<VisionRhythm["status"], Verdict> = {
 export const visionValue = (v: VisionRhythm) => (v.daysSince === null ? "Unknown" : counted(v.daysSince, "day"));
 export function visionDetail(v: VisionRhythm): string {
 	if (v.reason === "no_attendance") return "No attendance is recorded yet, so the Vision rhythm cannot be measured.";
-	const next = v.nextScheduledOn ? ` Next scheduled ${dayLabel(v.nextScheduledOn)}; it counts once it is held.` : "";
+	const next = v.nextScheduledOn ? ` Next scheduled ${dayText(v.nextScheduledOn)}; it counts once it is held.` : "";
 	if (v.reason === "no_vision_meeting") return `No Vision meeting has been held with attendance yet.${next}`;
 	const seen = v.lastAttendance.length === 2 ? ` ${v.lastAttendance[1]} then ${v.lastAttendance[0]} attended.` : "";
 	return `Since the last completed Vision meeting on ${knownDay(v.lastHeldOn, "The last Vision meeting")}.${seen}${next}`;

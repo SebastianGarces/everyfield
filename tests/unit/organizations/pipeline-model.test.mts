@@ -8,7 +8,7 @@ import {
 	refusalText,
 	stageChanges,
 } from "../../../apps/web/src/features/organizations/board/model.ts";
-import { formatPlainDate } from "../../../apps/web/src/components/dates.ts";
+import { dayText } from "../../../packages/contracts/src/common/day.ts";
 
 const starters = [
 	{ id: "a", label: "Potential leader", kind: "potential_leader" },
@@ -43,7 +43,7 @@ test("the board's filters round-trip through the address, and anything unreadabl
 	assert.equal(boardHref(query), "/organization/pipeline?view=retired&stale=1&q=Dallas&page=3");
 	assert.deepEqual(queryFromSearch({ view: "other", page: "-2" }), { view: "board", stale: false, q: "", page: 1 });
 	assert.equal(boardHref(queryFromSearch({})), "/organization/pipeline");
-	assert.equal(formatPlainDate("2026-10-02"), "Oct 2, 2026");
+	assert.equal(dayText("2026-10-02"), "Oct 2, 2026");
 });
 
 test("a goal reads in words from its own targets and year", () => {
