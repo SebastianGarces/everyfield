@@ -123,9 +123,7 @@ export function toLine(form: Form, summary: AudienceSummary | null, teams: reado
 	const chosen = [
 		...form.audience.groups.map((g) => groupLabel[g as keyof typeof groupLabel] ?? g),
 		...form.audience.teamIds.map((id) => teams.find((t) => t.id === id)?.name ?? "A team"),
-		...form.people
-			.filter((p) => !children.has(p.id))
-			.map((p) => p.displayName ?? known.get(p.id) ?? "A person"),
+		...form.people.filter((p) => !children.has(p.id)).map((p) => p.displayName ?? known.get(p.id) ?? "A person"),
 	];
 	const count = counted(summary?.eligibleRecipients ?? 0, "person", "people");
 	return chosen.length ? `${count} · ${listed(chosen)}` : count;

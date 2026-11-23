@@ -20,13 +20,7 @@ import { MailingAddressPrompt } from "./MailingAddressPrompt.tsx";
 import { textToBody } from "./body.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
 import { toLine, type Form } from "./composeModel.ts";
-import {
-	noRecipientReason,
-	type AudienceSummary,
-	type MeetingContext,
-	type Team,
-	type Template,
-} from "./model.ts";
+import { noRecipientReason, type AudienceSummary, type MeetingContext, type Team, type Template } from "./model.ts";
 
 function presets(now = new Date()): { label: string; at: Date }[] {
 	const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0);
