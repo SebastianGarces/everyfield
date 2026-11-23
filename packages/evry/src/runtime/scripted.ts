@@ -133,10 +133,9 @@ function fileStep(text: string, system: string, result: Record<string, unknown> 
 	if (result?.error === "attachment_elsewhere" || (!result && !newest))
 		return say("I can't see a file in this conversation. Attach it here with the paperclip and I'll check it.");
 	if (result?.operation === "people.previewImport") {
-		const rows = (result.rows as { kind: string; label: string; fields: Record<string, string | null> }[]) ?? [];
-		const people = new Map(
-			rows.filter((r) => r.kind === "person").map((r) => [(r as unknown as { id: string }).id, r.label]),
-		);
+		const rows =
+			(result.rows as { id: string; kind: string; label: string; fields: Record<string, string | null> }[]) ?? [];
+		const people = new Map(rows.filter((r) => r.kind === "person").map((r) => [r.id, r.label]));
 		const lines = rows
 			.filter((r) => r.kind === "import")
 			.map((r) =>

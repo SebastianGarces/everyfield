@@ -3686,3 +3686,31 @@ test("INV-lint: package source writes no count text by hand, apart from the ui p
 		.map((d) => relative(repo, resolve(repo, d.filename)));
 	assert.deepEqual([...new Set(files)], ["packages/ui/src/display/Pipeline.tsx"]);
 });
+
+test("INV-lint: a cast through unknown is refused in app and package source and allowed in tests, a single cast or satisfies is not", () => {
+	const source = `type X = { id: string };
+export const a = () => window as unknown as Record<symbol, X>;
+export const b = (r: object) => (r as unknown as { id: string }).id;
+export const c = <T,>(x: number) => <T>(<unknown>x);
+export const d = (x: object) => x as X;
+export const e = (x: number) => x as unknown;
+export const f = { id: "a" } satisfies X;
+`;
+	const files = [
+		"apps/web/src/components/x.ts",
+		"packages/domain/src/x/cast.ts",
+		"apps/web/src/components/x.test.ts",
+		"packages/domain/src/test/cast.ts",
+		"packages/evry/src/tests/cast.ts",
+	];
+	const hits = lint(Object.fromEntries(files.map((file) => [file, source])), undefined, true).filter((hit) =>
+		hit.includes(" no-double-cast "),
+	);
+	assert.deepEqual(
+		hits.map((hit) => hit.split(" ")[0]),
+		["apps/web/src/components/x.ts", "packages/domain/src/x/cast.ts"].flatMap((file) =>
+			[2, 3, 4].map((line) => `${file}:${line}`),
+		),
+	);
+	assert.match(hits[0], /Type the value at its source, or narrow it with a check/);
+});

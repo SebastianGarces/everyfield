@@ -33,6 +33,7 @@
 		"people/core.ts",
 		"people/csv/format.ts",
 		"people/csv/sheet.ts",
+		"people/households/guardians.ts",
 		"people/people.ts",
 		"people/photos.ts",
 		"people/search.ts",

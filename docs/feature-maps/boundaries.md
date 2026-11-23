@@ -10,7 +10,8 @@ flowchart LR
   s0["boundaries.not-found<br/>no page"]
   s0_link0 --> s0
   s0 -.- s0_st0(("outside-frame"))
-  s0 -.- s0_st1(("inside-frame"))
+  s0 -.- s0_st1(("outside-frame-signed-in"))
+  s0 -.- s0_st2(("inside-frame"))
   s1["boundaries.error<br/>no page"]
   s1_link0 --> s1
   s1 -.- s1_st0(("inside-frame (manual)"))
@@ -22,10 +23,10 @@ flowchart LR
 
 ### boundaries.not-found
 
-The page an unknown address shows: outside the product frame with a link to the home page, and inside it, around the frame, with a link to the viewer's own home.
+The page an unknown address shows: outside the product frame with a link to the public home page, or to the viewer's own home once signed in, and inside it, around the frame, with a link to the viewer's own home.
 
 - Routes: none
-- Personas: `visitor` read, `owner` read
+- Personas: `visitor` read, `owner` read, `network` read
 
 Reach:
 
@@ -34,6 +35,15 @@ Reach:
 States:
 
 - **outside-frame** (`not-found.tsx`): heading "Page not found"; link "Go to the home page". As `visitor`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/this-page-does-not-exist"
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "Page not found" --exact
+agent-browser find role link text --name "Go to the home page" --exact
+```
+
+- **outside-frame-signed-in** (`not-found.tsx`): heading "Page not found"; link "Go to the home page". As `network`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/this-page-does-not-exist"

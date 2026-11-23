@@ -14,6 +14,7 @@ export const identityRefusals = defineRefusals(identityError);
 const { Refusal } = identityRefusals;
 export const deny: Deny<typeof identityError> = identityRefusals.deny;
 export const timeouts = sql`set_config('statement_timeout','10s',true)||set_config('lock_timeout','5s',true)`;
+
 export function transaction<T>(db: Database | Transaction, body: (tx: WriteTx) => Promise<T>): Promise<T> {
 	return timedTransaction(db, async (tx) => {
 		await tx.execute(sql`SELECT ${timeouts}`);

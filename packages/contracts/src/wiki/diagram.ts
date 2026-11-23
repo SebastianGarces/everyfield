@@ -176,7 +176,7 @@ export function parseDiagram(info: string, body: string): DiagramResult {
 	const [root, ...rest] = nodes;
 	if (type === "cycle" && root && !rest.length) error(root.line, "A cycle needs at least 2 nodes");
 	if (errors.length || title === undefined || !root) return fail(errors);
-	const list = nodes.map((parsed) => parsed.node) as unknown as NonEmpty<DiagramNode>;
+	const list: NonEmpty<DiagramNode> = [root.node, ...rest.map((parsed) => parsed.node)];
 	const extra = loop ? { loop } : {};
 	if (type === "hierarchy") return { ok: true, diagram: { type, title, nodes: [tree(root, rest)] } };
 	if (type === "cycle")
@@ -190,8 +190,12 @@ function typeList(): string {
 }
 
 function fail(errors: DiagramError[]): DiagramResult {
-	const sorted = errors.map((e, i) => [e, i] as const).sort((a, b) => a[0].line - b[0].line || a[1] - b[1]);
-	return { ok: false, errors: sorted.map(([e]) => e) as unknown as NonEmpty<DiagramError> };
+	const [first, ...rest] = errors
+		.map((e, i) => [e, i] as const)
+		.sort((a, b) => a[0].line - b[0].line || a[1] - b[1])
+		.map(([e]) => e);
+	if (!first) throw Error("A failed diagram parse has at least one error");
+	return { ok: false, errors: [first, ...rest] };
 }
 
 function tree(first: Parsed, rest: readonly Parsed[]): HierarchyNode {

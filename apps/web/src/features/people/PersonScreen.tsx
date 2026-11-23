@@ -453,6 +453,9 @@ export function PersonScreen({
 										onMembership={(receipt, change) =>
 											saved(receipt, { kind: "activity", action: "updated", household: change })
 										}
+										onGuardian={(receipt, guardian) =>
+											saved(receipt, { kind: "activity", action: "updated", guardian })
+										}
 										onConflict={reload}
 									/>
 									<SkillsCard

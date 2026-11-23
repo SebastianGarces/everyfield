@@ -396,6 +396,27 @@ const typeName = (node) => {
 	return node.qualifier ? nameOf(node.qualifier.right ?? node.qualifier) : null;
 };
 
+const TEST_PATH = /(^|\/)tests?\/|\.test\./;
+
+const noDoubleCast = {
+	meta: { type: "problem" },
+	create(context) {
+		if (TEST_PATH.test(repoPath(context.filename))) return {};
+		const inner = (node) => (node.type === "ParenthesizedExpression" ? inner(node.expression) : node);
+		return {
+			"TSAsExpression, TSTypeAssertion"(node) {
+				const cast = inner(node.expression);
+				if (CASTS.has(cast.type) && cast.typeAnnotation.type === "TSUnknownKeyword")
+					context.report({
+						node,
+						message:
+							"Do not cast through unknown: it switches the type checker off. Type the value at its source, or narrow it with a check.",
+					});
+			},
+		};
+	},
+};
+
 const sitePathCast = {
 	meta: { type: "problem" },
 	create(context) {
@@ -4388,6 +4409,7 @@ export default {
 		"raw-sql-literal": rawSqlLiteral,
 		"request-actor": requestActor,
 		"site-path-cast": sitePathCast,
+		"no-double-cast": noDoubleCast,
 		"provider-key-mint": providerKeyMint,
 		"no-comments": noComments,
 		"server-log": serverLog,

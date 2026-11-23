@@ -4,22 +4,87 @@ import { sql, type SQL } from "@everyfield/db/query";
 import { z } from "zod";
 import { hash } from "../operations/canonical.ts";
 import { effectiveAdultSql, plantTodaySql } from "../people/adult.ts";
-import { optedOutAtSql } from "./opt-out.ts";
+import { guardianLinksSql } from "../people/households/guardians.ts";
+import { optedOutAtSql, optedOutSql } from "./opt-out.ts";
 
-const personRow = z.object({
+export const guardianRow = z.object({
+	id: z.uuid(),
+	displayName: z.string(),
+	email: z.string().nullable(),
+	optedOut: z.boolean(),
+});
+export const personRow = z.object({
 	id: z.uuid(),
 	displayName: z.string(),
 	email: z.string().nullable(),
 	n: z.number().int(),
 	optedOutAt: z.string().nullable(),
 	child: z.boolean(),
+	guardians: z.array(guardianRow),
 });
+export type Guardian = z.infer<typeof guardianRow> & { email: string };
 
 type AudienceLists = { groups: SQL; teamIds: SQL; personIds: SQL };
 
 export const childSql = (plantId: SQL, personId: SQL) =>
 	sql`EXISTS (SELECT 1 FROM person cp WHERE cp.id = ${personId} AND cp.tenant_id = ${plantId}
 		AND ${effectiveAdultSql(sql`cp.birth_date`, sql`cp.adult_classification`, plantTodaySql(sql`cp.plant_id`))} = 'child')`;
+
+const reachable = (plantId: SQL) =>
+	sql`btrim(coalesce(gad.email, '')) <> '' AND NOT ${optedOutSql(plantId, sql`gad.id`)}`;
+export const linksOf = (plantId: SQL, childId: SQL, where: SQL = sql`true`, join: SQL = sql``) =>
+	guardianLinksSql(sql`gcx.plant_id = ${plantId} AND gcx.child_person_id = ${childId} AND ${where}`, join);
+
+const guardiansSql = (plantId: SQL, childId: SQL) =>
+	sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id', gad.id, 'displayName', gad.display_name, 'email', gad.email,
+		'optedOut', ${optedOutSql(plantId, sql`gad.id`)}) ORDER BY gad.display_name, gad.id)
+		FROM ${linksOf(plantId, childId)}), '[]'::jsonb)`;
+
+export const routedIdsSql = (plantId: SQL, childId: SQL) =>
+	sql`(SELECT gad.id FROM ${linksOf(plantId, childId, reachable(plantId))})`;
+
+export const routedSql = (plantId: SQL, childId: SQL) => sql`EXISTS ${routedIdsSql(plantId, childId)}`;
+
+export const routedNamesSql = (plantId: SQL, childId: SQL) =>
+	sql`(SELECT string_agg(gad.display_name, ', ' ORDER BY gad.display_name, gad.id)
+		FROM ${linksOf(plantId, childId, reachable(plantId))})`;
+
+export const routedNameListSql = (plantId: SQL, childId: SQL) =>
+	sql`CASE WHEN ${childSql(plantId, childId)} THEN coalesce((SELECT jsonb_agg(gad.display_name ORDER BY gad.display_name, gad.id)
+		FROM ${linksOf(plantId, childId, reachable(plantId))}), '[]'::jsonb) ELSE '[]'::jsonb END`;
+
+export const usable = (guardian: z.infer<typeof guardianRow>): guardian is Guardian =>
+	!!guardian.email?.trim() && !guardian.optedOut;
+
+export function routeChildren<T extends { id: string; child: boolean; guardians: z.infer<typeof guardianRow>[] }>(
+	rows: readonly T[],
+	reached: (guardian: Guardian) => boolean = () => true,
+) {
+	const children = rows.filter((row) => row.child);
+	const routes = children.map((child) => ({
+		child,
+		guardians: child.guardians.filter(usable).filter(reached),
+	}));
+	return {
+		routed: routes.filter((route) => route.guardians.length > 0),
+		unrouted: routes.filter((route) => route.guardians.length === 0).map((route) => route.child),
+	};
+}
+
+export function byGuardian<G extends Guardian>(
+	routes: readonly { child: { displayName: string }; guardians: readonly G[] }[],
+	skip: (guardian: G) => boolean,
+) {
+	const byId = new Map<string, { guardian: G; children: string[] }>();
+	for (const route of routes)
+		for (const guardian of route.guardians) {
+			if (skip(guardian)) continue;
+			const found = byId.get(guardian.id) ?? { guardian: { ...guardian, email: guardian.email.trim() }, children: [] };
+			found.children.push(route.child.displayName);
+			byId.set(guardian.id, found);
+		}
+	return [...byId.values()];
+}
 
 export function audiencePeople(plantId: string, audience: AudienceInput): SQL {
 	return peopleOf(plantId, {
@@ -41,7 +106,8 @@ function peopleOf(plantId: string, { groups, teamIds, personIds }: AudienceLists
 	return sql`coalesce((
 		SELECT jsonb_agg(jsonb_build_object('id', id, 'displayName', display_name, 'email', email, 'n', n,
 			'optedOutAt', ${optedOutAtSql(sql`${plantId}::uuid`, sql`counted.id`)},
-			'child', ${childSql(sql`${plantId}::uuid`, sql`counted.id`)}))
+			'child', ${childSql(sql`${plantId}::uuid`, sql`counted.id`)},
+			'guardians', ${guardiansSql(sql`${plantId}::uuid`, sql`counted.id`)}))
 		FROM (
 			SELECT id, display_name, email, count(*)::int AS n
 			FROM (
@@ -99,7 +165,8 @@ export function summarizeAudience(raw: unknown) {
 	const all = z.array(personRow).parse(raw ?? []);
 	const byName = (a: { displayName: string; id: string }, b: { displayName: string; id: string }) =>
 		a.displayName.localeCompare(b.displayName) || a.id.localeCompare(b.id);
-	const children = all.filter((row) => row.child).sort(byName);
+	const { routed, unrouted } = routeChildren(all);
+	const children = [...unrouted].sort(byName);
 	const rows = all.filter((row) => !row.child);
 	const missing = rows
 		.filter((row) => !row.email?.trim())
@@ -113,12 +180,18 @@ export function summarizeAudience(raw: unknown) {
 		.flatMap((row) => (row.optedOutAt ? [{ ...row, optedOutAt: row.optedOutAt }] : []))
 		.sort(byName);
 	const withEmail = addressed.filter((row) => !row.optedOutAt);
-	const named = [...withEmail].sort(byName);
-	const emails = new Set(withEmail.map((row) => row.email.toLowerCase()));
-	const occurrences = withEmail.reduce((sum, row) => sum + row.n, 0);
+	const own = new Set(rows.map((row) => row.id));
+	const extra = byGuardian(routed, (guardian) => own.has(guardian.id));
+	const reached = [
+		...withEmail.map((row) => ({ ...row, guardianOf: [] as string[] })),
+		...extra.map(({ guardian, children }) => ({ ...guardian, n: 1, guardianOf: children })),
+	];
+	const named = [...reached].sort(byName);
+	const emails = new Set(reached.map((row) => row.email.toLowerCase()));
+	const occurrences = reached.reduce((sum, row) => sum + row.n, 0);
 	return audienceResult.parse({
 		resolvedDistinctPeople: all.length,
-		eligibleRecipients: withEmail.length,
+		eligibleRecipients: reached.length,
 		missingEmailExclusions: missing,
 		duplicateAddressesRemoved: occurrences - emails.size,
 		eligibleEmails: [...emails].sort(),
@@ -126,32 +199,49 @@ export function summarizeAudience(raw: unknown) {
 		searchLimitTruncatesAudience: false,
 		recipients: named
 			.slice(0, NAMED_CAP)
-			.map((row) => ({ id: row.id, displayName: row.displayName, email: row.email })),
+			.map((row) => ({ id: row.id, displayName: row.displayName, email: row.email, guardianOf: row.guardianOf })),
 		complete: named.length <= NAMED_CAP,
 		unsubscribedExclusions: unsubscribed
 			.slice(0, NAMED_CAP)
 			.map((row) => ({ id: row.id, displayName: row.displayName, unsubscribedAt: row.optedOutAt })),
 		childExclusions: children.slice(0, NAMED_CAP).map((row) => ({ id: row.id, displayName: row.displayName })),
+		guardianRoutes: [...routed]
+			.sort((a, b) => byName(a.child, b.child))
+			.slice(0, NAMED_CAP)
+			.map((route) => ({
+				id: route.child.id,
+				displayName: route.child.displayName,
+				guardians: route.guardians.map((guardian) => ({ id: guardian.id, displayName: guardian.displayName })),
+			})),
 	});
 }
 
 export function onlyChildren(raw: unknown): boolean {
 	const rows = z.array(personRow).parse(raw ?? []);
-	return rows.some((row) => row.child) && !rows.some((row) => !row.child && row.email?.trim());
+	return (
+		rows.some((row) => row.child) &&
+		!rows.some((row) => !row.child && row.email?.trim()) &&
+		routeChildren(rows).routed.length === 0
+	);
 }
 
 export function reviewedParts(raw: unknown): { people: string[]; emails: string[] } {
-	const rows = z
-		.array(personRow)
-		.parse(raw ?? [])
-		.flatMap((row) => {
-			const email = row.email?.trim();
-			return email ? [{ id: row.id, email }] : [];
-		});
-	return {
-		people: rows.map((row) => row.id).sort(),
-		emails: rows.map((row) => row.email.toLowerCase()).sort(),
-	};
+	const all = z.array(personRow).parse(raw ?? []);
+	const rows = all.flatMap((row) => {
+		const email = row.email?.trim();
+		return email ? [{ id: row.id, email }] : [];
+	});
+	const people = new Set(rows.map((row) => row.id));
+	const emails = rows.map((row) => row.email.toLowerCase());
+	for (const route of routeChildren(all).routed) {
+		people.add(route.child.id);
+		for (const guardian of route.guardians)
+			if (!people.has(guardian.id)) {
+				people.add(guardian.id);
+				emails.push(guardian.email.trim().toLowerCase());
+			}
+	}
+	return { people: [...people].sort(), emails: emails.sort() };
 }
 
 export const recipientsDigest = (raw: unknown) => hash(reviewedParts(raw));
