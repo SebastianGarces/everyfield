@@ -483,18 +483,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "lifecycle_witness_fk_3",
-			"table_name": "lifecycle_witness"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "lifecycle_witness_fk_4",
-			"table_name": "lifecycle_witness"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "mail_attempt_fk_0",
 			"table_name": "mail_attempt"
 		},

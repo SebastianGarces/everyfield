@@ -39,6 +39,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	PageHeader,
 	Textarea,
@@ -723,14 +724,6 @@ function RenewDialog({
 												"Not answered yet"
 											)}
 										</div>
-										{row.state === "failed" ? (
-											<div role="alert" className="mt-2 text-sm font-medium text-magenta-600">
-												{row.error}{" "}
-												<button type="button" className="underline" onClick={onReload}>
-													Load the latest answers
-												</button>
-											</div>
-										) : null}
 									</div>
 									{row.state === "saved" ? (
 										<span className="inline-flex items-center gap-1.5 text-sm font-semibold text-green-700">
@@ -745,6 +738,16 @@ function RenewDialog({
 											onChange={(pick) => patch(entry.key, { pick, state: "idle", error: null })}
 										/>
 									)}
+									<InlineAlert
+										className="col-span-full -mt-2"
+										actions={
+											<Button variant="ghost" size="sm" onClick={onReload}>
+												Load the latest answers
+											</Button>
+										}
+									>
+										{row.state === "failed" ? row.error : null}
+									</InlineAlert>
 								</div>
 							);
 						})}
