@@ -61,9 +61,8 @@ function invitationConfig(): InvitationConfig {
 		people: accountPersonProducer,
 		addressBlocked: (email) =>
 			addressSuppressed(createHmac("sha256", addressKey).update(email.trim().toLowerCase()).digest("hex")),
-		enqueueMail: (tx, m, command) => {
-			if (m.owner.kind === "global") throw new Error("unavailable");
-			return mail.append(
+		enqueueMail: (tx, m, command) =>
+			mail.append(
 				tx,
 				{
 					owner: m.owner,
@@ -77,8 +76,7 @@ function invitationConfig(): InvitationConfig {
 					eligibleAt: new Date().toISOString(),
 				},
 				command.writes,
-			);
-		},
+			),
 	};
 	return configured;
 }

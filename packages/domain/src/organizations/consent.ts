@@ -184,8 +184,8 @@ export function consentOperations(
 		async "pipelineSharing.setConsent"(tx, session, selected, raw) {
 			return auditSavepoint(tx, async () => {
 				const q = Q.setPipelineConsentRequest.parse(raw),
-					a = await loadAffiliation(tx, q.input.relationshipId, true),
-					actor = await writeActor(tx, session, selected);
+					actor = await writeActor(tx, session, selected),
+					a = await loadAffiliation(tx, q.input.relationshipId, true);
 				if (
 					!a ||
 					actor.status !== "active" ||
@@ -286,8 +286,8 @@ export function consentOperations(
 		leave: boolean,
 	) {
 		const q = leave ? Q.leaveResidencyRequest.parse(raw) : Q.setResidencySharingRequest.parse(raw),
-			l = await loadResident(tx, q.input.linkId, true),
-			actor = await writeActor(tx, session, selected);
+			actor = await writeActor(tx, session, selected),
+			l = await loadResident(tx, q.input.linkId, true);
 		if (!l || actor.status !== "active" || selected.kind !== "account" || selected.id !== l.account_id) refuse();
 		const organization = {
 			kind: "organization",

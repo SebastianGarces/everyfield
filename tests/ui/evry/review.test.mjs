@@ -185,7 +185,9 @@ test("AC:INH-REGRESSION-CONFIRM-REPLAY INV-approve-runs-once: a first approval s
 		await signIn(context, people.owner.cookie);
 		const api = async (path, data) => {
 			const r =
-				data === undefined ? await context.request.get(BASE + path) : await context.request.post(BASE + path, { data });
+				data === undefined
+					? await context.request.get(BASE + path)
+					: await context.request.post(BASE + path, { data, headers: { origin: new URL(BASE).origin } });
 			assert.equal(r.status(), 200, `${path}: ${await r.text()}`);
 			return r.json();
 		};

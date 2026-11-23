@@ -1,7 +1,7 @@
 "use client";
 
 import { Add01Icon, Cancel01Icon, Link04Icon, RepeatIcon } from "@hugeicons/core-free-icons";
-import { Button, Field, IconButton, Input, SearchInput, Select, Spinner } from "@everyfield/ui/controls";
+import { Button, Field, IconButton, Input, RowButton, SearchInput, Select, Spinner } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, createDebouncer, focusIfLost, Icon, useFocusRequest } from "@everyfield/ui/foundations";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -477,18 +477,17 @@ function PrerequisiteEditor({
 					<ul aria-label="Tasks you can add" className="max-h-[220px] overflow-y-auto">
 						{offered.map((c) => (
 							<li key={c.id}>
-								<button
-									type="button"
+								<RowButton
 									disabled={full}
 									onClick={() =>
 										setChosen((x) => [...x, { ...c, deleted: false, blocking: blocks({ ...c, deleted: false }) }])
 									}
-									className="flex min-h-11 w-full items-center gap-2 rounded-sm px-2 text-left hover:bg-hover disabled:opacity-45"
+									className="min-h-11 items-center gap-2 rounded-sm px-2"
 								>
 									<Icon icon={Add01Icon} size={16} className="flex-none text-text-3" />
 									<span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{c.title}</span>
 									{isSettled(c.status) ? <span className="text-sm text-text-3">{STATUS_LABEL[c.status]}</span> : null}
-								</button>
+								</RowButton>
 							</li>
 						))}
 					</ul>

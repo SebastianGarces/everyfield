@@ -1,10 +1,10 @@
-import { owner, requestIdentity, sameOwner, type Owner } from "@everyfield/contracts/common";
+import { owner, requestIdentity, sameOwner, type Owner, type sessionId } from "@everyfield/contracts/common";
 import { wikiError, type WikiReply } from "@everyfield/contracts/wiki";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
-import { liveRead, RequestActor } from "../access/session.ts";
+import { liveRead, RequestActor, type WriteTx } from "../access/session.ts";
 import { hash } from "../operations/canonical.ts";
 import {
 	declareWrite,
@@ -28,6 +28,7 @@ export class WikiOutcome extends Error {
 const refusals = defineRefusals(wikiError, { writeUnavailable: "unavailable" });
 export const deny: Deny<typeof wikiError> = refusals.deny;
 export const { refused } = refusals;
+export const accessDenied = (): WikiReply<never> => refused("access_denied");
 export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	const result = schema.safeParse(raw);
 	if (!result.success) deny("invalid_input");
@@ -76,6 +77,45 @@ export async function runRead<T>(body: () => Promise<T>): Promise<WikiReply<T>> 
 		return refusals.refusalOf(error);
 	}
 }
+type Body<T> = (tx: Transaction, command: Command, input: { requestKey: string }) => Promise<T>;
+export type Runner = <T>(
+	selected: Owner,
+	operation: string,
+	input: { requestKey: string },
+	result: z.ZodType<T>,
+	body: Body<T>,
+) => Promise<WikiReply<T>>;
+
+async function keyed<T>(
+	tx: WriteTx,
+	authority: RequestActor,
+	selected: Owner,
+	operation: string,
+	input: { requestKey: string },
+	result: z.ZodType<T>,
+	body: Body<T>,
+): Promise<T> {
+	const actorId = authority.actor.accountId;
+	const identity = requestIdentity.parse({
+		owner: selected,
+		actorId,
+		operation,
+		requestKey: input.requestKey,
+		digest: hash({ operation, input }),
+	});
+	const claim = await prepareWrite(tx, identity);
+	if (claim.kind === "conflict") deny("conflict");
+	if (claim.kind === "unavailable") deny("access_denied");
+	if (claim.kind === "replay") return result.parse(claim.value);
+	const produced = result.parse(await body(tx, { ...claim, actorId, selected }, input));
+	await finishAudit(tx, claim, identity, produced);
+	return produced;
+}
+function answered<T>(result: z.ZodType<T>, error: unknown): WikiReply<T> {
+	if (error instanceof WikiOutcome) return { status: "ok", value: result.parse(error.value) };
+	return refusals.refusalOf(error);
+}
+
 export async function runWrite<T>(
 	db: Database,
 	authority: RequestActor,
@@ -83,31 +123,42 @@ export async function runWrite<T>(
 	operation: string,
 	input: { requestKey: string },
 	result: z.ZodType<T>,
-	body: (tx: Transaction, command: Command, input: { requestKey: string }) => Promise<T>,
+	body: Body<T>,
 ): Promise<WikiReply<T>> {
 	try {
 		const value = await nativeWrite(db, authority, selected, async (tx) => {
 			await declareWrite(tx, "established");
 			await lockedWrite(tx);
-			const actorId = authority.actor.accountId;
-			const identity = requestIdentity.parse({
-				owner: selected,
-				actorId,
-				operation,
-				requestKey: input.requestKey,
-				digest: hash({ operation, input }),
-			});
-			const claim = await prepareWrite(tx, identity);
-			if (claim.kind === "conflict") deny("conflict");
-			if (claim.kind === "unavailable") deny("access_denied");
-			if (claim.kind === "replay") return result.parse(claim.value);
-			const produced = result.parse(await body(tx, { ...claim, actorId, selected }, input));
-			await finishAudit(tx, claim, identity, produced);
-			return produced;
+			return keyed(tx, authority, selected, operation, input, result, body);
 		});
 		return { status: "ok", value: result.parse(value) };
 	} catch (error) {
-		if (error instanceof WikiOutcome) return { status: "ok", value: result.parse(error.value) };
-		return refusals.refusalOf(error);
+		return answered(result, error);
 	}
+}
+export const ownWrite =
+	(db: Database, authority: RequestActor): Runner =>
+	(selected, operation, input, result, body) =>
+		runWrite(db, authority, selected, operation, input, result, body);
+
+export async function claimedWrite(
+	tx: WriteTx,
+	session: z.infer<typeof sessionId>,
+	selected: Owner,
+): Promise<{ authority: RequestActor; run: Runner } | null> {
+	const bound = await lockedWrite(tx);
+	const write =
+		bound && sameOwner(bound.selected, selected) ? bound : await RequestActor.claimWrite(tx, session, selected);
+	if (!write) return null;
+	const { authority } = write;
+	return {
+		authority,
+		run: async (selected, operation, input, result, body) => {
+			try {
+				return { status: "ok", value: await keyed(tx, authority, selected, operation, input, result, body) };
+			} catch (error) {
+				return answered(result, error);
+			}
+		},
+	};
 }

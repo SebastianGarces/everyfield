@@ -7,9 +7,12 @@ import { stepNumber } from "../step-number";
 
 const drawPath = observeSize<HTMLDivElement>(
 	(band) => {
+		const svg = band.querySelector("svg"),
+			path = band.querySelector("path");
+		if (!svg || !path) return;
 		const c = [...band.querySelectorAll("li")].map((li) => ({ x: li.offsetLeft, y: li.offsetTop }));
-		band.querySelector("svg")!.setAttribute("viewBox", `0 0 ${band.clientWidth} ${band.clientHeight}`);
-		band.querySelector("path")!.setAttribute("d", stopCurve(c, band.clientWidth).join(""));
+		svg.setAttribute("viewBox", `0 0 ${band.clientWidth} ${band.clientHeight}`);
+		path.setAttribute("d", stopCurve(c, band.clientWidth).join(""));
 	},
 	{ fonts: true },
 );

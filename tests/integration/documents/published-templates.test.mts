@@ -16,7 +16,7 @@ const POLICY = "conflict-of-interest-policy";
 test("INV-template-changes: the store holds the current version of every built-in template, with its hash", async () => {
 	assert.deepEqual(await publishedProblems(DOC_TEMPLATES, PUBLISHED, SUPERSEDED), []);
 	assert.deepEqual(Object.keys(PUBLISHED).sort(), DOC_TEMPLATES.map((t) => t.id).sort());
-	assert.equal(DOC_TEMPLATES.length, 9);
+	assert.equal(DOC_TEMPLATES.length, 11);
 	for (const template of DOC_TEMPLATES) {
 		const current = { version: template.version, hash: await templateHash(template) };
 		if (template.id !== "commitment-card") assert.deepEqual(PUBLISHED[template.id], [current], template.id);

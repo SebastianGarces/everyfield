@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, readFileSync, watch } from "node:fs";
 import { EventEmitter } from "node:events";
 import { dirname } from "node:path";
 import { createServer as httpServer } from "node:http";
 import { crc32, deflateSync } from "node:zlib";
-import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/src/query.ts";
@@ -22,6 +20,7 @@ import { teamsWriter } from "../../../packages/domain/src/teams/index.ts";
 import { CATALOG } from "../../../packages/domain/src/tasks/catalog.ts";
 import { p as wordParagraph, storedZip } from "../documents/fixtures/word.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { holdPort } from "./held-port.mjs";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = root + "apps/web/";
@@ -32,12 +31,8 @@ assert.ok(
 	"No production build in apps/web/.next. Run `corepack pnpm build` first.",
 );
 
-const port = await new Promise((resolve) => {
-	const probe = createServer().listen(0, "127.0.0.1", () => {
-		const { port } = probe.address();
-		probe.close(() => resolve(port));
-	});
-});
+const nextPort = await holdPort("127.0.0.1");
+const { port } = nextPort;
 const origin = `http://127.0.0.1:${port}`;
 const readInput = (input) => encodeURIComponent(JSON.stringify(input));
 const database = await testDatabase({ prefix: "wp011rq", roles: { runtime: ["runtime"], auth: ["auth"] }, max: 2 });
@@ -311,7 +306,7 @@ try {
 	});
 	await new Promise((resolve) => bucket.listen(0, "127.0.0.1", resolve));
 
-	server = spawn(
+	server = nextPort.spawn(
 		process.execPath,
 		[web + "node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", String(port)],
 		{
@@ -389,7 +384,7 @@ try {
 	};
 	const read = async (name, path, what, input, cookie = owner.cookie) =>
 		JSON.parse(await get(name, `${path}?what=${what}&in=${readInput(input)}`, cookie));
-	const act = async (name, page, file, action, args, cookie = owner.cookie) => {
+	const actReply = async (name, page, file, action, args, cookie = owner.cookie) => {
 		const r = await fetch(origin + page, {
 			method: "POST",
 			headers: {
@@ -406,8 +401,9 @@ try {
 		assert.equal(r.status, 200, `${name}: HTTP ${r.status}`);
 		const line = text.split("\n").find((l) => l.startsWith("1:"));
 		assert.ok(line, `${name}: no action result`);
-		return JSON.parse(line.slice(2));
+		return { result: JSON.parse(line.slice(2)), setCookies: r.headers.getSetCookie() };
 	};
+	const act = async (...request) => (await actReply(...request)).result;
 
 	const census = (
 		await admin.execute(
@@ -591,7 +587,7 @@ try {
 				headers: { cookie: member.cookie },
 			})
 		).json();
-	assert.deepEqual(await duties({ page: 1 }), { status: "refused", code: "invalid_input" });
+	assert.deepEqual(await duties({ page: 1 }), { status: "refused", code: "invalid_input", route: true });
 	const personDuties = await duties({ personId, page: 1 });
 	assert.equal(personDuties.status, "ok", JSON.stringify(personDuties));
 	const tagKey = randomUUID();
@@ -727,6 +723,19 @@ try {
 		},
 	]);
 	assert.equal(saved.status, "ok", JSON.stringify(saved));
+	const keptProof = await actReply(
+		null,
+		"/confirm-email",
+		settings,
+		"confirmEmailChange",
+		[],
+		`${owner.cookie}; ef-email-change-proof=${randomBytes(24).toString("base64url")}`,
+	);
+	assert.equal(keptProof.result.status, "refused", JSON.stringify(keptProof.result));
+	assert.ok(
+		keptProof.setCookies.some((c) => /^ef-email-change-proof=;/.test(c) && /Path=\/confirm-email/i.test(c)),
+		`confirmEmailChange answer ends the kept proof: ${JSON.stringify(keptProof.setCookies.map((c) => c.split("=")[0]))}`,
+	);
 	const brand = await act(
 		"POST settings.brand.saveSettings",
 		"/settings/brand",

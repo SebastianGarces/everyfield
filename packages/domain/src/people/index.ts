@@ -23,6 +23,8 @@ export { readPersonPhotos } from "./photos.ts";
 export { assessments } from "./assessments/index.ts";
 export { interviews } from "./interviews/index.ts";
 export {
+	checkCommitmentDocument,
+	type CheckedDocument,
 	commitments,
 	getCommitmentDownload,
 	saveCommitmentDocument,

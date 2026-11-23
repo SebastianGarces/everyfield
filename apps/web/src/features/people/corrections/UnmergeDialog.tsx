@@ -24,7 +24,7 @@ import { fresh, usePersonState, When } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { unmergePair, type Unmerged } from "./actions.ts";
 import { unmergeRead } from "./intent.ts";
-import { conflictText, counted, FIELD_LABEL, kindTitle, listText } from "./model.ts";
+import { attendanceText, conflictText, counted, FIELD_LABEL, kindTitle, listText, unmergeAdvice } from "./model.ts";
 import { Problem } from "./parts.tsx";
 import type { UnmergeView } from "./server.ts";
 import { loadProblem } from "../../../components/read-failed.ts";
@@ -188,6 +188,23 @@ export function UnmergeDialog({
 									/>
 								))}
 							</KeyValueList>
+							{p.attendance.length ? (
+								<div>
+									<p className="text-xs font-semibold text-ink-2">
+										Attendance the merge combined or changed goes back as it was
+									</p>
+									<ul className="mt-1.5 flex flex-col gap-1 text-xs text-text-2">
+										{p.attendance.map((a) => (
+											<li key={`${a.change}-${a.meeting}`} className="text-pretty">
+												{attendanceText(a, {
+													source: { personId: p.sourceId, displayName: names.source },
+													survivor: { personId: p.survivorId, displayName: names.survivor },
+												})}
+											</li>
+										))}
+									</ul>
+								</div>
+							) : null}
 							{blocked ? (
 								<div className="rounded-md bg-surface px-4 py-3.5">
 									<CalloutLabel tone="magenta" icon={Alert02Icon}>
@@ -195,13 +212,10 @@ export function UnmergeDialog({
 									</CalloutLabel>
 									<ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm text-ink-2">
 										{p.conflicts.map((c) => (
-											<li key={c}>{conflictText(c, names)}</li>
+											<li key={c}>{conflictText(c, names, p.changed)}</li>
 										))}
 									</ul>
-									<p className="mt-2 text-sm">
-										An Unmerge would lose those changes, so Everyfield will not run it. Correct {first(names.survivor)}
-										&rsquo;s details by hand instead; each change is kept in the history.
-									</p>
+									<p className="mt-2 text-sm">{unmergeAdvice(p.conflicts, names)}</p>
 								</div>
 							) : (
 								<CalloutLabel tone="green" icon={Tick02Icon}>

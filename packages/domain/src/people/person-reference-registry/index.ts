@@ -44,20 +44,20 @@ export const registry: readonly Registration[] = [
 	r("duplicate_dismissal", "person_duplicate_dismissal", "person_id", "plant_id", "keep", "id", false),
 	r("duplicate_dismissal", "person_duplicate_dismissal", "with_person_id", "plant_id", "keep", "id", false),
 	r("launch_guest", "launch_guest", "person_id", "plant_id", "move"),
-	r("contact_outcome", "contact_outcome", "person_id", "plant_id", "block"),
+	r("contact_outcome", "contact_outcome", "person_id", "plant_id", "move"),
 	r("development_enrollment", "development_enrollment", "person_id", "organization_id", "move"),
-	r("invitation", "invitation", "resident_person_id", "tenant_id", "block"),
-	r("mail", "mail", "recipient_person_id", "tenant_id", "block"),
-	r("meeting_kit_item", "meeting_kit_item", "assignee_person_id", "plant_id", "block"),
-	r("obligation", "obligation", "person_id", "plant_id", "block"),
-	r("participation", "participation", "person_id", "plant_id", "block"),
-	r("participation_inviter", "participation", "inviter_person_id", "plant_id", "block"),
+	r("invitation", "invitation", "resident_person_id", "tenant_id", "move"),
+	r("mail", "mail", "recipient_person_id", "tenant_id", "move"),
+	r("meeting_kit_item", "meeting_kit_item", "assignee_person_id", "plant_id", "move"),
+	r("obligation", "obligation", "person_id", "plant_id", "move"),
+	r("participation", "participation", "person_id", "plant_id", "move"),
+	r("participation_inviter", "participation", "inviter_person_id", "plant_id", "move"),
 	r("pipeline_person", "pipeline_person", "person_id", "organization_id", "keep"),
 	r("residency_link", "residency_link", "person_id", "organization_id", "keep"),
 	r("answer_review", "answer_review", "person_id", "organization_id", "keep", "id", false),
-	r("task", "task", "person_id", "plant_id", "block"),
-	r("team_leader", "team", "leader_person_id", "plant_id", "block"),
-	r("team_tenure", "team_tenure", "person_id", "plant_id", "block"),
+	r("task", "task", "person_id", "plant_id", "move"),
+	r("team_leader", "team", "leader_person_id", "plant_id", "move"),
+	r("team_tenure", "team_tenure", "person_id", "plant_id", "move"),
 	r("training_assignment", "training_assignment", "person_id", "plant_id", "move"),
 	r("training_credit", "training_credit", "person_id", "plant_id", "keep", "id", false),
 ];
@@ -79,10 +79,18 @@ export function parseReferences(raw: unknown): Reference[] {
 	return z
 		.array(referenceRow)
 		.parse(raw)
-		.map((x) => ({ kind: kindOf.get(x.k)!, id: x.id, revision: x.r }));
+		.map((x) => {
+			const kind = kindOf.get(x.k);
+			if (!kind) throw Error(`Reference column ${x.k} is not registered`);
+			return { kind, id: x.id, revision: x.r };
+		});
 }
-export const treatmentOf = (kind: Kind) => registry.find((e) => e.kind === kind)!.treatment;
-export const registrationOf = (kind: Kind) => registry.find((e) => e.kind === kind)!;
+export function registrationOf(kind: Kind) {
+	const registration = registry.find((e) => e.kind === kind);
+	if (!registration) throw Error(`Reference kind ${kind} is not registered`);
+	return registration;
+}
+export const treatmentOf = (kind: Kind) => registrationOf(kind).treatment;
 
 export async function lockPair(tx: Tx, owner: string, ids: SQL) {
 	await tx.execute(sql`SELECT p.id FROM person p WHERE p.tenant_id=${owner}::uuid AND p.id IN (${ids})
