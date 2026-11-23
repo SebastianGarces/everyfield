@@ -1,4 +1,4 @@
-import { counted, countWord } from "@everyfield/contracts/common";
+import { counted, countWord, dayText } from "@everyfield/contracts/common";
 import type { MailReport, RecipientOutcome } from "@everyfield/contracts/communication";
 import { CHANNEL_LABEL } from "../../followups/model.ts";
 import { ROLE_LABEL, SHARING_CATEGORIES, SHARING_CATEGORY_LABEL, ZONE_NAME } from "@everyfield/evry/labels";
@@ -588,12 +588,6 @@ const DATE_FIELDS = new Set([
 
 const CAPITALIZED = new Set(["householdRole", "category", "proficiency", "color"]);
 const CLASSIFICATION_LABEL: Record<string, string> = { adult: "Adult", child: "Child", unknown: "Not recorded" };
-const dateFormat = new Intl.DateTimeFormat(undefined, {
-	month: "short",
-	day: "numeric",
-	year: "numeric",
-	timeZone: "UTC",
-});
 
 const TASK_STATUS: Record<string, string> = {
 	not_started: "Not started",
@@ -695,7 +689,7 @@ export function valueText(field: string, value: unknown): string | null {
 	if (field === "category" && String(value) in CATEGORY) return CATEGORY[String(value)] ?? String(value);
 	if (CAPITALIZED.has(field) && typeof value === "string") return value.charAt(0).toUpperCase() + value.slice(1);
 	if (DATE_FIELDS.has(field) && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
-		return dateFormat.format(new Date(`${value}T00:00:00Z`));
+		return dayText(value, { locale: "viewer" });
 	if (field === "status" || field === "followUp") return TASK_STATUS[String(value)] ?? String(value);
 	if (field === "outcome") return OUTCOME[String(value)] ?? String(value);
 	if (field === "channel") return CHANNEL[String(value)] ?? String(value);

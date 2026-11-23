@@ -1,4 +1,5 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
+import { dayText } from "@everyfield/contracts/common";
 import { randomUUID } from "node:crypto";
 import { MEMBER_PHASES } from "../catalog/catalog.ts";
 import { captured } from "./captured.ts";
@@ -20,12 +21,7 @@ const call = (toolName: string, input: unknown): LanguageModelV4Content[] => [
 ];
 const longDay = (date: unknown) =>
 	typeof date === "string"
-		? new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
-				month: "long",
-				day: "numeric",
-				year: "numeric",
-				timeZone: "UTC",
-			})
+		? dayText(date, { month: "long" })
 		: "an unknown day";
 
 function criteriaAnswer(rows: Row[]) {

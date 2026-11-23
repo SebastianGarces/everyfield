@@ -1,4 +1,4 @@
-import { counted, countWord } from "@everyfield/contracts/common";
+import { counted, countWord, dayText } from "@everyfield/contracts/common";
 import type {
 	Health,
 	IntelligenceRow,
@@ -33,14 +33,12 @@ export function locality(row: Pick<PlantDirectoryRow, "city" | "stateProvince" |
 	return row.country;
 }
 
-const DAY = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" });
-const calendarDate = (date: string) => DAY.format(new Date(`${date}T00:00:00Z`));
-export const launchLabel = (date: string | null) => (date ? calendarDate(date) : "Not set");
+export const launchLabel = (date: string | null) => (date ? dayText(date) : "Not set");
 
 export function progressText(progress: MilestoneProgress): string | null {
 	switch (progress.status) {
 		case "reached":
-			return `Reached ${calendarDate(progress.date)}`;
+			return `Reached ${dayText(progress.date)}`;
 		case "not_reached":
 			return "Not reached yet";
 		case "withdrawn":

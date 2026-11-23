@@ -1,4 +1,5 @@
 import type { Outcome as Shared } from "@everyfield/contracts/common";
+import { dayText, daysBetween } from "@everyfield/contracts/common";
 import {
 	Alert02Icon,
 	BookOpen01Icon,
@@ -101,10 +102,7 @@ const day = (instant: number, zone: string) =>
 	new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
 		instant,
 	);
-function dayDistance(instant: number, clock: Clock): number {
-	const midnight = (at: number) => Date.parse(`${day(at, clock.zone)}T00:00:00Z`);
-	return Math.round((midnight(clock.now) - midnight(instant)) / 86_400_000);
-}
+const dayDistance = (instant: number, clock: Clock) => daysBetween(day(instant, clock.zone), day(clock.now, clock.zone));
 
 export function timeLabel(eligibleAt: string, clock: Clock): string {
 	const at = Date.parse(eligibleAt);
@@ -141,9 +139,7 @@ export function groupByDay(items: readonly FeedItem[], clock: Clock) {
 
 export function dueLabel(item: Pick<FeedItem, "dueLocalDate" | "overdue">): string | null {
 	if (!item.dueLocalDate) return null;
-	const date = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" }).format(
-		Date.parse(`${item.dueLocalDate}T00:00:00Z`),
-	);
+	const date = dayText(item.dueLocalDate, { year: "never" });
 	return item.overdue ? `Overdue, due ${date}` : `Due ${date}`;
 }
 

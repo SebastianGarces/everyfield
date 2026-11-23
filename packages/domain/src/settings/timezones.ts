@@ -8,6 +8,7 @@ import {
 	localDateTime,
 	resolveCalendar,
 	timeZone,
+	weekdayOf,
 } from "@everyfield/contracts/common";
 import * as q from "@everyfield/contracts/settings";
 import * as n from "@everyfield/contracts/settings/native";
@@ -95,7 +96,7 @@ function schedule(plant: typeof t.plant.$inferSelect, zone: string, asOf: string
 		const today = calendarContext(timeZone.parse(plant.timezone), frozenClock(instant.parse(asOf))).localDate;
 		for (let i = 0; i < 14; i++) {
 			const day = addCivilDays(today, i);
-			if (plant.digest_cadence === "weekly" && new Date(day + "T00:00:00Z").getUTCDay() !== plant.digest_weekday)
+			if (plant.digest_cadence === "weekly" && weekdayOf(day) !== plant.digest_weekday)
 				continue;
 			const before = automatic(day, plant.digest_hour, plant.timezone),
 				after = automatic(day, plant.digest_hour, zone);

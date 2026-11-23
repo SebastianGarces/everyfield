@@ -3,12 +3,14 @@ import {
 	addCivilDays,
 	calendarContext,
 	counted,
+	dayText,
 	frozenClock,
 	instant,
 	localDate,
 	localDateTime,
 	resolveCalendar,
 	timeZone,
+	weekdayOf,
 	type Instant,
 	type TimeZone,
 } from "@everyfield/contracts/common";
@@ -40,7 +42,7 @@ export function owedPeriod(
 	let end = today;
 	if (automatic(`${end}T${String(config.hour).padStart(2, "0")}:00:00`, zone) > now) end = addCivilDays(end, -1);
 	if (config.cadence === "weekly") {
-		const weekday = new Date(`${end}T00:00:00Z`).getUTCDay();
+		const weekday = weekdayOf(end);
 		end = addCivilDays(end, -((weekday - config.weekday + 7) % 7));
 	}
 	if (config.completedDaysOnly) end = addCivilDays(end, -1);
@@ -257,10 +259,8 @@ export async function compileOversightDigest(
 		.parse({ ...r.rows[0], lines: jsonValue(r.rows[0]?.lines) });
 }
 
-const day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-const shortDay = (date: string) => day.format(new Date(`${date}T00:00:00Z`));
 const range = (start: string, end: string) =>
-	start === end ? shortDay(start) : `${shortDay(start)} to ${shortDay(end)}`;
+	start === end ? dayText(start) : `${dayText(start)} to ${dayText(end)}`;
 
 export function renderPlanterDigest(input: {
 	start: string;
@@ -274,10 +274,10 @@ export function renderPlanterDigest(input: {
 		lines: [
 			...input.lines.map((l) =>
 				l.kind === "meeting"
-					? `Meeting on ${shortDay(l.date)}: ${l.title}.`
+					? `Meeting on ${dayText(l.date)}: ${l.title}.`
 					: l.date < input.today
-						? `Overdue task, due ${shortDay(l.date)}: ${l.title}.`
-						: `Task due ${shortDay(l.date)}: ${l.title}.`,
+						? `Overdue task, due ${dayText(l.date)}: ${l.title}.`
+						: `Task due ${dayText(l.date)}: ${l.title}.`,
 			),
 			...(input.total > input.lines.length ? [`${input.total - input.lines.length} more in Everyfield.`] : []),
 		],
@@ -294,7 +294,7 @@ export function renderOversightDigest(input: {
 	return {
 		title: `Oversight digest: ${counted(input.total, "activity", "activities")}, ${range(input.start, input.end)}`,
 		lines: [
-			...input.lines.map((l) => `${l.plant}: ${counted(l.count, "activity", "activities")} on ${shortDay(l.date)}.`),
+			...input.lines.map((l) => `${l.plant}: ${counted(l.count, "activity", "activities")} on ${dayText(l.date)}.`),
 			...(input.total > shown
 				? [`${counted(input.total - shown, "more activity", "more activities")} in Everyfield.`]
 				: []),

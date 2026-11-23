@@ -1,4 +1,4 @@
-import { instant, type Clock, type Instant } from "@everyfield/contracts/common";
+import { addDays, daysBetween, instant, type Clock, type Instant } from "@everyfield/contracts/common";
 import { measure } from "@everyfield/contracts/followups";
 import * as c from "@everyfield/contracts/intelligence";
 import type { CriterionKey, CriterionStatus } from "@everyfield/contracts/phases";
@@ -76,8 +76,6 @@ export const factInputs = z.strictObject({
 export type FactInputs = z.infer<typeof factInputs>;
 
 const DAY = 86_400_000;
-const addDays = (date: string, days: number) =>
-	new Date(Date.parse(date + "T00:00:00Z") + days * DAY).toISOString().slice(0, 10);
 const within = (date: string, from: string, to: string) => date >= from && date <= to;
 type Named = { id: string; name: string };
 const byName = (a: Named, b: Named) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
@@ -118,7 +116,7 @@ function growthClock(
 			status: "unknown",
 			reason: unresolved ? "unclassified_newer" : "no_acquisition",
 		};
-	const daysSince = c.daysBetween(last, today);
+	const daysSince = daysBetween(last, today);
 	const clock = { lastAcquiredOn: last, daysSince };
 	if (daysSince >= c.GROWTH_SLOWED_DAYS && unresolved !== null && unresolved > last)
 		return { ...clock, status: "unknown", reason: "unclassified_newer" };
@@ -200,7 +198,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 	};
 
 	const lastVision = inputs.vision[0] ?? null;
-	const visionDays = lastVision ? c.daysBetween(lastVision.on, today) : null;
+	const visionDays = lastVision ? daysBetween(lastVision.on, today) : null;
 	const vision: z.input<typeof c.visionRhythm> = {
 		status:
 			visionDays === null || !inputs.anyAttendance
@@ -298,7 +296,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 				renewal: { status: "unknown" },
 			} as const;
 		const answered = row.kind !== "retracted";
-		const age = answered ? Math.max(0, c.daysBetween(row.asOf, today)) : null;
+		const age = answered ? Math.max(0, daysBetween(row.asOf, today)) : null;
 		return {
 			key,
 			state: answered ? ("answered" as const) : ("retracted" as const),

@@ -172,9 +172,6 @@ export const signalEntry = z.strictObject({
 });
 export type SignalEntry = z.infer<typeof signalEntry>;
 
-const DAY = 86_400_000;
-export const daysBetween = (from: string, to: string) =>
-	Math.round((Date.parse(to + "T00:00:00Z") - Date.parse(from + "T00:00:00Z")) / DAY);
 export function renewalOf(
 	key: SignalKey,
 	state: "answered" | "retracted" | "unanswered",

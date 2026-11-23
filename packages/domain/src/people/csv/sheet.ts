@@ -111,7 +111,7 @@ function cellText(value: ExcelJS.CellValue): string {
 	if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
 	if (value instanceof Date) {
 		const iso = value.toISOString();
-		return iso.endsWith("T00:00:00.000Z") ? iso.slice(0, 10) : iso.slice(0, 16).replace("T", " ");
+		return value.getTime() % 86_400_000 === 0 ? iso.slice(0, 10) : iso.slice(0, 16).replace("T", " ");
 	}
 	if ("richText" in value) return lines(value.richText.map((r) => r.text).join(""));
 	if ("hyperlink" in value) return lines(String(value.text ?? value.hyperlink));

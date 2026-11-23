@@ -3623,7 +3623,7 @@ test("INV-lint: the count-text rule allows the counted and countWord module itse
 	);
 });
 
-test("INV-lint: a noon-UTC civil-day string is refused in app and package source, naming dayText, addDays and weekdayOf", () => {
+test("INV-lint: a noon-UTC civil-day string is refused in app and package source, naming dayText, daysBetween, addDays and weekdayOf", () => {
 	const source = `export const a = (d: string) => new Date(\`\${d}T12:00:00Z\`);
 export const b = (d: string) => Date.parse(d + "T12:00:00Z");
 export const c = (x: string, day: (v: string) => string) => day(x + "T12:00:00Z");
@@ -3643,18 +3643,37 @@ export const h = "T12:00:00";
 			[1, 2, 3, 4].map((line) => `${file}:${line}`),
 		),
 	);
-	assert.match(hits[0], /dayText.*addDays.*weekdayOf.*@everyfield\/contracts\/common/);
+	assert.match(hits[0], /dayText.*daysBetween.*addDays.*weekdayOf.*@everyfield\/contracts\/common/);
+});
+
+test("INV-lint: a midnight-UTC civil-day string is refused too, while a local wall-clock midnight passes", () => {
+	const source = `export const a = (d: string) => new Date(\`\${d}T00:00:00Z\`);
+export const b = (d: string) => Date.parse(d + "T00:00:00Z");
+export const c = "T00:00:00.000Z";
+export const e = (d: string) => \`\${d}T00:00:00\`;
+export const f = (d: string) => new Date(\`\${d}T00:30:00Z\`);
+`;
+	const hits = lint({ "apps/web/src/features/x/day.ts": source, "packages/domain/src/x/day.ts": source }).filter(
+		(hit) => hit.endsWith(" civil-day"),
+	);
+	assert.deepEqual(
+		hits,
+		["apps/web/src/features/x/day.ts", "packages/domain/src/x/day.ts"].flatMap((file) =>
+			[1, 2, 3].map((line) => `${file}:${line} civil-day`),
+		),
+	);
 });
 
 test("INV-lint: the civil-day rule allows the day module itself", () => {
 	const helper = `const noon = (d: string) => new Date(\`\${d}T12:00:00Z\`);
+const midnight = (d: string) => Date.parse(d + "T00:00:00Z");
 `;
 	assert.deepEqual(
 		lint({
 			"packages/contracts/src/common/day.ts": helper,
 			"packages/contracts/src/common/other.ts": helper,
 		}).filter((hit) => hit.endsWith(" civil-day")),
-		["packages/contracts/src/common/other.ts:1 civil-day"],
+		["packages/contracts/src/common/other.ts:1 civil-day", "packages/contracts/src/common/other.ts:2 civil-day"],
 	);
 });
 

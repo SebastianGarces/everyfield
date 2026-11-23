@@ -4355,7 +4355,7 @@ const countText = {
 };
 
 const CIVIL_DAY_HOME = "packages/contracts/src/common/day.ts";
-const NOON_UTC = /T12:00:00(?:\.000)?Z/;
+const UTC_DAY = /T(?:12|00):00:00(?:\.000)?Z/;
 const civilDay = {
 	meta: { type: "problem" },
 	create(context) {
@@ -4364,14 +4364,14 @@ const civilDay = {
 			context.report({
 				node,
 				message:
-					"This builds a noon-UTC Date to handle a civil day. Use dayText(day, options), addDays(day, n) or weekdayOf(day) from @everyfield/contracts/common.",
+					"This builds a midnight- or noon-UTC Date to handle a civil day. Use dayText(day, options), daysBetween(from, to), addDays(day, n) or weekdayOf(day) from @everyfield/contracts/common.",
 			});
 		return {
 			Literal(node) {
-				if (typeof node.value === "string" && NOON_UTC.test(node.value)) report(node);
+				if (typeof node.value === "string" && UTC_DAY.test(node.value)) report(node);
 			},
 			TemplateLiteral(node) {
-				if (node.quasis.some((quasi) => NOON_UTC.test(quasi.value.cooked ?? quasi.value.raw))) report(node);
+				if (node.quasis.some((quasi) => UTC_DAY.test(quasi.value.cooked ?? quasi.value.raw))) report(node);
 			},
 		};
 	},
