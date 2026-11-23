@@ -103,5 +103,75 @@ does not make that split: it is proposed with these numbers for the re-measure s
 
 ## Re-measure after landing
 
-Once at least 50 CI runs have completed on main with this change, run `node tools/ci/ci-timing.ts --last 50`, compare
-the app row with the before number above and append the result here.
+T-466. The change landed on main as ec8856dca at 2026-11-23T00:52:30Z. `node tools/ci/ci-timing.ts --last 50 --json`,
+run from ec8856dca and read from 2026-11-23T10:11:39Z to 2026-11-23T10:17:25Z: the 50 completed CI runs from 45120087337
+(2026-11-23T05:48:42Z) to 45152260543 (2026-11-23T10:01:19Z), all created after the landing. Pull request runs test a
+merge with main, so every run in the window carries the change. Totals for the app job: 48 jobs, setup 1078 s, run
+9981 s (mean 22.5 s and 207.9 s). None of the 48 app jobs was cancelled: 3 of the 50 runs were cancelled by a newer
+push, 2 of them before their app job started, so those 2 runs have no app job. 2 app jobs failed in the parallel step.
+The W47 run mean (147.8 s) is lower mostly because 15 of its 50 app jobs were cancelled part way.
+
+Over the 46 successful app jobs, from each job's steps (`gh run view <id> --json jobs`) with ci-timing's own rule
+(`SETUP_STEPS` is setup, every other non-skipped step is run; all 46 sums match ci-timing's `setupMs` and `runMs`):
+
+| app job | Before (W47 window, median of 35) | Main, sequential (median of 6) | PR #1287 after, attempts 1 / 2 | After landing (median of 46) |
+|---|---|---|---|---|
+| Run (non-setup steps) | 194 s | 242 s | 188 s / 186 s | 193.5 s |
+| Setup | 21 s | 22 s | 15 s / 24 s | 22 s |
+| Wall time (start to end) | 225 s | 267.5 s | 205 s / 213 s | 222 s |
+
+Wall time spread: 197-323 s, middle half 213-233 s, 12 of 46 above 240 s.
+
+Median step times, successful jobs: Set up job 2 s, checkout 6 s, Shared setup 15 s, `LibreOffice` cache restore 2 s,
+background start 0 s, parallel step (Prettier, lint, types, knip, server log privacy) 117.5 s, wait for the background
+install 0 s, package unit tests 75 s, post steps and Complete job 0 s. The cache save ran in 1 of 46 jobs. Each
+command's own time in the parallel step, from the runner's `[label] exit 0 after T s` lines (medians, range): knip
+13.4 s (10.9-20.1), lint 66.3 s (60.2-105.8), logs 72.9 s (62.2-106.6), prettier 81.8 s (73.8-134.1), types 117.0 s
+(107.7-181.8).
+
+### Against the target
+
+The app job does not meet the 1.5-2 min target: its median wall time is 222 s (3.7 min). It is 45.5 s faster than main
+was while sequential (267.5 s), 3 s faster than the W47 window, and 9-17 s slower than the two PR #1287 attempts, which
+sit inside this window's middle half.
+
+What limits it: the critical path is setup 22 s + cache restore 2 s + parallel step 117.5 s + unit tests 75 s + 3 s of
+job overhead (median wall minus step sums), about 220 s.
+
+- **types bounds the parallel step.** types finished last in all 46 parallel steps, and the step's median (117.5 s)
+  equals types' median (117.0 s). Alone on main, types takes 65.5 s (median above), so in the parallel step it runs
+  about 1.8 times slower. The five commands spend 351 s of command time inside 117.5 s on 4 vCPUs, and types, lint and
+  Prettier each use several threads, so the slowdown points to CPU contention. Runner CPU counters were not collected,
+  so the share each command got is not measured.
+- **The unit tests run after it.** Package unit tests are one 75 s command that waits for the parallel step.
+- **The install is not on the path.** The wait step takes 0-1 s in every successful job, so the background install
+  finishes inside the parallel step.
+
+Ruled out: failed or cancelled jobs (only the 46 successful jobs are in the medians); skipped work (every successful
+job ran all five commands with exit 0, the unit tests, and the install; only the cache save is skipped when the package
+set is unchanged); a few slow runs (the median sits in a middle half 20 s wide).
+
+### Proposal: split static and unit
+
+The job is above 2 min, so this proposes the static/unit split. Estimates from the medians above, plus the 3 s job
+overhead. The install's own time is not a step any more (it runs in the background and its log has no timestamps), so
+the `unit` job uses main's sequential medians from the section above: apt install 28.5 s and fonts 3.5 s.
+
+| Job | Estimate |
+|---|---|
+| `unit`: setup 22 s + cache restore 2 s + install 28.5 s + fonts 3.5 s + unit tests 75 s + 3 s | 134 s (2.2 min) |
+| `static` with all five: setup 22 s + parallel step 117.5 s + 3 s | 142.5 s (2.4 min) |
+| `types` alone: setup 22 s + types 65.5 s (alone, on main) + 3 s | 90.5 s (1.5 min) |
+| `static` without types: setup 22 s + Prettier 81.8 s (slowest of the four, measured with types beside it) + 3 s | at most 106.8 s (1.8 min) |
+
+- Static and unit, two jobs: the app checks finish in about 142.5 s (2.4 min) instead of 222 s, bounded by `static`.
+  One more job per run (7 to 8).
+- Static, types and unit, three jobs: about 134 s (2.2 min), bounded by `unit`. Two more jobs per run (7 to 9).
+- Neither reaches 2 min: the `unit` job's install and unit tests are 109 s before setup. Getting under 2 min would also
+  need the install out of the `unit` job's path, for example a package set baked into a cached image or the unit tests
+  split, which this measurement does not size.
+- Under the 20-job queue cap, a run now uses 7 jobs; 8 or 9 still fits 2 whole runs at once (14, 16 or 18 jobs), so the
+  split costs queue room only when more than two runs are queued. Each extra job also pays its own setup (22 s) in
+  runner minutes.
+
+The split changes `.github/workflows/ci.yml` and is Sebastian's decision and its own task. This note does not make it.
