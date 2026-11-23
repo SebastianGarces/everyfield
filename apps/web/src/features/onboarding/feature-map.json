@@ -11,6 +11,10 @@
 			"catalog": ["IDN-013", "IDN-016"],
 			"reach": [
 				{
+					"rail": "Set up your church",
+					"personas": ["signup"]
+				},
+				{
 					"from": "overview.home",
 					"persona": "signup",
 					"path": [

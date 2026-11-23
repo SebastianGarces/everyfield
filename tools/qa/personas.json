@@ -24,7 +24,7 @@
 		"residencyLinked": true,
 		"seed": "qa"
 	},
-	"signup": { "says": "Hannah Cole, a verified sign-up with no church yet", "context": "account", "seed": "qa" },
+	"signup": { "says": "Hannah Cole, a verified sign-up with no church yet", "context": "pending", "seed": "qa" },
 	"triage": { "says": "Tess Morgan, a seatless account that triages feedback", "context": "account", "seed": "qa" },
 	"visitor": { "says": "Nobody signed in", "context": "signed-out" }
 }
