@@ -8,7 +8,8 @@ import { currentAuthority, liveAuthority } from "../context/authority.ts";
 import { retainedEvents } from "./retained.ts";
 import { EvryRefusal, projectError } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
-import { reviewMap, reviewsOf } from "../proposals/review.ts";
+import { projection, proposalRow, readable, reviewMap, reviewsOf } from "../proposals/review.ts";
+import { attachment, attachmentsOf, attachmentState, ATTACHMENTS, stagedIn } from "../attachments/store.ts";
 
 const PAGE_SIZE = 24;
 const EVENT_PAGE = 200;
@@ -22,11 +23,20 @@ const requestKey = z.string().min(8).max(200);
 export const reference = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("person"), id: z.uuid() }),
 	z.strictObject({ kind: z.literal("photo"), id: z.uuid() }),
+	z.strictObject({ kind: z.literal("article"), slug: z.string().min(1).max(300) }),
 ]);
+export type Reference = z.infer<typeof reference>;
+export const userMessageBody = z.strictObject({
+	text: z.string(),
+	references: z.array(reference).default([]),
+	attachments: z.array(attachment).default([]),
+	retryOf: z.int().optional(),
+});
 const submitInput = z.strictObject({
 	requestKey,
 	text,
 	references: z.array(reference).max(64).default([]),
+	attachments: z.array(attachment).max(ATTACHMENTS.perTurn).default([]),
 });
 const createInput = z.strictObject({ requestKey, title: z.string().trim().min(1).max(120).optional() });
 const listInput = z.strictObject({
@@ -43,7 +53,7 @@ function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 const owned = <AliasName extends string>(actor: EvryActor, alias: SqlLiteral<AliasName>) =>
 	sql`${sql.raw(alias)}.account_id=${actor.accountId}::uuid AND ${sql.raw(alias)}.tenant_id=${actor.owner.id}::uuid`;
 
-const conversationRow = z.object({
+const conversationRow = z.strictObject({
 	id: z.uuid(),
 	title: z.string(),
 	context: z.enum(["account", "plant", "sending_church", "sending_network"]),
@@ -57,7 +67,7 @@ const conversationJson = <AliasName extends string>(alias: SqlLiteral<AliasName>
 		`jsonb_build_object('id',${alias}.id,'title',${alias}.title,'context',${alias}.context_kind,'lastSequence',${alias}.last_sequence,'activeTurnId',${alias}.active_turn_id,'updatedAt',${alias}.updated_at)`,
 	);
 
-export const eventRow = z.object({
+export const eventRow = z.strictObject({
 	sequence: z.coerce.number(),
 	turnId: z.uuid().nullable(),
 	kind: z.enum(["user_message", "assistant_text", "tool_result", "status"]),
@@ -106,7 +116,7 @@ export async function listConversations(db: Database, actor: EvryActor, raw: unk
 			coalesce((SELECT jsonb_agg(${conversationJson("p")} ORDER BY p.updated_at DESC, p.id DESC) FROM (
 				SELECT * FROM matched ORDER BY updated_at DESC, id DESC LIMIT ${PAGE_SIZE} OFFSET ${(input.page - 1) * PAGE_SIZE}
 			) p), '[]'::jsonb) AS items`);
-	const row = z.object({ total: z.number(), items: z.array(conversationRow) }).parse(r.rows[0]);
+	const row = z.strictObject({ total: z.number(), items: z.array(conversationRow) }).parse(r.rows[0]);
 	return {
 		items: row.items,
 		total: row.total,
@@ -142,7 +152,12 @@ async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor:
 		FROM conversation c WHERE c.id=${id} AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
 	if (!r.rows.length) return null;
 	const row = z
-		.object({ conversation: conversationRow, run_live: z.boolean(), events: z.array(eventRow), reviews: reviewMap })
+		.strictObject({
+			conversation: conversationRow,
+			run_live: z.boolean(),
+			events: z.array(eventRow),
+			reviews: reviewMap,
+		})
 		.parse(r.rows[0]);
 	return {
 		conversation: row.conversation,
@@ -155,7 +170,13 @@ async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor:
 	};
 }
 
-const submitted = z.object({ turnId: z.uuid(), sequence: z.coerce.number() });
+const movedChurch = (actor: EvryActor, id: string): SQL =>
+	actor.seatId
+		? sql`(EXISTS(SELECT FROM conversation m WHERE m.id=${id}::uuid AND m.account_id=${actor.accountId}::uuid
+				AND m.tenant_id<>${actor.owner.id}::uuid AND m.context_kind<>'account') AND ${currentAuthority(actor)})`
+		: sql`false`;
+
+const submitted = z.strictObject({ turnId: z.uuid(), sequence: z.coerce.number() });
 export type Submitted = z.infer<typeof submitted> & { replayed: boolean };
 
 export async function submitTurn(
@@ -168,7 +189,13 @@ export async function submitTurn(
 	const id = parse(uuid, conversationId);
 	const input = parse(submitInput, raw);
 	const turnId = randomUUID();
-	const body = { text: input.text, references: input.references, ...(retryOf ? { retryOf } : {}) };
+	const body = {
+		text: input.text,
+		references: input.references,
+		...(input.attachments.length ? { attachments: input.attachments } : {}),
+		...(retryOf ? { retryOf } : {}),
+	};
+	const attached = input.attachments.map((a) => a.id);
 	const r = await db.execute(sql`
 		WITH known AS (
 			SELECT e.turn_id AS "turnId", e.sequence FROM conversation_event e JOIN conversation c ON c.id=e.conversation_id
@@ -179,6 +206,8 @@ export async function submitTurn(
 			WHERE c.id=${id}::uuid AND ${owned(actor, "c")} AND NOT EXISTS(SELECT FROM known)
 				AND NOT ${liveRun("c")}
 				AND ${currentAuthority(actor)}
+				AND (SELECT count(*) FROM file_object f WHERE f.id=ANY(${sql.param(attached)}::uuid[]) AND f.tenant_id=c.tenant_id
+					AND ${stagedIn("f", "c")} AND f.state='pending' AND f.expires_at>clock_timestamp())=${attached.length}
 			RETURNING c.id,c.tenant_id,c.account_id,c.last_sequence
 		), run AS (${queueJobsFor(sql`FROM conv`, {
 			kind: "assistant_turn",
@@ -199,11 +228,14 @@ export async function submitTurn(
 		)
 		SELECT (SELECT jsonb_build_object('turnId',${turnId}::uuid,'sequence',last_sequence) FROM conv) AS submitted,
 			(SELECT to_jsonb(known) FROM known) AS known,
-			(SELECT ${liveRun("c")} FROM conversation c WHERE c.id=${id}::uuid AND ${owned(actor, "c")}) AS active`);
-	const row = r.rows[0] as { submitted: unknown; known: unknown; active: boolean | null };
+			(SELECT ${liveRun("c")} FROM conversation c WHERE c.id=${id}::uuid AND ${owned(actor, "c")}) AS active,
+			${movedChurch(actor, id)} AS moved`);
+	const row = r.rows[0] as { submitted: unknown; known: unknown; active: boolean | null; moved: boolean };
 	if (row.submitted) return { ...submitted.parse(row.submitted), replayed: false };
 	if (row.known) return { ...submitted.parse(row.known), replayed: true };
+	if (row.moved) throw new EvryRefusal("church_changed");
 	if (row.active === null) throw new EvryRefusal("not_found");
+	if (!row.active && attached.length) throw new EvryRefusal("attachment_gone");
 	throw new EvryRefusal(row.active ? "run_active" : "access_denied");
 }
 
@@ -255,7 +287,7 @@ export async function closeLostJobs(db: Pick<Database, "execute">, limit = 100) 
 			SELECT id,last_sequence,turn_id,'status',${JSON.stringify(interrupted())}::jsonb FROM conv RETURNING 1
 		)
 		SELECT (SELECT count(*) FROM ended)::int AS jobs,(SELECT count(*) FROM saved)::int AS runs`);
-	return z.object({ jobs: z.number(), runs: z.number() }).parse(r.rows[0]);
+	return z.strictObject({ jobs: z.number(), runs: z.number() }).parse(r.rows[0]);
 }
 
 export async function cancelTurn(db: Database, actor: EvryActor, conversationId: string) {
@@ -296,9 +328,9 @@ export async function retryTurn(db: Database, actor: EvryActor, conversationId: 
 		WHERE c.id=${id}::uuid AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
 	if (!r.rows.length) throw new EvryRefusal("not_found");
 	const last = z
-		.object({
+		.strictObject({
 			sequence: z.coerce.number(),
-			body: z.object({ text: z.string(), references: z.array(reference).default([]) }),
+			body: userMessageBody,
 			completed: z.boolean(),
 			known: submitted.nullable(),
 		})
@@ -309,7 +341,27 @@ export async function retryTurn(db: Database, actor: EvryActor, conversationId: 
 		db,
 		actor,
 		id,
-		{ requestKey: key, text: last.body.text, references: last.body.references },
+		{ requestKey: key, text: last.body.text, references: last.body.references, attachments: last.body.attachments },
 		last.sequence,
 	);
+}
+
+const stateRow = z.strictObject({
+	attachments: z.array(attachmentState),
+	reviews: z.array(
+		proposalRow.extend({ delivery: z.strictObject({ delivered: z.number(), total: z.number() }).nullable() }),
+	),
+});
+export type ConversationState = z.infer<typeof stateRow>;
+export async function conversationState(db: Database, actor: EvryActor, conversationId: string) {
+	const r = await db.execute(sql`
+		SELECT ${attachmentsOf("c")} AS attachments,
+			coalesce((SELECT jsonb_agg(x.proposal || jsonb_build_object('delivery',x.delivery) ORDER BY x.created_at,x.id) FROM (
+				SELECT p.id,p.created_at,${projection("p")} AS proposal,
+					CASE WHEN p.review->'target'->>'kind'='message' THEN (SELECT jsonb_build_object('delivered',count(*) FILTER (WHERE m.delivered_at IS NOT NULL),'total',count(*))
+						FROM mail m WHERE m.tenant_id=p.tenant_id AND m.logical_key LIKE 'communication/'||(p.review->'target'->>'id')||'/%'
+							AND m.state NOT IN ('refused','failed','cancelled')) END AS delivery
+				FROM proposal p WHERE p.conversation_id=c.id AND ${readable(actor)} ORDER BY p.created_at DESC,p.id DESC LIMIT 24) x),'[]'::jsonb) AS reviews
+		FROM conversation c WHERE c.id=${conversationId}::uuid AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
+	return r.rows.length ? stateRow.parse(r.rows[0]) : null;
 }

@@ -5,6 +5,7 @@ import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveAccess, liveRead, liveRows, type RequestActor } from "../access/session.ts";
+import { organizationSeatContext } from "../access/organization-seat.ts";
 import { linkActive } from "../organizations/core.ts";
 import { personSearchMatch } from "../people/search.ts";
 import { assigneesOf } from "../tasks/assignees.ts";
@@ -302,8 +303,8 @@ export function createLaunchReader(clock: Clock = systemClock) {
 			});
 		},
 		async readPublishedSummary(db: Pick<Database, "execute">, authority: RequestActor, plantId: string) {
-			const ctx = authority.actor.context;
-			if (ctx.kind !== "seat" || ctx.owner.kind !== "organization") return null;
+			const ctx = organizationSeatContext(authority);
+			if (!ctx) return null;
 			const id = z.uuid().safeParse(plantId);
 			if (!id.success) return null;
 			const shared = sql`CASE c WHEN 'meetings' THEN k.share_meetings WHEN 'people' THEN k.share_people

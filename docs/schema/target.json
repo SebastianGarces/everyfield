@@ -70,8 +70,8 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 124,
-  "column_count": 1408,
+  "table_count": 125,
+  "column_count": 1412,
   "foreign_key_count": 410,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -182,8 +182,7 @@
     ],
     "development_enrollment.status": [
       "active",
-      "completed",
-      "withdrawn"
+      "completed"
     ],
     "development_program.kind": [
       "apprenticeship",
@@ -236,6 +235,11 @@
     "early_access_request.kind": [
       "planter",
       "network"
+    ],
+    "embedding_spend.purpose": [
+      "query",
+      "rebuild",
+      "publish"
     ],
     "enrollment_milestone.source": [
       "program_leader",
@@ -362,7 +366,8 @@
       "people_import",
       "evry_effect",
       "feedback_publication",
-      "assessment"
+      "assessment",
+      "wiki_embedding"
     ],
     "job.state": [
       "ready",
@@ -395,17 +400,13 @@
     ],
     "lifecycle_witness.kind": [
       "account",
-      "plant",
-      "seat",
-      "affiliation"
+      "plant"
     ],
     "lifecycle_witness.state": [
-      "active",
       "pending_deletion",
       "purging",
       "purged",
-      "cancelled",
-      "revoked"
+      "cancelled"
     ],
     "lifecycle_witness.cleanup_state": [
       "not_started",
@@ -17037,7 +17038,7 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "status in ('active', 'completed', 'withdrawn')",
+        "status in ('active', 'completed')",
         "(expected_end_on >= started_on)",
         "meeting_timezone in ('Africa/Abidjan', 'Africa/Accra', 'Africa/Addis_Ababa', 'Africa/Algiers', 'Africa/Asmera', 'Africa/Bamako', 'Africa/Bangui', 'Africa/Banjul', 'Africa/Bissau', 'Africa/Blantyre', 'Africa/Brazzaville', 'Africa/Bujumbura', 'Africa/Cairo', 'Africa/Casablanca', 'Africa/Ceuta', 'Africa/Conakry', 'Africa/Dakar', 'Africa/Dar_es_Salaam', 'Africa/Djibouti', 'Africa/Douala', 'Africa/El_Aaiun', 'Africa/Freetown', 'Africa/Gaborone', 'Africa/Harare', 'Africa/Johannesburg', 'Africa/Juba', 'Africa/Kampala', 'Africa/Khartoum', 'Africa/Kigali', 'Africa/Kinshasa', 'Africa/Lagos', 'Africa/Libreville', 'Africa/Lome', 'Africa/Luanda', 'Africa/Lubumbashi', 'Africa/Lusaka', 'Africa/Malabo', 'Africa/Maputo', 'Africa/Maseru', 'Africa/Mbabane', 'Africa/Mogadishu', 'Africa/Monrovia', 'Africa/Nairobi', 'Africa/Ndjamena', 'Africa/Niamey', 'Africa/Nouakchott', 'Africa/Ouagadougou', 'Africa/Porto-Novo', 'Africa/Sao_Tome', 'Africa/Tripoli', 'Africa/Tunis', 'Africa/Windhoek', 'America/Adak', 'America/Anchorage', 'America/Anguilla', 'America/Antigua', 'America/Araguaina', 'America/Argentina/La_Rioja', 'America/Argentina/Rio_Gallegos', 'America/Argentina/Salta', 'America/Argentina/San_Juan', 'America/Argentina/San_Luis', 'America/Argentina/Tucuman', 'America/Argentina/Ushuaia', 'America/Aruba', 'America/Asuncion', 'America/Bahia', 'America/Bahia_Banderas', 'America/Barbados', 'America/Belem', 'America/Belize', 'America/Blanc-Sablon', 'America/Boa_Vista', 'America/Bogota', 'America/Boise', 'America/Buenos_Aires', 'America/Cambridge_Bay', 'America/Campo_Grande', 'America/Cancun', 'America/Caracas', 'America/Catamarca', 'America/Cayenne', 'America/Cayman', 'America/Chicago', 'America/Chihuahua', 'America/Ciudad_Juarez', 'America/Coral_Harbour', 'America/Cordoba', 'America/Costa_Rica', 'America/Coyhaique', 'America/Creston', 'America/Cuiaba', 'America/Curacao', 'America/Danmarkshavn', 'America/Dawson', 'America/Dawson_Creek', 'America/Denver', 'America/Detroit', 'America/Dominica', 'America/Edmonton', 'America/Eirunepe', 'America/El_Salvador', 'America/Fort_Nelson', 'America/Fortaleza', 'America/Glace_Bay', 'America/Godthab', 'America/Goose_Bay', 'America/Grand_Turk', 'America/Grenada', 'America/Guadeloupe', 'America/Guatemala', 'America/Guayaquil', 'America/Guyana', 'America/Halifax', 'America/Havana', 'America/Hermosillo', 'America/Indiana/Knox', 'America/Indiana/Marengo', 'America/Indiana/Petersburg', 'America/Indiana/Tell_City', 'America/Indiana/Vevay', 'America/Indiana/Vincennes', 'America/Indiana/Winamac', 'America/Indianapolis', 'America/Inuvik', 'America/Iqaluit', 'America/Jamaica', 'America/Jujuy', 'America/Juneau', 'America/Kentucky/Monticello', 'America/Kralendijk', 'America/La_Paz', 'America/Lima', 'America/Los_Angeles', 'America/Louisville', 'America/Lower_Princes', 'America/Maceio', 'America/Managua', 'America/Manaus', 'America/Marigot', 'America/Martinique', 'America/Matamoros', 'America/Mazatlan', 'America/Mendoza', 'America/Menominee', 'America/Merida', 'America/Metlakatla', 'America/Mexico_City', 'America/Miquelon', 'America/Moncton', 'America/Monterrey', 'America/Montevideo', 'America/Montserrat', 'America/Nassau', 'America/New_York', 'America/Nome', 'America/Noronha', 'America/North_Dakota/Beulah', 'America/North_Dakota/Center', 'America/North_Dakota/New_Salem', 'America/Ojinaga', 'America/Panama', 'America/Paramaribo', 'America/Phoenix', 'America/Port-au-Prince', 'America/Port_of_Spain', 'America/Porto_Velho', 'America/Puerto_Rico', 'America/Punta_Arenas', 'America/Rankin_Inlet', 'America/Recife', 'America/Regina', 'America/Resolute', 'America/Rio_Branco', 'America/Santarem', 'America/Santiago', 'America/Santo_Domingo', 'America/Sao_Paulo', 'America/Scoresbysund', 'America/Sitka', 'America/St_Barthelemy', 'America/St_Johns', 'America/St_Kitts', 'America/St_Lucia', 'America/St_Thomas', 'America/St_Vincent', 'America/Swift_Current', 'America/Tegucigalpa', 'America/Thule', 'America/Tijuana', 'America/Toronto', 'America/Tortola', 'America/Vancouver', 'America/Whitehorse', 'America/Winnipeg', 'America/Yakutat', 'Antarctica/Casey', 'Antarctica/Davis', 'Antarctica/DumontDUrville', 'Antarctica/Macquarie', 'Antarctica/Mawson', 'Antarctica/McMurdo', 'Antarctica/Palmer', 'Antarctica/Rothera', 'Antarctica/Syowa', 'Antarctica/Troll', 'Antarctica/Vostok', 'Arctic/Longyearbyen', 'Asia/Aden', 'Asia/Almaty', 'Asia/Amman', 'Asia/Anadyr', 'Asia/Aqtau', 'Asia/Aqtobe', 'Asia/Ashgabat', 'Asia/Atyrau', 'Asia/Baghdad', 'Asia/Bahrain', 'Asia/Baku', 'Asia/Bangkok', 'Asia/Barnaul', 'Asia/Beirut', 'Asia/Bishkek', 'Asia/Brunei', 'Asia/Calcutta', 'Asia/Chita', 'Asia/Colombo', 'Asia/Damascus', 'Asia/Dhaka', 'Asia/Dili', 'Asia/Dubai', 'Asia/Dushanbe', 'Asia/Famagusta', 'Asia/Gaza', 'Asia/Hebron', 'Asia/Hong_Kong', 'Asia/Hovd', 'Asia/Irkutsk', 'Asia/Jakarta', 'Asia/Jayapura', 'Asia/Jerusalem', 'Asia/Kabul', 'Asia/Kamchatka', 'Asia/Karachi', 'Asia/Katmandu', 'Asia/Khandyga', 'Asia/Krasnoyarsk', 'Asia/Kuala_Lumpur', 'Asia/Kuching', 'Asia/Kuwait', 'Asia/Macau', 'Asia/Magadan', 'Asia/Makassar', 'Asia/Manila', 'Asia/Muscat', 'Asia/Nicosia', 'Asia/Novokuznetsk', 'Asia/Novosibirsk', 'Asia/Omsk', 'Asia/Oral', 'Asia/Phnom_Penh', 'Asia/Pontianak', 'Asia/Pyongyang', 'Asia/Qatar', 'Asia/Qostanay', 'Asia/Qyzylorda', 'Asia/Rangoon', 'Asia/Riyadh', 'Asia/Saigon', 'Asia/Sakhalin', 'Asia/Samarkand', 'Asia/Seoul', 'Asia/Shanghai', 'Asia/Singapore', 'Asia/Srednekolymsk', 'Asia/Taipei', 'Asia/Tashkent', 'Asia/Tbilisi', 'Asia/Tehran', 'Asia/Thimphu', 'Asia/Tokyo', 'Asia/Tomsk', 'Asia/Ulaanbaatar', 'Asia/Urumqi', 'Asia/Ust-Nera', 'Asia/Vientiane', 'Asia/Vladivostok', 'Asia/Yakutsk', 'Asia/Yekaterinburg', 'Asia/Yerevan', 'Atlantic/Azores', 'Atlantic/Bermuda', 'Atlantic/Canary', 'Atlantic/Cape_Verde', 'Atlantic/Faeroe', 'Atlantic/Madeira', 'Atlantic/Reykjavik', 'Atlantic/South_Georgia', 'Atlantic/St_Helena', 'Atlantic/Stanley', 'Australia/Adelaide', 'Australia/Brisbane', 'Australia/Broken_Hill', 'Australia/Darwin', 'Australia/Eucla', 'Australia/Hobart', 'Australia/Lindeman', 'Australia/Lord_Howe', 'Australia/Melbourne', 'Australia/Perth', 'Australia/Sydney', 'Europe/Amsterdam', 'Europe/Andorra', 'Europe/Astrakhan', 'Europe/Athens', 'Europe/Belgrade', 'Europe/Berlin', 'Europe/Bratislava', 'Europe/Brussels', 'Europe/Bucharest', 'Europe/Budapest', 'Europe/Busingen', 'Europe/Chisinau', 'Europe/Copenhagen', 'Europe/Dublin', 'Europe/Gibraltar', 'Europe/Guernsey', 'Europe/Helsinki', 'Europe/Isle_of_Man', 'Europe/Istanbul', 'Europe/Jersey', 'Europe/Kaliningrad', 'Europe/Kiev', 'Europe/Kirov', 'Europe/Lisbon', 'Europe/Ljubljana', 'Europe/London', 'Europe/Luxembourg', 'Europe/Madrid', 'Europe/Malta', 'Europe/Mariehamn', 'Europe/Minsk', 'Europe/Monaco', 'Europe/Moscow', 'Europe/Oslo', 'Europe/Paris', 'Europe/Podgorica', 'Europe/Prague', 'Europe/Riga', 'Europe/Rome', 'Europe/Samara', 'Europe/San_Marino', 'Europe/Sarajevo', 'Europe/Saratov', 'Europe/Simferopol', 'Europe/Skopje', 'Europe/Sofia', 'Europe/Stockholm', 'Europe/Tallinn', 'Europe/Tirane', 'Europe/Ulyanovsk', 'Europe/Vaduz', 'Europe/Vatican', 'Europe/Vienna', 'Europe/Vilnius', 'Europe/Volgograd', 'Europe/Warsaw', 'Europe/Zagreb', 'Europe/Zurich', 'Indian/Antananarivo', 'Indian/Chagos', 'Indian/Christmas', 'Indian/Cocos', 'Indian/Comoro', 'Indian/Kerguelen', 'Indian/Mahe', 'Indian/Maldives', 'Indian/Mauritius', 'Indian/Mayotte', 'Indian/Reunion', 'Pacific/Apia', 'Pacific/Auckland', 'Pacific/Bougainville', 'Pacific/Chatham', 'Pacific/Easter', 'Pacific/Efate', 'Pacific/Enderbury', 'Pacific/Fakaofo', 'Pacific/Fiji', 'Pacific/Funafuti', 'Pacific/Galapagos', 'Pacific/Gambier', 'Pacific/Guadalcanal', 'Pacific/Guam', 'Pacific/Honolulu', 'Pacific/Kiritimati', 'Pacific/Kosrae', 'Pacific/Kwajalein', 'Pacific/Majuro', 'Pacific/Marquesas', 'Pacific/Midway', 'Pacific/Nauru', 'Pacific/Niue', 'Pacific/Norfolk', 'Pacific/Noumea', 'Pacific/Pago_Pago', 'Pacific/Palau', 'Pacific/Pitcairn', 'Pacific/Ponape', 'Pacific/Port_Moresby', 'Pacific/Rarotonga', 'Pacific/Saipan', 'Pacific/Tahiti', 'Pacific/Tarawa', 'Pacific/Tongatapu', 'Pacific/Truk', 'Pacific/Wake', 'Pacific/Wallis', 'UTC')"
       ],
@@ -19959,6 +19960,99 @@
           "early_access_request_check",
           "early_access_request_email_check",
           "early_access_request_kind_check"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "embedding_spend",
+      "domain": "reference",
+      "purpose": "Paid Wiki embedding tokens used per UTC day in this database, one row each for search questions, release rebuilds and organization publish jobs (T-339, D-2042, T-552). Search and publish embedding each stop calling the provider once their own day's tokens pass the daily limit; each rebuild adds the tokens its run reported.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-C-009"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-033"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-033"
+        ],
+        "rule": "T-339 meaning-based Wiki search spend ledger through Drizzle Kit."
+      },
+      "feature_ids": [
+        "PI-017",
+        "REF-007"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "reference",
+      "invariants": [
+        "Usage only grows: each provider call adds the tokens it reported in one upsert.",
+        "A search reads the day's query tokens before calling the provider and calls it only while they are under the daily limit."
+      ],
+      "revision": "One row per day and purpose; each recorded call adds its tokens in one statement.",
+      "idempotency": "Each provider call is recorded once, after it returns.",
+      "deletion": "Holds no personal or tenant data; account and tenant purges leave it unchanged.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "",
+          "name": "day",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "purpose",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "usage",
+          "type": "bigint",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "day",
+            "purpose"
+          ]
+        }
+      ],
+      "foreign_keys": [],
+      "checks": [
+        "\"embedding_spend\".\"purpose\" IN ('query','rebuild','publish')",
+        "\"embedding_spend\".\"usage\" >= 0"
+      ],
+      "indexes": {},
+      "constraint_names": {
+        "primary": [],
+        "unique": [
+          "embedding_spend_day_key"
+        ],
+        "foreign": [],
+        "checks": [
+          "embedding_spend_purpose",
+          "embedding_spend_usage"
         ]
       },
       "policies": {},
@@ -23486,7 +23580,7 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "kind in ('mail', 'notification', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect', 'feedback_publication', 'assessment')",
+        "kind in ('mail', 'notification', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect', 'feedback_publication', 'assessment', 'wiki_embedding')",
         "state in ('ready', 'claimed', 'retry_wait', 'reconcile', 'succeeded', 'failed', 'cancelled', 'superseded')",
         "((attempt_count >= 0) AND (max_attempts >= 1))",
         "(claim_generation >= 0)",
@@ -25260,7 +25354,7 @@
     {
       "name": "lifecycle_witness",
       "domain": "operations",
-      "purpose": "Body-free independently synchronized deletion, credential and access witness with stable opaque subject key after live-root purge. A body-free affiliation witness may retain its independently legitimate organization counterparty. Restricted backup/restore inventory and checksummed receipts live solely in the external recovery artifact, not the live database.",
+      "purpose": "Body-free account and church workspace deletion witness with stable opaque subject key after live-root purge. Restricted backup/restore inventory and checksummed receipts live solely in the external recovery artifact, not the live database.",
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
@@ -25548,7 +25642,7 @@
           "on_delete": "restrict"
         },
         {
-          "scope_exception": "Body-free revocation witness identifies a seat endpoint; synchronized witness writer validates exact seat kind and original identity before clearing live linkage on purge.",
+          "scope_exception": "Always null: no witness kind names a seat, and a later slice drops the column.",
           "deletion": {
             "action": "restrict",
             "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -25565,7 +25659,7 @@
           "on_delete": "restrict"
         },
         {
-          "scope_exception": "Body-free revocation witness identifies a relationship endpoint; synchronized witness writer validates exact affiliation identity and permitted counterparty before clearing live linkage on purge.",
+          "scope_exception": "Always null: no witness kind names an affiliation, and a later slice drops the column.",
           "deletion": {
             "action": "restrict",
             "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -25602,7 +25696,6 @@
       "checks": [
         "cleanup_state in ('not_started', 'in_progress', 'inaccessible', 'confirmed')",
         "((plant_id IS NULL) OR (kind = 'plant'::text))",
-        "((kind = ANY (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'revoked'::text])))",
         "((state <> ALL (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])) OR ((request_id IS NOT NULL) AND (requested_at IS NOT NULL) AND (cancel_until IS NOT NULL) AND (request_revision >= 1)))",
         "((cancel_until IS NULL) OR ((requested_at IS NOT NULL) AND (cancel_until = (requested_at + '720:00:00'::interval))))",
         "((state = 'cancelled'::text) = (cancelled_at IS NOT NULL))",
@@ -25611,13 +25704,12 @@
         "((state <> 'purged'::text) OR ((live_purged_at >= cancel_until) AND (copy_expires_at IS NOT NULL)))",
         "((copy_expires_at IS NULL) OR ((live_purged_at IS NOT NULL) AND (copy_expires_at >= live_purged_at)))",
         "((copy_expires_at IS NULL) OR (copy_expires_at <= (live_purged_at + '168:00:00'::interval)))",
-        "kind in ('account', 'plant', 'seat', 'affiliation')",
-        "state in ('active', 'pending_deletion', 'purging', 'purged', 'cancelled', 'revoked')",
+        "kind in ('account', 'plant')",
+        "state in ('pending_deletion', 'purging', 'purged', 'cancelled')",
         "(num_nonnulls(account_id, plant_id, seat_id, affiliation_id) <= 1)",
         "((account_id IS NULL) OR (kind = 'account'::text))",
         "((seat_id IS NULL) OR (kind = 'seat'::text))",
-        "((affiliation_id IS NULL) OR (kind = 'affiliation'::text))",
-        "((kind <> ALL (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])))"
+        "((affiliation_id IS NULL) OR (kind = 'affiliation'::text))"
       ],
       "indexes": {
         "lifecycle_witness_ref_0": {
@@ -25714,7 +25806,6 @@
         "checks": [
           "lifecycle_witness_ck_0",
           "lifecycle_witness_ck_1",
-          "lifecycle_witness_ck_10",
           "lifecycle_witness_ck_11",
           "lifecycle_witness_ck_12",
           "lifecycle_witness_ck_13",
@@ -25728,8 +25819,7 @@
           "lifecycle_witness_ck_5",
           "lifecycle_witness_ck_6",
           "lifecycle_witness_ck_7",
-          "lifecycle_witness_ck_8",
-          "lifecycle_witness_ck_9"
+          "lifecycle_witness_ck_8"
         ]
       },
       "policies": {},
@@ -31282,7 +31372,7 @@
     {
       "name": "passage",
       "domain": "reference",
-      "purpose": "Rebuildable exact source passage with complete embedding provenance. Model, dimensions and chunker are pinned by release; organization rights inherit the source revision.",
+      "purpose": "Rebuildable exact source passage with complete embedding provenance. Model, dimensions and chunker are pinned by release; organization rights inherit the source revision. An organization's published version has release-free rows its publish job embeds with the active release's profile (T-552).",
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
@@ -31347,10 +31437,10 @@
           "default": "gen_random_uuid()"
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
+          "note": "Real FK for global passages; NULL exactly for an organization version's passages, which carry no release (passage_release_owner).",
           "name": "release_id",
           "type": "uuid",
-          "nullable": false
+          "nullable": true
         },
         {
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
@@ -31479,7 +31569,9 @@
           "on_delete": "restrict"
         }
       ],
-      "checks": [],
+      "checks": [
+        "((release_id IS NULL) = (tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid))"
+      ],
       "indexes": {
         "passage_ref_0": {
           "name": "passage_ref_0",
@@ -31558,6 +31650,22 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "passage_embedding_1536": {
+          "name": "passage_embedding_1536",
+          "isUnique": false,
+          "where": "public.vector_dims(\"passage\".\"embedding\") = 1536",
+          "columns": [
+            {
+              "expression": "((\"embedding\")::public.vector(1536)) public.vector_cosine_ops",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "hnsw",
+          "with": {}
         }
       },
       "constraint_names": {
@@ -31573,7 +31681,9 @@
           "passage_fk_2",
           "passage_fk_3"
         ],
-        "checks": []
+        "checks": [
+          "passage_release_owner"
+        ]
       },
       "policies": {},
       "rls": false

@@ -23,6 +23,7 @@
 				"/api/evry/open",
 				"/api/evry/conversations",
 				"/api/evry/conversations/[id]",
+				"/api/evry/conversations/[id]/attachments",
 				"/api/evry/conversations/[id]/turns",
 				"/api/evry/conversations/[id]/stream",
 				"/api/evry/conversations/[id]/cancel",
@@ -219,6 +220,50 @@
 						],
 						"cases": ["EVRY-RETRY-CANCEL"]
 					}
+				},
+				{
+					"id": "church-changed",
+					"says": "After a seat moves church, a send to the old church's conversation is refused with nothing written; Reload opens Evry for the new church with the message kept.",
+					"catalog": ["EVR-021"],
+					"operations": ["evry.submitTurn"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/evry/runtime/conversations.test.mts",
+								"name": "INV-church-changed: a seat moved to another church refuses the old church's conversation as church_changed and writes nothing"
+							}
+						]
+					}
+				},
+				{
+					"id": "attach-and-import",
+					"says": "An Owner or Admin attaches a Word or text file in the panel and asks for a church document: Evry shows a review of the import, refuses any file the Documents import refuses with that import's own sentence, and the document is in Documents only after Approve.",
+					"catalog": ["EVR-021", "DOC-016"],
+					"operations": ["documents.importTextOrWord"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/evry/adapters/documents/import.test.mts",
+								"name": "AC:CASE-DOC-016 AC:GAP-EVR-422 an attached Word file becomes a church document through one review: nothing is in Documents until Approve, then one document with the file's headings and paragraphs, however often it is approved or retried"
+							},
+							{
+								"file": "tests/evry/adapters/documents/import.test.mts",
+								"name": "AC:CASE-DOC-016 a file larger than the import limit is refused with the import's size message and nothing is written"
+							}
+						],
+						"cases": ["CASE-DOC-016"],
+						"browser": {
+							"kind": "presence",
+							"state": "new-chat",
+							"steps": [],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Attach a file"
+								}
+							]
+						}
+					}
 				}
 			]
 		},
@@ -398,14 +443,18 @@
 				},
 				{
 					"id": "photo",
-					"says": "A photo attached in the panel is staged privately for one proposal; only its owner sees it while the review lasts, and approval needs it.",
+					"says": "A photo attached in the panel's one attach control is staged privately in that conversation; a People photo review shows it only to its owner while the review lasts, approval needs it, and the approved photo is bound to one person once.",
 					"catalog": ["EVR-025"],
 					"operations": [],
 					"proof": {
 						"tests": [
 							{
 								"file": "tests/evry/adapters/people/commands/commands.test.mts",
-								"name": "AC:UI45-003 a photo proposal's owner sees the exact staged upload while the review lasts; approval needs it"
+								"name": "AC:UI45-003 a photo proposal's owner sees the exact attached photo while the review lasts; approval needs it"
+							},
+							{
+								"file": "tests/evry/runtime/photo-attachments.test.mts",
+								"name": "an Owner's attached photo becomes Priya's People photo only after Approve, and the effect runs once"
 							}
 						],
 						"cases": ["UI45-003"],
@@ -416,12 +465,12 @@
 							"expect": [
 								{
 									"role": "button",
-									"name": "Attach a photo"
+									"name": "Attach a file"
 								}
 							]
 						}
 					},
-					"noOperation": "the panel stages the photo through the Settings avatar upload (conversation/photoActions.ts) and the review card reads it back from packages/evry/src/proposals/store.ts; neither is an Evry catalog operation"
+					"noOperation": "the panel stages the photo as a conversation attachment (packages/evry/src/attachments/store.ts) and, for the user's own account photo, through the Settings avatar upload (conversation/photoActions.ts); the review card reads it back from packages/evry/src/proposals/store.ts; none is an Evry catalog operation"
 				}
 			]
 		}

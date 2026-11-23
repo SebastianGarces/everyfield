@@ -1,60 +1,63 @@
 "use client";
 
-import { Cancel01Icon, Image01Icon } from "@hugeicons/core-free-icons";
+import { Attachment01Icon, Cancel01Icon, Image01Icon } from "@hugeicons/core-free-icons";
 import { IconButton, Tooltip } from "@everyfield/ui/controls";
-import { Icon } from "@everyfield/ui/foundations";
+import { cn } from "@everyfield/ui/foundations";
 import { useRef } from "react";
 import { uploadAvatarBytes } from "../../settings/flows/avatarBytes.ts";
 import { stagePhoto } from "./photoActions.ts";
+import { ATTACH, fileSize } from "./attachments.ts";
+import type { Attachment } from "./model.ts";
 import { NativeImage } from "@/components/native";
 
-const TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_BYTES = 3 * 1024 * 1024;
+export type Attached = { src: string; name: string; size: number } & (
+	| { status: "uploading" }
+	| { status: "ready"; avatarId: string | null; attachment: Attachment | null; conversationId: string | null }
+	| { status: "failed" }
+);
 
-export type Attached =
-	| { status: "uploading"; src: string }
-	| { status: "ready"; src: string; id: string }
-	| { status: "failed"; src: string | null; message: string };
-
-export function checkPhoto(file: File): Attached | null {
-	if (!TYPES.includes(file.type)) return { status: "failed", src: null, message: "Choose a JPG, PNG or WebP photo." };
-	if (file.size > MAX_BYTES) return { status: "failed", src: null, message: "Choose a photo smaller than 3 MB." };
-	return null;
-}
-
-export async function stageAttached(file: File, src: string): Promise<Attached> {
-	const failed: Attached = { status: "failed", src, message: "That photo did not upload. Try again." };
+export async function stageAvatar(file: File): Promise<string | null> {
 	try {
 		const staged = await stagePhoto({ mime: file.type, byteLength: file.size });
-		if (!staged) return failed;
+		if (!staged) return null;
 		const sent = await uploadAvatarBytes(staged, file);
-		return sent.status === "ok" ? { status: "ready", src, id: staged.versionId } : failed;
+		return sent.status === "ok" ? staged.versionId : null;
 	} catch {
-		return failed;
+		return null;
 	}
 }
 
-export function AttachButton({ disabled, onFile }: { disabled: boolean; onFile: (file: File) => void }) {
+export function AttachButton({
+	disabled,
+	church,
+	onFiles,
+}: {
+	disabled: boolean;
+	church: boolean;
+	onFiles: (files: File[]) => void;
+}) {
 	const input = useRef<HTMLInputElement>(null);
+	const label = church ? "Attach a file" : "Attach a photo";
 	return (
 		<>
 			<input
 				ref={input}
 				type="file"
-				accept={TYPES.join(",")}
+				accept={church ? `${ATTACH.accept},${ATTACH.photos}` : ATTACH.photos}
+				multiple={church}
 				className="sr-only"
 				tabIndex={-1}
 				aria-hidden
 				onChange={(e) => {
-					const file = e.target.files?.[0];
+					const files = [...(e.target.files ?? [])];
 					e.target.value = "";
-					if (file) onFile(file);
+					if (files.length) onFiles(files);
 				}}
 			/>
-			<Tooltip content="Attach a photo">
+			<Tooltip content={church ? "Attach a CSV, Word, text or PDF file, or a photo" : "Attach a photo"}>
 				<IconButton
-					icon={Image01Icon}
-					label="Attach a photo"
+					icon={church ? Attachment01Icon : Image01Icon}
+					label={label}
 					size="sm"
 					disabled={disabled}
 					onClick={() => input.current?.click()}
@@ -64,30 +67,34 @@ export function AttachButton({ disabled, onFile }: { disabled: boolean; onFile: 
 	);
 }
 
-export function AttachedPhoto({ photo, onRemove }: { photo: Attached; onRemove: () => void }) {
-	const status =
-		photo.status === "uploading" ? "Uploading…" : photo.status === "ready" ? "Photo attached" : photo.message;
+export function PhotoChip({ photo, onRemove }: { photo: Attached; onRemove: () => void }) {
 	return (
-		<div className="mb-2 flex items-center gap-2.5" aria-live="polite">
-			{photo.src ? (
-				<NativeImage
-					src={photo.src}
-					alt=""
-					className="size-10 flex-none rounded-md object-cover shadow-[0_0_0_1px_var(--ef-line-2)]"
-				/>
-			) : (
-				<span className="grid size-10 flex-none place-items-center rounded-md bg-surface-2 text-text-3">
-					<Icon icon={Image01Icon} size={18} />
-				</span>
+		<li
+			className={cn(
+				"flex h-[34px] max-w-full items-center gap-2 rounded-pill bg-surface-2 py-1 pr-1 pl-1 text-sm",
+				photo.status === "failed" && "bg-magenta-50",
 			)}
-			<span
-				className={
-					photo.status === "failed" ? "min-w-0 flex-1 text-sm text-magenta-600" : "min-w-0 flex-1 text-sm text-text-2"
-				}
-			>
-				{status}
+		>
+			<NativeImage
+				src={photo.src}
+				alt=""
+				className="size-[26px] flex-none rounded-full object-cover shadow-[0_0_0_1px_var(--ef-line-2)]"
+			/>
+			<span className="min-w-0 truncate text-ink">{photo.name}</span>
+			<span className={cn("flex-none text-xs", photo.status === "failed" ? "text-magenta-600" : "text-text-3")}>
+				{photo.status === "uploading"
+					? "Attaching…"
+					: photo.status === "failed"
+						? "Couldn't attach"
+						: fileSize(photo.size)}
 			</span>
-			<IconButton icon={Cancel01Icon} label="Remove the photo" size="sm" onClick={onRemove} />
-		</div>
+			<IconButton
+				icon={Cancel01Icon}
+				label={`Remove ${photo.name}`}
+				size="sm"
+				className="size-[26px]"
+				onClick={onRemove}
+			/>
+		</li>
 	);
 }

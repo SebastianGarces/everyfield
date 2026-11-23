@@ -70,7 +70,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-028 | Shared email delivery and webhook reconciliation | 21 | 22 | 27 | 8 | 2.5 |
 | WP-029 | Communication history and resend | 19 | 9 | 18 | 0 | 2 |
 | WP-030 | Notification feed/preferences | 19 | 19 | 25 | 4 | 2.5 |
-| WP-033 | Approve and version available global Wiki snapshot | 4 | 4 | 10 | 7 | 1.5 |
+| WP-033 | Approve and version available global Wiki snapshot | 4 | 4 | 10 | 8 | 1.5 |
 | WP-034 | Wiki browsing/search/progress/bookmarks | 80 | 21 | 88 | 4 | 4 |
 | WP-035 | Wiki feedback/admin/revalidation | 89 | 7 | 88 | 3 | 4 |
 | WP-036 | Document template and format contracts | 27 | 5 | 15 | 3 | 2 |
