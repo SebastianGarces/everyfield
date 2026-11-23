@@ -49,6 +49,10 @@ export const routedNamesSql = (plantId: SQL, childId: SQL) =>
 	sql`(SELECT string_agg(gad.display_name, ', ' ORDER BY gad.display_name, gad.id)
 		FROM ${linksOf(plantId, childId, reachable(plantId))})`;
 
+export const routedNameListSql = (plantId: SQL, childId: SQL) =>
+	sql`CASE WHEN ${childSql(plantId, childId)} THEN coalesce((SELECT jsonb_agg(gad.display_name ORDER BY gad.display_name, gad.id)
+		FROM ${linksOf(plantId, childId, reachable(plantId))}), '[]'::jsonb) ELSE '[]'::jsonb END`;
+
 export const usable = (guardian: z.infer<typeof guardianRow>): guardian is Guardian =>
 	!!guardian.email?.trim() && !guardian.optedOut;
 
@@ -178,7 +182,10 @@ export function summarizeAudience(raw: unknown) {
 	const withEmail = addressed.filter((row) => !row.optedOutAt);
 	const own = new Set(rows.map((row) => row.id));
 	const extra = byGuardian(routed, (guardian) => own.has(guardian.id));
-	const reached = [...withEmail, ...extra.map(({ guardian }) => ({ ...guardian, n: 1 }))];
+	const reached = [
+		...withEmail.map((row) => ({ ...row, guardianOf: [] as string[] })),
+		...extra.map(({ guardian, children }) => ({ ...guardian, n: 1, guardianOf: children })),
+	];
 	const named = [...reached].sort(byName);
 	const emails = new Set(reached.map((row) => row.email.toLowerCase()));
 	const occurrences = reached.reduce((sum, row) => sum + row.n, 0);
@@ -192,7 +199,7 @@ export function summarizeAudience(raw: unknown) {
 		searchLimitTruncatesAudience: false,
 		recipients: named
 			.slice(0, NAMED_CAP)
-			.map((row) => ({ id: row.id, displayName: row.displayName, email: row.email })),
+			.map((row) => ({ id: row.id, displayName: row.displayName, email: row.email, guardianOf: row.guardianOf })),
 		complete: named.length <= NAMED_CAP,
 		unsubscribedExclusions: unsubscribed
 			.slice(0, NAMED_CAP)

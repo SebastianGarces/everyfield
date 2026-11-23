@@ -83,6 +83,7 @@ export function HouseholdCard({
 	onHousehold,
 	canEdit,
 	onMembership,
+	onGuardian,
 	onConflict,
 	onExpectPerson,
 }: {
@@ -92,6 +93,10 @@ export function HouseholdCard({
 	onHousehold: (h: HouseholdResult) => void;
 	canEdit: boolean;
 	onMembership: (receipt: Receipt, change: { from: Membership | null; to: Membership | null }) => void;
+	onGuardian: (
+		receipt: Receipt,
+		guardian: { change: "added" | "removed"; personId: Household["members"][number]["personId"]; displayName: string },
+	) => void;
 	onConflict: () => void;
 	onExpectPerson: (patch: Partial<PlantPerson>) => void;
 }) {
@@ -152,7 +157,7 @@ export function HouseholdCard({
 	function membership<A extends MembershipSaved>(
 		slot: string,
 		call: (key: string, revision: string) => Promise<Outcome<A>>,
-		then?: () => void,
+		then?: (value: A) => void,
 	): Pick<SaveSpec<Editing, A>, "send" | "through" | "ok" | "refused"> {
 		const before = membershipOf(household, person.id);
 		const revision = store.getState().saved.revision;
@@ -165,7 +170,7 @@ export function HouseholdCard({
 				onHousehold(after ? value.household : { status: "none" });
 				if (before?.householdId !== after?.householdId || before?.role !== after?.role)
 					onMembership(value.receipt, { from: before, to: after });
-				then?.();
+				then?.(value);
 			},
 		};
 	}
@@ -221,8 +226,16 @@ export function HouseholdCard({
 			{
 				what: guardian.displayName,
 				done: `${contact ? "added as" : "removed as"} ${first}'s parent or guardian contact`,
-				...membership("household-guardian", (key, rev) =>
-					setGuardianContact(key, rev, { personId: person.id, guardianPersonId: guardian.personId, contact }),
+				...membership(
+					"household-guardian",
+					(key, rev) =>
+						setGuardianContact(key, rev, { personId: person.id, guardianPersonId: guardian.personId, contact }),
+					(value) =>
+						onGuardian(value.receipt, {
+							change: contact ? "added" : "removed",
+							personId: guardian.personId,
+							displayName: guardian.displayName,
+						}),
 				),
 			},
 		);
@@ -316,22 +329,26 @@ export function HouseholdCard({
 								className="flex min-h-11 items-center gap-3 border-t border-line py-1.5 first:border-t-0"
 							>
 								<Avatar name={m.displayName} size="sm" decorative />
-								<span className="min-w-0 flex-1 truncate">
-									{m.personId === person.id ? (
-										<span className="font-medium text-ink">
-											{m.displayName} <span className="font-normal text-text-3">(this person)</span>
-										</span>
-									) : (
-										<PersonLink
-											href={`/people/${m.personId}`}
-											className="font-medium text-ink underline-offset-2 hover:underline"
-										>
-											{m.displayName}
-										</PersonLink>
-									)}
+								<span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+									<span className="min-w-0 flex-[1_1_10rem] truncate">
+										{m.personId === person.id ? (
+											<span className="font-medium text-ink">
+												{m.displayName} <span className="font-normal text-text-3">(this person)</span>
+											</span>
+										) : (
+											<PersonLink
+												href={`/people/${m.personId}`}
+												className="font-medium text-ink underline-offset-2 hover:underline"
+											>
+												{m.displayName}
+											</PersonLink>
+										)}
+									</span>
+									<span className="flex flex-wrap gap-1.5">
+										{child && contacts.has(m.personId) ? <Tag className="text-xs">Parent or guardian</Tag> : null}
+										<Tag className="text-xs">{ROLE_LABEL[m.role]}</Tag>
+									</span>
 								</span>
-								{child && contacts.has(m.personId) ? <Tag className="text-xs">Parent or guardian</Tag> : null}
-								<Tag className="text-xs">{ROLE_LABEL[m.role]}</Tag>
 							</li>
 						))}
 					</ul>

@@ -177,3 +177,26 @@ test("AC:CASE-NTF-016-GUARDIAN: a child's email sent to a parent or guardian is 
 		"Scheduled for Sunday. It goes to 3 people then. Marked as a child 1. Sent to a parent or guardian instead 2.",
 	);
 });
+
+test("the review preview of a copy sent only as a parent or guardian names the child and has no RSVP link", async () => {
+	const { renderPreview } = await import("../../../apps/web/src/features/communication/preview.ts");
+	const input = {
+		bodyHtml: "<p>Hi {{name}},</p><p>{{rsvp_link}}</p>",
+		name: "Joao Santos",
+		hasMeeting: true,
+		origin: "https://app.example.test",
+		churchName: "Grace",
+	};
+	const html = (extra: { guardianOf?: string[] }) => {
+		const result = renderPreview({ ...input, ...extra });
+		assert.ok("html" in result);
+		return result.html;
+	};
+	const guardian = html({ guardianOf: ["Lucia Santos"] });
+	assert.ok(guardian.includes("We are sending you this email as the parent or guardian of Lucia Santos."));
+	assert.ok(guardian.includes("Hi Joao Santos,"));
+	assert.equal(guardian.includes("/rsvp/preview"), false);
+	const own = html({ guardianOf: [] });
+	assert.equal(own.includes("parent or guardian"), false);
+	assert.ok(own.includes("/rsvp/preview"));
+});

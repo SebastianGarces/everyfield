@@ -80,6 +80,7 @@ export function ReviewStep({
 	const bounds = now === null || zone === null ? null : windowBounds(now, zone);
 	const safe = Math.min(index, Math.max(0, recipients.length - 1));
 	const name = recipients[safe]?.displayName ?? sampleName;
+	const guardianOf = recipients[safe]?.guardianOf;
 	const eligible = summary?.eligibleRecipients ?? 0;
 	const template = templates.find((t) => t.templateId === form.templateKey);
 	const known = new Map(recipients.map((r) => [r.id, r.displayName]));
@@ -107,7 +108,14 @@ export function ReviewStep({
 	return (
 		<div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
 			<PreviewStage
-				input={{ bodyHtml: textToBody(form.text), name, hasMeeting: form.meetingId !== null, origin, churchName }}
+				input={{
+					bodyHtml: textToBody(form.text),
+					name,
+					hasMeeting: form.meetingId !== null,
+					origin,
+					churchName,
+					guardianOf,
+				}}
 				chrome={{ from: churchName, to: name, subject: form.subject }}
 				toolbar={
 					<div className="flex items-center gap-2">

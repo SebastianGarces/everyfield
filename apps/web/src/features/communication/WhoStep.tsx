@@ -10,7 +10,7 @@ import { createRead, useRead, useReadWith } from "../../components/read.tsx";
 import { useStore } from "../../components/store.ts";
 import { resolveAudience } from "./actions.ts";
 import { recipientSearches, type ComposeStore } from "./Compose.store.ts";
-import { audienceSize, plural } from "./composeModel.ts";
+import { audienceSize, listed, plural } from "./composeModel.ts";
 import {
 	audienceGroups,
 	CHILD_RULE,
@@ -26,6 +26,10 @@ const MAX_CHIPS = 8;
 
 const onDay = (iso: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(iso));
 const unsubscribedReason = (iso: string) => `Unsubscribed from this church's email on ${onDay(iso)}`;
+
+const toGuardians = (names: string[]) => `Goes to ${listed(names)}, parent or guardian`;
+const reachable = (person: Recipient) =>
+	person.guardians.length > 0 || (Boolean(person.email) && !person.unsubscribedAt);
 
 const leftOutCount = (summary: AudienceSummary) =>
 	summary.childExclusions.length + summary.missingEmailExclusions.length + summary.unsubscribedExclusions.length;
@@ -115,7 +119,12 @@ export function WhoStep({
 						))}
 					</ul>
 				) : null}
-				<ToField store={store} locked={locked} known={summary?.recipients ?? []} />
+				<ToField
+					store={store}
+					locked={locked}
+					known={summary?.recipients ?? []}
+					routes={summary?.guardianRoutes ?? []}
+				/>
 			</div>
 			<Counts summary={summary} failed={failed} empty={audienceSize(form.audience) === 0} />
 		</div>
@@ -235,10 +244,12 @@ function ToField({
 	store,
 	locked,
 	known,
+	routes,
 }: {
 	store: ComposeStore;
 	locked: boolean;
 	known: { id: string; displayName: string; email: string }[];
+	routes: AudienceSummary["guardianRoutes"];
 }) {
 	const id = useId();
 	const form = useStore(store, (state) => state.form);
@@ -251,18 +262,24 @@ function ToField({
 	const results = found?.status === "ok" ? found.value.people : [];
 	const status = found && found.status !== "ok" ? loadProblem(found, "The search did not load. Try again.") : null;
 	const byId = new Map(known.map((person) => [person.id, person]));
-	const people = form.people.map((person) => ({
-		...person,
-		displayName: person.displayName ?? byId.get(person.id)?.displayName ?? "Person on this message",
-		email: person.email ?? byId.get(person.id)?.email ?? null,
-	}));
+	const routed = new Map(routes.map((route) => [route.id, route]));
+	const people = form.people.map((person) => {
+		const route = routed.get(person.id);
+		return {
+			...person,
+			displayName:
+				person.displayName ?? byId.get(person.id)?.displayName ?? route?.displayName ?? "Person on this message",
+			email: person.email ?? byId.get(person.id)?.email ?? null,
+			guardians: route?.guardians.map((guardian) => guardian.displayName) ?? [],
+		};
+	});
 	const shown = query.trim() ? results : [];
 	const searching = query.trim() !== "" && (searched !== query.trim() || answer.status !== "ready");
 	const visible = expanded ? people : people.slice(0, MAX_CHIPS);
 
 	const picked = new Set(form.audience.personIds);
 	const add = (person: Recipient) => {
-		if (!person.email || person.unsubscribedAt || picked.has(person.id)) return;
+		if (!reachable(person) || picked.has(person.id)) return;
 		actions.edit((current) => ({
 			...current,
 			people: [...current.people, person],
@@ -346,7 +363,9 @@ function ToField({
 									className="absolute top-full left-0 z-20 mt-1 flex w-64 flex-col gap-1 rounded-md bg-surface-raised p-3 text-sm shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)]"
 								>
 									<span className="font-medium text-ink">{person.displayName}</span>
-									<span className="break-all text-text-2">{person.email ?? "Loading email"}</span>
+									<span className="break-all text-text-2">
+										{person.guardians.length > 0 ? toGuardians(person.guardians) : (person.email ?? "Loading email")}
+									</span>
 									<Link
 										href={`/people/${person.id}`}
 										className="w-fit font-medium text-ink underline underline-offset-[3px]"
@@ -392,7 +411,8 @@ function ToField({
 				>
 					{listed
 						? shown.map((person) => {
-								const disabled = !person.email || Boolean(person.unsubscribedAt) || picked.has(person.id);
+								const disabled = !reachable(person) || picked.has(person.id);
+								const wraps = person.guardians.length > 0 || Boolean(person.unsubscribedAt);
 								return (
 									<Command.Item
 										key={person.id}
@@ -403,14 +423,16 @@ function ToField({
 										className="flex min-h-[40px] flex-wrap items-center justify-between gap-x-3 rounded-sm px-3 py-1.5 text-md text-ink aria-disabled:text-text-3 aria-selected:bg-surface-2"
 									>
 										<span className="min-w-0 truncate">{person.displayName}</span>
-										<span className={`min-w-0 text-sm text-text-3 ${person.unsubscribedAt ? "" : "truncate"}`}>
-											{!person.email
-												? "No email address"
-												: person.unsubscribedAt
-													? unsubscribedReason(person.unsubscribedAt)
-													: picked.has(person.id)
-														? "Added"
-														: person.email}
+										<span className={`min-w-0 text-sm text-text-3 ${wraps ? "" : "truncate"}`}>
+											{picked.has(person.id)
+												? "Added"
+												: person.guardians.length > 0
+													? toGuardians(person.guardians)
+													: !person.email
+														? "No email address"
+														: person.unsubscribedAt
+															? unsubscribedReason(person.unsubscribedAt)
+															: person.email}
 										</span>
 									</Command.Item>
 								);

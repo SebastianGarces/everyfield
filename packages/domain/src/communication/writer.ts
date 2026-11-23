@@ -23,6 +23,7 @@ import {
 	onlyChildren,
 	recipientsDigest,
 	reviewedParts,
+	routedNameListSql,
 	storedAudiencePeople,
 	summarizeAudience,
 } from "./audience.ts";
@@ -858,7 +859,8 @@ async function recipients(tx: Tx, authority: RequestActor, request: unknown) {
 				communicationAccess(reader, reader.session, true),
 				sql`SELECT coalesce((
 					SELECT jsonb_agg(jsonb_build_object('id', id, 'displayName', display_name, 'email', nullif(btrim(email), ''),
-						'unsubscribedAt', ${optedOutAtSql(sql`${reader.plantId}::uuid`, sql`found.id`)}))
+						'unsubscribedAt', ${optedOutAtSql(sql`${reader.plantId}::uuid`, sql`found.id`)},
+						'guardians', ${routedNameListSql(sql`${reader.plantId}::uuid`, sql`found.id`)}))
 					FROM (
 						SELECT id, display_name, email FROM person
 						WHERE plant_id = ${reader.plantId}::uuid AND tenant_id = ${reader.plantId}::uuid AND state = 'live'
@@ -878,6 +880,7 @@ async function recipients(tx: Tx, authority: RequestActor, request: unknown) {
 					displayName: z.string(),
 					email: z.string().nullable(),
 					unsubscribedAt: z.string().nullable(),
+					guardians: z.array(z.string()),
 				}),
 			),
 		})

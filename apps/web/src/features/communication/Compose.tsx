@@ -502,6 +502,7 @@ function ComposeForm({
 							hasMeeting,
 							origin: data.origin,
 							churchName: data.churchName,
+							guardianOf: summary?.recipients[0]?.guardianOf,
 						}}
 						chrome={chrome}
 					/>

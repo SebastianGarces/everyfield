@@ -66,13 +66,19 @@ export type Template = {
 };
 
 export type Team = { id: string; name: string };
-export type Recipient = { id: string; displayName: string; email: string | null; unsubscribedAt: string | null };
+export type Recipient = {
+	id: string;
+	displayName: string;
+	email: string | null;
+	unsubscribedAt: string | null;
+	guardians: string[];
+};
 export type AudienceSummary = {
 	resolvedDistinctPeople: number;
 	eligibleRecipients: number;
 	missingEmailExclusions: string[];
 	duplicateAddressesRemoved: number;
-	recipients: { id: string; displayName: string; email: string }[];
+	recipients: { id: string; displayName: string; email: string; guardianOf: string[] }[];
 	complete: boolean;
 	unsubscribedExclusions: { id: string; displayName: string; unsubscribedAt: string }[];
 	childExclusions: { id: string; displayName: string }[];

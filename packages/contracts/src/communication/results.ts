@@ -74,7 +74,16 @@ export const audienceResult = z.strictObject({
 	eligibleEmails: z.array(z.string()),
 	searchResultLimit: z.literal(20),
 	searchLimitTruncatesAudience: z.literal(false),
-	recipients: z.array(z.strictObject({ id: recordId, displayName: z.string(), email: z.string() })).max(200),
+	recipients: z
+		.array(
+			z.strictObject({
+				id: recordId,
+				displayName: z.string(),
+				email: z.string(),
+				guardianOf: z.array(z.string()),
+			}),
+		)
+		.max(200),
 	complete: z.boolean(),
 	unsubscribedExclusions: z
 		.array(z.strictObject({ id: recordId, displayName: z.string(), unsubscribedAt: instant }))
@@ -98,6 +107,7 @@ export const recipientResult = z.strictObject({
 				displayName: z.string(),
 				email: z.string().nullable(),
 				unsubscribedAt: instant.nullable(),
+				guardians: z.array(z.string()),
 			}),
 		)
 		.max(20),

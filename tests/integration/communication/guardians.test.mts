@@ -148,6 +148,14 @@ test("AC:CASE-NTF-016-GUARDIAN a group email goes to each child's parent or guar
 	assert.deepEqual(resolved.childExclusions, [{ id: cal.id, displayName: "Cal Ortiz" }]);
 	assert.equal(resolved.eligibleRecipients, 3);
 	assert.deepEqual(resolved.eligibleEmails, [ana.email, maria.email, pete.email].sort());
+	assert.deepEqual(
+		resolved.recipients.map((r) => [r.displayName, r.guardianOf]),
+		[
+			["Ana Cruz", []],
+			["Maria Lopez", []],
+			["Pete Lopez", ["Ben Lopez"]],
+		],
+	);
 
 	const sent = await handOff(audience, "now");
 	assert.deepEqual(
@@ -178,6 +186,27 @@ test("AC:CASE-NTF-016-GUARDIAN a group email goes to each child's parent or guar
 		],
 	);
 	assert.deepEqual([view.totals.guardian, view.totals.child, view.totals.reachable], [2, 1, 3]);
+});
+
+test("the recipient search names a child's usable parent or guardian contacts, so a child with no email can be picked", async () => {
+	const home = await household("Quinn household");
+	const jo = await person("Jo Quinn", "adult", home);
+	const kay = await person("Kay Quinn", "adult", home, false);
+	const zed = await person("Zed Quinn", "child", home, false);
+	const lee = await person("Lee Quinn", "child", home, false);
+	await link(zed, jo, home);
+	await link(zed, kay, home);
+	await link(lee, kay, home);
+	const found = ok(await read("readRecipients", { query: "quinn" })).people;
+	assert.deepEqual(
+		found.map((p) => [p.displayName, p.email, p.guardians]),
+		[
+			["Jo Quinn", jo.email, []],
+			["Kay Quinn", null, []],
+			["Lee Quinn", null, []],
+			["Zed Quinn", null, ["Jo Quinn"]],
+		],
+	);
 });
 
 test("AC:CASE-NTF-016-GUARDIAN the copy sent only as a parent or guardian names the child, greets the adult, has no RSVP link and has the adult's own Unsubscribe link", async () => {
