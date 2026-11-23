@@ -1,5 +1,5 @@
 import * as c from "@everyfield/contracts/documents";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { queueJobsFor } from "../jobs/queue.ts";
 import {
@@ -126,7 +126,7 @@ function followedVersion(
 }
 
 async function readChurchWithKit(
-	db: Database,
+	db: Database | Transaction,
 	scope: Scope,
 	documentId: string,
 	{ admin = false, sources: withSources = false, template = false, archived = false } = {},
@@ -187,7 +187,7 @@ async function readChurchWithKit(
 	return { doc, kit, sources, churchTemplate: row.church_template };
 }
 
-async function readChurch(db: Database, scope: Scope, documentId: string, admin = false) {
+async function readChurch(db: Database | Transaction, scope: Scope, documentId: string, admin = false) {
 	return (await readChurchWithKit(db, scope, documentId, { admin }))?.doc ?? null;
 }
 
@@ -335,7 +335,7 @@ const listKey = (view: c.CompareView, items: readonly c.DocDifference[]) =>
 	`sha256:${hashOf(JSON.stringify([view, items]))}`;
 
 export const churchWriter = {
-	async createFromTemplate(db: Database, authority: RequestActor, raw: unknown) {
+	async createFromTemplate(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.createFromTemplateRequest, raw);
 			const scope = adminScope(authority);
@@ -646,7 +646,12 @@ export const churchWriter = {
 		});
 	},
 
-	async exportNative(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
+	async exportNative(
+		db: Database | Transaction,
+		authority: RequestActor,
+		raw: unknown,
+		storage: PrivateStorage | null,
+	) {
 		return settle(async () => {
 			const input = parse(c.exportNativeRequest, raw);
 			const scope = readerScope(authority);
@@ -1457,7 +1462,7 @@ export const churchWriter = {
 		});
 	},
 
-	async archiveChurch(db: Database, authority: RequestActor, raw: unknown) {
+	async archiveChurch(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.archiveChurchRequest, raw);
 			const scope = adminScope(authority);
@@ -1691,7 +1696,7 @@ function imageSources(node: unknown, found = new Set<ImageSource>()) {
 }
 
 async function renderRevision(
-	db: Database,
+	db: Database | Transaction,
 	storage: PrivateStorage | null,
 	authority: RequestActor,
 	body: c.DocDocument,
@@ -1758,7 +1763,7 @@ async function sameUpdate(db: Database, scope: Scope, requestKey: string, reques
 	return templateSummary(row) ?? deny("conflict");
 }
 
-async function exportRecord(db: Database, scope: Scope, id: string) {
+async function exportRecord(db: Database | Transaction, scope: Scope, id: string) {
 	const [row] = await historyRows(db, scope, id);
 	if (!row) deny("unavailable");
 	return generatedFrom(row, scope.tenantId, row.template_id);

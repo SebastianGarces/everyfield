@@ -1030,7 +1030,7 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 				return item ? (
 					<div key={n} className="flex min-w-0 flex-col gap-0.5">
 						<dt className="font-medium break-words text-ink">{c.field}</dt>
-						{values(c, item)}
+						{item === "checklist" ? <ChecklistTasks value={c.after} /> : values(c, item)}
 					</div>
 				) : c.field === "photo" && review.review.target ? (
 					<PhotoChange
@@ -1060,6 +1060,7 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 									<li key={x.label} className="flex flex-wrap items-baseline justify-between gap-x-3">
 										<span className="font-medium break-words text-ink">{x.label}</span>
 										<span className="text-xs text-text-3">{x.status.charAt(0).toUpperCase() + x.status.slice(1)}</span>
+										{x.reading ? <span className="w-full text-xs break-words text-text-2">{x.reading}</span> : null}
 									</li>
 								))}
 							</ul>
@@ -1070,6 +1071,24 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 				</div>
 			) : null}
 		</dl>
+	);
+}
+
+function ChecklistTasks({ value }: { value: unknown }) {
+	return (
+		<dd className="min-w-0 text-text-2">
+			{Array.isArray(value) ? (
+				<ul className="flex flex-col gap-0.5">
+					{value.map((task, i) => (
+						<li key={i} className="break-words">
+							{String(task)}
+						</li>
+					))}
+				</ul>
+			) : (
+				String(value)
+			)}
+		</dd>
 	);
 }
 
