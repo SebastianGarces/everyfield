@@ -25,7 +25,7 @@ export function keptText(k: Kept, attribution: string): { title: string; why: st
 	switch (k.category) {
 		case "program_completion_count":
 			return {
-				title: `${counted(k.count ?? 0, "finished program", "finished programs")}, as “${attribution}”`,
+				title: `${counted(k.count ?? 0, "finished program")}, as “${attribution}”`,
 				why: "Program completion counts stay right. No name, contact or marks are kept with them.",
 			};
 		case "activity_record":

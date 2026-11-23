@@ -1107,7 +1107,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: row.label,
-				line: joined(text(fields.city), Number.isFinite(members) ? counted(members, "member", "members") : null),
+				line: joined(text(fields.city), Number.isFinite(members) ? counted(members, "member") : null),
 				avatar: "household",
 			};
 		}
@@ -1164,10 +1164,10 @@ function rowView(operation: string, row: SourceRow): RowView {
 					...plain,
 					name: "Your file",
 					line: joined(
-						counted(num(fields.valid) || 0, "valid row", "valid rows"),
-						counted(num(fields.invalid) || 0, "invalid row", "invalid rows"),
+						counted(num(fields.valid) || 0, "valid row"),
+						counted(num(fields.invalid) || 0, "invalid row"),
 						num(fields.existingDuplicates) > 0
-							? counted(num(fields.existingDuplicates), "possible duplicate", "possible duplicates")
+							? counted(num(fields.existingDuplicates), "possible duplicate")
 							: null,
 					),
 					avatar: "file",
@@ -1188,7 +1188,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: row.label,
-				line: columns ? counted(columns, "column", "columns") : null,
+				line: columns ? counted(columns, "column") : null,
 				avatar: "file",
 			};
 		}
@@ -1249,7 +1249,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			const staffing =
 				typeof fields.roles === "number"
 					? joined(
-							`${fields.filledRoles} of ${counted(fields.roles, "role", "roles")} filled`,
+							`${fields.filledRoles} of ${counted(fields.roles, "role")} filled`,
 							counted(Number(fields.people), "person", "people"),
 						)
 					: null;
@@ -1385,8 +1385,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 				...plain,
 				name: row.id === "checklist" ? "Checklist items" : (label(TASK_STATUS, row.label) ?? ""),
 				line: Number.isFinite(done)
-					? `${done.toLocaleString()} of ${counted(n || 0, "item", "items")} done`
-					: counted(n || 0, "task", "tasks"),
+					? `${done.toLocaleString()} of ${counted(n || 0, "item")} done`
+					: counted(n || 0, "task"),
 				avatar: "tally",
 			};
 		}
@@ -1630,7 +1630,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 				href: "/launch",
 				name: row.label,
 				line: joined(
-					`${String(fields.done)} of ${counted(Number(fields.total ?? 0), "task", "tasks")} done`,
+					`${String(fields.done)} of ${counted(Number(fields.total ?? 0), "task")} done`,
 					overdue ? `${overdue} overdue` : null,
 				),
 				mark: fields.completed
@@ -2016,7 +2016,7 @@ function templateView(operation: string, row: SourceRow, key: string): RowView {
 		line: joined(
 			`Phase ${fields.phase}`,
 			label(CATEGORY, fields.category),
-			counted(tasks, "task", "tasks"),
+			counted(tasks, "task"),
 			fields.toPhase !== undefined ? `Offered after the move to Phase ${fields.toPhase}` : null,
 		),
 		mark:
@@ -2219,7 +2219,7 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 		facts.push(`${totals.foundationsRead} of ${Number(totals.foundationsTotal)} foundation articles read.`);
 	if (typeof totals.roles === "number")
 		facts.push(
-			`${counted(totals.roles, "role", "roles")} in all: ${totals.filledRoles} filled, ${totals.openRoles} open. ${Number(totals.peopleServing).toLocaleString()} serving, each counted once however many roles they hold.`,
+			`${counted(totals.roles, "role")} in all: ${totals.filledRoles} filled, ${totals.openRoles} open. ${Number(totals.peopleServing).toLocaleString()} serving, each counted once however many roles they hold.`,
 		);
 	if (typeof totals.measuredMinistries === "number")
 		facts.push(

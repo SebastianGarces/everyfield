@@ -1453,7 +1453,7 @@ export function importSummary(rows: readonly ReviewedRow[]) {
 	const add = n(["create", "create_and_review"]);
 	return [
 		`${counted(add, "person", "people")} will be added`,
-		n(["skip"]) ? `${counted(n(["skip"]), "row", "rows")} skipped` : null,
+		n(["skip"]) ? `${counted(n(["skip"]), "row")} skipped` : null,
 		n(["fail"]) ? `${counted(n(["fail"]), "row fails", "rows fail")}` : null,
 	]
 		.filter(Boolean)

@@ -227,7 +227,7 @@ function MessageButton({
 }
 
 const recipientCount = (n: number, state: HubState) =>
-	n === 0 && (state === "draft" || state === "scheduled") ? "Not sent yet" : counted(n, "recipient", "recipients");
+	n === 0 && (state === "draft" || state === "scheduled") ? "Not sent yet" : counted(n, "recipient");
 
 function AddressFact({ label, value }: { label: string; value: string | null }) {
 	return (
