@@ -17,6 +17,7 @@ import {
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
+	InlineAlert,
 	Textarea,
 } from "@everyfield/ui/controls";
 import { cn, EvryBot, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
@@ -242,7 +243,7 @@ function FeedbackForm({
 						<Icon
 							icon={ArrowDown01Icon}
 							size={16}
-							className="ml-auto text-text-3 transition-transform duration-200 group-open:rotate-180"
+							className="ml-auto text-text-3 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
 						/>
 					</summary>
 					<dl className="mt-0 mb-3.5 grid grid-cols-[130px_minmax(0,1fr)] gap-x-3.5 gap-y-[7px] text-sm">
@@ -256,13 +257,13 @@ function FeedbackForm({
 						))}
 					</dl>
 				</details>
-				{failure ? (
-					<p role="alert" className="m-0 text-sm font-medium text-magenta-600">
-						{failure === "lost"
-							? "We could not confirm it was sent. Send again: it is saved only once."
-							: "Your feedback could not be sent from this account."}
-					</p>
-				) : null}
+				<InlineAlert>
+					{failure === "lost"
+						? "We could not confirm it was sent. Send again: it is saved only once."
+						: failure
+							? "Your feedback could not be sent from this account."
+							: null}
+				</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<span className="grow text-sm text-text-3">No screenshot is sent.</span>

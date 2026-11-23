@@ -1,7 +1,7 @@
 "use client";
 
 import { ComputerIcon, SmartPhone01Icon } from "@hugeicons/core-free-icons";
-import { SegmentedControl, Spinner } from "@everyfield/ui/controls";
+import { Alert, SegmentedControl, Spinner } from "@everyfield/ui/controls";
 import { observeSize } from "@everyfield/ui/foundations";
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import { renderPreview, type PreviewInput } from "./preview.ts";
@@ -107,9 +107,7 @@ export function PreviewStage({
 				{state && "html" in state ? (
 					<EmailFrame html={state.html} width={width} />
 				) : state ? (
-					<p role="alert" className="text-sm font-medium text-magenta-600">
-						{state.error}
-					</p>
+					<Alert>{state.error}</Alert>
 				) : (
 					<p className="text-md text-text-3">{empty}</p>
 				)}

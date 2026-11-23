@@ -1,5 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { counted, countWord } from "@everyfield/contracts/common";
 import { GUEST_NAME_MAX } from "@everyfield/contracts/launch";
 import { launchDay } from "../adapters/launch/reads/index.ts";
 import { LAUNCH_RULES } from "../context/compile.ts";
@@ -45,6 +46,8 @@ const MILESTONES = /\bmilestones?\b/i;
 const BLOCKED = /\b(?:blocked|overdue|late|behind)\b/i;
 const GOAL = /\blaunch[- ]team\b.*\bgoal\b|\bgoal\b.*\blaunch[- ]team\b/i;
 const GUESTS = /\bguests?\b.*\blaunch sunday\b|\blaunch sunday\b.*\bguests?\b|\bcame to (?:the )?launch\b/i;
+const READY =
+	/\b(?:are|is) (?:we|the church|our church|it)\b.*\bready\b.*\blaunch|\b(?:ready (?:to|for) launch|launch[- ]ready)\b/i;
 const CHANGED = /\bwhat(?:'s| has)? changed\b.*\blaunch\b|\blaunch\b.*\bchanged\b/i;
 const MOVE =
 	/\b(?:push|move|change|reschedule|set)\b(?: the| our)? launch(?: sunday| date)?\b.*?\bto ([a-z]+\.? \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)(.*)$/i;
@@ -113,7 +116,6 @@ const reasonOf = (rest: string) =>
 		.replace(/^because\s+/i, "")
 		.replace(/[.!]\s*$/, "")
 		.trim() || null;
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 function pastDateOn(words: string, today: string): string | null {
 	const next = dateOn(words, today);
@@ -159,37 +161,77 @@ function countdownText(f: Record<string, unknown>) {
 		case "today":
 			return `Launch Sunday is today, ${String(f.plannedDate)}.`;
 		case "overdue":
-			return `Launch Sunday was planned for ${String(f.plannedDate)}, ${plural(Number(f.daysOverdue), "day", "days")} ago, and it isn't recorded yet.`;
+			return `Launch Sunday was planned for ${String(f.plannedDate)}, ${counted(Number(f.daysOverdue), "day")} ago, and it isn't recorded yet.`;
 		default:
-			return `${plural(Number(f.daysLeft), "day", "days")} until Launch Sunday, ${String(f.plannedDate)}, as the Launch plan counts it from today in ${String(f.timeZone)}.`;
+			return `${counted(Number(f.daysLeft), "day")} until Launch Sunday, ${String(f.plannedDate)}, as the Launch plan counts it from today in ${String(f.timeZone)}.`;
 	}
 }
 
+const prepText = (t: Row) =>
+	`${t.label}${t.fields.dueDate ? ` (due ${String(t.fields.dueDate)}${t.fields.overdue ? ", overdue" : ""})` : ""}`;
 function milestonesText(out: Output) {
 	const f = out.facts ?? {};
 	const rows = out.rows ?? [];
 	const milestones = rows.filter((r) => r.kind === "milestone");
 	const tasks = (id: string) => rows.filter((r) => r.kind === "item" && r.fields.milestoneId === id);
-	const taskText = (t: Row) =>
-		`${t.label}${t.fields.dueDate ? ` (due ${String(t.fields.dueDate)}${t.fields.overdue ? ", overdue" : ""})` : ""}`;
 	if (f.filter === "blocked") {
 		if (!milestones.length) return "No open launch milestone has an overdue linked prep task.";
 		const lines = milestones.map(
 			(m) =>
 				`- **${m.label}**: ${tasks(m.id)
 					.filter((t) => t.fields.overdue)
-					.map(taskText)
+					.map(prepText)
 					.join("; ")}`,
 		);
-		return `${plural(milestones.length, "launch milestone has", "launch milestones have")} an overdue prep task linked to it on the Launch plan:\n${lines.join("\n")}\n\nOnly a milestone's own linked prep tasks count.`;
+		return `${counted(milestones.length, "launch milestone has", "launch milestones have")} an overdue prep task linked to it on the Launch plan:\n${lines.join("\n")}\n\nOnly a milestone's own linked prep tasks count.`;
 	}
 	if (!milestones.length)
 		return `All ${String(f.milestonesTotal)} launch milestones are marked complete on the Launch plan.`;
 	const lines = milestones.map((m) => {
 		const open = tasks(m.id);
-		return `- **${m.label}**: ${String(m.fields.done)} of ${String(m.fields.total)} tasks done${open.length ? `. Open: ${open.map(taskText).join("; ")}` : ""}`;
+		return `- **${m.label}**: ${String(m.fields.done)} of ${String(m.fields.total)} tasks done${open.length ? `. Open: ${open.map(prepText).join("; ")}` : ""}`;
 	});
 	return `${milestones.length} of ${String(f.milestonesTotal)} launch milestones are still open, as the Launch plan shows them:\n${lines.join("\n")}`;
+}
+
+function readinessText(workspace: Output, phases: Output | undefined) {
+	const f = workspace.facts ?? {};
+	const rows = workspace.rows ?? [];
+	const milestones = rows
+		.filter((r) => r.kind === "milestone")
+		.map((m) => {
+			const v = m.fields;
+			const held =
+				typeof v.practicesHeld === "number" ? ` ${v.practicesHeld} of ${String(v.practicesRequired)} held.` : "";
+			const by = `${String(v.completedBy)} on ${String(v.completedOn)}`;
+			if (v.completed === true) return `- **${m.label}**: met.${held} Completed by ${by}.`;
+			const open = rows.filter((r) => r.kind === "item" && r.fields.milestoneId === m.id);
+			const review =
+				v.needsReview === true ? ` Completed by ${by}, but a linked prep task has been reopened since.` : "";
+			const tasks = open.length
+				? ` Open: ${open.map(prepText).join("; ")}.`
+				: " No open prep tasks; no one has completed it yet.";
+			return `- **${m.label}**: not met.${held}${review}${tasks}`;
+		});
+	const head = `${String(f.milestonesDone)} of ${String(f.milestonesTotal)} launch readiness milestones are met on the Launch plan:`;
+	const phase = (phases?.rows ?? []).find((r) => r.kind === "phase");
+	const criteria = (phases?.rows ?? []).filter((r) => r.kind === "criterion");
+	const exit = !phases
+		? ["Phase readiness is for Owners and Admins, so I left the phase's exit criteria out."]
+		: phase?.fields.terminal === true || !criteria.length
+			? [`${String(phase?.label)} has no exit criteria to show.`]
+			: [
+					`Exit criteria for leaving ${String(phase?.label)} for ${String(phase?.fields.next)}, as phase readiness shows them:`,
+					...criteria.map((c) => `- ${c.label}: ${String(c.fields.status)}`),
+				];
+	return [
+		head,
+		...milestones,
+		"",
+		...exit,
+		"",
+		"This is what your records show. Readiness is your call, not mine, and I changed nothing.",
+	].join("\n");
 }
 
 function guestsText(out: Output) {
@@ -200,9 +242,9 @@ function guestsText(out: Output) {
 	const named = Number(f.guestsNamed ?? 0);
 	const head =
 		f.namesVisible === false
-			? `${plural(named, "first-time guest is", "first-time guests are")} named on the Launch plan for ${String(f.actualDate)}. Only an Owner or Admin sees their names.`
+			? `${counted(named, "first-time guest is", "first-time guests are")} named on the Launch plan for ${String(f.actualDate)}. Only an Owner or Admin sees their names.`
 			: named
-				? `${plural(named, "first-time guest is", "first-time guests are")} named on the Launch plan for ${String(f.actualDate)}: ${guests.map((g) => g.label).join(", ")}.`
+				? `${counted(named, "first-time guest is", "first-time guests are")} named on the Launch plan for ${String(f.actualDate)}: ${guests.map((g) => g.label).join(", ")}.`
 				: `No first-time guests are named on the Launch plan for ${String(f.actualDate)} yet.`;
 	const attendance = typeof f.attendance === "number" ? f.attendance : null;
 	const notes = [
@@ -210,7 +252,7 @@ function guestsText(out: Output) {
 			? `The recorded attendance was ${attendance}, so not everyone who came is named.`
 			: "",
 		typeof f.guestsNotNamed === "number" && f.guestsNotNamed > 0
-			? `The debrief says ${plural(f.guestsNotNamed, "guest wasn't", "guests weren't")} entered by name.`
+			? `The debrief says ${counted(f.guestsNotNamed, "guest wasn't", "guests weren't")} entered by name.`
 			: "",
 	].filter(Boolean);
 	return [head, ...notes].join(" ");
@@ -267,6 +309,7 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 		countdown: COUNTDOWN.test(text),
 		milestones: MILESTONES.test(text),
 		goal: GOAL.test(text),
+		ready: READY.test(text),
 		guests: GUESTS.test(text),
 		changed: CHANGED.test(text),
 		move: Boolean(move),
@@ -369,12 +412,20 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 			return say("Launch Sunday isn't recorded yet, so there's nothing to summarize.");
 		return propose("launch.publishDebriefSummary", { body: summaryFrom(debrief.facts) });
 	}
+	if (asked.ready) {
+		const workspace = found("launch.readWorkspace");
+		if (!workspace) return read("launch.readWorkspace", { filter: "all" });
+		const phases = found("phases.readReadiness");
+		if (!phases && offers("phases.readReadiness"))
+			return call("phases_read", { operation: "phases.readReadiness", input: {} });
+		return say(readinessText(workspace, phases));
+	}
 	if (asked.goal) {
 		const people = outputs.findLast((o) => o.operation === "people.listPeople");
 		if (!people) return call("people_read", { operation: "people.listPeople", input: { stages: ["launch_team"] } });
 		const n = Number(people.total ?? 0);
 		const goal = system.includes(LAUNCH_RULES.noGoal) ? ` ${LAUNCH_RULES.noGoal}` : "";
-		return say(`${plural(n, "person is", "people are")} in Launch team.${goal}`);
+		return say(`${counted(n, "person is", "people are")} in Launch team.${goal}`);
 	}
 	if (asked.guests) {
 		const debrief = found("launch.readDebrief");
@@ -433,7 +484,7 @@ function guestStep(outputs: Output[], ask: GuestAsk): LanguageModelV4Content[] {
 			);
 		if (!m)
 			return say(
-				`I found ${plural(matches.length, "Person", "People")} matching **${name}**, so I can't tell which one you mean. I prepared nothing.`,
+				`I found ${counted(matches.length, "Person", "People")} matching **${name}**, so I can't tell which one you mean. I prepared nothing.`,
 			);
 		if (m.fields.alreadyGuest === true)
 			return say(`**${m.label}** is already named as a Launch Sunday guest, so I prepared nothing.`);
@@ -533,7 +584,7 @@ function milestoneProposed(completing: boolean, m: Row | undefined) {
 	if (!completing) return `I prepared a review card to reopen **${label}**. Its prep tasks stay as they are. ${wait}`;
 	const open = Number(m?.fields.openTasks ?? 0);
 	const tasks = open
-		? ` ${open} of its ${String(m?.fields.total)} prep tasks ${open === 1 ? "is still open and stays" : "are still open and stay"} open.`
+		? ` ${open} of its ${String(m?.fields.total)} prep tasks ${countWord(open, "is still open and stays", "are still open and stay")} open.`
 		: "";
 	const review = m?.fields.needsReview === true ? " It confirms the earlier completion." : "";
 	return `I prepared a review card to mark **${label}** complete.${tasks}${review} ${wait}`;

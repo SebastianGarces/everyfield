@@ -31,7 +31,11 @@ test("a retry after a lost reply sends the same import id", () => {
 	assert.equal(back.step, "review");
 	assert.ok(back.review.problem, "the lost reply is explained");
 	assert.deepEqual(importRequest(back.review), first);
-	const refused = afterImport(back.review, { status: "refused", refusal: { code: "review_stale" } });
+	const refused = afterImport(back.review, {
+		status: "refused",
+		code: "review_stale",
+		refusal: { code: "review_stale" },
+	});
 	assert.equal(importRequest(refused.review).importId, first.importId);
 });
 

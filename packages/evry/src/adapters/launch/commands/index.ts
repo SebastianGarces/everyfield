@@ -1,4 +1,4 @@
-import { localDate } from "@everyfield/contracts/common";
+import { countWord, localDate } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
@@ -225,10 +225,10 @@ export const recordOutcome = launchWrite({
 	},
 	async run(db, authority, args, key) {
 		const a = z
-			.object({
+			.strictObject({
 				record: z.record(z.string(), z.unknown()),
 				debrief: z
-					.object({ draftId: z.string().nullable(), expectedRevision: z.string(), answers: z.unknown() })
+					.strictObject({ draftId: z.string().nullable(), expectedRevision: z.string(), answers: z.unknown() })
 					.nullable(),
 			})
 			.parse(args);
@@ -359,7 +359,7 @@ export const completeMilestone = launchWrite({
 			changes: [{ field: "milestone", before: milestoneState(m), after: "Complete" }],
 			notes: [
 				open.length
-					? `${open.length} of its ${m.tasks.length} prep tasks ${open.length === 1 ? "is still open and stays" : "are still open and stay"} open: ${open.map((t) => t.title).join("; ")}.`
+					? `${open.length} of its ${m.tasks.length} prep tasks ${countWord(open.length, "is still open and stays", "are still open and stay")} open: ${open.map((t) => t.title).join("; ")}.`
 					: "Every prep task linked to it is done.",
 				...(earlier
 					? [

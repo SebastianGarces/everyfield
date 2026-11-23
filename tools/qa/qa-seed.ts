@@ -29,6 +29,9 @@ import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
 import { resendWebhook } from "../../apps/web/src/server/jobs/webhook-route.ts";
 import { FULL_ADDRESS, QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
 import { gatedTransaction } from "../../packages/domain/src/operations/writes.ts";
+import { errorClass } from "../../packages/domain/src/log.ts";
+import { canonical, hash, stableId } from "../../packages/reference/src/hash.ts";
+import { loadStarter } from "../../packages/reference/src/starter-load.ts";
 
 const CHURCH = "Harvest Point (QA)";
 const RIVERSIDE = { name: "Riverside (QA)", city: "Dallas", owner: "Rachel Moss" } as const;
@@ -82,11 +85,11 @@ type Ctx = { session: string; selected: { kind: "plant"; id: string } };
 type Reply = { status: string; value?: unknown };
 
 function ok(what: string, reply: Reply): unknown {
-	if (reply.status !== "ok") throw Error(`${what}: ${JSON.stringify(reply)}`);
+	if (reply.status !== "ok") throw new SeedFailed(`${what}: ${JSON.stringify(reply)}`);
 	return reply.value;
 }
 
-async function rows(db: Database, query: ReturnType<typeof sql>) {
+async function rows(db: Pick<Database, "execute">, query: ReturnType<typeof sql>) {
 	return (await db.execute(query)).rows as Record<string, unknown>[];
 }
 
@@ -108,7 +111,22 @@ async function logins(admin: Database, password: string) {
 	}
 }
 
-class SeedRefusal extends Error {}
+class SeedRefusal extends Error {
+	readonly reason: string;
+	constructor(reason: string) {
+		super(reason);
+		this.name = "SeedRefusal";
+		this.reason = reason;
+	}
+}
+class SeedFailed extends Error {
+	readonly reason: string;
+	constructor(reason: string) {
+		super(reason);
+		this.name = "SeedFailed";
+		this.reason = reason;
+	}
+}
 
 function sharedAddress(env: Readonly<Record<string, string | undefined>>): string {
 	const first = (env.QA_TEST_RECIPIENTS ?? "").split(",")[0]!.trim();
@@ -191,7 +209,7 @@ async function fill(
 			password: QA_PASSWORD,
 			requestKey: randomUUID(),
 		});
-		if (!r.ok) throw Error(`register ${email}: ${r.status} ${await r.text()}`);
+		if (!r.ok) throw new SeedFailed(`register ${email}: ${r.status} ${await r.text()}`);
 		await admin.execute(sql`UPDATE auth_user SET email_verified=true WHERE email=${email}`);
 		if (active)
 			await admin.execute(
@@ -226,7 +244,7 @@ async function fill(
 		const open = sessions.get(email);
 		if (open) return open;
 		const signedIn = await call("sign-in/email", { email, password: QA_PASSWORD });
-		if (!signedIn.ok) throw Error(`sign in ${email}: ${signedIn.status}`);
+		if (!signedIn.ok) throw new SeedFailed(`sign in ${email}: ${signedIn.status}`);
 		const row = await rows(
 			admin,
 			sql`SELECT s.id FROM auth_session s JOIN auth_user u ON u.id=s.user_id WHERE u.email=${email}
@@ -436,7 +454,7 @@ async function fill(
 
 	if (!(await rows(admin, sql`SELECT 1 FROM document WHERE tenant_id=${plantId} AND title=${DOCUMENT}`)).length) {
 		const actor = await RequestActor.resolve(runtime, (await ctx()).session as never);
-		if (!(actor instanceof RequestActor)) throw Error(`document actor: ${JSON.stringify(actor)}`);
+		if (!(actor instanceof RequestActor)) throw new SeedFailed(`document actor: ${JSON.stringify(actor)}`);
 		ok(
 			"document",
 			await documentsWriter.saveNative(runtime, actor, {
@@ -475,7 +493,7 @@ async function fill(
 		invalidate: (_tx, input) =>
 			sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
 	};
-	const organizations = createOrganizationAdapter(effects, { candidates: async () => [] });
+	const organizations = createOrganizationAdapter(effects, { candidates: () => sql`SELECT NULL::uuid WHERE false` });
 	async function organizationRow(kind: OrgKind, name: string, city = "Austin"): Promise<OrgOwner> {
 		let id = (
 			await rows(admin, sql`SELECT id FROM organization WHERE name=${name} AND kind=${kind} ORDER BY id LIMIT 1`)
@@ -598,7 +616,7 @@ async function fill(
 		done.push(`person ${SHARED.name} in ${RIVERSIDE.name}`);
 	}
 
-	await multiplication({
+	const m: Multiplication = {
 		admin,
 		runtime,
 		done,
@@ -609,15 +627,19 @@ async function fill(
 		relate,
 		plant,
 		organizations,
-	});
+	};
+	await multiplication(m);
+	const expired = await expiredRequest(m, onboarding, proofs);
 
 	const wikiWritten = await wiki(admin);
 	done.push(...(await wikiCases(admin, plantId, owner)));
 	if (wikiWritten) done.push("wiki");
+	if (await ministryTemplates(admin)) done.push("ministry templates");
 	done.push(...(await checkIns(admin, runtime, owner, plantId, ownerSession)));
 
 	for (const id of sessions.values()) await admin.execute(sql`DELETE FROM auth_session WHERE id=${id}`);
-	return done.length ? `QA seed wrote: ${done.join(", ")}.` : "QA seed: the branch is already complete.";
+	const summary = done.length ? `QA seed wrote: ${done.join(", ")}.` : "QA seed: the branch is already complete.";
+	return expired ? `${summary}\nQA link, Expired discovery request: ${expired}` : summary;
 }
 
 const GRACE = "Grace Austin (QA)";
@@ -677,7 +699,7 @@ type Multiplication = {
 	admin: Database;
 	runtime: Database;
 	done: string[];
-	account: (name: string, email: string, organization?: Registration) => Promise<string>;
+	account: (name: string, email: string, organization?: Registration, active?: boolean) => Promise<string>;
 	sessionOf: (email: string) => Promise<string>;
 	organizationRow: (kind: OrgKind, name: string, city?: string) => Promise<OrgOwner>;
 	seatRow: (accountId: string, orgId: string, role: string, label: string) => Promise<string>;
@@ -712,7 +734,7 @@ async function multiplication(m: Multiplication): Promise<void> {
 
 	const authority = async (email: string) => {
 		const actor = await RequestActor.resolve(runtime, (await m.sessionOf(email)) as never);
-		if (!(actor instanceof RequestActor)) throw Error(`actor ${email}: ${JSON.stringify(actor)}`);
+		if (!(actor instanceof RequestActor)) throw new SeedFailed(`actor ${email}: ${JSON.stringify(actor)}`);
 		return actor;
 	};
 	const personOf = async (org: string, name: string) =>
@@ -1058,7 +1080,8 @@ async function multiplication(m: Multiplication): Promise<void> {
 				} as never,
 			),
 		);
-		if (left.status !== "committed") throw Error(`leave residency ${ENDED_RESIDENT.name}: ${JSON.stringify(left)}`);
+		if (left.status !== "committed")
+			throw new SeedFailed(`leave residency ${ENDED_RESIDENT.name}: ${JSON.stringify(left)}`);
 		done.push(`left residency ${ENDED_RESIDENT.name}`);
 	}
 
@@ -1101,6 +1124,64 @@ const BOUNCES = {
 	adminFirst: "qa-seed/bounce/admin-1",
 	adminAgain: "qa-seed/bounce/admin-2",
 } as const;
+
+const DISCOVERY_SENDER = { name: "Nico Alvarez", login: QA_LOGINS.discoverySender } as const;
+const EXPIRED_AGE = "35 days";
+
+async function expiredRequest(
+	m: Multiplication,
+	onboarding: ReturnType<typeof createOnboardingProducer>,
+	proofs: ReadonlyMap<string, string>,
+): Promise<string | null> {
+	const { admin, runtime, done } = m;
+	const nico = await m.account(DISCOVERY_SENDER.name, DISCOVERY_SENDER.login, { kind: "discovery" }, false);
+	const selected = { kind: "account", id: nico } as const;
+	const revision = async () =>
+		(await rows(admin, sql`SELECT revision::text AS r FROM account WHERE id=${nico}`))[0]!.r as string;
+	if (!(await rows(admin, sql`SELECT 1 FROM discovery WHERE account_id=${nico}`)).length) {
+		const c = { session: await m.sessionOf(DISCOVERY_SENDER.login), selected };
+		const expectedRevision = await revision();
+		ok(
+			`Discovery ${DISCOVERY_SENDER.name}`,
+			await gatedTransaction(runtime, (tx) =>
+				onboarding.createDiscovery(
+					tx as never,
+					c as never,
+					{ requestKey: randomUUID(), expectedRevision, input: {} } as never,
+				),
+			),
+		);
+		done.push(`Discovery ${DISCOVERY_SENDER.name}`);
+	}
+	const hill = await m.organizationRow("sending_network", HILL);
+	const sent = await rows(
+		admin,
+		sql`SELECT 1 FROM relationship_invitation WHERE account_id=${nico} AND organization_id=${hill.id}`,
+	);
+	if (sent.length) return null;
+	const s = (await m.sessionOf(DISCOVERY_SENDER.login)) as never;
+	const expectedRevision = await revision();
+	const invited = await gatedTransaction(runtime, (tx) =>
+		m.organizations["associations.invite"](
+			tx,
+			s,
+			selected as never,
+			{
+				requestKey: randomUUID(),
+				expectedRevision,
+				input: {
+					pair: { kind: "discovery", accountId: nico, organization: hill },
+					recipientEmail: HILL_OWNER.login,
+				},
+			} as never,
+		),
+	);
+	await admin.execute(
+		sql`UPDATE invitation SET created_at=clock_timestamp()-${EXPIRED_AGE}::interval WHERE id=${invited.invitationId}`,
+	);
+	done.push(`expired request from ${DISCOVERY_SENDER.name} to ${HILL}`);
+	return `/connections/respond?invitation=${invited.invitationId}#${proofs.get(invited.invitationId)!}`;
+}
 
 async function bounce(tx: Database, keys: MailKeys, eventKey: string, address: string, daysAgo: number) {
 	const event = randomUUID(),
@@ -1180,7 +1261,7 @@ async function mailCases(
 		);
 		const scheduled = (await message())!;
 		const actor = await RequestActor.resolve(runtime, c.session as never);
-		if (!(actor instanceof RequestActor)) throw Error(`delivery actor: ${JSON.stringify(actor)}`);
+		if (!(actor instanceof RequestActor)) throw new SeedFailed(`delivery actor: ${JSON.stringify(actor)}`);
 		const accepting: DeliveryTransport = {
 			send: async (batch) => ({ outcome: "ids", ids: batch.messages.map(() => `qa-seed-${randomUUID()}`) }),
 			cancel: async (ids) => ids.map(() => ({ outcome: "unknown" })),
@@ -1197,7 +1278,7 @@ async function mailCases(
 			),
 		) as { acceptedCount: number; rejectedCount: number };
 		if (result.acceptedCount !== DELIVERY_TO.length - 1 || result.rejectedCount !== 1)
-			throw Error(`send delivery message: ${JSON.stringify(result)}`);
+			throw new SeedFailed(`send delivery message: ${JSON.stringify(result)}`);
 		const accepted = await rows(
 			admin,
 			sql`SELECT provider_message_id AS id FROM mail WHERE tenant_id=${p.plantId} AND purpose='communication'
@@ -1225,7 +1306,7 @@ async function mailCases(
 				secret,
 			);
 			const received = await response.text();
-			if (JSON.parse(received).result !== "applied") throw Error(`delivered callback: ${received}`);
+			if (JSON.parse(received).result !== "applied") throw new SeedFailed(`delivered callback: ${received}`);
 		}
 		done.push(`message ${DELIVERY}`);
 	}
@@ -1294,7 +1375,7 @@ async function checkIns(
 	let now = "";
 	const care = createPrivateCare({ clock: { now: () => now as Instant } });
 	const actor = await RequestActor.resolve(runtime, (await ownerSession()) as never);
-	if (!(actor instanceof RequestActor)) throw Error(`check-in actor: ${JSON.stringify(actor)}`);
+	if (!(actor instanceof RequestActor)) throw new SeedFailed(`check-in actor: ${JSON.stringify(actor)}`);
 	await gatedTransaction(runtime, async (tx) => {
 		for (const [index, [spiritual, family, financial, pace, note]] of CHECK_INS.entries()) {
 			now = times[index]!;
@@ -1341,6 +1422,42 @@ async function wiki(admin: Database): Promise<boolean> {
 	return true;
 }
 
+async function ministryTemplates(admin: Database): Promise<boolean> {
+	const starter = await loadStarter();
+	const source = starter.sources.find((s) => s.path === "docs/reference/ministry-role-templates.ts");
+	if (!source) throw Error("ministry templates: the reference starter has no ministry-role-templates.ts");
+	const templates = starter.catalogs.teams.map((row) => {
+		const key = String(row.teamKey),
+			body = canonical(row);
+		return { key, id: stableId("ministry_template:" + key), contentHash: hash(body) };
+	});
+	return admin.transaction(async (tx) => {
+		const [release] = await rows(
+			tx,
+			sql`SELECT r.id, r.release_key, r.artifact_locator FROM reference_activation a
+				JOIN reference_release r ON r.id = a.release_id ORDER BY a.activation_number DESC LIMIT 1`,
+		);
+		if (!release) throw Error("ministry templates: no active reference release");
+		let wrote = false;
+		for (const template of templates) {
+			await tx.execute(sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id)
+				VALUES(${template.id},'ministry_template',${template.key},${GLOBAL}) ON CONFLICT DO NOTHING`);
+			const [item] = await rows(
+				tx,
+				sql`SELECT i.id, EXISTS(SELECT 1 FROM reference_version v WHERE v.item_id = i.id) AS versioned
+					FROM reference_item i WHERE i.kind = 'ministry_template' AND i.canonical_key = ${template.key}`,
+			);
+			if (item!.versioned) continue;
+			const itemId = item!.id as string;
+			const revisionId = stableId(`${String(release.release_key)}:${itemId}:${template.contentHash}`);
+			await tx.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
+				VALUES(${stableId("version:" + revisionId)},${itemId},${release.id as string},1,${`${String(release.artifact_locator)}#${itemId}`},${template.contentHash},${`${source.path}@${source.sha256}`})`);
+			wrote = true;
+		}
+		return wrote;
+	});
+}
+
 const SOURCES = [
 	{ kind: "sending_church", name: "Grace Fellowship (QA)", version: "church version", acceptedDaysAgo: 30 },
 	{ kind: "sending_network", name: "Harvest Network (QA)", version: "network version", acceptedDaysAgo: 20 },
@@ -1366,7 +1483,7 @@ async function starterArticles(admin: Database) {
 			GROUP BY r.article_id ORDER BY 2, 3, 1 LIMIT 3`,
 	);
 	if (found.length < 3)
-		throw Error(
+		throw new SeedFailed(
 			`wiki: the active release has ${found.length} published global articles; articles A, B and C need three`,
 		);
 	return found.map((row) => row.article_id as string) as [string, string, string];
@@ -1476,7 +1593,14 @@ if (import.meta.main) {
 	try {
 		console.log(await seed(process.env));
 	} catch (error) {
-		console.error(error instanceof SeedRefusal ? `QA seed refused: ${error.message}` : `QA seed failed: ${error}`);
+		const failure = errorClass(error);
+		console.error(
+			error instanceof SeedRefusal
+				? `QA seed refused: ${error.reason}`
+				: error instanceof SeedFailed
+					? `QA seed failed: ${error.reason}`
+					: `QA seed failed: ${failure.name}${failure.code ? ` ${failure.code}` : ""}`,
+		);
 		process.exitCode = error instanceof SeedRefusal ? 2 : 1;
 	}
 }

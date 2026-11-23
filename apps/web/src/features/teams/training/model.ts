@@ -1,3 +1,4 @@
+import { counted } from "@everyfield/contracts/common";
 import type { Outcome } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/teams";
 import type { z } from "zod";
@@ -74,7 +75,7 @@ export function progressText(
 	if (program.requiredPeople === 0) return "No one is assigned. This is not complete.";
 	const done = program.compatibleCredits;
 	const total = program.requiredPeople;
-	return `${done} of ${total} ${total === 1 ? "person has" : "people have"} finished.`;
+	return `${done} of ${counted(total, "person has", "people have")} finished.`;
 }
 
 export function applyCreate(programs: readonly ShownProgram[], program: ProgramBody, teamId: string): ShownProgram[] {

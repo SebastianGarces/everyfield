@@ -1,5 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { counted } from "@everyfield/contracts/common";
 import { ZONE_NAME } from "../catalog/labels.ts";
 import { captured } from "./captured.ts";
 
@@ -129,11 +130,9 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 		const waiting = !of("seats.listInvitations")
 			? ""
 			: invitations.length
-				? ` ${invitations.length === 1 ? "1 invitation is" : `${invitations.length} invitations are`} waiting: ${invitations.join(", ")}.`
+				? ` ${counted(invitations.length, "invitation is", "invitations are")} waiting: ${invitations.join(", ")}.`
 				: " No invitation is waiting.";
-		return say(
-			`${seats.length} ${seats.length === 1 ? "person has" : "people have"} access: ${seats.join(", ")}.${waiting}`,
-		);
+		return say(`${counted(seats.length, "person has", "people have")} access: ${seats.join(", ")}.${waiting}`);
 	}
 
 	const invite = new RegExp(String.raw`\binvite\s+${EMAIL}\s+(?:as|to be)\s+(?:an?\s+)?(admin|member)\b`, "i").exec(
@@ -214,7 +213,7 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 		if (shared === "nothing") return say(`This church shares nothing with ${found.label} right now.`);
 		const list = shared.split(", ");
 		return say(
-			`This church shares ${list.length === 1 ? "1 category" : `${list.length} categories`} with ${found.label}: ${list.join(" and ")}.`,
+			`This church shares ${counted(list.length, "category", "categories")} with ${found.label}: ${list.join(" and ")}.`,
 		);
 	}
 	const change = /\b(stop|start)\s+sharing\s+(.+?)\s+with\s+(them|.+?)\.?\s*$/i.exec(text);
@@ -225,13 +224,18 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 		const organization = /^them$/i.test(named) ? undefined : named;
 		if (!of("privacy.getSharing"))
 			return call("sharing_read", { operation: "privacy.getSharing", input: organization ? { organization } : {} });
-		const found = rows("privacy.getSharing");
+		const asked = CATEGORY.find(([pattern]) => pattern.test(change?.[2] ?? ""));
+		const all = rows("privacy.getSharing");
+		const found =
+			change && asked && captured(change, 1).toLowerCase() === "stop" && all.length > 1
+				? all.filter((r) => asked[0].test(String(r.fields.shared ?? "")))
+				: all;
 		const [connection] = found;
 		if (!connection || found.length !== 1)
 			return say(found.length ? "Which organization do you mean?" : "This church has no connection like that.");
 		const organizationId = String(connection.fields.organizationId);
 		if (ending || !change) return propose("associations.end", { organizationId });
-		const category = CATEGORY.find(([pattern]) => pattern.test(captured(change, 2)))?.[1];
+		const category = asked?.[1];
 		if (!category) return say(`Which category do you mean? You can share meetings, people totals, tasks and more.`);
 		return propose("privacy.setSharing", {
 			organizationId,

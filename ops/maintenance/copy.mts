@@ -1,7 +1,9 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { readPrivateBytes } from "./control.mts";
-import { validateCandidate } from "./recovery.mts";
+import { ManifestRefused, validateCandidate } from "./recovery.mts";
 import type { Snapshot } from "./restore.mts";
 const require = createRequire(new URL("../../packages/domain/package.json", import.meta.url));
 const { z } = require("zod");
@@ -14,11 +16,28 @@ const capability = z.strictObject({
 	environment: z.literal("isolated-test"),
 });
 
-export type BackupStore = {
-	put(key: string, bytes: Uint8Array): Promise<void>;
-	get(key: string): Promise<Uint8Array | null>;
-};
-export type CopyDeps = { store: BackupStore; clock: () => Date };
+const COPY_KEY = /^copy\/[0-9-]{10}\/[0-9a-f-]{36}\/(manifest\.json|key|database|objects\/[0-9a-f-]{36})$/;
+const COPY_LIMIT = 256 * 1024 * 1024;
+
+export class BackupDirectory {
+	readonly #root: string;
+	constructor(root: string) {
+		this.#root = root;
+	}
+	#path(key: string) {
+		if (!COPY_KEY.test(key)) throw Error("copy_key_invalid");
+		return join(this.#root, key);
+	}
+	async put(key: string, bytes: Uint8Array): Promise<void> {
+		const path = this.#path(key);
+		await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+		await writeFile(path, bytes, { mode: 0o600, flag: "wx" });
+	}
+	get(key: string): Promise<Uint8Array | null> {
+		return readPrivateBytes(this.#path(key), COPY_LIMIT).catch(() => null);
+	}
+}
+export type CopyDeps = { store: BackupDirectory; clock: () => Date };
 export type CopyInput = {
 	capability: unknown;
 	keyFile: string;
@@ -57,11 +76,6 @@ class Refused extends Error {
 		this.code = code;
 	}
 }
-const MANIFEST_REFUSALS = new Set([
-	"copy_expired_or_invalid",
-	"duplicate_manifest_identity",
-	"subject_expired_or_reset",
-]);
 const IV = 12,
 	TAG = 16;
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
@@ -91,7 +105,7 @@ async function backupKey(path: string) {
 	return key;
 }
 
-export async function openEncryptedCopy(store: BackupStore, location: string, keyFile: string): Promise<Snapshot> {
+export async function openEncryptedCopy(store: BackupDirectory, location: string, keyFile: string): Promise<Snapshot> {
 	const kek = await backupKey(keyFile);
 	const manifestBytes = await store.get(`${location}/manifest.json`);
 	if (!manifestBytes) throw new Refused("copy_unreadable");
@@ -135,8 +149,7 @@ async function copy(deps: CopyDeps, input: CopyInput): Promise<CopyResult> {
 	try {
 		checked = validateCandidate(snapshot.manifest, now, input.originalExpiries);
 	} catch (error) {
-		const code = error instanceof Error ? error.message : "";
-		throw new Refused(MANIFEST_REFUSALS.has(code) ? (code as CopyRefusal) : "manifest_invalid");
+		throw new Refused(error instanceof ManifestRefused ? (error.code as CopyRefusal) : "manifest_invalid");
 	}
 	const manifest = { ...checked.manifest, keyVersion: randomUUID() };
 	if (snapshot.image.length !== manifest.database.bytes || sha256(snapshot.image) !== manifest.database.sha256)

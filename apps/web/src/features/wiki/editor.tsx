@@ -1,7 +1,7 @@
 "use client";
 
 import { organizationBodyFits } from "@everyfield/contracts/wiki";
-import { Button, ConfirmDialog, Field, Select, Textarea } from "@everyfield/ui/controls";
+import { Button, ConfirmDialog, Field, InlineAlert, Select, Textarea } from "@everyfield/ui/controls";
 import { useFocusRequest } from "@everyfield/ui/foundations";
 import { useReducer, useRef, useState, useTransition } from "react";
 import { hideWikiSource, publishWikiArticle, saveWikiDraft, type OrgResult } from "./actions.ts";
@@ -365,11 +365,7 @@ export function WikiEditor({
 					</Button>
 				</div>
 				<div className="sticky bottom-0 z-[2] -mx-6 -mb-8 flex flex-col gap-3 rounded-b-card border-t border-line bg-surface px-6 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] max-app-sm:-mx-4 max-app-sm:px-4 sm:-mx-11 sm:px-11">
-					<div role="alert" className="empty:hidden">
-						{formError && formError !== EMPTY_TEXT ? (
-							<p className="text-sm font-medium text-magenta-600">{formError}</p>
-						) : null}
-					</div>
+					<InlineAlert>{formError && formError !== EMPTY_TEXT ? formError : null}</InlineAlert>
 					<p role="status" className="min-h-6 text-sm text-text-2">
 						{notice.status}
 					</p>
@@ -396,7 +392,7 @@ export function WikiEditor({
 					confirmLabel="Publish article"
 					onConfirm={async () => {
 						const message = await commit("publish");
-						if (message) throw new Error(message);
+						if (message) return { refused: message };
 					}}
 				/>
 				<ConfirmDialog
@@ -412,7 +408,7 @@ export function WikiEditor({
 					confirmLabel="Hide this source"
 					onConfirm={async () => {
 						const message = await commit("hide");
-						if (message) throw new Error(message);
+						if (message) return { refused: message };
 					}}
 				/>
 			</form>

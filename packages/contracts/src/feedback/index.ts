@@ -38,7 +38,7 @@ const text = (max: number) =>
 		.catch(null);
 const dimension = z.number().int().min(1).max(100000).nullable().catch(null);
 
-export const submitFeedbackRequest = z.object({
+export const submitFeedbackRequest = z.strictObject({
 	requestKey: z.uuid(),
 	category: feedbackCategory,
 	description: z.string().refine((v) => descriptionProblem(v) === null, "Describe it in 1 to 5,000 characters."),
@@ -51,7 +51,7 @@ export const submitFeedbackRequest = z.object({
 });
 export type SubmitFeedbackRequest = z.input<typeof submitFeedbackRequest>;
 
-export const submittedFeedback = z.object({
+export const submittedFeedback = z.strictObject({
 	id: z.uuid(),
 	category: feedbackCategory,
 	page: z.string().nullable(),
@@ -60,14 +60,14 @@ export const submittedFeedback = z.object({
 });
 export type SubmittedFeedback = z.infer<typeof submittedFeedback>;
 
-export const sendContext = z.object({
+export const sendContext = z.strictObject({
 	church: z.string().nullable(),
 	role: z.string().nullable(),
 	replyTo: z.string(),
 });
 export type SendContext = z.infer<typeof sendContext>;
 
-export const ownFeedback = z.object({
+export const ownFeedback = z.strictObject({
 	id: z.uuid(),
 	category: feedbackCategory,
 	submittedAt: z.string(),
@@ -76,10 +76,13 @@ export const ownFeedback = z.object({
 });
 export type OwnFeedback = z.infer<typeof ownFeedback>;
 export const PAGE_SIZE = 25;
-export const ownFeedbackPage = z.object({ items: z.array(ownFeedback).max(PAGE_SIZE), next: z.string().nullable() });
+export const ownFeedbackPage = z.strictObject({
+	items: z.array(ownFeedback).max(PAGE_SIZE),
+	next: z.string().nullable(),
+});
 export type OwnFeedbackPage = z.infer<typeof ownFeedbackPage>;
-export const listOwnRequest = z.object({ cursor: z.string().max(200).nullable().optional().default(null) });
-export const getOwnStatusRequest = z.object({ feedbackId: z.uuid() });
+export const listOwnRequest = z.strictObject({ cursor: z.string().max(200).nullable().optional().default(null) });
+export const getOwnStatusRequest = z.strictObject({ feedbackId: z.uuid() });
 
 export const publicationState = z.enum(["pending", "publishing", "unknown", "published", "held"]);
 export type PublicationState = z.infer<typeof publicationState>;
@@ -88,15 +91,15 @@ export type HeldReason = z.infer<typeof heldReason>;
 export const operatorMailState = z.enum(["sending", "sent", "failed", "unknown"]);
 export type OperatorMailState = z.infer<typeof operatorMailState>;
 
-export const triageFeedback = z.object({
+export const triageFeedback = z.strictObject({
 	id: z.uuid(),
 	category: feedbackCategory,
 	description: z.string(),
 	status: feedbackStatus,
 	revision: z.string(),
 	submittedAt: z.string(),
-	author: z.object({ name: z.string(), email: z.string() }),
-	details: z.object({
+	author: z.strictObject({ name: z.string(), email: z.string() }),
+	details: z.strictObject({
 		page: z.string().nullable(),
 		address: z.string().nullable(),
 		church: z.string().nullable(),
@@ -108,19 +111,22 @@ export const triageFeedback = z.object({
 		appVersion: z.string().nullable(),
 	}),
 	reference: z.string(),
-	publication: z.object({ state: publicationState, heldReason: heldReason.nullable(), url: z.url().nullable() }),
+	publication: z.strictObject({ state: publicationState, heldReason: heldReason.nullable(), url: z.url().nullable() }),
 	operatorMail: operatorMailState.nullable(),
 });
-export const triagePage = z.object({ items: z.array(triageFeedback).max(PAGE_SIZE), next: z.string().nullable() });
+export const triagePage = z.strictObject({
+	items: z.array(triageFeedback).max(PAGE_SIZE),
+	next: z.string().nullable(),
+});
 export type TriagePage = z.infer<typeof triagePage>;
-export const triageListRequest = z.object({
+export const triageListRequest = z.strictObject({
 	status: feedbackStatus.nullable().optional().default(null),
 	category: feedbackCategory.nullable().optional().default(null),
 	cursor: z.string().max(200).nullable().optional().default(null),
 });
-export const triageGetRequest = z.object({ feedbackId: z.uuid() });
+export const triageGetRequest = z.strictObject({ feedbackId: z.uuid() });
 
-export const triageChange = z.object({
+export const triageChange = z.strictObject({
 	from: feedbackStatus,
 	to: feedbackStatus,
 	by: z.string(),
@@ -130,12 +136,12 @@ export type TriageChange = z.infer<typeof triageChange>;
 export const triageDetail = triageFeedback.extend({ history: z.array(triageChange) });
 export type TriageDetail = z.infer<typeof triageDetail>;
 
-export const changeStatusRequest = z.object({
+export const changeStatusRequest = z.strictObject({
 	feedbackId: z.uuid(),
 	expectedRevision: z.string().regex(/^[1-9]\d{0,18}$/),
 	status: feedbackStatus,
 });
-export const statusChange = z.object({
+export const statusChange = z.strictObject({
 	outcome: z.enum(["changed", "unchanged", "stale"]),
 	status: feedbackStatus,
 	revision: z.string(),

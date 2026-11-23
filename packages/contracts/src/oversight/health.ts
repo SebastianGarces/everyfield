@@ -1,5 +1,6 @@
 import { z } from "zod";
 import rubric from "../../../../docs/reference/network-rubric-v1.json" with { type: "json" };
+import { counted } from "../common/text.ts";
 import { instant, localDate } from "../common/time.ts";
 import { tenantId } from "../common/values.ts";
 import { GROWTH_SLOWED_DAYS, GROWTH_STALLED_DAYS } from "../intelligence/facts.ts";
@@ -205,7 +206,6 @@ export const intelligencePattern = z.discriminatedUnion("theme", [
 export type IntelligencePattern = z.infer<typeof intelligencePattern>;
 
 const MOMENTUM = { slowed: "momentum has slowed", stalled: "growth has stalled" } as const;
-const plants = (n: number) => `${n} ${n === 1 ? "plant" : "plants"}`;
 const dayLabel = (d: string) =>
 	new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${d}T12:00:00Z`));
 export function patternText(p: IntelligencePattern): {
@@ -217,7 +217,7 @@ export function patternText(p: IntelligencePattern): {
 	const rule = RULES[p.rule];
 	const fill = (values: Record<string, string | number>) =>
 		Object.entries(values).reduce((t, [k, v]) => t.replace(`{${k}}`, String(v)), rule.template);
-	const evidence = (what: string) => `From ${plants(p.observed)} with ${what} evidence available.`;
+	const evidence = (what: string) => `From ${counted(p.observed, "plant")} with ${what} evidence available.`;
 	const base = { nextStep: rule.nextStep };
 	switch (p.theme) {
 		case "shared_concern":
@@ -242,7 +242,7 @@ export function patternText(p: IntelligencePattern): {
 					fill({ support_count: p.support, sum_overdue_obligations: p.overdue }),
 					...(p.unowned
 						? [
-								`Of these, ${plants(p.unowned.support)} have ${p.unowned.overdue} overdue follow-up obligations with no owner.`,
+								`Of these, ${counted(p.unowned.support, "plant")} have ${p.unowned.overdue} overdue follow-up obligations with no owner.`,
 							]
 						: []),
 				],
@@ -300,3 +300,19 @@ export const feedbackRequest = z.strictObject({
 	patternKey: z.string().min(1).max(200),
 	rating: z.enum(["useful", "not_useful"]),
 });
+
+export const savedLocation = z.strictObject({
+	city: z.string().nullable(),
+	stateProvince: z.string().nullable(),
+	country: z.string().nullable(),
+	region: regionArea.nullable(),
+	effectiveAt: instant,
+	runs: z.array(instant),
+});
+export const locationHistory = z.strictObject({
+	plantId: tenantId,
+	name: z.string().min(1),
+	timeZone: z.string(),
+	locations: z.array(savedLocation),
+});
+export type LocationHistory = z.infer<typeof locationHistory>;

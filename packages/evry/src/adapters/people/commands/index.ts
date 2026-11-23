@@ -15,12 +15,13 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 import type { WriteTx } from "@everyfield/domain/access";
+import { claimStagedPhoto, requireStagedPhoto, stagedPhotoIn } from "../../../attachments/store.ts";
 
 export const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
-const target = (actor: EvryActor, personId: string) =>
+export const target = (actor: EvryActor, personId: string) =>
 	sql`FROM person p WHERE p.id=${personId}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
-const person = sql`jsonb_build_object('kind','person','id',p.id,'label',p.display_name)`;
+export const person = sql`jsonb_build_object('kind','person','id',p.id,'label',p.display_name)`;
 const change = (field: string, before: SQL, after: unknown) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before},'after',${JSON.stringify(after ?? null)}::jsonb)`;
 const openTasks = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('kind','needs_owner','dutyId',t.id,'expectedRevision',t.revision::text) ORDER BY t.id),'[]'::jsonb)
@@ -29,12 +30,12 @@ const openTasks = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('kind','need
 const tasksChange = (handoffs: SQL) =>
 	sql`CASE WHEN jsonb_array_length(${handoffs})>0 THEN jsonb_build_array(jsonb_build_object('field','openTasksNeedingOwner','before',NULL,'after',jsonb_array_length(${handoffs}))) ELSE '[]'::jsonb END`;
 
-type Receipt = { receiptId: string; revision: string };
-function reviewed<I, R extends z.ZodType>(spec: {
+export type Receipt = { receiptId: string; revision: string };
+export function reviewed<I, R extends z.ZodType>(spec: {
 	operation: string;
 	description: string;
 	input: z.ZodType<I>;
-	review(actor: EvryActor, input: I): SQL;
+	review: ReviewedWrite<I>["review"];
 	request: R;
 	run(
 		tx: WriteTx,
@@ -49,9 +50,9 @@ function reviewed<I, R extends z.ZodType>(spec: {
 		input: spec.input,
 		allowed: ownerOrAdmin,
 		review: spec.review,
-		async execute(tx, context, args, effectKey, reminders): Promise<EffectResult> {
-			const request = spec.request.parse({ ...z.object({}).loose().parse(args), requestKey: effectKey });
-			const reply = await spec.run(tx, context, request, reminders);
+		async execute(tx, context, args, effectKey, ports): Promise<EffectResult> {
+			const request = spec.request.parse({ ...z.record(z.string(), z.unknown()).parse(args), requestKey: effectKey });
+			const reply = await spec.run(tx, context, request, ports.reminders);
 			if (reply.status !== "ok") return { refused: reply.error.code };
 			return { receiptId: reply.value.receiptId, revision: reply.value.revision };
 		},
@@ -73,7 +74,7 @@ const createInput = createPersonRequest.shape.input;
 const createPerson = reviewed({
 	operation: "people.createPerson",
 	description:
-		"Propose adding one person to this church with their name, contact, address, stage, source and notes. Nothing changes until the user approves the exact review.",
+		"Propose adding one person to this church with their name, contact, address, stage, source and notes. When the user says how they came, such as to vision night, set source to match (vision_meeting) and keep the rest, such as who invited them, in sourceDetails: it needs no meeting, so don't ask which one. Nothing changes until the user approves the exact review.",
 	input: createInput,
 	review(_actor, value) {
 		const changes = Object.entries(value).flatMap(([field, after]) =>
@@ -151,15 +152,18 @@ const setPersonPhoto = reviewed({
 	description:
 		"Propose making a photo the user uploaded in this church the person's photo. Nothing changes until the user approves the exact review.",
 	input: z.strictObject({ personId, uploadId: z.uuid() }),
-	review(actor, value) {
+	async review(actor, value, context) {
+		await requireStagedPhoto(context.db, actor, context.conversationId, value.uploadId);
 		return sql`SELECT jsonb_build_object('target',${person},'changes',jsonb_build_array(${change("photo", sql`to_jsonb(p.photo_object_id)`, value.uploadId)})) AS review,
 			jsonb_build_object('expectedRevision',p.revision::text,'input',jsonb_build_object('personId',p.id,'uploadId',${value.uploadId}::uuid)) AS args
 			${target(actor, value.personId)} AND EXISTS(SELECT FROM file_object f WHERE f.id=${value.uploadId}::uuid AND f.tenant_id=p.tenant_id
-				AND f.purpose='person_photo' AND f.state='ready' AND f.expires_at>clock_timestamp()
-				AND NOT EXISTS(SELECT FROM person o WHERE o.photo_object_id=f.id))`;
+				AND ${stagedPhotoIn("f", sql`${context.conversationId}::text`)})`;
 	},
 	request: setPersonPhotoRequest,
-	run: async (tx, context, request) => photoReceipt(await personFields.setPersonPhoto(tx, context, request)),
+	run: async (tx, context, request) => {
+		await claimStagedPhoto(tx, context.selected.id, request.input.uploadId);
+		return photoReceipt(await personFields.setPersonPhoto(tx, context, request));
+	},
 });
 
 const removePersonPhoto = reviewed({
