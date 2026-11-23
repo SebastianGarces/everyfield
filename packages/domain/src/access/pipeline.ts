@@ -92,7 +92,7 @@ export async function readPipelinePerson(
 export const liveResidency = sql<boolean>`(l.ended_at IS NULL AND l.accepted_at<=clock_timestamp()
  AND EXISTS(SELECT FROM affiliation a WHERE a.id=l.affiliation_id AND a.organization_id=l.organization_id
   AND a.account_id=l.account_id AND a.ended_at IS NULL AND a.accepted_at<=clock_timestamp()
-  AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.affiliation_id=a.id AND w.state NOT IN ('active','cancelled')))
+  AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.affiliation_id=a.id AND w.state <> 'cancelled'))
  AND EXISTS(SELECT FROM invitation i WHERE i.id=l.invitation_id AND i.tenant_id=l.organization_id
   AND i.accepted_account_id=l.account_id AND i.state='accepted' AND i.purpose='residency_link' AND i.resident_person_id=l.person_id)
  AND EXISTS(SELECT FROM person p WHERE p.id=l.person_id AND p.tenant_id=l.organization_id

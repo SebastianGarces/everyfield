@@ -33,7 +33,7 @@ export async function authorizeSettingsMail(
   AND CASE n.kind WHEN 'requested' THEN w.state='pending_deletion' AND w.cancel_until>clock_timestamp() ELSE w.state='cancelled' END
  CROSS JOIN LATERAL access_account_contact(n.account) c
  WHERE EXISTS(SELECT FROM seat s WHERE s.account_id=n.account AND s.plant_id=w.plant_id AND s.ended_at IS NULL)
-  AND NOT EXISTS(SELECT FROM lifecycle_witness h WHERE h.kind='account' AND h.opaque_subject_id=n.account AND h.state NOT IN ('active','cancelled'))`,
+  AND NOT EXISTS(SELECT FROM lifecycle_witness h WHERE h.kind='account' AND h.opaque_subject_id=n.account AND h.state <> 'cancelled')`,
 				)
 			).rows.map((r) => noticeHolder.parse(r))
 		: [];

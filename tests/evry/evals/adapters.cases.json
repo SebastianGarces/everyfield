@@ -414,14 +414,44 @@
 	{
 		"case_id": "ADP-C-07",
 		"extra": true,
+		"model": "scripted",
+		"adapter": "people/commands",
+		"operation": "people.setPersonPhoto",
+		"near_miss": false,
+		"question": "use the photo I just uploaded as Priya Shah's picture",
+		"eval": {
+			"attachments": [
+				{
+					"id": "5b6d1f0e-0000-4000-8000-00000000a0f1",
+					"name": "priya-shah.png"
+				}
+			],
+			"proposals": [
+				{
+					"operation": "people.setPersonPhoto",
+					"input": {
+						"personId": "@Priya Shah",
+						"uploadId": "5b6d1f0e-0000-4000-8000-00000000a0f1"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": ["/I['’]?(ve| have) (set|changed|updated)/i"],
+			"derivation": "The photo attached in this conversation reaches Evry as an attachment: Evry binds it to Priya Shah with one review card, and her photo changes only when the user approves."
+		}
+	},
+	{
+		"case_id": "ADP-C-10",
+		"extra": true,
+		"model": "scripted",
 		"adapter": "people/commands",
 		"operation": "people.setPersonPhoto",
 		"near_miss": true,
-		"question": "use the photo I just uploaded as Priya Shah's picture",
+		"question": "use the photo I attached in my other chat as Priya Shah's picture",
 		"eval": {
-			"attempts": ["people.setPersonPhoto"],
-			"require": ["/photo|picture|upload/i"],
-			"derivation": "No upload reaches the model, so Evry cannot bind one: it must not prepare a photo review with a guessed upload id."
+			"require": ["/attach it here/i"],
+			"forbid": ["/I['’]?(ve| have) (set|changed|updated)/i"],
+			"derivation": "A photo attached in another conversation is not listed in this one, so Evry can't use it: it asks the user to attach the photo here and prepares no review card."
 		}
 	},
 	{
