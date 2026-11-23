@@ -1,6 +1,6 @@
 "use client";
 
-import { dateText } from "@everyfield/contracts/common";
+import { counted, dateText } from "@everyfield/contracts/common";
 
 import { CheckListIcon, Clock01Icon, Edit02Icon, StarIcon } from "@hugeicons/core-free-icons";
 import { averageOf } from "@everyfield/contracts/meetings";
@@ -42,7 +42,6 @@ import {
 	CLASSIFICATION_LABEL,
 	deltaText,
 	FACTORS,
-	peopleText,
 	PRESENCE_LABEL,
 	PRESENCE_TONE,
 	problemText,
@@ -252,7 +251,7 @@ function Growth({ analytics }: { analytics: Analytics | null }) {
 		</span>
 	);
 }
-const deltaPeople = (d: number) => `${d > 0 ? "+" : d < 0 ? "−" : ""}${peopleText(Math.abs(d))}`;
+const deltaPeople = (d: number) => `${d > 0 ? "+" : d < 0 ? "−" : ""}${counted(Math.abs(d), "person", "people")}`;
 
 function Work({ tasks }: { tasks: Analytics["tasks"] }) {
 	const f = tasks.followUps;
@@ -466,7 +465,9 @@ function SettleForm({
 					) : (
 						<section aria-labelledby="settle-who">
 							<h3 id="settle-who" className="text-sm font-medium text-ink-2">
-								{ids.length === 0 ? "Nobody is marked as attended" : `${peopleText(ids.length)} attended`}
+								{ids.length === 0
+									? "Nobody is marked as attended"
+									: `${counted(ids.length, "person", "people")} attended`}
 							</h3>
 							{ids.length ? (
 								<p className="mt-1 text-md text-text-2">{ids.map((id) => name.get(id)).join(", ")}</p>
@@ -611,10 +612,10 @@ export function settledText(r: Finalization, title: string, mode: "finalize" | "
 	if (r.outcome === "noop") return `${title}: attendance was already final with these people. Nothing changed.`;
 	const parts = [
 		mode === "finalize" ? `${title}: attendance is final.` : `${title}: attendance is corrected.`,
-		created ? `${created} follow-up ${created === 1 ? "call" : "calls"} created.` : null,
+		created ? `${counted(created, "follow-up call")} created.` : null,
 		closed ? `${closed} closed as no longer needed.` : null,
-		r.stageChanges.length ? `${peopleText(r.stageChanges.length)} moved to Attendee.` : null,
-		unowned ? `${unowned} ${unowned === 1 ? "call needs" : "calls need"} an owner.` : null,
+		r.stageChanges.length ? `${counted(r.stageChanges.length, "person", "people")} moved to Attendee.` : null,
+		unowned ? `${counted(unowned, "call needs", "calls need")} an owner.` : null,
 		evaluation ? `The evaluation task ${evaluation.needsOwner ? "needs an owner" : "is assigned"}.` : null,
 	];
 	return parts.filter(Boolean).join(" ");

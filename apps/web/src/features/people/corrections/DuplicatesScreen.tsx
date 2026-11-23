@@ -1,5 +1,6 @@
 "use client";
 
+import { countWord } from "@everyfield/contracts/common";
 import {
 	Alert02Icon,
 	ArrowLeftRightIcon,
@@ -379,7 +380,7 @@ function PairReview({
 						}))}
 					/>
 					<ReviewList
-						title={`${review.openTasks.length === 1 ? "This open task stays" : "These open tasks stay"} open on ${first(survivor.displayName)}`}
+						title={`${countWord(review.openTasks.length, "This open task stays", "These open tasks stay")} open on ${first(survivor.displayName)}`}
 						items={review.openTasks.map((t, i) => ({
 							key: `${i}-${t.title}`,
 							text: t.dueDate ? (
@@ -392,7 +393,7 @@ function PairReview({
 						}))}
 					/>
 					<ReviewList
-						title={`${review.openKitItems.length === 1 ? "This unchecked kit item stays" : "These unchecked kit items stay"} assigned to ${first(survivor.displayName)}`}
+						title={`${countWord(review.openKitItems.length, "This unchecked kit item stays", "These unchecked kit items stay")} assigned to ${first(survivor.displayName)}`}
 						items={review.openKitItems.map((k, i) => ({ key: `${i}-${k.text}`, text: `${k.text}, for ${k.meeting}` }))}
 					/>
 					{groups.stays.length ? (

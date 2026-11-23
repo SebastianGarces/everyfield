@@ -119,6 +119,3 @@ export function refusalNotice(answer: Exclude<Answer<unknown>, { status: "ok" }>
 			return { title: "You can’t import people here", text: "Only Owners and Admins import people into the pipeline." };
 	}
 }
-
-export const plural = (n: number, one: string, many = one + "s") =>
-	`${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;

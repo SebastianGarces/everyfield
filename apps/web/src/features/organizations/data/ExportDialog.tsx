@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { Alert02Icon, FileExportIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -13,7 +14,7 @@ import {
 	DialogHeader,
 } from "@everyfield/ui/controls";
 import { useState } from "react";
-import { PIPELINE_PATH, plural } from "../board/model";
+import { PIPELINE_PATH } from "../board/model";
 
 type State =
 	| { kind: "ready" }
@@ -88,7 +89,7 @@ export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 									Downloaded
 								</CalloutLabel>
 								<CalloutText>
-									{state.filename} has {plural(state.people, "person", "people")}.
+									{state.filename} has {counted(state.people, "person", "people")}.
 								</CalloutText>
 							</Card>
 						) : state.kind === "failed" ? (

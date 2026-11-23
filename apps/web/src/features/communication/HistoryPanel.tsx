@@ -1,4 +1,5 @@
 "use client";
+import { counted } from "@everyfield/contracts/common";
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
@@ -54,7 +55,6 @@ import {
 	type ResendReview,
 	type TrackingRow,
 } from "./model.ts";
-import { plural } from "./composeModel.ts";
 import { pickSampleName } from "./fields.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
 import { createHistoryStore } from "./HistoryPanel.store.ts";
@@ -227,7 +227,7 @@ function MessageButton({
 }
 
 const recipientCount = (n: number, state: HubState) =>
-	n === 0 && (state === "draft" || state === "scheduled") ? "Not sent yet" : plural(n, "recipient", "recipients");
+	n === 0 && (state === "draft" || state === "scheduled") ? "Not sent yet" : counted(n, "recipient", "recipients");
 
 function AddressFact({ label, value }: { label: string; value: string | null }) {
 	return (
@@ -260,7 +260,7 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 		case "scheduled":
 			return {
 				title: `Scheduled for ${when(detail.scheduledAt)}`,
-				body: `It goes to ${plural(totals.reachable, "person", "people")} then. Anyone who unsubscribes or is marked as a child before then gets nothing.${leftOutNote(totals.unsubscribed, totals.child)}`,
+				body: `It goes to ${counted(totals.reachable, "person", "people")} then. Anyone who unsubscribes or is marked as a child before then gets nothing.${leftOutNote(totals.unsubscribed, totals.child)}`,
 			};
 		case "unsubscribed":
 			return {
@@ -290,7 +290,7 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 		case "cancelled":
 			return {
 				title: "Cancelled",
-				body: `Cancelled for ${plural(totals.cancelled, "person", "people")}. No email went out to them.${went}`,
+				body: `Cancelled for ${counted(totals.cancelled, "person", "people")}. No email went out to them.${went}`,
 			};
 		case "failed":
 			return {
