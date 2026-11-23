@@ -127,7 +127,7 @@ function write<I, F, V>(spec: {
 			return sql`SELECT ${JSON.stringify(review)}::jsonb AS review, ${JSON.stringify(prepared.args)}::jsonb AS args ${live}`;
 		},
 		async execute(tx, context, args, effectKey, ports): Promise<EffectResult> {
-			const request = { ...z.object({}).loose().parse(args), requestKey: effectKey };
+			const request = { ...z.record(z.string(), z.unknown()).parse(args), requestKey: effectKey };
 			try {
 				const reply = await spec.run(writers(ports.reminders), tx, context, request);
 				if (reply.status !== "ok") return { refused: reply.error.code };
@@ -788,7 +788,7 @@ async function generatedTasks(tx: WriteTx, v: Finalization) {
 	);
 	const titles = new Map(
 		z
-			.array(z.object({ id: z.string(), title: z.string() }))
+			.array(z.strictObject({ id: z.string(), title: z.string() }))
 			.parse(r.rows)
 			.map((t) => [t.id, t.title]),
 	);
