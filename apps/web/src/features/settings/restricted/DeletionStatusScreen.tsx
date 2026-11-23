@@ -215,21 +215,6 @@ function Deletion({ subject, port, initial, requestedUntil = null, now, zone, si
 					<p className="text-sm text-text-3">{OUT_OF_REACH}</p>
 				</Panel>
 			);
-		case "active":
-			return (
-				<Panel
-					heading={heading}
-					icon={<CardIcon icon={CheckmarkCircle02Icon} tone="green" />}
-					title="Nothing is scheduled for deletion"
-				>
-					<p>{what} is active.</p>
-					<div>
-						<Button asChild variant="secondary">
-							<a href={signInHref}>Sign in</a>
-						</Button>
-					</div>
-				</Panel>
-			);
 	}
 }
 

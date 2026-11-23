@@ -1,5 +1,7 @@
 import "server-only";
+import type { Database } from "@everyfield/db/client";
 import { privateStorage } from "@everyfield/db/schema";
+import { dashboardReader } from "@everyfield/domain/dashboard";
 import {
 	approveProposal,
 	cancelProposal,
@@ -21,6 +23,7 @@ import {
 	reviseProposal,
 	stageAttachment,
 	submitTurn,
+	type EvryActor,
 } from "@everyfield/evry";
 import { logFailure } from "@everyfield/domain/log";
 import { after as afterResponse } from "next/server";
@@ -134,7 +137,14 @@ export const openGet = () =>
 	evryResponse(async (db, actor) => ({
 		...((await openLatestConversation(db, actor)) ?? { conversation: null }),
 		pipeline: await pipelineListsPeople(db, actor),
+		churchName: await churchName(db, actor),
 	}));
+
+async function churchName(db: Database, actor: EvryActor) {
+	if (actor.owner.kind !== "plant") return null;
+	const reply = await dashboardReader.readPlantName(db, actor.authority);
+	return reply.status === "ok" ? reply.value : null;
+}
 
 export const proposalGet = async (_request: Request, { params }: IdParams) => {
 	const { id } = await params;

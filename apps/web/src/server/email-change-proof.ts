@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { EMAIL_CHANGE_PATH, EMAIL_CHANGE_PROOF_COOKIE } from "../proxy.ts";
+import { parseJson } from "./platform/json.ts";
 
 const SESSION_CHANGES = new Set(["/api/auth/sign-in/email", "/api/auth/register", "/api/auth/sign-out"]);
 const signedInReply = z.object({ returnTo: z.string() });
@@ -15,7 +16,7 @@ export async function forgetEmailChangeProof(): Promise<void> {
 }
 
 async function continuesEmailChange(response: Response): Promise<boolean> {
-	const reply = signedInReply.safeParse(await response.clone().json());
+	const reply = signedInReply.safeParse(parseJson(await response.clone().text()));
 	return reply.success && new URL(reply.data.returnTo, "https://everyfield.invalid").pathname === EMAIL_CHANGE_PATH;
 }
 
