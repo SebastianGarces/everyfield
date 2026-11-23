@@ -1,9 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { globSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, globSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { emailProblems, emailScoped } from "./test-emails.mjs";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
+const root = process.env.EVERYFIELD_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (file) => readFileSync(join(root, file), "utf8");
 const repoFiles = () =>
 	execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], { cwd: root, encoding: "utf8" })
@@ -16,6 +17,11 @@ for (const file of repoFiles().filter((f) => f === ".npmrc" || f.endsWith("/.npm
 	const text = read(file);
 	if (/tiptap/i.test(text)) failures.push(`${file}: names Tiptap; the editor uses only the free MIT packages`);
 	if (/_authToken/i.test(text)) failures.push(`${file}: holds a registry token`);
+}
+
+for (const file of repoFiles().filter((f) => emailScoped(f) && existsSync(join(root, f)))) {
+	const text = read(file);
+	if (!text.includes("\0")) failures.push(...emailProblems(file, text));
 }
 
 const templateClass = read("evf.toml")

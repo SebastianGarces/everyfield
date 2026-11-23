@@ -10,6 +10,7 @@ import {
 	SearchInput,
 	Spinner,
 	Textarea,
+	ProblemText,
 } from "@everyfield/ui/controls";
 import { createDebouncer } from "@everyfield/ui/foundations";
 import { useId, useState, type ReactNode } from "react";
@@ -318,11 +319,7 @@ export function ChosenList({
 					<p className="text-sm text-text-2">{empty}</p>
 				)}
 			</div>
-			{error ? (
-				<p className="text-xs font-medium text-magenta-600" role="alert">
-					{error}
-				</p>
-			) : null}
+			{error ? <ProblemText>{error}</ProblemText> : null}
 		</div>
 	);
 }

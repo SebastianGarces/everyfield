@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert02Icon, Crown02Icon, UserAdd01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
-import { Checkbox, Field, Input, Radio, RadioGroup, Select, Textarea } from "@everyfield/ui/controls";
+import { Checkbox, Field, Input, Radio, RadioGroup, Select, Textarea, ProblemText } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import type { Wait } from "../../components/save/model.ts";
@@ -268,12 +268,7 @@ export function PersonDialog({
 					exclude={exclude}
 					onChange={(person) => setF((x) => ({ ...x, person }))}
 				/>
-				{touched && noPerson ? (
-					<p role="alert" className="flex items-center gap-1.5 text-xs text-magenta-600">
-						<Icon icon={Alert02Icon} size={16} />
-						Choose a person.
-					</p>
-				) : null}
+				{touched && noPerson ? <ProblemText icon={Alert02Icon}>Choose a person.</ProblemText> : null}
 			</div>
 			{note}
 		</RecordDialog>
