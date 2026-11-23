@@ -3058,6 +3058,30 @@ const featureBoundaries = ratcheted("feature-boundaries", (context, push) => {
 	};
 });
 
+const PRIVATE_IMPORTERS = {
+	"apps/web/src/features/communication/outbox.ts": {
+		importers: ["apps/web/src/features/communication/outbox-route.ts"],
+		why: "it reads the dev outbox folder, so the send path stays free of directory reads and the production bundle does not trace the filesystem",
+	},
+	"apps/web/src/features/communication/outbox-route.ts": {
+		importers: ["apps/web/src/app/api/dev/outbox/route.ts"],
+		why: "it serves the dev mail capture, and only the dev outbox route may expose it",
+	},
+};
+
+const privateImporters = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		return moduleSources((node, spec) => {
+			const { to } = resolveImport(from, spec);
+			const rule = to && PRIVATE_IMPORTERS[to];
+			if (rule && !rule.importers.includes(from))
+				context.report({ node, message: `Only ${rule.importers.join(", ")} imports ${to}: ${rule.why}.` });
+		});
+	},
+};
+
 const READ_ROUTE = /^apps\/web\/src\/app\/(?:.+\/)?(?:page\.tsx|layout\.tsx|route\.ts)$/;
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const SERVER_ACTIONS = /^\s*["']use server["']/;
@@ -4235,6 +4259,7 @@ export default {
 		"no-render-writes": noRenderWrites,
 		"no-render-get-state": noRenderGetState,
 		"feature-boundaries": featureBoundaries,
+		"private-importers": privateImporters,
 		"no-sql-comments": noSqlComments,
 		"no-error-message-match": noErrorMessageMatch,
 		"route-reads": routeReads,
