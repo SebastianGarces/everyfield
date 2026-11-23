@@ -157,4 +157,6 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Release flags on for everyone for 14 or more days, with the evf task new command for each
+        env:
+          FLAG_READER_DATABASE_URL: ${{ secrets.FLAG_READER_DATABASE_URL }}
         run: bin/flag stale
