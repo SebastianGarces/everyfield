@@ -17,8 +17,11 @@ import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
 import {
 	audiencePeople,
+	byGuardian,
 	childSql,
+	guardianRow,
 	linksOf,
+	personRow,
 	reviewedParts,
 	routeChildren,
 	routedSql,
@@ -357,20 +360,6 @@ async function openLoaded(db: Database, actor: Actor, communicationId: string, e
 	};
 }
 
-const guardianShape = z.object({
-	id: z.uuid(),
-	displayName: z.string(),
-	email: z.string().nullable(),
-	optedOut: z.boolean(),
-});
-const audienceRow = z.object({
-	id: z.uuid(),
-	email: z.string().nullable(),
-	displayName: z.string(),
-	n: z.number(),
-	child: z.boolean(),
-	guardians: z.array(guardianShape),
-});
 type Content = { id: string; subject: string; body: string; churchName: string };
 
 function renderCopy(
@@ -462,7 +451,7 @@ async function prepare(
 	if (linked && (!found.meeting_id || !found.meeting_open)) deny("rsvp_needs_meeting");
 	const guests = new Set(z.array(z.uuid()).parse(asJson(found.guests) ?? []));
 	const people = z
-		.array(audienceRow)
+		.array(personRow)
 		.parse(asJson(found.people) ?? [])
 		.sort((a, b) => a.id.localeCompare(b.id));
 	const address = (row: { email: string }) => row.email.toLowerCase();
@@ -485,21 +474,19 @@ async function prepare(
 			token: !guardianOf && canLink && guests.has(person.id) ? newRsvpToken() : null,
 			guardianOf,
 		});
-	const ownRows = own.map((person) => ({ ...copy(person, null), child: false, refusal: null, guardians: null }));
+	const ownRows = own.map((person) => ({
+		...copy(person, null),
+		child: false,
+		routable: false,
+		refusal: null,
+		guardians: null,
+	}));
 	const copyOf = new Map(ownRows.filter((row) => !out.has(row.person)).map((row) => [row.person, row.id]));
-	const extra = new Map<string, { guardian: Guardian; children: string[] }>();
-	if (mode !== "scheduled")
-		for (const route of routing.routed)
-			for (const guardian of route.guardians) {
-				if (copyOf.has(guardian.id)) continue;
-				const found = extra.get(guardian.id) ?? { guardian, children: [] };
-				found.children.push(route.child.displayName);
-				extra.set(guardian.id, found);
-			}
-	const guardianRows = [...extra.values()].map(({ guardian, children: names }) => {
-		const row = { ...copy({ ...guardian, email: guardian.email.trim() }, names), child: false };
+	const extra = mode === "scheduled" ? [] : byGuardian(routing.routed, (guardian) => copyOf.has(guardian.id));
+	const guardianRows = extra.map(({ guardian, children: names }) => {
+		const row = copy(guardian, names);
 		copyOf.set(guardian.id, row.id);
-		return { ...row, refusal: null, guardians: null };
+		return { ...row, child: false, routable: false, refusal: null, guardians: null };
 	});
 	const childRows = children.map((child) => {
 		const email = child.email?.trim();
@@ -520,11 +507,7 @@ async function prepare(
 			guardians: routes?.flatMap((guardian) => copyOf.get(guardian.id) ?? []) ?? null,
 		};
 	});
-	const rows = [
-		...ownRows.map((row) => ({ ...row, routable: false })),
-		...guardianRows.map((row) => ({ ...row, routable: false })),
-		...childRows,
-	].map((row, index) => ({
+	const rows = [...ownRows, ...guardianRows, ...childRows].map((row, index) => ({
 		...row,
 		batch: Math.floor(index / c.MAIL_BATCH_LIMIT),
 		position: index % c.MAIL_BATCH_LIMIT,
@@ -1242,7 +1225,7 @@ const claimedSchema = z.object({
 			leftOut: leftOutValue,
 			payload: sealedPayload.nullable(),
 			address: z.string().nullable(),
-			guardians: z.array(guardianShape.extend({ copy: z.uuid().nullable(), copyState: z.string().nullable() })),
+			guardians: z.array(guardianRow.extend({ copy: z.uuid().nullable(), copyState: z.string().nullable() })),
 		}),
 	),
 });
@@ -1328,7 +1311,7 @@ async function routeClaimed(db: Database, keys: ReturnType<typeof keysOf>, claim
 			(guardian): guardian is Guardian & typeof guardian =>
 				usable(guardian) && (!guardian.copyState || !closedCopy.has(guardian.copyState)),
 		);
-		return guardians.length ? [{ row, guardians }] : [];
+		return guardians.length ? [{ row, child: { displayName: row.name ?? "" }, guardians }] : [];
 	});
 	const [first] = routes;
 	if (!first) return [];
@@ -1345,25 +1328,8 @@ async function routeClaimed(db: Database, keys: ReturnType<typeof keysOf>, claim
 		body: found.body_html,
 		churchName: found.church_name ?? "",
 	};
-	const fresh = new Map<string, { guardian: Guardian; children: string[] }>();
-	for (const { row, guardians } of routes)
-		for (const guardian of guardians) {
-			if (guardian.copy) continue;
-			const entry = fresh.get(guardian.id) ?? { guardian, children: [] };
-			entry.children.push(row.name ?? "");
-			fresh.set(guardian.id, entry);
-		}
-	const rows = [...fresh.values()].map(({ guardian, children }, index) => ({
-		...renderCopy(
-			keys,
-			tenant,
-			content,
-			{ ...guardian, email: guardian.email.trim() },
-			{
-				token: null,
-				guardianOf: children,
-			},
-		),
+	const rows = byGuardian(routes, (guardian) => !!guardian.copy).map(({ guardian, children }, index) => ({
+		...renderCopy(keys, tenant, content, guardian, { token: null, guardianOf: children }),
 		batch: Math.floor(index / c.MAIL_BATCH_LIMIT),
 		position: index % c.MAIL_BATCH_LIMIT,
 	}));
