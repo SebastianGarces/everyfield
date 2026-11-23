@@ -1,7 +1,7 @@
 "use client";
 
 import { FORMAT_LIMITS, pageBox, type DocDocument } from "@everyfield/contracts/documents";
-import { Field, Input, Select, Switch } from "@everyfield/ui/controls";
+import { Field, Input, Select, Switch, ProblemText } from "@everyfield/ui/controls";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import { useState, type ReactNode } from "react";
@@ -74,11 +74,7 @@ function Inches({
 }
 
 function FaultNote({ message }: { message: string | undefined }) {
-	return message ? (
-		<p role="alert" className="text-xs font-medium text-magenta-600">
-			{message}
-		</p>
-	) : null;
+	return message ? <ProblemText>{message}</ProblemText> : null;
 }
 
 function Fieldset({ legend, children }: { legend: string; children: ReactNode }) {

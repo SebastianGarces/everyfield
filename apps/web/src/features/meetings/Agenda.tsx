@@ -1,6 +1,6 @@
 "use client";
 
-import { durationText, sectionStarts, timeText } from "@everyfield/contracts/common";
+import { counted, durationText, sectionStarts, timeText } from "@everyfield/contracts/common";
 
 import {
 	Add01Icon,
@@ -199,7 +199,7 @@ function AgendaForm({
 			tone="amber"
 			size="lg"
 			title="Edit agenda"
-			description={`${rows.length} ${rows.length === 1 ? "section" : "sections"} · ${durationText(total)}`}
+			description={`${counted(rows.length, "section")} · ${durationText(total)}`}
 			action="Save agenda"
 			problem={problem}
 			wait={wait}

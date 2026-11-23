@@ -41,6 +41,7 @@ export {
 	sendOnboardingRelationships,
 	type NoticeInput,
 } from "./notifications.ts";
+export { authorizeNoticeMail, authorizeNotificationMail } from "./notice-mail.ts";
 export { runDueObjectCleanup } from "./object-cleanup.ts";
 export {
 	checkpoint,
@@ -53,6 +54,7 @@ export {
 	finishJob,
 	lockClaim,
 	queueJobs,
+	queueJobsFor,
 	recoverLease,
 	scanPage,
 	type Claim,

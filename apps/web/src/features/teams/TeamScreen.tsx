@@ -1,4 +1,5 @@
 "use client";
+import { counted } from "@everyfield/contracts/common";
 import type { Outcome } from "@everyfield/contracts/common";
 
 import {
@@ -83,7 +84,6 @@ import {
 	newSetup,
 	people,
 	planTeamEdit,
-	plural,
 	problemText,
 	stampText,
 	type HistoryEntry,
@@ -344,7 +344,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		toast({
 			tone: "success",
 			message: added.newRoles
-				? `Added ${plural(added.newRoles, "role")} to ${t.name}.`
+				? `Added ${counted(added.newRoles, "role")} to ${t.name}.`
 				: "Everything you chose was already here. Nothing was added.",
 		});
 		void stale();
@@ -886,7 +886,7 @@ function RolesCard({
 			)}
 			{retired ? (
 				<p className="mt-4 text-sm text-text-3">
-					{plural(retired, "retired role")} not shown. Past holders are in the People tab.
+					{counted(retired, "retired role")} not shown. Past holders are in the People tab.
 				</p>
 			) : null}
 		</Card>
@@ -1001,7 +1001,7 @@ function PeopleCard({
 				<CardHeader>
 					<CardHeading>
 						<CardTitle id="people-title">Serving now</CardTitle>
-						{crew?.length ? <CardDescription>{plural(crew.length, "person", "people")}</CardDescription> : null}
+						{crew?.length ? <CardDescription>{counted(crew.length, "person", "people")}</CardDescription> : null}
 					</CardHeading>
 				</CardHeader>
 				{crew === null ? (

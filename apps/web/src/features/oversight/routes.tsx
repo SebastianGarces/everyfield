@@ -17,21 +17,25 @@ export const plantMetadata: Metadata = { title: "Plant", ...hidden };
 export const rosterMetadata: Metadata = { title: "Sending churches", ...hidden };
 export const sendingChurchMetadata: Metadata = { title: "Sending church", ...hidden };
 
-const organizationViewer = cache(organizationSeat);
-
 type Params<K extends string> = { params: Promise<Record<K, string>> };
+
+const notAvailable = (
+	<Card className="mx-auto mt-12 max-w-[560px]">
+		<NotAvailable scope="page" homeHref="/home" />
+	</Card>
+);
 
 async function organizationOnly(path: SitePath, page: (viewer: OrganizationSeat) => Promise<ReactNode>) {
 	await requireActor(path);
-	const viewer = await organizationViewer();
-	if (!viewer)
-		return (
-			<Card className="mx-auto mt-12 max-w-[560px]">
-				<NotAvailable scope="page" homeHref="/home" />
-			</Card>
-		);
+	const viewer = await organizationSeat();
+	if (!viewer) return notAvailable;
 	return page(viewer);
 }
+
+const networkOnly = (path: SitePath, page: (viewer: OrganizationSeat) => Promise<ReactNode>) =>
+	organizationOnly(path, async (viewer) =>
+		viewer.organization.organizationKind === "sending_network" ? page(viewer) : notAvailable,
+	);
 
 function shown<T>(loaded: Loaded<T>, screen: (value: T) => ReactNode) {
 	if (loaded.status === "missing") notFound();
@@ -71,14 +75,14 @@ export async function PlantPage({ params }: Params<"plantId">) {
 }
 
 export async function RosterPage() {
-	return organizationOnly("/network/sending-churches", async (viewer) =>
+	return networkOnly("/network/sending-churches", async (viewer) =>
 		shown(await loadRoster(viewer), (roster) => <RosterScreen roster={roster} />),
 	);
 }
 
 export async function SendingChurchPage({ params }: Params<"churchId">) {
 	const { churchId } = await params;
-	return organizationOnly(`/network/sending-churches/${churchId}`, async (viewer) =>
+	return networkOnly(`/network/sending-churches/${churchId}`, async (viewer) =>
 		shown(await loadSendingChurch(viewer, churchId), (church) => <SendingChurchScreen church={church} />),
 	);
 }
@@ -94,7 +98,7 @@ const intelligenceFor = cache(async (viewer: OrganizationSeat, shownLevel: Level
 );
 
 export async function intelligenceMetadata({ searchParams }: Search): Promise<Metadata> {
-	const viewer = await organizationViewer();
+	const viewer = await organizationSeat();
 	if (!viewer) return { title: "Intelligence", ...hidden };
 	const { shownLevel, run } = intelligenceQuery(await searchParams);
 	const loaded = await intelligenceFor(viewer, shownLevel, run);

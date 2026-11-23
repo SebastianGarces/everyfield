@@ -5897,7 +5897,7 @@
         },
         "development_enrollment_ck_1": {
           "name": "development_enrollment_ck_1",
-          "value": "(status = ANY (ARRAY['active'::text, 'completed'::text, 'withdrawn'::text]))"
+          "value": "(status = ANY (ARRAY['active'::text, 'completed'::text]))"
         },
         "development_enrollment_ck_2": {
           "name": "development_enrollment_ck_2",
@@ -7845,6 +7845,62 @@
         "early_access_request_kind_check": {
           "name": "early_access_request_kind_check",
           "value": "(kind = ANY (ARRAY['planter'::text, 'network'::text]))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.embedding_spend": {
+      "name": "embedding_spend",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "day": {
+          "name": "day",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usage": {
+          "name": "usage",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "embedding_spend_day_key": {
+          "name": "embedding_spend_day_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "day",
+            "purpose"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "embedding_spend_purpose": {
+          "name": "embedding_spend_purpose",
+          "value": "\"embedding_spend\".\"purpose\" IN ('query','rebuild','publish')"
+        },
+        "embedding_spend_usage": {
+          "name": "embedding_spend_usage",
+          "value": "\"embedding_spend\".\"usage\" >= 0"
         }
       },
       "isRLSEnabled": false
@@ -10378,7 +10434,7 @@
         },
         "job_ck_1": {
           "name": "job_ck_1",
-          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text, 'feedback_publication'::text, 'assessment'::text]))"
+          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text, 'feedback_publication'::text, 'assessment'::text, 'wiki_embedding'::text]))"
         },
         "job_ck_2": {
           "name": "job_ck_2",
@@ -11750,18 +11806,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "seat_id": {
-          "name": "seat_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "affiliation_id": {
-          "name": "affiliation_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "requester_opaque_id": {
           "name": "requester_opaque_id",
           "type": "uuid",
@@ -11826,36 +11870,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "lifecycle_witness_ref_3": {
-          "name": "lifecycle_witness_ref_3",
-          "columns": [
-            {
-              "expression": "seat_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "lifecycle_witness_ref_4": {
-          "name": "lifecycle_witness_ref_4",
-          "columns": [
-            {
-              "expression": "affiliation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -11891,32 +11905,6 @@
           "tableTo": "account",
           "columnsFrom": [
             "requester_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "lifecycle_witness_fk_3": {
-          "name": "lifecycle_witness_fk_3",
-          "tableFrom": "lifecycle_witness",
-          "tableTo": "seat",
-          "columnsFrom": [
-            "seat_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "lifecycle_witness_fk_4": {
-          "name": "lifecycle_witness_fk_4",
-          "tableFrom": "lifecycle_witness",
-          "tableTo": "affiliation",
-          "columnsFrom": [
-            "affiliation_id"
           ],
           "columnsTo": [
             "id"
@@ -11966,10 +11954,6 @@
           "name": "lifecycle_witness_ck_1",
           "value": "((plant_id IS NULL) OR (kind = 'plant'::text))"
         },
-        "lifecycle_witness_ck_10": {
-          "name": "lifecycle_witness_ck_10",
-          "value": "((kind = ANY (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'revoked'::text])))"
-        },
         "lifecycle_witness_ck_11": {
           "name": "lifecycle_witness_ck_11",
           "value": "((state <> ALL (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])) OR ((request_id IS NOT NULL) AND (requested_at IS NOT NULL) AND (cancel_until IS NOT NULL) AND (request_revision >= 1)))"
@@ -12004,31 +11988,15 @@
         },
         "lifecycle_witness_ck_3": {
           "name": "lifecycle_witness_ck_3",
-          "value": "(kind = ANY (ARRAY['account'::text, 'plant'::text, 'seat'::text, 'affiliation'::text]))"
+          "value": "(kind = ANY (ARRAY['account'::text, 'plant'::text]))"
         },
         "lifecycle_witness_ck_4": {
           "name": "lifecycle_witness_ck_4",
-          "value": "(state = ANY (ARRAY['active'::text, 'pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text, 'revoked'::text]))"
-        },
-        "lifecycle_witness_ck_5": {
-          "name": "lifecycle_witness_ck_5",
-          "value": "(num_nonnulls(account_id, plant_id, seat_id, affiliation_id) <= 1)"
+          "value": "(state = ANY (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text]))"
         },
         "lifecycle_witness_ck_6": {
           "name": "lifecycle_witness_ck_6",
           "value": "((account_id IS NULL) OR (kind = 'account'::text))"
-        },
-        "lifecycle_witness_ck_7": {
-          "name": "lifecycle_witness_ck_7",
-          "value": "((seat_id IS NULL) OR (kind = 'seat'::text))"
-        },
-        "lifecycle_witness_ck_8": {
-          "name": "lifecycle_witness_ck_8",
-          "value": "((affiliation_id IS NULL) OR (kind = 'affiliation'::text))"
-        },
-        "lifecycle_witness_ck_9": {
-          "name": "lifecycle_witness_ck_9",
-          "value": "((kind <> ALL (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])))"
         }
       },
       "isRLSEnabled": false
@@ -12506,7 +12474,7 @@
       "checkConstraints": {
         "mail_refusal": {
           "name": "mail_refusal",
-          "value": "((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))"
+          "value": "((refusal IS NULL) OR ((refusal = ANY (ARRAY['unsubscribed'::text, 'child'::text])) AND (state = 'refused'::text)))"
         },
         "mail_ck_0": {
           "name": "mail_ck_0",
@@ -16045,7 +16013,7 @@
           "name": "release_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "revision_id": {
           "name": "revision_id",
@@ -16168,6 +16136,22 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "passage_embedding_1536": {
+          "name": "passage_embedding_1536",
+          "columns": [
+            {
+              "expression": "((\"embedding\")::public.vector(1536)) public.vector_cosine_ops",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "public.vector_dims(\"passage\".\"embedding\") = 1536",
+          "concurrently": false,
+          "method": "hnsw",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -16250,7 +16234,12 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "passage_release_owner": {
+          "name": "passage_release_owner",
+          "value": "((release_id IS NULL) = (tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid))"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.people_column": {

@@ -1,5 +1,6 @@
 "use client";
 
+import { counted, countWord } from "@everyfield/contracts/common";
 import {
 	Add01Icon,
 	Delete02Icon,
@@ -13,6 +14,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import {
 	Button,
+	buttonVariants,
 	Card,
 	CardTitle,
 	Checkbox,
@@ -20,6 +22,7 @@ import {
 	EmptyState,
 	FilterChip,
 	IconButton,
+	IntentLink,
 	Menu,
 	MenuContent,
 	MenuItem,
@@ -31,9 +34,8 @@ import {
 	PageHeader,
 	SearchInput,
 	SegmentedControl,
+	TextButton,
 	toast,
-	buttonVariants,
-	IntentLink,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, Pagination, StatusBadge } from "@everyfield/ui/display";
 import { cn, createDebouncer, Icon } from "@everyfield/ui/foundations";
@@ -599,7 +601,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 							else setPending({ kind: "row", id: t.id, row: after(t, t.revision) });
 					},
 					{
-						what: `The change to ${chosen.length} ${chosen.length === 1 ? "task" : "tasks"}`,
+						what: `The change to ${counted(chosen.length, "task")}`,
 						send: (key) =>
 							change.kind === "complete" ? bulkComplete(key, items) : bulkReschedule(key, items, change.due),
 						ok: (result: BulkResult) => {
@@ -648,7 +650,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 								const n = result.changed;
 								return toast({
 									tone: "success",
-									message: `${kind === "complete" ? "Completed" : "Rescheduled"} ${n} ${n === 1 ? "task" : "tasks"}.`,
+									message: `${kind === "complete" ? "Completed" : "Rescheduled"} ${counted(n, "task")}.`,
 								});
 							}
 							setReport({ kind, changed: result.changed, unchanged, remaining: result.remaining.length });
@@ -825,7 +827,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 												</StatusBadge>
 												<span className="font-normal text-text-3">
 													{g.items.length}
-													<span className="sr-only"> {g.items.length === 1 ? "task" : "tasks"}</span>
+													<span className="sr-only"> {countWord(g.items.length, "task")}</span>
 												</span>
 											</h2>
 										) : null}
@@ -943,9 +945,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 				description="The task leaves every list and stops sending reminders."
 				consequences={[
 					...(deleting && deleting.checklist.total > 0
-						? [
-								`Its ${deleting.checklist.total} ${deleting.checklist.total === 1 ? "step is" : "steps are"} deleted with it.`,
-							]
+						? [`Its ${counted(deleting.checklist.total, "step is", "steps are")} deleted with it.`]
 						: []),
 					"Its status history is kept.",
 					...(deleting?.managed ? ["The meeting will not create this task again."] : []),
@@ -1009,17 +1009,14 @@ function TaskRow({
 			) : null}
 			<DoneBox task={task} canAct={canAct} wait={wait} describedBy={waiting ? hint : undefined} onToggle={onToggle} />
 			<div className="min-w-0 flex-1">
-				<button
-					type="button"
+				<TextButton
+					underline="hover"
 					onClick={onOpen}
 					{...intentHandlers(onWarm)}
-					className={cn(
-						"rounded-xs text-left font-medium text-ink decoration-text-3 underline-offset-[3px] hover:underline",
-						settled && "text-text-3 line-through",
-					)}
+					className={cn("text-ink decoration-text-3", settled && "text-text-3 line-through")}
 				>
 					{task.title}
-				</button>
+				</TextButton>
 				{waiting ? (
 					<span id={hint} className="ml-2 text-xs whitespace-nowrap text-text-2">
 						{wait === "saving" ? "Saving…" : "Check the last save first."}
@@ -1299,7 +1296,7 @@ function Summary({ counts, query }: { counts: TaskCounts; query: TaskQuery }) {
 			<div className="mt-3 flex items-end gap-3">
 				<span className="num font-display text-[40px] leading-[0.95] tracking-[-0.03em] text-ink">{open}</span>
 				<span className="pb-1 text-sm text-text-2">
-					{open === 1 ? "open task" : "open tasks"}
+					{countWord(open, "open task")}
 					{isFiltered(query) ? " match the filters" : ""}
 				</span>
 			</div>

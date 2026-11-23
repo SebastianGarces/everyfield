@@ -1,48 +1,14 @@
-import type { Database } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql } from "@everyfield/db/query";
 import { programKind, programPlan, programRhythm, type ProgramDetail } from "@everyfield/contracts/organizations";
-import type { RequestActor } from "@everyfield/domain/access";
 import { pipelineWriter, programWriter, readProgram } from "@everyfield/domain/organizations";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
-import { change, organizationAdmin, organizationSeat, target } from "../../native.ts";
+import { approvedNow, change, organizationSeat, target } from "../../native.ts";
 
 const settled = (
 	reply: { status: "ok"; value: { revision: string } } | { status: "refused"; refusal: { code: string } },
 ) => (reply.status === "ok" ? { revision: reply.value.revision } : { refused: reply.refusal.code });
-
-function approvedNow<I>(spec: {
-	operation: string;
-	description: string;
-	input: z.ZodType<I>;
-	allowed?: (actor: EvryActor) => boolean;
-	review: ReviewedWrite<I>["review"];
-	reason: boolean;
-	run(
-		db: Database,
-		authority: RequestActor,
-		args: Record<string, unknown>,
-		reason: string | null,
-	): Promise<EffectResult>;
-	current?(p: SQL): SQL;
-}): ReviewedWrite<I> {
-	return {
-		operation: spec.operation,
-		description: spec.description,
-		input: spec.input,
-		allowed: spec.allowed ?? organizationAdmin,
-		review: spec.review,
-		execute: async () => ({ refused: "review_closed" }),
-		approveNow: {
-			reason: spec.reason,
-			run: (db, authority, args, reason) => spec.run(db, authority, args as Record<string, unknown>, reason),
-		},
-		...(spec.current && { current: spec.current }),
-	};
-}
 
 export const proposeStageMove = approvedNow({
 	operation: "pipeline.proposeStageMove",

@@ -1,5 +1,7 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
+import type { Outcome } from "@everyfield/contracts/common";
 import { Button, buttonVariants, IntentLink, PageHeader } from "@everyfield/ui/controls";
 import { useFocusRequest } from "@everyfield/ui/foundations";
 import { useRef, useState, useSyncExternalStore } from "react";
@@ -14,7 +16,6 @@ import {
 	MAX_BYTES,
 	NOT_FOUND,
 	UNCONFIRMED,
-	plural,
 	RECONNECTING,
 	retryRefusal,
 	suggestedChoices,
@@ -54,7 +55,7 @@ export type Initial =
 	| { kind: "missing"; key: string }
 	| { kind: "lost"; key: string };
 
-type Answer<T> = { status: "ok"; value: T } | { status: "refused"; code: string; line?: number } | { status: "lost" };
+type Answer<T> = Outcome<T, string, { line?: number }>;
 async function call<T>(input: string, init?: RequestInit): Promise<Answer<T>> {
 	try {
 		const res = await fetch(input, { ...init, cache: "no-store" });
@@ -211,7 +212,7 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 				breadcrumb={[{ label: "People", href: "/people" }, { label: "Import" }]}
 				subtitle={
 					review
-						? `${review.file.name} · ${plural(review.preview.counts.rows, "row")}`
+						? `${review.file.name} · ${counted(review.preview.counts.rows, "row")}`
 						: fileName
 							? fileName
 							: "Add the people you already know from a spreadsheet."
@@ -231,7 +232,7 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 									void send(review, key);
 								}}
 							>
-								{adding === 0 ? "Nobody to import" : `Import ${plural(adding, "person", "people")}`}
+								{adding === 0 ? "Nobody to import" : `Import ${counted(adding, "person", "people")}`}
 							</Button>
 						</>
 					) : state.step === "upload" ? (

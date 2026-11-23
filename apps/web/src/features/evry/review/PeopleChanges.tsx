@@ -1,4 +1,6 @@
+import { counted } from "@everyfield/contracts/common";
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
+import { ToneTag, type TagTone } from "@everyfield/ui/display";
 import { Icon, cn } from "@everyfield/ui/foundations";
 import { ROW_OUTCOME, emptyText, fieldLabel, valueText, type Change, type Review, type ReviewedRow } from "./model.ts";
 
@@ -36,9 +38,7 @@ export function ReviewedPeople({ review }: { review: Review }) {
 	if (!people?.length) return null;
 	return (
 		<section aria-label="People this changes" className="flex flex-col gap-1.5">
-			<h4 className="text-xs font-medium text-text-2">
-				{people.length === 1 ? "1 person" : `${people.length} people`}
-			</h4>
+			<h4 className="text-xs font-medium text-text-2">{counted(people.length, "person", "people")}</h4>
 			<ul className="divide-y divide-line rounded-md bg-surface-2 px-3 py-2.5">
 				{people.map((p) => (
 					<Row key={p.id} name={p.label}>
@@ -91,11 +91,11 @@ export function CurrentState({ review }: { review: Review }) {
 	);
 }
 
-const OUTCOME_TONE: Record<ReviewedRow["outcome"], string> = {
-	create: "bg-green-50 text-green-700",
-	create_and_review: "bg-green-50 text-green-700",
-	skip: "bg-surface-raised text-text-2 shadow-[inset_0_0_0_1px_var(--ef-line)]",
-	fail: "bg-magenta-50 text-magenta-600",
+const OUTCOME_TONE: Record<ReviewedRow["outcome"], TagTone> = {
+	create: "positive",
+	create_and_review: "positive",
+	skip: "muted",
+	fail: "error",
 };
 
 export function ImportRows({ review }: { review: Review }) {
@@ -108,9 +108,7 @@ export function ImportRows({ review }: { review: Review }) {
 					<span className="text-xs text-text-3 tabular-nums">Row {r.row}</span>
 					<span className="flex min-w-0 flex-col gap-0.5">
 						<span className="flex flex-wrap items-center gap-2">
-							<span className={cn("rounded-sm px-1.5 py-0.5 text-xs font-medium", OUTCOME_TONE[r.outcome])}>
-								{ROW_OUTCOME[r.outcome]}
-							</span>
+							<ToneTag tone={OUTCOME_TONE[r.outcome]}>{ROW_OUTCOME[r.outcome]}</ToneTag>
 							{r.label ? <span className="min-w-0 font-medium break-words text-ink">{r.label}</span> : null}
 						</span>
 						{r.reason ? <span className="text-text-2">{r.reason}</span> : null}

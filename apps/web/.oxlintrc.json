@@ -71,9 +71,11 @@
 		"everyfield/resend-senders": "error",
 		"everyfield/raw-sql-literal": "error",
 		"everyfield/request-actor": "error",
+		"everyfield/site-path-cast": "error",
 		"everyfield/provider-key-mint": "error",
 		"everyfield/no-comments": "error",
 		"everyfield/server-log": "error",
+		"everyfield/no-raw-error-log": "error",
 		"everyfield/no-effects": "error",
 		"everyfield/stable-context-value": "error",
 		"everyfield/storage-client": "error",
@@ -86,8 +88,12 @@
 		"everyfield/no-error-message-match": "error",
 		"everyfield/no-slop-styling": "error",
 		"everyfield/sign-in-redirect": "error",
+		"everyfield/organization-seat": "error",
 		"everyfield/shared-outcome": "error",
 		"everyfield/web-database-imports": "error",
+		"everyfield/shared-notice": "error",
+		"everyfield/live-region-in-tree": "error",
+		"everyfield/confirm-keeps-refusal": "error",
 		"no-restricted-imports": [
 			"error",
 			{
@@ -101,13 +107,19 @@
 							"**/overlays.tsx"
 						],
 						"allowTypeImports": true,
-						"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+						"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/LazySettingsDialog, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
 					}
 				]
 			}
 		]
 	},
 	"overrides": [
+		{
+			"files": ["src/**"],
+			"rules": {
+				"everyfield/no-default-database": "error"
+			}
+		},
 		{
 			"files": ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
 			"rules": {
@@ -1286,18 +1298,18 @@
 			}
 		},
 		{
-			"files": ["src/features/documents/church/editor/tiptap/**"],
+			"files": ["src/features/documents/church/editor/tiptap/primitives/tooltip.tsx"],
 			"rules": {
-				"react/set-state-in-effect": "off",
-				"react/refs": "off",
-				"react/immutability": "off"
+				"react/refs": "off"
 			},
 			"plugins": ["react"]
 		},
 		{
 			"files": [
 				"src/access/**",
+				"src/app/access/**",
 				"src/components/**",
+				"src/marketing/**",
 				"src/server/**",
 				"src/features/access/**",
 				"src/features/identity/**",
@@ -1362,12 +1374,20 @@
 				"everyfield/no-render-writes": "error",
 				"everyfield/no-render-get-state": "error",
 				"everyfield/feature-boundaries": "error",
+				"everyfield/private-importers": "error",
 				"everyfield/route-reads": "error",
 				"everyfield/route-segment-defaults": "error",
 				"everyfield/render-reads": "error",
 				"everyfield/no-read-actions": "error",
 				"everyfield/action-params-unknown": "error",
+				"everyfield/client-request-key": "error",
 				"everyfield/failure-not-empty": "error"
+			}
+		},
+		{
+			"files": ["src/*.ts", "src/access/**", "src/app/**", "src/components/**", "src/features/**", "src/server/**"],
+			"rules": {
+				"everyfield/count-text": "error"
 			}
 		},
 		{
@@ -1376,6 +1396,7 @@
 				"src/**/*-model.ts",
 				"src/**/page-state.ts",
 				"src/features/communication/body.ts",
+				"src/features/meetings/next-step.ts",
 				"src/features/settings/time.ts"
 			],
 			"rules": {
@@ -1420,7 +1441,7 @@
 			}
 		},
 		{
-			"files": ["src/features/settings/ProductSettings.tsx"],
+			"files": ["src/features/settings/LazySettingsDialog.tsx"],
 			"rules": {
 				"no-restricted-imports": [
 					"error",
@@ -1429,7 +1450,7 @@
 							{
 								"group": ["**/EvryPanel.tsx", "**/FeedbackDialog.tsx", "**/overlays.tsx"],
 								"allowTypeImports": true,
-								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/LazySettingsDialog, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
 							}
 						]
 					}
@@ -1446,7 +1467,7 @@
 							{
 								"group": ["**/SettingsDialog", "**/SettingsDialog.tsx", "**/FeedbackDialog.tsx", "**/overlays.tsx"],
 								"allowTypeImports": true,
-								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/LazySettingsDialog, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
 							}
 						]
 					}
@@ -1463,7 +1484,7 @@
 							{
 								"group": ["**/EvryPanel.tsx", "**/SettingsDialog", "**/SettingsDialog.tsx", "**/overlays.tsx"],
 								"allowTypeImports": true,
-								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/LazySettingsDialog, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
 							}
 						]
 					}
@@ -1480,7 +1501,37 @@
 							{
 								"group": ["**/EvryPanel.tsx", "**/SettingsDialog", "**/SettingsDialog.tsx", "**/FeedbackDialog.tsx"],
 								"allowTypeImports": true,
-								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/LazySettingsDialog, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["src/features/followups/actions.ts"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"paths": [
+							{
+								"name": "next/cache",
+								"importNames": ["revalidatePath", "revalidateTag", "refresh"],
+								"message": "A follow-up outcome action never revalidates: a revalidating action renders the page it was called on again and sends it with the answer. The screen updates from the answer, and Tasks rereads itself after a saved outcome."
+							}
+						],
+						"patterns": [
+							{
+								"group": [
+									"**/EvryPanel.tsx",
+									"**/SettingsDialog",
+									"**/SettingsDialog.tsx",
+									"**/FeedbackDialog.tsx",
+									"**/overlays.tsx"
+								],
+								"allowTypeImports": true,
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/LazySettingsDialog, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
 							}
 						]
 					}

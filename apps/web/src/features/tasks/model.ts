@@ -1,5 +1,5 @@
 import type { Outcome as Shared } from "@everyfield/contracts/common";
-import { recordId } from "@everyfield/contracts/common";
+import { counted, recordId } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
 import { MONTHS } from "../../components/dates.ts";
@@ -189,7 +189,7 @@ export function repeatText(rule: Pick<Rule, "frequency" | "until" | "localTime">
 		.filter(Boolean)
 		.join(" · ");
 }
-export const blockedText = (open: number) => `Blocked by ${open} ${open === 1 ? "task" : "tasks"}`;
+export const blockedText = (open: number) => `Blocked by ${counted(open, "task")}`;
 export const blocks = (p: Pick<Prerequisite, "status" | "deleted">) => !p.deleted && !isSettled(p.status);
 
 export type Blocker = { id: string; status: Status; deleted: boolean };
@@ -350,9 +350,7 @@ export const pageCount = (total: number) => Math.max(1, Math.ceil(total / PAGE_S
 export function rangeText(q: TaskQuery, shown: number, total: number): string {
 	if (total === 0) return "No tasks";
 	const first = (q.page - 1) * PAGE_SIZE + 1;
-	return shown === total
-		? `${total} ${total === 1 ? "task" : "tasks"}`
-		: `${first}–${first + shown - 1} of ${total} tasks`;
+	return shown === total ? counted(total, "task") : `${first}–${first + shown - 1} of ${total} tasks`;
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -569,6 +567,5 @@ export function checklistGroups(list: readonly ChecklistSummary[]) {
 			categories: [...byCategory.entries()].map(([category, checklists]) => ({ category, checklists })),
 		}));
 }
-export const taskCount = (n: number) => (n === 1 ? "1 task" : `${n} tasks`);
 
 export type Viewer = { accountId: string; role: "owner" | "admin" | "member"; name: string | null };

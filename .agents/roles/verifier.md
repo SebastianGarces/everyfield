@@ -49,8 +49,8 @@ wrong or missing. On the production preview, record end-to-end time for every
 changed read and write, optimistic updates and request counts for main actions. Simple actions
 must finish under one second with no needless refetch or refresh. Reports and analytics may
 exceed the budget only with a named exception. Explain when checks do not apply.
-For a diff that touches backend or database code, confirm the evf `census` check record (`bin/dev census`, not
-full-check, which lists the census as skipped) passed for the head; an
+Confirm the evf `census` check record (the whole census on the slot's own Postgres, not full-check, which lists the
+census as skipped) passed for the head; an
 over-budget query or an N+1 there is a change request. A new `repeats` or `reason` in `limits.json` needs a cause you
 agree with, and a `limits.json` the census tightened belongs in the same PR.
 
