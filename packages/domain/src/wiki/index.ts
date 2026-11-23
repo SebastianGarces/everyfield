@@ -38,6 +38,7 @@ import { getReadingRevision, listCompletedArticles, listOrganizationNames, readE
 export const wikiEffects = { setBookmark: setBookmarkIn, setMine: setMineIn };
 
 export { sectionExcerpt } from "./excerpt.ts";
+export { runDueWikiEmbedding, wikiPassageEmbedder } from "./embedding.ts";
 
 export type { StoredEditor } from "./page.ts";
 export type WikiConfig = { renderPdf?: PdfRenderer };

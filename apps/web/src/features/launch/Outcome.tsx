@@ -1,6 +1,13 @@
 "use client";
 
-import { checkNote, checkOutcome, GUEST_NAME_MAX, type GuestMatch, type Plan } from "@everyfield/contracts/launch";
+import {
+	checkNote,
+	checkOutcome,
+	GUEST_NAME_MAX,
+	launchSundayArrived,
+	type GuestMatch,
+	type Plan,
+} from "@everyfield/contracts/launch";
 import { Add01Icon, PencilEdit02Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -118,7 +125,7 @@ export function OutcomeCard({
 							: "What actually happened, once it has. A passed date or finished milestones never record it for you."}
 					</CardDescription>
 				</CardHeading>
-				{admin ? (
+				{admin && (o || launchSundayArrived(plan.launch, plan.today)) ? (
 					<CardActions>
 						{o ? (
 							<Button variant="secondary" size="sm" onClick={() => open("correct")}>

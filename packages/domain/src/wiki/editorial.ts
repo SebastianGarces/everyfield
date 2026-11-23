@@ -19,6 +19,7 @@ import "server-only";
 import { z } from "zod";
 import type { RequestActor, WriteTx } from "../access/session.ts";
 import { organizationSeatContext } from "../access/organization-seat.ts";
+import { queueJobsFor } from "../jobs/queue.ts";
 import { GLOBAL, claimedWrite, deny, meSql, ownWrite, parse, refused, runRead, runWrite, type Runner } from "./core.ts";
 
 type OrgValue = z.infer<typeof organizationArticleResult>;
@@ -262,7 +263,18 @@ async function mutate(
 				FROM ins
 				WHERE NOT EXISTS (SELECT FROM editor)
 				RETURNING state
-			)
+			)${
+				mode === "publish"
+					? sql`,
+			embedding AS (${queueJobsFor(sql`FROM ins`, {
+				kind: "wiki_embedding",
+				tenant: sql`${owner.id}::uuid`,
+				subject: sql`ins.id`,
+				key: sql`'wiki_embedding/' || ins.id::text`,
+				conflict: "skip",
+			})})`
+					: sql``
+			}
 			SELECT
 				EXISTS (SELECT FROM me) AS allowed,
 				EXISTS (SELECT FROM base) AS has_base,

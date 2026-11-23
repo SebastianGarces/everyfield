@@ -1,4 +1,3 @@
-import type { Database } from "@everyfield/db/client";
 import type { WriteTx } from "@everyfield/domain/access";
 import { sql, type SQL } from "@everyfield/db/query";
 import { privateStorage } from "@everyfield/db/schema";
@@ -33,7 +32,6 @@ async function authorityIn(tx: WriteTx, context: PeopleContext) {
 	const claimed = await RequestActor.claimWrite(tx, context.session, context.selected);
 	return claimed?.authority ?? null;
 }
-const asDatabase = (tx: WriteTx) => tx as unknown as Database;
 const writer = async () => (await import("@everyfield/domain/documents")).documentsWriter;
 const done = <T>(reply: DocumentsReply<T>, receipt: (value: T) => { id: string; revision: string }): EffectResult => {
 	if (reply.status !== "ok") return { refused: reply.error.code };
@@ -46,9 +44,9 @@ const createInput = z.strictObject({
 	templateId: z.enum(TEMPLATE_IDS).describe("A template id from documents.templates.list"),
 });
 type Fill = TemplateFill["fields"][number];
-const fillArgs = z.object({
-	input: z.object({ templateId: z.string() }),
-	fill: z.array(z.object({ key: z.string(), value: z.string().nullable() })),
+const fillArgs = z.strictObject({
+	input: z.strictObject({ templateId: z.string() }),
+	fill: z.array(z.strictObject({ key: z.string(), value: z.string().nullable() })),
 });
 const SOURCE: Record<string, string> = {
 	"church.name": "church name",
@@ -104,7 +102,7 @@ export const createFromTemplate: ReviewedWrite<z.infer<typeof createInput>> = {
 		if (!authority) return { refused: "access_denied" };
 		const reply = await (
 			await writer()
-		).createFromTemplate(asDatabase(tx), authority, {
+		).createFromTemplate(tx, authority, {
 			templateId: saved.input.templateId,
 			requestKey: effectKey,
 		});
@@ -117,8 +115,8 @@ const exportInput = z.strictObject({
 	documentId,
 	format: z.enum(["pdf", "docx"]).describe("pdf or docx (Word)"),
 });
-const exportArgs = z.object({
-	input: z.object({ documentId: z.uuid(), revision: z.int(), format: z.enum(["pdf", "docx"]) }),
+const exportArgs = z.strictObject({
+	input: z.strictObject({ documentId: z.uuid(), revision: z.int(), format: z.enum(["pdf", "docx"]) }),
 });
 export const exportNative: ReviewedWrite<z.infer<typeof exportInput>> = {
 	operation: "documents.exportNative",
@@ -140,14 +138,14 @@ export const exportNative: ReviewedWrite<z.infer<typeof exportInput>> = {
 		if (!authority) return { refused: "access_denied" };
 		const reply = await (
 			await writer()
-		).exportNative(asDatabase(tx), authority, { ...saved.input, requestKey: effectKey }, privateStorage());
+		).exportNative(tx, authority, { ...saved.input, requestKey: effectKey }, privateStorage());
 		return done(reply, (file) => ({ id: file.id, revision: file.revision }));
 	},
 };
 
-const archiveArgs = z.object({
+const archiveArgs = z.strictObject({
 	store: z.enum(["written", "church"]),
-	input: z.object({ documentId: z.uuid(), expectedRevision: z.string() }),
+	input: z.strictObject({ documentId: z.uuid(), expectedRevision: z.string() }),
 });
 export const archive: ReviewedWrite<{ documentId: string }> = {
 	operation: "documents.archive",
@@ -169,21 +167,21 @@ export const archive: ReviewedWrite<{ documentId: string }> = {
 		const authority = await authorityIn(tx, context);
 		if (!authority) return { refused: "access_denied" };
 		if (saved.store === "church") {
-			const reply = await (await writer()).archiveChurch(asDatabase(tx), authority, saved.input);
+			const reply = await (await writer()).archiveChurch(tx, authority, saved.input);
 			return done(reply, (doc) => ({ id: doc.documentId, revision: saved.input.expectedRevision }));
 		}
-		const reply = await (await writer()).archive(asDatabase(tx), authority, saved.input);
+		const reply = await (await writer()).archive(tx, authority, saved.input);
 		return done(reply, (doc) => ({ id: doc.id, revision: doc.revision }));
 	},
 };
 
-const designateRow = z.object({
+const designateRow = z.strictObject({
 	id: z.uuid(),
 	kind: z.enum(["native", "core_values"]),
 	revision: z.string(),
 	body: z.string(),
 });
-const designateArgs = z.object({ input: z.object({ documentId: z.uuid(), expectedRevision: z.string() }) });
+const designateArgs = z.strictObject({ input: z.strictObject({ documentId: z.uuid(), expectedRevision: z.string() }) });
 export const designateCoreValues: ReviewedWrite<{ documentId: string }> = {
 	operation: "documents.designateCoreValues",
 	description:
@@ -215,7 +213,7 @@ export const designateCoreValues: ReviewedWrite<{ documentId: string }> = {
 		const saved = designateArgs.parse(args);
 		const authority = await authorityIn(tx, context);
 		if (!authority) return { refused: "access_denied" };
-		const reply = await (await writer()).designateCoreValues(asDatabase(tx), authority, saved.input);
+		const reply = await (await writer()).designateCoreValues(tx, authority, saved.input);
 		return done(reply, (doc) => ({ id: doc.id, revision: doc.revision }));
 	},
 };
@@ -234,8 +232,8 @@ const importInput = z.strictObject({
 		.optional()
 		.describe("The new document's title, only when the user names one; otherwise the file's name is used"),
 });
-const importArgs = z.object({
-	input: z.object({
+const importArgs = z.strictObject({
+	input: z.strictObject({
 		conversationId: z.uuid(),
 		attachmentId: z.uuid(),
 		title: z.string(),
@@ -279,19 +277,13 @@ export const importTextOrWord: ReviewedWrite<z.infer<typeof importInput>> = {
 		const authority = await authorityIn(tx, context);
 		if (!authority) return { refused: "access_denied" };
 		const storage = privateStorage();
-		const bytes = await stagedBytes(
-			asDatabase(tx),
-			storage,
-			context.selected.id,
-			saved.conversationId,
-			saved.attachmentId,
-		);
+		const bytes = await stagedBytes(tx, storage, context.selected.id, saved.conversationId, saved.attachmentId);
 		if (!bytes) return { refused: "attachment_gone" };
 		if (sha256(bytes) !== saved.sha256) return { refused: "file_changed" };
 		const reply = await (
 			await writer()
 		).importTextOrWord(
-			asDatabase(tx),
+			tx,
 			authority,
 			{ title: saved.title, format: saved.format, bytes, expectedRevision: "0", requestKey: effectKey },
 			storage,
