@@ -18151,7 +18151,7 @@
 				"purpose": "An adult in a child's household whom staff named as that child's parent or guardian contact (D-2336). A Messages email that includes the child goes to the contact instead (D-2337). The link counts only while both people are live and in the household it names and the contact is marked as an adult.",
 				"library_owned": false,
 				"jsonb_keys": {},
-				"capabilities": ["CAP-A-030"],
+				"capabilities": ["CAP-A-022"],
 				"replaces": [],
 				"producer_work_packages": ["WP-012"],
 				"producer_derivation": {
@@ -18159,7 +18159,7 @@
 					"additional_producers": ["WP-012"],
 					"rule": "WP-012 People households records a parent or guardian contact from an Owner or Admin."
 				},
-				"feature_ids": ["PPL-009", "NTF-016"],
+				"feature_ids": ["PPL-009"],
 				"acceptance_ids": [],
 				"future_case_ids": [],
 				"scope": "tenant",

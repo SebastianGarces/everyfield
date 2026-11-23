@@ -371,7 +371,7 @@
       "feature_ids": [
         "PPL-009"
       ],
-      "text": "Tenant household name/address and head/spouse/child/other membership roles are operational facts, not adult classification. Create household+initial head coherently; join validates live same plant Person/household and copies household address only if Person lacks meaningful address. Leaving preserves Person address. Address propagation previews exact active members/current reviewed state and deliberately overwrites them all at once, returning the actual count. Empty-household deletion refuses active members; retired member references detach from current household while history still shows the household a retired person belonged to. Concurrent Person retirement, household joining and deletion cannot leave orphan records.",
+      "text": "Tenant household name/address and head/spouse/child/other membership roles are operational facts, not adult classification. Create household+initial head coherently; join validates live same plant Person/household and copies household address only if Person lacks meaningful address. Leaving preserves Person address. Address propagation previews exact active members/current reviewed state and deliberately overwrites them all at once, returning the actual count. Empty-household deletion refuses active members; retired member references detach from current household while history still shows the household a retired person belonged to. Concurrent Person retirement, household joining and deletion cannot leave orphan records. A child's parent or guardian contact is an explicit link staff set on the Person screen, never inferred from a household role of head or spouse (D-2336): the child is marked as a child and in a household, and each contact is a live person in the same church and household who is marked as an adult or whose birth date shows one. Anyone else is not offered and a save is refused with the reason, storing nothing. A child can have several contacts; each add or remove writes an audit row on the child's history, and a contact stops counting when either person leaves the household, is retired or is merged away.",
       "spec": "docs/product/people.md#req-ppl-009",
       "operations": [
         "people.createHouseholdWithHead",
@@ -381,13 +381,15 @@
         "people.setHouseholdRole",
         "people.propagateAddress",
         "people.deleteHousehold",
-        "people.getHousehold"
+        "people.getHousehold",
+        "people.setGuardianContact"
       ],
       "acceptance_ids": [
         "AC-PPL-009--PPL-009"
       ],
       "case_ids": [
-        "TARGET-PPL-009"
+        "TARGET-PPL-009",
+        "CASE-PPL-009-GUARDIAN"
       ],
       "shared_contract_ids": [
         "REQ-IDN-029",
@@ -432,6 +434,18 @@
         {
           "operation": "people.removeFromHousehold",
           "rule": "Removing a person from a household ends their current membership and preserves its history."
+        },
+        {
+          "operation": "people.setGuardianContact",
+          "rule": "Only a live adult in the child's own household can be a contact; a child, a person whose Adult or child is not recorded, someone outside the household, retired or in another church is refused and nothing is stored."
+        },
+        {
+          "operation": "people.setGuardianContact",
+          "rule": "Adding or removing a contact bumps the child's revision and writes one audit row on the child; a repeat changes nothing."
+        },
+        {
+          "operation": "people.removeFromHousehold",
+          "rule": "Leaving a household removes the parent or guardian contacts the person had there, as a child or as an adult."
         }
       ],
       "title": "Household lifecycle, member roles and deliberate address propagation",

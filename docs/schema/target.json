@@ -21982,7 +21982,7 @@
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
-        "CAP-A-030"
+        "CAP-A-022"
       ],
       "replaces": [],
       "producer_work_packages": [
@@ -21996,8 +21996,7 @@
         "rule": "WP-012 People households records a parent or guardian contact from an Owner or Admin."
       },
       "feature_ids": [
-        "PPL-009",
-        "NTF-016"
+        "PPL-009"
       ],
       "acceptance_ids": [],
       "future_case_ids": [],

@@ -1134,6 +1134,9 @@
 	"native.people.runPeopleImport": {
 		"limit": 3
 	},
+	"native.people.setGuardianContact": {
+		"limit": 6
+	},
 	"native.people.setHouseholdRole": {
 		"limit": 6
 	},
@@ -1449,6 +1452,9 @@
 		"retry": 6,
 		"reason": "Handing a dated, assigned duty to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014): the write gate, the person locked with the church's review revision (the plant row it reads is locked FOR SHARE in the same statement), one locked read of the person's open duties, the members they move to and those members' seats, the assignee change, the shared reminder sync (notifications.syncTaskReminders) with its 2 statements (F10), the person retired (its row comes back for the reply), then one statement with the tenure, team and column changes and the audit. Its largest first run: 1 transaction, 4 locked read, 4 write.",
 		"reads": "C88: the person lock is its own statement and the duty read comes after it. tasks.references locks the person FOR SHARE while it adds a task, and a statement whose snapshot predates the person lock misses that task and hands off a stale set of duties. The open duties, the members they move to and those members' seats are one statement after the lock."
+	},
+	"people.setGuardianContact": {
+		"limit": 4
 	},
 	"people.setHouseholdRole": {
 		"limit": 4
