@@ -158,8 +158,8 @@ export const preference = (a: typeof t.account.$inferSelect) =>
 		? { status: "unconfirmed" as const }
 		: { status: "confirmed" as const, timeZone: a.personal_timezone, revision: a.personal_timezone_revision };
 export const calendarSeat = (account: SQL) =>
-	sql<boolean>`coalesce((SELECT e.kind='plant' AND NOT EXISTS(SELECT FROM (SELECT 1 FROM lifecycle_witness h WHERE h.kind='plant' AND h.opaque_subject_id=e.id AND h.state NOT IN ('active','cancelled') LIMIT 1 FOR SHARE) x)
- FROM (SELECT p.id, n.kind FROM seat s JOIN plant p ON p.id=s.plant_id JOIN tenant n ON n.id=p.id WHERE s.account_id=${account} AND s.ended_at IS NULL AND s.role IN ('owner','admin') AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.seat_id=s.id AND w.state NOT IN ('active','cancelled')) LIMIT 1 FOR SHARE OF p) e), false)`;
+	sql<boolean>`coalesce((SELECT e.kind='plant' AND NOT EXISTS(SELECT FROM (SELECT 1 FROM lifecycle_witness h WHERE h.kind='plant' AND h.opaque_subject_id=e.id AND h.state<>'cancelled' LIMIT 1 FOR SHARE) x)
+ FROM (SELECT p.id, n.kind FROM seat s JOIN plant p ON p.id=s.plant_id JOIN tenant n ON n.id=p.id WHERE s.account_id=${account} AND s.ended_at IS NULL AND s.role IN ('owner','admin') AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.seat_id=s.id AND w.state<>'cancelled') LIMIT 1 FOR SHARE OF p) e), false)`;
 export async function calendarEligible(tx: Tx, id: string) {
 	const read = await tx.execute(sql`SELECT ${calendarSeat(sql`${id}::uuid`)} AS eligible`);
 	return z.object({ eligible: z.boolean() }).parse(read.rows[0]).eligible;

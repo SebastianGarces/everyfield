@@ -377,7 +377,7 @@ test("AC:TARGET-IDN-031 AC:TARGET-IDN-032 AC:TARGET-TSK-018 personal zones canon
 	assert.equal(ok(await section(a, { section: "account" })).personalTimezone.timeZone, "America/Chicago");
 });
 
-test("INV-private-calendar: revoked seat keeps its personal preference but cannot invoke the author calendar", async () => {
+test("INV-private-calendar: ended seat keeps its personal preference but cannot invoke the author calendar", async () => {
 	const f = await plant();
 	const calls = { preview: 0, apply: 0 };
 	const producer = settingsApi({
@@ -405,16 +405,7 @@ test("INV-private-calendar: revoked seat keeps its personal preference but canno
 	const first = ok(await preview("America/New_York"));
 	assert.equal(ok(await apply(first)).preference.timeZone, "America/New_York");
 	assert.deepEqual(calls, { preview: 1, apply: 1 });
-	const [seat] = await admin.select().from(t.seat).where(eq(t.seat.account_id, f.a.id));
-	await admin.insert(t.lifecycle_witness).values({
-		kind: "seat",
-		opaque_subject_id: seat.id,
-		seat_id: seat.id,
-		request_revision: "1",
-		state: "revoked",
-		witness_checkpoint: "1",
-		cleanup_state: "not_started",
-	});
+	await admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.account_id, f.a.id));
 	const next = ok(await preview("Europe/Paris"));
 	assert.deepEqual(ok(await apply(next)).preference, { status: "confirmed", timeZone: "Europe/Paris", revision: "3" });
 	assert.deepEqual(calls, { preview: 1, apply: 1 });
@@ -1911,7 +1902,6 @@ test("INV-authority: a settings read checks seat, role, session and lifecycle ag
 		{ section: "teams", plant: f.p, teamId: team.id },
 		{ section: "affiliations", plant: f.p, organization: org.o },
 	];
-	const seatOf = async (a) => (await admin.select().from(t.seat).where(eq(t.seat.account_id, a.id)))[0];
 	const cases = [
 		[
 			"admin downgraded to member",
@@ -1924,23 +1914,6 @@ test("INV-authority: a settings read checks seat, role, session and lifecycle ag
 			() => seat(f.p),
 			church,
 			(a) => admin.update(t.seat).set({ ended_at: new Date(), revision: "2" }).where(eq(t.seat.account_id, a.id)),
-		],
-		[
-			"admin seat revoked by a lifecycle witness",
-			() => seat(f.p),
-			church,
-			async (a) => {
-				const s = await seatOf(a);
-				await admin.insert(t.lifecycle_witness).values({
-					kind: "seat",
-					opaque_subject_id: s.id,
-					seat_id: s.id,
-					request_revision: "1",
-					state: "revoked",
-					witness_checkpoint: "1",
-					cleanup_state: "not_started",
-				});
-			},
 		],
 		[
 			"organization seat removed",
@@ -2216,18 +2189,6 @@ test("INV-statements: settings writes lock their related rows in one statement e
 			producer.cancelWorkspaceDeletion(tx, opened.value.session, command(request, requested.value.revision)),
 		);
 	const [ownerSeat] = await admin.select().from(t.seat).where(eq(t.seat.account_id, owner.id));
-	const revoked = {
-		kind: "seat",
-		opaque_subject_id: ownerSeat.id,
-		seat_id: ownerSeat.id,
-		request_revision: "1",
-		state: "revoked",
-		witness_checkpoint: "1",
-		cleanup_state: "not_started",
-	};
-	await admin.insert(t.lifecycle_witness).values(revoked);
-	denied(await cancel());
-	await admin.delete(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, ownerSeat.id));
 	await admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, ownerSeat.id));
 	denied(await cancel());
 	await admin.update(t.seat).set({ ended_at: null }).where(eq(t.seat.id, ownerSeat.id));

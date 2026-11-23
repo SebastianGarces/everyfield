@@ -96,8 +96,6 @@ async function seated(
 	};
 }
 function status(w: typeof t.lifecycle_witness.$inferSelect): n.DeletionStatus {
-	if (w.kind !== "account" && w.kind !== "plant") deny("unavailable");
-	if (w.state === "active") return { status: "active" };
 	return n.deletionStatus.parse({
 		status: w.state,
 		subject: { kind: w.kind, id: w.opaque_subject_id },
@@ -183,12 +181,7 @@ async function proven(tx: Tx, handle: string, subject: DeletionSubject) {
 		w = alias(t.lifecycle_witness, "restricted_witness");
 	const seat = tx.$with("restricted_seat").as(
 		tx
-			.select({
-				id: t.seat.id,
-				revoked: sql<boolean>`EXISTS(SELECT FROM lifecycle_witness r WHERE r.seat_id=seat.id AND r.state='revoked')`.as(
-					"revoked",
-				),
-			})
+			.select({ id: t.seat.id })
 			.from(t.seat)
 			.where(
 				and(
@@ -203,7 +196,7 @@ async function proven(tx: Tx, handle: string, subject: DeletionSubject) {
 	);
 	const [row] = await tx
 		.with(proof, account, root, witness, seat)
-		.select({ proof: p, witness: w, seat: { id: seat.id, revoked: seat.revoked }, at: now })
+		.select({ proof: p, witness: w, seat: { id: seat.id }, at: now })
 		.from(proof)
 		.leftJoin(witness, sql`true`)
 		.leftJoin(seat, sql`true`);
@@ -228,7 +221,7 @@ async function restricted(tx: Tx, ctx: n.RestrictedDeletionContext, subject: Del
 	if (subject.kind === "account") {
 		if (proof.account_id !== subject.id) deny("unavailable");
 	} else {
-		if (w.requester_opaque_id !== proof.account_id || !seat || seat.revoked) deny("unavailable");
+		if (w.requester_opaque_id !== proof.account_id || !seat) deny("unavailable");
 	}
 	return { w, clock };
 }
