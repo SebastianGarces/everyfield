@@ -24,13 +24,13 @@ class FakeNode {
 	get ownerDocument() {
 		return fakeDocument;
 	}
-	get parentElement() {
+	get parentElement(): FakeNode | null {
 		return this.parentNode;
 	}
-	get options() {
+	get options(): FakeNode[] {
 		return this.all().filter((n) => n.nodeName === "OPTION");
 	}
-	get firstChild() {
+	get firstChild(): FakeNode | null {
 		return this.childNodes[0] ?? null;
 	}
 	get textContent(): string {
