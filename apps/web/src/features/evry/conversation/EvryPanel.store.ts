@@ -51,6 +51,7 @@ export type EvryPanelState = {
 	chat: State;
 	load: Load;
 	pipeline: boolean;
+	churchName: string | null;
 	stream: Stream;
 	retrying: boolean;
 	problem: string | null;
@@ -191,10 +192,10 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			if (!r.value.run) update((chat) => ({ ...chat, activeTurnId: null, stopping: false }));
 		};
 
-		const fail = (send: Send, reply: api.Reply<unknown>) =>
+		const fail = (send: Send, reply: api.Reply<unknown>, refused: "refused" | "unstarted" = "refused") =>
 			patchSend(
 				send.key,
-				reply.status === "refused" ? { state: "refused", error: reply.error } : { state: "unconfirmed", error: null },
+				reply.status === "refused" ? { state: refused, error: reply.error } : { state: "unconfirmed", error: null },
 			);
 
 		const patchSend = (key: string, patch: Partial<Send>) =>
@@ -287,7 +288,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 						created.status === "ok" &&
 						port.submitTurn(created.value.id, send.key, send.text, send.references, send.attachments)
 					);
-				if (created.status !== "ok") return fail(send, created);
+				if (created.status !== "ok") return fail(send, created, "unstarted");
 				if (createKey === key) createKey = null;
 				const made = created.value;
 				conversation = made;
@@ -354,7 +355,8 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			const mine = ++shown;
 			set({ load: "loading" });
 			const latest = await port.openLatest();
-			if (latest.status === "ok") set({ pipeline: latest.value.pipeline === true });
+			if (latest.status === "ok")
+				set({ pipeline: latest.value.pipeline === true, churchName: latest.value.churchName ?? null });
 			const r =
 				latest.status === "ok" && latest.value.conversation
 					? await readAll(port, latest.value.conversation.id, () => mine === shown, latest.value as ReadConversation)
@@ -386,6 +388,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			chat: EMPTY,
 			load: "idle",
 			pipeline: false,
+			churchName: null,
 			stream: "idle",
 			retrying: false,
 			problem: null,

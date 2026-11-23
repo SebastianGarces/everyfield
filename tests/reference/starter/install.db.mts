@@ -259,7 +259,10 @@ test("AC:REF-CASE-002 AC:GAP-REF-002 AC:CASE-WIKI-010 AC:SCHEMA-014 approved wik
 		activationNumber: null,
 		passages: 0,
 		reason: "incomplete_candidate",
+		estimatedTokens: 0,
+		estimatedUsd: 0,
 		usageTokens: 0,
+		costUsd: 0,
 	});
 	failProvider = true;
 	const timedOut = await service.rebuildEmbeddings(publisher, {

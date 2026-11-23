@@ -1,8 +1,8 @@
 "use client";
 
-import { Attachment01Icon, Cancel01Icon, Csv01Icon, Image01Icon } from "@hugeicons/core-free-icons";
+import { Attachment01Icon, Cancel01Icon, Image01Icon } from "@hugeicons/core-free-icons";
 import { IconButton, Tooltip } from "@everyfield/ui/controls";
-import { cn, Icon } from "@everyfield/ui/foundations";
+import { cn } from "@everyfield/ui/foundations";
 import { useRef } from "react";
 import { uploadAvatarBytes } from "../../settings/flows/avatarBytes.ts";
 import { stagePhoto } from "./photoActions.ts";
@@ -54,7 +54,7 @@ export function AttachButton({
 					if (files.length) onFiles(files);
 				}}
 			/>
-			<Tooltip content={church ? "Attach a CSV or a photo" : "Attach a photo"}>
+			<Tooltip content={church ? "Attach a CSV, Word, text or PDF file, or a photo" : "Attach a photo"}>
 				<IconButton
 					icon={church ? Attachment01Icon : Image01Icon}
 					label={label}
@@ -97,8 +97,4 @@ export function PhotoChip({ photo, onRemove }: { photo: Attached; onRemove: () =
 			/>
 		</li>
 	);
-}
-
-export function SentFileIcon({ name }: { name: string }) {
-	return <Icon icon={ATTACH.photoName.test(name) ? Image01Icon : Csv01Icon} size={16} className="flex-none" />;
 }

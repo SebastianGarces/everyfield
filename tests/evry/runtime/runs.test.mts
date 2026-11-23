@@ -37,6 +37,7 @@ import {
 	otherPlant,
 	queries,
 	setup,
+	statementListeners,
 	statements,
 	sql,
 	teardown,
@@ -182,6 +183,7 @@ const MEMBER_MEETINGS_READS = [
 	"venues.list",
 	"venues.get",
 	"venues.history",
+	"evry.readWorkflowHint",
 ];
 const MEETINGS_READS = [
 	"meetings.list",
@@ -210,6 +212,7 @@ const MEETINGS_READS = [
 	"venues.list",
 	"venues.get",
 	"venues.history",
+	"evry.readWorkflowHint",
 ];
 const MEMBER_MEETINGS_WRITES = [
 	"meetings.schedule",
@@ -286,8 +289,14 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		"tasks.createSubtask",
 		"tasks.setSubtaskCompletion",
 		"tasks.removeSubtask",
+		"tasks.acceptPhaseOffer",
+		"tasks.answerPhaseOffer",
+		"tasks.declinePhaseOffer",
+		"tasks.importTemplate",
+		"tasks.replacePrerequisites",
 		"tasks.createFollowUp",
 		"tasks.assignFollowUp",
+		"tasks.executeHandoff",
 		"tasks.reopenObligation",
 		"followups.recordOutcome",
 		"followups.correctOutcome",
@@ -300,6 +309,12 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		"communication.templates.list",
 	];
 	const wikiWrites = ["wiki.bookmarks.set", "wiki.feedback.setMine"];
+	const orgWikiWrites = [
+		"wiki.organizationArticles.add",
+		"wiki.organizationArticles.edit",
+		"wiki.organizationArticles.publish",
+		"wiki.organizationArticles.hide",
+	];
 	const wikiReads = [
 		"wiki.search",
 		"wiki.referenceExcerpt",
@@ -371,6 +386,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"signals.correct",
 						"signals.reaffirm",
 						...MEETINGS_WRITES,
+						"evry.prepareMeetingInvitation",
+						"evry.reuseRecipe",
 						"seats.invite",
 						"seats.resendInvitation",
 						"seats.revokeInvitation",
@@ -388,12 +405,15 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"identity.answerLeadOnboarding",
 						"onboarding.complete",
 						"feedback.submit",
+						"intelligence.requestRefresh",
+						"intelligence.submitFeedback",
 						...taskWrites,
 						...wikiWrites,
 						"documents.createFromTemplate",
 						"documents.exportNative",
 						"documents.archive",
 						"documents.designateCoreValues",
+						"documents.importTextOrWord",
 						"launch.schedule",
 						"launch.postpone",
 						"launch.recordOutcome",
@@ -418,11 +438,13 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						]
 					: who === "orgOwner"
 						? [
+								"notifications.setPreferences",
 								"notifications.oversightDigestCadence.set",
 								"organizations.updateProfile",
 								"pipeline.proposeStageMove",
 								"development.saveProgram",
 								"development.draftNextVersion",
+								...orgWikiWrites,
 							]
 						: ["onboarding.createPlant", "discovery.create", "discovery.convertToPlant"],
 		);
@@ -535,6 +557,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"privacy.getSharing",
 						"onboarding.getResume",
 						...OVERVIEW_READS,
+						"intelligence.readCommittedAdultCohort",
+						"intelligence.readScorecard",
+						"intelligence.readAssessment",
+						"intelligence.readAssessmentDelta",
 						"calendar.getContext",
 						"calendar.resolve",
 						...wikiReads,
@@ -571,6 +597,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"pipeline.listPeople",
 								"development.draftPlan",
 								"development.readProgram",
+								"oversight.listPlants",
+								"oversight.getPlant",
+								"organizationIntelligence.read",
 							]
 						: who === "seatless"
 							? ["discovery.getProfile"]
@@ -742,6 +771,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"documents_read",
 			"feedback_read",
 			"followups_read",
+			"intelligence_read",
 			"launch_read",
 			"meetings_read",
 			"notifications_read",
@@ -758,6 +788,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"tasks_read",
 			"teams_read",
 			"wiki_read",
+			"workflows_read",
 		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",
 	);
@@ -1280,11 +1311,21 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 	const owner = await actor("owner");
 	await analyze();
 	const turnJob = (id: string) => sql`kind='assistant_turn' AND subject_record_id=${id}`;
-	const observed = async (id: string, ms: number) => {
+	const observed = async (id: string, reads: number) => {
 		const seen = [];
-		const started = Date.now();
-		for await (const e of observeConversation(db, owner, id, 0, AbortSignal.timeout(ms), 20)) seen.push(e);
-		return { seen, ended: Date.now() - started < ms - 200 };
+		const budget = new AbortController();
+		const signal = AbortSignal.any([budget.signal, AbortSignal.timeout(60_000)]);
+		let polled = 0;
+		const count = (text: string) => {
+			if (text.includes("AS run_live") && ++polled > reads) budget.abort();
+		};
+		statementListeners.add(count);
+		try {
+			for await (const e of observeConversation(db, owner, id, 0, signal, 20)) seen.push(e);
+		} finally {
+			statementListeners.delete(count);
+		}
+		return { seen, ended: !signal.aborted };
 	};
 	const cases: [string, (id: string) => Promise<unknown>][] = [
 		[
@@ -1312,7 +1353,7 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 		await lose(id);
 		const { turnId } = (await readConversation(db, owner, id)).run ?? {};
 		assert.deepEqual((await readConversation(db, owner, id)).run, { turnId, state: "lost" }, name);
-		const first = await observed(id, 3_000);
+		const first = await observed(id, 3);
 		assert.ok(first.ended, `${name}: the stream ends instead of polling a dead run`);
 		const end = first.seen.at(-1)!;
 		assert.deepEqual(
@@ -1323,7 +1364,7 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 		assert.equal((await readConversation(db, owner, id)).run, null, name);
 		const job = await admin.execute(sql`SELECT state FROM job WHERE ${turnJob(id)}`);
 		assert.equal(job.rows[0]!.state, "failed", name);
-		const again = await observed(id, 3_000);
+		const again = await observed(id, 3);
 		assert.equal(again.seen.filter((e) => e.kind === "status").length, 1, name);
 		await submitTurn(db, owner, id, { requestKey: randomUUID(), text: "Find Casey again" });
 		assert.equal(await work(), "succeeded", name);
@@ -1331,7 +1372,7 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 
 	const waiting = await ask(owner, "Find Casey");
 	assert.equal((await readConversation(db, owner, waiting)).run?.state, "running");
-	const live = await observed(waiting, 500);
+	const live = await observed(waiting, 3);
 	assert.deepEqual([live.ended, live.seen.map((e) => e.kind)], [false, ["user_message"]]);
 	await assert.rejects(
 		() => submitTurn(db, owner, waiting, { requestKey: randomUUID(), text: "Another" }),

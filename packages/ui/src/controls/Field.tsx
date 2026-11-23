@@ -53,7 +53,7 @@ export function Field({ label, hint, error, optional, children, className }: Fie
 						{hint}
 					</p>
 				) : null}
-				<div aria-live="polite" className="empty:hidden">
+				<div aria-live="polite" className="empty:sr-only">
 					{error ? (
 						<p id={errorId} className="text-xs font-medium text-magenta-600">
 							{error}

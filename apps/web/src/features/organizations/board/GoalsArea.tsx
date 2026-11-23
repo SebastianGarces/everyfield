@@ -512,7 +512,7 @@ function CountsEditor({
 										/>
 									</div>
 								</div>
-								<div aria-live="polite" className="empty:hidden">
+								<div aria-live="polite" className="empty:sr-only">
 									{problem?.label || problem?.kind ? (
 										<p className="text-xs font-medium text-magenta-600">
 											{[problem.label, problem.kind].filter(Boolean).join(" ")}

@@ -220,6 +220,36 @@
 						],
 						"cases": ["EVRY-RETRY-CANCEL"]
 					}
+				},
+				{
+					"id": "attach-and-import",
+					"says": "An Owner or Admin attaches a Word or text file in the panel and asks for a church document: Evry shows a review of the import, refuses any file the Documents import refuses with that import's own sentence, and the document is in Documents only after Approve.",
+					"catalog": ["EVR-021", "DOC-016"],
+					"operations": ["documents.importTextOrWord"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/evry/adapters/documents/import.test.mts",
+								"name": "AC:CASE-DOC-016 AC:GAP-EVR-422 an attached Word file becomes a church document through one review: nothing is in Documents until Approve, then one document with the file's headings and paragraphs, however often it is approved or retried"
+							},
+							{
+								"file": "tests/evry/adapters/documents/import.test.mts",
+								"name": "AC:CASE-DOC-016 a file larger than the import limit is refused with the import's size message and nothing is written"
+							}
+						],
+						"cases": ["CASE-DOC-016"],
+						"browser": {
+							"kind": "presence",
+							"state": "new-chat",
+							"steps": [],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Attach a file"
+								}
+							]
+						}
+					}
 				}
 			]
 		},

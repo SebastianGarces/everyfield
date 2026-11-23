@@ -175,6 +175,7 @@ export async function fixture({
 	max?: number;
 	plant?: Row;
 	roles?: { runtime: readonly Capability[] } & Record<string, readonly Capability[]>;
+	clock?: Date;
 }): Promise<Fixture> {
 	const database = await testDatabase(options);
 	try {

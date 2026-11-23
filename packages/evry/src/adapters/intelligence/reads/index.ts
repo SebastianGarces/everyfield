@@ -236,3 +236,4 @@ const getHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 
 export const PHASE_READS = [readPhaseCatalog, readHistory, readReadinessAdapter] as const;
 export const SIGNAL_READS = [listDefinitions, getHistory] as const;
+export { ASSESSMENT_INTELLIGENCE_READS } from "./assessment.ts";

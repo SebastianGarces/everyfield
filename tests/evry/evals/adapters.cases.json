@@ -739,11 +739,8 @@
 			],
 			"derivation": "One saveDraft review card to the launch team; nothing is saved before approval.",
 			"finding": {
-				"checks": [
-					"proposes communication.saveDraft {\"audience\":{\"groups\":[\"launch_team\"]}}",
-					"says /review|approv/i"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+				"checks": ["proposes communication.saveDraft {\"audience\":{\"groups\":[\"launch_team\"]}}"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -928,14 +925,7 @@
 			"forbid": [
 				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way)/i"
 			],
-			"derivation": "A schedule needs a saved message: the draft review comes first, and no schedule card is proposed for an unsaved message.",
-			"finding": {
-				"checks": [
-					"proposes communication.saveDraft {\"audience\":{\"groups\":[\"launch_team\"]}}",
-					"says /review|approv/i"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "A schedule needs a saved message: the draft review comes first, and no schedule card is proposed for an unsaved message."
 		}
 	},
 	{
@@ -996,6 +986,7 @@
 		"near_miss": false,
 		"question": "what tasks do I have due this week?",
 		"eval": {
+			"journey": "own-task",
 			"calls": [
 				{
 					"operation": "tasks.list",
@@ -1006,11 +997,7 @@
 			],
 			"require": ["Plan the Sunday interest meeting", "Weekly team check-in"],
 			"forbid": ["/Review the volunteer schedule|Buy coffee for Sunday/"],
-			"derivation": "The Owner's own open tasks due by Sunday 15 Nov, overdue ones included; Lena's tasks are not his.",
-			"finding": {
-				"checks": ["calls tasks.list {\"mine\":true}"],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "The Owner's own open tasks due by Sunday 15 Nov, overdue ones included; Lena's tasks are not his."
 		}
 	},
 	{
@@ -1244,11 +1231,7 @@
 			"forbid": [
 				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
 			],
-			"derivation": "The phase journey's move from Discovery to Core Group Development on Aug 3 offers phase 1 checklists nobody answered yet (D-1464).",
-			"finding": {
-				"checks": ["says /phase 1|Phase 1|Core Group Development/i"],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "The phase journey's move from Discovery to Core Group Development on Aug 3 offers phase 1 checklists nobody answered yet (D-1464)."
 		}
 	},
 	{
@@ -1265,11 +1248,7 @@
 				}
 			],
 			"require": ["/launch-date-planning|launch date planning/i", "/\\b2\\b|two/i"],
-			"derivation": "A checklist import on Tue 3 Nov added 2 tasks from Launch date planning.",
-			"finding": {
-				"checks": ["calls tasks.importReceipt", "says /launch-date-planning|launch date planning/i"],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "A checklist import on Tue 3 Nov added 2 tasks from Launch date planning."
 		}
 	},
 	{
@@ -1407,6 +1386,7 @@
 		"near_miss": false,
 		"question": "add a task to order name tags by Friday and give it to Lena",
 		"eval": {
+			"journey": "own-task",
 			"proposals": [
 				{
 					"operation": "tasks.create",
@@ -1675,7 +1655,11 @@
 			"forbid": [
 				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
 			],
-			"derivation": "The church has six overdue tasks, not four, so Evry lists them and asks which to complete before any review; nothing changes."
+			"derivation": "The church has six overdue tasks, not four, so Evry lists them and asks which to complete before any review; nothing changes.",
+			"finding": {
+				"checks": ["no unexpected review card", "says /\\b(6|six)\\b/i", "says /which|all six|all 6/i"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -1697,11 +1681,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
-			],
-			"finding": {
-				"checks": ["proposes tasks.bulkReschedule {\"due\":\"2026-11-13\"}"],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -2052,6 +2032,36 @@
 		}
 	},
 	{
+		"case_id": "ADP-C-14",
+		"extra": true,
+		"adapter": "people/commands",
+		"operation": "people.deletePerson",
+		"near_miss": false,
+		"question": "yes, remove him. He moved to Dallas.",
+		"eval": {
+			"history": [
+				{
+					"user": "Mark Sam Patel as inactive"
+				},
+				{
+					"assistant": "There's no inactive stage in People. The seven stages are prospect, attendee, following up, interviewed, core group, launch team and leader. Sam Patel is in core group. I can prepare a review to remove Sam from your current people, with a reason. Do you want that?"
+				}
+			],
+			"proposals": [
+				{
+					"operation": "people.deletePerson",
+					"input": {
+						"personId": "@Sam Patel",
+						"reason": "/dallas|moved/i"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": ["/I['’]?(ve| have) (deleted|removed)|has been removed/i"],
+			"derivation": "Accepting PIP-07's removal offer makes one removal review for Sam Patel with the user's reason. Nothing changes until it is approved."
+		}
+	},
+	{
 		"case_id": "ADP-NT-01",
 		"extra": true,
 		"adapter": "notifications/reads",
@@ -2212,6 +2222,7 @@
 		"near_miss": false,
 		"question": "stop emailing me task reminders",
 		"eval": {
+			"journey": "notification",
 			"proposals": [
 				{
 					"operation": "notifications.setPreferences",
@@ -2359,8 +2370,10 @@
 			"forbid": ["/(she|maria)('ll| will) (come|attend|be there)|(she|maria) is interested/i"],
 			"derivation": "Maria Santos's last email: delivered and an open recorded, with the note that an open isn't attendance, interest or a conversation (COM-03).",
 			"finding": {
-				"checks": ["never says /(she|maria)('ll| will) (come|attend|be there)|(she|maria) is interested/i"],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+				"checks": [
+					"says /doesn['’]?t (mean|tell|prove)|not (mean|proof|the same)|isn['’]?t (proof|the same)|only (means|shows|tells)/i"
+				],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -2479,7 +2492,11 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced|saved|deleted|resent)|has been (sent|scheduled|moved|cancelled|canceled|saved|deleted|resent)|is on its way)/i"
-			]
+			],
+			"finding": {
+				"checks": ["proposes communication.templates.create", "says /review|approv/i"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -2584,7 +2601,11 @@
 					"operation": "communication.sendReviewed",
 					"optional": true
 				}
-			]
+			],
+			"finding": {
+				"checks": ["says /approv/i"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -3126,7 +3147,11 @@
 					"alsoAccepted": ["teams.listImportTemplates"]
 				}
 			],
-			"require": ["Prayer lead"]
+			"require": ["Prayer lead"],
+			"finding": {
+				"checks": ["says Prayer lead", "gives an answer"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -3202,7 +3227,11 @@
 			"names": {
 				"allowed": ["Casey Morgan", "Casey Brooks"]
 			},
-			"derivation": "Two people are named Casey; Evry asks which one before preparing any review."
+			"derivation": "Two people are named Casey; Evry asks which one before preparing any review.",
+			"finding": {
+				"checks": ["no unexpected review card", "asks a clarifying question", "no review card before the answer"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -3590,7 +3619,14 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"proposes teams.initialize {\"selections\":[{\"teamKey\":\"technology\",\"roleKeys\":[\"technology_lead\"]}]}",
+					"says /review|approv/i"
+				],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -3618,7 +3654,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"proposes teams.importRoles {\"teamId\":\"5b6d1f0e-0000-4000-8000-000000007010\",\"teamKey\":\"worship\",\"roleKeys\":[\"worship_lead\"]}"
+				],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -4005,11 +4047,7 @@
 		"eval": {
 			"only": [],
 			"neverSent": ["Running on empty", "/\\bstruggling\\b/i", "/marriage/i"],
-			"derivation": "Private weekly check-ins have no Evry adapter: the Owner's Struggling week and its note reach neither the model nor the answer.",
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "Private weekly check-ins have no Evry adapter: the Owner's Struggling week and its note reach neither the model nor the answer."
 		}
 	},
 	{
@@ -4103,11 +4141,7 @@
 				}
 			],
 			"require": ["/review|approv/i"],
-			"derivation": "Core group giving goes from Yes to Not yet through its own review.",
-			"finding": {
-				"checks": ["no unexpected review card"],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503, D-1534): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "Core group giving goes from Yes to Not yet through its own review."
 		}
 	},
 	{
@@ -4127,7 +4161,11 @@
 				}
 			],
 			"require": ["/review|approv/i"],
-			"derivation": "Still true: core group giving keeps its Yes and is dated today on approval, through its own review."
+			"derivation": "Still true: core group giving keeps its Yes and is dated today on approval, through its own review.",
+			"finding": {
+				"checks": ["no unexpected review card"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -4148,7 +4186,11 @@
 				}
 			],
 			"require": ["/review|approv/i"],
-			"derivation": "The empty church never declared or moved, so its starting phase is declared through a review."
+			"derivation": "The empty church never declared or moved, so its starting phase is declared through a review.",
+			"finding": {
+				"checks": ["proposes phases.declare {\"phase\":2}"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -4374,7 +4416,13 @@
 			],
 			"require": ["/review|approv/i"],
 			"forbid": ["/I['’]?(ve| have) (tagged|added|applied)|(are|been) tagged/i"],
-			"derivation": "One assignTag review naming all eight and saying the coffee-oct tag will be created; no note stands in for the tag."
+			"derivation": "One assignTag review naming all eight and saying the coffee-oct tag will be created; no note stands in for the tag.",
+			"finding": {
+				"checks": [
+					"proposes people.assignTag {\"personIds\":[\"@Ana Rivera\",\"@Mark Thompson\",\"@Jen Thompson\",\"@Sam Patel\",\"@Priya Shah\",\"@Daniel Cruz\",\"@Kevin Walsh\",\"@Jessica Wu\"],\"tagName\":\"~coffee-oct\"}"
+				],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -4728,14 +4776,7 @@
 				}
 			],
 			"require": ["/review|approv/i"],
-			"derivation": "The September 14 agenda is a written document; it is archived through one review and leaves the Documents list.",
-			"finding": {
-				"checks": [
-					"proposes documents.archive {\"documentId\":\"5b6d1f0e-0000-4000-8000-000000000dd2\"}",
-					"says /review|approv/i"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "The September 14 agenda is a written document; it is archived through one review and leaves the Documents list."
 		}
 	},
 	{
@@ -4770,6 +4811,83 @@
 			"as": "member",
 			"require": ["/\\b(owner|admin)/i"],
 			"derivation": "A Member can read documents but not change them: Evry prepares no review card and says an Owner or Admin has to do it."
+		}
+	},
+	{
+		"case_id": "ADP-D-10",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "documents/commands",
+		"operation": "documents.importTextOrWord",
+		"near_miss": false,
+		"question": "make this a church document",
+		"eval": {
+			"attachments": [
+				{
+					"id": "5b6d1f0e-0000-4000-8000-00000000a011",
+					"name": "Welcome letter.docx",
+					"docx": [
+						"# Welcome to Hope Fellowship",
+						"We are a church for the city of Austin.",
+						"We gather on Sundays at 10 am."
+					]
+				}
+			],
+			"proposals": [
+				{
+					"operation": "documents.importTextOrWord",
+					"input": {
+						"attachmentId": "5b6d1f0e-0000-4000-8000-00000000a011"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/^(?![^\\n]*\\b(no|not|nothing|until|once|after|when|can['’]?t|won['’]?t)\\b)[^\\n]*\\b(has been|was|is now) (added|imported|saved|created)\\b/im"
+			],
+			"derivation": "The Owner attached a Word welcome letter in the Evry panel. Evry proposes the Documents import of that attachment; the review names the file and the title Welcome letter and shows the start of its text. Nothing is in Documents until the Owner approves."
+		}
+	},
+	{
+		"case_id": "ADP-D-11",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "documents/commands",
+		"operation": "documents.importTextOrWord",
+		"near_miss": false,
+		"question": "make this a church document",
+		"eval": {
+			"attachments": [
+				{
+					"id": "5b6d1f0e-0000-4000-8000-00000000a012",
+					"name": "Old minutes.doc",
+					"base64": "0M8R4KGxGuEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+				}
+			],
+			"attempts": ["documents.importTextOrWord"],
+			"require": ["Legacy Word documents are not accepted."],
+			"derivation": "An old .doc file starts with the OLE signature, which the Documents import refuses with its own sentence. Evry says that sentence and prepares no review card."
+		}
+	},
+	{
+		"case_id": "ADP-D-12",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "documents/commands",
+		"operation": "documents.importTextOrWord",
+		"near_miss": false,
+		"question": "turn this into a church document please",
+		"eval": {
+			"attachments": [
+				{
+					"id": "5b6d1f0e-0000-4000-8000-00000000a013",
+					"name": "Announcements.txt",
+					"base64": "SGn//iE="
+				}
+			],
+			"attempts": ["documents.importTextOrWord"],
+			"require": ["Text must be UTF-8."],
+			"derivation": "The attached text file has bytes that are not UTF-8, which the Documents import refuses with its own sentence. Evry says that sentence and prepares no review card."
 		}
 	},
 	{
@@ -4889,15 +5007,7 @@
 			"require": ["/Name tags/i", "/Response cards/i"],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
-			],
-			"finding": {
-				"checks": [
-					"calls meetings.listKit {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a21\"}",
-					"says /Name tags/i",
-					"says /Response cards/i"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -4997,14 +5107,7 @@
 					"alsoAccepted": ["meetings.listGuests"]
 				}
 			],
-			"require": ["/\\byes\\b|confirmed|you('re| are) (going|coming)/i"],
-			"finding": {
-				"checks": [
-					"calls meetings.getOwnRsvp {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a21\"}",
-					"says /\\byes\\b|confirmed|you('re| are) (going|coming)/i"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"require": ["/\\byes\\b|confirmed|you('re| are) (going|coming)/i"]
 		}
 	},
 	{
@@ -5314,7 +5417,11 @@
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			],
-			"derivation": "No saved venue is a library: Evry asks and does not pick one (GAP-EVR-427)."
+			"derivation": "No saved venue is a library: Evry asks and does not pick one (GAP-EVR-427).",
+			"finding": {
+				"checks": ["asks a clarifying question"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -5383,7 +5490,13 @@
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			],
-			"derivation": "The evaluation is the planter's judgment: Evry offers to record the scores they give and proposes nothing."
+			"derivation": "The evaluation is the planter's judgment: Evry offers to record the scores they give and proposes nothing.",
+			"finding": {
+				"checks": [
+					"says /your (own |1.?5 )?(judg|evaluation|scores?|call|assessment)|send (me )?your|you (give|score|rate)|planter/i"
+				],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -5633,13 +5746,7 @@
 			],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
-			],
-			"finding": {
-				"checks": [
-					"proposes meetings.updateKitItem {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a21\",\"itemId\":\"5b6d1f0e-0000-4000-8000-000000003101\",\"checked\":true}"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -5650,6 +5757,7 @@
 		"near_miss": false,
 		"question": "add Carlos Mendez to thursday's vision night guest list",
 		"eval": {
+			"journey": "invitation",
 			"proposals": [
 				{
 					"operation": "meetings.inviteGuest",
@@ -5661,13 +5769,7 @@
 			],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
-			],
-			"finding": {
-				"checks": [
-					"proposes meetings.inviteGuest {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a21\",\"personId\":\"@Carlos Mendez\"}"
-				],
-				"note": "T-317 re-record (D-1312): Evry asks which of the two Thursday meetings (Vision Meeting #4, Nov 12, or the Interest meeting, Nov 19) before preparing the invitation card."
-			}
+			]
 		}
 	},
 	{
@@ -5896,14 +5998,7 @@
 			],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
-			],
-			"finding": {
-				"checks": [
-					"no unexpected review card",
-					"proposes meetings.checkIn {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a28\",\"personId\":\"@Carlos Mendez\"}"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -6316,7 +6411,11 @@
 		"eval": {
 			"only": ["wiki.search", "wiki.referenceExcerpt"],
 			"require": ["/Church Documents/i"],
-			"derivation": "No tool edits the Wiki: churches keep their own writing in Church Documents. No review card."
+			"derivation": "No tool edits the Wiki: churches keep their own writing in Church Documents. No review card.",
+			"finding": {
+				"checks": ["calls only wiki.search, wiki.referenceExcerpt"],
+				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -6398,6 +6497,7 @@
 		"near_miss": false,
 		"question": "can I download Ana Rivera's signed commitment card?",
 		"eval": {
+			"journey": "commitment",
 			"calls": [
 				{
 					"operation": "people.getCommitments",
@@ -6490,6 +6590,7 @@
 		"near_miss": true,
 		"question": "what's on Ana Rivera's commitment card?",
 		"eval": {
+			"journey": "commitment",
 			"as": "member",
 			"only": ["people.listPeople", "people.getPerson"],
 			"require": ["/\\bOwners?\\b.{0,12}\\bAdmins?\\b|\\bAdmins?\\b.{0,12}\\bOwners?\\b/i"],

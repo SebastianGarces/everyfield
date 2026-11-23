@@ -24,6 +24,7 @@ import {
 } from "../../../packages/evry/src/context/compile.ts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { ATTACHMENTS } from "../../../packages/evry/src/attachments/store.ts";
+import { pdf } from "../../integration/platform/fixtures.mjs";
 import { EvryRefusal } from "../../../packages/evry/src/context/errors.ts";
 import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
 import { selectQualifiedModel, type Price } from "../../../packages/evry/src/runtime/model.ts";
@@ -42,6 +43,7 @@ import {
 import type { RunLease } from "../../../packages/evry/src/runtime/run-store.ts";
 import type { MailPort } from "../../../packages/evry/src/proposals/types.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
+import * as W from "../../integration/documents/fixtures/word.mts";
 import { byName, NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
 import { SEAT_READS, SETTINGS_COMMANDS, SHARING_READS } from "../../../packages/evry/src/adapters/settings/index.ts";
 import { ONBOARDING_READS } from "../../../packages/evry/src/adapters/onboarding/reads/index.ts";
@@ -53,6 +55,10 @@ import { PIPELINE_READS } from "../../../packages/evry/src/adapters/pipeline/rea
 import { PIPELINE_COMMANDS } from "../../../packages/evry/src/adapters/pipeline/commands/index.ts";
 import { LAUNCH_READS } from "../../../packages/evry/src/adapters/launch/reads/index.ts";
 import { LAUNCH_COMMANDS } from "../../../packages/evry/src/adapters/launch/commands/index.ts";
+import { PLAN_WRITES } from "../../../packages/evry/src/context/compile.ts";
+import { INVITATION_COMMANDS } from "../../../packages/evry/src/adapters/meetings/commands/invitation.ts";
+import { WORKFLOW_READS } from "../../../packages/evry/src/adapters/meetings/reads/workflows.ts";
+import { WIKI_COMMANDS } from "../../../packages/evry/src/adapters/wiki/commands/index.ts";
 
 const LATER = new Set<string>([
 	...SEAT_READS.map((a) => a.operation),
@@ -67,8 +73,14 @@ const LATER = new Set<string>([
 	...Object.keys(PIPELINE_COMMANDS),
 	...LAUNCH_READS.map((a) => a.operation),
 	...Object.keys(LAUNCH_COMMANDS),
+	...PLAN_WRITES,
+	...Object.keys(INVITATION_COMMANDS),
+	...WORKFLOW_READS.map((a) => a.operation),
+	"documents.importTextOrWord",
+	...Object.keys(WIKI_COMMANDS).filter((op) => op.startsWith("wiki.organizationArticles.")),
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
+const SCRIPTED_ONLY = new Set(["documents.importTextOrWord"]);
 
 type Usage = { input: number; output: number };
 type Call =
@@ -165,7 +177,9 @@ export function recorder(name: string) {
 		return (real = selected.model);
 	}
 
-	function model(keys: string[] = [], inputs: string[] = []): LanguageModelV4 {
+	function model(keys: string[] = [], inputs: string[] = [], repetition = 1): LanguageModelV4 {
+		const keyOf = (options: LanguageModelV4CallOptions) =>
+			repetition === 1 ? callKey(options) : `${callKey(options)}~r${repetition}`;
 		const known = (key: string) => used.get(key) ?? loaded?.calls[key];
 		const missing = (key: string): never => {
 			throw new MissingRecording(
@@ -178,7 +192,7 @@ export function recorder(name: string) {
 			modelId: loaded?.model ?? "recording",
 			supportedUrls: {},
 			async doGenerate(options) {
-				const key = callKey(options);
+				const key = keyOf(options);
 				keys.push(key);
 				inputs.push(JSON.stringify({ prompt: options.prompt, tools: options.tools }));
 				let call = known(key);
@@ -197,7 +211,7 @@ export function recorder(name: string) {
 				};
 			},
 			async doStream(options) {
-				const key = callKey(options);
+				const key = keyOf(options);
 				keys.push(key);
 				inputs.push(JSON.stringify({ prompt: options.prompt, tools: options.tools }));
 				const call = known(key);
@@ -267,6 +281,7 @@ export type Proposal = {
 	prepared: boolean;
 	review: Prepared["review"] | null;
 	error?: string;
+	saved?: { id: string; revision: number; digest: string };
 };
 export type Conversation = {
 	kind: "application" | "capabilities" | "pastoral_boundary";
@@ -299,7 +314,7 @@ function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attac
 		const c = await createConversation(db, actor, { requestKey: randomUUID() });
 		for (const f of files)
 			await db.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
-				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,'assistant_staging',${`private/${actor.owner.id}/${f.id}`},${isPng(f) ? "image/png" : "text/csv"},${f.bytes.length},
+				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,${f.pdf ? "commitment" : "assistant_staging"},${`private/${actor.owner.id}/${f.id}`},${f.pdf ? "application/pdf" : isPng(f) ? "image/png" : "text/csv"},${f.bytes.length},
 					'pending',${`evry-attachment/${c.id}/${f.id}`},0,clock_timestamp()+make_interval(hours=>${ATTACHMENTS.stagingHours}))`);
 		const submitted = await submitTurn(db, actor, c.id, {
 			requestKey: randomUUID(),
@@ -328,7 +343,15 @@ function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attac
 	return opened;
 }
 
-export type CaseFile = { id: string; name: string; csv?: string; checked?: boolean };
+export type CaseFile = {
+	id: string;
+	name: string;
+	csv?: string;
+	docx?: string[];
+	base64?: string;
+	pdf?: true;
+	checked?: boolean;
+};
 type Attached = CaseFile & { bytes: Uint8Array };
 const isPng = (f: CaseFile) => /\.png$/i.test(f.name);
 const PNG = Buffer.from(
@@ -337,6 +360,20 @@ const PNG = Buffer.from(
 );
 const fill = (csv: string) =>
 	csv.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => byName(name)[field] ?? "");
+const HEADING = W.styles(W.style("Heading1", "heading 1"));
+const bytesOf = (f: CaseFile): Uint8Array =>
+	isPng(f)
+		? new Uint8Array(PNG)
+		: f.pdf
+			? pdf()
+			: f.base64 !== undefined
+				? Buffer.from(f.base64, "base64")
+				: f.docx
+					? W.word(
+							f.docx.map((line) => (line.startsWith("# ") ? W.styled("Heading1", line.slice(2)) : W.p(line))).join(""),
+							{ styles: HEADING },
+						)
+					: new TextEncoder().encode(fill(f.csv ?? ""));
 
 export async function converse(
 	church: GoldenChurch,
@@ -346,13 +383,15 @@ export async function converse(
 	attachments: CaseFile[] = [],
 	override?: LanguageModelV4,
 	page?: string,
+	repetition = 1,
 ): Promise<Conversation> {
 	const { db } = church;
 	const actor = church.actors[as];
 	const keys: string[] = [];
 	const inputs: string[] = [];
-	const model = override ?? golden.model(keys, inputs);
-	const catalog = readCatalog(actor, RECORDED);
+	const model = override ?? golden.model(keys, inputs, repetition);
+	const offered = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
+	const catalog = readCatalog(actor, offered);
 	const calls: ToolCall[] = [];
 	const proposals: Proposal[] = [];
 	const classified = await classifyRequest(model, text, AbortSignal.timeout(60_000));
@@ -374,10 +413,7 @@ export async function converse(
 				body: { text: "user" in t ? t.user : t.assistant },
 			}) as unknown as ConversationEvent,
 	);
-	const files: Attached[] = attachments.map((f) => ({
-		...f,
-		bytes: isPng(f) ? new Uint8Array(PNG) : new TextEncoder().encode(fill(f.csv ?? "")),
-	}));
+	const files: Attached[] = attachments.map((f) => ({ ...f, bytes: bytesOf(f) }));
 	const attachedAt = new Date(NOW.getTime() - 5 * 60_000);
 	const state = {
 		attachments: files.map((f) => ({
@@ -495,13 +531,16 @@ export async function converse(
 					MAIL,
 					null,
 					conversationFiles,
-				).catch((error) => (error instanceof EvryRefusal ? error.code : "unknown"));
-				if (typeof proposal === "string" || !proposal) {
-					card.error = proposal || "source_unavailable";
-					return { error: card.error };
+				).catch((error: unknown) =>
+					error instanceof EvryRefusal ? { error: error.code, problem: error.problem } : { error: "unknown" },
+				);
+				if (!proposal || "error" in proposal) {
+					card.error = proposal?.error ?? "source_unavailable";
+					return { error: card.error, ...(proposal?.problem && { problem: proposal.problem }) };
 				}
 				card.prepared = true;
 				card.review = proposal.review;
+				card.saved = { id: proposal.id, revision: proposal.revision, digest: proposal.digest };
 				return proposalForModel({
 					...proposal,
 					review: pinnedContactTime(proposal.review, call.input),
@@ -510,7 +549,7 @@ export async function converse(
 				});
 			}),
 		},
-		RECORDED,
+		offered,
 	);
 
 	const run = streamText({

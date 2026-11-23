@@ -647,5 +647,121 @@
 			"require": ["Cannot unmerge. Jon Smith's details changed after the merge.", "Nothing was changed"],
 			"derivation": "Jon Smith changed after the merge: the native Unmerge's answer, and nothing changes."
 		}
+	},
+	{
+		"case_id": "ASM-30",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.createCommitment",
+		"near_miss": false,
+		"question": "Alex signed the core group commitment on Oct 4",
+		"eval": {
+			"attachments": [
+				{
+					"id": "5b6d1f0e-0000-4000-8000-00000000a030",
+					"name": "alex-signed-card.pdf",
+					"pdf": true
+				}
+			],
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"search": "~alex"
+					}
+				}
+			],
+			"proposals": [
+				{
+					"operation": "people.createCommitment",
+					"input": {
+						"personId": "@Alex Rivera",
+						"kind": "core_group",
+						"occurredOn": "2026-10-04",
+						"attachmentId": "5b6d1f0e-0000-4000-8000-00000000a030"
+					},
+					"changes": [
+						["kind", "core_group"],
+						["occurredOn", "2026-10-04"],
+						["document", "alex-signed-card.pdf"]
+					]
+				}
+			],
+			"require": ["Alex Rivera", "/review/i"],
+			"forbid": ["Dallas", "Grace Point", "/recorded (it|the card)|is recorded now|have recorded/i"],
+			"derivation": "The signed PDF attached in this conversation rides Hope's Alex Rivera's commitment review, named on the card; nothing is recorded until approval, and Grace Point's Alex is never read."
+		}
+	},
+	{
+		"case_id": "ASM-31",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.createCommitment",
+		"near_miss": true,
+		"question": "Alex signed the core group commitment on Oct 4",
+		"eval": {
+			"attachments": [
+				{
+					"id": "5b6d1f0e-0000-4000-8000-00000000a031",
+					"name": "alex-card.pdf",
+					"csv": "first_name,last_name\nAlex,Rivera"
+				}
+			],
+			"proposals": [
+				{
+					"operation": "people.createCommitment",
+					"input": {
+						"personId": "@Alex Rivera",
+						"attachmentId": "5b6d1f0e-0000-4000-8000-00000000a031"
+					},
+					"changes": [["document", "alex-card.pdf"]],
+					"refusal": "/could not be read as a PDF/"
+				}
+			],
+			"require": ["/could not be read as a PDF/"],
+			"derivation": "A file named .pdf that is not a readable PDF gets the People screen's own unreadable-document answer on the card, and the card offers no approval."
+		}
+	},
+	{
+		"case_id": "ASM-32",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.getCommitmentDownload",
+		"near_miss": false,
+		"question": "get Alex's commitment",
+		"eval": {
+			"setup": {
+				"signed": {
+					"text": "Alex signed the core group commitment on Oct 4",
+					"file": {
+						"id": "5b6d1f0e-0000-4000-8000-00000000a032",
+						"name": "alex-signed-card.pdf",
+						"pdf": true
+					}
+				}
+			},
+			"calls": [
+				{
+					"operation": "people.getCommitments",
+					"input": {
+						"personId": "@Alex Rivera"
+					}
+				},
+				{
+					"operation": "people.getCommitmentDownload"
+				}
+			],
+			"require": [
+				"active since Oct 4, 2026",
+				"/core group commitment signed Oct 4, 2026/i",
+				"Download the signed document",
+				"/people\\/[0-9a-f-]{36}\\/commitments\\/[0-9a-f-]{36}\\/document/"
+			],
+			"forbid": ["Dallas", "Grace Point"],
+			"derivation": "After the Owner approved the review that carried the signed PDF, a new conversation reads Hope's Alex Rivera's card and gives the People page's own document link for that file."
+		}
 	}
 ]

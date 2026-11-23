@@ -16,7 +16,6 @@ import { claimDue } from "../../../../packages/domain/src/jobs/queue.ts";
 import { actor, admin, db, otherPlant, plant, setup, sql, teardown } from "../../runtime/support.mts";
 import { seedDocument, type Seeded } from "./seed.mts";
 
-before(setup);
 after(teardown);
 
 const reads = new Map(READ_DOMAINS.documents.map((a) => [a.operation, a as ReadAdapter<unknown>]));
@@ -26,6 +25,7 @@ const read = (who: EvryActor, operation: string, input: unknown = {}) =>
 let docs: Record<"coreValues" | "september" | "october" | "draft" | "empty" | "policy", Seeded>;
 let theirs: Record<"agenda" | "policy", Seeded>;
 before(async () => {
+	await setup();
 	docs = {
 		coreValues: await seedDocument(plant, "core_values", "Our Core Values", "We pray first.\nWe make room.", 30),
 		september: await seedDocument(
@@ -217,7 +217,13 @@ test("a Member reads documents but gets no document change to propose", async ()
 		allowedWrites(await actor("owner"))
 			.filter((w) => w.operation.startsWith("documents."))
 			.map((w) => w.operation),
-		["documents.createFromTemplate", "documents.exportNative", "documents.archive", "documents.designateCoreValues"],
+		[
+			"documents.createFromTemplate",
+			"documents.exportNative",
+			"documents.archive",
+			"documents.designateCoreValues",
+			"documents.importTextOrWord",
+		],
 	);
 	assert.equal(
 		(await read(member, "documents.read", { documentId: docs.october.id })).rows[0]!.fields.text,

@@ -11,6 +11,7 @@ import { defineRefusals, type Deny } from "../operations/refusals.ts";
 export type FollowUpReply<T> = { status: "ok"; value: T } | { status: "refused"; error: c.FollowUpError };
 const refusals = defineRefusals(c.followUpError, { writeUnavailable: "unavailable" });
 export const refuse: Deny<typeof c.followUpError> = refusals.deny;
+export const FollowUpRefusal = refusals.Refusal;
 export async function readAnswer<T>(body: () => Promise<T>): Promise<FollowUpReply<T>> {
 	try {
 		return { status: "ok", value: await body() };

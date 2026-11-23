@@ -56,7 +56,7 @@ import {
 } from "react";
 import { STAGE_KEY, type StageValue } from "../../people/model.ts";
 import * as api from "./api.ts";
-import { MAIL_CONSEQUENCE, MailChanges, MailResult } from "./MailChanges.tsx";
+import { InvitationChanges, MAIL_CONSEQUENCE, MailChanges, MailResult } from "./MailChanges.tsx";
 import { NoticeChanges } from "./NoticeChanges.tsx";
 import { CurrentState, ImportResult, ImportRows, PeopleResult, ReviewedPeople } from "./PeopleChanges.tsx";
 import {
@@ -91,6 +91,10 @@ import {
 	mailHead,
 	launchRefusalText,
 	mailRefusalText,
+	invitationRefusalText,
+	INVITATION_CONSEQUENCE,
+	isInvitation,
+	sendsMail,
 	missingRequired,
 	openAfter,
 	openCriteria,
@@ -114,6 +118,7 @@ import {
 	showsBefore,
 	shownChanges,
 	subjectName,
+	invitationName,
 	targetHref,
 	valueText,
 	wikiRefusalText,
@@ -189,7 +194,7 @@ const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; ti
 
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
 	const who = review?.review.target?.label ?? null;
-	const mail = !!review && isMail(review.operation);
+	const mail = !!review && sendsMail(review.operation);
 	const tasks = !!review && isTasks(review.operation);
 	const record = tasks && review.review.target?.kind !== "person" ? "task" : "person";
 	if (review && view === "pending" && review.review.refusal) return review.review.refusal;
@@ -222,17 +227,19 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 			if (review && isLaunch(review.operation)) return launchRefusalText(review.receipt?.code);
 			if (review?.receipt?.current?.length)
 				return `A record in the ${who ?? "change"} changed after Evry prepared this, so it couldn't be applied and nothing was changed for anyone. This is how they are now. Ask Evry to prepare it again.`;
-			return mail
-				? mailRefusalText(review.receipt?.code)
-				: review && isWiki(review.operation)
-					? wikiRefusalText(review.receipt?.code)
-					: review && isDocument(review.operation)
-						? documentRefusalText(review.receipt?.code)
-						: review && isSettings(review.operation)
-							? settingsRefusalText(review.receipt?.code)
-							: intelligence
-								? intelligenceRefusalText(review.receipt?.code)
-								: refusalText(review?.receipt?.code, who, review?.operation);
+			return review && isInvitation(review.operation)
+				? invitationRefusalText(review.receipt?.code)
+				: mail
+					? mailRefusalText(review.receipt?.code)
+					: review && isWiki(review.operation)
+						? wikiRefusalText(review.receipt?.code, review.operation)
+						: review && isDocument(review.operation)
+							? documentRefusalText(review.receipt?.code)
+							: review && isSettings(review.operation)
+								? settingsRefusalText(review.receipt?.code)
+								: intelligence
+									? intelligenceRefusalText(review.receipt?.code)
+									: refusalText(review?.receipt?.code, who, review?.operation);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
@@ -389,7 +396,16 @@ export function ReviewCard({
 				<>
 					<div className="flex flex-col gap-3 px-4 py-3.5">
 						<Affects review={review} />
-						{isMail(review.operation) ? (
+						{isInvitation(review.operation) ? (
+							<>
+								<InvitationChanges review={review} />
+								{view === "completed" ? <MailResult review={review} /> : null}
+								{review.review.notes?.length ? <Notes notes={review.review.notes} /> : null}
+								{view === "pending" && !review.review.refusal ? (
+									<p className="text-sm text-text-2">{INVITATION_CONSEQUENCE}</p>
+								) : null}
+							</>
+						) : isMail(review.operation) ? (
 							<>
 								<MailChanges review={review} />
 								{view === "completed" ? <MailResult review={review} /> : null}
@@ -778,36 +794,40 @@ function Affects({ review }: { review: Review }) {
 				? Mortarboard01Icon
 				: isLaunch(review.operation)
 					? StartUp02Icon
-					: imported
-						? FileImportIcon
-						: task
-							? Task01Icon
-							: kind === "household" || kind === "article"
-								? RECORD_GLYPH[kind]
-								: kind === "tag" || tag
-									? Tag01Icon
-									: mail
-										? Mail01Icon
-										: isDocument(review.operation)
-											? File02Icon
-											: create
-												? UserAdd01Icon
-												: null));
+					: isInvitation(review.operation)
+						? Calendar03Icon
+						: imported
+							? FileImportIcon
+							: task
+								? Task01Icon
+								: kind === "household" || kind === "article"
+									? RECORD_GLYPH[kind]
+									: kind === "tag" || tag
+										? Tag01Icon
+										: mail
+											? Mail01Icon
+											: isDocument(review.operation)
+												? File02Icon
+												: create
+													? UserAdd01Icon
+													: null));
 	const name = own
 		? (NOTIFICATION_SUBJECT[review.operation] ?? "Your notifications")
 		: imported
 			? "People import"
-			: isTasks(review.operation)
+			: isTasks(review.operation) || review.operation === "documents.importTextOrWord"
 				? subjectName(review)
-				: tag
-					? String(tag)
-					: mail
-						? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
-						: create
-							? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
-							: record && !target
-								? String(review.review.changes.find((c) => c.field === "name")?.after ?? "New ministries")
-								: (target?.label ?? "Not available");
+				: isInvitation(review.operation)
+					? invitationName(review)
+					: tag
+						? String(tag)
+						: mail
+							? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
+							: create
+								? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
+								: record && !target
+									? String(review.review.changes.find((c) => c.field === "name")?.after ?? "New ministries")
+									: (target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
 			{glyph ? (
@@ -1010,7 +1030,7 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 				return item ? (
 					<div key={n} className="flex min-w-0 flex-col gap-0.5">
 						<dt className="font-medium break-words text-ink">{c.field}</dt>
-						{values(c, item)}
+						{item === "checklist" ? <ChecklistTasks value={c.after} /> : values(c, item)}
 					</div>
 				) : c.field === "photo" && review.review.target ? (
 					<PhotoChange
@@ -1050,6 +1070,24 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 				</div>
 			) : null}
 		</dl>
+	);
+}
+
+function ChecklistTasks({ value }: { value: unknown }) {
+	return (
+		<dd className="min-w-0 text-text-2">
+			{Array.isArray(value) ? (
+				<ul className="flex flex-col gap-0.5">
+					{value.map((task, i) => (
+						<li key={i} className="break-words">
+							{String(task)}
+						</li>
+					))}
+				</ul>
+			) : (
+				String(value)
+			)}
+		</dd>
 	);
 }
 

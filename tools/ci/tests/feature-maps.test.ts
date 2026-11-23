@@ -40,6 +40,15 @@ test("INV-feature-maps: a route owned by no map and not pending fails, naming th
 	]);
 });
 
+test("INV-feature-maps: a slot page renders into a page's URL; one whose URL no page owns fails", async () => {
+	const root = fixture();
+	put(root, "apps/web/src/app/(product)/@dialog/things/page.tsx", "export default function ThingDialog() {}\n");
+	put(root, "apps/web/src/app/(product)/@dialog/fresh/page.tsx", "export default function FreshDialog() {}\n");
+	assert.deepEqual(await problems(root), [
+		"apps/web/src/app/(product)/@dialog/fresh/page.tsx: slot page renders into /fresh, which no page owns",
+	]);
+});
+
 test("INV-feature-maps: a pending route that a map now owns, and a route added to the pending list, both fail", async () => {
 	const root = fixture();
 	writeFileSync(join(root, "apps/web/feature-maps.pending.json"), JSON.stringify({ routes: ["/later", "/things"] }));
