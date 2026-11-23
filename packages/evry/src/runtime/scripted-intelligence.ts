@@ -1,5 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { counted } from "@everyfield/contracts/common";
 import { MEMBER_INTELLIGENCE } from "../catalog/catalog.ts";
 import { INTELLIGENCE_RULES, OVERSIGHT_RULES } from "../context/compile.ts";
 
@@ -31,7 +32,6 @@ function turnOutputs(prompt: Prompt): Output[] {
 		);
 }
 const systemText = (prompt: Prompt) => prompt.flatMap((m) => (m.role === "system" ? [m.content] : [])).join("\n");
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 const ADULTS = /\bcommitted adults?\b|\bare we at 30\b/i;
 const HEALTH = /\bhow healthy\b|\b(?:core )?team health\b|\bhealth of (?:our|the) (?:core )?team\b/i;
@@ -59,13 +59,13 @@ function adultsAnswer(f: Record<string, unknown>) {
 	const measured = `as Plant Intelligence measured it on ${String(f.measuredOn)}`;
 	const known = Number(f.known);
 	if (f.exact === null || f.exact === undefined)
-		return `You have at least ${plural(known, "committed adult", "committed adults")}, ${measured}. ${plural(Number(f.needsClassifying), "more person with a commitment needs", "more people with a commitment need")} an adult or child classification. ${INTELLIGENCE_RULES.unclassified} Only signed commitments count, not a People stage. See ${String(f.screen)}.`;
+		return `You have at least ${counted(known, "committed adult")}, ${measured}. ${counted(Number(f.needsClassifying), "more person with a commitment needs", "more people with a commitment need")} an adult or child classification. ${INTELLIGENCE_RULES.unclassified} Only signed commitments count, not a People stage. See ${String(f.screen)}.`;
 	const exact = Number(f.exact);
 	const verdict =
 		f.criterion === "met"
 			? `You're at ${f.target}: the committed-adult criterion is met.`
-			: `That's ${plural(Number(f.target) - exact, "adult", "adults")} short of ${f.target}, so the criterion isn't met yet.`;
-	return `You have ${plural(exact, "committed adult", "committed adults")}, ${measured}. ${verdict} Only signed commitments count, not a People stage. See ${String(f.screen)}.`;
+			: `That's ${counted(Number(f.target) - exact, "adult")} short of ${f.target}, so the criterion isn't met yet.`;
+	return `You have ${counted(exact, "committed adult")}, ${measured}. ${verdict} Only signed commitments count, not a People stage. See ${String(f.screen)}.`;
 }
 
 function plantStep(options: LanguageModelV4CallOptions, text: string, system: string, outputs: Output[]) {
@@ -412,7 +412,7 @@ function placeStep(
 		}
 		return say(
 			[
-				`Here is where your ${plural(rows.length, "plant is", "plants are")} placed for Network Intelligence:`,
+				`Here is where your ${counted(rows.length, "plant is", "plants are")} placed for Network Intelligence:`,
 				...rows.map(
 					(r) =>
 						`- [${r.label}](${fieldText(r, "href")}): ${placeOf(r)}. Region: ${fieldText(r, "region")}.${findingsNote(r)}`,
@@ -571,7 +571,7 @@ function organizationStep(options: LanguageModelV4CallOptions, text: string, sys
 						: "None of the plants that share Launch readiness has Launch Sunday within 60 days.",
 					...near.map(
 						(r) =>
-							`- **${r.label}**: ${plural(Number(r.fields.daysToLaunch), "day", "days")} to Launch Sunday, ${String(r.fields.milestones)}${r.fields.publishedSummary ? `. Published summary: ${String(r.fields.publishedSummary)}` : ""}`,
+							`- **${r.label}**: ${counted(Number(r.fields.daysToLaunch), "day")} to Launch Sunday, ${String(r.fields.milestones)}${r.fields.publishedSummary ? `. Published summary: ${String(r.fields.publishedSummary)}` : ""}`,
 					),
 					...(unshared.length ? ["", `Not shared: ${unshared.join(", ")}.`] : []),
 				].join("\n"),
@@ -579,7 +579,7 @@ function organizationStep(options: LanguageModelV4CallOptions, text: string, sys
 		}
 		return say(
 			[
-				`Here is how your ${plural(rows.length, "plant", "plants")} look on your oversight pages:`,
+				`Here is how your ${counted(rows.length, "plant")} look on your oversight pages:`,
 				...rows.map((r) => {
 					const launch =
 						r.fields.launch === "Not shared"

@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { Add01Icon, ArrowDataTransferHorizontalIcon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import {
 	Breadcrumb,
@@ -259,9 +260,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 						</ul>
 					)}
 					<div className="flex flex-wrap items-center justify-between gap-3">
-						<span className="text-sm text-text-3">
-							{coverage.total} {coverage.total === 1 ? "contact" : "contacts"}
-						</span>
+						<span className="text-sm text-text-3">{counted(coverage.total, "contact")}</span>
 						<Pagination page={coverage.page} pageCount={pageCount} onPageChange={(p) => go(filter, p)} />
 					</div>
 				</Card>
@@ -371,9 +370,7 @@ function Mine({ owners }: { owners: Owners }) {
 					</ul>
 				)}
 				<div className="flex flex-wrap items-center justify-between gap-3">
-					<span className="text-sm text-text-3">
-						{owners.matched} open {owners.matched === 1 ? "follow-up" : "follow-ups"}
-					</span>
+					<span className="text-sm text-text-3">{counted(owners.matched, "open follow-up")}</span>
 					<Pagination
 						page={owners.page}
 						pageCount={pageCount}

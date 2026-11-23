@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { ArrowLeft01Icon, CheckListIcon } from "@hugeicons/core-free-icons";
 import { Alert, Button, Sheet, Skeleton, StatePanel, toast } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
@@ -16,7 +17,6 @@ import {
 	dayText,
 	PRIORITY_LABEL,
 	problemText,
-	taskCount,
 	type Outcome,
 	type TaskItem,
 	type TemplateCatalog,
@@ -97,7 +97,7 @@ export function Templates({ year, onImported }: { year: number; onImported: (tas
 				return;
 			}
 			onImported(r.value.tasks);
-			toast({ tone: "success", message: `Added ${taskCount(r.value.tasks.length)} from “${p.checklist.name}”.` });
+			toast({ tone: "success", message: `Added ${counted(r.value.tasks.length, "task")} from “${p.checklist.name}”.` });
 			onOpenChange(false);
 		});
 
@@ -126,7 +126,7 @@ export function Templates({ year, onImported }: { year: number; onImported: (tas
 						</Button>
 						<span className="flex-1" />
 						<Button variant="primary" disabled={!shown} loading={saving} onClick={() => shown && add(shown)}>
-							{shown ? `Add ${taskCount(shown.checklist.tasks.length)}` : "Add tasks"}
+							{shown ? `Add ${counted(shown.checklist.tasks.length, "task")}` : "Add tasks"}
 						</Button>
 					</>
 				) : undefined
@@ -203,7 +203,7 @@ function CatalogBody({
 												<span className="mt-0.5 block text-sm text-text-2">{k.description}</span>
 											</span>
 											<span className="flex-none pt-0.5 text-sm whitespace-nowrap text-text-3">
-												{taskCount(k.taskCount)}
+												{counted(k.taskCount, "task")}
 											</span>
 										</button>
 									</li>
@@ -256,7 +256,7 @@ function PreviewBody({
 		<div className="flex flex-col gap-4">
 			<p className="text-md text-ink">{k.description}</p>
 			<p className="text-sm text-text-2" role="status">
-				Adds {taskCount(k.tasks.length)} to your list, assigned to you, due from today (
+				Adds {counted(k.tasks.length, "task")} to your list, assigned to you, due from today (
 				{dayText(shown.anchorDate, year)}). Adding it again later adds another copy.
 			</p>
 			{problem ? (

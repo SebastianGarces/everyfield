@@ -118,10 +118,6 @@ export function stampText(at: string): string {
 			});
 }
 
-export function plural(n: number, one: string, many = `${one}s`) {
-	return `${n} ${n === 1 ? one : many}`;
-}
-
 export function problemText(code: string): string {
 	switch (code) {
 		case "conflict":

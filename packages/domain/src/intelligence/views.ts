@@ -1,3 +1,4 @@
+import { counted } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/intelligence";
 import type { Catalog, CriterionKey, CriterionStatus } from "@everyfield/contracts/phases";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
@@ -67,7 +68,6 @@ export function criteriaOf(catalog: Catalog, phase: number, facts: unknown): c.A
 	);
 }
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const ANSWERED = { yes: "Answered yes", not_yet: "Answered not yet" } as const;
 const answerReading = (value: c.EvidenceFact["value"], asOf: c.EvidenceFact["value"]) =>
 	value === "yes" || value === "not_yet" ? `${ANSWERED[value]} as of ${String(asOf)}` : null;
@@ -80,19 +80,19 @@ const READINGS: Partial<Record<CriterionKey, (v: (key: string) => c.EvidenceFact
 		const known = v("committedAdults.atLeast");
 		const open = Number(v("committedAdults.needsClassifying") ?? 0);
 		return typeof known === "number"
-			? `At least ${known} of ${c.ADULT_TARGET} committed adults; ${plural(open, "person needs", "people need")} an adult or child classification`
+			? `At least ${known} of ${c.ADULT_TARGET} committed adults; ${counted(open, "person needs", "people need")} an adult or child classification`
 			: null;
 	},
 	growth_trajectory: (v) => {
 		const days = v("growth.daysSince");
 		return typeof days === "number"
-			? `${plural(days, "day", "days")} since the newest committed adult, on ${String(v("growth.lastAcquiredOn"))}`
+			? `${counted(days, "day")} since the newest committed adult, on ${String(v("growth.lastAcquiredOn"))}`
 			: null;
 	},
 	financial_base: (v) =>
 		answerReading(v("attestations.financial_base_established"), v("attestations.financial_base_established.asOf")),
 	all_team_leaders: (v) =>
-		`${String(v("coverage.filled"))} of ${String(v("coverage.slots"))} ministry responsibilities filled, by ${plural(Number(v("coverage.people")), "person", "people")}`,
+		`${String(v("coverage.filled"))} of ${String(v("coverage.slots"))} ministry responsibilities filled, by ${counted(Number(v("coverage.people")), "person", "people")}`,
 	launch_date_set: (v) =>
 		typeof v("launch.targetOn") === "string" ? `Launch Sunday set for ${String(v("launch.targetOn"))}` : null,
 	training_complete: (v) => {
@@ -104,8 +104,8 @@ const READINGS: Partial<Record<CriterionKey, (v: (key: string) => c.EvidenceFact
 		const days = v("launch.daysToLaunch");
 		if (typeof days !== "number") return null;
 		return days >= 0
-			? `${plural(days, "day", "days")} to Launch Sunday`
-			: `Launch Sunday's date was ${plural(-days, "day", "days")} ago`;
+			? `${counted(days, "day")} to Launch Sunday`
+			: `Launch Sunday's date was ${counted(-days, "day")} ago`;
 	},
 	first_service_complete: (v) => {
 		const on = v("firstService.heldOn");

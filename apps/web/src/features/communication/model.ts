@@ -1,3 +1,4 @@
+import { counted } from "@everyfield/contracts/common";
 import type { Outcome } from "@everyfield/contracts/common";
 import type { hubStates as contractHubStates } from "@everyfield/contracts/communication";
 import { audienceGroups } from "@everyfield/contracts/communication/values";
@@ -174,8 +175,6 @@ const counts = (report: DeliveryReport) =>
 	`Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No answer ${report.unknownCount}.` +
 	leftOutNote(report.unsubscribedCount, report.childCount);
 
-const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
-
 export const leftOutNote = (unsubscribed: number, child: number) =>
 	(unsubscribed > 0 ? ` Unsubscribed ${unsubscribed}.` : "") + (child > 0 ? ` Marked as a child ${child}.` : "");
 
@@ -201,7 +200,7 @@ export function deliveryText(report: DeliveryReport): string {
 
 export function scheduleText(report: DeliveryReport, when: string): string {
 	if (report.acceptedCount > 0)
-		return `Scheduled for ${when}. It goes to ${people(report.acceptedCount)} then.${leftOutNote(report.unsubscribedCount, report.childCount)}`;
+		return `Scheduled for ${when}. It goes to ${counted(report.acceptedCount, "person", "people")} then.${leftOutNote(report.unsubscribedCount, report.childCount)}`;
 	if (report.unknownCount > 0)
 		return `Not confirmed. The email service gave no answer. ${counts(report)} Check result to ask it again.`;
 	return `${refusedAll(report, "scheduled")} ${counts(report)} The message stays saved in Messages.`;
@@ -220,7 +219,7 @@ export function cancelText(report: CancelReport): string {
 			? `${wentOut(report.sentCount)} Nothing was cancelled.`
 			: `${wentOut(report.sentCount)} The email service stopped the other ${report.confirmedCount}.`;
 	if (report.confirmedCount === 0) return "Not cancelled.";
-	return `Cancelled for ${people(report.confirmedCount)}. No email went out.`;
+	return `Cancelled for ${counted(report.confirmedCount, "person", "people")}. No email went out.`;
 }
 
 export function replaceText(report: ReplaceReport): string {

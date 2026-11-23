@@ -1,3 +1,4 @@
+import { counted } from "@everyfield/contracts/common";
 import {
 	attrsOf,
 	formatNumber,
@@ -439,7 +440,7 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		blankKey = key;
 		blanks.replaceChildren();
 		blanks.hidden = count === 0;
-		blanks.setAttribute("aria-label", `${count} blank row${count === 1 ? "" : "s"} to write in by hand`);
+		blanks.setAttribute("aria-label", `${counted(count, "blank row")} to write in by hand`);
 		for (const blank of rows) {
 			const row = el("div", "ef-blank-row", { role: "row", "data-role": "item" });
 			if (blank.stripe) row.classList.add("ef-stripe");

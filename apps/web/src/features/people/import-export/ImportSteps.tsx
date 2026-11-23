@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import {
 	Alert02Icon,
 	ArrowDown01Icon,
@@ -32,7 +33,6 @@ import {
 	addCount,
 	canReview,
 	firstGroup,
-	plural,
 	problemText,
 	progressOf,
 	ROWS_PER_PAGE,
@@ -327,13 +327,13 @@ export function ReviewStep({
 				<Stat
 					label="Rows in file"
 					value={counts.rows}
-					note={plural(addCount(choices), "person", "people") + " to add"}
+					note={counted(addCount(choices), "person", "people") + " to add"}
 				/>
 			</div>
 			{preview.columns.ignored.length ? (
 				<Card variant="callout" tone="blue">
 					<CalloutLabel tone="blue" icon={InformationCircleIcon}>
-						{plural(preview.columns.ignored.length, "column")} not imported
+						{counted(preview.columns.ignored.length, "column")} not imported
 					</CalloutLabel>
 					<CalloutText>
 						{preview.columns.ignored.join(", ")}. Everyfield reads only the template’s columns, so these stay out.
@@ -585,7 +585,7 @@ export function ImportStep({
 						</div>
 						<p className="mt-2.5 text-sm text-text-2 tabular-nums" aria-live="polite">
 							{progress
-								? `${progress.done.toLocaleString("en-US")} of ${plural(progress.total, "row")} done`
+								? `${progress.done.toLocaleString("en-US")} of ${counted(progress.total, "row")} done`
 								: "Starting the import…"}
 						</p>
 					</div>
@@ -646,14 +646,14 @@ export function DoneStep({
 					<div className="min-w-0">
 						<StepHeading heading={heading}>
 							{partial
-								? `${plural(counts.created, "person", "people")} added. ${plural(notSaved, "row")} did not save.`
-								: `${plural(counts.created, "person", "people")} added`}
+								? `${counted(counts.created, "person", "people")} added. ${counted(notSaved, "row")} did not save.`
+								: `${counted(counts.created, "person", "people")} added`}
 						</StepHeading>
 						<p className="mt-1.5 text-text-2 text-pretty">
 							{retry ? (
 								"The other rows are saved. Try the rows that did not save again; nobody is added twice."
 							) : reupload ? (
-								`Upload the file again to finish the remaining ${plural(notSaved, "row")}.`
+								`Upload the file again to finish the remaining ${counted(notSaved, "row")}.`
 							) : flagged ? (
 								<>
 									{flagged} to review in{" "}
@@ -672,7 +672,7 @@ export function DoneStep({
 				<div className="flex flex-wrap gap-2">
 					{retry ? (
 						<Button variant="primary" loading={working !== false} onClick={() => onRetry()}>
-							Try {plural(notSaved, "row")} again
+							Try {counted(notSaved, "row")} again
 						</Button>
 					) : reupload ? (
 						<ChooseAgain working={working} onFile={onRetry} />

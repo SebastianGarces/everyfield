@@ -1,4 +1,5 @@
 "use client";
+import { counted } from "@everyfield/contracts/common";
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { ArrowLeft01Icon, CrownIcon, LayoutGridIcon } from "@hugeicons/core-free-icons";
@@ -21,7 +22,7 @@ import { createRead, useRead } from "../../components/read.tsx";
 import { DialogNotice, SaveButton, type SaveIntent } from "../../components/save/parts.tsx";
 import { importTemplates } from "./actions.ts";
 import { templateCatalog } from "./fetch.ts";
-import { plural, type Catalog, type SetupForm } from "./model.ts";
+import { type Catalog, type SetupForm } from "./model.ts";
 import { loadProblem, failedIcon } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
@@ -166,10 +167,10 @@ function SetupBody({ lane, present = NONE, into, onDone, form }: SetupProps & { 
 												into
 													? left === 0
 														? "This ministry has all of its roles."
-														: `${plural(left, "role")} to add`
+														: `${counted(left, "role")} to add`
 													: t.roles.length === 0
 														? "No starter role. Add your own roles later."
-														: plural(t.roles.length, "starter role")
+														: counted(t.roles.length, "starter role")
 											}
 										/>
 										{here ? (
@@ -223,7 +224,7 @@ function SetupBody({ lane, present = NONE, into, onDone, form }: SetupProps & { 
 								<li key={s.teamKey} className="rounded-md bg-surface-2 px-4 py-3">
 									<p className="font-medium text-ink">
 										{into
-											? `Adds ${plural(s.roleKeys.length, "role")} to ${into.name}`
+											? `Adds ${counted(s.roleKeys.length, "role")} to ${into.name}`
 											: here
 												? `Adds to your ${t.name} ministry`
 												: `New ministry: ${t.name}`}
@@ -269,7 +270,9 @@ function SetupBody({ lane, present = NONE, into, onDone, form }: SetupProps & { 
 						}}
 					>
 						<SaveButton wait={lane.wait} saving={lane.saving}>
-							{newTeams > 0 ? `Add ${plural(newTeams, "ministry", "ministries")}` : `Add ${plural(roleCount, "role")}`}
+							{newTeams > 0
+								? `Add ${counted(newTeams, "ministry", "ministries")}`
+								: `Add ${counted(roleCount, "role")}`}
 						</SaveButton>
 					</form>
 				)}

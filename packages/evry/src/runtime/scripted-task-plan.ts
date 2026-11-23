@@ -1,5 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { counted, countWord } from "@everyfield/contracts/common";
 import { captured } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
@@ -130,7 +131,7 @@ function answeredBefore(out: Output[]) {
 		);
 	const created = Number(answer.fields.tasksCreated);
 	return say(
-		`The phase ${phase} offer was already answered on ${when}: ${list(accepted.map(nameOf))} ${accepted.length === 1 ? "was" : "were"} accepted (${created} ${created === 1 ? "task" : "tasks"})${declined.length ? ` and ${list(declined)} declined` : ""}. I prepared nothing.`,
+		`The phase ${phase} offer was already answered on ${when}: ${list(accepted.map(nameOf))} ${countWord(accepted.length, "was", "were")} accepted (${counted(created, "task")})${declined.length ? ` and ${list(declined)} declined` : ""}. I prepared nothing.`,
 	);
 }
 
@@ -215,7 +216,7 @@ function prerequisitesStep(out: Output[], want: { target: string; on: string[] }
 	const on = want.on.map((n) => find(n));
 	if (failed?.error === "dependency_cycle")
 		return say(
-			`${target?.label} can't wait on ${list(on.map((r) => String(r?.label)))}: that would make a cycle, because ${on.length === 1 ? "it already waits" : "they already wait"} on ${target?.label}, directly or through other tasks. I prepared nothing.`,
+			`${target?.label} can't wait on ${list(on.map((r) => String(r?.label)))}: that would make a cycle, because ${countWord(on.length, "it already waits", "they already wait")} on ${target?.label}, directly or through other tasks. I prepared nothing.`,
 		);
 	if (failed?.error === "invalid_subject") {
 		const row = [target, ...on].find((r) => r?.fields.parentId);
@@ -245,7 +246,7 @@ function receiptStep(out: Output[]) {
 		.join(", ");
 	const created = Number(latest.fields.tasksCreated);
 	return say(
-		`The latest import is ${name}, a ${String(latest.fields.receipt)} on ${dayText(latest.fields.at)}: it created ${created} ${created === 1 ? "task" : "tasks"}.`,
+		`The latest import is ${name}, a ${String(latest.fields.receipt)} on ${dayText(latest.fields.at)}: it created ${counted(created, "task")}.`,
 	);
 }
 

@@ -401,6 +401,24 @@
 					}
 				},
 				{
+					"id": "contact-date-range",
+					"says": "An Earlier contact takes a date from one year ago through today; any other date, an emptied field or a year like 0001 shows the range and nothing saves.",
+					"catalog": ["TSK-004"],
+					"operations": ["followups.recordOutcome", "followups.correctOutcome"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/unit/followups/contact-range.test.mjs",
+								"name": "a contact dated year 1, as a typed or arrowed year field gives it, is refused with the range"
+							},
+							{
+								"file": "tests/unit/followups/contact-range.test.mjs",
+								"name": "one year ago through today is accepted, and the day before or after is refused"
+							}
+						]
+					}
+				},
+				{
 					"id": "obligations",
 					"says": "A Vision meeting's guests get a follow-up due two days later and a 48-hour window measured from the meeting start.",
 					"catalog": ["TSK-011"],
