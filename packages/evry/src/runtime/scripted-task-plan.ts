@@ -39,7 +39,7 @@ const names = (text: string) =>
 		)
 		.filter(Boolean);
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
-const importedOn = (at: unknown) =>
+const atText = (at: unknown) =>
 	typeof at !== "string"
 		? "an earlier date"
 		: at.length === 10
@@ -126,7 +126,7 @@ function answeredBefore(out: Output[]) {
 	const nameOf = (key: string) => checklists.find((k) => k.id === key)?.label ?? key;
 	const accepted = answer.label === "Phase offer declined" ? [] : answer.label.split(", ");
 	const declined = checklists.filter((k) => k.fields.phase === phase && !accepted.includes(k.id)).map((k) => k.label);
-	const when = dayText(answer.fields.at);
+	const when = atText(answer.fields.at);
 	if (!accepted.length)
 		return say(
 			`The phase ${phase} offer was already answered on ${when}: every checklist was declined and no task was added. I prepared nothing.`,
@@ -248,7 +248,7 @@ function receiptStep(out: Output[]) {
 		.join(", ");
 	const created = Number(latest.fields.tasksCreated);
 	return say(
-		`The latest import is ${name}, a ${String(latest.fields.receipt)} on ${importedOn(latest.fields.at)}: it created ${counted(created, "task")}.`,
+		`The latest import is ${name}, a ${String(latest.fields.receipt)} on ${atText(latest.fields.at)}: it created ${counted(created, "task")}.`,
 	);
 }
 
