@@ -1,9 +1,9 @@
 import { auditTransaction } from "../operations/writes.ts";
 import * as tables from "@everyfield/db/tables";
-import { and, desc, eq, isNotNull, lte, sql } from "@everyfield/db/query";
+import { and, desc, eq, isNotNull, lte, sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { createHmac, randomUUID } from "node:crypto";
-import { secondStatementRows, type Database, type Transaction } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { identityError } from "@everyfield/contracts/identity";
 import { defineRefusals, WriteUnavailable, type Deny } from "../operations/refusals.ts";
@@ -14,6 +14,7 @@ export const identityRefusals = defineRefusals(identityError);
 const { Refusal } = identityRefusals;
 export const deny: Deny<typeof identityError> = identityRefusals.deny;
 export const timeouts = sql`set_config('statement_timeout','10s',true)||set_config('lock_timeout','5s',true)`;
+const lockedBatch = z.array(z.object({ rows: z.array(z.unknown()) }));
 
 export function transaction<T>(db: Database | Transaction, body: (tx: WriteTx) => Promise<T>): Promise<T> {
 	return timedTransaction(db, async (tx) => {
@@ -66,8 +67,7 @@ export function attemptBudget(db: Database, key: string) {
 		const id = randomUUID();
 		try {
 			const [identifierValue, ipValue] = [literal(identifierHash), literal(ipHash)];
-			const inserted = await secondStatementRows(
-				db,
+			const inserted = await locked(
 				sql.raw(`${lockPrefix([identifierHash && `${kind}/id/${identifierHash}`, ipHash && `${kind}/ip/${ipHash}`])}
 WITH expired AS (DELETE FROM admission_attempt WHERE expires_at<=clock_timestamp() RETURNING 1),
  counts AS (SELECT count(*) FILTER(WHERE identifier_hash=${identifierValue} AND state<>'cleared')::int AS identifiers,
@@ -86,6 +86,11 @@ WITH expired AS (DELETE FROM admission_attempt WHERE expires_at<=clock_timestamp
 			deny("admission_unavailable");
 		}
 	}
+	async function locked(statement: SQL) {
+		const [, reserved] = lockedBatch.parse(await db.execute(statement));
+		if (!reserved) throw Error("The budget batch returned no locked rows result");
+		return reserved.rows;
+	}
 	async function finish(reservation: Awaited<ReturnType<typeof reserve>>, success: boolean) {
 		const r = reservation,
 			clears = success && (r.kind === "login" || r.kind === "password_change");
@@ -98,8 +103,7 @@ WITH expired AS (DELETE FROM admission_attempt WHERE expires_at<=clock_timestamp
 				})
 				.where(eq(tables.admission_attempt.id, r.id));
 		if (!clears) return void (await settle(db));
-		await secondStatementRows(
-			db,
+		await locked(
 			sql.raw(`${lockPrefix([`${r.kind}/id/${r.identifierHash}`])}
 WITH cleared AS (UPDATE admission_attempt SET state='cleared' WHERE kind=${literal(r.kind)} AND identifier_hash=${literal(r.identifierHash)} AND state='failed' AND reserved_at>clock_timestamp()-interval '15 minutes' RETURNING 1)
  UPDATE admission_attempt SET state='cleared',trusted_ip_hash=NULL WHERE id=${literal(r.id)}::uuid`),

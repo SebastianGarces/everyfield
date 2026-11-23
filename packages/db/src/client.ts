@@ -1,8 +1,7 @@
 import pg from "pg";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { NodePgTransaction } from "drizzle-orm/node-postgres";
-import type { ExtractTablesWithRelations, SQL } from "drizzle-orm";
-import { z } from "zod";
+import type { ExtractTablesWithRelations } from "drizzle-orm";
 import * as schema from "./schema/tables.ts";
 
 export type Database = NodePgDatabase<typeof schema>;
@@ -18,15 +17,6 @@ export type DatabaseOptions = {
 export function createDatabase(options: DatabaseOptions) {
 	const pool = new pg.Pool({ connectionTimeoutMillis: 10_000, idleTimeoutMillis: 300_000, ...options });
 	return drizzle({ client: pool, schema });
-}
-
-const twoStatementResults = z.tuple([
-	z.object({ rows: z.array(z.unknown()) }),
-	z.object({ rows: z.array(z.record(z.string(), z.unknown())) }),
-]);
-export async function secondStatementRows(db: Database, statements: SQL) {
-	const [, second] = twoStatementResults.parse(await db.execute(statements));
-	return second.rows;
 }
 
 export type PoolClient = pg.PoolClient;
