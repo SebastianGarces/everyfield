@@ -36,7 +36,7 @@ async function holdPublicationLocks(tx: Transaction, lease: EffectLease) {
 	);
 }
 
-const locked = z.object({
+const locked = z.strictObject({
 	id: z.uuid(),
 	stale: z.boolean(),
 	reached: z.boolean(),

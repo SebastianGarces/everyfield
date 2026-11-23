@@ -26,6 +26,12 @@ export const reference = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("article"), slug: z.string().min(1).max(300) }),
 ]);
 export type Reference = z.infer<typeof reference>;
+export const userMessageBody = z.strictObject({
+	text: z.string(),
+	references: z.array(reference).default([]),
+	attachments: z.array(attachment).default([]),
+	retryOf: z.int().optional(),
+});
 const submitInput = z.strictObject({
 	requestKey,
 	text,
@@ -47,7 +53,7 @@ function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 const owned = <AliasName extends string>(actor: EvryActor, alias: SqlLiteral<AliasName>) =>
 	sql`${sql.raw(alias)}.account_id=${actor.accountId}::uuid AND ${sql.raw(alias)}.tenant_id=${actor.owner.id}::uuid`;
 
-const conversationRow = z.object({
+const conversationRow = z.strictObject({
 	id: z.uuid(),
 	title: z.string(),
 	context: z.enum(["account", "plant", "sending_church", "sending_network"]),
@@ -61,7 +67,7 @@ const conversationJson = <AliasName extends string>(alias: SqlLiteral<AliasName>
 		`jsonb_build_object('id',${alias}.id,'title',${alias}.title,'context',${alias}.context_kind,'lastSequence',${alias}.last_sequence,'activeTurnId',${alias}.active_turn_id,'updatedAt',${alias}.updated_at)`,
 	);
 
-export const eventRow = z.object({
+export const eventRow = z.strictObject({
 	sequence: z.coerce.number(),
 	turnId: z.uuid().nullable(),
 	kind: z.enum(["user_message", "assistant_text", "tool_result", "status"]),
@@ -110,7 +116,7 @@ export async function listConversations(db: Database, actor: EvryActor, raw: unk
 			coalesce((SELECT jsonb_agg(${conversationJson("p")} ORDER BY p.updated_at DESC, p.id DESC) FROM (
 				SELECT * FROM matched ORDER BY updated_at DESC, id DESC LIMIT ${PAGE_SIZE} OFFSET ${(input.page - 1) * PAGE_SIZE}
 			) p), '[]'::jsonb) AS items`);
-	const row = z.object({ total: z.number(), items: z.array(conversationRow) }).parse(r.rows[0]);
+	const row = z.strictObject({ total: z.number(), items: z.array(conversationRow) }).parse(r.rows[0]);
 	return {
 		items: row.items,
 		total: row.total,
@@ -146,7 +152,12 @@ async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor:
 		FROM conversation c WHERE c.id=${id} AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
 	if (!r.rows.length) return null;
 	const row = z
-		.object({ conversation: conversationRow, run_live: z.boolean(), events: z.array(eventRow), reviews: reviewMap })
+		.strictObject({
+			conversation: conversationRow,
+			run_live: z.boolean(),
+			events: z.array(eventRow),
+			reviews: reviewMap,
+		})
 		.parse(r.rows[0]);
 	return {
 		conversation: row.conversation,
@@ -159,7 +170,7 @@ async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor:
 	};
 }
 
-const submitted = z.object({ turnId: z.uuid(), sequence: z.coerce.number() });
+const submitted = z.strictObject({ turnId: z.uuid(), sequence: z.coerce.number() });
 export type Submitted = z.infer<typeof submitted> & { replayed: boolean };
 
 export async function submitTurn(
@@ -268,7 +279,7 @@ export async function closeLostJobs(db: Pick<Database, "execute">, limit = 100) 
 			SELECT id,last_sequence,turn_id,'status',${JSON.stringify(interrupted())}::jsonb FROM conv RETURNING 1
 		)
 		SELECT (SELECT count(*) FROM ended)::int AS jobs,(SELECT count(*) FROM saved)::int AS runs`);
-	return z.object({ jobs: z.number(), runs: z.number() }).parse(r.rows[0]);
+	return z.strictObject({ jobs: z.number(), runs: z.number() }).parse(r.rows[0]);
 }
 
 export async function cancelTurn(db: Database, actor: EvryActor, conversationId: string) {
@@ -309,13 +320,9 @@ export async function retryTurn(db: Database, actor: EvryActor, conversationId: 
 		WHERE c.id=${id}::uuid AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
 	if (!r.rows.length) throw new EvryRefusal("not_found");
 	const last = z
-		.object({
+		.strictObject({
 			sequence: z.coerce.number(),
-			body: z.object({
-				text: z.string(),
-				references: z.array(reference).default([]),
-				attachments: z.array(attachment).default([]),
-			}),
+			body: userMessageBody,
 			completed: z.boolean(),
 			known: submitted.nullable(),
 		})
@@ -331,9 +338,11 @@ export async function retryTurn(db: Database, actor: EvryActor, conversationId: 
 	);
 }
 
-const stateRow = z.object({
+const stateRow = z.strictObject({
 	attachments: z.array(attachmentState),
-	reviews: z.array(proposalRow.extend({ delivery: z.object({ delivered: z.number(), total: z.number() }).nullable() })),
+	reviews: z.array(
+		proposalRow.extend({ delivery: z.strictObject({ delivered: z.number(), total: z.number() }).nullable() }),
+	),
 });
 export type ConversationState = z.infer<typeof stateRow>;
 export async function conversationState(db: Database, actor: EvryActor, conversationId: string) {

@@ -225,10 +225,10 @@ export const recordOutcome = launchWrite({
 	},
 	async run(db, authority, args, key) {
 		const a = z
-			.object({
+			.strictObject({
 				record: z.record(z.string(), z.unknown()),
 				debrief: z
-					.object({ draftId: z.string().nullable(), expectedRevision: z.string(), answers: z.unknown() })
+					.strictObject({ draftId: z.string().nullable(), expectedRevision: z.string(), answers: z.unknown() })
 					.nullable(),
 			})
 			.parse(args);
