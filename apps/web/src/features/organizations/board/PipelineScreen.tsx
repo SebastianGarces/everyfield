@@ -1,6 +1,6 @@
 "use client";
 
-import { counted, countWord } from "@everyfield/contracts/common";
+import { counted, countWord, dayText } from "@everyfield/contracts/common";
 import type { PipelineBoard, PipelineGoals } from "@everyfield/contracts/organizations";
 import { Edit02Icon, FileExportIcon, FileImportIcon, PlusSignIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { Button, EmptyState, PageHeader, SearchInput } from "@everyfield/ui/controls";
@@ -11,7 +11,6 @@ import { useRouter } from "next/navigation";
 import { useState, type CSSProperties } from "react";
 import { readBoard } from "./fetch.ts";
 import { GoalsArea } from "./GoalsArea";
-import { formatPlainDate } from "../../../components/dates.ts";
 import { boardHref, PIPELINE_PATH } from "./model";
 import { PersonDialog, type Saved } from "./PersonDialog";
 import { PipelineTabs } from "./PipelineTabs";
@@ -189,7 +188,7 @@ function Toolbar({ board }: { board: PipelineBoard }) {
 					)}
 				>
 					No stage move in 6 months
-					<span className={query.stale ? "text-amber-600" : "text-text-3"}>· as of {formatPlainDate(board.asOf)}</span>
+					<span className={query.stale ? "text-amber-600" : "text-text-3"}>· as of {dayText(board.asOf)}</span>
 				</Link>
 			)}
 			{board.audience === "administrator" ? (
@@ -270,9 +269,7 @@ function PersonCard({ person, stage }: { person: Card; stage?: string }) {
 						.filter(Boolean)
 						.join(" · ")}
 				</p>
-				{person.lastMovedOn ? (
-					<p className="text-xs text-text-3">Last move {formatPlainDate(person.lastMovedOn)}</p>
-				) : null}
+				{person.lastMovedOn ? <p className="text-xs text-text-3">Last move {dayText(person.lastMovedOn)}</p> : null}
 			</div>
 		</article>
 	);
