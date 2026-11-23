@@ -166,6 +166,35 @@ test("AC:LAUNCH46-001 AC:CASE-LCH-006 Launch Sunday held on Oct 11 sits beside t
 	refused(await record(c.owner, { actualDate: "2026-10-11" }, p.revision), "conflict");
 });
 
+test("a launch with no date, a later date or a postponement refuses an outcome until Launch Sunday arrives, with nothing written", async () => {
+	const early = async (c) => {
+		const p = await plan(c.owner);
+		const before = await footprint(c.w);
+		const error = refused(await record(c.owner, { actualDate: "2026-10-11", attendance: 40 }, p.revision), "not_ready");
+		assert.deepEqual(error.details, { needs: "launch_sunday" });
+		assert.deepEqual(await footprint(c.w), before);
+		assert.equal((await plan(c.owner)).outcome, null);
+	};
+	await early(await church({ planned: null }));
+	await early(await church({ planned: "2026-10-13" }));
+	const postponed = await church();
+	ok(
+		await writer.postpone(f.db, postponed.owner.actor, {
+			requestKey: key(),
+			expectedRevision: (await plan(postponed.owner)).launch.revision,
+			input: { reason: "The venue fell through." },
+		}),
+	);
+	await early(postponed);
+
+	const today = await church({ planned: "2026-10-12" });
+	const p = ok(
+		await record(today.owner, { actualDate: "2026-10-12", attendance: 40 }, (await plan(today.owner)).revision),
+	).plan;
+	assert.equal(p.launch.status, "completed");
+	assert.equal(p.outcome.actualDate, "2026-10-12");
+});
+
 test("AC:CASE-LCH-008 AC:LAUNCH46-012 no future date, counts 0 to 1,000,000, a note of 10,000; empty is not recorded and 0 is 0", async () => {
 	const c = await church();
 	let p = await plan(c.owner);
@@ -518,6 +547,13 @@ test("AC:CASE-LCH-002 AC:CASE-LCH-010 Launch history lists date moves, postponem
 	assert.equal(JSON.stringify(moved).includes("Adam"), false);
 	assert.equal(JSON.stringify(moved).includes(c.admin.email), false);
 
+	ok(
+		await writer.schedule(f.db, c.owner.actor, {
+			requestKey: key(),
+			expectedRevision: (await plan(c.owner)).revision,
+			input: { date: "2026-10-11", reason: "Venue opened early" },
+		}),
+	);
 	const now = await plan(c.owner);
 	ok(await record(c.owner, { actualDate: "2026-10-11", attendance: 40 }, now.revision));
 	const kinds = (await journal(c.owner)).slice(0, 1).map((e) => [e.change.kind, e.change.event]);

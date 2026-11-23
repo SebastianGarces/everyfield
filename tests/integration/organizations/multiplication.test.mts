@@ -88,7 +88,7 @@ const adapter = createOrganizationAdapter(
 		invalidate: (_tx, v) =>
 			sql`UPDATE job SET state='superseded' WHERE subject_record_id=${sql.param(v.sourceId)} AND kind='digest' AND false`,
 	},
-	{ candidates: async () => [] },
+	{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 );
 async function caseyShares(choices: { shareFoundations: boolean; shareMilestones: boolean }) {
 	const link = (
@@ -128,7 +128,7 @@ const accept = (i: { invitationId: string; proof: string }, shareMilestones = tr
 const settle = (p: Promise<unknown>) =>
 	p.then(
 		(value) => value,
-		(e: Error & { value?: { code?: string } }) => ({ refused: e.value?.code ?? e.message }),
+		(e: Error) => ({ refused: e.message }),
 	);
 async function atOnce<T>(lock: SQL, writes: (() => Promise<T>)[]): Promise<T[]> {
 	let held!: () => void, release!: () => void;

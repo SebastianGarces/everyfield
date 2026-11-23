@@ -5,6 +5,7 @@ import {
 	Button,
 	buttonVariants,
 	Card,
+	InlineAlert,
 	IntentLink,
 	PageHeader,
 	SegmentedControl,
@@ -21,7 +22,6 @@ import {
 	parseQuery,
 	querySearch,
 	type Category,
-	type Clock,
 	type FeedPage,
 	type FeedQuery,
 } from "./model.ts";
@@ -30,10 +30,10 @@ import { READ_FAILED } from "../../components/read-failed.ts";
 
 const ANY = "any";
 
-export function NotificationsScreen({ initial, served }: { initial: FeedPage; served: Clock | null }) {
+export function NotificationsScreen({ initial }: { initial: FeedPage }) {
 	const query = parseQuery(useAddress().params);
 	const feed = useFeed(query, initial);
-	const clock = useClock(served);
+	const clock = useClock();
 
 	const go = (next: FeedQuery) => {
 		writeAddress(`/notifications${querySearch(next)}`, { replace: true });
@@ -152,11 +152,13 @@ export function NotificationsScreen({ initial, served }: { initial: FeedPage; se
 							)}
 							{data.nextCursor || data.more === "lost" || data.more === "failed" ? (
 								<div className="flex flex-col items-center gap-2 pt-3">
-									{data.more === "lost" || data.more === "failed" ? (
-										<p role="alert" className="text-sm text-text-2">
-											{data.more === "failed" ? READ_FAILED : "Older notifications did not load. Nothing was changed."}
-										</p>
-									) : null}
+									<InlineAlert tone="neutral">
+										{data.more === "failed"
+											? READ_FAILED
+											: data.more === "lost"
+												? "Older notifications did not load. Nothing was changed."
+												: null}
+									</InlineAlert>
 									<Button variant="ghost" size="sm" loading={data.more === "loading"} onClick={feed.more}>
 										{data.more === "lost" || data.more === "failed" ? "Try again" : "Load older"}
 									</Button>

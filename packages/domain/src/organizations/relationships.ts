@@ -41,6 +41,8 @@ import {
 import { queueMilestoneJob } from "./notifications.ts";
 
 const DAY = 86400000;
+const lastSent = (i: { created_at: Date; resent_at: Date | null }) => (i.resent_at ?? i.created_at).getTime();
+const expiryOf = (i: { created_at: Date; resent_at: Date | null }) => new Date(lastSent(i) + 30 * DAY).toISOString();
 const invitationFacts = z.object({
 	id: recordId,
 	purpose: z.enum(invitationPurposes),
@@ -84,7 +86,7 @@ async function loadInvitation(tx: WriteTx, id: string, session: z.infer<typeof s
 	const inviterLive = sql`i.inviter_id IS NOT NULL AND EXISTS(SELECT FROM account a WHERE a.id=i.inviter_id) AND NOT ${witnessHides("account", sql`i.inviter_id`)}
 		AND CASE WHEN r.account_id IS NOT NULL THEN i.inviter_id=r.account_id AND ${discoveryOpen(account)} AND ${seatless(account)}
 		ELSE EXISTS(SELECT FROM seat s2 WHERE s2.account_id=i.inviter_id AND coalesce(s2.plant_id,s2.organization_id)=coalesce(r.plant_id,r.sending_church_id)
-			AND s2.role IN ('owner','admin') AND s2.ended_at IS NULL AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.seat_id=s2.id AND w.state<>'active')) END`;
+			AND s2.role IN ('owner','admin') AND s2.ended_at IS NULL) END`;
 	const rows = await tx.execute(
 		sql`SELECT i.id,i.purpose,i.recipient_email,i.token_hash,i.state,i.created_at,i.resent_at,i.revision,
 		r.plant_id,r.account_id,r.sending_church_id,r.organization_id,r.inviter_description,o.kind AS organization_kind,s.kind AS subject_kind,
@@ -110,7 +112,7 @@ const tenants = { plant: "plant", discovery: "account", sending_church: "organiz
 const subjectOf = (i: Invite) => ({
 	purpose: i.purpose,
 	tenant: tenants[pairFor(i).kind],
-	fresh: i.now.getTime() < i.created_at.getTime() + 30 * DAY,
+	fresh: i.now.getTime() < lastSent(i) + 30 * DAY,
 });
 const bump = (column: typeof tables.invitation.revision | typeof tables.affiliation.revision) => sql`${column}+1`;
 const inviteFacts = z.object({
@@ -162,8 +164,18 @@ export function relationshipCommands(
 					addressKey.slice(16, 20) +
 					"-" +
 					addressKey.slice(20, 32);
+			const purposes: Record<RelationshipPair["kind"], typeof tables.invitation.$inferInsert.purpose> = {
+				plant: pair.organization.organizationKind === "sending_church" ? "plant_church" : "plant_network",
+				sending_church: "church_network",
+				discovery: pair.organization.organizationKind === "sending_church" ? "discovery_church" : "discovery_network",
+			};
+			const stale = { purpose: purposes[pair.kind], tenant: tenants[pair.kind], fresh: false } as const;
 			await tx.execute(
-				sql`INSERT INTO admission_attempt(id,kind,identifier_hash,workspace_key,reserved_at,state,expires_at) VALUES(${addressId}::uuid,'relationship_invite',${addressKey},'relationship-address',clock_timestamp(),'counted',clock_timestamp()+interval '720 hours') ON CONFLICT(id) DO UPDATE SET expires_at=greatest(admission_attempt.expires_at,excluded.expires_at)`,
+				sql`WITH expired AS (UPDATE invitation i SET state='expired',revision=i.revision+1 FROM relationship_invitation r
+		WHERE r.invitation_id=i.id AND i.tenant_id=${subject.id} AND i.recipient_email=${q.input.recipientEmail}
+		AND i.state = ANY(${sql.param(fromStates(invitationMachine, "associations.invite", "expired", stale))}::text[])
+		AND coalesce(i.resent_at,i.created_at)<=clock_timestamp()-interval '720 hours' RETURNING 1)
+		INSERT INTO admission_attempt(id,kind,identifier_hash,workspace_key,reserved_at,state,expires_at) VALUES(${addressId}::uuid,'relationship_invite',${addressKey},'relationship-address',clock_timestamp(),'counted',clock_timestamp()+interval '720 hours') ON CONFLICT(id) DO UPDATE SET expires_at=greatest(admission_attempt.expires_at,excluded.expires_at)`,
 			);
 			const facts = inviteFacts.parse(
 				(
@@ -172,7 +184,7 @@ export function relationshipCommands(
 		SELECT clock_timestamp() AS now,
 		(SELECT count(*)::int FROM invitation WHERE recipient_email=${q.input.recipientEmail} AND created_at>clock_timestamp()-interval '30 days') AS recent,
 		EXISTS(SELECT FROM invitation i JOIN relationship_invitation ON relationship_invitation.invitation_id=i.id
-			WHERE ${pairMatch(tables.relationship_invitation, pair)} AND i.state='pending' AND i.created_at>clock_timestamp()-interval '30 days') AS pending,
+			WHERE ${pairMatch(tables.relationship_invitation, pair)} AND i.state='pending' AND coalesce(i.resent_at,i.created_at)>clock_timestamp()-interval '720 hours') AS pending,
 		EXISTS(SELECT FROM invitation WHERE tenant_id=${subject.id} AND recipient_email=${q.input.recipientEmail} AND state='pending') AS address_pending,
 		coalesce((SELECT bool_or(ended_at IS NULL) FROM a),false) AS active_pair,
 		${pairLive(pair)} AS pair_live,${discoveryAuthority(pair)} AS subject_authority,
@@ -191,11 +203,6 @@ export function relationshipCommands(
 			const id = randomUUID(),
 				expiry = new Date(facts.now.getTime() + 30 * DAY).toISOString(),
 				proof = randomBytes(32).toString("base64url");
-			const purposes: Record<RelationshipPair["kind"], typeof tables.invitation.$inferInsert.purpose> = {
-				plant: pair.organization.organizationKind === "sending_church" ? "plant_church" : "plant_network",
-				sending_church: "church_network",
-				discovery: pair.organization.organizationKind === "sending_church" ? "discovery_church" : "discovery_network",
-			};
 			const description =
 				subject.kind === "account"
 					? z.string().trim().min(1).max(500).parse(facts.inviter_name)
@@ -439,7 +446,7 @@ export function relationshipCommands(
 			}
 			if (i.now.getTime() - (i.resent_at ?? i.created_at).getTime() < 60000) refuse("resend_cooldown");
 			const proof = randomBytes(32).toString("base64url"),
-				expiresAt = new Date(i.created_at.getTime() + 30 * DAY).toISOString();
+				expiresAt = expiryOf({ created_at: i.created_at, resent_at: i.now });
 			c.writes.push(
 				tx
 					.update(tables.invitation)
@@ -537,14 +544,22 @@ export async function readAnswerableInvitation(
 		actor = await currentActor(tx, session, selected);
 	if (actor.status !== "active" || !i.pair_live || !authorizedReceiver(actor, i, pair))
 		return { status: "unavailable" } as const;
-	if (!allows(invitationMachine, "associations.acceptInvitation", i.state, "accepted", subjectOf(i)) || !i.inviter_live)
+	const subject = subjectOf(i);
+	if (i.state === "expired" || (i.state === "pending" && !subject.fresh))
+		return Q.expiredInvitationResult.parse({
+			status: "expired",
+			pair,
+			expiredAt: expiryOf(i),
+			inviterDescription: i.inviter_description,
+		});
+	if (!allows(invitationMachine, "associations.acceptInvitation", i.state, "accepted", subject) || !i.inviter_live)
 		return { status: "unavailable" } as const;
 	return Q.invitationResult.parse({
 		status: "pending",
 		invitationId: i.id,
 		pair,
 		revision: i.revision,
-		expiresAt: new Date(i.created_at.getTime() + 30 * DAY).toISOString(),
+		expiresAt: expiryOf(i),
 		inviterDescription: i.inviter_description,
 	});
 }

@@ -1,14 +1,38 @@
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
-import { closeDatabase, createDatabase } from "../../packages/db/src/client.ts";
+import { closeDatabase, createDatabase, type Transaction } from "../../packages/db/src/client.ts";
 import { checkCommand } from "./check.ts";
 import { DB_COMMANDS, FlagError, HELP, runFlag, type Evf } from "./flag.ts";
-import { resolveTarget, type Neon } from "./target.ts";
+import { sql } from "../../packages/db/src/query.ts";
+import { READER_ENV, resolveTarget, type Neon, type Target } from "./target.ts";
 
 const spawn = (command: string) => (args: readonly string[]) => {
 	const r = spawnSync(command, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 	return { status: r.error ? null : r.status, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 };
+
+type Connected = Exclude<Target, { missing: true }>;
+type Handle = Pick<Transaction, "execute">;
+
+export async function withTarget<T>(target: Connected, run: (db: Handle) => Promise<T>): Promise<T> {
+	const db = createDatabase({ connectionString: target.url, max: 2 });
+	try {
+		if (!target.readOnly) return await run(db);
+		return await db.transaction(
+			async (tx) => {
+				const { rows } = await tx.execute(sql`SELECT current_setting('default_transaction_read_only') AS read_only`);
+				if ((rows[0] as { read_only?: string } | undefined)?.read_only !== "on")
+					throw new FlagError(
+						`The ${READER_ENV} login does not default to read-only sessions. Run ALTER ROLE <login> SET default_transaction_read_only = on (docs/runbooks/release.md). Nothing read.`,
+					);
+				return run(tx);
+			},
+			{ accessMode: "read only" },
+		);
+	} finally {
+		await closeDatabase(db);
+	}
+}
 
 export async function main(
 	argv: readonly string[],
@@ -35,19 +59,16 @@ export async function main(
 			}
 			throw new FlagError(`bin/flag needs a database: ${target.label}.`);
 		}
-		const db = createDatabase({ connectionString: target.url, max: 2 });
-		try {
-			await runFlag(args, {
+		await withTarget(target, (db) =>
+			runFlag(args, {
 				db,
 				target: target.label,
 				evf: tools.evf,
 				out: (line) => console.log(line),
 				err: (line) => console.error(line),
 				ci,
-			});
-		} finally {
-			await closeDatabase(db);
-		}
+			}),
+		);
 		return 0;
 	} catch (error) {
 		if ((error as { cause?: { code?: string } }).cause?.code === "42P01") {

@@ -15,6 +15,7 @@ import {
 	listPlants,
 	listSendingChurches,
 	readIntelligence,
+	readLocationHistory,
 } from "../../../packages/domain/src/oversight/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
@@ -40,7 +41,7 @@ const api = createOrganizationAdapter(
 				revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${v.sourceId}
 				AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
 	},
-	{ candidates: async () => [] },
+	{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 );
 
 export async function seedOrganizations(t) {
@@ -112,6 +113,7 @@ export function organizationsCases(t, who) {
 				["oversight:listSendingChurches", () => listSendingChurches(t.f.db, who.actor)],
 				["oversight:getSendingChurch", () => getSendingChurch(t.f.db, who.actor, a.network)],
 				["oversight:readIntelligence", () => readIntelligence(t.f.db, who.actor, { level: "portfolio", runId: null })],
+				["oversight:readLocationHistory", () => readLocationHistory(t.f.db, who.actor, t.plantA.id)],
 			] as const
 		).map(([name, read]) => [name, { run: () => plain(read), expected: { value: null, control: null } }]),
 		[

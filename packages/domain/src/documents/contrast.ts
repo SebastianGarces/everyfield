@@ -3,9 +3,9 @@ import { ratio, textOn } from "../branding/color.ts";
 export { ratio, textOn };
 
 const hex = (c: string) => {
-	const m = /^#?([0-9a-f]{6})$/i.exec(c);
-	if (!m) throw new Error(`not a #rrggbb colour: ${c}`);
-	const n = parseInt(m[1]!, 16);
+	const digits = /^#?([0-9a-f]{6})$/i.exec(c)?.[1];
+	if (!digits) throw new Error(`not a #rrggbb colour: ${c}`);
+	const n = parseInt(digits, 16);
 	return [(n >> 16) & 255, (n >> 8) & 255, n & 255] as const;
 };
 const toHex = (r: number, g: number, b: number) =>

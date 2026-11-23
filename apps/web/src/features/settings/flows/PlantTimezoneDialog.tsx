@@ -48,7 +48,7 @@ export function PlantTimezoneDialog({
 		const result = await previewing.run({ zone, at: Date.now() }, () =>
 			port.previewPlantTimezone({ plant: section.plant, timeZone: zone }),
 		);
-		if (result.ok) setPreview(result.value);
+		if (result.status === "ok") setPreview(result.value);
 	};
 
 	const save = async () => {
@@ -57,7 +57,7 @@ export function PlantTimezoneDialog({
 		const result = await saving.run(input, (requestKey) =>
 			port.setPlantTimezone({ requestKey, expectedRevision: preview.expectedRevision, input }),
 		);
-		if (!result.ok) return;
+		if (result.status !== "ok") return;
 		const saved = result.value;
 		onSaved({ ...section, revision: saved.revision, values: { ...section.values, timeZone: saved.timeZone } });
 		onOpenChange(false);
@@ -67,7 +67,7 @@ export function PlantTimezoneDialog({
 	const sameZone = zone === oldZone;
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
+		<Dialog drawer open={open} onOpenChange={onOpenChange}>
 			<DialogContent size="md">
 				<DialogHeader
 					icon={Clock01Icon}
