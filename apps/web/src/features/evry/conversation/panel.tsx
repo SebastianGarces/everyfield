@@ -1,6 +1,6 @@
 "use client";
 
-import { EvryBot } from "@everyfield/ui/foundations";
+import { EvryBot, useHydrated } from "@everyfield/ui/foundations";
 import { Sheet } from "@everyfield/ui/controls";
 import { Suspense } from "react";
 import { lazyModule, LoadFailed, Opened, useLazyModule, type Failure } from "@/components/lazy";
@@ -10,7 +10,34 @@ import { createEvryPanelStore, type EvryPanelState, type EvryPort } from "./Evry
 import { stageAvatar } from "./PhotoAttach.tsx";
 import { putFile } from "./attachments.ts";
 
-const PORT: EvryPort = { ...api, stageAvatar, putFile };
+const HELD = "ef-evry-held-draft";
+
+function heldDraft() {
+	if (typeof window === "undefined") return null;
+	try {
+		return window.sessionStorage.getItem(HELD);
+	} catch {
+		return null;
+	}
+}
+
+function holdDraft(draft: string | null) {
+	try {
+		if (draft === null) window.sessionStorage.removeItem(HELD);
+		else window.sessionStorage.setItem(HELD, draft);
+	} catch {
+		return;
+	}
+}
+
+const PORT: EvryPort = {
+	...api,
+	stageAvatar,
+	putFile,
+	heldDraft,
+	holdDraft,
+	reloadPage: () => window.location.reload(),
+};
 export const Panel = storeContext<EvryPanelState>("EvryPanel");
 
 const panel = lazyModule(() => import("./EvryPanel.tsx"));
@@ -24,7 +51,8 @@ export function useEvryPanel({
 	context,
 }: Omit<PanelProps, "canAttach"> & { canAttach?: boolean; off?: boolean }) {
 	const store = useLocalStore(() => createEvryPanelStore({ context, port: PORT }));
-	const open = useStore(store, (s) => s.open);
+	const hydrated = useHydrated();
+	const open = useStore(store, (s) => s.open) && hydrated;
 	return {
 		open,
 		toggle: () => {

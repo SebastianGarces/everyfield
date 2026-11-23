@@ -32,6 +32,9 @@ async function panel(answers: { create: unknown[]; submit?: unknown[]; open?: un
 		cancelTurn: async () => ({ status: "lost" }),
 		streamUrl: () => "",
 		checkPhoto: () => null,
+		heldDraft: () => null,
+		holdDraft: () => {},
+		reloadPage: () => {},
 		stagePhoto: async () => {
 			throw new Error("no photos here");
 		},

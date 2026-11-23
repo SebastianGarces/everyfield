@@ -45,6 +45,7 @@ import { createRead, useRead } from "@/components/read";
 import * as api from "./api.ts";
 import { Panel } from "./panel.tsx";
 import {
+	churchChanged,
 	endNotice,
 	MAX_MESSAGE,
 	pageReferences,
@@ -119,6 +120,7 @@ export function EvryPanel({ inPlant, canAttach, context }: { inPlant: boolean; c
 	const chat = Panel.useSelect((s) => s.chat);
 	const load = Panel.useSelect((s) => s.load);
 	const pipeline = Panel.useSelect((s) => s.pipeline);
+	const moved = Panel.useSelect((s) => s.churchChanged);
 	const [chatVisits, setChatVisits] = useState(0);
 	const [{ box, content, stick }] = useState(followEnd);
 	const composer = useRef<HTMLTextAreaElement>(null);
@@ -182,7 +184,7 @@ export function EvryPanel({ inPlant, canAttach, context }: { inPlant: boolean; c
 						ref={composerRef}
 						busy={chat.activeTurnId !== null}
 						stopping={chat.stopping}
-						disabled={load !== "ready"}
+						disabled={load !== "ready" || moved}
 						conversationId={chat.conversation?.id ?? null}
 						canAttach={canAttach}
 						onSend={(text, references) => {
@@ -489,6 +491,7 @@ function TurnView({
 
 function SendView({ send, onResend, onEdit }: { send: Send; onResend: () => void; onEdit: () => void }) {
 	const churchName = Panel.useSelect((s) => s.churchName);
+	const actions = useActions();
 	const notice = sendNotice(send, churchName);
 	return (
 		<li className="flex flex-col items-end gap-2">
@@ -497,7 +500,21 @@ function SendView({ send, onResend, onEdit }: { send: Send; onResend: () => void
 				{send.text}
 				<SentFiles files={send.attachments} />
 			</UserBubble>
-			{notice ? (
+			{churchChanged(send) ? (
+				<Alert
+					role="alert"
+					tone="neutral"
+					title="Your church changed"
+					className="w-full"
+					actions={
+						<Button size="sm" variant="primary" onClick={() => actions.reloadForChurch(send)}>
+							Reload
+						</Button>
+					}
+				>
+					<p>Reload to use Evry for your new church. Your message comes with you, ready to send.</p>
+				</Alert>
+			) : notice ? (
 				<div role="alert" className="flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600">
 					<p>{notice}</p>
 					<div className="flex gap-2">

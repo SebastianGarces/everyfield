@@ -222,6 +222,20 @@
 					}
 				},
 				{
+					"id": "church-changed",
+					"says": "After a seat moves church, a send to the old church's conversation is refused with nothing written; Reload opens Evry for the new church with the message kept.",
+					"catalog": ["EVR-021"],
+					"operations": ["evry.submitTurn"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/evry/runtime/conversations.test.mts",
+								"name": "INV-church-changed: a seat moved to another church refuses the old church's conversation as church_changed and writes nothing"
+							}
+						]
+					}
+				},
+				{
 					"id": "attach-and-import",
 					"says": "An Owner or Admin attaches a Word or text file in the panel and asks for a church document: Evry shows a review of the import, refuses any file the Documents import refuses with that import's own sentence, and the document is in Documents only after Approve.",
 					"catalog": ["EVR-021", "DOC-016"],
