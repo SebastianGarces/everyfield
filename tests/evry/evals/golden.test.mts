@@ -20,6 +20,7 @@ import {
 	goldenChurch,
 	PRIVATE_CHECK_IN,
 	HOUSEHOLDS,
+	MEETINGS,
 	IMPORT_KEY,
 	PLANT,
 	REVIEW_PAIRS,
@@ -96,6 +97,8 @@ type Eval = Checks & {
 	setup?: {
 		followUp?: string;
 		task?: string;
+		history?: string;
+		role?: string;
 		merge?: [source: string, survivor: string];
 		touch?: string;
 		signed?: { text: string; file: CaseFile };
@@ -457,8 +460,39 @@ async function setUp(setup: NonNullable<Eval["setup"]>) {
 			.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id)
 			VALUES(${task},${PLANT},'Call about the merge','general','medium','not_started','2026-11-08T18:00:00Z','undated',
 			${byName(setup.task).id})`);
+	const added = { attendance: randomUUID(), kit: randomUUID(), task: randomUUID(), role: randomUUID() };
+	if (setup.history) {
+		const personId = byName(setup.history).id;
+		await church.admin
+			.execute(sql`INSERT INTO participation(id,plant_id,meeting_id,person_id,roster_member,rsvp,presence)
+			VALUES(${added.attendance},${PLANT},${MEETINGS.lastWeek},${personId},false,'pending','absent')`);
+		await church.admin.execute(sql`INSERT INTO meeting_kit_item(id,plant_id,meeting_id,item_key,position,category,text,
+			assignee_person_id) VALUES(${added.kit},${PLANT},${MEETINGS.lastWeek},'merge-setup',99,'materials','Welcome table sign',
+			${personId})`);
+		await church.admin
+			.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date,
+			person_id) VALUES(${added.task},${PLANT},'Invite to the next lunch','general','medium','not_started',
+			'2026-11-08T18:00:00Z','date_only','2026-11-20',${personId})`);
+	}
+	const roleOn = setup.history ? "Hospitality" : setup.role ? "Kids ministry" : null;
+	if (roleOn) {
+		await church.admin.execute(sql`INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order)
+			VALUES(${added.role},${PLANT},${teamId(roleOn)},${setup.history ? "Usher" : "Snack helper"},false,99)`);
+		await church.admin.execute(sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on)
+			VALUES(${PLANT},${added.role},${byName((setup.history ?? setup.role)!).id},'2026-09-01')`);
+	}
 	const cleanup = async () => {
 		if (setup.task) await church.admin.execute(sql`DELETE FROM task WHERE id=${task}::uuid`);
+		if (setup.merge) return;
+		if (roleOn) {
+			await church.admin.execute(sql`DELETE FROM team_tenure WHERE role_id=${added.role}::uuid`);
+			await church.admin.execute(sql`DELETE FROM team_role WHERE id=${added.role}::uuid`);
+		}
+		if (setup.history) {
+			await church.admin.execute(sql`DELETE FROM participation WHERE id=${added.attendance}::uuid`);
+			await church.admin.execute(sql`DELETE FROM meeting_kit_item WHERE id=${added.kit}::uuid`);
+			await church.admin.execute(sql`DELETE FROM task WHERE id=${added.task}::uuid`);
+		}
 	};
 	if (setup.merge) {
 		const pair = { sourceId: byName(setup.merge[0]).id, survivorId: byName(setup.merge[1]).id };

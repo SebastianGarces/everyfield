@@ -200,11 +200,14 @@ export async function mergeReviewOf(tx: WriteTx, actor: EvryActor, pair: { sourc
 }
 type Review = NonNullable<Awaited<ReturnType<typeof mergeReviewOf>>>;
 const joinedOrNull = (items: string[]) => (items.length ? items.join(" ") : null);
-export const mergeNotes = (v: Review) => ({
-	attendanceChanges: joinedOrNull(v.attendance.map((a) => attendanceText(a, v))),
-	openTasks: listText(v.openTasks.map((t) => (t.dueDate ? `${t.title}, due ${dayText(t.dueDate)}` : t.title))) || null,
-	openKitItems: listText(v.openKitItems.map((i) => `${i.text} for ${i.meeting}`)) || null,
-});
+export const mergeNotes = (v: Review): Record<string, string> => {
+	const notes = {
+		attendanceChanges: joinedOrNull(v.attendance.map((a) => attendanceText(a, v))),
+		openTasks: listText(v.openTasks.map((t) => (t.dueDate ? `${t.title}, due ${dayText(t.dueDate)}` : t.title))),
+		openKitItems: listText(v.openKitItems.map((i) => `${i.text} for ${i.meeting}`)),
+	};
+	return Object.fromEntries(Object.entries(notes).filter((e): e is [string, string] => Boolean(e[1])));
+};
 export const getMergeReview: ReadAdapter<{ sourceId: string; survivorId: string }> = {
 	operation: "people.getMergeReview",
 	description:

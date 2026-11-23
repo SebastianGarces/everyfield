@@ -195,7 +195,7 @@ test("AC:TARGET-PPL-025 AC:TARGET-PPL-017 a merge carries attendance, a guest th
 	assert.deepEqual(r.attendance, []);
 	assert.deepEqual(r.openTasks, [{ title: "Call about small groups A", dueDate: "2026-12-01" }]);
 	assert.deepEqual(r.openKitItems, [{ meeting: "Vision night A", text: "Bring the welcome cards A" }]);
-	assert.doesNotMatch(JSON.stringify(r), /not available in Everyfield yet|unregistered_reference/);
+	assert.doesNotMatch(JSON.stringify(r), /not available|unregistered_reference/);
 
 	await admin.execute(
 		sql`UPDATE task SET title='Call about small groups soon',revision=revision+1 WHERE id=${s.openTask}`,

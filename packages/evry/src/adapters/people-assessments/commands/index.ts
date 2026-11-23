@@ -469,7 +469,7 @@ export const ASSESSMENT_COMMANDS = {
 				...(stays.length
 					? [change("staysWithMergedRecord", listText(stays.map((r) => counted(r.kind, r.count))))]
 					: []),
-				...Object.entries(mergeNotes(m)).flatMap(([field, text]) => (text ? [change(field, text)] : [])),
+				...Object.entries(mergeNotes(m)).map(([field, text]) => change(field, text)),
 				...(m.stage && m.stage.result !== m.stage.survivor
 					? [change("stage", m.stage.result, json(m.stage.survivor))]
 					: []),
