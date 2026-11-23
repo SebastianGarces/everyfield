@@ -332,7 +332,7 @@ export function createNotificationService(config: {
 	    accounts AS MATERIALIZED (SELECT a.id FROM account a WHERE a.id IN (SELECT recipient FROM cand) ORDER BY a.id FOR SHARE),
 	    plants AS MATERIALIZED (SELECT p.id FROM plant p WHERE p.id=${tenant} FOR SHARE),
 	    barriers AS MATERIALIZED (SELECT w.opaque_subject_id AS id FROM lifecycle_witness w WHERE w.opaque_subject_id IN (SELECT recipient FROM cand UNION SELECT ${tenant}::uuid)
-	      AND w.state IN ('pending_deletion','purging','purged','revoked') FOR SHARE)
+	      AND w.state IN ('pending_deletion','purging','purged') FOR SHARE)
 	    SELECT i.n,(SELECT count(*) FROM locked)::int AS locked,(SELECT kind FROM tenant WHERE id=${tenant}) AS kind,
 	     (SELECT count(*) FROM accounts)+(SELECT count(*) FROM plants)>=0 AS rooted,
 	     EXISTS(SELECT FROM reached r WHERE r.source=i.source AND r.recipient=i.recipient AND r.category=i.category) AS reached,

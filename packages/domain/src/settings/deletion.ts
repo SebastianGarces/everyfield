@@ -94,8 +94,6 @@ async function seated(
 	};
 }
 function status(w: typeof t.lifecycle_witness.$inferSelect): n.DeletionStatus {
-	if (w.kind !== "account" && w.kind !== "plant") deny("unavailable");
-	if (w.state === "active") return { status: "active" };
 	return n.deletionStatus.parse({
 		status: w.state,
 		subject: { kind: w.kind, id: w.opaque_subject_id },
@@ -205,11 +203,6 @@ async function restricted(tx: Tx, ctx: n.RestrictedDeletionContext, subject: Del
 			)
 			.for("share");
 		if (!s) deny("unavailable");
-		const revoked = await tx
-			.select({ id: t.lifecycle_witness.id })
-			.from(t.lifecycle_witness)
-			.where(and(eq(t.lifecycle_witness.seat_id, s.id), eq(t.lifecycle_witness.state, "revoked")));
-		if (revoked.length) deny("unavailable");
 	}
 	return { w, clock };
 }

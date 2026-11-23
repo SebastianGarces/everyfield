@@ -1678,10 +1678,10 @@
 		"retry": 3
 	},
 	"settings.cancelWorkspaceDeletion": {
-		"limit": 10,
+		"limit": 9,
 		"retry": 6,
-		"reason": "A restricted deletion session: its proof is checked in its own transaction before the write. Then the savepoint and its release; the workspace deletion advisory lock; the restricted proof locked; the requester's seat locked; the pending witness read; one read gives each open seat's contact; their cancel notices join the witness write (T-272). A cancel at or after the deadline, or with no pending request, is refused and rolls back (T-195): 6 statements. Its largest first run: 4 transaction, 3 locked read, 2 read, 1 write.",
-		"reads": "T-505: 3 reads in a row (locked read of account+identity_proof+lifecycle_witness+plant, then locked read of seat, then read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
+		"reason": "A restricted deletion session: its proof is checked in its own transaction before the write. Then the savepoint and its release; the workspace deletion advisory lock; the restricted proof locked; the requester's seat locked; one read gives each open seat's contact; their cancel notices join the witness write (T-272). A cancel at or after the deadline, or with no pending request, is refused and rolls back (T-195): 6 statements. Its largest first run: 4 transaction, 3 locked read, 1 read, 1 write.",
+		"reads": "T-505: 3 reads in a row (locked read of account+identity_proof+lifecycle_witness+plant, then locked read of seat, then read of account+plant+seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"settings.changePassword": {
 		"limit": 13,

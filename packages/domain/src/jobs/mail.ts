@@ -203,7 +203,7 @@ export function createMailService(config: {
 						tables.lifecycle_witness.opaque_subject_id,
 						[m.tenant_id, m.recipient_account_id].filter((value): value is string => value !== null),
 					),
-					sql<boolean>`(${tables.lifecycle_witness.state} IN ('pending_deletion', 'purging', 'purged', 'revoked'))`,
+					sql<boolean>`(${tables.lifecycle_witness.state} IN ('pending_deletion', 'purging', 'purged'))`,
 				),
 			)
 			.for("share");
@@ -402,7 +402,7 @@ export function createMailService(config: {
    plant_roots AS MATERIALIZED (SELECT p.id FROM plant p WHERE p.id IN (SELECT tenant FROM input) AND (SELECT count(*) FROM account_roots)>=0 ORDER BY p.id FOR SHARE),
    organization_roots AS MATERIALIZED (SELECT o.id,o.kind FROM organization o WHERE o.id IN (SELECT tenant FROM input) AND (SELECT count(*) FROM plant_roots)>=0 ORDER BY o.id FOR SHARE),
    prior AS MATERIALIZED (SELECT m.id,m.tenant_id,m.logical_key,m.payload_hash FROM mail m JOIN input i ON i.tenant=m.tenant_id AND i.key=m.logical_key WHERE (SELECT count(*) FROM organization_roots)>=0 ORDER BY m.id FOR UPDATE OF m),
-   barriers AS MATERIALIZED (SELECT w.opaque_subject_id FROM lifecycle_witness w WHERE w.opaque_subject_id IN (SELECT tenant FROM input UNION SELECT recipient FROM input) AND w.state IN ('pending_deletion','purging','purged','revoked') AND (SELECT count(*) FROM organization_roots)>=0 FOR SHARE)
+   barriers AS MATERIALIZED (SELECT w.opaque_subject_id FROM lifecycle_witness w WHERE w.opaque_subject_id IN (SELECT tenant FROM input UNION SELECT recipient FROM input) AND w.state IN ('pending_deletion','purging','purged') AND (SELECT count(*) FROM organization_roots)>=0 FOR SHARE)
    SELECT i.n,t.kind,o.kind AS organization_kind,p.id AS prior_id,p.payload_hash AS prior_hash,
     EXISTS(SELECT FROM barriers b WHERE b.opaque_subject_id IN (i.tenant,i.recipient)) AS blocked
    FROM input i LEFT JOIN tenant t ON t.id=i.tenant LEFT JOIN organization_roots o ON o.id=i.tenant

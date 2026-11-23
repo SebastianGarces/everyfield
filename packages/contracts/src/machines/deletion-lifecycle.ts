@@ -1,7 +1,7 @@
 import { machine } from "./machine.ts";
 
 export type DeletionWitness = {
-	readonly kind: "account" | "plant" | "seat" | "affiliation";
+	readonly kind: "account" | "plant";
 	readonly copy?: boolean;
 	readonly beforeDeadline?: boolean;
 	readonly cleaned?: boolean;
@@ -15,7 +15,7 @@ export const deletionMachine = machine({
 	id: "deletion-lifecycle",
 	table: "lifecycle_witness",
 	column: "state",
-	states: ["active", "pending_deletion", "purging", "purged", "cancelled", "revoked"],
+	states: ["pending_deletion", "purging", "purged", "cancelled"],
 	events: [...request, ...cancel, "lifecycle.purge", restore],
 	refusal: "deadline_passed",
 	refusalCodes: [
@@ -26,14 +26,12 @@ export const deletionMachine = machine({
 	initial: [
 		{ event: "account.requestDeletion", to: "pending_deletion", when: "account" },
 		{ event: "churches.requestWorkspaceDeletion", to: "pending_deletion", when: "plant" },
-		{ event: restore, to: ["active", "pending_deletion", "cancelled", "purging"], when: ["copy", "accountOrPlant"] },
-		{ event: restore, to: ["active", "revoked"], when: ["copy", "seatOrAffiliation"] },
+		{ event: restore, to: ["pending_deletion", "cancelled", "purging"], when: ["copy", "accountOrPlant"] },
 	],
 	guards: {
 		account: (w: DeletionWitness) => w.kind === "account",
 		plant: (w: DeletionWitness) => w.kind === "plant",
 		accountOrPlant: (w: DeletionWitness) => w.kind === "account" || w.kind === "plant",
-		seatOrAffiliation: (w: DeletionWitness) => w.kind === "seat" || w.kind === "affiliation",
 		copy: (w: DeletionWitness) => w.copy === true,
 		beforeDeadline: (w: DeletionWitness) => w.beforeDeadline === true,
 		cleaned: (w: DeletionWitness) => w.cleaned === true,
@@ -48,13 +46,8 @@ export const deletionMachine = machine({
 		uncleanedPlant: { kind: "plant", beforeDeadline: false, cleaned: false },
 	},
 	edges: [
-		{ event: "account.requestDeletion", from: ["active", "cancelled"], to: "pending_deletion", when: "account" },
-		{
-			event: "churches.requestWorkspaceDeletion",
-			from: ["active", "cancelled"],
-			to: "pending_deletion",
-			when: "plant",
-		},
+		{ event: "account.requestDeletion", from: "cancelled", to: "pending_deletion", when: "account" },
+		{ event: "churches.requestWorkspaceDeletion", from: "cancelled", to: "pending_deletion", when: "plant" },
 		{ event: "account.cancelDeletion", from: "pending_deletion", to: "cancelled", when: ["account", "beforeDeadline"] },
 		{
 			event: "churches.cancelWorkspaceDeletion",
@@ -87,8 +80,7 @@ export const deletionMachine = machine({
 	unchangedIsNoop: [],
 	decided: [...cancel, "lifecycle.purge"],
 	notes: [
-		"`copy` is a witness inside a restore target. The proof restores every live witness once and requests deletion of an active account and church copy there.",
-		"No product code writes `active` or `revoked`: only a restore copies them. The proof seeds one live witness in each so the restore has them to copy.",
+		"`copy` is a witness inside a restore target. The proof restores every live witness once and requests deletion of a restored account and church that have no witness.",
 		"A request from a closed account or church is refused by the write gate (`unavailable`) before the witness check.",
 	],
 	proof: "tests/integration/settings/deletion-machine.test.mts",
