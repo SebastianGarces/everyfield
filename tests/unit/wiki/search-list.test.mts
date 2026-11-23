@@ -261,7 +261,6 @@ async function mountSearch() {
 		announced: () => input.getAttribute("aria-activedescendant"),
 		optionIds: () => options().map((n) => n.getAttribute("id")),
 		focused: () => fakeDocument.activeElement === input,
-		options,
 		nextPage: () => container.all().find((n) => n.nodeName === "BUTTON" && n.textContent.includes("Next page")),
 		close: async () => {
 			await act(async () => root.unmount());

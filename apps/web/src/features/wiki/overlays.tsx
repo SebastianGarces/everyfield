@@ -106,7 +106,6 @@ export function WikiSearch({ field, onOpened }: { field: RefObject<HTMLInputElem
 		<>
 			<Command
 				shouldFilter={false}
-				loop={false}
 				vimBindings={false}
 				label="Search words"
 				value={typed.highlight ?? NO_HIT}
