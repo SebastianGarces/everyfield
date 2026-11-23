@@ -1513,6 +1513,52 @@ export const BA = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-" + (1 + "00")
 	);
 });
 
+test("INV-lint: apps/web shows a problem line through ProblemText, InlineAlert or Alert, never a hand-written role=alert element with magenta or red text on it or inside it; only the four kept list and send-state lines pass, once each", () => {
+	const code = `export const A = () => <p role="alert" className="text-sm text-magenta-600">x</p>;
+export const B = () => <p role="alert" className="mt-1 text-red-700">x</p>;
+export const C = () => <div role="alert" className="flex gap-2"><span>!</span><p className="text-sm text-magenta-600">x</p></div>;
+export const D = ({ x }) => <p role={x ? "alert" : "status"} className="text-xs text-magenta-600">x</p>;
+export const E = ({ on }) => <p role="alert" className={cn("text-sm", on ? "text-magenta-600" : "text-text-3")}>x</p>;
+export const F = () => <p role="alert" className="text-sm sm:text-red-600 hover:!text-magenta-700">x</p>;
+export const G = () => <p role="status" className="text-sm text-magenta-600">x</p>;
+export const H = () => <p role="alert" className="text-sm text-text-2">x</p>;
+export const I = () => <div role="alert" className="text-ink"><p className="text-sm">x</p></div>;
+export const J = () => <ProblemText className="px-3 py-2">x</ProblemText>;
+export const K = () => <Alert role="alert" className="text-magenta-600">x</Alert>;
+export const L = () => <Card role="alert" className="text-magenta-600">x</Card>;
+export const M = () => <p className="text-sm text-magenta-600">x</p>;
+export const N = () => <p role="alert" className="text-sm bg-magenta-600 text-ink">x</p>;
+`;
+	const kept = {
+		task: `export const A = () => <p className="px-1 py-2 text-sm text-magenta-600" role="alert">x</p>;\n`,
+		commitment: `export const A = () => <p role="alert" className="px-2 py-3 text-sm text-magenta-600">x</p>;\n`,
+		evry: `export const A = () => (
+	<div role="alert" className="flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600">
+		<p>x</p>
+	</div>
+);
+`,
+	};
+	const reported = lint({
+		"apps/web/src/features/x/Problem.tsx": code,
+		"packages/ui/src/controls/x.tsx": code,
+		"apps/web/src/features/tasks/TaskDialog.tsx": kept.task,
+		"apps/web/src/features/people/assessments/CommitmentDialogs.tsx": kept.commitment,
+		"apps/web/src/features/meetings/dialogs.tsx": `${kept.commitment}${kept.commitment.replace("A", "B")}`,
+		"apps/web/src/features/evry/conversation/EvryPanel.tsx": `${kept.evry}export const B = () => <p role="alert" className="text-xs text-magenta-600">x</p>;\n`,
+	}).filter((hit) => hit.endsWith(" shared-notice"));
+	assert.deepEqual(reported, [
+		"apps/web/src/features/evry/conversation/EvryPanel.tsx:6 shared-notice",
+		"apps/web/src/features/meetings/dialogs.tsx:2 shared-notice",
+		...[1, 2, 3, 4, 5, 6].map((line) => `apps/web/src/features/x/Problem.tsx:${line} shared-notice`),
+	]);
+	const [message] = lint({ "apps/web/src/features/x/Problem.tsx": code }, undefined, true);
+	assert.match(
+		message,
+		/ProblemText \(a control-level line\) or InlineAlert or Alert \(a section-level line\) from @everyfield\/ui\/controls/,
+	);
+});
+
 test("INV-a11y: a live region in apps/web or packages/ui (an output element included) is never hidden, invisible, inert or aria-hidden, nor inside an element that is (a portal ends that search), so it stays in the accessibility tree", () => {
 	const code = `export const A = ({ m }) => <div aria-live="polite" className="empty:hidden">{m}</div>;
 export const B = ({ m }) => <p role="status" className={cn("text-sm", !m && "hidden")}>{m}</p>;
