@@ -51,9 +51,9 @@ export const identityApi = {
 	register: (input: Record<string, string>) => call("register", registrationResult, input),
 	requestPasswordRecovery: (email: string) => call("request-password-reset", passwordRecoveryResult, { email }),
 	sendVerification: (email: string) => call("send-verification-email", passwordRecoveryResult, { email }),
-	recoverPassword: (input: { proof: string; newPassword: string; confirmPassword: string }) =>
+	recoverPassword: (input: { newPassword: string; confirmPassword: string }) =>
 		call("reset-password", recoveryCompletedResult, input),
-	verifyEmail: (proof: string) => call("verify-email", emailVerifiedResult, { proof }),
+	verifyEmail: () => call("verify-email", emailVerifiedResult, {}),
 	signOut: () => call("sign-out", signedOutResult, {}),
 	revokeOtherSessions: () => call("revoke-other-sessions", otherSessionsRevokedResult, {}),
 };

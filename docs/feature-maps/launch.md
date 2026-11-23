@@ -15,7 +15,7 @@ flowchart LR
   s0 -.- s0_st1(("member"))
   s0 -.- s0_st2(("signed-out"))
   s0 -.- s0_st3(("loading (manual)"))
-  s0 --- s0_b0["outcome<br/>tests + cases + browser presence"]
+  s0 --- s0_b0["outcome<br/>tests + cases + browser behavior"]
   s0 --- s0_b1["set-date<br/>tests + cases + browser behavior"]
   s0 --- s0_b2["move-postpone<br/>tests + cases"]
   s1["launch.progress<br/>no page"]
@@ -49,14 +49,14 @@ agent-browser wait --url "**/launch"
 
 States:
 
-- **no-date**: heading "No launch date yet"; button "Set Launch Sunday"; button "Record Launch Sunday". As `owner`, on the QA seed:
+- **no-date**: heading "No launch date yet"; button "Set Launch Sunday"; no button "Record Launch Sunday". As `owner`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/launch"
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "No launch date yet" --exact
 agent-browser find role button text --name "Set Launch Sunday" --exact
-agent-browser find role button text --name "Record Launch Sunday" --exact
+! agent-browser find role button text --name "Record Launch Sunday" --exact
 ```
 
 - **member**: text containing "An Owner or Admin sets Launch Sunday"; no button "Set Launch Sunday". As `member`, on the QA seed:
@@ -86,11 +86,34 @@ Once the date arrives, Record Launch Sunday saves what happened, named guests be
 - Catalog: LCH-006, LCH-007
 - Cases: CASE-LCH-006, CASE-LCH-007
 - Test: `tests/integration/launch/outcome.test.mts`: `AC:LAUNCH46-001 AC:CASE-LCH-006 Launch Sunday held on Oct 11 sits beside the planned Oct 10, which stays, and no meeting is made`
+- Test: `tests/integration/launch/outcome.test.mts`: `a launch with no date, a later date or a postponement refuses an outcome until Launch Sunday arrives, with nothing written`
 - Test: `tests/integration/launch/outcome.test.mts`: `AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named Mara, linked as a Launch Sunday guest, with nothing made up`
 - Test: `tests/integration/launch/outcome.test.mts`: `AC:CASE-LCH-007 AC:B02-021 correcting 40 to 50 with a reason is history once; the phase stays and no task is made`
-- Browser, presence proof only (the control is there; the tests prove the outcome), from state no-date:
+- Browser, behavior proof (acts and checks the result), from state no-date:
 
 ```bash
+agent-browser find role button click --name "Set Launch Sunday" --exact
+agent-browser wait --load networkidle
+agent-browser press Tab
+agent-browser wait --load networkidle
+agent-browser press 1
+agent-browser wait --load networkidle
+agent-browser press 0
+agent-browser wait --load networkidle
+agent-browser press 0
+agent-browser wait --load networkidle
+agent-browser press 4
+agent-browser wait --load networkidle
+agent-browser press 2
+agent-browser wait --load networkidle
+agent-browser press 0
+agent-browser wait --load networkidle
+agent-browser press 2
+agent-browser wait --load networkidle
+agent-browser press 6
+agent-browser wait --load networkidle
+agent-browser find role button click --name "Set date" --exact
+agent-browser wait --load networkidle
 agent-browser find role button click --name "Record Launch Sunday" --exact
 agent-browser wait --load networkidle
 agent-browser find role dialog text --name "Record Launch Sunday" --exact

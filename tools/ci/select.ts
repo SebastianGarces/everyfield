@@ -4,6 +4,7 @@ export const CHECKS = {
 	lint: { kind: "package", script: "lint" },
 	typecheck: { kind: "package", script: "typecheck" },
 	"test:unit": { kind: "package", script: "test:unit" },
+	"feature-maps": { kind: "command", command: ["node", "tools/ci/feature-maps.ts", "--check"] },
 	"test:db": { kind: "package", script: "test:db" },
 	census: { kind: "census" },
 	docs: { kind: "command", command: ["python3", "docs/check-all.py"] },
@@ -89,6 +90,20 @@ export const RULES: readonly Rule[] = [
 		checks: ["docs"],
 	},
 	{ name: "wiki tool", paths: ["tools/wiki/**"], checks: ["docs"] },
+	{
+		name: "feature map input",
+		paths: [
+			"apps/web/**",
+			"packages/*/src/**",
+			"docs/catalog/**",
+			"docs/feature-maps/**",
+			"tests/integration/**",
+			"tests/evry/**",
+			"tests/ui/**",
+			"tests/unit/**",
+		],
+		checks: ["feature-maps"],
+	},
 	{
 		name: "added migrations",
 		paths: ["packages/db/migrations/**", "tools/ci/migration-safety.ts"],

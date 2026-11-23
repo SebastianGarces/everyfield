@@ -17,7 +17,7 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
         --full takes about 9 minutes alone and about 15 minutes each with six evf check slots side by side, test:db
         on Docker Postgres included. Neither form runs the statement census: it runs as the census check
         (bin/dev census), and the record lists it as skipped with that reason
-        checks: lint, typecheck, test:unit, test:db, census, docs, ci-coverage, migration-safety, workflow, tools-ci, tools-qa, tools-app, github-scripts, ops-watch
+        checks: lint, typecheck, test:unit, feature-maps, test:db, census, docs, ci-coverage, migration-safety, workflow, tools-ci, tools-qa, tools-app, github-scripts, ops-watch
         test:db runs the selected packages' database tests on a throwaway local Postgres (CI's image in Docker,
         removed when the run ends), so it needs Docker; it never uses the shared development database
         check first removes orphaned qa-test-* containers: older than EVERYFIELD_QA_SWEEP_MINUTES (default 120)

@@ -1,5 +1,5 @@
 import { calendarContext, timeZone, type Clock, type RequestIdentity } from "@everyfield/contracts/common";
-import type { LocalDate } from "@everyfield/contracts/common";
+import { localDate, type LocalDate } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
@@ -36,6 +36,7 @@ const lockRow = z.object({
 		.object({
 			status: c.launchStatus,
 			revision: z.string(),
+			target_date: localDate.nullable(),
 			actual_date: z.string().nullable(),
 			attendance: z.int().nullable(),
 			decisions: z.int().nullable(),
@@ -70,7 +71,7 @@ async function lock(tx: Transaction, scope: Scope, key: string) {
  cur AS (INSERT INTO launch(plant_id,status) SELECT ${p},'planning'
 	WHERE (SELECT ok FROM gate) AND NOT EXISTS(SELECT FROM prior)
 	ON CONFLICT (plant_id) DO UPDATE SET status=launch.status
-	RETURNING status,revision::text,actual_date::text,attendance,decisions,outcome_note)
+	RETURNING status,revision::text,target_date::text,actual_date::text,attendance,decisions,outcome_note)
  SELECT (SELECT ok FROM gate) AS ok,(SELECT to_jsonb(prior) FROM prior) AS prior,
 	(SELECT timezone FROM plant WHERE id=${p}) AS timezone,(SELECT to_jsonb(cur) FROM cur) AS launch,
 	(SELECT ${versionJson("d", sql`'answers',${answersJson("d")}`)} FROM launch_debrief d
@@ -246,8 +247,10 @@ export function outcomeCommands(clock: Clock) {
 			return settle(async () => {
 				const q = parse(c.recordOutcomeRequest, raw);
 				return command(db, authority, "launch.recordOutcome", q, async (tx, scope, l, identity) => {
-					if (l.launch.revision !== q.expectedRevision) deny("conflict");
 					if (l.launch.actual_date) deny("conflict");
+					if (!c.launchSundayArrived({ status: l.launch.status, targetDate: l.launch.target_date }, l.today))
+						deny("not_ready", { needs: "launch_sunday" });
+					if (l.launch.revision !== q.expectedRevision) deny("conflict");
 					const checked = c.checkOutcome(q.input, l.today);
 					if (!checked.ok) deny("invalid_outcome", { problem: checked.problem });
 					const v = checked.value;

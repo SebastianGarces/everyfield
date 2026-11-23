@@ -10,7 +10,6 @@ import { present } from "../../../runtime/captured.ts";
 
 const wiki = createWikiProducer();
 export const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
-const on = (tx: Transaction) => tx as unknown as Database;
 
 export const articleHref = (slug: string) => `/wiki/${slug.split("/").map(encodeURIComponent).join("/")}`;
 const pdfHref = (articleId: string) => `/api/wiki/pdf?article=${articleId}`;
@@ -38,7 +37,7 @@ const listed = (operation: string, rows: SourceRow[], exclusions: string[], more
 	exclusions,
 });
 async function shown(tx: Transaction, actor: EvryActor, articleId: string) {
-	const { article } = value(await wiki.getArticle(on(tx), actor.authority, { articleId }));
+	const { article } = value(await wiki.getArticle(tx, actor.authority, { articleId }));
 	return article && !article.hidden && article.body != null ? article : null;
 }
 
@@ -53,7 +52,7 @@ export const search: ReadAdapter<z.infer<typeof searchInput>> = {
 	input: searchInput,
 	allowed: inPlant,
 	async invoke(tx, actor, input): Promise<SourceResult> {
-		const found = value(await wiki.search(on(tx), actor.authority, { query: input.query }));
+		const found = value(await wiki.search(tx, actor.authority, { query: input.query }));
 		if (found.status === "unavailable") throw new EvryRefusal("source_unavailable");
 		const rows = found.results
 			.slice(0, SHOWN)
@@ -95,7 +94,7 @@ export const recommendForPhase: ReadAdapter<Record<string, never>> = {
 	input: z.strictObject({}),
 	allowed: inPlant,
 	async invoke(tx, actor): Promise<SourceResult> {
-		const picks = value(await wiki.recommendForPhase(on(tx), actor.authority, {}));
+		const picks = value(await wiki.recommendForPhase(tx, actor.authority, {}));
 		const phase = picks.phase === null ? null : (await phaseCatalog()).phases[picks.phase]?.name;
 		const rows = picks.articles
 			.filter((a) => !a.hidden)
@@ -111,7 +110,7 @@ export const resume: ReadAdapter<Record<string, never>> = {
 	input: z.strictObject({}),
 	allowed: inPlant,
 	async invoke(tx, actor): Promise<SourceResult> {
-		const { article } = value(await wiki.readingResume(on(tx), actor.authority, {}));
+		const { article } = value(await wiki.readingResume(tx, actor.authority, {}));
 		const read = (a: WikiArticle) => `${Math.round(Number(a.observedFraction) * 100)}%`;
 		const rows = article ? [articleRow(article, { read: read(article), completed: article.completed })] : [];
 		return listed("wiki.reading.resume", rows, ["other readers' progress"]);
