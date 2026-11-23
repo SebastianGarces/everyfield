@@ -9,6 +9,8 @@ import {
 	createOrganizationAdapter,
 	idsIn,
 	namesFor,
+	pendingFor,
+	readAnswerableInvitation,
 	readEnrollment,
 	readHistory,
 	readMyResidency,
@@ -276,7 +278,37 @@ try {
 			} as never,
 		),
 	);
+	const nico = await signIn(QA_LOGINS.discoverySender);
+	const nicoContext = nico.authority.actor.context;
+	out.discoverySender = {
+		signedIn: nico.signedIn,
+		session: nico.session.status,
+		context: { kind: nicoContext.kind, owner: nicoContext.owner.kind },
+		pending: await pendingFor(runtime, {
+			kind: "discovery",
+			session: nico.session.sessionId as Viewer["session"],
+			accountId: nico.session.accountId,
+			selected: nicoContext.owner,
+			canManage: true,
+			access: liveAccess(nico.authority),
+		} as Viewer),
+	};
+	const expiredLink = {
+		invitationId: process.env.QA_EXPIRED_INVITATION,
+		proof: process.env.QA_EXPIRED_PROOF,
+	};
+	out.expiredRequest = await gatedTransaction(runtime, (tx) =>
+		readAnswerableInvitation(tx as never, ruth.session.sessionId as never, hill as never, expiredLink),
+	);
 	const daniel = await signIn(QA_LOGINS.owner);
+	out.expiredRequestAsPlanter = await gatedTransaction(runtime, (tx) =>
+		readAnswerableInvitation(
+			tx as never,
+			daniel.session.sessionId as never,
+			daniel.authority.actor.context.owner as never,
+			expiredLink,
+		),
+	);
 	(out.owner as Record<string, unknown>).pipeline = {
 		board: value((await readPipelineBoard(runtime, daniel.authority, {})) as Read, () => "read"),
 		goals: value((await readPipelineGoals(runtime, daniel.authority)) as Read, () => "read"),
