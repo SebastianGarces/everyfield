@@ -51,6 +51,7 @@ export const mergeReview = z.strictObject({
 		causes: z.array(mergeBlocker).max(3),
 		references: z.array(referenceKind).max(referenceKind.options.length),
 	}),
+	openFollowUps: z.array(z.strictObject({ personId, meeting: z.string(), dueDate: localDate })).max(200),
 	reviewDigest: digest,
 });
 
@@ -92,7 +93,7 @@ export const unmergePreview = z.strictObject({
 	state: z.enum(["merged", "unmerged"]),
 	restores: moved,
 	fields: z.array(mergeField).max(mergeField.options.length),
-	conflicts: z.array(inverseConflict).max(3),
+	conflicts: z.array(inverseConflict).max(inverseConflict.options.length),
 	reviewRevision: revision,
 });
 export const unmergePeopleRequest = commandEnvelope(z.strictObject({ mergeId: recordId }));

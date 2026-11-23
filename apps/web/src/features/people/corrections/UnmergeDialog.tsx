@@ -24,7 +24,7 @@ import { fresh, usePersonState, When } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { unmergePair, type Unmerged } from "./actions.ts";
 import { unmergeRead } from "./intent.ts";
-import { conflictText, counted, FIELD_LABEL, kindTitle, listText } from "./model.ts";
+import { conflictText, counted, FIELD_LABEL, kindTitle, listText, unmergeAdvice } from "./model.ts";
 import { Problem } from "./parts.tsx";
 import type { UnmergeView } from "./server.ts";
 import { loadProblem } from "../../../components/read-failed.ts";
@@ -198,10 +198,7 @@ export function UnmergeDialog({
 											<li key={c}>{conflictText(c, names)}</li>
 										))}
 									</ul>
-									<p className="mt-2 text-sm">
-										An Unmerge would lose those changes, so Everyfield will not run it. Correct {first(names.survivor)}
-										&rsquo;s details by hand instead; each change is kept in the history.
-									</p>
+									<p className="mt-2 text-sm">{unmergeAdvice(p.conflicts, names)}</p>
 								</div>
 							) : (
 								<CalloutLabel tone="green" icon={Tick02Icon}>
