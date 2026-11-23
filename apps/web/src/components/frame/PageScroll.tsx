@@ -1,6 +1,7 @@
 "use client";
 
 import { prefersReducedMotion } from "@everyfield/ui/foundations";
+import { reinstall } from "@/components/install";
 import { addressHash, writeHash } from "@/components/location";
 import { inOut } from "@/components/motion/curves";
 import { READER_INPUT } from "./reader-input";
@@ -46,13 +47,11 @@ function glideToFragment(e: MouseEvent) {
 }
 
 function install() {
-	const host = window as unknown as Record<symbol, Installed | undefined>;
-	const previous = host[INSTALLED];
+	const previous = reinstall<Installed>(INSTALLED, { click: glideToFragment, input: stopGlide });
 	if (previous) {
 		removeEventListener("click", previous.click, true);
 		for (const t of READER_INPUT) removeEventListener(t, previous.input, true);
 	}
-	host[INSTALLED] = { click: glideToFragment, input: stopGlide };
 	addEventListener("click", glideToFragment, true);
 	for (const t of READER_INPUT) addEventListener(t, stopGlide, { capture: true, passive: true });
 }
