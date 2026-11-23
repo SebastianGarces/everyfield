@@ -1,4 +1,5 @@
 import { writeAction } from "./actions.ts";
+import { WriteUnavailable } from "./refusals.ts";
 import { requestIdentity, sameOwner, type Owner, type RequestIdentity } from "@everyfield/contracts/common";
 import type { Database, Transaction } from "@everyfield/db/client";
 import type { PgInsertValue } from "@everyfield/db/columns";
@@ -21,12 +22,6 @@ import {
 	type RequestActor,
 	type WriteTx,
 } from "../access/session.ts";
-
-export class WriteUnavailable extends Error {
-	constructor() {
-		super("unavailable");
-	}
-}
 
 export type AuditWrite = {
 	id: string;
