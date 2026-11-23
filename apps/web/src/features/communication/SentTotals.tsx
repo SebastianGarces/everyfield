@@ -1,4 +1,4 @@
-import { rateText, type DeliveryTotals } from "./model.ts";
+import { GUARDIAN_LABEL, rateText, type DeliveryTotals } from "./model.ts";
 
 export function when(iso: string | null): string {
 	if (!iso) return "Not recorded";
@@ -10,6 +10,7 @@ export function when(iso: string | null): string {
 export function deliveryName(status: string, gone = true): string {
 	if (status === "unsubscribed") return gone ? "Skipped: unsubscribed" : "Unsubscribed, won't receive this";
 	if (status === "child") return gone ? "Skipped: marked as a child" : "Marked as a child, won't receive this";
+	if (status === "guardian") return gone ? GUARDIAN_LABEL : "Goes to a parent or guardian instead";
 	const labels: Record<string, string> = {
 		delivered: "Delivered",
 		sent: "Sent",
@@ -70,6 +71,10 @@ export function Totals({ totals }: { totals: DeliveryTotals }) {
 				{ label: "Unsubscribed", value: totals.unsubscribed },
 				{ label: "Marked as a child", value: totals.child },
 			],
+		},
+		{
+			title: GUARDIAN_LABEL,
+			rows: [{ label: "Children", value: totals.guardian }],
 		},
 	];
 	return (

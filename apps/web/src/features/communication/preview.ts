@@ -8,19 +8,20 @@ export type PreviewInput = {
 	origin: string;
 	churchName: string;
 	mailingAddress: string | null;
+	guardianOf?: string[];
 };
 type PreviewResult = { html: string } | { error: string };
 
 export function renderPreview(input: PreviewInput): PreviewResult {
 	const merge: Record<string, string> = { name: input.name };
-	if (input.hasMeeting) merge.rsvp_link = `${input.origin}/rsvp/preview`;
+	if (input.hasMeeting) merge.rsvp_link = input.guardianOf?.length ? "" : `${input.origin}/rsvp/preview`;
 	const bodyHtml = prepareBody(input.bodyHtml, usableKeys(input.hasMeeting));
 	try {
 		return {
 			html: renderEmailHtml(
 				bodyHtml,
 				merge,
-				{ churchName: input.churchName, mailingAddress: input.mailingAddress },
+				{ churchName: input.churchName, mailingAddress: input.mailingAddress, guardianOf: input.guardianOf },
 				"preview",
 			),
 		};

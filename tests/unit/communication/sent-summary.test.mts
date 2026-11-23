@@ -28,6 +28,7 @@ const zero: DeliveryTotals = {
 	suppressed: 0,
 	unsubscribed: 0,
 	child: 0,
+	guardian: 0,
 	unknown: 0,
 	cancelled: 0,
 	cancelOpen: 0,
@@ -73,7 +74,13 @@ test("AC:CASE-NTF-016: after the send, Not delivered leaves Ana out and a Skippe
 	assert.deepEqual(tiles, { Reachable: 2, Delivered: 0, Opened: 0, "Not delivered": 0 });
 	assert.deepEqual(groups["Not delivered"], { Bounced: 0, Failed: 0, Suppressed: 0, Unknown: 0 });
 	assert.deepEqual(groups.Skipped, { Unsubscribed: 1, "Marked as a child": 0 });
-	assert.deepEqual(Object.keys(groups), ["Delivery", "Engagement", "Not delivered", "Skipped"]);
+	assert.deepEqual(Object.keys(groups), [
+		"Delivery",
+		"Engagement",
+		"Not delivered",
+		"Skipped",
+		"Sent to a parent or guardian instead",
+	]);
 	assert.equal(deliveryName("unsubscribed"), "Skipped: unsubscribed");
 	assert.equal(words, "Accepted");
 });
@@ -116,7 +123,7 @@ test("AC:CASE-NTF-016-CHILD: the send texts name the child marking, and an audie
 		unsubscribedCount: 0,
 	};
 	assert.equal(
-		scheduleText({ ...report, childCount: 1 }, "Sunday"),
+		scheduleText({ ...report, childCount: 1, guardianCount: 0 }, "Sunday"),
 		"Scheduled for Sunday. It goes to 2 people then. Marked as a child 1.",
 	);
 	assert.equal(
@@ -133,6 +140,7 @@ test("AC:CASE-NTF-016-CHILD: the send texts name the child marking, and an audie
 		complete: true,
 		unsubscribedExclusions: [],
 		childExclusions: [kid],
+		guardianRoutes: [],
 	};
 	assert.equal(
 		noRecipientReason(only, "fallback"),
@@ -146,4 +154,50 @@ test("AC:CASE-NTF-016-CHILD: the send texts name the child marking, and an audie
 		"No one here can get this email. Messages are not sent to people marked as a child.",
 	);
 	assert.equal(noRecipientReason({ ...only, childExclusions: [] }, "fallback"), "fallback");
+});
+
+test("AC:CASE-NTF-016-GUARDIAN: a child's email sent to a parent or guardian is counted apart from the left-out counts", () => {
+	const { tiles, groups } = summary({ ...anaSkipped, selected: 5, reachable: 3, child: 1, guardian: 2 });
+	assert.deepEqual(groups["Sent to a parent or guardian instead"], { Children: 2 });
+	assert.deepEqual(groups.Skipped, { Unsubscribed: 1, "Marked as a child": 1 });
+	assert.equal(tiles["Not delivered"], 0);
+	assert.equal(deliveryName("guardian"), "Sent to a parent or guardian instead");
+	assert.equal(deliveryName("guardian", false), "Goes to a parent or guardian instead");
+	const report = {
+		status: "accepted" as const,
+		acceptedCount: 3,
+		rejectedCount: 0,
+		unknownCount: 0,
+		unsubscribedCount: 0,
+		childCount: 1,
+		guardianCount: 2,
+	};
+	assert.equal(
+		scheduleText(report, "Sunday"),
+		"Scheduled for Sunday. It goes to 3 people then. Marked as a child 1. Sent to a parent or guardian instead 2.",
+	);
+});
+
+test("the review preview of a copy sent only as a parent or guardian names the child and has no RSVP link", async () => {
+	const { renderPreview } = await import("../../../apps/web/src/features/communication/preview.ts");
+	const input = {
+		bodyHtml: "<p>Hi {{name}},</p><p>{{rsvp_link}}</p>",
+		name: "Joao Santos",
+		hasMeeting: true,
+		origin: "https://app.example.test",
+		churchName: "Grace",
+		mailingAddress: "1 Main St, Austin, United States",
+	};
+	const html = (extra: { guardianOf?: string[] }) => {
+		const result = renderPreview({ ...input, ...extra });
+		assert.ok("html" in result);
+		return result.html;
+	};
+	const guardian = html({ guardianOf: ["Lucia Santos"] });
+	assert.ok(guardian.includes("We are sending you this email as the parent or guardian of Lucia Santos."));
+	assert.ok(guardian.includes("Hi Joao Santos,"));
+	assert.equal(guardian.includes("/rsvp/preview"), false);
+	const own = html({ guardianOf: [] });
+	assert.equal(own.includes("parent or guardian"), false);
+	assert.ok(own.includes("/rsvp/preview"));
 });

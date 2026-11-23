@@ -2,7 +2,7 @@ import { z } from "zod";
 import { instant } from "../../common/time.ts";
 import { personId, recordId, requestKey, revision } from "../../common/values.ts";
 import { commandEnvelope } from "../../common/writes.ts";
-import { contactFields, pageInput } from "../values.ts";
+import { adultClassification, contactFields, pageInput } from "../values.ts";
 
 export const tagName = z.string().trim().min(1).max(100);
 export const namedTagColors = [
@@ -92,6 +92,9 @@ export const deleteHouseholdRequest = commandEnvelope(z.strictObject({ household
 export const addToHouseholdRequest = commandEnvelope(z.strictObject({ householdId, personId, role: householdRole }));
 export const removeFromHouseholdRequest = commandEnvelope(z.strictObject({ personId }));
 export const setHouseholdRoleRequest = commandEnvelope(z.strictObject({ personId, role: householdRole }));
+export const setGuardianContactRequest = commandEnvelope(
+	z.strictObject({ personId, guardianPersonId: personId, contact: z.boolean() }),
+);
 export const propagateAddressRequest = commandEnvelope(
 	z.strictObject({
 		householdId,
@@ -164,11 +167,18 @@ export const householdMember = z.strictObject({
 	displayName: z.string(),
 	role: householdRole,
 	revision,
+	adult: adultClassification,
 	...address,
 });
+const guardianLink = z.strictObject({ childPersonId: personId, guardianPersonId: personId });
 export const householdResult = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("none") }),
-	z.strictObject({ status: z.literal("available"), household, members: z.array(householdMember).max(100) }),
+	z.strictObject({
+		status: z.literal("available"),
+		household,
+		members: z.array(householdMember).max(100),
+		guardians: z.array(guardianLink).max(200),
+	}),
 ]);
 export const householdsPage = z.strictObject({
 	items: z.array(household).max(100),
