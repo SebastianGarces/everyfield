@@ -139,7 +139,7 @@ async function publishNetworkVersion(): Promise<NetworkVersion> {
 		input: { articleId: WIKI.drafted.article, organizationId: WIKI.network, body },
 	});
 	assert.equal(reply.status, "ok");
-	assert.equal(await runDueWikiEmbedding(db, wikiPassageEmbedder(process.env), 5, Date.now() + 30_000), 1);
+	assert.equal(await runDueWikiEmbedding(db, wikiPassageEmbedder(process.env), 5, Number.POSITIVE_INFINITY), 1);
 	const row = (
 		await admin.execute(sql`SELECT current_revision_id AS revision FROM article_editor_state
 			WHERE organization_id=${WIKI.network} AND article_id=${WIKI.drafted.article} AND state='published'`)

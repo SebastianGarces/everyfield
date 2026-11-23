@@ -3313,6 +3313,13 @@
 			"name": "private_due_weeks"
 		}
 	],
+	"views": [
+		{
+			"definition": " SELECT f.name,\n    f.value,\n    c.occurred_at AS changed_at\n   FROM (feature_flag f\n     LEFT JOIN LATERAL ( SELECT a.occurred_at\n           FROM audit_event a\n          WHERE ((a.tenant_id = f.tenant_id) AND (a.subject_id = f.id) AND (a.action = 'flags.changed'::text))\n          ORDER BY a.occurred_at DESC, a.id DESC\n         LIMIT 1) c ON (true))\n  WHERE (f.tenant_id = '00000000-0000-0000-0000-000000000000'::uuid);",
+			"name": "flag_rollout",
+			"options": ["security_barrier=true"]
+		}
+	],
 	"roles": [
 		{
 			"bypass_rls": false,
@@ -3330,6 +3337,15 @@
 			"inherit": true,
 			"login": false,
 			"name": "everyfield_cleanup",
+			"superuser": false
+		},
+		{
+			"bypass_rls": false,
+			"create_database": false,
+			"create_role": false,
+			"inherit": true,
+			"login": false,
+			"name": "everyfield_flag_reader",
 			"superuser": false
 		},
 		{
@@ -5652,6 +5668,20 @@
 			"kind": "table",
 			"object": "venue",
 			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_flag_reader",
+			"is_grantable": false,
+			"kind": "schema",
+			"object": "<schema>",
+			"privilege_type": "USAGE"
+		},
+		{
+			"grantee": "everyfield_flag_reader",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "flag_rollout",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_runtime",

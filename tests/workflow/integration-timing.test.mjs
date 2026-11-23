@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { globSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -17,6 +17,7 @@ const ROOTS = [
 	"tools/wiki/tests",
 	"ops/actionable-watch/test",
 ];
+const FILES = ["tests/evry/evals/*.test.mts", "tests/reference/**/*.db.mts", "tests/ui/seed-env.mts"];
 const SOURCE = /\.(mts|mjs|ts|js)$/;
 
 const EXEMPT = {
@@ -54,6 +55,21 @@ const EXEMPT = {
 			["performance.now", "const started = performance.now();"],
 			["performance.now", "ms: Math.round(performance.now() - started),"],
 		],
+	},
+	"tests/evry/evals/clock.test.mts": {
+		why: "the frame bound widens by the time the test took; nothing waits on it",
+		hits: [
+			["performance.now", "const started = performance.now();"],
+			["performance.now", "const latest = NOW.getTime() + (performance.now() - started) + MINUTE;"],
+		],
+	},
+	"tests/evry/evals/invitations.test.mts": {
+		why: "a fixed offset that pins the scripted clock to TODAY; nothing waits on it",
+		hits: [["clock subtraction", "const shift = TODAY.getTime() - Date.now();"]],
+	},
+	"tests/evry/evals/overview.test.mts": {
+		why: "a fixed offset that pins the scripted clock to TODAY; nothing waits on it",
+		hits: [["clock subtraction", "const shift = TODAY.getTime() - Date.now();"]],
 	},
 	"tests/integration/identity/invitations.test.mts": {
 		why: "INV-expiry: only elapsed time shows the expiry check reads the clock after the root lock wait (D-704)",
@@ -244,15 +260,19 @@ function check(files, exempt = EXEMPT) {
 }
 
 function scannedFiles() {
-	return ROOTS.flatMap((root) =>
-		readdirSync(join(repo, root), { recursive: true })
-			.filter((name) => SOURCE.test(name))
-			.sort()
-			.map((name) => ({ path: `${root}/${name}`, source: readFileSync(join(repo, root, name), "utf8") })),
-	);
+	const paths = [
+		...ROOTS.flatMap((root) =>
+			readdirSync(join(repo, root), { recursive: true })
+				.filter((name) => SOURCE.test(name))
+				.sort()
+				.map((name) => `${root}/${name}`),
+		),
+		...globSync(FILES, { cwd: repo }).sort(),
+	];
+	return paths.map((path) => ({ path, source: readFileSync(join(repo, path), "utf8") }));
 }
 
-test("T-261: no file under tests/integration, tests/unit, the Evry adapter, catalog, execution and runtime tests, or the tools and ops tests sleeps, polls the clock or asserts on wall-clock time", () => {
+test("T-261: no file under tests/integration, tests/unit, the Evry adapter, catalog, execution, runtime and eval tests, the reference database tests, the UI seed, or the tools and ops tests sleeps, polls the clock or asserts on wall-clock time", () => {
 	const files = scannedFiles();
 	assert.ok(
 		files.some((file) => file.path === "tests/evry/runtime/streaming.test.mts"),
@@ -274,6 +294,15 @@ test("T-261: no file under tests/integration, tests/unit, the Evry adapter, cata
 		files.some((file) => file.path === "ops/actionable-watch/test/provision.test.mts"),
 		"the scan reaches the ops tests",
 	);
+	for (const path of [
+		"tests/evry/evals/golden.test.mts",
+		"tests/reference/starter/install.db.mts",
+		"tests/ui/seed-env.mts",
+	])
+		assert.ok(
+			files.some((file) => file.path === path),
+			`the scan reaches the database test ${path}`,
+		);
 	assert.ok(
 		files.some((file) => file.path === "tests/integration/writes/counter.mjs"),
 		"the scan reaches writes/*.mjs",
@@ -366,6 +395,9 @@ test("T-261: an exempt file holds only the hits it has today", () => {
 		{ ...invitations, source: invitations.source + "\nawait new Promise((resolve) => setTimeout(resolve, 3000));\n" },
 		{ ...counter, source: counter.source + "\nassert.ok(performance.now() - started < 50);\n" },
 		real("tests/integration/identity/timing.production.mts"),
+		real("tests/evry/evals/clock.test.mts"),
+		real("tests/evry/evals/invitations.test.mts"),
+		real("tests/evry/evals/overview.test.mts"),
 	]);
 	const counterLine = counter.source.split("\n").length + 1;
 	assert.deepEqual(violations, [
