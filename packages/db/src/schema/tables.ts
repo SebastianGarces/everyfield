@@ -1991,6 +1991,7 @@ export const job = pgTable(
 				"evry_effect",
 				"feedback_publication",
 				"assessment",
+				"wiki_embedding",
 			],
 		}).notNull(),
 		subject_record_id: uuid("subject_record_id"),
@@ -2033,7 +2034,7 @@ export const job = pgTable(
 		check("job_ck_0", sql`(revision >= 1)`),
 		check(
 			"job_ck_1",
-			sql`(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text, 'feedback_publication'::text, 'assessment'::text]))`,
+			sql`(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text, 'feedback_publication'::text, 'assessment'::text, 'wiki_embedding'::text]))`,
 		),
 		check(
 			"job_ck_2",
@@ -3257,7 +3258,7 @@ export const passage = pgTable(
 		id: uuid("id")
 			.notNull()
 			.default(sql`gen_random_uuid()`),
-		release_id: uuid("release_id").notNull(),
+		release_id: uuid("release_id"),
 		revision_id: uuid("revision_id").notNull(),
 		tenant_id: uuid("tenant_id").notNull(),
 		ordinal: integer("ordinal").notNull(),
@@ -3293,10 +3294,17 @@ export const passage = pgTable(
 			.onUpdate("no action"),
 		primaryKey({ name: "passage_pkey", columns: [table.id] }),
 		unique("passage_uq_0").on(table.release_id, table.revision_id, table.ordinal),
+		check(
+			"passage_release_owner",
+			sql`((release_id IS NULL) = (tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid))`,
+		),
 		index("passage_ref_0").using("btree", table.release_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("passage_ref_1").using("btree", table.revision_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("passage_ref_2").using("btree", table.tenant_id.asc().nullsLast()),
 		index("passage_ref_3").using("btree", table.id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
+		index("passage_embedding_1536")
+			.using("hnsw", sql`((${table.embedding})::public.vector(1536)) public.vector_cosine_ops`)
+			.where(sql`public.vector_dims(${table.embedding}) = 1536`),
 	],
 );
 export const people_column = pgTable(
@@ -5805,6 +5813,21 @@ export const model_spend = pgTable(
 		unique("model_spend_month_key").on(t.month),
 		check("model_spend_month", sql`${t.month}=date_trunc('month',${t.month})::date`),
 		check("model_spend_charged", sql`${t.charged_micro_usd} >= 0`),
+	],
+);
+
+export const embedding_spend = pgTable(
+	"embedding_spend",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		day: date("day", { mode: "string" }).notNull(),
+		purpose: text("purpose", { enum: ["query", "rebuild", "publish"] }).notNull(),
+		usage: int64("usage").notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		unique("embedding_spend_day_key").on(t.day, t.purpose),
+		check("embedding_spend_purpose", sql`${t.purpose} IN ('query','rebuild','publish')`),
+		check("embedding_spend_usage", sql`${t.usage} >= 0`),
 	],
 );
 

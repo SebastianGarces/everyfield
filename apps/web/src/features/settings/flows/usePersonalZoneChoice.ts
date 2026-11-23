@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { FlowPort, PersonalTimezonePreview, PersonalTimezoneResult } from "../port";
-import { OFFLINE_REFERENCE, useWrite, type Outcome } from "../save";
+import { useWrite, type Outcome } from "../save";
 import { zoneLabel } from "../../../components/time.ts";
 
 export function usePersonalZoneChoice(
@@ -22,7 +22,7 @@ export function usePersonalZoneChoice(
 		const result = await previewing.run({ next, at: Date.now() }, () =>
 			calls.previewPersonalTimezone({ timeZone: next }),
 		);
-		if (result.ok) setPreview(result.value);
+		if (result.status === "ok") setPreview(result.value);
 	};
 
 	const save = async (): Promise<Outcome<PersonalTimezoneResult> | null> => {
@@ -33,7 +33,7 @@ export function usePersonalZoneChoice(
 				calls.setPersonalTimezone({ requestKey, expectedRevision: preview.expectedRevision, input }),
 			);
 		let result = await send();
-		if (!result.ok && result.refusal.reference === OFFLINE_REFERENCE) result = await send();
+		if (result.status === "lost") result = await send();
 		return result;
 	};
 

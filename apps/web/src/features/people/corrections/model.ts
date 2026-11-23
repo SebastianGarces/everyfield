@@ -19,96 +19,17 @@ const MERGE_FIELDS = [
 export type MergeField = (typeof MERGE_FIELDS)[number];
 export type Side = "source" | "survivor";
 
-export const FIELD_LABEL: Record<MergeField, string> = {
-	displayName: "Name",
-	firstName: "First name",
-	lastName: "Last name",
-	email: "Email",
-	phone: "Phone",
-	address: "Address",
-	source: "How you met",
-	summaryNotes: "Summary",
-	birthDate: "Birth date",
-	adultClassification: "Adult or child",
-	household: "Household",
-	photo: "Photo",
-};
-
-export type ReferenceKind =
-	| "tag"
-	| "skill"
-	| "note"
-	| "assessment"
-	| "interview"
-	| "commitment"
-	| "merged_person"
-	| "correction"
-	| "commitment_change"
-	| "commitment_witness"
-	| "merge_record"
-	| "attestation"
-	| "attestation_history"
-	| "email_opt_out"
-	| "duplicate_dismissal"
-	| "contact_outcome"
-	| "development_enrollment"
-	| "invitation"
-	| "launch_guest"
-	| "mail"
-	| "meeting_kit_item"
-	| "obligation"
-	| "participation"
-	| "participation_inviter"
-	| "pipeline_person"
-	| "residency_link"
-	| "task"
-	| "team_leader"
-	| "team_tenure"
-	| "training_assignment"
-	| "training_credit"
-	| "answer_review";
-
-const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
-	tag: ["tag", "tags"],
-	skill: ["skill", "skills"],
-	note: ["note", "notes"],
-	assessment: ["4 C's assessment", "4 C's assessments"],
-	interview: ["interview", "interviews"],
-	commitment: ["commitment card", "commitment cards"],
-	merged_person: ["earlier merged person", "earlier merged people"],
-	correction: ["record correction", "record corrections"],
-	commitment_change: ["commitment withdrawal or reactivation", "commitment withdrawals and reactivations"],
-	commitment_witness: ["card they witnessed", "cards they witnessed"],
-	merge_record: ["earlier merge", "earlier merges"],
-	attestation: ["attestation", "attestations"],
-	attestation_history: ["earlier attestation", "earlier attestations"],
-	email_opt_out: ["email unsubscribe", "email unsubscribes"],
-	duplicate_dismissal: ["pair marked not a duplicate", "pairs marked not a duplicate"],
-	contact_outcome: ["follow-up outcome", "follow-up outcomes"],
-	development_enrollment: ["development enrollment", "development enrollments"],
-	invitation: ["invitation", "invitations"],
-	mail: ["email", "emails"],
-	meeting_kit_item: ["meeting kit item", "meeting kit items"],
-	obligation: ["follow-up", "follow-ups"],
-	participation: ["meeting attendance", "meeting attendances"],
-	participation_inviter: ["guest they invited", "guests they invited"],
-	pipeline_person: ["organization pipeline entry", "organization pipeline entries"],
-	residency_link: ["residency link", "residency links"],
-	launch_guest: ["Launch Sunday guest link", "Launch Sunday guest links"],
-	task: ["task", "tasks"],
-	team_leader: ["ministry leader role", "ministry leader roles"],
-	team_tenure: ["ministry role", "ministry roles"],
-	training_assignment: ["training assignment", "training assignments"],
-	training_credit: ["training credit", "training credits"],
-	answer_review: ["answer send for review", "answer sends for review"],
-};
-export const counted = (kind: ReferenceKind, count: number) => `${count} ${KIND_LABEL[kind][count === 1 ? 0 : 1]}`;
-export const kindTitle = (kind: ReferenceKind) => KIND_LABEL[kind][1].replace(/^./, (c) => c.toUpperCase());
-const kindList = (kinds: readonly ReferenceKind[]) => listText(kinds.map((k) => KIND_LABEL[k][1]));
-export function listText(items: readonly string[]): string {
-	if (items.length <= 1) return items[0] ?? "";
-	return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
-}
+export {
+	MERGE_FIELD_LABEL as FIELD_LABEL,
+	blockerText,
+	conflictText,
+	counted,
+	kindTitle,
+	listText,
+	unmergeAdvice,
+	type ReferenceKind,
+} from "@everyfield/contracts/people";
+import type { ReferenceKind } from "@everyfield/contracts/people";
 
 type Treatment = "move" | "deduplicate" | "keep" | "block";
 export type Reference = { kind: ReferenceKind; count: number; treatment: Treatment };
@@ -265,34 +186,6 @@ export function reviewDismiss(send: (input: ListedPair) => Promise<Outcome<unkno
 	};
 }
 export const notDuplicateText = (person: string, other: string) => `${person} and ${other} marked not a duplicate.`;
-
-export type Blocker = "linked_account_collision" | "linked_source" | "unregistered_reference" | "enrollment_collision";
-export function blockerText(cause: Blocker, names: { source: string; survivor: string }, kinds: ReferenceKind[]) {
-	switch (cause) {
-		case "linked_account_collision":
-			return `${names.source} and ${names.survivor} both have an Everyfield account. Two accounts cannot become one person.`;
-		case "linked_source":
-			return names.source === names.survivor
-				? "The record with an Everyfield account must be the one you keep."
-				: `${names.source} has an Everyfield account, so ${names.source} must be the person you keep.`;
-		case "unregistered_reference":
-			return `${names.source} has ${kindList(kinds)} on record. Merging people with this history is not available in Everyfield yet.`;
-		case "enrollment_collision":
-			return `${names.source} and ${names.survivor} are both enrolled in the same program. One person can’t hold two enrollments in one program.`;
-	}
-}
-
-export type InverseConflict = "survivor_changed" | "source_changed" | "references_changed";
-export function conflictText(cause: InverseConflict, names: { source: string; survivor: string }) {
-	switch (cause) {
-		case "survivor_changed":
-			return `${names.survivor}'s details changed after the merge.`;
-		case "source_changed":
-			return `${names.source}'s record changed after the merge.`;
-		case "references_changed":
-			return `${names.survivor} has records that are new, moved or corrected since the merge, or was merged again.`;
-	}
-}
 
 export const LENSES = ["committed", "compelled", "contagious", "courageous"] as const;
 export type Lens = (typeof LENSES)[number];

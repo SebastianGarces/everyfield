@@ -1,9 +1,8 @@
-import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { randomUUID, randomBytes, createHmac } from "node:crypto";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { testDatabase } from "../../support/test-database.mts";
-import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
+import { authorizeAccountMail, createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 
@@ -26,26 +25,8 @@ export async function fixture() {
 		encryptionKey,
 		addressKey,
 		from: "security@example.test",
-		authorize: async (tx, mail) => {
-			const accounts = mail.map((m) => m.tenant);
-			const result = await tx.execute(
-				querySql`SELECT a.id,c.email FROM account a CROSS JOIN LATERAL access_account_contact(a.id) c WHERE a.id=ANY(${querySql.param(accounts)}::uuid[]) FOR SHARE OF a`,
-			);
-			const contacts = new Map(result.rows.map((row) => [row.id, row.email]));
-			return new Set(
-				mail
-					.filter((m) => {
-						const email = contacts.get(m.tenant);
-						return (
-							m.recipient === m.tenant &&
-							["password_reset", "email_verification"].includes(m.purpose) &&
-							email &&
-							createHmac("sha256", addressKey).update(email).digest("hex") === m.addressHash
-						);
-					})
-					.map((m) => m.id),
-			);
-		},
+		authorize: (tx, mail) =>
+			authorizeAccountMail(tx, mail, (email) => createHmac("sha256", addressKey).update(email).digest("hex")),
 		transport: {
 			async send(payload, key) {
 				if (providerFault) return { kind: "unknown" };
