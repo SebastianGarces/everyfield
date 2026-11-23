@@ -231,7 +231,7 @@ const refusalBody = async (body: () => Promise<unknown>) => {
 };
 const CHURCH_CHANGED = { code: "church_changed", retry: "never", outcome: "refused" };
 
-test("INV-church-changed: after a seat moves church, retrying or reading the old church's conversation is refused as church_changed and writes nothing", async () => {
+test("INV-church-changed: a moved seat's retry or read of the old conversation is church_changed", async () => {
 	const who = await mover();
 	const before = await who.actor();
 	const c = await createConversation(db, before, { requestKey: randomUUID() });

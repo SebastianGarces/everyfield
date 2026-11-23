@@ -223,7 +223,7 @@
 				},
 				{
 					"id": "church-changed",
-					"says": "After a seat moves church, a send to the old church's conversation is refused with nothing written; Reload opens Evry for the new church with the message kept.",
+					"says": "A moved seat's old-church sends, retries, streams and opens are refused with Reload.",
 					"catalog": ["EVR-021"],
 					"operations": ["evry.submitTurn"],
 					"proof": {
@@ -231,6 +231,10 @@
 							{
 								"file": "tests/evry/runtime/conversations.test.mts",
 								"name": "INV-church-changed: a seat moved to another church refuses the old church's conversation as church_changed and writes nothing"
+							},
+							{
+								"file": "tests/evry/runtime/conversations.test.mts",
+								"name": "INV-church-changed: a moved seat's retry or read of the old conversation is church_changed"
 							}
 						]
 					}
@@ -351,6 +355,20 @@
 				}
 			],
 			"behaviors": [
+				{
+					"id": "church-changed",
+					"says": "After a seat moves church, Approve on the old church's change is refused and it stays pending; the card says the church changed and offers Reload.",
+					"catalog": ["EVR-012"],
+					"operations": ["evry.approveProposal"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/evry/execution/proposals.test.mts",
+								"name": "INV-church-changed: approving the old church's pending proposal after the seat moves church is refused as church_changed and changes nothing"
+							}
+						]
+					}
+				},
 				{
 					"id": "approve-change",
 					"says": "A change Evry prepares shows as Review before saving with the exact old and new values; Approve runs it once and the page it changed shows the new value.",

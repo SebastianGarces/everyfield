@@ -53,10 +53,12 @@ function server(answers: Record<string, () => Response>) {
 	return sent;
 }
 
-async function show(seed: unknown) {
+const church = { changed: () => false, leave() {}, reload() {} };
+
+async function show(seed: unknown, place = church) {
 	let card: ReturnType<typeof useReview> | undefined;
 	function Card() {
-		card = useReview(ID, seed as never);
+		card = useReview(ID, seed as never, place);
 		return null;
 	}
 	const root = createRoot(
@@ -113,5 +115,41 @@ test("INV-evry-review: an approval the server refuses, whose review then reads a
 	await run(() => card().approve());
 	assert.deepEqual(sent, ["POST /approve", "GET"]);
 	assert.equal(card().view, "unavailable");
+	await act(async () => root.unmount());
+});
+
+test("INV-church-changed: an approval refused because the seat moved church shows the church change, tells the panel, and reads the review no more", async () => {
+	const sent = server({
+		"POST /approve": () =>
+			Response.json(
+				{ error: { code: "church_changed", correlationId: "x", retry: "never", outcome: "refused" } },
+				{ status: 409 },
+			),
+	});
+	const calls = { leave: 0, reload: 0 };
+	let moved = false;
+	const place = {
+		changed: () => moved,
+		leave: () => void (calls.leave++, (moved = true)),
+		reload: () => void calls.reload++,
+	};
+	const { card, run, root } = await show(review, place);
+	await run(() => card().approve());
+	assert.deepEqual(sent, ["POST /approve"], "no re-read of the old church's review");
+	assert.equal(card().view, "moved");
+	assert.equal(card().notice, null);
+	assert.equal(calls.leave, 1);
+	await act(async () => root.unmount());
+});
+
+test("INV-church-changed: a saving card stops reading its review once the panel's church changed", async () => {
+	const running = { ...review, status: "approved", approvedAt: "2026-10-21T12:01:00Z", executing: true };
+	const sent = server({ GET: () => Response.json(running) });
+	let moved = false;
+	const { card, root } = await show(running, { changed: () => moved, leave() {}, reload() {} });
+	assert.equal(card().view, "running");
+	moved = true;
+	await new Promise((resolve) => setTimeout(resolve, 600));
+	assert.deepEqual(sent, [], "no read of the old church's review after the change");
 	await act(async () => root.unmount());
 });

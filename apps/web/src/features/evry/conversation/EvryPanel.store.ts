@@ -59,6 +59,7 @@ export type EvryPanelState = {
 	retrying: boolean;
 	problem: string | null;
 	churchChanged: boolean;
+	churchNotice: string | null;
 	announcement: string;
 	actions: {
 		show: (open: boolean) => void;
@@ -72,7 +73,8 @@ export type EvryPanelState = {
 		addFiles: (files: readonly File[], church: boolean) => void;
 		removeFile: (key: string) => void;
 		reload: () => void;
-		reloadForChurch: (send: Send) => void;
+		reloadForChurch: (send?: Send) => void;
+		leaveChurch: () => void;
 		cancel: () => void;
 		retry: (turnId: string) => void;
 		reconnect: () => void;
@@ -85,6 +87,12 @@ export type EvryPanelState = {
 export type EvryPanelStore = StoreApi<EvryPanelState>;
 
 const KINDS = ["user_message", "assistant_text", "tool_result", "status"] as const;
+
+const CHURCH = {
+	retry: "Evry did not try again. Reload to use Evry for your new church.",
+	stopped: "Evry stopped, and nothing was changed. Reload to use Evry for your new church.",
+	opened: "That conversation is from your old church. Reload to use Evry for your new church.",
+};
 
 async function readAll(
 	port: EvryPort,
@@ -169,8 +177,17 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			update(() => next, { problem: null });
 		};
 
+		const leave = (churchNotice: string | null) =>
+			update((chat) => ({ ...chat, activeTurnId: null, stopping: false }), {
+				churchChanged: true,
+				churchNotice,
+				problem: null,
+				stream: "idle",
+			});
+
 		const stopped = (error: ProjectedError) => {
 			if (error.outcome !== "refused") return set({ stream: "lost" });
+			if (error.code === "church_changed") return leave(CHURCH.stopped);
 			update((chat) => ({ ...chat, activeTurnId: null, stopping: false }), {
 				stream: "idle",
 				problem:
@@ -200,8 +217,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 		};
 
 		const fail = (send: Send, reply: api.Reply<unknown>, refused: "refused" | "unstarted" = "refused") => {
-			if (reply.status === "refused" && reply.error.code === "church_changed")
-				update((chat) => ({ ...chat, activeTurnId: null, stopping: false }), { churchChanged: true, problem: null });
+			if (reply.status === "refused" && reply.error.code === "church_changed") leave(null);
 			patchSend(
 				send.key,
 				reply.status === "refused" ? { state: refused, error: reply.error } : { state: "unconfirmed", error: null },
@@ -405,6 +421,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			retrying: false,
 			problem: null,
 			churchChanged: false,
+			churchNotice: null,
 			announcement: "",
 			actions: {
 				show,
@@ -482,9 +499,10 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				removeFile: (key) => set({ files: get().files.filter((p) => p.key !== key) }),
 				reload: () => void reload(),
 				reloadForChurch: (send) => {
-					port.holdDraft(send.text);
+					port.holdDraft(send?.text ?? get().draft);
 					port.reloadPage();
 				},
+				leaveChurch: () => leave(null),
 				cancel: () =>
 					void (async () => {
 						const conversation = get().chat.conversation;
@@ -510,6 +528,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 						set({ retrying: false });
 						if (r.status === "lost") return set({ problem: "Not confirmed. Check your connection, then try again." });
 						retryKeys.delete(turnId);
+						if (r.status === "refused" && r.error.code === "church_changed") return leave(CHURCH.retry);
 						if (r.status === "refused")
 							return set({
 								problem:
@@ -552,6 +571,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 						const r = await readAll(port, conversationId, () => mine === shown);
 						if (mine !== shown) return;
 						set({ load: "ready" });
+						if (r.status === "refused" && r.error.code === "church_changed") return leave(CHURCH.opened);
 						if (r.status !== "ok")
 							return set({ problem: "That conversation could not open. Check your connection and try again." });
 						openState(opened(r.value));

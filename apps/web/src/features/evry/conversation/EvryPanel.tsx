@@ -60,12 +60,14 @@ import {
 	type Turn,
 } from "./model.ts";
 import { ReviewCard } from "../review/ReviewCard.tsx";
+import { ChurchChanged } from "./ChurchChanged.tsx";
 import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
 import { useRowPhotos } from "./useRowPhotos.ts";
 import { AttachButton, PhotoChip } from "./PhotoAttach.tsx";
 import { ATTACH, fileSize, isCsv, isPdf, type Picked } from "./attachments.ts";
 import type { Stream } from "./EvryPanel.store.ts";
+import type { Church } from "../review/ReviewCard.store.ts";
 
 const useActions = () => Panel.useSelect((s) => s.actions);
 
@@ -269,6 +271,7 @@ function Chat({
 	const load = Panel.useSelect((s) => s.load);
 	const photos = useRowPhotos(turns);
 	const problem = Panel.useSelect((s) => s.problem);
+	const churchNotice = Panel.useSelect((s) => s.churchNotice);
 	const retrying = Panel.useSelect((s) => s.retrying);
 	const announcement = Panel.useSelect((s) => s.announcement);
 	const lastTurn = turns.at(-1);
@@ -308,6 +311,11 @@ function Chat({
 					your approval.
 				</p>
 				{problem ? <Alert role="alert">{problem}</Alert> : null}
+				{churchNotice ? (
+					<ChurchChanged className="w-full text-left" onReload={() => actions.reloadForChurch()}>
+						{churchNotice}
+					</ChurchChanged>
+				) : null}
 			</div>
 		);
 
@@ -369,6 +377,9 @@ function Chat({
 				</Alert>
 			) : null}
 			{problem ? <Alert role="alert">{problem}</Alert> : null}
+			{churchNotice ? (
+				<ChurchChanged onReload={() => actions.reloadForChurch()}>{churchNotice}</ChurchChanged>
+			) : null}
 			<div aria-live="polite" className="sr-only">
 				{announcement}
 			</div>
@@ -408,6 +419,12 @@ function TurnView({
 	photos: Readonly<Record<string, string>>;
 	onRetry: () => void;
 }) {
+	const panel = Panel.useStoreApi();
+	const [church] = useState<Church>(() => ({
+		changed: () => panel.getState().churchChanged,
+		leave: () => panel.getState().actions.leaveChurch(),
+		reload: () => panel.getState().actions.reloadForChurch(),
+	}));
 	const notice = endNotice(turn.end);
 	const waiting = active && !turn.blocks.length;
 	const hasAnswer = turn.blocks.length > 0 || waiting || notice;
@@ -456,6 +473,7 @@ function TurnView({
 									proposalId={block.proposalId}
 									target={block.target}
 									seed={reviews[block.proposalId]}
+									church={church}
 								/>
 							),
 						)}
@@ -501,19 +519,9 @@ function SendView({ send, onResend, onEdit }: { send: Send; onResend: () => void
 				<SentFiles files={send.attachments} />
 			</UserBubble>
 			{churchChanged(send) ? (
-				<Alert
-					role="alert"
-					tone="neutral"
-					title="Your church changed"
-					className="w-full"
-					actions={
-						<Button size="sm" variant="primary" onClick={() => actions.reloadForChurch(send)}>
-							Reload
-						</Button>
-					}
-				>
-					<p>Reload to use Evry for your new church. Your message comes with you, ready to send.</p>
-				</Alert>
+				<ChurchChanged className="w-full" onReload={() => actions.reloadForChurch(send)}>
+					Reload to use Evry for your new church. Your message comes with you, ready to send.
+				</ChurchChanged>
 			) : notice ? (
 				<div role="alert" className="flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600">
 					<p>{notice}</p>

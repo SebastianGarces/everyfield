@@ -26,10 +26,12 @@ export type Outcome = {
 };
 export type Staged = { upload: string; status: "ready"; src: string } | { upload: string; status: "gone" | "lost" };
 
+export type Church = { changed: () => boolean; leave: () => void; reload: () => void };
+
 export type ReviewPort = Pick<
 	typeof api,
 	"readReview" | "readStagedPhoto" | "approve" | "revise" | "cancel" | "retry" | "check"
-> & { refresh: () => void };
+> & { refresh: () => void; church: Church };
 
 export type Shown = Review | "unavailable" | "lost";
 
@@ -39,6 +41,7 @@ export type ReviewState = {
 	outcome: Outcome;
 	ranOut: Review | null;
 	photo: Staged | null;
+	churchChanged: boolean;
 	actions: {
 		follow: (listener: () => void) => () => void;
 		reload: () => void;
@@ -146,7 +149,10 @@ export function createReviewStore(init: {
 			}
 		};
 
+		const left = () => get().churchChanged || port.church.changed();
+
 		const read = async () => {
+			if (left()) return null;
 			const g = generation;
 			const reply = await port.readReview(id);
 			if (g !== generation) return null;
@@ -169,7 +175,7 @@ export function createReviewStore(init: {
 			const readAgainLater = () => {
 				pollTimer = setTimeout(async () => {
 					const reply = await read();
-					if (poll === run && reply?.status !== "refused") readAgainLater();
+					if (poll === run && !left() && reply?.status !== "refused") readAgainLater();
 				}, pollDelay(attempt++));
 			};
 			readAgainLater();
@@ -197,7 +203,7 @@ export function createReviewStore(init: {
 
 		const sync = () => {
 			const state = view();
-			const watched = readers > 0;
+			const watched = readers > 0 && !left();
 
 			const review = state.review;
 			const counting = phaseNow(state) === "pending" || phaseNow(state) === "unconfirmed";
@@ -229,6 +235,11 @@ export function createReviewStore(init: {
 			const g = ++generation;
 			set((s) => ({ busy: action, outcome: { ...s.outcome, notice: null } }));
 			const reply = await send(before);
+			if (reply.status === "refused" && reply.error.code === "church_changed") {
+				++generation;
+				set({ busy: null, outcome: NONE, churchChanged: true });
+				return port.church.leave();
+			}
 			let current: Review | null = reply.status === "ok" ? result(reply.value) : null;
 			let refused = false;
 			if (reply.status !== "ok") {
@@ -314,6 +325,7 @@ export function createReviewStore(init: {
 			outcome: NONE,
 			ranOut: null,
 			photo: null,
+			churchChanged: false,
 			actions: {
 				follow: (listener) => {
 					const off = store.subscribe(listener);
