@@ -90,7 +90,7 @@ test("AC:TARGET-TSK-016 storage and render share one outside-link rule", () => {
 	const addresses = [
 		["https://example.org/a?b=1", "https://example.org/a?b=1"],
 		["  http://example.org  ", "http://example.org"],
-		["mailto:a@b.co", "mailto:a@b.co"],
+		["mailto:a@b.test", "mailto:a@b.test"],
 		["HTTPS://EXAMPLE.ORG", "HTTPS://EXAMPLE.ORG"],
 		["javascript:alert(1)", null],
 		["JaVaScRiPt:alert(1)", null],

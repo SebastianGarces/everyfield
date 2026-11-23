@@ -4,7 +4,7 @@ import { queueJobsFor } from "@everyfield/domain/jobs";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
-import { currentAuthority, liveAuthority } from "../context/authority.ts";
+import { currentAuthority, liveAuthority, movedChurch, refusedFor } from "../context/authority.ts";
 import { retainedEvents } from "./retained.ts";
 import { EvryRefusal, projectError } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
@@ -128,7 +128,7 @@ export async function listConversations(db: Database, actor: EvryActor, raw: unk
 export async function readConversation(db: Database, actor: EvryActor, id: string, after = 0) {
 	const conversationId = parse(uuid, id);
 	const read = await conversationPage(db, actor, sql`${conversationId}::uuid`, parse(z.int().min(0), after));
-	if (!read) throw new EvryRefusal("not_found");
+	if (!read) throw await refusedFor(db, actor, sql`${conversationId}::uuid`);
 	return read;
 }
 
@@ -169,12 +169,6 @@ async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor:
 		more: row.events.length === EVENT_PAGE,
 	};
 }
-
-const movedChurch = (actor: EvryActor, id: string): SQL =>
-	actor.seatId
-		? sql`(EXISTS(SELECT FROM conversation m WHERE m.id=${id}::uuid AND m.account_id=${actor.accountId}::uuid
-				AND m.tenant_id<>${actor.owner.id}::uuid AND m.context_kind<>'account') AND ${currentAuthority(actor)})`
-		: sql`false`;
 
 const submitted = z.strictObject({ turnId: z.uuid(), sequence: z.coerce.number() });
 export type Submitted = z.infer<typeof submitted> & { replayed: boolean };
@@ -229,7 +223,7 @@ export async function submitTurn(
 		SELECT (SELECT jsonb_build_object('turnId',${turnId}::uuid,'sequence',last_sequence) FROM conv) AS submitted,
 			(SELECT to_jsonb(known) FROM known) AS known,
 			(SELECT ${liveRun("c")} FROM conversation c WHERE c.id=${id}::uuid AND ${owned(actor, "c")}) AS active,
-			${movedChurch(actor, id)} AS moved`);
+			${movedChurch(actor, sql`${id}::uuid`)} AS moved`);
 	const row = r.rows[0] as { submitted: unknown; known: unknown; active: boolean | null; moved: boolean };
 	if (row.submitted) return { ...submitted.parse(row.submitted), replayed: false };
 	if (row.known) return { ...submitted.parse(row.known), replayed: true };
@@ -326,7 +320,7 @@ export async function retryTurn(db: Database, actor: EvryActor, conversationId: 
 		FROM conversation c
 		JOIN LATERAL (SELECT * FROM conversation_event e WHERE e.conversation_id=c.id AND e.kind='user_message' ORDER BY e.sequence DESC LIMIT 1) m ON true
 		WHERE c.id=${id}::uuid AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
-	if (!r.rows.length) throw new EvryRefusal("not_found");
+	if (!r.rows.length) throw await refusedFor(db, actor, sql`${id}::uuid`);
 	const last = z
 		.strictObject({
 			sequence: z.coerce.number(),

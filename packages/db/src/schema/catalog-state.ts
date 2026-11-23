@@ -43,7 +43,7 @@ export async function modeledCatalog(db: Database | Transaction, schema: string)
 }
 
 export async function supplementalCatalog(db: Database | Transaction, schema: string) {
-	const [deferred, triggers, functions, roles, acl, defaults, extensions] = [
+	const [deferred, triggers, functions, views, roles, acl, defaults, extensions] = [
 		await db.execute(
 			sql`SELECT c.relname AS table_name,k.conname AS name,k.condeferrable AS deferrable,k.condeferred AS initially_deferred FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=${schema} AND k.contype='f' AND k.condeferrable`,
 		),
@@ -54,13 +54,16 @@ export async function supplementalCatalog(db: Database | Transaction, schema: st
 			sql`SELECT p.proname AS name,pg_get_function_identity_arguments(p.oid) AS arguments,pg_get_functiondef(p.oid) AS definition FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=${schema}`,
 		),
 		await db.execute(
-			sql`SELECT rolname AS name,rolsuper AS superuser,rolinherit AS inherit,rolcreaterole AS create_role,rolcreatedb AS create_database,rolcanlogin AS login,rolbypassrls AS bypass_rls FROM pg_roles WHERE rolname IN ('everyfield_runtime','everyfield_auth','everyfield_cleanup')`,
+			sql`SELECT c.relname AS name,pg_get_viewdef(c.oid) AS definition,c.reloptions AS options FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=${schema} AND c.relkind='v'`,
+		),
+		await db.execute(
+			sql`SELECT rolname AS name,rolsuper AS superuser,rolinherit AS inherit,rolcreaterole AS create_role,rolcreatedb AS create_database,rolcanlogin AS login,rolbypassrls AS bypass_rls FROM pg_roles WHERE rolname IN ('everyfield_runtime','everyfield_auth','everyfield_cleanup','everyfield_flag_reader')`,
 		),
 		await db.execute(sql`WITH permissions AS (
-		 SELECT 'table' AS kind,c.relname AS object,coalesce(r.rolname,'PUBLIC') AS grantee,x.privilege_type,x.is_grantable FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) x LEFT JOIN pg_roles r ON r.oid=x.grantee WHERE n.nspname=${schema} AND c.relkind IN ('r','p','S')
+		 SELECT 'table' AS kind,c.relname AS object,coalesce(r.rolname,'PUBLIC') AS grantee,x.privilege_type,x.is_grantable FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) x LEFT JOIN pg_roles r ON r.oid=x.grantee WHERE n.nspname=${schema} AND c.relkind IN ('r','p','S','v')
 		 UNION ALL SELECT 'function',p.proname||'('||pg_get_function_identity_arguments(p.oid)||')',coalesce(r.rolname,'PUBLIC'),x.privilege_type,x.is_grantable FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x LEFT JOIN pg_roles r ON r.oid=x.grantee WHERE n.nspname=${schema}
 		 UNION ALL SELECT 'schema','<schema>',coalesce(r.rolname,'PUBLIC'),x.privilege_type,x.is_grantable FROM pg_namespace n CROSS JOIN LATERAL aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) x LEFT JOIN pg_roles r ON r.oid=x.grantee WHERE n.nspname=${schema}
-		) SELECT * FROM permissions WHERE grantee IN ('PUBLIC','everyfield_runtime','everyfield_auth','everyfield_cleanup')`),
+		) SELECT * FROM permissions WHERE grantee IN ('PUBLIC','everyfield_runtime','everyfield_auth','everyfield_cleanup','everyfield_flag_reader')`),
 		await db.execute(
 			sql`SELECT d.defaclobjtype AS kind,coalesce(r.rolname,'PUBLIC') AS grantee,x.privilege_type,x.is_grantable FROM pg_default_acl d JOIN pg_namespace n ON n.oid=d.defaclnamespace CROSS JOIN LATERAL aclexplode(d.defaclacl) x LEFT JOIN pg_roles r ON r.oid=x.grantee WHERE n.nspname=${schema} AND (x.grantee=0 OR r.rolname IN ('everyfield_runtime','everyfield_auth','everyfield_cleanup'))`,
 		),
@@ -72,6 +75,7 @@ export async function supplementalCatalog(db: Database | Transaction, schema: st
 		deferred: sorted(deferred.rows, schema),
 		triggers: sorted(triggers.rows, schema),
 		functions: sorted(functions.rows, schema),
+		views: sorted(views.rows, schema),
 		roles: sorted(roles.rows, schema),
 		acl: sorted(acl.rows, schema),
 		defaults: sorted(defaults.rows, schema),

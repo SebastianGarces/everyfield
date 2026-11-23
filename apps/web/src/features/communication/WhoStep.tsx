@@ -2,7 +2,7 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
-import { Alert, Combobox, Command, Field, keepKeyInField, Spinner } from "@everyfield/ui/controls";
+import { Alert, Combobox, Command, Field, keepKeyInField, Spinner, ProblemText } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useId, useState, type ElementType, type KeyboardEvent } from "react";
@@ -424,9 +424,9 @@ function ToField({
 				) : null}
 			</Command>
 			{status ? (
-				<p role="alert" className="mt-1 text-sm font-medium text-magenta-600">
+				<ProblemText size="sm" className="mt-1">
 					{status}
-				</p>
+				</ProblemText>
 			) : null}
 		</Field>
 	);

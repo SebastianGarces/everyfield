@@ -1,6 +1,7 @@
 "use client";
 
 import { FORMAT_LIMITS, type DocBrand, type Token } from "@everyfield/contracts/documents";
+import { ProblemText } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
@@ -48,9 +49,9 @@ function HeightField({ editor, target }: { editor: Editor; target: Target }) {
 				/>
 			</Tip>
 			{problem ? (
-				<span id={`${id}-problem`} role="alert" className="text-xs font-medium text-magenta-600">
+				<ProblemText as="span" id={`${id}-problem`}>
 					{problem}
-				</span>
+				</ProblemText>
 			) : null}
 		</span>
 	);
