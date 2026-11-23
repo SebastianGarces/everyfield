@@ -65,7 +65,5 @@ jobs:
         run: npx --yes "$VERCEL_CLI" build --prod
       - name: Deploy the prebuilt output to production
         run: |
-          set -euo pipefail
           url=$(npx --yes "$VERCEL_CLI" deploy --prebuilt --prod --meta "githubCommitSha=$GITHUB_SHA")
-          echo "Deployed $GITHUB_SHA to $url"
           echo "Production deployment for \`$GITHUB_SHA\`: $url" >> "$GITHUB_STEP_SUMMARY"
