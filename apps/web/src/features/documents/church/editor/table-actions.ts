@@ -4,7 +4,7 @@ import { closeHistory } from "@tiptap/pm/history";
 import type { Attrs, Node as PMNode, Schema } from "@tiptap/pm/model";
 import { NodeSelection, Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
-import { clean } from "./document-json.ts";
+import { tableFrom } from "./document-json.ts";
 import { tableFromEditor, tableToEditor } from "./table-json.ts";
 import type { Place } from "./table-ops.ts";
 
@@ -13,14 +13,14 @@ const cache = new WeakMap<PMNode, TableNode>();
 export function tableOf(node: PMNode): TableNode {
 	let table = cache.get(node);
 	if (!table) {
-		table = clean(tableFromEditor(node.toJSON() as Record<string, unknown>)) as unknown as TableNode;
+		table = tableFrom(tableFromEditor(node.toJSON()));
 		cache.set(node, table);
 	}
 	return table;
 }
 
 export function nodeFromTable(schema: Schema, table: TableNode): PMNode {
-	return schema.nodeFromJSON(tableToEditor(table as unknown as Record<string, unknown>));
+	return schema.nodeFromJSON(tableToEditor(table));
 }
 
 type TableFocus = { pos: number; blank: boolean; col: number };

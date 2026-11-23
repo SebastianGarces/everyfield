@@ -138,18 +138,20 @@ import {
 	reviewOf,
 	uploadOf,
 	type Action,
+	type Church,
 	type Notice,
 } from "./ReviewCard.store.ts";
+import { ChurchChanged } from "../conversation/ChurchChanged.tsx";
 
-type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown";
+type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown" | "moved" | "left";
 
-export function useReview(proposalId: string, seed: Review | null | undefined) {
+export function useReview(proposalId: string, seed: Review | null | undefined, church: Church) {
 	const router = useRouter();
 	const store = useLocalStore(() =>
 		createReviewStore({
 			id: proposalId,
 			seed,
-			port: { ...api, refresh: () => router.refresh() },
+			port: { ...api, refresh: () => router.refresh(), church },
 		}),
 	);
 	const state = useSyncExternalStore(store.getState().actions.follow, store.getState, store.getState);
@@ -158,8 +160,15 @@ export function useReview(proposalId: string, seed: Review | null | undefined) {
 	const review = reviewOf(value);
 	const load = loadOf(value);
 	const lapsed = lapsedOf({ review, ranOut });
-	const view: Exclude<View, "photo_unavailable" | "unknown"> =
-		load === "ready" && review ? phaseOf(review, lapsed) : load === "ready" ? "loading" : load;
+	const view: Exclude<View, "photo_unavailable" | "unknown"> = state.churchChanged
+		? "moved"
+		: !review && church.changed()
+			? "left"
+			: load === "ready" && review
+				? phaseOf(review, lapsed)
+				: load === "ready"
+					? "loading"
+					: load;
 	const upload = uploadOf(review);
 	const mine = photo && photo.upload === upload ? photo : null;
 	const staged: StagedPhoto = mine ?? { status: view === "pending" && upload !== null ? "loading" : "idle" };
@@ -190,6 +199,8 @@ const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; ti
 	unknown: { icon: Alert02Icon, title: "Not confirmed", tone: "amber" },
 	photo_unavailable: { icon: ImageNotFound01Icon, title: "Photo not available", tone: "gray" },
 	unavailable: { icon: SquareLock02Icon, title: "Not available to you", tone: "gray" },
+	moved: { icon: SquareLock02Icon, title: "Not approved", tone: "gray" },
+	left: { icon: SquareLock02Icon, title: "Not available", tone: "gray" },
 };
 
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
@@ -262,6 +273,8 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				? `${what} in this change is no longer available to you, so Evry can't show this change or its result.`
 				: `${what} in this change is no longer available to you. Nothing was changed.`;
 		}
+		case "left":
+			return "Your church changed, so Evry can't show this change here.";
 		case "unavailable":
 			return "You can't see this change now, so Evry can't show its result. Changes like this need an Owner or Admin seat in this church.";
 		default:
@@ -288,12 +301,14 @@ export function ReviewCard({
 	proposalId,
 	target,
 	seed,
+	church,
 }: {
 	proposalId: string;
 	target: string | null;
 	seed?: Review | null;
+	church: Church;
 }) {
-	const r = useReview(proposalId, seed);
+	const r = useReview(proposalId, seed, church);
 	const [reason, setReason] = useState("");
 	const [editing, setEditing] = useState<number | null>(null);
 	const [closes, setCloses] = useState(0);
@@ -375,7 +390,13 @@ export function ReviewCard({
 						Try again
 					</Button>
 				</div>
-			) : view === "unavailable" || view === "withheld" || !review ? null : (view === "pending" ||
+			) : view === "moved" ? (
+				<div className="px-4 py-3.5">
+					<ChurchChanged onReload={church.reload}>
+						Nothing was changed. Reload to use Evry for your new church.
+					</ChurchChanged>
+				</div>
+			) : view === "unavailable" || view === "withheld" || view === "left" || !review ? null : (view === "pending" ||
 					unknown === "revise") &&
 			  editing === review.revision ? (
 				<ReviseForm

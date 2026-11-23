@@ -1,6 +1,7 @@
 "use client";
 
 import { attrIssue, FORMAT_LIMITS, type DocBrand, type TableNode, type Token } from "@everyfield/contracts/documents";
+import { ProblemText } from "@everyfield/ui/controls";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import { useId, useRef, useState } from "react";
@@ -123,9 +124,9 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 				/>
 			</Tip>
 			{problem ? (
-				<span id={`${id}-problem`} role="alert" className="text-xs font-medium text-magenta-600">
+				<ProblemText as="span" id={`${id}-problem`}>
 					{problem}
-				</span>
+				</ProblemText>
 			) : null}
 		</span>
 	);
