@@ -26,6 +26,7 @@ import {
 	Textarea,
 	toast,
 	InlineAlert,
+	ProblemText,
 } from "@everyfield/ui/controls";
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useRef, useState } from "react";
@@ -459,9 +460,7 @@ function SettleForm({
 								))}
 							</div>
 							{touched && unchanged ? (
-								<p className="mt-1 text-xs font-medium text-magenta-600" role="alert">
-									Add or remove at least one person, or close this.
-								</p>
+								<ProblemText className="mt-1">Add or remove at least one person, or close this.</ProblemText>
 							) : null}
 						</fieldset>
 					) : (
@@ -904,11 +903,7 @@ function EvaluationForm({
 											{f.label}
 										</p>
 										<p className="text-sm text-text-3">{f.hint}</p>
-										{bad || refusal ? (
-											<p className="text-xs font-medium text-magenta-600" role="alert">
-												{refusal ?? "Choose a score."}
-											</p>
-										) : null}
+										{bad || refusal ? <ProblemText>{refusal ?? "Choose a score."}</ProblemText> : null}
 									</div>
 									<SegmentedControl
 										label={`${f.label} score, 1 to 5`}

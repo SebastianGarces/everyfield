@@ -27,7 +27,7 @@ test("INV-markdown: each element renders", () => {
 	assert.match(link, />the guide<\/a>\.<\/span>/);
 	assert.match(html("[people](/people)"), /<a [^>]*href="\/people"[^>]*>people<\/a>/);
 	assert.doesNotMatch(html("[people](/people)"), /target=|rel=/);
-	assert.match(html("[mail](mailto:a@b.co)"), /href="mailto:a@b.co"/);
+	assert.match(html("[mail](mailto:a@b.test)"), /href="mailto:a@b.test"/);
 	assert.match(
 		html("**bold with *italic* and `code`**"),
 		/<strong[^>]*>bold with <em>italic<\/em> and <code[^>]*>code<\/code><\/strong>/,
