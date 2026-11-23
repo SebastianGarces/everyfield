@@ -128,7 +128,7 @@ const accept = (i: { invitationId: string; proof: string }, shareMilestones = tr
 const settle = (p: Promise<unknown>) =>
 	p.then(
 		(value) => value,
-		(e: Error & { value?: { code?: string } }) => ({ refused: e.value?.code ?? e.message }),
+		(e: Error) => ({ refused: e.message }),
 	);
 async function atOnce<T>(lock: SQL, writes: (() => Promise<T>)[]): Promise<T[]> {
 	let held!: () => void, release!: () => void;

@@ -102,7 +102,7 @@ const recipientRow = z.object({
 
 export function createPhaseWriter(config: { notices: PhaseNotices }) {
 	return {
-		async declare(db: Database, authority: RequestActor, raw: unknown) {
+		async declare(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const scope = scopeOf(authority);
 				const q = parse(c.declareRequest, raw);
@@ -133,7 +133,7 @@ export function createPhaseWriter(config: { notices: PhaseNotices }) {
 			});
 		},
 
-		async transition(db: Database, authority: RequestActor, raw: unknown) {
+		async transition(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const scope = scopeOf(authority);
 				const q = parse(c.transitionRequest, raw);
@@ -181,14 +181,17 @@ export function createPhaseWriter(config: { notices: PhaseNotices }) {
 					if (r.prior) return transitionAnswer(replay(r.prior, identity));
 					if (!r.result) return null;
 					const answer = transitionAnswer(r.result);
-					if (answer.outcome === "moved" && r.recipients.length)
+					if (answer.outcome === "moved" && r.recipients.length) {
+						const { entry } = answer;
+						if (entry.kind !== "movement") throw Error(`A phase move answered with a ${entry.kind} entry`);
 						await config.notices(tx, {
 							plantName: r.plant_name ?? "",
-							transitionId: answer.entry.id,
-							fromPhase: answer.entry.fromPhase!,
-							toPhase: answer.entry.toPhase,
+							transitionId: entry.id,
+							fromPhase: entry.fromPhase,
+							toPhase: entry.toPhase,
 							recipients: r.recipients,
 						});
+					}
 					return answer;
 				});
 				if (answer) return answer;

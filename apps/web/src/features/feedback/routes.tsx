@@ -1,4 +1,5 @@
 import { signIn } from "@/server/sign-in";
+import type { SitePath } from "@everyfield/contracts/identity";
 import { feedbackCategory, feedbackStatus } from "@everyfield/contracts/feedback";
 import { Card, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
@@ -13,9 +14,9 @@ export const triageMetadata: Metadata = { title: "Feedback triage", robots: { in
 const SENT = [{ label: "Sent feedback", href: "/feedback" }];
 const TRIAGE = [{ label: "Feedback triage", href: "/feedback/triage" }];
 
-function settled<T>(r: Run<T>, returnTo: string): Exclude<Run<T>, { status: "signed_out" }> {
+function settled<T>(r: Run<T>, returnTo: SitePath): Exclude<Run<T>, { status: "signed_out" }> {
 	if (r.status === "signed_out") signIn(returnTo);
-	return r as Exclude<Run<T>, { status: "signed_out" }>;
+	return r;
 }
 
 function Panel({ title, tone, children }: { title: string; tone: "error" | "lock" | "neutral"; children: ReactNode }) {

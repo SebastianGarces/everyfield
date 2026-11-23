@@ -14,7 +14,7 @@ const PAGE = 24;
 function starterStages(organizationId: string) {
 	return C.STARTER_STAGES.map(([kind, label], position) => {
 		const h = createHash("sha256").update(`pipeline-stage:${organizationId}:${kind}`).digest("hex");
-		const id = `${h.slice(0, 8)}-${h.slice(8, 12)}-8${h.slice(13, 16)}-${((parseInt(h[16]!, 16) & 3) | 8).toString(16)}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+		const id = `${h.slice(0, 8)}-${h.slice(8, 12)}-8${h.slice(13, 16)}-${((parseInt(h.charAt(16), 16) & 3) | 8).toString(16)}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 		return { id, kind, label, position };
 	});
 }
@@ -291,7 +291,7 @@ SELECT g.allowed,(SELECT today::text FROM o) AS as_of,(SELECT revision::text FRO
 FROM g`);
 		const row = recordRow.parse(r.rows[0]);
 		if (!row.allowed || !row.person || !row.as_of) refuse();
-		const p = row.person!;
+		const p = row.person;
 		return C.pipelinePersonRecord.parse({
 			audience: seat.administrator ? "administrator" : "responsible",
 			personId: p.personId,
@@ -611,7 +611,7 @@ function saveStages(db: Database, authority: RequestActor, raw: unknown) {
 		for (const s of input.removed) {
 			const now = byId.get(s.id);
 			if (!now || now.revision !== s.expectedRevision) refuse({ code: "conflict" });
-			if (now!.held > 0) refuse({ code: "stage_occupied", stageId: s.id as never, people: now!.held });
+			if (now.held > 0) refuse({ code: "stage_occupied", stageId: s.id as never, people: now.held });
 		}
 		const changes = input.stages.map((s, position) => {
 			const now = byId.get(s.id);
@@ -620,8 +620,8 @@ function saveStages(db: Database, authority: RequestActor, raw: unknown) {
 				return { id: s.id, label: s.label, kind: s.kind, position, change: "add" };
 			}
 			if (!now || now.revision !== s.expectedRevision) refuse({ code: "conflict" });
-			if (now!.kind !== s.kind) refuse({ code: "invalid_input", field: "kind" });
-			const same = now!.label === s.label && now!.position === position;
+			if (now.kind !== s.kind) refuse({ code: "invalid_input", field: "kind" });
+			const same = now.label === s.label && now.position === position;
 			return { id: s.id, label: s.label, kind: s.kind, position, change: same ? "keep" : "edit" };
 		});
 		const gone = input.removed.map((s) => s.id);

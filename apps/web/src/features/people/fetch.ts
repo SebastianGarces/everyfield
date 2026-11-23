@@ -1,8 +1,8 @@
-import { getReads } from "../../components/get-reads.ts";
+import { readsFrom } from "../../components/get-reads.ts";
 import type { ColumnValue } from "./model.ts";
 import type { GET } from "./read.ts";
 
-const get = getReads<typeof GET>("/people/read");
+const get = readsFrom<typeof GET>("/people/read");
 
 export const loadPeopleView = async (search: string) => {
 	const r = await get("view", { search });

@@ -2,7 +2,17 @@
 
 import { Alert, Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
 import { cn, useFocusRequest, type IconSvgElement } from "@everyfield/ui/foundations";
-import { createContext, use, useId, useReducer, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+	createContext,
+	use,
+	useId,
+	useMemo,
+	useReducer,
+	useRef,
+	useState,
+	useSyncExternalStore,
+	type ReactNode,
+} from "react";
 import { SaveLane, waitOf, type LaneOptions, type Notice, type SaveSpec, type Wait } from "./model.ts";
 
 export function useSaveIntent<E extends { problem?: string }>(options: Pick<LaneOptions, "explain" | "busy">) {
@@ -73,7 +83,8 @@ const FOCUSABLE =
 	'input:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
 function firstProblem(root: HTMLElement): HTMLElement | null {
 	const bad = root.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalid="true"]');
-	return (bad?.matches("input, textarea, button, select") ? bad : bad?.querySelector<HTMLElement>(FOCUSABLE)) ?? null;
+	if (!bad || bad.matches("input, textarea, button, select")) return bad;
+	return bad.querySelector<HTMLElement>(FOCUSABLE) ?? bad.querySelector<HTMLElement>('[role="radio"]:not([disabled])');
 }
 
 export function RecordDialog({
@@ -218,7 +229,10 @@ const announced = new Set<string>();
 const noticeKey = (n: Notice) => `${n.id}:${n.tone}:${n.tone === "unknown" && n.checking}`;
 
 function recordShown(region: HTMLElement) {
-	for (const shown of region.querySelectorAll<HTMLElement>("[data-notice]")) announced.add(shown.dataset.notice!);
+	for (const shown of region.querySelectorAll<HTMLElement>("[data-notice]")) {
+		const key = shown.dataset.notice;
+		if (key !== undefined) announced.add(key);
+	}
 }
 
 function recordAnnounced(region: HTMLDivElement | null) {
@@ -237,8 +251,9 @@ export function SaveNotice({
 	return <NoticeRegion {...props} notice={dialogOpen ? null : props.notice} className={className} />;
 }
 
-export function NoticeInDialog({ children, ...props }: NoticeProps & { children: ReactNode }) {
-	return <NoticeContext value={props}>{children}</NoticeContext>;
+export function NoticeInDialog({ children, notice, busy, onDismiss }: NoticeProps & { children: ReactNode }) {
+	const value = useMemo(() => ({ notice, busy, onDismiss }), [notice, busy, onDismiss]);
+	return <NoticeContext value={value}>{children}</NoticeContext>;
 }
 
 export function DialogNotice() {
@@ -254,7 +269,7 @@ function NoticeRegion({ notice, busy, onDismiss, className }: NoticeProps & { cl
 	const isNew = now.isNew;
 	const body = notice ? <NoticeBody notice={notice} busy={busy} onDismiss={onDismiss} /> : null;
 	return (
-		<div ref={recordAnnounced} aria-live="assertive" className={cn("empty:hidden", className)}>
+		<div ref={recordAnnounced} aria-live="assertive" className={cn("empty:sr-only", className)}>
 			{body && !isNew ? <div aria-live="off">{body}</div> : body}
 		</div>
 	);

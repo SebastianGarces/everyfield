@@ -1,4 +1,5 @@
 import { plantSeat } from "@/server/request-context";
+import { outcomeOf } from "@everyfield/contracts/common";
 import { listVenuesRequest } from "@everyfield/contracts/meetings";
 import { attendanceReader, rosterReader, venuesReader } from "@everyfield/domain/meetings";
 import { searchPeople } from "@everyfield/domain/people";
@@ -15,12 +16,8 @@ const PEOPLE_FOUND = 8;
 export const GET = defineReads(plantSeat, "unavailable", (get) => ({
 	people: get(
 		z.string().trim().max(255),
-		async (viewer, query): Promise<Outcome<{ id: string; name: string; detail: string }[]>> => {
-			const r = await readPeople(viewer, (tx, ctx) => searchPeople(tx, ctx, query, PEOPLE_FOUND));
-			if (r.status === "failed") return { status: "lost" };
-			if (r.status === "refused") return { status: "refused", code: r.error.code };
-			return { status: "ok", value: r.value };
-		},
+		async (viewer, query): Promise<Outcome<{ id: string; name: string; detail: string }[]>> =>
+			outcomeOf(await readPeople(viewer, (tx, ctx) => searchPeople(tx, ctx, query, PEOPLE_FOUND))),
 	),
 	ministries: get(z.undefined(), (viewer) => readMinistries(viewer)),
 	roster: get(z.strictObject({ meetingId: z.string() }), async (viewer, v) =>

@@ -2,7 +2,7 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
-import { Combobox, Command, Field, keepKeyInField, Spinner } from "@everyfield/ui/controls";
+import { Alert, Combobox, Command, Field, keepKeyInField, Spinner, ProblemText } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useId, useState, type ElementType, type KeyboardEvent } from "react";
@@ -12,6 +12,7 @@ import { resolveAudience } from "./actions.ts";
 import { recipientSearches, type ComposeStore } from "./Compose.store.ts";
 import { audienceSize, plural } from "./composeModel.ts";
 import { audienceGroups, groupLabel, type Audience, type AudienceSummary, type Recipient, type Team } from "./model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
 
 const MAX_CHIPS = 8;
 
@@ -170,11 +171,7 @@ function Counts({
 					</div>
 				))}
 			</div>
-			{failed ? (
-				<p role="alert" className="text-sm font-medium text-magenta-600">
-					{failed}
-				</p>
-			) : null}
+			{failed ? <Alert role="alert">{failed}</Alert> : null}
 			{summary ? (
 				<section aria-label="Left out, and why" className="flex max-w-3xl flex-col gap-2">
 					<h3 className="text-sm font-medium text-ink-2">Left out, and why</h3>
@@ -230,7 +227,7 @@ function ToField({
 	const answer = useReadWith(searched ? recipientSearches : null, [searched], { showPrevious: true });
 	const found = answer.value;
 	const results = found?.status === "ok" ? found.value.people : [];
-	const status = found && found.status !== "ok" ? "The search did not load. Try again." : null;
+	const status = found && found.status !== "ok" ? loadProblem(found, "The search did not load. Try again.") : null;
 	const byId = new Map(known.map((person) => [person.id, person]));
 	const people = form.people.map((person) => ({
 		...person,
@@ -269,8 +266,9 @@ function ToField({
 				event.preventDefault();
 				actions.openList(false);
 			}
-		} else if (event.key === "Backspace" && query === "" && people.length > 0) {
-			remove(people.at(-1)!.id);
+		} else if (event.key === "Backspace" && query === "") {
+			const last = people.at(-1);
+			if (last) remove(last.id);
 		}
 	};
 
@@ -347,7 +345,7 @@ function ToField({
 						</button>
 					) : null}
 					{locked ? null : (
-						<Command.Input asChild value={shown.map((person) => person.id).join(" ")}>
+						<Command.Input asChild value={listed ? shown.map((person) => person.id).join(" ") : ""}>
 							<input
 								id={inputId}
 								aria-label="Add a person"
@@ -404,9 +402,9 @@ function ToField({
 				) : null}
 			</Command>
 			{status ? (
-				<p role="alert" className="mt-1 text-sm font-medium text-magenta-600">
+				<ProblemText size="sm" className="mt-1">
 					{status}
-				</p>
+				</ProblemText>
 			) : null}
 		</Field>
 	);

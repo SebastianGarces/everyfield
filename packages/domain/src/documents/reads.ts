@@ -27,12 +27,12 @@ import type { RenderTheme } from "./theme.ts";
 
 function pageOf(version: string, templates: LibraryTemplate[]) {
 	const views = templates.map(templateView);
-	return c.templatePage.parse({
+	return {
 		version,
 		templateCount: views.length,
 		formatCount: views.reduce((sum, template) => sum + template.formats.length, 0),
 		templates: views,
-	});
+	} satisfies z.output<typeof c.templatePage>;
 }
 
 function listed(
@@ -248,9 +248,9 @@ async function printAgenda(db: Reader, authority: RequestActor, raw: unknown) {
 	const done = resolved(loaded, template, "pdf", {}, viewer.plantId, row);
 	const bytes = await rendered(template, "pdf", done.merge, row.meeting);
 	if (!bytes) deny("render_failed");
-	return c.agendaPrintResult.parse({
+	return {
 		templateId: template.id,
 		localDate: row.meeting.localDate,
 		artifact: bytes.toString("base64"),
-	});
+	} satisfies z.output<typeof c.agendaPrintResult>;
 }

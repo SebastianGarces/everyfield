@@ -2,8 +2,9 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
-import { Button, ConfirmDialog, EmptyState, Field, Input, Select } from "@everyfield/ui/controls";
-import { useMinuteClock } from "@everyfield/ui/foundations";
+import { Alert, Button, ConfirmDialog, EmptyState, Field, Input, RowButton, Select } from "@everyfield/ui/controls";
+import { TonePill, type PillTone } from "@everyfield/ui/display";
+import { useViewerNow, useViewerZone } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import { currentAddress } from "../../components/location.ts";
 import { createRead, useRead } from "../../components/read.tsx";
@@ -57,10 +58,13 @@ import { pickSampleName } from "./fields.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
 import { createHistoryStore } from "./HistoryPanel.store.ts";
 import { useKeys } from "./useKeys.ts";
+import { READ_FAILED } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type PersonName = { id: string; displayName: string; email: string | null };
 
-function problem(result: Outcome<unknown>): string {
+function problem(result: Outcome<unknown> | ReadFailure): string {
+	if (result.status === "failed") return READ_FAILED;
 	if (result.status === "lost") return "Unable to reach the church records. Try again in a moment.";
 	if (result.status === "refused" && result.code === "not_found") return "That record is no longer here.";
 	if (result.status === "refused" && result.code === "access_denied")
@@ -85,7 +89,7 @@ type MoreItems = { items: HistoryItem[]; page: HistoryPage };
 
 const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 
-function loadPage(list: ListQuery, cursor: string | null): Promise<Outcome<HistoryPage | PersonHistory>> {
+function loadPage(list: ListQuery, cursor: string | null): Promise<Outcome<HistoryPage | PersonHistory> | ReadFailure> {
 	if (list.kind === "person") return readPersonHistory(list.personId, cursor ?? undefined);
 	if (list.kind === "meeting") return readMeetingHistory(list.meetingId, cursor ?? undefined);
 	return readHistory({
@@ -169,29 +173,23 @@ function useHistory(list: ListQuery) {
 	return { items, page, error, pending, more: loadMore, reload, patch };
 }
 
-const stateTone: Record<HubState, string> = {
-	draft: "bg-surface-2 text-text-2",
-	scheduled: "bg-amber-100 text-amber-600",
-	not_scheduled: "bg-magenta-50 text-magenta-600",
-	unsubscribed: "bg-surface-2 text-text-2",
-	sending: "bg-amber-100 text-amber-600",
-	sent: "bg-green-100 text-green-700",
-	logged: "bg-surface-2 text-text-2",
-	cancelled: "bg-surface-2 text-text-2",
-	cancel_unconfirmed: "bg-magenta-50 text-magenta-600",
-	time_unconfirmed: "bg-magenta-50 text-magenta-600",
-	failed: "bg-magenta-50 text-magenta-600",
-	unknown: "bg-surface-2 text-text-2",
+const stateTone: Record<HubState, PillTone> = {
+	draft: "neutral",
+	scheduled: "attention",
+	not_scheduled: "error",
+	unsubscribed: "neutral",
+	sending: "attention",
+	sent: "positive",
+	logged: "neutral",
+	cancelled: "neutral",
+	cancel_unconfirmed: "error",
+	time_unconfirmed: "error",
+	failed: "error",
+	unknown: "neutral",
 };
 
 function StateBadge({ state }: { state: HubState }) {
-	return (
-		<span
-			className={`inline-flex h-6 shrink-0 items-center rounded-full px-2.5 text-xs font-medium whitespace-nowrap ${stateTone[state]}`}
-		>
-			{hubLabel[state]}
-		</span>
-	);
+	return <TonePill tone={stateTone[state]}>{hubLabel[state]}</TonePill>;
 }
 
 function rowTime(item: HistoryItem): string {
@@ -210,11 +208,10 @@ function MessageButton({
 	onSelect: (item: HistoryItem) => void;
 }) {
 	return (
-		<button
-			type="button"
+		<RowButton
 			aria-current={selected ? "true" : undefined}
 			onClick={() => onSelect(item)}
-			className="flex min-h-[72px] w-full flex-col items-start gap-1 rounded-md px-3 py-2.5 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] aria-[current=true]:bg-surface-2"
+			className="min-h-[72px] flex-col items-start gap-1 rounded-md px-3 py-2.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] aria-[current=true]:bg-surface-2"
 		>
 			<span className="flex w-full items-center justify-between gap-2">
 				<span className="min-w-0 truncate font-medium text-ink">{item.subject?.trim() || "No subject"}</span>
@@ -223,7 +220,7 @@ function MessageButton({
 			<span className="text-sm text-text-3">
 				{rowTime(item)} · {recipientCount(item.reachable, item.state)}
 			</span>
-		</button>
+		</RowButton>
 	);
 }
 
@@ -317,8 +314,9 @@ function ResultNotice({ notice }: { notice: Notice }) {
 function ScheduledPanel({ view, actions }: { view: MessageView; actions: ScheduledActions }) {
 	const [when_, setWhen] = useState("");
 	const [error, setError] = useState<string | undefined>();
-	const now = useMinuteClock();
-	const bounds = now === null ? null : windowBounds(new Date(now));
+	const now = useViewerNow();
+	const zone = useViewerZone();
+	const bounds = now === null || zone === null ? null : windowBounds(now, zone);
 	const busy = actions.pending !== null;
 	const state = view.totals.state;
 	const status = heldStatus(view);
@@ -571,11 +569,7 @@ function Detail({
 							Review follow-up
 						</Button>
 					</div>
-					{reviewError ? (
-						<p role="alert" className="text-sm font-medium text-magenta-600">
-							{reviewError}
-						</p>
-					) : null}
+					{reviewError ? <Alert role="alert">{reviewError}</Alert> : null}
 					{review ? (
 						<div className="flex flex-col items-start gap-2 text-sm text-text-2">
 							<p>{review.confirmedDelivery ? "At least one delivery is confirmed." : "No delivery is confirmed."}</p>
@@ -823,14 +817,17 @@ function Browser({
 						</p>
 					) : null}
 					{history.error ? (
-						<div className="flex flex-col items-start gap-3 px-2">
-							<p role="alert" className="text-sm font-medium text-magenta-600">
-								{history.error}
-							</p>
-							<Button variant="secondary" onClick={history.reload}>
-								Try again
-							</Button>
-						</div>
+						<Alert
+							role="alert"
+							className="mx-2"
+							actions={
+								<Button variant="secondary" onClick={history.reload}>
+									Try again
+								</Button>
+							}
+						>
+							{history.error}
+						</Alert>
 					) : null}
 					{history.pending !== "list" && !history.error && history.items.length === 0 ? (
 						<EmptyState icon={Mail01Icon} title={emptyTitle}>
@@ -875,11 +872,7 @@ function Browser({
 							Loading the message.
 						</p>
 					) : null}
-					{detailError ? (
-						<p role="alert" className="text-sm font-medium text-magenta-600">
-							{detailError}
-						</p>
-					) : null}
+					{detailError ? <Alert role="alert">{detailError}</Alert> : null}
 					{view ? (
 						<Detail
 							view={view}
@@ -917,10 +910,10 @@ function Browser({
 				confirmLabel="Save follow-up"
 				onConfirm={async () => {
 					if (!selected || !review || review.eligibleIds.length === 0 || !review.confirmedDelivery)
-						throw new Error("Review the follow-up before you save it.");
+						return { refused: "Review the follow-up before you save it." };
 					const result = await saveResend(keys.take("resend"), selected);
 					keys.settle("resend", result);
-					if (result.status !== "ok") throw new Error(problem(result));
+					if (result.status !== "ok") return { refused: problem(result) };
 					const fresh = await readDraft(result.value.communicationId);
 					if (fresh.status !== "ok") {
 						setReviewed({
@@ -952,17 +945,17 @@ function Browser({
 				]}
 				confirmLabel="Send email"
 				onConfirm={async () => {
-					if (!view) throw new Error("Open a scheduled email before you send it.");
+					if (!view) return { refused: "Open a scheduled email before you send it." };
 					const id = view.detail.communicationId;
 					const result = await sendReviewed(keys.take("send"), view.detail.revision, id);
 					keys.settle("send", result);
-					if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to send the email.");
+					if (result.status !== "ok") return { refused: outcomeText(result) ?? "Unable to send the email." };
 					setNotice(id, {
 						text: deliveryText(result.value),
 						tone: result.value.status === "accepted" ? "status" : "alert",
 					});
 					await refresh(id);
-					if (result.value.status === "failed") throw new Error(deliveryText(result.value));
+					if (result.value.status === "failed") return { refused: deliveryText(result.value) };
 				}}
 			/>
 			<ConfirmDialog
@@ -977,11 +970,12 @@ function Browser({
 				confirmLabel="Cancel scheduled email"
 				tone="danger"
 				onConfirm={async () => {
-					if (!view) throw new Error("Open a scheduled email before you cancel it.");
+					if (!view) return { refused: "Open a scheduled email before you cancel it." };
 					const id = view.detail.communicationId;
 					const result = await cancelScheduled(keys.take("cancel"), view.detail.revision, id);
 					keys.settle("cancel", result);
-					if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to cancel the scheduled email.");
+					if (result.status !== "ok")
+						return { refused: outcomeText(result) ?? "Unable to cancel the scheduled email." };
 					setNotice(id, {
 						text: cancelText(result.value),
 						tone: result.value.scheduledCancel === "reconcile" ? "alert" : "status",
@@ -1146,11 +1140,7 @@ export function History({
 					Clear filters
 				</Button>
 			) : null}
-			{scopeNote ? (
-				<p role="alert" className="text-sm font-medium text-magenta-600">
-					{scopeNote}
-				</p>
-			) : null}
+			{scopeNote ? <Alert role="alert">{scopeNote}</Alert> : null}
 			<Browser
 				key={firstPages.key(list)}
 				canWrite={canWrite}

@@ -136,7 +136,7 @@ export function avatarOperations(
 				const v = parse(q.removeAvatarRequest, raw);
 				const a = await self(s, ctx);
 				const c = await begin(s, { ...ctx }, a.account.id, "account.removeAvatar", v);
-				const absent = q.avatarResult.parse({ status: "absent" });
+				const absent = { status: "absent" } satisfies z.output<typeof q.avatarResult>;
 				if (c.kind === "replay") return absent;
 				revision(v.expectedRevision, a.account.revision);
 				await change(s, c, a.account, null);
@@ -165,7 +165,6 @@ function avatarReadable(ctx: SettingsContext, account: string, version: string) 
 		AND (
 			(av_i.account_id=${account}::uuid AND EXISTS(SELECT FROM account av_x WHERE av_x.id=av_i.account_id AND av_x.avatar_object_id=${version}::uuid))
 			OR EXISTS(SELECT FROM seat av_v WHERE av_v.account_id=av_i.account_id AND ${seatHeld("av_v")}
-				AND NOT ${hiding("av_vw", sql`av_vw.seat_id=av_v.id`)}
 				AND (${workspaceAvatar(sql`${account}::uuid`, sql`coalesce(av_v.plant_id,av_v.organization_id)`)}=${version}::uuid
 					OR ${oversightAvatar(sql`${account}::uuid`, sql`coalesce(av_v.plant_id,av_v.organization_id)`, sql`${version}::uuid`)}))
 		))`;

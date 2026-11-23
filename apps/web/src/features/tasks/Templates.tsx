@@ -1,9 +1,9 @@
 "use client";
 
 import { ArrowLeft01Icon, CheckListIcon } from "@hugeicons/core-free-icons";
-import { Button, Sheet, Skeleton, StatePanel, toast } from "@everyfield/ui/controls";
+import { Alert, Button, Sheet, Skeleton, StatePanel, toast } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { Icon } from "@everyfield/ui/foundations";
+import { Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useId, useRef, useState, useTransition } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { SHORT_NAME } from "../phases/model.ts";
@@ -22,11 +22,20 @@ import {
 	type TemplateCatalog,
 	type TemplatePreview,
 } from "./model.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
+import { failedIcon } from "../../components/read-failed.ts";
 
-type Load<T> = { status: "loading" } | { status: "failed"; message: string } | { status: "ok"; value: T };
-const loadFailed = (r: Exclude<Outcome<unknown>, { status: "ok" }>) => ({
+type Load<T> =
+	| { status: "loading" }
+	| { status: "failed"; message: string; icon: IconSvgElement | undefined }
+	| { status: "ok"; value: T };
+const loadFailed = (r: Exclude<Outcome<unknown> | ReadFailure, { status: "ok" }>) => ({
 	status: "failed" as const,
-	message: r.status === "lost" ? "Check your connection and try again." : problemText(r.code),
+	icon: failedIcon(r),
+	message:
+		r.status === "lost"
+			? "Check your connection and try again."
+			: problemText(r.status === "refused" ? r.code : r.status),
 });
 export const phaseName = (phase: number) => `Phase ${phase} · ${SHORT_NAME[phase] ?? ""}`;
 const previews = createRead((key: string) => loadPreview(key), { failed: () => ({ status: "lost" }) as const });
@@ -154,7 +163,7 @@ function CatalogBody({
 		);
 	if (state.status === "failed")
 		return (
-			<StatePanel tone="error" title="The checklists did not load" headingLevel="h3">
+			<StatePanel tone="error" title="The checklists did not load" icon={state.icon} headingLevel="h3">
 				{state.message}{" "}
 				<Button variant="secondary" size="sm" onClick={onRetry}>
 					Try again
@@ -224,7 +233,7 @@ function PreviewBody({
 	const headingId = useId();
 	if (state.status === "failed")
 		return (
-			<StatePanel tone="error" title="This checklist did not load" headingLevel="h3">
+			<StatePanel tone="error" title="This checklist did not load" icon={state.icon} headingLevel="h3">
 				{state.message}{" "}
 				<Button variant="secondary" size="sm" onClick={onRetry}>
 					Try again
@@ -251,9 +260,9 @@ function PreviewBody({
 				{dayText(shown.anchorDate, year)}). Adding it again later adds another copy.
 			</p>
 			{problem ? (
-				<p role="alert" className="rounded-md bg-surface px-4 py-2.5 text-sm text-ink">
+				<Alert tone="neutral" role="alert">
 					{problem}
-				</p>
+				</Alert>
 			) : null}
 			<div className="flex flex-col gap-1">
 				<h3 id={headingId} className="font-sans text-sm font-semibold tracking-normal text-ink">

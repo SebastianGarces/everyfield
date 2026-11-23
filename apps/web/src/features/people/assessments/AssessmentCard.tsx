@@ -12,6 +12,7 @@ import {
 	IconButton,
 	Input,
 	Textarea,
+	TextButton,
 	toast,
 } from "@everyfield/ui/controls";
 import { startTransition, useOptimistic, useState, useTransition } from "react";
@@ -158,16 +159,16 @@ export function AssessmentCard({
 					<Scores assessment={latest} />
 					{earlier.length > 0 || history.next !== null ? (
 						<div className="mt-4 border-t border-line pt-3">
-							<button
-								type="button"
+							<TextButton
 								aria-expanded={open}
 								onClick={() => setOpen(!open)}
-								className="rounded-xs text-sm font-medium text-ink-2 underline-offset-[3px] hover:underline"
+								underline="hover"
+								className="text-sm text-ink-2"
 							>
 								{open
 									? "Hide earlier assessments"
 									: `Earlier assessments (${Math.max(history.total - 1, earlier.length)})`}
-							</button>
+							</TextButton>
 							{open ? (
 								<>
 									<ul className="mt-2 flex flex-col">

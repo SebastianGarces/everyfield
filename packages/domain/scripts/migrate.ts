@@ -1,8 +1,9 @@
 import { closeDatabase, database } from "@everyfield/db/client";
 import { backfill, migrate } from "@everyfield/db/migrate";
+import { residentDiscoveryBackfill } from "../src/onboarding/backfill.ts";
 import { commitmentCacheBackfill, mergeReferencesBackfill } from "../src/people/commitments/backfill.ts";
 
-const backfills = [commitmentCacheBackfill(), mergeReferencesBackfill()];
+const backfills = [commitmentCacheBackfill(), mergeReferencesBackfill(), residentDiscoveryBackfill()];
 
 const db = database();
 try {

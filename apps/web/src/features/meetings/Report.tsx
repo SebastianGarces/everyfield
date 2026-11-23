@@ -9,6 +9,7 @@ import { Await, createRead, useRead } from "../../components/read.tsx";
 import { visionReport } from "./fetch.ts";
 import { CLASSIFICATION_LABEL, scoreText, type Classification } from "./model.ts";
 import type { MeetingsReport } from "./server.ts";
+import { loadProblem } from "../../components/read-failed.ts";
 
 const BAR: Record<Classification, string> = {
 	first_time: "bg-green-500",
@@ -16,6 +17,7 @@ const BAR: Record<Classification, string> = {
 	core_group: "bg-amber-500",
 };
 const ORDER: Classification[] = ["core_group", "returning", "first_time"];
+const scoreCell = (point: { average: number } | undefined) => (point ? scoreText(point.average) : "None");
 
 const visionReports = createRead(() => visionReport(), {
 	failed: () => ({ status: "lost" }) as const,
@@ -58,7 +60,7 @@ export function VisionReport({ thisYear }: { thisYear: number }) {
 						<Body report={got.value} thisYear={thisYear} />
 					) : (
 						<div role="alert" className="flex flex-wrap items-center justify-between gap-3 py-2">
-							<p className="text-md text-text-2">The report did not load. Nothing was changed.</p>
+							<p className="text-md text-text-2">{loadProblem(got, "The report did not load. Nothing was changed.")}</p>
 							<Button variant="secondary" size="sm" onClick={report.retry}>
 								Try again
 							</Button>
@@ -164,7 +166,7 @@ function Body({ report, thisYear }: { report: MeetingsReport; thisYear: number }
 									<td>{p.classifications.first_time}</td>
 									<td>{p.classifications.returning}</td>
 									<td>{p.classifications.core_group}</td>
-									<td>{scores.get(p.meetingId) ? scoreText(scores.get(p.meetingId)!.average) : "None"}</td>
+									<td>{scoreCell(scores.get(p.meetingId))}</td>
 								</tr>
 							))}
 						</tbody>

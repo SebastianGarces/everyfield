@@ -444,7 +444,7 @@ test("INV-email-safety: refusals and capture faults never reach the provider", a
 			json: async () => ({ data: [{ name: "verified.example.org", status: "verified" }] }),
 		};
 	};
-	const unverified = { keys: { ...keys, from: "news@unverified-church.org" }, apiKey: "re_test_key" };
+	const unverified = { keys: { ...keys, from: "news@unverified.example.org" }, apiKey: "re_test_key" };
 	try {
 		anticipateProvider(unverified);
 		await setImmediate();
@@ -803,7 +803,7 @@ test("a password-reset request reaches the capture outbox within one runner tick
 				db: f.db,
 				storage: null,
 				cleanup: null,
-				reminders: null,
+				effects: null,
 				digests: null,
 				mail: null,
 				mountMail: { identity: identityMailPass(queuedMailTransport({ keys, apiKey: null })) },

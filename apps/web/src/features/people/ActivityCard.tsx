@@ -120,6 +120,7 @@ export function ActivityCard({
 				revision: note.revision,
 				body,
 				editedAt: null,
+				authorName: null,
 			});
 		} else if (isConflict(r)) onConflict();
 	}
@@ -214,9 +215,10 @@ export function ActivityCard({
 	);
 }
 
-function who(actor: Item["actor"], mine: boolean) {
+function who(item: Item, mine: boolean) {
 	if (mine) return "You";
-	return actor.kind === "current_account" ? "A team member" : "A former team member";
+	if (item.kind === "note" && item.authorName) return item.authorName;
+	return item.actor.kind === "current_account" ? "A team member" : "A former team member";
 }
 
 function Row({
@@ -241,7 +243,7 @@ function Row({
 	const state = usePersonState(store);
 	const slot = `note:${item.id}`;
 	const edit = state.drafts[slot] as NoteEdit | undefined;
-	const by = who(item.actor, mine);
+	const by = who(item, mine);
 	const [touched, setTouched] = useState(false);
 
 	if (item.kind === "note" && edit) {
@@ -315,6 +317,7 @@ function Row({
 	}
 
 	const view = describe(item, by);
+	const unmergeId = item.kind === "activity" && item.action === "person_merged" ? item.recordId : null;
 	return (
 		<li className="flex items-start gap-3.5 border-t border-line py-4 first:border-t-0">
 			<span
@@ -343,15 +346,15 @@ function Row({
 						</>
 					) : null}
 				</p>
-				{onUnmerge && item.kind === "activity" && item.action === "person_merged" && item.recordId ? (
+				{onUnmerge && unmergeId ? (
 					<div className="mt-2 -ml-3">
 						<Button
 							variant="ghost"
 							size="sm"
 							icon={ArrowTurnBackwardIcon}
 							disabled={state.pending !== null}
-							onClick={() => onUnmerge(item.recordId!)}
-							{...unmergeIntent(item.recordId)}
+							onClick={() => onUnmerge(unmergeId)}
+							{...unmergeIntent(unmergeId)}
 						>
 							Review Unmerge
 						</Button>

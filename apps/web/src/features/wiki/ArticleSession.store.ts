@@ -3,6 +3,8 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 import type { LeaveBeacon } from "../../components/save/leave.ts";
 import type { ExportResult, WriteResult } from "./actions.ts";
 import { fractionText, pdfFilename } from "./model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type ReadingKey = { requestKey: string; articleId: string; plantId?: string };
 
@@ -10,8 +12,8 @@ export type SessionPort = {
 	recordView: (key: ReadingKey) => Promise<WriteResult>;
 	saveProgress: (key: ReadingKey, fraction: string) => Promise<WriteResult>;
 	saveBookmark: (key: ReadingKey & { expectedRevision: string }, desired: boolean) => Promise<WriteResult>;
-	downloadPdf: (articleId: string, source: string | null) => Promise<ExportResult>;
-	printCopy: (articleId: string, source: string | null) => Promise<ExportResult>;
+	downloadPdf: (articleId: string, source: string | null) => Promise<ExportResult | ReadFailure>;
+	printCopy: (articleId: string, source: string | null) => Promise<ExportResult | ReadFailure>;
 };
 
 export type SessionSeed = {
@@ -171,7 +173,7 @@ export function createArticleSessionStore(seed: SessionSeed, port: SessionPort):
 					printFallback = null;
 					const result = await port
 						.downloadPdf(seed.articleId, seed.source)
-						.catch((): ExportResult => ({ status: "lost" }));
+						.catch((): ExportResult | ReadFailure => ({ status: "lost" }));
 					if (result.status === "pdf") {
 						try {
 							saveFile(pdfFilename(seed.slug), result.bytes);
@@ -189,20 +191,24 @@ export function createArticleSessionStore(seed: SessionSeed, port: SessionPort):
 						note:
 							result.status === "denied"
 								? "You cannot download this article."
-								: "The PDF could not be made. Try again.",
+								: loadProblem(result, "The PDF could not be made. Try again."),
 					});
 				},
 				async print() {
-					const result: ExportResult = printFallback
+					const result: ExportResult | ReadFailure = printFallback
 						? { status: "print", html: printFallback, fallback: true }
-						: await port.printCopy(seed.articleId, seed.source).catch((): ExportResult => ({ status: "lost" }));
+						: await port
+								.printCopy(seed.articleId, seed.source)
+								.catch((): ExportResult | ReadFailure => ({ status: "lost" }));
 					if (result.status === "print") {
 						if (!openPrint(result.html)) set({ note: "Allow pop-up windows to print this article." });
 						return;
 					}
 					set({
 						note:
-							result.status === "denied" ? "You cannot print this article." : "Print could not be prepared. Try again.",
+							result.status === "denied"
+								? "You cannot print this article."
+								: loadProblem(result, "Print could not be prepared. Try again."),
 					});
 				},
 			},

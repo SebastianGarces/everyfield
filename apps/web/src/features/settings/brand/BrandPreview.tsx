@@ -18,7 +18,7 @@ const CLASSES: { value: DocumentClass; label: string }[] = [
 const PX_PER_MM = 1.7;
 const PAPER = "white";
 
-const AssetSrc = createContext<(fileId: string) => string>(() => "");
+const AssetSrcContext = createContext<(fileId: string) => string>(() => "");
 
 export function BrandPreview({
 	churchName,
@@ -33,7 +33,7 @@ export function BrandPreview({
 }) {
 	const [tab, setTab] = useState<DocumentClass>("formal/legal");
 	return (
-		<AssetSrc value={assetSrc}>
+		<AssetSrcContext value={assetSrc}>
 			<Tabs value={tab} onValueChange={(next) => setTab(next as DocumentClass)}>
 				<TabsList aria-label="Document class" className="gap-5 max-app-sm:gap-3">
 					{CLASSES.map((c) => (
@@ -48,7 +48,7 @@ export function BrandPreview({
 					</TabsPanel>
 				))}
 			</Tabs>
-		</AssetSrc>
+		</AssetSrcContext>
 	);
 }
 
@@ -99,7 +99,7 @@ function LogoSlot({
 	maxWidth?: number;
 	size: number;
 }) {
-	const src = use(AssetSrc);
+	const src = use(AssetSrcContext);
 	if (image)
 		return (
 			<div data-slot="logo" data-image="" className="flex items-center" style={{ height, width, maxWidth }}>
@@ -137,7 +137,7 @@ function Lines({ widths }: { widths: number[] }) {
 
 function Formal({ theme, layout }: { theme: DocumentTheme; layout: Layout<"formal/legal"> }) {
 	const { footer, signature } = layout;
-	const src = use(AssetSrc);
+	const src = use(AssetSrcContext);
 	return (
 		<div className="flex min-h-[420px] flex-col px-6 pt-5 pb-4" style={{ fontSize: 11 }}>
 			<LogoSlot
@@ -194,7 +194,7 @@ function Formal({ theme, layout }: { theme: DocumentTheme; layout: Layout<"forma
 }
 
 function Outward({ theme, layout }: { theme: DocumentTheme; layout: Layout<"outward-facing"> }) {
-	const src = use(AssetSrc);
+	const src = use(AssetSrcContext);
 	const band = theme.colors.rule;
 	const stripe = theme.colors.accent ?? theme.colors.rule;
 	const { contact } = layout;

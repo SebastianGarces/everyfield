@@ -1,7 +1,7 @@
-import { getReads, refusalAs } from "../../components/get-reads.ts";
+import { readsFrom, refusalAs } from "../../components/get-reads.ts";
 import type { GET } from "./read.ts";
 
-const get = getReads<typeof GET>("/launch/read");
+const get = readsFrom<typeof GET>("/launch/read");
 const lost = () => ({ status: "lost" }) as const;
 
 export const readGatheringOffers = () => refusalAs(get("offers"), lost);

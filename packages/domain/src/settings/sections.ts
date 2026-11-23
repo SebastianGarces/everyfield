@@ -187,7 +187,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 						eq(t.affiliation.plant_id, r.plant.id),
 						eq(t.affiliation.organization_id, r.organization.id),
 						live(v, owner),
-					)!,
+					) ?? sql`false`,
 				);
 				if (!a || !active(a) || !sameOwner(pairOf(a).organization, r.organization)) deny("unavailable");
 				const base = {
@@ -215,13 +215,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 		name: SettingsWrite = "settings.saveSection",
 		church?: z.infer<typeof q.saveChurchRequest>,
 	) {
-		const v: q.SaveSectionRequest = church
-			? {
-					requestKey: church.requestKey,
-					expectedRevision: church.expectedRevision,
-					input: { section: "plant", plant: church.input.plant, change: church.input.changes[0]! },
-				}
-			: parse(q.saveSectionRequest, raw);
+		const v: q.SaveSectionRequest = church ? churchSection(church) : parse(q.saveSectionRequest, raw);
 		const a = await actor(tx, ctx, "command");
 		const viewer = { actor: a.identity, principal: a.principal, session: ctx.session };
 		const i = v.input;
@@ -306,7 +300,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 								(["email", "in_app"] as const).map((channel) => ({
 									category,
 									channel,
-									enabled: values.choices.find((r) => r.category === category && r.channel === channel)!.enabled,
+									enabled: choiceOf(values.choices, category, channel).enabled,
 									cadence: patch.cadence,
 								})),
 								true,
@@ -445,7 +439,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 					deps.organizationEffects,
 				);
 				changed = effect.changed;
-				current = q.sectionResult.parse({
+				current = {
 					section: "affiliations",
 					values: {
 						view: "plant_administration",
@@ -456,7 +450,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 						consentRevision: effect.current.consent_revision,
 						choices: choices(effect.current),
 					},
-				});
+				} satisfies z.output<typeof q.sectionResult>;
 				events.push(...effect.events);
 				break;
 			}
@@ -525,6 +519,25 @@ type Operations = Pick<
 > & {
 	getSection(db: Reader, viewer: SectionViewer, raw: unknown): Promise<SettingsReply<q.SectionResult>>;
 };
+function churchSection(church: z.infer<typeof q.saveChurchRequest>): q.SaveSectionRequest {
+	const [change] = church.input.changes;
+	if (!change) deny("invalid_input");
+	return {
+		requestKey: church.requestKey,
+		expectedRevision: church.expectedRevision,
+		input: { section: "plant", plant: church.input.plant, change },
+	};
+}
+type NotificationsValues = Extract<q.SectionResult, { section: "notifications" }>["values"];
+function choiceOf(
+	choices: NotificationsValues["choices"],
+	category: NotificationsValues["choices"][number]["category"],
+	channel: NotificationsValues["choices"][number]["channel"],
+) {
+	const choice = choices.find((r) => r.category === category && r.channel === channel);
+	if (!choice) throw Error(`No ${channel} choice for ${category}`);
+	return choice;
+}
 function plantPatch(change: q.PlantChange): Partial<typeof t.plant.$inferInsert> {
 	switch (change.kind) {
 		case "profile": {

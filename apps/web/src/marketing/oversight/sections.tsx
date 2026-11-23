@@ -103,7 +103,7 @@ export function TrustCards() {
 				<ul className="m-0 grid list-none grid-cols-4 gap-[clamp(20px,3vw,40px)] p-0 max-mk-lg:grid-cols-2 max-mk-sm:grid-cols-1">
 					{T.items.map((x, i) => (
 						<li key={x.title} className="flex flex-col gap-3 bg-white p-[26px] shadow-mk-card">
-							<MintIcon icon={TRUST_ICONS[i]!} />
+							{TRUST_ICONS[i] && <MintIcon icon={TRUST_ICONS[i]} />}
 							<Display as="h3" size="h3">
 								{x.title}
 							</Display>

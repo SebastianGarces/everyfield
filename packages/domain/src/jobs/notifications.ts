@@ -3,7 +3,6 @@ import { notificationCategory as category } from "@everyfield/contracts/settings
 import type { Transaction } from "@everyfield/db/client";
 import { and, eq, isNull, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import { readAccountContacts } from "../identity/index.ts";
 import { reminderSeats } from "../tasks/index.ts";
 import "server-only";
 import { z } from "zod";
@@ -161,27 +160,27 @@ export function createNotificationService(config: {
 				}),
 			)
 			.parse(result.rows);
-		const viable = rows.filter((r) => {
-			const v = values[r.n];
-			if (!v) throw Error("notification_source_mismatch");
+		const viable = rows.flatMap((r) => {
+			const v = values[r.n],
+				key = data[r.n]?.key;
+			if (!v || key === undefined) throw Error("notification_source_mismatch");
 			if (
 				r.kind !== v.owner.kind ||
 				(v.owner.kind === "organization" && r.organization_kind !== v.owner.organizationKind)
 			)
 				throw Error("notification_owner_mismatch");
 			if (!r.source_live) throw Error("notification_source_stale");
-			return r.deliverable;
+			return r.deliverable ? [{ r, v, key }] : [];
 		});
 		const eligible = await config.eligible(
 			tx,
-			viable.map((r) => values[r.n]!),
+			viable.map(({ v }) => v),
 		);
 		if (eligible.length !== viable.length) throw Error("notification_eligibility_mismatch");
-		const recipients = new Map(viable.map((r, n) => [r.n, eligible[n]]));
+		const recipients = new Map(viable.map(({ r }, n) => [r.n, eligible[n]]));
 		const output = values.map(() => ({ notice: null as string | null, mail: null as string | null }));
-		const fresh = viable.flatMap((r) => {
-			const v = values[r.n]!,
-				recipient = recipients.get(r.n);
+		const fresh = viable.flatMap(({ r, v, key }) => {
+			const recipient = recipients.get(r.n);
 			if (!recipient) return [];
 			if (r.old_id) {
 				if (
@@ -193,19 +192,19 @@ export function createNotificationService(config: {
 				output[r.n] = { notice: r.old_id, mail: r.old_mail };
 				return [];
 			}
-			return r.in_app || r.email ? [{ r, v, recipient, id: crypto.randomUUID() }] : [];
+			return r.in_app || r.email ? [{ r, v, key, recipient, id: crypto.randomUUID() }] : [];
 		});
 		if (!fresh.length) return output;
 		const inserted = await tx
 			.insert(tables.notice)
 			.values(
-				fresh.map(({ r, v, id }) => ({
+				fresh.map(({ r, v, key, id }) => ({
 					id,
 					tenant_id: v.owner.id,
 					recipient_id: v.recipient,
 					category: policy[v.category].category,
 					purpose: policy[v.category].purpose,
-					logical_key: data[r.n]!.key,
+					logical_key: key,
 					source_record_id: v.source.id,
 					source_revision: v.source.revision,
 					title: v.title,
@@ -221,9 +220,10 @@ export function createNotificationService(config: {
 			})
 			.returning();
 		const mailInput: MailIntent[] = [],
-			mailPositions: number[] = [];
-		for (const { r, v, recipient } of fresh) {
-			const row = inserted.find((n) => n.recipient_id === v.recipient && n.logical_key === data[r.n]!.key);
+			mailSlots: { notice: string | null; mail: string | null }[] = [];
+		for (const { r, v, key, recipient } of fresh) {
+			const row = inserted.find((n) => n.recipient_id === v.recipient && n.logical_key === key);
+			const slot = output[r.n];
 			if (
 				!row ||
 				row.title !== v.title ||
@@ -231,9 +231,10 @@ export function createNotificationService(config: {
 				row.eligible_at.toISOString() !== new Date(v.eligibleAt).toISOString()
 			)
 				throw Error("notification_identity_conflict");
-			output[r.n]!.notice = row.id;
+			if (!slot) throw Error("notification_source_mismatch");
+			slot.notice = row.id;
 			if (r.email && recipient.address) {
-				mailPositions.push(r.n);
+				mailSlots.push(slot);
 				mailInput.push({
 					owner: v.owner,
 					recipient: v.recipient,
@@ -249,7 +250,9 @@ export function createNotificationService(config: {
 		}
 		const mail = await config.mail.enqueueMany(tx, mailInput);
 		mail.forEach((id, n) => {
-			output[mailPositions[n]!]!.mail = id;
+			const slot = mailSlots[n];
+			if (!slot) throw Error("notification_mail_unmatched");
+			slot.mail = id;
 		});
 		return output;
 	}
@@ -328,7 +331,7 @@ export function createNotificationService(config: {
 	    accounts AS MATERIALIZED (SELECT a.id FROM account a WHERE a.id IN (SELECT recipient FROM cand) ORDER BY a.id FOR SHARE),
 	    plants AS MATERIALIZED (SELECT p.id FROM plant p WHERE p.id=${tenant} FOR SHARE),
 	    barriers AS MATERIALIZED (SELECT w.opaque_subject_id AS id FROM lifecycle_witness w WHERE w.opaque_subject_id IN (SELECT recipient FROM cand UNION SELECT ${tenant}::uuid)
-	      AND w.state IN ('pending_deletion','purging','purged','revoked') FOR SHARE)
+	      AND w.state IN ('pending_deletion','purging','purged') FOR SHARE)
 	    SELECT i.n,(SELECT count(*) FROM locked)::int AS locked,(SELECT kind FROM tenant WHERE id=${tenant}) AS kind,
 	     (SELECT count(*) FROM accounts)+(SELECT count(*) FROM plants)>=0 AS rooted,
 	     EXISTS(SELECT FROM reached r WHERE r.source=i.source AND r.recipient=i.recipient AND r.category=i.category) AS reached,
@@ -363,7 +366,9 @@ export function createNotificationService(config: {
 				.parse(read.rows);
 			if (rows[0]?.locked !== sourceCount) throw Error("notification_source_stale");
 			for (const r of rows.filter((r) => !r.reached)) {
-				const { v, key } = planned[r.n]!;
+				const entry = planned[r.n];
+				if (!entry) throw Error("notification_source_mismatch");
+				const { v, key } = entry;
 				if (r.kind !== v.owner.kind) throw Error("notification_owner_mismatch");
 				if (!r.source_live) throw Error("notification_source_stale");
 				const result = { notice: null as string | null, mail: null as string | null };
@@ -400,7 +405,9 @@ export function createNotificationService(config: {
 		if (!sources.length && !fresh.length) return output;
 		const queued = config.mail.queued(mail);
 		queued.ids.forEach((id, n) => {
-			output.find((o) => o.notice === mail[n]!.notice)!.mail = id;
+			const slot = output.find((o) => o.notice === mail[n]?.notice);
+			if (!slot) throw Error("notification_mail_unmatched");
+			slot.mail = id;
 		});
 		const now = new Date().toISOString();
 		const notices = fresh.map(({ v, key, id, inApp }) => ({
@@ -502,20 +509,27 @@ export async function sendOnboardingRelationships(
 ) {
 	if (!inputs.length) return;
 	const organizations = [...new Set(inputs.map((i) => i.pair.organization.id))];
-	const owners = await tx.execute(
-		sql`SELECT organization_id,account_id FROM seat WHERE organization_id=ANY(${sql.param(organizations)}::uuid[]) AND role='owner' AND ended_at IS NULL AND accepted_at<=clock_timestamp()`,
-	);
+	const actors = [...new Set(inputs.flatMap((i) => (i.actorId ? [i.actorId] : [])))];
+	const read = await tx.execute(sql`WITH owners AS MATERIALIZED (
+    SELECT organization_id,account_id FROM seat WHERE organization_id=ANY(${sql.param(organizations)}::uuid[]) AND role='owner' AND ended_at IS NULL AND accepted_at<=clock_timestamp()
+   ) SELECT (SELECT coalesce(json_agg(owners),'[]') FROM owners) AS owners,
+    (SELECT coalesce(json_agg(json_build_object('id',a.id,'email',c.email)),'[]') FROM account a CROSS JOIN LATERAL access_account_contact(a.id) c
+     WHERE a.id=ANY(${sql.param(actors)}::uuid[]) OR a.id IN (SELECT account_id FROM owners)) AS contacts`);
+	const found = z
+		.object({
+			owners: z.array(z.object({ organization_id: z.uuid(), account_id: z.uuid() })),
+			contacts: z.array(z.object({ id: z.uuid(), email: z.email() })),
+		})
+		.parse(read.rows[0]);
 	const notices = inputs.flatMap((i) =>
 		[
 			...new Set([
 				...(i.actorId ? [i.actorId] : []),
-				...owners.rows
-					.filter((r) => r.organization_id === i.pair.organization.id)
-					.map((r) => z.uuid().parse(r.account_id)),
+				...found.owners.filter((r) => r.organization_id === i.pair.organization.id).map((r) => r.account_id),
 			]),
 		].map((recipient) => ({ i, recipient })),
 	);
-	const addresses = await readAccountContacts(tx, [...new Set(notices.map((n) => n.recipient))]);
+	const addresses = new Map(found.contacts.map((c) => [c.id, c.email]));
 	await mail.enqueueMany(
 		tx,
 		notices.map(({ i, recipient }) => {

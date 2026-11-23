@@ -1,11 +1,11 @@
 import { and, asc, desc, eq, gt, isNotNull, lt, or, sql } from "drizzle-orm";
-import { database, type Database } from "./client.ts";
+import type { Database } from "./client.ts";
 import { early_access_attempt, early_access_request } from "./schema/tables.ts";
 export { database, createDatabase, closeDatabase } from "./client.ts";
 export type { Database, Transaction } from "./client.ts";
 export { assertDevelopmentDatabase, developmentHosts } from "./development.ts";
 
-export async function expireAccessRequests(db: Database = database()) {
+export async function expireAccessRequests(db: Database) {
 	return db.transaction(async (tx) => {
 		const deleted = await tx
 			.delete(early_access_request)
@@ -49,7 +49,7 @@ function csvCell(value: unknown): string {
 	if (/^[\s]*[=+@-]/.test(text)) text = "'" + text;
 	return '"' + text.replaceAll('"', '""') + '"';
 }
-export async function exportAccessRequests(db: Database = database()): Promise<string> {
+export async function exportAccessRequests(db: Database): Promise<string> {
 	const t = early_access_request;
 	const rows = await db
 		.select({
@@ -89,7 +89,7 @@ export async function reserveAccessRequest(
 		ip: string | null;
 		mailPayload: Record<string, unknown>;
 	},
-	db: Database = database(),
+	db: Database,
 ): Promise<AccessReservation> {
 	return db.transaction(async (tx) => {
 		for (const key of ["email:" + input.email, "ip:" + (input.ip ?? "unknown")].sort())
@@ -148,7 +148,7 @@ export async function reserveAccessRequest(
 		return { status: "deliver", id: row.id, createdAt: row.created_at, payload: row.mail_payload };
 	});
 }
-export async function recordAccessMail(id: string, mailId: string, db: Database = database()): Promise<void> {
+export async function recordAccessMail(id: string, mailId: string, db: Database): Promise<void> {
 	const result = await db
 		.update(early_access_request)
 		.set({ mail_id: mailId, mailed_at: sql`clock_timestamp()` })

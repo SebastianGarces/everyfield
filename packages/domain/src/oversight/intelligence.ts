@@ -10,6 +10,7 @@ import {
 	areaOf,
 	countryKey,
 	latestGeography,
+	regionKey,
 	stateCode,
 	stateName,
 	unplacedRegion,
@@ -209,7 +210,7 @@ export async function readIntelligence(
 		level: request.level,
 		run,
 		history,
-		groups: run ? groupsOf(request.level, r.shown_on!, r.rows, r.unshared, r.ratings) : [],
+		groups: run && r.shown_on !== null ? groupsOf(request.level, r.shown_on, r.rows, r.unshared, r.ratings) : [],
 		geographyReleases: [...releases].sort().map(([key, credit]) => ({ key, credit })),
 		canRefresh: seat.administrator,
 	});
@@ -244,6 +245,26 @@ function placeOf(level: C.Level, p: Placed): { key: string; label: string; place
 	const area = areaOf(p.regionKey);
 	if (area) return placed(area.code, C.regionLabel(area));
 	return none(unplacedRegion(p.saved, { city: p.city, stateProvince: p.state, country: p.country }));
+}
+export function placedIn(p: {
+	region: C.RegionArea | null;
+	city: string | null;
+	stateProvince: string | null;
+	country: string | null;
+}): string[] {
+	const placed: Placed = {
+		plantId: "",
+		name: "",
+		regionKey: p.region ? regionKey(p.region.code) : null,
+		saved: p.region !== null,
+		city: p.city,
+		state: p.stateProvince,
+		country: p.country,
+	};
+	return C.LEVELS.flatMap((level) => {
+		const at = placeOf(level, placed);
+		return at.placement === "placed" ? [at.label] : [];
+	});
 }
 const MISSING: Record<C.Level, string> = {
 	region: "No Region set",

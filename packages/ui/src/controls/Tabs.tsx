@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import { Tabs as TabsPrimitive, ToggleGroup } from "radix-ui";
-import { createContext, use, useId, useState, type ComponentPropsWithRef } from "react";
+import { createContext, use, useId, useMemo, useState, type ComponentPropsWithRef } from "react";
 import { cn, HoverGroup, Icon, useHoverItem, type IconSvgElement } from "../foundations";
 import { Count } from "./Count";
 
@@ -101,8 +101,9 @@ export function Tabs({ value: controlled, defaultValue = "", onValueChange, ...p
 	const [inner, setInner] = useState(defaultValue);
 	const value = controlled ?? inner;
 	const indicator = useId();
+	const state = useMemo(() => ({ value, indicator }), [value, indicator]);
 	return (
-		<TabsContext value={{ value, indicator }}>
+		<TabsContext value={state}>
 			<TabsPrimitive.Root
 				value={value}
 				onValueChange={(next) => {

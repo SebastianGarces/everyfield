@@ -60,8 +60,10 @@ import {
 	type Flow,
 	type ShownProgram,
 } from "./model.ts";
+import { loadProblem, failedIcon } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
-type ShownRead = Outcome<ShownProgram[]>;
+type ShownRead = Outcome<ShownProgram[]> | ReadFailure;
 
 const loadShown = (teamId: string): Promise<ShownRead> =>
 	loadTraining(teamId).then((result) =>
@@ -162,7 +164,9 @@ export function TrainingTab({
 					refused,
 				});
 				return;
-			case "assign":
+			case "assign": {
+				const { rosterDigest } = form;
+				if (rosterDigest === null) return;
 				void lane.save({
 					what: `Who must finish ${form.programName}`,
 					done: "saved",
@@ -171,7 +175,7 @@ export function TrainingTab({
 						saveRoster(key, form.revision, {
 							programId: form.programId,
 							personIds: form.personIds,
-							rosterDigest: form.rosterDigest!,
+							rosterDigest,
 						}),
 					ok: (value) => {
 						setPrograms((rows) => applyRoster(rows, value));
@@ -185,26 +189,28 @@ export function TrainingTab({
 					refused,
 				});
 				return;
+			}
 			case "complete":
 			case "redo":
-			case "revoke":
-				if (!form.personId) return;
+			case "revoke": {
+				const { personId } = form;
+				if (!personId) return;
 				void lane.save({
 					what: form.kind === "revoke" ? `The completion of ${form.programName}` : form.programName,
 					done: form.kind === "revoke" ? "revoked" : "recorded",
 					form,
 					send: (key) =>
 						form.kind === "revoke"
-							? revokeCompletion(key, form.revision, { personId: form.personId!, programId: form.programId })
+							? revokeCompletion(key, form.revision, { personId, programId: form.programId })
 							: form.kind === "redo"
 								? recompleteTraining(key, form.revision, {
-										personId: form.personId!,
+										personId,
 										programId: form.programId,
 										earnedOn: form.earnedOn,
 									})
 								: attestCompletion(key, form.revision, {
 										kind: "program",
-										personId: form.personId!,
+										personId,
 										programId: form.programId,
 										earnedOn: form.earnedOn,
 									}),
@@ -216,15 +222,17 @@ export function TrainingTab({
 					refused,
 				});
 				return;
-			case "service":
-				if (!form.personId) return;
+			}
+			case "service": {
+				const { personId } = form;
+				if (!personId) return;
 				void lane.save({
 					what: "Attendance and serving",
 					done: "recorded",
 					form,
 					send: (key) =>
 						attestService(key, {
-							personId: form.personId!,
+							personId,
 							attendanceDays: Number(form.attendanceDays),
 							volunteerDays: Number(form.volunteerDays),
 						}),
@@ -240,6 +248,7 @@ export function TrainingTab({
 					refused,
 				});
 				return;
+			}
 		}
 	}
 
@@ -295,6 +304,7 @@ export function TrainingTab({
 					<StatePanel
 						tone="error"
 						title="Training did not load"
+						icon={failedIcon(loaded)}
 						headingLevel="h3"
 						actions={
 							<Button variant="secondary" onClick={reload} disabled={pending}>
@@ -304,7 +314,7 @@ export function TrainingTab({
 					>
 						{loaded?.status === "refused"
 							? problemText(loaded.code)
-							: `Nothing on ${teamName} was changed. Try again in a moment.`}
+							: loadProblem(loaded, `Nothing on ${teamName} was changed. Try again in a moment.`)}
 					</StatePanel>
 				) : programs.length === 0 ? (
 					<EmptyState

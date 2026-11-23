@@ -4,18 +4,19 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveAccess, liveRead, liveRows, type RequestActor } from "../access/session.ts";
+import { organizationSeatContext } from "../access/organization-seat.ts";
 import { createLaunchReader, offersTo } from "../launch/reads.ts";
 import { linkActive, type Reader } from "../organizations/core.ts";
 import { areaOf, latestGeography } from "../organizations/geography.ts";
 import { compatible } from "../teams/training/reads.ts";
 import { launchJson, plantLaunchOf, preparationJson } from "./launch.ts";
 import { released, releasedHealth, releasedJson, releasedOf } from "./released.ts";
-export { requestIntelligenceRefresh, readIntelligence, submitIntelligenceFeedback } from "./intelligence.ts";
+export { placedIn, requestIntelligenceRefresh, readIntelligence, submitIntelligenceFeedback } from "./intelligence.ts";
+export { readLocationHistory } from "./locations.ts";
 
 type Organization = Extract<Owner, { kind: "organization" }>;
 function organizationOf(authority: RequestActor): Organization | null {
-	const context = authority.actor.context;
-	return context.kind === "seat" && context.owner.kind === "organization" ? context.owner : null;
+	return organizationSeatContext(authority)?.owner ?? null;
 }
 const live = (authority: RequestActor) => liveRead(liveAccess(authority));
 
@@ -161,7 +162,7 @@ const SECTIONS = {
 		},
 		parse: (raw: unknown) => {
 			const r = z.object({ recorded: z.int(), open: z.int(), overdue: z.int() }).parse(raw);
-			return r.recorded ? C.taskCounts.parse({ open: r.open, overdue: r.overdue }) : null;
+			return r.recorded ? ({ open: r.open, overdue: r.overdue } satisfies z.output<typeof C.taskCounts>) : null;
 		},
 	},
 	meetings: {
@@ -175,9 +176,11 @@ const SECTIONS = {
 				ORDER BY occurred DESC, m.id DESC LIMIT 12) x`,
 		parse: (raw: unknown) => {
 			const meetings = z.array(z.object({ date: z.string(), attended: z.int().nullable() })).parse(raw);
-			if (!meetings.length) return null;
+			const [first] = meetings;
+			const last = meetings.at(-1);
+			if (!first || !last) return null;
 			const day = (d: string) => Date.parse(`${d}T00:00:00Z`) / 86_400_000;
-			const span = day(meetings.at(-1)!.date) - day(meetings[0]!.date);
+			const span = day(last.date) - day(first.date);
 			return C.meetingCounts.parse({
 				meetings,
 				averageDaysBetween: meetings.length > 1 ? Math.round(span / (meetings.length - 1)) : null,

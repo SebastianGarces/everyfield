@@ -13,6 +13,7 @@ import type {
 	RowRole,
 	SlotNode,
 	TableNode,
+	Tile,
 	Token,
 	WriteInNode,
 } from "@everyfield/contracts/documents";
@@ -720,8 +721,7 @@ function signOff(nodes: readonly BlockNode[], i: number) {
 
 function blocks(r: R, nodes: readonly BlockNode[], nested = false): ReactNode[] {
 	const out: ReactNode[] = [];
-	for (let i = 0; i < nodes.length; i++) {
-		const node = nodes[i]!;
+	for (let i = 0, node = nodes[0]; node; node = nodes[++i]) {
 		if (!nested && node.type === "paragraph" && signOff(nodes, i)) {
 			out.push(paragraph(r, node, i, true, true));
 			continue;
@@ -846,10 +846,8 @@ function cutMarks(p: Palette, w: number, h: number, across: number, down: number
 
 const STROKE_BLEED = 2;
 
-function tiledPage(r: R, size: { width: number; height: number }) {
+function tiledPage(r: R, size: { width: number; height: number }, tile: Tile, tb: { width: number; height: number }) {
 	const page = r.doc.page;
-	const tile = page.tile!;
-	const tb = tileBox(page)!;
 	const inner = {
 		width: size.width - page.margin.left - page.margin.right,
 		height: size.height - page.margin.top - page.margin.bottom,
@@ -970,6 +968,6 @@ export function docElement(
 	};
 	ctx.log.pair("page text", ctx.p.ink, ctx.p.white, MIN_BODY);
 	ctx.log.pair("field border", ctx.p.fieldBorder, ctx.p.white, MIN_NONTEXT);
-	const pages = doc.page.tile ? tiledPage(r, size) : flowPages(r, size, mode);
+	const pages = doc.page.tile ? tiledPage(r, size, doc.page.tile, box) : flowPages(r, size, mode);
 	return Doc(ctx, `${doc.title}, ${ctx.church}`, `${doc.title}, ${ctx.church}`, pages);
 }

@@ -187,7 +187,8 @@ export const teamsReader = {
 			);
 			const present = z.array(z.object({ key: z.string(), roles: z.array(z.string()) })).parse(found.present);
 			const teams = input.selections.map((selection) => {
-				const team = catalogTeam(selection.teamKey)!;
+				const team = catalogTeam(selection.teamKey);
+				if (!team) throw Error(`The checked selection names no catalog team: ${selection.teamKey}`);
 				const have = present.find((p) => p.key === team.key);
 				const chosen = team.roles
 					.filter((role) => selection.roleKeys.includes(role.key))

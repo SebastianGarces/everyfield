@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { Catalog } from "@everyfield/contracts/phases";
 import { liveRead, type RequestActor } from "../access/session.ts";
 import { plantViewer } from "../documents/access.ts";
+import { queueJobsFor } from "../jobs/queue.ts";
 import { readCatalog } from "../phases/catalog.ts";
 import { checkDraft } from "./checks.ts";
 import { sectionsOf, textHash } from "./retrieval.ts";
@@ -67,12 +68,10 @@ export const NO_PROGRESS: DraftProgress = {
 	usage: { attempts: 0, inputTokens: 0, outputTokens: 0 },
 	pendingAttempts: 0,
 };
-export type Drafted = {
-	progress: DraftProgress;
-	published: c.DraftOutput | null;
-	reason: "invalid_drafts" | "attempts" | "budget" | "busy" | "model_unavailable" | "lost_claim" | null;
-	retryAfterMs: number | null;
-};
+export type Drafted = { progress: DraftProgress; retryAfterMs: number | null } & (
+	| { published: c.DraftOutput; reason: null }
+	| { published: null; reason: "invalid_drafts" | "attempts" | "budget" | "busy" | "model_unavailable" | "lost_claim" }
+);
 
 export async function draftWithin(
 	drafter: Drafter,
@@ -83,7 +82,7 @@ export async function draftWithin(
 ): Promise<Drafted> {
 	const B = c.ASSESSMENT_BUDGET;
 	let p: DraftProgress = { ...from, usage: { ...from.usage }, drafts: [...from.drafts] };
-	const stop = (reason: Drafted["reason"], retryAfterMs: number | null = null): Drafted => ({
+	const stop = (reason: NonNullable<Drafted["reason"]>, retryAfterMs: number | null = null): Drafted => ({
 		progress: p,
 		published: null,
 		reason,
@@ -148,7 +147,8 @@ export function publication(draft: c.DraftOutput, input: c.ModelInput) {
 		[...keys].map((k) => {
 			const p = passages.get(k);
 			if (p) return [k, { kind: "passage", ...p }];
-			const f = facts.get(k)!;
+			const f = facts.get(k);
+			if (!f) throw new Error(`the draft cites an unknown fact: ${k}`);
 			return [k, { kind: "fact", key: k, label: f.label, value: f.value }];
 		}),
 	);
@@ -169,7 +169,7 @@ export const heldSql = (plant: SQL) => sql`(SELECT count(*)=${c.HELD_AFTER_FAILU
 		AND r.outcome NOT IN ('superseded','pending','deferred') ORDER BY r.captured_at DESC,r.id DESC
 		LIMIT ${c.HELD_AFTER_FAILURES}::int) x)`;
 export const plantHidden = (plant: SQL) => sql`EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=${plant}
-	AND w.kind='plant' AND w.state NOT IN ('active','cancelled'))`;
+	AND w.kind='plant' AND w.state <> 'cancelled')`;
 const openJob = (plant: SQL) => sql`EXISTS(SELECT FROM job j WHERE j.kind='assessment' AND j.subject_record_id=${plant}
 	AND j.state IN ('ready','claimed','retry_wait'))`;
 
@@ -198,15 +198,22 @@ export function createAssessments(config: { clock?: Clock } = {}) {
 				const id = q.data.requestId;
 				const { rows } =
 					await db.execute(sql`WITH gate AS (SELECT ${s.ok} AND NOT ${plantHidden(sql`${s.plant}::uuid`)} AS ok),
-j AS (INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
-	SELECT ${s.plant}::uuid,'assessment',${s.plant}::uuid,${"manual/" + id},'ready',${now()},0,10,0 WHERE (SELECT ok FROM gate)
-	ON CONFLICT DO NOTHING RETURNING id),
+j AS (${queueJobsFor(sql`WHERE (SELECT ok FROM gate)`, {
+						kind: "assessment",
+						tenant: sql`${s.plant}::uuid`,
+						subject: sql`${s.plant}::uuid`,
+						key: sql`${"manual/" + id}::text`,
+						eligibleAt: now(),
+						maxAttempts: 10,
+						conflict: "skip",
+						returning: true,
+					})}),
 a AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,event_key,request_key,metadata)
 	SELECT ${s.plant}::uuid,${s.me}::uuid,'intelligence.refresh_requested','create','plant',${s.plant}::uuid,
 		${"assessment-refresh:" + id},${id},jsonb_build_object('requestId',${id}::text) FROM j RETURNING 1)
 SELECT (SELECT ok FROM gate) AS ok`);
 				if (!z.object({ ok: z.boolean() }).parse(rows[0]).ok) deny("access_denied");
-				return c.refreshReceipt.parse({ requestId: id, state: "preparing" });
+				return { requestId: id, state: "preparing" } satisfies z.output<typeof c.refreshReceipt>;
 			});
 		},
 
@@ -241,14 +248,14 @@ SELECT (SELECT ok FROM gate) AS ok,
 	(SELECT h.held FROM x, LATERAL ${heldSql(sql`x.id`)} h) AS held`);
 				const r = readRow.parse(rows[0]);
 				if (!r.ok || r.current_phase === null) deny("access_denied");
-				const catalog = r.current ? await readCatalog() : null;
-				return c.assessmentView.parse({
-					current: r.current && present(r.current, catalog!),
+				const current = r.current ? present(r.current, await readCatalog()) : null;
+				return {
+					current,
 					newest: newestOf(r),
 					currentPhase: r.current_phase,
 					seen: r.seen,
 					feedback: r.feedback,
-				});
+				} satisfies z.output<typeof c.assessmentView>;
 			});
 		},
 
@@ -270,7 +277,7 @@ SELECT (SELECT ok FROM gate) AS ok,EXISTS(SELECT FROM r) AS found,EXISTS(SELECT 
 				const r = z.object({ ok: z.boolean(), found: z.boolean(), recorded: z.boolean() }).parse(rows[0]);
 				if (!r.ok) deny("access_denied");
 				if (!r.found) deny("not_found");
-				return c.seenReceipt.parse({ outcome: r.recorded ? "recorded" : "already_seen" });
+				return { outcome: r.recorded ? "recorded" : "already_seen" } satisfies z.output<typeof c.seenReceipt>;
 			});
 		},
 
@@ -500,7 +507,13 @@ const storedCurrent = z.object({
 	activation: z.coerce.number().int(),
 	result: z.object({
 		draft: c.draftOutput,
-		citations: z.record(z.string(), z.object({ kind: z.enum(["fact", "passage"]) }).loose()),
+		citations: z.record(
+			z.string(),
+			z.discriminatedUnion("kind", [
+				z.object({ kind: z.literal("fact"), label: z.string() }).loose(),
+				z.object({ kind: z.literal("passage"), title: z.string(), section: z.string().nullable().optional() }).loose(),
+			]),
+		),
 	}),
 	delta: c.snapshotDelta.nullable(),
 	measuredOn: z.string(),
@@ -513,16 +526,12 @@ const storedCurrent = z.object({
 function present(row: z.infer<typeof storedCurrent>, catalog: Catalog): c.Assessment {
 	const draft = row.result.draft;
 	const label = (k: string) => {
-		const cite = row.result.citations[k] as {
-			kind: "fact" | "passage";
-			label?: string;
-			title?: string;
-			section?: string | null;
-		};
+		const cite = row.result.citations[k];
+		if (!cite) throw new Error(`the assessment cites an unknown key: ${k}`);
 		return {
 			key: k,
 			kind: cite.kind,
-			label: cite.kind === "fact" ? cite.label! : cite.section ? `${cite.title} — ${cite.section}` : cite.title!,
+			label: cite.kind === "fact" ? cite.label : cite.section ? `${cite.title} — ${cite.section}` : cite.title,
 		};
 	};
 	const point = (p: c.DraftPoint) => ({
