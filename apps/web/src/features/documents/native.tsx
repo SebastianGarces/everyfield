@@ -10,6 +10,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	EmptyState,
+	InlineAlert,
 	IntentLink,
 	Skeleton,
 } from "@everyfield/ui/controls";
@@ -240,11 +241,7 @@ function UseForChurch({ onClose }: { onClose: () => void }) {
 							)
 						}
 					</Await>
-					{problem ? (
-						<p role="alert" className="mt-3 text-sm text-magenta-600 text-pretty">
-							{problem}
-						</p>
-					) : null}
+					<InlineAlert className="mt-3">{problem}</InlineAlert>
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" disabled={copying !== null} onClick={onClose}>
