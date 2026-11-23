@@ -8,12 +8,20 @@ import { JourneyPath } from "./journey-fx";
 export function JourneySection() {
 	const W = COPY.shared.week,
 		J = COPY.shared.ops82.journey;
-	const steps = [...W.steps, ...J.steps].map((s, i) => ({
-		title: s.title,
-		body: s.body,
-		say: J.says[i]!,
-		icon: <Icon icon={ICONS[J.icons[i]!]} size={40} stroke={1.4} className="size-[44%]" />,
-	}));
+	const steps = [...W.steps, ...J.steps].flatMap((s, i) => {
+		const say = J.says[i],
+			icon = J.icons[i];
+		return say && icon
+			? [
+					{
+						title: s.title,
+						body: s.body,
+						say,
+						icon: <Icon icon={ICONS[icon]} size={40} stroke={1.4} className="size-[44%]" />,
+					},
+				]
+			: [];
+	});
 	const [, lead = "", rest = ""] = /^([^.]+\.)(.*)$/s.exec(J.see_first) ?? [];
 	return (
 		<JourneyPath

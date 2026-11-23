@@ -726,11 +726,11 @@ export function createFixturePort(
 	};
 }
 
-export const confirmFixtureEmail = (replies: Replies) => async (request: { proof: string }) => {
+export const confirmFixtureEmail = (replies: Replies, proof: string) => async () => {
 	await replies.arrive();
-	N.confirmEmailChange.parse(request);
+	N.confirmEmailChange.parse({ proof });
 	const correlationId = nextId();
-	if (request.proof === "valid")
+	if (proof === "valid")
 		return N.credentialOutcome.parse({
 			status: "succeeded",
 			correlationId,
@@ -738,7 +738,7 @@ export const confirmFixtureEmail = (replies: Replies) => async (request: { proof
 			action: "email_changed",
 			reporting: { status: "recorded", eventId: nextId(), mailIntentId: nextId() },
 		});
-	return N.credentialOutcome.parse({ status: request.proof === "unknown" ? "unknown" : "refused", correlationId });
+	return N.credentialOutcome.parse({ status: proof === "unknown" ? "unknown" : "refused", correlationId });
 };
 
 function pending(subject: { kind: "account" | "plant"; id: string }, at: number) {

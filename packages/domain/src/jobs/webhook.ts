@@ -5,8 +5,9 @@ import { createHash } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { transaction } from "./transaction.ts";
-import { logFailure } from "../log.ts";
+import { errorClass, isTransient, logFailure } from "../log.ts";
 const provider_event_e = alias(tables.provider_event, "e");
+const retryLater = (error: unknown) => isTransient(error) || errorClass(error).code === "57014";
 
 const kinds = [
 	"accepted",
@@ -25,32 +26,28 @@ const wire = z.object({
 	created_at: z.iso.datetime(),
 	data: z.object({ email_id: z.string().min(1).max(128), bounce: z.object({ type: z.string() }).optional() }),
 });
-const eventSchema = z.object({
+const lockedSchema = z.object({
 	id: z.uuid(),
 	message_id: z.string(),
 	kind: z.enum(kinds),
-	occurred_at: z.date(),
+	occurred_at: z.coerce.date(),
 	safe_payload: z.object({ hard_bounce: z.boolean() }),
-	processed_at: z.date().nullable(),
+	processed_at: z.coerce.date().nullable(),
+	matches: z.array(
+		z.object({ id: z.uuid(), tenant_id: z.uuid(), address_hash: z.string().nullable(), job_id: z.uuid().nullable() }),
+	),
 });
 async function apply(tx: Transaction, eventId: string) {
-	const row = await tx.select().from(tables.provider_event).where(eq(tables.provider_event.id, eventId)).for("update");
-	const e = eventSchema.parse(row[0]);
+	const locked = await tx.execute(sql`WITH e AS MATERIALIZED (
+    SELECT id,message_id,kind,occurred_at,safe_payload,processed_at FROM provider_event WHERE id=${eventId} FOR UPDATE
+   ), matches AS MATERIALIZED (
+    SELECT m.id,m.tenant_id,m.address_hash,m.job_id FROM mail m JOIN e ON m.provider_message_id=e.message_id
+    WHERE e.processed_at IS NULL FOR UPDATE OF m
+   ) SELECT e.*,(SELECT coalesce(json_agg(matches),'[]') FROM matches) AS matches FROM e`);
+	const e = lockedSchema.parse(locked.rows[0]);
 	if (e.processed_at) return "duplicate" as const;
-	const matches = await tx
-		.select({
-			id: tables.mail.id,
-			tenant_id: tables.mail.tenant_id,
-			address_hash: tables.mail.address_hash,
-			job_id: tables.mail.job_id,
-		})
-		.from(tables.mail)
-		.where(eq(tables.mail.provider_message_id, e.message_id))
-		.for("update");
-	if (matches.length !== 1) return "unmatched" as const;
-	const m = z
-		.object({ id: z.uuid(), tenant_id: z.uuid(), address_hash: z.string().nullable(), job_id: z.uuid().nullable() })
-		.parse(matches[0]);
+	const [m, ...rest] = e.matches;
+	if (!m || rest.length) return "unmatched" as const;
 	const columns = {
 		accepted: "accepted_at",
 		scheduled: "accepted_at",
@@ -144,6 +141,7 @@ export async function applyMailCallback(db: Database, raw: Uint8Array, key: stri
 	try {
 		return { stored: true, result: await transaction(db, (tx) => apply(tx, id)) };
 	} catch (error) {
+		if (!retryLater(error)) throw error;
 		logFailure({ component: "mail-callback", outcome: "apply_failed" }, error);
 		return { stored: true, result: "pending" as const };
 	}

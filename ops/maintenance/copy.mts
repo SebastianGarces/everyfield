@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { readPrivateBytes } from "./control.mts";
-import { validateCandidate } from "./recovery.mts";
+import { ManifestRefused, validateCandidate } from "./recovery.mts";
 import type { Snapshot } from "./restore.mts";
 const require = createRequire(new URL("../../packages/domain/package.json", import.meta.url));
 const { z } = require("zod");
@@ -57,11 +57,6 @@ class Refused extends Error {
 		this.code = code;
 	}
 }
-const MANIFEST_REFUSALS = new Set([
-	"copy_expired_or_invalid",
-	"duplicate_manifest_identity",
-	"subject_expired_or_reset",
-]);
 const IV = 12,
 	TAG = 16;
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
@@ -135,8 +130,7 @@ async function copy(deps: CopyDeps, input: CopyInput): Promise<CopyResult> {
 	try {
 		checked = validateCandidate(snapshot.manifest, now, input.originalExpiries);
 	} catch (error) {
-		const code = error instanceof Error ? error.message : "";
-		throw new Refused(MANIFEST_REFUSALS.has(code) ? (code as CopyRefusal) : "manifest_invalid");
+		throw new Refused(error instanceof ManifestRefused ? (error.code as CopyRefusal) : "manifest_invalid");
 	}
 	const manifest = { ...checked.manifest, keyVersion: randomUUID() };
 	if (snapshot.image.length !== manifest.database.bytes || sha256(snapshot.image) !== manifest.database.sha256)

@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft01Icon, CheckListIcon } from "@hugeicons/core-free-icons";
-import { Button, Sheet, Skeleton, StatePanel, toast } from "@everyfield/ui/controls";
+import { Alert, Button, Sheet, Skeleton, StatePanel, toast } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useId, useRef, useState, useTransition } from "react";
@@ -260,9 +260,9 @@ function PreviewBody({
 				{dayText(shown.anchorDate, year)}). Adding it again later adds another copy.
 			</p>
 			{problem ? (
-				<p role="alert" className="rounded-md bg-surface px-4 py-2.5 text-sm text-ink">
+				<Alert tone="neutral" role="alert">
 					{problem}
-				</p>
+				</Alert>
 			) : null}
 			<div className="flex flex-col gap-1">
 				<h3 id={headingId} className="font-sans text-sm font-semibold tracking-normal text-ink">

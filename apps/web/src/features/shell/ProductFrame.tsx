@@ -18,8 +18,9 @@ import { firstSection } from "../settings/model";
 import { SettingsOpenerContext } from "../settings/opener";
 import { shellNav } from "./nav.ts";
 import { ResidencyContext, useResidency, type ResidencyState } from "../residency/context.ts";
-import type { SectionSeed, SettingsViewer } from "../settings/port";
+import type { SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
+import { ProductSettingsDialog, SettingsDialogContext } from "../settings/SettingsDialogSlot";
 import type { Role } from "../people/server.ts";
 import { useWikiChrome, WikiChrome } from "../wiki/chrome.tsx";
 
@@ -29,12 +30,12 @@ type FrameProps = {
 	name: string;
 	photo?: string;
 	settings: SettingsViewer | null;
-	seed?: SectionSeed | null;
+	settingsDialog?: ReactNode;
 	residency?: { organizationName: string } | null;
 	children: ReactNode;
 };
 
-export function ProductFrame({ settings: initial, seed, residency = null, ...props }: FrameProps) {
+export function ProductFrame({ settings: initial, residency = null, ...props }: FrameProps) {
 	const [left, setLeft] = useState<{ from: typeof residency } | null>(null);
 	const ended = left !== null && left.from === residency;
 	const residencyState = useMemo<ResidencyState>(
@@ -63,7 +64,7 @@ export function ProductFrame({ settings: initial, seed, residency = null, ...pro
 				<ResidencyContext value={residencyState}>
 					<NotificationsProvider account={initial?.accountId ?? ""}>
 						<WikiChrome>
-							<Frame {...props} settings={settings} seed={settings === initial ? seed : null} />
+							<Frame {...props} settings={settings} seedFits={settings === initial} />
 						</WikiChrome>
 					</NotificationsProvider>
 				</ResidencyContext>
@@ -72,12 +73,14 @@ export function ProductFrame({ settings: initial, seed, residency = null, ...pro
 	);
 }
 
-function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
-	const dialog = useProductSettings(settings, seed);
+function Frame({ name, photo, settings, settingsDialog, seedFits, children }: FrameProps & { seedFits: boolean }) {
+	const dialog = useProductSettings(settings, seedFits);
 	const pathname = usePathname();
 	const privatePage = evryOff(pathname, settings);
+	const role = settings && settings.context !== "account" ? settings.role : null;
 	const evry = useEvryPanel({
 		inPlant: settings?.context === "plant",
+		canAttach: settings?.context === "plant" && (role === "owner" || role === "admin"),
 		off: privatePage,
 		context:
 			settings?.context === "plant"
@@ -89,7 +92,6 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	const bell = useNotificationBell();
 	const wiki = useWikiChrome();
 	const [feedback, setFeedback] = useState(false);
-	const role = settings && settings.context !== "account" ? settings.role : null;
 	const { linked } = useResidency();
 	const account = !settings || settings.context === "account";
 	const banner =
@@ -178,7 +180,9 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 			banner={banner}
 		>
 			<SettingsOpenerContext value={dialog.open}>{children}</SettingsOpenerContext>
-			{dialog.element}
+			<SettingsDialogContext value={dialog.parts}>
+				{settingsDialog ?? <ProductSettingsDialog seed={null} />}
+			</SettingsDialogContext>
 			{evry.element}
 			{bell.element}
 			<FeedbackOverlay open={feedback} onOpenChange={setFeedback} name={name} />
