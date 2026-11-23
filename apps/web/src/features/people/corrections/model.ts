@@ -21,6 +21,7 @@ export type Side = "source" | "survivor";
 
 export {
 	MERGE_FIELD_LABEL as FIELD_LABEL,
+	attendanceText,
 	blockerText,
 	conflictText,
 	counted,
@@ -31,13 +32,12 @@ export {
 } from "@everyfield/contracts/people";
 import type { ReferenceKind } from "@everyfield/contracts/people";
 
-type Treatment = "move" | "deduplicate" | "keep" | "block";
+type Treatment = "move" | "deduplicate" | "keep";
 export type Reference = { kind: ReferenceKind; count: number; treatment: Treatment };
 export function referenceGroups(refs: readonly Reference[]) {
 	return {
 		moves: refs.filter((r) => r.treatment === "move" || r.treatment === "deduplicate"),
 		stays: refs.filter((r) => r.treatment === "keep"),
-		blocked: refs.filter((r) => r.treatment === "block"),
 	};
 }
 

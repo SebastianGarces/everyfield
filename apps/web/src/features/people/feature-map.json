@@ -729,14 +729,14 @@
 				},
 				{
 					"id": "merge",
-					"says": "A reviewed merge keeps the chosen details on the survivor and refuses what history blocks.",
+					"says": "A reviewed merge keeps the chosen details on the survivor, carries its history and refuses what would collide.",
 					"catalog": ["PPL-017"],
 					"operations": ["people.mergePeople", "people.unmergePeople"],
 					"proof": {
 						"tests": [
 							{
 								"file": "tests/unit/people/corrections-model.test.mjs",
-								"name": "AC:TARGET-PPL-016 a merge blocked by past history names what blocks it and gives no advice that cannot clear it"
+								"name": "AC:TARGET-PPL-016 a merge blocked by a leadership conflict names the team and both roles and says to end one first"
 							},
 							{
 								"file": "tests/integration/people/corrections/merge.test.mts",
