@@ -33,6 +33,7 @@ export const meetingsError = z.discriminatedUnion("code", [
 	defineSafeError("team_unavailable", {}, "never"),
 	defineSafeError("wrong_meeting_type", {}, "never"),
 	defineSafeError("status_transition", {}, "never"),
+	defineSafeError("practice_cancelled", {}, "never"),
 	defineSafeError("nonexistent_local_time", {}, "never"),
 	defineSafeError("ambiguous_local_time", { choices: z.array(occurrence).min(2).max(2) }, "never"),
 	defineSafeError("token_closed", {}, "never"),

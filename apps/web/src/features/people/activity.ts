@@ -58,6 +58,12 @@ export function describe(item: Item, by: string): { title: string; icon: IconSvg
 			};
 		case "activity":
 			if (item.household) return { title: householdChange(item.household), icon: Home01Icon, tone: "teal" };
+			if (item.guardian)
+				return {
+					title: `${item.guardian.displayName} ${item.guardian.change === "added" ? "added as" : "removed as"} parent or guardian contact`,
+					icon: Home01Icon,
+					tone: "teal",
+				};
 			if (item.action === "person_merged" || item.action === "person_unmerged")
 				return { title: ACTION[item.action], icon: GitMergeIcon, tone: "violet" };
 			if (item.action === "duplicate_dismissed" || item.action === "duplicate_restored")

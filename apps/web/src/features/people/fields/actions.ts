@@ -194,6 +194,19 @@ export async function setHouseholdRole(
 	);
 }
 
+export async function setGuardianContact(
+	requestKey: string,
+	expectedRevision: string,
+	input: unknown,
+): Promise<Outcome<MembershipSaved>> {
+	return seated("access_denied", async (v) =>
+		outcome(
+			await write(v, (tx, ctx) => f.setGuardianContact(tx, ctx, { requestKey, expectedRevision, input })),
+			asMember,
+		),
+	);
+}
+
 const leaveInput = z.strictObject({
 	personId: c.personFieldsRequest.shape.personId,
 	deleteEmpty: z.boolean(),

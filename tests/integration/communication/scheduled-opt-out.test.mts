@@ -254,7 +254,7 @@ test("AC:CASE-NTF-016 after Ana unsubscribes, compose shows her as unsubscribed 
 		FROM person_email_opt_out WHERE person_id = ${ana.id} AND undone_at IS NULL`);
 
 	const found = ok(await read(ownerA, "readRecipients", { query: "Anabel" })).people;
-	assert.deepEqual(found, [{ id: ana.id, displayName: "Anabel", email: ana.email, unsubscribedAt: at }]);
+	assert.deepEqual(found, [{ id: ana.id, displayName: "Anabel", email: ana.email, unsubscribedAt: at, guardians: [] }]);
 	const audience = ok(await read(ownerA, "readAudience", { groups: [], teamIds: [], personIds: [ana.id, ben.id] }));
 	assert.equal(audience.resolvedDistinctPeople, 2);
 	assert.equal(audience.eligibleRecipients, 1, "Will get this email leaves her out");

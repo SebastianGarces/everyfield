@@ -565,6 +565,93 @@
 			]
 		},
 		{
+			"id": "people.household",
+			"says": "The Household card on a person: members and roles, the household address, and a child's parent or guardian contacts.",
+			"routes": [],
+			"catalog": ["PPL-009"],
+			"reach": [
+				{
+					"from": "people.person",
+					"persona": "owner",
+					"path": [
+						{
+							"expect": {
+								"role": "heading",
+								"name": "Household"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read"
+			},
+			"states": [
+				{
+					"id": "populated",
+					"reach": {
+						"persona": "owner",
+						"open": "/people",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Maria Santos"
+								}
+							},
+							{
+								"expect": {
+									"url": "/people/{personId}"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Maria Santos"
+						},
+						{
+							"role": "heading",
+							"name": "Household"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "guardian-contact",
+					"says": "On a person marked as a child, Household actions marks or removes each adult member as the child's parent or guardian contact; contacts carry a Parent or guardian tag.",
+					"catalog": ["PPL-009"],
+					"operations": ["people.setGuardianContact", "people.getHousehold"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/people/guardian-contacts.test.mts",
+								"name": "AC:CASE-PPL-009-GUARDIAN staff mark an adult in a child's household as the child's parent or guardian contact, and the change is in the child's history"
+							},
+							{
+								"file": "tests/integration/people/guardian-contacts.test.mts",
+								"name": "AC:CASE-PPL-009-GUARDIAN a second adult can be added, and either contact can be removed, leaving the other"
+							},
+							{
+								"file": "tests/integration/people/guardian-contacts.test.mts",
+								"name": "AC:CASE-PPL-009-GUARDIAN a contact who is not marked as an adult, outside the household, retired or in another church is refused and nothing is stored"
+							},
+							{
+								"file": "tests/integration/people/guardian-contacts.test.mts",
+								"name": "AC:CASE-PPL-009-GUARDIAN when the adult or the child leaves the household, the contact is gone"
+							}
+						],
+						"cases": ["CASE-PPL-009-GUARDIAN"]
+					}
+				}
+			]
+		},
+		{
 			"id": "people.duplicates",
 			"says": "Possible duplicates: pairs to review, dismiss or merge; Everyfield never merges on its own.",
 			"routes": ["/people/duplicates"],

@@ -2457,13 +2457,19 @@ export const mail = pgTable(
 			.default(sql`1`),
 		created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
 		address_hash: text("address_hash"),
-		refusal: text("refusal", { enum: ["unsubscribed", "child"] }),
+		refusal: text("refusal", { enum: ["unsubscribed", "child", "guardian"] }),
 		communication_id: uuid("communication_id"),
+		guardian_mail_ids: uuid("guardian_mail_ids").array(),
+		guardian_copy: boolean("guardian_copy").notNull().default(false),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		check(
 			"mail_refusal",
-			sql`((refusal IS NULL) OR ((refusal = ANY (ARRAY['unsubscribed'::text, 'child'::text])) AND (state = 'refused'::text)))`,
+			sql`((refusal IS NULL) OR ((refusal = ANY (ARRAY['unsubscribed'::text, 'child'::text, 'guardian'::text])) AND (state = 'refused'::text)))`,
+		),
+		check(
+			"mail_guardian",
+			sql`((refusal IS NOT DISTINCT FROM 'guardian'::text) = (COALESCE(cardinality(guardian_mail_ids), 0) > 0))`,
 		),
 		foreignKey({ name: "mail_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })
 			.onDelete("restrict")
@@ -6015,6 +6021,46 @@ export const person_email_opt_out = pgTable(
 			.on(t.person_id)
 			.where(sql`undone_at IS NULL`),
 		index("person_email_opt_out_plant").on(t.plant_id, t.person_id),
+	],
+);
+export const guardian_contact = pgTable(
+	"guardian_contact",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id")
+			.notNull()
+			.references(() => plant.id),
+		child_person_id: uuid("child_person_id").notNull(),
+		guardian_person_id: uuid("guardian_person_id").notNull(),
+		household_id: uuid("household_id").notNull(),
+		created_at: timestamp("created_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "guardian_contact_pkey", columns: [t.id] }),
+		foreignKey({
+			name: "guardian_contact_child",
+			columns: [t.child_person_id, t.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		}).onDelete("cascade"),
+		foreignKey({
+			name: "guardian_contact_guardian",
+			columns: [t.guardian_person_id, t.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		}).onDelete("cascade"),
+		foreignKey({
+			name: "guardian_contact_household",
+			columns: [t.household_id, t.plant_id],
+			foreignColumns: [household.id, household.plant_id],
+		}).onDelete("cascade"),
+		check("guardian_contact_distinct", sql`child_person_id <> guardian_person_id`),
+		uniqueIndex("guardian_contact_pair").on(t.plant_id, t.child_person_id, t.guardian_person_id),
+		index("guardian_contact_ref_0").on(t.child_person_id, t.plant_id),
+		index("guardian_contact_ref_1").on(t.guardian_person_id, t.plant_id),
+		index("guardian_contact_household").on(t.household_id, t.plant_id),
 	],
 );
 export const person_duplicate_dismissal = pgTable(

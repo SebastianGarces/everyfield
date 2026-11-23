@@ -315,6 +315,18 @@ try {
 			}),
 		),
 	);
+	await f.admin
+		.execute(sql`UPDATE person SET adult_classification = CASE WHEN id = ${people[1].id}::uuid THEN 'adult' ELSE 'child' END
+		WHERE id IN (${people[1].id}::uuid, ${people[3].id}::uuid)`);
+	value(
+		await run("setGuardianContact", async (tx, ctx) =>
+			personFields.setGuardianContact(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: await revisionOf(people[3]),
+				input: { personId: people[3].id, guardianPersonId: people[1].id, contact: true },
+			}),
+		),
+	);
 	const left = value(
 		await run("removeFromHousehold", async (tx, ctx) =>
 			personFields.removeFromHousehold(tx, ctx, {
