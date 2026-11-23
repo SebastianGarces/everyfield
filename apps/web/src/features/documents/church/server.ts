@@ -1,6 +1,6 @@
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
-import { type Lost, recordId } from "@everyfield/contracts/common";
+import { getViewer, viewerActor } from "@/server/request-context";
+import { type Outcome, recordId } from "@everyfield/contracts/common";
 import {
 	type ArchivedChurchSummary,
 	type ChurchDocument,
@@ -15,7 +15,7 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { documentsWriter, docTemplateSummaries, sheetOf, type DocTemplateSummary } from "@everyfield/domain/documents";
 import { readBoundedBody } from "@everyfield/domain/operations";
 import "server-only";
-import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
+import { canEditDocuments, hasPlantSeat } from "../server.ts";
 import { EXPORT_MESSAGES, EXPORT_UNAVAILABLE } from "./refusal.ts";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
 import { parseJson } from "../../../server/platform/json.ts";
@@ -42,19 +42,17 @@ export type RevisionRow = {
 	savedBy: string | null;
 	formats: readonly ChurchDocument["formats"][number][];
 };
-export type Load<T> = { status: "ok"; value: T } | { status: "refused" } | Lost;
-
 export const canManageChurch = (authority: RequestActor) => hasPlantSeat(authority) && canEditDocuments(authority);
 
 export async function loadLibrary(
 	authority: RequestActor,
 ): Promise<
-	Load<{ documents: ChurchSummary[]; templates: DocTemplateSummary[]; churchTemplates: ChurchTemplateSummary[] }>
+	Outcome<{ documents: ChurchSummary[]; templates: DocTemplateSummary[]; churchTemplates: ChurchTemplateSummary[] }>
 > {
-	if (!hasPlantSeat(authority)) return { status: "refused" };
+	if (!hasPlantSeat(authority)) return { status: "refused", code: "access_denied" };
 	return readDb("church-documents", async (db) => {
 		const reply = await documentsWriter.listChurch(db, authority, {});
-		if (reply.status !== "ok") return { status: "refused" };
+		if (reply.status !== "ok") return { status: "refused", code: reply.error.code };
 		return {
 			status: "ok",
 			value: {
@@ -66,10 +64,12 @@ export async function loadLibrary(
 	});
 }
 
-export async function loadArchived(authority: RequestActor): Promise<Load<ArchivedChurchSummary[]>> {
+export async function loadArchived(authority: RequestActor): Promise<Outcome<ArchivedChurchSummary[]>> {
 	return readDb("church-documents", async (db) => {
 		const reply = await documentsWriter.listArchivedChurch(db, authority, {});
-		return reply.status === "ok" ? { status: "ok", value: reply.value.documents } : { status: "refused" };
+		return reply.status === "ok"
+			? { status: "ok", value: reply.value.documents }
+			: { status: "refused", code: reply.error.code };
 	});
 }
 
@@ -77,7 +77,7 @@ export async function loadChurchDocument(
 	authority: RequestActor,
 	documentId: string,
 ): Promise<
-	| Load<{
+	| Outcome<{
 			view: ChurchView;
 			document: DocDocument;
 			brands: DocBrands | null;
@@ -106,7 +106,9 @@ export async function loadChurchDocument(
 			first.status !== "ok" && first.error.code === "unavailable" && saved.status === "ok" && canManageChurch(authority)
 				? await readOnly()
 				: first;
-		if (reply.status !== "ok" || saved.status !== "ok" || history.status !== "ok") return { status: "refused" };
+		if (reply.status !== "ok") return { status: "refused", code: reply.error.code };
+		if (saved.status !== "ok") return { status: "refused", code: saved.error.code };
+		if (history.status !== "ok") return { status: "refused", code: history.error.code };
 		const d = reply.value;
 		return {
 			status: "ok",
@@ -148,7 +150,7 @@ export async function churchFileRoute(request: Request, { params }: { params: Pr
 	const url = new URL(request.url);
 	const format = url.searchParams.get("format") ?? "pdf";
 	const revision = url.searchParams.get("revision");
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return gone();
 	const db = requestDatabase();
 	return transient(
@@ -184,7 +186,7 @@ export async function savedExportRoute(
 	const documentId = recordId.safeParse(raw.documentId);
 	const exportId = recordId.safeParse(raw.exportId);
 	if (!documentId.success || !exportId.success) return gone();
-	const actor = await documentActor();
+	const actor = await viewerActor();
 	if (!actor) return gone();
 	const db = requestDatabase();
 	return transient(
@@ -238,7 +240,8 @@ export const saveExportRoute = mutatingRoute(async function saveExportRoute(
 	} | null;
 	if (!body || typeof body.revision !== "string" || !/^[0-9]{1,7}$/.test(body.revision))
 		return answer(refused("invalid_input"));
-	const [actor, viewer] = await Promise.all([documentActor(), getViewer()]);
+	const viewer = await getViewer();
+	const actor = viewer.authority;
 	if (!actor) return answer(refused("access_denied"));
 	const db = requestDatabase();
 	return transient(

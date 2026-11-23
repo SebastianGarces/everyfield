@@ -95,7 +95,8 @@ function candidateFrom(
 	row: StateRow & { personId: string; personName: string; personState: c.CandidateEntry["personState"] },
 ): c.CandidateEntry {
 	const answered = row.kind !== "retracted";
-	const days = c.daysBetween(row.periodStart!, row.periodEnd!) + 1;
+	if (row.periodStart === null || row.periodEnd === null) throw new Error("a leadership candidate has no period");
+	const days = c.daysBetween(row.periodStart, row.periodEnd) + 1;
 	const reasons: c.CandidateReason[] = [];
 	if (answered) {
 		if (!row.attended) reasons.push("attendance_not_attested");
@@ -153,6 +154,10 @@ const revisionOf = ({ answer, ...row }: z.infer<typeof historyRow>): c.HumanRevi
 
 const fingerprint = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const nullable = (value: string | null | undefined) => value ?? null;
+const localToday = (r: { today: string | null }) => {
+	if (r.today === null) throw new Error("the plant has no local date");
+	return r.today;
+};
 
 const pageRow = z.object({
 	ok: z.boolean().nullable(),
@@ -230,7 +235,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
 	function replayOf(r: WriteRow, print: string) {
 		if (!r.prior) return null;
 		if (r.prior.fingerprint !== print) deny("idempotency_conflict");
-		return { state: stateRow.parse(r.prior.state), today: r.today! };
+		return { state: stateRow.parse(r.prior.state), today: localToday(r) };
 	}
 
 	function signalSaved(r: WriteRow, print: string, key: c.SignalKey) {
@@ -243,7 +248,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
 		if (!r.written) return null;
 		return {
 			outcome: "saved",
-			signal: signalFrom(key, stateRow.parse(r.written), r.today!),
+			signal: signalFrom(key, stateRow.parse(r.written), localToday(r)),
 		} satisfies z.output<typeof c.signalWriteResult>;
 	}
 
@@ -267,9 +272,12 @@ export function createSignals(config: { clock?: Clock } = {}) {
 		}
 		if (!r.ok) deny("access_denied");
 		if (!r.person && !r.written) deny("not_found");
-		if (r.written) return named(stateRow.parse(r.written), r.person!.name);
-		if (asOf && asOf > r.today!) deny("invalid_input");
-		if (periodEnd && periodEnd > (asOf ?? r.today!)) deny("invalid_input");
+		if (r.written) {
+			if (!r.person) throw new Error("a written candidate has no person");
+			return named(stateRow.parse(r.written), r.person.name);
+		}
+		if (asOf && asOf > localToday(r)) deny("invalid_input");
+		if (periodEnd && periodEnd > (asOf ?? localToday(r))) deny("invalid_input");
 		if (!r.cur) deny(correcting ? "not_current" : "revision_conflict");
 		if (r.cur.revision !== expected) deny("revision_conflict");
 		if (correcting) {
@@ -325,9 +333,10 @@ export function createSignals(config: { clock?: Clock } = {}) {
   ORDER BY p.display_name,p.id) FROM ppl p),'[]'::jsonb) AS people,
  coalesce((SELECT jsonb_agg(${historyJson(sql`h`, s)} ORDER BY h.recorded_at DESC,h.revision DESC,h.id) FROM hist h),'[]'::jsonb) AS history`);
 				const r = pageRow.parse(rows[0]);
-				if (!r.ok || !r.zone || !r.today) deny("access_denied");
+				const today = r.today;
+				if (!r.ok || !r.zone || !today) deny("access_denied");
 				const byKey = new Map(r.signals.map((x) => [x.key, x]));
-				const signals = c.SIGNAL_KEYS.map((k) => signalFrom(k, byKey.get(k) ?? null, r.today!));
+				const signals = c.SIGNAL_KEYS.map((k) => signalFrom(k, byKey.get(k) ?? null, today));
 				return c.attestationsPage.parse({
 					zone: r.zone,
 					today: r.today,
@@ -393,7 +402,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
 				);
 				const saved = signalSaved(r, print, i.key);
 				if (saved) return saved;
-				if (i.asOf && i.asOf > r.today!) deny("invalid_input");
+				if (i.asOf && i.asOf > localToday(r)) deny("invalid_input");
 				return deny("revision_conflict");
 			});
 		},
@@ -429,7 +438,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
 				);
 				const saved = signalSaved(r, print, i.key);
 				if (saved) return saved;
-				if (given && given > r.today!) deny("invalid_input");
+				if (given && given > localToday(r)) deny("invalid_input");
 				if (!r.cur) deny("not_current");
 				if (r.cur.revision !== q.expectedRevision) deny("revision_conflict");
 				if (r.cur.state !== "answered") deny("not_current");
@@ -443,7 +452,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
 				const s = scopeOf(authority, config.clock);
 				const q = parse(c.reaffirmRequest, raw);
 				const i = q.input;
-				if (!c.SIGNAL_DEFINITIONS.find((d) => d.key === i.key)!.reaffirms) deny("not_reaffirmable");
+				if (!c.definitionOf(i.key).reaffirms) deny("not_reaffirmable");
 				const expectedAnswer = i.expectedValue === "yes";
 				const print = fingerprint(["reaffirm", i, q.expectedRevision]);
 				const r = await write(
