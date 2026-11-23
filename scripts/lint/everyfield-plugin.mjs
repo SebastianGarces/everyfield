@@ -4491,6 +4491,29 @@ const countText = {
 	},
 };
 
+const CIVIL_DAY_HOME = "packages/contracts/src/common/day.ts";
+const NOON_UTC = /T12:00:00(?:\.000)?Z/;
+const civilDay = {
+	meta: { type: "problem" },
+	create(context) {
+		if (repoPath(context.filename) === CIVIL_DAY_HOME) return {};
+		const report = (node) =>
+			context.report({
+				node,
+				message:
+					"This builds a noon-UTC Date to handle a civil day. Use dayText(day, options), addDays(day, n) or weekdayOf(day) from @everyfield/contracts/common.",
+			});
+		return {
+			Literal(node) {
+				if (typeof node.value === "string" && NOON_UTC.test(node.value)) report(node);
+			},
+			TemplateLiteral(node) {
+				if (node.quasis.some((quasi) => NOON_UTC.test(quasi.value.cooked ?? quasi.value.raw))) report(node);
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -4552,5 +4575,6 @@ export default {
 		"confirm-keeps-refusal": confirmKeepsRefusal,
 		"no-default-database": noDefaultDatabase,
 		"count-text": countText,
+		"civil-day": civilDay,
 	},
 };

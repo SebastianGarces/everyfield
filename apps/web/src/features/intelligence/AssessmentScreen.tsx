@@ -1,6 +1,6 @@
 "use client";
 
-import { counted, countWord } from "@everyfield/contracts/common";
+import { counted, countWord, dayText } from "@everyfield/contracts/common";
 import type {
 	Assessment,
 	AssessmentView,
@@ -60,7 +60,6 @@ import { resolveAssessmentCitation } from "./fetch.ts";
 import {
 	coldStartTitle,
 	CRITERION,
-	dayText,
 	factText,
 	newestText,
 	nextSteps,

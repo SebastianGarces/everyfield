@@ -1,3 +1,4 @@
+import { dayText } from "@everyfield/contracts/common";
 import { programKind, programRhythm } from "@everyfield/contracts/organizations";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
@@ -17,14 +18,6 @@ function sixMonthsBefore(day: string) {
 	const last = new Date(Date.UTC(year, (month % 12) + 1, 0)).getUTCDate();
 	return `${year}-${String((month % 12) + 1).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
 }
-
-const dayFormat = new Intl.DateTimeFormat("en-US", {
-	month: "short",
-	day: "numeric",
-	year: "numeric",
-	timeZone: "UTC",
-});
-export const dayText = (day: string) => dayFormat.format(new Date(`${day}T12:00:00Z`));
 
 const value = <T>(reply: { status: "ok"; value: T } | { status: "refused" }): T => {
 	if (reply.status !== "ok") throw new EvryRefusal("access_denied");

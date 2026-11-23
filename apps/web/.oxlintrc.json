@@ -1390,7 +1390,8 @@
 		{
 			"files": ["src/*.ts", "src/access/**", "src/app/**", "src/components/**", "src/features/**", "src/server/**"],
 			"rules": {
-				"everyfield/count-text": "error"
+				"everyfield/count-text": "error",
+				"everyfield/civil-day": "error"
 			}
 		},
 		{

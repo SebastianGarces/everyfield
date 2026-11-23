@@ -1,3 +1,4 @@
+import { dayText } from "@everyfield/contracts/common";
 import type { WriteTx } from "@everyfield/domain/access";
 import { sql } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
@@ -27,7 +28,6 @@ import { personRow } from "../../../catalog/person-row.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { ownerOrAdmin } from "../../people/commands/index.ts";
 import { id } from "../ids.ts";
-import { dayText } from "../../pipeline/reads/index.ts";
 
 const context = (actor: EvryActor) => new PeopleReadContext(actor.authority);
 const result = (operation: string, rows: SourceRow[], exclusions: string[], total = rows.length): SourceResult => ({
