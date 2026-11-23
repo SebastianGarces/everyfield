@@ -1,5 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { counted } from "@everyfield/contracts/common";
 import { captured } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
@@ -117,7 +118,7 @@ function weekAnswer(prompt: Prompt, outputs: Output[]) {
 		lines.push(
 			"",
 			overdue
-				? `**Overdue tasks** (from Tasks): you have ${overdue} overdue ${overdue === 1 ? "task" : "tasks"}. [Open My tasks](/tasks?view=my)`
+				? `**Overdue tasks** (from Tasks): you have ${counted(overdue, "overdue task")}. [Open My tasks](/tasks?view=my)`
 				: "You have no overdue tasks (from Tasks).",
 		);
 	}
@@ -144,7 +145,7 @@ function addedAnswer(prompt: Prompt, activity: Output) {
 	const cut = activity.facts?.more === true && (!oldest || String(oldest.fields.date) >= since);
 	const lines = added.length
 		? [
-				`${cut ? "At least " : ""}${added.length} ${added.length === 1 ? "person was" : "people were"} added to People in the last month (since ${short(since)}), as Overview's activity shows:`,
+				`${cut ? "At least " : ""}${counted(added.length, "person was", "people were")} added to People in the last month (since ${short(since)}), as Overview's activity shows:`,
 				...added.map(
 					(e) =>
 						`- [${e.label.replace(/ added to People$/, "")}${e.fields.you === true ? " (you)" : ""}](${String(e.fields.href)}), added ${short(String(e.fields.date))}`,
@@ -167,7 +168,7 @@ function gapsAnswer(gaps: Output) {
 	if (!rows.length) return say("Every setup step Overview lists is done.");
 	const linked = rows.every((r) => typeof r.fields.href === "string");
 	return say(
-		`Overview lists ${rows.length} setup ${rows.length === 1 ? "step" : "steps"} still open:`,
+		`Overview lists ${counted(rows.length, "setup step")} still open:`,
 		...rows.map((r) => (typeof r.fields.href === "string" ? `- [${r.label}](${r.fields.href})` : `- ${r.label}`)),
 		...(linked ? [] : ["", "An Owner or Admin of this church takes these steps."]),
 	);
@@ -232,7 +233,7 @@ export function overviewStep(options: LanguageModelV4CallOptions, text: string):
 		const rows = list.rows ?? [];
 		if (!rows.length) return say("You haven't sent any feedback yet.");
 		return say(
-			`You have sent ${rows.length === 1 ? "1 piece" : `${rows.length} pieces`} of feedback${list.completeness === "partial" ? " that I can show" : ""}, newest first:`,
+			`You have sent ${counted(rows.length, "piece")} of feedback${list.completeness === "partial" ? " that I can show" : ""}, newest first:`,
 			...rows.map(feedbackLine),
 			"",
 			"See them in [Sent feedback](/feedback).",

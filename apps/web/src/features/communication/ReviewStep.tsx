@@ -17,6 +17,7 @@ import {
 import { useViewerNow, useViewerZone } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import { PreviewStage } from "./EmailFrame.tsx";
+import { MailingAddressPrompt } from "./MailingAddressPrompt.tsx";
 import { textToBody } from "./body.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
 import { listed, type Form } from "./composeModel.ts";
@@ -48,6 +49,7 @@ export function ReviewStep({
 	summary,
 	meeting,
 	churchName,
+	mailingAddress,
 	origin,
 	sampleName,
 	canSend,
@@ -62,6 +64,7 @@ export function ReviewStep({
 	summary: AudienceSummary | null;
 	meeting: MeetingContext | null;
 	churchName: string;
+	mailingAddress: string | null;
 	origin: string;
 	sampleName: string;
 	canSend: boolean;
@@ -106,7 +109,14 @@ export function ReviewStep({
 	return (
 		<div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
 			<PreviewStage
-				input={{ bodyHtml: textToBody(form.text), name, hasMeeting: form.meetingId !== null, origin, churchName }}
+				input={{
+					bodyHtml: textToBody(form.text),
+					name,
+					hasMeeting: form.meetingId !== null,
+					origin,
+					churchName,
+					mailingAddress,
+				}}
 				chrome={{ from: churchName, to: name, subject: form.subject }}
 				toolbar={
 					<div className="flex items-center gap-2">
@@ -173,6 +183,12 @@ export function ReviewStep({
 					<Row label="Template" value={template?.name ?? "None"} />
 					<Row label="Meeting" value={meeting ? `${meeting.title}` : "None"} />
 				</dl>
+				{mailingAddress === null ? (
+					<MailingAddressPrompt>
+						Every email from your church shows its mailing address at the bottom. Add it in Church profile, then send or
+						schedule this email.
+					</MailingAddressPrompt>
+				) : null}
 				{!canSend ? (
 					<p className="text-sm text-text-2">
 						{noRecipientReason(summary, "Choose at least one person who can get email before you send.")}

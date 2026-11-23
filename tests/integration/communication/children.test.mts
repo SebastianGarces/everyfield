@@ -8,6 +8,7 @@ import { hubLabel } from "../../../apps/web/src/features/communication/model.ts"
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
+import { MAILING } from "./church-address.mts";
 
 let f, church, owner;
 const keys = {
@@ -106,7 +107,7 @@ const mailOf = async (id, who) =>
 
 before(async () => {
 	f = await fixture();
-	church = await f.workspace();
+	church = await f.workspace("plant", MAILING);
 	const a = await f.account();
 	await f.seat(a, church, "owner");
 	owner = { ...a, actor: await f.actor(a.session) };

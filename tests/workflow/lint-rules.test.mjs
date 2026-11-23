@@ -3680,17 +3680,40 @@ export const l = (n: number) => (n === 1 ? "One task is" : \`\${n} tasks are\`);
 test("INV-lint: the count-text rule allows the counted and countWord module itself", () => {
 	const helper = `export const countWord = (n: number, one: string, many = \`\${one}s\`) => (n === 1 ? one : many);
 `;
-	const dir = sandbox({
-		"packages/contracts/src/common/text.ts": helper,
-		"packages/contracts/src/common/other.ts": helper,
-	});
-	const root = JSON.parse(readFileSync(join(dir, ".oxlintrc.json"), "utf8"));
-	root.overrides.push({ files: ["packages/**"], rules: { "everyfield/count-text": "error" } });
-	put(dir, ".oxlintrc.json", root);
 	assert.deepEqual(
-		lintIn(dir, ["packages/contracts/src/common/text.ts", "packages/contracts/src/common/other.ts"]).filter((hit) =>
-			hit.endsWith(" count-text"),
-		),
+		lint({
+			"packages/contracts/src/common/text.ts": helper,
+			"packages/contracts/src/common/other.ts": helper,
+		}).filter((hit) => hit.endsWith(" count-text")),
 		["packages/contracts/src/common/other.ts:1 count-text"],
 	);
+});
+
+test("INV-lint: the root config refuses hand-written count text in package source, except packages/ui/src, which cannot import contracts", () => {
+	const source = `export const a = (n: number) => (n === 1 ? "task" : "tasks");
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/x/count.ts": source,
+			"packages/evry/src/x/count.ts": source,
+			"packages/ui/src/x/count.ts": source,
+		}).filter((hit) => hit.endsWith(" count-text")),
+		["packages/domain/src/x/count.ts:1 count-text", "packages/evry/src/x/count.ts:1 count-text"],
+	);
+});
+
+test("INV-lint: package source writes no count text by hand, apart from the ui package's Pipeline display", () => {
+	const dir = realpathSync(mkdtempSync(join(tmpdir(), "lint-rules-")));
+	temps.push(dir);
+	put(dir, "count-text.json", { jsPlugins: [PLUGIN], rules: { "everyfield/count-text": "error" } });
+	const packages = ["contracts", "db", "domain", "evry", "reference", "ui"].map((name) => `packages/${name}/src`);
+	const ran = spawnSync(OXLINT, ["-c", join(dir, "count-text.json"), "-f", "json", ...packages], {
+		cwd: repo,
+		encoding: "utf8",
+		env: env(repo),
+	});
+	const files = JSON.parse(ran.stdout.slice(ran.stdout.indexOf("{")))
+		.diagnostics.filter((d) => d.code === "everyfield(count-text)")
+		.map((d) => relative(repo, resolve(repo, d.filename)));
+	assert.deepEqual([...new Set(files)], ["packages/ui/src/display/Pipeline.tsx"]);
 });
