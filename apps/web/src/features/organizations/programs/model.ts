@@ -1,3 +1,4 @@
+import { counted } from "@everyfield/contracts/common";
 import type { SitePath } from "@everyfield/contracts/identity";
 import type { Lost } from "@everyfield/contracts/common";
 import type { ProgramKind, ProgramRefusal, ProgramRhythm } from "@everyfield/contracts/organizations";
@@ -17,7 +18,7 @@ export const RHYTHM: Record<ProgramRhythm, string> = {
 };
 
 export function monthRange(min: number, max: number) {
-	if (min === max) return `${min} ${min === 1 ? "month" : "months"}`;
+	if (min === max) return counted(min, "month");
 	return `${min} to ${max} months`;
 }
 

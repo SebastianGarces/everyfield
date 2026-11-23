@@ -1,5 +1,6 @@
 "use client";
 
+import { dayText } from "@everyfield/contracts/common";
 import { checkGathering, checkNote, type GatheringOffer, type Plan } from "@everyfield/contracts/launch";
 import { Alert02Icon, Flag02Icon } from "@hugeicons/core-free-icons";
 import {
@@ -33,7 +34,6 @@ import type { chooseGatheringPath, saveGathering } from "./actions.ts";
 import type { readGatheringOffers } from "./fetch.ts";
 import {
 	GATHERING_MESSAGE,
-	longDate,
 	NOTE_MESSAGE,
 	offerLabel,
 	refusalMessage,
@@ -54,11 +54,6 @@ export type GatheringActions = {
 	save: typeof saveGathering;
 	offers: typeof readGatheringOffers;
 };
-
-const dayText = (date: string) =>
-	new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" }).format(
-		new Date(`${date}T12:00:00Z`),
-	);
 
 function useSwitch(
 	act: GatheringActions,
@@ -147,7 +142,7 @@ export function GatheringCard({
 		<InsightCard tone="field" aria-labelledby="gathering-milestone">
 			<InsightTop>
 				<InsightPill icon={Flag02Icon}>Gathering milestone</InsightPill>
-				{r ? <InsightCount>{longDate(r.date)}</InsightCount> : null}
+				{r ? <InsightCount>{dayText(r.date, { weekday: "short" })}</InsightCount> : null}
 			</InsightTop>
 			<InsightTitle id="gathering-milestone" className="mt-[26px]">
 				{title}

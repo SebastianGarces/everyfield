@@ -3600,7 +3600,8 @@
       "REQ-NTF-016"
     ],
     "case_ids": [
-      "CASE-NTF-016"
+      "CASE-NTF-016",
+      "CASE-NTF-016-CHILD"
     ],
     "operations": [
       "communication.applyMessagesOptOut",

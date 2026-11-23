@@ -5,12 +5,14 @@ Personas, sign-in and what the checker cannot catch: [README](README.md).
 
 ```mermaid
 flowchart LR
-  s0_link1(["link /onboarding"])
+  rail(["rail"])
+  s0_link2(["link /onboarding"])
   s2_link0(["link /design/onboarding"])
   x_overview_home(["overview.home"])
   s0["onboarding.setup<br/>/onboarding"]
+  rail -- "Set up your church" --> s0
   x_overview_home -- "path" --> s0
-  s0_link1 --> s0
+  s0_link2 --> s0
   s0 -.- s0_st0(("create-church"))
   s0 -.- s0_st1(("choose-start"))
   s0 -.- s0_st2(("member"))
@@ -43,6 +45,7 @@ The account's way into a church: create one, or explore first in a private Disco
 
 Reach:
 
+- Rail "Set up your church" for `signup`
 - From overview.home as `signup`:
 
 ```bash

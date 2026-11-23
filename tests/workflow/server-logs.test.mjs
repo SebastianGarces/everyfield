@@ -13,6 +13,7 @@ import test from "node:test";
 const app = fileURLToPath(new URL("../../apps/web/", import.meta.url));
 const next = fileURLToPath(new URL("../../apps/web/node_modules/next/dist/bin/next", import.meta.url));
 const PAGE = "/settings/account";
+const DELETION_PAGE = "/account-deletion";
 const COOKIE = "better-auth.session_token=signed-out";
 const GUARD = fileURLToPath(new URL("server-logs-offline.cjs", import.meta.url));
 const ABSORBED = new Map([
@@ -164,14 +165,19 @@ async function serverLogs(t) {
 			await new Promise((r) => setTimeout(r, 250));
 		}
 		await send(origin + PAGE, { headers: { cookie: COOKIE }, redirect: "manual" });
+		await send(origin + DELETION_PAGE, { headers: { cookie: COOKIE }, redirect: "manual" });
 
 		const secrets = { current: "Synthetic-current-7Qx!", next: "Synthetic-new-3Vb!", proof: "Synthetic-proof-9Lm!" };
 		const calls = [
-			["changePassword", { currentPassword: secrets.current, newPassword: secrets.next, revokeOtherSessions: true }],
-			["openAccountDeletion", { email: "synthetic@example.test", password: secrets.proof }],
+			[
+				PAGE,
+				"changePassword",
+				{ currentPassword: secrets.current, newPassword: secrets.next, revokeOtherSessions: true },
+			],
+			[DELETION_PAGE, "openAccountDeletion", { email: "synthetic@example.test", password: secrets.proof }],
 		];
-		for (const [name, request] of calls) {
-			const response = await send(origin + PAGE, {
+		for (const [page, name, request] of calls) {
+			const response = await send(origin + page, {
 				method: "POST",
 				headers: {
 					cookie: COOKIE,
@@ -187,7 +193,8 @@ async function serverLogs(t) {
 		}
 		await send(origin + PAGE, { headers: { cookie: COOKIE }, redirect: "manual" });
 		await logged((text) => text.split(`GET ${PAGE}`).length > 2);
-		assert.equal(log.split(`POST ${PAGE}`).length - 1, calls.length, "the dev server logged each action request");
+		for (const [page] of calls)
+			assert.equal(log.split(`POST ${page}`).length - 1, 1, `the dev server logged the action request to ${page}`);
 		assertOffline();
 		assert.ok(fontRequests > 0, "the page's fonts came from this run's font server, not from Google");
 		const shown = Object.keys(secrets).filter((key) => log.includes(secrets[key]));

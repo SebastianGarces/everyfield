@@ -1,8 +1,10 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { ArrowRight01Icon, UserCheck01Icon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
 import {
+	Alert,
 	Button,
 	Dialog,
 	DialogBody,
@@ -224,15 +226,12 @@ function Guidance({
 				</ul>
 			) : null}
 			{handoffs ? (
-				<div className="rounded-card bg-amber-50 px-4 py-3 text-sm text-ink-2">
-					<p className="font-medium text-ink">
-						{handoffs === 1 ? "1 open duty needs an owner" : `${handoffs} open duties need an owner`}
-					</p>
+				<Alert tone="warning" title={`${counted(handoffs, "open duty needs", "open duties need")} an owner`}>
 					<p className="mt-1">
 						Leaving the committed stages takes this person off their open follow-up work. Each duty stays open and is
 						marked Needs owner, so nothing is lost.
 					</p>
-				</div>
+				</Alert>
 			) : null}
 			<p className="text-xs text-text-3">These are reminders from the records. You can still move the person.</p>
 		</section>

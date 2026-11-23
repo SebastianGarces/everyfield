@@ -26,6 +26,7 @@
 		"machines:write": "node tools/ci/machines.ts --write",
 		"feature-maps": "node tools/ci/feature-maps.ts --check",
 		"knip": "knip --include files,exports,types",
+		"migrations:safety": "node tools/ci/migration-safety.ts",
 		"review-proof": "node tools/ci/review-proof.ts",
 		"format": "prettier --write \"{apps,ops,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\"",
 		"format:check": "prettier --check \"{apps,ops,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\""

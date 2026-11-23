@@ -15,6 +15,7 @@ import { hubLabel } from "../../../apps/web/src/features/communication/model.ts"
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider } from "./scheduled-support.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { MAILING } from "./church-address.mts";
 
 let f;
 const ring = { current: randomBytes(32), previous: [] };
@@ -33,7 +34,7 @@ const now = () => new Date();
 const rows = async (query) => (await f.admin.execute(query)).rows;
 
 async function church() {
-	const w = await f.workspace();
+	const w = await f.workspace("plant", MAILING);
 	await f.admin.execute(sql`UPDATE plant SET timezone = ${ZONE} WHERE id = ${w.id}::uuid`);
 	return w;
 }
@@ -159,6 +160,7 @@ test("AC:CASE-NTF-016 a refused opt-out, from a forged or tampered token, writes
 	const real = messagesOptOutToken(ring, { plantId: w.id, personId: ana.id });
 	const middle = real.length >> 1;
 	const tampered = real.slice(0, middle) + (real[middle] === "A" ? "B" : "A") + real.slice(middle + 1);
+	assert.notDeepEqual(Buffer.from(tampered, "base64url"), Buffer.from(real, "base64url"));
 	const forged = messagesOptOutToken({ current: randomBytes(32), previous: [] }, { plantId: w.id, personId: ana.id });
 	for (const token of [tampered, forged]) {
 		const outcome = await applyMessagesOptOut(f.db, ring, now, { token });

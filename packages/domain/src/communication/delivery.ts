@@ -7,6 +7,7 @@ import {
 	plainText,
 	renderBody,
 	renderEmailHtml,
+	renderEmailText,
 	renderTransactional,
 	scheduleAccepted,
 	usesRsvpLink,
@@ -14,7 +15,8 @@ import {
 } from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
-import { audiencePeople, reviewedParts } from "./audience.ts";
+import { churchAddressSql, churchMailingAddress, hasMailingAddressSql } from "./address.ts";
+import { childSql, reviewedParts, storedAudiencePeople } from "./audience.ts";
 import { z } from "zod";
 import { administers, deny, hash, parse, readReply, readerOf } from "./core.ts";
 import { meetingOpenSql, newRsvpToken, rsvpTokenDigest, rsvpTokenUpdate } from "../meetings/tokens.ts";
@@ -60,8 +62,10 @@ type Member = {
 	provider: string | null;
 	scheduledAt: string | null;
 	cancelRequested: boolean;
-	unsubscribed: boolean;
+	leftOut: LeftOut;
 };
+type LeftOut = "unsubscribed" | "child" | null;
+const leftOutValue = z.enum(["unsubscribed", "child"]).nullable();
 type Mode = "now" | "scheduled" | "lookup";
 type Batch = {
 	requestId: string;
@@ -132,17 +136,18 @@ function requireActor(authority: RequestActor) {
 }
 function counts(members: readonly Member[]) {
 	const accepted = members.filter(
-		(row) => row.state === "accepted" || row.state === "sent" || row.state === "scheduled",
+		(row) => !row.leftOut && (row.state === "accepted" || row.state === "sent" || row.state === "scheduled"),
 	);
 	const rejected = members.filter(
-		(row) => !row.unsubscribed && (row.state === "refused" || row.state === "failed" || row.state === "cancelled"),
+		(row) => !row.leftOut && (row.state === "refused" || row.state === "failed" || row.state === "cancelled"),
 	);
 	const unknown = members.filter((row) => row.state === "unknown" || row.state === "dispatched");
 	return {
 		acceptedCount: accepted.length,
 		rejectedCount: rejected.length,
 		unknownCount: unknown.length,
-		unsubscribedCount: members.filter((row) => row.unsubscribed).length,
+		unsubscribedCount: members.filter((row) => row.leftOut === "unsubscribed").length,
+		childCount: members.filter((row) => row.leftOut === "child").length,
 		confirmedRecipientIds: accepted.map((row) => row.personId).filter((id): id is string => id !== null),
 	};
 }
@@ -200,16 +205,18 @@ const loadedSchema = z.object({
 	meeting_open: z.boolean().nullable(),
 	guests: z.unknown().nullable(),
 	church_name: z.string().nullable(),
+	church_address: z.unknown().nullable(),
 });
 
 type Loaded = z.infer<typeof loadedSchema>;
 
-async function loadAudience(db: Database, actor: Actor, communicationId: string): Promise<Loaded> {
+async function loadAudience(db: Database, actor: Actor, communicationId: string, resolve = false): Promise<Loaded> {
 	const gate = adminGate(actor);
 	const raw = one(
 		await db.execute(sql`SELECT g.allowed, c.id, c.revision::text AS revision, c.state, c.subject, c.body_html, c.body_text,
 			c.audience, c.review_digest, c.meeting_id,
 			(SELECT pl.name FROM plant pl WHERE pl.id = c.plant_id) AS church_name,
+			${churchAddressSql(sql`c.plant_id`)} AS church_address,
 			CASE WHEN c.meeting_id IS NULL THEN false ELSE EXISTS (
 				SELECT 1 FROM meeting mt WHERE mt.id = c.meeting_id AND mt.plant_id = c.plant_id AND ${meetingOpenSql("mt")}
 			) END AS meeting_open,
@@ -218,7 +225,7 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 				WHERE pt.meeting_id = c.meeting_id AND pt.plant_id = c.plant_id AND pt.removed_at IS NULL
 			) END AS guests,
 			to_char(c.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS scheduled_at,
-			'[]'::jsonb AS people,
+			${resolve ? sql`CASE WHEN c.id IS NULL THEN '[]'::jsonb ELSE ${storedAudiencePeople(actor.plantId, sql`c.audience`)} END` : sql`'[]'::jsonb`} AS people,
 			CASE WHEN c.id IS NULL THEN 0 ELSE (
 				SELECT count(*)::int FROM jsonb_array_elements_text(coalesce(c.audience->'personIds', '[]'::jsonb)) e(value)
 				WHERE NOT EXISTS (
@@ -237,7 +244,8 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 							'provider', m.provider_message_id,
 							'scheduledAt', to_char(m.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 							'cancelRequested', m.cancel_requested_at IS NOT NULL,
-							'unsubscribed', m.refusal IS NOT DISTINCT FROM 'unsubscribed',
+							'leftOut', CASE WHEN m.refusal IS NOT NULL THEN m.refusal
+								WHEN m.state = 'scheduled' AND ${childSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} THEN 'child' END,
 							'payload', CASE WHEN m.state IN ('dispatched', 'unknown') THEN m.frozen_payload END,
 							'address', CASE WHEN m.state IN ('dispatched', 'unknown') THEN m.recipient_address_encrypted END
 						) ORDER BY mem.position) AS members
@@ -275,7 +283,7 @@ const storedBatches = z.array(
 				provider: z.string().nullable(),
 				scheduledAt: z.string().nullable(),
 				cancelRequested: z.boolean(),
-				unsubscribed: z.boolean(),
+				leftOut: leftOutValue,
 				payload: sealedPayload.nullable(),
 				address: z.string().nullable(),
 			}),
@@ -315,19 +323,14 @@ function batchesOf(raw: unknown, tenantId: string, encryptionKey?: Uint8Array): 
 }
 
 async function openLoaded(db: Database, actor: Actor, communicationId: string, expectedRevision: string) {
-	const found = loadedSchema.parse(await loadAudience(db, actor, communicationId));
+	const found = await loadAudience(db, actor, communicationId, true);
 	if (found.allowed !== true) deny("access_denied");
 	if (!found.id) deny("not_found");
 	if (found.revision !== expectedRevision || found.state !== "scheduled") deny("conflict");
 	if (!found.subject || !found.body_html) deny("invalid_input");
 	if ((found.foreign_people ?? 0) > 0) deny("access_denied");
 	const audience = c.audienceInput.parse(asJson(found.audience) ?? { groups: [], teamIds: [], personIds: [] });
-	const resolved = one(
-		await db.execute(sql`SELECT g.allowed, q.people FROM (SELECT ${adminGate(actor)} AS allowed) g
-			LEFT JOIN LATERAL (SELECT ${audiencePeople(actor.plantId, audience)} AS people) q ON g.allowed`),
-	) as { allowed?: boolean; people?: unknown } | undefined;
-	if (resolved?.allowed !== true) deny("access_denied");
-	const people = resolved.people ?? [];
+	const people = found.people ?? [];
 	const parts = reviewedParts(people);
 	if (!parts.people.length) deny("invalid_input");
 	const digest = hash({ subject: found.subject, body: found.body_html, people: parts.people, emails: parts.emails });
@@ -354,12 +357,22 @@ async function prepare(
 	const frozen = batchesOf(found.batches, actor.plantId, keys.encryptionKey);
 	if (frozen.length) return frozen;
 	if (mode === "lookup") deny("not_found");
+	const mailingAddress = churchMailingAddress(found.church_address);
+	if (mailingAddress === null) deny("mailing_address_missing");
 	const linked = usesRsvpLink(found.body_html);
 	const canLink = linked && new URL(keys.origin).protocol === "https:";
 	if (linked && (!found.meeting_id || !found.meeting_open)) deny("rsvp_needs_meeting");
 	const guests = new Set(z.array(z.uuid()).parse(asJson(found.guests) ?? []));
 	const people = z
-		.array(z.object({ id: z.uuid(), email: z.string().nullable(), displayName: z.string(), n: z.number() }))
+		.array(
+			z.object({
+				id: z.uuid(),
+				email: z.string().nullable(),
+				displayName: z.string(),
+				n: z.number(),
+				child: z.boolean(),
+			}),
+		)
 		.parse(asJson(found.people) ?? [])
 		.flatMap((row) => {
 			const email = row.email?.trim();
@@ -367,7 +380,12 @@ async function prepare(
 		})
 		.sort((a, b) => a.id.localeCompare(b.id));
 	const seen = new Set<string>();
-	const unique = people.filter((row) => (seen.has(row.id) ? false : (seen.add(row.id), true)));
+	const address = (row: (typeof people)[number]) => (row.email ?? "").trim().toLowerCase();
+	const out = new Set(leftOut);
+	const reached = new Set(people.filter((row) => !out.has(row.id)).map(address));
+	const unique = people.filter((row) =>
+		seen.has(row.id) || (out.has(row.id) && reached.has(address(row))) ? false : (seen.add(row.id), true),
+	);
 	const rows = unique.map((person, index) => {
 		const address = person.email.toLowerCase();
 		const id = randomUUID();
@@ -379,12 +397,13 @@ async function prepare(
 		const unsubscribe = keys.optOutKeys
 			? `${keys.origin}/unsubscribe/${messagesOptOutToken(keys.optOutKeys, { plantId: actor.plantId, personId: person.id })}`
 			: null;
-		const html = renderEmailHtml(found.body_html, merge, {
+		const context = {
 			churchName: found.church_name ?? "",
+			mailingAddress,
 			...(unsubscribe ? { unsubscribeUrl: unsubscribe } : {}),
-		});
-		const body = plainText(renderBody(found.body_html, merge)) || found.subject;
-		const text = unsubscribe ? `${body}\n\n--\nUnsubscribe: ${unsubscribe}` : body;
+		};
+		const html = renderEmailHtml(found.body_html, merge, context);
+		const text = renderEmailText(plainText(renderBody(found.body_html, merge)) || found.subject, context);
 		const headers = unsubscribe
 			? { "List-Unsubscribe": `<${unsubscribe}/one-click>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
 			: undefined;
@@ -400,6 +419,7 @@ async function prepare(
 		return {
 			id,
 			person: person.id,
+			child: person.child,
 			logical_key: `communication/${found.id}/${person.id}`,
 			payload_hash: payloadHash,
 			token_hash: token ? rsvpTokenDigest(token) : null,
@@ -449,8 +469,8 @@ async function prepare(
 	const stored = one(
 		await db.execute(sql`WITH gate AS (SELECT ${adminGate(actor)} AS allowed),
 			input AS (
-				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
-					id uuid, person uuid, logical_key text, payload_hash text, token_hash text, address_hash text, payload jsonb, address text,
+				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, child, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, child, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
+					id uuid, person uuid, child boolean, logical_key text, payload_hash text, token_hash text, address_hash text, payload jsonb, address text,
 					batch int, position int
 				)
 			),
@@ -464,12 +484,13 @@ async function prepare(
 					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at, refusal)
 				SELECT i.id, ${actor.plantId}::uuid, i.person, 'communication', ${found.id}::uuid, i.logical_key, i.payload_hash, ${loaded.digest},
 					i.payload, i.address, i.address_hash,
-					CASE WHEN i.unsubscribed OR EXISTS (
+					CASE WHEN i.unsubscribed OR i.refuse_child OR EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
 					) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
 					clock_timestamp(), ${heldUntil}::timestamptz,
-					CASE WHEN i.unsubscribed THEN 'unsubscribed' END
-				FROM (SELECT i.*, ${optedOutSql(sql`${actor.plantId}::uuid`, sql`i.person`)} AS unsubscribed FROM input i) i
+					CASE WHEN i.refuse_child THEN 'child' WHEN i.unsubscribed THEN 'unsubscribed' END
+				FROM (SELECT i.*, ${optedOutSql(sql`${actor.plantId}::uuid`, sql`i.person`)} AS unsubscribed,
+					i.child AND ${mode !== "scheduled"}::boolean AS refuse_child FROM input i) i
 				JOIN gate g ON g.allowed
 				WHERE EXISTS (
 					SELECT 1 FROM communication c
@@ -518,7 +539,7 @@ async function prepare(
 			)
 			SELECT (SELECT allowed FROM gate) AS allowed,
 				(SELECT count(*)::int FROM ins_attempt) AS attempts,
-				coalesce((SELECT jsonb_agg(jsonb_build_object('id', m.id, 'state', m.state, 'unsubscribed', m.refusal IS NOT NULL))
+				coalesce((SELECT jsonb_agg(jsonb_build_object('id', m.id, 'state', m.state, 'refusal', m.refusal))
 					FROM ins_mail m), '[]'::jsonb) AS members,
 				(SELECT count(*) FROM ins_mem) AS members_written,
 				(SELECT count(*) FROM ins_audit) AS audits`),
@@ -526,7 +547,7 @@ async function prepare(
 	if (stored?.allowed !== true) deny("access_denied");
 	const written = new Map(
 		z
-			.array(z.object({ id: z.uuid(), state: z.string(), unsubscribed: z.boolean() }))
+			.array(z.object({ id: z.uuid(), state: z.string(), refusal: leftOutValue }))
 			.parse(asJson(stored.members) ?? [])
 			.map((row) => [row.id, row]),
 	);
@@ -552,7 +573,7 @@ async function prepare(
 				provider: null,
 				scheduledAt: heldUntil,
 				cancelRequested: false,
-				unsubscribed: writtenOf(row.id).unsubscribed,
+				leftOut: writtenOf(row.id).refusal ?? (state(row.id) === "scheduled" && row.child ? "child" : null),
 			})),
 			messages: new Map(
 				members
@@ -1131,7 +1152,7 @@ export function sendTransactionalMail(
 }
 
 const churchClosing = (tenant: SQL) => sql`EXISTS (SELECT 1 FROM lifecycle_witness w
-	WHERE w.opaque_subject_id = ${tenant} AND w.state IN ('pending_deletion', 'purging', 'purged', 'revoked'))`;
+	WHERE w.opaque_subject_id = ${tenant} AND w.state IN ('pending_deletion', 'purging', 'purged'))`;
 
 const claimedSchema = z.object({
 	request_id: z.uuid(),
@@ -1145,7 +1166,7 @@ const claimedSchema = z.object({
 			id: z.uuid(),
 			state: z.string(),
 			personId: z.uuid().nullable(),
-			unsubscribed: z.boolean(),
+			leftOut: leftOutValue,
 			payload: sealedPayload.nullable(),
 			address: z.string().nullable(),
 		}),
@@ -1159,6 +1180,7 @@ async function claimDue(db: Database) {
 				JOIN mail_request_member mem ON mem.mail_id = m.id AND mem.tenant_id = m.tenant_id
 				WHERE m.purpose = 'communication' AND m.state = 'scheduled' AND m.scheduled_at IS NOT NULL
 					AND m.scheduled_at <= clock_timestamp() AND NOT ${churchClosing(sql`m.tenant_id`)}
+					AND ${hasMailingAddressSql(sql`m.tenant_id`)}
 				ORDER BY m.scheduled_at, mem.request_id
 				LIMIT 1
 			), locked AS MATERIALIZED (
@@ -1168,6 +1190,7 @@ async function claimDue(db: Database) {
 			), decided AS MATERIALIZED (
 				SELECT m.id, mem.position,
 					${optedOutSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} AS unsubscribed,
+					${childSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} AS child,
 					EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL) AS blocked
 				FROM locked r
 				JOIN mail_request_member mem ON mem.request_id = r.id AND mem.tenant_id = r.tenant_id
@@ -1175,8 +1198,8 @@ async function claimDue(db: Database) {
 				WHERE m.state = 'scheduled'
 			), flipped AS (
 				UPDATE mail m SET
-					state = CASE WHEN d.unsubscribed OR d.blocked THEN 'refused' ELSE 'dispatched' END,
-					refusal = CASE WHEN d.unsubscribed THEN 'unsubscribed' END,
+					state = CASE WHEN d.child OR d.unsubscribed OR d.blocked THEN 'refused' ELSE 'dispatched' END,
+					refusal = CASE WHEN d.child THEN 'child' WHEN d.unsubscribed THEN 'unsubscribed' END,
 					scheduled_at = NULL
 				FROM decided d
 				WHERE m.id = d.id AND m.state = 'scheduled'
@@ -1187,7 +1210,7 @@ async function claimDue(db: Database) {
 				(SELECT a.id FROM mail_attempt a WHERE a.request_id = r.id AND a.attempt_number = 1) AS attempt_id,
 				(SELECT split_part(f.logical_key, '/', 2) FROM flipped f LIMIT 1) AS communication_id,
 				coalesce((SELECT jsonb_agg(jsonb_build_object('position', f.position, 'id', f.id, 'state', f.state,
-					'personId', f.recipient_person_id, 'unsubscribed', f.refusal IS NOT NULL,
+					'personId', f.recipient_person_id, 'leftOut', f.refusal,
 					'payload', f.frozen_payload, 'address', f.recipient_address_encrypted) ORDER BY f.position)
 					FROM flipped f), '[]'::jsonb) AS members
 			FROM locked r
@@ -1224,7 +1247,7 @@ export async function runDueScheduled(
 			provider: null,
 			scheduledAt: null,
 			cancelRequested: false,
-			unsubscribed: row.unsubscribed,
+			leftOut: row.leftOut,
 		}));
 		const batch: Batch = {
 			requestId: claimed.request_id,

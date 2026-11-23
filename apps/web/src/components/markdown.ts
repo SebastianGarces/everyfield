@@ -169,3 +169,11 @@ export function parseMarkdown(text: string, open = false): Block[] {
 	endList(lines.length - 1);
 	return blocks;
 }
+
+const inlineText = (parts: Inline[]): string =>
+	parts.map((part) => (part.kind === "text" || part.kind === "code" ? part.text : inlineText(part.children))).join("");
+
+export const plainText = (text: string): string =>
+	parseMarkdown(text)
+		.map((block) => (block.kind === "paragraph" ? block.lines : block.items).map(inlineText).join("\n"))
+		.join("\n\n");

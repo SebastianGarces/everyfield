@@ -1,3 +1,4 @@
+import { counted, dayText } from "@everyfield/contracts/common";
 import {
 	CANDIDATE_DAYS,
 	CANDIDATE_QUESTION_VERSION,
@@ -17,10 +18,9 @@ import {
 	type SignalKey,
 	type SignalValue,
 } from "@everyfield/contracts/intelligence";
-import { shortDate } from "./model.ts";
+import type { Outcome } from "@everyfield/contracts/common";
 
-export type SignalOutcome<T> =
-	{ status: "ok"; value: T } | { status: "refused"; error: SignalError } | { status: "lost" };
+export type SignalOutcome<T> = Outcome<T, SignalError["code"], { error: SignalError }>;
 
 export const VALUE_LABEL: Record<SignalValue, string> = { yes: "Yes", not_yet: "Not yet" };
 export function definitionOf(key: SignalKey) {
@@ -50,11 +50,11 @@ export function answerLabel(entry: SignalEntry) {
 	if (entry.state === "answered") return VALUE_LABEL[answerOf(entry).value];
 	return entry.state === "retracted" ? "Retracted" : "Not answered";
 }
-export const agoText = (days: number) => (days === 0 ? "today" : days === 1 ? "1 day ago" : `${days} days ago`);
+export const agoText = (days: number) => (days === 0 ? "today" : `${counted(days, "day")} ago`);
 export function renewalLabel(renewal: Renewal) {
 	switch (renewal.status) {
 		case "current":
-			return `Current for ${renewal.daysLeft} more day${renewal.daysLeft === 1 ? "" : "s"}`;
+			return `Current for ${counted(renewal.daysLeft, "more day")}`;
 		case "needs_renewing":
 			return "Needs renewing";
 		case "does_not_expire":
@@ -168,7 +168,7 @@ export function historyText(line: HumanRevision) {
 		const { periodStart, periodEnd } = line;
 		if (periodStart === null || periodEnd === null) throw new Error("A leadership candidate revision has no period");
 		const days = daysBetween(periodStart, periodEnd) + 1;
-		return `${KIND_LABEL[line.kind]} · ${shortDate(periodStart)} to ${shortDate(periodEnd)} · ${days} days`;
+		return `${KIND_LABEL[line.kind]} · ${dayText(periodStart, { year: "never" })} to ${dayText(periodEnd, { year: "never" })} · ${days} days`;
 	}
 	if (line.kind === "retracted") return "Retracted";
 	const head = line.kind === "reaffirmed" ? "Still true" : line.kind === "corrected" ? "Corrected to" : "Answered";
@@ -239,7 +239,7 @@ export const REASON_TEXT: Record<CandidateReason, string> = {
 	period_too_short: `The period is shorter than ${CANDIDATE_DAYS} days`,
 };
 export const periodText = (c: Pick<CandidateEntry, "periodStart" | "periodEnd" | "days">) =>
-	`${shortDate(c.periodStart)} to ${shortDate(c.periodEnd)} · ${c.days} days`;
+	`${dayText(c.periodStart, { year: "never" })} to ${dayText(c.periodEnd, { year: "never" })} · ${c.days} days`;
 
 export function withCandidate(page: AttestationsPage, entry: CandidateEntry): AttestationsPage {
 	const known = page.candidates.some((c) => c.personId === entry.personId);

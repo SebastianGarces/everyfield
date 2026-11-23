@@ -165,8 +165,6 @@ export const FACTORS: { key: Factor; label: string; hint: string }[] = [
 export const scoreText = (n: number) => n.toFixed(1);
 export const deltaText = (n: number) => (n > 0 ? "+" : n < 0 ? "−" : "") + Math.abs(n).toFixed(1);
 
-export const peopleText = (n: number) => `${n} ${n === 1 ? "person" : "people"}`;
-
 export const WINDOWS = ["all", "upcoming", "past"] as const;
 export type Window = (typeof WINDOWS)[number];
 export const WINDOW_LABEL: Record<Window, string> = { all: "All", upcoming: "Upcoming", past: "Past" };

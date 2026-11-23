@@ -1,4 +1,4 @@
-import { instant } from "@everyfield/contracts/common";
+import { instant, type Outcome as Shared } from "@everyfield/contracts/common";
 import {
 	CARE_AREAS,
 	noteOf,
@@ -12,7 +12,7 @@ import {
 } from "@everyfield/contracts/intelligence";
 import { nextMonday } from "../../components/time.ts";
 
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; error: CareError } | { status: "lost" };
+export type Outcome<T> = Shared<T, CareError["code"], { error: CareError }>;
 
 export const AREA: Record<CareArea, { title: string; question: string; short: string }> = {
 	spiritual: { title: "Spiritually", question: "How is your own walk with God?", short: "Spiritual" },
@@ -43,34 +43,6 @@ export function submitLabel(week: CareWeek, correcting: boolean) {
 	return week.id !== null && week.answer !== null ? "Save changes" : "Save check-in";
 }
 
-const LONG_MONTH = [
-	"January",
-	"February",
-	"March",
-	"April",
-	"May",
-	"June",
-	"July",
-	"August",
-	"September",
-	"October",
-	"November",
-	"December",
-];
-function monthDay(day: string) {
-	const [, m, d] = day.split("-").map(Number);
-	const month = m === undefined ? undefined : LONG_MONTH[m - 1];
-	if (month === undefined || d === undefined) throw new RangeError(`Not a local date: ${day}`);
-	return { month, d };
-}
-export function shortDate(day: string) {
-	const { month, d } = monthDay(day);
-	return `${month.slice(0, 3)} ${d}`;
-}
-export function mondayDate(day: string) {
-	const { month, d } = monthDay(day);
-	return `Monday, ${month} ${d}`;
-}
 export const weekStartIn = (asOf: string, zone: string) =>
 	new Date(Date.parse(nextMonday(asOf, zone)) - 7 * 86_400_000).toISOString().slice(0, 10);
 export function savedAt(instant: string, zone: string) {

@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { requestDatabase } from "@/server/database";
+import { hasLinkProof } from "@/server/link-proof";
 import { getViewer } from "@/server/request-context";
 import { AuthFrame } from "./AuthFrame";
 import { InvitationScreen } from "./invitation/InvitationScreen";
@@ -50,13 +51,13 @@ export function RecoverPage() {
 const proofPage: Metadata = { robots: { index: false, follow: false }, referrer: "no-referrer" };
 
 export const resetMetadata: Metadata = { title: "Choose a new password", ...proofPage };
-export async function ResetPasswordPage({ searchParams }: { searchParams: Search }) {
-	return <ResetPasswordScreen proof={one((await searchParams).token)} />;
+export async function ResetPasswordPage() {
+	return <ResetPasswordScreen linked={await hasLinkProof("/reset-password")} />;
 }
 
 export const verifyMetadata: Metadata = { title: "Confirm your email", ...proofPage };
-export async function VerifyEmailPage({ searchParams }: { searchParams: Search }) {
-	return <VerifyEmailScreen proof={one((await searchParams).token)} />;
+export async function VerifyEmailPage() {
+	return <VerifyEmailScreen linked={await hasLinkProof("/verify-email")} />;
 }
 
 export const invitationMetadata: Metadata = { title: "Your invitation", ...proofPage };
