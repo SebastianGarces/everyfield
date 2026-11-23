@@ -113,7 +113,7 @@ const weekday = (at: unknown) =>
 		: null;
 const errorOf = (r: Result | undefined) => (typeof r?.error === "string" ? r.error : null);
 
-function newMailStep(options: LanguageModelV4CallOptions, ask: string, earlier: string, results: Result[]) {
+function newMailStep(options: LanguageModelV4CallOptions, ask: string, results: Result[]) {
 	const last = results.at(-1);
 	const canPropose = proposesOn(options, "communication");
 
@@ -307,7 +307,7 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 	if (!canRead) return null;
 	if (/^\s*(ok|okay|yes|yep|sure)[.!]?\s*$/i.test(ask) && /\b(template|fix it)\b/i.test(earlier))
 		return text("Nothing has changed. Approval happens only on the review card: press Approve there.");
-	const added = newMailStep(options, ask, earlier, results);
+	const added = newMailStep(options, ask, results);
 	if (added) return added;
 
 	if (!canPropose && /\b(send|resend|delete|email (them|everyone|all))\b/i.test(ask))

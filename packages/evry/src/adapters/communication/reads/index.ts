@@ -8,7 +8,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { personRow } from "../../../catalog/person-row.ts";
-import { churchZone, localTime } from "../../tasks/reads/index.ts";
+import { churchZone, localTime, ownerOrAdmin } from "../../tasks/reads/index.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { audienceInput, classifiedPeople } from "../audience.ts";
 
@@ -705,9 +705,6 @@ export const deliveryTotals: ReadAdapter<z.infer<typeof totalsInput>> = {
 		};
 	},
 };
-
-const ownerOrAdmin = (actor: EvryActor) =>
-	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
 
 export const listAudienceTeams: ReadAdapter<Record<string, never>> = {
 	operation: "communication.listAudienceTeams",

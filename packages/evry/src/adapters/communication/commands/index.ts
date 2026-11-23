@@ -1196,9 +1196,8 @@ export const correctContactLog: ReviewedWrite<z.infer<typeof correctInput>> = {
 	allowed: (actor) => actor.owner.kind === "plant" && actor.role !== null,
 	async review(actor, value, context) {
 		const plant = actor.owner.id;
-		const at = value.occurredAt
-			? sql`(${value.occurredAt}::timestamp AT TIME ZONE (SELECT timezone FROM plant WHERE id=${plant}::uuid))`
-			: sql`o.occurred_at`;
+		const zone = sql`(SELECT timezone FROM plant WHERE id=${plant}::uuid)`;
+		const at = value.occurredAt ? sql`(${value.occurredAt}::timestamp AT TIME ZONE ${zone})` : sql`o.occurred_at`;
 		if (actor.role === "member") {
 			const own = await context.db.execute(sql`SELECT FROM contact_outcome o
 				JOIN task t ON t.id=o.task_id AND t.plant_id=o.plant_id AND t.deleted_at IS NULL AND t.parent_id IS NULL
@@ -1208,7 +1207,6 @@ export const correctContactLog: ReviewedWrite<z.infer<typeof correctInput>> = {
 						ORDER BY a.occurred_at,a.id LIMIT 1)=${actor.accountId}::uuid`);
 			if (!own.rows.length) throw new EvryRefusal("not_assigned");
 		}
-		const zone = sql`(SELECT timezone FROM plant WHERE id=${plant}::uuid)`;
 		const local = (when: SQL) =>
 			sql`to_jsonb(to_char(${when} AT TIME ZONE ${zone},'YYYY-MM-DD HH24:MI')||' '||${zone})`;
 		const refusal = sql`CASE WHEN ${at}>clock_timestamp() THEN 'That time is in the future. Pick a time that has passed.'
