@@ -869,10 +869,7 @@ export const development_enrollment = pgTable(
 		unique("development_enrollment_uq_1").on(table.id, table.version_id, table.organization_id),
 		unique("development_enrollment_uq_3").on(table.id, table.program_id, table.organization_id),
 		check("development_enrollment_ck_0", sql`(revision >= 1)`),
-		check(
-			"development_enrollment_ck_1",
-			sql`(status = ANY (ARRAY['active'::text, 'completed'::text]))`,
-		),
+		check("development_enrollment_ck_1", sql`(status = ANY (ARRAY['active'::text, 'completed'::text]))`),
 		check("development_enrollment_ck_2", sql`(expected_end_on >= started_on)`),
 		check("development_enrollment_meeting_timezone_iana", sql`(meeting_timezone = ANY (${canonicalZones7}))`),
 		index("development_enrollment_ref_0").using("btree", table.organization_id.asc().nullsLast()),
