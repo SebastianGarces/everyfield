@@ -212,7 +212,7 @@ export const SectionHead = (ctx: Ctx, n: number, title: string, mode: "fill" | "
 						lineHeight: 1.1,
 					}}
 				>
-					{String(n).padStart(2, "0")}
+					{String(n)}
 				</Text>
 			)}
 			<View style={{ flexGrow: 1 }}>

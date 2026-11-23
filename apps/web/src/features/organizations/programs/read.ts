@@ -6,16 +6,13 @@ import {
 	searchReadings,
 } from "@everyfield/domain/organizations";
 import "server-only";
+import { organizationSeat } from "@/server/request-context";
 import { z } from "zod";
 import { defineReads } from "../../../server/platform/reads.ts";
-import { pipelineActor } from "../pipeline-mount";
 import { programCall } from "./mount";
 
 export const GET = defineReads(
-	async () => {
-		const who = await pipelineActor();
-		return who.kind === "seat" ? who.authority : null;
-	},
+	async () => (await organizationSeat())?.authority ?? null,
 	"unavailable",
 	(get) => ({
 		review: get(z.strictObject({ enrollmentId: z.string() }), (authority, v) =>

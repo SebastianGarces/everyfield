@@ -8,12 +8,16 @@ import type { DeletionProducer, NativeAccountProducer, SettingsProducer } from "
 import type { DeliveryKeys, DeliveryTransport } from "@everyfield/domain/communication";
 import type { MailReport } from "@everyfield/contracts/communication";
 import type { PeopleContext } from "@everyfield/contracts/people";
+import type { PhaseNotices } from "@everyfield/domain/phases";
 import type { LaunchNotices } from "@everyfield/domain/launch";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
+import type { ConversationFiles } from "../catalog/types.ts";
 
 export type MailPort = { transport: DeliveryTransport; keys: DeliveryKeys };
+
+export type EffectPorts = { reminders: TaskReminders; phaseNotices: PhaseNotices };
 
 export type NativePorts = {
 	invitations(
@@ -31,24 +35,34 @@ export type NativePorts = {
 	launchNotices?: LaunchNotices;
 };
 
-export type ReviewContext = { db: Database; mail: MailPort | null; native: NativePorts | null };
+export type ReviewContext = {
+	db: Database;
+	mail: MailPort | null;
+	native: NativePorts | null;
+	conversationId: string | null;
+	files?: ConversationFiles | null;
+};
 
 export type NativeContext = { authority: RequestActor; ports: NativePorts | null };
 
-export const personOutcome = z.object({
+export const savedInput = z.strictObject({ input: z.unknown() });
+export const savedRevision = z.strictObject({ expectedRevision: z.string(), input: z.unknown() });
+
+export const personOutcome = z.strictObject({
 	id: z.uuid(),
 	label: z.string(),
 	outcome: z.enum(["changed", "unchanged"]),
 	reason: z.string().optional(),
 });
-export const importOutcome = z.object({
+export const importOutcome = z.strictObject({
 	status: z.enum(["in_progress", "complete", "partial"]),
-	counts: z.object({ created: z.int(), skipped: z.int(), failed: z.int(), remaining: z.int() }),
-	failed: z.array(z.object({ row: z.int(), reason: z.string() })),
+	counts: z.strictObject({ created: z.int(), skipped: z.int(), failed: z.int(), remaining: z.int() }),
+	failed: z.array(z.strictObject({ row: z.int(), reason: z.string() })),
 });
-export const currentPerson = z.object({ id: z.uuid(), label: z.string(), value: z.string().nullable() });
+export const currentPerson = z.strictObject({ id: z.uuid(), label: z.string(), value: z.string().nullable() });
 type EffectDone = {
 	receiptId?: string;
+	meetingId?: string;
 	revision: string;
 	report?: MailReport;
 	people?: z.infer<typeof personOutcome>[];
@@ -68,7 +82,7 @@ export type ReviewedWrite<I> = {
 		context: PeopleContext,
 		args: unknown,
 		effectKey: string,
-		reminders: TaskReminders,
+		ports: EffectPorts,
 		native: NativeContext,
 	): Promise<EffectResult>;
 	approveNow?: {

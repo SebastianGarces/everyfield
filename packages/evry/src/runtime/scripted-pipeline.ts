@@ -2,6 +2,7 @@ import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk
 import { randomUUID } from "node:crypto";
 import { dayText } from "../adapters/pipeline/reads/index.ts";
 import { PIPELINE_RULES } from "../context/compile.ts";
+import { captured } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind?: string; id: string; label: string; fields: Record<string, unknown> };
@@ -91,11 +92,14 @@ function edited(base: Plan, ask: string): Plan | null {
 		changed = true;
 	}
 	for (const m of ask.matchAll(new RegExp(`\\brename (?:the )?milestone ${QUOTED} to ${QUOTED}`, "gi"))) {
-		plan.milestones = plan.milestones.map((x) => (x.title === m[1] ? { ...x, title: m[2]! } : x));
+		plan.milestones = plan.milestones.map((x) => (x.title === m[1] ? { ...x, title: captured(m, 2) } : x));
 		changed = true;
 	}
 	for (const m of ask.matchAll(new RegExp(`\\badd (?:a )?milestone ${QUOTED}`, "gi"))) {
-		plan.milestones = [...plan.milestones, { lineage: undefined, title: m[1]!, description: null, handsOn: false }];
+		plan.milestones = [
+			...plan.milestones,
+			{ lineage: undefined, title: captured(m, 1), description: null, handsOn: false },
+		];
 		changed = true;
 	}
 	return changed ? plan : null;
@@ -211,7 +215,8 @@ export function pipelineStep(options: LanguageModelV4CallOptions, text: string):
 	if (hint) {
 		if (typeof last?.proposalId === "string") {
 			const [card] = (last.rows ?? []) as Row[];
-			const plan = detail && edited((versionPlan(detail, "draft") ?? versionPlan(detail, "published"))!, text);
+			const base = detail && (versionPlan(detail, "draft") ?? versionPlan(detail, "published"));
+			const plan = base && edited(base, text);
 			return say(
 				`Here is the plan for ${card?.label ?? "the next version"} of ${String(detail?.facts?.program)}. ${plan ? planText(plan) : ""}\n\nI prepared a review card that lists each change and what stays the same. Nothing is saved until you approve it, nothing is published, and only you publish it from Programs.`,
 			);
@@ -245,7 +250,8 @@ export function pipelineStep(options: LanguageModelV4CallOptions, text: string):
 			return say(
 				`${quoted(PIPELINE_RULES.directorOnly)}${String(facts.program)} is directed by ${String(facts.director)}, so only ${String(facts.director)} edits its plan and I can't draft its next version for you. Nothing changed.`,
 			);
-		const base = (draft ?? published)!;
+		const base = draft ?? published;
+		if (!base) return say(`${String(facts.program)} has no version to build the next one from. Nothing changed.`);
 		const plan = edited(base, next[2] ?? "");
 		if (!plan)
 			return say(
@@ -275,7 +281,7 @@ export function pipelineStep(options: LanguageModelV4CallOptions, text: string):
 
 	if (drafted) {
 		const months = Number(drafted[1]);
-		const kind = drafted[2]!.toLowerCase() as "apprenticeship" | "residency";
+		const kind = captured(drafted, 2).toLowerCase() as "apprenticeship" | "residency";
 		const p = draft(Math.min(Math.max(months, 1), 120), kind);
 		if (typeof last?.proposalId === "string")
 			return say(
@@ -305,13 +311,13 @@ export function pipelineStep(options: LanguageModelV4CallOptions, text: string):
 		}
 		if (!offers("pipeline.proposeStageMove")) return roleRule();
 		if (!board) return readBoard();
-		const who = move[1]!.toLowerCase();
+		const who = captured(move, 1).toLowerCase();
 		const person = (board.rows ?? []).find((r) => r.kind === "person" && r.label.toLowerCase().startsWith(who));
 		const stage = (board.rows ?? []).find(
-			(r) => r.kind === "stage" && r.label.toLowerCase() === move[2]!.trim().toLowerCase(),
+			(r) => r.kind === "stage" && r.label.toLowerCase() === captured(move, 2).trim().toLowerCase(),
 		);
 		if (!person) return say(`I can't find ${move[1]} in your pipeline.`);
-		if (!stage) return say(`Your pipeline has no stage called ${move[2]!.trim()}.`);
+		if (!stage) return say(`Your pipeline has no stage called ${captured(move, 2).trim()}.`);
 		return call("propose_change", {
 			operation: "pipeline.proposeStageMove",
 			input: { personId: person.id, stageId: stage.id },

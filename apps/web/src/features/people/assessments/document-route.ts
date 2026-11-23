@@ -1,6 +1,6 @@
 import "server-only";
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
+import { plantSeat } from "@/server/request-context";
 import { getCommitmentDownload } from "@everyfield/domain/people";
 import { z } from "zod";
 import { privateStorage } from "@everyfield/db/schema";
@@ -16,9 +16,8 @@ export async function GET(
 	{ params: raw }: { params: Promise<{ personId: string; commitmentId: string }> },
 ) {
 	const p = params.safeParse(await raw);
-	const v = await getViewer();
 	const storage = privateStorage();
-	const people = v.people;
+	const people = await plantSeat();
 	if (!p.success || !people || !storage) return gone();
 	const db = requestDatabase();
 	const link = await transient(

@@ -3,8 +3,7 @@ import { authorizePhaseNotices, createPhaseWriter, type PhaseNotices } from "@ev
 import "server-only";
 import { serverConfig, type ServerConfig } from "../../server/config.ts";
 import { database } from "../../server/database";
-import { createMailService } from "../../server/jobs/mail";
-import { createNotificationService } from "../../server/jobs/notifications";
+import { createMailService, createNotificationService } from "@everyfield/domain/jobs";
 import { phaseNotices } from "./notices";
 
 let mount: ReturnType<typeof create> | undefined;
@@ -18,7 +17,7 @@ function create(v: ServerConfig) {
 		authorize: authorizePhaseNotices,
 	});
 	const notices: PhaseNotices = phaseNotices((eligible) => createNotificationService({ mail, eligible }));
-	return { db, writer: createPhaseWriter({ notices }) };
+	return { db, notices, writer: createPhaseWriter({ notices }) };
 }
 export function phasesMount() {
 	mount ??= create(serverConfig());

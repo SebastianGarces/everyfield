@@ -121,7 +121,7 @@ export async function readOversightDigest(db: Database, authority: RequestActor,
 						JOIN affiliation a ON a.organization_id = ${input.organizationId}::uuid
 							AND a.plant_id IS NOT NULL AND a.ended_at IS NULL AND a.share_activity
 							AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.kind = 'plant' AND w.opaque_subject_id = a.plant_id
-								AND w.state NOT IN ('active','cancelled'))
+								AND w.state <> 'cancelled')
 						JOIN audit_event e ON e.tenant_id = a.plant_id
 							AND e.action IN (${sql.raw(actions)})
 							AND e.occurred_at >= CASE WHEN ${input.period} = 'owed_catchup' THEN b.start_at - interval '7 days' ELSE b.start_at END
@@ -132,12 +132,12 @@ export async function readOversightDigest(db: Database, authority: RequestActor,
 		if (!row.allowed || !row.timezone) deny("access_denied");
 		const zone = timeZone.parse(row.timezone);
 		const plants = [...new Set(row.lines.map((line) => line.plant))];
-		return oversightDigestResult.parse({
+		return {
 			timezone: zone,
 			period: input.period,
 			lines: row.lines.map((line) => ({ date: line.date, count: line.count })),
 			plants,
-		});
+		} satisfies z.output<typeof oversightDigestResult>;
 	});
 }
 
@@ -170,7 +170,7 @@ export async function readPlanterDigest(db: Database, authority: RequestActor, r
 			if (resolved.kind !== "resolved") deny("invalid_input");
 			sendAt = resolved.occurrence.instant;
 		} else sendAt = nextDigestInstant(zone, row.cadence ?? "weekly", now(), { weekday: row.weekday, hour: row.hour });
-		return planterDigestResult.parse({ sendAt, inAppDigest: row.in_app });
+		return { sendAt, inAppDigest: row.in_app } satisfies z.output<typeof planterDigestResult>;
 	});
 }
 
@@ -237,7 +237,7 @@ export async function compileOversightDigest(
 			WHERE a.organization_id = ${input.organization}::uuid AND a.plant_id IS NOT NULL AND a.ended_at IS NULL
 				AND a.share_activity AND (SELECT ok FROM live)
 				AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.kind = 'plant' AND w.opaque_subject_id = a.plant_id
-					AND w.state NOT IN ('active','cancelled'))
+					AND w.state <> 'cancelled')
 			ORDER BY a.id FOR SHARE OF a
 		), counted AS (
 			SELECT p.name AS plant, p.id, (e.occurred_at AT TIME ZONE ${zone})::date AS date, count(*)::int AS count

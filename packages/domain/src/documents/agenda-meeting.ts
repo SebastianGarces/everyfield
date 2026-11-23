@@ -27,12 +27,17 @@ export function agendaKindOf(m: Pick<MeetingRead, "type" | "leadership">): Agend
 
 export function agendaMeetingOf(m: MeetingRead, thisYear: number): AgendaMeeting {
 	const starts = sectionStarts(m.localTime, m.agenda);
+	const startOf = (i: number) => {
+		const start = starts[i];
+		if (start === undefined) throw new Error("an agenda section has no start time");
+		return start;
+	};
 	return {
 		title: meetingTitle(m),
 		date: dateText(m.localDate, thisYear),
 		time: timeText(m.localTime),
 		place: m.venueName === null ? null : `${m.venueName}, ${m.venueAddress ?? ""}`,
-		sections: m.agenda.map((s, i) => ({ title: s.title, minutes: s.minutes, start: timeText(starts[i]!) })),
+		sections: m.agenda.map((s, i) => ({ title: s.title, minutes: s.minutes, start: timeText(startOf(i)) })),
 		totalMinutes: m.agenda.reduce((n, s) => n + s.minutes, 0),
 		attendees: m.attendees,
 		hiddenAttendees: m.attendeeTotal - m.attendees.length,

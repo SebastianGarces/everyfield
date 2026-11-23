@@ -1,7 +1,7 @@
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import {
 	enqueueJob,
 	claimDue,
@@ -9,7 +9,7 @@ import {
 	finishJob,
 	recoverLease,
 	checkpoint,
-} from "../../../apps/web/src/server/jobs/queue.ts";
+} from "../../../packages/domain/src/jobs/queue.ts";
 import { db, runtime, tenant, setup, teardown, subject, due } from "./support.mts";
 before(setup);
 after(teardown);
@@ -169,7 +169,7 @@ test("INV-jobs: intent and producer fact roll back together, replay retains orig
 });
 
 test("INV-scan: committed pages retain the owed tail beyond both page and retry limits", async () => {
-	const { scanPage } = await import("../../../apps/web/src/server/jobs/queue.ts");
+	const { scanPage } = await import("../../../packages/domain/src/jobs/queue.ts");
 	const id = await transaction(runtime, (tx) =>
 		enqueueJob(tx, {
 			tenant,
@@ -249,4 +249,67 @@ test("INV-jobs: a claim is one round trip; it takes the oldest due job, skips on
 	const [oldest] = await claimDue(runtime, ["digest"]);
 	assert.deepEqual([oldest.id, oldest.attempt_count, oldest.claim_generation], [ids[0], 1, "1"]);
 	assert.deepEqual(await claimDue(runtime, ["digest"]), []);
+});
+
+test("INV-jobs INV-privacy: every enqueue path and checkpoint accepts a key only as words, ids, counts, dates and instants, refusing a random token or a mixed-case password", async () => {
+	const { queueJobsFor } = await import("../../../packages/domain/src/jobs/queue.ts");
+	const { randomBytes } = await import("node:crypto");
+	const record = await subject();
+	const queue = (key: string) =>
+		transaction(runtime, (tx) =>
+			enqueueJob(tx, {
+				tenant,
+				subject: record,
+				kind: "object_cleanup",
+				key,
+				revision: "1",
+				eligibleAt: "2026-01-01T00:00:00Z",
+			}),
+		);
+	const queueFor = (key: string) =>
+		transaction(runtime, (tx) =>
+			tx.execute(
+				queueJobsFor(querySql`FROM (SELECT ${querySql.param(record)}::uuid AS id) s`, {
+					kind: "object_cleanup",
+					tenant: querySql`${querySql.param(tenant)}::uuid`,
+					subject: querySql`s.id`,
+					key: querySql`${querySql.param(key)}::text`,
+					conflict: "skip",
+				}),
+			),
+		);
+	const refused = [
+		`reset/${randomBytes(32).toString("base64url")}`,
+		`invite/${randomBytes(20).toString("hex")}`,
+		"password/Hunter2!",
+		"Bearer abc",
+		"",
+	];
+	for (const key of refused) {
+		await assert.rejects(queue(key));
+		await assert.rejects(queueFor(key));
+	}
+	const count = await db.execute(
+		querySql`SELECT count(*)::int n FROM job WHERE subject_record_id=${querySql.param(record)}`,
+	);
+	assert.equal(count.rows[0].n, 0);
+	for (const key of [
+		`settings/plant_timezone/${record}`,
+		`avatar/${record}/2026-01-01T00:00:00.000Z`,
+		`purge/${record}/2`,
+	])
+		assert.match(await queue(key), /^[0-9a-f-]{36}$/);
+	for (const key of [
+		`digest/church_digest/${record}/2026-01-05`,
+		`meeting/day_7/2026-01-01T09:00:00.000Z`,
+		`${record}:3:${record}`,
+	])
+		await queueFor(key);
+	const stored = await db.execute(
+		querySql`SELECT producer_key FROM job WHERE subject_record_id=${querySql.param(record)} ORDER BY producer_key`,
+	);
+	assert.equal(stored.rows.length, 6);
+	const [claim] = await claimDue(runtime, ["object_cleanup"], 3);
+	await assert.rejects(transaction(runtime, (tx) => checkpoint(tx, claim, randomBytes(24).toString("base64url"))));
+	assert.equal(await transaction(runtime, (tx) => checkpoint(tx, claim, "external")), true);
 });

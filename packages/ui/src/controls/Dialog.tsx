@@ -92,6 +92,20 @@ export function DialogFooter({ className, ...props }: ComponentPropsWithRef<"div
 	);
 }
 
+export type ConfirmRefusal = { refused: string };
+type ConfirmResult = ConfirmRefusal | void;
+
+const UNFINISHED = "The action did not finish. Try again.";
+
+export async function settleConfirm(onConfirm: () => ConfirmResult | Promise<ConfirmResult>) {
+	try {
+		const result = await onConfirm();
+		return result ? result.refused || UNFINISHED : null;
+	} catch {
+		return UNFINISHED;
+	}
+}
+
 type ConfirmDialogProps = {
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
@@ -102,7 +116,7 @@ type ConfirmDialogProps = {
 	confirmLabel: string;
 	cancelLabel?: string;
 	tone?: "default" | "danger";
-	onConfirm: () => void | Promise<void>;
+	onConfirm: () => ConfirmResult | Promise<ConfirmResult>;
 };
 
 export function ConfirmDialog({
@@ -133,15 +147,11 @@ export function ConfirmDialog({
 	const confirm = async () => {
 		setPending(true);
 		setError(null);
-		try {
-			await onConfirm();
-			setPending(false);
-			setInner(false);
-			onOpenChange?.(false);
-		} catch (e) {
-			setPending(false);
-			setError(e instanceof Error && e.message ? e.message : "The action did not finish. Try again.");
-		}
+		const problem = await settleConfirm(onConfirm);
+		setPending(false);
+		if (problem) return setError(problem);
+		setInner(false);
+		onOpenChange?.(false);
 	};
 
 	return (

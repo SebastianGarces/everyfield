@@ -17,7 +17,7 @@ export function createOnboardingProducer(effects: OnboardingEffects): Onboarding
 		async getDiscoveryProfile(tx, ctx, raw) {
 			return readReply(async () => {
 				parse(c.getDiscoveryProfileRequest, raw);
-				if (ctx.selected.kind !== "account") deny();
+				if (ctx.selected.kind !== "account") deny("unavailable");
 				const a = await actor(tx, ctx);
 				const [d] = await tx
 					.select()

@@ -7,5 +7,5 @@ export type ResidencyState = {
 	ended: boolean;
 	left: () => void;
 };
-export const Residency = createContext<ResidencyState>({ linked: false, ended: false, left: () => {} });
-export const useResidency = () => use(Residency);
+export const ResidencyContext = createContext<ResidencyState>({ linked: false, ended: false, left: () => {} });
+export const useResidency = () => use(ResidencyContext);

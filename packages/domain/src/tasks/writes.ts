@@ -48,7 +48,7 @@ export function dueColumns(due: z.infer<typeof c.dueInput>, zone: TimeZone): Due
 		return { due_kind: "date_only", due_date: due.date, due_time: null, timezone: null, due_at: null };
 	const r = resolveCalendar(due.local, zone, "entered", due.offsetSeconds);
 	if (r.kind === "gap") deny("nonexistent_local_time", { local: due.local });
-	if (r.kind === "fold") deny("ambiguous_local_time", { local: due.local, choices: r.choices });
+	if (r.kind === "fold") deny("ambiguous_local_time", { local: due.local, choices: [...r.choices] });
 	if (r.kind === "invalid_offset") deny("invalid_input");
 	return {
 		due_kind: "timed",
@@ -124,6 +124,15 @@ type ReminderRow = Pick<
 	TaskRow,
 	"id" | "title" | "status" | "assignees" | "due_kind" | "due_date" | "due_at" | "deleted_at"
 > & { revision: string; plant_zone: string };
+function reminderDue(row: ReminderRow): ReminderSource["due"] {
+	if (row.due_kind === "undated") return { kind: "undated" };
+	if (row.due_kind === "date_only") {
+		if (row.due_date === null) throw Error(`Task ${row.id} is due on a date it does not store`);
+		return { kind: "date_only", date: row.due_date, zone: row.plant_zone };
+	}
+	if (row.due_at === null) throw Error(`Task ${row.id} is due at a time it does not store`);
+	return { kind: "timed", at: row.due_at.toISOString() };
+}
 function reminderSource(plantId: string, row: ReminderRow): ReminderSource {
 	return {
 		plantId,
@@ -131,12 +140,7 @@ function reminderSource(plantId: string, row: ReminderRow): ReminderSource {
 		revision: row.revision,
 		title: row.title,
 		assigneeIds: idsOf(row.assignees),
-		due:
-			row.due_kind === "undated"
-				? { kind: "undated" }
-				: row.due_kind === "date_only"
-					? { kind: "date_only", date: row.due_date!, zone: row.plant_zone }
-					: { kind: "timed", at: row.due_at!.toISOString() },
+		due: reminderDue(row),
 		open: OPEN(row.status) && row.deleted_at === null,
 		created: false,
 	};
@@ -257,8 +261,9 @@ export function noop(cmd: AuditCommand, row: TaskRow) {
 
 export async function current(tx: Tx, cmd: Command, taskId: string, expectedRevision: string, ownDuty: boolean) {
 	const row = await loadTask(tx, cmd.actor.plantId, taskId, true);
-	if (!row || row.deleted_at) deny();
-	if (!administers(cmd.actor) && !(ownDuty && row.assignees.some((a) => a.accountId === cmd.actor.accountId))) deny();
+	if (!row || row.deleted_at) deny("unavailable");
+	if (!administers(cmd.actor) && !(ownDuty && row.assignees.some((a) => a.accountId === cmd.actor.accountId)))
+		deny("unavailable");
 	if (row.revision !== expectedRevision) deny("conflict");
 	return row;
 }
@@ -430,7 +435,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 			return reply(tx, async () => {
 				const input = parse(c.createTaskRequest, raw);
 				return command(tx, context, "tasks.create", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input;
 					const due = dueColumns(v.due, cmd.actor.zone);
 					const refs =
@@ -464,7 +469,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 			return reply(tx, async () => {
 				const input = parse(c.editTaskRequest, raw);
 				return command(tx, context, "tasks.edit", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const row = await current(tx, cmd, input.input.taskId, input.expectedRevision, false);
 					const p = input.input.patch;
 					const relation = p.relation === undefined ? undefined : relationColumns(p.relation);
@@ -500,7 +505,15 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 						...(p.category !== undefined ? { category: p.category } : {}),
 						...(p.due !== undefined ? dueColumns(p.due, cmd.actor.zone) : {}),
 						...(p.assigneeIds !== undefined
-							? { assignees: sortPeople(p.assigneeIds.map((id) => known.get(id)!)) }
+							? {
+									assignees: sortPeople(
+										p.assigneeIds.map((id) => {
+											const person = known.get(id);
+											if (!person) throw Error(`Assignee ${id} was neither held nor checked`);
+											return person;
+										}),
+									),
+								}
 							: {}),
 						...(relation ? { ...relation, relation_label: refs?.relationLabel ?? null } : {}),
 					};
@@ -527,7 +540,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 			return reply(tx, async () => {
 				const input = parse(c.taskCommandRequest, raw);
 				return command(tx, context, "tasks.delete", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const row = await current(tx, cmd, input.input.taskId, input.expectedRevision, false);
 					const at = new Date();
 					cmd.writes.push(

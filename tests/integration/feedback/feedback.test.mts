@@ -1,7 +1,8 @@
-import { fixture, ok, refused } from "../../support/fixture.mts";
+import { fixture, ok, refused, type Actor } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { feedbackWriter, authorizeTriage } from "../../../packages/domain/src/feedback/index.ts";
+import { queueJobsFor } from "../../../packages/domain/src/jobs/queue.ts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -17,17 +18,17 @@ await admin.execute(
 	sql`INSERT INTO platform_grant (account_id, capability) VALUES (${triager.id}::uuid, 'feedback_triage')`,
 );
 
-const authority = async (who: { session: string }) => {
+const authority = async (who: Actor) => {
 	const actor = await RequestActor.resolve(db, who.session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
 	return actor;
 };
-const rowsOf = async (query: ReturnType<typeof sql>) => (await admin.execute(query)).rows as Record<string, any>[];
+const rowsOf = async (query: ReturnType<typeof sql>) => (await admin.execute(query)).rows;
 const server = { appVersion: "3.0.0-test" };
-const send = async (who: { session: string }, input: Record<string, unknown>) =>
+const send = async (who: Actor, input: Record<string, unknown>) =>
 	feedbackWriter.submit(db, await authority(who), { requestKey: randomUUID(), category: "bug", ...input }, server);
 
-test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from the seat, strips the address and saves a resend once", async () => {
+test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from the seat and refuses sent ones, strips the address and saves a resend once", async () => {
 	const key = randomUUID();
 	const input = {
 		requestKey: key,
@@ -39,15 +40,14 @@ test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from t
 		screenWidth: 1440,
 		screenHeight: 900,
 		theme: null,
-		church: "Forged Church",
-		role: "Admin",
-		appVersion: "forged",
 	};
 	assert.deepEqual(ok(await feedbackWriter.getSendContext(db, await authority(daniel))), {
 		church: "Harvest Point",
 		role: "Owner",
 		replyTo: daniel.email,
 	});
+	for (const forged of [{ church: "Forged Church" }, { role: "Admin" }, { appVersion: "forged" }])
+		refused(await feedbackWriter.submit(db, await authority(daniel), { ...input, ...forged }, server), "invalid_input");
 	const sent = ok(await feedbackWriter.submit(db, await authority(daniel), input, server));
 	assert.equal(sent.page, "Documents");
 	assert.equal(sent.replyTo, daniel.email);
@@ -89,6 +89,47 @@ test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from t
 	);
 	assert.equal(JSON.stringify(row).includes("secret"), false);
 	assert.equal(JSON.stringify(row).includes("draft"), false);
+	const jobs = await rowsOf(
+		sql`SELECT to_jsonb(j) - 'id' - 'eligible_at' AS job, j.eligible_at <= clock_timestamp() AS due FROM job j WHERE j.subject_record_id=${sent.id}::uuid`,
+	);
+	assert.deepEqual(jobs, [
+		{
+			job: {
+				tenant_id: daniel.id,
+				kind: "feedback_publication",
+				subject_record_id: sent.id,
+				producer_key: `feedback/${sent.id}`,
+				source_revision: null,
+				state: "ready",
+				attempt_count: 0,
+				max_attempts: 4,
+				lease_owner: null,
+				lease_until: null,
+				claim_generation: 0,
+				checkpoint_key: null,
+				next_attempt_at: null,
+				error_code: null,
+				finished_at: null,
+				revision: 1,
+			},
+			due: true,
+		},
+	]);
+	await admin.execute(
+		queueJobsFor(sql`FROM (SELECT ${sent.id}::uuid AS id) s`, {
+			kind: "feedback_publication",
+			tenant: sql`${daniel.id}::uuid`,
+			subject: sql`id`,
+			key: sql`'feedback/' || id::text`,
+			conflict: "skip",
+		}),
+	);
+	assert.deepEqual(
+		await rowsOf(
+			sql`SELECT to_jsonb(j) - 'id' - 'eligible_at' AS job, j.eligible_at <= clock_timestamp() AS due FROM job j WHERE j.subject_record_id=${sent.id}::uuid`,
+		),
+		jobs,
+	);
 	const audits = await rowsOf(sql`SELECT action FROM audit_event WHERE subject_id=${sent.id}::uuid`);
 	assert.deepEqual(
 		audits.map((a) => a.action),
@@ -104,11 +145,16 @@ test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from t
 		{ page_label: null, page_address: "/invite/[token]", browser: null, screen_width: null, theme: null },
 	);
 
-	const before = (await rowsOf(sql`SELECT count(*)::int AS n FROM feedback`))[0]!.n;
+	const count = async () => {
+		const { n } = (await rowsOf(sql`SELECT count(*)::int AS n FROM feedback`))[0]!;
+		assert.ok(typeof n === "number");
+		return n;
+	};
+	const before = await count();
 	for (const description of ["", "     ", "x".repeat(5001)])
 		refused(await send(daniel, { description }), "invalid_input");
 	ok(await send(daniel, { description: "x".repeat(5000) }));
-	assert.equal((await rowsOf(sql`SELECT count(*)::int AS n FROM feedback`))[0]!.n, before + 1);
+	assert.equal(await count(), before + 1);
 });
 
 test("AC:CASE-ADM-001 AC:PUB57-002 INV-privacy: the author lists only their own feedback, 25 at a time, without private details", async () => {
@@ -123,13 +169,14 @@ test("AC:CASE-ADM-001 AC:PUB57-002 INV-privacy: the author lists only their own 
 	assert.equal(second.items.length, 2);
 	assert.equal(second.next, null);
 	const listed = [...first.items, ...second.items];
-	assert.deepEqual(new Set(listed.map((i: any) => i.id)), new Set(ids));
+	assert.deepEqual(new Set(listed.map((i) => i.id)), new Set(ids));
+	assert.ok(listed[0]);
 	assert.deepEqual(Object.keys(listed[0]).sort(), ["category", "id", "publicUrl", "status", "submittedAt"]);
 	assert.deepEqual(
 		{ ...listed[0], id: "", submittedAt: "" },
 		{ id: "", category: "question", submittedAt: "", status: "new", publicUrl: null },
 	);
-	const times = listed.map((i: any) => i.submittedAt);
+	const times = listed.map((i) => i.submittedAt);
 	assert.deepEqual(times, [...times].sort().reverse());
 
 	const mine = ok(await feedbackWriter.getOwnStatus(db, await authority(author), { feedbackId: ids[0] }));
@@ -144,8 +191,9 @@ test("AC:CASE-ADM-002 AC:PUB57-002 a triager filters, moves a status with histor
 	const t = await authority(triager);
 	assert.equal(await authorizeTriage(db, t), true);
 	const listed = ok(await feedbackWriter["admin.list"](db, t, { status: "new", category: "bug" }));
-	assert.ok(listed.items.every((i: any) => i.status === "new" && i.category === "bug"));
-	const item = listed.items.find((i: any) => i.id === sent.id);
+	assert.ok(listed.items.every((i) => i.status === "new" && i.category === "bug"));
+	const item = listed.items.find((i) => i.id === sent.id);
+	assert.ok(item);
 	assert.equal(item.description, "Save button stops");
 	assert.equal(item.details.church, "Harvest Point");
 	assert.equal(item.author.email, daniel.email);

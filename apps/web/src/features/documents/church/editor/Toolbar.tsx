@@ -139,10 +139,7 @@ const GROUP_LABEL: Record<MenuGroup, string> = {
 
 function MenuLabel({ children }: { children: string }) {
 	return (
-		<div
-			role="presentation"
-			className="px-2.5 pt-2 pb-1 text-xs font-semibold tracking-wide text-text-3 uppercase first:pt-1"
-		>
+		<div role="presentation" className="section-label px-2.5 pt-2 pb-1 text-text-3 first:pt-1">
 			{children}
 		</div>
 	);

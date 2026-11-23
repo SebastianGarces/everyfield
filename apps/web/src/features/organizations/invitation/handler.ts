@@ -1,5 +1,5 @@
 import "server-only";
-import { command, invitationFor, namesFor, subjectFacts, viewerOf, type Reply } from "../mount";
+import { command, invitationFor, namesFor, subjectFacts, viewerOf, type RefusalCode, type Reply } from "../mount";
 import { z } from "zod";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
 import { parseJson } from "../../../server/platform/json.ts";
@@ -7,7 +7,7 @@ import { parseJson } from "../../../server/platform/json.ts";
 export type RelationshipInvitationRead =
 	| { kind: "signed_out" }
 	| { kind: "unavailable" }
-	| { kind: "invitation"; invitation: unknown; names: Record<string, string>; zone: string };
+	| { kind: "invitation" | "expired"; invitation: unknown; names: Record<string, string>; zone: string };
 
 const request = z.discriminatedUnion("op", [
 	z.strictObject({ op: z.literal("read"), invitationId: z.string().max(200), proof: z.string().max(4096) }),
@@ -16,7 +16,7 @@ const request = z.discriminatedUnion("op", [
 const LIMIT = 16384;
 const headers = { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" };
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers });
-const refused = (code: string): Reply<never> => ({ status: "refused", code });
+const refused = (code: RefusalCode): Reply<never> => ({ status: "refused", code });
 
 async function read(invitationId: string, proof: string): Promise<RelationshipInvitationRead> {
 	const w = await viewerOf();
@@ -29,7 +29,7 @@ async function read(invitationId: string, proof: string): Promise<RelationshipIn
 		namesFor(w.mount.db, w.viewer, [p.organization.id, p.kind === "discovery" ? p.accountId : p.subject.id]),
 		subjectFacts(w.mount.db, w.viewer),
 	]);
-	return { kind: "invitation", invitation, names, zone: facts.zone };
+	return { kind: invitation.status === "expired" ? "expired" : "invitation", invitation, names, zone: facts.zone };
 }
 
 async function respond(input: unknown): Promise<Reply<unknown>> {

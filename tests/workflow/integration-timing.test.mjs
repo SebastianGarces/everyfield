@@ -12,6 +12,10 @@ const ROOTS = [
 	"tests/evry/execution",
 	"tests/evry/runtime",
 	"tests/unit",
+	"tools/app/tests",
+	"tools/ci/tests",
+	"tools/wiki/tests",
+	"ops/actionable-watch/test",
 ];
 const SOURCE = /\.(mts|mjs|ts|js)$/;
 
@@ -48,10 +52,7 @@ const EXEMPT = {
 		why: "the census sample's ms field reports real time, which is its job; nothing asserts on it",
 		hits: [
 			["performance.now", "const started = performance.now();"],
-			[
-				"performance.now",
-				'emit({ kind: "sample", ...counts, name: label, status, ms: Math.round(performance.now() - started) });',
-			],
+			["performance.now", "ms: Math.round(performance.now() - started),"],
 		],
 	},
 	"tests/integration/identity/invitations.test.mts": {
@@ -251,7 +252,7 @@ function scannedFiles() {
 	);
 }
 
-test("T-261: no file under tests/integration, tests/unit or the Evry adapter, catalog, execution and runtime tests sleeps, polls the clock or asserts on wall-clock time", () => {
+test("T-261: no file under tests/integration, tests/unit, the Evry adapter, catalog, execution and runtime tests, or the tools and ops tests sleeps, polls the clock or asserts on wall-clock time", () => {
 	const files = scannedFiles();
 	assert.ok(
 		files.some((file) => file.path === "tests/evry/runtime/streaming.test.mts"),
@@ -264,6 +265,14 @@ test("T-261: no file under tests/integration, tests/unit or the Evry adapter, ca
 	assert.ok(
 		files.some((file) => file.path === "tests/unit/save/model.test.mjs"),
 		"the scan reaches the unit tests",
+	);
+	assert.ok(
+		files.some((file) => file.path === "tools/ci/tests/typecheck.test.ts"),
+		"the scan reaches the tools tests",
+	);
+	assert.ok(
+		files.some((file) => file.path === "ops/actionable-watch/test/provision.test.mts"),
+		"the scan reaches the ops tests",
 	);
 	assert.ok(
 		files.some((file) => file.path === "tests/integration/writes/counter.mjs"),

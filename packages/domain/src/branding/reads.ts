@@ -11,6 +11,7 @@ import { brandAssetReader } from "./files.ts";
 import { resolveDocumentTheme } from "./theme.ts";
 
 const row = z.object({ ok: z.boolean().nullable(), row: z.record(z.string(), z.unknown()).nullable() });
+const namedRow = row.extend({ name: z.string().nullable() });
 
 export const brandReader = {
 	async get(db: Database, authority: RequestActor, raw: unknown) {
@@ -26,6 +27,21 @@ export const brandReader = {
 		});
 	},
 
+	async getSettings(db: Database, authority: RequestActor, raw: unknown) {
+		return settle(async () => {
+			const scope = scopeOf(authority);
+			parse(c.getRequest, raw);
+			const { rows } = await db.execute(sql`SELECT g.ok, p.name, to_jsonb(k) AS row
+				FROM (SELECT ${scope.admin} AS ok) g
+				LEFT JOIN plant p ON g.ok AND p.id = ${scope.plantId}::uuid
+				LEFT JOIN church_brand_kit k ON g.ok AND k.tenant_id = ${scope.plantId}::uuid`);
+			const found = namedRow.parse(rows[0]);
+			if (found.ok !== true) deny("access_denied");
+			if (!found.name) deny("unavailable");
+			return { kit: kitFromRow(found.row), churchName: found.name };
+		});
+	},
+
 	async suggestColors(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
@@ -37,14 +53,14 @@ export const brandReader = {
 					AND f.purpose = 'brand_asset' AND f.state = 'ready'`);
 			const found = z.object({ ok: z.boolean().nullable(), file_id: z.string().nullable() }).parse(rows[0]);
 			if (found.ok !== true) deny("access_denied");
-			if (!found.file_id || !storage) deny();
+			if (!found.file_id || !storage) deny("unavailable");
 			const bytes = await readAuthorizedObject(db, storage, brandAssetReader(scope, "settings"), found.file_id).catch(
-				() => deny(),
+				() => deny("unavailable"),
 			);
-			const palette = await dominantColors(bytes).catch(() => deny());
+			const palette = await dominantColors(bytes).catch(() => deny("unavailable"));
 			const [suggestedPrimary] = palette;
-			if (!suggestedPrimary) deny();
-			return c.suggestedColors.parse({ suggestedPrimary, palette, suggestedFrom: input.assetKind });
+			if (!suggestedPrimary) deny("unavailable");
+			return { suggestedPrimary, palette, suggestedFrom: input.assetKind } satisfies z.output<typeof c.suggestedColors>;
 		});
 	},
 

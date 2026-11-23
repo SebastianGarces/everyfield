@@ -1,7 +1,6 @@
-import { getViewer } from "@/server/request-context";
+import { requireActor } from "@/server/sign-in";
 import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { canEditDocuments, canStoreDocuments, writtenScope } from "../server.ts";
 import { loadWritten } from "./server.ts";
 import { WrittenScreen } from "./WrittenScreen.tsx";
@@ -12,10 +11,7 @@ const BACK = [{ label: "Documents", href: "/documents" }];
 
 export async function WrittenDocumentPage({ params }: { params: Promise<{ documentId: string }> }) {
 	const raw = (await params).documentId;
-	const viewer = await getViewer();
-	if (viewer.status === "unauthenticated")
-		redirect(`/signin?returnTo=${encodeURIComponent(`/documents/written/${raw}`)}`);
-	const authority = viewer.status === "active" ? viewer.authority : null;
+	const authority = await requireActor(`/documents/written/${raw}`);
 	const scope = authority ? writtenScope(authority) : null;
 	if (!authority || !scope) return <Missing />;
 	const canEdit = canEditDocuments(authority);

@@ -3,7 +3,7 @@ import { authorizeTaskReminders, createTaskWriter } from "@everyfield/domain/tas
 import "server-only";
 import { serverConfig, type ServerConfig } from "../../server/config.ts";
 import { database } from "../../server/database";
-import { mountMailService, seatedNotificationService } from "../../server/jobs/seated-notifications";
+import { mountMailService, seatedNotificationService } from "@everyfield/domain/jobs";
 import { taskReminders } from "./reminders";
 
 let mount: ReturnType<typeof create> | undefined;

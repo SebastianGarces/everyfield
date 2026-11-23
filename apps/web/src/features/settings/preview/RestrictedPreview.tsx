@@ -15,6 +15,7 @@ export function RestrictedPreview({ flow }: { flow: RestrictedFlow }) {
 	const scenario: DeletionScenario = (DELETION_SCENARIOS as readonly string[]).includes(raw)
 		? (raw as DeletionScenario)
 		: "pending";
+	const proof = search.get("proof") ?? "valid";
 	const signedOut = flow === "account-deletion" && search.get("step") === "proof";
 	const [replies] = useState(() => createReplies(search.get("hold") === "1"));
 
@@ -27,8 +28,8 @@ export function RestrictedPreview({ flow }: { flow: RestrictedFlow }) {
 			) : null}
 			{flow === "confirm-email" ? (
 				<ConfirmEmailScreen
-					proof={search.get("proof") ?? "valid"}
-					confirm={confirmFixtureEmail(replies)}
+					linked={proof !== ""}
+					confirm={confirmFixtureEmail(replies, proof)}
 					accountHref="/design/settings/account?as=admin"
 				/>
 			) : (

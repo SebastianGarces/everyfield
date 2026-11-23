@@ -5,7 +5,7 @@ import type { EvryActor } from "../context/actor.ts";
 import { liveAuthority } from "../context/authority.ts";
 import { LIMITS } from "../context/limits.ts";
 import { retainedEvents } from "../conversations/retained.ts";
-import { eventRow, reference, type ConversationEvent } from "../conversations/store.ts";
+import { eventRow, userMessageBody, type ConversationEvent } from "../conversations/store.ts";
 
 export type RunLease = { turnId: string; tenantId: string; leaseOwner: string; generation: string };
 
@@ -13,14 +13,14 @@ export const fence = (lease: RunLease) =>
 	sql`EXISTS(SELECT FROM job j WHERE j.id=${lease.turnId}::uuid AND j.tenant_id=${lease.tenantId}::uuid AND j.state='claimed'
 		AND j.lease_owner=${lease.leaseOwner} AND j.claim_generation=${lease.generation}::bigint AND j.lease_until>clock_timestamp())`;
 
-const turnRow = z.object({
+const turnRow = z.strictObject({
 	conversation_id: z.uuid(),
 	tenant_id: z.uuid(),
 	account_id: z.uuid(),
 	session_id: z.uuid().nullable(),
-	message: z.object({
+	message: z.strictObject({
 		sequence: z.coerce.number(),
-		body: z.object({ text: z.string(), references: z.array(reference).default([]) }),
+		body: userMessageBody,
 		createdAt: z.coerce.date(),
 	}),
 });
@@ -40,7 +40,8 @@ export async function loadHistory(
 	const r = await db.execute(sql`
 		SELECT ${history(lease)} AS history FROM conversation c
 		WHERE c.id=${conversationId}::uuid AND c.active_turn_id=${lease.turnId}::uuid AND ${fence(lease)} AND ${liveAuthority(actor)}`);
-	return r.rows.length ? z.array(eventRow).parse(r.rows[0]!.history) : null;
+	const [row] = r.rows;
+	return row ? z.array(eventRow).parse(row.history) : null;
 }
 
 export async function loadTurn(db: Database, lease: RunLease): Promise<Turn | null> {
@@ -70,11 +71,13 @@ export async function appendEvent(
 		)
 		INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
 		SELECT id,last_sequence,${lease.turnId}::uuid,${kind},${JSON.stringify(body)}::jsonb FROM c RETURNING sequence`);
-	return r.rows.length ? z.coerce.number().parse(r.rows[0]!.sequence) : null;
+	const [row] = r.rows;
+	return row ? z.coerce.number().parse(row.sequence) : null;
 }
 
 export async function savedResult(db: Database, conversationId: string, sequence: number) {
 	const r = await db.execute(sql`
 		SELECT body FROM conversation_event WHERE conversation_id=${conversationId}::uuid AND sequence=${sequence} AND kind='tool_result'`);
-	return r.rows.length ? (r.rows[0]!.body as Record<string, unknown>) : null;
+	const [row] = r.rows;
+	return row ? (row.body as Record<string, unknown>) : null;
 }

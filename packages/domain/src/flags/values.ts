@@ -54,7 +54,8 @@ export async function readFlags<R extends Registry = typeof registry>(
 	return new FlagValues(declared, z.array(storedValue).parse(rows));
 }
 
-type FlagScope = { kind: "global" } | { kind: "workspace"; id: string } | { kind: "account"; id: string };
+export type FlagScope = { kind: "global" } | { kind: "workspace"; id: string } | { kind: "account"; id: string };
+type FlagOperator = string | { cause: string };
 
 const scopeTenants: Record<ScopeKind, readonly string[]> = {
 	global: ["global"],
@@ -64,12 +65,13 @@ const scopeTenants: Record<ScopeKind, readonly string[]> = {
 
 export async function setFlag<R extends Registry = typeof registry>(
 	db: Db,
-	change: { flag: keyof R & string; scope: FlagScope; value: boolean | null; operator: string },
+	change: { flag: keyof R & string; scope: FlagScope; value: boolean | null; operator: FlagOperator },
 	declared: R = registry as unknown as R,
 ) {
 	const { flag, scope, value } = change;
 	if (!Object.hasOwn(declared, flag)) throw Error(`flag_not_registered: ${flag}`);
-	const operator = z.uuid().parse(change.operator);
+	const account = typeof change.operator === "string" ? z.uuid().parse(change.operator) : null;
+	const cause = typeof change.operator === "string" ? null : z.string().min(1).parse(change.operator.cause);
 	const tenant = scope.kind === "global" ? GLOBAL_TENANT : z.uuid().parse(scope.id);
 	const { rows } = await db.execute(sql`WITH scope AS (
   SELECT t.id FROM tenant t WHERE t.id=${tenant}::uuid AND t.kind=ANY(${sql.param(scopeTenants[scope.kind])}::text[])
@@ -83,8 +85,8 @@ export async function setFlag<R extends Registry = typeof registry>(
   WHERE ${value}::boolean IS NOT NULL AND NOT EXISTS(SELECT FROM prior)
   ON CONFLICT (tenant_id,name) DO NOTHING RETURNING id,NULL::boolean AS before,value AS after
 ), changed AS (SELECT * FROM updated UNION ALL SELECT * FROM inserted), audit AS (
-  INSERT INTO audit_event (tenant_id,actor_id,action,kind,subject_type,subject_id,before_value,after_value,metadata)
-  SELECT ${tenant}::uuid,${operator}::uuid,'flags.changed','edit','feature_flag',c.id,
+  INSERT INTO audit_event (tenant_id,actor_id,system_cause,action,kind,subject_type,subject_id,before_value,after_value,metadata)
+  SELECT ${tenant}::uuid,${account}::uuid,${cause}::text,'flags.changed','edit','feature_flag',c.id,
    jsonb_build_object('value',c.before),jsonb_build_object('value',c.after),
    jsonb_build_object('flag',${flag}::text,'scope',${scope.kind}::text) FROM changed c RETURNING 1
 ) SELECT EXISTS(SELECT FROM scope) AS found`);

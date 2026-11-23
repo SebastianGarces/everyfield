@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { authorizeDigestMail, createDigestWorker } from "../../../apps/web/src/server/jobs/digest.ts";
-import { createMailService, runDueMail } from "../../../apps/web/src/server/jobs/mail.ts";
+import { authorizeDigestMail, createDigestWorker } from "../../../packages/domain/src/jobs/digest.ts";
+import { createMailService, runDueMail } from "../../../packages/domain/src/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { INVITATION_MAIL } from "../../../apps/web/src/server/invitations/index.ts";
 import { fixture } from "../identity/invitations-support.mts";
@@ -58,7 +58,7 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 			},
 		} as never,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: createDigestWorker({ mail, origin: "https://everyfield.test" }),
 		mail: (limit, until) => runDueMail(f.db, f.mail, INVITATION_MAIL, limit, until),
 		now: () => clock.at,
@@ -168,7 +168,7 @@ test("INV-scheduled-steps: a throwing notification step names itself and the lat
 		db: f.db,
 		storage: null,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: null,
 		mail: null,
 		notifications: {
@@ -216,7 +216,7 @@ test("INV-scheduled-steps: each tick sweeps an unreferenced documents file whose
 			},
 		} as never,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: null,
 		mail: null,
 	});
@@ -255,7 +255,7 @@ test("INV-scheduled-steps: each tick sweeps an unreferenced documents file whose
 		db: f.db,
 		storage: null,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: null,
 		mail: null,
 	});

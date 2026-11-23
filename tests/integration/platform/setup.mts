@@ -12,6 +12,7 @@ async function databaseLead(): Promise<number> {
 		for (let i = 0; i < SAMPLES; i++) {
 			const [row] = (await db.execute(sql`SELECT (extract(epoch FROM clock_timestamp()) * 1000)::float8 AS ms`))
 				.rows as { ms: number }[];
+			if (!row) throw new Error("The database answered no clock_timestamp row.");
 			const hostStamp = Date.now();
 			lead = Math.max(lead, Number(row.ms) - hostStamp);
 		}

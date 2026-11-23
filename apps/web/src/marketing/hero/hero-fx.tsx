@@ -13,9 +13,6 @@ import { joinRefs, onPageStateChange, reducedMotionTurns, runFrames } from "../p
 
 const TM = {
 	act: 1.5,
-	hold: [1700, 1800, 1800, 1800, 3000],
-	lead: [700, 450, 250, 500, 150],
-	span: [1870, 380, 2800, 1130, 1220],
 	cardIn: 380,
 	cardOut: 250,
 	gap: 150,
@@ -24,25 +21,29 @@ const TM = {
 	seam: 250,
 	chipFade: 230,
 };
-const SC: [number, number][] = [],
-	A: number[] = [],
-	MOVES: [number, number, number, number][] = [];
-let LOOP = 0;
-{
-	let a = -TM.seam;
-	for (let i = 0; i < 5; i++) {
-		const s = a + TM.lead[i]!,
-			b = s + TM.span[i]! * TM.act + TM.hold[i]!;
-		SC.push([a, b]);
-		A.push(s);
-		if (i < 4) MOVES.push([b + TM.moveAt, b + TM.moveAt + TM.move, i, i + 1]);
-		a = b + TM.gap;
-	}
-	LOOP = SC[4]![1] + TM.seam;
-}
-const STILL = A[4]! + 1400 * TM.act;
+type Scene = { from: number; start: number; end: number };
+type SceneIndex = 0 | 1 | 2 | 3 | 4;
+const scene = (from: number, lead: number, span: number, hold: number): Scene => {
+	const start = from + lead;
+	return { from, start, end: start + span * TM.act + hold };
+};
+const S0 = scene(-TM.seam, 700, 1870, 1700),
+	S1 = scene(S0.end + TM.gap, 450, 380, 1800),
+	S2 = scene(S1.end + TM.gap, 250, 2800, 1800),
+	S3 = scene(S2.end + TM.gap, 500, 1130, 1800),
+	S4 = scene(S3.end + TM.gap, 150, 1220, 3000);
+const SC: readonly [Scene, Scene, Scene, Scene, Scene] = [S0, S1, S2, S3, S4];
+const move = ({ end }: Scene, from: SceneIndex, to: SceneIndex) => ({
+	start: end + TM.moveAt,
+	end: end + TM.moveAt + TM.move,
+	from,
+	to,
+});
+const MOVES = [move(S0, 0, 1), move(S1, 1, 2), move(S2, 2, 3), move(S3, 3, 4)];
+const LOOP = S4.end + TM.seam;
+const STILL = S4.start + 1400 * TM.act;
 const STILL_T = motionValue(STILL);
-const at = (i: number, ms: number) => A[i]! + ms * TM.act;
+const at = (i: SceneIndex, ms: number) => SC[i].start + ms * TM.act;
 const d = (ms: number) => ms * TM.act;
 const seam = (i: number, v: number) => (i === 0 && v >= LOOP - 300 ? v - LOOP : v);
 const join = (v: number) => inOut(P(v, at(4, 500), d(520)));
@@ -52,22 +53,25 @@ const FULL = 50;
 const FX = {
 	card: (v: number, i: number) => {
 		const u = seam(i, v),
-			[a, b] = SC[i]!;
-		const pin = out(P(u, a, TM.cardIn)),
-			pout = sine(P(u, b, TM.cardOut));
+			s = SC[i];
+		if (!s) return [0, 8, 1, 0];
+		const pin = out(P(u, s.from, TM.cardIn)),
+			pout = sine(P(u, s.end, TM.cardOut));
 		return [0, (1 - pin) * 8 - pout * 6, 1, pin * (1 - pout)];
 	},
 	st: (v: number, n: number) => {
 		const i = Math.floor(n / 10),
 			k = n % 10,
-			p = out(P(seam(i, v), SC[i]![0] + 90 + k * 75, 420));
+			s = SC[i];
+		if (!s) return [0, 8, 1, 0];
+		const p = out(P(seam(i, v), s.from + 90 + k * 75, 420));
 		return [0, (1 - p) * 8, 1, p];
 	},
 	add: (v: number) => "scale(" + (1 - 0.05 * bump(v, at(0, 1250), d(200))).toFixed(4) + ")",
 	guests: (v: number) => inOut(P(v, at(1, 0), d(380))),
 	join: join,
 	mood: (v: number) =>
-		v >= at(2, 0) && v < at(2, 1800) ? "talking" : v >= at(2, 2150) && v < SC[2]![1] + 200 ? "happy" : "idle",
+		v >= at(2, 0) && v < at(2, 1800) ? "talking" : v >= at(2, 2150) && v < S2.end + 200 ? "happy" : "idle",
 	flipA: (v: number) => {
 		const e = out(P(v, at(3, 750), d(380)));
 		return [0, -7 * e, 1, 1 - e];
@@ -84,10 +88,12 @@ const FX = {
 	meter: (v: number, k: number) => {
 		const p = out(P(v, at(4, k * 90), d(650))),
 			j = join(v);
-		const val = (ROWS[k]! / FULL) * p + (k === 2 ? j : k === 1 ? -j : 0) / FULL;
+		const row = ROWS[k];
+		if (row === undefined) return "translate3d(-100%,0,0)";
+		const val = (row / FULL) * p + (k === 2 ? j : k === 1 ? -j : 0) / FULL;
 		return "translate3d(" + (-100 + 100 * val).toFixed(2) + "%,0,0)";
 	},
-	hl: (v: number) => out(P(v, at(4, 400), d(300))) * (1 - sine(P(v, SC[4]![1] - 1500, d(600)))),
+	hl: (v: number) => out(P(v, at(4, 400), d(300))) * (1 - sine(P(v, S4.end - 1500, d(600)))),
 };
 
 type Pos = { x: number; y: number };
@@ -257,7 +263,7 @@ function Caret({
 	const size = useTransform<number, string>(t, (v) => (show(v) ? `1.5px ${h}px` : "0px 0px"));
 	return (
 		<m.span
-			className="[box-decoration-break:slice] bg-[linear-gradient(var(--color-ink),var(--color-ink))] bg-right bg-no-repeat -mr-[2.5px] pr-[2.5px] whitespace-pre-wrap animate-mk-caret motion-reduce:animate-none"
+			className="[box-decoration-break:slice] mk-caret-fill bg-right bg-no-repeat -mr-[2.5px] pr-[2.5px] whitespace-pre-wrap animate-mk-caret motion-reduce:animate-none"
 			style={{ backgroundSize: size }}
 		>
 			{children}
@@ -293,10 +299,11 @@ function Live({
 	measured: MotionValue<number>;
 	children: ReactNode;
 }) {
-	const frameOf = (v: number, P5: Pos[]) => {
-		if (P5.length !== 5) return null;
-		let x = P5[0]!.x,
-			y = P5[0]!.y,
+	const frameOf = (v: number | undefined, P5: Pos[]) => {
+		const [first, ...rest] = P5;
+		if (v === undefined || !first || rest.length !== 4) return null;
+		let x = first.x,
+			y = first.y,
 			s = 1,
 			o = 0;
 		const pp = P(v, at(0, 1450), d(420));
@@ -305,23 +312,23 @@ function Live({
 			s = 0.6 + 0.4 * back(pp);
 		}
 		for (const mv of MOVES) {
-			if (v < mv[0]) continue;
-			const p = inOut(P(v, mv[0], mv[1] - mv[0])),
-				from = P5[mv[2]]!,
-				to = P5[mv[3]]!;
+			const from = P5[mv.from],
+				to = P5[mv.to];
+			if (v < mv.start || !from || !to) continue;
+			const p = inOut(P(v, mv.start, mv.end - mv.start));
 			x = from.x + (to.x - from.x) * p;
 			y = from.y + (to.y - from.y) * p;
 			s = 1 + 0.06 * Math.sin(Math.PI * p);
 		}
-		const fade = sine(P(v, SC[4]![1], TM.chipFade));
+		const fade = sine(P(v, S4.end, TM.chipFade));
 		return { x, y, s: s - 0.04 * fade, o: o * (1 - fade) };
 	};
 	const transform = useTransform([t, measured], ([v]: number[]) => {
-		const f = frameOf(v!, pos.current);
+		const f = frameOf(v, pos.current);
 		return f ? transformOf(f.x, f.y, f.s) : "none";
 	});
 	const opacity = useTransform([t, measured], ([v]: number[]) => {
-		const f = frameOf(v!, pos.current);
+		const f = frameOf(v, pos.current);
 		return f ? +f.o.toFixed(3) : 0;
 	});
 	const ring = useTo(t, (v) => {

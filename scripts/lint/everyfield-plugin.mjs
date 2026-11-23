@@ -2,6 +2,19 @@ import { fileProblems, importProblem, resolveImport, routeFeatures } from "./bou
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { area, commentsExempt, ratchet, repoPath, root, sqlMarkers } from "./ratchet.mjs";
+import {
+	COUNTER_TEXT,
+	MARKETING_STEP,
+	SCOPE,
+	TIME_NAME,
+	classProblems,
+	isMarketing,
+	headingLike,
+	labelLike,
+	marketingMessage,
+	message as slopMessage,
+	styleProblems,
+} from "./slop-styling.mjs";
 
 const RESEND_PACKAGE = /^resend(?:\/|$)/;
 const RESEND_HOST = "api.resend.com";
@@ -82,13 +95,20 @@ const privateCareScope = {
 	},
 };
 
-export const TABLE_WRITERS = {
+const TABLE_WRITERS = {
 	phase_transition: {
 		owner: "packages/domain/src/phases/",
 		why: "the phases domain records every phase transition, including the one initial declaration a plant may make",
 	},
+	job: {
+		owner: "packages/domain/src/jobs/queue.ts",
+		why: "the job queue owns the row shape, the dedupe key and the conflict rule; build the insert with queueJobsFor or enqueueJobs",
+	},
 };
-const INSERT_INTO = /\binsert\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
+const INSERT_INTO = /\b(?:insert|merge)\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
+const INSERT_INTO_END = /\b(?:insert|merge)\s+into\s+(?:"?public"?\.)?$/i;
+const UNSEEN =
+	"This rule cannot follow a table returned by a helper from another module or passed in as an untyped value; review catches those.";
 
 const tableWriters = {
 	meta: { type: "problem" },
@@ -99,42 +119,73 @@ const tableWriters = {
 			if (!path.startsWith(owner))
 				context.report({
 					node,
-					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here.`,
+					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here. ${UNSEEN}`,
 				});
 		};
+		const tableName = (name) =>
+			typeof name === "string" && Object.hasOwn(TABLE_WRITERS, name.toLowerCase()) ? name.toLowerCase() : undefined;
 		const check = (value, node) => {
-			for (const [, table] of value?.matchAll(INSERT_INTO) ?? [])
-				if (Object.hasOwn(TABLE_WRITERS, table.toLowerCase())) report(node, table.toLowerCase());
+			for (const [, table] of value?.matchAll(INSERT_INTO) ?? []) if (tableName(table)) report(node, tableName(table));
 		};
 		const aliases = new Map();
-		const tableOf = (node) =>
-			node?.type === "Identifier"
-				? aliases.get(node.name)
-				: node?.type === "MemberExpression" && Object.hasOwn(TABLE_WRITERS, memberName(node))
-					? memberName(node)
-					: undefined;
+		const returners = new Map();
+		const pending = [];
+		const tableOf = (raw) => {
+			const node = unwrapped(raw);
+			if (node?.type === "Identifier") return aliases.get(node.name);
+			if (node?.type === "MemberExpression") return tableName(memberName(node));
+			if (node?.type === "CallExpression") {
+				const callee = unwrapped(node.callee);
+				if (callee?.type === "Identifier") return returners.get(callee.name);
+				if (["raw", "identifier"].includes(memberName(callee))) return tableName(literalArgument(node.arguments[0]));
+			}
+			if (node?.type === "Literal") return tableName(text(node));
+			return undefined;
+		};
 		const bind = (id, table) => {
 			if (id?.type === "Identifier" && table) aliases.set(id.name, table);
+		};
+		const returned = (fn) =>
+			fn.body.type !== "BlockStatement"
+				? [fn.body]
+				: fn.body.body.filter((s) => s.type === "ReturnStatement").map((s) => s.argument);
+		const bindReturner = (id, fn) => {
+			const table = returned(fn).map(tableOf).find(Boolean);
+			if (id?.type === "Identifier" && table) returners.set(id.name, table);
 		};
 		return {
 			Literal: (node) => check(text(node), node),
 			TemplateElement: (node) => check(text(node), node),
-			ImportSpecifier: (node) => {
-				const imported = nameOf(node.imported);
-				if (Object.hasOwn(TABLE_WRITERS, imported)) bind(node.local, imported);
+			TemplateLiteral: (node) =>
+				node.quasis.forEach((quasi, i) => {
+					if (i < node.expressions.length && INSERT_INTO_END.test(text(quasi) ?? ""))
+						pending.push([node.expressions[i], node]);
+				}),
+			ImportSpecifier: (node) => bind(node.local, tableName(nameOf(node.imported))),
+			ExportSpecifier: (node) => {
+				const table = node.parent.source ? tableName(nameOf(node.local)) : aliases.get(nameOf(node.local));
+				if (table) report(node, table);
 			},
+			FunctionDeclaration: (node) => bindReturner(node.id, node),
 			VariableDeclarator: (node) => {
-				if (node.id.type === "Identifier") bind(node.id, tableOf(node.init));
+				const init = unwrapped(node.init);
+				if (init?.type === "ArrowFunctionExpression" || init?.type === "FunctionExpression")
+					bindReturner(node.id, init);
+				if (node.id.type === "Identifier") bind(node.id, tableOf(init));
 				if (node.id.type !== "ObjectPattern") return;
 				for (const p of node.id.properties) {
 					const key = p.type === "Property" ? keyName(p.key, p.computed) : null;
-					if (Object.hasOwn(TABLE_WRITERS, key))
-						bind(p.value.type === "AssignmentPattern" ? p.value.left : p.value, key);
+					if (tableName(key)) bind(p.value.type === "AssignmentPattern" ? p.value.left : p.value, tableName(key));
 				}
 			},
 			CallExpression: (node) => {
-				const table = tableOf(node.arguments[0]);
-				if (memberName(node.callee) === "insert" && table) report(node, table);
+				if (memberName(unwrapped(node.callee)) === "insert") pending.push([node.arguments[0], node]);
+			},
+			"Program:exit"() {
+				for (const [target, at] of pending) {
+					const table = tableOf(target);
+					if (table) report(at, table);
+				}
 			},
 		};
 	},
@@ -184,7 +235,7 @@ const errorMessage = (node) =>
 	node.object.type === "Identifier" &&
 	knownError(node, node.object.name);
 const EQUALITY = new Set(["==", "===", "!=", "!=="]);
-const TEXT_MATCH = new Set(["includes", "startsWith", "endsWith"]);
+const TEXT_MATCH = new Set(["includes", "startsWith", "endsWith", "test", "match", "exec", "search"]);
 
 const noErrorMessageMatch = {
 	meta: { type: "problem" },
@@ -209,7 +260,14 @@ const unwrapped = (node) => {
 	let at = node;
 	while (
 		at &&
-		["TSAsExpression", "TSSatisfiesExpression", "TSNonNullExpression", "ParenthesizedExpression"].includes(at.type)
+		[
+			"TSAsExpression",
+			"TSSatisfiesExpression",
+			"TSNonNullExpression",
+			"TSTypeAssertion",
+			"ParenthesizedExpression",
+			"ChainExpression",
+		].includes(at.type)
 	)
 		at = at.expression;
 	return at;
@@ -308,7 +366,7 @@ const staticKey = (node) =>
 
 const PROVIDER_KEY_MINTS = new Set([
 	"packages/domain/src/communication/delivery.ts",
-	"apps/web/src/server/jobs/mail.ts",
+	"packages/domain/src/jobs/mail.ts",
 ]);
 const PROVIDER_KEY = "ProviderKey";
 const PROVIDER_KEY_HOME = "packages/contracts/src/common/values.ts";
@@ -326,6 +384,51 @@ const providerKeyMint = {
 			ExportSpecifier: (node) => (named(node.local) || named(node.exported)) && report(node),
 			TSQualifiedName: (node) => named(node.right) && report(node),
 			TSImportType: (node) => (named(node.qualifier) || named(node.qualifier?.right)) && report(node),
+		};
+	},
+};
+
+const SITE_PATH = "SitePath";
+const CASTS = new Set(["TSAsExpression", "TSTypeAssertion"]);
+const typeName = (node) => {
+	if (node.type === "TSTypeReference")
+		return node.typeName.type === "Identifier" ? node.typeName.name : nameOf(node.typeName.right);
+	return node.qualifier ? nameOf(node.qualifier.right ?? node.qualifier) : null;
+};
+
+const sitePathCast = {
+	meta: { type: "problem" },
+	create(context) {
+		const message = `Do not cast to ${SITE_PATH}: write the path as a literal or template that starts with "/" and a letter or digit, so the type proves it stays on this site. An untrusted return path goes through safeReturn.`;
+		const names = new Set([SITE_PATH]);
+		const aliases = new Map();
+		const casts = [];
+		return {
+			ImportSpecifier(node) {
+				if (nameOf(node.imported) === SITE_PATH) names.add(node.local.name);
+			},
+			"TSTypeReference, TSImportType"(node) {
+				const name = typeName(node);
+				if (!name) return;
+				for (let at = node; at.parent; at = at.parent) {
+					const parent = at.parent;
+					if (CASTS.has(parent.type) && parent.typeAnnotation === at) return void casts.push({ node: parent, name });
+					const named =
+						(parent.type === "TSTypeAliasDeclaration" && parent.typeAnnotation === at) ||
+						(parent.type === "TSTypeParameter" && parent.constraint === at)
+							? nameOf(parent.id ?? parent.name)
+							: null;
+					if (named) return void aliases.set(named, [...(aliases.get(named) ?? []), name]);
+					if (!parent.type.startsWith("TS")) return;
+				}
+			},
+			"Program:exit"() {
+				for (let size = 0; size !== names.size;) {
+					size = names.size;
+					for (const [alias, used] of aliases) if (used.some((name) => names.has(name))) names.add(alias);
+				}
+				for (const cast of casts) if (names.has(cast.name)) context.report({ node: cast.node, message });
+			},
 		};
 	},
 };
@@ -468,6 +571,190 @@ const serverLog = {
 				},
 			},
 		);
+	},
+};
+
+const ERROR_TEXT = new Set(["message", "stack"]);
+const ERROR_EVENTS = new Set(["error", "uncaughtException", "unhandledRejection", "messageerror"]);
+const ERROR_PARAM = /^(?:err|error|exception|[a-z]\w*Error)$/;
+const SECRET_NAME =
+	/(?:password|passphrase|secret|token|apikey|api_key|credential|cookie|authorization|payload|rawbody)$/i;
+const TEXT_SINK_CLASS = /(?:Error|Refusal|Refused|Failure)$/;
+const LOG_SINKS = new Set(["logLine", "logInfo", "logFailure", "asLogWord", "asLogId", "asLogHost", "asLogNames"]);
+export const RAW_ERROR_SCOPE =
+	/^(?:(?:apps\/web\/src|packages\/[^/]+\/src|ops|tools\/prod-identity)\/|tools\/qa\/(?!tests\/))/;
+export const RAW_ERROR_SITES = {
+	"packages/evry/src/adapters/native.ts": {
+		sites: 2,
+		why: "refusalOf passes on a message only when it is a code word ([a-z_]{3,40}); Evry's recorded refusals carry that word, so reading it another way would change recorded Evry results",
+	},
+	"packages/domain/src/documents/unpack.ts": {
+		sites: 1,
+		why: "ImportRejected is thrown only with fixed copy literals in documents/unpack.ts, and that copy is the answer the person importing the file reads",
+	},
+	"tools/qa/main.ts": {
+		sites: 1,
+		why: "only a QaError reaches the line, and a QaError is the tool's own copy from fail(), whose command output passed redactor.clean first",
+	},
+	"tools/qa/qa.ts": {
+		sites: 1,
+		why: "the cleanup line prints a QaError's own copy from fail(); any other error prints only its class name",
+	},
+	"tools/prod-identity/setup.ts": {
+		sites: 2,
+		why: "the operator's terminal line passes through redactor.clean, which holds every credential and generated key the tool read or made before it can fail",
+	},
+};
+
+const TYPE_WRAPPERS = new Set([
+	"TSAsExpression",
+	"TSNonNullExpression",
+	"TSSatisfiesExpression",
+	"TSTypeAssertion",
+	"ParenthesizedExpression",
+]);
+const outerOf = (node) => {
+	let at = node;
+	while (TYPE_WRAPPERS.has(at.parent?.type) && at.parent.expression === at) at = at.parent;
+	return at;
+};
+const textOfError = (ref) => {
+	let at = outerOf(ref);
+	while (at.parent?.type === "MemberExpression" && at.parent.object === at) {
+		const name = keyName(at.parent.property, at.parent.computed);
+		if (ERROR_TEXT.has(name)) return at.parent;
+		if (name !== "cause") return null;
+		at = outerOf(at.parent);
+	}
+	const p = at.parent;
+	if (!p) return null;
+	if (p.type === "TemplateLiteral") return at;
+	if (p.type === "BinaryExpression" && p.operator === "+") return at;
+	if (p.type === "AssignmentExpression" && p.operator === "+=" && p.right === at) return at;
+	if (p.type === "MemberExpression" && p.object === at && memberName(p) === "toString") return at;
+	if (p.type === "VariableDeclarator" && p.init === at && p.id.type === "ObjectPattern")
+		return p.id.properties.some((q) => q.type === "Property" && ERROR_TEXT.has(keyName(q.key, q.computed))) ? at : null;
+	if ((p.type !== "CallExpression" && p.type !== "NewExpression") || !p.arguments.includes(at)) return null;
+	const callee = p.callee;
+	const name = callee.type === "Identifier" ? callee.name : memberName(callee);
+	if (p.type === "NewExpression") return name && TEXT_SINK_CLASS.test(name) ? at : null;
+	if (name === "String" || name === "Error" || name === "inspect") return at;
+	if (name === "stringify" && callee.object?.type === "Identifier" && callee.object.name === "JSON") return at;
+	return callee.type === "MemberExpression" && callee.object.type === "Identifier" && callee.object.name === "console"
+		? at
+		: null;
+};
+
+const errorHandler = (node) => {
+	const p = node.parent;
+	if (p?.type !== "CallExpression" || !p.arguments.includes(node)) return false;
+	const name = memberName(p.callee);
+	const index = p.arguments.indexOf(node);
+	if (name === "catch") return index === 0;
+	if (name === "then") return index === 1;
+	if (["on", "once", "addEventListener", "addListener", "prependListener"].includes(name ?? ""))
+		return index === 1 && ERROR_EVENTS.has(literalArgument(p.arguments[0]) ?? "");
+	return false;
+};
+
+const rawErrorText = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!RAW_ERROR_SCOPE.test(path)) return {};
+		const allowed = RAW_ERROR_SITES[path];
+		const found = [];
+		const seen = new Set();
+		const follow = (variable) => {
+			if (!variable || seen.has(variable)) return;
+			seen.add(variable);
+			for (const reference of variable.references) {
+				const ref = reference.identifier;
+				if (!reference.isRead()) continue;
+				const hit = textOfError(ref);
+				if (hit) found.push({ node: hit, what: "a caught error's text" });
+				const value = outerOf(ref);
+				const p = value.parent;
+				if (p?.type === "VariableDeclarator" && p.init === value && p.id.type === "Identifier")
+					follow(context.sourceCode.getDeclaredVariables(p).find((v) => v.name === p.id.name));
+			}
+		};
+		const fromParam = (owner, param) => {
+			if (param?.type === "Identifier")
+				follow(context.sourceCode.getDeclaredVariables(owner).find((v) => v.name === param.name));
+			if (param?.type === "ObjectPattern")
+				for (const q of param.properties)
+					if (q.type === "Property" && ERROR_TEXT.has(keyName(q.key, q.computed)))
+						found.push({ node: q, what: "a caught error's text" });
+		};
+		const secrets = (node, sink) => {
+			if (!node || typeof node.type !== "string" || FUNCTIONS.has(node.type)) return;
+			const name =
+				node.type === "Identifier" && isValueReference(node)
+					? node.name
+					: node.type === "MemberExpression"
+						? memberName(node)
+						: null;
+			if (name && SECRET_NAME.test(name)) {
+				found.push({ node, what: `${name} in ${sink}` });
+				return;
+			}
+			for (const [key, value] of Object.entries(node))
+				if (key !== "parent" && !(node.type === "Property" && key === "key" && !node.computed))
+					for (const child of Array.isArray(value) ? value : [value]) secrets(child, sink);
+		};
+		const sinkName = (callee) => (callee.type === "Identifier" ? callee.name : memberName(callee));
+		const functionParams = (node) => {
+			if (errorHandler(node)) return fromParam(node, node.params[0]);
+			for (const param of node.params) {
+				const id = param.type === "AssignmentPattern" ? param.left : param;
+				if (id.type === "Identifier" && ERROR_PARAM.test(id.name)) fromParam(node, id);
+			}
+		};
+		return {
+			CatchClause(node) {
+				fromParam(node, node.param);
+			},
+			ArrowFunctionExpression: functionParams,
+			FunctionExpression: functionParams,
+			FunctionDeclaration: functionParams,
+			NewExpression(node) {
+				const name = sinkName(node.callee);
+				if (name && TEXT_SINK_CLASS.test(name)) for (const a of node.arguments) secrets(a, "error text");
+			},
+			CallExpression(node) {
+				const name = sinkName(node.callee);
+				if (name && (LOG_SINKS.has(name) || TEXT_SINK_CLASS.test(name)))
+					for (const a of node.arguments)
+						secrets(a, name.startsWith("as") || name.startsWith("log") ? "a log line" : "error text");
+				if (
+					node.callee.type === "MemberExpression" &&
+					node.callee.object.type === "Identifier" &&
+					node.callee.object.name === "console"
+				)
+					for (const a of node.arguments) secrets(a, "a log line");
+			},
+			ThrowStatement(node) {
+				if (node.argument?.type === "TemplateLiteral" || node.argument?.type === "Literal")
+					secrets(node.argument, "error text");
+			},
+			"Program:exit"(program) {
+				const unique = [...new Map(found.map((f) => [`${f.node.range?.[0] ?? f.node.start}`, f])).values()];
+				if (allowed) {
+					if (unique.length !== allowed.sites)
+						context.report({
+							node: program,
+							message: `${path} has ${unique.length} raw error or secret text sites; its RAW_ERROR_SITES entry allows exactly ${allowed.sites}. A new site is fixed, not allowed; when one goes, lower the entry.`,
+						});
+					return;
+				}
+				for (const { node, what } of unique)
+					context.report({
+						node,
+						message: `Never put ${what} into a log, error text or stored record: it can carry SQL, row values, provider payloads or secrets. Log through @everyfield/domain/log (logFailure takes the error and keeps its class and code), throw a typed error with a fixed code, or keep the value out.`,
+					});
+			},
+		};
 	},
 };
 
@@ -937,17 +1224,108 @@ const tickOnly = (node) =>
 	(node.type === "UnaryExpression" && node.operator === "void") ||
 	emptyResolve(node);
 
+export const PRODUCT_TIMERS = {
+	"apps/web/src/server/evry/http.ts": [
+		{
+			timer: "setInterval",
+			binding: "heartbeat",
+			within: "conversationStreamGet",
+			delay: "15_000",
+			why: "the Evry conversation stream writes an SSE comment every 15 seconds so proxies and the browser keep an idle stream open while a turn runs; the interval is the keep-alive itself and nothing else marks when a quiet connection needs one",
+		},
+	],
+	"packages/evry/src/runtime/turn.ts": [
+		{
+			timer: "setTimeout",
+			binding: "wall",
+			within: "run",
+			delay: "LIMITS.wallMs",
+			why: "an Evry turn stops at its LIMITS.wallMs wall-time budget so a hung model or tool call cannot hold the run lease; the deadline is the limit itself and no event marks it",
+		},
+	],
+	"packages/evry/src/runtime/model.ts": [
+		{
+			timer: "setTimeout",
+			binding: "timer",
+			within: "transientRetry",
+			delay: "ms",
+			why: "a transient model error is retried after the LIMITS.modelRetryDelaysMs backoff; the wait is the backoff itself and the turn's abort signal cancels it",
+		},
+	],
+	"packages/evry/src/runtime/observe.ts": [
+		{
+			timer: "setTimeout",
+			binding: "timer",
+			within: "timerPause",
+			delay: "ms",
+			why: "a conversation observer re-reads the store every pollMs so it still sees events written by another instance; the pause is the poll interval and the abort signal ends it",
+		},
+	],
+	"packages/db/src/schema/validate-file.ts": [
+		{
+			timer: "setTimeout",
+			binding: "timer",
+			within: "parser",
+			delay: "STARTUP_MS",
+			why: "a PDF parser worker that is not ready within STARTUP_MS counts as crashed, so a stuck worker cannot hold an upload; the deadline is the product limit",
+		},
+		{
+			timer: "setTimeout",
+			binding: "timer",
+			within: "parseOnce",
+			delay: "parseMs",
+			why: "a PDF parse that runs past parseMs is refused and its worker stopped, so one file cannot hold the parser; the deadline is the product limit",
+		},
+	],
+};
+
+const functionBinding = (fn) => {
+	if (fn.id?.name) return fn.id.name;
+	let node = fn;
+	while (node.parent?.type === "CallExpression" && node.parent.arguments.includes(node)) node = node.parent;
+	return node.parent?.type === "VariableDeclarator" && node.parent.id.type === "Identifier"
+		? node.parent.id.name
+		: null;
+};
+
+const declaredFunctions = (node) => {
+	const found = [];
+	for (let p = node.parent; p; p = p.parent) if (FUNCTIONS.has(p.type) && functionBinding(p)) found.push(p);
+	return found;
+};
+
+const timerSite = (context, node, site) => {
+	const call = node.parent;
+	if (node.name !== site.timer || call?.type !== "CallExpression" || call.callee !== node) return false;
+	const [nearest, ...outer] = declaredFunctions(call);
+	return (
+		call.parent?.type === "VariableDeclarator" &&
+		call.parent.id.type === "Identifier" &&
+		call.parent.id.name === site.binding &&
+		context.sourceCode.getText(call.arguments[1]) === site.delay &&
+		nearest !== undefined &&
+		functionBinding(nearest) === site.within &&
+		!outer.some((fn) => functionBinding(fn) === site.within)
+	);
+};
+
 const noTimers = ratcheted("no-timers", (context, push) => {
 	const seen = new Set();
-	const report = (node, name) => {
-		const at = (node.range ?? [node.start, node.end]).join(":");
-		if (seen.has(at)) return;
-		seen.add(at);
+	const sites = PRODUCT_TIMERS[repoPath(context.filename)] ?? [];
+	const candidates = new Map(sites.map((site) => [site, []]));
+	const hit = (node, name) =>
 		push({
 			node,
 			fn: enclosingName(node),
 			message: `${name} waits for time to pass instead of reacting to what the code waits for. Fix the ordering at its cause: act in the event handler, on the state change, on the promise or on the DOM node that is ready. A timer that is itself the product behavior (a countdown, a toast's lifetime, a poll, a typing debounce) needs an entry in ${survivorFile(context)} with its reason, which waits for the owner.`,
 		});
+	const report = (node, name) => {
+		const at = (node.range ?? [node.start, node.end]).join(":");
+		if (seen.has(at)) return;
+		seen.add(at);
+		const site = sites.find((s) => timerSite(context, node, s));
+		if (site) candidates.get(site).push({ node, name });
+		else hit(node, name);
 	};
 	let timerImports = new Set();
 	let timerSpaces = new Set();
@@ -997,6 +1375,23 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 				(options.type !== "ObjectExpression" ||
 					options.properties.some((p) => p.type !== "Property" || keyName(p.key, p.computed) === "delay"));
 			if (delayed) report(node, "scheduler.postTask with a delay");
+		},
+		"Program:exit"(program) {
+			for (const [site, found] of candidates) {
+				if (found.length > 1)
+					for (const c of found)
+						push({
+							node: c.node,
+							fn: enclosingName(c.node),
+							message: `${found.length} calls match the listed product timer ${site.timer} ${site.binding} in ${site.within} with delay ${site.delay}, which exempts exactly one. One of them is the listed product timer: keep it. Remove the copy that was added, or give a new timer its own binding and delay and its own reason.`,
+						});
+				if (!found.length)
+					push({
+						node: program,
+						fn: null,
+						message: `The listed product timer ${site.timer} ${site.binding} in ${site.within} with delay ${site.delay} is gone: delete its entry from PRODUCT_TIMERS in scripts/lint/everyfield-plugin.mjs.`,
+					});
+			}
 		},
 	};
 	return merge(
@@ -1377,12 +1772,229 @@ function handles(handler, body, param) {
 	return thrown || handed || (logged && !lost);
 }
 
+const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
+
+const webDatabaseImports = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!WEB_CODE.test(repoPath(context.filename))) return {};
+		return moduleSources((node, name) => {
+			if (DATABASE_MODULES.test(name))
+				context.report({
+					node,
+					message: `apps/web does not build SQL: ${name} belongs in @everyfield/domain. Call a domain operation, or move the statement into the domain module that owns its tables.`,
+				});
+		});
+	},
+};
+
+const classTokens = (value) => value.split(/\s+/).filter(Boolean);
+const MAGENTA_TINT = /^bg-magenta-(?:50|100)(?:\/\d+)?$/;
+const AMBER_TINT = /^bg-(?:amber-(?:50|100)|\[var\(--ef-amber-(?:50|100)\)\]|\(--ef-amber-(?:50|100)\))(?:\/\d+)?$/;
+const BOX_RADIUS = /^rounded(?:-[\w.[\]-]+)?$/;
+const PILL_RADIUS = /^rounded(?:-[a-z]{1,2})?-(?:full|pill)$/;
+const PADDING = /^p[xy]?-/;
+const CHIP_SIZE = /^(?:p|py)-(?:0|px|0\.5|1|1\.5)$|^(?:h|size)-(?:\d+(?:\.\d+)?|px|\[[^\]]+\])$/;
+const tintedBox = (tokens, tint) =>
+	tokens.some((t) => tint.test(t)) &&
+	tokens.some((t) => BOX_RADIUS.test(t)) &&
+	!tokens.some((t) => PILL_RADIUS.test(t)) &&
+	tokens.some((t) => PADDING.test(t)) &&
+	!tokens.some((t) => CHIP_SIZE.test(t));
+const errorNoticeLook = (value) => {
+	const tokens = classTokens(value);
+	return (tokens.includes("bg-magenta-50") && tokens.includes("text-magenta-600")) || tintedBox(tokens, MAGENTA_TINT);
+};
+const warningNoticeLook = (value) => tintedBox(classTokens(value), AMBER_TINT);
+const noticeLook = (value) => errorNoticeLook(value) || warningNoticeLook(value);
+const formGroup = (node) => {
+	for (let at = node.parent; at && at.type !== "JSXElement"; at = at.parent)
+		if (at.type === "JSXOpeningElement") return at.name.type === "JSXIdentifier" && at.name.name === "fieldset";
+	return false;
+};
+const templateText = (node) => node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ");
+const concatenated = (node) =>
+	node.type === "BinaryExpression" && node.operator === "+"
+		? [concatenatedOperand(node.left, node.right), concatenatedOperand(node.right, node.left)].reduce((a, b) =>
+				a && b ? [...a, ...b] : null,
+			)
+		: node.type === "Literal" && typeof node.value === "string"
+			? [node.value]
+			: node.type === "TemplateLiteral"
+				? [templateText(node)]
+				: null;
+const concatenatedOperand = (side, other) =>
+	side.type === "Literal" && typeof side.value === "number"
+		? concatenated(other) && [String(side.value)]
+		: concatenated(side);
+const classParts = (node) =>
+	node.type === "Literal"
+		? typeof node.value === "string"
+			? [node.value]
+			: []
+		: node.type === "TemplateLiteral"
+			? [templateText(node)]
+			: node.type === "ConditionalExpression"
+				? [...classParts(node.consequent), ...classParts(node.alternate)]
+				: node.type === "LogicalExpression"
+					? [...classParts(node.left), ...classParts(node.right)]
+					: node.type === "ArrayExpression"
+						? node.elements.flatMap((element) => (element ? classParts(element) : []))
+						: node.type === "ObjectExpression"
+							? node.properties.flatMap((property) => (property.type === "Property" ? classParts(property.key) : []))
+							: node.type === "BinaryExpression"
+								? [concatenated(node)?.join("")].filter(Boolean)
+								: [];
+
+const sharedNotice = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!WEB_CODE.test(repoPath(context.filename))) return {};
+		const check = (node, value) => {
+			if (value === null) return;
+			if (errorNoticeLook(value))
+				context.report({
+					node,
+					message:
+						"An error notice is Alert or InlineAlert from @everyfield/ui/controls (tone, title, actions, live region and focus included); a chip or band in that colour is TonePill, ToneTag or ToneBand from @everyfield/ui/display. Do not hand-write the magenta box.",
+				});
+			else if (warningNoticeLook(value) && !formGroup(node))
+				context.report({
+					node,
+					message:
+						'A warning notice is Alert or InlineAlert with tone="warning" from @everyfield/ui/controls (icon, title, actions, live region and focus included); a chip or band in amber is TonePill, ToneTag or ToneBand from @everyfield/ui/display. Do not hand-write the amber box.',
+				});
+		};
+		return {
+			Literal: (node) => check(node, text(node)),
+			TemplateLiteral: (node) => check(node, templateText(node)),
+			BinaryExpression(node) {
+				const parts = concatenated(node);
+				if (!parts || parts.some(noticeLook) || (node.parent.type === "BinaryExpression" && concatenated(node.parent)))
+					return;
+				check(node, parts.join(""));
+			},
+			CallExpression(node) {
+				const parts = node.arguments.flatMap(classParts);
+				if (parts.length < 2 || parts.some(noticeLook)) return;
+				check(node, parts.join(" "));
+			},
+		};
+	},
+};
+
+const LIVE_REGION_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
+const LIVE_ROLES = new Set(["status", "alert", "log"]);
+const jsxAttribute = (element, name) =>
+	element.attributes.find((a) => a.type === "JSXAttribute" && a.name.name === name);
+const attributeStrings = (attribute) =>
+	attribute.value?.type === "JSXExpressionContainer"
+		? stringsIn(attribute.value.expression)
+		: stringsIn(attribute.value);
+const HIDING_CLASSES = new Set(["hidden", "invisible"]);
+const hidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, "").split(":").at(-1));
+const OFF_VALUES = { hidden: [false], inert: [false], "aria-hidden": [false, "false"] };
+const attributeValue = (attribute) =>
+	attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
+const switchedOff = (attribute, name) => {
+	const value = attributeValue(attribute);
+	return (
+		(value?.type === "Literal" && OFF_VALUES[name].includes(value.value)) ||
+		(value?.type === "Identifier" && value.name === "undefined")
+	);
+};
+const setAttribute = (element, name) => {
+	const attribute = jsxAttribute(element, name);
+	return attribute && !switchedOff(attribute, name) ? attribute : null;
+};
+const domElement = (element) => element.name.type === "JSXIdentifier" && /^[a-z]/.test(element.name.name);
+const fixedStrings = (node) =>
+	node?.type === "Literal" && typeof node.value === "string"
+		? [node.value]
+		: node?.type === "TemplateLiteral" && !node.expressions.length
+			? [templateText(node)]
+			: node?.type === "CallExpression"
+				? node.arguments.flatMap((argument) => fixedStrings(argument))
+				: [];
+const unprefixedHidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, ""));
+const alwaysHidden = (element) => {
+	const className = jsxAttribute(element, "className");
+	return (
+		(className && fixedStrings(attributeValue(className)).some((s) => classTokens(s).some(unprefixedHidingToken))) ||
+		["hidden", "inert", "aria-hidden"].some((name) => {
+			const attribute = setAttribute(element, name);
+			return attribute && (!attribute.value || attributeValue(attribute).type === "Literal");
+		})
+	);
+};
+const portalElement = (element) =>
+	/Portal$/.test(
+		element.name.type === "JSXMemberExpression"
+			? element.name.property.name
+			: element.name.type === "JSXIdentifier"
+				? element.name.name
+				: "",
+	);
+const portalCall = (node) =>
+	(node.callee.type === "Identifier" ? node.callee.name : memberName(node.callee)) === "createPortal";
+const insideHiddenElement = (node) => {
+	for (let child = node.parent, at = child.parent; at; child = at, at = at.parent) {
+		if (at.type === "CallExpression" && portalCall(at)) return false;
+		if (at.type !== "JSXElement" || child === at.openingElement) continue;
+		if (portalElement(at.openingElement)) return false;
+		if (domElement(at.openingElement) && alwaysHidden(at.openingElement)) return true;
+	}
+	return false;
+};
+
+const liveRegionInTree = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!LIVE_REGION_CODE.test(repoPath(context.filename))) return {};
+		return {
+			JSXOpeningElement(node) {
+				const live = jsxAttribute(node, "aria-live");
+				const role = jsxAttribute(node, "role");
+				const liveValues = live ? attributeStrings(live) : [];
+				const announces =
+					(live && !(liveValues.length && liveValues.every((value) => value === "off"))) ||
+					(role && attributeStrings(role).some((value) => LIVE_ROLES.has(value))) ||
+					(!live && !role && node.name.type === "JSXIdentifier" && node.name.name === "output");
+				if (!announces) return;
+				const className = jsxAttribute(node, "className");
+				const hiddenClass = className && attributeStrings(className).some((s) => s.split(/\s+/).some(hidingToken));
+				const hiding =
+					(hiddenClass && className) ||
+					setAttribute(node, "hidden") ||
+					setAttribute(node, "inert") ||
+					setAttribute(node, "aria-hidden");
+				if (!hiding) {
+					if (insideHiddenElement(node))
+						context.report({
+							node,
+							message:
+								"This live region sits inside an element that is hidden, invisible, inert or aria-hidden, so it leaves the accessibility tree with it and what fills it is not announced. Keep the live region outside that element, or keep the element in the tree.",
+						});
+					return;
+				}
+				context.report({
+					node: hiding,
+					message:
+						"A live region (aria-live, role status, alert or log, or an output element) that is hidden, invisible, inert or aria-hidden leaves the accessibility tree, so what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
+				});
+			},
+		};
+	},
+};
+
+const DOMAIN_JOBS = /^packages\/domain\/src\/jobs\//;
 const noSilentCatch = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
-		if (!WEB_CODE.test(path) || path === "apps/web/src/server/platform/transient.ts") return {};
-		let server = SERVER_CODE.test(path);
+		if (!(WEB_CODE.test(path) || DOMAIN_JOBS.test(path)) || path === "apps/web/src/server/platform/transient.ts")
+			return {};
+		let server = SERVER_CODE.test(path) || DOMAIN_JOBS.test(path);
 		const message =
 			"A server catch must rethrow, return the error handed to a handler, or log it through @everyfield/domain/log without answering lost: use transient() for a failure that may be retried, and catch only the error class you answer.";
 		const pending = [];
@@ -2275,6 +2887,157 @@ const noCursorUtility = ratcheted("no-cursor-utility", (context, push) => {
 	};
 });
 
+const jsxName = (name) =>
+	name?.type === "JSXIdentifier" ? name.name : name?.type === "JSXMemberExpression" ? jsxName(name.property) : null;
+
+const childNodes = (node) =>
+	Object.entries(node)
+		.filter(([key]) => key !== "parent" && key !== "loc" && key !== "range")
+		.flatMap(([, v]) => (Array.isArray(v) ? v : [v]))
+		.filter((v) => v && typeof v.type === "string");
+
+function stringsIn(node, out = []) {
+	if (!node || typeof node !== "object") return out;
+	if (node.type === "Literal" && typeof node.value === "string") out.push(node.value);
+	else if (node.type === "TemplateElement") out.push(node.value.cooked ?? node.value.raw);
+	for (const child of childNodes(node)) stringsIn(child, out);
+	return out;
+}
+
+const classesOf = (element) => {
+	const attr = element.openingElement.attributes.find(
+		(a) => a.type === "JSXAttribute" && (a.name?.name === "className" || a.name?.name === "class"),
+	);
+	return attr ? stringsIn(attr.value).flatMap((s) => s.split(/\s+/).filter(Boolean)) : [];
+};
+
+const elementName = (element) => {
+	const as = element.openingElement.attributes.find((a) => a.type === "JSXAttribute" && a.name?.name === "as");
+	return as?.value?.type === "Literal" && typeof as.value.value === "string"
+		? as.value.value
+		: (jsxName(element.openingElement.name) ?? "");
+};
+
+const staticValue = (node) =>
+	node?.type === "Literal"
+		? node.value
+		: node?.type === "TemplateLiteral" && node.expressions.length === 0
+			? node.quasis[0].value.cooked
+			: undefined;
+
+function identifiersIn(node, out = []) {
+	if (!node || typeof node !== "object") return out;
+	if (node.type === "Identifier") out.push(node.name);
+	if (node.type === "MemberExpression") {
+		identifiersIn(node.object, out);
+		if (!node.computed && node.property.type === "Identifier") out.push(`.${node.property.name}`);
+		return out;
+	}
+	for (const child of childNodes(node)) identifiersIn(child, out);
+	return out;
+}
+
+const timeContext = (call) => {
+	for (let p = call.parent, child = call; p; child = p, p = p.parent) {
+		if (p.type === "TemplateLiteral") {
+			const i = p.expressions.indexOf(child);
+			const before = p.quasis[i]?.value.cooked ?? "";
+			const after = p.quasis[i + 1]?.value.cooked ?? "";
+			return /[:\-T./]$/.test(before) || /^[:\-T./]/.test(after);
+		}
+		if (p.type === "VariableDeclarator") return p.id.type === "Identifier" && TIME_NAME.test(p.id.name);
+		if (p.type === "ArrowFunctionExpression" || p.type === "FunctionExpression" || p.type === "FunctionDeclaration") {
+			const name =
+				p.type === "FunctionDeclaration"
+					? p.id?.name
+					: p.parent?.type === "VariableDeclarator"
+						? p.parent.id.name
+						: null;
+			return Boolean(name && (TIME_NAME.test(name) || /^(?:p|pad|two)$/.test(name)));
+		}
+		if (p.type === "JSXExpressionContainer" || p.type === "ExpressionStatement") return false;
+	}
+	return false;
+};
+
+const insideFunction = (node, name) => {
+	for (let p = node.parent; p; p = p.parent) {
+		if (p.type === "FunctionDeclaration") return p.id?.name === name;
+		if (p.type === "ArrowFunctionExpression" || p.type === "FunctionExpression")
+			return p.parent?.type === "VariableDeclarator" && p.parent.id.name === name;
+	}
+	return false;
+};
+
+const noSlopStyling = ratcheted("no-slop-styling", (context, push) => {
+	const path = repoPath(context.filename);
+	if (!SCOPE.test(path)) return {};
+	const marketing = isMarketing(path);
+	const seen = new Set();
+	const report = (node, kind, token, approvedFor) => {
+		const key = `${node.range?.[0] ?? node.start}:${kind}:${token}`;
+		if (seen.has(key)) return;
+		seen.add(key);
+		const message = approvedFor === "marketing" ? marketingMessage(kind, token) : slopMessage(kind, token);
+		push({ node, fn: enclosingName(node), message });
+	};
+	const strings = (value, node) => {
+		if (typeof value !== "string") return;
+		for (const [kind, token, approvedFor] of classProblems(value, path)) report(node, kind, token, approvedFor);
+	};
+	const counterString = (node) =>
+		node?.type === "Literal" && typeof node.value === "string" && COUNTER_TEXT.test(node.value);
+	return {
+		Literal: (node) => strings(node.value, node),
+		TemplateElement: (node) => strings(node.value.cooked ?? node.value.raw, node),
+		ObjectExpression(node) {
+			const props = new Map();
+			for (const p of node.properties) {
+				if (p.type !== "Property" || p.computed) continue;
+				const key = p.key.type === "Identifier" ? p.key.name : p.key.value;
+				const value = staticValue(p.value);
+				if (value !== undefined) props.set(key, value);
+				if (/^(?:n|num|number|step|index|label|counter|count)$/i.test(String(key)) && counterString(p.value))
+					report(p.value, "counter", JSON.stringify(p.value.value));
+			}
+			for (const [kind, token] of styleProblems(props)) report(node, kind, token);
+		},
+		JSXText(node) {
+			if (COUNTER_TEXT.test(node.value)) report(node, "counter", JSON.stringify(node.value.trim()));
+		},
+		JSXExpressionContainer(node) {
+			if (counterString(node.expression) && node.parent?.type !== "JSXAttribute")
+				report(node, "counter", JSON.stringify(node.expression.value));
+		},
+		ArrayExpression(node) {
+			const counters = node.elements.filter(counterString);
+			if (counters.length >= 2 && counters.length === node.elements.length)
+				report(node, "counter", counters.map((c) => JSON.stringify(c.value)).join(", "));
+		},
+		CallExpression(node) {
+			if (!marketing && node.callee.type === "Identifier" && node.callee.name === MARKETING_STEP.name)
+				report(node, "counter", `${MARKETING_STEP.name}()`, "marketing");
+			if (memberName(node.callee) !== "padStart") return;
+			if (path === MARKETING_STEP.path && insideFunction(node, MARKETING_STEP.name)) return;
+			const [width, fill] = node.arguments;
+			if (staticValue(width) !== 2 || staticValue(fill) !== "0") return;
+			const timeValue = identifiersIn(node.callee.object).some((n) => TIME_NAME.test(n.replace(/^\./, "")));
+			if (!timeValue && !timeContext(node)) report(node, "counter", 'padStart(2, "0")');
+		},
+		JSXElement(node) {
+			const kids = node.children.filter((c) => !(c.type === "JSXText" && !c.value.trim()));
+			for (let i = 0; i < kids.length - 1; i++) {
+				const [label, next] = [kids[i], kids[i + 1]];
+				if (label.type !== "JSXElement" || next.type !== "JSXElement") continue;
+				if (headingLike(elementName(label), classesOf(label))) continue;
+				if (!labelLike(classesOf(label))) continue;
+				if (headingLike(elementName(next), classesOf(next)))
+					report(label, "eyebrow", `<${jsxName(label.openingElement.name)}> label`);
+			}
+		},
+	};
+});
+
 const featureBoundaries = ratcheted("feature-boundaries", (context, push) => {
 	const from = repoPath(context.filename);
 	const imports = [];
@@ -2414,10 +3177,10 @@ const renderReads = {
 };
 
 const READ_NAME =
-	/^(?:load|read|get|list|find|search|suggest|preview|compare|reload|fetch|query|count|download|print)(?:[A-Z]|$)/;
+	/^(?:load|read|get|list|find|search|suggest|preview|compare|reload|fetch|query|count|download|print|resolve)(?:[A-Z]|$)/;
 
 const READ_HOME =
-	"Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through getReads in the feature's fetch.ts.";
+	"Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through readsFrom in the feature's fetch.ts.";
 
 const boundNames = (pattern) => {
 	if (!pattern) return [];
@@ -2433,10 +3196,21 @@ const boundNames = (pattern) => {
 const declaresServer = (fn) =>
 	fn.body?.type === "BlockStatement" && fn.body.body.some((s) => s.directive === "use server");
 
+const SELECTION_INPUT =
+	"its input carries the selected person ids (up to 500, about 19.5 KB), too large for a GET address, so it stays a server action";
+export const SELECTION_READS = {
+	"apps/web/src/features/communication/actions.ts": { resolveAudience: SELECTION_INPUT },
+	"apps/web/src/features/teams/training/actions.ts": { previewRoster: SELECTION_INPUT },
+};
+
 const noReadActions = ratcheted("no-read-actions", (context, push) => {
 	const moduleActions = SERVER_ACTIONS.test(context.sourceCode.text);
-	const report = (node, name, where = `a read exported from a "use server" module`) =>
-		push({ node, fn: name, message: `${name} is ${where}. ${READ_HOME}` });
+	const selection = SELECTION_READS[repoPath(context.filename)] ?? {};
+	const seen = new Set();
+	const report = (node, name, where = `a read exported from a "use server" module`) => {
+		if (Object.hasOwn(selection, name)) seen.add(name);
+		else push({ node, fn: name, message: `${name} is ${where}. ${READ_HOME}` });
+	};
 	const exported = (id) => {
 		if (moduleActions && id && READ_NAME.test(id.name)) report(id, id.name);
 	};
@@ -2471,6 +3245,14 @@ const noReadActions = ratcheted("no-read-actions", (context, push) => {
 		FunctionDeclaration: inline,
 		FunctionExpression: inline,
 		ArrowFunctionExpression: inline,
+		"Program:exit"(node) {
+			for (const name of Object.keys(selection))
+				if (!seen.has(name))
+					context.report({
+						node,
+						message: `${name} is no longer a read action here: delete its SELECTION_READS entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+		},
 	};
 });
 
@@ -2583,6 +3365,839 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 	};
 });
 
+const KEY_MINTS = new Set(["newRequestKey", "randomUUID"]);
+const keySlot = (node) =>
+	(node.parent?.type === "Property" && node.parent.value === node && nameOf(node.parent.key) === "requestKey") ||
+	(node.parent?.type === "VariableDeclarator" &&
+		node.parent.id.type === "Identifier" &&
+		/requestKey/i.test(node.parent.id.name));
+const insidePreview = (node) => {
+	for (let at = node.parent; at; at = at.parent)
+		if (at.type === "CallExpression" && /^preview/.test(calleeName(at.callee) ?? "")) return true;
+	return false;
+};
+const clientRequestKey = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!SERVER_ACTIONS.test(context.sourceCode.text)) return {};
+		return {
+			CallExpression(node) {
+				const name = calleeName(node.callee);
+				if (!KEY_MINTS.has(name ?? "")) return;
+				if (name === "randomUUID" && !keySlot(node)) return;
+				if (insidePreview(node)) return;
+				context.report({
+					node,
+					message: `A server action mints its own request key with ${name}(), so a retry of the same request reaches the server under a new key and runs again. Make the key in the client once per user intent and take it as a parameter. A preview that always rolls back may mint one.`,
+				});
+			},
+		};
+	},
+};
+
+export const OUTCOME_MODULE = "packages/contracts/src/common/values.ts";
+const OUTCOME_SOURCE = "@everyfield/contracts/common";
+const OUTCOME_SCOPE = /^(apps\/web\/src|packages\/[^/]+\/src)\//;
+const statusLiterals = (type) =>
+	type?.type === "TSLiteralType"
+		? [keyName(type.literal, false)]
+		: type?.type === "TSUnionType"
+			? type.types.flatMap(statusLiterals)
+			: [];
+const propertiesOf = (member) =>
+	member.type === "TSTypeLiteral" || member.type === "TSInterfaceBody"
+		? (member.members ?? member.body).flatMap((m) =>
+				m.type === "TSPropertySignature" ? [{ name: keyName(m.key, m.computed), type: m.typeAnnotation }] : [],
+			)
+		: member.type === "TSIntersectionType"
+			? member.types.flatMap(propertiesOf)
+			: [];
+const memberStatuses = (member) =>
+	propertiesOf(member)
+		.filter((m) => m.name === "status")
+		.flatMap((m) => statusLiterals(m.type?.typeAnnotation));
+const referenceName = (type) =>
+	type?.type === "TSTypeReference" && type.typeName.type === "Identifier" ? type.typeName.name : null;
+const REPLY_SOURCE = /^@everyfield\/contracts\/[\w/-]+$/;
+const sharedPiece = (source, name) =>
+	source === OUTCOME_SOURCE && name === "Lost"
+		? "lost"
+		: (source === OUTCOME_SOURCE && name === "Reply") || /\wReply$/.test(name)
+			? "reply"
+			: null;
+const OUTCOME_MESSAGE = `Import Outcome from ${OUTCOME_SOURCE} and specialize it (type Name<T> = Shared<T, Code, Extra>), so every feature answers the same union.`;
+const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
+	const path = repoPath(context.filename);
+	if (path === OUTCOME_MODULE || !OUTCOME_SCOPE.test(path)) return {};
+	const shared = new Map();
+	const imported = new Map();
+	const namespaces = new Map();
+	const aliases = new Map();
+	const interfaces = new Map();
+	const candidates = [];
+	const interfaceParts = (name, seen) => {
+		if (seen.has(name)) return [];
+		seen.add(name);
+		if (aliases.has(name)) return [aliases.get(name)];
+		return (interfaces.get(name) ?? []).flatMap((block) => [
+			block.body,
+			...(block.extends ?? []).flatMap((h) =>
+				h.expression.type === "Identifier" ? interfaceParts(h.expression.name, seen) : [],
+			),
+		]);
+	};
+	const members = (type, seen) => {
+		if (type?.type === "TSUnionType") return type.types.flatMap((t) => members(t, seen));
+		const name = referenceName(type);
+		if (name && aliases.has(name) && !seen.has(name)) {
+			seen.add(name);
+			return members(aliases.get(name), seen);
+		}
+		if (name && interfaces.has(name)) return [{ type: "TSIntersectionType", types: interfaceParts(name, new Set()) }];
+		return [type];
+	};
+	const pieceOf = (member) => {
+		if (member?.type !== "TSTypeReference") return null;
+		const { typeName } = member;
+		if (typeName.type === "Identifier") return imported.get(typeName.name) ?? null;
+		return typeName.type === "TSQualifiedName" &&
+			typeName.left.type === "Identifier" &&
+			namespaces.has(typeName.left.name)
+			? sharedPiece(namespaces.get(typeName.left.name), typeName.right.name)
+			: null;
+	};
+	const statusesOf = (member) =>
+		({ lost: ["lost"], reply: ["ok", "refused"] })[pieceOf(member)] ?? memberStatuses(member);
+	const okValue = (member) =>
+		pieceOf(member) === "reply" ||
+		(memberStatuses(member).includes("ok") && propertiesOf(member).some((m) => m.name === "value"));
+	const shaped = (all) => {
+		const statuses = new Set(all.flatMap(statusesOf));
+		return all.some(okValue) && statuses.has("refused") && statuses.has("lost");
+	};
+	const outcomeShaped = (type) => {
+		if (type?.type !== "TSUnionType") return false;
+		const all = members(type, new Set());
+		return shaped(all) && !shaped(all.filter(pieceOf));
+	};
+	const childTypes = (type) =>
+		[
+			...(type.types ?? []),
+			...(type.elementTypes ?? []),
+			...(type.typeArguments?.params ?? []),
+			type.elementType,
+			type.typeAnnotation,
+		].filter(Boolean);
+	const copyIn = (type) => (outcomeShaped(type) ? type : type && childTypes(type).map(copyIn).find(Boolean));
+	const reportInline = (type) => {
+		const copy = copyIn(type);
+		if (copy)
+			push({
+				node: copy,
+				fn: "inline",
+				message: `This inline union copies the request boundary's ok / refused / lost reply shape. ${OUTCOME_MESSAGE}`,
+			});
+	};
+	const inline = [];
+	const typeOf = (node) => inline.push(node.typeAnnotation);
+	return {
+		ImportDeclaration(node) {
+			const source = node.source.value;
+			if (!REPLY_SOURCE.test(source)) return;
+			for (const spec of node.specifiers)
+				if (spec.type === "ImportNamespaceSpecifier") namespaces.set(spec.local.name, source);
+				else if (spec.type === "ImportSpecifier") {
+					const piece = sharedPiece(source, nameOf(spec.imported));
+					if (piece) imported.set(spec.local.name, piece);
+					if (source === OUTCOME_SOURCE) shared.set(spec.local.name, nameOf(spec.imported));
+				}
+		},
+		TSTypeAliasDeclaration(node) {
+			aliases.set(node.id.name, node.typeAnnotation);
+			candidates.push(node);
+		},
+		TSInterfaceDeclaration(node) {
+			interfaces.set(node.id.name, [...(interfaces.get(node.id.name) ?? []), node]);
+		},
+		TSTypeAnnotation: typeOf,
+		TSAsExpression: typeOf,
+		TSSatisfiesExpression: typeOf,
+		TSTypeAssertion: typeOf,
+		TSTypeParameter(node) {
+			if (node.default) inline.push(node.default);
+		},
+		"Program:exit"() {
+			inline.forEach(reportInline);
+			for (const node of candidates) {
+				const body = node.typeAnnotation;
+				const copied =
+					node.id.name === "Outcome" && node.typeParameters
+						? shared.get(referenceName(body)) !== "Outcome"
+						: copyIn(body);
+				if (copied)
+					push({
+						node: node.id,
+						fn: node.id.name,
+						message: `${node.id.name} copies the request boundary's ok / refused / lost reply shape. ${OUTCOME_MESSAGE}`,
+					});
+			}
+		},
+	};
+});
+
+export const SIGN_IN_MODULE = "apps/web/src/server/sign-in.ts";
+const REDIRECTS = ["redirect", "permanentRedirect"];
+function leadingText(context, node, seen = new Set()) {
+	if (node?.type === "Literal" && typeof node.value === "string") return node.value;
+	if (node?.type === "TemplateLiteral") {
+		let text = node.quasis[0].value.cooked;
+		for (const [n, expression] of node.expressions.entries()) {
+			const part = leadingText(context, expression, seen);
+			if (part === null) return text;
+			text += part + node.quasis[n + 1].value.cooked;
+		}
+		return text;
+	}
+	if (node?.type === "BinaryExpression" && node.operator === "+") {
+		const left = leadingText(context, node.left, seen);
+		if (left === null) return null;
+		const right = leadingText(context, node.right, seen);
+		return right === null ? left : left + right;
+	}
+	if (node?.type === "TSAsExpression" || node?.type === "TSSatisfiesExpression")
+		return leadingText(context, node.expression, seen);
+	if (node?.type !== "Identifier" || seen.has(node.name)) return null;
+	seen.add(node.name);
+	for (let scope = context.sourceCode.getScope(node); scope; scope = scope.upper) {
+		const def = scope.set?.get(node.name)?.defs?.[0];
+		if (!def) continue;
+		return def.node.type === "VariableDeclarator" && def.parent?.kind === "const"
+			? leadingText(context, def.node.init, seen)
+			: null;
+	}
+	return null;
+}
+const RETRY_ELIGIBILITY = new Set(["never", "refresh", "same_request", "reconcile"]);
+const literalOutcomes = (node) => {
+	const at = unwrapped(node);
+	if (!at) return [];
+	if (at.type === "ConditionalExpression") return [...literalOutcomes(at.consequent), ...literalOutcomes(at.alternate)];
+	if (at.type === "LogicalExpression") return [...literalOutcomes(at.left), ...literalOutcomes(at.right)];
+	const text = literalArgument(at);
+	return text === null ? [] : [text];
+};
+const DEFINE_REFUSALS = "packages/domain/src/operations/refusals.ts";
+const BARE_CODE =
+	"defineRefusals adds details, correlationId and retry to a bare { code } refusal, which would change what Evry and the readers see";
+export const REFUSAL_MECHANISMS = {
+	"packages/domain/src/feedback/index.ts": { why: `Feedback refusals are a bare { code }: ${BARE_CODE}` },
+	"packages/domain/src/dashboard/index.ts": { why: `Dashboard refusals are a bare { code }: ${BARE_CODE}` },
+	"packages/domain/src/people/pipeline-metrics.ts": {
+		why: "Pipeline metrics answers a bare { code } refusal that its contract test pins; defineRefusals adds details, correlationId and retry",
+	},
+	"packages/domain/src/settings/credentials.ts": {
+		why: "Credential changes answer identity's credential outcome (a status with a correlationId and no retry)",
+	},
+	"packages/domain/src/organizations/seat.ts": {
+		why: "Pipeline, program and import refusals are a { status, refusal } reply whose refusal carries a field or file problem beside its code",
+	},
+	"packages/domain/src/organizations/core.ts": {
+		why: "Organization commands refuse with a typed code (OrganizationRefusal) that the web mount and Evry each turn into their own reply; organizations has no safe-error contract",
+	},
+	"packages/domain/src/people/csv/sheet.ts": {
+		why: "SheetRefused carries a file problem that People CSV import and the organizations pipeline import each turn into their own refusal",
+	},
+};
+const domainRefusals = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === DEFINE_REFUSALS) return {};
+		const listed = Object.hasOwn(REFUSAL_MECHANISMS, path);
+		let found = 0;
+		const report = (node, what) => {
+			found++;
+			if (!listed)
+				context.report({
+					node,
+					message: `${what} is hand-built. A domain module defines its refusals once with defineRefusals(errorSchema) from operations/refusals.ts and answers through its deny, refused and settle; retry comes from the contract.`,
+				});
+		};
+		const refusalClass = (node) => {
+			if (node.superClass && /Refus/.test(node.id?.name ?? "")) report(node, `The refusal class ${node.id.name}`);
+		};
+		return {
+			ClassDeclaration: refusalClass,
+			ClassExpression: refusalClass,
+			Property(node) {
+				if (node.parent?.type !== "ObjectExpression") return;
+				const key = keyName(node.key, node.computed);
+				if (key === "status" && literalOutcomes(node.value).includes("refused")) report(node, "A refusal reply");
+				if (key === "retry" && literalOutcomes(node.value).some((v) => RETRY_ELIGIBILITY.has(v)))
+					report(node, "A refusal's retry");
+			},
+			VariableDeclarator(node) {
+				const init = unwrapped(node.init);
+				if (node.id.type !== "Identifier" || !/retr(y|ies)/i.test(node.id.name)) return;
+				if (init?.type === "ObjectExpression" || (init?.type === "NewExpression" && init.callee.name === "Map"))
+					report(node, `The retry table ${node.id.name}`);
+			},
+			"Program:exit"(node) {
+				if (listed && found === 0)
+					context.report({
+						node,
+						message: `${path} no longer builds its own refusals: delete its REFUSAL_MECHANISMS entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+			},
+		};
+	},
+};
+
+export const ORGANIZATION_SEAT_CHECKS = {
+	"packages/domain/src/access/organization-seat.ts":
+		"organizationSeatContext is the one narrowing every domain and web gate shares",
+};
+const SEAT_CODE = /^(apps\/web\/src|packages\/domain\/src)\//;
+const OWNER = { type: "Identifier", name: "owner" };
+const ownerRead = (node) => {
+	const at = unwrapped(node);
+	if (at?.type === "ConditionalExpression") return ownerRead(at.consequent) || ownerRead(at.alternate);
+	if (at?.type === "LogicalExpression") return ownerRead(at.left) || ownerRead(at.right);
+	return at?.type === "MemberExpression" && memberName(at) === "owner";
+};
+const REBINDING = new Set(["=", "||=", "&&=", "??="]);
+const seatNames = (context) => {
+	const kinds = new Map();
+	const owners = new Set();
+	const variable = (id) => variableOf(context, id);
+	const holds = (name, subject) => kinds.set(name, [...(kinds.get(name) ?? []), subject]);
+	const bind = (pattern, from) => {
+		if (pattern?.type !== "ObjectPattern") return;
+		for (const property of pattern.properties) {
+			if (property.type !== "Property") continue;
+			const key = keyName(property.key, property.computed);
+			const value = property.value.type === "AssignmentPattern" ? property.value.left : property.value;
+			if (key === "kind" && value.type === "Identifier") holds(variable(value), from);
+			if (key === "owner" && value.type === "Identifier") owners.add(variable(value));
+			if (key === "owner") bind(value, OWNER);
+		}
+	};
+	const aliases = new Map();
+	const rebound = (node) => {
+		const at = unwrapped(node);
+		if (at?.type === "ConditionalExpression") return [...rebound(at.consequent), ...rebound(at.alternate)];
+		if (at?.type === "LogicalExpression") return [...rebound(at.left), ...rebound(at.right)];
+		return at?.type === "Identifier" ? [at] : [];
+	};
+	const assign = (id, value) => {
+		const init = unwrapped(value);
+		if (id.type === "ObjectPattern") bind(id, init);
+		if (id.type !== "Identifier") return;
+		const name = variable(id);
+		if (ownerRead(init)) owners.add(name);
+		if (init?.type === "MemberExpression" && memberName(init) === "kind") holds(name, unwrapped(init.object));
+		if (name) aliases.set(name, [...(aliases.get(name) ?? []), ...rebound(init)]);
+	};
+	const declare = (node) => assign(node.id, node.init);
+	const reassign = (node) => {
+		if (REBINDING.has(node.operator)) assign(node.left, node.right);
+	};
+	const kindOf = (node, seen = new Set()) => {
+		const at = unwrapped(node);
+		if (at?.type === "MemberExpression") return memberName(at) === "kind" ? [unwrapped(at.object)] : [];
+		const name = at?.type === "Identifier" ? variable(at) : null;
+		if (!name || seen.has(name)) return [];
+		seen.add(name);
+		return [...(kinds.get(name) ?? []), ...(aliases.get(name) ?? []).flatMap((target) => kindOf(target, seen))];
+	};
+	const namesOwner = (node, seen = new Set()) => {
+		if (node?.type !== "Identifier") return memberName(node) === "owner";
+		if (node.name === "owner") return true;
+		const name = variable(node);
+		if (!name || seen.has(name)) return false;
+		seen.add(name);
+		return owners.has(name) || (aliases.get(name) ?? []).some((target) => namesOwner(target, seen));
+	};
+	return { declare, reassign, kindOf, namesOwner };
+};
+const comparedKinds = (node, kindOf) => {
+	if (node.type === "SwitchCase")
+		return node.test ? kindOf(node.parent.discriminant).map((subject) => [subject, node.test]) : [];
+	return [
+		...kindOf(node.left).map((subject) => [subject, node.right]),
+		...kindOf(node.right).map((subject) => [subject, node.left]),
+	];
+};
+
+const organizationSeatCheck = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!SEAT_CODE.test(path)) return {};
+		const home = Object.hasOwn(ORGANIZATION_SEAT_CHECKS, path);
+		const names = seatNames(context);
+		const comparisons = [];
+		const seats = [];
+		const organizations = [];
+		const visit = (node) => {
+			if (node.type === "BinaryExpression" && !EQUALITY.has(node.operator)) return;
+			comparisons.push(node);
+		};
+		const sort = (node) => {
+			for (const [subject, value] of comparedKinds(node, names.kindOf)) {
+				if (!subject || value?.type !== "Literal") continue;
+				if (value.value === "seat") seats.push(nearestFunction(node));
+				if (value.value === "organization" && names.namesOwner(subject) && !organizations.includes(node))
+					organizations.push(node);
+			}
+		};
+		const within = (fn, outer) => {
+			for (let at = fn; at; at = nearestFunction(at)) if (at === outer) return true;
+			return outer === null;
+		};
+		return {
+			BinaryExpression: visit,
+			SwitchCase: visit,
+			VariableDeclarator: names.declare,
+			AssignmentExpression: names.reassign,
+			"Program:exit"(program) {
+				comparisons.forEach(sort);
+				const found = organizations.filter((node) => seats.some((fn) => within(nearestFunction(node), fn)));
+				if (home && found.length === 0)
+					context.report({
+						node: program,
+						message: `${path} no longer checks for an organization seat: delete its ORGANIZATION_SEAT_CHECKS entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+				if (home) return;
+				for (const node of found)
+					context.report({
+						node,
+						message: WEB_CODE.test(path)
+							? "Read an organization seat with organizationSeat() or organizationSeatOf(actor) from @/server/request-context instead of checking the seat and its organization owner by hand."
+							: "Read an organization seat with organizationSeatContext(authority) from packages/domain/src/access/organization-seat.ts instead of checking the seat and its organization owner by hand.",
+					});
+			},
+		};
+	},
+};
+
+export const LOOSE_CONTRACTS = {
+	"packages/contracts/src/communication/requests.ts": {
+		historyQuery:
+			"it is the lenient history query: listHistory normalizes each value itself and drops a query key it does not name",
+	},
+};
+const LOOSE_OBJECTS = new Set(["object", "looseObject"]);
+const LOOSE_METHODS = new Set(["strip", "passthrough", "loose", "catchall"]);
+const declaredName = (node) => {
+	let named = null;
+	for (let at = node; at; at = at.parent)
+		if (at.type === "VariableDeclarator" && at.id.type === "Identifier") named = at.id.name;
+	return named;
+};
+
+const strictContracts = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		const exempt = LOOSE_CONTRACTS[path] ?? {};
+		const namespaces = new Set();
+		const loose = new Set();
+		const found = new Set();
+		const refuse = (node) => {
+			const name = declaredName(node);
+			if (name && Object.hasOwn(exempt, name)) found.add(name);
+			else
+				context.report({
+					node,
+					message:
+						"An object schema in packages/contracts or packages/evry is a z.strictObject with no strip, passthrough, loose or catchall, so a value with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
+				});
+		};
+		return {
+			ImportDeclaration(node) {
+				if (!/^zod(?:\/|$)/.test(node.source.value)) return;
+				for (const spec of node.specifiers) {
+					const imported = spec.type === "ImportSpecifier" ? nameOf(spec.imported) : null;
+					if (spec.type !== "ImportSpecifier" || imported === "z") namespaces.add(spec.local.name);
+					else if (LOOSE_OBJECTS.has(imported)) loose.add(spec.local.name);
+				}
+			},
+			ExportAllDeclaration(node) {
+				if (/^zod(?:\/|$)/.test(node.source.value)) refuse(node);
+			},
+			ExportNamedDeclaration(node) {
+				if (!/^zod(?:\/|$)/.test(node.source?.value ?? "")) return;
+				for (const spec of node.specifiers) if (LOOSE_OBJECTS.has(nameOf(spec.local))) refuse(spec);
+			},
+			VariableDeclarator(node) {
+				const init = unwrapped(node.init);
+				if (init?.type !== "Identifier" || !namespaces.has(init.name)) return;
+				if (node.id.type === "Identifier") namespaces.add(node.id.name);
+				if (node.id.type !== "ObjectPattern") return;
+				for (const property of node.id.properties)
+					if (property.type === "Property" && LOOSE_OBJECTS.has(keyName(property.key, property.computed)))
+						refuse(property);
+			},
+			CallExpression(node) {
+				const callee = unwrapped(node.callee);
+				if (callee?.type === "Identifier" && loose.has(callee.name)) refuse(node);
+			},
+			MemberExpression(node) {
+				const name = memberName(node);
+				const fromNamespace =
+					node.object.type === "Identifier" && namespaces.has(node.object.name) && LOOSE_OBJECTS.has(name);
+				if (fromNamespace || LOOSE_METHODS.has(name)) refuse(node);
+			},
+			"Program:exit"(program) {
+				for (const name of Object.keys(exempt))
+					if (!found.has(name))
+						context.report({
+							node: program,
+							message: `${path} no longer builds ${name} from a loose object: delete its LOOSE_CONTRACTS entry in scripts/lint/everyfield-plugin.mjs.`,
+						});
+			},
+		};
+	},
+};
+
+const signInRedirect = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === SIGN_IN_MODULE || !WEB_CODE.test(path)) return {};
+		const redirects = new Set();
+		const namespaces = new Set();
+		const isRedirect = (callee) =>
+			(callee.type === "Identifier" && redirects.has(callee.name)) ||
+			(callee.type === "MemberExpression" &&
+				callee.object.type === "Identifier" &&
+				namespaces.has(callee.object.name) &&
+				REDIRECTS.includes(callee.computed ? literalArgument(callee.property) : callee.property.name));
+		return {
+			ImportDeclaration(node) {
+				if (node.source.value !== "next/navigation") return;
+				for (const spec of node.specifiers) {
+					if (spec.type === "ImportSpecifier" && REDIRECTS.includes(nameOf(spec.imported)))
+						redirects.add(spec.local.name);
+					if (spec.type === "ImportNamespaceSpecifier" || spec.type === "ImportDefaultSpecifier")
+						namespaces.add(spec.local.name);
+				}
+			},
+			CallExpression(node) {
+				if (!isRedirect(node.callee)) return;
+				if (!(leadingText(context, node.arguments[0]) ?? "").startsWith("/signin?")) return;
+				context.report({
+					node,
+					message: "Send a signed-out visitor to sign in with signIn(returnTo) from server/sign-in.",
+				});
+			},
+		};
+	},
+};
+
+const CONSTRUCTED = new Set([
+	"ObjectExpression",
+	"ArrayExpression",
+	"ArrowFunctionExpression",
+	"FunctionExpression",
+	"NewExpression",
+]);
+const WRAPPERS = new Set([
+	"TSAsExpression",
+	"TSSatisfiesExpression",
+	"TSNonNullExpression",
+	"TSTypeAssertion",
+	"ParenthesizedExpression",
+]);
+const unwrapValue = (node) => {
+	let at = node;
+	while (at && WRAPPERS.has(at.type)) at = at.expression;
+	return at;
+};
+const providerName = (name) =>
+	(name.type === "JSXIdentifier" && name.name.endsWith("Context")) ||
+	(name.type === "JSXMemberExpression" && name.property.name === "Provider");
+const enclosingFunction = (node) => {
+	for (let at = node.parent; at; at = at.parent) if (FUNCTIONS.has(at.type)) return at;
+	return null;
+};
+const restNamed = (pattern, name) => {
+	if (!pattern) return false;
+	if (pattern.type === "RestElement") return pattern.argument.type === "Identifier" && pattern.argument.name === name;
+	if (pattern.type === "ObjectPattern") return pattern.properties.some((p) => restNamed(p, name));
+	if (pattern.type === "ArrayPattern") return pattern.elements.some((p) => restNamed(p, name));
+	if (pattern.type === "AssignmentPattern") return restNamed(pattern.left, name);
+	return false;
+};
+const declares = (pattern, name) => {
+	if (!pattern) return false;
+	if (pattern.type === "Identifier") return pattern.name === name;
+	if (pattern.type === "RestElement") return declares(pattern.argument, name);
+	if (pattern.type === "AssignmentPattern") return declares(pattern.left, name);
+	if (pattern.type === "Property") return declares(pattern.value, name);
+	if (pattern.type === "ObjectPattern") return pattern.properties.some((p) => declares(p, name));
+	if (pattern.type === "ArrayPattern") return pattern.elements.some((p) => declares(p, name));
+	if (pattern.type === "TSParameterProperty") return declares(pattern.parameter, name);
+	return false;
+};
+function ownBinding(fn, name) {
+	if (fn.params.some((param) => restNamed(param, name))) return { rest: true };
+	if (fn.params.some((param) => declares(param, name))) return { param: true };
+	let found = null;
+	walkOwn(fn.body, (node) => {
+		if (node.type !== "VariableDeclarator") return false;
+		if (node.id.type === "Identifier" && node.id.name === name) found = { init: node.init, fn };
+		else if (restNamed(node.id, name)) found = { rest: true };
+		else if (declares(node.id, name)) found = { param: true };
+		return found !== null;
+	});
+	return found;
+}
+function bindingOf(fn, name) {
+	for (let at = fn; at; at = enclosingFunction(at)) {
+		const found = ownBinding(at, name);
+		if (found) return found;
+	}
+	return null;
+}
+function builtInline(node, fn, seen = new Set()) {
+	const value = unwrapValue(node);
+	if (!value) return false;
+	if (CONSTRUCTED.has(value.type)) return true;
+	if (value.type === "ConditionalExpression")
+		return builtInline(value.consequent, fn, seen) || builtInline(value.alternate, fn, seen);
+	if (value.type === "LogicalExpression")
+		return builtInline(value.left, fn, seen) || builtInline(value.right, fn, seen);
+	if (value.type !== "Identifier" || seen.has(value.name)) return false;
+	seen.add(value.name);
+	const binding = bindingOf(fn, value.name);
+	return binding?.rest === true || (binding?.init ? builtInline(binding.init, binding.fn, seen) : false);
+}
+const isCreateContext = (node) => {
+	const call = unwrapValue(node);
+	if (call?.type !== "CallExpression") return false;
+	const callee = call.callee;
+	return (
+		(callee.type === "Identifier" && callee.name === "createContext") ||
+		(callee.type === "MemberExpression" && !callee.computed && callee.property.name === "createContext")
+	);
+};
+
+const contextNamed = (id) => id.type === "Identifier" && id.name.endsWith("Context");
+
+const stableContextValue = {
+	meta: { type: "problem" },
+	create(context) {
+		return {
+			CallExpression(node) {
+				if (!isCreateContext(node)) return;
+				let at = node;
+				while (WRAPPERS.has(at.parent?.type)) at = at.parent;
+				const named =
+					at.parent?.type === "VariableDeclarator" && at.parent.init === at ? contextNamed(at.parent.id) : false;
+				if (named) return;
+				context.report({
+					node,
+					message:
+						"Bind a createContext result to a const named *Context, so the stable-value check sees every provider of it.",
+				});
+			},
+			VariableDeclarator(node) {
+				const init = unwrapValue(node.init);
+				if (init?.type !== "Identifier" || !init.name.endsWith("Context") || contextNamed(node.id)) return;
+				context.report({
+					node: node.id,
+					message: "Name an alias of a context *Context, so the stable-value check sees every provider of it.",
+				});
+			},
+			JSXOpeningElement(node) {
+				if (!providerName(node.name)) return;
+				for (const attribute of node.attributes) {
+					if (attribute.type !== "JSXAttribute" || attribute.name.name !== "value") continue;
+					const expression = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : null;
+					if (!expression || !builtInline(expression, enclosingFunction(node))) continue;
+					context.report({
+						node: attribute,
+						message:
+							"A context value built during render is new on every render, so every consumer renders again. Build it with useMemo or useCallback, or keep it in a store, and pass the stable value.",
+					});
+				}
+			},
+		};
+	},
+};
+
+const TEST_HOSTS = new Set(["test", "it", "default"]);
+
+const CONFIRM_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
+const SETTLERS = new Set(["then", "catch", "finally"]);
+const callOf = (node) => (node?.type === "ChainExpression" ? node.expression : node);
+const isCall = (node) => callOf(node)?.type === "CallExpression";
+const awaitedCall = (node) => node?.type === "AwaitExpression" && isCall(node.argument);
+const voidedCall = (node) => node?.type === "UnaryExpression" && node.operator === "void" && isCall(node.argument);
+const settledCall = (node) => isCall(node) && SETTLERS.has(memberName(callOf(node).callee));
+const confirmKeepsRefusal = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!CONFIRM_CODE.test(repoPath(context.filename))) return {};
+		const handlerOf = (node) => {
+			if (FUNCTIONS.has(node?.type)) return node;
+			if (node?.type !== "Identifier") return null;
+			for (let scope = context.sourceCode.getScope(node); scope; scope = scope.upper) {
+				const def = scope.set?.get(node.name)?.defs?.[0];
+				if (!def) continue;
+				if (def.node.type === "FunctionDeclaration") return def.node;
+				return def.node.type === "VariableDeclarator" &&
+					def.parent?.kind === "const" &&
+					FUNCTIONS.has(def.node.init?.type)
+					? def.node.init
+					: null;
+			}
+			return null;
+		};
+		const unread = (declarator) =>
+			!context.sourceCode
+				.getDeclaredVariables(declarator)
+				.some((variable) => variable.references.some((reference) => reference.isRead()));
+		const stateSetter = (callee) => {
+			const def = context.sourceCode.getScope(callee).references.find((reference) => reference.identifier === callee)
+				?.resolved?.defs[0];
+			const declarator = def?.node;
+			return (
+				declarator?.type === "VariableDeclarator" &&
+				declarator.id.type === "ArrayPattern" &&
+				declarator.id.elements[1] === def.name &&
+				declarator.init?.type === "CallExpression" &&
+				calleeName(declarator.init.callee) === "useState"
+			);
+		};
+		const dropping = (statements, found, floating) => {
+			for (const statement of statements) {
+				if (statement.type === "BlockStatement") {
+					dropping(statement.body, found, floating);
+					continue;
+				}
+				if (statement.type === "TryStatement") {
+					dropping(statement.block.body, found, floating);
+					dropping(statement.finalizer?.body ?? [], found, floating);
+					continue;
+				}
+				if (statement.type === "VariableDeclaration") {
+					if (statement.declarations.some((d) => awaitedCall(d.init) && unread(d))) found.push(statement);
+					continue;
+				}
+				if (statement.type !== "ExpressionStatement") continue;
+				const expression = statement.expression;
+				if (awaitedCall(expression) || voidedCall(expression) || settledCall(expression)) found.push(statement);
+				else if (isCall(expression) && !stateSetter(callOf(expression).callee)) floating.push(statement);
+			}
+		};
+		const report = (node) =>
+			context.report({
+				node,
+				message:
+					"This onConfirm drops the answer of a call, so a refusal the call returns never reaches the dialog. Return it (return handler()), or turn its refusal into return { refused } here.",
+			});
+		return {
+			JSXAttribute(node) {
+				if (node.name.name !== "onConfirm" || node.value?.type !== "JSXExpressionContainer") return;
+				const fn = handlerOf(node.value.expression);
+				if (!fn) return;
+				if (fn.body.type !== "BlockStatement") {
+					if (voidedCall(fn.body)) report(fn.body);
+					return;
+				}
+				if (walkOwn(fn.body, (n) => n.type === "ReturnStatement" && n.argument !== null)) return;
+				const found = [];
+				const floating = [];
+				dropping(fn.body.body, found, floating);
+				const awaits = walkOwn(fn.body, (n) => n.type === "AwaitExpression");
+				if (fn.async && !awaits && floating.length) found.push(floating.at(-1));
+				for (const statement of found) report(statement);
+			},
+		};
+	},
+};
+
+const noDefaultDatabase = {
+	meta: { type: "problem" },
+	create(context) {
+		return {
+			AssignmentPattern(node) {
+				if (!FUNCTIONS.has(node.parent?.type)) return;
+				if (!walkOwn(node.right, (n) => n.type === "CallExpression" && calleeName(unwrapped(n.callee)) === "database"))
+					return;
+				context.report({
+					node,
+					message:
+						"A default parameter that calls database() picks a pool the caller never sees. Make the database a required parameter and have each caller pass the one it uses.",
+				});
+			},
+		};
+	},
+};
+
+const oneTopLevelBefore = {
+	meta: { type: "problem" },
+	create(context) {
+		const hooks = new Set();
+		const hosts = new Set();
+		const namespaces = new Set();
+		const isHook = (callee) => {
+			if (callee.type === "Identifier") return hooks.has(callee.name);
+			if (callee.type !== "MemberExpression" || memberName(callee) !== "before") return false;
+			const object = callee.object;
+			if (object.type === "Identifier") return hosts.has(object.name) || namespaces.has(object.name);
+			return (
+				object.type === "MemberExpression" &&
+				object.object.type === "Identifier" &&
+				namespaces.has(object.object.name) &&
+				TEST_HOSTS.has(memberName(object))
+			);
+		};
+		return {
+			ImportDeclaration(node) {
+				if (node.source.value !== "node:test") return;
+				for (const spec of node.specifiers) {
+					if (spec.type === "ImportNamespaceSpecifier") namespaces.add(spec.local.name);
+					else if (spec.type === "ImportDefaultSpecifier") hosts.add(spec.local.name);
+					else if (nameOf(spec.imported) === "before") hooks.add(spec.local.name);
+					else if (TEST_HOSTS.has(nameOf(spec.imported))) hosts.add(spec.local.name);
+				}
+			},
+			VariableDeclarator(node) {
+				const from = node.init;
+				if (node.id.type !== "ObjectPattern" || from?.type !== "Identifier") return;
+				const statement = node.parent.parent?.type === "ExportNamedDeclaration" ? node.parent.parent : node.parent;
+				if (statement.parent?.type !== "Program") return;
+				if (!hosts.has(from.name) && !namespaces.has(from.name)) return;
+				for (const property of node.id.properties)
+					if (
+						property.type === "Property" &&
+						property.value.type === "Identifier" &&
+						keyName(property.key, property.computed) === "before"
+					)
+						hooks.add(property.value.name);
+			},
+			"Program:exit"(program) {
+				const calls = program.body
+					.filter((statement) => statement.type === "ExpressionStatement")
+					.map((statement) =>
+						statement.expression.type === "AwaitExpression" ? statement.expression.argument : statement.expression,
+					)
+					.filter((call) => call.type === "CallExpression" && isHook(call.callee));
+				for (const call of calls.slice(1))
+					context.report({
+						node: call,
+						message:
+							"node:test starts a top-level before hook the moment it is registered, so a second one runs at the same time as the first. Put the file's setup in one before hook and await each step in order.",
+					});
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -2597,15 +4212,20 @@ export default {
 		"no-timers": noTimers,
 		"raw-sql-literal": rawSqlLiteral,
 		"request-actor": requestActor,
+		"site-path-cast": sitePathCast,
 		"provider-key-mint": providerKeyMint,
 		"no-comments": noComments,
 		"server-log": serverLog,
+		"no-raw-error-log": rawErrorText,
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
 		"deployment-env": deploymentEnv,
 		"server-config": serverConfig,
 		"no-silent-catch": noSilentCatch,
+		"web-database-imports": webDatabaseImports,
+		"shared-notice": sharedNotice,
 		"no-cursor-utility": noCursorUtility,
+		"no-slop-styling": noSlopStyling,
 		"mint-callers": mintCallers,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,
@@ -2622,6 +4242,17 @@ export default {
 		"render-reads": renderReads,
 		"no-read-actions": noReadActions,
 		"action-params-unknown": actionParamsUnknown,
+		"client-request-key": clientRequestKey,
 		"failure-not-empty": failureNotEmpty,
+		"sign-in-redirect": signInRedirect,
+		"organization-seat": organizationSeatCheck,
+		"strict-contracts": strictContracts,
+		"shared-outcome": sharedOutcome,
+		"domain-refusals": domainRefusals,
+		"stable-context-value": stableContextValue,
+		"live-region-in-tree": liveRegionInTree,
+		"one-top-level-before": oneTopLevelBefore,
+		"confirm-keeps-refusal": confirmKeepsRefusal,
+		"no-default-database": noDefaultDatabase,
 	},
 };

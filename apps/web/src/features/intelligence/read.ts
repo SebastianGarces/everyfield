@@ -2,11 +2,12 @@ import "server-only";
 import { z } from "zod";
 import { defineReads } from "../../server/platform/reads.ts";
 import { runAssessment } from "./assessment-server.ts";
-import { careViewer, runAs } from "./server.ts";
+import { plantSeat } from "@/server/request-context";
+import { runAs } from "./server.ts";
 import { runSignals } from "./signals-server.ts";
 
 export const GET = defineReads(
-	async () => ({ viewer: await careViewer() }),
+	async () => ({ viewer: await plantSeat() }),
 	"access_denied",
 	(get) => ({
 		history: get(z.strictObject({ page: z.unknown() }), ({ viewer }, { page }) =>

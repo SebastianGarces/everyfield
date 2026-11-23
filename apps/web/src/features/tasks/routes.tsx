@@ -1,12 +1,11 @@
 import { getViewer } from "@/server/request-context";
-import { LockKeyIcon } from "@hugeicons/core-free-icons";
+import { requireSeat } from "@/server/sign-in";
 import { recordId } from "@everyfield/contracts/common";
-import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import { Card, PageState, Skeleton } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { parseQuery, querySearch } from "./model.ts";
 import { Fresh } from "./fresh.tsx";
-import { loadTasksPage, taskViewer } from "./server.ts";
+import { loadTasksPage } from "./server.ts";
 import { TasksScreen } from "./TasksScreen.tsx";
 import { params } from "../../components/search-params.ts";
 
@@ -17,28 +16,20 @@ export async function TasksPage({ searchParams }: { searchParams: Search }) {
 	const raw = params(await searchParams);
 	const query = parseQuery(raw);
 	const open = recordId.safeParse(raw.get("task"));
-	const viewer = await taskViewer();
-	if (!viewer) {
-		const v = await getViewer();
-		if (v.status === "unauthenticated")
-			redirect(`/signin?returnTo=${encodeURIComponent("/tasks" + querySearch(query))}`);
+	const viewer = await requireSeat(`/tasks${querySearch(query)}`);
+	if (!viewer)
 		return (
-			<Blocked>
-				<StatePanel tone="lock" icon={LockKeyIcon} title="Tasks are not part of your seat" headingLevel="h2">
-					Tasks belong to a church plant workspace. Your account has no current seat in one, so there is nothing to show
-					here.
-				</StatePanel>
-			</Blocked>
+			<PageState page="Tasks" tone="lock" title="Tasks are not part of your seat">
+				Tasks belong to a church plant workspace. Your account has no current seat in one, so there is nothing to show
+				here.
+			</PageState>
 		);
-	}
 	const loaded = await loadTasksPage(viewer, query, open.success ? open.data : null);
 	if (loaded.status !== "ok")
 		return (
-			<Blocked>
-				<StatePanel tone="error" title="We could not load your tasks" headingLevel="h2">
-					This is a loading problem, not an empty list. Your tasks are safe. Reload the page in a moment.
-				</StatePanel>
-			</Blocked>
+			<PageState page="Tasks" tone="error" title="We could not load your tasks">
+				This is a loading problem, not an empty list. Your tasks are safe. Reload the page in a moment.
+			</PageState>
 		);
 	return (
 		<Fresh loading={<TasksLoading />}>
@@ -48,15 +39,6 @@ export async function TasksPage({ searchParams }: { searchParams: Search }) {
 				year={new Date().getUTCFullYear()}
 			/>
 		</Fresh>
-	);
-}
-
-function Blocked({ children }: { children: React.ReactNode }) {
-	return (
-		<>
-			<PageHeader size="xl" title="Tasks" />
-			<Card>{children}</Card>
-		</>
 	);
 }
 
