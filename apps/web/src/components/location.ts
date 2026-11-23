@@ -158,6 +158,7 @@ type Installed = {
 	arrived: () => void;
 };
 const INSTALLED = Symbol.for("everyfield.location");
+const beforeTheRouter = { capture: true };
 
 if (typeof window !== "undefined") {
 	const navigation = (window as { navigation?: EntryChanges }).navigation;
@@ -168,12 +169,12 @@ if (typeof window !== "undefined") {
 		arrived: routerArrived,
 	});
 	if (previous) {
-		window.removeEventListener("popstate", previous.popstate);
+		window.removeEventListener("popstate", previous.popstate, beforeTheRouter);
 		window.removeEventListener("hashchange", previous.hashchange);
 		navigation?.removeEventListener("currententrychange", previous.entry);
 		navigation?.removeEventListener("navigatesuccess", previous.arrived);
 	}
-	window.addEventListener("popstate", traversed);
+	window.addEventListener("popstate", traversed, beforeTheRouter);
 	window.addEventListener("hashchange", hashChanged);
 	navigation?.addEventListener("currententrychange", routerWrote);
 	navigation?.addEventListener("navigatesuccess", routerArrived);

@@ -282,6 +282,7 @@ export function keepForMove(id: string, store: StoreApi<NativeEditorState>, edit
 	editor.on("destroy", () => {
 		kept.last = snapshot(kept);
 	});
+	moving.clear();
 	moving.set(id, kept);
 }
 
