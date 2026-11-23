@@ -159,3 +159,11 @@ test("INV-church-changed: a saving card stops reading its review once the panel'
 	assert.deepEqual(sent, [], "no read of the old church's review after the change");
 	await act(async () => root.unmount());
 });
+
+test("INV-church-changed: a card mounted after the panel's church changed, with no review in hand, reads nothing and says the church changed", async () => {
+	const sent = server({ GET: () => Response.json(review) });
+	const { card, root } = await show(undefined, { changed: () => true, refused: () => false, leave() {}, reload() {} });
+	assert.equal(card().view, "left");
+	assert.deepEqual(sent, []);
+	await act(async () => root.unmount());
+});

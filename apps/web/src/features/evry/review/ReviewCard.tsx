@@ -273,6 +273,8 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				? `${what} in this change is no longer available to you, so Evry can't show this change or its result.`
 				: `${what} in this change is no longer available to you. Nothing was changed.`;
 		}
+		case "left":
+			return "Your church changed, so Evry can't show this change here.";
 		case "unavailable":
 			return "You can't see this change now, so Evry can't show its result. Changes like this need an Owner or Admin seat in this church.";
 		default:
@@ -388,13 +390,13 @@ export function ReviewCard({
 						Try again
 					</Button>
 				</div>
-			) : view === "moved" || view === "left" ? (
+			) : view === "moved" ? (
 				<div className="px-4 py-3.5">
 					<ChurchChanged onReload={church.reload}>
-						{view === "moved" ? "Nothing was changed. " : ""}Reload to use Evry for your new church.
+						Nothing was changed. Reload to use Evry for your new church.
 					</ChurchChanged>
 				</div>
-			) : view === "unavailable" || view === "withheld" || !review ? null : (view === "pending" ||
+			) : view === "unavailable" || view === "withheld" || view === "left" || !review ? null : (view === "pending" ||
 					unknown === "revise") &&
 			  editing === review.revision ? (
 				<ReviseForm
