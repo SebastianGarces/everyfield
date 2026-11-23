@@ -1,5 +1,6 @@
 "use client";
 
+import { counted, countWord } from "@everyfield/contracts/common";
 import { Delete02Icon, Edit02Icon, UserIcon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
 import {
@@ -445,7 +446,7 @@ export function RetireDialog({
 								"They leave the active list and every picker. New meetings, tasks and teams cannot use them.",
 								"Their history, notes and relations stay, and anyone who can see people can still find them under Retired.",
 								duties
-									? `${duties === 1 ? "1 open duty stays" : `${duties} open duties stay`} open and ${duties === 1 ? "is" : "are"} marked Needs owner.`
+									? `${counted(duties, "open duty stays", "open duties stay")} open and ${countWord(duties, "is", "are")} marked Needs owner.`
 									: "They have no open follow-up work.",
 								"An Owner or Admin can restore them later.",
 							].map((c) => (

@@ -62,7 +62,7 @@ function seeded(): Promise<Shared> {
 		};
 		const first = runSeed({ DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: PASSWORD, ...MAIL_KEYS });
 		assert.equal(first.status, 0, first.stderr);
-		return { db, firstSeed: first.stdout.trim(), query };
+		return { db, firstSeed: first.stdout.trim().split("\n")[0]!, query };
 	})();
 	return shared;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import type { PipelineBoard } from "@everyfield/contracts/organizations";
 import { ArrowDown01Icon, ArrowUp01Icon, Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import {
@@ -16,7 +17,7 @@ import {
 } from "@everyfield/ui/controls";
 import { useState, useTransition } from "react";
 import { saveStages } from "./actions";
-import { KIND_LABEL, plural, refusalText, stageChanges } from "./model";
+import { KIND_LABEL, refusalText, stageChanges } from "./model";
 
 type Stage = PipelineBoard["stages"][number];
 type Row = { id: string; label: string; kind: string; revision: string | null; count: number };
@@ -166,13 +167,13 @@ function Editor({ stages, onSaved }: { stages: Stage[]; onSaved: () => void }) {
 									</label>
 								) : (
 									<p className="px-1 text-xs text-text-3">
-										{`Counts as ${KIND_LABEL[row.kind]} · ${plural(row.count, "person", "people")}`}
+										{`Counts as ${KIND_LABEL[row.kind]} · ${counted(row.count, "person", "people")}`}
 									</p>
 								)}
 								<div aria-live="polite" className="empty:sr-only">
 									{blocked === row.id ? (
 										<p className="px-1 text-sm font-medium text-ink">
-											{`“${row.label}” can’t be deleted while ${plural(row.count, "person is", "people are")} in it. Move them to another stage first.`}
+											{`“${row.label}” can’t be deleted while ${counted(row.count, "person is", "people are")} in it. Move them to another stage first.`}
 										</p>
 									) : null}
 								</div>

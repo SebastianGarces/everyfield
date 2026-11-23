@@ -1,5 +1,6 @@
 "use client";
 
+import { countWord } from "@everyfield/contracts/common";
 import { Button } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
@@ -106,7 +107,7 @@ export function SaveFooter({
 					) : (
 						<span className="text-sm text-text-3">
 							{others.length > 0
-								? `${listNames(others.map((k) => SECTION_LABEL[k]))} ${others.length === 1 ? "has" : "have"} unsaved changes.`
+								? `${listNames(others.map((k) => SECTION_LABEL[k]))} ${countWord(others.length, "has", "have")} unsaved changes.`
 								: "No unsaved changes."}
 						</span>
 					)}

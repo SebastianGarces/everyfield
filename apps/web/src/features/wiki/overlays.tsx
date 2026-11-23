@@ -3,20 +3,21 @@
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
+	Command,
 	Dialog,
 	DialogBody,
 	DialogContent,
 	DialogHeader,
 	EmptyState,
-	SearchInput,
+	Input,
 	Select,
 	Sheet,
 	StatePanel,
 } from "@everyfield/ui/controls";
 import { createDebouncer } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useRef, useState, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRef, useState, type ReactNode, type RefObject } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import type { GuideResult, SearchResult } from "./actions.ts";
 import { searchWiki } from "./fetch.ts";
@@ -33,6 +34,10 @@ const PHASES = [
 
 const SEARCH_DELAY_MS = 250;
 
+const NO_HIT = "none";
+
+const LIST_KEYS = new Set(["ArrowDown", "ArrowUp", "Home", "End", "Enter"]);
+
 const searches = createRead(
 	(text: string, phase: string, page: number, source: string | null) =>
 		searchWiki(text, phase === "all" ? null : Number(phase), page, source),
@@ -41,25 +46,21 @@ const searches = createRead(
 
 type Asked = { text: string; phase: string; page: number; source: string | null };
 
+type Typed = { query: string; highlight: string | null };
+
+function articleHref(slug: string) {
+	return `/wiki/${slug
+		.split("/")
+		.map((part) => encodeURIComponent(part))
+		.join("/")}`;
+}
+
+function hitId(articleId: string) {
+	return `wiki-hit-${articleId}`;
+}
+
 export function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-	const source = useSearchParams().get("source");
-	const [query, setQuery] = useState("");
-	const [asked, setAsked] = useState<Asked>({ text: "", phase: "all", page: 1, source: null });
-	const [pause] = useState(() => createDebouncer(SEARCH_DELAY_MS));
-	const found = useRead(asked.text ? searches : null, asked.text, asked.phase, asked.page, asked.source);
-	const [shown, setShown] = useState<{ page: number; result: SearchResult | ReadFailure } | null>(null);
-	const latest = !asked.text ? null : found.value ? { page: asked.page, result: found.value } : shown;
-	if (latest?.result !== shown?.result) setShown(latest);
-	const pending = query.trim() !== asked.text || found.status === "loading";
 	const field = useRef<HTMLInputElement | null>(null);
-
-	function ask(text: string, phase: string, page: number) {
-		pause.cancel();
-		const next = { text: text.trim(), phase, page, source };
-		if (next.text) void searches.refresh(next.text, next.phase, next.page, next.source);
-		setAsked(next);
-	}
-
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent
@@ -71,41 +72,99 @@ export function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 			>
 				<DialogHeader title="Search the wiki" description="Search titles, excerpts and article text." />
 				<DialogBody className="flex flex-col gap-4 pt-1 pb-7 max-app-sm:pb-5">
-					<form
-						className="flex flex-col gap-3"
-						onSubmit={(event) => {
-							event.preventDefault();
-							ask(query, asked.phase, 1);
-						}}
-					>
-						<SearchInput
+					<WikiSearch field={field} onOpened={() => onOpenChange(false)} />
+				</DialogBody>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+export function WikiSearch({ field, onOpened }: { field: RefObject<HTMLInputElement | null>; onOpened: () => void }) {
+	const source = useSearchParams().get("source");
+	const router = useRouter();
+	const [typed, setTyped] = useState<Typed>({ query: "", highlight: null });
+	const [asked, setAsked] = useState<Asked>({ text: "", phase: "all", page: 1, source: null });
+	const [pause] = useState(() => createDebouncer(SEARCH_DELAY_MS));
+	const found = useRead(asked.text ? searches : null, asked.text, asked.phase, asked.page, asked.source);
+	const [shown, setShown] = useState<{ page: number; result: SearchResult | ReadFailure } | null>(null);
+	const latest = !asked.text ? null : found.value ? { page: asked.page, result: found.value } : shown;
+	if (latest?.result !== shown?.result) setShown(latest);
+	const query = typed.query;
+	const pending = query.trim() !== asked.text || found.status === "loading";
+	const hits = shown?.result.status === "results" ? shown.result.hits : [];
+	const active = hits.find((hit) => hit.articleId === typed.highlight) ?? null;
+
+	function ask(text: string, phase: string, page: number) {
+		pause.cancel();
+		const next = { text: text.trim(), phase, page, source };
+		if (next.text) void searches.refresh(next.text, next.phase, next.page, next.source);
+		setAsked(next);
+		setTyped((current) => ({ ...current, highlight: null }));
+	}
+
+	return (
+		<>
+			<Command
+				shouldFilter={false}
+				vimBindings={false}
+				label="Search words"
+				value={typed.highlight ?? NO_HIT}
+				onValueChange={(highlight) => setTyped((current) => ({ ...current, highlight }))}
+				onKeyDown={(event) => {
+					if (event.target !== field.current && LIST_KEYS.has(event.key)) event.preventDefault();
+				}}
+				className="flex flex-col gap-4"
+			>
+				<div className="flex flex-col gap-3">
+					<Command.Input asChild value="">
+						<Input
 							ref={field}
+							type="search"
+							icon={Search01Icon}
 							value={query}
 							maxLength={200}
 							placeholder="Search the wiki"
 							aria-label="Search words"
+							aria-expanded={hits.length > 0}
+							aria-activedescendant={active ? hitId(active.articleId) : undefined}
 							onChange={(event) => {
 								const text = event.target.value;
-								setQuery(text);
+								setTyped({ query: text, highlight: null });
 								pause.run(() => ask(text, asked.phase, 1));
 							}}
+							onKeyDown={(event) => {
+								if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+								if (!active) {
+									ask(query, asked.phase, 1);
+									return;
+								}
+								router.push(articleHref(active.slug));
+								onOpened();
+							}}
 						/>
-						<Select
-							aria-label="Phase"
-							value={asked.phase}
-							options={PHASES}
-							onValueChange={(next) => ask(query, next, 1)}
-						/>
-					</form>
-					<SearchBody result={shown?.result ?? null} pending={pending} query={query.trim()} />
-					{shown?.result.status === "results" && shown.result.nextPage ? (
-						<Button variant="secondary" onClick={() => ask(query, asked.phase, shown.page + 1)} loading={pending}>
-							Next page
-						</Button>
-					) : null}
-				</DialogBody>
-			</DialogContent>
-		</Dialog>
+					</Command.Input>
+					<Select
+						aria-label="Phase"
+						value={asked.phase}
+						options={PHASES}
+						onValueChange={(next) => ask(query, next, 1)}
+					/>
+				</div>
+				<SearchBody result={shown?.result ?? null} pending={pending} query={query.trim()} />
+			</Command>
+			{shown?.result.status === "results" && shown.result.nextPage ? (
+				<Button
+					variant="secondary"
+					onClick={() => {
+						ask(query, asked.phase, shown.page + 1);
+						field.current?.focus();
+					}}
+					loading={pending}
+				>
+					Next page
+				</Button>
+			) : null}
+		</>
 	);
 }
 
@@ -157,22 +216,24 @@ function SearchResults({ result }: { result: SearchResult | ReadFailure }) {
 			</EmptyState>
 		);
 	return (
-		<ul className="flex flex-col gap-2">
+		<Command.List
+			label="Search results"
+			className="[&_[cmdk-list-sizer]]:flex [&_[cmdk-list-sizer]]:flex-col [&_[cmdk-list-sizer]]:gap-2"
+		>
 			{result.hits.map((hit) => (
-				<li key={hit.articleId}>
+				<Command.Item key={hit.articleId} value={hit.articleId} asChild>
 					<Link
-						href={`/wiki/${hit.slug
-							.split("/")
-							.map((part) => encodeURIComponent(part))
-							.join("/")}`}
-						className="block rounded-md px-3 py-2.5 hover:bg-surface-2"
+						id={hitId(hit.articleId)}
+						href={articleHref(hit.slug)}
+						tabIndex={-1}
+						className="block rounded-md px-3 py-2.5 data-[selected=true]:bg-surface-2"
 					>
 						<span className="block font-medium text-ink">{hit.title}</span>
 						{hit.excerpt ? <Snippet text={hit.excerpt} /> : null}
 					</Link>
-				</li>
+				</Command.Item>
 			))}
-		</ul>
+		</Command.List>
 	);
 }
 

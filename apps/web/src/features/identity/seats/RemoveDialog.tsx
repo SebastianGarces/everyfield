@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import {
 	MAX_REMOVAL_ITEMS,
 	removalReviewResult,
@@ -145,8 +146,8 @@ export function RemoveDialog({
 			const moved = result.reply.duties.filter((d) => d.status === "moved").length;
 			const waiting = result.reply.duties.filter((d) => d.status === "needs_owner").length;
 			const handed = [
-				moved ? `${moved} ${moved === 1 ? "duty has" : "duties have"} a new owner` : null,
-				waiting ? `${waiting} ${waiting === 1 ? "duty needs" : "duties need"} an owner` : null,
+				moved ? `${counted(moved, "duty has", "duties have")} a new owner` : null,
+				waiting ? `${counted(waiting, "duty needs", "duties need")} an owner` : null,
 			].filter(Boolean);
 			setOpen(false);
 			onRemoved(

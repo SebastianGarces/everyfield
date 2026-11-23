@@ -157,7 +157,7 @@
 								},
 								{
 									"expect": {
-										"role": "link",
+										"role": "option",
 										"name": "Grace Fellowship (QA)",
 										"match": "contains"
 									}
@@ -172,13 +172,13 @@
 							],
 							"expect": [
 								{
-									"role": "link",
+									"role": "option",
 									"name": "Designated",
 									"match": "contains"
 								},
 								{
 									"absent": {
-										"role": "link",
+										"role": "option",
 										"name": "Grace Fellowship (QA)",
 										"match": "contains"
 									}
