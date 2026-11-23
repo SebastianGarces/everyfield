@@ -8,7 +8,6 @@ export const mailKeys = z.object({
 	IDENTITY_ADDRESS_KEY: hexKey,
 	IDENTITY_MAIL_FROM: z.email(),
 });
-export type MailKeys = z.infer<typeof mailKeys>;
 
 const required = mailKeys.extend({
 	IDENTITY_DATABASE_URL: z.string().min(1),
