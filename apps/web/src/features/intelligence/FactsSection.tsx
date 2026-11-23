@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import type { PlantFacts } from "@everyfield/contracts/intelligence";
 import {
 	Button,
@@ -82,7 +83,7 @@ export function FactsSection({ facts }: { facts: PlantFacts }) {
 					{childrenNote(a) ? <p>{childrenNote(a)}</p> : null}
 					{a.evidence.length ? (
 						<Button className="mt-1 self-start" variant="outline" size="sm" onClick={() => setEvidence(true)}>
-							See the {a.evidence.length} counted {a.evidence.length === 1 ? "adult" : "adults"}
+							See the {counted(a.evidence.length, "counted adult")}
 						</Button>
 					) : null}
 				</Fact>
@@ -166,7 +167,7 @@ export function FactsSection({ facts }: { facts: PlantFacts }) {
 				<Dialog open onOpenChange={(next) => (next ? null : setEvidence(false))}>
 					<DialogContent>
 						<DialogHeader
-							title={`${a.evidence.length} counted ${a.evidence.length === 1 ? "adult" : "adults"}`}
+							title={counted(a.evidence.length, "counted adult")}
 							description="Each adult once, with the commitment that counts them."
 						/>
 						<DialogBody>

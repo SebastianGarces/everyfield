@@ -1,3 +1,4 @@
+import { counted } from "@everyfield/contracts/common";
 import type { Activity, Metrics } from "@everyfield/contracts/dashboard";
 import type { Plan } from "@everyfield/contracts/launch";
 import {
@@ -24,7 +25,7 @@ import { formatCount, List, ListRow, StatusBadge, type Tone } from "@everyfield/
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { longDate, milestonesDone, shownOf } from "../launch/model.ts";
-import { daysText, entryByline, entryText, launchShown, METRICS, type Loaded } from "./model.ts";
+import { entryByline, entryText, launchShown, METRICS, type Loaded } from "./model.ts";
 
 export function CardFailed({ what, loaded }: { what: string; loaded: Exclude<Loaded<unknown>, { status: "ok" }> }) {
 	return (
@@ -193,7 +194,7 @@ function LaunchFigure({ shown }: { shown: ReturnType<typeof launchShown> }) {
 		case "ahead":
 			return (
 				<div>
-					<p className={big}>{daysText(shown.days)}</p>
+					<p className={big}>{counted(shown.days, "day")}</p>
 					<p className="mt-3 text-md text-text-2">Until {longDate(shown.date)}</p>
 				</div>
 			);

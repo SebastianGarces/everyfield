@@ -40,15 +40,13 @@ export function stampOffer(
 export function insertCustom(
 	plantId: string,
 	teamId: string,
-	versionId: string,
 	id: string,
 	sourceLine: string,
 	text: string,
 	sortOrder: number,
 ) {
-	return sql`INSERT INTO responsibility
-		(id, plant_id, team_id, source_version_id, source_line, text, sort_order)
-		VALUES (${id}::uuid, ${plantId}::uuid, ${teamId}::uuid, ${versionId}::uuid, ${sourceLine}, ${text}, ${sortOrder}::int)`;
+	return sql`INSERT INTO responsibility (id, plant_id, team_id, source_line, text, sort_order)
+		VALUES (${id}::uuid, ${plantId}::uuid, ${teamId}::uuid, ${sourceLine}, ${text}, ${sortOrder}::int)`;
 }
 
 export function saveText(plantId: string, id: string, text: string) {

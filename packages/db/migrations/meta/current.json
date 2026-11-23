@@ -22363,7 +22363,7 @@
           "name": "source_version_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "source_line": {
           "name": "source_line",
