@@ -249,12 +249,6 @@ test("INV-membership: legacy inconsistent seats and current lifecycle witnesses 
 				context: { kind: "seat", owner: p, seatId: first, role: "admin", revision: "1" },
 			});
 		});
-		await assert.rejects(
-			db.admin.execute(
-				querySql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,seat_id,request_revision,state,witness_checkpoint,cleanup_state) VALUES('seat',${first},${first},1,'revoked',2,'not_started')`,
-			),
-			(error: { cause?: { constraint?: string } }) => error.cause?.constraint === "lifecycle_witness_ck_3",
-		);
 	} finally {
 		await db.close();
 	}

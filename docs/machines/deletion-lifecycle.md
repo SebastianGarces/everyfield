@@ -18,17 +18,17 @@ finds a write of the column that does not carry the machine's guard.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> pending_deletion: account.requestDeletion when account / churches.requestWorkspaceDeletion when plant / maintenance.restoreWithCurrentManifest when copy and accountOrPlant
-  [*] --> cancelled: maintenance.restoreWithCurrentManifest when copy and accountOrPlant
-  [*] --> purging: maintenance.restoreWithCurrentManifest when copy and accountOrPlant
+  [*] --> pending_deletion: account.requestDeletion when account / churches.requestWorkspaceDeletion when plant / maintenance.restoreWithCurrentManifest when copy
+  [*] --> cancelled: maintenance.restoreWithCurrentManifest when copy
+  [*] --> purging: maintenance.restoreWithCurrentManifest when copy
   cancelled --> pending_deletion: account.requestDeletion when account / churches.requestWorkspaceDeletion when plant
   pending_deletion --> cancelled: account.cancelDeletion when account and beforeDeadline / churches.cancelWorkspaceDeletion when plant and beforeDeadline
-  pending_deletion --> purging: lifecycle.purge when accountOrPlant, unless beforeDeadline
-  purging --> purging: lifecycle.purge when accountOrPlant, unless beforeDeadline / maintenance.restoreWithCurrentManifest when copy and accountOrPlant
-  purging --> purged: lifecycle.purge when accountOrPlant and cleaned, unless beforeDeadline via settings_purge_subject / maintenance.restoreWithCurrentManifest when copy and accountOrPlant
+  pending_deletion --> purging: lifecycle.purge unless beforeDeadline
+  purging --> purging: lifecycle.purge unless beforeDeadline / maintenance.restoreWithCurrentManifest when copy
+  purging --> purged: lifecycle.purge when cleaned, unless beforeDeadline via settings_purge_subject / maintenance.restoreWithCurrentManifest when copy
   note right of cancelled : stays on account.cancelDeletion when account
   note right of cancelled : stays on churches.cancelWorkspaceDeletion when plant
-  note right of purged : stays on lifecycle.purge when accountOrPlant
+  note right of purged : stays on lifecycle.purge
 ```
 
 ## Refused moves
