@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, readFileSync, watch } from "node:fs";
 import { EventEmitter } from "node:events";
 import { dirname } from "node:path";
 import { createServer as httpServer } from "node:http";
 import { crc32, deflateSync } from "node:zlib";
-import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/src/query.ts";
@@ -22,6 +20,7 @@ import { teamsWriter } from "../../../packages/domain/src/teams/index.ts";
 import { CATALOG } from "../../../packages/domain/src/tasks/catalog.ts";
 import { p as wordParagraph, storedZip } from "../documents/fixtures/word.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { holdPort } from "./held-port.mjs";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = root + "apps/web/";
@@ -32,12 +31,8 @@ assert.ok(
 	"No production build in apps/web/.next. Run `corepack pnpm build` first.",
 );
 
-const port = await new Promise((resolve) => {
-	const probe = createServer().listen(0, "127.0.0.1", () => {
-		const { port } = probe.address();
-		probe.close(() => resolve(port));
-	});
-});
+const nextPort = await holdPort("127.0.0.1");
+const { port } = nextPort;
 const origin = `http://127.0.0.1:${port}`;
 const readInput = (input) => encodeURIComponent(JSON.stringify(input));
 const database = await testDatabase({ prefix: "wp011rq", roles: { runtime: ["runtime"], auth: ["auth"] }, max: 2 });
@@ -311,7 +306,7 @@ try {
 	});
 	await new Promise((resolve) => bucket.listen(0, "127.0.0.1", resolve));
 
-	server = spawn(
+	server = nextPort.spawn(
 		process.execPath,
 		[web + "node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", String(port)],
 		{
@@ -592,7 +587,7 @@ try {
 				headers: { cookie: member.cookie },
 			})
 		).json();
-	assert.deepEqual(await duties({ page: 1 }), { status: "refused", code: "invalid_input" });
+	assert.deepEqual(await duties({ page: 1 }), { status: "refused", code: "invalid_input", route: true });
 	const personDuties = await duties({ personId, page: 1 });
 	assert.equal(personDuties.status, "ok", JSON.stringify(personDuties));
 	const tagKey = randomUUID();

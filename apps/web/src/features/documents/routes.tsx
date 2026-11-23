@@ -1,6 +1,6 @@
 import { requireActor } from "@/server/sign-in";
 import { TEXT_TEMPLATE_IDS } from "@everyfield/domain/documents";
-import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import { PageState, Skeleton } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { DocumentsScreen } from "./DocumentsScreen.tsx";
 import { parseQuery } from "./model.ts";
@@ -33,27 +33,17 @@ export async function DocumentsPage({ searchParams }: { searchParams: Search }) 
 
 function Unavailable() {
 	return (
-		<>
-			<PageHeader size="xl" title="Documents" />
-			<Card>
-				<StatePanel tone="lock" title="Documents are not available for this account" headingLevel="h2">
-					Sign in with an active account to read the template library.
-				</StatePanel>
-			</Card>
-		</>
+		<PageState page="Documents" tone="lock" title="Documents are not available for this account">
+			Sign in with an active account to read the template library.
+		</PageState>
 	);
 }
 
 function Failed() {
 	return (
-		<>
-			<PageHeader size="xl" title="Documents" />
-			<Card>
-				<StatePanel tone="error" title="We could not load documents" headingLevel="h2">
-					This is a loading problem. Nothing was changed. Try again in a moment.
-				</StatePanel>
-			</Card>
-		</>
+		<PageState page="Documents" tone="error" title="We could not load documents">
+			This is a loading problem. Nothing was changed. Try again in a moment.
+		</PageState>
 	);
 }
 

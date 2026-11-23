@@ -1,6 +1,5 @@
 import {
 	attrsOf,
-	columnWidths,
 	formatNumber,
 	parseAmount,
 	tableIssue,
@@ -117,11 +116,24 @@ export const EfValueCell = TiptapNode.create({
 	},
 });
 
-type CellSpec = { kind: ColumnSpec["type"]; shown: string | null; input: boolean; label: string; row: number };
+class CellSpec {
+	readonly kind: ColumnSpec["type"];
+	readonly shown: string | null;
+	readonly input: boolean;
+	readonly label: string;
+	readonly row: number;
+	constructor(kind: ColumnSpec["type"], shown: string | null, input: boolean, label: string, row: number) {
+		this.kind = kind;
+		this.shown = shown;
+		this.input = input;
+		this.label = label;
+		this.row = row;
+	}
+}
 const cellSpecOf = (decorations: readonly Decoration[]): CellSpec | null => {
 	for (const d of decorations) {
-		const spec = (d as unknown as { spec?: Partial<CellSpec> }).spec;
-		if (spec && typeof spec.kind === "string") return spec as CellSpec;
+		const spec: unknown = d.spec;
+		if (spec instanceof CellSpec) return spec;
 	}
 	return null;
 };
@@ -360,14 +372,16 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 	const table = () => attrsOf(tableOf(node));
 
 	function widths() {
-		const paper = dom.closest<HTMLElement>(".ProseMirror")?.clientWidth;
-		const share = paper && scroll.clientWidth ? Math.min(1, scroll.clientWidth / paper) : 1;
-		const points = columnWidths(
-			table().columns,
-			textWidth(editor.state.doc.attrs.page as PageSetup | undefined) * share,
+		const columns = table().columns;
+		const fixed = columns.reduce((sum, c) => sum + c.width, 0);
+		const autos = columns.filter((c) => c.width === 0).length;
+		const text = textWidth(editor.state.doc.attrs.page as PageSetup | undefined);
+		grid.style.setProperty(
+			"--ef-auto",
+			`max(${px(24)}, (${px(text)} * var(--ef-share) - ${px(fixed)}) / ${autos || 1})`,
 		);
-		grid.style.setProperty("--ef-cols", points.map((pt) => px(pt)).join(" "));
-		grid.style.minWidth = `${points.reduce((s, pt) => s + pt, 0) * (4 / 3)}px`;
+		grid.style.setProperty("--ef-cols", columns.map((c) => (c.width ? px(c.width) : "var(--ef-auto)")).join(" "));
+		grid.style.minWidth = `calc(${px(fixed)} + ${autos} * var(--ef-auto))`;
 	}
 
 	function drawHead() {
@@ -454,13 +468,6 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		widths();
 	}
 	draw();
-	let seen = scroll.clientWidth;
-	const observer = new ResizeObserver(() => {
-		if (scroll.clientWidth === seen) return;
-		seen = scroll.clientWidth;
-		requestAnimationFrame(widths);
-	});
-	observer.observe(scroll);
 	blanks.addEventListener("focus", () => noteFocus(editor.view, getPos(), { row: null, col: 0, blank: true }));
 	blanks.addEventListener("keydown", (event) => {
 		fieldKey(editor, event, getPos(), { row: null, col: null, blank: true });
@@ -500,7 +507,6 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		ignoreMutation: (mutation: ViewMutationRecord) =>
 			mutation.type === "selection" ? false : !body.contains(mutation.target),
 		destroy: () => {
-			observer.disconnect();
 			editor.off("transaction", onTransaction);
 		},
 	};
@@ -521,13 +527,18 @@ function decorationsFor(node: PMNode, pos: number): Decoration[] {
 			if (column) {
 				const align = `text-align:${alignOf(column)}`;
 				list.push(
-					Decoration.node(cellPos, cellPos + cell.nodeSize, { style: align }, {
-						kind: column.type,
-						shown: shown?.shown[ci] ?? null,
-						input: (shown?.role ?? "item") === "item",
-						label: column.label,
-						row: r + 1,
-					} satisfies CellSpec),
+					Decoration.node(
+						cellPos,
+						cellPos + cell.nodeSize,
+						{ style: align },
+						new CellSpec(
+							column.type,
+							shown?.shown[ci] ?? null,
+							(shown?.role ?? "item") === "item",
+							column.label,
+							r + 1,
+						),
+					),
 				);
 			}
 			cellPos += cell.nodeSize;

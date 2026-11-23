@@ -208,6 +208,7 @@
 			"id": "wiki.article",
 			"says": "One article: its church versions and their order, rating, bookmark, print and PDF.",
 			"routes": [],
+			"endpoints": ["/api/wiki/pdf"],
 			"catalog": ["WIKI-001", "WIKI-005", "WIKI-006", "WIKI-007"],
 			"reach": [
 				{

@@ -2,14 +2,20 @@
 
 import {
 	Add01Icon,
+	Cancel01Icon,
 	Clock01Icon,
+	Csv01Icon,
+	File02Icon,
+	Image01Icon,
 	Link01Icon,
+	Pdf01Icon,
 	SentIcon,
 	StopIcon,
 	Unlink01Icon,
 	WifiDisconnected01Icon,
 } from "@hugeicons/core-free-icons";
 import {
+	Alert,
 	Button,
 	IconButton,
 	RowButton,
@@ -39,6 +45,7 @@ import { createRead, useRead } from "@/components/read";
 import * as api from "./api.ts";
 import { Panel } from "./panel.tsx";
 import {
+	churchChanged,
 	endNotice,
 	MAX_MESSAGE,
 	pageReferences,
@@ -56,7 +63,8 @@ import { ReviewCard } from "../review/ReviewCard.tsx";
 import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
 import { useRowPhotos } from "./useRowPhotos.ts";
-import { AttachButton, AttachedPhoto } from "./PhotoAttach.tsx";
+import { AttachButton, PhotoChip } from "./PhotoAttach.tsx";
+import { ATTACH, fileSize, isCsv, isPdf, type Picked } from "./attachments.ts";
 import type { Stream } from "./EvryPanel.store.ts";
 
 const useActions = () => Panel.useSelect((s) => s.actions);
@@ -105,13 +113,14 @@ function followEnd() {
 	};
 }
 
-export function EvryPanel({ inPlant, context }: { inPlant: boolean; context: string }) {
+export function EvryPanel({ inPlant, canAttach, context }: { inPlant: boolean; canAttach: boolean; context: string }) {
 	const actions = useActions();
 	const open = Panel.useSelect((s) => s.open);
 	const view = Panel.useSelect((s) => s.view);
 	const chat = Panel.useSelect((s) => s.chat);
 	const load = Panel.useSelect((s) => s.load);
 	const pipeline = Panel.useSelect((s) => s.pipeline);
+	const moved = Panel.useSelect((s) => s.churchChanged);
 	const [chatVisits, setChatVisits] = useState(0);
 	const [{ box, content, stick }] = useState(followEnd);
 	const composer = useRef<HTMLTextAreaElement>(null);
@@ -175,7 +184,9 @@ export function EvryPanel({ inPlant, context }: { inPlant: boolean; context: str
 						ref={composerRef}
 						busy={chat.activeTurnId !== null}
 						stopping={chat.stopping}
-						disabled={load !== "ready"}
+						disabled={load !== "ready" || moved}
+						conversationId={chat.conversation?.id ?? null}
+						canAttach={canAttach}
 						onSend={(text, references) => {
 							stick();
 							actions.send(text, references, context);
@@ -296,11 +307,7 @@ function Chat({
 					Evry reads the records you can see and answers with the sources it used. It never changes anything without
 					your approval.
 				</p>
-				{problem ? (
-					<p role="alert" className="text-sm text-magenta-600">
-						{problem}
-					</p>
-				) : null}
+				{problem ? <Alert role="alert">{problem}</Alert> : null}
 			</div>
 		);
 
@@ -341,26 +348,27 @@ function Chat({
 				</p>
 			) : null}
 			{stream === "lost" && state.activeTurnId ? (
-				<div role="alert" className="flex items-center gap-3 rounded-md bg-surface-2 px-4 py-3 text-sm text-text-2">
-					<Icon icon={WifiDisconnected01Icon} size={16} className="flex-none text-text-3" />
-					<span className="flex-1">The connection to Evry was lost. Evry keeps working on the answer.</span>
-					<Button
-						size="sm"
-						variant="outline"
-						onClick={() => {
-							actions.reconnect();
-							focusComposer();
-						}}
-					>
-						Reconnect
-					</Button>
-				</div>
+				<Alert
+					role="alert"
+					tone="warning"
+					icon={WifiDisconnected01Icon}
+					actions={
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={() => {
+								actions.reconnect();
+								focusComposer();
+							}}
+						>
+							Reconnect
+						</Button>
+					}
+				>
+					The connection to Evry was lost. Evry keeps working on the answer.
+				</Alert>
 			) : null}
-			{problem ? (
-				<p role="alert" className="text-sm text-magenta-600">
-					{problem}
-				</p>
-			) : null}
+			{problem ? <Alert role="alert">{problem}</Alert> : null}
 			<div aria-live="polite" className="sr-only">
 				{announcement}
 			</div>
@@ -412,6 +420,7 @@ function TurnView({
 					<UserBubble>
 						<span className="sr-only">You: </span>
 						{turn.ask.text}
+						<SentFiles files={turn.ask.attachments} />
 					</UserBubble>
 				)
 			) : null}
@@ -456,23 +465,22 @@ function TurnView({
 							<p className="text-sm text-text-3">Stopping…</p>
 						) : null}
 						{notice ? (
-							<div
-								className={cn(
-									"flex flex-col gap-1 rounded-md px-4 py-3 text-sm",
-									notice.tone === "error" ? "bg-magenta-50 text-magenta-600" : "bg-surface-2 text-text-2",
-								)}
+							<Alert
+								tone={notice.tone}
+								title={notice.title}
+								actions={
+									canRetry ? (
+										<Button size="sm" variant="outline" loading={retrying} onClick={onRetry}>
+											Try again
+										</Button>
+									) : undefined
+								}
 							>
-								<p className="font-semibold text-ink">{notice.title}</p>
 								<p>{notice.text}</p>
 								{turn.end?.error ? (
 									<p className="text-xs text-text-3">Reference {turn.end.error.correlationId.slice(0, 8)}</p>
 								) : null}
-								{canRetry ? (
-									<Button size="sm" variant="outline" className="mt-2 self-start" loading={retrying} onClick={onRetry}>
-										Try again
-									</Button>
-								) : null}
-							</div>
+							</Alert>
 						) : null}
 					</div>
 				</div>
@@ -482,14 +490,31 @@ function TurnView({
 }
 
 function SendView({ send, onResend, onEdit }: { send: Send; onResend: () => void; onEdit: () => void }) {
-	const notice = sendNotice(send);
+	const churchName = Panel.useSelect((s) => s.churchName);
+	const actions = useActions();
+	const notice = sendNotice(send, churchName);
 	return (
 		<li className="flex flex-col items-end gap-2">
 			<UserBubble muted={send.state === "sending"}>
 				<span className="sr-only">You: </span>
 				{send.text}
+				<SentFiles files={send.attachments} />
 			</UserBubble>
-			{notice ? (
+			{churchChanged(send) ? (
+				<Alert
+					role="alert"
+					tone="neutral"
+					title="Your church changed"
+					className="w-full"
+					actions={
+						<Button size="sm" variant="primary" onClick={() => actions.reloadForChurch(send)}>
+							Reload
+						</Button>
+					}
+				>
+					<p>Reload to use Evry for your new church. Your message comes with you, ready to send.</p>
+				</Alert>
+			) : notice ? (
 				<div role="alert" className="flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600">
 					<p>{notice}</p>
 					<div className="flex gap-2">
@@ -515,6 +540,8 @@ function Composer({
 	busy,
 	stopping,
 	disabled,
+	conversationId,
+	canAttach,
 	onSend,
 	onStop,
 	suggestions,
@@ -523,6 +550,8 @@ function Composer({
 	busy: boolean;
 	stopping: boolean;
 	disabled: boolean;
+	conversationId: string | null;
+	canAttach: boolean;
 	onSend: (text: string, references: Reference[]) => void;
 	onStop: () => void;
 	suggestions: string[];
@@ -531,19 +560,32 @@ function Composer({
 	const panel = Panel.useStoreApi();
 	const draft = Panel.useSelect((s) => s.draft);
 	const photo = Panel.useSelect((s) => s.photo);
+	const files = Panel.useSelect((s) => s.files);
+	const fileNotice = Panel.useSelect((s) => s.fileNotice);
 	const pathname = usePathname();
 	const [usePage, setUsePage] = useState(true);
 	const page = pageReferences(pathname);
 	const hint = useId();
 	const text = draft.trim();
 	const tooLong = draft.length > MAX_MESSAGE;
-	const canSend = !disabled && !busy && text.length > 0 && !tooLong && photo?.status !== "uploading";
+	const shown = files.filter((p) => p.conversationId === null || p.conversationId === conversationId);
+	const uploading = files.some((p) => p.state === "uploading");
+	const canSend = !disabled && !busy && text.length > 0 && !tooLong && !uploading && photo?.status !== "uploading";
 
 	const submit = (chosen?: string) => {
-		const { draft: now, photo: attached } = panel.getState();
+		const { draft: now, photo: attached, files: picked } = panel.getState();
 		const value = chosen ?? now.trim();
-		if (disabled || busy || !value || value.length > MAX_MESSAGE || attached?.status === "uploading") return;
-		const photos = attached?.status === "ready" ? [{ kind: "photo" as const, id: attached.id }] : [];
+		if (
+			disabled ||
+			busy ||
+			!value ||
+			value.length > MAX_MESSAGE ||
+			attached?.status === "uploading" ||
+			picked.some((p) => p.state === "uploading")
+		)
+			return;
+		const photos =
+			attached?.status === "ready" && attached.avatarId ? [{ kind: "photo" as const, id: attached.avatarId }] : [];
 		onSend(value, [...(usePage ? page : []), ...photos]);
 	};
 	const onSubmit = (e: FormEvent) => {
@@ -578,7 +620,7 @@ function Composer({
 				<div className="flex items-center gap-2">
 					{usePage ? (
 						<Tag tone="green" icon={Link01Icon}>
-							Using the person on this page
+							{page[0]?.kind === "article" ? "Using the article on this page" : "Using the person on this page"}
 						</Tag>
 					) : (
 						<Tag icon={Unlink01Icon}>Page left out</Tag>
@@ -589,6 +631,14 @@ function Composer({
 				</div>
 			) : null}
 			<div
+				onDragOver={(e) => {
+					if (canAttach && !disabled && !busy && e.dataTransfer.types.includes("Files")) e.preventDefault();
+				}}
+				onDrop={(e) => {
+					if (!canAttach || disabled || busy || !e.dataTransfer.files.length) return;
+					e.preventDefault();
+					actions.addFiles([...e.dataTransfer.files], canAttach);
+				}}
 				className={cn(
 					"rounded-card bg-surface-raised px-4 pt-3 pb-2.5 shadow-[0_0_0_1px_var(--ef-line-2)] transition-[box-shadow] duration-150",
 					tooLong
@@ -596,7 +646,14 @@ function Composer({
 						: "focus-within:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
 				)}
 			>
-				{photo ? <AttachedPhoto photo={photo} onRemove={actions.clearPhoto} /> : null}
+				{shown.length || photo ? (
+					<ul aria-label="Attached files" className="mb-2 flex flex-wrap gap-2">
+						{photo ? <PhotoChip photo={photo} onRemove={actions.clearPhoto} /> : null}
+						{shown.map((p) => (
+							<FileChip key={p.key} file={p} onRemove={() => actions.removeFile(p.key)} />
+						))}
+					</ul>
+				) : null}
 				<label className="sr-only" htmlFor={`${hint}-input`}>
 					Message Evry
 				</label>
@@ -613,20 +670,36 @@ function Composer({
 					className="block max-h-40 min-h-12 w-full resize-none bg-transparent text-md text-ink outline-none [field-sizing:content] placeholder:text-text-3"
 				/>
 				<div className="mt-1 flex items-center justify-between gap-3">
-					<p id={hint} className={cn("text-xs", tooLong ? "text-magenta-600" : "text-text-3")}>
+					<p
+						id={hint}
+						role={fileNotice ? "alert" : undefined}
+						className={cn("text-xs", tooLong || fileNotice ? "text-magenta-600" : "text-text-3")}
+					>
 						{tooLong
 							? `Shorten this message to ${MAX_MESSAGE.toLocaleString()} characters (now ${draft.length.toLocaleString()}).`
-							: busy
-								? "Evry is answering. You can stop it."
-								: "Enter sends. Shift+Enter adds a line."}
+							: fileNotice
+								? fileNotice
+								: busy
+									? "Evry is answering. You can stop it."
+									: uploading || photo?.status === "uploading"
+										? "Attaching the file…"
+										: shown.length
+											? "Say what Evry should do with the file."
+											: photo?.status === "ready"
+												? "Say what Evry should do with the photo."
+												: "Enter sends. Shift+Enter adds a line."}
 					</p>
-					{busy ? (
-						<Button size="sm" variant="secondary" icon={StopIcon} loading={stopping} onClick={onStop}>
-							Stop
-						</Button>
-					) : (
-						<div className="flex flex-none items-center gap-1">
-							<AttachButton disabled={disabled} onFile={actions.attach} />
+					<div className="flex flex-none items-center gap-1">
+						<AttachButton
+							disabled={disabled || busy}
+							church={canAttach}
+							onFiles={(picked) => actions.addFiles(picked, canAttach)}
+						/>
+						{busy ? (
+							<Button size="sm" variant="secondary" icon={StopIcon} loading={stopping} onClick={onStop}>
+								Stop
+							</Button>
+						) : (
 							<Button
 								type="submit"
 								size="sm"
@@ -637,11 +710,52 @@ function Composer({
 							>
 								<span className="sr-only">Send</span>
 							</Button>
-						</div>
-					)}
+						)}
+					</div>
 				</div>
 			</div>
 		</form>
+	);
+}
+
+const fileIcon = (name: string) =>
+	ATTACH.photoName.test(name) ? Image01Icon : isPdf(name) ? Pdf01Icon : isCsv(name) ? Csv01Icon : File02Icon;
+
+function FileChip({ file, onRemove }: { file: Picked; onRemove: () => void }) {
+	return (
+		<li
+			className={cn(
+				"flex h-[34px] max-w-full items-center gap-2 rounded-pill bg-surface-2 py-1 pr-1 pl-3 text-sm",
+				file.state === "failed" && "bg-magenta-50",
+			)}
+		>
+			<Icon icon={fileIcon(file.name)} size={16} className="flex-none text-text-2" />
+			<span className="min-w-0 truncate text-ink">{file.name}</span>
+			<span className={cn("flex-none text-xs", file.state === "failed" ? "text-magenta-600" : "text-text-3")}>
+				{file.state === "uploading" ? "Attaching…" : file.state === "failed" ? "Couldn't attach" : fileSize(file.size)}
+			</span>
+			<IconButton
+				icon={Cancel01Icon}
+				label={`Remove ${file.name}`}
+				size="sm"
+				className="size-[26px]"
+				onClick={onRemove}
+			/>
+		</li>
+	);
+}
+
+function SentFiles({ files }: { files: readonly { id: string; name: string }[] }) {
+	if (!files.length) return null;
+	return (
+		<ul aria-label="Attached files" className="mt-2 flex flex-wrap gap-1.5">
+			{files.map((f) => (
+				<li key={f.id} className="flex items-center gap-1.5 rounded-pill bg-white/12 px-2.5 py-1 text-sm">
+					<Icon icon={fileIcon(f.name)} size={16} className="flex-none" />
+					<span className="min-w-0 truncate">{f.name}</span>
+				</li>
+			))}
+		</ul>
 	);
 }
 

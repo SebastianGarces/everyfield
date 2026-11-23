@@ -36,7 +36,7 @@ const tick = scheduledJobs({
 	db,
 	storage: null,
 	cleanup: null,
-	reminders: null,
+	effects: null,
 	digests: null,
 	mail: null,
 	notifications: createNotificationWorker({ mail: service() }),

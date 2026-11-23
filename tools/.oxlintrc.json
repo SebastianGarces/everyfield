@@ -8,7 +8,8 @@
 		"everyfield/no-comments": "error",
 		"everyfield/no-raw-error-log": "error",
 		"everyfield/no-effects": "error",
-		"everyfield/max-state": "error"
+		"everyfield/max-state": "error",
+		"everyfield/one-top-level-before": "error"
 	},
 	"overrides": [
 		{

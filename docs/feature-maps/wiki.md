@@ -126,6 +126,7 @@ Reading records progress; the home resumes it and marks an article changed since
 One article: its church versions and their order, rating, bookmark, print and PDF.
 
 - Routes: none
+- Endpoints: `/api/wiki/pdf`
 - Personas: `owner` write, `admin` write, `member` write, `resident` write, `triage` write
 - Catalog: WIKI-001, WIKI-005, WIKI-006, WIKI-007
 

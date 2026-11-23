@@ -51,6 +51,7 @@ import {
 	Combobox,
 	CommandPalette,
 	ConfirmDialog,
+	type ConfirmRefusal,
 	DateRangePicker,
 	Dialog,
 	DialogBody,
@@ -795,13 +796,13 @@ function OverlaysSection({ paletteShortcut }: { paletteShortcut: ShortcutMark })
 	const [guide, setGuide] = useState(false);
 	const [answer, setAnswer] = useState<((hidden: boolean) => void) | null>(null);
 	const hide = () =>
-		new Promise<void>((resolve, reject) =>
+		new Promise<ConfirmRefusal | void>((resolve) =>
 			setAnswer(() => (hidden: boolean) => {
 				setAnswer(null);
-				if (!hidden) {
-					reject(new Error("The article did not hide because the connection dropped. Nothing changed. Try again."));
-					return;
-				}
+				if (!hidden)
+					return resolve({
+						refused: "The article did not hide because the connection dropped. Nothing changed. Try again.",
+					});
 				toast({ message: "Article hidden." });
 				resolve();
 			}),
@@ -1173,6 +1174,11 @@ function AlertsSection() {
 					>
 						The meeting may already be saved. We did not hear back from the server. Check again to find out; it will not
 						be saved twice.
+					</Alert>
+				</Specimen>
+				<Specimen label="Warning">
+					<Alert tone="warning" title="Written for Phase 2">
+						Your church is now in Phase 3. This assessment keeps the Phase 2 criteria and standings.
 					</Alert>
 				</Specimen>
 				<Specimen label="Neutral">

@@ -96,6 +96,14 @@ export function current() {
 }
 
 export type { Viewer } from "@everyfield/domain/organizations";
+const viewerKind = (selected: Owner, discovery: boolean): Kind =>
+	selected.kind === "plant"
+		? "plant"
+		: selected.kind === "organization"
+			? selected.organizationKind
+			: discovery
+				? "discovery"
+				: "account";
 export async function viewerOf(): Promise<
 	| { kind: "signed_out" }
 	| { kind: "unavailable" }
@@ -110,20 +118,12 @@ export async function viewerOf(): Promise<
 	if (!actor) return { kind: "unavailable" };
 	const context = actor.context;
 	const selected = context.owner;
-	const kind: Kind =
-		selected.kind === "plant"
-			? "plant"
-			: selected.kind === "organization"
-				? selected.organizationKind
-				: s.discovery
-					? "discovery"
-					: "account";
 	return {
 		kind: "viewer",
 		mount: current(),
 		authority,
 		viewer: {
-			kind,
+			kind: viewerKind(selected, s.discovery),
 			session: s.sessionId,
 			accountId: s.accountId,
 			selected,
@@ -205,7 +205,7 @@ export async function invitationFor(
 	const reply = await query(m, authority, viewer.selected, (tx, s, o) =>
 		readAnswerableInvitation(tx, s, o, { invitationId, proof }),
 	);
-	return reply.status === "ok" && reply.value.status === "pending" ? reply.value : null;
+	return reply.status === "ok" && reply.value.status !== "unavailable" ? reply.value : null;
 }
 
 export {

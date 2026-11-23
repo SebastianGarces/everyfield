@@ -103,7 +103,7 @@ function ThemeOption({
 
 export function RailTip({ children }: { children: string }) {
 	return (
-		<span className="pointer-events-none absolute top-1/2 left-[60px] z-30 -translate-x-1 -translate-y-1/2 whitespace-nowrap rounded-md bg-ink px-2.5 py-1.5 text-sm font-medium text-on-ink opacity-0 transition-[opacity,translate] duration-150 group-hover/ri:translate-x-0 group-hover/ri:opacity-100 group-focus-visible/ri:translate-x-0 group-focus-visible/ri:opacity-100">
+		<span className="pointer-events-none absolute top-1/2 left-[60px] z-30 -translate-x-1 -translate-y-1/2 whitespace-nowrap rounded-md bg-ink px-2.5 py-1.5 text-sm font-medium text-on-ink opacity-0 transition-[opacity,translate] duration-150 motion-reduce:transition-opacity group-hover/ri:translate-x-0 group-hover/ri:opacity-100 group-focus-visible/ri:translate-x-0 group-focus-visible/ri:opacity-100">
 			{children}
 		</span>
 	);
