@@ -63,7 +63,7 @@ export async function stageAttachment(
 	conversationId: string,
 	raw: unknown,
 ) {
-	const parsed = z.object({ id: z.uuid(), input: stageInput }).safeParse({ id: conversationId, input: raw });
+	const parsed = z.strictObject({ id: z.uuid(), input: stageInput }).safeParse({ id: conversationId, input: raw });
 	if (!parsed.success) throw new EvryRefusal("invalid_input");
 	if (!storage || !canAttach(actor)) throw new EvryRefusal("access_denied");
 	const { input } = parsed.data;
@@ -165,7 +165,7 @@ export const attachmentsOf = <C extends string>(c: SqlLiteral<C>) =>
 		WHERE e.conversation_id=${c}.id AND e.kind='user_message'
 		ORDER BY a.id,e.sequence DESC LIMIT 64) x),'[]'::jsonb)`);
 
-export const attachmentState = z.object({
+export const attachmentState = z.strictObject({
 	id: z.uuid(),
 	name: z.string(),
 	attachedAt: z.coerce.date(),
@@ -212,7 +212,7 @@ export async function stagedFile(
 		WHERE c.id=${conversationId}::uuid AND c.tenant_id=${tenantId}::uuid AND x->>'id'=${attachmentId}::text`);
 	return (
 		z
-			.object({ name: z.string(), status: z.enum(["available", "replaced", "gone", "used"]) })
+			.strictObject({ name: z.string(), status: z.enum(["available", "replaced", "gone", "used"]) })
 			.optional()
 			.parse(r.rows[0]) ?? null
 	);

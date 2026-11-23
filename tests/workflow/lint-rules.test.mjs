@@ -2791,7 +2791,7 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 	);
 });
 
-test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased (the namespace too), destructured or re-exported (export * included), unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
+test("INV-lint: an object schema in packages/contracts or packages/evry is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased (the namespace too), destructured or re-exported (export * included), unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
 	const loose = `import { z } from "zod";
 import * as zz from "zod/v4";
 import { object as plain } from "zod";
@@ -2826,25 +2826,17 @@ export const p = q.object({});
 export * from "./more";
 `;
 	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" strict-contracts"));
-	assert.deepEqual(reported({ "packages/contracts/src/x/index.ts": loose, "packages/domain/src/x.ts": loose }), [
-		"packages/contracts/src/x/index.ts:11 strict-contracts",
-		"packages/contracts/src/x/index.ts:12 strict-contracts",
-		"packages/contracts/src/x/index.ts:13 strict-contracts",
-		"packages/contracts/src/x/index.ts:14 strict-contracts",
-		"packages/contracts/src/x/index.ts:15 strict-contracts",
-		"packages/contracts/src/x/index.ts:16 strict-contracts",
-		"packages/contracts/src/x/index.ts:18 strict-contracts",
-		"packages/contracts/src/x/index.ts:20 strict-contracts",
-		"packages/contracts/src/x/index.ts:22 strict-contracts",
-		"packages/contracts/src/x/index.ts:24 strict-contracts",
-		"packages/contracts/src/x/index.ts:27 strict-contracts",
-		"packages/contracts/src/x/index.ts:28 strict-contracts",
-		"packages/contracts/src/x/index.ts:4 strict-contracts",
-		"packages/contracts/src/x/index.ts:5 strict-contracts",
-		"packages/contracts/src/x/index.ts:5 strict-contracts",
-		"packages/contracts/src/x/index.ts:8 strict-contracts",
-		"packages/contracts/src/x/index.ts:9 strict-contracts",
-	]);
+	const hits = [11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 27, 28, 4, 5, 5, 8, 9];
+	assert.deepEqual(
+		reported({
+			"packages/contracts/src/x/index.ts": loose,
+			"packages/evry/src/adapters/x/commands/index.ts": loose,
+			"packages/domain/src/x.ts": loose,
+		}),
+		["packages/contracts/src/x/index.ts", "packages/evry/src/adapters/x/commands/index.ts"].flatMap((path) =>
+			hits.map((line) => `${path}:${line} strict-contracts`),
+		),
+	);
 	const listed = Object.values(LOOSE_CONTRACTS);
 	assert.ok(
 		listed.length <= 1 && listed.reduce((n, names) => n + Object.keys(names).length, 0) <= 1,

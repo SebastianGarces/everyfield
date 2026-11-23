@@ -16,7 +16,7 @@ import { PHOTO_NAME } from "../attachments/store.ts";
 export const PASTORAL_BOUNDARY =
 	"I help with the church planting work recorded in Everyfield. I can't give pastoral or Biblical counsel, write prayers, or judge whether someone is spiritually ready or qualified. Your church's leaders are the right people for that. I can show what is recorded about a person, such as their stage and history.";
 
-const requestKind = z.object({ kind: z.enum(["application", "capabilities", "pastoral_boundary"]) });
+const requestKind = z.strictObject({ kind: z.enum(["application", "capabilities", "pastoral_boundary"]) });
 export type RequestKind = z.infer<typeof requestKind>["kind"];
 
 export async function classifyRequest(model: LanguageModelV4, text: string, signal: AbortSignal) {

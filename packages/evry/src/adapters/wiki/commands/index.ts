@@ -59,7 +59,10 @@ export const setBookmark: ReviewedWrite<z.infer<typeof bookmarkInput>> = {
 			FROM (SELECT 1) seed LEFT JOIN reading r ON r.account_id=${actor.accountId}::uuid AND r.article_id=${value.articleId}::uuid`;
 	},
 	async execute(tx, context, args, effectKey) {
-		const request = setBookmarkRequest.parse({ ...z.object({}).loose().parse(args), requestKey: effectKey });
+		const request = setBookmarkRequest.parse({
+			...z.record(z.string(), z.unknown()).parse(args),
+			requestKey: effectKey,
+		});
 		return done(await wikiEffects.setBookmark(tx, context, request), (v) => !v.errorCode);
 	},
 };
@@ -82,7 +85,10 @@ export const setFeedback: ReviewedWrite<z.infer<typeof feedbackInput>> = {
 				'input',jsonb_build_object('articleId',${value.articleId}::uuid,'vote',${value.vote}::text)) AS args`;
 	},
 	async execute(tx, context, args, effectKey) {
-		const request = feedbackSetMineRequest.parse({ ...z.object({}).loose().parse(args), requestKey: effectKey });
+		const request = feedbackSetMineRequest.parse({
+			...z.record(z.string(), z.unknown()).parse(args),
+			requestKey: effectKey,
+		});
 		return done(await wikiEffects.setMine(tx, context, request), () => true);
 	},
 };
@@ -95,7 +101,7 @@ const WRITERS = {
 	publish: wiki.publishOrganizationArticle,
 	hide: wiki.hideOrganizationArticle,
 } as const;
-const saved = z.object({
+const saved = z.strictObject({
 	requestKey: z.uuid(),
 	expectedRevision: z.string().regex(/^(0|[1-9]\d*)$/),
 	articleId: z.uuid(),
