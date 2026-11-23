@@ -26,7 +26,12 @@ export type Outcome = {
 };
 export type Staged = { upload: string; status: "ready"; src: string } | { upload: string; status: "gone" | "lost" };
 
-export type Church = { changed: () => boolean; leave: () => void; reload: () => void };
+export type Church = {
+	changed: () => boolean;
+	refused: (proposalId: string) => boolean;
+	leave: (proposalId: string) => void;
+	reload: () => void;
+};
 
 export type ReviewPort = Pick<
 	typeof api,
@@ -124,8 +129,10 @@ export function createReviewStore(init: {
 	} | null = null;
 	let awaiting = false;
 	const shown = createRead(
-		(proposal: string) =>
-			port
+		(proposal: string): Promise<Shown> =>
+			port.church.changed()
+				? Promise.resolve("lost")
+				: port
 				.readReview(proposal)
 				.then((reply): Shown =>
 					reply.status === "ok" ? reply.value : reply.status === "refused" ? "unavailable" : "lost",
@@ -238,7 +245,7 @@ export function createReviewStore(init: {
 			if (reply.status === "refused" && reply.error.code === "church_changed") {
 				++generation;
 				set({ busy: null, outcome: NONE, churchChanged: true });
-				return port.church.leave();
+				return port.church.leave(id);
 			}
 			let current: Review | null = reply.status === "ok" ? result(reply.value) : null;
 			let refused = false;
@@ -325,7 +332,7 @@ export function createReviewStore(init: {
 			outcome: NONE,
 			ranOut: null,
 			photo: null,
-			churchChanged: false,
+			churchChanged: port.church.refused(id),
 			actions: {
 				follow: (listener) => {
 					const off = store.subscribe(listener);

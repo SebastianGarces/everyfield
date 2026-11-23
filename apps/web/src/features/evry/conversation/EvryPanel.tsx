@@ -272,6 +272,7 @@ function Chat({
 	const photos = useRowPhotos(turns);
 	const problem = Panel.useSelect((s) => s.problem);
 	const churchNotice = Panel.useSelect((s) => s.churchNotice);
+	const moved = Panel.useSelect((s) => s.churchChanged);
 	const retrying = Panel.useSelect((s) => s.retrying);
 	const announcement = Panel.useSelect((s) => s.announcement);
 	const lastTurn = turns.at(-1);
@@ -328,7 +329,7 @@ function Chat({
 						turn={turn}
 						active={turn.id === state.activeTurnId}
 						stopping={state.stopping}
-						canRetry={turn === lastTurn && retryable(state, turns)}
+						canRetry={turn === lastTurn && !moved && retryable(state, turns)}
 						retrying={retrying}
 						reviews={state.reviews}
 						photos={photos}
@@ -422,7 +423,8 @@ function TurnView({
 	const panel = Panel.useStoreApi();
 	const [church] = useState<Church>(() => ({
 		changed: () => panel.getState().churchChanged,
-		leave: () => panel.getState().actions.leaveChurch(),
+		refused: (id) => panel.getState().churchRefused === id,
+		leave: (id) => panel.getState().actions.leaveChurch(id),
 		reload: () => panel.getState().actions.reloadForChurch(),
 	}));
 	const notice = endNotice(turn.end);

@@ -60,6 +60,7 @@ export type EvryPanelState = {
 	problem: string | null;
 	churchChanged: boolean;
 	churchNotice: string | null;
+	churchRefused: string | null;
 	announcement: string;
 	actions: {
 		show: (open: boolean) => void;
@@ -74,7 +75,7 @@ export type EvryPanelState = {
 		removeFile: (key: string) => void;
 		reload: () => void;
 		reloadForChurch: (send?: Send) => void;
-		leaveChurch: () => void;
+		leaveChurch: (proposalId: string) => void;
 		cancel: () => void;
 		retry: (turnId: string) => void;
 		reconnect: () => void;
@@ -183,6 +184,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				churchNotice,
 				problem: null,
 				stream: "idle",
+				announcement: "",
 			});
 
 		const stopped = (error: ProjectedError) => {
@@ -422,6 +424,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			problem: null,
 			churchChanged: false,
 			churchNotice: null,
+			churchRefused: null,
 			announcement: "",
 			actions: {
 				show,
@@ -502,7 +505,10 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 					port.holdDraft(send?.text ?? get().draft);
 					port.reloadPage();
 				},
-				leaveChurch: () => leave(null),
+				leaveChurch: (proposalId) => {
+					leave(null);
+					set({ churchRefused: proposalId });
+				},
 				cancel: () =>
 					void (async () => {
 						const conversation = get().chat.conversation;
@@ -560,7 +566,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 						if (readers > 0) return;
 						unwatch();
 						follow();
-						set({ chat: { ...get().chat, reviews: {} } });
+						if (!get().churchChanged) set({ chat: { ...get().chat, reviews: {} } });
 					};
 				},
 				select: (conversationId) =>

@@ -143,7 +143,7 @@ import {
 } from "./ReviewCard.store.ts";
 import { ChurchChanged } from "../conversation/ChurchChanged.tsx";
 
-type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown" | "moved";
+type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown" | "moved" | "left";
 
 export function useReview(proposalId: string, seed: Review | null | undefined, church: Church) {
 	const router = useRouter();
@@ -162,7 +162,9 @@ export function useReview(proposalId: string, seed: Review | null | undefined, c
 	const lapsed = lapsedOf({ review, ranOut });
 	const view: Exclude<View, "photo_unavailable" | "unknown"> = state.churchChanged
 		? "moved"
-		: load === "ready" && review
+		: !review && church.changed()
+			? "left"
+			: load === "ready" && review
 			? phaseOf(review, lapsed)
 			: load === "ready"
 				? "loading"
@@ -198,6 +200,7 @@ const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; ti
 	photo_unavailable: { icon: ImageNotFound01Icon, title: "Photo not available", tone: "gray" },
 	unavailable: { icon: SquareLock02Icon, title: "Not available to you", tone: "gray" },
 	moved: { icon: SquareLock02Icon, title: "Not approved", tone: "gray" },
+	left: { icon: SquareLock02Icon, title: "Not available", tone: "gray" },
 };
 
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
@@ -385,10 +388,10 @@ export function ReviewCard({
 						Try again
 					</Button>
 				</div>
-			) : view === "moved" ? (
+			) : view === "moved" || view === "left" ? (
 				<div className="px-4 py-3.5">
 					<ChurchChanged onReload={church.reload}>
-						Nothing was changed. Reload to use Evry for your new church.
+						{view === "moved" ? "Nothing was changed. " : ""}Reload to use Evry for your new church.
 					</ChurchChanged>
 				</div>
 			) : view === "unavailable" || view === "withheld" || !review ? null : (view === "pending" ||

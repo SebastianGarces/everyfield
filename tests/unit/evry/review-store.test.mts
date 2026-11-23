@@ -53,7 +53,7 @@ function server(answers: Record<string, () => Response>) {
 	return sent;
 }
 
-const church = { changed: () => false, leave() {}, reload() {} };
+const church = { changed: () => false, refused: () => false, leave() {}, reload() {} };
 
 async function show(seed: unknown, place = church) {
 	let card: ReturnType<typeof useReview> | undefined;
@@ -127,10 +127,11 @@ test("INV-church-changed: an approval refused because the seat moved church show
 			),
 	});
 	const calls = { leave: 0, reload: 0 };
-	let moved = false;
+	let refused: string | null = null;
 	const place = {
-		changed: () => moved,
-		leave: () => void (calls.leave++, (moved = true)),
+		changed: () => refused !== null,
+		refused: (id: string) => refused === id,
+		leave: (id: string) => void (calls.leave++, (refused = id)),
 		reload: () => void calls.reload++,
 	};
 	const { card, run, root } = await show(review, place);
@@ -140,13 +141,18 @@ test("INV-church-changed: an approval refused because the seat moved church show
 	assert.equal(card().notice, null);
 	assert.equal(calls.leave, 1);
 	await act(async () => root.unmount());
+
+	const again = await show(undefined, place);
+	assert.equal(again.card().view, "moved", "a card mounted again, as on a resize, still shows the church change");
+	assert.deepEqual(sent, ["POST /approve"], "and does not read the old church's review");
+	await act(async () => again.root.unmount());
 });
 
 test("INV-church-changed: a saving card stops reading its review once the panel's church changed", async () => {
 	const running = { ...review, status: "approved", approvedAt: "2026-10-21T12:01:00Z", executing: true };
 	const sent = server({ GET: () => Response.json(running) });
 	let moved = false;
-	const { card, root } = await show(running, { changed: () => moved, leave() {}, reload() {} });
+	const { card, root } = await show(running, { changed: () => moved, refused: () => false, leave() {}, reload() {} });
 	assert.equal(card().view, "running");
 	moved = true;
 	await new Promise((resolve) => setTimeout(resolve, 600));
