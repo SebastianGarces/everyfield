@@ -1,6 +1,7 @@
+import { refusedWith, type Outcome } from "@everyfield/contracts/common";
 import type { Attachment, Conversation, ProjectedError, ReadConversation, Reference } from "./model.ts";
 
-export type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: ProjectedError } | { status: "lost" };
+export type Reply<T> = Outcome<T, ProjectedError["code"], { error: ProjectedError }>;
 
 export async function call<T>(path: string, init?: { method: "POST"; body: unknown }): Promise<Reply<T>> {
 	try {
@@ -13,7 +14,7 @@ export async function call<T>(path: string, init?: { method: "POST"; body: unkno
 		const json = (await r.json().catch(() => null)) as { error?: ProjectedError } | null;
 		if (r.ok && json) return { status: "ok", value: json as T };
 		const error = json?.error;
-		return error && error.outcome === "refused" ? { status: "refused", error } : { status: "lost" };
+		return error && error.outcome === "refused" ? refusedWith(error) : { status: "lost" };
 	} catch {
 		return { status: "lost" };
 	}
@@ -22,7 +23,8 @@ export async function call<T>(path: string, init?: { method: "POST"; body: unkno
 export type Submitted = { turnId: string; sequence: number; replayed: boolean };
 export type ConversationPage = { items: Conversation[]; total: number; page: number; next: number | null };
 
-export const openLatest = () => call<(ReadConversation | { conversation: null }) & { pipeline?: boolean }>("open");
+export const openLatest = () =>
+	call<(ReadConversation | { conversation: null }) & { pipeline?: boolean; churchName?: string | null }>("open");
 export const readConversation = (id: string, after = 0) => call<ReadConversation>(`conversations/${id}?after=${after}`);
 export const listConversations = (search: string, page: number) =>
 	call<ConversationPage>(

@@ -249,7 +249,8 @@ function checkFiles(baseline, files, newMigrations) {
 		else if (allowedDirectives && !found)
 			fail(`${path}: has no directive left; run node scripts/lint/baseline.mjs --shrink`);
 		if (JS.test(path)) continue;
-		const lines = commentScanner(path)(text);
+		const markers = text.split("\n").map((line) => migration && /^\s*--\s*contract:\s*\S/.test(line));
+		const lines = commentScanner(path)(text).filter((line) => !markers[line - 1]);
 		const allowed = migration ? 0 : (comments[path] ?? 0);
 		if (lines.length > allowed)
 			fail(

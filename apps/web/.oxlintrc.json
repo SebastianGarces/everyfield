@@ -92,6 +92,8 @@
 		"everyfield/shared-outcome": "error",
 		"everyfield/web-database-imports": "error",
 		"everyfield/shared-notice": "error",
+		"everyfield/live-region-in-tree": "error",
+		"everyfield/confirm-keeps-refusal": "error",
 		"no-restricted-imports": [
 			"error",
 			{
@@ -1290,11 +1292,9 @@
 			}
 		},
 		{
-			"files": ["src/features/documents/church/editor/tiptap/**"],
+			"files": ["src/features/documents/church/editor/tiptap/primitives/tooltip.tsx"],
 			"rules": {
-				"react/set-state-in-effect": "off",
-				"react/refs": "off",
-				"react/immutability": "off"
+				"react/refs": "off"
 			},
 			"plugins": ["react"]
 		},
@@ -1373,6 +1373,7 @@
 				"everyfield/render-reads": "error",
 				"everyfield/no-read-actions": "error",
 				"everyfield/action-params-unknown": "error",
+				"everyfield/client-request-key": "error",
 				"everyfield/failure-not-empty": "error"
 			}
 		},

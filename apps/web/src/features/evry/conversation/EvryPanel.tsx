@@ -6,7 +6,9 @@ import {
 	Cancel01Icon,
 	Clock01Icon,
 	Csv01Icon,
+	File02Icon,
 	Link01Icon,
+	Pdf01Icon,
 	SentIcon,
 	StopIcon,
 	Unlink01Icon,
@@ -61,7 +63,7 @@ import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
 import { useRowPhotos } from "./useRowPhotos.ts";
 import { AttachButton, AttachedPhoto } from "./PhotoAttach.tsx";
-import { ATTACH, fileSize, type Picked } from "./attachments.ts";
+import { ATTACH, fileSize, isCsv, isPdf, type Picked } from "./attachments.ts";
 import type { Stream } from "./EvryPanel.store.ts";
 
 const useActions = () => Panel.useSelect((s) => s.actions);
@@ -344,20 +346,25 @@ function Chat({
 				</p>
 			) : null}
 			{stream === "lost" && state.activeTurnId ? (
-				<div role="alert" className="flex items-center gap-3 rounded-md bg-surface-2 px-4 py-3 text-sm text-text-2">
-					<Icon icon={WifiDisconnected01Icon} size={16} className="flex-none text-text-3" />
-					<span className="flex-1">The connection to Evry was lost. Evry keeps working on the answer.</span>
-					<Button
-						size="sm"
-						variant="outline"
-						onClick={() => {
-							actions.reconnect();
-							focusComposer();
-						}}
-					>
-						Reconnect
-					</Button>
-				</div>
+				<Alert
+					role="alert"
+					tone="warning"
+					icon={WifiDisconnected01Icon}
+					actions={
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={() => {
+								actions.reconnect();
+								focusComposer();
+							}}
+						>
+							Reconnect
+						</Button>
+					}
+				>
+					The connection to Evry was lost. Evry keeps working on the answer.
+				</Alert>
 			) : null}
 			{problem ? <Alert role="alert">{problem}</Alert> : null}
 			<div aria-live="polite" className="sr-only">
@@ -481,7 +488,8 @@ function TurnView({
 }
 
 function SendView({ send, onResend, onEdit }: { send: Send; onResend: () => void; onEdit: () => void }) {
-	const notice = sendNotice(send);
+	const churchName = Panel.useSelect((s) => s.churchName);
+	const notice = sendNotice(send, churchName);
 	return (
 		<li className="flex flex-col items-end gap-2">
 			<UserBubble muted={send.state === "sending"}>
@@ -606,6 +614,14 @@ function Composer({
 				</div>
 			) : null}
 			<div
+				onDragOver={(e) => {
+					if (canAttach && !disabled && !busy && e.dataTransfer.types.includes("Files")) e.preventDefault();
+				}}
+				onDrop={(e) => {
+					if (!canAttach || disabled || busy || !e.dataTransfer.files.length) return;
+					e.preventDefault();
+					actions.addFiles([...e.dataTransfer.files]);
+				}}
 				className={cn(
 					"rounded-card bg-surface-raised px-4 pt-3 pb-2.5 shadow-[0_0_0_1px_var(--ef-line-2)] transition-[box-shadow] duration-150",
 					tooLong
@@ -668,10 +684,10 @@ function Composer({
 										e.target.value = "";
 									}}
 								/>
-								<Tooltip content="Attach a CSV">
+								<Tooltip content="Attach a CSV, Word, text or PDF file">
 									<IconButton
 										icon={Attachment01Icon}
-										label="Attach a CSV file"
+										label="Attach a CSV, Word, text or PDF file"
 										size="sm"
 										disabled={disabled || busy}
 										onClick={() => picker.current?.click()}
@@ -705,6 +721,8 @@ function Composer({
 	);
 }
 
+const fileIcon = (name: string) => (isPdf(name) ? Pdf01Icon : isCsv(name) ? Csv01Icon : File02Icon);
+
 function FileChip({ file, onRemove }: { file: Picked; onRemove: () => void }) {
 	return (
 		<li
@@ -713,7 +731,7 @@ function FileChip({ file, onRemove }: { file: Picked; onRemove: () => void }) {
 				file.state === "failed" && "bg-magenta-50",
 			)}
 		>
-			<Icon icon={Csv01Icon} size={16} className="flex-none text-text-2" />
+			<Icon icon={fileIcon(file.name)} size={16} className="flex-none text-text-2" />
 			<span className="min-w-0 truncate text-ink">{file.name}</span>
 			<span className={cn("flex-none text-xs", file.state === "failed" ? "text-magenta-600" : "text-text-3")}>
 				{file.state === "uploading" ? "Attaching…" : file.state === "failed" ? "Couldn't attach" : fileSize(file.size)}
@@ -735,7 +753,7 @@ function SentFiles({ files }: { files: readonly { id: string; name: string }[] }
 		<ul aria-label="Attached files" className="mt-2 flex flex-wrap gap-1.5">
 			{files.map((f) => (
 				<li key={f.id} className="flex items-center gap-1.5 rounded-pill bg-white/12 px-2.5 py-1 text-sm">
-					<Icon icon={Csv01Icon} size={16} className="flex-none" />
+					<Icon icon={fileIcon(f.name)} size={16} className="flex-none" />
 					<span className="min-w-0 truncate">{f.name}</span>
 				</li>
 			))}

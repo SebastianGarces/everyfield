@@ -8,9 +8,13 @@ import type {
 import { randomUUID } from "node:crypto";
 import { onboardingStep } from "./scripted-onboarding.ts";
 import { launchStep } from "./scripted-launch.ts";
+import { intelligenceStep } from "./scripted-intelligence.ts";
 import { overviewStep } from "./scripted-overview.ts";
+import { invitationStep } from "./scripted-invitation.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
+import { wikiEditorStep } from "./scripted-wiki-editor.ts";
 import { TASK_DATA, taskStep } from "./scripted-tasks.ts";
+import { planStep } from "./scripted-task-plan.ts";
 import { assessmentStep } from "./scripted-assessments.ts";
 import { mailStep, proposesOn } from "./scripted-mail.ts";
 import { settingsStep } from "./scripted-settings.ts";
@@ -129,6 +133,28 @@ function fileStep(text: string, system: string, result: Record<string, unknown> 
 			input: { attachmentId: present(newest).id },
 		}),
 	];
+}
+
+function documentStep(text: string, system: string, result: Record<string, unknown> | null, canPropose: boolean) {
+	if (!canPropose || !/\b(church |written )?document\b/i.test(text) || !/\b(make|turn|import|add)\b/i.test(text))
+		return null;
+	const newest = attachedFiles(system)[0];
+	const say = (t: string) => [{ type: "text" as const, text: t }];
+	if (!result) {
+		if (!newest)
+			return say("I can't see a file in this conversation. Attach it here with the paperclip and I'll import it.");
+		return [
+			toolCall("propose_change", { operation: "documents.importTextOrWord", input: { attachmentId: newest.id } }),
+		];
+	}
+	if (typeof result.problem === "string") return say(`I can't import that file. ${result.problem}`);
+	if (result.error === "attachment_gone")
+		return say("That file is gone: attached files last 24 hours. Please attach it again here and I'll import it.");
+	if (result.error === "attachment_elsewhere")
+		return say("I can't see that file in this conversation. Attach it here with the paperclip and I'll import it.");
+	if (typeof result.proposalId === "string")
+		return say("I prepared the import for your review. Nothing is added to Documents until you approve it.");
+	return null;
 }
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
@@ -896,8 +922,16 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (options.responseFormat?.type === "json")
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
+	const plan = planStep(options, text);
+	if (plan) return plan;
+	const intelligence = intelligenceStep(options, text);
+	if (intelligence) return intelligence;
+	const invitation = invitationStep(options, text);
+	if (invitation) return invitation;
 	const overview = overviewStep(options, text);
 	if (overview) return overview;
+	const editor = wikiEditorStep(options, text);
+	if (editor) return editor;
 	const pipeline = pipelineStep(options, text);
 	if (pipeline) return pipeline;
 	const launch = launchStep(options, text);
@@ -925,6 +959,7 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (phase) return phase;
 	const steps =
 		limitStep(text, system, result, canProposePeople) ??
+		documentStep(text, system, result, proposesOn(options, "documents")) ??
 		fileStep(text, system, result, canProposePeople) ??
 		dateStep(text, result, options.tools?.some((t) => t.name === "calendar_read") ?? false) ??
 		historyStep(text, result);

@@ -45,6 +45,7 @@ export type Operation =
 	| "communication.templates.create"
 	| "communication.templates.fork"
 	| "communication.templates.update"
+	| InvitationOperation
 	| "meetings.schedule"
 	| "meetings.edit"
 	| "meetings.changeStatus"
@@ -83,6 +84,7 @@ export type Operation =
 	| "documents.exportNative"
 	| "documents.archive"
 	| "documents.designateCoreValues"
+	| "documents.importTextOrWord"
 	| "notifications.markSelectedRead"
 	| "notifications.markAllVisibleRead"
 	| "notifications.setPreferences"
@@ -90,6 +92,7 @@ export type Operation =
 	| "notifications.oversightDigestCadence.set"
 	| "wiki.bookmarks.set"
 	| "wiki.feedback.setMine"
+	| WikiEditorOperation
 	| TeamsOperation
 	| "phases.declare"
 	| "phases.transition"
@@ -98,7 +101,18 @@ export type Operation =
 	| "signals.reaffirm"
 	| SettingsOperation
 	| PipelineOperation
-	| LaunchOperation;
+	| LaunchOperation
+	| IntelligenceOperation;
+
+export type IntelligenceOperation = "intelligence.requestRefresh" | "intelligence.submitFeedback";
+
+export type WikiEditorOperation =
+	| "wiki.organizationArticles.add"
+	| "wiki.organizationArticles.edit"
+	| "wiki.organizationArticles.publish"
+	| "wiki.organizationArticles.hide";
+export const isWikiEditor = (operation: Operation): operation is WikiEditorOperation =>
+	operation.startsWith("wiki.organizationArticles.");
 
 export type LaunchOperation =
 	| "launch.schedule"
@@ -145,6 +159,12 @@ type TaskOperation =
 	| "tasks.createFollowUp"
 	| "tasks.assignFollowUp"
 	| "tasks.reopenObligation"
+	| "tasks.acceptPhaseOffer"
+	| "tasks.answerPhaseOffer"
+	| "tasks.declinePhaseOffer"
+	| "tasks.importTemplate"
+	| "tasks.executeHandoff"
+	| "tasks.replacePrerequisites"
 	| "followups.recordOutcome"
 	| "followups.correctOutcome";
 
@@ -289,6 +309,7 @@ export type Review = {
 	executing: boolean;
 	receipt: {
 		receiptId?: string;
+		meetingId?: string;
 		revision?: string;
 		code?: string;
 		report?: MailReport;
@@ -320,6 +341,7 @@ export const retryable = (review: Review, lapsed: boolean) =>
 	(review.outcome === "failed" || review.outcome === "unknown") && !lapsed;
 
 const FIELD_LABEL: Record<string, string> = {
+	prerequisites: "Waits on",
 	displayName: "Name",
 	pipelineStage: "Stage",
 	programKind: "Kind",
@@ -369,6 +391,7 @@ const FIELD_LABEL: Record<string, string> = {
 	kind: "Commitment",
 	witness: "Witness",
 	cardNotes: "Notes",
+	document: "Signed document",
 	commitment: "Commitment",
 	effectiveOn: "From",
 	cardVoided: "Voided",
@@ -381,6 +404,9 @@ const FIELD_LABEL: Record<string, string> = {
 	movesBack: "Moves back",
 	detailsGoBack: "Details back",
 	bookmarked: "Bookmark",
+	addedText: "Added text",
+	articleText: "Text",
+	organizationVersion: "Your version",
 	feedback: "Your feedback",
 	household: "Household",
 	householdRole: "Role",
@@ -502,6 +528,9 @@ const FIELD_LABEL: Record<string, string> = {
 	lead: "Lead",
 	setup: "Setup",
 	discovery: "Discovery",
+	assessment: "Assessment",
+	rating: "Your rating",
+	comment: "Your comment",
 	yourRole: "Your role",
 	page: "Page",
 	...SHARING_CATEGORY_LABEL,
@@ -512,6 +541,7 @@ const FIELD_LABEL: Record<string, string> = {
 	version: "Version",
 	list: "Leaves",
 	documentType: "Type",
+	file: "File",
 };
 const KIND_LABEL: Record<string, string> = { core_group: "Core group", launch_team: "Launch team" };
 const COMMITMENT_LABEL: Record<string, string> = { active: "Active", withdrawn: "Withdrawn", unknown: "Not recorded" };
@@ -717,6 +747,11 @@ const ITEM_FIELD: Partial<Record<Operation, string>> = {
 	"tasks.setSubtaskCompletion": "status",
 	"tasks.removeSubtask": "status",
 	"tasks.assignFollowUp": "owners",
+	"tasks.acceptPhaseOffer": "checklist",
+	"tasks.answerPhaseOffer": "checklist",
+	"tasks.declinePhaseOffer": "checklist",
+	"tasks.importTemplate": "due",
+	"tasks.executeHandoff": "owners",
 };
 export const itemField = (operation: Operation) => ITEM_FIELD[operation] ?? null;
 const CREATES = new Set<Operation>([
@@ -746,10 +781,17 @@ export const showsBefore = (review: Pick<Review, "operation">, change: Change) =
 
 export const isTasks = (operation: Operation) => operation.startsWith("tasks.") || operation.startsWith("followups.");
 
+export function invitationName(review: Review): string {
+	const meeting = review.review.changes.find((c) => c.field === "meeting")?.after as { title?: unknown } | undefined;
+	return typeof meeting?.title === "string" ? meeting.title : (review.review.target?.label ?? "Meeting invitation");
+}
+
 export function subjectName(review: Review): string {
 	const { target, changes } = review.review;
 	if (target) return target.label;
 	if (review.operation === "tasks.create") return String(changes.find((c) => c.field === "title")?.after ?? "New task");
+	if (review.operation === "documents.importTextOrWord")
+		return String(changes.find((c) => c.field === "title")?.after ?? "New document");
 	const n = changes.length;
 	if (review.operation === "tasks.assignFollowUp")
 		return `${n.toLocaleString()} ${n === 1 ? "follow-up" : "follow-ups"}`;
@@ -758,6 +800,7 @@ export function subjectName(review: Review): string {
 
 export function savedText(review: Review): string {
 	const who = review.review.target?.label;
+	if (isWikiEditor(review.operation)) return WIKI_EDITOR_SAVED[review.operation](who ?? "the article");
 	if (!isTasks(review.operation)) return who ? `Saved. ${who} is updated.` : "Saved.";
 	const name = subjectName(review);
 	const status = review.review.changes.find((c) => c.field === "status")?.after;
@@ -790,6 +833,17 @@ export function savedText(review: Review): string {
 			return `Saved. ${name} has a new follow-up.`;
 		case "tasks.assignFollowUp":
 			return "Saved. The follow-up owners are updated.";
+		case "tasks.acceptPhaseOffer":
+		case "tasks.answerPhaseOffer":
+			return "Saved. The phase offer is answered, and its new tasks are in Tasks.";
+		case "tasks.declinePhaseOffer":
+			return "Saved. The phase offer is declined. No task was added.";
+		case "tasks.importTemplate":
+			return `Saved. The ${name} tasks are in Tasks.`;
+		case "tasks.executeHandoff":
+			return "Saved. The follow-ups have their new owner.";
+		case "tasks.replacePrerequisites":
+			return `Saved. What ${name} waits on is updated.`;
 		case "followups.recordOutcome":
 			return `Saved. The contact with ${name} is logged.`;
 		case "followups.correctOutcome":
@@ -799,15 +853,28 @@ export function savedText(review: Review): string {
 	}
 }
 
+const WIKI_EDITOR_SAVED: Record<WikiEditorOperation, (title: string) => string> = {
+	"wiki.organizationArticles.add": (t) =>
+		`Saved. Your draft of ${t} is in your Wiki editor. Churches keep seeing the Wiki's version.`,
+	"wiki.organizationArticles.edit": (t) => `Saved. Your draft of ${t} is updated.`,
+	"wiki.organizationArticles.publish": (t) => `Published. Churches that share your Wiki now see your version of ${t}.`,
+	"wiki.organizationArticles.hide": (t) =>
+		`Hidden. Churches no longer see your version of ${t}, and can open the Wiki's standard version instead.`,
+};
+
 export function openAfter(review: Review): { href: string; label: string } | null {
 	const who = review.review.target;
+	if (isInvitation(review.operation) && review.receipt?.meetingId)
+		return { href: `/meetings/${review.receipt.meetingId}`, label: "Open the meeting" };
 	if (review.review.withheld || isMail(review.operation)) return null;
+	if (isWikiEditor(review.operation)) return who?.href ? { href: who.href, label: "Open the Wiki editor" } : null;
 	if (!isTasks(review.operation))
 		return who?.kind === "person" && review.operation !== "people.deletePerson"
 			? { href: targetHref(who), label: `Open ${who.label}` }
 			: null;
 	if (who?.kind === "person") return { href: `/people/${who.id}`, label: `Open ${who.label}` };
 	if (review.operation === "tasks.delete") return { href: "/tasks", label: "Open Tasks" };
+	if (review.operation === "tasks.executeHandoff") return { href: "/tasks/follow-ups", label: "Open Follow-ups" };
 	return who?.kind === "task"
 		? { href: `/tasks?task=${who.id}`, label: "Open task" }
 		: { href: "/tasks", label: "Open Tasks" };
@@ -819,7 +886,7 @@ export const approvable = (review: Pick<Review, "operation">, uploadShown: boole
 export function emptyText(field: string, after: boolean) {
 	if (field === "photo") return "No photo";
 	if (field === "feedback") return "No vote";
-	if (field === "household" || field === "householdRole") return "None";
+	if (field === "household" || field === "householdRole" || field === "prerequisites") return "None";
 	if (after && ["note", "skill", "category", "proficiency", "tag", "removedMilestones"].includes(field))
 		return "Removed";
 	return "Empty";
@@ -839,6 +906,8 @@ export const shownChanges = (review: Pick<Review, "operation" | "review">) =>
 	);
 
 const TITLE: Record<Operation, string> = {
+	"evry.prepareMeetingInvitation": "Invite people to a meeting",
+	"evry.reuseRecipe": "Repeat an invitation",
 	...TEAMS_TITLE,
 	"communication.saveDraft": "Save an email draft",
 	"communication.scheduleReviewed": "Schedule an email",
@@ -875,6 +944,12 @@ const TITLE: Record<Operation, string> = {
 	"tasks.createFollowUp": "Add a follow-up",
 	"tasks.assignFollowUp": "Assign follow-ups",
 	"tasks.reopenObligation": "Reopen a follow-up",
+	"tasks.acceptPhaseOffer": "Accept the phase checklists",
+	"tasks.answerPhaseOffer": "Answer the phase offer",
+	"tasks.declinePhaseOffer": "Decline the phase checklists",
+	"tasks.importTemplate": "Import a checklist",
+	"tasks.executeHandoff": "Hand off follow-ups",
+	"tasks.replacePrerequisites": "Set what a task waits on",
 	"followups.recordOutcome": "Log a contact",
 	"followups.correctOutcome": "Correct a contact log entry",
 	"people.createInterview": "Record an interview",
@@ -888,6 +963,10 @@ const TITLE: Record<Operation, string> = {
 	"people.unmergePeople": "Undo a merge",
 	"wiki.bookmarks.set": "Bookmark an article",
 	"wiki.feedback.setMine": "Rate an article",
+	"wiki.organizationArticles.add": "Draft your Wiki version",
+	"wiki.organizationArticles.edit": "Change your Wiki draft",
+	"wiki.organizationArticles.publish": "Publish your Wiki version",
+	"wiki.organizationArticles.hide": "Hide your Wiki version",
 	"seats.invite": "Invite someone",
 	"seats.resendInvitation": "Resend an invitation",
 	"seats.revokeInvitation": "Revoke an invitation",
@@ -913,6 +992,8 @@ const TITLE: Record<Operation, string> = {
 	"launch.reopenMilestone": "Reopen a launch milestone",
 	"launch.addGuestAttendance": "Name a Launch Sunday guest",
 	"launch.correctOutcome": "Correct Launch Sunday",
+	"intelligence.requestRefresh": "Refresh Plant Intelligence",
+	"intelligence.submitFeedback": "Rate a finding",
 	"development.draftNextVersion": "Draft the next version",
 	"onboarding.declareJourney": "Where your church is",
 	"identity.answerLeadOnboarding": "Who leads your church",
@@ -924,6 +1005,7 @@ const TITLE: Record<Operation, string> = {
 	"documents.exportNative": "Save a file of this document",
 	"documents.archive": "Archive a document",
 	"documents.designateCoreValues": "Mark as your core values",
+	"documents.importTextOrWord": "New document from a file",
 	"notifications.markSelectedRead": "Mark notifications read",
 	"notifications.markAllVisibleRead": "Mark all notifications read",
 	"notifications.setPreferences": "Change notification settings",
@@ -1014,6 +1096,23 @@ export const openCriteria = (review: Review) => {
 
 export type MailOperation = Extract<Operation, `communication.${string}`>;
 export const isMail = (operation: Operation): operation is MailOperation => operation.startsWith("communication.");
+export type InvitationOperation = "evry.prepareMeetingInvitation" | "evry.reuseRecipe";
+export const isInvitation = (operation: Operation): operation is InvitationOperation =>
+	operation === "evry.prepareMeetingInvitation" || operation === "evry.reuseRecipe";
+export const sendsMail = (operation: Operation) => isMail(operation) || isInvitation(operation);
+export const INVITATION_CONSEQUENCE =
+	"Approving does every step above at once: the meeting, the guests, then the email to exactly these people. Accepted is not delivered: Messages shows each delivery when the email service reports it.";
+export function invitationRefusalText(code: string | undefined): string {
+	switch (code) {
+		case "stale_review":
+		case "revision_conflict":
+			return "The meeting or the people changed since the review, so nothing was added or sent. Ask Evry to review it again.";
+		case "access_denied":
+			return "Your seat no longer allows this, so nothing was added or sent.";
+		default:
+			return "Everyfield refused this invitation, so nothing was added or sent.";
+	}
+}
 export const isWiki = (operation: Operation) => operation.startsWith("wiki.");
 export const targetHref = (target: NonNullable<Review["review"]["target"]>) => target.href ?? `/people/${target.id}`;
 export const isMeetings = (operation: Operation) =>
@@ -1139,6 +1238,8 @@ export const MAIL_DISMISSED: Partial<Record<Operation, string>> = {
 	"communication.replaceScheduledReviewed":
 		"You closed this review. The message still sends as it was, at its set time.",
 	"communication.sendReviewed": "You closed this review. Nothing was sent or saved.",
+	"evry.prepareMeetingInvitation": "You closed this review. Nothing was created, added or sent.",
+	"evry.reuseRecipe": "You closed this review. Nothing was added or sent.",
 	"communication.executeResend": "You closed this review. Nothing was resent.",
 	"communication.retryProvenFailed": "You closed this review. Nothing was sent again.",
 	"communication.deleteDraft": "You closed this review. The draft stays saved.",
@@ -1157,8 +1258,17 @@ export function mailHead(
 	review: Review,
 	phase: string,
 ): { title: string; tone: "amber" | "green" | "magenta" | "gray" } | null {
-	if (!isMail(review.operation)) return null;
-	if (phase === "pending")
+	if (isInvitation(review.operation)) {
+		if (phase === "pending")
+			return {
+				title: review.review.refusal ? "Can't prepare this invitation" : "Review every step before approving",
+				tone: "amber",
+			};
+		if (phase === "completed" && review.receipt?.report?.confirmation === "confirmed")
+			return { title: "Guests added and invitation sent", tone: "green" };
+	}
+	if (!sendsMail(review.operation)) return null;
+	if (phase === "pending" && isMail(review.operation))
 		return {
 			title: review.stale
 				? "Message changed"
@@ -1240,9 +1350,14 @@ const DOCUMENT_CONSEQUENCE: Partial<Record<Operation, string>> = {
 	"documents.exportNative": "The file is saved with the document in Church Documents, where it downloads.",
 	"documents.archive": "It leaves its list and stays readable. Nothing is deleted.",
 	"documents.designateCoreValues": "Evry marks your own document. It never writes core values for your church.",
+	"documents.importTextOrWord": "The new document opens in Documents with the file's text, for your church to edit.",
 };
 
 export function documentResult(review: Review): { href: string; label: string } | null {
+	if (review.operation === "documents.importTextOrWord")
+		return review.receipt?.receiptId
+			? { href: `/documents/written/${review.receipt.receiptId}`, label: "Open the new document" }
+			: null;
 	const target = review.review.target;
 	if (!target || review.review.withheld) return null;
 	switch (review.operation) {
@@ -1272,6 +1387,10 @@ export function documentRefusalText(code: string | undefined): string {
 			return "Your seat no longer allows this change, so nothing was saved.";
 		case "render_failed":
 			return "The file could not be made, so nothing was saved. Try again later.";
+		case "attachment_gone":
+			return "The attached file is no longer available, so nothing was saved. Attach it again and ask Evry.";
+		case "file_changed":
+			return "The attached file changed after Evry prepared the review, so nothing was saved. Ask Evry to prepare it again.";
 		default:
 			return "Documents refused this change, so nothing was saved.";
 	}
@@ -1412,6 +1531,7 @@ const ADDS = new Set<Operation>([
 	"discovery.create",
 	"discovery.convertToPlant",
 	"development.saveProgram",
+	"wiki.organizationArticles.add",
 ]);
 export const seatsAccount = (operation: Operation) =>
 	operation === "onboarding.createPlant" || operation === "discovery.convertToPlant";
@@ -1656,6 +1776,15 @@ export function refusalText(code: string | undefined, target: string | null, ope
 	if (operation && isTasks(operation)) return taskRefusalText(code, target);
 	const meetings = !!operation && isMeetings(operation);
 	const who = target ?? (meetings ? "This meeting" : "this person");
+	if (operation === "people.createCommitment")
+		switch (code) {
+			case "attachment_gone":
+				return "The attached document is no longer available: attached files last 24 hours. Nothing was recorded. Attach it again and ask Evry again.";
+			case "file_changed":
+				return "A newer file with the same name was attached after Evry prepared this, so nothing was recorded. Ask Evry again with the file you mean.";
+			case "attachment_used":
+				return "The attached document is already the signed document of another commitment card, so nothing was recorded.";
+		}
 	if (meetings)
 		switch (code) {
 			case "revision_conflict":
@@ -1712,6 +1841,18 @@ function taskRefusalText(code: string | undefined, target: string | null): strin
 			return `${TASK_REFUSAL[code]} Nothing was saved.`;
 		case "open_successor":
 			return "Another occurrence of this task is open, so nothing was saved.";
+		case "offer_answered":
+			return "The phase offer was answered after Evry prepared this, so this review is out of date and nothing was created. Ask Evry how it was answered.";
+		case "stale_catalog":
+			return "Everyfield's checklists changed after Evry prepared this, so nothing was created. Ask Evry to prepare it again.";
+		case "dependency_cycle":
+			return "That would make the tasks wait on each other in a cycle, so nothing was saved.";
+		case "invalid_subject":
+			return "Only a top-level task can wait on other tasks, so nothing was saved.";
+		case "protected_owner":
+			return "An Owner's follow-ups can't be handed off this way, so nothing was moved.";
+		case "handoff_target_ineligible":
+			return "That person can no longer own follow-ups, so nothing was moved. Ask Evry to prepare it again.";
 		case "protected_source":
 			return "A meeting made this task, so it can't be changed this way. Nothing was saved.";
 		case "nonexistent_local_time":
@@ -1727,7 +1868,16 @@ function taskRefusalText(code: string | undefined, target: string | null): strin
 	}
 }
 
-export function wikiRefusalText(code: string | undefined): string {
+export function wikiRefusalText(code: string | undefined, operation: Operation): string {
+	if (isWikiEditor(operation))
+		switch (code) {
+			case "revision_conflict":
+				return "The article changed in your Wiki editor after Evry prepared this, so nothing was saved. Open the editor to see it as it is now, or ask Evry to prepare it again.";
+			case "access_denied":
+				return "Your seat no longer allows editing this organization's Wiki, so nothing was saved.";
+			default:
+				return "The Wiki refused this change, so nothing was saved.";
+		}
 	switch (code) {
 		case "revision_conflict":
 			return "Your bookmark changed on the Wiki after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.";

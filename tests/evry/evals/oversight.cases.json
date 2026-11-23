@@ -1,0 +1,146 @@
+{
+	"suite": "oversight",
+	"model": "scripted",
+	"note": "T-331 (WP-073, WP-074): a sending network's oversight through Evry, asked on the scripted model with the real adapters, approvals and effect executor, as North Texas Network's Admin (director) and Member (networkMember) in intelligence-church.mts: Harvest Point (Fort Worth, TX), Redeemer Church (Dallas, TX) and Grace Tulsa (OK) share everything, Hill Country Church (Austin, TX) shares no Plant Intelligence findings. Database clock pinned to Oct 13, 2026. `criterion` is the T-331 Done criterion; criterion 15's region part follows D-1529 (a plant's region is its own). Cases run in this order; `setup` names the fixture step that runs before a case.",
+	"cases": [
+		{
+			"id": "OVS-01",
+			"operation": "oversight.listPlants",
+			"criterion": 11,
+			"actor": "director",
+			"ask": "how are our plants doing?",
+			"calls": ["oversight.listPlants"],
+			"answer": [
+				"Here is how your 4 plants look on your oversight pages:",
+				"- **Harvest Point**: health Watch. Launch: Scheduled (Nov 2, 2026), no readiness milestones yet.",
+				"- **Hill Country Church**: health Not shared. Launch: Not shared.",
+				"I don't rank or score plants against each other."
+			],
+			"absent": ["Oct 23, 2026"]
+		},
+		{
+			"id": "OVS-02",
+			"operation": "oversight.getPlant",
+			"criterion": 12,
+			"golden": "SAF-14",
+			"actor": "director",
+			"ask": "list the people at Redeemer plant",
+			"calls": ["oversight.listPlants", "oversight.getPlant"],
+			"answer": [
+				"Oversight shows totals only, so I can't list a plant's people, or read their notes, interviews or private care. Here is what that plant shares with you:",
+				"- **Redeemer Church** people: 3"
+			],
+			"absent": ["Redeemer Person"]
+		},
+		{
+			"id": "OVS-03",
+			"operation": "organizationIntelligence.read",
+			"criterion": 13,
+			"actor": "director",
+			"ask": "what patterns do you see across our Texas plants?",
+			"calls": ["organizationIntelligence.read"],
+			"answer": [
+				"shows this across your Texas plants:",
+				"- **Acquisition growth stalled**:",
+				"Plants: Harvest Point, Redeemer Church."
+			],
+			"absent": ["Hill Country Church", "Grace Tulsa", "ranked"]
+		},
+		{
+			"id": "OVS-04",
+			"operation": "oversight.listPlants",
+			"criterion": 14,
+			"actor": "director",
+			"ask": "which plants are close to launch?",
+			"calls": ["oversight.listPlants"],
+			"answer": [
+				"From the Launch readiness your plants share, these have Launch Sunday within 60 days:",
+				"- **Harvest Point**: 20 days to Launch Sunday, no readiness milestones yet",
+				"Published summary: Our venue is booked and the launch team meets every week.",
+				"Not shared: Hill Country Church."
+			],
+			"absent": ["HILL-DRAFT", "10 days"]
+		},
+		{
+			"id": "OVS-05",
+			"operation": "oversight.listPlants",
+			"criterion": 15,
+			"actor": "director",
+			"ask": "Harvest Point is in the Dallas region, not Fort Worth",
+			"calls": ["oversight.listPlants"],
+			"answer": [
+				"I can't change that. Only Harvest Point's Owner or Admin can update its location and reporting Region, in their church settings. The Region I'm using now is Dallas-Fort Worth-Arlington, TX (metro area). Nothing changed."
+			]
+		},
+		{
+			"id": "OVS-06",
+			"operation": "notifications.oversightDigestCadence.set",
+			"criterion": 15,
+			"actor": "director",
+			"ask": "send my oversight digest weekly",
+			"calls": [],
+			"answer": [],
+			"proposal": { "operation": "notifications.oversightDigestCadence.set", "target": "null" },
+			"approve": true
+		},
+		{
+			"id": "OVS-07",
+			"operation": "notifications.setPreferences",
+			"criterion": 15,
+			"actor": "director",
+			"ask": "send my oversight digest by email",
+			"calls": [],
+			"answer": ["I prepared a review. Nothing changes until you approve it."],
+			"proposal": {
+				"operation": "notifications.setPreferences",
+				"target": "null",
+				"changes": [
+					{ "field": "oversight_digest.email", "before": false, "after": true },
+					{ "field": "oversight_digest.in_app", "before": true, "after": false }
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "OVS-08",
+			"criterion": 15,
+			"actor": "networkMember",
+			"ask": "send my oversight digest weekly",
+			"calls": [],
+			"answer": ["Only an Owner or Admin of this organization gets the oversight digest, so there's nothing to change."]
+		},
+		{
+			"id": "OVS-09",
+			"operation": "oversight.listPlants",
+			"criterion": 15,
+			"actor": "networkMember",
+			"ask": "Harvest Point is in the Dallas region, not Fort Worth",
+			"calls": ["oversight.listPlants"],
+			"answer": [
+				"I can't change that. Only Harvest Point's Owner or Admin can update its location and reporting Region"
+			]
+		},
+		{
+			"id": "OVS-10",
+			"operation": "oversight.listPlants",
+			"criterion": 11,
+			"actor": "networkMember",
+			"ask": "how are our plants doing?",
+			"calls": ["oversight.listPlants"],
+			"answer": ["- **Hill Country Church**: health Not shared. Launch: Not shared."]
+		},
+		{
+			"id": "OVS-11",
+			"operation": "organizationIntelligence.read",
+			"criterion": 13,
+			"setup": "redeemerGrows",
+			"actor": "director",
+			"ask": "what patterns do you see across our Texas plants?",
+			"calls": ["organizationIntelligence.read"],
+			"answer": [
+				"Network Intelligence shows no pattern across your Texas plants. A pattern needs two or more plants with the same finding, so one plant alone isn't a pattern."
+			],
+			"absent": ["Acquisition growth stalled"]
+		}
+	]
+}

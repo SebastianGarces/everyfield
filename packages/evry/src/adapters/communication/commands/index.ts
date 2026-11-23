@@ -60,7 +60,7 @@ const localTime = z
 	.describe("The church's local date and time, like 2026-11-06T09:00, never a zone or offset");
 const messageId = z.uuid().describe("A message id from communication.list");
 
-const readable = (html: string) =>
+export const readable = (html: string) =>
 	sanitizeHtml(html)
 		.replace(/<br\s*\/?>/gi, "\n")
 		.replace(/<\/p>\s*<p[^>]*>/gi, "\n\n")
@@ -72,7 +72,7 @@ const readable = (html: string) =>
 		.replaceAll("&amp;", "&")
 		.trim();
 
-const paragraphs = (text: string) =>
+export const paragraphs = (text: string) =>
 	text
 		.split(/\n{2,}/)
 		.map((block) => block.trim())
@@ -164,7 +164,7 @@ function sendInstant(value: SendTime) {
 }
 const SAMPLE_NAME = "RECIPIENT_NAME_TOKEN_7F3A";
 
-async function audienceFacts(context: ReviewContext, plantId: string, audience: AudienceValue) {
+export async function audienceFacts(context: ReviewContext, plantId: string, audience: AudienceValue) {
 	const { mail } = context;
 	if (!mail) return null;
 	const [row] = (await context.db.execute(sql`SELECT ${audiencePeople(plantId, audience)} AS people`)).rows;
@@ -603,7 +603,7 @@ export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 
 const earliestSendAt = (now = Date.now()) => new Date(Math.ceil((now + 60_000) / 60_000) * 60_000).toISOString();
 
-async function scheduleNow(
+export async function scheduleNow(
 	tx: WriteTx,
 	context: PeopleContext,
 	communicationId: string,
@@ -629,7 +629,7 @@ async function scheduleNow(
 	);
 }
 
-async function sendNow(
+export async function sendNow(
 	db: Database,
 	authority: RequestActor,
 	first: { receiptId?: string; revision: string },
@@ -669,7 +669,7 @@ function sendReport(sent: Handoff, leftOut: number, held: number): MailReport {
 		leftOut,
 	};
 }
-async function checkSend(
+export async function checkSend(
 	db: Database,
 	authority: RequestActor,
 	communicationId: string,
@@ -820,7 +820,7 @@ export const send: ReviewedWrite<z.infer<typeof sendInput>> = {
 	},
 };
 
-async function readReceipt(db: Database, authority: RequestActor, keys: { effectKey: string }) {
+export async function readReceipt(db: Database, authority: RequestActor, keys: { effectKey: string }) {
 	const [, proposalId] = keys.effectKey.split(":");
 	const r = await db.execute(
 		sql`SELECT receipt->>'receiptId' AS id FROM proposal WHERE id=${proposalId}::uuid AND tenant_id=${authority.actor.context.owner.id}::uuid`,

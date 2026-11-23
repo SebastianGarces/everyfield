@@ -325,3 +325,4 @@ export const PHASE_READS = [
 	readJourney,
 ] as const;
 export const SIGNAL_READS = [listDefinitions, getHistory] as const;
+export { ASSESSMENT_INTELLIGENCE_READS } from "./assessment.ts";
