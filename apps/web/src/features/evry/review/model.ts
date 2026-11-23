@@ -1091,7 +1091,7 @@ export const intelligencePage = (operation: Operation) =>
 		: { href: "/intelligence/attestations", label: "Open attestations" };
 export const openCriteria = (review: Review) => {
 	const value = review.review.changes.find((c) => c.field === "openCriteria")?.after;
-	return Array.isArray(value) ? (value as { label: string; status: string }[]) : null;
+	return Array.isArray(value) ? (value as { label: string; status: string; reading?: string | null }[]) : null;
 };
 
 export type MailOperation = Extract<Operation, `communication.${string}`>;
