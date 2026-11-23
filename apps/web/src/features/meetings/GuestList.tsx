@@ -34,6 +34,7 @@ import {
 	StatePanel,
 	Textarea,
 	toast,
+	ProblemText,
 } from "@everyfield/ui/controls";
 import { instant } from "@everyfield/contracts/common";
 import { answeringStatuses } from "@everyfield/contracts/meetings";
@@ -982,11 +983,7 @@ function CardForm({
 						<Radio key={r} value={r} label={CARD_LABEL[r]} />
 					))}
 				</RadioGroup>
-				{touched && !response ? (
-					<p className="text-xs font-medium text-magenta-600" role="alert">
-						Choose what they marked on the card.
-					</p>
-				) : null}
+				{touched && !response ? <ProblemText>Choose what they marked on the card.</ProblemText> : null}
 			</fieldset>
 			<Field label="Prayer requests or questions" optional hint="Only Owners and Admins see these notes.">
 				<Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} rows={3} />

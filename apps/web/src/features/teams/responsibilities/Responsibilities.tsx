@@ -18,6 +18,7 @@ import {
 	StatePanel,
 	Textarea,
 	toast,
+	ProblemText,
 } from "@everyfield/ui/controls";
 import type * as c from "@everyfield/contracts/teams/responsibilities";
 import { useId, useOptimistic, useRef, useState, useTransition } from "react";
@@ -543,9 +544,9 @@ function OfferCard({
 							))}
 						</ul>
 						{pickError ? (
-							<p id={pickErrorId} role="alert" className="text-sm text-magenta-600">
+							<ProblemText id={pickErrorId} size="sm">
 								Select at least one line.
-							</p>
+							</ProblemText>
 						) : null}
 					</fieldset>
 					<div className="mt-2 flex flex-wrap items-center gap-2.5">
