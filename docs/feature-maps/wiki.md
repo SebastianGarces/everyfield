@@ -105,12 +105,12 @@ agent-browser wait --load networkidle
 agent-browser find label "Search words" fill "cash"
 agent-browser press Enter
 agent-browser wait --load networkidle
-agent-browser find role link text --name "Grace Fellowship (QA)"
+agent-browser find role option text --name "Grace Fellowship (QA)"
 agent-browser find label "Search words" fill "Designated"
 agent-browser press Enter
 agent-browser wait --load networkidle
-agent-browser find role link text --name "Designated"
-! agent-browser find role link text --name "Grace Fellowship (QA)"
+agent-browser find role option text --name "Designated"
+! agent-browser find role option text --name "Grace Fellowship (QA)"
 ```
 
 #### wiki.reader#progress
