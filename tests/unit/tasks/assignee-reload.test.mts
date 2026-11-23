@@ -67,6 +67,7 @@ Object.assign(globalThis, {
 	document: fakeDocument,
 	HTMLIFrameElement: class {},
 	HTMLFormElement: class {},
+	matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
 	IS_REACT_ACT_ENVIRONMENT: true,
 });
 
