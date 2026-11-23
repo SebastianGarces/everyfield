@@ -55,6 +55,8 @@ export const registry: readonly Registration[] = [
 	r("pipeline_person", "pipeline_person", "person_id", "organization_id", "keep"),
 	r("residency_link", "residency_link", "person_id", "organization_id", "keep"),
 	r("answer_review", "answer_review", "person_id", "organization_id", "keep", "id", false),
+	r("guardian_contact", "guardian_contact", "child_person_id", "plant_id", "keep", "id", false),
+	r("guardian_contact", "guardian_contact", "guardian_person_id", "plant_id", "keep", "id", false),
 	r("task", "task", "person_id", "plant_id", "move"),
 	r("team_leader", "team", "leader_person_id", "plant_id", "move"),
 	r("team_tenure", "team_tenure", "person_id", "plant_id", "move"),

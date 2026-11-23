@@ -107,8 +107,9 @@ flowchart LR
   subgraph f17["people"]
     f17s0["people.list"]
     f17s1["people.person"]
-    f17s2["people.duplicates"]
-    f17s3["people.import"]
+    f17s2["people.household"]
+    f17s3["people.duplicates"]
+    f17s4["people.import"]
   end
   subgraph f18["phases"]
     f18s0["phases.journey"]
@@ -225,8 +226,9 @@ flowchart LR
   rail -- "People" --> f17s0
   f17s0 --> f17s1
   links -.-> f17s1
-  links -.-> f17s2
-  f17s0 --> f17s3
+  f17s1 --> f17s2
+  links -.-> f17s3
+  f17s0 --> f17s4
   links -.-> f18s0
   rail -- "My residency" --> f19s0
   f3s0 --> f20s0
@@ -265,7 +267,7 @@ flowchart LR
 | [access](access.md) | [`apps/web/src/features/access/feature-map.json`](../../apps/web/src/features/access/feature-map.json) | 2 | 2 | 1 | 0 | 0 |
 | [assessment-review](assessment-review.md) | [`apps/web/src/features/assessment-review/feature-map.json`](../../apps/web/src/features/assessment-review/feature-map.json) | 1 | 2 | 1 | 0 | 0 |
 | [boundaries](boundaries.md) | [`apps/web/src/features/boundaries/feature-map.json`](../../apps/web/src/features/boundaries/feature-map.json) | 2 | 0 | 0 | 0 | 0 |
-| [communication](communication.md) | [`apps/web/src/features/communication/feature-map.json`](../../apps/web/src/features/communication/feature-map.json) | 4 | 5 | 9 | 8 | 0 |
+| [communication](communication.md) | [`apps/web/src/features/communication/feature-map.json`](../../apps/web/src/features/communication/feature-map.json) | 4 | 5 | 10 | 8 | 0 |
 | [documents](documents.md) | [`apps/web/src/features/documents/feature-map.json`](../../apps/web/src/features/documents/feature-map.json) | 5 | 12 | 9 | 6 | 3 |
 | [evry](evry.md) | [`apps/web/src/features/evry/feature-map.json`](../../apps/web/src/features/evry/feature-map.json) | 2 | 17 | 8 | 2 | 2 |
 | [feedback](feedback.md) | [`apps/web/src/features/feedback/feature-map.json`](../../apps/web/src/features/feedback/feature-map.json) | 3 | 5 | 3 | 3 | 0 |
@@ -279,7 +281,7 @@ flowchart LR
 | [organizations](organizations.md) | [`apps/web/src/features/organizations/feature-map.json`](../../apps/web/src/features/organizations/feature-map.json) | 10 | 20 | 18 | 11 | 3 |
 | [oversight](oversight.md) | [`apps/web/src/features/oversight/feature-map.json`](../../apps/web/src/features/oversight/feature-map.json) | 3 | 5 | 4 | 3 | 0 |
 | [overview](overview.md) | [`apps/web/src/features/overview/feature-map.json`](../../apps/web/src/features/overview/feature-map.json) | 1 | 1 | 4 | 1 | 1 |
-| [people](people.md) | [`apps/web/src/features/people/feature-map.json`](../../apps/web/src/features/people/feature-map.json) | 4 | 13 | 11 | 6 | 2 |
+| [people](people.md) | [`apps/web/src/features/people/feature-map.json`](../../apps/web/src/features/people/feature-map.json) | 5 | 13 | 12 | 6 | 2 |
 | [phases](phases.md) | [`apps/web/src/features/phases/feature-map.json`](../../apps/web/src/features/phases/feature-map.json) | 1 | 1 | 4 | 1 | 2 |
 | [residency](residency.md) | [`apps/web/src/features/residency/feature-map.json`](../../apps/web/src/features/residency/feature-map.json) | 1 | 2 | 2 | 1 | 0 |
 | [settings](settings.md) | [`apps/web/src/features/settings/feature-map.json`](../../apps/web/src/features/settings/feature-map.json) | 5 | 10 | 7 | 5 | 2 |

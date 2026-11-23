@@ -22,6 +22,7 @@ import { textToBody } from "./body.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
 import { listed, type Form } from "./composeModel.ts";
 import {
+	GUARDIAN_LABEL,
 	groupLabel,
 	noRecipientReason,
 	type AudienceSummary,
@@ -83,14 +84,21 @@ export function ReviewStep({
 	const bounds = now === null || zone === null ? null : windowBounds(now, zone);
 	const safe = Math.min(index, Math.max(0, recipients.length - 1));
 	const name = recipients[safe]?.displayName ?? sampleName;
+	const guardianOf = recipients[safe]?.guardianOf;
 	const eligible = summary?.eligibleRecipients ?? 0;
 	const template = templates.find((t) => t.templateId === form.templateKey);
-	const known = new Map(recipients.map((r) => [r.id, r.displayName]));
+	const known = new Map(
+		[...recipients, ...(summary?.guardianRoutes ?? []), ...(summary?.childExclusions ?? [])].map((r) => [
+			r.id,
+			r.displayName,
+		]),
+	);
 	const chosen = [
 		...form.audience.groups.map((g) => groupLabel[g as keyof typeof groupLabel] ?? g),
 		...form.audience.teamIds.map((id) => teams.find((t) => t.id === id)?.name ?? "A team"),
 		...form.people.map((p) => p.displayName ?? known.get(p.id) ?? "A person"),
 	];
+	const routed = summary?.guardianRoutes ?? [];
 	const left = [
 		...(summary?.childExclusions ?? []).map((person) => ({ name: person.displayName, why: "marked as a child" })),
 		...(summary?.missingEmailExclusions ?? []).map((name) => ({ name, why: "no email address" })),
@@ -116,6 +124,7 @@ export function ReviewStep({
 					origin,
 					churchName,
 					mailingAddress,
+					guardianOf,
 				}}
 				chrome={{ from: churchName, to: name, subject: form.subject }}
 				toolbar={
@@ -179,6 +188,27 @@ export function ReviewStep({
 							)}
 						</dd>
 					</div>
+					{routed.length > 0 ? (
+						<div className="grid grid-cols-[84px_minmax(0,1fr)] gap-3">
+							<dt className="text-sm text-text-3">{GUARDIAN_LABEL}</dt>
+							<dd className="min-w-0 text-ink">
+								<ul
+									tabIndex={0}
+									className="flex max-h-40 flex-col gap-0.5 overflow-y-auto rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+									aria-label={GUARDIAN_LABEL}
+								>
+									{routed.map((route) => (
+										<li key={route.id}>
+											{route.displayName}
+											<span className="text-text-3">
+												, to {listed(route.guardians.map((guardian) => guardian.displayName))}
+											</span>
+										</li>
+									))}
+								</ul>
+							</dd>
+						</div>
+					) : null}
 					<Row label="Subject" value={form.subject} />
 					<Row label="Template" value={template?.name ?? "None"} />
 					<Row label="Meeting" value={meeting ? `${meeting.title}` : "None"} />

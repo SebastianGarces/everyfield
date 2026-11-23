@@ -887,6 +887,56 @@
         "ADR1-005",
         "ADR1-017"
       ]
+    },
+    {
+      "table": "guardian_contact",
+      "columns": [
+        "child_person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-012",
+        "WP-021"
+      ],
+      "meaning": "The child whose Messages email goes to a parent or guardian contact instead (D-2336, D-2337).",
+      "lock_order": "Lock the owner first; add and remove lock the child's Person row through its revision, after the lifecycle writers' locks.",
+      "merge_policy": "Keep the link on the people it names. A merge leaves one side not live, so the link is ignored; Unmerge brings it back as it was.",
+      "inverse_policy": "Unmerge does not move a link, because the merge did not move it.",
+      "retirement_policy": "A retired side makes the link count for nothing; the row stays until a household leave or a remove deletes it.",
+      "privacy_policy": "Names no content. Who added or removed it comes from the audit row on the child.",
+      "immutable_evidence_policy": "Each add and remove writes its own audit row on the child; remove and household leave delete the row.",
+      "future_case_ids": [
+        "TARGET-PPL-009"
+      ]
+    },
+    {
+      "table": "guardian_contact",
+      "columns": [
+        "guardian_person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-012",
+        "WP-021"
+      ],
+      "meaning": "The adult in the child's household who receives the child's Messages email (D-2336, D-2337).",
+      "lock_order": "Lock the owner first; add and remove lock the child's Person row through its revision, after the lifecycle writers' locks.",
+      "merge_policy": "Keep the link on the people it names. A merge leaves one side not live, so the link is ignored; Unmerge brings it back as it was.",
+      "inverse_policy": "Unmerge does not move a link, because the merge did not move it.",
+      "retirement_policy": "A retired side makes the link count for nothing; the row stays until a household leave or a remove deletes it.",
+      "privacy_policy": "Names no content. Who added or removed it comes from the audit row on the child.",
+      "immutable_evidence_policy": "Each add and remove writes its own audit row on the child; remove and household leave delete the row.",
+      "future_case_ids": [
+        "TARGET-PPL-009"
+      ]
     }
   ],
   "person_snapshot_references": [

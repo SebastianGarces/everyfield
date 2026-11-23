@@ -485,6 +485,29 @@
 						],
 						"cases": ["CASE-NTF-016-CHILD"]
 					}
+				},
+				{
+					"id": "guardian-routing",
+					"says": "A child whose parent or guardian contact can be emailed is listed in Review under Sent to a parent or guardian instead; each adult gets one copy, checked again at the send time.",
+					"catalog": ["NTF-016", "COM-003", "COM-004", "COM-012"],
+					"operations": [
+						"communication.resolveAudience",
+						"communication.scheduleReviewed",
+						"communication.sendReviewed"
+					],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/communication/guardians.test.mts",
+								"name": "AC:CASE-NTF-016-GUARDIAN a group email goes to each child's parent or guardian contact instead of the child, one copy per adult"
+							},
+							{
+								"file": "tests/integration/communication/guardians.test.mts",
+								"name": "AC:CASE-NTF-016-GUARDIAN a scheduled email follows the contacts as they are when it goes out"
+							}
+						],
+						"cases": ["CASE-NTF-016-GUARDIAN"]
+					}
 				}
 			]
 		},
