@@ -13,13 +13,13 @@ import {
 	submitTurn,
 } from "../../../packages/evry/src/index.ts";
 import {
-	accounts,
 	actor,
 	admin,
 	counts,
 	db,
 	freshActor,
 	otherPlant,
+	plant,
 	queries,
 	setup,
 	sql,
@@ -147,13 +147,25 @@ test("AC:INH-REGRESSION-FOREIGN-SESSION AC:TEN-002 AC:SEC-02 AC:UI45-006 INV-ten
 });
 
 test("INV-church-changed: a seat moved to another church refuses the old church's conversation as church_changed and writes nothing", async () => {
-	const before = await actor("mover");
+	const [mover, user, session] = [randomUUID(), randomUUID(), randomUUID()];
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${mover + "@example.test"},true,'Mover')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${mover},${user},'active','planter')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${session},${user},${randomUUID()},clock_timestamp()+interval '1 day')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${mover},${plant},'member',clock_timestamp())`,
+	);
+	const before = (await freshActor(session))!;
 	const c = await createConversation(db, before, { requestKey: randomUUID() });
 	const owner = await actor("owner");
 	const others = await createConversation(db, owner, { requestKey: randomUUID() });
-	const mover = accounts.mover.id;
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${mover}`);
-	const seatless = (await freshActor(accounts.mover.session))!;
+	const seatless = (await freshActor(session))!;
 	assert.equal(seatless.seatId, null);
 	await refused(() => submitTurn(db, seatless, c.id, { requestKey: randomUUID(), text: "no new church" }), "not_found");
 	await refused(
@@ -164,7 +176,7 @@ test("INV-church-changed: a seat moved to another church refuses the old church'
 	await admin.execute(
 		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${mover},${otherPlant},'member',clock_timestamp())`,
 	);
-	const moved = (await freshActor(accounts.mover.session))!;
+	const moved = (await freshActor(session))!;
 	assert.equal(moved.owner.id, otherPlant);
 	const counted = await counts();
 	const thrown = await submitTurn(db, moved, c.id, { requestKey: randomUUID(), text: "Who is new this week?" }).then(

@@ -20,14 +20,13 @@ export const statementListeners = new Set<(text: string) => void>();
 export const plant = randomUUID();
 export const otherPlant = randomUUID();
 export const organization = randomUUID();
-type Who = "owner" | "member" | "foreign" | "orgOwner" | "seatless" | "mover";
+type Who = "owner" | "member" | "foreign" | "orgOwner" | "seatless";
 const seats: Record<Who, [string | null, string | null, string | null]> = {
 	owner: [plant, null, "owner"],
 	member: [plant, null, "member"],
 	foreign: [otherPlant, null, "admin"],
 	orgOwner: [null, organization, "owner"],
 	seatless: [null, null, null],
-	mover: [plant, null, "member"],
 };
 export const accounts = Object.fromEntries(
 	(Object.keys(seats) as Who[]).map((who) => [who, { id: randomUUID(), user: randomUUID(), session: randomUUID() }]),
