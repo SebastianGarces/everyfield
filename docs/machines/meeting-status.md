@@ -8,6 +8,7 @@ finds a write of the column that does not carry the machine's guard.
 - States: `planning`, `ready`, `in_progress`, `completed`, `cancelled`
 - Subjects the guards tell apart: `vision`, `orientation`, `team`, `practice`
 - Refusal for every move the chart does not show: `status_transition`
+- `practice_cancelled` instead for `meetings.correctPracticeOccurrence` from `cancelled`
 - A request for the current state writes nothing: `meetings.changeStatus`
 
 ```mermaid
@@ -23,14 +24,13 @@ stateDiagram-v2
   in_progress --> completed: meetings.changeStatus unless practice / meetings.completePractice when practice / meetings.correctPracticeOccurrence when practice
   in_progress --> cancelled: meetings.changeStatus
   completed --> in_progress: meetings.changeStatus unless practice
-  cancelled --> planning: meetings.changeStatus / meetings.correctPracticeOccurrence when practice
+  cancelled --> planning: meetings.changeStatus
   planning --> completed: meetings.completePractice when practice / meetings.correctPracticeOccurrence when practice
   ready --> completed: meetings.completePractice when practice / meetings.correctPracticeOccurrence when practice
   completed --> completed: meetings.completePractice when practice / meetings.correctPracticeOccurrence when practice
   planning --> planning: meetings.correctPracticeOccurrence when practice
   in_progress --> planning: meetings.correctPracticeOccurrence when practice
   completed --> planning: meetings.correctPracticeOccurrence when practice
-  cancelled --> completed: meetings.correctPracticeOccurrence when practice
   note right of completed : stays on meetings.correctOccurrence
 ```
 
@@ -89,6 +89,8 @@ stateDiagram-v2
 | `practice` | `meetings.changeStatus` | cancelled | in_progress | `status_transition` |
 | `practice` | `meetings.changeStatus` | cancelled | completed | `status_transition` |
 | `practice` | `meetings.completePractice` | cancelled | completed | `status_transition` |
+| `practice` | `meetings.correctPracticeOccurrence` | cancelled | completed | `practice_cancelled` |
+| `practice` | `meetings.correctPracticeOccurrence` | cancelled | planning | `practice_cancelled` |
 | `practice` | `meetings.correctOccurrence` | planning | planning | `status_transition` |
 | `practice` | `meetings.correctOccurrence` | ready | ready | `status_transition` |
 | `practice` | `meetings.correctOccurrence` | in_progress | in_progress | `status_transition` |
