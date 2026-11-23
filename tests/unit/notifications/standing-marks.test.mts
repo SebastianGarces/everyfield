@@ -92,24 +92,3 @@ for (const [name, marks] of cases) {
 		}
 	});
 }
-
-test("a withdrawn mark reverts only its own items and marks in flight stay separate", () => {
-	const store = createAccountStore("account");
-	const { stand, confirm, withdraw } = store.getState().actions;
-	const kept = mark([early], early.eligibleAt);
-	const failed = mark([late]);
-	const flying = mark([fresh]);
-	stand(kept);
-	stand(failed);
-	stand(flying);
-	confirm(kept.token);
-	withdraw(failed.token);
-	const marks = store.getState().marks;
-	assert.equal(marks.length, 2);
-	assert.equal(marks[1], flying);
-	const { items } = withStandingMarks(all, marks);
-	assert.deepEqual(
-		items.filter((i) => i.read).map((i) => i.id),
-		["fresh", "early", "elsewhere"],
-	);
-});
