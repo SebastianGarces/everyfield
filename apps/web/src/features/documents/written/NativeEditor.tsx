@@ -129,7 +129,6 @@ export default function NativeEditor({
 		},
 		onCreate: ({ editor: created }) => {
 			actions.began(created);
-			if (doc && moved) created.on("destroy", () => forgetMoved(doc.id));
 			if (actions.unsaved(created)) armLeaveHold();
 		},
 		onUpdate: ({ editor: changed }) => {
@@ -156,12 +155,13 @@ export default function NativeEditor({
 
 	const save = useCallback(async () => (editor ? actions.save(editor) : false), [editor, actions]);
 	const editorContext = useMemo(() => ({ editor }), [editor]);
-	const caret = moved?.caret ?? null;
-	const placeCaret = useCallback(
+	const settleMoved = useCallback(
 		(paper: HTMLDivElement | null) => {
-			if (paper && editor && caret !== null) editor.chain().setTextSelection(caret).focus().run();
+			if (!paper || !doc || !moved) return;
+			forgetMoved(doc.id);
+			if (editor && moved.caret !== null) editor.chain().setTextSelection(moved.caret).focus().run();
 		},
-		[editor, caret],
+		[doc, moved, editor],
 	);
 	function reload() {
 		leaveNow(() => window.location.reload());
@@ -323,7 +323,7 @@ export default function NativeEditor({
 				</div>
 				<InlineAlert className="w-full max-w-[816px] self-center">{errors.body}</InlineAlert>
 				<div className="ef-sheet ef-native">
-					<div className="ef-paper" ref={caret === null ? undefined : placeCaret}>
+					<div className="ef-paper" ref={moved ? settleMoved : undefined}>
 						<EditorContent editor={editor} />
 					</div>
 				</div>
