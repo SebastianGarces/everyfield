@@ -7,7 +7,7 @@ import { lazyModule, LoadFailed, Opened, useLazyModule, type Failure } from "@/c
 import { storeContext, useLocalStore, useStore } from "@/components/store";
 import * as api from "./api.ts";
 import { createEvryPanelStore, type EvryPanelState, type EvryPort } from "./EvryPanel.store.ts";
-import { checkPhoto, stageAttached } from "./PhotoAttach.tsx";
+import { stageAvatar } from "./PhotoAttach.tsx";
 import { putFile } from "./attachments.ts";
 
 const HELD = "ef-evry-held-draft";
@@ -32,8 +32,7 @@ function holdDraft(draft: string | null) {
 
 const PORT: EvryPort = {
 	...api,
-	checkPhoto,
-	stagePhoto: stageAttached,
+	stageAvatar,
 	putFile,
 	heldDraft,
 	holdDraft,

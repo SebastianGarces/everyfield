@@ -47,10 +47,7 @@ function fakePort(latest: string) {
 		retryTurn: async () => ({ status: "lost" }),
 		cancelTurn: async () => ({ status: "lost" }),
 		streamUrl: () => "",
-		checkPhoto: () => null,
-		stagePhoto: async () => {
-			throw Error("no photos here");
-		},
+		stageAvatar: async () => null,
 		heldDraft: () => held,
 		holdDraft: (draft: string | null) => void (held = draft),
 		reloadPage: () => void calls.reloads++,
