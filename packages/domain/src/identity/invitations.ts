@@ -467,17 +467,6 @@ export function createInvitationService(config: InvitationConfig) {
 							.returning();
 					}
 					if (!affiliation) throw Error("affiliation_unavailable");
-					const blocked = await tx
-						.select({ id: t.lifecycle_witness.id })
-						.from(t.lifecycle_witness)
-						.where(
-							and(
-								eq(t.lifecycle_witness.affiliation_id, affiliation.id),
-								sql`${t.lifecycle_witness.state} <>'cancelled'`,
-							),
-						)
-						.for("share");
-					if (blocked.length) d.deny("invitation_unavailable");
 					const id = randomUUID(),
 						choices = decision.choices;
 					cmd.writes.push(
