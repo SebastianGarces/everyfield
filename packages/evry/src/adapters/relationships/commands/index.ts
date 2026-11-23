@@ -27,7 +27,7 @@ export const invite = nativeWrite({
 		);
 		if (found.rows.length !== 1) return null;
 		const organization = z
-			.object({ id: z.uuid(), kind: z.enum(["sending_church", "sending_network"]) })
+			.strictObject({ id: z.uuid(), kind: z.enum(["sending_church", "sending_network"]) })
 			.parse(found.rows[0]);
 		const pair = {
 			kind: "plant" as const,

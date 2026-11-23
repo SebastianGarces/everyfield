@@ -138,11 +138,15 @@ const checkedDocument = z.strictObject({
 });
 const commitmentRequest = z.strictObject({
 	requestKey: z.string(),
-	input: z.looseObject({}),
+	input: z.record(z.string(), z.unknown()),
 	document: checkedDocument.optional(),
 	conversationId: z.uuid().optional(),
 });
-const attachedArgs = z.object({ document: checkedDocument.optional(), conversationId: z.uuid().optional() });
+const attachedArgs = z.strictObject({
+	input: z.unknown(),
+	document: checkedDocument.optional(),
+	conversationId: z.uuid().optional(),
+});
 const lifecycleInput = z.strictObject({
 	personId: id,
 	effectiveOn: date.describe("The date it takes effect, YYYY-MM-DD"),

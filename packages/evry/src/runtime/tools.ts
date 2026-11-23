@@ -74,11 +74,13 @@ export function resultForModel(resultId: number, result: SourceResult): ModelRep
 	return JSON.parse(scrub(JSON.stringify({ ...value, rows, truncatedRows: result.rows.length - rows.length })));
 }
 
-const RECORDED_CRITERIA = z.array(z.object({ label: z.string(), status: z.string() }));
+const RECORDED_CRITERIA = z.array(
+	z.strictObject({ label: z.string(), status: z.string(), reading: z.string().nullable() }),
+);
 function forModel(c: Proposal["review"]["changes"][number]) {
 	if (c.field === "note") return { ...c, before: c.before === null ? null : "(the current note)" };
 	const open = c.field === "openCriteria" ? RECORDED_CRITERIA.safeParse(c.after) : null;
-	return open?.success ? { ...c, after: open.data } : c;
+	return open?.success ? { ...c, after: open.data.map(({ label, status }) => ({ label, status })) } : c;
 }
 
 export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "review">): ModelReply {
