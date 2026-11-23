@@ -694,8 +694,8 @@
 		"reads": "T-504: 2 reads in a row (read of invitation, then locked read of invitation+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"invitations.respondResident": {
-		"limit": 14,
-		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the source Person lock; the competing link read; the organization link lock (and insert when new); the link's witness; one final statement with the link, the Person's account link (after the link, by dependency) and every audit row; COMMIT. RT-6a brought it from 26. Its largest first run: 2 transaction, 7 locked read, 3 read, 2 write.",
+		"limit": 13,
+		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the source Person lock; the competing link read; the organization link lock (and insert when new); one final statement with the link, the Person's account link (after the link, by dependency) and every audit row; COMMIT. RT-6a brought it from 26. Its largest first run: 2 transaction, 6 locked read, 3 read, 2 write.",
 		"reads": "T-504: 3 reads in a row (locked read of organization+person, then locked read of invitation+organization+tenant, then locked read of organization+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"invitations.resume": {

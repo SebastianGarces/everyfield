@@ -174,7 +174,6 @@ export async function calendarEligible(tx: Tx, id: string) {
 				isNull(t.seat.ended_at),
 				sql`${t.seat.role} IN ('owner','admin')`,
 				sql`${t.seat.plant_id} IS NOT NULL`,
-				sql`NOT EXISTS (SELECT FROM ${t.lifecycle_witness} w WHERE w.seat_id=${t.seat.id} AND w.state <> 'cancelled')`,
 			),
 		);
 	return !!s && (await liveOwner(tx, { kind: "plant", id: tenantId.parse(s.plant_id) }));
