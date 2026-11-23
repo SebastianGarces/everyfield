@@ -1,4 +1,4 @@
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { sql, type SqlLiteral } from "@everyfield/db/query";
 import { readPrivateUpload, signPrivatePut, type PrivateStorage } from "@everyfield/db/schema";
 import { IMPORT_BYTES_MAX, IMPORT_TOO_LARGE } from "@everyfield/contracts/documents";
@@ -109,7 +109,7 @@ export async function readAttachment(
 }
 
 export async function stagedBytes(
-	db: Database | Transaction,
+	db: Database,
 	storage: PrivateStorage | null,
 	tenantId: string,
 	conversationId: string,

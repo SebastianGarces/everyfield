@@ -2036,7 +2036,8 @@
 		"limit": 1
 	},
 	"wiki.search": {
-		"limit": 4,
+		"limit": 6,
+		"reason": "Keyword search is the transaction, its lock timeout and one search statement (4). A meaning search on an embedded release first reads the release's profile and the day's query tokens with the session (1) and, after the one provider call, adds the reported tokens to embedding_spend (1). Its largest first run: 2 transaction, 3 read, 1 write.",
 		"retry": 4
 	},
 	"wiki.setBookmark": {
