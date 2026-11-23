@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { existsSync, readFileSync, watch } from "node:fs";
 import { EventEmitter } from "node:events";
 import { dirname } from "node:path";
@@ -92,7 +92,7 @@ try {
 			.join("; ");
 		const session = await (await call("get-session", undefined, cookie)).json();
 		assert.equal(session.status, "active");
-		return { cookie, accountId: session.accountId, sessionId: session.sessionId };
+		return { cookie, email, password: secretWord, accountId: session.accountId, sessionId: session.sessionId };
 	}
 	const owner = await account("Owner"),
 		member = await account("Member");
@@ -1124,6 +1124,152 @@ try {
 	});
 	assert.equal(composed.status, "ok", JSON.stringify(composed));
 	assert.equal(composed.value.guests.length, 103);
+
+	const bucketOrigin = `127.0.0.1:${bucket.address().port}`;
+	const bytesOnly = async (path, expected, storageKey) => {
+		const r = await fetch(origin + path, { headers: { cookie: owner.cookie }, redirect: "manual" });
+		const body = Buffer.from(await r.arrayBuffer());
+		assert.equal(r.status, 200, `${path}: HTTP ${r.status}`);
+		assert.equal(r.headers.get("location"), null, `${path} answered with a Location`);
+		assert.ok(body.equals(expected), `${path} answered other bytes than the stored ones`);
+		const head = [...r.headers].map(([k, v]) => `${k}: ${v}`).join("\n");
+		for (const hidden of [storageKey, bucketOrigin, "census-private", "x-amz-", "bearer"])
+			assert.ok(!head.toLowerCase().includes(hidden.toLowerCase()), `${path} headers carry ${hidden}:\n${head}`);
+	};
+	const accountRevision = async (id) =>
+		(await admin.execute(sql`SELECT revision::text AS revision FROM account WHERE id=${id}`)).rows[0].revision;
+	const avatarTicket = await act(null, "/settings", settings, "requestAvatarUpload", [
+		{ mime: "image/png", byteLength: logo.length },
+	]);
+	assert.equal(avatarTicket.status, "ok", JSON.stringify(avatarTicket));
+	const avatarPath = `/api/accounts/${owner.accountId}/avatar/${avatarTicket.value.uploadId}`;
+	const avatarStored = await fetch(origin + avatarPath, {
+		method: "PUT",
+		headers: { cookie: owner.cookie, origin, "content-type": "image/png" },
+		body: logo,
+	});
+	assert.equal(avatarStored.status, 204, await avatarStored.text());
+	const avatarSaved = await act(null, "/settings", settings, "finalizeAvatar", [
+		{
+			requestKey: randomUUID(),
+			expectedRevision: await accountRevision(owner.accountId),
+			input: { uploadId: avatarTicket.value.uploadId },
+		},
+	]);
+	assert.equal(avatarSaved.status, "ok", JSON.stringify(avatarSaved));
+	const storageKeyOf = async (id) =>
+		(await admin.execute(sql`SELECT opaque_key FROM file_object WHERE id=${id}::uuid`)).rows[0].opaque_key;
+	await bytesOnly(avatarPath, logo, await storageKeyOf(avatarTicket.value.uploadId));
+
+	const stagedId = randomUUID(),
+		stagedKey = `private/${plant.id}/${stagedId}`;
+	objects.set(`/census-private/${stagedKey}`, logo);
+	await admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
+		VALUES(${stagedId}::uuid,${plant.id}::uuid,'assistant_staging',${stagedKey},'image/png',${logo.length},'pending',${`evry-attachment/${census}/${stagedId}`},0,clock_timestamp()+interval '1 hour')`);
+	const stagedReview = {
+		target: { kind: "person", id: maria.id, label: "Maria Santos" },
+		changes: [{ field: "photo", before: null, after: "priya.png" }],
+	};
+	const [{ id: photoProposal }] = (
+		await admin.execute(sql`INSERT INTO proposal(tenant_id,account_id,conversation_id,operation,input,review,digest,state,expires_at)
+			VALUES(${plant.id},${owner.accountId},${census},'people.setPersonPhoto',${JSON.stringify({ input: { personId: maria.id, uploadId: stagedId } })}::jsonb,
+				${JSON.stringify(stagedReview)}::jsonb,${"0".repeat(64)},'pending',clock_timestamp()+interval '1 day') RETURNING id`)
+	).rows;
+	await bytesOnly(`/api/evry/proposals/${photoProposal}/photo`, logo, stagedKey);
+
+	const budgetKey = createHmac("sha256", secret).update("invitation-budget").digest();
+	const budgetForms = [budgetKey.toString("hex"), budgetKey.toString("base64"), budgetKey.toString("base64url")];
+	const invitationReply = async (path, body, cookie) => {
+		const r = await fetch(origin + path, {
+			method: "POST",
+			headers: { cookie, origin, "content-type": "application/json" },
+			body: JSON.stringify(body),
+		});
+		const text = await r.text();
+		const head = [...r.headers].map(([k, v]) => `${k}: ${v}`).join("\n");
+		for (const form of budgetForms)
+			for (const [where, value] of [
+				["body", text],
+				["headers", head],
+			])
+				assert.ok(
+					!value.toLowerCase().includes(form.toLowerCase()),
+					`${path} ${body.op} ${where} carry the budget key`,
+				);
+		assert.equal(r.status, 200, `${path} ${body.op}: HTTP ${r.status} ${text}`);
+		return JSON.parse(text);
+	};
+	const invitee = await account("Invitee");
+	const seatProof = randomBytes(32).toString("base64url"),
+		seatInvitation = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,inviter_id,role,token_hash,state,created_at) VALUES(${seatInvitation},${plant.id},'seat',${invitee.email},${owner.accountId},'member',${createHash("sha256").update(seatProof).digest("hex")},'pending',clock_timestamp())`,
+	);
+	const described = await invitationReply("/api/invitation", { op: "read", proof: seatProof }, invitee.cookie);
+	assert.equal(described.session, "active", JSON.stringify(described));
+	assert.equal(described.description.status, "pending", JSON.stringify(described));
+	assert.equal(described.description.invitationId, seatInvitation);
+	const seated = await invitationReply(
+		"/api/invitation",
+		{
+			op: "accept_seat",
+			command: {
+				requestKey: randomUUID(),
+				expectedRevision: described.description.revision,
+				input: { invitationId: seatInvitation, proof: seatProof },
+			},
+		},
+		invitee.cookie,
+	);
+	assert.equal(seated.status, "ok", JSON.stringify(seated));
+	const signedOutRead = await invitationReply("/api/invitation", { op: "read", proof: seatProof }, "");
+	assert.equal(signedOutRead.session, "signed_out");
+	const connection = await invitationReply(
+		"/api/connections/invitation",
+		{ op: "read", invitationId: randomUUID(), proof: randomBytes(32).toString("base64url") },
+		owner.cookie,
+	);
+	assert.deepEqual(connection, { kind: "unavailable" });
+
+	const sessionOf = async (cookie) => (await fetch(origin + "/api/auth/get-session", { headers: { cookie } })).json();
+	const withCookies = (cookie, setCookies) => {
+		const jar = new Map(cookie.split("; ").map((pair) => [pair.split("=")[0], pair]));
+		for (const set of setCookies) {
+			const pair = set.split(";")[0];
+			const name = pair.split("=")[0];
+			if (pair === `${name}=` || /max-age=0/i.test(set)) jar.delete(name);
+			else jar.set(name, pair);
+		}
+		return [...jar.values()].join("; ");
+	};
+	const newPassword = "Requests-changed-" + randomBytes(6).toString("hex");
+	const changed = await actReply(
+		null,
+		"/settings",
+		settings,
+		"changePassword",
+		[{ currentPassword: member.password, newPassword, confirmPassword: newPassword }],
+		member.cookie,
+	);
+	assert.deepEqual(
+		[changed.result.status, changed.result.action, changed.result.accountId],
+		["succeeded", "password_changed", member.accountId],
+		JSON.stringify(changed.result),
+	);
+	const changedCookie = withCookies(member.cookie, changed.setCookies);
+	assert.notEqual(changedCookie, member.cookie, "the password change set no new session cookie");
+	const afterChange = await sessionOf(changedCookie);
+	assert.equal(afterChange?.status, "active", JSON.stringify(afterChange));
+	assert.equal(afterChange.accountId, member.accountId);
+	assert.notEqual(afterChange.sessionId, member.sessionId, "the password change kept the old session");
+	const settingsPage = await fetch(origin + "/settings", { headers: { cookie: changedCookie }, redirect: "manual" });
+	assert.equal(settingsPage.status, 200, "the new session cookie does not sign in");
+	assert.ok((await settingsPage.text()).includes(member.accountId), "the new session renders another account");
+	const oldPage = await fetch(origin + "/settings", { headers: { cookie: member.cookie }, redirect: "manual" });
+	assert.equal(oldPage.status, 307, "the pre-change cookie still signs in");
+	assert.match(oldPage.headers.get("location") ?? "", /\/signin/);
+	const oldSession = await sessionOf(member.cookie);
+	assert.deepEqual(oldSession, { status: "unauthenticated" }, "the pre-change cookie still has a session");
 
 	server.kill("SIGTERM");
 	await exited;
