@@ -1,7 +1,6 @@
 import "server-only";
 import type * as c from "@everyfield/contracts/people";
 import type { PeopleContext } from "@everyfield/contracts/people";
-import type { Transaction } from "@everyfield/db/client";
 import {
 	assessments,
 	commitments,
@@ -17,6 +16,7 @@ import {
 } from "@everyfield/domain/people";
 import type { z } from "zod";
 import { defaultSurvivor, fieldText, type Households, type ListedPair, type MergeField } from "./model.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 type Review = z.infer<typeof c.mergeReview>;
 type PersonResult = z.infer<typeof c.personResult>;
@@ -39,7 +39,7 @@ export type PairView =
 const available = (r: { status: string; value?: PersonResult }) =>
 	r.status === "ok" && r.value?.status === "available" ? r.value.person : null;
 
-export async function readPair(tx: Transaction, ctx: PeopleContext, q: PairQuery): Promise<PairView> {
+export async function readPair(tx: WriteTx, ctx: PeopleContext, q: PairQuery): Promise<PairView> {
 	if (q.person === q.with) return { kind: "unavailable" };
 	const a = available(await peopleReader.getPerson(tx, ctx, { personId: q.person }));
 	const b = available(await peopleReader.getPerson(tx, ctx, { personId: q.with }));
@@ -100,11 +100,11 @@ export async function readPair(tx: Transaction, ctx: PeopleContext, q: PairQuery
 
 export type DuplicateHints = z.infer<typeof c.duplicateHints>;
 export type DuplicatePairs = z.infer<typeof c.duplicatePairs>;
-export const readPairs = (tx: Transaction, ctx: PeopleContext) => listDuplicatePairs(tx, ctx);
+export const readPairs = (tx: WriteTx, ctx: PeopleContext) => listDuplicatePairs(tx, ctx);
 export type DismissedPairs = z.infer<typeof c.dismissedDuplicatePairs>;
-export const readDismissedPairs = (tx: Transaction, ctx: PeopleContext) => listDismissedDuplicatePairs(tx, ctx);
+export const readDismissedPairs = (tx: WriteTx, ctx: PeopleContext) => listDismissedDuplicatePairs(tx, ctx);
 
-export async function readUnmerge(tx: Transaction, ctx: PeopleContext, mergeId: string) {
+export async function readUnmerge(tx: WriteTx, ctx: PeopleContext, mergeId: string) {
 	const r = await peopleUnmerge.previewUnmerge(tx, ctx, { mergeId });
 	if (r.status !== "ok") return r;
 	const name = async (personId: PersonId) =>
@@ -118,7 +118,7 @@ export async function readUnmerge(tx: Transaction, ctx: PeopleContext, mergeId: 
 }
 export type UnmergeView = Extract<Awaited<ReturnType<typeof readUnmerge>>, { status: "ok" }>["value"];
 
-export async function readRecords(tx: Transaction, ctx: PeopleContext, personId: PersonId) {
+export async function readRecords(tx: WriteTx, ctx: PeopleContext, personId: PersonId) {
 	const request = { personId, limit: 100 };
 	const a = await assessments.getAssessments(tx, ctx, request);
 	if (a.status !== "ok") return a;

@@ -1,7 +1,7 @@
 "use client";
 
 import { Add01Icon, Cancel01Icon, Settings01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { Button, Input, Popover, PopoverContent, PopoverTrigger, Spinner } from "@everyfield/ui/controls";
+import { Button, Input, Popover, PopoverContent, PopoverTrigger, Spinner, TextButton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useOptimistic, useRef, useState, useTransition, type KeyboardEvent } from "react";
@@ -9,10 +9,13 @@ import type { Outcome, Wait } from "../../../components/save/model.ts";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import type { Receipt } from "../boundary.ts";
 import { PersonLink } from "../parts.tsx";
-import { addPersonTag, listChurchTags, removePersonTag } from "./actions.ts";
+import { addPersonTag, removePersonTag } from "./actions.ts";
+import { listChurchTags } from "../fetch.ts";
 import { ManageTagsDialog } from "./ManageTagsDialog.tsx";
 import { tagLook, type ChurchTag, type PersonTag } from "./model.ts";
 import { churchTags, tagProblem } from "./ManageTagsDialog.tsx";
+import { loadProblem } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
 type Change = { add: PersonTag } | { remove: string };
 const byName = (a: { name: string }, b: { name: string }) =>
@@ -38,7 +41,7 @@ export function TagsField({
 			: current.filter((t) => t.id !== change.remove),
 	);
 	const [, start] = useTransition();
-	const [church, setChurch] = useState<Outcome<ChurchTag[]> | null>(null);
+	const [church, setChurch] = useState<Outcome<ChurchTag[]> | ReadFailure | null>(null);
 	const [open, setOpen] = useState(false);
 	const [managing, setManaging] = useState(false);
 	const loading = useRef(false);
@@ -117,11 +120,11 @@ export function TagsField({
 						}}
 					>
 						<PopoverTrigger asChild>
-							<Button variant="ghost" size="sm" icon={Add01Icon} className="h-[26px] px-2 text-text-2">
+							<Button variant="ghost" size="sm" icon={Add01Icon} className="text-text-2">
 								Add tag
 							</Button>
 						</PopoverTrigger>
-						<PopoverContent label="Tags" align="start" className="w-[300px] p-0">
+						<PopoverContent label="Tags" align="start" className="w-[300px]">
 							<TagPicker
 								church={church}
 								chosen={shown}
@@ -168,7 +171,7 @@ function TagChip({ tag, onRemove, wait = null }: { tag: PersonTag; onRemove?: ()
 	const look = tagLook(tag.color);
 	const pending = tag.id.startsWith("new:");
 	return (
-		<Tag tone={look.tone} className="max-w-full gap-0 px-0" aria-busy={pending || undefined}>
+		<Tag tone={look.tone} className="max-w-full" aria-busy={pending || undefined}>
 			{pending ? (
 				<span className="flex min-w-0 items-center gap-1.5 px-2.5">
 					<span className="truncate">{tag.name}</span>
@@ -209,7 +212,7 @@ function TagPicker({
 	onManage,
 	onRetry,
 }: {
-	church: Outcome<ChurchTag[]> | null;
+	church: Outcome<ChurchTag[]> | ReadFailure | null;
 	chosen: PersonTag[];
 	wait: Wait;
 	onToggle: (tag: PersonTag) => void;
@@ -238,7 +241,8 @@ function TagPicker({
 		if (e.key !== "Enter") return;
 		e.preventDefault();
 		if (wait) return;
-		if (matches.length === 1) onToggle(matches[0]!);
+		const [only] = matches;
+		if (only && matches.length === 1) onToggle(only);
 		else if (canCreate) {
 			onCreate(term);
 			setQuery("");
@@ -266,10 +270,10 @@ function TagPicker({
 					</li>
 				) : church.status !== "ok" ? (
 					<li role="alert" className="flex flex-col items-start gap-2 px-2.5 py-3 text-sm text-text-2">
-						<span>The church&apos;s tags did not load.</span>
-						<button type="button" onClick={onRetry} className="font-medium text-ink underline underline-offset-[3px]">
+						<span>{loadProblem(church, "The church's tags did not load.")}</span>
+						<TextButton onClick={onRetry} className="text-ink">
 							Try again
-						</button>
+						</TextButton>
 					</li>
 				) : (
 					<>

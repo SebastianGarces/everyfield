@@ -7,6 +7,7 @@ import {
 	FORMAT_SCHEMA,
 	forkTemplate,
 	nativeBody,
+	type TableNode,
 } from "../../../packages/contracts/src/documents/index.ts";
 import { DOC_TEMPLATES } from "../../../packages/domain/src/documents/doc-templates.ts";
 import {
@@ -21,11 +22,18 @@ import { canInsert, insertBlock } from "../../../apps/web/src/features/documents
 import { pastedSlice, plainPastedSlice } from "../../../apps/web/src/features/documents/church/editor/extensions.ts";
 import { blocksFromEditor, blocksToEditor } from "../../../apps/web/src/features/documents/church/editor/table-json.ts";
 import { newBudget } from "../../../apps/web/src/features/documents/church/editor/table-ops.ts";
+import { nodeFromTable, tableOf } from "../../../apps/web/src/features/documents/church/editor/table-actions.ts";
 
 import { fieldValues, frozenData } from "../../../packages/domain/src/documents/doc-values.ts";
 
 const ROOT = join(import.meta.dirname, "../../..");
-const readJson = (path: string) => JSON.parse(readFileSync(path, "utf8")) as Record<string, any>;
+type Manifest = {
+	license?: string;
+	dependencies?: Record<string, string>;
+	devDependencies?: Record<string, string>;
+	optionalDependencies?: Record<string, string>;
+};
+const readJson = (path: string): Manifest => JSON.parse(readFileSync(path, "utf8"));
 
 function workspacePackages() {
 	const dirs = [ROOT, ...["apps", "packages"].flatMap((d) => readdirSync(join(ROOT, d)).map((n) => join(ROOT, d, n)))];
@@ -433,4 +441,88 @@ test("AC:CASE-DOC-016: a pasted budget, header color or write-in table is reduce
 		(n) => n.type === "table",
 	)!.content!;
 	assert.equal(rows.length, 3);
+});
+
+test("AC:CASE-DOC-022 a table with text, number and check columns reads back from its editor node unchanged", () => {
+	const table = {
+		type: "table",
+		attrs: {
+			style: "grid",
+			header: true,
+			writeInRows: 2,
+			columns: [
+				{ id: "item", label: "Item", type: "text", width: 3, align: "left" },
+				{ id: "qty", label: "Qty", type: "number", width: 1, format: "number" },
+				{ id: "done", label: "Done", type: "check", width: 1 },
+			],
+		},
+		content: [
+			{
+				type: "row",
+				content: [
+					{ type: "cell", content: [{ type: "text", text: "Chairs", marks: [{ type: "bold" }] }] },
+					{ type: "cell", attrs: { value: 40 } },
+					{ type: "cell", attrs: { checked: true } },
+				],
+			},
+			{
+				type: "row",
+				attrs: { role: "total" },
+				content: [
+					{ type: "cell", content: [{ type: "text", text: "Total" }] },
+					{ type: "cell", attrs: { value: null } },
+					{ type: "cell" },
+				],
+			},
+		],
+	} satisfies TableNode;
+	const node = nodeFromTable(schema, table);
+	node.check();
+	assert.deepStrictEqual(clean(node.toJSON()), {
+		type: "table",
+		attrs: table.attrs,
+		content: [
+			{
+				type: "row",
+				content: [
+					{ type: "cell", content: [{ type: "text", text: "Chairs", marks: [{ type: "bold" }] }] },
+					{ type: "valueCell", attrs: { value: 40 } },
+					{ type: "valueCell", attrs: { checked: true } },
+				],
+			},
+			{
+				type: "row",
+				attrs: { role: "total" },
+				content: [
+					{ type: "cell", content: [{ type: "text", text: "Total" }] },
+					{ type: "valueCell", attrs: { value: null } },
+					{ type: "valueCell" },
+				],
+			},
+		],
+	});
+	assert.deepStrictEqual(tableOf(node), table);
+	const again = nodeFromTable(schema, tableOf(node));
+	assert.equal(again.eq(node), true, "the editor node built from the read table is the same node");
+	assert.deepStrictEqual(again.toJSON(), node.toJSON());
+});
+
+test("AC:CASE-DOC-022 a table whose editor JSON lacks a required part fails with the missing part named", () => {
+	const row = { type: "row", content: [{ type: "cell", content: [{ type: "text", text: "Chairs" }] }] };
+	const noColumns = schema.nodeFromJSON({ type: "table", attrs: { style: "grid" }, content: [row] });
+	assert.throws(() => tableOf(noColumns), { name: "EditorJsonError", message: "table.attrs.columns is not a list" });
+	const noLabel = schema.nodeFromJSON({
+		type: "table",
+		attrs: {
+			columns: [
+				{ id: "item", label: "Item", type: "text", width: 1 },
+				{ id: "qty", type: "number", width: 1 },
+			],
+		},
+		content: [row],
+	});
+	assert.throws(() => tableOf(noLabel), {
+		name: "EditorJsonError",
+		message: "table.attrs.columns[1].label is not a string",
+	});
 });

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { sql } from "../../../packages/db/src/query.ts";
-import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import { avatarOperations, readAvatar, uploadAvatar } from "../../../packages/domain/src/settings/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const seedStorage = {
 	bucket: "tenancy-avatar-seed",
@@ -42,12 +43,14 @@ export async function seedSettings(t) {
 	const db = t.f.db;
 	const ctx = own(t.ownerA);
 	const upload = ok(
-		await db.transaction((tx) => api.requestAvatarUpload(tx, ctx, { mime: "image/png", byteLength: photo.length })),
+		await gatedTransaction(db, (tx) =>
+			api.requestAvatarUpload(tx, ctx, { mime: "image/png", byteLength: photo.length }),
+		),
 	);
 	await uploadAvatar(db, seedStorage, ctx, { uploadId: upload.uploadId, bytes: photo });
 	const [account] = await t.rows(sql`SELECT revision::text FROM account WHERE id = ${t.ownerA.id}`);
 	ok(
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			api.finalizeAvatar(tx, ctx, {
 				input: { uploadId: upload.uploadId },
 				expectedRevision: account.revision,

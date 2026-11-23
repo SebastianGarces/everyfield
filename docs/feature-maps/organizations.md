@@ -67,6 +67,7 @@ flowchart LR
   s8_link0 --> s8
   s8 -.- s8_st0(("no-invitation"))
   s8 -.- s8_st1(("request (manual)"))
+  s8 -.- s8_st2(("expired (manual)"))
   s8 --- s8_b0["accept<br/>tests + cases"]
   s9["organizations.design-preview<br/>/design/organizations/[flow]"]
   s9_link0 --> s9
@@ -81,7 +82,7 @@ flowchart LR
 A sending church's or network's pipeline board: one column per stage, search and the six-month filter in the address, goals, Add person and Export.
 
 - Routes: `/organization/pipeline`
-- Endpoints: `/organization/pipeline/export`
+- Endpoints: `/organization/pipeline/export`, `/organization/pipeline/read`
 - Personas: `graceOwner` write, `network` write, `hillOwner` write, `graceDirector` read, `resident` none, `owner` none, `visitor` none
 - Catalog: MUL-001, MUL-005, MUL-007, MUL-008
 
@@ -405,6 +406,7 @@ agent-browser find role link text --name "Map Import Applicant" --exact
 The Programs tab: the organization's residencies and apprenticeships, a new program from the template or blank, and each program's plan and enrolled people.
 
 - Routes: `/organization/pipeline/programs`, `/organization/pipeline/programs/new`, `/organization/pipeline/programs/[programId]`
+- Endpoints: `/organization/pipeline/programs/read`
 - Personas: `graceOwner` write, `network` write, `hillOwner` write, `graceDirector` write, `resident` none
 - Catalog: MUL-010, MUL-011
 
@@ -566,7 +568,7 @@ agent-browser find role link click --name "Casey Lee" --exact
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "Casey Lee" --exact
 agent-browser find role heading text --name "Enrollment" --exact
-agent-browser find text "Clear outline and a warm close. Next time, slow down in the second point." text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Clear outline and a warm close. Next time, slow down in the second point.\")"
 ```
 
 #### organizations.enrollment#confirm-milestone
@@ -625,6 +627,7 @@ The receiving seat reads only the chosen questions and their answers; a withdraw
 Sharing and privacy: connections and what each one sees, pipeline totals, and a resident's residency choices.
 
 - Routes: `/settings/sharing`
+- Endpoints: `/connections/read`
 - Personas: `owner` write, `network` write, `graceOwner` write, `hillOwner` write, `graceDirector` read, `resident` write, `signup` none
 - Catalog: IDN-020, IDN-022, MUL-003, MUL-016
 
@@ -726,7 +729,7 @@ agent-browser find role switch click --name "Share pipeline totals with"
 agent-browser wait --load networkidle
 agent-browser open "$ORIGIN/settings/sharing"
 agent-browser wait --load networkidle
-agent-browser find text "Not shared" text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Not shared\")"
 agent-browser find role switch click --name "Share pipeline totals with"
 agent-browser wait --load networkidle
 agent-browser open "$ORIGIN/settings/sharing"
@@ -783,6 +786,7 @@ agent-browser find role heading text --name "This page is not available" --exact
 ```
 
 - **request**: button containing "Accept". Not scripted: the invitation's link reaches only the addressed account's mail, and the QA seed keeps no unanswered invitation, so one persona invites and another opens the link.
+- **expired**: heading "This request has expired". Not scripted: an invitation whose last send is more than 30 days old; the QA seed keeps none, so one persona invites, the send time is moved back on a disposable database, and the addressed persona opens the link.
 
 #### organizations.respond#accept
 
@@ -794,7 +798,8 @@ The addressed Owner or Admin accepts once and a retry returns the same result; t
 - Test: `tests/integration/organizations/relationships.test.mts`: `AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 AC:ORG55-002 AC:ORG55-003 AC:GAP-IDN-027 AC:TARGET-IDN-021 AC:TARGET-IDN-027 ending one pair keeps other links, content and minimal history`
 - Test: `tests/integration/organizations/relationships.test.mts`: `INV-relationships: invitation rotation, duplicate intents, decline, revoke and rolling limit preserve token boundaries`
 - Test: `tests/integration/organizations/relationships.test.mts`: `AC:AF-016 AC:AF-017 AC:AF-019 AC:ROLE43-016 AC:TARGET-IDN-020 wrong side, Member, proof, expiry and revoked initiator cannot approve`
-- Test: `tests/unit/organizations/invitation-proof.test.mts`: `the route answers the read as the page did: signed out, unavailable or the request`
+- Test: `tests/unit/organizations/invitation-proof.test.mts`: `the route answers the read as the page did: signed out, unavailable, expired or the request`
+- Test: `tests/integration/organizations/relationships.test.mts`: `discovery invitations expire after 30 days: the receiver sees who to ask, a new request goes through, and a resend restarts the 30 days`
 
 ### organizations.design-preview
 

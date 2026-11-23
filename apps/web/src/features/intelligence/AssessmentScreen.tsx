@@ -11,7 +11,6 @@ import type {
 } from "@everyfield/contracts/intelligence";
 import type { Catalog } from "@everyfield/contracts/phases";
 import {
-	Alert02Icon,
 	ArrowRight01Icon,
 	Coins01Icon,
 	Dumbbell01Icon,
@@ -25,6 +24,7 @@ import {
 	ViewIcon,
 } from "@hugeicons/core-free-icons";
 import {
+	Alert,
 	Button,
 	Card,
 	CardDescription,
@@ -46,19 +46,16 @@ import {
 	Spinner,
 	StatePanel,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, observeIntersection, type IconSvgElement } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
-import {
-	markAssessmentSeen,
-	resolveAssessmentCitation,
-	submitAssessmentFeedback,
-	type ActionOutcome,
-} from "./assessment-actions.ts";
+import { markAssessmentSeen, submitAssessmentFeedback } from "./assessment-actions.ts";
+import type { ActionOutcome } from "./assessment-model.ts";
+import { resolveAssessmentCitation } from "./fetch.ts";
 import {
 	coldStartTitle,
 	CRITERION,
@@ -71,6 +68,8 @@ import {
 	STANDING,
 } from "./assessment-model.ts";
 import { IntelligenceTabs } from "./IntelligenceTabs.tsx";
+import { loadProblem, failedIcon } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type Props = { view: AssessmentView; facts: PlantFacts; catalog: Catalog };
 type Point = Assessment["focus"];
@@ -111,7 +110,7 @@ export function AssessmentScreen({ view, facts, catalog }: Props) {
 }
 
 const citations = createRead((runId: string, key: string) => resolveAssessmentCitation(runId, key), {
-	failed: (): ActionOutcome<CitationView> => ({ status: "lost" }),
+	failed: (): ActionOutcome<CitationView> | ReadFailure => ({ status: "lost" }),
 });
 
 function Current({ view, assessment: a, catalog }: { view: AssessmentView; assessment: Assessment; catalog: Catalog }) {
@@ -157,16 +156,10 @@ function Current({ view, assessment: a, catalog }: { view: AssessmentView; asses
 						</span>
 					</p>
 					{otherPhase !== null ? (
-						<p
-							data-current-phase={otherPhase}
-							className="flex gap-2.5 rounded-md bg-amber-100 px-3.5 py-2.5 text-sm text-ink"
-						>
-							<Icon icon={Alert02Icon} size={18} className="mt-0.5 flex-none text-amber-600" />
-							<span>
-								Your church is now in <b>{phaseName(catalog, otherPhase)}</b>. This assessment was written for Phase{" "}
-								{a.phase}, so its criteria and standings are Phase {a.phase}&apos;s, not Phase {otherPhase}&apos;s.
-							</span>
-						</p>
+						<Alert tone="warning" data-current-phase={otherPhase}>
+							Your church is now in <b>{phaseName(catalog, otherPhase)}</b>. This assessment was written for Phase{" "}
+							{a.phase}, so its criteria and standings are Phase {a.phase}&apos;s, not Phase {otherPhase}&apos;s.
+						</Alert>
 					) : null}
 					{later ? (
 						<p role="status" className="text-sm text-text-2" data-newest={view.newest?.state}>
@@ -318,7 +311,6 @@ function Feedback({
 	initial: OwnFeedback | null;
 	light?: boolean;
 }) {
-	const toast = useToast();
 	const [saved, setSaved] = useState(initial);
 	const [writing, setWriting] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -614,8 +606,8 @@ function CitationDialog({
 							<Spinner size={16} /> Opening the evidence
 						</p>
 					) : result.status !== "ok" ? (
-						<StatePanel tone="error" title="We couldn't open this evidence" headingLevel="h3">
-							Nothing was changed. Close this and try again in a moment.
+						<StatePanel tone="error" title="We couldn't open this evidence" icon={failedIcon(result)} headingLevel="h3">
+							{loadProblem(result, "Nothing was changed. Close this and try again in a moment.")}
 						</StatePanel>
 					) : (
 						<CitationBody view={result.value} />

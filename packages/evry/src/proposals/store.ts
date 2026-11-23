@@ -1,15 +1,23 @@
 import type { Database } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
-import { readAuthorizedObject, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
+import {
+	readAuthorizedObject,
+	readPrivateUpload,
+	type PrivateStorage,
+	type ResourceAuthorizer,
+} from "@everyfield/db/schema";
+import { queueJobsFor } from "@everyfield/domain/jobs";
 import { photoMediaType } from "@everyfield/domain/people";
-import { randomUUID } from "node:crypto";
+import { fromStates, proposalMachine, type ProposalSubject } from "@everyfield/contracts/machines";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
-import { currentAuthority } from "../context/authority.ts";
+import { currentAuthority, refusedFor } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
+import { ATTACHMENTS, stagedPhotoIn } from "../attachments/store.ts";
 import { liveJob } from "../runtime/job.ts";
 import { fence, type RunLease } from "../runtime/run-store.ts";
-import type { MailPort, NativePorts, ReviewedWrite } from "./types.ts";
+import type { MailPort, NativePorts, ReviewContext, ReviewedWrite } from "./types.ts";
 import {
 	currentReview,
 	mine,
@@ -40,23 +48,36 @@ function adapter(actor: EvryActor, op: Operation): ReviewedWrite<unknown> {
 	if (!write.allowed(actor)) throw new EvryRefusal("access_denied");
 	return write;
 }
+const queued: ProposalSubject = { now: false, lapsed: false, jobLive: false };
+const now: ProposalSubject = { ...queued, now: true };
 const owned = (actor: EvryActor) => sql`${mine(actor)} AND ${currentAuthority(actor)}`;
 const digest = (revision: SQL) =>
 	sql`encode(sha256(convert_to(jsonb_build_object('operation',p.operation,'revision',${revision},'args',r.args,'review',r.review)::text,'UTF8')),'hex')`;
 const expiry = sql`clock_timestamp()+make_interval(mins=>${REVIEW_MINUTES})`;
-const effectJob = (job: string, alias: string) =>
-	sql`INSERT INTO job(id,tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
-		SELECT ${job}::uuid,tenant_id,'evry_effect',conversation_id,id||':'||revision||':'||${job},'ready',clock_timestamp(),0,1,0 FROM ${sql.raw(alias)}`;
-const audit = (action: string, kind: string, alias: string) =>
+const effectJob = <AliasName extends string>(job: string, alias: SqlLiteral<AliasName>) =>
+	queueJobsFor(sql`FROM ${sql.raw(alias)}`, {
+		kind: "evry_effect",
+		id: sql`${job}::uuid`,
+		tenant: sql`tenant_id`,
+		subject: sql`conversation_id`,
+		key: sql`id||':'||revision||':'||${job}`,
+		maxAttempts: 1,
+		conflict: "fail",
+	});
+const audit = <AliasName extends string>(action: string, kind: string, alias: SqlLiteral<AliasName>) =>
 	sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,metadata)
 		SELECT tenant_id,account_id,${action},${kind},'conversation',conversation_id,
 			jsonb_build_object('proposalId',id,'revision',revision,'digest',digest) FROM ${sql.raw(alias)}`;
 
 export async function readReview(db: Database, actor: EvryActor, id: string): Promise<Proposal> {
-	const proposalId = parse(z.uuid(), id);
-	const r = await db.execute(currentReview(actor, sql`${proposalId}::uuid`));
-	if (!r.rows.length) throw new EvryRefusal("not_found");
-	return proposalRow.parse(r.rows[0]!.proposal);
+	return reviewed(db, actor, parse(z.uuid(), id));
+}
+
+async function reviewed(db: Database, actor: EvryActor, proposalId: string, moved = false): Promise<Proposal> {
+	const [row] = (await db.execute(currentReview(actor, sql`${proposalId}::uuid`))).rows;
+	if (row) return proposalRow.parse(row.proposal);
+	if (!moved) throw new EvryRefusal("not_found");
+	throw await refusedFor(db, actor, sql`(SELECT q.conversation_id FROM proposal q WHERE q.id=${proposalId}::uuid)`);
 }
 
 const proposeInput = z.strictObject({ operation, input: z.unknown() });
@@ -68,11 +89,12 @@ export async function prepareProposal(
 	raw: unknown,
 	mail: MailPort | null = null,
 	native: NativePorts | null = null,
+	files: ReviewContext["files"] = null,
 ): Promise<Proposal | null> {
 	const call = parse(proposeInput, raw);
 	const write = adapter(actor, call.operation);
 	const input = parse(write.input, call.input);
-	const reviewSql = await write.review(actor, input, { db, mail, native });
+	const reviewSql = await write.review(actor, input, { db, mail, native, conversationId, files });
 	if (!reviewSql) return null;
 	const r = await db.execute(sql`
 		WITH r AS (${reviewSql}),
@@ -80,15 +102,20 @@ export async function prepareProposal(
 			SELECT c.id,c.tenant_id,c.account_id FROM conversation c
 			WHERE c.id=${conversationId}::uuid AND c.account_id=${actor.accountId}::uuid AND c.tenant_id=${actor.owner.id}::uuid
 				AND c.active_turn_id=${lease.turnId}::uuid AND ${fence(lease)} AND ${currentAuthority(actor)}
+		), applied AS (
+			SELECT FROM c,r JOIN proposal q ON true WHERE q.conversation_id=c.id AND q.operation=${write.operation}
+				AND q.outcome='completed' AND coalesce(q.input->'input',q.input)=coalesce(r.args->'input',r.args)
 		), p AS (
 			INSERT INTO proposal(tenant_id,account_id,conversation_id,operation,revision,input,review,digest,state,expires_at)
 			SELECT c.tenant_id,c.account_id,c.id,${write.operation},1,r.args,r.review,
 				encode(sha256(convert_to(jsonb_build_object('operation',${write.operation}::text,'revision',1,'args',r.args,'review',r.review)::text,'UTF8')),'hex'),
-				'pending',${expiry} FROM c,r
+				'pending',${expiry} FROM c,r WHERE NOT EXISTS(SELECT FROM applied)
 			RETURNING *
 		), audit AS (${audit("evry.proposal_prepared", "create", "p")})
-		SELECT ${projection("p")} AS proposal FROM p`);
-	return r.rows.length ? proposalRow.parse(r.rows[0]!.proposal) : null;
+		SELECT (SELECT ${projection("p")} FROM p) AS proposal, EXISTS(SELECT FROM applied) AS applied`);
+	const [row] = r.rows as { proposal: unknown; applied: boolean }[];
+	if (row?.applied) throw new EvryRefusal("already_applied");
+	return row?.proposal ? proposalRow.parse(row.proposal) : null;
 }
 
 const reviseInput = z.strictObject({ operation, revision: z.int().min(1), input: z.unknown() });
@@ -104,7 +131,7 @@ export async function reviseProposal(
 	const change = parse(reviseInput, raw);
 	const write = adapter(actor, change.operation);
 	const input = parse(write.input, change.input);
-	const reviewSql = await write.review(actor, input, { db, mail, native });
+	const reviewSql = await write.review(actor, input, { db, mail, native, conversationId: null });
 	if (!reviewSql) throw new EvryRefusal("not_found");
 	const r = await db.execute(sql`
 		WITH r AS (${reviewSql}),
@@ -112,14 +139,15 @@ export async function reviseProposal(
 			UPDATE proposal p SET revision=p.revision+1,input=r.args,review=r.review,digest=${digest(sql`p.revision+1`)},
 				state='pending',approved_at=NULL,approved_session_id=NULL,job_id=NULL,expires_at=${expiry},updated_at=clock_timestamp()
 			FROM r WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.operation=${write.operation} AND p.revision=${change.revision}
-				AND p.outcome IS NULL AND p.state IN ('pending','approved','expired')
+				AND concat_ws('_',p.state,p.outcome) = ANY(${sql.param(fromStates(proposalMachine, "evry.reviseProposal", "pending", queued))}::text[])
 			RETURNING p.*
 		), superseded AS (
 			UPDATE job j SET state='superseded',finished_at=clock_timestamp(),revision=j.revision+1 FROM x
 			WHERE j.kind='evry_effect' AND j.subject_record_id=x.conversation_id AND j.producer_key LIKE x.id||':%' AND j.state='ready'
 		), audit AS (${audit("evry.proposal_revised", "edit", "x")})
 		SELECT ${projection("x")} AS proposal FROM x`);
-	if (r.rows.length) return proposalRow.parse(r.rows[0]!.proposal);
+	const [row] = r.rows;
+	if (row) return proposalRow.parse(row.proposal);
 	const current = await readReview(db, actor, proposalId);
 	if (current.revision === change.revision && current.stale) throw new EvryRefusal("not_found");
 	throw new EvryRefusal(current.revision !== change.revision ? "review_changed" : "review_closed");
@@ -132,8 +160,7 @@ const staged = (actor: EvryActor, proposalId: string, uploadId: SQL) =>
 		AND (p.input->'input'->>'uploadId')::uuid=${uploadId}
 		AND (p.operation<>'people.setPersonPhoto' OR (
 			EXISTS(SELECT FROM person t WHERE t.id=(p.input->'input'->>'personId')::uuid AND t.tenant_id=p.tenant_id AND t.state='live')
-			AND EXISTS(SELECT FROM file_object f WHERE f.id=${uploadId} AND f.tenant_id=p.tenant_id AND f.purpose='person_photo'
-				AND f.state='ready' AND f.expires_at>clock_timestamp() AND NOT EXISTS(SELECT FROM person o WHERE o.photo_object_id=f.id))))
+			AND EXISTS(SELECT FROM file_object f WHERE f.id=${uploadId} AND f.tenant_id=p.tenant_id AND ${stagedPhotoIn("f", sql`p.conversation_id::text`)})))
 		AND (p.operation<>'account.finalizeAvatar' OR EXISTS(SELECT FROM file_object f WHERE f.id=${uploadId}
 			AND f.tenant_id=p.account_id AND f.purpose='avatar' AND f.state='ready' AND f.expires_at>clock_timestamp()
 			AND NOT EXISTS(SELECT FROM account o WHERE o.avatar_object_id=f.id)))`;
@@ -146,7 +173,22 @@ async function stagedBytes(
 	upload: string,
 ) {
 	if (!storage) throw new EvryRefusal("not_found");
-	const authorize: ResourceAuthorizer = async (tx, file, intent) => {
+	const r = await db.execute(sql`SELECT f.opaque_key AS key,f.media_type AS "mediaType" FROM proposal p
+		JOIN file_object f ON f.id=${upload}::uuid AND f.purpose='assistant_staging'
+		WHERE ${staged(actor, proposalId, sql`${upload}::uuid`)}`);
+	const attached = r.rows[0] as { key: string; mediaType: string } | undefined;
+	const bytes = attached
+		? await readPrivateUpload(storage, attached.key, ATTACHMENTS.photoBytes).then((o) =>
+				typeof o === "string" ? null : o.bytes,
+			)
+		: await readAuthorizedObject(db, storage, account(actor, proposalId), upload).catch(() => null);
+	const mediaType = bytes && photoMediaType(bytes);
+	if (!bytes || !mediaType || (attached && attached.mediaType !== mediaType)) throw new EvryRefusal("not_found");
+	return { bytes, mediaType, attached: attached !== undefined };
+}
+const account =
+	(actor: EvryActor, proposalId: string): ResourceAuthorizer =>
+	async (tx, file, intent) => {
 		if (intent !== "read") return null;
 		const r = await tx.execute(
 			sql`SELECT p.account_id FROM proposal p WHERE ${staged(actor, proposalId, sql`${file.id}::uuid`)}`,
@@ -154,13 +196,6 @@ async function stagedBytes(
 		const accountId = r.rows[0]?.account_id as string | undefined;
 		return accountId ? { kind: "account", actorId: accountId } : null;
 	};
-	const bytes = await readAuthorizedObject(db, storage, authorize, upload).catch(() => {
-		throw new EvryRefusal("not_found");
-	});
-	const mediaType = photoMediaType(bytes);
-	if (!mediaType) throw new EvryRefusal("not_found");
-	return { bytes, mediaType };
-}
 
 export async function readStagedPhoto(db: Database, storage: PrivateStorage | null, actor: EvryActor, id: string) {
 	const proposalId = parse(z.uuid(), id);
@@ -188,24 +223,28 @@ export async function approveProposal(
 	const proposalId = parse(z.uuid(), id);
 	const witness = parse(approval, raw);
 	const reason = witness.reason?.trim() || null;
-	const approve = async (shownUpload: string | null) => {
+	const approve = async (shownUpload: string | null, shown: { sha256: string; bytes: number } | null = null) => {
 		const job = randomUUID();
 		const r = await db.execute(sql`
 			WITH a AS (
 				UPDATE proposal p SET state='approved',approved_at=clock_timestamp(),approved_session_id=${actor.session}::uuid,
 					job_id=CASE WHEN p.operation=ANY(${sql.param(NOW_WRITES)}::text[]) THEN NULL ELSE ${job}::uuid END,updated_at=clock_timestamp()
-				WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.state='pending' AND p.revision=${witness.revision}
+				WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.revision=${witness.revision}
+					AND concat_ws('_',p.state,p.outcome) = ANY(${sql.param(fromStates(proposalMachine, "evry.approveProposal", "approved", queued))}::text[])
 					AND p.digest=${witness.digest} AND p.expires_at>clock_timestamp() AND NOT (p.review ? 'refusal') AND NOT ${sql.raw(staleMessage("p"))}
 					AND (p.operation<>ALL(${sql.param([...PHOTO_WRITES])}::text[]) OR p.input->'input'->>'uploadId'=${shownUpload}::text)
 					AND (p.operation<>ALL(${sql.param(REASON_WRITES)}::text[]) OR ${reason !== null})
 				RETURNING p.*
 			), queued AS (SELECT * FROM a WHERE a.job_id IS NOT NULL),
 			run AS (${effectJob(job, "queued")}),
+			bytes AS (UPDATE file_object f SET sha256=${shown?.sha256 ?? null}::text,byte_count=${shown?.bytes ?? null}::bigint,revision=f.revision+1
+				FROM a WHERE ${shown !== null} AND f.id=${shownUpload}::uuid AND f.tenant_id=a.tenant_id AND f.purpose='assistant_staging' AND f.state='pending'),
 			audit AS (${audit("evry.proposal_approved", "accept", "a")})
 			SELECT ${projection("a")} AS proposal,a.input AS args FROM a`);
-		if (!r.rows.length) return null;
-		const proposal = proposalRow.parse(r.rows[0]!.proposal);
-		if (NOW_WRITES.includes(proposal.operation)) return runNow(db, actor, proposal, r.rows[0]!.args, reason);
+		const [row] = r.rows;
+		if (!row) return null;
+		const proposal = proposalRow.parse(row.proposal);
+		if (NOW_WRITES.includes(proposal.operation)) return runNow(db, actor, proposal, row.args, reason);
 		return { proposal, replayed: false };
 	};
 	const settled = (current: Proposal) => {
@@ -216,7 +255,7 @@ export async function approveProposal(
 	};
 	const approved = await approve(null);
 	if (approved) return approved;
-	const current = await readReview(db, actor, proposalId);
+	const current = await reviewed(db, actor, proposalId, true);
 	if (REASON_WRITES.includes(current.operation) && reason === null && current.status === "pending")
 		throw new EvryRefusal("invalid_input");
 	if (!(PHOTO_WRITES as readonly string[]).includes(current.operation) || current.status !== "pending")
@@ -225,19 +264,24 @@ export async function approveProposal(
 	const upload = z.uuid().safeParse(current.review.changes.find((c) => c.field === "photo")?.after);
 	const shown = upload.success && (await stagedBytes(db, storage, actor, proposalId, upload.data).catch(() => null));
 	if (!shown) throw new EvryRefusal("photo_unavailable");
-	return (await approve(upload.data)) ?? settled(await readReview(db, actor, proposalId));
+	const digest = shown.attached
+		? { sha256: createHash("sha256").update(shown.bytes).digest("hex"), bytes: shown.bytes.length }
+		: null;
+	return (await approve(upload.data, digest)) ?? settled(await readReview(db, actor, proposalId));
 }
 
 async function runNow(db: Database, actor: EvryActor, proposal: Proposal, args: unknown, reason: string | null) {
 	const write = REVIEWED_WRITES[proposal.operation] as ReviewedWrite<unknown>;
-	const result = await write.approveNow!.run(db, actor.authority, args, reason);
+	if (!write.approveNow) throw new Error(`${proposal.operation} is an approve-now write without an approveNow step`);
+	const result = await write.approveNow.run(db, actor.authority, args, reason);
 	const refused = "refused" in result ? refusalCode(result.refused) : null;
 	const current = write.current?.(sql`p`) ?? sql`NULL::jsonb`;
 	await db.execute(sql`
 		UPDATE proposal p SET outcome=${refused ? "refused" : "completed"},updated_at=clock_timestamp(),
 			receipt=CASE WHEN ${refused}::text IS NULL THEN ${refused ? null : JSON.stringify(result)}::jsonb
 				ELSE jsonb_strip_nulls(jsonb_build_object('code',${refused}::text,'current',CASE WHEN ${refused}::text IN ('revision_conflict','stale_review') THEN ${current} END)) END
-		WHERE p.id=${proposal.id}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.state='approved' AND p.outcome IS NULL`);
+		WHERE p.id=${proposal.id}::uuid AND p.tenant_id=${actor.owner.id}::uuid
+			AND concat_ws('_',p.state,p.outcome) = ANY(${sql.param(fromStates(proposalMachine, "evry.approveProposal", refused ? "approved_refused" : "approved_completed", now))}::text[])`);
 	return { proposal: await readReview(db, actor, proposal.id), replayed: false };
 }
 
@@ -246,14 +290,16 @@ export async function cancelProposal(db: Database, actor: EvryActor, id: string)
 	const r = await db.execute(sql`
 		WITH x AS (
 			UPDATE proposal p SET state='cancelled',approved_at=NULL,approved_session_id=NULL,updated_at=clock_timestamp()
-			WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.state IN ('pending','approved') AND p.outcome IS NULL
+			WHERE p.id=${proposalId}::uuid AND ${owned(actor)}
+				AND concat_ws('_',p.state,p.outcome) = ANY(${sql.param(fromStates(proposalMachine, "evry.cancelProposal", "cancelled", queued))}::text[])
 			RETURNING p.*
 		), run AS (
 			UPDATE job j SET state='cancelled',error_code='cancelled',finished_at=clock_timestamp(),revision=j.revision+1
 			FROM x WHERE j.id=x.job_id AND j.state='ready'
 		), audit AS (${audit("evry.proposal_cancelled", "revoke", "x")})
 		SELECT ${projection("x")} AS proposal FROM x`);
-	if (r.rows.length) return { proposal: proposalRow.parse(r.rows[0]!.proposal), cancelled: true };
+	const [row] = r.rows;
+	if (row) return { proposal: proposalRow.parse(row.proposal), cancelled: true };
 	return { proposal: await readReview(db, actor, proposalId), cancelled: false };
 }
 
@@ -264,9 +310,10 @@ export async function retryUnresolvedEffects(db: Database, actor: EvryActor, id:
 		WITH x AS (
 			UPDATE proposal p SET outcome=NULL,receipt=CASE WHEN p.receipt ? 'reached' THEN p.receipt END,job_id=${job}::uuid,approved_session_id=${actor.session}::uuid,updated_at=clock_timestamp()
 			FROM (SELECT id,job_id FROM proposal WHERE id=${proposalId}::uuid) old
-			WHERE p.id=old.id AND ${owned(actor)} AND p.state='approved' AND p.expires_at>clock_timestamp()
+			WHERE p.id=old.id AND ${owned(actor)} AND p.expires_at>clock_timestamp()
 				AND p.operation<>ALL(${sql.param(NOW_WRITES)}::text[])
-				AND (p.outcome='failed' OR (p.outcome IS NULL AND NOT EXISTS(SELECT FROM job j WHERE j.id=p.job_id AND ${sql.raw(liveJob("j"))})))
+				AND concat_ws('_',p.state,p.outcome) = ANY(${sql.param(fromStates(proposalMachine, "evry.retryUnresolvedEffects", "approved", queued))}::text[])
+				AND (p.outcome='failed' OR NOT EXISTS(SELECT FROM job j WHERE j.id=p.job_id AND ${sql.raw(liveJob("j"))}))
 			RETURNING p.*,old.job_id AS old_job_id
 		), run AS (${effectJob(job, "x")}),
 		superseded AS (
@@ -275,7 +322,8 @@ export async function retryUnresolvedEffects(db: Database, actor: EvryActor, id:
 		),
 		audit AS (${audit("evry.proposal_retried", "reopen", "x")})
 		SELECT ${projection("x")} AS proposal FROM x`);
-	if (r.rows.length) return { proposal: proposalRow.parse(r.rows[0]!.proposal), retried: true };
+	const [row] = r.rows;
+	if (row) return { proposal: proposalRow.parse(row.proposal), retried: true };
 	const current = await readReview(db, actor, proposalId);
 	if (current.outcome === "completed" || current.executing) return { proposal: current, retried: false };
 	throw new EvryRefusal(
@@ -293,15 +341,18 @@ export async function checkProposal(db: Database, actor: EvryActor, id: string, 
 	const stored = await db.execute(
 		sql`SELECT p.input FROM proposal p WHERE p.id=${proposalId}::uuid AND ${readable(actor)} AND p.outcome='completed'`,
 	);
-	if (!stored.rows.length) throw new EvryRefusal("not_found");
+	const [row] = stored.rows;
+	if (!row) throw new EvryRefusal("not_found");
+	const revision = current.receipt?.revision;
+	if (revision === undefined) throw new Error("A completed mail receipt carries no revision");
 	const result = await write.check(
 		db,
 		actor.authority,
-		stored.rows[0]!.input,
+		row.input,
 		{
 			effectKey: `evry:${proposalId}:${current.revision}`,
 			checkKey: `evry:${proposalId}:check:${randomUUID()}`,
-			revision: current.receipt!.revision!,
+			revision,
 		},
 		mail,
 	);

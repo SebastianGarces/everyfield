@@ -1,5 +1,5 @@
 import { accountId } from "@everyfield/contracts/common";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 
@@ -13,7 +13,7 @@ export const sortPeople = <T extends { accountId: string; displayName: string }>
 export const assigneeList = z.array(assigneeRow).transform(sortPeople);
 export const idsOf = (people: readonly { accountId: string }[]) => people.map((p) => p.accountId).sort();
 
-export const assigneesOf = (task: string) => {
+export const assigneesOf = <TaskName extends string>(task: SqlLiteral<TaskName>) => {
 	const t = sql.raw(task);
 	return sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('accountId',x.account_id,'displayName',x.name,'seated',x.seated)),
 		'[]'::jsonb) FROM (SELECT a.account_id,
@@ -22,7 +22,7 @@ export const assigneesOf = (task: string) => {
 				AND s.accepted_at<=clock_timestamp()) AS seated
 			FROM task_assignee a WHERE a.task_id=${t}.id) x)`;
 };
-export const assignedTo = (task: string, account: SQL) =>
+export const assignedTo = <TaskName extends string>(task: SqlLiteral<TaskName>, account: SQL) =>
 	sql`EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=${sql.raw(task)}.id AND ta.account_id=${account})`;
 
 export function setWrites(plantId: string, taskId: string, before: readonly string[], ids: readonly string[]): SQL[] {

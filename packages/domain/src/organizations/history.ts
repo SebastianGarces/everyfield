@@ -1,6 +1,6 @@
 import { and, or, gt, eq, asc, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { z } from "zod";
 import { owner, recordId, eventId, accountId } from "@everyfield/contracts/common";
 import * as Q from "@everyfield/contracts/organizations";
@@ -16,6 +16,7 @@ import {
 	type Actor,
 	type Reader,
 } from "./core.ts";
+import type { WriteTx } from "../access/session.ts";
 const historyRow = z.object({
 	id: eventId,
 	pair: Q.relationshipPair,
@@ -117,16 +118,17 @@ async function historyFor(db: Reader, actor: Actor, raw: unknown) {
 				: { kind: "deleted_account", token: r.actor_token ?? "removed" },
 			sourceInvitationId: r.source_invitation_id,
 		}));
+	const cursor = rows.length > 100 ? rows[99] : undefined;
 	return Q.relationshipHistoryResult.parse({
 		status: "available",
 		scope,
 		activeRelationships,
 		items,
-		next: rows.length > 100 ? recordId.parse(rows[99]!.id) : null,
+		next: cursor ? recordId.parse(cursor.id) : null,
 		completeness: links.length > 100 ? "partial" : "complete",
 	});
 }
-export const getHistory: OrganizationAdapter<Transaction>["associations.getHistory"] = async (
+export const getHistory: OrganizationAdapter<WriteTx>["associations.getHistory"] = async (
 	tx,
 	session,
 	selected,

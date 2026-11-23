@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createTaskWriter, taskReader, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
 import { planNoReminders } from "./tenancy-meetings.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const tasks = createTaskWriter({ reminders: planNoReminders });
 
@@ -23,7 +24,7 @@ export async function seedTasks(t) {
 			input: { parentId: task.id, title: `${MARK} subtask` },
 		}),
 	);
-	task = ok(await t.f.db.transaction((tx) => taskReader.get(tx, t.ownerA.actor, { taskId: task.id }))).task;
+	task = ok(await gatedTransaction(t.f.db, (tx) => taskReader.get(tx, t.ownerA.actor, { taskId: task.id }))).task;
 	task = ok(
 		await write("replacePrerequisites", {
 			requestKey: key(),
@@ -52,7 +53,7 @@ export function tasksCases(t, who) {
 	const { a, MARK } = t;
 	const k = (name, input, expected) => [
 		`tasks:taskReader.${name}`,
-		{ run: () => t.f.db.transaction((tx) => taskReader[name](tx, who.actor, input)), expected },
+		{ run: () => gatedTransaction(t.f.db, (tx) => taskReader[name](tx, who.actor, input)), expected },
 	];
 	const unavailable = { refused: "unavailable" };
 	const task = { taskId: a.task };

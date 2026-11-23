@@ -33,6 +33,6 @@ export type OrganizationAdapter<Tx> = {
 		tx: Tx,
 		session: z.infer<typeof sessionId>,
 		selected: Owner,
-		input: OrganizationOperations[K]["input"],
+		raw: unknown,
 	) => Promise<OrganizationOperations[K]["output"]>;
 };

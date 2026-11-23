@@ -34,7 +34,6 @@ import {
 } from "./model.ts";
 
 const COVERAGE_LABEL = { owned: "Owned", needs_owner: "Needs owner", uncovered: "No follow-up" } as const;
-import { useOpener } from "./parts.tsx";
 import { SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 
 export type Filter = "needs_owner" | "uncovered" | "owned" | "any";
@@ -72,7 +71,6 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 	const { rows, totals, moved } = view;
 	const setRows = (change: (rows: Row[]) => Row[]) => setView((v) => ({ ...v, rows: change(v.rows) }));
 	const [adding, setAdding] = useState<Row["person"] | null>(null);
-	const opener = useOpener();
 	const lane = useSaveIntent({ explain: problemText });
 	const go = (show: Filter, page = 1) => {
 		const q = new URLSearchParams();
@@ -95,11 +93,12 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 			const totals = totalsAfter(v.totals, moves);
 			if (filter === "any") return { ...v, totals };
 			const gone = v.rows.filter((r) => coverageOf(r.duties) !== filter);
+			const [first] = gone;
 			return {
 				totals,
 				rows: v.rows.filter((r) => coverageOf(r.duties) === filter),
-				moved: gone.length
-					? `${gone.map((r) => r.person.label).join(", ")} moved to ${COVERAGE_LABEL[coverageOf(gone[0]!.duties)]}.`
+				moved: first
+					? `${gone.map((r) => r.person.label).join(", ")} moved to ${COVERAGE_LABEL[coverageOf(first.duties)]}.`
 					: v.moved,
 			};
 		});
@@ -151,8 +150,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 					<Button
 						variant="secondary"
 						icon={ArrowDataTransferHorizontalIcon}
-						onClick={(e) => {
-							opener.mark(e);
+						onClick={() => {
 							prefetchSeats();
 							handoff.start();
 						}}
@@ -178,7 +176,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 					/>
 					<SaveNotice {...lane.noticeProps} dialogOpen={adding !== null} className="" />
 					<SaveNotice {...handoff.lane.noticeProps} dialogOpen={handoff.open} className="" />
-					<p role="status" className="text-sm text-text-2 empty:hidden">
+					<p role="status" className="text-sm text-text-2 empty:sr-only">
 						{moved}
 					</p>
 					{rows.length === 0 ? (
@@ -219,8 +217,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 												variant="ghost"
 												icon={Add01Icon}
 												disabled={lane.wait !== null}
-												onClick={(e) => {
-													opener.mark(e);
+												onClick={() => {
 													prefetchOwners();
 													setAdding(r.person);
 												}}
@@ -310,8 +307,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 											variant="outline"
 											aria-label={`Hand off ${o.displayName || "a former member"}’s follow-ups`}
 											disabled={handoff.lane.wait !== null}
-											onClick={(e) => {
-												opener.mark(e);
+											onClick={() => {
 												prefetchSeats();
 												handoff.start(o.accountId);
 											}}
@@ -332,7 +328,6 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 			</div>
 			{adding ? (
 				<AddFollowUpDialog
-					returnFocus={opener.returnFocus}
 					person={adding}
 					lane={lane}
 					onClose={() => setAdding(null)}
@@ -343,14 +338,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 					}}
 				/>
 			) : null}
-			{handoff.open ? (
-				<HandoffDialog
-					returnFocus={opener.returnFocus}
-					h={handoff}
-					former={totals.formerOwners}
-					onClose={handoff.close}
-				/>
-			) : null}
+			{handoff.open ? <HandoffDialog h={handoff} former={totals.formerOwners} onClose={handoff.close} /> : null}
 		</>
 	);
 }

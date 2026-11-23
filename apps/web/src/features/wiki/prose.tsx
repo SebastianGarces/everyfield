@@ -103,7 +103,7 @@ export function ArticleBlocks({
 	className = "",
 }: {
 	blocks: readonly Block[];
-	size?: "md" | "sm";
+	size?: "md" | "sm" | "excerpt";
 	className?: string;
 }) {
 	return (
@@ -123,7 +123,7 @@ export function ArticleBody({
 }: {
 	contentType: string;
 	body: string;
-	size?: "md" | "sm";
+	size?: "md" | "sm" | "excerpt";
 	className?: string;
 }) {
 	return <ArticleBlocks blocks={articleBlocks(contentType, body)} size={size} className={className} />;

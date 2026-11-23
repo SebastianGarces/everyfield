@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { instant, localDate } from "../../../packages/contracts/src/common/time.ts";
 import * as c from "../../../packages/contracts/src/intelligence/index.ts";
 import {
 	checkDraft,
 	draftWithin,
 	NO_PROGRESS,
 	type DraftProgress,
+	type Drafter,
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { insightsOf } from "../../../packages/domain/src/intelligence/assessment.ts";
 import {
@@ -25,8 +27,8 @@ const fact = (key: string, value: c.FactEntry["value"], status: string | null = 
 });
 const input: c.ModelInput = {
 	phase: 1,
-	asOf: "2026-10-13T16:00:00.000Z",
-	today: "2026-10-13",
+	asOf: instant.parse("2026-10-13T16:00:00.000Z"),
+	today: localDate.parse("2026-10-13"),
 	rubric: "v1",
 	facts: [
 		fact("committedAdults.status", "unknown", "unknown"),
@@ -184,7 +186,7 @@ test("AC:PI-CASE-013 a run stays within four attempts per draft, three drafts an
 	});
 	const large = { ...input, passages: Array.from({ length: 12 }, (_, i) => passage(i + 1)) };
 	let sent = 0;
-	const heavy = {
+	const heavy: Drafter = {
 		id: "heavy",
 		async draft(call) {
 			sent++;

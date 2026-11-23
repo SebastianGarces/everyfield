@@ -16,6 +16,10 @@ import { COMMITTED, eligibleOwner, ownerView } from "../tasks/owner.ts";
 import { followUpTask, gated, now, OPEN, readAnswer, refuse } from "./core.ts";
 
 const at = (d: Date) => instant.parse(d.toISOString());
+const lastPageAtMost = (v: { page: number; limit: number }, total: number) =>
+	Math.max(1, Math.min(v.page, Math.ceil(total / v.limit)));
+const clampedOffset = (v: { page: number; limit: number }, matched: SQL) =>
+	sql`(greatest(least(${v.page}::int, ceil((${matched})::numeric / ${v.limit}::int)::int), 1) - 1) * ${v.limit}::int`;
 const pageOf = (v: { page: number; limit: number }, total: number) => ({
 	total,
 	page: v.page,
@@ -333,7 +337,7 @@ export const followUpReader = {
 					(SELECT coalesce(jsonb_agg(${dutyJson(sql`d`)} ORDER BY ${dutyOrder(sql`d`)}),'[]') FROM
 						(SELECT * FROM duty d WHERE d.person_id=m.id ORDER BY ${dutyOrder(sql`d`)} LIMIT 20) d),
 					NULL, NULL, NULL, NULL, NULL
-				FROM matched m ORDER BY 1 LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit})`,
+				FROM matched m ORDER BY 1 LIMIT ${v.limit} OFFSET ${clampedOffset(v, sql`SELECT count(*) FROM matched`)})`,
 				true,
 			);
 			const [head, ...rows] = found;
@@ -361,7 +365,7 @@ export const followUpReader = {
 				formerOwners: totals.former,
 				needsOwner: totals.needs_owner,
 				uncovered: totals.uncovered,
-				...pageOf(v, totals.total),
+				...pageOf({ ...v, page: lastPageAtMost(v, totals.total) }, totals.total),
 				completeness: "complete",
 			});
 		});
@@ -386,17 +390,18 @@ export const followUpReader = {
 				SELECT 0::bigint AS ord, NULL::jsonb AS duty, (SELECT count(*)::int FROM matched) AS matched,
 					(SELECT count(*)::int FROM duty WHERE cardinality(owner_ids)=0) AS unassigned, ${ownerTally} AS owners
 				UNION ALL (SELECT row_number() OVER (ORDER BY ${dutyOrder(sql`d`)}), ${dutyJson(sql`d`)}, NULL, NULL, NULL
-				FROM matched d ORDER BY 1 LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit})`,
+				FROM matched d ORDER BY 1 LIMIT ${v.limit} OFFSET ${clampedOffset(v, sql`SELECT count(*) FROM matched`)})`,
 			);
 			const [head, ...rows] = found;
 			const totals = z.object({ matched: z.int(), unassigned: z.int(), owners: tallyRow }).parse(head);
+			const page = lastPageAtMost(v, totals.matched);
 			return c.followUpOwners.parse({
 				items: rows.map((r) => dutyOf(r.duty, asOf)),
 				owners: totals.owners,
 				unassigned: totals.unassigned,
 				matched: totals.matched,
-				page: v.page,
-				next: v.page * v.limit < totals.matched ? v.page + 1 : null,
+				page,
+				next: page * v.limit < totals.matched ? page + 1 : null,
 				completeness: "complete",
 			});
 		});

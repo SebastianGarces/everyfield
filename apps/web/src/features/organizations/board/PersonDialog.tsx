@@ -1,6 +1,6 @@
 "use client";
 
-import type { PipelineBoard } from "@everyfield/contracts/organizations";
+import type { PipelineChoices } from "@everyfield/contracts/organizations";
 import {
 	Button,
 	Dialog,
@@ -9,16 +9,16 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	Select,
 } from "@everyfield/ui/controls";
 import { useActionState, useState } from "react";
 import { addPerson, editPerson } from "./actions";
 import { refusalText } from "./model";
-import { Problem } from "../../../components/Problem.tsx";
 
-type Staff = PipelineBoard["staff"];
-type Stages = PipelineBoard["stages"];
+type Staff = PipelineChoices["staff"];
+type Stages = PipelineChoices["stages"];
 const NOBODY = "none";
 
 export type PersonValues = { name: string; email: string | null; responsibleSeatId: string | null; stageId: string };
@@ -147,7 +147,7 @@ function Form({
 						/>
 					</Field>
 				)}
-				<Problem text={saving ? null : state.problem} />
+				<InlineAlert live="polite">{saving ? null : state.problem}</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>

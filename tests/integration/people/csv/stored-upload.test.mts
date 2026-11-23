@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
-import { runDueObjectCleanup } from "../../../../apps/web/src/server/jobs/object-cleanup.ts";
+import { runDueObjectCleanup } from "../../../../packages/domain/src/jobs/object-cleanup.ts";
 import { runDueImports } from "../../../../apps/web/src/features/people/import-export/run-imports.ts";
 import { scheduledJobs } from "../../../../apps/web/src/server/jobs/scheduled.ts";
 import {
@@ -16,6 +16,7 @@ import {
 	retryStoredImport,
 	signPeopleImport,
 } from "../../../../packages/domain/src/people/index.ts";
+import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const database = await testDatabase({ prefix: "t191" });
 const { admin, schema } = database;
@@ -37,7 +38,7 @@ const refused = (result, code = "unavailable") => {
 };
 const rows = async (query) => (await admin.execute(query)).rows;
 const count = async (table) => (await rows(sql.raw(`SELECT count(*)::int n FROM ${schema}.${table}`)))[0].n;
-const authority = (who = 0) => db.transaction((t) => RequestActor.resolve(t, actors[who].session));
+const authority = (who = 0) => gatedTransaction(db, (t) => RequestActor.resolve(t, actors[who].session));
 const header = "first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\n";
 const fileOf = (tag, n) =>
 	header +
@@ -106,7 +107,7 @@ const submit = async (uploadId, p, requestKey = randomUUID(), choices = choose(p
 		choices,
 	});
 const receiptOf = (requestKey) =>
-	db.transaction(async (t) =>
+	gatedTransaction(db, async (t) =>
 		csv.getImportReceipt(t, { session: actors[0].session, selected: { kind: "plant", id: plant } }, { requestKey }),
 	);
 
@@ -290,7 +291,6 @@ const stoppedAgo = (importId, interval) =>
  WHERE id=(SELECT job_id FROM person_import WHERE id=${sql.param(importId)})`);
 const cron = "synthetic-cron-secret";
 const tick = scheduledJobs({
-	secret: cron,
 	db,
 	storage: null,
 	cleanup: null,

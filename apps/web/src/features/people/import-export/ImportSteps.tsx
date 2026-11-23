@@ -58,6 +58,12 @@ const STEPS = [
 	{ key: "done", label: "Done" },
 ] as const;
 
+const choiceFor = (choices: Map<number, Choice>, row: number) => {
+	const choice = choices.get(row);
+	if (choice === undefined) throw new Error(`Valid import row ${row} has no choice`);
+	return choice;
+};
+
 export function Steps({ current }: { current: StepKey }) {
 	const at = STEPS.findIndex((s) => s.key === current);
 	return (
@@ -185,7 +191,7 @@ export function UploadStep({
 					aria-busy={checking ? true : undefined}
 					className={cn(
 						"flex flex-col items-center gap-3 rounded-card border border-dashed border-line-2 px-6 py-12 text-center transition-[background-color,border-color] duration-150 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus hover:bg-hover max-app-sm:py-8",
-						over && "border-ink bg-hover",
+						over && "bg-hover",
 					)}
 				>
 					<span aria-hidden="true" className="grid size-14 place-items-center rounded-card bg-surface-2 text-text-2">
@@ -398,7 +404,7 @@ export function ReviewStep({
 								<RowItem
 									key={r.row}
 									row={r}
-									choice={r.status === "valid" ? choices.get(r.row)! : null}
+									choice={r.status === "valid" ? choiceFor(choices, r.row) : null}
 									reviewable={r.status === "valid" && canReview(r, choices)}
 									onChoice={(c) => choose(new Map(choices).set(r.row, c))}
 									nameOf={(n) => nameOf(preview, n)}

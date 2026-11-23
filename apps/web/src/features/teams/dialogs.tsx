@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert02Icon, Crown02Icon, UserAdd01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
-import { Checkbox, Field, Input, Radio, RadioGroup, Select, Textarea } from "@everyfield/ui/controls";
+import { Checkbox, Field, Input, Radio, RadioGroup, Select, Textarea, ProblemText } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import type { Wait } from "../../components/save/model.ts";
@@ -86,7 +86,7 @@ export function TeamDialog({
 				<legend className="mb-1 text-sm font-medium text-ink-2">State</legend>
 				<RadioGroup value={f.state} onValueChange={(v) => set({ state: v as TeamState })} aria-label="State">
 					{STATES.map((s) => (
-						<Radio key={s} value={s} label={STATE_LABEL[s]} description={STATE_HINT[s]} className="py-2" />
+						<Radio key={s} value={s} label={STATE_LABEL[s]} description={STATE_HINT[s]} />
 					))}
 				</RadioGroup>
 			</fieldset>
@@ -227,7 +227,7 @@ export function PersonDialog({
 	wait: Wait;
 	note?: ReactNode;
 	onClose: () => void;
-	onSubmit: (form: PersonForm) => void;
+	onSubmit: (form: PersonForm, person: PickedPerson) => void;
 }) {
 	const [f, setF] = useState(form);
 	const [touched, setTouched] = useState(false);
@@ -244,8 +244,9 @@ export function PersonDialog({
 			onClose={onClose}
 			onSubmit={() => {
 				setTouched(true);
-				if (noPerson || noRole) return false;
-				onSubmit(f);
+				const { person } = f;
+				if (person === null || noRole) return false;
+				onSubmit(f, person);
 				return true;
 			}}
 		>
@@ -267,12 +268,7 @@ export function PersonDialog({
 					exclude={exclude}
 					onChange={(person) => setF((x) => ({ ...x, person }))}
 				/>
-				{touched && noPerson ? (
-					<p role="alert" className="flex items-center gap-1.5 text-xs text-magenta-600">
-						<Icon icon={Alert02Icon} size={16} />
-						Choose a person.
-					</p>
-				) : null}
+				{touched && noPerson ? <ProblemText icon={Alert02Icon}>Choose a person.</ProblemText> : null}
 			</div>
 			{note}
 		</RecordDialog>

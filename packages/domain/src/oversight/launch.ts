@@ -1,10 +1,11 @@
 import * as C from "@everyfield/contracts/oversight";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { compatible } from "../teams/training/reads.ts";
 
-const today = (pl: string) => sql`(clock_timestamp() AT TIME ZONE ${sql.raw(pl)}.timezone)::date`;
+const today = <PlName extends string>(pl: SqlLiteral<PlName>) =>
+	sql`(clock_timestamp() AT TIME ZONE ${sql.raw(pl)}.timezone)::date`;
 
 const requiredObligations = (plant: SQL) => sql`training_assignment a
 		JOIN training_program g ON g.id=a.program_id AND g.plant_id=a.plant_id AND g.required AND g.archived_at IS NULL

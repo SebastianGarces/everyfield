@@ -19,6 +19,15 @@ function setup({ busy = () => false } = {}) {
 	};
 	return { lane, sent, reports, server };
 }
+const until = (lane, done, signal = AbortSignal.timeout(5_000)) =>
+	new Promise((resolve, reject) => {
+		const stop = lane.subscribe(() => {
+			if (!done(lane.get())) return;
+			stop();
+			resolve();
+		});
+		signal.addEventListener("abort", () => (stop(), reject(Error("the lane never reached the awaited state"))));
+	});
 const lost = { status: "lost" };
 const ok = (value) => ({ status: "ok", value });
 
@@ -41,9 +50,10 @@ test("INV-request-key (C58, C97): Check again sends the same key; a new intent w
 	const notice = lane.get().notice;
 	assert.equal(notice.tone, "unknown");
 	assert.equal(notice.done, "added");
+	const checked = until(lane, (state) => state.notice === null);
 	notice.check();
 	assert.equal(lane.get().notice.checking, true);
-	await new Promise((r) => setTimeout(r, 0));
+	await checked;
 	assert.deepEqual(saved, [["row-1", true]]);
 	assert.equal(lane.get().notice, null);
 	await lane.save({ ...spec, send: server([ok("row-2")]) });
@@ -65,8 +75,9 @@ test("INV-no-false-refusal (C58, C65) BUG-31d611e R1-2: only a server answer say
 		through: (_key, send) => (first ? ((first = false), send()) : Promise.resolve(null)),
 		ok: () => {},
 	});
+	const blocked = until(shared.lane, (state) => state.notice?.checking === false);
 	shared.lane.get().notice.check();
-	await new Promise((r) => setTimeout(r, 0));
+	await blocked;
 	assert.equal(shared.lane.get().notice.tone, "unknown", "nothing was sent, so the first request may be saved");
 	const refused = setup();
 	const codes = [];
@@ -113,19 +124,26 @@ test("INV-form-intent (C58): a refusal reopens its form with the values and its 
 test("INV-one-save-per-card (C68, C69): nothing starts while a save is in flight or unknown, and nothing is queued", async () => {
 	let busy = false;
 	const { lane, sent, reports, server } = setup({ busy: () => busy });
-	let answer;
+	const answers = [];
+	let sentAgain = () => {};
+	const resent = new Promise((resolve) => (sentAgain = resolve));
 	const first = lane.save({
 		what: "A",
-		send: (key) => (sent.push(key), new Promise((r) => (answer = r))),
+		send: (key) => {
+			sent.push(key);
+			const answer = new Promise((r) => answers.push(r));
+			if (answers.length === 2) sentAgain();
+			return answer;
+		},
 		ok: () => {},
 	});
 	assert.equal(lane.wait(), "saving");
 	await lane.save({ what: "B", send: server([ok(1)]), ok: () => {} });
 	assert.deepEqual(sent, ["k1"], "B sent nothing");
 	assert.equal(reports.length, 1, "a save that starts while the card waits is reported");
-	answer(lost);
-	await new Promise((r) => setTimeout(r, 0));
-	answer(lost);
+	answers[0](lost);
+	await resent;
+	answers[1](lost);
 	await first;
 	assert.equal(lane.wait(), "unknown");
 	await lane.save({ what: "C", send: server([ok(1)]), ok: () => {} });

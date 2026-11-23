@@ -269,7 +269,11 @@
 			"id": "people.person",
 			"says": "One person: profile, stage and its history, Activity, records, photo and commitment documents.",
 			"routes": ["/people/[personId]"],
-			"endpoints": ["/people/[personId]/photo/[versionId]", "/people/[personId]/commitments/[commitmentId]/document"],
+			"endpoints": [
+				"/people/[personId]/photo/[versionId]",
+				"/people/[personId]/commitments/[commitmentId]/document",
+				"/people/read"
+			],
 			"catalog": ["PPL-002", "PPL-003", "PPL-005", "PPL-006", "PPL-008", "PPL-014"],
 			"reach": [
 				{
@@ -725,18 +729,22 @@
 				},
 				{
 					"id": "merge",
-					"says": "A reviewed merge keeps the chosen details on the survivor and refuses what history blocks.",
+					"says": "A reviewed merge keeps the chosen details on the survivor, carries its history and refuses what would collide.",
 					"catalog": ["PPL-017"],
 					"operations": ["people.mergePeople", "people.unmergePeople"],
 					"proof": {
 						"tests": [
 							{
 								"file": "tests/unit/people/corrections-model.test.mjs",
-								"name": "AC:TARGET-PPL-016 a merge blocked by past history names what blocks it and gives no advice that cannot clear it"
+								"name": "AC:TARGET-PPL-016 a merge blocked by a leadership conflict names the team and both roles and says to end one first"
 							},
 							{
 								"file": "tests/integration/people/corrections/merge.test.mts",
 								"name": "AC:REQ-PPL-024 a write racing a merge waits for it and never leaves a current reference on the retired source"
+							},
+							{
+								"file": "tests/integration/people/corrections/history.test.mts",
+								"name": "AC:TARGET-PPL-025 a merge carries the source's follow-up, its outcome and the sent email to the survivor, refuses a stale review and repeats as the earlier result"
 							}
 						],
 						"cases": ["TARGET-PPL-016"]

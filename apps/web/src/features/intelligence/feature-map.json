@@ -343,6 +343,7 @@
 			"id": "intelligence.check-in",
 			"says": "My weekly check-in: four private answers each week, only the author sees them, with a twelve-week strip to correct.",
 			"routes": ["/me/check-in"],
+			"endpoints": ["/me/check-in/read"],
 			"catalog": ["PI-038", "PI-039", "PI-040", "PI-041"],
 			"reach": [
 				{

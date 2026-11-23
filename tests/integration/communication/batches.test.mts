@@ -15,6 +15,7 @@ import {
 } from "../../../packages/domain/src/communication/delivery.ts";
 import { atSendTime } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, plant, owner;
 const keys = {
@@ -287,7 +288,9 @@ test("INV-message-batches: a lost second batch leaves only its 100 recipients un
 		assert.equal(result.status, lose === "throw" ? "accepted_unknown" : "partial");
 		assert.equal(result.failed, false);
 		const totals = ok(
-			await f.db.transaction((tx) => communicationWriter.getDeliveryTotals(tx, owner.actor, { communicationId: m.id })),
+			await gatedTransaction(f.db, (tx) =>
+				communicationWriter.getDeliveryTotals(tx, owner.actor, { communicationId: m.id }),
+			),
 		);
 		assert.deepEqual(
 			{ selected: totals.selected, accepted: totals.accepted, unknown: totals.unknown },
@@ -497,10 +500,10 @@ test("INV-message-batches: every delivery operation sends as many statements for
 	const three = await measure(250);
 	assert.deepEqual(three, one);
 	assert.deepEqual(one, {
-		sendReviewed: 4,
-		dispatchAttempt: 3,
-		reconcileProviderOutcome: 3,
-		handOffScheduled: 3,
+		sendReviewed: 3,
+		dispatchAttempt: 2,
+		reconcileProviderOutcome: 2,
+		handOffScheduled: 2,
 		rescheduleDispatched: 3,
 		cancelScheduledReviewed: 3,
 		replaceScheduledReviewed: 1,

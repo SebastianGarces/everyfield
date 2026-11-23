@@ -52,6 +52,7 @@ import {
 } from "./model.ts";
 import { Problem } from "./parts.tsx";
 import type { Records } from "./server.ts";
+import { loadProblem } from "../../../components/read-failed.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Assessment = z.infer<typeof people.assessment>;
@@ -166,10 +167,10 @@ export function EditRecordDialog({
 					<>
 						<DialogBody>
 							<Problem>
-								{records.status === "lost"
+								{records.status === "lost" || records.status === "failed"
 									? uncertain.size
 										? "The records did not load, so this page cannot tell whether your last edit was saved. Try again to see the current values."
-										: "The records did not load. Try again in a moment."
+										: loadProblem(records, "The records did not load. Try again in a moment.")
 									: "You cannot edit these records. Only Owners and Admins can; your seat may have changed."}
 							</Problem>
 						</DialogBody>

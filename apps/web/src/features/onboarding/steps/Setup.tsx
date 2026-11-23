@@ -1,7 +1,7 @@
 "use client";
 
 import { DASHBOARD_HOME } from "@everyfield/contracts/identity";
-import { Button, Field, IntentLink, Input, Switch } from "@everyfield/ui/controls";
+import { Button, Field, InlineAlert, IntentLink, Input, Switch } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import {
@@ -83,7 +83,7 @@ export function JourneyStep({ state, actions, resume, plantName }: Props) {
 	return (
 		<section data-onboarding-step="journey">
 			<StepHeading title={`Where is ${name} today?`}>
-				{name[0]!.toUpperCase() + name.slice(1)} is in Phase {current}, {phaseName(current)}. If you were already
+				{name.charAt(0).toUpperCase() + name.slice(1)} is in Phase {current}, {phaseName(current)}. If you were already
 				further along when you joined, pick that phase. We will not invent history for the phases before it.
 			</StepHeading>
 			<fieldset className="mx-auto mt-[34px] max-w-[820px]">
@@ -123,11 +123,7 @@ export function JourneyStep({ state, actions, resume, plantName }: Props) {
 					/>
 				</div>
 			</fieldset>
-			{problem ? (
-				<p role="alert" className="mx-auto mt-4 max-w-[820px] text-sm font-medium text-magenta-600">
-					{problem}
-				</p>
-			) : null}
+			<InlineAlert className="mx-auto mt-4 max-w-[820px]">{problem}</InlineAlert>
 			<Notice notice={state.notice} op="declareJourney" />
 			<StepFooter
 				onBack={() => actions.go("church")}
@@ -246,7 +242,10 @@ export function TeamStep({ state, actions, resume, plantName }: Props) {
 	const [problems, setProblems] = useState<ReturnType<typeof leadProblems>>({});
 	const [choiceProblem, setChoiceProblem] = useState<string | null>(null);
 	const name = churchName(plantName);
-	const back = () => actions.go(previousStep("team")!);
+	const back = () => {
+		const step = previousStep("team");
+		if (step) actions.go(step);
+	};
 	if (leadLocked(resume)) {
 		return (
 			<section data-onboarding-step="team">
@@ -332,11 +331,7 @@ export function TeamStep({ state, actions, resume, plantName }: Props) {
 					detail="No role is assigned. Add your lead from your team list later."
 				/>
 			</fieldset>
-			{choiceProblem ? (
-				<p role="alert" className="mx-auto mt-4 max-w-[820px] text-sm font-medium text-magenta-600">
-					{choiceProblem}
-				</p>
-			) : null}
+			<InlineAlert className="mx-auto mt-4 max-w-[820px]">{choiceProblem}</InlineAlert>
 			<Notice notice={state.notice} op="answerLead" />
 			<StepFooter
 				onBack={back}

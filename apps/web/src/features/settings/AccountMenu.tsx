@@ -8,7 +8,7 @@ import {
 	UserIcon,
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
-import { MenuItem, MenuLabel, MenuSeparator, useToast } from "@everyfield/ui/controls";
+import { MenuItem, MenuLabel, MenuSeparator, toast } from "@everyfield/ui/controls";
 import { leavePage } from "../../components/save/leave.ts";
 import { identityApi, loadPage } from "../identity/api";
 import { SECTION_LABEL } from "./model";
@@ -24,11 +24,9 @@ export function AccountMenu({
 	onAccount: () => void;
 	checkIn?: boolean;
 }) {
-	const toast = useToast();
-
 	async function signOut() {
 		const result = await identityApi.signOut();
-		if (result.ok) loadPage("/signin");
+		if (result.status === "ok") loadPage("/signin");
 		else toast({ message: "Unable to sign out. Check your connection and try again.", tone: "error" });
 	}
 

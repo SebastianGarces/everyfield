@@ -1,15 +1,9 @@
 "use server";
 
-import type {
-	DebriefAnswers,
-	GatheringOffer,
-	GuestMatch,
-	History,
-	Milestone,
-	Plan,
-} from "@everyfield/contracts/launch";
+import type { Milestone, Plan } from "@everyfield/contracts/launch";
+import { z } from "zod";
 import type { Outcome } from "./model.ts";
-import { read, write } from "./server.ts";
+import { write } from "./server.ts";
 
 type DateResult = { outcome: "changed" | "noop"; plan: Plan };
 type MilestoneResult = { outcome: "changed" | "noop"; milestone: Milestone };
@@ -57,7 +51,7 @@ export async function reopenMilestone(
 export async function recordOutcome(
 	requestKey: string,
 	expectedRevision: string,
-	input: { actualDate: unknown; attendance: unknown; decisions: unknown; note: unknown },
+	input: unknown,
 ): Promise<Outcome<DateResult>> {
 	return write((w, db, authority) => w.recordOutcome(db, authority, { requestKey, expectedRevision, input }));
 }
@@ -65,7 +59,7 @@ export async function recordOutcome(
 export async function correctOutcome(
 	requestKey: string,
 	expectedRevision: string,
-	input: { actualDate: unknown; attendance: unknown; decisions: unknown; note: unknown; reason: unknown },
+	input: unknown,
 ): Promise<Outcome<DateResult>> {
 	return write((w, db, authority) => w.correctOutcome(db, authority, { requestKey, expectedRevision, input }));
 }
@@ -78,7 +72,7 @@ export async function saveDebrief(
 	requestKey: string,
 	expectedRevision: string,
 	draftId: unknown,
-	answers: DebriefAnswers,
+	answers: unknown,
 	submit: boolean,
 ): Promise<Outcome<DateResult>> {
 	return write((w, db, authority) =>
@@ -114,29 +108,21 @@ export async function chooseGatheringPath(
 	return write((w, db, authority) => w.choosePath(db, authority, { requestKey, expectedRevision, input }));
 }
 
+const gatheringFields = z.object({ date: z.unknown(), note: z.unknown(), reason: z.unknown() }).partial();
+
 export async function saveGathering(
 	requestKey: string,
 	expectedRevision: string,
-	mode: "record" | "correct" | "clear",
-	input: { date?: unknown; note?: unknown; reason?: unknown },
+	mode: unknown,
+	input: unknown,
 ): Promise<Outcome<DateResult>> {
+	const picked = gatheringFields.safeParse(input);
+	const fields = picked.success ? picked.data : {};
 	return write((w, db, authority) => {
 		const q = { requestKey, expectedRevision };
 		if (mode === "record")
-			return w.recordGathering(db, authority, { ...q, input: { date: input.date, note: input.note } });
+			return w.recordGathering(db, authority, { ...q, input: { date: fields.date, note: fields.note } });
 		if (mode === "correct") return w.correctGathering(db, authority, { ...q, input });
-		return w.clearGathering(db, authority, { ...q, input: { reason: input.reason } });
+		return w.clearGathering(db, authority, { ...q, input: { reason: fields.reason } });
 	});
-}
-
-export async function readGatheringOffers(): Promise<Outcome<GatheringOffer[]>> {
-	return read((r, db, authority) => r.readGatheringOffers(db, authority));
-}
-
-export async function suggestGuests(query: string): Promise<Outcome<GuestMatch[]>> {
-	return read((r, db, authority) => r.suggestGuests(db, authority, String(query)));
-}
-
-export async function readLaunchHistory(): Promise<Outcome<History>> {
-	return read((r, db, authority) => r.readJournal(db, authority));
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import type { AttestationsPage, CandidateWriteResult, SignalWriteResult } from "@everyfield/contracts/intelligence";
+import type { CandidateWriteResult, SignalWriteResult } from "@everyfield/contracts/intelligence";
 import type { SignalOutcome } from "./signals-model.ts";
 import { runSignals } from "./signals-server.ts";
 
@@ -50,8 +50,4 @@ export async function correctCandidate(
 	return runSignals((signals, db, authority) =>
 		signals.correctCandidate(db, authority, { requestKey, expectedRevision, input }),
 	);
-}
-
-export async function reloadAttestations(): Promise<SignalOutcome<AttestationsPage>> {
-	return runSignals((signals, db, authority) => signals.readAttestations(db, authority, {}));
 }

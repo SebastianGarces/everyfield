@@ -84,12 +84,12 @@ export function SignInForm({
 			password,
 			...(returnTo ? { returnTo } : {}),
 		});
-		if (result.ok) {
+		if (result.status === "ok") {
 			loadPage(afterSignIn(result.value.returnTo));
 			return;
 		}
 		setBusy(false);
-		setRefusal(refusalMessage("sign_in", result.error));
+		setRefusal(refusalMessage("sign_in", result));
 	}
 
 	return (

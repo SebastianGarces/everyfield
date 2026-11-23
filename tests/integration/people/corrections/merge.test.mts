@@ -20,6 +20,7 @@ import {
 	readPersonPage,
 	recordCorrections,
 } from "../../../../packages/domain/src/people/index.ts";
+import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const database = await fixture({ prefix: "wp015" });
 const { admin, schema } = database;
@@ -37,7 +38,7 @@ const today = (
 	await database.admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text d`)
 ).rows[0].d;
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
-const tx = (body) => db.transaction(body);
+const tx = (body) => gatedTransaction(db, body);
 const key = () => randomUUID();
 const rows = async (query) => (await admin.execute(query)).rows;
 const one = async (query) => (await rows(query))[0];
@@ -242,7 +243,7 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 		skill: [1, "move"],
 		tag: [2, "deduplicate"],
 	});
-	assert.deepEqual(r.blockers, { causes: [], references: [] });
+	assert.deepEqual(r.blockers, { causes: [], leadership: [], invitations: [] });
 	refused(await review(s.id, d.id, 1));
 	refused(await review(s.id, d.id, 2));
 
@@ -437,16 +438,16 @@ test("AC:TARGET-PPL-025 AC:EVRY-PERSON-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW
 	}
 });
 
-test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 INV-survivor merge refuses linked-account collisions and references their package has not registered; hints never merge", async () => {
+test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 INV-survivor merge refuses linked-account collisions, a task about the source no longer blocks it, and hints never merge", async () => {
 	const a = await person("Avery Stone", { email: "avery@example.test" }),
 		b = await person("Avery Stone"),
 		c = await person("Avery S.");
 	await admin.execute(sql`UPDATE person SET linked_account_id=${sql.param(actors[0].id)} WHERE id=${sql.param(a.id)}`);
 	await admin.execute(sql`UPDATE person SET linked_account_id=${sql.param(actors[3].id)} WHERE id=${sql.param(b.id)}`);
-	const blocked = async (sourceId, survivorId, causes, references = []) => {
-		assert.deepEqual(ok(await review(sourceId, survivorId)).blockers, { causes, references });
+	const blocked = async (sourceId, survivorId, causes) => {
+		assert.deepEqual(ok(await review(sourceId, survivorId)).blockers, { causes, leadership: [], invitations: [] });
 		const error = refused(await merge(sourceId, survivorId), "merge_blocked");
-		assert.deepEqual(error.details, { causes, references });
+		assert.deepEqual(error.details, { causes, leadership: [], invitations: [] });
 		assert.equal((await personRow(sourceId)).state, "live");
 	};
 	await blocked(b.id, a.id, ["linked_account_collision"]);
@@ -457,7 +458,9 @@ test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 INV
 	await admin.execute(
 		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${sql.param(plants[0])},${sql.param(duty)},${sql.param(actors[0].id)})`,
 	);
-	await blocked(c.id, a.id, ["unregistered_reference"], ["task"]);
+	const withTask = ok(await review(c.id, a.id));
+	assert.deepEqual(withTask.blockers, { causes: [], leadership: [], invitations: [] });
+	assert.deepEqual(withTask.openTasks, [{ title: "Call", dueDate: null }]);
 	const hints = ok(
 		await tx((t) => checkForDuplicates(t, ctx(1), { displayName: "avery  stone", excludePersonId: c.id })),
 	);
@@ -855,7 +858,7 @@ test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE AC:PERSONREF-CANDIDATE-PER
 		reviewed.references.filter((x) => x.kind === "attestation"),
 		[{ kind: "attestation", count: 1, treatment: "move" }],
 	);
-	assert.deepEqual(reviewed.blockers, { causes: [], references: [] });
+	assert.deepEqual(reviewed.blockers, { causes: [], leadership: [], invitations: [] });
 	const requestKey = key();
 	const merged = ok(
 		await tx((t) =>

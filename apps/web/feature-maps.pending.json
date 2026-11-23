@@ -1,4 +1,4 @@
 {
 	"$schema": "./feature-map.schema.json#/$defs/pending",
-	"routes": ["/design/controls", "/design/display", "/design/foundations"]
+	"routes": []
 }

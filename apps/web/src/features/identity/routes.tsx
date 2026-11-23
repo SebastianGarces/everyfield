@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { requestDatabase } from "@/server/database";
+import { hasLinkProof } from "@/server/link-proof";
 import { getViewer } from "@/server/request-context";
 import { AuthFrame } from "./AuthFrame";
 import { InvitationScreen } from "./invitation/InvitationScreen";
@@ -27,12 +28,13 @@ export async function SignInPage({ searchParams }: { searchParams: Search }) {
 
 export const homeMetadata: Metadata = { title: "Home", robots: { index: false, follow: false } };
 export async function HomePage({ searchParams }: { searchParams: Search }) {
-	const returnTo = one((await searchParams).returnTo);
-	const viewer = await getViewer();
-	if (!viewer || viewer.status === "unauthenticated") redirect("/signin");
-	const db = requestDatabase();
+	const [search, viewer] = await Promise.all([searchParams, getViewer()]);
+	const returnTo = one(search.returnTo);
+	if (viewer.status === "unauthenticated") redirect("/signin");
 	const plant =
-		viewer.status === "active" && db ? await dashboardReader.resolveHome(db, viewer.authority ?? null) : "none";
+		viewer.status === "active"
+			? await dashboardReader.resolveHome(requestDatabase(), viewer.authority ?? null)
+			: "none";
 	redirect(landingFor({ status: viewer.status, plant, returnTo }));
 }
 
@@ -49,13 +51,13 @@ export function RecoverPage() {
 const proofPage: Metadata = { robots: { index: false, follow: false }, referrer: "no-referrer" };
 
 export const resetMetadata: Metadata = { title: "Choose a new password", ...proofPage };
-export async function ResetPasswordPage({ searchParams }: { searchParams: Search }) {
-	return <ResetPasswordScreen proof={one((await searchParams).token)} />;
+export async function ResetPasswordPage() {
+	return <ResetPasswordScreen linked={await hasLinkProof("/reset-password")} />;
 }
 
 export const verifyMetadata: Metadata = { title: "Confirm your email", ...proofPage };
-export async function VerifyEmailPage({ searchParams }: { searchParams: Search }) {
-	return <VerifyEmailScreen proof={one((await searchParams).token)} />;
+export async function VerifyEmailPage() {
+	return <VerifyEmailScreen linked={await hasLinkProof("/verify-email")} />;
 }
 
 export const invitationMetadata: Metadata = { title: "Your invitation", ...proofPage };

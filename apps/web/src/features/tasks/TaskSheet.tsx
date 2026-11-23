@@ -1,7 +1,8 @@
 "use client";
 
-import { Alert02Icon, ArrowDown01Icon, Delete02Icon, Link04Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon, Delete02Icon, Link04Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
 import {
+	Alert,
 	Button,
 	buttonVariants,
 	IntentLink,
@@ -21,7 +22,8 @@ import type { StatusAction } from "./actions.ts";
 import { loadHistory, type Loaded } from "./fetch.ts";
 import { loadHistory as loadContacts } from "../followups/fetch.ts";
 import { ContactEntries } from "../followups/parts.tsx";
-import type { ContactHistory, Outcome as ReadOutcome } from "../followups/model.ts";
+import type { Outcome as ReadOutcome } from "@everyfield/contracts/common";
+import type { ContactHistory } from "../followups/model.ts";
 import {
 	blockedText,
 	CATEGORY_LABEL,
@@ -44,6 +46,8 @@ import {
 import { DescriptionView } from "./description.ts";
 import { DueLine, STATUS_TONE, StatusItems } from "./parts.tsx";
 import { BlockedBy, closeInlineFormOnEscape, Repeats, Section, Steps, type StepAssignee } from "./structure.tsx";
+import { READ_FAILED, READ_FAILED_ICON } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 export type DetailState = { status: "loading" } | { status: "failed"; code: string } | ({ status: "ok" } & Loaded);
 export type PanelEdit =
@@ -178,6 +182,7 @@ export function TaskSheet({
 				<StatePanel
 					tone="error"
 					title="This task did not load"
+					icon={state.code === "failed" ? READ_FAILED_ICON : undefined}
 					headingLevel="h3"
 					actions={
 						<Button variant="primary" size="sm" onClick={onRetry}>
@@ -194,15 +199,11 @@ export function TaskSheet({
 					<div className="empty:hidden">
 						{notices}
 						{edit?.problem ? (
-							<p
-								role="alert"
-								className="flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600"
-							>
-								<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
+							<Alert role="alert">
 								{edit.kind === "prerequisites"
 									? `What this task waits for was not saved. ${problemText(edit.problem as never)}`
 									: `How this task repeats was not saved. ${problemText(edit.problem as never)}`}
-							</p>
+							</Alert>
 						) : null}
 					</div>
 					{canAct ? (
@@ -384,6 +385,7 @@ export function TaskSheet({
 						<StatePanel
 							tone="error"
 							title="The rest of this task did not load"
+							icon={state.code === "failed" ? READ_FAILED_ICON : undefined}
 							headingLevel="h3"
 							actions={
 								<Button variant="secondary" size="sm" onClick={onRetry}>
@@ -427,13 +429,18 @@ function ContactHistorySection({
 	accountId: string;
 }) {
 	const [loading, setLoading] = useState(false);
-	const [read, setRead] = useState({ from: first, page: first });
+	const [read, setRead] = useState<{ from: typeof first; page: ReadOutcome<ContactHistory> | ReadFailure }>({
+		from: first,
+		page: first,
+	});
 	const log = read.from === first ? read.page : first;
 	return (
 		<Section title="What happened">
 			{log.status !== "ok" ? (
 				<>
-					<p className="text-sm text-text-3">What was recorded did not load.</p>
+					<p className="text-sm text-text-3">
+						{log.status === "failed" ? READ_FAILED : "What was recorded did not load."}
+					</p>
 					<Button
 						variant="ghost"
 						size="sm"
@@ -461,12 +468,15 @@ function ContactHistorySection({
 function History({ taskId, first }: { taskId: string; first: Outcome<TaskHistory> }) {
 	const [more, setMore] = useState<{ items: Entry[]; next: number | null; problem?: string } | null>(null);
 	const [loading, setLoading] = useState(false);
-	const [read, setRead] = useState({ from: first, page: first });
+	const [read, setRead] = useState<{ from: typeof first; page: Outcome<TaskHistory> | ReadFailure }>({
+		from: first,
+		page: first,
+	});
 	const page = read.from === first ? read.page : first;
 	if (page.status !== "ok")
 		return (
 			<Section title="Status history">
-				<p className="text-sm text-text-3">The history did not load.</p>
+				<p className="text-sm text-text-3">{page.status === "failed" ? READ_FAILED : "The history did not load."}</p>
 				<Button
 					variant="ghost"
 					size="sm"
@@ -527,7 +537,7 @@ function History({ taskId, first }: { taskId: string; first: Outcome<TaskHistory
 						setMore((m) =>
 							r.status === "ok"
 								? { items: [...(m?.items ?? []), ...r.value.items], next: r.value.next }
-								: { items: m?.items ?? [], next, problem: problemText(r.status === "lost" ? "lost" : r.code) },
+								: { items: m?.items ?? [], next, problem: problemText(r.status === "refused" ? r.code : r.status) },
 						);
 					}}
 				>

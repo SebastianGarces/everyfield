@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { createRead, useRead } from "@/components/read";
 import type { Turn } from "./model.ts";
-import { readRowPhotos } from "./photoActions.ts";
+import { readRowPhotos } from "./fetch.ts";
 import { cardView } from "./resultView.ts";
 
 const BATCH = 100;
@@ -31,9 +31,9 @@ const photoIds = (turns: readonly Turn[]) =>
 		),
 	].sort();
 
-export function useRowPhotos(turns: readonly Turn[]): Readonly<Record<string, string>> {
+export function useRowPhotos(turns: readonly Turn[], off = false): Readonly<Record<string, string>> {
 	const ids = useMemo(() => photoIds(turns), [turns]);
-	const value = useRead(ids.length ? rowPhotos : null, ids).value;
+	const value = useRead(ids.length && !off ? rowPhotos : null, ids).value;
 	const [shown, setShown] = useState(NONE);
 	if (value && value !== shown) setShown(value);
 	return value ?? shown;

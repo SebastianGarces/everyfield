@@ -34,6 +34,7 @@ flowchart LR
 Ministries: every team with its state, leader and how many serve, and the organization chart.
 
 - Routes: `/ministries`
+- Endpoints: `/ministries/read`
 - Personas: `owner` write, `admin` write, `member` read, `visitor` none
 - Catalog: TEAM-001, TEAM-012
 

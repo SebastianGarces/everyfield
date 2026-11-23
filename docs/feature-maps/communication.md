@@ -24,6 +24,7 @@ flowchart LR
   s1 -.- s1_st0(("who"))
   s1 --- s1_b0["send-now<br/>tests + cases + browser behavior"]
   s1 --- s1_b1["save-draft<br/>tests + cases + browser behavior"]
+  s1 --- s1_b2["leave-out-children<br/>tests + cases"]
   s2["communication.templates<br/>no page"]
   s0 -- "radio #quot;Templates#quot;" --> s2
   s2 -.- s2_st0(("list"))
@@ -68,7 +69,7 @@ agent-browser find role button text --name "QA delivery check"
 ```bash
 agent-browser open "$ORIGIN/communication"
 agent-browser wait --load networkidle
-agent-browser find text "You can read messages. An Owner or Admin writes, schedules, and saves a follow-up." text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"You can read messages. An Owner or Admin writes, schedules, and saves a follow-up.\")"
 ! agent-browser find role button text --name "New message" --exact
 ```
 
@@ -148,8 +149,8 @@ An Owner or Admin whose own address bounced restores it with a reason, and Past 
 agent-browser find label "Reason" fill "Map restore check"
 agent-browser find role button click --name "Restore this address" --exact
 agent-browser wait --load networkidle
-agent-browser find text "This address can receive email again. No new email was sent." text --exact
-agent-browser find text "Map restore check" text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"This address can receive email again. No new email was sent.\")"
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Map restore check\")"
 ```
 
 ### communication.compose
@@ -157,9 +158,9 @@ agent-browser find text "Map restore check" text --exact
 New message: Who, Write, then Review and send, each step in the address, ending in Send now or a schedule.
 
 - Routes: none
-- Endpoints: `/api/dev/outbox`
+- Endpoints: `/api/dev/outbox`, `/communication/read`
 - Personas: `owner` write, `admin` write, `member` none
-- Catalog: COM-003, COM-004, COM-012
+- Catalog: COM-003, COM-004, COM-012, NTF-016
 
 Reach:
 
@@ -240,6 +241,18 @@ agent-browser open "$ORIGIN/communication"
 agent-browser wait --load networkidle
 agent-browser find role button text --name "Map draft check"
 ```
+
+#### communication.compose#leave-out-children
+
+People marked as a child (Adult or child on the Person record) are listed under Left out, and why with "Marked as a child" and never get the email; an audience of only children cannot be sent or scheduled, and the check runs again at the send time. Mark a person as a child on their Person record, then choose them on Who.
+
+- Operations: communication.resolveAudience, communication.scheduleReviewed
+- Catalog: NTF-016, COM-004, COM-012
+- Cases: CASE-NTF-016-CHILD
+- Test: `tests/integration/communication/children.test.mts`: `AC:CASE-NTF-016-CHILD a group email leaves out the people marked as a child with that reason, and everyone else still gets it at the send time`
+- Test: `tests/integration/communication/children.test.mts`: `AC:CASE-NTF-016-CHILD a send or schedule only to people marked as a child is refused with that reason, and no email is queued`
+- Test: `tests/integration/communication/children.test.mts`: `AC:CASE-NTF-016-CHILD a person marked as a child after the email is scheduled gets nothing at the send time, and staff see them left out as a child`
+- Test: `tests/integration/communication/children.test.mts`: `AC:CASE-NTF-016-CHILD a person marked as a child when the email was scheduled and marked as an adult before it goes out receives it, unless something else stops them`
 
 ### communication.templates
 

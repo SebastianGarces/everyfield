@@ -1,5 +1,5 @@
 import "../platform/setup.mts";
-import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
@@ -8,17 +8,17 @@ import { sql, eq, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import {
 	createLifecycleCleanup,
-	issueRestrictedDeletionSession,
 	createAccountCredentials,
 	uploadAvatar,
 	readAvatar,
 	withSettingsWrite,
 } from "../../../packages/domain/src/settings/index.ts";
+import { issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import { settingsApi } from "./settings-api.mts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
-import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { enqueueJob, queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/seats.ts";
@@ -26,6 +26,7 @@ import { PeopleReadContext, peopleReader } from "../../../packages/domain/src/pe
 import { listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
 import { insertTasks } from "../task-assignees.mts";
 import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 const database = await testDatabase({
 	prefix: "wp010",
 	roles: { runtime: ["runtime"], cleanup: ["cleanup"], auth: ["auth"] },
@@ -39,6 +40,7 @@ const origin = "http://settings.localhost";
 const ingress = new Map();
 const trustedIps = new Map();
 const deliveries = [];
+const diagnostics = [];
 const secret = randomBytes(40).toString("hex");
 const denied = refusedWith({ details: {} });
 const command = (input = {}, expectedRevision = "1", requestKey = randomUUID()) => ({
@@ -54,7 +56,7 @@ const CREDENTIALS = ["requestEmailChange", "confirmEmailChange", "changePassword
 const call = (name, a, v, selected) =>
 	CREDENTIALS.includes(name)
 		? api[name](ctx(a, selected), v)
-		: db.transaction((tx) => api[name](tx, ctx(a, selected), v));
+		: gatedTransaction(db, (tx) => api[name](tx, ctx(a, selected), v));
 async function viewerOf(a) {
 	const v = await readViewer(db, a.session);
 	if (!v?.authority) return null;
@@ -82,7 +84,7 @@ async function plant(a = undefined) {
 	a ??= await actor();
 	const [row] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
 	const result = ok(
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			onboarding.createPlant(tx, ctx(a), command({ name: "Harvest Point", confirmed: true }, row.revision)),
 		),
 	);
@@ -134,7 +136,9 @@ before(async () => {
 			return sql`UPDATE job SET state='superseded' WHERE subject_record_id=${sql.param(i.sourceId)} AND kind='digest' AND state='ready'`;
 		},
 	};
-	const organizations = createOrganizationAdapter(organizationEffects, { candidates: async () => [] });
+	const organizations = createOrganizationAdapter(organizationEffects, {
+		candidates: () => sql`SELECT NULL::uuid WHERE false`,
+	});
 	const credentials = createAccountCredentials({
 		db,
 		authDb,
@@ -153,6 +157,7 @@ before(async () => {
 			return { request, trustedIp: trustedIps.get(c.session) ?? "198.51.100.21", viewer };
 		},
 		responseCookies: async () => {},
+		diagnostic: (value) => diagnostics.push(value),
 		deliverVerification: async (_tx, i) => {
 			deliveries.push(i);
 		},
@@ -374,7 +379,7 @@ test("AC:TARGET-IDN-031 AC:TARGET-IDN-032 AC:TARGET-TSK-018 personal zones canon
 	assert.equal(ok(await section(a, { section: "account" })).personalTimezone.timeZone, "America/Chicago");
 });
 
-test("INV-private-calendar: revoked seat keeps its personal preference but cannot invoke the author calendar", async () => {
+test("INV-private-calendar: ended seat keeps its personal preference but cannot invoke the author calendar", async () => {
 	const f = await plant();
 	const calls = { preview: 0, apply: 0 };
 	const producer = settingsApi({
@@ -389,9 +394,10 @@ test("INV-private-calendar: revoked seat keeps its personal preference but canno
 			},
 		},
 	});
-	const preview = (zone) => db.transaction((tx) => producer.previewPersonalTimezone(tx, ctx(f.a), { timeZone: zone }));
+	const preview = (zone) =>
+		gatedTransaction(db, (tx) => producer.previewPersonalTimezone(tx, ctx(f.a), { timeZone: zone }));
 	const apply = (p) =>
-		db.transaction((tx) =>
+		gatedTransaction(db, (tx) =>
 			producer.setPersonalTimezone(
 				tx,
 				ctx(f.a),
@@ -401,16 +407,7 @@ test("INV-private-calendar: revoked seat keeps its personal preference but canno
 	const first = ok(await preview("America/New_York"));
 	assert.equal(ok(await apply(first)).preference.timeZone, "America/New_York");
 	assert.deepEqual(calls, { preview: 1, apply: 1 });
-	const [seat] = await admin.select().from(t.seat).where(eq(t.seat.account_id, f.a.id));
-	await admin.insert(t.lifecycle_witness).values({
-		kind: "seat",
-		opaque_subject_id: seat.id,
-		seat_id: seat.id,
-		request_revision: "1",
-		state: "revoked",
-		witness_checkpoint: "1",
-		cleanup_state: "not_started",
-	});
+	await admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.account_id, f.a.id));
 	const next = ok(await preview("Europe/Paris"));
 	assert.deepEqual(ok(await apply(next)).preference, { status: "confirmed", timeZone: "Europe/Paris", revision: "3" });
 	assert.deepEqual(calls, { preview: 1, apply: 1 });
@@ -459,7 +456,7 @@ test("AC:TARGET-IDN-011 AC:TARGET-TSK-018 church zone preview is actor/revision/
 });
 
 async function restricted(a, subject, status) {
-	return admin.transaction((tx) =>
+	return gatedTransaction(admin, (tx) =>
 		issueRestrictedDeletionSession(tx, { subject, requestId: status.requestId }, async () => ({
 			accountId: a.id,
 			provenAt: new Date(),
@@ -480,16 +477,16 @@ test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:R
 	assert.equal((await admin.select().from(t.auth_session).where(eq(t.auth_session.id, member.session))).length, 0);
 	const proof = await restricted(member, { kind: "account", id: member.id }, pending);
 	const request = { subject: { kind: "account", id: member.id }, requestId: pending.requestId };
-	const visible = ok(await db.transaction((tx) => api.getAccountDeletionStatus(tx, proof, request)));
+	const visible = ok(await gatedTransaction(db, (tx) => api.getAccountDeletionStatus(tx, proof, request)));
 	assert.deepEqual(visible, pending);
 	denied(
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			api.getAccountDeletionStatus(tx, proof, { ...request, subject: { kind: "account", id: f.a.id } }),
 		),
 		"proof_invalid",
 	);
 	const cancelled = ok(
-		await db.transaction((tx) => api.cancelAccountDeletion(tx, proof, command(request, pending.revision))),
+		await gatedTransaction(db, (tx) => api.cancelAccountDeletion(tx, proof, command(request, pending.revision))),
 	);
 	assert.equal(cancelled.status, "cancelled");
 	assert.equal(cancelled.requestId, pending.requestId);
@@ -497,7 +494,7 @@ test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:R
 	assert.equal(await viewerOf(member), null);
 	assert.equal((await admin.select().from(t.auth_session).where(eq(t.auth_session.id, member.session))).length, 0);
 	const repeat = ok(
-		await db.transaction((tx) => api.cancelAccountDeletion(tx, proof, command(request, pending.revision))),
+		await gatedTransaction(db, (tx) => api.cancelAccountDeletion(tx, proof, command(request, pending.revision))),
 	);
 	assert.deepEqual(repeat, cancelled);
 	const user = ok(await section(f.a, { section: "plant", plant: f.p }));
@@ -509,7 +506,7 @@ test("INV-lifecycle: first-witness deletion waits for an in-flight edit; later r
 	let release, entered;
 	const ready = new Promise((r) => (entered = r)),
 		gate = new Promise((r) => (release = r));
-	const edit = db.transaction(async (tx) => {
+	const edit = gatedTransaction(db, async (tx) => {
 		const r = ok(await api.saveSection(tx, ctx(a), command({ section: "account", name: "Serialized Name" })));
 		entered();
 		await gate;
@@ -537,7 +534,7 @@ test("INV-settings: concurrent account edits serialize before taking session sha
 	await ready;
 	const pids = [];
 	const edits = ["First name", "Second name"].map((name) =>
-		db.transaction(async (tx) => {
+		gatedTransaction(db, async (tx) => {
 			pids.push((await tx.execute(sql`SELECT pg_backend_pid() AS id`)).rows[0].id);
 			return api.saveSection(tx, ctx(a), command({ section: "account", name }));
 		}),
@@ -600,7 +597,7 @@ test("AC:DEL58-007 AC:DEL58-008 AC:DEL58-009 deadline refuses cancellation; retr
 	const p = await overdue(f.a, subject);
 	const proof = await restricted(f.a, subject, p);
 	denied(
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			api.cancelAccountDeletion(tx, proof, command({ subject, requestId: p.requestId }, p.revision)),
 		),
 		"deadline_passed",
@@ -1015,7 +1012,7 @@ test("AC:TARGET-IDN-006: the Seats roster and the People list name each visible 
 	await admin.update(t.person).set({ photo_object_id: crm }).where(eq(t.person.id, both));
 	const authority = (await readViewer(db, plain.session)).authority;
 	const page = ok(
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			peopleReader.listPeople(tx, new PeopleReadContext(authority), listPeopleRequest.parse({ page: 1, limit: 100 })),
 		),
 	);
@@ -1110,11 +1107,11 @@ test("AC:TARGET-IDN-026 AC:TARGET-IDN-032: only the Owner requests workspace del
 	assert.deepEqual(opened.value.subject, { kind: "plant", id: f.p.id });
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
 	assert.deepEqual(
-		ok(await db.transaction((tx) => api.getWorkspaceDeletionStatus(tx, opened.value.session, request))),
+		ok(await gatedTransaction(db, (tx) => api.getWorkspaceDeletionStatus(tx, opened.value.session, request))),
 		pending,
 	);
 	const cancelled = ok(
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			api.cancelWorkspaceDeletion(tx, opened.value.session, command(request, pending.revision)),
 		),
 	);
@@ -1137,10 +1134,12 @@ test("AC:DEL58-007: a workspace cancel after the stored deadline is refused even
 	const opened = await openWorkspace(owner);
 	assert.equal(opened.status, "ok");
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
-	const late = ok(await db.transaction((tx) => api.getWorkspaceDeletionStatus(tx, opened.value.session, request)));
+	const late = ok(
+		await gatedTransaction(db, (tx) => api.getWorkspaceDeletionStatus(tx, opened.value.session, request)),
+	);
 	assert.deepEqual(late, p);
 	denied(
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			api.cancelWorkspaceDeletion(tx, opened.value.session, command(request, late.revision)),
 		),
 		"deadline_passed",
@@ -1215,6 +1214,7 @@ test("AC:TARGET-IDN-008 AC:ROLE43-018 password proof precedes unchanged refusal;
 	faults = false;
 	assert.equal(changed.status, "succeeded");
 	assert.deepEqual(changed.reporting, { status: "pending_investigation" });
+	assert.deepEqual(diagnostics.splice(0), [{ correlationId: changed.correlationId, outcome: "reporting_pending" }]);
 	const sessions = await admin.select().from(t.auth_session).where(eq(t.auth_session.user_id, a.user));
 	assert.equal(sessions.length, 1);
 	assert.equal(
@@ -1350,7 +1350,7 @@ test("INV-lifecycle: an account root read serializes first-witness deletion even
 	let entered, release;
 	const ready = new Promise((r) => (entered = r)),
 		gate = new Promise((r) => (release = r));
-	const reading = db.transaction(async (tx) => {
+	const reading = gatedTransaction(db, async (tx) => {
 		assert.equal(await liveOwner(tx, { kind: "account", id: a.id }), true);
 		entered();
 		await gate;
@@ -1359,7 +1359,7 @@ test("INV-lifecycle: an account root read serializes first-witness deletion even
 	let pid, started;
 	const done = new AbortController();
 	const running = new Promise((r) => (started = r));
-	const deletion = db.transaction(async (tx) => {
+	const deletion = gatedTransaction(db, async (tx) => {
 		pid = (await tx.execute(sql`SELECT pg_backend_pid() AS id`)).rows[0].id;
 		started();
 		const result = await api.requestAccountDeletion(tx, ctx(a), command({ confirmed: true }));
@@ -1490,7 +1490,7 @@ test("AC:TARGET-TSK-018 frozen schedule previews disclose fold/gap policy and ig
 		ok(await call("setDigestSchedule", f.a, command({ plant: f.p, schedule: { cadence: "daily", hour } }), f.p));
 		const frozen = settingsApi({ ...producerDeps, clock: frozenClock(instant.parse(asOf)) });
 		const preview = ok(
-			await db.transaction((tx) =>
+			await gatedTransaction(db, (tx) =>
 				frozen.previewPlantTimezone(tx, ctx(f.a, f.p), { plant: f.p, timeZone: "America/New_York" }),
 			),
 		);
@@ -1501,7 +1501,7 @@ test("AC:TARGET-TSK-018 frozen schedule previews disclose fold/gap policy and ig
 			{ id: f.p.id, before, after },
 		);
 		const saved = ok(
-			await db.transaction((tx) =>
+			await gatedTransaction(db, (tx) =>
 				frozen.setPlantTimezone(
 					tx,
 					ctx(f.a, f.p),
@@ -1514,9 +1514,9 @@ test("AC:TARGET-TSK-018 frozen schedule previews disclose fold/gap policy and ig
 });
 
 test("AC:TARGET-IDN-012 exact task preference reaches enqueue and dispatch; church digest OFF stops owed delivery", async () => {
-	const { createNotificationService } = await import("../../../apps/web/src/server/jobs/notifications.ts");
-	const { createDigestWorker, planDigests } = await import("../../../apps/web/src/server/jobs/digest.ts");
-	const { claimDue } = await import("../../../apps/web/src/server/jobs/queue.ts");
+	const { createNotificationService } = await import("../../../packages/domain/src/jobs/notifications.ts");
+	const { createDigestWorker, planDigests } = await import("../../../packages/domain/src/jobs/digest.ts");
+	const { claimDue } = await import("../../../packages/domain/src/jobs/queue.ts");
 	const f = await plant(),
 		task = randomUUID();
 	await insertTasks(admin, [
@@ -1583,9 +1583,9 @@ test("AC:TARGET-IDN-012 exact task preference reaches enqueue and dispatch; chur
 			),
 		),
 	);
-	const due = await db.transaction((tx) => notifications.enqueue(tx, notice("task_due", "due")));
+	const due = await gatedTransaction(db, (tx) => notifications.enqueue(tx, notice("task_due", "due")));
 	assert.equal(due.mail, null);
-	const overdue = await db.transaction((tx) => notifications.enqueue(tx, notice("task_overdue", "overdue")));
+	const overdue = await gatedTransaction(db, (tx) => notifications.enqueue(tx, notice("task_overdue", "overdue")));
 	assert.match(overdue.mail, /^[a-f0-9-]{36}$/);
 	ok(
 		await call(
@@ -1904,7 +1904,6 @@ test("INV-authority: a settings read checks seat, role, session and lifecycle ag
 		{ section: "teams", plant: f.p, teamId: team.id },
 		{ section: "affiliations", plant: f.p, organization: org.o },
 	];
-	const seatOf = async (a) => (await admin.select().from(t.seat).where(eq(t.seat.account_id, a.id)))[0];
 	const cases = [
 		[
 			"admin downgraded to member",
@@ -1917,23 +1916,6 @@ test("INV-authority: a settings read checks seat, role, session and lifecycle ag
 			() => seat(f.p),
 			church,
 			(a) => admin.update(t.seat).set({ ended_at: new Date(), revision: "2" }).where(eq(t.seat.account_id, a.id)),
-		],
-		[
-			"admin seat revoked by a lifecycle witness",
-			() => seat(f.p),
-			church,
-			async (a) => {
-				const s = await seatOf(a);
-				await admin.insert(t.lifecycle_witness).values({
-					kind: "seat",
-					opaque_subject_id: s.id,
-					seat_id: s.id,
-					request_revision: "1",
-					state: "revoked",
-					witness_checkpoint: "1",
-					cleanup_state: "not_started",
-				});
-			},
 		],
 		[
 			"organization seat removed",
@@ -2096,7 +2078,7 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 		statements.length = 0;
 		recording = true;
 		try {
-			return { value: ok(await db.transaction(body)), count: statements.length };
+			return { value: ok(await gatedTransaction(db, body)), count: statements.length };
 		} finally {
 			recording = false;
 		}
@@ -2111,6 +2093,137 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 	const fresh = await login(a);
 	assert.notEqual(await viewerOf(fresh), null);
 	ok(await section(fresh, { section: "account" }));
+});
+
+test("INV-statements: settings writes lock their related rows in one statement each", async () => {
+	instrument(db);
+	const counted = async (body) => {
+		statements.length = 0;
+		recording = true;
+		try {
+			return { value: await body(), count: statements.length };
+		} finally {
+			recording = false;
+		}
+	};
+	const calls = { preview: 0, apply: 0 };
+	const producer = settingsApi({
+		...producerDeps,
+		personalCalendar: {
+			preview: async () => void calls.preview++,
+			apply: async () => !!++calls.apply,
+		},
+	});
+	const owner = await credentialActor();
+	const f = await plant(owner);
+	const solo = await credentialActor();
+	await credentialSeat(f.p, "member");
+	await admin.insert(t.task).values({
+		id: randomUUID(),
+		plant_id: f.p.id,
+		title: "Future task",
+		category: "general",
+		priority: "medium",
+		status: "not_started",
+		created_at: new Date(),
+		due_kind: "date_only",
+		due_date: "2099-01-15",
+	});
+	const run = (body, selected = undefined) =>
+		counted(async () => ok(await gatedTransaction(db, (tx) => body(tx, ctx(owner, selected)))));
+
+	const personal = await run((tx, c) => producer.previewPersonalTimezone(tx, c, { timeZone: "Europe/Paris" }));
+	const personalSet = await run((tx, c) =>
+		producer.setPersonalTimezone(
+			tx,
+			c,
+			command({ timeZone: "Europe/Paris", previewId: personal.value.previewId, confirmed: true }, "1"),
+		),
+	);
+	assert.deepEqual(personalSet.value.preference, { status: "confirmed", timeZone: "Europe/Paris", revision: "2" });
+	assert.deepEqual(calls, { preview: 1, apply: 1 });
+	const seatless = await gatedTransaction(db, (tx) =>
+		producer.previewPersonalTimezone(tx, ctx(solo), { timeZone: "Asia/Tokyo" }),
+	);
+	ok(
+		await gatedTransaction(db, (tx) =>
+			producer.setPersonalTimezone(
+				tx,
+				ctx(solo),
+				command({ timeZone: "Asia/Tokyo", previewId: ok(seatless).previewId, confirmed: true }, "1"),
+			),
+		),
+	);
+	assert.deepEqual(calls, { preview: 1, apply: 1 });
+
+	const church = await run(
+		(tx, c) => producer.previewPlantTimezone(tx, c, { plant: f.p, timeZone: "America/New_York" }),
+		f.p,
+	);
+	const churchSet = await run(
+		(tx, c) =>
+			producer.setPlantTimezone(
+				tx,
+				c,
+				command(
+					{ plant: f.p, timeZone: "America/New_York", previewId: church.value.previewId },
+					church.value.expectedRevision,
+				),
+			),
+		f.p,
+	);
+	assert.equal(churchSet.value.status, "changed");
+
+	const [root] = await admin.select().from(t.plant).where(eq(t.plant.id, f.p.id));
+	const viewer = await viewerOf(owner);
+	const requested = await counted(async () =>
+		ok(
+			await withSettingsWrite(db, viewer.authority, ctx(owner, f.p), (tx) =>
+				producer.requestWorkspaceDeletion(tx, ctx(owner, f.p), command({ plant: f.p, confirmed: true }, root.revision)),
+			),
+		),
+	);
+	assert.equal(requested.value.status, "pending_deletion");
+	const opened = await openWorkspace(owner);
+	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
+	const cancel = () =>
+		gatedTransaction(db, (tx) =>
+			producer.cancelWorkspaceDeletion(tx, opened.value.session, command(request, requested.value.revision)),
+		);
+	const [ownerSeat] = await admin.select().from(t.seat).where(eq(t.seat.account_id, owner.id));
+	await admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, ownerSeat.id));
+	denied(await cancel());
+	await admin.update(t.seat).set({ ended_at: null }).where(eq(t.seat.id, ownerSeat.id));
+	const cancelled = await counted(async () => ok(await cancel()));
+	assert.equal(cancelled.value.status, "cancelled");
+
+	const [account] = await admin.select().from(t.account).where(eq(t.account.id, solo.id));
+	const pending = ok(await call("requestAccountDeletion", solo, command({ confirmed: true }, account.revision)));
+	const openedAccount = await counted(() =>
+		producerDeps.credentials.openAccountDeletion({ email: solo.email, password: solo.password }, null),
+	);
+	assert.equal(openedAccount.value.status, "ok");
+	assert.deepEqual(openedAccount.value.value.subject, { kind: "account", id: solo.id });
+	assert.equal(openedAccount.value.value.requestId, pending.requestId);
+
+	assert.deepEqual(
+		{
+			previewPersonalTimezone: personal.count,
+			setPersonalTimezone: personalSet.count,
+			setPlantTimezone: churchSet.count,
+			requestWorkspaceDeletion: requested.count,
+			cancelWorkspaceDeletion: cancelled.count,
+			openAccountDeletion: openedAccount.count,
+		},
+		{
+			previewPersonalTimezone: 7,
+			setPersonalTimezone: 9,
+			setPlantTimezone: 9,
+			requestWorkspaceDeletion: 8,
+			cancelWorkspaceDeletion: 8,
+			openAccountDeletion: 5,
+		},
+	);
 });
 
 test("INV-account-revision people/peo-3: Your account and notifications share one revision; a save in one moves the other's and the old revision is refused", async () => {

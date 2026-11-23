@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fixturePath } from "../setup.mjs";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 async function up() {
 	const people = JSON.parse(readFileSync(fixturePath("people"), "utf8"));
@@ -18,7 +19,7 @@ async function up() {
 		["chromium", ["Guest 11", "Guest 12"]],
 		["webkit", ["Guest 13", "Guest 14"]],
 	] as const) {
-		const r = await runtime.transaction((tx) =>
+		const r = await gatedTransaction(runtime, (tx) =>
 			meetingsWriter.schedule(tx as never, ctx, {
 				requestKey: randomUUID(),
 				input: { type: "vision_meeting", date, time: "18:30", guests: guestNames.map((n) => people.people[n]) },
@@ -36,7 +37,7 @@ async function up() {
 	] as const) {
 		const ids: string[] = [];
 		for (const guestNames of [[guest], []]) {
-			const r = await runtime.transaction((tx) =>
+			const r = await gatedTransaction(runtime, (tx) =>
 				meetingsWriter.schedule(tx as never, ctx, {
 					requestKey: randomUUID(),
 					input: { type: "vision_meeting", date, time: "18:30", guests: guestNames.map((n) => people.people[n]) },

@@ -10,8 +10,10 @@ import { readAvatar } from "../../../packages/domain/src/settings/avatar.ts";
 import {
 	pipelineWriter,
 	readPipelineBoard,
+	readPipelineChoices,
 	readPipelinePersonRecord,
 } from "../../../packages/domain/src/organizations/pipeline.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const {
 	addNote: addPipelineNote,
@@ -94,6 +96,21 @@ test("an empty pipeline shows the five starter stages in order and nobody in the
 	assert.deepEqual(b.staff.map((s) => s.name).sort(), ["Ana", "Ben", "Dana", "Luis"]);
 });
 
+test("AC:ADR1-008 a person page offers the board's stages and staff without reading anyone on the board", async () => {
+	const b = await board(dana);
+	const choices = ok(await readPipelineChoices(db, await authority(dana)));
+	assert.deepEqual(choices, {
+		organizationName: b.organizationName,
+		stages: b.stages.map(({ id, label, kind }) => ({ id, label, kind })),
+		staff: b.staff,
+	});
+	assert.deepEqual(ok(await readPipelineChoices(db, await authority(ana))).staff, []);
+	assert.equal(
+		ok(await readPipelineChoices(db, await authority(hillOwner))).organizationName === b.organizationName,
+		false,
+	);
+});
+
 test("AC:ADR1-001 AC:ADR1-002 an Owner adds a person with an email and responsible staff; nobody outside the organization sees them", async () => {
 	const b = await board(dana);
 	const added = ok(
@@ -141,7 +158,7 @@ test("AC:ADR1-001 AC:ADR1-002 an Owner adds a person with an email and responsib
 	);
 	refusedWith(await record(hillOwner, casey), "unavailable");
 	const plantOwner = database.actors.owner;
-	const plant = await db.transaction((t) =>
+	const plant = await gatedTransaction(db, (t) =>
 		peopleReader.listPeople(
 			t,
 			{ session: plantOwner.session as never, selected: database.tenant as never },

@@ -1,10 +1,11 @@
 import * as c from "@everyfield/contracts/dashboard";
 import type { PlantSetup } from "@everyfield/contracts/identity";
 import type { Database } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
+import { organizationSeatContext } from "../access/organization-seat.ts";
 import { plantViewer } from "../documents/access.ts";
 import { readPlantSetupComplete } from "../identity/reads.ts";
 
@@ -44,7 +45,7 @@ function scopeOf(authority: RequestActor): Scope {
 }
 const iso = (value: SQL) => sql`to_char(${value} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
-const seatPerson = (x: string) => {
+const seatPerson = <XName extends string>(x: SqlLiteral<XName>) => {
 	const p = sql.raw(x);
 	return sql`(${p}.linked_account_id IS NOT NULL AND EXISTS(SELECT FROM seat s WHERE s.plant_id=${p}.plant_id
 		AND s.account_id=${p}.linked_account_id AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()))`;
@@ -97,10 +98,22 @@ const frameRow = z.object({
 
 export const dashboardReader = {
 	async resolveHome(db: Db, authority: RequestActor | null): Promise<PlantSetup> {
-		const context = authority?.actor.context;
-		if (!authority || context?.kind !== "seat") return "none";
-		if (context.owner.kind === "organization") return "organization";
+		if (!authority) return "none";
+		if (organizationSeatContext(authority)) return "organization";
+		const context = authority.actor.context;
+		if (context.kind !== "seat" || context.owner.kind !== "plant") return "none";
 		return (await readPlantSetupComplete(db, authority.session, context.owner)) ? "complete" : "incomplete";
+	},
+
+	async readPlantName(db: Db, authority: RequestActor) {
+		return settle(async () => {
+			const scope = scopeOf(authority);
+			const { rows } = await db.execute(sql`SELECT pl.name FROM (SELECT ${scope.live} AS ok) g
+	JOIN plant pl ON g.ok AND pl.id=${scope.plantId}::uuid`);
+			const r = z.object({ name: z.string() }).safeParse(rows[0]);
+			if (!r.success) return deny();
+			return r.data.name;
+		});
 	},
 
 	async readSetupGaps(db: Db, authority: RequestActor) {
@@ -121,7 +134,7 @@ export const dashboardReader = {
 	LEFT JOIN LATERAL (SELECT ${dismissedColumn(scope)}) q ON g.ok`);
 			const r = rows[0];
 			if (!r || r.ok !== true) return deny();
-			return c.promptState.parse({ dismissed: dismissedOf(r.dismissed) });
+			return { dismissed: dismissedOf(r.dismissed) } satisfies z.output<typeof c.promptState>;
 		});
 	},
 
@@ -307,7 +320,7 @@ export const dashboardWriter = {
  SELECT g.ok,(SELECT count(*)::int FROM ins) AS written FROM g`);
 			const r = rows[0];
 			if (!r || r.ok !== true) return deny();
-			return c.dismissPromptResult.parse({ outcome: r.written === 1 ? "changed" : "noop", prompt });
+			return { outcome: r.written === 1 ? "changed" : "noop", prompt } satisfies z.output<typeof c.dismissPromptResult>;
 		});
 	},
 };

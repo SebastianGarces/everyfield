@@ -20,6 +20,7 @@ import { pipelineDataWriter } from "../../../packages/domain/src/organizations/d
 import { pipelineWriter, readPipelineBoard } from "../../../packages/domain/src/organizations/pipeline.ts";
 import { seeds } from "../../support/fixture.mts";
 import { fixture, key } from "./invitations-support.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, seed, associations;
 const proofs = new Map();
@@ -49,7 +50,7 @@ before(async () => {
 			invalidate: (_tx, v) =>
 				sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${v.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`,
 		},
-		{ candidates: async () => [] },
+		{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 	);
 });
 after(() => f?.close());
@@ -57,7 +58,7 @@ after(() => f?.close());
 const command = (input, expectedRevision) => ({ requestKey: key(), expectedRevision, input });
 const authority = (who) => f.actor(who.session);
 const relate = (name, who, input) =>
-	f.db.transaction(async (tx) => {
+	gatedTransaction(f.db, async (tx) => {
 		if (!(await RequestActor.claimWrite(tx, who.session, who.selected))) throw Error("unavailable");
 		return associations[name](tx, who.session, who.selected, input);
 	});
@@ -66,7 +67,7 @@ async function settle(promise) {
 		const value = await promise;
 		return value?.status === "refused" ? { refused: value.refusal?.code ?? value.error?.code } : { ok: value };
 	} catch (error) {
-		return { refused: error.value?.code ?? error.message };
+		return { refused: error.code ?? error.message };
 	}
 }
 
@@ -76,7 +77,7 @@ async function stored(id) {
 }
 const age = (id, fresh) =>
 	f.admin.execute(
-		sql`UPDATE invitation SET created_at = clock_timestamp() - ${fresh ? "2 minutes" : "721 hours"}::interval WHERE id = ${id}`,
+		sql`UPDATE invitation SET created_at = clock_timestamp() - ${fresh ? "2 minutes" : "721 hours"}::interval, resent_at = NULL WHERE id = ${id}`,
 	);
 async function rootRevision(tenant) {
 	const table = tenant.kind === "plant" ? sql`plant` : sql`organization`;
@@ -110,7 +111,7 @@ async function relationshipWorld(kind) {
 			? { kind, accountId: sender.id, organization }
 			: { kind, subject: subjectTenant, organization };
 	const sent = await relate("associations.invite", sender, command({ pair, recipientEmail: receiver.email }, "1"));
-	return { tenant: subjectTenant, sender, receiver, email: receiver.email, id: sent.invitationId };
+	return { tenant: subjectTenant, sender, receiver, email: receiver.email, pair, id: sent.invitationId };
 }
 
 const worlds = {
@@ -189,6 +190,16 @@ function fire(world, row, event, to) {
 						expectedRevision: r.rows[0].revision,
 					}),
 				);
+		case "associations.invite":
+			return (
+				world.tenant
+					? rootRevision(world.tenant)
+					: f.admin
+							.execute(sql`SELECT revision::text AS revision FROM account WHERE id = ${world.sender.id}`)
+							.then((r) => r.rows[0].revision)
+			).then((revision) =>
+				relate(event, world.sender, command({ pair: world.pair, recipientEmail: world.email }, revision)),
+			);
 		case "associations.resendInvitation":
 		case "associations.revokeInvitation":
 			return relate(event, world.sender, command({ invitationId }, at));

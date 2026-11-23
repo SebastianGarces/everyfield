@@ -23,6 +23,7 @@ test("BUG-account-revision: a Notifications save while Your account is shown let
 	store.getState().actions.replaceSection({ section: "notifications" }, flipped.value.current);
 
 	const shown = withAccountRevision(account.value, store.getState().accountRevision);
+	assert.ok(shown.section === "account");
 	const saved = await port.saveSection({
 		requestKey: "account-1",
 		expectedRevision: shown.revision,

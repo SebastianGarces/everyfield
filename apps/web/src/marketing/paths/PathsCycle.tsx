@@ -2,9 +2,8 @@
 
 import { useReduced } from "@/components/motion/scene";
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
-import { observeSize } from "@everyfield/ui/foundations";
+import { cn, observeSize } from "@everyfield/ui/foundations";
 import { useCallback, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { PlaybackGlyph } from "@/components/kit/kit";
 import { Backdrop } from "../photo/Backdrop";
@@ -59,7 +58,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos 
 		[autoplay, n],
 	);
 
-	const wk = w ? w.items[k]! : 0;
+	const wk = w?.items[k] ?? 0;
 	const vars = (
 		w
 			? {

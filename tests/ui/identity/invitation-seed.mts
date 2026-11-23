@@ -1,10 +1,17 @@
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
+import { createIdentityService, createInvitationService } from "../../../packages/domain/src/identity/index.ts";
+import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { addressSuppressed } from "../../../packages/domain/src/jobs/mail.ts";
+import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
+import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import * as t from "../../../packages/db/src/schema/tables.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const PASSWORD = "Invite-preview-pass-1";
+const ENGINE_NAMES = ["chromium", "webkit"] as const;
 
 async function up(origin: string) {
 	const env = await openSeedEnvironment(origin);
@@ -54,9 +61,9 @@ async function up(origin: string) {
 		return { email, accountId: s.accountId, sessionId: s.sessionId };
 	}
 	const noop = async () => {};
-	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop });
+	const onboarding = createOnboardingProducer({ relationships: noop, enqueue: noop });
 	const churchOf = async (who: { sessionId: string; accountId: string }, name: string) => {
-		const made = await runtime.transaction((tx) =>
+		const made = await gatedTransaction(runtime, (tx) =>
 			onboarding.createPlant(
 				tx,
 				{ session: who.sessionId, selected: { kind: "account", id: who.accountId } } as never,
@@ -78,7 +85,75 @@ async function up(origin: string) {
 	const fresh = await account("Nina New", "new@landing.example.test", "pending_domain");
 	const landing = { finished: finished.email, unfinished: unfinished.email, pending: fresh.email };
 
-	const fixture = writeFixture("invitation", env.schema, { origin, password: PASSWORD, landing });
+	const links: string[] = [];
+	const invitations = createInvitationService({
+		db: runtime,
+		origin,
+		budgetSecret: createHmac("sha256", secret).update("invitation-budget").digest("hex"),
+		people: accountPersonProducer,
+		addressBlocked: (email) =>
+			addressSuppressed(createHmac("sha256", env.addressKey).update(email.trim().toLowerCase()).digest("hex")),
+		enqueueMail: async (_tx, mail) => {
+			const link = /\S+\/invitation#\S+/.exec(mail.text)?.[0];
+			if (!link) throw Error("No invitation link in the mail");
+			links.push(new URL(link).pathname + new URL(link).hash);
+			return randomUUID();
+		},
+	});
+	const actor = (session: string) =>
+		gatedTransaction(runtime, (tx) => RequestActor.resolve(tx, sessionId.parse(session))) as Promise<RequestActor>;
+	const invite = async (session: string, resident: boolean, input: Record<string, unknown>) => {
+		const command = { requestKey: randomUUID(), expectedRevision: "1", input };
+		await (resident ? invitations.inviteResident : invitations.invite)(await actor(session), command);
+		return links.at(-1)!;
+	};
+
+	const hana = await account("Hana Host", "host@landing.example.test", "active");
+	const harvest = await churchOf(hana, "Harvest Point");
+	await admin.execute(sql`UPDATE plant SET onboarding_completed_at=clock_timestamp() WHERE id=${harvest.id}`);
+	const made = await admin.execute(
+		sql`INSERT INTO organization(kind,name,timezone,material_revision) VALUES ('sending_church','Grace Sending Church','America/Chicago',1) RETURNING id`,
+	);
+	const sending = { kind: "organization", id: String(made.rows[0]!.id), organizationKind: "sending_church" } as const;
+	const sender = await account("Sasha Sender", "sender@landing.example.test", "active");
+	await admin.insert(t.seat).values({
+		id: randomUUID(),
+		account_id: sender.accountId,
+		organization_id: sending.id,
+		role: "owner",
+		accepted_at: new Date(),
+	});
+	const joins: Record<string, unknown> = {};
+	for (const engine of ENGINE_NAMES) {
+		const seatEmail = `join-${engine}@landing.example.test`;
+		const seat = await invite(hana.sessionId, false, {
+			workspace: harvest,
+			role: "member",
+			recipientEmail: seatEmail,
+		});
+		const resident = await account("Rae Resident", `resident-${engine}@landing.example.test`, "active");
+		const personId = randomUUID();
+		await admin.insert(t.person).values({
+			id: personId,
+			tenant_id: sending.id,
+			organization_id: sending.id,
+			display_name: "Rae Resident",
+			source: "other",
+			created_at: new Date(),
+			state: "live",
+		});
+		const residency = await invite(sender.sessionId, true, {
+			organization: sending,
+			personId,
+			recipientEmail: resident.email,
+		});
+		joins[engine] = {
+			seat: { link: seat, email: seatEmail, workspace: "Harvest Point" },
+			resident: { link: residency, email: resident.email, organization: "Grace Sending Church" },
+		};
+	}
+
+	const fixture = writeFixture("invitation", env.schema, { origin, password: PASSWORD, landing, joins });
 	await env.close();
 	console.log(JSON.stringify({ schema: env.schema, fresh: env.fresh, fixture }));
 }

@@ -533,7 +533,7 @@ test("INV-identity: existing and missing recovery/verification requests perform 
 test("BUG-PR94: killing post-response recovery work leaves no stuck state and permits the next budgeted request", async () => {
 	f.setIp("127.0.0.22");
 	const serviceUrl = new URL("../../../packages/domain/src/identity/index.ts", import.meta.url).href;
-	const mailUrl = new URL("../../../apps/web/src/server/jobs/mail.ts", import.meta.url).href;
+	const mailUrl = new URL("../../../packages/domain/src/jobs/mail.ts", import.meta.url).href;
 	const worker = `
     import {createServer} from 'node:http';import {once} from 'node:events';
     import {createIdentityService} from ${JSON.stringify(serviceUrl)};import {createMailService} from ${JSON.stringify(mailUrl)};

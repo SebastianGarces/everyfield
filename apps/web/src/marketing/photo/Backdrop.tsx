@@ -1,6 +1,6 @@
+import { cn } from "@everyfield/ui/foundations";
 import Image from "next/image";
 import type { CSSProperties } from "react";
-import { cn } from "@/components/cn";
 import { PHOTOS, type Backdrop as Bg } from "./photos";
 
 type Props = {

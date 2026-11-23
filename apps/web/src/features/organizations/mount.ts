@@ -1,42 +1,45 @@
 import { owner, type Owner } from "@everyfield/contracts/common";
 import * as C from "@everyfield/contracts/organizations";
-import type { Database, Transaction } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
-import { liveAccess, type RequestActor } from "@everyfield/domain/access";
+import type { Database } from "@everyfield/db/client";
+import { liveAccess, type RequestActor, type WriteTx } from "@everyfield/domain/access";
 import { createSeatService } from "@everyfield/domain/identity";
-import { auditTransaction } from "@everyfield/domain/operations";
+import { auditTransaction, gatedTransaction, WriteUnavailable } from "@everyfield/domain/operations";
 import {
 	createOrganizationAdapter,
 	geographyReference,
+	OrganizationRefusal,
 	readAnswerableInvitation,
+	refuse,
 	residencyLinks,
 	readSharingDisclosure,
 	type Kind,
 	type OrganizationEffects,
+	type OrganizationRefusalCode,
 	type Viewer,
 } from "@everyfield/domain/organizations";
 import { cache } from "react";
 import "server-only";
 import { z } from "zod";
-import { mailEnv } from "../../server/mail-env.ts";
+import { serverConfig, type ServerConfig } from "../../server/config.ts";
 import { database } from "../../server/database";
-import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../../server/jobs/mail";
+import {
+	createMailService,
+	MAIL_PASSES,
+	runDueMail,
+	supersedeDigests,
+	type MailPass,
+	type MailTransport,
+} from "@everyfield/domain/jobs";
 import { getViewer } from "../../server/request-context";
 import { invitationLink } from "../../server/invitations";
 
-const env = z.object({
-	IDENTITY_DATABASE_URL: z.string().min(1),
-	IDENTITY_ORIGIN: z.url(),
-	...mailEnv,
-});
-
-export type Reply<T = unknown> = { status: "ok"; value: T } | { status: "refused"; code: string };
-export type Mount = NonNullable<ReturnType<typeof current>>;
-const REFUSAL_CODE = /^[a-z_]{3,40}$/;
+export type RefusalCode = OrganizationRefusalCode | "invalid_input";
+export type Reply<T = unknown> = { status: "ok"; value: T } | { status: "refused"; code: RefusalCode };
+export type Mount = ReturnType<typeof current>;
 
 const expiryDay = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" });
 
-function organizationMail(v: z.infer<typeof env>, transport?: MailTransport) {
+function organizationMail(v: ServerConfig, transport?: MailTransport) {
 	return createMailService({
 		db: database(v.IDENTITY_DATABASE_URL),
 		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
@@ -48,21 +51,20 @@ function organizationMail(v: z.infer<typeof env>, transport?: MailTransport) {
 	});
 }
 
-export function organizationMailPass(transport: MailTransport): MailPass | null {
-	const v = env.safeParse(process.env);
-	if (!v.success) return null;
-	const db = database(v.data.IDENTITY_DATABASE_URL),
-		mail = organizationMail(v.data, transport);
+export function organizationMailPass(transport: MailTransport): MailPass {
+	const v = serverConfig();
+	const db = database(v.IDENTITY_DATABASE_URL),
+		mail = organizationMail(v, transport);
 	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.organization, limit, until);
 }
 
 let mount: ReturnType<typeof create> | undefined;
-function create(v: z.infer<typeof env>) {
+function create(v: ServerConfig) {
 	const db: Database = database(v.IDENTITY_DATABASE_URL);
 	const mail = organizationMail(v);
 	const effects: OrganizationEffects = {
 		async invitation(tx, input, writes) {
-			if (input.owner.kind === "global") throw new Error("unavailable");
+			if (input.owner.kind === "global") refuse();
 			const link = invitationLink(v.IDENTITY_ORIGIN, "/connections/respond", input.invitationId, input.proof);
 			await mail.append(
 				tx,
@@ -83,30 +85,31 @@ function create(v: z.infer<typeof env>) {
 				writes,
 			);
 		},
-		invalidate(_tx, input) {
-			return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`;
-		},
+		invalidate: (_tx, input) => supersedeDigests(input.sourceId),
 	};
 	const adapter = createOrganizationAdapter(effects, geographyReference);
 	return { db, adapter, effects, seats: createSeatService(db), origin: v.IDENTITY_ORIGIN };
 }
 export function current() {
-	const v = env.safeParse(process.env);
-	if (!v.success) return null;
-	mount ??= create(v.data);
+	mount ??= create(serverConfig());
 	return mount;
 }
 
 export type { Viewer } from "@everyfield/domain/organizations";
+const viewerKind = (selected: Owner, discovery: boolean): Kind =>
+	selected.kind === "plant"
+		? "plant"
+		: selected.kind === "organization"
+			? selected.organizationKind
+			: discovery
+				? "discovery"
+				: "account";
 export async function viewerOf(): Promise<
 	| { kind: "signed_out" }
 	| { kind: "unavailable" }
 	| { kind: "viewer"; viewer: Viewer; mount: Mount; authority: RequestActor }
 > {
-	const m = current();
-	if (!m) return { kind: "unavailable" };
 	const s = await getViewer();
-	if (!s) return { kind: "unavailable" };
 	if (s.status === "unauthenticated") return { kind: "signed_out" };
 	if (s.status !== "active") return { kind: "unavailable" };
 	const authority = s.authority;
@@ -115,20 +118,12 @@ export async function viewerOf(): Promise<
 	if (!actor) return { kind: "unavailable" };
 	const context = actor.context;
 	const selected = context.owner;
-	const kind: Kind =
-		selected.kind === "plant"
-			? "plant"
-			: selected.kind === "organization"
-				? selected.organizationKind
-				: s.discovery
-					? "discovery"
-					: "account";
 	return {
 		kind: "viewer",
-		mount: m,
+		mount: current(),
 		authority,
 		viewer: {
-			kind,
+			kind: viewerKind(selected, s.discovery),
 			session: s.sessionId,
 			accountId: s.accountId,
 			selected,
@@ -147,8 +142,8 @@ export const residentOwner = (viewer: Viewer) => owner.parse({ kind: "account", 
 
 function refusalOf(e: unknown): Reply<never> {
 	if (e instanceof z.ZodError) return { status: "refused", code: "invalid_input" };
-	const code = e instanceof Error && REFUSAL_CODE.test(e.message) ? e.message : null;
-	if (code) return { status: "refused", code };
+	if (e instanceof OrganizationRefusal) return { status: "refused", code: e.code };
+	if (e instanceof WriteUnavailable) return { status: "refused", code: "unavailable" };
 	throw e;
 }
 
@@ -156,11 +151,11 @@ export async function command<T>(
 	m: Mount,
 	authority: RequestActor,
 	selected: Owner,
-	body: (tx: Transaction, session: Viewer["session"], selected: Owner) => Promise<T>,
+	body: (tx: WriteTx, session: Viewer["session"], selected: Owner) => Promise<T>,
 ): Promise<Reply<T>> {
 	try {
 		const value = await auditTransaction(m.db, async (tx) => {
-			if (!(await authority.bind(tx, selected))) throw new Error("unavailable");
+			if (!(await authority.bind(tx, selected))) refuse();
 			return body(tx, authority.session, selected);
 		});
 		return { status: "ok", value };
@@ -173,12 +168,12 @@ export async function query<T>(
 	m: Mount,
 	authority: RequestActor,
 	selected: Owner,
-	body: (tx: Transaction, session: Viewer["session"], selected: Owner) => Promise<T>,
+	body: (tx: WriteTx, session: Viewer["session"], selected: Owner) => Promise<T>,
 ): Promise<Reply<T>> {
 	try {
 		return {
 			status: "ok",
-			value: await m.db.transaction((tx) => {
+			value: await gatedTransaction(m.db, (tx) => {
 				authority.observe(tx);
 				return body(tx, authority.session, selected);
 			}),
@@ -210,7 +205,7 @@ export async function invitationFor(
 	const reply = await query(m, authority, viewer.selected, (tx, s, o) =>
 		readAnswerableInvitation(tx, s, o, { invitationId, proof }),
 	);
-	return reply.status === "ok" && reply.value.status === "pending" ? reply.value : null;
+	return reply.status === "ok" && reply.value.status !== "unavailable" ? reply.value : null;
 }
 
 export {

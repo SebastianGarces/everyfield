@@ -19,6 +19,7 @@ flowchart LR
   s1 -.- s1_st0(("empty"))
   s1 -.- s1_st1(("roster"))
   s1 -.- s1_st2(("church"))
+  s1 -.- s1_st3(("not-available"))
   s1 --- s1_b0["open-church<br/>tests + cases + browser behavior"]
   s2["oversight.intelligence<br/>/network/intelligence"]
   s0 -- "link #quot;Network Intelligence#quot;" --> s2
@@ -72,8 +73,8 @@ agent-browser wait --load networkidle
 agent-browser find role link click --name "Harvest Point (QA)"
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "Harvest Point (QA)" --exact
-agent-browser find text "Planned Launch Sunday" text --exact
-agent-browser find text "Plant health" text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Planned Launch Sunday\")"
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Plant health\")"
 ```
 
 - **not-available**: heading "This page is not available". As `owner`, on the QA seed:
@@ -99,7 +100,7 @@ A plant in the directory opens its own view with what it shares and its launch a
 agent-browser find role link click --name "Harvest Point (QA)"
 agent-browser wait --load networkidle
 agent-browser wait --url "**/network/plants/*"
-agent-browser find text "Planned Launch Sunday" text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Planned Launch Sunday\")"
 agent-browser find role heading text --name "Harvest Point (QA)" --exact
 ```
 
@@ -117,7 +118,7 @@ The plant view shows Limited visibility, readiness and a released assessment onl
 A network's roster of linked sending churches, and each church's plants that are linked to both.
 
 - Routes: `/network/sending-churches`, `/network/sending-churches/[churchId]`
-- Personas: `network` read, `hillOwner` read, `graceOwner` none, `owner` none
+- Personas: `network` read, `hillOwner` read, `graceOwner` none, `graceDirector` none, `owner` none
 - Catalog: IDN-024
 
 Reach:
@@ -160,6 +161,14 @@ agent-browser wait --load networkidle
 agent-browser find role heading text --name "Grace Austin (QA)" --exact
 agent-browser wait --text "Plants linked to both"
 agent-browser find role link text --name "Harvest Point (QA)"
+```
+
+- **not-available**: heading "This page is not available". As `graceDirector`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/network/sending-churches"
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "This page is not available" --exact
 ```
 
 #### oversight.sending-churches#open-church
@@ -233,7 +242,7 @@ agent-browser find role button click --name "Refresh" --exact
 agent-browser wait --load networkidle
 agent-browser open "$ORIGIN/network/intelligence"
 agent-browser wait --load networkidle
-agent-browser find text "Latest run" text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Latest run\")"
 agent-browser find role region text --name "Whole portfolio" --exact
 agent-browser find role navigation text --name "Group by" --exact
 ```

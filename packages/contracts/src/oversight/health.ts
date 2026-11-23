@@ -150,7 +150,11 @@ export const intelligenceRow = z.discriminatedUnion("status", [
 ]);
 export type IntelligenceRow = z.infer<typeof intelligenceRow>;
 
-export const lensLabel = (key: z.infer<typeof lensKey>) => LENSES.find((l) => l.key === key)!.label;
+export function lensLabel(key: z.infer<typeof lensKey>): string {
+	const lens = LENSES.find((l) => l.key === key);
+	if (!lens) throw Error("unknown_lens");
+	return lens.label;
+}
 
 const patternBase = {
 	key: z.string(),
@@ -296,3 +300,19 @@ export const feedbackRequest = z.strictObject({
 	patternKey: z.string().min(1).max(200),
 	rating: z.enum(["useful", "not_useful"]),
 });
+
+export const savedLocation = z.strictObject({
+	city: z.string().nullable(),
+	stateProvince: z.string().nullable(),
+	country: z.string().nullable(),
+	region: regionArea.nullable(),
+	effectiveAt: instant,
+	runs: z.array(instant),
+});
+export const locationHistory = z.strictObject({
+	plantId: tenantId,
+	name: z.string().min(1),
+	timeZone: z.string(),
+	locations: z.array(savedLocation),
+});
+export type LocationHistory = z.infer<typeof locationHistory>;

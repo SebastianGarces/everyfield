@@ -35,9 +35,11 @@ import { keyFor, STAGE_KEY, STAGE_LABEL, type KeyedPayload, type StageValue } fr
 import { writeAddress } from "../../../components/location.ts";
 import type { Outcome } from "../../../components/save/model.ts";
 import { fresh, LocalDay, When } from "../parts.tsx";
-import { dismissPair, mergeDestination, mergePair, reviewPair, type Merged } from "./actions.ts";
+import { dismissPair, mergePair, type Merged } from "./actions.ts";
+import { mergeDestination, reviewPair } from "../fetch.ts";
 import { leaveConfirmation } from "./DuplicatePairs.tsx";
 import {
+	attendanceText,
 	blockerText,
 	counted,
 	defaultChoices,
@@ -57,6 +59,8 @@ import {
 } from "./model.ts";
 import { Problem } from "./parts.tsx";
 import type { PairView } from "./server.ts";
+import { READ_FAILED } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
 type Ready = Extract<PairView, { kind: "ready" }>;
 type Review = Ready["review"];
@@ -94,7 +98,9 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 	function load(keep: string | null, then?: string) {
 		const n = ++seq.current;
 		startLoad(async () => {
-			const r: Outcome<PairView> = await reviewPair({ ...query, keep }).catch(() => ({ status: "lost" }) as const);
+			const r: Outcome<PairView> | ReadFailure = await reviewPair({ ...query, keep }).catch(
+				() => ({ status: "lost" }) as const,
+			);
 			if (n !== seq.current) return;
 			startLoad(() => {
 				if (r.status === "ok") {
@@ -106,9 +112,11 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 					setNotice({
 						n,
 						text:
-							r.status === "lost"
-								? "The review did not load. Try again in a moment."
-								: "You cannot review these people. Your seat may have changed; reload the page.",
+							r.status === "failed"
+								? READ_FAILED
+								: r.status === "lost"
+									? "The review did not load. Try again in a moment."
+									: "You cannot review these people. Your seat may have changed; reload the page.",
 					});
 			});
 		});
@@ -308,7 +316,7 @@ function PairReview({
 					<CalloutLabel tone="blue" icon={InformationCircleIcon}>
 						You can unmerge later
 					</CalloutLabel>
-					<CalloutText className="text-sm">
+					<CalloutText className="leading-(--text-sm--line-height)">
 						After merging, links to {source.displayName} open {survivor.displayName}. If this was a mistake, Review
 						Unmerge in {first(survivor.displayName)}&rsquo;s Activity brings {first(source.displayName)} back.
 						Everyfield shows what goes back first, and stops if a later change depends on the merge.
@@ -318,24 +326,21 @@ function PairReview({
 
 			<div className="flex min-w-0 flex-col gap-5">
 				<Card size="sm" as="section" aria-labelledby="moves-title">
-					<CardHeader className="mb-1">
+					<CardHeader>
 						<CardHeading>
 							<CardTitle size="sm" id="moves-title">
 								What moves to {first(survivor.displayName)}
 							</CardTitle>
 						</CardHeading>
 					</CardHeader>
-					{groups.moves.length || groups.blocked.length ? (
+					{groups.moves.length ? (
 						<ul className="flex flex-col">
-							{[...groups.moves, ...groups.blocked].map((r) => (
+							{groups.moves.map((r) => (
 								<li
 									key={r.kind}
 									className="flex items-center justify-between gap-3 border-t border-line py-2.5 text-sm first:border-t-0"
 								>
-									<span className="text-text-2">
-										{kindTitle(r.kind)}
-										{r.treatment === "block" ? <span className="text-magenta-600"> · cannot move yet</span> : null}
-									</span>
+									<span className="text-text-2">{kindTitle(r.kind)}</span>
 									<span className="font-semibold text-ink tabular-nums">{r.count}</span>
 								</li>
 							))}
@@ -346,6 +351,50 @@ function PairReview({
 					{groups.moves.some((r) => r.treatment === "deduplicate") ? (
 						<p className="mt-2 text-xs text-text-3">Tags they both have are kept once.</p>
 					) : null}
+					{review.openFollowUps.length ? (
+						<div className="mt-3 border-t border-line pt-2.5">
+							<p className="text-xs font-semibold text-ink-2">
+								{review.openFollowUps.length === 1
+									? "This open follow-up stays open"
+									: review.openFollowUps.length === 2
+										? "Both open follow-ups stay open"
+										: `All ${review.openFollowUps.length} open follow-ups stay open`}{" "}
+								on {first(survivor.displayName)}
+							</p>
+							<ul className="mt-1.5 flex flex-col gap-1 text-xs text-text-2">
+								{review.openFollowUps.map((f) => (
+									<li key={`${f.personId}-${f.meeting}-${f.dueDate}`} className="text-pretty">
+										{f.personId === source.personId ? source.displayName : survivor.displayName}&rsquo;s from{" "}
+										{f.meeting}, due <LocalDay day={f.dueDate} />
+									</li>
+								))}
+							</ul>
+						</div>
+					) : null}
+					<ReviewList
+						title="Meeting attendance that changes"
+						items={review.attendance.map((a) => ({
+							key: `${a.change}-${a.meeting}`,
+							text: attendanceText(a, review),
+						}))}
+					/>
+					<ReviewList
+						title={`${review.openTasks.length === 1 ? "This open task stays" : "These open tasks stay"} open on ${first(survivor.displayName)}`}
+						items={review.openTasks.map((t, i) => ({
+							key: `${i}-${t.title}`,
+							text: t.dueDate ? (
+								<>
+									{t.title}, due <LocalDay day={t.dueDate} />
+								</>
+							) : (
+								`${t.title}, no due date`
+							),
+						}))}
+					/>
+					<ReviewList
+						title={`${review.openKitItems.length === 1 ? "This unchecked kit item stays" : "These unchecked kit items stay"} assigned to ${first(survivor.displayName)}`}
+						items={review.openKitItems.map((k, i) => ({ key: `${i}-${k.text}`, text: `${k.text}, for ${k.meeting}` }))}
+					/>
 					{groups.stays.length ? (
 						<p className="mt-3 text-xs text-text-3">
 							Stays in {first(source.displayName)}&rsquo;s history:{" "}
@@ -364,7 +413,7 @@ function PairReview({
 							<ul className="mt-2 flex flex-col gap-2 text-sm text-ink-2">
 								{review.blockers.causes.map((cause) => (
 									<li key={cause} className="text-pretty">
-										{blockerText(cause, names, review.blockers.references)}
+										{blockerText(cause, names, review.blockers)}
 										{cause === "linked_source" ? (
 											<Button
 												variant="secondary"
@@ -390,22 +439,18 @@ function PairReview({
 							</div>
 							<p className="mt-2 text-sm text-text-2">
 								Account links, note authorship and history never move. A merge stops if both people have an account or
-								if a record cannot move yet.
+								if both hold a current role on the same team.
 							</p>
 						</>
 					)}
 				</Card>
 				<div className="flex flex-col gap-2">
 					<div className="flex gap-2 max-app-sm:flex-col-reverse">
-						<IntentLink
-							href={`/people/${survivor.personId}`}
-							className={cn(buttonVariants({ variant: "secondary" }), "flex-1")}
-						>
+						<IntentLink href={`/people/${survivor.personId}`} className={buttonVariants({ variant: "secondary" })}>
 							Keep both
 						</IntentLink>
 						<Button
 							variant="primary"
-							className="flex-1"
 							icon={GitMergeIcon}
 							disabled={blocked || loading || dismissing}
 							onClick={() => setConfirming(true)}
@@ -513,7 +558,7 @@ function FieldRow({
 			<Radio
 				value={side}
 				aria-label={`${FIELD_LABEL[field.field]} from ${name}: ${shown ?? "none"}`}
-				className="min-h-[46px] items-center rounded-card bg-surface-raised px-3.5 py-2.5 shadow-[inset_0_0_0_1px_var(--ef-line)] has-[[data-state=checked]]:shadow-[0_0_0_2px_var(--ef-ink)]"
+				className="min-h-[46px] rounded-card bg-surface-raised px-3.5 shadow-[inset_0_0_0_1px_var(--ef-line)] has-[[data-state=checked]]:shadow-[0_0_0_2px_var(--ef-ink)]"
 				label={
 					<span className="flex min-w-0 items-center gap-2.5">
 						{photo ? <Avatar name={name} src={photo} size="sm" decorative /> : null}
@@ -540,7 +585,7 @@ function FieldRow({
 				orientation="horizontal"
 				value={value}
 				onValueChange={(v) => onChange(v as Side)}
-				className="grid grid-cols-2 gap-3 max-app-sm:gap-2"
+				className="grid grid-cols-2 gap-y-3 max-app-sm:gap-2"
 			>
 				{option("survivor")}
 				{option("source")}
@@ -671,6 +716,22 @@ function ConfirmMerge({
 	);
 }
 
+function ReviewList({ title, items }: { title: string; items: { key: string; text: ReactNode }[] }) {
+	if (!items.length) return null;
+	return (
+		<div className="mt-3 border-t border-line pt-2.5">
+			<p className="text-xs font-semibold text-ink-2">{title}</p>
+			<ul className="mt-1.5 flex flex-col gap-1 text-xs text-text-2">
+				{items.map((item) => (
+					<li key={item.key} className="text-pretty">
+						{item.text}
+					</li>
+				))}
+			</ul>
+		</div>
+	);
+}
+
 function Point({ children }: { children: ReactNode }) {
 	return (
 		<li className="flex gap-2.5">
@@ -692,7 +753,7 @@ function Result({ done }: { done: Done }) {
 				<h2 ref={focusOnMount} tabIndex={-1} className="mt-3 font-title text-title-md text-ink outline-none">
 					{done.source} is now part of {done.survivor}
 				</h2>
-				<CalloutText className="text-sm">
+				<CalloutText className="leading-(--text-sm--line-height)">
 					Links to {done.source} open {done.survivor}.{" "}
 					{merged.moved.length
 						? `${listText(merged.moved.map((m) => counted(m.kind, m.count)))} moved to ${first(done.survivor)}.`

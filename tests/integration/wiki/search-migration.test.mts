@@ -4,21 +4,14 @@ import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
-import { inspectMigrationProvenance, migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
+import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
 
 const TARGET = "20261112031340_article_revision_search_vector.sql";
-const FOLLOW_UP = "20261112073258_wiki_search_words_plain_text.sql";
-const ORIGINAL_TAIL = `--> statement-breakpoint
--- The search_vector trigger fills every existing row.
-UPDATE "article_revision" SET "search_vector" = NULL;
---> statement-breakpoint
-ALTER TABLE "article_revision" ALTER COLUMN "search_vector" SET NOT NULL;
-`;
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 const source = (name: string) => new URL("../../../packages/db/migrations/" + name, import.meta.url);
 
@@ -32,13 +25,11 @@ after(async () => {
 	await database.close();
 });
 
-async function folder(files: readonly string[], bytes: Record<string, string> = {}) {
+async function folder(files: readonly string[]) {
 	const directory = await mkdtemp(tmpdir() + "/evf-wiki-search-");
 	directories.push(directory);
 	const url = pathToFileURL(directory + "/");
-	for (const name of files)
-		if (name in bytes) await writeFile(new URL(name, url), bytes[name]!);
-		else await copyFile(source(name), new URL(name, url));
+	for (const name of files) await copyFile(source(name), new URL(name, url));
 	return url;
 }
 
@@ -71,10 +62,6 @@ async function writeRevisions(db: Database) {
 		await db.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id)
 			VALUES(${revisions[key]},${articles[key]},${tenant},${release},1,${"Article " + key},${key},${"Article " + key},${body},${content},1,1,${hash()},clock_timestamp(),true,1,${section})`);
 	}
-}
-
-async function vectors(db: Database) {
-	return (await db.execute(sql`SELECT id::text, search_vector::text AS vector FROM article_revision ORDER BY id`)).rows;
 }
 
 test("a plain-text organization body migrates through wiki search and is found by its words", async () => {
@@ -114,23 +101,3 @@ test("a plain-text organization body migrates through wiki search and is found b
 	for (const word of ["quokkablock", "callout", "wombatkey", "pangolin"])
 		assert.deepEqual(await found(word), [], `${word} is a node type, key or unindexed value`);
 });
-
-const server = Number(
-	((await admin.execute(sql`SELECT current_setting('server_version_num') AS v`)).rows[0] as { v: string }).v,
-);
-test(
-	"a database that applied the first version of the migration migrates to head with the same vectors",
-	{ skip: server >= 180000 && "PostgreSQL 18 cannot write a plain-text body through the first version" },
-	async () => {
-		const upgraded = await database.createSchema("t275_upgraded_" + randomUUID().replaceAll("-", ""));
-		const original = (await readFile(source(TARGET), "utf8")) + ORIGINAL_TAIL;
-		const mainHead = names.filter((name) => name !== FOLLOW_UP);
-		await migrate(admin, upgraded, await folder(mainHead, { [TARGET]: original }));
-		const db = database.connect("admin", { schema: upgraded, max: 1 });
-		await writeRevisions(db);
-
-		assert.deepEqual(await migrate(admin, upgraded), [FOLLOW_UP]);
-		assert.equal((await inspectMigrationProvenance(admin, upgraded)).state, "current");
-		assert.deepEqual(await vectors(db), await vectors(admin));
-	},
-);

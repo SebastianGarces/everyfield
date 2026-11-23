@@ -12,8 +12,8 @@ import {
 	withMeetingsWrite,
 } from "../../../packages/domain/src/meetings/index.ts";
 import { authorizeTaskReminders, reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { ok, refused } from "../../support/fixture.mts";
 
@@ -506,9 +506,10 @@ test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, compute
 	refused(await record(owner, v), "status_transition");
 	ok(await finalize(owner, v, [alex]));
 	refused(await record(owner, v, { scores: { ...scores(1), attendanceScore: 6 } }), "invalid_input");
+	refused(await record(owner, v, { average: 5 }), "invalid_input");
 
 	const [a, b] = await Promise.all([
-		record(owner, v, { average: 5, notes: "Room was cold" }),
+		record(owner, v, { notes: "Room was cold" }),
 		record(owner, v, { scores: scores(5), notes: "Room was cold" }),
 	]);
 	const kept = [ok(a), ok(b)].find((r) => r.outcome === "changed");

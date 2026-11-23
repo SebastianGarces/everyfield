@@ -5,12 +5,14 @@ Personas, sign-in and what the checker cannot catch: [README](README.md).
 
 ```mermaid
 flowchart LR
-  s0_link1(["link /onboarding"])
+  rail(["rail"])
+  s0_link2(["link /onboarding"])
   s2_link0(["link /design/onboarding"])
   x_overview_home(["overview.home"])
   s0["onboarding.setup<br/>/onboarding"]
+  rail -- "Set up your church" --> s0
   x_overview_home -- "path" --> s0
-  s0_link1 --> s0
+  s0_link2 --> s0
   s0 -.- s0_st0(("create-church"))
   s0 -.- s0_st1(("choose-start"))
   s0 -.- s0_st2(("member"))
@@ -37,11 +39,13 @@ flowchart LR
 The account's way into a church: create one, or explore first in a private Discovery space. A member, an organization seat and a signed-out visitor are each sent elsewhere.
 
 - Routes: `/onboarding`
+- Endpoints: `/onboarding/read`
 - Personas: `signup` write, `triage` write, `resident` write, `owner` write, `member` read, `network` none, `visitor` none
 - Catalog: IDN-013, IDN-016
 
 Reach:
 
+- Rail "Set up your church" for `signup`
 - From overview.home as `signup`:
 
 ```bash
@@ -259,12 +263,11 @@ Reach:
 
 States:
 
-- **new-planter**: URL `/design/onboarding?step=church`; heading "Start your church"; combobox "Preview account". As `visitor`, on the QA seed:
+- **new-planter**: heading "Start your church"; combobox "Preview account". As `visitor`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/design/onboarding"
 agent-browser wait --load networkidle
-agent-browser wait --url "**/design/onboarding?step=church"
 agent-browser find role heading text --name "Start your church" --exact
 agent-browser find role combobox text --name "Preview account" --exact
 ```

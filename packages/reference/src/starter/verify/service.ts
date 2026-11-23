@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { sql } from "@everyfield/db/query";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import "server-only";
 import { promotion } from "@everyfield/contracts/reference";
 import type { Promotion, ReferencePassage, ReferenceProfile } from "@everyfield/contracts/reference";
@@ -13,6 +13,7 @@ import type { WikiSource } from "../manifest/approved.ts";
 import { resolveWikiEmbedding, type WikiEmbedder, type WikiEmbedFetch } from "./embed.ts";
 import { wikiBundle, wikiEntries, wikiPolicy } from "./generation.ts";
 import { EmbeddingRefusal } from "./openai.ts";
+import { estimateTokens, recordSpend, RUN_CAP_USD, usdFor } from "./spend.ts";
 import { checkSnapshot, loadApprovedSnapshot, WikiRefusal } from "./snapshot.ts";
 import type { ApprovedSnapshot } from "./snapshot.ts";
 
@@ -70,15 +71,19 @@ export interface WikiDependencies {
 	embeddingProfile?: string;
 	embeddingDimensions?: number;
 	fetch?: WikiEmbedFetch;
+	env?: Record<string, string | undefined>;
+	runCapUsd?: number;
 }
 interface PlannedPassages {
 	ok: true;
 	passages: ReferencePassage[];
+	estimatedTokens: number;
 	usageTokens: number;
 }
 interface PassageFailure {
 	ok: false;
 	reason: string;
+	estimatedTokens: number;
 	usageTokens: number;
 }
 
@@ -116,31 +121,25 @@ function requirePins(source: WikiSource, manifestSha256: string, payloadSha256: 
 function commandDigest(value: Record<string, string>): string {
 	return hash(canonical(value));
 }
-function failedRebuild(reason: string, usageTokens = 0) {
+function spend(estimatedTokens: number, usageTokens: number) {
+	return {
+		estimatedTokens,
+		estimatedUsd: usdFor(estimatedTokens),
+		usageTokens,
+		costUsd: usdFor(usageTokens),
+	};
+}
+function failedRebuild(failure: PassageFailure) {
 	return {
 		activated: false,
 		activeRelease: null,
 		activationNumber: null,
 		passages: 0,
-		reason,
-		usageTokens,
+		reason: failure.reason,
+		...spend(failure.estimatedTokens, failure.usageTokens),
 	};
 }
-async function authorizeCaller(
-	tx: Transaction,
-	caller: WikiCaller,
-	command: Promotion,
-	source: WikiSource,
-): Promise<ReferenceAuthority | null> {
-	const selected = await tx.execute(sql`
-		SELECT s.id
-		FROM auth_session s
-		JOIN account a ON a.id = ${caller.actorId}::uuid AND a.auth_user_id = s.user_id
-		WHERE s.id = ${caller.sessionId}::uuid
-		  AND s.user_id = ${caller.userId}::uuid
-		  AND s.expires_at > clock_timestamp()
-	`);
-	if (selected.rows.length !== 1) return null;
+function authorizeCaller(caller: WikiCaller, command: Promotion, source: WikiSource): ReferenceAuthority {
 	return {
 		actorId: caller.actorId,
 		review: {
@@ -148,11 +147,17 @@ async function authorizeCaller(
 			approvalLocator: source.version,
 			approvalHash: source.payloadSha256,
 		},
+		session: sql`EXISTS(SELECT FROM auth_session s
+		JOIN account a ON a.id = ${caller.actorId}::uuid AND a.auth_user_id = s.user_id
+		WHERE s.id = ${caller.sessionId}::uuid
+		  AND s.user_id = ${caller.userId}::uuid
+		  AND s.expires_at > clock_timestamp())`,
 	};
 }
 
 export function referenceService(db: Database, deps: WikiDependencies = {}) {
-	const embedding = resolveWikiEmbedding(process.env, deps);
+	const embedding = resolveWikiEmbedding(deps.env ?? process.env, deps);
+	const runCapUsd = deps.runCapUsd ?? RUN_CAP_USD;
 	const source = deps.source ?? approvedWiki;
 	async function snapshot(): Promise<ApprovedSnapshot> {
 		const loaded = deps.loadSnapshot ? await deps.loadSnapshot() : await loadApprovedSnapshot(deps.root, source);
@@ -184,7 +189,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 				if (key !== bundle.key) throw new WikiRefusal("incomplete_candidate", "policy");
 				return wikiPolicy(source, bundle, deferDerivatives);
 			},
-			authorize: (tx, command) => authorizeCaller(tx, caller, command, source),
+			authorize: (command) => authorizeCaller(caller, command, source),
 		});
 		try {
 			return await promoter.promote(parsed.data, bundle.key);
@@ -193,26 +198,42 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 		}
 	}
 	async function planPassages(snapshot: ApprovedSnapshot, release: string): Promise<PlannedPassages | PassageFailure> {
+		let estimatedTokens = 0;
+		const failed = (reason: string, usageTokens: number): PassageFailure => ({
+			ok: false,
+			reason,
+			estimatedTokens,
+			usageTokens,
+		});
 		try {
 			const chunks = chunkEntries(wikiEntries(snapshot, release));
+			const texts = chunks.map((chunk) => chunk.text);
+			estimatedTokens = embedding.embedMany ? estimateTokens(texts) : 0;
 			let raws: readonly (readonly number[])[] = [];
 			let usageTokens = 0;
 			if (embedding.embedMany) {
-				const embedded = await embedding.embedMany(chunks.map((chunk) => chunk.text));
-				raws = embedded.vectors;
-				usageTokens = embedded.totalTokens;
+				if (usdFor(estimatedTokens) > runCapUsd) return failed("estimated_cost_over_cap", 0);
+				try {
+					const embedded = await embedding.embedMany(texts);
+					raws = embedded.vectors;
+					usageTokens = embedded.totalTokens;
+				} catch (error) {
+					if (error instanceof EmbeddingRefusal) await recordSpend(db, "rebuild", error.usageTokens);
+					throw error;
+				}
+				await recordSpend(db, "rebuild", usageTokens);
 			} else if (embedding.embed) {
 				const rows: number[][] = [];
 				for (const chunk of chunks) rows.push([...(await embedding.embed(chunk.text))]);
 				raws = rows;
-			} else return { ok: false, reason: "incomplete_candidate", usageTokens: 0 };
-			if (raws.length !== chunks.length) return { ok: false, reason: "incomplete_candidate", usageTokens };
+			} else return failed("incomplete_candidate", 0);
+			if (raws.length !== chunks.length) return failed("incomplete_candidate", usageTokens);
 			const passages: ReferencePassage[] = [];
 			for (const [index, chunk] of chunks.entries()) {
 				const raw = raws[index];
 				if (!raw || raw.length !== embedding.dimensions || raw.some((value) => !Number.isFinite(value)))
-					return { ok: false, reason: "incomplete_candidate", usageTokens };
-				const vector = raw.map((value) => Math.fround(value));
+					return failed("incomplete_candidate", usageTokens);
+				const vector = raw.map((value) => (value === 0 ? 0 : Math.fround(value)));
 				passages.push({
 					key: chunk.key,
 					revisionId: chunk.revisionId,
@@ -223,13 +244,11 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 					embeddingChecksum: vectorHash(vector),
 				});
 			}
-			return { ok: true, passages, usageTokens };
+			return { ok: true, passages, estimatedTokens, usageTokens };
 		} catch (error) {
 			if (error instanceof WikiRefusal) throw error;
-			if (error instanceof EmbeddingRefusal)
-				return { ok: false, reason: error.message, usageTokens: error.usageTokens };
-			const reason = error instanceof Error && error.message ? error.message : "embedding_failed";
-			return { ok: false, reason, usageTokens: 0 };
+			if (error instanceof EmbeddingRefusal) return failed(error.code, error.usageTokens);
+			return failed("embedding_failed", 0);
 		}
 	}
 	async function installApprovedWiki(callerInput: unknown, input: unknown) {
@@ -269,7 +288,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 		requirePins(source, command.manifestSha256, command.payloadSha256);
 		const loaded = await snapshot();
 		const planned = await planPassages(loaded, command.release);
-		if (!planned.ok) return failedRebuild(planned.reason, planned.usageTokens);
+		if (!planned.ok) return failedRebuild(planned);
 		const profile: ReferenceProfile = {
 			chunker: approvedWiki.chunker,
 			model: embedding.profile,
@@ -293,7 +312,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 			activationNumber: receipt.number,
 			passages: planned.passages.length,
 			reason: null,
-			usageTokens: planned.usageTokens,
+			...spend(planned.estimatedTokens, planned.usageTokens),
 		};
 	}
 	async function invalidateWikiCache(callerInput: unknown, input: unknown) {

@@ -18,6 +18,7 @@
 			"id": "launch.plan",
 			"says": "Launch Sunday's date and countdown, its readiness, and the outcome form once the day arrives.",
 			"routes": ["/launch"],
+			"endpoints": ["/launch/read"],
 			"catalog": ["LCH-001", "LCH-003", "LCH-006", "LCH-007", "LCH-008"],
 			"reach": [
 				{
@@ -66,8 +67,10 @@
 							"name": "Set Launch Sunday"
 						},
 						{
-							"role": "button",
-							"name": "Record Launch Sunday"
+							"absent": {
+								"role": "button",
+								"name": "Record Launch Sunday"
+							}
 						}
 					]
 				},
@@ -131,6 +134,10 @@
 							},
 							{
 								"file": "tests/integration/launch/outcome.test.mts",
+								"name": "a launch with no date, a later date or a postponement refuses an outcome until Launch Sunday arrives, with nothing written"
+							},
+							{
+								"file": "tests/integration/launch/outcome.test.mts",
 								"name": "AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named Mara, linked as a Launch Sunday guest, with nothing made up"
 							},
 							{
@@ -145,6 +152,45 @@
 								{
 									"click": {
 										"role": "button",
+										"name": "Set Launch Sunday"
+									}
+								},
+								{
+									"press": "Tab"
+								},
+								{
+									"press": "1"
+								},
+								{
+									"press": "0"
+								},
+								{
+									"press": "0"
+								},
+								{
+									"press": "4"
+								},
+								{
+									"press": "2"
+								},
+								{
+									"press": "0"
+								},
+								{
+									"press": "2"
+								},
+								{
+									"press": "6"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Set date"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
 										"name": "Record Launch Sunday"
 									}
 								}
@@ -155,7 +201,7 @@
 									"name": "Record Launch Sunday"
 								}
 							],
-							"kind": "presence"
+							"kind": "behavior"
 						}
 					}
 				},

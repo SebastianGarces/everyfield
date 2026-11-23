@@ -14,6 +14,7 @@ import { createNotificationProducer } from "../../../packages/domain/src/notific
 import { hubLabel } from "../../../apps/web/src/features/communication/model.ts";
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider } from "./scheduled-support.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f;
 const ring = { current: randomBytes(32), previous: [] };
@@ -158,6 +159,7 @@ test("AC:CASE-NTF-016 a refused opt-out, from a forged or tampered token, writes
 	const real = messagesOptOutToken(ring, { plantId: w.id, personId: ana.id });
 	const middle = real.length >> 1;
 	const tampered = real.slice(0, middle) + (real[middle] === "A" ? "B" : "A") + real.slice(middle + 1);
+	assert.notDeepEqual(Buffer.from(tampered, "base64url"), Buffer.from(real, "base64url"));
 	const forged = messagesOptOutToken({ current: randomBytes(32), previous: [] }, { plantId: w.id, personId: ana.id });
 	for (const token of [tampered, forged]) {
 		const outcome = await applyMessagesOptOut(f.db, ring, now, { token });
@@ -189,7 +191,9 @@ test("AC:CASE-NTF-016 when Ana was the only recipient the notice says the email 
 			body: `“Picnic”, scheduled for ${churchTime(email.at)}, will not go out because its only recipient unsubscribed from this church's email.`,
 		},
 	);
-	const history = ok(await f.db.transaction((tx) => communicationWriter.listHistory(tx, sam.actor, { limit: 100 })));
+	const history = ok(
+		await gatedTransaction(f.db, (tx) => communicationWriter.listHistory(tx, sam.actor, { limit: 100 })),
+	);
 	const state = history.items.find((row) => row.id === email.id).state;
 	assert.equal(hubLabel[state], "Not sent: unsubscribed", "the email itself reads the same");
 });

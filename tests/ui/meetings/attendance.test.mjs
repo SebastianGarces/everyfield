@@ -41,8 +41,8 @@ for (const [name, engine] of ENGINES) {
 				);
 				await page.reload();
 				await hydrated(page);
-				const badge = page.getByText(new RegExp(`^${guests.length} of \\d+\\s*checked in$`)).first();
-				const counter = await badge.textContent();
+				const badge = page.locator("header span", { hasText: "checked in" }).first();
+				const counter = (await badge.innerText()).replace(/\s+/g, " ").trim();
 				assert.match(counter, new RegExp(`^${guests.length} of \\d+ checked in$`));
 				assert.doesNotMatch(counter, /here/i);
 				assert.equal(await page.locator("ul button[aria-pressed=true]").count(), guests.length);

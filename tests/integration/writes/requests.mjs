@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { existsSync, readFileSync, watch } from "node:fs";
 import { EventEmitter } from "node:events";
 import { dirname } from "node:path";
 import { createServer as httpServer } from "node:http";
 import { crc32, deflateSync } from "node:zlib";
-import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/src/query.ts";
@@ -21,6 +19,8 @@ import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { teamsWriter } from "../../../packages/domain/src/teams/index.ts";
 import { CATALOG } from "../../../packages/domain/src/tasks/catalog.ts";
 import { p as wordParagraph, storedZip } from "../documents/fixtures/word.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { holdPort } from "./held-port.mjs";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = root + "apps/web/";
@@ -31,13 +31,10 @@ assert.ok(
 	"No production build in apps/web/.next. Run `corepack pnpm build` first.",
 );
 
-const port = await new Promise((resolve) => {
-	const probe = createServer().listen(0, "127.0.0.1", () => {
-		const { port } = probe.address();
-		probe.close(() => resolve(port));
-	});
-});
+const nextPort = await holdPort("127.0.0.1");
+const { port } = nextPort;
 const origin = `http://127.0.0.1:${port}`;
+const readInput = (input) => encodeURIComponent(JSON.stringify(input));
 const database = await testDatabase({ prefix: "wp011rq", roles: { runtime: ["runtime"], auth: ["auth"] }, max: 2 });
 const { admin } = database,
 	{ runtime, auth: authDb } = database.pools;
@@ -95,12 +92,12 @@ try {
 			.join("; ");
 		const session = await (await call("get-session", undefined, cookie)).json();
 		assert.equal(session.status, "active");
-		return { cookie, accountId: session.accountId, sessionId: session.sessionId };
+		return { cookie, email, password: secretWord, accountId: session.accountId, sessionId: session.sessionId };
 	}
 	const owner = await account("Owner"),
 		member = await account("Member");
 	const noop = async () => {};
-	const created = await runtime.transaction((tx) =>
+	const created = await gatedTransaction(runtime, (tx) =>
 		createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop }).createPlant(
 			tx,
 			{ session: owner.sessionId, selected: { kind: "account", id: owner.accountId } },
@@ -173,14 +170,14 @@ try {
 	};
 	const writtenDocument = await saveWritten(nativeFromText("Welcome to the church plant."));
 	const person = async (displayName) => {
-		const r = await runtime.transaction((tx) =>
+		const r = await gatedTransaction(runtime, (tx) =>
 			peopleWriter.createPerson(tx, ctx, { requestKey: randomUUID(), input: { displayName, stage: "prospect" } }),
 		);
 		assert.equal(r.status, "ok");
 		return r.value.person;
 	};
 	const note = async (p, body) => {
-		const r = await runtime.transaction((tx) =>
+		const r = await gatedTransaction(runtime, (tx) =>
 			peopleWriter.addNote(tx, ctx, {
 				requestKey: randomUUID(),
 				expectedRevision: p.revision,
@@ -211,7 +208,7 @@ try {
 			ON CONFLICT DO NOTHING`);
 	await notices(3);
 	const teams = async (op, input) => {
-		const r = await runtime.transaction((tx) => op(tx, ctx, { requestKey: randomUUID(), ...input }));
+		const r = await gatedTransaction(runtime, (tx) => op(tx, ctx, { requestKey: randomUUID(), ...input }));
 		assert.equal(r.status, "ok", JSON.stringify(r));
 		return r.value;
 	};
@@ -309,7 +306,7 @@ try {
 	});
 	await new Promise((resolve) => bucket.listen(0, "127.0.0.1", resolve));
 
-	server = spawn(
+	server = nextPort.spawn(
 		process.execPath,
 		[web + "node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", String(port)],
 		{
@@ -378,13 +375,16 @@ try {
 	};
 	const get = async (name, path, cookie, status = 200, headers = {}) => {
 		const r = await fetch(origin + path, {
-			headers: { ...headers, "x-evf-request": name, cookie },
+			headers: { ...headers, ...(name ? { "x-evf-request": name } : {}), cookie },
 			redirect: "manual",
 		});
-		await r.text();
+		const body = await r.text();
 		assert.equal(r.status, status, `${name}: HTTP ${r.status}`);
+		return body;
 	};
-	const act = async (name, page, file, action, args, cookie = owner.cookie) => {
+	const read = async (name, path, what, input, cookie = owner.cookie) =>
+		JSON.parse(await get(name, `${path}?what=${what}&in=${readInput(input)}`, cookie));
+	const actReply = async (name, page, file, action, args, cookie = owner.cookie) => {
 		const r = await fetch(origin + page, {
 			method: "POST",
 			headers: {
@@ -401,8 +401,9 @@ try {
 		assert.equal(r.status, 200, `${name}: HTTP ${r.status}`);
 		const line = text.split("\n").find((l) => l.startsWith("1:"));
 		assert.ok(line, `${name}: no action result`);
-		return JSON.parse(line.slice(2));
+		return { result: JSON.parse(line.slice(2)), setCookies: r.headers.getSetCookie() };
 	};
+	const act = async (...request) => (await actReply(...request)).result;
 
 	const census = (
 		await admin.execute(
@@ -442,8 +443,7 @@ try {
 		["GET /tasks", "/tasks", owner.cookie],
 		["GET /tasks?task=<follow-up>", `/tasks?task=${followUpId}`, owner.cookie],
 		["GET /tasks/follow-ups", "/tasks/follow-ups", owner.cookie],
-		["GET /tasks/read?what=blocking", `/tasks/read?what=blocking&id=${followUpId}`, owner.cookie],
-		["GET /tasks/read?what=rows", `/tasks/read?what=rows&id=${followUpId}`, owner.cookie],
+		["GET /tasks/read?what=rows", `/tasks/read?what=rows&in=${readInput({ taskIds: [followUpId] })}`, owner.cookie],
 		["GET /wiki", "/wiki", owner.cookie],
 		["GET /wiki/[slug]", "/wiki/census-lead", owner.cookie],
 		["GET /wiki/[slug] (crawler)", "/wiki/census-lead", "", 200, { "user-agent": "Googlebot/2.1" }],
@@ -475,7 +475,7 @@ try {
 		["GET /settings/sharing", "/settings/sharing", resident.cookie],
 		["GET /settings/sharing (plant)", "/settings/sharing", owner.cookie],
 		["GET /notifications", "/notifications", owner.cookie],
-		["GET /notifications/read?what=count", "/notifications/read?what=count", owner.cookie],
+		["GET /notifications/read?what=count", `/notifications/read?what=count&in=${readInput({})}`, owner.cookie],
 		["GET /ministries", "/ministries", owner.cookie],
 		["GET /ministries?view=chart", "/ministries?view=chart", owner.cookie],
 		["GET /ministries/[teamId]", `/ministries/${ministry.id}`, owner.cookie],
@@ -581,6 +581,15 @@ try {
 		member.cookie,
 	);
 	assert.equal(memberSkill.status, "refused", JSON.stringify(memberSkill));
+	const duties = async (input) =>
+		(
+			await fetch(`${origin}/follow-ups/read?what=duties&in=${readInput(input)}`, {
+				headers: { cookie: member.cookie },
+			})
+		).json();
+	assert.deepEqual(await duties({ page: 1 }), { status: "refused", code: "invalid_input", route: true });
+	const personDuties = await duties({ personId, page: 1 });
+	assert.equal(personDuties.status, "ok", JSON.stringify(personDuties));
 	const tagKey = randomUUID();
 	const tagged = await act("POST people.fields.addPersonTag", page, fields, "addPersonTag", [
 		tagKey,
@@ -592,9 +601,9 @@ try {
 		{ personId, name: "Hosts" },
 	]);
 	assert.deepEqual(tagReplay.value.tags, tagged.value.tags);
-	const skills = await act("POST people.fields.readSkills", page, fields, "readSkills", [personId]);
+	const skills = await read("GET /people/read?what=skills", "/people/read", "skills", { personId });
 	assert.equal(skills.value.length, 1);
-	const photo = await act("POST people.fields.readPhoto", page, fields, "readPhoto", [personId]);
+	const photo = await read("GET /people/read?what=photo", "/people/read", "photo", { personId });
 	assert.deepEqual(photo.value, { status: "absent" });
 	const tasked = await act("POST tasks.createTask", "/tasks", "apps/web/src/features/tasks/actions.ts", "createTask", [
 		randomUUID(),
@@ -632,6 +641,54 @@ try {
 		],
 	);
 	assert.equal(outcomeCorrected.status, "ok", JSON.stringify(outcomeCorrected));
+	const followUp = async (due = sql`'undated',NULL`) => {
+		const [{ id, revision }] = (
+			await admin.execute(
+				sql`INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind,due_date,person_id,creator_id) VALUES(${plant.id},'Call Maria Santos','follow_up','medium','not_started',clock_timestamp(),${due},${maria.id},${owner.accountId}) RETURNING id, revision::text AS revision`,
+			)
+		).rows;
+		return { kind: "task", taskId: id, expectedRevision: revision };
+	};
+	const outcome = async (name, target, input) => {
+		const r = await act(`POST followups.recordOutcome (${name})`, `/people/${maria.id}`, followups, "recordOutcome", [
+			randomUUID(),
+			{ target, channel: "phone", notes: null, completeTask: false, ...input },
+		]);
+		assert.equal(r.status, "ok", JSON.stringify(r));
+		return r.value;
+	};
+	await outcome(
+		"person",
+		{ kind: "person", personId: maria.id },
+		{
+			outcome: "contacted",
+			occurredAt: tried.value.record.occurredAt,
+		},
+	);
+	const dropped = await outcome("no longer needed", await followUp(), { outcome: "no_longer_needed" });
+	assert.equal(dropped.task.status, "no_longer_needed");
+	const other = await followUp();
+	const [{ revision: triedRevision }] = (
+		await admin.execute(sql`SELECT revision::text AS revision FROM task WHERE id=${followUpId}`)
+	).rows;
+	const finished = await outcome(
+		"contacted, complete task",
+		{ kind: "task", taskId: followUpId, expectedRevision: triedRevision },
+		{ outcome: "contacted", occurredAt: tried.value.record.occurredAt, completeTask: true },
+	);
+	assert.deepEqual(
+		finished.record.alsoFinished.map((x) => x.taskId),
+		[other.taskId],
+	);
+	const dated = await followUp(sql`'date_only','2099-01-15'`);
+	await admin.execute(
+		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${plant.id},${dated.taskId},${owner.accountId})`,
+	);
+	const completed = await outcome("complete dated assigned task", dated, {
+		outcome: "attempted_no_contact",
+		completeTask: true,
+	});
+	assert.equal(completed.task.status, "complete");
 	const emailed = await act("POST people.createPerson (with email)", "/people", people, "createPerson", [
 		randomUUID(),
 		{ displayName: "Reachable guest", email: "guest@example.com" },
@@ -645,15 +702,18 @@ try {
 		await admin.execute(sql`SELECT revision::text AS revision FROM account WHERE id=${owner.accountId}`)
 	).rows;
 	const envelope = () => ({ requestKey: randomUUID(), expectedRevision: revision });
-	const marking = (name, action, input) => act(name, "/notifications", notifications, action, [envelope(), input]);
-	const marked = await marking("POST notifications.markRead", "markRead", owned[0]);
+	const marking = (name, action, input) =>
+		act(name, "/notifications", notifications, action, [{ ...envelope(), input }]);
+	const marked = await marking("POST notifications.markRead", "markRead", { noticeId: owned[0] });
 	assert.deepEqual(marked, { status: "ok", value: { markedIds: [owned[0]] } });
-	const selected = await marking("POST notifications.markSelectedRead", "markSelectedRead", [owned[1]]);
+	const selected = await marking("POST notifications.markSelectedRead", "markSelectedRead", { noticeIds: [owned[1]] });
 	assert.deepEqual(selected, { status: "ok", value: { markedIds: [owned[1]] } });
-	const all = await marking("POST notifications.markAllVisibleRead", "markAllVisibleRead", new Date().toISOString());
+	const all = await marking("POST notifications.markAllVisibleRead", "markAllVisibleRead", {
+		cutoff: new Date().toISOString(),
+	});
 	assert.deepEqual(all, { status: "ok", value: { markedIds: [owned[2]] } });
 	const settings = "apps/web/src/features/settings/actions.ts";
-	const section = await act(null, "/settings", settings, "getSection", [{ section: "account" }]);
+	const { value: section } = await read(null, "/settings/read", "section", { section: "account" });
 	assert.equal(section.status, "ok", JSON.stringify(section));
 	const saved = await act("POST settings.saveSection (account)", "/settings", settings, "saveSection", [
 		{
@@ -663,6 +723,19 @@ try {
 		},
 	]);
 	assert.equal(saved.status, "ok", JSON.stringify(saved));
+	const keptProof = await actReply(
+		null,
+		"/confirm-email",
+		settings,
+		"confirmEmailChange",
+		[],
+		`${owner.cookie}; ef-email-change-proof=${randomBytes(24).toString("base64url")}`,
+	);
+	assert.equal(keptProof.result.status, "refused", JSON.stringify(keptProof.result));
+	assert.ok(
+		keptProof.setCookies.some((c) => /^ef-email-change-proof=;/.test(c) && /Path=\/confirm-email/i.test(c)),
+		`confirmEmailChange answer ends the kept proof: ${JSON.stringify(keptProof.setCookies.map((c) => c.split("=")[0]))}`,
+	);
 	const brand = await act(
 		"POST settings.brand.saveSettings",
 		"/settings/brand",
@@ -745,20 +818,21 @@ try {
 	assert.equal(missed.status, 200);
 	assert.equal((await missed.arrayBuffer()).byteLength > 0, true);
 	assert.equal(objectReads(), readsBefore + 1);
-	const suggested = await act("POST settings.brand.suggestColors", "/settings/brand", brandActions, "suggestColors", [
-		{ assetKind: "full_logo" },
-	]);
+	const { value: suggested } = await read("GET /settings/read?what=colors", "/settings/read", "colors", {
+		assetKind: "full_logo",
+	});
 	assert.equal(suggested.status, "ok", JSON.stringify(suggested));
 	assert.equal(suggested.value.suggestedPrimary, "#2E7D32");
 	for (const [action, args] of [
 		["requestAssetUpload", [{ slot: "mark", mediaType: "image/png", byteLength: logo.length, altText: "x" }]],
 		["finalizeAssetUpload", [{ uploadId: ticket.value.uploadId, slot: "mark", altText: "x", expectedRevision: "2" }]],
-		["suggestColors", [{ assetKind: "full_logo" }]],
 		["saveBrand", [{ expectedRevision: "2", patch: { assets: { full_logo: null } } }]],
 	]) {
 		const denial = await act(null, "/settings/brand", brandActions, action, args, member.cookie);
 		assert.deepEqual([denial.status, denial.error?.code], ["refused", "access_denied"], action);
 	}
+	const colorDenial = await read(null, "/settings/read", "colors", { assetKind: "full_logo" }, member.cookie);
+	assert.deepEqual([colorDenial.value.status, colorDenial.value.error?.code], ["refused", "access_denied"]);
 	assert.equal((await asset(null, "PUT", ticket.value.uploadId, member.cookie, logo)).status, 403);
 	for (const cookie of [member.cookie, ""]) {
 		assert.equal((await asset(null, "GET", fileId, cookie)).status, 404);
@@ -814,7 +888,7 @@ try {
 	]);
 	assert.equal(corrected.status, "ok", JSON.stringify(corrected));
 	careRevision = corrected.value.revision;
-	const olderWeeks = await act("POST intelligence.readCheckInHistory", "/me/check-in", care, "readCheckInHistory", [2]);
+	const olderWeeks = await read("GET /me/check-in/read?what=history", "/me/check-in/read", "history", { page: 2 });
 	assert.equal(olderWeeks.status, "ok", JSON.stringify(olderWeeks));
 
 	const sigs = "apps/web/src/features/intelligence/signals-actions.ts";
@@ -1045,15 +1119,157 @@ try {
 		writtenDocument.revision,
 	);
 	for (const [name, path, cookie, status, headers] of pages) await get(name, path, cookie, status, headers);
-	const composed = await act(
-		"POST communication.readMeetingContext",
-		"/communication",
-		"apps/web/src/features/communication/actions.ts",
-		"readMeetingContext",
-		[visionMeeting],
-	);
+	const composed = await read("GET /communication/read?what=context", "/communication/read", "context", {
+		meetingId: visionMeeting,
+	});
 	assert.equal(composed.status, "ok", JSON.stringify(composed));
 	assert.equal(composed.value.guests.length, 103);
+
+	const bucketOrigin = `127.0.0.1:${bucket.address().port}`;
+	const bytesOnly = async (path, expected, storageKey) => {
+		const r = await fetch(origin + path, { headers: { cookie: owner.cookie }, redirect: "manual" });
+		const body = Buffer.from(await r.arrayBuffer());
+		assert.equal(r.status, 200, `${path}: HTTP ${r.status}`);
+		assert.equal(r.headers.get("location"), null, `${path} answered with a Location`);
+		assert.ok(body.equals(expected), `${path} answered other bytes than the stored ones`);
+		const head = [...r.headers].map(([k, v]) => `${k}: ${v}`).join("\n");
+		for (const hidden of [storageKey, bucketOrigin, "census-private", "x-amz-", "bearer"])
+			assert.ok(!head.toLowerCase().includes(hidden.toLowerCase()), `${path} headers carry ${hidden}:\n${head}`);
+	};
+	const accountRevision = async (id) =>
+		(await admin.execute(sql`SELECT revision::text AS revision FROM account WHERE id=${id}`)).rows[0].revision;
+	const avatarTicket = await act(null, "/settings", settings, "requestAvatarUpload", [
+		{ mime: "image/png", byteLength: logo.length },
+	]);
+	assert.equal(avatarTicket.status, "ok", JSON.stringify(avatarTicket));
+	const avatarPath = `/api/accounts/${owner.accountId}/avatar/${avatarTicket.value.uploadId}`;
+	const avatarStored = await fetch(origin + avatarPath, {
+		method: "PUT",
+		headers: { cookie: owner.cookie, origin, "content-type": "image/png" },
+		body: logo,
+	});
+	assert.equal(avatarStored.status, 204, await avatarStored.text());
+	const avatarSaved = await act(null, "/settings", settings, "finalizeAvatar", [
+		{
+			requestKey: randomUUID(),
+			expectedRevision: await accountRevision(owner.accountId),
+			input: { uploadId: avatarTicket.value.uploadId },
+		},
+	]);
+	assert.equal(avatarSaved.status, "ok", JSON.stringify(avatarSaved));
+	const storageKeyOf = async (id) =>
+		(await admin.execute(sql`SELECT opaque_key FROM file_object WHERE id=${id}::uuid`)).rows[0].opaque_key;
+	await bytesOnly(avatarPath, logo, await storageKeyOf(avatarTicket.value.uploadId));
+
+	const stagedId = randomUUID(),
+		stagedKey = `private/${plant.id}/${stagedId}`;
+	objects.set(`/census-private/${stagedKey}`, logo);
+	await admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
+		VALUES(${stagedId}::uuid,${plant.id}::uuid,'assistant_staging',${stagedKey},'image/png',${logo.length},'pending',${`evry-attachment/${census}/${stagedId}`},0,clock_timestamp()+interval '1 hour')`);
+	const stagedReview = {
+		target: { kind: "person", id: maria.id, label: "Maria Santos" },
+		changes: [{ field: "photo", before: null, after: "priya.png" }],
+	};
+	const [{ id: photoProposal }] = (
+		await admin.execute(sql`INSERT INTO proposal(tenant_id,account_id,conversation_id,operation,input,review,digest,state,expires_at)
+			VALUES(${plant.id},${owner.accountId},${census},'people.setPersonPhoto',${JSON.stringify({ input: { personId: maria.id, uploadId: stagedId } })}::jsonb,
+				${JSON.stringify(stagedReview)}::jsonb,${"0".repeat(64)},'pending',clock_timestamp()+interval '1 day') RETURNING id`)
+	).rows;
+	await bytesOnly(`/api/evry/proposals/${photoProposal}/photo`, logo, stagedKey);
+
+	const budgetKey = createHmac("sha256", secret).update("invitation-budget").digest();
+	const budgetForms = [budgetKey.toString("hex"), budgetKey.toString("base64"), budgetKey.toString("base64url")];
+	const invitationReply = async (path, body, cookie) => {
+		const r = await fetch(origin + path, {
+			method: "POST",
+			headers: { cookie, origin, "content-type": "application/json" },
+			body: JSON.stringify(body),
+		});
+		const text = await r.text();
+		const head = [...r.headers].map(([k, v]) => `${k}: ${v}`).join("\n");
+		for (const form of budgetForms)
+			for (const [where, value] of [
+				["body", text],
+				["headers", head],
+			])
+				assert.ok(
+					!value.toLowerCase().includes(form.toLowerCase()),
+					`${path} ${body.op} ${where} carry the budget key`,
+				);
+		assert.equal(r.status, 200, `${path} ${body.op}: HTTP ${r.status} ${text}`);
+		return JSON.parse(text);
+	};
+	const invitee = await account("Invitee");
+	const seatProof = randomBytes(32).toString("base64url"),
+		seatInvitation = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,inviter_id,role,token_hash,state,created_at) VALUES(${seatInvitation},${plant.id},'seat',${invitee.email},${owner.accountId},'member',${createHash("sha256").update(seatProof).digest("hex")},'pending',clock_timestamp())`,
+	);
+	const described = await invitationReply("/api/invitation", { op: "read", proof: seatProof }, invitee.cookie);
+	assert.equal(described.session, "active", JSON.stringify(described));
+	assert.equal(described.description.status, "pending", JSON.stringify(described));
+	assert.equal(described.description.invitationId, seatInvitation);
+	const seated = await invitationReply(
+		"/api/invitation",
+		{
+			op: "accept_seat",
+			command: {
+				requestKey: randomUUID(),
+				expectedRevision: described.description.revision,
+				input: { invitationId: seatInvitation, proof: seatProof },
+			},
+		},
+		invitee.cookie,
+	);
+	assert.equal(seated.status, "ok", JSON.stringify(seated));
+	const signedOutRead = await invitationReply("/api/invitation", { op: "read", proof: seatProof }, "");
+	assert.equal(signedOutRead.session, "signed_out");
+	const connection = await invitationReply(
+		"/api/connections/invitation",
+		{ op: "read", invitationId: randomUUID(), proof: randomBytes(32).toString("base64url") },
+		owner.cookie,
+	);
+	assert.deepEqual(connection, { kind: "unavailable" });
+
+	const sessionOf = async (cookie) => (await fetch(origin + "/api/auth/get-session", { headers: { cookie } })).json();
+	const withCookies = (cookie, setCookies) => {
+		const jar = new Map(cookie.split("; ").map((pair) => [pair.split("=")[0], pair]));
+		for (const set of setCookies) {
+			const pair = set.split(";")[0];
+			const name = pair.split("=")[0];
+			if (pair === `${name}=` || /max-age=0/i.test(set)) jar.delete(name);
+			else jar.set(name, pair);
+		}
+		return [...jar.values()].join("; ");
+	};
+	const newPassword = "Requests-changed-" + randomBytes(6).toString("hex");
+	const changed = await actReply(
+		null,
+		"/settings",
+		settings,
+		"changePassword",
+		[{ currentPassword: member.password, newPassword, confirmPassword: newPassword }],
+		member.cookie,
+	);
+	assert.deepEqual(
+		[changed.result.status, changed.result.action, changed.result.accountId],
+		["succeeded", "password_changed", member.accountId],
+		JSON.stringify(changed.result),
+	);
+	const changedCookie = withCookies(member.cookie, changed.setCookies);
+	assert.notEqual(changedCookie, member.cookie, "the password change set no new session cookie");
+	const afterChange = await sessionOf(changedCookie);
+	assert.equal(afterChange?.status, "active", JSON.stringify(afterChange));
+	assert.equal(afterChange.accountId, member.accountId);
+	assert.notEqual(afterChange.sessionId, member.sessionId, "the password change kept the old session");
+	const settingsPage = await fetch(origin + "/settings", { headers: { cookie: changedCookie }, redirect: "manual" });
+	assert.equal(settingsPage.status, 200, "the new session cookie does not sign in");
+	assert.ok((await settingsPage.text()).includes(member.accountId), "the new session renders another account");
+	const oldPage = await fetch(origin + "/settings", { headers: { cookie: member.cookie }, redirect: "manual" });
+	assert.equal(oldPage.status, 307, "the pre-change cookie still signs in");
+	assert.match(oldPage.headers.get("location") ?? "", /\/signin/);
+	const oldSession = await sessionOf(member.cookie);
+	assert.deepEqual(oldSession, { status: "unauthenticated" }, "the pre-change cookie still has a session");
 
 	server.kill("SIGTERM");
 	await exited;

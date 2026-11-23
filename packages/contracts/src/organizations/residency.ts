@@ -48,6 +48,7 @@ export const residentEnrollment = z.strictObject({
 
 export const myResidency = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("not_linked") }),
+	z.strictObject({ status: z.literal("ended") }),
 	z.strictObject({
 		status: z.literal("linked"),
 		organizationName: z.string(),

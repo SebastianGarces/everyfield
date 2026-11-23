@@ -13,7 +13,7 @@ import {
 	type FeatureMap,
 } from "./feature-maps.ts";
 import { census, chartCurrent, page, render, SCHEMA_TABLES, sameValues, schemaColumns, tableFile } from "./machines.ts";
-import { machines } from "../../packages/contracts/src/machines/index.ts";
+import { columnsOf, machines } from "../../packages/contracts/src/machines/index.ts";
 
 type Surface = FeatureMap["surfaces"][number];
 type Reach = Surface["reach"][number];
@@ -24,12 +24,21 @@ const RECORDING = /\.(webm|mp4|mov)$/;
 const PNG_SIGNATURE = "89504e470d0a1a0a";
 const NOT_PRODUCT = new Set([PENDING_FILE, SCHEMA_FILE]);
 
+export const DIMENSIONS = ["hierarchy", "spacing", "color", "type", "copy"] as const;
+export const PASS_BAR = 8.5;
+const PROTOTYPES: Record<string, RegExp> = {
+	"design/everyfield-ui.html": /<section\b[^>]*\bdata-page="([a-z0-9-]+)"/g,
+	"design/everyfield-marketing.html": /\{ id: "([a-z0-9-]+)", name: "/g,
+};
+
 const isProduct = (file: string) =>
 	(file.startsWith("apps/web/") || /^packages\/[^/]+\/src\//.test(file)) &&
 	!NOT_PRODUCT.has(file) &&
 	!file.endsWith(".md") &&
 	!isTest(file) &&
 	!/\.spec\.|(^|\/)(tests?|__tests__)\//.test(file);
+
+const isUi = (file: string) => isProduct(file) && (file.startsWith("apps/web/") || file.startsWith("packages/ui/src/"));
 
 function pngWidth(file: string): number | null {
 	const bytes = readFileSync(file);
@@ -75,7 +84,10 @@ function machineProof(root: string, changed: string[], evidence: string, base?: 
 		const writers = census(root, m);
 		const touched =
 			changes.has(tableFile(m)) ||
-			(schema !== undefined && !sameValues(schema.head.get(key), schema.before.get(key))) ||
+			(schema !== undefined &&
+				columnsOf(m).some(
+					(c) => !sameValues(schema.head.get(`${m.table}.${c}`), schema.before.get(`${m.table}.${c}`)),
+				)) ||
 			writers.some((w) => changes.has(w.file));
 		if (!touched) continue;
 		if (!chartCurrent(root, m, render(m, writers)))
@@ -111,6 +123,108 @@ function machineProof(root: string, changed: string[], evidence: string, base?: 
 				"",
 				"| Machine | Column | Table | Chart | Coverage |",
 				"|---|---|---|---|---|",
+				...rows,
+				"",
+			].join("\n")
+		: "";
+	return { problems, report };
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
+function referenceText(root: string, id: string, reference: unknown, problems: string[]): string | null {
+	if (!isRecord(reference)) {
+		problems.push(
+			`${id}: the scores file names no reference; set reference.prototype and reference.section, or reference.approved`,
+		);
+		return null;
+	}
+	if (typeof reference.approved === "string" && reference.approved.trim())
+		return `approved reference ${reference.approved}`;
+	const { prototype, section } = reference;
+	const pattern = typeof prototype === "string" ? PROTOTYPES[prototype] : undefined;
+	if (!pattern) {
+		problems.push(
+			`${id}: reference.prototype is ${JSON.stringify(prototype)}; use ${Object.keys(PROTOTYPES).join(" or ")}, or set reference.approved`,
+		);
+		return null;
+	}
+	const file = join(root, prototype as string);
+	const sections = existsSync(file) ? [...readFileSync(file, "utf8").matchAll(pattern)].map((m) => m[1]!) : [];
+	if (typeof section !== "string" || !sections.includes(section)) {
+		problems.push(
+			`${id}: ${prototype} has no section ${JSON.stringify(section)}; sections: ${[...new Set(sections)].join(", ")}`,
+		);
+		return null;
+	}
+	return `\`${prototype}\` section \`${section}\``;
+}
+
+function designMatch(root: string, evidence: string, surfaces: string[]) {
+	const problems: string[] = [];
+	const rows: string[] = [];
+	for (const id of surfaces) {
+		const rel = `design-match/${id}`;
+		const scoresFile = join(evidence, rel, "scores.json");
+		if (!existsSync(scoresFile)) {
+			problems.push(`${id}: has no design-match scores file ${scoresFile}; the reviewer scores it (verify-preview 4)`);
+			continue;
+		}
+		let scores: unknown;
+		try {
+			scores = JSON.parse(readFileSync(scoresFile, "utf8"));
+		} catch (error) {
+			problems.push(`${id}: ${rel}/scores.json is not JSON: ${(error as Error).message}`);
+			continue;
+		}
+		const data = isRecord(scores) ? scores : {};
+		const reference = referenceText(root, id, data.reference, problems);
+		const widths = isRecord(data.widths) ? data.widths : {};
+		for (const width of WIDTHS) {
+			const image = `${rel}/${width}.png`;
+			const imagePath = join(evidence, image);
+			const imageWidth = existsSync(imagePath) ? pngWidth(imagePath) : null;
+			if (imageWidth === null)
+				problems.push(`${id}: has no ${width} px side-by-side PNG ${image} (built screen and reference in one image)`);
+			else if (imageWidth < 2 * width)
+				problems.push(
+					`${id}: ${image} is ${imageWidth} px wide; a ${width} px side-by-side holds the built screen and the reference (at least ${2 * width} px)`,
+				);
+			const given = widths[String(width)];
+			if (!isRecord(given)) {
+				problems.push(`${id}: ${rel}/scores.json has no ${width} px scores`);
+				continue;
+			}
+			const cells: string[] = [];
+			for (const dimension of DIMENSIONS) {
+				const entry = given[dimension];
+				const at = `${id}: ${width} px ${dimension}`;
+				if (!isRecord(entry) || typeof entry.score !== "number") {
+					problems.push(`${at} has no score`);
+					cells.push("none");
+					continue;
+				}
+				const reason = typeof entry.reason === "string" ? entry.reason.trim() : "";
+				if (entry.score < 0 || entry.score > 10) problems.push(`${at} scores ${entry.score}, outside 0-10`);
+				else if (entry.score < PASS_BAR)
+					problems.push(`${at} scores ${entry.score}, below the ${PASS_BAR} pass bar: ${reason || "no reason"}`);
+				if (!reason) problems.push(`${at} has an empty reason`);
+				cells.push(`${entry.score}: ${reason}`);
+			}
+			rows.push(
+				`| ${id} | ${width} | ${cell(reference ?? "none")} | ${cells.map(cell).join(" | ")} | ${imageWidth === null ? "none" : `[${width}.png](${image})`} |`,
+			);
+		}
+	}
+	const report = rows.length
+		? [
+				"### Design match",
+				"",
+				`Pass bar: every score at least ${PASS_BAR} of 10.`,
+				"",
+				"| Surface | Width | Reference | Hierarchy | Spacing | Color | Type | Copy | Side by side |",
+				"|---|---|---|---|---|---|---|---|---|",
 				...rows,
 				"",
 			].join("\n")
@@ -216,12 +330,13 @@ export function reviewProof(
 		: needed
 			? ""
 			: `No app proof needed: the diff changes only tooling, docs, tests or agent instructions (${changed.length} file(s)).\n`;
+	const design = changed.some(isUi) ? designMatch(root, evidence, required) : { problems: [], report: "" };
 	const machine = machineProof(root, changed, evidence, base);
-	problems.push(...machine.problems);
+	problems.push(...design.problems, ...machine.problems);
 	return {
 		problems: [...new Set(problems)],
 		needed,
-		report: report + (report && machine.report ? "\n" : "") + machine.report,
+		report: [report, design.report, machine.report].filter(Boolean).join("\n"),
 	};
 }
 

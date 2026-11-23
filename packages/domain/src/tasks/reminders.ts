@@ -2,10 +2,10 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { seatHeld } from "../access/session.ts";
-import type { Tx } from "./core.ts";
+import type { Transaction } from "@everyfield/db/client";
 
 export async function authorizeTaskReminders(
-	tx: Tx,
+	tx: Transaction,
 	mail: readonly { id: string; recipient: string | null; notice: string | null }[],
 ): Promise<ReadonlySet<string>> {
 	const input = mail.map((m) => ({ id: m.id, recipient: m.recipient, notice: m.notice }));
@@ -31,7 +31,7 @@ export const reminderSeats = (plantId: string, accounts: SQL) =>
 			AND s.account_id IN (${accounts}) FOR SHARE OF s`;
 
 export async function reminderRecipients(
-	tx: Tx,
+	tx: Transaction,
 	plantId: string,
 	accounts: readonly string[],
 ): Promise<ReadonlyMap<string, string>> {

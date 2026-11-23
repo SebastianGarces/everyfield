@@ -9,7 +9,7 @@ import {
 	type ExportFormat,
 	type SavedExport,
 } from "@everyfield/contracts/documents";
-import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
+import { Alert, Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { LocalTime, Tag } from "@everyfield/ui/display";
 import dynamic from "next/dynamic";
 import { startTransition, useActionState, useOptimistic, useRef, useState } from "react";
@@ -30,7 +30,7 @@ const ChurchEditor = dynamic(() => import("./editor/ChurchEditor.tsx"), {
 			<span className="sr-only" role="status">
 				Loading the editor
 			</span>
-			<Skeleton className="h-12 w-full rounded-card" />
+			<Skeleton className="h-12 w-full" />
 			<Skeleton className="mx-auto aspect-[612/792] w-full max-w-[816px] rounded-none" />
 		</div>
 	),
@@ -127,14 +127,14 @@ export function ChurchDocumentScreen({
 
 	async function remove() {
 		const result: ChurchActionResult | undefined = await deleteChurchDocument(doc.id, revision);
-		if (result?.status === "refused") throw new Error(result.message);
-		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was deleted.");
+		if (result?.status === "refused") return { refused: result.message };
+		if (result?.status === "lost") return { refused: "The connection dropped. Nothing was deleted." };
 	}
 
 	async function archive() {
 		const result: ChurchActionResult | undefined = await archiveChurchDocument(doc.id, revision);
-		if (result?.status === "refused") throw new Error(result.message);
-		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was archived.");
+		if (result?.status === "refused") return { refused: result.message };
+		if (result?.status === "lost") return { refused: "The connection dropped. Nothing was archived." };
 	}
 
 	return (
@@ -219,12 +219,9 @@ export function ChurchDocumentScreen({
 				</p>
 			) : null}
 			{shownError?.at === null ? (
-				<p
-					role="alert"
-					className="mb-4 rounded-md bg-magenta-100 px-4 py-3 text-md text-magenta-600 shadow-[0_0_0_1px_var(--ef-line)]"
-				>
+				<Alert role="alert" className="mb-4">
 					{shownError.message}
-				</p>
+				</Alert>
 			) : null}
 			{doc.archived ? null : (
 				<ChurchBranding

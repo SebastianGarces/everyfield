@@ -25,22 +25,25 @@ import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
 import { transientRetry, withTransientRetry } from "../../../packages/evry/src/runtime/model.ts";
 import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
 import { loadHistory } from "../../../packages/evry/src/runtime/run-store.ts";
-import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import {
 	accounts,
 	actor,
 	admin,
 	db,
+	gatedWriter,
 	people,
 	plant,
 	otherPlant,
 	queries,
 	setup,
+	statementListeners,
 	statements,
 	sql,
 	teardown,
 	work,
 } from "./support.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 before(setup);
 after(teardown);
@@ -112,15 +115,16 @@ async function events(who: EvryActor, id: string) {
 test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded pages report the exact total, partial completeness and the next page; the 24-tool budget stops truthfully", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner, "Show all people and tell me the exact total.");
-	const started = performance.now();
 	assert.equal(await work(), "succeeded");
-	const seconds = (performance.now() - started) / 1000;
-	const firstCard = await admin.execute(
-		sql`SELECT extract(epoch FROM (SELECT min(created_at) FROM conversation_event WHERE conversation_id=${id} AND kind='tool_result') - (SELECT created_at FROM conversation_event WHERE conversation_id=${id} AND kind='user_message'))::float s`,
+	const since = (kind: string, pick: "min" | "max") =>
+		sql`extract(epoch FROM (SELECT ${sql.raw(pick)}(created_at) FROM conversation_event WHERE conversation_id=${id} AND kind=${kind}) - (SELECT created_at FROM conversation_event WHERE conversation_id=${id} AND kind='user_message'))::float`;
+	const timing = await admin.execute<{ card: number; turn: number }>(
+		sql`SELECT ${since("tool_result", "min")} card, ${since("status", "max")} turn`,
 	);
 	const { cards, text, status } = await events(owner, id);
-	const total = (await admin.execute(sql`SELECT count(*)::int n FROM person WHERE plant_id=${plant} AND state='live'`))
-		.rows[0]!.n;
+	const total = (
+		await admin.execute<{ n: number }>(sql`SELECT count(*)::int n FROM person WHERE plant_id=${plant} AND state='live'`)
+	).rows[0]!.n;
 	assert.equal(cards.length, 1);
 	assert.deepEqual(
 		[
@@ -136,13 +140,14 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.deepEqual([status.state, status.reason, status.usage.toolCalls], ["completed", "completed", 1]);
 	console.log(
 		JSON.stringify({
-			turnSeconds: Number(seconds.toFixed(2)),
-			submitToFirstCardSeconds: Number(firstCard.rows[0]!.s.toFixed(2)),
+			submitToEndSeconds: Number(timing.rows[0]!.turn.toFixed(2)),
+			submitToFirstCardSeconds: Number(timing.rows[0]!.card.toFixed(2)),
 		}),
 	);
 
 	const foreign = await actor("foreign");
-	const all = (await admin.execute(sql`SELECT count(*)::int n FROM person WHERE plant_id=${otherPlant}`)).rows[0]!.n;
+	const all = (await admin.execute<{ n: number }>(sql`SELECT count(*)::int n FROM person WHERE plant_id=${otherPlant}`))
+		.rows[0]!.n;
 	const wide = await ask(foreign, "Read every detail for all people.");
 	assert.equal(await work(), "succeeded");
 	const input = await events(foreign, wide);
@@ -178,6 +183,7 @@ const MEMBER_MEETINGS_READS = [
 	"venues.list",
 	"venues.get",
 	"venues.history",
+	"evry.readWorkflowHint",
 ];
 const MEETINGS_READS = [
 	"meetings.list",
@@ -206,6 +212,7 @@ const MEETINGS_READS = [
 	"venues.list",
 	"venues.get",
 	"venues.history",
+	"evry.readWorkflowHint",
 ];
 const MEMBER_MEETINGS_WRITES = [
 	"meetings.schedule",
@@ -219,7 +226,7 @@ const MEMBER_MEETINGS_WRITES = [
 ];
 const MEETINGS_WRITES = Object.keys(MEETINGS_COMMANDS);
 
-test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral requests get the fixed boundary before any tool; capabilities follow the current catalog", async () => {
+test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-01 pastoral requests get the fixed boundary before any tool; capabilities follow the current catalog and the role, with what is coming later", async () => {
 	const owner = await actor("owner");
 	const pastoral = await ask(
 		owner,
@@ -234,10 +241,19 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 
 	const can = await ask(owner, "What can you do for me?");
 	assert.equal(await work(), "succeeded");
-	assert.match(
-		(await events(owner, can)).text,
-		/List people in this church[\s\S]*Read one person[\s\S]*review and approval/,
-	);
+	const owned = (await events(owner, can)).text;
+	assert.match(owned, /Find and count the people[\s\S]*Prepare changes to people[\s\S]*review and approve/);
+	const member = await actor("member");
+	const asked = await ask(member, "hi! what are you able to do?");
+	assert.equal(await work(), "succeeded");
+	const memberAnswer = (await events(member, asked)).text;
+	assert.match(memberAnswer, /Find and count the people/);
+	assert.match(memberAnswer, /made by an Owner or Admin of this church/);
+	assert.match(memberAnswer, /Read the Launch plan/);
+	assert.doesNotMatch(memberAnswer, /Coming later/);
+	assert.doesNotMatch(memberAnswer, /Tasks and reminders|Documents and the wiki/);
+	assert.doesNotMatch(memberAnswer, /Prepare (changes|emails)|propose/i);
+	assert.notEqual(memberAnswer, owned);
 	const seatless = await actor("seatless");
 	const none = await ask(seatless, "What can you do for me?");
 	assert.equal(await work(), "succeeded");
@@ -245,6 +261,67 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 		(await events(seatless, none)).text,
 		/own Discovery space[\s\S]*starting a new church[\s\S]*private Discovery space/,
 	);
+	const memberTaskWrites = [
+		"tasks.complete",
+		"tasks.completeOccurrence",
+		"tasks.reopen",
+		"tasks.changeStatus",
+		"tasks.waive",
+		"tasks.bulkComplete",
+		"tasks.createSubtask",
+		"tasks.setSubtaskCompletion",
+		"tasks.reopenObligation",
+		"followups.recordOutcome",
+		"followups.correctOutcome",
+	];
+	const taskWrites = [
+		"tasks.create",
+		"tasks.configureRecurrence",
+		"tasks.edit",
+		"tasks.complete",
+		"tasks.completeOccurrence",
+		"tasks.reopen",
+		"tasks.changeStatus",
+		"tasks.waive",
+		"tasks.delete",
+		"tasks.bulkComplete",
+		"tasks.bulkReschedule",
+		"tasks.createSubtask",
+		"tasks.setSubtaskCompletion",
+		"tasks.removeSubtask",
+		"tasks.acceptPhaseOffer",
+		"tasks.answerPhaseOffer",
+		"tasks.declinePhaseOffer",
+		"tasks.importTemplate",
+		"tasks.replacePrerequisites",
+		"tasks.createFollowUp",
+		"tasks.assignFollowUp",
+		"tasks.executeHandoff",
+		"tasks.reopenObligation",
+		"followups.recordOutcome",
+		"followups.correctOutcome",
+	];
+	const mailReads = [
+		"communication.list",
+		"communication.preview",
+		"communication.get",
+		"communication.forPerson",
+		"communication.templates.list",
+	];
+	const wikiWrites = ["wiki.bookmarks.set", "wiki.feedback.setMine"];
+	const orgWikiWrites = [
+		"wiki.organizationArticles.add",
+		"wiki.organizationArticles.edit",
+		"wiki.organizationArticles.publish",
+		"wiki.organizationArticles.hide",
+	];
+	const wikiReads = [
+		"wiki.search",
+		"wiki.referenceExcerpt",
+		"wiki.recommendForPhase",
+		"wiki.reading.resume",
+		"wiki.article.exportPdf",
+	];
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -258,6 +335,15 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.deletePerson",
 						"people.setPersonPhoto",
 						"people.removePersonPhoto",
+						"people.createInterview",
+						"people.createAssessment",
+						"people.createCommitment",
+						"people.withdrawCommitment",
+						"people.reactivateCommitment",
+						"people.correctCommitmentLifecycle",
+						"people.correctPersonRecord",
+						"people.mergePeople",
+						"people.unmergePeople",
 						"people.addToHousehold",
 						"people.createHouseholdWithHead",
 						"people.updateHousehold",
@@ -282,12 +368,26 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"communication.rescheduleReviewed",
 						"communication.cancelScheduledReviewed",
 						"communication.replaceScheduledReviewed",
+						"communication.sendReviewed",
+						"communication.executeResend",
+						"communication.retryProvenFailed",
+						"communication.deleteDraft",
+						"communication.templates.create",
+						"communication.templates.fork",
+						"communication.templates.update",
 						"notifications.markSelectedRead",
 						"notifications.markAllVisibleRead",
 						"notifications.setPreferences",
 						"notifications.digestCadence.set",
 						...Object.keys(REVIEWED_WRITES).filter((op) => op.startsWith("teams.")),
+						"phases.declare",
+						"phases.transition",
+						"signals.attest",
+						"signals.correct",
+						"signals.reaffirm",
 						...MEETINGS_WRITES,
+						"evry.prepareMeetingInvitation",
+						"evry.reuseRecipe",
 						"seats.invite",
 						"seats.resendInvitation",
 						"seats.revokeInvitation",
@@ -305,6 +405,15 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"identity.answerLeadOnboarding",
 						"onboarding.complete",
 						"feedback.submit",
+						"intelligence.requestRefresh",
+						"intelligence.submitFeedback",
+						...taskWrites,
+						...wikiWrites,
+						"documents.createFromTemplate",
+						"documents.exportNative",
+						"documents.archive",
+						"documents.designateCoreValues",
+						"documents.importTextOrWord",
 						"launch.schedule",
 						"launch.postpone",
 						"launch.recordOutcome",
@@ -324,14 +433,18 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"account.finalizeAvatar",
 							"account.requestDeletion",
 							"feedback.submit",
+							...memberTaskWrites,
+							...wikiWrites,
 						]
 					: who === "orgOwner"
 						? [
+								"notifications.setPreferences",
 								"notifications.oversightDigestCadence.set",
 								"organizations.updateProfile",
 								"pipeline.proposeStageMove",
 								"development.saveProgram",
 								"development.draftNextVersion",
+								...orgWikiWrites,
 							]
 						: ["onboarding.createPlant", "discovery.create", "discovery.convertToPlant"],
 		);
@@ -345,6 +458,39 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 			"feedback.getOwnStatus",
 		];
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
+		const memberTaskReads = [
+			"tasks.list",
+			"tasks.count",
+			"tasks.get",
+			"tasks.statusHistory",
+			"tasks.listSubtasks",
+			"tasks.listPrerequisites",
+			"tasks.findOpenOccurrence",
+			"tasks.listFollowUpOwners",
+			"followups.readObligations",
+			"followups.listContactHistory",
+		];
+		const ownerTaskReads = [
+			"tasks.list",
+			"tasks.count",
+			"tasks.get",
+			"tasks.statusHistory",
+			"tasks.listSubtasks",
+			"tasks.listPrerequisites",
+			"tasks.prerequisiteCandidates",
+			"tasks.findOpenOccurrence",
+			"tasks.eligibleAssignees",
+			"tasks.relationOptions",
+			"tasks.listTemplates",
+			"tasks.previewTemplate",
+			"tasks.readPhaseOffer",
+			"tasks.importReceipt",
+			"tasks.listFollowUpOwners",
+			"followups.readObligations",
+			"followups.listContactHistory",
+			"tasks.followUpCoverage",
+			"tasks.planHandoff",
+		];
 		const ownerReads = [...peopleReads, "people.listDuplicatePairs"];
 		const organizationReads = [
 			"people.exportPeople",
@@ -357,6 +503,12 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 			"people.getPipelineData",
 			"people.listHouseholds",
 			"people.listTags",
+		];
+		const documentsReads = [
+			"documents.listOwned",
+			"documents.read",
+			"documents.readCoreValuesEvidence",
+			"documents.templates.list",
 		];
 		assert.deepEqual(
 			operations,
@@ -375,17 +527,46 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.listHouseholds",
 						"people.listTags",
 						"people.previewImport",
+						"people.getInterviews",
+						"people.getAssessments",
+						"people.getCommitments",
+						"people.getCommitmentDownload",
+						"people.getMergeReview",
+						"people.previewUnmerge",
+						"people.listRecordCorrections",
+						"people.mergedPersonDestination",
 						"communication.list",
+						"communication.preview",
+						"communication.get",
+						"communication.forPerson",
+						"communication.templates.list",
+						"communication.resendCandidates",
+						...ownerTaskReads,
 						"notifications.feed",
 						"notifications.preferences.get",
 						"notifications.previewPlanterDigest",
 						...teamsReads,
+						"phases.readCatalog",
+						"phases.readHistory",
+						"phases.readReadiness",
+						"intelligence.readExitCriteria",
+						"intelligence.readJourney",
+						"signals.listDefinitions",
+						"signals.getHistory",
 						...MEETINGS_READS,
 						"seats.list",
 						"seats.listInvitations",
 						"privacy.getSharing",
 						"onboarding.getResume",
 						...OVERVIEW_READS,
+						"intelligence.readCommittedAdultCohort",
+						"intelligence.readScorecard",
+						"intelligence.readAssessment",
+						"intelligence.readAssessmentDelta",
+						"calendar.getContext",
+						"calendar.resolve",
+						...wikiReads,
+						...documentsReads,
 						"launch.readCountdown",
 						"launch.readWorkspace",
 						"launch.readJournal",
@@ -395,7 +576,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 					? [
 							...peopleReads,
 							...organizationReads,
-							"communication.list",
+							...mailReads,
+							...memberTaskReads,
 							"notifications.feed",
 							"notifications.preferences.get",
 							...teamsReads,
@@ -403,6 +585,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"seats.list",
 							"privacy.getSharing",
 							...OVERVIEW_READS,
+							"calendar.getContext",
+							"calendar.resolve",
+							...wikiReads,
+							...documentsReads,
 							"launch.readCountdown",
 							"launch.readWorkspace",
 							"launch.readDebrief",
@@ -413,6 +599,12 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 								"pipeline.listPeople",
 								"development.draftPlan",
 								"development.readProgram",
+								"oversight.listPlants",
+								"oversight.getPlant",
+								"organizationIntelligence.read",
+								"organizationIntelligence.readHistory",
+								"organizationIntelligence.readLocations",
+								"organizationIntelligence.readLocationHistory",
 							]
 						: who === "seatless"
 							? ["discovery.getProfile"]
@@ -492,13 +684,20 @@ test("INV-spend-limit: every paid model call reserves its byte-bounded worst cas
 
 	const one = await reservation("Show all people.");
 	const cap = (await charged()) + one + Math.floor(one / 2);
-	const slow = [0, 1, 2].map(() => priced(cap, () => new Promise((r) => setTimeout(r, 300))));
+	const turns: Promise<unknown>[] = [];
+	let reachedModel = 0;
+	const slow = [0, 1, 2].map((i) =>
+		priced(cap, async () => {
+			if (++reachedModel === 1) await Promise.all(turns.filter((_, j) => j !== i));
+		}),
+	);
 	const ids = [
 		await ask(owner, "Show all people."),
 		await ask(owner, "Show all people."),
 		await ask(owner, "Show all people."),
 	];
-	await Promise.all(slow.map((m) => work(m.model)));
+	turns.push(...slow.map((m) => work(m.model)));
+	await Promise.all(turns);
 	assert.deepEqual(slow.map((m) => Math.min(m.calls(), 1)).toSorted(), [0, 0, 1]);
 	const ends = await Promise.all(ids.map(async (c) => (await events(owner, c)).status));
 	assert.equal(ends.filter((e) => e.error?.code === "model_unavailable").length >= 2, true);
@@ -525,7 +724,7 @@ test("AC:INH-EDGES-01 AC:INH-REGRESSION-CLARIFICATION-NAME AC:SEC-11 two people 
 		sql`UPDATE person SET email='alex@example.test', phone='555-0100', notes='Bearer abcdefghijklmnopqrstuvwxyz0123456789' WHERE id=${people.alexRivera}`,
 	);
 	await admin.execute(sql`UPDATE person SET city='sk-live-abcdefghijklmnopqrstuvwx' WHERE id=${people.casey}`);
-	const before = (await admin.execute(sql`SELECT count(*)::int n FROM audit_event`)).rows[0]!.n;
+	const before = (await admin.execute<{ n: number }>(sql`SELECT count(*)::int n FROM audit_event`)).rows[0]!.n;
 	const { calls, model } = recorded();
 	const id = await ask(owner, "Find Alex. There are two people named Alex.");
 	assert.equal(await work(model), "succeeded");
@@ -541,7 +740,7 @@ test("AC:INH-EDGES-01 AC:INH-REGRESSION-CLARIFICATION-NAME AC:SEC-11 two people 
 	const prompts = JSON.stringify(calls.map((c) => c.prompt));
 	for (const secret of ["alex@example.test", "555-0100", "Bearer abcdef"]) assert.ok(!prompts.includes(secret), secret);
 	assert.equal(
-		(await admin.execute(sql`SELECT count(*)::int n FROM audit_event`)).rows[0]!.n,
+		(await admin.execute<{ n: number }>(sql`SELECT count(*)::int n FROM audit_event`)).rows[0]!.n,
 		before + 2,
 		"create and submit only",
 	);
@@ -571,20 +770,30 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 	assert.deepEqual(
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
 		[
+			"calendar_read",
 			"communication_read",
 			"dashboard_read",
+			"documents_read",
 			"feedback_read",
+			"followups_read",
+			"intelligence_read",
 			"launch_read",
 			"meetings_read",
 			"notifications_read",
 			"onboarding_read",
+			"peopleAssessments_read",
 			"peopleOrganization_read",
 			"people_read",
+			"phases_read",
 			"propose_change",
 			"seats_read",
 			"select_returned_rows",
 			"sharing_read",
+			"signals_read",
+			"tasks_read",
 			"teams_read",
+			"wiki_read",
+			"workflows_read",
 		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",
 	);
@@ -736,7 +945,7 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:UI45-006 a source retired after its turn is with
 
 test("AC:GAP-EVR-400 selection reuses only rows the conversation returned and checks access again", async () => {
 	const owner = await actor("owner");
-	const outputs: Record<string, any>[] = [];
+	const outputs: unknown[] = [];
 	const call = (toolName: string, input: unknown) => ({
 		type: "tool-call" as const,
 		toolCallId: randomUUID(),
@@ -752,16 +961,18 @@ test("AC:GAP-EVR-400 selection reuses only rows the conversation returned and ch
 		...base,
 		async doStream(options) {
 			if (options.responseFormat?.type === "json") return base.doStream(options);
-			const part = options.prompt.at(-1)?.role === "tool" ? (options.prompt.at(-1)!.content.at(-1) as any) : null;
-			if (part?.output?.type === "json") outputs.push(part.output.value);
-			const listed = outputs[0];
+			const last = options.prompt.at(-1);
+			const part = last?.role === "tool" ? last.content.at(-1) : undefined;
+			if (part?.type === "tool-result" && part.output.type === "json") outputs.push(part.output.value);
+			const [listed] = outputs;
+			const resultId = listed && typeof listed === "object" && "resultId" in listed ? listed.resultId : undefined;
 			const parts =
 				outputs.length === 0
 					? [call("people_read", { operation: "people.listPeople", input: { search: "Alex" } })]
 					: outputs.length === 1
-						? [call("select_returned_rows", { resultId: listed!.resultId, ids: [people.alexRivera, people.casey] })]
+						? [call("select_returned_rows", { resultId, ids: [people.alexRivera, people.casey] })]
 						: outputs.length === 2
-							? [call("select_returned_rows", { resultId: listed!.resultId, ids: [people.alexRivera] })]
+							? [call("select_returned_rows", { resultId, ids: [people.alexRivera] })]
 							: [
 									{ type: "text-start" as const, id: "t" },
 									{ type: "text-delta" as const, id: "t", delta: "Selected Alex Rivera." },
@@ -856,45 +1067,14 @@ test("AC:EVRY-RETRY-CANCEL two transient model retries with 1 s then 3 s backoff
 
 test("AC:INH-CROSS-08 AC:EVRY-RETRY-CANCEL INV-run-fence cancel stops model work and new tools at the next save; a run without its lease cannot publish", async () => {
 	const owner = await actor("owner");
-	const base = scriptedModel();
-	const slow: LanguageModelV4 = {
-		...base,
-		async doStream(options) {
-			if (options.responseFormat?.type === "json") return base.doStream(options);
-			const words = Array.from({ length: 40 }, (_, n) => `word${n} `);
-			return {
-				stream: new ReadableStream({
-					async start(c) {
-						c.enqueue({ type: "text-start", id: "t" });
-						for (const delta of words) {
-							if (options.abortSignal?.aborted) return c.error(options.abortSignal.reason);
-							c.enqueue({ type: "text-delta", id: "t", delta });
-							await new Promise((r) => setTimeout(r, 100));
-						}
-						c.enqueue({ type: "text-end", id: "t" });
-						c.enqueue({
-							type: "finish",
-							finishReason: { unified: "stop", raw: undefined },
-							usage: {
-								inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
-								outputTokens: { total: 1, text: 1, reasoning: 0 },
-							},
-						});
-						c.close();
-					},
-				}),
-			};
-		},
-	};
+	const slow = gatedWriter(Array.from({ length: 40 }, (_, n) => `word${n} `));
 	const id = await ask(owner, "Write a long overview of the people list.");
-	const running = work(qualified(slow));
-	for (
-		let n = 0;
-		n < 100 && !(await readConversation(db, owner, id)).events.some((e) => e.kind === "assistant_text");
-		n++
-	)
-		await new Promise((r) => setTimeout(r, 50));
+	const running = work(slow.model);
+	slow.release();
+	for await (const e of observeConversation(db, owner, id, 0, AbortSignal.timeout(5_000)))
+		if (e.kind === "assistant_text") break;
 	assert.equal((await cancelTurn(db, owner, id)).cancelled, true);
+	slow.release(Infinity);
 	assert.equal(await running, "lost");
 	const saved = (await readConversation(db, owner, id)).events;
 	assert.equal(saved.at(-1)!.kind, "status");
@@ -1071,11 +1251,17 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 
 	const racing = {
 		...listPeople,
-		async invoke(tx: Parameters<typeof listPeople.invoke>[0], who: EvryActor, input: typeof find) {
-			const started = performance.now();
-			await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${who.accountId}`);
-			assert.ok(performance.now() - started < 2_000, "the seat end does not wait for the read");
-			return listPeople.invoke(tx, who, input);
+		async invoke(
+			tx: Parameters<typeof listPeople.invoke>[0],
+			who: EvryActor,
+			input: typeof find,
+			native: Parameters<typeof listPeople.invoke>[3],
+		) {
+			await admin.transaction(async (t) => {
+				await t.execute(sql`SELECT 1 FROM seat WHERE account_id=${who.accountId} FOR NO KEY UPDATE NOWAIT`);
+				await t.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${who.accountId}`);
+			});
+			return listPeople.invoke(tx, who, input, native);
 		},
 	};
 	try {
@@ -1092,11 +1278,17 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 	}
 	const signOut = {
 		...listPeople,
-		async invoke(tx: Parameters<typeof listPeople.invoke>[0], who: EvryActor, input: typeof find) {
-			const started = performance.now();
-			await admin.execute(sql`DELETE FROM auth_session WHERE id=${accounts.owner.session}`);
-			assert.ok(performance.now() - started < 2_000, "sign-out does not wait for the read");
-			return listPeople.invoke(tx, who, input);
+		async invoke(
+			tx: Parameters<typeof listPeople.invoke>[0],
+			who: EvryActor,
+			input: typeof find,
+			native: Parameters<typeof listPeople.invoke>[3],
+		) {
+			await admin.transaction(async (t) => {
+				await t.execute(sql`SELECT 1 FROM auth_session WHERE id=${accounts.owner.session} FOR UPDATE NOWAIT`);
+				await t.execute(sql`DELETE FROM auth_session WHERE id=${accounts.owner.session}`);
+			});
+			return listPeople.invoke(tx, who, input, native);
 		},
 	};
 	try {
@@ -1114,7 +1306,7 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 	await invokeRead(db, owner, listPeople, find);
 	const sent = queries.slice(start).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim()));
 	const plain = queries.length;
-	await db.transaction((tx) => listPeople.invoke(tx, owner, find));
+	await gatedTransaction(db, (tx) => listPeople.invoke(tx, owner, find, null));
 	assert.equal(sent.length, queries.slice(plain).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim())).length + 1);
 });
 
@@ -1124,11 +1316,21 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 	const owner = await actor("owner");
 	await analyze();
 	const turnJob = (id: string) => sql`kind='assistant_turn' AND subject_record_id=${id}`;
-	const observed = async (id: string, ms: number) => {
+	const observed = async (id: string, reads: number) => {
 		const seen = [];
-		const started = Date.now();
-		for await (const e of observeConversation(db, owner, id, 0, AbortSignal.timeout(ms), 20)) seen.push(e);
-		return { seen, ended: Date.now() - started < ms - 200 };
+		const budget = new AbortController();
+		const signal = AbortSignal.any([budget.signal, AbortSignal.timeout(60_000)]);
+		let polled = 0;
+		const count = (text: string) => {
+			if (text.includes("AS run_live") && ++polled > reads) budget.abort();
+		};
+		statementListeners.add(count);
+		try {
+			for await (const e of observeConversation(db, owner, id, 0, signal, 20)) seen.push(e);
+		} finally {
+			statementListeners.delete(count);
+		}
+		return { seen, ended: !signal.aborted };
 	};
 	const cases: [string, (id: string) => Promise<unknown>][] = [
 		[
@@ -1156,7 +1358,7 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 		await lose(id);
 		const { turnId } = (await readConversation(db, owner, id)).run ?? {};
 		assert.deepEqual((await readConversation(db, owner, id)).run, { turnId, state: "lost" }, name);
-		const first = await observed(id, 3_000);
+		const first = await observed(id, 3);
 		assert.ok(first.ended, `${name}: the stream ends instead of polling a dead run`);
 		const end = first.seen.at(-1)!;
 		assert.deepEqual(
@@ -1167,7 +1369,7 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 		assert.equal((await readConversation(db, owner, id)).run, null, name);
 		const job = await admin.execute(sql`SELECT state FROM job WHERE ${turnJob(id)}`);
 		assert.equal(job.rows[0]!.state, "failed", name);
-		const again = await observed(id, 3_000);
+		const again = await observed(id, 3);
 		assert.equal(again.seen.filter((e) => e.kind === "status").length, 1, name);
 		await submitTurn(db, owner, id, { requestKey: randomUUID(), text: "Find Casey again" });
 		assert.equal(await work(), "succeeded", name);
@@ -1175,7 +1377,7 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 
 	const waiting = await ask(owner, "Find Casey");
 	assert.equal((await readConversation(db, owner, waiting)).run?.state, "running");
-	const live = await observed(waiting, 500);
+	const live = await observed(waiting, 3);
 	assert.deepEqual([live.ended, live.seen.map((e) => e.kind)], [false, ["user_message"]]);
 	await assert.rejects(
 		() => submitTurn(db, owner, waiting, { requestKey: randomUUID(), text: "Another" }),

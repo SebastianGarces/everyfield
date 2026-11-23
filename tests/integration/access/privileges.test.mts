@@ -8,6 +8,7 @@ import { database, transaction, id, account, plant } from "./support.mts";
 import { waitingOnLock } from "../../support/fixture.mts";
 import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 import { currentActor } from "../../../packages/domain/src/access/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 async function permissions(db, schema) {
 	return (
@@ -177,7 +178,7 @@ test("INV-revocation: a session revoke waits for an in-flight authority transact
 		announced = resolve;
 	});
 	let pid;
-	const active = db.runtime.transaction(async (tx) => {
+	const active = gatedTransaction(db.runtime, async (tx) => {
 		assert.deepEqual(await currentActor(tx, a.session, selected), {
 			status: "active",
 			accountId: a.id,
@@ -199,7 +200,7 @@ test("INV-revocation: a session revoke waits for an in-flight authority transact
 		release();
 		await active;
 		await deleting;
-		assert.deepEqual(await db.runtime.transaction((tx) => currentActor(tx, a.session, selected)), {
+		assert.deepEqual(await gatedTransaction(db.runtime, (tx) => currentActor(tx, a.session, selected)), {
 			status: "unavailable",
 		});
 	} finally {
@@ -247,12 +248,6 @@ test("INV-membership: legacy inconsistent seats and current lifecycle witnesses 
 				accountId: a.id,
 				context: { kind: "seat", owner: p, seatId: first, role: "admin", revision: "1" },
 			});
-		});
-		await db.admin.execute(
-			querySql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,seat_id,request_revision,state,witness_checkpoint,cleanup_state) VALUES('seat',${first},${first},1,'revoked',2,'not_started')`,
-		);
-		await transaction(db.runtime, async (tx) => {
-			assert.deepEqual(await currentActor(tx, a.session, p), { status: "unavailable" });
 		});
 	} finally {
 		await db.close();

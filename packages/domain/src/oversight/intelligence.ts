@@ -1,7 +1,7 @@
 import { LENSES } from "@everyfield/contracts/intelligence";
 import * as C from "@everyfield/contracts/oversight";
 import type { Database } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
+import { sql, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRows, type RequestActor } from "../access/session.ts";
@@ -10,6 +10,7 @@ import {
 	areaOf,
 	countryKey,
 	latestGeography,
+	regionKey,
 	stateCode,
 	stateName,
 	unplacedRegion,
@@ -130,7 +131,8 @@ const unshared = z.object({
 	state_province: z.string().nullable(),
 	country: z.string().nullable(),
 });
-const iso = (v: string) => sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+const iso = <VName extends string>(v: SqlLiteral<VName>) =>
+	sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
 export async function readIntelligence(
 	db: Reader,
@@ -208,7 +210,7 @@ export async function readIntelligence(
 		level: request.level,
 		run,
 		history,
-		groups: run ? groupsOf(request.level, r.shown_on!, r.rows, r.unshared, r.ratings) : [],
+		groups: run && r.shown_on !== null ? groupsOf(request.level, r.shown_on, r.rows, r.unshared, r.ratings) : [],
 		geographyReleases: [...releases].sort().map(([key, credit]) => ({ key, credit })),
 		canRefresh: seat.administrator,
 	});
@@ -243,6 +245,26 @@ function placeOf(level: C.Level, p: Placed): { key: string; label: string; place
 	const area = areaOf(p.regionKey);
 	if (area) return placed(area.code, C.regionLabel(area));
 	return none(unplacedRegion(p.saved, { city: p.city, stateProvince: p.state, country: p.country }));
+}
+export function placedIn(p: {
+	region: C.RegionArea | null;
+	city: string | null;
+	stateProvince: string | null;
+	country: string | null;
+}): string[] {
+	const placed: Placed = {
+		plantId: "",
+		name: "",
+		regionKey: p.region ? regionKey(p.region.code) : null,
+		saved: p.region !== null,
+		city: p.city,
+		state: p.stateProvince,
+		country: p.country,
+	};
+	return C.LEVELS.flatMap((level) => {
+		const at = placeOf(level, placed);
+		return at.placement === "placed" ? [at.label] : [];
+	});
 }
 const MISSING: Record<C.Level, string> = {
 	region: "No Region set",

@@ -1,8 +1,8 @@
 import { calendarContext, timeZone, type Clock, type RequestIdentity } from "@everyfield/contracts/common";
-import type { LocalDate } from "@everyfield/contracts/common";
+import { localDate, type LocalDate } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
@@ -36,6 +36,7 @@ const lockRow = z.object({
 		.object({
 			status: c.launchStatus,
 			revision: z.string(),
+			target_date: localDate.nullable(),
 			actual_date: z.string().nullable(),
 			attendance: z.int().nullable(),
 			decisions: z.int().nullable(),
@@ -53,13 +54,13 @@ type Locked = Omit<z.infer<typeof lockRow>, "launch" | "timezone"> & {
 	launch: NonNullable<z.infer<typeof lockRow>["launch"]>;
 	today: LocalDate;
 };
-const answersJson = (d: string) => {
+const answersJson = <DName extends string>(d: SqlLiteral<DName>) => {
 	const r = sql.raw(d);
 	return sql`jsonb_build_object('wentWell',${r}.went_well,'toChange',${r}.to_change,'operations',${r}.operations,
 	'followUpPlan',${r}.follow_up_plan,'supportNeeded',${r}.support_needed,'missingNames',${r}.missing_names,
 	'missingCount',${r}.missing_count)`;
 };
-const versionJson = (d: string, extra: SQL) => {
+const versionJson = <DName extends string>(d: SqlLiteral<DName>, extra: SQL) => {
 	const r = sql.raw(d);
 	return sql`jsonb_build_object('id',${r}.id,'revision',${r}.revision::text,'version',${r}.version,${extra})`;
 };
@@ -70,7 +71,7 @@ async function lock(tx: Transaction, scope: Scope, key: string) {
  cur AS (INSERT INTO launch(plant_id,status) SELECT ${p},'planning'
 	WHERE (SELECT ok FROM gate) AND NOT EXISTS(SELECT FROM prior)
 	ON CONFLICT (plant_id) DO UPDATE SET status=launch.status
-	RETURNING status,revision::text,actual_date::text,attendance,decisions,outcome_note)
+	RETURNING status,revision::text,target_date::text,actual_date::text,attendance,decisions,outcome_note)
  SELECT (SELECT ok FROM gate) AS ok,(SELECT to_jsonb(prior) FROM prior) AS prior,
 	(SELECT timezone FROM plant WHERE id=${p}) AS timezone,(SELECT to_jsonb(cur) FROM cur) AS launch,
 	(SELECT ${versionJson("d", sql`'answers',${answersJson("d")}`)} FROM launch_debrief d
@@ -87,7 +88,7 @@ async function lock(tx: Transaction, scope: Scope, key: string) {
 }
 
 const storedAnswer = z.object({ outcome: z.enum(["changed", "noop"]) });
-export function auditCte(
+export function auditCte<From extends string>(
 	scope: Scope,
 	identity: RequestIdentity,
 	op: string,
@@ -100,7 +101,7 @@ export function auditCte(
 		after: object | SQL;
 		reason?: string | null;
 		metadata: object;
-		from: string;
+		from: SqlLiteral<From>;
 	},
 ) {
 	const after =
@@ -187,7 +188,7 @@ export function outcomeCommands(clock: Clock) {
 		kind: !submit ? (l.draft ? "edit" : "create") : corrected ? "correct" : "create",
 		subjectType: "launch_debrief",
 		subjectId: sql`w.id`,
-		before: corrected ? { version: l.submitted!.version, ...guest(l.submitted!.answers) } : null,
+		before: corrected && l.submitted ? { version: l.submitted.version, ...guest(l.submitted.answers) } : null,
 		after: { version, ...guest(a) },
 		metadata: { event: submit ? "debrief_submitted" : "debrief_draft_saved" },
 		from: "w",
@@ -246,8 +247,10 @@ export function outcomeCommands(clock: Clock) {
 			return settle(async () => {
 				const q = parse(c.recordOutcomeRequest, raw);
 				return command(db, authority, "launch.recordOutcome", q, async (tx, scope, l, identity) => {
-					if (l.launch.revision !== q.expectedRevision) deny("conflict");
 					if (l.launch.actual_date) deny("conflict");
+					if (!c.launchSundayArrived({ status: l.launch.status, targetDate: l.launch.target_date }, l.today))
+						deny("not_ready", { needs: "launch_sunday" });
+					if (l.launch.revision !== q.expectedRevision) deny("conflict");
 					const checked = c.checkOutcome(q.input, l.today);
 					if (!checked.ok) deny("invalid_outcome", { problem: checked.problem });
 					const v = checked.value;

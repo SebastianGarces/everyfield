@@ -33,7 +33,8 @@ import {
 	SegmentedControl,
 	StatePanel,
 	Textarea,
-	useToast,
+	toast,
+	ProblemText,
 } from "@everyfield/ui/controls";
 import { instant } from "@everyfield/contracts/common";
 import { answeringStatuses } from "@everyfield/contracts/meetings";
@@ -148,7 +149,6 @@ export function GuestList({
 	onCard: (personId: string, card: CardEntry | null) => void;
 	onStale: () => void;
 }) {
-	const toast = useToast();
 	const [chosenFilter, setChosenFilter] = useState<{ value: Filter; at: number }>({ value: "all", at: cardsRequest });
 	const filter = chosenFilter.at === cardsRequest ? chosenFilter.value : "all";
 	const [removing, setRemoving] = useState<Guest | null>(null);
@@ -204,9 +204,10 @@ export function GuestList({
 	}
 	function add(draft: AddDraft) {
 		const names = new Map(draft.people.map((p) => [p.id, p.name]));
-		const count = draft.people.length + draft.fresh.length;
+		const named = [...draft.people.map((p) => p.name), ...draft.fresh.map((n) => n.displayName)];
+		const [only] = named;
 		write({
-			what: count === 1 ? (draft.people[0]?.name ?? draft.fresh[0]!.displayName) : `${count} guests`,
+			what: only !== undefined && named.length === 1 ? only : `${named.length} guests`,
 			done: "added",
 			form: { kind: "add", draft },
 			changes: [
@@ -226,11 +227,12 @@ export function GuestList({
 				}),
 			ok: ({ guests: added, notAdded, attendanceRevision }) => {
 				for (const g of added) onGuest(g, attendanceRevision);
+				const [first] = added;
 				if (!notAdded.length)
 					return toast({
 						message:
-							added.length === 1
-								? `${added[0]!.person.displayName} is on the guest list.`
+							first && added.length === 1
+								? `${first.person.displayName} is on the guest list.`
 								: `${added.length} guests are on the guest list.`,
 						tone: "success",
 					});
@@ -550,7 +552,7 @@ export function GuestList({
 	const form = lane.editing;
 	return (
 		<Card as="section" aria-labelledby="guests-title">
-			<CardHeader className="flex-wrap items-center">
+			<CardHeader className="flex-wrap">
 				<CardHeading>
 					<CardTitle id="guests-title">Guest list</CardTitle>
 				</CardHeading>
@@ -579,7 +581,7 @@ export function GuestList({
 			<SaveNotice {...lane.noticeProps} dialogOpen={form !== null} className="mb-3" />
 			<RowNotices lanes={presence.lanes} className="mb-3" />
 			{guests === null ? (
-				<StatePanel tone="error" title="Guests did not load" headingLevel="h3" className="py-8">
+				<StatePanel tone="error" title="Guests did not load" headingLevel="h3">
 					Nothing was changed. Reload the page in a moment.
 				</StatePanel>
 			) : (
@@ -981,11 +983,7 @@ function CardForm({
 						<Radio key={r} value={r} label={CARD_LABEL[r]} />
 					))}
 				</RadioGroup>
-				{touched && !response ? (
-					<p className="text-xs font-medium text-magenta-600" role="alert">
-						Choose what they marked on the card.
-					</p>
-				) : null}
+				{touched && !response ? <ProblemText>Choose what they marked on the card.</ProblemText> : null}
 			</fieldset>
 			<Field label="Prayer requests or questions" optional hint="Only Owners and Admins see these notes.">
 				<Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} rows={3} />

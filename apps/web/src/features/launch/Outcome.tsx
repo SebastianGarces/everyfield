@@ -1,6 +1,13 @@
 "use client";
 
-import { checkNote, checkOutcome, GUEST_NAME_MAX, type GuestMatch, type Plan } from "@everyfield/contracts/launch";
+import {
+	checkNote,
+	checkOutcome,
+	GUEST_NAME_MAX,
+	launchSundayArrived,
+	type GuestMatch,
+	type Plan,
+} from "@everyfield/contracts/launch";
 import { Add01Icon, PencilEdit02Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -16,14 +23,16 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { createDebouncer, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { addGuest, correctOutcome, recordOutcome, suggestGuests } from "./actions.ts";
+import { addGuest, correctOutcome, recordOutcome } from "./actions.ts";
+import { suggestGuests } from "./fetch.ts";
 import {
 	countText,
 	longDate,
@@ -117,7 +126,7 @@ export function OutcomeCard({
 							: "What actually happened, once it has. A passed date or finished milestones never record it for you."}
 					</CardDescription>
 				</CardHeading>
-				{admin ? (
+				{admin && (o || launchSundayArrived(plan.launch, plan.today)) ? (
 					<CardActions>
 						{o ? (
 							<Button variant="secondary" size="sm" onClick={() => open("correct")}>
@@ -241,11 +250,7 @@ function OutcomeDialog({
 								<Textarea rows={2} value={draft.reason} onChange={(e) => set({ reason: e.target.value })} />
 							</Field>
 						) : null}
-						{draft.error ? (
-							<p role="alert" className="text-sm text-red-700">
-								{draft.error}
-							</p>
-						) : null}
+						<InlineAlert>{draft.error}</InlineAlert>
 					</DialogBody>
 					<DialogFooter>
 						<Button type="button" variant="secondary" onClick={() => onChange(null)}>
@@ -264,7 +269,6 @@ function OutcomeDialog({
 const GUEST_SEARCH_PAUSE_MS = 200;
 
 function Guests({ plan, keys, onPlan }: { plan: Plan; keys: Keys; onPlan: (p: Plan) => void }) {
-	const toast = useToast();
 	const [name, setName] = useState("");
 	const [matches, setMatches] = useState<GuestMatch[]>([]);
 	const [busy, setBusy] = useState(false);

@@ -36,20 +36,27 @@ const rev = (revision, kind, answers, recordedAt = "2026-09-24T15:00:00.000Z") =
 });
 const page = (weeks) => ({ zone: "America/Chicago", revision: "3", page: 1, pageCount: 1, weeks });
 
-test("INV-privacy: Evry is off on the private check-in page only", () => {
-	assert.equal(evryOff("/me/check-in"), true);
-	assert.equal(evryOff("/me/check-in/anything"), true);
-	assert.equal(evryOff("/me/check-inbox"), false);
-	assert.equal(evryOff("/intelligence"), false);
-	assert.equal(evryOff("/people"), false);
+test("INV-privacy: Evry is off only where a plant Owner or Admin has their private check-in open", () => {
+	const owner = { context: "plant", role: "owner" };
+	const admin = { context: "plant", role: "admin" };
+	assert.equal(evryOff("/me/check-in", owner), true);
+	assert.equal(evryOff("/me/check-in/anything", admin), true);
+	assert.equal(evryOff("/me/check-inbox", owner), false);
+	assert.equal(evryOff("/intelligence", owner), false);
+	assert.equal(evryOff("/people", owner), false);
+	assert.equal(evryOff("/me/check-in", { context: "organization", role: "owner" }), false);
+	assert.equal(evryOff("/me/check-in", { context: "plant", role: "member" }), false);
+	assert.equal(evryOff("/me/check-in", { context: "account" }), false);
+	assert.equal(evryOff("/me/check-in", null), false);
 });
 
 test("INV-checkin: the strip shows a save at once, then the confirmed week; a refusal is explained", () => {
 	const open = week(2, "2026-10-12", null, [], true),
 		past = week(1, "2026-10-05", STEADY, [rev(1, "save", STEADY)]);
 	const before = page([open, past]);
-	const optimistic = withAnswer(before, open, STRAINED, "  ");
+	const optimistic = withAnswer(before, open, STRAINED, "  ", "2026-10-13T15:00:00.000Z");
 	assert.deepEqual(optimistic.weeks[0].answer.answers, STRAINED);
+	assert.equal(optimistic.weeks[0].answer.answeredAt, "2026-10-13T15:00:00.000Z");
 	assert.equal(optimistic.weeks[0].answer.note, null);
 	assert.deepEqual(optimistic.weeks[1], past);
 	assert.equal(before.weeks[0].answer, null);
@@ -84,7 +91,7 @@ test("INV-checkin: a corrected week says when and what changed; this week and sk
 test("BUG-58bc5acb8: the button saves an unsaved week, changes a saved one and corrects an earlier one", () => {
 	const open = week(2, "2026-10-12", null, [], true);
 	assert.equal(submitLabel(open, false), "Save check-in");
-	const optimistic = withAnswer(page([open]), open, STEADY, "").weeks[0];
+	const optimistic = withAnswer(page([open]), open, STEADY, "", "2026-10-13T15:00:00.000Z").weeks[0];
 	assert.equal(submitLabel(optimistic, false), "Save check-in");
 	const saved = week(2, "2026-10-12", STEADY, [rev(1, "save", STEADY)], true);
 	assert.equal(submitLabel(saved, false), "Save changes");

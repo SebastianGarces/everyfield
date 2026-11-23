@@ -1,4 +1,4 @@
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
@@ -6,10 +6,16 @@ import { liveJob } from "../runtime/job.ts";
 import { mailReport } from "@everyfield/contracts/communication";
 import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index.ts";
 import { MEETINGS_COMMANDS } from "../adapters/meetings/commands/index.ts";
+import { INVITATION_COMMANDS } from "../adapters/meetings/commands/invitation.ts";
 import { NOTIFICATION_COMMANDS } from "../adapters/notifications/commands/index.ts";
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
+import { FOLLOWUP_COMMANDS } from "../adapters/followups/commands/index.ts";
+import { ASSESSMENT_INTELLIGENCE_COMMANDS, INTELLIGENCE_COMMANDS } from "../adapters/intelligence/commands/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
+import { ASSESSMENT_COMMANDS } from "../adapters/people-assessments/commands/index.ts";
 import { SETTINGS_COMMANDS } from "../adapters/settings/index.ts";
+import { TASK_COMMANDS } from "../adapters/tasks/commands/index.ts";
+import { DOCUMENTS_COMMANDS } from "../adapters/documents/commands/index.ts";
 import { ORGANIZATION_COMMANDS } from "../adapters/people-organization/commands/index.ts";
 import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
 import { ONBOARDING_COMMANDS } from "../adapters/onboarding/commands/index.ts";
@@ -17,21 +23,31 @@ import { FEEDBACK_COMMANDS } from "../adapters/feedback/commands/index.ts";
 import { PIPELINE_COMMANDS } from "../adapters/pipeline/commands/index.ts";
 import { LAUNCH_COMMANDS } from "../adapters/launch/commands/index.ts";
 import { currentPerson, importOutcome, personOutcome, type ReviewedWrite } from "./types.ts";
+import { WIKI_COMMANDS } from "../adapters/wiki/commands/index.ts";
+import { articleLive } from "../conversations/liveness.ts";
 
 export const refusalCode = (code: string) =>
 	code === "conflict" ? "revision_conflict" : code === "unavailable" ? "access_denied" : code;
 
 export const REVIEWED_WRITES = {
 	...PEOPLE_COMMANDS,
+	...ASSESSMENT_COMMANDS,
 	...ORGANIZATION_COMMANDS,
 	...COMMUNICATION_COMMANDS,
 	...NOTIFICATION_COMMANDS,
 	...TEAMS_COMMANDS,
+	...INTELLIGENCE_COMMANDS,
 	...MEETINGS_COMMANDS,
+	...INVITATION_COMMANDS,
 	...SETTINGS_COMMANDS,
 	...ONBOARDING_COMMANDS,
 	...FEEDBACK_COMMANDS,
 	...PIPELINE_COMMANDS,
+	...ASSESSMENT_INTELLIGENCE_COMMANDS,
+	...TASK_COMMANDS,
+	...FOLLOWUP_COMMANDS,
+	...WIKI_COMMANDS,
+	...DOCUMENTS_COMMANDS,
 	...LAUNCH_COMMANDS,
 } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
@@ -67,22 +83,28 @@ export const staleMessage = (alias: string) =>
 	`coalesce(${alias}.review->'target'->>'kind'='message' AND NOT EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid
 		AND t.plant_id=${alias}.tenant_id AND t.revision=(${alias}.input->>'expectedRevision')::bigint
 		AND ${untouchedMail("t")}=(${alias}.input->>'untouched')::int),false)`;
-export const projection = (alias: string) =>
-	sql.raw(`jsonb_build_object('id',${alias}.id,'conversationId',${alias}.conversation_id,'operation',${alias}.operation,
+export const projection = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
+	sql`${sql.raw(`jsonb_build_object('id',${alias}.id,'conversationId',${alias}.conversation_id,'operation',${alias}.operation,
 		'revision',${alias}.revision,'digest',${alias}.digest,'expiresAt',${alias}.expires_at,'approvedAt',${alias}.approved_at,
 		'status',CASE WHEN ${alias}.state='pending' AND ${alias}.expires_at<=clock_timestamp() THEN 'expired' ELSE ${alias}.state END,
 		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb
 			OR ${alias}.review->'target'->>'kind' NOT IN ('person','message','team','role','training','responsibility','household','tag')
 			OR (${alias}.review->'target'->>'kind'='person' AND EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live'))
 			OR (${alias}.review->'target'->>'kind'='message' AND EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='task' AND EXISTS(SELECT FROM task t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.deleted_at IS NULL))
 			OR (${alias}.review->'target'->>'kind'='household' AND EXISTS(SELECT FROM household t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='tag' AND EXISTS(SELECT FROM tag t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='team' AND EXISTS(SELECT FROM team t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='role' AND EXISTS(SELECT FROM team_role t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='training' AND EXISTS(SELECT FROM training_program t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='responsibility' AND EXISTS(SELECT FROM responsibility t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.removed_at IS NULL))
+			OR (${alias}.review->'target'->>'kind'='article' AND `)}${articleLive(sql.raw(`(${alias}.review->'target'->>'id')::uuid`), sql.raw(`${alias}.tenant_id`))}${sql.raw(`)
+			OR (${alias}.review->'target'->>'kind'='plant' AND (${alias}.review->'target'->>'id')::uuid=${alias}.tenant_id)
 			OR (${alias}.review->'target'->>'kind'='meeting' AND EXISTS(SELECT FROM meeting t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.retired_at IS NULL))
 			OR (${alias}.review->'target'->>'kind'='venue' AND EXISTS(SELECT FROM venue t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='document' AND EXISTS(SELECT FROM document t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id
+				AND (t.kind<>'church_document' OR t.archived_at IS NULL)))
+			OR ${alias}.review->'target'->>'kind'='template'
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
 		'outcome',coalesce(${alias}.outcome,(SELECT 'unknown' FROM job j WHERE j.id=${alias}.job_id AND ${alias}.state='approved'
 			AND NOT ${liveJob("j")}),CASE WHEN ${alias}.state='approved' AND ${alias}.job_id IS NULL
@@ -90,11 +112,12 @@ export const projection = (alias: string) =>
 		'executing',${alias}.state='approved' AND ${alias}.outcome IS NULL AND EXISTS(SELECT FROM job j WHERE j.id=${alias}.job_id
 			AND ${liveJob("j")}),
 		'stale',${alias}.state='pending' AND ${staleMessage(alias)},
-		'receipt',${alias}.receipt,'now',clock_timestamp())`);
+		'receipt',${alias}.receipt,'now',clock_timestamp())`)}`;
 
 const targetKind = z.enum([
 	"person",
 	"message",
+	"task",
 	"team",
 	"role",
 	"training",
@@ -104,28 +127,40 @@ const targetKind = z.enum([
 	"meeting",
 	"venue",
 	"church",
+	"plant",
 	"seat",
 	"invitation",
 	"connection",
 	"organization",
 	"account",
+	"article",
+	"document",
+	"template",
 	"program",
 ]);
-const change = z.object({ field: z.string(), before: z.unknown(), after: z.unknown() });
-export const reviewedPerson = z.object({
+const change = z.strictObject({ field: z.string(), before: z.unknown(), after: z.unknown() });
+export const reviewedPerson = z.strictObject({
 	id: z.uuid(),
 	label: z.string(),
 	changes: z.array(change),
 	unchanged: z.string().optional(),
 });
-export const reviewedRow = z.object({
+export const reviewedRow = z.strictObject({
 	row: z.int(),
 	outcome: z.enum(["create", "create_and_review", "skip", "fail"]),
 	label: z.string().nullable(),
 	reason: z.string().nullable(),
 });
-const review = z.object({
-	target: z.object({ kind: targetKind, id: z.uuid(), label: z.string() }).nullable(),
+const review = z.strictObject({
+	target: z
+		.strictObject({
+			kind: targetKind,
+			id: z.string(),
+			label: z.string(),
+			articleId: z.uuid().optional(),
+			href: z.string().optional(),
+		})
+		.nullable(),
 	changes: z.array(change),
 	people: z.array(reviewedPerson).optional(),
 	rows: z.array(reviewedRow).optional(),
@@ -133,7 +168,7 @@ const review = z.object({
 	refusal: z.string().optional(),
 	withheld: z.literal(true).optional(),
 });
-export const proposalRow = z.object({
+export const proposalRow = z.strictObject({
 	id: z.uuid(),
 	conversationId: z.uuid(),
 	operation,
@@ -147,14 +182,17 @@ export const proposalRow = z.object({
 	executing: z.boolean(),
 	stale: z.boolean(),
 	receipt: z
-		.object({
+		.strictObject({
 			receiptId: z.uuid().optional(),
+			meetingId: z.uuid().optional(),
 			revision: z.string().optional(),
 			code: z.string().optional(),
 			report: mailReport.optional(),
 			people: z.array(personOutcome).optional(),
 			import: importOutcome.optional(),
 			current: z.array(currentPerson).optional(),
+			reached: z.literal(true).optional(),
+			own: z.literal(true).optional(),
 		})
 		.nullable(),
 	now: z.coerce.date(),

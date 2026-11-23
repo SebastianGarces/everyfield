@@ -13,10 +13,11 @@ import {
 } from "../../../../../packages/domain/src/communication/index.ts";
 import { documentsWriter } from "../../../../../packages/domain/src/documents/index.ts";
 import { deletionOperations } from "../../../../../packages/domain/src/settings/index.ts";
-import { queueJobs } from "../../../../../apps/web/src/server/jobs/queue.ts";
+import { queueJobs } from "../../../../../packages/domain/src/jobs/queue.ts";
 import { testDatabase } from "../../../../support/test-database.mts";
 import { ok, refused, seeds } from "../../../../support/fixture.mts";
 import { freezeClock } from "./support.mts";
+import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
 const DELETE_AT = new Date("2026-10-13T16:00:00.000Z");
 const SEND_AT = "2026-10-20T16:00:00.000Z";
@@ -179,7 +180,7 @@ test("AC:DEL58-006 pending deletion hands off nothing new, leaves held mail to r
 	});
 	const [p] = await rows(sql`SELECT revision::text AS revision FROM plant WHERE id = ${plant.id}`);
 	const request = ok(
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			deletion.requestWorkspaceDeletion(
 				tx,
 				{ session: owner.session, selected: plant },

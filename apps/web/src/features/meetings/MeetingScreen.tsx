@@ -36,7 +36,7 @@ import {
 	Tabs,
 	TabsList,
 	TabsPanel,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
@@ -59,12 +59,12 @@ import {
 	completePractice,
 	correctOccurrence,
 	correctPractice,
-	reloadMeeting,
 	correctEvaluation,
 	recordEvaluation,
 	saveOwnRsvp,
 	settleAttendance,
 } from "./actions.ts";
+import { reloadMeeting } from "./fetch.ts";
 import {
 	AttendanceCard,
 	attendanceAfter,
@@ -131,7 +131,6 @@ type MeetingForm = ({ kind: "held"; at: string } | { kind: "reason"; reason: Rea
 
 export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageData; canWrite: boolean }) {
 	const router = useRouter();
-	const toast = useToast();
 	const [server, setServer] = useState(loaded);
 	const [data, setData] = useState(loaded);
 	if (server !== loaded) {
@@ -245,9 +244,13 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	});
 	const final = data.attendance?.finalized != null;
 	const marker = data.attendance?.viewerCanMarkAttendance === true;
-	function submitSettle(input: SettleInput) {
-		const mode = settleLane.editing!.mode;
-		const attendance = data.attendance!;
+	const settledAttendance = data.attendance;
+	const settling = settleLane.editing;
+	function submitSettle(
+		input: SettleInput,
+		mode: SettleEditing["mode"],
+		attendance: NonNullable<typeof data.attendance>,
+	) {
 		const body = {
 			meetingId: m.id,
 			attendeeIds: input.attendeeIds,
@@ -422,22 +425,23 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	const waiting = settleLane.wait !== null || presence.busy;
 	const inviteHref = `/communication?meeting=${m.id}&template=invitation&recipients=guests`;
 	const checkInHref = `/meetings/${m.id}/check-in`;
-	const primary = next.primary ? (
-		next.primary === "send-invites" || next.primary === "check-in" ? (
+	const chosen = next.primary;
+	const primary = chosen ? (
+		chosen === "send-invites" || chosen === "check-in" ? (
 			<IntentLink
-				href={next.primary === "check-in" ? checkInHref : inviteHref}
+				href={chosen === "check-in" ? checkInHref : inviteHref}
 				className={buttonVariants({ variant: "primary" })}
 			>
-				{PRIMARY_LABEL[next.primary]}
+				{PRIMARY_LABEL[chosen]}
 			</IntentLink>
 		) : (
 			<Button
 				variant="primary"
-				aria-disabled={waiting && next.primary === "finalize" ? true : undefined}
+				aria-disabled={waiting && chosen === "finalize" ? true : undefined}
 				className={HELD}
-				onClick={() => runPrimary(next.primary!)}
+				onClick={() => runPrimary(chosen)}
 			>
-				{PRIMARY_LABEL[next.primary]}
+				{PRIMARY_LABEL[chosen]}
 			</Button>
 		)
 	) : null;
@@ -772,23 +776,22 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 					onRetry={() => history.load(saved.revision)}
 				/>
 			) : null}
-			{marker && data.attendance && data.guests && settleLane.editing ? (
+			{marker && settledAttendance && data.guests && settling ? (
 				<NoticeInDialog {...settleLane.noticeProps}>
 					<SettleDialog
 						open
-						mode={settleLane.editing.mode}
+						mode={settling.mode}
 						meeting={m}
 						guests={data.guests}
-						attendance={data.attendance}
+						attendance={settledAttendance}
 						onSeats={warmSeats}
-						initial={settleLane.editing.input}
+						initial={settling.input}
 						problem={settleLane.problem}
 						onClose={settleLane.close}
-						onSubmit={submitSettle}
+						onSubmit={(input) => submitSettle(input, settling.mode, settledAttendance)}
 						onConflict={(input) => {
-							const mode = settleLane.editing!.mode;
 							settleLane.close();
-							settleConflict(mode, input, data.attendance!);
+							settleConflict(settling.mode, input, settledAttendance);
 						}}
 					/>
 				</NoticeInDialog>
@@ -868,7 +871,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							onClose={closeDialog}
 							onSubmit={(why) => {
 								const { id, displayTitle, revision } = m;
-								deleteFromList({ id, title: displayTitle, revision }, why, toast);
+								deleteFromList({ id, title: displayTitle, revision }, why);
 								router.push("/meetings");
 							}}
 						/>
@@ -935,7 +938,7 @@ function RsvpSummary({ guests, attended, started }: { guests: GuestRow[] | null;
 	const total = guests?.length ?? 0;
 	return (
 		<Card as="section" aria-labelledby="rsvps-title">
-			<CardHeader className="mb-3.5">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle id="rsvps-title">RSVPs</CardTitle>
 					<CardDescription>
@@ -982,7 +985,7 @@ function CardsSummary({ guests, cards }: { guests: GuestRow[] | null; cards: Mee
 	const fromOthers = cards.filter((c) => !attended.has(c.personId));
 	return (
 		<Card as="section" aria-labelledby="cards-title">
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle id="cards-title">Response cards</CardTitle>
 					<CardDescription>
@@ -1015,7 +1018,7 @@ function CardsSummary({ guests, cards }: { guests: GuestRow[] | null; cards: Mee
 function NotesCard({ notes }: { notes: string | null }) {
 	return (
 		<Card as="section" aria-labelledby="notes-title">
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle id="notes-title">Notes</CardTitle>
 				</CardHeading>
@@ -1040,7 +1043,7 @@ function Breakdown({
 }) {
 	return (
 		<div className={className}>
-			<h3 className="mb-1 font-sans text-xs font-semibold tracking-[0.04em] text-text-3 uppercase">{label}</h3>
+			<h3 className="section-label mb-1 font-sans text-text-3">{label}</h3>
 			<dl className="flex flex-col">
 				{CARD_RESPONSES.map((r) => (
 					<div

@@ -15,7 +15,7 @@ import { FormMessage, PasswordInput } from "../../identity/parts";
 import { OUT_OF_REACH } from "../flows/DeletionDialogs";
 import type { DeletionPort, DeletionStatus, Reply } from "../port";
 import { OFFLINE_REFERENCE, refusalOf, type Refusal } from "../save";
-import { SaveError } from "../SettingsDialog";
+import { SaveError } from "../SaveError";
 import { formatMoment } from "../../../components/time.ts";
 
 type Subject = { kind: "account" } | { kind: "workspace"; churchName?: string };
@@ -213,21 +213,6 @@ function Deletion({ subject, port, initial, requestedUntil = null, now, zone, si
 						{formatMoment(status.copyExpiresAt, zone)}. Records that belong to a church keep a name-free attribution.
 					</p>
 					<p className="text-sm text-text-3">{OUT_OF_REACH}</p>
-				</Panel>
-			);
-		case "active":
-			return (
-				<Panel
-					heading={heading}
-					icon={<CardIcon icon={CheckmarkCircle02Icon} tone="green" />}
-					title="Nothing is scheduled for deletion"
-				>
-					<p>{what} is active.</p>
-					<div>
-						<Button asChild variant="secondary">
-							<a href={signInHref}>Sign in</a>
-						</Button>
-					</div>
 				</Panel>
 			);
 	}

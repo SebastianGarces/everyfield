@@ -16,10 +16,12 @@ import {
 	RadioGroup,
 	Select,
 	Textarea,
+	InlineAlert,
 } from "@everyfield/ui/controls";
 import { useState } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
-import { editMeeting, listMinistries, listVenues, scheduleMeeting } from "./actions.ts";
+import { editMeeting, scheduleMeeting } from "./actions.ts";
+import { listMinistries, listVenues } from "./fetch.ts";
 import { offsetText } from "../../components/dates.ts";
 import { problemText, TYPE_LABEL, TYPES, type Detail, type MeetingType, type Outcome, type Venue } from "./model.ts";
 import {
@@ -29,7 +31,6 @@ import {
 	useProblemFocus,
 	type SaveIntent,
 } from "../../components/save/parts.tsx";
-import { Problem } from "./parts.tsx";
 
 type Choice = { instant: string; offsetSeconds: number };
 type Fold = { choices: Choice[]; offset: number | null };
@@ -418,7 +419,7 @@ function Form<E extends { problem?: string }>({
 						/>
 					</Field>
 					<DialogNotice />
-					<Problem text={problem ? problemText(problem) : undefined} />
+					<InlineAlert>{problem ? problemText(problem) : undefined}</InlineAlert>
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>

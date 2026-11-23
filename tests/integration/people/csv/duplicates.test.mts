@@ -21,6 +21,7 @@ import {
 	restoreDuplicatePair,
 	withPeopleWrite,
 } from "../../../../packages/domain/src/people/index.ts";
+import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -38,8 +39,8 @@ const actors = [
 ];
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
 const rows = async (query) => (await admin.execute(query)).rows;
-const read = (who, body) => db.transaction((t) => body(t, ctx(who)));
-const actor = async (who = 0) => db.transaction((t) => RequestActor.resolve(t, actors[who].session));
+const read = (who, body) => gatedTransaction(db, (t) => body(t, ctx(who)));
+const actor = async (who = 0) => gatedTransaction(db, (t) => RequestActor.resolve(t, actors[who].session));
 const write = async (who, body) => withPeopleWrite(db, await actor(who), body);
 const dismiss = (pair, who = 0) => write(who, (t, c) => dismissDuplicatePair(t, c, pair));
 const restore = (pair, who = 0) => write(who, (t, c) => restoreDuplicatePair(t, c, pair));

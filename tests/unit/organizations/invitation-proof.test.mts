@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { join } from "node:path";
 import { test } from "node:test";
+import { setServerEnv } from "../../support/server-env.mts";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { respondInvitationRequest } from "../../../packages/contracts/src/organizations/index.ts";
 
@@ -10,7 +11,7 @@ const FEATURE = fileURLToPath(new URL("../../../apps/web/src/features/organizati
 const ORIGIN = "https://everyfield.test";
 const PROOF = "Synthetic-relationship-proof-4Kd!";
 const INVITATION = "8d0f5f0e-3f43-4c43-9f0b-4d3f6c2f6a11";
-process.env.IDENTITY_ORIGIN = ORIGIN;
+setServerEnv({ IDENTITY_ORIGIN: ORIGIN });
 
 type Viewer = { kind: "signed_out" } | { kind: "unavailable" } | { kind: "viewer"; [k: string]: unknown };
 type State = {
@@ -66,6 +67,8 @@ const stubs: Record<string, string> = {
 		export const viewerOf = async () => { state.domain.push(["viewerOf"]); return state.viewer; };
 		export const invitationFor = async (_m, _a, _v, invitationId, proof) => {
 			state.domain.push(["invitationFor", invitationId, proof]);
+			if (proof === "Expired-proof")
+				return { status: "expired", pair: ${JSON.stringify(pair)}, inviterDescription: "Ana", expiredAt: "2026-11-01T00:00:00.000Z" };
 			return proof === ${JSON.stringify(PROOF)}
 				? { invitationId, revision: "1", pair: ${JSON.stringify(pair)}, inviterDescription: "Ana", expiresAt: "2026-12-01T00:00:00.000Z" }
 				: null;
@@ -143,7 +146,7 @@ test("the read and the answer send the proof only in the route's body, never in 
 	]);
 });
 
-test("the route answers the read as the page did: signed out, unavailable or the request", async () => {
+test("the route answers the read as the page did: signed out, unavailable, expired or the request", async () => {
 	const read = (proof: string) => post(JSON.stringify({ op: "read", invitationId: INVITATION, proof }));
 
 	reset({ kind: "signed_out" });
@@ -171,6 +174,14 @@ test("the route answers the read as the page did: signed out, unavailable or the
 			inviterDescription: "Ana",
 			expiresAt: "2026-12-01T00:00:00.000Z",
 		},
+		names: { "o-1": "Name o-1", "p-1": "Name p-1" },
+		zone: "America/Chicago",
+	});
+
+	reset(viewer);
+	assert.deepEqual(await (await read("Expired-proof")).json(), {
+		kind: "expired",
+		invitation: { status: "expired", pair, inviterDescription: "Ana", expiredAt: "2026-11-01T00:00:00.000Z" },
 		names: { "o-1": "Name o-1", "p-1": "Name p-1" },
 		zone: "America/Chicago",
 	});
@@ -209,7 +220,9 @@ test("the route refuses other origins, other content types, oversize and off-sch
 		const response = await pending();
 		assert.equal(response.status, status, name);
 		noStore(response);
-		assert.equal((await response.json()).status, "refused", name);
+		const body = await response.json();
+		if (status === 403) assert.deepEqual(body, { code: "origin_denied" }, name);
+		else assert.equal(body.status, "refused", name);
 		assert.deepEqual(state.domain, [], `${name} reached the domain`);
 	}
 });

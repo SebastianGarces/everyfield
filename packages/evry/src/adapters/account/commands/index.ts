@@ -26,7 +26,7 @@ export const finalizeAvatar = nativeWrite({
 				AND f.state='ready' AND f.expires_at>clock_timestamp() AND NOT EXISTS(SELECT FROM account o WHERE o.avatar_object_id=f.id))`;
 	},
 	async run(tx, context, request, { authority, ports }) {
-		settled(await ports.account.finalizeAvatar(tx, own(context, authority.actor.accountId), request as never));
+		settled(await ports.account.finalizeAvatar(tx, own(context, authority.actor.accountId), request));
 	},
 });
 
@@ -51,7 +51,7 @@ export const requestDeletion = nativeWrite({
 			${account(actor)}`;
 	},
 	async run(tx, context, request, { authority, ports }) {
-		settled(await ports.account.requestAccountDeletion(tx, own(context, authority.actor.accountId), request as never));
+		settled(await ports.account.requestAccountDeletion(tx, own(context, authority.actor.accountId), request));
 	},
 });
 

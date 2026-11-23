@@ -9,6 +9,7 @@ import type {
 import {
 	approveProposal,
 	cancelProposal,
+	projectError,
 	cancelTurn,
 	createConversation,
 	executeProposal,
@@ -21,20 +22,21 @@ import {
 	submitTurn,
 	type EvryActor,
 } from "../../../packages/evry/src/index.ts";
+import { waitingOnLock } from "../../support/fixture.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim, recoverLease, type Claim } from "../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim, recoverLease, type Claim } from "../../../packages/domain/src/jobs/queue.ts";
 import {
 	accounts,
 	actor,
 	admin,
 	db,
+	otherPlant,
 	people,
 	plant,
 	queries,
-	role,
 	setup,
 	sql,
 	teardown,
@@ -43,6 +45,12 @@ import {
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
+};
+const noPorts = {
+	reminders: noReminders,
+	phaseNotices: async () => {
+		throw Error("unexpected phase notice");
+	},
 };
 
 before(setup);
@@ -61,11 +69,17 @@ async function effects() {
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	if (!claim) return null;
 	const start = queries.length;
-	const outcome = await executeProposal(db, lease(claim), noReminders);
+	const outcome = await executeProposal(db, lease(claim), noPorts);
 	const statements = counted(start);
 	if (outcome !== "lost")
 		await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	return { outcome, statements };
+}
+
+async function backendPid(tx: Parameters<Parameters<typeof admin.transaction>[0]>[0]) {
+	const [row] = (await tx.execute<{ pid: number }>(sql`SELECT pg_backend_pid() AS pid`)).rows;
+	assert.ok(row);
+	return row.pid;
 }
 
 async function stalledEffect(during: (claim: Claim) => Promise<void>, leaseSeconds = 60) {
@@ -74,14 +88,8 @@ async function stalledEffect(during: (claim: Claim) => Promise<void>, leaseSecon
 	let running: Promise<string> | undefined;
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`SELECT id FROM plant WHERE id=${plant} FOR UPDATE`);
-		running = executeProposal(db, lease(claim), noReminders);
-		for (let waiting = 0, deadline = Date.now() + 20_000; !waiting;) {
-			assert.ok(Date.now() < deadline, "the executor never waited for write authority");
-			const r = await admin.execute(
-				sql`SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND usename=${role} AND query LIKE '%write_gate%'`,
-			);
-			waiting = (r.rows[0] as { n: number }).n;
-		}
+		running = executeProposal(db, lease(claim), noPorts);
+		await waitingOnLock(admin, { blockedBy: await backendPid(tx) });
 		await during(claim);
 	});
 	const outcome = await running!;
@@ -237,7 +245,9 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 		revision: 1,
 		input: { personId: people.casey, patch: { phone: "555-0100" } },
 	});
-	assert.ok(fresh.expiresAt.getTime() - Date.now() > 14 * 60_000);
+	const [clock] = (await admin.execute<{ now: string }>(sql`SELECT clock_timestamp()::text AS now`)).rows;
+	assert.ok(clock);
+	assert.ok(fresh.expiresAt.getTime() - Date.parse(clock.now) > 14 * 60_000);
 	await approveProposal(db, owner, proposal.id, witness(fresh), null);
 	await admin.execute(sql`UPDATE proposal SET expires_at=clock_timestamp() WHERE id=${proposal.id}`);
 	assert.equal((await effects())?.outcome, "expired");
@@ -368,7 +378,7 @@ test("AC:EVRY-LEASE-FENCE AC:INH-REGRESSION-RETRY AC:INH-EDGES-12: an executor s
 	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
 	assert.equal(counted(start), 1);
 	assert.equal((await effects())?.outcome, "completed");
-	assert.equal(await executeProposal(db, lease(stalled!), noReminders), "lost");
+	assert.equal(await executeProposal(db, lease(stalled!), noPorts), "lost");
 	const retry = await retryUnresolvedEffects(db, owner, proposal.id);
 	assert.deepEqual([retry.retried, retry.proposal.outcome], [false, "completed"]);
 	assert.equal(await effects(), null);
@@ -426,24 +436,12 @@ test("AC:EVRY-LEASE-FENCE an executor whose lease expires while it waits for the
 	const before = await person(people.alexChen);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	assert.ok(claim);
-	await admin.execute(
-		sql`UPDATE job SET lease_until=clock_timestamp()+interval '2000 milliseconds' WHERE id=${claim.id}`,
-	);
 	let running: Promise<string> | undefined;
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`SELECT id FROM job WHERE id=${claim.id} FOR UPDATE`);
-		running = executeProposal(db, lease(claim), noReminders);
-		for (let waiting = 0, deadline = Date.now() + 20_000; !waiting;) {
-			assert.ok(Date.now() < deadline, "the executor never waited for the job row");
-			const r = await admin.execute(
-				sql`SELECT count(*)::int n FROM pg_stat_activity WHERE wait_event_type='Lock' AND usename=${role}`,
-			);
-			waiting = (r.rows[0] as { n: number }).n;
-		}
-		for (let passed = false; !passed;) {
-			const r = await admin.execute(sql`SELECT lease_until<=clock_timestamp() AS passed FROM job WHERE id=${claim.id}`);
-			passed = (r.rows[0] as { passed: boolean }).passed;
-		}
+		running = executeProposal(db, lease(claim), noPorts);
+		await waitingOnLock(admin, { blockedBy: await backendPid(tx) });
+		await tx.execute(sql`UPDATE job SET lease_until=clock_timestamp()-interval '1 millisecond' WHERE id=${claim.id}`);
 	});
 	assert.equal(await running!, "lost");
 	const after = await readReview(db, owner, proposal.id);
@@ -481,7 +479,7 @@ test("INV-effect-recovery: an approved effect that no worker took within 60 s re
 	assert.equal(counted(start), 1);
 	assert.deepEqual(await effectJobs(proposal.id), ["superseded", "ready"]);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
-	assert.equal(await executeProposal(db, lease(claim!), noReminders), "completed");
+	assert.equal(await executeProposal(db, lease(claim!), noPorts), "completed");
 	const shown = await readReview(db, owner, proposal.id);
 	assert.deepEqual([shown.outcome, shown.executing], ["completed", false]);
 	assert.equal(await transaction(db, (tx) => finishClaim(tx, claim!, { state: "succeeded" })), true);
@@ -587,4 +585,62 @@ test("INV-budget: a conversation's page read brings every review card's current 
 	} finally {
 		await admin.execute(sql`UPDATE seat SET role='owner' WHERE ${seat}`);
 	}
+});
+
+test("INV-church-changed: approving the old church's pending proposal after the seat moves church is refused as church_changed and changes nothing", async () => {
+	const [id, user, session] = [randomUUID(), randomUUID(), randomUUID()];
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${id + "@example.test"},true,'Mover')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${id},${user},'active','planter')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${session},${user},${randomUUID()},clock_timestamp()+interval '1 day')`,
+	);
+	const seat = (church: string) =>
+		admin.execute(
+			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${id},${church},'admin',clock_timestamp())`,
+		);
+	const fresh = async () => evryActor((await readViewer(db, session as never))!.authority!);
+	await seat(plant);
+	const before = await fresh();
+	const { proposal } = await propose(before, "Change Chen's city to Joliet");
+	const { proposal: theirs } = await propose(await actor("owner"), "Change Chen's city to Joliet");
+	const approve = (as: EvryActor, p: { id: string; revision: number; digest: string }) =>
+		refusal(approveProposal(db, as, p.id, witness(p), null));
+	const missing = { ...proposal, id: randomUUID() };
+	const state = async () => {
+		const r = await admin.execute(sql`SELECT p.state,p.outcome,p.approved_at,p.job_id,
+			(SELECT count(*)::int FROM audit_event a WHERE a.subject_id=p.conversation_id) AS audits,
+			(SELECT count(*)::int FROM job j WHERE j.kind='evry_effect') AS jobs FROM proposal p WHERE p.id=${proposal.id}`);
+		const row = r.rows[0] as { state: string; outcome: string | null; approved_at: unknown; job_id: string | null };
+		return { ...row, city: (await person(people.alexChen)).city, effects: await effectJobs(proposal.id) };
+	};
+
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${id}`);
+	const seatless = await fresh();
+	assert.equal(seatless.seatId, null);
+	for (const as of [seatless, before]) assert.equal(await approve(as, proposal), "not_found");
+
+	await seat(otherPlant);
+	const moved = await fresh();
+	assert.equal(moved.owner.id, otherPlant);
+	const pending = await state();
+	assert.equal(pending.state, "pending");
+	const thrown = await approveProposal(db, moved, proposal.id, witness(proposal), null).then(
+		() => assert.fail("a moved seat must not approve the old church's proposal"),
+		(e: unknown) => e,
+	);
+	const { correlationId, ...body } = projectError(thrown);
+	assert.match(correlationId, /^[0-9a-f-]{36}$/);
+	assert.deepEqual(body, { code: "church_changed", retry: "never", outcome: "refused" });
+	assert.equal(await approve(moved, missing), "not_found");
+	assert.equal(await approve(moved, theirs), "not_found");
+	assert.deepEqual(
+		await state(),
+		pending,
+		"the proposal stays pending: no approval, effect job, record write or audit row",
+	);
+	assert.equal(await refusal(readReview(db, moved, proposal.id)), "not_found", "a review read keeps its code");
 });

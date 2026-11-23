@@ -13,12 +13,14 @@ import {
 	ConfirmDialog,
 	Field,
 	IconButton,
+	InlineAlert,
 	Input,
 	Menu,
 	MenuContent,
 	MenuItem,
 	MenuTrigger,
 	PageHeader,
+	ProblemText,
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { focusOnMount } from "@everyfield/ui/foundations";
@@ -28,7 +30,8 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { writeAddress } from "../../../components/location.ts";
 import { armLeaveHold, leaveHoldMark, leaveNow, SAVE_SHORTCUT, shortcutMark } from "../../../components/save/leave.ts";
 import { useLocalStore, useStore } from "../../../components/store.ts";
-import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument, type DocumentOutcome } from "../actions.ts";
+import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument } from "../actions.ts";
+import type { DocumentOutcome } from "../outcome.ts";
 import "../church/editor/editor.css";
 import { nativeExtensions } from "../church/editor/extensions.ts";
 import { BlockControls } from "../church/editor/LayoutControls.tsx";
@@ -127,13 +130,13 @@ export default function NativeEditor({
 		if (!base.id) return;
 		const result = await archiveOwnedDocument(base.id, base.revision);
 		if (result.status !== "ok")
-			throw new Error(
-				documentProblem(
+			return {
+				refused: documentProblem(
 					result.status === "refused" ? result.code : "lost",
 					result.status === "refused" ? result.problem : undefined,
 					"This document was not archived. Try again.",
 				),
-			);
+			};
 		router.push("/documents");
 	}
 
@@ -264,20 +267,16 @@ export default function NativeEditor({
 							<EditorToolbar editor={editor} />
 							<BlockControls editor={editor} palette={null} />
 							{refused ? (
-								<p role="alert" data-table-refused="" className="px-3 py-2 text-xs font-medium text-magenta-600">
-									{TABLE_REFUSED}
-								</p>
+								<div className="px-3 py-2">
+									<ProblemText data-table-refused="">{TABLE_REFUSED}</ProblemText>
+								</div>
 							) : null}
 						</>
 					) : (
 						<div className="h-[49px]" />
 					)}
 				</div>
-				{errors.body ? (
-					<p role="alert" className="w-full max-w-[816px] self-center text-sm text-magenta-600">
-						{errors.body}
-					</p>
-				) : null}
+				<InlineAlert className="w-full max-w-[816px] self-center">{errors.body}</InlineAlert>
 				<div className="ef-sheet ef-native">
 					<div className="ef-paper">
 						<EditorContent editor={editor} />

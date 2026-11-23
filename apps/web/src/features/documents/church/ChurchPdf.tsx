@@ -100,7 +100,7 @@ export function ChurchPdf({ title, src, page }: Props) {
 
 function Failed() {
 	return (
-		<StatePanel tone="error" title="The preview did not load" headingLevel="h2" className="py-8">
+		<StatePanel tone="error" title="The preview did not load" headingLevel="h2">
 			The PDF did not render. Nothing was changed. Reload the page to try again.
 		</StatePanel>
 	);

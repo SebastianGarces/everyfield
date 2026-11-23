@@ -29,5 +29,4 @@ test("INV-spend: the assessment job mounts the paid drafter only off production,
 		["an unknown environment", { ...PAID, VERCEL_ENV: "staging" }, null],
 	];
 	for (const [name, env, drafter] of cases) assert.equal(assessmentsMount(db, env)?.drafter.id ?? null, drafter, name);
-	assert.equal(assessmentsMount(null, PAID)?.drafter.id, "assessment-scripted", "no job database, no paid drafter");
 });

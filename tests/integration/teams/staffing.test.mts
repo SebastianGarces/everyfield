@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { teamsReader, teamsWriter, trainingReader, trainingWriter } from "../../../packages/domain/src/teams/index.ts";
 import { fixture, ok } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const database = await fixture({ prefix: "teamstaff", max: 4 });
 const { admin } = database;
@@ -13,7 +14,7 @@ const P = database.tenant.id;
 const owner = database.actors.owner;
 const ctx = { session: owner.session, selected: { kind: "plant" as const, id: P } };
 const run = (op: (t: never, c: typeof ctx, i: unknown) => Promise<unknown>, input: unknown) =>
-	db.transaction((t) => op(t as never, ctx, input));
+	gatedTransaction(db, (t) => op(t as never, ctx, input));
 const key = () => randomUUID();
 const viewer = () => RequestActor.resolve(db, owner.session);
 const rev = async (table: string, id: string) =>

@@ -55,11 +55,6 @@ export const RESULT_STATUS = {
 } as const satisfies Record<Result, string>;
 export const KIND_LABEL: Record<Kind, string> = { core_group: "Core group", launch_team: "Launch team" };
 
-export function today(now = new Date()): string {
-	const p = (n: number) => String(n).padStart(2, "0");
-	return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
-}
-
 export function advancedStage(stage: StageValue, target: "interviewed" | "core_group"): StageValue {
 	return STAGES.indexOf(stage) < STAGES.indexOf(target) ? target : stage;
 }

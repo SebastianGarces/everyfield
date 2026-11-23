@@ -27,12 +27,13 @@
 		"evry": "the Evry runtime composition: HTTP wiring, native port and worker",
 		"identity": "Better Auth, which every request reads",
 		"invitations": "invitation tokens identity, organizations and Evry share",
-		"jobs": "the queue, mail, scheduler, webhook and purge jobs every feature uses",
+		"jobs": "the scheduler, the digest mounts, the Resend and GitHub clients and the mail webhook route",
 		"mail": "mail transport and capture every sender goes through",
-		"platform": "the HTTP boundary, database and webhook helpers every route uses"
+		"platform": "the HTTP boundary and webhook helpers every route uses"
 	},
 	"thickRoutes": {
 		"apps/web/src/app/access/": "a landing-marketing owner-class page that composes the marketing site",
+		"apps/web/src/app/api/cron/jobs/route.ts": "the cron dispatcher wires every feature's scheduled job and mail pass into its GET, and no single feature owns that wiring",
 		"apps/web/src/app/global-error.tsx": "Next renders it without any layout, so it holds its own markup",
 		"apps/web/src/app/layout.tsx": "the root layout holds the document shell, fonts and metadata",
 		"apps/web/src/app/oversight/": "a landing-marketing owner-class page that composes the marketing site",

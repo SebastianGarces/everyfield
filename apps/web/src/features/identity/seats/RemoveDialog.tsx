@@ -23,14 +23,19 @@ import { useState, type ReactNode } from "react";
 import type { z } from "zod";
 import { Refusal, useIntent } from "../../../components/intent.ts";
 import { ProblemLine } from "../../organizations/parts";
-import { readRemovalReview, runSeatCommand } from "./actions";
+import { runSeatCommand } from "./actions";
+import { readRemovalReview } from "./fetch.ts";
 import type { Seat } from "./model";
+import { READ_FAILED, thrownRead } from "../../../components/read-failed.ts";
 
 type Review = z.infer<typeof removalReviewResult>;
 type Duty = Review["duties"][number];
 type RemoveCommand = ReturnType<typeof removeSeatRequest.parse>;
 type Load = { attempt: number } & (
-	{ status: "loading" } | { status: "failed" } | { status: "too_large" } | { status: "ready"; review: Review }
+	| { status: "loading" }
+	| { status: "failed"; read: "lost" | "failed" }
+	| { status: "too_large" }
+	| { status: "ready"; review: Review }
 );
 
 const NEEDS_OWNER = "needs_owner";
@@ -84,8 +89,9 @@ export function RemoveDialog({
 			if (r.status !== "ok") throw new Error(r.code);
 			const review = removalReviewResult.parse(r.value);
 			setLoad((l) => (l.attempt === attempt ? { attempt, status: "ready", review } : l));
-		} catch {
-			setLoad((l) => (l.attempt === attempt ? { attempt, status: "failed" } : l));
+		} catch (error) {
+			const read = thrownRead(error).status;
+			setLoad((l) => (l.attempt === attempt ? { attempt, status: "failed", read } : l));
 		}
 	}
 
@@ -180,7 +186,11 @@ export function RemoveDialog({
 						) : load.status === "failed" ? (
 							<ProblemLine
 								problem="refused"
-								refused="Their open work did not load. Check your connection, then try again."
+								refused={
+									load.read === "failed"
+										? READ_FAILED
+										: "Their open work did not load. Check your connection, then try again."
+								}
 								action={
 									<Button size="sm" variant="secondary" onClick={() => void read(load.attempt + 1)}>
 										Try again

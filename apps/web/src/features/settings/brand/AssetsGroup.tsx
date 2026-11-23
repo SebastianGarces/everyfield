@@ -1,7 +1,7 @@
 "use client";
 
 import type { AssetSlot, HexColor } from "@everyfield/contracts/branding";
-import { Button, ConfirmDialog, Field, Input } from "@everyfield/ui/controls";
+import { Button, ConfirmDialog, Field, InlineAlert, Input } from "@everyfield/ui/controls";
 import { useRef, useState } from "react";
 import type { BrandKit, BrandPort, SuggestedColors } from "../port";
 import { ACCEPT, SLOT_INFO, SLOT_ORDER, backgrounds, canSuggest } from "./assets";
@@ -137,7 +137,7 @@ function Slot({
 				</div>
 			)}
 
-			{note ? <NoteLine note={note} onLoadLatest={assets.loadLatest} /> : null}
+			<NoteLine note={note} onLoadLatest={assets.loadLatest} />
 			{!pick && stored && !kit.primaryColor ? (
 				<p id={`${slot}-remove-hint`} className="text-sm text-text-3">
 					Save a primary color first. Then you can remove this image. Until then, upload another file to replace it.
@@ -276,19 +276,19 @@ function Backgrounds({
 	);
 }
 
-function NoteLine({ note, onLoadLatest }: { note: Note; onLoadLatest: () => void }) {
+function NoteLine({ note, onLoadLatest }: { note: Note | undefined; onLoadLatest: () => void }) {
 	return (
-		<div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-magenta-600">
-			<span>
-				{note.message}
-				{note.reference ? ` Reference ${note.reference}.` : ""}
-			</span>
-			{note.conflict ? (
-				<Button size="sm" variant="secondary" onClick={onLoadLatest}>
-					Load latest
-				</Button>
-			) : null}
-		</div>
+		<InlineAlert
+			actions={
+				note?.conflict ? (
+					<Button size="sm" variant="secondary" onClick={onLoadLatest}>
+						Load latest
+					</Button>
+				) : undefined
+			}
+		>
+			{note ? `${note.message}${note.reference ? ` Reference ${note.reference}.` : ""}` : null}
+		</InlineAlert>
 	);
 }
 

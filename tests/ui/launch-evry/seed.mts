@@ -7,8 +7,11 @@ import { createLaunchWriter } from "../../../packages/domain/src/launch/writes.t
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
+import { createPhaseWriter } from "../../../packages/domain/src/phases/index.ts";
+import { createSignals } from "../../../packages/domain/src/intelligence/index.ts";
 import { randomUUID } from "node:crypto";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const PASSWORD = "Launch-preview-pass-1";
 type Account = { cookie: string; accountId: string; sessionId: string; email: string };
@@ -51,7 +54,7 @@ export async function seedLaunchEvry(env: {
 		origin,
 		secret,
 		trustedIp: () => env.address(ip),
-		enqueueMail: async () => {},
+		enqueueMail: async () => randomUUID(),
 		diagnostic: () => {},
 	});
 	const host = new URL(origin).host;
@@ -96,12 +99,12 @@ export async function seedLaunchEvry(env: {
 	}
 
 	const noop = async () => {};
-	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop } as never);
+	const onboarding = createOnboardingProducer({ relationships: noop, enqueue: noop });
 	const ctx = (a: Account, selected: Plant | { kind: "account"; id: string }) =>
 		({ session: a.sessionId, selected }) as never;
 	async function plant(owner: Account, name: string, city: string): Promise<Plant> {
 		const created = ok<{ plant: Plant }>(
-			(await runtime.transaction((tx) =>
+			(await gatedTransaction(runtime, (tx) =>
 				onboarding.createPlant(tx, ctx(owner, { kind: "account", id: owner.accountId }), {
 					requestKey: randomUUID(),
 					expectedRevision: "1",
@@ -117,7 +120,7 @@ export async function seedLaunchEvry(env: {
 		admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at)
 			VALUES(${a.accountId},${p.id},${role},clock_timestamp()-interval '1 minute')`);
 	async function person(owner: Account, p: Plant, displayName: string, stage: string) {
-		const r = await runtime.transaction((tx) =>
+		const r = await gatedTransaction(runtime, (tx) =>
 			peopleWriter.createPerson(tx as never, ctx(owner, p), {
 				requestKey: randomUUID(),
 				input: { displayName, stage, source: "other" },
@@ -174,6 +177,40 @@ export async function seedLaunchEvry(env: {
 		VALUES(${randomUUID()},${cedar.id},'Send a press release to local media outlets','general','medium','not_started',
 			${noah.accountId},clock_timestamp()-interval '10 days','date_only',${day(-3)}::date)`);
 	for (let n = 1; n <= 14; n++) await person(noah, cedar, `Launch Team ${String(n).padStart(2, "0")}`, "launch_team");
+	for (const [n, days, status] of [
+		[1, -14, "completed"],
+		[2, -7, "completed"],
+		[3, 7, "planning"],
+	] as const)
+		await admin.execute(sql`WITH t AS (SELECT clock_timestamp()+make_interval(days=>${days}::int) AS at)
+			INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,
+				resolver_version,status,attendance_revision,actual_occurrence_at)
+			SELECT ${randomUUID()}::uuid,${cedar.id}::uuid,'prelaunch_practice',${`Pre-launch service ${n}`}::text,
+				(t.at AT TIME ZONE ${ZONE}::text)::date,(t.at AT TIME ZONE ${ZONE}::text)::time(0),${ZONE}::text,t.at,'1',
+				${status}::text,1,CASE WHEN ${status}::text='completed' THEN t.at END FROM t`);
+	const plantRevision = async () =>
+		String((await admin.execute(sql`SELECT revision::text AS r FROM plant WHERE id=${cedar.id}`)).rows[0]!.r);
+	ok(
+		await createPhaseWriter({ notices: async () => {} }).declare(runtime, await authority(noah), {
+			requestKey: randomUUID(),
+			expectedRevision: await plantRevision(),
+			input: { phase: 3 },
+		}),
+		"declare phase 3",
+	);
+	ok(
+		await createSignals().attest(runtime, await authority(noah), {
+			requestKey: randomUUID(),
+			expectedRevision: "0",
+			input: {
+				key: "systems_tested",
+				value: "not_yet",
+				asOf: today(),
+				detail: "Check-in and online giving haven't been run end to end yet.",
+			},
+		}),
+		"systems tested",
+	);
 	for (let n = 1; n <= 4; n++) await person(noah, cedar, `Prospect ${n}`, "prospect");
 
 	const ava = await account("Ava Stone");
@@ -282,7 +319,7 @@ export async function seedLaunchEvry(env: {
 			`guest ${displayName}`,
 		);
 	ok(
-		(await runtime.transaction((tx) =>
+		(await gatedTransaction(runtime, (tx) =>
 			peopleWriter.createPerson(tx as never, ctx(hugo, lakeside), {
 				requestKey: randomUUID(),
 				input: { displayName: "Maria Lopez", email: "maria.lopez@example.test", stage: "prospect", source: "other" },

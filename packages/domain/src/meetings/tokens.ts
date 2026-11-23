@@ -1,17 +1,17 @@
 import * as c from "@everyfield/contracts/meetings";
 import type { Database } from "@everyfield/db/client";
-import { sql, type SQLWrapper } from "@everyfield/db/query";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { sql, type SQLWrapper, type SqlLiteral } from "@everyfield/db/query";
+import { createHash, randomBytes } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { plantVisible, type Reader } from "./core.ts";
+import { plantVisible, refused, type Reader } from "./core.ts";
 import { displayTitle } from "./rows.ts";
 
 const TOKEN_DAYS = 7;
 export const rsvpTokenDigest = (token: string) => createHash("sha256").update(token).digest("hex");
 
 const ANSWERING_SQL = c.answeringStatuses.map((s) => `'${s}'`).join(", ");
-export const meetingOpenSql = (alias: string) =>
+export const meetingOpenSql = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
 	sql`${sql.raw(alias)}.retired_at IS NULL AND ${sql.raw(alias)}.status IN (${sql.raw(ANSWERING_SQL)})`;
 
 export const newRsvpToken = () => randomBytes(32).toString("base64url");
@@ -53,7 +53,7 @@ export async function describeRsvpToken(db: Reader, raw: unknown) {
 		FROM participation g JOIN meeting m ON m.id = g.meeting_id JOIN person p ON p.id = g.person_id
 		WHERE g.rsvp_token_hash = ${rsvpTokenDigest(input.data.token)} AND g.removed_at IS NULL AND m.retired_at IS NULL AND p.state = 'live'
 			AND ${plantVisible(sql`g.plant_id`)}`);
-	if (!r.rows[0]) return c.rsvpTokenView.parse({ state: "unavailable" });
+	if (!r.rows[0]) return { state: "unavailable" } satisfies z.output<typeof c.rsvpTokenView>;
 	const v = viewRow.parse(r.rows[0]);
 	return c.rsvpTokenView.parse({
 		state: v.closed ? "closed" : !v.open ? "answered" : v.expired ? "expired" : "pending",
@@ -73,19 +73,11 @@ export async function describeRsvpToken(db: Reader, raw: unknown) {
 export async function answerRsvpToken(db: Database, raw: unknown) {
 	const input = c.answerRsvpTokenRequest.safeParse(raw);
 	if (!input.success)
-		return {
-			status: "refused" as const,
-			error: c.meetingsError.parse({
-				code: "invalid_input",
-				details: {
-					issues: input.error.issues
-						.slice(0, 50)
-						.map((i) => ({ path: i.path.join("."), problem: i.message.slice(0, 200) })),
-				},
-				correlationId: randomUUID(),
-				retry: "never",
-			}),
-		};
+		return refused("invalid_input", {
+			issues: input.error.issues
+				.slice(0, 50)
+				.map((i) => ({ path: i.path.join("."), problem: i.message.slice(0, 200) })),
+		});
 	const { token, rsvp } = input.data;
 	const r = await db.execute(sql`WITH target AS (
 			SELECT g.id, g.plant_id, g.meeting_id, coalesce(g.rsvp, 'pending') AS rsvp FROM participation g
@@ -104,18 +96,9 @@ export async function answerRsvpToken(db: Database, raw: unknown) {
 		)
 		SELECT (SELECT count(*) FROM answered)::int AS answered`);
 	const row = z.object({ answered: z.number().int() }).parse(r.rows[0]);
-	if (!row.answered)
-		return {
-			status: "refused" as const,
-			error: c.meetingsError.parse({
-				code: "token_closed",
-				details: {},
-				correlationId: randomUUID(),
-				retry: "never",
-			}),
-		};
+	if (!row.answered) return refused("token_closed");
 	return {
 		status: "ok" as const,
-		value: c.rsvpTokenAnswer.parse({ rsvp }),
+		value: { rsvp } satisfies z.output<typeof c.rsvpTokenAnswer>,
 	};
 }

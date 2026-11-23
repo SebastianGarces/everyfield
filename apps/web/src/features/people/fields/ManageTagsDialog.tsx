@@ -20,6 +20,7 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 	Skeleton,
+	ProblemText,
 } from "@everyfield/ui/controls";
 import { TINT, type Tone } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
@@ -28,15 +29,18 @@ import { createRead, useRead } from "../../../components/read.tsx";
 import type { Outcome } from "../../../components/save/model.ts";
 import { DialogNotice, type SaveIntent } from "../../../components/save/parts.tsx";
 import { FormProblem, problemText } from "../parts.tsx";
-import { createChurchTag, deleteChurchTag, listChurchTags, updateChurchTag } from "./actions.ts";
+import { createChurchTag, deleteChurchTag, updateChurchTag } from "./actions.ts";
+import { listChurchTags } from "../fetch.ts";
 import { TAG_COLOR_LABEL, TAG_COLORS, tagLook, type ChurchTag } from "./model.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
-export const churchTags = createRead((): Promise<Outcome<ChurchTag[]>> => listChurchTags(), {
+export const churchTags = createRead((): Promise<Outcome<ChurchTag[]> | ReadFailure> => listChurchTags(), {
 	failed: () => ({ status: "lost" }) as const,
 });
 const byName = (a: { name: string }, b: { name: string }) =>
 	a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-const problem = (r: Outcome<unknown>) => (r.status === "ok" ? undefined : r.status === "lost" ? "lost" : r.code);
+const problem = (r: Exclude<Outcome<unknown> | ReadFailure, { status: "ok" }>) =>
+	r.status === "refused" ? r.code : r.status;
 export const tagProblem = (code: string) =>
 	code === "conflict"
 		? "Another tag already has this name, or the tag changed. Check the list and try again."
@@ -76,7 +80,7 @@ export function ManageTagsDialog({
 	async function confirmDelete(tag: ChurchTag) {
 		setRowProblem(null);
 		const r = await listChurchTags().catch(() => ({ status: "lost" }) as const);
-		if (r.status !== "ok") return setRowProblem({ id: tag.id, text: tagProblem(problem(r)!) });
+		if (r.status !== "ok") return setRowProblem({ id: tag.id, text: tagProblem(problem(r)) });
 		save(() => r.value);
 		const now = r.value.find((t) => t.id === tag.id);
 		if (now) setDeleting(now);
@@ -230,11 +234,7 @@ export function ManageTagsDialog({
 											)}
 										</div>
 									)}
-									{rowProblem?.id === t.id ? (
-										<p role="alert" className="mt-1 text-xs font-medium text-magenta-600">
-											{rowProblem.text}
-										</p>
-									) : null}
+									{rowProblem?.id === t.id ? <ProblemText className="mt-1">{rowProblem.text}</ProblemText> : null}
 								</li>
 							))}
 						</ul>

@@ -5,6 +5,8 @@ import { sql } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
+import { queueJobsFor } from "../jobs/queue.ts";
+import { logFailure } from "../log.ts";
 import { pgCode } from "../wiki/core.ts";
 import {
 	draftWithin,
@@ -142,14 +144,14 @@ ${finish(state, code)} SELECT 1`);
 				}
 				const input =
 					retrieved.status === "ok"
-						? c.modelInput.parse({
+						? ({
 								phase: retrieved.phase,
 								asOf: f.asOf,
 								today: f.today,
 								rubric: c.ACTIVE_PLANT_RUBRIC,
 								facts: c.factCatalog(f),
 								passages: retrieved.passages,
-							})
+							} satisfies z.output<typeof c.modelInput>)
 						: null;
 				const degraded = !input;
 				const reason = retrieved.status === "unavailable" ? "guidance_unavailable" : "reference_missing";
@@ -206,12 +208,19 @@ SELECT EXISTS(SELECT FROM r) AS ok`);
 	next_attempt_at=(SELECT t FROM w),revision=revision+1 WHERE id IN (SELECT id FROM lk) AND EXISTS(SELECT FROM r) RETURNING 1)`
 			: finish(outcome === "superseded" ? "superseded" : "failed", reason);
 		const followup = extra.followup
-			? sql`, f AS (INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,
-	claim_generation) SELECT r.plant_id,'assessment',r.plant_id,'followup/'||r.id::text,'ready',${now()},0,10,0 FROM r
-	ON CONFLICT DO NOTHING RETURNING 1)`
+			? sql`, f AS (${queueJobsFor(sql`FROM r`, {
+					kind: "assessment",
+					tenant: sql`r.plant_id`,
+					subject: sql`r.plant_id`,
+					key: sql`'followup/'||r.id::text`,
+					eligibleAt: now(),
+					maxAttempts: 10,
+					conflict: "skip",
+					returning: true,
+				})})`
 			: sql``;
 		await db.execute(sql`WITH ${lock(j)},
-w AS (SELECT ${deferred ? later(extra.waitMs!) : sql`NULL::timestamptz`} AS t),
+w AS (SELECT ${deferred && extra.waitMs !== undefined ? later(extra.waitMs) : sql`NULL::timestamptz`} AS t),
 r AS (UPDATE assessment_run SET outcome=${outcome},reason=${reason},${counters(p)},
 	retry_at=(SELECT t FROM w),settled_at=${deferred ? sql`NULL` : sql`clock_timestamp()`}
 	WHERE id=${run.id}::uuid AND outcome IN ('pending','deferred') AND EXISTS(SELECT FROM lk)
@@ -258,10 +267,11 @@ SELECT EXISTS(SELECT FROM r) AS published,EXISTS(SELECT FROM lk) AS claimed,(SEL
 		let from: DraftProgress = NO_PROGRESS;
 		if (j.run) {
 			if (j.run.outcome !== "pending" && j.run.outcome !== "deferred") return close(db, j, "succeeded", "settled");
+			if (!j.run.model_input) throw new Error("an open assessment run has no model input");
 			run = {
 				id: j.run.id,
 				plant: j.plant,
-				input: j.run.model_input!,
+				input: j.run.model_input,
 				asOf: j.run.as_of,
 				revision: j.run.source_revision,
 				deadline: Date.parse(j.run.deadline_at),
@@ -300,9 +310,9 @@ SELECT EXISTS(SELECT FROM r) AS published,EXISTS(SELECT FROM lk) AS claimed,(SEL
 			return settleRun(db, j, run, p, "superseded", "changed_input", { followup: !!current });
 		let outcome;
 		try {
-			outcome = await publish(db, j, run, p, drafted.published!);
+			outcome = await publish(db, j, run, p, drafted.published);
 		} catch (error) {
-			console.error(JSON.stringify({ component: "assessment", outcome: "persistence", code: pgCode(error) ?? null }));
+			logFailure({ component: "assessment", outcome: "persistence" }, error);
 			return settleRun(db, j, run, p, "failed", "persistence");
 		}
 		if (!outcome.published && outcome.claimed)
@@ -338,9 +348,16 @@ d AS (SELECT plant,1 AS rank,'change/'||floor(extract(epoch FROM changed_at)*100
 		WHERE (current_as_of IS NULL OR current_as_of<=${stale}) AND (NOT held OR last_as_of<=${stale})),
 q AS (SELECT DISTINCT ON (d.plant) d.plant,d.key FROM d WHERE NOT EXISTS(SELECT FROM job j WHERE j.kind='assessment'
 	AND j.subject_record_id=d.plant AND j.producer_key=d.key) ORDER BY d.plant,d.rank),
-ins AS (INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,
-	claim_generation) SELECT plant,'assessment',plant,key,'ready',${t},0,10,0 FROM (SELECT * FROM q ORDER BY plant LIMIT ${limit}) q
-	ON CONFLICT DO NOTHING RETURNING 1)
+ins AS (${queueJobsFor(sql`FROM (SELECT * FROM q ORDER BY plant LIMIT ${limit}) q`, {
+				kind: "assessment",
+				tenant: sql`plant`,
+				subject: sql`plant`,
+				key: sql`key`,
+				eligibleAt: t,
+				maxAttempts: 10,
+				conflict: "skip",
+				returning: true,
+			})})
 SELECT count(*)::int AS n FROM ins`);
 			return z.object({ n: z.int() }).parse(rows[0]).n;
 		},
@@ -351,7 +368,7 @@ SELECT count(*)::int AS n FROM ins`);
 			try {
 				await execute(db, drafter, j);
 			} catch (error) {
-				console.error(JSON.stringify({ component: "assessment", outcome: "error", code: pgCode(error) ?? null }));
+				logFailure({ component: "assessment", outcome: "error" }, error);
 			}
 			return true;
 		},

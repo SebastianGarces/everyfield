@@ -3,14 +3,13 @@
 import type { IntelligenceGroup, IntelligencePattern, IntelligenceView, Level } from "@everyfield/contracts/oversight";
 import { LEVELS, patternText } from "@everyfield/contracts/oversight";
 import {
-	AlertCircleIcon,
 	ArrowRight01Icon,
 	Refresh01Icon,
 	ThumbsDownIcon,
 	ThumbsUpIcon,
 	UserGroupIcon,
 } from "@hugeicons/core-free-icons";
-import { Button, CalloutLabel, CalloutText, Card, CardIcon, EmptyState } from "@everyfield/ui/controls";
+import { Button, CalloutLabel, CalloutText, Card, CardIcon, EmptyState, InlineAlert } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
@@ -27,7 +26,8 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 	const [problem, setProblem] = useState<string | null>(null);
 	const [refreshing, startRefresh] = useTransition();
 	const latest = view.history[0]?.runId ?? null;
-	const viewingLatest = view.run?.runId === latest;
+	const { run } = view;
+	const viewingLatest = run?.runId === latest;
 
 	const refresh = () =>
 		startRefresh(async () => {
@@ -78,15 +78,10 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 				) : (
 					<p className="text-sm text-text-3">Owners and Admins can refresh.</p>
 				)}
-				{problem ? (
-					<p role="alert" className="flex w-full items-start gap-2 text-md text-magenta-700">
-						<Icon icon={AlertCircleIcon} size={16} className="mt-0.5 flex-none" />
-						{problem}
-					</p>
-				) : null}
+				<InlineAlert className="w-full">{problem}</InlineAlert>
 			</Card>
 
-			{view.run ? (
+			{run ? (
 				<>
 					<nav
 						aria-label="Group by"
@@ -95,11 +90,11 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 						{LEVELS.map((l) => (
 							<Link
 								key={l}
-								href={href(l, viewingLatest ? null : view.run!.runId)}
+								href={href(l, viewingLatest ? null : run.runId)}
 								aria-current={view.level === l ? "page" : undefined}
 								className={cn(
 									"inline-flex flex-none items-center rounded-md px-3.5 py-2 font-medium whitespace-nowrap text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
-									view.level === l && "bg-surface-raised text-ink shadow-[var(--ef-shadow-raised)]",
+									view.level === l && "bg-surface-raised shadow-[var(--ef-shadow-raised)]",
 								)}
 							>
 								{words.levels[l]}

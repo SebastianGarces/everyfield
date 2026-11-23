@@ -1,10 +1,11 @@
-import type { Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import type { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import type { EffectResult, NativeContext, NativePorts, ReviewContext, ReviewedWrite } from "../proposals/types.ts";
+import type { RequestActor, WriteTx } from "@everyfield/domain/access";
 
 export const plantAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
@@ -48,6 +49,36 @@ export function committed<T extends { status: string }>(result: T): T {
 	return result;
 }
 
+export function approvedNow<I>(spec: {
+	operation: string;
+	description: string;
+	input: z.ZodType<I>;
+	allowed?: (actor: EvryActor) => boolean;
+	review: ReviewedWrite<I>["review"];
+	reason: boolean;
+	run(
+		db: Database,
+		authority: RequestActor,
+		args: Record<string, unknown>,
+		reason: string | null,
+	): Promise<EffectResult>;
+	current?(p: SQL): SQL;
+}): ReviewedWrite<I> {
+	return {
+		operation: spec.operation,
+		description: spec.description,
+		input: spec.input,
+		allowed: spec.allowed ?? organizationAdmin,
+		review: spec.review,
+		execute: async () => ({ refused: "review_closed" }),
+		approveNow: {
+			reason: spec.reason,
+			run: (db, authority, args, reason) => spec.run(db, authority, args as Record<string, unknown>, reason),
+		},
+		...(spec.current && { current: spec.current }),
+	};
+}
+
 type Receipt = { receiptId?: string; revision?: string };
 export function nativeWrite<I>(spec: {
 	operation: string;
@@ -56,7 +87,7 @@ export function nativeWrite<I>(spec: {
 	allowed(actor: EvryActor): boolean;
 	review(actor: EvryActor, input: I, context: ReviewContext): SQL | Promise<SQL | null>;
 	run(
-		tx: Transaction,
+		tx: WriteTx,
 		context: PeopleContext,
 		request: Record<string, unknown> & { requestKey: string },
 		native: NativeContext & { ports: NativePorts; reminders: TaskReminders },
@@ -68,15 +99,15 @@ export function nativeWrite<I>(spec: {
 		input: spec.input,
 		allowed: spec.allowed,
 		review: spec.review,
-		async execute(tx, context, args, effectKey, reminders, native): Promise<EffectResult> {
-			const ports = native.ports;
-			if (!ports) return { refused: "source_unavailable" };
+		async execute(tx, context, args, effectKey, ports, native): Promise<EffectResult> {
+			const services = native.ports;
+			if (!services) return { refused: "source_unavailable" };
 			try {
 				const receipt = await spec.run(
 					tx,
 					context,
 					{ ...(args as Record<string, unknown>), requestKey: effectKey },
-					{ ...native, ports, reminders },
+					{ ...native, ports: services, reminders: ports.reminders },
 				);
 				return { ...receipt, revision: receipt?.revision ?? "1" };
 			} catch (error) {

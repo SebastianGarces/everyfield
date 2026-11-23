@@ -1,6 +1,6 @@
+import { cn } from "@everyfield/ui/foundations";
 import type { IconSvgElement } from "@hugeicons/react";
 import type { ReactNode } from "react";
-import { cn } from "../cn";
 import { Icon } from "../Icon";
 
 export const NUM = "tracking-[-0.02em] whitespace-nowrap";

@@ -27,6 +27,7 @@ import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 import { localWhen, TYPE_LABEL } from "../../../catalog/labels.ts";
 import { day, id, inPlant, meeting, meetingId, ownerOrAdmin, personId, RSVP, value, venueId } from "../shared.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 type Reader = Pick<Transaction, "execute">;
 type Target = { kind: "meeting" | "venue"; id: string; label: string };
@@ -83,10 +84,10 @@ function write<I, F, V>(spec: {
 	allowed?: (actor: EvryActor) => boolean;
 	member?: true;
 	prepare(db: Reader, actor: EvryActor, input: NoInfer<I>): Promise<Prepared<F> | null>;
-	run(w: Writers, tx: Transaction, ctx: MeetingsContext, request: unknown): Promise<MeetingsReply<V>>;
+	run(w: Writers, tx: WriteTx, ctx: MeetingsContext, request: unknown): Promise<MeetingsReply<V>>;
 	changes(previewed: { prepared: Prepared<F>; value: V; seen: unknown }): Change[];
 	asked?(prepared: Prepared<F>): Change[];
-	inspect?(tx: Transaction, value: NoInfer<V>): Promise<unknown>;
+	inspect?(tx: WriteTx, value: NoInfer<V>): Promise<unknown>;
 	revision(value: NoInfer<V>): string;
 }): ReviewedWrite<I> {
 	return {
@@ -125,10 +126,10 @@ function write<I, F, V>(spec: {
 				: sql`WHERE ${prepared.target.kind === "meeting" ? meetingLive(actor, prepared.target.id) : venueLive(actor, prepared.target.id)}`;
 			return sql`SELECT ${JSON.stringify(review)}::jsonb AS review, ${JSON.stringify(prepared.args)}::jsonb AS args ${live}`;
 		},
-		async execute(tx, context, args, effectKey, reminders): Promise<EffectResult> {
-			const request = { ...z.object({}).loose().parse(args), requestKey: effectKey };
+		async execute(tx, context, args, effectKey, ports): Promise<EffectResult> {
+			const request = { ...z.record(z.string(), z.unknown()).parse(args), requestKey: effectKey };
 			try {
-				const reply = await spec.run(writers(reminders), tx, context, request);
+				const reply = await spec.run(writers(ports.reminders), tx, context, request);
 				if (reply.status !== "ok") return { refused: reply.error.code };
 				const v = reply.value as V & { receiptId: string };
 				return { receiptId: v.receiptId, revision: spec.revision(v) };
@@ -447,7 +448,8 @@ export const updateKitItem = write({
 	run: (w, tx, ctx, r) => w.meetings.updateKitItem(tx, ctx, r),
 	changes: ({ prepared, value: v }: { prepared: Prepared<KitItem>; value: z.infer<typeof c.kitMutationResult> }) => {
 		const before = prepared.facts,
-			after = v.items.find((x) => x.id === before.id)!;
+			after = v.items.find((x) => x.id === before.id);
+		if (!after) throw new Error("The kit result is missing the changed item");
 		const yes = (b: boolean) => (b ? "Checked" : "Not checked");
 		return [
 			created("item", before.text),
@@ -562,7 +564,7 @@ type ContactFacts = { m: Detail; duplicates: string[] };
 async function onContact(db: Reader, actor: EvryActor, i: Contact & { meetingId: string }, extra: object = {}) {
 	const m = await meeting(db, actor, i.meetingId);
 	if (!m) return null;
-	const hints = await checkForDuplicates(db as Transaction, new PeopleReadContext(actor.authority), {
+	const hints = await checkForDuplicates(db as WriteTx, new PeopleReadContext(actor.authority), {
 		displayName: i.displayName,
 		...(i.email ? { email: i.email } : {}),
 		...(i.phone ? { phone: i.phone } : {}),
@@ -778,7 +780,7 @@ const STAGE: Record<string, string> = {
 	launch_team: "Launch team",
 	leader: "Leader",
 };
-async function generatedTasks(tx: Transaction, v: Finalization) {
+async function generatedTasks(tx: WriteTx, v: Finalization) {
 	const ids = v.work.flatMap((w) => (w.taskId && w.outcome === "created" ? [w.taskId] : []));
 	if (!ids.length) return [];
 	const r = await tx.execute(
@@ -786,7 +788,7 @@ async function generatedTasks(tx: Transaction, v: Finalization) {
 	);
 	const titles = new Map(
 		z
-			.array(z.object({ id: z.string(), title: z.string() }))
+			.array(z.strictObject({ id: z.string(), title: z.string() }))
 			.parse(r.rows)
 			.map((t) => [t.id, t.title]),
 	);

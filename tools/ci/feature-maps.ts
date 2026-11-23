@@ -62,13 +62,13 @@ type Surface = {
 export type FeatureMap = { feature: string; catalog: string[]; surfaces: Surface[] };
 type Persona = {
 	says: string;
-	context: "plant" | "organization" | "account" | "signed-out";
+	context: "plant" | "organization" | "account" | "pending" | "signed-out";
 	role?: "owner" | "admin" | "member";
 	residencyLinked?: boolean;
 	seed?: "qa";
 };
 type LoadedMap = { file: string; map: FeatureMap };
-type Route = { url: string; kind: "page" | "handler"; file: string };
+type Route = { url: string; kind: "page" | "handler"; file: string; slot?: boolean };
 type NavItem = { label: string; href: string };
 type ShellNav = (viewer: unknown) => { main: readonly NavItem[]; pages: readonly NavItem[] };
 
@@ -157,14 +157,17 @@ const SPECIAL_ROUTES: Record<string, string> = {
 };
 const ROUTE_FILE = /^(page|route|robots|sitemap|manifest|icon|apple-icon|opengraph-image|twitter-image)\.(tsx?|jsx?)$/;
 const isGroup = (segment: string) => /^\(.+\)$/.test(segment);
+const isSlot = (segment: string) => segment.startsWith("@");
 
 export function appRoutes(root: string): Route[] {
-	return walk(root, APP_DIR, (file) => ROUTE_FILE.test(file.slice(file.lastIndexOf("/") + 1))).map((file) => {
+	const files = walk(root, APP_DIR, (file) => ROUTE_FILE.test(file.slice(file.lastIndexOf("/") + 1)));
+	return files.map((file) => {
 		const parts = file.slice(APP_DIR.length + 1).split("/");
 		const base = parts.pop()!.replace(/\.[^.]+$/, "");
-		const segments = parts.filter((s) => !isGroup(s));
+		const segments = parts.filter((s) => !isGroup(s) && !isSlot(s));
 		if (base !== "page" && base !== "route") segments.push(SPECIAL_ROUTES[base] ?? base);
-		return { url: "/" + segments.join("/"), kind: base === "page" ? "page" : "handler", file };
+		const route: Route = { url: "/" + segments.join("/"), kind: base === "page" ? "page" : "handler", file };
+		return parts.some(isSlot) ? { ...route, slot: true } : route;
 	});
 }
 
@@ -294,6 +297,8 @@ export function personasFromSeed(source: string): Map<string, SeedPersona> {
 	const byName = new Map([...names].map(([login, name]) => [name, login] as const));
 	const out = new Map<string, SeedPersona>();
 	for (const [login, name] of names) out.set(login, { name, context: "account" });
+	for (const m of source.matchAll(/account\("[^"]+",\s*QA_LOGINS\.(\w+),\s*[\w.]+,\s*false\)/g))
+		out.set(m[1]!, { name: names.get(m[1]!) ?? m[1]!, context: "pending" });
 	const organization = /login:\s*QA_LOGINS\.(\w+),(?:\s*person:\s*"[^"]+",)?\s*role:\s*"(?:owner|admin|member)"/g;
 	for (const m of source.matchAll(organization))
 		out.set(m[1]!, { name: names.get(m[1]!) ?? m[1]!, context: "organization" });
@@ -423,6 +428,7 @@ const typedIn = (steps: Step[]) => new Set(steps.flatMap((s) => ("type" in s ? [
 export function viewerOf(persona: Persona): unknown {
 	if (persona.context === "plant") return { context: "plant", role: persona.role };
 	if (persona.context === "organization") return { context: "organization" };
+	if (persona.context === "pending") return { context: "pending" };
 	return { context: "account", residencyLinked: persona.residencyLinked === true };
 }
 
@@ -486,8 +492,12 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 		}
 	}
 
-	const routes = appRoutes(root);
+	const allRoutes = appRoutes(root);
+	const routes = allRoutes.filter((r) => !r.slot);
 	const byUrl = new Map(routes.map((r) => [r.url, r] as const));
+	for (const route of allRoutes)
+		if (route.slot && !byUrl.has(route.url))
+			problems.push(`${route.file}: slot page renders into ${route.url}, which no page owns`);
 	const owner = new Map<string, { surface: Surface; map: LoadedMap; kind: "page" | "handler" }>();
 	const surfaceIds = new Map<string, Surface>();
 	for (const loadedMap of maps) {
@@ -672,11 +682,9 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 				for (const item of [...steps, ...observables.map((o) => ({ expect: o }))]) {
 					if ("expect" in item) {
 						const o = (item as { expect: Observable }).expect;
-						const waits = "url" in o || "noText" in o || ("text" in o && o.match === "contains");
+						const waits = "url" in o || "noText" in o || "text" in o;
 						if (acted && !waits)
-							problems.push(
-								at(`${where}: ${s} polls, so the check after "${acted}" must wait (URL, noText or contains text)`),
-							);
+							problems.push(at(`${where}: ${s} polls, so the check after "${acted}" must wait (URL, noText or text)`));
 						acted = null;
 					} else if (!("type" in item)) {
 						if (acted)
@@ -882,9 +890,14 @@ function command(step: Step | Observable): string {
 	if ("url" in step) return `agent-browser wait --url ${q("**" + step.url.replace(/\{[A-Za-z]+\}/g, "*"))}`;
 	if ("role" in step) return `agent-browser find role ${step.role} text --name ${q(step.name)}${exact(step)}`;
 	return (step.match ?? "exact") === "exact"
-		? `agent-browser find text ${q(step.text)} text --exact`
+		? `agent-browser wait --fn ${q(visibleTextIs(step.text))}`
 		: `agent-browser wait --text ${q(step.text)}`;
 }
+
+const visibleTextIs = (text: string) =>
+	"((x,l=[])=>/json/.test(document.contentType)" +
+	"?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x))" +
+	`:[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(${q(text)})`;
 
 function commands(steps: Step[], expect: Observable[] = [], polls = false): string[] {
 	return [
@@ -1153,8 +1166,15 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		"The network-idle wait suits pages that go quiet after each action. On a page that keeps fetching (for example",
 		"`/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there. Such a",
 		"surface sets `polls` to say what keeps fetching: its commands get no network-idle wait, and the checker requires the",
-		"check after each open, click, press or upload to be one that waits (a URL, `noText`, or `contains` text, printed as",
-		"`wait --url`, `wait --fn` and `wait --text`).",
+		"check after each open, click, press or upload to be one that waits (a URL, `noText` or text, printed as `wait --url`,",
+		"`wait --fn` and `wait --text`).",
+		"",
+		"Text checks refuse text that has no box or is not painted: text under `display: none` or `visibility: hidden`",
+		"(such as a message waiting for a press) does not count. Text that is rendered but visually hidden still counts:",
+		"screen-reader-only (`sr-only`), zero-size, off-screen, clipped, `opacity: 0` or `font-size: 0` text matches. A",
+		"`contains` check waits for the page's rendered text to include its words (`wait --text`). An exact check waits for",
+		"an element whose whole rendered text is its words, or, on a bare JSON response, for a JSON value equal to them",
+		"(`wait --fn`).",
 		"",
 		"## Changing a feature, and the review proof",
 		"",
@@ -1197,7 +1217,7 @@ export function writeDocs(root: string): string[] {
 	if (problems.length) return problems;
 	const pending = ((readJson(root, PENDING_FILE) as { routes?: string[] }).routes ?? []).length;
 	const personas = readJson(root, PERSONAS_FILE) as Record<string, Persona>;
-	const docs = renderDocs(maps, personas, pending, appRoutes(root).length);
+	const docs = renderDocs(maps, personas, pending, appRoutes(root).filter((r) => !r.slot).length);
 	for (const path of walk(root, DOCS_DIR, (f) => f.endsWith(".md"))) if (!docs.has(path)) rmSync(join(root, path));
 	mkdirSync(join(root, DOCS_DIR), { recursive: true });
 	for (const [path, content] of docs) writeFileSync(join(root, path), content);

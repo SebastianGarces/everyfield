@@ -1,9 +1,10 @@
+import type { SitePath } from "@everyfield/contracts/identity";
+import { signIn } from "@/server/sign-in";
 import { ProductFrameLayout } from "@/features/shell/routes";
 import { Button, Card, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { editPath, isCrawler, parseSource, splitWikiPath, wikiReturn } from "./model.ts";
 import { WikiScreen } from "./screen.tsx";
 import { loadPreview, loadWiki } from "./server.ts";
@@ -14,7 +15,7 @@ function one(value: string | string[] | undefined): string | undefined {
 	return Array.isArray(value) ? value[0] : value;
 }
 
-function requestPath(slug: string): string {
+function requestPath(slug: string): SitePath {
 	return slug
 		? `/wiki/${slug
 				.split("/")
@@ -51,7 +52,7 @@ export async function WikiPage({
 	const query = await searchParams;
 	const source = parseSource(one(query.source));
 	const data = await loadWiki(slug, source, editing);
-	if (data === "signed-out") redirect(`/signin?returnTo=${encodeURIComponent(wikiReturn(path, source))}`);
+	if (data === "signed-out") signIn(wikiReturn(path, source));
 	if (data === "lost") {
 		return (
 			<ProductFrameLayout>

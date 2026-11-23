@@ -27,7 +27,7 @@ export function releasedOf(sharedFindings: boolean, shares: Shares, r: z.infer<t
 	if (!sharedFindings) return { status: "withheld" };
 	if (!r) return { status: "not_assessed" };
 	const visible = (x: z.infer<typeof storedConcern>) =>
-		x.keys.every((k) => (CATEGORIES[k.split(".")[0]!] ?? []).every((category) => shares[category]));
+		x.keys.every((k) => (CATEGORIES[k.split(".")[0] ?? ""] ?? []).every((category) => shares[category]));
 	return C.releasedAssessment.parse({
 		status: "released",
 		runId: r.runId,

@@ -1,11 +1,19 @@
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { testDatabase } from "../../support/test-database.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
-import { evryActor, runTurn, selectQualifiedModel } from "../../../packages/evry/src/index.ts";
-import type { PrivateStorage } from "../../../packages/db/src/schema/storage.ts";
-import { createHash, randomUUID } from "node:crypto";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
+import {
+	evryActor,
+	runTurn,
+	selectQualifiedModel,
+	stageAttachment,
+	type EvryActor,
+} from "../../../packages/evry/src/index.ts";
+import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
+import type { LanguageModelV4 } from "../../../packages/evry/node_modules/@ai-sdk/provider/dist/index.js";
+import { S3Client, type PrivateStorage } from "../../../packages/db/src/schema/storage.ts";
+import { randomUUID } from "node:crypto";
 
 const database = await testDatabase({ prefix: "wp051", max: 6 });
 export const role = database.logins.runtime.name;
@@ -13,6 +21,7 @@ export const { admin } = database;
 export const db = database.pools.runtime;
 export const queries: string[] = [];
 export const statements: { text: string; values: unknown[] }[] = [];
+export const statementListeners = new Set<(text: string) => void>();
 
 export const plant = randomUUID();
 export const otherPlant = randomUUID();
@@ -28,7 +37,7 @@ const seats: Record<Who, [string | null, string | null, string | null]> = {
 export const accounts = Object.fromEntries(
 	(Object.keys(seats) as Who[]).map((who) => [who, { id: randomUUID(), user: randomUUID(), session: randomUUID() }]),
 ) as Record<Who, { id: string; user: string; session: string }>;
-export const people: Record<string, string> = {};
+export const people = { alexRivera: "", alexChen: "", casey: "", foreign: "" };
 
 export async function actor(who: Who) {
 	const viewer = await readViewer(db, accounts[who].session as never);
@@ -40,6 +49,57 @@ export async function freshActor(session: string) {
 	return viewer?.authority ? evryActor(viewer.authority) : null;
 }
 export const scripted = () => selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+
+export const usage = {
+	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+	outputTokens: { total: 1, text: 1, reasoning: 0 },
+};
+
+export function gatedWriter(deltas: string[], { error, emitted = [] }: { error?: Error; emitted?: number[] } = {}) {
+	const base = scriptedModel();
+	let released = 0;
+	const waiting = new Set<() => void>();
+	const release = (n = 1) => {
+		released += n;
+		for (const wake of [...waiting]) wake();
+	};
+	const releasedPast = (n: number, signal?: AbortSignal) =>
+		new Promise<void>((resolve) => {
+			const wake = () => {
+				if (released <= n && !signal?.aborted) return;
+				waiting.delete(wake);
+				resolve();
+			};
+			waiting.add(wake);
+			signal?.addEventListener("abort", wake, { once: true });
+			wake();
+		});
+	const model: LanguageModelV4 = {
+		...base,
+		async doStream(options) {
+			if (options.responseFormat?.type === "json") return base.doStream(options);
+			const signal = options.abortSignal;
+			return {
+				stream: new ReadableStream({
+					async start(c) {
+						c.enqueue({ type: "text-start", id: "t" });
+						for (const [n, delta] of deltas.entries()) {
+							await releasedPast(n, signal);
+							if (signal?.aborted) return c.error(signal.reason);
+							c.enqueue({ type: "text-delta", id: "t", delta });
+							emitted.push(Date.now());
+						}
+						if (error) return (c.enqueue({ type: "error", error }), c.close());
+						c.enqueue({ type: "text-end", id: "t" });
+						c.enqueue({ type: "finish", finishReason: { unified: "stop", raw: undefined }, usage });
+						c.close();
+					},
+				}),
+			};
+		},
+	};
+	return { model: { status: "qualified" as const, id: "test", model }, release };
+}
 
 export async function work(model = scripted(), extra: Partial<Parameters<typeof runTurn>[0]> = {}) {
 	const claimStart = new Date();
@@ -65,11 +125,12 @@ async function person(tenant: string, name: string, city: string | null, positio
 export async function setup() {
 	db.$client.on("connect", (client) => {
 		const query = client.query;
-		client.query = function (...args: unknown[]) {
+		client.query = function (this: typeof client, ...args: unknown[]) {
 			const text = typeof args[0] === "string" ? args[0] : (args[0] as { text: string }).text;
 			const values = (args[0] as { values?: unknown[] }).values ?? (Array.isArray(args[1]) ? args[1] : []);
 			queries.push(text);
 			statements.push({ text, values });
+			for (const listener of statementListeners) listener(text);
 			return Reflect.apply(query, this, args);
 		} as typeof client.query;
 	});
@@ -117,23 +178,34 @@ export async function counts() {
 }
 export function bucket() {
 	const objects = new Map<string, Buffer>();
-	const send = async (command: { constructor: { name: string }; input: { Key: string } }) => {
-		if (command.constructor.name !== "GetObjectCommand") throw Error("unexpected provider operation");
-		const body = objects.get(command.input.Key);
+	const deleted: string[] = [];
+	const client = new S3Client({
+		endpoint: "http://127.0.0.1:9",
+		region: "auto",
+		forcePathStyle: true,
+		credentials: { accessKeyId: "synthetic", secretAccessKey: "synthetic" },
+	});
+	client.send = (async (command: { constructor: { name: string }; input: { Key?: string } }) => {
+		const name = command.constructor.name;
+		if (name === "GetBucketAclCommand")
+			return { Grants: [{ Grantee: { Type: "CanonicalUser", ID: "owner" }, Permission: "FULL_CONTROL" }] };
+		const key = command.input.Key ?? "";
+		if (name === "DeleteObjectCommand") return (deleted.push(key), objects.delete(key), {});
+		if (name !== "GetObjectCommand") throw Error("unexpected provider operation " + name);
+		const body = objects.get(key);
 		if (!body) throw Error("NoSuchKey");
 		return { ContentLength: body.length, Body: { transformToByteArray: async () => new Uint8Array(body) } };
-	};
-	const storage = { bucket: "synthetic-only", client: { send } } as never as PrivateStorage;
+	}) as never;
+	const storage = { bucket: "synthetic-only", client } as PrivateStorage;
 	return {
 		storage,
 		objects,
-		async upload(bytes: Buffer, tenant = plant) {
-			const id = randomUUID();
-			const key = `private/${tenant}/${randomUUID()}`;
+		deleted,
+		async attach(who: EvryActor, conversationId: string, name: string, bytes: Buffer) {
+			const staged = await stageAttachment(db, storage, who, conversationId, { name, byteLength: bytes.length });
+			const key = decodeURIComponent(new URL(staged.upload.url).pathname).replace("/synthetic-only/", "");
 			objects.set(key, bytes);
-			await admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,byte_count,sha256,state,upload_key,claim_generation,expires_at)
-				VALUES(${id},${tenant},'person_photo',${key},'image/png',${bytes.length},${bytes.length},${createHash("sha256").update(bytes).digest("hex")},'ready',${id},0,clock_timestamp()+interval '15 minutes')`);
-			return { id, key };
+			return { ...staged.attachment, key };
 		},
 	};
 }

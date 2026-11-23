@@ -13,6 +13,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import {
 	Button,
+	buttonVariants,
 	Card,
 	CardTitle,
 	Checkbox,
@@ -20,6 +21,7 @@ import {
 	EmptyState,
 	FilterChip,
 	IconButton,
+	IntentLink,
 	Menu,
 	MenuContent,
 	MenuItem,
@@ -31,14 +33,14 @@ import {
 	PageHeader,
 	SearchInput,
 	SegmentedControl,
-	useToast,
-	buttonVariants,
-	IntentLink,
+	TextButton,
+	toast,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, Pagination, StatusBadge } from "@everyfield/ui/display";
 import { cn, createDebouncer, Icon } from "@everyfield/ui/foundations";
 import { usePathname, useRouter } from "next/navigation";
 import { useId, useOptimistic, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { localToday } from "../../components/clock.ts";
 import { writeAddress } from "../../components/location.ts";
 import type { SaveLane, SaveSpec, Wait } from "../../components/save/model.ts";
 import { NoticeInDialog, SaveNotice } from "../../components/save/parts.tsx";
@@ -56,11 +58,12 @@ import {
 	type StatusAction,
 } from "./actions.ts";
 import { BulkBar, BulkReport, type Report } from "./bulk.tsx";
-import { loadBlocking, loadRows, loadTask, relationOptions, type Loaded as TaskLoad } from "./fetch.ts";
+import { loadRows, loadTask, relationOptions, type Loaded as TaskLoad } from "./fetch.ts";
 import {
 	blocks,
 	withBlockers,
 	type Blocker,
+	type Recount,
 	dueText,
 	previewOverdue,
 	matches,
@@ -115,7 +118,7 @@ import { Assignee, DoneBox, intentHandlers, MetaLine, StatusItems } from "./part
 import type { StepAssignee } from "./structure.tsx";
 import { warmAssignees } from "./AssigneePicker.tsx";
 import { TaskDialog, type Commit, type EditForm } from "./TaskDialog.tsx";
-import { TaskSheet, type DetailState } from "./TaskSheet.tsx";
+import { TaskSheet } from "./TaskSheet.tsx";
 import {
 	BULK,
 	createTasksPageStore,
@@ -126,6 +129,8 @@ import {
 } from "./TasksScreen.store.ts";
 import { PhaseOffer } from "./PhaseOffer.tsx";
 import { Templates } from "./Templates.tsx";
+import { READ_FAILED } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 export type TasksAnswer = {
 	query: TaskQuery;
@@ -143,6 +148,12 @@ const GROUP: Record<Group["key"], { label: string; tone: "risk" | "measured" | "
 	all: null,
 };
 const lost = { status: "lost" } as const;
+type BulkChange = { kind: "complete" } | { kind: "reschedule"; due: DueInput };
+const changedRevision = (item: BulkResult["items"][number] | undefined): string | null => {
+	if (item?.outcome !== "changed") return null;
+	if (item.revision === null) throw new Error("A changed task came back without its revision");
+	return item.revision;
+};
 const targetOf = (a: StatusAction): Status =>
 	a.kind === "complete"
 		? "complete"
@@ -161,13 +172,12 @@ const doneOf = (a: StatusAction): string =>
 				? "closed as no longer needed"
 				: `moved to ${STATUS_LABEL[a.status]}`;
 const STALE = new Set(["conflict", "open_successor"]);
-const pageFields = ({ items, counts, total, selected, report, badgesStale }: TasksPageState) => ({
+const pageFields = ({ items, counts, total, selected, report }: TasksPageState) => ({
 	items,
 	counts,
 	total,
 	selected,
 	report,
-	badgesStale,
 });
 
 const noticeOf = (lane: SaveLane<TaskForm> | null) => ({
@@ -182,7 +192,6 @@ function Notices({ lanes }: { lanes: [string, SaveLane<TaskForm>][] }) {
 export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; viewer: Viewer; year: number }) {
 	const router = useRouter();
 	const pathname = usePathname();
-	const toast = useToast();
 	const admin = viewer.role !== "member";
 	const [navigating, startNav] = useTransition();
 	const [, startAction] = useTransition();
@@ -190,7 +199,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 	const [list, setList] = useState(() => ({ answer: loaded, store: createTasksPageStore(loaded) }));
 	if (list.answer !== loaded) setList({ answer: loaded, store: createTasksPageStore(loaded) });
 	const pageStore = list.store;
-	const { items, counts, total, selected, report, badgesStale } = useStore(pageStore, useShallow(pageFields));
+	const { items, counts, total, selected, report } = useStore(pageStore, useShallow(pageFields));
 	const changePage = pageStore.getState().actions.change;
 	const setItems = (change: (rows: TaskItem[]) => TaskItem[]) => changePage((p) => ({ items: change(p.items) }));
 	const setCounts = (change: (c: TaskCounts) => TaskCounts) => changePage((p) => ({ counts: change(p.counts) }));
@@ -200,12 +209,13 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 	const setReport = (report: Report | null) => changePage(() => ({ report }));
 	const listed = () => pageStore.getState().items;
 
-	const store = useLocalStore(() => createTasksStore({ opened: loaded.opened }));
+	const store = useLocalStore(() => createTasksStore({ opened: loaded.opened, report: (line) => console.error(line) }));
 	const details = useStore(store, (s) => s.details);
 	const openId = useStore(store, (s) => s.openId);
 	const dialogFor = useStore(store, (s) => s.dialogFor);
 	const deleting = useStore(store, (s) => s.deleting);
-	const { lanes, actions } = store.getState();
+	const lanes = useStore(store, (s) => s.lanes);
+	const { actions } = store.getState();
 	useSyncExternalStore(lanes.subscribe, lanes.version, lanes.version);
 	const known = () => store.getState().details;
 	const setDetails = actions.details;
@@ -239,14 +249,14 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 		setDetails((d) => ({ ...d, [id]: { status: "loading" } }));
 		loadTask(id)
 			.catch(() => lost)
-			.then((r: Outcome<TaskLoad>) => {
+			.then((r: Outcome<TaskLoad> | ReadFailure) => {
 				actions.stopLoading(id);
 				setDetails((d) => ({
 					...d,
 					[id]:
 						r.status === "ok"
 							? { status: "ok", ...r.value }
-							: { status: "failed", code: r.status === "lost" ? "lost" : r.code },
+							: { status: "failed", code: r.status === "refused" ? r.code : r.status },
 				}));
 			});
 	};
@@ -321,75 +331,37 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 					: cur.history;
 			return { ...d, [task.id]: { ...cur, task, history, occurrence } };
 		});
-		if (before && (task.deleted || isSettled(before.status) !== isSettled(task.status)))
-			blockersChanged([{ id: task.id, status: task.status, deleted: task.deleted }]);
+		if (saved.recounted.length || (before && (task.deleted || isSettled(before.status) !== isSettled(task.status))))
+			blockersChanged([{ id: task.id, status: task.status, deleted: task.deleted }], saved.recounted);
 	};
 
-	const blockersChanged = (changed: Blocker[]) => {
-		const by = new Set(changed.map((c) => c.id));
-		const recount = (st: DetailState) =>
-			st.status === "ok" && st.prerequisites ? withBlockers(st.prerequisites.items, changed) : null;
-		const counts = new Map<string, number>();
-		for (const [id, st] of Object.entries(known())) {
-			const r = recount(st);
-			if (r) counts.set(id, r.open);
-		}
+	const blockersChanged = (changed: Blocker[], recounted: readonly Recount[]) => {
+		const fresh = new Map<string, number>(recounted.map((r) => [r.taskId, r.openPrerequisites]));
 		setDetails((d) =>
 			Object.fromEntries(
 				Object.entries(d).map(([id, st]) => {
-					const r = recount(st);
-					if (!r || st.status !== "ok") return [id, st];
+					if (st.status !== "ok") return [id, st];
+					const r = st.prerequisites ? withBlockers(st.prerequisites.items, changed) : null;
+					const open = fresh.get(id) ?? r?.open;
+					if (open === undefined) return [id, st];
 					return [
 						id,
 						{
 							...st,
-							task: { ...st.task, openPrerequisites: r.open },
-							prerequisites: { taskId: st.task.id, items: r.items, blocked: r.open > 0 },
+							task: { ...st.task, openPrerequisites: open },
+							prerequisites: r ? { taskId: st.task.id, items: r.items, blocked: open > 0 } : st.prerequisites,
 						},
 					];
 				}),
 			),
 		);
-		if (counts.size)
-			setItems((rows) => rows.map((r) => (counts.has(r.id) ? { ...r, openPrerequisites: counts.get(r.id)! } : r)));
-		const reopened = changed.some((c) => !c.deleted && !isSettled(c.status));
-		const unknown = listed().some((r) => {
-			const st = known()[r.id];
-			const held = st?.status === "ok" && st.prerequisites !== null;
-			return !held && !by.has(r.id) && !isSettled(r.status) && (reopened || r.openPrerequisites > 0);
-		});
-		if (unknown || pageStore.getState().readingBadges) readBadges();
-	};
-	const readBadges = (retry = true) => {
-		const { badgeReads } = pageStore.getState();
-		const read = badgeReads.start(window.location.search);
-		const current = () => badgeReads.applies(read, window.location.search);
-		const held = (id: string) => {
-			const st = known()[id];
-			return st?.status === "ok" && st.prerequisites !== null;
-		};
-		const ids = listed()
-			.filter((row) => !held(row.id))
-			.map((row) => row.id);
-		if (!ids.length) {
-			changePage(() => ({ readingBadges: false }));
-			return badgeReads.end();
-		}
-		changePage(() => ({ readingBadges: true, badgesStale: false }));
-		loadBlocking(ids).then((r) => {
-			if (!current()) return;
-			if (r.status !== "ok" && retry) return readBadges(false);
-			if (r.status !== "ok") return changePage(() => ({ readingBadges: false, badgesStale: true }));
-			changePage(() => ({ readingBadges: false }));
-			const fresh = new Map(r.value.map((t) => [t.id, t.openPrerequisites]));
+		if (fresh.size)
 			setItems((rows) =>
-				rows.map((row) =>
-					fresh.has(row.id) && !held(row.id) && fresh.get(row.id) !== row.openPrerequisites
-						? { ...row, openPrerequisites: fresh.get(row.id)! }
-						: row,
-				),
+				rows.map((r) => {
+					const openPrerequisites = fresh.get(r.id);
+					return openPrerequisites === undefined ? r : { ...r, openPrerequisites };
+				}),
 			);
-		});
 	};
 
 	const addSuccessor = (pred: Pick<TaskItem, "id">, next: TaskDetail) => {
@@ -422,7 +394,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 		toast({
 			tone: "success",
 			message: when ? `Added the next “${next.title}”, due ${when}.` : `Added the next “${next.title}”.`,
-			action: { label: "Open it", altText: "Open the next occurrence", onSelect: () => open(next.id) },
+			action: { label: "Open it", onSelect: () => open(next.id) },
 		});
 	};
 
@@ -601,15 +573,21 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 		});
 	};
 
-	const runBulk = (kind: Report["kind"], due: DueInput | null, selectedTasks: TaskItem[]) => {
+	const runBulk = (change: BulkChange, selectedTasks: TaskItem[]) => {
+		const { kind } = change;
 		const chosen = selectedTasks.filter((t) => !isSettled(t.status));
 		if (!chosen.length) return;
 		setReport(null);
 		const items = chosen.map((t) => ({ taskId: t.id, expectedRevision: t.revision }));
 		const after = (t: TaskItem, revision: string): TaskItem =>
-			kind === "complete"
+			change.kind === "complete"
 				? { ...t, revision: revision as never, status: "complete", completedAt: new Date().toISOString() as never }
-				: { ...t, revision: revision as never, due: due as TaskItem["due"], overdue: previewOverdue(due!) };
+				: {
+						...t,
+						revision: revision as never,
+						due: change.due as TaskItem["due"],
+						overdue: previewOverdue(change.due, localToday()),
+					};
 		actions.startBulk(
 			selectedTasks.map((t) => t.id),
 			() =>
@@ -623,7 +601,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 					},
 					{
 						what: `The change to ${chosen.length} ${chosen.length === 1 ? "task" : "tasks"}`,
-						send: (key) => (kind === "complete" ? bulkComplete(key, items) : bulkReschedule(key, items, due)),
+						send: (key) =>
+							change.kind === "complete" ? bulkComplete(key, items) : bulkReschedule(key, items, change.due),
 						ok: (result: BulkResult) => {
 							const byId = new Map(chosen.map((t) => [t.id, t]));
 							const outcome = new Map(result.items.map((i) => [i.taskId, i]));
@@ -634,17 +613,17 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 							let moved = 0;
 							const nextCounts = (c: TaskCounts) =>
 								rows.reduce((acc, row) => {
-									const i = outcome.get(row.id);
-									if (i?.outcome === "changed") return countsAfter(acc, row, after(row, i.revision!));
+									const revision = changedRevision(outcome.get(row.id));
+									if (revision !== null) return countsAfter(acc, row, after(row, revision));
 									if (gone.has(row.id)) return countsAfter(acc, row, null);
 									return acc;
 								}, c);
 							for (const row of rows) if (gone.has(row.id)) moved++;
 							setItems((list) =>
 								list.flatMap((row) => {
-									const i = outcome.get(row.id);
 									if (gone.has(row.id)) return [];
-									return i?.outcome === "changed" ? [after(row, i.revision!)] : [row];
+									const revision = changedRevision(outcome.get(row.id));
+									return revision !== null ? [after(row, revision)] : [row];
 								}),
 							);
 							setCounts(nextCounts);
@@ -652,7 +631,10 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 							for (const i of result.items) if (i.successor) addSuccessor({ id: i.taskId }, i.successor);
 							const changed = new Set<string>(result.items.filter((i) => i.outcome === "changed").map((i) => i.taskId));
 							if (kind === "complete" && changed.size)
-								blockersChanged([...changed].map((id) => ({ id, status: "complete" as const, deleted: false })));
+								blockersChanged(
+									[...changed].map((id) => ({ id, status: "complete" as const, deleted: false })),
+									result.recounted,
+								);
 							const shownTask = store.getState().openId;
 							setDetails((d) =>
 								Object.fromEntries(Object.entries(d).filter(([id]) => !changed.has(id) || id === shownTask)),
@@ -714,7 +696,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 				? undefined
 				: {
 						label: "Show it",
-						altText: "Open the task",
 						onSelect: () => open(value.task.id),
 					},
 		});
@@ -747,7 +728,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 					? openForm(task.id, { kind: "edit", task: r.value.task })
 					: toast({
 							tone: "error",
-							message: `“${task.title}” did not open. ${r.status === "lost" ? "Check your connection and try again." : problemText(r.code)}`,
+							message: `“${task.title}” did not open. ${r.status === "lost" ? "Check your connection and try again." : problemText(r.status === "refused" ? r.code : r.status)}`,
 						}),
 			);
 	};
@@ -817,20 +798,10 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 				<PhaseOffer key={loaded.offer.transition.id} initial={loaded.offer} year={year} onAdded={addTasks} />
 			) : null}
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
-				<Card className="gap-2 px-[18px] py-5 max-app-sm:px-3">
+				<Card className="gap-2 px-[18px]">
 					<Toolbar query={query} go={go} admin={admin} rows={items} />
 					{report ? <BulkReport report={report} onOpen={open} onClose={() => setReport(null)} /> : null}
 					<Notices lanes={listNotices} />
-					<div role="status" className="empty:hidden">
-						{badgesStale ? (
-							<p className="mx-1.5 mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-surface px-4 py-2 text-sm text-text-2">
-								Some “Blocked by” notes on this page may be out of date. We could not check them.
-								<Button variant="ghost" size="sm" onClick={() => readBadges()}>
-									Check again
-								</Button>
-							</p>
-						) : null}
-					</div>
 					<div aria-busy={navigating || undefined} className="transition-opacity duration-150 aria-busy:opacity-60">
 						{shown.length === 0 ? (
 							<Empty
@@ -841,47 +812,50 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 								onNew={() => openForm(NEW, { kind: "edit", task: null })}
 							/>
 						) : (
-							groups.map((g) => (
-								<section key={g.key} aria-labelledby={GROUP[g.key] ? `group-${g.key}` : undefined}>
-									{GROUP[g.key] ? (
-										<h2
-											id={`group-${g.key}`}
-											className="flex items-center gap-2 px-3 pt-[18px] pb-2 font-sans text-sm font-semibold tracking-normal text-text-2"
-										>
-											<StatusBadge status={GROUP[g.key]!.tone} size="sm">
-												{GROUP[g.key]!.label}
-											</StatusBadge>
-											<span className="font-normal text-text-3">
-												{g.items.length}
-												<span className="sr-only"> {g.items.length === 1 ? "task" : "tasks"}</span>
-											</span>
-										</h2>
-									) : null}
-									<ul aria-label={GROUP[g.key]?.label ?? "Tasks"}>
-										{g.items.map((t) => (
-											<TaskRow
-												key={t.id}
-												task={t}
-												year={year}
-												you={viewer.accountId}
-												admin={admin}
-												canAct={canAct(t) && !t.id.startsWith(PENDING_PREFIX)}
-												selected={admin && !t.id.startsWith(PENDING_PREFIX) ? selected.has(t.id) : null}
-												onSelect={() => toggleSelected(t.id)}
-												wait={lanes.of(t.id).wait()}
-												notice={noticeOf(lanes.of(t.id))}
-												modal={modal}
-												onToggle={() => toggle(t)}
-												onAction={(a) => act(t, a)}
-												onOpen={() => !t.id.startsWith(PENDING_PREFIX) && open(t.id)}
-												onWarm={() => !t.id.startsWith(PENDING_PREFIX) && warm(t.id)}
-												onEdit={() => edit(t)}
-												onDelete={() => setDeleting(t)}
-											/>
-										))}
-									</ul>
-								</section>
-							))
+							groups.map((g) => {
+								const heading = GROUP[g.key];
+								return (
+									<section key={g.key} aria-labelledby={heading ? `group-${g.key}` : undefined}>
+										{heading ? (
+											<h2
+												id={`group-${g.key}`}
+												className="flex items-center gap-2 px-3 pt-[18px] pb-2 font-sans text-sm font-semibold tracking-normal text-text-2"
+											>
+												<StatusBadge status={heading.tone} size="sm">
+													{heading.label}
+												</StatusBadge>
+												<span className="font-normal text-text-3">
+													{g.items.length}
+													<span className="sr-only"> {g.items.length === 1 ? "task" : "tasks"}</span>
+												</span>
+											</h2>
+										) : null}
+										<ul aria-label={heading?.label ?? "Tasks"}>
+											{g.items.map((t) => (
+												<TaskRow
+													key={t.id}
+													task={t}
+													year={year}
+													you={viewer.accountId}
+													admin={admin}
+													canAct={canAct(t) && !t.id.startsWith(PENDING_PREFIX)}
+													selected={admin && !t.id.startsWith(PENDING_PREFIX) ? selected.has(t.id) : null}
+													onSelect={() => toggleSelected(t.id)}
+													wait={lanes.of(t.id).wait()}
+													notice={noticeOf(lanes.of(t.id))}
+													modal={modal}
+													onToggle={() => toggle(t)}
+													onAction={(a) => act(t, a)}
+													onOpen={() => !t.id.startsWith(PENDING_PREFIX) && open(t.id)}
+													onWarm={() => !t.id.startsWith(PENDING_PREFIX) && warm(t.id)}
+													onEdit={() => edit(t)}
+													onDelete={() => setDeleting(t)}
+												/>
+											))}
+										</ul>
+									</section>
+								);
+							})
 						)}
 					</div>
 					{admin && chosen.length ? (
@@ -895,8 +869,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 							wait={bulkWait}
 							actions={bulkActions(chosen.map((t) => t.status))}
 							onKeepOpen={() => setSelected(new Set(chosen.filter((t) => !isSettled(t.status)).map((t) => t.id)))}
-							onComplete={() => runBulk("complete", null, chosen)}
-							onReschedule={(due) => runBulk("reschedule", due, chosen)}
+							onComplete={() => runBulk({ kind: "complete" }, chosen)}
+							onReschedule={(due) => runBulk({ kind: "reschedule", due }, chosen)}
 						/>
 					) : null}
 					{total > 0 ? (
@@ -1036,17 +1010,14 @@ function TaskRow({
 			) : null}
 			<DoneBox task={task} canAct={canAct} wait={wait} describedBy={waiting ? hint : undefined} onToggle={onToggle} />
 			<div className="min-w-0 flex-1">
-				<button
-					type="button"
+				<TextButton
+					underline="hover"
 					onClick={onOpen}
 					{...intentHandlers(onWarm)}
-					className={cn(
-						"rounded-xs text-left font-medium text-ink decoration-text-3 underline-offset-[3px] hover:underline",
-						settled && "text-text-3 line-through",
-					)}
+					className={cn("text-ink decoration-text-3", settled && "text-text-3 line-through")}
 				>
 					{task.title}
-				</button>
+				</TextButton>
 				{waiting ? (
 					<span id={hint} className="ml-2 text-xs whitespace-nowrap text-text-2">
 						{wait === "saving" ? "Saving…" : "Check the last save first."}
@@ -1138,10 +1109,12 @@ function Toolbar({
 	rows: readonly TaskItem[];
 }) {
 	const single = <T extends string>(list: readonly T[], v: string[]) => list.find((x) => x === v.at(-1));
-	const [teams, setTeams] = useState<{ id: string; label: string }[] | "loading" | "failed" | null>(null);
+	const [teams, setTeams] = useState<{ id: string; label: string }[] | "loading" | "lost" | "failed" | null>(null);
 	const loadTeams = () => {
 		setTeams("loading");
-		relationOptions("team", "").then((r) => setTeams(r.status === "ok" ? r.value.items : "failed"));
+		relationOptions("team", "").then((r) =>
+			setTeams(r.status === "ok" ? r.value.items : r.status === "failed" ? "failed" : "lost"),
+		);
 	};
 	const warmTeams = () => void (admin && teams === null && loadTeams());
 	const seen = rows.flatMap((r) =>
@@ -1196,7 +1169,11 @@ function Toolbar({
 					searchLabel="Search teams"
 					multiple={false}
 					loading={teams === "loading"}
-					error={teams === "failed" ? { message: "The teams did not load.", onRetry: loadTeams } : undefined}
+					error={
+						teams === "lost" || teams === "failed"
+							? { message: teams === "failed" ? READ_FAILED : "The teams did not load.", onRetry: loadTeams }
+							: undefined
+					}
 					emptyText={admin ? "No active teams" : "No team is named on this page"}
 					options={teamOptions}
 					value={query.teamId ? [query.teamId] : []}

@@ -35,8 +35,6 @@ export const asRecordId = (id: string) => id as Role["id"];
 export const asRevision = (revision: string) => revision as Role["revision"];
 export const asDay = (day: string) => day as Member["startedOn"];
 
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
-
 export const STATES = ["forming", "active", "paused"] as const satisfies readonly TeamState[];
 export const STATE_LABEL: Record<TeamState, string> = { forming: "Forming", active: "Active", paused: "Paused" };
 export const STATE_HINT: Record<TeamState, string> = {

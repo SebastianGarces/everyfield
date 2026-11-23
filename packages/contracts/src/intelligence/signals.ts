@@ -55,6 +55,11 @@ export const SIGNAL_DEFINITIONS = [
 ] as const;
 export const SIGNAL_KEYS = SIGNAL_DEFINITIONS.map((d) => d.key) as unknown as readonly [SignalKey, ...SignalKey[]];
 export type SignalKey = (typeof SIGNAL_DEFINITIONS)[number]["key"];
+export function definitionOf(key: SignalKey) {
+	const definition = SIGNAL_DEFINITIONS.find((d) => d.key === key);
+	if (!definition) throw new Error(`no signal definition for ${key}`);
+	return definition;
+}
 export const signalKey = z.enum(SIGNAL_KEYS);
 export const REAFFIRM_WINDOW_DAYS = 30;
 export const CANDIDATE_DAYS = 60;
@@ -176,7 +181,9 @@ export function renewalOf(
 	ageDays: number | null,
 ): Renewal {
 	if (state !== "answered" || ageDays === null) return { status: "unknown" };
-	if (!SIGNAL_DEFINITIONS.find((d) => d.key === key)!.reaffirms) return { status: "does_not_expire" };
+	const definition = SIGNAL_DEFINITIONS.find((d) => d.key === key);
+	if (!definition) throw Error("unknown_signal");
+	if (!definition.reaffirms) return { status: "does_not_expire" };
 	return ageDays <= REAFFIRM_WINDOW_DAYS
 		? { status: "current", daysLeft: REAFFIRM_WINDOW_DAYS - ageDays }
 		: { status: "needs_renewing" };
