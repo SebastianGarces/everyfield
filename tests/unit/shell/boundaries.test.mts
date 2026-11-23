@@ -7,7 +7,7 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = createRequire(root + "apps/web/package.json");
 const { renderToStaticMarkup } = web("react-dom/server");
 const { createElement, isValidElement }: typeof import("react") = web("react");
-type Viewer = { status: "unauthenticated" | "pending_domain" | "active" };
+type Viewer = { status: "unauthenticated" | "active" };
 const viewer = globalThis as typeof globalThis & { notFoundViewer: Viewer };
 viewer.notFoundViewer = { status: "unauthenticated" };
 registerHooks({
@@ -82,13 +82,11 @@ test("BUG-PR551: the not-found pages name the page as not found, as the one h1, 
 	}
 });
 
-test("the root not-found home button takes a signed-out visitor to / and each signed-in role to its own app home", async () => {
+test("the root not-found home button takes a signed-out visitor to / and a signed-in director or planter to their own app home", async () => {
 	for (const [who, status, plant, lands] of [
 		["signed-out visitor", "unauthenticated", null, "/"],
 		["director", "active", "organization", "/network"],
 		["planter", "active", "complete", "/overview"],
-		["launch-team member", "active", "complete", "/overview"],
-		["account on a pending domain", "pending_domain", "none", "/onboarding"],
 	] as const) {
 		viewer.notFoundViewer = { status };
 		const html = renderToStaticMarkup(await RootNotFound());
