@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Checkbox } from "@everyfield/ui/controls";
+import { Button, Checkbox, InlineAlert } from "@everyfield/ui/controls";
 import { useState } from "react";
 import { basicsInput, type Relationship, type State } from "../model";
 import { ChoiceCard, Notice, StepFooter, StepHeading } from "../parts";
@@ -73,11 +73,9 @@ export function ChooseStart({ state, actions }: Props) {
 					detail="Read the foundations first. No church yet."
 				/>
 			</fieldset>
-			{problem ? (
-				<p role="alert" className="mx-auto mt-4 max-w-[820px] text-sm font-medium text-magenta-600">
-					Choose how you want to start.
-				</p>
-			) : null}
+			<InlineAlert className="mx-auto mt-4 max-w-[820px]">
+				{problem ? "Choose how you want to start." : null}
+			</InlineAlert>
 			<StepFooter onContinue={() => (choice ? setChosen(choice) : setProblem(true))} />
 		</section>
 	);

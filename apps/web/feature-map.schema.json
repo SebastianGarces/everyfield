@@ -534,7 +534,7 @@
 						"$ref": "#/$defs/text"
 					},
 					"context": {
-						"enum": ["plant", "organization", "account", "signed-out"]
+						"enum": ["plant", "organization", "account", "pending", "signed-out"]
 					},
 					"role": {
 						"enum": ["owner", "admin", "member"]
