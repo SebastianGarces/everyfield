@@ -330,7 +330,7 @@ export function HouseholdCard({
 							>
 								<Avatar name={m.displayName} size="sm" decorative />
 								<span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
-									<span className="min-w-0 flex-[1_1_10rem] truncate">
+									<span className="min-w-0 flex-auto truncate">
 										{m.personId === person.id ? (
 											<span className="font-medium text-ink">
 												{m.displayName} <span className="font-normal text-text-3">(this person)</span>

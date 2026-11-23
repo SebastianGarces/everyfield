@@ -83,7 +83,12 @@ export function ReviewStep({
 	const guardianOf = recipients[safe]?.guardianOf;
 	const eligible = summary?.eligibleRecipients ?? 0;
 	const template = templates.find((t) => t.templateId === form.templateKey);
-	const known = new Map(recipients.map((r) => [r.id, r.displayName]));
+	const known = new Map(
+		[...recipients, ...(summary?.guardianRoutes ?? []), ...(summary?.childExclusions ?? [])].map((r) => [
+			r.id,
+			r.displayName,
+		]),
+	);
 	const chosen = [
 		...form.audience.groups.map((g) => groupLabel[g as keyof typeof groupLabel] ?? g),
 		...form.audience.teamIds.map((id) => teams.find((t) => t.id === id)?.name ?? "A team"),

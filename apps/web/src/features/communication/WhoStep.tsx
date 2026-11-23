@@ -10,7 +10,7 @@ import { createRead, useRead, useReadWith } from "../../components/read.tsx";
 import { useStore } from "../../components/store.ts";
 import { resolveAudience } from "./actions.ts";
 import { recipientSearches, type ComposeStore } from "./Compose.store.ts";
-import { audienceSize, listed, plural } from "./composeModel.ts";
+import { audienceSize, plural } from "./composeModel.ts";
 import {
 	audienceGroups,
 	CHILD_RULE,
@@ -27,7 +27,10 @@ const MAX_CHIPS = 8;
 const onDay = (iso: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(iso));
 const unsubscribedReason = (iso: string) => `Unsubscribed from this church's email on ${onDay(iso)}`;
 
-const toGuardians = (names: string[]) => `Goes to ${listed(names)}, parent or guardian`;
+const toGuardians = (names: string[]) =>
+	names.length === 1
+		? `Goes to their parent or guardian, ${names[0]}`
+		: `Goes to their parents or guardians, ${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 const reachable = (person: Recipient) =>
 	person.guardians.length > 0 || (Boolean(person.email) && !person.unsubscribedAt);
 
@@ -363,7 +366,7 @@ function ToField({
 									className="absolute top-full left-0 z-20 mt-1 flex w-64 flex-col gap-1 rounded-md bg-surface-raised p-3 text-sm shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)]"
 								>
 									<span className="font-medium text-ink">{person.displayName}</span>
-									<span className="break-all text-text-2">
+									<span className={cn("text-text-2", person.guardians.length === 0 && "break-all")}>
 										{person.guardians.length > 0 ? toGuardians(person.guardians) : (person.email ?? "Loading email")}
 									</span>
 									<Link
