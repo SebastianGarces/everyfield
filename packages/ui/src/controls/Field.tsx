@@ -3,6 +3,7 @@
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { createContext, use, useId, useMemo, type ComponentPropsWithRef, type ReactNode } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
+import { ProblemText } from "./ProblemText";
 
 type FieldState = { id: string; labelId: string; describedBy: string | undefined; invalid: boolean };
 const FieldContext = createContext<FieldState | null>(null);
@@ -55,9 +56,9 @@ export function Field({ label, hint, error, optional, children, className }: Fie
 				) : null}
 				<div aria-live="polite" className="empty:sr-only">
 					{error ? (
-						<p id={errorId} className="text-xs font-medium text-magenta-600">
+						<ProblemText id={errorId} live="region">
 							{error}
-						</p>
+						</ProblemText>
 					) : null}
 				</div>
 			</div>

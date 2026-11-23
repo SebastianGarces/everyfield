@@ -65,6 +65,7 @@ import {
 	FilterChip,
 	IconButton,
 	InlineAlert,
+	ProblemText,
 	Input,
 	InsightCard,
 	InsightCount,
@@ -1143,8 +1144,8 @@ function AlertsSection() {
 		<Section
 			index={7}
 			title="Alerts"
-			code="<InlineAlert live focus> · <Alert tone title actions> · <PageState page tone title>"
-			note="A problem sits next to what it is about. InlineAlert keeps its live region in the page, so a problem that appears is read out; focus moves to it only when the person asked for the refused action."
+			code="<InlineAlert live focus> · <Alert tone title actions> · <PageState page tone title> · <ProblemText size icon>"
+			note="A problem sits next to what it is about. InlineAlert keeps its live region in the page, so a problem that appears is read out; focus moves to it only when the person asked for the refused action. ProblemText is the unboxed line under one control."
 		>
 			<div className="grid items-start gap-5 app-md:grid-cols-2">
 				<Specimen label="Inline problem">
@@ -1193,6 +1194,11 @@ function AlertsSection() {
 					>
 						Nothing was changed. Ask again in a moment.
 					</Alert>
+				</Specimen>
+				<Specimen label="Problem line under a control" className="flex flex-col gap-3">
+					<ProblemText>Choose a date.</ProblemText>
+					<ProblemText size="sm">The search did not load. Try again.</ProblemText>
+					<ProblemText icon={Alert02Icon}>Choose a person.</ProblemText>
 				</Specimen>
 				<RefusalSpecimen />
 				<Specimen label="Route state" className="app-md:col-span-2">

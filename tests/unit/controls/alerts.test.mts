@@ -7,7 +7,8 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = createRequire(root + "apps/web/package.json");
 const { renderToStaticMarkup } = web("react-dom/server");
 const { createElement } = web("react");
-const { Alert, InlineAlert, PageState } = await import("../../../packages/ui/src/controls/index.ts");
+const { Alert, Field, InlineAlert, Input, PageState, ProblemText } =
+	await import("../../../packages/ui/src/controls/index.ts");
 
 const html = (props: Record<string, unknown>, children?: unknown) =>
 	renderToStaticMarkup(createElement(InlineAlert, props, children));
@@ -75,4 +76,36 @@ test("INV-a11y: a route state names the page in its h1 and the state in its h2, 
 		createElement(PageState, { page: "Documents", tone: "lock", title: "Not available" }, "Sign in."),
 	);
 	assert.doesNotMatch(locked, /role="alert"/);
+});
+
+test("INV-a11y: a problem line under a control is announced as an alert, keeps its id for aria-describedby, and comes in two sizes", () => {
+	const line = (props: Record<string, unknown>, text: string) =>
+		renderToStaticMarkup(createElement(ProblemText, props, text));
+	assert.equal(
+		line({ id: "date-problem" }, "Choose a date."),
+		'<p id="date-problem" role="alert" class="text-xs font-medium text-magenta-600">Choose a date.</p>',
+	);
+	assert.equal(
+		line({ size: "sm", as: "span" }, "The search did not load. Try again."),
+		'<span role="alert" class="text-sm text-magenta-600">The search did not load. Try again.</span>',
+	);
+});
+
+test("INV-a11y: a field error is read out through the field's own live region and names the control it describes", () => {
+	const shown = renderToStaticMarkup(
+		createElement(Field, { label: "Date", error: "Choose a date." }, createElement(Input, { type: "date" })),
+	);
+	const describedBy = shown.match(/<input[^>]*aria-describedby="([^"]+)"/)?.[1];
+	assert.ok(describedBy);
+	assert.match(
+		shown,
+		new RegExp(
+			`<div aria-live="polite" class="empty:sr-only"><p id="${describedBy}" class="text-xs font-medium text-magenta-600">Choose a date\\.</p></div>`,
+		),
+	);
+	assert.doesNotMatch(shown, /role="alert"/);
+	assert.match(
+		renderToStaticMarkup(createElement(Field, { label: "Date" }, createElement(Input, { type: "date" }))),
+		/<div aria-live="polite" class="empty:sr-only"><\/div>/,
+	);
 });
