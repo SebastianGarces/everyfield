@@ -39,7 +39,7 @@ const sessionRow = z.strictObject({
 	account_exists: z.boolean(),
 	selected_exists: z.boolean(),
 	selected_owner: owner,
-	hidden: z.array(z.object({ kind: z.string(), opaque_subject_id: z.uuid(), seat_id: z.uuid().nullable() })),
+	hidden: z.array(z.object({ kind: z.string(), opaque_subject_id: z.uuid() })),
 	own_person: z.object({ id: z.uuid(), name: z.string() }).nullable(),
 	discovery: z.boolean(),
 	avatar: z.uuid().nullable(),
@@ -123,11 +123,10 @@ async function viewerRow(db: Executor, identity: SQL, requested?: Owner) {
 				WHERE t.id=(selected.owner->>'id')::uuid AND t.kind=selected.owner->>'kind'
 					AND (t.kind<>'organization' OR o.kind=selected.owner->>'organizationKind')
 			) AS selected_exists,
-			(SELECT coalesce(jsonb_agg(jsonb_build_object('kind',w.kind,'opaque_subject_id',w.opaque_subject_id,'seat_id',w.seat_id)), '[]'::jsonb)
+			(SELECT coalesce(jsonb_agg(jsonb_build_object('kind',w.kind,'opaque_subject_id',w.opaque_subject_id)), '[]'::jsonb)
 				FROM lifecycle_witness w WHERE w.state <> 'cancelled' AND (
 					(w.kind='account' AND w.opaque_subject_id=i.account_id)
-					OR (w.kind=selected.owner->>'kind' AND w.opaque_subject_id=(selected.owner->>'id')::uuid)
-					OR w.seat_id IN (SELECT id FROM seats))) AS hidden,
+					OR (w.kind=selected.owner->>'kind' AND w.opaque_subject_id=(selected.owner->>'id')::uuid))) AS hidden,
 			(SELECT jsonb_build_object('id',p.id,'name',p.display_name) FROM person p
 				WHERE selected.owner->>'kind'='plant' AND p.tenant_id=(selected.owner->>'id')::uuid
 					AND p.linked_account_id=i.account_id AND p.state='live' LIMIT 1) AS own_person,
@@ -163,8 +162,6 @@ function actorOf(row: SessionRow) {
 			? seat.plant_id !== selected.id || seat.organization_id !== null
 			: selected.kind !== "organization" || seat.organization_id !== selected.id || seat.plant_id !== null)
 	)
-		return { status: "unavailable" } satisfies z.output<typeof currentActorResult>;
-	if (hidden.some((w) => w.seat_id === seat.id))
 		return { status: "unavailable" } satisfies z.output<typeof currentActorResult>;
 	return currentActorResult.parse({
 		status: "active",
@@ -390,9 +387,7 @@ export class RequestActor {
 
 export function writeVisibility(actor: string | SQLWrapper, selected: Owner) {
 	return sql<boolean>`NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state <> 'cancelled' AND (
-  (w.kind='account' AND w.opaque_subject_id=${actor}::uuid) OR (w.kind=${selected.kind} AND w.opaque_subject_id=${selected.id}::uuid) OR
-  (${selected.kind}<>'account' AND w.seat_id IN (SELECT id FROM seat WHERE account_id=${actor}::uuid
-   AND coalesce(plant_id,organization_id)=${selected.id}::uuid AND ended_at IS NULL))))`;
+  (w.kind='account' AND w.opaque_subject_id=${actor}::uuid) OR (w.kind=${selected.kind} AND w.opaque_subject_id=${selected.id}::uuid)))`;
 }
 export const seatHeld = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
 	sql`${sql.raw(alias)}.ended_at IS NULL AND ${sql.raw(alias)}.accepted_at <= clock_timestamp()`;

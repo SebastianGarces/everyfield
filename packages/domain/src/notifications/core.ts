@@ -103,7 +103,7 @@ export function seatAccess(input: { account: string; tenant: string; admin?: boo
 					: sql``
 			}
 			AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.state <> 'cancelled' AND (
-				w.seat_id = s.id OR (w.kind = 'account' AND w.opaque_subject_id = a.id)
+				(w.kind = 'account' AND w.opaque_subject_id = a.id)
 				OR (w.kind IN ('plant','organization') AND w.opaque_subject_id = ${input.tenant}::uuid))))`;
 }
 export function selfSql(session: string, accountId: string): SQL {
@@ -130,7 +130,7 @@ export function noticeVisible(eligible: SQL = sql`n.eligible_at <= clock_timesta
 			ELSE EXISTS (SELECT FROM seat s WHERE s.account_id = n.recipient_id AND s.ended_at IS NULL
 			AND s.accepted_at <= clock_timestamp() AND (s.plant_id = n.tenant_id OR s.organization_id = n.tenant_id)
 			AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.state <> 'cancelled' AND (
-				w.seat_id = s.id OR (w.kind = 'account' AND w.opaque_subject_id = s.account_id)
+				(w.kind = 'account' AND w.opaque_subject_id = s.account_id)
 				OR (w.kind IN ('plant','organization') AND w.opaque_subject_id = n.tenant_id)))) END
 		AND (split_part(n.logical_key,'/',2) <> 'answer_review' OR EXISTS (SELECT FROM answer_review r
 			JOIN seat rv ON rv.id = r.reviewer_seat_id AND rv.account_id = n.recipient_id
