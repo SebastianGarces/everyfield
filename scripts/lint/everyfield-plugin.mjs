@@ -4227,13 +4227,9 @@ const COUNT_OPERATORS = new Set(["===", "!==", "==", "!=", ">", "<=", ">=", "<"]
 const IRREGULAR_PLURALS = new Map([
 	["person", "people"],
 	["child", "children"],
-	["man", "men"],
-	["woman", "women"],
 	["is", "are"],
 	["has", "have"],
 	["was", "were"],
-	["does", "do"],
-	["this", "these"],
 	["it", "they"],
 ]);
 const isOne = (node) => node?.type === "Literal" && node.value === 1;
