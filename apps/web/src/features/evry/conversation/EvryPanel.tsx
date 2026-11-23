@@ -269,10 +269,10 @@ function Chat({
 	const actions = useActions();
 	const state = Panel.useSelect((s) => s.chat);
 	const load = Panel.useSelect((s) => s.load);
-	const photos = useRowPhotos(turns);
+	const moved = Panel.useSelect((s) => s.churchChanged);
+	const photos = useRowPhotos(turns, moved);
 	const problem = Panel.useSelect((s) => s.problem);
 	const churchNotice = Panel.useSelect((s) => s.churchNotice);
-	const moved = Panel.useSelect((s) => s.churchChanged);
 	const retrying = Panel.useSelect((s) => s.retrying);
 	const announcement = Panel.useSelect((s) => s.announcement);
 	const lastTurn = turns.at(-1);
