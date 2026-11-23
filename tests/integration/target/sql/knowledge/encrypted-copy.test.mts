@@ -2,14 +2,17 @@ import "../../../platform/setup.mts";
 import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import ts from "../../../../../packages/contracts/node_modules/typescript/lib/typescript.js";
 import { sql } from "../../../../../packages/db/src/query.ts";
 import { S3Client } from "../../../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
 import { RequestActor } from "../../../../../packages/domain/src/access/session.ts";
 import { documentsWriter } from "../../../../../packages/domain/src/documents/index.ts";
-import { createEncryptedCopy, openEncryptedCopy, type BackupStore } from "../../../../../ops/maintenance/copy.mts";
+import { BackupDirectory, createEncryptedCopy, openEncryptedCopy } from "../../../../../ops/maintenance/copy.mts";
 import { validateCandidate } from "../../../../../ops/maintenance/recovery.mts";
 import { testDatabase } from "../../../../support/test-database.mts";
 import { ok, refused, seeds } from "../../../../support/fixture.mts";
@@ -52,15 +55,14 @@ class MemoryClient extends S3Client {
 }
 const storage = { bucket: "synthetic-only", client: new MemoryClient() };
 
-const backup = new Map<string, Buffer>();
-let writes = 0;
-const store: BackupStore = {
-	put: async (key, bytes) => {
-		writes++;
-		backup.set(key, Buffer.from(bytes));
-	},
-	get: async (key) => backup.get(key) ?? null,
-};
+let root: string, store: BackupDirectory;
+const stored = (key: string) => readFileSync(join(root, key));
+const restore = (key: string, bytes: Buffer) => writeFileSync(join(root, key), bytes);
+const keys = () =>
+	readdirSync(root, { recursive: true, withFileTypes: true })
+		.filter((e) => e.isFile())
+		.map((e) => join(e.parentPath, e.name).slice(root.length + 1));
+const writes = () => keys().length;
 
 let dir: string, keyFile: string, otherKeyFile: string, kek: Buffer;
 let plant, a, actor, documentId: string, subject: string, plain;
@@ -69,6 +71,9 @@ before(async () => {
 	mock.timers.enable({ apis: ["Date"], now: NOW.getTime() });
 	await freezeClock(admin, schema, NOW);
 	dir = await mkdtemp(join(tmpdir(), "wp092-copy-"));
+	root = join(dir, "backup");
+	await mkdir(root, { mode: 0o700 });
+	store = new BackupDirectory(root);
 	kek = randomBytes(32);
 	keyFile = join(dir, "backup.key");
 	otherKeyFile = join(dir, "app.key");
@@ -97,6 +102,38 @@ after(async () => {
 const copyAt = (at: Date, input: Record<string, unknown>) =>
 	createEncryptedCopy({ store, clock: () => at }, { capability: backupOperator, keyFile, ...input } as never);
 
+test("only the backup directory type-checks as the copy store; a plain get/put store such as the app's object store does not", async () => {
+	const copy = fileURLToPath(new URL("../../../../../ops/maintenance/copy.mts", import.meta.url));
+	const fixture = join(dir, "stores.mts");
+	const lines = [
+		`import { BackupDirectory, createEncryptedCopy, openEncryptedCopy } from ${JSON.stringify(copy)};`,
+		"const objects = new Map<string, Uint8Array>();",
+		"const app = { put: async (key: string, bytes: Uint8Array) => void objects.set(key, bytes), get: async (key: string) => objects.get(key) ?? null };",
+		'const backup = new BackupDirectory("/private/backup");',
+		'const input = { capability: null, keyFile: "/private/backup.key", source: { copy: "copy/x" } };',
+		'export const backupOpen = openEncryptedCopy(backup, "copy/x", input.keyFile);',
+		'export const appOpen = openEncryptedCopy(app, "copy/x", input.keyFile);',
+		"export const backupCopy = createEncryptedCopy({ store: backup, clock: () => new Date() }, input);",
+		"export const appCopy = createEncryptedCopy({ store: app, clock: () => new Date() }, input);",
+	];
+	await writeFile(fixture, lines.join("\n"));
+	const program = ts.createProgram([fixture], {
+		strict: true,
+		noEmit: true,
+		skipLibCheck: true,
+		allowImportingTsExtensions: true,
+		module: ts.ModuleKind.NodeNext,
+		moduleResolution: ts.ModuleResolutionKind.NodeNext,
+		target: ts.ScriptTarget.ES2022,
+		types: ["node"],
+		typeRoots: [fileURLToPath(new URL("../../../../../packages/db/node_modules/@types", import.meta.url))],
+	});
+	const errors = program
+		.getSemanticDiagnostics(program.getSourceFile(fixture))
+		.map((d) => lines[d.file!.getLineAndCharacterOfPosition(d.start!).line]!.split(" = ")[0]);
+	assert.deepEqual(errors, ["export const appOpen", "export const appCopy"]);
+});
+
 test("only a verified restricted-backup capability for the copy operation gets past the first check", async (step) => {
 	const cases: [string, unknown][] = [
 		["a missing capability", undefined],
@@ -111,13 +148,13 @@ test("only a verified restricted-backup capability for the copy operation gets p
 	];
 	for (const [name, capability] of cases)
 		await step.test(`${name}: refused before anything is written`, async () => {
-			const before = writes;
+			const before = writes();
 			const result = await createEncryptedCopy(
 				{ store, clock: () => NOW },
 				{ capability, keyFile, source: { snapshot: plain } },
 			);
 			assert.deepEqual(result, { copy_encrypted: false, refusal: "operator_unavailable", location: null });
-			assert.equal(writes, before);
+			assert.equal(writes(), before);
 		});
 });
 
@@ -138,7 +175,7 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 		);
 		assert.equal(result.snapshot_date, "2026-10-13");
 		assert.match(location, /^copy\/2026-10-13\//);
-		const manifest = JSON.parse(backup.get(`${location}/manifest.json`)!.toString("utf8"));
+		const manifest = JSON.parse(stored(`${location}/manifest.json`).toString("utf8"));
 		const checked = validateCandidate(manifest, NOW);
 		assert.equal(checked.manifest.createdAt.slice(0, 10), "2026-10-13");
 		assert.deepEqual(checked.manifest.subjects, [{ id: subject, expiresAt: SUBJECT_EXPIRY }]);
@@ -149,21 +186,23 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 			[{ id: plain.manifest.objects[0].id, sha256: sha256(DOCUMENT), bytes: DOCUMENT.length }],
 		);
 		assert.equal(checked.manifest.database.sha256, sha256(plain.image));
-		const stored = [...backup.entries()].filter(([key]) => key.startsWith(location));
-		assert.deepEqual(stored.map(([key]) => key.slice(location.length + 1)).sort(), [
+		const copied = keys()
+			.filter((key) => key.startsWith(location))
+			.map((key) => [key, stored(key)] as const);
+		assert.deepEqual(copied.map(([key]) => key.slice(location.length + 1)).sort(), [
 			"database",
 			"key",
 			"manifest.json",
 			`objects/${plain.manifest.objects[0].id}`,
 		]);
-		for (const [key, bytes] of stored) {
+		for (const [key, bytes] of copied) {
 			if (key.endsWith("manifest.json")) continue;
 			assert.equal(bytes.indexOf(plain.image.subarray(0, 32)), -1, key);
 			assert.equal(bytes.indexOf(Buffer.from("launch plan D")), -1, key);
 			assert.equal(bytes.indexOf(Buffer.from("Harvest Point")), -1, key);
 			assert.equal(bytes.indexOf(kek), -1, key);
 		}
-		assert.doesNotMatch(backup.get(`${location}/manifest.json`)!.toString("utf8"), /Harvest Point|launch plan/);
+		assert.doesNotMatch(stored(`${location}/manifest.json`).toString("utf8"), /Harvest Point|launch plan/);
 	});
 
 	await step.test(
@@ -181,16 +220,16 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 	await step.test("another key, a changed ciphertext and a changed checksum are each refused", async () => {
 		await assert.rejects(openEncryptedCopy(store, location, otherKeyFile), { message: "copy_unreadable" });
 		const tamper = async (key: string, change: (bytes: Buffer) => Buffer) => {
-			const original = backup.get(key)!;
-			backup.set(key, change(Buffer.from(original)));
+			const original = stored(key);
+			restore(key, change(Buffer.from(original)));
 			try {
 				await assert.rejects(openEncryptedCopy(store, location, keyFile), { message: "copy_unreadable" }, key);
-				const before = writes;
+				const before = writes();
 				const recopy = await copyAt(RECOPY, { source: { copy: location } });
 				assert.deepEqual(recopy, { copy_encrypted: false, refusal: "copy_unreadable", location: null });
-				assert.equal(writes, before);
+				assert.equal(writes(), before);
 			} finally {
-				backup.set(key, original);
+				restore(key, original);
 			}
 		};
 		const flip = (b: Buffer) => {
@@ -219,7 +258,7 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 			assert.equal(recopy.effective_expires_at, "2026-10-20T16:00:00Z");
 			assert.notEqual(recopy.effective_expires_at, new Date(RECOPY.getTime() + 7 * DAY).toISOString());
 			assert.notEqual(recopy.key_version, result.key_version);
-			const manifest = JSON.parse(backup.get(`${recopy.location}/manifest.json`)!.toString("utf8"));
+			const manifest = JSON.parse(stored(`${recopy.location}/manifest.json`).toString("utf8"));
 			const checked = validateCandidate(manifest, RECOPY);
 			assert.deepEqual(checked.manifest.subjects, [{ id: subject, expiresAt: SUBJECT_EXPIRY }]);
 			assert.equal(checked.effectiveExpiresAt, "2026-10-20T16:00:00.000Z");
@@ -241,13 +280,13 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 				subjects: [{ id: subject, expiresAt: later }],
 			},
 		};
-		const before = writes;
+		const before = writes();
 		const refusedCopy = await copyAt(RECOPY, {
 			source: { snapshot: redated },
 			originalExpiries: new Map(old.subjects.map((s) => [s.id, s.expiresAt])),
 		});
 		assert.deepEqual(refusedCopy, { copy_encrypted: false, refusal: "subject_expired_or_reset", location: null });
-		assert.equal(writes, before);
+		assert.equal(writes(), before);
 	});
 
 	await step.test("A's ordinary app path reaches neither the copy nor its key", async () => {
@@ -255,7 +294,7 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 		ok(await documentsWriter.download(db, actor, { documentId }, storage));
 		for (const id of [plain.manifest.database.id, location.split("/")[2]!, result.key_version])
 			refused(await documentsWriter.download(db, actor, { documentId: id }, storage));
-		for (const bytes of live.values()) assert.equal(Buffer.from(bytes).indexOf(backup.get(`${location}/key`)!), -1);
+		for (const bytes of live.values()) assert.equal(Buffer.from(bytes).indexOf(stored(`${location}/key`)), -1);
 		const env = Object.values(process.env).join("\n");
 		for (const form of [kek.toString("hex"), kek.toString("base64"), kek.toString("base64url")])
 			assert.equal(env.includes(form), false);

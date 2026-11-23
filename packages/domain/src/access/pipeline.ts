@@ -5,7 +5,7 @@ import {
 	pipelineDuty,
 } from "@everyfield/contracts/access";
 import { owner, type Owner, type sessionId } from "@everyfield/contracts/common";
-import { alias, and, eq, isNull, sql } from "@everyfield/db/query";
+import { alias, and, eq, isNull, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
@@ -91,8 +91,7 @@ export async function readPipelinePerson(
 
 export const liveResidency = sql<boolean>`(l.ended_at IS NULL AND l.accepted_at<=clock_timestamp()
  AND EXISTS(SELECT FROM affiliation a WHERE a.id=l.affiliation_id AND a.organization_id=l.organization_id
-  AND a.account_id=l.account_id AND a.ended_at IS NULL AND a.accepted_at<=clock_timestamp()
-  AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.affiliation_id=a.id AND w.state <> 'cancelled'))
+  AND a.account_id=l.account_id AND a.ended_at IS NULL AND a.accepted_at<=clock_timestamp())
  AND EXISTS(SELECT FROM invitation i WHERE i.id=l.invitation_id AND i.tenant_id=l.organization_id
   AND i.accepted_account_id=l.account_id AND i.state='accepted' AND i.purpose='residency_link' AND i.resident_person_id=l.person_id)
  AND EXISTS(SELECT FROM person p WHERE p.id=l.person_id AND p.tenant_id=l.organization_id
@@ -137,6 +136,16 @@ export async function readOwnResidency(
 		revision: link.revision,
 	});
 }
+
+export const ownResidency = (
+	session: z.infer<typeof sessionId>,
+	account: Owner,
+	link: { organizationId: SQL; personId: SQL },
+) => sql<boolean>`(EXISTS(SELECT FROM organization ro JOIN tenant rt ON rt.id=ro.id WHERE ro.id=${link.organizationId}
+  AND rt.kind='organization' AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=ro.id
+   AND w.kind='organization' AND w.state NOT IN ('active','cancelled')))
+ AND (SELECT count(*) FROM residency_link l WHERE l.organization_id=${link.organizationId} AND l.person_id=${link.personId}
+  AND l.account_id=${account.id}::uuid AND ${liveResidency} AND ${liveRead({ session, owner: account })})=1)`;
 
 const isAdministrator = (actor: { context: { kind: string; role?: string } }) =>
 	actor.context.kind === "seat" && actor.context.role !== "member";

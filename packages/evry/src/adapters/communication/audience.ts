@@ -15,6 +15,7 @@ export const audiencePerson = z.strictObject({
 	email: z.string().nullable(),
 	n: z.int(),
 	optedOutAt: z.string().nullable(),
+	child: z.boolean(),
 });
 
 export const classifiedPeople = (plantId: string, audience: AudienceValue, hashes: Record<string, string> | null) =>

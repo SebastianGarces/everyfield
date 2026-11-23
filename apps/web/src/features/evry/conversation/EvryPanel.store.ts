@@ -38,6 +38,9 @@ export type EvryPort = Pick<
 > & {
 	stageAvatar: (file: File) => Promise<string | null>;
 	putFile: (url: string, headers: Record<string, string>, file: File) => Promise<boolean>;
+	heldDraft: () => string | null;
+	holdDraft: (draft: string | null) => void;
+	reloadPage: () => void;
 };
 
 export type EvryPanelState = {
@@ -55,6 +58,9 @@ export type EvryPanelState = {
 	stream: Stream;
 	retrying: boolean;
 	problem: string | null;
+	churchChanged: boolean;
+	churchNotice: string | null;
+	churchRefused: string | null;
 	announcement: string;
 	actions: {
 		show: (open: boolean) => void;
@@ -68,6 +74,8 @@ export type EvryPanelState = {
 		addFiles: (files: readonly File[], church: boolean) => void;
 		removeFile: (key: string) => void;
 		reload: () => void;
+		reloadForChurch: (send?: Send) => void;
+		leaveChurch: (proposalId: string) => void;
 		cancel: () => void;
 		retry: (turnId: string) => void;
 		reconnect: () => void;
@@ -80,6 +88,12 @@ export type EvryPanelState = {
 export type EvryPanelStore = StoreApi<EvryPanelState>;
 
 const KINDS = ["user_message", "assistant_text", "tool_result", "status"] as const;
+
+const CHURCH = {
+	retry: "Evry did not try again. Reload to use Evry for your new church.",
+	stopped: "Evry stopped, and nothing was changed. Reload to use Evry for your new church.",
+	opened: "That conversation is from your old church. Reload to use Evry for your new church.",
+};
 
 async function readAll(
 	port: EvryPort,
@@ -164,8 +178,18 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			update(() => next, { problem: null });
 		};
 
+		const leave = (churchNotice: string | null) =>
+			update((chat) => ({ ...chat, activeTurnId: null, stopping: false }), {
+				churchChanged: true,
+				churchNotice,
+				problem: null,
+				stream: "idle",
+				announcement: "",
+			});
+
 		const stopped = (error: ProjectedError) => {
 			if (error.outcome !== "refused") return set({ stream: "lost" });
+			if (error.code === "church_changed") return leave(CHURCH.stopped);
 			update((chat) => ({ ...chat, activeTurnId: null, stopping: false }), {
 				stream: "idle",
 				problem:
@@ -175,9 +199,11 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			});
 		};
 
+		const reading = (conversationId: string) => !get().churchChanged && get().chat.conversation?.id === conversationId;
+
 		const settle = async (conversationId: string) => {
 			const r = await port.readConversation(conversationId, cursor(get().chat));
-			if (get().chat.conversation?.id !== conversationId) return;
+			if (!reading(conversationId)) return;
 			if (r.status === "refused") return stopped(r.error);
 			if (r.status === "lost") return set({ stream: "lost" });
 			update((chat) => merge(chat, r.value.events));
@@ -187,16 +213,18 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 
 		const catchUp = async (conversationId: string) => {
 			const r = await port.readConversation(conversationId, cursor(get().chat));
-			if (r.status !== "ok" || get().chat.conversation?.id !== conversationId) return;
+			if (r.status !== "ok" || !reading(conversationId)) return;
 			update((chat) => merge(chat, r.value.events));
 			if (!r.value.run) update((chat) => ({ ...chat, activeTurnId: null, stopping: false }));
 		};
 
-		const fail = (send: Send, reply: api.Reply<unknown>, refused: "refused" | "unstarted" = "refused") =>
+		const fail = (send: Send, reply: api.Reply<unknown>, refused: "refused" | "unstarted" = "refused") => {
+			if (reply.status === "refused" && reply.error.code === "church_changed") leave(null);
 			patchSend(
 				send.key,
 				reply.status === "refused" ? { state: refused, error: reply.error } : { state: "unconfirmed", error: null },
 			);
+		};
 
 		const patchSend = (key: string, patch: Partial<Send>) =>
 			update((chat) => {
@@ -305,7 +333,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 		const follow = () => {
 			const { chat } = get();
 			const id = chat.conversation?.id;
-			const wanted = readers > 0 && id && chat.activeTurnId !== null ? id : null;
+			const wanted = readers > 0 && id && chat.activeTurnId !== null && !get().churchChanged ? id : null;
 			if (wanted === following) return;
 			following = wanted;
 			if (source) {
@@ -377,10 +405,12 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			}
 		};
 
+		const held = port.heldDraft();
+
 		return {
-			open: false,
+			open: held !== null,
 			view: "chat",
-			draft: "",
+			draft: held ?? "",
 			startedIn: init.context,
 			photo: null,
 			files: [],
@@ -392,6 +422,9 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			stream: "idle",
 			retrying: false,
 			problem: null,
+			churchChanged: false,
+			churchNotice: null,
+			churchRefused: null,
 			announcement: "",
 			actions: {
 				show,
@@ -468,6 +501,14 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				},
 				removeFile: (key) => set({ files: get().files.filter((p) => p.key !== key) }),
 				reload: () => void reload(),
+				reloadForChurch: (send) => {
+					port.holdDraft(send?.text ?? get().draft);
+					port.reloadPage();
+				},
+				leaveChurch: (proposalId) => {
+					leave(null);
+					set({ churchRefused: proposalId });
+				},
 				cancel: () =>
 					void (async () => {
 						const conversation = get().chat.conversation;
@@ -493,6 +534,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 						set({ retrying: false });
 						if (r.status === "lost") return set({ problem: "Not confirmed. Check your connection, then try again." });
 						retryKeys.delete(turnId);
+						if (r.status === "refused" && r.error.code === "church_changed") return leave(CHURCH.retry);
 						if (r.status === "refused")
 							return set({
 								problem:
@@ -510,6 +552,10 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				followStream: (listener) => {
 					const off = api.subscribe(listener);
 					readers++;
+					if (get().load === "idle") {
+						port.holdDraft(null);
+						void reload();
+					}
 					if (readers === 1) {
 						unwatch = api.subscribe(follow);
 						follow();
@@ -520,7 +566,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 						if (readers > 0) return;
 						unwatch();
 						follow();
-						set({ chat: { ...get().chat, reviews: {} } });
+						if (!get().churchChanged) set({ chat: { ...get().chat, reviews: {} } });
 					};
 				},
 				select: (conversationId) =>
@@ -531,6 +577,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 						const r = await readAll(port, conversationId, () => mine === shown);
 						if (mine !== shown) return;
 						set({ load: "ready" });
+						if (r.status === "refused" && r.error.code === "church_changed") return leave(CHURCH.opened);
 						if (r.status !== "ok")
 							return set({ problem: "That conversation could not open. Check your connection and try again." });
 						openState(opened(r.value));
