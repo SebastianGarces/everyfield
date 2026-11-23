@@ -1,4 +1,4 @@
-import { localDate } from "@everyfield/contracts/common";
+import { localDate, type Outcome } from "@everyfield/contracts/common";
 import type {
 	AssessedCriterion,
 	Assessment,
@@ -10,7 +10,7 @@ import type {
 } from "@everyfield/contracts/intelligence";
 
 export type ActionOutcome<T> =
-	{ status: "ok"; value: T } | { status: "refused"; error: AssessmentError } | { status: "signed_out" | "lost" };
+	Outcome<T, AssessmentError["code"], { error: AssessmentError }> | { status: "signed_out" };
 
 type Status = "positive" | "measured" | "attention" | "risk" | "unknown";
 

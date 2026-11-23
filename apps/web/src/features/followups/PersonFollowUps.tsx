@@ -419,7 +419,7 @@ function ContactLogCard({
 							<Button size="sm" variant="ghost" loading={more === "loading"} onClick={showEarlier}>
 								Show earlier
 							</Button>
-							<span aria-live="polite" className="text-xs text-text-3 empty:hidden">
+							<span aria-live="polite" className="text-xs text-text-3 empty:sr-only">
 								{more === "failed" ? READ_FAILED : more === "lost" ? "Earlier entries did not load. Try again." : ""}
 							</span>
 						</div>
@@ -639,7 +639,7 @@ function ShowMore({ more, what }: { more: More; what: string }) {
 			<Button size="sm" variant="ghost" loading={more.loading} onClick={more.more}>
 				Show more {what}
 			</Button>
-			<span aria-live="polite" className="text-xs text-text-3 empty:hidden">
+			<span aria-live="polite" className="text-xs text-text-3 empty:sr-only">
 				{more.missed === "failed" ? READ_FAILED : more.missed ? `More ${what} did not load. Try again.` : ""}
 			</span>
 		</div>

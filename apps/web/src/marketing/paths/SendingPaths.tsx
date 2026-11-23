@@ -13,14 +13,14 @@ const PHOTOS: PhotoName[] = ["reeds", "lupins", "swirl"];
 
 export function SendingPaths({ p }: { p: Paths }) {
 	const S = p.states;
+	const last = S.at(-1);
 	const sentence =
 		p.lead +
 		" " +
 		S.slice(0, -1)
 			.map((x) => x.phrase)
 			.join(", ") +
-		" or " +
-		S[S.length - 1]!.phrase +
+		(last ? " or " + last.phrase : "") +
 		". " +
 		p.tail;
 	const panes = S.map((x) => (

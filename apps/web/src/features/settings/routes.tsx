@@ -1,41 +1,12 @@
 import type { Metadata } from "next";
-import { cookies, headers } from "next/headers";
-import { notFound } from "next/navigation";
-import { EMAIL_CHANGE_PROOF_COOKIE, PATH_HEADER } from "@/proxy";
-import { getViewer } from "@/server/request-context";
+import { readEmailChangeProof } from "@/server/email-change-proof";
 import { requireActor } from "@/server/sign-in";
 import { instant } from "@everyfield/contracts/common";
 import { confirmEmailChange } from "./actions";
-import { readBrand } from "./brand/server";
 import { ConfirmEmailScreen } from "./restricted/ConfirmEmailScreen";
 import { AccountDeletionScreen } from "./restricted/AccountDeletionScreen";
 import { WorkspaceDeletionScreen } from "./restricted/WorkspaceDeletionScreen";
-import { readSection, restrictedStatus } from "./server";
-import { dialogSection, offeredSections, sectionAt, sectionRequest } from "./model";
-import type { SectionSeed, SettingsViewer } from "./port";
-
-export const settingsMetadata: Metadata = { title: "Settings", robots: { index: false, follow: false } };
-
-export async function SettingsSectionPage({ params }: { params: Promise<{ section: string }> }) {
-	const section = dialogSection((await params).section);
-	if (!section) notFound();
-	await requireActor(`/settings/${section}`);
-	return <h1 className="sr-only">Settings</h1>;
-}
-
-export async function SettingsIndexPage() {
-	await requireActor("/settings");
-	return <h1 className="sr-only">Settings</h1>;
-}
-
-export async function sectionSeed(viewer: SettingsViewer | null): Promise<SectionSeed | null> {
-	const section = sectionAt((await headers()).get(PATH_HEADER) ?? "", viewer);
-	if (viewer && section === "brand" && offeredSections(viewer, []).includes("brand"))
-		return { brand: getViewer().then(readBrand) };
-	const request = viewer && section ? sectionRequest(viewer, section) : null;
-	if (!request) return null;
-	return { request, value: getViewer().then((session) => readSection(session, request)) };
-}
+import { restrictedStatus } from "./server";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const one = (value: string | string[] | undefined) => (typeof value === "string" ? value : null);
@@ -70,6 +41,6 @@ export const confirmEmailMetadata: Metadata = {
 
 export async function ConfirmEmailPage() {
 	await requireActor("/confirm-email");
-	const proof = (await cookies()).get(EMAIL_CHANGE_PROOF_COOKIE)?.value ?? null;
-	return <ConfirmEmailScreen proof={proof} confirm={confirmEmailChange} accountHref="/settings/account" />;
+	const linked = (await readEmailChangeProof()) !== null;
+	return <ConfirmEmailScreen linked={linked} confirm={confirmEmailChange} accountHref="/settings/account" />;
 }

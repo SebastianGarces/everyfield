@@ -5,6 +5,7 @@ export { Refusal } from "./core.ts";
 export { createAccountCredentials } from "./credentials.ts";
 export type { CredentialConfig } from "./credentials.ts";
 export { createLifecycleCleanup, deletionOperations } from "./deletion.ts";
+export { authorizeSettingsMail } from "./mail.ts";
 export type { DeletionEffects, DeletionRequest, DeletionSubject, WorkspaceDeletionNotice } from "./deletion.ts";
 export { sectionOperations } from "./sections.ts";
 export type { Principal, SectionViewer, SettingsEffects } from "./sections.ts";

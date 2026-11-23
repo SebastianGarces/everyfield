@@ -170,3 +170,13 @@ python3 docs/schema/render-docs.py
 
 The ER diagram is generated on demand and not committed (it is ignored by git). To view it, run
 `python3 docs/schema/render-diagram.py` and open `docs/schema/schema-diagram.html`.
+
+## Early-access pool
+
+Early access still uses its own pool: `database()` from `@everyfield/db`, opened from
+`DATABASE_URL`. The rest of the app uses the shared request database, which is
+configured from the `IDENTITY_*` values. The pool stays for now because Production
+does not have those values yet, so early access cannot move there (D-2116).
+
+The pool goes in T-574, which moves early access to the shared request database and
+deletes the `DATABASE_URL` pool.
