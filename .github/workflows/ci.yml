@@ -259,10 +259,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: statement-census-part-${{ matrix.part }}
+          name: statement-census-part-${{ matrix.part }}-attempt-${{ github.run_attempt }}
           path: ${{ runner.temp }}/census
           if-no-files-found: ignore
-          overwrite: true
           retention-days: 14
 
   ci:
@@ -291,6 +290,7 @@ jobs:
         run: node --test tests/integration/writes/statements.test.mts
         env:
           EVF_CENSUS_UNION: ${{ runner.temp }}/census
+          EVF_CENSUS_ATTEMPT: ${{ github.run_attempt }}
           EVF_CENSUS_TIGHTENED: ${{ runner.temp }}/tightened
       - name: Tightened statement budgets in the job summary (slack never fails; commit the file in this PR)
         if: ${{ !cancelled() }}

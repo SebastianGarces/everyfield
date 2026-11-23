@@ -1,4 +1,4 @@
-import { globSync, readFileSync, writeFileSync } from "node:fs";
+import { globSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,7 +13,8 @@ Writes tests/integration/writes/weights.json, the measured weights the statement
 
 Each run folder holds one green CI run's census artifacts, for example
   gh run download <run id> -p 'statement-census-part-*' -D <folder>/<run id>
-The folder's name is recorded as the run id.
+The folder's name is recorded as the run id. Each part uploads statement-census-part-<part>-attempt-<attempt>, and
+only the newest attempt of each part is read, so a rerun's failed attempt is left out.
 
 A suite's weight is the time its top-level tests took in its part's behaviors.log, plus the part's per-file start-up
 time: the part's process time (concurrency x duration_ms) less its test time, spread over its files. The census log
@@ -88,8 +89,21 @@ export function partSuites(files, weights, index, total, concurrency) {
 	return parts[index - 1].files;
 }
 
-function readRun(folder) {
-	return globSync("statement-census-part-*/*/counts.jsonl", { cwd: folder })
+export function newestAttempts(folder, attempt = Infinity) {
+	const newest = new Map();
+	for (const name of readdirSync(folder)) {
+		const match = /^statement-census-part-(\d+)-attempt-(\d+)$/.exec(name);
+		if (!match) continue;
+		const part = Number(match[1]),
+			at = Number(match[2]);
+		if (at <= attempt && !(newest.get(part)?.at >= at)) newest.set(part, { at, name });
+	}
+	return [...newest.values()].map(({ name }) => name).sort(compare);
+}
+
+export function readRun(folder) {
+	return newestAttempts(folder)
+		.flatMap((artifact) => globSync(`${artifact}/*/counts.jsonl`, { cwd: folder }))
 		.sort(compare)
 		.flatMap((counts) => {
 			const marker = readFileSync(join(folder, counts), "utf8")
