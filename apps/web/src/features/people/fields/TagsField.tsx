@@ -1,5 +1,6 @@
 "use client";
 
+import { countWord } from "@everyfield/contracts/common";
 import { Add01Icon, Cancel01Icon, Settings01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Button, Input, Popover, PopoverContent, PopoverTrigger, Spinner, TextButton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
@@ -313,7 +314,7 @@ function TagPicker({
 										<span className="ml-auto text-xs text-text-3 tabular-nums">
 											<span className="sr-only">, </span>
 											{t.linkedPeople}
-											<span className="sr-only"> {t.linkedPeople === 1 ? "person" : "people"}</span>
+											<span className="sr-only"> {countWord(t.linkedPeople, "person", "people")}</span>
 										</span>
 									</button>
 								</li>

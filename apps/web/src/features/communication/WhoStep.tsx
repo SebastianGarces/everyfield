@@ -1,4 +1,5 @@
 "use client";
+import { counted } from "@everyfield/contracts/common";
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
@@ -10,7 +11,7 @@ import { createRead, useRead, useReadWith } from "../../components/read.tsx";
 import { useStore } from "../../components/store.ts";
 import { resolveAudience } from "./actions.ts";
 import { recipientSearches, type ComposeStore } from "./Compose.store.ts";
-import { audienceSize, plural } from "./composeModel.ts";
+import { audienceSize } from "./composeModel.ts";
 import {
 	audienceGroups,
 	CHILD_RULE,
@@ -138,7 +139,7 @@ function ChosenChip({ value, label, remove }: { value: string; label: string; re
 	const count = useRead(chipCounts, value).value;
 	return (
 		<Chip
-			label={`${label}${count?.status === "ok" ? ` · ${plural(count.value.eligibleRecipients, "person", "people")}` : ""}`}
+			label={`${label}${count?.status === "ok" ? ` · ${counted(count.value.eligibleRecipients, "person", "people")}` : ""}`}
 			remove={remove}
 			removeLabel={`Remove ${label}`}
 		/>
@@ -234,7 +235,7 @@ function Counts({
 					) : null}
 					{summary.duplicateAddressesRemoved > 0 ? (
 						<p className="text-sm text-text-2">
-							{plural(summary.duplicateAddressesRemoved, "duplicate address", "duplicate addresses")} removed.
+							{counted(summary.duplicateAddressesRemoved, "duplicate address", "duplicate addresses")} removed.
 						</p>
 					) : null}
 				</section>

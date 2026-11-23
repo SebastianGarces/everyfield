@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
 import {
@@ -345,7 +346,7 @@ function QuietFor({ since }: { since: string }) {
 	const now = useViewerNow();
 	if (now === null) return "Quiet";
 	const days = Math.max(1, Math.floor((now - Date.parse(since)) / 86_400_000));
-	return `Quiet ${days} ${days === 1 ? "day" : "days"}`;
+	return `Quiet ${counted(days, "day")}`;
 }
 
 function MoveMenu({

@@ -1513,6 +1513,52 @@ export const BA = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-" + (1 + "00")
 	);
 });
 
+test("INV-lint: apps/web shows a problem line through ProblemText, InlineAlert or Alert, never a hand-written role=alert element with magenta or red text on it or inside it; only the four kept list and send-state lines pass, once each", () => {
+	const code = `export const A = () => <p role="alert" className="text-sm text-magenta-600">x</p>;
+export const B = () => <p role="alert" className="mt-1 text-red-700">x</p>;
+export const C = () => <div role="alert" className="flex gap-2"><span>!</span><p className="text-sm text-magenta-600">x</p></div>;
+export const D = ({ x }) => <p role={x ? "alert" : "status"} className="text-xs text-magenta-600">x</p>;
+export const E = ({ on }) => <p role="alert" className={cn("text-sm", on ? "text-magenta-600" : "text-text-3")}>x</p>;
+export const F = () => <p role="alert" className="text-sm sm:text-red-600 hover:!text-magenta-700">x</p>;
+export const G = () => <p role="status" className="text-sm text-magenta-600">x</p>;
+export const H = () => <p role="alert" className="text-sm text-text-2">x</p>;
+export const I = () => <div role="alert" className="text-ink"><p className="text-sm">x</p></div>;
+export const J = () => <ProblemText className="px-3 py-2">x</ProblemText>;
+export const K = () => <Alert role="alert" className="text-magenta-600">x</Alert>;
+export const L = () => <Card role="alert" className="text-magenta-600">x</Card>;
+export const M = () => <p className="text-sm text-magenta-600">x</p>;
+export const N = () => <p role="alert" className="text-sm bg-magenta-600 text-ink">x</p>;
+`;
+	const kept = {
+		task: `export const A = () => <p className="px-1 py-2 text-sm text-magenta-600" role="alert">x</p>;\n`,
+		commitment: `export const A = () => <p role="alert" className="px-2 py-3 text-sm text-magenta-600">x</p>;\n`,
+		evry: `export const A = () => (
+	<div role="alert" className="flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600">
+		<p>x</p>
+	</div>
+);
+`,
+	};
+	const reported = lint({
+		"apps/web/src/features/x/Problem.tsx": code,
+		"packages/ui/src/controls/x.tsx": code,
+		"apps/web/src/features/tasks/TaskDialog.tsx": kept.task,
+		"apps/web/src/features/people/assessments/CommitmentDialogs.tsx": kept.commitment,
+		"apps/web/src/features/meetings/dialogs.tsx": `${kept.commitment}${kept.commitment.replace("A", "B")}`,
+		"apps/web/src/features/evry/conversation/EvryPanel.tsx": `${kept.evry}export const B = () => <p role="alert" className="text-xs text-magenta-600">x</p>;\n`,
+	}).filter((hit) => hit.endsWith(" shared-notice"));
+	assert.deepEqual(reported, [
+		"apps/web/src/features/evry/conversation/EvryPanel.tsx:6 shared-notice",
+		"apps/web/src/features/meetings/dialogs.tsx:2 shared-notice",
+		...[1, 2, 3, 4, 5, 6].map((line) => `apps/web/src/features/x/Problem.tsx:${line} shared-notice`),
+	]);
+	const [message] = lint({ "apps/web/src/features/x/Problem.tsx": code }, undefined, true);
+	assert.match(
+		message,
+		/ProblemText \(a control-level line\) or InlineAlert or Alert \(a section-level line\) from @everyfield\/ui\/controls/,
+	);
+});
+
 test("INV-a11y: a live region in apps/web or packages/ui (an output element included) is never hidden, invisible, inert or aria-hidden, nor inside an element that is (a portal ends that search), so it stays in the accessibility tree", () => {
 	const code = `export const A = ({ m }) => <div aria-live="polite" className="empty:hidden">{m}</div>;
 export const B = ({ m }) => <p role="status" className={cn("text-sm", !m && "hidden")}>{m}</p>;
@@ -3536,5 +3582,49 @@ export async function fallback(dependencies: { db?: Database }) {
 			"packages/db/src/old.ts:5 no-default-database",
 			"packages/db/src/old.ts:7 no-default-database",
 		],
+	);
+});
+
+test("INV-lint: hand-written count text in apps/web/src is refused, naming counted and countWord; choices on 1 that are not a singular and plural pair are allowed", () => {
+	const source = `export const a = (n: number) => \`\${n} \${n === 1 ? "task" : "tasks"}\`;
+export const b = (n: number) => \`\${n} follow-up\${n === 1 ? "" : "s"}\`;
+export const c = (n: number) => \`\${n} row\${n !== 1 ? "s" : ""}\`;
+export const d = (n: number) => \`\${n} \${n === 1 ? "person" : "people"}\`;
+export const e = (n: number) => (n === 1 ? "1 note" : \`\${n} notes\`);
+export const f = (n: number, one: string, many: string) => \`\${n} \${n === 1 ? one : many}\`;
+export const g = (n: number) => \`\${n} \${n === 1 ? "task is" : "tasks are"}\`;
+export const g2 = (n: number) => (n === 1 ? "This open task stays" : "These open tasks stay");
+export const g3 = (n: number) => \`\${n} \${n === 1 ? "task does" : "tasks do"}\`;
+export const h = (d: number) => (d === 1 ? "Yesterday" : "Earlier");
+export const i = (v: number) => (v > 1 ? " · version 2" : "");
+export const j = (s: number) => (s === 1 ? "" : " scale(2)");
+export const k = (n: number, one: string) => (n === 1 ? one : "many");
+export const l = (n: number) => (n === 1 ? "One task is" : \`\${n} tasks are\`);
+`;
+	const hits = lint({ "apps/web/src/features/x/count.ts": source }, undefined, true).filter((hit) =>
+		hit.includes(" count-text "),
+	);
+	assert.deepEqual(
+		hits.map((hit) => Number.parseInt(hit.split(":")[1], 10)),
+		[1, 2, 3, 4, 5, 6, 7, 8, 9],
+	);
+	assert.match(hits[0], /counted\(n, one, many\).*countWord\(n, one, many\).*@everyfield\/contracts\/common/);
+});
+
+test("INV-lint: the count-text rule allows the counted and countWord module itself", () => {
+	const helper = `export const countWord = (n: number, one: string, many = \`\${one}s\`) => (n === 1 ? one : many);
+`;
+	const dir = sandbox({
+		"packages/contracts/src/common/text.ts": helper,
+		"packages/contracts/src/common/other.ts": helper,
+	});
+	const root = JSON.parse(readFileSync(join(dir, ".oxlintrc.json"), "utf8"));
+	root.overrides.push({ files: ["packages/**"], rules: { "everyfield/count-text": "error" } });
+	put(dir, ".oxlintrc.json", root);
+	assert.deepEqual(
+		lintIn(dir, ["packages/contracts/src/common/text.ts", "packages/contracts/src/common/other.ts"]).filter((hit) =>
+			hit.endsWith(" count-text"),
+		),
+		["packages/contracts/src/common/other.ts:1 count-text"],
 	);
 });

@@ -1846,10 +1846,52 @@ const classParts = (node) =>
 								? [concatenated(node)?.join("")].filter(Boolean)
 								: [];
 
+const PROBLEM_TEXT = /^text-(?:magenta|red)-\d+(?:\/\d+)?$/;
+const problemToken = (token) => PROBLEM_TEXT.test(token.replace(/^!|!$/g, "").split(":").at(-1));
+const KEPT_PROBLEM_LINES = {
+	"apps/web/src/features/tasks/TaskDialog.tsx": {
+		className: "px-1 py-2 text-sm text-magenta-600",
+		reason: "the relation search failure is a list result state, kept by T-407",
+	},
+	"apps/web/src/features/people/assessments/CommitmentDialogs.tsx": {
+		className: "px-2 py-3 text-sm text-magenta-600",
+		reason: "the people search failure is a list result state, kept by T-407",
+	},
+	"apps/web/src/features/meetings/dialogs.tsx": {
+		className: "px-2 py-3 text-sm text-magenta-600",
+		reason: "the people search failure is a list result state, kept by T-407",
+	},
+	"apps/web/src/features/evry/conversation/EvryPanel.tsx": {
+		className: "flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600",
+		reason: "the message-level send state sits under its bubble, kept by T-407",
+	},
+};
+const elementClassStrings = (opening) => {
+	const className = jsxAttribute(opening, "className");
+	return className ? attributeStrings(className) : [];
+};
+const problemClassed = (opening) => elementClassStrings(opening).some((s) => classTokens(s).some(problemToken));
+const domDescendants = (node, out = []) => {
+	for (const child of childNodes(node)) {
+		if (child.type === "JSXOpeningElement" && domElement(child)) out.push(child);
+		domDescendants(child, out);
+	}
+	return out;
+};
+
 const sharedNotice = {
 	meta: { type: "problem" },
 	create(context) {
-		if (!WEB_CODE.test(repoPath(context.filename))) return {};
+		const path = repoPath(context.filename);
+		if (!WEB_CODE.test(path)) return {};
+		const kept = KEPT_PROBLEM_LINES[path];
+		let keptSeen = false;
+		const keptLine = (node) => {
+			if (!kept || keptSeen) return false;
+			const strings = elementClassStrings(node);
+			keptSeen = strings.length === 1 && strings[0] === kept.className;
+			return keptSeen;
+		};
 		const check = (node, value) => {
 			if (value === null) return;
 			if (errorNoticeLook(value))
@@ -1866,6 +1908,17 @@ const sharedNotice = {
 				});
 		};
 		return {
+			JSXOpeningElement(node) {
+				const role = domElement(node) && jsxAttribute(node, "role");
+				if (!role || !attributeStrings(role).includes("alert")) return;
+				if (!domDescendants(node.parent).some(problemClassed)) return;
+				if (noticeLook(elementClassStrings(node).join(" ")) || keptLine(node)) return;
+				context.report({
+					node,
+					message:
+						'A problem line is ProblemText (a control-level line) or InlineAlert or Alert (a section-level line) from @everyfield/ui/controls, which carry the tone, icon and live region. Do not hand-write role="alert" with magenta or red text.',
+				});
+			},
 			Literal: (node) => check(node, text(node)),
 			TemplateLiteral: (node) => check(node, templateText(node)),
 			BinaryExpression(node) {
@@ -4222,6 +4275,85 @@ const oneTopLevelBefore = {
 	},
 };
 
+const COUNT_TEXT_HOME = "packages/contracts/src/common/text.ts";
+const COUNT_OPERATORS = new Set(["===", "!==", "==", "!=", ">", "<=", ">=", "<"]);
+const IRREGULAR_PLURALS = new Map([
+	["person", "people"],
+	["child", "children"],
+	["is", "are"],
+	["has", "have"],
+	["was", "were"],
+	["it", "they"],
+	["this", "these"],
+	["does", "do"],
+]);
+const isOne = (node) => node?.type === "Literal" && node.value === 1;
+const textOf = (node) => {
+	if (node?.type === "Literal" && typeof node.value === "string") return node.value;
+	if (node?.type !== "TemplateLiteral") return null;
+	return node.quasis.map((quasi) => quasi.value.cooked ?? "").join("\u0000");
+};
+const pluralOf = (one, many) => {
+	const lower = one.toLowerCase();
+	const other = many.toLowerCase();
+	if (!/^[a-z-]+$/.test(lower) || lower === other) return false;
+	return (
+		other === `${lower}s` ||
+		other === `${lower}es` ||
+		(lower.endsWith("y") && other === `${lower.slice(0, -1)}ies`) ||
+		IRREGULAR_PLURALS.get(lower) === other
+	);
+};
+const words = (text) => text.split(/(\s+|[^\p{L}\p{N}\u0000-]+)/u).filter((part) => part !== "");
+const countPair = (a, b) => {
+	if ((a === "" && /^(?:e?s)$/.test(b)) || (b === "" && /^(?:e?s)$/.test(a))) return true;
+	const left = words(a);
+	const right = words(b);
+	if (left.length !== right.length) return false;
+	let plural = false;
+	for (let index = 0; index < left.length; index += 1) {
+		const x = left[index];
+		const y = right[index];
+		if (x === y) continue;
+		if ((x === "1" && y === "\u0000") || (y === "1" && x === "\u0000")) continue;
+		if (pluralOf(x, y) || pluralOf(y, x)) plural = true;
+		else return false;
+	}
+	return plural;
+};
+const parameterOf = (identifier, context) => {
+	if (identifier?.type !== "Identifier") return null;
+	for (let scope = context.sourceCode.getScope(identifier); scope; scope = scope.upper) {
+		const def = scope.set?.get(identifier.name)?.defs?.[0];
+		if (def) return def.type === "Parameter" ? def.node : null;
+	}
+	return null;
+};
+const countText = {
+	meta: { type: "problem" },
+	create(context) {
+		if (repoPath(context.filename) === COUNT_TEXT_HOME) return {};
+		return {
+			ConditionalExpression(node) {
+				const test = node.test;
+				if (test.type !== "BinaryExpression" || !COUNT_OPERATORS.has(test.operator)) return;
+				if (!isOne(test.left) && !isOne(test.right)) return;
+				const a = textOf(node.consequent);
+				const b = textOf(node.alternate);
+				const owner = a === null || b === null ? parameterOf(node.consequent, context) : null;
+				const handWritten =
+					a !== null && b !== null ? countPair(a, b) : owner !== null && owner === parameterOf(node.alternate, context);
+				if (!handWritten) return;
+				context.report({
+					node,
+					message:
+						'This writes count text by hand. Use counted(n, one, many) for "3 tasks" or countWord(n, one, many) for the word alone, from @everyfield/contracts/common.',
+				});
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -4279,5 +4411,6 @@ export default {
 		"one-top-level-before": oneTopLevelBefore,
 		"confirm-keeps-refusal": confirmKeepsRefusal,
 		"no-default-database": noDefaultDatabase,
+		"count-text": countText,
 	},
 };

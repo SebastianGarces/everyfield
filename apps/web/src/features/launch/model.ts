@@ -1,3 +1,4 @@
+import { counted } from "@everyfield/contracts/common";
 import {
 	countdown,
 	type Countdown,
@@ -78,8 +79,7 @@ export const progressOf = (m: Pick<Milestone, "tasks">) => ({
 	done: m.tasks.filter((t) => t.status === "complete").length,
 	total: m.tasks.length,
 });
-export const tasksText = ({ done, total }: { done: number; total: number }) =>
-	`${done} of ${total} ${total === 1 ? "task" : "tasks"}`;
+export const tasksText = ({ done, total }: { done: number; total: number }) => `${done} of ${counted(total, "task")}`;
 
 export const NOTE_MESSAGE: Record<NoteProblem, string> = {
 	empty: "Write a short reason. It stays in the Launch history.",
