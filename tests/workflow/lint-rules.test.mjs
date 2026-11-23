@@ -3547,6 +3547,8 @@ export const d = (n: number) => \`\${n} \${n === 1 ? "person" : "people"}\`;
 export const e = (n: number) => (n === 1 ? "1 note" : \`\${n} notes\`);
 export const f = (n: number, one: string, many: string) => \`\${n} \${n === 1 ? one : many}\`;
 export const g = (n: number) => \`\${n} \${n === 1 ? "task is" : "tasks are"}\`;
+export const g2 = (n: number) => (n === 1 ? "This open task stays" : "These open tasks stay");
+export const g3 = (n: number) => \`\${n} \${n === 1 ? "task does" : "tasks do"}\`;
 export const h = (d: number) => (d === 1 ? "Yesterday" : "Earlier");
 export const i = (v: number) => (v > 1 ? " · version 2" : "");
 export const j = (s: number) => (s === 1 ? "" : " scale(2)");
@@ -3558,7 +3560,7 @@ export const l = (n: number) => (n === 1 ? "One task is" : \`\${n} tasks are\`);
 	);
 	assert.deepEqual(
 		hits.map((hit) => Number.parseInt(hit.split(":")[1], 10)),
-		[1, 2, 3, 4, 5, 6, 7],
+		[1, 2, 3, 4, 5, 6, 7, 8, 9],
 	);
 	assert.match(hits[0], /counted\(n, one, many\).*countWord\(n, one, many\).*@everyfield\/contracts\/common/);
 });

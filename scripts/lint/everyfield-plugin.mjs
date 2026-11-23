@@ -4231,6 +4231,8 @@ const IRREGULAR_PLURALS = new Map([
 	["has", "have"],
 	["was", "were"],
 	["it", "they"],
+	["this", "these"],
+	["does", "do"],
 ]);
 const isOne = (node) => node?.type === "Literal" && node.value === 1;
 const textOf = (node) => {
@@ -4285,11 +4287,9 @@ const countText = {
 				if (!isOne(test.left) && !isOne(test.right)) return;
 				const a = textOf(node.consequent);
 				const b = textOf(node.alternate);
+				const owner = a === null || b === null ? parameterOf(node.consequent, context) : null;
 				const handWritten =
-					a !== null && b !== null
-						? countPair(a, b)
-						: parameterOf(node.consequent, context) !== null &&
-							parameterOf(node.consequent, context) === parameterOf(node.alternate, context);
+					a !== null && b !== null ? countPair(a, b) : owner !== null && owner === parameterOf(node.alternate, context);
 				if (!handWritten) return;
 				context.report({
 					node,
