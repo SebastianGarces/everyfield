@@ -176,6 +176,10 @@ export const OVERSIGHT_RULES = {
 	totalsOnly:
 		"Oversight shows totals only, so I can't list a plant's people, or read their notes, interviews or private care. Here is what that plant shares with you:",
 	noRanking: "I don't rank or score plants against each other.",
+	noPlaceRanking:
+		"Network Intelligence doesn't rank or score plants or places, so I can't say which one is doing best. I can show you the patterns it found instead, for one Region, state or country or across your whole portfolio.",
+	earlierRunLocation:
+		"An earlier Network Intelligence run keeps the location it used then. Only runs after a correction use the new one.",
 	plantRegion: (plant: string, region: string) =>
 		`I can't change that. Only ${plant}'s Owner or Admin can update its location and reporting Region, in their church settings. The Region I'm using now is ${region}. Nothing changed.`,
 } as const;
@@ -186,6 +190,10 @@ function oversightRules() {
 		`Quote Network Intelligence patterns as organizationIntelligence.read gives them, with the plants they name. A pattern always has two or more plants: one plant alone is never a pattern. Never rank or score plants; when asked to, reply: ${OVERSIGHT_RULES.noRanking} Which plants are close to launch comes only from each plant's shared Launch readiness and published summary.`,
 		`A plant's location and reporting Region belong to that plant. When the user asks to change one, read oversight.listPlants, prepare nothing and reply: ${OVERSIGHT_RULES.plantRegion("<the plant>", "<its region from oversight.listPlants>")}`,
 	].join("\n");
+}
+
+function placeRules() {
+	return `Network Intelligence by place and over time comes from organizationIntelligence.readHistory (one level or every level, one named place, an earlier run, or what changed since the run before), organizationIntelligence.readLocations (where each plant is placed now) and organizationIntelligence.readLocationHistory (a plant's saved locations and the runs that used each). Quote groups and patterns as they come, say why a group has no pattern, link each plant you name with its plantLinks or href and link the page view with href. A plant with No Region set still counts at its state, its country and the whole portfolio. ${OVERSIGHT_RULES.earlierRunLocation} Never give a street address or coordinates. When asked which plant or place is doing best, or to rank or score them, reply: ${OVERSIGHT_RULES.noPlaceRanking}`;
 }
 
 function roleRule(actor: EvryActor) {
@@ -386,6 +394,25 @@ function taskRules(catalog: Catalog) {
 		"To log a call or visit the user describes, prepare followups.recordOutcome on their open follow-up with their words as the note; never edit the person's profile notes for it. Use contacted only when the user says a conversation happened.",
 		"A tool error not_assigned means a Member may change only tasks assigned to them; owner_ineligible means that account can't own follow-ups; assignee_ineligible means that person has no seat that can hold tasks. Say so plainly.",
 		`For what to focus on this week, read the tasks due this week (tasks.list due this_week), ${meetings ? "the upcoming meetings (meetings.list window upcoming), " : ""}the open follow-ups (tasks.listFollowUpOwners) and the pipeline board, then list items from each with where it came from and its owner and date where recorded${meetings ? "" : ", and name meetings as an area you couldn't read"}. Never rank people by spiritual judgment or invent priorities or items.`,
+		...planRules(catalog),
+	];
+}
+
+export const PLAN_WRITES = [
+	"tasks.acceptPhaseOffer",
+	"tasks.answerPhaseOffer",
+	"tasks.declinePhaseOffer",
+	"tasks.importTemplate",
+	"tasks.executeHandoff",
+	"tasks.replacePrerequisites",
+] as const;
+function planRules(catalog: Catalog) {
+	if (!catalog.reviewedWrites.some((w) => (PLAN_WRITES as readonly string[]).includes(w.operation))) return [];
+	return [
+		"Before answering the phase offer, read tasks.readPhaseOffer. To take every offered checklist propose tasks.acceptPhaseOffer; to take some and not others, tasks.answerPhaseOffer with the accepted ids; to take none, tasks.declinePhaseOffer. When no offer is open, or a tool error says offer_answered, prepare nothing: read tasks.importReceipt and say the offer was already answered and how.",
+		"To import part of a checklist, find it in tasks.listTemplates, read tasks.previewTemplate and propose tasks.importTemplate with only the items the user named. When a named item isn't in that checklist, prepare nothing and name the checklist's real items.",
+		"To hand off one account's follow-ups, propose tasks.executeHandoff from that account to the new one. owner_ineligible means the new account can't own follow-ups; protected_owner means an Owner's follow-ups can't be handed off this way. Say so plainly.",
+		"To set the tasks one task waits on, propose tasks.replacePrerequisites with the whole new set; [] clears them. dependency_cycle means the change would make a cycle; invalid_subject means a checklist row can't wait on tasks, or a named prerequisite isn't a top-level task. Say why plainly.",
 	];
 }
 
@@ -511,6 +538,7 @@ export function compileContext(input: {
 			: "",
 		`${NOT_TRACKED} When asked about something Everyfield does not track, say plainly that Everyfield doesn't track it, and call no tool for it.`,
 		input.actor.contextKind === "plant" ? PRIVATE_CARE : "",
+		ops.has("organizationIntelligence.readLocations") ? placeRules() : "",
 		input.catalog.reviewedWrites.some((w) => EMAIL_HANDOFF.has(w.operation))
 			? "When the user says to send or save an email you drafted, propose it with the subject and body exactly as you last showed them: change nothing they didn't ask for, and if something in it looks wrong, ask before proposing."
 			: "",

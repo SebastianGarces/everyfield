@@ -164,6 +164,81 @@ function fixture() {
 			].join("\n"),
 		},
 		[`${R}/jobs/24/logs`]: { body: "2026-11-04T12:00:03Z Cache restored from key: node-Linux-X64-24.22.1\n" },
+		[`${R}/workflows/ci.yml/runs?status=completed&per_page=4`]: {
+			body: {
+				workflow_runs: [
+					{ id: 3, created_at: t(0), run_attempt: 2, conclusion: "success" },
+					{ id: 4, created_at: t(0), run_attempt: 1, conclusion: "failure" },
+					{ id: 5, created_at: t(0), run_attempt: 3, conclusion: "success" },
+					{ id: 6, created_at: t(0), run_attempt: 1, conclusion: "cancelled" },
+				],
+			},
+		},
+		[`${R}/runs/3/jobs?per_page=100`]: {
+			body: {
+				jobs: [
+					{ id: 32, name: "domain (census part 3)", conclusion: "success", steps: [step("Domain tests", 1, 9)] },
+					{ id: 33, name: "ci", conclusion: "success", steps: [step("Every check passed", 9, 10)] },
+				],
+			},
+		},
+		[`${R}/runs/3/attempts/1`]: { body: { id: 3, run_attempt: 1, conclusion: "failure" } },
+		[`${R}/runs/3/attempts/1/jobs?per_page=100`]: {
+			body: {
+				jobs: [
+					{
+						id: 30,
+						name: "domain (census part 3)",
+						conclusion: "failure",
+						steps: [step("Set up job", 0, 1), step("Domain tests", 1, 9, "failure"), step("Complete job", 9, 9)],
+					},
+					{ id: 31, name: "ci", conclusion: "failure", steps: [step("Every check passed", 9, 10, "failure")] },
+				],
+			},
+		},
+		[`${R}/runs/4/jobs?per_page=100`]: {
+			body: {
+				jobs: [
+					{
+						id: 40,
+						name: "tooling",
+						conclusion: "failure",
+						steps: [
+							step("Feature maps (routes, proofs and diagrams)", 1, 3, "failure"),
+							step("QA preview tool", 3, 4, "failure"),
+						],
+					},
+					{ id: 41, name: "docs", conclusion: "cancelled", steps: [step("Documentation checks", 1, 2, "cancelled")] },
+				],
+			},
+		},
+		[`${R}/runs/5/jobs?per_page=100`]: {
+			body: {
+				jobs: [{ id: 52, name: "domain (census part 3)", conclusion: "success", steps: [step("Domain tests", 1, 9)] }],
+			},
+		},
+		[`${R}/runs/5/attempts/1`]: { body: { id: 5, run_attempt: 1, conclusion: "failure" } },
+		[`${R}/runs/5/attempts/1/jobs?per_page=100`]: {
+			body: {
+				jobs: [
+					{
+						id: 50,
+						name: "domain (census part 3)",
+						conclusion: "failure",
+						steps: [step("Domain tests", 1, 9, "failure")],
+					},
+					{ id: 51, name: "local stack", conclusion: "timed_out", steps: [] },
+				],
+			},
+		},
+		[`${R}/runs/6/jobs?per_page=100`]: {
+			body: {
+				jobs: [
+					{ id: 60, name: "app", conclusion: "cancelled", steps: [step("Types", 1, 2, "cancelled")] },
+					{ id: 61, name: "ci", conclusion: "failure", steps: [step("Every check passed", 2, 3, "failure")] },
+				],
+			},
+		},
 	};
 	writeFileSync(join(root, "routes.json"), JSON.stringify(routes));
 	const run = (...args: string[]) =>
@@ -189,6 +264,8 @@ test("INV-ci-timing: ci-timing splits queue, setup and run per job, counts cache
 				{
 					id: 1,
 					createdAt: t(0),
+					attempts: 1,
+					firstAttempt: { conclusion: null, failed: false, failedSteps: [] },
 					jobs: [
 						{ id: 11, name: "app", queueMs: 2000, setupMs: 11_000, runMs: 50_000, cacheHits: 2, cacheMisses: 1 },
 						{ id: 12, name: "docs", queueMs: 5000, setupMs: 2000, runMs: null, cacheHits: null, cacheMisses: null },
@@ -197,6 +274,8 @@ test("INV-ci-timing: ci-timing splits queue, setup and run per job, counts cache
 				{
 					id: 2,
 					createdAt: t(0),
+					attempts: 1,
+					firstAttempt: { conclusion: null, failed: false, failedSteps: [] },
 					jobs: [
 						{ id: 21, name: "app", queueMs: 4000, setupMs: 4000, runMs: 10_000, cacheHits: 0, cacheMisses: 2 },
 						{ id: 22, name: "docs", queueMs: 1000, setupMs: 1000, runMs: 3000, cacheHits: null, cacheMisses: null },
@@ -211,7 +290,88 @@ test("INV-ci-timing: ci-timing splits queue, setup and run per job, counts cache
 				{ name: "docs", jobs: 2, queueMs: 6000, setupMs: 3000, runMs: 3000, cacheHits: null, cacheMisses: null },
 				{ name: "ci", jobs: 1, queueMs: 2000, setupMs: 3000, runMs: 4000, cacheHits: 1, cacheMisses: 0 },
 			],
+			firstAttempts: { runs: 2, cancelled: 0, failed: 0, rerun: 0, steps: [] },
 		});
+	} finally {
+		f.close();
+	}
+});
+
+test("INV-ci-timing: ci-timing counts first-attempt failures, reruns and each failing step from attempt 1's jobs", () => {
+	const f = fixture();
+	try {
+		const r = f.run("--last", "4", "--json");
+		assert.equal(r.status, 0, r.stderr);
+		const out = JSON.parse(r.stdout);
+		assert.deepEqual(
+			out.runs.map((run: { id: number; attempts: number; firstAttempt: unknown; jobs: { id: number }[] }) => ({
+				id: run.id,
+				attempts: run.attempts,
+				firstAttempt: run.firstAttempt,
+				jobs: run.jobs.map((job) => job.id),
+			})),
+			[
+				{
+					id: 3,
+					attempts: 2,
+					firstAttempt: {
+						conclusion: "failure",
+						failed: true,
+						failedSteps: ["domain (census part 3) / Domain tests"],
+					},
+					jobs: [32, 33],
+				},
+				{
+					id: 4,
+					attempts: 1,
+					firstAttempt: {
+						conclusion: "failure",
+						failed: true,
+						failedSteps: ["tooling / Feature maps (routes, proofs and diagrams)", "tooling / QA preview tool"],
+					},
+					jobs: [40, 41],
+				},
+				{
+					id: 5,
+					attempts: 3,
+					firstAttempt: {
+						conclusion: "failure",
+						failed: true,
+						failedSteps: ["domain (census part 3) / Domain tests", "local stack"],
+					},
+					jobs: [52],
+				},
+				{
+					id: 6,
+					attempts: 1,
+					firstAttempt: { conclusion: "cancelled", failed: false, failedSteps: [] },
+					jobs: [60, 61],
+				},
+			],
+		);
+		assert.deepEqual(out.firstAttempts, {
+			runs: 4,
+			cancelled: 1,
+			failed: 3,
+			rerun: 2,
+			steps: [
+				{ step: "domain (census part 3) / Domain tests", count: 2 },
+				{ step: "local stack", count: 1 },
+				{ step: "tooling / Feature maps (routes, proofs and diagrams)", count: 1 },
+				{ step: "tooling / QA preview tool", count: 1 },
+			],
+		});
+		const text = f.run("--last", "4");
+		assert.equal(text.status, 0, text.stderr);
+		assert.match(text.stdout, /^Run 3 \(.+, 2 attempt\(s\); first attempt failed\)$/m);
+		assert.match(text.stdout, /^Run 6 \(.+, 1 attempt\(s\); first attempt cancelled\)$/m);
+		assert.match(
+			text.stdout,
+			/^First attempts across 3 run\(s\) not cancelled \(1 cancelled\): 3 had a failed job, 2 were rerun$/m,
+		);
+		assert.match(text.stdout, /^ +2 {2}domain \(census part 3\) \/ Domain tests$/m);
+		assert.match(text.stdout, /^ +1 {2}local stack$/m);
+		assert.doesNotMatch(text.stdout, /Every check passed/);
 	} finally {
 		f.close();
 	}
