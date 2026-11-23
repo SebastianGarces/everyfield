@@ -1,5 +1,5 @@
 "use client";
-import { counted } from "@everyfield/contracts/common";
+import { counted, countWord } from "@everyfield/contracts/common";
 import type { Outcome } from "@everyfield/contracts/common";
 import { listText } from "@everyfield/contracts/people";
 
@@ -30,9 +30,7 @@ const onDay = (iso: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "
 const unsubscribedReason = (iso: string) => `Unsubscribed from this church's email on ${onDay(iso)}`;
 
 const toGuardians = (names: string[]) =>
-	names.length === 1
-		? `Goes to their parent or guardian, ${names[0]}`
-		: `Goes to their parents or guardians, ${listText(names)}`;
+	`Goes to their ${countWord(names.length, "parent or guardian", "parents or guardians")}, ${listText(names)}`;
 const reachable = (person: Recipient) =>
 	person.guardians.length > 0 || (Boolean(person.email) && !person.unsubscribedAt);
 
