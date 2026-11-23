@@ -63,7 +63,7 @@ export async function writeActor(tx: WriteTx, session: string, selected: Owner) 
 }
 export const subjectOwner = (pair: RelationshipPair): Owner =>
 	pair.kind === "discovery" ? ({ kind: "account", id: pair.accountId } satisfies z.output<typeof owner>) : pair.subject;
-export const endpointValues = (pair: RelationshipPair) => [
+export const endpointValues = (pair: RelationshipPair): [string | null, string | null, string | null, string] => [
 	pair.kind === "plant" ? pair.subject.id : null,
 	pair.kind === "discovery" ? pair.accountId : null,
 	pair.kind === "sending_church" ? pair.subject.id : null,
@@ -100,7 +100,7 @@ export type Reader = Pick<Transaction, "select" | "execute">;
 const organizationFirst = sql<boolean>`EXISTS(SELECT FROM organization o WHERE o.id=${tables.affiliation.organization_id} FOR NO KEY UPDATE)`;
 const linkLive = <AName extends string>(a: SqlLiteral<AName>) => {
 	const c = <ColumnName extends string>(column: SqlLiteral<ColumnName>) => sql.raw(`${a}.${column}`);
-	return sql<boolean>`(NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${c("id")} OR (w.opaque_subject_id IN (${c("organization_id")},${c("plant_id")},${c("account_id")},${c("sending_church_id")}) AND w.kind IN ('account','plant','organization')))) AND (${c("account_id")} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${c("account_id")} AND d.converted_at IS NULL)))`;
+	return sql<boolean>`(NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state <> 'cancelled' AND (w.affiliation_id=${c("id")} OR (w.opaque_subject_id IN (${c("organization_id")},${c("plant_id")},${c("account_id")},${c("sending_church_id")}) AND w.kind IN ('account','plant','organization')))) AND (${c("account_id")} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${c("account_id")} AND d.converted_at IS NULL)))`;
 };
 export const linkActive = <AName extends string>(a: SqlLiteral<AName>) =>
 	sql<boolean>`(${sql.raw(a)}.ended_at IS NULL AND ${sql.raw(a)}.accepted_at<=clock_timestamp() AND ${linkLive(a)})`;
@@ -251,7 +251,7 @@ export function invalidate(
 	);
 }
 export const witnessHides = (kind: "account" | "plant", id: SQL) =>
-	sql<boolean>`EXISTS(SELECT FROM lifecycle_witness w WHERE w.kind=${kind} AND w.opaque_subject_id=${id} AND w.state NOT IN ('active','cancelled'))`;
+	sql<boolean>`EXISTS(SELECT FROM lifecycle_witness w WHERE w.kind=${kind} AND w.opaque_subject_id=${id} AND w.state <> 'cancelled')`;
 export const discoveryOpen = (accountId: SQL) =>
 	sql<boolean>`EXISTS(SELECT FROM discovery d WHERE d.account_id=${accountId} AND d.converted_at IS NULL)`;
 export const seatless = (accountId: SQL) =>
@@ -276,5 +276,5 @@ type PairColumns = Record<"plant_id" | "account_id" | "sending_church_id" | "org
 export const pairMatch = (t: PairColumns, pair: RelationshipPair) => {
 	const [plant, account, church, organization] = endpointValues(pair);
 	const nullable = (v: string | null | undefined) => (v ? uuid(v) : sql`NULL::uuid`);
-	return sql`${t.plant_id} IS NOT DISTINCT FROM ${nullable(plant)} AND ${t.account_id} IS NOT DISTINCT FROM ${nullable(account)} AND ${t.sending_church_id} IS NOT DISTINCT FROM ${nullable(church)} AND ${t.organization_id}=${uuid(organization!)}`;
+	return sql`${t.plant_id} IS NOT DISTINCT FROM ${nullable(plant)} AND ${t.account_id} IS NOT DISTINCT FROM ${nullable(account)} AND ${t.sending_church_id} IS NOT DISTINCT FROM ${nullable(church)} AND ${t.organization_id}=${uuid(organization)}`;
 };

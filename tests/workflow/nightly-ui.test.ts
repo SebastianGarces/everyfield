@@ -81,6 +81,7 @@ test("T-301 the People seed runs first, since the Evry and Meetings seeds read i
 	assert.equal(seeds[0]!.name, "people");
 	assert.deepEqual(seeds.map((s) => s.name).sort(), [
 		"evry",
+		"golden",
 		"invitation",
 		"launch-evry",
 		"meetings",

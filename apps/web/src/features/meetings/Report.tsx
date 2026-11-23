@@ -17,6 +17,7 @@ const BAR: Record<Classification, string> = {
 	core_group: "bg-amber-500",
 };
 const ORDER: Classification[] = ["core_group", "returning", "first_time"];
+const scoreCell = (point: { average: number } | undefined) => (point ? scoreText(point.average) : "None");
 
 const visionReports = createRead(() => visionReport(), {
 	failed: () => ({ status: "lost" }) as const,
@@ -165,7 +166,7 @@ function Body({ report, thisYear }: { report: MeetingsReport; thisYear: number }
 									<td>{p.classifications.first_time}</td>
 									<td>{p.classifications.returning}</td>
 									<td>{p.classifications.core_group}</td>
-									<td>{scores.get(p.meetingId) ? scoreText(scores.get(p.meetingId)!.average) : "None"}</td>
+									<td>{scoreCell(scores.get(p.meetingId))}</td>
 								</tr>
 							))}
 						</tbody>

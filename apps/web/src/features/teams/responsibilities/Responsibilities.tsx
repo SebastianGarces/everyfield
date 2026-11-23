@@ -88,11 +88,12 @@ function acceptedRows(
 	selected: ReadonlySet<string>,
 ): Item[] | null {
 	if (lines.length !== createdIds.length) return null;
-	return lines.flatMap((line, index) =>
-		selected.has(line.key)
+	return lines.flatMap((line, index) => {
+		const createdId = createdIds[index];
+		return createdId !== undefined && selected.has(line.key)
 			? [
 					{
-						id: asRecordId(createdIds[index]!),
+						id: asRecordId(createdId),
 						revision: asRevision("1"),
 						sourceLine: line.key,
 						text: line.text,
@@ -100,8 +101,8 @@ function acceptedRows(
 						completedOn: null,
 					},
 				]
-			: [],
-	);
+			: [];
+	});
 }
 
 const lostPage = (): Outcome<Page> | ReadFailure => ({ status: "lost" });
@@ -113,7 +114,9 @@ const previews = createRead((teamId: string) => previewResponsibilities(teamId),
 
 const emptyPage = (result: Outcome<Page> | ReadFailure) => result.status === "ok" && result.value.items.length === 0;
 
-type TextForm = { mode: "add" | "edit"; text: string; id?: string; revision?: string; problem?: string };
+type TextForm =
+	| { mode: "add"; text: string; problem?: string }
+	| { mode: "edit"; text: string; id: string; revision: string; problem?: string };
 type OfferDecision = Extract<Awaited<ReturnType<typeof offerResponsibilities>>, { status: "ok" }>["value"];
 
 export function ResponsibilitiesPanel({
@@ -232,14 +235,14 @@ export function ResponsibilitiesPanel({
 			});
 			return;
 		}
-		const id = form.id!;
+		const { id, revision } = form;
 		startTransition(async () => {
 			project({ kind: "text", id, text });
 			await lane.save({
 				what: short(text),
 				done: "saved",
 				form,
-				send: (key) => editResponsibility(key, form.revision!, id, text),
+				send: (key) => editResponsibility(key, revision, id, text),
 				ok: (result) => {
 					startTransition(() =>
 						edit((current) => ({

@@ -13,7 +13,7 @@ import {
 	type PageLayout,
 	type WordRun,
 } from "@everyfield/contracts/documents";
-import { Button, Checkbox, SegmentedControl, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import { Alert, Button, Checkbox, SegmentedControl, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
 import { useId, useMemo, useState } from "react";
 import { createRead, useRead } from "../../../../components/read.tsx";
@@ -198,11 +198,7 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 	return (
 		<section aria-labelledby={headingId} className="flex flex-col gap-4">
 			{header}
-			{notice ? (
-				<p role="alert" className="rounded-lg bg-magenta-100 px-4 py-3 text-sm text-pretty text-magenta-700">
-					{notice}
-				</p>
-			) : null}
+			{notice ? <Alert role="alert">{notice}</Alert> : null}
 			{load.kind === "loading" ? (
 				<div aria-busy="true" className="flex flex-col gap-3">
 					<span className="sr-only" role="status">
@@ -458,6 +454,12 @@ function DifferenceCard({
 	);
 }
 
+function titleLine(lines: WordRun[][]) {
+	const [line] = lines;
+	if (!line) throw new Error("A title comparison has no line");
+	return line;
+}
+
 function Side({
 	difference: d,
 	value,
@@ -475,7 +477,7 @@ function Side({
 		return (
 			<p className="text-[15px] text-ink">
 				{lines
-					? lines[0]!.map((run) => {
+					? titleLine(lines).map((run) => {
 							if (run.op === "kept") return run.text;
 							const Mark = WORD_MARK[run.op].nodeName;
 							return (

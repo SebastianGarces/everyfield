@@ -1,4 +1,4 @@
-import { localDate } from "@everyfield/contracts/common";
+import { localDate, type Outcome } from "@everyfield/contracts/common";
 import type {
 	AssessedCriterion,
 	Assessment,
@@ -10,7 +10,7 @@ import type {
 } from "@everyfield/contracts/intelligence";
 
 export type ActionOutcome<T> =
-	{ status: "ok"; value: T } | { status: "refused"; error: AssessmentError } | { status: "signed_out" | "lost" };
+	Outcome<T, AssessmentError["code"], { error: AssessmentError }> | { status: "signed_out" };
 
 type Status = "positive" | "measured" | "attention" | "risk" | "unknown";
 
@@ -111,7 +111,7 @@ export function nextSteps(facts: PlantFacts): { title: string; detail: string; h
 		steps.push({
 			title: "Track follow-ups after meetings",
 			detail: "Follow-ups are measured once one is due and recorded.",
-			href: "/follow-ups",
+			href: "/tasks/follow-ups",
 		});
 	if (facts.coverage.filled < facts.coverage.slots)
 		steps.push({

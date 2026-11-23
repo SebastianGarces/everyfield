@@ -30,7 +30,7 @@ function reviewed<I>(spec: {
 		allowed: spec.allowed,
 		review: spec.review,
 		async execute(tx, _context, args, effectKey): Promise<EffectResult> {
-			const reply = await spec.run(tx, { ...z.object({}).loose().parse(args), requestKey: effectKey });
+			const reply = await spec.run(tx, { ...z.record(z.string(), z.unknown()).parse(args), requestKey: effectKey });
 			return reply.status === "ok" ? { own: true } : { refused: reply.error.code };
 		},
 	};
@@ -45,7 +45,9 @@ const unread = (ids: string[] | null) =>
 			${ids ? sql`AND n.id=ANY(${sql.param(ids)}::uuid[])` : sql``}`;
 const zone = (actor: EvryActor) => sql`(SELECT timezone FROM plant WHERE id=${actor.owner.id}::uuid)`;
 
-const settable = notificationCategory.exclude(["launch_milestone", ...organizationCategories, ...residencyCategories]);
+const settable = notificationCategory.exclude(["launch_milestone", ...residencyCategories]);
+const inContext = (actor: EvryActor, category: string) =>
+	(organizationCategories as readonly string[]).includes(category) === (actor.owner.kind === "organization");
 const choice = z
 	.strictObject({ category: settable, channel: z.enum(["email", "in_app"]), enabled: z.boolean() })
 	.refine((c) => notificationChannels(c.category).includes(c.channel), "This category has no email channel.");
@@ -87,7 +89,7 @@ export const NOTIFICATION_COMMANDS = {
 	"notifications.setPreferences": reviewed({
 		operation: "notifications.setPreferences",
 		description:
-			"Propose turning the user's own email or in-app notifications on or off for one or more categories, as Settings > Notifications does. Task reminders are task_due and task_overdue. Each person sets only their own. Nothing changes until the user approves the exact review.",
+			"Propose turning the user's own email or in-app notifications on or off for one or more categories, as Settings > Notifications does. Task reminders are task_due and task_overdue. In a sending church or network only its own categories (oversight_digest, answer_review) are offered, to its Owners and Admins; in a church every other category. Each person sets only their own. Nothing changes until the user approves the exact review.",
 		input: z.strictObject({
 			choices: z
 				.array(choice)
@@ -95,8 +97,12 @@ export const NOTIFICATION_COMMANDS = {
 				.max(20)
 				.refine((v) => new Set(v.map((c) => `${c.category}:${c.channel}`)).size === v.length, "Each choice once."),
 		}),
-		allowed: inPlant,
+		allowed: (actor) => inPlant(actor) || organizationOwnerOrAdmin(actor),
 		review(actor, value) {
+			if (value.choices.some((c) => !inContext(actor, c.category)))
+				return sql`SELECT jsonb_build_object('target','null'::jsonb,'changes','[]'::jsonb,'refusal',
+					${actor.owner.kind === "organization" ? "Here only your organization's own notifications (the oversight digest and answers sent for review) can change. Change the others in the church you serve." : "The oversight digest is set in your sending church or network, not here."}::text) AS review,
+					'{}'::jsonb AS args`;
 			const asked = new Map(value.choices.map((c) => [`${c.category}:${c.channel}`, c.enabled]));
 			const rows = [...new Set(value.choices.map((c) => c.category))].flatMap((category) =>
 				notificationChannels(category).map((channel) => ({

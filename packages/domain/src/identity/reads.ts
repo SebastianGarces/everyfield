@@ -24,7 +24,7 @@ export async function readIdentityAccount(db: Database, authUser: string) {
 		.where(
 			and(
 				eq(tables.lifecycle_witness.opaque_subject_id, account.id),
-				sql<boolean>`(${tables.lifecycle_witness.state} IN ('pending_deletion', 'purging', 'purged', 'revoked'))`,
+				sql<boolean>`(${tables.lifecycle_witness.state} IN ('pending_deletion', 'purging', 'purged'))`,
 			),
 		);
 	return blocked.length ? null : account;

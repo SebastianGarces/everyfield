@@ -1,9 +1,11 @@
+import type { Outcome } from "@everyfield/contracts/common";
 import { MIME, churchValues, fileName, type Format, type Resolved } from "./model.ts";
 
-export type PreviewReply =
-	| { status: "ok"; value: Resolved & { artifact: string | null; brandKit: boolean } }
-	| { status: "refused"; code: string; path?: string }
-	| { status: "lost" };
+export type PreviewReply = Outcome<
+	Resolved & { artifact: string | null; brandKit: boolean },
+	string,
+	{ path?: string }
+>;
 
 export function bytesOf(encoded: string) {
 	const binary = atob(encoded);

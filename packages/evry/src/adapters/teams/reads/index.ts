@@ -34,12 +34,12 @@ const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role
 type Fields = SourceRow["fields"];
 type Built = Partial<Omit<SourceResult, "operation" | "rows">> & { rows: SourceRow[] };
 
-function read<I>(spec: {
+function read<I, V>(spec: {
 	operation: string;
 	description: string;
 	input: z.ZodType<I>;
-	run(tx: Transaction, actor: EvryActor, input: I): Promise<TeamsReply<unknown>>;
-	rows(value: never, actor: EvryActor, tx: Transaction, input: I): Built | Promise<Built>;
+	run(tx: Transaction, actor: EvryActor, input: I): Promise<TeamsReply<V>>;
+	rows(value: V, actor: EvryActor, tx: Transaction, input: I): Built | Promise<Built>;
 	exclusions?: string[];
 }): ReadAdapter<I> {
 	return {
@@ -53,7 +53,7 @@ function read<I>(spec: {
 			if (reply.status !== "ok" && reply.error.code === "invalid_input") throw new EvryRefusal("invalid_input");
 			if (reply.status !== "ok" && !["unavailable", "access_denied", "invalid_subject"].includes(reply.error.code))
 				throw new EvryRefusal("source_unavailable");
-			const built = reply.status === "ok" ? await spec.rows(reply.value as never, actor, tx, input) : empty;
+			const built = reply.status === "ok" ? await spec.rows(reply.value, actor, tx, input) : empty;
 			return {
 				operation: spec.operation,
 				status: reply.status === "ok" ? "available" : "not_found",

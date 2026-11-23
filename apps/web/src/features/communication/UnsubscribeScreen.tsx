@@ -2,7 +2,7 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { Alert02Icon, MailRemove01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { Button } from "@everyfield/ui/controls";
+import { Button, InlineAlert } from "@everyfield/ui/controls";
 import { Icon, LogoMark, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useState, useTransition, type ReactNode } from "react";
 
@@ -57,6 +57,7 @@ function Choice({ token, churchName, unsubscribed }: { token: string; churchName
 			() => applyUnsubscribe(token),
 			(r) => ({ kind: "off", undoToken: r.undoToken }),
 		);
+	const undoable = done?.kind === "off" ? done.undoToken : null;
 	const undo = (undoToken: string) =>
 		run(
 			() => undoUnsubscribe(undoToken),
@@ -95,23 +96,15 @@ function Choice({ token, churchName, unsubscribed }: { token: string; churchName
 					<Button variant="primary" className="w-full" loading={pending} onClick={unsubscribe}>
 						Unsubscribe
 					</Button>
-				) : done.kind === "off" && done.undoToken ? (
+				) : undoable ? (
 					<div className="flex flex-col gap-2">
-						<Button variant="secondary" className="w-full" loading={pending} onClick={() => undo(done.undoToken!)}>
+						<Button variant="secondary" className="w-full" loading={pending} onClick={() => undo(undoable)}>
 							Undo
 						</Button>
 						<p className="text-center text-xs text-text-3">You can undo this here for one hour.</p>
 					</div>
 				) : null}
-				{problem ? (
-					<p
-						role="alert"
-						className="flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600"
-					>
-						<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-						{problem}
-					</p>
-				) : null}
+				<InlineAlert>{problem}</InlineAlert>
 			</div>
 		</Shell>
 	);

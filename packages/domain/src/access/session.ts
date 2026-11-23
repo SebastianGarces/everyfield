@@ -61,7 +61,7 @@ export async function liveOwner(tx: Transaction, selected: Owner, lock = true): 
 	const hiddenBy = and(
 		eq(tables.lifecycle_witness.opaque_subject_id, selected.id),
 		eq(tables.lifecycle_witness.kind, sql`${selected.kind}`),
-		sql<boolean>`(${tables.lifecycle_witness.state} NOT IN ('active', 'cancelled'))`,
+		sql<boolean>`(${tables.lifecycle_witness.state} <> 'cancelled')`,
 	);
 	const query = tx
 		.select({ kind: tenant_t.kind, organization_kind: organization_o.kind })
@@ -124,7 +124,7 @@ async function viewerRow(db: Executor, identity: SQL, requested?: Owner) {
 					AND (t.kind<>'organization' OR o.kind=selected.owner->>'organizationKind')
 			) AS selected_exists,
 			(SELECT coalesce(jsonb_agg(jsonb_build_object('kind',w.kind,'opaque_subject_id',w.opaque_subject_id,'seat_id',w.seat_id)), '[]'::jsonb)
-				FROM lifecycle_witness w WHERE w.state NOT IN ('active', 'cancelled') AND (
+				FROM lifecycle_witness w WHERE w.state <> 'cancelled' AND (
 					(w.kind='account' AND w.opaque_subject_id=i.account_id)
 					OR (w.kind=selected.owner->>'kind' AND w.opaque_subject_id=(selected.owner->>'id')::uuid)
 					OR w.seat_id IN (SELECT id FROM seats))) AS hidden,
@@ -389,7 +389,7 @@ export class RequestActor {
 }
 
 export function writeVisibility(actor: string | SQLWrapper, selected: Owner) {
-	return sql<boolean>`NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (
+	return sql<boolean>`NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state <> 'cancelled' AND (
   (w.kind='account' AND w.opaque_subject_id=${actor}::uuid) OR (w.kind=${selected.kind} AND w.opaque_subject_id=${selected.id}::uuid) OR
   (${selected.kind}<>'account' AND w.seat_id IN (SELECT id FROM seat WHERE account_id=${actor}::uuid
    AND coalesce(plant_id,organization_id)=${selected.id}::uuid AND ended_at IS NULL))))`;

@@ -2,7 +2,7 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
-import { Combobox, Command, Field, keepKeyInField, Spinner } from "@everyfield/ui/controls";
+import { Alert, Combobox, Command, Field, keepKeyInField, Spinner } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useId, useState, type ElementType, type KeyboardEvent } from "react";
@@ -171,11 +171,7 @@ function Counts({
 					</div>
 				))}
 			</div>
-			{failed ? (
-				<p role="alert" className="text-sm font-medium text-magenta-600">
-					{failed}
-				</p>
-			) : null}
+			{failed ? <Alert role="alert">{failed}</Alert> : null}
 			{summary ? (
 				<section aria-label="Left out, and why" className="flex max-w-3xl flex-col gap-2">
 					<h3 className="text-sm font-medium text-ink-2">Left out, and why</h3>
@@ -270,8 +266,9 @@ function ToField({
 				event.preventDefault();
 				actions.openList(false);
 			}
-		} else if (event.key === "Backspace" && query === "" && people.length > 0) {
-			remove(people.at(-1)!.id);
+		} else if (event.key === "Backspace" && query === "") {
+			const last = people.at(-1);
+			if (last) remove(last.id);
 		}
 	};
 

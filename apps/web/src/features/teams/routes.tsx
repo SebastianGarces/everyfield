@@ -1,4 +1,5 @@
 import { requireSeat } from "@/server/sign-in";
+import type { SitePath } from "@everyfield/contracts/identity";
 import { LockKeyIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { recordId } from "@everyfield/contracts/common";
 import {
@@ -17,7 +18,7 @@ import { isAdmin, loadTeam, loadTeams, type Viewer } from "./server.ts";
 import { TeamScreen } from "./TeamScreen.tsx";
 import { TeamsScreen } from "./TeamsScreen.tsx";
 
-async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
+async function gate(returnTo: SitePath, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const viewer = await requireSeat(returnTo);
 	if (viewer) return { viewer };
 	return {

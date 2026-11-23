@@ -79,7 +79,7 @@
 						"tests": [
 							{
 								"file": "tests/integration/feedback/feedback.test.mts",
-								"name": "AC:CASE-ADM-001 the dialog saves its details, takes church and role from the seat, strips the address and saves a resend once"
+								"name": "AC:CASE-ADM-001 the dialog saves its details, takes church and role from the seat and refuses sent ones, strips the address and saves a resend once"
 							},
 							{
 								"file": "tests/integration/feedback/feedback.test.mts",
