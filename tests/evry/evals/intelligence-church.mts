@@ -158,6 +158,19 @@ async function seed(ch: Church) {
 		await ch.committed(plants["Redeemer Church"]!, "Redeemer Person 4", 2);
 		await refreshNetwork();
 	}
+	async function harvestRegionCorrected() {
+		await admin.execute(sql`INSERT INTO plant_geography(plant_id,city,state_province,country,region_item_id,
+			reference_version_id,committed_at,effective_at,supersedes_id)
+			SELECT g.plant_id,'Round Rock','TX','US',i.id,g.reference_version_id,clock_timestamp(),clock_timestamp(),g.id
+			FROM plant_geography g, reference_item i WHERE g.plant_id=${plants["Harvest Point"]!.id}
+			AND i.kind='geography_region' AND i.canonical_key='omb-23-01/12420'`);
+		await refreshNetwork();
+	}
+	const otherNetwork = await ch.database.organization("sending_network", {
+		name: "Prairie Network",
+		timezone: "America/Chicago",
+	});
+	const otherDirector = await ch.database.actor(otherNetwork, "admin");
 	const names = async () =>
 		(
 			await ch.rows(
@@ -174,6 +187,7 @@ async function seed(ch: Church) {
 			member,
 			director,
 			networkMember,
+			otherDirector,
 		},
 		plants,
 		network,
@@ -181,6 +195,7 @@ async function seed(ch: Church) {
 		runJob,
 		classify,
 		redeemerGrows,
+		harvestRegionCorrected,
 		names,
 	};
 }

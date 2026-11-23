@@ -78,6 +78,9 @@ const LATER = new Set<string>([
 	...WORKFLOW_READS.map((a) => a.operation),
 	"documents.importTextOrWord",
 	...Object.keys(WIKI_COMMANDS).filter((op) => op.startsWith("wiki.organizationArticles.")),
+	"organizationIntelligence.readHistory",
+	"organizationIntelligence.readLocations",
+	"organizationIntelligence.readLocationHistory",
 	"intelligence.readExitCriteria",
 	"intelligence.readJourney",
 ]);
