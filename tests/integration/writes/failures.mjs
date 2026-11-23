@@ -1,4 +1,4 @@
-export const BLOCK_LINES = 30;
+const BLOCK_LINES = 30;
 export const BLOCK_CHARS = 2000;
 export const MESSAGE_CHARS = 8000;
 
