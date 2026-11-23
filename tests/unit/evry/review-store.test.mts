@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const web = createRequire(fileURLToPath(new URL("../../../apps/web/package.json", import.meta.url)));
@@ -154,14 +154,17 @@ test("INV-church-changed: an approval refused because the seat moved church show
 	await act(async () => again.root.unmount());
 });
 
-test("INV-church-changed: a saving card stops reading its review once the panel's church changed", async () => {
+test("INV-church-changed: a saving card stops reading its review once the panel's church changed", async (t) => {
+	mock.timers.enable({ apis: ["setTimeout"] });
+	t.after(() => mock.timers.reset());
 	const running = { ...review, status: "approved", approvedAt: "2026-10-21T12:01:00Z", executing: true };
 	const sent = server({ GET: () => Response.json(running) });
 	let moved = false;
 	const { card, root } = await show(running, { changed: () => moved, refused: () => false, leave() {}, reload() {} });
 	assert.equal(card().view, "running");
 	moved = true;
-	await new Promise((resolve) => setTimeout(resolve, 600));
+	// Past the first poll delay (350 ms) and several later ones, so a poll left scheduled would have read.
+	for (let step = 0; step < 20; step++) await act(async () => mock.timers.tick(250));
 	assert.deepEqual(sent, [], "no read of the old church's review after the change");
 	await act(async () => root.unmount());
 });
