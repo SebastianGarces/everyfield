@@ -2404,18 +2404,9 @@
 			},
 			{
 				"table": "guardian_contact",
-				"columns": [
-					"child_person_id",
-					"plant_id"
-				],
-				"target_columns": [
-					"id",
-					"tenant_id"
-				],
-				"consumer_work_packages": [
-					"WP-012",
-					"WP-021"
-				],
+				"columns": ["child_person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-012", "WP-021"],
 				"meaning": "The child whose Messages email goes to a parent or guardian contact instead (D-2336, D-2337).",
 				"lock_order": "Lock the owner first; add and remove lock the child's Person row through its revision, after the lifecycle writers' locks.",
 				"merge_policy": "Keep the link on the people it names. A merge leaves one side not live, so the link is ignored; Unmerge brings it back as it was.",
@@ -2423,24 +2414,13 @@
 				"retirement_policy": "A retired side makes the link count for nothing; the row stays until a household leave or a remove deletes it.",
 				"privacy_policy": "Names no content. Who added or removed it comes from the audit row on the child.",
 				"immutable_evidence_policy": "Each add and remove writes its own audit row on the child; remove and household leave delete the row.",
-				"future_case_ids": [
-					"TARGET-PPL-009"
-				]
+				"future_case_ids": ["TARGET-PPL-009"]
 			},
 			{
 				"table": "guardian_contact",
-				"columns": [
-					"guardian_person_id",
-					"plant_id"
-				],
-				"target_columns": [
-					"id",
-					"tenant_id"
-				],
-				"consumer_work_packages": [
-					"WP-012",
-					"WP-021"
-				],
+				"columns": ["guardian_person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-012", "WP-021"],
 				"meaning": "The adult in the child's household who receives the child's Messages email (D-2336, D-2337).",
 				"lock_order": "Lock the owner first; add and remove lock the child's Person row through its revision, after the lifecycle writers' locks.",
 				"merge_policy": "Keep the link on the people it names. A merge leaves one side not live, so the link is ignored; Unmerge brings it back as it was.",
@@ -2448,9 +2428,7 @@
 				"retirement_policy": "A retired side makes the link count for nothing; the row stays until a household leave or a remove deletes it.",
 				"privacy_policy": "Names no content. Who added or removed it comes from the audit row on the child.",
 				"immutable_evidence_policy": "Each add and remove writes its own audit row on the child; remove and household leave delete the row.",
-				"future_case_ids": [
-					"TARGET-PPL-009"
-				]
+				"future_case_ids": ["TARGET-PPL-009"]
 			}
 		],
 		"person_snapshot_references": [
@@ -18173,24 +18151,15 @@
 				"purpose": "An adult in a child's household whom staff named as that child's parent or guardian contact (D-2336). A Messages email that includes the child goes to the contact instead (D-2337). The link counts only while both people are live and in the household it names and the contact is marked as an adult.",
 				"library_owned": false,
 				"jsonb_keys": {},
-				"capabilities": [
-					"CAP-A-030"
-				],
+				"capabilities": ["CAP-A-030"],
 				"replaces": [],
-				"producer_work_packages": [
-					"WP-012"
-				],
+				"producer_work_packages": ["WP-012"],
 				"producer_derivation": {
 					"old_target_tables": [],
-					"additional_producers": [
-						"WP-012"
-					],
+					"additional_producers": ["WP-012"],
 					"rule": "WP-012 People households records a parent or guardian contact from an Owner or Admin."
 				},
-				"feature_ids": [
-					"PPL-009",
-					"NTF-016"
-				],
+				"feature_ids": ["PPL-009", "NTF-016"],
 				"acceptance_ids": [],
 				"future_case_ids": [],
 				"scope": "tenant",

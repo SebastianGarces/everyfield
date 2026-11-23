@@ -76,6 +76,7 @@ export type AudienceSummary = {
 	complete: boolean;
 	unsubscribedExclusions: { id: string; displayName: string; unsubscribedAt: string }[];
 	childExclusions: { id: string; displayName: string }[];
+	guardianRoutes: { id: string; displayName: string; guardians: { id: string; displayName: string }[] }[];
 };
 
 export const CHILD_RULE = "Messages are not sent to people marked as a child.";
@@ -153,6 +154,7 @@ export type DeliveryReport = {
 	unknownCount: number;
 	unsubscribedCount: number;
 	childCount: number;
+	guardianCount: number;
 };
 
 type ProviderTally = { confirmedCount: number; sentCount: number; openCount: number };
@@ -169,12 +171,16 @@ export type RestoreReport = { suppressionClears: number };
 
 const counts = (report: DeliveryReport) =>
 	`Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No answer ${report.unknownCount}.` +
-	leftOutNote(report.unsubscribedCount, report.childCount);
+	leftOutNote(report.unsubscribedCount, report.childCount) +
+	guardianNote(report.guardianCount);
 
 const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
 
 export const leftOutNote = (unsubscribed: number, child: number) =>
 	(unsubscribed > 0 ? ` Unsubscribed ${unsubscribed}.` : "") + (child > 0 ? ` Marked as a child ${child}.` : "");
+
+export const GUARDIAN_LABEL = "Sent to a parent or guardian instead";
+export const guardianNote = (count: number) => (count > 0 ? ` ${GUARDIAN_LABEL} ${count}.` : "");
 
 export function refusedAllText(unsubscribed: number, refused: number, child: number): string {
 	if (child > 0)
@@ -198,7 +204,7 @@ export function deliveryText(report: DeliveryReport): string {
 
 export function scheduleText(report: DeliveryReport, when: string): string {
 	if (report.acceptedCount > 0)
-		return `Scheduled for ${when}. It goes to ${people(report.acceptedCount)} then.${leftOutNote(report.unsubscribedCount, report.childCount)}`;
+		return `Scheduled for ${when}. It goes to ${people(report.acceptedCount)} then.${leftOutNote(report.unsubscribedCount, report.childCount)}${guardianNote(report.guardianCount)}`;
 	if (report.unknownCount > 0)
 		return `Not confirmed. The email service gave no answer. ${counts(report)} Check result to ask it again.`;
 	return `${refusedAll(report, "scheduled")} ${counts(report)} The message stays saved in Messages.`;
@@ -316,6 +322,7 @@ export type DeliveryTotals = {
 	suppressed: number;
 	unsubscribed: number;
 	child: number;
+	guardian: number;
 	unknown: number;
 	cancelled: number;
 	cancelOpen: number;
@@ -330,6 +337,7 @@ export type DetailRecipient = {
 	deliveryAddress: string | null;
 	currentPersonAddress: string | null;
 	deliveryStatus: string;
+	sentTo: string | null;
 	sentAt: string | null;
 	deliveredAt: string | null;
 	openedAt: string | null;

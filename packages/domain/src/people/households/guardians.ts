@@ -1,8 +1,8 @@
 import { sql, type SQL } from "@everyfield/db/query";
 import { effectiveAdultSql, plantTodaySql } from "../adult.ts";
 
-export const adultOfSql = (alias: string) => {
-	const column = (name: string) => sql.raw(`${alias}.${name}`);
+export const adultOfSql = (alias: "m" | "gad") => {
+	const column = (name: "birth_date" | "adult_classification" | "plant_id") => sql.raw(`${alias}.${name}`);
 	return effectiveAdultSql(column("birth_date"), column("adult_classification"), plantTodaySql(column("plant_id")));
 };
 

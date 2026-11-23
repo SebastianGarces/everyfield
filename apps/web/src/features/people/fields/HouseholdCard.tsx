@@ -1,6 +1,13 @@
 "use client";
 
-import { Copy01Icon, Edit02Icon, Logout01Icon, MoreHorizontalIcon } from "@hugeicons/core-free-icons";
+import {
+	Copy01Icon,
+	Edit02Icon,
+	Logout01Icon,
+	MoreHorizontalIcon,
+	UserAdd01Icon,
+	UserRemove01Icon,
+} from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
 import {
 	Button,
@@ -32,6 +39,7 @@ import {
 	joinHousehold,
 	leaveHousehold,
 	propagateAddress,
+	setGuardianContact,
 	setHouseholdRole,
 	startHousehold,
 	updateHousehold,
@@ -53,6 +61,7 @@ import {
 } from "./HouseholdDialogs.tsx";
 import {
 	addressLine,
+	guardianLine,
 	membershipOf,
 	ROLE_LABEL,
 	ROLES,
@@ -103,7 +112,12 @@ export function HouseholdCard({
 			problem: editing?.kind === kind ? lane.problem : undefined,
 			wait: lane.wait,
 		}) as const;
-	const me0 = { personId: person.id, displayName: person.displayName, revision: person.revision };
+	const me0 = {
+		personId: person.id,
+		displayName: person.displayName,
+		revision: person.revision,
+		adult: person.adultClassification,
+	};
 	type AddressLike = { [K in "street" | "city" | "stateProvince" | "postalCode" | "country"]?: string | null };
 	const addressOf = (a: AddressLike) => ({
 		street: a.street ?? null,
@@ -173,6 +187,7 @@ export function HouseholdCard({
 					memberCount: 1,
 				},
 				members: [{ ...me0, role: "head", ...addressOf(v) }],
+				guardians: [],
 			},
 			{
 				what: v.name,
@@ -195,6 +210,24 @@ export function HouseholdCard({
 		);
 	}
 
+	function changeContact(guardian: Household["members"][number], contact: boolean) {
+		if (household?.status !== "available") return;
+		const others = household.guardians.filter(
+			(l) => !(l.childPersonId === person.id && l.guardianPersonId === guardian.personId),
+		);
+		const link = { childPersonId: person.id, guardianPersonId: guardian.personId };
+		change(
+			{ ...household, guardians: contact ? [...others, link] : others },
+			{
+				what: guardian.displayName,
+				done: `${contact ? "added as" : "removed as"} ${first}'s parent or guardian contact`,
+				...membership("household-guardian", (key, rev) =>
+					setGuardianContact(key, rev, { personId: person.id, guardianPersonId: guardian.personId, contact }),
+				),
+			},
+		);
+	}
+
 	if (household === null)
 		return (
 			<Card>
@@ -205,6 +238,11 @@ export function HouseholdCard({
 
 	const h = shown?.status === "available" ? shown : null;
 	const me = h?.members.find((m) => m.personId === person.id);
+	const child = me?.adult === "child";
+	const contacts = new Set(
+		h?.guardians.filter((l) => l.childPersonId === person.id).map((l) => l.guardianPersonId) ?? [],
+	);
+	const adults = h?.members.filter((m) => m.personId !== person.id && m.adult === "adult") ?? [];
 
 	return (
 		<Card>
@@ -225,6 +263,31 @@ export function HouseholdCard({
 										</MenuRadioItem>
 									))}
 								</MenuRadioGroup>
+								{child ? (
+									<>
+										<MenuSeparator />
+										<MenuLabel>Parent or guardian contact</MenuLabel>
+										{adults.length === 0 ? (
+											<MenuItem disabled>No member is marked as an adult</MenuItem>
+										) : (
+											adults.map((m) =>
+												contacts.has(m.personId) ? (
+													<MenuItem
+														key={m.personId}
+														icon={UserRemove01Icon}
+														onSelect={() => changeContact(m, false)}
+													>
+														Remove {m.displayName}
+													</MenuItem>
+												) : (
+													<MenuItem key={m.personId} icon={UserAdd01Icon} onSelect={() => changeContact(m, true)}>
+														Make {m.displayName} a contact
+													</MenuItem>
+												),
+											)
+										)}
+									</>
+								) : null}
 								<MenuSeparator />
 								<MenuItem icon={Edit02Icon} onSelect={() => lane.open({ kind: "edit" })}>
 									Edit household
@@ -271,10 +334,19 @@ export function HouseholdCard({
 										</PersonLink>
 									)}
 								</span>
+								{child && contacts.has(m.personId) ? <Tag className="text-xs">Parent or guardian</Tag> : null}
 								<Tag className="text-xs">{ROLE_LABEL[m.role]}</Tag>
 							</li>
 						))}
 					</ul>
+					{child ? (
+						<p className="mt-2 text-sm text-text-2">
+							{guardianLine(
+								first,
+								h.members.filter((m) => contacts.has(m.personId)).map((m) => m.displayName),
+							)}
+						</p>
+					) : null}
 				</>
 			) : (
 				<div className="flex flex-col items-start gap-3">
@@ -319,6 +391,7 @@ export function HouseholdCard({
 											status: "available",
 											household: { ...v.household, memberCount: v.household.memberCount + 1 },
 											members: [{ ...me0, role: v.role, ...addressOf(person) }],
+											guardians: [],
 										},
 										{
 											what: first,

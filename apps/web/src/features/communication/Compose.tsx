@@ -357,11 +357,16 @@ function ComposeForm({
 
 	const names = summary?.missingEmailExclusions ?? [];
 	const children = (summary?.childExclusions ?? []).map((person) => person.displayName);
+	const routed = summary?.guardianRoutes ?? [];
 	const consequences = (when: string) => [
 		`${plural(eligible, "person gets", "people get")} this email ${when}.`,
 		...(children.length
 			? [`${listed(children)} ${children.length === 1 ? "is" : "are"} marked as a child and will be skipped.`]
 			: []),
+		...routed.map(
+			(route) =>
+				`${route.displayName}'s email goes to ${listed(route.guardians.map((guardian) => guardian.displayName))} instead.`,
+		),
 		...(names.length ? [`${listed(names)} ${names.length === 1 ? "has" : "have"} no email and will be skipped.`] : []),
 		"You cannot unsend it once it leaves.",
 	];

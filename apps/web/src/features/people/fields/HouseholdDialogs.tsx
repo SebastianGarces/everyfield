@@ -71,6 +71,8 @@ export function householdProblem(code: string, first: string): string {
 			return "This household or person changed while you were working. The latest details show now. Check them and try again.";
 		case "invalid_subject":
 			return `${first} is already in a household, or that household cannot take them. Take them out of their household first.`;
+		case "invalid_input":
+			return `That change was not saved. A parent or guardian contact must be a live member of ${first}'s household who is marked as an adult, and ${first} must be marked as a child.`;
 		default:
 			return problemText(code);
 	}
