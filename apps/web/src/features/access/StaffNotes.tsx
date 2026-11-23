@@ -10,6 +10,7 @@ import {
 	CardHeading,
 	CardTitle,
 	EmptyState,
+	InlineAlert,
 	Skeleton,
 	StatePanel,
 } from "@everyfield/ui/controls";
@@ -158,11 +159,9 @@ export function StaffNotesPanel({
 							<Button variant="secondary" loading={more.status === "loading"} onClick={() => void loadMore()}>
 								{more.status === "failed" ? "Try again" : "Show more notes"}
 							</Button>
-							{more.status === "failed" ? (
-								<p role="alert" className="text-sm text-magenta-600">
-									We could not load more notes. The notes above are still current.
-								</p>
-							) : null}
+							<InlineAlert className="min-w-0 flex-1 basis-64">
+								{more.status === "failed" ? "We could not load more notes. The notes above are still current." : null}
+							</InlineAlert>
 						</div>
 					) : null}
 				</>

@@ -18,6 +18,7 @@ flowchart LR
   s0 -.- s0_st1(("member"))
   s0 -.- s0_st2(("organization"))
   s0 -.- s0_st3(("residency-account"))
+  s0 -.- s0_st4(("pending"))
   s1["shell.design-preview<br/>/design /design/shell/[role]/[[...page]]"]
   s1_link0 --> s1
   s1_link1 --> s1
@@ -43,7 +44,7 @@ flowchart LR
 The product frame around every signed-in page: the rail with the pages this persona may open, search, notifications, Ask Evry and the account menu. Each page's own map says where its rail link leads.
 
 - Routes: none
-- Personas: `owner` read, `member` read, `network` read, `resident` read, `visitor` none
+- Personas: `owner` read, `member` read, `network` read, `resident` read, `signup` read, `visitor` none
 
 Reach:
 
@@ -89,6 +90,16 @@ agent-browser open "$ORIGIN/notifications"
 agent-browser wait --load networkidle
 agent-browser find role link text --name "My residency" --exact
 ! agent-browser find role link text --name "People" --exact
+```
+
+- **pending**: link "Set up your church"; no link "Wiki"; no link "Documents". As `signup`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/documents"
+agent-browser wait --load networkidle
+agent-browser find role link text --name "Set up your church" --exact
+! agent-browser find role link text --name "Wiki" --exact
+! agent-browser find role link text --name "Documents" --exact
 ```
 
 ### shell.design-preview
