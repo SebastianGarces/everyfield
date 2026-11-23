@@ -1,3 +1,4 @@
+import { counted, countWord } from "@everyfield/contracts/common";
 import type {
 	IntelligenceView,
 	PlantDirectory,
@@ -58,7 +59,6 @@ import {
 	locality,
 	pathText,
 	phaseLabel,
-	plural,
 	progressText,
 	provenanceLabel,
 	regionText,
@@ -197,7 +197,7 @@ export function DirectoryScreen({ directory, kind }: { directory: PlantDirectory
 				title={organizationName}
 				subtitle={
 					plants.length
-						? `${plural(plants.length, "plant")} linked to you. You only see what each plant chooses to share.`
+						? `${counted(plants.length, "plant")} linked to you. You only see what each plant chooses to share.`
 						: "You only see what each plant chooses to share."
 				}
 			/>
@@ -461,8 +461,8 @@ function HealthCard({ view }: { view: PlantView }) {
 						))}
 						{assessment.withheld ? (
 							<li className="text-sm text-text-3">
-								{assessment.withheld === 1 ? "1 more concern rests" : `${assessment.withheld} more concerns rest`} on
-								records {plant.name} doesn&apos;t share with you.
+								{counted(assessment.withheld, "more concern rests", "more concerns rest")} on records {plant.name}{" "}
+								doesn&apos;t share with you.
 							</li>
 						) : null}
 					</ul>
@@ -578,7 +578,7 @@ function SectionCounts({
 			const stages = PERSON_STAGES.filter((s) => p.byStage[s] > 0);
 			return (
 				<>
-					<Big value={p.total.toLocaleString("en-US")} unit={p.total === 1 ? "person" : "people"} />
+					<Big value={p.total.toLocaleString("en-US")} unit={countWord(p.total, "person", "people")} />
 					<div aria-hidden="true" className="mt-4 flex h-2 overflow-hidden rounded-pill bg-surface-2">
 						{stages.map((s) => (
 							<span key={s} className={STAGE_DOT[STAGE_OF[s]]} style={{ flex: p.byStage[s] }} />
@@ -625,8 +625,8 @@ function SectionCounts({
 						))}
 					</div>
 					<p className="mt-2 text-sm text-text-3">
-						Attendance at the last {plural(m.meetings.length, "meeting")} · {m.attendedTotal.toLocaleString("en-US")} in
-						total
+						Attendance at the last {counted(m.meetings.length, "meeting")} · {m.attendedTotal.toLocaleString("en-US")}{" "}
+						in total
 					</p>
 				</>
 			);
@@ -637,7 +637,7 @@ function SectionCounts({
 				<>
 					<Big value={`${t.rolesFilled} of ${t.roles}`} unit="roles filled" />
 					<p className="mt-3 text-sm text-text-3">
-						{plural(t.teams, "ministry", "ministries")}
+						{counted(t.teams, "ministry", "ministries")}
 						{t.trainingAssigned
 							? ` · Required training ${t.trainingComplete} of ${t.trainingAssigned} complete`
 							: " · No required training assigned"}
@@ -649,8 +649,8 @@ function SectionCounts({
 			const w = c as Extract<Section<"wiki">, { status: "shared" }>["counts"];
 			return (
 				<>
-					<Big value={w.finished} unit={w.finished === 1 ? "article finished" : "articles finished"} />
-					<p className="mt-3 text-sm text-text-3">{plural(w.inProgress, "article")} in progress</p>
+					<Big value={w.finished} unit={countWord(w.finished, "article finished", "articles finished")} />
+					<p className="mt-3 text-sm text-text-3">{counted(w.inProgress, "article")} in progress</p>
 				</>
 			);
 		}
@@ -676,7 +676,7 @@ export function RosterScreen({ roster }: { roster: SendingChurchRoster }) {
 							href="/settings/sharing#connections"
 							className="text-md text-text-2 underline-offset-[3px] hover:text-ink hover:underline"
 						>
-							{plural(pendingInvitations, "pending invitation")}
+							{counted(pendingInvitations, "pending invitation")}
 						</Link>
 					) : (
 						<span className="text-md text-text-3">No pending invitations</span>
@@ -696,7 +696,7 @@ export function RosterScreen({ roster }: { roster: SendingChurchRoster }) {
 										<span className="block text-[15px] font-medium text-ink">{c.name}</span>
 										<span className="mt-0.5 block text-md text-text-3">
 											{c.plants
-												? `${plural(c.plants, "plant")} linked to both you and ${c.name}`
+												? `${counted(c.plants, "plant")} linked to both you and ${c.name}`
 												: `No plant is linked to both you and ${c.name} yet`}
 										</span>
 									</span>

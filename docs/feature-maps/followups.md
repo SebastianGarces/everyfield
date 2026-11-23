@@ -23,7 +23,8 @@ flowchart LR
   s1_link1 --> s1
   s1 -.- s1_st0(("open"))
   s1 --- s1_b0["record<br/>tests + cases + browser behavior"]
-  s1 --- s1_b1["obligations<br/>tests + cases"]
+  s1 --- s1_b1["contact-date-range<br/>tests"]
+  s1 --- s1_b2["obligations<br/>tests + cases"]
 ```
 
 ## Surfaces
@@ -201,6 +202,15 @@ agent-browser wait --load networkidle
 agent-browser find role heading text --name "Record another try" --exact
 agent-browser find role link text --name "Contact log" --exact
 ```
+
+#### followups.call#contact-date-range
+
+An Earlier contact takes a date from one year ago through today; any other date, an emptied field or a year like 0001 shows the range and nothing saves.
+
+- Operations: followups.recordOutcome, followups.correctOutcome
+- Catalog: TSK-004
+- Test: `tests/unit/followups/contact-range.test.mjs`: `a contact dated year 1, as a typed or arrowed year field gives it, is refused with the range`
+- Test: `tests/unit/followups/contact-range.test.mjs`: `one year ago through today is accepted, and the day before or after is refused`
 
 #### followups.call#obligations
 

@@ -42,7 +42,9 @@ Run this on Sebastian's Mac, from the home checkout. `neonctl` and `vercel` must
       Nora the alias URL, not the deployment URL.
    7. Writes the preview's cron secret to a private file for `bin/qa drive`. It never starts a driver itself. When
       `bin/qa drive` is running, it waits for that host's first run of the preview (see "Scheduled sends" below).
-3. The command prints two lines: `QA preview <id>` and the URL. Send both to Nora. Below them it prints which extra
+3. The command prints two lines: `QA preview <id>` and the URL. Send both to Nora. A third line,
+   `Expired discovery request: <URL>/connections/respond?invitation=<id>#<proof>`, is the emailed link for the old
+   request ("Expired discovery request" below). Send it too. Below them it prints which extra
    addresses this preview mails for real, or that it mails none. Check that line against Nora's request first. The
    last line starts with `Scheduled sends:`. It must say `on` before you send the URL. If it says `off until you run,
    outside a seat:`, start `bin/qa drive` with the command it prints, then check the preview's log.
@@ -70,6 +72,7 @@ If a step fails, the command removes what it made and prints the error with ever
 | Linked resident         | `delivered+qa-resident@resend.dev`          | `Everyfield-QA-preview-1` |
 | Ended resident          | `delivered+qa-resident-ended@resend.dev`    | `Everyfield-QA-preview-1` |
 | Hill Country Owner      | `delivered+qa-hill-owner@resend.dev`        | `Everyfield-QA-preview-1` |
+| Discovery sender        | `delivered+qa-discovery-sender@resend.dev`  | `Everyfield-QA-preview-1` |
 
 These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. The Owner, Admin, Member and Second
 Member land on the test church "Harvest Point (QA)". The church has people, a household, three teams, two meetings,
@@ -77,7 +80,8 @@ tasks, two follow-ups, a written document, a draft message, a sent message, the 
 history (below).
 The Feedback triager has no church seat. It holds the `feedback_triage` platform grant and opens `/feedback/triage`.
 
-The last eight logins belong to the multiplication example (T-312, below).
+The eight logins from Grace Austin Owner to Hill Country Owner belong to the multiplication example (T-312, below).
+The Discovery sender has the expired connection request (T-543, below).
 
 The church is connected to three organizations. Two of them are sending churches with similar names. They are two
 different churches on purpose:
@@ -158,6 +162,31 @@ What each login should see:
 - **Harvest Point's planter**, the Owner login, sees nothing from either organization's pipeline or residency.
 
 A preview made before T-312 merged has none of these logins or data.
+
+### Expired discovery request (T-543)
+
+The Discovery sender is Nico Alvarez. He has a Discovery account and no church seat, so signing in lands in Discovery.
+The seed sent one connection request from him to Hill Country Network (QA), addressed to the Hill Country Owner
+(`delivered+qa-hill-owner@resend.dev`). The request was created 35 days before the preview was made and was never
+resent, so its 30 days are over. Nico has no connection and no other request to the network.
+
+`bin/qa up` prints the request's full emailed link on its third line, after the URL:
+`Expired discovery request: <URL>/connections/respond?invitation=<id>#<proof>`. The proof is only in the part after
+`#`, as in the email. The seed sent no email for this request, so the printed line is the only copy of the link.
+
+What each login should see:
+
+- **Discovery sender** lands in Discovery. Settings → Sharing (`/settings/sharing`) shows no pending request to Hill
+  Country Network (QA). To send a fresh one, choose Connect, pick "Hill Country Network (QA) · Sending network" and
+  enter `delivered+qa-hill-owner@resend.dev`. It goes through and shows under "Waiting for a reply".
+- **Hill Country Owner**, opening the printed link, sees "This request has expired" with the date it expired. The
+  page names Nico Alvarez as the one to ask for a new request. The fresh request's email goes out on the next
+  scheduled send (`bin/qa drive`, below) and shows in the Resend email log. Its link lets her accept. After that,
+  the old link still shows the expired page and has no Accept button.
+- Any other login sees "This page is not available" on the old link.
+
+The fresh request uses up the case: after it, the pair has a request or a connection. To test it again, make a new
+preview. A preview made before T-543 merged has no Discovery sender and no expired request.
 
 ### Two churches and a shared person (T-255)
 
