@@ -12,7 +12,7 @@ import { fromStates, proposalMachine, type ProposalSubject } from "@everyfield/c
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
-import { currentAuthority } from "../context/authority.ts";
+import { currentAuthority, refusedFor } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
 import { ATTACHMENTS, stagedPhotoIn } from "../attachments/store.ts";
 import { liveJob } from "../runtime/job.ts";
@@ -70,11 +70,14 @@ const audit = <AliasName extends string>(action: string, kind: string, alias: Sq
 			jsonb_build_object('proposalId',id,'revision',revision,'digest',digest) FROM ${sql.raw(alias)}`;
 
 export async function readReview(db: Database, actor: EvryActor, id: string): Promise<Proposal> {
-	const proposalId = parse(z.uuid(), id);
-	const r = await db.execute(currentReview(actor, sql`${proposalId}::uuid`));
-	const [row] = r.rows;
-	if (!row) throw new EvryRefusal("not_found");
-	return proposalRow.parse(row.proposal);
+	return reviewed(db, actor, parse(z.uuid(), id));
+}
+
+async function reviewed(db: Database, actor: EvryActor, proposalId: string, moved = false): Promise<Proposal> {
+	const [row] = (await db.execute(currentReview(actor, sql`${proposalId}::uuid`))).rows;
+	if (row) return proposalRow.parse(row.proposal);
+	if (!moved) throw new EvryRefusal("not_found");
+	throw await refusedFor(db, actor, sql`(SELECT q.conversation_id FROM proposal q WHERE q.id=${proposalId}::uuid)`);
 }
 
 const proposeInput = z.strictObject({ operation, input: z.unknown() });
@@ -252,7 +255,7 @@ export async function approveProposal(
 	};
 	const approved = await approve(null);
 	if (approved) return approved;
-	const current = await readReview(db, actor, proposalId);
+	const current = await reviewed(db, actor, proposalId, true);
 	if (REASON_WRITES.includes(current.operation) && reason === null && current.status === "pending")
 		throw new EvryRefusal("invalid_input");
 	if (!(PHOTO_WRITES as readonly string[]).includes(current.operation) || current.status !== "pending")
