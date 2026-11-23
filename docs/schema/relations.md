@@ -185,8 +185,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `lifecycle_witness(account_id)` | `account(id)` | restrict |  |
 | `lifecycle_witness(plant_id)` | `plant(id)` | restrict |  |
 | `lifecycle_witness(requester_id)` | `account(id)` | restrict |  |
-| `lifecycle_witness(seat_id)` | `seat(id)` | restrict | Always null: no witness kind names a seat, and a later slice drops the column. |
-| `lifecycle_witness(affiliation_id)` | `affiliation(id)` | restrict | Always null: no witness kind names an affiliation, and a later slice drops the column. |
 | `lifecycle_witness(id)` | `record(id)` | restrict | Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable. |
 | `mail(tenant_id)` | `tenant(id)` | restrict |  |
 | `mail(recipient_account_id)` | `account(id)` | restrict |  |

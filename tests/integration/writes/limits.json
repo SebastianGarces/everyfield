@@ -586,8 +586,7 @@
 		"limit": 1
 	},
 	"followups.assignFollowUp": {
-		"limit": 3,
-		"reads": "T-499: 2 reads in a row (locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then locked read of person+seat); the follow-up merges them or says why they cannot be one statement."
+		"limit": 2
 	},
 	"followups.correctOutcome": {
 		"limit": 2
@@ -596,8 +595,7 @@
 		"limit": 4
 	},
 	"followups.executeHandoff": {
-		"limit": 3,
-		"reads": "T-499: 2 reads in a row (locked read of person+seat+task, then locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team); the follow-up merges them or says why they cannot be one statement."
+		"limit": 2
 	},
 	"followups.recordOutcome:task": {
 		"limit": 2
@@ -1799,8 +1797,7 @@
 		"limit": 4
 	},
 	"tasks.createSubtask": {
-		"limit": 3,
-		"reads": "T-499: 2 reads in a row (locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then locked read of meeting+person+seat+team); the follow-up merges them or says why they cannot be one statement."
+		"limit": 2
 	},
 	"tasks.declinePhaseOffer": {
 		"limit": 2
@@ -1809,8 +1806,7 @@
 		"limit": 3
 	},
 	"tasks.edit": {
-		"limit": 5,
-		"reads": "T-499: 2 reads in a row (locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then locked read of meeting+person+seat+team); the follow-up merges them or says why they cannot be one statement."
+		"limit": 4
 	},
 	"tasks.importTemplate": {
 		"limit": 2
@@ -1822,8 +1818,7 @@
 		"limit": 4
 	},
 	"tasks.replacePrerequisites": {
-		"limit": 5,
-		"reads": "T-499: 2 reads in a row (locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then read of reach+task); the follow-up merges them or says why they cannot be one statement."
+		"limit": 4
 	},
 	"tasks.setSubtaskCompletion": {
 		"limit": 2
@@ -1841,9 +1836,9 @@
 		"limit": 2
 	},
 	"tasks/core.withTaskWrite": {
-		"limit": 8,
+		"limit": 7,
 		"retry": 11,
-		"reason": "BEGIN and COMMIT around a task write that replans reminders; the shared reminder sync (notifications.syncTaskReminders) sends 2 statements (F10). Its largest first run: 2 transaction, 4 locked read, 2 write."
+		"reason": "BEGIN and COMMIT around a task write that replans reminders; the shared reminder sync (notifications.syncTaskReminders) sends 2 statements (F10). Its largest first run: 2 transaction, 3 locked read, 2 write."
 	},
 	"teams.addResponsibility": {
 		"limit": 7,

@@ -27,10 +27,10 @@ import { useRef, useState } from "react";
 import { useRead } from "../../components/read.tsx";
 import type { z } from "zod";
 import { When } from "../people/parts.tsx";
-import { AssigneePicker, forgetAssignees } from "../tasks/AssigneePicker.tsx";
+import { AssigneePicker, reloadAssignees } from "../tasks/AssigneePicker.tsx";
 import { dueText, ownerText, ownerWarning } from "../tasks/model.ts";
 import { assignFollowUp, createFollowUp } from "./actions.ts";
-import { forgetOwners, ownerList, prefetchOwners, warmOn } from "./fetch.ts";
+import { ownerList, prefetchOwners, reloadOwners, warmOn } from "./fetch.ts";
 import { needsOwner, OUTCOME_LABEL, originText, type Account, type DutyItem, type Owner } from "./model.ts";
 import {
 	DialogNotice,
@@ -208,8 +208,8 @@ export function AssignMenu({
 			refused: (code) => {
 				onChange(before);
 				if (code === "owner_ineligible" || code === "invalid_subject") {
-					forgetOwners();
-					forgetAssignees();
+					reloadOwners();
+					reloadAssignees();
 				}
 				if (code === "conflict") onConflict();
 			},
@@ -337,7 +337,11 @@ export function AddFollowUpDialog({
 				onCreated(dutyFrom(value.task));
 				onClose();
 			},
-			refused: (code) => code === "owner_ineligible" && forgetOwners(),
+			refused: (code) => {
+				if (code !== "owner_ineligible") return;
+				reloadOwners();
+				reloadAssignees();
+			},
 		});
 	}
 
