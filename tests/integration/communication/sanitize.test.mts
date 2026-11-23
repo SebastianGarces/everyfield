@@ -61,7 +61,7 @@ test("AC:COM-010 the email layout is inline-styled tables around the rendered bo
 	const html = renderEmailHtml(
 		"<h1>Join us</h1><p>Hi {{name}}</p><p>{{rsvp_link}}</p>",
 		{ name: "Alex", rsvp_link: link },
-		{ churchName: "Harvest Point Church" },
+		{ churchName: "Harvest Point Church", mailingAddress: "4 Elm Street, Dayton, OH, United States" },
 	);
 	assert.ok(html.startsWith("<!DOCTYPE html>"));
 	assert.equal(/<style|<link|@import|@font-face/i.test(html), false);
@@ -74,8 +74,15 @@ test("AC:COM-010 the email layout is inline-styled tables around the rendered bo
 	assert.ok(html.includes("<h1 style="));
 	const body = html.slice(html.indexOf("<h1"), html.indexOf('</td></tr><tr><td align="center"'));
 	assert.ok(body.includes("data-rsvp-button"));
-	const hostile = renderEmailHtml("<script>alert(1)</script><p onclick=x>Hi</p>", {}, { churchName: "<b>Bad</b>" });
-	assert.equal(/<script|onclick|<b>Bad/.test(hostile), false);
+	const hostile = renderEmailHtml(
+		"<script>alert(1)</script><p onclick=x>Hi</p>",
+		{},
+		{
+			churchName: "<b>Bad</b>",
+			mailingAddress: "<i>1 Bad Way</i>",
+		},
+	);
+	assert.equal(/<script|onclick|<b>Bad|<i>1 Bad/.test(hostile), false);
 });
 
 test("AC:COM-010 a merge field inside an href never writes into the attribute", () => {

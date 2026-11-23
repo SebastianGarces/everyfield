@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { ServerFailure, unexpected } from "./transient.ts";
 import { parseJson } from "./json.ts";
 
-export type ReadRefusal<C extends string> = { status: "refused"; code: C | "invalid_input" };
+export type ReadRefusal<C extends string> = { status: "refused"; code: C | "invalid_input"; route: true };
 export type ReadFailure = { status: "failed" };
 
 type Read<V, S extends z.ZodType, R> = { input: S; run: (viewer: V, value: z.output<S>) => Promise<R> };
@@ -19,7 +19,7 @@ export type ReadsHandler<W, C extends string> = ((request: Request) => Promise<R
 
 const answer = (body: unknown, status = 200) =>
 	Response.json(body, { status, headers: { "cache-control": "private, no-store" } });
-const invalid = { status: "refused", code: "invalid_input" } as const;
+const invalid = { status: "refused", code: "invalid_input", route: true } as const;
 const failed: ReadFailure = { status: "failed" };
 
 function decoded(raw: string | null): { ok: true; value: unknown } | { ok: false } {
@@ -43,7 +43,7 @@ export function defineReads<V, C extends string, D extends Record<string, Read<V
 		const raw = decoded(params.get("in"));
 		try {
 			const signedIn = await viewer();
-			if (!signedIn) return answer({ status: "refused", code: signedOut } satisfies ReadRefusal<C>);
+			if (!signedIn) return answer({ status: "refused", code: signedOut, route: true } satisfies ReadRefusal<C>);
 			if (!read || !raw.ok) return answer(invalid);
 			const input = read.input.safeParse(raw.value);
 			return answer(input.success ? await read.run(signedIn, input.data) : invalid);

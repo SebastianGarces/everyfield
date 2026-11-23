@@ -1,0 +1,102 @@
+{
+	"suite": "phases",
+	"model": "scripted",
+	"church": "Hope Fellowship in Core Group Development with 18 committed core-group adults (phases-church.mts)",
+	"forbid": [
+		"/\\b(you['’]?re|you are|we['’]?re|we are|church is|it is|it['’]s) (now |already |not |not yet )?ready\\b/i",
+		"/\\b(isn['’]t|aren['’]t|not) (yet )?ready\\b/i"
+	],
+	"cases": [
+		{
+			"id": "PHR-01",
+			"criteria": [1, 2, 3],
+			"operation": "intelligence.readExitCriteria",
+			"actor": "owner",
+			"ask": "what do we need to move to the next phase?",
+			"calls": ["intelligence.readExitCriteria"],
+			"phase": 1,
+			"answer": [
+				"/To leave Core Group Development for Launch Team Formation/",
+				"/^- 30 committed adults: not met \\(18 of 30 committed adults\\)$/m",
+				"/^- Launch funding viable: no data yet$/m",
+				"/^- Worship leader identified: no data yet$/m",
+				"/^- Geographic area set: no data yet$/m",
+				"/your call/"
+			],
+			"derivation": "Core Group Development's five exit criteria as Plant Intelligence measures them: 18 of the 30 committed adults, so not met; growth measured from the newest card; funding, worship leader and geographic area have no data yet and no reading."
+		},
+		{
+			"id": "PHR-02",
+			"criteria": [8],
+			"operation": "intelligence.readExitCriteria",
+			"actor": "member",
+			"ask": "what do we need to move to the next phase?",
+			"calls": [],
+			"answer": ["/Member seat does not include the church's phase journey/"],
+			"absent": ["/\\b18\\b/", "/committed adults/"],
+			"derivation": "A Member gets no phase tool: the Member sentence, no criteria and no count."
+		},
+		{
+			"id": "PHR-03",
+			"criteria": [4],
+			"operation": "phases.transition",
+			"actor": "owner",
+			"ask": "move us to Launch Team Formation",
+			"calls": ["phases.readCatalog"],
+			"proposal": {
+				"operation": "phases.transition",
+				"openCriteria": [
+					{ "label": "30 committed adults", "status": "not met", "reading": "18 of 30 committed adults" },
+					{ "label": "Launch funding viable", "status": "no data yet", "reading": null },
+					{ "label": "Worship leader identified", "status": "no data yet", "reading": null },
+					{ "label": "Geographic area set", "status": "no data yet", "reading": null }
+				]
+			},
+			"approve": true,
+			"answer": ["/Nothing changes until you approve it/"],
+			"derivation": "The review lists Core Group Development's open criteria with the committed-adults reading; the phase stays until the Owner approves, then the journey shows Launch Team Formation."
+		},
+		{
+			"id": "PHR-04",
+			"criteria": [3],
+			"operation": "intelligence.readExitCriteria",
+			"setup": "allMet",
+			"actor": "admin",
+			"ask": "what do we need to move to the next phase?",
+			"calls": ["intelligence.readExitCriteria"],
+			"phase": 2,
+			"answer": [
+				"/To leave Launch Team Formation for Training & Preparation/",
+				"/^- All eight team leaders assigned: met \\(8 of 8 ministry responsibilities filled, by \\d+ (person|people)\\)$/m",
+				"/^- Launch date set: met \\(Launch Sunday set for \\d{4}-\\d{2}-\\d{2}\\)$/m",
+				"/your call/"
+			],
+			"absent": ["/not met|no data yet/"],
+			"derivation": "With all eight responsibilities filled and Launch Sunday scheduled, both Launch Team Formation criteria are met. Evry reports them and leaves the move to the planter."
+		},
+		{
+			"id": "PHR-05",
+			"criteria": [7],
+			"operation": "intelligence.readJourney",
+			"actor": "owner",
+			"ask": "walk me through our journey so far",
+			"calls": ["intelligence.readJourney"],
+			"answer": [
+				"/Launch Sunday scheduled for/",
+				"/Moved forward to Launch Team Formation: move us to Launch Team Formation/",
+				"/August 3, 2026, Moved forward to Core Group Development/"
+			],
+			"derivation": "The journey newest first: Launch Sunday scheduled, the approved move to Launch Team Formation with its reason, and the earlier moves, and nothing else."
+		},
+		{
+			"id": "PHR-06",
+			"criteria": [8],
+			"operation": "intelligence.readJourney",
+			"actor": "org",
+			"ask": "walk me through our journey so far",
+			"calls": [],
+			"absent": ["/Launch Team Formation|Core Group Development/"],
+			"derivation": "An organization seat gets no phase tool and no step of the church's journey."
+		}
+	]
+}

@@ -16,6 +16,7 @@ import {
 import { readPeoplePage, readPersonPage } from "../../../apps/web/src/features/people/page-data.ts";
 import { parseQuery } from "../../../apps/web/src/features/people/model.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { invitationRefusals } from "../../../packages/domain/src/identity/index.ts";
 let f;
 before(async () => {
 	f = await fixture({ lockTimeout: "1s" });
@@ -55,8 +56,8 @@ test("BUG-PR124: a held account write returns a retryable refusal and the read r
 	await f.admin.transaction(async (tx) => {
 		await tx.update(t.account).set({ revision: "2" }).where(eq(t.account.id, s.sender.id));
 		await assert.rejects(f.seats.readCurrentMembership(s.sender.session), (error) => {
-			assert.equal(error.value?.code, "temporary");
-			assert.equal(error.value.retry, "same_request");
+			assert.equal(error.code, "temporary");
+			assert.equal(invitationRefusals.refusalOf(error).error.retry, "same_request");
 			return true;
 		});
 	});
@@ -125,8 +126,8 @@ test("BUG-PR127: resend during a 250-duty removal completes or safely retries", 
 	assert.equal(removed.error, undefined, "Removal must complete atomically");
 	assert.equal(removed.value.duties.length, 250);
 	if (sent.error) {
-		assert.equal(sent.error.value?.code, "temporary");
-		assert.equal(sent.error.value.retry, "same_request");
+		assert.equal(sent.error.code, "temporary");
+		assert.equal(invitationRefusals.refusalOf(sent.error).error.retry, "same_request");
 	}
 	const result = sent.value ?? (await f.invitations.resend(authority, resend));
 	assert.equal(result.invitation.revision, "2");
@@ -137,6 +138,39 @@ test("BUG-PR127: resend during a 250-duty removal completes or safely retries", 
 		.innerJoin(t.task_assignee, eq(t.task_assignee.task_id, t.task.id))
 		.where(and(eq(t.task.plant_id, s.w.id), eq(t.task_assignee.account_id, s.sender.id), eq(t.task.revision, "2")));
 	assert.equal(n, 250);
+});
+
+test("INV-identity: a role change locks the member's account before their seat and sees the removal that held it", async () => {
+	const s = await f.setup(),
+		i = await f.invitation(s),
+		a = await f.invitations.accept(s.recipient.session, i.claim);
+	const authority = await f.actor(s.sender.session);
+	const cmd = {
+		requestKey: key(),
+		expectedRevision: "1",
+		input: { seatId: a.seat.seatId, expectedRole: "member", to: "admin" },
+	};
+	let change;
+	try {
+		await f.admin.transaction(async (tx) => {
+			await tx.select().from(t.account).where(eq(t.account.id, s.recipient.id)).for("update");
+			const r = await tx.execute(sql`SELECT pg_backend_pid() AS pid`);
+			change = outcome(f.seats.appointAdmin(authority, s.w, cmd));
+			await waitingOnLock(f.admin, { blockedBy: r.rows[0].pid });
+			const seat = await f.admin.execute(sql`SELECT id FROM seat WHERE id=${a.seat.seatId}::uuid FOR UPDATE NOWAIT`);
+			assert.equal(seat.rows.length, 1);
+			await tx
+				.update(t.seat)
+				.set({ ended_at: sql`clock_timestamp()`, revision: "2" })
+				.where(eq(t.seat.id, a.seat.seatId));
+		});
+	} finally {
+		if (change) await change;
+	}
+	const { error } = await change;
+	assert.equal(error?.code, "invitation_unavailable");
+	const [seat] = await f.admin.select().from(t.seat).where(eq(t.seat.id, a.seat.seatId));
+	assert.equal(seat.role, "member");
 });
 
 test("BUG-PR124: HTTP resume returns 503 temporary after lock timeout, with the same request retry", async () => {
@@ -227,8 +261,8 @@ test("BUG-PR127: statement timeout rolls back every handoff and permits exact re
 				sql`SELECT pg_cancel_backend(a.pid) FROM pg_stat_activity a WHERE ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
 			);
 			const { error } = await removal;
-			assert.equal(error?.value?.code, "temporary", String(error));
-			assert.equal(error.value.retry, "same_request");
+			assert.equal(error?.code, "temporary", String(error));
+			assert.equal(invitationRefusals.refusalOf(error).error.retry, "same_request");
 		});
 	} finally {
 		await f.admin.execute(sql`DROP TRIGGER stall_receipt ON audit_event`);

@@ -1,5 +1,5 @@
 import * as c from "@everyfield/contracts/documents";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import {
 	createAuthorizedDownload,
@@ -35,7 +35,7 @@ import {
 	storeBytes,
 	type Scope,
 } from "./scope.ts";
-import { ImportRejected, readImport } from "./unpack.ts";
+import { parseImport } from "./unpack.ts";
 
 type OwnedRow = {
 	id: string;
@@ -410,7 +410,7 @@ const generatedWriter = {
 		});
 	},
 
-	async archive(db: Database, authority: RequestActor, raw: unknown) {
+	async archive(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.documentRevisionRequest, raw);
 			const scope = editScope(authority);
@@ -422,7 +422,7 @@ const generatedWriter = {
 		});
 	},
 
-	async designateCoreValues(db: Database, authority: RequestActor, raw: unknown) {
+	async designateCoreValues(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.documentRevisionRequest, raw);
 			const scope = editScope(authority);
@@ -434,21 +434,19 @@ const generatedWriter = {
 		});
 	},
 
-	async importTextOrWord(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
+	async importTextOrWord(
+		db: Database | Transaction,
+		authority: RequestActor,
+		raw: unknown,
+		storage: PrivateStorage | null,
+	) {
 		return settle(async () => {
 			const input = parse(c.importDocumentRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny("unavailable");
-			let read: c.DocNode;
-			try {
-				read = readImport(input.bytes, input.format);
-			} catch (error) {
-				if (error instanceof ImportRejected) rejectInput("bytes", error.message);
-				throw error;
-			}
-			const parsed = c.nativeBody.safeParse(read);
-			if (!parsed.success) rejectInput("bytes", "This file is too large for one document.");
-			const body = JSON.stringify(parsed.data);
+			const read = parseImport(input.bytes, input.format);
+			if ("problem" in read) rejectInput("bytes", read.problem);
+			const body = JSON.stringify(read.body);
 			const hash = hashOf(body);
 			const replay = await rowsOf<OwnedRow & { ok: boolean; stored_hash: string | null }>(
 				db,
@@ -706,7 +704,7 @@ async function copyForChurch(db: Database, scope: Scope, input: z.output<typeof 
 type ImportLink = { objectId: string; format: "text" | "docx"; hash: string; requestKey: string };
 
 async function createNative(
-	db: Database,
+	db: Database | Transaction,
 	scope: Scope,
 	title: string,
 	body: string,
@@ -771,7 +769,7 @@ async function createNative(
 }
 
 async function appendNative(
-	db: Database,
+	db: Database | Transaction,
 	scope: Scope,
 	documentId: string,
 	expected: string,
@@ -880,7 +878,7 @@ async function appendNative(
 }
 
 async function mutateOwned(
-	db: Database,
+	db: Database | Transaction,
 	scope: Scope,
 	documentId: string,
 	expected: string,

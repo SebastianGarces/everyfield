@@ -65,7 +65,7 @@ export function HistoryList({
 					))}
 				</ol>
 			)}
-			<div aria-live="polite" className="empty:hidden">
+			<div aria-live="polite" className="empty:sr-only">
 				{state === "lost" || state === "failed" ? (
 					<p className="mt-3 text-sm text-magenta-600">
 						{state === "failed" ? READ_FAILED : "Earlier history did not load. Nothing was changed."}

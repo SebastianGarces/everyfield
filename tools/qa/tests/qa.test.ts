@@ -27,6 +27,7 @@ import {
 	type QuietDatabase,
 } from "./fixtures.ts";
 import { DEV_ENDPOINT, PROD_ENDPOINT, QA_LOGINS, QA_PASSWORD, seedRefusal } from "../qa-guard.ts";
+import { seedLinks } from "../qa.ts";
 
 const NEON_PASSWORD = "npg_SentinelNeonPassword01";
 const BYPASS = "sentinel-bypass-secret-0f1e2d3c";
@@ -97,6 +98,8 @@ fs.writeFileSync(path.join(S, "role-password"), process.env.QA_ROLE_PASSWORD || 
 write("seed-keys.json", { IDENTITY_MAIL_KEY: process.env.IDENTITY_MAIL_KEY, IDENTITY_ADDRESS_KEY: process.env.IDENTITY_ADDRESS_KEY });
 write("seed-recipients.json", { QA_TEST_RECIPIENTS: process.env.QA_TEST_RECIPIENTS ?? null });
 console.log("seeded with " + process.env.QA_ROLE_PASSWORD);
+// A SEED_OUT file holds more lines the seed prints, as a seed that made an old invitation does.
+if (fs.existsSync(path.join(S, "SEED_OUT"))) console.log(fs.readFileSync(path.join(S, "SEED_OUT"), "utf8"));
 // A FAIL_SEED file makes the seed fail and print the keys it got, as a leaky seed would.
 if (fs.existsSync(path.join(S, "FAIL_SEED"))) {
 	console.error("seed failed with " + process.env.IDENTITY_MAIL_KEY + " and " + process.env.IDENTITY_ADDRESS_KEY);
@@ -411,6 +414,33 @@ test("INV-qa-preview: qa up reads the deployment URL from the JSON Vercel CLI 65
 	}
 });
 
+test("INV-qa-preview: qa up prints the seed's expired-request link on the preview's own origin after the URL, and no other seed line", () => {
+	const s = setup();
+	try {
+		const invitation = "3f2b8c1e-0d4a-4e6b-9c7f-5a1d2e3f4b6c",
+			proof = "Zm9vYmFyX3Byb29mLXZhbHVlLTAxMjM0NTY3ODlhYmNkZWY";
+		writeFileSync(
+			join(s.state, "SEED_OUT"),
+			[
+				"QA seed wrote: login delivered+qa-discovery-sender@resend.dev.",
+				`QA link, Expired discovery request: /connections/respond?invitation=${invitation}#${proof}`,
+				"QA link, Elsewhere: https://example.com/connections/respond?invitation=x#y",
+			].join("\n"),
+		);
+		const up = s.qa("up", "feature/nora-qa");
+		assert.equal(up.status, 0, up.stderr);
+		const [idLine, url, ...rest] = up.stdout.trim().split("\n");
+		const id = idLine!.replace("QA preview ", "");
+		assert.equal(url, `https://everyfield-${id}.vercel.app`);
+		assert.deepEqual(rest, [
+			`Expired discovery request: https://everyfield-${id}.vercel.app/connections/respond?invitation=${invitation}#${proof}`,
+		]);
+		assert.ok(!up.stdout.includes("seeded with") && !up.stderr.includes("seeded with"), up.stdout + up.stderr);
+	} finally {
+		s.done();
+	}
+});
+
 test("INV-qa-preview: a branch with no tools/qa/qa-seed.ts refuses", () => {
 	const none = setup([DEV, PROD], "docs/no-seed.txt");
 	try {
@@ -540,7 +570,15 @@ async function seedFresh() {
 	const first = q.seed();
 	const seeded = await q.counts();
 	const second = q.seed();
-	return { ...q, before, first, seeded, second, after: await q.counts(), seen: probe(q.env) };
+	const after = await q.counts();
+	const links = seedLinks(first, "https://qa.everyfield.invalid");
+	const expired = new URL(links[0]?.replace(/^Expired discovery request: /, "") ?? "https://qa.everyfield.invalid/");
+	const seen = probe({
+		...q.env,
+		QA_EXPIRED_INVITATION: expired.searchParams.get("invitation") ?? "",
+		QA_EXPIRED_PROOF: expired.hash.slice(1),
+	});
+	return { ...q, before, first, seeded, second, after, links, expired, seen };
 }
 
 const ORGS = {
@@ -600,6 +638,9 @@ const MULTIPLICATION = [
 	`pipeline totals shared with ${ORGS.hill}`,
 	`connection ${ORGS.grace}`,
 	`connection ${ORGS.hill}`,
+	`login ${QA_LOGINS.discoverySender}`,
+	"Discovery Nico Alvarez",
+	`expired request from Nico Alvarez to ${ORGS.hill}`,
 ].join(", ");
 const NOV4_MAIL =
 	"suppressed address of Leo Pratt, message QA delivery check, suppressed admin address, past restore of the admin address";
@@ -614,7 +655,14 @@ function oldRows(rows: Array<Record<string, unknown>>, before: Array<Record<stri
 				!(r.t === "communication" && row(r).subject === "QA delivery check") &&
 				!(r.t === "seat" && !seats.has(row(r).account_id)),
 		)
-		.map((r) => (r.t === "plant" ? { ...r, row: { ...row(r), material_revision: null } } : r));
+		.map((r) =>
+			r.t === "plant"
+				? {
+						...r,
+						row: { ...row(r), material_revision: null, street: null, state_province: null, country: null },
+					}
+				: r,
+		);
 }
 const LAST_WEEK = {
 	answers: { spiritual: "steady", family: "strained", financial: "steady", pace: "strained" },
@@ -630,7 +678,7 @@ const NOTES = [
 
 test("INV-qa-seed: the QA seed fills a fresh database, and a second run changes no table's row count", async () => {
 	const { first, second, seeded, after, before, query } = await fresh();
-	assert.match(first, /QA seed wrote: .*church.*wiki, owner timezone, 13 check-in weeks\./);
+	assert.match(first, /QA seed wrote: .*church.*wiki, ministry templates, owner timezone, 13 check-in weeks\./);
 	assert.equal(second, "QA seed: the branch is already complete.");
 	assert.deepEqual(after, seeded);
 
@@ -664,7 +712,7 @@ test("INV-qa-seed: the QA seed fills a fresh database, and a second run changes 
 	);
 });
 
-test("INV-qa-seed: seventeen QA logins; the seed makes both organization logins verified and active, and each signs in", async () => {
+test("INV-qa-seed: eighteen QA logins; the seed makes both organization logins verified and active, and each signs in", async () => {
 	assert.deepEqual(QA_LOGINS, {
 		owner: "delivered+qa-owner@resend.dev",
 		admin: "delivered+qa-admin@resend.dev",
@@ -683,6 +731,7 @@ test("INV-qa-seed: seventeen QA logins; the seed makes both organization logins 
 		resident: "delivered+qa-resident@resend.dev",
 		endedResident: "delivered+qa-resident-ended@resend.dev",
 		hillOwner: "delivered+qa-hill-owner@resend.dev",
+		discoverySender: "delivered+qa-discovery-sender@resend.dev",
 	});
 	const { first, query, seen } = await fresh();
 	for (const email of [QA_LOGINS.network, QA_LOGINS.sending]) assert.ok(first.includes(`login ${email},`), first);
@@ -885,21 +934,37 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 		beforeLogins = await logins();
 	assert.equal(beforeLogins.length, 3);
 
-	const upgrade = old
-		.seed()
-		.split(/wiki copies of [^,]+, wiki revision of [^,]+, wiki reading, wiki church versions of [^,]+/);
+	const [upgradeSummary, upgradeLink, ...more] = old.seed().split("\n");
+	assert.match(
+		upgradeLink!,
+		/^QA link, Expired discovery request: \/connections\/respond\?invitation=[0-9a-f-]{36}#\S+$/,
+	);
+	assert.deepEqual(more, []);
+	const upgrade = upgradeSummary!.split(
+		/wiki copies of [^,]+, wiki revision of [^,]+, wiki reading, wiki church versions of [^,]+/,
+	);
 	assert.deepEqual(upgrade, [
 		`QA seed wrote: login ${QA_LOGINS.network}, login ${QA_LOGINS.sending}, login ${QA_LOGINS.member2}, ` +
 			`login ${QA_LOGINS.signup}, login ${QA_LOGINS.triage}, feedback triage grant, spare member seat Owen Price, ` +
-			`${NOV4_MAIL}, ` +
+			`${NOV4_MAIL.replace("message QA delivery check", "church mailing address, message QA delivery check")}, ` +
 			`${ORGS.network}, ${ORGS.network} admin seat, ` +
 			`connection ${ORGS.network}, ${ORGS.sending}, ${ORGS.sending} owner seat, connection ${ORGS.sending}, ` +
 			`login ${QA_LOGINS.riverside}, church Riverside (QA), onboarding Riverside (QA), person Ana Lee in Riverside (QA), ` +
 			`${MULTIPLICATION}, ` +
 			"sending church Grace Fellowship (QA), affiliation with Grace Fellowship (QA), ",
-		", owner timezone, 13 check-in weeks.",
+		", ministry templates, owner timezone, 13 check-in weeks.",
 	]);
+	assert.deepEqual(
+		await old.query(`SELECT count(DISTINCT i.id)::int AS items, count(v.id)::int AS versions FROM reference_item i
+			JOIN reference_version v ON v.item_id = i.id WHERE i.kind = 'ministry_template'`),
+		[{ items: 10, versions: 10 }],
+	);
 	assert.deepEqual(oldRows(await church(), beforeChurch), oldRows(beforeChurch, beforeChurch));
+	const addressed = (await church()).find((r) => r.t === "plant")!.row as Record<string, unknown>;
+	assert.deepEqual(
+		[addressed.street, addressed.state_province, addressed.country],
+		["1200 Congress Ave", "TX", "United States"],
+	);
 	assert.deepEqual(
 		(await logins()).filter(
 			(l) =>
@@ -912,6 +977,7 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 						QA_LOGINS.riverside,
 						QA_LOGINS.triage,
 						...T312_LOGINS,
+						QA_LOGINS.discoverySender,
 					] as string[]
 				).includes(String(l.email)),
 		),
@@ -967,6 +1033,7 @@ test("INV-qa-runbook: the runbook's login table lists exactly the QA logins and 
 			"Linked resident",
 			"Ended resident",
 			"Hill Country Owner",
+			"Discovery sender",
 		],
 	);
 	for (const words of [
@@ -1527,6 +1594,12 @@ test("INV-qa-seed: each Grace Austin (QA) and Hill Country login holds its seat 
 	assert.deepEqual(seen.resident.context, { kind: "account", owner: "account" });
 	assert.deepEqual([seen.endedResident.signedIn, seen.endedResident.session], ["signed_in", "active"]);
 	assert.deepEqual(seen.endedResident.context, { kind: "account", owner: "account" });
+	assert.deepEqual(
+		await query(`SELECT u.email, d.revision::text AS revision, d.converted_at FROM discovery d
+			JOIN account a ON a.id = d.account_id JOIN auth_user u ON u.id = a.auth_user_id
+			WHERE u.email IN ('${QA_LOGINS.endedResident}', '${QA_LOGINS.resident}') ORDER BY 1`),
+		[QA_LOGINS.endedResident, QA_LOGINS.resident].map((email) => ({ email, revision: "1", converted_at: null })),
+	);
 });
 
 test("INV-qa-seed: Casey linked through the residency invitation and shares milestone progress, not foundations", async () => {
@@ -1686,4 +1759,72 @@ test("INV-privacy: Hill Country's Owner sees none of Grace Austin's pipeline wit
 		enrollment: refused,
 		residency: "not_linked",
 	});
+});
+
+test("INV-qa-seed: the Discovery sender's request to the Hill Country Owner is 35 days old, and its printed link reads as expired", async () => {
+	const { links, expired, query, seen } = await fresh();
+	assert.equal(links.length, 1, links.join("\n"));
+	assert.match(
+		links[0]!,
+		/^Expired discovery request: https:\/\/qa\.everyfield\.invalid\/connections\/respond\?invitation=[0-9a-f-]{36}#[A-Za-z0-9_-]{43}$/,
+	);
+	const [nico] = await query(`SELECT a.id, u.email_verified, a.registration_state, a.registration_kind,
+		(SELECT count(*)::int FROM seat s WHERE s.account_id = a.id) AS seats,
+		(SELECT count(*)::int FROM discovery d WHERE d.account_id = a.id AND d.converted_at IS NULL) AS discovery
+		FROM account a JOIN auth_user u ON u.id = a.auth_user_id WHERE u.email = '${QA_LOGINS.discoverySender}'`);
+	assert.deepEqual(
+		{ ...nico, id: undefined },
+		{
+			id: undefined,
+			email_verified: true,
+			registration_state: "active",
+			registration_kind: "discovery",
+			seats: 0,
+			discovery: 1,
+		},
+	);
+	assert.deepEqual(
+		await query(`SELECT i.id, i.purpose, i.state, i.recipient_email, i.inviter_id = r.account_id AS sent_by_sender,
+			r.inviter_description, i.created_at <= clock_timestamp() - interval '31 days' AS old,
+			i.created_at > clock_timestamp() - interval '36 days' AS from_the_seed, i.resent_at
+			FROM invitation i JOIN relationship_invitation r ON r.invitation_id = i.id JOIN organization o ON o.id = r.organization_id
+			WHERE r.account_id = '${nico!.id}' AND o.name = '${ORGS.hill}'`),
+		[
+			{
+				id: expired.searchParams.get("invitation"),
+				purpose: "discovery_network",
+				state: "pending",
+				recipient_email: QA_LOGINS.hillOwner,
+				sent_by_sender: true,
+				inviter_description: "Nico Alvarez",
+				old: true,
+				from_the_seed: true,
+				resent_at: null,
+			},
+		],
+	);
+	assert.deepEqual(
+		await query(`SELECT
+			(SELECT count(*)::int FROM affiliation WHERE account_id = '${nico!.id}') AS connections,
+			(SELECT count(*)::int FROM relationship_invitation WHERE account_id = '${nico!.id}') AS requests,
+			(SELECT count(*)::int FROM invitation WHERE recipient_email = '${QA_LOGINS.hillOwner}'
+				AND created_at > clock_timestamp() - interval '30 days') AS recent_to_hill`),
+		[{ connections: 0, requests: 1, recent_to_hill: 2 }],
+	);
+	assert.deepEqual(seen.discoverySender, {
+		signedIn: "signed_in",
+		session: "active",
+		context: { kind: "account", owner: "account" },
+		pending: [],
+	});
+	const read = seen.expiredRequest;
+	assert.equal(read.status, "expired");
+	assert.equal(read.inviterDescription, "Nico Alvarez");
+	assert.deepEqual(
+		[read.pair.kind, read.pair.accountId, read.pair.organization.kind],
+		["discovery", nico!.id, "organization"],
+	);
+	const fiveDaysAgo = Date.now() - 5 * 86_400_000;
+	assert.ok(Math.abs(Date.parse(read.expiredAt) - fiveDaysAgo) < 600_000, read.expiredAt);
+	assert.deepEqual(seen.expiredRequestAsPlanter, { status: "unavailable" });
 });

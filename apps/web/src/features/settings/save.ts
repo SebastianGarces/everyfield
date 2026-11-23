@@ -1,22 +1,42 @@
 "use client";
 
+import type { Lost, Outcome as Shared } from "@everyfield/contracts/common";
 import { useRef, useState } from "react";
 import { errorReference, errorText, same } from "./model";
 import { newRequestKey, type BrandError, type Reply, type SettingsError } from "./port";
 
 export const OFFLINE_REFERENCE = "EF-OFFLINE";
 
-export type Refusal = { message: string; reference: string; code: SettingsError["code"] | BrandError["code"] };
+type Code = SettingsError["code"] | BrandError["code"];
 
-export type Outcome<T> = { ok: true; value: T } | { ok: false; refusal: Refusal };
+export type Refusal = { message: string; reference: string; code: Code };
+
+export type Outcome<T> = Shared<T, Code, Omit<Refusal, "code">>;
+
+export type Unsaved = Exclude<Outcome<unknown>, { status: "ok" }>;
+
+export const LOST: Lost = { status: "lost" };
+
+export const OFFLINE: Refusal = {
+	message: "Everyfield could not be reached, so this may not have saved. Load the latest version to check.",
+	reference: OFFLINE_REFERENCE,
+	code: "unknown",
+};
 
 export function refusalOf(error: SettingsError): Refusal {
 	return { message: errorText(error), reference: errorReference(error), code: error.code };
 }
 
+export const refused = (refusal: Refusal): Unsaved => ({ status: "refused", ...refusal });
+
+export function refusalFor(outcome: Unsaved, lost: Refusal = OFFLINE): Refusal {
+	if (outcome.status === "lost") return lost;
+	return { message: outcome.message, reference: outcome.reference, code: outcome.code };
+}
+
 export async function attempt<T>(prefix: string, call: (requestKey: string) => Promise<Reply<T>>): Promise<Outcome<T>> {
 	const reply = await call(newRequestKey(prefix));
-	return reply.status === "ok" ? { ok: true, value: reply.value } : { ok: false, refusal: refusalOf(reply.error) };
+	return reply.status === "ok" ? reply : refused(refusalOf(reply.error));
 }
 
 export function useWrite(prefix: string) {
@@ -38,19 +58,14 @@ export function useWrite(prefix: string) {
 			const reply = await call(keyFor(payload));
 			if (reply.status === "ok") {
 				last.current = null;
-				return { ok: true, value: reply.value };
+				return reply;
 			}
-			const refused = refusalOf(reply.error);
-			setRefusal(refused);
-			return { ok: false, refusal: refused };
+			const shown = refusalOf(reply.error);
+			setRefusal(shown);
+			return refused(shown);
 		} catch {
-			const refused: Refusal = {
-				message: "Everyfield could not be reached, so this may not have saved. Load the latest version to check.",
-				reference: OFFLINE_REFERENCE,
-				code: "unknown",
-			};
-			setRefusal(refused);
-			return { ok: false, refusal: refused };
+			setRefusal(OFFLINE);
+			return LOST;
 		} finally {
 			setPending(false);
 		}

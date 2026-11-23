@@ -1,6 +1,14 @@
 "use client";
 
-import { checkNote, checkOutcome, GUEST_NAME_MAX, type GuestMatch, type Plan } from "@everyfield/contracts/launch";
+import { dayText } from "@everyfield/contracts/common";
+import {
+	checkNote,
+	checkOutcome,
+	GUEST_NAME_MAX,
+	launchSundayArrived,
+	type GuestMatch,
+	type Plan,
+} from "@everyfield/contracts/launch";
 import { Add01Icon, PencilEdit02Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -16,6 +24,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	Textarea,
 	toast,
@@ -27,7 +36,6 @@ import { addGuest, correctOutcome, recordOutcome } from "./actions.ts";
 import { suggestGuests } from "./fetch.ts";
 import {
 	countText,
-	longDate,
 	NOTE_MESSAGE,
 	OUTCOME_MESSAGE,
 	parseCount,
@@ -118,7 +126,7 @@ export function OutcomeCard({
 							: "What actually happened, once it has. A passed date or finished milestones never record it for you."}
 					</CardDescription>
 				</CardHeading>
-				{admin ? (
+				{admin && (o || launchSundayArrived(plan.launch, plan.today)) ? (
 					<CardActions>
 						{o ? (
 							<Button variant="secondary" size="sm" onClick={() => open("correct")}>
@@ -137,8 +145,8 @@ export function OutcomeCard({
 			{o ? (
 				<>
 					<dl className="grid grid-cols-5 gap-x-6 gap-y-4 max-app-md:grid-cols-3 max-app-sm:grid-cols-2">
-						<Fact label="Held" value={longDate(o.actualDate)} />
-						<Fact label="Planned" value={planned ? longDate(planned) : "No date"} muted />
+						<Fact label="Held" value={dayText(o.actualDate, { weekday: "short" })} />
+						<Fact label="Planned" value={planned ? dayText(planned, { weekday: "short" }) : "No date"} muted />
 						<Fact label="Attendance" value={countText(o.attendance)} muted={o.attendance === null} />
 						<Fact label="Decisions" value={countText(o.decisions)} muted={o.decisions === null} />
 						<Fact label="Guests named" value={countText(plan.guests.count)} />
@@ -242,11 +250,7 @@ function OutcomeDialog({
 								<Textarea rows={2} value={draft.reason} onChange={(e) => set({ reason: e.target.value })} />
 							</Field>
 						) : null}
-						{draft.error ? (
-							<p role="alert" className="text-sm text-red-700">
-								{draft.error}
-							</p>
-						) : null}
+						<InlineAlert>{draft.error}</InlineAlert>
 					</DialogBody>
 					<DialogFooter>
 						<Button type="button" variant="secondary" onClick={() => onChange(null)}>

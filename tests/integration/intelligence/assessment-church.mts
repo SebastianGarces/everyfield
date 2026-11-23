@@ -35,11 +35,20 @@ export const METHODOLOGY = [
 	],
 ] as const;
 
-export async function church(prefix: string, { cleanup = false } = {}) {
+export async function church(
+	prefix: string,
+	{
+		cleanup = false,
+		clock,
+		max = 6,
+		roles,
+	}: { cleanup?: boolean; clock?: Date; max?: number; roles?: Parameters<typeof fixture>[0]["roles"] } = {},
+) {
 	const database = await fixture({
 		prefix,
-		max: 6,
-		...(cleanup ? { roles: { runtime: ["runtime"] as const, cleanup: ["cleanup"] as const } } : {}),
+		max,
+		clock,
+		...(roles ? { roles } : cleanup ? { roles: { runtime: ["runtime"] as const, cleanup: ["cleanup"] as const } } : {}),
 	});
 	const { admin } = database;
 	const db = database.pools.runtime;
@@ -340,6 +349,9 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 		plant,
 		person,
 		committed,
+		vision,
+		role,
+		checkIn,
 		harvest,
 		portfolio,
 		unknownCount,

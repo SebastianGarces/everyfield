@@ -35,13 +35,9 @@ import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
-import { refused } from "../../support/fixture.mts";
+import { ok, refused } from "../../support/fixture.mts";
 import type { SQL } from "../../../packages/db/src/query.ts";
 
-const ok = <T,>(result: { status: "ok"; value: T } | { status: "refused" }): T => {
-	if (result.status !== "ok") assert.fail(JSON.stringify(result));
-	return result.value;
-};
 const present = <T,>(value: T | null | undefined, what: string): T => {
 	if (value === null || value === undefined) assert.fail("missing " + what);
 	return value;
@@ -1105,6 +1101,50 @@ test("INV-statements an outcome locks its task and reads its Person in one state
 	const completed = await save(onTask(dated), "attempted_no_contact", { completeTask: true });
 	assert.deepEqual([completed.n, completed.saved.task?.status], [6, "complete"]);
 	assert.deepEqual(await rows(due), [{ n: 0 }]);
+});
+
+test("INV-statements an owner change locks its follow-ups and reads the new owner in one statement", async () => {
+	const c = await church();
+	const rae = await person(c, "Rae Moss");
+	const holder = await c.seated("member");
+	await committed(c, holder);
+	const recipient = await c.seated("member");
+	await committed(c, recipient);
+	const task = ok(await write(c.owner, "createFollowUp", { requestKey: key(), input: { personId: rae } })).task;
+	const assign = (revision: string) =>
+		counted(async () =>
+			ok(
+				await write(c.owner, "assignFollowUp", {
+					requestKey: key(),
+					expectedRevision: revision,
+					input: { taskId: task.id, assigneeIds: [holder.id] },
+				}),
+			),
+		);
+	const joined = await assign(task.revision);
+	const same = await assign(joined.value.task.revision);
+	const handed = await counted(async () =>
+		ok(
+			await write(c.owner, "executeHandoff", {
+				requestKey: key(),
+				input: {
+					fromAccountId: holder.id,
+					toAccountId: recipient.id,
+					items: [{ taskId: task.id, expectedRevision: joined.value.task.revision }],
+				},
+			}),
+		),
+	);
+	assert.deepEqual(
+		[
+			joined.value.task.assignees.map((a: { accountId: string }) => a.accountId),
+			same.value.outcome,
+			handed.value.moved.map((m: { taskId: string }) => m.taskId),
+			await rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${task.id}`),
+		],
+		[[holder.id], "noop", [task.id], [{ account_id: recipient.id }]],
+	);
+	assert.deepEqual([joined.n, same.n, handed.n], [5, 5, 5]);
 });
 
 test("AC:TARGET-MTG-022 a Member's contact finishes only the follow-ups they hold", async () => {

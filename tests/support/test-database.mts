@@ -6,7 +6,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 
 export type Database = ReturnType<typeof createDatabase>;
 
-export type Capability = "runtime" | "auth" | "cleanup";
+export type Capability = "runtime" | "auth" | "cleanup" | "flag_reader";
 
 export function testDatabaseUrl(): URL {
 	const refused = Error("Approved shared development database or disposable CI database required");
@@ -35,7 +35,10 @@ export async function createSchema(admin: Database, name: string) {
 }
 
 export async function dropSchema(admin: Database, name: string) {
-	await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${identifier(name)} CASCADE`));
+	await admin.transaction(async (tx) => {
+		await tx.execute(sql`SELECT pg_advisory_xact_lock(7341097)`);
+		await tx.execute(sql.raw(`DROP SCHEMA IF EXISTS ${identifier(name)} CASCADE`));
+	});
 }
 
 export async function pinSchemaClock(admin: Database, schema: string, at: Date) {

@@ -21,14 +21,23 @@ function formal(...args: string[]) {
 	return { status: r.status, output: `${r.stdout}${r.stderr}` };
 }
 
-function mutant(from: string, to: string) {
+function mutant(from: string, to: string, only?: string) {
 	const dir = mkdtempSync(join(cache, "mutant-"));
 	cpSync(join(root, "formal/permissions"), dir, { recursive: true });
 	const file = join(dir, "Permissions.tla");
 	const source = readFileSync(file, "utf8");
 	assert.equal(source.split(from).length, 2, `the model no longer has: ${from}`);
 	writeFileSync(file, source.replace(from, to));
+	if (only) checkOnly(join(dir, "MCPermissions.cfg"), only);
 	return dir;
+}
+
+function checkOnly(file: string, name: string) {
+	const sections = readFileSync(file, "utf8").split(/^(?=INVARIANTS?\b|PROPERTY\b|PROPERTIES\b)/m);
+	const target = sections.find((s) => new RegExp(`^\\s+${name}$`, "m").test(s));
+	assert.ok(target, `${name} is not checked`);
+	const heading = /^PROPERT/.test(target) ? "PROPERTY" : "INVARIANT";
+	writeFileSync(file, `${sections[0]}${heading}\n    ${name}\n`);
 }
 
 test("INV-formal: the permissions model passes every property and its outcome table, traces and map are current", () => {
@@ -68,11 +77,12 @@ for (const [property, from, to] of [
 	["OwnerSeatFixed", '    /\\ targetRole # "owner"\n', ""],
 ] as const)
 	test(`INV-formal: TLC fails ${property} with a trace when the model drops its guard`, () => {
-		const dir = mutant(from, to);
+		const dir = mutant(from, to, property);
 		try {
 			const { status, output } = formal(dir);
 			assert.equal(status, 1, output);
 			assert.match(output, new RegExp(`FAILED\\s+${property}$`, "m"));
+			assert.doesNotMatch(output, new RegExp(`^\\s+(?:FAILED|stopped|unknown)\\s+(?!${property}$)\\w+$`, "m"));
 			assert.match(output, new RegExp(`Error: (?:Action property|Invariant) ${property} is violated`));
 			assert.match(output, /State 1: <Initial predicate>/);
 		} finally {

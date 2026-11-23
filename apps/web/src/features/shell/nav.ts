@@ -1,6 +1,7 @@
 import {
 	BookOpen01Icon,
 	Calendar03Icon,
+	ChurchIcon,
 	ChartLineData01Icon,
 	DashboardSquare01Icon,
 	File02Icon,
@@ -79,6 +80,14 @@ const LAUNCH = {
 	icon: StartUp02Icon,
 	prefetch: false,
 } as const;
+const SET_UP = {
+	kind: "link",
+	key: "set-up",
+	label: "Set up your church",
+	href: "/onboarding",
+	icon: ChurchIcon,
+	prefetch: false,
+} as const;
 const PLANTS = { kind: "link", key: "plants", label: "Plants", href: "/network", icon: HierarchyIcon } as const;
 const ORGANIZATION_PAGES = [
 	{ kind: "link", key: "connections", label: "Connections", href: "/settings/sharing#connections", icon: Link01Icon },
@@ -112,13 +121,15 @@ const MY_RESIDENCY = {
 export type NavViewer =
 	| { context: "plant"; role: "owner" | "admin" | "member" }
 	| { context: "organization" }
-	| { context: "account"; residencyLinked: boolean };
+	| { context: "account"; residencyLinked: boolean }
+	| { context: "pending" };
 
 export type RailNav = { main: readonly ShellLink[]; pages: readonly ShellLink[]; guide: boolean };
 
 export function shellNav(viewer: NavViewer): RailNav {
 	if (viewer.context === "organization")
 		return { main: [PLANTS, PIPELINE, REVIEWS], pages: ORGANIZATION_PAGES, guide: false };
+	if (viewer.context === "pending") return { main: [SET_UP], pages: [], guide: false };
 	if (viewer.context === "account")
 		return { main: viewer.residencyLinked ? [MY_RESIDENCY, WIKI] : [WIKI], pages: [DOCUMENTS], guide: true };
 	return {

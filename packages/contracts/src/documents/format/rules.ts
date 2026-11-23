@@ -1,3 +1,4 @@
+import { counted } from "../../common/text.ts";
 import { FORMAT_SCHEMA } from "./schema.ts";
 import type {
 	AnyNode,
@@ -53,6 +54,15 @@ export type Formula =
 	| { op: "+" | "-" | "*" | "/"; a: Formula; b: Formula };
 type Token = { t: "num"; v: number } | { t: "id"; v: string } | { t: "-" | "+" | "*" | "/" | "(" | ")" | ":" };
 
+export class FormulaRejected extends Error {
+	readonly problem: string;
+	constructor(problem: string) {
+		super(problem);
+		this.name = "FormulaRejected";
+		this.problem = problem;
+	}
+}
+
 export function parseFormula(source: string): Formula {
 	const tokens: Token[] = [];
 	const re = /\s*(?:(\d+(?:\.\d+)?)|([a-z][a-z0-9_]*)|([-+*/():]))/y;
@@ -61,7 +71,7 @@ export function parseFormula(source: string): Formula {
 		if (/^\s*$/.test(source.slice(at))) break;
 		re.lastIndex = at;
 		const m = re.exec(source);
-		if (!m) throw new Error(`the formula "${source}" has an unexpected character at position ${at + 1}`);
+		if (!m) throw new FormulaRejected(`the formula "${source}" has an unexpected character at position ${at + 1}`);
 		at = re.lastIndex;
 		if (m[1] !== undefined) tokens.push({ t: "num", v: Number(m[1]) });
 		else if (m[2] !== undefined) tokens.push({ t: "id", v: m[2] });
@@ -71,13 +81,13 @@ export function parseFormula(source: string): Formula {
 	const peek = () => tokens[i];
 	const take = <T extends Token["t"]>(t?: T): Extract<Token, { t: T }> => {
 		const tok = tokens[i];
-		if (!tok || (t && tok.t !== t)) throw new Error(`the formula "${source}" is incomplete or malformed`);
+		if (!tok || (t && tok.t !== t)) throw new FormulaRejected(`the formula "${source}" is incomplete or malformed`);
 		i += 1;
 		return tok as Extract<Token, { t: T }>;
 	};
 	const factor = (): Formula => {
 		const tok = peek();
-		if (!tok) throw new Error(`the formula "${source}" ends too early`);
+		if (!tok) throw new FormulaRejected(`the formula "${source}" ends too early`);
 		if (tok.t === "-") {
 			take();
 			return { op: "neg", a: factor() };
@@ -99,7 +109,7 @@ export function parseFormula(source: string): Formula {
 			return { op: "sum", first, last };
 		}
 		if (tok.t === "id") return { op: "col", id: take("id").v };
-		throw new Error(`the formula "${source}" is malformed`);
+		throw new FormulaRejected(`the formula "${source}" is malformed`);
 	};
 	const term = (): Formula => {
 		let a = factor();
@@ -118,7 +128,8 @@ export function parseFormula(source: string): Formula {
 		return a;
 	};
 	const tree = expr();
-	if (i !== tokens.length) throw new Error(`the formula "${source}" has extra text after a complete expression`);
+	if (i !== tokens.length)
+		throw new FormulaRejected(`the formula "${source}" has extra text after a complete expression`);
 	return tree;
 }
 
@@ -501,7 +512,7 @@ function checkNode(node: unknown, path: string, ctx: Ctx, allowed: string[], den
 		if (!Array.isArray(content)) fail(where, "content must be a list");
 		else {
 			const { min = 0, max } = spec.content;
-			if (content.length < min) fail(where, `a ${type} node needs at least ${min} child node${min === 1 ? "" : "s"}`);
+			if (content.length < min) fail(where, `a ${type} node needs at least ${counted(min, "child node")}`);
 			if (max !== undefined && content.length > max) fail(where, `a ${type} node holds at most ${max} child nodes`);
 			const passDeny = type === "column" || type === "box" || type === "if";
 			const childDeny = [...(spec.content.deny ?? []), ...(passDeny ? deny : [])];
@@ -569,7 +580,8 @@ function checkTable(node: Rec, attrs: Rec, where: string, ctx: Ctx) {
 			try {
 				tree = parseFormula(c.formula);
 			} catch (e) {
-				fail(at, (e as Error).message);
+				if (!(e instanceof FormulaRejected)) throw e;
+				fail(at, e.problem);
 				return;
 			}
 			for (const ref of formulaRefs(tree, ids as string[])) {
@@ -597,10 +609,7 @@ function checkTable(node: Rec, attrs: Rec, where: string, ctx: Ctx) {
 		const role = rowAttrs.role ?? "item";
 		const cells = list(row.content);
 		if (cells.length !== cols.length)
-			fail(
-				at,
-				`the row has ${cells.length} cell${cells.length === 1 ? "" : "s"} but the table has ${cols.length} columns`,
-			);
+			fail(at, `the row has ${counted(cells.length, "cell")} but the table has ${cols.length} columns`);
 		if (role !== "item" && !ledger)
 			fail(at, `a ${String(role)} row needs a ledger table; this table's style is "${String(attrs.style ?? "grid")}"`);
 		if (role === "group") groupOpen = true;
@@ -676,7 +685,7 @@ function checkValue(value: unknown, spec: ValueSpec, path: string, ctx: Ctx) {
 			if (!Array.isArray(value)) fail(path, "must be a list");
 			else {
 				if (spec.min !== undefined && value.length < spec.min)
-					fail(path, `needs at least ${spec.min} entr${spec.min === 1 ? "y" : "ies"}`);
+					fail(path, `needs at least ${counted(spec.min, "entry", "entries")}`);
 				if (spec.max !== undefined && value.length > spec.max) fail(path, `holds at most ${spec.max} entries`);
 				const of = spec.of;
 				if (of) value.forEach((v, i) => checkValue(v, of, `${path}[${i}]`, ctx));

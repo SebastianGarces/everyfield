@@ -74,6 +74,15 @@ export function resultForModel(resultId: number, result: SourceResult): ModelRep
 	return JSON.parse(scrub(JSON.stringify({ ...value, rows, truncatedRows: result.rows.length - rows.length })));
 }
 
+const RECORDED_CRITERIA = z.array(
+	z.strictObject({ label: z.string(), status: z.string(), reading: z.string().nullable() }),
+);
+function forModel(c: Proposal["review"]["changes"][number]) {
+	if (c.field === "note") return { ...c, before: c.before === null ? null : "(the current note)" };
+	const open = c.field === "openCriteria" ? RECORDED_CRITERIA.safeParse(c.after) : null;
+	return open?.success ? { ...c, after: open.data.map(({ label, status }) => ({ label, status })) } : c;
+}
+
 export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "review">): ModelReply {
 	const target = proposal.review.target;
 	const people = (proposal.review.people ?? []).map((p) => ({
@@ -86,8 +95,10 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 		scrub(
 			JSON.stringify({
 				proposalId: proposal.id,
-				status: "awaiting_approval",
-				expiresAt: proposal.expiresAt,
+				...(proposal.review.refusal
+					? { status: "refused", refusal: proposal.review.refusal }
+					: { status: "awaiting_approval", expiresAt: proposal.expiresAt }),
+				...(proposal.review.refusal ? { refusal: proposal.review.refusal } : {}),
 				rows: target
 					? [
 							{
@@ -95,14 +106,13 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 								id: target.id,
 								label: target.label,
 								fields: {
-									changes: proposal.review.changes.map((c) =>
-										c.field === "note" ? { ...c, before: c.before === null ? null : "(the current note)" } : c,
-									),
+									changes: proposal.review.changes.map(forModel),
 								},
 							},
 							...people,
 						]
 					: people,
+				...(target ? {} : { changes: proposal.review.changes }),
 			}),
 		),
 	) as ModelReply;

@@ -1,5 +1,6 @@
 "use client";
 
+import { counted, countWord } from "@everyfield/contracts/common";
 import { ArrowDataTransferHorizontalIcon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -46,7 +47,7 @@ export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => voi
 			items: chosen.slice(0, HANDOFF_LIMIT).map((d) => ({ taskId: d.taskId, expectedRevision: d.revision })),
 		};
 		await lane.save({
-			what: `Moving ${input.items.length} follow-up${input.items.length === 1 ? "" : "s"}`,
+			what: `Moving ${counted(input.items.length, "follow-up")}`,
 			send: (key) => executeHandoff(key, input),
 			ok: (value) => {
 				actions.settle(value);
@@ -130,13 +131,12 @@ export function HandoffDialog({
 							{result ? (
 								<div role="status" className="flex flex-col gap-2 text-sm text-ink-2">
 									<p className="font-medium text-ink">
-										Moved {result.moved.length} follow-up{result.moved.length === 1 ? "" : "s"} to{" "}
-										{result.to.displayName}.
+										Moved {counted(result.moved.length, "follow-up")} to {result.to.displayName}.
 									</p>
 									<p>
 										{result.remainingTotal === 0
 											? `${sourceName ?? "They"} has no open follow-ups left.`
-											: `${result.remainingTotal} open follow-up${result.remainingTotal === 1 ? "" : "s"} still belong to ${sourceName ?? "them"}. Review them next, or leave them; they show as Needs owner while ${sourceName ?? "they"} cannot own follow-ups.`}
+											: `${counted(result.remainingTotal, "open follow-up")} still belong to ${sourceName ?? "them"}. Review them next, or leave them; they show as Needs owner while ${sourceName ?? "they"} cannot own follow-ups.`}
 									</p>
 								</div>
 							) : (
@@ -221,7 +221,7 @@ export function HandoffDialog({
 											saving={lane.saving}
 											blocked={chosen.length ? null : "Choose at least one follow-up."}
 										>
-											{`Move ${Math.min(chosen.length, HANDOFF_LIMIT)} follow-up${chosen.length === 1 ? "" : "s"}`}
+											{`Move ${Math.min(chosen.length, HANDOFF_LIMIT)} ${countWord(chosen.length, "follow-up")}`}
 										</SaveButton>
 									) : null}
 								</>

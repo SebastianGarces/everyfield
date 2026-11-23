@@ -3,6 +3,7 @@
 import { inviteRelationshipRequest } from "@everyfield/contracts/organizations";
 import { HierarchyIcon } from "@hugeicons/core-free-icons";
 import {
+	Alert,
 	Button,
 	Dialog,
 	DialogBody,
@@ -208,23 +209,22 @@ function InviteForm({
 							shownDisclosure.status === "ready" && shownDisclosure.value ? (
 								<SharingDisclosure disclosure={shownDisclosure.value} organizationName={target.name} />
 							) : (
-								<div
+								<Alert
 									role="alert"
-									className="flex flex-wrap items-center gap-3 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600"
+									actions={
+										shownDisclosure.status === "failed" ? (
+											<Button size="sm" variant="secondary" onClick={() => askDisclosure(target)}>
+												Try again
+											</Button>
+										) : undefined
+									}
 								>
-									<p className="min-w-0 flex-1">
-										{shownDisclosure.status === "failed"
-											? shownDisclosure.read === "failed"
-												? READ_FAILED
-												: `What ${target.name} would see did not load. Nothing was sent.`
-											: `${target.name} cannot be asked from here right now. Nothing was sent.`}
-									</p>
-									{shownDisclosure.status === "failed" ? (
-										<Button size="sm" variant="secondary" onClick={() => askDisclosure(target)}>
-											Try again
-										</Button>
-									) : null}
-								</div>
+									{shownDisclosure.status === "failed"
+										? shownDisclosure.read === "failed"
+											? READ_FAILED
+											: `What ${target.name} would see did not load. Nothing was sent.`
+										: `${target.name} cannot be asked from here right now. Nothing was sent.`}
+								</Alert>
 							)
 						) : (
 							<div aria-busy="true">

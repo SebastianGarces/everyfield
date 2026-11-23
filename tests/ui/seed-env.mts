@@ -15,7 +15,16 @@ import { fileURLToPath } from "node:url";
 import { fixturePath } from "./setup.mjs";
 
 const ENV_FILE = fileURLToPath(new URL("../../apps/web/.env.local", import.meta.url));
-export const SEEDS = ["people", "invitation", "meetings", "evry", "oversight", "pipeline", "launch-evry"] as const;
+export const SEEDS = [
+	"people",
+	"invitation",
+	"meetings",
+	"evry",
+	"golden",
+	"oversight",
+	"pipeline",
+	"launch-evry",
+] as const;
 export type SeedName = (typeof SEEDS)[number];
 const SCHEMA = /^ui_[a-f0-9]{16}$/;
 const ROLE = /^ui_[a-f0-9]{12}(_auth)?$/;
@@ -105,6 +114,7 @@ export async function openSeedEnvironment(origin: string): Promise<SeedEnvironme
 				`IDENTITY_ADDRESS_KEY=${env.addressKey}`,
 				`IDENTITY_MAIL_FROM=security@example.test`,
 				"EVRY_SCRIPTED_MODEL=1",
+				"VERCEL=1",
 				...devStorage(),
 				"",
 			].join("\n"),

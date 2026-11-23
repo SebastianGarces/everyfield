@@ -1,11 +1,13 @@
 "use client";
 
 import { Checkbox, Field, Input, Radio, RadioGroup, SegmentedControl, Select, Textarea } from "@everyfield/ui/controls";
-import { cn } from "@everyfield/ui/foundations";
+import { cn, useViewerNow, useViewerZone } from "@everyfield/ui/foundations";
+import { localInputAt } from "../../components/time.ts";
 import { useId } from "react";
 import {
 	CHANNEL_LABEL,
 	CHANNELS,
+	contactRange,
 	localInputOf,
 	NOTES_MAX,
 	OUTCOME_HINT,
@@ -49,7 +51,6 @@ export function OutcomeFields({
 				</span>
 				<RadioGroup
 					aria-labelledby={groupLabel}
-					aria-describedby={errors.outcome ? groupError : undefined}
 					aria-required="true"
 					data-invalid={errors.outcome ? "true" : undefined}
 					value={draft.outcome}
@@ -62,13 +63,14 @@ export function OutcomeFields({
 							value={o}
 							label={OUTCOME_LABEL[o]}
 							description={OUTCOME_HINT[o]}
+							aria-describedby={errors.outcome ? groupError : undefined}
 							className={cn(
 								"rounded-card px-3.5 shadow-[inset_0_0_0_1px_var(--ef-line-2)] transition-[box-shadow] duration-150 has-[[data-state=checked]]:shadow-[inset_0_0_0_2px_var(--ef-ink)]",
 							)}
 						/>
 					))}
 				</RadioGroup>
-				<div aria-live="polite" className="empty:hidden">
+				<div aria-live="polite" className="empty:sr-only">
 					{errors.outcome ? (
 						<p id={groupError} className="text-xs font-medium text-magenta-600">
 							{errors.outcome}
@@ -140,6 +142,11 @@ function WhenField({
 	required: boolean;
 }) {
 	const error = useId();
+	const now = useViewerNow();
+	const zone = useViewerZone();
+	const latest = now === null || zone === null ? undefined : localInputAt(now, zone);
+	const earliest =
+		now === null || zone === null ? undefined : localInputAt(contactRange(new Date(now)).from.getTime(), zone);
 	return (
 		<div className="flex flex-col gap-1.5">
 			<span aria-hidden="true" className="text-sm font-medium text-ink-2">
@@ -157,7 +164,11 @@ function WhenField({
 					}
 					value={draft.when as "now" | "earlier"}
 					onValueChange={(when) =>
-						onDraft({ ...draft, when, at: when === "earlier" && !draft.at ? localInputOf(new Date()) : draft.at })
+						onDraft({
+							...draft,
+							when,
+							at: when === "earlier" && !draft.at ? (latest ?? localInputOf(new Date())) : draft.at,
+						})
 					}
 					options={[
 						{ value: "now", label: "Just now" },
@@ -169,7 +180,7 @@ function WhenField({
 					)}
 				/>
 			</div>
-			<div aria-live="polite" className="empty:hidden">
+			<div aria-live="polite" className="empty:sr-only">
 				{errors.when ? (
 					<p id={error} className="text-xs font-medium text-magenta-600">
 						{errors.when}
@@ -181,7 +192,8 @@ function WhenField({
 					<Input
 						type="datetime-local"
 						value={draft.at}
-						max={localInputOf(new Date())}
+						min={earliest}
+						max={latest}
 						onChange={(e) => onDraft({ ...draft, at: e.target.value })}
 					/>
 				</Field>

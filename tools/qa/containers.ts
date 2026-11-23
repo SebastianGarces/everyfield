@@ -1,5 +1,18 @@
 import { spawnSync } from "node:child_process";
 
+class DockerRefused extends Error {
+	readonly reason: string;
+	constructor(reason: string) {
+		super(reason);
+		this.name = "DockerRefused";
+		this.reason = reason;
+	}
+}
+const skipReason = (error: unknown) =>
+	error instanceof DockerRefused
+		? error.reason
+		: `${error instanceof Error ? error.name : typeof error} while sweeping`;
+
 export const PREFIX = "qa-test-";
 export const LABELS = {
 	pid: "everyfield.qa-test.owner-pid",
@@ -36,8 +49,10 @@ export function sweep(env = process.env): { removed: Swept[]; skipped?: string }
 		return { removed: [], skipped: `${AGE_ENV}=${raw} is not a number of minutes` };
 	const docker = (...args: string[]) => {
 		const r = spawnSync("docker", args, { encoding: "utf8", env, timeout: 30_000 });
-		if (r.error) throw new Error(`docker is not available: ${r.error.message}`);
-		if (r.status !== 0) throw new Error(`docker ${args[0]} failed: ${(r.stderr || r.stdout).trim().split("\n")[0]}`);
+		if (r.error)
+			throw new DockerRefused(`docker is not available: ${(r.error as NodeJS.ErrnoException).code ?? r.error.name}`);
+		if (r.status !== 0)
+			throw new DockerRefused(`docker ${args[0]} failed: ${(r.stderr || r.stdout).trim().split("\n")[0]}`);
 		return r.stdout;
 	};
 	let containers: Inspected[];
@@ -45,7 +60,7 @@ export function sweep(env = process.env): { removed: Swept[]; skipped?: string }
 		const ids = docker("ps", "-a", "-q", "--no-trunc", "--filter", `name=${PREFIX}`).split("\n").filter(Boolean);
 		containers = ids.length ? (JSON.parse(docker("inspect", ...ids)) as Inspected[]) : [];
 	} catch (error) {
-		return { removed: [], skipped: (error as Error).message };
+		return { removed: [], skipped: skipReason(error) };
 	}
 	const now = Date.now(),
 		removed: Swept[] = [];
@@ -66,7 +81,7 @@ export function sweep(env = process.env): { removed: Swept[]; skipped?: string }
 			docker("rm", "-f", "-v", c.Id);
 			removed.push({ name, ageMinutes, reason });
 		} catch (error) {
-			return { removed, skipped: (error as Error).message };
+			return { removed, skipped: skipReason(error) };
 		}
 	}
 	return { removed };
@@ -77,7 +92,7 @@ export function sweepCommand(log: (line: string) => void = console.error, env = 
 	try {
 		result = sweep(env);
 	} catch (error) {
-		result = { removed: [], skipped: (error as Error).message };
+		result = { removed: [], skipped: skipReason(error) };
 	}
 	for (const r of result.removed) log(`qa-test sweep removed ${r.name}, ${r.ageMinutes} min old: ${r.reason}`);
 	if (result.skipped) log(`qa-test sweep skipped: ${result.skipped}`);

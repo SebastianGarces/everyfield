@@ -1,3 +1,4 @@
+import { counted, countWord } from "@everyfield/contracts/common";
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import { Icon } from "@everyfield/ui/foundations";
 import type { ReactNode } from "react";
@@ -32,7 +33,7 @@ export function NoticeChanges({ review }: { review: Review }) {
 			<Box>
 				<p className="text-text-2">
 					{notices.length === 1 ? "This notification" : `These ${notices.length} notifications`}{" "}
-					{done ? (notices.length === 1 ? "was" : "were") : "will be"} marked read:
+					{done ? countWord(notices.length, "was", "were") : "will be"} marked read:
 				</p>
 				<ul className="flex flex-col gap-2">
 					{notices.map((n) => (
@@ -58,8 +59,8 @@ export function NoticeChanges({ review }: { review: Review }) {
 				</div>
 				<p className="text-text-2">
 					{done
-						? `${count.toLocaleString()} ${count === 1 ? "notification was" : "notifications were"} marked read.`
-						: `All ${count.toLocaleString()} unread ${count === 1 ? "notification" : "notifications"} in your bell will be marked read. One that arrives after this review stays unread.`}
+						? `${counted(count, "notification was", "notifications were")} marked read.`
+						: `All ${counted(count, "unread notification")} in your bell will be marked read. One that arrives after this review stays unread.`}
 				</p>
 			</Box>
 		);

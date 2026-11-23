@@ -3,8 +3,21 @@
 import { ArrowDown01Icon, BellIcon, Cancel01Icon, Menu01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
-import { Menu, MenuContent, MenuTrigger, Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "../controls";
+import { useRef, useState, type ReactNode } from "react";
+import {
+	Dialog,
+	DialogContent,
+	DialogTitle,
+	DialogTrigger,
+	Menu,
+	MenuContent,
+	MenuTrigger,
+	Popover,
+	PopoverAnchor,
+	PopoverContent,
+	PopoverTrigger,
+	usePhone,
+} from "../controls";
 import { AvatarImage } from "../display/AvatarImage";
 import { cn, EvryBot, HoverGroup, Icon, Lockup, LogoMark, useHoverItem } from "../foundations";
 import { both, useIntentPrefetch } from "../controls/IntentLink";
@@ -99,7 +112,7 @@ function Topbar({
 	return (
 		<Popover open={menuOpen} onOpenChange={setMenuOpen}>
 			<PopoverAnchor asChild>
-				<header className="sticky top-0 z-20 col-span-full flex items-center gap-[14px] ef-top-fade pt-[22px] pr-6 pb-2 pl-[22px] *:flex-none *:whitespace-nowrap max-app-xl:gap-2.5 max-app-md:gap-2 max-app-md:px-3 max-app-md:pt-3 app-2xl:grid app-2xl:grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)]">
+				<header className="sticky top-0 z-30 col-span-full flex items-center gap-[14px] ef-top-fade pt-[22px] pr-6 pb-2 pl-[22px] *:flex-none *:whitespace-nowrap max-app-xl:gap-2.5 max-app-md:gap-2 max-app-md:px-3 max-app-md:pt-3 app-2xl:grid app-2xl:grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)]">
 					<Link
 						href={homeHref}
 						aria-label="Everyfield, Overview"
@@ -259,16 +272,18 @@ function TopIconButton({
 
 function Rail({ nav, current }: { nav: ShellNav; current: string | null }) {
 	return (
-		<aside
-			aria-label="Secondary"
-			className="sticky top-[92px] z-[25] flex h-[calc(100dvh-112px)] flex-col gap-[14px] pt-[18px] pb-5 pl-[22px] max-app-md:hidden"
-		>
-			<ThemeToggle variant="rail" />
-			<div className="flex-[.6]" />
-			<RailGroup items={nav.pages} current={current} />
-			<div className="flex-1" />
-			<RailGroup items={nav.tools} current={current} />
-		</aside>
+		<div className="flex flex-col max-app-md:hidden">
+			<aside
+				aria-label="Secondary"
+				className="sticky bottom-5 z-[25] mt-auto flex min-h-[calc(100dvh-112px)] flex-col gap-[14px] pt-[18px] pb-5 pl-[22px]"
+			>
+				<ThemeToggle variant="rail" />
+				<div className="flex-[.6]" />
+				<RailGroup items={nav.pages} current={current} />
+				<div className="flex-1" />
+				<RailGroup items={nav.tools} current={current} />
+			</aside>
+		</div>
 	);
 }
 
@@ -335,60 +350,107 @@ function NarrowMenu({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }) {
-	const close = () => onOpenChange(false);
+	const phone = usePhone();
+	const after = useRef<(() => void) | null>(null);
+	const choose = (action?: () => void) => {
+		onOpenChange(false);
+		if (phone) after.current = action ?? null;
+		else action?.();
+	};
 	const rest = [...nav.pages, ...nav.tools];
+	const trigger = {
+		className:
+			"inline-flex h-11 items-center gap-2 rounded-nav-item px-3 text-nav text-ink-2 transition-[background-color] hover:bg-surface-2 aria-expanded:bg-ink aria-expanded:text-on-ink",
+		children: (
+			<>
+				<Icon icon={open ? Cancel01Icon : Menu01Icon} size={24} />
+				<span className="max-app-sm:sr-only">Menu</span>
+			</>
+		),
+	};
+	const items = (
+		<>
+			<nav aria-label="Main">
+				<HoverGroup current={current} className="grid gap-1 app-sm:grid-cols-2">
+					{nav.main.map((link) => (
+						<MenuRow key={link.key} item={link} current={current === link.key} onChoose={choose} />
+					))}
+				</HoverGroup>
+			</nav>
+			{rest.length > 0 && (
+				<>
+					<div className="mx-3 my-3 h-px bg-line-2" />
+					<HoverGroup current={current} className="grid gap-1 app-sm:grid-cols-2">
+						<MenuSearch onChoose={() => choose(onSearch)} />
+						{rest.map((item) => (
+							<MenuRow key={item.key} item={item} current={current === item.key} onChoose={choose} />
+						))}
+					</HoverGroup>
+				</>
+			)}
+			<div className="mx-3 my-3 h-px bg-line-2" />
+			<ThemeToggle variant="menu" />
+		</>
+	);
 
+	if (phone)
+		return (
+			<Dialog drawer open={open} onOpenChange={onOpenChange}>
+				<div className={cn(PILL, "flex h-topbar items-center px-2")}>
+					<DialogTrigger {...trigger} />
+				</div>
+				<DialogContent
+					aria-describedby={undefined}
+					onOpenAutoFocus={focusFirstLink}
+					onCloseAutoFocus={(event) => {
+						const action = after.current;
+						after.current = null;
+						if (!action) return;
+						event.preventDefault();
+						action();
+					}}
+				>
+					<DialogTitle className="sr-only">Menu</DialogTitle>
+					<div className="min-h-0 overflow-y-auto overscroll-contain px-3 pt-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+						{items}
+					</div>
+				</DialogContent>
+			</Dialog>
+		);
 	return (
 		<>
 			<div className={cn(PILL, "flex h-topbar items-center px-2 app-md:hidden")}>
-				<PopoverTrigger className="inline-flex h-11 items-center gap-2 rounded-nav-item px-3 text-nav text-ink-2 transition-[background-color] hover:bg-surface-2 aria-expanded:bg-ink aria-expanded:text-on-ink">
-					<Icon icon={open ? Cancel01Icon : Menu01Icon} size={24} />
-					<span className="max-app-sm:sr-only">Menu</span>
-				</PopoverTrigger>
+				<PopoverTrigger {...trigger} />
 			</div>
 			<PopoverContent
 				label="Menu"
 				align="center"
-				onOpenAutoFocus={(event) => {
-					event.preventDefault();
-					(event.currentTarget as HTMLElement).querySelector<HTMLElement>("a[href]")?.focus();
-				}}
+				onOpenAutoFocus={focusFirstLink}
 				className="w-[calc(var(--radix-popover-trigger-width)-24px)] max-h-[calc(100dvh-104px)] overflow-y-auto overscroll-contain p-3 shadow-pop app-md:hidden"
 			>
-				<nav aria-label="Main">
-					<HoverGroup current={current} className="grid gap-1 app-sm:grid-cols-2">
-						{nav.main.map((link) => (
-							<MenuRow key={link.key} item={link} current={current === link.key} onChoose={close} />
-						))}
-					</HoverGroup>
-				</nav>
-				{rest.length > 0 && (
-					<>
-						<div className="mx-3 my-3 h-px bg-line-2" />
-						<HoverGroup current={current} className="grid gap-1 app-sm:grid-cols-2">
-							<MenuSearch
-								onChoose={() => {
-									close();
-									onSearch();
-								}}
-							/>
-							{rest.map((item) => (
-								<MenuRow key={item.key} item={item} current={current === item.key} onChoose={close} />
-							))}
-						</HoverGroup>
-					</>
-				)}
-				<div className="mx-3 my-3 h-px bg-line-2" />
-				<ThemeToggle variant="menu" />
+				{items}
 			</PopoverContent>
 		</>
 	);
 }
 
+function focusFirstLink(event: Event) {
+	event.preventDefault();
+	(event.currentTarget as HTMLElement).querySelector<HTMLElement>("a[href]")?.focus();
+}
+
 const MENU_ROW =
 	"relative flex h-12 w-full items-center gap-3 rounded-nav-item px-3 text-left text-nav text-ink-2 aria-[current=page]:bg-ink aria-[current=page]:text-on-ink aria-[current=page]:shadow-nav-active aria-expanded:bg-ink aria-expanded:text-on-ink";
 
-function MenuRow({ item, current, onChoose }: { item: ShellItem; current: boolean; onChoose: () => void }) {
+function MenuRow({
+	item,
+	current,
+	onChoose,
+}: {
+	item: ShellItem;
+	current: boolean;
+	onChoose: (action?: () => void) => void;
+}) {
 	const { handlers, indicator } = useHoverItem(item.key);
 	const intent = useIntentPrefetch(
 		item.kind === "link" ? item.href : "",
@@ -406,7 +468,7 @@ function MenuRow({ item, current, onChoose }: { item: ShellItem; current: boolea
 			<Link
 				href={item.href}
 				aria-current={current ? "page" : undefined}
-				onClick={onChoose}
+				onClick={() => onChoose()}
 				onNavigate={item.onNavigate}
 				prefetch={linkPrefetch(item)}
 				onPointerEnter={both(handlers.onPointerEnter, intent.onPointerEnter)}
@@ -424,10 +486,7 @@ function MenuRow({ item, current, onChoose }: { item: ShellItem; current: boolea
 			aria-expanded={item.expanded}
 			{...handlers}
 			className={MENU_ROW}
-			onClick={() => {
-				onChoose();
-				item.onSelect();
-			}}
+			onClick={() => onChoose(item.onSelect)}
 		>
 			{body}
 		</button>

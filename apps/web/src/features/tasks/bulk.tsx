@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { Calendar03Icon, Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -11,6 +12,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 	Select,
+	TextButton,
 } from "@everyfield/ui/controls";
 import { useId, useRef, useState, type FormEvent } from "react";
 import type { Wait } from "../../components/save/model.ts";
@@ -44,7 +46,7 @@ export function BulkBar({
 	const reasonId = useId();
 	const mixed = actions.kind === "mixed";
 	const reason = mixed
-		? `${actions.settled} closed ${actions.settled === 1 ? "task is" : "tasks are"} selected. Bulk changes apply to open tasks.`
+		? `${counted(actions.settled, "closed task is", "closed tasks are")} selected. Bulk changes apply to open tasks.`
 		: actions.kind === "settled"
 			? "Closed tasks reopen one at a time, from the task's menu or panel."
 			: null;
@@ -166,7 +168,7 @@ function RescheduleForm({ count, onSubmit }: { count: number; onSubmit: (due: Du
 				Closed tasks keep their due dates. To set a time of day, edit one task at a time.
 			</p>
 			<Button variant="primary" size="sm" type="submit">
-				Reschedule {count} {count === 1 ? "task" : "tasks"}
+				Reschedule {counted(count, "task")}
 			</Button>
 		</form>
 	);
@@ -194,7 +196,7 @@ export function BulkReport({
 		<div role="status" className="mx-1.5 mb-2 flex flex-col gap-2 rounded-md bg-surface px-4 py-3">
 			<div className="flex items-start gap-2">
 				<p className="grow pt-1.5 font-medium text-ink">
-					{verb} {report.changed} of {total} {total === 1 ? "task" : "tasks"}.
+					{verb} {report.changed} of {counted(total, "task")}.
 					{report.remaining
 						? ` ${report.remaining === 1 ? "The open one that did not change is" : `The ${report.remaining} open ones that did not change are`} still selected.`
 						: ""}
@@ -204,13 +206,13 @@ export function BulkReport({
 			<ul className="flex flex-col">
 				{report.unchanged.map((t) => (
 					<li key={t.id} className="border-t border-line py-2 text-sm first:border-t-0">
-						<button
-							type="button"
+						<TextButton
 							onClick={() => onOpen(t.id)}
-							className="inline-flex min-h-6 items-center rounded-xs text-left font-medium text-ink underline-offset-[3px] hover:underline"
+							underline="hover"
+							className="inline-flex min-h-6 items-center text-ink"
 						>
 							{t.title}
-						</button>
+						</TextButton>
 						<span className="text-text-2"> · {bulkOutcomeText(t.outcome, report.kind)}</span>
 					</li>
 				))}

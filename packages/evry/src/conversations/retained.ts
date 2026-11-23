@@ -2,7 +2,8 @@ import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 
 import { rowLive } from "./liveness.ts";
 
-const live = <RowName extends string>(row: SqlLiteral<RowName>) => rowLive(sql.raw(row), sql.raw("c.tenant_id"));
+const live = <RowName extends string>(row: SqlLiteral<RowName>) =>
+	rowLive(sql.raw(row), sql.raw("c.tenant_id"), sql.raw("c.account_id"));
 
 export function retainedEvents(events: SQL): SQL {
 	return sql`SELECT e.sequence,e.turn_id,e.kind,e.created_at,

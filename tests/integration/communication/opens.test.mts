@@ -8,6 +8,7 @@ import { attendanceReader, meetingsReader } from "../../../packages/domain/src/m
 import { resendWebhook } from "../../../apps/web/src/server/jobs/webhook-route.ts";
 import { ok } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { MAILING } from "./church-address.mts";
 
 let f, plant, owner, member;
 const keys = {
@@ -63,7 +64,7 @@ async function untouched(meetingId) {
 
 before(async () => {
 	f = await fixture();
-	plant = await f.workspace();
+	plant = await f.workspace("plant", MAILING);
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	owner = { ...account, actor: await f.actor(account.session) };
