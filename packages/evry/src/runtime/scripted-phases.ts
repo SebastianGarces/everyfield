@@ -19,10 +19,7 @@ const say = (text: string): LanguageModelV4Content[] => [{ type: "text", text }]
 const call = (toolName: string, input: unknown): LanguageModelV4Content[] => [
 	{ type: "tool-call", toolCallId: randomUUID(), toolName, input: JSON.stringify(input) },
 ];
-const longDay = (date: unknown) =>
-	typeof date === "string"
-		? dayText(date, { month: "long" })
-		: "an unknown day";
+const longDay = (date: unknown) => (typeof date === "string" ? dayText(date, { month: "long" }) : "an unknown day");
 
 function criteriaAnswer(rows: Row[]) {
 	const head = rows.find((r) => !("status" in r.fields));

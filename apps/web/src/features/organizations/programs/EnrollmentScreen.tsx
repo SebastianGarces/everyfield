@@ -284,8 +284,8 @@ function MilestoneRow({
 					) : c && c.confirmedOn !== null ? (
 						<>
 							<span className="text-ink">
-								{recordedOn ? `Finished on Version ${recordedOn} · ` : ""}Completed {dayText(c.completedOn)} ·
-								Confirmed {dayText(c.confirmedOn)}
+								{recordedOn ? `Finished on Version ${recordedOn} · ` : ""}Completed {dayText(c.completedOn)} · Confirmed{" "}
+								{dayText(c.confirmedOn)}
 							</span>
 							<span className="text-text-2">
 								{c.source === "resident"

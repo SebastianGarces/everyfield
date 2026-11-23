@@ -69,7 +69,12 @@ test("daysBetween counts whole civil days across month, year, leap-day and DST e
 });
 
 test("dayText in the viewer locale follows the runtime default locale", () => {
-	const viewer = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+	const viewer = new Intl.DateTimeFormat(undefined, {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		timeZone: "UTC",
+	});
 	assert.equal(dayText("2028-02-29", { locale: "viewer" }), viewer.format(Date.UTC(2028, 1, 29, 12)));
 	assert.equal(dayText("2026-12-31", { locale: "viewer" }), viewer.format(Date.UTC(2026, 11, 31, 12)));
 	assert.throws(() => dayText("2026-02-30", { locale: "viewer" }), RangeError);

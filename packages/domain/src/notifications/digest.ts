@@ -259,8 +259,7 @@ export async function compileOversightDigest(
 		.parse({ ...r.rows[0], lines: jsonValue(r.rows[0]?.lines) });
 }
 
-const range = (start: string, end: string) =>
-	start === end ? dayText(start) : `${dayText(start)} to ${dayText(end)}`;
+const range = (start: string, end: string) => (start === end ? dayText(start) : `${dayText(start)} to ${dayText(end)}`);
 
 export function renderPlanterDigest(input: {
 	start: string;

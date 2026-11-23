@@ -269,9 +269,7 @@ function PersonCard({ person, stage }: { person: Card; stage?: string }) {
 						.filter(Boolean)
 						.join(" · ")}
 				</p>
-				{person.lastMovedOn ? (
-					<p className="text-xs text-text-3">Last move {dayText(person.lastMovedOn)}</p>
-				) : null}
+				{person.lastMovedOn ? <p className="text-xs text-text-3">Last move {dayText(person.lastMovedOn)}</p> : null}
 			</div>
 		</article>
 	);

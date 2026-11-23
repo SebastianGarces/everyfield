@@ -97,9 +97,7 @@ function Item({ conversation: c, onCorrect }: { conversation: Conversation; onCo
 				{c.corrections.map((x) => (
 					<li key={x.id}>
 						{[
-							x.dateFrom && x.dateTo
-								? `Date changed from ${dayText(x.dateFrom)} to ${dayText(x.dateTo)}`
-								: null,
+							x.dateFrom && x.dateTo ? `Date changed from ${dayText(x.dateFrom)} to ${dayText(x.dateTo)}` : null,
 							x.noteChanged ? "Note edited" : null,
 						]
 							.filter(Boolean)

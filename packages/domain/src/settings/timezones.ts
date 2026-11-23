@@ -96,8 +96,7 @@ function schedule(plant: typeof t.plant.$inferSelect, zone: string, asOf: string
 		const today = calendarContext(timeZone.parse(plant.timezone), frozenClock(instant.parse(asOf))).localDate;
 		for (let i = 0; i < 14; i++) {
 			const day = addCivilDays(today, i);
-			if (plant.digest_cadence === "weekly" && weekdayOf(day) !== plant.digest_weekday)
-				continue;
+			if (plant.digest_cadence === "weekly" && weekdayOf(day) !== plant.digest_weekday) continue;
 			const before = automatic(day, plant.digest_hour, plant.timezone),
 				after = automatic(day, plant.digest_hour, zone);
 			if (before.occurrence.instant > asOf && before.occurrence.instant !== after.occurrence.instant) {

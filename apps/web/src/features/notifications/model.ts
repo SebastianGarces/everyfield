@@ -102,7 +102,8 @@ const day = (instant: number, zone: string) =>
 	new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
 		instant,
 	);
-const dayDistance = (instant: number, clock: Clock) => daysBetween(day(instant, clock.zone), day(clock.now, clock.zone));
+const dayDistance = (instant: number, clock: Clock) =>
+	daysBetween(day(instant, clock.zone), day(clock.now, clock.zone));
 
 export function timeLabel(eligibleAt: string, clock: Clock): string {
 	const at = Date.parse(eligibleAt);
