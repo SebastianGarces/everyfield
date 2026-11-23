@@ -12022,10 +12022,6 @@
           "name": "lifecycle_witness_ck_1",
           "value": "((plant_id IS NULL) OR (kind = 'plant'::text))"
         },
-        "lifecycle_witness_ck_10": {
-          "name": "lifecycle_witness_ck_10",
-          "value": "((kind = ANY (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'revoked'::text])))"
-        },
         "lifecycle_witness_ck_11": {
           "name": "lifecycle_witness_ck_11",
           "value": "((state <> ALL (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])) OR ((request_id IS NOT NULL) AND (requested_at IS NOT NULL) AND (cancel_until IS NOT NULL) AND (request_revision >= 1)))"
@@ -12060,11 +12056,11 @@
         },
         "lifecycle_witness_ck_3": {
           "name": "lifecycle_witness_ck_3",
-          "value": "(kind = ANY (ARRAY['account'::text, 'plant'::text, 'seat'::text, 'affiliation'::text]))"
+          "value": "(kind = ANY (ARRAY['account'::text, 'plant'::text]))"
         },
         "lifecycle_witness_ck_4": {
           "name": "lifecycle_witness_ck_4",
-          "value": "(state = ANY (ARRAY['active'::text, 'pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text, 'revoked'::text]))"
+          "value": "(state = ANY (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text]))"
         },
         "lifecycle_witness_ck_5": {
           "name": "lifecycle_witness_ck_5",
@@ -12081,10 +12077,6 @@
         "lifecycle_witness_ck_8": {
           "name": "lifecycle_witness_ck_8",
           "value": "((affiliation_id IS NULL) OR (kind = 'affiliation'::text))"
-        },
-        "lifecycle_witness_ck_9": {
-          "name": "lifecycle_witness_ck_9",
-          "value": "((kind <> ALL (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])))"
         }
       },
       "isRLSEnabled": false

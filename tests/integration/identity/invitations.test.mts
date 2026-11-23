@@ -524,7 +524,6 @@ test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are o
 	const witness = (values) =>
 		f.admin.insert(t.lifecycle_witness).values({
 			request_revision: "1",
-			state: "revoked",
 			witness_checkpoint: "1",
 			cleanup_state: "not_started",
 			...values,
@@ -533,7 +532,6 @@ test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are o
 	const future = await member(),
 		ended = await member(),
 		blockedAccount = await member(),
-		blockedSeat = await member(),
 		witnessed = await member();
 	await f.admin
 		.update(t.seat)
@@ -550,8 +548,16 @@ test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are o
 		requested_at: requested,
 		cancel_until: new Date(requested.getTime() + 30 * 86400000),
 	});
-	await witness({ kind: "seat", opaque_subject_id: blockedSeat.seat, seat_id: blockedSeat.seat });
-	await witness({ kind: "seat", opaque_subject_id: witnessed.seat, seat_id: witnessed.seat, state: "active" });
+	await witness({
+		kind: "account",
+		opaque_subject_id: witnessed.account.id,
+		account_id: witnessed.account.id,
+		state: "cancelled",
+		request_id: key(),
+		requested_at: requested,
+		cancel_until: new Date(requested.getTime() + 30 * 86400000),
+		cancelled_at: requested,
+	});
 	const review = () => statements(() => f.seats.readRemoval(s.sender.session, s.w, { seatId }));
 	const few = await review();
 	const ids = (r) => r.result.recipients.map((x) => x.accountId);
