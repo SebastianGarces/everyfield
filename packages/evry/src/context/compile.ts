@@ -176,6 +176,10 @@ export const OVERSIGHT_RULES = {
 	totalsOnly:
 		"Oversight shows totals only, so I can't list a plant's people, or read their notes, interviews or private care. Here is what that plant shares with you:",
 	noRanking: "I don't rank or score plants against each other.",
+	noPlaceRanking:
+		"Network Intelligence doesn't rank or score plants or places, so I can't say which one is doing best. I can show you the patterns it found instead, for one Region, state or country or across your whole portfolio.",
+	earlierRunLocation:
+		"An earlier Network Intelligence run keeps the location it used then. Only runs after a correction use the new one.",
 	plantRegion: (plant: string, region: string) =>
 		`I can't change that. Only ${plant}'s Owner or Admin can update its location and reporting Region, in their church settings. The Region I'm using now is ${region}. Nothing changed.`,
 } as const;
@@ -186,6 +190,10 @@ function oversightRules() {
 		`Quote Network Intelligence patterns as organizationIntelligence.read gives them, with the plants they name. A pattern always has two or more plants: one plant alone is never a pattern. Never rank or score plants; when asked to, reply: ${OVERSIGHT_RULES.noRanking} Which plants are close to launch comes only from each plant's shared Launch readiness and published summary.`,
 		`A plant's location and reporting Region belong to that plant. When the user asks to change one, read oversight.listPlants, prepare nothing and reply: ${OVERSIGHT_RULES.plantRegion("<the plant>", "<its region from oversight.listPlants>")}`,
 	].join("\n");
+}
+
+function placeRules() {
+	return `Network Intelligence by place and over time comes from organizationIntelligence.readHistory (one level or every level, one named place, an earlier run, or what changed since the run before), organizationIntelligence.readLocations (where each plant is placed now) and organizationIntelligence.readLocationHistory (a plant's saved locations and the runs that used each). Quote groups and patterns as they come, say why a group has no pattern, link each plant you name with its plantLinks or href and link the page view with href. A plant with No Region set still counts at its state, its country and the whole portfolio. ${OVERSIGHT_RULES.earlierRunLocation} Never give a street address or coordinates. When asked which plant or place is doing best, or to rank or score them, reply: ${OVERSIGHT_RULES.noPlaceRanking}`;
 }
 
 function roleRule(actor: EvryActor) {
@@ -530,6 +538,7 @@ export function compileContext(input: {
 			: "",
 		`${NOT_TRACKED} When asked about something Everyfield does not track, say plainly that Everyfield doesn't track it, and call no tool for it.`,
 		input.actor.contextKind === "plant" ? PRIVATE_CARE : "",
+		ops.has("organizationIntelligence.readLocations") ? placeRules() : "",
 		input.catalog.reviewedWrites.some((w) => EMAIL_HANDOFF.has(w.operation))
 			? "When the user says to send or save an email you drafted, propose it with the subject and body exactly as you last showed them: change nothing they didn't ask for, and if something in it looks wrong, ask before proposing."
 			: "",

@@ -159,6 +159,9 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"oversight.listPlants",
 		"oversight.getPlant",
 		"organizationIntelligence.read",
+		"organizationIntelligence.readHistory",
+		"organizationIntelligence.readLocations",
+		"organizationIntelligence.readLocationHistory",
 		"calendar.getContext",
 		"calendar.resolve",
 		"wiki.search",
@@ -391,6 +394,9 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		"oversight.listPlants",
 		"oversight.getPlant",
 		"organizationIntelligence.read",
+		"organizationIntelligence.readHistory",
+		"organizationIntelligence.readLocations",
+		"organizationIntelligence.readLocationHistory",
 	];
 	const orgWiki = [
 		"wiki.organizationArticles.add",
