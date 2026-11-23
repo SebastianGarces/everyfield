@@ -1,4 +1,4 @@
-import { localDate } from "@everyfield/contracts/common";
+import { countWord, localDate } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
@@ -359,7 +359,7 @@ export const completeMilestone = launchWrite({
 			changes: [{ field: "milestone", before: milestoneState(m), after: "Complete" }],
 			notes: [
 				open.length
-					? `${open.length} of its ${m.tasks.length} prep tasks ${open.length === 1 ? "is still open and stays" : "are still open and stay"} open: ${open.map((t) => t.title).join("; ")}.`
+					? `${open.length} of its ${m.tasks.length} prep tasks ${countWord(open.length, "is still open and stays", "are still open and stay")} open: ${open.map((t) => t.title).join("; ")}.`
 					: "Every prep task linked to it is done.",
 				...(earlier
 					? [

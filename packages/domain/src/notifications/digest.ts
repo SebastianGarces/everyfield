@@ -2,6 +2,7 @@ import {
 	MEETING_TYPE_TITLE,
 	addCivilDays,
 	calendarContext,
+	counted,
 	frozenClock,
 	instant,
 	localDate,
@@ -260,7 +261,6 @@ const day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", y
 const shortDay = (date: string) => day.format(new Date(`${date}T00:00:00Z`));
 const range = (start: string, end: string) =>
 	start === end ? shortDay(start) : `${shortDay(start)} to ${shortDay(end)}`;
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 export function renderPlanterDigest(input: {
 	start: string;
@@ -270,7 +270,7 @@ export function renderPlanterDigest(input: {
 	lines: readonly PlanterDigestItem[];
 }) {
 	return {
-		title: `Church digest: ${plural(input.total, "open item")}, ${range(input.start, input.end)}`,
+		title: `Church digest: ${counted(input.total, "open item")}, ${range(input.start, input.end)}`,
 		lines: [
 			...input.lines.map((l) =>
 				l.kind === "meeting"
@@ -292,11 +292,11 @@ export function renderOversightDigest(input: {
 }) {
 	const shown = input.lines.reduce((sum, l) => sum + l.count, 0);
 	return {
-		title: `Oversight digest: ${plural(input.total, "activity", "activities")}, ${range(input.start, input.end)}`,
+		title: `Oversight digest: ${counted(input.total, "activity", "activities")}, ${range(input.start, input.end)}`,
 		lines: [
-			...input.lines.map((l) => `${l.plant}: ${plural(l.count, "activity", "activities")} on ${shortDay(l.date)}.`),
+			...input.lines.map((l) => `${l.plant}: ${counted(l.count, "activity", "activities")} on ${shortDay(l.date)}.`),
 			...(input.total > shown
-				? [`${plural(input.total - shown, "more activity", "more activities")} in Everyfield.`]
+				? [`${counted(input.total - shown, "more activity", "more activities")} in Everyfield.`]
 				: []),
 		],
 	};
