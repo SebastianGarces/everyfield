@@ -1,9 +1,8 @@
-import { counted, dayText } from "@everyfield/contracts/common";
+import { counted, dayText, daysBetween } from "@everyfield/contracts/common";
 import {
 	CANDIDATE_DAYS,
 	CANDIDATE_QUESTION_VERSION,
 	countsOf,
-	daysBetween,
 	renewalOf,
 	SIGNAL_DEFINITIONS,
 	SIGNAL_GROUPS,

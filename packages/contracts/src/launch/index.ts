@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { accountId, defineSafeError, recordId, requestKey, revision, type Reply } from "../common/values.ts";
 import { instant, localDate, type LocalDate } from "../common/time.ts";
+import { daysBetween } from "../common/day.ts";
 import {
 	debrief,
 	debriefProblem,
@@ -45,10 +46,6 @@ export function checkNote(
 	return { ok: true, note };
 }
 
-function civilDaysBetween(from: LocalDate, to: LocalDate): number {
-	return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
-}
-
 export type Countdown =
 	| { kind: "none" }
 	| { kind: "postponed" }
@@ -61,7 +58,7 @@ export function countdown(launch: { status: LaunchStatus; targetDate: LocalDate 
 	if (launch.status === "completed") return { kind: "completed" } satisfies Countdown;
 	if (launch.status === "postponed") return { kind: "postponed" } satisfies Countdown;
 	if (!launch.targetDate) return { kind: "none" } satisfies Countdown;
-	const days = civilDaysBetween(today, launch.targetDate);
+	const days = daysBetween(today, launch.targetDate);
 	if (days === 0) return { kind: "today", window: true } satisfies Countdown;
 	if (days < 0) return { kind: "overdue", days: -days } satisfies Countdown;
 	return { kind: "ahead", days, window: days <= LAUNCH_WINDOW_DAYS } satisfies Countdown;
