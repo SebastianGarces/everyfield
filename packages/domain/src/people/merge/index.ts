@@ -1,3 +1,5 @@
+import { meetingTitle } from "@everyfield/contracts/common";
+import { meetingType } from "@everyfield/contracts/meetings";
 import * as c from "@everyfield/contracts/people";
 import { sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
@@ -49,6 +51,44 @@ const columns: Record<Field, readonly string[]> = {
 	household: ["household_id", "household_role"],
 	photo: ["photo_object_id"],
 };
+const meetingOf = z.object({
+	title: z.string().nullable(),
+	type: meetingType,
+	vision_number: z.number().int().nullable(),
+});
+export const PARTICIPATION_COLUMNS = [
+	"person_id",
+	"inviter_person_id",
+	"roster_member",
+	"presence",
+	"rsvp",
+	"rsvp_at",
+	"rsvp_source",
+	"removed_at",
+	"rsvp_token_open",
+	"card_response",
+	"card_notes",
+	"card_recorded_at",
+	"card_author_id",
+	"card_occurred_at",
+] as const;
+type Columns = Record<(typeof PARTICIPATION_COLUMNS)[number], unknown>;
+const participationRow = meetingOf.extend({
+	id: z.uuid(),
+	meeting_id: z.uuid(),
+	person_id: z.uuid(),
+	inviter_person_id: z.uuid().nullable(),
+	presence: z.enum(["attended", "excused", "absent"]),
+	rsvp: z.enum(["pending", "confirmed", "declined"]).nullable(),
+	removed_at: z.string().nullable(),
+	revision: z.string(),
+});
+export type Participation = z.infer<typeof participationRow> & { meeting: string; columns: Columns };
+function parseParticipation(raw: Record<string, unknown>): Participation {
+	const row = participationRow.parse(raw);
+	const columns = Object.fromEntries(PARTICIPATION_COLUMNS.map((k) => [k, raw[k] ?? null])) as Columns;
+	return { ...row, meeting: titled(row), columns };
+}
 const factsRow = z.object({
 	id: z.uuid(),
 	state: z.enum(["live", "retired", "merged"]),
@@ -63,25 +103,111 @@ const factsRow = z.object({
 	household_id: z.uuid().nullable(),
 	commitment_inputs: commitmentInputs,
 	enrollment_programs: z.array(z.uuid()),
+	open_follow_ups: z.array(meetingOf.extend({ due_date: z.string() })),
+	participations: z.array(z.record(z.string(), z.unknown())),
+	open_tasks: z.array(z.object({ title: z.string(), due_date: z.string().nullable() })),
+	open_kit_items: z.array(meetingOf.extend({ text: z.string() })),
+	current_roles: z.array(z.object({ team_id: z.uuid(), team: z.string(), role: z.string() })),
+	residency_invitations: z.array(z.object({ recipient_email: z.string() })),
+	residency_linked: z.boolean(),
 	refs: z.unknown(),
 });
-export type Facts = Omit<z.infer<typeof factsRow>, "refs" | "commitment_inputs"> & {
+const extra = [
+	"commitment_inputs",
+	"open_follow_ups",
+	"participations",
+	"open_tasks",
+	"open_kit_items",
+	"current_roles",
+	"residency_invitations",
+	"residency_linked",
+] as const;
+export type Facts = Omit<z.infer<typeof factsRow>, "refs" | (typeof extra)[number]> & {
 	refs: Reference[];
 	values: Record<string, unknown>;
 	commitment: CommitmentInputs;
+	openFollowUps: { personId: string; meeting: string; dueDate: string }[];
+	participations: Participation[];
+	openTasks: { title: string; dueDate: string | null }[];
+	openKitItems: { meeting: string; text: string }[];
+	currentRoles: { teamId: string; team: string; role: string }[];
+	residencyInvitations: { recipientEmail: string }[];
+	residencyLinked: boolean;
 };
+const titled = (m: z.infer<typeof meetingOf>) =>
+	meetingTitle({ title: m.title, type: m.type, visionNumber: m.vision_number });
 export function parseFacts(raw: unknown): Facts | null {
 	if (raw === null) return null;
-	const { commitment_inputs, ...row } = factsRow.parse(raw);
+	const parsed = factsRow.parse(raw);
 	const values = z.record(z.string(), z.unknown()).parse(raw);
-	delete values.commitment_inputs;
-	return { ...row, refs: parseReferences(row.refs), values, commitment: commitment_inputs };
+	for (const k of extra) delete values[k];
+	const {
+		commitment_inputs,
+		open_follow_ups,
+		participations,
+		open_tasks,
+		open_kit_items,
+		current_roles,
+		residency_invitations,
+		residency_linked,
+		...row
+	} = parsed;
+	return {
+		...row,
+		refs: parseReferences(row.refs),
+		values,
+		commitment: commitment_inputs,
+		openFollowUps: open_follow_ups.map((f) => ({ personId: row.id, meeting: titled(f), dueDate: f.due_date })),
+		participations: participations.map(parseParticipation),
+		openTasks: open_tasks.map((t) => ({ title: t.title, dueDate: t.due_date })),
+		openKitItems: open_kit_items.map((i) => ({ meeting: titled(i), text: i.text })),
+		currentRoles: current_roles.map((r) => ({ teamId: r.team_id, team: r.team, role: r.role })),
+		residencyInvitations: residency_invitations.map((i) => ({ recipientEmail: i.recipient_email })),
+		residencyLinked: residency_linked,
+	};
 }
+const participationsOf = (person: SQL, owner: string | SQL) =>
+	sql`(SELECT coalesce(jsonb_agg(jsonb_build_object(${sql.join(
+		PARTICIPATION_COLUMNS.map((k) => sql`${k}::text,g.${sql.identifier(k)}`),
+		sql`,`,
+	)},'id',g.id,'meeting_id',g.meeting_id,'revision',g.revision::text,'title',m.title,'type',m.type,
+ 'vision_number',m.vision_number) ORDER BY g.id),'[]') FROM participation g JOIN meeting m ON m.id=g.meeting_id
+ AND m.plant_id=g.plant_id WHERE (g.person_id=${person} OR g.inviter_person_id=${person}) AND g.plant_id=${owner}::uuid)`;
+const openTasksOf = (person: SQL, owner: string | SQL) =>
+	sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('title',k.title,'due_date',coalesce(k.due_date,
+ (k.due_at AT TIME ZONE coalesce(k.timezone,'UTC'))::date)::text) ORDER BY k.due_date NULLS LAST,k.created_at,k.id),'[]')
+ FROM task k WHERE k.person_id=${person} AND k.plant_id=${owner}::uuid AND k.deleted_at IS NULL
+ AND k.status NOT IN ('complete','no_longer_needed'))`;
+const openKitItemsOf = (person: SQL, owner: string | SQL) =>
+	sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('title',m.title,'type',m.type,'vision_number',m.vision_number,
+ 'text',i.text) ORDER BY m.starts_at,i.position,i.id),'[]') FROM meeting_kit_item i JOIN meeting m ON m.id=i.meeting_id
+ AND m.plant_id=i.plant_id WHERE i.assignee_person_id=${person} AND i.plant_id=${owner}::uuid AND NOT i.checked)`;
+const currentRolesOf = (person: SQL, owner: string | SQL) =>
+	sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('team_id',t.id,'team',t.name,'role',r.name) ORDER BY t.name,r.name),'[]')
+ FROM team_tenure e JOIN team_role r ON r.id=e.role_id AND r.plant_id=e.plant_id
+ JOIN team t ON t.id=r.team_id AND t.plant_id=r.plant_id
+ WHERE e.person_id=${person} AND e.plant_id=${owner}::uuid AND e.ended_on IS NULL)`;
+const residencyOf = (person: SQL, owner: string | SQL) =>
+	sql`'residency_invitations',(SELECT coalesce(jsonb_agg(jsonb_build_object('recipient_email',i.recipient_email)
+ ORDER BY i.created_at,i.id),'[]') FROM invitation i WHERE i.resident_person_id=${person} AND i.tenant_id=${owner}::uuid
+ AND i.state='pending'),'residency_linked',EXISTS(SELECT FROM residency_link l WHERE l.person_id=${person}
+ AND l.organization_id=${owner}::uuid AND l.ended_at IS NULL)`;
+const openFollowUpsOf = (person: SQL, owner: string | SQL) =>
+	sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('title',m.title,'type',m.type,'vision_number',m.vision_number,
+ 'due_date',o.due_date::text) ORDER BY o.due_date,o.id),'[]') FROM obligation o
+ JOIN meeting m ON m.id=o.meeting_id AND m.plant_id=o.plant_id
+ LEFT JOIN LATERAL (SELECT k.status,k.deleted_at FROM task k WHERE k.obligation_id=o.id AND k.plant_id=o.plant_id
+  ORDER BY k.deleted_at NULLS FIRST,k.created_at DESC LIMIT 1) t ON true
+ WHERE o.person_id=${person} AND o.plant_id=${owner}::uuid AND o.kind='follow_up' AND o.superseded_at IS NULL
+ AND o.waived_at IS NULL AND NOT coalesce(t.deleted_at IS NULL AND t.status IN ('complete','no_longer_needed'),false))`;
 export const factsOf = (id: SQL, owner: string | SQL) =>
 	sql`(SELECT to_jsonb(p)||jsonb_build_object('revision',p.revision::text,'pipeline_position',p.pipeline_position::text,
  'refs',${referencesOf(sql`p.id`, owner)},
  'enrollment_programs',(SELECT coalesce(jsonb_agg(e.program_id),'[]') FROM development_enrollment e
-  WHERE e.person_id=p.id AND e.organization_id=p.tenant_id),'commitment_inputs',${commitmentInputsJson(sql`p.id`, sql`${owner}::uuid`)}) FROM person p WHERE p.id=${id} AND p.tenant_id=${owner}::uuid
+  WHERE e.person_id=p.id AND e.organization_id=p.tenant_id),'open_follow_ups',${openFollowUpsOf(sql`p.id`, owner)},
+ 'participations',${participationsOf(sql`p.id`, owner)},'open_tasks',${openTasksOf(sql`p.id`, owner)},
+ 'open_kit_items',${openKitItemsOf(sql`p.id`, owner)},'current_roles',${currentRolesOf(sql`p.id`, owner)},
+ ${residencyOf(sql`p.id`, owner)},'commitment_inputs',${commitmentInputsJson(sql`p.id`, sql`${owner}::uuid`)}) FROM person p WHERE p.id=${id} AND p.tenant_id=${owner}::uuid
  AND NOT EXISTS(SELECT FROM organization_person_removal w WHERE w.person_record_id=p.id AND w.organization_id=p.tenant_id))`;
 
 export const referencesDigest = (refs: readonly Reference[]) =>
@@ -93,6 +219,113 @@ export const referencesDigest = (refs: readonly Reference[]) =>
 	);
 
 const order = c.stage.options;
+export const participating = (kind: string) => kind === "participation" || kind === "participation_inviter";
+const PRESENCE_RANK = { absent: 0, excused: 1, attended: 2 } as const;
+const answered = (rsvp: string | null | undefined): rsvp is "confirmed" | "declined" =>
+	rsvp === "confirmed" || rsvp === "declined";
+const RSVP = ["rsvp", "rsvp_at", "rsvp_source"] as const;
+const CARD = ["card_response", "card_notes", "card_recorded_at", "card_author_id", "card_occurred_at"] as const;
+const pick = (from: Columns, keys: readonly (keyof Columns)[]) => Object.fromEntries(keys.map((k) => [k, from[k]]));
+
+function attendancePlan(source: Facts, survivor: Facts) {
+	const rows = new Map([...survivor.participations, ...source.participations].map((r) => [r.id, r]));
+	const at = new Map(survivor.participations.filter((r) => r.person_id === survivor.id).map((r) => [r.meeting_id, r]));
+	const next = new Map<string, Columns>();
+	const removed = new Set<string>(),
+		stays = new Set<string>();
+	const changes: z.input<typeof c.attendanceChange>[] = [];
+	for (const s of source.participations.filter((r) => r.person_id === source.id)) {
+		const v = at.get(s.meeting_id);
+		if (!v) continue;
+		if (s.removed_at !== null) {
+			stays.add(s.id);
+			continue;
+		}
+		removed.add(s.id);
+		const both = v.removed_at === null;
+		const presence = both && PRESENCE_RANK[v.presence] > PRESENCE_RANK[s.presence] ? v.presence : s.presence;
+		const rsvpFrom = !both || (!answered(v.rsvp) && (answered(s.rsvp) || v.rsvp === null)) ? s : v;
+		if (both && answered(v.rsvp) !== answered(s.rsvp) && (v.rsvp === "pending" || s.rsvp === "pending")) {
+			const pending = rsvpFrom === v ? s : v;
+			const answer = rsvpFrom.rsvp;
+			if (answered(answer))
+				changes.push({
+					change: "rsvp_replaced",
+					meeting: v.meeting,
+					pendingPersonId: pending === v ? survivor.id : source.id,
+					answer,
+				});
+		}
+		changes.push({ change: "combined", meeting: v.meeting, presence });
+		next.set(v.id, {
+			...v.columns,
+			presence,
+			...pick(rsvpFrom.columns, RSVP),
+			...pick((both && v.columns.card_response !== null ? v : s).columns, CARD),
+			roster_member: both
+				? v.columns.roster_member === true || s.columns.roster_member === true
+				: s.columns.roster_member,
+			inviter_person_id: both ? (v.inviter_person_id ?? s.inviter_person_id) : s.inviter_person_id,
+			removed_at: null,
+		});
+	}
+	for (const r of rows.values()) {
+		if (removed.has(r.id) || stays.has(r.id)) continue;
+		const f = next.get(r.id) ?? r.columns;
+		const person = f.person_id === source.id ? survivor.id : f.person_id;
+		let inviter = f.inviter_person_id === source.id ? survivor.id : f.inviter_person_id;
+		if (inviter !== null && inviter === person) {
+			changes.push({ change: "inviter_cleared", meeting: r.meeting, inviterPersonId: String(f.inviter_person_id) });
+			inviter = null;
+		}
+		if (next.has(r.id) || person !== f.person_id || inviter !== f.inviter_person_id)
+			next.set(r.id, { ...f, person_id: person, inviter_person_id: inviter });
+	}
+	const touched = (r: Participation) => next.has(r.id) || removed.has(r.id);
+	const after: Reference[] = [];
+	for (const r of rows.values()) {
+		const f = next.get(r.id) ?? r.columns;
+		const revision = touched(r) ? String(BigInt(r.revision) + 1n) : r.revision;
+		if (f.person_id === survivor.id) after.push({ kind: "participation", id: r.id, revision });
+		if (f.inviter_person_id === survivor.id) after.push({ kind: "participation_inviter", id: r.id, revision });
+	}
+	return {
+		updates: [...next].map(([id, columns]) => ({ id, ...columns })),
+		removed: [...removed],
+		prior: [...rows.values()].filter(touched).map((r) => ({ id: r.id, ...r.columns })),
+		moved: {
+			participation: source.participations
+				.filter((r) => r.person_id === source.id && !stays.has(r.id))
+				.map((r) => r.id),
+			participation_inviter: [...rows.values()].filter((r) => r.inviter_person_id === source.id).map((r) => r.id),
+		},
+		changes,
+		after,
+	};
+}
+const PARTICIPATION_TYPES: Record<(typeof PARTICIPATION_COLUMNS)[number], string> = {
+	person_id: "uuid",
+	inviter_person_id: "uuid",
+	roster_member: "boolean",
+	presence: "text",
+	rsvp: "text",
+	rsvp_at: "timestamptz",
+	rsvp_source: "text",
+	removed_at: "timestamptz",
+	rsvp_token_open: "boolean",
+	card_response: "text",
+	card_notes: "text",
+	card_recorded_at: "timestamptz",
+	card_author_id: "uuid",
+	card_occurred_at: "timestamptz",
+};
+export function writeParticipations(owner: string, rows: readonly Record<string, unknown>[]): SQLWrapper {
+	const set = PARTICIPATION_COLUMNS.map((k) => sql`${sql.identifier(k)}=v.${sql.identifier(k)}`);
+	const shape = PARTICIPATION_COLUMNS.map((k) => sql.raw(`${k} ${PARTICIPATION_TYPES[k]}`));
+	return sql`UPDATE participation g SET ${sql.join(set, sql`,`)},revision=g.revision+1
+ FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS v(id uuid,${sql.join(shape, sql`,`)})
+ WHERE g.id=v.id AND g.plant_id=${owner}::uuid`;
+}
 
 function plan(
 	kind: "plant" | "organization",
@@ -136,13 +369,23 @@ function plan(
 	const keptOf = (k: Kind) => (survivor.refs.some((x) => x.kind === k) ? (byKind.get(k) ?? []).map((x) => x.id) : []);
 	const keptAttestations = keptOf("attestation");
 	const keptGuests = keptOf("launch_guest");
-	const blocked = [...byKind.keys()].filter((k) => treatmentOf(k) === "block");
 	const causes: z.infer<typeof c.mergeBlocker>[] = [];
 	if (source.linked_account_id && survivor.linked_account_id) causes.push("linked_account_collision");
 	else if (source.linked_account_id) causes.push("linked_source");
-	if (blocked.length) causes.push("unregistered_reference");
 	if (source.enrollment_programs.some((program) => survivor.enrollment_programs.includes(program)))
 		causes.push("enrollment_collision");
+	const leadership = source.currentRoles.flatMap((s) =>
+		survivor.currentRoles
+			.filter((v) => v.teamId === s.teamId)
+			.map((v) => ({ team: s.team, sourceRole: s.role, survivorRole: v.role })),
+	);
+	if (leadership.length) causes.push("leadership_conflict");
+	const invitations =
+		source.residencyInvitations.length && (survivor.residencyLinked || survivor.residencyInvitations.length)
+			? source.residencyInvitations
+			: [];
+	if (invitations.length) causes.push("residency_invitation_collision");
+	const attendance = attendancePlan(source, survivor);
 	const references = [...byKind].map(([k, refs]) => ({
 		kind: k,
 		count: refs.length,
@@ -166,7 +409,8 @@ function plan(
 		keptAttestations,
 		keptGuests,
 		references,
-		blockers: { causes, references: blocked },
+		blockers: { causes, leadership, invitations },
+		attendance,
 		reviewDigest: hash({
 			source: [source.id, source.revision, referencesDigest(source.refs)],
 			survivor: [survivor.id, survivor.revision, referencesDigest(survivor.refs)],
@@ -239,6 +483,10 @@ export const peopleMerge = {
 				commitment: p.commitment && { result: p.commitment.state, effectiveOn: p.commitment.effectiveOn },
 				references: p.references,
 				blockers: p.blockers,
+				openFollowUps: [...survivor.openFollowUps, ...source.openFollowUps],
+				attendance: p.attendance.changes,
+				openTasks: source.openTasks,
+				openKitItems: source.openKitItems,
 				reviewDigest: p.reviewDigest,
 			});
 		});
@@ -258,8 +506,14 @@ export const peopleMerge = {
 					if (p.reviewDigest !== m.reviewDigest) deny("conflict");
 					if (p.blockers.causes.length) deny("merge_blocked", p.blockers);
 					const mergeId = randomUUID();
-					const moved: Record<string, string[]> = {};
+					const moved: Record<string, string[]> = { ...p.attendance.moved };
+					const a = p.attendance;
+					if (a.removed.length)
+						audit.writes.push(sql`UPDATE participation SET removed_at=clock_timestamp(),rsvp_token_open=false,
+ revision=revision+1 WHERE id=ANY(${sql.param(a.removed)}::uuid[]) AND plant_id=${owner}::uuid`);
+					if (a.updates.length) audit.writes.push(writeParticipations(owner, a.updates));
 					for (const [k, refs] of p.byKind) {
+						if (participating(k)) continue;
 						const ids = refs
 							.map((x) => x.id)
 							.filter(
@@ -300,8 +554,10 @@ export const peopleMerge = {
 					const sourceRevision = String(BigInt(source.revision) + 1n),
 						survivorRevision = String(BigInt(survivor.revision) + 1n);
 					const after = [
-						...survivor.refs,
+						...survivor.refs.filter((x) => !participating(x.kind)),
+						...a.after,
 						...source.refs
+							.filter((x) => !participating(x.kind))
 							.filter(
 								(x) =>
 									!(x.kind === "tag" && p.droppedTags.includes(x.id)) &&
@@ -313,7 +569,13 @@ export const peopleMerge = {
 					];
 					audit.writes.push(
 						sql`INSERT INTO person_merge(id,tenant_id,source_id,survivor_id,prior,moved,source_revision,survivor_revision,references_digest)
- VALUES (${mergeId}::uuid,${owner}::uuid,${source.id}::uuid,${survivor.id}::uuid,${JSON.stringify({ source: sourcePrior, survivor: p.prior })}::jsonb,
+ VALUES (${mergeId}::uuid,${owner}::uuid,${source.id}::uuid,${survivor.id}::uuid,${JSON.stringify({
+		source: sourcePrior,
+		survivor: p.prior,
+		participation: a.prior,
+		attendance: a.changes,
+		references: after.map((x) => [x.kind, x.id, x.revision]),
+ })}::jsonb,
  ${JSON.stringify(moved)}::jsonb,${sourceRevision}::bigint,${survivorRevision}::bigint,${referencesDigest(after)})`,
 					);
 					return {

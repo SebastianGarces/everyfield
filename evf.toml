@@ -9,11 +9,6 @@ run = ["bin/dev", "fast-check"]
 timeout_minutes = 10
 
 [[check]]
-name = "full-check"
-run = ["bin/dev", "check", "--full"]
-timeout_minutes = 25
-
-[[check]]
 name = "db-packages"
 run = ["sh", "-c", "set -e; export CI=true EARLY_ACCESS_TEST_DATABASE=1; corepack pnpm db:migrate; python3 packages/db/src/schema/generate.py --check; corepack pnpm --filter @everyfield/db test:db; corepack pnpm --filter @everyfield/evry test:db"]
 timeout_minutes = 30

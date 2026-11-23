@@ -102,15 +102,15 @@ export function seatAccess(input: { account: string; tenant: string; admin?: boo
 						WHERE i.registration_state = 'active' AND i.account_id = s.account_id)`
 					: sql``
 			}
-			AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (
-				w.seat_id = s.id OR (w.kind = 'account' AND w.opaque_subject_id = a.id)
+			AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.state <> 'cancelled' AND (
+				(w.kind = 'account' AND w.opaque_subject_id = a.id)
 				OR (w.kind IN ('plant','organization') AND w.opaque_subject_id = ${input.tenant}::uuid))))`;
 }
 export function selfSql(session: string, accountId: string): SQL {
 	return sql`me AS (
 		SELECT i.account_id FROM live_session(${session}::uuid) i
 		WHERE i.registration_state = 'active' AND i.account_id = ${accountId}::uuid
-		 AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled')
+		 AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.state <> 'cancelled'
 		   AND w.kind = 'account' AND w.opaque_subject_id = i.account_id)
 	)`;
 }
@@ -129,8 +129,8 @@ export function noticeVisible(eligible: SQL = sql`n.eligible_at <= clock_timesta
 				AND ${liveResidency})
 			ELSE EXISTS (SELECT FROM seat s WHERE s.account_id = n.recipient_id AND s.ended_at IS NULL
 			AND s.accepted_at <= clock_timestamp() AND (s.plant_id = n.tenant_id OR s.organization_id = n.tenant_id)
-			AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (
-				w.seat_id = s.id OR (w.kind = 'account' AND w.opaque_subject_id = s.account_id)
+			AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.state <> 'cancelled' AND (
+				(w.kind = 'account' AND w.opaque_subject_id = s.account_id)
 				OR (w.kind IN ('plant','organization') AND w.opaque_subject_id = n.tenant_id)))) END
 		AND (split_part(n.logical_key,'/',2) <> 'answer_review' OR EXISTS (SELECT FROM answer_review r
 			JOIN seat rv ON rv.id = r.reviewer_seat_id AND rv.account_id = n.recipient_id

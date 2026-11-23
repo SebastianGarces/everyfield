@@ -96,9 +96,12 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 	const foreign = ok(await create("Northside", null, 2)).tag;
 	assert.notEqual(foreign.id, north.tag.id);
 	refused(await create("Northside", null, 1));
-	const raced = await Promise.all([create("Welcome", null), create(" welcome ", null)]);
-	assert.deepEqual(raced.map((r) => ok(r).outcome).sort(), ["changed", "noop"]);
-	assert.equal(new Set(raced.map((r) => ok(r).tag.id)).size, 1);
+	const racers = ["Welcome", " welcome "];
+	const raced = (await Promise.all(racers.map((name) => create(name, null)))).map((r) => ok(r));
+	assert.deepEqual(raced.map((r) => r.outcome).sort(), ["changed", "noop"]);
+	assert.equal(new Set(raced.map((r) => r.tag.id)).size, 1);
+	const welcome = racers[raced.findIndex((r) => r.outcome === "changed")].trim();
+	assert.equal(raced.find((r) => r.outcome === "changed").tag.name, welcome);
 	const renamed = ok(
 		await write(0, async (t, c) =>
 			fields.updateTag(t, c, {
@@ -193,7 +196,7 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 		[
 			["family", 1],
 			["North  side", 1],
-			["Welcome", 0],
+			[welcome, 0],
 		],
 	);
 	const activity = ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId: jamie.id }))).items;

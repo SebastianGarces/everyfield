@@ -83,7 +83,7 @@ function useOpenedNotice() {
 	useEffect(() => {
 		if (!opened || sent.current === opened) return;
 		sent.current = opened;
-		void markSubjectRead({ kind: "residency_milestone", id: opened })
+		void markSubjectRead({ requestKey: crypto.randomUUID(), subject: { kind: "residency_milestone", id: opened } })
 			.then((r) => {
 				if (r.status === "ok" && r.value.markedIds.length) readElsewhere(r.value.markedIds);
 			})
