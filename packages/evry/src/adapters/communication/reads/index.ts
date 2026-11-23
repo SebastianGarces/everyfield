@@ -22,7 +22,7 @@ const listInput = z.strictObject({
 		.describe("The church's local date a scheduled message sends on, like 2026-11-06"),
 	limit: z.int().min(1).max(50).optional(),
 });
-const messageRow = z.object({
+const messageRow = z.strictObject({
 	id: z.uuid(),
 	subject: z.string().nullable(),
 	state: z.string(),
@@ -113,7 +113,7 @@ const sentAt = (c: string) =>
 const OPEN_NOTE =
 	"proof anyone read it, will come or talked to anyone (an open is only what the email service's tracking saw; it misses some opens and counts some automatic ones)";
 
-const resultRow = z.object({
+const resultRow = z.strictObject({
 	id: z.uuid(),
 	name: z.string(),
 	result: z.string(),
@@ -123,7 +123,7 @@ const resultRow = z.object({
 const recipientRow = (actor: EvryActor, r: z.infer<typeof resultRow>) =>
 	personRow(actor, r.id, r.name, { result: r.result, deliveredAt: r.delivered_at, openedAt: r.opened_at });
 
-const meetingRow = z.object({
+const meetingRow = z.strictObject({
 	id: z.uuid(),
 	title: z.string().nullable(),
 	type: meetingType,
@@ -178,8 +178,8 @@ export const preview: ReadAdapter<z.infer<typeof previewInput>> = {
 			WHERE ${live(actor)}`);
 		if (!r.rows.length) throw new EvryRefusal("access_denied");
 		const found = z
-			.object({
-				people: z.array(z.object({ id: z.uuid(), name: z.string(), reason: z.string().nullable() })),
+			.strictObject({
+				people: z.array(z.strictObject({ id: z.uuid(), name: z.string(), reason: z.string().nullable() })),
 				meetings: z.array(meetingRow).nullable(),
 			})
 			.parse(r.rows[0]);
@@ -219,7 +219,7 @@ const messageFacts =
 	'sentAt',${local(sentAt("c"))},'scheduledFor',${local("c.scheduled_at")},
 	'results',coalesce((SELECT jsonb_object_agg(x.result,x.n) FROM (SELECT ${RESULT} AS result,count(*) AS n
 		FROM mail m WHERE m.tenant_id=c.plant_id AND m.communication_id=c.id GROUP BY 1) x),'{}'::jsonb))`);
-const facts = z.object({
+const facts = z.strictObject({
 	id: z.uuid(),
 	subject: z.string(),
 	state: z.string(),
@@ -314,7 +314,7 @@ export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 					AND NOT EXISTS(SELECT FROM mail m WHERE m.tenant_id=p.tenant_id AND m.recipient_person_id=p.id
 						AND m.purpose='communication' AND ${sql.raw(WENT_OUT)})
 				ORDER BY lower(p.display_name) COLLATE "C",p.id LIMIT ${limit}`);
-			const rows = z.array(z.object({ id: z.uuid(), name: z.string(), total: z.number() })).parse(r.rows);
+			const rows = z.array(z.strictObject({ id: z.uuid(), name: z.string(), total: z.number() })).parse(r.rows);
 			const total = rows[0]?.total ?? 0;
 			return {
 				operation: "communication.forPerson",
@@ -341,13 +341,14 @@ export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 					ORDER BY at DESC LIMIT ${limit}) x),'[]'::jsonb) AS emails
 			FROM plant pl WHERE pl.id=${plant}::uuid AND ${live(actor)}`);
 		const found = z
-			.object({
+			.strictObject({
 				found: z.boolean(),
 				emails: z.array(
-					z.object({
+					z.strictObject({
 						id: z.uuid(),
 						subject: z.string(),
 						result: z.string(),
+						at: z.string(),
 						sent_at: z.string(),
 						delivered_at: z.string().nullable(),
 						opened_at: z.string().nullable(),
@@ -454,13 +455,13 @@ export const resendCandidates: ReadAdapter<z.infer<typeof resendInput>> = {
 			FROM communication c JOIN plant pl ON pl.id=c.plant_id
 			WHERE c.id=${input.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid AND ${live(actor)}`);
 		const found = z
-			.object({
+			.strictObject({
 				subject: z.string(),
 				sent_at: z.string().nullable(),
 				resend_from: z.string().nullable(),
 				too_soon: z.boolean(),
 				people: z.array(
-					z.object({ id: z.uuid(), name: z.string(), result: z.string(), hard_reason: z.string().nullable() }),
+					z.strictObject({ id: z.uuid(), name: z.string(), result: z.string(), hard_reason: z.string().nullable() }),
 				),
 			})
 			.optional()

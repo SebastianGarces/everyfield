@@ -100,7 +100,7 @@ export type Reader = Pick<Transaction, "select" | "execute">;
 const organizationFirst = sql<boolean>`EXISTS(SELECT FROM organization o WHERE o.id=${tables.affiliation.organization_id} FOR NO KEY UPDATE)`;
 const linkLive = <AName extends string>(a: SqlLiteral<AName>) => {
 	const c = <ColumnName extends string>(column: SqlLiteral<ColumnName>) => sql.raw(`${a}.${column}`);
-	return sql<boolean>`(NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${c("id")} OR (w.opaque_subject_id IN (${c("organization_id")},${c("plant_id")},${c("account_id")},${c("sending_church_id")}) AND w.kind IN ('account','plant','organization')))) AND (${c("account_id")} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${c("account_id")} AND d.converted_at IS NULL)))`;
+	return sql<boolean>`(NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state <> 'cancelled' AND (w.affiliation_id=${c("id")} OR (w.opaque_subject_id IN (${c("organization_id")},${c("plant_id")},${c("account_id")},${c("sending_church_id")}) AND w.kind IN ('account','plant','organization')))) AND (${c("account_id")} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${c("account_id")} AND d.converted_at IS NULL)))`;
 };
 export const linkActive = <AName extends string>(a: SqlLiteral<AName>) =>
 	sql<boolean>`(${sql.raw(a)}.ended_at IS NULL AND ${sql.raw(a)}.accepted_at<=clock_timestamp() AND ${linkLive(a)})`;
@@ -251,7 +251,7 @@ export function invalidate(
 	);
 }
 export const witnessHides = (kind: "account" | "plant", id: SQL) =>
-	sql<boolean>`EXISTS(SELECT FROM lifecycle_witness w WHERE w.kind=${kind} AND w.opaque_subject_id=${id} AND w.state NOT IN ('active','cancelled'))`;
+	sql<boolean>`EXISTS(SELECT FROM lifecycle_witness w WHERE w.kind=${kind} AND w.opaque_subject_id=${id} AND w.state <> 'cancelled')`;
 export const discoveryOpen = (accountId: SQL) =>
 	sql<boolean>`EXISTS(SELECT FROM discovery d WHERE d.account_id=${accountId} AND d.converted_at IS NULL)`;
 export const seatless = (accountId: SQL) =>

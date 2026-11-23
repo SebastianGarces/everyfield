@@ -473,7 +473,7 @@ export function createInvitationService(config: InvitationConfig) {
 						.where(
 							and(
 								eq(t.lifecycle_witness.affiliation_id, affiliation.id),
-								sql`${t.lifecycle_witness.state} NOT IN ('active','cancelled')`,
+								sql`${t.lifecycle_witness.state} <>'cancelled'`,
 							),
 						)
 						.for("share");

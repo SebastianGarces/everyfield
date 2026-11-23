@@ -206,7 +206,7 @@ export function createMailService(config: {
    checked AS MATERIALIZED (SELECT * FROM m WHERE ${live}),
    barriers AS MATERIALIZED (SELECT w.id FROM lifecycle_witness w
     WHERE w.opaque_subject_id IN (SELECT tenant_id FROM checked UNION SELECT recipient_account_id FROM checked)
-    AND w.state IN ('pending_deletion','purging','purged','revoked') FOR SHARE OF w),
+    AND w.state IN ('pending_deletion','purging','purged') FOR SHARE OF w),
    notices AS MATERIALIZED (SELECT n.category,n.logical_key FROM notice n JOIN checked c ON n.id=c.notice_id AND n.tenant_id=c.tenant_id
     WHERE n.cancelled_at IS NULL AND ${barrierCountReadingEveryLockedRow}=0 FOR SHARE OF n)
    SELECT m.*,${barrierCountReadingEveryLockedRow}>0 AS blocked,(SELECT to_json(n) FROM notices n) AS notice,
@@ -380,7 +380,7 @@ export function createMailService(config: {
    plant_roots AS MATERIALIZED (SELECT p.id FROM plant p WHERE p.id IN (SELECT tenant FROM input) AND (SELECT count(*) FROM account_roots)>=0 ORDER BY p.id FOR SHARE),
    organization_roots AS MATERIALIZED (SELECT o.id,o.kind FROM organization o WHERE o.id IN (SELECT tenant FROM input) AND (SELECT count(*) FROM plant_roots)>=0 ORDER BY o.id FOR SHARE),
    prior AS MATERIALIZED (SELECT m.id,m.tenant_id,m.logical_key,m.payload_hash FROM mail m JOIN input i ON i.tenant=m.tenant_id AND i.key=m.logical_key WHERE (SELECT count(*) FROM organization_roots)>=0 ORDER BY m.id FOR UPDATE OF m),
-   barriers AS MATERIALIZED (SELECT w.opaque_subject_id FROM lifecycle_witness w WHERE w.opaque_subject_id IN (SELECT tenant FROM input UNION SELECT recipient FROM input) AND w.state IN ('pending_deletion','purging','purged','revoked') AND (SELECT count(*) FROM organization_roots)>=0 FOR SHARE)
+   barriers AS MATERIALIZED (SELECT w.opaque_subject_id FROM lifecycle_witness w WHERE w.opaque_subject_id IN (SELECT tenant FROM input UNION SELECT recipient FROM input) AND w.state IN ('pending_deletion','purging','purged') AND (SELECT count(*) FROM organization_roots)>=0 FOR SHARE)
    SELECT i.n,t.kind,o.kind AS organization_kind,p.id AS prior_id,p.payload_hash AS prior_hash,
     EXISTS(SELECT FROM barriers b WHERE b.opaque_subject_id IN (i.tenant,i.recipient)) AS blocked
    FROM input i LEFT JOIN tenant t ON t.id=i.tenant LEFT JOIN organization_roots o ON o.id=i.tenant
