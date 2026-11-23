@@ -30,7 +30,8 @@
 			"Bash(git branch -d *)",
 			"Bash(git worktree remove*)",
 			"Bash(git worktree prune*)",
-			"Read(./**/.env*)"
+			"Read(./**/.env*)",
+			"Read(~/Library/Application Support/everyfield-actionable-watch/**)"
 		]
 	}
 }

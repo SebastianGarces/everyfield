@@ -1,6 +1,6 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
 	approveProposal,
 	createConversation,
@@ -47,9 +47,14 @@ after(teardown);
 const counted = (start: number) =>
 	queries.slice(start).filter((q) => !/^(BEGIN|COMMIT|ROLLBACK)/i.test(q.trim())).length;
 
-async function turn(who: EvryActor) {
+type Photos = ReturnType<typeof bucket>;
+type Attached = Awaited<ReturnType<Photos["attach"]>>;
+async function turn(who: EvryActor, photos?: Photos, attach: [string, Buffer][] = []) {
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
-	await submitTurn(db, who, c.id, { requestKey: randomUUID(), text: "hold this turn" });
+	const attached: Attached[] = [];
+	for (const [name, bytes] of attach) attached.push(await photos!.attach(who, c.id, name, bytes));
+	const attachments = attached.map(({ id, name }) => ({ id, name }));
+	await submitTurn(db, who, c.id, { requestKey: randomUUID(), text: "hold this turn", attachments });
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
 	assert.ok(claim);
 	const run = {
@@ -59,10 +64,12 @@ async function turn(who: EvryActor) {
 		generation: claim.claim_generation,
 	};
 	return {
+		conversationId: c.id,
+		attached,
 		async propose(operation: string, input: unknown) {
 			const start = queries.length;
 			const proposal = await prepareProposal(db, who, run, c.id, { operation, input });
-			assert.equal(counted(start), 1, operation);
+			assert.equal(counted(start), operation === "people.setPersonPhoto" ? 2 : 1, operation);
 			return proposal;
 		},
 	};
@@ -257,39 +264,82 @@ test("AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE a retirement runs 
 	assert.equal(await t.propose("people.updatePerson", { personId: p2, patch: { city: "Elgin" } }), null);
 });
 
-test("AC:PROVIDER48-002 a photo change uses only this church's own verified upload and runs once; removal releases it", async () => {
+const refusal = (p: Promise<unknown>) =>
+	p.then(
+		() => "delivered",
+		(e: { code?: string }) => e.code,
+	);
+const fileRow = async (id: string) =>
+	(await admin.execute(sql`SELECT purpose,state,sha256,byte_count::int AS bytes FROM file_object WHERE id=${id}::uuid`))
+		.rows[0] as { purpose: string; state: string; sha256: string | null; bytes: number | null };
+
+test("AC:PROVIDER48-002 a photo change binds only a photo attached in this conversation, runs once, and can't bind it to a second person; removal releases it", async () => {
 	const owner = await actor("owner");
-	const t = await turn(owner);
 	const photos = bucket();
-	const upload = (await photos.upload(png)).id;
-	const foreign = randomUUID();
-	await admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,byte_count,sha256,state,upload_key,claim_generation,expires_at)
-		SELECT ${foreign},plant_id,'person_photo','private/'||plant_id||'/'||gen_random_uuid(),'image/png',100,100,${"0".repeat(64)},'ready',${foreign},0,clock_timestamp()+interval '15 minutes'
-		FROM person WHERE id=${people.foreign}`);
-	assert.equal(await t.propose("people.setPersonPhoto", { personId: people.alexRivera, uploadId: foreign }), null);
+	const elsewhere = await turn(owner, photos, [["elsewhere.png", png]]);
+	const t = await turn(owner, photos, [
+		["priya.png", png],
+		["notes.csv", Buffer.from("first_name\nPriya")],
+	]);
+	const [photo, csv] = t.attached as [Attached, Attached];
+	const other = await addPerson("Sam Photo");
+	const outside = elsewhere.attached[0]!.id;
+	assert.equal(
+		await refusal(t.propose("people.setPersonPhoto", { personId: people.alexRivera, uploadId: outside })),
+		"attachment_elsewhere",
+	);
+	assert.equal(
+		await refusal(t.propose("people.setPersonPhoto", { personId: people.alexRivera, uploadId: csv.id })),
+		"attachment_elsewhere",
+		"a CSV is not a photo",
+	);
 	assert.equal(await t.propose("people.removePersonPhoto", { personId: people.alexRivera }), null, "no photo yet");
 
-	const set = await t.propose("people.setPersonPhoto", { personId: people.alexRivera, uploadId: upload });
-	assert.ok(set);
-	assert.deepEqual(set.review.changes, [{ field: "photo", before: null, after: upload }]);
+	const set = await t.propose("people.setPersonPhoto", { personId: people.alexRivera, uploadId: photo.id });
+	const rival = await t.propose("people.setPersonPhoto", { personId: other, uploadId: photo.id });
+	assert.ok(set && rival);
+	assert.deepEqual(set.review.changes, [{ field: "photo", before: null, after: photo.id }]);
 	assert.equal((await personRow(people.alexRivera)).photo_object_id, null, "nothing changes before approval");
 	const first = await approveAndRun(owner, set, photos.storage);
 	assert.equal(first.outcome, "completed");
-	assert.equal((await personRow(people.alexRivera)).photo_object_id, upload);
+	assert.equal((await personRow(people.alexRivera)).photo_object_id, photo.id);
+	assert.deepEqual(await fileRow(photo.id), {
+		purpose: "person_photo",
+		state: "ready",
+		sha256: createHash("sha256").update(png).digest("hex"),
+		bytes: png.length,
+	});
+	assert.equal(
+		await refusal(
+			approveProposal(db, owner, rival.id, { revision: rival.revision, digest: rival.digest }, photos.storage),
+		),
+		"photo_unavailable",
+		"the bound photo can't be approved for a second person",
+	);
+	assert.equal(
+		await refusal(t.propose("people.setPersonPhoto", { personId: other, uploadId: photo.id })),
+		"attachment_gone",
+	);
+	assert.equal((await personRow(other)).photo_object_id, null);
+	assert.deepEqual(
+		(await effectAudits(set.id)).map((a) => a.action),
+		["people.updated"],
+		"one receipt",
+	);
 
 	const remove = await t.propose("people.removePersonPhoto", { personId: people.alexRivera });
 	assert.ok(remove);
-	assert.deepEqual(remove.review.changes, [{ field: "photo", before: upload, after: null }]);
+	assert.deepEqual(remove.review.changes, [{ field: "photo", before: photo.id, after: null }]);
 	const second = await approveAndRun(owner, remove);
 	assert.equal(second.outcome, "completed");
 	assert.equal((await personRow(people.alexRivera)).photo_object_id, null);
 	const cleanup = await admin.execute(
-		sql`SELECT count(*)::int n FROM job WHERE kind='object_cleanup' AND subject_record_id=${upload}`,
+		sql`SELECT count(*)::int n FROM job WHERE kind='object_cleanup' AND subject_record_id=${photo.id} AND producer_key=${"person-photo-release/" + photo.id}`,
 	);
 	assert.equal(cleanup.rows[0]!.n, 1, "the released object is queued for cleanup");
 	assert.deepEqual(
-		[...(await effectAudits(set.id)), ...(await effectAudits(remove.id))].map((a) => a.action),
-		["people.updated", "people.updated"],
+		(await effectAudits(remove.id)).map((a) => a.action),
+		["people.updated"],
 	);
 	console.log(
 		JSON.stringify({
@@ -297,15 +347,19 @@ test("AC:PROVIDER48-002 a photo change uses only this church's own verified uplo
 			statements: [first.statements, second.statements],
 		}),
 	);
-	assert.deepEqual([first.statements, second.statements], [6, 6]);
+	assert.deepEqual([first.statements, second.statements], [7, 6]);
 });
 
-test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while the review lasts; approval needs it", async () => {
+test("AC:UI45-003 a photo proposal's owner sees the exact attached photo while the review lasts; approval needs it", async () => {
 	const owner = await actor("owner");
-	const t = await turn(owner);
 	const photos = bucket();
 	const other = Buffer.concat([png, Buffer.from("second upload")]);
-	const [a, b] = [await photos.upload(png), await photos.upload(other)];
+	const t = await turn(owner, photos, [
+		["a.png", png],
+		["b.png", other],
+		["c.png", png],
+	]);
+	const [a, b, c] = t.attached as [Attached, Attached, Attached];
 	const target = await addPerson("Robin Photo");
 	const first = await t.propose("people.setPersonPhoto", { personId: target, uploadId: a.id });
 	const second = await t.propose("people.setPersonPhoto", { personId: target, uploadId: b.id });
@@ -314,15 +368,10 @@ test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while th
 	const start = queries.length;
 	const shown = await readStagedPhoto(db, photos.storage, owner, first.id);
 	console.log(JSON.stringify({ read: "evry.readStagedPhoto", statements: counted(start) }));
-	assert.equal(counted(start), 5);
+	assert.equal(counted(start), 2);
 	assert.deepEqual([Buffer.from(shown.bytes), shown.mediaType], [png, "image/png"]);
 	assert.deepEqual(Buffer.from((await readStagedPhoto(db, photos.storage, owner, second.id)).bytes), other);
 
-	const refusal = (p: Promise<unknown>) =>
-		p.then(
-			() => "delivered",
-			(e: { code?: string }) => e.code,
-		);
 	for (const who of ["member", "foreign"] as const)
 		assert.equal(await refusal(readStagedPhoto(db, photos.storage, await actor(who), first.id)), "not_found", who);
 	await admin.execute(
@@ -348,7 +397,6 @@ test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while th
 	assert.equal(await refusal(approveProposal(db, owner, second.id, witness, photos.storage)), "photo_unavailable");
 	assert.equal(await refusal(approveProposal(db, owner, second.id, witness, null)), "photo_unavailable");
 	assert.equal((await readReview(db, owner, second.id)).status, "pending");
-	const c = await photos.upload(png);
 	const third = await t.propose("people.setPersonPhoto", { personId: target, uploadId: c.id });
 	assert.ok(third);
 	await admin.execute(sql`UPDATE file_object SET state='cleanup' WHERE id=${c.id}`);
@@ -372,7 +420,7 @@ test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while th
 		photos.storage,
 	);
 	console.log(JSON.stringify({ write: "evry.approveProposal(people.setPersonPhoto)", statements: counted(begin) }));
-	assert.equal(counted(begin), 7);
+	assert.equal(counted(begin), 4);
 	assert.deepEqual([approved.replayed, approved.proposal.status], [false, "approved"]);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	assert.ok(claim, "the approved photo change is queued");
@@ -388,6 +436,6 @@ test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while th
 	);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	assert.equal(outcome, "completed");
-	assert.equal((await personRow(target)).photo_object_id, a.id, "approve saves that exact upload");
+	assert.equal((await personRow(target)).photo_object_id, a.id, "approve saves that exact photo");
 	assert.equal(await refusal(readStagedPhoto(db, photos.storage, owner, first.id)), "not_found");
 });

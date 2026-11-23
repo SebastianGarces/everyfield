@@ -93,6 +93,7 @@
 		"everyfield/web-database-imports": "error",
 		"everyfield/shared-notice": "error",
 		"everyfield/live-region-in-tree": "error",
+		"everyfield/confirm-keeps-refusal": "error",
 		"no-restricted-imports": [
 			"error",
 			{
@@ -113,6 +114,12 @@
 		]
 	},
 	"overrides": [
+		{
+			"files": ["src/**"],
+			"rules": {
+				"everyfield/no-default-database": "error"
+			}
+		},
 		{
 			"files": ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
 			"rules": {
@@ -1372,6 +1379,7 @@
 				"everyfield/render-reads": "error",
 				"everyfield/no-read-actions": "error",
 				"everyfield/action-params-unknown": "error",
+				"everyfield/client-request-key": "error",
 				"everyfield/failure-not-empty": "error"
 			}
 		},

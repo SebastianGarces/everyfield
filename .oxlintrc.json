@@ -60,9 +60,16 @@
 		"everyfield/no-sql-comments": "error",
 		"everyfield/no-slop-styling": "error",
 		"everyfield/live-region-in-tree": "error",
+		"everyfield/confirm-keeps-refusal": "error",
 		"everyfield/one-top-level-before": "error"
 	},
 	"overrides": [
+		{
+			"files": ["packages/**"],
+			"rules": {
+				"everyfield/no-default-database": "error"
+			}
+		},
 		{
 			"files": ["packages/*/src/**"],
 			"rules": {
@@ -169,7 +176,7 @@
 			}
 		},
 		{
-			"files": ["packages/contracts/src/**"],
+			"files": ["packages/contracts/src/**", "packages/evry/src/**"],
 			"rules": {
 				"everyfield/strict-contracts": "error"
 			}

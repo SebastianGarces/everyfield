@@ -11,6 +11,7 @@ import {
 	recordCorrections,
 } from "@everyfield/domain/people";
 import {
+	attendanceText,
 	counted,
 	fourCs,
 	interviewCriteria,
@@ -26,6 +27,7 @@ import { personRow } from "../../../catalog/person-row.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { ownerOrAdmin } from "../../people/commands/index.ts";
 import { id } from "../ids.ts";
+import { dayText } from "../../pipeline/reads/index.ts";
 
 const context = (actor: EvryActor) => new PeopleReadContext(actor.authority);
 const result = (operation: string, rows: SourceRow[], exclusions: string[], total = rows.length): SourceResult => ({
@@ -158,7 +160,7 @@ export const getCommitments: ReadAdapter<z.infer<typeof history>> = {
 	},
 };
 
-const documentRow = z.object({ person_id: z.uuid(), media_type: z.string(), byte_count: z.coerce.number() });
+const documentRow = z.strictObject({ person_id: z.uuid(), media_type: z.string(), byte_count: z.coerce.number() });
 export const getCommitmentDownload: ReadAdapter<{ commitmentId: string }> = {
 	operation: "people.getCommitmentDownload",
 	description:
@@ -196,6 +198,15 @@ const names = async (tx: WriteTx, actor: EvryActor, ids: string[]) => {
 export async function mergeReviewOf(tx: WriteTx, actor: EvryActor, pair: { sourceId: string; survivorId: string }) {
 	return valueOf(await peopleMerge.getMergeReview(tx, context(actor), pair));
 }
+type Review = NonNullable<Awaited<ReturnType<typeof mergeReviewOf>>>;
+export const mergeNotes = (v: Review): Record<string, string> => {
+	const notes = {
+		attendanceChanges: v.attendance.map((a) => attendanceText(a, v)).join(" "),
+		openTasks: listText(v.openTasks.map((t) => (t.dueDate ? `${t.title}, due ${dayText(t.dueDate)}` : t.title))),
+		openKitItems: listText(v.openKitItems.map((i) => `${i.text} for ${i.meeting}`)),
+	};
+	return Object.fromEntries(Object.entries(notes).filter((e) => e[1]));
+};
 export const getMergeReview: ReadAdapter<{ sourceId: string; survivorId: string }> = {
 	operation: "people.getMergeReview",
 	description:
@@ -222,6 +233,7 @@ export const getMergeReview: ReadAdapter<{ sourceId: string; survivorId: string 
 					moves: listText(moves.map((r) => counted(r.kind, r.count))) || null,
 					staysWithMergedRecord: listText(stays.map((r) => counted(r.kind, r.count))) || null,
 					stageKept: v.stage?.result ?? null,
+					...mergeNotes(v),
 					blocked,
 				},
 			},
@@ -242,9 +254,17 @@ export async function unmergePreviewOf(tx: WriteTx, actor: EvryActor, mergeId: s
 		v.state === "unmerged"
 			? "This merge was already undone."
 			: v.conflicts.length
-				? unmergeBlockedText(v.conflicts, who)
+				? unmergeBlockedText(v.conflicts, who, v.changed)
 				: null;
-	return { ...v, names: who, blocked };
+	const attendanceBack = v.attendance
+		.map((a) =>
+			attendanceText(a, {
+				source: { personId: v.sourceId, displayName: who.source },
+				survivor: { personId: v.survivorId, displayName: who.survivor },
+			}),
+		)
+		.join(" ");
+	return { ...v, names: who, blocked, attendanceBack };
 }
 const unmergeInput = z.union([
 	z.strictObject({ mergeId: id }),

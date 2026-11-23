@@ -5,6 +5,8 @@ import { CommunicationRefusal } from "@everyfield/domain/communication";
 import { MeetingsRefusal } from "@everyfield/domain/meetings";
 import { Refusal } from "@everyfield/domain/people";
 import { TeamsRefusal } from "@everyfield/domain/teams";
+import { TaskRefusal } from "@everyfield/domain/tasks";
+import { FollowUpRefusal } from "@everyfield/domain/followups";
 import { owner, sessionId } from "@everyfield/contracts/common";
 import { fromStates, proposalMachine, type ProposalSubject } from "@everyfield/contracts/machines";
 import { z } from "zod";
@@ -34,7 +36,7 @@ async function holdPublicationLocks(tx: Transaction, lease: EffectLease) {
 	);
 }
 
-const locked = z.object({
+const locked = z.strictObject({
 	id: z.uuid(),
 	stale: z.boolean(),
 	reached: z.boolean(),
@@ -160,7 +162,9 @@ export async function executeProposal(
 				: error instanceof Refusal ||
 					  error instanceof CommunicationRefusal ||
 					  error instanceof TeamsRefusal ||
-					  error instanceof MeetingsRefusal
+					  error instanceof MeetingsRefusal ||
+					  error instanceof TaskRefusal ||
+					  error instanceof FollowUpRefusal
 					? refusalCode(error.code)
 					: error instanceof EvryRefusal
 						? error.code

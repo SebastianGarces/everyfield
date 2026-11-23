@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 export type EvryErrorCode =
 	| "not_found"
 	| "access_denied"
+	| "church_changed"
 	| "invalid_input"
 	| "run_active"
 	| "model_unavailable"
@@ -20,6 +21,10 @@ export type EvryErrorCode =
 	| "not_assigned"
 	| "assignee_ineligible"
 	| "owner_ineligible"
+	| "offer_answered"
+	| "invalid_subject"
+	| "dependency_cycle"
+	| "protected_owner"
 	| "unknown";
 
 export class EvryRefusal extends Error {
@@ -35,6 +40,7 @@ export class EvryRefusal extends Error {
 const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	not_found: "never",
 	access_denied: "never",
+	church_changed: "never",
 	invalid_input: "never",
 	run_active: "same_request",
 	model_unavailable: "new_turn",
@@ -52,6 +58,10 @@ const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	not_assigned: "never",
 	assignee_ineligible: "never",
 	owner_ineligible: "never",
+	offer_answered: "never",
+	invalid_subject: "never",
+	dependency_cycle: "never",
+	protected_owner: "never",
 	unknown: "new_turn",
 };
 

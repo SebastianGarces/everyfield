@@ -289,8 +289,14 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		"tasks.createSubtask",
 		"tasks.setSubtaskCompletion",
 		"tasks.removeSubtask",
+		"tasks.acceptPhaseOffer",
+		"tasks.answerPhaseOffer",
+		"tasks.declinePhaseOffer",
+		"tasks.importTemplate",
+		"tasks.replacePrerequisites",
 		"tasks.createFollowUp",
 		"tasks.assignFollowUp",
+		"tasks.executeHandoff",
 		"tasks.reopenObligation",
 		"followups.recordOutcome",
 		"followups.correctOutcome",
@@ -543,6 +549,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"phases.readCatalog",
 						"phases.readHistory",
 						"phases.readReadiness",
+						"intelligence.readExitCriteria",
+						"intelligence.readJourney",
 						"signals.listDefinitions",
 						"signals.getHistory",
 						...MEETINGS_READS,
@@ -594,6 +602,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"oversight.listPlants",
 								"oversight.getPlant",
 								"organizationIntelligence.read",
+								"organizationIntelligence.readHistory",
+								"organizationIntelligence.readLocations",
+								"organizationIntelligence.readLocationHistory",
 							]
 						: who === "seatless"
 							? ["discovery.getProfile"]

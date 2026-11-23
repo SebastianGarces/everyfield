@@ -2,7 +2,6 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import {
-	Alert,
 	Button,
 	Card,
 	CardDescription,
@@ -10,6 +9,7 @@ import {
 	CardHeading,
 	CardTitle,
 	Field,
+	InlineAlert,
 	Input,
 } from "@everyfield/ui/controls";
 import { useRef, useState, useTransition } from "react";
@@ -38,7 +38,12 @@ export function Address() {
 	const [pending, start] = useTransition();
 	const loaded = read.value !== undefined;
 	const report = read.value?.status === "ok" ? read.value.value : null;
-	const unread = read.value && read.value.status !== "ok" ? read.value : null;
+	const failed = read.value?.status === "failed" || read.value?.status === "lost";
+	const notice: Notice | null =
+		restored ??
+		(read.value && read.value.status !== "ok" && !failed
+			? { text: outcomeText(read.value) ?? "Unable to read this address.", tone: "alert" }
+			: null);
 
 	const onRestore = () => {
 		const trimmed = reason.trim();
@@ -83,24 +88,23 @@ export function Address() {
 					Checking this address.
 				</p>
 			)}
-			{unread ? (
-				<Alert
-					role="alert"
-					actions={
-						<Button variant="secondary" onClick={read.retry}>
+			<InlineAlert
+				actions={
+					failed ? (
+						<Button size="sm" variant="outline" onClick={read.retry}>
 							Try again
 						</Button>
-					}
-				>
-					{outcomeText(unread) ?? "Unable to read this address."}
-				</Alert>
-			) : null}
-			{restored ? (
+					) : null
+				}
+			>
+				{failed ? "We couldn't load your church's address." : null}
+			</InlineAlert>
+			{notice ? (
 				<p
-					role={restored.tone}
-					className={restored.tone === "alert" ? "text-sm font-medium text-magenta-600" : "text-md text-ink"}
+					role={notice.tone}
+					className={notice.tone === "alert" ? "text-sm font-medium text-magenta-600" : "text-md text-ink"}
 				>
-					{restored.text}
+					{notice.text}
 				</p>
 			) : null}
 			{report ? (
