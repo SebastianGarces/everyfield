@@ -111,15 +111,6 @@ function status(w: typeof t.lifecycle_witness.$inferSelect): n.DeletionStatus {
 			: {}),
 	});
 }
-async function root(tx: Tx, subject: DeletionSubject) {
-	if (subject.kind === "account") {
-		const [a] = await tx.select().from(t.account).where(eq(t.account.id, subject.id)).for("update");
-		if (!a) deny("unavailable");
-	} else {
-		const [p] = await tx.select().from(t.plant).where(eq(t.plant.id, subject.id)).for("update");
-		if (!p) deny("unavailable");
-	}
-}
 async function lockedWitness(tx: Tx, subject: DeletionSubject) {
 	const root =
 		subject.kind === "account"
