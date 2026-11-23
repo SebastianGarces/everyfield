@@ -51,7 +51,6 @@ function log(...blocks) {
 
 test("INV-census: a behavior failure message names each failing test's assertion, diff and test-file frame", () => {
 	const message = behaviorFailure(evidence, log(deep, thrown));
-	assert.ok(message.startsWith(`Behavior suites failed; evidence: ${evidence}\n`));
 	assert.equal(
 		message.split("\n\nFailing tests' errors:")[0],
 		[

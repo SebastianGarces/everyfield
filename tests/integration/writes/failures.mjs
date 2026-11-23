@@ -46,7 +46,7 @@ function nameErrorAndTestFrame({ file, lines }) {
 		frames.push(line);
 	}
 	const frame = frames.find((line) => line.includes(file)) ?? frames[0];
-	return [name, ...body.slice(0, firstFrame).filter((line) => line.trim()), frame.replace(/ \{$/, "")];
+	return [name, ...body.slice(0, firstFrame), frame.replace(/ \{$/, "")];
 }
 
 function trim(lines, evidence) {
