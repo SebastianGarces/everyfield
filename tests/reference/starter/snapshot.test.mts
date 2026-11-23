@@ -205,8 +205,7 @@ test("INV-wiki-embedding: an OpenAI key stays unused until EVF_WIKI_EMBEDDINGS=o
 		},
 		(error: unknown) => {
 			assert.ok(error instanceof EmbeddingRefusal);
-			assert.equal(error.message.includes(key), false);
-			assert.match(error.message, /^openai_http_401:/);
+			assert.equal(error.message, "openai_http_401");
 			assert.equal(error.usageTokens, 0);
 			return true;
 		},

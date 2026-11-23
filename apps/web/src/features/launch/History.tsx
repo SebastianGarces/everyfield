@@ -9,6 +9,7 @@ import {
 	CardHeader,
 	CardHeading,
 	CardTitle,
+	InlineAlert,
 } from "@everyfield/ui/controls";
 import { useState } from "react";
 import { readLaunchHistory } from "./fetch.ts";
@@ -53,11 +54,7 @@ export function LaunchHistory({ today }: { today: string }) {
 					</Button>
 				</CardActions>
 			</CardHeader>
-			{error ? (
-				<p role="alert" className="text-sm text-red-700">
-					{error}
-				</p>
-			) : null}
+			<InlineAlert>{error}</InlineAlert>
 			{history ? (
 				history.entries.length ? (
 					<ol className="flex flex-col">

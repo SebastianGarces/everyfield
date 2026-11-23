@@ -2,6 +2,7 @@
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import type { FieldDecl } from "@everyfield/contracts/documents";
+import { ProblemText } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useEditorState, type Editor } from "@tiptap/react";
 import { useId, useState } from "react";
@@ -50,9 +51,9 @@ function ValueField({ editor, target, condition }: { editor: Editor; target: Tar
 				/>
 			</Tip>
 			{problem ? (
-				<span id={`${id}-problem`} role="alert" className="text-xs font-medium text-magenta-600">
+				<ProblemText as="span" id={`${id}-problem`}>
 					{problem}
-				</span>
+				</ProblemText>
 			) : null}
 		</span>
 	);

@@ -483,18 +483,6 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
-			"name": "lifecycle_witness_fk_3",
-			"table_name": "lifecycle_witness"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
-			"name": "lifecycle_witness_fk_4",
-			"table_name": "lifecycle_witness"
-		},
-		{
-			"deferrable": true,
-			"initially_deferred": false,
 			"name": "mail_attempt_fk_0",
 			"table_name": "mail_attempt"
 		},
@@ -2909,7 +2897,7 @@
 		},
 		{
 			"arguments": "",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.file_immutable()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nBEGIN\n  IF ROW(NEW.id,NEW.tenant_id,NEW.purpose,NEW.opaque_key,NEW.upload_key,NEW.media_type,NEW.max_bytes,NEW.expires_at)\n     IS DISTINCT FROM ROW(OLD.id,OLD.tenant_id,OLD.purpose,OLD.opaque_key,OLD.upload_key,OLD.media_type,OLD.max_bytes,OLD.expires_at)\n     OR (OLD.sha256 IS NOT NULL AND ROW(NEW.sha256,NEW.byte_count) IS DISTINCT FROM ROW(OLD.sha256,OLD.byte_count))\n     OR NEW.claim_generation < OLD.claim_generation\n     OR (OLD.state='ready' AND NEW.state NOT IN ('ready','cleanup'))\n     OR (OLD.state='failed' AND NEW.state NOT IN ('failed','cleanup'))\n     OR (OLD.state='cleanup' AND NEW.state NOT IN ('cleanup','purged'))\n     OR (OLD.state='purged' AND NEW.state<>'purged') THEN\n    RAISE EXCEPTION 'immutable_file_identity' USING ERRCODE='23514';\n  END IF;\n  RETURN NEW;\nEND $function$\n",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.file_immutable()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\nDECLARE\n  claimed boolean := OLD.purpose='assistant_staging' AND NEW.purpose='person_photo' AND OLD.state='pending'\n    AND NEW.state='ready' AND NEW.media_type IN ('image/jpeg','image/png','image/webp') AND NEW.sha256 IS NOT NULL;\nBEGIN\n  IF ROW(NEW.id,NEW.tenant_id,CASE WHEN claimed THEN OLD.purpose ELSE NEW.purpose END,NEW.opaque_key,NEW.upload_key,NEW.media_type,NEW.max_bytes,NEW.expires_at)\n     IS DISTINCT FROM ROW(OLD.id,OLD.tenant_id,OLD.purpose,OLD.opaque_key,OLD.upload_key,OLD.media_type,OLD.max_bytes,OLD.expires_at)\n     OR (OLD.sha256 IS NOT NULL AND ROW(NEW.sha256,NEW.byte_count) IS DISTINCT FROM ROW(OLD.sha256,OLD.byte_count))\n     OR NEW.claim_generation < OLD.claim_generation\n     OR (OLD.state='ready' AND NEW.state NOT IN ('ready','cleanup'))\n     OR (OLD.state='failed' AND NEW.state NOT IN ('failed','cleanup'))\n     OR (OLD.state='cleanup' AND NEW.state NOT IN ('cleanup','purged'))\n     OR (OLD.state='purged' AND NEW.state<>'purged') THEN\n    RAISE EXCEPTION 'immutable_file_identity' USING ERRCODE='23514';\n  END IF;\n  RETURN NEW;\nEND $function$\n",
 			"name": "file_immutable"
 		},
 		{
@@ -3214,7 +3202,7 @@
 		},
 		{
 			"arguments": "handle uuid, new_name text",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.settings_update_name(handle uuid, new_name text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE subject uuid;\nBEGIN\n SELECT a.id INTO subject FROM auth_session s JOIN account a ON a.auth_user_id=s.user_id WHERE s.id=handle AND s.expires_at>clock_timestamp() FOR UPDATE OF a;\n IF subject IS NULL OR length(btrim(new_name)) NOT BETWEEN 1 AND 200 OR EXISTS(SELECT FROM lifecycle_witness WHERE kind='account' AND opaque_subject_id=subject AND state NOT IN ('active','cancelled')) THEN RAISE EXCEPTION 'unavailable' USING ERRCODE='42501'; END IF;\n UPDATE auth_user SET name=btrim(new_name),updated_at=clock_timestamp() WHERE id=(SELECT auth_user_id FROM account WHERE id=subject);\nEND $function$\n",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.settings_update_name(handle uuid, new_name text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE subject uuid;\nBEGIN\n SELECT a.id INTO subject FROM auth_session s JOIN account a ON a.auth_user_id=s.user_id WHERE s.id=handle AND s.expires_at>clock_timestamp() FOR UPDATE OF a;\n IF subject IS NULL OR length(btrim(new_name)) NOT BETWEEN 1 AND 200 OR EXISTS(SELECT FROM lifecycle_witness WHERE kind='account' AND opaque_subject_id=subject AND state<>'cancelled') THEN RAISE EXCEPTION 'unavailable' USING ERRCODE='42501'; END IF;\n UPDATE auth_user SET name=btrim(new_name),updated_at=clock_timestamp() WHERE id=(SELECT auth_user_id FROM account WHERE id=subject);\nEND $function$\n",
 			"name": "settings_update_name"
 		},
 		{
@@ -3313,6 +3301,13 @@
 			"name": "private_due_weeks"
 		}
 	],
+	"views": [
+		{
+			"definition": " SELECT f.name,\n    f.value,\n    c.occurred_at AS changed_at\n   FROM (feature_flag f\n     LEFT JOIN LATERAL ( SELECT a.occurred_at\n           FROM audit_event a\n          WHERE ((a.tenant_id = f.tenant_id) AND (a.subject_id = f.id) AND (a.action = 'flags.changed'::text))\n          ORDER BY a.occurred_at DESC, a.id DESC\n         LIMIT 1) c ON (true))\n  WHERE (f.tenant_id = '00000000-0000-0000-0000-000000000000'::uuid);",
+			"name": "flag_rollout",
+			"options": ["security_barrier=true"]
+		}
+	],
 	"roles": [
 		{
 			"bypass_rls": false,
@@ -3330,6 +3325,15 @@
 			"inherit": true,
 			"login": false,
 			"name": "everyfield_cleanup",
+			"superuser": false
+		},
+		{
+			"bypass_rls": false,
+			"create_database": false,
+			"create_role": false,
+			"inherit": true,
+			"login": false,
+			"name": "everyfield_flag_reader",
 			"superuser": false
 		},
 		{
@@ -4168,6 +4172,20 @@
 			"kind": "table",
 			"object": "generated_document",
 			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "guardian_contact",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "guardian_contact",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_cleanup",
@@ -5654,6 +5672,20 @@
 			"privilege_type": "UPDATE"
 		},
 		{
+			"grantee": "everyfield_flag_reader",
+			"is_grantable": false,
+			"kind": "schema",
+			"object": "<schema>",
+			"privilege_type": "USAGE"
+		},
+		{
+			"grantee": "everyfield_flag_reader",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "flag_rollout",
+			"privilege_type": "SELECT"
+		},
+		{
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "function",
@@ -6504,6 +6536,27 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "embedding_spend",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "embedding_spend",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "embedding_spend",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "enrollment_milestone",
 			"privilege_type": "INSERT"
 		},
@@ -6645,6 +6698,34 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "generated_document",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "guardian_contact",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "guardian_contact",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "guardian_contact",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "guardian_contact",
 			"privilege_type": "UPDATE"
 		},
 		{

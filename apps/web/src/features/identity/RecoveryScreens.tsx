@@ -44,8 +44,8 @@ export function RecoverScreen() {
 		if (sent) setSent({ to: sent.to, again: false });
 		const result = await identityApi.requestPasswordRecovery(email);
 		setBusy(false);
-		if (!result.ok) {
-			setRefusal(refusalMessage("recover", result.error));
+		if (result.status !== "ok") {
+			setRefusal(refusalMessage("recover", result));
 			return;
 		}
 		setSent({ to: email, again: sent !== null });
@@ -117,13 +117,7 @@ export function RecoverScreen() {
 
 type ResetState = "form" | "done" | "expired";
 
-function useLinkProof(proof: string | null): string | null {
-	const [kept] = useState(proof);
-	return kept;
-}
-
-export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null }) {
-	const proof = useLinkProof(linkProof);
+export function ResetPasswordScreen({ linked }: { linked: boolean }) {
 	const [state, setState] = useState<ResetState>("form");
 	const [errors, setErrors] = useState<{ newPassword?: string; confirmPassword?: string }>({});
 	const [refusal, setRefusal] = useState<string | null>(null);
@@ -131,7 +125,7 @@ export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null
 	const newRef = useRef<HTMLInputElement>(null);
 	const confirmRef = useRef<HTMLInputElement>(null);
 
-	if (!proof)
+	if (!linked)
 		return (
 			<IncompleteLink
 				action={
@@ -167,7 +161,7 @@ export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null
 
 	async function submit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		if (busy || !proof) return;
+		if (busy) return;
 		const data = new FormData(event.currentTarget);
 		const newPassword = String(data.get("newPassword") ?? "");
 		const confirmPassword = String(data.get("confirmPassword") ?? "");
@@ -187,16 +181,16 @@ export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null
 			return;
 		}
 		setBusy(true);
-		const result = await identityApi.recoverPassword({ proof, newPassword, confirmPassword });
+		const result = await identityApi.recoverPassword({ newPassword, confirmPassword });
 		setBusy(false);
-		if (result.ok) return setState("done");
-		if (result.error.code === "invalid_proof") return setState("expired");
-		if (result.error.code === "invalid_input") {
-			setErrors({ newPassword: refusalMessage("reset", result.error) });
+		if (result.status === "ok") return setState("done");
+		if (result.status === "refused" && result.code === "invalid_proof") return setState("expired");
+		if (result.status === "refused" && result.code === "invalid_input") {
+			setErrors({ newPassword: refusalMessage("reset", result) });
 			newRef.current?.focus();
 			return;
 		}
-		setRefusal(refusalMessage("reset", result.error));
+		setRefusal(refusalMessage("reset", result));
 	}
 
 	return (
@@ -222,13 +216,12 @@ export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null
 
 type VerifyState = "ready" | "done" | "expired";
 
-export function VerifyEmailScreen({ proof: linkProof }: { proof: string | null }) {
-	const proof = useLinkProof(linkProof);
+export function VerifyEmailScreen({ linked }: { linked: boolean }) {
 	const [state, setState] = useState<VerifyState>("ready");
 	const [refusal, setRefusal] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 
-	if (!proof) return <IncompleteLink action={<SignInButton />} />;
+	if (!linked) return <IncompleteLink action={<SignInButton />} />;
 	if (state === "done")
 		return (
 			<Outcome icon={CheckmarkCircle02Icon} tone="green" title="Your email is confirmed" actions={<SignInButton />}>
@@ -243,14 +236,14 @@ export function VerifyEmailScreen({ proof: linkProof }: { proof: string | null }
 		);
 
 	async function verify() {
-		if (busy || !proof) return;
+		if (busy) return;
 		setBusy(true);
 		setRefusal(null);
-		const result = await identityApi.verifyEmail(proof);
+		const result = await identityApi.verifyEmail();
 		setBusy(false);
-		if (result.ok) return setState("done");
-		if (result.error.code === "invalid_proof") return setState("expired");
-		setRefusal(refusalMessage("session", result.error));
+		if (result.status === "ok") return setState("done");
+		if (result.status === "refused" && result.code === "invalid_proof") return setState("expired");
+		setRefusal(refusalMessage("session", result));
 	}
 
 	return (

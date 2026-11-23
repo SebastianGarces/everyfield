@@ -16,6 +16,7 @@ import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { writeVisibility, type RequestActor } from "../../access/session.ts";
+import { queueJobsFor } from "../../jobs/queue.ts";
 import { lastWrite } from "../../operations/writes.ts";
 import {
 	authorizeCachedWrite,
@@ -176,12 +177,24 @@ async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn
 	});
 }
 
-type CheckedDocument = {
+export type CheckedDocument = {
 	uploadId: string;
 	mediaType: z.infer<typeof c.commitmentMime>;
 	byteCount: number;
 	sha256: string;
 };
+export async function checkCommitmentDocument(
+	uploadId: string,
+	bytes: Uint8Array,
+	mediaType: z.infer<typeof c.commitmentMime>,
+): Promise<CheckedDocument | null> {
+	const readable = await validateCommitment(bytes, mediaType).then(
+		() => true,
+		() => false,
+	);
+	if (!readable) return null;
+	return { uploadId, mediaType, byteCount: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") };
+}
 
 type CardInput = z.output<typeof c.createCommitmentRequest>["input"];
 const witnessOf = (k: CardInput) => (k.witness && "personId" in k.witness ? k.witness.personId : null);
@@ -466,10 +479,14 @@ export async function signCommitmentDocument(
   'pending',${id}::text,0,clock_timestamp()+interval '15 minutes'
  FROM person p WHERE p.id=${input.personId}::uuid AND p.tenant_id=${plant}::uuid AND p.plant_id=${plant}::uuid
  AND p.state='live' AND ${documentWriter(ctx, actorId, plant)}
- RETURNING id,expires_at), cleanup AS (
- INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
- SELECT ${plant}::uuid,'object_cleanup',u.id,'commitment-upload/'||u.id,'ready',u.expires_at,0,4,0 FROM upload u
- ON CONFLICT DO NOTHING)
+ RETURNING id,expires_at), cleanup AS (${queueJobsFor(sql`FROM upload u`, {
+		kind: "object_cleanup",
+		tenant: sql`${plant}::uuid`,
+		subject: sql`u.id`,
+		key: sql`'commitment-upload/'||u.id`,
+		eligibleAt: sql`u.expires_at`,
+		conflict: "skip",
+ })})
  SELECT id FROM upload`);
 		if (!result.rows[0]) deny("unavailable");
 		if (input.mime === "application/pdf") warmCommitmentParser();
@@ -501,15 +518,8 @@ export async function saveCommitmentDocument(
 		const object = await readPrivateObject(storage, documentKey(plant, uploadId), c.COMMITMENT_MAX_BYTES);
 		const mime = c.commitmentMime.safeParse(object?.mediaType);
 		if (!object || !mime.success) deny("unavailable");
-		await validateCommitment(object.bytes, mime.data).catch(() =>
-			deny("invalid_input", { reason: "unreadable_document" }),
-		);
-		const document: CheckedDocument = {
-			uploadId,
-			mediaType: mime.data,
-			byteCount: object.bytes.length,
-			sha256: createHash("sha256").update(object.bytes).digest("hex"),
-		};
+		const document = await checkCommitmentDocument(uploadId, object.bytes, mime.data);
+		if (!document) deny("invalid_input", { reason: "unreadable_document" });
 		return { request, document };
 	});
 	if (checked.status !== "ok") return checked;

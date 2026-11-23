@@ -1,5 +1,6 @@
 "use client";
 
+import { dayText } from "@everyfield/contracts/common";
 import { ArrowLeft01Icon, ArrowRight01Icon, Edit02Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import {
 	CARE_AREAS,
@@ -14,6 +15,7 @@ import {
 	type CareWriteResult,
 } from "@everyfield/contracts/intelligence";
 import {
+	Alert,
 	Button,
 	CalloutLabel,
 	CalloutText,
@@ -24,9 +26,10 @@ import {
 	CardTitle,
 	Field,
 	IconButton,
+	InlineAlert,
 	Textarea,
 } from "@everyfield/ui/controls";
-import { cn, Icon } from "@everyfield/ui/foundations";
+import { cn, Icon, prefersReducedMotion } from "@everyfield/ui/foundations";
 import { RadioGroup } from "radix-ui";
 import { startTransition, useActionState, useOptimistic, useRef, useState, useTransition } from "react";
 import { correctCheckIn, saveCheckIn } from "./actions.ts";
@@ -37,10 +40,8 @@ import {
 	draftOf,
 	LEVEL_LABEL,
 	missingAreas,
-	mondayDate,
 	refusalText,
 	savedAt,
-	shortDate,
 	submitLabel,
 	thisWeekOf,
 	weekNote,
@@ -154,7 +155,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 		setTarget(week && week.ordinal !== thisWeek.ordinal ? week : null);
 		setDraft(formOf(week ?? thisWeek));
 		formRef.current?.focus({ preventScroll: true });
-		cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+		cardRef.current?.scrollIntoView({ behavior: prefersReducedMotion() ? "instant" : "smooth", block: "start" });
 	};
 	const answer = (area: CareArea, level: CareLevel) =>
 		setDraft((d) => ({ ...d, answers: { ...d.answers, [area]: level } }));
@@ -201,26 +202,29 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 		<>
 			<CheckInHeader
 				name={name}
-				subtitle={`A short check-in for you, not for the church. Week of ${mondayDate(thisWeek.startsOn)}.`}
+				subtitle={`A short check-in for you, not for the church. Week of ${dayText(thisWeek.startsOn, { weekday: "long", month: "long", year: "never" })}.`}
 			/>
 			<div className="grid grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
 				<Card ref={cardRef} className="scroll-mt-28 scroll-mb-6">
 					{correcting ? (
-						<div className="mb-3 flex flex-wrap items-center gap-3 rounded-md bg-amber-50 px-4 py-3 shadow-[inset_0_0_0_1px_var(--ef-amber-100)]">
-							<Icon icon={Edit02Icon} size={18} className="text-amber-600" />
-							<span className="min-w-0 flex-1 text-sm text-ink-2">
-								Correcting the week of <b className="font-semibold text-ink">{shortDate(editing.startsOn)}</b>. Your
-								earlier answers stay in your history.
-							</span>
-							<Button variant="ghost" size="sm" onClick={() => choose(null)}>
-								Back to this week
-							</Button>
-						</div>
+						<Alert
+							tone="warning"
+							icon={Edit02Icon}
+							className="mb-3"
+							actions={
+								<Button variant="ghost" size="sm" onClick={() => choose(null)}>
+									Back to this week
+								</Button>
+							}
+						>
+							Correcting the week of <b className="font-semibold">{dayText(editing.startsOn, { year: "never" })}</b>.
+							Your earlier answers stay in your history.
+						</Alert>
 					) : null}
 					<CardHeader>
 						<CardHeading>
 							<CardTitle ref={formRef} tabIndex={-1} className="outline-none">
-								{correcting ? `Week of ${shortDate(editing.startsOn)}` : "This week"}
+								{correcting ? `Week of ${dayText(editing.startsOn, { year: "never" })}` : "This week"}
 							</CardTitle>
 							<CardDescription>Pick the word that fits. There is no score.</CardDescription>
 						</CardHeading>
@@ -256,30 +260,28 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 							onChange={(e) => write(e.target.value)}
 						/>
 					</Field>
-					{missing.length ? (
-						<p role="alert" className="mt-3 text-sm text-magenta-600">
-							Choose an answer for {missing.map((a) => AREA[a].title).join(", ")}.
-						</p>
-					) : null}
+					<InlineAlert className="mt-3">
+						{missing.length ? `Choose an answer for ${missing.map((a) => AREA[a].title).join(", ")}.` : null}
+					</InlineAlert>
 					{failure ? (
-						<div
+						<Alert
 							role="alert"
-							className="mt-4 flex flex-wrap items-center gap-3 rounded-md bg-magenta-50 px-4 py-3 text-sm text-ink-2"
+							className="mt-4"
+							actions={
+								conflict ? (
+									<Button size="sm" variant="secondary" loading={paging} onClick={() => load(1)}>
+										Load the latest
+									</Button>
+								) : null
+							}
 						>
-							<span className="min-w-0 flex-1">
-								{failure.error
-									? correcting
-										? "Your correction was not saved. "
-										: "Your check-in was not saved. "
-									: null}
-								{failure.failed ? READ_FAILED : refusalText(failure.error)}
-							</span>
-							{conflict ? (
-								<Button size="sm" variant="secondary" loading={paging} onClick={() => load(1)}>
-									Load the latest
-								</Button>
-							) : null}
-						</div>
+							{failure.error
+								? correcting
+									? "Your correction was not saved. "
+									: "Your check-in was not saved. "
+								: null}
+							{failure.failed ? READ_FAILED : refusalText(failure.error)}
+						</Alert>
 					) : null}
 					<div className="mt-4 flex items-center justify-between gap-3 max-app-sm:flex-col-reverse max-app-sm:items-stretch">
 						<span className="min-w-0 flex-1 text-sm text-text-3">
@@ -434,7 +436,7 @@ function Strip({ page, editing, onCorrect }: { page: CarePage; editing: number; 
 					return (
 						<tr key={week.ordinal} aria-current={week.ordinal === editing ? "true" : undefined}>
 							<th scope="row" className="text-left align-middle font-medium text-ink">
-								{shortDate(week.startsOn)}
+								{dayText(week.startsOn, { year: "never" })}
 								{note ? (
 									<small
 										className={cn(
@@ -463,7 +465,7 @@ function Strip({ page, editing, onCorrect }: { page: CarePage; editing: number; 
 									<IconButton
 										icon={Edit02Icon}
 										size="sm"
-										label={`Correct the week of ${shortDate(week.startsOn)}`}
+										label={`Correct the week of ${dayText(week.startsOn, { year: "never" })}`}
 										title="Correct this week"
 										onClick={() => onCorrect(week)}
 										className="text-text-3 shadow-none hover:text-ink"

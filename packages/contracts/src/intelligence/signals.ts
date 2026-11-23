@@ -53,8 +53,14 @@ export const SIGNAL_DEFINITIONS = [
 		reaffirms: false,
 	},
 ] as const;
-export const SIGNAL_KEYS = SIGNAL_DEFINITIONS.map((d) => d.key) as unknown as readonly [SignalKey, ...SignalKey[]];
+const [firstSignal, ...laterSignals] = SIGNAL_DEFINITIONS;
+export const SIGNAL_KEYS: readonly [SignalKey, ...SignalKey[]] = [firstSignal.key, ...laterSignals.map((d) => d.key)];
 export type SignalKey = (typeof SIGNAL_DEFINITIONS)[number]["key"];
+export function definitionOf(key: SignalKey) {
+	const definition = SIGNAL_DEFINITIONS.find((d) => d.key === key);
+	if (!definition) throw new Error(`no signal definition for ${key}`);
+	return definition;
+}
 export const signalKey = z.enum(SIGNAL_KEYS);
 export const REAFFIRM_WINDOW_DAYS = 30;
 export const CANDIDATE_DAYS = 60;

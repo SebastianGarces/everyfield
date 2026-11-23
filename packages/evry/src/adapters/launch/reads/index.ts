@@ -1,4 +1,4 @@
-import { localDate } from "@everyfield/contracts/common";
+import { dayText, localDate } from "@everyfield/contracts/common";
 import { countdown, GUEST_NAME_MAX, type History, type Milestone, type Plan } from "@everyfield/contracts/launch";
 import type { Transaction } from "@everyfield/db/client";
 import { createLaunchReader } from "@everyfield/domain/launch";
@@ -9,14 +9,6 @@ import { EvryRefusal } from "../../../context/errors.ts";
 import { plantAdmin, plantSeat } from "../../native.ts";
 
 const reader = createLaunchReader();
-const dayFormat = new Intl.DateTimeFormat("en-US", {
-	weekday: "short",
-	month: "short",
-	day: "numeric",
-	year: "numeric",
-	timeZone: "UTC",
-});
-export const launchDay = (day: string) => dayFormat.format(new Date(`${day}T12:00:00Z`));
 
 const UNLOADED = "the Launch plan, which couldn't be loaded";
 function unloaded(operation: string): SourceResult {
@@ -60,7 +52,7 @@ function dateFacts(plan: Plan) {
 		timeZone: plan.timeZone,
 		today: plan.today,
 		status: STATUS_TEXT[plan.launch?.status ?? "planning"],
-		plannedDate: plan.launch?.targetDate ? launchDay(plan.launch.targetDate) : null,
+		plannedDate: plan.launch?.targetDate ? dayText(plan.launch.targetDate, { weekday: "short" }) : null,
 		countdown: c.kind,
 		daysLeft: c.kind === "ahead" ? c.days : c.kind === "today" ? 0 : null,
 		daysOverdue: c.kind === "overdue" ? c.days : null,
@@ -100,6 +92,11 @@ export const readCountdown = {
 	},
 } satisfies ReadAdapter<Record<string, never>>;
 
+const localDayOf = (at: string, timeZone: string) =>
+	new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
+		new Date(at),
+	);
+
 const isOpen = (status: string) => status !== "complete" && status !== "no_longer_needed";
 const done = (m: Milestone) => m.completion !== null && !m.needsReview;
 const overdue = (t: Milestone["tasks"][number], today: string) =>
@@ -111,7 +108,7 @@ const workspaceInput = z.strictObject({
 export const readWorkspace = {
 	operation: "launch.readWorkspace",
 	description:
-		'The Launch plan\'s nine readiness milestones (milestone rows) with progress from their own linked prep tasks (done of total), and each listed milestone\'s open prep tasks (item rows: status, due date, assignees, overdue). filter "open" (default) lists milestones not yet done; "blocked" lists only open milestones with an overdue linked prep task; "all" lists all nine. A task is linked to a milestone only when the plan lists it there, never by similar wording. This read never completes a milestone: only a person does, on a review card they approve (launch.completeMilestone) or on the Launch plan',
+		'The Launch plan\'s nine readiness milestones (milestone rows) with progress from their own linked prep tasks (done of total), who completed each one and on what church-local day (completedBy, completedOn), the pre-launch services held for Three pre-launch services held (practicesHeld of practicesRequired), and each listed milestone\'s open prep tasks (item rows: status, due date, assignees, overdue). filter "open" (default) lists milestones not yet done; "blocked" lists only open milestones with an overdue linked prep task; "all" lists all nine. A task is linked to a milestone only when the plan lists it there, never by similar wording. This read never completes a milestone: only a person does, on a review card they approve (launch.completeMilestone) or on the Launch plan. For "are we ready to launch?", read filter "all" and phases.readReadiness, give each milestone as met or not with its evidence and each exit criterion\'s status as returned, and say readiness is the planter\'s call: never say the church is or isn\'t ready',
 	input: workspaceInput,
 	allowed: plantSeat,
 	async invoke(tx, actor, input): Promise<SourceResult> {
@@ -132,6 +129,8 @@ export const readWorkspace = {
 					done: m.tasks.filter((t) => t.status === "complete").length,
 					total: m.tasks.length,
 					completed: done(m),
+					completedOn: m.completion ? dayText(localDayOf(m.completion.at, plan.timeZone), { weekday: "short" }) : null,
+					completedBy: m.completion ? (m.completion.by?.displayName ?? "A former account") : null,
 					needsReview: m.needsReview,
 					openTasks: open.length,
 					overdueTasks: open.filter((t) => overdue(t, plan.today)).length,
@@ -146,7 +145,7 @@ export const readWorkspace = {
 					milestone: m.title,
 					milestoneId: m.id,
 					status: t.status,
-					dueDate: t.dueDate ? launchDay(t.dueDate) : null,
+					dueDate: t.dueDate ? dayText(t.dueDate, { weekday: "short" }) : null,
 					overdue: overdue(t, plan.today),
 					assignees: t.assignees.map((a) => a.displayName).join(", ") || null,
 				},
@@ -186,8 +185,8 @@ function entryRow(e: History["entries"][number], timeZone: string): SourceRow {
 				fields: {
 					...base,
 					change: "date",
-					from: ch.from ? launchDay(ch.from) : null,
-					to: ch.to ? launchDay(ch.to) : null,
+					from: ch.from ? dayText(ch.from, { weekday: "short" }) : null,
+					to: ch.to ? dayText(ch.to, { weekday: "short" }) : null,
 					reason: ch.reason,
 				},
 			};
@@ -252,17 +251,13 @@ function entryRow(e: History["entries"][number], timeZone: string): SourceRow {
 				fields: {
 					...base,
 					change: "gathering",
-					from: ch.from ? launchDay(ch.from) : null,
-					to: ch.to ? launchDay(ch.to) : null,
+					from: ch.from ? dayText(ch.from, { weekday: "short" }) : null,
+					to: ch.to ? dayText(ch.to, { weekday: "short" }) : null,
 					reason: ch.reason,
 				},
 			};
 	}
 }
-const localDayOf = (at: string, timeZone: string) =>
-	new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
-		new Date(at),
-	);
 
 const journalInput = z.strictObject({
 	since: localDate.optional(),
@@ -329,7 +324,7 @@ export const readDebrief = {
 				{
 					...dateFacts(plan),
 					recorded: o !== null,
-					actualDate: o ? launchDay(o.actualDate) : null,
+					actualDate: o ? dayText(o.actualDate, { weekday: "short" }) : null,
 					attendance: o?.attendance ?? null,
 					decisions: o?.decisions ?? null,
 					guestsNamed: plan.guests.count,

@@ -5897,7 +5897,7 @@
         },
         "development_enrollment_ck_1": {
           "name": "development_enrollment_ck_1",
-          "value": "(status = ANY (ARRAY['active'::text, 'completed'::text, 'withdrawn'::text]))"
+          "value": "(status = ANY (ARRAY['active'::text, 'completed'::text]))"
         },
         "development_enrollment_ck_2": {
           "name": "development_enrollment_ck_2",
@@ -7849,6 +7849,62 @@
       },
       "isRLSEnabled": false
     },
+    "public.embedding_spend": {
+      "name": "embedding_spend",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "day": {
+          "name": "day",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usage": {
+          "name": "usage",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "embedding_spend_day_key": {
+          "name": "embedding_spend_day_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "day",
+            "purpose"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "embedding_spend_purpose": {
+          "name": "embedding_spend_purpose",
+          "value": "\"embedding_spend\".\"purpose\" IN ('query','rebuild','publish')"
+        },
+        "embedding_spend_usage": {
+          "name": "embedding_spend_usage",
+          "value": "\"embedding_spend\".\"usage\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.enrollment_milestone": {
       "name": "enrollment_milestone",
       "schema": "",
@@ -9285,6 +9341,219 @@
       },
       "isRLSEnabled": false
     },
+    "public.guardian_contact": {
+      "name": "guardian_contact",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "child_person_id": {
+          "name": "child_person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "guardian_person_id": {
+          "name": "guardian_person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "household_id": {
+          "name": "household_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "clock_timestamp()"
+        }
+      },
+      "indexes": {
+        "guardian_contact_pair": {
+          "name": "guardian_contact_pair",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "child_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "guardian_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "guardian_contact_ref_0": {
+          "name": "guardian_contact_ref_0",
+          "columns": [
+            {
+              "expression": "child_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "guardian_contact_ref_1": {
+          "name": "guardian_contact_ref_1",
+          "columns": [
+            {
+              "expression": "guardian_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "guardian_contact_household": {
+          "name": "guardian_contact_household",
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "guardian_contact_plant_id_plant_id_fk": {
+          "name": "guardian_contact_plant_id_plant_id_fk",
+          "tableFrom": "guardian_contact",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "guardian_contact_child": {
+          "name": "guardian_contact_child",
+          "tableFrom": "guardian_contact",
+          "tableTo": "person",
+          "columnsFrom": [
+            "child_person_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "guardian_contact_guardian": {
+          "name": "guardian_contact_guardian",
+          "tableFrom": "guardian_contact",
+          "tableTo": "person",
+          "columnsFrom": [
+            "guardian_person_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "guardian_contact_household": {
+          "name": "guardian_contact_household",
+          "tableFrom": "guardian_contact",
+          "tableTo": "household",
+          "columnsFrom": [
+            "household_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "plant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "guardian_contact_pkey": {
+          "name": "guardian_contact_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "guardian_contact_distinct": {
+          "name": "guardian_contact_distinct",
+          "value": "child_person_id <> guardian_person_id"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.household": {
       "name": "household",
       "schema": "",
@@ -10378,7 +10647,7 @@
         },
         "job_ck_1": {
           "name": "job_ck_1",
-          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text, 'feedback_publication'::text, 'assessment'::text]))"
+          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text, 'feedback_publication'::text, 'assessment'::text, 'wiki_embedding'::text]))"
         },
         "job_ck_2": {
           "name": "job_ck_2",
@@ -11750,18 +12019,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "seat_id": {
-          "name": "seat_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "affiliation_id": {
-          "name": "affiliation_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "requester_opaque_id": {
           "name": "requester_opaque_id",
           "type": "uuid",
@@ -11826,36 +12083,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "lifecycle_witness_ref_3": {
-          "name": "lifecycle_witness_ref_3",
-          "columns": [
-            {
-              "expression": "seat_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "lifecycle_witness_ref_4": {
-          "name": "lifecycle_witness_ref_4",
-          "columns": [
-            {
-              "expression": "affiliation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -11891,32 +12118,6 @@
           "tableTo": "account",
           "columnsFrom": [
             "requester_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "lifecycle_witness_fk_3": {
-          "name": "lifecycle_witness_fk_3",
-          "tableFrom": "lifecycle_witness",
-          "tableTo": "seat",
-          "columnsFrom": [
-            "seat_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "lifecycle_witness_fk_4": {
-          "name": "lifecycle_witness_fk_4",
-          "tableFrom": "lifecycle_witness",
-          "tableTo": "affiliation",
-          "columnsFrom": [
-            "affiliation_id"
           ],
           "columnsTo": [
             "id"
@@ -11966,10 +12167,6 @@
           "name": "lifecycle_witness_ck_1",
           "value": "((plant_id IS NULL) OR (kind = 'plant'::text))"
         },
-        "lifecycle_witness_ck_10": {
-          "name": "lifecycle_witness_ck_10",
-          "value": "((kind = ANY (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'revoked'::text])))"
-        },
         "lifecycle_witness_ck_11": {
           "name": "lifecycle_witness_ck_11",
           "value": "((state <> ALL (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])) OR ((request_id IS NOT NULL) AND (requested_at IS NOT NULL) AND (cancel_until IS NOT NULL) AND (request_revision >= 1)))"
@@ -12004,31 +12201,15 @@
         },
         "lifecycle_witness_ck_3": {
           "name": "lifecycle_witness_ck_3",
-          "value": "(kind = ANY (ARRAY['account'::text, 'plant'::text, 'seat'::text, 'affiliation'::text]))"
+          "value": "(kind = ANY (ARRAY['account'::text, 'plant'::text]))"
         },
         "lifecycle_witness_ck_4": {
           "name": "lifecycle_witness_ck_4",
-          "value": "(state = ANY (ARRAY['active'::text, 'pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text, 'revoked'::text]))"
-        },
-        "lifecycle_witness_ck_5": {
-          "name": "lifecycle_witness_ck_5",
-          "value": "(num_nonnulls(account_id, plant_id, seat_id, affiliation_id) <= 1)"
+          "value": "(state = ANY (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text]))"
         },
         "lifecycle_witness_ck_6": {
           "name": "lifecycle_witness_ck_6",
           "value": "((account_id IS NULL) OR (kind = 'account'::text))"
-        },
-        "lifecycle_witness_ck_7": {
-          "name": "lifecycle_witness_ck_7",
-          "value": "((seat_id IS NULL) OR (kind = 'seat'::text))"
-        },
-        "lifecycle_witness_ck_8": {
-          "name": "lifecycle_witness_ck_8",
-          "value": "((affiliation_id IS NULL) OR (kind = 'affiliation'::text))"
-        },
-        "lifecycle_witness_ck_9": {
-          "name": "lifecycle_witness_ck_9",
-          "value": "((kind <> ALL (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])))"
         }
       },
       "isRLSEnabled": false
@@ -12218,6 +12399,19 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "guardian_mail_ids": {
+          "name": "guardian_mail_ids",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "guardian_copy": {
+          "name": "guardian_copy",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
       "indexes": {
@@ -12506,7 +12700,11 @@
       "checkConstraints": {
         "mail_refusal": {
           "name": "mail_refusal",
-          "value": "((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))"
+          "value": "((refusal IS NULL) OR ((refusal = ANY (ARRAY['unsubscribed'::text, 'child'::text, 'guardian'::text])) AND (state = 'refused'::text)))"
+        },
+        "mail_guardian": {
+          "name": "mail_guardian",
+          "value": "((refusal IS NOT DISTINCT FROM 'guardian'::text) = (COALESCE(cardinality(guardian_mail_ids), 0) > 0))"
         },
         "mail_ck_0": {
           "name": "mail_ck_0",
@@ -16045,7 +16243,7 @@
           "name": "release_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "revision_id": {
           "name": "revision_id",
@@ -16168,6 +16366,22 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "passage_embedding_1536": {
+          "name": "passage_embedding_1536",
+          "columns": [
+            {
+              "expression": "((\"embedding\")::public.vector(1536)) public.vector_cosine_ops",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "public.vector_dims(\"passage\".\"embedding\") = 1536",
+          "concurrently": false,
+          "method": "hnsw",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -16250,7 +16464,12 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "passage_release_owner": {
+          "name": "passage_release_owner",
+          "value": "((release_id IS NULL) = (tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid))"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.people_column": {
@@ -22374,7 +22593,7 @@
           "name": "source_version_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "source_line": {
           "name": "source_line",

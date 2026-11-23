@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rename, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -64,13 +64,17 @@ async function database() {
 }
 test.after(async () => {
 	if (db) await db.close();
-	await rm(join(outbox, "no-answer"), { force: true });
+	await silence(false);
 });
 
+const UNANSWERED = ".unanswered";
 const silence = async (on) => {
 	await mkdir(outbox, { recursive: true });
-	if (on) await writeFile(join(outbox, "no-answer"), "");
-	else await rm(join(outbox, "no-answer"), { force: true });
+	for (const name of await readdir(outbox)) {
+		if (on && /^capture-.+\.json$/.test(name)) await rename(join(outbox, name), join(outbox, name + UNANSWERED));
+		if (!on && name.endsWith(UNANSWERED))
+			await rename(join(outbox, name), join(outbox, name.slice(0, -UNANSWERED.length)));
+	}
 };
 
 async function openEvry(page, context, cookie = owner()) {

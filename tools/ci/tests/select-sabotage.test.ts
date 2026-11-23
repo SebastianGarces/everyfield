@@ -25,10 +25,17 @@ test("INV-ci-select: a selection that drops the tests reaching a changed file fa
 		encoding: "utf8",
 		env: { ...env, CI_SELECT_MODULE: broken },
 	});
-	console.log(sabotaged.stdout);
-	assert.notEqual(sabotaged.status, 0, "the selection tests pass on a sabotaged selection");
-	assert.match(sabotaged.stdout, /✖ INV-ci-select: a tools\/qa source change runs only the tests that reached it/);
-	assert.match(sabotaged.stdout, /✖ INV-ci-select: a changed source file selects every test file that reached it/);
+	assert.notEqual(sabotaged.status, 0, `the selection tests pass on a sabotaged selection:\n${sabotaged.stdout}`);
+	assert.match(
+		sabotaged.stdout,
+		/✖ INV-ci-select: a tools\/qa source change runs only the tests that reached it/,
+		sabotaged.stdout,
+	);
+	assert.match(
+		sabotaged.stdout,
+		/✖ INV-ci-select: a changed source file selects every test file that reached it/,
+		sabotaged.stdout,
+	);
 	const real = spawnSync(process.execPath, ["--test", "--test-reporter=spec", SUITE], { encoding: "utf8", env });
 	assert.equal(real.status, 0, real.stdout);
 });

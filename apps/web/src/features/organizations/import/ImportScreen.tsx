@@ -1,6 +1,7 @@
 "use client";
 
-import type { PipelineBoard, PipelineColumnChoice } from "@everyfield/contracts/organizations";
+import { counted, countWord } from "@everyfield/contracts/common";
+import type { PipelineBoard, PipelineColumnChoice, PipelineImportRefusal } from "@everyfield/contracts/organizations";
 import { Alert02Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -26,7 +27,6 @@ import {
 	CHOICES,
 	importRequest,
 	NOBODY,
-	plural,
 	problemText,
 	refusalNotice,
 	revised,
@@ -53,8 +53,10 @@ async function send<T>(path: string, file: File, request: object): Promise<Answe
 	form.set("request", JSON.stringify(request));
 	try {
 		const res = await fetch(`${PIPELINE_PATH}/import/${path}`, { method: "POST", body: form, cache: "no-store" });
-		const body = (await res.json().catch(() => null)) as Answer<T> | null;
-		return body && (body.status === "ok" || body.status === "refused") ? body : { status: "lost" };
+		const body = (await res.json().catch(() => null)) as
+			{ status: "ok"; value: T } | { status: "refused"; refusal: PipelineImportRefusal } | null;
+		if (body?.status === "refused") return { ...body, code: body.refusal.code };
+		return body?.status === "ok" ? body : { status: "lost" };
 	} catch {
 		return { status: "lost" };
 	}
@@ -139,7 +141,7 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 				breadcrumb={[{ label: "Pipeline", href: PIPELINE_PATH }, { label: "Import" }]}
 				subtitle={
 					review
-						? `${review.file.name} · ${plural(review.preview.counts.rows, "row")}`
+						? `${review.file.name} · ${counted(review.preview.counts.rows, "row")}`
 						: "Bring in the people you already track, from a spreadsheet or your application form’s export."
 				}
 				actions={
@@ -154,10 +156,10 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 								onClick={() => void run(state.review)}
 							>
 								{undecided > 0
-									? `Choose for ${plural(undecided, "duplicate")}`
+									? `Choose for ${counted(undecided, "duplicate")}`
 									: adding === 0
 										? "Nobody to import"
-										: `Import ${plural(adding, "person", "people")}`}
+										: `Import ${counted(adding, "person", "people")}`}
 							</Button>
 						</>
 					) : state.step === "upload" ? (
@@ -197,7 +199,7 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 				) : state.step === "import" ? (
 					<Card className="gap-3" aria-busy="true">
 						<StepHeading heading={heading}>Importing people</StepHeading>
-						<p className="text-text-2">Adding {plural(adding, "person", "people")} to your pipeline…</p>
+						<p className="text-text-2">Adding {counted(adding, "person", "people")} to your pipeline…</p>
 					</Card>
 				) : (
 					<DoneStep heading={heading} review={state.review} result={state.result} onStartOver={startOver} />
@@ -261,7 +263,7 @@ function ReviewStep({
 				<Stat label="Ready" value={counts.ready} note="New people" tone="text-green-700" />
 				<Stat label="Possible duplicates" value={counts.duplicates} note="Choose for each one" tone="text-amber-600" />
 				<Stat label="Need a fix" value={counts.invalid} note="Not imported" tone="text-magenta-600" />
-				<Stat label="Rows in file" value={counts.rows} note={plural(kept, "answer") + " kept per person"} />
+				<Stat label="Rows in file" value={counts.rows} note={counted(kept, "answer") + " kept per person"} />
 			</div>
 			<Card className="gap-4">
 				<CardHeader>
@@ -431,10 +433,10 @@ function DoneStep({
 						<Icon icon={Tick02Icon} size={20} />
 					</span>
 					<div className="min-w-0">
-						<StepHeading heading={heading}>{plural(result.added.length, "person", "people")} added</StepHeading>
+						<StepHeading heading={heading}>{counted(result.added.length, "person", "people")} added</StepHeading>
 						<p className="mt-1.5 text-text-2 text-pretty">
 							{result.added.length
-								? `${result.added.map((a) => nameOf(a.row)).join(", ")} ${result.added.length === 1 ? "is" : "are"} in your pipeline now.`
+								? `${result.added.map((a) => nameOf(a.row)).join(", ")} ${countWord(result.added.length, "is", "are")} in your pipeline now.`
 								: "No one was added."}
 						</p>
 					</div>

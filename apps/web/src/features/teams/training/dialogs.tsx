@@ -2,7 +2,7 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { Certificate01Icon, FileEditIcon, Undo02Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
-import { Button, Checkbox, Field, Input, Spinner, Textarea } from "@everyfield/ui/controls";
+import { Alert, Button, Checkbox, Field, Input, ProblemText, Spinner, Textarea } from "@everyfield/ui/controls";
 import type { Wait } from "../../../components/save/model.ts";
 import { RecordDialog } from "../../../components/save/parts.tsx";
 import { PersonPicker } from "../../meetings/dialogs.tsx";
@@ -331,14 +331,18 @@ export function AssignDialog({
 			}}
 		>
 			{check.state === "failed" ? (
-				<div role="alert" className="flex flex-col items-start gap-2">
-					<p className="text-sm font-medium text-magenta-600">{check.message}</p>
-					{check.retry ? (
-						<Button variant="outline" onClick={retry}>
-							Check again
-						</Button>
-					) : null}
-				</div>
+				<Alert
+					role="alert"
+					actions={
+						check.retry ? (
+							<Button variant="outline" onClick={retry}>
+								Check again
+							</Button>
+						) : undefined
+					}
+				>
+					{check.message}
+				</Alert>
 			) : check.state === "checking" ? (
 				<p role="status" className="flex items-center gap-2 text-sm text-text-3">
 					<Spinner size={16} /> Checking the current list…
@@ -387,12 +391,13 @@ export function AssignDialog({
 					choose([...f.personIds, person.id]);
 				}}
 			/>
-			<p
-				className={tooMany && f.personIds.length > 500 ? "text-sm font-medium text-magenta-600" : "text-sm text-text-3"}
-				role={tooMany && f.personIds.length > 500 ? "alert" : undefined}
-			>
-				{f.personIds.length} selected. More than 500 cannot be saved.
-			</p>
+			{tooMany && f.personIds.length > 500 ? (
+				<ProblemText size="sm" className="font-medium">
+					{f.personIds.length} selected. More than 500 cannot be saved.
+				</ProblemText>
+			) : (
+				<p className="text-sm text-text-3">{f.personIds.length} selected. More than 500 cannot be saved.</p>
+			)}
 		</RecordDialog>
 	);
 }

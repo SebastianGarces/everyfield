@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { ArrowDown01Icon, ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -13,13 +14,22 @@ import {
 	MenuTrigger,
 	Select,
 } from "@everyfield/ui/controls";
-import { useMinuteClock } from "@everyfield/ui/foundations";
+import { useViewerNow, useViewerZone } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import { PreviewStage } from "./EmailFrame.tsx";
+import { MailingAddressPrompt } from "./MailingAddressPrompt.tsx";
 import { textToBody } from "./body.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
-import { listed, plural, type Form } from "./composeModel.ts";
-import { groupLabel, type AudienceSummary, type MeetingContext, type Team, type Template } from "./model.ts";
+import { listed, type Form } from "./composeModel.ts";
+import {
+	GUARDIAN_LABEL,
+	groupLabel,
+	noRecipientReason,
+	type AudienceSummary,
+	type MeetingContext,
+	type Team,
+	type Template,
+} from "./model.ts";
 
 function presets(now = new Date()): { label: string; at: Date }[] {
 	const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0);
@@ -40,6 +50,7 @@ export function ReviewStep({
 	summary,
 	meeting,
 	churchName,
+	mailingAddress,
 	origin,
 	sampleName,
 	canSend,
@@ -54,6 +65,7 @@ export function ReviewStep({
 	summary: AudienceSummary | null;
 	meeting: MeetingContext | null;
 	churchName: string;
+	mailingAddress: string | null;
 	origin: string;
 	sampleName: string;
 	canSend: boolean;
@@ -67,19 +79,30 @@ export function ReviewStep({
 	const [picking, setPicking] = useState(false);
 	const [custom, setCustom] = useState("");
 	const [customError, setCustomError] = useState<string | undefined>();
-	const now = useMinuteClock();
-	const bounds = now === null ? null : windowBounds(new Date(now));
+	const now = useViewerNow();
+	const zone = useViewerZone();
+	const bounds = now === null || zone === null ? null : windowBounds(now, zone);
 	const safe = Math.min(index, Math.max(0, recipients.length - 1));
 	const name = recipients[safe]?.displayName ?? sampleName;
+	const guardianOf = recipients[safe]?.guardianOf;
 	const eligible = summary?.eligibleRecipients ?? 0;
 	const template = templates.find((t) => t.templateId === form.templateKey);
-	const known = new Map(recipients.map((r) => [r.id, r.displayName]));
+	const known = new Map(
+		[...recipients, ...(summary?.guardianRoutes ?? []), ...(summary?.childExclusions ?? [])].map((r) => [
+			r.id,
+			r.displayName,
+		]),
+	);
 	const chosen = [
 		...form.audience.groups.map((g) => groupLabel[g as keyof typeof groupLabel] ?? g),
 		...form.audience.teamIds.map((id) => teams.find((t) => t.id === id)?.name ?? "A team"),
 		...form.people.map((p) => p.displayName ?? known.get(p.id) ?? "A person"),
 	];
-	const left = summary?.missingEmailExclusions ?? [];
+	const routed = summary?.guardianRoutes ?? [];
+	const left = [
+		...(summary?.childExclusions ?? []).map((person) => ({ name: person.displayName, why: "marked as a child" })),
+		...(summary?.missingEmailExclusions ?? []).map((name) => ({ name, why: "no email address" })),
+	];
 
 	const schedulePicked = () => {
 		const at = custom ? new Date(custom) : null;
@@ -94,7 +117,15 @@ export function ReviewStep({
 	return (
 		<div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
 			<PreviewStage
-				input={{ bodyHtml: textToBody(form.text), name, hasMeeting: form.meetingId !== null, origin, churchName }}
+				input={{
+					bodyHtml: textToBody(form.text),
+					name,
+					hasMeeting: form.meetingId !== null,
+					origin,
+					churchName,
+					mailingAddress,
+					guardianOf,
+				}}
 				chrome={{ from: churchName, to: name, subject: form.subject }}
 				toolbar={
 					<div className="flex items-center gap-2">
@@ -134,7 +165,7 @@ export function ReviewStep({
 					<Row label="From" value={churchName} />
 					<Row
 						label="To"
-						value={`${plural(eligible, "person", "people")}${chosen.length ? ` · ${listed(chosen)}` : ""}`}
+						value={`${counted(eligible, "person", "people")}${chosen.length ? ` · ${listed(chosen)}` : ""}`}
 					/>
 					<div className="grid grid-cols-[84px_minmax(0,1fr)] gap-3">
 						<dt className="text-sm text-text-3">Left out</dt>
@@ -148,21 +179,50 @@ export function ReviewStep({
 									aria-label="Left out"
 								>
 									{left.map((n, i) => (
-										<li key={`${n}-${i}`}>
-											{n}
-											<span className="text-text-3">, no email address</span>
+										<li key={`${n.name}-${i}`}>
+											{n.name}
+											<span className="text-text-3">, {n.why}</span>
 										</li>
 									))}
 								</ul>
 							)}
 						</dd>
 					</div>
+					{routed.length > 0 ? (
+						<div className="grid grid-cols-[84px_minmax(0,1fr)] gap-3">
+							<dt className="text-sm text-text-3">{GUARDIAN_LABEL}</dt>
+							<dd className="min-w-0 text-ink">
+								<ul
+									tabIndex={0}
+									className="flex max-h-40 flex-col gap-0.5 overflow-y-auto rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+									aria-label={GUARDIAN_LABEL}
+								>
+									{routed.map((route) => (
+										<li key={route.id}>
+											{route.displayName}
+											<span className="text-text-3">
+												, to {listed(route.guardians.map((guardian) => guardian.displayName))}
+											</span>
+										</li>
+									))}
+								</ul>
+							</dd>
+						</div>
+					) : null}
 					<Row label="Subject" value={form.subject} />
 					<Row label="Template" value={template?.name ?? "None"} />
 					<Row label="Meeting" value={meeting ? `${meeting.title}` : "None"} />
 				</dl>
+				{mailingAddress === null ? (
+					<MailingAddressPrompt>
+						Every email from your church shows its mailing address at the bottom. Add it in Church profile, then send or
+						schedule this email.
+					</MailingAddressPrompt>
+				) : null}
 				{!canSend ? (
-					<p className="text-sm text-text-2">Choose at least one person who can get email before you send.</p>
+					<p className="text-sm text-text-2">
+						{noRecipientReason(summary, "Choose at least one person who can get email before you send.")}
+					</p>
 				) : null}
 				<div className="flex">
 					<Button

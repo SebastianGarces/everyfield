@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { Copy01Icon, Home01Icon, Logout01Icon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
 import {
@@ -12,6 +13,7 @@ import {
 	SearchInput,
 	Select,
 	Spinner,
+	TextButton,
 } from "@everyfield/ui/controls";
 import { useFocusRequest } from "@everyfield/ui/foundations";
 import { useState } from "react";
@@ -70,6 +72,8 @@ export function householdProblem(code: string, first: string): string {
 			return "This household or person changed while you were working. The latest details show now. Check them and try again.";
 		case "invalid_subject":
 			return `${first} is already in a household, or that household cannot take them. Take them out of their household first.`;
+		case "invalid_input":
+			return `That change was not saved. A parent or guardian contact must be a live member of ${first}'s household who is marked as an adult, and ${first} must be marked as a child.`;
 		default:
 			return problemText(code);
 	}
@@ -289,9 +293,9 @@ export function JoinHouseholdDialog({
 							) : read.value.status !== "ok" ? (
 								<p role="alert" className="px-4 py-4 text-sm text-text-2">
 									{loadProblem(read.value, "Households did not load.")}{" "}
-									<button type="button" className="font-medium text-ink underline" onClick={read.retry}>
+									<TextButton className="text-ink" onClick={read.retry}>
 										Try again
-									</button>
+									</TextButton>
 								</p>
 							) : none ? (
 								<div className="flex flex-col items-start gap-3 px-4 py-4">
@@ -324,9 +328,7 @@ export function JoinHouseholdDialog({
 											className="border-t border-line first:border-t-0"
 											label={h.name}
 											description={[
-												h.memberCount === 0
-													? "No members"
-													: `${h.memberCount} ${h.memberCount === 1 ? "member" : "members"}`,
+												h.memberCount === 0 ? "No members" : counted(h.memberCount, "member"),
 												addressLine(h),
 											]
 												.filter(Boolean)
@@ -385,9 +387,7 @@ export function CopyAddressDialog({
 			tone="blue"
 			title="Copy address to members"
 			description="Every member below gets the household address. Check the list first."
-			action={
-				changes.length ? `Copy to ${changes.length} ${changes.length === 1 ? "person" : "people"}` : "Copy address"
-			}
+			action={changes.length ? `Copy to ${counted(changes.length, "person", "people")}` : "Copy address"}
 			onClose={onClose}
 			problem={problem}
 			wait={wait}
@@ -442,6 +442,11 @@ export function LeaveHouseholdDialog({
 	const first = person.displayName.split(" ")[0] ?? person.displayName;
 	const last = household.members.length === 1 && household.members[0]?.personId === person.id;
 	const [deleteEmpty, setDeleteEmpty] = useState(initial?.deleteEmpty ?? true);
+	const nameOf = (id: string) => household.members.find((m) => m.personId === id)?.displayName;
+	const childrenOf = household.guardians.flatMap((l) =>
+		l.guardianPersonId === person.id ? (nameOf(l.childPersonId) ?? []) : [],
+	);
+	const hasContacts = household.guardians.some((l) => l.childPersonId === person.id);
 	return (
 		<RecordDialog
 			icon={Logout01Icon}
@@ -459,6 +464,12 @@ export function LeaveHouseholdDialog({
 			<ul className="list-disc pl-5 text-sm text-text-2">
 				<li>{first} keeps their own address.</li>
 				<li>Their history keeps that they were in {household.household.name}.</li>
+				{childrenOf.length > 0 ? (
+					<li>
+						{first} stops being the parent or guardian contact of {childrenOf.join(", ")}.
+					</li>
+				) : null}
+				{hasContacts ? <li>{first} no longer has a parent or guardian contact.</li> : null}
 			</ul>
 			{last ? (
 				<Checkbox

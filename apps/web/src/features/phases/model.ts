@@ -7,8 +7,9 @@ import {
 	type PhasesError,
 	type ReasonProblem,
 } from "@everyfield/contracts/phases";
+import { dayText, type Outcome as Shared } from "@everyfield/contracts/common";
 
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; error: PhasesError } | { status: "lost" };
+export type Outcome<T> = Shared<T, PhasesError["code"], { error: PhasesError }>;
 
 export const SHORT_NAME: readonly string[] = [
 	"Discovery",
@@ -35,16 +36,10 @@ export function entryTitle(entry: JourneyEntry): string {
 }
 
 export function entryDetail(entry: JourneyEntry): string {
-	const day = (date: string) =>
-		new Intl.DateTimeFormat("en-US", {
-			timeZone: "UTC",
-			weekday: "short",
-			month: "short",
-			day: "numeric",
-			year: "numeric",
-		}).format(new Date(`${date}T12:00:00Z`));
-	if (entry.kind === "launch_sunday") return `Held ${day(entry.actualDate)}. The phase stays as it is.`;
-	if (entry.kind === "gathering") return `Reached ${day(entry.reachedOn)}. The phase stays as it is.`;
+	if (entry.kind === "launch_sunday")
+		return `Held ${dayText(entry.actualDate, { weekday: "short" })}. The phase stays as it is.`;
+	if (entry.kind === "gathering")
+		return `Reached ${dayText(entry.reachedOn, { weekday: "short" })}. The phase stays as it is.`;
 	return entry.fromPhase === null
 		? `Started at Phase ${entry.toPhase}`
 		: `Phase ${entry.fromPhase} → Phase ${entry.toPhase}`;

@@ -4,6 +4,8 @@ import { and, eq, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
+import { queueJobsFor } from "../../jobs/queue.ts";
+import { effectiveAdultSql, plantTodaySql } from "../adult.ts";
 import { deny, type Tx } from "../core.ts";
 
 export function plantId(ctx: { selected: Owner }): string {
@@ -43,6 +45,7 @@ const factRow = z.object({
 	household_id: z.uuid().nullable(),
 	household_role: z.enum(["head", "spouse", "child", "other"]).nullable(),
 	photo_object_id: z.uuid().nullable(),
+	adult: z.enum(["adult", "child", "unknown"]),
 	...address,
 });
 export type PersonFacts = z.infer<typeof factRow>;
@@ -62,6 +65,11 @@ export async function personFacts(
 			household_id: tables.person.household_id,
 			household_role: tables.person.household_role,
 			photo_object_id: tables.person.photo_object_id,
+			adult: sql<string>`${effectiveAdultSql(
+				sql`${tables.person.birth_date}`,
+				sql`${tables.person.adult_classification}`,
+				plantTodaySql(sql`${tables.person.plant_id}`),
+			)}`,
 			street: tables.person.street,
 			city: tables.person.city,
 			state_province: tables.person.state_province,
@@ -85,25 +93,17 @@ export function expectRevision(actual: string, expected: string) {
 export const next = (rev: string) => String(BigInt(rev) + 1n);
 
 export function queueObjectCleanup(
-	tx: Tx,
 	plant: string,
 	fileId: string,
 	cause: "upload" | "release",
 	eligibleAt = sql`clock_timestamp()`,
 ) {
-	return tx
-		.insert(tables.job)
-		.values({
-			tenant_id: plant,
-			kind: "object_cleanup",
-			subject_record_id: fileId,
-			producer_key: `person-photo-${cause}/${fileId}`,
-			source_revision: null,
-			state: "ready",
-			eligible_at: eligibleAt,
-			attempt_count: 0,
-			max_attempts: 4,
-			claim_generation: "0",
-		})
-		.onConflictDoNothing();
+	return queueJobsFor(sql``, {
+		kind: "object_cleanup",
+		tenant: sql`${plant}::uuid`,
+		subject: sql`${fileId}::uuid`,
+		key: sql`${`person-photo-${cause}/${fileId}`}::text`,
+		eligibleAt,
+		conflict: "skip",
+	});
 }

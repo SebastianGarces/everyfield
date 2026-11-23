@@ -1,3 +1,4 @@
+import { dayText } from "@everyfield/contracts/common";
 import { TREND_FACTS, type AssessmentHistory } from "@everyfield/contracts/intelligence";
 import type { Catalog } from "@everyfield/contracts/phases";
 import {
@@ -10,7 +11,7 @@ import {
 	StatePanel,
 } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
-import { dayText, trendText } from "./assessment-model.ts";
+import { trendText } from "./assessment-model.ts";
 import { IntelligenceTabs } from "./IntelligenceTabs.tsx";
 
 export function TrendsScreen({ history, catalog }: { history: AssessmentHistory; catalog: Catalog }) {

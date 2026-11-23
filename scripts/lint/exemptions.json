@@ -84,10 +84,8 @@
 					"no-unsafe-negation": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
 					"no-with": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does"
 				},
-				"src/features/documents/church/editor/tiptap/**": {
-					"react/set-state-in-effect": "Vendored Tiptap UI components keep upstream's code so later upstream updates stay comparable; editor/tiptap/README.md lists the Everyfield changes",
-					"react/refs": "Vendored Tiptap UI components keep upstream's code so later upstream updates stay comparable; editor/tiptap/README.md lists the Everyfield changes",
-					"react/immutability": "Vendored Tiptap UI components keep upstream's code so later upstream updates stay comparable; editor/tiptap/README.md lists the Everyfield changes"
+				"src/features/documents/church/editor/tiptap/primitives/tooltip.tsx": {
+					"react/refs": "Vendored Tiptap UI components keep upstream's code so later upstream updates stay comparable; editor/tiptap/README.md lists the Everyfield changes"
 				},
 				"**/*.test.*, **/test/**, **/tests/**, src/server/mail/transport.ts, src/server/jobs/resend.ts": {
 					"everyfield/resend-senders": "Tests drive fake mail providers, and server/mail/transport.ts and server/jobs/resend.ts are the two guarded senders in apps/web"

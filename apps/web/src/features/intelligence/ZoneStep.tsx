@@ -1,5 +1,6 @@
 "use client";
 
+import { dayText } from "@everyfield/contracts/common";
 import { Clock01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -22,7 +23,7 @@ import { OFFLINE_REFERENCE, type Refusal } from "../settings/save";
 import { SaveError } from "../settings/SaveError";
 import { zoneLabel } from "../../components/time.ts";
 import { CheckInHeader } from "./Header.tsx";
-import { mondayDate, weekStartIn } from "./model.ts";
+import { weekStartIn } from "./model.ts";
 
 export function ZoneStep({ name }: { name: string }) {
 	const router = useRouter();
@@ -44,12 +45,14 @@ export function ZoneStep({ name }: { name: string }) {
 
 	const save = async () => {
 		const result = await send();
-		if (!result?.ok) return;
+		if (result?.status !== "ok") return;
 		setSaved(true);
 		startOpening(() => router.refresh());
 	};
 
-	const week = preview ? mondayDate(weekStartIn(preview.asOf, preview.newZone)) : null;
+	const week = preview
+		? dayText(weekStartIn(preview.asOf, preview.newZone), { weekday: "long", month: "long", year: "never" })
+		: null;
 	const busy = saving.pending || opening || saved;
 
 	return (

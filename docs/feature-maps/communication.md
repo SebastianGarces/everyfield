@@ -24,6 +24,8 @@ flowchart LR
   s1 -.- s1_st0(("who"))
   s1 --- s1_b0["send-now<br/>tests + cases + browser behavior"]
   s1 --- s1_b1["save-draft<br/>tests + cases + browser behavior"]
+  s1 --- s1_b2["leave-out-children<br/>tests + cases"]
+  s1 --- s1_b3["guardian-routing<br/>tests + cases"]
   s2["communication.templates<br/>no page"]
   s0 -- "radio #quot;Templates#quot;" --> s2
   s2 -.- s2_st0(("list"))
@@ -159,7 +161,7 @@ New message: Who, Write, then Review and send, each step in the address, ending 
 - Routes: none
 - Endpoints: `/api/dev/outbox`, `/communication/read`
 - Personas: `owner` write, `admin` write, `member` none
-- Catalog: COM-003, COM-004, COM-012
+- Catalog: COM-003, COM-004, COM-012, NTF-016
 
 Reach:
 
@@ -240,6 +242,28 @@ agent-browser open "$ORIGIN/communication"
 agent-browser wait --load networkidle
 agent-browser find role button text --name "Map draft check"
 ```
+
+#### communication.compose#leave-out-children
+
+People marked as a child (Adult or child on the Person record) are listed under Left out, and why with "Marked as a child" and never get the email; an audience of only children cannot be sent or scheduled, and the check runs again at the send time. Mark a person as a child on their Person record, then choose them on Who.
+
+- Operations: communication.resolveAudience, communication.scheduleReviewed
+- Catalog: NTF-016, COM-004, COM-012
+- Cases: CASE-NTF-016-CHILD
+- Test: `tests/integration/communication/children.test.mts`: `AC:CASE-NTF-016-CHILD a group email leaves out the people marked as a child with that reason, and everyone else still gets it at the send time`
+- Test: `tests/integration/communication/children.test.mts`: `AC:CASE-NTF-016-CHILD a send or schedule only to people marked as a child is refused with that reason, and no email is queued`
+- Test: `tests/integration/communication/children.test.mts`: `AC:CASE-NTF-016-CHILD a person marked as a child after the email is scheduled gets nothing at the send time, and staff see them left out as a child`
+- Test: `tests/integration/communication/children.test.mts`: `AC:CASE-NTF-016-CHILD a person marked as a child when the email was scheduled and marked as an adult before it goes out receives it, unless something else stops them`
+
+#### communication.compose#guardian-routing
+
+A child whose parent or guardian contact can be emailed is listed in Review under Sent to a parent or guardian instead; each adult gets one copy, checked again at the send time.
+
+- Operations: communication.resolveAudience, communication.scheduleReviewed, communication.sendReviewed
+- Catalog: NTF-016, COM-003, COM-004, COM-012
+- Cases: CASE-NTF-016-GUARDIAN
+- Test: `tests/integration/communication/guardians.test.mts`: `AC:CASE-NTF-016-GUARDIAN a group email goes to each child's parent or guardian contact instead of the child, one copy per adult`
+- Test: `tests/integration/communication/guardians.test.mts`: `AC:CASE-NTF-016-GUARDIAN a scheduled email follows the contacts as they are when it goes out`
 
 ### communication.templates
 

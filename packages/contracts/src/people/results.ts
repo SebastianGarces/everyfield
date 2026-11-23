@@ -150,7 +150,14 @@ export const actorAttribution = z.discriminatedUnion("kind", [
 ]);
 const activityBase = { id: recordId, occurredAt: instant, recordedAt: instant, actor: actorAttribution };
 export const activity = z.discriminatedUnion("kind", [
-	z.strictObject({ ...activityBase, kind: z.literal("note"), revision, body: longText, editedAt: instant.nullable() }),
+	z.strictObject({
+		...activityBase,
+		kind: z.literal("note"),
+		revision,
+		body: longText,
+		editedAt: instant.nullable(),
+		authorName: z.string().min(1).nullable(),
+	}),
 	z.strictObject({ ...activityBase, kind: z.literal("note_removed"), revision }),
 	z.strictObject({ ...activityBase, kind: z.literal("stage_changed"), from: stage, to: stage }),
 	z.strictObject({
@@ -179,6 +186,7 @@ export const activity = z.discriminatedUnion("kind", [
 		recordId: recordId.optional(),
 		stage: z.strictObject({ from: stage, to: stage }).optional(),
 		household: z.strictObject({ from: householdMembership.nullable(), to: householdMembership.nullable() }).optional(),
+		guardian: z.strictObject({ change: z.enum(["added", "removed"]), personId, displayName: z.string() }).optional(),
 		withPerson: z.strictObject({ id: personId, displayName: z.string() }).optional(),
 	}),
 	z.strictObject({
@@ -202,7 +210,18 @@ type GenericInvalidInput = Extract<SafeError, { shape: { code: z.ZodLiteral<"inv
 export const peopleError = z.discriminatedUnion("code", [
 	defineSafeError(
 		"invalid_input",
-		{ reason: z.enum(["future_date", "unreadable_document", "birth_date_decides"]).optional() },
+		{
+			reason: z
+				.enum([
+					"future_date",
+					"unreadable_document",
+					"birth_date_decides",
+					"not_child",
+					"not_adult",
+					"not_in_household",
+				])
+				.optional(),
+		},
 		"never",
 	),
 	...safeError.options.filter(

@@ -6,12 +6,21 @@ import type {
 	LanguageModelV4StreamPart,
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { addDays, counted, countWord, dayText, weekdayOf } from "@everyfield/contracts/common";
 import { onboardingStep } from "./scripted-onboarding.ts";
 import { launchStep } from "./scripted-launch.ts";
+import { intelligenceStep } from "./scripted-intelligence.ts";
 import { overviewStep } from "./scripted-overview.ts";
+import { invitationStep } from "./scripted-invitation.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
+import { wikiEditorStep } from "./scripted-wiki-editor.ts";
+import { TASK_DATA, taskStep } from "./scripted-tasks.ts";
+import { planStep } from "./scripted-task-plan.ts";
+import { assessmentStep } from "./scripted-assessments.ts";
+import { mailStep, proposesOn } from "./scripted-mail.ts";
 import { settingsStep } from "./scripted-settings.ts";
-import { captured } from "./captured.ts";
+import { phaseStep, SIGNAL } from "./scripted-phases.ts";
+import { captured, present } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 const lastUserText = (prompt: Prompt) => {
@@ -41,9 +50,255 @@ const pageSize = (text: string) =>
 	Number(/\b(\d{1,3}) at a time\b/.exec(text)?.[1] ?? (/\b(?:every|all)\b/i.test(text) ? 100 : 24));
 
 function classify(text: string) {
-	if (/\b(pray|prayer|biblical|scripture|spiritual(ly)?|pastoral(ly)?|suitab)/i.test(text)) return "pastoral_boundary";
-	if (/what can you (do|help)|capabilit/i.test(text)) return "capabilities";
+	if (SIGNAL.test(text)) return "application";
+	if (!TASK_DATA.test(text) && /\b(pray|prayer|biblical|scripture|spiritual(ly)?|pastoral(ly)?|suitab)/i.test(text))
+		return "pastoral_boundary";
+	if (/\b(do you think|would you say|in your opinion)\b.*\b(qualified|ready|mature|called)\b/i.test(text))
+		return "pastoral_boundary";
+	if (/what (can|are) you (able to )?(do|help)|capabilit/i.test(text)) return "capabilities";
 	return "application";
+}
+const systemText = (prompt: Prompt) => {
+	const m = prompt.find((p) => p.role === "system");
+	return m?.role === "system" ? m.content : "";
+};
+
+type Listed = { id: string; name: string; status: "available" | "replaced" | "used" | "gone"; checked: string | null };
+function attachedFiles(system: string): Listed[] {
+	const out: Listed[] = [];
+	for (const m of system.matchAll(/^- "([^"]+)" attachmentId ([0-9a-f-]{36}), attached [^\n]*? UTC: ([^\n]+)$/gm)) {
+		const rest = captured(m, 3);
+		out.push({
+			id: captured(m, 2),
+			name: captured(m, 1),
+			status: rest.startsWith("available")
+				? "available"
+				: rest.startsWith("replaced")
+					? "replaced"
+					: rest.startsWith("used")
+						? "used"
+						: "gone",
+			checked: /checked: fileDigest ([0-9a-f]{64})/.exec(rest)?.[1] ?? null,
+		});
+	}
+	return out;
+}
+const PHOTO_ASK =
+	/\b(?:use|make|set)\s+(?:this|it|the\s+(?:photo|picture)(?:\s+I\s+[^.?!]*?)?)\s+(?:as\s+)?([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+)?)['’]s\s+(?:profile\s+)?(?:photo|picture)\b/i;
+function photoStep(text: string, system: string, result: Record<string, unknown> | null, canPropose: boolean) {
+	const asked = PHOTO_ASK.exec(text);
+	if (!asked || /^my$/i.test(captured(asked, 1))) return null;
+	const name = captured(asked, 1);
+	const say = (t: string) => [{ type: "text" as const, text: t }];
+	if (!canPropose)
+		return say("An Owner or Admin of this church has to set someone's People photo. I can't prepare it for you.");
+	const photo = attachedFiles(system).find((f) => /\.(jpe?g|png|webp)$/i.test(f.name));
+	if (result?.error === "attachment_gone" || (!result && photo && photo.status !== "available"))
+		return say(
+			photo?.status === "used"
+				? "That photo is already someone's People photo. Attach it again here to use it for someone else."
+				: "That photo is gone: attached photos last 24 hours. Please attach it again here and ask me again.",
+		);
+	if (result?.error === "attachment_elsewhere" || (!result && !photo))
+		return say("I can't see a photo in this conversation. Attach it here with the paperclip, then ask me again.");
+	if (!result) return [toolCall("people_read", { operation: "people.listPeople", input: { search: name } })];
+	if (typeof result.proposalId === "string")
+		return say(
+			`I prepared a review to make it ${name}'s People photo. Their photo stays as it is until you approve it.`,
+		);
+	if (result.operation !== "people.listPeople") return null;
+	const rows = (result.rows as { id: string; label: string }[] | undefined) ?? [];
+	if (rows.length !== 1)
+		return say(
+			rows.length
+				? `I found ${rows.length} people named ${name}. Which one do you mean?`
+				: `I can't find ${name} in this church.`,
+		);
+	return [
+		toolCall("propose_change", {
+			operation: "people.setPersonPhoto",
+			input: { personId: present(rows[0]).id, uploadId: present(photo).id },
+		}),
+	];
+}
+function fileStep(text: string, system: string, result: Record<string, unknown> | null, canPropose: boolean) {
+	const check = /\b(check|look at|review)\b.*\b(it|file|spreadsheet|csv)\b|\buploaded\b/i.test(text);
+	const importing = /\bimport (it|the (file|spreadsheet|csv))\b/i.test(text);
+	if (!check && !importing) return null;
+	const files = attachedFiles(system);
+	const newest = files[0];
+	const say = (t: string) => [{ type: "text" as const, text: t }];
+	if (result?.error === "attachment_gone" || (!result && newest?.status === "gone"))
+		return say("That file is gone: attached files last 24 hours. Please attach it again here and I'll check it.");
+	if (result?.error === "attachment_elsewhere" || (!result && !newest))
+		return say("I can't see a file in this conversation. Attach it here with the paperclip and I'll check it.");
+	if (result?.operation === "people.previewImport") {
+		const rows =
+			(result.rows as { id: string; kind: string; label: string; fields: Record<string, string | null> }[]) ?? [];
+		const people = new Map(rows.filter((r) => r.kind === "person").map((r) => [r.id, r.label]));
+		const lines = rows
+			.filter((r) => r.kind === "import")
+			.map((r) =>
+				r.fields.status === "invalid"
+					? `- ${r.label}: can't be imported (${r.fields.problems})`
+					: r.fields.duplicatePersonIds
+						? `- ${r.label}: possible duplicate of ${r.fields.duplicatePersonIds
+								.split(",")
+								.map((id) => people.get(id) ?? "someone")
+								.join(", ")}`
+						: `- ${r.label}: valid, ready to add`,
+			);
+		const fresh = importing ? "The file changed since I checked it, so here is a fresh check. " : "";
+		return say(`${fresh}I checked the file. Nothing is imported.\n${lines.join("\n")}`);
+	}
+	if (result?.error === "file_changed" && newest)
+		return [
+			toolCall("peopleOrganization_read", { operation: "people.previewImport", input: { attachmentId: newest.id } }),
+		];
+	if (typeof result?.proposalId === "string")
+		return say("I prepared the import for your review. People stays as it is until you approve it.");
+	if (result) return null;
+	if (importing && canPropose && newest) {
+		const digest = files.find((f) => f.name.toLowerCase() === newest.name.toLowerCase() && f.checked)?.checked;
+		if (!digest)
+			return [
+				toolCall("peopleOrganization_read", { operation: "people.previewImport", input: { attachmentId: newest.id } }),
+			];
+		return [
+			toolCall("propose_change", {
+				operation: "people.executeBulkImport",
+				input: { attachmentId: newest.id, fileDigest: digest },
+			}),
+		];
+	}
+	return [
+		toolCall("peopleOrganization_read", {
+			operation: "people.previewImport",
+			input: { attachmentId: present(newest).id },
+		}),
+	];
+}
+
+function documentStep(text: string, system: string, result: Record<string, unknown> | null, canPropose: boolean) {
+	if (!canPropose || !/\b(church |written )?document\b/i.test(text) || !/\b(make|turn|import|add)\b/i.test(text))
+		return null;
+	const newest = attachedFiles(system)[0];
+	const say = (t: string) => [{ type: "text" as const, text: t }];
+	if (!result) {
+		if (!newest)
+			return say("I can't see a file in this conversation. Attach it here with the paperclip and I'll import it.");
+		return [
+			toolCall("propose_change", { operation: "documents.importTextOrWord", input: { attachmentId: newest.id } }),
+		];
+	}
+	if (typeof result.problem === "string") return say(`I can't import that file. ${result.problem}`);
+	if (result.error === "attachment_gone")
+		return say("That file is gone: attached files last 24 hours. Please attach it again here and I'll import it.");
+	if (result.error === "attachment_elsewhere")
+		return say("I can't see that file in this conversation. Attach it here with the paperclip and I'll import it.");
+	if (typeof result.proposalId === "string")
+		return say("I prepared the import for your review. Nothing is added to Documents until you approve it.");
+	return null;
+}
+
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+function dateStep(text: string, result: Record<string, unknown> | null, canRead: boolean) {
+	const say = (t: string) => [{ type: "text" as const, text: t }];
+	if (/\bthe \d{1,2}(st|nd|rd|th)\b|-ish\b/i.test(text) && !result)
+		return say("Which date do you mean? Tell me the month and day, and I'll check it against the church's calendar.");
+	const m =
+		/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? (\d{1,2})(?:,? (\d{4}))? at (\d{1,2}):(\d{2})\s*(am|pm)\b/i.exec(
+			text,
+		);
+	if (!m || !canRead) return null;
+	if (!result) {
+		const year = m[3] ?? String(new Date().getUTCFullYear());
+		const h = (Number(m[4]) % 12) + (/^p/i.test(captured(m, 6)) ? 12 : 0);
+		const date = `${year}-${String(MONTHS.indexOf(captured(m, 1).toLowerCase().slice(0, 3)) + 1).padStart(2, "0")}-${captured(m, 2).padStart(2, "0")}`;
+		return [
+			toolCall("calendar_read", {
+				operation: "calendar.resolve",
+				input: { date, time: `${String(h).padStart(2, "0")}:${m[5]}` },
+			}),
+		];
+	}
+	const fields = (result.rows as { fields: Record<string, string> }[] | undefined)?.[0]?.fields;
+	if (!fields) return null;
+	if (fields.status === "ambiguous")
+		return say(
+			`That time happens twice that day as the clocks fall back. Do you mean ${fields.option1} (the first) or ${fields.option2} (the second)?`,
+		);
+	if (fields.status === "nonexistent")
+		return say(
+			`That time doesn't exist that day in ${fields.zone}: the clocks skip it. What time would you like instead?`,
+		);
+	if (fields.status === "exact") return say(`That is ${fields.shows}.`);
+	return say("That isn't a real date. Which date do you mean?");
+}
+
+function limitStep(text: string, system: string, result: Record<string, unknown> | null, canPropose: boolean) {
+	const say = (t: string) => [{ type: "text" as const, text: t }];
+	if (/background check/i.test(text))
+		return say("Everyfield doesn't track background checks, so I have nothing to look up for that.");
+	if (/\bdid you send\b|\bwas it sent\b/i.test(text)) {
+		const lines = [...system.matchAll(/^- (communication\.\w+) for "([^"]+)" \(proposalId [^)]+\): (.+)$/gm)].map(
+			([, op, subject, state]) =>
+				`- "${subject}": ${/^waiting/.test(present(state)) ? "not sent, waiting for your review" : /sent to the email service/.test(present(state)) ? (/delivery not confirmed/.test(present(state)) ? "sent, delivery not confirmed yet" : "sent and delivered") : state}${op === "communication.saveDraft" ? " (draft)" : ""}`,
+		);
+		return say(lines.length ? lines.join("\n") : "Nothing was sent from this conversation.");
+	}
+	if (
+		!canPropose &&
+		/\b(move|change|set|update|delete|remove|add)\b/i.test(text) &&
+		!/\b(notifications?|digest)\b/i.test(text) &&
+		/Only an Owner or Admin/.test(system)
+	)
+		return say("An Owner or Admin of this church has to make that change. I can't prepare it for you.");
+	const bulk = /\b(delete|remove) (everyone|everybody|all) in (\w+)/i.exec(text);
+	if (bulk && canPropose) {
+		if (!result)
+			return [
+				toolCall("people_read", {
+					operation: "people.listPeople",
+					input: { stages: [captured(bulk, 3).toLowerCase()], limit: 1 },
+				}),
+			];
+		if (result.operation === "people.listPeople")
+			return say(
+				`That would remove all ${String(result.total)} people in ${bulk[3]}. Do you want me to prepare those removals? Tell me to go ahead, or name who to keep.`,
+			);
+	}
+	return null;
+}
+
+function historyStep(text: string, result: Record<string, unknown> | null) {
+	const m = /\b(?:everything that'?s happened|history) (?:with|of|for) ([A-Z][\w'-]+(?: [A-Z][\w'-]+)?)/.exec(text);
+	if (!m) return null;
+	const page = Number(/\bpage (\d+)/i.exec(text)?.[1] ?? 1);
+	if (!result) return [toolCall("people_read", { operation: "people.listPeople", input: { search: m[1] } })];
+	if (result.operation === "people.listPeople") {
+		const rows = (result.rows as { id: string; label: string }[]) ?? [];
+		if (rows.length !== 1) return null;
+		return [
+			toolCall("peopleOrganization_read", {
+				operation: "people.getActivities",
+				input: { personId: present(rows[0]).id, page, limit: 10 },
+			}),
+		];
+	}
+	if (result.operation !== "people.getActivities") return null;
+	const rows = (result.rows as { label: string; fields: Record<string, string | null> }[]) ?? [];
+	const lines = rows.map(
+		(r) => `- ${String(r.fields.occurredAt).slice(0, 10)}: ${r.label}${r.fields.to ? ` (to ${r.fields.to})` : ""}`,
+	);
+	const more =
+		typeof result.next === "number" ? `\nThere is more. Ask for page ${result.next} of ${m[1]}'s history.` : "";
+	return [
+		{
+			type: "text" as const,
+			text: `${m[1]}'s history, page ${result.page}:\n${lines.join("\n") || "- nothing recorded"}${more}`,
+		},
+	];
 }
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -112,6 +367,96 @@ function emailStep(text: string, canPropose: boolean, canRead: boolean, result: 
 			? { communicationId, body: captured(body, 2).trim() }
 			: { communicationId, audience: { groups: ["launch_team"] } },
 	);
+}
+
+const WIKI_ASK = /\bwhat does the wiki say about\s+(.+?)[?.!\s]*$/i;
+const WIKI_NEXT = /\bwhat should i read next\b/i;
+const WIKI_RESUME = /\bwhere did i leave off\b/i;
+const WIKI_BOOKMARK = /\bbookmark (?:this|it)\b/i;
+const WIKI_VOTE = /\b(?:this|the) article (?:was|is) (not helpful|unhelpful|helpful)\b/i;
+const WIKI_PDF = /\bpdf\b/i;
+const WIKI_EDIT = /\b(?:edit|rewrite|change)\b.*\b(?:wiki|article)\b|\badd\b.*\bto the wiki\b/i;
+const WIKI_EDIT_ANSWER =
+	"I can't edit the Wiki. It is shared reading, and churches keep their own writing in Church Documents.";
+const VERIFIED = "Verified references on the user's page: ";
+type WikiRow = { kind: string; id: string; label: string; fields: Record<string, unknown> };
+function pageArticle(prompt: Prompt): string | null {
+	const system = prompt.find((m) => m.role === "system")?.content;
+	const at = typeof system === "string" ? system.indexOf(VERIFIED) : -1;
+	if (at < 0) return null;
+	const line = present(
+		present(system)
+			.slice(at + VERIFIED.length)
+			.split("\n")[0],
+	);
+	const refs = JSON.parse(line) as { kind: string; id: string }[];
+	return refs.find((r) => r.kind === "article")?.id ?? null;
+}
+const linked = (row: WikiRow) => `[${row.label}](${String(row.fields.href)})`;
+function wikiStep(
+	text: string,
+	options: LanguageModelV4CallOptions,
+	result: Record<string, unknown> | null,
+): LanguageModelV4Content[] | null {
+	if (!options.tools?.some((t) => t.name === "wiki_read")) return null;
+	if (![WIKI_ASK, WIKI_NEXT, WIKI_RESUME, WIKI_BOOKMARK, WIKI_VOTE, WIKI_PDF, WIKI_EDIT].some((ask) => ask.test(text)))
+		return null;
+	const read = (operation: string, input: unknown) => [toolCall("wiki_read", { operation, input })];
+	const say = (answer: string) => [{ type: "text" as const, text: answer }];
+	const rows = (result?.rows as WikiRow[] | undefined) ?? [];
+	if (WIKI_EDIT.test(text) && !WIKI_ASK.test(text)) return say(WIKI_EDIT_ANSWER);
+	if (result && typeof result.proposalId === "string" && rows[0]?.kind === "article")
+		return say(`I prepared a review for ${rows[0].label}. Nothing changes until you approve it.`);
+	if (result?.error) return say(`I could not read the Wiki (${String(result.error)}).`);
+	const ask = WIKI_ASK.exec(text);
+	if (ask) {
+		const topic = captured(ask, 1);
+		if (!result) return read("wiki.search", { query: topic });
+		if (result.operation === "wiki.search")
+			return rows[0]
+				? read("wiki.referenceExcerpt", { articleId: rows[0].fields.articleId })
+				: say(`The Wiki has nothing on ${topic}.`);
+		const [row] = rows;
+		if (!row) return say(`The Wiki has nothing on ${topic}.`);
+		const whose = row.fields.source === "global" ? "" : ` This is your ${String(row.fields.source)}'s version.`;
+		return say(`Here is what the Wiki's article ${linked(row)} says, quoted above.${whose}`);
+	}
+	if (WIKI_NEXT.test(text)) {
+		if (!result) return read("wiki.recommendForPhase", {});
+		if (!rows.length) return say("The Wiki has no suggestions for your phase.");
+		const phase = present(rows[0]).fields.phase ? ` for ${String(present(rows[0]).fields.phase)}` : "";
+		return say(`The Wiki suggests these${phase}:\n\n${rows.map((r) => `- ${linked(r)}`).join("\n")}`);
+	}
+	if (WIKI_RESUME.test(text)) {
+		if (!result) return read("wiki.reading.resume", {});
+		const [row] = rows;
+		return say(
+			row
+				? `You were last reading ${linked(row)} (${String(row.fields.read)} read).`
+				: "You haven't opened a Wiki article yet.",
+		);
+	}
+	const vote = WIKI_VOTE.exec(text);
+	if (WIKI_BOOKMARK.test(text) || vote || WIKI_PDF.test(text)) {
+		const articleId = pageArticle(options.prompt);
+		if (!articleId) return say("Open the article on the Wiki page, then ask me again.");
+		if (WIKI_PDF.test(text)) {
+			if (!result) return read("wiki.article.exportPdf", { articleId });
+			const [row] = rows;
+			if (!row) return say("I can't find that article in your Wiki.");
+			return say(
+				`Here is the Wiki's PDF of ${linked(row)}: [Download the PDF](${String(row.fields.pdfHref)}). Nothing is saved.`,
+			);
+		}
+		if (result) return say("I could not prepare that review.");
+		return [
+			toolCall("propose_change", {
+				operation: vote ? "wiki.feedback.setMine" : "wiki.bookmarks.set",
+				input: vote ? { articleId, vote: vote[1] === "helpful" ? "helpful" : "unhelpful" } : { articleId },
+			}),
+		];
+	}
+	return null;
 }
 
 const AREA: Record<string, string> = {
@@ -221,7 +566,7 @@ function notificationStep(
 	return [
 		{
 			type: "text",
-			text: `You have ${total} unread ${total === 1 ? "notification" : "notifications"}:\n\n${groups
+			text: `You have ${counted(total, "unread notification")}:\n\n${groups
 				.map(([area, rows]) => `- **${area} (${rows.length})**: ${rows.map((r) => r.label).join("; ")}`)
 				.join("\n")}\n\nThey are still unread in your bell.`,
 		},
@@ -389,14 +734,7 @@ const localToday = () =>
 	new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
 		new Date(),
 	);
-const addDays = (date: string, n: number) =>
-	new Date(Date.parse(`${date}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
-const weekday = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay();
-const dayName = (date: string) =>
-	new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" }).format(
-		new Date(`${date}T12:00:00Z`),
-	);
-const nextWeekday = (day: number, from = localToday()) => addDays(from, (day - weekday(from) + 7) % 7 || 7);
+const nextWeekday = (day: number, from = localToday()) => addDays(from, (day - weekdayOf(from) + 7) % 7 || 7);
 const RSVP_GROUPS = [
 	["yes", "RSVP yes"],
 	["no", "RSVP no"],
@@ -462,7 +800,7 @@ function meetingsStep(
 			const day = DAYS.find((d) => wanted.includes(d));
 			const matches = rows.filter((r) =>
 				day
-					? weekday(String(r.fields.date)) === DAYS.indexOf(day) &&
+					? weekdayOf(String(r.fields.date)) === DAYS.indexOf(day) &&
 						/vision/i.test(`${r.label} ${String(r.fields.type)}`)
 					: r.label.toLowerCase().includes(wanted.replace(/^the /, "")),
 			);
@@ -486,7 +824,7 @@ function meetingsStep(
 		if (!outputs.length) return read("meetings.list", { window: "upcoming" });
 		if (outputs.length === 1) {
 			const day = captured(agenda, 1).toLowerCase();
-			const m = rowsOf(last, "meeting").find((r) => weekday(String(r.fields.date)) === DAYS.indexOf(day));
+			const m = rowsOf(last, "meeting").find((r) => weekdayOf(String(r.fields.date)) === DAYS.indexOf(day));
 			return m
 				? read("meetings.readAgenda", { meetingId: m.id })
 				: say(`I can't find a meeting on ${day} in Meetings.`);
@@ -517,7 +855,7 @@ function meetingsStep(
 		if (!outputs.length) return read("meetings.attendanceTrend", { limit: Number(/\d+/.exec(text)?.[0] ?? 3) });
 		const points = rowsOf(last, "item");
 		return say(
-			`Attendance at the last ${points.length} Vision nights, oldest first:\n\n${points.map((p) => `- ${dayName(String(p.fields.date))}: ${p.fields.attended === "not recorded" ? "not recorded" : `${String(p.fields.attended)} attended`}`).join("\n")}\n\nA night with no attendance recorded is not counted as zero.`,
+			`Attendance at the last ${points.length} Vision nights, oldest first:\n\n${points.map((p) => `- ${dayText(String(p.fields.date), { weekday: "long", year: "never" })}: ${p.fields.attended === "not recorded" ? "not recorded" : `${String(p.fields.attended)} attended`}`).join("\n")}\n\nA night with no attendance recorded is not counted as zero.`,
 		);
 	}
 	const setUp = SET_UP.exec(text);
@@ -539,11 +877,14 @@ function meetingsStep(
 			second = addDays(first, 7);
 		if (setUp || !pickedDay)
 			return say(
-				`Do you mean ${dayName(first)} or ${dayName(second)}? I'll set it for ${hour} ${ampm.toUpperCase()} Central at ${venue.label}.`,
+				`Do you mean ${dayText(first, { weekday: "long", year: "never" })} or ${dayText(second, { weekday: "long", year: "never" })}? I'll set it for ${hour} ${ampm.toUpperCase()} Central at ${venue.label}.`,
 			);
 		const day = Number(pickedDay[1] ?? /\d+/.exec(pickedDay[2] ?? "")?.[0]);
 		const date = [first, second].find((d) => Number(d.slice(8)) === day);
-		if (!date) return say(`Do you mean ${dayName(first)} or ${dayName(second)}?`);
+		if (!date)
+			return say(
+				`Do you mean ${dayText(first, { weekday: "long", year: "never" })} or ${dayText(second, { weekday: "long", year: "never" })}?`,
+			);
 		return can("meetings.schedule")
 			? propose("meetings.schedule", {
 					type: "vision_meeting",
@@ -621,8 +962,16 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (options.responseFormat?.type === "json")
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
+	const plan = planStep(options, text);
+	if (plan) return plan;
+	const intelligence = intelligenceStep(options, text);
+	if (intelligence) return intelligence;
+	const invitation = invitationStep(options, text);
+	if (invitation) return invitation;
 	const overview = overviewStep(options, text);
 	if (overview) return overview;
+	const editor = wikiEditorStep(options, text);
+	if (editor) return editor;
 	const pipeline = pipelineStep(options, text);
 	if (pipeline) return pipeline;
 	const launch = launchStep(options, text);
@@ -633,21 +982,40 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (settings) return settings;
 	const hasPeople = options.tools?.some((t) => t.name === "people_read") ?? false;
 	const canPropose = options.tools?.some((t) => t.name === "propose_change") ?? false;
-	const canProposePeople = JSON.stringify(options.tools?.find((t) => t.name === "propose_change") ?? {}).includes(
-		'"people.',
-	);
+	const canProposePeople = proposesOn(options, "people");
 	const change = /\b(?:change|set|update)\s+([A-Z][\w'-]+?)(?:'s)?\s+(city|phone|email)\s+to\s+(.+?)\.?\s*$/i.exec(
 		text,
 	);
+	const has = (name: string) => options.tools?.some((t) => t.name === name) ?? false;
+	const task = taskStep(text, options.prompt, has);
+	if (task) return task;
 	const result = lastToolOutput(options.prompt);
+	const system = systemText(options.prompt);
 	const canReadMail = options.tools?.some((t) => t.name === "communication_read") ?? false;
+	const records = options.tools?.some((t) => t.name === "peopleAssessments_read") ?? false;
+	const assessed = assessmentStep(text, options.prompt, records, toolCall);
+	if (assessed) return assessed;
+	const phase = phaseStep(text, options, result);
+	if (phase) return phase;
+	const steps =
+		photoStep(text, system, result, canProposePeople) ??
+		limitStep(text, system, result, canProposePeople) ??
+		documentStep(text, system, result, proposesOn(options, "documents")) ??
+		fileStep(text, system, result, canProposePeople) ??
+		dateStep(text, result, options.tools?.some((t) => t.name === "calendar_read") ?? false) ??
+		historyStep(text, result);
+	if (steps) return steps;
+	const mail = mailStep(options);
+	if (mail) return mail;
+	const wiki = wikiStep(text, options, result);
+	if (wiki) return wiki;
 	const canReadNotices = options.tools?.some((t) => t.name === "notifications_read") ?? false;
 	const oversight = JSON.stringify(options.tools?.find((t) => t.name === "notifications_read") ?? {}).includes(
 		"notifications.previewOversightDigest",
 	);
 	const notices = notificationStep(text, { read: canReadNotices, propose: canPropose, oversight }, result);
 	if (notices) return notices;
-	const email = emailStep(text, canPropose, canReadMail, result);
+	const email = emailStep(text, proposesOn(options, "communication"), canReadMail, result);
 	if (email) return email;
 	if (hasPeople) {
 		const imports = JSON.stringify(options.tools?.find((t) => t.name === "peopleOrganization_read") ?? {}).includes(
@@ -661,7 +1029,18 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (result && typeof result.proposalId === "string" && (DRAFT.test(text) || EMAIL_REVIEW.test(text)))
 		return [{ type: "text", text: "I prepared a review. Nothing is saved or sent until you approve it." }];
 	if (result) {
+		if (result.error === "already_applied")
+			return [
+				{ type: "text", text: "That change was already applied in this conversation, so I didn't prepare it again." },
+			];
 		if (result.error) return [{ type: "text", text: `I could not finish that read (${String(result.error)}).` }];
+		if (result.operation === "people.listPeople" && result.total === 0 && !/\b(find|named|called)\b/i.test(text))
+			return [
+				{
+					type: "text",
+					text: "You have 0 people in this church so far. Want the People import template? Fill it in and attach it here, and I'll check it before anything is imported.",
+				},
+			];
 		if (typeof result.proposalId === "string") {
 			const [target] = result.rows as {
 				label: string;
@@ -701,7 +1080,7 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 			if (!count) return [{ type: "text", text: "No household in this church matches." }];
 			const labels = rows.map((r) => r.label).join(", ");
 			return [
-				{ type: "text", text: `There ${count === 1 ? "is 1 household" : `are ${count} households`}: ${labels}.` },
+				{ type: "text", text: `There ${countWord(count, "is", "are")} ${counted(count, "household")}: ${labels}.` },
 			];
 		}
 		if ((/\bwhich\b|\bfind\b/i.test(text) || change) && rows.length > 1)

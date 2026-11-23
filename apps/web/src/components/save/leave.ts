@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { reinstall } from "../install.ts";
 import { currentAddress, fullAddress, leaveEntryBehind, onNavigation, onTraversal, writeAddress } from "../location.ts";
 
 export type LeaveRequest = { readonly leave: () => void; readonly stay: () => void };
@@ -230,8 +231,14 @@ type Installed = {
 const INSTALLED = Symbol.for("everyfield.page-events");
 
 if (typeof window !== "undefined") {
-	const host = window as unknown as Record<symbol, Installed | undefined>;
-	const previous = host[INSTALLED];
+	const previous = reinstall<Installed>(INSTALLED, {
+		keydown: onKeyDown,
+		beforeunload: onBeforeUnload,
+		click: onClick,
+		pagehide: onPageHide,
+		traversal: onTraversal(traversed),
+		navigation: onNavigation(navigated),
+	});
 	if (previous) {
 		window.removeEventListener("keydown", previous.keydown);
 		window.removeEventListener("beforeunload", previous.beforeunload);
@@ -242,14 +249,6 @@ if (typeof window !== "undefined") {
 	}
 	armed = onGuardEntry();
 	home = armed ? here() : null;
-	host[INSTALLED] = {
-		keydown: onKeyDown,
-		beforeunload: onBeforeUnload,
-		click: onClick,
-		pagehide: onPageHide,
-		traversal: onTraversal(traversed),
-		navigation: onNavigation(navigated),
-	};
 	window.addEventListener("keydown", onKeyDown);
 	window.addEventListener("beforeunload", onBeforeUnload);
 	window.addEventListener("click", onClick, true);

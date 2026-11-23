@@ -1,5 +1,6 @@
 "use client";
 
+import { counted, countWord } from "@everyfield/contracts/common";
 import type { PipelineGoals } from "@everyfield/contracts/organizations";
 import { Delete02Icon, Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import {
@@ -17,6 +18,7 @@ import {
 	DialogHeader,
 	Field,
 	IconButton,
+	InlineAlert,
 	Input,
 	Select,
 	Textarea,
@@ -25,8 +27,7 @@ import { useActionState, useState } from "react";
 import { saveGoal } from "./actions";
 import { readGoals } from "./fetch.ts";
 import { formatPlainDate } from "../../../components/dates.ts";
-import { goalHeadline, KIND_LABEL, monthLabel, plural, refusalText } from "./model";
-import { Problem } from "../../../components/Problem.tsx";
+import { goalHeadline, KIND_LABEL, monthLabel, refusalText } from "./model";
 
 type Goal = PipelineGoals["goals"][number];
 const MAX_COUNTS = 4;
@@ -148,7 +149,7 @@ function ChosenCounts({ goal, asOf, canEdit }: { goal: Goal; asOf: string; canEd
 							<dt className="text-xs font-medium text-text-2 [overflow-wrap:anywhere]">{c.label}</dt>
 							<dd className="text-lg leading-none font-semibold text-ink tabular-nums">
 								{c.count}
-								<span className="sr-only"> {c.count === 1 ? "person" : "people"}</span>
+								<span className="sr-only"> {countWord(c.count, "person", "people")}</span>
 							</dd>
 							<dd className="text-xs text-text-3">
 								Reached {KIND_LABEL[c.kind]} since {since}
@@ -191,7 +192,7 @@ function Today({ data }: { data: PipelineGoals }) {
 						<dt className="text-text-2">{KIND_LABEL[k.kind]}</dt>
 						<dd className="font-semibold text-ink tabular-nums">
 							{k.count}
-							<span className="sr-only"> {k.count === 1 ? "person" : "people"}</span>
+							<span className="sr-only"> {countWord(k.count, "person", "people")}</span>
 						</dd>
 					</div>
 				))}
@@ -200,7 +201,7 @@ function Today({ data }: { data: PipelineGoals }) {
 						<dt className="text-text-2">Active residents</dt>
 						<dd className="font-semibold text-ink tabular-nums">
 							{data.activeResidents}
-							<span className="sr-only"> {data.activeResidents === 1 ? "person" : "people"}</span>
+							<span className="sr-only"> {countWord(data.activeResidents, "person", "people")}</span>
 						</dd>
 					</div>
 					<p className="text-xs text-text-3">In a residency program now. Apprenticeships don’t count.</p>
@@ -254,7 +255,7 @@ function Row({ label, cells }: { label: string; cells: { key: string; label: str
 					<li key={c.key} className="flex flex-col items-center gap-0.5 rounded-md bg-surface-2 px-1 py-2">
 						<span className="text-md leading-none font-semibold text-ink tabular-nums">{c.count}</span>
 						<span className="text-center text-xs leading-tight text-text-3">{c.label}</span>
-						<span className="sr-only">{plural(c.count, "conversation")}</span>
+						<span className="sr-only">{counted(c.count, "conversation")}</span>
 					</li>
 				))}
 			</ol>
@@ -449,7 +450,7 @@ function GoalForm({
 						{preview}
 					</p>
 				) : null}
-				<Problem text={problem} />
+				<InlineAlert live="polite">{problem}</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>
@@ -512,7 +513,7 @@ function CountsEditor({
 										/>
 									</div>
 								</div>
-								<div aria-live="polite" className="empty:hidden">
+								<div aria-live="polite" className="empty:sr-only">
 									{problem?.label || problem?.kind ? (
 										<p className="text-xs font-medium text-magenta-600">
 											{[problem.label, problem.kind].filter(Boolean).join(" ")}

@@ -1,5 +1,6 @@
 "use client";
 
+import { countWord } from "@everyfield/contracts/common";
 import { buttonVariants, Card, CardHeader, CardHeading, CardTitle, IntentLink } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
@@ -13,7 +14,7 @@ export function DuplicateHints({ personId, hints, canReview }: { personId: strin
 			<CardHeader>
 				<CardHeading>
 					<CardTitle size="sm" id="duplicates-title">
-						{hints.items.length === 1 ? "Possible duplicate" : "Possible duplicates"}
+						{countWord(hints.items.length, "Possible duplicate")}
 					</CardTitle>
 				</CardHeading>
 			</CardHeader>

@@ -1,9 +1,11 @@
 "use client";
+import { counted } from "@everyfield/contracts/common";
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
-import { Button, ConfirmDialog, EmptyState, Field, Input, Select } from "@everyfield/ui/controls";
-import { useMinuteClock } from "@everyfield/ui/foundations";
+import { Alert, Button, ConfirmDialog, EmptyState, Field, Input, RowButton, Select } from "@everyfield/ui/controls";
+import { TonePill, type PillTone } from "@everyfield/ui/display";
+import { useViewerNow, useViewerZone } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import { currentAddress } from "../../components/location.ts";
 import { createRead, useRead } from "../../components/read.tsx";
@@ -25,10 +27,12 @@ import {
 	readPersonHistory,
 	reviewResend,
 } from "./fetch.ts";
+import { MailingAddressPrompt } from "./MailingAddressPrompt.tsx";
 import { PreviewStage } from "./EmailFrame.tsx";
 import { deliveryName, Tile, Totals, when } from "./SentTotals.tsx";
 import {
 	cancelText,
+	CHILD_RULE,
 	contactLabel,
 	deliveryText,
 	hubLabel,
@@ -39,7 +43,8 @@ import {
 	replaceText,
 	rescheduleText,
 	sentNote,
-	unsubscribedNote,
+	leftOutNote,
+	guardianNote,
 	type ContactRow,
 	type DeliveryReport,
 	type DetailRecipient,
@@ -52,7 +57,6 @@ import {
 	type ResendReview,
 	type TrackingRow,
 } from "./model.ts";
-import { plural } from "./composeModel.ts";
 import { pickSampleName } from "./fields.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
 import { createHistoryStore } from "./HistoryPanel.store.ts";
@@ -172,29 +176,25 @@ function useHistory(list: ListQuery) {
 	return { items, page, error, pending, more: loadMore, reload, patch };
 }
 
-const stateTone: Record<HubState, string> = {
-	draft: "bg-surface-2 text-text-2",
-	scheduled: "bg-amber-100 text-amber-600",
-	not_scheduled: "bg-magenta-50 text-magenta-600",
-	unsubscribed: "bg-surface-2 text-text-2",
-	sending: "bg-amber-100 text-amber-600",
-	sent: "bg-green-100 text-green-700",
-	logged: "bg-surface-2 text-text-2",
-	cancelled: "bg-surface-2 text-text-2",
-	cancel_unconfirmed: "bg-magenta-50 text-magenta-600",
-	time_unconfirmed: "bg-magenta-50 text-magenta-600",
-	failed: "bg-magenta-50 text-magenta-600",
-	unknown: "bg-surface-2 text-text-2",
+const stateTone: Record<HubState, PillTone> = {
+	draft: "neutral",
+	scheduled: "attention",
+	held: "error",
+	not_scheduled: "error",
+	unsubscribed: "neutral",
+	child: "neutral",
+	sending: "attention",
+	sent: "positive",
+	logged: "neutral",
+	cancelled: "neutral",
+	cancel_unconfirmed: "error",
+	time_unconfirmed: "error",
+	failed: "error",
+	unknown: "neutral",
 };
 
 function StateBadge({ state }: { state: HubState }) {
-	return (
-		<span
-			className={`inline-flex h-6 shrink-0 items-center rounded-full px-2.5 text-xs font-medium whitespace-nowrap ${stateTone[state]}`}
-		>
-			{hubLabel[state]}
-		</span>
-	);
+	return <TonePill tone={stateTone[state]}>{hubLabel[state]}</TonePill>;
 }
 
 function rowTime(item: HistoryItem): string {
@@ -213,11 +213,10 @@ function MessageButton({
 	onSelect: (item: HistoryItem) => void;
 }) {
 	return (
-		<button
-			type="button"
+		<RowButton
 			aria-current={selected ? "true" : undefined}
 			onClick={() => onSelect(item)}
-			className="flex min-h-[72px] w-full flex-col items-start gap-1 rounded-md px-3 py-2.5 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] aria-[current=true]:bg-surface-2"
+			className="min-h-[72px] flex-col items-start gap-1 rounded-md px-3 py-2.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] aria-[current=true]:bg-surface-2"
 		>
 			<span className="flex w-full items-center justify-between gap-2">
 				<span className="min-w-0 truncate font-medium text-ink">{item.subject?.trim() || "No subject"}</span>
@@ -226,12 +225,12 @@ function MessageButton({
 			<span className="text-sm text-text-3">
 				{rowTime(item)} · {recipientCount(item.reachable, item.state)}
 			</span>
-		</button>
+		</RowButton>
 	);
 }
 
 const recipientCount = (n: number, state: HubState) =>
-	n === 0 && (state === "draft" || state === "scheduled") ? "Not sent yet" : plural(n, "recipient", "recipients");
+	n === 0 && (state === "draft" || state === "scheduled") ? "Not sent yet" : counted(n, "recipient");
 
 function AddressFact({ label, value }: { label: string; value: string | null }) {
 	return (
@@ -255,7 +254,7 @@ type ScheduledActions = {
 };
 
 const handoffCounts = (totals: MessageView["totals"]) =>
-	`Accepted ${totals.accepted}. Refused ${totals.failed}. No answer ${totals.unknown}.${unsubscribedNote(totals.unsubscribed)}`;
+	`Accepted ${totals.accepted}. Refused ${totals.failed}. No answer ${totals.unknown}.${leftOutNote(totals.unsubscribed, totals.child)}${guardianNote(totals.guardian)}`;
 
 function heldStatus(view: MessageView): { title: string; body: string } {
 	const { totals, detail } = view;
@@ -264,17 +263,27 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 		case "scheduled":
 			return {
 				title: `Scheduled for ${when(detail.scheduledAt)}`,
-				body: `It goes to ${plural(totals.reachable, "person", "people")} then. Anyone who unsubscribes before then gets nothing.${unsubscribedNote(totals.unsubscribed)}`,
+				body: `It goes to ${counted(totals.reachable, "person", "people")} then. Anyone who unsubscribes or is marked as a child before then gets nothing, and a child's email goes to their parent or guardian contact as set then.${leftOutNote(totals.unsubscribed, totals.child)}${guardianNote(totals.guardian)}`,
+			};
+		case "held":
+			return {
+				title: "Held: no mailing address",
+				body: `It was due ${when(detail.scheduledAt)} and has not gone out. Add your church's mailing address in Church profile and it goes out within a minute. You can also cancel it.`,
 			};
 		case "unsubscribed":
 			return {
 				title: "Not sent: unsubscribed",
 				body: "Every recipient unsubscribed from this church's email, so it does not go out. This is not an error.",
 			};
+		case "child":
+			return {
+				title: "Not sent: marked as a child",
+				body: `Every recipient is marked as a child or unsubscribed, so it does not go out. ${CHILD_RULE} This is not an error.`,
+			};
 		case "not_scheduled":
 			return {
 				title: "Not scheduled",
-				body: `${refusedAllText(totals.unsubscribed, totals.failed)} ${handoffCounts(totals)} The message stays saved.`,
+				body: `${refusedAllText(totals.unsubscribed, totals.failed, totals.child)} ${handoffCounts(totals)} The message stays saved.`,
 			};
 		case "cancel_unconfirmed":
 			return {
@@ -289,15 +298,15 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 		case "cancelled":
 			return {
 				title: "Cancelled",
-				body: `Cancelled for ${plural(totals.cancelled, "person", "people")}. No email went out to them.${went}`,
+				body: `Cancelled for ${counted(totals.cancelled, "person", "people")}. No email went out to them.${went}`,
 			};
 		case "failed":
 			return {
 				title: "Not sent",
 				body:
-					totals.unsubscribed === 0
+					totals.unsubscribed + totals.child === 0
 						? `The email service refused all ${totals.failed}. The message stays saved.`
-						: `${refusedAllText(totals.unsubscribed, totals.failed)} ${handoffCounts(totals)} The message stays saved.`,
+						: `${refusedAllText(totals.unsubscribed, totals.failed, totals.child)} ${handoffCounts(totals)} The message stays saved.`,
 			};
 		case "unknown":
 			return { title: "Not confirmed", body: `The email service gave no answer. ${handoffCounts(totals)}` };
@@ -320,13 +329,14 @@ function ResultNotice({ notice }: { notice: Notice }) {
 function ScheduledPanel({ view, actions }: { view: MessageView; actions: ScheduledActions }) {
 	const [when_, setWhen] = useState("");
 	const [error, setError] = useState<string | undefined>();
-	const now = useMinuteClock();
-	const bounds = now === null ? null : windowBounds(new Date(now));
+	const now = useViewerNow();
+	const zone = useViewerZone();
+	const bounds = now === null || zone === null ? null : windowBounds(now, zone);
 	const busy = actions.pending !== null;
 	const state = view.totals.state;
 	const status = heldStatus(view);
 	const requestedAt = view.detail.requestedAt;
-	const held = state === "scheduled" || state === "time_unconfirmed";
+	const held = state === "scheduled" || state === "time_unconfirmed" || state === "held";
 	const unconfirmed = state === "cancel_unconfirmed" || state === "time_unconfirmed";
 	const action = (name: string, label: string, run: () => void, variant: "primary" | "secondary" = "secondary") => (
 		<Button
@@ -344,13 +354,18 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 				<h3 className={`text-md font-medium ${unconfirmed ? "text-magenta-600" : "text-ink"}`}>{status.title}</h3>
 				<p className="text-sm text-text-2">{status.body}</p>
 			</div>
+			{state === "held" ? (
+				<MailingAddressPrompt>
+					Every email from this church shows its mailing address at the bottom. This one waits until the address is set.
+				</MailingAddressPrompt>
+			) : null}
 			{actions.notice ? <ResultNotice notice={actions.notice} /> : null}
 			<div className="flex flex-wrap gap-2">
 				{state === "cancel_unconfirmed" ? action("cancel", "Check again", actions.onCheckCancel, "primary") : null}
 				{state === "time_unconfirmed" && requestedAt
 					? action("reschedule", "Check again", () => actions.onReschedule(new Date(requestedAt)), "primary")
 					: null}
-				{!held && !unconfirmed && state !== "cancelled" && state !== "unsubscribed" ? (
+				{!held && !unconfirmed && state !== "cancelled" && state !== "unsubscribed" && state !== "child" ? (
 					<Button variant="primary" onClick={actions.onSendNow} disabled={busy}>
 						Send now
 					</Button>
@@ -365,7 +380,7 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 					? action("replace", "Check replacement", actions.onReplace)
 					: null}
 			</div>
-			{held || state === "not_scheduled" ? (
+			{(held && state !== "held") || state === "not_scheduled" ? (
 				<div className="flex flex-wrap items-end gap-3">
 					<Field label="Change send time" hint="From now through the next 30 days." error={error}>
 						<Input
@@ -405,6 +420,7 @@ function Detail({
 	onMeeting,
 	keepScope,
 	churchName,
+	mailingAddress,
 	origin,
 	scheduled,
 	notice,
@@ -420,6 +436,7 @@ function Detail({
 	onMeeting: (meetingId: string) => void;
 	keepScope: boolean;
 	churchName: string;
+	mailingAddress: string | null;
 	origin: string;
 	scheduled: ScheduledActions | null;
 	notice: Notice | null;
@@ -443,7 +460,7 @@ function Detail({
 	const sample = pickSampleName(detail.communicationId);
 	const as = named[Math.min(shownAs, Math.max(0, named.length - 1))]?.name ?? sample;
 	const totals = view.totals;
-	const heldStates: HubState[] = ["scheduled", "time_unconfirmed", "cancel_unconfirmed"];
+	const heldStates: HubState[] = ["scheduled", "held", "time_unconfirmed", "cancel_unconfirmed"];
 	const stateWhen = detail.sentAt
 		? `Sent ${when(detail.sentAt)}`
 		: detail.scheduledAt && heldStates.includes(totals.state)
@@ -497,7 +514,14 @@ function Detail({
 			<Totals totals={view.totals} />
 			{detail.bodyHtml ? (
 				<PreviewStage
-					input={{ bodyHtml: detail.bodyHtml, name: as, hasMeeting: detail.meetingId !== null, origin, churchName }}
+					input={{
+						bodyHtml: detail.bodyHtml,
+						name: as,
+						hasMeeting: detail.meetingId !== null,
+						origin,
+						churchName,
+						mailingAddress,
+					}}
 					chrome={{ from: churchName, to: as, subject: detail.subject ?? "" }}
 					toolbar={
 						named.length > 1 ? (
@@ -535,6 +559,7 @@ function Detail({
 									<p className="font-medium text-ink">{nameFor(row, index)}</p>
 									<p className="text-sm text-text-2">
 										{deliveryName(row.deliveryStatus, !heldStates.includes(totals.state))}
+										{row.sentTo ? `: ${row.sentTo}` : null}
 									</p>
 									<AddressFact label="Address at send" value={row.deliveryAddress} />
 									<AddressFact label="Address now" value={row.currentPersonAddress} />
@@ -574,11 +599,7 @@ function Detail({
 							Review follow-up
 						</Button>
 					</div>
-					{reviewError ? (
-						<p role="alert" className="text-sm font-medium text-magenta-600">
-							{reviewError}
-						</p>
-					) : null}
+					{reviewError ? <Alert role="alert">{reviewError}</Alert> : null}
 					{review ? (
 						<div className="flex flex-col items-start gap-2 text-sm text-text-2">
 							<p>{review.confirmedDelivery ? "At least one delivery is confirmed." : "No delivery is confirmed."}</p>
@@ -621,6 +642,7 @@ type BrowserProps = {
 	onCompose?: (id: string, step: "write" | "review", replace: boolean) => void;
 	onNew?: () => void;
 	churchName: string;
+	mailingAddress: string | null;
 	origin: string;
 	banner?: string | null;
 };
@@ -642,6 +664,7 @@ function Browser({
 	onCompose,
 	onNew,
 	churchName,
+	mailingAddress,
 	origin,
 	banner,
 }: BrowserProps) {
@@ -826,14 +849,17 @@ function Browser({
 						</p>
 					) : null}
 					{history.error ? (
-						<div className="flex flex-col items-start gap-3 px-2">
-							<p role="alert" className="text-sm font-medium text-magenta-600">
-								{history.error}
-							</p>
-							<Button variant="secondary" onClick={history.reload}>
-								Try again
-							</Button>
-						</div>
+						<Alert
+							role="alert"
+							className="mx-2"
+							actions={
+								<Button variant="secondary" onClick={history.reload}>
+									Try again
+								</Button>
+							}
+						>
+							{history.error}
+						</Alert>
 					) : null}
 					{history.pending !== "list" && !history.error && history.items.length === 0 ? (
 						<EmptyState icon={Mail01Icon} title={emptyTitle}>
@@ -878,11 +904,7 @@ function Browser({
 							Loading the message.
 						</p>
 					) : null}
-					{detailError ? (
-						<p role="alert" className="text-sm font-medium text-magenta-600">
-							{detailError}
-						</p>
-					) : null}
+					{detailError ? <Alert role="alert">{detailError}</Alert> : null}
 					{view ? (
 						<Detail
 							view={view}
@@ -896,6 +918,7 @@ function Browser({
 							onMeeting={onMeeting}
 							keepScope={keepScope}
 							churchName={churchName}
+							mailingAddress={mailingAddress}
 							origin={origin}
 							scheduled={actions}
 							notice={notice}
@@ -920,10 +943,10 @@ function Browser({
 				confirmLabel="Save follow-up"
 				onConfirm={async () => {
 					if (!selected || !review || review.eligibleIds.length === 0 || !review.confirmedDelivery)
-						throw new Error("Review the follow-up before you save it.");
+						return { refused: "Review the follow-up before you save it." };
 					const result = await saveResend(keys.take("resend"), selected);
 					keys.settle("resend", result);
-					if (result.status !== "ok") throw new Error(problem(result));
+					if (result.status !== "ok") return { refused: problem(result) };
 					const fresh = await readDraft(result.value.communicationId);
 					if (fresh.status !== "ok") {
 						setReviewed({
@@ -955,17 +978,17 @@ function Browser({
 				]}
 				confirmLabel="Send email"
 				onConfirm={async () => {
-					if (!view) throw new Error("Open a scheduled email before you send it.");
+					if (!view) return { refused: "Open a scheduled email before you send it." };
 					const id = view.detail.communicationId;
 					const result = await sendReviewed(keys.take("send"), view.detail.revision, id);
 					keys.settle("send", result);
-					if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to send the email.");
+					if (result.status !== "ok") return { refused: outcomeText(result) ?? "Unable to send the email." };
 					setNotice(id, {
 						text: deliveryText(result.value),
 						tone: result.value.status === "accepted" ? "status" : "alert",
 					});
 					await refresh(id);
-					if (result.value.status === "failed") throw new Error(deliveryText(result.value));
+					if (result.value.status === "failed") return { refused: deliveryText(result.value) };
 				}}
 			/>
 			<ConfirmDialog
@@ -980,11 +1003,12 @@ function Browser({
 				confirmLabel="Cancel scheduled email"
 				tone="danger"
 				onConfirm={async () => {
-					if (!view) throw new Error("Open a scheduled email before you cancel it.");
+					if (!view) return { refused: "Open a scheduled email before you cancel it." };
 					const id = view.detail.communicationId;
 					const result = await cancelScheduled(keys.take("cancel"), view.detail.revision, id);
 					keys.settle("cancel", result);
-					if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to cancel the scheduled email.");
+					if (result.status !== "ok")
+						return { refused: outcomeText(result) ?? "Unable to cancel the scheduled email." };
 					setNotice(id, {
 						text: cancelText(result.value),
 						tone: result.value.scheduledCancel === "reconcile" ? "alert" : "status",
@@ -1054,6 +1078,7 @@ export function History({
 	onCompose,
 	onNew,
 	churchName,
+	mailingAddress,
 	origin,
 	banner = null,
 }: {
@@ -1067,6 +1092,7 @@ export function History({
 	onCompose?: (id: string, step: "write" | "review", replace: boolean) => void;
 	onNew?: () => void;
 	churchName: string;
+	mailingAddress: string | null;
 	origin: string;
 	banner?: string | null;
 }) {
@@ -1149,11 +1175,7 @@ export function History({
 					Clear filters
 				</Button>
 			) : null}
-			{scopeNote ? (
-				<p role="alert" className="text-sm font-medium text-magenta-600">
-					{scopeNote}
-				</p>
-			) : null}
+			{scopeNote ? <Alert role="alert">{scopeNote}</Alert> : null}
 			<Browser
 				key={firstPages.key(list)}
 				canWrite={canWrite}
@@ -1162,6 +1184,7 @@ export function History({
 				onCompose={onCompose}
 				onNew={onNew}
 				churchName={churchName}
+				mailingAddress={mailingAddress}
 				origin={origin}
 				banner={banner}
 				title={

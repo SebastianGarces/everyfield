@@ -1,24 +1,16 @@
 "use client";
 
 import { prefersReducedMotion } from "@everyfield/ui/foundations";
+import { reinstall } from "@/components/install";
 import { addressHash, writeHash } from "@/components/location";
 import { inOut } from "@/components/motion/curves";
 import { READER_INPUT } from "./reader-input";
 
-type Hold = { target: HTMLElement; held: number; height: number; sizes: ResizeObserver };
-type Installed = {
-	click: (e: MouseEvent) => void;
-	input: () => void;
-	scroll: () => void;
-	pages: MutationObserver;
-};
+type Installed = { click: (e: MouseEvent) => void; input: () => void };
 
 const INSTALLED = Symbol.for("everyfield.page-scroll");
 
-let shown: string | null = null;
-let shownAt = 0;
 let glide = 0;
-let hold: Hold | null = null;
 
 const stopGlide = () => {
 	cancelAnimationFrame(glide);
@@ -54,62 +46,14 @@ function glideToFragment(e: MouseEvent) {
 	glide = requestAnimationFrame(step);
 }
 
-function keepTargetInPlace() {
-	if (!hold) return;
-	hold.target.scrollIntoView({ block: "start", behavior: "instant" });
-	hold.held = window.scrollY;
-	hold.height = document.documentElement.scrollHeight;
-}
-
-function releaseHold() {
-	if (!hold) return;
-	hold.sizes.disconnect();
-	removeEventListener("scroll", onScroll);
-	hold = null;
-}
-
-function onReaderInput() {
-	stopGlide();
-	releaseHold();
-}
-
-function onScroll() {
-	if (!hold || hold.held < 0 || Math.abs(window.scrollY - hold.held) <= 1) return;
-	if (document.documentElement.scrollHeight !== hold.height) keepTargetInPlace();
-	else releaseHold();
-}
-
-function pageShown() {
-	const path = location.pathname;
-	if (path === shown) return;
-	stopGlide();
-	releaseHold();
-	if (shown !== null) shownAt = performance.now();
-	shown = path;
-	if ((window.__readerInputAt ?? -1) >= shownAt) return;
-	const id = decodeURIComponent(addressHash().slice(1));
-	const target = id ? document.getElementById(id) : null;
-	if (!target) return;
-	hold = { target, held: -1, height: 0, sizes: new ResizeObserver(keepTargetInPlace) };
-	hold.sizes.observe(document.body);
-	addEventListener("scroll", onScroll, { passive: true });
-}
-
 function install() {
-	const host = window as unknown as Record<symbol, Installed | undefined>;
-	const previous = host[INSTALLED];
+	const previous = reinstall<Installed>(INSTALLED, { click: glideToFragment, input: stopGlide });
 	if (previous) {
 		removeEventListener("click", previous.click, true);
 		for (const t of READER_INPUT) removeEventListener(t, previous.input, true);
-		removeEventListener("scroll", previous.scroll);
-		previous.pages.disconnect();
 	}
-	const pages = new MutationObserver(pageShown);
-	host[INSTALLED] = { click: glideToFragment, input: onReaderInput, scroll: onScroll, pages };
 	addEventListener("click", glideToFragment, true);
-	for (const t of READER_INPUT) addEventListener(t, onReaderInput, { capture: true, passive: true });
-	pages.observe(document.body, { childList: true, subtree: true });
-	pageShown();
+	for (const t of READER_INPUT) addEventListener(t, stopGlide, { capture: true, passive: true });
 }
 
 if (typeof window !== "undefined") install();
