@@ -21,6 +21,7 @@ import {
 	CardTitle,
 	ConfirmDialog,
 	Field,
+	InlineAlert,
 	Input,
 	PageHeader,
 	Select,
@@ -101,9 +102,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 	if ("gone" in state)
 		return (
 			<Shell title="Seats and invitations" subtitle={null}>
-				<div role="status" className="empty:hidden">
-					{status ? <FormMessage tone="success">{status}</FormMessage> : null}
-				</div>
+				<FormMessage tone="success">{status}</FormMessage>
 				<Card>
 					<NotAvailable scope="section" headingLevel="h2" />
 				</Card>
@@ -138,9 +137,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 					: `People who can sign in to ${data.workspaceName}. Owners and Admins manage seats.`
 			}
 		>
-			<div role="status" className="empty:hidden">
-				{status ? <FormMessage tone="success">{status}</FormMessage> : null}
-			</div>
+			<FormMessage tone="success">{status}</FormMessage>
 			{reloadFailed ? (
 				<ProblemLine
 					problem="refused"
@@ -498,15 +495,13 @@ function RosterCard({
 				}
 			/>
 			{next ? (
-				<div className="mt-3 flex items-center gap-3">
+				<div className="mt-3 flex flex-wrap items-center gap-3">
 					<Button size="sm" variant="secondary" loading={more === "loading"} onClick={() => void loadMore()}>
 						Show more seats
 					</Button>
-					{more === "lost" || more === "failed" ? (
-						<p role="alert" className="text-sm text-magenta-600">
-							{more === "failed" ? READ_FAILED : "More seats did not load. Try again."}
-						</p>
-					) : null}
+					<InlineAlert className="min-w-0 flex-1 basis-64">
+						{more === "failed" ? READ_FAILED : more === "lost" ? "More seats did not load. Try again." : null}
+					</InlineAlert>
 				</div>
 			) : null}
 			{removed.length ? (
@@ -602,13 +597,14 @@ function PendingCard({
 				(d) => withoutInvitation(d, invitation.invitationId),
 				`The invitation to ${invitation.recipientEmail} was revoked.`,
 			);
-		throw new Error(
-			result.problem === "unknown"
-				? "We could not confirm this. Check your connection, then select Revoke again. It never revokes twice."
-				: result.problem === "busy"
-					? "Another change is still on its way. Wait for it, then try again."
-					: "The invitation was not revoked. It may have been accepted already. Reload the list.",
-		);
+		return {
+			refused:
+				result.problem === "unknown"
+					? "We could not confirm this. Check your connection, then select Revoke again. It never revokes twice."
+					: result.problem === "busy"
+						? "Another change is still on its way. Wait for it, then try again."
+						: "The invitation was not revoked. It may have been accepted already. Reload the list.",
+		};
 	}
 
 	async function loadMore() {
@@ -716,15 +712,13 @@ function PendingCard({
 				/>
 			) : null}
 			{next ? (
-				<div className="mt-3 flex items-center gap-3">
+				<div className="mt-3 flex flex-wrap items-center gap-3">
 					<Button size="sm" variant="secondary" loading={more === "loading"} onClick={() => void loadMore()}>
 						Show more invitations
 					</Button>
-					{more === "lost" || more === "failed" ? (
-						<p role="alert" className="text-sm text-magenta-600">
-							{more === "failed" ? READ_FAILED : "More invitations did not load. Try again."}
-						</p>
-					) : null}
+					<InlineAlert className="min-w-0 flex-1 basis-64">
+						{more === "failed" ? READ_FAILED : more === "lost" ? "More invitations did not load. Try again." : null}
+					</InlineAlert>
 				</div>
 			) : null}
 		</Card>

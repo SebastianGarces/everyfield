@@ -1,9 +1,35 @@
+import { IDENTITY_LINK_SECONDS } from "@everyfield/contracts/identity";
 import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
 
-export const PATH_HEADER = "x-everyfield-path";
 export const EMAIL_CHANGE_PROOF_COOKIE = "ef-email-change-proof";
-const EMAIL_CHANGE_PATH = "/confirm-email";
+export const EMAIL_CHANGE_PATH = "/confirm-email";
+
+export const LINK_PROOFS = {
+	"/reset-password": { cookie: "ef-reset-proof", answer: "/api/auth/reset-password" },
+	"/verify-email": { cookie: "ef-verify-proof", answer: "/api/auth/verify-email" },
+} as const;
+export type LinkProofPage = keyof typeof LINK_PROOFS;
+
+export const isLinkProofPage = (path: string): path is LinkProofPage => Object.hasOwn(LINK_PROOFS, path);
+
+export function linkProofCookies(page: LinkProofPage, value: string, maxAge: number, secure: boolean): string[] {
+	const { cookie, answer } = LINK_PROOFS[page];
+	return [page, answer].map(
+		(path) =>
+			`${cookie}=${encodeURIComponent(value)}; Path=${path}; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`,
+	);
+}
+
+function keepLinkProof(request: NextRequest, page: LinkProofPage, proof: string) {
+	const clean = request.nextUrl.clone();
+	clean.searchParams.delete("token");
+	const response = NextResponse.redirect(clean);
+	const secure = request.nextUrl.protocol === "https:";
+	for (const cookie of linkProofCookies(page, proof, IDENTITY_LINK_SECONDS, secure))
+		response.headers.append("set-cookie", cookie);
+	return response;
+}
 
 function keepEmailChangeProof(request: NextRequest, proof: string) {
 	const clean = request.nextUrl.clone();
@@ -20,16 +46,16 @@ function keepEmailChangeProof(request: NextRequest, proof: string) {
 }
 
 export function proxy(request: NextRequest) {
-	const proof = request.nextUrl.pathname === EMAIL_CHANGE_PATH ? request.nextUrl.searchParams.get("token") : null;
-	if (proof) return keepEmailChangeProof(request, proof);
+	const path = request.nextUrl.pathname;
+	const token = request.nextUrl.searchParams.get("token");
+	if (isLinkProofPage(path)) return token ? keepLinkProof(request, path, token) : NextResponse.next();
+	if (path === EMAIL_CHANGE_PATH && token) return keepEmailChangeProof(request, token);
 	if (!getSessionCookie(request)) {
 		const signin = new URL("/signin", request.url);
 		signin.searchParams.set("returnTo", request.nextUrl.pathname + request.nextUrl.search);
 		return NextResponse.redirect(signin);
 	}
-	const headers = new Headers(request.headers);
-	headers.set(PATH_HEADER, request.nextUrl.pathname);
-	return NextResponse.next({ request: { headers } });
+	return NextResponse.next();
 }
 
 export const config = {
@@ -50,5 +76,7 @@ export const config = {
 		"/home",
 		"/onboarding/:path*",
 		"/confirm-email",
+		"/reset-password",
+		"/verify-email",
 	],
 };

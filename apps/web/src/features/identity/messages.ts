@@ -15,6 +15,7 @@ function retryTime(retryAt: string, now = new Date()): string {
 const UNREACHABLE = "Unable to reach Everyfield. Check your connection and try again.";
 
 export function refusalMessage(screen: Screen, error: Refusal): string {
+	if (error.status === "lost") return UNREACHABLE;
 	const later = error.retryAt ? ` Try again after ${retryTime(error.retryAt)}.` : " Try again later.";
 	switch (error.code) {
 		case "invalid_credentials":

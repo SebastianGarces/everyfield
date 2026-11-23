@@ -1,4 +1,5 @@
 import { plantSeat, type PlantSeat } from "@/server/request-context";
+import { refusedWith, withError } from "@everyfield/contracts/common";
 import { phasesError, type PhasesReply } from "@everyfield/contracts/phases";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
@@ -39,9 +40,9 @@ export async function write<T>(
 	run: (writer: PhaseWriter, db: Database, authority: RequestActor) => Promise<PhasesReply<T>>,
 ): Promise<Outcome<T>> {
 	const viewer = await plantSeat();
-	if (!viewer) return { status: "refused", error: denied() };
+	if (!viewer) return refusedWith(denied());
 	const mount = phasesMount();
-	return guardedWrite("phases", () => run(mount.writer, mount.db, viewer.authority));
+	return guardedWrite("phases", async () => withError(await run(mount.writer, mount.db, viewer.authority)));
 }
 const denied = () =>
 	phasesError.parse({ code: "access_denied", details: {}, correlationId: crypto.randomUUID(), retry: "never" });

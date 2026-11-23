@@ -2,7 +2,7 @@
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
-import { Combobox, Command, Field, keepKeyInField, Spinner } from "@everyfield/ui/controls";
+import { Alert, Combobox, Command, Field, keepKeyInField, Spinner, ProblemText } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useId, useState, type ElementType, type KeyboardEvent } from "react";
@@ -11,13 +11,24 @@ import { useStore } from "../../components/store.ts";
 import { resolveAudience } from "./actions.ts";
 import { recipientSearches, type ComposeStore } from "./Compose.store.ts";
 import { audienceSize, plural } from "./composeModel.ts";
-import { audienceGroups, groupLabel, type Audience, type AudienceSummary, type Recipient, type Team } from "./model.ts";
+import {
+	audienceGroups,
+	CHILD_RULE,
+	groupLabel,
+	type Audience,
+	type AudienceSummary,
+	type Recipient,
+	type Team,
+} from "./model.ts";
 import { loadProblem } from "../../components/read-failed.ts";
 
 const MAX_CHIPS = 8;
 
 const onDay = (iso: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(iso));
 const unsubscribedReason = (iso: string) => `Unsubscribed from this church's email on ${onDay(iso)}`;
+
+const leftOutCount = (summary: AudienceSummary) =>
+	summary.childExclusions.length + summary.missingEmailExclusions.length + summary.unsubscribedExclusions.length;
 
 const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 
@@ -156,7 +167,7 @@ function Counts({
 		{ label: "Will get this email", value: summary?.eligibleRecipients ?? (empty ? 0 : null) },
 		{
 			label: "Left out",
-			value: summary ? summary.missingEmailExclusions.length + summary.unsubscribedExclusions.length : empty ? 0 : null,
+			value: summary ? leftOutCount(summary) : empty ? 0 : null,
 		},
 	];
 	return (
@@ -171,18 +182,20 @@ function Counts({
 					</div>
 				))}
 			</div>
-			{failed ? (
-				<p role="alert" className="text-sm font-medium text-magenta-600">
-					{failed}
-				</p>
-			) : null}
+			{failed ? <Alert role="alert">{failed}</Alert> : null}
 			{summary ? (
 				<section aria-label="Left out, and why" className="flex max-w-3xl flex-col gap-2">
 					<h3 className="text-sm font-medium text-ink-2">Left out, and why</h3>
-					{summary.missingEmailExclusions.length + summary.unsubscribedExclusions.length === 0 ? (
+					{leftOutCount(summary) === 0 ? (
 						<p className="text-sm text-text-2">Everyone selected can get this email.</p>
 					) : (
 						<ul className="flex flex-col gap-1">
+							{summary.childExclusions.map((person) => (
+								<li key={person.id} className="flex flex-wrap justify-between gap-x-3 text-md text-ink">
+									<span>{person.displayName}</span>
+									<span className="text-text-2">Marked as a child</span>
+								</li>
+							))}
 							{summary.unsubscribedExclusions.map((person) => (
 								<li key={person.id} className="flex flex-wrap justify-between gap-x-3 text-md text-ink">
 									<span>{person.displayName}</span>
@@ -197,6 +210,11 @@ function Counts({
 							))}
 						</ul>
 					)}
+					{summary.childExclusions.length > 0 ? (
+						<p className="text-sm text-text-2">
+							{CHILD_RULE} If a marking is wrong, correct Adult or child on the person&rsquo;s record.
+						</p>
+					) : null}
 					{summary.unsubscribedExclusions.length > 0 ? (
 						<p className="text-sm text-text-2">
 							Only the person can undo an unsubscribe, from the link in an email. Staff cannot clear it.
@@ -349,7 +367,7 @@ function ToField({
 						</button>
 					) : null}
 					{locked ? null : (
-						<Command.Input asChild value={shown.map((person) => person.id).join(" ")}>
+						<Command.Input asChild value={listed ? shown.map((person) => person.id).join(" ") : ""}>
 							<input
 								id={inputId}
 								aria-label="Add a person"
@@ -406,9 +424,9 @@ function ToField({
 				) : null}
 			</Command>
 			{status ? (
-				<p role="alert" className="mt-1 text-sm font-medium text-magenta-600">
+				<ProblemText size="sm" className="mt-1">
 					{status}
-				</p>
+				</ProblemText>
 			) : null}
 		</Field>
 	);

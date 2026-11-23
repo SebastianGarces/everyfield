@@ -26,7 +26,7 @@ export function AccountMenu({
 }) {
 	async function signOut() {
 		const result = await identityApi.signOut();
-		if (result.ok) loadPage("/signin");
+		if (result.status === "ok") loadPage("/signin");
 		else toast({ message: "Unable to sign out. Check your connection and try again.", tone: "error" });
 	}
 

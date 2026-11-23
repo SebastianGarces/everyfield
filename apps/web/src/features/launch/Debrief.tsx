@@ -17,6 +17,7 @@ import {
 	CardHeading,
 	CardTitle,
 	Field,
+	InlineAlert,
 	Input,
 	Radio,
 	RadioGroup,
@@ -254,11 +255,7 @@ function DebriefForm({
 					</Field>
 				) : null}
 			</fieldset>
-			{error ? (
-				<p role="alert" className="text-sm text-red-700">
-					{error}
-				</p>
-			) : null}
+			<InlineAlert>{error}</InlineAlert>
 			<div className="flex flex-wrap items-center gap-3">
 				<Button type="submit" variant="primary" disabled={busy}>
 					{d.submitted ? "Submit correction" : "Submit debrief"}
@@ -339,11 +336,7 @@ export function SummaryCard({
 					<div className="rounded-md bg-surface-2 px-4 py-3 text-sm break-words whitespace-pre-line text-ink">
 						{body.trim()}
 					</div>
-					{error ? (
-						<p role="alert" className="text-sm text-red-700">
-							{error}
-						</p>
-					) : null}
+					<InlineAlert>{error}</InlineAlert>
 					<div className="flex flex-wrap gap-3">
 						<Button variant="primary" disabled={busy} onClick={() => void save(true)}>
 							{current ? "Publish new version" : "Publish"}

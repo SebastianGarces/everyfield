@@ -223,7 +223,8 @@ export async function bump(
 			onboarding_completed_at: t.plant.onboarding_completed_at,
 			at: now,
 		});
-	return { ...plant!, at: plant!.at.toISOString() };
+	if (!plant) throw Error(`Plant ${id} was not updated`);
+	return { ...plant, at: plant.at.toISOString() };
 }
 
 export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {

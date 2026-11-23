@@ -3,14 +3,13 @@
 import type { IntelligenceGroup, IntelligencePattern, IntelligenceView, Level } from "@everyfield/contracts/oversight";
 import { LEVELS, patternText } from "@everyfield/contracts/oversight";
 import {
-	AlertCircleIcon,
 	ArrowRight01Icon,
 	Refresh01Icon,
 	ThumbsDownIcon,
 	ThumbsUpIcon,
 	UserGroupIcon,
 } from "@hugeicons/core-free-icons";
-import { Button, CalloutLabel, CalloutText, Card, CardIcon, EmptyState } from "@everyfield/ui/controls";
+import { Button, CalloutLabel, CalloutText, Card, CardIcon, EmptyState, InlineAlert } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
@@ -79,12 +78,7 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 				) : (
 					<p className="text-sm text-text-3">Owners and Admins can refresh.</p>
 				)}
-				{problem ? (
-					<p role="alert" className="flex w-full items-start gap-2 text-md text-magenta-700">
-						<Icon icon={AlertCircleIcon} size={16} className="mt-0.5 flex-none" />
-						{problem}
-					</p>
-				) : null}
+				<InlineAlert className="w-full">{problem}</InlineAlert>
 			</Card>
 
 			{run ? (

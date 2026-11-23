@@ -61,7 +61,7 @@ before(async () => {
 		db: runtime,
 		storage: null,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: worker,
 		mail: null,
 		now: () => clock.at,

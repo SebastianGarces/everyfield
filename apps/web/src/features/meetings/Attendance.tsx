@@ -5,6 +5,7 @@ import { dateText } from "@everyfield/contracts/common";
 import { CheckListIcon, Clock01Icon, Edit02Icon, StarIcon } from "@hugeicons/core-free-icons";
 import { averageOf } from "@everyfield/contracts/meetings";
 import {
+	Alert,
 	Button,
 	Card,
 	CardDescription,
@@ -25,6 +26,8 @@ import {
 	Spinner,
 	Textarea,
 	toast,
+	InlineAlert,
+	ProblemText,
 } from "@everyfield/ui/controls";
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useRef, useState } from "react";
@@ -58,7 +61,6 @@ import {
 	type Presence,
 	type Scores,
 } from "./model.ts";
-import { Problem } from "./parts.tsx";
 import { choiceOf, chosenOf, createSettleStore, selectUnchanged } from "./SettleForm.store.ts";
 import { loadProblem } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
@@ -459,9 +461,7 @@ function SettleForm({
 								))}
 							</div>
 							{touched && unchanged ? (
-								<p className="mt-1 text-xs font-medium text-magenta-600" role="alert">
-									Add or remove at least one person, or close this.
-								</p>
+								<ProblemText className="mt-1">Add or remove at least one person, or close this.</ProblemText>
 							) : null}
 						</fieldset>
 					) : (
@@ -476,34 +476,40 @@ function SettleForm({
 							)}
 						</section>
 					)}
-					<section aria-labelledby="settle-effects" aria-live="polite" aria-busy={!settled || undefined}>
+					<section aria-labelledby="settle-effects">
 						<h3 id="settle-effects" className="text-sm font-medium text-ink-2">
 							{reconcile ? "What this changes" : "What finalizing does"}
 						</h3>
-						{unchanged ? (
-							<p className="mt-1.5 text-md text-text-3">Add or remove someone to see what changes.</p>
-						) : !settled ? (
-							<p role="status" className="mt-1.5 flex items-center gap-2 text-md text-text-3">
-								<Spinner size={14} /> Working out exactly what this creates…
-							</p>
-						) : effects.status !== "ok" ? (
-							<div role="alert" className="mt-1.5 flex flex-wrap items-center justify-between gap-3">
-								<p className="min-w-0 flex-1 text-md text-magenta-600">
-									{effects.status === "lost"
-										? "The list of what this creates did not load. Nothing was changed."
-										: problemText(effects.code)}
+						<div aria-live="polite" aria-busy={!settled || undefined}>
+							{unchanged ? (
+								<p className="mt-1.5 text-md text-text-3">Add or remove someone to see what changes.</p>
+							) : !settled ? (
+								<p role="status" className="mt-1.5 flex items-center gap-2 text-md text-text-3">
+									<Spinner size={14} /> Working out exactly what this creates…
 								</p>
-								<Button ref={retryRef} variant="secondary" size="sm" type="button" onClick={actions.retry}>
-									Try again
-								</Button>
-							</div>
-						) : (
-							<ul className="mt-1.5 flex list-disc flex-col gap-1 pl-5 text-md text-text-2">
-								{effectLines(effects.value, meeting, name, mode).map((line) => (
-									<li key={line}>{line}</li>
-								))}
-							</ul>
-						)}
+							) : effects.status === "ok" ? (
+								<ul className="mt-1.5 flex list-disc flex-col gap-1 pl-5 text-md text-text-2">
+									{effectLines(effects.value, meeting, name, mode).map((line) => (
+										<li key={line}>{line}</li>
+									))}
+								</ul>
+							) : null}
+						</div>
+						{!unchanged && settled && effects.status !== "ok" ? (
+							<Alert
+								role="alert"
+								className="mt-1.5"
+								actions={
+									<Button ref={retryRef} variant="secondary" size="sm" type="button" onClick={actions.retry}>
+										Try again
+									</Button>
+								}
+							>
+								{effects.status === "lost"
+									? "The list of what this creates did not load. Nothing was changed."
+									: problemText(effects.code)}
+							</Alert>
+						) : null}
 					</section>
 					{vision ? (
 						<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
@@ -542,7 +548,7 @@ function SettleForm({
 							/>
 						</Field>
 					) : null}
-					<Problem text={problem} />
+					<InlineAlert>{problem}</InlineAlert>
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose}>
@@ -904,11 +910,7 @@ function EvaluationForm({
 											{f.label}
 										</p>
 										<p className="text-sm text-text-3">{f.hint}</p>
-										{bad || refusal ? (
-											<p className="text-xs font-medium text-magenta-600" role="alert">
-												{refusal ?? "Choose a score."}
-											</p>
-										) : null}
+										{bad || refusal ? <ProblemText>{refusal ?? "Choose a score."}</ProblemText> : null}
 									</div>
 									<SegmentedControl
 										label={`${f.label} score, 1 to 5`}
@@ -961,7 +963,7 @@ function EvaluationForm({
 							/>
 						</Field>
 					) : null}
-					<Problem text={issues.length === 0 ? problem : named.dialog.join(" ") || undefined} />
+					<InlineAlert>{issues.length === 0 ? problem : named.dialog.join(" ") || undefined}</InlineAlert>
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose}>
