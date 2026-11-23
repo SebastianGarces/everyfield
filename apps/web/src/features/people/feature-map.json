@@ -741,6 +741,10 @@
 							{
 								"file": "tests/integration/people/corrections/merge.test.mts",
 								"name": "AC:REQ-PPL-024 a write racing a merge waits for it and never leaves a current reference on the retired source"
+							},
+							{
+								"file": "tests/integration/people/corrections/history.test.mts",
+								"name": "AC:TARGET-PPL-025 a merge carries the source's follow-up, its outcome and the sent email to the survivor, refuses a stale review and repeats as the earlier result"
 							}
 						],
 						"cases": ["TARGET-PPL-016"]

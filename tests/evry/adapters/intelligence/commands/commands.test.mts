@@ -29,9 +29,9 @@ const ports = {
 const CORE_GROUP = { phase: 1, name: "Core Group Development" };
 const PRAYER_RHYTHM = { key: "prayer_rhythm_established", label: "Corporate prayer rhythm established" };
 const CORE_GROUP_CRITERIA = [
-	{ label: "30 committed adults", status: "not met" },
+	{ label: "30 committed adults", status: "not met", reading: "0 of 30 committed adults" },
 	...["Growth still moving", "Launch funding viable", "Worship leader identified", "Geographic area set"].map(
-		(label) => ({ label, status: "no data yet" }),
+		(label) => ({ label, status: "no data yet", reading: null }),
 	),
 ];
 

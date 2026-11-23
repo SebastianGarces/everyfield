@@ -1,7 +1,8 @@
 import * as signalsContract from "@everyfield/contracts/intelligence";
 import * as c from "@everyfield/contracts/phases";
-import { createSignals } from "@everyfield/domain/intelligence";
-import { createFacts } from "@everyfield/domain/intelligence";
+import type { HistoryEntry } from "@everyfield/contracts/launch";
+import { createFacts, createSignals, criteriaOf, readingOf } from "@everyfield/domain/intelligence";
+import { createLaunchReader } from "@everyfield/domain/launch";
 import { phaseReader, readCatalog, readReadiness } from "@everyfield/domain/phases";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
@@ -69,6 +70,40 @@ const readPhaseCatalog: ReadAdapter<z.infer<typeof none>> = {
 	},
 };
 
+function journeyRow(catalog: c.Catalog, zone: string, e: c.JourneyEntry, id: string): SourceRow {
+	const row = (label: string, fields: SourceRow["fields"]): SourceRow => ({ kind: "phase", id, label, fields });
+	const by = e.actor?.displayName || null;
+	if (e.kind === "launch_sunday")
+		return row("Launch Sunday", {
+			entry: e.kind,
+			fromPhase: null,
+			toPhase: null,
+			direction: null,
+			reason: null,
+			by,
+			on: e.actualDate,
+		});
+	if (e.kind === "gathering")
+		return row(`${e.name} reached`, {
+			entry: e.kind,
+			fromPhase: null,
+			toPhase: null,
+			direction: null,
+			reason: null,
+			by,
+			on: e.reachedOn,
+		});
+	return row(phaseName(catalog, e.toPhase), {
+		entry: e.kind,
+		fromPhase: e.fromPhase === null ? null : phaseName(catalog, e.fromPhase),
+		toPhase: phaseName(catalog, e.toPhase),
+		direction: e.kind === "movement" ? e.direction : null,
+		reason: e.kind === "movement" ? e.reason : null,
+		by,
+		on: localDay(e.occurredAt, zone),
+	});
+}
+
 const readHistory: ReadAdapter<z.infer<typeof none>> = {
 	operation: "phases.readHistory",
 	description:
@@ -92,52 +127,7 @@ const readHistory: ReadAdapter<z.infer<typeof none>> = {
 				declarable: h.state.declarable,
 			},
 		};
-		const entries: SourceRow[] = h.entries.map((e, n) =>
-			e.kind === "launch_sunday"
-				? {
-						kind: "phase",
-						id: `entry:${n + 1}`,
-						label: "Launch Sunday",
-						fields: {
-							entry: e.kind,
-							fromPhase: null,
-							toPhase: null,
-							direction: null,
-							reason: null,
-							by: e.actor?.displayName || null,
-							on: e.actualDate,
-						},
-					}
-				: e.kind === "gathering"
-					? {
-							kind: "phase",
-							id: `entry:${n + 1}`,
-							label: `${e.name} reached`,
-							fields: {
-								entry: e.kind,
-								fromPhase: null,
-								toPhase: null,
-								direction: null,
-								reason: null,
-								by: e.actor?.displayName || null,
-								on: e.reachedOn,
-							},
-						}
-					: {
-							kind: "phase",
-							id: `entry:${n + 1}`,
-							label: phaseName(catalog, e.toPhase),
-							fields: {
-								entry: e.kind,
-								fromPhase: e.fromPhase === null ? null : phaseName(catalog, e.fromPhase),
-								toPhase: phaseName(catalog, e.toPhase),
-								direction: e.kind === "movement" ? e.direction : null,
-								reason: e.kind === "movement" ? e.reason : null,
-								by: e.actor?.displayName || null,
-								on: localDay(e.occurredAt, zone),
-							},
-						},
-		);
+		const entries = h.entries.map((e, n) => journeyRow(catalog, zone, e, `entry:${n + 1}`));
 		return complete("phases.readHistory", [current, ...entries]);
 	},
 };
@@ -179,6 +169,99 @@ const readReadinessAdapter: ReadAdapter<z.infer<typeof readinessInput>> = {
 			fields: { phase: String(phase), status: STATUS_WORDS[x.status] },
 		}));
 		return complete("phases.readReadiness", [head, ...criteria]);
+	},
+};
+
+const launch = createLaunchReader();
+const exitInput = z.strictObject({
+	phase: c.phaseNumber.optional().describe("A phase number 0 to 6; leave it out for the church's current phase"),
+});
+const readExitCriteria: ReadAdapter<z.infer<typeof exitInput>> = {
+	operation: "intelligence.readExitCriteria",
+	description:
+		"Read each exit criterion for leaving a phase (the current phase unless one is named) as Plant Intelligence measures it: its status (met, not met or no data yet) and its reading, such as 18 of 30 committed adults. Use it when asked what the church needs to reach the next phase. Say every criterion with its status and reading as returned. A criterion with no reading has no data yet: say so, and never estimate it from People counts, pipeline stages or anything else. Never say the church is or is not ready: report the criteria, because moving is the planter's call.",
+	input: exitInput,
+	allowed: ownerOrAdmin,
+	async invoke(tx, actor, input) {
+		const [history, catalog, measured] = await Promise.all([
+			phaseReader.readHistory(tx, actor.authority),
+			readCatalog(),
+			facts.readFacts(tx, actor.authority),
+		]);
+		const h = valueOf(history);
+		const phase = input.phase ?? h.state.phase;
+		const head: SourceRow = {
+			kind: "phase",
+			id: String(phase),
+			label: phaseName(catalog, phase),
+			fields: {
+				phase: String(phase),
+				current: phase === h.state.phase,
+				next: phase < c.TERMINAL_PHASE ? phaseName(catalog, phase + 1) : null,
+			},
+		};
+		const criteria: SourceRow[] = criteriaOf(catalog, phase, valueOf(measured)).map((x) => ({
+			kind: "criterion",
+			id: x.key,
+			label: x.label,
+			fields: { phase: String(phase), status: STATUS_WORDS[x.status], reading: readingOf(x) },
+		}));
+		return complete("intelligence.readExitCriteria", [head, ...criteria]);
+	},
+};
+
+const LAUNCH_DATE: Record<Extract<HistoryEntry["change"], { kind: "date" }>["event"], string> = {
+	scheduled: "Launch Sunday scheduled",
+	moved: "Launch Sunday moved",
+	postponed: "Launch Sunday postponed",
+	rescheduled: "Launch Sunday rescheduled",
+};
+const readJourney: ReadAdapter<z.infer<typeof none>> = {
+	operation: "intelligence.readJourney",
+	description:
+		"Read this church's milestone timeline, newest first, as the Plant Intelligence journey shows it: when it joined or declared its phase, each phase move with its direction and reason, every Launch Sunday date change with its reason, and Launch Sunday or the gathering milestone once held, each with who and the day. Say only these steps; add none.",
+	input: none,
+	allowed: ownerOrAdmin,
+	async invoke(tx, actor) {
+		const [history, catalog, journal] = await Promise.all([
+			phaseReader.readHistory(tx, actor.authority),
+			readCatalog(),
+			launch.readJournal(tx, actor.authority),
+		]);
+		const h = valueOf(history);
+		const zone = h.timeZone;
+		const steps = [
+			...h.entries.map((e) => ({ at: e.occurredAt, row: journeyRow(catalog, zone, e, e.id) })),
+			...valueOf(journal).entries.flatMap((e) =>
+				e.change.kind === "date"
+					? [
+							{
+								at: e.at,
+								row: {
+									kind: "phase",
+									id: e.id,
+									label: LAUNCH_DATE[e.change.event],
+									fields: {
+										entry: "launch_date",
+										fromDate: e.change.from,
+										toDate: e.change.to,
+										reason: e.change.reason,
+										by: e.actor?.displayName || null,
+										on: localDay(e.at, zone),
+									},
+								} satisfies SourceRow,
+							},
+						]
+					: [],
+			),
+		];
+		return complete(
+			"intelligence.readJourney",
+			steps
+				.sort((a, b) => a.at.localeCompare(b.at))
+				.toReversed()
+				.map((s) => s.row),
+		);
 	},
 };
 
@@ -234,6 +317,12 @@ const getHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 	},
 };
 
-export const PHASE_READS = [readPhaseCatalog, readHistory, readReadinessAdapter] as const;
+export const PHASE_READS = [
+	readPhaseCatalog,
+	readHistory,
+	readReadinessAdapter,
+	readExitCriteria,
+	readJourney,
+] as const;
 export const SIGNAL_READS = [listDefinitions, getHistory] as const;
 export { ASSESSMENT_INTELLIGENCE_READS } from "./assessment.ts";

@@ -1,3 +1,5 @@
+import { meetingTitle } from "@everyfield/contracts/common";
+import { meetingType } from "@everyfield/contracts/meetings";
 import * as c from "@everyfield/contracts/people";
 import { sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
@@ -63,25 +65,48 @@ const factsRow = z.object({
 	household_id: z.uuid().nullable(),
 	commitment_inputs: commitmentInputs,
 	enrollment_programs: z.array(z.uuid()),
+	open_follow_ups: z.array(
+		z.object({
+			title: z.string().nullable(),
+			type: meetingType,
+			vision_number: z.number().int().nullable(),
+			due_date: z.string(),
+		}),
+	),
 	refs: z.unknown(),
 });
-export type Facts = Omit<z.infer<typeof factsRow>, "refs" | "commitment_inputs"> & {
+export type Facts = Omit<z.infer<typeof factsRow>, "refs" | "commitment_inputs" | "open_follow_ups"> & {
 	refs: Reference[];
 	values: Record<string, unknown>;
 	commitment: CommitmentInputs;
+	openFollowUps: { personId: string; meeting: string; dueDate: string }[];
 };
 export function parseFacts(raw: unknown): Facts | null {
 	if (raw === null) return null;
-	const { commitment_inputs, ...row } = factsRow.parse(raw);
+	const { commitment_inputs, open_follow_ups, ...row } = factsRow.parse(raw);
 	const values = z.record(z.string(), z.unknown()).parse(raw);
 	delete values.commitment_inputs;
-	return { ...row, refs: parseReferences(row.refs), values, commitment: commitment_inputs };
+	delete values.open_follow_ups;
+	const openFollowUps = open_follow_ups.map((f) => ({
+		personId: row.id,
+		meeting: meetingTitle({ title: f.title, type: f.type, visionNumber: f.vision_number }),
+		dueDate: f.due_date,
+	}));
+	return { ...row, refs: parseReferences(row.refs), values, commitment: commitment_inputs, openFollowUps };
 }
+const openFollowUpsOf = (person: SQL, owner: string | SQL) =>
+	sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('title',m.title,'type',m.type,'vision_number',m.vision_number,
+ 'due_date',o.due_date::text) ORDER BY o.due_date,o.id),'[]') FROM obligation o
+ JOIN meeting m ON m.id=o.meeting_id AND m.plant_id=o.plant_id
+ LEFT JOIN LATERAL (SELECT k.status,k.deleted_at FROM task k WHERE k.obligation_id=o.id AND k.plant_id=o.plant_id
+  ORDER BY k.deleted_at NULLS FIRST,k.created_at DESC LIMIT 1) t ON true
+ WHERE o.person_id=${person} AND o.plant_id=${owner}::uuid AND o.kind='follow_up' AND o.superseded_at IS NULL
+ AND o.waived_at IS NULL AND NOT coalesce(t.deleted_at IS NULL AND t.status IN ('complete','no_longer_needed'),false))`;
 export const factsOf = (id: SQL, owner: string | SQL) =>
 	sql`(SELECT to_jsonb(p)||jsonb_build_object('revision',p.revision::text,'pipeline_position',p.pipeline_position::text,
  'refs',${referencesOf(sql`p.id`, owner)},
  'enrollment_programs',(SELECT coalesce(jsonb_agg(e.program_id),'[]') FROM development_enrollment e
-  WHERE e.person_id=p.id AND e.organization_id=p.tenant_id),'commitment_inputs',${commitmentInputsJson(sql`p.id`, sql`${owner}::uuid`)}) FROM person p WHERE p.id=${id} AND p.tenant_id=${owner}::uuid
+  WHERE e.person_id=p.id AND e.organization_id=p.tenant_id),'open_follow_ups',${openFollowUpsOf(sql`p.id`, owner)},'commitment_inputs',${commitmentInputsJson(sql`p.id`, sql`${owner}::uuid`)}) FROM person p WHERE p.id=${id} AND p.tenant_id=${owner}::uuid
  AND NOT EXISTS(SELECT FROM organization_person_removal w WHERE w.person_record_id=p.id AND w.organization_id=p.tenant_id))`;
 
 export const referencesDigest = (refs: readonly Reference[]) =>
@@ -239,6 +264,7 @@ export const peopleMerge = {
 				commitment: p.commitment && { result: p.commitment.state, effectiveOn: p.commitment.effectiveOn },
 				references: p.references,
 				blockers: p.blockers,
+				openFollowUps: [...survivor.openFollowUps, ...source.openFollowUps],
 				reviewDigest: p.reviewDigest,
 			});
 		});

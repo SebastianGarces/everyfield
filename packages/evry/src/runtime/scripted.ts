@@ -17,8 +17,8 @@ import { TASK_DATA, taskStep } from "./scripted-tasks.ts";
 import { planStep } from "./scripted-task-plan.ts";
 import { assessmentStep } from "./scripted-assessments.ts";
 import { mailStep, proposesOn } from "./scripted-mail.ts";
-import { MEMBER_PHASES } from "../catalog/catalog.ts";
 import { settingsStep } from "./scripted-settings.ts";
+import { phaseStep, SIGNAL } from "./scripted-phases.ts";
 import { captured, present } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
@@ -413,78 +413,6 @@ function wikiStep(
 		];
 	}
 	return null;
-}
-
-const PHASE_NOW = /\bwhat phase are we in\b/i;
-const NEXT_PHASE = /\bmove to the next phase\b/i;
-const MOVE = /\bmove us (?:back )?to ([A-Za-z &-]+?)\.?$/i;
-const SIGNAL = /\bwe started prayer and fasting\b/i;
-const CORRECT_GIVING = /\bcorrect our core group giving\b/i;
-const STILL_GIVING = /\bcore group is still giving\b/i;
-const PHASE_ASKS = [PHASE_NOW, NEXT_PHASE, MOVE, SIGNAL, CORRECT_GIVING, STILL_GIVING];
-const longDay = (date: unknown) =>
-	typeof date === "string"
-		? new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
-				month: "long",
-				day: "numeric",
-				year: "numeric",
-				timeZone: "UTC",
-			})
-		: "an unknown day";
-function phaseStep(
-	text: string,
-	options: LanguageModelV4CallOptions,
-	result: Record<string, unknown> | null,
-): LanguageModelV4Content[] | null {
-	if (!PHASE_ASKS.some((ask) => ask.test(text))) return null;
-	const has = (name: string) => options.tools?.some((t) => t.name === name) ?? false;
-	if (!has("phases_read")) return [{ type: "text", text: MEMBER_PHASES }];
-	const read = (operation: string, input: unknown = {}) => [toolCall("phases_read", { operation, input })];
-	const propose = (operation: string, input: unknown) => [toolCall("propose_change", { operation, input })];
-	if (result && typeof result.proposalId === "string")
-		return [{ type: "text", text: "I prepared a review. Nothing changes until you approve it." }];
-	const rows = (result?.rows as { id: string; label: string; fields: Record<string, unknown> }[] | undefined) ?? [];
-	if (PHASE_NOW.test(text)) {
-		if (!result) return read("phases.readHistory");
-		const current = rows.find((r) => r.id === "current");
-		return [{ type: "text", text: `You're in ${current?.label}, since ${longDay(current?.fields.since)}.` }];
-	}
-	if (NEXT_PHASE.test(text)) {
-		if (!result) return read("phases.readReadiness");
-		const head = rows.find((r) => r.id !== "current" && !("status" in r.fields));
-		const criteria = rows.filter((r) => "status" in r.fields).map((r) => `- ${r.label}: ${String(r.fields.status)}`);
-		return [
-			{
-				type: "text",
-				text: [
-					`To leave ${head?.label} for ${String(head?.fields.next)}, these are the exit criteria:`,
-					...criteria,
-					"",
-					"Moving is your call.",
-				].join("\n"),
-			},
-		];
-	}
-	const move = MOVE.exec(text);
-	if (move) {
-		if (!result) return read("phases.readCatalog");
-		const to = rows.find((r) => r.label.toLowerCase() === captured(move, 1).trim().toLowerCase());
-		if (!to) return [{ type: "text", text: `I can't find a phase called ${move[1]}.` }];
-		return propose("phases.transition", { toPhase: Number(to.id), reason: text });
-	}
-	if (!has("propose_change")) return null;
-	const today = new Date().toISOString().slice(0, 10);
-	if (SIGNAL.test(text))
-		return propose("signals.attest", { key: "prayer_rhythm_established", value: "yes", asOf: today, detail: text });
-	if (CORRECT_GIVING.test(text))
-		return propose("signals.correct", {
-			action: "correct",
-			key: "core_group_giving",
-			value: "not_yet",
-			asOf: today,
-			detail: text.replace(/^.*?:\s*/, ""),
-		});
-	return propose("signals.reaffirm", { key: "core_group_giving" });
 }
 
 const AREA: Record<string, string> = {
@@ -1027,6 +955,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const records = options.tools?.some((t) => t.name === "peopleAssessments_read") ?? false;
 	const assessed = assessmentStep(text, options.prompt, records, toolCall);
 	if (assessed) return assessed;
+	const phase = phaseStep(text, options, result);
+	if (phase) return phase;
 	const steps =
 		limitStep(text, system, result, canProposePeople) ??
 		documentStep(text, system, result, proposesOn(options, "documents")) ??
@@ -1046,8 +976,6 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (notices) return notices;
 	const email = emailStep(text, proposesOn(options, "communication"), canReadMail, result);
 	if (email) return email;
-	const phase = phaseStep(text, options, result);
-	if (phase) return phase;
 	if (hasPeople) {
 		const imports = JSON.stringify(options.tools?.find((t) => t.name === "peopleOrganization_read") ?? {}).includes(
 			"people.getImportReceipt",

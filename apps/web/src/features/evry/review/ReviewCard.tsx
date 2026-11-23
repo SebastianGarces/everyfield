@@ -1060,6 +1060,7 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 									<li key={x.label} className="flex flex-wrap items-baseline justify-between gap-x-3">
 										<span className="font-medium break-words text-ink">{x.label}</span>
 										<span className="text-xs text-text-3">{x.status.charAt(0).toUpperCase() + x.status.slice(1)}</span>
+										{x.reading ? <span className="w-full text-xs break-words text-text-2">{x.reading}</span> : null}
 									</li>
 								))}
 							</ul>

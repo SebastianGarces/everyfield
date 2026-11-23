@@ -52,6 +52,7 @@ function inverse(merge: Merge, source: Facts, survivor: Facts) {
 	if (survivor.state !== "live" || survivor.revision !== merge.survivor_revision) conflicts.push("survivor_changed");
 	if (referencesDigest(survivor.refs) !== merge.references_digest || !merge.household_exists)
 		conflicts.push("references_changed");
+	if (merge.moved.mail?.length) conflicts.push("mail_sent");
 	const restores = Object.entries(merge.moved)
 		.filter(([k, ids]) => k !== "tag_dropped" && ids.length)
 		.map(([kind, ids]) => ({ kind: kind as Kind, count: ids.length }));
