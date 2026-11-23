@@ -797,7 +797,7 @@ export const listForSelf: ReadAdapter<Record<string, never>> = {
 			page: 1,
 			next: null,
 			completeness: "complete",
-			exclusions: ["the address itself", "other people's addresses"],
+			exclusions: ["the address itself", "any address but your own"],
 		};
 	},
 };
