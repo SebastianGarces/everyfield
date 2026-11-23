@@ -1,4 +1,4 @@
-import { instant } from "@everyfield/contracts/common";
+import { instant, type Outcome as Shared } from "@everyfield/contracts/common";
 import {
 	CARE_AREAS,
 	noteOf,
@@ -12,7 +12,7 @@ import {
 } from "@everyfield/contracts/intelligence";
 import { nextMonday } from "../../components/time.ts";
 
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; error: CareError } | { status: "lost" };
+export type Outcome<T> = Shared<T, CareError["code"], { error: CareError }>;
 
 export const AREA: Record<CareArea, { title: string; question: string; short: string }> = {
 	spiritual: { title: "Spiritually", question: "How is your own walk with God?", short: "Spiritual" },

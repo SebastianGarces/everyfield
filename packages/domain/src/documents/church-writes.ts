@@ -1,6 +1,7 @@
 import * as c from "@everyfield/contracts/documents";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
+import { queueJobsFor } from "../jobs/queue.ts";
 import {
 	readAuthorizedObject,
 	StorageError,
@@ -17,6 +18,7 @@ import { docFormats, offeredFormats, renderDocFile, type DocFormat } from "./doc
 import { docTemplateById, publishedTemplate, sheetOf } from "./doc-templates.ts";
 import { fieldValues, frozenData, insertableValues, type MergeSources } from "./doc-values.ts";
 import { cleanOverrides } from "./merge.ts";
+import { contactLine, mergeSources } from "./template-fill.ts";
 import { fillStatementSlots } from "./network-statement.ts";
 import { RenderFailed, digestOf, renderEngineVersion } from "./render.ts";
 import {
@@ -124,7 +126,7 @@ function followedVersion(
 }
 
 async function readChurchWithKit(
-	db: Database,
+	db: Database | Transaction,
 	scope: Scope,
 	documentId: string,
 	{ admin = false, sources: withSources = false, template = false, archived = false } = {},
@@ -185,7 +187,7 @@ async function readChurchWithKit(
 	return { doc, kit, sources, churchTemplate: row.church_template };
 }
 
-async function readChurch(db: Database, scope: Scope, documentId: string, admin = false) {
+async function readChurch(db: Database | Transaction, scope: Scope, documentId: string, admin = false) {
 	return (await readChurchWithKit(db, scope, documentId, { admin }))?.doc ?? null;
 }
 
@@ -196,11 +198,6 @@ function safeJson(text: string): unknown {
 		return null;
 	}
 }
-
-const contactLine = (kit: ReturnType<typeof dataFromRow> | null) =>
-	[kit?.website?.replace(/^https?:\/\//, "").replace(/\/$/, ""), kit?.phone, kit?.email]
-		.filter(Boolean)
-		.join("  ·  ") || null;
 
 function knownFields(template: c.DocTemplate, values: Record<string, string>) {
 	const known = new Set(template.fields.filter((f) => f.type !== "list").map((field) => field.key));
@@ -246,20 +243,6 @@ function templateSummary(row: TemplateRow) {
 			revision: Number(row.source_revision),
 		},
 	});
-}
-
-function mergeSources(plant: Awaited<ReturnType<typeof readPlant>>): MergeSources {
-	if (!plant.open) deny("access_denied");
-	if (!plant.subjectOk) deny("unavailable");
-	const { kit } = plant;
-	return {
-		churchName: plant.churchName ?? "",
-		pastorName: plant.pastorName,
-		tagline: kit?.tagline ?? null,
-		legalName: kit?.legalName ?? null,
-		contactLine: contactLine(kit),
-		meetingDate: null,
-	};
 }
 
 type TemplateSource = {
@@ -352,7 +335,7 @@ const listKey = (view: c.CompareView, items: readonly c.DocDifference[]) =>
 	`sha256:${hashOf(JSON.stringify([view, items]))}`;
 
 export const churchWriter = {
-	async createFromTemplate(db: Database, authority: RequestActor, raw: unknown) {
+	async createFromTemplate(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.createFromTemplateRequest, raw);
 			const scope = adminScope(authority);
@@ -663,7 +646,12 @@ export const churchWriter = {
 		});
 	},
 
-	async exportNative(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
+	async exportNative(
+		db: Database | Transaction,
+		authority: RequestActor,
+		raw: unknown,
+		storage: PrivateStorage | null,
+	) {
 		return settle(async () => {
 			const input = parse(c.exportNativeRequest, raw);
 			const scope = readerScope(authority);
@@ -934,12 +922,13 @@ export const churchWriter = {
 							AND d.church_archived_at IS NOT NULL)
 					RETURNING gd.id, gd.object_id
 				),
-				rel AS (
-					INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts, claim_generation)
-					SELECT ${scope.tenantId}::uuid, 'object_cleanup', del.object_id, 'export-deleted/' || del.id::text, 'ready', clock_timestamp(), 0, 4, 0
-					FROM del
-					ON CONFLICT DO NOTHING
-				),
+				rel AS (${queueJobsFor(sql`FROM del`, {
+					kind: "object_cleanup",
+					tenant: sql`${scope.tenantId}::uuid`,
+					subject: sql`del.object_id`,
+					key: sql`'export-deleted/' || del.id::text`,
+					conflict: "skip",
+				})}),
 				aud AS (
 					INSERT INTO audit_event (
 						tenant_id, actor_id, action, kind, subject_id, occurred_at, recorded_at, event_key, metadata
@@ -1473,7 +1462,7 @@ export const churchWriter = {
 		});
 	},
 
-	async archiveChurch(db: Database, authority: RequestActor, raw: unknown) {
+	async archiveChurch(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.archiveChurchRequest, raw);
 			const scope = adminScope(authority);
@@ -1707,7 +1696,7 @@ function imageSources(node: unknown, found = new Set<ImageSource>()) {
 }
 
 async function renderRevision(
-	db: Database,
+	db: Database | Transaction,
 	storage: PrivateStorage | null,
 	authority: RequestActor,
 	body: c.DocDocument,
@@ -1774,7 +1763,7 @@ async function sameUpdate(db: Database, scope: Scope, requestKey: string, reques
 	return templateSummary(row) ?? deny("conflict");
 }
 
-async function exportRecord(db: Database, scope: Scope, id: string) {
+async function exportRecord(db: Database | Transaction, scope: Scope, id: string) {
 	const [row] = await historyRows(db, scope, id);
 	if (!row) deny("unavailable");
 	return generatedFrom(row, scope.tenantId, row.template_id);

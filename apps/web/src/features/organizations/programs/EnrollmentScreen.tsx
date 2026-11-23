@@ -16,6 +16,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	PageHeader,
 	Textarea,
@@ -25,7 +26,6 @@ import { useActionState, useState, useTransition, type FormEvent } from "react";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { PIPELINE_PATH } from "../board/model";
-import { Problem } from "../../../components/Problem.tsx";
 import { addFeedback, applyVersion, confirmMilestone, recordMilestone } from "./actions";
 import { rereadEnrollment, reviewVersion } from "./fetch.ts";
 import { formatMeeting, KIND, programHref, programProblem, PROGRAMS_PATH } from "./model";
@@ -302,7 +302,7 @@ function MilestoneRow({
 					) : (
 						<span className="text-text-3">{hidden ? "Progress not shared" : "Not finished"}</span>
 					)}
-					<Problem text={problem} />
+					<InlineAlert live="polite">{problem}</InlineAlert>
 				</div>
 				{director && waiting ? (
 					<Button
@@ -398,7 +398,7 @@ function Feedback({
 							rows={3}
 							placeholder="What went well, and what to work on next"
 						/>
-						<Problem text={saving ? null : problem} />
+						<InlineAlert live="polite">{saving ? null : problem}</InlineAlert>
 						<div className="flex justify-end gap-2">
 							<Button variant="ghost" size="sm" onClick={() => setWriting(false)} disabled={saving}>
 								Cancel
@@ -478,7 +478,7 @@ function RecordForm({
 				<p className="text-sm text-text-2">
 					Confirmed today, {formatPlainDate(enrollment.today)}, with you as recorder and confirmer.
 				</p>
-				<Problem text={problem} />
+				<InlineAlert live="polite">{problem}</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>
@@ -561,7 +561,7 @@ function ApplyReview({
 				description={`Review what changes for ${name}. Nothing is saved until you confirm.`}
 			/>
 			<DialogBody className="flex flex-col gap-5">
-				<Problem text={loadProblem ?? problem} />
+				<InlineAlert live="polite">{loadProblem ?? problem}</InlineAlert>
 				{review ? (
 					<ReviewParts review={review} stageId={stageId} onStageChange={(id) => setPicked({ review, stageId: id })} />
 				) : loadProblem || problem ? null : (

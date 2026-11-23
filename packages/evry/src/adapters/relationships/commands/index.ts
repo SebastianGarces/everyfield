@@ -22,7 +22,7 @@ export const invite = nativeWrite({
 		const found = await db.execute(
 			sql`SELECT o.id,o.kind FROM organization o WHERE lower(o.name)=lower(${value.organizationName}) AND o.id<>${actor.owner.id}::uuid
 				AND NOT EXISTS(SELECT FROM affiliation a WHERE a.plant_id=${actor.owner.id}::uuid AND a.organization_id=o.id AND a.ended_at IS NULL)
-				AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=o.id AND w.state NOT IN ('active','cancelled'))
+				AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=o.id AND w.state <> 'cancelled')
 				ORDER BY o.id LIMIT 2`,
 		);
 		if (found.rows.length !== 1) return null;
@@ -36,7 +36,7 @@ export const invite = nativeWrite({
 		};
 		const disclosure = await gatedTransaction(db, async (tx) => {
 			actor.authority.observe(tx);
-			return readSharingDisclosure(tx, actor.session as never, actor.owner, pair);
+			return readSharingDisclosure(tx, actor.session, actor.owner, pair);
 		});
 		const shared =
 			"choices" in disclosure

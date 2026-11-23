@@ -10,13 +10,30 @@ const workflowTests = new Set(readdirSync(new URL("tests/workflow/", root)).filt
 
 function workflowFiles(command) {
 	const named = [...command.matchAll(/tests\/workflow\/([\w.-]+\.test\.(?:mjs|ts))/g)].map((m) => m[1]);
-	const script = command.match(/\bpnpm\s+(?:run\s+)?([\w:-]+)/)?.[1];
-	return script && scripts[script] ? [...named, ...workflowFiles(scripts[script])] : named;
+	const called = [...command.matchAll(/\bpnpm\s+(?:run\s+)?([\w:-]+)/g)].map((m) => m[1]);
+	return [...named, ...called.filter((script) => scripts[script]).flatMap((script) => workflowFiles(scripts[script]))];
+}
+
+function runCommands(workflow) {
+	const lines = workflow.split("\n"),
+		commands = [];
+	for (let i = 0; i < lines.length; i++) {
+		const match = lines[i].match(/^(\s*)(?:-\s+)?run:\s*(.*)$/);
+		if (!match) continue;
+		let command = match[2];
+		if (/^[|>][-+]?\s*$/.test(command)) {
+			command = "";
+			while (i + 1 < lines.length && (!lines[i + 1].trim() || lines[i + 1].search(/\S/) > match[1].length))
+				command += `${lines[++i]}\n`;
+		}
+		commands.push(command);
+	}
+	return commands;
 }
 
 const ownStep = new Set(
-	[...ci.matchAll(/^\s*(?:-\s+)?run:\s*(.+)$/gm)]
-		.flatMap((m) => workflowFiles(m[1]))
+	runCommands(ci)
+		.flatMap(workflowFiles)
 		.filter((n) => workflowTests.has(n)),
 );
 

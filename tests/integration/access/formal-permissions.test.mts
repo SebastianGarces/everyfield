@@ -8,7 +8,7 @@ import { fixture, type Actor, type Workspace } from "../../support/fixture.mts";
 import {
 	createInvitationService,
 	createSeatService,
-	InvitationRefusal,
+	invitationRefusals,
 } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -61,7 +61,8 @@ async function outcome(run: () => Promise<unknown>) {
 		await run();
 		return "allow";
 	} catch (error) {
-		if (error instanceof InvitationRefusal || (error instanceof Error && error.name === "ZodError")) return "refuse";
+		if (error instanceof invitationRefusals.Refusal || (error instanceof Error && error.name === "ZodError"))
+			return "refuse";
 		throw error;
 	}
 }

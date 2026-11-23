@@ -38,8 +38,15 @@ const one = (operation: string, rows: SourceRow[], exclusions: string[]): Source
 });
 
 const listInput = z.strictObject({
-	search: z.string().trim().min(1).max(255).optional().describe("Name, email or phone text to match"),
-	stages: z.array(stage).max(7).optional(),
+	search: z.string().trim().min(1).max(255).optional().describe("Name, email or phone text to match, never a place"),
+	city: z.string().trim().min(1).max(255).optional().describe("The recorded city, matched whole, ignoring case"),
+	stages: z
+		.array(stage)
+		.max(7)
+		.optional()
+		.describe(
+			"The seven stages, in order: prospect, attendee, following_up, interviewed, core_group, launch_team, leader. There is no inactive stage: asked for one, name these seven and offer people.deletePerson with a reason.",
+		),
 	page: z.int().min(1).max(100_000).optional().describe("Page number of a previous result's next page"),
 	limit: z.int().min(1).max(100).optional(),
 });
@@ -47,7 +54,8 @@ const personInput = z.strictObject({ personId: z.uuid() });
 
 export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 	operation: "people.listPeople",
-	description: "List people in this church, with the exact matched total and the next page when more exist.",
+	description:
+		"List people in this church, with the exact matched total and the next page when more exist. A stage says where someone is, never whether they are ready for the next one: list the stage and say that readiness is the user's call.",
 	input: listInput,
 	allowed: inPlant,
 	async invoke(tx: WriteTx, actor: EvryActor, input): Promise<SourceResult> {

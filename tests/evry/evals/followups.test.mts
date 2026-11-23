@@ -10,6 +10,7 @@ type Case = {
 	alsoAccepted?: string[];
 	actor?: "lena";
 	expect: "followUp" | "count";
+	noneAssigned?: boolean;
 	rubric: Record<string, string>;
 };
 const CASES = new URL("followups.cases.json", import.meta.url);
@@ -75,10 +76,24 @@ test("AC:EVRY-CONTEXT-BOUNDS the seeded church has 5 live people; Daniel and Len
 	}
 });
 
-test("AC:EVRY-CONTEXT-BOUNDS follow-up requests pick the right read, never suggest the signed-in user and still count them", async () => {
+test("AC:EVRY-CONTEXT-BOUNDS follow-up requests pick the right read, never suggest the signed-in user and still count them", async (t) => {
 	assert.ok(cases.length >= 5);
 	const model = recorded.model();
 	const failures: string[] = [];
+	const Real = Date;
+	const shift = NOW.getTime() - Real.now();
+	globalThis.Date = class extends Real {
+		constructor(...args: unknown[]) {
+			if (args.length) super(...(args as [string]));
+			else super(Real.now() + shift);
+		}
+		static override now() {
+			return Real.now() + shift;
+		}
+	} as unknown as DateConstructor;
+	t.after(() => {
+		globalThis.Date = Real;
+	});
 	for (const c of cases) {
 		const who = c.actor === "lena" ? lena : daniel;
 		const me = c.actor === "lena" ? "Lena" : "Daniel";
@@ -93,7 +108,9 @@ test("AC:EVRY-CONTEXT-BOUNDS follow-up requests pick the right read, never sugge
 				notYou: !answer
 					.split(/\n|(?<=[.!?])\s/)
 					.some((part) => new RegExp(me, "i").test(part) && !/\b(you|your|yours)\b/i.test(part)),
-				namesOther: ["Lena", "Daniel", "Maria", "Tom", "Priya"].some((n) => n !== me && answer.includes(n)),
+				namesOther:
+					["Lena", "Daniel", "Maria", "Tom", "Priya"].some((n) => n !== me && answer.includes(n)) ||
+					(c.noneAssigned === true && /\b(0|no|none)\b[^.]*\bfollow-?ups?\b[^.]*\bassigned to you\b/i.test(answer)),
 			};
 			for (const [point, ok] of Object.entries(points))
 				if (!ok) failures.push(`${c.text} (${me}): rubric ${point} failed in "${answer}"`);

@@ -48,6 +48,7 @@
 		"everyfield/no-comments": "error",
 		"everyfield/shared-outcome": "error",
 		"everyfield/server-log": "error",
+		"everyfield/no-raw-error-log": "error",
 		"everyfield/no-effects": "error",
 		"everyfield/stable-context-value": "error",
 		"everyfield/storage-client": "error",
@@ -57,9 +58,18 @@
 		"everyfield/max-state": "error",
 		"everyfield/mint-callers": "error",
 		"everyfield/no-sql-comments": "error",
-		"everyfield/no-slop-styling": "error"
+		"everyfield/no-slop-styling": "error",
+		"everyfield/live-region-in-tree": "error",
+		"everyfield/confirm-keeps-refusal": "error",
+		"everyfield/one-top-level-before": "error"
 	},
 	"overrides": [
+		{
+			"files": ["packages/**"],
+			"rules": {
+				"everyfield/no-default-database": "error"
+			}
+		},
 		{
 			"files": ["packages/*/src/**"],
 			"rules": {
@@ -166,6 +176,12 @@
 			}
 		},
 		{
+			"files": ["packages/contracts/src/**"],
+			"rules": {
+				"everyfield/strict-contracts": "error"
+			}
+		},
+		{
 			"files": ["packages/evry/src/**", "packages/domain/src/**"],
 			"rules": {
 				"everyfield/private-care-scope": "error"
@@ -180,7 +196,8 @@
 		{
 			"files": ["packages/domain/src/**"],
 			"rules": {
-				"everyfield/domain-refusals": "error"
+				"everyfield/domain-refusals": "error",
+				"everyfield/organization-seat": "error"
 			}
 		},
 		{
