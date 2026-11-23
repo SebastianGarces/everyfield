@@ -1,3 +1,13 @@
+@property --ef-text-w {
+	syntax: "<length>";
+	inherits: true;
+	initial-value: 0px;
+}
+@property --ef-box-w {
+	syntax: "<length>";
+	inherits: true;
+	initial-value: 0px;
+}
 .ef-sheet {
 	container-type: inline-size;
 	width: 100%;
@@ -13,11 +23,14 @@
 	--paper-muted: #edf0f4;
 	--paper-accent: var(--tok-primary-text);
 	--paper-primary: var(--paper-text);
+	--ef-paper-w: min(var(--page-w), 100cqi);
+	--ef-paper-pad: clamp(16px, var(--pad-x), 8cqi);
+	--ef-text-w: calc(var(--ef-paper-w) - 2 * var(--ef-paper-pad));
 	position: relative;
 	box-sizing: border-box;
-	width: min(var(--page-w), 100%);
+	width: var(--ef-paper-w);
 	min-height: var(--page-h);
-	padding: clamp(16px, var(--pad-y), 12cqi) clamp(16px, var(--pad-x), 8cqi);
+	padding: clamp(16px, var(--pad-y), 12cqi) var(--ef-paper-pad);
 	background: white;
 	color: var(--paper-ink);
 	font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
@@ -31,9 +44,10 @@
 	flex-direction: column;
 }
 .ef-paper.ef-snippet {
-	width: 100%;
+	--ef-paper-w: 100cqi;
+	--ef-paper-pad: 18px;
 	min-height: 0;
-	padding: 14px 18px;
+	padding: 14px var(--ef-paper-pad);
 	box-shadow: 0 0 0 1px var(--ef-line);
 	border-radius: 4px;
 }
@@ -580,12 +594,15 @@
 	line-height: 1.35;
 }
 .ef-paper .ef-table-scroll {
+	container-type: inline-size;
 	max-width: 100%;
 	overflow-x: auto;
 	overscroll-behavior-x: contain;
 	scrollbar-width: thin;
 }
 .ef-paper .ef-table-grid {
+	--ef-box-w: 100cqi;
+	--ef-share: min(1, tan(atan2(var(--ef-box-w), var(--ef-text-w))));
 	display: block;
 	box-sizing: border-box;
 	width: 100%;

@@ -12,6 +12,7 @@ import {
 	Button,
 	Card,
 	ConfirmDialog,
+	type ConfirmRefusal,
 	Dialog,
 	DialogBody,
 	DialogContent,
@@ -113,7 +114,7 @@ export function ChurchLibrary({ documents, templates, churchTemplates, canManage
 									<Icon
 										icon={ArrowRight01Icon}
 										size={18}
-										className="text-text-3 transition-transform duration-150 group-hover:translate-x-0.5 max-app-sm:hidden"
+										className="text-text-3 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none max-app-sm:hidden"
 									/>
 								</IntentLink>
 							</li>
@@ -192,8 +193,8 @@ function TemplatePicker({
 
 	async function remove(recordId: string) {
 		const result = await deleteChurchTemplate(recordId);
-		if (result.status === "refused") throw new Error(result.message);
-		if (result.status === "lost") throw new Error("The connection dropped. Nothing was deleted. Try again.");
+		if (result.status === "refused") return { refused: result.message };
+		if (result.status === "lost") return { refused: "The connection dropped. Nothing was deleted. Try again." };
 		setRemoved((prior) => new Set(prior).add(recordId));
 	}
 
@@ -244,7 +245,7 @@ function PickerList({
 	chosen: string | null;
 	message: string | null;
 	onChoose: (templateId: string) => void;
-	onRemove: (recordId: string) => Promise<void>;
+	onRemove: (recordId: string) => Promise<ConfirmRefusal | void>;
 	onEdited: (recordId: string, details: TemplateDetails) => void;
 }) {
 	const [search, setSearch] = useState("");
@@ -256,7 +257,8 @@ function PickerList({
 	const shown = found.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
 	async function remove(recordId: string) {
-		await onRemove(recordId);
+		const refusal = await onRemove(recordId);
+		if (refusal) return refusal;
 		setSaved(null);
 		setPage((current) => Math.min(current, Math.max(1, Math.ceil((found.length - 1) / PAGE_SIZE))));
 	}
@@ -275,7 +277,7 @@ function PickerList({
 				/>
 			</div>
 			<DialogBody ref={list} className={cn("flex flex-col gap-6 pt-1", pageCount > 1 ? "pb-4" : "pb-7")}>
-				<div role="status" className="empty:hidden">
+				<div role="status" className="empty:sr-only">
 					{saved ? (
 						<p className="rounded-md bg-surface-2 px-4 py-3 text-md text-text-2">
 							Saved “<span className="font-medium text-ink">{saved}</span>”. New documents from it take this name.
@@ -361,7 +363,7 @@ function TemplateCard({
 	busy: boolean;
 	disabled: boolean;
 	onChoose: () => void;
-	onDelete: (() => Promise<void>) | null;
+	onDelete: (() => Promise<ConfirmRefusal | void>) | null;
 	onEdited: ((details: TemplateDetails) => void) | null;
 }) {
 	const [editing, setEditing] = useState(false);

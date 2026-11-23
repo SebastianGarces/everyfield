@@ -76,10 +76,10 @@ function AccountForm({
 			const result = await attempt("account-name", (requestKey) =>
 				port.saveSection({ requestKey, expectedRevision: account.revision, input }),
 			);
-			if (!result.ok) return { ok: false, refusal: result.refusal };
+			if (result.status !== "ok") return result;
 			replace(result.value.current);
 			const now = result.value.current.section === "account" ? result.value.current.name : account.name;
-			return { ok: true, server: { name: now } };
+			return { status: "ok", value: { name: now } };
 		});
 	};
 

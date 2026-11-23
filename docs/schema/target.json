@@ -70,8 +70,8 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 124,
-  "column_count": 1408,
+  "table_count": 125,
+  "column_count": 1412,
   "foreign_key_count": 410,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -237,6 +237,11 @@
       "planter",
       "network"
     ],
+    "embedding_spend.purpose": [
+      "query",
+      "rebuild",
+      "publish"
+    ],
     "enrollment_milestone.source": [
       "program_leader",
       "resident"
@@ -362,7 +367,8 @@
       "people_import",
       "evry_effect",
       "feedback_publication",
-      "assessment"
+      "assessment",
+      "wiki_embedding"
     ],
     "job.state": [
       "ready",
@@ -395,17 +401,13 @@
     ],
     "lifecycle_witness.kind": [
       "account",
-      "plant",
-      "seat",
-      "affiliation"
+      "plant"
     ],
     "lifecycle_witness.state": [
-      "active",
       "pending_deletion",
       "purging",
       "purged",
-      "cancelled",
-      "revoked"
+      "cancelled"
     ],
     "lifecycle_witness.cleanup_state": [
       "not_started",
@@ -19964,6 +19966,99 @@
       "rls": false
     },
     {
+      "name": "embedding_spend",
+      "domain": "reference",
+      "purpose": "Paid Wiki embedding tokens used per UTC day in this database, one row each for search questions, release rebuilds and organization publish jobs (T-339, D-2042, T-552). Search and publish embedding each stop calling the provider once their own day's tokens pass the daily limit; each rebuild adds the tokens its run reported.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-C-009"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-033"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-033"
+        ],
+        "rule": "T-339 meaning-based Wiki search spend ledger through Drizzle Kit."
+      },
+      "feature_ids": [
+        "PI-017",
+        "REF-007"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "reference",
+      "invariants": [
+        "Usage only grows: each provider call adds the tokens it reported in one upsert.",
+        "A search reads the day's query tokens before calling the provider and calls it only while they are under the daily limit."
+      ],
+      "revision": "One row per day and purpose; each recorded call adds its tokens in one statement.",
+      "idempotency": "Each provider call is recorded once, after it returns.",
+      "deletion": "Holds no personal or tenant data; account and tenant purges leave it unchanged.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "",
+          "name": "day",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "purpose",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "usage",
+          "type": "bigint",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "day",
+            "purpose"
+          ]
+        }
+      ],
+      "foreign_keys": [],
+      "checks": [
+        "\"embedding_spend\".\"purpose\" IN ('query','rebuild','publish')",
+        "\"embedding_spend\".\"usage\" >= 0"
+      ],
+      "indexes": {},
+      "constraint_names": {
+        "primary": [],
+        "unique": [
+          "embedding_spend_day_key"
+        ],
+        "foreign": [],
+        "checks": [
+          "embedding_spend_purpose",
+          "embedding_spend_usage"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "enrollment_milestone",
       "domain": "people",
       "purpose": "A finished milestone of one enrollment (REQ-MUL-012): the day it was finished, who recorded and who confirmed it, when it was confirmed, and its source. The program director records and confirms an unlinked enrollee's milestone in one step (source program_leader); a linked resident marks their own milestone done (source resident) and it waits for the director's confirmation.",
@@ -23485,7 +23580,7 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "kind in ('mail', 'notification', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect', 'feedback_publication', 'assessment')",
+        "kind in ('mail', 'notification', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect', 'feedback_publication', 'assessment', 'wiki_embedding')",
         "state in ('ready', 'claimed', 'retry_wait', 'reconcile', 'succeeded', 'failed', 'cancelled', 'superseded')",
         "((attempt_count >= 0) AND (max_attempts >= 1))",
         "(claim_generation >= 0)",
@@ -25259,7 +25354,7 @@
     {
       "name": "lifecycle_witness",
       "domain": "operations",
-      "purpose": "Body-free independently synchronized deletion, credential and access witness with stable opaque subject key after live-root purge. A body-free affiliation witness may retain its independently legitimate organization counterparty. Restricted backup/restore inventory and checksummed receipts live solely in the external recovery artifact, not the live database.",
+      "purpose": "Body-free account and church workspace deletion witness with stable opaque subject key after live-root purge. Restricted backup/restore inventory and checksummed receipts live solely in the external recovery artifact, not the live database.",
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
@@ -25547,7 +25642,7 @@
           "on_delete": "restrict"
         },
         {
-          "scope_exception": "Body-free revocation witness identifies a seat endpoint; synchronized witness writer validates exact seat kind and original identity before clearing live linkage on purge.",
+          "scope_exception": "Always null: no witness kind names a seat, and a later slice drops the column.",
           "deletion": {
             "action": "restrict",
             "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -25564,7 +25659,7 @@
           "on_delete": "restrict"
         },
         {
-          "scope_exception": "Body-free revocation witness identifies a relationship endpoint; synchronized witness writer validates exact affiliation identity and permitted counterparty before clearing live linkage on purge.",
+          "scope_exception": "Always null: no witness kind names an affiliation, and a later slice drops the column.",
           "deletion": {
             "action": "restrict",
             "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -25601,7 +25696,6 @@
       "checks": [
         "cleanup_state in ('not_started', 'in_progress', 'inaccessible', 'confirmed')",
         "((plant_id IS NULL) OR (kind = 'plant'::text))",
-        "((kind = ANY (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'revoked'::text])))",
         "((state <> ALL (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])) OR ((request_id IS NOT NULL) AND (requested_at IS NOT NULL) AND (cancel_until IS NOT NULL) AND (request_revision >= 1)))",
         "((cancel_until IS NULL) OR ((requested_at IS NOT NULL) AND (cancel_until = (requested_at + '720:00:00'::interval))))",
         "((state = 'cancelled'::text) = (cancelled_at IS NOT NULL))",
@@ -25610,13 +25704,12 @@
         "((state <> 'purged'::text) OR ((live_purged_at >= cancel_until) AND (copy_expires_at IS NOT NULL)))",
         "((copy_expires_at IS NULL) OR ((live_purged_at IS NOT NULL) AND (copy_expires_at >= live_purged_at)))",
         "((copy_expires_at IS NULL) OR (copy_expires_at <= (live_purged_at + '168:00:00'::interval)))",
-        "kind in ('account', 'plant', 'seat', 'affiliation')",
-        "state in ('active', 'pending_deletion', 'purging', 'purged', 'cancelled', 'revoked')",
+        "kind in ('account', 'plant')",
+        "state in ('pending_deletion', 'purging', 'purged', 'cancelled')",
         "(num_nonnulls(account_id, plant_id, seat_id, affiliation_id) <= 1)",
         "((account_id IS NULL) OR (kind = 'account'::text))",
         "((seat_id IS NULL) OR (kind = 'seat'::text))",
-        "((affiliation_id IS NULL) OR (kind = 'affiliation'::text))",
-        "((kind <> ALL (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])))"
+        "((affiliation_id IS NULL) OR (kind = 'affiliation'::text))"
       ],
       "indexes": {
         "lifecycle_witness_ref_0": {
@@ -25713,7 +25806,6 @@
         "checks": [
           "lifecycle_witness_ck_0",
           "lifecycle_witness_ck_1",
-          "lifecycle_witness_ck_10",
           "lifecycle_witness_ck_11",
           "lifecycle_witness_ck_12",
           "lifecycle_witness_ck_13",
@@ -25727,8 +25819,7 @@
           "lifecycle_witness_ck_5",
           "lifecycle_witness_ck_6",
           "lifecycle_witness_ck_7",
-          "lifecycle_witness_ck_8",
-          "lifecycle_witness_ck_9"
+          "lifecycle_witness_ck_8"
         ]
       },
       "policies": {},
@@ -31281,7 +31372,7 @@
     {
       "name": "passage",
       "domain": "reference",
-      "purpose": "Rebuildable exact source passage with complete embedding provenance. Model, dimensions and chunker are pinned by release; organization rights inherit the source revision.",
+      "purpose": "Rebuildable exact source passage with complete embedding provenance. Model, dimensions and chunker are pinned by release; organization rights inherit the source revision. An organization's published version has release-free rows its publish job embeds with the active release's profile (T-552).",
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
@@ -31346,10 +31437,10 @@
           "default": "gen_random_uuid()"
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
+          "note": "Real FK for global passages; NULL exactly for an organization version's passages, which carry no release (passage_release_owner).",
           "name": "release_id",
           "type": "uuid",
-          "nullable": false
+          "nullable": true
         },
         {
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
@@ -31478,7 +31569,9 @@
           "on_delete": "restrict"
         }
       ],
-      "checks": [],
+      "checks": [
+        "((release_id IS NULL) = (tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid))"
+      ],
       "indexes": {
         "passage_ref_0": {
           "name": "passage_ref_0",
@@ -31557,6 +31650,22 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "passage_embedding_1536": {
+          "name": "passage_embedding_1536",
+          "isUnique": false,
+          "where": "public.vector_dims(\"passage\".\"embedding\") = 1536",
+          "columns": [
+            {
+              "expression": "((\"embedding\")::public.vector(1536)) public.vector_cosine_ops",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "hnsw",
+          "with": {}
         }
       },
       "constraint_names": {
@@ -31572,7 +31681,9 @@
           "passage_fk_2",
           "passage_fk_3"
         ],
-        "checks": []
+        "checks": [
+          "passage_release_owner"
+        ]
       },
       "policies": {},
       "rls": false

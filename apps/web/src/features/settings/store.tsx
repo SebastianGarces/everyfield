@@ -3,18 +3,17 @@
 import type { Loadable } from "@everyfield/ui/display";
 import { createContext, use, type ReactNode } from "react";
 import { useRead } from "../../components/read.tsx";
-import { storeContext, useLocalStore, useShallow } from "../../components/store.ts";
+import { storeContext, useShallow } from "../../components/store.ts";
 import { isDirty, isSaving, visible } from "./drafts";
 import { errorReference, errorText } from "./model";
-import type { Refusal } from "./save";
-import type { GetSectionRequest, SectionKey, SectionResult, SectionSeed, SettingsPort, SettingsViewer } from "./port";
+import { OFFLINE, type Outcome, type Refusal } from "./save";
+import type { GetSectionRequest, SectionKey, SectionResult, SettingsPort, SettingsViewer } from "./port";
 import {
-	createSettingsStore,
 	withAccountRevision,
 	selectDirtyKeys,
-	type SaveOutcome,
 	type SettingsReads,
 	type SettingsState,
+	type SettingsStore,
 } from "./settings.store";
 import { READ_FAILED, READ_FAILED_ICON } from "../../components/read-failed.ts";
 
@@ -22,17 +21,14 @@ const Settings = storeContext<SettingsState>("Settings");
 const ViewerContext = createContext<SettingsViewer | null>(null);
 
 export function SettingsProvider({
-	port,
+	store,
 	viewer,
-	seed = null,
 	children,
 }: {
-	port: SettingsPort;
+	store: SettingsStore;
 	viewer: SettingsViewer;
-	seed?: SectionSeed | null;
 	children: ReactNode;
 }) {
-	const store = useLocalStore(() => createSettingsStore({ port, seed }));
 	return (
 		<Settings.Provider value={store}>
 			<ViewerContext value={viewer}>{children}</ViewerContext>
@@ -70,7 +66,7 @@ export function useDraft<T>(
 	dirty: boolean;
 	saving: boolean;
 	refusal: Refusal | null;
-	save: (work: (sent: T) => Promise<SaveOutcome<T>>) => Promise<void>;
+	save: (work: (sent: T) => Promise<Outcome<T>>, lost?: Refusal) => Promise<void>;
 	serverChanged: (server: T) => void;
 } {
 	const book = Settings.useSelect((state) => state.book);
@@ -81,7 +77,8 @@ export function useDraft<T>(
 		saving: isSaving(book, key),
 		refusal: book.refusals[key] ?? null,
 		setDraft: (next: T) => actions.edit(key, next, saved),
-		save: (work) => actions.save(key, saved, work as (sent: unknown) => Promise<SaveOutcome<unknown>>),
+		save: (work, lost = OFFLINE) =>
+			actions.save(key, saved, work as (sent: unknown) => Promise<Outcome<unknown>>, lost),
 		serverChanged: (server: T) => actions.observe(key, server),
 	};
 }

@@ -89,8 +89,8 @@ export function SavedExports({
 function DeleteExport({ saved, onDeleted }: { saved: SavedExport; onDeleted: (id: string) => void }) {
 	async function remove() {
 		const result = await deleteSavedExport(saved.documentId, saved.id).catch(() => ({ status: "lost" as const }));
-		if (result.status === "refused") throw new Error(result.message);
-		if (result.status === "lost") throw new Error("The connection dropped. Nothing was deleted. Try again.");
+		if (result.status === "refused") return { refused: result.message };
+		if (result.status === "lost") return { refused: "The connection dropped. Nothing was deleted. Try again." };
 		onDeleted(saved.id);
 	}
 	const label = `${FORMAT_LABEL[saved.format]} copy of revision ${saved.revision}`;

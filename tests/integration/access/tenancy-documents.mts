@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { nativeFromText } from "../../../packages/contracts/src/documents/index.ts";
 import { documentsReader, documentsWriter as docs } from "../../../packages/domain/src/documents/index.ts";
+import { templateFill } from "../../../packages/domain/src/documents/template-fill.ts";
 
 const objects = new Map();
 const seedStorage = {
@@ -169,6 +170,16 @@ export function documentsCases(t, who) {
 			control: null,
 		}),
 		w("readTemplateCompare", () => docs.readTemplateCompare(db, who.actor, doc), gone(a.churchDoc)),
+		[
+			"documents/fill:templateFill",
+			{
+				run: () => templateFill(db, who.actor, { templateId: POLICY }),
+				expected: {
+					partial: { templateId: POLICY },
+					check: (value) => assert.ok(value.fields.some((field) => field.value === "Synthetic plant")),
+				},
+			},
+		],
 	];
 }
 
