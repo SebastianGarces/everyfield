@@ -6575,8 +6575,8 @@
 		"case_id": "ADP-A-05",
 		"extra": true,
 		"adapter": "people-assessments",
-		"operation": "people.getMergeReview",
-		"near_miss": true,
+		"operation": "people.mergePeople",
+		"near_miss": false,
 		"question": "merge Casey Brooks into Casey Morgan",
 		"eval": {
 			"calls": [
@@ -6588,10 +6588,24 @@
 					}
 				}
 			],
-			"require": ["/follow-up outcome/i", "/block|not available|cannot|can['’]?t|doesn['’]?t (currently )?support/i"],
-			"forbid": ["/I['’]?(ve| have) merged|(are|been) merged/i"],
-			"derivation": "Casey Brooks has a follow-up outcome, which the People merge can't carry yet: Evry gives the People screen's blocked answer."
-		}
+			"proposals": [
+				{
+					"operation": "people.mergePeople",
+					"input": {
+						"sourceId": "@Casey Brooks",
+						"survivorId": "@Casey Morgan"
+					},
+					"changes": [
+						["keeps", "Casey Morgan"],
+						["moves", "1 follow-up outcome and 1 email"]
+					]
+				}
+			],
+			"require": ["I prepared a merge review: Casey Brooks merges into Casey Morgan.", "/approve/i"],
+			"forbid": ["/I['’]?(ve| have) merged|(are|been) merged|cannot run|not available/i"],
+			"derivation": "Casey Brooks has a follow-up outcome and the sent welcome email, which the People merge now carries (T-336): a review card that keeps Casey Morgan and moves both. On the scripted model until the next batched re-record (D-1300)."
+		},
+		"model": "scripted"
 	},
 	{
 		"case_id": "ADP-A-06",

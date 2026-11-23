@@ -338,22 +338,96 @@ test("INV-evry-assessments: a merge People can't carry yet gives the People scre
 	const brooks = await addPerson("Casey Blocked");
 	await admin.execute(sql`INSERT INTO contact_outcome(plant_id,person_id,outcome,occurred_at,recorded_at,contact_channel)
 		VALUES(${plant},${brooks},'contacted',clock_timestamp(),clock_timestamp(),'phone')`);
+	await admin.execute(sql`INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind,person_id)
+		VALUES(${plant},'Call','general','medium','not_started',clock_timestamp(),'undated',${brooks})`);
 	const propose = await turn(owner);
 	const merge = await propose("people.mergePeople", { sourceId: brooks, survivorId: casey });
 	assert.ok(merge);
 	const text = mergeBlockedText(
-		{ causes: ["unregistered_reference"], references: ["contact_outcome"] },
+		{ causes: ["unregistered_reference"], references: ["task"] },
 		{ source: "Casey Blocked", survivor: "Casey Kept" },
 	);
 	assert.equal(
 		text,
-		"This merge cannot run. Casey Blocked has follow-up outcomes on record. Merging people with this history is not available in Everyfield yet.",
+		"This merge cannot run. Casey Blocked has tasks on record. Merging people with this history is not available in Everyfield yet.",
 	);
 	assert.equal(merge.review.refusal, text);
 	await assert.rejects(approveProposal(db, owner, merge.id, { revision: merge.revision, digest: merge.digest }, null), {
 		code: "review_closed",
 	});
 	assert.equal((await admin.execute(sql`SELECT state FROM person WHERE id=${brooks}`)).rows[0]!.state, "live");
+});
+
+test("INV-evry-assessments: a reviewed merge carries follow-ups, outcomes and sent email; Unmerge restores follow-ups and refuses after email", async () => {
+	const owner = await actor("owner");
+	const meeting = randomUUID();
+	await admin.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,
+		status,attendance_revision) VALUES(${meeting},${plant},'vision_meeting','Merge night','2026-11-01','18:00','America/Chicago',
+		'2026-11-01T23:00:00Z','1','completed',1)`);
+	const history = async (name: string, email: boolean) => {
+		const id = await addPerson(name);
+		await admin.execute(sql`INSERT INTO obligation(plant_id,meeting_id,person_id,kind,origin_at,origin_date,timezone,
+			formula_version,due_date) VALUES(${plant},${meeting},${id},'follow_up','2026-11-01T23:00:00Z','2026-11-01',
+			'America/Chicago','1','2026-11-04')`);
+		await admin.execute(sql`INSERT INTO contact_outcome(plant_id,person_id,outcome,occurred_at,recorded_at,contact_channel)
+			VALUES(${plant},${id},'contacted',clock_timestamp(),clock_timestamp(),'phone')`);
+		if (email)
+			await admin.execute(sql`INSERT INTO mail(tenant_id,purpose,recipient_person_id,logical_key,payload_hash,audience_hash,
+				state,sent_at,created_at) VALUES(${plant},'notification',${id},${`merge-mail-${id}`},'p','a','sent',
+				clock_timestamp(),clock_timestamp())`);
+		return id;
+	};
+	const owned = async (id: string) =>
+		(
+			await admin.execute(sql`SELECT (SELECT count(*) FROM obligation WHERE person_id=${id})::int AS o,
+				(SELECT count(*) FROM contact_outcome WHERE person_id=${id})::int AS x,
+				(SELECT count(*) FROM mail WHERE recipient_person_id=${id})::int AS m`)
+		).rows[0];
+	const propose = await turn(owner);
+
+	const sent = await history("Robin Mailed", true);
+	const keepSent = await addPerson("Robin Mailed Keep");
+	const merge = await propose("people.mergePeople", { sourceId: sent, survivorId: keepSent });
+	assert.ok(merge);
+	assert.deepEqual(
+		merge.review.changes.filter((c) => ["keeps", "moves"].includes(c.field)),
+		[
+			{ field: "keeps", before: null, after: "Robin Mailed Keep" },
+			{ field: "moves", before: null, after: "1 follow-up outcome, 1 email and 1 follow-up" },
+		],
+	);
+	assert.equal(merge.review.refusal, undefined);
+	assert.equal((await approveAndRun(owner, merge)).outcome, "completed");
+	assert.deepEqual(
+		[await owned(sent), await owned(keepSent)],
+		[
+			{ o: 0, x: 0, m: 0 },
+			{ o: 1, x: 1, m: 1 },
+		],
+	);
+	const refusedUndo = (await read(owner, "people.previewUnmerge", { personId: keepSent })).rows[0]!;
+	assert.equal(
+		refusedUndo.fields.blocked,
+		"Cannot unmerge. The merge moved email sent to Robin Mailed into Robin Mailed Keep's communication history, and sent email is never unsent. An Unmerge cannot take back sent email, so Everyfield will not run it. Correct Robin’s details by hand instead; each change is kept in the history.",
+	);
+
+	const quiet = await history("Sky Quiet", false);
+	const keepQuiet = await addPerson("Sky Quiet Keep");
+	const second = await propose("people.mergePeople", { sourceId: quiet, survivorId: keepQuiet });
+	assert.ok(second);
+	assert.equal((await approveAndRun(owner, second)).outcome, "completed");
+	const undoable = (await read(owner, "people.previewUnmerge", { personId: keepQuiet })).rows[0]!;
+	assert.deepEqual([undoable.fields.movesBack, undoable.fields.blocked], ["1 follow-up and 1 follow-up outcome", null]);
+	const undo = await propose("people.unmergePeople", { mergeId: undoable.id });
+	assert.ok(undo);
+	assert.equal((await approveAndRun(owner, undo)).outcome, "completed");
+	assert.deepEqual(
+		[await owned(quiet), await owned(keepQuiet)],
+		[
+			{ o: 1, x: 1, m: 0 },
+			{ o: 0, x: 0, m: 0 },
+		],
+	);
 });
 
 test("INV-evry-assessments: correcting an interview's date shows the old and new date, and the history keeps the original", async () => {

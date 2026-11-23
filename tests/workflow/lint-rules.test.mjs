@@ -3438,3 +3438,43 @@ exported(() => {});
 		],
 	);
 });
+
+test("INV-explicit-database: a parameter never defaults to the database() pool in packages or apps/web/src", () => {
+	const flagged = `import { database, type Database } from "./client.ts";
+export async function expireAccessRequests(db: Database = database()) {
+	return db;
+}
+export const arrow = async (id: string, db: Database = database()) => [id, db];
+export class Store {
+	read(db: Database = database()) {
+		return db;
+	}
+}
+`;
+	const allowed = `import { database, type Database } from "@everyfield/db";
+export async function body() {
+	const db = database();
+	return db;
+}
+export async function fallback(dependencies: { db?: Database }) {
+	const db = dependencies.db ?? database();
+	return db;
+}
+`;
+	assert.deepEqual(
+		lint({
+			"packages/db/src/old.ts": flagged,
+			"packages/domain/src/allowed.ts": allowed,
+			"apps/web/src/access/old.ts": flagged,
+			"apps/web/src/access/allowed.ts": allowed,
+		}).filter((hit) => hit.endsWith(" no-default-database")),
+		[
+			"apps/web/src/access/old.ts:2 no-default-database",
+			"apps/web/src/access/old.ts:5 no-default-database",
+			"apps/web/src/access/old.ts:7 no-default-database",
+			"packages/db/src/old.ts:2 no-default-database",
+			"packages/db/src/old.ts:5 no-default-database",
+			"packages/db/src/old.ts:7 no-default-database",
+		],
+	);
+});
