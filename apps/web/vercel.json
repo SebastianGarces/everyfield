@@ -4,9 +4,6 @@
 		{ "path": "/api/cron/jobs", "schedule": "* * * * *" }
 	],
 	"git": {
-		"deploymentEnabled": {
-			"main": true,
-			"**": false
-		}
+		"deploymentEnabled": false
 	}
 }

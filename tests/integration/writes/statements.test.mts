@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { behaviorFailure } from "./failures.mjs";
 import { checkBudgets, checkSamples, readRuns, tighten } from "./budgets.mjs";
 import { repeatedShapes, statementShape, statementStep } from "./kinds.cjs";
 import { newestAttempts, partSuites, readRun, weigh, weighPart } from "./weights.mjs";
@@ -756,17 +757,7 @@ test("INV-census: every request and write stays within its statement budget", { 
 	}
 	if (files.length) {
 		const behaviors = await run("behaviors", ["--test", "--test-concurrency=" + CONCURRENCY, ...files], counted);
-		assert.equal(
-			behaviors.exit,
-			0,
-			"Behavior suites failed; evidence: " +
-				behaviors.evidence +
-				"\n" +
-				behaviors.log
-					.split("\n")
-					.filter((line) => line.includes("✖"))
-					.join("\n"),
-		);
+		if (behaviors.exit !== 0) assert.equal(behaviors.exit, 0, behaviorFailure(behaviors.evidence, behaviors.log));
 		ran.push(...files);
 	}
 	console.log("Statement census:", output);

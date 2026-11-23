@@ -67,7 +67,7 @@ export function PlantTimezoneDialog({
 	const sameZone = zone === oldZone;
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
+		<Dialog drawer open={open} onOpenChange={onOpenChange}>
 			<DialogContent size="md">
 				<DialogHeader
 					icon={Clock01Icon}

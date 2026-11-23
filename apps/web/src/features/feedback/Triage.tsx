@@ -16,6 +16,7 @@ import {
 	CardHeader,
 	CardTitle,
 	EmptyState,
+	InlineAlert,
 	SegmentedControl,
 	ProblemText,
 } from "@everyfield/ui/controls";
@@ -238,15 +239,9 @@ export function TriageItem({ initial, setup }: { initial: TriageDetail; setup: P
 						onValueChange={change}
 						options={STATUSES.map((s) => ({ value: s, label: STATUS_NAME[s] }))}
 					/>
-					<div aria-live="polite" className="empty:sr-only">
-						{notice?.tone === "error" ? (
-							<p role="alert" className="m-0 text-sm font-medium text-magenta-600">
-								{notice.text}
-							</p>
-						) : notice ? (
-							<Alert tone="warning">{notice.text}</Alert>
-						) : null}
-					</div>
+					<InlineAlert live="polite" tone={notice?.tone === "error" ? "error" : "warning"}>
+						{notice?.text}
+					</InlineAlert>
 				</Card>
 				<PublicIssue item={initial} setup={setup} />
 				<Card className="gap-3">

@@ -30,6 +30,7 @@ import { PreviewStage } from "./EmailFrame.tsx";
 import { deliveryName, Tile, Totals, when } from "./SentTotals.tsx";
 import {
 	cancelText,
+	CHILD_RULE,
 	contactLabel,
 	deliveryText,
 	hubLabel,
@@ -40,7 +41,7 @@ import {
 	replaceText,
 	rescheduleText,
 	sentNote,
-	unsubscribedNote,
+	leftOutNote,
 	type ContactRow,
 	type DeliveryReport,
 	type DetailRecipient,
@@ -178,6 +179,7 @@ const stateTone: Record<HubState, PillTone> = {
 	scheduled: "attention",
 	not_scheduled: "error",
 	unsubscribed: "neutral",
+	child: "neutral",
 	sending: "attention",
 	sent: "positive",
 	logged: "neutral",
@@ -249,7 +251,7 @@ type ScheduledActions = {
 };
 
 const handoffCounts = (totals: MessageView["totals"]) =>
-	`Accepted ${totals.accepted}. Refused ${totals.failed}. No answer ${totals.unknown}.${unsubscribedNote(totals.unsubscribed)}`;
+	`Accepted ${totals.accepted}. Refused ${totals.failed}. No answer ${totals.unknown}.${leftOutNote(totals.unsubscribed, totals.child)}`;
 
 function heldStatus(view: MessageView): { title: string; body: string } {
 	const { totals, detail } = view;
@@ -258,17 +260,22 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 		case "scheduled":
 			return {
 				title: `Scheduled for ${when(detail.scheduledAt)}`,
-				body: `It goes to ${plural(totals.reachable, "person", "people")} then. Anyone who unsubscribes before then gets nothing.${unsubscribedNote(totals.unsubscribed)}`,
+				body: `It goes to ${plural(totals.reachable, "person", "people")} then. Anyone who unsubscribes or is marked as a child before then gets nothing.${leftOutNote(totals.unsubscribed, totals.child)}`,
 			};
 		case "unsubscribed":
 			return {
 				title: "Not sent: unsubscribed",
 				body: "Every recipient unsubscribed from this church's email, so it does not go out. This is not an error.",
 			};
+		case "child":
+			return {
+				title: "Not sent: marked as a child",
+				body: `Every recipient is marked as a child or unsubscribed, so it does not go out. ${CHILD_RULE} This is not an error.`,
+			};
 		case "not_scheduled":
 			return {
 				title: "Not scheduled",
-				body: `${refusedAllText(totals.unsubscribed, totals.failed)} ${handoffCounts(totals)} The message stays saved.`,
+				body: `${refusedAllText(totals.unsubscribed, totals.failed, totals.child)} ${handoffCounts(totals)} The message stays saved.`,
 			};
 		case "cancel_unconfirmed":
 			return {
@@ -289,9 +296,9 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 			return {
 				title: "Not sent",
 				body:
-					totals.unsubscribed === 0
+					totals.unsubscribed + totals.child === 0
 						? `The email service refused all ${totals.failed}. The message stays saved.`
-						: `${refusedAllText(totals.unsubscribed, totals.failed)} ${handoffCounts(totals)} The message stays saved.`,
+						: `${refusedAllText(totals.unsubscribed, totals.failed, totals.child)} ${handoffCounts(totals)} The message stays saved.`,
 			};
 		case "unknown":
 			return { title: "Not confirmed", body: `The email service gave no answer. ${handoffCounts(totals)}` };
@@ -345,7 +352,7 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 				{state === "time_unconfirmed" && requestedAt
 					? action("reschedule", "Check again", () => actions.onReschedule(new Date(requestedAt)), "primary")
 					: null}
-				{!held && !unconfirmed && state !== "cancelled" && state !== "unsubscribed" ? (
+				{!held && !unconfirmed && state !== "cancelled" && state !== "unsubscribed" && state !== "child" ? (
 					<Button variant="primary" onClick={actions.onSendNow} disabled={busy}>
 						Send now
 					</Button>

@@ -28,6 +28,7 @@ import {
 	MenuContent,
 	MenuItem,
 	MenuTrigger,
+	ProblemText,
 	Tooltip,
 } from "@everyfield/ui/controls";
 import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
@@ -321,14 +322,13 @@ export default function ChurchEditor({
 								/>
 								<BlockControls editor={editor} palette={brand.palette} />
 								{refused ? (
-									<p
-										role="alert"
+									<ProblemText
 										data-table-refused={refused === TABLE_REFUSED ? "" : undefined}
 										data-condition-refused={refused === TABLE_REFUSED ? undefined : ""}
-										className="px-3 py-2 text-xs font-medium text-magenta-600"
+										className="px-3 py-2"
 									>
 										{refused}
-									</p>
+									</ProblemText>
 								) : null}
 							</>
 						) : (

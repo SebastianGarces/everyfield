@@ -25,6 +25,7 @@ import {
 	CardTitle,
 	Field,
 	IconButton,
+	InlineAlert,
 	Textarea,
 } from "@everyfield/ui/controls";
 import { cn, Icon, prefersReducedMotion } from "@everyfield/ui/foundations";
@@ -260,11 +261,9 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 							onChange={(e) => write(e.target.value)}
 						/>
 					</Field>
-					{missing.length ? (
-						<p role="alert" className="mt-3 text-sm text-magenta-600">
-							Choose an answer for {missing.map((a) => AREA[a].title).join(", ")}.
-						</p>
-					) : null}
+					<InlineAlert className="mt-3">
+						{missing.length ? `Choose an answer for ${missing.map((a) => AREA[a].title).join(", ")}.` : null}
+					</InlineAlert>
 					{failure ? (
 						<Alert
 							role="alert"

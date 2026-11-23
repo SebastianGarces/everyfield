@@ -23,6 +23,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	Textarea,
 	toast,
@@ -249,11 +250,7 @@ function OutcomeDialog({
 								<Textarea rows={2} value={draft.reason} onChange={(e) => set({ reason: e.target.value })} />
 							</Field>
 						) : null}
-						{draft.error ? (
-							<p role="alert" className="text-sm text-red-700">
-								{draft.error}
-							</p>
-						) : null}
+						<InlineAlert>{draft.error}</InlineAlert>
 					</DialogBody>
 					<DialogFooter>
 						<Button type="button" variant="secondary" onClick={() => onChange(null)}>
