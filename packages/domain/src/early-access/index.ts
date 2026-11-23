@@ -1,6 +1,7 @@
 import { isIP } from "node:net";
 import { z } from "zod";
-import { database, recordAccessMail, reserveAccessRequest } from "@everyfield/db";
+import type { Database } from "@everyfield/db/client";
+import { recordAccessMail, reserveAccessRequest } from "./store.ts";
 import {
 	HONEYPOT,
 	isAccessKind,
@@ -9,6 +10,8 @@ import {
 	type AccessRequestResult,
 } from "./contract.ts";
 import { mailRecipientAllowed } from "../mail-recipients.ts";
+
+export { expireAccessRequests, exportAccessRequests } from "./store.ts";
 
 const mailSchema = z.object({
 	from: z.string().min(1),
@@ -20,7 +23,7 @@ const mailSchema = z.object({
 const receiptSchema = z.object({ id: z.string().min(1) });
 
 type Dependencies = {
-	db?: ReturnType<typeof database>;
+	db: Database;
 	fetch?: typeof fetch;
 	env?: NodeJS.ProcessEnv;
 };
@@ -56,7 +59,7 @@ export async function receiveAccessRequest(
 	kind: unknown,
 	fields: unknown,
 	ip: string | null,
-	dependencies: Dependencies = {},
+	dependencies: Dependencies,
 ): Promise<AccessRequestResult> {
 	if (!isAccessKind(kind) || typeof fields !== "object" || fields === null || Array.isArray(fields)) {
 		return { status: "invalid", fieldErrors: {} };
@@ -71,7 +74,7 @@ export async function receiveAccessRequest(
 		const env = dependencies.env ?? process.env;
 		if (!env.RESEND_API_KEY) throw new Error("Mail credentials unavailable");
 		const mailPayload = mailFor(request, env);
-		const db = dependencies.db ?? database();
+		const db = dependencies.db;
 		const reservation = await reserveAccessRequest(
 			{
 				kind: request.kind,

@@ -1,11 +1,13 @@
-import { closeDatabase, database } from "@everyfield/db/client";
+import { closeDatabase, createDatabase } from "@everyfield/db/client";
 import { backfill, migrate } from "@everyfield/db/migrate";
 import { residentDiscoveryBackfill } from "../src/onboarding/backfill.ts";
 import { commitmentCacheBackfill, mergeReferencesBackfill } from "../src/people/commitments/backfill.ts";
 
 const backfills = [commitmentCacheBackfill(), mergeReferencesBackfill(), residentDiscoveryBackfill()];
 
-const db = database();
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL is required");
+const db = createDatabase({ connectionString, max: 5 });
 try {
 	const applied = await migrate(db);
 	const done = await backfill(db, backfills);

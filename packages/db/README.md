@@ -171,12 +171,16 @@ python3 docs/schema/render-docs.py
 The ER diagram is generated on demand and not committed (it is ignored by git). To view it, run
 `python3 docs/schema/render-diagram.py` and open `docs/schema/schema-diagram.html`.
 
-## Early-access pool
+## Early access
 
-Early access still uses its own pool: `database()` from `@everyfield/db`, opened from
-`DATABASE_URL`. The rest of the app uses the shared request database, which is
-configured from the `IDENTITY_*` values. The pool stays for now because Production
-does not have those values yet, so early access cannot move there (D-2116).
+Early access runs on the shared request database like the rest of the app (D65): the
+`/access` form passes `requestDatabase()` and the access-retention cron passes
+`jobDatabase()`, both from the `IDENTITY_DATABASE_URL` runtime login. This package opens no
+pool of its own and exports no early-access queries; they live in
+`packages/domain/src/early-access/store.ts`. Migration
+`20261122150000_early_access_privileges.sql` gives `everyfield_runtime` only what those
+queries use: `SELECT`, `INSERT` and `DELETE` on both tables, and `UPDATE` of `ip_address`,
+`mail_id` and `mailed_at` on `early_access_request`.
 
-The pool goes in T-574, which moves early access to the shared request database and
-deletes the `DATABASE_URL` pool.
+`pnpm access:export [file]` writes the CSV with `packages/domain/scripts/export-access.ts`,
+which opens its own connection from `DATABASE_URL` and closes it.
