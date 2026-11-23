@@ -279,6 +279,9 @@ async function fill(
 				),
 			) as { plant: { id: string } };
 			id = created.plant.id;
+			await admin.execute(
+				sql`UPDATE plant SET street='1200 Congress Ave', state_province='TX', country='United States' WHERE id=${id}`,
+			);
 			done.push(`church${label}`);
 		}
 		const completed = await rows(admin, sql`SELECT onboarding_completed_at FROM plant WHERE id=${id}`);
@@ -1231,6 +1234,12 @@ async function mailCases(
 			)
 		)[0] as { id: string; revision: string } | undefined;
 	if (!(await message())) {
+		const filled = await rows(
+			admin,
+			sql`UPDATE plant SET street='1200 Congress Ave', state_province='TX', country='United States'
+				WHERE id=${p.plantId} AND street IS NULL AND country IS NULL RETURNING id`,
+		);
+		if (filled.length) done.push("church mailing address");
 		const c = await p.ctx();
 		const personIds: string[] = [];
 		for (const name of DELIVERY_TO) personIds.push((await p.personId(name))!.id);
