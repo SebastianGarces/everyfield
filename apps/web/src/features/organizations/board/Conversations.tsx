@@ -22,7 +22,7 @@ import {
 } from "@everyfield/ui/controls";
 import { useActionState, useState } from "react";
 import { correctConversation, logConversation } from "./actions";
-import { formatPlainDate } from "../../../components/dates.ts";
+import { dayText } from "@everyfield/contracts/common";
 import { refusalText } from "./model";
 
 type Record = PipelinePersonRecord;
@@ -83,7 +83,7 @@ function Item({ conversation: c, onCorrect }: { conversation: Conversation; onCo
 	return (
 		<article className="flex flex-col gap-1.5 rounded-md bg-surface-2 px-3 py-2.5">
 			<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-				<span className="text-sm font-semibold text-ink">{formatPlainDate(c.on)}</span>
+				<span className="text-sm font-semibold text-ink">{dayText(c.on)}</span>
 				<span className="text-sm text-text-2">With {c.metBy ?? "former staff"}</span>
 				{onCorrect ? (
 					<Button variant="ghost" size="sm" className="ml-auto" onClick={onCorrect}>
@@ -93,18 +93,16 @@ function Item({ conversation: c, onCorrect }: { conversation: Conversation; onCo
 			</div>
 			{c.note ? <p className="text-sm whitespace-pre-wrap text-ink [overflow-wrap:anywhere]">{c.note}</p> : null}
 			<ol className="flex flex-col gap-0.5 text-xs text-text-3">
-				<li>Logged {formatPlainDate(c.loggedOn)}</li>
+				<li>Logged {dayText(c.loggedOn)}</li>
 				{c.corrections.map((x) => (
 					<li key={x.id}>
 						{[
-							x.dateFrom && x.dateTo
-								? `Date changed from ${formatPlainDate(x.dateFrom)} to ${formatPlainDate(x.dateTo)}`
-								: null,
+							x.dateFrom && x.dateTo ? `Date changed from ${dayText(x.dateFrom)} to ${dayText(x.dateTo)}` : null,
 							x.noteChanged ? "Note edited" : null,
 						]
 							.filter(Boolean)
 							.join(", ")}{" "}
-						by {x.actor ?? "former staff"}, {formatPlainDate(x.on)}
+						by {x.actor ?? "former staff"}, {dayText(x.on)}
 					</li>
 				))}
 			</ol>

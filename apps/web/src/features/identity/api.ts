@@ -59,5 +59,6 @@ export const identityApi = {
 };
 
 export function loadPage(path: string): void {
-	window.location.assign(new URL(path, window.location.origin));
+	const target = URL.parse(path, window.location.origin);
+	if (target?.origin === window.location.origin) window.location.assign(target);
 }
