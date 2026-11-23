@@ -6,6 +6,7 @@ import type {
 	LanguageModelV4StreamPart,
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { counted, countWord } from "@everyfield/contracts/common";
 import { onboardingStep } from "./scripted-onboarding.ts";
 import { launchStep } from "./scripted-launch.ts";
 import { intelligenceStep } from "./scripted-intelligence.ts";
@@ -566,7 +567,7 @@ function notificationStep(
 	return [
 		{
 			type: "text",
-			text: `You have ${total} unread ${total === 1 ? "notification" : "notifications"}:\n\n${groups
+			text: `You have ${counted(total, "unread notification")}:\n\n${groups
 				.map(([area, rows]) => `- **${area} (${rows.length})**: ${rows.map((r) => r.label).join("; ")}`)
 				.join("\n")}\n\nThey are still unread in your bell.`,
 		},
@@ -1084,7 +1085,7 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 			if (!count) return [{ type: "text", text: "No household in this church matches." }];
 			const labels = rows.map((r) => r.label).join(", ");
 			return [
-				{ type: "text", text: `There ${count === 1 ? "is 1 household" : `are ${count} households`}: ${labels}.` },
+				{ type: "text", text: `There ${countWord(count, "is", "are")} ${counted(count, "household")}: ${labels}.` },
 			];
 		}
 		if ((/\bwhich\b|\bfind\b/i.test(text) || change) && rows.length > 1)

@@ -1,5 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { counted, countWord } from "@everyfield/contracts/common";
 import { dayText } from "../adapters/pipeline/reads/index.ts";
 import { PIPELINE_RULES } from "../context/compile.ts";
 import { captured } from "./captured.ts";
@@ -140,7 +141,7 @@ function staleText(out: Output) {
 			`${p.label} (${String(p.fields.stage)}, last moved ${p.fields.lastMovedOn ? dayText(String(p.fields.lastMovedOn)) : "never"})`,
 	);
 	const head = people.length
-		? `As of ${dayText(String(facts.asOf))}, ${people.length === 1 ? "1 person" : `${people.length} people`} in ${org}'s pipeline ${people.length === 1 ? "hasn't" : "haven't"} moved in six months: ${list.join(", ")}.`
+		? `As of ${dayText(String(facts.asOf))}, ${counted(people.length, "person", "people")} in ${org}'s pipeline ${countWord(people.length, "hasn't", "haven't")} moved in six months: ${list.join(", ")}.`
 		: `As of ${dayText(String(facts.asOf))}, everyone in ${org}'s pipeline you can see has moved in the last six months.`;
 	return `${head} How it was measured: ${String(facts.measured)}`;
 }

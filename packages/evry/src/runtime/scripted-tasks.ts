@@ -1,5 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { counted, countWord } from "@everyfield/contracts/common";
 import { captured, present } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
@@ -78,7 +79,7 @@ export function taskStep(
 		return say(
 			[
 				t.length
-					? `${overdue.total ?? t.length} overdue ${t.length === 1 ? "task" : "tasks"}: ${t.map(taskLine).join("; ")}.`
+					? `${overdue.total ?? t.length} overdue ${countWord(t.length, "task")}: ${t.map(taskLine).join("; ")}.`
 					: "No task is overdue.",
 				f.length
 					? `Separately, ${owners.total ?? f.length} open follow-ups: ${f.map(followUpLine).join("; ")}.`
@@ -158,7 +159,7 @@ export function taskStep(
 		const needs = rows(open).filter((r) => firsts.has(String(r.fields.personId)));
 		return say(
 			[
-				`${firstTime.length} first-time ${firstTime.length === 1 ? "guest is" : "guests are"} recorded at ${meeting.label}.`,
+				`${counted(firstTime.length, "first-time guest is", "first-time guests are")} recorded at ${meeting.label}.`,
 				needs.length
 					? `${needs.length === 1 ? "One still needs" : `${needs.length} still need`} a follow-up: ${needs.map(followUpLine).join("; ")}.`
 					: "None of them has an open follow-up.",
