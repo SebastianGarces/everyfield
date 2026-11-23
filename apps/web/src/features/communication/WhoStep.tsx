@@ -1,6 +1,7 @@
 "use client";
 import { counted } from "@everyfield/contracts/common";
 import type { Outcome } from "@everyfield/contracts/common";
+import { listText } from "@everyfield/contracts/people";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { Alert, Combobox, Command, Field, keepKeyInField, Spinner, ProblemText } from "@everyfield/ui/controls";
@@ -31,7 +32,7 @@ const unsubscribedReason = (iso: string) => `Unsubscribed from this church's ema
 const toGuardians = (names: string[]) =>
 	names.length === 1
 		? `Goes to their parent or guardian, ${names[0]}`
-		: `Goes to their parents or guardians, ${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+		: `Goes to their parents or guardians, ${listText(names)}`;
 const reachable = (person: Recipient) =>
 	person.guardians.length > 0 || (Boolean(person.email) && !person.unsubscribedAt);
 
