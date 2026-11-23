@@ -23,13 +23,22 @@ const summary = (
 		unsubscribed = [],
 		missing = [],
 		complete = true,
-	}: { unsubscribed?: (typeof ana)[]; missing?: string[]; complete?: boolean } = {},
+		routed = [],
+	}: {
+		unsubscribed?: (typeof ana)[];
+		missing?: string[];
+		complete?: boolean;
+		routed?: { child: typeof ana; guardian: typeof ana }[];
+	} = {},
 ): AudienceSummary => ({
-	resolvedDistinctPeople: recipients.length + children.length + unsubscribed.length + missing.length,
-	eligibleRecipients: recipients.length,
+	resolvedDistinctPeople: recipients.length + children.length + unsubscribed.length + missing.length + routed.length,
+	eligibleRecipients: recipients.length + routed.length,
 	missingEmailExclusions: missing,
 	duplicateAddressesRemoved: 0,
-	recipients,
+	recipients: [
+		...recipients.map((r) => ({ ...r, guardianOf: [] })),
+		...routed.map(({ child, guardian }) => ({ ...guardian, guardianOf: [child.displayName] })),
+	],
 	complete,
 	unsubscribedExclusions: unsubscribed.map(({ id, displayName }) => ({
 		id,
@@ -37,6 +46,11 @@ const summary = (
 		unsubscribedAt: "2026-11-01T00:00:00.000Z",
 	})),
 	childExclusions: children.map(({ id, displayName }) => ({ id, displayName })),
+	guardianRoutes: routed.map(({ child, guardian }) => ({
+		id: child.id,
+		displayName: child.displayName,
+		guardians: [{ id: guardian.id, displayName: guardian.displayName }],
+	})),
 });
 
 test("the review To line names picked people who get the email and leaves out those marked as a child", () => {
@@ -68,5 +82,21 @@ test("the review To line keeps a picked person past the named-recipient cap", ()
 	assert.equal(
 		toLine(form([ana, ben]), summary([ana], [], { complete: false }), []),
 		"1 person · Ana Santos, Ben Santos",
+	);
+});
+
+const gil = { id: "0b5c1e2a-7777-4a6b-8c7d-9e0f1a2b3c4d", displayName: "Gil Santos", email: "gil@example.test" };
+
+test("the review To line never names a picked child whose mail goes to a guardian, and counts the guardian", () => {
+	assert.equal(
+		toLine(form([ben, lucia]), summary([ben], [], { routed: [{ child: lucia, guardian: gil }] }), []),
+		"2 people · Ben Santos",
+	);
+});
+
+test("the review To line leaves out a guardian-routed child past the named-recipient cap", () => {
+	assert.equal(
+		toLine(form([ben, lucia]), summary([], [], { complete: false, routed: [{ child: lucia, guardian: gil }] }), []),
+		"1 person · Ben Santos",
 	);
 });

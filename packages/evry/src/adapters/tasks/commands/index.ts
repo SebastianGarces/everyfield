@@ -1,4 +1,4 @@
-import { counted, dayText } from "@everyfield/contracts/common";
+import { counted, dayText, weekdayOf } from "@everyfield/contracts/common";
 import type { WriteTx } from "@everyfield/domain/access";
 import { gatedTransaction } from "@everyfield/domain/operations";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
@@ -208,7 +208,7 @@ const recurrence = z.strictObject({
 type Recurrence = z.infer<typeof recurrence>;
 const dueDay = (due: string | undefined) => due?.slice(0, 10) ?? null;
 function ruleText(rule: Recurrence, first: string | null, zone: SQL) {
-	const day = first ? present(WEEKDAY[new Date(`${first}T00:00:00Z`).getUTCDay()]) : null;
+	const day = first ? present(WEEKDAY[weekdayOf(first)]) : null;
 	const on = day && /weekly/.test(rule.frequency) ? ` on ${day}` : "";
 	const until = rule.until ? `, until ${rule.until}` : "";
 	return sql`to_jsonb(${`${rule.frequency}${on}${until}`}::text||', '||${zone})`;

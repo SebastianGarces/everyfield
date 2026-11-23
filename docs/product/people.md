@@ -180,9 +180,11 @@ Historical genuine acquisition is independent from current size. Use each canoni
 
 **REQ-PPL-009.** Tenant household name/address and head/spouse/child/other membership roles are operational facts, not adult classification. Create household+initial head coherently; join validates live same plant Person/household and copies household address only if Person lacks meaningful address. Leaving preserves Person address. Address propagation previews exact active members/current reviewed state and deliberately overwrites them in one bounded all-or-nothing change, returning actual count. Empty-household deletion refuses active members; retired member references detach from current household while immutable old membership snapshots retain provenance. Concurrent Person retirement, household joining and deletion cannot leave orphan records.
 
-**Target operations:** `people.createHouseholdWithHead`, `people.updateHousehold`, `people.addToHousehold`, `people.removeFromHousehold`, `people.setHouseholdRole`, `people.propagateAddress`, `people.deleteHousehold`.
+**Parent or guardian contact.** A child's parent or guardian contact is an explicit link staff set on the Person screen, never inferred from a household role of head or spouse (D-2336): the child is marked as a child and in a household, and each contact is a live person in the same church and household who is marked as an adult or whose birth date shows one. Anyone else is not offered and a save is refused with the reason, storing nothing. A child can have several contacts; each add or remove writes an audit row on the child's history, and a contact stops counting when either person leaves the household, is retired or is merged away.
 
-**Acceptance:** AC-PPL-009--PPL-009. **Named cases:** TARGET-PPL-009.
+**Target operations:** `people.createHouseholdWithHead`, `people.updateHousehold`, `people.addToHousehold`, `people.removeFromHousehold`, `people.setHouseholdRole`, `people.propagateAddress`, `people.deleteHousehold`, `people.setGuardianContact`.
+
+**Acceptance:** AC-PPL-009--PPL-009. **Named cases:** TARGET-PPL-009, CASE-PPL-009-GUARDIAN.
 
 **TARGET-PPL-009 fixture:** Person retired while household create; concurrent join/delete; own meaningful address versus blank; preview propagation then stale edit; empty with retired history. **Expected:** No orphans/cross tenant links; joining/leaving address rules hold, stale bulk refuses all and history does not block safe empty delete.
 

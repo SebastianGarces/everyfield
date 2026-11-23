@@ -119,13 +119,14 @@ export function listed(items: string[], max = 4): string {
 
 export function toLine(form: Form, summary: AudienceSummary | null, teams: readonly Team[]): string {
 	const named = new Map((summary?.recipients ?? []).map((r) => [r.id, r.displayName]));
-	const leftOut = new Set([
+	const notDirect = new Set([
 		...(summary?.childExclusions ?? []).map((person) => person.id),
+		...(summary?.guardianRoutes ?? []).map((person) => person.id),
 		...(summary?.unsubscribedExclusions ?? []).map((person) => person.id),
 	]);
 	const noEmailNames = new Set(summary?.missingEmailExclusions ?? []);
 	const hasNoEmail = (p: PersonRef) => !p.email?.trim() && p.displayName !== null && noEmailNames.has(p.displayName);
-	const beyondNamedCap = (p: PersonRef) => summary?.complete === false && !leftOut.has(p.id) && !hasNoEmail(p);
+	const beyondNamedCap = (p: PersonRef) => summary?.complete === false && !notDirect.has(p.id) && !hasNoEmail(p);
 	const getsEmail = (p: PersonRef) => !summary || named.has(p.id) || beyondNamedCap(p);
 	const chosen = [
 		...form.audience.groups.map((g) => groupLabel[g as keyof typeof groupLabel] ?? g),

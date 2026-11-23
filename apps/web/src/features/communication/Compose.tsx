@@ -361,6 +361,7 @@ function ComposeForm({
 
 	const names = summary?.missingEmailExclusions ?? [];
 	const children = (summary?.childExclusions ?? []).map((person) => person.displayName);
+	const routed = summary?.guardianRoutes ?? [];
 	const consequences = (when: string) => [
 		`${counted(eligible, "person gets", "people get")} this email ${when}.`,
 		...(children.length
@@ -369,6 +370,10 @@ function ComposeForm({
 		...(names.length
 			? [`${listed(names)} ${countWord(names.length, "has", "have")} no email and will be skipped.`]
 			: []),
+		...routed.map(
+			(route) =>
+				`${route.displayName}'s email goes to ${listed(route.guardians.map((guardian) => guardian.displayName))} instead.`,
+		),
 		"You cannot unsend it once it leaves.",
 	];
 
@@ -504,6 +509,7 @@ function ComposeForm({
 							origin: data.origin,
 							churchName: data.churchName,
 							mailingAddress: data.mailingAddress,
+							guardianOf: summary?.recipients[0]?.guardianOf,
 						}}
 						chrome={chrome}
 					/>
