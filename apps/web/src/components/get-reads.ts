@@ -11,12 +11,7 @@ type Lost = { status: "lost" };
 export type ReadResult<R, C extends string> = R | ReadRefusal<C> | ReadFailure | Lost;
 
 const refusedByRead = <C extends string>(r: unknown): r is ReadRefusal<C> =>
-	typeof r === "object" &&
-	r !== null &&
-	"status" in r &&
-	r.status === "refused" &&
-	"code" in r &&
-	Object.keys(r).length === 2;
+	typeof r === "object" && r !== null && "route" in r && r.route === true && "status" in r && r.status === "refused";
 
 export async function refusalAs<T, C extends string, F>(
 	read: Promise<T | ReadRefusal<C>>,

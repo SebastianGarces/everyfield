@@ -1,4 +1,5 @@
 import { requireSeat } from "@/server/sign-in";
+import type { SitePath } from "@everyfield/contracts/identity";
 import { requestDatabase } from "@/server/database";
 import { Calendar03Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import { meetingId as meetingIdSchema, rsvpToken } from "@everyfield/contracts/meetings";
@@ -26,7 +27,7 @@ import { loadCheckIn, loadMeeting, loadMeetings, type Viewer } from "./server.ts
 import { params } from "../../components/search-params.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
-async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
+async function gate(returnTo: SitePath, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const viewer = await requireSeat(returnTo);
 	if (viewer) return { viewer };
 	return {
@@ -47,7 +48,7 @@ async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer }
 export const meetingsMetadata: Metadata = { title: "Meetings", robots: { index: false, follow: false } };
 export async function MeetingsPage({ searchParams }: { searchParams: Search }) {
 	const query = parseQuery(params(await searchParams));
-	const g = await gate("/meetings" + querySearch(query), "Meetings");
+	const g = await gate(`/meetings${querySearch(query)}`, "Meetings");
 	if ("blocked" in g) return g.blocked;
 	return <MeetingsScreen view={await loadMeetings(g.viewer, query)} canWrite={canWrite(g.viewer)} />;
 }

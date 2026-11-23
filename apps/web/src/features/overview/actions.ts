@@ -1,12 +1,12 @@
 "use server";
 
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
+import { viewerActor } from "@/server/request-context";
 import { dashboardWriter } from "@everyfield/domain/dashboard";
 import { transient } from "../../server/platform/transient.ts";
 
 export async function dismissPrompt(prompt: unknown): Promise<{ status: "ok" | "failed" }> {
-	const authority = (await getViewer()).authority;
+	const authority = await viewerActor();
 	if (!authority) return { status: "failed" };
 	const db = requestDatabase();
 	return transient(

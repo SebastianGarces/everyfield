@@ -18,6 +18,7 @@ import {
 	CardHeading,
 	CardTitle,
 	EmptyState,
+	InlineAlert,
 	PageHeader,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
@@ -28,7 +29,6 @@ import { useEffect, useRef, useState } from "react";
 import { markSubjectRead } from "../notifications/actions";
 import { useReadElsewhere } from "../notifications/feed";
 import { formatPlainDate } from "../../components/dates.ts";
-import { Problem } from "../../components/Problem.tsx";
 import { programProblem, KIND } from "../organizations/programs/model";
 import { useResidency } from "./context.ts";
 import { markMilestone } from "./actions";
@@ -38,6 +38,14 @@ import { meetingDay, meetingTime, milestoneAnchor, readingPath, zoneName } from 
 type Linked = Extract<MyResidency, { status: "linked" }>;
 type Enrollment = Linked["enrollments"][number];
 type Milestone = Enrollment["milestones"][number];
+type ResidentReading = Enrollment["readings"][number];
+
+function readingHref(r: ResidentReading) {
+	if (!r.available) return null;
+	if (r.source === "organization") return readingPath(r.id);
+	if (r.slug === null) throw new Error(`The available reading ${r.id} has no slug`);
+	return articlePath(r.slug);
+}
 
 export function MyResidencyScreen({ initial }: { initial: Exclude<MyResidency, { status: "not_linked" }> }) {
 	const frame = useResidency();
@@ -75,7 +83,7 @@ function useOpenedNotice() {
 	useEffect(() => {
 		if (!opened || sent.current === opened) return;
 		sent.current = opened;
-		void markSubjectRead({ kind: "residency_milestone", id: opened })
+		void markSubjectRead({ requestKey: crypto.randomUUID(), subject: { kind: "residency_milestone", id: opened } })
 			.then((r) => {
 				if (r.status === "ok" && r.value.markedIds.length) readElsewhere(r.value.markedIds);
 			})
@@ -119,7 +127,10 @@ function EnrollmentView({
 }) {
 	const church = residency.organizationName;
 	const [marks, setMarks] = useState<Record<string, Milestone["completion"]>>({});
-	const milestones = e.milestones.map((m) => (m.id in marks ? { ...m, completion: marks[m.id]! } : m));
+	const milestones = e.milestones.map((m) => {
+		const mark = marks[m.id];
+		return mark === undefined ? m : { ...m, completion: mark };
+	});
 	const confirmed = milestones.filter((m) => m.completion?.confirmedOn).length;
 	return (
 		<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-5 max-app-md:grid-cols-1">
@@ -309,7 +320,7 @@ function MilestoneRow({
 					) : (
 						<span className="text-text-3">Not done yet</span>
 					)}
-					<Problem text={problem} />
+					<InlineAlert live="polite">{problem}</InlineAlert>
 				</div>
 				{c ? null : (
 					<Button size="sm" variant="secondary" className="flex-none max-app-sm:ml-[30px]" onClick={mark}>
@@ -351,7 +362,7 @@ function Reading({ readings, church }: { readings: Enrollment["readings"]; churc
 				{readings.length ? (
 					<ul className="flex flex-col divide-y divide-line">
 						{readings.map((r) => {
-							const href = !r.available ? null : r.source === "organization" ? readingPath(r.id) : articlePath(r.slug!);
+							const href = readingHref(r);
 							const label = (
 								<>
 									<Icon icon={BookOpen01Icon} size={18} className="mt-0.5 flex-none text-text-2" />

@@ -1,4 +1,5 @@
-import { Alert02Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
+import { LockKeyIcon } from "@hugeicons/core-free-icons";
+import { InlineAlert } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import type { ReactNode, Ref } from "react";
 import type { Problem } from "../../components/intent.ts";
@@ -27,18 +28,8 @@ export function ProblemLine({
 	focusRef?: Ref<HTMLDivElement>;
 }) {
 	return (
-		<div aria-live="assertive" className="empty:hidden">
-			{problem ? (
-				<div
-					ref={focusRef}
-					tabIndex={focusRef ? -1 : undefined}
-					className="mt-4 flex flex-wrap items-start gap-x-3 gap-y-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600 outline-none focus-visible:ring-2 focus-visible:ring-focus"
-				>
-					<Icon icon={Alert02Icon} size={16} className="mt-0.5 flex-none" />
-					<p className="min-w-0 flex-1">{problem === "refused" && refused ? refused : UNKNOWN}</p>
-					{action}
-				</div>
-			) : null}
-		</div>
+		<InlineAlert ref={focusRef} tabIndex={focusRef ? -1 : undefined} actions={action} className="pt-4">
+			{problem ? (problem === "refused" && refused ? refused : UNKNOWN) : null}
+		</InlineAlert>
 	);
 }

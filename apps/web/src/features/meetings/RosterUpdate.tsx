@@ -158,18 +158,18 @@ function RosterDialog({
 					</StatePanel>
 				) : (
 					<>
-						{p!.add.length ? (
-							<Group title={`Add ${p!.add.length}`} people={names(p!.add)}>
+						{preview.value.add.length ? (
+							<Group title={`Add ${preview.value.add.length}`} people={names(preview.value.add)}>
 								They serve in {teamName} now. They join as invited, absent, RSVP pending.
 							</Group>
 						) : null}
-						{p!.remove.length ? (
-							<Group title={`Remove ${p!.remove.length}`} people={names(p!.remove)}>
+						{preview.value.remove.length ? (
+							<Group title={`Remove ${preview.value.remove.length}`} people={names(preview.value.remove)}>
 								They no longer serve in {teamName}. Their RSVP links close and their history stays.
 							</Group>
 						) : null}
-						{p!.kept.length ? (
-							<Group title={`Keep ${p!.kept.length}`} people={names(p!.kept)}>
+						{preview.value.kept.length ? (
+							<Group title={`Keep ${preview.value.kept.length}`} people={names(preview.value.kept)}>
 								They no longer serve in {teamName}, but they are marked present, so they stay.
 							</Group>
 						) : null}

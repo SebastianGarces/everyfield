@@ -302,7 +302,10 @@ async function setPresence(
 	if (f.finalized_at) deny("status_transition");
 	if (f.status === "cancelled") deny("status_transition");
 	const byPerson = new Map(f.guests.map((g) => [g.person_id, g]));
-	const joining = entries.filter((e) => !byPerson.get(e.personId) || byPerson.get(e.personId)!.removed_at);
+	const joining = entries.filter((e) => {
+		const g = byPerson.get(e.personId);
+		return !g || g.removed_at;
+	});
 	if (joining.length && (!options.join || joining.some((e) => e.presence !== "attended")))
 		deny(
 			options.join ? "invalid_subject" : "unavailable",
@@ -329,7 +332,8 @@ async function setPresence(
 			after.push({ ...next, revision: nextRevision(g.revision) });
 		} else {
 			const id = randomUUID(),
-				p = people.get(e.personId)!;
+				p = people.get(e.personId);
+			if (!p) throw Error(`Person ${e.personId} passed the live check but was not read`);
 			const row: GuestRow = {
 				id,
 				revision: "1",
@@ -363,7 +367,14 @@ async function setPresence(
 			outcome: changed ? "changed" : "noop",
 			meetingId: f.id,
 			attendanceRevision: changed ? nextRevision(f.attendance_revision) : f.attendance_revision,
-			attendees: (changed ? after : entries.map((e) => byPerson.get(e.personId)!)).map(attendee),
+			attendees: (changed
+				? after
+				: entries.map((e) => {
+						const g = byPerson.get(e.personId);
+						if (!g) throw Error(`Unchanged attendance has no guest for ${e.personId}`);
+						return g;
+					})
+			).map(attendee),
 		}),
 		subject: f.id,
 		subjectType: "meeting",
@@ -418,7 +429,7 @@ async function settle(
 	const stageChanges: { personId: string; from: Stage; to: Stage; revision: string; position: string }[] = [];
 	const closing = new Set<string>();
 	const obligations = new Map(
-		f.obligations.filter((o) => o.kind === "follow_up").map((o) => [o.person_id!, o] as const),
+		f.obligations.flatMap((o) => (o.kind === "follow_up" && o.person_id !== null ? [[o.person_id, o] as const] : [])),
 	);
 	for (const personId of input.attendeeIds) {
 		const g = byPerson.get(personId),
@@ -433,7 +444,8 @@ async function settle(
 			});
 			continue;
 		}
-		const stage = p!.stage;
+		if (!p) throw Error(`Person ${personId} passed the live check but was not read`);
+		const stage = p.stage;
 		const cls = classify(stage, prior);
 		classifications.push({
 			personId,
@@ -446,7 +458,7 @@ async function settle(
 			removed_at: null,
 			classification: cls,
 			classification_stage: stage,
-			classification_person_revision: p!.revision,
+			classification_person_revision: p.revision,
 			classification_as_of: f.now,
 			prior_vision_id: prior,
 			actual_occurrence_at: occurredAt,
@@ -459,8 +471,8 @@ async function settle(
 				person_id: personId,
 				rsvp: "pending",
 				has_card: false,
-				display_name: p!.display_name,
-				person_state: p!.state,
+				display_name: p.display_name,
+				person_state: p.state,
 				...snapshot,
 			});
 		if (vision && stage === "prospect" && !noop)
@@ -468,13 +480,15 @@ async function settle(
 				personId,
 				from: "prospect",
 				to: "attendee",
-				revision: p!.revision,
+				revision: p.revision,
 				position: freshPosition(personId),
 			});
-		if (vision && prior && obligations.get(personId)) closing.add(obligations.get(personId)!.id);
+		const obligation = obligations.get(personId);
+		if (vision && prior && obligation) closing.add(obligation.id);
 	}
 	for (const personId of removed) {
-		const g = byPerson.get(personId)!;
+		const g = byPerson.get(personId);
+		if (!g) throw Error(`Removed attendee ${personId} has no guest row`);
 		rows.push({ ...g, presence: "absent" });
 		const o = obligations.get(personId);
 		if (vision && o) closing.add(o.id);
@@ -720,9 +734,19 @@ export const evaluationColumns = sql`m.id, m.type, m.status, m.finalized_at IS N
 		AND a.metadata->>'event' = 'evaluation_recorded' AND a.kind <> 'noop' ORDER BY a.occurred_at, a.id LIMIT 1) AS evaluator,
 	(SELECT b.id FROM obligation b WHERE b.meeting_id = m.id AND b.kind = 'evaluation') AS obligation,
 	clock_timestamp() AS now`;
+type RecordedEvaluation = EvaluationFacts & {
+	scores: number[];
+	evaluated_at: Date;
+	evaluated_on: string;
+	revision: string;
+};
 export function evaluationOf(e: EvaluationFacts, notes: boolean): z.infer<typeof c.evaluation> | null {
-	if (!e.scores || !e.evaluated_at || !e.evaluated_on || !e.revision) return null;
-	const scores = Object.fromEntries(c.evaluationFactors.map((k, i) => [k, e.scores![i]])) as z.infer<typeof c.scores>;
+	const { scores, evaluated_at, evaluated_on, revision } = e;
+	if (!scores || !evaluated_at || !evaluated_on || !revision) return null;
+	return recordedEvaluation({ ...e, scores, evaluated_at, evaluated_on, revision }, notes);
+}
+function recordedEvaluation(e: RecordedEvaluation, notes: boolean): z.infer<typeof c.evaluation> {
+	const scores = Object.fromEntries(c.evaluationFactors.map((k, i) => [k, e.scores[i]])) as z.infer<typeof c.scores>;
 	return c.evaluation.parse({
 		evaluationId: e.id,
 		meetingId: e.id,
@@ -860,20 +884,21 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 						evaluation_notes = ${i.notes}, evaluated_on = ${on}::date, evaluated_at = ${e.now.toISOString()}::timestamptz,
 						evaluation_revision = 1 WHERE id = ${e.id}::uuid AND evaluated_at IS NULL`);
 					let taskCompleted = false;
-					if (e.obligation) {
+					const obligation = e.obligation;
+					if (obligation) {
 						const done = await generated(() =>
 							applyManagedStatus(
 								tx,
 								{ ...audit, actor: { accountId: w.accountId, plantId: w.plant.id } },
 								deps.reminders,
-								{ obligationIds: [e.obligation!], status: "complete" },
+								{ obligationIds: [obligation], status: "complete" },
 								e.tasks,
 							),
 						);
 						taskCompleted = done.value.outcome === "changed";
 						after = done.after;
 					}
-					const evaluation = evaluationOf(
+					const evaluation = recordedEvaluation(
 						{
 							...e,
 							scores: c.evaluationFactors.map((k) => i.scores[k]),
@@ -884,7 +909,7 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 							evaluator: w.accountId,
 						},
 						true,
-					)!;
+					);
 					return {
 						value: c.evaluationMutationResult.parse({
 							receiptId: audit.id,

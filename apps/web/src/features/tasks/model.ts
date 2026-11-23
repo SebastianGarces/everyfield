@@ -520,7 +520,10 @@ export function withChange(p: Pending, c: Change): Pending {
 export function shownSteps(saved: readonly Step[], parentId: string, p: Pending): Step[] {
 	return [...saved, ...(p.steps[parentId] ?? [])]
 		.filter((s) => !(s.id in p.rows && p.rows[s.id] === null))
-		.map((s) => (p.status[s.id] ? { ...s, status: p.status[s.id]! } : s));
+		.map((s) => {
+			const status = p.status[s.id];
+			return status ? { ...s, status } : s;
+		});
 }
 export function shownRows(items: readonly TaskItem[], p: Pending): TaskItem[] {
 	return [...p.added, ...items].flatMap((r) => {

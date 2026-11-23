@@ -186,7 +186,8 @@ export async function reorderPipeline(
 				const done = await peopleWriter.reorderPipeline(tx, ctx, { requestKey, expectedRevision, input });
 				if (done.status !== "ok") return done;
 				const [column] = await readColumnOrders(tx, ctx, [moved]);
-				return { status: "ok", value: { outcome: done.value.outcome, ...column! } };
+				if (!column) throw new Error("The reordered pipeline column has no order");
+				return { status: "ok", value: { outcome: done.value.outcome, ...column } };
 			}),
 			(r) => r,
 		),

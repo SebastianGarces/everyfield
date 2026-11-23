@@ -1,0 +1,10 @@
+{
+	"public": [
+		"adapters/communication/audience.ts",
+		"adapters/meetings/commands/invitation.ts",
+		"adapters/meetings/reads/workflows.ts",
+		"adapters/tasks/values.ts",
+		"attachments/store.ts",
+		"calendar/resolve.ts"
+	]
+}

@@ -16,6 +16,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	Textarea,
 } from "@everyfield/ui/controls";
@@ -23,7 +24,6 @@ import { useActionState, useState } from "react";
 import { correctConversation, logConversation } from "./actions";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { refusalText } from "./model";
-import { Problem } from "../../../components/Problem.tsx";
 
 type Record = PipelinePersonRecord;
 type Conversation = Record["conversations"][number];
@@ -175,7 +175,7 @@ function ConversationForm({
 				<Field label="Note" optional hint={`Only Owners, Admins and ${record.name}’s responsible staff can read it.`}>
 					<Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={1000} />
 				</Field>
-				<Problem text={state.problem} />
+				<InlineAlert live="polite">{state.problem}</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>

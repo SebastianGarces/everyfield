@@ -3,7 +3,7 @@
 import { Button } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
 import { useRef, useState } from "react";
-import { refusalOf, useWrite } from "../save";
+import { refusalFor, refusalOf, useWrite } from "../save";
 import type { AvatarMime, AvatarPort, AvatarResult, SectionResult } from "../port";
 
 type Account = Extract<SectionResult, { section: "account" }>;
@@ -56,7 +56,7 @@ export function AvatarControl({
 			const saved = await saving.run(input, (requestKey) =>
 				port.finalizeAvatar({ requestKey, expectedRevision: account.revision, input }),
 			);
-			if (!saved.ok) return fail(`Your photo was not saved. ${saved.refusal.message}`);
+			if (saved.status !== "ok") return fail(`Your photo was not saved. ${refusalFor(saved).message}`);
 			onChanged(saved.value);
 			setMessage({ tone: "info", text: "Photo saved." });
 		} catch {
@@ -75,7 +75,7 @@ export function AvatarControl({
 			const removed = await removing.run(input, (requestKey) =>
 				port.removeAvatar({ requestKey, expectedRevision: account.revision, input }),
 			);
-			if (!removed.ok) return fail(`Your photo was not removed. ${removed.refusal.message}`);
+			if (removed.status !== "ok") return fail(`Your photo was not removed. ${refusalFor(removed).message}`);
 			onChanged(removed.value);
 			setMessage({ tone: "info", text: "Photo removed." });
 		} catch {
