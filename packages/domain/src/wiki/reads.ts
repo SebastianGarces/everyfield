@@ -136,7 +136,13 @@ function present(raw: Record<string, unknown>): WikiArticle {
 function sourceOf(source: SourceView | undefined): SourceView {
 	return source ?? { kind: "current" };
 }
-async function readPage(db: Database, access: CorpusAccess, source: SourceView, page: number, where: SQL = sql`true`) {
+async function readPage(
+	db: Database | Transaction,
+	access: CorpusAccess,
+	source: SourceView,
+	page: number,
+	where: SQL = sql`true`,
+) {
 	const result = await db.execute(pageQuery(access, source, page, where));
 	const row = loaded.parse(result.rows[0]);
 	if (!row.allowed) deny("access_denied");
@@ -240,7 +246,7 @@ function meaningSkipped(reason: string): null {
 	return null;
 }
 async function meaningOf(
-	db: Database,
+	db: Database | Transaction,
 	authority: RequestActor,
 	owner: Owner,
 	embedder: WikiQueryEmbedder,
@@ -288,7 +294,10 @@ function meaningSql(meaning: Meaning | null, phase: number | null): SQL {
 		FROM (
 			SELECT ps.revision_id, ps.ordinal, ps.content, ${distance} AS distance
 			FROM passage ps
-			WHERE ps.release_id = (SELECT release_id FROM release)
+			WHERE (
+					ps.release_id = (SELECT release_id FROM release)
+					OR (ps.release_id IS NULL AND ps.tenant_id IN (SELECT org_id FROM links))
+				)
 				AND public.vector_dims(ps.embedding) = 1536
 			ORDER BY ${distance}
 			LIMIT ${MEANING_PASSAGES}
@@ -564,7 +573,7 @@ export function referenceExcerpt(db: Database, authority: RequestActor, raw: unk
 		} satisfies z.output<typeof excerptResult>;
 	});
 }
-export function readingRecent(db: Database, authority: RequestActor, raw: unknown) {
+export function readingRecent(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		parse(z.strictObject({}).optional(), raw ?? {});
 		const access = accessFor(authority);

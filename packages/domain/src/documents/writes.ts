@@ -704,7 +704,7 @@ async function copyForChurch(db: Database, scope: Scope, input: z.output<typeof 
 type ImportLink = { objectId: string; format: "text" | "docx"; hash: string; requestKey: string };
 
 async function createNative(
-	db: Database,
+	db: Database | Transaction,
 	scope: Scope,
 	title: string,
 	body: string,
@@ -769,7 +769,7 @@ async function createNative(
 }
 
 async function appendNative(
-	db: Database,
+	db: Database | Transaction,
 	scope: Scope,
 	documentId: string,
 	expected: string,
@@ -878,7 +878,7 @@ async function appendNative(
 }
 
 async function mutateOwned(
-	db: Database,
+	db: Database | Transaction,
 	scope: Scope,
 	documentId: string,
 	expected: string,

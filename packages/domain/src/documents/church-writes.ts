@@ -126,7 +126,7 @@ function followedVersion(
 }
 
 async function readChurchWithKit(
-	db: Database,
+	db: Database | Transaction,
 	scope: Scope,
 	documentId: string,
 	{ admin = false, sources: withSources = false, template = false, archived = false } = {},
@@ -187,7 +187,7 @@ async function readChurchWithKit(
 	return { doc, kit, sources, churchTemplate: row.church_template };
 }
 
-async function readChurch(db: Database, scope: Scope, documentId: string, admin = false) {
+async function readChurch(db: Database | Transaction, scope: Scope, documentId: string, admin = false) {
 	return (await readChurchWithKit(db, scope, documentId, { admin }))?.doc ?? null;
 }
 
@@ -1696,7 +1696,7 @@ function imageSources(node: unknown, found = new Set<ImageSource>()) {
 }
 
 async function renderRevision(
-	db: Database,
+	db: Database | Transaction,
 	storage: PrivateStorage | null,
 	authority: RequestActor,
 	body: c.DocDocument,
@@ -1763,7 +1763,7 @@ async function sameUpdate(db: Database, scope: Scope, requestKey: string, reques
 	return templateSummary(row) ?? deny("conflict");
 }
 
-async function exportRecord(db: Database, scope: Scope, id: string) {
+async function exportRecord(db: Database | Transaction, scope: Scope, id: string) {
 	const [row] = await historyRows(db, scope, id);
 	if (!row) deny("unavailable");
 	return generatedFrom(row, scope.tenantId, row.template_id);
