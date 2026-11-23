@@ -3782,14 +3782,6 @@ const organizationSeatCheck = {
 };
 
 export const LOOSE_CONTRACTS = {
-	"packages/contracts/src/people/csv/index.ts": {
-		importValues:
-			"it parses the createPersonRequest input of each CSV row, which also carries stage, adultClassification and birthDate; it drops them on purpose",
-	},
-	"packages/contracts/src/communication/results.ts": {
-		mailReport:
-			"it parses proposal receipts stored by earlier code, whose reports may hold keys the schema no longer names",
-	},
 	"packages/contracts/src/communication/requests.ts": {
 		historyQuery:
 			"it is the lenient history query: listHistory normalizes each value itself and drops a query key it does not name",
