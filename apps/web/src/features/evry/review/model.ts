@@ -1800,6 +1800,8 @@ export function refusalText(code: string | undefined, target: string | null, ope
 				return "Your seat no longer allows this change, so nothing was saved.";
 			case "status_transition":
 				return "The meeting's status no longer allows this change, so nothing was saved.";
+			case "practice_cancelled":
+				return "A cancelled practice can't be corrected, so nothing was saved.";
 			case "not_found":
 			case "source_unavailable":
 				return `${who} is no longer in Meetings, so nothing was saved.`;
@@ -1930,6 +1932,8 @@ export function mailRefusalText(code: string | undefined): string {
 			return "This message is no longer in Messages, so nothing was done.";
 		case "rsvp_needs_meeting":
 			return "This email has an RSVP link and no open meeting, so nothing was done.";
+		case "mailing_address_missing":
+			return "Sending is held until your church has a mailing address, so nothing was sent. Add it in Church profile.";
 		default:
 			return "Messages refused this change, so nothing was done.";
 	}
@@ -1943,6 +1947,8 @@ export function stoppedReason(code: string | undefined): string {
 			return "The send time is no longer within the next 30 days.";
 		case "rsvp_needs_meeting":
 			return "This email has an RSVP link, and its meeting is no longer open.";
+		case "mailing_address_missing":
+			return "Your church has no mailing address in Church profile yet.";
 		case "access_denied":
 			return "Your seat no longer allows email changes.";
 		case "provider_refused":

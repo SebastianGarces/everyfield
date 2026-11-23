@@ -1,4 +1,4 @@
-import { counted } from "@everyfield/contracts/common";
+import { counted, dayText } from "@everyfield/contracts/common";
 import type { WriteTx } from "@everyfield/domain/access";
 import { gatedTransaction } from "@everyfield/domain/operations";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
@@ -519,10 +519,6 @@ export const removeSubtask = checklistWrite({
 });
 
 const templates = createTemplateReader();
-const dayText = (date: string) =>
-	new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
-		new Date(`${date}T12:00:00Z`),
-	);
 const card = (review: unknown, args: unknown) => sql`SELECT ${json(review)} AS review, ${json(args)} AS args`;
 
 type Open = Extract<z.infer<typeof phaseOffer>, { status: "open" }>;

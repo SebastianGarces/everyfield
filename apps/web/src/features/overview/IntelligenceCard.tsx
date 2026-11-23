@@ -1,3 +1,4 @@
+import { dayText } from "@everyfield/contracts/common";
 import type { AssessmentView } from "@everyfield/contracts/intelligence";
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import {
@@ -12,7 +13,7 @@ import {
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { coldStartTitle, dayText, QUALITY, SEVERITY_LABEL, STANDING } from "../intelligence/assessment-model.ts";
+import { coldStartTitle, QUALITY, SEVERITY_LABEL, STANDING } from "../intelligence/assessment-model.ts";
 import { CardFailed } from "./cards.tsx";
 import type { Loaded } from "./model.ts";
 

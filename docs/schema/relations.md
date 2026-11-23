@@ -148,6 +148,10 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `generated_document(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `generated_document(source_document_id, tenant_id)` | `document(id, tenant_id)` | restrict |  |
 | `generated_document(source_revision_id, tenant_id)` | `document_revision(id, tenant_id)` | restrict |  |
+| `guardian_contact(child_person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
+| `guardian_contact(guardian_person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
+| `guardian_contact(household_id, plant_id)` | `household(id, plant_id)` | cascade |  |
+| `guardian_contact(plant_id)` | `plant(id)` | no_action |  |
 | `household(plant_id)` | `plant(id)` | restrict |  |
 | `household(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `identity_proof(account_id)` | `account(id)` | restrict |  |
@@ -453,3 +457,5 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `training_assignment` | `person_id, plant_id` | WP-019 |
 | `training_credit` | `person_id, plant_id` | WP-019 |
 | `answer_review` | `person_id, organization_id` | WP-102 |
+| `guardian_contact` | `child_person_id, plant_id` | WP-012, WP-021 |
+| `guardian_contact` | `guardian_person_id, plant_id` | WP-012, WP-021 |

@@ -1,5 +1,6 @@
 "use client";
 
+import { dayText } from "@everyfield/contracts/common";
 import {
 	checkNote,
 	checkOutcome,
@@ -35,7 +36,6 @@ import { addGuest, correctOutcome, recordOutcome } from "./actions.ts";
 import { suggestGuests } from "./fetch.ts";
 import {
 	countText,
-	longDate,
 	NOTE_MESSAGE,
 	OUTCOME_MESSAGE,
 	parseCount,
@@ -145,8 +145,8 @@ export function OutcomeCard({
 			{o ? (
 				<>
 					<dl className="grid grid-cols-5 gap-x-6 gap-y-4 max-app-md:grid-cols-3 max-app-sm:grid-cols-2">
-						<Fact label="Held" value={longDate(o.actualDate)} />
-						<Fact label="Planned" value={planned ? longDate(planned) : "No date"} muted />
+						<Fact label="Held" value={dayText(o.actualDate, { weekday: "short" })} />
+						<Fact label="Planned" value={planned ? dayText(planned, { weekday: "short" }) : "No date"} muted />
 						<Fact label="Attendance" value={countText(o.attendance)} muted={o.attendance === null} />
 						<Fact label="Decisions" value={countText(o.decisions)} muted={o.decisions === null} />
 						<Fact label="Guests named" value={countText(plan.guests.count)} />

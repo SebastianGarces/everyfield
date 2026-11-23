@@ -3623,6 +3623,41 @@ test("INV-lint: the count-text rule allows the counted and countWord module itse
 	);
 });
 
+test("INV-lint: a noon-UTC civil-day string is refused in app and package source, naming dayText, addDays and weekdayOf", () => {
+	const source = `export const a = (d: string) => new Date(\`\${d}T12:00:00Z\`);
+export const b = (d: string) => Date.parse(d + "T12:00:00Z");
+export const c = (x: string, day: (v: string) => string) => day(x + "T12:00:00Z");
+export const e = (d: string) => new Date(\`\${d}T12:00:00.000Z\`);
+export const f = (d: string) => new Date(\`\${d}T12:00:00\`);
+export const g = (d: string) => new Date(\`\${d}T09:30:00Z\`);
+export const h = "T12:00:00";
+`;
+	const hits = lint(
+		{ "apps/web/src/features/x/day.ts": source, "packages/evry/src/x/day.ts": source },
+		undefined,
+		true,
+	).filter((hit) => hit.includes(" civil-day "));
+	assert.deepEqual(
+		hits.map((hit) => hit.split(" ")[0]),
+		["apps/web/src/features/x/day.ts", "packages/evry/src/x/day.ts"].flatMap((file) =>
+			[1, 2, 3, 4].map((line) => `${file}:${line}`),
+		),
+	);
+	assert.match(hits[0], /dayText.*addDays.*weekdayOf.*@everyfield\/contracts\/common/);
+});
+
+test("INV-lint: the civil-day rule allows the day module itself", () => {
+	const helper = `const noon = (d: string) => new Date(\`\${d}T12:00:00Z\`);
+`;
+	assert.deepEqual(
+		lint({
+			"packages/contracts/src/common/day.ts": helper,
+			"packages/contracts/src/common/other.ts": helper,
+		}).filter((hit) => hit.endsWith(" civil-day")),
+		["packages/contracts/src/common/other.ts:1 civil-day"],
+	);
+});
+
 test("INV-lint: the root config refuses hand-written count text in package source, except packages/ui/src, which cannot import contracts", () => {
 	const source = `export const a = (n: number) => (n === 1 ? "task" : "tasks");
 `;
@@ -3650,4 +3685,32 @@ test("INV-lint: package source writes no count text by hand, apart from the ui p
 		.diagnostics.filter((d) => d.code === "everyfield(count-text)")
 		.map((d) => relative(repo, resolve(repo, d.filename)));
 	assert.deepEqual([...new Set(files)], ["packages/ui/src/display/Pipeline.tsx"]);
+});
+
+test("INV-lint: a cast through unknown is refused in app and package source and allowed in tests, a single cast or satisfies is not", () => {
+	const source = `type X = { id: string };
+export const a = () => window as unknown as Record<symbol, X>;
+export const b = (r: object) => (r as unknown as { id: string }).id;
+export const c = <T,>(x: number) => <T>(<unknown>x);
+export const d = (x: object) => x as X;
+export const e = (x: number) => x as unknown;
+export const f = { id: "a" } satisfies X;
+`;
+	const files = [
+		"apps/web/src/components/x.ts",
+		"packages/domain/src/x/cast.ts",
+		"apps/web/src/components/x.test.ts",
+		"packages/domain/src/test/cast.ts",
+		"packages/evry/src/tests/cast.ts",
+	];
+	const hits = lint(Object.fromEntries(files.map((file) => [file, source])), undefined, true).filter((hit) =>
+		hit.includes(" no-double-cast "),
+	);
+	assert.deepEqual(
+		hits.map((hit) => hit.split(" ")[0]),
+		["apps/web/src/components/x.ts", "packages/domain/src/x/cast.ts"].flatMap((file) =>
+			[2, 3, 4].map((line) => `${file}:${line}`),
+		),
+	);
+	assert.match(hits[0], /Type the value at its source, or narrow it with a check/);
 });

@@ -4,7 +4,8 @@ import * as c from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
 import { addressAad, openText, type DeliveryKeys } from "./delivery.ts";
-import { childSql } from "./audience.ts";
+import { hasMailingAddressSql } from "./address.ts";
+import { childSql, routedIdsSql, routedNamesSql, routedSql } from "./audience.ts";
 import { optedOutAtSql } from "./opt-out.ts";
 import {
 	administers,
@@ -70,10 +71,18 @@ function encodeCursor(epoch: string, id: string) {
 function stamp(column: SQL) {
 	return sql`to_char(${column} AT TIME ZONE 'UTC', ${STAMP})`;
 }
-const heldChild = sql`(m.state = 'scheduled' AND ${childSql(sql`m.tenant_id`, sql`m.recipient_person_id`)})`;
+const heldMinor = sql`(m.state = 'scheduled' AND ${childSql(sql`m.tenant_id`, sql`m.recipient_person_id`)})`;
+const heldRouted = sql`(${heldMinor} AND ${routedSql(sql`m.tenant_id`, sql`m.recipient_person_id`)})`;
+const heldChild = sql`(${heldMinor} AND NOT ${routedSql(sql`m.tenant_id`, sql`m.recipient_person_id`)})`;
 const childLeftOut = sql`(m.refusal = 'child' OR ${heldChild})`;
+const guardianSent = sql`(m.refusal = 'guardian' OR ${heldRouted})`;
 const statusSql = sql`CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' WHEN m.refusal = 'unsubscribed' THEN 'unsubscribed'
-	WHEN ${childLeftOut} THEN 'child' ELSE m.state END`;
+	WHEN ${guardianSent} THEN 'guardian' WHEN ${childLeftOut} THEN 'child' ELSE m.state END`;
+const sentToSql = sql`CASE WHEN m.refusal = 'guardian' THEN (
+		SELECT string_agg(gp.display_name, ', ' ORDER BY gp.display_name, gp.id) FROM mail gm
+		JOIN person gp ON gp.id = gm.recipient_person_id AND gp.tenant_id = gm.tenant_id
+		WHERE gm.tenant_id = m.tenant_id AND gm.id = ANY(m.guardian_mail_ids))
+	WHEN ${heldRouted} THEN ${routedNamesSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} END`;
 function mailOn(plantId: string) {
 	return sql`m.tenant_id = ${plantId}::uuid AND m.communication_id = c.id`;
 }
@@ -85,10 +94,12 @@ function hubState(plantId: string) {
 		WHEN ${any(sql`(m.sent_at IS NOT NULL OR m.delivered_at IS NOT NULL OR m.state = 'sent')`)} THEN 'sent'
 		WHEN ${any(sql`m.state = 'dispatched'`)} THEN 'sending'
 		WHEN ${any(sql`true`)} AND NOT ${any(sql`m.refusal IS DISTINCT FROM 'unsubscribed'`)} THEN 'unsubscribed'
-		WHEN ${any(sql`true`)} AND NOT ${any(sql`m.refusal IS NULL AND NOT ${heldChild}`)} THEN 'child'
+		WHEN ${any(sql`true`)} AND NOT ${any(sql`m.refusal IS NULL AND NOT ${heldChild}`)} AND NOT ${any(sql`m.refusal = 'guardian'`)} THEN 'child'
 		WHEN ${any(sql`m.state = 'cancelled'`)} AND NOT ${any(sql`m.state NOT IN ('cancelled', 'refused', 'failed')`)} THEN 'cancelled'
 		WHEN ${any(sql`m.cancel_requested_at IS NOT NULL AND m.state IN ('accepted', 'unknown')`)} THEN 'cancel_unconfirmed'
 		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL AND m.scheduled_at IS DISTINCT FROM c.scheduled_at`)} THEN 'time_unconfirmed'
+		WHEN ${any(sql`m.state = 'scheduled' AND m.scheduled_at <= clock_timestamp()`)}
+			AND NOT ${hasMailingAddressSql(sql`${plantId}::uuid`)} THEN 'held'
 		WHEN ${any(sql`m.state = 'scheduled'`)} THEN 'scheduled'
 		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL`)} THEN 'scheduled'
 		WHEN ${any(sql`m.state = 'accepted'`)} THEN 'sending'
@@ -107,11 +118,17 @@ function shownTimeSql(plantId: string) {
 	return stamp(sql`coalesce(${staleHeldSql(plantId)}, c.scheduled_at)`);
 }
 function reachableSql(plantId: string) {
-	return sql`(SELECT count(*)::int FROM mail m
+	return sql`(SELECT count(*)::int FROM (
+		SELECT m.recipient_person_id FROM mail m
 		JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
 		WHERE ${mailOn(plantId)} AND p.state = 'live' AND p.email IS NOT NULL AND btrim(p.email) <> ''
-			AND m.refusal IS NULL AND NOT ${heldChild}
-			AND NOT EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL))`;
+			AND m.refusal IS NULL AND NOT ${heldMinor}
+			AND NOT EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL)
+		UNION
+		SELECT routed.id FROM mail m
+		CROSS JOIN LATERAL ${routedIdsSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} routed
+		WHERE ${mailOn(plantId)} AND ${heldMinor}
+	) reached)`;
 }
 function sentAtSql(plantId: string) {
 	return stamp(
@@ -366,6 +383,7 @@ const totalsShape = z.object({
 	suppressed: z.number().int(),
 	unsubscribed: z.number().int(),
 	child: z.number().int(),
+	guardian: z.number().int(),
 	unknown: z.number().int(),
 	cancelled: z.number().int(),
 	cancelOpen: z.number().int(),
@@ -390,14 +408,14 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 				sql`SELECT (c.id IS NOT NULL) AS found,
 					CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
 						'state', ${hubState(reader.plantId)},
-						'selected', GREATEST(t.total, jsonb_array_length(coalesce(c.audience->'personIds', '[]'::jsonb))),
+						'selected', GREATEST(t.selected, jsonb_array_length(coalesce(c.audience->'personIds', '[]'::jsonb))),
 						'reachable', CASE WHEN t.total > 0 THEN ${reachableSql(reader.plantId)}
 							ELSE (SELECT count(*)::int FROM person p
 								WHERE p.tenant_id = c.plant_id AND p.state = 'live' AND p.email IS NOT NULL AND btrim(p.email) <> ''
 									AND jsonb_exists(c.audience->'personIds', p.id::text)) END,
 						'attempted', t.attempted, 'accepted', t.accepted, 'sent', t.sent, 'delivered', t.delivered,
 						'opened', t.opened, 'clicked', t.clicked, 'bounced', t.bounced, 'failed', t.failed,
-						'unsubscribed', t.unsubscribed, 'child', t.child, 'suppressed', t.suppressed, 'unknown', t.unknown,
+						'unsubscribed', t.unsubscribed, 'child', t.child, 'guardian', t.guardian, 'suppressed', t.suppressed, 'unknown', t.unknown,
 						'cancelled', t.cancelled, 'cancelOpen', t.cancel_open,
 						'asOf', ${stamp(sql`clock_timestamp()`)},
 						'outcomes', (SELECT coalesce(jsonb_agg(o.word ORDER BY o.ord), '[]'::jsonb)
@@ -409,6 +427,7 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 				LEFT JOIN communication c ON c.id = ${input.communicationId}::uuid AND c.plant_id = ${reader.plantId}::uuid
 				LEFT JOIN LATERAL (
 					SELECT count(*)::int AS total,
+						count(*) FILTER (WHERE NOT m.guardian_copy)::int AS selected,
 						count(*) FILTER (WHERE m.state NOT IN ('pending', 'scheduled') AND m.refusal IS NULL)::int AS attempted,
 						count(*) FILTER (WHERE m.bounced_at IS NULL AND m.state NOT IN ('refused', 'failed')
 							AND (m.state IN ('accepted', 'sent') OR m.accepted_at IS NOT NULL))::int AS accepted,
@@ -420,6 +439,7 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 						count(*) FILTER (WHERE m.state IN ('refused', 'failed') AND m.refusal IS NULL)::int AS failed,
 						count(*) FILTER (WHERE m.refusal = 'unsubscribed')::int AS unsubscribed,
 						count(*) FILTER (WHERE ${childLeftOut})::int AS child,
+						count(*) FILTER (WHERE ${guardianSent})::int AS guardian,
 						count(*) FILTER (WHERE EXISTS (
 							SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL))::int AS suppressed,
 						count(*) FILTER (WHERE m.state IN ('unknown', 'dispatched')
@@ -465,6 +485,7 @@ const detailShape = z.object({
 			sealedAddress: z.string().nullable(),
 			currentEmail: z.string().nullable(),
 			deliveryStatus: z.string(),
+			sentTo: z.string().nullable(),
 			sentAt: z.string().nullable(),
 			deliveredAt: z.string().nullable(),
 			openedAt: z.string().nullable(),
@@ -491,7 +512,7 @@ export async function getDetail(tx: Tx, authority: RequestActor, request: unknow
 							SELECT jsonb_agg(jsonb_build_object(
 								'personId', m.recipient_person_id, 'mailId', m.id,
 								'sealedAddress', m.recipient_address_encrypted, 'currentEmail', p.email,
-								'deliveryStatus', ${statusSql},
+								'deliveryStatus', ${statusSql}, 'sentTo', ${sentToSql},
 								'sentAt', ${stamp(sql`m.sent_at`)}, 'deliveredAt', ${stamp(sql`m.delivered_at`)},
 								'openedAt', ${stamp(sql`m.opened_at`)}, 'clickedAt', ${stamp(sql`m.clicked_at`)}
 							) ORDER BY m.created_at, m.id)
@@ -516,6 +537,7 @@ export async function getDetail(tx: Tx, authority: RequestActor, request: unknow
 				: null,
 		currentPersonAddress: item.currentEmail,
 		deliveryStatus: item.deliveryStatus,
+		sentTo: item.sentTo,
 		sentAt: item.sentAt,
 		deliveredAt: item.deliveredAt,
 		openedAt: item.openedAt,

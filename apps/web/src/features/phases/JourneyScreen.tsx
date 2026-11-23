@@ -9,6 +9,7 @@ import {
 	type PhaseNumber,
 	type Readiness,
 } from "@everyfield/contracts/phases";
+import { dayText } from "@everyfield/contracts/common";
 import type { HistoryEntry } from "@everyfield/contracts/launch";
 import { ArrowRight01Icon, Calendar03Icon, Flag02Icon, Route02Icon, StartUp02Icon } from "@hugeicons/core-free-icons";
 import {
@@ -293,7 +294,7 @@ type Dated = { kind: "launch_date"; id: string; occurredAt: string; entry: Histo
 function launchDateTitle(e: HistoryEntry) {
 	if (e.change.kind !== "date") return "";
 	const { event, from, to } = e.change;
-	const day = (d: string | null) => (d ? entryDate(`${d}T12:00:00Z`, "UTC") : "no date");
+	const day = (d: string | null) => (d ? dayText(d) : "no date");
 	if (event === "scheduled") return `Launch Sunday set for ${day(to)}`;
 	if (event === "postponed") return `Launch Sunday postponed from ${day(from)}`;
 	return `Launch Sunday ${event === "moved" ? "moved" : "rescheduled"} from ${day(from)} to ${day(to)}`;

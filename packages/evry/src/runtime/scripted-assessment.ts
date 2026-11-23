@@ -1,9 +1,6 @@
-import { counted } from "@everyfield/contracts/common";
+import { counted, dayText } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/intelligence";
 import { ProviderBusy, type DraftCall, type Drafter, type DraftReply } from "@everyfield/domain/intelligence";
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-export const shortDate = (iso: string) => `${MONTHS[Number(iso.slice(5, 7)) - 1]} ${Number(iso.slice(8, 10))}`;
 
 type Topic = c.FactTopic | "coverage";
 type Line = { topic: Topic; state: "concern" | "neutral" | "good"; title: string; body: string; facts: string[] };
@@ -48,7 +45,7 @@ function lines(input: c.ModelInput): Line[] {
 			topic: "committedAdults",
 			state: "good",
 			title: "Interviews are on record",
-			body: `${interviews} interviews recorded, latest ${shortDate(latest)}.`,
+			body: `${interviews} interviews recorded, latest ${dayText(latest, { year: "never" })}.`,
 			facts: ["humanRecords.interviews", "humanRecords.interviewsLatestOn"],
 		});
 	const growth = v("growth.status");
@@ -84,7 +81,7 @@ function lines(input: c.ModelInput): Line[] {
 					topic: "vision",
 					state: vision === "on_target" ? "good" : "concern",
 					title: vision === "on_target" ? "Vision meetings are on rhythm" : "Set the next Vision meeting",
-					body: `Your last Vision meeting was on ${shortDate(held)}, ${v("vision.daysSince")} days ago. The rhythm aims for one every ${v("vision.targetDays")} days.`,
+					body: `Your last Vision meeting was on ${dayText(held, { year: "never" })}, ${v("vision.daysSince")} days ago. The rhythm aims for one every ${v("vision.targetDays")} days.`,
 					facts: ["vision.status", "vision.lastHeldOn", "vision.daysSince", "vision.targetDays"],
 				},
 	);

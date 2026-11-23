@@ -1,4 +1,4 @@
-import { localDate } from "@everyfield/contracts/common";
+import { dayText, localDate } from "@everyfield/contracts/common";
 import { countdown, GUEST_NAME_MAX, type History, type Milestone, type Plan } from "@everyfield/contracts/launch";
 import type { Transaction } from "@everyfield/db/client";
 import { createLaunchReader } from "@everyfield/domain/launch";
@@ -9,14 +9,6 @@ import { EvryRefusal } from "../../../context/errors.ts";
 import { plantAdmin, plantSeat } from "../../native.ts";
 
 const reader = createLaunchReader();
-const dayFormat = new Intl.DateTimeFormat("en-US", {
-	weekday: "short",
-	month: "short",
-	day: "numeric",
-	year: "numeric",
-	timeZone: "UTC",
-});
-export const launchDay = (day: string) => dayFormat.format(new Date(`${day}T12:00:00Z`));
 
 const UNLOADED = "the Launch plan, which couldn't be loaded";
 function unloaded(operation: string): SourceResult {
@@ -60,7 +52,7 @@ function dateFacts(plan: Plan) {
 		timeZone: plan.timeZone,
 		today: plan.today,
 		status: STATUS_TEXT[plan.launch?.status ?? "planning"],
-		plannedDate: plan.launch?.targetDate ? launchDay(plan.launch.targetDate) : null,
+		plannedDate: plan.launch?.targetDate ? dayText(plan.launch.targetDate, { weekday: "short" }) : null,
 		countdown: c.kind,
 		daysLeft: c.kind === "ahead" ? c.days : c.kind === "today" ? 0 : null,
 		daysOverdue: c.kind === "overdue" ? c.days : null,
@@ -137,7 +129,7 @@ export const readWorkspace = {
 					done: m.tasks.filter((t) => t.status === "complete").length,
 					total: m.tasks.length,
 					completed: done(m),
-					completedOn: m.completion ? launchDay(localDayOf(m.completion.at, plan.timeZone)) : null,
+					completedOn: m.completion ? dayText(localDayOf(m.completion.at, plan.timeZone), { weekday: "short" }) : null,
 					completedBy: m.completion ? (m.completion.by?.displayName ?? "A former account") : null,
 					needsReview: m.needsReview,
 					openTasks: open.length,
@@ -153,7 +145,7 @@ export const readWorkspace = {
 					milestone: m.title,
 					milestoneId: m.id,
 					status: t.status,
-					dueDate: t.dueDate ? launchDay(t.dueDate) : null,
+					dueDate: t.dueDate ? dayText(t.dueDate, { weekday: "short" }) : null,
 					overdue: overdue(t, plan.today),
 					assignees: t.assignees.map((a) => a.displayName).join(", ") || null,
 				},
@@ -193,8 +185,8 @@ function entryRow(e: History["entries"][number], timeZone: string): SourceRow {
 				fields: {
 					...base,
 					change: "date",
-					from: ch.from ? launchDay(ch.from) : null,
-					to: ch.to ? launchDay(ch.to) : null,
+					from: ch.from ? dayText(ch.from, { weekday: "short" }) : null,
+					to: ch.to ? dayText(ch.to, { weekday: "short" }) : null,
 					reason: ch.reason,
 				},
 			};
@@ -259,8 +251,8 @@ function entryRow(e: History["entries"][number], timeZone: string): SourceRow {
 				fields: {
 					...base,
 					change: "gathering",
-					from: ch.from ? launchDay(ch.from) : null,
-					to: ch.to ? launchDay(ch.to) : null,
+					from: ch.from ? dayText(ch.from, { weekday: "short" }) : null,
+					to: ch.to ? dayText(ch.to, { weekday: "short" }) : null,
 					reason: ch.reason,
 				},
 			};
@@ -332,7 +324,7 @@ export const readDebrief = {
 				{
 					...dateFacts(plan),
 					recorded: o !== null,
-					actualDate: o ? launchDay(o.actualDate) : null,
+					actualDate: o ? dayText(o.actualDate, { weekday: "short" }) : null,
 					attendance: o?.attendance ?? null,
 					decisions: o?.decisions ?? null,
 					guestsNamed: plan.guests.count,

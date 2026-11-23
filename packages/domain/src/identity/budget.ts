@@ -14,6 +14,8 @@ export const identityRefusals = defineRefusals(identityError);
 const { Refusal } = identityRefusals;
 export const deny: Deny<typeof identityError> = identityRefusals.deny;
 export const timeouts = sql`set_config('statement_timeout','10s',true)||set_config('lock_timeout','5s',true)`;
+const lockedBatch = z.array(z.object({ rows: z.array(z.unknown()) }));
+
 export function transaction<T>(db: Database | Transaction, body: (tx: WriteTx) => Promise<T>): Promise<T> {
 	return timedTransaction(db, async (tx) => {
 		await tx.execute(sql`SELECT ${timeouts}`);
@@ -85,8 +87,7 @@ WITH expired AS (DELETE FROM admission_attempt WHERE expires_at<=clock_timestamp
 		}
 	}
 	async function locked(statement: SQL) {
-		const results = (await db.execute(statement)) as unknown as { rows: unknown[] }[];
-		const [, reserved] = results;
+		const [, reserved] = lockedBatch.parse(await db.execute(statement));
 		if (!reserved) throw Error("The budget batch returned no locked rows result");
 		return reserved.rows;
 	}
