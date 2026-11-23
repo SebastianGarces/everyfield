@@ -1,14 +1,7 @@
-import { signIn } from "@/server/sign-in";
-import {
-	loadDirectory,
-	loadIntelligence,
-	loadPlant,
-	loadRoster,
-	loadSendingChurch,
-	oversightViewer,
-	type Loaded,
-	type OversightViewer,
-} from "./server.ts";
+import { organizationSeat, type OrganizationSeat } from "@/server/request-context";
+import { requireActor } from "@/server/sign-in";
+import type { SitePath } from "@everyfield/contracts/identity";
+import { loadDirectory, loadIntelligence, loadPlant, loadRoster, loadSendingChurch, type Loaded } from "./server.ts";
 import { Button, Card, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -24,21 +17,25 @@ export const plantMetadata: Metadata = { title: "Plant", ...hidden };
 export const rosterMetadata: Metadata = { title: "Sending churches", ...hidden };
 export const sendingChurchMetadata: Metadata = { title: "Sending church", ...hidden };
 
-const organizationViewer = cache(oversightViewer);
-
 type Params<K extends string> = { params: Promise<Record<K, string>> };
 
-async function organizationOnly(path: string, page: (viewer: OversightViewer) => Promise<ReactNode>) {
-	const who = await organizationViewer();
-	if (who.kind === "signed_out") signIn(path);
-	if (who.kind !== "organization")
-		return (
-			<Card className="mx-auto mt-12 max-w-[560px]">
-				<NotAvailable scope="page" homeHref="/home" />
-			</Card>
-		);
-	return page(who.viewer);
+const notAvailable = (
+	<Card className="mx-auto mt-12 max-w-[560px]">
+		<NotAvailable scope="page" homeHref="/home" />
+	</Card>
+);
+
+async function organizationOnly(path: SitePath, page: (viewer: OrganizationSeat) => Promise<ReactNode>) {
+	await requireActor(path);
+	const viewer = await organizationSeat();
+	if (!viewer) return notAvailable;
+	return page(viewer);
 }
+
+const networkOnly = (path: SitePath, page: (viewer: OrganizationSeat) => Promise<ReactNode>) =>
+	organizationOnly(path, async (viewer) =>
+		viewer.organization.organizationKind === "sending_network" ? page(viewer) : notAvailable,
+	);
 
 function shown<T>(loaded: Loaded<T>, screen: (value: T) => ReactNode) {
 	if (loaded.status === "missing") notFound();
@@ -65,7 +62,7 @@ function shown<T>(loaded: Loaded<T>, screen: (value: T) => ReactNode) {
 export async function NetworkPage() {
 	return organizationOnly("/network", async (viewer) =>
 		shown(await loadDirectory(viewer), (directory) => (
-			<DirectoryScreen directory={directory} kind={viewer.organizationKind} />
+			<DirectoryScreen directory={directory} kind={viewer.organization.organizationKind} />
 		)),
 	);
 }
@@ -78,14 +75,14 @@ export async function PlantPage({ params }: Params<"plantId">) {
 }
 
 export async function RosterPage() {
-	return organizationOnly("/network/sending-churches", async (viewer) =>
+	return networkOnly("/network/sending-churches", async (viewer) =>
 		shown(await loadRoster(viewer), (roster) => <RosterScreen roster={roster} />),
 	);
 }
 
 export async function SendingChurchPage({ params }: Params<"churchId">) {
 	const { churchId } = await params;
-	return organizationOnly(`/network/sending-churches/${churchId}`, async (viewer) =>
+	return networkOnly(`/network/sending-churches/${churchId}`, async (viewer) =>
 		shown(await loadSendingChurch(viewer, churchId), (church) => <SendingChurchScreen church={church} />),
 	);
 }
@@ -96,16 +93,16 @@ const intelligenceQuery = (q: SearchParams) => ({
 	shownLevel: level.catch("portfolio").parse(typeof q.level === "string" ? q.level : undefined),
 	run: typeof q.run === "string" ? q.run : null,
 });
-const intelligenceFor = cache(async (viewer: OversightViewer, shownLevel: Level, run: string | null) =>
+const intelligenceFor = cache(async (viewer: OrganizationSeat, shownLevel: Level, run: string | null) =>
 	loadIntelligence(viewer, shownLevel, run),
 );
 
 export async function intelligenceMetadata({ searchParams }: Search): Promise<Metadata> {
-	const who = await organizationViewer();
-	if (who.kind !== "organization") return { title: "Intelligence", ...hidden };
+	const viewer = await organizationSeat();
+	if (!viewer) return { title: "Intelligence", ...hidden };
 	const { shownLevel, run } = intelligenceQuery(await searchParams);
-	const loaded = await intelligenceFor(who.viewer, shownLevel, run);
-	const kind = who.viewer.organizationKind;
+	const loaded = await intelligenceFor(viewer, shownLevel, run);
+	const kind = viewer.organization.organizationKind;
 	if (loaded.status === "ok") return { title: intelligenceWords(kind, loaded.value.organizationName).title, ...hidden };
 	return { title: kind === "sending_church" ? "Intelligence" : "Network Intelligence", ...hidden };
 }
@@ -114,7 +111,11 @@ export async function IntelligencePage({ searchParams }: Search) {
 	const { shownLevel, run } = intelligenceQuery(await searchParams);
 	return organizationOnly("/network/intelligence", async (viewer) =>
 		shown(await intelligenceFor(viewer, shownLevel, run), (view) => (
-			<IntelligenceScreen key={`${view.level}:${view.run?.runId ?? ""}`} view={view} kind={viewer.organizationKind} />
+			<IntelligenceScreen
+				key={`${view.level}:${view.run?.runId ?? ""}`}
+				view={view}
+				kind={viewer.organization.organizationKind}
+			/>
 		)),
 	);
 }

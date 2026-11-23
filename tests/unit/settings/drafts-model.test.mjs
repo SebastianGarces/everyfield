@@ -54,10 +54,10 @@ const step = {
 		if (expected === w.server.revision) {
 			w.server = { value: String(sent).trim(), revision: w.server.revision + 1 };
 			w.cache = { ...w.server };
-			w.book = finish(w.book, KEY, { ok: true }, w.cache.value);
+			w.book = finish(w.book, KEY, null, w.cache.value);
 			if (w.intent === sent) w.intent = null;
 		} else {
-			w.book = finish(w.book, KEY, { ok: false, refusal: "conflict" }, w.cache.value);
+			w.book = finish(w.book, KEY, "conflict", w.cache.value);
 		}
 		if (w.intent === w.cache.value) w.intent = null;
 	},
@@ -135,7 +135,7 @@ test("INV-draft-rebase: Load latest after a conflict keeps the fields the person
 	const opened = { city: "Austin", street: "", warningDays: "14" };
 	const latest = { city: "Austin", street: "1 Main St", warningDays: "14" };
 	let book = edit(emptyBook(), KEY, { ...opened, city: "Round Rock" }, opened);
-	book = finish(begin(book, KEY, opened).book, KEY, { ok: false, refusal: "conflict" }, opened);
+	book = finish(begin(book, KEY, opened).book, KEY, "conflict", opened);
 	book = rebase(book, KEY, opened, latest);
 	assert.deepEqual(visible(book, KEY, latest), { city: "Round Rock", street: "1 Main St", warningDays: "14" });
 	assert.equal(book.refusals[KEY], undefined, "the refusal that asked for the reload is gone");

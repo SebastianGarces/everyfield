@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { pipelineActor, pipelineWrite } from "../pipeline-mount";
+import { organizationSeat } from "@/server/request-context";
+import { pipelineWrite } from "../pipeline-mount";
 import { invitationService } from "@/server/invitations";
 import { pipelineWriter, reviewWriter } from "@everyfield/domain/organizations";
 import { answer, refused, type Reply } from "../../identity/server";
@@ -55,18 +56,18 @@ export async function correctConversation(input: unknown) {
 const linkInvite = z.looseObject({ input: z.looseObject({}) });
 
 export async function runLinkInvitation(operation: unknown, command: unknown): Promise<Reply> {
-	const who = await pipelineActor();
+	const seat = await organizationSeat();
 	const service = invitationService();
-	if (who.kind !== "seat") return refused("unavailable");
-	const organization = who.authority.actor.context.owner;
+	if (!seat) return refused("unavailable");
+	const { authority, organization } = seat;
 	if (operation === "invite") {
 		const invite = linkInvite.safeParse(command);
 		if (!invite.success) return refused("invalid_input");
 		return answer(() =>
-			service.inviteResident(who.authority, { ...invite.data, input: { ...invite.data.input, organization } }),
+			service.inviteResident(authority, { ...invite.data, input: { ...invite.data.input, organization } }),
 		);
 	}
-	if (operation === "resend") return answer(() => service.resend(who.authority, command));
-	if (operation === "revoke") return answer(() => service.revoke(who.authority, command));
+	if (operation === "resend") return answer(() => service.resend(authority, command));
+	if (operation === "revoke") return answer(() => service.revoke(authority, command));
 	return refused("invalid_input");
 }

@@ -432,6 +432,10 @@ test("AC:ADR1-011 an Owner enrolls Casey; the pipeline stage stays; a second act
 		sql`SELECT next_meeting_at AT TIME ZONE 'UTC' AS utc FROM development_enrollment WHERE id=${caseyResidency}`,
 	);
 	assert.equal(new Date(String(stored.rows[0]!.utc) + "Z").toISOString(), "2026-10-21T00:00:00.000Z");
+	await assert.rejects(
+		admin.execute(sql`UPDATE development_enrollment SET status='withdrawn' WHERE id=${caseyResidency}`),
+		(error: { cause?: { constraint?: string } }) => error.cause?.constraint === "development_enrollment_ck_1",
+	);
 	const record = ok(await readPipelinePersonRecord(db, await authority(dana), { personId: casey }));
 	assert.equal(record.stage.label, "Potential leader");
 	refusedWith(await enroll(db, await authority(dana), { ...input, enrollmentId: randomUUID() }), "already_enrolled");
@@ -1001,7 +1005,7 @@ test("the director reviews several enrollments: one section per person, with the
 	await enrollNew(cohort, casey, batch.casey, "Casey Lee", "Training and planning");
 	await enrollNew(cohort, jordan, batch.jordan, "Jordan Price", "Assimilating");
 	await enrollNew(cohort, sam, batch.sam, "Sam Ortiz", "Assimilating");
-	await admin.execute(sql`UPDATE development_enrollment SET status='withdrawn' WHERE id=${batch.sam}`);
+	await admin.execute(sql`UPDATE development_enrollment SET status='completed' WHERE id=${batch.sam}`);
 	for (const [id, title, on] of [
 		[batch.casey, GROUP, "2026-10-12"],
 		[batch.jordan, PROSPECTUS, "2026-10-20"],
@@ -1033,7 +1037,7 @@ test("the director reviews several enrollments: one section per person, with the
 			["Casey Lee", 1, "active"],
 			["Jordan Price", 1, "active"],
 			["Riley Shaw", 2, "active"],
-			["Sam Ortiz", 1, "withdrawn"],
+			["Sam Ortiz", 1, "completed"],
 		],
 	);
 

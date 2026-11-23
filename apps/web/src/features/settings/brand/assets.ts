@@ -5,6 +5,7 @@ import {
 	type BrandKitData,
 	type HexColor,
 } from "@everyfield/contracts/branding";
+import { refusedWith, withError, type Outcome } from "@everyfield/contracts/common";
 import type { BrandError, BrandKit, BrandPort, SuggestedColors } from "../port";
 import { BRAND_ERROR_TEXT } from "./model.ts";
 
@@ -70,7 +71,7 @@ export function assetMessage(error: BrandError): string {
 	}
 }
 
-export type UploadOutcome = { ok: true; kit: BrandKit } | { ok: false; error: BrandError } | { ok: false; error: null };
+export type UploadOutcome = Outcome<BrandKit, BrandError["code"], { error: BrandError }>;
 
 export async function uploadAsset(
 	port: BrandPort,
@@ -84,18 +85,18 @@ export async function uploadAsset(
 			byteLength: file.size,
 			altText,
 		});
-		if (ticket.status === "refused") return { ok: false, error: ticket.error };
+		if (ticket.status === "refused") return refusedWith(ticket.error);
 		const sent = await port.uploadBytes(ticket.value.uploadId, file);
-		if (sent.status === "refused") return { ok: false, error: sent.error };
+		if (sent.status === "refused") return refusedWith(sent.error);
 		const done = await port.finalizeUpload({
 			uploadId: ticket.value.uploadId,
 			slot,
 			altText,
 			expectedRevision: input.revision(),
 		});
-		return done.status === "ok" ? { ok: true, kit: done.value } : { ok: false, error: done.error };
+		return withError(done);
 	} catch {
-		return { ok: false, error: null };
+		return { status: "lost" };
 	}
 }
 
@@ -107,9 +108,9 @@ export const withoutAsset = (kit: BrandKit, slot: AssetSlot): BrandKit => ({
 export async function removeAsset(port: BrandPort, slot: AssetSlot, revision: string): Promise<UploadOutcome> {
 	try {
 		const reply = await port.save({ expectedRevision: revision, patch: { assets: { [slot]: null } } });
-		return reply.status === "ok" ? { ok: true, kit: reply.value } : { ok: false, error: reply.error };
+		return withError(reply);
 	} catch {
-		return { ok: false, error: null };
+		return { status: "lost" };
 	}
 }
 

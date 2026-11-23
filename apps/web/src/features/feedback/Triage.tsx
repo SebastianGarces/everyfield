@@ -9,7 +9,16 @@ import type {
 	TriageDetail,
 	TriagePage,
 } from "@everyfield/contracts/feedback";
-import { Button, Card, CardHeader, CardTitle, EmptyState, SegmentedControl } from "@everyfield/ui/controls";
+import {
+	Alert,
+	Button,
+	Card,
+	CardHeader,
+	CardTitle,
+	EmptyState,
+	SegmentedControl,
+	ProblemText,
+} from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, List, ListRow, Tag } from "@everyfield/ui/display";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -140,9 +149,9 @@ export function TriageList({
 				{next || failed ? (
 					<div className="flex items-center justify-center gap-3 pt-4">
 						{failed ? (
-							<span role="alert" className="text-sm text-magenta-600">
+							<ProblemText as="span" size="sm">
 								{failed === "failed" ? READ_FAILED : "The next feedback did not load. Try again."}
-							</span>
+							</ProblemText>
 						) : null}
 						{next ? (
 							<Button variant="secondary" onClick={more} loading={pending}>
@@ -229,18 +238,13 @@ export function TriageItem({ initial, setup }: { initial: TriageDetail; setup: P
 						onValueChange={change}
 						options={STATUSES.map((s) => ({ value: s, label: STATUS_NAME[s] }))}
 					/>
-					<div aria-live="polite" className="empty:hidden">
-						{notice ? (
-							<p
-								role={notice.tone === "error" ? "alert" : undefined}
-								className={
-									notice.tone === "error"
-										? "m-0 text-sm font-medium text-magenta-600"
-										: "m-0 rounded-md bg-amber-100 px-3 py-2.5 text-sm text-ink"
-								}
-							>
+					<div aria-live="polite" className="empty:sr-only">
+						{notice?.tone === "error" ? (
+							<p role="alert" className="m-0 text-sm font-medium text-magenta-600">
 								{notice.text}
 							</p>
+						) : notice ? (
+							<Alert tone="warning">{notice.text}</Alert>
 						) : null}
 					</div>
 				</Card>
@@ -299,13 +303,13 @@ function PublicIssue({ item, setup }: { item: TriageDetail; setup: PublicationSe
 				) : null}
 				<KeyValue size="sm" k="Team email" value={<Tag tone={mail.tone}>{mail.text}</Tag>} />
 			</KeyValueList>
-			{held ? <p className="m-0 rounded-md bg-magenta-100 px-3 py-2.5 text-sm text-ink">{HELD_REASON[held]}</p> : null}
+			{held ? <Alert>{HELD_REASON[held]}</Alert> : null}
 			{item.operatorMail === "failed" || item.operatorMail === "unknown" ? (
-				<p className="m-0 rounded-md bg-amber-100 px-3 py-2.5 text-sm text-ink">
+				<Alert tone="warning">
 					{item.operatorMail === "failed"
 						? "The team email was not sent. The feedback itself is saved."
 						: "The email service did not say whether the team email went. It is checked again on the next run."}
-				</p>
+				</Alert>
 			) : null}
 			<p className="m-0 text-sm text-text-3">
 				The issue says only the type and area. Closing it on GitHub does not change the status here.

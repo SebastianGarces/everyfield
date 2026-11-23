@@ -39,6 +39,7 @@ export const ownerList = createRead((): Promise<Outcome<Account[]> | ReadFailure
 export const seatList = createRead(() => assigneeOptions(), { failed: lost, fresh: 30_000 });
 export const prefetchOwners = () => ownerList.get();
 export const forgetOwners = () => ownerList.forget();
+export const reloadOwners = () => void (ownerList.peek() && ownerList.refresh());
 export const seedOwners = (value: Account[]) => ownerList.seed({ status: "ok", value });
 export const prefetchSeats = () => seatList.get();
 

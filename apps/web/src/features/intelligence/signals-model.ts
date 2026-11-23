@@ -18,9 +18,9 @@ import {
 	type SignalValue,
 } from "@everyfield/contracts/intelligence";
 import { shortDate } from "./model.ts";
+import type { Outcome } from "@everyfield/contracts/common";
 
-export type SignalOutcome<T> =
-	{ status: "ok"; value: T } | { status: "refused"; error: SignalError } | { status: "lost" };
+export type SignalOutcome<T> = Outcome<T, SignalError["code"], { error: SignalError }>;
 
 export const VALUE_LABEL: Record<SignalValue, string> = { yes: "Yes", not_yet: "Not yet" };
 export function definitionOf(key: SignalKey) {

@@ -1,5 +1,14 @@
 export { Alert, InlineAlert, type AlertLive, type AlertProps, type AlertTone } from "./Alert";
-export { Button, buttonVariants, IconButton, iconButtonVariants } from "./Button";
+export {
+	Button,
+	buttonVariants,
+	FieldButton,
+	IconButton,
+	iconButtonVariants,
+	RowButton,
+	TextButton,
+	textButtonVariants,
+} from "./Button";
 export {
 	CalloutLabel,
 	CalloutText,
@@ -28,6 +37,8 @@ export { CommandPalette, type CommandGroup, type CommandItem } from "./CommandPa
 export { DateRangePicker, formatRange, type DatePreset, type DateRange } from "./DateRangePicker";
 export {
 	ConfirmDialog,
+	settleConfirm,
+	type ConfirmRefusal,
 	Dialog,
 	DialogBody,
 	DialogClose,
@@ -62,6 +73,7 @@ export {
 	MenuTrigger,
 } from "./Menu";
 export { Breadcrumb, PageHeader, type Crumb } from "./PageHeader";
+export { ProblemText } from "./ProblemText";
 export { usePortalContainer } from "./overlay-portal";
 export { Popover, PopoverAnchor, PopoverClose, PopoverContent, PopoverTrigger, Tooltip, TooltipSep } from "./Popover";
 export { Select, type SelectOption } from "./Select";

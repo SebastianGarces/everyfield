@@ -83,7 +83,8 @@ const FOCUSABLE =
 	'input:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
 function firstProblem(root: HTMLElement): HTMLElement | null {
 	const bad = root.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalid="true"]');
-	return (bad?.matches("input, textarea, button, select") ? bad : bad?.querySelector<HTMLElement>(FOCUSABLE)) ?? null;
+	if (!bad || bad.matches("input, textarea, button, select")) return bad;
+	return bad.querySelector<HTMLElement>(FOCUSABLE) ?? bad.querySelector<HTMLElement>('[role="radio"]:not([disabled])');
 }
 
 export function RecordDialog({
@@ -268,7 +269,7 @@ function NoticeRegion({ notice, busy, onDismiss, className }: NoticeProps & { cl
 	const isNew = now.isNew;
 	const body = notice ? <NoticeBody notice={notice} busy={busy} onDismiss={onDismiss} /> : null;
 	return (
-		<div ref={recordAnnounced} aria-live="assertive" className={cn("empty:hidden", className)}>
+		<div ref={recordAnnounced} aria-live="assertive" className={cn("empty:sr-only", className)}>
 			{body && !isNew ? <div aria-live="off">{body}</div> : body}
 		</div>
 	);

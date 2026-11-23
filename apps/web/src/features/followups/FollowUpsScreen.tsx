@@ -176,7 +176,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 					/>
 					<SaveNotice {...lane.noticeProps} dialogOpen={adding !== null} className="" />
 					<SaveNotice {...handoff.lane.noticeProps} dialogOpen={handoff.open} className="" />
-					<p role="status" className="text-sm text-text-2 empty:hidden">
+					<p role="status" className="text-sm text-text-2 empty:sr-only">
 						{moved}
 					</p>
 					{rows.length === 0 ? (

@@ -18,6 +18,7 @@ import {
 	DialogHeader,
 	DialogTrigger,
 	Field,
+	InlineAlert,
 	Input,
 	PageHeader,
 	SegmentedControl,
@@ -28,7 +29,6 @@ import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition, type ReactNode } from "react";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { PIPELINE_PATH } from "../board/model";
-import { Problem } from "../../../components/Problem.tsx";
 import { enroll, publishVersion, savePlan } from "./actions";
 import { rereadProgram } from "./fetch.ts";
 import { ApplyVersionsDialog, versionReviews } from "./ApplyVersions";
@@ -125,7 +125,7 @@ export function ProgramScreen({ initial, organizationId }: { initial: ProgramDet
 					<span className="text-text-2">Nobody can be enrolled until the director publishes it.</span>
 				) : null}
 			</div>
-			<Problem text={editing ? null : problem} />
+			<InlineAlert live="polite">{editing ? null : problem}</InlineAlert>
 
 			<div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-5 max-app-md:grid-cols-1">
 				<Card>
@@ -221,7 +221,7 @@ function PlanEditing({
 				</p>
 			) : null}
 			<PlanEditor value={editing} onChange={setEditing} />
-			<Problem text={problem} />
+			<InlineAlert live="polite">{problem}</InlineAlert>
 			<div className="flex flex-wrap justify-end gap-2">
 				<Button variant="ghost" onClick={onCancel} disabled={saving}>
 					Cancel
@@ -566,7 +566,7 @@ function EnrollForm({
 						<Input type="time" name="meetingTime" defaultValue={values.meetingTime} />
 					</Field>
 				</div>
-				<Problem text={saving ? null : state.problem} />
+				<InlineAlert live="polite">{saving ? null : state.problem}</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>

@@ -6,7 +6,7 @@ import { LoadableView, StatusBadge } from "@everyfield/ui/display";
 import { useState, type ReactNode } from "react";
 import { errorReference } from "../model";
 import type { BrandError, BrandView } from "../port";
-import { OFFLINE_REFERENCE, type Refusal } from "../save";
+import { LOST, refused, type Refusal } from "../save";
 import { SaveFooter, SectionBody } from "../SectionParts";
 import { SaveError } from "../SaveError";
 import { useDraft, useSettings } from "../store";
@@ -52,11 +52,6 @@ const brandRefusal = (error: BrandError): Refusal => ({
 	reference: errorReference(error),
 	code: error.code,
 });
-const OFFLINE: Refusal = {
-	message: "Everyfield could not be reached, so this may not have saved. Load the latest version to check.",
-	reference: OFFLINE_REFERENCE,
-	code: "unknown",
-};
 
 export function BrandSection() {
 	const { state, setKit, reload } = useBrand();
@@ -114,28 +109,25 @@ function BrandEditor({
 		if (blocked) return;
 		void runSave(async (sent) => {
 			const patch = patchOf(sent, saved);
-			if (Object.keys(patch).length === 0) return { ok: true, server: saved };
+			if (Object.keys(patch).length === 0) return { status: "ok", value: saved };
 			setKit(optimisticKit(kit, sent));
-			const reply = await port.brand.save({ expectedRevision: kit.revision, patch }).catch(() => null);
-			if (reply === null) {
+			const reply = await port.brand.save({ expectedRevision: kit.revision, patch }).catch(() => LOST);
+			if (reply.status !== "ok") {
 				setKit(kit);
-				return { ok: false, refusal: OFFLINE, server: saved };
-			}
-			if (reply.status === "refused") {
-				setKit(kit);
-				return { ok: false, refusal: brandRefusal(reply.error), server: saved };
+				serverChanged(saved);
+				return reply.status === "lost" ? reply : refused(brandRefusal(reply.error));
 			}
 			setKit(reply.value);
-			return { ok: true, server: formOf(reply.value) };
+			return { status: "ok", value: formOf(reply.value) };
 		});
 	};
 
 	const reset = () =>
 		runSave(async () => {
 			const reply = await port.brand.reset({ expectedRevision: kit.revision });
-			if (reply.status === "refused") return { ok: false, refusal: brandRefusal(reply.error) };
+			if (reply.status === "refused") return refused(brandRefusal(reply.error));
 			setKit(reply.value);
-			return { ok: true, server: formOf(reply.value) };
+			return { status: "ok", value: formOf(reply.value) };
 		});
 
 	const loadLatest =
