@@ -199,14 +199,13 @@ export async function mergeReviewOf(tx: WriteTx, actor: EvryActor, pair: { sourc
 	return valueOf(await peopleMerge.getMergeReview(tx, context(actor), pair));
 }
 type Review = NonNullable<Awaited<ReturnType<typeof mergeReviewOf>>>;
-const joinedOrNull = (items: string[]) => (items.length ? items.join(" ") : null);
 export const mergeNotes = (v: Review): Record<string, string> => {
 	const notes = {
-		attendanceChanges: joinedOrNull(v.attendance.map((a) => attendanceText(a, v))),
+		attendanceChanges: v.attendance.map((a) => attendanceText(a, v)).join(" "),
 		openTasks: listText(v.openTasks.map((t) => (t.dueDate ? `${t.title}, due ${dayText(t.dueDate)}` : t.title))),
 		openKitItems: listText(v.openKitItems.map((i) => `${i.text} for ${i.meeting}`)),
 	};
-	return Object.fromEntries(Object.entries(notes).filter((e): e is [string, string] => Boolean(e[1])));
+	return Object.fromEntries(Object.entries(notes).filter((e) => e[1]));
 };
 export const getMergeReview: ReadAdapter<{ sourceId: string; survivorId: string }> = {
 	operation: "people.getMergeReview",
@@ -257,14 +256,14 @@ export async function unmergePreviewOf(tx: WriteTx, actor: EvryActor, mergeId: s
 			: v.conflicts.length
 				? unmergeBlockedText(v.conflicts, who, v.changed)
 				: null;
-	const attendanceBack = joinedOrNull(
-		v.attendance.map((a) =>
+	const attendanceBack = v.attendance
+		.map((a) =>
 			attendanceText(a, {
 				source: { personId: v.sourceId, displayName: who.source },
 				survivor: { personId: v.survivorId, displayName: who.survivor },
 			}),
-		),
-	);
+		)
+		.join(" ");
 	return { ...v, names: who, blocked, attendanceBack };
 }
 const unmergeInput = z.union([

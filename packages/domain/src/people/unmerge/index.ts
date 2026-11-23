@@ -8,6 +8,7 @@ import {
 	factsOf,
 	moveRefs,
 	parseFacts,
+	participating,
 	referencesDigest,
 	updatePerson,
 	writeParticipations,
@@ -191,7 +192,7 @@ export const peopleUnmerge = {
 					if (survivor.revision !== input.expectedRevision) deny("conflict");
 					if (i.conflicts.length) deny("inverse_conflict", { causes: i.conflicts, changed: i.changed });
 					for (const [k, ids] of Object.entries(merge.moved))
-						if (k !== "tag_dropped" && k !== "participation" && k !== "participation_inviter" && ids.length)
+						if (k !== "tag_dropped" && !participating(k) && ids.length)
 							audit.writes.push(moveRefs(owner, k as Kind, ids, survivor.id, source.id));
 					if (merge.prior.participation.length)
 						audit.writes.push(writeParticipations(owner, merge.prior.participation));

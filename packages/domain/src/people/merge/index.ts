@@ -219,6 +219,7 @@ export const referencesDigest = (refs: readonly Reference[]) =>
 	);
 
 const order = c.stage.options;
+export const participating = (kind: string) => kind === "participation" || kind === "participation_inviter";
 const PRESENCE_RANK = { absent: 0, excused: 1, attended: 2 } as const;
 const answered = (rsvp: string | null | undefined): rsvp is "confirmed" | "declined" =>
 	rsvp === "confirmed" || rsvp === "declined";
@@ -512,7 +513,7 @@ export const peopleMerge = {
  revision=revision+1 WHERE id=ANY(${sql.param(a.removed)}::uuid[]) AND plant_id=${owner}::uuid`);
 					if (a.updates.length) audit.writes.push(writeParticipations(owner, a.updates));
 					for (const [k, refs] of p.byKind) {
-						if (k === "participation" || k === "participation_inviter") continue;
+						if (participating(k)) continue;
 						const ids = refs
 							.map((x) => x.id)
 							.filter(
@@ -552,12 +553,11 @@ export const peopleMerge = {
 						);
 					const sourceRevision = String(BigInt(source.revision) + 1n),
 						survivorRevision = String(BigInt(survivor.revision) + 1n);
-					const participating = (x: Reference) => x.kind === "participation" || x.kind === "participation_inviter";
 					const after = [
-						...survivor.refs.filter((x) => !participating(x)),
+						...survivor.refs.filter((x) => !participating(x.kind)),
 						...a.after,
 						...source.refs
-							.filter((x) => !participating(x))
+							.filter((x) => !participating(x.kind))
 							.filter(
 								(x) =>
 									!(x.kind === "tag" && p.droppedTags.includes(x.id)) &&
