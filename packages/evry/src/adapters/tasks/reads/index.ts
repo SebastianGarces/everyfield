@@ -130,7 +130,7 @@ async function churchToday(tx: Transaction, actor: EvryActor) {
 }
 export async function churchZone(tx: Transaction, actor: EvryActor) {
 	const r = await tx.execute(sql`SELECT pl.timezone AS zone FROM plant pl WHERE pl.id=${actor.owner.id}::uuid`);
-	return z.object({ zone: z.string() }).parse(r.rows[0]).zone;
+	return z.strictObject({ zone: z.string() }).parse(r.rows[0]).zone;
 }
 export function localTime(at: string | null, zone: string) {
 	if (!at) return null;
@@ -571,7 +571,7 @@ export const readPhaseOffer: ReadAdapter<z.infer<typeof readPhaseOfferRequest>> 
 const receiptInput = z.strictObject({
 	receiptId: id.optional().describe("One import's receipt id; omitted lists the latest imports"),
 });
-const receiptRow = z.object({
+const receiptRow = z.strictObject({
 	id: id,
 	occurred_at: z.coerce.date(),
 	kind: z.string(),

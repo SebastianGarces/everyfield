@@ -14,10 +14,11 @@ import { invitationStep } from "./scripted-invitation.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
 import { wikiEditorStep } from "./scripted-wiki-editor.ts";
 import { TASK_DATA, taskStep } from "./scripted-tasks.ts";
+import { planStep } from "./scripted-task-plan.ts";
 import { assessmentStep } from "./scripted-assessments.ts";
 import { mailStep, proposesOn } from "./scripted-mail.ts";
-import { MEMBER_PHASES } from "../catalog/catalog.ts";
 import { settingsStep } from "./scripted-settings.ts";
+import { phaseStep, SIGNAL } from "./scripted-phases.ts";
 import { captured, present } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
@@ -61,7 +62,7 @@ const systemText = (prompt: Prompt) => {
 	return m?.role === "system" ? m.content : "";
 };
 
-type Listed = { id: string; name: string; status: "available" | "replaced" | "gone"; checked: string | null };
+type Listed = { id: string; name: string; status: "available" | "replaced" | "used" | "gone"; checked: string | null };
 function attachedFiles(system: string): Listed[] {
 	const out: Listed[] = [];
 	for (const m of system.matchAll(/^- "([^"]+)" attachmentId ([0-9a-f-]{36}), attached [^\n]*? UTC: ([^\n]+)$/gm)) {
@@ -69,11 +70,55 @@ function attachedFiles(system: string): Listed[] {
 		out.push({
 			id: captured(m, 2),
 			name: captured(m, 1),
-			status: rest.startsWith("available") ? "available" : rest.startsWith("replaced") ? "replaced" : "gone",
+			status: rest.startsWith("available")
+				? "available"
+				: rest.startsWith("replaced")
+					? "replaced"
+					: rest.startsWith("used")
+						? "used"
+						: "gone",
 			checked: /checked: fileDigest ([0-9a-f]{64})/.exec(rest)?.[1] ?? null,
 		});
 	}
 	return out;
+}
+const PHOTO_ASK =
+	/\b(?:use|make|set)\s+(?:this|it|the\s+(?:photo|picture)(?:\s+I\s+[^.?!]*?)?)\s+(?:as\s+)?([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+)?)['’]s\s+(?:profile\s+)?(?:photo|picture)\b/i;
+function photoStep(text: string, system: string, result: Record<string, unknown> | null, canPropose: boolean) {
+	const asked = PHOTO_ASK.exec(text);
+	if (!asked || /^my$/i.test(captured(asked, 1))) return null;
+	const name = captured(asked, 1);
+	const say = (t: string) => [{ type: "text" as const, text: t }];
+	if (!canPropose)
+		return say("An Owner or Admin of this church has to set someone's People photo. I can't prepare it for you.");
+	const photo = attachedFiles(system).find((f) => /\.(jpe?g|png|webp)$/i.test(f.name));
+	if (result?.error === "attachment_gone" || (!result && photo && photo.status !== "available"))
+		return say(
+			photo?.status === "used"
+				? "That photo is already someone's People photo. Attach it again here to use it for someone else."
+				: "That photo is gone: attached photos last 24 hours. Please attach it again here and ask me again.",
+		);
+	if (result?.error === "attachment_elsewhere" || (!result && !photo))
+		return say("I can't see a photo in this conversation. Attach it here with the paperclip, then ask me again.");
+	if (!result) return [toolCall("people_read", { operation: "people.listPeople", input: { search: name } })];
+	if (typeof result.proposalId === "string")
+		return say(
+			`I prepared a review to make it ${name}'s People photo. Their photo stays as it is until you approve it.`,
+		);
+	if (result.operation !== "people.listPeople") return null;
+	const rows = (result.rows as { id: string; label: string }[] | undefined) ?? [];
+	if (rows.length !== 1)
+		return say(
+			rows.length
+				? `I found ${rows.length} people named ${name}. Which one do you mean?`
+				: `I can't find ${name} in this church.`,
+		);
+	return [
+		toolCall("propose_change", {
+			operation: "people.setPersonPhoto",
+			input: { personId: present(rows[0]).id, uploadId: present(photo).id },
+		}),
+	];
 }
 function fileStep(text: string, system: string, result: Record<string, unknown> | null, canPropose: boolean) {
 	const check = /\b(check|look at|review)\b.*\b(it|file|spreadsheet|csv)\b|\buploaded\b/i.test(text);
@@ -412,78 +457,6 @@ function wikiStep(
 		];
 	}
 	return null;
-}
-
-const PHASE_NOW = /\bwhat phase are we in\b/i;
-const NEXT_PHASE = /\bmove to the next phase\b/i;
-const MOVE = /\bmove us (?:back )?to ([A-Za-z &-]+?)\.?$/i;
-const SIGNAL = /\bwe started prayer and fasting\b/i;
-const CORRECT_GIVING = /\bcorrect our core group giving\b/i;
-const STILL_GIVING = /\bcore group is still giving\b/i;
-const PHASE_ASKS = [PHASE_NOW, NEXT_PHASE, MOVE, SIGNAL, CORRECT_GIVING, STILL_GIVING];
-const longDay = (date: unknown) =>
-	typeof date === "string"
-		? new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
-				month: "long",
-				day: "numeric",
-				year: "numeric",
-				timeZone: "UTC",
-			})
-		: "an unknown day";
-function phaseStep(
-	text: string,
-	options: LanguageModelV4CallOptions,
-	result: Record<string, unknown> | null,
-): LanguageModelV4Content[] | null {
-	if (!PHASE_ASKS.some((ask) => ask.test(text))) return null;
-	const has = (name: string) => options.tools?.some((t) => t.name === name) ?? false;
-	if (!has("phases_read")) return [{ type: "text", text: MEMBER_PHASES }];
-	const read = (operation: string, input: unknown = {}) => [toolCall("phases_read", { operation, input })];
-	const propose = (operation: string, input: unknown) => [toolCall("propose_change", { operation, input })];
-	if (result && typeof result.proposalId === "string")
-		return [{ type: "text", text: "I prepared a review. Nothing changes until you approve it." }];
-	const rows = (result?.rows as { id: string; label: string; fields: Record<string, unknown> }[] | undefined) ?? [];
-	if (PHASE_NOW.test(text)) {
-		if (!result) return read("phases.readHistory");
-		const current = rows.find((r) => r.id === "current");
-		return [{ type: "text", text: `You're in ${current?.label}, since ${longDay(current?.fields.since)}.` }];
-	}
-	if (NEXT_PHASE.test(text)) {
-		if (!result) return read("phases.readReadiness");
-		const head = rows.find((r) => r.id !== "current" && !("status" in r.fields));
-		const criteria = rows.filter((r) => "status" in r.fields).map((r) => `- ${r.label}: ${String(r.fields.status)}`);
-		return [
-			{
-				type: "text",
-				text: [
-					`To leave ${head?.label} for ${String(head?.fields.next)}, these are the exit criteria:`,
-					...criteria,
-					"",
-					"Moving is your call.",
-				].join("\n"),
-			},
-		];
-	}
-	const move = MOVE.exec(text);
-	if (move) {
-		if (!result) return read("phases.readCatalog");
-		const to = rows.find((r) => r.label.toLowerCase() === captured(move, 1).trim().toLowerCase());
-		if (!to) return [{ type: "text", text: `I can't find a phase called ${move[1]}.` }];
-		return propose("phases.transition", { toPhase: Number(to.id), reason: text });
-	}
-	if (!has("propose_change")) return null;
-	const today = new Date().toISOString().slice(0, 10);
-	if (SIGNAL.test(text))
-		return propose("signals.attest", { key: "prayer_rhythm_established", value: "yes", asOf: today, detail: text });
-	if (CORRECT_GIVING.test(text))
-		return propose("signals.correct", {
-			action: "correct",
-			key: "core_group_giving",
-			value: "not_yet",
-			asOf: today,
-			detail: text.replace(/^.*?:\s*/, ""),
-		});
-	return propose("signals.reaffirm", { key: "core_group_giving" });
 }
 
 const AREA: Record<string, string> = {
@@ -993,6 +966,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (options.responseFormat?.type === "json")
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
+	const plan = planStep(options, text);
+	if (plan) return plan;
 	const intelligence = intelligenceStep(options, text);
 	if (intelligence) return intelligence;
 	const invitation = invitationStep(options, text);
@@ -1024,7 +999,10 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const records = options.tools?.some((t) => t.name === "peopleAssessments_read") ?? false;
 	const assessed = assessmentStep(text, options.prompt, records, toolCall);
 	if (assessed) return assessed;
+	const phase = phaseStep(text, options, result);
+	if (phase) return phase;
 	const steps =
+		photoStep(text, system, result, canProposePeople) ??
 		limitStep(text, system, result, canProposePeople) ??
 		documentStep(text, system, result, proposesOn(options, "documents")) ??
 		fileStep(text, system, result, canProposePeople) ??
@@ -1043,8 +1021,6 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (notices) return notices;
 	const email = emailStep(text, proposesOn(options, "communication"), canReadMail, result);
 	if (email) return email;
-	const phase = phaseStep(text, options, result);
-	if (phase) return phase;
 	if (hasPeople) {
 		const imports = JSON.stringify(options.tools?.find((t) => t.name === "peopleOrganization_read") ?? {}).includes(
 			"people.getImportReceipt",

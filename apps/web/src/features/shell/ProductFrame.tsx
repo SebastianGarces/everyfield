@@ -10,7 +10,7 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useEvryPanel } from "../evry/conversation/panel.tsx";
 import { FeedbackOverlay, whenFeedbackLoaded } from "../feedback/FeedbackOverlay.tsx";
 import { OwnSeatContext } from "../identity/seat-context.ts";
-import { evryOff } from "../intelligence/path.ts";
+import { evryOff, hasCheckIn } from "../intelligence/path.ts";
 import { useNotificationBell } from "../notifications/Bell.tsx";
 import { NotificationsProvider } from "../notifications/feed.tsx";
 import { AccountMenu } from "../settings/AccountMenu";
@@ -76,7 +76,7 @@ export function ProductFrame({ settings: initial, residency = null, ...props }: 
 function Frame({ name, photo, settings, settingsDialog, seedFits, children }: FrameProps & { seedFits: boolean }) {
 	const dialog = useProductSettings(settings, seedFits);
 	const pathname = usePathname();
-	const privatePage = evryOff(pathname);
+	const privatePage = evryOff(pathname, settings);
 	const role = settings && settings.context !== "account" ? settings.role : null;
 	const evry = useEvryPanel({
 		inPlant: settings?.context === "plant",
@@ -155,7 +155,7 @@ function Frame({ name, photo, settings, settingsDialog, seedFits, children }: Fr
 					name={name}
 					detail={seat}
 					onAccount={() => dialog.open("account")}
-					checkIn={settings?.context === "plant" && role !== "member"}
+					checkIn={hasCheckIn(settings)}
 				/>
 			}
 			homeHref={

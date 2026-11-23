@@ -444,7 +444,7 @@ test("INV-email-safety: refusals and capture faults never reach the provider", a
 			json: async () => ({ data: [{ name: "verified.example.org", status: "verified" }] }),
 		};
 	};
-	const unverified = { keys: { ...keys, from: "news@unverified-church.org" }, apiKey: "re_test_key" };
+	const unverified = { keys: { ...keys, from: "news@unverified.example.org" }, apiKey: "re_test_key" };
 	try {
 		anticipateProvider(unverified);
 		await setImmediate();

@@ -627,6 +627,67 @@ test("INV-result-card-phases: the journey names the current phase and its start,
 			["Worship leader identified", "Met"],
 		],
 	);
+
+	const criteria = cardView(
+		"intelligence.readExitCriteria",
+		result("intelligence.readExitCriteria", [
+			{ kind: "phase", id: "1", label: "Core Group Development", fields: { next: "Launch Team Formation" } },
+			{
+				kind: "criterion",
+				id: "committed_adults",
+				label: "30 committed adults",
+				fields: { status: "not met", reading: "18 of 30 committed adults" },
+			},
+			{
+				kind: "criterion",
+				id: "geographic_area",
+				label: "Geographic area set",
+				fields: { status: "no data yet", reading: null },
+			},
+		]),
+		null,
+	);
+	assert.deepEqual(
+		criteria.rows.map((r) => [r.name, r.line]),
+		[
+			["Core Group Development", "Before Launch Team Formation"],
+			["30 committed adults", "Not met · 18 of 30 committed adults"],
+			["Geographic area set", "No data yet"],
+		],
+	);
+
+	const steps = cardView(
+		"intelligence.readJourney",
+		result("intelligence.readJourney", [
+			{
+				kind: "phase",
+				id: "d1",
+				label: "Launch Sunday scheduled",
+				fields: {
+					entry: "launch_date",
+					fromDate: null,
+					toDate: "2027-03-07",
+					reason: null,
+					by: "Nate",
+					on: "2026-10-01",
+				},
+			},
+			{
+				kind: "phase",
+				id: "m1",
+				label: "Core Group Development",
+				fields: { entry: "movement", direction: "forward", reason: "Weekly meetings", by: "Nate", on: "2026-08-03" },
+			},
+		]),
+		null,
+	);
+	assert.deepEqual(
+		steps.rows.map((r) => [r.name, r.line]),
+		[
+			["Launch Sunday scheduled", "to Mar 7, 2027 · Nate · Oct 1, 2026"],
+			["Moved to Core Group Development", "Weekly meetings · Nate · Aug 3, 2026"],
+		],
+	);
 });
 
 test("INV-result-card-corrections: a correction row lists each field old to new, and a row in another shape breaks nothing", async () => {
