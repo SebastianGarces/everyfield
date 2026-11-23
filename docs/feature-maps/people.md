@@ -362,12 +362,12 @@ agent-browser find role heading text --name "Nothing dismissed" --exact
 
 #### people.duplicates#merge
 
-A reviewed merge keeps the chosen details on the survivor and refuses what history blocks.
+A reviewed merge keeps the chosen details on the survivor, carries its history and refuses what would collide.
 
 - Operations: people.mergePeople, people.unmergePeople
 - Catalog: PPL-017
 - Cases: TARGET-PPL-016
-- Test: `tests/unit/people/corrections-model.test.mjs`: `AC:TARGET-PPL-016 a merge blocked by past history names what blocks it and gives no advice that cannot clear it`
+- Test: `tests/unit/people/corrections-model.test.mjs`: `AC:TARGET-PPL-016 a merge blocked by a leadership conflict names the team and both roles and says to end one first`
 - Test: `tests/integration/people/corrections/merge.test.mts`: `AC:REQ-PPL-024 a write racing a merge waits for it and never leaves a current reference on the retired source`
 - Test: `tests/integration/people/corrections/history.test.mts`: `AC:TARGET-PPL-025 a merge carries the source's follow-up, its outcome and the sent email to the survivor, refuses a stale review and repeats as the earlier result`
 

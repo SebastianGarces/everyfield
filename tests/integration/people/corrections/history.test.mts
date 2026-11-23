@@ -9,7 +9,7 @@ import { peopleMerge, peopleUnmerge, peopleWriter as people } from "../../../../
 import { followUpReader } from "../../../../packages/domain/src/followups/index.ts";
 import { communicationWriter } from "../../../../packages/domain/src/communication/index.ts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
-import { mergeBlockedText, unmergeBlockedText } from "../../../../packages/contracts/src/people/merge/copy.ts";
+import { unmergeBlockedText } from "../../../../packages/contracts/src/people/merge/copy.ts";
 
 const database = await fixture({ prefix: "t336" });
 const { admin } = database;
@@ -77,11 +77,6 @@ async function sentEmail(personId, subject = "Welcome to Synthetic") {
  clock_timestamp()-interval '2 days')`);
 	return id;
 }
-async function openTask(personId) {
-	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id)
- VALUES(${randomUUID()},${plant},'Call','general','medium','not_started',clock_timestamp(),'undated',${personId})`);
-}
-
 const HISTORY = [
 	["obligation", "person_id"],
 	["contact_outcome", "person_id"],
@@ -128,7 +123,7 @@ test("AC:TARGET-PPL-025 a merge carries the source's follow-up, its outcome and 
 		["mail", 1, "move"],
 		["obligation", 1, "move"],
 	]);
-	assert.deepEqual(r.blockers, { causes: [], references: [] });
+	assert.deepEqual(r.blockers, { causes: [], leadership: [], invitations: [] });
 	assert.deepEqual(r.openFollowUps, [{ personId: brooks, meeting: "Vision night", dueDate: "2026-11-04" }]);
 
 	const later = await outcome(brooks);
@@ -210,25 +205,6 @@ test("AC:TARGET-PPL-025 a review names both people's distinct open follow-ups, a
 			[theirs, "open"],
 		].sort(),
 	);
-});
-
-test("AC:TARGET-PPL-017 history another domain owns still blocks the review and the confirm with the People copy, naming only what still blocks", async () => {
-	const s = await person("Riley Stone"),
-		k = await person("Riley Stone Keep");
-	await followUp(s, "Blocked night", "2026-11-01", "2026-11-04");
-	await outcome(s);
-	await sentEmail(s);
-	await openTask(s);
-	const state = { people: await people_(s, k), history: await historyOf(s, k) };
-	const r = ok(await review(s, k));
-	assert.deepEqual(r.blockers, { causes: ["unregistered_reference"], references: ["task"] });
-	assert.equal(
-		mergeBlockedText(r.blockers, { source: "Riley Stone", survivor: "Riley Stone Keep" }),
-		"This merge cannot run. Riley Stone has tasks on record. Merging people with this history is not available in Everyfield yet.",
-	);
-	const error = refused(await mergeWith(s, k, r.reviewDigest), "merge_blocked");
-	assert.deepEqual(error.details, { causes: ["unregistered_reference"], references: ["task"] });
-	assert.deepEqual({ people: await people_(s, k), history: await historyOf(s, k) }, state);
 });
 
 test("AC:TARGET-PPL-025 Unmerge returns moved follow-ups and outcomes exactly, and keeps the merge and the Unmerge in history", async () => {
