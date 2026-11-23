@@ -155,10 +155,8 @@ export function createReviewStore(init: {
 			}
 		};
 
-		const left = () => get().churchChanged || port.church.changed();
-
 		const read = async () => {
-			if (left()) return null;
+			if (port.church.changed()) return null;
 			const g = generation;
 			const reply = await port.readReview(id);
 			if (g !== generation) return null;
@@ -181,7 +179,7 @@ export function createReviewStore(init: {
 			const readAgainLater = () => {
 				pollTimer = setTimeout(async () => {
 					const reply = await read();
-					if (poll === run && !left() && reply?.status !== "refused") readAgainLater();
+					if (poll === run && !port.church.changed() && reply?.status !== "refused") readAgainLater();
 				}, pollDelay(attempt++));
 			};
 			readAgainLater();
@@ -209,7 +207,7 @@ export function createReviewStore(init: {
 
 		const sync = () => {
 			const state = view();
-			const watched = readers > 0 && !left();
+			const watched = readers > 0 && !port.church.changed();
 
 			const review = state.review;
 			const counting = phaseNow(state) === "pending" || phaseNow(state) === "unconfirmed";
