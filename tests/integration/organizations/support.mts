@@ -86,7 +86,7 @@ export const effects = {
 	},
 	invalidate: (_c: WriteTx, v: { sourceId: string }) => supersedeDigests(v.sourceId),
 };
-export const api = createOrganizationAdapter(effects, { candidates: async () => [] });
+export const api = createOrganizationAdapter(effects, { candidates: () => sql`SELECT NULL::uuid WHERE false` });
 export const command = (input: unknown, expectedRevision = "1", requestKey = randomUUID()) => ({
 	requestKey,
 	expectedRevision,
