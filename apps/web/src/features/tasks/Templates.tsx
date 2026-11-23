@@ -1,6 +1,6 @@
 "use client";
 
-import { counted } from "@everyfield/contracts/common";
+import { counted, dateText } from "@everyfield/contracts/common";
 import { ArrowLeft01Icon, CheckListIcon } from "@hugeicons/core-free-icons";
 import { Alert, Button, Sheet, Skeleton, StatePanel, toast } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
@@ -14,7 +14,6 @@ import { loadPreview, loadTemplates } from "./fetch.ts";
 import {
 	CATEGORY_LABEL,
 	checklistGroups,
-	dayText,
 	PRIORITY_LABEL,
 	problemText,
 	type Outcome,
@@ -257,7 +256,7 @@ function PreviewBody({
 			<p className="text-md text-ink">{k.description}</p>
 			<p className="text-sm text-text-2" role="status">
 				Adds {counted(k.tasks.length, "task")} to your list, assigned to you, due from today (
-				{dayText(shown.anchorDate, year)}). Adding it again later adds another copy.
+				{dateText(shown.anchorDate, year)}). Adding it again later adds another copy.
 			</p>
 			{problem ? (
 				<Alert tone="neutral" role="alert">
@@ -274,7 +273,7 @@ function PreviewBody({
 							<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
 								<span className="font-medium text-ink">{t.title}</span>
 								<span className="text-sm whitespace-nowrap text-text-2">
-									{PRIORITY_LABEL[t.priority]} · Due {dayText(t.due, year)}
+									{PRIORITY_LABEL[t.priority]} · Due {dateText(t.due, year)}
 								</span>
 							</div>
 							{t.description ? <DescriptionView value={t.description} /> : null}

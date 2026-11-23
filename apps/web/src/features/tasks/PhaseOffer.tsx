@@ -1,6 +1,6 @@
 "use client";
 
-import { counted } from "@everyfield/contracts/common";
+import { counted, dateText } from "@everyfield/contracts/common";
 import { BookOpen01Icon, CheckListIcon } from "@hugeicons/core-free-icons";
 import { Alert, Button, Card, CardTitle, Checkbox, IntentLink, toast } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
@@ -9,7 +9,6 @@ import { answerOffer } from "./actions.ts";
 import { loadOffer } from "./fetch.ts";
 import {
 	CATEGORY_LABEL,
-	dayText,
 	problemText,
 	type OfferAnswered,
 	type OpenOffer,
@@ -97,7 +96,7 @@ export function PhaseOffer({
 	return (
 		<Card as="section" aria-labelledby={titleId} className="mb-5 gap-4">
 			<div>
-				<p className="text-sm text-text-3">Moved on {dayText(offer.transition.anchorDate, year)}</p>
+				<p className="text-sm text-text-3">Moved on {dateText(offer.transition.anchorDate, year)}</p>
 				<CardTitle id={titleId} size="sm" className="mt-1">
 					Checklists for {phaseName(offer.transition.toPhase)}
 				</CardTitle>
@@ -123,7 +122,7 @@ export function PhaseOffer({
 								{k.tasks.map((t) => (
 									<li key={t.key} className="flex flex-wrap justify-between gap-x-3 text-sm">
 										<span className="text-ink">{t.title}</span>
-										<span className="whitespace-nowrap text-text-3">Due {dayText(t.due, year)}</span>
+										<span className="whitespace-nowrap text-text-3">Due {dateText(t.due, year)}</span>
 									</li>
 								))}
 							</ol>

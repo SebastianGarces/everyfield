@@ -1,10 +1,10 @@
+import { dayText } from "@everyfield/contracts/common";
 import * as C from "@everyfield/contracts/oversight";
 import { getPlant, listPlants, placedIn, readIntelligence, readLocationHistory } from "@everyfield/domain/oversight";
 import { z } from "zod";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { organizationSeat } from "../../native.ts";
-import { dayText } from "../../pipeline/reads/index.ts";
 
 const NOT_SHARED = "Not shared";
 const HEALTH: Record<C.Health, string> = {

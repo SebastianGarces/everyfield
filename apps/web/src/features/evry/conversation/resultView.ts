@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { counted, timeText } from "@everyfield/contracts/common";
+import { counted, dayText, localDate, timeText } from "@everyfield/contracts/common";
 import { fourCs, interviewCriteria } from "@everyfield/contracts/people";
 import { correctedFieldLabel, correctedValueText } from "../../people/corrections/model.ts";
 import { fieldLabel, LEFT_OUT_REASON, sendTimeShort, valueText } from "../review/model.ts";
@@ -903,15 +903,11 @@ const SIGNAL_KIND: Record<string, string> = {
 const ANSWER: Record<string, string> = { yes: "Yes", not_yet: "Not yet" };
 const categoryText = (value: unknown) =>
 	typeof value === "string" ? (CATEGORY_TEXT[value as keyof typeof CATEGORY_TEXT]?.label ?? words(value)) : null;
+const civilDay = (value: unknown) =>
+	typeof value === "string" && localDate.safeParse(value).success ? dayText(value) : null;
 const day = (value: unknown) => {
 	const local = typeof value === "string" ? /^(\d{4}-\d{2}-\d{2}) \d{2}:\d{2} /.exec(value) : null;
-	if (local)
-		return new Date(`${local[1]}T12:00:00Z`).toLocaleDateString("en-US", {
-			month: "short",
-			day: "numeric",
-			year: "numeric",
-			timeZone: "UTC",
-		});
+	if (local) return civilDay(local[1]);
 	const at = typeof value === "string" ? new Date(value) : null;
 	return at && !Number.isNaN(at.getTime())
 		? at.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
@@ -1240,7 +1236,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 							`Training ${percent(fields.trainingPercent) ?? "unknown"}`,
 							`Attendance ${percent(fields.attendancePercent) ?? "unknown"}`,
 							typeof fields.windowFrom === "string" && typeof fields.windowTo === "string"
-								? `${day(fields.windowFrom + "T12:00:00Z")} – ${day(fields.windowTo + "T12:00:00Z")}`
+								? `${civilDay(fields.windowFrom)} – ${civilDay(fields.windowTo)}`
 								: null,
 						)
 					: null;
@@ -1292,8 +1288,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 				line: joined(
 					text(fields.team),
 					text(fields.filledBy) ? `Filled by ${fields.filledBy}` : null,
-					text(fields.since) ? `Since ${day(fields.since + "T12:00:00Z")}` : null,
-					text(fields.ended) ? `Ended ${day(fields.ended + "T12:00:00Z")}` : null,
+					text(fields.since) ? `Since ${civilDay(fields.since)}` : null,
+					text(fields.ended) ? `Ended ${civilDay(fields.ended)}` : null,
 				),
 				mark:
 					fields.open === true
@@ -1329,7 +1325,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: row.label,
-				line: text(fields.doneOn) ? `Done ${day(fields.doneOn + "T12:00:00Z")}` : null,
+				line: text(fields.doneOn) ? `Done ${civilDay(fields.doneOn)}` : null,
 				mark: fields.done === true ? { kind: "status", text: "Done", warn: false } : null,
 				avatar: "responsibility",
 			};
@@ -1533,10 +1529,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 					name: row.label,
 					line: text(fields.startsAt)
 						? text(fields.startsAt)
-						: joined(
-								day(String(fields.date) + "T12:00:00Z"),
-								text(fields.status) ? words(String(fields.status)) : null,
-							),
+						: joined(civilDay(fields.date), text(fields.status) ? words(String(fields.status)) : null),
 					avatar: "meeting",
 					href: `/meetings/${row.id}`,
 				};
@@ -1684,7 +1677,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 				line: joined(
 					text(fields.type),
 					fields.archived === true ? "Archived" : null,
-					text(fields.updatedOn) ? `Changed ${day(`${fields.updatedOn}T12:00:00Z`)}` : null,
+					text(fields.updatedOn) ? `Changed ${civilDay(fields.updatedOn)}` : null,
 				),
 				avatar: "document",
 				href: text(fields.link),
@@ -1769,7 +1762,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			name: row.label,
 			line: joined(
 				text(fields.stage),
-				typeof fields.lastMovedOn === "string" ? `Last moved ${day(`${fields.lastMovedOn}T12:00:00Z`)}` : null,
+				typeof fields.lastMovedOn === "string" ? `Last moved ${civilDay(fields.lastMovedOn)}` : null,
 				typeof fields.responsible === "string" ? `With ${fields.responsible}` : null,
 			),
 			mark: null,
@@ -1877,7 +1870,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 										: String(fields.role)
 									: null,
 								text(fields.currentMinistries),
-								text(fields.ended) ? `Ended ${day(fields.ended + "T12:00:00Z")}` : null,
+								text(fields.ended) ? `Ended ${civilDay(fields.ended)}` : null,
 							),
 			mark:
 				typeof fields.complete === "string"
@@ -2056,11 +2049,11 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 			return joined(typeof f.category === "string" ? words(f.category) : null, text(f.assignee));
 		case "meetings.attendanceTrend":
 			return joined(
-				day(`${String(f.date)}T12:00:00Z`),
+				civilDay(f.date),
 				f.attended === "not recorded" ? "Not recorded" : `${String(f.attended)} attended`,
 			);
 		case "meetings.evaluationTrend":
-			return joined(day(`${String(f.date)}T12:00:00Z`), `Average ${String(f.average)}`);
+			return joined(civilDay(f.date), `Average ${String(f.average)}`);
 		case "meetings.getEvaluation":
 			return f.recorded === false ? "No evaluation recorded yet" : `Average ${String(f.average)} of 5`;
 		case "meetings.listCompletedPreLaunchPractices":
@@ -2204,8 +2197,8 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 	if (operation === "pipeline.listPeople" && typeof totals.asOf === "string")
 		facts.push(
 			typeof totals.measured === "string"
-				? `As of ${day(`${totals.asOf}T12:00:00Z`)}. ${totals.measured}`
-				: `As of ${day(`${totals.asOf}T12:00:00Z`)}.`,
+				? `As of ${civilDay(totals.asOf)}. ${totals.measured}`
+				: `As of ${civilDay(totals.asOf)}.`,
 		);
 	if (operation === "launch.readDebrief" && totals.recorded === true)
 		facts.push(

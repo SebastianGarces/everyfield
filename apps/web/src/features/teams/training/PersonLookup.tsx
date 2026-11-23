@@ -1,6 +1,6 @@
 "use client";
 
-import { counted } from "@everyfield/contracts/common";
+import { counted, dayText } from "@everyfield/contracts/common";
 import { Certificate01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -18,7 +18,6 @@ import { useState } from "react";
 import { localToday } from "../../../components/clock.ts";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { PersonPicker } from "../../meetings/dialogs.tsx";
-import { dayText } from "../model.ts";
 import { loadPersonTraining } from "../fetch.ts";
 import {
 	latestByProgram,

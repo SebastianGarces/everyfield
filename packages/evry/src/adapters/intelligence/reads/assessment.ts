@@ -1,3 +1,4 @@
+import { dayText } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/intelligence";
 import type { Transaction } from "@everyfield/db/client";
 import { createAssessments, createFacts } from "@everyfield/domain/intelligence";
@@ -6,7 +7,6 @@ import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/type
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { plantAdmin } from "../../native.ts";
-import { dayText } from "../../pipeline/reads/index.ts";
 
 const assessments = createAssessments();
 const facts = createFacts();

@@ -1,4 +1,4 @@
-import { counted, localDate, type Outcome } from "@everyfield/contracts/common";
+import { counted, dayText, localDate, type Outcome } from "@everyfield/contracts/common";
 import type {
 	AssessedCriterion,
 	Assessment,
@@ -13,9 +13,6 @@ export type ActionOutcome<T> =
 	Outcome<T, AssessmentError["code"], { error: AssessmentError }> | { status: "signed_out" };
 
 type Status = "positive" | "measured" | "attention" | "risk" | "unknown";
-
-export const dayText = (d: string) =>
-	new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${d}T12:00:00Z`));
 
 export function factText(value: string | number | boolean | number[] | null): string {
 	if (value === null) return "Unknown";

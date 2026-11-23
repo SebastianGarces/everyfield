@@ -1,5 +1,5 @@
 "use client";
-import { counted } from "@everyfield/contracts/common";
+import { counted, dayText } from "@everyfield/contracts/common";
 import type { Outcome } from "@everyfield/contracts/common";
 
 import {
@@ -74,7 +74,6 @@ import {
 import { TrainingTab } from "./training/TrainingTab.tsx";
 import {
 	changedFields,
-	dayText,
 	asPersonId,
 	asRecordId,
 	asRevision,
