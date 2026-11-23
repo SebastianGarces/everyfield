@@ -24,13 +24,12 @@ const deletionRequest = {
 };
 export const deletionStatus = z
 	.discriminatedUnion("status", [
-		z.strictObject({ status: z.literal("active") }),
 		z.strictObject({ status: z.literal("pending_deletion"), ...deletionRequest }),
 		z.strictObject({ status: z.literal("cancelled"), ...deletionRequest, cancelledAt: instant }),
 		z.strictObject({ status: z.literal("purging"), ...deletionRequest }),
 		z.strictObject({ status: z.literal("purged"), ...deletionRequest, livePurgedAt: instant, copyExpiresAt: instant }),
 	])
-	.refine((v) => v.status === "active" || Date.parse(v.cancelUntil) === Date.parse(v.requestedAt) + 30 * 86400000, {
+	.refine((v) => Date.parse(v.cancelUntil) === Date.parse(v.requestedAt) + 30 * 86400000, {
 		message: "invalid_cancellation_deadline",
 	})
 	.refine((v) => v.status !== "cancelled" || (v.cancelledAt >= v.requestedAt && v.cancelledAt < v.cancelUntil), {

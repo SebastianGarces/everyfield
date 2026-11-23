@@ -244,6 +244,21 @@ const VIEWS: Record<string, OpView> = {
 		shownOnly: true,
 		empty: "This phase has no exit criteria.",
 	},
+	"intelligence.readExitCriteria": {
+		title: "Exit criteria",
+		noun: ["criterion", "criteria"],
+		icon: "criterion",
+		counts: "criterion",
+		shownOnly: true,
+		empty: "This phase has no exit criteria.",
+	},
+	"intelligence.readJourney": {
+		title: "Journey",
+		noun: ["step", "steps"],
+		icon: "phase",
+		counts: "phase",
+		empty: "This church's journey is not available.",
+	},
 	"signals.listDefinitions": {
 		title: "Signals",
 		noun: ["signal", "signals"],
@@ -411,6 +426,21 @@ const VIEWS: Record<string, OpView> = {
 		noun: ["pattern", "patterns"],
 		icon: "item",
 		empty: "No pattern: each needs two or more plants with the same finding.",
+	}),
+	"organizationIntelligence.readHistory": items("Network Intelligence by place", {
+		noun: ["row", "rows"],
+		icon: "item",
+		empty: "Network Intelligence hasn't run yet.",
+	}),
+	"organizationIntelligence.readLocations": items("Where your plants are", {
+		noun: ["plant", "plants"],
+		icon: "item",
+		empty: "No plant is linked to this organization yet.",
+	}),
+	"organizationIntelligence.readLocationHistory": items("Saved locations", {
+		noun: ["location", "locations"],
+		icon: "item",
+		empty: "That plant has no saved location here.",
 	}),
 	"development.draftPlan": {
 		title: "Who can direct a program",
@@ -853,6 +883,7 @@ const ENTRY: Record<string, string> = {
 	initial_declaration: "Declared as",
 	movement: "Moved to",
 	launch_sunday: "Held",
+	launch_date: "",
 };
 const CRITERION: Record<string, string> = {
 	Met: "Met",
@@ -1448,12 +1479,17 @@ function rowView(operation: string, row: SourceRow): RowView {
 			if (typeof fields.entry === "string")
 				return {
 					...plain,
-					name: `${ENTRY[fields.entry] ?? words(fields.entry)} ${row.label}`,
-					line: joined(text(fields.reason), text(fields.by), phaseDay(fields.on)),
+					name: `${ENTRY[fields.entry] ?? words(fields.entry)} ${row.label}`.trim(),
+					line: joined(
+						phaseDay(fields.toDate) ? `to ${phaseDay(fields.toDate)}` : null,
+						text(fields.reason),
+						text(fields.by),
+						phaseDay(fields.on),
+					),
 					mark: fields.direction === "backward" ? { kind: "status", text: "Backward", warn: true } : null,
 					avatar: "phase",
 				};
-			if (operation === "phases.readReadiness")
+			if (operation === "phases.readReadiness" || operation === "intelligence.readExitCriteria")
 				return {
 					...plain,
 					name: row.label,
@@ -1470,7 +1506,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 		}
 		case "criterion": {
 			const status = CRITERION[String(fields.status)];
-			return { ...plain, name: row.label, line: status ?? null, avatar: "criterion" };
+			return { ...plain, name: row.label, line: joined(status ?? null, text(fields.reading)), avatar: "criterion" };
 		}
 		case "signal":
 			if (operation === "signals.getHistory")
@@ -1537,7 +1573,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "item":
 			return {
 				...plain,
-				href: /^(dashboard|feedback)\./.test(operation) ? text(fields.href) : null,
+				href: /^(dashboard|feedback|organizationIntelligence)\./.test(operation) ? text(fields.href) : null,
 				name: row.label,
 				line: itemLine(operation, fields),
 				mark: itemMark(operation, fields),
@@ -2056,6 +2092,20 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 			return joined(`People ${String(f.people)}`, `Tasks ${String(f.tasks)}`, `Launch ${String(f.launch)}`);
 		case "organizationIntelligence.read":
 			return joined(text(f.group), text(f.plants));
+		case "organizationIntelligence.readHistory":
+			return f.row === "run"
+				? f.latest
+					? "Latest run"
+					: "Earlier run"
+				: joined(text(f.change), text(f.level), text(f.group), text(f.plants), text(f.noPattern));
+		case "organizationIntelligence.readLocations":
+			return joined(
+				[f.city, f.stateProvince, f.country].filter((x) => typeof x === "string" && x).join(", ") || null,
+				text(f.region),
+				f.findings === "Not shared" ? "Not shared" : null,
+			);
+		case "organizationIntelligence.readLocationHistory":
+			return joined(text(f.region), text(f.effective) ? `From ${String(f.effective)}` : null);
 		case "launch.readCountdown":
 			return joined(
 				text(f.status),

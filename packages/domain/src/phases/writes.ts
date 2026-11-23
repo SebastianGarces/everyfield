@@ -102,7 +102,7 @@ const recipientRow = z.object({
 
 export function createPhaseWriter(config: { notices: PhaseNotices }) {
 	return {
-		async declare(db: Database, authority: RequestActor, raw: unknown) {
+		async declare(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const scope = scopeOf(authority);
 				const q = parse(c.declareRequest, raw);
@@ -133,7 +133,7 @@ export function createPhaseWriter(config: { notices: PhaseNotices }) {
 			});
 		},
 
-		async transition(db: Database, authority: RequestActor, raw: unknown) {
+		async transition(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const scope = scopeOf(authority);
 				const q = parse(c.transitionRequest, raw);

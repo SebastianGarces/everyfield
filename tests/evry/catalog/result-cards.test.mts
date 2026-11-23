@@ -211,6 +211,8 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"phases.readCatalog": {},
 	"phases.readHistory": {},
 	"phases.readReadiness": {},
+	"intelligence.readExitCriteria": {},
+	"intelligence.readJourney": {},
 	"signals.listDefinitions": {},
 	"signals.getHistory": {},
 	"meetings.list": { window: "upcoming" },
@@ -272,6 +274,8 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 			["intelligence.readAssessmentDelta", "owner"],
 			["oversight.listPlants", "director"],
 			["organizationIntelligence.read", "director"],
+			["organizationIntelligence.readHistory", "director"],
+			["organizationIntelligence.readLocations", "director"],
 		].map(([op, who]) => [
 			op,
 			async () => {
@@ -285,6 +289,17 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 			},
 		]),
 	),
+	"organizationIntelligence.readLocationHistory": async () => {
+		const ch = await oversightChurch();
+		return invokeRead(
+			ch.db,
+			await oversightActor("director"),
+			adapters.get("organizationIntelligence.readLocationHistory")!,
+			{
+				plantId: ch.plants["Harvest Point"]!.id,
+			},
+		);
+	},
 	"oversight.getPlant": async () => {
 		const ch = await oversightChurch();
 		return invokeRead(ch.db, await oversightActor("director"), adapters.get("oversight.getPlant")!, {
