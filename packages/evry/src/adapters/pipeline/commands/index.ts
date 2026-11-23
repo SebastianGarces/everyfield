@@ -1,3 +1,4 @@
+import { counted } from "@everyfield/contracts/common";
 import { sql } from "@everyfield/db/query";
 import { programKind, programPlan, programRhythm, type ProgramDetail } from "@everyfield/contracts/organizations";
 import { pipelineWriter, programWriter, readProgram } from "@everyfield/domain/organizations";
@@ -57,8 +58,7 @@ const planInput = z.strictObject({
 		)
 		.max(100),
 });
-const monthsText = (n: number) => `${n} ${n === 1 ? "month" : "months"}`;
-const rangeText = (min: number, max: number) => (min === max ? monthsText(min) : `${min}–${monthsText(max)}`);
+const rangeText = (min: number, max: number) => (min === max ? counted(min, "month") : `${min}–${counted(max, "month")}`);
 
 export const saveProgram = approvedNow({
 	operation: "development.saveProgram",
@@ -90,7 +90,7 @@ export const saveProgram = approvedNow({
 		return sql`SELECT jsonb_build_object('target',${target("organization", sql`o.id`, sql`${value.name}::text`)},
 				'changes',jsonb_build_array(${after("programKind", KIND_TEXT[value.kind])},${after("name", value.name)},
 					jsonb_build_object('field','director','before',NULL,'after',coalesce(i.display_name,'Staff')),
-					${after("expectedLength", monthsText(value.expectedMonths))},${after("rhythm", RHYTHM_TEXT[value.rhythm])},
+					${after("expectedLength", counted(value.expectedMonths, "month"))},${after("rhythm", RHYTHM_TEXT[value.rhythm])},
 					${after(
 						"stages",
 						value.stages.map((s) => `${s.label}, ${rangeText(s.minMonths, s.maxMonths)}`),
@@ -180,8 +180,8 @@ export function nextVersionReview(program: ProgramDetail, value: NextPlan) {
 			? [
 					{
 						field: "expectedLength",
-						before: monthsText(base.expectedMonths),
-						after: monthsText(value.plan.expectedMonths),
+						before: counted(base.expectedMonths, "month"),
+						after: counted(value.plan.expectedMonths, "month"),
 					},
 				]
 			: []),
@@ -213,7 +213,7 @@ export function nextVersionReview(program: ProgramDetail, value: NextPlan) {
 	const stays = [
 		...(base.rhythm === value.plan.rhythm ? [`Meets: ${RHYTHM_TEXT[base.rhythm]}`] : []),
 		...(base.expectedMonths === value.plan.expectedMonths
-			? [`Expected length: ${monthsText(base.expectedMonths)}`]
+			? [`Expected length: ${counted(base.expectedMonths, "month")}`]
 			: []),
 		...(sameStages ? [`Stages: ${list(base.stages.map(stageText))}`] : []),
 		...(same.length

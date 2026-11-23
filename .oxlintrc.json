@@ -77,6 +77,18 @@
 			}
 		},
 		{
+			"files": [
+				"packages/contracts/src/**",
+				"packages/db/src/**",
+				"packages/domain/src/**",
+				"packages/evry/src/**",
+				"packages/reference/src/**"
+			],
+			"rules": {
+				"everyfield/count-text": "error"
+			}
+		},
+		{
 			"files": ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
 			"rules": {
 				"constructor-super": "off",
