@@ -1,11 +1,11 @@
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { randomBytes } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { authorizeTaskReminders, reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
-import { claimDue, finishClaim, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue, finishClaim, queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -44,7 +44,7 @@ import {
 import { createOnboardingProducer, withOnboardingWrite } from "../../../packages/domain/src/onboarding/index.ts";
 import { withSettingsWrite } from "../../../packages/domain/src/settings/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/sections.ts";
-import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
 import { readPair, readRecords, readUnmerge } from "../../../apps/web/src/features/people/corrections/server.ts";
 import { listMessages } from "../../../packages/evry/src/adapters/communication/reads/index.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";

@@ -4,7 +4,7 @@ import { appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import { captureResult, statementStep } from "./kinds.cjs";
+import { captureResult, repeatedShapes, statementShape, statementStep } from "./kinds.cjs";
 
 const root = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 const require = createRequire(root + "/packages/domain/package.json");
@@ -73,7 +73,7 @@ const standalone = {
 	],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
 	"/packages/domain/src/oversight/intelligence.ts": ["requestIntelligenceRefresh", "submitIntelligenceFeedback"],
-	"/apps/web/src/server/jobs/queue.ts": [
+	"/packages/domain/src/jobs/queue.ts": [
 		"enqueueJob",
 		"enqueueJobs",
 		"claimDue",
@@ -82,9 +82,9 @@ const standalone = {
 		"checkpoint",
 		"scanPage",
 	],
-	"/apps/web/src/server/jobs/mail.ts": ["claimUnknownMail"],
-	"/apps/web/src/server/jobs/webhook.ts": ["applyMailCallback", "applyStoredCallback"],
-	"/apps/web/src/server/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
+	"/packages/domain/src/jobs/mail.ts": ["claimUnknownMail"],
+	"/packages/domain/src/jobs/webhook.ts": ["applyMailCallback", "applyStoredCallback"],
+	"/packages/domain/src/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
 };
 
 function outcomeVariant(input) {
@@ -95,7 +95,7 @@ function outcomeVariant(input) {
 }
 
 export async function measure(name, body, options = {}) {
-	const frame = { name, count: 0, writes: 0, rollbacks: 0, kinds: {}, steps: [] };
+	const frame = { name, count: 0, writes: 0, rollbacks: 0, kinds: {}, steps: [], shapes: new Map() };
 	const parent = frames.getStore()?.at(-1);
 	if (parent && parent.first === undefined) parent.first = name;
 	return frames.run([...(frames.getStore() ?? []), frame], async () => {
@@ -106,10 +106,18 @@ export async function measure(name, body, options = {}) {
 			status = result?.status ?? "returned";
 			return result;
 		} finally {
-			const { first, last, steps, ...measured } = frame;
+			const { first, last, steps, shapes, ...measured } = frame;
 			const counts = measured.writes > 0 ? { ...measured, steps } : measured;
 			const label = options.byFirst && first ? frame.name + ":" + first : frame.name;
-			emit({ kind: "sample", ...counts, name: label, status, ms: Math.round(performance.now() - started) });
+			const repeats = repeatedShapes(shapes);
+			emit({
+				kind: "sample",
+				...counts,
+				...(Object.keys(repeats).length ? { repeats } : {}),
+				name: label,
+				status,
+				ms: Math.round(performance.now() - started),
+			});
 		}
 	});
 }
@@ -149,9 +157,11 @@ export function observeDatabase(db) {
 			const values = (typeof args[0] === "string" ? undefined : args[0]?.values) ?? args[1];
 			const id = proc + ":" + issued++;
 			const store = frames.getStore() ?? [];
+			const shape = statementShape(text);
 			for (const frame of store) {
 				const step = statementStep(text, values, frame.last);
 				frame.count++;
+				if (step.kind !== "transaction") frame.shapes.set(shape, (frame.shapes.get(shape) ?? 0) + 1);
 				frame.kinds[step.kind] = (frame.kinds[step.kind] ?? 0) + 1;
 				if (step.kind === "write") frame.writes++;
 				if (/^\s*ROLLBACK|^BEGIN \/\* evf:retry \*\//i.test(text)) frame.rollbacks++;
@@ -175,10 +185,10 @@ function measureWrapper(name, body) {
 }
 globalThis.__evfWriteCounts = { measure, measureWrapper, decorate, observeDatabase };
 
-export function instrument(path, source, listed = standalone) {
+export function instrument(path, source, listed) {
 	const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true),
 		edits = [];
-	const names = listed[path.slice(root.length)] ?? [],
+	const names = (listed ?? standalone)[path.slice(root.length)] ?? [],
 		declared = new Set();
 	const localAliases = path.endsWith("/jobs/notifications.ts") ? { enqueueMany: "notifications.enqueueMany" } : {};
 	function walk(n) {

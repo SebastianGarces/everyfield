@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 
-import { runDueObjectCleanup } from "../../../../apps/web/src/server/jobs/object-cleanup.ts";
+import { runDueObjectCleanup } from "../../../../packages/domain/src/jobs/object-cleanup.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
 import {
@@ -96,9 +96,12 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 	const foreign = ok(await create("Northside", null, 2)).tag;
 	assert.notEqual(foreign.id, north.tag.id);
 	refused(await create("Northside", null, 1));
-	const raced = await Promise.all([create("Welcome", null), create(" welcome ", null)]);
-	assert.deepEqual(raced.map((r) => ok(r).outcome).sort(), ["changed", "noop"]);
-	assert.equal(new Set(raced.map((r) => ok(r).tag.id)).size, 1);
+	const racers = ["Welcome", " welcome "];
+	const raced = (await Promise.all(racers.map((name) => create(name, null)))).map((r) => ok(r));
+	assert.deepEqual(raced.map((r) => r.outcome).sort(), ["changed", "noop"]);
+	assert.equal(new Set(raced.map((r) => r.tag.id)).size, 1);
+	const welcome = racers[raced.findIndex((r) => r.outcome === "changed")].trim();
+	assert.equal(raced.find((r) => r.outcome === "changed").tag.name, welcome);
 	const renamed = ok(
 		await write(0, async (t, c) =>
 			fields.updateTag(t, c, {
@@ -129,6 +132,16 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 		),
 		"conflict",
 	);
+	const elsewhere = ok(
+		await write(2, async (t, c) =>
+			fields.updateTag(t, c, {
+				requestKey: key(),
+				expectedRevision: foreign.revision,
+				input: { tagId: foreign.id, name: "Family" },
+			}),
+		),
+	);
+	assert.deepEqual([elsewhere.outcome, elsewhere.tag.name], ["changed", "Family"]);
 
 	const assign = { requestKey: key(), input: { personId: alex.id, tagId: north.tag.id } };
 	ok(
@@ -183,7 +196,7 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 		[
 			["family", 1],
 			["North  side", 1],
-			["Welcome", 0],
+			[welcome, 0],
 		],
 	);
 	const activity = ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId: jamie.id }))).items;
@@ -360,11 +373,12 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 	refused(await propagate(preview.household.revision), "conflict");
 	assert.equal((await rows(sql`SELECT street FROM person WHERE id=${sql.param(casey.id)}`))[0].street, "1 Own St");
 	refused(await propagate(edited.household.revision, reviewed.slice(1)), "conflict");
+	const caseyRevision = await revisionOf(casey.id);
 	ok(
 		await write(0, async (t, c) =>
 			people.updatePerson(t, c, {
 				requestKey: key(),
-				expectedRevision: await revisionOf(casey.id),
+				expectedRevision: caseyRevision,
 				input: { personId: casey.id, patch: { street: "2 New St" } },
 			}),
 		),

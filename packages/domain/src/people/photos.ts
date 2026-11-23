@@ -29,14 +29,14 @@ const photoRow = z.object({ allowed: z.boolean(), id: z.uuid().nullable(), photo
 
 export async function readPersonPhotos(db: Database, ctx: PeopleReadContext, raw: unknown) {
 	return readReply(async () => {
-		if (ctx.selected.kind !== "plant") deny();
+		if (ctx.selected.kind !== "plant") deny("unavailable");
 		const { personIds } = parse(c.personPhotosRequest, raw);
 		const { gate } = authorizeCachedRead(ctx);
 		const result = await db.execute(sql`SELECT g.allowed, x.id, x.photo FROM (SELECT ${gate} AS allowed) g
 			LEFT JOIN LATERAL (SELECT p.id, ${personAliasPhoto} AS photo FROM person p
 				WHERE g.allowed AND p.plant_id=${ctx.selected.id}::uuid AND p.id = ANY(${sql.param(personIds)}::uuid[])) x ON true`);
 		const rows = result.rows.map((r) => photoRow.parse(r));
-		if (!rows[0]?.allowed) deny();
+		if (!rows[0]?.allowed) deny("unavailable");
 		return c.personPhotos.parse({
 			photos: rows.flatMap((r) => (r.id && r.photo ? [{ personId: r.id, photo: r.photo }] : [])),
 		});

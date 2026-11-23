@@ -67,6 +67,8 @@ const stubs: Record<string, string> = {
 		export const viewerOf = async () => { state.domain.push(["viewerOf"]); return state.viewer; };
 		export const invitationFor = async (_m, _a, _v, invitationId, proof) => {
 			state.domain.push(["invitationFor", invitationId, proof]);
+			if (proof === "Expired-proof")
+				return { status: "expired", pair: ${JSON.stringify(pair)}, inviterDescription: "Ana", expiredAt: "2026-11-01T00:00:00.000Z" };
 			return proof === ${JSON.stringify(PROOF)}
 				? { invitationId, revision: "1", pair: ${JSON.stringify(pair)}, inviterDescription: "Ana", expiresAt: "2026-12-01T00:00:00.000Z" }
 				: null;
@@ -144,7 +146,7 @@ test("the read and the answer send the proof only in the route's body, never in 
 	]);
 });
 
-test("the route answers the read as the page did: signed out, unavailable or the request", async () => {
+test("the route answers the read as the page did: signed out, unavailable, expired or the request", async () => {
 	const read = (proof: string) => post(JSON.stringify({ op: "read", invitationId: INVITATION, proof }));
 
 	reset({ kind: "signed_out" });
@@ -172,6 +174,14 @@ test("the route answers the read as the page did: signed out, unavailable or the
 			inviterDescription: "Ana",
 			expiresAt: "2026-12-01T00:00:00.000Z",
 		},
+		names: { "o-1": "Name o-1", "p-1": "Name p-1" },
+		zone: "America/Chicago",
+	});
+
+	reset(viewer);
+	assert.deepEqual(await (await read("Expired-proof")).json(), {
+		kind: "expired",
+		invitation: { status: "expired", pair, inviterDescription: "Ana", expiredAt: "2026-11-01T00:00:00.000Z" },
 		names: { "o-1": "Name o-1", "p-1": "Name p-1" },
 		zone: "America/Chicago",
 	});

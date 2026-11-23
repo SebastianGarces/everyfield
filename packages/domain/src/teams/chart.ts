@@ -30,8 +30,15 @@ const winAnsiHigh = new Map(
 function pdfText(text: string) {
 	let out = "";
 	for (const char of text) {
-		const code = char.codePointAt(0)!;
-		const byte = code >= 0x20 && code < 0x7f ? code : code >= 0xa0 && code <= 0xff ? code : winAnsiHigh.get(char);
+		const code = char.codePointAt(0);
+		const byte =
+			code === undefined
+				? undefined
+				: code >= 0x20 && code < 0x7f
+					? code
+					: code >= 0xa0 && code <= 0xff
+						? code
+						: winAnsiHigh.get(char);
 		if (byte === undefined) out += "?";
 		else if (byte >= 0x80) out += `\\${byte.toString(8)}`;
 		else if (char === "\\" || char === "(" || char === ")") out += `\\${char}`;

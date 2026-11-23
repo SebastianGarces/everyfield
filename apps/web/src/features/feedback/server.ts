@@ -1,5 +1,7 @@
 import "server-only";
-import type { FeedbackReply } from "@everyfield/contracts/feedback";
+import type { z } from "zod";
+import { outcomeOf, type Outcome } from "@everyfield/contracts/common";
+import type { FeedbackReply, feedbackErrorCode } from "@everyfield/contracts/feedback";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { feedbackWriter } from "@everyfield/domain/feedback";
@@ -17,8 +19,7 @@ export const publicationSetup = (): PublicationSetup => ({
 	mail: operatorMailConfigured(),
 });
 
-export type Run<T> =
-	{ status: "ok"; value: T } | { status: "refused"; code: string } | { status: "signed_out" | "lost" };
+export type Run<T> = Outcome<T, z.infer<typeof feedbackErrorCode>> | { status: "signed_out" };
 
 type Operation<T> = (db: Database, authority: RequestActor) => Promise<FeedbackReply<T>>;
 
@@ -33,10 +34,7 @@ export async function runAs<T>(
 	const db = requestDatabase();
 	return transient(
 		{ component: "feedback", outcome: "failed" },
-		async () => {
-			const reply = await operation(db, authority);
-			return reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };
-		},
+		async () => outcomeOf(await operation(db, authority)),
 		LOST,
 	);
 }

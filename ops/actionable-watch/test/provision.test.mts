@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { chmod, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { once } from "node:events";
+import { constants, watch } from "node:fs";
+import { chmod, mkdtemp, open, readdir, readFile, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
+import { promisify } from "node:util";
 import { readWebhookConfig } from "../io.mts";
 import {
 	osascriptPrompt,
@@ -199,22 +202,75 @@ describe("INV-watch-provision: the real prompt", () => {
 	});
 });
 
-async function fakeOsascript(dir: string, url: string, key: string): Promise<string> {
+async function fakeOsascript(dir: string, url: string, key: string, gateOnFifos = false): Promise<string> {
 	await writeFile(join(dir, "url.in"), url);
 	await writeFile(join(dir, "key.in"), key);
+	if (gateOnFifos) await promisify(execFile)("/usr/bin/mkfifo", ["-m", "600", join(dir, "started"), join(dir, "go")]);
 	const bin = join(dir, "osascript");
 	await writeFile(
 		bin,
 		`#!/bin/sh
 D='${dir}'
 { printf 'argv:'; printf ' %s' "$@"; printf '\\nparent:'; ps -o args= -p $PPID; printf 'env:'; env; } >> "$D/seen.out"
-i=0; while [ ! -f "$D/go" ] && [ $i -lt 200 ]; do sleep 0.05; i=$((i+1)); done
 case "$2" in *"1 of 2"*) f=url.in ;; *) f=key.in ;; esac
-printf 'V'; cat "$D/$f"; printf '\\n'
+${gateOnFifos ? `if [ $f = url.in ]; then printf 'started\\n' > "$D/started"; cat "$D/go" > /dev/null; fi\n` : ""}printf 'V'; cat "$D/$f"; printf '\\n'
 `,
 		{ mode: 0o755 },
 	);
 	return bin;
+}
+
+function unblockOnAbort(signal: AbortSignal, fifo: string, other: number) {
+	const unblock = () =>
+		void open(fifo, other | constants.O_NONBLOCK).then(
+			(fh) => fh.close(),
+			() => undefined,
+		);
+	signal.addEventListener("abort", unblock, { once: true });
+	return () => signal.removeEventListener("abort", unblock);
+}
+
+async function readFifo(signal: AbortSignal, fifo: string): Promise<string> {
+	const done = unblockOnAbort(signal, fifo, constants.O_WRONLY);
+	try {
+		return await readFile(fifo, "utf8");
+	} finally {
+		done();
+	}
+}
+
+async function openFifoForWrite(signal: AbortSignal, fifo: string) {
+	const done = unblockOnAbort(signal, fifo, constants.O_RDONLY);
+	try {
+		return await open(fifo, "w");
+	} finally {
+		done();
+	}
+}
+
+async function armedKernelWatch(signal: AbortSignal, path: string) {
+	const before = await stat(path);
+	const watcher = watch(path, { signal });
+	const nextEvent = () => once(watcher, "change", { signal });
+	const armed = nextEvent();
+	await utimes(path, before.atime, before.mtime);
+	await armed;
+	return {
+		async replaced() {
+			try {
+				for (;;) {
+					const eventArmedBeforeCheck = nextEvent();
+					if ((await stat(path)).ino !== before.ino) {
+						eventArmedBeforeCheck.catch(() => {});
+						return;
+					}
+					await eventArmedBeforeCheck;
+				}
+			} finally {
+				watcher.close();
+			}
+		},
+	};
 }
 
 function cli(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
@@ -225,21 +281,11 @@ function cli(args: string[]): Promise<{ code: number; stdout: string; stderr: st
 	});
 }
 
-async function until(check: () => Promise<boolean>, ms = 10_000) {
-	const end = Date.now() + ms;
-	while (Date.now() < end) {
-		if (await check()) return;
-		await new Promise((r) => setTimeout(r, 50));
-	}
-	assert.fail("timed out waiting");
-}
-
 describe("INV-watch-provision: the provision CLI", () => {
 	test("INV-watch-provision: reports only a code and leaks no value through any argv, env, output or file", async () => {
 		const work = await tmp();
 		const state = join(work, "state");
 		const bin = await fakeOsascript(work, ` ${GOOD_URL} `, KEY);
-		await writeFile(join(work, "go"), "");
 		const ok = await cli(["--state-dir", state, "--osascript", bin]);
 		assert.deepEqual(ok, { code: 0, stdout: "webhook_config ok\n", stderr: "" });
 		assert.deepEqual(JSON.parse(await readFile(join(state, "webhook.json"), "utf8")), { url: GOOD_URL, key: KEY });
@@ -260,24 +306,32 @@ describe("INV-watch-provision: the provision CLI", () => {
 		assertNoLeak(bad.stdout + (await everythingButConfig(state)), "failure output");
 	});
 
-	test("INV-watch-provision: --detach prints only its pid and status path, shows waiting, and outlives the launcher", async () => {
-		const work = await tmp();
-		const state = join(work, "state");
-		const bin = await fakeOsascript(work, GOOD_URL, KEY);
-		const launched = await cli(["--detach", "--state-dir", state, "--osascript", bin]);
-		assert.equal(launched.code, 0);
-		assert.equal(launched.stderr, "");
-		const m = launched.stdout.match(/^pid=(\d+) status=(.+)\n$/);
-		assert.ok(m, launched.stdout);
-		assert.equal(m[2], join(state, "provision.status"));
-		await until(async () => (await readFile(join(work, "seen.out"), "utf8").catch(() => "")).includes("argv:"));
-		assert.match(await statusLine(state), /^state=waiting code=none at=/);
-		process.kill(Number(m[1]), 0);
-		await writeFile(join(work, "go"), "");
-		await until(async () => (await statusLine(state)).startsWith("state=ok"));
-		assert.match(await statusLine(state), /^state=ok code=webhook_config_ok at=/);
-		const seen = await readFile(join(work, "seen.out"), "utf8");
-		assert.match(seen, /parent:.*provision\.mts --state-dir .* --osascript /);
-		assertNoLeak(seen + launched.stdout + (await everythingButConfig(state)), "detached run");
-	});
+	test(
+		"INV-watch-provision: --detach prints only its pid and status path, shows waiting, and outlives the launcher",
+		{ timeout: 20_000 },
+		async (t) => {
+			const work = await tmp();
+			const state = join(work, "state");
+			const bin = await fakeOsascript(work, GOOD_URL, KEY, true);
+			const launched = await cli(["--detach", "--state-dir", state, "--osascript", bin]);
+			assert.equal(launched.code, 0);
+			assert.equal(launched.stderr, "");
+			const m = launched.stdout.match(/^pid=(\d+) status=(.+)\n$/);
+			assert.ok(m, launched.stdout);
+			assert.equal(m[2], join(state, "provision.status"));
+			assert.equal(await readFifo(t.signal, join(work, "started")), "started\n", "the URL prompt is open");
+			assert.match(await readFile(join(work, "seen.out"), "utf8"), /^argv:/);
+			assert.match(await statusLine(state), /^state=waiting code=none at=/);
+			process.kill(Number(m[1]), 0);
+			const go = await openFifoForWrite(t.signal, join(work, "go"));
+			const status = await armedKernelWatch(t.signal, join(state, "provision.status"));
+			await go.writeFile("go\n");
+			await go.close();
+			await status.replaced();
+			assert.match(await statusLine(state), /^state=ok code=webhook_config_ok at=/);
+			const seen = await readFile(join(work, "seen.out"), "utf8");
+			assert.match(seen, /parent:.*provision\.mts --state-dir .* --osascript /);
+			assertNoLeak(seen + launched.stdout + (await everythingButConfig(state)), "detached run");
+		},
+	);
 });

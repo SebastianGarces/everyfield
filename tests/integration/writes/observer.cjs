@@ -7,14 +7,17 @@ const output = process.env.EVF_WRITE_COUNTS;
 if (!output) throw Error("observer.cjs needs EVF_WRITE_COUNTS");
 const root = join(__dirname, "../../..");
 const requests = new AsyncLocalStorage();
-const { statementKind } = require("./kinds.cjs");
+const { repeatedShapes, statementKind, statementShape } = require("./kinds.cjs");
 
 const pg = require(require.resolve("pg", { paths: [join(root, "packages/db")] }));
 const query = pg.Client.prototype.query;
 pg.Client.prototype.query = function (config, ...rest) {
 	const row = requests.getStore();
 	if (row) {
-		const kind = statementKind(typeof config === "string" ? config : (config?.text ?? ""));
+		const text = typeof config === "string" ? config : (config?.text ?? "");
+		const kind = statementKind(text);
+		const shape = kind === "transaction" ? null : statementShape(text);
+		if (shape) row.shapes.set(shape, (row.shapes.get(shape) ?? 0) + 1);
 		row.count++;
 		row.kinds[kind] = (row.kinds[kind] ?? 0) + 1;
 		if (kind === "write") row.writes++;
@@ -36,9 +39,21 @@ http.createServer = function (...args) {
 		args[at] = function (request, response) {
 			const name = request.headers["x-evf-request"];
 			if (typeof name !== "string") return handle.call(this, request, response);
-			const row = { kind: "sample", name, count: 0, writes: 0, rollbacks: 0, connects: 0, kinds: {} };
+			const row = {
+				kind: "sample",
+				name,
+				count: 0,
+				writes: 0,
+				rollbacks: 0,
+				connects: 0,
+				kinds: {},
+				shapes: new Map(),
+			};
 			response.once("finish", () => {
-				appendFileSync(output, JSON.stringify({ ...row, kinds: { ...row.kinds }, status: response.statusCode }) + "\n");
+				const { shapes, ...counts } = row;
+				const repeats = repeatedShapes(shapes);
+				const sample = { ...counts, kinds: { ...row.kinds }, status: response.statusCode };
+				appendFileSync(output, JSON.stringify(Object.keys(repeats).length ? { ...sample, repeats } : sample) + "\n");
 			});
 			return requests.run(row, () => handle.call(this, request, response));
 		};

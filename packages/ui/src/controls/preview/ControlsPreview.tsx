@@ -51,6 +51,7 @@ import {
 	Combobox,
 	CommandPalette,
 	ConfirmDialog,
+	type ConfirmRefusal,
 	DateRangePicker,
 	Dialog,
 	DialogBody,
@@ -64,6 +65,7 @@ import {
 	FilterChip,
 	IconButton,
 	InlineAlert,
+	ProblemText,
 	Input,
 	InsightCard,
 	InsightCount,
@@ -108,7 +110,7 @@ import {
 	TooltipSep,
 	type DateRange,
 } from "..";
-import { ACTIVITY, COMMANDS, PRESETS, STAGES, TAGS, TONES_PREVIEW } from "./fixtures";
+import { ACTIVITY, COMMANDS, DEFAULT_RANGE, PRESETS, STAGES, TAGS, TONES_PREVIEW } from "./fixtures";
 
 type Group = "all" | "surfaces" | "actions" | "inputs" | "overlays" | "feedback";
 
@@ -387,7 +389,7 @@ function InsightSection() {
 }
 
 function ButtonsSection() {
-	const [range, setRange] = useState<DateRange>(PRESETS[1]!.range);
+	const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
 	const [saving, setSaving] = useState(false);
 	return (
 		<Section index={3} title="Buttons" code="<Button variant size icon loading> · <IconButton variant size label>">
@@ -795,13 +797,13 @@ function OverlaysSection({ paletteShortcut }: { paletteShortcut: ShortcutMark })
 	const [guide, setGuide] = useState(false);
 	const [answer, setAnswer] = useState<((hidden: boolean) => void) | null>(null);
 	const hide = () =>
-		new Promise<void>((resolve, reject) =>
+		new Promise<ConfirmRefusal | void>((resolve) =>
 			setAnswer(() => (hidden: boolean) => {
 				setAnswer(null);
-				if (!hidden) {
-					reject(new Error("The article did not hide because the connection dropped. Nothing changed. Try again."));
-					return;
-				}
+				if (!hidden)
+					return resolve({
+						refused: "The article did not hide because the connection dropped. Nothing changed. Try again.",
+					});
 				toast({ message: "Article hidden." });
 				resolve();
 			}),
@@ -1142,8 +1144,8 @@ function AlertsSection() {
 		<Section
 			index={7}
 			title="Alerts"
-			code="<InlineAlert live focus> · <Alert tone title actions> · <PageState page tone title>"
-			note="A problem sits next to what it is about. InlineAlert keeps its live region in the page, so a problem that appears is read out; focus moves to it only when the person asked for the refused action."
+			code="<InlineAlert live focus> · <Alert tone title actions> · <PageState page tone title> · <ProblemText size icon>"
+			note="A problem sits next to what it is about. InlineAlert keeps its live region in the page, so a problem that appears is read out; focus moves to it only when the person asked for the refused action. ProblemText is the unboxed line under one control."
 		>
 			<div className="grid items-start gap-5 app-md:grid-cols-2">
 				<Specimen label="Inline problem">
@@ -1175,6 +1177,11 @@ function AlertsSection() {
 						be saved twice.
 					</Alert>
 				</Specimen>
+				<Specimen label="Warning">
+					<Alert tone="warning" title="Written for Phase 2">
+						Your church is now in Phase 3. This assessment keeps the Phase 2 criteria and standings.
+					</Alert>
+				</Specimen>
 				<Specimen label="Neutral">
 					<Alert
 						tone="neutral"
@@ -1187,6 +1194,11 @@ function AlertsSection() {
 					>
 						Nothing was changed. Ask again in a moment.
 					</Alert>
+				</Specimen>
+				<Specimen label="Problem line under a control" className="flex flex-col gap-3">
+					<ProblemText>Choose a date.</ProblemText>
+					<ProblemText size="sm">The search did not load. Try again.</ProblemText>
+					<ProblemText icon={Alert02Icon}>Choose a person.</ProblemText>
 				</Specimen>
 				<RefusalSpecimen />
 				<Specimen label="Route state" className="app-md:col-span-2">

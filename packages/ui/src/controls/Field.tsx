@@ -1,8 +1,9 @@
 "use client";
 
 import { Search01Icon } from "@hugeicons/core-free-icons";
-import { createContext, use, useId, type ComponentPropsWithRef, type ReactNode } from "react";
+import { createContext, use, useId, useMemo, type ComponentPropsWithRef, type ReactNode } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
+import { ProblemText } from "./ProblemText";
 
 type FieldState = { id: string; labelId: string; describedBy: string | undefined; invalid: boolean };
 const FieldContext = createContext<FieldState | null>(null);
@@ -37,15 +38,11 @@ export function Field({ label, hint, error, optional, children, className }: Fie
 	const labelId = `${id}-label`;
 	const hintId = hint ? `${id}-hint` : undefined;
 	const errorId = error ? `${id}-error` : undefined;
+	const describedBy = [errorId, hintId].filter(Boolean).join(" ") || undefined;
+	const invalid = Boolean(error);
+	const field = useMemo(() => ({ id, labelId, describedBy, invalid }), [id, labelId, describedBy, invalid]);
 	return (
-		<FieldContext
-			value={{
-				id,
-				labelId,
-				describedBy: [errorId, hintId].filter(Boolean).join(" ") || undefined,
-				invalid: Boolean(error),
-			}}
-		>
+		<FieldContext value={field}>
 			<div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
 				<label id={labelId} htmlFor={id} className="text-sm font-medium text-ink-2">
 					{label}
@@ -57,11 +54,11 @@ export function Field({ label, hint, error, optional, children, className }: Fie
 						{hint}
 					</p>
 				) : null}
-				<div aria-live="polite" className="empty:hidden">
+				<div aria-live="polite" className="empty:sr-only">
 					{error ? (
-						<p id={errorId} className="text-xs font-medium text-magenta-600">
+						<ProblemText id={errorId} live="region">
 							{error}
-						</p>
+						</ProblemText>
 					) : null}
 				</div>
 			</div>

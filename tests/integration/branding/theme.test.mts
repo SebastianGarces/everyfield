@@ -5,11 +5,12 @@ import {
 } from "../../../packages/contracts/src/branding/index.ts";
 import { badgeFor, colorView, contrastOnWhite, textOn } from "../../../packages/domain/src/branding/color.ts";
 import { resolveDocumentTheme } from "../../../packages/domain/src/branding/theme.ts";
+import { recordId } from "../../../packages/contracts/src/common/index.ts";
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
 
 const asset = (name: string) => ({
-	fileId: `00000000-0000-4000-8000-00000000000${name.length % 10}`,
+	fileId: recordId.parse(`00000000-0000-4000-8000-00000000000${name.length % 10}`),
 	alt: `${name} alt`,
 });
 const kit = (over: Partial<BrandKitData> = {}): BrandKitData => ({

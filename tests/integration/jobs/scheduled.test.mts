@@ -12,7 +12,7 @@ import {
 } from "../../../packages/evry/src/index.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { cronRoute } from "../../../apps/web/src/server/platform/cron.ts";
-import { claimDue, finishJob } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue, finishJob } from "../../../packages/domain/src/jobs/queue.ts";
 import { actor, admin, db, people, queries, setup, sql, teardown, work } from "../../evry/runtime/support.mts";
 import { setServerEnv } from "../../support/server-env.mts";
 
@@ -21,6 +21,12 @@ setServerEnv();
 const secret = "cron-" + randomUUID();
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
+};
+const noPorts = {
+	reminders: noReminders,
+	phaseNotices: async () => {
+		throw Error("unexpected phase notice");
+	},
 };
 let tick: (request: Request) => Promise<Response>;
 const call = (authorization?: string) =>
@@ -35,7 +41,7 @@ before(async () => {
 	await setup();
 	tick = cronRoute(
 		secret,
-		scheduledJobs({ db, storage: null, cleanup: null, reminders: noReminders, digests: null, mail: null }),
+		scheduledJobs({ db, storage: null, cleanup: null, effects: noPorts, digests: null, mail: null }),
 	);
 });
 after(teardown);
@@ -68,7 +74,7 @@ test("INV-executor: the runner refuses a call without the exact bearer and runs 
 		assert.equal((await call(authorization)).status, 401, String(authorization));
 	const unset = cronRoute(
 		undefined,
-		scheduledJobs({ db, storage: null, cleanup: null, reminders: noReminders, digests: null, mail: null }),
+		scheduledJobs({ db, storage: null, cleanup: null, effects: noPorts, digests: null, mail: null }),
 	);
 	assert.equal((await unset(new Request("http://localhost/api/cron/jobs"))).status, 503);
 	assert.equal((await readConversation(db, owner, waiting)).run?.state, "running");

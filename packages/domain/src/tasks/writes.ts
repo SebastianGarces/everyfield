@@ -22,7 +22,7 @@ import {
 import { lastWrite } from "../operations/writes.ts";
 import { idsOf, setWrites, sortPeople } from "./assignees.ts";
 import { lockOwner, ownerReason } from "./owner.ts";
-import { detailOf, loadTask, type LockedTask, type TaskRow } from "./queries.ts";
+import { detailOf, loadTask, lockTaskWith, type LockedTask, type TaskRow } from "./queries.ts";
 import { successorOf } from "./recurrence.ts";
 import { structureWriter } from "./structure.ts";
 import type { Catalog } from "./catalog.ts";
@@ -48,7 +48,7 @@ export function dueColumns(due: z.infer<typeof c.dueInput>, zone: TimeZone): Due
 		return { due_kind: "date_only", due_date: due.date, due_time: null, timezone: null, due_at: null };
 	const r = resolveCalendar(due.local, zone, "entered", due.offsetSeconds);
 	if (r.kind === "gap") deny("nonexistent_local_time", { local: due.local });
-	if (r.kind === "fold") deny("ambiguous_local_time", { local: due.local, choices: r.choices });
+	if (r.kind === "fold") deny("ambiguous_local_time", { local: due.local, choices: [...r.choices] });
 	if (r.kind === "invalid_offset") deny("invalid_input");
 	return {
 		due_kind: "timed",
@@ -64,7 +64,7 @@ const relationColumns = (r: z.infer<typeof c.relation> | null) => ({
 	team_id: r?.kind === "team" ? r.id : null,
 });
 
-export const assigneeFacts = (plantId: string, ids: readonly string[]) => sql`(SELECT coalesce(jsonb_agg(
+export const assigneeFacts = (plantId: string, ids: readonly string[] | SQL) => sql`(SELECT coalesce(jsonb_agg(
 		jsonb_build_object('id',u.id,'name',u.name,'reason',u.reason,'locked',u.locked) ORDER BY u.id),'[]')
 	FROM (SELECT x.id,
 		(SELECT i.display_name FROM seat s CROSS JOIN LATERAL seat_identity(s.account_id) i
@@ -72,7 +72,12 @@ export const assigneeFacts = (plantId: string, ids: readonly string[]) => sql`(S
 			AND s.accepted_at<=clock_timestamp() FOR SHARE OF s) AS name,
 		${ownerReason(sql`x.id`, sql`${plantId}::uuid`)} AS reason,
 		${lockOwner(sql`x.id`, sql`${plantId}::uuid`)} AS locked
-		FROM unnest(${sql.param([...new Set(ids)].sort())}::uuid[]) AS x(id)) u)`;
+		FROM unnest(${Array.isArray(ids) ? sql`${sql.param([...new Set(ids)].sort())}::uuid[]` : ids}) AS x(id)) u)`;
+export const joiningOf = (
+	task: SQL,
+	ids: readonly string[],
+) => sql`ARRAY(SELECT DISTINCT x FROM unnest(${sql.param([...ids])}::uuid[]) x
+	JOIN ${task} ON NOT EXISTS(SELECT FROM task_assignee a WHERE a.task_id=${task}.id AND a.account_id=x))`;
 const assigneeFactRows = z.array(
 	z.object({ id: accountId, name: z.string().nullable(), reason: z.string().nullable() }),
 );
@@ -89,34 +94,34 @@ export function checkAssignees(
 	return rows.map((a) => ({ accountId: a.id, displayName: a.name ?? "", seated: true }));
 }
 
-export async function references(
-	tx: Tx,
+type ReferenceInput = { relation?: z.infer<typeof c.relation> | null; followUp?: boolean };
+const referenceColumns = (
 	plantId: string,
-	input: {
-		assigneeIds?: readonly string[];
-		relation?: z.infer<typeof c.relation> | null;
-		followUp?: boolean;
-	},
-) {
-	const r = await tx.execute(sql`SELECT ${assigneeFacts(plantId, input.assigneeIds ?? [])} AS assignees,
-		(SELECT display_name FROM person WHERE id=${input.relation?.kind === "person" ? input.relation.id : null}::uuid
-			AND tenant_id=${plantId}::uuid AND plant_id IS NOT NULL AND state='live' FOR SHARE) AS person,
-		(SELECT title FROM meeting WHERE id=${input.relation?.kind === "meeting" ? input.relation.id : null}::uuid
-			AND plant_id=${plantId}::uuid FOR SHARE) AS meeting,
-		(SELECT name FROM team WHERE id=${input.relation?.kind === "team" ? input.relation.id : null}::uuid
-			AND plant_id=${plantId}::uuid AND archived_at IS NULL FOR SHARE) AS team`);
-	const row = z
-		.object({
-			assignees: z.unknown(),
-			person: z.string().nullable(),
-			meeting: z.string().nullable(),
-			team: z.string().nullable(),
-		})
-		.parse(r.rows[0]);
+	assigneeIds: readonly string[] | SQL,
+	relation: ReferenceInput["relation"],
+) => sql`${assigneeFacts(plantId, assigneeIds)} AS assignees,
+	(SELECT display_name FROM person WHERE id=${relation?.kind === "person" ? relation.id : null}::uuid
+		AND tenant_id=${plantId}::uuid AND plant_id IS NOT NULL AND state='live' FOR SHARE) AS person,
+	(SELECT title FROM meeting WHERE id=${relation?.kind === "meeting" ? relation.id : null}::uuid
+		AND plant_id=${plantId}::uuid FOR SHARE) AS meeting,
+	(SELECT name FROM team WHERE id=${relation?.kind === "team" ? relation.id : null}::uuid
+		AND plant_id=${plantId}::uuid AND archived_at IS NULL FOR SHARE) AS team`;
+const referenceRow = z.object({
+	assignees: z.unknown(),
+	person: z.string().nullable(),
+	meeting: z.string().nullable(),
+	team: z.string().nullable(),
+});
+function checkReferences(facts: unknown, input: ReferenceInput) {
+	const row = referenceRow.parse(facts);
 	const assignees = checkAssignees(row.assignees, input.followUp ?? false);
 	const label = input.relation ? row[input.relation.kind] : null;
 	if (input.relation && label === null) deny("invalid_subject");
 	return { assignees, relationLabel: label };
+}
+async function references(tx: Tx, plantId: string, input: ReferenceInput & { assigneeIds?: readonly string[] }) {
+	const r = await tx.execute(sql`SELECT ${referenceColumns(plantId, input.assigneeIds ?? [], input.relation)}`);
+	return checkReferences(r.rows[0], input);
 }
 
 const OPEN = (s: string) => !(c.settledStatus as readonly string[]).includes(s);
@@ -124,6 +129,15 @@ type ReminderRow = Pick<
 	TaskRow,
 	"id" | "title" | "status" | "assignees" | "due_kind" | "due_date" | "due_at" | "deleted_at"
 > & { revision: string; plant_zone: string };
+function reminderDue(row: ReminderRow): ReminderSource["due"] {
+	if (row.due_kind === "undated") return { kind: "undated" };
+	if (row.due_kind === "date_only") {
+		if (row.due_date === null) throw Error(`Task ${row.id} is due on a date it does not store`);
+		return { kind: "date_only", date: row.due_date, zone: row.plant_zone };
+	}
+	if (row.due_at === null) throw Error(`Task ${row.id} is due at a time it does not store`);
+	return { kind: "timed", at: row.due_at.toISOString() };
+}
 function reminderSource(plantId: string, row: ReminderRow): ReminderSource {
 	return {
 		plantId,
@@ -131,12 +145,7 @@ function reminderSource(plantId: string, row: ReminderRow): ReminderSource {
 		revision: row.revision,
 		title: row.title,
 		assigneeIds: idsOf(row.assignees),
-		due:
-			row.due_kind === "undated"
-				? { kind: "undated" }
-				: row.due_kind === "date_only"
-					? { kind: "date_only", date: row.due_date!, zone: row.plant_zone }
-					: { kind: "timed", at: row.due_at!.toISOString() },
+		due: reminderDue(row),
 		open: OPEN(row.status) && row.deleted_at === null,
 		created: false,
 	};
@@ -256,9 +265,12 @@ export function noop(cmd: AuditCommand, row: TaskRow) {
 }
 
 export async function current(tx: Tx, cmd: Command, taskId: string, expectedRevision: string, ownDuty: boolean) {
-	const row = await loadTask(tx, cmd.actor.plantId, taskId, true);
-	if (!row || row.deleted_at) deny();
-	if (!administers(cmd.actor) && !(ownDuty && row.assignees.some((a) => a.accountId === cmd.actor.accountId))) deny();
+	return checkCurrent(cmd, await loadTask(tx, cmd.actor.plantId, taskId, true), expectedRevision, ownDuty);
+}
+export function checkCurrent(cmd: Command, row: LockedTask | null, expectedRevision: string, ownDuty: boolean) {
+	if (!row || row.deleted_at) deny("unavailable");
+	if (!administers(cmd.actor) && !(ownDuty && row.assignees.some((a) => a.accountId === cmd.actor.accountId)))
+		deny("unavailable");
 	if (row.revision !== expectedRevision) deny("conflict");
 	return row;
 }
@@ -430,7 +442,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 			return reply(tx, async () => {
 				const input = parse(c.createTaskRequest, raw);
 				return command(tx, context, "tasks.create", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input;
 					const due = dueColumns(v.due, cmd.actor.zone);
 					const refs =
@@ -464,9 +476,12 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 			return reply(tx, async () => {
 				const input = parse(c.editTaskRequest, raw);
 				return command(tx, context, "tasks.edit", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
-					const row = await current(tx, cmd, input.input.taskId, input.expectedRevision, false);
+					if (!administers(cmd.actor)) deny("unavailable");
 					const p = input.input.patch;
+					const locked = await lockTaskWith(tx, cmd.actor.plantId, input.input.taskId, (k) =>
+						referenceColumns(cmd.actor.plantId, joiningOf(k, p.assigneeIds ?? []), p.relation),
+					);
+					const row = checkCurrent(cmd, locked.task, input.expectedRevision, false);
 					const relation = p.relation === undefined ? undefined : relationColumns(p.relation);
 					if (
 						row.obligation_id &&
@@ -478,20 +493,14 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 					)
 						deny("protected_source");
 					if (row.parent_id && ((p.due && p.due.kind !== "undated") || p.relation)) deny("invalid_input");
-					const held = idsOf(row.assignees),
-						joining = p.assigneeIds?.filter((id) => !held.includes(id)) ?? [];
-					const refs =
-						joining.length || p.relation
-							? await references(tx, cmd.actor.plantId, {
-									assigneeIds: joining,
-									relation: p.relation,
-									followUp:
-										(p.category ?? row.category) === "follow_up" &&
-										(p.relation === undefined ? row.person_id !== null : p.relation?.kind === "person") &&
-										row.parent_id === null,
-								})
-							: null;
-					const known = new Map([...row.assignees, ...(refs?.assignees ?? [])].map((a) => [a.accountId, a]));
+					const refs = checkReferences(locked.facts, {
+						relation: p.relation,
+						followUp:
+							(p.category ?? row.category) === "follow_up" &&
+							(p.relation === undefined ? row.person_id !== null : p.relation?.kind === "person") &&
+							row.parent_id === null,
+					});
+					const known = new Map([...row.assignees, ...refs.assignees].map((a) => [a.accountId, a]));
 					const next: TaskRow = {
 						...row,
 						...(p.title !== undefined ? { title: p.title } : {}),
@@ -500,9 +509,17 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 						...(p.category !== undefined ? { category: p.category } : {}),
 						...(p.due !== undefined ? dueColumns(p.due, cmd.actor.zone) : {}),
 						...(p.assigneeIds !== undefined
-							? { assignees: sortPeople(p.assigneeIds.map((id) => known.get(id)!)) }
+							? {
+									assignees: sortPeople(
+										p.assigneeIds.map((id) => {
+											const person = known.get(id);
+											if (!person) throw Error(`Assignee ${id} was neither held nor checked`);
+											return person;
+										}),
+									),
+								}
 							: {}),
-						...(relation ? { ...relation, relation_label: refs?.relationLabel ?? null } : {}),
+						...(relation ? { ...relation, relation_label: refs.relationLabel } : {}),
 					};
 					const delta = changes(audited(row), audited(next));
 					if (!Object.keys(delta.after).length) return { value: mutation(cmd, noop(cmd, next).row, "noop") };
@@ -527,7 +544,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 			return reply(tx, async () => {
 				const input = parse(c.taskCommandRequest, raw);
 				return command(tx, context, "tasks.delete", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const row = await current(tx, cmd, input.input.taskId, input.expectedRevision, false);
 					const at = new Date();
 					cmd.writes.push(

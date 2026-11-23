@@ -4,7 +4,7 @@ import * as c from "@everyfield/contracts/intelligence";
 import type { CriterionKey, CriterionStatus } from "@everyfield/contracts/phases";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
@@ -13,6 +13,7 @@ import { effectiveAdult } from "../people/adult.ts";
 import { commitmentOf } from "../people/commitments/lifecycle.ts";
 import { compatible } from "../teams/training/reads.ts";
 import { eligibleOwner } from "../tasks/owner.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 const presence = z.strictObject({ count: z.int(), latestOn: z.string().nullable() });
 
@@ -81,6 +82,18 @@ const within = (date: string, from: string, to: string) => date >= from && date 
 type Named = { id: string; name: string };
 const byName = (a: Named, b: Named) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
 const max = (dates: string[]) => dates.reduce<string | null>((m, d) => (m === null || d > m ? d : m), null);
+const firstOnOf = (people: Acquiring[], adult: Acquiring["adult"]["value"]) =>
+	people.flatMap((p) => (p.adult.value === adult && p.firstOn ? [p.firstOn] : []));
+const acquiredOn = <P extends { firstOn: string | null }>(p: P): p is P & { firstOn: string } => p.firstOn !== null;
+const worshipCovered = (responsibilities: readonly { key: string; people: readonly unknown[] }[]) => {
+	const [worship] = responsibilities;
+	if (worship?.key !== "worship") throw new Error("the first ministry responsibility is not worship");
+	return worship.people.length > 0;
+};
+const committedOn = (commitment: { effectiveOn: string | null }) => {
+	if (commitment.effectiveOn === null) throw new Error("an active commitment has no date");
+	return commitment.effectiveOn;
+};
 
 type Acquiring = { adult: { value: "adult" | "child" | "unknown" }; firstOn: string | null };
 const acquiring = (p: FactInputs["people"][number], today: string) => {
@@ -88,7 +101,7 @@ const acquiring = (p: FactInputs["people"][number], today: string) => {
 	return {
 		adult: effectiveAdult(p.birth, p.manual ?? "unknown", today),
 		signed,
-		firstOn: signed.length ? signed.map((k) => k.on).sort()[0]! : null,
+		firstOn: signed.map((k) => k.on).sort()[0] ?? null,
 	};
 };
 
@@ -96,13 +109,18 @@ function growthClock(
 	people: Acquiring[],
 	today: string,
 ): Pick<z.input<typeof c.growth>, "status" | "reason" | "lastAcquiredOn" | "daysSince"> {
-	const last = max(people.filter((p) => p.adult.value === "adult" && p.firstOn).map((p) => p.firstOn!));
-	const unresolved = max(people.filter((p) => p.adult.value === "unknown" && p.firstOn).map((p) => p.firstOn!));
-	const daysSince = last === null ? null : c.daysBetween(last, today);
+	const last = max(firstOnOf(people, "adult"));
+	const unresolved = max(firstOnOf(people, "unknown"));
+	if (last === null)
+		return {
+			lastAcquiredOn: last,
+			daysSince: null,
+			status: "unknown",
+			reason: unresolved ? "unclassified_newer" : "no_acquisition",
+		};
+	const daysSince = c.daysBetween(last, today);
 	const clock = { lastAcquiredOn: last, daysSince };
-	if (daysSince === null)
-		return { ...clock, status: "unknown", reason: unresolved ? "unclassified_newer" : "no_acquisition" };
-	if (daysSince >= c.GROWTH_SLOWED_DAYS && unresolved !== null && unresolved > last!)
+	if (daysSince >= c.GROWTH_SLOWED_DAYS && unresolved !== null && unresolved > last)
 		return { ...clock, status: "unknown", reason: "unclassified_newer" };
 	if (daysSince < c.GROWTH_SLOWED_DAYS) return { ...clock, status: "on_track", reason: null };
 	return { ...clock, status: daysSince < c.GROWTH_STALLED_DAYS ? "slowed" : "stalled", reason: null };
@@ -163,19 +181,19 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 			.map((p) => ({
 				person: { id: p.id, name: p.name },
 				kinds: [...new Set((p.signed.length ? p.signed : p.cards).map((k) => k.kind))].sort(),
-				committedSince: p.commitment.effectiveOn!,
+				committedSince: committedOn(p.commitment),
 				adultFrom: p.adult.source === "birth_date" ? ("birth_date" as const) : ("recorded" as const),
 			}))
 			.sort((a, b) => byName(a.person, b.person)),
 		children: active.filter((p) => p.adult.value === "child").length,
 	};
 
-	const acquired = people.filter((p) => p.adult.value === "adult" && p.firstOn !== null);
-	const inCurrent = acquired.filter((p) => within(p.firstOn!, windowStart, today));
+	const acquired = people.filter((p) => p.adult.value === "adult").filter(acquiredOn);
+	const inCurrent = acquired.filter((p) => within(p.firstOn, windowStart, today));
 	const growth: z.input<typeof c.growth> = {
 		...growthClock(people, today),
 		current: inCurrent.length,
-		prior: acquired.filter((p) => within(p.firstOn!, priorStart, priorEnd)).length,
+		prior: acquired.filter((p) => within(p.firstOn, priorStart, priorEnd)).length,
 		currentWithdrawn: inCurrent.filter((p) => p.commitment.state !== "active").length,
 		windowStart,
 		priorStart,
@@ -291,7 +309,8 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		};
 	});
 	const answer = (key: c.SignalKey): CriterionStatus => {
-		const a = attestations.find((x) => x.key === key)!;
+		const a = attestations.find((x) => x.key === key);
+		if (!a) throw new Error(`no attestation for ${key}`);
 		return a.value === "yes" ? "met" : a.value === "not_yet" ? "not_met" : "unknown";
 	};
 
@@ -301,7 +320,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		committed_adults: committedAdults.status,
 		growth_trajectory: growth.status === "unknown" ? "unknown" : growth.status === "stalled" ? "not_met" : "met",
 		financial_base: answer("financial_base_established"),
-		worship_leader: coverage.responsibilities[0]!.people.length ? "met" : "unknown",
+		worship_leader: worshipCovered(coverage.responsibilities) ? "met" : "unknown",
 		all_team_leaders: coverage.status,
 		training_complete: training.status,
 		systems_tested: answer("systems_tested"),
@@ -424,13 +443,8 @@ const factsRow = z.object({
 	inputs: z.unknown(),
 });
 
-class Refusal extends Error {
-	readonly code: c.FactsError["code"];
-	constructor(code: c.FactsError["code"]) {
-		super(code);
-		this.code = code;
-	}
-}
+const refusals = defineRefusals(c.factsError);
+const deny: Deny<typeof c.factsError> = refusals.deny;
 
 export async function captureFacts(db: Pick<Database, "execute">, plant: string, at: string | null) {
 	const when = at === null ? sql`statement_timestamp()` : sql`${instant.parse(at)}::timestamptz`;
@@ -447,24 +461,18 @@ export function createFacts(config: { clock?: Clock } = {}) {
 			authority: RequestActor,
 			raw: unknown = {},
 		): Promise<c.FactsReply<c.PlantFacts>> {
-			try {
-				if (!c.readFactsRequest.safeParse(raw).success) throw new Refusal("invalid_input");
+			return refusals.settle(async () => {
+				if (!c.readFactsRequest.safeParse(raw).success) deny("invalid_input");
 				const viewer = plantViewer(authority);
-				if (!viewer || viewer.access.role === "member") throw new Refusal("access_denied");
+				if (!viewer || viewer.access.role === "member") deny("access_denied");
 				const at = config.clock
 					? sql`${new Date(config.clock.now()).toISOString()}::timestamptz`
 					: sql`statement_timestamp()`;
 				const { rows } = await db.execute(statement(viewer.plantId, liveRead(viewer.access, true), at));
 				const r = factsRow.parse(rows[0]);
-				if (!r.ok || !r.today || !r.at) throw new Refusal("access_denied");
-				return { status: "ok", value: buildFacts(factInputs.parse(r.inputs), r.at, r.today) };
-			} catch (error) {
-				if (!(error instanceof Refusal)) throw error;
-				return {
-					status: "refused",
-					error: c.factsError.parse({ code: error.code, details: {}, correlationId: randomUUID(), retry: "never" }),
-				};
-			}
+				if (!r.ok || !r.today || !r.at) deny("access_denied");
+				return buildFacts(factInputs.parse(r.inputs), r.at, r.today);
+			});
 		},
 	};
 }

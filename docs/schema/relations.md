@@ -185,8 +185,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `lifecycle_witness(account_id)` | `account(id)` | restrict |  |
 | `lifecycle_witness(plant_id)` | `plant(id)` | restrict |  |
 | `lifecycle_witness(requester_id)` | `account(id)` | restrict |  |
-| `lifecycle_witness(seat_id)` | `seat(id)` | restrict | Body-free revocation witness identifies a seat endpoint; synchronized witness writer validates exact seat kind and original identity before clearing live linkage on purge. |
-| `lifecycle_witness(affiliation_id)` | `affiliation(id)` | restrict | Body-free revocation witness identifies a relationship endpoint; synchronized witness writer validates exact affiliation identity and permitted counterparty before clearing live linkage on purge. |
 | `lifecycle_witness(id)` | `record(id)` | restrict | Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable. |
 | `mail(tenant_id)` | `tenant(id)` | restrict |  |
 | `mail(recipient_account_id)` | `account(id)` | restrict |  |

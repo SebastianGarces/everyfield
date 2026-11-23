@@ -1,6 +1,5 @@
 import type * as c from "@everyfield/contracts/followups";
 import { FOLLOW_UP_WINDOW_MS } from "@everyfield/contracts/followups";
-import type { FollowUpReply } from "@everyfield/domain/followups";
 import type { z } from "zod";
 import { lacksOwner } from "../tasks/model.ts";
 
@@ -40,11 +39,6 @@ export function preferredOwners(items: readonly Pick<ObligationItem, "kind" | "s
 	for (const set of held.values()) if (best === null || set.n > best.n) best = set;
 	return best ? best.ids : [];
 }
-
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
-
-export const outcomeOf = <T>(reply: FollowUpReply<T>): Outcome<T> =>
-	reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };
 
 export const OUTCOMES: readonly OutcomeValue[] = [
 	"contacted",
@@ -110,7 +104,7 @@ export function outcomeInput(
 ): { ok: true; input: OutcomeInput } | { ok: false; errors: DraftErrors } {
 	const { now } = opts;
 	const errors: DraftErrors = {};
-	if (!d.outcome) errors.outcome = "Choose what happened.";
+	if (!d.outcome) errors.outcome = "Choose an outcome.";
 	if (d.outcome === "contacted" && !d.when) errors.when = "Choose when you talked.";
 	let occurredAt: string | undefined;
 	if (d.when === "earlier" && d.stored && d.at === d.stored.at) occurredAt = d.stored.instant;

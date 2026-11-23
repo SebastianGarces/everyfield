@@ -1,0 +1,35 @@
+{
+	"model": "scripted",
+	"vectors": "Fixed 1536-dimension vectors from wiki-meaning.test.mts stand in for text-embedding-3-small: no provider call.",
+	"cases": [
+		{
+			"id": "WMS-01",
+			"criterion": 3,
+			"given": "Harvest Network publishes its own version of the vision meeting article, which Hope Fellowship's Wiki shows.",
+			"ask": "what does the wiki say about getting people excited about our church's direction",
+			"search": [],
+			"answer": ["The Wiki has nothing on getting people excited about our church's direction."]
+		},
+		{
+			"id": "WMS-02",
+			"criterion": 4,
+			"given": "network_version_removed",
+			"ask": "what does the wiki say about getting people excited about our church's direction",
+			"search": ["Running Your Vision Meeting"],
+			"answer": [
+				"Here is what the Wiki's article [Running Your Vision Meeting](/wiki/core-group/vision-meetings/running-the-meeting) says, quoted above."
+			]
+		},
+		{
+			"id": "WMS-03",
+			"task": "T-552",
+			"criterion": 2,
+			"given": "network_version_published",
+			"ask": "what does the wiki say about showing gratitude to first-time guests",
+			"search": ["Thank-You Notes"],
+			"answer": [
+				"Here is what the Wiki's article [Thank-You Notes](/wiki/core-group/follow-up/thank-you-notes) says, quoted above. This is your network's version."
+			]
+		}
+	]
+}

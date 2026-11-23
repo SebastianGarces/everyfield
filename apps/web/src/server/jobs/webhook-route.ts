@@ -1,9 +1,9 @@
 import type { Database } from "@everyfield/db/client";
-import { jobDatabase } from "../database";
-import { applyMailCallback } from "./webhook";
+import { jobDatabase } from "../database.ts";
+import { applyMailCallback } from "@everyfield/domain/jobs";
 import { readBoundedBody } from "@everyfield/domain/operations";
-import { Refusal, safeBoundary, safeResponse, signedRoute } from "../platform/boundary";
-import { verifyCallback } from "../platform/webhook";
+import { Refusal, safeBoundary, safeResponse, signedRoute } from "../platform/boundary.ts";
+import { verifyCallback } from "../platform/webhook.ts";
 import { serverEnv } from "../config.ts";
 
 export async function resendWebhook(

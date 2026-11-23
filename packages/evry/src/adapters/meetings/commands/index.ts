@@ -126,10 +126,10 @@ function write<I, F, V>(spec: {
 				: sql`WHERE ${prepared.target.kind === "meeting" ? meetingLive(actor, prepared.target.id) : venueLive(actor, prepared.target.id)}`;
 			return sql`SELECT ${JSON.stringify(review)}::jsonb AS review, ${JSON.stringify(prepared.args)}::jsonb AS args ${live}`;
 		},
-		async execute(tx, context, args, effectKey, reminders): Promise<EffectResult> {
-			const request = { ...z.object({}).loose().parse(args), requestKey: effectKey };
+		async execute(tx, context, args, effectKey, ports): Promise<EffectResult> {
+			const request = { ...z.record(z.string(), z.unknown()).parse(args), requestKey: effectKey };
 			try {
-				const reply = await spec.run(writers(reminders), tx, context, request);
+				const reply = await spec.run(writers(ports.reminders), tx, context, request);
 				if (reply.status !== "ok") return { refused: reply.error.code };
 				const v = reply.value as V & { receiptId: string };
 				return { receiptId: v.receiptId, revision: spec.revision(v) };
@@ -448,7 +448,8 @@ export const updateKitItem = write({
 	run: (w, tx, ctx, r) => w.meetings.updateKitItem(tx, ctx, r),
 	changes: ({ prepared, value: v }: { prepared: Prepared<KitItem>; value: z.infer<typeof c.kitMutationResult> }) => {
 		const before = prepared.facts,
-			after = v.items.find((x) => x.id === before.id)!;
+			after = v.items.find((x) => x.id === before.id);
+		if (!after) throw new Error("The kit result is missing the changed item");
 		const yes = (b: boolean) => (b ? "Checked" : "Not checked");
 		return [
 			created("item", before.text),
@@ -787,7 +788,7 @@ async function generatedTasks(tx: WriteTx, v: Finalization) {
 	);
 	const titles = new Map(
 		z
-			.array(z.object({ id: z.string(), title: z.string() }))
+			.array(z.strictObject({ id: z.string(), title: z.string() }))
 			.parse(r.rows)
 			.map((t) => [t.id, t.title]),
 	);

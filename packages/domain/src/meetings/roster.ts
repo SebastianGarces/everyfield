@@ -62,7 +62,7 @@ export const rosterReader = {
 				sql`SELECT ${rosterColumns} FROM meeting m WHERE ${plantMeeting(v.plantId, i.meetingId)} AND m.retired_at IS NULL`,
 				true,
 			);
-			if (!row || !admin) deny();
+			if (!row || !admin) deny("unavailable");
 			const p = plan(row);
 			return c.rosterPreview.parse({
 				meetingId: i.meetingId,
@@ -85,7 +85,7 @@ export const rosterWriter = {
 						m.finalized_at IS NOT NULL AS finalized, clock_timestamp() AS now
 					FROM meeting m WHERE ${plantMeeting(w.plant.id, meetingId)} AND m.retired_at IS NULL FOR UPDATE OF m`);
 				const row = r.rows[0] as Record<string, unknown> | undefined;
-				if (!row) deny();
+				if (!row) deny("unavailable");
 				const m = meetingRow.parse(row);
 				const now = z.coerce.date().parse(row.now);
 				const p = plan(row);

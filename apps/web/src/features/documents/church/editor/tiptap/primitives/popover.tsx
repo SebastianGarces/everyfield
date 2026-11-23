@@ -3,7 +3,7 @@ import { Popover as PopoverPrimitive } from "radix-ui";
 import { usePortalContainer } from "@everyfield/ui/controls";
 import { cn } from "../tiptap-utils.ts";
 import { POPOVER } from "../styles.ts";
-import { InToolbar } from "./toolbar.tsx";
+import { InToolbarContext } from "./toolbar.tsx";
 
 function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
 	return <PopoverPrimitive.Root {...props} />;
@@ -22,9 +22,9 @@ function PopoverContent({
 	const container = usePortalContainer();
 	return (
 		<PopoverPrimitive.Portal container={container}>
-			<InToolbar value={false}>
+			<InToolbarContext value={false}>
 				<PopoverPrimitive.Content align={align} sideOffset={sideOffset} className={cn(POPOVER, className)} {...props} />
-			</InToolbar>
+			</InToolbarContext>
 		</PopoverPrimitive.Portal>
 	);
 }

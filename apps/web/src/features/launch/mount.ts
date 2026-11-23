@@ -3,7 +3,7 @@ import { authorizeLaunchNotices, createLaunchWriter } from "@everyfield/domain/l
 import "server-only";
 import { serverConfig, type ServerConfig } from "../../server/config.ts";
 import { database } from "../../server/database";
-import { mountMailService, seatedNotificationService } from "../../server/jobs/seated-notifications";
+import { mountMailService, seatedNotificationService } from "@everyfield/domain/jobs";
 import { launchNotices } from "./notices";
 
 let mount: ReturnType<typeof create> | undefined;

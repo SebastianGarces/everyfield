@@ -22,7 +22,7 @@ function gated<S extends z.ZodType, T>(
 	return read(authority, async (v) => {
 		const input = parse(schema, raw);
 		const { row, admin: live } = await one(db, v, query(sql`${v.plantId}::uuid`, input), admin);
-		if (!row) deny();
+		if (!row) deny("unavailable");
 		return body(row, input, { admin: live });
 	});
 }
@@ -382,7 +382,7 @@ export const attendanceReader = {
 					})
 					.parse(row);
 				const evaluated = f.evaluations.map(tenths);
-				return c.summaryStats.parse({
+				return {
 					window: windowOf(i),
 					held: f.held,
 					finalized: f.finalized,
@@ -399,7 +399,7 @@ export const attendanceReader = {
 								value: Math.round(evaluated.reduce((a, b) => a + b, 0) / evaluated.length) / 10,
 							}
 						: { status: "unknown" },
-				});
+				} satisfies z.output<typeof c.summaryStats>;
 			},
 		);
 	},

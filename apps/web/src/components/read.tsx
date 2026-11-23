@@ -98,7 +98,9 @@ export function createRead<A extends unknown[], T>(
 	const watched = (k: string) => (readers.get(k) ?? 0) > 0;
 
 	const usable = (entry: Entry<T> | undefined) =>
-		entry !== undefined && (entry.status === "loading" || (entry.reusable && Date.now() - entry.at < fresh));
+		entry !== undefined && (entry.status === "loading" || (entry.reusable && Date.now() - entry.at < fresh))
+			? entry
+			: undefined;
 
 	const start = (k: string, args: A, keepValue: boolean) => {
 		const promise = new Promise<T>((resolve) => resolve(load(...args))).catch(failed);
@@ -150,12 +152,13 @@ export function createRead<A extends unknown[], T>(
 		const entry = entries.get(k);
 		const others = watched(k);
 		readers.set(k, (readers.get(k) ?? 0) + 1);
+		const live = usable(entry);
 		const older =
 			bound.newerThan !== undefined &&
-			usable(entry) &&
-			entry!.status === "ready" &&
-			(entry!.served === undefined || entry!.served < bound.newerThan);
-		if (usable(entry) && !older) entry!.unread = false;
+			live !== undefined &&
+			live.status === "ready" &&
+			(live.served === undefined || live.served < bound.newerThan);
+		if (live && !older) live.unread = false;
 		else start(k, args, others || entry?.unread === true || older);
 		return () => {
 			listeners.delete(listener);
@@ -170,7 +173,8 @@ export function createRead<A extends unknown[], T>(
 	const get = (...args: A) => {
 		const k = key(...args);
 		const entry = entries.get(k);
-		return usable(entry) ? entry!.promise : start(k, args, watched(k));
+		const live = usable(entry);
+		return live ? live.promise : start(k, args, watched(k));
 	};
 
 	return {

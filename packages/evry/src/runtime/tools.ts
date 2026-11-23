@@ -17,14 +17,15 @@ export function readTools(actor: EvryActor, run: ToolHandlers["read"], offered: 
 		);
 		if (!allowed.length) continue;
 		const options = allowed.map((a) => z.strictObject({ operation: z.literal(a.operation), input: a.input }));
+		const [only] = options;
 		tools[`${domain}_read`] = tool({
 			description: `Bounded ${domain} reads: ${allowed.map((a) => `${a.operation} (${a.description})`).join("; ")}`,
-			inputSchema: options.length === 1 ? options[0]! : z.discriminatedUnion("operation", options as never),
-			execute: async (call: { operation: string; input: unknown }) =>
-				run(
-					allowed.find((a) => a.operation === call.operation)!,
-					call.input,
-				),
+			inputSchema: only && options.length === 1 ? only : z.discriminatedUnion("operation", options as never),
+			execute: async (call: { operation: string; input: unknown }) => {
+				const adapter = allowed.find((a) => a.operation === call.operation);
+				if (!adapter) throw new Error(`${call.operation} is not an offered read`);
+				return run(adapter, call.input);
+			},
 		});
 	}
 	return tools;
@@ -51,9 +52,10 @@ export function modelTools(actor: EvryActor, handlers: ToolHandlers, offered: Of
 	const writes = allowedWrites(actor, offered);
 	if (writes.length) {
 		const options = writes.map((w) => z.strictObject({ operation: z.literal(w.operation), input: w.input }));
+		const [only] = options;
 		tools.propose_change = tool({
 			description: `Prepare an exact review of one change for the user to approve: ${writes.map((w) => `${w.operation} (${w.description})`).join("; ")}. Use ids from earlier results. Nothing changes until the user approves.`,
-			inputSchema: options.length === 1 ? options[0]! : z.discriminatedUnion("operation", options as never),
+			inputSchema: only && options.length === 1 ? only : z.discriminatedUnion("operation", options as never),
 			execute: async (call: { operation: string; input: unknown }) => handlers.propose(call),
 		});
 	}
@@ -72,6 +74,15 @@ export function resultForModel(resultId: number, result: SourceResult): ModelRep
 	return JSON.parse(scrub(JSON.stringify({ ...value, rows, truncatedRows: result.rows.length - rows.length })));
 }
 
+const RECORDED_CRITERIA = z.array(
+	z.strictObject({ label: z.string(), status: z.string(), reading: z.string().nullable() }),
+);
+function forModel(c: Proposal["review"]["changes"][number]) {
+	if (c.field === "note") return { ...c, before: c.before === null ? null : "(the current note)" };
+	const open = c.field === "openCriteria" ? RECORDED_CRITERIA.safeParse(c.after) : null;
+	return open?.success ? { ...c, after: open.data.map(({ label, status }) => ({ label, status })) } : c;
+}
+
 export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "review">): ModelReply {
 	const target = proposal.review.target;
 	const people = (proposal.review.people ?? []).map((p) => ({
@@ -84,8 +95,10 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 		scrub(
 			JSON.stringify({
 				proposalId: proposal.id,
-				status: "awaiting_approval",
-				expiresAt: proposal.expiresAt,
+				...(proposal.review.refusal
+					? { status: "refused", refusal: proposal.review.refusal }
+					: { status: "awaiting_approval", expiresAt: proposal.expiresAt }),
+				...(proposal.review.refusal ? { refusal: proposal.review.refusal } : {}),
 				rows: target
 					? [
 							{
@@ -93,14 +106,13 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 								id: target.id,
 								label: target.label,
 								fields: {
-									changes: proposal.review.changes.map((c) =>
-										c.field === "note" ? { ...c, before: c.before === null ? null : "(the current note)" } : c,
-									),
+									changes: proposal.review.changes.map(forModel),
 								},
 							},
 							...people,
 						]
 					: people,
+				...(target ? {} : { changes: proposal.review.changes }),
 			}),
 		),
 	) as ModelReply;

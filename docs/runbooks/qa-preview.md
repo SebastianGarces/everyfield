@@ -35,9 +35,9 @@ Run this on Sebastian's Mac, from the home checkout. `neonctl` and `vercel` must
       branch with them. The seed seals and hashes the seeded mail addresses under these keys, so the preview must use
       the same two. No key is printed.
    5. Deploys the branch head with `vercel deploy --target preview`. Only the database and identity settings and a
-      fresh `FLAGS_SECRET` (for Flags Explorer, see "Testing a flagged feature") are set for this deployment, with the
-      same mail keys the seed got. Everything else comes from the Vercel Preview environment. No key is printed, and no
-      project setting changes.
+      cron secret are set for this deployment, with the same mail keys the seed got. Everything else comes from the Vercel Preview environment. No key is printed, and no
+      project setting changes. It sets no `FLAGS_SECRET`: on a preview the app mounts the Vercel Toolbar itself, and
+      Flags Explorer works with tokens Vercel signs ("Testing a flagged feature", route 2).
    6. Points the alias `everyfield-<id>.vercel.app` at the deployment. The app trusts only this origin, so always give
       Nora the alias URL, not the deployment URL.
    7. Writes the preview's cron secret to a private file for `bin/qa drive`. It never starts a driver itself. When
@@ -68,6 +68,7 @@ If a step fails, the command removes what it made and prints the error with ever
 | Responsible Member      | `delivered+qa-grace-staff@resend.dev`       | `Everyfield-QA-preview-1` |
 | Counts-only Member      | `delivered+qa-grace-member@resend.dev`      | `Everyfield-QA-preview-1` |
 | Linked resident         | `delivered+qa-resident@resend.dev`          | `Everyfield-QA-preview-1` |
+| Ended resident          | `delivered+qa-resident-ended@resend.dev`    | `Everyfield-QA-preview-1` |
 | Hill Country Owner      | `delivered+qa-hill-owner@resend.dev`        | `Everyfield-QA-preview-1` |
 
 These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. The Owner, Admin, Member and Second
@@ -76,7 +77,7 @@ tasks, two follow-ups, a written document, a draft message, a sent message, the 
 history (below).
 The Feedback triager has no church seat. It holds the `feedback_triage` platform grant and opens `/feedback/triage`.
 
-The last seven logins belong to the multiplication example (T-312, below).
+The last eight logins belong to the multiplication example (T-312, below).
 
 The church is connected to three organizations. Two of them are sending churches with similar names. They are two
 different churches on purpose:
@@ -114,7 +115,7 @@ Grace Austin (QA) has five staff logins:
 | Responsible Member      | Dee Walker  | Member. Responsible for Jordan.                             |
 | Counts-only Member      | Ben Carter  | Member. Responsible for no one.                             |
 
-Its pipeline has two people:
+Its pipeline has three people:
 
 - **Casey Lee** is a Resident, enrolled in the published "Church planting residency". Ana wrote a note on her, logged
   a conversation with her and wrote feedback on her "Preach on a Sunday" assignment. Ana recorded that milestone
@@ -122,6 +123,8 @@ Its pipeline has two people:
   Ana confirmed it.
 - **Jordan Reyes** is a Potential leader. He is not enrolled and not linked. Dee and Dana each wrote a note on him,
   and Dee logged a conversation with him.
+- **Riley Hart** is a Potential leader with no responsible staff member. He was linked to the residency and left it
+  (below).
 
 The church also has one sending goal. The pipeline is at `/organization/pipeline`, and the residency is under
 `/organization/pipeline/programs`.
@@ -129,14 +132,18 @@ The church also has one sending goal. The pipeline is at `/organization/pipeline
 Casey has her own login, the Linked resident. Luis invited her to link her account, and she accepted. She shares
 milestone progress and does not share foundations. She holds no seat.
 
+Riley has his own login, the Ended resident. Luis invited him to link his account to Grace Austin (QA), and he
+accepted. Then he left the residency himself, through the resident's leave command, so the link has ended. He holds no
+seat. A preview made before T-536 merged has no Ended resident login.
+
 Hill Country Network (QA) has its own Owner, Ruth Calder, and its own pipeline person, Morgan Diaz. Grace Austin (QA)
 is connected to the network and shares its pipeline totals with it. Harvest Point (QA) is connected to both
 organizations: its Owner sent each one a connection request, and the organization's Owner accepted it.
 
 What each login should see:
 
-- **Grace Austin Owner and Admin** see Casey and Jordan, every note, every conversation, Ana's feedback and Casey's
-  shared progress.
+- **Grace Austin Owner and Admin** see Casey, Jordan and Riley, every note, every conversation, Ana's feedback and
+  Casey's shared progress.
 - **Residency director** sees Casey only. She sees her own note, the feedback she wrote and Casey's milestones. She
   does not see Jordan, Dee's or Dana's notes, or Casey's foundations.
 - **Responsible Member** sees Jordan and Jordan's notes only. She does not see Casey or the residency.
@@ -144,6 +151,8 @@ What each login should see:
   sees no names, notes or conversations. Every change he tries is refused.
 - **Linked resident** sees My residency (`/my-residency`) only: the program, her milestones and Ana's feedback. She
   does not see the pipeline, any note or her stage.
+- **Ended resident** sees My residency (`/my-residency`) with "You’re no longer linked to a residency" and the "Back
+  to Discovery" button. He sees no pipeline or residency data: no program, milestones, feedback, notes or stage.
 - **Hill Country Owner** sees Morgan Diaz only. Even with sharing on, she sees no Grace Austin (QA) person, count,
   goal or conversation. The network needs at least two sharing churches before it shows any totals.
 - **Harvest Point's planter**, the Owner login, sees nothing from either organization's pipeline or residency.
@@ -347,8 +356,8 @@ time with `bin/qa up` before you test mail on it.
 ### Testing a flagged feature (T-471)
 
 New work can land hidden behind a feature flag (`docs/architecture/patterns.md`, "Feature flags"). The flag is off
-unless someone turns it on, so Nora sees the old screen until one of these two routes turns it on for her. Neither
-changes what any other account sees, and neither turns the flag on for everyone. `bin/flag list` names every flag.
+unless someone turns it on, so Nora sees the old screen until route 1 or route 2 below turns it on for her. It changes
+nothing that other accounts see, and it does not turn the flag on for everyone. `bin/flag list` names every flag.
 
 **Route 1: an account override on her QA login.** The lead runs, on Sebastian's Mac, against the preview's own Neon
 branch:
@@ -364,17 +373,22 @@ is then on for that one login in every browser, and off for the other QA logins.
 delivered+qa-owner@resend.dev --qa <preview id>`. `bin/qa down` also removes it, with the branch. An override on the
 shared development database works the same way without `--qa`.
 
-**Route 2: a Flags Explorer override on the preview.** `bin/qa up` gives each QA preview its own `FLAGS_SECRET`, so
-the Vercel Toolbar's Flags Explorer can read the flags (`/.well-known/vercel/flags`) and force one for one browser:
+**Route 2: Flags Explorer in Nora's own browser.** This forces a flag for one browser only, and writes nothing to the
+database. Nora does it herself on the alias URL:
 
-1. Open the preview signed in to Vercel, so the Toolbar shows. Open Flags Explorer from the Toolbar.
-2. Find the flag, set it to On, and apply. Explorer stores the choice in an encrypted `vercel-flag-overrides`
-   cookie, and the page reloads with the flag on.
-3. To clear it, reset the override in Flags Explorer, or clear the preview's cookies.
+1. Open `https://everyfield-<id>.vercel.app` in a browser signed in to Vercel, the same account that gets her past
+   Deployment Protection. Sign in to the app as usual.
+2. The Vercel Toolbar shows on the page. If it asks, sign in to Vercel from it.
+3. Open the Toolbar menu, then Flags Explorer. It lists every flag in the registry (`bin/flag list`).
+4. Choose the flag, set it to On, then Apply. The page reloads with the flag on in this browser.
+5. To go back, open Flags Explorer again, Reset the flag, then Apply. The page shows the stored value again.
 
-The override lives only in that browser's cookie. It changes no `feature_flag` row, so other browsers and logins
-still see the stored value. Production ignores the cookie, and so does any deployment without `FLAGS_SECRET`. A
-remote-browser bot without the Toolbar uses route 1.
+The override lives in this browser's `vercel-flag-overrides` cookie, which Vercel signs for this project's previews, so
+`bin/flag show <flag> --qa <preview id>` still shows no value for it, and production ignores it. The app mounts the
+Toolbar itself on every Vercel preview (T-535), because Vercel's own injection skips an alias such as
+`everyfield-<id>.vercel.app` unless the project opts in. No `FLAGS_SECRET` or project setting is needed: `flags` 4.5
+checks the Toolbar's Vercel-signed tokens. A private window cannot use route 2, since Deployment Protection keeps it out
+(section 3).
 
 Nora tests both states: the flag on, then off again. When she signs off, the flag goes on for everyone through
 `bin/flag set <flag> on --all`, which needs an approved `evf flip` (`bin/flag help`).

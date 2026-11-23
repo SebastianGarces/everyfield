@@ -29,8 +29,8 @@ function parseInline(text: string, open = false): Inline[] {
 	};
 	let i = 0;
 	while (i < text.length) {
-		const c = text[i]!;
-		if (c === "\\" && i + 1 < text.length && ESCAPABLE.includes(text[i + 1]!)) {
+		const c = text.charAt(i);
+		if (c === "\\" && i + 1 < text.length && ESCAPABLE.includes(text.charAt(i + 1))) {
 			buffer += text[i + 1];
 			i += 2;
 			continue;
@@ -65,9 +65,10 @@ function parseInline(text: string, open = false): Inline[] {
 			}
 		} else if (c === "*") {
 			if (open && i === text.length - 1) return (flush(), out);
-			if (text[i + 1] && !/\s/.test(text[i + 1]!) && text[i + 1] !== "*") {
+			const after = text.charAt(i + 1);
+			if (after && !/\s/.test(after) && after !== "*") {
 				let end = i + 1;
-				while ((end = text.indexOf("*", end + 1)) !== -1 && (/\s/.test(text[end - 1]!) || text[end + 1] === "*"));
+				while ((end = text.indexOf("*", end + 1)) !== -1 && (/\s/.test(text.charAt(end - 1)) || text[end + 1] === "*"));
 				if (end > i + 1) {
 					flush();
 					out.push({ kind: "em", children: parseInline(text.slice(i + 1, end), false) });
@@ -134,11 +135,12 @@ export function parseMarkdown(text: string, open = false): Block[] {
 		paragraph = [];
 	};
 	const endList = (finalIndex: number) => {
-		if (list)
+		const ending = list;
+		if (ending)
 			blocks.push({
 				kind: "list",
-				ordered: list.ordered,
-				items: list.items.map((item, n) => parseInline(item, last(finalIndex - list!.items.length + 1 + n))),
+				ordered: ending.ordered,
+				items: ending.items.map((item, n) => parseInline(item, last(finalIndex - ending.items.length + 1 + n))),
 			});
 		list = null;
 	};
@@ -150,7 +152,9 @@ export function parseMarkdown(text: string, open = false): Block[] {
 			endParagraph(index - 1);
 			const ordered = number !== null;
 			if (list && list.ordered !== ordered) endList(index - 1);
-			(list ??= { ordered, items: [] }).items.push(item[1]!);
+			const [, body] = item;
+			if (body === undefined) throw new Error("A list item matched without its text");
+			(list ??= { ordered, items: [] }).items.push(body);
 		} else if (!line.trim()) {
 			endParagraph(index - 1);
 			endList(index - 1);

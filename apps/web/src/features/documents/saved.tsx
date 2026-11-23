@@ -8,9 +8,11 @@ import { Await, createRead, useRead } from "../../components/read.tsx";
 import type { DocumentOutcome } from "./outcome.ts";
 import { downloadSavedDocument, listSavedDocuments } from "./fetch.ts";
 import { FORMAT_LABEL, documentProblem, savedWhen, type SavedFile } from "./model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 export const savedDocuments = createRead(() => listSavedDocuments(), {
-	failed: (): DocumentOutcome<SavedFile[]> => ({ status: "lost" }),
+	failed: (): DocumentOutcome<SavedFile[]> | ReadFailure => ({ status: "lost" }),
 });
 
 export function SavedHistory({ enabled }: { enabled: boolean }) {
@@ -25,8 +27,8 @@ export function SavedHistory({ enabled }: { enabled: boolean }) {
 		setLink(null);
 		const result = await downloadSavedDocument(entry.id).catch(() => ({ status: "lost" }) as const);
 		setBusyId(null);
-		if (result.status === "lost") {
-			setNote("The connection dropped, so the download did not start. Try again.");
+		if (result.status === "lost" || result.status === "failed") {
+			setNote(loadProblem(result, "The connection dropped, so the download did not start. Try again."));
 			return;
 		}
 		if (result.status === "refused") {
@@ -78,7 +80,7 @@ export function SavedHistory({ enabled }: { enabled: boolean }) {
 										</Button>
 									}
 								>
-									This is a loading problem. Nothing was changed.
+									{loadProblem(entries, "This is a loading problem. Nothing was changed.")}
 								</EmptyState>
 							) : entries.value.length === 0 ? (
 								<EmptyState icon={Clock01Icon} title="Nothing saved for your church yet." headingLevel="h3">

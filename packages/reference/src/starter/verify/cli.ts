@@ -6,8 +6,10 @@ import { sql } from "@everyfield/db/query";
 import { developmentHosts } from "@everyfield/db/development";
 import { approvedWiki } from "../manifest/approved.ts";
 import { referenceService } from "./service.ts";
+import { WikiRefusal } from "./snapshot.ts";
 
 const PUBLISHER_EMAIL = "wiki-publisher@example.test";
+const EMBEDDED_RELEASE = `${approvedWiki.version}-embedded`;
 
 function fail(message: string): never {
 	console.error(message);
@@ -15,7 +17,12 @@ function fail(message: string): never {
 }
 
 const { values } = parseArgs({
-	options: { production: { type: "boolean" }, operator: { type: "string" }, schema: { type: "string" } },
+	options: {
+		production: { type: "boolean" },
+		operator: { type: "string" },
+		schema: { type: "string" },
+		rebuild: { type: "boolean" },
+	},
 });
 let target: URL;
 try {
@@ -74,10 +81,30 @@ try {
 			SELECT a.activation_number::text AS number, r.release_key FROM reference_activation a
 			JOIN reference_release r ON r.id = a.release_id ORDER BY a.activation_number DESC LIMIT 1`)
 	).rows[0] as { number: string; release_key: string } | undefined;
-	if (current?.release_key === approvedWiki.version) {
+	const wanted = values.rebuild ? [EMBEDDED_RELEASE] : [approvedWiki.version, EMBEDDED_RELEASE];
+	if (current && wanted.includes(current.release_key)) {
 		console.log(
 			JSON.stringify({ activeRelease: current.release_key, activationNumber: current.number, changed: false }),
 		);
+	} else if (values.rebuild) {
+		if (!current) fail("Install the approved Wiki first: run this command without --rebuild.");
+		const operator = await publisher(db);
+		sessionId = randomUUID();
+		await db.execute(sql`INSERT INTO auth_session(id, user_id, token, expires_at)
+			VALUES (${sessionId}::uuid, ${operator.userId}::uuid, ${randomBytes(32).toString("hex")}, now() + interval '10 minutes')`);
+		const receipt = await referenceService(db).rebuildEmbeddings(
+			{ ...operator, sessionId },
+			{
+				release: EMBEDDED_RELEASE,
+				manifestSha256: approvedWiki.manifestSha256,
+				payloadSha256: approvedWiki.payloadSha256,
+				requestKey: `wiki-rebuild:${EMBEDDED_RELEASE}:${current.number}`,
+				expectedActivation: current.number,
+				target: approvedWiki.target,
+			},
+		);
+		console.log(JSON.stringify({ ...receipt, previousRelease: current.release_key, changed: receipt.activated }));
+		if (!receipt.activated) process.exitCode = 1;
 	} else {
 		const operator = await publisher(db);
 		sessionId = randomUUID();
@@ -99,10 +126,18 @@ try {
 		console.log(JSON.stringify({ ...receipt, previousRelease: current?.release_key ?? null, changed: true }));
 	}
 } catch (error) {
-	const cause = error instanceof Error && error.cause instanceof Error ? `: ${error.cause.message}` : "";
-	console.error(
-		`Wiki install failed: ${error instanceof Error ? error.message.split("\n")[0] : "unknown error"}${cause}`,
-	);
+	const chain: string[] = [];
+	let sqlState = "";
+	for (let at: unknown = error; at instanceof Error && chain.length < 4; at = at.cause) {
+		const code = (at as { code?: unknown }).code;
+		if (!sqlState && typeof code === "string" && /^[0-9A-Z]{5}$/.test(code)) sqlState = code;
+		chain.push(at.constructor.name === "Error" ? at.name : at.constructor.name);
+	}
+	const failure =
+		error instanceof WikiRefusal
+			? error.code
+			: `${chain.join(" from ") || typeof error}${sqlState ? ` ${sqlState}` : ""}`;
+	console.error(`Wiki install failed: ${failure}`);
 	process.exitCode = 1;
 } finally {
 	if (sessionId) await db.execute(sql`DELETE FROM auth_session WHERE id = ${sessionId}::uuid`);

@@ -28,6 +28,10 @@ import { readingFrom, foundationArticles, type ReadingRow } from "./reading.ts";
 const savedLead = c.leadAnswerResult.shape.lead;
 const savedJourney = c.journeyResult.shape.journey;
 const savedLaunch = c.journeyResult.shape.launch;
+function completedOf(plant: { onboarding_completed_at: Date | null }) {
+	if (!plant.onboarding_completed_at) throw Error("A completed plant has no completion time");
+	return plant.onboarding_completed_at;
+}
 async function assignLead(
 	tx: Tx,
 	plantId: string,
@@ -41,7 +45,7 @@ async function assignLead(
 			.from(t.team)
 			.where(and(eq(t.team.id, selection.teamId), eq(t.team.plant_id, plantId), isNull(t.team.archived_at)))
 			.for("update");
-		if (!team) deny();
+		if (!team) deny("unavailable");
 		revision(selection.expectedTeamRevision, team.revision);
 		[role] = await tx
 			.select()
@@ -55,7 +59,7 @@ async function assignLead(
 				),
 			)
 			.for("update");
-		if (!role || !role.leadership) deny();
+		if (!role || !role.leadership) deny("unavailable");
 		revision(selection.expectedRoleRevision, role.revision);
 	} else {
 		if (selection.container.kind === "existing") {
@@ -64,19 +68,21 @@ async function assignLead(
 				.from(t.team)
 				.where(and(eq(t.team.id, selection.container.teamId), eq(t.team.plant_id, plantId), isNull(t.team.archived_at)))
 				.for("update");
-			if (!team) deny();
+			if (!team) deny("unavailable");
 			revision(selection.container.expectedRevision, team.revision);
 		} else
 			[team] = await tx
 				.insert(t.team)
 				.values({ plant_id: plantId, name: selection.container.name, state: "forming", sort_order: 0 })
 				.returning();
+		if (!team) throw Error("The lead team was not written");
 		[role] = await tx
 			.insert(t.team_role)
-			.values({ plant_id: plantId, team_id: team!.id, name: selection.roleName, leadership: true, sort_order: 0 })
+			.values({ plant_id: plantId, team_id: team.id, name: selection.roleName, leadership: true, sort_order: 0 })
 			.returning();
 	}
-	if (team!.leader_person_id && team!.leader_person_id !== personId) deny("conflict");
+	if (!team || !role) throw Error("The lead assignment has no team or role");
+	if (team.leader_person_id && team.leader_person_id !== personId) deny("conflict");
 	const tenures =
 		selection.kind === "minimal_role"
 			? []
@@ -86,7 +92,7 @@ async function assignLead(
 					.where(
 						and(
 							eq(t.team_tenure.plant_id, plantId),
-							eq(t.team_tenure.role_id, role!.id),
+							eq(t.team_tenure.role_id, role.id),
 							isNull(t.team_tenure.ended_on),
 						),
 					)
@@ -95,21 +101,21 @@ async function assignLead(
 	if (!tenures.length)
 		await tx.insert(t.team_tenure).values({
 			plant_id: plantId,
-			role_id: role!.id,
+			role_id: role.id,
 			person_id: personId,
 			started_on: sql`(clock_timestamp() AT TIME ZONE (SELECT timezone FROM plant WHERE id=${plantId}))::date`,
 		});
-	if (!team!.leader_person_id)
+	if (!team.leader_person_id)
 		await tx
 			.update(t.team)
 			.set({
 				leader_person_id: personId,
 				leader_source: "role_derived",
-				leader_role_id: role!.id,
+				leader_role_id: role.id,
 				revision: sql`${t.team.revision}+1`,
 			})
-			.where(eq(t.team.id, team!.id));
-	return { teamId: team!.id, roleId: role!.id, personId };
+			.where(eq(t.team.id, team.id));
+	return { teamId: team.id, roleId: role.id, personId };
 }
 async function fillSeniorPastor(tx: Tx, plantId: string, personId: string) {
 	const found = await tx.execute(sql`SELECT t.id AS "teamId", t.leader_person_id AS "leaderId", r.id AS "roleId",
@@ -138,7 +144,8 @@ async function fillSeniorPastor(tx: Tx, plantId: string, personId: string) {
 				.insert(t.team)
 				.values({ plant_id: plantId, name: "Leadership", template_key: "leadership", state: "forming", sort_order: 0 })
 				.returning({ id: t.team.id })
-		)[0]!.id;
+		)[0]?.id;
+	if (!teamId) throw Error("The leadership team was not written");
 	const roleId =
 		row?.roleId ??
 		(
@@ -153,7 +160,8 @@ async function fillSeniorPastor(tx: Tx, plantId: string, personId: string) {
 					sort_order: 0,
 				})
 				.returning({ id: t.team_role.id })
-		)[0]!.id;
+		)[0]?.id;
+	if (!roleId) throw Error("The senior pastor role was not written");
 	if (!row?.holderId)
 		await tx.insert(t.team_tenure).values({
 			plant_id: plantId,
@@ -189,7 +197,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 					),
 				)
 				.for("update");
-			if (!person) deny();
+			if (!person) deny("unavailable");
 			const cx = await begin(tx, ctx, a.account.id, "identity.answerLeadOnboarding", q);
 			if (cx.kind === "replay") return c.leadAnswerResult.parse(cx.value);
 			revision(q.expectedRevision, a.plant.revision);
@@ -281,7 +289,7 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 			}
 			const completion = {
 				status: "completed",
-				completedAt: plant.onboarding_completed_at!.toISOString(),
+				completedAt: completedOf(plant).toISOString(),
 				materialRevision: a.setup.completed_material_revision ?? plant.material_revision,
 			};
 			await event(tx, cx, a.plant.id, "attestation.recorded", a.plant.onboarding_completed_at ? "noop" : "complete");
@@ -308,9 +316,9 @@ async function readContext(tx: Tx, ctx: Context) {
 		bound && bound.authority.session === ctx.session
 			? bound.authority
 			: (await readViewer(tx, sessionId.parse(ctx.session)))?.authority;
-	if (!authority) deny();
+	if (!authority) deny("unavailable");
 	const read = new OnboardingReadContext(authority);
-	if (read.selected.kind !== ctx.selected.kind || read.selected.id !== ctx.selected.id) deny();
+	if (read.selected.kind !== ctx.selected.kind || read.selected.id !== ctx.selected.id) deny("unavailable");
 	return read;
 }
 function resumeFrom(f: {
@@ -392,7 +400,7 @@ const entryRow = z.object({
 export async function plantEntry(tx: Pick<Tx, "execute">, ctx: OnboardingReadContext) {
 	const a = ctx.authority.actor;
 	if (a.status !== "active" || a.context.kind !== "seat" || a.context.role !== "owner" || ctx.selected.kind !== "plant")
-		deny();
+		deny("unavailable");
 	const plantId = ctx.selected.id;
 	const none = "00000000-0000-0000-0000-000000000000";
 	const live = liveRead({ ...liveAccess(ctx.authority), role: "owner" });
@@ -408,8 +416,8 @@ export async function plantEntry(tx: Pick<Tx, "execute">, ctx: OnboardingReadCon
   FROM seat s JOIN account ac ON ac.id=s.account_id AND ac.registration_state='active'
   LEFT JOIN person p ON p.linked_account_id=s.account_id AND p.plant_id=${plantId}::uuid AND p.state='live'
   WHERE s.plant_id=${plantId}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
-  AND NOT EXISTS(SELECT FROM lifecycle_witness w LEFT JOIN seat ws ON ws.id=w.seat_id
-   WHERE (w.opaque_subject_id=s.account_id OR ws.account_id=s.account_id) AND w.state NOT IN ('active','cancelled'))),
+  AND NOT EXISTS(SELECT FROM lifecycle_witness w
+   WHERE w.opaque_subject_id=s.account_id AND w.state <> 'cancelled')),
  rd AS (SELECT r.account_id, r.article_id, r.completed_fraction::text AS completed_fraction,
   (extract(epoch FROM r.completed_at)*1000)::float8 AS completed_at, ar.id AS source_id, ar.tenant_id, ar.revision_number,
   tn.kind, o.kind AS organization_kind
@@ -433,10 +441,13 @@ export async function plantEntry(tx: Pick<Tx, "execute">, ctx: OnboardingReadCon
    AND id::text IS DISTINCT FROM (SELECT result->'ownerSeat'->>'personId' FROM cr)) AS extra_people,
   coalesce((SELECT jsonb_agg(jsonb_build_object('accountId',account_id,'role',role,'personId',person_id,'lead',lead)) FROM cand),'[]') AS candidates,
   coalesce((SELECT jsonb_agg(to_jsonb(rd)) FROM rd),'[]') AS readings WHERE ${live}`);
-	if (!result.rows[0]) deny();
+	if (!result.rows[0]) deny("unavailable");
 	const r = entryRow.parse(result.rows[0]);
-	if (!r.account) deny();
-	if (!r.plant_id || !r.setup_account_id || r.setup_account_id !== a.accountId) deny();
+	if (!r.account) deny("unavailable");
+	if (!r.plant_id || !r.setup_account_id || r.setup_account_id !== a.accountId) deny("unavailable");
+	const { revision, material_revision: materialRevision, phase } = r;
+	if (revision === null || materialRevision === null || phase === null)
+		throw Error(`Plant ${r.plant_id} has no revision or phase`);
 	z.object({ ownerSeat: z.object({ personId: z.string().uuid() }) }).parse(r.creation);
 	const rows: ReadingRow[] = r.readings.map((x) => ({
 		reading: {
@@ -453,9 +464,9 @@ export async function plantEntry(tx: Pick<Tx, "execute">, ctx: OnboardingReadCon
 		plantName: r.plant_name,
 		resume: resumeFrom({
 			plant: ctx.selected,
-			revision: r.revision!,
-			materialRevision: r.material_revision!,
-			phase: r.phase!,
+			revision,
+			materialRevision,
+			phase,
 			completedAt: r.completed_at === null ? null : new Date(r.completed_at),
 			setup: {
 				lead: r.lead as typeof t.onboarding_setup.$inferSelect.lead,

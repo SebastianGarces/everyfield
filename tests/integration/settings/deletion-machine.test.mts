@@ -16,7 +16,7 @@ import {
 } from "../../../packages/contracts/src/machines/index.ts";
 import { createLifecycleCleanup, deletionOperations } from "../../../packages/domain/src/settings/index.ts";
 import { issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
-import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import { readCurrentManifest, restoreWithCurrentManifest } from "../../../ops/maintenance/restore.mts";
 import { testDatabase } from "../../support/test-database.mts";
 import { seeds } from "../../support/fixture.mts";
@@ -259,31 +259,10 @@ test("INV-machine: a deletion witness follows its declared transitions and refus
 	for (const kind of ["account", "plant"]) {
 		const w = await world(kind);
 		await signIn(w.requester);
-		await admin.insert(t.lifecycle_witness).values({
-			kind,
-			opaque_subject_id: w.subject.id,
-			account_id: kind === "account" ? w.subject.id : null,
-			plant_id: kind === "plant" ? w.subject.id : null,
-			request_revision: "0",
-			state: "active",
-			witness_checkpoint: "1",
-			cleanup_state: "not_started",
-		});
 		copies.push(w);
 	}
-	for (const [kind, state] of [
-		["seat", "revoked"],
-		["affiliation", "active"],
-	])
-		await admin.insert(t.lifecycle_witness).values({
-			kind,
-			opaque_subject_id: randomUUID(),
-			request_revision: "0",
-			state,
-			witness_checkpoint: "1",
-			cleanup_state: "not_started",
-		});
 	const source = Object.fromEntries((await admin.select().from(t.lifecycle_witness)).map((row) => [row.id, row.state]));
+	assert.deepEqual([...new Set(Object.values(source))].sort(), [...machine.states].sort());
 	const target = `${schema}_m`;
 	targets.push(target);
 	const restored = await restoreWithCurrentManifest(
@@ -317,7 +296,7 @@ test("INV-machine: a deletion witness follows its declared transitions and refus
 		assert.ok(reply.ok, `${w.subject.kind} copy request: ${JSON.stringify(reply)}`);
 		assert.equal((await stored(w.subject, pool)).state, "pending_deletion");
 		const event = w.subject.kind === "account" ? "account.requestDeletion" : "churches.requestWorkspaceDeletion";
-		observe({ kind: "edge", subject: "copy", event, from: "active", to: "pending_deletion" });
+		observe({ kind: "edge", subject: "copy", event, from: null, to: "pending_deletion" });
 	}
 
 	const report = coverage(machine, observations);
