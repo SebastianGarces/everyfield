@@ -1,4 +1,4 @@
-import { localDate, recordId, type Clock, type Owner } from "@everyfield/contracts/common";
+import { daysBetween, localDate, recordId, type Clock, type Owner } from "@everyfield/contracts/common";
 import * as C from "@everyfield/contracts/oversight";
 import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
@@ -179,8 +179,7 @@ const SECTIONS = {
 			const [first] = meetings;
 			const last = meetings.at(-1);
 			if (!first || !last) return null;
-			const day = (d: string) => Date.parse(`${d}T00:00:00Z`) / 86_400_000;
-			const span = day(last.date) - day(first.date);
+			const span = daysBetween(first.date, last.date);
 			return C.meetingCounts.parse({
 				meetings,
 				averageDaysBetween: meetings.length > 1 ? Math.round(span / (meetings.length - 1)) : null,

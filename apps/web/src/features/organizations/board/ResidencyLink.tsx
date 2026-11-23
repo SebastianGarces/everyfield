@@ -15,7 +15,7 @@ import {
 import { StatusBadge } from "@everyfield/ui/display";
 import { useState } from "react";
 import { runLinkInvitation } from "./actions";
-import { formatPlainDate } from "../../../components/dates.ts";
+import { dayText } from "@everyfield/contracts/common";
 
 type Record = PipelinePersonRecord;
 
@@ -94,7 +94,7 @@ export function ResidencyLink({ record, onChanged }: { record: Record; onChanged
 				) : link.status === "pending" ? (
 					<>
 						<p className="text-ink-2">
-							Sent {formatPlainDate(link.sentOn)} to{" "}
+							Sent {dayText(link.sentOn)} to{" "}
 							<span className="text-ink [overflow-wrap:anywhere]">{link.recipientEmail}</span>. It works for 30 days.
 						</p>
 						<div className="flex flex-wrap gap-2">
