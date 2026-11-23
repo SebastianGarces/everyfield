@@ -1,4 +1,5 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
+import { addDays, weekdayOf } from "@everyfield/contracts/common";
 import { randomUUID } from "node:crypto";
 import { captured } from "./captured.ts";
 
@@ -49,9 +50,7 @@ function churchToday(prompt: Prompt) {
 	return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago" }).format(clock ? new Date(clock) : new Date());
 }
 function nextWeekday(today: string, name: string) {
-	const at = new Date(`${today}T12:00:00Z`);
-	const ahead = (DAYS.indexOf(name.toLowerCase()) - at.getUTCDay() + 7) % 7 || 7;
-	return new Date(at.getTime() + ahead * 86_400_000).toISOString().slice(0, 10);
+	return addDays(today, (DAYS.indexOf(name.toLowerCase()) - weekdayOf(today) + 7) % 7 || 7);
 }
 
 function summary(o: Output, lead: string, extra: string[] = []) {

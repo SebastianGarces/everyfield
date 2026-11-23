@@ -1,5 +1,6 @@
 import { z } from "zod";
 import rubric from "../../../../docs/reference/network-rubric-v1.json" with { type: "json" };
+import { dayText } from "../common/day.ts";
 import { counted } from "../common/text.ts";
 import { instant, localDate } from "../common/time.ts";
 import { tenantId } from "../common/values.ts";
@@ -206,8 +207,6 @@ export const intelligencePattern = z.discriminatedUnion("theme", [
 export type IntelligencePattern = z.infer<typeof intelligencePattern>;
 
 const MOMENTUM = { slowed: "momentum has slowed", stalled: "growth has stalled" } as const;
-const dayLabel = (d: string) =>
-	new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${d}T12:00:00Z`));
 export function patternText(p: IntelligencePattern): {
 	title: string;
 	lines: string[];
@@ -253,7 +252,7 @@ export function patternText(p: IntelligencePattern): {
 			return {
 				...base,
 				title: p.theme === "slowed" ? "Acquisition momentum slowed" : "Acquisition growth stalled",
-				lines: [fill({ support_count: p.support, momentum_label: MOMENTUM[p.theme], as_of: dayLabel(p.asOf) })],
+				lines: [fill({ support_count: p.support, momentum_label: MOMENTUM[p.theme], as_of: dayText(p.asOf) })],
 				evidence: evidence("first-adult-acquisition"),
 			};
 		case "required_training":

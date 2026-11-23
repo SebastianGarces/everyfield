@@ -1,6 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
-import { counted, countWord } from "@everyfield/contracts/common";
+import { counted, countWord, dayText } from "@everyfield/contracts/common";
 import { captured } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
@@ -39,12 +39,14 @@ const names = (text: string) =>
 		)
 		.filter(Boolean);
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
-const dayText = (at: unknown) =>
-	typeof at === "string"
-		? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
-				new Date(at.length === 10 ? `${at}T12:00:00Z` : at),
-			)
-		: "an earlier date";
+const importedOn = (at: unknown) =>
+	typeof at !== "string"
+		? "an earlier date"
+		: at.length === 10
+			? dayText(at)
+			: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
+					new Date(at),
+				);
 
 const ACCEPT = /\b(?:add|accept|take) (?:all )?(?:of )?the phase(?: \d)? (?:checklists|offer)\b/i;
 const DECLINE =
@@ -246,7 +248,7 @@ function receiptStep(out: Output[]) {
 		.join(", ");
 	const created = Number(latest.fields.tasksCreated);
 	return say(
-		`The latest import is ${name}, a ${String(latest.fields.receipt)} on ${dayText(latest.fields.at)}: it created ${counted(created, "task")}.`,
+		`The latest import is ${name}, a ${String(latest.fields.receipt)} on ${importedOn(latest.fields.at)}: it created ${counted(created, "task")}.`,
 	);
 }
 

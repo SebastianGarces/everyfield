@@ -1,8 +1,7 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
-import { counted, countWord } from "@everyfield/contracts/common";
+import { addDays, counted, countWord, dayText } from "@everyfield/contracts/common";
 import { GUEST_NAME_MAX } from "@everyfield/contracts/launch";
-import { launchDay } from "../adapters/launch/reads/index.ts";
 import { LAUNCH_RULES } from "../context/compile.ts";
 import { captured } from "./captured.ts";
 
@@ -263,18 +262,15 @@ function journalText(out: Output, system: string) {
 	const since = out.facts?.since;
 	const quoted = system.includes(LAUNCH_RULES.historyOnly) ? ` ${LAUNCH_RULES.historyOnly}` : "";
 	if (!rows.length)
-		return `Launch history shows no changes since ${typeof since === "string" ? launchDay(since) : "then"}.${quoted}`;
+		return `Launch history shows no changes since ${typeof since === "string" ? dayText(since, { weekday: "short" }) : "then"}.${quoted}`;
 	const lines = rows.map((r) => {
 		const f = r.fields;
 		const what =
 			f.change === "date" ? `${r.label} from ${String(f.from ?? "no date")} to ${String(f.to ?? "no date")}` : r.label;
 		return `- ${what}, by ${String(f.by)} on ${String(f.on)}${typeof f.reason === "string" ? ` (reason: "${f.reason}")` : ""}`;
 	});
-	return `Since ${typeof since === "string" ? launchDay(since) : "then"}, Launch history shows:\n${lines.join("\n")}\n\n${quoted.trim()}`.trim();
+	return `Since ${typeof since === "string" ? dayText(since, { weekday: "short" }) : "then"}, Launch history shows:\n${lines.join("\n")}\n\n${quoted.trim()}`.trim();
 }
-
-const before = (day: string, days: number) =>
-	new Date(Date.parse(`${day}T12:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
 
 function summaryFrom(f: Record<string, unknown>) {
 	const counts = [
@@ -437,7 +433,7 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 			return say("Launch history is for Owners and Admins. Ask one of them, or open [Launch](/launch).");
 		if (!countdown) return read("launch.readCountdown");
 		const journal = found("launch.readJournal");
-		if (!journal) return read("launch.readJournal", { since: before(String(countdown.facts?.today), 7) });
+		if (!journal) return read("launch.readJournal", { since: addDays(String(countdown.facts?.today), -7) });
 		return say(journalText(journal, system));
 	}
 	if (asked.milestones) {
@@ -558,7 +554,7 @@ function correctStep(outputs: Output[], text: string): LanguageModelV4Content[] 
 	const was = (k: (typeof named)[number]) =>
 		k === "actualDate"
 			? fields.actualDate
-				? launchDay(fields.actualDate) === f.actualDate
+				? dayText(fields.actualDate, { weekday: "short" }) === f.actualDate
 				: false
 			: fields[k] === f[k];
 	if (named.every(was))

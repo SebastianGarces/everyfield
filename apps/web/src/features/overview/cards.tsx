@@ -1,4 +1,4 @@
-import { counted } from "@everyfield/contracts/common";
+import { counted, dayText } from "@everyfield/contracts/common";
 import type { Activity, Metrics } from "@everyfield/contracts/dashboard";
 import type { Plan } from "@everyfield/contracts/launch";
 import {
@@ -24,7 +24,7 @@ import {
 import { formatCount, List, ListRow, StatusBadge, type Tone } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { longDate, milestonesDone, shownOf } from "../launch/model.ts";
+import { milestonesDone, shownOf } from "../launch/model.ts";
 import { entryByline, entryText, launchShown, METRICS, type Loaded } from "./model.ts";
 
 export function CardFailed({ what, loaded }: { what: string; loaded: Exclude<Loaded<unknown>, { status: "ok" }> }) {
@@ -182,7 +182,7 @@ function LaunchFigure({ shown }: { shown: ReturnType<typeof launchShown> }) {
 		case "held":
 			return (
 				<div>
-					<p className={big}>{longDate(shown.date)}</p>
+					<p className={big}>{dayText(shown.date, { weekday: "short" })}</p>
 					<p className="mt-3 text-md text-text-2">
 						Held · Attendance{" "}
 						<b className="font-semibold text-ink">
@@ -195,20 +195,20 @@ function LaunchFigure({ shown }: { shown: ReturnType<typeof launchShown> }) {
 			return (
 				<div>
 					<p className={big}>{counted(shown.days, "day")}</p>
-					<p className="mt-3 text-md text-text-2">Until {longDate(shown.date)}</p>
+					<p className="mt-3 text-md text-text-2">Until {dayText(shown.date, { weekday: "short" })}</p>
 				</div>
 			);
 		case "today":
 			return (
 				<div>
 					<p className={big}>Today</p>
-					<p className="mt-3 text-md text-text-2">{longDate(shown.date)}</p>
+					<p className="mt-3 text-md text-text-2">{dayText(shown.date, { weekday: "short" })}</p>
 				</div>
 			);
 		case "overdue":
 			return (
 				<div>
-					<p className={cn(big, "text-magenta-600")}>{longDate(shown.date)}</p>
+					<p className={cn(big, "text-magenta-600")}>{dayText(shown.date, { weekday: "short" })}</p>
 					<p className="mt-3 text-md text-text-2">This date has passed and no Launch Sunday is recorded yet.</p>
 				</div>
 			);
