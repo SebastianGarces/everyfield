@@ -11806,18 +11806,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "seat_id": {
-          "name": "seat_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "affiliation_id": {
-          "name": "affiliation_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "requester_opaque_id": {
           "name": "requester_opaque_id",
           "type": "uuid",
@@ -11882,36 +11870,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "lifecycle_witness_ref_3": {
-          "name": "lifecycle_witness_ref_3",
-          "columns": [
-            {
-              "expression": "seat_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "lifecycle_witness_ref_4": {
-          "name": "lifecycle_witness_ref_4",
-          "columns": [
-            {
-              "expression": "affiliation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -11947,32 +11905,6 @@
           "tableTo": "account",
           "columnsFrom": [
             "requester_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "lifecycle_witness_fk_3": {
-          "name": "lifecycle_witness_fk_3",
-          "tableFrom": "lifecycle_witness",
-          "tableTo": "seat",
-          "columnsFrom": [
-            "seat_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "lifecycle_witness_fk_4": {
-          "name": "lifecycle_witness_fk_4",
-          "tableFrom": "lifecycle_witness",
-          "tableTo": "affiliation",
-          "columnsFrom": [
-            "affiliation_id"
           ],
           "columnsTo": [
             "id"
@@ -12062,21 +11994,9 @@
           "name": "lifecycle_witness_ck_4",
           "value": "(state = ANY (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text]))"
         },
-        "lifecycle_witness_ck_5": {
-          "name": "lifecycle_witness_ck_5",
-          "value": "(num_nonnulls(account_id, plant_id, seat_id, affiliation_id) <= 1)"
-        },
         "lifecycle_witness_ck_6": {
           "name": "lifecycle_witness_ck_6",
           "value": "((account_id IS NULL) OR (kind = 'account'::text))"
-        },
-        "lifecycle_witness_ck_7": {
-          "name": "lifecycle_witness_ck_7",
-          "value": "((seat_id IS NULL) OR (kind = 'seat'::text))"
-        },
-        "lifecycle_witness_ck_8": {
-          "name": "lifecycle_witness_ck_8",
-          "value": "((affiliation_id IS NULL) OR (kind = 'affiliation'::text))"
         }
       },
       "isRLSEnabled": false

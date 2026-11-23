@@ -2345,8 +2345,6 @@ export const lifecycle_witness = pgTable(
 		cleanup_state: text("cleanup_state", {
 			enum: ["not_started", "in_progress", "inaccessible", "confirmed"],
 		}).notNull(),
-		seat_id: uuid("seat_id"),
-		affiliation_id: uuid("affiliation_id"),
 		requester_opaque_id: uuid("requester_opaque_id"),
 		cancel_until: timestamp("cancel_until", { withTimezone: true, mode: "date" }),
 		cancelled_at: timestamp("cancelled_at", { withTimezone: true, mode: "date" }),
@@ -2359,12 +2357,6 @@ export const lifecycle_witness = pgTable(
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({ name: "lifecycle_witness_fk_2", columns: [table.requester_id], foreignColumns: [account.id] })
-			.onDelete("restrict")
-			.onUpdate("no action"),
-		foreignKey({ name: "lifecycle_witness_fk_3", columns: [table.seat_id], foreignColumns: [seat.id] })
-			.onDelete("restrict")
-			.onUpdate("no action"),
-		foreignKey({ name: "lifecycle_witness_fk_4", columns: [table.affiliation_id], foreignColumns: [affiliation.id] })
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({ name: "lifecycle_witness_fk_6", columns: [table.id], foreignColumns: [record.id] })
@@ -2408,15 +2400,10 @@ export const lifecycle_witness = pgTable(
 			"lifecycle_witness_ck_4",
 			sql`(state = ANY (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text]))`,
 		),
-		check("lifecycle_witness_ck_5", sql`(num_nonnulls(account_id, plant_id, seat_id, affiliation_id) <= 1)`),
 		check("lifecycle_witness_ck_6", sql`((account_id IS NULL) OR (kind = 'account'::text))`),
-		check("lifecycle_witness_ck_7", sql`((seat_id IS NULL) OR (kind = 'seat'::text))`),
-		check("lifecycle_witness_ck_8", sql`((affiliation_id IS NULL) OR (kind = 'affiliation'::text))`),
 		index("lifecycle_witness_ref_0").using("btree", table.account_id.asc().nullsLast()),
 		index("lifecycle_witness_ref_1").using("btree", table.plant_id.asc().nullsLast()),
 		index("lifecycle_witness_ref_2").using("btree", table.requester_id.asc().nullsLast()),
-		index("lifecycle_witness_ref_3").using("btree", table.seat_id.asc().nullsLast()),
-		index("lifecycle_witness_ref_4").using("btree", table.affiliation_id.asc().nullsLast()),
 	],
 );
 export const mail = pgTable(

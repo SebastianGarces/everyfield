@@ -71,8 +71,8 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 125,
-  "column_count": 1412,
-  "foreign_key_count": 410,
+  "column_count": 1410,
+  "foreign_key_count": 408,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -25551,18 +25551,6 @@
           "nullable": false
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "seat_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "affiliation_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "Historical non-content subject key; retained after the live requester FK is cleared.",
           "name": "requester_opaque_id",
           "type": "uuid",
@@ -25642,40 +25630,6 @@
           "on_delete": "restrict"
         },
         {
-          "scope_exception": "Always null: no witness kind names a seat, and a later slice drops the column.",
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "seat_id"
-          ],
-          "references": {
-            "table": "seat",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "scope_exception": "Always null: no witness kind names an affiliation, and a later slice drops the column.",
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "affiliation_id"
-          ],
-          "references": {
-            "table": "affiliation",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
           "scope_exception": "Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable.",
           "deletion": {
             "action": "restrict",
@@ -25706,10 +25660,7 @@
         "((copy_expires_at IS NULL) OR (copy_expires_at <= (live_purged_at + '168:00:00'::interval)))",
         "kind in ('account', 'plant')",
         "state in ('pending_deletion', 'purging', 'purged', 'cancelled')",
-        "(num_nonnulls(account_id, plant_id, seat_id, affiliation_id) <= 1)",
-        "((account_id IS NULL) OR (kind = 'account'::text))",
-        "((seat_id IS NULL) OR (kind = 'seat'::text))",
-        "((affiliation_id IS NULL) OR (kind = 'affiliation'::text))"
+        "((account_id IS NULL) OR (kind = 'account'::text))"
       ],
       "indexes": {
         "lifecycle_witness_ref_0": {
@@ -25756,36 +25707,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "lifecycle_witness_ref_3": {
-          "name": "lifecycle_witness_ref_3",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "seat_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "lifecycle_witness_ref_4": {
-          "name": "lifecycle_witness_ref_4",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "affiliation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "constraint_names": {
@@ -25799,8 +25720,6 @@
           "lifecycle_witness_fk_0",
           "lifecycle_witness_fk_1",
           "lifecycle_witness_fk_2",
-          "lifecycle_witness_fk_3",
-          "lifecycle_witness_fk_4",
           "lifecycle_witness_fk_6"
         ],
         "checks": [
@@ -25816,10 +25735,7 @@
           "lifecycle_witness_ck_2",
           "lifecycle_witness_ck_3",
           "lifecycle_witness_ck_4",
-          "lifecycle_witness_ck_5",
-          "lifecycle_witness_ck_6",
-          "lifecycle_witness_ck_7",
-          "lifecycle_witness_ck_8"
+          "lifecycle_witness_ck_6"
         ]
       },
       "policies": {},
