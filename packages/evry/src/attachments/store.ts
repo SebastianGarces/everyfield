@@ -198,7 +198,7 @@ export function claimStagedPhoto(tx: WriteTx, plant: string, id: string) {
 			AND f.media_type=ANY(${sql.param([...PHOTO_TYPES])}::text[]) AND f.upload_key LIKE 'evry-attachment/%'`);
 }
 
-export type StagedStatus = z.infer<typeof attachmentState>["status"] | "used";
+export type StagedStatus = z.infer<typeof attachmentState>["status"];
 export async function stagedFile(
 	db: Pick<Database, "execute">,
 	tenantId: string,
