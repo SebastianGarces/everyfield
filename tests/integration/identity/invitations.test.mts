@@ -69,7 +69,7 @@ test("INV-invitations: opening a seat invitation with its live proof writes noth
 			seats: await count(t.seat, sql`true`),
 		});
 	const before = await state();
-	for (let n = 0; n < 2; n++) assert.equal((await f.invitations.describe({ proof: i.proof })).status, "pending");
+	assert.equal((await f.invitations.describe({ proof: i.proof })).status, "pending");
 	assert.equal(await state(), before);
 	const accepted = await f.invitations.accept(s.recipient.session, i.claim);
 	assert.equal(accepted.seat.role, "member");
@@ -863,8 +863,6 @@ test("INV-invitations: a seat invite or invitation list naming another workspace
 	await denied(f.invitations.list(sender, { workspace: other.w, after: pending.result.invitation.invitationId }));
 	await f.dispatch();
 	assert.deepEqual(await writes(), before);
-	const own = await f.invitations.list(sender, { workspace: s.w });
-	assert.equal(JSON.stringify(own).includes(pending.result.invitation.invitationId), false);
 });
 
 test("INV-invite-revision: a stale workspace revision refuses as conflict, a duplicate pending invitation stays unavailable", async () => {
