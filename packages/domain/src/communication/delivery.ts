@@ -986,10 +986,10 @@ export function rescheduleDispatched(
 	});
 }
 
-async function accountEmail(db: Database | Transaction, actor: Actor) {
+async function accountEmail(db: Database | Transaction, actor: Actor, admin: boolean) {
 	const row = one(
 		await db.execute(sql`SELECT g.allowed, u.email
-			FROM (SELECT ${adminGate(actor)} AS allowed) g
+			FROM (SELECT ${communicationAccess(actor, actor.session, admin)} AS allowed) g
 			LEFT JOIN LATERAL (
 				SELECT c.email FROM access_account_contact(${actor.accountId}::uuid) c
 				WHERE g.allowed AND c.verified
@@ -1007,9 +1007,9 @@ export function listOwnSuppression(
 ) {
 	return readReply(async () => {
 		const input = parse(c.listSuppressionRequest, raw);
-		const actor = requireActor(authority);
+		const actor = readerOf(authority);
 		const ready = keysOf(keys);
-		const email = await accountEmail(db, actor);
+		const email = await accountEmail(db, actor, false);
 		if (input.address.trim().toLowerCase() !== email) deny("access_denied");
 		const hashValue = addressHash(ready.addressKey, email);
 		const row = one(
@@ -1041,7 +1041,7 @@ export function restoreOwnSuppression(db: Database, authority: RequestActor, raw
 		const input = parse(c.restoreSuppressionRequest, raw);
 		const actor = requireActor(authority);
 		const ready = keysOf(keys);
-		const email = await accountEmail(db, actor);
+		const email = await accountEmail(db, actor, true);
 		const address = input.input.address.trim().toLowerCase();
 		if (address !== email) deny("access_denied");
 		const hashValue = addressHash(ready.addressKey, address);

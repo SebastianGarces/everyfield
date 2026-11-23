@@ -809,6 +809,40 @@ test("AC:CASE-NTF-011 a person clears only their own suppressed address", async 
 	assert.equal(carrier.calls.send, before);
 });
 
+test("AC:CASE-NTF-011 a Member reads only their own address's block and still cannot restore it", async () => {
+	const blocked = async (address: string) => {
+		const event = randomUUID();
+		await f.admin
+			.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
+			VALUES(${event}::uuid,${"seed-" + event},${"seed-" + event},'bounced',clock_timestamp(),clock_timestamp(),'x','{"hard_bounce":true}'::jsonb)`);
+		await f.admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
+			VALUES(${createHmac("sha256", keys.addressKey).update(address).digest("hex")},'hard_bounce',${event}::uuid,clock_timestamp())
+			ON CONFLICT (address_hash) DO NOTHING`);
+	};
+	await blocked(member.email.trim().toLowerCase());
+	await blocked("someone-else@example.test");
+	const own = ok(await communicationWriter.listForSelf(f.db, member.actor, { address: member.email }, keys));
+	assert.deepEqual(
+		[own.address, own.active, own.restores, own.suppressionClears, own.newSends],
+		[member.email.trim().toLowerCase(), true, [], 0, 0],
+	);
+	for (const address of ["someone-else@example.test", owner.email])
+		refused(await communicationWriter.listForSelf(f.db, member.actor, { address }, keys), "access_denied");
+	refused(
+		await communicationWriter.requestRestore(
+			f.db,
+			member.actor,
+			{ requestKey: key(), input: { address: member.email, reason: "Please send mail again" } },
+			keys,
+		),
+		"access_denied",
+	);
+	const [still] = await rows(
+		sql`SELECT cleared_at IS NULL AS active FROM suppression WHERE address_hash = ${createHmac("sha256", keys.addressKey).update(member.email.trim().toLowerCase()).digest("hex")}`,
+	);
+	assert.equal(still.active, true);
+});
+
 test("AC:CASE-NTF-013 AC:NOTIFY47-003 a password reset sends with category email off and hides the token", async () => {
 	await f.admin
 		.execute(sql`INSERT INTO notification_preference (id, account_id, category, channel, enabled, unsubscribe_revision)

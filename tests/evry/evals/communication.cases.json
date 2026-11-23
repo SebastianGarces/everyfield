@@ -163,6 +163,17 @@
 			"derivation": "The Admin's own address has no block; the Owner's block is not theirs."
 		},
 		{
+			"id": "COM-SP-03",
+			"criteria": [7],
+			"operation": "mail.suppression.listForSelf",
+			"actor": "member",
+			"ask": "am I unsubscribed from Everyfield emails?",
+			"calls": ["mail.suppression.listForSelf"],
+			"answer": ["/^Yes\\. Your email address is blocked/", "/I can't clear the block/"],
+			"absent": ["/Restored|My inbox was full/"],
+			"derivation": "A Member reads their own address's block (it bounced on Nov 8) and nothing about the Owner's address or its restore."
+		},
+		{
 			"id": "COM-TP-01",
 			"criteria": [10],
 			"operation": "communication.templates.archiveOrDelete",

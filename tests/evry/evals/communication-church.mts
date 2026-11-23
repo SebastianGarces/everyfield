@@ -15,6 +15,7 @@ export const JAMIE = id(0xc3c31);
 const SUPPRESSION = id(0xc3c41);
 const BOUNCE = id(0xc3c42);
 const RESTORE = id(0xc3c43);
+const MEMBER_BOUNCE = id(0xc3c44);
 const SENT_AT = "2026-11-09T14:00:00.000Z";
 
 type Recipient = {
@@ -42,6 +43,7 @@ export const INVITED: readonly Recipient[] = [
 	{ name: "Casey Brooks", state: "refused", result: "unsubscribed", refusal: "unsubscribed" },
 ];
 export const OWNER_EMAIL = "owner@example.test";
+export const MEMBER_EMAIL = "member@example.test";
 export const addressHash = (address: string) => createHmac("sha256", ADDRESS_KEY).update(address).digest("hex");
 
 export async function seedCommunication(admin: Database) {
@@ -98,6 +100,10 @@ export async function seedCommunication(admin: Database) {
 		VALUES(${BOUNCE},'seed-owner-bounce','seed-owner-bounce','bounced','2026-11-07T15:00:00.000Z','2026-11-07T15:00:00.000Z','x','{"hard_bounce":true}'::jsonb)`);
 	await run(sql`INSERT INTO suppression(id,address_hash,reason,source_event_id,suppressed_at)
 		VALUES(${SUPPRESSION},${addressHash(OWNER_EMAIL)},'hard_bounce',${BOUNCE},'2026-11-07T15:00:00.000Z')`);
+	await run(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
+		VALUES(${MEMBER_BOUNCE},'seed-member-bounce','seed-member-bounce','bounced','2026-11-08T15:00:00.000Z','2026-11-08T15:00:00.000Z','x','{"hard_bounce":true}'::jsonb)`);
+	await run(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
+		VALUES(${addressHash(MEMBER_EMAIL)},'hard_bounce',${MEMBER_BOUNCE},'2026-11-08T15:00:00.000Z')`);
 	await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,reason,event_key,metadata,occurred_at,recorded_at)
 		VALUES(${RESTORE},${PLANT},${owner},'mail.reconciled','suppression_clear','record',${SUPPRESSION},'My inbox was full',
 			'suppress/seed-restore','{}'::jsonb,'2026-10-20T15:00:00.000Z','2026-10-20T15:00:00.000Z')`);

@@ -310,6 +310,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		"communication.forMeeting",
 		"communication.meetingRecipientTracking",
 		"communication.deliveryTotals",
+		"mail.suppression.listForSelf",
 	];
 	const wikiWrites = ["wiki.bookmarks.set", "wiki.feedback.setMine"];
 	const orgWikiWrites = [

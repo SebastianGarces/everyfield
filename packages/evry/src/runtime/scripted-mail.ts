@@ -215,7 +215,7 @@ function newMailStep(options: LanguageModelV4CallOptions, ask: string, earlier: 
 	}
 
 	if (/\bam I unsubscribed from everyfield emails?\b/i.test(ask)) {
-		if (!reads(options, "mail.suppression.listForSelf")) return text(OWNER_ONLY("check an address's email block"));
+		if (!reads(options, "mail.suppression.listForSelf")) return text("I can check this only for a seat in a church.");
 		if (!last) return read("mail.suppression.listForSelf", {});
 		if (errorOf(last)) return text("I can't check your email address right now. Try again in a moment.");
 		const self = rowsOf(last, "setting")[0];

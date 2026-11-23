@@ -287,6 +287,7 @@ test("INV-communication-catalog: the eight tools are held from the recorded suit
 		"communication.forMeeting",
 		"communication.meetingRecipientTracking",
 		"communication.deliveryTotals",
+		"mail.suppression.listForSelf",
 		"communication.correctContactLog",
 	])
 		assert.ok(member.includes(op), `member ${op}`);
@@ -312,7 +313,9 @@ test("INV-communication-self: mail.suppression.listForSelf takes no input and re
 	assert.equal(owner[1]?.fields.reason, "My inbox was full");
 	const admin = (await read(await actorOf("admin"), "mail.suppression.listForSelf")).rows;
 	assert.deepEqual(admin[0]?.fields, { blocked: false, restores: 0 });
-	assert.doesNotMatch(JSON.stringify([owner, admin]), /@example\./);
+	const member = (await read(await actorOf("member"), "mail.suppression.listForSelf")).rows;
+	assert.deepEqual(member[0]?.fields, { blocked: true, restores: 0 }, "the Member's own block, not the Owner's");
+	assert.doesNotMatch(JSON.stringify([owner, admin, member]), /@example\./);
 });
 
 test("INV-communication-system-template: a system template gets no review card, with the reason", async () => {

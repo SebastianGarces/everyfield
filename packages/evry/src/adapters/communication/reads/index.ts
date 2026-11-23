@@ -768,7 +768,7 @@ export const listForSelf: ReadAdapter<Record<string, never>> = {
 	description:
 		"Whether the signed-in user's own verified email address is blocked from Everyfield email (after a bounce or a complaint), and when and why it was restored before. It reads only their own address and takes none. Evry can't clear a block: they restore it themselves in Messages.",
 	input: z.strictObject({}),
-	allowed: ownerOrAdmin,
+	allowed: inPlant,
 	async invoke(tx, actor, _input, _native, _loaded, mail): Promise<SourceResult> {
 		if (!mail) throw new EvryRefusal("source_unavailable");
 		const r = await tx.execute(
