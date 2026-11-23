@@ -75,7 +75,20 @@ export type AudienceSummary = {
 	recipients: { id: string; displayName: string; email: string }[];
 	complete: boolean;
 	unsubscribedExclusions: { id: string; displayName: string; unsubscribedAt: string }[];
+	childExclusions: { id: string; displayName: string }[];
 };
+
+export const CHILD_RULE = "Messages are not sent to people marked as a child.";
+
+export function noRecipientReason(summary: AudienceSummary | null, fallback: string): string {
+	const children = summary?.childExclusions ?? [];
+	const [only] = children;
+	if (summary && summary.eligibleRecipients === 0 && only)
+		return children.length === 1 && summary.resolvedDistinctPeople === 1
+			? `${only.displayName} is marked as a child. ${CHILD_RULE}`
+			: `No one here can get this email. ${CHILD_RULE}`;
+	return fallback;
+}
 
 export type PageData = {
 	templates: Template[];
@@ -104,6 +117,8 @@ function refusalText(code: string): string {
 			return "That meeting or template is not in this church.";
 		case "invalid_input":
 			return "Check the subject, the message, and that at least one person can receive it.";
+		case "children_only":
+			return `Not sent. Everyone you chose who has an email address is marked as a child. ${CHILD_RULE}`;
 		case "rsvp_needs_meeting":
 			return "This message has an RSVP link. Start it from the meeting, or remove the RSVP line.";
 		case "unavailable":
@@ -137,6 +152,7 @@ export type DeliveryReport = {
 	rejectedCount: number;
 	unknownCount: number;
 	unsubscribedCount: number;
+	childCount: number;
 };
 
 type ProviderTally = { confirmedCount: number; sentCount: number; openCount: number };
@@ -153,20 +169,25 @@ export type RestoreReport = { suppressionClears: number };
 
 const counts = (report: DeliveryReport) =>
 	`Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No answer ${report.unknownCount}.` +
-	unsubscribedNote(report.unsubscribedCount);
+	leftOutNote(report.unsubscribedCount, report.childCount);
 
 const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
 
-export const unsubscribedNote = (count: number) => (count > 0 ? ` Unsubscribed ${count}.` : "");
+export const leftOutNote = (unsubscribed: number, child: number) =>
+	(unsubscribed > 0 ? ` Unsubscribed ${unsubscribed}.` : "") + (child > 0 ? ` Marked as a child ${child}.` : "");
 
-export function refusedAllText(unsubscribed: number, refused: number): string {
+export function refusedAllText(unsubscribed: number, refused: number, child: number): string {
+	if (child > 0)
+		return unsubscribed + refused === 0
+			? `Every recipient is marked as a child. ${CHILD_RULE}`
+			: `Some recipients are marked as a child. ${CHILD_RULE} The rest unsubscribed or the email service refused them.`;
 	if (unsubscribed === 0) return `The email service refused all ${refused}.`;
 	if (refused === 0) return "Every recipient unsubscribed from this church's email.";
 	return "Some recipients unsubscribed from this church's email and the email service refused the rest.";
 }
 
 const refusedAll = (report: DeliveryReport, outcome: "sent" | "scheduled") =>
-	`Not ${outcome}. ${refusedAllText(report.unsubscribedCount, report.rejectedCount)}`;
+	`Not ${outcome}. ${refusedAllText(report.unsubscribedCount, report.rejectedCount, report.childCount)}`;
 
 export function deliveryText(report: DeliveryReport): string {
 	if (report.acceptedCount > 0) return `The email service accepted it and sends it now. ${counts(report)}`;
@@ -177,7 +198,7 @@ export function deliveryText(report: DeliveryReport): string {
 
 export function scheduleText(report: DeliveryReport, when: string): string {
 	if (report.acceptedCount > 0)
-		return `Scheduled for ${when}. It goes to ${people(report.acceptedCount)} then.${unsubscribedNote(report.unsubscribedCount)}`;
+		return `Scheduled for ${when}. It goes to ${people(report.acceptedCount)} then.${leftOutNote(report.unsubscribedCount, report.childCount)}`;
 	if (report.unknownCount > 0)
 		return `Not confirmed. The email service gave no answer. ${counts(report)} Check result to ask it again.`;
 	return `${refusedAll(report, "scheduled")} ${counts(report)} The message stays saved in Messages.`;
@@ -226,6 +247,7 @@ export const hubStates = [
 	"scheduled",
 	"not_scheduled",
 	"unsubscribed",
+	"child",
 	"sending",
 	"sent",
 	"logged",
@@ -241,6 +263,7 @@ export const hubLabel: Record<HubState, string> = {
 	scheduled: "Scheduled",
 	not_scheduled: "Not scheduled",
 	unsubscribed: "Not sent: unsubscribed",
+	child: "Not sent: marked as a child",
 	sending: "Sending",
 	sent: "Sent",
 	logged: "Logged",
@@ -292,6 +315,7 @@ export type DeliveryTotals = {
 	failed: number;
 	suppressed: number;
 	unsubscribed: number;
+	child: number;
 	unknown: number;
 	cancelled: number;
 	cancelOpen: number;

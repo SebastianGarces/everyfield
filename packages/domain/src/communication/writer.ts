@@ -20,6 +20,7 @@ import { communicationAccess } from "./access.ts";
 import { meetingOpenSql } from "../meetings/tokens.ts";
 import {
 	audiencePeople,
+	onlyChildren,
 	recipientsDigest,
 	reviewedParts,
 	storedAudiencePeople,
@@ -537,6 +538,7 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 			);
 			if (!current.subject || !current.body_html) deny("invalid_input");
 			if (usesRsvpLink(current.body_html) && !meeting_open) deny("rsvp_needs_meeting");
+			if (onlyChildren(people)) deny("children_only", { providerCalls: 0 });
 			const parts = reviewedParts(people);
 			if (!parts.people.length) deny("invalid_input");
 			const shown = input.input.recipientsDigest;
