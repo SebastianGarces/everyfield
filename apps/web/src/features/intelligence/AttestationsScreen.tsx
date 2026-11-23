@@ -1,7 +1,6 @@
 "use client";
 
 import {
-	Alert02Icon,
 	Coins01Icon,
 	CrownIcon,
 	HandPrayerIcon,
@@ -24,6 +23,7 @@ import {
 	type SignalValue,
 } from "@everyfield/contracts/intelligence";
 import {
+	Alert,
 	Button,
 	Card,
 	CardActions,
@@ -39,6 +39,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	PageHeader,
 	Textarea,
@@ -450,15 +451,17 @@ function Choice({
 
 function Failure({ text, onReload }: { text: string; onReload: () => void }) {
 	return (
-		<div role="alert" className="flex gap-3 rounded-md bg-amber-100 px-4 py-3 text-sm text-ink">
-			<Icon icon={Alert02Icon} size={18} className="mt-0.5 flex-none text-amber-600" />
-			<div className="min-w-0 flex-1">
-				<p>{text}</p>
-				<Button type="button" variant="ghost" size="sm" className="mt-1.5 -ml-2" onClick={onReload}>
+		<Alert
+			role="alert"
+			tone="warning"
+			actions={
+				<Button type="button" variant="ghost" size="sm" onClick={onReload}>
 					Load the latest answers
 				</Button>
-			</div>
-		</div>
+			}
+		>
+			{text}
+		</Alert>
 	);
 }
 
@@ -721,14 +724,6 @@ function RenewDialog({
 												"Not answered yet"
 											)}
 										</div>
-										{row.state === "failed" ? (
-											<div role="alert" className="mt-2 text-sm font-medium text-magenta-600">
-												{row.error}{" "}
-												<button type="button" className="underline" onClick={onReload}>
-													Load the latest answers
-												</button>
-											</div>
-										) : null}
 									</div>
 									{row.state === "saved" ? (
 										<span className="inline-flex items-center gap-1.5 text-sm font-semibold text-green-700">
@@ -743,6 +738,16 @@ function RenewDialog({
 											onChange={(pick) => patch(entry.key, { pick, state: "idle", error: null })}
 										/>
 									)}
+									<InlineAlert
+										className="col-span-full -mt-2"
+										actions={
+											<Button variant="ghost" size="sm" onClick={onReload}>
+												Load the latest answers
+											</Button>
+										}
+									>
+										{row.state === "failed" ? row.error : null}
+									</InlineAlert>
 								</div>
 							);
 						})}

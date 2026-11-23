@@ -3,6 +3,7 @@ import {
 	FORMAT_SCHEMA,
 	IMPORT_BYTES_MAX,
 	IMPORT_TOO_LARGE,
+	nativeBody,
 	nativeFromText,
 	TABLE_LIMITS,
 	type DocNode,
@@ -29,6 +30,18 @@ export function readImport(bytes: Uint8Array, format: "text" | "docx"): DocNode 
 	if (isOle(bytes)) throw new ImportRejected("Legacy Word documents are not accepted.");
 	if (format === "text") return nativeFromText(readText(bytes));
 	return readDocx(bytes);
+}
+
+export function parseImport(bytes: Uint8Array, format: "text" | "docx"): { body: DocNode } | { problem: string } {
+	let read: DocNode;
+	try {
+		read = readImport(bytes, format);
+	} catch (error) {
+		if (error instanceof ImportRejected) return { problem: error.message };
+		throw error;
+	}
+	const parsed = nativeBody.safeParse(read);
+	return parsed.success ? { body: parsed.data } : { problem: "This file is too large for one document." };
 }
 
 function isOle(bytes: Uint8Array) {

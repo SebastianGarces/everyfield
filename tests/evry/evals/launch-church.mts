@@ -6,6 +6,8 @@ import { reviewedOf } from "../../../packages/contracts/src/launch/index.ts";
 import { createLaunchReader } from "../../../packages/domain/src/launch/reads.ts";
 import { createLaunchWriter } from "../../../packages/domain/src/launch/writes.ts";
 import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
+import { createPhaseWriter } from "../../../packages/domain/src/phases/index.ts";
+import { createSignals } from "../../../packages/domain/src/intelligence/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { ACTOR_SPECS, PLANT, type ActorName } from "./golden-church.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
@@ -214,4 +216,40 @@ export async function correctOnPlan(db: Database, who: LaunchName, attendance: n
 			input: { actualDate: o.actualDate, attendance, decisions: o.decisions, note: o.note, reason },
 		}),
 	);
+}
+
+export const PRACTICES = [
+	{ title: "Pre-launch service 1", days: -14, status: "completed" },
+	{ title: "Pre-launch service 2", days: -7, status: "completed" },
+	{ title: "Pre-launch service 3", days: 7, status: "planning" },
+] as const;
+export const SYSTEMS_TESTED = "We ran check-in, giving and the sound system at the last pre-launch service.";
+export const READINESS_PHASE = { toPhase: 3, reason: "Our launch team is formed and training has started." } as const;
+export async function seedReadiness(admin: Database, db: Database) {
+	const revision = (await admin.execute(sql`SELECT revision::text AS r FROM plant WHERE id=${PLANT}`)).rows[0]!.r;
+	ok(
+		await createPhaseWriter({ notices: async () => {} }).transition(db, await authorityOf(db, "owner"), {
+			requestKey: randomUUID(),
+			expectedRevision: String(revision),
+			input: READINESS_PHASE,
+		}),
+	);
+	const now = (
+		await admin.execute(sql`SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at,
+		(clock_timestamp() AT TIME ZONE ${ZONE}::text)::date::text AS on`)
+	).rows[0] as { at: string; on: string };
+	ok(
+		await createSignals({ clock: { now: () => now.at as never } }).attest(db, await authorityOf(db, "owner"), {
+			requestKey: randomUUID(),
+			expectedRevision: "0",
+			input: { key: "systems_tested", value: "yes", asOf: now.on, detail: SYSTEMS_TESTED },
+		}),
+	);
+	for (const p of PRACTICES)
+		await admin.execute(sql`WITH t AS (SELECT clock_timestamp()+make_interval(days=>${p.days}::int) AS at)
+			INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,
+				resolver_version,status,attendance_revision,actual_occurrence_at)
+			SELECT ${randomUUID()}::uuid,${PLANT}::uuid,'prelaunch_practice',${p.title}::text,(t.at AT TIME ZONE ${ZONE}::text)::date,
+				(t.at AT TIME ZONE ${ZONE}::text)::time(0),${ZONE}::text,t.at,'1',${p.status}::text,1,
+				CASE WHEN ${p.status}::text='completed' THEN t.at END FROM t`);
 }

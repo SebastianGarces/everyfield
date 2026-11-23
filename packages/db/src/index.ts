@@ -1,11 +1,11 @@
-import { and, asc, desc, eq, gt, isNotNull, lt, sql } from "drizzle-orm";
-import { database, type Database } from "./client.ts";
+import { and, asc, desc, eq, gt, isNotNull, lt, or, sql } from "drizzle-orm";
+import type { Database } from "./client.ts";
 import { early_access_attempt, early_access_request } from "./schema/tables.ts";
 export { database, createDatabase, closeDatabase } from "./client.ts";
 export type { Database, Transaction } from "./client.ts";
 export { assertDevelopmentDatabase, developmentHosts } from "./development.ts";
 
-export async function expireAccessRequests(db: Database = database()) {
+export async function expireAccessRequests(db: Database) {
 	return db.transaction(async (tx) => {
 		const deleted = await tx
 			.delete(early_access_request)
@@ -49,7 +49,7 @@ function csvCell(value: unknown): string {
 	if (/^[\s]*[=+@-]/.test(text)) text = "'" + text;
 	return '"' + text.replaceAll('"', '""') + '"';
 }
-export async function exportAccessRequests(db: Database = database()): Promise<string> {
+export async function exportAccessRequests(db: Database): Promise<string> {
 	const t = early_access_request;
 	const rows = await db
 		.select({
@@ -89,28 +89,30 @@ export async function reserveAccessRequest(
 		ip: string | null;
 		mailPayload: Record<string, unknown>;
 	},
-	db: Database = database(),
+	db: Database,
 ): Promise<AccessReservation> {
 	return db.transaction(async (tx) => {
 		for (const key of ["email:" + input.email, "ip:" + (input.ip ?? "unknown")].sort())
 			await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${key},0))`);
 		const attempts = early_access_attempt;
-		const [emailCount] = await tx
-			.select({ n: sql<number>`count(*)::int` })
+		const byEmail = and(
+			eq(attempts.email, input.email),
+			gt(attempts.created_at, sql`clock_timestamp()-interval '24 hours'`),
+		);
+		const byIp = and(
+			eq(attempts.ip_key, input.ip ?? "unknown"),
+			gt(attempts.created_at, sql`clock_timestamp()-interval '1 hour'`),
+		);
+		const [count] = await tx
+			.select({
+				email: sql<number>`(count(*) FILTER (WHERE ${byEmail}))::int`,
+				ip: sql<number>`(count(*) FILTER (WHERE ${byIp}))::int`,
+			})
 			.from(attempts)
-			.where(and(eq(attempts.email, input.email), gt(attempts.created_at, sql`clock_timestamp()-interval '24 hours'`)));
-		const [ipCount] = await tx
-			.select({ n: sql<number>`count(*)::int` })
-			.from(attempts)
-			.where(
-				and(
-					eq(attempts.ip_key, input.ip ?? "unknown"),
-					gt(attempts.created_at, sql`clock_timestamp()-interval '1 hour'`),
-				),
-			);
-		if (!emailCount || !ipCount) throw new Error("Rate count unavailable");
-		if (emailCount.n >= 5 || ipCount.n >= 20)
-			return { status: "rate_limited", reason: emailCount.n >= 5 ? "email" : "ip" };
+			.where(or(byEmail, byIp));
+		if (!count) throw new Error("Rate count unavailable");
+		if (count.email >= 5 || count.ip >= 20)
+			return { status: "rate_limited", reason: count.email >= 5 ? "email" : "ip" };
 		await tx.insert(attempts).values({ email: input.email, ip_key: input.ip ?? "unknown" });
 		const t = early_access_request;
 		const [existing] = await tx
@@ -146,7 +148,7 @@ export async function reserveAccessRequest(
 		return { status: "deliver", id: row.id, createdAt: row.created_at, payload: row.mail_payload };
 	});
 }
-export async function recordAccessMail(id: string, mailId: string, db: Database = database()): Promise<void> {
+export async function recordAccessMail(id: string, mailId: string, db: Database): Promise<void> {
 	const result = await db
 		.update(early_access_request)
 		.set({ mail_id: mailId, mailed_at: sql`clock_timestamp()` })

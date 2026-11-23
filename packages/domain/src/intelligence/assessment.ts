@@ -169,7 +169,7 @@ export const heldSql = (plant: SQL) => sql`(SELECT count(*)=${c.HELD_AFTER_FAILU
 		AND r.outcome NOT IN ('superseded','pending','deferred') ORDER BY r.captured_at DESC,r.id DESC
 		LIMIT ${c.HELD_AFTER_FAILURES}::int) x)`;
 export const plantHidden = (plant: SQL) => sql`EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=${plant}
-	AND w.kind='plant' AND w.state NOT IN ('active','cancelled'))`;
+	AND w.kind='plant' AND w.state <> 'cancelled')`;
 const openJob = (plant: SQL) => sql`EXISTS(SELECT FROM job j WHERE j.kind='assessment' AND j.subject_record_id=${plant}
 	AND j.state IN ('ready','claimed','retry_wait'))`;
 

@@ -1,3 +1,4 @@
+import { counted } from "@everyfield/contracts/common";
 import {
 	CANDIDATE_DAYS,
 	CANDIDATE_QUESTION_VERSION,
@@ -18,9 +19,9 @@ import {
 	type SignalValue,
 } from "@everyfield/contracts/intelligence";
 import { shortDate } from "./model.ts";
+import type { Outcome } from "@everyfield/contracts/common";
 
-export type SignalOutcome<T> =
-	{ status: "ok"; value: T } | { status: "refused"; error: SignalError } | { status: "lost" };
+export type SignalOutcome<T> = Outcome<T, SignalError["code"], { error: SignalError }>;
 
 export const VALUE_LABEL: Record<SignalValue, string> = { yes: "Yes", not_yet: "Not yet" };
 export function definitionOf(key: SignalKey) {
@@ -50,11 +51,11 @@ export function answerLabel(entry: SignalEntry) {
 	if (entry.state === "answered") return VALUE_LABEL[answerOf(entry).value];
 	return entry.state === "retracted" ? "Retracted" : "Not answered";
 }
-export const agoText = (days: number) => (days === 0 ? "today" : days === 1 ? "1 day ago" : `${days} days ago`);
+export const agoText = (days: number) => (days === 0 ? "today" : `${counted(days, "day")} ago`);
 export function renewalLabel(renewal: Renewal) {
 	switch (renewal.status) {
 		case "current":
-			return `Current for ${renewal.daysLeft} more day${renewal.daysLeft === 1 ? "" : "s"}`;
+			return `Current for ${counted(renewal.daysLeft, "more day")}`;
 		case "needs_renewing":
 			return "Needs renewing";
 		case "does_not_expire":

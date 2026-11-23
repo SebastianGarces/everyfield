@@ -1,7 +1,7 @@
 "use client";
 
 import { Download01Icon } from "@hugeicons/core-free-icons";
-import { Button } from "@everyfield/ui/controls";
+import { Alert, Button } from "@everyfield/ui/controls";
 import { LocalTime, Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { useState } from "react";
@@ -80,11 +80,7 @@ export function ChurchRevisions({
 								})}
 							</div>
 						</div>
-						{error?.at === r.number ? (
-							<p role="alert" className="rounded-md bg-magenta-100 px-3 py-2 text-sm text-magenta-600">
-								{error.message}
-							</p>
-						) : null}
+						{error?.at === r.number ? <Alert role="alert">{error.message}</Alert> : null}
 					</li>
 				))}
 			</ul>

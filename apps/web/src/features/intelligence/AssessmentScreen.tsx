@@ -1,5 +1,6 @@
 "use client";
 
+import { counted, countWord } from "@everyfield/contracts/common";
 import type {
 	Assessment,
 	AssessmentView,
@@ -11,7 +12,6 @@ import type {
 } from "@everyfield/contracts/intelligence";
 import type { Catalog } from "@everyfield/contracts/phases";
 import {
-	Alert02Icon,
 	ArrowRight01Icon,
 	Coins01Icon,
 	Dumbbell01Icon,
@@ -25,6 +25,7 @@ import {
 	ViewIcon,
 } from "@hugeicons/core-free-icons";
 import {
+	Alert,
 	Button,
 	Card,
 	CardDescription,
@@ -151,21 +152,15 @@ function Current({ view, assessment: a, catalog }: { view: AssessmentView; asses
 						</StatusBadge>
 						<span>
 							As of {dayText(a.measuredOn)}
-							{a.ageDays ? ` · ${a.ageDays === 1 ? "1 day" : `${a.ageDays} days`} ago` : " · today"}
+							{a.ageDays ? ` · ${counted(a.ageDays, "day")} ago` : " · today"}
 							{a.daysToLaunch !== null ? ` · ${a.daysToLaunch} days to the launch date then` : ""}
 						</span>
 					</p>
 					{otherPhase !== null ? (
-						<p
-							data-current-phase={otherPhase}
-							className="flex gap-2.5 rounded-md bg-amber-100 px-3.5 py-2.5 text-sm text-ink"
-						>
-							<Icon icon={Alert02Icon} size={18} className="mt-0.5 flex-none text-amber-600" />
-							<span>
-								Your church is now in <b>{phaseName(catalog, otherPhase)}</b>. This assessment was written for Phase{" "}
-								{a.phase}, so its criteria and standings are Phase {a.phase}&apos;s, not Phase {otherPhase}&apos;s.
-							</span>
-						</p>
+						<Alert tone="warning" data-current-phase={otherPhase}>
+							Your church is now in <b>{phaseName(catalog, otherPhase)}</b>. This assessment was written for Phase{" "}
+							{a.phase}, so its criteria and standings are Phase {a.phase}&apos;s, not Phase {otherPhase}&apos;s.
+						</Alert>
 					) : null}
 					{later ? (
 						<p role="status" className="text-sm text-text-2" data-newest={view.newest?.state}>
@@ -480,7 +475,7 @@ function LensTile({ lens, onCite }: { lens: Lens; onCite: (key: string, label: s
 				<span className="font-medium text-ink-2">{QUALITY[lens.quality].label}</span>
 				{lens.points.length ? (
 					<a href="#focus" className="hover:text-ink">
-						{lens.points.length === 1 ? "1 point cites this" : `${lens.points.length} points cite this`}
+						{`${counted(lens.points.length, "point cites", "points cite")} this`}
 					</a>
 				) : null}
 			</p>
@@ -657,9 +652,7 @@ function CitationBody({ view }: { view: CitationView }) {
 						</ul>
 						{view.people.hidden ? (
 							<p className="mt-1.5 text-xs text-text-3" data-hidden-people={view.people.hidden}>
-								{view.people.hidden === 1
-									? "1 more person was counted who is no longer in your records."
-									: `${view.people.hidden} more people were counted who are no longer in your records.`}
+								{`${counted(view.people.hidden, "more person was", "more people were")} counted who ${countWord(view.people.hidden, "is", "are")} no longer in your records.`}
 							</p>
 						) : null}
 					</div>

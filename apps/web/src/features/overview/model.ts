@@ -86,7 +86,6 @@ export function launchShown(plan: Plan): LaunchShown {
 	if (c.kind === "today" || c.kind === "overdue") return { kind: c.kind, date };
 	return { kind: c.kind === "postponed" ? "postponed" : "none" };
 }
-export const daysText = (days: number) => `${days} ${days === 1 ? "day" : "days"}`;
 
 export function entryText(e: ActivityEntry): { title: string; href: string } {
 	const c = e.change;

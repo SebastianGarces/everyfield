@@ -106,5 +106,3 @@ export function listed(items: string[], max = 4): string {
 	if (items.length <= max) return items.join(", ");
 	return `${items.slice(0, max).join(", ")}, and ${items.length - max} more`;
 }
-
-export const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);

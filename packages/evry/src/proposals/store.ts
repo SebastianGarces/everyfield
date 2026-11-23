@@ -1,17 +1,23 @@
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
-import { readAuthorizedObject, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
+import {
+	readAuthorizedObject,
+	readPrivateUpload,
+	type PrivateStorage,
+	type ResourceAuthorizer,
+} from "@everyfield/db/schema";
 import { queueJobsFor } from "@everyfield/domain/jobs";
 import { photoMediaType } from "@everyfield/domain/people";
 import { fromStates, proposalMachine, type ProposalSubject } from "@everyfield/contracts/machines";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
-import { currentAuthority } from "../context/authority.ts";
+import { currentAuthority, refusedFor } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
+import { ATTACHMENTS, stagedPhotoIn } from "../attachments/store.ts";
 import { liveJob } from "../runtime/job.ts";
 import { fence, type RunLease } from "../runtime/run-store.ts";
-import type { MailPort, NativePorts, ReviewedWrite } from "./types.ts";
+import type { MailPort, NativePorts, ReviewContext, ReviewedWrite } from "./types.ts";
 import {
 	currentReview,
 	mine,
@@ -64,11 +70,14 @@ const audit = <AliasName extends string>(action: string, kind: string, alias: Sq
 			jsonb_build_object('proposalId',id,'revision',revision,'digest',digest) FROM ${sql.raw(alias)}`;
 
 export async function readReview(db: Database, actor: EvryActor, id: string): Promise<Proposal> {
-	const proposalId = parse(z.uuid(), id);
-	const r = await db.execute(currentReview(actor, sql`${proposalId}::uuid`));
-	const [row] = r.rows;
-	if (!row) throw new EvryRefusal("not_found");
-	return proposalRow.parse(row.proposal);
+	return reviewed(db, actor, parse(z.uuid(), id));
+}
+
+async function reviewed(db: Database, actor: EvryActor, proposalId: string, moved = false): Promise<Proposal> {
+	const [row] = (await db.execute(currentReview(actor, sql`${proposalId}::uuid`))).rows;
+	if (row) return proposalRow.parse(row.proposal);
+	if (!moved) throw new EvryRefusal("not_found");
+	throw await refusedFor(db, actor, sql`(SELECT q.conversation_id FROM proposal q WHERE q.id=${proposalId}::uuid)`);
 }
 
 const proposeInput = z.strictObject({ operation, input: z.unknown() });
@@ -80,11 +89,12 @@ export async function prepareProposal(
 	raw: unknown,
 	mail: MailPort | null = null,
 	native: NativePorts | null = null,
+	files: ReviewContext["files"] = null,
 ): Promise<Proposal | null> {
 	const call = parse(proposeInput, raw);
 	const write = adapter(actor, call.operation);
 	const input = parse(write.input, call.input);
-	const reviewSql = await write.review(actor, input, { db, mail, native });
+	const reviewSql = await write.review(actor, input, { db, mail, native, conversationId, files });
 	if (!reviewSql) return null;
 	const r = await db.execute(sql`
 		WITH r AS (${reviewSql}),
@@ -92,16 +102,20 @@ export async function prepareProposal(
 			SELECT c.id,c.tenant_id,c.account_id FROM conversation c
 			WHERE c.id=${conversationId}::uuid AND c.account_id=${actor.accountId}::uuid AND c.tenant_id=${actor.owner.id}::uuid
 				AND c.active_turn_id=${lease.turnId}::uuid AND ${fence(lease)} AND ${currentAuthority(actor)}
+		), applied AS (
+			SELECT FROM c,r JOIN proposal q ON true WHERE q.conversation_id=c.id AND q.operation=${write.operation}
+				AND q.outcome='completed' AND coalesce(q.input->'input',q.input)=coalesce(r.args->'input',r.args)
 		), p AS (
 			INSERT INTO proposal(tenant_id,account_id,conversation_id,operation,revision,input,review,digest,state,expires_at)
 			SELECT c.tenant_id,c.account_id,c.id,${write.operation},1,r.args,r.review,
 				encode(sha256(convert_to(jsonb_build_object('operation',${write.operation}::text,'revision',1,'args',r.args,'review',r.review)::text,'UTF8')),'hex'),
-				'pending',${expiry} FROM c,r
+				'pending',${expiry} FROM c,r WHERE NOT EXISTS(SELECT FROM applied)
 			RETURNING *
 		), audit AS (${audit("evry.proposal_prepared", "create", "p")})
-		SELECT ${projection("p")} AS proposal FROM p`);
-	const [row] = r.rows;
-	return row ? proposalRow.parse(row.proposal) : null;
+		SELECT (SELECT ${projection("p")} FROM p) AS proposal, EXISTS(SELECT FROM applied) AS applied`);
+	const [row] = r.rows as { proposal: unknown; applied: boolean }[];
+	if (row?.applied) throw new EvryRefusal("already_applied");
+	return row?.proposal ? proposalRow.parse(row.proposal) : null;
 }
 
 const reviseInput = z.strictObject({ operation, revision: z.int().min(1), input: z.unknown() });
@@ -117,7 +131,7 @@ export async function reviseProposal(
 	const change = parse(reviseInput, raw);
 	const write = adapter(actor, change.operation);
 	const input = parse(write.input, change.input);
-	const reviewSql = await write.review(actor, input, { db, mail, native });
+	const reviewSql = await write.review(actor, input, { db, mail, native, conversationId: null });
 	if (!reviewSql) throw new EvryRefusal("not_found");
 	const r = await db.execute(sql`
 		WITH r AS (${reviewSql}),
@@ -146,8 +160,7 @@ const staged = (actor: EvryActor, proposalId: string, uploadId: SQL) =>
 		AND (p.input->'input'->>'uploadId')::uuid=${uploadId}
 		AND (p.operation<>'people.setPersonPhoto' OR (
 			EXISTS(SELECT FROM person t WHERE t.id=(p.input->'input'->>'personId')::uuid AND t.tenant_id=p.tenant_id AND t.state='live')
-			AND EXISTS(SELECT FROM file_object f WHERE f.id=${uploadId} AND f.tenant_id=p.tenant_id AND f.purpose='person_photo'
-				AND f.state='ready' AND f.expires_at>clock_timestamp() AND NOT EXISTS(SELECT FROM person o WHERE o.photo_object_id=f.id))))
+			AND EXISTS(SELECT FROM file_object f WHERE f.id=${uploadId} AND f.tenant_id=p.tenant_id AND ${stagedPhotoIn("f", sql`p.conversation_id::text`)})))
 		AND (p.operation<>'account.finalizeAvatar' OR EXISTS(SELECT FROM file_object f WHERE f.id=${uploadId}
 			AND f.tenant_id=p.account_id AND f.purpose='avatar' AND f.state='ready' AND f.expires_at>clock_timestamp()
 			AND NOT EXISTS(SELECT FROM account o WHERE o.avatar_object_id=f.id)))`;
@@ -160,7 +173,22 @@ async function stagedBytes(
 	upload: string,
 ) {
 	if (!storage) throw new EvryRefusal("not_found");
-	const authorize: ResourceAuthorizer = async (tx, file, intent) => {
+	const r = await db.execute(sql`SELECT f.opaque_key AS key,f.media_type AS "mediaType" FROM proposal p
+		JOIN file_object f ON f.id=${upload}::uuid AND f.purpose='assistant_staging'
+		WHERE ${staged(actor, proposalId, sql`${upload}::uuid`)}`);
+	const attached = r.rows[0] as { key: string; mediaType: string } | undefined;
+	const bytes = attached
+		? await readPrivateUpload(storage, attached.key, ATTACHMENTS.photoBytes).then((o) =>
+				typeof o === "string" ? null : o.bytes,
+			)
+		: await readAuthorizedObject(db, storage, account(actor, proposalId), upload).catch(() => null);
+	const mediaType = bytes && photoMediaType(bytes);
+	if (!bytes || !mediaType || (attached && attached.mediaType !== mediaType)) throw new EvryRefusal("not_found");
+	return { bytes, mediaType, attached: attached !== undefined };
+}
+const account =
+	(actor: EvryActor, proposalId: string): ResourceAuthorizer =>
+	async (tx, file, intent) => {
 		if (intent !== "read") return null;
 		const r = await tx.execute(
 			sql`SELECT p.account_id FROM proposal p WHERE ${staged(actor, proposalId, sql`${file.id}::uuid`)}`,
@@ -168,13 +196,6 @@ async function stagedBytes(
 		const accountId = r.rows[0]?.account_id as string | undefined;
 		return accountId ? { kind: "account", actorId: accountId } : null;
 	};
-	const bytes = await readAuthorizedObject(db, storage, authorize, upload).catch(() => {
-		throw new EvryRefusal("not_found");
-	});
-	const mediaType = photoMediaType(bytes);
-	if (!mediaType) throw new EvryRefusal("not_found");
-	return { bytes, mediaType };
-}
 
 export async function readStagedPhoto(db: Database, storage: PrivateStorage | null, actor: EvryActor, id: string) {
 	const proposalId = parse(z.uuid(), id);
@@ -202,7 +223,7 @@ export async function approveProposal(
 	const proposalId = parse(z.uuid(), id);
 	const witness = parse(approval, raw);
 	const reason = witness.reason?.trim() || null;
-	const approve = async (shownUpload: string | null) => {
+	const approve = async (shownUpload: string | null, shown: { sha256: string; bytes: number } | null = null) => {
 		const job = randomUUID();
 		const r = await db.execute(sql`
 			WITH a AS (
@@ -216,6 +237,8 @@ export async function approveProposal(
 				RETURNING p.*
 			), queued AS (SELECT * FROM a WHERE a.job_id IS NOT NULL),
 			run AS (${effectJob(job, "queued")}),
+			bytes AS (UPDATE file_object f SET sha256=${shown?.sha256 ?? null}::text,byte_count=${shown?.bytes ?? null}::bigint,revision=f.revision+1
+				FROM a WHERE ${shown !== null} AND f.id=${shownUpload}::uuid AND f.tenant_id=a.tenant_id AND f.purpose='assistant_staging' AND f.state='pending'),
 			audit AS (${audit("evry.proposal_approved", "accept", "a")})
 			SELECT ${projection("a")} AS proposal,a.input AS args FROM a`);
 		const [row] = r.rows;
@@ -232,7 +255,7 @@ export async function approveProposal(
 	};
 	const approved = await approve(null);
 	if (approved) return approved;
-	const current = await readReview(db, actor, proposalId);
+	const current = await reviewed(db, actor, proposalId, true);
 	if (REASON_WRITES.includes(current.operation) && reason === null && current.status === "pending")
 		throw new EvryRefusal("invalid_input");
 	if (!(PHOTO_WRITES as readonly string[]).includes(current.operation) || current.status !== "pending")
@@ -241,7 +264,10 @@ export async function approveProposal(
 	const upload = z.uuid().safeParse(current.review.changes.find((c) => c.field === "photo")?.after);
 	const shown = upload.success && (await stagedBytes(db, storage, actor, proposalId, upload.data).catch(() => null));
 	if (!shown) throw new EvryRefusal("photo_unavailable");
-	return (await approve(upload.data)) ?? settled(await readReview(db, actor, proposalId));
+	const digest = shown.attached
+		? { sha256: createHash("sha256").update(shown.bytes).digest("hex"), bytes: shown.bytes.length }
+		: null;
+	return (await approve(upload.data, digest)) ?? settled(await readReview(db, actor, proposalId));
 }
 
 async function runNow(db: Database, actor: EvryActor, proposal: Proposal, args: unknown, reason: string | null) {

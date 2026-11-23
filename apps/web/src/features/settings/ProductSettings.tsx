@@ -148,9 +148,6 @@ export function useProductSettings(viewer: SettingsViewer | null, seedFits: bool
 }
 
 function deletionPage(status: DeletionStatus | null): string {
-	const page =
-		status && status.status !== "active" && status.subject.kind === "plant"
-			? "/workspace-deletion"
-			: "/account-deletion";
+	const page = status?.subject.kind === "plant" ? "/workspace-deletion" : "/account-deletion";
 	return status?.status === "pending_deletion" ? `${page}?until=${encodeURIComponent(status.cancelUntil)}` : page;
 }

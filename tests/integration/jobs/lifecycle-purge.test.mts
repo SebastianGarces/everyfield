@@ -77,7 +77,9 @@ before(async () => {
 		securityNotice: async () => {},
 	});
 	api = settingsApi({
-		organizations: createOrganizationAdapter(organizationEffects, { candidates: async () => [] }),
+		organizations: createOrganizationAdapter(organizationEffects, {
+			candidates: () => sql`SELECT NULL::uuid WHERE false`,
+		}),
 		organizationEffects,
 		effects: { replan: async () => {} },
 		suppression: async () => "unavailable",
@@ -107,7 +109,7 @@ before(async () => {
 			throw Error("not expected");
 		},
 	});
-	tick = scheduledJobs({ db, storage, cleanup: cleanupDb, reminders: null, digests: null, mail: null });
+	tick = scheduledJobs({ db, storage, cleanup: cleanupDb, effects: null, digests: null, mail: null });
 });
 after(database.close);
 
@@ -338,7 +340,7 @@ test("INV-executor: without the cleanup login the tick skips the purge, runs the
 		{ storage, cleanup: null },
 		{ storage: null, cleanup: cleanupDb },
 	]) {
-		const skip = scheduledJobs({ db, reminders: null, digests: null, mail: null, ...config });
+		const skip = scheduledJobs({ db, effects: null, digests: null, mail: null, ...config });
 		const response = await skip(
 			new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${cron}` } }),
 		);

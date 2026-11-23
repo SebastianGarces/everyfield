@@ -1,5 +1,6 @@
 "use client";
 
+import { countWord } from "@everyfield/contracts/common";
 import {
 	AREA_LABEL,
 	checkNote,
@@ -21,6 +22,7 @@ import {
 	Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import {
+	Alert,
 	Button,
 	CalloutLabel,
 	CalloutText,
@@ -35,6 +37,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	Input,
 	InsightCard,
 	InsightCount,
 	InsightFooter,
@@ -43,7 +46,6 @@ import {
 	InsightText,
 	InsightTitle,
 	InsightTop,
-	Input,
 	PageHeader,
 	Textarea,
 	toast,
@@ -290,7 +292,7 @@ function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: 
 			case "overdue":
 				return {
 					metric: String(c.days),
-					unit: c.days === 1 ? "day overdue" : "days overdue",
+					unit: countWord(c.days, "day overdue", "days overdue"),
 					title: "Launch Sunday has passed, not launched",
 					text: admin
 						? "No launch has been recorded for this date. If it was held, record it below; if not, move the date or postpone it."
@@ -299,7 +301,7 @@ function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: 
 			case "ahead":
 				return {
 					metric: String(c.days),
-					unit: c.days === 1 ? "day to go" : "days to go",
+					unit: countWord(c.days, "day to go", "days to go"),
 					title: c.window ? "Inside the four-week launch window" : "Before the launch window",
 					text: c.window
 						? "These are the weeks the Playbook's final readiness milestones are for."
@@ -614,13 +616,10 @@ function MilestoneRow({
 						<p className="mt-3 ml-[38px] text-sm text-text-3 max-app-sm:ml-0">This milestone has no prep tasks left.</p>
 					)}
 					{stale ? (
-						<p
-							role="alert"
-							className="mt-3 ml-[38px] rounded-md bg-amber-100 px-3.5 py-2.5 text-sm text-ink max-app-sm:ml-0"
-						>
+						<Alert role="alert" tone="warning" className="mt-3 ml-[38px] max-app-sm:ml-0">
 							These tasks changed since you opened the page. Nothing was saved. Review them and complete the milestone
 							again.
-						</p>
+						</Alert>
 					) : null}
 					{m.completion && m.needsReview ? (
 						<p className="mt-3 ml-[38px] text-sm text-text-2 max-app-sm:ml-0">
