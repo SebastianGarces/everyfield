@@ -13,6 +13,7 @@ import {
 	ConfirmDialog,
 	Field,
 	IconButton,
+	InlineAlert,
 	Input,
 	Menu,
 	MenuContent,
@@ -275,11 +276,7 @@ export default function NativeEditor({
 						<div className="h-[49px]" />
 					)}
 				</div>
-				{errors.body ? (
-					<p role="alert" className="w-full max-w-[816px] self-center text-sm text-magenta-600">
-						{errors.body}
-					</p>
-				) : null}
+				<InlineAlert className="w-full max-w-[816px] self-center">{errors.body}</InlineAlert>
 				<div className="ef-sheet ef-native">
 					<div className="ef-paper">
 						<EditorContent editor={editor} />
