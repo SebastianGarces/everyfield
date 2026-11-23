@@ -160,7 +160,7 @@ export const getCommitments: ReadAdapter<z.infer<typeof history>> = {
 	},
 };
 
-const documentRow = z.object({ person_id: z.uuid(), media_type: z.string(), byte_count: z.coerce.number() });
+const documentRow = z.strictObject({ person_id: z.uuid(), media_type: z.string(), byte_count: z.coerce.number() });
 export const getCommitmentDownload: ReadAdapter<{ commitmentId: string }> = {
 	operation: "people.getCommitmentDownload",
 	description:

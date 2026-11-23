@@ -176,7 +176,7 @@
 			}
 		},
 		{
-			"files": ["packages/contracts/src/**"],
+			"files": ["packages/contracts/src/**", "packages/evry/src/**"],
 			"rules": {
 				"everyfield/strict-contracts": "error"
 			}
