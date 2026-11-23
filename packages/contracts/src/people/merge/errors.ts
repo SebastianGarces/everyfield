@@ -35,27 +35,31 @@ export const referenceKind = z.enum([
 	"training_credit",
 	"answer_review",
 ]);
-export const referenceTreatment = z.enum(["move", "deduplicate", "keep", "block"]);
+export const referenceTreatment = z.enum(["move", "deduplicate", "keep"]);
 
 export const mergeBlocker = z.enum([
 	"linked_account_collision",
 	"linked_source",
-	"unregistered_reference",
 	"enrollment_collision",
+	"leadership_conflict",
+	"residency_invitation_collision",
 ]);
+const label = z.string().min(1).max(200);
+export const leadershipConflict = z.strictObject({ team: label, sourceRole: label, survivorRole: label });
+export const blockers = {
+	causes: z.array(mergeBlocker).max(mergeBlocker.options.length),
+	leadership: z.array(leadershipConflict).max(100),
+	invitations: z.array(z.strictObject({ recipientEmail: z.string().max(320) })).max(100),
+};
 export const inverseConflict = z.enum(["survivor_changed", "source_changed", "references_changed", "mail_sent"]);
 export const mergeErrors = [
-	defineSafeError(
-		"merge_blocked",
-		{
-			causes: z.array(mergeBlocker).min(1).max(3),
-			references: z.array(referenceKind).max(referenceKind.options.length),
-		},
-		"never",
-	),
+	defineSafeError("merge_blocked", { ...blockers, causes: blockers.causes.min(1) }, "never"),
 	defineSafeError(
 		"inverse_conflict",
-		{ causes: z.array(inverseConflict).min(1).max(inverseConflict.options.length) },
+		{
+			causes: z.array(inverseConflict).min(1).max(inverseConflict.options.length),
+			changed: z.array(referenceKind).max(referenceKind.options.length),
+		},
 		"refresh",
 	),
 ] as const;

@@ -4,7 +4,15 @@ import "server-only";
 import { z } from "zod";
 import { adminRead } from "../assessments/shared.ts";
 import { deny, mutation, parse, readReply, reply, type Context, type Tx, type WriteContext } from "../core.ts";
-import { factsOf, moveRefs, parseFacts, referencesDigest, updatePerson, type Facts } from "../merge/index.ts";
+import {
+	factsOf,
+	moveRefs,
+	parseFacts,
+	referencesDigest,
+	updatePerson,
+	writeParticipations,
+	type Facts,
+} from "../merge/index.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people.ts";
 import { lockPair } from "../person-reference-registry/index.ts";
 import { commitmentOf, type CommitmentInputs } from "../commitments/lifecycle.ts";
@@ -15,7 +23,13 @@ const mergeRow = z.object({
 	source_id: z.uuid(),
 	survivor_id: z.uuid(),
 	merged_at: z.coerce.date(),
-	prior: z.object({ source: z.record(z.string(), z.unknown()), survivor: z.record(z.string(), z.unknown()) }),
+	prior: z.object({
+		source: z.record(z.string(), z.unknown()),
+		survivor: z.record(z.string(), z.unknown()),
+		participation: z.array(z.record(z.string(), z.unknown())).default([]),
+		attendance: z.array(c.attendanceChange).default([]),
+		references: z.array(z.tuple([c.referenceKind, z.uuid(), z.string().nullable()])).optional(),
+	}),
 	moved: z.record(z.string(), z.array(z.uuid())),
 	source_revision: z.coerce.string(),
 	survivor_revision: z.coerce.string(),
@@ -50,6 +64,7 @@ function inverse(merge: Merge, source: Facts, survivor: Facts) {
 	)
 		conflicts.push("source_changed");
 	if (survivor.state !== "live" || survivor.revision !== merge.survivor_revision) conflicts.push("survivor_changed");
+	const changed = changedKinds(merge, survivor);
 	if (referencesDigest(survivor.refs) !== merge.references_digest || !merge.household_exists)
 		conflicts.push("references_changed");
 	if (merge.moved.mail?.length) conflicts.push("mail_sent");
@@ -65,7 +80,19 @@ function inverse(merge: Merge, source: Facts, survivor: Facts) {
 	const fields = c.mergeField.options.filter((f) =>
 		Object.keys(merge.prior.survivor).some((col) => fieldOf(col) === f),
 	);
-	return { conflicts, restores, fields };
+	return { conflicts, restores, fields, changed: conflicts.includes("references_changed") ? changed : [] };
+}
+function changedKinds(merge: Merge, survivor: Facts): Kind[] {
+	const then = merge.prior.references;
+	if (!then) return [];
+	const key = (k: string, id: string, r: string | null) => `${k}|${id}|${r}`;
+	const before = new Set(then.map(([k, id, r]) => key(k, id, r)));
+	const now = new Set(survivor.refs.map((x) => key(x.kind, x.id, x.revision)));
+	const kinds = new Set<Kind>();
+	for (const [k, id, r] of then) if (k !== "commitment_change" && !now.has(key(k, id, r))) kinds.add(k);
+	for (const x of survivor.refs)
+		if (x.kind !== "commitment_change" && !before.has(key(x.kind, x.id, x.revision))) kinds.add(x.kind);
+	return [...kinds].sort();
 }
 function commitments(merge: Merge, source: Facts, survivor: Facts) {
 	const back = new Set([...(merge.moved.commitment ?? []), ...(merge.moved.commitment_change ?? [])]);
@@ -120,6 +147,8 @@ export const peopleUnmerge = {
 				restores: i.restores,
 				fields: i.fields,
 				conflicts: merge.unmerged_at ? [] : i.conflicts,
+				changed: merge.unmerged_at ? [] : i.changed,
+				attendance: merge.prior.attendance,
 				reviewRevision: survivor.revision,
 			});
 		});
@@ -160,10 +189,12 @@ export const peopleUnmerge = {
 							outcome: "noop",
 						};
 					if (survivor.revision !== input.expectedRevision) deny("conflict");
-					if (i.conflicts.length) deny("inverse_conflict", { causes: i.conflicts });
+					if (i.conflicts.length) deny("inverse_conflict", { causes: i.conflicts, changed: i.changed });
 					for (const [k, ids] of Object.entries(merge.moved))
-						if (k !== "tag_dropped" && ids.length)
+						if (k !== "tag_dropped" && k !== "participation" && k !== "participation_inviter" && ids.length)
 							audit.writes.push(moveRefs(owner, k as Kind, ids, survivor.id, source.id));
+					if (merge.prior.participation.length)
+						audit.writes.push(writeParticipations(owner, merge.prior.participation));
 					const dropped = merge.moved.tag_dropped ?? [];
 					if (dropped.length)
 						audit.writes.push(

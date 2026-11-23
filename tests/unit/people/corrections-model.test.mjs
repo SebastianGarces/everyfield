@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { blockerText } from "../../../apps/web/src/features/people/corrections/model.ts";
 
-test("AC:TARGET-PPL-016 a merge blocked by past history names what blocks it and gives no advice that cannot clear it", () => {
-	const text = blockerText("unregistered_reference", { source: "Avery Stone", survivor: "Avery Stone" }, [
-		"participation",
-		"mail",
-		"task",
-	]);
+test("AC:TARGET-PPL-016 a merge blocked by a leadership conflict names the team and both roles and says to end one first", () => {
+	const text = blockerText(
+		"leadership_conflict",
+		{ source: "Avery Stone", survivor: "Avery Stone Keep" },
+		{ leadership: [{ team: "Worship", sourceRole: "Vocals", survivorRole: "Guitar" }], invitations: [] },
+	);
 	assert.equal(
 		text,
-		"Avery Stone has meeting attendances, emails and tasks on record. Merging people with this history is not available in Everyfield yet.",
+		"Avery Stone is Vocals and Avery Stone Keep is Guitar on Worship. One person can’t hold two current roles on one team, so end one of those roles first.",
 	);
-	assert.doesNotMatch(text, /finish|reassign|review again/i);
+	assert.doesNotMatch(text, /not available in Everyfield yet/);
 });
