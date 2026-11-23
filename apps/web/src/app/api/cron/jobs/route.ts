@@ -10,6 +10,7 @@ import { onboardingMailPass } from "@/features/onboarding/mount";
 import { settingsMailPass } from "@/features/settings/mail";
 import { feedbackMailPass } from "@/features/feedback/mail";
 import { feedbackPublicationMount } from "@/features/feedback/publication";
+import { wikiEmbeddingMount } from "@/features/wiki/embedding";
 import { deliveryTransport, mailReady, queuedMailTransport } from "@/server/mail/transport";
 import { scheduledJobs, scheduledMessages } from "@/server/jobs/scheduled";
 import { cronRoute } from "@/server/platform/cron";
@@ -33,6 +34,7 @@ export const GET = configured(function GET(request: Request): Promise<Response> 
 			digests: digestsMount(db),
 			notifications: notificationsMount(db),
 			feedbackPublication: feedbackPublicationMount(db),
+			wikiEmbedding: wikiEmbeddingMount(db),
 			assessments: assessmentsMount(db),
 			mail: ready ? (limit, until) => runDueInvitationMail(queuedMailTransport(ready), limit, until) : null,
 			messages: ready ? scheduledMessages(db, deliveryTransport(ready), ready.keys) : null,

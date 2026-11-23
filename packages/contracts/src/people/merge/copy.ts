@@ -71,7 +71,15 @@ export function conflictText(cause: InverseConflict, names: { source: string; su
 			return `${names.source}'s record changed after the merge.`;
 		case "references_changed":
 			return `${names.survivor} has records that are new, moved or corrected since the merge, or was merged again.`;
+		case "mail_sent":
+			return `The merge moved email sent to ${names.source} into ${names.survivor}'s communication history, and sent email is never unsent.`;
 	}
+}
+export function unmergeAdvice(conflicts: readonly InverseConflict[], names: { survivor: string }) {
+	const fix = `Correct ${names.survivor.split(" ")[0]}’s details by hand instead; each change is kept in the history.`;
+	return conflicts.every((c) => c === "mail_sent")
+		? `An Unmerge cannot take back sent email, so Everyfield will not run it. ${fix}`
+		: `An Unmerge would lose those changes, so Everyfield will not run it. ${fix}`;
 }
 
 export function mergeBlockedText(
@@ -83,11 +91,9 @@ export function mergeBlockedText(
 	);
 }
 export function unmergeBlockedText(conflicts: readonly InverseConflict[], names: { source: string; survivor: string }) {
-	return [
-		"Cannot unmerge.",
-		...conflicts.map((c) => conflictText(c, names)),
-		`An Unmerge would lose those changes, so Everyfield will not run it. Correct ${names.survivor.split(" ")[0]}’s details by hand instead; each change is kept in the history.`,
-	].join(" ");
+	return ["Cannot unmerge.", ...conflicts.map((c) => conflictText(c, names)), unmergeAdvice(conflicts, names)].join(
+		" ",
+	);
 }
 
 export const MERGE_FIELD_LABEL: Record<z.infer<typeof mergeField>, string> = {

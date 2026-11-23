@@ -23,7 +23,8 @@ export async function call<T>(path: string, init?: { method: "POST"; body: unkno
 export type Submitted = { turnId: string; sequence: number; replayed: boolean };
 export type ConversationPage = { items: Conversation[]; total: number; page: number; next: number | null };
 
-export const openLatest = () => call<(ReadConversation | { conversation: null }) & { pipeline?: boolean }>("open");
+export const openLatest = () =>
+	call<(ReadConversation | { conversation: null }) & { pipeline?: boolean; churchName?: string | null }>("open");
 export const readConversation = (id: string, after = 0) => call<ReadConversation>(`conversations/${id}?after=${after}`);
 export const listConversations = (search: string, page: number) =>
 	call<ConversationPage>(
