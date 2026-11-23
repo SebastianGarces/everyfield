@@ -51,9 +51,6 @@ class FakeNode extends EventTarget {
 	closest() {
 		return null;
 	}
-	all(): FakeNode[] {
-		return this.childNodes.flatMap((c) => [c, ...c.all()]);
-	}
 }
 
 const fakeDocument = Object.assign(new EventTarget(), {
