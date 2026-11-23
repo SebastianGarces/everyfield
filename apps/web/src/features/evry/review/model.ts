@@ -777,7 +777,10 @@ export const showsBefore = (review: Pick<Review, "operation">, change: Change) =
 			review.operation === "development.draftNextVersion") &&
 		(change.before === null || change.before === undefined)
 	) &&
-	!(isDocument(review.operation) && change.before === null) &&
+	!(
+		(isDocument(review.operation) || review.operation === "communication.correctContactLog") &&
+		change.before === null
+	) &&
 	!(
 		isIntelligence(review.operation) &&
 		(change.before === null || JSON.stringify(change.before) === JSON.stringify(change.after))
