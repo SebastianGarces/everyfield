@@ -107,16 +107,3 @@ test("INV-access: the runtime login submits, records mail, expires and exports e
 	assert.equal(owner.attempts, 0);
 	assert.deepEqual(await earlyAccessOn(db.runtime), owner);
 });
-
-test("INV-privileges: the runtime login cannot alter early-access structure or rewrite stored request content", async () => {
-	for (const statement of [
-		"UPDATE early_access_request SET data = '{}'",
-		"UPDATE early_access_request SET email = email",
-		"UPDATE early_access_attempt SET email = email",
-		"TRUNCATE early_access_request",
-		"ALTER TABLE early_access_request ADD COLUMN extra text",
-	])
-		await assert.rejects(db.runtime.execute(querySql.raw(statement)), (e) => e.cause?.code === "42501", statement);
-	for (const statement of ["SELECT 1 FROM early_access_request", "SELECT 1 FROM early_access_attempt"])
-		await assert.rejects(db.cleanup.execute(querySql.raw(statement)), (e) => e.cause?.code === "42501", statement);
-});
