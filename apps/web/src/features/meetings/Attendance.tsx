@@ -25,6 +25,8 @@ import {
 	Spinner,
 	Textarea,
 	toast,
+	InlineAlert,
+	ProblemText,
 } from "@everyfield/ui/controls";
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useRef, useState } from "react";
@@ -58,8 +60,9 @@ import {
 	type Presence,
 	type Scores,
 } from "./model.ts";
-import { Problem } from "./parts.tsx";
 import { choiceOf, chosenOf, createSettleStore, selectUnchanged } from "./SettleForm.store.ts";
+import { loadProblem } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type Who = { personId: string; displayName: string };
 type PresenceAnswer = Extract<Awaited<ReturnType<typeof setPresence>>, { status: "ok" }>["value"];
@@ -457,9 +460,7 @@ function SettleForm({
 								))}
 							</div>
 							{touched && unchanged ? (
-								<p className="mt-1 text-xs font-medium text-magenta-600" role="alert">
-									Add or remove at least one person, or close this.
-								</p>
+								<ProblemText className="mt-1">Add or remove at least one person, or close this.</ProblemText>
 							) : null}
 						</fieldset>
 					) : (
@@ -540,7 +541,7 @@ function SettleForm({
 							/>
 						</Field>
 					) : null}
-					<Problem text={problem} />
+					<InlineAlert>{problem}</InlineAlert>
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose}>
@@ -854,7 +855,8 @@ function EvaluationForm({
 	const [reason, setReason] = useState(initial?.reason ?? "");
 	const [touched, setTouched] = useState(false);
 	const missing = FACTORS.filter((f) => scores[f.key] === undefined);
-	const complete = missing.length === 0;
+	const [firstMissing] = missing;
+	const complete = firstMissing === undefined;
 	const changed =
 		correcting &&
 		(FACTORS.some((f) => scores[f.key] !== evaluation.scores[f.key]) || notes.trim() !== (evaluation.notes ?? ""));
@@ -868,8 +870,8 @@ function EvaluationForm({
 				onSubmit={(e) => {
 					e.preventDefault();
 					setTouched(true);
-					if (!complete) {
-						first.current?.querySelector<HTMLElement>(`[data-factor="${missing[0]!.key}"] button`)?.focus();
+					if (firstMissing) {
+						first.current?.querySelector<HTMLElement>(`[data-factor="${firstMissing.key}"] button`)?.focus();
 						return;
 					}
 					if (correcting && !changed)
@@ -901,11 +903,7 @@ function EvaluationForm({
 											{f.label}
 										</p>
 										<p className="text-sm text-text-3">{f.hint}</p>
-										{bad || refusal ? (
-											<p className="text-xs font-medium text-magenta-600" role="alert">
-												{refusal ?? "Choose a score."}
-											</p>
-										) : null}
+										{bad || refusal ? <ProblemText>{refusal ?? "Choose a score."}</ProblemText> : null}
 									</div>
 									<SegmentedControl
 										label={`${f.label} score, 1 to 5`}
@@ -958,7 +956,7 @@ function EvaluationForm({
 							/>
 						</Field>
 					) : null}
-					<Problem text={issues.length === 0 ? problem : named.dialog.join(" ") || undefined} />
+					<InlineAlert>{issues.length === 0 ? problem : named.dialog.join(" ") || undefined}</InlineAlert>
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose}>
@@ -976,7 +974,7 @@ function EvaluationForm({
 type History = Extract<Awaited<ReturnType<typeof evaluationHistory>>, { status: "ok" }>["value"];
 
 export function useEvaluationHistory(meetingId: string) {
-	const [got, setGot] = useState<{ revision: string; value: Outcome<History> } | null>(null);
+	const [got, setGot] = useState<{ revision: string; value: Outcome<History> | ReadFailure } | null>(null);
 	const asked = useRef<string | null>(null);
 	function load(revision: string) {
 		if (asked.current === revision) return;
@@ -1000,7 +998,7 @@ export function HistoryDialog({
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	history: { revision: string; value: Outcome<History> } | null;
+	history: { revision: string; value: Outcome<History> | ReadFailure } | null;
 	revision: string;
 	onRetry: () => void;
 }) {
@@ -1016,7 +1014,7 @@ export function HistoryDialog({
 						</p>
 					) : r.status !== "ok" ? (
 						<div role="alert" className="flex flex-col items-start gap-3 py-2">
-							<p className="text-md text-text-2">The history did not load. Nothing was changed.</p>
+							<p className="text-md text-text-2">{loadProblem(r, "The history did not load. Nothing was changed.")}</p>
 							<Button variant="secondary" size="sm" onClick={onRetry}>
 								Try again
 							</Button>

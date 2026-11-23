@@ -1,9 +1,13 @@
+import type { SitePath } from "@everyfield/contracts/identity";
+import type { Lost } from "@everyfield/contracts/common";
 import type { ProgramKind, ProgramRefusal, ProgramRhythm } from "@everyfield/contracts/organizations";
 import { PIPELINE_PATH } from "../board/model";
+import { READ_FAILED } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
-export const PROGRAMS_PATH = `${PIPELINE_PATH}/programs`;
-export const programHref = (id: string) => `${PROGRAMS_PATH}/${id}`;
-export const enrollmentHref = (id: string) => `${PROGRAMS_PATH}/enrollments/${id}`;
+export const PROGRAMS_PATH: SitePath = `${PIPELINE_PATH}/programs`;
+export const programHref = (id: string): SitePath => `${PROGRAMS_PATH}/${id}`;
+export const enrollmentHref = (id: string): SitePath => `${PROGRAMS_PATH}/enrollments/${id}`;
 
 export const KIND: Record<ProgramKind, string> = { apprenticeship: "Apprenticeship", residency: "Residency" };
 export const RHYTHM: Record<ProgramRhythm, string> = {
@@ -37,7 +41,8 @@ export function formatMeeting(at: string, day: (value: string) => string) {
 	return `${day(at.slice(0, 10))} at ${time.format(new Date(`${at}Z`))}`;
 }
 
-export function programProblem(answer: { status: "refused"; refusal: ProgramRefusal } | { status: "lost" }) {
+export function programProblem(answer: { status: "refused"; refusal: ProgramRefusal } | Lost | ReadFailure) {
+	if (answer.status === "failed") return READ_FAILED;
 	if (answer.status === "lost") return "We couldn’t reach Everyfield. Nothing was saved. Try again.";
 	const r = answer.refusal;
 	switch (r.code) {

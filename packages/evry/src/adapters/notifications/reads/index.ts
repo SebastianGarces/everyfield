@@ -34,7 +34,7 @@ const result = (operation: string, rows: SourceRow[], total: number | null, part
 
 async function churchZone(tx: Transaction, actor: EvryActor) {
 	const r = await tx.execute(sql`SELECT timezone FROM plant WHERE id=${actor.owner.id}::uuid`);
-	return z.object({ timezone: z.string() }).parse(r.rows[0]).timezone;
+	return z.strictObject({ timezone: z.string() }).parse(r.rows[0]).timezone;
 }
 const localTime = (at: string, zone: string) =>
 	new Intl.DateTimeFormat("en-US", {
@@ -53,7 +53,7 @@ const feedInput = z.strictObject({
 export const feed: ReadAdapter<z.infer<typeof feedInput>> = {
 	operation: "notifications.feed",
 	description:
-		"The user's own notifications, newest first, as the bell shows them: each with its category, title, church-local time and whether it is read. Reading never marks anything read.",
+		"The user's own notifications, newest first, as the bell shows them: each with its category, title, church-local time and whether it is read. When the user asks what they missed or what is new, read this first with unread true: total is the exact unread count; give it with the unread notices grouped by category. Reading never marks anything read.",
 	input: feedInput,
 	allowed: inPlant,
 	async invoke(tx, actor, input) {

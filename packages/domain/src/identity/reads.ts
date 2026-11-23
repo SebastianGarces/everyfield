@@ -19,7 +19,7 @@ export async function lookupIdentityAccount(db: Database, authUser: string) {
 		.select({
 			account: tables.account,
 			blocked: sql<boolean>`EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=account.id
- AND w.state IN ('pending_deletion', 'purging', 'purged', 'revoked'))`,
+ AND w.state IN ('pending_deletion', 'purging', 'purged'))`,
 		})
 		.from(tables.account)
 		.where(eq(tables.account.auth_user_id, authUser))

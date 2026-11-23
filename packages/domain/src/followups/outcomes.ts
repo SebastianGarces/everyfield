@@ -207,7 +207,7 @@ export function outcomeWriter(reminders: TaskReminders) {
 						plant = cmd.actor.plantId,
 						clock = new Date();
 					const taskId = v.target.kind === "task" ? v.target.taskId : null;
-					if (!taskId && !administers(cmd.actor)) deny();
+					if (!taskId && !administers(cmd.actor)) deny("unavailable");
 					const tasks = !taskId
 						? sql`false`
 						: v.outcome === "contacted" && v.completeTask
@@ -226,8 +226,9 @@ export function outcomeWriter(reminders: TaskReminders) {
 					const task: LockedTask | null = facts.tasks.find((r) => r.id === taskId) ?? null;
 					const others = facts.tasks.filter((r) => r.id !== taskId);
 					if (v.target.kind === "task") {
-						if (!task || task.deleted_at || task.parent_id || !task.person_id) deny();
-						if (!administers(cmd.actor) && !task.assignees.some((a) => a.accountId === cmd.actor.accountId)) deny();
+						if (!task || task.deleted_at || task.parent_id || !task.person_id) deny("unavailable");
+						if (!administers(cmd.actor) && !task.assignees.some((a) => a.accountId === cmd.actor.accountId))
+							deny("unavailable");
 						if (task.revision !== v.target.expectedRevision) deny("conflict");
 						if (!(OPEN_STATUS as readonly string[]).includes(task.status)) deny("conflict");
 					}
@@ -313,7 +314,7 @@ export function outcomeWriter(reminders: TaskReminders) {
 					LEFT JOIN person p ON p.id=o.person_id AND p.tenant_id=o.plant_id
 					WHERE o.id=${v.outcomeId}::uuid AND o.plant_id=${plant}::uuid
 					FOR UPDATE OF o`);
-					if (!r.rows[0]) deny();
+					if (!r.rows[0]) deny("unavailable");
 					const f = correctionFacts.parse(r.rows[0]);
 					const old: Stored = { ...f.row, revision: f.row.revision };
 					const own =
@@ -321,7 +322,7 @@ export function outcomeWriter(reminders: TaskReminders) {
 						f.task_live === true &&
 						f.actor_assigned === true &&
 						f.author_id === cmd.actor.accountId;
-					if (!administers(cmd.actor) && !own) deny();
+					if (!administers(cmd.actor) && !own) deny("unavailable");
 					if (old.voided_at || old.revision !== input.expectedRevision) deny("conflict");
 					const me = { accountId: cmd.actor.accountId, displayName: f.actor_name };
 					const author = f.author_id ? { accountId: f.author_id, displayName: f.author_name } : null;

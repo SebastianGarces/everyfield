@@ -21,7 +21,7 @@ export async function readPipelinePerson(
 	raw: unknown,
 ) {
 	const input = organizationPersonRequest.safeParse(raw);
-	const unavailable = () => pipelineAccessResult.parse({ status: "unavailable" });
+	const unavailable = () => ({ status: "unavailable" }) satisfies z.output<typeof pipelineAccessResult>;
 	if (!input.success || selected.kind !== "organization") return unavailable();
 	const actor = await currentActor(tx, session, selected, false);
 	if (actor.status !== "active" || actor.context.kind !== "seat") return unavailable();
@@ -83,14 +83,15 @@ export async function readPipelinePerson(
 
 	if (director.length) duties.push({ kind: "program_director", canReadStaffNotes: false });
 	return duties.length
-		? pipelineAccessResult.parse({ status: "allowed", organization: selected, personId: input.data.personId, duties })
+		? ({ status: "allowed", organization: selected, personId: input.data.personId, duties } satisfies z.output<
+				typeof pipelineAccessResult
+			>)
 		: unavailable();
 }
 
 export const liveResidency = sql<boolean>`(l.ended_at IS NULL AND l.accepted_at<=clock_timestamp()
  AND EXISTS(SELECT FROM affiliation a WHERE a.id=l.affiliation_id AND a.organization_id=l.organization_id
-  AND a.account_id=l.account_id AND a.ended_at IS NULL AND a.accepted_at<=clock_timestamp()
-  AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.affiliation_id=a.id AND w.state NOT IN ('active','cancelled')))
+  AND a.account_id=l.account_id AND a.ended_at IS NULL AND a.accepted_at<=clock_timestamp())
  AND EXISTS(SELECT FROM invitation i WHERE i.id=l.invitation_id AND i.tenant_id=l.organization_id
   AND i.accepted_account_id=l.account_id AND i.state='accepted' AND i.purpose='residency_link' AND i.resident_person_id=l.person_id)
  AND EXISTS(SELECT FROM person p WHERE p.id=l.person_id AND p.tenant_id=l.organization_id
@@ -126,12 +127,13 @@ export async function readOwnResidency(
 		)
 	).rows;
 
-	if (links.length !== 1) return null;
+	const [link] = links;
+	if (links.length !== 1 || !link) return null;
 	return ownResidencyProjection.parse({
 		organization,
 		personId: input.data.personId,
-		linkId: links[0]!.id,
-		revision: links[0]!.revision,
+		linkId: link.id,
+		revision: link.revision,
 	});
 }
 

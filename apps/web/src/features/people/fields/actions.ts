@@ -1,5 +1,6 @@
 "use server";
 
+import { seated } from "@/server/request-context";
 import { requestDatabase } from "@/server/database";
 import { drainObjectCleanup } from "@/server/jobs/drain-object-cleanup";
 import { requestKey, revision } from "@everyfield/contracts/common";
@@ -7,7 +8,7 @@ import * as c from "@everyfield/contracts/people";
 import type { PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
 import { peopleReader, personFields as f, uploadPersonPhoto } from "@everyfield/domain/people";
 import { z } from "zod";
-import { boundary, invalid, outcome, parsed, receipt, type Receipt } from "../boundary.ts";
+import { invalid, outcome, parsed, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../../../components/save/model.ts";
 import { write } from "../server.ts";
 import type { ChurchTag, HouseholdResult, PersonTag, PhotoResult, Skill } from "./model.ts";
@@ -73,7 +74,7 @@ export async function removePersonTag(
 	requestKey: string,
 	input: unknown,
 ): Promise<Outcome<{ tags: PersonTag[]; receipt: Receipt }>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(await write(v, (tx, ctx) => f.removeTag(tx, ctx, { requestKey, input })), (r) => ({
 			tags: r.tags,
 			receipt: receipt(r),
@@ -82,7 +83,7 @@ export async function removePersonTag(
 }
 
 export async function createChurchTag(requestKey: string, input: unknown): Promise<Outcome<ChurchTag>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(await write(v, (tx, ctx) => f.createTag(tx, ctx, { requestKey, input })), (r) => r.tag),
 	);
 }
@@ -92,7 +93,7 @@ export async function updateChurchTag(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<ChurchTag>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(await write(v, (tx, ctx) => f.updateTag(tx, ctx, { requestKey, expectedRevision, input })), (r) => r.tag),
 	);
 }
@@ -102,7 +103,7 @@ export async function deleteChurchTag(
 	expectedRevision: string,
 	tagId: string,
 ): Promise<Outcome<{ tagId: string; removedLinks: number }>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(
 			await write(v, (tx, ctx) => f.deleteTag(tx, ctx, { requestKey, expectedRevision, input: { tagId } })),
 			(r) => ({
@@ -120,7 +121,7 @@ const skillsSaved = (r: { skills: Skill[]; receiptId: string; outcome: "changed"
 });
 
 export async function addSkill(requestKey: string, input: unknown): Promise<Outcome<SkillsSaved>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(await write(v, (tx, ctx) => f.addSkill(tx, ctx, { requestKey, input })), skillsSaved),
 	);
 }
@@ -130,7 +131,7 @@ export async function updateSkill(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<SkillsSaved>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(await write(v, (tx, ctx) => f.updateSkill(tx, ctx, { requestKey, expectedRevision, input })), skillsSaved),
 	);
 }
@@ -140,7 +141,7 @@ export async function removeSkill(
 	expectedRevision: string,
 	skillId: string,
 ): Promise<Outcome<SkillsSaved>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(
 			await write(v, (tx, ctx) => f.removeSkill(tx, ctx, { requestKey, expectedRevision, input: { skillId } })),
 			skillsSaved,
@@ -162,7 +163,7 @@ export async function startHousehold(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<MembershipSaved>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(
 			await write(v, (tx, ctx) => f.createHouseholdWithHead(tx, ctx, { requestKey, expectedRevision, input })),
 			asMember,
@@ -175,7 +176,7 @@ export async function joinHousehold(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<MembershipSaved>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(await write(v, (tx, ctx) => f.addToHousehold(tx, ctx, { requestKey, expectedRevision, input })), asMember),
 	);
 }
@@ -185,7 +186,7 @@ export async function setHouseholdRole(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<MembershipSaved>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(
 			await write(v, (tx, ctx) => f.setHouseholdRole(tx, ctx, { requestKey, expectedRevision, input })),
 			asMember,
@@ -216,7 +217,7 @@ export async function updateHousehold(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<HouseholdResult>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(
 			await write(v, (tx, ctx) => f.updateHousehold(tx, ctx, { requestKey, expectedRevision, input })),
 			(r) => r.result,
@@ -229,7 +230,7 @@ export async function propagateAddress(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<MembershipSaved & { updatedPeople: number }>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(await write(v, (tx, ctx) => f.propagateAddress(tx, ctx, { requestKey, expectedRevision, input })), (r) => ({
 			...asMember(r),
 			updatedPeople: r.updatedPeople ?? 0,
@@ -255,7 +256,7 @@ export async function uploadPhoto(form: FormData): Promise<Outcome<PhotoSaved>> 
 	const { requestKey, expectedRevision, personId, file } = parsed.data;
 	const mime = c.photoMime.safeParse(file.type);
 	if (!mime.success || file.size < 1 || file.size > c.PHOTO_MAX_BYTES) return invalid;
-	return boundary(async (v) => {
+	return seated("access_denied", async (v) => {
 		const storage = privateStorage();
 		if (!storage) return { status: "refused", code: "storage_unavailable" };
 		const db = requestDatabase();
@@ -294,7 +295,7 @@ export async function removePhoto(
 	expectedRevision: string,
 	personId: string,
 ): Promise<Outcome<PhotoSaved>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		drainAfter(
 			outcome(
 				await write(v, (tx, ctx) =>

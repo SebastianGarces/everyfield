@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import {
 	createOrganizationAdapter,
 	readHistory,
@@ -15,6 +15,7 @@ import {
 	listPlants,
 	listSendingChurches,
 	readIntelligence,
+	readLocationHistory,
 } from "../../../packages/domain/src/oversight/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
@@ -112,6 +113,7 @@ export function organizationsCases(t, who) {
 				["oversight:listSendingChurches", () => listSendingChurches(t.f.db, who.actor)],
 				["oversight:getSendingChurch", () => getSendingChurch(t.f.db, who.actor, a.network)],
 				["oversight:readIntelligence", () => readIntelligence(t.f.db, who.actor, { level: "portfolio", runId: null })],
+				["oversight:readLocationHistory", () => readLocationHistory(t.f.db, who.actor, t.plantA.id)],
 			] as const
 		).map(([name, read]) => [name, { run: () => plain(read), expected: { value: null, control: null } }]),
 		[

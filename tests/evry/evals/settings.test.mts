@@ -19,8 +19,8 @@ import {
 	type NativePorts,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/index.ts";
 import { readPlantSharing } from "../../../packages/domain/src/organizations/index.ts";
 import { nativePorts } from "./settings-ports.mts";
@@ -70,8 +70,12 @@ const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
 	return viewer?.authority ? evryActor(viewer.authority) : null;
 };
-const noReminders = async () => {
-	throw Error("unexpected task reminder replan");
+const noReminders = async () => undefined;
+const noPorts = {
+	reminders: noReminders,
+	phaseNotices: async () => {
+		throw Error("unexpected phase notice");
+	},
 };
 
 before(async () => {
@@ -118,7 +122,7 @@ async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 	const outcome = await executeProposal(
 		db,
 		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-		noReminders,
+		noPorts,
 		null,
 		native,
 	);
@@ -171,12 +175,18 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 	"SET-08": {
 		before: async (a) =>
 			assert.deepEqual(await seatsScreen(a), [
+				["Alex Rivera", "member"],
+				["Ana Rivera", "member"],
+				["Carlos Mendez", "member"],
 				["Lena Park", "admin"],
 				["Nate Ellis", "owner"],
 				["Priya Shah", "member"],
 			]),
 		after: async (a) =>
 			assert.deepEqual(await seatsScreen(a), [
+				["Alex Rivera", "member"],
+				["Ana Rivera", "member"],
+				["Carlos Mendez", "member"],
 				["Lena Park", "admin"],
 				["Nate Ellis", "owner"],
 				["Priya Shah", "admin"],
@@ -185,6 +195,9 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 	"SET-09": {
 		after: async (a) =>
 			assert.deepEqual(await seatsScreen(a), [
+				["Alex Rivera", "member"],
+				["Ana Rivera", "member"],
+				["Carlos Mendez", "member"],
 				["Nate Ellis", "owner"],
 				["Priya Shah", "admin"],
 			]),
@@ -200,11 +213,13 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 			assert.deepEqual(await sharingScreen(a), [
 				["Hill Country Network", ["people", "meetings"]],
 				["Hill Country Church", ["activity"]],
+				["Harvest Network", ["wiki"]],
 			]),
 		after: async (a) =>
 			assert.deepEqual(await sharingScreen(a), [
 				["Hill Country Network", ["people"]],
 				["Hill Country Church", ["activity"]],
+				["Harvest Network", ["wiki"]],
 			]),
 	},
 	"SET-13": {
@@ -224,7 +239,11 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 		},
 	},
 	"SET-14": {
-		after: async (a) => assert.deepEqual(await sharingScreen(a), [["Hill Country Church", ["activity"]]]),
+		after: async (a) =>
+			assert.deepEqual(await sharingScreen(a), [
+				["Hill Country Church", ["activity"]],
+				["Harvest Network", ["wiki"]],
+			]),
 	},
 	"SET-15": {
 		before: async (a) =>

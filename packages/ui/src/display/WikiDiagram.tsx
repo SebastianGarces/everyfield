@@ -188,7 +188,7 @@ function Stages({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 				<li key={index} className="flex">
 					<Card className="flex-1 border-t-[3px] border-green-500 pt-3">
 						<span aria-hidden="true" className="num mb-1.5 block text-[22px] leading-none text-green-700">
-							{String(index + 1).padStart(2, "0")}
+							{index + 1}
 						</span>
 						<Text node={node} />
 					</Card>
@@ -252,8 +252,10 @@ const RING: Record<number, readonly (readonly [number, number])[]> = {
 
 function Cycle({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 	const ring = RING[nodes.length];
-	const place = (index: number) =>
-		ring ? ({ "--row": ring[index]![0], "--col": ring[index]![1] } as CSSProperties) : undefined;
+	const place = (index: number) => {
+		const cell = ring?.[index];
+		return cell ? ({ "--row": cell[0], "--col": cell[1] } as CSSProperties) : undefined;
+	};
 	return (
 		<div className="relative">
 			{ring ? (
@@ -358,12 +360,7 @@ function Timeline({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 							across && "@xl:flex-1 @xl:pb-0 @xl:pl-0",
 						)}
 					>
-						<span
-							className={cn(
-								"block min-h-5 text-xs font-semibold tracking-wide text-green-700 uppercase",
-								across && "@xl:h-5",
-							)}
-						>
+						<span className={cn("section-label block min-h-5 text-green-700", across && "@xl:h-5")}>
 							{node.note ?? ""}
 						</span>
 						<span

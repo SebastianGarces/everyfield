@@ -44,9 +44,15 @@ export const TAGS: { tags: ComboboxOption[]; owners: ComboboxOption[] } = {
 	],
 };
 
+const LAST_28_DAYS: DatePreset = {
+	key: "28",
+	label: "Last 28 days",
+	range: { start: "2026-09-21", end: "2026-10-18" },
+};
+export const DEFAULT_RANGE = LAST_28_DAYS.range;
 export const PRESETS: DatePreset[] = [
 	{ key: "7", label: "Last 7 days", range: { start: "2026-10-12", end: "2026-10-18" } },
-	{ key: "28", label: "Last 28 days", range: { start: "2026-09-21", end: "2026-10-18" } },
+	LAST_28_DAYS,
 	{ key: "90", label: "Last 90 days", range: { start: "2026-07-21", end: "2026-10-18" } },
 ];
 

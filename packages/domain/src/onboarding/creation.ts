@@ -42,7 +42,7 @@ export interface OnboardingEffects {
 	): Promise<void>;
 }
 
-const off = sharingChoices.parse({
+const off = {
 	people: false,
 	meetings: false,
 	tasks: false,
@@ -50,24 +50,27 @@ const off = sharingChoices.parse({
 	wiki: false,
 	activity: false,
 	shared_findings: false,
-});
+} satisfies z.output<typeof sharingChoices>;
 export const pending = { status: "pending" } as const;
 const startRow = z.object({ seats: z.number().int(), setup: z.boolean(), discovery: z.boolean() });
+function liveAffiliationsOf(accountId: string) {
+	const where = and(eq(t.affiliation.account_id, accountId), isNull(t.affiliation.ended_at));
+	if (!where) throw Error("An affiliation filter has no condition");
+	return where;
+}
 export async function profile(tx: Tx, accountId: string, d: typeof t.discovery.$inferSelect) {
-	const links = await loadAffiliations(
-		tx,
-		and(eq(t.affiliation.account_id, accountId), isNull(t.affiliation.ended_at))!,
-	);
+	const links = await loadAffiliations(tx, liveAffiliationsOf(accountId));
 	const relationships = links
 		.filter((a) => a.active)
-		.map((a) =>
-			c.conversionRelationship.parse({
-				relationshipId: a.id,
-				organization: organizationOwner.parse(pairOf(a).organization),
-				revision: a.revision,
-				consentRevision: a.consent_revision,
-				choices: choices(a),
-			}),
+		.map(
+			(a) =>
+				({
+					relationshipId: a.id,
+					organization: organizationOwner.parse(pairOf(a).organization),
+					revision: a.revision,
+					consentRevision: a.consent_revision,
+					choices: choices(a),
+				}) satisfies z.output<typeof c.conversionRelationship>,
 		);
 	return {
 		discoveryId: d.id,
@@ -78,10 +81,10 @@ export async function profile(tx: Tx, accountId: string, d: typeof t.discovery.$
 	};
 }
 async function eligible(tx: Tx, ctx: WriteContext, kind: "planter" | "discovery") {
-	if (ctx.selected.kind !== "account") deny();
+	if (ctx.selected.kind !== "account") deny("unavailable");
 	const a = await actor(tx, ctx, true, true);
-	if (a.account.registration_state === "pending_domain" && a.account.registration_kind !== kind) deny();
-	if (!a.principal?.verified) deny();
+	if (a.account.registration_state === "pending_domain" && a.account.registration_kind !== kind) deny("unavailable");
+	if (!a.principal?.verified) deny("unavailable");
 	return { ...a, principal: a.principal };
 }
 async function provision(
@@ -120,7 +123,7 @@ async function provision(
 		owner: { kind: "plant", id: tenantId.parse(plantId) },
 		selection: { kind: "first", displayName },
 	});
-	if (linked.status !== "ok" || linked.value.status !== "linked") deny();
+	if (linked.status !== "ok" || linked.value.status !== "linked") deny("unavailable");
 	const creation = await entry.recorded(new Date(row.recorded));
 	cx.writes.push(
 		tx.insert(t.onboarding_setup).values({
@@ -151,11 +154,12 @@ async function provision(
 async function currentCreation<
 	T extends { plant: { id: string }; currentPhase: number; revision: string; materialRevision: string },
 >(tx: Tx, ctx: WriteContext, value: T) {
-	if (!(await liveOwner(tx, owner.parse({ kind: "plant", id: value.plant.id })))) deny();
+	if (!(await liveOwner(tx, owner.parse({ kind: "plant", id: value.plant.id })))) deny("unavailable");
 	const [plant] = await tx.select().from(t.plant).where(eq(t.plant.id, value.plant.id));
-	if (!plant) deny();
+	if (!plant) deny("unavailable");
 	const current = await currentActor(tx, ctx.session, { kind: "plant", id: tenantId.parse(plant.id) });
-	if (current.status !== "active" || current.context.kind !== "seat" || current.context.role !== "owner") deny();
+	if (current.status !== "active" || current.context.kind !== "seat" || current.context.role !== "owner")
+		deny("unavailable");
 	return {
 		...value,
 		status: "existing",
@@ -210,7 +214,7 @@ export function creation(effects: OnboardingEffects) {
 				const cx = await begin(tx, ctx, a.account.id, "discovery.create", q);
 				if (cx.kind === "replay") {
 					const [current] = await tx.select().from(t.discovery).where(eq(t.discovery.account_id, a.account.id));
-					if (!current || current.converted_at) deny();
+					if (!current || current.converted_at) deny("unavailable");
 					await seatless(tx, a.account.id);
 					return c.createDiscoveryResult.parse(cx.value);
 				}
@@ -238,7 +242,7 @@ export function creation(effects: OnboardingEffects) {
 						.set({ registration_state: "active", revision: sql`${t.account.revision}+1` })
 						.where(eq(t.account.id, a.account.id)),
 				);
-				await event(tx, cx, d!.id, "identity.domain_accepted", "create");
+				await event(tx, cx, d.id, "identity.domain_accepted", "create");
 				await effects.enqueue(
 					tx,
 					{
@@ -250,7 +254,7 @@ export function creation(effects: OnboardingEffects) {
 					},
 					cx,
 				);
-				const savedProfile = await profile(tx, a.account.id, d!);
+				const savedProfile = await profile(tx, a.account.id, d);
 				return finish(tx, cx, c.createDiscoveryResult, () => ({
 					status: "active",
 					profile: savedProfile,
@@ -277,13 +281,9 @@ export function creation(effects: OnboardingEffects) {
 						and(eq(t.discovery.id, q.input.discoveryId), eq(t.discovery.account_id, a.account.id), organizationsLocked),
 					)
 					.for("update");
-				if (!d || d.converted_at) deny();
+				if (!d || d.converted_at) deny("unavailable");
 				revision(q.expectedRevision, d.revision);
-				const links = await loadAffiliations(
-					tx,
-					and(eq(t.affiliation.account_id, a.account.id), isNull(t.affiliation.ended_at))!,
-					true,
-				);
+				const links = await loadAffiliations(tx, liveAffiliationsOf(a.account.id), true);
 				const selected = [];
 				for (const selection of [...q.input.relationships].sort((a, b) =>
 					a.relationshipId.localeCompare(b.relationshipId),
@@ -295,7 +295,7 @@ export function creation(effects: OnboardingEffects) {
 						old.organization_id !== selection.organization.id ||
 						old.organization_kind !== selection.organization.organizationKind
 					)
-						deny();
+						deny("unavailable");
 					revision(selection.expectedRelationshipRevision, old.revision);
 					revision(selection.expectedConsentRevision, old.consent_revision);
 					selected.push({ old, selection });
@@ -325,8 +325,9 @@ export function creation(effects: OnboardingEffects) {
 							.returning()
 					: [];
 				for (const { old, selection } of selected) {
-					const link = newLinks.find((link) => link.organization_id === old.organization_id)!;
-					const id = await event(tx, cx, link!.id, "affiliation.approved", "accept");
+					const link = newLinks.find((link) => link.organization_id === old.organization_id);
+					if (!link) throw Error(`Conversion wrote no relationship for organization ${old.organization_id}`);
+					const id = await event(tx, cx, link.id, "affiliation.approved", "accept");
 
 					setAuditDetails(
 						cx,
@@ -340,18 +341,18 @@ export function creation(effects: OnboardingEffects) {
 					notices.push({
 						eventId: id,
 						actorId: a.account.id,
-						relationshipId: link!.id,
+						relationshipId: link.id,
 						pair: { kind: "plant", subject: result.plant, organization: selection.organization },
 						kind: "relationship_approved",
-						revision: link!.revision,
+						revision: link.revision,
 						operationId: cx.id,
 					});
 					relationships.push(
 						c.conversionRelationship.parse({
-							relationshipId: link!.id,
+							relationshipId: link.id,
 							organization: selection.organization,
-							revision: link!.revision,
-							consentRevision: link!.consent_revision,
+							revision: link.revision,
+							consentRevision: link.consent_revision,
 							choices: selection.choices,
 						}),
 					);
@@ -403,6 +404,8 @@ export function creation(effects: OnboardingEffects) {
 					})
 					.where(eq(t.discovery.id, d.id))
 					.returning();
+				const convertedAt = converted?.converted_at;
+				if (!convertedAt) throw Error(`Discovery ${d.id} was converted without a conversion time`);
 				await event(tx, cx, d.id, "identity.domain_accepted", "retire");
 				await effects.enqueue(
 					tx,
@@ -421,7 +424,7 @@ export function creation(effects: OnboardingEffects) {
 					status: "converted",
 					...facts,
 					discoveryId: d.id,
-					convertedAt: converted!.converted_at!.toISOString(),
+					convertedAt: convertedAt.toISOString(),
 					relationships,
 					documentProposals: [],
 				}));

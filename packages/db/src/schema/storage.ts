@@ -8,6 +8,7 @@ import {
 	S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+export { S3Client };
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Database, Transaction } from "../client.ts";

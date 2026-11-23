@@ -9,10 +9,10 @@ import * as n from "@everyfield/contracts/settings/native";
 import type { CredentialProducer, SettingsContext } from "@everyfield/contracts/settings/server";
 import { identityAuth } from "../identity/auth.ts";
 import { executeWrites, gatedTransaction } from "../operations/writes.ts";
-import { attemptBudget, IdentityRefusal } from "../identity/budget.ts";
+import { attemptBudget, identityRefusals } from "../identity/budget.ts";
 import { writeVisibility } from "../access/session.ts";
 import { now, hash, deny, Refusal, recover, parse } from "./core.ts";
-import { issueRestrictedDeletionSession } from "./deletion.ts";
+import { issueAccountDeletionSession, issueRestrictedDeletionSession } from "./deletion.ts";
 export interface CredentialConfig {
 	db: Database;
 	authDb: Database;
@@ -50,7 +50,7 @@ type OpenDeletion = (
 				requestId: string;
 			};
 	  }
-	| { status: "refused"; code: Refusal["code"] }
+	| { status: "refused"; code: InstanceType<typeof Refusal>["code"] }
 >;
 export function createAccountCredentials(config: CredentialConfig): CredentialProducer & {
 	openAccountDeletion: OpenDeletion;
@@ -70,7 +70,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 					.from(t.account)
 					.where(eq(t.account.auth_user_id, user.id))
 					.for("update");
-				if (!account) deny();
+				if (!account) deny("unavailable");
 				await tx
 					.update(t.identity_proof)
 					.set({ superseded_at: now })
@@ -102,9 +102,10 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 			new URL(ingress.request.url).origin !== config.origin ||
 			ingress.request.headers.get("origin") !== config.origin
 		)
-			deny();
+			deny("unavailable");
 		const viewer = ingress.viewer;
-		if (!viewer?.verified || ctx.selected.kind !== "account" || ctx.selected.id !== viewer.accountId) deny();
+		if (!viewer?.verified || ctx.selected.kind !== "account" || ctx.selected.id !== viewer.accountId)
+			deny("unavailable");
 		return { account: { id: viewer.accountId }, principal: { email: viewer.email }, ingress };
 	}
 	function settle(reservation: Awaited<ReturnType<typeof budget.reserve>>, success: boolean) {
@@ -170,19 +171,18 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 			if (!found || !valid) deny("proof_invalid");
 			const provenAt = new Date();
 			const opened = await gatedTransaction(config.db, async (tx) => {
+				if (kind === "account") return issueAccountDeletionSession(tx, found.user.id, provenAt);
 				const w = t.lifecycle_witness;
 				const [current] = await tx
 					.select({ account: t.account.id, subject: w.opaque_subject_id, requestId: w.request_id })
 					.from(t.account)
 					.innerJoin(
 						w,
-						kind === "account"
-							? and(eq(w.kind, "account"), eq(w.opaque_subject_id, t.account.id))
-							: and(
-									eq(w.kind, "plant"),
-									eq(w.requester_opaque_id, t.account.id),
-									inArray(w.state, ["pending_deletion", "purging"]),
-								),
+						and(
+							eq(w.kind, "plant"),
+							eq(w.requester_opaque_id, t.account.id),
+							inArray(w.state, ["pending_deletion", "purging"]),
+						),
 					)
 					.where(eq(t.account.auth_user_id, found.user.id))
 					.orderBy(desc(w.requested_at))
@@ -198,7 +198,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 			});
 			return { status: "ok" as const, value: opened };
 		} catch (e) {
-			if (e instanceof Refusal || e instanceof IdentityRefusal || e instanceof z.ZodError)
+			if (e instanceof Refusal || e instanceof identityRefusals.Refusal || e instanceof z.ZodError)
 				return { status: "refused" as const, code: e instanceof Refusal ? e.code : "proof_invalid" };
 			throw e;
 		}
@@ -261,7 +261,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 				if (committedAccount) return reportingPending(committedAccount, "email_changed", correlationId);
 				return credentialOutcome.parse({
 					status:
-						e instanceof Refusal || e instanceof IdentityRefusal || e instanceof z.ZodError || isRefused(e)
+						e instanceof Refusal || e instanceof identityRefusals.Refusal || e instanceof z.ZodError || isRefused(e)
 							? "refused"
 							: "unknown",
 					correlationId,
@@ -302,7 +302,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 				if (reservation) await budget.finish(reservation, false);
 				return credentialOutcome.parse({
 					status:
-						e instanceof Refusal || e instanceof IdentityRefusal || e instanceof z.ZodError || isRefused(e)
+						e instanceof Refusal || e instanceof identityRefusals.Refusal || e instanceof z.ZodError || isRefused(e)
 							? "refused"
 							: "unknown",
 					correlationId,

@@ -55,7 +55,7 @@ export async function uploadBrandAsset(
 	return settle(async () => {
 		const scope = scopeOf(authority);
 		const uploadId = parse(z.uuid(), raw.uploadId);
-		if (!storage) deny();
+		if (!storage) deny("unavailable");
 		const { rows } = await db.execute(sql`SELECT g.ok, f.upload_key, f.media_type
 			FROM (SELECT ${scope.admin} AS ok) g
 			LEFT JOIN file_object f ON g.ok AND f.id = ${uploadId}::uuid AND f.tenant_id = ${scope.plantId}::uuid
@@ -63,7 +63,7 @@ export async function uploadBrandAsset(
 		const staged = pending.parse(rows[0]);
 		if (staged.ok !== true) deny("access_denied");
 		const request = staged.upload_key ? stagedUpload(staged.upload_key) : null;
-		if (!request) deny();
+		if (!request) deny("unavailable");
 		if (raw.bytes.length !== request.byteLength) deny("invalid_file");
 		const processed = await processBrandAsset(raw.bytes, request.mediaType, c.isTrimmedSlot(request.slot)).catch(() =>
 			deny("invalid_file"),
@@ -86,14 +86,14 @@ export async function uploadBrandAsset(
 			)
 			.returning({ uploadKey: t.file_object.upload_key });
 		const file = updated[0];
-		if (!file) deny();
+		if (!file) deny("unavailable");
 		await putPrivateObject(db, storage, uploadPutter(scope), {
 			tenantId: scope.plantId,
 			purpose: "brand_asset",
 			mediaType: processed.mediaType,
 			bytes: processed.bytes,
 			uploadKey: file.uploadKey,
-		}).catch(() => deny());
+		}).catch(() => deny("unavailable"));
 		return c.uploadedAsset.parse({ uploadId, byteCount: processed.bytes.length, sha256 });
 	});
 }
@@ -107,9 +107,9 @@ export async function readBrandAsset(
 ) {
 	return settle(async () => {
 		const scope = scopeOf(authority);
-		if (!storage) deny();
+		if (!storage) deny("unavailable");
 		const bytes = await readAuthorizedObject(db, storage, brandAssetReader(scope, mode), parse(z.uuid(), fileId)).catch(
-			() => deny(),
+			() => deny("unavailable"),
 		);
 		return { bytes, mediaType: bytes[0] === 0x89 ? ("image/png" as const) : ("image/jpeg" as const) };
 	});
@@ -126,14 +126,14 @@ export async function readBrandAssetIfChanged(
 ) {
 	return settle(async () => {
 		const scope = scopeOf(authority);
-		if (!storage) deny();
+		if (!storage) deny("unavailable");
 		const read = await readAuthorizedObjectIfChanged(
 			db,
 			storage,
 			brandAssetReader(scope, "settings"),
 			parse(z.uuid(), fileId),
 			current,
-		).catch(() => deny());
+		).catch(() => deny("unavailable"));
 		return { ...read, mediaType: storedMedia.parse(read.mediaType) };
 	});
 }

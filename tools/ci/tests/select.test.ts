@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const select = (await import(process.env.CI_SELECT_MODULE ?? "../select.ts")) as typeof import("../select.ts");
-const { CHECKS, RULES, parseCoverageMap, selectChecks, unreachable } = select;
+const { CHECKS, NO_CENSUS, RULES, censusDecision, parseCoverageMap, selectChecks, unreachable } = select;
 type Selection = import("../select.ts").Selection;
 type Context = import("../select.ts").Context;
 
@@ -112,6 +112,23 @@ function assertFull(s: Selection, reasons: string[]) {
 }
 
 test("INV-ci-select: selection table: docs, one package, tools, lockfile, workflow file, unknown path, empty diff", async (t) => {
+	await t.test("INV-ci-select: backend code selects the statement census and a docs-only change skips it", () => {
+		for (const path of [
+			"packages/domain/src/people/people.ts",
+			"apps/web/src/server/jobs/mail.ts",
+			"apps/web/src/features/people/server.ts",
+			"apps/web/src/features/people/routes.tsx",
+			"tests/integration/db/baseline.test.mts",
+		]) {
+			const want = { run: true, reason: `backend or database code: ${path}` };
+			assert.deepEqual(selectChecks([path], map, context).checks.census, want);
+			assert.deepEqual(censusDecision(["docs/plan/context.md", path]), want, "bin/dev census decides the same");
+		}
+		for (const path of ["docs/plan/context.md", "apps/web/src/features/people/PersonCard.tsx"])
+			assert.deepEqual(censusDecision([path]), { run: false, reason: NO_CENSUS });
+		assert.deepEqual(censusDecision([]), { run: false, reason: NO_CENSUS });
+		assert.deepEqual(censusDecision(null), { run: true, reason: "the diff could not be read" });
+	});
 	await t.test("INV-ci-select: a docs-only change runs only the documentation check", () =>
 		assertSelected(selectChecks(["docs/plan/context.md"], map, context), {
 			checks: { docs: "documentation: docs/plan/context.md" },
@@ -125,6 +142,7 @@ test("INV-ci-select: selection table: docs, one package, tools, lockfile, workfl
 				typecheck: "package source: packages/ui/src/controls/Button.tsx",
 				"test:unit": "package source: packages/ui/src/controls/Button.tsx",
 				"test:db": "package source: packages/ui/src/controls/Button.tsx",
+				"feature-maps": "feature map input: packages/ui/src/controls/Button.tsx",
 			},
 			tests: {},
 			filters: ["...@everyfield/ui"],
@@ -137,6 +155,8 @@ test("INV-ci-select: selection table: docs, one package, tools, lockfile, workfl
 				typecheck: "package source: packages/db/src/client.ts",
 				"test:unit": "package source: packages/db/src/client.ts",
 				"test:db": "package source: packages/db/src/client.ts",
+				"feature-maps": "feature map input: packages/db/src/client.ts",
+				census: "backend or database code: packages/db/src/client.ts",
 			},
 			tests: {},
 			filters: ["...@everyfield/db"],
@@ -209,7 +229,9 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 				typecheck: "package test outside its package: tests/integration/db/unit.test.mts",
 				"test:unit": "package test outside its package: tests/integration/db/unit.test.mts",
 				"test:db": "package test outside its package: tests/integration/db/unit.test.mts",
+				"feature-maps": "feature map input: tests/integration/db/unit.test.mts",
 				"ci-coverage": "package test outside its package: tests/integration/db/unit.test.mts",
+				census: "backend or database code: tests/integration/db/unit.test.mts",
 			},
 			tests: {},
 			filters: ["...@everyfield/db"],
@@ -222,6 +244,7 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 				typecheck: "package test outside its package: tests/evry/runtime/turn.test.mts",
 				"test:unit": "package test outside its package: tests/evry/runtime/turn.test.mts",
 				"test:db": "package test outside its package: tests/evry/runtime/turn.test.mts",
+				"feature-maps": "feature map input: tests/evry/runtime/turn.test.mts",
 				"ci-coverage": "package test outside its package: tests/evry/runtime/turn.test.mts",
 			},
 			tests: {},
@@ -235,6 +258,7 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 				typecheck: "package test outside its package: tests/unit/tasks/model.test.mjs",
 				"test:unit": "package test outside its package: tests/unit/tasks/model.test.mjs",
 				"test:db": "package test outside its package: tests/unit/tasks/model.test.mjs",
+				"feature-maps": "feature map input: tests/unit/tasks/model.test.mjs",
 				"ci-coverage": "package test outside its package: tests/unit/tasks/model.test.mjs",
 			},
 			tests: {},
@@ -251,6 +275,7 @@ test("INV-ci-select: tests that read files as text are selected when those files
 				typecheck: "package source: packages/evry/src/adapters/people/reads/list.ts",
 				"test:unit": "package source: packages/evry/src/adapters/people/reads/list.ts",
 				"test:db": "package source: packages/evry/src/adapters/people/reads/list.ts",
+				"feature-maps": "feature map input: packages/evry/src/adapters/people/reads/list.ts",
 				workflow: "runs tests/workflow/evry-evals-coverage.test.mjs",
 			},
 			tests: {
@@ -281,6 +306,8 @@ test("INV-ci-select: tests that read files as text are selected when those files
 				typecheck: "package source: apps/web/src/features/settings/actions.ts",
 				"test:unit": "package source: apps/web/src/features/settings/actions.ts",
 				"test:db": "package source: apps/web/src/features/settings/actions.ts",
+				"feature-maps": "feature map input: apps/web/src/features/settings/actions.ts",
+				census: "backend or database code: apps/web/src/features/settings/actions.ts",
 				workflow: "runs tests/workflow/server-logs.test.mjs",
 			},
 			tests: {
@@ -289,6 +316,23 @@ test("INV-ci-select: tests that read files as text are selected when those files
 			filters: ["...@everyfield/web"],
 		}),
 	);
+	await t.test("INV-ci-select: a feature map or the operation catalog runs the feature-maps check", () => {
+		const featureMap = "apps/web/src/features/people/feature-map.json";
+		const catalog = "docs/catalog/operations.json";
+		assertSelected(selectChecks([featureMap, catalog], map, context), {
+			checks: {
+				lint: `package source: ${featureMap}`,
+				typecheck: `package source: ${featureMap}`,
+				"test:unit": `package source: ${featureMap}`,
+				"test:db": `package source: ${featureMap}`,
+				docs: `documentation: ${catalog}`,
+				"feature-maps": `feature map input: ${featureMap}; feature map input: ${catalog}`,
+				workflow: "runs tests/workflow/server-logs.test.mjs",
+			},
+			tests: { "tests/workflow/server-logs.test.mjs": `web app under a dev server: ${featureMap}` },
+			filters: ["...@everyfield/web"],
+		});
+	});
 	await t.test("INV-ci-select: a file read as text, or under a listed directory, reaches the test via the map", () =>
 		assertSelected(
 			selectChecks(

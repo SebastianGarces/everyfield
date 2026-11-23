@@ -1,10 +1,11 @@
+import { signIn } from "@/server/sign-in";
 import { Card, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { parseQuery, querySearch } from "./model.ts";
 import { NotificationsScreen } from "./NotificationsScreen.tsx";
 import { OptOutScreen, type OptOutView } from "./OptOutScreen.tsx";
-import { call, loadFeedPage, notificationActor, optOutReady } from "./server.ts";
+import { viewerActor } from "@/server/request-context";
+import { call, loadFeedPage, optOutReady } from "./server.ts";
 import { params } from "../../components/search-params.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
@@ -12,8 +13,8 @@ export const notificationsMetadata: Metadata = { title: "Notifications", robots:
 
 export async function NotificationsPage({ searchParams }: { searchParams: Search }) {
 	const query = parseQuery(params(await searchParams));
-	const actor = await notificationActor();
-	if (!actor) redirect(`/signin?returnTo=${encodeURIComponent("/notifications" + querySearch(query))}`);
+	const actor = await viewerActor();
+	if (!actor) signIn(`/notifications${querySearch(query)}`);
 	const loaded = await loadFeedPage(actor, query);
 	if (loaded.status !== "ok")
 		return (

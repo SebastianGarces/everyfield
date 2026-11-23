@@ -24,8 +24,8 @@ import {
 	type Observation,
 	type ProposalSubject,
 } from "../../../packages/contracts/src/machines/index.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { accounts, actor, admin, db, organization, people, setup, sql, teardown, work } from "../runtime/support.mts";
 
 const APPROVE = "evry.approveProposal";
@@ -63,6 +63,12 @@ after(teardown);
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
+};
+const noPorts = {
+	reminders: noReminders,
+	phaseNotices: async () => {
+		throw Error("unexpected phase notice");
+	},
 };
 const lease = (claim: Claim) => ({
 	jobId: claim.id,
@@ -176,7 +182,7 @@ function fire(p: Walk, event: string): Promise<Fired> {
 			return outcomeOf(retryUnresolvedEffects(db, p.who, p.id));
 		case EXECUTE:
 			assert.ok(p.claim, `${p.subject}: ${EXECUTE} runs on a claimed effect job`);
-			return executeProposal(db, lease(p.claim), noReminders).then((outcome) => ({ value: outcome }));
+			return executeProposal(db, lease(p.claim), noPorts).then((outcome) => ({ value: outcome }));
 	}
 	throw Error(`no public operation for ${event}`);
 }

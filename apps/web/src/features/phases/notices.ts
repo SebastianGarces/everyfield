@@ -1,6 +1,6 @@
 import type { PhaseNotices } from "@everyfield/domain/phases";
 import "server-only";
-import type { createNotificationService } from "../../server/jobs/notifications.ts";
+import type { createNotificationService } from "@everyfield/domain/jobs";
 
 type Service = ReturnType<typeof createNotificationService>;
 type Eligible = Parameters<typeof createNotificationService>[0]["eligible"];

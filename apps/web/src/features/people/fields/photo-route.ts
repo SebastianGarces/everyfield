@@ -1,6 +1,6 @@
 import "server-only";
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
+import { plantSeat } from "@/server/request-context";
 import { personFields, readPersonPhoto } from "@everyfield/domain/people";
 import { z } from "zod";
 import { read } from "../server.ts";
@@ -16,8 +16,7 @@ export async function GET(
 	{ params: raw }: { params: Promise<{ personId: string; versionId: string }> },
 ) {
 	const p = params.safeParse(await raw);
-	const v = await getViewer();
-	const people = v.people;
+	const people = await plantSeat();
 	if (!p.success || !people) return gone();
 	const etag = `"${p.data.versionId}"`;
 	const headers = { "Cache-Control": "private, no-cache", ETag: etag, "X-Content-Type-Options": "nosniff" };

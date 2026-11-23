@@ -16,6 +16,7 @@ import {
 import { readPeoplePage, readPersonPage } from "../../../apps/web/src/features/people/page-data.ts";
 import { parseQuery } from "../../../apps/web/src/features/people/model.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { invitationRefusals } from "../../../packages/domain/src/identity/index.ts";
 let f;
 before(async () => {
 	f = await fixture({ lockTimeout: "1s" });
@@ -55,8 +56,8 @@ test("BUG-PR124: a held account write returns a retryable refusal and the read r
 	await f.admin.transaction(async (tx) => {
 		await tx.update(t.account).set({ revision: "2" }).where(eq(t.account.id, s.sender.id));
 		await assert.rejects(f.seats.readCurrentMembership(s.sender.session), (error) => {
-			assert.equal(error.value?.code, "temporary");
-			assert.equal(error.value.retry, "same_request");
+			assert.equal(error.code, "temporary");
+			assert.equal(invitationRefusals.refusalOf(error).error.retry, "same_request");
 			return true;
 		});
 	});
@@ -125,8 +126,8 @@ test("BUG-PR127: resend during a 250-duty removal completes or safely retries", 
 	assert.equal(removed.error, undefined, "Removal must complete atomically");
 	assert.equal(removed.value.duties.length, 250);
 	if (sent.error) {
-		assert.equal(sent.error.value?.code, "temporary");
-		assert.equal(sent.error.value.retry, "same_request");
+		assert.equal(sent.error.code, "temporary");
+		assert.equal(invitationRefusals.refusalOf(sent.error).error.retry, "same_request");
 	}
 	const result = sent.value ?? (await f.invitations.resend(authority, resend));
 	assert.equal(result.invitation.revision, "2");
@@ -167,7 +168,7 @@ test("INV-identity: a role change locks the member's account before their seat a
 		if (change) await change;
 	}
 	const { error } = await change;
-	assert.equal(error?.value?.code, "invitation_unavailable");
+	assert.equal(error?.code, "invitation_unavailable");
 	const [seat] = await f.admin.select().from(t.seat).where(eq(t.seat.id, a.seat.seatId));
 	assert.equal(seat.role, "member");
 });
@@ -260,8 +261,8 @@ test("BUG-PR127: statement timeout rolls back every handoff and permits exact re
 				sql`SELECT pg_cancel_backend(a.pid) FROM pg_stat_activity a WHERE ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
 			);
 			const { error } = await removal;
-			assert.equal(error?.value?.code, "temporary", String(error));
-			assert.equal(error.value.retry, "same_request");
+			assert.equal(error?.code, "temporary", String(error));
+			assert.equal(invitationRefusals.refusalOf(error).error.retry, "same_request");
 		});
 	} finally {
 		await f.admin.execute(sql`DROP TRIGGER stall_receipt ON audit_event`);

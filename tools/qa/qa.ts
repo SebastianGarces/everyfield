@@ -20,6 +20,7 @@ import {
 	drivePid,
 	driverLogPath,
 	fail,
+	QaError,
 	readPreviews,
 	removePreview,
 	repoHome,
@@ -160,13 +161,18 @@ export function qaUp(root: string, branch: string, recipients: string[] = []): n
 		try {
 			qaDown(root, id);
 		} catch (cleanup) {
-			console.error(`qa up: cleanup failed (${(cleanup as Error).message}). Run: bin/qa down ${id}`);
+			const why =
+				cleanup instanceof QaError ? cleanup.message : cleanup instanceof Error ? cleanup.name : typeof cleanup;
+			console.error(`qa up: cleanup failed (${why}). Run: bin/qa down ${id}`);
 		}
 		throw error;
 	}
 	console.log(`QA preview ${id}\n${url}`);
 	console.error(
 		`Sign in as ${QA_LOGINS.owner} (also qa-admin, qa-member; Riverside (QA): ${QA_LOGINS.riverside}). Remove it with: bin/qa down ${id}. Runbook: docs/runbooks/qa-preview.md`,
+	);
+	console.error(
+		`Ended residency: sign in as ${QA_LOGINS.endedResident} to see the ended-residency message on /my-residency.`,
 	);
 	console.error(
 		recipients.length
@@ -249,7 +255,6 @@ function deployCheckout(
 			...mailKeys,
 			NOTIFICATION_OPT_OUT_KEYS: randomBytes(32).toString("base64"),
 			CRON_SECRET: cronSecret,
-			FLAGS_SECRET: randomBytes(32).toString("base64url"),
 			LIFECYCLE_CLEANUP_DATABASE_URL: p.direct,
 			...(p.recipients.length ? { EMAIL_TEST_RECIPIENTS: p.recipients.join(",") } : {}),
 		};
