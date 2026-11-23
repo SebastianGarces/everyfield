@@ -166,8 +166,6 @@ Each name identifies one exact FK. The checker requires this list whenever `targ
 - `job(subject_record_id) -> record(id)`: Restricted global purge/cleanup sweep may process an explicitly authorized other-owner subject; producer validates purpose/owner.
 - `feedback_publication(effect_id) -> effect(id)`: Restricted public publication can use its own global effect, independently of private intake ownership; clear private linkage on purge.
 - `feedback_publication(id) -> record(id)`: Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable.
-- `lifecycle_witness(seat_id) -> seat(id)`: Always null: no witness kind names a seat, and a later slice drops the column.
-- `lifecycle_witness(affiliation_id) -> affiliation(id)`: Always null: no witness kind names an affiliation, and a later slice drops the column.
 - `lifecycle_witness(id) -> record(id)`: Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable.
 - `evidence_link(target_record_id) -> record(id)`: Entitled source/selected record can have a different actual owner; validate purpose, source rights, exact grant and kind.
 - `evidence_link(prior_record_id) -> record(id)`: Exact inverse prior endpoint can be cross-owner only where the reviewed native command permits; lock and validate before inverse.
