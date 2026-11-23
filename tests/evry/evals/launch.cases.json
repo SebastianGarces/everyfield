@@ -1,7 +1,7 @@
 {
 	"suite": "launch",
 	"model": "scripted",
-	"note": "WP-075 and WP-076: the Launch tools, asked on the scripted model with the real adapters, approvals, effect executor and the native Launch writer, on Hope Fellowship (golden-church.mts, America/Chicago) with the Launch fixture (launch-church.mts). Owner Nate Ellis, Admin Lena Park, Member Priya Shah. Dates are relative to the church-local date the Launch read returns: {day:N} is N days from today and {said:N} that date as the cards say it. Cases run in this order; `setup` names the fixture step that runs before a case, and each later case sees the earlier approved changes. T-382 adds LAU-21 to LAU-36: completing and reopening a milestone, whose `criterion` is 100 plus the T-382 Done criterion. T-383 adds LAU-37 to LAU-61: naming guests and correcting Launch Sunday, whose `criterion` is 200 plus the T-383 Done criterion; LAU-37 and LAU-38 run before Launch Sunday is recorded. A case with `continue` is asked in the previous case's conversation, as a reply to it. {md:N} is the date N days from today as \"Nov 9\", {mdy:N} with its year, and `proposals` lists each card of a turn that makes several, approved one at a time.",
+	"note": "WP-075 and WP-076: the Launch tools, asked on the scripted model with the real adapters, approvals, effect executor and the native Launch writer, on Hope Fellowship (golden-church.mts, America/Chicago) with the Launch fixture (launch-church.mts). Owner Nate Ellis, Admin Lena Park, Member Priya Shah. Dates are relative to the church-local date the Launch read returns: {day:N} is N days from today and {said:N} that date as the cards say it. Cases run in this order; `setup` names the fixture step that runs before a case, and each later case sees the earlier approved changes. T-382 adds LAU-21 to LAU-36: completing and reopening a milestone, whose `criterion` is 100 plus the T-382 Done criterion. T-383 adds LAU-37 to LAU-61: naming guests and correcting Launch Sunday, whose `criterion` is 200 plus the T-383 Done criterion; LAU-37 and LAU-38 run before Launch Sunday is recorded. T-329 adds LAU-62 and LAU-63: \"are we ready to launch?\" after the `readiness` setup, whose `criterion` is 300 plus the T-329 Done criterion; `stop` is the turn's stop reason, `forbid` lists patterns the answer must not match (golden LCH-02's forbid joins them for this question), and `unchanged` compares the Launch plan, tasks, phase and review cards before and after the turn. A case with `continue` is asked in the previous case's conversation, as a reply to it. {md:N} is the date N days from today as \"Nov 9\", {mdy:N} with its year, and `proposals` lists each card of a turn that makes several, approved one at a time.",
 	"cases": [
 		{
 			"id": "LAU-01",
@@ -75,6 +75,46 @@
 				"Launch history records what changed, not how readiness stood at an earlier time"
 			],
 			"absent": ["Launch Sunday set,", "readiness was"]
+		},
+		{
+			"id": "LAU-62",
+			"operation": "launch.readWorkspace",
+			"criterion": 301,
+			"setup": "readiness",
+			"actor": "owner",
+			"ask": "are we ready to launch?",
+			"calls": ["launch.readWorkspace", "phases.readReadiness"],
+			"stop": "completed",
+			"unchanged": true,
+			"answer": [
+				"4 of 9 launch readiness milestones are met on the Launch plan:\n- **Set-up equipment on site**: met. Completed by Nate Ellis on Mon, Nov 9, 2026.\n- **Set-up and tear-down training held**: not met. Open: Book the full-Saturday in-service training; Walk the team through set-up, tear-down and storage; Test and improve Worship Center acoustics and lighting.\n- **Worship Center secured and rehearsed in**: met. Completed by Nate Ellis on Mon, Nov 9, 2026.\n- **Prayer and fasting underway**: met. Completed by Nate Ellis on Mon, Nov 9, 2026.\n- **Three pre-launch services held**: not met. 2 of 3 held. Open: Book the Worship Center for three pre-launch services; Run pre-launch service 1; Run pre-launch services 2 and 3.\n- **Ministry training 90–100% complete**: not met. Open: Finish children's ministry training: teachers, curriculum, check-in, safety; Finish the worship team run-through; Test assimilation end to end.\n- **Promotion plan chosen**: met. Completed by Nate Ellis on Mon, Nov 9, 2026.\n- **Promotion plan implemented**: not met. Open: Send the press release to local media (due {said:-2}, overdue); Run the email blast and social posts; Distribute invitation cards, door hangers and mailers.\n- **Partner churches announcing the launch**: not met. Open: Email the launch announcement slide to every partner church; Confirm the partner organization's role in the service.",
+				"Exit criteria for leaving Training & Preparation for Pre-Launch (final three to four weeks), as phase readiness shows them:\n- Team training complete: no data yet\n- Systems tested: met\n- Inside the final launch window: not met",
+				"Readiness is your call, not mine, and I changed nothing."
+			],
+			"absent": ["outlets", "Vision", "pastoral", "30 committed adults"],
+			"forbid": [
+				"/\\b(you(?:'re| are) ready|(?:is|are) ready (?:to|for) launch|ready to launch|launch[- ]ready|cleared to launch|should (?:now )?(?:launch|move (?:on )?to phase|advance))\\b/i",
+				"/\\bon track\\b|\\bnot ready\\b|\\bare ready\\b/i"
+			]
+		},
+		{
+			"id": "LAU-63",
+			"operation": "launch.readWorkspace",
+			"criterion": 301,
+			"actor": "member",
+			"ask": "are we ready to launch?",
+			"calls": ["launch.readWorkspace"],
+			"stop": "completed",
+			"unchanged": true,
+			"answer": [
+				"4 of 9 launch readiness milestones are met on the Launch plan:",
+				"- **Three pre-launch services held**: not met. 2 of 3 held.",
+				"Phase readiness is for Owners and Admins, so I left the phase's exit criteria out.",
+				"Readiness is your call, not mine, and I changed nothing."
+			],
+			"forbid": [
+				"/\\b(you(?:'re| are) ready|(?:is|are) ready (?:to|for) launch|ready to launch|launch[- ]ready|cleared to launch|should (?:now )?(?:launch|move (?:on )?to phase|advance))\\b/i"
+			]
 		},
 		{
 			"id": "LAU-07",

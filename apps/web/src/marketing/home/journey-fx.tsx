@@ -48,19 +48,24 @@ export function JourneyPath({
 
 	const put = useCallback((L: number) => {
 		const g = geo.current,
-			p = trail.current!.getPointAtLength(L),
-			bs = bot.current!.offsetWidth;
+			T = trail.current,
+			B = bot.current,
+			first = g.c[0];
+		if (!T || !B || !walker.current || !walked.current || !first) return;
+		const p = T.getPointAtLength(L),
+			bs = B.offsetWidth;
 		g.wx = p.x - bs / 2;
 		g.L = L;
-		const wy = p.y - g.c[0]!.s / 2 - bs - 8;
-		walker.current!.style.transform = `translate(${g.wx.toFixed(1)}px,${wy.toFixed(1)}px)`;
-		walked.current!.style.strokeDashoffset = (100 - (L / g.len) * 100).toFixed(2);
+		const wy = p.y - first.s / 2 - bs - 8;
+		walker.current.style.transform = `translate(${g.wx.toFixed(1)}px,${wy.toFixed(1)}px)`;
+		walked.current.style.strokeDashoffset = (100 - (L / g.len) * 100).toFixed(2);
 	}, []);
 
 	const place = useCallback(() => {
-		const b = bubble.current!,
-			bs = bot.current!.offsetWidth,
-			W = band.current!.clientWidth,
+		const b = bubble.current;
+		if (!b || !bot.current || !band.current) return;
+		const bs = bot.current.offsetWidth,
+			W = band.current.clientWidth,
 			bw = b.offsetWidth,
 			x = geo.current.wx;
 		const L = Math.max(10, Math.min(W - bw - 10, x + bs / 2 - bw / 2));
@@ -71,14 +76,14 @@ export function JourneyPath({
 	const layout = useCallback(() => {
 		const B = band.current,
 			T = trail.current;
-		if (!B || !T || !bot.current) return;
+		if (!B || !T || !bot.current || !svg.current || !walked.current) return;
 		const W = B.clientWidth,
 			H = B.clientHeight;
 		bot.current.firstElementChild?.setAttribute("style", `transform:scale(${bot.current.offsetWidth / BOT})`);
 		const g = geo.current;
-		g.c = stops.current.map((s) => {
-			const li = s!.closest("li")!;
-			return { x: li.offsetLeft, y: li.offsetTop, s: s!.offsetWidth };
+		g.c = stops.current.flatMap((s) => {
+			const li = s?.closest("li");
+			return s && li ? [{ x: li.offsetLeft, y: li.offsetTop, s: s.offsetWidth }] : [];
 		});
 		const segs = stopCurve(g.c, W);
 		g.at = [];
@@ -87,22 +92,25 @@ export function JourneyPath({
 			g.at.push(T.getTotalLength());
 		}
 		const d = segs.join("");
-		svg.current!.setAttribute("viewBox", `0 0 ${W} ${H}`);
+		svg.current.setAttribute("viewBox", `0 0 ${W} ${H}`);
 		T.setAttribute("d", d);
-		walked.current!.setAttribute("d", d);
+		walked.current.setAttribute("d", d);
 		g.len = T.getTotalLength();
 	}, [n]);
 
 	const arrive = useCallback(
 		(i: number) => {
-			bubble.current!.textContent = steps[i]!.say;
+			const step = steps[i],
+				b = bubble.current;
+			if (!step || !b) return;
+			b.textContent = step.say;
 			place();
-			bubble.current!.removeAttribute("data-swap");
+			b.removeAttribute("data-swap");
 			clearTimeout(moodTimer.current);
 			if (prefersReducedMotion()) return;
 			mood.set("talking");
 			moodTimer.current = setTimeout(() => {
-				mood.set(/task/.test(steps[i]!.say) ? "happy" : "idle");
+				mood.set(/task/.test(step.say) ? "happy" : "idle");
 				moodTimer.current = setTimeout(() => mood.set("idle"), 1600);
 			}, 1300);
 		},
@@ -114,18 +122,20 @@ export function JourneyPath({
 			cancelAnimationFrame(raf.current);
 			const g = geo.current,
 				from = g.L,
-				to = g.at[i]!,
-				dist = Math.abs(to - from);
+				to = g.at[i];
+			if (to === undefined) return;
+			const dist = Math.abs(to - from);
 			if (dist < 1 || prefersReducedMotion()) {
 				put(to);
 				arrive(i);
 				return;
 			}
+			if (!bubble.current || !bot.current) return;
 			const dur = Math.min(1700, Math.max(700, dist * 2.2)),
 				t0 = performance.now();
-			bubble.current!.setAttribute("data-swap", "");
+			bubble.current.setAttribute("data-swap", "");
 			mood.set("idle");
-			bot.current!.animate([{ translate: "0 0" }, { translate: "0 -16px", offset: 0.45 }, { translate: "0 0" }], {
+			bot.current.animate([{ translate: "0 0" }, { translate: "0 -16px", offset: 0.45 }, { translate: "0 0" }], {
 				duration: dur,
 				easing: "cubic-bezier(.4,0,.4,1)",
 			});
@@ -179,10 +189,12 @@ export function JourneyPath({
 					() => {
 						layout();
 						cancelAnimationFrame(raf.current);
-						put(geo.current.at[geo.current.k]!);
+						const to = geo.current.at[geo.current.k];
+						if (to === undefined || !bubble.current || !walker.current) return;
+						put(to);
 						place();
-						bubble.current!.removeAttribute("data-swap");
-						walker.current!.style.visibility = "visible";
+						bubble.current.removeAttribute("data-swap");
+						walker.current.style.visibility = "visible";
 					},
 					{ fonts: true },
 				),
@@ -265,7 +277,7 @@ export function JourneyPath({
 							ref={bubble}
 							className="absolute bottom-[calc(100%+12px)] left-(--bx,0px) m-0 w-max max-w-[min(320px,calc(100vw-64px))] bg-mk-canvas px-[15px] py-[11px] type-lg leading-[1.4] text-ink shadow-mk-say transition-[opacity,translate] duration-250 after:absolute after:top-full after:left-(--tx,20px) after:-ml-[7px] after:border-[7px] after:border-transparent after:border-t-mk-canvas after:content-[''] data-swap:translate-y-1 data-swap:opacity-0 max-mk-cx:max-w-[250px] max-mk-cx:px-3 max-mk-cx:py-[9px] max-mk-cx:type-md"
 						>
-							{steps[0]!.say}
+							{steps[0]?.say}
 						</p>
 						<span ref={bot} className="block size-[clamp(44px,4.2vw,62px)]">
 							<span className="block origin-top-left">

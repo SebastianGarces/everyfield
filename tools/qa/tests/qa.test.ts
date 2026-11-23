@@ -637,7 +637,7 @@ const NOTES = [
 
 test("INV-qa-seed: the QA seed fills a fresh database, and a second run changes no table's row count", async () => {
 	const { first, second, seeded, after, before, query } = await fresh();
-	assert.match(first, /QA seed wrote: .*church.*wiki, owner timezone, 13 check-in weeks\./);
+	assert.match(first, /QA seed wrote: .*church.*wiki, ministry templates, owner timezone, 13 check-in weeks\./);
 	assert.equal(second, "QA seed: the branch is already complete.");
 	assert.deepEqual(after, seeded);
 
@@ -904,8 +904,13 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 			`login ${QA_LOGINS.riverside}, church Riverside (QA), onboarding Riverside (QA), person Ana Lee in Riverside (QA), ` +
 			`${MULTIPLICATION}, ` +
 			"sending church Grace Fellowship (QA), affiliation with Grace Fellowship (QA), ",
-		", owner timezone, 13 check-in weeks.",
+		", ministry templates, owner timezone, 13 check-in weeks.",
 	]);
+	assert.deepEqual(
+		await old.query(`SELECT count(DISTINCT i.id)::int AS items, count(v.id)::int AS versions FROM reference_item i
+			JOIN reference_version v ON v.item_id = i.id WHERE i.kind = 'ministry_template'`),
+		[{ items: 10, versions: 10 }],
+	);
 	assert.deepEqual(oldRows(await church(), beforeChurch), oldRows(beforeChurch, beforeChurch));
 	const addressed = (await church()).find((r) => r.t === "plant")!.row as Record<string, unknown>;
 	assert.deepEqual(
@@ -1539,6 +1544,12 @@ test("INV-qa-seed: each Grace Austin (QA) and Hill Country login holds its seat 
 	assert.deepEqual(seen.resident.context, { kind: "account", owner: "account" });
 	assert.deepEqual([seen.endedResident.signedIn, seen.endedResident.session], ["signed_in", "active"]);
 	assert.deepEqual(seen.endedResident.context, { kind: "account", owner: "account" });
+	assert.deepEqual(
+		await query(`SELECT u.email, d.revision::text AS revision, d.converted_at FROM discovery d
+			JOIN account a ON a.id = d.account_id JOIN auth_user u ON u.id = a.auth_user_id
+			WHERE u.email IN ('${QA_LOGINS.endedResident}', '${QA_LOGINS.resident}') ORDER BY 1`),
+		[QA_LOGINS.endedResident, QA_LOGINS.resident].map((email) => ({ email, revision: "1", converted_at: null })),
+	);
 });
 
 test("INV-qa-seed: Casey linked through the residency invitation and shares milestone progress, not foundations", async () => {

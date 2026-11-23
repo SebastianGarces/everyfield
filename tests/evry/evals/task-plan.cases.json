@@ -1,0 +1,444 @@
+{
+	"suite": "task-plan",
+	"model": "scripted",
+	"note": "T-347 (WP-068, later slice 2 of T-318): answering the phase offer, importing part of a checklist, handing off follow-ups and setting a task's prerequisites, asked on the scripted model with the real catalog, adapters, approvals and effect executor, on Hope Fellowship (golden-church.mts, America/Chicago). The church moved from phase 0 to phase 1 on Aug 3, 2026 with the offer unanswered. Owner Nate Ellis, Admin Lena Park, Member Priya Shah, organization seat Grace Holt. Ana Rivera holds a Member seat and owns the open follow-ups with Daniel Cruz and Hannah Barnes; Carlos Mendez's seat can't own follow-ups. Cases run in this order and each sees the earlier approved changes; `setup: openOffer` reopens the phase offer first. `between` makes a change on the Tasks page after the card is shown and before it is approved. `check` names the native read-back in task-plan.test.mts. `criterion` is the T-347 Done criterion.",
+	"cases": [
+		{
+			"id": "PLN-01",
+			"operation": "tasks.acceptPhaseOffer",
+			"criterion": 10,
+			"actor": "admin",
+			"ask": "add the phase 1 checklists",
+			"calls": ["tasks.readPhaseOffer"],
+			"answer": ["I prepared a review. Nothing changes until you approve it."],
+			"proposal": {
+				"operation": "tasks.acceptPhaseOffer",
+				"target": "Phase 1 checklists",
+				"fields": ["Accept Vision Meeting Preparation", "Accept Post-Meeting Follow-Up", "Accept Core Group Onboarding"]
+			}
+		},
+		{
+			"id": "PLN-02",
+			"operation": "tasks.answerPhaseOffer",
+			"criterion": 10,
+			"actor": "admin",
+			"ask": "take the Core Group Onboarding checklist from the phase 1 offer, not the others",
+			"calls": ["tasks.readPhaseOffer"],
+			"proposal": {
+				"operation": "tasks.answerPhaseOffer",
+				"target": "Phase 1 checklists",
+				"fields": [
+					"Decline Vision Meeting Preparation",
+					"Decline Post-Meeting Follow-Up",
+					"Accept Core Group Onboarding"
+				]
+			}
+		},
+		{
+			"id": "PLN-03",
+			"operation": "tasks.declinePhaseOffer",
+			"criterion": 10,
+			"actor": "admin",
+			"ask": "we don't want the phase checklists",
+			"calls": ["tasks.readPhaseOffer"],
+			"proposal": {
+				"operation": "tasks.declinePhaseOffer",
+				"target": "Phase 1 checklists",
+				"fields": [
+					"Decline Vision Meeting Preparation",
+					"Decline Post-Meeting Follow-Up",
+					"Decline Core Group Onboarding"
+				],
+				"notes": ["No task is created, and the offer closes for this phase move."]
+			}
+		},
+		{
+			"id": "PLN-04",
+			"operation": "tasks.importTemplate",
+			"criterion": 10,
+			"actor": "admin",
+			"ask": "import the launch date planning checklist, just Pick a target launch Sunday",
+			"calls": ["tasks.listTemplates", "tasks.previewTemplate"],
+			"proposal": {
+				"operation": "tasks.importTemplate",
+				"target": "Launch Date Planning",
+				"fields": ["Pick a target launch Sunday"]
+			}
+		},
+		{
+			"id": "PLN-05",
+			"operation": "tasks.executeHandoff",
+			"criterion": 10,
+			"actor": "admin",
+			"ask": "hand Ana's follow-ups to me",
+			"calls": ["tasks.eligibleAssignees"],
+			"proposal": {
+				"operation": "tasks.executeHandoff",
+				"target": "Ana Rivera's follow-ups",
+				"changes": [
+					["Daniel Cruz", "Lena Park", "Ana Rivera"],
+					["Hannah Barnes", "Lena Park", "Ana Rivera"]
+				]
+			}
+		},
+		{
+			"id": "PLN-06",
+			"operation": "tasks.replacePrerequisites",
+			"criterion": 10,
+			"actor": "admin",
+			"ask": "make Submit the insurance forms wait on Order launch banners",
+			"calls": ["tasks.list"],
+			"proposal": {
+				"operation": "tasks.replacePrerequisites",
+				"target": "Submit the insurance forms",
+				"changes": [["prerequisites", ["Order launch banners"], []]]
+			}
+		},
+		{
+			"id": "PLN-07",
+			"operation": "tasks.acceptPhaseOffer",
+			"criterion": 10,
+			"actor": "member",
+			"ask": "add the phase 1 checklists",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can answer the phase offer. I prepared nothing."]
+		},
+		{
+			"id": "PLN-08",
+			"operation": "tasks.answerPhaseOffer",
+			"criterion": 10,
+			"actor": "member",
+			"ask": "take the Core Group Onboarding checklist from the phase 1 offer, not the others",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can answer the phase offer. I prepared nothing."]
+		},
+		{
+			"id": "PLN-09",
+			"operation": "tasks.declinePhaseOffer",
+			"criterion": 10,
+			"actor": "member",
+			"ask": "we don't want the phase checklists",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can answer the phase offer. I prepared nothing."]
+		},
+		{
+			"id": "PLN-10",
+			"operation": "tasks.importTemplate",
+			"criterion": 10,
+			"actor": "member",
+			"ask": "import the launch date planning checklist, just Pick a target launch Sunday",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can import a checklist. I prepared nothing."]
+		},
+		{
+			"id": "PLN-11",
+			"operation": "tasks.executeHandoff",
+			"criterion": 10,
+			"actor": "member",
+			"ask": "hand Ana's follow-ups to Lena",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can hand off follow-ups. I prepared nothing."]
+		},
+		{
+			"id": "PLN-12",
+			"operation": "tasks.replacePrerequisites",
+			"criterion": 10,
+			"actor": "member",
+			"ask": "make Submit the insurance forms wait on Order launch banners",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can change which tasks a task waits on. I prepared nothing."]
+		},
+		{
+			"id": "PLN-13",
+			"operation": "tasks.acceptPhaseOffer",
+			"criterion": 11,
+			"actor": "org",
+			"ask": "add the phase 1 checklists",
+			"calls": [],
+			"answer": ["I can't change tasks or follow-ups in this context."]
+		},
+		{
+			"id": "PLN-14",
+			"operation": "tasks.executeHandoff",
+			"criterion": 11,
+			"actor": "org",
+			"ask": "hand Ana's follow-ups to Lena",
+			"calls": [],
+			"answer": ["I can't change tasks or follow-ups in this context."]
+		},
+		{
+			"id": "PLN-15",
+			"operation": "tasks.acceptPhaseOffer",
+			"criterion": 1,
+			"actor": "owner",
+			"ask": "add the phase 1 checklists",
+			"calls": ["tasks.readPhaseOffer"],
+			"answer": ["I prepared a review. Nothing changes until you approve it."],
+			"proposal": {
+				"operation": "tasks.acceptPhaseOffer",
+				"target": "Phase 1 checklists",
+				"fields": [
+					"Accept Vision Meeting Preparation",
+					"Accept Post-Meeting Follow-Up",
+					"Accept Core Group Onboarding"
+				],
+				"notes": [
+					"23 new tasks, assigned to you. Due dates count from the phase move on Aug 3, 2026, so some may already be past."
+				]
+			},
+			"approve": true,
+			"check": "offerAccepted"
+		},
+		{
+			"id": "PLN-16",
+			"operation": "tasks.acceptPhaseOffer",
+			"criterion": 4,
+			"actor": "owner",
+			"ask": "add the phase 1 checklists",
+			"calls": ["tasks.readPhaseOffer", "tasks.importReceipt", "tasks.listTemplates"],
+			"answer": [
+				"The phase 1 offer was already answered on Nov 9, 2026: Vision Meeting Preparation, Post-Meeting Follow-Up and Core Group Onboarding were accepted (23 tasks). I prepared nothing."
+			]
+		},
+		{
+			"id": "PLN-17",
+			"operation": "tasks.answerPhaseOffer",
+			"criterion": 4,
+			"actor": "owner",
+			"ask": "take the Core Group Onboarding checklist from the phase 1 offer, not the others",
+			"calls": ["tasks.readPhaseOffer", "tasks.importReceipt", "tasks.listTemplates"],
+			"answer": ["The phase 1 offer was already answered on Nov 9, 2026"]
+		},
+		{
+			"id": "PLN-18",
+			"operation": "tasks.declinePhaseOffer",
+			"criterion": 4,
+			"actor": "owner",
+			"ask": "we don't want the phase checklists",
+			"calls": ["tasks.readPhaseOffer", "tasks.importReceipt", "tasks.listTemplates"],
+			"answer": ["The phase 1 offer was already answered on Nov 9, 2026"]
+		},
+		{
+			"id": "PLN-19",
+			"operation": "tasks.answerPhaseOffer",
+			"criterion": 2,
+			"setup": "openOffer",
+			"actor": "owner",
+			"ask": "take the Core Group Onboarding checklist from the phase 1 offer, not the others",
+			"calls": ["tasks.readPhaseOffer"],
+			"proposal": {
+				"operation": "tasks.answerPhaseOffer",
+				"target": "Phase 1 checklists",
+				"fields": [
+					"Decline Vision Meeting Preparation",
+					"Decline Post-Meeting Follow-Up",
+					"Accept Core Group Onboarding"
+				],
+				"changes": [
+					["Decline Vision Meeting Preparation", "No tasks"],
+					["Decline Post-Meeting Follow-Up", "No tasks"]
+				],
+				"notes": [
+					"6 new tasks, assigned to you. Due dates count from the phase move on Aug 3, 2026, so some may already be past."
+				]
+			},
+			"approve": true,
+			"check": "offerPartial"
+		},
+		{
+			"id": "PLN-20",
+			"operation": "tasks.declinePhaseOffer",
+			"criterion": 3,
+			"setup": "openOffer",
+			"actor": "owner",
+			"ask": "we don't want the phase checklists",
+			"calls": ["tasks.readPhaseOffer"],
+			"proposal": {
+				"operation": "tasks.declinePhaseOffer",
+				"target": "Phase 1 checklists",
+				"fields": [
+					"Decline Vision Meeting Preparation",
+					"Decline Post-Meeting Follow-Up",
+					"Decline Core Group Onboarding"
+				]
+			},
+			"approve": true,
+			"check": "offerDeclined"
+		},
+		{
+			"id": "PLN-21",
+			"operation": "tasks.declinePhaseOffer",
+			"criterion": 4,
+			"actor": "owner",
+			"ask": "we don't want the phase checklists",
+			"calls": ["tasks.readPhaseOffer", "tasks.importReceipt", "tasks.listTemplates"],
+			"answer": [
+				"The phase 1 offer was already answered on Nov 9, 2026: every checklist was declined and no task was added. I prepared nothing."
+			]
+		},
+		{
+			"id": "PLN-22",
+			"operation": "tasks.acceptPhaseOffer",
+			"criterion": 4,
+			"setup": "openOffer",
+			"actor": "owner",
+			"ask": "add the phase 1 checklists",
+			"calls": ["tasks.readPhaseOffer"],
+			"proposal": { "operation": "tasks.acceptPhaseOffer", "target": "Phase 1 checklists" },
+			"between": "declineOffer",
+			"approve": true,
+			"outcome": "refused",
+			"refusal": "offer_answered",
+			"check": "offerStale"
+		},
+		{
+			"id": "PLN-23",
+			"operation": "tasks.importTemplate",
+			"criterion": 5,
+			"actor": "owner",
+			"ask": "import the launch date planning checklist, just Pick a target launch Sunday and Tell the core group the launch date",
+			"calls": ["tasks.listTemplates", "tasks.previewTemplate"],
+			"proposal": {
+				"operation": "tasks.importTemplate",
+				"target": "Launch Date Planning",
+				"fields": ["Pick a target launch Sunday", "Tell the core group the launch date"],
+				"changes": [
+					["Pick a target launch Sunday", "2026-11-12"],
+					["Tell the core group the launch date", "2026-11-21"]
+				]
+			},
+			"approve": true,
+			"check": "imported"
+		},
+		{
+			"id": "PLN-24",
+			"operation": "tasks.importReceipt",
+			"criterion": 5,
+			"actor": "owner",
+			"ask": "what did the last checklist import create?",
+			"calls": ["tasks.importReceipt", "tasks.listTemplates"],
+			"answer": ["The latest import is Launch Date Planning, a checklist import on Nov 9, 2026: it created 2 tasks."]
+		},
+		{
+			"id": "PLN-25",
+			"operation": "tasks.importTemplate",
+			"criterion": 5,
+			"actor": "owner",
+			"ask": "import the launch date planning checklist, just Pick a target launch Sunday and Order the pizza",
+			"calls": ["tasks.listTemplates", "tasks.previewTemplate"],
+			"answer": [
+				"Launch Date Planning has no item called \"Order the pizza\". Its items are: Pick a target launch Sunday; Check the date against school and local calendars; Confirm the venue is free on that date; Work backwards and set the preview service dates; Tell the core group the launch date; Tell the sending church and network; Record the launch date in Everyfield. I prepared nothing."
+			]
+		},
+		{
+			"id": "PLN-26",
+			"operation": "tasks.executeHandoff",
+			"criterion": 6,
+			"actor": "owner",
+			"ask": "hand Ana's follow-ups to Lena",
+			"calls": ["tasks.eligibleAssignees"],
+			"proposal": {
+				"operation": "tasks.executeHandoff",
+				"target": "Ana Rivera's follow-ups",
+				"fields": ["Daniel Cruz", "Hannah Barnes"],
+				"changes": [
+					["Daniel Cruz", "Lena Park", "Ana Rivera"],
+					["Hannah Barnes", "Lena Park", "Ana Rivera"]
+				],
+				"notes": ["Contact history and each person's notes stay as they are."]
+			},
+			"approve": true,
+			"check": "handedOff"
+		},
+		{
+			"id": "PLN-27",
+			"operation": "tasks.executeHandoff",
+			"criterion": 7,
+			"actor": "owner",
+			"ask": "hand Lena's follow-ups to Carlos",
+			"calls": ["tasks.eligibleAssignees"],
+			"answer": ["Carlos Mendez can't be assigned follow-ups, so I prepared nothing."]
+		},
+		{
+			"id": "PLN-28",
+			"operation": "tasks.executeHandoff",
+			"criterion": 7,
+			"actor": "owner",
+			"ask": "hand Nate's follow-ups to Lena",
+			"calls": ["tasks.eligibleAssignees"],
+			"answer": [
+				"Nate Ellis is an Owner of this church, and an Owner's follow-ups can't be handed off this way. I prepared nothing."
+			]
+		},
+		{
+			"id": "PLN-29",
+			"operation": "tasks.replacePrerequisites",
+			"criterion": 8,
+			"actor": "owner",
+			"ask": "make Submit the insurance forms wait on Order launch banners and Confirm the school rental",
+			"calls": ["tasks.list"],
+			"proposal": {
+				"operation": "tasks.replacePrerequisites",
+				"target": "Submit the insurance forms",
+				"changes": [["prerequisites", ["Order launch banners", "Confirm the school rental"], []]]
+			},
+			"approve": true,
+			"check": "prerequisitesSet"
+		},
+		{
+			"id": "PLN-30",
+			"operation": "tasks.replacePrerequisites",
+			"criterion": 8,
+			"actor": "owner",
+			"ask": "clear the prerequisites of Submit the insurance forms",
+			"calls": ["tasks.list"],
+			"proposal": {
+				"operation": "tasks.replacePrerequisites",
+				"target": "Submit the insurance forms",
+				"changes": [["prerequisites", [], ["Order launch banners", "Confirm the school rental"]]]
+			},
+			"approve": true,
+			"check": "prerequisitesCleared"
+		},
+		{
+			"id": "PLN-31",
+			"operation": "tasks.replacePrerequisites",
+			"criterion": 9,
+			"actor": "owner",
+			"ask": "make Order launch banners wait on Prepare launch Sunday",
+			"calls": ["tasks.list"],
+			"answer": [
+				"Order launch banners can't wait on Prepare launch Sunday: that would make a cycle, because it already waits on Order launch banners, directly or through other tasks. I prepared nothing."
+			]
+		},
+		{
+			"id": "PLN-32",
+			"operation": "tasks.replacePrerequisites",
+			"criterion": 9,
+			"actor": "owner",
+			"ask": "make Set out chairs wait on Order launch banners",
+			"calls": ["tasks.list", "tasks.get"],
+			"answer": [
+				"Set out chairs is a checklist row of another task, and only a top-level task can wait on other tasks or be waited on. I prepared nothing."
+			]
+		},
+		{
+			"id": "PLN-33",
+			"operation": "tasks.replacePrerequisites",
+			"criterion": 9,
+			"actor": "owner",
+			"ask": "make Submit the insurance forms wait on Order launch banners",
+			"calls": ["tasks.list"],
+			"proposal": {
+				"operation": "tasks.replacePrerequisites",
+				"target": "Submit the insurance forms",
+				"changes": [["prerequisites", ["Order launch banners"], []]]
+			},
+			"between": "editTask",
+			"approve": true,
+			"outcome": "refused",
+			"refusal": "revision_conflict",
+			"check": "prerequisitesStale"
+		}
+	]
+}

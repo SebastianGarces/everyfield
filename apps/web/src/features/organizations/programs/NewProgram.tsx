@@ -1,11 +1,21 @@
 "use client";
 
 import { RESIDENCY_TEMPLATE, type ProgramKind, type ProgramList } from "@everyfield/contracts/organizations";
-import { Button, Card, CardBody, Field, Input, PageHeader, Radio, RadioGroup, Select } from "@everyfield/ui/controls";
+import {
+	Button,
+	Card,
+	CardBody,
+	Field,
+	InlineAlert,
+	Input,
+	PageHeader,
+	Radio,
+	RadioGroup,
+	Select,
+} from "@everyfield/ui/controls";
 import { useRouter } from "next/navigation";
 import { useActionState, useState, type ReactNode } from "react";
 import { PIPELINE_PATH } from "../board/model";
-import { Problem } from "../../../components/Problem.tsx";
 import { createProgram } from "./actions";
 import { programHref, programProblem, PROGRAMS_PATH } from "./model";
 import { PlanEditor, planFrom, type PlanDraft } from "./PlanEditor";
@@ -140,7 +150,7 @@ export function NewProgram({ list }: { list: ProgramList }) {
 						</Field>
 					</div>
 					<PlanEditor value={plan} onChange={setPlan} />
-					<Problem text={saving ? null : state.problem} />
+					<InlineAlert live="polite">{saving ? null : state.problem}</InlineAlert>
 					<div className="flex justify-end">
 						<Button type="submit" variant="primary" loading={saving}>
 							Save draft

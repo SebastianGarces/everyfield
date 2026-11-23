@@ -1,6 +1,5 @@
 import {
 	attrsOf,
-	columnWidths,
 	formatNumber,
 	parseAmount,
 	tableIssue,
@@ -162,8 +161,8 @@ function leaveTable(view: EditorView, tablePos: number, direction: 1 | -1): bool
 	const edge = direction > 0 ? inside.at(-1) : inside[0];
 	if (!edge) return false;
 	let at = all.indexOf(edge) + direction;
-	while (all[at] && (dom.contains(all[at]!) || all[at]!.contains(dom))) at += direction;
-	const next = all[at];
+	let next = all[at];
+	while (next && (dom.contains(next) || next.contains(dom))) next = all[(at += direction)];
 	if (next) next.focus();
 	else (document.activeElement as HTMLElement | null)?.blur();
 	return true;
@@ -360,14 +359,16 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 	const table = () => attrsOf(tableOf(node));
 
 	function widths() {
-		const paper = dom.closest<HTMLElement>(".ProseMirror")?.clientWidth;
-		const share = paper && scroll.clientWidth ? Math.min(1, scroll.clientWidth / paper) : 1;
-		const points = columnWidths(
-			table().columns,
-			textWidth(editor.state.doc.attrs.page as PageSetup | undefined) * share,
+		const columns = table().columns;
+		const fixed = columns.reduce((sum, c) => sum + c.width, 0);
+		const autos = columns.filter((c) => c.width === 0).length;
+		const text = textWidth(editor.state.doc.attrs.page as PageSetup | undefined);
+		grid.style.setProperty(
+			"--ef-auto",
+			`max(${px(24)}, (${px(text)} * var(--ef-share) - ${px(fixed)}) / ${autos || 1})`,
 		);
-		grid.style.setProperty("--ef-cols", points.map((pt) => px(pt)).join(" "));
-		grid.style.minWidth = `${points.reduce((s, pt) => s + pt, 0) * (4 / 3)}px`;
+		grid.style.setProperty("--ef-cols", columns.map((c) => (c.width ? px(c.width) : "var(--ef-auto)")).join(" "));
+		grid.style.minWidth = `calc(${px(fixed)} + ${autos} * var(--ef-auto))`;
 	}
 
 	function drawHead() {
@@ -454,13 +455,6 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		widths();
 	}
 	draw();
-	let seen = scroll.clientWidth;
-	const observer = new ResizeObserver(() => {
-		if (scroll.clientWidth === seen) return;
-		seen = scroll.clientWidth;
-		requestAnimationFrame(widths);
-	});
-	observer.observe(scroll);
 	blanks.addEventListener("focus", () => noteFocus(editor.view, getPos(), { row: null, col: 0, blank: true }));
 	blanks.addEventListener("keydown", (event) => {
 		fieldKey(editor, event, getPos(), { row: null, col: null, blank: true });
@@ -500,7 +494,6 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		ignoreMutation: (mutation: ViewMutationRecord) =>
 			mutation.type === "selection" ? false : !body.contains(mutation.target),
 		destroy: () => {
-			observer.disconnect();
 			editor.off("transaction", onTransaction);
 		},
 	};

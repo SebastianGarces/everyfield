@@ -242,7 +242,7 @@ function FeedbackForm({
 						<Icon
 							icon={ArrowDown01Icon}
 							size={16}
-							className="ml-auto text-text-3 transition-transform duration-200 group-open:rotate-180"
+							className="ml-auto text-text-3 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
 						/>
 					</summary>
 					<dl className="mt-0 mb-3.5 grid grid-cols-[130px_minmax(0,1fr)] gap-x-3.5 gap-y-[7px] text-sm">

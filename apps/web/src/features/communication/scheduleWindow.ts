@@ -1,12 +1,9 @@
 import { SCHEDULE_WINDOW_MS } from "@everyfield/contracts/communication";
+import { localInputAt } from "../../components/time.ts";
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const localStamp = (d: Date) =>
-	`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-
-export const windowBounds = (now = new Date()) => ({
-	min: localStamp(now),
-	max: localStamp(new Date(now.getTime() + SCHEDULE_WINDOW_MS)),
+export const windowBounds = (now: number, zone: string) => ({
+	min: localInputAt(now, zone),
+	max: localInputAt(now + SCHEDULE_WINDOW_MS, zone),
 });
 
 export const insideWindow = (at: Date, now = Date.now()) =>

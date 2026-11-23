@@ -1,10 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { READ_DOMAINS, SELECT_RETURNED_ROWS } from "../../../packages/evry/src/catalog/catalog.ts";
-import { allowedWrites, REVIEWED_WRITES } from "../../../packages/evry/src/proposals/store.ts";
-import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
+import {
+	MEMBER_INTELLIGENCE,
+	MEMBER_PHASES,
+	READ_DOMAINS,
+	readCatalog,
+	SELECT_RETURNED_ROWS,
+} from "../../../packages/evry/src/catalog/catalog.ts";
 import type { EvryActor } from "../../../packages/evry/src/context/actor.ts";
+import { allowedWrites, REVIEWED_WRITES } from "../../../packages/evry/src/proposals/store.ts";
 
 const read = (path: string) =>
 	JSON.parse(readFileSync(new URL(`../../../docs/catalog/${path}`, import.meta.url), "utf8"));
@@ -36,7 +41,39 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"people.listHouseholds",
 		"people.listTags",
 		"people.previewImport",
+		"people.getInterviews",
+		"people.getAssessments",
+		"people.getCommitments",
+		"people.getCommitmentDownload",
+		"people.getMergeReview",
+		"people.previewUnmerge",
+		"people.listRecordCorrections",
+		"people.mergedPersonDestination",
 		"communication.list",
+		"communication.preview",
+		"communication.get",
+		"communication.forPerson",
+		"communication.templates.list",
+		"communication.resendCandidates",
+		"tasks.list",
+		"tasks.count",
+		"tasks.get",
+		"tasks.statusHistory",
+		"tasks.listSubtasks",
+		"tasks.listPrerequisites",
+		"tasks.prerequisiteCandidates",
+		"tasks.findOpenOccurrence",
+		"tasks.eligibleAssignees",
+		"tasks.relationOptions",
+		"tasks.listTemplates",
+		"tasks.previewTemplate",
+		"tasks.readPhaseOffer",
+		"tasks.importReceipt",
+		"tasks.listFollowUpOwners",
+		"followups.readObligations",
+		"followups.listContactHistory",
+		"tasks.followUpCoverage",
+		"tasks.planHandoff",
 		"notifications.feed",
 		"notifications.preferences.get",
 		"notifications.previewPlanterDigest",
@@ -67,6 +104,13 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"teams.listResponsibilities",
 		"teams.previewResponsibilities",
 		"teams.listMeetings",
+		"phases.readCatalog",
+		"phases.readHistory",
+		"phases.readReadiness",
+		"intelligence.readExitCriteria",
+		"intelligence.readJourney",
+		"signals.listDefinitions",
+		"signals.getHistory",
 		"meetings.list",
 		"meetings.get",
 		"meetings.hasHistory",
@@ -93,6 +137,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"venues.list",
 		"venues.get",
 		"venues.history",
+		"evry.readWorkflowHint",
 		"seats.list",
 		"seats.listInvitations",
 		"privacy.getSharing",
@@ -107,6 +152,24 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"pipeline.listPeople",
 		"development.draftPlan",
 		"development.readProgram",
+		"intelligence.readCommittedAdultCohort",
+		"intelligence.readScorecard",
+		"intelligence.readAssessment",
+		"intelligence.readAssessmentDelta",
+		"oversight.listPlants",
+		"oversight.getPlant",
+		"organizationIntelligence.read",
+		"calendar.getContext",
+		"calendar.resolve",
+		"wiki.search",
+		"wiki.referenceExcerpt",
+		"wiki.recommendForPhase",
+		"wiki.reading.resume",
+		"wiki.article.exportPdf",
+		"documents.listOwned",
+		"documents.read",
+		"documents.readCoreValuesEvidence",
+		"documents.templates.list",
 		"launch.readCountdown",
 		"launch.readWorkspace",
 		"launch.readJournal",
@@ -118,9 +181,18 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		assert.ok(op, id);
 		assert.deepEqual([op.model_tool, op.kind, op.durable_write, generated.has(id)], [true, "query", false, true], id);
 	}
+	const recipeSteps = ["meetings.schedule", "meetings.inviteGuest", "communication.sendReviewed"];
 	for (const [id, write] of Object.entries(REVIEWED_WRITES)) {
 		const op = operations.get(id);
 		assert.ok(op, id);
+		if (id.startsWith("evry.")) {
+			assert.deepEqual([op.evry, op.model_tool, op.kind, op.durable_write], [true, false, "command", true], id);
+			for (const step of recipeSteps) {
+				const native = operations.get(step);
+				assert.deepEqual([native?.model_tool, native?.evry_review], [true, true], `${id} step ${step}`);
+			}
+			continue;
+		}
 		assert.deepEqual(
 			[op.model_tool, op.kind, op.durable_write, op.evry_review, generated.has(id)],
 			"approveNow" in write && write.approveNow?.reason
@@ -150,6 +222,70 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"evry.executeProposal",
 	])
 		assert.equal(operations.get(id)?.model_tool, false, id);
+});
+
+const as = (contextKind: EvryActor["contextKind"], role: EvryActor["role"]): EvryActor => ({
+	authority: null as never,
+	accountId: "5b6d1f0e-0000-4000-8000-000000000f01",
+	session: "5b6d1f0e-0000-4000-8000-000000000f21" as EvryActor["session"],
+	owner: (contextKind === "account" || contextKind === "plant"
+		? { kind: contextKind, id: "5b6d1f0e-0000-4000-8000-000000000001" }
+		: { kind: "organization", id: "5b6d1f0e-0000-4000-8000-000000000003", organizationKind: contextKind }) as never,
+	contextKind,
+	role,
+	seatId: role ? "5b6d1f0e-0000-4000-8000-000000000f31" : null,
+	selfPersonId: null,
+});
+const PHASE_TOOLS = {
+	phases: [
+		"phases.readCatalog",
+		"phases.readHistory",
+		"phases.readReadiness",
+		"intelligence.readExitCriteria",
+		"intelligence.readJourney",
+	],
+	signals: ["signals.listDefinitions", "signals.getHistory"],
+	writes: ["phases.declare", "phases.transition", "signals.attest", "signals.correct", "signals.reaffirm"],
+};
+
+test("INV-catalog: the phase and signal tools follow the context: Owner and Admin get them, a Member, an organization seat and an account get none", () => {
+	const phaseTools = (actor: EvryActor) => {
+		const catalog = readCatalog(actor);
+		const ops = (domain: string) =>
+			catalog.domains.find((d) => d.domain === domain)?.operations.map((o) => o.operation) ?? [];
+		return {
+			phases: ops("phases"),
+			signals: ops("signals"),
+			writes: catalog.reviewedWrites.map((w) => w.operation).filter((o) => /^(phases|signals)\./.test(o)),
+			withheld: catalog.withheld,
+		};
+	};
+	for (const role of ["owner", "admin"] as const)
+		assert.deepEqual(phaseTools(as("plant", role)), { ...PHASE_TOOLS, withheld: [] }, role);
+	assert.deepEqual(phaseTools(as("plant", "member")), {
+		phases: [],
+		signals: [],
+		writes: [],
+		withheld: [MEMBER_PHASES, MEMBER_INTELLIGENCE],
+	});
+	for (const actor of [as("sending_church", "owner"), as("sending_network", "admin"), as("account", null)]) {
+		assert.deepEqual(phaseTools(actor), { phases: [], signals: [], writes: [], withheld: [] }, actor.contextKind);
+		const plantDomains = [
+			"people",
+			"peopleOrganization",
+			"tasks",
+			"followups",
+			"meetings",
+			"teams",
+			"wiki",
+			"documents",
+		];
+		assert.deepEqual(
+			readCatalog(actor).domains.filter((d) => plantDomains.includes(d.domain)),
+			[],
+			actor.contextKind,
+		);
+	}
 });
 
 const operationsOf = (catalog: ReturnType<typeof readCatalog>) => [
@@ -218,6 +354,7 @@ test("INV-member-capabilities: a Member who may change only their own notificati
 			domains: [{ domain: "people", operations: [{ operation: "people.listPeople", description: "List people" }] }],
 			selection: [SELECT_RETURNED_ROWS],
 			reviewedWrites: writes.map((operation) => ({ operation, description: operation })),
+			withheld: [],
 		}) as unknown as Parameters<typeof describeCatalog>[0];
 	const member = describeCatalog(catalog(["notifications.markSelectedRead", "notifications.setPreferences"]));
 	assert.match(member, /an Owner or Admin of this church has to make them/);
@@ -226,7 +363,7 @@ test("INV-member-capabilities: a Member who may change only their own notificati
 	assert.doesNotMatch(describeCatalog(catalog(["people.updatePerson"])), /Owner or Admin/);
 });
 
-test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, the organization profile change, the stage move and the program create; every seat reads its pipeline and programs and may propose a next version, which only a program's director gets a card for", () => {
+test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, the organization profile change, the stage move, the program create and the four organization Wiki writes; every seat reads its pipeline and programs and may propose a next version, which only a program's director gets a card for", () => {
 	const id = "00000000-0000-4000-8000-0000000000a1";
 	const actor = (owner: EvryActor["owner"], contextKind: EvryActor["contextKind"], role: EvryActor["role"]) =>
 		({
@@ -247,18 +384,33 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		];
 	};
 	const oversight = ["notifications.previewOversightDigest", "notifications.oversightDigestCadence.set"];
-	const pipeline = ["pipeline.listPeople", "development.draftPlan", "development.readProgram"];
+	const pipeline = [
+		"pipeline.listPeople",
+		"development.draftPlan",
+		"development.readProgram",
+		"oversight.listPlants",
+		"oversight.getPlant",
+		"organizationIntelligence.read",
+	];
+	const orgWiki = [
+		"wiki.organizationArticles.add",
+		"wiki.organizationArticles.edit",
+		"wiki.organizationArticles.publish",
+		"wiki.organizationArticles.hide",
+	];
 	for (const role of ["owner", "admin"] as const)
 		assert.deepEqual(
 			tools(actor(organization, "sending_church", role)),
 			[
 				oversight[0],
 				...pipeline,
+				"notifications.setPreferences",
 				oversight[1],
 				"organizations.updateProfile",
 				"pipeline.proposeStageMove",
 				"development.saveProgram",
 				"development.draftNextVersion",
+				...orgWiki,
 			],
 			role,
 		);
@@ -274,5 +426,57 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 	]);
 	const plantOwner = tools(actor({ kind: "plant", id } as EvryActor["owner"], "plant", "owner"));
 	assert.ok(plantOwner.includes("notifications.previewPlanterDigest"));
-	for (const op of oversight) assert.equal(plantOwner.includes(op), false, op);
+	for (const op of [...oversight, ...orgWiki]) assert.equal(plantOwner.includes(op), false, op);
+	for (const role of ["admin", "member"] as const) {
+		const plantSeat = tools(actor({ kind: "plant", id } as EvryActor["owner"], "plant", role));
+		for (const op of orgWiki) assert.equal(plantSeat.includes(op), false, `${role} ${op}`);
+	}
+});
+
+test("INV-golden-guidance: the prompt and tools an Owner's model gets name the next weekday, the follow-up owner check, private care, sending a draft as shown, missed notifications, the import header, a new person's source and an invitation's meeting; a seat without the tool or context gets none of it", async () => {
+	const { compileContext } = await import("../../../packages/evry/src/context/compile.ts");
+	const sent = (actor: EvryActor) => {
+		const catalog = readCatalog(actor);
+		const { system } = compileContext({
+			actor,
+			catalog,
+			history: [],
+			text: "x",
+			references: [],
+			now: new Date("2026-11-09T15:00:00Z"),
+			state: null,
+			settingsGuidance: false,
+		});
+		const described = [...catalog.domains.flatMap((d) => d.operations), ...catalog.reviewedWrites].map(
+			(o): [string, string] => [o.operation, o.description],
+		);
+		return { system, tool: (operation: string) => new Map(described).get(operation) ?? "" };
+	};
+	const owner = sent(as("plant", "owner"));
+	assert.match(owner.system, /A weekday on its own, such as "Thursday's meeting", means the next one from today/);
+	assert.match(owner.system, /When the user names who should own follow-ups, read tasks\.eligibleAssignees first/);
+	assert.match(
+		owner.system,
+		/Private care, such as care notes about a person, stays in the Everyfield app: no tool reads it/,
+	);
+	assert.match(
+		owner.system,
+		/When the user says to send or save an email you drafted, propose it with the subject and body exactly/,
+	);
+	assert.match(
+		owner.tool("notifications.feed"),
+		/When the user asks what they missed or what is new, read this first with unread true/,
+	);
+	assert.match(
+		owner.tool("people.generateCsvTemplate"),
+		/Give the user its columns as one line.*there is no file to link/,
+	);
+	assert.match(owner.tool("people.createPerson"), /set source to match \(vision_meeting\).*it needs no meeting/);
+	assert.match(owner.tool("communication.preview"), /upcoming ones soonest first, then past ones latest first/);
+
+	const member = sent(as("plant", "member"));
+	assert.match(member.system, /Private care, such as care notes/);
+	assert.doesNotMatch(member.system, /When the user says to send or save an email you drafted/);
+	const account = sent(as("account", null));
+	assert.doesNotMatch(account.system, /Private care|send or save an email|A weekday on its own|should own follow-ups/);
 });

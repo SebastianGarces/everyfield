@@ -804,7 +804,7 @@ test("a password-reset request reaches the capture outbox within one runner tick
 				db: f.db,
 				storage: null,
 				cleanup: null,
-				reminders: null,
+				effects: null,
 				digests: null,
 				mail: null,
 				mountMail: { identity: identityMailPass(queuedMailTransport({ keys, apiKey: null })) },

@@ -1,6 +1,13 @@
 "use client";
 
-import { ANSWER_MAX, checkSummary, GUEST_QUESTION, SUMMARY_MAX, type Plan } from "@everyfield/contracts/launch";
+import {
+	ANSWER_MAX,
+	checkSummary,
+	GUEST_QUESTION,
+	SUMMARY_MAX,
+	type DebriefVersion,
+	type Plan,
+} from "@everyfield/contracts/launch";
 import {
 	Button,
 	Card,
@@ -109,25 +116,27 @@ export function DebriefCard({
 					<DebriefForm
 						key={d.submitted?.id ?? "first"}
 						plan={plan}
+						debrief={d}
+						outcome={plan.outcome}
 						keys={keys}
 						onPlan={onPlan}
 						onSubmitted={() => setEditing(false)}
 						onCancel={d.submitted && !d.draft ? () => setEditing(false) : null}
 					/>
 				) : d.submitted ? (
-					<Submitted plan={plan} />
+					<Submitted submitted={d.submitted} timeZone={plan.timeZone} />
 				) : null
 			) : null}
 		</Card>
 	);
 }
 
-function Submitted({ plan }: { plan: Plan }) {
-	const s = plan.debrief!.submitted!;
+function Submitted({ submitted: s, timeZone }: { submitted: DebriefVersion; timeZone: string }) {
+	if (s.submittedAt === null) throw new Error(`The submitted debrief ${s.id} has no submission time`);
 	return (
 		<section aria-label="Submitted debrief" className="mt-6 border-t border-line pt-5">
 			<p className="text-sm text-ink">
-				<b className="font-semibold">Submitted</b> {instantDate(s.submittedAt!, plan.timeZone)}
+				<b className="font-semibold">Submitted</b> {instantDate(s.submittedAt, timeZone)}
 				{s.submittedBy ? ` by ${s.submittedBy.displayName}` : " by a former account"}
 				{s.version > 1 ? ` · version ${s.version}` : ""}
 			</p>
@@ -153,21 +162,25 @@ function Submitted({ plan }: { plan: Plan }) {
 
 function DebriefForm({
 	plan,
+	debrief: d,
+	outcome: o,
 	keys,
 	onPlan,
 	onSubmitted,
 	onCancel,
 }: {
 	plan: Plan;
+	debrief: NonNullable<Plan["debrief"]>;
+	outcome: NonNullable<Plan["outcome"]>;
 	keys: Keys;
 	onPlan: (p: Plan) => void;
 	onSubmitted: () => void;
 	onCancel: (() => void) | null;
 }) {
-	const d = plan.debrief!;
 	const store = useLocalStore(() =>
 		createDebriefStore({
-			plan,
+			debrief: d,
+			timeZone: plan.timeZone,
 			port: {
 				save: saveDebrief,
 				keys,
@@ -183,7 +196,6 @@ function DebriefForm({
 	const holdPause = useCallback((node: HTMLFormElement | null) => store.getState().actions.hold(node), [store]);
 	const set = actions.edit;
 	const save = actions.save;
-	const o = plan.outcome!;
 
 	return (
 		<form
@@ -267,8 +279,17 @@ function DebriefForm({
 	);
 }
 
-export function SummaryCard({ plan, keys, onPlan }: { plan: Plan; keys: Keys; onPlan: (p: Plan) => void }) {
-	const s = plan.summary!;
+export function SummaryCard({
+	plan,
+	summary: s,
+	keys,
+	onPlan,
+}: {
+	plan: Plan;
+	summary: NonNullable<Plan["summary"]>;
+	keys: Keys;
+	onPlan: (p: Plan) => void;
+}) {
 	const [body, setBody] = useState(s.draft?.body ?? "");
 	const [preview, setPreview] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -277,7 +298,7 @@ export function SummaryCard({ plan, keys, onPlan }: { plan: Plan; keys: Keys; on
 	async function save(publish: boolean) {
 		const checked = checkSummary(body);
 		if (!checked.ok) return setError(SUMMARY_MESSAGE[checked.problem]);
-		const draft = plan.summary!.draft;
+		const draft = s.draft;
 		const intent = ["summary", publish, draft?.id, draft?.revision, checked.body] as const;
 		setBusy(true);
 		const r = await sent(() =>

@@ -31,3 +31,22 @@ test("INV-link: an email-change link leaves the address and the sign-in return p
 	assert.equal(signedOut.headers.get("location"), "https://everyfield.test/signin?returnTo=%2Fconfirm-email");
 	assert.equal(signedOut.headers.get("set-cookie"), null);
 });
+
+test("INV-link: a reset or verify link leaves the address before the page, and its value is kept only for that page and its answer", () => {
+	for (const [page, name] of [
+		["/reset-password", "ef-reset-proof"],
+		["/verify-email", "ef-verify-proof"],
+	]) {
+		const arrival = `https://everyfield.test${page}?step=2&token=${token}`;
+		assert.equal(proxied(arrival), true);
+		const kept = proxy(new NextRequest(arrival));
+		assert.equal(kept.status, 307);
+		assert.equal(kept.headers.get("location"), `https://everyfield.test${page}?step=2`);
+		assert.deepEqual(kept.headers.getSetCookie(), [
+			`${name}=${token}; Path=${page}; Max-Age=3600; HttpOnly; SameSite=Lax; Secure`,
+			`${name}=${token}; Path=/api/auth${page}; Max-Age=3600; HttpOnly; SameSite=Lax; Secure`,
+		]);
+		const bare = proxy(new NextRequest(`https://everyfield.test${page}`));
+		assert.deepEqual([bare.status, bare.headers.get("location"), bare.headers.getSetCookie()], [200, null, []]);
+	}
+});
