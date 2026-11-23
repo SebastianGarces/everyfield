@@ -163,8 +163,9 @@ test("INV-church-changed: a saving card stops reading its review once the panel'
 	const { card, root } = await show(running, { changed: () => moved, refused: () => false, leave() {}, reload() {} });
 	assert.equal(card().view, "running");
 	moved = true;
-	// Past the first poll delay (350 ms) and several later ones, so a poll left scheduled would have read.
-	for (let step = 0; step < 20; step++) await act(async () => mock.timers.tick(250));
+	const pastSeveralPollDelays = { steps: 20, ms: 250 };
+	for (let step = 0; step < pastSeveralPollDelays.steps; step++)
+		await act(async () => mock.timers.tick(pastSeveralPollDelays.ms));
 	assert.deepEqual(sent, [], "no read of the old church's review after the change");
 	await act(async () => root.unmount());
 });
