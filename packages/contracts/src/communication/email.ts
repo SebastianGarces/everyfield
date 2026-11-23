@@ -1,24 +1,8 @@
 import { FONT, escapeHtml, renderBody, type RenderMode } from "./html.ts";
 
 export type EmailContext = { churchName: string; mailingAddress: string | null; unsubscribeUrl?: string };
-type ChurchAddress = {
-	street: string | null;
-	city: string | null;
-	stateProvince: string | null;
-	country: string | null;
-};
 
 const MISSING_ADDRESS = "Mailing address missing. Add it in Church profile before this email can go out.";
-
-const line = (value: string | null) => value?.replace(/\s+/g, " ").trim() || null;
-
-export function mailingAddress(address: ChurchAddress): string | null {
-	const street = line(address.street);
-	const city = line(address.city);
-	const country = line(address.country);
-	if (!street || !city || !country) return null;
-	return [street, city, line(address.stateProvince), country].filter(Boolean).join(", ");
-}
 
 const INK = "#181D19";
 

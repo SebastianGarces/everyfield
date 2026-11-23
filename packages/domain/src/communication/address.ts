@@ -1,5 +1,4 @@
 import { sql, type SQL } from "@everyfield/db/query";
-import { mailingAddress } from "@everyfield/contracts/communication";
 import { z } from "zod";
 
 const filled = (column: SQL) => sql`coalesce(${column}, '') ~ '[^[:space:]]'`;
@@ -23,7 +22,13 @@ const stored = z
 	})
 	.nullable();
 
+const line = (value: string | null | undefined) => value?.replace(/\s+/g, " ").trim() || null;
+
 export function churchMailingAddress(raw: unknown): string | null {
 	const value = stored.parse(typeof raw === "string" ? JSON.parse(raw) : (raw ?? null));
-	return value ? mailingAddress(value) : null;
+	const street = line(value?.street);
+	const city = line(value?.city);
+	const country = line(value?.country);
+	if (!street || !city || !country) return null;
+	return [street, city, line(value?.stateProvince), country].filter(Boolean).join(", ");
 }
