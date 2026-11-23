@@ -13359,12 +13359,6 @@
 				"cleanup_state": {
 					"note": ""
 				},
-				"seat_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"affiliation_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
 				"requester_opaque_id": {
 					"note": "Historical non-content subject key; retained after the live requester FK is cleared."
 				},
@@ -13389,20 +13383,6 @@
 					}
 				},
 				"requester_id->account(id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"seat_id->seat(id)": {
-					"scope_exception": "Always null: no witness kind names a seat, and a later slice drops the column.",
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"affiliation_id->affiliation(id)": {
-					"scope_exception": "Always null: no witness kind names an affiliation, and a later slice drops the column.",
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
