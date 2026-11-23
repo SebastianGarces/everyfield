@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { LockKeyIcon, Note01Icon, RefreshIcon, UserRemove01Icon } from "@hugeicons/core-free-icons";
 import type { OrganizationNotesResult, PipelineAccessResult } from "@everyfield/contracts/access";
 import {
@@ -82,7 +83,7 @@ export function StaffNotesPanel({
 			const next = await readPage(after);
 			if (next.status !== "allowed") return setMore((m) => ({ ...m, status: "unavailable" }));
 			setMore((m) => ({ pages: [...m.pages, next], status: "idle" }));
-			setAnnounce(next.notes.length === 1 ? "1 more note loaded." : `${next.notes.length} more notes loaded.`);
+			setAnnounce(`${counted(next.notes.length, "more note")} loaded.`);
 		} catch {
 			setMore((m) => ({ ...m, status: "failed" }));
 		}

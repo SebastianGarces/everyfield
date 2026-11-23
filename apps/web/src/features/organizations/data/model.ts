@@ -1,10 +1,10 @@
+import { counted } from "@everyfield/contracts/common";
 import type { PipelineRemovalReport } from "@everyfield/contracts/organizations";
-import { plural } from "../board/model";
 
 export function removedLines(report: PipelineRemovalReport): string[] {
 	const r = report.removed;
 	const lines = ["Name and contact details", "Place on the pipeline"];
-	const counted: [number, string, string][] = [
+	const removals: [number, string, string][] = [
 		[r.stageMoves, "stage move with its reason", "stage moves with their reasons"],
 		[r.notes, "staff note", "staff notes"],
 		[r.conversations, "conversation", "conversations"],
@@ -14,8 +14,8 @@ export function removedLines(report: PipelineRemovalReport): string[] {
 		[r.mergedRecords, "duplicate record merged in earlier", "duplicate records merged in earlier"],
 		[r.invitationsRevoked, "pending residency invitation, now revoked", "pending residency invitations, now revoked"],
 	];
-	for (const [n, one, many] of counted)
-		if (n > 0) lines.push(plural(n, one, many).replace(/^./, (c) => c.toUpperCase()));
+	for (const [n, one, many] of removals)
+		if (n > 0) lines.push(counted(n, one, many).replace(/^./, (c) => c.toUpperCase()));
 	if (r.residencyLinkEnded) lines.push("Residency link, ended at once; their own Everyfield account is untouched");
 	return lines;
 }
@@ -25,7 +25,7 @@ export function keptText(k: Kept, attribution: string): { title: string; why: st
 	switch (k.category) {
 		case "program_completion_count":
 			return {
-				title: `${plural(k.count ?? 0, "finished program", "finished programs")}, as “${attribution}”`,
+				title: `${counted(k.count ?? 0, "finished program")}, as “${attribution}”`,
 				why: "Program completion counts stay right. No name, contact or marks are kept with them.",
 			};
 		case "activity_record":

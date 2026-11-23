@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { ArrowRight01Icon, Calendar03Icon, CalendarAdd01Icon, Location01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -169,7 +170,7 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 									<div className="mt-5 flex flex-wrap items-center justify-between gap-3 empty:hidden">
 										{page.total > 0 ? (
 											<p className="text-sm text-text-3">
-												Showing {page.items.length} of {page.total} {page.total === 1 ? "meeting" : "meetings"}
+												Showing {page.items.length} of {counted(page.total, "meeting")}
 											</p>
 										) : null}
 										<Pagination
