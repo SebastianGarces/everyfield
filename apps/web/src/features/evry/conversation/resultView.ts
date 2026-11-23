@@ -1166,9 +1166,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 					line: joined(
 						counted(num(fields.valid) || 0, "valid row"),
 						counted(num(fields.invalid) || 0, "invalid row"),
-						num(fields.existingDuplicates) > 0
-							? counted(num(fields.existingDuplicates), "possible duplicate")
-							: null,
+						num(fields.existingDuplicates) > 0 ? counted(num(fields.existingDuplicates), "possible duplicate") : null,
 					),
 					avatar: "file",
 				};
