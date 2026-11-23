@@ -2,12 +2,20 @@
 
 import type { PipelinePersonRecord } from "@everyfield/contracts/organizations";
 import { Mail01Icon } from "@hugeicons/core-free-icons";
-import { Button, Card, CardBody, CardHeader, CardHeading, CardTitle, ConfirmDialog } from "@everyfield/ui/controls";
+import {
+	Button,
+	Card,
+	CardBody,
+	CardHeader,
+	CardHeading,
+	CardTitle,
+	ConfirmDialog,
+	InlineAlert,
+} from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { useState } from "react";
 import { runLinkInvitation } from "./actions";
 import { formatPlainDate } from "../../../components/dates.ts";
-import { Problem } from "../../../components/Problem.tsx";
 
 type Record = PipelinePersonRecord;
 
@@ -139,7 +147,7 @@ export function ResidencyLink({ record, onChanged }: { record: Record; onChanged
 						) : null}
 					</>
 				)}
-				<Problem text={problem} />
+				<InlineAlert live="polite">{problem}</InlineAlert>
 			</CardBody>
 		</Card>
 	);

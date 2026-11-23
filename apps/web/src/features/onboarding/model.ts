@@ -125,11 +125,10 @@ export function addressStep(state: Pick<State, "entry" | "view">): StepKey | nul
 }
 
 export function nextStep(view: StepKey): StepKey {
-	return ORDER[Math.min(ORDER.indexOf(view) + 1, ORDER.length - 1)]!;
+	return ORDER[ORDER.indexOf(view) + 1] ?? view;
 }
 export function previousStep(view: StepKey): StepKey | null {
-	const i = ORDER.indexOf(view);
-	return i > 0 ? ORDER[i - 1]! : null;
+	return ORDER[ORDER.indexOf(view) - 1] ?? null;
 }
 export function parseStep(value: string | null | undefined): StepKey | null {
 	return ORDER.includes(value as StepKey) ? (value as StepKey) : null;

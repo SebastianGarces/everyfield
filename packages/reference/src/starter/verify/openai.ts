@@ -7,16 +7,14 @@ const BATCH = 64;
 export type WikiEmbedFetch = (url: string, init: RequestInit) => Promise<Response>;
 
 export class EmbeddingRefusal extends Error {
+	readonly code: string;
 	readonly usageTokens: number;
-	constructor(reason: string, usageTokens = 0) {
-		super(reason);
+	constructor(code: string, usageTokens = 0) {
+		super(code);
 		this.name = "EmbeddingRefusal";
+		this.code = code;
 		this.usageTokens = usageTokens;
 	}
-}
-
-function redact(message: string, key: string): string {
-	return message.split(key).join("redacted");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -33,6 +31,7 @@ async function requestBatch(
 	input: readonly string[],
 	key: string,
 	fetchImpl: WikiEmbedFetch,
+	timeoutMs: number | null,
 ): Promise<{ vectors: number[][]; totalTokens: number }> {
 	let response: Response;
 	try {
@@ -43,24 +42,19 @@ async function requestBatch(
 				"content-type": "application/json",
 			},
 			body: JSON.stringify({ model: MODEL, input, encoding_format: "float" }),
+			...(timeoutMs === null ? {} : { signal: AbortSignal.timeout(timeoutMs) }),
 		});
 	} catch (error) {
-		throw new EmbeddingRefusal(redact(error instanceof Error ? error.message : "openai_request_failed", key));
+		throw new EmbeddingRefusal(
+			error instanceof Error && error.name === "TimeoutError" ? "openai_timeout" : "openai_request_failed",
+		);
 	}
-	if (!response.ok) {
-		let detail = "";
-		try {
-			detail = await response.text();
-		} catch {
-			detail = "";
-		}
-		throw new EmbeddingRefusal(redact(`openai_http_${response.status}:${detail.slice(0, 180)}`, key));
-	}
+	if (!response.ok) throw new EmbeddingRefusal(`openai_http_${response.status}`);
 	let payload: unknown;
 	try {
 		payload = await response.json();
-	} catch (error) {
-		throw new EmbeddingRefusal(redact(error instanceof Error ? error.message : "openai_response", key));
+	} catch {
+		throw new EmbeddingRefusal("openai_response");
 	}
 	const reported = usageTokens(payload);
 	const data = isRecord(payload) ? payload.data : undefined;
@@ -85,6 +79,7 @@ async function embedMany(
 	texts: readonly string[],
 	env: Record<string, string | undefined>,
 	fetchImpl: WikiEmbedFetch,
+	timeoutMs: number | null,
 ): Promise<{ vectors: number[][]; totalTokens: number }> {
 	const key = env.OPENAI_API_KEY ?? "";
 	if (key.length === 0) throw new EmbeddingRefusal("openai_key_missing");
@@ -92,25 +87,25 @@ async function embedMany(
 	let totalTokens = 0;
 	for (let start = 0; start < texts.length; start += BATCH) {
 		try {
-			const batch = await requestBatch(texts.slice(start, start + BATCH), key, fetchImpl);
+			const batch = await requestBatch(texts.slice(start, start + BATCH), key, fetchImpl, timeoutMs);
 			totalTokens += batch.totalTokens;
 			vectors.push(...batch.vectors);
 		} catch (error) {
-			const reported = error instanceof EmbeddingRefusal ? error.usageTokens : 0;
-			const reason =
-				error instanceof EmbeddingRefusal
-					? error.message
-					: redact(error instanceof Error ? error.message : "openai_request_failed", key);
-			throw new EmbeddingRefusal(reason, totalTokens + reported);
+			if (!(error instanceof EmbeddingRefusal)) throw new EmbeddingRefusal("openai_request_failed", totalTokens);
+			throw new EmbeddingRefusal(error.code, totalTokens + error.usageTokens);
 		}
 	}
 	return { vectors, totalTokens };
 }
 
-export function openAiWikiEmbedding(env: Record<string, string | undefined>, fetchImpl: WikiEmbedFetch = fetch) {
+export function openAiWikiEmbedding(
+	env: Record<string, string | undefined>,
+	fetchImpl: WikiEmbedFetch = fetch,
+	timeoutMs: number | null = null,
+) {
 	return {
 		profile: PROFILE,
 		dimensions: DIMENSIONS,
-		embedMany: (texts: readonly string[]) => embedMany(texts, env, fetchImpl),
+		embedMany: (texts: readonly string[]) => embedMany(texts, env, fetchImpl, timeoutMs),
 	};
 }

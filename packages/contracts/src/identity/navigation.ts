@@ -1,3 +1,6 @@
+type Chars<S extends string, Found = never> = S extends `${infer C}${infer Rest}` ? Chars<Rest, Found | C> : Found;
+export type SitePath = `/${Chars<"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789">}${string}`;
+
 export function safeReturn(input: string | null | undefined): string | null {
 	if (!input || input.length > 8192 || !input.startsWith("/") || input.startsWith("//")) return null;
 	let decoded = input;

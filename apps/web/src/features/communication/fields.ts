@@ -14,7 +14,7 @@ const railEntries: Record<MergeKey, Omit<MergeField, "key">> = {
 
 const mergeFields: readonly MergeField[] = mergeKeys.map((key) => ({ key, ...railEntries[key] }));
 
-const sampleNames: readonly string[] = [
+const sampleNames: readonly [string, ...string[]] = [
 	"Maria Santos",
 	"Daniel Okafor",
 	"Priya Raman",
@@ -31,7 +31,7 @@ export const fieldToken = (key: string): string => `{{${key}}}`;
 export const pickSampleName = (seed: string): string => {
 	let hash = 0;
 	for (const char of seed) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-	return sampleNames[hash % sampleNames.length] ?? sampleNames[0]!;
+	return sampleNames[hash % sampleNames.length] ?? sampleNames[0];
 };
 
 export const UNFINISHED_MARKER = "[finish this field]";

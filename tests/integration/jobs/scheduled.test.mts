@@ -22,6 +22,12 @@ const secret = "cron-" + randomUUID();
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
+const noPorts = {
+	reminders: noReminders,
+	phaseNotices: async () => {
+		throw Error("unexpected phase notice");
+	},
+};
 let tick: (request: Request) => Promise<Response>;
 const call = (authorization?: string) =>
 	tick(new Request("http://localhost/api/cron/jobs", authorization ? { headers: { authorization } } : {}));
@@ -35,7 +41,7 @@ before(async () => {
 	await setup();
 	tick = cronRoute(
 		secret,
-		scheduledJobs({ db, storage: null, cleanup: null, reminders: noReminders, digests: null, mail: null }),
+		scheduledJobs({ db, storage: null, cleanup: null, effects: noPorts, digests: null, mail: null }),
 	);
 });
 after(teardown);
@@ -68,7 +74,7 @@ test("INV-executor: the runner refuses a call without the exact bearer and runs 
 		assert.equal((await call(authorization)).status, 401, String(authorization));
 	const unset = cronRoute(
 		undefined,
-		scheduledJobs({ db, storage: null, cleanup: null, reminders: noReminders, digests: null, mail: null }),
+		scheduledJobs({ db, storage: null, cleanup: null, effects: noPorts, digests: null, mail: null }),
 	);
 	assert.equal((await unset(new Request("http://localhost/api/cron/jobs"))).status, 503);
 	assert.equal((await readConversation(db, owner, waiting)).run?.state, "running");

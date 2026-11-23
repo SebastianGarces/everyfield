@@ -2,7 +2,7 @@ import { privateStorage } from "@everyfield/db/schema";
 import { cleanupDatabase, jobDatabase } from "@/server/database";
 import { digestMailPass, digestsMount } from "@/server/jobs/digest-mount";
 import { noticeMailPass, notificationsMount } from "@/features/notifications/worker";
-import { tasksMount } from "@/features/tasks/mount";
+import { evryEffectPorts } from "@/server/evry";
 import { runDueInvitationMail } from "@/server/invitations";
 import { identityMailPass } from "@/server/identity";
 import { organizationMailPass } from "@/features/organizations/mount";
@@ -10,6 +10,7 @@ import { onboardingMailPass } from "@/features/onboarding/mount";
 import { settingsMailPass } from "@/features/settings/mail";
 import { feedbackMailPass } from "@/features/feedback/mail";
 import { feedbackPublicationMount } from "@/features/feedback/publication";
+import { wikiEmbeddingMount } from "@/features/wiki/embedding";
 import { deliveryTransport, mailReady, queuedMailTransport } from "@/server/mail/transport";
 import { scheduledJobs, scheduledMessages } from "@/server/jobs/scheduled";
 import { cronRoute } from "@/server/platform/cron";
@@ -29,10 +30,11 @@ export const GET = configured(function GET(request: Request): Promise<Response> 
 			db,
 			storage: privateStorage(),
 			cleanup: cleanupDatabase(),
-			reminders: tasksMount().reminders,
+			effects: evryEffectPorts(),
 			digests: digestsMount(db),
 			notifications: notificationsMount(db),
 			feedbackPublication: feedbackPublicationMount(db),
+			wikiEmbedding: wikiEmbeddingMount(db),
 			assessments: assessmentsMount(db),
 			mail: ready ? (limit, until) => runDueInvitationMail(queuedMailTransport(ready), limit, until) : null,
 			messages: ready ? scheduledMessages(db, deliveryTransport(ready), ready.keys) : null,

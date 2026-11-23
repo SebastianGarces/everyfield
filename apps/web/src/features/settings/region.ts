@@ -52,7 +52,5 @@ export async function saveRegion(raw: unknown): Promise<RegionSave> {
 		m.adapter["organizations.correctReportingLocation"](tx, session, selected, request.data),
 	);
 	if (reply.status === "ok") return { status: "ok" };
-	return reply.code === "stale_revision" || reply.code === "conflict"
-		? { status: "conflict" }
-		: { status: "refused", code: reply.code };
+	return reply.code === "stale_revision" ? { status: "conflict" } : { status: "refused", code: reply.code };
 }

@@ -180,8 +180,13 @@ async function runNext() {
 	const outcome = await executeProposal(
 		db,
 		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-		async () => {
-			throw Error("unexpected task reminder replan");
+		{
+			reminders: async () => {
+				throw Error("unexpected task reminder replan");
+			},
+			phaseNotices: async () => {
+				throw Error("unexpected phase notice");
+			},
 		},
 	);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));

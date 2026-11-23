@@ -1,6 +1,6 @@
 import "server-only";
 import { requestDatabase } from "@/server/database";
-import { pipelineActor } from "../pipeline-mount";
+import { organizationSeat } from "@/server/request-context";
 import { pipelineImportLimits } from "@everyfield/contracts/organizations";
 import { readBoundedBody } from "@everyfield/domain/operations";
 import { pipelineImportWriter, previewPipelineImport } from "@everyfield/domain/organizations";
@@ -15,8 +15,8 @@ const BODY_MAX = pipelineImportLimits.bytes + 256 * 1024;
 
 async function handle(request: Request, step: "preview" | "save") {
 	if (Number(request.headers.get("content-length") ?? 0) > BODY_MAX) return tooLarge();
-	const who = await pipelineActor();
-	if (who.kind !== "seat") return reply({ status: "refused", refusal: { code: "unavailable" } });
+	const seat = await organizationSeat();
+	if (!seat) return reply({ status: "refused", refusal: { code: "unavailable" } });
 	const db = requestDatabase();
 	const invalid = () => reply({ status: "refused", refusal: { code: "invalid_input" } });
 	const bytes = await readBoundedBody(request, BODY_MAX);
@@ -39,8 +39,8 @@ async function handle(request: Request, step: "preview" | "save") {
 		async () =>
 			reply(
 				step === "preview"
-					? await previewPipelineImport(db, who.authority, input)
-					: await pipelineImportWriter.importPeople(db, who.authority, input),
+					? await previewPipelineImport(db, seat.authority, input)
+					: await pipelineImportWriter.importPeople(db, seat.authority, input),
 			),
 		reply({ status: "lost" }),
 	);

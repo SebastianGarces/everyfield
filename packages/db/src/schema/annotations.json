@@ -10244,7 +10244,7 @@
 			"table": {
 				"name": "passage",
 				"domain": "reference",
-				"purpose": "Rebuildable exact source passage with complete embedding provenance. Model, dimensions and chunker are pinned by release; organization rights inherit the source revision.",
+				"purpose": "Rebuildable exact source passage with complete embedding provenance. Model, dimensions and chunker are pinned by release; organization rights inherit the source revision. An organization's published version has release-free rows its publish job embeds with the active release's profile (T-552).",
 				"library_owned": false,
 				"jsonb_keys": {},
 				"capabilities": ["CAP-C-009"],
@@ -10290,7 +10290,7 @@
 					"note": ""
 				},
 				"release_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+					"note": "Real FK for global passages; NULL exactly for an organization version's passages, which carry no release (passage_release_owner)."
 				},
 				"revision_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
@@ -18495,6 +18495,50 @@
 					"note": ""
 				},
 				"charged_micro_usd": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {}
+		},
+		"embedding_spend": {
+			"table": {
+				"name": "embedding_spend",
+				"domain": "reference",
+				"purpose": "Paid Wiki embedding tokens used per UTC day in this database, one row each for search questions, release rebuilds and organization publish jobs (T-339, D-2042, T-552). Search and publish embedding each stop calling the provider once their own day's tokens pass the daily limit; each rebuild adds the tokens its run reported.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-009"],
+				"replaces": [],
+				"producer_work_packages": ["WP-033"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-033"],
+					"rule": "T-339 meaning-based Wiki search spend ledger through Drizzle Kit."
+				},
+				"feature_ids": ["PI-017", "REF-007"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "reference",
+				"invariants": [
+					"Usage only grows: each provider call adds the tokens it reported in one upsert.",
+					"A search reads the day's query tokens before calling the provider and calls it only while they are under the daily limit."
+				],
+				"revision": "One row per day and purpose; each recorded call adds its tokens in one statement.",
+				"idempotency": "Each provider call is recorded once, after it returns.",
+				"deletion": "Holds no personal or tenant data; account and tenant purges leave it unchanged.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"day": {
+					"note": ""
+				},
+				"purpose": {
+					"note": ""
+				},
+				"usage": {
 					"note": ""
 				}
 			},

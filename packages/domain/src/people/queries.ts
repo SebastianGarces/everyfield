@@ -18,6 +18,8 @@ import {
 	projectPeople,
 	readReply,
 	type Person,
+	known,
+	only,
 } from "./core.ts";
 import { effectiveAdultSql, plantTodaySql } from "./adult.ts";
 import type { RequestActor } from "../access/session.ts";
@@ -50,6 +52,7 @@ const activityRow = z.object({
 	record_id: z.uuid().nullable(),
 	with_person: z.object({ id: z.uuid(), displayName: z.string() }).nullable(),
 	actor_exists: z.boolean(),
+	author_name: z.string().nullable(),
 });
 const warningsRow = z.object({
 	review: z.string(),
@@ -72,6 +75,7 @@ export function peopleFilters(
 			sql`(strpos(lower(${tables.person.display_name}),${term})>0 OR strpos(lower(coalesce(${tables.person.email},'')),${term})>0 OR strpos(lower(coalesce(${tables.person.phone},'')),${term})>0)`,
 		);
 	}
+	if (input.city) filters.push(sql`lower(trim(${tables.person.city}))=${input.city.toLowerCase()}`);
 	if (input.stages.length) filters.push(inArray(tables.person.stage, input.stages));
 	if (input.sources.length) filters.push(inArray(tables.person.source, input.sources));
 	if (input.tags.length)
@@ -93,12 +97,13 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 	const input = parse(c.listPeopleRequest, raw);
 	const { gate } = await authorizeRead(tx, ctx);
 	const filters = peopleFilters(ctx, input, gate);
-	const { total, allowed } = (
+	const { total, allowed } = only(
 		await tx
 			.select({ total: count(), allowed: sql<boolean>`${gate}` })
 			.from(tables.person)
-			.where(and(...filters))
-	)[0]!;
+			.where(and(...filters)),
+		"The people count",
+	);
 	if (!allowed) deny("unavailable");
 	const result = await tx
 		.select({
@@ -256,7 +261,7 @@ export const peopleReader: PeopleReader<Tx> = {
 				return {
 					column: name,
 					revision,
-					cards: page.slice(0, input.limit).map((r) => projected.get(r.id)!),
+					cards: page.slice(0, input.limit).map((r) => known(projected, r.id, "Projected card")),
 					total: own[0]?.total ?? 0,
 					next: page.length > input.limit ? input.page + 1 : null,
 				};
@@ -330,7 +335,7 @@ export const peopleReader: PeopleReader<Tx> = {
 								warning: !t.due_date ? "missing_due_date" : t.due_date < t.today ? "overdue" : "none",
 							})),
 							coverage: tasks.length ? "covered" : "uncovered",
-							inactivity: activity.get(person.id)!,
+							inactivity: known(activity, person.id, "Activity of person"),
 						};
 					}),
 				})),
@@ -358,7 +363,8 @@ export function activitiesJson(ctx: Context, personId: SQL, input: z.infer<typeo
 	return sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('id',a.id,'occurred_at',a.occurred_at,'recorded_at',a.recorded_at,
  'actor_id',a.actor_id,'revision',a.revision::text,'body',a.body,'edited_at',a.edited_at,'removed_at',a.removed_at,'kind',a.kind,
  'action',a.action,'before_value',a.before_value,'after_value',a.after_value,'obligation_id',a.obligation_id,'outcome',a.outcome,
- 'record_id',a.record_id,'with_person',a.with_person,'actor_exists',EXISTS(SELECT FROM account WHERE id=a.actor_id)) ORDER BY a.occurred_at DESC,a.id DESC),'[]') FROM (SELECT * FROM (
+ 'record_id',a.record_id,'with_person',a.with_person,'actor_exists',EXISTS(SELECT FROM account WHERE id=a.actor_id),
+ 'author_name',CASE WHEN a.kind='note' THEN nullif(btrim((SELECT display_name FROM seat_identity(a.actor_id))),'') END) ORDER BY a.occurred_at DESC,a.id DESC),'[]') FROM (SELECT * FROM (
       SELECT id,occurred_at,recorded_at,author_id AS actor_id,revision,body,edited_at,removed_at,'note' AS category,'note' AS kind,NULL::text AS action,NULL::jsonb AS before_value,NULL::jsonb AS after_value,NULL::uuid AS obligation_id,NULL::text AS outcome,NULL::uuid AS record_id,NULL::jsonb AS with_person FROM person_note WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${personId}
       UNION ALL
       SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN metadata ? 'event' THEN 'record' WHEN action='people.stage_changed' THEN 'stage_changed' WHEN coalesce(before_value ? 'membership' OR after_value ? 'membership',false) THEN 'household_changed' ELSE 'activity' END,coalesce(metadata->>'event',action),CASE WHEN action='people.stage_changed' AND NOT coalesce(before_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE before_value END,CASE WHEN action='people.stage_changed' AND NOT coalesce(after_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE after_value END,NULL,NULL,(metadata->>'recordId')::uuid,NULL FROM audit_event h WHERE metadata->>'category' IS DISTINCT FROM 'note' AND kind<>'noop' AND tenant_id=${sql.param(ctx.selected.id)} AND subject_id IN ${feed} AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected','people.merged','people.unmerged')
@@ -397,7 +403,9 @@ export function activityFeed(ctx: Context, personId: string, input: z.infer<type
 				...base,
 				kind: r.removed_at ? "note_removed" : "note",
 				revision: r.revision,
-				...(!r.removed_at ? { body: r.body, editedAt: r.edited_at?.toISOString() ?? null } : {}),
+				...(!r.removed_at
+					? { body: r.body, editedAt: r.edited_at?.toISOString() ?? null, authorName: r.author_name }
+					: {}),
 			});
 		else if (r.kind === "stage_changed")
 			items.push({

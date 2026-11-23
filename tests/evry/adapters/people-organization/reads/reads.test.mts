@@ -114,6 +114,16 @@ test("AC:AC-EVR-143--EVR-143 AC:AC-EVR-READ--EVR-143 AC:TARGET-PPL-019 the pipel
 	);
 	assert.equal(board.rows.find((item) => item.label === "Alex Rivera")?.fields.coverage, "uncovered");
 	assert.equal(board.rows.find((item) => item.label === "Alex Rivera")?.fields.inactivity, "none");
+	assert.deepEqual(board.facts, {
+		"column.prospect": 3,
+		"column.attendee": 200,
+		"column.following_up": 0,
+		"column.interviewed": 0,
+		"column.core_group": 0,
+		"stage.core_group": 0,
+		"stage.launch_team": 0,
+		"stage.leader": 0,
+	});
 	hidden(board, secrets);
 
 	const page2Start = queries.length;
@@ -174,6 +184,25 @@ test("AC:AC-EVR-143--EVR-143 AC:AC-EVR-READ--EVR-143 AC:TARGET-PPL-019 the pipel
 	assert.equal(foreign.total, 2501);
 	hidden(foreign, ["Alex Rivera", "Chicago"]);
 	await denied(async () => invokeRead(db, await actor("orgOwner"), getPipelineData, {}));
+
+	const core = [randomUUID(), randomUUID(), randomUUID()];
+	for (const [i, stage] of ["leader", "launch_team", "leader"].entries())
+		await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
+			VALUES(${core[i]},${plant},${plant},${"Core count " + i},'other',clock_timestamp(),${stage},'unknown','unknown',${i},'live')`);
+	const column = await invokeRead(db, member, getPipelineData, { search: "Core count" });
+	assert.deepEqual(column.facts, {
+		"column.prospect": 0,
+		"column.attendee": 0,
+		"column.following_up": 0,
+		"column.interviewed": 0,
+		"column.core_group": 3,
+		"stage.core_group": 0,
+		"stage.launch_team": 1,
+		"stage.leader": 2,
+	});
+	const paged = await invokeRead(db, member, getPipelineData, { search: "Core count", column: "core_group", limit: 2 });
+	assert.deepEqual([paged.facts, paged.next], [{ "column.core_group": 3 }, 2]);
+	await admin.execute(sql`DELETE FROM person WHERE id=ANY(${sql.param(core)}::uuid[])`);
 });
 
 test("AC:AC-EVR-113--EVR-113 AC:AC-EVR-READ--EVR-113 AC:AC-EVR-114--EVR-114 AC:AC-EVR-READ--EVR-114 AC:AC-EVR-115--EVR-115 AC:AC-EVR-READ--EVR-115 AC:AC-EVR-140--EVR-140 AC:AC-EVR-READ--EVR-140 AC:AC-EVR-148--EVR-148 AC:AC-EVR-READ--EVR-148 AC:AC-EVR-149--EVR-149 AC:AC-EVR-READ--EVR-149 AC:TARGET-PPL-009 AC:TARGET-PPL-010 AC:TARGET-PPL-011 AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE AC:EVRY-FAMILY-PEOPLE-HOUSEHOLDS-NOTES households, tags and skills return safe rows for any seat and the same statement count for one or many", async () => {

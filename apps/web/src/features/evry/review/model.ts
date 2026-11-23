@@ -1,7 +1,19 @@
 import type { MailReport, RecipientOutcome } from "@everyfield/contracts/communication";
+import { CHANNEL_LABEL } from "../../followups/model.ts";
 import { ROLE_LABEL, SHARING_CATEGORIES, SHARING_CATEGORY_LABEL, ZONE_NAME } from "@everyfield/evry/labels";
 import { SOURCE_LABEL, STAGE_LABEL, type SourceValue, type StageValue } from "../../people/model.ts";
-import type { ProjectedError } from "../conversation/model.ts";
+import { CATEGORY_LABEL, PRIORITY_LABEL } from "../../tasks/model.ts";
+import { TASK_REFUSAL, type ProjectedError } from "../conversation/model.ts";
+import {
+	CRITERION_LABEL,
+	FIELD_LABEL as MERGE_FIELD_LABEL,
+	LENS_LABEL,
+	RATING_LABEL,
+	RESULT_LABEL,
+	type InterviewResult,
+	type MergeField,
+	type Rating,
+} from "../../people/corrections/model.ts";
 
 export type Operation =
 	| "people.createPerson"
@@ -10,12 +22,30 @@ export type Operation =
 	| "people.deletePerson"
 	| "people.setPersonPhoto"
 	| "people.removePersonPhoto"
+	| "people.createInterview"
+	| "people.createAssessment"
+	| "people.createCommitment"
+	| "people.withdrawCommitment"
+	| "people.reactivateCommitment"
+	| "people.correctCommitmentLifecycle"
+	| "people.correctPersonRecord"
+	| "people.mergePeople"
+	| "people.unmergePeople"
 	| OrganizationOperation
 	| "communication.saveDraft"
 	| "communication.scheduleReviewed"
 	| "communication.rescheduleReviewed"
 	| "communication.cancelScheduledReviewed"
 	| "communication.replaceScheduledReviewed"
+	| TaskOperation
+	| "communication.sendReviewed"
+	| "communication.executeResend"
+	| "communication.retryProvenFailed"
+	| "communication.deleteDraft"
+	| "communication.templates.create"
+	| "communication.templates.fork"
+	| "communication.templates.update"
+	| InvitationOperation
 	| "meetings.schedule"
 	| "meetings.edit"
 	| "meetings.changeStatus"
@@ -50,15 +80,39 @@ export type Operation =
 	| "venues.correct"
 	| "venues.archive"
 	| "venues.restore"
+	| "documents.createFromTemplate"
+	| "documents.exportNative"
+	| "documents.archive"
+	| "documents.designateCoreValues"
+	| "documents.importTextOrWord"
 	| "notifications.markSelectedRead"
 	| "notifications.markAllVisibleRead"
 	| "notifications.setPreferences"
 	| "notifications.digestCadence.set"
 	| "notifications.oversightDigestCadence.set"
+	| "wiki.bookmarks.set"
+	| "wiki.feedback.setMine"
+	| WikiEditorOperation
 	| TeamsOperation
+	| "phases.declare"
+	| "phases.transition"
+	| "signals.attest"
+	| "signals.correct"
+	| "signals.reaffirm"
 	| SettingsOperation
 	| PipelineOperation
-	| LaunchOperation;
+	| LaunchOperation
+	| IntelligenceOperation;
+
+export type IntelligenceOperation = "intelligence.requestRefresh" | "intelligence.submitFeedback";
+
+export type WikiEditorOperation =
+	| "wiki.organizationArticles.add"
+	| "wiki.organizationArticles.edit"
+	| "wiki.organizationArticles.publish"
+	| "wiki.organizationArticles.hide";
+export const isWikiEditor = (operation: Operation): operation is WikiEditorOperation =>
+	operation.startsWith("wiki.organizationArticles.");
 
 export type LaunchOperation =
 	| "launch.schedule"
@@ -87,6 +141,32 @@ export function pipelineLink(review: Pick<Review, "operation" | "review">): { hr
 		? { href: `/organization/pipeline/${who.id}`, label: `Open ${who.label}` }
 		: { href: "/organization/pipeline/programs", label: "Open Programs" };
 }
+type TaskOperation =
+	| "tasks.create"
+	| "tasks.configureRecurrence"
+	| "tasks.edit"
+	| "tasks.complete"
+	| "tasks.completeOccurrence"
+	| "tasks.reopen"
+	| "tasks.changeStatus"
+	| "tasks.waive"
+	| "tasks.delete"
+	| "tasks.bulkComplete"
+	| "tasks.bulkReschedule"
+	| "tasks.createSubtask"
+	| "tasks.setSubtaskCompletion"
+	| "tasks.removeSubtask"
+	| "tasks.createFollowUp"
+	| "tasks.assignFollowUp"
+	| "tasks.reopenObligation"
+	| "tasks.acceptPhaseOffer"
+	| "tasks.answerPhaseOffer"
+	| "tasks.declinePhaseOffer"
+	| "tasks.importTemplate"
+	| "tasks.executeHandoff"
+	| "tasks.replacePrerequisites"
+	| "followups.recordOutcome"
+	| "followups.correctOutcome";
 
 const TEAMS_TITLE = {
 	"teams.create": "Add a ministry",
@@ -193,6 +273,7 @@ export type Review = {
 			kind:
 				| "person"
 				| "message"
+				| "task"
 				| "team"
 				| "role"
 				| "training"
@@ -202,14 +283,20 @@ export type Review = {
 				| "meeting"
 				| "venue"
 				| "church"
+				| "plant"
 				| "seat"
 				| "invitation"
 				| "connection"
 				| "organization"
 				| "account"
+				| "article"
+				| "document"
+				| "template"
 				| "program";
 			id: string;
 			label: string;
+			articleId?: string;
+			href?: string;
 		} | null;
 		changes: Change[];
 		people?: ReviewedPerson[];
@@ -222,6 +309,7 @@ export type Review = {
 	executing: boolean;
 	receipt: {
 		receiptId?: string;
+		meetingId?: string;
 		revision?: string;
 		code?: string;
 		report?: MailReport;
@@ -253,6 +341,7 @@ export const retryable = (review: Review, lapsed: boolean) =>
 	(review.outcome === "failed" || review.outcome === "unknown") && !lapsed;
 
 const FIELD_LABEL: Record<string, string> = {
+	prerequisites: "Waits on",
 	displayName: "Name",
 	pipelineStage: "Stage",
 	programKind: "Kind",
@@ -293,6 +382,32 @@ const FIELD_LABEL: Record<string, string> = {
 	reason: "Reason",
 	photo: "Photo",
 	state: "Status",
+	occurredOn: "Date",
+	...CRITERION_LABEL,
+	result: "Result",
+	nextSteps: "Next steps",
+	...LENS_LABEL,
+	total: "Total",
+	kind: "Commitment",
+	witness: "Witness",
+	cardNotes: "Notes",
+	document: "Signed document",
+	commitment: "Commitment",
+	effectiveOn: "From",
+	cardVoided: "Voided",
+	keeps: "Stays",
+	mergesIn: "Merges in",
+	moves: "Moves over",
+	keptDetails: "Kept as is",
+	staysWithMergedRecord: "Stays behind",
+	comesBack: "Comes back",
+	movesBack: "Moves back",
+	detailsGoBack: "Details back",
+	bookmarked: "Bookmark",
+	addedText: "Added text",
+	articleText: "Text",
+	organizationVersion: "Your version",
+	feedback: "Your feedback",
 	household: "Household",
 	householdRole: "Role",
 	householdAddress: "Address",
@@ -307,6 +422,19 @@ const FIELD_LABEL: Record<string, string> = {
 	proficiency: "Level",
 	notes: "Skill notes",
 	note: "Note",
+	status: "Status",
+	title: "Title",
+	priority: "Priority",
+	due: "Due",
+	owners: "Owners",
+	recurrence: "Repeats",
+	relatedTo: "Related to",
+	nextOccurrence: "Next occurrence",
+	outcome: "Outcome",
+	occurredAt: "When",
+	channel: "How",
+	contactNote: "Note",
+	followUp: "Follow-up",
 	description: "Description",
 	archived: "Archived",
 	leadership: "Leadership role",
@@ -321,7 +449,6 @@ const FIELD_LABEL: Record<string, string> = {
 	date: "Date",
 	time: "Time",
 	subtype: "Kind",
-	title: "Title",
 	offer: "Offer",
 	responsibilities: "Responsibilities",
 	responsibility: "Responsibility",
@@ -333,10 +460,17 @@ const FIELD_LABEL: Record<string, string> = {
 	completedOn: "Completed on",
 	completedAgainOn: "Completed again on",
 	completion: "Completion",
+	phase: "Phase",
+	direction: "Direction",
+	openCriteria: "Not met yet",
+	signal: "Signal",
+	value: "Answer",
+	asOf: "True as of",
+	detail: "In your words",
+	reference: "Written down in",
 	type: "Type",
 	when: "When",
 	venue: "Venue",
-	status: "Status",
 	held: "Held",
 	voided: "Counts",
 	meetingNotes: "Notes",
@@ -394,11 +528,34 @@ const FIELD_LABEL: Record<string, string> = {
 	lead: "Lead",
 	setup: "Setup",
 	discovery: "Discovery",
-	feedback: "Your feedback",
+	assessment: "Assessment",
+	rating: "Your rating",
+	comment: "Your comment",
 	yourRole: "Your role",
 	page: "Page",
 	...SHARING_CATEGORY_LABEL,
+	template: "Template",
+	templateVersion: "Version",
+	notice: "Notice",
+	format: "Format",
+	version: "Version",
+	list: "Leaves",
+	documentType: "Type",
+	file: "File",
 };
+const KIND_LABEL: Record<string, string> = { core_group: "Core group", launch_team: "Launch team" };
+const COMMITMENT_LABEL: Record<string, string> = { active: "Active", withdrawn: "Withdrawn", unknown: "Not recorded" };
+function judgmentText(value: object): string | null {
+	const v = value as { rating?: unknown; score?: unknown; notes?: unknown };
+	const head =
+		typeof v.score === "number"
+			? `${v.score} of 5`
+			: typeof v.rating === "string"
+				? (RATING_LABEL[v.rating as Rating] ?? v.rating)
+				: null;
+	if (!head) return null;
+	return typeof v.notes === "string" && v.notes ? `${head} · ${v.notes}` : head;
+}
 const MEETINGS_LABEL: Record<string, string> = { tasks: "Tasks it creates" };
 const LAUNCH_LABEL: Record<string, string> = { guest: "Launch Sunday guest" };
 export const fieldLabel = (field: string, operation?: string) =>
@@ -410,10 +567,19 @@ export const fieldLabel = (field: string, operation?: string) =>
 					? LAUNCH_LABEL[field]
 					: undefined) ??
 			FIELD_LABEL[field] ??
+			MERGE_FIELD_LABEL[field as MergeField] ??
 			field);
 
 const TEAM_STATE: Record<string, string> = { forming: "Forming", active: "Active", paused: "Paused" };
-const DATE_FIELDS = new Set(["birthDate", "date", "completedOn", "completedAgainOn"]);
+const DATE_FIELDS = new Set([
+	"birthDate",
+	"date",
+	"completedOn",
+	"completedAgainOn",
+	"occurredOn",
+	"effectiveOn",
+	"asOf",
+]);
 
 const CAPITALIZED = new Set(["householdRole", "category", "proficiency", "color"]);
 const CLASSIFICATION_LABEL: Record<string, string> = { adult: "Adult", child: "Child", unknown: "Not recorded" };
@@ -424,8 +590,83 @@ const dateFormat = new Intl.DateTimeFormat(undefined, {
 	timeZone: "UTC",
 });
 
+const TASK_STATUS: Record<string, string> = {
+	not_started: "Not started",
+	in_progress: "In progress",
+	blocked: "Blocked",
+	complete: "Complete",
+	no_longer_needed: "No longer needed",
+	deleted: "Deleted",
+	added: "Added",
+	removed: "Removed",
+};
+const OUTCOME: Record<string, string> = {
+	contacted: "Contacted (a conversation happened)",
+	attempted_no_contact: "Attempted, no conversation",
+	administrative_completion: "Administrative completion",
+	no_longer_needed: "No longer needed",
+	withdrawn: "Withdrawn",
+};
+const CHANNEL: Record<string, string> = CHANNEL_LABEL;
+const PRIORITY: Record<string, string> = PRIORITY_LABEL;
+const CATEGORY: Record<string, string> = CATEGORY_LABEL;
+const FREQUENCY: Record<string, string> = {
+	daily: "Daily",
+	weekly: "Weekly",
+	biweekly: "Every two weeks",
+	monthly: "Monthly",
+	quarterly: "Quarterly",
+	yearly: "Yearly",
+};
+const NONE: Record<string, string> = { owners: "Needs owner", due: "No due date", recurrence: "Doesn't repeat" };
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function localWhen(value: string): string {
+	const m = /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}):(\d{2}))?(?: (\S+))?$/.exec(value);
+	if (!m) return value;
+	const at = new Date(`${m[1]}T${m[2] ?? "00"}:${m[3] ?? "00"}:00Z`);
+	if (Number.isNaN(at.getTime())) return value;
+	const date = at.toLocaleDateString("en-US", {
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		timeZone: "UTC",
+	});
+	if (!m[2]) return date;
+	const time = at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+	const place = m[4]?.split("/").at(-1)?.replaceAll("_", " ");
+	return `${date}, ${time}${place ? ` (${place} time)` : ""}`;
+}
+function repeats(value: string) {
+	if (value === "stopped") return "Stops repeating";
+	const all = value.split(", ");
+	const zone = all.find((p) => p.includes("/"));
+	const [rule = "", ...rest] = all.filter((p) => p !== zone);
+	const [frequency = "", ...tail] = rule.split(" ");
+	const head = [FREQUENCY[frequency] ?? frequency, ...tail].join(" ");
+	const text = [head, ...rest.map((p) => p.replace(/^until (\S+)$/, (_, d: string) => `until ${localWhen(d)}`))].join(
+		", ",
+	);
+	return zone ? `${text} (${zone})` : text;
+}
+
+const DIRECTION_TEXT: Record<string, string> = {
+	forward: "Forward, to the next phase",
+	skip_forward: "Forward, skipping a phase",
+	backward: "Backward, to an earlier phase",
+};
+const ANSWER_TEXT: Record<string, string> = { yes: "Yes", not_yet: "Not yet", retracted: "Retracted" };
+const named = (value: unknown, name: "name" | "label") =>
+	value && typeof value === "object" && name in value ? String((value as Record<string, unknown>)[name]) : null;
+
 export function valueText(field: string, value: unknown): string | null {
-	if (value === null || value === undefined || value === "") return null;
+	if (value === null || value === undefined || value === "") return NONE[field] ?? null;
+	if (field === "phase") return named(value, "name");
+	if (field === "signal") return named(value, "label");
+	if (field === "direction") return DIRECTION_TEXT[String(value)] ?? String(value);
+	if (field === "value") return ANSWER_TEXT[String(value)] ?? String(value);
+	if (field === "asOf" && value === "today") return "Today, when you approve";
 	if (Array.isArray(value)) return value.length ? value.map(String).join("\n") : null;
 	if (field === "photo") return `Photo ${photoRef(value)}`;
 	if (typeof value === "boolean" && SHARED.has(field)) return value ? "Shared" : "Not shared";
@@ -441,11 +682,26 @@ export function valueText(field: string, value: unknown): string | null {
 			: value === "retired"
 				? "Removed"
 				: (TEAM_STATE[String(value)] ?? String(value));
+	if (field === "bookmarked") return value === true ? "Bookmarked" : "Not bookmarked";
+	if (field === "feedback")
+		return value === "helpful" ? "Helpful" : value === "unhelpful" ? "Not helpful" : String(value);
 	if (typeof value === "boolean") return value ? "Yes" : "No";
 	if (Array.isArray(value)) return value.map(String).join(", ");
+	if (field === "category" && String(value) in CATEGORY) return CATEGORY[String(value)] ?? String(value);
 	if (CAPITALIZED.has(field) && typeof value === "string") return value.charAt(0).toUpperCase() + value.slice(1);
 	if (DATE_FIELDS.has(field) && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
 		return dateFormat.format(new Date(`${value}T00:00:00Z`));
+	if (field === "status" || field === "followUp") return TASK_STATUS[String(value)] ?? String(value);
+	if (field === "outcome") return OUTCOME[String(value)] ?? String(value);
+	if (field === "channel") return CHANNEL[String(value)] ?? String(value);
+	if (field === "priority") return PRIORITY[String(value)] ?? String(value);
+	if ((field === "due" || field === "occurredAt") && typeof value === "string") return localWhen(value);
+	if (field === "recurrence" && typeof value === "string") return repeats(value);
+	if (field === "relatedTo" && typeof value === "string" && UUID.test(value)) return "A linked record";
+	if (field === "result") return RESULT_LABEL[value as InterviewResult] ?? String(value);
+	if (field === "kind") return KIND_LABEL[String(value)] ?? String(value);
+	if (field === "commitment") return COMMITMENT_LABEL[String(value)] ?? String(value);
+	if (typeof value === "object") return judgmentText(value) ?? JSON.stringify(value);
 	return String(value);
 }
 
@@ -484,12 +740,153 @@ export const isPhoto = (operation: Operation) =>
 export const savedPhotoSrc = (target: { kind: string; id: string }, version: string) =>
 	target.kind === "account" ? `/api/accounts/${target.id}/avatar/${version}` : `/people/${target.id}/photo/${version}`;
 
+const ITEM_FIELD: Partial<Record<Operation, string>> = {
+	"tasks.bulkComplete": "status",
+	"tasks.bulkReschedule": "due",
+	"tasks.createSubtask": "status",
+	"tasks.setSubtaskCompletion": "status",
+	"tasks.removeSubtask": "status",
+	"tasks.assignFollowUp": "owners",
+	"tasks.acceptPhaseOffer": "checklist",
+	"tasks.answerPhaseOffer": "checklist",
+	"tasks.declinePhaseOffer": "checklist",
+	"tasks.importTemplate": "due",
+	"tasks.executeHandoff": "owners",
+};
+export const itemField = (operation: Operation) => ITEM_FIELD[operation] ?? null;
+const CREATES = new Set<Operation>([
+	"people.createPerson",
+	"tasks.create",
+	"tasks.createFollowUp",
+	"followups.recordOutcome",
+]);
+const NO_BEFORE = new Set(["reason", "contactNote", "nextOccurrence"]);
+export const showsBefore = (review: Pick<Review, "operation">, change: Change) =>
+	!afterOnly(review, change.field) &&
+	!NO_BEFORE.has(change.field) &&
+	!(
+		(isMeetings(review.operation) ||
+			isLaunch(review.operation) ||
+			review.operation === "development.draftNextVersion") &&
+		(change.before === null || change.before === undefined)
+	) &&
+	!(isDocument(review.operation) && change.before === null) &&
+	!(
+		isIntelligence(review.operation) &&
+		(change.before === null || JSON.stringify(change.before) === JSON.stringify(change.after))
+	) &&
+	(change.before !== null && change.before !== undefined
+		? true
+		: !CREATES.has(review.operation) && !itemField(review.operation));
+
+export const isTasks = (operation: Operation) => operation.startsWith("tasks.") || operation.startsWith("followups.");
+
+export function invitationName(review: Review): string {
+	const meeting = review.review.changes.find((c) => c.field === "meeting")?.after as { title?: unknown } | undefined;
+	return typeof meeting?.title === "string" ? meeting.title : (review.review.target?.label ?? "Meeting invitation");
+}
+
+export function subjectName(review: Review): string {
+	const { target, changes } = review.review;
+	if (target) return target.label;
+	if (review.operation === "tasks.create") return String(changes.find((c) => c.field === "title")?.after ?? "New task");
+	if (review.operation === "documents.importTextOrWord")
+		return String(changes.find((c) => c.field === "title")?.after ?? "New document");
+	const n = changes.length;
+	if (review.operation === "tasks.assignFollowUp")
+		return `${n.toLocaleString()} ${n === 1 ? "follow-up" : "follow-ups"}`;
+	return `${n.toLocaleString()} ${n === 1 ? "task" : "tasks"}`;
+}
+
+export function savedText(review: Review): string {
+	const who = review.review.target?.label;
+	if (isWikiEditor(review.operation)) return WIKI_EDITOR_SAVED[review.operation](who ?? "the article");
+	if (!isTasks(review.operation)) return who ? `Saved. ${who} is updated.` : "Saved.";
+	const name = subjectName(review);
+	const status = review.review.changes.find((c) => c.field === "status")?.after;
+	switch (review.operation) {
+		case "tasks.create":
+			return `Saved. ${name} is in Tasks.`;
+		case "tasks.complete":
+		case "tasks.completeOccurrence":
+			return `Saved. ${name} is complete.`;
+		case "tasks.reopen":
+		case "tasks.reopenObligation":
+			return `Saved. ${name} is open again.`;
+		case "tasks.waive":
+			return `Saved. ${name} is closed as no longer needed.`;
+		case "tasks.changeStatus":
+			return `Saved. ${name} is now ${(valueText("status", status) ?? "updated").toLowerCase()}.`;
+		case "tasks.delete":
+			return `Saved. ${name} is deleted.`;
+		case "tasks.bulkComplete":
+			return `Saved. ${name} ${review.review.changes.length === 1 ? "is" : "are"} complete.`;
+		case "tasks.bulkReschedule":
+			return `Saved. ${name} ${review.review.changes.length === 1 ? "has" : "have"} a new due date.`;
+		case "tasks.createSubtask":
+		case "tasks.setSubtaskCompletion":
+		case "tasks.removeSubtask":
+			return `Saved. The checklist of ${name} is updated.`;
+		case "tasks.configureRecurrence":
+			return `Saved. The schedule of ${name} is updated.`;
+		case "tasks.createFollowUp":
+			return `Saved. ${name} has a new follow-up.`;
+		case "tasks.assignFollowUp":
+			return "Saved. The follow-up owners are updated.";
+		case "tasks.acceptPhaseOffer":
+		case "tasks.answerPhaseOffer":
+			return "Saved. The phase offer is answered, and its new tasks are in Tasks.";
+		case "tasks.declinePhaseOffer":
+			return "Saved. The phase offer is declined. No task was added.";
+		case "tasks.importTemplate":
+			return `Saved. The ${name} tasks are in Tasks.`;
+		case "tasks.executeHandoff":
+			return "Saved. The follow-ups have their new owner.";
+		case "tasks.replacePrerequisites":
+			return `Saved. What ${name} waits on is updated.`;
+		case "followups.recordOutcome":
+			return `Saved. The contact with ${name} is logged.`;
+		case "followups.correctOutcome":
+			return `Saved. The contact log of ${name} is corrected.`;
+		default:
+			return `Saved. ${name} is updated.`;
+	}
+}
+
+const WIKI_EDITOR_SAVED: Record<WikiEditorOperation, (title: string) => string> = {
+	"wiki.organizationArticles.add": (t) =>
+		`Saved. Your draft of ${t} is in your Wiki editor. Churches keep seeing the Wiki's version.`,
+	"wiki.organizationArticles.edit": (t) => `Saved. Your draft of ${t} is updated.`,
+	"wiki.organizationArticles.publish": (t) => `Published. Churches that share your Wiki now see your version of ${t}.`,
+	"wiki.organizationArticles.hide": (t) =>
+		`Hidden. Churches no longer see your version of ${t}, and can open the Wiki's standard version instead.`,
+};
+
+export function openAfter(review: Review): { href: string; label: string } | null {
+	const who = review.review.target;
+	if (isInvitation(review.operation) && review.receipt?.meetingId)
+		return { href: `/meetings/${review.receipt.meetingId}`, label: "Open the meeting" };
+	if (review.review.withheld || isMail(review.operation)) return null;
+	if (isWikiEditor(review.operation)) return who?.href ? { href: who.href, label: "Open the Wiki editor" } : null;
+	if (!isTasks(review.operation))
+		return who?.kind === "person" && review.operation !== "people.deletePerson"
+			? { href: targetHref(who), label: `Open ${who.label}` }
+			: null;
+	if (who?.kind === "person") return { href: `/people/${who.id}`, label: `Open ${who.label}` };
+	if (review.operation === "tasks.delete") return { href: "/tasks", label: "Open Tasks" };
+	if (review.operation === "tasks.executeHandoff") return { href: "/tasks/follow-ups", label: "Open Follow-ups" };
+	return who?.kind === "task"
+		? { href: `/tasks?task=${who.id}`, label: "Open task" }
+		: { href: "/tasks", label: "Open Tasks" };
+}
+
 export const approvable = (review: Pick<Review, "operation">, uploadShown: boolean) =>
 	!isPhoto(review.operation) || uploadShown;
 
 export function emptyText(field: string, after: boolean) {
 	if (field === "photo") return "No photo";
-	if (field === "household" || field === "householdRole") return "None";
+	if (field === "feedback") return "No vote";
+	if (field === "household" || field === "householdRole" || field === "prerequisites") return "None";
 	if (after && ["note", "skill", "category", "proficiency", "tag", "removedMilestones"].includes(field))
 		return "Removed";
 	return "Empty";
@@ -509,18 +906,67 @@ export const shownChanges = (review: Pick<Review, "operation" | "review">) =>
 	);
 
 const TITLE: Record<Operation, string> = {
+	"evry.prepareMeetingInvitation": "Invite people to a meeting",
+	"evry.reuseRecipe": "Repeat an invitation",
 	...TEAMS_TITLE,
 	"communication.saveDraft": "Save an email draft",
 	"communication.scheduleReviewed": "Schedule an email",
 	"communication.rescheduleReviewed": "Change the send time",
 	"communication.cancelScheduledReviewed": "Cancel a scheduled email",
 	"communication.replaceScheduledReviewed": "Replace a scheduled email",
+	"communication.sendReviewed": "Send an email",
+	"communication.executeResend": "Resend an email",
+	"communication.retryProvenFailed": "Retry a failed email",
+	"communication.deleteDraft": "Delete an email draft",
+	"communication.templates.create": "Save an email template",
+	"communication.templates.fork": "Copy a system template",
+	"communication.templates.update": "Change an email template",
 	"people.createPerson": "Add a person",
 	"people.updatePerson": "Update a person",
 	"people.changeStatus": "Change a stage",
 	"people.deletePerson": "Remove a person",
 	"people.setPersonPhoto": "Set a photo",
 	"people.removePersonPhoto": "Remove a photo",
+	"tasks.create": "Create a task",
+	"tasks.configureRecurrence": "Repeat a task",
+	"tasks.edit": "Edit a task",
+	"tasks.complete": "Complete a task",
+	"tasks.completeOccurrence": "Complete this occurrence",
+	"tasks.reopen": "Reopen a task",
+	"tasks.changeStatus": "Change a task's status",
+	"tasks.waive": "Close as no longer needed",
+	"tasks.delete": "Delete a task",
+	"tasks.bulkComplete": "Complete tasks",
+	"tasks.bulkReschedule": "Reschedule tasks",
+	"tasks.createSubtask": "Update a checklist",
+	"tasks.setSubtaskCompletion": "Update a checklist",
+	"tasks.removeSubtask": "Update a checklist",
+	"tasks.createFollowUp": "Add a follow-up",
+	"tasks.assignFollowUp": "Assign follow-ups",
+	"tasks.reopenObligation": "Reopen a follow-up",
+	"tasks.acceptPhaseOffer": "Accept the phase checklists",
+	"tasks.answerPhaseOffer": "Answer the phase offer",
+	"tasks.declinePhaseOffer": "Decline the phase checklists",
+	"tasks.importTemplate": "Import a checklist",
+	"tasks.executeHandoff": "Hand off follow-ups",
+	"tasks.replacePrerequisites": "Set what a task waits on",
+	"followups.recordOutcome": "Log a contact",
+	"followups.correctOutcome": "Correct a contact log entry",
+	"people.createInterview": "Record an interview",
+	"people.createAssessment": "Record a 4 C's assessment",
+	"people.createCommitment": "Record a commitment",
+	"people.withdrawCommitment": "Withdraw a commitment",
+	"people.reactivateCommitment": "Reactivate a commitment",
+	"people.correctCommitmentLifecycle": "Correct a commitment card",
+	"people.correctPersonRecord": "Correct a record",
+	"people.mergePeople": "Merge two people",
+	"people.unmergePeople": "Undo a merge",
+	"wiki.bookmarks.set": "Bookmark an article",
+	"wiki.feedback.setMine": "Rate an article",
+	"wiki.organizationArticles.add": "Draft your Wiki version",
+	"wiki.organizationArticles.edit": "Change your Wiki draft",
+	"wiki.organizationArticles.publish": "Publish your Wiki version",
+	"wiki.organizationArticles.hide": "Hide your Wiki version",
 	"seats.invite": "Invite someone",
 	"seats.resendInvitation": "Resend an invitation",
 	"seats.revokeInvitation": "Revoke an invitation",
@@ -546,6 +992,8 @@ const TITLE: Record<Operation, string> = {
 	"launch.reopenMilestone": "Reopen a launch milestone",
 	"launch.addGuestAttendance": "Name a Launch Sunday guest",
 	"launch.correctOutcome": "Correct Launch Sunday",
+	"intelligence.requestRefresh": "Refresh Plant Intelligence",
+	"intelligence.submitFeedback": "Rate a finding",
 	"development.draftNextVersion": "Draft the next version",
 	"onboarding.declareJourney": "Where your church is",
 	"identity.answerLeadOnboarding": "Who leads your church",
@@ -553,11 +1001,21 @@ const TITLE: Record<Operation, string> = {
 	"onboarding.createPlant": "Start a church",
 	"discovery.create": "Start a Discovery space",
 	"discovery.convertToPlant": "Turn Discovery into a church",
+	"documents.createFromTemplate": "New Church Document from a template",
+	"documents.exportNative": "Save a file of this document",
+	"documents.archive": "Archive a document",
+	"documents.designateCoreValues": "Mark as your core values",
+	"documents.importTextOrWord": "New document from a file",
 	"notifications.markSelectedRead": "Mark notifications read",
 	"notifications.markAllVisibleRead": "Mark all notifications read",
 	"notifications.setPreferences": "Change notification settings",
 	"notifications.digestCadence.set": "Change how often your digest comes",
 	"notifications.oversightDigestCadence.set": "Change how often your oversight digest comes",
+	"phases.declare": "Record the starting phase",
+	"phases.transition": "Move the phase",
+	"signals.attest": "Record a signal",
+	"signals.correct": "Correct a signal",
+	"signals.reaffirm": "Reaffirm a signal",
 	"people.addToHousehold": "Add to a household",
 	"people.createHouseholdWithHead": "Create a household",
 	"people.updateHousehold": "Update a household",
@@ -614,7 +1072,49 @@ const TITLE: Record<Operation, string> = {
 };
 export const operationTitle = (operation: Operation) => TITLE[operation];
 
-export const isMail = (operation: Operation) => operation.startsWith("communication.");
+const MERGE_FACTS = new Set([
+	"keeps",
+	"keptDetails",
+	"mergesIn",
+	"moves",
+	"staysWithMergedRecord",
+	"comesBack",
+	"movesBack",
+	"detailsGoBack",
+]);
+export const afterOnly = (review: Pick<Review, "operation">, field: string) =>
+	field === "reason" || MERGE_FACTS.has(field) || (ADDS.has(review.operation) && field !== "stage");
+export const isIntelligence = (operation: Operation) => /^(phases|signals)\./.test(operation);
+export const intelligencePage = (operation: Operation) =>
+	operation.startsWith("phases.")
+		? { href: "/intelligence", label: "Open the phase journey" }
+		: { href: "/intelligence/attestations", label: "Open attestations" };
+export const openCriteria = (review: Review) => {
+	const value = review.review.changes.find((c) => c.field === "openCriteria")?.after;
+	return Array.isArray(value) ? (value as { label: string; status: string; reading?: string | null }[]) : null;
+};
+
+export type MailOperation = Extract<Operation, `communication.${string}`>;
+export const isMail = (operation: Operation): operation is MailOperation => operation.startsWith("communication.");
+export type InvitationOperation = "evry.prepareMeetingInvitation" | "evry.reuseRecipe";
+export const isInvitation = (operation: Operation): operation is InvitationOperation =>
+	operation === "evry.prepareMeetingInvitation" || operation === "evry.reuseRecipe";
+export const sendsMail = (operation: Operation) => isMail(operation) || isInvitation(operation);
+export const INVITATION_CONSEQUENCE =
+	"Approving does every step above at once: the meeting, the guests, then the email to exactly these people. Accepted is not delivered: Messages shows each delivery when the email service reports it.";
+export function invitationRefusalText(code: string | undefined): string {
+	switch (code) {
+		case "stale_review":
+		case "revision_conflict":
+			return "The meeting or the people changed since the review, so nothing was added or sent. Ask Evry to review it again.";
+		case "access_denied":
+			return "Your seat no longer allows this, so nothing was added or sent.";
+		default:
+			return "Everyfield refused this invitation, so nothing was added or sent.";
+	}
+}
+export const isWiki = (operation: Operation) => operation.startsWith("wiki.");
+export const targetHref = (target: NonNullable<Review["review"]["target"]>) => target.href ?? `/people/${target.id}`;
 export const isMeetings = (operation: Operation) =>
 	operation.startsWith("meetings.") || operation.startsWith("venues.");
 type SendTime = { at: string; zone: string };
@@ -693,22 +1193,42 @@ export const LEFT_OUT_REASON: Record<string, string> = {
 	no_address: "No email address",
 	blocked: "Blocked after a bounce",
 	unsubscribed: "Unsubscribed",
+	duplicate_address: "Same address as someone who gets it",
+	cannot_be_emailed: "Can't be emailed now",
+	still_checking: "Result still being checked",
+	opened: "Opened it",
+	not_delivered: "Delivery not confirmed",
+	too_soon: "Sent less than 24 hours ago",
+	delivered: "Already delivered",
+	sent: "Sent, delivery not confirmed yet",
+	checking: "Result still being checked",
+	waiting: "Still waiting to send",
+	cancelled: "Cancelled",
 };
 
 export const checkable = (review: Review) =>
 	review.outcome === "completed" && review.receipt?.report?.confirmation === "not_confirmed";
 
-const MAIL_PENDING: Record<string, string> = {
+const MAIL_PENDING: Record<MailOperation, string> = {
 	"communication.saveDraft": "Review before saving",
 	"communication.scheduleReviewed": "Review before scheduling",
 	"communication.rescheduleReviewed": "Review the new time",
 	"communication.cancelScheduledReviewed": "Review before cancelling",
 	"communication.replaceScheduledReviewed": "Review the replacement",
+	"communication.sendReviewed": "Review before sending",
+	"communication.executeResend": "Review the resend",
+	"communication.retryProvenFailed": "Review the retry",
+	"communication.deleteDraft": "Review before deleting",
+	"communication.templates.create": "Review the new template",
+	"communication.templates.fork": "Review the copy",
+	"communication.templates.update": "Review the template change",
 };
 const MAIL_REFUSED: Record<string, string> = {
 	"communication.scheduleReviewed": "Can't schedule this email",
 	"communication.rescheduleReviewed": "Can't move this email",
 	"communication.replaceScheduledReviewed": "Can't replace this email",
+	"communication.sendReviewed": "Can't send this email",
+	"communication.templates.update": "Can't edit this template",
 };
 export const MAIL_DISMISSED: Partial<Record<Operation, string>> = {
 	"communication.saveDraft": "You closed this review. Nothing was saved.",
@@ -717,31 +1237,69 @@ export const MAIL_DISMISSED: Partial<Record<Operation, string>> = {
 	"communication.cancelScheduledReviewed": "You closed this review. The message still sends at its set time.",
 	"communication.replaceScheduledReviewed":
 		"You closed this review. The message still sends as it was, at its set time.",
+	"communication.sendReviewed": "You closed this review. Nothing was sent or saved.",
+	"evry.prepareMeetingInvitation": "You closed this review. Nothing was created, added or sent.",
+	"evry.reuseRecipe": "You closed this review. Nothing was added or sent.",
+	"communication.executeResend": "You closed this review. Nothing was resent.",
+	"communication.retryProvenFailed": "You closed this review. Nothing was sent again.",
+	"communication.deleteDraft": "You closed this review. The draft stays saved.",
+	"communication.templates.create": "You closed this review. No template was saved.",
+	"communication.templates.fork": "You closed this review. No copy was made.",
+	"communication.templates.update": "You closed this review. The template stays as it was.",
 };
+const LOCAL_ONLY = new Set<Operation>([
+	"communication.saveDraft",
+	"communication.deleteDraft",
+	"communication.templates.create",
+	"communication.templates.fork",
+	"communication.templates.update",
+]);
 export function mailHead(
 	review: Review,
 	phase: string,
 ): { title: string; tone: "amber" | "green" | "magenta" | "gray" } | null {
-	if (!isMail(review.operation)) return null;
-	if (phase === "pending")
+	if (isInvitation(review.operation)) {
+		if (phase === "pending")
+			return {
+				title: review.review.refusal ? "Can't prepare this invitation" : "Review every step before approving",
+				tone: "amber",
+			};
+		if (phase === "completed" && review.receipt?.report?.confirmation === "confirmed")
+			return { title: "Guests added and invitation sent", tone: "green" };
+	}
+	if (!sendsMail(review.operation)) return null;
+	if (phase === "pending" && isMail(review.operation))
 		return {
 			title: review.stale
 				? "Message changed"
 				: review.review.refusal
 					? (MAIL_REFUSED[review.operation] ?? "Can't do this")
-					: MAIL_PENDING[review.operation]!,
+					: MAIL_PENDING[review.operation],
 			tone: "amber",
 		};
 	if (phase === "running")
 		return {
-			title: review.operation === "communication.saveDraft" ? "Saving…" : "Working with the email service…",
+			title: !LOCAL_ONLY.has(review.operation)
+				? "Working with the email service…"
+				: review.operation === "communication.deleteDraft"
+					? "Deleting…"
+					: "Saving…",
 			tone: "amber",
 		};
 	if (phase === "refused") return { title: "Refused", tone: "magenta" };
 	if (phase === "cancelled") return { title: "Review closed", tone: "gray" };
 	if (phase !== "completed") return null;
 	const report = review.receipt?.report;
-	if (!report) return { title: "Saved", tone: "green" };
+	if (!report)
+		return {
+			title:
+				review.operation === "communication.deleteDraft"
+					? "Draft deleted"
+					: review.operation.startsWith("communication.templates.")
+						? "Template saved"
+						: "Saved",
+			tone: "green",
+		};
 	switch (report.kind) {
 		case "schedule":
 			if (report.confirmation === "confirmed")
@@ -766,6 +1324,11 @@ export function mailHead(
 			return report.confirmation === "confirmed"
 				? { title: `Replacement scheduled for ${reportTime(report.scheduledAt, review)}`, tone: "green" }
 				: { title: "Replacement not confirmed", tone: "amber" };
+		case "send":
+			if (report.confirmation === "confirmed") return { title: "Sent", tone: "green" };
+			return report.confirmation === "not_confirmed"
+				? { title: "Send not confirmed", tone: "amber" }
+				: { title: "Not sent", tone: "magenta" };
 		case "replace_stopped":
 			return report.confirmation === "not_confirmed"
 				? { title: "Not replaced: cancel not confirmed", tone: "amber" }
@@ -779,17 +1342,88 @@ export const RECIPIENT_OUTCOME: Record<RecipientOutcome, string> = {
 	open: "Cancel not confirmed",
 };
 
+export const isDocument = (operation: Operation) => operation.startsWith("documents.");
+
+const DOCUMENT_CONSEQUENCE: Partial<Record<Operation, string>> = {
+	"documents.createFromTemplate":
+		"The new document opens in Church Documents for your church to edit. A template is starting text, not legal advice.",
+	"documents.exportNative": "The file is saved with the document in Church Documents, where it downloads.",
+	"documents.archive": "It leaves its list and stays readable. Nothing is deleted.",
+	"documents.designateCoreValues": "Evry marks your own document. It never writes core values for your church.",
+	"documents.importTextOrWord": "The new document opens in Documents with the file's text, for your church to edit.",
+};
+
+export function documentResult(review: Review): { href: string; label: string } | null {
+	if (review.operation === "documents.importTextOrWord")
+		return review.receipt?.receiptId
+			? { href: `/documents/written/${review.receipt.receiptId}`, label: "Open the new document" }
+			: null;
+	const target = review.review.target;
+	if (!target || review.review.withheld) return null;
+	switch (review.operation) {
+		case "documents.createFromTemplate":
+			return review.receipt?.receiptId
+				? { href: `/documents/church/${review.receipt.receiptId}`, label: "Open the new document" }
+				: null;
+		case "documents.exportNative":
+			return { href: `/documents/church/${target.id}`, label: "Open in Church Documents" };
+		case "documents.archive":
+			return review.review.changes.find((c) => c.field === "list")?.after === "Church Documents"
+				? { href: "/documents/church/archived", label: "Open archived documents" }
+				: { href: "/documents", label: "Open Documents" };
+		case "documents.designateCoreValues":
+			return { href: `/documents/written/${target.id}`, label: `Open ${target.label}` };
+		default:
+			return null;
+	}
+}
+
+export function documentRefusalText(code: string | undefined): string {
+	switch (code) {
+		case "revision_conflict":
+		case "conflict":
+			return "This changed after Evry prepared the review, so nothing was saved. Ask Evry to prepare it again.";
+		case "access_denied":
+			return "Your seat no longer allows this change, so nothing was saved.";
+		case "render_failed":
+			return "The file could not be made, so nothing was saved. Try again later.";
+		case "attachment_gone":
+			return "The attached file is no longer available, so nothing was saved. Attach it again and ask Evry.";
+		case "file_changed":
+			return "The attached file changed after Evry prepared the review, so nothing was saved. Ask Evry to prepare it again.";
+		default:
+			return "Documents refused this change, so nothing was saved.";
+	}
+}
+
 export function consequence(review: Review): string | null {
+	if (isDocument(review.operation)) return DOCUMENT_CONSEQUENCE[review.operation] ?? null;
 	if (review.operation === "notifications.markSelectedRead" || review.operation === "notifications.markAllVisibleRead")
 		return "Marking read doesn't complete or change any task.";
 	const tasks = handedBack(review.review.changes);
 	const owner =
 		tasks > 0 ? `${tasks.toLocaleString()} open ${tasks === 1 ? "task" : "tasks"} will need a new owner.` : null;
+	switch (review.operation) {
+		case "people.createAssessment":
+		case "people.withdrawCommitment":
+		case "people.reactivateCommitment":
+		case "people.correctCommitmentLifecycle":
+		case "people.correctPersonRecord":
+			return "Their stage stays as it is.";
+		case "people.mergePeople":
+			return "The merged record joins the person who stays. You can undo the merge from People while nothing changes since.";
+		case "people.unmergePeople":
+			return "Both people are separate again, as they were before the merge.";
+	}
 	if (review.operation === "meetings.delete") return "It leaves Meetings. Its history stays.";
 	if (review.operation === "meetings.finalizeAttendance")
 		return "Approving finalizes attendance and creates exactly the tasks listed.";
 	if (review.operation === "people.deletePerson")
 		return ["They leave the current people list. Their history stays.", owner].filter(Boolean).join(" ");
+	const direction = review.review.changes.find((c) => c.field === "direction")?.after;
+	if (direction === "backward") return "This is a move backward. The phase journey keeps every earlier move.";
+	if (review.operation === "phases.transition")
+		return "You decide when the church moves. The exit criteria are advisory.";
 	const created = review.review.changes.find((c) => c.field === "createTag")?.after;
 	if (created) return `The tag ${String(created)} will be created.`;
 	switch (review.operation) {
@@ -841,6 +1475,8 @@ const KIND: Record<string, FieldKind> = {
 	sourceDetails: "long",
 	reason: "long",
 	birthDate: "date",
+	asOf: "date",
+	detail: "long",
 	email: "email",
 	stage: "choice",
 	source: "choice",
@@ -854,8 +1490,24 @@ export const CHOICES: Record<string, { value: string; label: string }[]> = {
 	adultClassification: Object.entries(CLASSIFICATION_LABEL).map(([value, label]) => ({ value, label })),
 };
 
-const FIXED = new Set(["photo", "state", "openTasksNeedingOwner"]);
-const REQUIRED = new Set(["displayName", "reason", "stage", "source", "adultClassification"]);
+export function choicesFor(field: string) {
+	const choices = CHOICES[field];
+	if (!choices) throw new Error(`The choice field ${field} has no choices`);
+	return choices;
+}
+export const linkEdit = (link: CarryOver) => JSON.stringify({ carries: link.carries, share: link.share });
+
+const FIXED = new Set([
+	"photo",
+	"state",
+	"openTasksNeedingOwner",
+	"phase",
+	"direction",
+	"openCriteria",
+	"signal",
+	"value",
+]);
+const REQUIRED = new Set(["displayName", "reason", "stage", "source", "adultClassification", "asOf", "detail"]);
 export const isRequired = (field: string, birthDate = false) =>
 	field === "adultClassification" ? !birthDate : REQUIRED.has(field);
 
@@ -870,18 +1522,21 @@ const ADDS = new Set<Operation>([
 	"people.addNote",
 	"people.addSkill",
 	"people.createTag",
+	"people.createInterview",
+	"people.createAssessment",
+	"people.createCommitment",
 	"seats.invite",
 	"associations.invite",
 	"onboarding.createPlant",
 	"discovery.create",
 	"discovery.convertToPlant",
 	"development.saveProgram",
+	"wiki.organizationArticles.add",
 ]);
-export const addsOnly = (operation: Operation) => ADDS.has(operation);
 export const seatsAccount = (operation: Operation) =>
 	operation === "onboarding.createPlant" || operation === "discovery.convertToPlant";
 
-type CarryOver = {
+export type CarryOver = {
 	organizationId: string;
 	organization: string;
 	kind: string;
@@ -915,9 +1570,14 @@ const REVISABLE = new Set<Operation>([
 	"people.setPersonPhoto",
 	"people.removePersonPhoto",
 	"discovery.convertToPlant",
+	"phases.declare",
+	"phases.transition",
+	"signals.attest",
+	"signals.correct",
+	"signals.reaffirm",
 ]);
 export const editableChanges = (review: Review) =>
-	review.review.withheld || !REVISABLE.has(review.operation)
+	review.review.withheld || !REVISABLE.has(review.operation) || review.operation === "signals.reaffirm"
 		? []
 		: review.review.changes.filter((c) =>
 				review.operation === "discovery.convertToPlant" ? carryOver(c) !== null : !FIXED.has(c.field),
@@ -927,8 +1587,9 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 	if (!REVISABLE.has(review.operation) && !isMail(review.operation)) return null;
 	const { target, changes } = review.review;
 	const value = (c: Change) => {
-		if (!(c.field in edits)) return c.after;
-		const text = edits[c.field]!.trim();
+		const edited = edits[c.field];
+		if (edited === undefined) return c.after;
+		const text = edited.trim();
 		return text === "" ? null : text;
 	};
 	const after = (field: string) => {
@@ -941,7 +1602,8 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 		const picks = changes.flatMap((c) => {
 			const link = carryOver(c);
 			if (!link) return [];
-			const edited = c.field in edits ? (JSON.parse(edits[c.field]!) as Pick<CarryOver, "carries" | "share">) : link;
+			const raw = edits[c.field];
+			const edited = raw !== undefined ? (JSON.parse(raw) as Pick<CarryOver, "carries" | "share">) : link;
 			return edited.carries ? [{ organizationId: link.organizationId, share: edited.share }] : [];
 		});
 		const place = Object.fromEntries(
@@ -953,9 +1615,34 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 		const audience = audienceArgs(after("audience"));
 		return audience ? { subject: after("subject"), body: after("body"), audience } : null;
 	}
+	const key = (after("signal") as { key?: string } | undefined)?.key;
+	const reference = after("reference");
+	const signalFacts = () => ({
+		key,
+		value: after("value"),
+		asOf: after("asOf"),
+		detail: after("detail"),
+		...(typeof reference === "string" ? { reference } : {}),
+	});
+	switch (review.operation) {
+		case "phases.declare":
+			return { phase: (after("phase") as { phase: number }).phase };
+		case "phases.transition":
+			return { toPhase: (after("phase") as { phase: number }).phase, reason: after("reason") };
+		case "signals.attest":
+			return signalFacts();
+		case "signals.correct":
+			return after("value") === "retracted" ? { action: "retract", key } : { action: "correct", ...signalFacts() };
+		case "signals.reaffirm":
+			return { key };
+	}
 	if (!target) return null;
 	const personId = target.id;
 	switch (review.operation) {
+		case "wiki.bookmarks.set":
+			return target.articleId ? { articleId: target.articleId, desired: after("bookmarked") !== false } : null;
+		case "wiki.feedback.setMine":
+			return target.articleId ? { articleId: target.articleId, vote: after("feedback") } : null;
 		case "people.updatePerson":
 			return { personId, patch: Object.fromEntries(changes.map((c) => [c.field, value(c)])) };
 		case "people.changeStatus":
@@ -982,6 +1669,19 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 				...(audience ? { audience } : {}),
 			};
 		}
+		case "tasks.complete":
+		case "tasks.completeOccurrence":
+		case "tasks.reopen":
+		case "tasks.delete":
+			return target.kind === "task" ? { taskId: target.id } : null;
+		case "tasks.changeStatus":
+			return target.kind === "task" ? { taskId: target.id, status: after("status") } : null;
+		case "tasks.waive": {
+			const reason = after("reason");
+			return target.kind === "task" ? { taskId: target.id, ...(typeof reason === "string" ? { reason } : {}) } : null;
+		}
+		default:
+			return null;
 	}
 }
 
@@ -1072,8 +1772,19 @@ export function launchRefusalText(code: string | undefined): string {
 	}
 }
 
-export function refusalText(code: string | undefined, target: string | null, meetings = false): string {
+export function refusalText(code: string | undefined, target: string | null, operation?: Operation): string {
+	if (operation && isTasks(operation)) return taskRefusalText(code, target);
+	const meetings = !!operation && isMeetings(operation);
 	const who = target ?? (meetings ? "This meeting" : "this person");
+	if (operation === "people.createCommitment")
+		switch (code) {
+			case "attachment_gone":
+				return "The attached document is no longer available: attached files last 24 hours. Nothing was recorded. Attach it again and ask Evry again.";
+			case "file_changed":
+				return "A newer file with the same name was attached after Evry prepared this, so nothing was recorded. Ask Evry again with the file you mean.";
+			case "attachment_used":
+				return "The attached document is already the signed document of another commitment card, so nothing was recorded.";
+		}
 	if (meetings)
 		switch (code) {
 			case "revision_conflict":
@@ -1102,12 +1813,98 @@ export function refusalText(code: string | undefined, target: string | null, mee
 		case "not_found":
 		case "source_unavailable":
 			return `${who} is no longer available, so nothing was saved.`;
+		case "merge_blocked":
+			return "This merge cannot run now, so nothing was merged. Ask Evry to review it again.";
+		case "inverse_conflict":
+			return "Something changed since the merge, so it was not undone. Ask Evry to review it again.";
 		case "review_stale":
 			return "People changed after Evry checked this file, so nothing was imported. Ask Evry to check it again.";
 		case "file_changed":
 			return "This file changed after Evry checked it, so nothing was imported. Ask Evry to check it again.";
 		default:
 			return "People refused this change, so nothing was saved.";
+	}
+}
+
+function taskRefusalText(code: string | undefined, target: string | null): string {
+	switch (code) {
+		case "revision_conflict":
+		case "conflict":
+		case "stale":
+			return `${target ?? "This"} changed after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.`;
+		case "access_denied":
+		case "unauthorized":
+			return "Your seat no longer allows this change, so nothing was saved.";
+		case "not_assigned":
+		case "owner_ineligible":
+		case "assignee_ineligible":
+			return `${TASK_REFUSAL[code]} Nothing was saved.`;
+		case "open_successor":
+			return "Another occurrence of this task is open, so nothing was saved.";
+		case "offer_answered":
+			return "The phase offer was answered after Evry prepared this, so this review is out of date and nothing was created. Ask Evry how it was answered.";
+		case "stale_catalog":
+			return "Everyfield's checklists changed after Evry prepared this, so nothing was created. Ask Evry to prepare it again.";
+		case "dependency_cycle":
+			return "That would make the tasks wait on each other in a cycle, so nothing was saved.";
+		case "invalid_subject":
+			return "Only a top-level task can wait on other tasks, so nothing was saved.";
+		case "protected_owner":
+			return "An Owner's follow-ups can't be handed off this way, so nothing was moved.";
+		case "handoff_target_ineligible":
+			return "That person can no longer own follow-ups, so nothing was moved. Ask Evry to prepare it again.";
+		case "protected_source":
+			return "A meeting made this task, so it can't be changed this way. Nothing was saved.";
+		case "nonexistent_local_time":
+		case "ambiguous_local_time":
+			return "A clock change makes that time skip or repeat in your church's time zone, so nothing was saved. Ask Evry for another time.";
+		case "invalid_input":
+			return "Tasks did not accept these values, so nothing was saved. Ask Evry to prepare it again.";
+		case "not_found":
+		case "source_unavailable":
+			return `${target ?? "This task"} is no longer available, so nothing was saved.`;
+		default:
+			return "Tasks refused this change, so nothing was saved.";
+	}
+}
+
+export function wikiRefusalText(code: string | undefined, operation: Operation): string {
+	if (isWikiEditor(operation))
+		switch (code) {
+			case "revision_conflict":
+				return "The article changed in your Wiki editor after Evry prepared this, so nothing was saved. Open the editor to see it as it is now, or ask Evry to prepare it again.";
+			case "access_denied":
+				return "Your seat no longer allows editing this organization's Wiki, so nothing was saved.";
+			default:
+				return "The Wiki refused this change, so nothing was saved.";
+		}
+	switch (code) {
+		case "revision_conflict":
+			return "Your bookmark changed on the Wiki after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.";
+		case "access_denied":
+			return "You can no longer read this article here, so nothing was saved.";
+		default:
+			return "The Wiki refused this change, so nothing was saved.";
+	}
+}
+
+export function intelligenceRefusalText(code: string | undefined): string {
+	switch (code) {
+		case "revision_conflict":
+		case "not_current":
+			return "The phase or signal changed after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.";
+		case "already_declared":
+			return "This church already has its starting phase, so nothing was saved. Ask Evry to move the phase instead.";
+		case "no_change":
+			return "The signal already has that answer, so nothing was saved.";
+		case "access_denied":
+			return "Your seat no longer allows this change, so nothing was saved. Only an Owner or Admin can change it.";
+		case "invalid_input":
+		case "invalid_reason":
+		case "not_reaffirmable":
+			return "Everyfield did not accept these values, so nothing was saved. Ask Evry to prepare it again.";
+		default:
+			return "Everyfield refused this change, so nothing was saved.";
 	}
 }
 
@@ -1161,6 +1958,10 @@ export function actionNotice(error: ProjectedError | "lost", mail: boolean): str
 			return "This review is already closed.";
 		case "photo_unavailable":
 			return "The uploaded photo is no longer available, so nothing was saved.";
+		case "not_assigned":
+		case "owner_ineligible":
+		case "assignee_ineligible":
+			return `${TASK_REFUSAL[error.code]} Nothing was changed.`;
 		case "invalid_input":
 			return "Some values are not valid. Check them, then update the review.";
 		case "not_found":
@@ -1194,7 +1995,7 @@ export const noticeWhen = ({ at, zone }: ReviewedNotice) =>
 		minute: "2-digit",
 	}).format(new Date(at));
 
-const CHANNEL_LABEL: Record<string, string> = { email: "Email", in_app: "In-app" };
+const NOTICE_CHANNEL: Record<string, string> = { email: "Email", in_app: "In-app" };
 export function settingChanges(review: Review) {
 	const groups = new Map<string, { channel: string; before: boolean; after: boolean }[]>();
 	for (const c of review.review.changes) {
@@ -1202,7 +2003,7 @@ export function settingChanges(review: Review) {
 		if (!category || !channel || typeof c.before !== "boolean" || typeof c.after !== "boolean") continue;
 		groups.set(category, [
 			...(groups.get(category) ?? []),
-			{ channel: CHANNEL_LABEL[channel] ?? channel, before: c.before, after: c.after },
+			{ channel: NOTICE_CHANNEL[channel] ?? channel, before: c.before, after: c.after },
 		]);
 	}
 	return [...groups].map(([category, channels]) => ({ category, channels }));

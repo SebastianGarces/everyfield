@@ -43,7 +43,7 @@ export const mergeBlocker = z.enum([
 	"unregistered_reference",
 	"enrollment_collision",
 ]);
-export const inverseConflict = z.enum(["survivor_changed", "source_changed", "references_changed"]);
+export const inverseConflict = z.enum(["survivor_changed", "source_changed", "references_changed", "mail_sent"]);
 export const mergeErrors = [
 	defineSafeError(
 		"merge_blocked",
@@ -53,5 +53,9 @@ export const mergeErrors = [
 		},
 		"never",
 	),
-	defineSafeError("inverse_conflict", { causes: z.array(inverseConflict).min(1).max(3) }, "refresh"),
+	defineSafeError(
+		"inverse_conflict",
+		{ causes: z.array(inverseConflict).min(1).max(inverseConflict.options.length) },
+		"refresh",
+	),
 ] as const;

@@ -49,25 +49,26 @@ function defaultChoices(header: string[], remembered: Record<string, unknown>): 
 	});
 	for (const field of FIELDS) {
 		if (taken.has(field)) continue;
-		let best: number | null = null;
-		keys.forEach((k, i) => {
+		let best: { index: number; rank: number } | null = null;
+		for (const [i, k] of keys.entries()) {
 			const rank = SYNONYMS[field].indexOf(k);
-			if (choices[i] === null && rank >= 0 && (best === null || rank < SYNONYMS[field].indexOf(keys[best]!))) best = i;
-		});
+			if (choices[i] === null && rank >= 0 && (best === null || rank < best.rank)) best = { index: i, rank };
+		}
 		if (best !== null) {
-			choices[best] = field;
+			choices[best.index] = field;
 			taken.add(field);
 		}
 	}
-	return choices.map((c, i) => c ?? (FIELDS.some((f) => SYNONYMS[f].includes(keys[i]!)) ? "skip" : "answer"));
+	return keys.map((k, i) => choices[i] ?? (FIELDS.some((f) => SYNONYMS[f].includes(k)) ? "skip" : "answer"));
 }
 
 function checkedChoices(header: string[], choices: Choice[]): Choice[] {
 	if (choices.length !== header.length) refuse({ code: "invalid_input", field: "columns" });
 	const seen = new Set<Field>();
 	choices.forEach((c, i) => {
-		if (isBackgroundCheck(titleKey(header[i]!)) && c !== "skip")
-			refuse({ code: "invalid_input", field: `columns.${i}` });
+		const title = header[i];
+		if (title === undefined) refuse({ code: "invalid_input", field: "columns" });
+		if (isBackgroundCheck(titleKey(title)) && c !== "skip") refuse({ code: "invalid_input", field: `columns.${i}` });
 		if (isField(c)) {
 			if (seen.has(c)) refuse({ code: "invalid_input", field: `columns.${i}` });
 			seen.add(c);
@@ -141,10 +142,15 @@ function review(reads: Read[], existing: Existing[]) {
 	const valid = reads.filter((r) => r.problems.length === 0);
 	const byEmail = new Map<string, number[]>();
 	for (const r of valid) if (r.email) byEmail.set(r.email, [...(byEmail.get(r.email) ?? []), r.row]);
+	const rowsWith = (email: string) => {
+		const rows = byEmail.get(email);
+		if (!rows) throw Error("A valid row's email is missing from the email index");
+		return rows;
+	};
 	return reads.map((r) => {
 		const ok = r.problems.length === 0;
 		const found = ok && r.email ? existing.filter((p) => p.email === r.email) : [];
-		const sameAs = ok && r.email ? byEmail.get(r.email)!.filter((n) => n !== r.row) : [];
+		const sameAs = ok && r.email ? rowsWith(r.email).filter((n) => n !== r.row) : [];
 		const status = !ok ? "invalid" : found.length || sameAs.length ? "duplicate" : "ready";
 		return { ...r, status, existing: found.map((p) => ({ personId: p.id, name: p.name })), sameAs } as const;
 	});
@@ -210,7 +216,7 @@ export async function previewPipelineImport(db: Executor, authority: RequestActo
 		const choices = input.columns
 			? checkedChoices(sheet.header, input.columns)
 			: defaultChoices(sheet.header, state.remembered ?? {});
-		const title = noteTitle(input.fileName, state.today!);
+		const title = noteTitle(input.fileName, state.today);
 		const reads = sheet.rows.map((cells, i) => readRow(i + 1, cells, sheet.header, choices, state.stages, title));
 		const rows = review(reads, state.existing);
 		const fileDigest = digestFile(input.file);
@@ -245,7 +251,7 @@ export async function previewPipelineImport(db: Executor, authority: RequestActo
 
 function derivedId(seed: string) {
 	const h = createHash("sha256").update(seed).digest("hex");
-	return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${((parseInt(h[16]!, 16) & 3) | 8).toString(16)}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+	return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${((parseInt(h.charAt(16), 16) & 3) | 8).toString(16)}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 const stored = z.object({ digest: z.string(), result: C.pipelineImportResult });
 const REMEMBERED_MAX = 500;
@@ -289,7 +295,8 @@ SELECT s.*,(SELECT a.metadata FROM audit_event a WHERE a.id=${command}::uuid AND
 		}
 		if (!r.stages.some((s) => s.id === input.stageId)) refuse({ code: "invalid_input", field: "stageId" });
 		if (!r.seat) refuse({ code: "invalid_input", field: "responsibleSeatId" });
-		const title = noteTitle(input.fileName, r.today!);
+		if (r.today === null) refuse();
+		const title = noteTitle(input.fileName, r.today);
 		const reads = sheet.rows.map((cells, i) => readRow(i + 1, cells, sheet.header, choices, r.stages, title));
 		const rows = review(reads, r.existing);
 		if (digestOf(input.fileDigest, choices, rows) !== input.reviewDigest) refuse({ code: "review_stale" });

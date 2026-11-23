@@ -1,14 +1,8 @@
 "use client";
 
-import {
-	Alert02Icon,
-	CheckmarkCircle02Icon,
-	LockKeyIcon,
-	ViewIcon,
-	ViewOffSlashIcon,
-} from "@hugeicons/core-free-icons";
-import { CardIcon, Input, type Tone } from "@everyfield/ui/controls";
-import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
+import { LockKeyIcon, ViewIcon, ViewOffSlashIcon } from "@hugeicons/core-free-icons";
+import { Alert, CardIcon, FieldButton, Input, type Tone } from "@everyfield/ui/controls";
+import type { IconSvgElement } from "@everyfield/ui/foundations";
 import { useState, type ComponentPropsWithRef, type ReactNode } from "react";
 import { AuthHeading } from "./AuthFrame";
 
@@ -22,15 +16,12 @@ export function PasswordInput(props: Omit<ComponentPropsWithRef<typeof Input>, "
 			spellCheck={false}
 			autoCapitalize="none"
 			trailing={
-				<button
-					type="button"
-					aria-pressed={shown}
+				<FieldButton
+					icon={shown ? ViewOffSlashIcon : ViewIcon}
+					label="Show password"
+					pressed={shown}
 					onClick={() => setShown((v) => !v)}
-					className="-mr-2 grid size-9 flex-none place-items-center rounded-sm text-text-2 transition-[background-color] duration-150 hover:bg-hover hover:text-ink"
-				>
-					<Icon icon={shown ? ViewOffSlashIcon : ViewIcon} size={18} />
-					<span className="sr-only">Show password</span>
-				</button>
+				/>
 			}
 		/>
 	);
@@ -38,18 +29,8 @@ export function PasswordInput(props: Omit<ComponentPropsWithRef<typeof Input>, "
 
 export function FormMessage({ tone, children }: { tone: "error" | "success"; children: ReactNode }) {
 	return (
-		<div role={tone === "error" ? "alert" : "status"} className="empty:hidden">
-			{children ? (
-				<p
-					className={cn(
-						"flex items-start gap-2.5 rounded-md px-3.5 py-3 text-sm font-medium",
-						tone === "error" ? "bg-magenta-100 text-magenta-600" : "bg-green-100 text-green-700",
-					)}
-				>
-					<Icon icon={tone === "error" ? Alert02Icon : CheckmarkCircle02Icon} size={18} className="mt-px flex-none" />
-					<span>{children}</span>
-				</p>
-			) : null}
+		<div role={tone === "error" ? "alert" : "status"} className="empty:sr-only">
+			{children ? <Alert tone={tone}>{children}</Alert> : null}
 		</div>
 	);
 }

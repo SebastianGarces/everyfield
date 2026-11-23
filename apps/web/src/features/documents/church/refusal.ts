@@ -9,9 +9,11 @@ export const refusedWith = (code: string): { status: "refused"; message: string 
 	message: MESSAGES[code] ?? "Something went wrong. Nothing was changed.",
 });
 
+export const EXPORT_UNAVAILABLE =
+	"This file could not be saved, so nothing was downloaded. Reload the page and try again.";
 export const EXPORT_MESSAGES: Record<string, string> = {
 	render_failed: "Everyfield could not make this file, so nothing was saved or downloaded. Try again in a moment.",
-	unavailable: "This file could not be saved, so nothing was downloaded. Reload the page and try again.",
+	unavailable: EXPORT_UNAVAILABLE,
 	conflict: "The document changed after this page opened, so nothing was saved. Reload the page and try again.",
 	access_denied: "You no longer have access to this document, so nothing was saved.",
 	invalid_input: "That format is not offered for this document, so nothing was saved.",

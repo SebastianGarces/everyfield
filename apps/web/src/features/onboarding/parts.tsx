@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft01Icon, ArrowRight01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { Button } from "@everyfield/ui/controls";
+import { Button, InlineAlert } from "@everyfield/ui/controls";
 import { cn, EvryBot, Icon, Lockup, useFocusRequest } from "@everyfield/ui/foundations";
 import type { ReactNode } from "react";
 import { STEPS, type ErrorCode, type Notice as NoticeState, type Op, type StepKey } from "./model";
@@ -255,13 +255,9 @@ function noticeText(code: ErrorCode, reloaded: boolean): string {
 
 export function Notice({ notice, op }: { notice: NoticeState | null; op: Op }) {
 	return (
-		<div aria-live="polite" className="mx-auto max-w-[820px]">
-			{notice?.op === op ? (
-				<p role="alert" className="mt-6 rounded-md bg-magenta-50 px-4 py-3 text-sm font-medium text-magenta-600">
-					{noticeText(notice.code, notice.reloaded)}
-				</p>
-			) : null}
-		</div>
+		<InlineAlert className="mx-auto max-w-[820px] pt-6">
+			{notice?.op === op ? noticeText(notice.code, notice.reloaded) : null}
+		</InlineAlert>
 	);
 }
 
