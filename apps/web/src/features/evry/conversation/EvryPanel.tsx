@@ -378,9 +378,7 @@ function Chat({
 				</Alert>
 			) : null}
 			{problem ? <Alert role="alert">{problem}</Alert> : null}
-			{churchNotice ? (
-				<ChurchChanged onReload={() => actions.reloadForChurch()}>{churchNotice}</ChurchChanged>
-			) : null}
+			{churchNotice ? <ChurchChanged onReload={() => actions.reloadForChurch()}>{churchNotice}</ChurchChanged> : null}
 			<div aria-live="polite" className="sr-only">
 				{announcement}
 			</div>

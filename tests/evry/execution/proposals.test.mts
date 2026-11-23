@@ -614,7 +614,8 @@ test("INV-church-changed: approving the old church's pending proposal after the 
 		const r = await admin.execute(sql`SELECT p.state,p.outcome,p.approved_at,p.job_id,
 			(SELECT count(*)::int FROM audit_event a WHERE a.subject_id=p.conversation_id) AS audits,
 			(SELECT count(*)::int FROM job j WHERE j.kind='evry_effect') AS jobs FROM proposal p WHERE p.id=${proposal.id}`);
-		return { ...r.rows[0], city: (await person(people.alexChen)).city, effects: await effectJobs(proposal.id) };
+		const row = r.rows[0] as { state: string; outcome: string | null; approved_at: unknown; job_id: string | null };
+		return { ...row, city: (await person(people.alexChen)).city, effects: await effectJobs(proposal.id) };
 	};
 
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${id}`);
@@ -636,6 +637,10 @@ test("INV-church-changed: approving the old church's pending proposal after the 
 	assert.deepEqual(body, { code: "church_changed", retry: "never", outcome: "refused" });
 	assert.equal(await approve(moved, missing), "not_found");
 	assert.equal(await approve(moved, theirs), "not_found");
-	assert.deepEqual(await state(), pending, "the proposal stays pending: no approval, effect job, record write or audit row");
+	assert.deepEqual(
+		await state(),
+		pending,
+		"the proposal stays pending: no approval, effect job, record write or audit row",
+	);
 	assert.equal(await refusal(readReview(db, moved, proposal.id)), "not_found", "a review read keeps its code");
 });

@@ -165,10 +165,10 @@ export function useReview(proposalId: string, seed: Review | null | undefined, c
 		: !review && church.changed()
 			? "left"
 			: load === "ready" && review
-			? phaseOf(review, lapsed)
-			: load === "ready"
-				? "loading"
-				: load;
+				? phaseOf(review, lapsed)
+				: load === "ready"
+					? "loading"
+					: load;
 	const upload = uploadOf(review);
 	const mine = photo && photo.upload === upload ? photo : null;
 	const staged: StagedPhoto = mine ?? { status: view === "pending" && upload !== null ? "loading" : "idle" };

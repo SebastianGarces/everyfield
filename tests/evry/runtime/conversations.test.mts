@@ -215,7 +215,8 @@ async function mover() {
 	return {
 		session,
 		actor: async () => (await freshActor(session))!,
-		end: () => admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${id} AND ended_at IS NULL`),
+		end: () =>
+			admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${id} AND ended_at IS NULL`),
 		moveTo: (church: string) => seat(church),
 	};
 }

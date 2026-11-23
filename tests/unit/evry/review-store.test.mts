@@ -53,9 +53,15 @@ function server(answers: Record<string, () => Response>) {
 	return sent;
 }
 
-const church = { changed: () => false, refused: () => false, leave() {}, reload() {} };
+type Place = {
+	changed: () => boolean;
+	refused: (id: string) => boolean;
+	leave: (id: string) => void;
+	reload: () => void;
+};
+const church: Place = { changed: () => false, refused: () => false, leave() {}, reload() {} };
 
-async function show(seed: unknown, place = church) {
+async function show(seed: unknown, place: Place = church) {
 	let card: ReturnType<typeof useReview> | undefined;
 	function Card() {
 		card = useReview(ID, seed as never, place);

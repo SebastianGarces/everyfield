@@ -123,7 +123,13 @@ test("INV-church-changed: a run whose stream is refused because the seat moved c
 	assert.equal(source.closed, true);
 	source.dispatchEvent(
 		new MessageEvent("assistant_text", {
-			data: JSON.stringify({ sequence: 2, turnId: "t1", kind: "assistant_text", body: { text: "Late" }, createdAt: "" }),
+			data: JSON.stringify({
+				sequence: 2,
+				turnId: "t1",
+				kind: "assistant_text",
+				body: { text: "Late" },
+				createdAt: "",
+			}),
 		}),
 	);
 	const made = FakeSource.made.length;
