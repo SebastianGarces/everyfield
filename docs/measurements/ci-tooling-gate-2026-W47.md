@@ -40,8 +40,8 @@ PR #1312 (this task), head 8fb157b11, which changes only `docs/measurements/ci-t
 `ci-tooling-gate-2026-W47.before.json`:
 
 - Run: https://github.com/SebastianGarces/everyfield/actions/runs/45118607073 (conclusion success).
-- `tooling` job: https://github.com/SebastianGarces/everyfield/actions/runs/45118607073/job/137507014004, steps from
-  05:34:17Z to 05:35:49Z.
+- `tooling` job: https://github.com/SebastianGarces/everyfield/actions/runs/45118607073/job/137507014004, steps from 2026-11-23T05:34:17Z
+  to 2026-11-23T05:35:49Z.
 - `node tools/ci/ci-timing.ts` prints for it: queue 1000 ms, setup 21000 ms, run 69000 ms, so setup plus run is 90 s.
   The `ci` job of the same run: queue 1000 ms, setup 9000 ms, run 3000 ms.
 
@@ -62,7 +62,7 @@ Every gated self-test skipped.
 
 ## After
 
-Captured 2026-11-23T05:45:23Z (finished 05:51:01Z) into `ci-tooling-gate-2026-W47.after.json`. Of its 50 runs, 20
+Captured 2026-11-23T05:45:23Z (finished 2026-11-23T05:51:01Z) into `ci-tooling-gate-2026-W47.after.json`. Of its 50 runs, 20
 fall after the cut: runs 45110248476 to 45119060608, created 2026-11-23T04:10:41Z to 2026-11-23T05:38:36Z, all
 first attempts succeeded. 29 fall before it (runs 45095904424 to 45108774333; 2 had a failed first-attempt job), and
 one is the cut itself, push run 45109712951 of 46fbcfa4e, counted on neither side.
