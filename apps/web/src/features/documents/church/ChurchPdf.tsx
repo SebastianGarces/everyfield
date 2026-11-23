@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { Skeleton, StatePanel } from "@everyfield/ui/controls";
 import { observeIntersection, observeSize } from "@everyfield/ui/foundations";
 import type { PDFDocumentProxy } from "pdfjs-dist";
@@ -129,7 +130,7 @@ function PdfPages({ title, bytes, page }: { title: string; bytes: Uint8Array; pa
 	return (
 		<div ref={attach} className="flex flex-col gap-5" aria-busy={pages ? undefined : true}>
 			<p className="sr-only" role="status">
-				{pages ? `${title} preview, ${pages} page${pages === 1 ? "" : "s"}` : "Loading the preview"}
+				{pages ? `${title} preview, ${counted(pages, "page")}` : "Loading the preview"}
 			</p>
 			{pages ? (
 				Array.from({ length: pages }, (_, i) => (

@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import {
 	Add01Icon,
 	Alert02Icon,
@@ -30,7 +31,7 @@ import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../components/save
 import { createTeam } from "./actions.ts";
 import { reloadTeams } from "./fetch.ts";
 import { optional, TeamDialog, type TeamForm } from "./dialogs.tsx";
-import { isLeadership, newSetup, plural, problemText, type SetupForm, type Team } from "./model.ts";
+import { isLeadership, newSetup, problemText, type SetupForm, type Team } from "./model.ts";
 import { OrgChart } from "./OrgChart.tsx";
 import { MinistryCard } from "./parts.tsx";
 import type { TeamView, TeamsView } from "./server.ts";
@@ -198,7 +199,7 @@ export function TeamsScreen({ view: initial, admin }: { view: TeamsView; admin: 
 								<InsightTitle id="leaderless-title" size="sm">
 									{firstLeaderless && leaderless.length === 1
 										? `${firstLeaderless.name} has no leader`
-										: `${plural(leaderless.length, "ministry", "ministries")} have no leader`}
+										: `${counted(leaderless.length, "ministry", "ministries")} have no leader`}
 								</InsightTitle>
 								<InsightText className="wrap-anywhere">
 									{leaderless.length === 1
@@ -278,7 +279,7 @@ export function TeamsScreen({ view: initial, admin }: { view: TeamsView; admin: 
 								tone: "success",
 								message:
 									added.newTeams || added.newRoles
-										? `Added ${plural(added.newTeams, "ministry", "ministries")} and ${plural(added.newRoles, "role")}.`
+										? `Added ${counted(added.newTeams, "ministry", "ministries")} and ${counted(added.newRoles, "role")}.`
 										: "Everything you chose was already here. Nothing was added.",
 							});
 						}}
@@ -323,7 +324,7 @@ function openedMinistry(form: TeamForm, nodes: TeamView["nodes"], admin: boolean
 const leaderHint = (missing: number) =>
 	missing === 0
 		? "Every current ministry has a leader."
-		: `${plural(missing, "ministry", "ministries")} need a leader.`;
+		: `${counted(missing, "ministry", "ministries")} need a leader.`;
 
 function Stat({ label, value, of, hint }: { label: string; value: string; of?: number; hint: string }) {
 	return (

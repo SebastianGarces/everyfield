@@ -1,9 +1,9 @@
+import { counted } from "@everyfield/contracts/common";
 import type { ProgramList } from "@everyfield/contracts/organizations";
 import { Mortarboard02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { Button, EmptyState, PageHeader } from "@everyfield/ui/controls";
 import Link from "next/link";
 import { formatPlainDate } from "../../../components/dates.ts";
-import { plural } from "../board/model";
 import { PipelineTabs } from "../board/PipelineTabs";
 import { KIND, programHref, programStatus, PROGRAMS_PATH } from "./model";
 
@@ -63,7 +63,7 @@ export function ProgramsScreen({ list }: { list: ProgramList }) {
 											{p.publishedOn ? <span className="text-text-3"> · {formatPlainDate(p.publishedOn)}</span> : null}
 										</dd>
 										<dt className="text-text-2">Enrolled</dt>
-										<dd className="text-ink">{plural(p.activeEnrollments, "active enrollment")}</dd>
+										<dd className="text-ink">{counted(p.activeEnrollments, "active enrollment")}</dd>
 									</dl>
 								</article>
 							</li>

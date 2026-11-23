@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { Archive02Icon, Clock01Icon, Delete02Icon, Download01Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import {
 	CHURCH_REVISION_LIST_MAX,
@@ -260,8 +261,7 @@ export function ChurchDocumentScreen({
 								revision: next,
 								template: "current",
 								epoch: now.opened.epoch + 1,
-								accepted:
-									taken === 1 ? "Accepted 1 change from the template." : `Accepted ${taken} changes from the template.`,
+								accepted: `Accepted ${counted(taken, "change")} from the template.`,
 							},
 						}))
 					}
