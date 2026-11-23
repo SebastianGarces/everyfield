@@ -18,6 +18,7 @@ import {
 	Alert,
 	Button,
 	IconButton,
+	ProblemText,
 	RowButton,
 	SearchInput,
 	Sheet,
@@ -678,25 +679,25 @@ function Composer({
 					className="block max-h-40 min-h-12 w-full resize-none bg-transparent text-md text-ink outline-none [field-sizing:content] placeholder:text-text-3"
 				/>
 				<div className="mt-1 flex items-center justify-between gap-3">
-					<p
-						id={hint}
-						role={fileNotice ? "alert" : undefined}
-						className={cn("text-xs", tooLong || fileNotice ? "text-magenta-600" : "text-text-3")}
-					>
-						{tooLong
-							? `Shorten this message to ${MAX_MESSAGE.toLocaleString()} characters (now ${draft.length.toLocaleString()}).`
-							: fileNotice
-								? fileNotice
-								: busy
-									? "Evry is answering. You can stop it."
-									: uploading || photo?.status === "uploading"
-										? "Attaching the file…"
-										: shown.length
-											? "Say what Evry should do with the file."
-											: photo?.status === "ready"
-												? "Say what Evry should do with the photo."
-												: "Enter sends. Shift+Enter adds a line."}
-					</p>
+					{tooLong || fileNotice ? (
+						<ProblemText id={hint} live={fileNotice ? "alert" : "region"}>
+							{tooLong
+								? `Shorten this message to ${MAX_MESSAGE.toLocaleString()} characters (now ${draft.length.toLocaleString()}).`
+								: fileNotice}
+						</ProblemText>
+					) : (
+						<p id={hint} className="text-xs text-text-3">
+							{busy
+								? "Evry is answering. You can stop it."
+								: uploading || photo?.status === "uploading"
+									? "Attaching the file…"
+									: shown.length
+										? "Say what Evry should do with the file."
+										: photo?.status === "ready"
+											? "Say what Evry should do with the photo."
+											: "Enter sends. Shift+Enter adds a line."}
+						</p>
+					)}
 					<div className="flex flex-none items-center gap-1">
 						<AttachButton
 							disabled={disabled || busy}

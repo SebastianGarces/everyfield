@@ -500,10 +500,10 @@ test("INV-message-batches: every delivery operation sends as many statements for
 	const three = await measure(250);
 	assert.deepEqual(three, one);
 	assert.deepEqual(one, {
-		sendReviewed: 4,
-		dispatchAttempt: 3,
-		reconcileProviderOutcome: 3,
-		handOffScheduled: 3,
+		sendReviewed: 3,
+		dispatchAttempt: 2,
+		reconcileProviderOutcome: 2,
+		handOffScheduled: 2,
 		rescheduleDispatched: 3,
 		cancelScheduledReviewed: 3,
 		replaceScheduledReviewed: 1,
