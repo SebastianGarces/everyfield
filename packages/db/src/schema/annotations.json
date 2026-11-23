@@ -11549,6 +11549,9 @@
 				},
 				"guardian_mail_ids": {
 					"note": "For a child's Messages row with refusal guardian: the mail rows of the parent or guardian contacts who received the email instead. Each is that adult's one copy of the send. Null otherwise."
+				},
+				"guardian_copy": {
+					"note": "True on a Messages row sent to an adult only as a child's parent or guardian contact, not as a person in the audience. The Selected total of a send leaves these rows out."
 				}
 			},
 			"foreignKeys": {

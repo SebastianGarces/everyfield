@@ -12405,6 +12405,13 @@
           "type": "uuid[]",
           "primaryKey": false,
           "notNull": false
+        },
+        "guardian_copy": {
+          "name": "guardian_copy",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
       "indexes": {

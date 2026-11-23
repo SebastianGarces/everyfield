@@ -11,6 +11,7 @@ CREATE TABLE "guardian_contact" (
 --> statement-breakpoint
 ALTER TABLE "mail" DROP CONSTRAINT "mail_refusal";--> statement-breakpoint
 ALTER TABLE "mail" ADD COLUMN "guardian_mail_ids" uuid[];--> statement-breakpoint
+ALTER TABLE "mail" ADD COLUMN "guardian_copy" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "guardian_contact" ADD CONSTRAINT "guardian_contact_plant_id_plant_id_fk" FOREIGN KEY ("plant_id") REFERENCES "plant"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "guardian_contact" ADD CONSTRAINT "guardian_contact_child" FOREIGN KEY ("child_person_id","plant_id") REFERENCES "person"("id","tenant_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "guardian_contact" ADD CONSTRAINT "guardian_contact_guardian" FOREIGN KEY ("guardian_person_id","plant_id") REFERENCES "person"("id","tenant_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

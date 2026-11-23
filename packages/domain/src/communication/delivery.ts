@@ -475,13 +475,14 @@ async function prepare(
 		routable: false,
 		refusal: null,
 		guardians: null,
+		guardianCopy: false,
 	}));
 	const copyOf = new Map(ownRows.filter((row) => !out.has(row.person)).map((row) => [row.person, row.id]));
 	const extra = mode === "scheduled" ? [] : byGuardian(routing.routed, (guardian) => copyOf.has(guardian.id));
 	const guardianRows = extra.map(({ guardian, children: names }) => {
 		const row = copy(guardian, names);
 		copyOf.set(guardian.id, row.id);
-		return { ...row, child: false, routable: false, refusal: null, guardians: null };
+		return { ...row, child: false, routable: false, refusal: null, guardians: null, guardianCopy: true };
 	});
 	const childRows = children.map((child) => {
 		const email = child.email?.trim();
@@ -493,6 +494,7 @@ async function prepare(
 				routable: !!routes,
 				refusal: null,
 				guardians: null,
+				guardianCopy: false,
 			};
 		return {
 			...blankCopy(content, child.id),
@@ -500,6 +502,7 @@ async function prepare(
 			routable: !!routes,
 			refusal: routes ? ("guardian" as const) : ("child" as const),
 			guardians: routes?.flatMap((guardian) => copyOf.get(guardian.id) ?? []) ?? null,
+			guardianCopy: false,
 		};
 	});
 	const rows = [...ownRows, ...guardianRows, ...childRows].map((row, index) => ({
@@ -526,8 +529,8 @@ async function prepare(
 	const stored = one(
 		await db.execute(sql`WITH gate AS (SELECT ${adminGate(actor)} AS allowed),
 			input AS (
-				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, refusal, guardians, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, refusal, guardians, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
-					id uuid, person uuid, refusal text, guardians uuid[], logical_key text, payload_hash text, token_hash text, address_hash text,
+				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, refusal, guardians, guardianCopy, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, refusal, guardians, guardian_copy: guardianCopy, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
+					id uuid, person uuid, refusal text, guardians uuid[], guardian_copy boolean, logical_key text, payload_hash text, token_hash text, address_hash text,
 					payload jsonb, address text, batch int, position int
 				)
 			),
@@ -538,7 +541,7 @@ async function prepare(
 			),
 			ins_mail AS (
 				INSERT INTO mail (id, tenant_id, recipient_person_id, purpose, communication_id, logical_key, payload_hash, audience_hash,
-					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at, refusal, guardian_mail_ids)
+					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at, refusal, guardian_mail_ids, guardian_copy)
 				SELECT i.id, ${actor.plantId}::uuid, i.person, 'communication', ${found.id}::uuid, i.logical_key, i.payload_hash, ${loaded.digest},
 					i.payload, i.address, i.address_hash,
 					CASE WHEN i.refusal IS NOT NULL OR i.unsubscribed OR EXISTS (
@@ -546,7 +549,7 @@ async function prepare(
 					) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
 					clock_timestamp(), ${heldUntil}::timestamptz,
 					CASE WHEN i.refusal IS NOT NULL THEN i.refusal WHEN i.unsubscribed THEN 'unsubscribed' END,
-					CASE WHEN i.refusal = 'guardian' THEN i.guardians END
+					CASE WHEN i.refusal = 'guardian' THEN i.guardians END, i.guardian_copy
 				FROM (SELECT i.*, ${optedOutSql(sql`${actor.plantId}::uuid`, sql`i.person`)} AS unsubscribed FROM input i) i
 				JOIN gate g ON g.allowed
 				WHERE EXISTS (
@@ -1351,14 +1354,14 @@ async function routeClaimed(db: Database, keys: ReturnType<typeof keysOf>, claim
 			),
 			ins_mail AS (
 				INSERT INTO mail (id, tenant_id, recipient_person_id, purpose, communication_id, logical_key, payload_hash, audience_hash,
-					frozen_payload, recipient_address_encrypted, address_hash, state, created_at)
+					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, guardian_copy)
 				SELECT i.id, ${tenant}::uuid, i.person, 'communication', ${claimed.communication_id}::uuid, i.logical_key, i.payload_hash,
 					(SELECT cm.audience_hash FROM mail cm WHERE cm.id = ${first.row.id}::uuid AND cm.tenant_id = ${tenant}::uuid),
 					i.payload, i.address, i.address_hash,
 					CASE WHEN EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
 					) THEN 'refused' ELSE 'dispatched' END,
-					clock_timestamp()
+					clock_timestamp(), true
 				FROM input i
 				JOIN gate g ON g.allowed
 				ON CONFLICT (tenant_id, logical_key) DO NOTHING

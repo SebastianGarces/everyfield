@@ -71,7 +71,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 126,
-  "column_count": 1417,
+  "column_count": 1418,
   "foreign_key_count": 412,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -26466,6 +26466,13 @@
           "name": "guardian_mail_ids",
           "type": "uuid[]",
           "nullable": true
+        },
+        {
+          "note": "True on a Messages row sent to an adult only as a child's parent or guardian contact, not as a person in the audience. The Selected total of a send leaves these rows out.",
+          "name": "guardian_copy",
+          "type": "boolean",
+          "nullable": false,
+          "default": false
         }
       ],
       "primary_key": [

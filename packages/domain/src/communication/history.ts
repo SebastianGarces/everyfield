@@ -405,7 +405,7 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 				sql`SELECT (c.id IS NOT NULL) AS found,
 					CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
 						'state', ${hubState(reader.plantId)},
-						'selected', GREATEST(t.total, jsonb_array_length(coalesce(c.audience->'personIds', '[]'::jsonb))),
+						'selected', GREATEST(t.selected, jsonb_array_length(coalesce(c.audience->'personIds', '[]'::jsonb))),
 						'reachable', CASE WHEN t.total > 0 THEN ${reachableSql(reader.plantId)}
 							ELSE (SELECT count(*)::int FROM person p
 								WHERE p.tenant_id = c.plant_id AND p.state = 'live' AND p.email IS NOT NULL AND btrim(p.email) <> ''
@@ -424,6 +424,7 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 				LEFT JOIN communication c ON c.id = ${input.communicationId}::uuid AND c.plant_id = ${reader.plantId}::uuid
 				LEFT JOIN LATERAL (
 					SELECT count(*)::int AS total,
+						count(*) FILTER (WHERE NOT m.guardian_copy)::int AS selected,
 						count(*) FILTER (WHERE m.state NOT IN ('pending', 'scheduled') AND m.refusal IS NULL)::int AS attempted,
 						count(*) FILTER (WHERE m.bounced_at IS NULL AND m.state NOT IN ('refused', 'failed')
 							AND (m.state IN ('accepted', 'sent') OR m.accepted_at IS NOT NULL))::int AS accepted,

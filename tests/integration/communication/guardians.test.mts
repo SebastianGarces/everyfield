@@ -186,6 +186,7 @@ test("AC:CASE-NTF-016-GUARDIAN a group email goes to each child's parent or guar
 		],
 	);
 	assert.deepEqual([view.totals.guardian, view.totals.child, view.totals.reachable], [2, 1, 3]);
+	assert.equal(view.totals.selected, audience.length, "Pete's copy as a guardian is not a selected person");
 });
 
 test("the recipient search names a child's usable parent or guardian contacts, so a child with no email can be picked", async () => {
@@ -331,6 +332,7 @@ test("AC:CASE-NTF-016-GUARDIAN a scheduled email follows the contacts as they ar
 		assert.deepEqual(await mailOf(message.id, kid), [{ state: "refused", refusal: "child", guardians: null }]);
 	const after_ = await shown(message.id);
 	assert.deepEqual([after_.totals.guardian, after_.totals.child], [1, 4]);
+	assert.equal(after_.totals.selected, kids.length + 1, "Amy's copy as a guardian is not a selected person");
 	assert.deepEqual([rowOf(after_, kidAdded).deliveryStatus, rowOf(after_, kidAdded).sentTo], ["guardian", "Amy Ng"]);
 });
 

@@ -2460,6 +2460,7 @@ export const mail = pgTable(
 		refusal: text("refusal", { enum: ["unsubscribed", "child", "guardian"] }),
 		communication_id: uuid("communication_id"),
 		guardian_mail_ids: uuid("guardian_mail_ids").array(),
+		guardian_copy: boolean("guardian_copy").notNull().default(false),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		check(
