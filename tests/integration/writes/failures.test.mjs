@@ -8,7 +8,7 @@ function failure(file, line, name, error) {
 	return [`test at ${file}:${line}:3`, `✖ ${name} (1.2ms)`, ...error.map((text) => "  " + text), ""];
 }
 
-const deep = failure("tests/integration/people/fields.test.mts", 191, "renames a field", [
+const deep = failure("../../tests/integration/people/fields.test.mts", 191, "renames a field", [
 	"AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:",
 	"+ actual - expected",
 	"",
@@ -29,7 +29,7 @@ const deep = failure("tests/integration/people/fields.test.mts", 191, "renames a
 	"}",
 ]);
 
-const thrown = failure("tests/integration/meetings/notes.test.mts", 40, "saves notes", [
+const thrown = failure("../../tests/integration/meetings/notes.test.mts", 40, "saves notes", [
 	"Error: boom in notes",
 	"    at save (file:///repo/packages/domain/src/meetings/notes.ts:12:9)",
 	"    at TestContext.<anonymous> (file:///repo/tests/integration/meetings/notes.test.mts:41:3)",
@@ -92,12 +92,12 @@ test("INV-census: a behavior failure message names each failing test's assertion
 });
 
 test("INV-census: a behavior failure message cuts long errors and many failures, pointing to the evidence log", () => {
-	const long = failure("tests/integration/a.test.mts", 1, "long", [
+	const long = failure("../../tests/integration/a.test.mts", 1, "long", [
 		"Error: " + "x".repeat(BLOCK_CHARS * 2),
 		"    at TestContext.<anonymous> (file:///repo/tests/integration/a.test.mts:1:1)",
 	]);
 	const many = Array.from({ length: 40 }, (_, index) =>
-		failure("tests/integration/b.test.mts", index + 1, `case ${index}`, [
+		failure("../../tests/integration/b.test.mts", index + 1, `case ${index}`, [
 			"Error: " + "y".repeat(BLOCK_CHARS / 2),
 			`    at TestContext.<anonymous> (file:///repo/tests/integration/b.test.mts:${index + 1}:1)`,
 		]),
