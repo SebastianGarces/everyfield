@@ -52,6 +52,7 @@ export type EvryPanelState = {
 	chat: State;
 	load: Load;
 	pipeline: boolean;
+	churchName: string | null;
 	stream: Stream;
 	retrying: boolean;
 	problem: string | null;
@@ -324,7 +325,8 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			const mine = ++shown;
 			set({ load: "loading" });
 			const latest = await port.openLatest();
-			if (latest.status === "ok") set({ pipeline: latest.value.pipeline === true });
+			if (latest.status === "ok")
+				set({ pipeline: latest.value.pipeline === true, churchName: latest.value.churchName ?? null });
 			const r =
 				latest.status === "ok" && latest.value.conversation
 					? await readAll(port, latest.value.conversation.id, () => mine === shown, latest.value as ReadConversation)
@@ -356,6 +358,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			chat: EMPTY,
 			load: "idle",
 			pipeline: false,
+			churchName: null,
 			stream: "idle",
 			retrying: false,
 			problem: null,
