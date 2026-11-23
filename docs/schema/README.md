@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 124 tables, 1408 columns, 410 declared FKs and 35 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 125 tables, 1412 columns, 410 declared FKs and 35 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -59,6 +59,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `digest_coverage` | Recipient digest coverage splits from inbox notification production. | WP-004, WP-030 |
 | `early_access_attempt` | WP-097 owns the applied migration 0001 limiter table, without an invented primary key. | WP-097 |
 | `early_access_request` | WP-097 owns the applied early access migration 0001 request table; no product scaffold or tenant prerequisite. Field shape follows the approved E3 contract and receipt shape follows E4. | WP-097 |
+| `embedding_spend` | T-339 meaning-based Wiki search spend ledger through Drizzle Kit. | WP-033 |
 | `enrollment_milestone` | WP-099 development programs own their plans, completions and feedback. | WP-099 |
 | `feature_flag` | WP-050 engineering tooling: the T-470 feature-flag foundation for trunk-based landing. | WP-050 |
 | `feedback` | WP-049 feedback.submit stores it; feedback.admin.changeStatus moves its status. | WP-049 |

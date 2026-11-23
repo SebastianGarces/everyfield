@@ -38,11 +38,12 @@ export function defineRefusals<S extends SafeErrorUnion>(
 	const deny: Deny<S> = (code, ...[details]) => {
 		throw new Refusal(code, details);
 	};
-	function refused(code: Code<S>, details: object = {}): { status: "refused"; error: Failure } {
-		return {
-			status: "refused",
-			error: schema.parse({ code, details, correlationId: randomUUID(), retry: retryOf.get(code) }),
-		};
+	function refused(
+		code: Code<S>,
+		details: object = {},
+		correlationId: string = randomUUID(),
+	): { status: "refused"; error: Failure } {
+		return { status: "refused", error: schema.parse({ code, details, correlationId, retry: retryOf.get(code) }) };
 	}
 	function refusalOf(error: unknown): { status: "refused"; error: Failure } {
 		if (error instanceof Refusal) return refused(error.code, error.details);

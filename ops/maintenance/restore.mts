@@ -4,7 +4,7 @@ import { deletionMachine, entryStates, fromStates } from "../../packages/contrac
 import { sql } from "../../packages/db/src/query.ts";
 import { migrate, migrationArtifact } from "../../packages/db/src/schema/migrate.ts";
 import type { Database } from "../../packages/db/src/client.ts";
-import { validateCandidate } from "./recovery.mts";
+import { ManifestRefused, validateCandidate } from "./recovery.mts";
 const require = createRequire(new URL("../../packages/domain/package.json", import.meta.url));
 const { z } = require("zod");
 
@@ -115,11 +115,6 @@ class Refused extends Error {
 }
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const instant = (value: string | null) => (value ? new Date(value).toISOString().replace(/\.000Z$/, "Z") : null);
-const MANIFEST_REFUSALS = new Set([
-	"copy_expired_or_invalid",
-	"duplicate_manifest_identity",
-	"subject_expired_or_reset",
-]);
 const OPEN_MAIL = sql.raw(`('pending','dispatched','unknown','accepted','scheduled')`);
 const OPEN_ISSUE = sql.raw(`('pending','publishing','unknown')`);
 const ids = (rows: { id: string }[]) =>
@@ -189,8 +184,7 @@ export async function restoreWithCurrentManifest(deps: RestoreDeps, input: Resto
 	try {
 		manifest = validateCandidate(input.snapshot.manifest, startedAt, originalExpiries).manifest;
 	} catch (error) {
-		const code = error instanceof Error ? error.message : "";
-		return refuse(MANIFEST_REFUSALS.has(code) ? (code as Refusal) : "manifest_invalid");
+		return refuse(error instanceof ManifestRefused ? (error.code as Refusal) : "manifest_invalid");
 	}
 	const image = input.snapshot.image;
 	if (image.length !== manifest.database.bytes || sha256(image) !== manifest.database.sha256)

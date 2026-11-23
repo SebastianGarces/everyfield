@@ -10,6 +10,7 @@ import {
 	DialogHeader,
 	DialogTrigger,
 	Field,
+	InlineAlert,
 	Input,
 } from "@everyfield/ui/controls";
 import { useRef, useState, useTransition, type TransitionStartFunction } from "react";
@@ -152,11 +153,7 @@ function PasswordForm({
 						onChange={set("confirmPassword")}
 					/>
 				</Field>
-				{failure ? (
-					<p role="alert" className="rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">
-						{OUTCOME_TEXT[failure]}
-					</p>
-				) : null}
+				<InlineAlert>{failure ? OUTCOME_TEXT[failure] : null}</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<Button variant="secondary" onClick={onCancel} disabled={pending}>

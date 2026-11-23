@@ -7849,6 +7849,62 @@
       },
       "isRLSEnabled": false
     },
+    "public.embedding_spend": {
+      "name": "embedding_spend",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "day": {
+          "name": "day",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usage": {
+          "name": "usage",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "embedding_spend_day_key": {
+          "name": "embedding_spend_day_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "day",
+            "purpose"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "embedding_spend_purpose": {
+          "name": "embedding_spend_purpose",
+          "value": "\"embedding_spend\".\"purpose\" IN ('query','rebuild','publish')"
+        },
+        "embedding_spend_usage": {
+          "name": "embedding_spend_usage",
+          "value": "\"embedding_spend\".\"usage\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.enrollment_milestone": {
       "name": "enrollment_milestone",
       "schema": "",
@@ -10378,7 +10434,7 @@
         },
         "job_ck_1": {
           "name": "job_ck_1",
-          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text, 'feedback_publication'::text, 'assessment'::text]))"
+          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text, 'feedback_publication'::text, 'assessment'::text, 'wiki_embedding'::text]))"
         },
         "job_ck_2": {
           "name": "job_ck_2",
@@ -16045,7 +16101,7 @@
           "name": "release_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "revision_id": {
           "name": "revision_id",
@@ -16168,6 +16224,22 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "passage_embedding_1536": {
+          "name": "passage_embedding_1536",
+          "columns": [
+            {
+              "expression": "((\"embedding\")::public.vector(1536)) public.vector_cosine_ops",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "public.vector_dims(\"passage\".\"embedding\") = 1536",
+          "concurrently": false,
+          "method": "hnsw",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -16250,7 +16322,12 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "passage_release_owner": {
+          "name": "passage_release_owner",
+          "value": "((release_id IS NULL) = (tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid))"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.people_column": {
