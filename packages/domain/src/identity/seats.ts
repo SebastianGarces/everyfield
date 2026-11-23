@@ -199,8 +199,8 @@ export function createSeatService(db: Database | Transaction) {
 							FROM seat s JOIN account a ON a.id=s.account_id CROSS JOIN LATERAL seat_identity(s.account_id) i
 							WHERE ${column}=${selected.id}::uuid AND s.ended_at IS NULL AND s.account_id<>${s.account_id}::uuid
 								AND a.registration_state='active' AND s.accepted_at<=clock_timestamp()
-								AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE (w.opaque_subject_id=s.account_id OR w.seat_id=s.id)
-									AND w.state NOT IN ('active','cancelled'))
+								AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=s.account_id
+									AND w.state <> 'cancelled')
 							ORDER BY s.id LIMIT ${c.MAX_REMOVAL_ITEMS + 1}`)
 					).rows,
 				)
@@ -297,7 +297,7 @@ export function createSeatService(db: Database | Transaction) {
 									isNull(t.seat.ended_at),
 									eq(t.account.registration_state, "active"),
 									sql`${t.seat.accepted_at}<=clock_timestamp()`,
-									sql`NOT EXISTS(SELECT FROM lifecycle_witness w WHERE (w.opaque_subject_id=${t.seat.account_id} OR w.seat_id=${t.seat.id}) AND w.state NOT IN ('active','cancelled'))`,
+									sql`NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=${t.seat.account_id} AND w.state <> 'cancelled')`,
 								),
 							)
 							.orderBy(asc(t.seat.id))
