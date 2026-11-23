@@ -17,7 +17,8 @@
 			],
 			"personas": {
 				"visitor": "read",
-				"owner": "read"
+				"owner": "read",
+				"network": "read"
 			},
 			"states": [
 				{
@@ -25,6 +26,25 @@
 					"file": "apps/web/src/app/not-found.tsx",
 					"reach": {
 						"persona": "visitor",
+						"open": "/this-page-does-not-exist",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Page not found"
+						},
+						{
+							"role": "link",
+							"name": "Go to the home page"
+						}
+					]
+				},
+				{
+					"id": "outside-frame-signed-in",
+					"file": "apps/web/src/app/not-found.tsx",
+					"reach": {
+						"persona": "network",
 						"open": "/this-page-does-not-exist",
 						"seed": "qa"
 					},
