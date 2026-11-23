@@ -15,7 +15,7 @@
 			"project": ["**/*.{js,mjs,cjs,ts,mts,cts,tsx}"],
 		},
 		"apps/web": {
-			"entry": ["scripts/**/*.{js,mjs,cjs,ts,mts,cts}"],
+			"entry": ["scripts/**/*.{js,mjs,cjs,ts,mts,cts}", "src/server/flags.types.ts"],
 		},
 		"packages/contracts": {
 			"entry": ["src/**/*.test.{ts,mts,tsx}"],

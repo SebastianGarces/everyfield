@@ -21,6 +21,7 @@ import {
 	Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import {
+	Alert,
 	Button,
 	CalloutLabel,
 	CalloutText,
@@ -35,6 +36,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	Input,
 	InsightCard,
 	InsightCount,
 	InsightFooter,
@@ -43,7 +45,6 @@ import {
 	InsightText,
 	InsightTitle,
 	InsightTop,
-	Input,
 	PageHeader,
 	Textarea,
 	toast,
@@ -614,13 +615,10 @@ function MilestoneRow({
 						<p className="mt-3 ml-[38px] text-sm text-text-3 max-app-sm:ml-0">This milestone has no prep tasks left.</p>
 					)}
 					{stale ? (
-						<p
-							role="alert"
-							className="mt-3 ml-[38px] rounded-md bg-amber-100 px-3.5 py-2.5 text-sm text-ink max-app-sm:ml-0"
-						>
+						<Alert role="alert" tone="warning" className="mt-3 ml-[38px] max-app-sm:ml-0">
 							These tasks changed since you opened the page. Nothing was saved. Review them and complete the milestone
 							again.
-						</p>
+						</Alert>
 					) : null}
 					{m.completion && m.needsReview ? (
 						<p className="mt-3 ml-[38px] text-sm text-text-2 max-app-sm:ml-0">

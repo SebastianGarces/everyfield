@@ -12,7 +12,10 @@ import {
 } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
 import {
+	Breadcrumb,
 	Button,
+	CalloutLabel,
+	CalloutText,
 	Card,
 	CardHeader,
 	CardHeading,
@@ -23,14 +26,12 @@ import {
 	MenuItem,
 	MenuSeparator,
 	MenuTrigger,
-	Breadcrumb,
-	CalloutLabel,
-	CalloutText,
 	StatePanel,
 	Tab,
 	Tabs,
 	TabsList,
 	TabsPanel,
+	TextButton,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
 import Link from "next/link";
@@ -278,14 +279,7 @@ export function PersonScreen({
 				<div className="mb-5">
 					<Problem>
 						The Unmerge was saved, but this page did not read the moved records again.{" "}
-						<button
-							type="button"
-							className="font-medium underline underline-offset-2"
-							onClick={() => location.reload()}
-						>
-							Reload the page
-						</button>{" "}
-						to see where they are now.
+						<TextButton onClick={() => location.reload()}>Reload the page</TextButton> to see where they are now.
 					</Problem>
 				</div>
 			) : null}

@@ -7,8 +7,9 @@ import {
 	type PhasesError,
 	type ReasonProblem,
 } from "@everyfield/contracts/phases";
+import type { Outcome as Shared } from "@everyfield/contracts/common";
 
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; error: PhasesError } | { status: "lost" };
+export type Outcome<T> = Shared<T, PhasesError["code"], { error: PhasesError }>;
 
 export const SHORT_NAME: readonly string[] = [
 	"Discovery",

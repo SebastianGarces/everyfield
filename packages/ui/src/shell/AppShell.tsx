@@ -99,7 +99,7 @@ function Topbar({
 	return (
 		<Popover open={menuOpen} onOpenChange={setMenuOpen}>
 			<PopoverAnchor asChild>
-				<header className="sticky top-0 z-20 col-span-full flex items-center gap-[14px] ef-top-fade pt-[22px] pr-6 pb-2 pl-[22px] *:flex-none *:whitespace-nowrap max-app-xl:gap-2.5 max-app-md:gap-2 max-app-md:px-3 max-app-md:pt-3 app-2xl:grid app-2xl:grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)]">
+				<header className="sticky top-0 z-30 col-span-full flex items-center gap-[14px] ef-top-fade pt-[22px] pr-6 pb-2 pl-[22px] *:flex-none *:whitespace-nowrap max-app-xl:gap-2.5 max-app-md:gap-2 max-app-md:px-3 max-app-md:pt-3 app-2xl:grid app-2xl:grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)]">
 					<Link
 						href={homeHref}
 						aria-label="Everyfield, Overview"
@@ -259,16 +259,18 @@ function TopIconButton({
 
 function Rail({ nav, current }: { nav: ShellNav; current: string | null }) {
 	return (
-		<aside
-			aria-label="Secondary"
-			className="sticky top-[92px] z-[25] flex h-[calc(100dvh-112px)] flex-col gap-[14px] pt-[18px] pb-5 pl-[22px] max-app-md:hidden"
-		>
-			<ThemeToggle variant="rail" />
-			<div className="flex-[.6]" />
-			<RailGroup items={nav.pages} current={current} />
-			<div className="flex-1" />
-			<RailGroup items={nav.tools} current={current} />
-		</aside>
+		<div className="flex flex-col max-app-md:hidden">
+			<aside
+				aria-label="Secondary"
+				className="sticky bottom-5 z-[25] mt-auto flex min-h-[calc(100dvh-112px)] flex-col gap-[14px] pt-[18px] pb-5 pl-[22px]"
+			>
+				<ThemeToggle variant="rail" />
+				<div className="flex-[.6]" />
+				<RailGroup items={nav.pages} current={current} />
+				<div className="flex-1" />
+				<RailGroup items={nav.tools} current={current} />
+			</aside>
+		</div>
 	);
 }
 

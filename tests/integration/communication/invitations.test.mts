@@ -49,7 +49,7 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 		db: f.db,
 		storage: null,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: null,
 		mail: (limit, until) => runDueMail(f.db, f.mail, INVITATION_MAIL, limit, until),
 	});
@@ -155,7 +155,7 @@ test("AC:CASE-NTF-011 an invitation to an address blocked after a bounce is not 
 		await assert.rejects(
 			resident ? f.invitations.inviteResident(actor, command) : f.invitations.invite(actor, command),
 			(error) => {
-				assert.equal(error.value?.code, "address_blocked");
+				assert.equal(error.code, "address_blocked");
 				return true;
 			},
 		);

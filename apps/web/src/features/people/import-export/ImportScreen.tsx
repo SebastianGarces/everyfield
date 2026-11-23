@@ -1,5 +1,6 @@
 "use client";
 
+import type { Outcome } from "@everyfield/contracts/common";
 import { Button, buttonVariants, IntentLink, PageHeader } from "@everyfield/ui/controls";
 import { useFocusRequest } from "@everyfield/ui/foundations";
 import { useRef, useState, useSyncExternalStore } from "react";
@@ -54,7 +55,7 @@ export type Initial =
 	| { kind: "missing"; key: string }
 	| { kind: "lost"; key: string };
 
-type Answer<T> = { status: "ok"; value: T } | { status: "refused"; code: string; line?: number } | { status: "lost" };
+type Answer<T> = Outcome<T, string, { line?: number }>;
 async function call<T>(input: string, init?: RequestInit): Promise<Answer<T>> {
 	try {
 		const res = await fetch(input, { ...init, cache: "no-store" });
