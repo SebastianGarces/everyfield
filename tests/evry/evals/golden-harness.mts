@@ -78,6 +78,9 @@ const LATER = new Set<string>([
 	...WORKFLOW_READS.map((a) => a.operation),
 	"documents.importTextOrWord",
 	...Object.keys(WIKI_COMMANDS).filter((op) => op.startsWith("wiki.organizationArticles.")),
+	"organizationIntelligence.readHistory",
+	"organizationIntelligence.readLocations",
+	"organizationIntelligence.readLocationHistory",
 	"intelligence.readExitCriteria",
 	"intelligence.readJourney",
 ]);
@@ -316,7 +319,7 @@ function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attac
 		const c = await createConversation(db, actor, { requestKey: randomUUID() });
 		for (const f of files)
 			await db.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
-				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,${f.pdf ? "commitment" : "assistant_staging"},${`private/${actor.owner.id}/${f.id}`},${f.pdf ? "application/pdf" : "text/csv"},${f.bytes.length},
+				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,${f.pdf ? "commitment" : "assistant_staging"},${`private/${actor.owner.id}/${f.id}`},${f.pdf ? "application/pdf" : isPng(f) ? "image/png" : "text/csv"},${f.bytes.length},
 					'pending',${`evry-attachment/${c.id}/${f.id}`},0,clock_timestamp()+make_interval(hours=>${ATTACHMENTS.stagingHours}))`);
 		const submitted = await submitTurn(db, actor, c.id, {
 			requestKey: randomUUID(),
@@ -355,20 +358,27 @@ export type CaseFile = {
 	checked?: boolean;
 };
 type Attached = CaseFile & { bytes: Uint8Array };
+const isPng = (f: CaseFile) => /\.png$/i.test(f.name);
+const PNG = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
+	"base64",
+);
 const fill = (csv: string) =>
 	csv.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => byName(name)[field] ?? "");
 const HEADING = W.styles(W.style("Heading1", "heading 1"));
 const bytesOf = (f: CaseFile): Uint8Array =>
-	f.pdf
-		? pdf()
-		: f.base64 !== undefined
-			? Buffer.from(f.base64, "base64")
-			: f.docx
-				? W.word(
-						f.docx.map((line) => (line.startsWith("# ") ? W.styled("Heading1", line.slice(2)) : W.p(line))).join(""),
-						{ styles: HEADING },
-					)
-				: new TextEncoder().encode(fill(f.csv ?? ""));
+	isPng(f)
+		? new Uint8Array(PNG)
+		: f.pdf
+			? pdf()
+			: f.base64 !== undefined
+				? Buffer.from(f.base64, "base64")
+				: f.docx
+					? W.word(
+							f.docx.map((line) => (line.startsWith("# ") ? W.styled("Heading1", line.slice(2)) : W.p(line))).join(""),
+							{ styles: HEADING },
+						)
+					: new TextEncoder().encode(fill(f.csv ?? ""));
 
 export async function converse(
 	church: GoldenChurch,

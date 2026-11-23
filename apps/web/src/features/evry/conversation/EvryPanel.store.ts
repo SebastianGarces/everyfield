@@ -1,6 +1,6 @@
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type * as api from "./api.ts";
-import { FILE_REFUSED, refusal, type Picked } from "./attachments.ts";
+import { ATTACH, FILE_REFUSED, looksLikePhoto, photoRefusal, refusal, type Picked } from "./attachments.ts";
 import {
 	answerText,
 	cursor,
@@ -36,9 +36,11 @@ export type EvryPort = Pick<
 	| "streamUrl"
 	| "stageAttachment"
 > & {
-	checkPhoto: (file: File) => Attached | null;
-	stagePhoto: (file: File, src: string) => Promise<Attached>;
+	stageAvatar: (file: File) => Promise<string | null>;
 	putFile: (url: string, headers: Record<string, string>, file: File) => Promise<boolean>;
+	heldDraft: () => string | null;
+	holdDraft: (draft: string | null) => void;
+	reloadPage: () => void;
 };
 
 export type EvryPanelState = {
@@ -56,6 +58,7 @@ export type EvryPanelState = {
 	stream: Stream;
 	retrying: boolean;
 	problem: string | null;
+	churchChanged: boolean;
 	announcement: string;
 	actions: {
 		show: (open: boolean) => void;
@@ -65,11 +68,11 @@ export type EvryPanelState = {
 		send: (text: string, references: Reference[], context: string) => void;
 		resend: (send: Send) => void;
 		edit: (send: Send) => void;
-		attach: (file: File) => void;
 		clearPhoto: () => void;
-		addFiles: (files: readonly File[]) => void;
+		addFiles: (files: readonly File[], church: boolean) => void;
 		removeFile: (key: string) => void;
 		reload: () => void;
+		reloadForChurch: (send: Send) => void;
 		cancel: () => void;
 		retry: (turnId: string) => void;
 		reconnect: () => void;
@@ -177,9 +180,11 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			});
 		};
 
+		const reading = (conversationId: string) => !get().churchChanged && get().chat.conversation?.id === conversationId;
+
 		const settle = async (conversationId: string) => {
 			const r = await port.readConversation(conversationId, cursor(get().chat));
-			if (get().chat.conversation?.id !== conversationId) return;
+			if (!reading(conversationId)) return;
 			if (r.status === "refused") return stopped(r.error);
 			if (r.status === "lost") return set({ stream: "lost" });
 			update((chat) => merge(chat, r.value.events));
@@ -189,16 +194,19 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 
 		const catchUp = async (conversationId: string) => {
 			const r = await port.readConversation(conversationId, cursor(get().chat));
-			if (r.status !== "ok" || get().chat.conversation?.id !== conversationId) return;
+			if (r.status !== "ok" || !reading(conversationId)) return;
 			update((chat) => merge(chat, r.value.events));
 			if (!r.value.run) update((chat) => ({ ...chat, activeTurnId: null, stopping: false }));
 		};
 
-		const fail = (send: Send, reply: api.Reply<unknown>, refused: "refused" | "unstarted" = "refused") =>
+		const fail = (send: Send, reply: api.Reply<unknown>, refused: "refused" | "unstarted" = "refused") => {
+			if (reply.status === "refused" && reply.error.code === "church_changed")
+				update((chat) => ({ ...chat, activeTurnId: null, stopping: false }), { churchChanged: true, problem: null });
 			patchSend(
 				send.key,
 				reply.status === "refused" ? { state: refused, error: reply.error } : { state: "unconfirmed", error: null },
 			);
+		};
 
 		const patchSend = (key: string, patch: Partial<Send>) =>
 			update((chat) => {
@@ -225,25 +233,57 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 		const patchFile = (key: string, next: Partial<Picked>) =>
 			set({ files: get().files.map((p) => (p.key === key ? { ...p, ...next } : p)) });
 
-		const upload = async (file: File, key: string) => {
+		const stageFile = async (file: File, onConversation: (id: string) => void = () => {}) => {
 			const conversation = await ensureConversation();
-			if (!conversation) return patchFile(key, { state: "failed" });
-			patchFile(key, { conversationId: conversation.id });
+			if (!conversation) return null;
+			onConversation(conversation.id);
 			const staged = await port.stageAttachment(conversation.id, file.name, file.size);
 			if (staged.status !== "ok") {
 				if (staged.status === "refused")
 					set({ fileNotice: FILE_REFUSED[staged.error.code] ?? "That file could not be attached." });
-				return patchFile(key, { state: "failed" });
+				return null;
 			}
 			const put = await port.putFile(staged.value.upload.url, staged.value.upload.headers, file);
-			if (!put) return patchFile(key, { state: "failed" });
-			patchFile(key, { state: "ready", attachment: staged.value.attachment });
+			return put ? { conversationId: conversation.id, attachment: staged.value.attachment } : null;
 		};
 
-		const readyFiles = (conversationId: string | null): Attachment[] =>
-			get()
-				.files.filter((p) => p.state === "ready" && p.conversationId === conversationId)
-				.flatMap((p) => (p.attachment ? [p.attachment] : []));
+		const upload = async (file: File, key: string) => {
+			const staged = await stageFile(file, (conversationId) => patchFile(key, { conversationId }));
+			patchFile(key, staged ? { state: "ready", attachment: staged.attachment } : { state: "failed" });
+		};
+
+		const attachPhoto = (file: File, church: boolean) => {
+			dropPhoto();
+			const run = photoRun;
+			const shown = { src: URL.createObjectURL(file), name: file.name, size: file.size };
+			set({ photo: { ...shown, status: "uploading" } });
+			void (async () => {
+				const [avatarId, staged] = await Promise.all([
+					file.size <= ATTACH.avatarBytes ? port.stageAvatar(file) : null,
+					church ? stageFile(file) : null,
+				]);
+				if (run !== photoRun) return;
+				const ready = church ? staged !== null : avatarId !== null;
+				set({
+					photo: ready
+						? {
+								...shown,
+								status: "ready",
+								avatarId,
+								attachment: staged?.attachment ?? null,
+								conversationId: staged?.conversationId ?? null,
+							}
+						: { ...shown, status: "failed" },
+				});
+			})();
+		};
+
+		const readyFiles = (conversationId: string | null): Attachment[] => {
+			const { files, photo } = get();
+			const attached = files.filter((p) => p.state === "ready" && p.conversationId === conversationId);
+			const picture = photo?.status === "ready" && photo.conversationId === conversationId ? [photo.attachment] : [];
+			return [...attached.map((p) => p.attachment), ...picture].flatMap((a) => (a ? [a] : []));
+		};
 
 		const deliver = async (send: Send) => {
 			const view = shown;
@@ -275,7 +315,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 		const follow = () => {
 			const { chat } = get();
 			const id = chat.conversation?.id;
-			const wanted = readers > 0 && id && chat.activeTurnId !== null ? id : null;
+			const wanted = readers > 0 && id && chat.activeTurnId !== null && !get().churchChanged ? id : null;
 			if (wanted === following) return;
 			following = wanted;
 			if (source) {
@@ -347,10 +387,12 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			}
 		};
 
+		const held = port.heldDraft();
+
 		return {
-			open: false,
+			open: held !== null,
 			view: "chat",
-			draft: "",
+			draft: held ?? "",
 			startedIn: init.context,
 			photo: null,
 			files: [],
@@ -362,6 +404,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			stream: "idle",
 			retrying: false,
 			problem: null,
+			churchChanged: false,
 			announcement: "",
 			actions: {
 				show,
@@ -394,23 +437,24 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				resend: (s) => void deliver(s),
 				edit: (s) =>
 					update((chat) => ({ ...chat, sends: chat.sends.filter((x) => x.key !== s.key) }), { draft: s.text }),
-				attach: (file) => {
-					dropPhoto();
-					const problem = port.checkPhoto(file);
-					if (problem) return set({ photo: problem });
-					const run = photoRun;
-					const src = URL.createObjectURL(file);
-					set({ photo: { status: "uploading", src } });
-					void port.stagePhoto(file, src).then((photo) => {
-						if (run === photoRun) set({ photo });
-					});
-				},
 				clearPhoto: dropPhoto,
-				addFiles: (picked) => {
-					let count = get().files.length;
-					let fileNotice: string | null = null;
+				addFiles: (picked, church) => {
+					const [photo, ...more] = picked.filter(looksLikePhoto);
+					const others = picked.filter((f) => !looksLikePhoto(f));
+					const held = get().files.length;
+					let count = held + (get().photo ? 1 : 0);
+					let fileNotice: string | null = more.length ? "Attach one photo at a time." : null;
+					if (others.length && !church) fileNotice = "Choose a JPG, PNG or WebP photo.";
+					if (photo) {
+						const problem = photoRefusal(photo, church, held);
+						if (problem) fileNotice = problem;
+						else {
+							if (!get().photo) count++;
+							attachPhoto(photo, church);
+						}
+					}
 					const added: { file: File; key: string }[] = [];
-					for (const file of picked) {
+					for (const file of church ? others : []) {
 						const problem = refusal(file, count);
 						if (problem) {
 							fileNotice = problem;
@@ -437,6 +481,10 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				},
 				removeFile: (key) => set({ files: get().files.filter((p) => p.key !== key) }),
 				reload: () => void reload(),
+				reloadForChurch: (send) => {
+					port.holdDraft(send.text);
+					port.reloadPage();
+				},
 				cancel: () =>
 					void (async () => {
 						const conversation = get().chat.conversation;
@@ -479,6 +527,10 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				followStream: (listener) => {
 					const off = api.subscribe(listener);
 					readers++;
+					if (get().load === "idle") {
+						port.holdDraft(null);
+						void reload();
+					}
 					if (readers === 1) {
 						unwatch = api.subscribe(follow);
 						follow();

@@ -3782,14 +3782,6 @@ const organizationSeatCheck = {
 };
 
 export const LOOSE_CONTRACTS = {
-	"packages/contracts/src/people/csv/index.ts": {
-		importValues:
-			"it parses the createPersonRequest input of each CSV row, which also carries stage, adultClassification and birthDate; it drops them on purpose",
-	},
-	"packages/contracts/src/communication/results.ts": {
-		mailReport:
-			"it parses proposal receipts stored by earlier code, whose reports may hold keys the schema no longer names",
-	},
 	"packages/contracts/src/communication/requests.ts": {
 		historyQuery:
 			"it is the lenient history query: listHistory normalizes each value itself and drops a query key it does not name",
@@ -3819,7 +3811,7 @@ const strictContracts = {
 				context.report({
 					node,
 					message:
-						"A contract schema is a z.strictObject with no strip, passthrough, loose or catchall, so a request with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
+						"An object schema in packages/contracts or packages/evry is a z.strictObject with no strip, passthrough, loose or catchall, so a value with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
 				});
 		};
 		return {

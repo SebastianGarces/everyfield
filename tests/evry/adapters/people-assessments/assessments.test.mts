@@ -332,30 +332,111 @@ test("INV-evry-assessments CLN-03: a merge review shows who stays and what moves
 	assert.equal(done.rows[0]!.fields.blocked, "This merge was already undone.");
 });
 
-test("INV-evry-assessments: a merge People can't carry yet gives the People screen's blocked answer and merges nothing", async () => {
+test("INV-evry-assessments: a leadership conflict gives the People screen's refusal, and merges nothing", async () => {
 	const owner = await actor("owner");
 	const casey = await addPerson("Casey Kept");
 	const brooks = await addPerson("Casey Blocked");
-	await admin.execute(sql`INSERT INTO contact_outcome(plant_id,person_id,outcome,occurred_at,recorded_at,contact_channel)
-		VALUES(${plant},${brooks},'contacted',clock_timestamp(),clock_timestamp(),'phone')`);
-	await admin.execute(sql`INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind,person_id)
-		VALUES(${plant},'Call','general','medium','not_started',clock_timestamp(),'undated',${brooks})`);
+	const team = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${team},${plant},'Worship','active',1)`,
+	);
+	for (const [name, person] of [
+		["Vocals", brooks],
+		["Guitar", casey],
+	] as const) {
+		const role = randomUUID();
+		await admin.execute(sql`INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order)
+			VALUES(${role},${plant},${team},${name},false,1)`);
+		await admin.execute(sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on)
+			VALUES(${plant},${role},${person},'2026-02-01')`);
+	}
 	const propose = await turn(owner);
 	const merge = await propose("people.mergePeople", { sourceId: brooks, survivorId: casey });
 	assert.ok(merge);
 	const text = mergeBlockedText(
-		{ causes: ["unregistered_reference"], references: ["task"] },
+		{
+			causes: ["leadership_conflict"],
+			leadership: [{ team: "Worship", sourceRole: "Vocals", survivorRole: "Guitar" }],
+			invitations: [],
+		},
 		{ source: "Casey Blocked", survivor: "Casey Kept" },
 	);
 	assert.equal(
 		text,
-		"This merge cannot run. Casey Blocked has tasks on record. Merging people with this history is not available in Everyfield yet.",
+		"This merge cannot run. Casey Blocked is Vocals and Casey Kept is Guitar on Worship. One person can’t hold two current roles on one team, so end one of those roles first.",
 	);
 	assert.equal(merge.review.refusal, text);
 	await assert.rejects(approveProposal(db, owner, merge.id, { revision: merge.revision, digest: merge.digest }, null), {
 		code: "review_closed",
 	});
 	assert.equal((await admin.execute(sql`SELECT state FROM person WHERE id=${brooks}`)).rows[0]!.state, "live");
+});
+
+test("INV-evry-assessments: a reviewed merge combines same-meeting attendance and carries tasks and kit items; its reviewed Unmerge restores them", async () => {
+	const owner = await actor("owner");
+	const meeting = randomUUID();
+	await admin.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,
+		status,attendance_revision) VALUES(${meeting},${plant},'vision_meeting','Kit night','2026-11-01','18:00','America/Chicago',
+		'2026-11-01T23:00:00Z','1','completed',1)`);
+	const source = await addPerson("Jo Attended");
+	const survivor = await addPerson("Jo Attended Keep");
+	await admin.execute(sql`INSERT INTO participation(plant_id,meeting_id,person_id,roster_member,rsvp,presence)
+		VALUES(${plant},${meeting},${source},false,'pending','absent'),(${plant},${meeting},${survivor},false,'confirmed','attended')`);
+	await admin.execute(sql`INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind,due_date,person_id)
+		VALUES(${plant},'Call Jo','general','medium','not_started',clock_timestamp(),'date_only','2026-12-01',${source})`);
+	await admin.execute(sql`INSERT INTO meeting_kit_item(plant_id,meeting_id,item_key,position,category,text,assignee_person_id)
+		VALUES(${plant},${meeting},'cards',1,'materials','Welcome cards',${source})`);
+	const owned = async (id: string) =>
+		(
+			await admin.execute(sql`SELECT (SELECT count(*) FROM participation WHERE person_id=${id} AND removed_at IS NULL)::int AS a,
+				(SELECT count(*) FROM task WHERE person_id=${id})::int AS t,
+				(SELECT count(*) FROM meeting_kit_item WHERE assignee_person_id=${id})::int AS k`)
+		).rows[0];
+	const propose = await turn(owner);
+	const merge = await propose("people.mergePeople", { sourceId: source, survivorId: survivor });
+	assert.ok(merge);
+	assert.equal(merge.review.refusal, undefined);
+	assert.deepEqual(
+		merge.review.changes.filter((c) => ["moves", "attendanceChanges", "openTasks", "openKitItems"].includes(c.field)),
+		[
+			{ field: "moves", before: null, after: "1 meeting kit item, 1 meeting attendance and 1 task" },
+			{
+				field: "attendanceChanges",
+				before: null,
+				after:
+					"Kit night: Jo Attended Keep’s RSVP (Going) replaces Jo Attended’s pending RSVP. Kit night: both are on this meeting, so Jo Attended Keep keeps one attendance (Attended).",
+			},
+			{ field: "openTasks", before: null, after: "Call Jo, due Dec 1, 2026" },
+			{ field: "openKitItems", before: null, after: "Welcome cards for Kit night" },
+		],
+	);
+	assert.equal((await approveAndRun(owner, merge)).outcome, "completed");
+	assert.deepEqual(
+		[await owned(source), await owned(survivor)],
+		[
+			{ a: 0, t: 0, k: 0 },
+			{ a: 1, t: 1, k: 1 },
+		],
+	);
+	const undoable = (await read(owner, "people.previewUnmerge", { personId: survivor })).rows[0]!;
+	assert.deepEqual(
+		[undoable.fields.movesBack, undoable.fields.blocked],
+		["1 task, 1 meeting attendance and 1 meeting kit item", null],
+	);
+	const undo = await propose("people.unmergePeople", { mergeId: undoable.id });
+	assert.ok(undo);
+	assert.deepEqual(
+		undo.review.changes.find((c) => c.field === "attendanceGoesBack")?.after,
+		"Kit night: Jo Attended Keep’s RSVP (Going) replaces Jo Attended’s pending RSVP. Kit night: both are on this meeting, so Jo Attended Keep keeps one attendance (Attended).",
+	);
+	assert.equal((await approveAndRun(owner, undo)).outcome, "completed");
+	assert.deepEqual(
+		[await owned(source), await owned(survivor)],
+		[
+			{ a: 1, t: 1, k: 1 },
+			{ a: 1, t: 0, k: 0 },
+		],
+	);
 });
 
 test("INV-evry-assessments: a reviewed merge carries follow-ups, outcomes and sent email; Unmerge restores follow-ups and refuses after email", async () => {

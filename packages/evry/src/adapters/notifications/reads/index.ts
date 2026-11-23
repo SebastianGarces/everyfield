@@ -34,7 +34,7 @@ const result = (operation: string, rows: SourceRow[], total: number | null, part
 
 async function churchZone(tx: Transaction, actor: EvryActor) {
 	const r = await tx.execute(sql`SELECT timezone FROM plant WHERE id=${actor.owner.id}::uuid`);
-	return z.object({ timezone: z.string() }).parse(r.rows[0]).timezone;
+	return z.strictObject({ timezone: z.string() }).parse(r.rows[0]).timezone;
 }
 const localTime = (at: string, zone: string) =>
 	new Intl.DateTimeFormat("en-US", {

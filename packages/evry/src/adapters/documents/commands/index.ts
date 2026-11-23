@@ -44,9 +44,9 @@ const createInput = z.strictObject({
 	templateId: z.enum(TEMPLATE_IDS).describe("A template id from documents.templates.list"),
 });
 type Fill = TemplateFill["fields"][number];
-const fillArgs = z.object({
-	input: z.object({ templateId: z.string() }),
-	fill: z.array(z.object({ key: z.string(), value: z.string().nullable() })),
+const fillArgs = z.strictObject({
+	input: z.strictObject({ templateId: z.string() }),
+	fill: z.array(z.strictObject({ key: z.string(), value: z.string().nullable() })),
 });
 const SOURCE: Record<string, string> = {
 	"church.name": "church name",
@@ -115,8 +115,8 @@ const exportInput = z.strictObject({
 	documentId,
 	format: z.enum(["pdf", "docx"]).describe("pdf or docx (Word)"),
 });
-const exportArgs = z.object({
-	input: z.object({ documentId: z.uuid(), revision: z.int(), format: z.enum(["pdf", "docx"]) }),
+const exportArgs = z.strictObject({
+	input: z.strictObject({ documentId: z.uuid(), revision: z.int(), format: z.enum(["pdf", "docx"]) }),
 });
 export const exportNative: ReviewedWrite<z.infer<typeof exportInput>> = {
 	operation: "documents.exportNative",
@@ -143,9 +143,9 @@ export const exportNative: ReviewedWrite<z.infer<typeof exportInput>> = {
 	},
 };
 
-const archiveArgs = z.object({
+const archiveArgs = z.strictObject({
 	store: z.enum(["written", "church"]),
-	input: z.object({ documentId: z.uuid(), expectedRevision: z.string() }),
+	input: z.strictObject({ documentId: z.uuid(), expectedRevision: z.string() }),
 });
 export const archive: ReviewedWrite<{ documentId: string }> = {
 	operation: "documents.archive",
@@ -175,13 +175,13 @@ export const archive: ReviewedWrite<{ documentId: string }> = {
 	},
 };
 
-const designateRow = z.object({
+const designateRow = z.strictObject({
 	id: z.uuid(),
 	kind: z.enum(["native", "core_values"]),
 	revision: z.string(),
 	body: z.string(),
 });
-const designateArgs = z.object({ input: z.object({ documentId: z.uuid(), expectedRevision: z.string() }) });
+const designateArgs = z.strictObject({ input: z.strictObject({ documentId: z.uuid(), expectedRevision: z.string() }) });
 export const designateCoreValues: ReviewedWrite<{ documentId: string }> = {
 	operation: "documents.designateCoreValues",
 	description:
@@ -232,8 +232,8 @@ const importInput = z.strictObject({
 		.optional()
 		.describe("The new document's title, only when the user names one; otherwise the file's name is used"),
 });
-const importArgs = z.object({
-	input: z.object({
+const importArgs = z.strictObject({
+	input: z.strictObject({
 		conversationId: z.uuid(),
 		attachmentId: z.uuid(),
 		title: z.string(),

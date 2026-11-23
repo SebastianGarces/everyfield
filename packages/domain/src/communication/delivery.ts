@@ -1143,7 +1143,7 @@ export function sendTransactionalMail(
 }
 
 const churchClosing = (tenant: SQL) => sql`EXISTS (SELECT 1 FROM lifecycle_witness w
-	WHERE w.opaque_subject_id = ${tenant} AND w.state IN ('pending_deletion', 'purging', 'purged', 'revoked'))`;
+	WHERE w.opaque_subject_id = ${tenant} AND w.state IN ('pending_deletion', 'purging', 'purged'))`;
 
 const claimedSchema = z.object({
 	request_id: z.uuid(),

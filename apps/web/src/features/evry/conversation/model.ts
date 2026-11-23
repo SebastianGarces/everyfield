@@ -14,6 +14,7 @@ export type Conversation = {
 type ErrorCode =
 	| "not_found"
 	| "access_denied"
+	| "church_changed"
 	| "invalid_input"
 	| "run_active"
 	| "model_unavailable"
@@ -386,6 +387,8 @@ export function sendNotice(send: Send, churchName: string | null = null): string
 			return "Not sent. Send it again.";
 	}
 }
+
+export const churchChanged = (send: Send) => send.state === "refused" && send.error?.code === "church_changed";
 
 export const resendable = (send: Send) =>
 	send.state === "unconfirmed" ||

@@ -42,7 +42,7 @@ export const declarePhase: ReviewedWrite<z.infer<typeof declareInput>> = {
 	async execute(tx, _context, args, effectKey, ports, native): Promise<EffectResult> {
 		const writer = createPhaseWriter({ notices: ports.phaseNotices });
 		const reply = await writer.declare(tx, native.authority, {
-			...z.object({}).loose().parse(args),
+			...z.record(z.string(), z.unknown()).parse(args),
 			requestKey: effectKey,
 		});
 		if (reply.status !== "ok") return refused(reply);
@@ -86,7 +86,7 @@ export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 	async execute(tx, _context, args, effectKey, ports, native): Promise<EffectResult> {
 		const writer = createPhaseWriter({ notices: ports.phaseNotices });
 		const reply = await writer.transition(tx, native.authority, {
-			...z.object({}).loose().parse(args),
+			...z.record(z.string(), z.unknown()).parse(args),
 			requestKey: effectKey,
 		});
 		if (reply.status !== "ok") return refused(reply);
@@ -120,12 +120,15 @@ const FUTURE = "A signal can't be true as of a date after today.";
 const runSignal =
 	(command: typeof signals.attest): ReviewedWrite<unknown>["execute"] =>
 	async (tx, context, args, effectKey, ports, native) => {
-		const reply = await command(tx, native.authority, { ...z.object({}).loose().parse(args), requestKey: effectKey });
+		const reply = await command(tx, native.authority, {
+			...z.record(z.string(), z.unknown()).parse(args),
+			requestKey: effectKey,
+		});
 		if (reply.status !== "ok") return refused(reply);
 		const r = await tx.execute(
 			sql`SELECT id FROM attestation_revision WHERE plant_id=${context.selected.id}::uuid AND request_key=${effectKey}`,
 		);
-		return { receiptId: z.object({ id: z.uuid() }).parse(r.rows[0]).id, revision: reply.value.signal.revision };
+		return { receiptId: z.strictObject({ id: z.uuid() }).parse(r.rows[0]).id, revision: reply.value.signal.revision };
 	};
 
 const attestInput = z.strictObject({ key: s.signalKey, value: s.signalValue, asOf, detail: words, reference });

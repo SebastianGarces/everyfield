@@ -15,6 +15,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 import type { WriteTx } from "@everyfield/domain/access";
+import { claimStagedPhoto, requireStagedPhoto, stagedPhotoIn } from "../../../attachments/store.ts";
 
 export const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
@@ -50,7 +51,7 @@ export function reviewed<I, R extends z.ZodType>(spec: {
 		allowed: ownerOrAdmin,
 		review: spec.review,
 		async execute(tx, context, args, effectKey, ports): Promise<EffectResult> {
-			const request = spec.request.parse({ ...z.object({}).loose().parse(args), requestKey: effectKey });
+			const request = spec.request.parse({ ...z.record(z.string(), z.unknown()).parse(args), requestKey: effectKey });
 			const reply = await spec.run(tx, context, request, ports.reminders);
 			if (reply.status !== "ok") return { refused: reply.error.code };
 			return { receiptId: reply.value.receiptId, revision: reply.value.revision };
@@ -151,15 +152,18 @@ const setPersonPhoto = reviewed({
 	description:
 		"Propose making a photo the user uploaded in this church the person's photo. Nothing changes until the user approves the exact review.",
 	input: z.strictObject({ personId, uploadId: z.uuid() }),
-	review(actor, value) {
+	async review(actor, value, context) {
+		await requireStagedPhoto(context.db, actor, context.conversationId, value.uploadId);
 		return sql`SELECT jsonb_build_object('target',${person},'changes',jsonb_build_array(${change("photo", sql`to_jsonb(p.photo_object_id)`, value.uploadId)})) AS review,
 			jsonb_build_object('expectedRevision',p.revision::text,'input',jsonb_build_object('personId',p.id,'uploadId',${value.uploadId}::uuid)) AS args
 			${target(actor, value.personId)} AND EXISTS(SELECT FROM file_object f WHERE f.id=${value.uploadId}::uuid AND f.tenant_id=p.tenant_id
-				AND f.purpose='person_photo' AND f.state='ready' AND f.expires_at>clock_timestamp()
-				AND NOT EXISTS(SELECT FROM person o WHERE o.photo_object_id=f.id))`;
+				AND ${stagedPhotoIn("f", sql`${context.conversationId}::text`)})`;
 	},
 	request: setPersonPhotoRequest,
-	run: async (tx, context, request) => photoReceipt(await personFields.setPersonPhoto(tx, context, request)),
+	run: async (tx, context, request) => {
+		await claimStagedPhoto(tx, context.selected.id, request.input.uploadId);
+		return photoReceipt(await personFields.setPersonPhoto(tx, context, request));
+	},
 });
 
 const removePersonPhoto = reviewed({

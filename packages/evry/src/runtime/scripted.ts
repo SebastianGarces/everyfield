@@ -62,7 +62,7 @@ const systemText = (prompt: Prompt) => {
 	return m?.role === "system" ? m.content : "";
 };
 
-type Listed = { id: string; name: string; status: "available" | "replaced" | "gone"; checked: string | null };
+type Listed = { id: string; name: string; status: "available" | "replaced" | "used" | "gone"; checked: string | null };
 function attachedFiles(system: string): Listed[] {
 	const out: Listed[] = [];
 	for (const m of system.matchAll(/^- "([^"]+)" attachmentId ([0-9a-f-]{36}), attached [^\n]*? UTC: ([^\n]+)$/gm)) {
@@ -70,11 +70,55 @@ function attachedFiles(system: string): Listed[] {
 		out.push({
 			id: captured(m, 2),
 			name: captured(m, 1),
-			status: rest.startsWith("available") ? "available" : rest.startsWith("replaced") ? "replaced" : "gone",
+			status: rest.startsWith("available")
+				? "available"
+				: rest.startsWith("replaced")
+					? "replaced"
+					: rest.startsWith("used")
+						? "used"
+						: "gone",
 			checked: /checked: fileDigest ([0-9a-f]{64})/.exec(rest)?.[1] ?? null,
 		});
 	}
 	return out;
+}
+const PHOTO_ASK =
+	/\b(?:use|make|set)\s+(?:this|it|the\s+(?:photo|picture)(?:\s+I\s+[^.?!]*?)?)\s+(?:as\s+)?([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+)?)['’]s\s+(?:profile\s+)?(?:photo|picture)\b/i;
+function photoStep(text: string, system: string, result: Record<string, unknown> | null, canPropose: boolean) {
+	const asked = PHOTO_ASK.exec(text);
+	if (!asked || /^my$/i.test(captured(asked, 1))) return null;
+	const name = captured(asked, 1);
+	const say = (t: string) => [{ type: "text" as const, text: t }];
+	if (!canPropose)
+		return say("An Owner or Admin of this church has to set someone's People photo. I can't prepare it for you.");
+	const photo = attachedFiles(system).find((f) => /\.(jpe?g|png|webp)$/i.test(f.name));
+	if (result?.error === "attachment_gone" || (!result && photo && photo.status !== "available"))
+		return say(
+			photo?.status === "used"
+				? "That photo is already someone's People photo. Attach it again here to use it for someone else."
+				: "That photo is gone: attached photos last 24 hours. Please attach it again here and ask me again.",
+		);
+	if (result?.error === "attachment_elsewhere" || (!result && !photo))
+		return say("I can't see a photo in this conversation. Attach it here with the paperclip, then ask me again.");
+	if (!result) return [toolCall("people_read", { operation: "people.listPeople", input: { search: name } })];
+	if (typeof result.proposalId === "string")
+		return say(
+			`I prepared a review to make it ${name}'s People photo. Their photo stays as it is until you approve it.`,
+		);
+	if (result.operation !== "people.listPeople") return null;
+	const rows = (result.rows as { id: string; label: string }[] | undefined) ?? [];
+	if (rows.length !== 1)
+		return say(
+			rows.length
+				? `I found ${rows.length} people named ${name}. Which one do you mean?`
+				: `I can't find ${name} in this church.`,
+		);
+	return [
+		toolCall("propose_change", {
+			operation: "people.setPersonPhoto",
+			input: { personId: present(rows[0]).id, uploadId: present(photo).id },
+		}),
+	];
 }
 function fileStep(text: string, system: string, result: Record<string, unknown> | null, canPropose: boolean) {
 	const check = /\b(check|look at|review)\b.*\b(it|file|spreadsheet|csv)\b|\buploaded\b/i.test(text);
@@ -958,6 +1002,7 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const phase = phaseStep(text, options, result);
 	if (phase) return phase;
 	const steps =
+		photoStep(text, system, result, canProposePeople) ??
 		limitStep(text, system, result, canProposePeople) ??
 		documentStep(text, system, result, proposesOn(options, "documents")) ??
 		fileStep(text, system, result, canProposePeople) ??

@@ -7,7 +7,7 @@ import { z } from "zod";
 import { id, localDue, dueOf as nativeDue } from "../../tasks/values.ts";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import type { EffectResult, ReviewContext } from "../../../proposals/types.ts";
+import { savedInput, savedRevision, type EffectResult, type ReviewContext } from "../../../proposals/types.ts";
 import {
 	accountNamer,
 	assignee,
@@ -95,7 +95,7 @@ export const recordOutcome = reviewed<OutcomeInput>({
 			WHERE p.id=${present(v.personId)}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ input: z.unknown() }).parse(args);
+		const a = savedInput.parse(args);
 		const reply = await followUps(reminders).recordOutcome(tx, context, { requestKey: key("outcome"), input: a.input });
 		return reply.status === "ok"
 			? { receiptId: reply.value.receiptId, revision: reply.value.record.revision }
@@ -147,7 +147,7 @@ export const correctOutcome = reviewed<z.infer<typeof correctInput>>({
 			WHERE o.id=${v.outcomeId}::uuid AND o.plant_id=${actor.owner.id}::uuid AND o.voided_at IS NULL`;
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ expectedRevision: z.string(), input: z.unknown() }).parse(args);
+		const a = savedRevision.parse(args);
 		const reply = await followUps(reminders).correctOutcome(tx, context, {
 			requestKey: key("correct"),
 			expectedRevision: a.expectedRevision,
@@ -191,7 +191,7 @@ export const createFollowUp = reviewed<z.infer<typeof createInput>>({
 			FROM person p WHERE p.id=${v.personId}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ input: z.unknown() }).parse(args);
+		const a = savedInput.parse(args);
 		return done(
 			await followUps(reminders).createFollowUp(tx, context, { requestKey: key("followup"), input: a.input }),
 		);
@@ -210,8 +210,8 @@ const assignInput = z.strictObject({
 		.max(50)
 		.refine((items) => new Set(items.map((i) => i.taskId)).size === items.length, "repeated follow-up"),
 });
-const assignArgs = z.object({
-	items: z.array(z.object({ taskId: id, expectedRevision: z.string(), assigneeIds: z.array(id) })),
+const assignArgs = z.strictObject({
+	items: z.array(z.strictObject({ taskId: id, expectedRevision: z.string(), assigneeIds: z.array(id) })),
 });
 export const assignFollowUp = reviewed<z.infer<typeof assignInput>>({
 	operation: "tasks.assignFollowUp",
@@ -257,9 +257,11 @@ const handoffInput = z
 		toAccountId: assignee.describe('The account that takes them; it must be able to own follow-ups, or "me"'),
 	})
 	.refine((v) => v.fromAccountId !== v.toAccountId, "same account");
-const handoffFacts = z.object({
+const handoffFacts = z.strictObject({
 	owner: z.boolean(),
-	rows: z.array(z.object({ taskId: id, revision: z.string(), person: z.string(), owners: z.string().nullable() })),
+	rows: z.array(
+		z.strictObject({ taskId: id, revision: z.string(), person: z.string(), owners: z.string().nullable() }),
+	),
 });
 export const executeHandoff = reviewed<z.infer<typeof handoffInput>>({
 	operation: "tasks.executeHandoff",
@@ -307,7 +309,7 @@ export const executeHandoff = reviewed<z.infer<typeof handoffInput>>({
 		})} AS args`;
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ input: z.unknown() }).parse(args);
+		const a = savedInput.parse(args);
 		const reply = await followUps(reminders).executeHandoff(tx, context, {
 			requestKey: key("handoff"),
 			input: a.input,
@@ -340,7 +342,7 @@ export const reopenObligation = reviewed<z.infer<typeof reopenInput>>({
 			${liveTask(actor, taskId)} AND t.status IN ('complete','no_longer_needed')`;
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ expectedRevision: z.string(), input: z.unknown() }).parse(args);
+		const a = savedRevision.parse(args);
 		return done(
 			await createTaskWriter({ reminders }).reopen(tx, context, {
 				requestKey: key("reopen"),
