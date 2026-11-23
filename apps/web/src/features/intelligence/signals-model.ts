@@ -1,3 +1,4 @@
+import { counted } from "@everyfield/contracts/common";
 import {
 	CANDIDATE_DAYS,
 	CANDIDATE_QUESTION_VERSION,
@@ -50,11 +51,11 @@ export function answerLabel(entry: SignalEntry) {
 	if (entry.state === "answered") return VALUE_LABEL[answerOf(entry).value];
 	return entry.state === "retracted" ? "Retracted" : "Not answered";
 }
-export const agoText = (days: number) => (days === 0 ? "today" : days === 1 ? "1 day ago" : `${days} days ago`);
+export const agoText = (days: number) => (days === 0 ? "today" : `${counted(days, "day")} ago`);
 export function renewalLabel(renewal: Renewal) {
 	switch (renewal.status) {
 		case "current":
-			return `Current for ${renewal.daysLeft} more day${renewal.daysLeft === 1 ? "" : "s"}`;
+			return `Current for ${counted(renewal.daysLeft, "more day")}`;
 		case "needs_renewing":
 			return "Needs renewing";
 		case "does_not_expire":

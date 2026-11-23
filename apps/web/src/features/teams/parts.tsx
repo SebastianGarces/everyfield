@@ -1,10 +1,11 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { ArrowRight01Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 import { CardIcon, IntentLink } from "@everyfield/ui/controls";
 import { Avatar, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { ICONS, iconKey, plural, teamBadge, type Team } from "./model.ts";
+import { ICONS, iconKey, teamBadge, type Team } from "./model.ts";
 
 export function TeamIcon({ team, size = 44 }: { team: Pick<Team, "icon" | "templateKey">; size?: 36 | 44 }) {
 	const i = ICONS[iconKey(team)];
@@ -64,7 +65,7 @@ export function MinistryCard({ team }: { team: Team & { leaderName: string | nul
 			<LeaderLine name={team.leaderName} className="order-3 mt-2 mb-4" />
 			<span className="order-4 mt-auto flex items-center justify-between border-t border-line pt-3 text-sm">
 				<span className="text-text-3">Serving</span>
-				<b className="font-semibold text-ink tabular-nums">{plural(team.activeCount, "person", "people")}</b>
+				<b className="font-semibold text-ink tabular-nums">{counted(team.activeCount, "person", "people")}</b>
 			</span>
 		</IntentLink>
 	);

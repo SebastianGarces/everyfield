@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { timeText } from "@everyfield/contracts/common";
+import { counted, timeText } from "@everyfield/contracts/common";
 import { fourCs, interviewCriteria } from "@everyfield/contracts/people";
 import { correctedFieldLabel, correctedValueText } from "../../people/corrections/model.ts";
 import { fieldLabel, LEFT_OUT_REASON, sendTimeShort, valueText } from "../review/model.ts";
@@ -857,7 +857,6 @@ const ROW_OUTCOME: Record<string, string> = {
 	remaining: "Not added yet",
 };
 
-const count = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const text = (value: unknown) => (typeof value === "string" && value ? value : null);
 const num = (value: unknown) =>
 	typeof value === "number" ? value : typeof value === "string" && value !== "" ? Number(value) : Number.NaN;
@@ -1108,7 +1107,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: row.label,
-				line: joined(text(fields.city), Number.isFinite(members) ? count(members, "member", "members") : null),
+				line: joined(text(fields.city), Number.isFinite(members) ? counted(members, "member") : null),
 				avatar: "household",
 			};
 		}
@@ -1117,7 +1116,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: row.label,
-				line: Number.isFinite(linked) ? count(linked, "person", "people") : null,
+				line: Number.isFinite(linked) ? counted(linked, "person", "people") : null,
 				avatar: "tag",
 			};
 		}
@@ -1165,11 +1164,9 @@ function rowView(operation: string, row: SourceRow): RowView {
 					...plain,
 					name: "Your file",
 					line: joined(
-						count(num(fields.valid) || 0, "valid row", "valid rows"),
-						count(num(fields.invalid) || 0, "invalid row", "invalid rows"),
-						num(fields.existingDuplicates) > 0
-							? count(num(fields.existingDuplicates), "possible duplicate", "possible duplicates")
-							: null,
+						counted(num(fields.valid) || 0, "valid row"),
+						counted(num(fields.invalid) || 0, "invalid row"),
+						num(fields.existingDuplicates) > 0 ? counted(num(fields.existingDuplicates), "possible duplicate") : null,
 					),
 					avatar: "file",
 				};
@@ -1189,7 +1186,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: row.label,
-				line: columns ? count(columns, "column", "columns") : null,
+				line: columns ? counted(columns, "column") : null,
 				avatar: "file",
 			};
 		}
@@ -1250,8 +1247,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 			const staffing =
 				typeof fields.roles === "number"
 					? joined(
-							`${fields.filledRoles} of ${count(fields.roles, "role", "roles")} filled`,
-							count(Number(fields.people), "person", "people"),
+							`${fields.filledRoles} of ${counted(fields.roles, "role")} filled`,
+							counted(Number(fields.people), "person", "people"),
 						)
 					: null;
 			const leader =
@@ -1270,7 +1267,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 					health ??
 					joined(
 						leader,
-						staffing ?? (typeof fields.people === "number" ? count(fields.people, "person", "people") : null),
+						staffing ?? (typeof fields.people === "number" ? counted(fields.people, "person", "people") : null),
 					),
 				mark:
 					"composite" in fields
@@ -1319,11 +1316,11 @@ function rowView(operation: string, row: SourceRow): RowView {
 							? null
 							: typeof fields.requiredPeople === "number"
 								? joined(
-										`${fields.finished} of ${count(fields.requiredPeople, "required person", "required people")} finished`,
+										`${fields.finished} of ${counted(fields.requiredPeople, "required person", "required people")} finished`,
 										fields.churchWide === true ? "Church-wide" : null,
 									)
 								: typeof fields.people === "number"
-									? count(fields.people, "person", "people")
+									? counted(fields.people, "person", "people")
 									: null,
 				mark: fields.required === false ? { kind: "status", text: "Optional", warn: false } : null,
 				avatar: "training",
@@ -1386,8 +1383,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 				...plain,
 				name: row.id === "checklist" ? "Checklist items" : (label(TASK_STATUS, row.label) ?? ""),
 				line: Number.isFinite(done)
-					? `${done.toLocaleString()} of ${count(n || 0, "item", "items")} done`
-					: count(n || 0, "task", "tasks"),
+					? `${done.toLocaleString()} of ${counted(n || 0, "item")} done`
+					: counted(n || 0, "task"),
 				avatar: "tally",
 			};
 		}
@@ -1500,7 +1497,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: `${text(fields.phase) ?? ""} ${row.label}`.trim(),
-				line: criteria ? count(criteria, "exit criterion", "exit criteria") : "Final phase",
+				line: criteria ? counted(criteria, "exit criterion", "exit criteria") : "Final phase",
 				avatar: "phase",
 			};
 		}
@@ -1631,7 +1628,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 				href: "/launch",
 				name: row.label,
 				line: joined(
-					`${String(fields.done)} of ${count(Number(fields.total ?? 0), "task", "tasks")} done`,
+					`${String(fields.done)} of ${counted(Number(fields.total ?? 0), "task")} done`,
 					overdue ? `${overdue} overdue` : null,
 				),
 				mark: fields.completed
@@ -1649,7 +1646,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 				...plain,
 				href: "/organization/pipeline",
 				name: row.label,
-				line: `${count(all, "person", "people")}${shown}`,
+				line: `${counted(all, "person", "people")}${shown}`,
 				avatar: null,
 			};
 		}
@@ -1872,7 +1869,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 				typeof fields.complete === "string"
 					? text(fields.program)
 					: typeof fields.ministries === "number"
-						? joined(count(fields.ministries, "ministry", "ministries"), text(fields.names))
+						? joined(counted(fields.ministries, "ministry", "ministries"), text(fields.names))
 						: joined(
 								text(fields.role)
 									? text(fields.team)
@@ -2005,7 +2002,7 @@ function templateView(operation: string, row: SourceRow, key: string): RowView {
 			line: joined(
 				capital(fields.receipt),
 				day(fields.at),
-				count(num(fields.tasksCreated) || 0, "task created", "tasks created"),
+				counted(num(fields.tasksCreated) || 0, "task created", "tasks created"),
 			),
 		};
 	const tasks = num(fields.taskCount);
@@ -2017,7 +2014,7 @@ function templateView(operation: string, row: SourceRow, key: string): RowView {
 		line: joined(
 			`Phase ${fields.phase}`,
 			label(CATEGORY, fields.category),
-			count(tasks, "task", "tasks"),
+			counted(tasks, "task"),
 			fields.toPhase !== undefined ? `Offered after the move to Phase ${fields.toPhase}` : null,
 		),
 		mark:
@@ -2076,7 +2073,7 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 			return joined(
 				f.exact === null ? `At least ${String(f.known)}` : String(f.exact),
 				typeof f.needsClassifying === "number" && f.needsClassifying
-					? count(f.needsClassifying, "needs classifying", "need classifying")
+					? counted(f.needsClassifying, "needs classifying", "need classifying")
 					: null,
 				text(f.measuredOn) ? `Measured ${String(f.measuredOn)}` : null,
 			);
@@ -2110,7 +2107,7 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 			return joined(
 				text(f.status),
 				text(f.plannedDate),
-				typeof f.daysLeft === "number" ? count(f.daysLeft, "day left", "days left") : null,
+				typeof f.daysLeft === "number" ? counted(f.daysLeft, "day left", "days left") : null,
 			);
 		case "launch.readWorkspace":
 			return joined(
@@ -2167,7 +2164,7 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 			: (VIEWS[operation] ?? fallback);
 	const [one, many] = view.noun;
 	const rows = shownRows(operation, view, result);
-	const counted = view.countAnswer
+	const rowCount = view.countAnswer
 		? 0
 		: rows.filter(
 				(r, n) =>
@@ -2185,14 +2182,14 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 			: photo || view.quiet
 				? ""
 				: view.countAnswer || view.totalOnly
-					? count(result.total ?? 0, one, many)
-					: view.shownOnly || result.total === null || result.total === counted
-						? count(counted, one, many)
-						: `${counted.toLocaleString()} of ${result.total.toLocaleString()}`;
+					? counted(result.total ?? 0, one, many)
+					: view.shownOnly || result.total === null || result.total === rowCount
+						? counted(rowCount, one, many)
+						: `${rowCount.toLocaleString()} of ${result.total.toLocaleString()}`;
 	const facts: string[] = [];
 	if (missing || !result.rows.length) facts.push(view.empty);
 	if (result.withheldRows)
-		facts.push(`${count(result.withheldRows, "row is", "rows are")} no longer available and not shown.`);
+		facts.push(`${counted(result.withheldRows, "row is", "rows are")} no longer available and not shown.`);
 	if (result.completeness === "partial")
 		facts.push(
 			result.next !== null
@@ -2212,7 +2209,7 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 		);
 	if (operation === "launch.readDebrief" && totals.recorded === true)
 		facts.push(
-			`Launch Sunday ${String(totals.actualDate)}: attendance ${typeof totals.attendance === "number" ? totals.attendance.toLocaleString("en-US") : "not recorded"}.${typeof totals.guestsNotNamed === "number" && totals.guestsNotNamed > 0 ? ` The debrief says ${count(totals.guestsNotNamed, "guest isn't", "guests aren't")} entered by name.` : ""}`,
+			`Launch Sunday ${String(totals.actualDate)}: attendance ${typeof totals.attendance === "number" ? totals.attendance.toLocaleString("en-US") : "not recorded"}.${typeof totals.guestsNotNamed === "number" && totals.guestsNotNamed > 0 ? ` The debrief says ${counted(totals.guestsNotNamed, "guest isn't", "guests aren't")} entered by name.` : ""}`,
 		);
 	if (typeof totals.discoveryClosedOn === "string")
 		facts.push(`Your Discovery space closed on ${totals.discoveryClosedOn}, when it became this church.`);
@@ -2220,16 +2217,16 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 		facts.push(`${totals.foundationsRead} of ${Number(totals.foundationsTotal)} foundation articles read.`);
 	if (typeof totals.roles === "number")
 		facts.push(
-			`${count(totals.roles, "role", "roles")} in all: ${totals.filledRoles} filled, ${totals.openRoles} open. ${Number(totals.peopleServing).toLocaleString()} serving, each counted once however many roles they hold.`,
+			`${counted(totals.roles, "role")} in all: ${totals.filledRoles} filled, ${totals.openRoles} open. ${Number(totals.peopleServing).toLocaleString()} serving, each counted once however many roles they hold.`,
 		);
 	if (typeof totals.measuredMinistries === "number")
 		facts.push(
-			`${totals.measuredMinistries} of ${count(Number(totals.ministries), "ministry", "ministries")} measured${typeof totals.composite === "number" ? `; their composite is ${totals.composite}` : ""}. A ministry with a missing measure is Unknown.`,
+			`${totals.measuredMinistries} of ${counted(Number(totals.ministries), "ministry", "ministries")} measured${typeof totals.composite === "number" ? `; their composite is ${totals.composite}` : ""}. A ministry with a missing measure is Unknown.`,
 		);
 	if (typeof totals.minTeams === "number")
 		facts.push(`On ${totals.minTeams} or more current ministries. A count to look at, never a limit.`);
 	if (operation === "evry.selectReturnedRows") {
-		if (originalTotal !== null) facts.push(`Picked from ${count(originalTotal, "match", "matches")}.`);
+		if (originalTotal !== null) facts.push(`Picked from ${counted(originalTotal, "match", "matches")}.`);
 	} else if (view.countAnswer) {
 		if (!missing) facts.push(view.countAnswer);
 	} else if (result.exclusions.length) facts.push(`Not included: ${result.exclusions.join(", ")}.`);

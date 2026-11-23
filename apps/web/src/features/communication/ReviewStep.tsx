@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { ArrowDown01Icon, ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -18,7 +19,7 @@ import { useState } from "react";
 import { PreviewStage } from "./EmailFrame.tsx";
 import { textToBody } from "./body.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
-import { listed, plural, type Form } from "./composeModel.ts";
+import { listed, type Form } from "./composeModel.ts";
 import {
 	groupLabel,
 	noRecipientReason,
@@ -145,7 +146,7 @@ export function ReviewStep({
 					<Row label="From" value={churchName} />
 					<Row
 						label="To"
-						value={`${plural(eligible, "person", "people")}${chosen.length ? ` · ${listed(chosen)}` : ""}`}
+						value={`${counted(eligible, "person", "people")}${chosen.length ? ` · ${listed(chosen)}` : ""}`}
 					/>
 					<div className="grid grid-cols-[84px_minmax(0,1fr)] gap-3">
 						<dt className="text-sm text-text-3">Left out</dt>

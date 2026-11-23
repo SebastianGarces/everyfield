@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { APPLY_VERSION_LIMIT, type ProgramDetail, type ProgramVersion } from "@everyfield/contracts/organizations";
 import { Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import {
@@ -348,7 +349,7 @@ function Enrollments({ program, onApplied }: { program: ProgramDetail; onApplied
 						onClick={onApply}
 					>
 						{chosen.length
-							? `Apply Version ${current} to ${chosen.length === 1 ? "1 person" : `${chosen.length} people`}`
+							? `Apply Version ${current} to ${counted(chosen.length, "person", "people")}`
 							: `Apply Version ${current}`}
 					</Button>
 				) : null}

@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import {
 	appointAdminRequest,
 	demoteSeatRequest,
@@ -395,7 +396,7 @@ function RosterCard({
 				<CardTitle id="roster-title" size="sm">
 					Seats
 				</CardTitle>
-				<span className="text-sm text-text-3">{active.length === 1 ? "1 seat" : `${active.length} seats`}</span>
+				<span className="text-sm text-text-3">{counted(active.length, "seat")}</span>
 			</div>
 			<ul className="mt-3 flex flex-col">
 				{active.map((seat) => {

@@ -4412,6 +4412,85 @@ const oneTopLevelBefore = {
 	},
 };
 
+const COUNT_TEXT_HOME = "packages/contracts/src/common/text.ts";
+const COUNT_OPERATORS = new Set(["===", "!==", "==", "!=", ">", "<=", ">=", "<"]);
+const IRREGULAR_PLURALS = new Map([
+	["person", "people"],
+	["child", "children"],
+	["is", "are"],
+	["has", "have"],
+	["was", "were"],
+	["it", "they"],
+	["this", "these"],
+	["does", "do"],
+]);
+const isOne = (node) => node?.type === "Literal" && node.value === 1;
+const textOf = (node) => {
+	if (node?.type === "Literal" && typeof node.value === "string") return node.value;
+	if (node?.type !== "TemplateLiteral") return null;
+	return node.quasis.map((quasi) => quasi.value.cooked ?? "").join("\u0000");
+};
+const pluralOf = (one, many) => {
+	const lower = one.toLowerCase();
+	const other = many.toLowerCase();
+	if (!/^[a-z-]+$/.test(lower) || lower === other) return false;
+	return (
+		other === `${lower}s` ||
+		other === `${lower}es` ||
+		(lower.endsWith("y") && other === `${lower.slice(0, -1)}ies`) ||
+		IRREGULAR_PLURALS.get(lower) === other
+	);
+};
+const words = (text) => text.split(/(\s+|[^\p{L}\p{N}\u0000-]+)/u).filter((part) => part !== "");
+const countPair = (a, b) => {
+	if ((a === "" && /^(?:e?s)$/.test(b)) || (b === "" && /^(?:e?s)$/.test(a))) return true;
+	const left = words(a);
+	const right = words(b);
+	if (left.length !== right.length) return false;
+	let plural = false;
+	for (let index = 0; index < left.length; index += 1) {
+		const x = left[index];
+		const y = right[index];
+		if (x === y) continue;
+		if ((x === "1" && y === "\u0000") || (y === "1" && x === "\u0000")) continue;
+		if (pluralOf(x, y) || pluralOf(y, x)) plural = true;
+		else return false;
+	}
+	return plural;
+};
+const parameterOf = (identifier, context) => {
+	if (identifier?.type !== "Identifier") return null;
+	for (let scope = context.sourceCode.getScope(identifier); scope; scope = scope.upper) {
+		const def = scope.set?.get(identifier.name)?.defs?.[0];
+		if (def) return def.type === "Parameter" ? def.node : null;
+	}
+	return null;
+};
+const countText = {
+	meta: { type: "problem" },
+	create(context) {
+		if (repoPath(context.filename) === COUNT_TEXT_HOME) return {};
+		return {
+			ConditionalExpression(node) {
+				const test = node.test;
+				if (test.type !== "BinaryExpression" || !COUNT_OPERATORS.has(test.operator)) return;
+				if (!isOne(test.left) && !isOne(test.right)) return;
+				const a = textOf(node.consequent);
+				const b = textOf(node.alternate);
+				const owner = a === null || b === null ? parameterOf(node.consequent, context) : null;
+				const handWritten =
+					a !== null && b !== null ? countPair(a, b) : owner !== null && owner === parameterOf(node.alternate, context);
+				if (!handWritten) return;
+				context.report({
+					node,
+					message:
+						'This writes count text by hand. Use counted(n, one, many) for "3 tasks" or countWord(n, one, many) for the word alone, from @everyfield/contracts/common.',
+				});
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -4472,5 +4551,6 @@ export default {
 		"one-top-level-before": oneTopLevelBefore,
 		"confirm-keeps-refusal": confirmKeepsRefusal,
 		"no-default-database": noDefaultDatabase,
+		"count-text": countText,
 	},
 };

@@ -1388,6 +1388,12 @@
 			}
 		},
 		{
+			"files": ["src/*.ts", "src/access/**", "src/app/**", "src/components/**", "src/features/**", "src/server/**"],
+			"rules": {
+				"everyfield/count-text": "error"
+			}
+		},
+		{
 			"files": [
 				"src/**/model.ts",
 				"src/**/*-model.ts",

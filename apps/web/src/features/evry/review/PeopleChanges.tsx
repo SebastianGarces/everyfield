@@ -1,3 +1,4 @@
+import { counted } from "@everyfield/contracts/common";
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import { ToneTag, type TagTone } from "@everyfield/ui/display";
 import { Icon, cn } from "@everyfield/ui/foundations";
@@ -37,9 +38,7 @@ export function ReviewedPeople({ review }: { review: Review }) {
 	if (!people?.length) return null;
 	return (
 		<section aria-label="People this changes" className="flex flex-col gap-1.5">
-			<h4 className="text-xs font-medium text-text-2">
-				{people.length === 1 ? "1 person" : `${people.length} people`}
-			</h4>
+			<h4 className="text-xs font-medium text-text-2">{counted(people.length, "person", "people")}</h4>
 			<ul className="divide-y divide-line rounded-md bg-surface-2 px-3 py-2.5">
 				{people.map((p) => (
 					<Row key={p.id} name={p.label}>
