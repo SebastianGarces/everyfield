@@ -272,11 +272,7 @@ export function HouseholdCard({
 										) : (
 											adults.map((m) =>
 												contacts.has(m.personId) ? (
-													<MenuItem
-														key={m.personId}
-														icon={UserRemove01Icon}
-														onSelect={() => changeContact(m, false)}
-													>
+													<MenuItem key={m.personId} icon={UserRemove01Icon} onSelect={() => changeContact(m, false)}>
 														Remove {m.displayName}
 													</MenuItem>
 												) : (
