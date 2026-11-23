@@ -19,6 +19,7 @@ flowchart LR
   s1 -.- s1_st0(("empty"))
   s1 -.- s1_st1(("roster"))
   s1 -.- s1_st2(("church"))
+  s1 -.- s1_st3(("not-available"))
   s1 --- s1_b0["open-church<br/>tests + cases + browser behavior"]
   s2["oversight.intelligence<br/>/network/intelligence"]
   s0 -- "link #quot;Network Intelligence#quot;" --> s2
@@ -117,7 +118,7 @@ The plant view shows Limited visibility, readiness and a released assessment onl
 A network's roster of linked sending churches, and each church's plants that are linked to both.
 
 - Routes: `/network/sending-churches`, `/network/sending-churches/[churchId]`
-- Personas: `network` read, `hillOwner` read, `graceOwner` none, `owner` none
+- Personas: `network` read, `hillOwner` read, `graceOwner` none, `graceDirector` none, `owner` none
 - Catalog: IDN-024
 
 Reach:
@@ -160,6 +161,14 @@ agent-browser wait --load networkidle
 agent-browser find role heading text --name "Grace Austin (QA)" --exact
 agent-browser wait --text "Plants linked to both"
 agent-browser find role link text --name "Harvest Point (QA)"
+```
+
+- **not-available**: heading "This page is not available". As `graceDirector`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/network/sending-churches"
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "This page is not available" --exact
 ```
 
 #### oversight.sending-churches#open-church

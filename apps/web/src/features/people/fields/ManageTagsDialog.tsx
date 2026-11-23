@@ -20,6 +20,7 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 	Skeleton,
+	ProblemText,
 } from "@everyfield/ui/controls";
 import { TINT, type Tone } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
@@ -233,11 +234,7 @@ export function ManageTagsDialog({
 											)}
 										</div>
 									)}
-									{rowProblem?.id === t.id ? (
-										<p role="alert" className="mt-1 text-xs font-medium text-magenta-600">
-											{rowProblem.text}
-										</p>
-									) : null}
+									{rowProblem?.id === t.id ? <ProblemText className="mt-1">{rowProblem.text}</ProblemText> : null}
 								</li>
 							))}
 						</ul>

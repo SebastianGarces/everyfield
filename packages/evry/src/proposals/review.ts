@@ -138,22 +138,22 @@ const targetKind = z.enum([
 	"template",
 	"program",
 ]);
-const change = z.object({ field: z.string(), before: z.unknown(), after: z.unknown() });
-export const reviewedPerson = z.object({
+const change = z.strictObject({ field: z.string(), before: z.unknown(), after: z.unknown() });
+export const reviewedPerson = z.strictObject({
 	id: z.uuid(),
 	label: z.string(),
 	changes: z.array(change),
 	unchanged: z.string().optional(),
 });
-export const reviewedRow = z.object({
+export const reviewedRow = z.strictObject({
 	row: z.int(),
 	outcome: z.enum(["create", "create_and_review", "skip", "fail"]),
 	label: z.string().nullable(),
 	reason: z.string().nullable(),
 });
-const review = z.object({
+const review = z.strictObject({
 	target: z
-		.object({
+		.strictObject({
 			kind: targetKind,
 			id: z.string(),
 			label: z.string(),
@@ -168,7 +168,7 @@ const review = z.object({
 	refusal: z.string().optional(),
 	withheld: z.literal(true).optional(),
 });
-export const proposalRow = z.object({
+export const proposalRow = z.strictObject({
 	id: z.uuid(),
 	conversationId: z.uuid(),
 	operation,
@@ -182,7 +182,7 @@ export const proposalRow = z.object({
 	executing: z.boolean(),
 	stale: z.boolean(),
 	receipt: z
-		.object({
+		.strictObject({
 			receiptId: z.uuid().optional(),
 			meetingId: z.uuid().optional(),
 			revision: z.string().optional(),
@@ -191,6 +191,8 @@ export const proposalRow = z.object({
 			people: z.array(personOutcome).optional(),
 			import: importOutcome.optional(),
 			current: z.array(currentPerson).optional(),
+			reached: z.literal(true).optional(),
+			own: z.literal(true).optional(),
 		})
 		.nullable(),
 	now: z.coerce.date(),

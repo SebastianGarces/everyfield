@@ -4,6 +4,7 @@ import { nextCookies } from "better-auth/next-js";
 import { after } from "next/server";
 import { createHmac } from "node:crypto";
 import { endEmailChangeProofOnSessionChange } from "../email-change-proof.ts";
+import { answerWithLinkProof } from "../link-proof.ts";
 import { database } from "../database";
 import { serverConfig, serverEnv, type ServerConfig } from "../config.ts";
 import {
@@ -86,5 +87,5 @@ export function requestAuth() {
 }
 
 export const identityWrite = mutatingRoute(async (request: Request) =>
-	endEmailChangeProofOnSessionChange(request, await identityHandler(request)),
+	endEmailChangeProofOnSessionChange(request, await answerWithLinkProof(request, identityHandler)),
 );

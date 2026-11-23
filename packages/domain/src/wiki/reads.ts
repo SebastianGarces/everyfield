@@ -27,7 +27,7 @@ import {
 	type WikiArticle,
 	type WikiReply,
 } from "@everyfield/contracts/wiki";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import {
 	DAILY_QUERY_CAP_USD,
@@ -136,7 +136,13 @@ function present(raw: Record<string, unknown>): WikiArticle {
 function sourceOf(source: SourceView | undefined): SourceView {
 	return source ?? { kind: "current" };
 }
-async function readPage(db: Database, access: CorpusAccess, source: SourceView, page: number, where: SQL = sql`true`) {
+async function readPage(
+	db: Database | Transaction,
+	access: CorpusAccess,
+	source: SourceView,
+	page: number,
+	where: SQL = sql`true`,
+) {
 	const result = await db.execute(pageQuery(access, source, page, where));
 	const row = loaded.parse(result.rows[0]);
 	if (!row.allowed) deny("access_denied");
@@ -168,7 +174,7 @@ export function listArticles(
 		return listValue(page.articles, page.nextCursor, page.row);
 	});
 }
-export function getArticle(db: Database, authority: RequestActor, raw: unknown) {
+export function getArticle(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(articleRequest, raw);
 		const page = await readPage(
@@ -240,7 +246,7 @@ function meaningSkipped(reason: string): null {
 	return null;
 }
 async function meaningOf(
-	db: Database,
+	db: Database | Transaction,
 	authority: RequestActor,
 	owner: Owner,
 	embedder: WikiQueryEmbedder,
@@ -288,7 +294,10 @@ function meaningSql(meaning: Meaning | null, phase: number | null): SQL {
 		FROM (
 			SELECT ps.revision_id, ps.ordinal, ps.content, ${distance} AS distance
 			FROM passage ps
-			WHERE ps.release_id = (SELECT release_id FROM release)
+			WHERE (
+					ps.release_id = (SELECT release_id FROM release)
+					OR (ps.release_id IS NULL AND ps.tenant_id IN (SELECT org_id FROM links))
+				)
 				AND public.vector_dims(ps.embedding) = 1536
 			ORDER BY ${distance}
 			LIMIT ${MEANING_PASSAGES}
@@ -301,7 +310,7 @@ function meaningSql(meaning: Meaning | null, phase: number | null): SQL {
 }
 
 export async function search(
-	db: Database,
+	db: Database | Transaction,
 	authority: RequestActor,
 	raw: unknown,
 	embedder: WikiQueryEmbedder | null = wikiQueryEmbedder(process.env),
@@ -564,7 +573,7 @@ export function referenceExcerpt(db: Database, authority: RequestActor, raw: unk
 		} satisfies z.output<typeof excerptResult>;
 	});
 }
-export function readingRecent(db: Database, authority: RequestActor, raw: unknown) {
+export function readingRecent(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		parse(z.strictObject({}).optional(), raw ?? {});
 		const access = accessFor(authority);
@@ -596,7 +605,7 @@ export function readingRecent(db: Database, authority: RequestActor, raw: unknow
 		return { articles: (row.articles ?? []).map(present) } satisfies z.output<typeof recentResult>;
 	});
 }
-export async function readingResume(db: Database, authority: RequestActor, raw: unknown) {
+export async function readingResume(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	const recent = await readingRecent(db, authority, raw ?? {});
 	if (recent.status !== "ok") return recent;
 	return {
@@ -684,7 +693,7 @@ export function readingStats(db: Database, authority: RequestActor, raw: unknown
 		} satisfies z.output<typeof statsResult>;
 	});
 }
-export function recommendForPhase(db: Database, authority: RequestActor, raw: unknown) {
+export function recommendForPhase(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(recommendRequest, raw);
 		const access = accessFor(authority);

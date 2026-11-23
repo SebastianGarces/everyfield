@@ -3,7 +3,7 @@
 import { READ_FAILED } from "../../components/read-failed.ts";
 import { MessageEdit01Icon } from "@hugeicons/core-free-icons";
 import type { OwnFeedback, OwnFeedbackPage } from "@everyfield/contracts/feedback";
-import { Button, Card, EmptyState } from "@everyfield/ui/controls";
+import { Button, Card, EmptyState, ProblemText } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, List, ListRow, Tag } from "@everyfield/ui/display";
 import Link from "next/link";
 import { useState, useTransition } from "react";
@@ -76,9 +76,9 @@ export function OwnFeedbackList({ initial }: { initial: OwnFeedbackPage }) {
 			{next || failed ? (
 				<div className="flex items-center justify-center gap-3 pt-4">
 					{failed ? (
-						<span role="alert" className="text-sm text-magenta-600">
+						<ProblemText as="span" size="sm">
 							{failed === "failed" ? READ_FAILED : "The next feedback did not load. Try again."}
-						</span>
+						</ProblemText>
 					) : null}
 					{next ? (
 						<Button variant="secondary" onClick={more} loading={pending}>

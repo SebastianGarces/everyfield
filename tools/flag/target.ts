@@ -3,12 +3,25 @@ import { DEV_ENDPOINT, NEON_PROJECT, PROD_ENDPOINT } from "../qa/qa-guard.ts";
 import { FlagError, take } from "./flag.ts";
 
 const PRODUCTION_ENV = "FLAG_PRODUCTION_DATABASE_URL";
+export const READER_ENV = "FLAG_READER_DATABASE_URL";
 
 type Env = Readonly<Record<string, string | undefined>>;
-export type Target = { label: string; url: string } | { label: string; missing: true };
+export type Target = { label: string; url: string; readOnly?: true } | { label: string; missing: true };
 export type Neon = (args: readonly string[]) => { status: number | null; stdout: string };
 
 const endpointOf = (url: URL) => url.hostname.split(".")[0]!.replace(/-pooler$/, "");
+
+function productionUrl(name: string, raw: string): URL {
+	let url: URL;
+	try {
+		url = new URL(raw);
+	} catch {
+		throw new FlagError(`${name} is not a URL. Nothing changed.`);
+	}
+	if (!endpointOf(url).startsWith(PROD_ENDPOINT))
+		throw new FlagError(`${name} does not name the production endpoint. Nothing changed.`);
+	return url;
+}
 
 export function resolveTarget(argv: readonly string[], env: Env, neon: Neon): { args: string[]; target: Target } {
 	const args = [...argv];
@@ -24,15 +37,22 @@ export function resolveTarget(argv: readonly string[], env: Env, neon: Neon): { 
 			throw new FlagError(
 				`--production needs ${PRODUCTION_ENV} set from Sebastian's production env (AGENTS guard 1). Nothing changed.`,
 			);
-		let url: URL;
-		try {
-			url = new URL(raw);
-		} catch {
-			throw new FlagError(`${PRODUCTION_ENV} is not a URL. Nothing changed.`);
-		}
-		if (!endpointOf(url).startsWith(PROD_ENDPOINT))
-			throw new FlagError(`${PRODUCTION_ENV} does not name the production endpoint. Nothing changed.`);
+		const url = productionUrl(PRODUCTION_ENV, raw);
 		return { args: rest, target: { label: `the PRODUCTION database (${endpointOf(url)})`, url: url.href } };
+	}
+
+	const reader = env[READER_ENV]?.trim();
+	if (reader && qa === undefined) {
+		if (rest[0] !== "stale" || rest.length !== 1)
+			throw new FlagError(
+				`${READER_ENV} is a read-only route for bin/flag stale alone: it cannot run ${rest.join(" ")}. Nothing changed.`,
+			);
+		const url = productionUrl(READER_ENV, reader);
+		url.searchParams.set("sslmode", "verify-full");
+		return {
+			args: rest,
+			target: { label: `the PRODUCTION database, read-only (${endpointOf(url)})`, url: url.href, readOnly: true },
+		};
 	}
 
 	if (qa !== undefined) {

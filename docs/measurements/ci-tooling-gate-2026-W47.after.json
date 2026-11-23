@@ -1,0 +1,3839 @@
+{
+  "runs": [
+    {
+      "id": 45119060608,
+      "createdAt": "2026-11-23T05:38:36Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137508405517,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 275000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137508405748,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 191000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137508405834,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 176000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137508405868,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 45000,
+          "runMs": 171000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137508405893,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 22000,
+          "runMs": 51000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137508406831,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 22000,
+          "runMs": 204000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137510010047,
+          "name": "ci",
+          "queueMs": 1000,
+          "setupMs": 7000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45118607073,
+      "createdAt": "2026-11-23T05:34:15Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137507013834,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 22000,
+          "runMs": 212000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137507013888,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 179000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137507013962,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 22000,
+          "runMs": 179000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137507014000,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 28000,
+          "runMs": 130000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137507014004,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 1000,
+          "setupMs": 21000,
+          "runMs": 69000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137507014013,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 191000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137508296691,
+          "name": "ci",
+          "queueMs": 1000,
+          "setupMs": 9000,
+          "runMs": 3000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45118134004,
+      "createdAt": "2026-11-23T05:29:49Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137505561468,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 1000,
+          "setupMs": 20000,
+          "runMs": 299000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137505561625,
+          "name": "domain (census part 1)",
+          "queueMs": 1000,
+          "setupMs": 38000,
+          "runMs": 191000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137505561654,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 251000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137505561681,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 28000,
+          "runMs": 183000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137505561682,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 51000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137505561761,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 264000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137507311690,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 5000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45117827571,
+      "createdAt": "2026-11-23T05:26:54Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137504604544,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 1000,
+          "setupMs": 15000,
+          "runMs": 230000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137504604724,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 1000,
+          "setupMs": 19000,
+          "runMs": 205000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137504604735,
+          "name": "domain (census part 2)",
+          "queueMs": 1000,
+          "setupMs": 20000,
+          "runMs": 277000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137504604812,
+          "name": "domain (census part 1)",
+          "queueMs": 1000,
+          "setupMs": 30000,
+          "runMs": 131000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137504604873,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 1000,
+          "setupMs": 25000,
+          "runMs": 731000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137504604972,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 179000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137508718750,
+          "name": "ci",
+          "queueMs": 1000,
+          "setupMs": 7000,
+          "runMs": 3000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45117205104,
+      "createdAt": "2026-11-23T05:20:57Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137502646618,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 205000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502646800,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 66000,
+          "runMs": 136000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502646819,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 49000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502646833,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 236000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502646887,
+          "name": "domain (census part 3)",
+          "queueMs": 1000,
+          "setupMs": 17000,
+          "runMs": 174000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502646915,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 183000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137504093085,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 12000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45117081675,
+      "createdAt": "2026-11-23T05:19:48Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137502261031,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 1000,
+          "setupMs": 21000,
+          "runMs": 244000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502261172,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 29000,
+          "runMs": 192000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502261245,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 294000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502261285,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 191000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502261295,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 176000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502261299,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 27000,
+          "runMs": 156000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137504023395,
+          "name": "ci",
+          "queueMs": 3000,
+          "setupMs": 14000,
+          "runMs": 3000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45117053710,
+      "createdAt": "2026-11-23T05:19:32Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137502171499,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 279000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502171645,
+          "name": "domain (census part 3)",
+          "queueMs": 3000,
+          "setupMs": 26000,
+          "runMs": 177000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502171706,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 558000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502171766,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 22000,
+          "runMs": 275000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502171798,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 46000,
+          "runMs": 134000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137502171844,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 191000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137505384719,
+          "name": "ci",
+          "queueMs": 1000,
+          "setupMs": 7000,
+          "runMs": 3000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45116610349,
+      "createdAt": "2026-11-23T05:15:23Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137500799341,
+          "name": "domain (census part 1)",
+          "queueMs": 1000,
+          "setupMs": 31000,
+          "runMs": 128000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137500799477,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 1000,
+          "setupMs": 18000,
+          "runMs": 191000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137500799507,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 1000,
+          "setupMs": 17000,
+          "runMs": 233000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137500799522,
+          "name": "domain (census part 2)",
+          "queueMs": 1000,
+          "setupMs": 18000,
+          "runMs": 268000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137500799523,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 36000,
+          "runMs": 552000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137500799632,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 178000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137504093378,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 9000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45116565683,
+      "createdAt": "2026-11-23T05:15:00Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137500671078,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 23000,
+          "runMs": 192000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137500671216,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 32000,
+          "runMs": 148000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137500671248,
+          "name": "domain (census part 3)",
+          "queueMs": 3000,
+          "setupMs": 26000,
+          "runMs": 177000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137500671258,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 29000,
+          "runMs": 49000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137500671259,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 18000,
+          "runMs": 207000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137500671289,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 186000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137501932508,
+          "name": "ci",
+          "queueMs": 3000,
+          "setupMs": 13000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45115834933,
+      "createdAt": "2026-11-23T05:07:44Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137498351809,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 189000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137498351994,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 41000,
+          "runMs": 196000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137498352024,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 1000,
+          "setupMs": 20000,
+          "runMs": 50000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137498352066,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 271000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137498352073,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 23000,
+          "runMs": 175000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137498352159,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 31000,
+          "runMs": 205000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137499936463,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 7000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45115617491,
+      "createdAt": "2026-11-23T05:05:31Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137497653884,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 548000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137497653968,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 47000,
+          "runMs": 137000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137497654076,
+          "name": "domain (census part 2)",
+          "queueMs": 3000,
+          "setupMs": 25000,
+          "runMs": 188000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137497654095,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 18000,
+          "runMs": 232000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137497654123,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 3000,
+          "setupMs": 20000,
+          "runMs": 268000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137497654150,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 3000,
+          "setupMs": 24000,
+          "runMs": 204000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137500714917,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 7000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45115257349,
+      "createdAt": "2026-11-23T05:01:47Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137496518380,
+          "name": "domain (census part 3)",
+          "queueMs": 1000,
+          "setupMs": 18000,
+          "runMs": 199000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137496518593,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 18000,
+          "runMs": 215000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137496518642,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 27000,
+          "runMs": 74000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137496518655,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 27000,
+          "runMs": 210000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137496518690,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 3000,
+          "setupMs": 24000,
+          "runMs": 191000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137496518702,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 74000,
+          "runMs": 136000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137497761418,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 15000,
+          "runMs": 3000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45115066228,
+      "createdAt": "2026-11-23T05:00:01Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137495944158,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 209000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137495944401,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 3000,
+          "setupMs": 29000,
+          "runMs": 50000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137495944406,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 28000,
+          "runMs": 180000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137495944411,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 18000,
+          "runMs": 221000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137495944453,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 222000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137495944468,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 17000,
+          "runMs": 248000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137497330836,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 9000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45114030153,
+      "createdAt": "2026-11-23T04:48:35Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137492623470,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 1000,
+          "setupMs": 17000,
+          "runMs": 187000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492623705,
+          "name": "domain (census part 2)",
+          "queueMs": 1000,
+          "setupMs": 17000,
+          "runMs": 211000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492623736,
+          "name": "domain (census part 1)",
+          "queueMs": 1000,
+          "setupMs": 33000,
+          "runMs": 194000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492623742,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 1000,
+          "setupMs": 16000,
+          "runMs": 212000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492623826,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 18000,
+          "runMs": 257000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492623889,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 1000,
+          "setupMs": 21000,
+          "runMs": 49000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137493978253,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 12000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45114021401,
+      "createdAt": "2026-11-23T04:48:29Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137492594296,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 242000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492594450,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 16000,
+          "runMs": 181000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492594482,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 1000,
+          "setupMs": 18000,
+          "runMs": 186000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492594515,
+          "name": "domain (census part 1)",
+          "queueMs": 1000,
+          "setupMs": 33000,
+          "runMs": 193000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492594593,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 50000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492594594,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 1000,
+          "setupMs": 16000,
+          "runMs": 204000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137493881883,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 11000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45113987535,
+      "createdAt": "2026-11-23T04:48:07Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137492485412,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 23000,
+          "runMs": 70000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492485661,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 3000,
+          "setupMs": 24000,
+          "runMs": 187000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492485667,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 18000,
+          "runMs": 235000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492485712,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 135000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492485732,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 15000,
+          "runMs": 182000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137492485738,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 257000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137493846446,
+          "name": "ci",
+          "queueMs": 1000,
+          "setupMs": 10000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45112421703,
+      "createdAt": "2026-11-23T04:32:01Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137487541832,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 3000,
+          "setupMs": 23000,
+          "runMs": 207000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137487542114,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 193000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137487542165,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 252000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137487542188,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 31000,
+          "runMs": 191000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137487542212,
+          "name": "domain (census part 2)",
+          "queueMs": 3000,
+          "setupMs": 26000,
+          "runMs": 183000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137487542273,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 3000,
+          "setupMs": 32000,
+          "runMs": 541000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137490567262,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 8000,
+          "runMs": 3000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45111846105,
+      "createdAt": "2026-11-23T04:26:17Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137485741841,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 204000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137485742033,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 27000,
+          "runMs": 160000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137485742146,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 17000,
+          "runMs": 213000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137485742152,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 58000,
+          "runMs": 161000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137485742223,
+          "name": "domain (census part 2)",
+          "queueMs": 3000,
+          "setupMs": 28000,
+          "runMs": 193000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137485742250,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 253000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137487185452,
+          "name": "ci",
+          "queueMs": 3000,
+          "setupMs": 14000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45111189126,
+      "createdAt": "2026-11-23T04:19:51Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137483681731,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 35000,
+          "runMs": 544000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137483681975,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 32000,
+          "runMs": 210000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137483681990,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 204000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137483682005,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 191000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137483682024,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 3000,
+          "setupMs": 25000,
+          "runMs": 191000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137483682093,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 175000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137486762289,
+          "name": "ci",
+          "queueMs": 3000,
+          "setupMs": 12000,
+          "runMs": 3000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45110248476,
+      "createdAt": "2026-11-23T04:10:41Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137480717427,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 304000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137480717635,
+          "name": "domain (census part 3)",
+          "queueMs": 1000,
+          "setupMs": 22000,
+          "runMs": 225000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137480717731,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 42000,
+          "runMs": 154000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137480717737,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 1000,
+          "setupMs": 17000,
+          "runMs": 198000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137480717752,
+          "name": "domain (census part 2)",
+          "queueMs": 1000,
+          "setupMs": 18000,
+          "runMs": 258000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137480717776,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 187000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137482475093,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 11000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45109712951,
+      "createdAt": "2026-11-23T04:05:19Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137479026087,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 1000,
+          "setupMs": 29000,
+          "runMs": 737000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137479026317,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 1000,
+          "setupMs": 16000,
+          "runMs": 197000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137479026379,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 23000,
+          "runMs": 262000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137479026382,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 35000,
+          "runMs": 190000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137479026395,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 302000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137479026458,
+          "name": "domain (census part 2)",
+          "queueMs": 1000,
+          "setupMs": 19000,
+          "runMs": 272000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137483142090,
+          "name": "ci",
+          "queueMs": 3000,
+          "setupMs": 10000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45108774333,
+      "createdAt": "2026-11-23T03:55:25Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137476066719,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 1000,
+          "setupMs": 18000,
+          "runMs": 188000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137476066857,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 45000,
+          "runMs": 185000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137476066937,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 1000,
+          "setupMs": 19000,
+          "runMs": 292000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137476066980,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 46000,
+          "runMs": 543000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137476067000,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 185000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137476067164,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 199000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137479034913,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 7000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45108427571,
+      "createdAt": "2026-11-23T03:51:42Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137474980203,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 175000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137474980432,
+          "name": "domain (census part 1)",
+          "queueMs": 1000,
+          "setupMs": 32000,
+          "runMs": 238000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137474980469,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 194000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137474980470,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 23000,
+          "runMs": 227000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137474980485,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 1000,
+          "setupMs": 25000,
+          "runMs": 632000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137474980495,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 208000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137478234016,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 13000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45108331751,
+      "createdAt": "2026-11-23T03:50:39Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137475496648,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 1000,
+          "setupMs": 25000,
+          "runMs": 555000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137475496819,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 183000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137475496891,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 41000,
+          "runMs": 238000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137475496916,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 205000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137475496923,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 1000,
+          "setupMs": 17000,
+          "runMs": 179000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137475496946,
+          "name": "domain (census part 3)",
+          "queueMs": 1000,
+          "setupMs": 16000,
+          "runMs": 209000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137478377250,
+          "name": "ci",
+          "queueMs": 3000,
+          "setupMs": 13000,
+          "runMs": 5000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45108171511,
+      "createdAt": "2026-11-23T03:48:56Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137474160363,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 1000,
+          "setupMs": 16000,
+          "runMs": 191000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137474160505,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 175000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137474160514,
+          "name": "domain (census part 2)",
+          "queueMs": 1000,
+          "setupMs": 18000,
+          "runMs": 179000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137474160521,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 205000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137474160581,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 565000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137474160616,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 45000,
+          "runMs": 242000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137477058002,
+          "name": "ci",
+          "queueMs": 1000,
+          "setupMs": 5000,
+          "runMs": 3000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45107480042,
+      "createdAt": "2026-11-23T03:41:39Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "failure",
+        "failed": true,
+        "failedSteps": [
+          "app (lint, types, logs, unit) / Prettier, lint, types, knip and server log privacy at once (each line names its command)"
+        ]
+      },
+      "jobs": [
+        {
+          "id": 137471964473,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 16000,
+          "runMs": 129000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471964753,
+          "name": "domain (census part 2)",
+          "queueMs": 3000,
+          "setupMs": 33000,
+          "runMs": 184000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471964795,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 18000,
+          "runMs": 177000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471964819,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 27000,
+          "runMs": 219000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471964882,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 650000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471965011,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 22000,
+          "runMs": 210000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137475356353,
+          "name": "ci",
+          "queueMs": 1000,
+          "setupMs": 8000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45107272070,
+      "createdAt": "2026-11-23T03:39:30Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137471313279,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 257000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471313461,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 23000,
+          "runMs": 557000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471313470,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 23000,
+          "runMs": 186000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471313476,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 17000,
+          "runMs": 199000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471313496,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 17000,
+          "runMs": 280000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471313497,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 242000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137474236274,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 15000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45107228950,
+      "createdAt": "2026-11-23T03:39:02Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137471173498,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 28000,
+          "runMs": 818000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471173648,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 17000,
+          "runMs": 213000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471173673,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 23000,
+          "runMs": 266000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471173760,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 163000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471173784,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 193000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471173789,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 182000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137475409174,
+          "name": "ci",
+          "queueMs": 1000,
+          "setupMs": 10000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45106496333,
+      "createdAt": "2026-11-23T03:31:35Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "failure",
+        "failed": true,
+        "failedSteps": [
+          "app (lint, types, logs, unit) / Package unit tests (each package's test:unit, no database or network)"
+        ]
+      },
+      "jobs": [
+        {
+          "id": 137468881098,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 191000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137468881377,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 1000,
+          "setupMs": 23000,
+          "runMs": 539000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137468881390,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 28000,
+          "runMs": 185000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137468881468,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 50000,
+          "runMs": 170000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137468881515,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 204000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137468881551,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 176000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471776780,
+          "name": "ci",
+          "queueMs": 1000,
+          "setupMs": 13000,
+          "runMs": 1000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45106479306,
+      "createdAt": "2026-11-23T03:31:24Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137468824564,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 200000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137468824681,
+          "name": "domain (census part 2)",
+          "queueMs": 1000,
+          "setupMs": 16000,
+          "runMs": 189000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137468824726,
+          "name": "domain (census part 1)",
+          "queueMs": 1000,
+          "setupMs": 29000,
+          "runMs": 191000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137468824733,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 196000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137468824740,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 185000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137468824809,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 35000,
+          "runMs": 545000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137471827306,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 13000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45105803748,
+      "createdAt": "2026-11-23T03:24:35Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137466683303,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 1000,
+          "setupMs": 17000,
+          "runMs": 200000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137466683490,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 39000,
+          "runMs": 171000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137466683525,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 206000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137466683544,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 23000,
+          "runMs": 177000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137466683563,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 29000,
+          "runMs": 745000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137466683592,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 230000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137470729615,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 7000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45105423756,
+      "createdAt": "2026-11-23T03:20:44Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137465470580,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 209000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137465470796,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 3000,
+          "setupMs": 28000,
+          "runMs": 187000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137465470803,
+          "name": "domain (census part 1)",
+          "queueMs": 3000,
+          "setupMs": 39000,
+          "runMs": 168000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137465470893,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 182000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137465470923,
+          "name": "domain (census part 3)",
+          "queueMs": 3000,
+          "setupMs": 25000,
+          "runMs": 178000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137465470931,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 3000,
+          "setupMs": 33000,
+          "runMs": 544000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137468519695,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 7000,
+          "runMs": 3000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45104798629,
+      "createdAt": "2026-11-23T03:14:35Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137463504233,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 218000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137463504442,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 15000,
+          "runMs": 172000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137463504444,
+          "name": "domain (census part 1)",
+          "queueMs": 3000,
+          "setupMs": 40000,
+          "runMs": 134000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137463504486,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 208000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137463504541,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 38000,
+          "runMs": 561000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137463504603,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 28000,
+          "runMs": 177000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137466706850,
+          "name": "ci",
+          "queueMs": 1000,
+          "setupMs": 13000,
+          "runMs": 1000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45104242628,
+      "createdAt": "2026-11-23T03:09:05Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137461762590,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 3000,
+          "setupMs": 25000,
+          "runMs": 188000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137461762923,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 3000,
+          "setupMs": 31000,
+          "runMs": 557000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137461762940,
+          "name": "domain (census part 2)",
+          "queueMs": 3000,
+          "setupMs": 26000,
+          "runMs": 193000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137461762946,
+          "name": "domain (census part 3)",
+          "queueMs": 3000,
+          "setupMs": 24000,
+          "runMs": 179000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137461762982,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 23000,
+          "runMs": 166000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137461763162,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 3000,
+          "setupMs": 21000,
+          "runMs": 305000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137464916471,
+          "name": "ci",
+          "queueMs": 3000,
+          "setupMs": 12000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45103105289,
+      "createdAt": "2026-11-23T02:57:20Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137458205920,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 37000,
+          "runMs": 555000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137458206105,
+          "name": "domain (census part 3)",
+          "queueMs": 3000,
+          "setupMs": 24000,
+          "runMs": 172000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137458206148,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 187000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137458206164,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 182000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137458206236,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 3000,
+          "setupMs": 25000,
+          "runMs": 208000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137458206313,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 17000,
+          "runMs": 226000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137461200258,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 7000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45103090800,
+      "createdAt": "2026-11-23T02:57:10Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137458158657,
+          "name": "domain (census part 1)",
+          "queueMs": 3000,
+          "setupMs": 49000,
+          "runMs": 153000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137458158847,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 339000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137458158877,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 188000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137458158907,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 3000,
+          "setupMs": 27000,
+          "runMs": 191000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137458158926,
+          "name": "domain (census part 3)",
+          "queueMs": 3000,
+          "setupMs": 21000,
+          "runMs": 242000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137458158940,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 31000,
+          "runMs": 590000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137461300481,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 13000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45102235232,
+      "createdAt": "2026-11-23T02:47:56Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137455480244,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 195000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455480389,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 16000,
+          "runMs": 204000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455480436,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 16000,
+          "runMs": 215000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455480447,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 559000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455480460,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 172000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455480503,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 3000,
+          "setupMs": 23000,
+          "runMs": 211000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137458316431,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 12000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45102195190,
+      "createdAt": "2026-11-23T02:47:27Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137455349298,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 223000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455349513,
+          "name": "domain (census part 1)",
+          "queueMs": 1000,
+          "setupMs": 28000,
+          "runMs": 212000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455349548,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 22000,
+          "runMs": 188000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455349553,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 202000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455349555,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 1000,
+          "setupMs": 25000,
+          "runMs": 764000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455349653,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 255000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137459159239,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 13000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45102187357,
+      "createdAt": "2026-11-23T02:47:21Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137455323004,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 294000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455323191,
+          "name": "domain (census part 2)",
+          "queueMs": 1000,
+          "setupMs": 18000,
+          "runMs": 264000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455323202,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 177000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455323220,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 27000,
+          "runMs": 194000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455323254,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 1000,
+          "setupMs": 25000,
+          "runMs": 552000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137455323389,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 292000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137458123871,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 7000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45101655909,
+      "createdAt": "2026-11-23T02:41:37Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137453647251,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 3000,
+          "setupMs": 24000,
+          "runMs": 190000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137453647280,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 16000,
+          "runMs": 178000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137453647328,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 179000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137453647453,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 3000,
+          "setupMs": 24000,
+          "runMs": 209000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137453647465,
+          "name": "domain (census part 1)",
+          "queueMs": 3000,
+          "setupMs": 45000,
+          "runMs": 163000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137453647801,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 34000,
+          "runMs": 817000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137457796679,
+          "name": "ci",
+          "queueMs": 8000,
+          "setupMs": 14000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45100681041,
+      "createdAt": "2026-11-23T02:31:14Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137450579104,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 209000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137450579442,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 195000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137450579584,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 541000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137450579595,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 43000,
+          "runMs": 136000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137450579607,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 251000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137450579647,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 22000,
+          "runMs": 253000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137453397698,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 9000,
+          "runMs": 3000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45099437806,
+      "createdAt": "2026-11-23T02:18:22Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137446619668,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 1000,
+          "setupMs": 18000,
+          "runMs": 204000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137446619883,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 18000,
+          "runMs": 180000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137446619922,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 1000,
+          "setupMs": 26000,
+          "runMs": 816000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137446619924,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 36000,
+          "runMs": 138000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137446619929,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 218000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137446619936,
+          "name": "domain (census part 2)",
+          "queueMs": 1000,
+          "setupMs": 18000,
+          "runMs": 269000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137450950392,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 12000,
+          "runMs": 1000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45099065141,
+      "createdAt": "2026-11-23T02:14:36Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137445436898,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 207000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137445437073,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 23000,
+          "runMs": 287000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137445437082,
+          "name": "domain (census part 1)",
+          "queueMs": 3000,
+          "setupMs": 39000,
+          "runMs": 132000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137445437151,
+          "name": "domain (census part 3)",
+          "queueMs": 3000,
+          "setupMs": 26000,
+          "runMs": 180000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137445437225,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 16000,
+          "runMs": 222000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137445437238,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 3000,
+          "setupMs": 35000,
+          "runMs": 568000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137448553662,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 10000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45097777906,
+      "createdAt": "2026-11-23T02:01:11Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137441335240,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 1000,
+          "setupMs": 19000,
+          "runMs": 298000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137441335463,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 36000,
+          "runMs": 558000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137441335574,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 190000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137441335594,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 25000,
+          "runMs": 177000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137441335613,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 38000,
+          "runMs": 211000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137441335629,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 23000,
+          "runMs": 190000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137444381355,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 14000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45097537404,
+      "createdAt": "2026-11-23T01:58:34Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137440590913,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 1000,
+          "setupMs": 19000,
+          "runMs": 193000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137440591047,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 47000,
+          "runMs": 151000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137440591110,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 211000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137440591143,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 28000,
+          "runMs": 805000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137440591151,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 23000,
+          "runMs": 184000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137440591178,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 207000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137444799437,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 12000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45097443771,
+      "createdAt": "2026-11-23T01:57:30Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137440297977,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 1000,
+          "setupMs": 19000,
+          "runMs": 224000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137440298166,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 45000,
+          "runMs": 157000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137440298181,
+          "name": "domain (census part 2)",
+          "queueMs": 1000,
+          "setupMs": 20000,
+          "runMs": 182000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137440298216,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 546000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137440298246,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 22000,
+          "runMs": 285000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137440298293,
+          "name": "domain (census part 3)",
+          "queueMs": 1000,
+          "setupMs": 20000,
+          "runMs": 255000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137443110800,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 6000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45096184414,
+      "createdAt": "2026-11-23T01:43:41Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137436380752,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 35000,
+          "runMs": 542000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137436380987,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 30000,
+          "runMs": 205000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137436381009,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 41000,
+          "setupMs": 19000,
+          "runMs": 255000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137436381017,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 55000,
+          "setupMs": 18000,
+          "runMs": 209000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137436381018,
+          "name": "domain (census part 2)",
+          "queueMs": 78000,
+          "setupMs": 28000,
+          "runMs": 182000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137436381062,
+          "name": "domain (census part 3)",
+          "queueMs": 18000,
+          "setupMs": 21000,
+          "runMs": 202000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137439148480,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 11000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45096111586,
+      "createdAt": "2026-11-23T01:42:55Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137436165264,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 804000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137436165511,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 21000,
+          "runMs": 184000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137436165546,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 33000,
+          "runMs": 197000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137436165689,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 245000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137436165881,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 18000,
+          "runMs": 284000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137436166004,
+          "name": "domain (census part 3)",
+          "queueMs": 3000,
+          "setupMs": 25000,
+          "runMs": 175000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137440110205,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 11000,
+          "runMs": 2000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45096040303,
+      "createdAt": "2026-11-23T01:42:08Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137435938386,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 22000,
+          "runMs": 525000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137435938465,
+          "name": "domain (census part 1)",
+          "queueMs": 2000,
+          "setupMs": 28000,
+          "runMs": 147000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137435938514,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 19000,
+          "runMs": 197000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137435938552,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 176000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137435938578,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 23000,
+          "runMs": 205000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137435938791,
+          "name": "domain (census part 2)",
+          "queueMs": 2000,
+          "setupMs": 26000,
+          "runMs": 178000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137438579795,
+          "name": "ci",
+          "queueMs": 2000,
+          "setupMs": 12000,
+          "runMs": 1000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    },
+    {
+      "id": 45095904424,
+      "createdAt": "2026-11-23T01:40:43Z",
+      "attempts": 1,
+      "firstAttempt": {
+        "conclusion": "success",
+        "failed": false,
+        "failedSteps": []
+      },
+      "jobs": [
+        {
+          "id": 137435527606,
+          "name": "tooling (docs, workflow, tools, wiki)",
+          "queueMs": 2000,
+          "setupMs": 29000,
+          "runMs": 638000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137435527783,
+          "name": "domain (census part 2)",
+          "queueMs": 1000,
+          "setupMs": 16000,
+          "runMs": 235000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137435527848,
+          "name": "db (@everyfield/db, evry)",
+          "queueMs": 2000,
+          "setupMs": 24000,
+          "runMs": 200000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137435527903,
+          "name": "domain (census part 1)",
+          "queueMs": 1000,
+          "setupMs": 32000,
+          "runMs": 218000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137435527926,
+          "name": "domain (census part 3)",
+          "queueMs": 2000,
+          "setupMs": 16000,
+          "runMs": 175000,
+          "cacheHits": 2,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137435527934,
+          "name": "app (lint, types, logs, unit)",
+          "queueMs": 2000,
+          "setupMs": 20000,
+          "runMs": 194000,
+          "cacheHits": 3,
+          "cacheMisses": 0
+        },
+        {
+          "id": 137438740670,
+          "name": "ci",
+          "queueMs": 3000,
+          "setupMs": 20000,
+          "runMs": 4000,
+          "cacheHits": 1,
+          "cacheMisses": 0
+        }
+      ]
+    }
+  ],
+  "totals": [
+    {
+      "name": "domain (census part 1)",
+      "jobs": 50,
+      "queueMs": 96000,
+      "setupMs": 1852000,
+      "runMs": 8677000,
+      "cacheHits": 150,
+      "cacheMisses": 0
+    },
+    {
+      "name": "tooling (docs, workflow, tools, wiki)",
+      "jobs": 50,
+      "queueMs": 94000,
+      "setupMs": 1399000,
+      "runMs": 23434000,
+      "cacheHits": 136,
+      "cacheMisses": 0
+    },
+    {
+      "name": "domain (census part 3)",
+      "jobs": 50,
+      "queueMs": 119000,
+      "setupMs": 1090000,
+      "runMs": 10018000,
+      "cacheHits": 100,
+      "cacheMisses": 0
+    },
+    {
+      "name": "db (@everyfield/db, evry)",
+      "jobs": 50,
+      "queueMs": 150000,
+      "setupMs": 1066000,
+      "runMs": 11409000,
+      "cacheHits": 100,
+      "cacheMisses": 0
+    },
+    {
+      "name": "domain (census part 2)",
+      "jobs": 50,
+      "queueMs": 170000,
+      "setupMs": 1056000,
+      "runMs": 10634000,
+      "cacheHits": 100,
+      "cacheMisses": 0
+    },
+    {
+      "name": "app (lint, types, logs, unit)",
+      "jobs": 50,
+      "queueMs": 135000,
+      "setupMs": 1033000,
+      "runMs": 10296000,
+      "cacheHits": 150,
+      "cacheMisses": 0
+    },
+    {
+      "name": "ci",
+      "jobs": 50,
+      "queueMs": 104000,
+      "setupMs": 528000,
+      "runMs": 141000,
+      "cacheHits": 50,
+      "cacheMisses": 0
+    }
+  ],
+  "firstAttempts": {
+    "runs": 50,
+    "cancelled": 0,
+    "failed": 2,
+    "rerun": 0,
+    "steps": [
+      {
+        "step": "app (lint, types, logs, unit) / Package unit tests (each package's test:unit, no database or network)",
+        "count": 1
+      },
+      {
+        "step": "app (lint, types, logs, unit) / Prettier, lint, types, knip and server log privacy at once (each line names its command)",
+        "count": 1
+      }
+    ]
+  }
+}
