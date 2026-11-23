@@ -494,6 +494,7 @@ function cases(who) {
 				missingEmailExclusions: [],
 				unsubscribedExclusions: [],
 				childExclusions: [],
+				guardianRoutes: [],
 				duplicateAddressesRemoved: 0,
 				eligibleEmails: [],
 				searchResultLimit: 20,

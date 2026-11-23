@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 125 tables, 1410 columns, 408 declared FKs and 35 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 126 tables, 1417 columns, 412 declared FKs and 35 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -64,6 +64,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `feature_flag` | WP-050 engineering tooling: the T-470 feature-flag foundation for trunk-based landing. | WP-050 |
 | `feedback` | WP-049 feedback.submit stores it; feedback.admin.changeStatus moves its status. | WP-049 |
 | `generated_document` | WP-037 stores one saved catalog render. The plant owns the row. Creator attribution is not ownership. | WP-037 |
+| `guardian_contact` | WP-012 People households records a parent or guardian contact from an Owner or Admin. | WP-012 |
 | `identity_proof` | Application-owned email-change/cancellation proof splits from account/auth and deletion facts; password reset remains library-owned. | WP-004, WP-005, WP-010, WP-050, WP-057 |
 | `launch_debrief` | WP-046 Launch outcomes, guests, debrief and history. | WP-046 |
 | `launch_guest` | WP-046 Launch outcomes, guests, debrief and history. | WP-046 |

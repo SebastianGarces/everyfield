@@ -186,6 +186,7 @@ export const activity = z.discriminatedUnion("kind", [
 		recordId: recordId.optional(),
 		stage: z.strictObject({ from: stage, to: stage }).optional(),
 		household: z.strictObject({ from: householdMembership.nullable(), to: householdMembership.nullable() }).optional(),
+		guardian: z.strictObject({ change: z.enum(["added", "removed"]), personId, displayName: z.string() }).optional(),
 		withPerson: z.strictObject({ id: personId, displayName: z.string() }).optional(),
 	}),
 	z.strictObject({
@@ -209,7 +210,18 @@ type GenericInvalidInput = Extract<SafeError, { shape: { code: z.ZodLiteral<"inv
 export const peopleError = z.discriminatedUnion("code", [
 	defineSafeError(
 		"invalid_input",
-		{ reason: z.enum(["future_date", "unreadable_document", "birth_date_decides"]).optional() },
+		{
+			reason: z
+				.enum([
+					"future_date",
+					"unreadable_document",
+					"birth_date_decides",
+					"not_child",
+					"not_adult",
+					"not_in_household",
+				])
+				.optional(),
+		},
 		"never",
 	),
 	...safeError.options.filter(

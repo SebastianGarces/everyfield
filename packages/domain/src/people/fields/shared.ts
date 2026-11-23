@@ -5,6 +5,7 @@ import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
 import { queueJobsFor } from "../../jobs/queue.ts";
+import { effectiveAdultSql, plantTodaySql } from "../adult.ts";
 import { deny, type Tx } from "../core.ts";
 
 export function plantId(ctx: { selected: Owner }): string {
@@ -44,6 +45,7 @@ const factRow = z.object({
 	household_id: z.uuid().nullable(),
 	household_role: z.enum(["head", "spouse", "child", "other"]).nullable(),
 	photo_object_id: z.uuid().nullable(),
+	adult: z.enum(["adult", "child", "unknown"]),
 	...address,
 });
 export type PersonFacts = z.infer<typeof factRow>;
@@ -63,6 +65,11 @@ export async function personFacts(
 			household_id: tables.person.household_id,
 			household_role: tables.person.household_role,
 			photo_object_id: tables.person.photo_object_id,
+			adult: sql<string>`${effectiveAdultSql(
+				sql`${tables.person.birth_date}`,
+				sql`${tables.person.adult_classification}`,
+				plantTodaySql(sql`${tables.person.plant_id}`),
+			)}`,
 			street: tables.person.street,
 			city: tables.person.city,
 			state_province: tables.person.state_province,

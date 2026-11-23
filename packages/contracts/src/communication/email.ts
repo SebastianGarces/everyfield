@@ -1,6 +1,19 @@
 import { FONT, escapeHtml, renderBody, type RenderMode } from "./html.ts";
 
-export type EmailContext = { churchName: string; unsubscribeUrl?: string };
+export type EmailContext = { churchName: string; unsubscribeUrl?: string; guardianOf?: readonly string[] };
+
+export function namesList(names: readonly string[]): string {
+	if (names.length <= 1) return names[0] ?? "";
+	return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+export const guardianNote = (children: readonly string[]) =>
+	`We are sending you this email as the parent or guardian of ${namesList(children)}.`;
+
+function guardianLine(children: readonly string[] | undefined): string {
+	if (!children?.length) return "";
+	return `<p style="margin:0 0 18px 0;padding:10px 12px;background-color:#F4F2EE;font-size:14px;line-height:1.5;color:#3A3F3B;">${escapeHtml(guardianNote(children))}</p>`;
+}
 
 const INK = "#181D19";
 
@@ -59,7 +72,7 @@ export function renderEmailHtml(
 		`<td width="34" height="34" align="center" valign="middle" bgcolor="${INK}" style="width:34px;height:34px;background-color:${INK};color:#F6F0E9;font-family:${FONT};font-size:13px;font-weight:700;">${escapeHtml(initials(context.churchName))}</td>` +
 		`<td style="padding-left:10px;font-family:${FONT};font-size:15px;font-weight:600;color:${INK};">${church}</td>` +
 		`</tr></table></td></tr>` +
-		`<tr><td bgcolor="#FFFFFF" style="background-color:#FFFFFF;padding:30px 30px 28px 30px;font-family:${FONT};font-size:16px;line-height:1.6;color:#3A3F3B;">${content}</td></tr>` +
+		`<tr><td bgcolor="#FFFFFF" style="background-color:#FFFFFF;padding:30px 30px 28px 30px;font-family:${FONT};font-size:16px;line-height:1.6;color:#3A3F3B;">${guardianLine(context.guardianOf)}${content}</td></tr>` +
 		`<tr><td align="center" style="padding:18px 10px 0 10px;font-family:${FONT};font-size:12.5px;line-height:1.6;color:#666A64;">You get this email because you are part of ${church}.${unsubscribeLink(context.unsubscribeUrl)}</td></tr>` +
 		`</table>` +
 		`<!--[if mso]></td></tr></table><![endif]-->` +

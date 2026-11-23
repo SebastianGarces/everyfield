@@ -9341,6 +9341,219 @@
       },
       "isRLSEnabled": false
     },
+    "public.guardian_contact": {
+      "name": "guardian_contact",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "child_person_id": {
+          "name": "child_person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "guardian_person_id": {
+          "name": "guardian_person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "household_id": {
+          "name": "household_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "clock_timestamp()"
+        }
+      },
+      "indexes": {
+        "guardian_contact_pair": {
+          "name": "guardian_contact_pair",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "child_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "guardian_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "guardian_contact_ref_0": {
+          "name": "guardian_contact_ref_0",
+          "columns": [
+            {
+              "expression": "child_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "guardian_contact_ref_1": {
+          "name": "guardian_contact_ref_1",
+          "columns": [
+            {
+              "expression": "guardian_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "guardian_contact_household": {
+          "name": "guardian_contact_household",
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "guardian_contact_plant_id_plant_id_fk": {
+          "name": "guardian_contact_plant_id_plant_id_fk",
+          "tableFrom": "guardian_contact",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "guardian_contact_child": {
+          "name": "guardian_contact_child",
+          "tableFrom": "guardian_contact",
+          "tableTo": "person",
+          "columnsFrom": [
+            "child_person_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "guardian_contact_guardian": {
+          "name": "guardian_contact_guardian",
+          "tableFrom": "guardian_contact",
+          "tableTo": "person",
+          "columnsFrom": [
+            "guardian_person_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "guardian_contact_household": {
+          "name": "guardian_contact_household",
+          "tableFrom": "guardian_contact",
+          "tableTo": "household",
+          "columnsFrom": [
+            "household_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "plant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "guardian_contact_pkey": {
+          "name": "guardian_contact_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "guardian_contact_distinct": {
+          "name": "guardian_contact_distinct",
+          "value": "child_person_id <> guardian_person_id"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.household": {
       "name": "household",
       "schema": "",
@@ -12186,6 +12399,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "guardian_mail_ids": {
+          "name": "guardian_mail_ids",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -12474,7 +12693,11 @@
       "checkConstraints": {
         "mail_refusal": {
           "name": "mail_refusal",
-          "value": "((refusal IS NULL) OR ((refusal = ANY (ARRAY['unsubscribed'::text, 'child'::text])) AND (state = 'refused'::text)))"
+          "value": "((refusal IS NULL) OR ((refusal = ANY (ARRAY['unsubscribed'::text, 'child'::text, 'guardian'::text])) AND (state = 'refused'::text)))"
+        },
+        "mail_guardian": {
+          "name": "mail_guardian",
+          "value": "((refusal IS NOT DISTINCT FROM 'guardian'::text) = (COALESCE(cardinality(guardian_mail_ids), 0) > 0))"
         },
         "mail_ck_0": {
           "name": "mail_ck_0",
