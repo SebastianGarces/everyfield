@@ -609,10 +609,7 @@ function checkTable(node: Rec, attrs: Rec, where: string, ctx: Ctx) {
 		const role = rowAttrs.role ?? "item";
 		const cells = list(row.content);
 		if (cells.length !== cols.length)
-			fail(
-				at,
-				`the row has ${counted(cells.length, "cell")} but the table has ${cols.length} columns`,
-			);
+			fail(at, `the row has ${counted(cells.length, "cell")} but the table has ${cols.length} columns`);
 		if (role !== "item" && !ledger)
 			fail(at, `a ${String(role)} row needs a ledger table; this table's style is "${String(attrs.style ?? "grid")}"`);
 		if (role === "group") groupOpen = true;

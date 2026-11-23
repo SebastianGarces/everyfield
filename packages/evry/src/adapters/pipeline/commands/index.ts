@@ -58,7 +58,8 @@ const planInput = z.strictObject({
 		)
 		.max(100),
 });
-const rangeText = (min: number, max: number) => (min === max ? counted(min, "month") : `${min}–${counted(max, "month")}`);
+const rangeText = (min: number, max: number) =>
+	min === max ? counted(min, "month") : `${min}–${counted(max, "month")}`;
 
 export const saveProgram = approvedNow({
 	operation: "development.saveProgram",

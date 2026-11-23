@@ -132,9 +132,7 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 			: invitations.length
 				? ` ${counted(invitations.length, "invitation is", "invitations are")} waiting: ${invitations.join(", ")}.`
 				: " No invitation is waiting.";
-		return say(
-			`${counted(seats.length, "person has", "people have")} access: ${seats.join(", ")}.${waiting}`,
-		);
+		return say(`${counted(seats.length, "person has", "people have")} access: ${seats.join(", ")}.${waiting}`);
 	}
 
 	const invite = new RegExp(String.raw`\binvite\s+${EMAIL}\s+(?:as|to be)\s+(?:an?\s+)?(admin|member)\b`, "i").exec(
