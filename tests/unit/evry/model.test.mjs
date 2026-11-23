@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	answerText,
 	EMPTY,
 	endNotice,
 	merge,
@@ -125,4 +126,14 @@ test("INV-turns: live text of a turn with a withheld text is never shown", () =>
 		turn.blocks.map((b) => [b.kind, b.text]),
 		[["text", ""]],
 	);
+});
+
+test("INV-announce: the spoken answer has no markdown symbols", () => {
+	const [turn] = turnsOf([
+		ask(1),
+		say(2, "There are **19 prospects**, *3 new*. Run `pnpm test` or see [people](/people).\n\n- **Alex**\n- Sam\n"),
+		say(3, "5 * 3 = 15", { withheld: true }),
+		end(4, { state: "completed", reason: "completed" }),
+	]);
+	assert.equal(answerText(turn), "There are 19 prospects, 3 new. Run pnpm test or see people.\n\nAlex\nSam");
 });
