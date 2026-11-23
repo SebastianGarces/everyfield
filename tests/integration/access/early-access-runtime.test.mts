@@ -70,9 +70,7 @@ async function earlyAccessOn(pool) {
 	await db.admin.execute(querySql`UPDATE early_access_attempt SET created_at = now() - interval '25 hours'`);
 	const expired = await expireAccessRequests(pool);
 	const kept = (
-		await db.admin.execute(
-			querySql`SELECT email, host(ip_address) AS ip FROM early_access_request ORDER BY email`,
-		)
+		await db.admin.execute(querySql`SELECT email, host(ip_address) AS ip FROM early_access_request ORDER BY email`)
 	).rows;
 	const attempts = (await db.admin.execute(querySql`SELECT count(*)::int AS n FROM early_access_attempt`)).rows[0].n;
 	return { submitted, mails, stored, exported, expired, kept, attempts };
@@ -80,8 +78,7 @@ async function earlyAccessOn(pool) {
 
 test("INV-access: the runtime login submits, records mail, expires and exports early access exactly as the owner does", async () => {
 	assert.deepEqual(
-		(await db.runtime.execute(querySql`SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user`))
-			.rows,
+		(await db.runtime.execute(querySql`SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user`)).rows,
 		[{ rolsuper: false, rolbypassrls: false }],
 	);
 	const owner = await earlyAccessOn(db.admin);
