@@ -1,4 +1,4 @@
-import type { Clock } from "@everyfield/contracts/common";
+import { daysBetween, type Clock } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/intelligence";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
@@ -75,7 +75,7 @@ function signalFrom(key: c.SignalKey, row: StateRow | null, today: string): c.Si
 			renewal: { status: "unknown" },
 		});
 	const answered = row.kind !== "retracted";
-	const age = Math.max(0, c.daysBetween(row.asOf, today));
+	const age = Math.max(0, daysBetween(row.asOf, today));
 	return c.signalEntry.parse({
 		key,
 		state: answered ? "answered" : "retracted",
@@ -96,7 +96,7 @@ function candidateFrom(
 ): c.CandidateEntry {
 	const answered = row.kind !== "retracted";
 	if (row.periodStart === null || row.periodEnd === null) throw new Error("a leadership candidate has no period");
-	const days = c.daysBetween(row.periodStart, row.periodEnd) + 1;
+	const days = daysBetween(row.periodStart, row.periodEnd) + 1;
 	const reasons: c.CandidateReason[] = [];
 	if (answered) {
 		if (!row.attended) reasons.push("attendance_not_attested");

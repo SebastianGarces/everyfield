@@ -1,6 +1,6 @@
 "use client";
 
-import { counted } from "@everyfield/contracts/common";
+import { counted, dayText } from "@everyfield/contracts/common";
 import type { PlantFacts } from "@everyfield/contracts/intelligence";
 import {
 	Button,
@@ -27,7 +27,6 @@ import {
 	cohesionValue,
 	contactLine,
 	coverageValue,
-	dayLabel,
 	followUpsDetail,
 	followUpsValue,
 	GROWTH_LABEL,
@@ -54,7 +53,7 @@ export function FactsSection({ facts }: { facts: PlantFacts }) {
 				<CardHeading>
 					<CardTitle>What Everyfield has measured</CardTitle>
 					<CardDescription>
-						From the records you keep, as of {dayLabel(facts.today)}. Unknown means the records cannot answer yet. It is
+						From the records you keep, as of {dayText(facts.today)}. Unknown means the records cannot answer yet. It is
 						not the same as no.
 					</CardDescription>
 				</CardHeading>
@@ -133,7 +132,7 @@ export function FactsSection({ facts }: { facts: PlantFacts }) {
 									<span className="flex flex-wrap items-center gap-2">
 										<span className="text-ink">
 											{x.value ? VALUE_LABEL[x.value] : x.state === "retracted" ? "Retracted" : "Not answered"}
-											{x.asOf && x.value ? <span className="text-text-3"> · {dayLabel(x.asOf)}</span> : null}
+											{x.asOf && x.value ? <span className="text-text-3"> · {dayText(x.asOf)}</span> : null}
 										</span>
 										{x.renewal.status === "needs_renewing" ? (
 											<StatusBadge size="sm" status="attention">
@@ -181,7 +180,7 @@ export function FactsSection({ facts }: { facts: PlantFacts }) {
 											{e.person.name}
 										</Link>
 										<span className="text-text-3">
-											{e.kinds.map((k) => KIND_LABEL[k]).join(" · ")} · committed since {dayLabel(e.committedSince)}
+											{e.kinds.map((k) => KIND_LABEL[k]).join(" · ")} · committed since {dayText(e.committedSince)}
 										</span>
 									</li>
 								))}

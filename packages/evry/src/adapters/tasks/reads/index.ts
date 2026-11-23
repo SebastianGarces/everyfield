@@ -1,3 +1,4 @@
+import { addDays } from "@everyfield/contracts/common";
 import type { Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
@@ -149,8 +150,6 @@ export function localTime(at: string | null, zone: string) {
 	);
 	return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${zone}`;
 }
-const addDays = (date: string, days: number) =>
-	new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
 const OPEN = ["not_started", "in_progress", "blocked"] as const;
 const SCAN = 500;

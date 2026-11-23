@@ -3,8 +3,12 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 const ROOT = new URL("../../../packages/contracts/", import.meta.url);
+const PLUGIN = new URL("../../../scripts/lint/everyfield-plugin.mjs", import.meta.url).href;
+const { PROOF_CONTRACTS }: { PROOF_CONTRACTS: Record<string, string[]> } = await import(PLUGIN);
 const entries: Record<string, string> = JSON.parse(readFileSync(new URL("package.json", ROOT), "utf8")).exports;
 const ACTOR_KEYS = new Set([
+	"account",
+	"accountId",
 	"actor",
 	"actorId",
 	"actorAccountId",
@@ -17,6 +21,11 @@ const ACTOR_KEYS = new Set([
 	"createdBy",
 	"viewerId",
 	"userId",
+]);
+const SUBJECT_ECHOES = new Set([
+	"organizations endRelationshipRequest.input.pair.accountId",
+	"organizations inviteRelationshipRequest.input.pair.accountId",
+	"organizations relationshipHistoryRequest.pair.accountId",
 ]);
 const FREE_KEY_MAPS = new Set(["mergeFields", "overrides"]);
 const SECRET_KEY = /password|proof|token/i;
@@ -67,7 +76,10 @@ const requests = exported.filter(({ name }) => /(?:Request|Query|Input|Command)$
 
 test("INV-actor: request schemas declare no actor or session key, pass no unknown key through and take free keys only in merge-value maps", () => {
 	assert.ok(requests.length >= 400, `only ${requests.length} request schemas found`);
-	assert.deepEqual(paths(keyed(requests, (key) => ACTOR_KEYS.has(key))), []);
+	assert.deepEqual(
+		paths(keyed(requests, (key) => ACTOR_KEYS.has(key))).filter((path) => !SUBJECT_ECHOES.has(path)),
+		[],
+	);
 	const open = [...keyed(requests, () => true)].filter(({ schema }) => {
 		const catchall = schema.def.catchall;
 		return schema.def.type === "object" && isSchema(catchall) && catchall.def.type !== "never";
@@ -97,4 +109,19 @@ test("INV-secrets: a password, proof or token field keeps exactly what was typed
 	assert.deepEqual(paths(changed), []);
 	const results = exported.filter(({ name }) => RESULT_NAME.test(name));
 	assert.deepEqual(paths(keyed(results, (key) => DURABLE_SECRET_KEY.test(key))), []);
+});
+
+test("INV-proof-actions: the server-action proof lint names every identity and organizations request that carries a proof", () => {
+	const carrying = (entry: string) =>
+		requests
+			.filter(({ name }) => name.startsWith(`${entry} `) && name.endsWith("Request"))
+			.filter(({ schema }) => [...walk(schema, "")].some(({ key }) => /proof/i.test(key)))
+			.map(({ name }) => name.slice(entry.length + 1))
+			.sort();
+	assert.deepEqual(
+		Object.fromEntries(Object.keys(PROOF_CONTRACTS).map((source) => [source, PROOF_CONTRACTS[source]!.toSorted()])),
+		Object.fromEntries(
+			["identity", "organizations"].map((entry) => [`@everyfield/contracts/${entry}`, carrying(entry)]),
+		),
+	);
 });
