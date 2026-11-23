@@ -1,0 +1,61 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - "package.json"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "tsconfig.json"
+      - "patches/**"
+      - "docs/reference/**"
+      - "design/handoff/**"
+      - "design/marketing-copy.json"
+      - ".github/workflows/deploy-production.yml"
+      - "!**/*.md"
+      - "!**/*.test.*"
+      - "!**/tests/**"
+      - "!**/__tests__/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "24.22.1"
+  VERCEL_CLI: "vercel@65.11.0"
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Shared setup (Node, pnpm, node_modules)
+        uses: ./.github/actions/setup
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Vercel production settings and environment
+        run: npx --yes "$VERCEL_CLI" pull --yes --environment=production
+      - name: Production build
+        run: npx --yes "$VERCEL_CLI" build --prod
+      - name: Deploy the prebuilt output to production
+        run: |
+          url=$(npx --yes "$VERCEL_CLI" deploy --prebuilt --prod --meta "githubCommitSha=$GITHUB_SHA")
+          echo "Production deployment for \`$GITHUB_SHA\`: $url" >> "$GITHUB_STEP_SUMMARY"
