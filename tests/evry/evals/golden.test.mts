@@ -1301,6 +1301,7 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			.reviewedWrites.map((w) => w.operation)
 			.filter((op) => !/^(meetings|tasks|followups)\./.test(op)),
 		[
+			"communication.correctContactLog",
 			"notifications.markSelectedRead",
 			"notifications.markAllVisibleRead",
 			"notifications.setPreferences",

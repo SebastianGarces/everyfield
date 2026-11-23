@@ -60,6 +60,17 @@ import { INVITATION_COMMANDS } from "../../../packages/evry/src/adapters/meeting
 import { WORKFLOW_READS } from "../../../packages/evry/src/adapters/meetings/reads/workflows.ts";
 import { WIKI_COMMANDS } from "../../../packages/evry/src/adapters/wiki/commands/index.ts";
 
+export const COMMUNICATION_LATER = [
+	"communication.forMeeting",
+	"communication.meetingRecipientTracking",
+	"communication.deliveryTotals",
+	"communication.listAudienceTeams",
+	"communication.searchRecipients",
+	"mail.suppression.listForSelf",
+	"communication.templates.archiveOrDelete",
+	"communication.correctContactLog",
+];
+
 const LATER = new Set<string>([
 	...SEAT_READS.map((a) => a.operation),
 	...SHARING_READS.map((a) => a.operation),
@@ -83,6 +94,7 @@ const LATER = new Set<string>([
 	"organizationIntelligence.readLocationHistory",
 	"intelligence.readExitCriteria",
 	"intelligence.readJourney",
+	...COMMUNICATION_LATER,
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
 const SCRIPTED_ONLY = new Set(["documents.importTextOrWord"]);

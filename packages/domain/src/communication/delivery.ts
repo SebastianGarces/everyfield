@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "@everyfield/db/query";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import type { ProviderKey } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/communication";
 import {
@@ -986,7 +986,7 @@ export function rescheduleDispatched(
 	});
 }
 
-async function accountEmail(db: Database, actor: Actor) {
+async function accountEmail(db: Database | Transaction, actor: Actor) {
 	const row = one(
 		await db.execute(sql`SELECT g.allowed, u.email
 			FROM (SELECT ${adminGate(actor)} AS allowed) g
@@ -999,7 +999,12 @@ async function accountEmail(db: Database, actor: Actor) {
 	return row.email.trim().toLowerCase();
 }
 
-export function listOwnSuppression(db: Database, authority: RequestActor, raw: unknown, keys: DeliveryKeys) {
+export function listOwnSuppression(
+	db: Database | Transaction,
+	authority: RequestActor,
+	raw: unknown,
+	keys: DeliveryKeys,
+) {
 	return readReply(async () => {
 		const input = parse(c.listSuppressionRequest, raw);
 		const actor = requireActor(authority);

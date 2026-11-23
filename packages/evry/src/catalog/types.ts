@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
-import type { NativePorts } from "../proposals/types.ts";
+import type { MailPort, NativePorts } from "../proposals/types.ts";
 import type { WriteTx } from "@everyfield/domain/access";
 
 export type SourceRow = {
@@ -69,7 +69,14 @@ export type ReadAdapter<I> = {
 	input: z.ZodType<I>;
 	allowed(actor: EvryActor): boolean;
 	load?(input: I, files: ConversationFiles): Promise<unknown>;
-	invoke(tx: WriteTx, actor: EvryActor, input: I, native: NativePorts | null, loaded?: unknown): Promise<SourceResult>;
+	invoke(
+		tx: WriteTx,
+		actor: EvryActor,
+		input: I,
+		native: NativePorts | null,
+		loaded?: unknown,
+		mail?: MailPort | null,
+	): Promise<SourceResult>;
 };
 
 export type ConversationFiles = { read(attachmentId: string): Promise<Uint8Array> };

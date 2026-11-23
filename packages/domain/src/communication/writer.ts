@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import * as c from "@everyfield/contracts/communication";
 import {
@@ -367,7 +367,7 @@ export const communicationWriter = {
 		replaceScheduled(db, authority, raw),
 	rescheduleDispatched: (db: Database, authority: RequestActor, raw: unknown, transport: DeliveryTransport) =>
 		rescheduleDispatched(db, authority, raw, transport),
-	listForSelf: (db: Database, authority: RequestActor, raw: unknown, keys: DeliveryKeys) =>
+	listForSelf: (db: Database | Transaction, authority: RequestActor, raw: unknown, keys: DeliveryKeys) =>
 		listOwnSuppression(db, authority, raw, keys),
 	requestRestore: (db: Database, authority: RequestActor, raw: unknown, keys: DeliveryKeys) =>
 		restoreOwnSuppression(db, authority, raw, keys),

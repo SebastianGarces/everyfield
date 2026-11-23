@@ -1,11 +1,18 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
-import { counted } from "@everyfield/contracts/common";
+import { counted, weekdayOf } from "@everyfield/contracts/common";
 import { present } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind: string; id: string; label: string; fields: Record<string, unknown> };
-type Result = { operation?: string; status?: string; rows?: Row[]; proposalId?: string; error?: unknown };
+type Result = {
+	operation?: string;
+	status?: string;
+	rows?: Row[];
+	proposalId?: string;
+	error?: unknown;
+	problem?: unknown;
+};
 
 const text = (value: string): LanguageModelV4Content[] => [{ type: "text", text: value }];
 const call = (toolName: string, input: unknown): LanguageModelV4Content => ({
@@ -75,6 +82,219 @@ function previewDraft() {
 	});
 }
 
+const reads = (options: LanguageModelV4CallOptions, operation: string) =>
+	JSON.stringify(options.tools?.find((t) => t.name === "communication_read") ?? {}).includes(`"${operation}"`);
+const OWNER_ONLY = (what: string) => `Only an Owner or Admin of this church can ${what}. Ask one of them.`;
+const RESULT_TEXT: Record<string, string> = {
+	waiting: "waiting for its send time",
+	checking: "still being checked: the email service hasn't answered, so it may or may not have gone",
+	sent: "sent, but delivery isn't confirmed yet",
+	delivered: "delivered, no open recorded",
+	opened: "delivered and opened",
+	bounced: "bounced",
+	failed: "failed: the email service refused it",
+	cancelled: "cancelled",
+	unsubscribed: "not sent: they unsubscribed from this church's email",
+};
+const OPEN_TEXT =
+	"An open is only what the email service's tracking saw: it misses some opens and counts some automatic ones, and it doesn't mean anyone read it or will come.";
+const CAN_EMAIL: Record<string, string> = {
+	can_email: "can get email",
+	no_address: "has no email address, so they can't get email",
+	unsubscribed: "unsubscribed from this church's email",
+};
+const OUTCOME_WORDS: [RegExp, string][] = [
+	[/\b(no answer|voicemail|didn['’]?t pick up|no one picked up)\b/i, "attempted_no_contact"],
+	[/\b(talked|spoke|reached)\b/i, "contacted"],
+];
+const weekday = (at: unknown) =>
+	typeof at === "string" && /^\d{4}-\d{2}-\d{2}/.test(at)
+		? ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][weekdayOf(at.slice(0, 10))]
+		: null;
+const errorOf = (r: Result | undefined) => (typeof r?.error === "string" ? r.error : null);
+
+function newMailStep(options: LanguageModelV4CallOptions, ask: string, earlier: string, results: Result[]) {
+	const last = results.at(-1);
+	const canPropose = proposesOn(options, "communication");
+
+	const about = /\bwhat emails have we sent about (.+?)\??\s*$/i.exec(ask);
+	if (about) {
+		if (!last)
+			return read("communication.forMeeting", { meetingWords: present(about[1]).replace(/^\w+day['’]s\s+/i, "") });
+		const meeting = rowsOf(last, "meeting")[0];
+		if (!meeting) return text(`I can't find a meeting matching ${about[1]}.`);
+		const emails = rowsOf(last, "message");
+		const when = (m: Row) =>
+			m.fields.sentAt
+				? `sent ${String(m.fields.sentAt)}`
+				: m.fields.scheduledFor
+					? `scheduled for ${String(m.fields.scheduledFor)}`
+					: "not sent";
+		return text(
+			emails.length
+				? [
+						`Emails about ${meeting.label} (${String(meeting.fields.startsAt)}):`,
+						...emails.map((m) => `- "${m.label}": ${String(m.fields.state)}, ${when(m)}`),
+						"",
+						"A sent email isn't a confirmed delivery. Ask who got it to see each person's result.",
+					].join("\n")
+				: `Messages has no email about ${meeting.label} (${String(meeting.fields.startsAt)}).`,
+		);
+	}
+
+	const invited = /\bwho got the (.+?) invitation\b/i.exec(ask);
+	if (invited) {
+		if (!last) return read("communication.meetingRecipientTracking", { meetingWords: present(invited[1]) });
+		const meeting = rowsOf(last, "meeting")[0];
+		if (!meeting) return text(`I can't find a meeting matching ${invited[1]}.`);
+		const people = rowsOf(last, "person");
+		if (!people.length) return text(`No email about ${meeting.label} has gone to anyone yet.`);
+		return text(
+			[
+				`The emails about ${meeting.label} went to ${counted(people.length, "person", "people")}:`,
+				...people.map((p) => {
+					const result = String(p.fields.result);
+					const at =
+						result === "opened" && p.fields.openedAt
+							? ` (opened ${String(p.fields.openedAt)})`
+							: result === "delivered" && p.fields.deliveredAt
+								? ` (${String(p.fields.deliveredAt)})`
+								: "";
+					return `- ${p.label}: ${RESULT_TEXT[result] ?? result}${at}`;
+				}),
+				"",
+				OPEN_TEXT,
+			].join("\n"),
+		);
+	}
+
+	if (/\bhow did (?:my|our) last email do\b/i.test(ask)) {
+		if (!last) return read("communication.deliveryTotals", {});
+		const t = rowsOf(last, "tally")[0];
+		if (!t) return text("I can't find an email that went out from Messages.");
+		const f = t.fields;
+		return text(
+			[
+				`"${t.label}"${f.sentAt ? ` (sent ${String(f.sentAt)})` : ""}, as of ${String(f.asOf)}:`,
+				`- Sent (accepted by the email service): ${String(f.sent)} of ${String(f.recipients)}`,
+				`- Delivered: ${String(f.delivered)}${Number(f.deliveryNotConfirmed) > 0 ? ` (delivery not confirmed yet for ${String(f.deliveryNotConfirmed)})` : ""}`,
+				`- Opened: ${String(f.opened)}`,
+				`- Bounced: ${String(f.bounced)}`,
+				`- Failed: ${String(f.failed)}`,
+				`- Unsubscribed: ${String(f.unsubscribed)}`,
+				`- Still being checked: ${String(f.stillChecking)}`,
+				"",
+				OPEN_TEXT,
+			].join("\n"),
+		);
+	}
+
+	if (/\bwhich teams can I (?:send|email)\b/i.test(ask)) {
+		if (!reads(options, "communication.listAudienceTeams"))
+			return text(OWNER_ONLY("choose the teams an email goes to"));
+		if (!last) return read("communication.listAudienceTeams", {});
+		const teams = rowsOf(last, "team").map((t) => t.label);
+		return text(
+			teams.length
+				? `You can send an email to ${counted(teams.length, "team", "teams")}: ${list(teams)}.`
+				: "This church has no team an email can go to yet.",
+		);
+	}
+
+	const search =
+		/^\s*can I email ([A-Z][\w'-]*(?: [A-Z][\w'-]*)?)\s*\??\s*$/i.exec(ask) ??
+		/^\s*find ([A-Z][\w'-]*(?: [A-Z][\w'-]*)?) (?:so I can|to) email (?:them|him|her)\s*\??\s*$/i.exec(ask);
+	if (search) {
+		if (!reads(options, "communication.searchRecipients")) return text(OWNER_ONLY("search who can get email"));
+		if (!last) return read("communication.searchRecipients", { query: present(search[1]) });
+		const people = rowsOf(last, "person");
+		if (!people.length) return text(`I can't find anyone named ${search[1]} in this church.`);
+		return text(
+			people.map((p) => `- ${p.label}: ${CAN_EMAIL[String(p.fields.email)] ?? String(p.fields.email)}`).join("\n"),
+		);
+	}
+
+	if (/\bam I unsubscribed from everyfield emails?\b/i.test(ask)) {
+		if (!reads(options, "mail.suppression.listForSelf")) return text(OWNER_ONLY("check an address's email block"));
+		if (!last) return read("mail.suppression.listForSelf", {});
+		if (errorOf(last)) return text("I can't check your email address right now. Try again in a moment.");
+		const self = rowsOf(last, "setting")[0];
+		if (!self) return text("Your account's email address isn't verified, so I can't check it.");
+		const restores = rowsOf(last, "history").map(
+			(r) =>
+				`- Restored ${String(r.fields.at)}${r.fields.by ? ` by ${String(r.fields.by)}` : ""}: ${String(r.fields.reason)}`,
+		);
+		return text(
+			[
+				self.fields.blocked
+					? "Yes. Your email address is blocked from Everyfield email, so nothing Everyfield sends reaches it. I can't clear the block: you can restore it yourself in Messages."
+					: "No. Your email address isn't blocked from Everyfield email.",
+				...(restores.length ? ["", "Earlier restores:", ...restores] : []),
+			].join("\n"),
+		);
+	}
+
+	const removeTemplate = /\b(delete|archive|remove) the (.+?) template\b/i.exec(ask);
+	if (removeTemplate) {
+		if (!canPropose) return text(OWNER_ONLY("remove an email template"));
+		if (!last) return read("communication.templates.list", {});
+		if (errorOf(last))
+			return text(
+				typeof last.problem === "string" ? last.problem : "I couldn't prepare that change. Nothing has changed.",
+			);
+		if (last.proposalId)
+			return text("Here's the template change to review. Nothing changes until you press Approve on the card.");
+		const wanted = present(removeTemplate[2]).toLowerCase();
+		const found = rowsOf(last, "template").find((t) => t.label.toLowerCase() === wanted);
+		if (!found) return text(`I can't find a template named ${removeTemplate[2]}.`);
+		if (found.fields.origin === "system")
+			return text(
+				`${found.label} is a system template: it's part of Everyfield, so it can't be deleted or archived. Only the church's own templates can.`,
+			);
+		return propose("communication.templates.archiveOrDelete", { templateId: found.id });
+	}
+
+	const fix = /\bthe call with ([A-Z][\w'-]+) on (\w+day) was actually (.+?),? (?:please )?fix it\b/i.exec(ask);
+	if (fix) {
+		const [name, day, what] = [present(fix[1]), present(fix[2]), present(fix[3])];
+		if (!last) return [call("people_read", { operation: "people.listPeople", input: { search: name } })];
+		if (last.operation === "people.listPeople") {
+			const found = rowsOf(last, "person");
+			if (found.length !== 1)
+				return text(
+					found.length
+						? `I found ${found.length}: ${list(found.map((p) => p.label))}. Which one do you mean?`
+						: `I can't find ${name} in this church.`,
+				);
+			return [
+				call("followups_read", {
+					operation: "followups.listContactHistory",
+					input: { personId: present(found[0]).id },
+				}),
+			];
+		}
+		if (last.operation === "followups.listContactHistory") {
+			const entry = rowsOf(last, "contact").find(
+				(c) => c.fields.state !== "superseded" && weekday(c.fields.occurredAt) === day.toLowerCase(),
+			);
+			if (!entry) return text(`I can't find a contact log entry for ${name} on ${day}.`);
+			const outcome = OUTCOME_WORDS.find(([words]) => words.test(what))?.[1];
+			if (!outcome) return text(`What should the entry say happened on that call?`);
+			return propose("communication.correctContactLog", { outcomeId: entry.id, outcome, reason: ask });
+		}
+		const refused = errorOf(last);
+		if (refused === "not_assigned" || refused === "access_denied")
+			return text(
+				"You can correct only a contact log entry you recorded on a follow-up you still own. Ask an Owner or Admin to correct this one.",
+			);
+		if (refused) return text("I couldn't prepare that correction. Nothing has changed.");
+		return text(
+			"Here's the correction to review. The old entry stays in the log as superseded. Nothing changes until you press Approve.",
+		);
+	}
+	return null;
+}
+
 export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Content[] | null {
 	const tools = new Set(options.tools?.map((t) => t.name) ?? []);
 	const canRead = tools.has("communication_read");
@@ -85,6 +305,10 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 	const results = turnResults(options.prompt);
 	const last = results.at(-1);
 	if (!canRead) return null;
+	if (/^\s*(ok|okay|yes|yep|sure)[.!]?\s*$/i.test(ask) && /\b(template|fix it)\b/i.test(earlier))
+		return text("Nothing has changed. Approval happens only on the review card: press Approve there.");
+	const added = newMailStep(options, ask, earlier, results);
+	if (added) return added;
 
 	if (!canPropose && /\b(send|resend|delete|email (them|everyone|all))\b/i.test(ask))
 		return text("Sending or changing email needs an Owner or Admin of this church. Ask one of them to do it.");
