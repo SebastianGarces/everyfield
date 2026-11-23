@@ -129,10 +129,8 @@ export function createReviewStore(init: {
 	} | null = null;
 	let awaiting = false;
 	const shown = createRead(
-		(proposal: string): Promise<Shown> =>
-			port.church.changed()
-				? Promise.resolve("lost")
-				: port
+		(proposal: string) =>
+			port
 				.readReview(proposal)
 				.then((reply): Shown =>
 					reply.status === "ok" ? reply.value : reply.status === "refused" ? "unavailable" : "lost",
@@ -140,6 +138,7 @@ export function createReviewStore(init: {
 		{ failed: (): Shown => "lost", fresh: Infinity },
 	);
 	if (init.seed !== undefined) shown.seed(init.seed ?? "unavailable", id);
+	else if (port.church.changed()) shown.seed("lost", id);
 
 	return createStore<ReviewState>()((set, get, store) => {
 		const value = () => shown.peek(id)?.value;
