@@ -2,7 +2,7 @@ import { FONT, escapeHtml, renderBody, type RenderMode } from "./html.ts";
 
 export type EmailContext = { churchName: string; unsubscribeUrl?: string; guardianOf?: readonly string[] };
 
-export function namesList(names: readonly string[]): string {
+function namesList(names: readonly string[]): string {
 	if (names.length <= 1) return names[0] ?? "";
 	return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }

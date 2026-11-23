@@ -35,7 +35,7 @@ const reachable = (plantId: SQL) =>
 export const linksOf = (plantId: SQL, childId: SQL, where: SQL = sql`true`, join: SQL = sql``) =>
 	guardianLinksSql(sql`gcx.plant_id = ${plantId} AND gcx.child_person_id = ${childId} AND ${where}`, join);
 
-export const guardiansSql = (plantId: SQL, childId: SQL) =>
+const guardiansSql = (plantId: SQL, childId: SQL) =>
 	sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id', gad.id, 'displayName', gad.display_name, 'email', gad.email,
 		'optedOut', ${optedOutSql(plantId, sql`gad.id`)}) ORDER BY gad.display_name, gad.id)
 		FROM ${linksOf(plantId, childId)}), '[]'::jsonb)`;

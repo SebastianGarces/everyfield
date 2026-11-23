@@ -170,7 +170,7 @@ export const householdMember = z.strictObject({
 	adult: adultClassification,
 	...address,
 });
-export const guardianLink = z.strictObject({ childPersonId: personId, guardianPersonId: personId });
+const guardianLink = z.strictObject({ childPersonId: personId, guardianPersonId: personId });
 export const householdResult = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("none") }),
 	z.strictObject({
