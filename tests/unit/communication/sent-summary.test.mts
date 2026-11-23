@@ -186,6 +186,7 @@ test("the review preview of a copy sent only as a parent or guardian names the c
 		hasMeeting: true,
 		origin: "https://app.example.test",
 		churchName: "Grace",
+		mailingAddress: "1 Main St, Austin, United States",
 	};
 	const html = (extra: { guardianOf?: string[] }) => {
 		const result = renderPreview({ ...input, ...extra });

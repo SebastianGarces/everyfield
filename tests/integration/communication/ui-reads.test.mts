@@ -9,6 +9,7 @@ import { addressAad, mailAddressHash } from "../../../packages/domain/src/commun
 import { sealAddress } from "./sealed-address.mts";
 import { ok } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { MAILING } from "./church-address.mts";
 
 let f, plant, owner;
 const keys = {
@@ -39,7 +40,7 @@ async function message(state, patch = {}) {
 
 before(async () => {
 	f = await fixture();
-	plant = await f.workspace();
+	plant = await f.workspace("plant", MAILING);
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	owner = { ...account, actor: await f.actor(account.session) };

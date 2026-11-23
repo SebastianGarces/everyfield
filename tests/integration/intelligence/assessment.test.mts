@@ -9,7 +9,8 @@ import {
 	createFacts,
 	runAssessmentBatch,
 } from "../../../packages/domain/src/intelligence/index.ts";
-import { scriptedAssessmentDrafter, shortDate } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
+import { dayText } from "../../../packages/contracts/src/common/index.ts";
+import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
 import { CANARY, church, type Church } from "./assessment-church.mts";
 
@@ -137,7 +138,10 @@ test("AC:PI-PURPOSE-001 the model input and the draft hold counts and dates of i
 		],
 	);
 	const positives = (await view(H)).current.positives.map((p) => p.body);
-	assert.ok(positives.includes(`2 interviews recorded, latest ${shortDate(c.day(-10))}.`), positives.join(" | "));
+	assert.ok(
+		positives.includes(`2 interviews recorded, latest ${dayText(c.day(-10), { year: "never" })}.`),
+		positives.join(" | "),
+	);
 });
 
 test("after a new reference activation last month's assessment still cites its own version; a new one cites the new", async () => {

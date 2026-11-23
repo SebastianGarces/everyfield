@@ -110,7 +110,8 @@ export function outcomeInput(
 	if (d.when === "earlier" && d.stored && d.at === d.stored.at) occurredAt = d.stored.instant;
 	else if (d.when === "earlier") {
 		const parsed = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(d.at) ? new Date(d.at) : null;
-		if (!parsed || Number.isNaN(parsed.getTime())) errors.at = "Enter the date and time it happened.";
+		const { from, through } = contactRange(now);
+		if (!parsed || Number.isNaN(parsed.getTime()) || parsed < from || parsed >= through) errors.at = rangeText(from);
 		else if (parsed.getTime() > now.getTime()) errors.at = "This time is in the future. Choose a time that has passed.";
 		else occurredAt = parsed.toISOString();
 	} else if (d.when === "now") occurredAt = now.toISOString();
@@ -135,6 +136,13 @@ export function reasonOf(text: string): { ok: true; reason: string } | { ok: fal
 	if (reason.length > 500) return { ok: false, error: "Keep the reason under 500 characters." };
 	return { ok: true, reason };
 }
+
+export function contactRange(now: Date): { from: Date; through: Date } {
+	const [y, m, d] = [now.getFullYear(), now.getMonth(), now.getDate()];
+	return { from: new Date(y - 1, m, d), through: new Date(y, m, d + 1) };
+}
+const rangeText = (from: Date) =>
+	`Pick a date between ${from.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} and today`;
 
 export function localInputOf(at: string | Date): string {
 	const d = new Date(at);

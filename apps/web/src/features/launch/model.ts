@@ -1,4 +1,4 @@
-import { counted } from "@everyfield/contracts/common";
+import { counted, dayText } from "@everyfield/contracts/common";
 import {
 	countdown,
 	type Countdown,
@@ -28,22 +28,6 @@ export async function sent<R extends { status: string }>(call: () => Promise<R>)
 	}
 }
 
-const at = (date: string) => new Date(`${date}T12:00:00Z`);
-export const longDate = (date: string) =>
-	new Intl.DateTimeFormat("en-US", {
-		timeZone: "UTC",
-		weekday: "short",
-		month: "short",
-		day: "numeric",
-		year: "numeric",
-	}).format(at(date));
-export const shortDate = (date: string, today: string) =>
-	new Intl.DateTimeFormat("en-US", {
-		timeZone: "UTC",
-		month: "short",
-		day: "numeric",
-		...(date.slice(0, 4) === today.slice(0, 4) ? {} : { year: "numeric" }),
-	}).format(at(date));
 export const instantDate = (instant: string, timeZone: string) =>
 	new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric", year: "numeric" }).format(
 		new Date(instant),
@@ -131,7 +115,7 @@ const FIELD_LABEL: Record<OutcomeField, string> = {
 };
 export function historyText(e: HistoryEntry, today: string): { title: string; lines: string[] } {
 	const c = e.change;
-	const day = (d: string | null) => (d ? shortDate(d, today) : "no date");
+	const day = (d: string | null) => (d ? dayText(d, { year: Number(today.slice(0, 4)) }) : "no date");
 	switch (c.kind) {
 		case "date":
 			return {
@@ -208,7 +192,7 @@ export function historyText(e: HistoryEntry, today: string): { title: string; li
 }
 function historyValue(field: OutcomeField, v: string | number | null, today: string) {
 	if (v === null) return "Not recorded";
-	return field === "actualDate" ? shortDate(String(v), today) : String(v);
+	return field === "actualDate" ? dayText(String(v), { year: Number(today.slice(0, 4)) }) : String(v);
 }
 export const actorText = (e: Pick<HistoryEntry, "actor">) => e.actor?.displayName || "A former account";
 

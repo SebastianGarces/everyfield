@@ -17,6 +17,7 @@ import {
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
+import { churchAddressSql, churchMailingAddress } from "./address.ts";
 import { meetingOpenSql } from "../meetings/tokens.ts";
 import {
 	audiencePeople,
@@ -98,7 +99,7 @@ const draftRow = z.object({
 	review_digest: z.string().nullable(),
 });
 type DraftRow = z.infer<typeof draftRow>;
-const schedulingRow = draftRow.extend({ people: z.unknown(), meeting_open: z.boolean() });
+const schedulingRow = draftRow.extend({ people: z.unknown(), meeting_open: z.boolean(), church_address: z.unknown() });
 const templateRow = z.object({
 	id: z.uuid(),
 	revision: z.string(),
@@ -172,7 +173,8 @@ function templateSelect(actor: Command["actor"], session: string, id: string) {
 function schedulingSelect(actor: Command["actor"], session: string, id: string) {
 	return sql`WITH d AS (${draftSelect(actor, session, id)})
 		SELECT d.*, ${storedAudiencePeople(actor.plantId, sql`d.audience`)} AS people,
-			${meetingOpen(sql`d.meeting_id`, actor.plantId)} AS meeting_open
+			${meetingOpen(sql`d.meeting_id`, actor.plantId)} AS meeting_open,
+			${churchAddressSql(sql`${actor.plantId}::uuid`)} AS church_address
 		FROM d`;
 }
 function lockedDraft<T extends DraftRow>(
@@ -532,12 +534,13 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 		if (!scheduleAccepted(new Date(), at)) deny("schedule_window_exceeded", { providerHandoffs: 0 });
 		const id = input.input.communicationId;
 		if (!onlyTime) {
-			const { people, meeting_open, ...current } = lockedDraft(
+			const { people, meeting_open, church_address, ...current } = lockedDraft(
 				schedulingRow.safeParse(one(await tx.execute(schedulingSelect(cmd.actor, context.session, id)))),
 				input.expectedRevision,
 				["draft", "reviewed"],
 			);
 			if (!current.subject || !current.body_html) deny("invalid_input");
+			if (churchMailingAddress(church_address) === null) deny("mailing_address_missing");
 			if (usesRsvpLink(current.body_html) && !meeting_open) deny("rsvp_needs_meeting");
 			if (onlyChildren(people)) deny("children_only", { providerCalls: 0 });
 			const parts = reviewedParts(people);
@@ -793,6 +796,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown, previe
 					(${input.meetingId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM meeting m WHERE m.id = ${input.meetingId ?? null}::uuid AND m.plant_id = ${reader.plantId}::uuid)) AS meeting_ok,
 					${meetingOpen(sql`${input.meetingId ?? null}::uuid`, reader.plantId)} AS meeting_open,
 					(SELECT pl.name FROM plant pl WHERE pl.id = ${reader.plantId}::uuid) AS church_name,
+					${churchAddressSql(sql`${reader.plantId}::uuid`)} AS church_address,
 					(${input.templateId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM message_template t WHERE t.id = ${input.templateId ?? null}::uuid AND t.plant_id = ${reader.plantId}::uuid)) AS template_ok,
 					(${input.communicationId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM communication c WHERE c.id = ${input.communicationId ?? null}::uuid AND c.plant_id = ${reader.plantId}::uuid)) AS known,
 					(SELECT c.subject FROM communication c WHERE c.id = ${input.communicationId ?? null}::uuid AND c.plant_id = ${reader.plantId}::uuid) AS subject,
@@ -807,6 +811,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown, previe
 			meeting_ok: z.boolean(),
 			meeting_open: z.boolean(),
 			church_name: z.string().nullable(),
+			church_address: z.unknown(),
 			template_ok: z.boolean(),
 			known: z.boolean(),
 			subject: z.string().nullable(),
@@ -828,7 +833,12 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown, previe
 		deny("stale_review", { previewBody, scriptExecution: false, providerCalls: 0 });
 	return {
 		previewBody,
-		previewHtml: renderEmailHtml(input.bodyHtml, merge, { churchName: found.church_name ?? "" }, "preview"),
+		previewHtml: renderEmailHtml(
+			input.bodyHtml,
+			merge,
+			{ churchName: found.church_name ?? "", mailingAddress: churchMailingAddress(found.church_address) },
+			"preview",
+		),
 		scriptExecution: false,
 		providerCalls: 0,
 		eligibleEmails: summary.eligibleEmails,
@@ -1016,12 +1026,13 @@ async function churchName(tx: Tx, authority: RequestActor) {
 		await tx.execute(
 			whenLive(
 				communicationAccess(reader, reader.session, false),
-				sql`SELECT (SELECT name FROM plant WHERE id = ${reader.plantId}::uuid) AS name`,
+				sql`SELECT (SELECT name FROM plant WHERE id = ${reader.plantId}::uuid) AS name,
+					${churchAddressSql(sql`${reader.plantId}::uuid`)} AS address`,
 			),
 		),
-	) as { allowed: boolean; name: string | null };
+	) as { allowed: boolean; name: string | null; address: unknown };
 	requireAllowed(raw.allowed);
-	return c.churchNameResult.parse({ churchName: raw.name });
+	return c.churchNameResult.parse({ churchName: raw.name, mailingAddress: churchMailingAddress(raw.address) });
 }
 async function teams(tx: Tx, authority: RequestActor) {
 	const reader = readerOf(authority);

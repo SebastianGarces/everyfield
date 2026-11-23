@@ -7,6 +7,7 @@ import { communicationWriter, withCommunicationWrite } from "../../../packages/d
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
+import { MAILING } from "./church-address.mts";
 import { personFields, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
 
 let f, church, owner;
@@ -113,7 +114,7 @@ const rowOf = (view, who: Who) => view.recipients.find((row) => row.personId ===
 
 before(async () => {
 	f = await fixture();
-	church = await f.workspace();
+	church = await f.workspace("plant", MAILING);
 	const a = await f.account();
 	await f.seat(a, church, "owner");
 	owner = { ...a, actor: await f.actor(a.session) };

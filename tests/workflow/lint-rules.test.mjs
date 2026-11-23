@@ -3614,17 +3614,75 @@ export const l = (n: number) => (n === 1 ? "One task is" : \`\${n} tasks are\`);
 test("INV-lint: the count-text rule allows the counted and countWord module itself", () => {
 	const helper = `export const countWord = (n: number, one: string, many = \`\${one}s\`) => (n === 1 ? one : many);
 `;
-	const dir = sandbox({
-		"packages/contracts/src/common/text.ts": helper,
-		"packages/contracts/src/common/other.ts": helper,
-	});
-	const root = JSON.parse(readFileSync(join(dir, ".oxlintrc.json"), "utf8"));
-	root.overrides.push({ files: ["packages/**"], rules: { "everyfield/count-text": "error" } });
-	put(dir, ".oxlintrc.json", root);
 	assert.deepEqual(
-		lintIn(dir, ["packages/contracts/src/common/text.ts", "packages/contracts/src/common/other.ts"]).filter((hit) =>
-			hit.endsWith(" count-text"),
-		),
+		lint({
+			"packages/contracts/src/common/text.ts": helper,
+			"packages/contracts/src/common/other.ts": helper,
+		}).filter((hit) => hit.endsWith(" count-text")),
 		["packages/contracts/src/common/other.ts:1 count-text"],
 	);
+});
+
+test("INV-lint: a noon-UTC civil-day string is refused in app and package source, naming dayText, addDays and weekdayOf", () => {
+	const source = `export const a = (d: string) => new Date(\`\${d}T12:00:00Z\`);
+export const b = (d: string) => Date.parse(d + "T12:00:00Z");
+export const c = (x: string, day: (v: string) => string) => day(x + "T12:00:00Z");
+export const e = (d: string) => new Date(\`\${d}T12:00:00.000Z\`);
+export const f = (d: string) => new Date(\`\${d}T12:00:00\`);
+export const g = (d: string) => new Date(\`\${d}T09:30:00Z\`);
+export const h = "T12:00:00";
+`;
+	const hits = lint(
+		{ "apps/web/src/features/x/day.ts": source, "packages/evry/src/x/day.ts": source },
+		undefined,
+		true,
+	).filter((hit) => hit.includes(" civil-day "));
+	assert.deepEqual(
+		hits.map((hit) => hit.split(" ")[0]),
+		["apps/web/src/features/x/day.ts", "packages/evry/src/x/day.ts"].flatMap((file) =>
+			[1, 2, 3, 4].map((line) => `${file}:${line}`),
+		),
+	);
+	assert.match(hits[0], /dayText.*addDays.*weekdayOf.*@everyfield\/contracts\/common/);
+});
+
+test("INV-lint: the civil-day rule allows the day module itself", () => {
+	const helper = `const noon = (d: string) => new Date(\`\${d}T12:00:00Z\`);
+`;
+	assert.deepEqual(
+		lint({
+			"packages/contracts/src/common/day.ts": helper,
+			"packages/contracts/src/common/other.ts": helper,
+		}).filter((hit) => hit.endsWith(" civil-day")),
+		["packages/contracts/src/common/other.ts:1 civil-day"],
+	);
+});
+
+test("INV-lint: the root config refuses hand-written count text in package source, except packages/ui/src, which cannot import contracts", () => {
+	const source = `export const a = (n: number) => (n === 1 ? "task" : "tasks");
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/x/count.ts": source,
+			"packages/evry/src/x/count.ts": source,
+			"packages/ui/src/x/count.ts": source,
+		}).filter((hit) => hit.endsWith(" count-text")),
+		["packages/domain/src/x/count.ts:1 count-text", "packages/evry/src/x/count.ts:1 count-text"],
+	);
+});
+
+test("INV-lint: package source writes no count text by hand, apart from the ui package's Pipeline display", () => {
+	const dir = realpathSync(mkdtempSync(join(tmpdir(), "lint-rules-")));
+	temps.push(dir);
+	put(dir, "count-text.json", { jsPlugins: [PLUGIN], rules: { "everyfield/count-text": "error" } });
+	const packages = ["contracts", "db", "domain", "evry", "reference", "ui"].map((name) => `packages/${name}/src`);
+	const ran = spawnSync(OXLINT, ["-c", join(dir, "count-text.json"), "-f", "json", ...packages], {
+		cwd: repo,
+		encoding: "utf8",
+		env: env(repo),
+	});
+	const files = JSON.parse(ran.stdout.slice(ran.stdout.indexOf("{")))
+		.diagnostics.filter((d) => d.code === "everyfield(count-text)")
+		.map((d) => relative(repo, resolve(repo, d.filename)));
+	assert.deepEqual([...new Set(files)], ["packages/ui/src/display/Pipeline.tsx"]);
 });

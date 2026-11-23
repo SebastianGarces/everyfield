@@ -1,5 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { addDays, counted, dayText } from "@everyfield/contracts/common";
 import { captured } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
@@ -41,16 +42,12 @@ const SENT = /\bwhat feedback (?:have|did) (?:i|we) sen[dt]\b|\bmy sent feedback
 const STATUS = /\bstatus of (?:my|that|the) feedback\b|\bfeedback(?:'s)? status\b|\bhappened to my feedback\b/i;
 const UUID = /\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i;
 
-const at = (day: string) => new Date(`${day}T12:00:00Z`);
 const iso = (d: Date) => d.toISOString().slice(0, 10);
-const addDays = (day: string, n: number) => iso(new Date(at(day).getTime() + n * 86_400_000));
 function monthBefore(day: string) {
 	const [y, m, d] = day.split("-").map(Number) as [number, number, number];
 	const last = new Date(Date.UTC(y, m - 1, 0)).getUTCDate();
 	return iso(new Date(Date.UTC(y, m - 2, Math.min(d, last), 12)));
 }
-const short = (day: string) =>
-	new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" }).format(at(day));
 function churchToday(prompt: Prompt, zone: string) {
 	const clock = /Current time \(trusted server clock\): (\S+?)\.?(?:\s|$)/.exec(systemText(prompt))?.[1];
 	return new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(clock ? new Date(clock) : new Date());
@@ -77,7 +74,9 @@ function weekAnswer(prompt: Prompt, outputs: Output[]) {
 	const zone = String(of("dashboard.activity")?.facts?.timeZone ?? "America/Chicago");
 	const today = ok(frame) ? String(frame.facts?.today) : churchToday(prompt, zone);
 	const end = addDays(today, 6);
-	const lines = [`Here is your week, ${short(today)} to ${short(end)}, from what Everyfield has recorded:`];
+	const lines = [
+		`Here is your week, ${dayText(today, { year: "never" })} to ${dayText(end, { year: "never" })}, from what Everyfield has recorded:`,
+	];
 
 	if (ok(frame)) {
 		const steps = frame.rows ?? [];
@@ -117,7 +116,7 @@ function weekAnswer(prompt: Prompt, outputs: Output[]) {
 		lines.push(
 			"",
 			overdue
-				? `**Overdue tasks** (from Tasks): you have ${overdue} overdue ${overdue === 1 ? "task" : "tasks"}. [Open My tasks](/tasks?view=my)`
+				? `**Overdue tasks** (from Tasks): you have ${counted(overdue, "overdue task")}. [Open My tasks](/tasks?view=my)`
 				: "You have no overdue tasks (from Tasks).",
 		);
 	}
@@ -144,18 +143,20 @@ function addedAnswer(prompt: Prompt, activity: Output) {
 	const cut = activity.facts?.more === true && (!oldest || String(oldest.fields.date) >= since);
 	const lines = added.length
 		? [
-				`${cut ? "At least " : ""}${added.length} ${added.length === 1 ? "person was" : "people were"} added to People in the last month (since ${short(since)}), as Overview's activity shows:`,
+				`${cut ? "At least " : ""}${counted(added.length, "person was", "people were")} added to People in the last month (since ${dayText(since, { year: "never" })}), as Overview's activity shows:`,
 				...added.map(
 					(e) =>
-						`- [${e.label.replace(/ added to People$/, "")}${e.fields.you === true ? " (you)" : ""}](${String(e.fields.href)}), added ${short(String(e.fields.date))}`,
+						`- [${e.label.replace(/ added to People$/, "")}${e.fields.you === true ? " (you)" : ""}](${String(e.fields.href)}), added ${dayText(String(e.fields.date), { year: "never" })}`,
 				),
 			]
-		: [`No one was added to People in the last month (since ${short(since)}), as Overview's activity shows.`];
+		: [
+				`No one was added to People in the last month (since ${dayText(since, { year: "never" })}), as Overview's activity shows.`,
+			];
 	lines.push(
 		"",
 		cut
 			? "Overview's activity keeps only the latest 20 changes, so this list may be incomplete. Open [People](/people) to see everyone."
-			: `That is everyone added since ${short(since)}.`,
+			: `That is everyone added since ${dayText(since, { year: "never" })}.`,
 	);
 	return say(...lines);
 }
@@ -167,7 +168,7 @@ function gapsAnswer(gaps: Output) {
 	if (!rows.length) return say("Every setup step Overview lists is done.");
 	const linked = rows.every((r) => typeof r.fields.href === "string");
 	return say(
-		`Overview lists ${rows.length} setup ${rows.length === 1 ? "step" : "steps"} still open:`,
+		`Overview lists ${counted(rows.length, "setup step")} still open:`,
 		...rows.map((r) => (typeof r.fields.href === "string" ? `- [${r.label}](${r.fields.href})` : `- ${r.label}`)),
 		...(linked ? [] : ["", "An Owner or Admin of this church takes these steps."]),
 	);
@@ -232,7 +233,7 @@ export function overviewStep(options: LanguageModelV4CallOptions, text: string):
 		const rows = list.rows ?? [];
 		if (!rows.length) return say("You haven't sent any feedback yet.");
 		return say(
-			`You have sent ${rows.length === 1 ? "1 piece" : `${rows.length} pieces`} of feedback${list.completeness === "partial" ? " that I can show" : ""}, newest first:`,
+			`You have sent ${counted(rows.length, "piece")} of feedback${list.completeness === "partial" ? " that I can show" : ""}, newest first:`,
 			...rows.map(feedbackLine),
 			"",
 			"See them in [Sent feedback](/feedback).",

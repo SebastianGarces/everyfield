@@ -1,4 +1,4 @@
-import { counted } from "@everyfield/contracts/common";
+import { counted, dayText } from "@everyfield/contracts/common";
 import {
 	CANDIDATE_DAYS,
 	CANDIDATE_QUESTION_VERSION,
@@ -18,7 +18,6 @@ import {
 	type SignalKey,
 	type SignalValue,
 } from "@everyfield/contracts/intelligence";
-import { shortDate } from "./model.ts";
 import type { Outcome } from "@everyfield/contracts/common";
 
 export type SignalOutcome<T> = Outcome<T, SignalError["code"], { error: SignalError }>;
@@ -169,7 +168,7 @@ export function historyText(line: HumanRevision) {
 		const { periodStart, periodEnd } = line;
 		if (periodStart === null || periodEnd === null) throw new Error("A leadership candidate revision has no period");
 		const days = daysBetween(periodStart, periodEnd) + 1;
-		return `${KIND_LABEL[line.kind]} · ${shortDate(periodStart)} to ${shortDate(periodEnd)} · ${days} days`;
+		return `${KIND_LABEL[line.kind]} · ${dayText(periodStart, { year: "never" })} to ${dayText(periodEnd, { year: "never" })} · ${days} days`;
 	}
 	if (line.kind === "retracted") return "Retracted";
 	const head = line.kind === "reaffirmed" ? "Still true" : line.kind === "corrected" ? "Corrected to" : "Answered";
@@ -240,7 +239,7 @@ export const REASON_TEXT: Record<CandidateReason, string> = {
 	period_too_short: `The period is shorter than ${CANDIDATE_DAYS} days`,
 };
 export const periodText = (c: Pick<CandidateEntry, "periodStart" | "periodEnd" | "days">) =>
-	`${shortDate(c.periodStart)} to ${shortDate(c.periodEnd)} · ${c.days} days`;
+	`${dayText(c.periodStart, { year: "never" })} to ${dayText(c.periodEnd, { year: "never" })} · ${c.days} days`;
 
 export function withCandidate(page: AttestationsPage, entry: CandidateEntry): AttestationsPage {
 	const known = page.candidates.some((c) => c.personId === entry.personId);

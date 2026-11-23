@@ -1,6 +1,13 @@
 import { FONT, escapeHtml, renderBody, type RenderMode } from "./html.ts";
 
-export type EmailContext = { churchName: string; unsubscribeUrl?: string; guardianOf?: readonly string[] };
+export type EmailContext = {
+	churchName: string;
+	mailingAddress: string | null;
+	unsubscribeUrl?: string;
+	guardianOf?: readonly string[];
+};
+
+const MISSING_ADDRESS = "Mailing address missing. Add it in Church profile before this email can go out.";
 
 function namesList(names: readonly string[]): string {
 	if (names.length <= 1) return names[0] ?? "";
@@ -45,6 +52,22 @@ function initials(name: string): string {
 	return letters.join("") || "•";
 }
 
+function addressLine(church: string, address: string | null): string {
+	if (address === null) return `<span data-mailing-address="missing" style="color:#B42318;">${MISSING_ADDRESS}</span>`;
+	return `<span data-mailing-address>${church} · ${escapeHtml(address)}</span>`;
+}
+
+export function renderEmailText(body: string, context: EmailContext): string {
+	const church = context.churchName.trim() || "Your church";
+	const address = context.mailingAddress;
+	const footer = [
+		`You get this email because you are part of ${church}.`,
+		address === null ? MISSING_ADDRESS : `${church} · ${address}`,
+		...(context.unsubscribeUrl ? [`Unsubscribe: ${context.unsubscribeUrl}`] : []),
+	];
+	return `${body}\n\n--\n${footer.join("\n")}`;
+}
+
 function unsubscribeLink(url: string | undefined): string {
 	if (!url) return "";
 	return ` <a href="${escapeHtml(url)}" style="color:#666A64;text-decoration:underline;">Unsubscribe</a>`;
@@ -73,7 +96,7 @@ export function renderEmailHtml(
 		`<td style="padding-left:10px;font-family:${FONT};font-size:15px;font-weight:600;color:${INK};">${church}</td>` +
 		`</tr></table></td></tr>` +
 		`<tr><td bgcolor="#FFFFFF" style="background-color:#FFFFFF;padding:30px 30px 28px 30px;font-family:${FONT};font-size:16px;line-height:1.6;color:#3A3F3B;">${guardianLine(context.guardianOf)}${content}</td></tr>` +
-		`<tr><td align="center" style="padding:18px 10px 0 10px;font-family:${FONT};font-size:12.5px;line-height:1.6;color:#666A64;">You get this email because you are part of ${church}.${unsubscribeLink(context.unsubscribeUrl)}</td></tr>` +
+		`<tr><td align="center" style="padding:18px 10px 0 10px;font-family:${FONT};font-size:12.5px;line-height:1.6;color:#666A64;">You get this email because you are part of ${church}.${unsubscribeLink(context.unsubscribeUrl)}<br>${addressLine(church, context.mailingAddress)}</td></tr>` +
 		`</table>` +
 		`<!--[if mso]></td></tr></table><![endif]-->` +
 		`</td></tr></table></body></html>`

@@ -7,6 +7,7 @@ import { useId } from "react";
 import {
 	CHANNEL_LABEL,
 	CHANNELS,
+	contactRange,
 	localInputOf,
 	NOTES_MAX,
 	OUTCOME_HINT,
@@ -144,6 +145,8 @@ function WhenField({
 	const now = useViewerNow();
 	const zone = useViewerZone();
 	const latest = now === null || zone === null ? undefined : localInputAt(now, zone);
+	const earliest =
+		now === null || zone === null ? undefined : localInputAt(contactRange(new Date(now)).from.getTime(), zone);
 	return (
 		<div className="flex flex-col gap-1.5">
 			<span aria-hidden="true" className="text-sm font-medium text-ink-2">
@@ -189,6 +192,7 @@ function WhenField({
 					<Input
 						type="datetime-local"
 						value={draft.at}
+						min={earliest}
 						max={latest}
 						onChange={(e) => onDraft({ ...draft, at: e.target.value })}
 					/>

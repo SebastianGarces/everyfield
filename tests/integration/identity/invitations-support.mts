@@ -143,8 +143,11 @@ export async function fixture({
 		});
 		return { id: a.id, user: a.user, session: a.session, email: address };
 	}
-	async function workspace(kind: "plant" | "sending_church" | "sending_network" = "plant"): Promise<Workspace> {
-		if (kind === "plant") return seed.plant({ name: "Synthetic plant", timezone: "UTC" });
+	async function workspace(
+		kind: "plant" | "sending_church" | "sending_network" = "plant",
+		columns: Record<string, unknown> = {},
+	): Promise<Workspace> {
+		if (kind === "plant") return seed.plant({ name: "Synthetic plant", timezone: "UTC", ...columns });
 		return seed.organization(kind, { name: "Synthetic organization" });
 	}
 	async function seat(a: { id: string }, w: Workspace, role: "owner" | "admin" | "member" = "owner") {

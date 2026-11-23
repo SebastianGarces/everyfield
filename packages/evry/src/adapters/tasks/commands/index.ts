@@ -1,3 +1,4 @@
+import { counted, dayText } from "@everyfield/contracts/common";
 import type { WriteTx } from "@everyfield/domain/access";
 import { gatedTransaction } from "@everyfield/domain/operations";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
@@ -518,11 +519,6 @@ export const removeSubtask = checklistWrite({
 });
 
 const templates = createTemplateReader();
-const dayText = (date: string) =>
-	new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
-		new Date(`${date}T12:00:00Z`),
-	);
-const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 const card = (review: unknown, args: unknown) => sql`SELECT ${json(review)} AS review, ${json(args)} AS args`;
 
 type Open = Extract<z.infer<typeof phaseOffer>, { status: "open" }>;
@@ -547,7 +543,7 @@ function offerReview(offer: Open, accepted: readonly string[]) {
 		),
 		notes: created
 			? [
-					`${plural(created, "new task", "new tasks")}, assigned to you. Due dates count from the phase move on ${dayText(offer.transition.anchorDate)}, so some may already be past.`,
+					`${counted(created, "new task")}, assigned to you. Due dates count from the phase move on ${dayText(offer.transition.anchorDate)}, so some may already be past.`,
 				]
 			: ["No task is created, and the offer closes for this phase move."],
 	};
@@ -657,7 +653,7 @@ export const importTemplate = reviewed<z.infer<typeof importInput>>({
 				target: { kind: "template", id: k.key, label: k.name },
 				changes: items.map((t) => ({ field: t?.title, before: null, after: t?.due })),
 				notes: [
-					`${plural(items.length, "new task", "new tasks")}, assigned to you. Due dates count from today; approved on a later day, they move with it.`,
+					`${counted(items.length, "new task")}, assigned to you. Due dates count from today; approved on a later day, they move with it.`,
 				],
 			},
 			{ input: { catalogVersion: preview.catalogVersion, checklistKey: k.key, itemKeys: v.itemKeys } },

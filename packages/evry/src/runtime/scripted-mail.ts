@@ -1,5 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { counted } from "@everyfield/contracts/common";
 import { present } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
@@ -44,7 +45,6 @@ function turnResults(prompt: Prompt): Result[] {
 const rowsOf = (r: Result | undefined, kind: string) => (r?.rows ?? []).filter((x) => x.kind === kind);
 const list = (names: string[]) =>
 	names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
-const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
 
 const INVITE = /\bdraft an email inviting all our prospects to (?:the )?vision night\b/i;
 const LEFT_OUT: Record<string, string> = {
@@ -103,7 +103,7 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 				"",
 				draft.body.replace("{{name}}", "[first name]"),
 				"",
-				`It would reach ${people(gets.length)}: ${list(gets)}.`,
+				`It would reach ${counted(gets.length, "person", "people")}: ${list(gets)}.`,
 				...(out.length
 					? [
 							"",
@@ -145,13 +145,13 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		const checking = n("checking");
 		if (!delivered && !pending && checking)
 			return text(
-				`"${message.label}" was handed to the email service, but it hasn't answered for ${people(checking)} yet, so I can't say it was sent. The result is still being checked.`,
+				`"${message.label}" was handed to the email service, but it hasn't answered for ${counted(checking, "person", "people")} yet, so I can't say it was sent. The result is still being checked.`,
 			);
 		return text(
 			[
 				`Yes, "${message.label}" was sent${message.fields.sentAt ? ` (${String(message.fields.sentAt)})` : ""}.`,
 				delivered
-					? `Delivery is confirmed for ${people(delivered)}${pending ? `, not yet for ${people(pending)}` : ""}.`
+					? `Delivery is confirmed for ${counted(delivered, "person", "people")}${pending ? `, not yet for ${counted(pending, "person", "people")}` : ""}.`
 					: "Delivery isn't confirmed yet for anyone. Messages shows it once the email service reports it.",
 			].join(" "),
 		);
@@ -216,7 +216,7 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		const names = rowsOf(last, "person").map((p) => p.label);
 		return text(
 			names.length
-				? `${people(names.length)} have no email recorded: ${list(names)}. I checked every live person against Messages history for an email that went out. Calls, texts, visits and email sent outside Everyfield aren't in that check.`
+				? `${counted(names.length, "person", "people")} have no email recorded: ${list(names)}. I checked every live person against Messages history for an email that went out. Calls, texts, visits and email sent outside Everyfield aren't in that check.`
 				: "Every live person has had an email from Messages. Calls, texts and visits aren't in that check.",
 		);
 	}

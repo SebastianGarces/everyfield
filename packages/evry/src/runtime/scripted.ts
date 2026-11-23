@@ -6,6 +6,7 @@ import type {
 	LanguageModelV4StreamPart,
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { addDays, counted, countWord, dayText, weekdayOf } from "@everyfield/contracts/common";
 import { onboardingStep } from "./scripted-onboarding.ts";
 import { launchStep } from "./scripted-launch.ts";
 import { intelligenceStep } from "./scripted-intelligence.ts";
@@ -566,7 +567,7 @@ function notificationStep(
 	return [
 		{
 			type: "text",
-			text: `You have ${total} unread ${total === 1 ? "notification" : "notifications"}:\n\n${groups
+			text: `You have ${counted(total, "unread notification")}:\n\n${groups
 				.map(([area, rows]) => `- **${area} (${rows.length})**: ${rows.map((r) => r.label).join("; ")}`)
 				.join("\n")}\n\nThey are still unread in your bell.`,
 		},
@@ -734,14 +735,7 @@ const localToday = () =>
 	new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
 		new Date(),
 	);
-const addDays = (date: string, n: number) =>
-	new Date(Date.parse(`${date}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
-const weekday = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay();
-const dayName = (date: string) =>
-	new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" }).format(
-		new Date(`${date}T12:00:00Z`),
-	);
-const nextWeekday = (day: number, from = localToday()) => addDays(from, (day - weekday(from) + 7) % 7 || 7);
+const nextWeekday = (day: number, from = localToday()) => addDays(from, (day - weekdayOf(from) + 7) % 7 || 7);
 const RSVP_GROUPS = [
 	["yes", "RSVP yes"],
 	["no", "RSVP no"],
@@ -807,7 +801,7 @@ function meetingsStep(
 			const day = DAYS.find((d) => wanted.includes(d));
 			const matches = rows.filter((r) =>
 				day
-					? weekday(String(r.fields.date)) === DAYS.indexOf(day) &&
+					? weekdayOf(String(r.fields.date)) === DAYS.indexOf(day) &&
 						/vision/i.test(`${r.label} ${String(r.fields.type)}`)
 					: r.label.toLowerCase().includes(wanted.replace(/^the /, "")),
 			);
@@ -831,7 +825,7 @@ function meetingsStep(
 		if (!outputs.length) return read("meetings.list", { window: "upcoming" });
 		if (outputs.length === 1) {
 			const day = captured(agenda, 1).toLowerCase();
-			const m = rowsOf(last, "meeting").find((r) => weekday(String(r.fields.date)) === DAYS.indexOf(day));
+			const m = rowsOf(last, "meeting").find((r) => weekdayOf(String(r.fields.date)) === DAYS.indexOf(day));
 			return m
 				? read("meetings.readAgenda", { meetingId: m.id })
 				: say(`I can't find a meeting on ${day} in Meetings.`);
@@ -862,7 +856,7 @@ function meetingsStep(
 		if (!outputs.length) return read("meetings.attendanceTrend", { limit: Number(/\d+/.exec(text)?.[0] ?? 3) });
 		const points = rowsOf(last, "item");
 		return say(
-			`Attendance at the last ${points.length} Vision nights, oldest first:\n\n${points.map((p) => `- ${dayName(String(p.fields.date))}: ${p.fields.attended === "not recorded" ? "not recorded" : `${String(p.fields.attended)} attended`}`).join("\n")}\n\nA night with no attendance recorded is not counted as zero.`,
+			`Attendance at the last ${points.length} Vision nights, oldest first:\n\n${points.map((p) => `- ${dayText(String(p.fields.date), { weekday: "long", year: "never" })}: ${p.fields.attended === "not recorded" ? "not recorded" : `${String(p.fields.attended)} attended`}`).join("\n")}\n\nA night with no attendance recorded is not counted as zero.`,
 		);
 	}
 	const setUp = SET_UP.exec(text);
@@ -884,11 +878,14 @@ function meetingsStep(
 			second = addDays(first, 7);
 		if (setUp || !pickedDay)
 			return say(
-				`Do you mean ${dayName(first)} or ${dayName(second)}? I'll set it for ${hour} ${ampm.toUpperCase()} Central at ${venue.label}.`,
+				`Do you mean ${dayText(first, { weekday: "long", year: "never" })} or ${dayText(second, { weekday: "long", year: "never" })}? I'll set it for ${hour} ${ampm.toUpperCase()} Central at ${venue.label}.`,
 			);
 		const day = Number(pickedDay[1] ?? /\d+/.exec(pickedDay[2] ?? "")?.[0]);
 		const date = [first, second].find((d) => Number(d.slice(8)) === day);
-		if (!date) return say(`Do you mean ${dayName(first)} or ${dayName(second)}?`);
+		if (!date)
+			return say(
+				`Do you mean ${dayText(first, { weekday: "long", year: "never" })} or ${dayText(second, { weekday: "long", year: "never" })}?`,
+			);
 		return can("meetings.schedule")
 			? propose("meetings.schedule", {
 					type: "vision_meeting",
@@ -1084,7 +1081,7 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 			if (!count) return [{ type: "text", text: "No household in this church matches." }];
 			const labels = rows.map((r) => r.label).join(", ");
 			return [
-				{ type: "text", text: `There ${count === 1 ? "is 1 household" : `are ${count} households`}: ${labels}.` },
+				{ type: "text", text: `There ${countWord(count, "is", "are")} ${counted(count, "household")}: ${labels}.` },
 			];
 		}
 		if ((/\bwhich\b|\bfind\b/i.test(text) || change) && rows.length > 1)

@@ -15,6 +15,7 @@ export const communicationError = z.discriminatedUnion("code", [
 	defineSafeError("referenced", {}, "never"),
 	defineSafeError("not_found", {}, "never"),
 	defineSafeError("rsvp_needs_meeting", {}, "never"),
+	defineSafeError("mailing_address_missing", {}, "never"),
 	defineSafeError("children_only", { providerCalls: z.literal(0) }, "never"),
 	defineSafeError(
 		"missing_merge_variable",
@@ -116,7 +117,7 @@ export const recipientResult = z.strictObject({
 export const teamListResult = z.strictObject({
 	teams: z.array(z.strictObject({ id: recordId, name: z.string() })),
 });
-export const churchNameResult = z.strictObject({ churchName: z.string() });
+export const churchNameResult = z.strictObject({ churchName: z.string(), mailingAddress: z.string().nullable() });
 export const draftListResult = z.strictObject({
 	drafts: z.array(draftResult),
 });
@@ -188,6 +189,7 @@ export const restoreSuppressionResult = z.strictObject({
 export const hubStates = [
 	"draft",
 	"scheduled",
+	"held",
 	"not_scheduled",
 	"unsubscribed",
 	"child",
