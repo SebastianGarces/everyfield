@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import type { Owner } from "@everyfield/contracts/common";
 import {
 	feedbackGetMineRequest,
@@ -10,30 +10,21 @@ import {
 	organizationDraftRequest,
 	upstreamReviewRequest,
 	upstreamReviewResult,
-	wikiError,
 	type WikiReply,
 } from "@everyfield/contracts/wiki";
+import type { PeopleContext } from "@everyfield/contracts/people";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
-import type { RequestActor } from "../access/session.ts";
-import { GLOBAL, deny, meSql, parse, runRead, runWrite } from "./core.ts";
+import type { RequestActor, WriteTx } from "../access/session.ts";
+import { organizationSeatContext } from "../access/organization-seat.ts";
+import { queueJobsFor } from "../jobs/queue.ts";
+import { GLOBAL, claimedWrite, deny, meSql, ownWrite, parse, refused, runRead, runWrite, type Runner } from "./core.ts";
 
 type OrgValue = z.infer<typeof organizationArticleResult>;
 type Mine = z.infer<typeof feedbackMine>;
 
-function refuse(code: "access_denied" | "invalid_input" = "access_denied"): WikiReply<never> {
-	return {
-		status: "refused",
-		error: wikiError.parse({
-			code,
-			details: {},
-			correlationId: randomUUID(),
-			retry: "never",
-		}),
-	};
-}
 function mineValue(partial: Partial<Mine> & Pick<Mine, "articleId" | "currentVote" | "ownHistoryVotes">): Mine {
 	return feedbackMine.parse({ phantomPlants: 0, foreignVoteBody: null, ...partial });
 }
@@ -53,8 +44,8 @@ function deniedOrg(): OrgValue {
 	return orgValue({ errorCode: "editorial_access_denied" });
 }
 function orgEditor(authority: RequestActor, organizationId: string): Owner | null {
-	const context = authority.actor.context;
-	if (context.kind !== "seat" || context.owner.kind !== "organization") return null;
+	const context = organizationSeatContext(authority);
+	if (!context) return null;
 	if (context.role !== "owner" && context.role !== "admin") return null;
 	if (context.owner.id !== organizationId) return null;
 	if (context.owner.organizationKind !== "sending_church" && context.owner.organizationKind !== "sending_network")
@@ -86,7 +77,7 @@ export function getMine(db: Database, authority: RequestActor, raw: unknown) {
 						AND a.result->>'articleId' = ${input.articleId}
 				), '[]'::json) AS votes`);
 		const row = z.object({ allowed: z.boolean(), votes: z.unknown() }).parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		const votes = votesOf(row.votes);
 		return mineValue({
 			articleId: input.articleId,
@@ -97,11 +88,19 @@ export function getMine(db: Database, authority: RequestActor, raw: unknown) {
 }
 
 export function setMine(db: Database, authority: RequestActor, raw: unknown) {
+	return saveVote(ownWrite(db, authority), authority, raw);
+}
+export async function setMineIn(tx: WriteTx, context: PeopleContext, raw: unknown) {
+	const claimed = await claimedWrite(tx, context.session, context.selected);
+	if (!claimed) return refused("access_denied");
+	return saveVote(claimed.run, claimed.authority, raw);
+}
+function saveVote(run: Runner, authority: RequestActor, raw: unknown) {
 	const input = parse(feedbackSetMineRequest, raw);
 	const context = authority.actor.context;
-	if (context.kind !== "seat" || context.owner.kind !== "plant") return Promise.resolve(refuse());
+	if (context.kind !== "seat" || context.owner.kind !== "plant") return Promise.resolve(refused("access_denied"));
 	const owner = context.owner;
-	return runWrite(db, authority, owner, "wiki.feedback.setMine", input, feedbackMine, async (tx) => {
+	return run(owner, "wiki.feedback.setMine", input, feedbackMine, async (tx) => {
 		const result = await tx.execute(sql`
 			WITH ${meSql(authority, owner)},
 			prior AS (
@@ -116,7 +115,7 @@ export function setMine(db: Database, authority: RequestActor, raw: unknown) {
 				EXISTS (SELECT FROM me) AS allowed,
 				COALESCE((SELECT json_agg(vote ORDER BY occurred_at, id) FROM prior), '[]'::json) AS votes`);
 		const row = z.object({ allowed: z.boolean(), votes: z.unknown() }).parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		const votes = [...votesOf(row.votes), input.input.vote];
 		return mineValue({
 			articleId: input.input.articleId,
@@ -136,7 +135,7 @@ async function mutate(
 	const owner = orgEditor(authority, input.input.organizationId);
 	if (!owner) return { status: "ok", value: deniedOrg() };
 	if (input.input.adapter === "Evry") return { status: "ok", value: orgValue({ errorCode: "review_required" }) };
-	if (mode !== "hide" && !input.input.body) return refuse("invalid_input");
+	if (mode !== "hide" && !input.input.body) return refused("invalid_input");
 	const body = input.input.body ?? "";
 	const contentHash = createHash("sha256").update(body).digest("hex");
 	const operation = `wiki.organizationArticles.${mode}`;
@@ -172,7 +171,7 @@ async function mutate(
 					state: z.string().nullable(),
 				})
 				.parse(result.rows[0]);
-			if (!row.allowed) deny();
+			if (!row.allowed) deny("access_denied");
 			if (!row.present || row.stored_revision !== input.expectedRevision) deny("conflict");
 			if (row.state !== "hide") deny("conflict");
 			return orgValue({ organizationId: owner.id, state: "hide" });
@@ -264,7 +263,18 @@ async function mutate(
 				FROM ins
 				WHERE NOT EXISTS (SELECT FROM editor)
 				RETURNING state
-			)
+			)${
+				mode === "publish"
+					? sql`,
+			embedding AS (${queueJobsFor(sql`FROM ins`, {
+				kind: "wiki_embedding",
+				tenant: sql`${owner.id}::uuid`,
+				subject: sql`ins.id`,
+				key: sql`'wiki_embedding/' || ins.id::text`,
+				conflict: "skip",
+			})})`
+					: sql``
+			}
 			SELECT
 				EXISTS (SELECT FROM me) AS allowed,
 				EXISTS (SELECT FROM base) AS has_base,
@@ -282,7 +292,7 @@ async function mutate(
 				state: z.enum(["published", "hide", "draft", "inherited"]).nullable(),
 			})
 			.parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		if (!row.has_base) deny("invalid_subject");
 		const revisionOk = row.has_editor ? row.stored_revision === input.expectedRevision : input.expectedRevision === "0";
 		if (!revisionOk || row.written_number == null || row.state == null) deny("conflict");
@@ -314,14 +324,14 @@ export function getOrganizationDraft(db: Database, authority: RequestActor, raw:
 	if (!owner)
 		return Promise.resolve({
 			status: "ok" as const,
-			value: organizationDraft.parse({
+			value: {
 				errorCode: "editorial_access_denied",
 				articleId: input.articleId,
 				organizationId: null,
 				body: null,
 				revisionNumber: null,
 				state: null,
-			}),
+			} satisfies z.output<typeof organizationDraft>,
 		});
 	return runRead(async () => {
 		const result = await db.execute(sql`
@@ -341,7 +351,7 @@ export function getOrganizationDraft(db: Database, authority: RequestActor, raw:
 			const allowed = await db.execute(sql`
 				WITH ${meSql(authority, owner, true)}
 				SELECT EXISTS (SELECT FROM me) AS allowed`);
-			if (!z.object({ allowed: z.boolean() }).parse(allowed.rows[0]).allowed) deny();
+			if (!z.object({ allowed: z.boolean() }).parse(allowed.rows[0]).allowed) deny("access_denied");
 			return organizationDraft.parse({
 				errorCode: null,
 				articleId: input.articleId,
@@ -359,15 +369,15 @@ export function getOrganizationDraft(db: Database, authority: RequestActor, raw:
 				revision_number: z.number().int().nullable(),
 			})
 			.parse(row);
-		if (!parsed.allowed) deny();
-		return organizationDraft.parse({
+		if (!parsed.allowed) deny("access_denied");
+		return {
 			errorCode: null,
 			articleId: input.articleId,
 			organizationId: owner.id,
 			body: parsed.body,
 			revisionNumber: parsed.revision_number,
 			state: parsed.state,
-		});
+		} satisfies z.output<typeof organizationDraft>;
 	});
 }
 
@@ -437,15 +447,15 @@ export function emitUpstreamReview(db: Database, authority: RequestActor, raw: u
 		const row = z
 			.object({ allowed: z.boolean(), recipients: z.unknown(), cues: z.number().int() })
 			.parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		const recipients = z
 			.array(z.uuid())
 			.parse(typeof row.recipients === "string" ? JSON.parse(row.recipients) : row.recipients);
-		return upstreamReviewResult.parse({
+		return {
 			inAppCues: row.cues,
 			emailIntents: 0,
 			autoAdoptions: 0,
 			recipientIds: recipients,
-		});
+		} satisfies z.output<typeof upstreamReviewResult>;
 	});
 }

@@ -1,8 +1,8 @@
-import { getReads, refusalAs } from "../../components/get-reads.ts";
+import { readsFrom, refusalAs } from "../../components/get-reads.ts";
 import type { Format } from "./model.ts";
 import type { GET } from "./read.ts";
 
-const get = getReads<typeof GET>("/documents/read");
+const get = readsFrom<typeof GET>("/documents/read");
 
 export const resolveDocument = (templateId: string, format: Format) => get("resolved", { templateId, format });
 export const listSavedDocuments = () => get("saved");

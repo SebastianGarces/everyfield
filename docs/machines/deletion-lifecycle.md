@@ -5,7 +5,7 @@ Generated from `packages/contracts/src/machines/deletion-lifecycle.ts` by `node 
 finds a write of the column that does not carry the machine's guard.
 
 - Column: `lifecycle_witness.state`
-- States: `active`, `pending_deletion`, `purging`, `purged`, `cancelled`, `revoked`
+- States: `pending_deletion`, `purging`, `purged`, `cancelled`
 - Subjects the guards tell apart: `account`, `dueAccount`, `uncleanedAccount`, `plant`, `duePlant`, `uncleanedPlant`
 - Guards that describe the moment, not the subject: `beforeDeadline`, `cleaned`
 - Refusal for every move the chart does not show: `deadline_passed`
@@ -13,26 +13,22 @@ finds a write of the column that does not carry the machine's guard.
 - `unavailable` instead for `churches.requestWorkspaceDeletion`
 - `unavailable` instead for `churches.cancelWorkspaceDeletion` from `purging`, `purged`
 
-- `copy` is a witness inside a restore target. The proof restores every live witness once and requests deletion of an active account and church copy there.
-- No product code writes `active` or `revoked`: only a restore copies them. The proof seeds one live witness in each so the restore has them to copy.
+- `copy` is a witness inside a restore target. The proof restores every live witness once and requests deletion of a restored account and church that have no witness.
 - A request from a closed account or church is refused by the write gate (`unavailable`) before the witness check.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> pending_deletion: account.requestDeletion when account / churches.requestWorkspaceDeletion when plant / maintenance.restoreWithCurrentManifest when copy and accountOrPlant
-  [*] --> active: maintenance.restoreWithCurrentManifest when copy and accountOrPlant / maintenance.restoreWithCurrentManifest when copy and seatOrAffiliation
-  [*] --> cancelled: maintenance.restoreWithCurrentManifest when copy and accountOrPlant
-  [*] --> purging: maintenance.restoreWithCurrentManifest when copy and accountOrPlant
-  [*] --> revoked: maintenance.restoreWithCurrentManifest when copy and seatOrAffiliation
-  active --> pending_deletion: account.requestDeletion when account / churches.requestWorkspaceDeletion when plant
+  [*] --> pending_deletion: account.requestDeletion when account / churches.requestWorkspaceDeletion when plant / maintenance.restoreWithCurrentManifest when copy
+  [*] --> cancelled: maintenance.restoreWithCurrentManifest when copy
+  [*] --> purging: maintenance.restoreWithCurrentManifest when copy
   cancelled --> pending_deletion: account.requestDeletion when account / churches.requestWorkspaceDeletion when plant
   pending_deletion --> cancelled: account.cancelDeletion when account and beforeDeadline / churches.cancelWorkspaceDeletion when plant and beforeDeadline
-  pending_deletion --> purging: lifecycle.purge when accountOrPlant, unless beforeDeadline
-  purging --> purging: lifecycle.purge when accountOrPlant, unless beforeDeadline / maintenance.restoreWithCurrentManifest when copy and accountOrPlant
-  purging --> purged: lifecycle.purge when accountOrPlant and cleaned, unless beforeDeadline via settings_purge_subject / maintenance.restoreWithCurrentManifest when copy and accountOrPlant
+  pending_deletion --> purging: lifecycle.purge unless beforeDeadline
+  purging --> purging: lifecycle.purge unless beforeDeadline / maintenance.restoreWithCurrentManifest when copy
+  purging --> purged: lifecycle.purge when cleaned, unless beforeDeadline via settings_purge_subject / maintenance.restoreWithCurrentManifest when copy
   note right of cancelled : stays on account.cancelDeletion when account
   note right of cancelled : stays on churches.cancelWorkspaceDeletion when plant
-  note right of purged : stays on lifecycle.purge when accountOrPlant
+  note right of purged : stays on lifecycle.purge
 ```
 
 ## Refused moves

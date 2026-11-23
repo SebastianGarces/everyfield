@@ -86,7 +86,7 @@ export const recordCorrections = {
 					const table = sql.identifier(def.table);
 					const target = sql`FROM ${table} r WHERE r.id=${recordId}::uuid AND r.plant_id=${plant}::uuid`;
 					const p = await subject(tx, ctx, personId, sql`(SELECT ${recordJson(recordType)} ${target})`);
-					if (p.extra === null) deny();
+					if (p.extra === null) deny("unavailable");
 					const record = found.parse(p.extra);
 					if (record.person_id !== p.id) deny("conflict");
 					expectRevision(record.revision, input.expectedRevision);
@@ -112,7 +112,11 @@ export const recordCorrections = {
 					if ("occurredOn" in changes && changes.occurredOn) notFuture(p, changes.occurredOn);
 					const set = Object.assign(
 						{},
-						...changed.map(({ field }) => (def.fields[field]!.write as (v: unknown) => object)(after[field])),
+						...changed.map(({ field }) => {
+							const spec = def.fields[field];
+							if (!spec) throw Error(`Record field ${field} has no writer`);
+							return (spec.write as (v: unknown) => object)(after[field]);
+						}),
 					) as Record<string, unknown>;
 					audit.writes.push(
 						sql`UPDATE ${table} SET ${sql.join(
@@ -173,7 +177,7 @@ export const recordCorrections = {
 					),
 				})
 				.safeParse(result.rows[0]);
-			if (!row.success) deny();
+			if (!row.success) deny("unavailable");
 			const { total, items } = row.data;
 			return c.recordCorrectionsResult.parse({
 				personId: input.personId,

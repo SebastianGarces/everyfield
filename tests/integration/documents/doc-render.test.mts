@@ -51,15 +51,17 @@ const SAVED = new Date("2026-11-01T12:00:00Z");
 const count = (text: string, part: string) => text.split(part).length - 1;
 const range = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
-test("AC:CASE-DOC-022 the nine template files load through the contract parser and a file that does not validate fails", () => {
+test("AC:CASE-DOC-022 the eleven template files load through the contract parser and a file that does not validate fails", () => {
 	const files = readdirSync(folder)
 		.filter((name) => name.endsWith(".json"))
 		.sort();
 	assert.deepEqual(files, [
 		"budget-worksheet.json",
 		"bylaws.json",
+		"child-protection-policy.json",
 		"commitment-card.json",
 		"conflict-of-interest-policy.json",
+		"financial-controls-policy.json",
 		"follow-up-letter.json",
 		"guest-sign-in-sheet.json",
 		"launch-team-commitment.json",
@@ -97,8 +99,8 @@ test("AC:CASE-DOC-023 the conflict-of-interest policy prints its text, numbered 
 		pages[0]!,
 		/^Harbor City Church BOARD POLICY Conflict of Interest Policy This policy says how the board of Harbor City Church, a church plant/,
 	);
-	assert.match(pages[0]!, /01 Purpose .* 02 Who this policy covers/);
-	assert.match(pages[1]!, /09 If a member breaks this policy/);
+	assert.match(pages[0]!, /(?<!\d)1 Purpose .* (?<!\d)2 Who this policy covers/);
+	assert.match(pages[1]!, /(?<!\d)9 If a member breaks this policy/);
 	assert.match(pages[1]!, /BOARD MEMBER ROLE SIGNATURE DATE/);
 	for (const [i, page] of pages.entries()) {
 		assert.ok(page.includes("Harbor City Church, Inc. | Conflict of Interest Policy"), `page ${i + 1} footer`);
@@ -116,6 +118,31 @@ test("AC:CASE-DOC-023 the conflict-of-interest policy prints its text, numbered 
 	const again = await renderDocPdf(await fork("conflict-of-interest-policy"));
 	assert.equal(sha(again.bytes), sha(pdf.bytes), "a second render gives the same bytes");
 });
+
+for (const [id, title, firstHeading, lastHeading] of [
+	["child-protection-policy", "Child Protection Policy", /(?<!\d)1 Purpose/, /(?<!\d)9 Records/],
+	["financial-controls-policy", "Financial Controls Policy", /(?<!\d)1 Purpose/, /(?<!\d)9 Yearly review/],
+] as const)
+	test(`the ${title.toLowerCase()} renders to PDF and Word with the church filled in and the notice on every page`, async () => {
+		const template = docTemplateById(id)!;
+		assert.equal(template.class, "formal/legal");
+		assert.deepEqual(template.exports, ["pdf", "docx"]);
+		const doc = await fork(id);
+		const pdf = await renderDocPdf(doc);
+		const pages = await pdfPages(pdf.bytes);
+		assert.match(pages[0]!, new RegExp(`${title} This policy says how Harbor City Church, a church plant`));
+		const text = pages.join("\n");
+		assert.ok(firstHeading.test(text) && lastHeading.test(text), "numbered headings");
+		assert.ok(!text.includes("{church_name}"), "every church name is filled in");
+		for (const [i, page] of pages.entries()) {
+			assert.ok(page.includes(`| ${title}`), `page ${i + 1} footer`);
+			assert.equal(count(page, "Template, not legal advice"), 1, `page ${i + 1} notice`);
+		}
+		const word = await renderDocFile(doc, "docx", THEME, SAVED);
+		const words = Object.values(docxParts(word)).map(wordText).join(" ");
+		assert.ok(words.includes("Harbor City Church, a church plant"), "the Word file holds the filled-in text");
+		assert.ok(words.includes("Template, not legal advice"), "the Word file holds the notice");
+	});
 
 const TWINNED = [
 	"commitment-card",
@@ -681,7 +708,7 @@ test("AC:CASE-DOC-023 every node, mark and page setup part of the design node ta
 		"Bold and italic and underline and a link",
 		"after a break.",
 		"A small paragraph signed by Dana Brooks",
-		"01 First numbered",
+		"1 First numbered",
 		"1.1 Numbered sub",
 		"Plain heading",
 		"Bullet one",
@@ -698,6 +725,7 @@ test("AC:CASE-DOC-023 every node, mark and page setup part of the design node ta
 		"Grand total 5 $650.50 $1,701",
 	])
 		assert.ok(all.includes(words), `prints "${words}"`);
+	assert.ok(!all.includes("01 First numbered"), "the heading number is not zero-padded");
 	for (const [i, page] of pages.entries()) {
 		assert.ok(page.startsWith("Running header"), `page ${i + 1} header`);
 		assert.ok(page.includes(`Footer Page ${i + 1}`), `page ${i + 1} footer and page number`);

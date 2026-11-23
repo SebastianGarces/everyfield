@@ -30,7 +30,8 @@ async function reserveSpend(db: Database, micro: number, cap: number): Promise<s
 		ON CONFLICT (month) DO UPDATE SET charged_micro_usd=model_spend.charged_micro_usd+EXCLUDED.charged_micro_usd
 			WHERE model_spend.charged_micro_usd+EXCLUDED.charged_micro_usd<=${cap}::bigint
 		RETURNING month::text`);
-	return r.rows.length ? z.string().parse(r.rows[0]!.month) : null;
+	const [row] = r.rows;
+	return row ? z.string().parse(row.month) : null;
 }
 
 async function refundSpend(db: Database, month: string, micro: number) {

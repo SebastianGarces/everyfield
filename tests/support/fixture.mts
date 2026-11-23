@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
+import { sessionId } from "../../packages/contracts/src/common/values.ts";
 import { sql } from "../../packages/db/src/query.ts";
 import { testDatabase, type Capability, type Database, type TestDatabase } from "./test-database.mts";
 
 type Result = { status: string; value?: unknown; error?: { code?: string; details?: unknown } };
 
-export function ok(result: any): any {
+export function ok<T>(result: { status: "ok"; value: T } | { status: string }): T;
+export function ok(result: { status: string; value?: unknown }): unknown {
 	assert.equal(result.status, "ok", JSON.stringify(result));
 	return result.value;
 }
@@ -59,7 +61,7 @@ export type Workspace =
 export type Actor = {
 	id: string;
 	user: string;
-	session: string;
+	session: ReturnType<typeof sessionId.parse>;
 	email: string;
 	selected: Workspace | { kind: "account"; id: string };
 };
@@ -119,7 +121,7 @@ export function seeds(admin: Database) {
 	): Promise<Actor> {
 		const id = overrides.id ?? randomUUID();
 		const user = randomUUID();
-		const session = randomUUID();
+		const session = sessionId.parse(randomUUID());
 		const email = overrides.email ?? `${id}@example.test`;
 		await insert(admin, "auth_user", { id: user, email, email_verified: true, name: "Synthetic", ...overrides.user });
 		await insert(admin, "account", {
@@ -173,6 +175,7 @@ export async function fixture({
 	max?: number;
 	plant?: Row;
 	roles?: { runtime: readonly Capability[] } & Record<string, readonly Capability[]>;
+	clock?: Date;
 }): Promise<Fixture> {
 	const database = await testDatabase(options);
 	try {

@@ -1,5 +1,3 @@
-"use client";
-
 import { PersonCard, PipelineColumn, StatusBadge, Tag } from "..";
 import { Section } from "./kit";
 

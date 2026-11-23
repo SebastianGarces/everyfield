@@ -13,64 +13,18 @@ import {
 	nativeWrite,
 	finishAudit,
 	prepareWrite,
-	WriteUnavailable,
 	type AuditWrite,
 } from "../operations/writes.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 export type Tx = WriteTx;
 export type TaskContext = { session: RequestActor["session"]; selected: Owner };
 export type TaskReply<T> = { status: "ok"; value: T } | { status: "refused"; error: c.TaskError };
-type Code = c.TaskError["code"];
 
-export class TaskRefusal extends Error {
-	readonly code: Code;
-	readonly details: Record<string, unknown>;
-	constructor(code: Code, details: Record<string, unknown> = {}) {
-		super(code);
-		this.code = code;
-		this.details = details;
-	}
-}
-export function deny(code: Code = "unavailable", details: Record<string, unknown> = {}): never {
-	throw new TaskRefusal(code, details);
-}
-const retry: Record<Code, string> = {
-	invalid_input: "never",
-	access_denied: "never",
-	unavailable: "never",
-	invalid_subject: "never",
-	conflict: "refresh",
-	temporary: "same_request",
-	unknown: "reconcile",
-	protected_source: "never",
-	nonexistent_local_time: "never",
-	ambiguous_local_time: "never",
-	open_successor: "refresh",
-	dependency_cycle: "refresh",
-	owner_ineligible: "refresh",
-	stale_catalog: "refresh",
-	offer_answered: "refresh",
-};
-function refused(error: TaskRefusal): TaskReply<never> {
-	return {
-		status: "refused",
-		error: c.taskError.parse({
-			code: error.code,
-			details: error.details,
-			correlationId: randomUUID(),
-			retry: retry[error.code],
-		}),
-	};
-}
-export async function readReply<T>(body: () => Promise<T>): Promise<TaskReply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (error instanceof WriteUnavailable) return refused(new TaskRefusal("unavailable"));
-		if (!(error instanceof TaskRefusal)) throw error;
-		return refused(error);
-	}
-}
+const refusals = defineRefusals(c.taskError, { writeUnavailable: "unavailable" });
+export const TaskRefusal = refusals.Refusal;
+export const deny: Deny<typeof c.taskError> = refusals.deny;
+export const { settle: readReply } = refusals;
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<TaskReply<T>> {
 	if (boundWrite(tx)) return { status: "ok", value: await body() };
 	return readReply(() => auditSavepoint(tx, body));
@@ -101,7 +55,7 @@ export type Viewer = { accountId: string; plantId: string; role: "owner" | "admi
 export type Reader = Viewer & { session: string; seatId: string; owner: Owner };
 export function readerOf(authority: RequestActor): Reader {
 	const a = authority.actor;
-	if (a.context.kind !== "seat" || a.context.owner.kind !== "plant") deny();
+	if (a.context.kind !== "seat" || a.context.owner.kind !== "plant") deny("unavailable");
 	return {
 		accountId: a.accountId,
 		plantId: a.context.owner.id,
@@ -118,7 +72,8 @@ async function writerOf(tx: Tx, context: TaskContext): Promise<Writer> {
 		bound && sameOwner(bound.selected, context.selected)
 			? bound
 			: await RequestActor.claimWrite(tx, context.session, owner.parse(context.selected));
-	if (!write || write.actor.context.kind !== "seat" || !write.plant || context.selected.kind !== "plant") deny();
+	if (!write || write.actor.context.kind !== "seat" || !write.plant || context.selected.kind !== "plant")
+		deny("unavailable");
 	return {
 		accountId: write.actor.accountId,
 		plantId: write.plant.id,
@@ -173,7 +128,7 @@ export async function command<T>(
 	});
 	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "conflict") deny("conflict");
-	if (claim.kind === "unavailable") deny();
+	if (claim.kind === "unavailable") deny("unavailable");
 	if (claim.kind === "replay") return claim.value as T;
 	const result = await body({ ...claim, actor });
 	await finishAudit(tx, claim, identity, result.value);

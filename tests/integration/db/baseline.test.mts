@@ -19,6 +19,7 @@ import {
 	adoptMigrationHistory,
 	migrationArtifact,
 	backfill,
+	type Backfill,
 } from "../../../packages/db/src/schema/migrate.ts";
 import { pdf } from "../platform/fixtures.mjs";
 import { commitmentValidator, validateCommitment } from "../../../packages/db/src/schema/validate-file.ts";
@@ -31,11 +32,14 @@ import {
 	createAuthorizedDownload,
 	deleteUnreferencedObject,
 	privateStorageFrom,
+	S3Client,
+	type PrivateStorage,
+	type ResourceAuthorizer,
 } from "../../../packages/db/src/schema/storage.ts";
+import type { Database } from "../../support/test-database.mts";
 const require = createRequire(new URL("../../../packages/db/package.json", import.meta.url));
 
 const appRequire = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
-const { S3Client } = require("@aws-sdk/client-s3");
 const database = await testDatabase({
 	prefix: "wp004_test",
 	roles: { runtime: ["runtime"], auth: ["auth"] },
@@ -49,28 +53,59 @@ const p = randomUUID(),
 	a = randomUUID(),
 	b = randomUUID();
 const hash = "a".repeat(64);
-async function rejected(sql, params = [], code = "23514", db = admin) {
-	await assert.rejects(db.execute(statement(sql, params)), (e) => e.cause?.code === code);
+const firstRow = <Row,>(result: { rows: Row[] }) => {
+	const [row] = result.rows;
+	if (!row) throw Error("the query returned no row");
+	return row;
+};
+const textOf = (value: unknown) => {
+	assert.ok(typeof value === "string", `expected text, got ${JSON.stringify(value)}`);
+	return value;
+};
+const pgCode = (error: unknown) =>
+	error instanceof Error && error.cause instanceof Error && "code" in error.cause ? error.cause.code : undefined;
+type Sent = { constructor: { name: string }; input: { Key?: string; Body?: Uint8Array } };
+class FakeClient extends S3Client {
+	answer: (command: Sent) => Promise<unknown>;
+	constructor(answer: (command: Sent) => Promise<unknown>) {
+		super({
+			region: "auto",
+			endpoint: "https://storage.example.test",
+			forcePathStyle: true,
+			credentials: { accessKeyId: "synthetic", secretAccessKey: "synthetic-only" },
+		});
+		this.answer = answer;
+	}
+	override send(command: Sent) {
+		return this.answer(command);
+	}
 }
-async function account(id) {
+const storageOf = (bucket: string, answer: (command: Sent) => Promise<unknown>): PrivateStorage => ({
+	bucket,
+	client: new FakeClient(answer),
+});
+async function rejected(sql: string, params: readonly unknown[] = [], code = "23514", db: Database = admin) {
+	await assert.rejects(db.execute(statement(sql, params)), (e) => pgCode(e) === code);
+}
+async function account(id: string) {
 	await seeds(admin).actor(null, "owner", { id, account: { registration_kind: "planter" } });
 }
-async function plant(id) {
+async function plant(id: string) {
 	await seeds(admin).plant({ id, name: "Synthetic Plant" });
 }
-async function person(owner, id = randomUUID()) {
+async function person(owner: string, id = randomUUID()) {
 	await admin.execute(
 		querySql`INSERT INTO person(id,tenant_id,plant_id,display_name,created_at,stage,adult_classification,state,commitment_state,pipeline_position,source) VALUES(${querySql.param(id)},${querySql.param(owner)},${querySql.param(owner)},'Synthetic Person',now(),'prospect','adult','live','unknown',0,'other')`,
 	);
 	return id;
 }
-async function doc(owner, id = randomUUID()) {
+async function doc(owner: string, id = randomUUID()) {
 	await admin.execute(
 		querySql`INSERT INTO document(id,tenant_id,kind,title) VALUES(${querySql.param(id)},${querySql.param(owner)},'native','Synthetic')`,
 	);
 	return id;
 }
-const authorizer = async (tx, file) => {
+const authorizer: ResourceAuthorizer = async (tx, file) => {
 	const r = await tx.execute(
 		querySql`SELECT 1 FROM seat WHERE account_id=${querySql.param(a)} AND plant_id=${querySql.param(file.tenant_id)} AND ended_at IS NULL AND role IN ('owner','admin') FOR SHARE`,
 	);
@@ -128,7 +163,7 @@ test("INV-storage: only a Vercel production deployment may use the production bu
 		AWS_SECRET_ACCESS_KEY: "synthetic",
 		AWS_ENDPOINT_URL_S3: "https://storage.example.test",
 	};
-	const bucket = (env) => privateStorageFrom({ ...keys, ...env })?.bucket ?? null;
+	const bucket = (env: Record<string, string | undefined>) => privateStorageFrom({ ...keys, ...env })?.bucket ?? null;
 	for (const env of [{}, { NODE_ENV: "production" }, { VERCEL_ENV: "preview" }])
 		assert.throws(() => bucket({ ...env, AWS_BUCKET_NAME: "everyfield" }), /production only/);
 	assert.throws(
@@ -229,7 +264,7 @@ test("INV-schema: full ordered migrations match the current catalog and reject a
 		ledger.rows,
 		(await migrationArtifact()).map((m) => ({ name: m.name })),
 	);
-	assert.equal((await admin.execute(querySql`SELECT count(*)::int AS n FROM early_access_request`)).rows[0].n, 0);
+	assert.equal(firstRow(await admin.execute(querySql`SELECT count(*)::int AS n FROM early_access_request`)).n, 0);
 });
 test("INV-migration: two branches' migrations apply by name in either merge order; an edited applied one fails", async () => {
 	const directory = await mkdtemp(tmpdir() + "/evf-merge-order-");
@@ -239,24 +274,25 @@ test("INV-migration: two branches' migrations apply by name in either merge orde
 		await copyFile(new URL("../../../packages/db/migrations/" + name, import.meta.url), new URL(name, migrations));
 	const a = { name: "20261022150000_branch_a.sql", sql: "CREATE TABLE branch_a_probe(id integer NOT NULL)" };
 	const b = { name: "20261022160000_branch_b.sql", sql: "CREATE TABLE branch_b_probe(id integer NOT NULL)" };
-	const schemas = [];
+	const schemas: string[] = [];
 	const schema = async () => {
 		const name = "merge_order_" + randomUUID().replaceAll("-", "");
 		schemas.push(name);
 		await database.createSchema(name);
 		return name;
 	};
-	const tables = async (name) =>
-		(
+	const tables = async (name: string) =>
+		firstRow(
 			await admin.execute(
 				querySql`SELECT to_regclass(${name + ".branch_a_probe"}) IS NOT NULL AS a, to_regclass(${name + ".branch_b_probe"}) IS NOT NULL AS b`,
-			)
-		).rows[0];
+			),
+		);
 	try {
-		for (const [first, second] of [
+		const orders: Array<[typeof a, typeof b]> = [
 			[a, b],
 			[b, a],
-		]) {
+		];
+		for (const [first, second] of orders) {
 			const upgraded = await schema();
 			await writeFile(new URL(first.name, migrations), first.sql);
 			assert.deepEqual(await migrate(admin, upgraded, migrations), [...main, first.name].sort());
@@ -301,30 +337,26 @@ test("INV-migration: preserves applied 0001 bytes and ledger; retries and failed
 			{ name: "0001_early_access.sql", provenance: "adopted" },
 		]);
 		await pool.execute(querySql`CREATE TABLE file_object(id uuid)`);
-		await assert.rejects(migrate(pool, other), (e) => e.cause?.code === "42P07");
+		await assert.rejects(migrate(pool, other), (e) => pgCode(e) === "42P07");
 		assert.deepEqual((await pool.execute(querySql`SELECT name FROM schema_migration`)).rows, [
 			{ name: "0001_early_access.sql" },
 		]);
-		assert.equal((await pool.execute(querySql`SELECT to_regclass('tenant') AS t`)).rows[0].t, null);
+		assert.equal(firstRow(await pool.execute(querySql`SELECT to_regclass('tenant') AS t`)).t, null);
 		await pool.execute(querySql`DROP TABLE file_object`);
 		assert.deepEqual(
 			await migrate(pool, other),
 			(await migrationArtifact()).filter((m) => m.name !== "0001_early_access.sql").map((m) => m.name),
 		);
 		assert.equal(
-			(await pool.execute(querySql`SELECT email FROM early_access_request`)).rows[0].email,
+			firstRow(await pool.execute(querySql`SELECT email FROM early_access_request`)).email,
 			"preserved@example.test",
 		);
-		assert.equal(
-			new Date(
-				(
-					await pool.execute(
-						querySql`SELECT applied_at FROM schema_migration WHERE name=${querySql.param("0001_early_access.sql")}`,
-					)
-				).rows[0].applied_at,
-			).toISOString(),
-			"2026-10-01T00:00:00.000Z",
-		);
+		const appliedAt = firstRow(
+			await pool.execute(
+				querySql`SELECT applied_at FROM schema_migration WHERE name=${querySql.param("0001_early_access.sql")}`,
+			),
+		).applied_at;
+		assert.equal(new Date(textOf(appliedAt)).toISOString(), "2026-10-01T00:00:00.000Z");
 		assert.deepEqual(await Promise.all([migrate(pool, other), migrate(pool, other)]), [[], []]);
 	} finally {
 		await admin.execute(querySql.raw(`DROP SCHEMA ${other} CASCADE`));
@@ -332,9 +364,9 @@ test("INV-migration: preserves applied 0001 bytes and ledger; retries and failed
 });
 test("INV-backfill (C102): db:migrate's backfills run once each; a failure records nothing and the next run completes", async () => {
 	await admin.execute(querySql`CREATE TABLE backfill_probe(name text, n integer)`);
-	const runs = [];
+	const runs: string[] = [];
 	let failAfterFirstBatch = true;
-	const step = (name) => ({
+	const step = (name: string): Backfill => ({
 		name,
 		async run(tx) {
 			runs.push(name);
@@ -352,7 +384,7 @@ test("INV-backfill (C102): db:migrate's backfills run once each; a failure recor
 			r.name,
 			r.changed,
 		]);
-	const probe = async () => (await admin.execute(querySql`SELECT count(*)::int n FROM backfill_probe`)).rows[0].n;
+	const probe = async () => firstRow(await admin.execute(querySql`SELECT count(*)::int n FROM backfill_probe`)).n;
 	try {
 		await assert.rejects(backfill(admin, [step("probe_one"), step("probe_two")], schema), /probe failure/);
 		assert.deepEqual([await names(), await probe(), runs], [[], 0, ["probe_one"]]);
@@ -397,16 +429,17 @@ test("AC:TEN-001 INV-subtype: real same-owner FKs, root kinds and record binding
 	);
 	await rejected("UPDATE person SET tenant_id=$1,plant_id=$1 WHERE id=$2", [q, x], "23503");
 	await rejected("INSERT INTO document(id,tenant_id,kind,title) VALUES($1,$2,'native','forged subtype')", [x, p]);
-	const before = (await admin.execute(querySql`SELECT count(*)::int n FROM tenant`)).rows[0].n;
-	const credential = (await admin.execute(querySql`SELECT auth_user_id FROM account WHERE id=${querySql.param(a)}`))
-		.rows[0].auth_user_id;
+	const before = firstRow(await admin.execute(querySql`SELECT count(*)::int n FROM tenant`)).n;
+	const credential = firstRow(
+		await admin.execute(querySql`SELECT auth_user_id FROM account WHERE id=${querySql.param(a)}`),
+	).auth_user_id;
 	const duplicate = randomUUID();
 	await admin.execute(
 		querySql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${querySql.param(duplicate)},${querySql.param(credential)},'active','planter') ON CONFLICT(auth_user_id) DO NOTHING`,
 	);
-	assert.equal((await admin.execute(querySql`SELECT count(*)::int n FROM tenant`)).rows[0].n, before);
+	assert.equal(firstRow(await admin.execute(querySql`SELECT count(*)::int n FROM tenant`)).n, before);
 	assert.equal(
-		(await admin.execute(querySql`SELECT count(*)::int n FROM record WHERE id=${querySql.param(duplicate)}`)).rows[0].n,
+		firstRow(await admin.execute(querySql`SELECT count(*)::int n FROM record WHERE id=${querySql.param(duplicate)}`)).n,
 		0,
 	);
 	const wrong = randomUUID();
@@ -434,13 +467,13 @@ test("INV-seat: simultaneous acceptance permits only one active tenant seat", as
 		),
 	);
 	assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
-	assert.equal(results.filter((r) => r.status === "rejected" && r.reason.cause?.code === "23505").length, 1);
+	assert.equal(results.filter((r) => r.status === "rejected" && pgCode(r.reason) === "23505").length, 1);
 	assert.equal(
-		(
+		firstRow(
 			await admin.execute(
 				querySql`SELECT count(*)::int n FROM seat WHERE account_id=${querySql.param(c)} AND ended_at IS NULL`,
-			)
-		).rows[0].n,
+			),
+		).n,
 		1,
 	);
 });
@@ -462,19 +495,19 @@ test("INV-document: private and plant bodies preserve exact immutable owner and 
 		"23503",
 	);
 	assert.equal(
-		(await admin.execute(querySql`SELECT body FROM document_revision WHERE id=${querySql.param(rev)}`)).rows[0].body,
+		firstRow(await admin.execute(querySql`SELECT body FROM document_revision WHERE id=${querySql.param(rev)}`)).body,
 		"private body",
 	);
 });
 test("AC:TEN-009 INV-runtime: real login cannot own schema, change audit history or run migrations", async () => {
-	const identity = (await runtime.execute(querySql`SELECT current_user`)).rows[0];
+	const identity = firstRow(await runtime.execute(querySql`SELECT current_user`));
 	assert.equal(identity.current_user, database.logins.runtime.name);
 	assert.deepEqual(
-		(
+		firstRow(
 			await runtime.execute(
 				querySql`SELECT rolsuper,rolcreaterole,rolcreatedb,rolbypassrls FROM pg_roles WHERE rolname=current_user`,
-			)
-		).rows[0],
+			),
+		),
 		{ rolsuper: false, rolcreaterole: false, rolcreatedb: false, rolbypassrls: false },
 	);
 	for (const statement of [
@@ -491,8 +524,9 @@ test("AC:TEN-009 INV-runtime: real login cannot own schema, change audit history
 		querySql`INSERT INTO audit_event(tenant_id,subject_id,kind,occurred_at,recorded_at,system_cause,event_key,action) VALUES(${querySql.param(p)},${querySql.param(x)},'create',now(),now(),'synthetic','first','documents.saved')`,
 	);
 	assert.equal(
-		(await runtime.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${querySql.param(x)}`))
-			.rows[0].n,
+		firstRow(
+			await runtime.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${querySql.param(x)}`),
+		).n,
 		1,
 	);
 });
@@ -508,15 +542,16 @@ test("AC:AUDIT-001 AC:AUDIT-002 INV-transaction: audit failure rolls back domain
 				querySql`INSERT INTO audit_event(tenant_id,subject_id,kind,occurred_at,recorded_at,system_cause,event_key,action) VALUES(${querySql.param(p)},${querySql.param(x)},'edit',now(),now(),'synthetic','bad','people.getPerson')`,
 			);
 		}),
-		(e) => e.cause?.code === "23514",
+		(e) => pgCode(e) === "23514",
 	);
 	assert.equal(
-		(await admin.execute(querySql`SELECT title FROM document WHERE id=${querySql.param(x)}`)).rows[0].title,
+		firstRow(await admin.execute(querySql`SELECT title FROM document WHERE id=${querySql.param(x)}`)).title,
 		"Synthetic",
 	);
 	assert.equal(
-		(await admin.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE request_key='rollback-receipt'`))
-			.rows[0].n,
+		firstRow(
+			await admin.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE request_key='rollback-receipt'`),
+		).n,
 		0,
 	);
 	const sql =
@@ -524,8 +559,9 @@ test("AC:AUDIT-001 AC:AUDIT-002 INV-transaction: audit failure rolls back domain
 	await runtime.execute(statement(sql, [p, x]));
 	await runtime.execute(statement(sql, [p, x]));
 	assert.equal(
-		(await admin.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${querySql.param(x)}`))
-			.rows[0].n,
+		firstRow(
+			await admin.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${querySql.param(x)}`),
+		).n,
 		1,
 	);
 });
@@ -533,14 +569,14 @@ test("AC:AUDIT-003 INV-audit: exact UTF-8 limit for audit changed fields", async
 	const x = await doc(p);
 	const sql =
 		"INSERT INTO audit_event(tenant_id,subject_id,kind,occurred_at,recorded_at,system_cause,event_key,action,metadata) VALUES($1,$2,'edit',now(),now(),'synthetic',$3,'documents.saved',jsonb_build_object('diff',$4::jsonb))";
-	const size = (n) => JSON.stringify({ x: "a".repeat(n - 9) });
+	const size = (n: number) => JSON.stringify({ x: "a".repeat(n - 9) });
 	await runtime.execute(statement(sql, [p, x, "boundary", size(2048)]));
 	assert.equal(
-		(
+		firstRow(
 			await admin.execute(
 				querySql`SELECT octet_length(convert_to((metadata->'diff')::text,'UTF8')) n FROM audit_event WHERE subject_id=${querySql.param(x)}`,
-			)
-		).rows[0].n,
+			),
+		).n,
 		2048,
 	);
 	await rejected(sql, [p, x, "oversized", size(2049)]);
@@ -550,7 +586,7 @@ test("INV-calendar-revision: canonical named zones and full int64 precision in r
 		querySql`UPDATE plant SET timezone=${querySql.param(canonicalTimeZone("US/Eastern"))},revision=${querySql.param("9223372036854775807")} WHERE id=${querySql.param(p)}`,
 	);
 	assert.deepEqual(
-		(await admin.execute(querySql`SELECT timezone,revision FROM plant WHERE id=${querySql.param(p)}`)).rows[0],
+		firstRow(await admin.execute(querySql`SELECT timezone,revision FROM plant WHERE id=${querySql.param(p)}`)),
 		{
 			timezone: "America/New_York",
 			revision: "9223372036854775807",
@@ -562,17 +598,12 @@ test("INV-calendar-revision: canonical named zones and full int64 precision in r
 });
 test("INV-storage: a malformed upload key is refused before any statement or provider call", async () => {
 	let providerCalls = 0;
-	const untouched = {
-		bucket: "synthetic-only",
-		client: {
-			send: async () => {
-				providerCalls += 1;
-				throw new Error("offline");
-			},
-		},
-	};
+	const untouched = storageOf("synthetic-only", async () => {
+		providerCalls += 1;
+		throw new Error("offline");
+	});
 	const refusing = async () => assert.fail("the authorizer ran");
-	const files = async () => (await admin.execute(querySql`SELECT count(*)::int n FROM file_object`)).rows[0].n;
+	const files = async () => firstRow(await admin.execute(querySql`SELECT count(*)::int n FROM file_object`)).n;
 	const before = await files();
 	for (const uploadKey of [
 		"",
@@ -622,45 +653,37 @@ test("INV-storage: a malformed upload key is refused before any statement or pro
 
 test("INV-storage: server-owned key, current authorization, five-minute signing and fenced cleanup", async () => {
 	const bytes = Buffer.from(pdf());
-	const saved = new Map();
-	const fake = {
-		client: {
-			send: async (command) => {
-				const i = command.input;
-				if (command.constructor.name === "GetBucketAclCommand")
-					return {
-						Grants: [{ Permission: "FULL_CONTROL", Grantee: { Type: "CanonicalUser", ID: "synthetic-owner" } }],
-					};
-				if (command.constructor.name === "PutObjectCommand") {
-					if (saved.has(i.Key)) {
-						const error = new Error("already present");
-						error.name = "PreconditionFailed";
-						throw error;
-					}
-					saved.set(i.Key, Buffer.from(i.Body));
-					return {};
-				}
-				if (command.constructor.name === "GetObjectCommand") {
-					const body = saved.get(i.Key);
-					return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
-				}
-				if (command.constructor.name === "DeleteObjectCommand") {
-					saved.delete(i.Key);
-					return {};
-				}
-				throw Error("unexpected");
-			},
-		},
-		bucket: "synthetic-only",
+	const saved = new Map<string | undefined, Buffer>();
+	const answer = async (command: Sent) => {
+		const i = command.input;
+		if (command.constructor.name === "GetBucketAclCommand")
+			return {
+				Grants: [{ Permission: "FULL_CONTROL", Grantee: { Type: "CanonicalUser", ID: "synthetic-owner" } }],
+			};
+		if (command.constructor.name === "PutObjectCommand") {
+			if (saved.has(i.Key)) {
+				const error = new Error("already present");
+				error.name = "PreconditionFailed";
+				throw error;
+			}
+			saved.set(i.Key, Buffer.from(i.Body ?? []));
+			return {};
+		}
+		if (command.constructor.name === "GetObjectCommand") {
+			const body = saved.get(i.Key);
+			if (!body) throw Error("no stored object at " + i.Key);
+			return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
+		}
+		if (command.constructor.name === "DeleteObjectCommand") {
+			saved.delete(i.Key);
+			return {};
+		}
+		throw Error("unexpected");
 	};
-	const publicBucket = {
-		bucket: "public-fixture",
-		client: {
-			send: async () => ({
-				Grants: [{ Grantee: { URI: "http://acs.amazonaws.com/groups/global/AllUsers" }, Permission: "READ" }],
-			}),
-		},
-	};
+	const fake = storageOf("synthetic-only", answer);
+	const publicBucket = storageOf("public-fixture", async () => ({
+		Grants: [{ Grantee: { URI: "http://acs.amazonaws.com/groups/global/AllUsers" }, Permission: "READ" }],
+	}));
 	await assert.rejects(
 		putPrivateObject(runtime, publicBucket, authorizer, {
 			tenantId: p,
@@ -678,11 +701,13 @@ test("INV-storage: server-owned key, current authorization, five-minute signing 
 		bytes,
 		uploadKey: randomUUID(),
 	});
-	const recordCount = (await admin.execute(querySql`SELECT count(*)::int n FROM record WHERE kind='file_object'`))
-		.rows[0].n;
-	const uploadKey = (
-		await admin.execute(querySql`SELECT upload_key FROM file_object WHERE id=${querySql.param(uploaded.id)}`)
-	).rows[0].upload_key;
+	const recordCount = firstRow(
+		await admin.execute(querySql`SELECT count(*)::int n FROM record WHERE kind='file_object'`),
+	).n;
+	const uploadKey = textOf(
+		firstRow(await admin.execute(querySql`SELECT upload_key FROM file_object WHERE id=${querySql.param(uploaded.id)}`))
+			.upload_key,
+	);
 	assert.deepEqual(
 		await putPrivateObject(runtime, fake, authorizer, {
 			tenantId: p,
@@ -694,23 +719,23 @@ test("INV-storage: server-owned key, current authorization, five-minute signing 
 		uploaded,
 	);
 	assert.equal(
-		(await admin.execute(querySql`SELECT count(*)::int n FROM record WHERE kind='file_object'`)).rows[0].n,
+		firstRow(await admin.execute(querySql`SELECT count(*)::int n FROM record WHERE kind='file_object'`)).n,
 		recordCount,
 	);
 	assert.equal(
-		(
+		firstRow(
 			await admin.execute(
 				querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${querySql.param(uploaded.id)} AND action='files.finalized'`,
-			)
-		).rows[0].n,
+			),
+		).n,
 		1,
 	);
 	assert.deepEqual(Buffer.from(await readAuthorizedObject(runtime, fake, authorizer, uploaded.id)), bytes);
-	const stored = (
-		await admin.execute(querySql`SELECT opaque_key,state FROM file_object WHERE id=${querySql.param(uploaded.id)}`)
-	).rows[0];
+	const stored = firstRow(
+		await admin.execute(querySql`SELECT opaque_key,state FROM file_object WHERE id=${querySql.param(uploaded.id)}`),
+	);
 	assert.equal(stored.state, "ready");
-	assert.match(stored.opaque_key, new RegExp("^private/" + p + "/[a-f0-9-]{36}$"));
+	assert.match(textOf(stored.opaque_key), new RegExp("^private/" + p + "/[a-f0-9-]{36}$"));
 	await assert.rejects(
 		readAuthorizedObject(runtime, fake, async () => null, uploaded.id),
 		/unavailable/,
@@ -741,7 +766,7 @@ test("INV-storage: server-owned key, current authorization, five-minute signing 
 		"INSERT INTO document_revision(tenant_id,document_id,version_number,body,content_hash,import_object_id,recorded_at) VALUES($1,$2,2,'late bind',$3,$4,now())",
 		[p, d, hash, uploaded.id],
 	);
-	const retryInput = {
+	const retryInput: Parameters<typeof putPrivateObject>[3] = {
 		tenantId: p,
 		purpose: "commitment",
 		mediaType: "application/pdf",
@@ -749,41 +774,36 @@ test("INV-storage: server-owned key, current authorization, five-minute signing 
 		uploadKey: randomUUID(),
 	};
 	let lost = true;
-	const lostResponse = {
-		bucket: "synthetic-only",
-		client: {
-			send: async (command) => {
-				const result = await fake.client.send(command);
-				if (command.constructor.name === "PutObjectCommand" && lost) {
-					lost = false;
-					throw Error("response lost after accepted PUT");
-				}
-				return result;
-			},
-		},
-	};
+	const lostResponse = storageOf("synthetic-only", async (command) => {
+		const result = await answer(command);
+		if (command.constructor.name === "PutObjectCommand" && lost) {
+			lost = false;
+			throw Error("response lost after accepted PUT");
+		}
+		return result;
+	});
 	await assert.rejects(putPrivateObject(runtime, lostResponse, authorizer, retryInput), /unavailable/);
-	const pending = (
+	const pending = firstRow(
 		await admin.execute(
 			querySql`SELECT id,opaque_key,expires_at FROM file_object WHERE upload_key=${querySql.param(retryInput.uploadKey)}`,
-		)
-	).rows[0];
+		),
+	);
 	const recovered = await putPrivateObject(runtime, fake, authorizer, retryInput);
 	assert.deepEqual(recovered, { id: pending.id });
 	assert.deepEqual(
-		(
+		firstRow(
 			await admin.execute(
 				querySql`SELECT id,opaque_key,expires_at FROM file_object WHERE upload_key=${querySql.param(retryInput.uploadKey)}`,
-			)
-		).rows[0],
+			),
+		),
 		pending,
 	);
 	assert.equal(
-		(
+		firstRow(
 			await admin.execute(
 				querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${querySql.param(recovered.id)} AND action='files.finalized'`,
-			)
-		).rows[0].n,
+			),
+		).n,
 		1,
 	);
 	await deleteUnreferencedObject(runtime, fake, authorizer, recovered.id);
@@ -794,17 +814,12 @@ test("INV-storage: server-owned key, current authorization, five-minute signing 
 		bytes,
 		uploadKey: randomUUID(),
 	});
-	const failing = {
-		bucket: "synthetic-only",
-		client: {
-			send: async () => {
-				throw Error("lost response");
-			},
-		},
-	};
+	const failing = storageOf("synthetic-only", async () => {
+		throw Error("lost response");
+	});
 	assert.deepEqual(await deleteUnreferencedObject(runtime, failing, authorizer, second.id), { status: "unknown" });
 	assert.equal(
-		(await admin.execute(querySql`SELECT state FROM file_object WHERE id=${querySql.param(second.id)}`)).rows[0].state,
+		firstRow(await admin.execute(querySql`SELECT state FROM file_object WHERE id=${querySql.param(second.id)}`)).state,
 		"cleanup",
 	);
 	assert.deepEqual(await deleteUnreferencedObject(runtime, fake, authorizer, second.id), { status: "inaccessible" });
@@ -834,19 +849,19 @@ test("INV-auth-adapter: pinned Better Auth uses app-owned physical UUID and snak
 	const signed = await auth.api.signInEmail({ body: { email, password: "Synthetic-Baseline-123!" } });
 	assert.equal(signed.user.id, result.user.id);
 	assert.equal(
-		(
+		firstRow(
 			await admin.execute(
 				querySql`SELECT count(*)::int n FROM auth_account WHERE user_id=${querySql.param(result.user.id)}`,
-			)
-		).rows[0].n,
+			),
+		).n,
 		1,
 	);
 	assert.equal(
-		(
+		firstRow(
 			await admin.execute(
 				querySql`SELECT count(*)::int n FROM account WHERE auth_user_id=${querySql.param(result.user.id)}`,
-			)
-		).rows[0].n,
+			),
+		).n,
 		0,
 	);
 });

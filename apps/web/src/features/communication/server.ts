@@ -1,5 +1,7 @@
+import type { Outcome } from "@everyfield/contracts/common";
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
+import { getViewer, seatOf, type PlantSeat } from "@/server/request-context";
+import { outcomeOf } from "@everyfield/contracts/common";
 import {
 	communicationWriter,
 	withCommunicationWrite,
@@ -7,15 +9,14 @@ import {
 	type CommunicationReply,
 } from "@everyfield/domain/communication";
 import "server-only";
-import type { Outcome, PageData } from "./model.ts";
+import type { PageData } from "./model.ts";
 import { appOrigin, mailReady, type MailReady } from "../../server/mail/transport.ts";
 import { canWrite } from "../../components/seat-role.ts";
 import { LOST, transient } from "../../server/platform/transient.ts";
+import { readTx, guardedWrite } from "../../server/platform/tx.ts";
 import type { WriteTx } from "@everyfield/domain/access";
-import { gatedTransaction } from "@everyfield/domain/operations";
 
-type Peopled = NonNullable<Awaited<ReturnType<typeof getViewer>>["people"]>;
-export type Viewer = Peopled;
+export type Viewer = PlantSeat;
 
 export async function communicationViewer() {
 	return transient(
@@ -23,7 +24,7 @@ export async function communicationViewer() {
 		async () => {
 			const viewer = await getViewer();
 			return {
-				viewer: viewer.people ?? null,
+				viewer: seatOf(viewer),
 				email: viewer.email ?? null,
 				signedOut: viewer.status === "unauthenticated",
 				ok: true,
@@ -33,32 +34,19 @@ export async function communicationViewer() {
 	);
 }
 
-const outcome = <T>(reply: CommunicationReply<T>): Outcome<T> =>
-	reply.status === "ok" ? { status: "ok", value: reply.value } : { status: "refused", code: reply.error.code };
-
 export async function read<T>(
 	viewer: Viewer,
 	run: (tx: WriteTx) => Promise<CommunicationReply<T>>,
 ): Promise<Outcome<T>> {
-	const db = requestDatabase();
-	return transient(
-		{ component: "communication", outcome: "read_failed" },
-		async () => outcome(await gatedTransaction(db, (tx) => run(tx))),
-		LOST,
-	);
+	return readTx("communication", async (tx) => outcomeOf(await run(tx)));
 }
 
 export async function write<T>(
 	viewer: Viewer,
 	run: (tx: WriteTx, context: CommunicationContext) => Promise<CommunicationReply<T>>,
 ): Promise<Outcome<T>> {
-	const db = requestDatabase();
-	return transient(
-		{ component: "communication", outcome: "write_failed" },
-		async () => {
-			return outcome(await withCommunicationWrite(db, viewer.authority, run));
-		},
-		LOST,
+	return guardedWrite("communication", async () =>
+		outcomeOf(await withCommunicationWrite(requestDatabase(), viewer.authority, run)),
 	);
 }
 
@@ -83,7 +71,7 @@ export async function deliverAs<T>(
 	const db = requestDatabase();
 	return transient(
 		{ component: "communication", outcome: "delivery_failed" },
-		async () => outcome(await run(db, viewer, mail)),
+		async () => outcomeOf(await run(db, viewer, mail)),
 		LOST,
 	);
 }

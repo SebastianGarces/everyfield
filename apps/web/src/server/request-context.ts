@@ -1,9 +1,15 @@
 import "server-only";
-import { readRequestViewer } from "@everyfield/domain/access";
+import {
+	organizationSeatContext,
+	readRequestViewer,
+	type OrganizationSeatContext,
+	type RequestActor,
+} from "@everyfield/domain/access";
 import { signedSessionToken } from "@everyfield/domain/identity";
 import { peopleViewer } from "@everyfield/domain/people";
 import { sessionResult } from "@everyfield/contracts/identity";
 import { avatarReference } from "@everyfield/contracts/settings";
+import type { Refused } from "@everyfield/contracts/common";
 import { requestDatabase } from "./database";
 import { serverConfigProblem } from "./config.ts";
 import { cookies, headers } from "next/headers";
@@ -70,3 +76,41 @@ export const getViewer = cache(async () => {
 		avatar: v.avatar && avatarReference.parse({ accountId: v.accountId, versionId: v.avatar }),
 	};
 });
+
+export type Viewer = Awaited<ReturnType<typeof getViewer>>;
+export type PlantSeat = NonNullable<Viewer["people"]> & { accountName: string };
+
+export const seatOf = (v: Viewer): PlantSeat | null => v.people && { ...v.people, accountName: v.displayName ?? "" };
+
+export type OrganizationSeat = {
+	authority: RequestActor;
+	organization: OrganizationSeatContext["owner"];
+	role: OrganizationSeatContext["role"];
+};
+
+export function organizationSeatOf(authority: RequestActor | null): OrganizationSeat | null {
+	if (!authority) return null;
+	const context = organizationSeatContext(authority);
+	if (!context) return null;
+	return { authority, organization: context.owner, role: context.role };
+}
+
+export async function viewerActor(): Promise<RequestActor | null> {
+	return (await getViewer()).authority;
+}
+
+export const organizationSeat = cache(async (): Promise<OrganizationSeat | null> =>
+	organizationSeatOf(await viewerActor()),
+);
+
+export async function plantSeat(): Promise<PlantSeat | null> {
+	return seatOf(await getViewer());
+}
+
+export async function seated<const C extends string, R>(
+	refusal: C,
+	run: (seat: PlantSeat) => Promise<R>,
+): Promise<R | Refused<C>> {
+	const seat = await plantSeat();
+	return seat ? run(seat) : { status: "refused", code: refusal };
+}

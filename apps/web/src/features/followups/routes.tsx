@@ -1,54 +1,42 @@
-import { getViewer } from "@/server/request-context";
+import { type PlantSeat } from "@/server/request-context";
+import { requireSeat } from "@/server/sign-in";
+import type { SitePath } from "@everyfield/contracts/identity";
 import { recordId } from "@everyfield/contracts/common";
 import { followUpReader } from "@everyfield/domain/followups";
-import { LockKeyIcon } from "@hugeicons/core-free-icons";
-import { buttonVariants, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import { buttonVariants, Card, PageState, Skeleton } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { Fresh } from "../tasks/fresh.tsx";
 import { CallScreen } from "./CallScreen.tsx";
 import { FollowUpsScreen, type Data, type Filter } from "./FollowUpsScreen.tsx";
-import { outcomeOf, type Outcome } from "./model.ts";
-import { administers, COVERAGE_PAGE, loadCall, read, readOwners, taskViewer, type TaskViewer } from "./server.ts";
+import { outcomeOf, type Outcome } from "@everyfield/contracts/common";
+import { readTx } from "../../server/platform/tx.ts";
+import { administers, COVERAGE_PAGE, loadCall, readOwners } from "./server.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const robots = { index: false, follow: false };
 export const callMetadata: Metadata = { title: "Follow-up", robots };
 export const followUpsMetadata: Metadata = { title: "Follow-ups", robots };
 
-async function gate(returnTo: string, title: string): Promise<{ viewer: TaskViewer } | { blocked: ReactNode }> {
-	const viewer = await taskViewer();
+async function gate(returnTo: SitePath, title: string): Promise<{ viewer: PlantSeat } | { blocked: ReactNode }> {
+	const viewer = await requireSeat(returnTo);
 	if (viewer) return { viewer };
-	const v = await getViewer();
-	if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
 	return {
 		blocked: (
-			<Blocked title={title}>
-				<StatePanel tone="lock" icon={LockKeyIcon} title="Follow-ups are not part of your seat" headingLevel="h2">
-					Follow-ups belong to a church plant workspace. Your account has no current seat in one, so there is nothing to
-					show here.
-				</StatePanel>
-			</Blocked>
+			<PageState page={title} tone="lock" title="Follow-ups are not part of your seat">
+				Follow-ups belong to a church plant workspace. Your account has no current seat in one, so there is nothing to
+				show here.
+			</PageState>
 		),
 	};
 }
 
-function Blocked({ title, children }: { title: string; children: ReactNode }) {
-	return (
-		<>
-			<PageHeader size="xl" title={title} />
-			<Card>{children}</Card>
-		</>
-	);
-}
 const LoadFailed = ({ title }: { title: string }) => (
-	<Blocked title={title}>
-		<StatePanel tone="error" title="We could not load this follow-up" headingLevel="h2">
-			This is a loading problem. Nothing was changed. Reload the page in a moment.
-		</StatePanel>
-	</Blocked>
+	<PageState page={title} tone="error" title="We could not load this follow-up">
+		This is a loading problem. Nothing was changed. Reload the page in a moment.
+	</PageState>
 );
 
 export async function FollowUpCallPage({ params }: { params: Promise<{ taskId: string }> }) {
@@ -58,24 +46,22 @@ export async function FollowUpCallPage({ params }: { params: Promise<{ taskId: s
 	const g = await gate(`/follow-ups/${raw}`, "Follow-up");
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
-	const loaded = await read((tx) => loadCall(tx, viewer, id.data));
+	const loaded = await readTx("followups", (tx) => loadCall(tx, viewer, id.data));
 	if (loaded.status !== "ok") return <LoadFailed title="Follow-up" />;
 	if (loaded.value.kind === "missing") notFound();
 	if (loaded.value.kind === "not_follow_up")
 		return (
-			<Blocked title="Follow-up">
-				<StatePanel
-					title="This task is not a follow-up with a person"
-					headingLevel="h2"
-					actions={
-						<Link href={`/tasks?task=${loaded.value.taskId}`} className={buttonVariants({ variant: "secondary" })}>
-							Open the task
-						</Link>
-					}
-				>
-					Outcomes are recorded on follow-ups that name a person. Open the task to work on it there.
-				</StatePanel>
-			</Blocked>
+			<PageState
+				page="Follow-up"
+				title="This task is not a follow-up with a person"
+				actions={
+					<Link href={`/tasks?task=${loaded.value.taskId}`} className={buttonVariants({ variant: "secondary" })}>
+						Open the task
+					</Link>
+				}
+			>
+				Outcomes are recorded on follow-ups that name a person. Open the task to work on it there.
+			</PageState>
 		);
 	return <CallScreen initial={loaded.value.call} accountId={viewer.accountId} admin={administers(viewer)} />;
 }
@@ -91,7 +77,7 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
 	const admin = administers(viewer);
-	const loaded = await read(async (tx): Promise<Outcome<Data>> => {
+	const loaded = await readTx("followups", async (tx): Promise<Outcome<Data>> => {
 		if (!admin) {
 			const mine = outcomeOf(
 				await followUpReader.listFollowUpOwners(tx, viewer.authority, { owner: viewer.accountId, page, limit: 50 }),
@@ -110,11 +96,9 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 	});
 	if (loaded.status !== "ok")
 		return (
-			<Blocked title="Follow-ups">
-				<StatePanel tone="error" title="We could not load follow-ups" headingLevel="h2">
-					This is a loading problem, not an empty list. Reload the page in a moment.
-				</StatePanel>
-			</Blocked>
+			<PageState page="Follow-ups" tone="error" title="We could not load follow-ups">
+				This is a loading problem, not an empty list. Reload the page in a moment.
+			</PageState>
 		);
 	return (
 		<Fresh loading={<FollowUpsLoading />}>

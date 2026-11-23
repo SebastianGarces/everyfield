@@ -75,14 +75,15 @@ export function observeHeadings(
 	options: HeadingOptions = {},
 ): NodeRef<HTMLElement> {
 	return (container) => {
-		if (!container || ids.length === 0) return;
+		const [firstId] = ids;
+		if (!container || firstId === undefined) return;
 		const doc = container.ownerDocument;
 		const root = options.root?.(container) ?? null;
 		const offset = typeof options.offset === "function" ? options.offset(root) : (options.offset ?? 120);
 		let active: string | undefined;
 		const update = () => {
 			const line = (root ? root.getBoundingClientRect().top : 0) + offset;
-			let current = ids[0]!;
+			let current = firstId;
 			for (const id of ids) {
 				const heading = doc.getElementById(id);
 				if (heading && heading.getBoundingClientRect().top <= line) current = id;

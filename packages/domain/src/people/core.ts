@@ -13,7 +13,6 @@ import {
 	type SQLWrapper,
 } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import { randomUUID } from "node:crypto";
 import { hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
@@ -27,7 +26,6 @@ import {
 	checkedRead,
 	declareWrite,
 	prepareWrite,
-	WriteUnavailable,
 	type AuditWrite,
 	type WritePath,
 } from "../operations/writes.ts";
@@ -36,8 +34,23 @@ export { hash };
 import { revision } from "@everyfield/contracts/common";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
 import * as c from "@everyfield/contracts/people";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 export type Tx = WriteTx;
+export function only<T>(rows: readonly T[], what: string): T {
+	const [row] = rows;
+	if (row === undefined) throw Error(`${what} was not returned`);
+	return row;
+}
+export function known<K, V>(map: ReadonlyMap<K, V>, key: K, what: string): V {
+	const value = map.get(key);
+	if (value === undefined) throw Error(`${what} ${String(key)} was not read`);
+	return value;
+}
+function retiredAt(p: { id: string; retired_at: Date | null }) {
+	if (!p.retired_at) throw Error(`Person ${p.id} left the live state without a retirement time`);
+	return p.retired_at.toISOString();
+}
 export class PeopleReadContext {
 	readonly authority: RequestActor;
 	constructor(authority: RequestActor) {
@@ -52,59 +65,17 @@ export class PeopleReadContext {
 }
 export type Context = PeopleContext | PeopleReadContext;
 export type WriteContext = PeopleWriteContext;
-export class Refusal extends Error {
-	readonly code: z.infer<typeof c.peopleError>["code"];
-	readonly details: object;
-	constructor(code: z.infer<typeof c.peopleError>["code"], details: object = {}) {
-		super(code);
-		this.code = code;
-		this.details = details;
-	}
-}
-export function deny(code: Refusal["code"] = "unavailable", details?: object): never {
-	throw new Refusal(code, details);
-}
-function refused(error: Refusal): PeopleReply<never> {
-	const retry = c.peopleError.options.find((o) => o.shape.code.value === error.code)!.shape.retry.value;
-	return {
-		status: "refused",
-		error: c.peopleError.parse({
-			code: error.code,
-			details: error.details,
-			correlationId: randomUUID(),
-			retry,
-		}),
-	};
-}
-export async function readReply<T>(body: () => Promise<T>): Promise<PeopleReply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (error instanceof WriteUnavailable) return refused(new Refusal("unavailable"));
-		if (!(error instanceof Refusal)) throw error;
-		return refused(error);
-	}
-}
+const refusals = defineRefusals(c.peopleError, { writeUnavailable: "unavailable" });
+export const { Refusal, settle: readReply } = refusals;
+export const deny: Deny<typeof c.peopleError> = refusals.deny;
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<PeopleReply<T>> {
 	if (boundWrite(tx)) return { status: "ok", value: await body() };
-	try {
-		return { status: "ok", value: await auditSavepoint(tx, async () => body()) };
-	} catch (error) {
-		if (error instanceof WriteUnavailable) return refused(new Refusal("unavailable"));
-		if (!(error instanceof Refusal)) throw error;
-		return refused(error);
-	}
+	return readReply(() => auditSavepoint(tx, async () => body()));
 }
 
 export async function replyWithoutSavepoint<T>(tx: Tx, body: () => Promise<T>): Promise<PeopleReply<T>> {
 	if (boundWrite(tx)) return { status: "ok", value: await body() };
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (error instanceof WriteUnavailable) return refused(new Refusal("unavailable"));
-		if (!(error instanceof Refusal)) throw error;
-		return refused(error);
-	}
+	return readReply(body);
 }
 
 export async function withPeopleWrite<T>(
@@ -138,10 +109,10 @@ export async function authorize(tx: Tx, context: Context, write = false) {
 	return seated(context, actor, write);
 }
 function seated(context: Context, actor: Awaited<ReturnType<typeof currentActor>>, write: boolean) {
-	if (actor.status !== "active" || !["plant", "organization"].includes(context.selected.kind)) deny();
+	if (actor.status !== "active" || !["plant", "organization"].includes(context.selected.kind)) deny("unavailable");
 	const seat = actor.context;
-	if (seat.kind !== "seat") deny();
-	if (write && !isAdministrator(actor)) deny();
+	if (seat.kind !== "seat") deny("unavailable");
+	if (write && !isAdministrator(actor)) deny("unavailable");
 	return { ...actor, context: seat };
 }
 export async function authorizeRead(tx: Tx, context: Context) {
@@ -164,7 +135,7 @@ export const lockedWrite = sql`true`;
 export async function lockOwner(tx: Tx, context: Context) {
 	const locked = boundWrite(tx);
 	if (locked && locked.selected.id === context.selected.id && locked.selected.kind === context.selected.kind) return;
-	if (!(await RequestActor.claimWrite(tx, context.session, context.selected))) deny();
+	if (!(await RequestActor.claimWrite(tx, context.session, context.selected))) deny("unavailable");
 }
 export const personRow = z.object({
 	id: z.uuid(),
@@ -202,31 +173,32 @@ export const personColumns = {
 	plant_today: sql<string | null>`${plantTodaySql(sql`${tables.person.plant_id}`)}`.as("plant_today"),
 };
 export type Person = z.infer<typeof personRow>;
+export const personQuery = (tx: Tx, context: Pick<Context, "selected">, id: string, where?: SQL) =>
+	tx
+		.select(personColumns)
+		.from(tables.person)
+		.where(and(eq(tables.person.id, id), eq(tables.person.tenant_id, context.selected.id), where, unremoved(tx)));
 export async function person(
 	tx: Tx,
 	context: Pick<Context, "selected">,
 	id: string,
 	lock: true | SQL,
 ): Promise<Person> {
-	const query = tx
-		.select(personColumns)
-		.from(tables.person)
-		.where(
-			and(
-				eq(tables.person.id, id),
-				eq(tables.person.tenant_id, context.selected.id),
-				lock === true ? undefined : lock,
-				unremoved(tx),
-			),
-		);
+	const query = personQuery(tx, context, id, lock === true ? undefined : lock);
 	const checked = lock === true ? await checkedRead(tx, query.getSQL(), sql`FOR UPDATE OF ${tables.person}`) : null;
 	if (checked) {
-		if (!checked[0]) deny();
+		if (!checked[0]) deny("unavailable");
 		return personRow.parse(checked[0]);
 	}
 	const rows = await (lock === true ? query.for("update", { of: tables.person }) : query);
-	if (!rows[0]!) deny();
-	return personRow.parse(rows[0]!);
+	if (!rows[0]) deny("unavailable");
+	return personRow.parse(rows[0]);
+}
+export async function lockPersonWith(tx: Tx, context: Pick<Context, "selected">, id: string, columns: SQL) {
+	const subject = sql`subject AS MATERIALIZED (${personQuery(tx, context, id).getSQL()} FOR UPDATE OF ${tables.person})`;
+	const r = await tx.execute(sql`WITH ${subject} SELECT subject.*, ${columns} FROM subject`);
+	const row = r.rows[0] ?? deny("unavailable");
+	return { person: personRow.parse(row), row };
 }
 const unremoved = (tx: Tx) =>
 	notExists(
@@ -246,12 +218,12 @@ export async function canReadPerson(tx: Tx, context: Context, p: Person, actor?:
 		const r = await readPipelinePerson(tx, context.session, context.selected, {
 			personId: p.id,
 		});
-		if (r.status !== "allowed") deny();
+		if (r.status !== "allowed") deny("unavailable");
 	}
 	return a;
 }
 export async function project(tx: Tx, context: Context, p: Person, gate: SQL) {
-	return (await projectPeople(tx, context, [p], gate))[0]!;
+	return only(await projectPeople(tx, context, [p], gate), `Projected person ${p.id}`);
 }
 export async function projectPeople(tx: Tx, context: Context, rows: Person[], gate: SQL) {
 	const people = await withToday(tx, context, rows);
@@ -299,6 +271,20 @@ export type Evidence = {
 	signed_on: string;
 	revision: string;
 };
+export const evidenceOf = (raw: unknown): Evidence[] =>
+	raw
+		? [
+				z
+					.object({
+						person_id: z.uuid(),
+						id: z.uuid(),
+						kind: z.enum(["core_group", "launch_team"]),
+						signed_on: z.string(),
+						revision: z.string(),
+					})
+					.parse(raw),
+			]
+		: [];
 export const evidenceJson = (plant: string, person: SQL) =>
 	sql`(SELECT jsonb_build_object('person_id',k.person_id,'id',k.id,'kind',k.kind,'signed_on',k.signed_on::text,'revision',k.revision::text)
  FROM commitment k WHERE k.plant_id=${plant}::uuid AND k.person_id=${person} AND k.voided_at IS NULL ORDER BY k.signed_on DESC,k.id DESC LIMIT 1)`;
@@ -324,10 +310,10 @@ export function projectWith(context: Pick<Context, "selected">, people: Person[]
 				p.state === "live"
 					? { state: "live" }
 					: p.state === "retired"
-						? { state: "retired", retiredAt: p.retired_at!.toISOString() }
+						? { state: "retired", retiredAt: retiredAt(p) }
 						: {
 								state: "merged",
-								retiredAt: p.retired_at!.toISOString(),
+								retiredAt: retiredAt(p),
 								survivorId: p.merged_into_person_id,
 							},
 		};
@@ -501,7 +487,7 @@ export async function mutation<T>(
 	if (orgNote) {
 		const subject = parse(z.object({ input: z.object({ personId: z.uuid() }) }), input).input.personId;
 		const access = await readPipelinePerson(tx, context.session, context.selected, { personId: subject });
-		if (access.status !== "allowed" || !access.duties.some((d) => d.canReadStaffNotes)) deny();
+		if (access.status !== "allowed" || !access.duties.some((d) => d.canReadStaffNotes)) deny("unavailable");
 	}
 	const digest = hash({ name, input, origin: { kind: "native" } });
 	const identity = requestIdentity.parse({
@@ -513,7 +499,7 @@ export async function mutation<T>(
 	});
 	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "conflict") deny("conflict");
-	if (claim.kind === "unavailable") deny();
+	if (claim.kind === "unavailable") deny("unavailable");
 	if (claim.kind === "replay") {
 		if (
 			context.selected.kind === "organization" &&
@@ -529,7 +515,7 @@ export async function mutation<T>(
 					)
 			).length
 		)
-			deny();
+			deny("unavailable");
 		return claim.value;
 	}
 
@@ -589,7 +575,7 @@ export function expected(p: Person, revision: string) {
 	if (p.revision !== revision) deny("conflict");
 }
 export function live(p: Person) {
-	if (p.state !== "live") deny();
+	if (p.state !== "live") deny("unavailable");
 }
 
 const isAdministrator = (actor: { context: { kind: string; role?: string } }) =>

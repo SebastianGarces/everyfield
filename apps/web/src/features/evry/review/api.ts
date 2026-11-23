@@ -1,3 +1,4 @@
+import { refusedWith } from "@everyfield/contracts/common";
 import { call, type Reply } from "../conversation/api.ts";
 import type { ProjectedError } from "../conversation/model.ts";
 import type { Operation, Review } from "./model.ts";
@@ -24,7 +25,7 @@ export async function readStagedPhoto(id: string): Promise<Reply<Blob>> {
 		const r = await fetch(`/api/evry/proposals/${id}/photo`, { cache: "no-store" });
 		if (r.ok) return { status: "ok", value: await r.blob() };
 		const json = (await r.json().catch(() => null)) as { error?: ProjectedError } | null;
-		return json?.error?.outcome === "refused" ? { status: "refused", error: json.error } : { status: "lost" };
+		return json?.error?.outcome === "refused" ? refusedWith(json.error) : { status: "lost" };
 	} catch {
 		return { status: "lost" };
 	}

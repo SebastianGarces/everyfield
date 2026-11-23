@@ -1,20 +1,12 @@
-import { accountId, requestIdentity, sameOwner, sessionId, tenantId, type Owner } from "@everyfield/contracts/common";
+import { accountId, requestIdentity, sameOwner, sessionId, type Owner } from "@everyfield/contracts/common";
 import { settingsError } from "@everyfield/contracts/settings";
 import type { SettingsContext, SettingsReply } from "@everyfield/contracts/settings/server";
 import type { Database } from "@everyfield/db/client";
-import { and, eq, isNull, sql } from "@everyfield/db/query";
+import { eq, sql, type SQL } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
-import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import {
-	boundWrite,
-	currentActor,
-	currentWriteAllowed,
-	liveOwner,
-	RequestActor,
-	type WriteTx,
-} from "../access/session.ts";
+import { boundWrite, currentActor, currentWriteAllowed, RequestActor, type WriteTx } from "../access/session.ts";
 import {
 	auditSavepoint,
 	auditTransaction,
@@ -23,8 +15,8 @@ import {
 	lockedWrite,
 	nativeWrite,
 	prepareWrite,
-	WriteUnavailable,
 } from "../operations/writes.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 import { canonical, hash } from "../operations/canonical.ts";
 import { appendEvent } from "../organizations/core.ts";
 export { appendEvent, canonical, sameOwner };
@@ -33,16 +25,9 @@ export type Context = SettingsContext;
 export type WriteContext = SettingsContext;
 export const now = sql<Date>`clock_timestamp()`.mapWith((v: string) => new Date(v));
 export { hash };
-export class Refusal extends Error {
-	readonly code: z.infer<typeof settingsError>["code"];
-	constructor(code: z.infer<typeof settingsError>["code"] = "unavailable") {
-		super(code);
-		this.code = code;
-	}
-}
-export function deny(code?: Refusal["code"]): never {
-	throw new Refusal(code);
-}
+const refusals = defineRefusals(settingsError, { writeUnavailable: "unavailable" });
+export const { Refusal } = refusals;
+export const deny: Deny<typeof settingsError> = refusals.deny;
 export function parse<S extends z.ZodType>(schema: S, input: unknown): z.output<S> {
 	const r = schema.safeParse(input);
 	if (!r.success) deny("invalid_input");
@@ -58,21 +43,8 @@ export async function reply<T>(tx: Tx, body: (tx: Tx) => Promise<T>): Promise<Se
 export async function recover<T>(body: () => Promise<SettingsReply<T>>): Promise<SettingsReply<T>> {
 	try {
 		return await body();
-	} catch (e) {
-		if (e instanceof WriteUnavailable) e = new Refusal("unavailable");
-		if (!(e instanceof Refusal)) throw e;
-		const retry =
-			e.code === "conflict" || e.code === "stale_preview"
-				? "refresh"
-				: e.code === "temporary"
-					? "same_request"
-					: e.code === "unknown"
-						? "reconcile"
-						: "never";
-		return {
-			status: "refused",
-			error: settingsError.parse({ code: e.code, details: {}, correlationId: randomUUID(), retry }),
-		};
+	} catch (error) {
+		return refusals.refusalOf(error);
 	}
 }
 export async function actor(tx: Tx, ctx: Context, use: "read" | "command" | "preview" = "read") {
@@ -83,7 +55,7 @@ export async function actor(tx: Tx, ctx: Context, use: "read" | "command" | "pre
 		bound.selected.id === ctx.selected.id &&
 		bound.selected.kind === ctx.selected.kind
 	) {
-		if (use !== "command" && !(await currentWriteAllowed(tx, bound.actor.accountId, ctx.selected))) deny();
+		if (use !== "command" && !(await currentWriteAllowed(tx, bound.actor.accountId, ctx.selected))) deny("unavailable");
 		return {
 			identity: bound.actor,
 			account: bound.account,
@@ -96,8 +68,9 @@ export async function actor(tx: Tx, ctx: Context, use: "read" | "command" | "pre
 
 	if (use !== "read") {
 		const locked = await RequestActor.claimWrite(tx, ctx.session, ctx.selected);
-		if (!locked) deny();
-		if (use === "preview" && !(await currentWriteAllowed(tx, locked.actor.accountId, ctx.selected))) deny();
+		if (!locked) deny("unavailable");
+		if (use === "preview" && !(await currentWriteAllowed(tx, locked.actor.accountId, ctx.selected)))
+			deny("unavailable");
 		return { ...locked, identity: locked.actor };
 	}
 
@@ -105,17 +78,17 @@ export async function actor(tx: Tx, ctx: Context, use: "read" | "command" | "pre
 	const p = z
 		.object({ account_id: accountId, display_name: z.string(), email: z.string(), verified: z.boolean() })
 		.safeParse(raw.rows[0]);
-	if (!p.success || !p.data.verified) deny();
+	if (!p.success || !p.data.verified) deny("unavailable");
 
 	const a = await currentActor(tx, ctx.session, ctx.selected);
-	if (a.status !== "active") deny();
+	if (a.status !== "active") deny("unavailable");
 	const [account] = await tx.select().from(t.account).where(eq(t.account.id, a.accountId));
-	if (!account) deny();
+	if (!account) deny("unavailable");
 	return { identity: a, account, principal: p.data, plant: null, organization: null, setup: null };
 }
 export async function self(tx: Tx, ctx: Context, use: "read" | "command" | "preview" = "command") {
 	const a = await actor(tx, ctx, use);
-	if (ctx.selected.kind !== "account" || ctx.selected.id !== a.account.id) deny();
+	if (ctx.selected.kind !== "account" || ctx.selected.id !== a.account.id) deny("unavailable");
 	return a;
 }
 
@@ -127,10 +100,10 @@ export async function plantAdmin(tx: Tx, ctx: Context, plant: Owner, use: "read"
 		a.identity.context.kind !== "seat" ||
 		a.identity.context.role === "member"
 	)
-		deny();
+		deny("unavailable");
 	if (a.plant) return { ...a, plant: a.plant };
 	const [row] = await tx.select().from(t.plant).where(eq(t.plant.id, plant.id));
-	if (!row) deny();
+	if (!row) deny("unavailable");
 	return { ...a, plant: row };
 }
 export type Command = { requestKey: string; expectedRevision: string; input: unknown };
@@ -154,7 +127,7 @@ export async function begin(tx: Tx, ctx: WriteContext, actorId: string, name: Se
 		digest: hash(q),
 	});
 	const claim = await prepareWrite(tx, identity);
-	if (claim.kind === "unavailable") deny();
+	if (claim.kind === "unavailable") deny("unavailable");
 	if (claim.kind === "conflict") deny("conflict");
 
 	if (claim.kind === "replay") {
@@ -184,20 +157,12 @@ export const preference = (a: typeof t.account.$inferSelect) =>
 	a.personal_timezone === null
 		? { status: "unconfirmed" as const }
 		: { status: "confirmed" as const, timeZone: a.personal_timezone, revision: a.personal_timezone_revision };
+export const calendarSeat = (account: SQL) =>
+	sql<boolean>`coalesce((SELECT e.kind='plant' AND NOT EXISTS(SELECT FROM (SELECT 1 FROM lifecycle_witness h WHERE h.kind='plant' AND h.opaque_subject_id=e.id AND h.state<>'cancelled' LIMIT 1 FOR SHARE) x)
+ FROM (SELECT p.id, n.kind FROM seat s JOIN plant p ON p.id=s.plant_id JOIN tenant n ON n.id=p.id WHERE s.account_id=${account} AND s.ended_at IS NULL AND s.role IN ('owner','admin') LIMIT 1 FOR SHARE OF p) e), false)`;
 export async function calendarEligible(tx: Tx, id: string) {
-	const [s] = await tx
-		.select()
-		.from(t.seat)
-		.where(
-			and(
-				eq(t.seat.account_id, id),
-				isNull(t.seat.ended_at),
-				sql`${t.seat.role} IN ('owner','admin')`,
-				sql`${t.seat.plant_id} IS NOT NULL`,
-				sql`NOT EXISTS (SELECT FROM ${t.lifecycle_witness} w WHERE w.seat_id=${t.seat.id} AND w.state NOT IN ('active','cancelled'))`,
-			),
-		);
-	return !!s && (await liveOwner(tx, { kind: "plant", id: tenantId.parse(s.plant_id) }));
+	const read = await tx.execute(sql`SELECT ${calendarSeat(sql`${id}::uuid`)} AS eligible`);
+	return z.object({ eligible: z.boolean() }).parse(read.rows[0]).eligible;
 }
 
 export async function withSettingsWrite<T>(

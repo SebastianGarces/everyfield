@@ -1,0 +1,248 @@
+import test, { before, after } from "node:test";
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import {
+	approveProposal,
+	createConversation,
+	executeProposal,
+	prepareProposal,
+	readReview,
+	submitTurn,
+	type EvryActor,
+	type Proposal,
+} from "../../../../../packages/evry/src/index.ts";
+import { transaction } from "../../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../../packages/domain/src/jobs/queue.ts";
+import { actor, admin, db, otherPlant, plant, setup, sql, teardown } from "../../../runtime/support.mts";
+
+before(setup);
+after(teardown);
+
+const ports = {
+	reminders: async () => {
+		throw Error("unexpected task reminder replan");
+	},
+	phaseNotices: async () => {
+		throw Error("unexpected phase notice");
+	},
+};
+const CORE_GROUP = { phase: 1, name: "Core Group Development" };
+const PRAYER_RHYTHM = { key: "prayer_rhythm_established", label: "Corporate prayer rhythm established" };
+const CORE_GROUP_CRITERIA = [
+	{ label: "30 committed adults", status: "not met", reading: "0 of 30 committed adults" },
+	...["Growth still moving", "Launch funding viable", "Worship leader identified", "Geographic area set"].map(
+		(label) => ({ label, status: "no data yet", reading: null }),
+	),
+];
+
+async function turn(who: EvryActor) {
+	const c = await createConversation(db, who, { requestKey: randomUUID() });
+	await submitTurn(db, who, c.id, { requestKey: randomUUID(), text: "hold this turn" });
+	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
+	assert.ok(claim);
+	const run = {
+		turnId: claim.id,
+		tenantId: claim.tenant_id,
+		leaseOwner: claim.lease_owner,
+		generation: claim.claim_generation,
+	};
+	return { propose: (operation: string, input: unknown) => prepareProposal(db, who, run, c.id, { operation, input }) };
+}
+
+async function approveAndRun(who: EvryActor, proposal: Proposal) {
+	await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
+	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
+	assert.ok(claim);
+	const outcome = await executeProposal(
+		db,
+		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
+		ports,
+	);
+	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
+	return { outcome, review: await readReview(db, who, proposal.id) };
+}
+
+const phaseOf = async (id: string) =>
+	(await admin.execute(sql`SELECT phase,revision::text FROM plant WHERE id=${id}`)).rows[0] as {
+		phase: number;
+		revision: string;
+	};
+const moves = async (id: string) =>
+	(
+		await admin.execute(
+			sql`SELECT kind,from_phase,to_phase,reason FROM phase_transition WHERE plant_id=${id} ORDER BY recorded_at,id`,
+		)
+	).rows;
+const effectAudits = async (proposalId: string) =>
+	(
+		await admin.execute(
+			sql`SELECT actor_id,action FROM audit_event WHERE request_key LIKE ${"evry:" + proposalId + ":%"} ORDER BY recorded_at`,
+		)
+	).rows;
+const today = () =>
+	new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit" })
+		.format(new Date())
+		.slice(0, 10);
+
+test("phases.declare is offered only while the church has no declared phase, and records it only after approval", async () => {
+	const adminOfOther = await actor("foreign");
+	const t = await turn(adminOfOther);
+	const proposal = await t.propose("phases.declare", { phase: 0 });
+	assert.ok(proposal);
+	assert.deepEqual(proposal.review, {
+		target: { kind: "plant", id: otherPlant, label: "Synthetic" },
+		changes: [{ field: "phase", before: CORE_GROUP, after: { phase: 0, name: "Discovery" } }],
+	});
+	assert.equal((await phaseOf(otherPlant)).phase, 1, "nothing changes before approval");
+	assert.deepEqual(await moves(otherPlant), []);
+
+	const run = await approveAndRun(adminOfOther, proposal);
+	assert.deepEqual([run.outcome, run.review.outcome], ["completed", "completed"]);
+	assert.equal((await phaseOf(otherPlant)).phase, 0);
+	assert.deepEqual(
+		(await moves(otherPlant)).map((m) => [m.kind, m.from_phase, m.to_phase]),
+		[["initial_declaration", 1, 0]],
+	);
+	assert.deepEqual(await effectAudits(proposal.id), [{ actor_id: adminOfOther.accountId, action: "phase.declared" }]);
+	assert.equal(await t.propose("phases.declare", { phase: 2 }), null);
+});
+
+test("a phase move lists the open exit criteria, changes the phase only after approval and labels a move backward", async () => {
+	const owner = await actor("owner");
+	const t = await turn(owner);
+	const reason = "Our core group is ready to form launch teams.";
+	const forward = await t.propose("phases.transition", { toPhase: 2, reason });
+	assert.ok(forward);
+	assert.deepEqual(forward.review, {
+		target: { kind: "plant", id: plant, label: "Synthetic" },
+		changes: [
+			{ field: "phase", before: CORE_GROUP, after: { phase: 2, name: "Launch Team Formation" } },
+			{ field: "direction", before: null, after: "forward" },
+			{ field: "reason", before: null, after: reason },
+			{ field: "openCriteria", before: null, after: CORE_GROUP_CRITERIA },
+		],
+	});
+	const backward = await t.propose("phases.transition", { toPhase: 0, reason: "We are starting over." });
+	assert.deepEqual(backward?.review.changes.slice(0, 2), [
+		{ field: "phase", before: CORE_GROUP, after: { phase: 0, name: "Discovery" } },
+		{ field: "direction", before: null, after: "backward" },
+	]);
+	const same = await t.propose("phases.transition", { toPhase: 1, reason: "Still here." });
+	assert.equal(same?.review.refusal, "The church is already in Core Group Development.");
+	assert.deepEqual(await phaseOf(plant), { phase: 1, revision: "1" }, "nothing changes before approval");
+
+	const run = await approveAndRun(owner, forward);
+	assert.equal(run.outcome, "completed");
+	assert.equal((await phaseOf(plant)).phase, 2);
+	assert.deepEqual(await moves(plant), [{ kind: "movement", from_phase: 1, to_phase: 2, reason }]);
+	assert.deepEqual(await effectAudits(forward.id), [{ actor_id: owner.accountId, action: "phase.transitioned" }]);
+
+	const stale = await approveAndRun(owner, backward!);
+	assert.deepEqual([stale.outcome, stale.review.receipt?.code], ["refused", "revision_conflict"]);
+	assert.equal((await phaseOf(plant)).phase, 2);
+
+	const member = await actor("member");
+	await assert.rejects(
+		() =>
+			prepareProposal(
+				db,
+				member,
+				{ turnId: randomUUID(), tenantId: plant, leaseOwner: "x", generation: "1" },
+				randomUUID(),
+				{
+					operation: "phases.transition",
+					input: { toPhase: 3, reason },
+				},
+			),
+		(e: { code?: string }) => e.code === "access_denied",
+	);
+});
+
+test("a reported signal is recorded in the Owner's words only after approval; a correction and a reaffirmation each need their own", async () => {
+	const owner = await actor("owner");
+	const t = await turn(owner);
+	const answers = async () =>
+		(
+			await admin.execute(
+				sql`SELECT state,answer,as_of::text,statement,revision::text FROM attestation WHERE plant_id=${plant} AND key='prayer_rhythm_established'`,
+			)
+		).rows;
+	const words = "We started prayer and fasting this week.";
+	const asOf = today();
+	const attest = await t.propose("signals.attest", {
+		key: "prayer_rhythm_established",
+		value: "yes",
+		asOf,
+		detail: words,
+	});
+	assert.ok(attest);
+	assert.deepEqual(attest.review, {
+		target: { kind: "plant", id: plant, label: "Synthetic" },
+		changes: [
+			{ field: "signal", before: null, after: PRAYER_RHYTHM },
+			{ field: "value", before: null, after: "yes" },
+			{ field: "asOf", before: null, after: asOf },
+			{ field: "detail", before: null, after: words },
+		],
+	});
+	const future = await t.propose("signals.attest", {
+		key: "prayer_rhythm_established",
+		value: "yes",
+		asOf: "2999-01-01",
+		detail: words,
+	});
+	assert.equal(future?.review.refusal, "A signal can't be true as of a date after today.");
+	assert.deepEqual(await answers(), [], "nothing is recorded before approval");
+
+	assert.equal((await approveAndRun(owner, attest)).outcome, "completed");
+	assert.deepEqual(await answers(), [
+		{ state: "answered", answer: true, as_of: asOf, statement: words, revision: "1" },
+	]);
+	const recorded = await admin.execute(
+		sql`SELECT actor_id,action FROM audit_event WHERE tenant_id=${plant} AND action LIKE 'attestation.%'`,
+	);
+	assert.deepEqual(recorded.rows, [{ actor_id: owner.accountId, action: "attestation.recorded" }]);
+	const same = { key: "prayer_rhythm_established", value: "yes", asOf, detail: words };
+	await assert.rejects(t.propose("signals.attest", same), { code: "already_applied" });
+	const again = await (await turn(owner)).propose("signals.attest", same);
+	assert.equal(again?.review.refusal, "This signal already has an answer. Ask Evry to correct or reaffirm it instead.");
+
+	const correction = "We stopped meeting to pray for now.";
+	const correct = await t.propose("signals.correct", {
+		action: "correct",
+		key: "prayer_rhythm_established",
+		value: "not_yet",
+		asOf,
+		detail: correction,
+	});
+	assert.deepEqual(correct?.review.changes, [
+		{ field: "signal", before: null, after: PRAYER_RHYTHM },
+		{ field: "value", before: "yes", after: "not_yet" },
+		{ field: "asOf", before: asOf, after: asOf },
+		{ field: "detail", before: words, after: correction },
+	]);
+	assert.equal((await answers())[0]!.revision, "1", "the correction waits for its own approval");
+	assert.equal((await approveAndRun(owner, correct!)).outcome, "completed");
+	assert.deepEqual(await answers(), [
+		{ state: "answered", answer: false, as_of: asOf, statement: correction, revision: "2" },
+	]);
+
+	const reaffirm = await t.propose("signals.reaffirm", { key: "prayer_rhythm_established" });
+	assert.deepEqual(reaffirm?.review.changes, [
+		{ field: "signal", before: null, after: PRAYER_RHYTHM },
+		{ field: "value", before: "not_yet", after: "not_yet" },
+		{ field: "asOf", before: asOf, after: "today" },
+	]);
+	assert.equal((await answers())[0]!.revision, "2", "the reaffirmation waits for its own approval");
+	assert.equal((await approveAndRun(owner, reaffirm!)).outcome, "completed");
+	assert.equal((await answers())[0]!.revision, "3");
+	const kinds = await admin.execute(
+		sql`SELECT kind FROM attestation_revision WHERE plant_id=${plant} AND key='prayer_rhythm_established' ORDER BY revision`,
+	);
+	assert.deepEqual(
+		kinds.rows.map((r) => r.kind),
+		["answered", "corrected", "reaffirmed"],
+	);
+	const fixed = await t.propose("signals.reaffirm", { key: "values_documented" });
+	assert.equal(fixed?.review.refusal, "This signal doesn't need renewing, so it can't be reaffirmed.");
+});

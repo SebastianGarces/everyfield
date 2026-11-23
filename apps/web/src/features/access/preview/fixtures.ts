@@ -105,7 +105,7 @@ export function notesReader(viewer: Viewer, scenario: NoteScenario): ReadNotes {
 		}
 		const all = scenario === "empty" ? [] : BODIES.map((_, i) => note(i));
 		const notes = all.slice(start, start + PAGE);
-		const more = start + PAGE < all.length;
+		const last = notes.at(-1);
 		return organizationNotesResult.parse({
 			status: "allowed",
 			purpose: "native_org_person_notes",
@@ -113,7 +113,7 @@ export function notesReader(viewer: Viewer, scenario: NoteScenario): ReadNotes {
 			personId: PERSON.id,
 			duty,
 			notes,
-			next: more ? notes.at(-1)!.id : null,
+			next: last !== undefined && start + PAGE < all.length ? last.id : null,
 		});
 	};
 }

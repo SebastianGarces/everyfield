@@ -20,7 +20,9 @@ const NAMES: [title: string, description: string, documentClass: DocTemplateSumm
 ];
 
 export const PREVIEW_TEMPLATES: DocTemplateSummary[] = Array.from({ length: 60 }, (_, i) => {
-	const [title, description, documentClass] = NAMES[i % NAMES.length]!;
+	const named = NAMES[i % NAMES.length];
+	if (!named) throw new Error("The preview has no template names");
+	const [title, description, documentClass] = named;
 	const round = Math.floor(i / NAMES.length);
 	return {
 		id: `preview-${i + 1}`,

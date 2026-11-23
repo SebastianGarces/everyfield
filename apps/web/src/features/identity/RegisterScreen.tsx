@@ -40,7 +40,9 @@ const registration = createRead(
 	() =>
 		identityApi
 			.registrationOptions()
-			.then((result): Loaded => (result.ok ? { status: "ok", options: result.value } : { status: "lost" })),
+			.then((result): Loaded =>
+				result.status === "ok" ? { status: "ok", options: result.value } : { status: "lost" },
+			),
 	{ failed: (): Loaded => ({ status: "lost" }) },
 );
 
@@ -154,18 +156,19 @@ function RegisterFlow({ kinds }: { kinds: Kind[] }) {
 			requestKey: requestKey.current,
 			...(organization ? { organizationName } : {}),
 		});
-		if (!registered.ok) {
+		if (registered.status !== "ok") {
 			setStep({ step: "form" });
-			setRefusal(refusalMessage("register", registered.error));
+			setRefusal(refusalMessage("register", registered));
 			return;
 		}
 		const signedIn = await identityApi.signIn({ email: email.data, password });
-		if (signedIn.ok) {
+		if (signedIn.status === "ok") {
 			loadPage(AFTER_SIGN_IN);
 			return;
 		}
-		const quiet = signedIn.error.code === "invalid_credentials" || signedIn.error.code === "unauthenticated";
-		setStep({ step: "sign_in", email: email.data, refusal: quiet ? null : signedIn.error });
+		const quiet =
+			signedIn.status === "refused" && (signedIn.code === "invalid_credentials" || signedIn.code === "unauthenticated");
+		setStep({ step: "sign_in", email: email.data, refusal: quiet ? null : signedIn });
 	}
 
 	if (step.step === "sign_in")

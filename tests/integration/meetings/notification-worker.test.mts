@@ -12,11 +12,9 @@ import {
 	planNotifications,
 } from "../../../packages/domain/src/meetings/index.ts";
 import { createNotificationProducer } from "../../../packages/domain/src/notifications/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import {
-	authorizeNotificationMail,
-	createNotificationWorker,
-} from "../../../apps/web/src/features/notifications/worker.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { authorizeNotificationMail } from "../../../packages/domain/src/jobs/notice-mail.ts";
+import { createNotificationWorker } from "../../../apps/web/src/features/notifications/worker.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 

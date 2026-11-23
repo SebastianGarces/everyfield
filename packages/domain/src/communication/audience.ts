@@ -79,13 +79,16 @@ export function summarizeAudience(raw: unknown) {
 		.filter((row) => !row.email?.trim())
 		.map((row) => row.displayName)
 		.sort((a, b) => a.localeCompare(b));
-	const addressed = rows.filter((row) => row.email?.trim());
+	const addressed = rows.flatMap((row) => {
+		const email = row.email?.trim();
+		return email ? [{ ...row, email }] : [];
+	});
 	const unsubscribed = addressed
-		.filter((row) => row.optedOutAt)
+		.flatMap((row) => (row.optedOutAt ? [{ ...row, optedOutAt: row.optedOutAt }] : []))
 		.sort((a, b) => a.displayName.localeCompare(b.displayName) || a.id.localeCompare(b.id));
 	const withEmail = addressed.filter((row) => !row.optedOutAt);
 	const named = [...withEmail].sort((a, b) => a.displayName.localeCompare(b.displayName) || a.id.localeCompare(b.id));
-	const emails = new Set(withEmail.map((row) => row.email!.trim().toLowerCase()));
+	const emails = new Set(withEmail.map((row) => row.email.toLowerCase()));
 	const occurrences = withEmail.reduce((sum, row) => sum + row.n, 0);
 	return audienceResult.parse({
 		resolvedDistinctPeople: rows.length,
@@ -97,11 +100,11 @@ export function summarizeAudience(raw: unknown) {
 		searchLimitTruncatesAudience: false,
 		recipients: named
 			.slice(0, NAMED_CAP)
-			.map((row) => ({ id: row.id, displayName: row.displayName, email: row.email!.trim() })),
+			.map((row) => ({ id: row.id, displayName: row.displayName, email: row.email })),
 		complete: named.length <= NAMED_CAP,
 		unsubscribedExclusions: unsubscribed
 			.slice(0, NAMED_CAP)
-			.map((row) => ({ id: row.id, displayName: row.displayName, unsubscribedAt: row.optedOutAt! })),
+			.map((row) => ({ id: row.id, displayName: row.displayName, unsubscribedAt: row.optedOutAt })),
 	});
 }
 
@@ -109,10 +112,13 @@ export function reviewedParts(raw: unknown): { people: string[]; emails: string[
 	const rows = z
 		.array(personRow)
 		.parse(raw ?? [])
-		.filter((row) => row.email?.trim());
+		.flatMap((row) => {
+			const email = row.email?.trim();
+			return email ? [{ id: row.id, email }] : [];
+		});
 	return {
 		people: rows.map((row) => row.id).sort(),
-		emails: rows.map((row) => row.email!.trim().toLowerCase()).sort(),
+		emails: rows.map((row) => row.email.toLowerCase()).sort(),
 	};
 }
 

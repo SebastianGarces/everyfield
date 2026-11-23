@@ -22,11 +22,9 @@ import {
 	MAIL_PASSES,
 	runDueMail,
 	type MailPayload,
-} from "../../../apps/web/src/server/jobs/mail.ts";
-import {
-	authorizeNotificationMail,
-	createNotificationWorker,
-} from "../../../apps/web/src/features/notifications/worker.ts";
+} from "../../../packages/domain/src/jobs/mail.ts";
+import { authorizeNotificationMail } from "../../../packages/domain/src/jobs/notice-mail.ts";
+import { createNotificationWorker } from "../../../apps/web/src/features/notifications/worker.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const ORIGIN = "http://app.example.test";

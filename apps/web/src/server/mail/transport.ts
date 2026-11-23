@@ -3,11 +3,12 @@ import "server-only";
 import { z } from "zod";
 import { MAIL_BATCH_LIMIT } from "@everyfield/contracts/communication";
 import { serverConfig, serverEnv } from "../config.ts";
+import { asLogNames, logLine } from "@everyfield/domain/log";
 
 import type { DeliveryTransport } from "@everyfield/domain/communication";
 import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
 import { parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
-import type { MailTransport } from "../jobs/mail.ts";
+import type { MailTransport } from "@everyfield/domain/jobs";
 import { createResendTransport } from "../jobs/resend.ts";
 import type { Database } from "@everyfield/db/client";
 import { isTestDeployment } from "@everyfield/db/deployment";
@@ -132,14 +133,25 @@ export type CaptureOptions = {
 
 export const appOrigin = (): string => new URL(serverConfig().IDENTITY_ORIGIN).origin;
 
+const refused = new Set<string>();
+
+function mailRefused(names: readonly string[]): null {
+	const key = names.join(",");
+	if (!refused.has(key)) {
+		refused.add(key);
+		logLine({ component: "mail", event: "settings_refused", settings: asLogNames(names) });
+	}
+	return null;
+}
+
 export function mailReady(): MailReady | null {
 	const config = serverConfig(),
 		env = serverEnv();
 	const apiKey = env.RESEND_API_KEY?.trim() || null;
-	if (apiKey === null && !isTestDeployment(env)) return null;
+	if (apiKey === null && !isTestDeployment(env)) return mailRefused(["RESEND_API_KEY"]);
 	const encryptionKey = Buffer.from(config.IDENTITY_MAIL_KEY, "hex");
 	const addressKey = Buffer.from(config.IDENTITY_ADDRESS_KEY, "hex");
-	if (encryptionKey.equals(addressKey)) return null;
+	if (encryptionKey.equals(addressKey)) return mailRefused(["IDENTITY_ADDRESS_KEY", "IDENTITY_MAIL_KEY"]);
 	return {
 		keys: {
 			encryptionKey,
@@ -178,14 +190,13 @@ const emailBody = z.object({
 
 const PROVIDER_CALLS = 8;
 
+type Routed = { sent: true } | { sent: false; capture: { id: string; fresh: boolean } };
+
 async function eachLimited<T, R>(items: readonly T[], run: (item: T) => Promise<R>): Promise<R[]> {
 	const results: R[] = new Array(items.length);
-	let next = 0;
+	const queue = items.entries();
 	const lane = async () => {
-		while (next < items.length) {
-			const index = next++;
-			results[index] = await run(items[index]!);
-		}
+		for (const [index, item] of queue) results[index] = await run(item);
 	};
 	await Promise.all(Array.from({ length: Math.min(PROVIDER_CALLS, items.length) }, lane));
 	return results;
@@ -259,31 +270,35 @@ export function deliveryTransport(
 		if (key.length < 1 || key.length > 256) return { outcome: "refused" };
 		const isApproved = (message: Outgoing) => ready.apiKey !== null && mailRecipientAllowed(environment, message.to);
 		const approved = messages.filter(isApproved);
-		const toCapture = messages.filter((message) => !isApproved(message));
-		if (toCapture.length > 0 && silent) return { outcome: "unknown" };
+		if (approved.length < messages.length && silent) return { outcome: "unknown" };
 		const batch: Batch =
 			approved.length > 0 ? await postApproved(key, approved, scheduledAt, signal) : { outcome: "ids", ids: [] };
 		if (batch.outcome !== "ids") return batch;
-		let captures: { id: string; fresh: boolean }[];
+		let routed: Routed[];
 		try {
-			captures = await Promise.all(
-				toCapture.map((message) =>
-					capture({ from: ready.keys.from, ...message }, scheduledAt, `${key}/${JSON.stringify(message)}`),
+			routed = await Promise.all(
+				messages.map(async (message): Promise<Routed> =>
+					isApproved(message)
+						? { sent: true }
+						: {
+								sent: false,
+								capture: await capture(
+									{ from: ready.keys.from, ...message },
+									scheduledAt,
+									`${key}/${JSON.stringify(message)}`,
+								),
+							},
 				),
 			);
 		} catch (error) {
 			logFailure({ component: "mail", outcome: "capture_failed" }, error);
 			return { outcome: "unknown" };
 		}
-		const captureIds = captures.map((c) => c.id);
-		const fresh = captures.filter((c) => c.fresh).map((c) => c.id);
+		const fresh = routed.flatMap((r) => (!r.sent && r.capture.fresh ? [r.capture.id] : []));
 		let nextSent = 0;
-		let nextCaptured = 0;
 		return {
 			outcome: "ids",
-			ids: messages.map((message) =>
-				isApproved(message) ? (batch.ids[nextSent++] ?? null) : captureIds[nextCaptured++]!,
-			),
+			ids: routed.map((r) => (r.sent ? (batch.ids[nextSent++] ?? null) : r.capture.id)),
 			...(fresh.length > 0 && scheduledAt === null ? { afterRecord: (db: Database) => settle(db, fresh) } : {}),
 		};
 	}

@@ -13,7 +13,7 @@ import {
 } from "../../../../../packages/domain/src/communication/index.ts";
 import { documentsWriter } from "../../../../../packages/domain/src/documents/index.ts";
 import { deletionOperations } from "../../../../../packages/domain/src/settings/index.ts";
-import { queueJobs } from "../../../../../apps/web/src/server/jobs/queue.ts";
+import { queueJobs } from "../../../../../packages/domain/src/jobs/queue.ts";
 import { testDatabase } from "../../../../support/test-database.mts";
 import { ok, refused, seeds } from "../../../../support/fixture.mts";
 import { freezeClock } from "./support.mts";

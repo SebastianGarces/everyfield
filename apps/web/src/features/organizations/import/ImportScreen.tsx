@@ -1,6 +1,6 @@
 "use client";
 
-import type { PipelineBoard, PipelineColumnChoice } from "@everyfield/contracts/organizations";
+import type { PipelineBoard, PipelineColumnChoice, PipelineImportRefusal } from "@everyfield/contracts/organizations";
 import { Alert02Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -53,8 +53,10 @@ async function send<T>(path: string, file: File, request: object): Promise<Answe
 	form.set("request", JSON.stringify(request));
 	try {
 		const res = await fetch(`${PIPELINE_PATH}/import/${path}`, { method: "POST", body: form, cache: "no-store" });
-		const body = (await res.json().catch(() => null)) as Answer<T> | null;
-		return body && (body.status === "ok" || body.status === "refused") ? body : { status: "lost" };
+		const body = (await res.json().catch(() => null)) as
+			{ status: "ok"; value: T } | { status: "refused"; refusal: PipelineImportRefusal } | null;
+		if (body?.status === "refused") return { ...body, code: body.refusal.code };
+		return body?.status === "ok" ? body : { status: "lost" };
 	} catch {
 		return { status: "lost" };
 	}
@@ -76,12 +78,14 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 		const file = new File([await picked.arrayBuffer()], picked.name, { type: picked.type });
 		const got = await previewOf(file, null);
 		if (got.status !== "ok") return setState({ step: "upload", checking: null, error: refusalNotice(got) });
+		const [firstStage] = stages;
+		if (!firstStage) throw new Error("The pipeline has no stage to import into");
 		setState({
 			step: "review",
 			review: {
 				file,
 				preview: got.value,
-				stageId: stages[0]!.id,
+				stageId: firstStage.id,
 				seatId: NOBODY,
 				decisions: new Map(),
 				importId: crypto.randomUUID(),

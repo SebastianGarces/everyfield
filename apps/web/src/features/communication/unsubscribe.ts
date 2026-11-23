@@ -1,10 +1,11 @@
+import type { Outcome } from "@everyfield/contracts/common";
 import "server-only";
 
 import { requestDatabase } from "../../server/database.ts";
 import type { Database } from "@everyfield/db/client";
 import type { CommunicationReply } from "@everyfield/domain/communication";
 import { parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
-import type { Outcome } from "./model.ts";
+
 import { serverEnv } from "../../server/config.ts";
 import { LOST, transient } from "../../server/platform/transient.ts";
 

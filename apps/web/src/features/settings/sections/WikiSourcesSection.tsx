@@ -10,6 +10,7 @@ import type { OrderRead, OrderRow } from "../port";
 import { newRequestKey } from "../port";
 import { SaveFooter, SectionBody } from "../SectionParts";
 import { SaveError } from "../SaveError";
+import { LOST, refused } from "../save";
 import { useDraft, useReads, useSettings } from "../store";
 import {
 	moved,
@@ -22,6 +23,7 @@ import {
 	type WikiOrder,
 	type WikiOrderView,
 } from "./wikiOrder";
+import { READ_FAILED, READ_FAILED_ICON } from "../../../components/read-failed.ts";
 
 const LIST: Record<OrderKind, { title: string; description: string; empty: string }> = {
 	churches: {
@@ -50,6 +52,7 @@ export function WikiSourcesSection() {
 				: {
 						status: "error",
 						title: "The Wiki sources did not load",
+						...(reply.status === "failed" ? { text: READ_FAILED, icon: READ_FAILED_ICON } : {}),
 						meta: "Everyfield could not read your church's source order.",
 						onRetry: read.retry,
 					};
@@ -111,14 +114,15 @@ function OrderEditor({ view }: { view: WikiOrderView }) {
 			setSaved(false);
 			const reply = await port.wiki
 				.save(newRequestKey("wiki-order"), view.revision, sent.churches, sent.networks)
-				.catch(() => ({ status: "lost" }) as const);
-			if (reply.status !== "ok") return { ok: false, refusal: saveRefusal(reply) };
+				.catch(() => LOST);
+			if (reply.status === "lost") return reply;
+			if (reply.status !== "ok") return refused(saveRefusal(reply));
 			setView(savedView(view, sent, reply.revision));
 			setSaved(true);
 			setAnnouncement("");
 			body.current?.closest("[role=region]")?.scrollTo({ top: 0 });
-			return { ok: true, server: sent };
-		});
+			return { status: "ok", value: sent };
+		}, saveRefusal(LOST));
 
 	const loadCurrent = async () => {
 		setLoading(true);
@@ -134,7 +138,7 @@ function OrderEditor({ view }: { view: WikiOrderView }) {
 		<>
 			<SectionBody>
 				<div ref={body} className="mt-4 flex flex-col gap-4">
-					<div aria-live="polite" className="empty:hidden">
+					<div aria-live="polite" className="empty:sr-only">
 						{saved && !dirty ? (
 							<p className="flex flex-wrap items-center gap-2.5 text-sm text-text-2">
 								<StatusBadge status="positive" size="sm" fill="soft">

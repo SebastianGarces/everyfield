@@ -1,4 +1,5 @@
 import { requestDatabase } from "@/server/database";
+import type { Outcome } from "@everyfield/contracts/common";
 import type { DocumentsError } from "@everyfield/contracts/documents";
 import type { RequestActor } from "@everyfield/domain/access";
 import "server-only";
@@ -8,10 +9,7 @@ import { LOST, transient } from "../../server/platform/transient.ts";
 
 export type Read<T> = (db: Database, actor: RequestActor) => Promise<DocumentOutcome<T>>;
 
-export type DocumentOutcome<T> =
-	| { status: "ok"; value: T }
-	| { status: "refused"; code: DocumentsError["code"]; problem?: string; path?: string }
-	| { status: "lost" };
+export type DocumentOutcome<T> = Outcome<T, DocumentsError["code"], { problem?: string; path?: string }>;
 
 export const storageMissing = {
 	status: "refused" as const,

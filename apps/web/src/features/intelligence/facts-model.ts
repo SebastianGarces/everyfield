@@ -16,6 +16,10 @@ export const dayLabel = (date: string) =>
 	new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
 		new Date(date + "T00:00:00Z"),
 	);
+const knownDay = (date: string | null, what: string) => {
+	if (date === null) throw new RangeError(`${what} has no date`);
+	return dayLabel(date);
+};
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const days = (n: number) => plural(n, "day");
 
@@ -49,7 +53,7 @@ export function growthDetail(g: Growth): string {
 	if (g.reason === "no_acquisition") return "No committed adult has a commitment date yet.";
 	if (g.reason === "unclassified_newer")
 		return `Someone who signed more recently has no adult or child classification, so the growth clock cannot be read. ${windows}`;
-	return `Since the newest first-time committed adult signed on ${dayLabel(g.lastAcquiredOn!)}. ${windows}`;
+	return `Since the newest first-time committed adult signed on ${knownDay(g.lastAcquiredOn, "The newest acquisition")}. ${windows}`;
 }
 
 export const VISION_LABEL: Record<VisionRhythm["status"], Verdict> = {
@@ -65,7 +69,7 @@ export function visionDetail(v: VisionRhythm): string {
 	const next = v.nextScheduledOn ? ` Next scheduled ${dayLabel(v.nextScheduledOn)}; it counts once it is held.` : "";
 	if (v.reason === "no_vision_meeting") return `No Vision meeting has been held with attendance yet.${next}`;
 	const seen = v.lastAttendance.length === 2 ? ` ${v.lastAttendance[1]} then ${v.lastAttendance[0]} attended.` : "";
-	return `Since the last completed Vision meeting on ${dayLabel(v.lastHeldOn!)}.${seen}${next}`;
+	return `Since the last completed Vision meeting on ${knownDay(v.lastHeldOn, "The last Vision meeting")}.${seen}${next}`;
 }
 
 export const COHESION_LABEL: Record<Cohesion["status"], Verdict> = {
@@ -115,4 +119,6 @@ export const trainingDetail = (t: Training) =>
 		: "People who completed each required program they are assigned to.";
 
 export const presenceLine = (count: number, latestOn: string | null, noun: string) =>
-	count === 0 ? `No ${noun} recorded.` : `${plural(count, noun)} recorded, latest ${dayLabel(latestOn!)}.`;
+	count === 0
+		? `No ${noun} recorded.`
+		: `${plural(count, noun)} recorded, latest ${knownDay(latestOn, `The latest ${noun}`)}.`;

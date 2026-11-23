@@ -22,10 +22,18 @@
 
 :root {
 	--ef-edge: #7a808c;
+	--ef-label-tracking: 0.06em;
 }
 [data-theme="dark"],
 :root:has([data-product-root][data-theme="dark"]) {
 	--ef-edge: #747b88;
+}
+
+@utility section-label {
+	font-size: var(--ef-text-xs);
+	font-weight: 600;
+	letter-spacing: var(--ef-label-tracking);
+	text-transform: uppercase;
 }
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));

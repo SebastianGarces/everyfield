@@ -21,8 +21,8 @@ import {
 	trainingWriter,
 	withTeamsWrite,
 } from "../../../../packages/domain/src/teams/index.ts";
-import { transaction } from "../../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../packages/domain/src/jobs/queue.ts";
 import { accounts, actor, admin, db, people, plant, setup, sql, teardown } from "../../runtime/support.mts";
 
 before(setup);
@@ -86,7 +86,7 @@ async function approveAndRun(who: EvryActor, proposal: Proposal) {
 	const outcome = await executeProposal(
 		db,
 		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-		noReminders,
+		{ reminders: noReminders, phaseNotices: async () => undefined },
 	);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	return { outcome, review: await readReview(db, who, proposal.id) };
