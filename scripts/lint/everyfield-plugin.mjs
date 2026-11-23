@@ -1846,10 +1846,52 @@ const classParts = (node) =>
 								? [concatenated(node)?.join("")].filter(Boolean)
 								: [];
 
+const PROBLEM_TEXT = /^text-(?:magenta|red)-\d+(?:\/\d+)?$/;
+const problemToken = (token) => PROBLEM_TEXT.test(token.replace(/^!|!$/g, "").split(":").at(-1));
+const KEPT_PROBLEM_LINES = {
+	"apps/web/src/features/tasks/TaskDialog.tsx": {
+		className: "px-1 py-2 text-sm text-magenta-600",
+		reason: "the relation search failure is a list result state, kept by T-407",
+	},
+	"apps/web/src/features/people/assessments/CommitmentDialogs.tsx": {
+		className: "px-2 py-3 text-sm text-magenta-600",
+		reason: "the people search failure is a list result state, kept by T-407",
+	},
+	"apps/web/src/features/meetings/dialogs.tsx": {
+		className: "px-2 py-3 text-sm text-magenta-600",
+		reason: "the people search failure is a list result state, kept by T-407",
+	},
+	"apps/web/src/features/evry/conversation/EvryPanel.tsx": {
+		className: "flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600",
+		reason: "the message-level send state sits under its bubble, kept by T-407",
+	},
+};
+const elementClassStrings = (opening) => {
+	const className = jsxAttribute(opening, "className");
+	return className ? attributeStrings(className) : [];
+};
+const problemClassed = (opening) => elementClassStrings(opening).some((s) => classTokens(s).some(problemToken));
+const domDescendants = (node, out = []) => {
+	for (const child of childNodes(node)) {
+		if (child.type === "JSXOpeningElement" && domElement(child)) out.push(child);
+		domDescendants(child, out);
+	}
+	return out;
+};
+
 const sharedNotice = {
 	meta: { type: "problem" },
 	create(context) {
-		if (!WEB_CODE.test(repoPath(context.filename))) return {};
+		const path = repoPath(context.filename);
+		if (!WEB_CODE.test(path)) return {};
+		const kept = KEPT_PROBLEM_LINES[path];
+		let keptSeen = false;
+		const keptLine = (node) => {
+			if (!kept || keptSeen) return false;
+			const strings = elementClassStrings(node);
+			keptSeen = strings.length === 1 && strings[0] === kept.className;
+			return keptSeen;
+		};
 		const check = (node, value) => {
 			if (value === null) return;
 			if (errorNoticeLook(value))
@@ -1866,6 +1908,17 @@ const sharedNotice = {
 				});
 		};
 		return {
+			JSXOpeningElement(node) {
+				const role = domElement(node) && jsxAttribute(node, "role");
+				if (!role || !attributeStrings(role).includes("alert")) return;
+				if (!problemClassed(node) && !domDescendants(node.parent).some(problemClassed)) return;
+				if (noticeLook(elementClassStrings(node).join(" ")) || keptLine(node)) return;
+				context.report({
+					node,
+					message:
+						'A problem line is ProblemText (a control-level line) or InlineAlert or Alert (a section-level line) from @everyfield/ui/controls, which carry the tone, icon and live region. Do not hand-write role="alert" with magenta or red text.',
+				});
+			},
 			Literal: (node) => check(node, text(node)),
 			TemplateLiteral: (node) => check(node, templateText(node)),
 			BinaryExpression(node) {
