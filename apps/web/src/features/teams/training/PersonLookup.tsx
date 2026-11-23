@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { Certificate01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -17,7 +18,7 @@ import { useState } from "react";
 import { localToday } from "../../../components/clock.ts";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { PersonPicker } from "../../meetings/dialogs.tsx";
-import { dayText, plural } from "../model.ts";
+import { dayText } from "../model.ts";
 import { loadPersonTraining } from "../fetch.ts";
 import {
 	latestByProgram,
@@ -210,7 +211,7 @@ function Summary({ summary }: { summary: Extract<PersonLoad["summary"], { status
 					))}
 				</ul>
 			)}
-			<p className="text-sm text-text-2">{plural(summary.concurrentAssignments, "current role")}</p>
+			<p className="text-sm text-text-2">{counted(summary.concurrentAssignments, "current role")}</p>
 			<div className="flex flex-col items-start gap-2">
 				<StatusBadge status={complete ? "positive" : "unknown"}>
 					{complete ? "Required training is complete" : "Not marked complete"}

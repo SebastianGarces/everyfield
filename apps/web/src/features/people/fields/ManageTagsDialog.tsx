@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { Delete02Icon, Edit02Icon, MoreHorizontalIcon, Tag01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -201,7 +202,7 @@ export function ManageTagsDialog({
 											)}
 											<span className="min-w-0 flex-1 truncate font-medium text-ink">{t.name}</span>
 											<span className="text-sm text-text-3 tabular-nums">
-												{t.linkedPeople} {t.linkedPeople === 1 ? "person" : "people"}
+												{counted(t.linkedPeople, "person", "people")}
 											</span>
 											{t.id.startsWith("new:") ? (
 												<span role="status" className="text-xs text-text-3">
@@ -255,7 +256,7 @@ export function ManageTagsDialog({
 					consequences={[
 						deleting.linkedPeople === 0
 							? "Nobody has this tag now."
-							: `It comes off ${deleting.linkedPeople} ${deleting.linkedPeople === 1 ? "person" : "people"}.`,
+							: `It comes off ${counted(deleting.linkedPeople, "person", "people")}.`,
 						"Their history keeps a record of the tag.",
 					]}
 					confirmLabel="Delete tag"

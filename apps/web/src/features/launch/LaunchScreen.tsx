@@ -1,5 +1,6 @@
 "use client";
 
+import { countWord } from "@everyfield/contracts/common";
 import {
 	AREA_LABEL,
 	checkNote,
@@ -291,7 +292,7 @@ function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: 
 			case "overdue":
 				return {
 					metric: String(c.days),
-					unit: c.days === 1 ? "day overdue" : "days overdue",
+					unit: countWord(c.days, "day overdue", "days overdue"),
 					title: "Launch Sunday has passed, not launched",
 					text: admin
 						? "No launch has been recorded for this date. If it was held, record it below; if not, move the date or postpone it."
@@ -300,7 +301,7 @@ function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: 
 			case "ahead":
 				return {
 					metric: String(c.days),
-					unit: c.days === 1 ? "day to go" : "days to go",
+					unit: countWord(c.days, "day to go", "days to go"),
 					title: c.window ? "Inside the four-week launch window" : "Before the launch window",
 					text: c.window
 						? "These are the weeks the Playbook's final readiness milestones are for."

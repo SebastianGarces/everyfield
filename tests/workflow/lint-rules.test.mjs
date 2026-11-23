@@ -3584,3 +3584,47 @@ export async function fallback(dependencies: { db?: Database }) {
 		],
 	);
 });
+
+test("INV-lint: hand-written count text in apps/web/src is refused, naming counted and countWord; choices on 1 that are not a singular and plural pair are allowed", () => {
+	const source = `export const a = (n: number) => \`\${n} \${n === 1 ? "task" : "tasks"}\`;
+export const b = (n: number) => \`\${n} follow-up\${n === 1 ? "" : "s"}\`;
+export const c = (n: number) => \`\${n} row\${n !== 1 ? "s" : ""}\`;
+export const d = (n: number) => \`\${n} \${n === 1 ? "person" : "people"}\`;
+export const e = (n: number) => (n === 1 ? "1 note" : \`\${n} notes\`);
+export const f = (n: number, one: string, many: string) => \`\${n} \${n === 1 ? one : many}\`;
+export const g = (n: number) => \`\${n} \${n === 1 ? "task is" : "tasks are"}\`;
+export const g2 = (n: number) => (n === 1 ? "This open task stays" : "These open tasks stay");
+export const g3 = (n: number) => \`\${n} \${n === 1 ? "task does" : "tasks do"}\`;
+export const h = (d: number) => (d === 1 ? "Yesterday" : "Earlier");
+export const i = (v: number) => (v > 1 ? " · version 2" : "");
+export const j = (s: number) => (s === 1 ? "" : " scale(2)");
+export const k = (n: number, one: string) => (n === 1 ? one : "many");
+export const l = (n: number) => (n === 1 ? "One task is" : \`\${n} tasks are\`);
+`;
+	const hits = lint({ "apps/web/src/features/x/count.ts": source }, undefined, true).filter((hit) =>
+		hit.includes(" count-text "),
+	);
+	assert.deepEqual(
+		hits.map((hit) => Number.parseInt(hit.split(":")[1], 10)),
+		[1, 2, 3, 4, 5, 6, 7, 8, 9],
+	);
+	assert.match(hits[0], /counted\(n, one, many\).*countWord\(n, one, many\).*@everyfield\/contracts\/common/);
+});
+
+test("INV-lint: the count-text rule allows the counted and countWord module itself", () => {
+	const helper = `export const countWord = (n: number, one: string, many = \`\${one}s\`) => (n === 1 ? one : many);
+`;
+	const dir = sandbox({
+		"packages/contracts/src/common/text.ts": helper,
+		"packages/contracts/src/common/other.ts": helper,
+	});
+	const root = JSON.parse(readFileSync(join(dir, ".oxlintrc.json"), "utf8"));
+	root.overrides.push({ files: ["packages/**"], rules: { "everyfield/count-text": "error" } });
+	put(dir, ".oxlintrc.json", root);
+	assert.deepEqual(
+		lintIn(dir, ["packages/contracts/src/common/text.ts", "packages/contracts/src/common/other.ts"]).filter((hit) =>
+			hit.endsWith(" count-text"),
+		),
+		["packages/contracts/src/common/other.ts:1 count-text"],
+	);
+});

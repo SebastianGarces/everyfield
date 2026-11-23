@@ -1,5 +1,6 @@
 "use client";
 
+import { counted, countWord } from "@everyfield/contracts/common";
 import type {
 	Assessment,
 	AssessmentView,
@@ -151,7 +152,7 @@ function Current({ view, assessment: a, catalog }: { view: AssessmentView; asses
 						</StatusBadge>
 						<span>
 							As of {dayText(a.measuredOn)}
-							{a.ageDays ? ` · ${a.ageDays === 1 ? "1 day" : `${a.ageDays} days`} ago` : " · today"}
+							{a.ageDays ? ` · ${counted(a.ageDays, "day")} ago` : " · today"}
 							{a.daysToLaunch !== null ? ` · ${a.daysToLaunch} days to the launch date then` : ""}
 						</span>
 					</p>
@@ -474,7 +475,7 @@ function LensTile({ lens, onCite }: { lens: Lens; onCite: (key: string, label: s
 				<span className="font-medium text-ink-2">{QUALITY[lens.quality].label}</span>
 				{lens.points.length ? (
 					<a href="#focus" className="hover:text-ink">
-						{lens.points.length === 1 ? "1 point cites this" : `${lens.points.length} points cite this`}
+						{`${counted(lens.points.length, "point cites", "points cite")} this`}
 					</a>
 				) : null}
 			</p>
@@ -651,9 +652,7 @@ function CitationBody({ view }: { view: CitationView }) {
 						</ul>
 						{view.people.hidden ? (
 							<p className="mt-1.5 text-xs text-text-3" data-hidden-people={view.people.hidden}>
-								{view.people.hidden === 1
-									? "1 more person was counted who is no longer in your records."
-									: `${view.people.hidden} more people were counted who are no longer in your records.`}
+								{`${counted(view.people.hidden, "more person was", "more people were")} counted who ${countWord(view.people.hidden, "is", "are")} no longer in your records.`}
 							</p>
 						) : null}
 					</div>

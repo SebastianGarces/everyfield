@@ -127,9 +127,6 @@ export function fileRefusal(code: string, line?: number): { title: string; text:
 	}
 }
 
-export const plural = (n: number, one: string, many = `${one}s`) =>
-	`${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
-
 export function progressOf(r: ImportReceipt): { done: number; total: number } {
 	const total = r.rows.length;
 	return { done: r.rows.filter((row) => row.status !== "remaining").length, total };

@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import type { IntelligenceGroup, IntelligencePattern, IntelligenceView, Level } from "@everyfield/contracts/oversight";
 import { LEVELS, patternText } from "@everyfield/contracts/oversight";
 import {
@@ -16,7 +17,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { writeAddress } from "../../components/location.ts";
 import { ratePattern, refreshIntelligence } from "./actions.ts";
-import { concernLenses, HEALTH, type IntelligenceWords, plural, resultLabels, runLabel } from "./model.ts";
+import { concernLenses, HEALTH, type IntelligenceWords, resultLabels, runLabel } from "./model.ts";
 
 const href = (level: Level, runId: string | null) =>
 	`/network/intelligence?level=${level}${runId ? `&run=${runId}` : ""}`;
@@ -152,7 +153,7 @@ function Group({ group, rate, canRate }: { group: IntelligenceGroup; rate: Rate;
 					{group.label}
 				</h2>
 				<p className="text-sm text-text-3">
-					{plural(group.rows.length, "plant")} · {shared} share findings
+					{counted(group.rows.length, "plant")} · {shared} share findings
 				</p>
 			</div>
 			{group.patterns.length ? (

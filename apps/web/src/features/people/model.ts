@@ -1,4 +1,4 @@
-import { recordId } from "@everyfield/contracts/common";
+import { counted, recordId } from "@everyfield/contracts/common";
 import type { Outcome } from "../../components/save/model.ts";
 
 export const STAGES = [
@@ -181,7 +181,7 @@ export function rangeText(q: PeopleQuery, shown: number, total: number | null): 
 	const first = (q.page - 1) * PAGE_SIZE + 1;
 	if (shown === 0) return "No people on this page";
 	const range = shown === 1 ? `${first}` : `${first}–${first + shown - 1}`;
-	return total === null ? `Showing ${range}` : `Showing ${range} of ${total} ${total === 1 ? "person" : "people"}`;
+	return total === null ? `Showing ${range}` : `Showing ${range} of ${counted(total, "person", "people")}`;
 }
 
 export type KeyedPayload = { key: string; body: string };
