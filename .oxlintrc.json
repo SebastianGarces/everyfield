@@ -85,7 +85,8 @@
 				"packages/reference/src/**"
 			],
 			"rules": {
-				"everyfield/count-text": "error"
+				"everyfield/count-text": "error",
+				"everyfield/civil-day": "error"
 			}
 		},
 		{

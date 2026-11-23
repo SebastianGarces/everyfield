@@ -1,5 +1,6 @@
 "use client";
 
+import { dayText } from "@everyfield/contracts/common";
 import {
 	ANSWER_MAX,
 	checkSummary,
@@ -33,7 +34,6 @@ import {
 	countText,
 	EVIDENCE_TEXT,
 	instantDate,
-	longDate,
 	refusalMessage,
 	sent,
 	SUMMARY_MESSAGE,
@@ -220,8 +220,8 @@ function DebriefForm({
 					Actual date and attendance
 				</h4>
 				<p className="mt-1 text-sm text-ink">
-					Held {longDate(o.actualDate)} · {countText(o.attendance)} attended · {countText(o.decisions)} decisions ·{" "}
-					{countText(plan.guests.count)} guests named
+					Held {dayText(o.actualDate, { weekday: "short" })} · {countText(o.attendance)} attended ·{" "}
+					{countText(o.decisions)} decisions · {countText(plan.guests.count)} guests named
 				</p>
 				<p className="mt-0.5 text-xs text-text-3">From Launch Sunday above. Correct them there.</p>
 			</section>

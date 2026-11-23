@@ -1,8 +1,7 @@
 import type { Outcome as Shared } from "@everyfield/contracts/common";
-import { counted, recordId } from "@everyfield/contracts/common";
+import { counted, dateText, recordId } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
-import { MONTHS } from "../../components/dates.ts";
 import { READ_FAILED } from "../../components/read-failed.ts";
 
 export type Status = z.infer<typeof c.taskStatus>;
@@ -184,7 +183,7 @@ export function repeatText(rule: Pick<Rule, "frequency" | "until" | "localTime">
 	return [
 		FREQUENCY_LABEL[rule.frequency],
 		rule.localTime ? timeText(rule.localTime) : null,
-		rule.until ? `until ${dayText(rule.until, year)}` : null,
+		rule.until ? `until ${dateText(rule.until, year)}` : null,
 	]
 		.filter(Boolean)
 		.join(" · ");
@@ -353,20 +352,14 @@ export function rangeText(q: TaskQuery, shown: number, total: number): string {
 	return shown === total ? counted(total, "task") : `${first}–${first + shown - 1} of ${total} tasks`;
 }
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-export function dayText(date: string, year?: number): string {
-	const [y, m, d] = date.split("-").map(Number) as [number, number, number];
-	const weekday = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
-	return `${weekday} ${MONTHS[m - 1]} ${d}${year !== undefined && y !== year ? `, ${y}` : ""}`;
-}
 export function timeText(time: string): string {
 	const [h, m] = time.split(":").map(Number) as [number, number];
 	return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 }
 export function dueText(due: Due, year?: number): string | null {
 	if (due.kind === "undated") return null;
-	if (due.kind === "local_date") return dayText(due.date, year);
-	return `${dayText(due.local.slice(0, 10), year)} · ${timeText(due.local.slice(11))}`;
+	if (due.kind === "local_date") return dateText(due.date, year);
+	return `${dateText(due.local.slice(0, 10), year)} · ${timeText(due.local.slice(11))}`;
 }
 
 export type DueDraft = {

@@ -1,3 +1,4 @@
+import { dayText } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/intelligence";
 import { sql } from "@everyfield/db/query";
 import { createAssessments } from "@everyfield/domain/intelligence";
@@ -6,7 +7,6 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { plantAdmin } from "../../native.ts";
-import { dayText } from "../../pipeline/reads/index.ts";
 
 const assessments = createAssessments();
 type Card = { label: string; changes: { field: string; before: unknown; after: unknown }[]; notes: string[] };

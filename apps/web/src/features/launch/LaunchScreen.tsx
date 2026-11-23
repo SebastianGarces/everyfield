@@ -1,6 +1,6 @@
 "use client";
 
-import { countWord } from "@everyfield/contracts/common";
+import { addDays, countWord, dayText } from "@everyfield/contracts/common";
 import {
 	AREA_LABEL,
 	checkNote,
@@ -73,14 +73,12 @@ import { daysText, gapText } from "../oversight/model.ts";
 import {
 	instantDate,
 	isOpen,
-	longDate,
 	milestonesDone,
 	NOTE_MESSAGE,
 	progressOf,
 	refusalMessage,
 	requestKeys,
 	sent,
-	shortDate,
 	shownOf,
 	tasksText,
 } from "./model.ts";
@@ -262,7 +260,7 @@ function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: 
 	const date = plan.launch?.targetDate ?? null;
 	const windowStart = () => {
 		if (date === null) throw new Error("A launch that is ahead has no target date");
-		return longDate(addDays(date, -28));
+		return dayText(addDays(date, -28), { weekday: "short" });
 	};
 	const body = (() => {
 		switch (c.kind) {
@@ -312,7 +310,7 @@ function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: 
 					metric: null,
 					title: "Launched",
 					text: plan.outcome
-						? `Held ${longDate(plan.outcome.actualDate)}${date && date !== plan.outcome.actualDate ? `, planned for ${longDate(date)}` : ""}.`
+						? `Held ${dayText(plan.outcome.actualDate, { weekday: "short" })}${date && date !== plan.outcome.actualDate ? `, planned for ${dayText(date, { weekday: "short" })}` : ""}.`
 						: "Launch Sunday is recorded.",
 				};
 		}
@@ -321,7 +319,7 @@ function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: 
 		<InsightCard tone={c.kind === "overdue" ? "rose" : "field"} aria-labelledby="launch-sunday">
 			<InsightTop>
 				<InsightPill icon={StartUp02Icon}>Launch Sunday</InsightPill>
-				{date ? <InsightCount>{longDate(date)}</InsightCount> : null}
+				{date ? <InsightCount>{dayText(date, { weekday: "short" })}</InsightCount> : null}
 			</InsightTop>
 			{body.metric ? <InsightMetric value={body.metric} unit={body.unit ?? undefined} /> : null}
 			<InsightTitle id="launch-sunday" className={body.metric ? undefined : "mt-[26px]"}>
@@ -339,12 +337,6 @@ function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: 
 		</InsightCard>
 	);
 }
-const addDays = (date: string, days: number) => {
-	const d = new Date(`${date}T12:00:00Z`);
-	d.setUTCDate(d.getUTCDate() + days);
-	return d.toISOString().slice(0, 10);
-};
-
 function Readiness({ plan }: { plan: Plan }) {
 	const done = milestonesDone(plan);
 	const tasks = plan.milestones.reduce(
@@ -705,7 +697,9 @@ function TaskRow({
 				</Link>
 				{who || task.dueDate ? (
 					<p className="text-xs text-text-3">
-						{[task.dueDate ? `Due ${shortDate(task.dueDate, today)}` : null, who || null].filter(Boolean).join(" · ")}
+						{[task.dueDate ? `Due ${dayText(task.dueDate, { year: Number(today.slice(0, 4)) })}` : null, who || null]
+							.filter(Boolean)
+							.join(" · ")}
 					</p>
 				) : null}
 			</div>
@@ -739,7 +733,7 @@ function DateDialog({
 		},
 		postpone: {
 			title: "Postpone Launch Sunday",
-			description: `Clears the date${plan.launch?.targetDate ? ` of ${longDate(plan.launch.targetDate)}` : ""}. Readiness and tasks stay as they are.`,
+			description: `Clears the date${plan.launch?.targetDate ? ` of ${dayText(plan.launch.targetDate, { weekday: "short" })}` : ""}. Readiness and tasks stay as they are.`,
 			submit: "Postpone",
 		},
 	}[draft.mode];
