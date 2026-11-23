@@ -44,6 +44,7 @@ import {
 	rescheduleText,
 	sentNote,
 	leftOutNote,
+	guardianNote,
 	type ContactRow,
 	type DeliveryReport,
 	type DetailRecipient,
@@ -253,7 +254,7 @@ type ScheduledActions = {
 };
 
 const handoffCounts = (totals: MessageView["totals"]) =>
-	`Accepted ${totals.accepted}. Refused ${totals.failed}. No answer ${totals.unknown}.${leftOutNote(totals.unsubscribed, totals.child)}`;
+	`Accepted ${totals.accepted}. Refused ${totals.failed}. No answer ${totals.unknown}.${leftOutNote(totals.unsubscribed, totals.child)}${guardianNote(totals.guardian)}`;
 
 function heldStatus(view: MessageView): { title: string; body: string } {
 	const { totals, detail } = view;
@@ -262,7 +263,7 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 		case "scheduled":
 			return {
 				title: `Scheduled for ${when(detail.scheduledAt)}`,
-				body: `It goes to ${counted(totals.reachable, "person", "people")} then. Anyone who unsubscribes or is marked as a child before then gets nothing.${leftOutNote(totals.unsubscribed, totals.child)}`,
+				body: `It goes to ${counted(totals.reachable, "person", "people")} then. Anyone who unsubscribes or is marked as a child before then gets nothing, and a child's email goes to their parent or guardian contact as set then.${leftOutNote(totals.unsubscribed, totals.child)}${guardianNote(totals.guardian)}`,
 			};
 		case "held":
 			return {
@@ -558,6 +559,7 @@ function Detail({
 									<p className="font-medium text-ink">{nameFor(row, index)}</p>
 									<p className="text-sm text-text-2">
 										{deliveryName(row.deliveryStatus, !heldStates.includes(totals.state))}
+										{row.sentTo ? `: ${row.sentTo}` : null}
 									</p>
 									<AddressFact label="Address at send" value={row.deliveryAddress} />
 									<AddressFact label="Address now" value={row.currentPersonAddress} />
