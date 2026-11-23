@@ -19,13 +19,14 @@ const actor = randomUUID(),
 const artifacts = new Map<string, unknown>();
 const reviews = new Map<string, { actorId: string; review: ReferenceAuthority["review"] }>();
 let firstCommand: Promotion;
-const authorize: ReferenceDependencies["authorize"] = async (tx, command) => {
+const authorize: ReferenceDependencies["authorize"] = (command) => {
 	const saved = reviews.get(command.requestKey);
-	if (!saved) return null;
-	const live = await tx.execute(
-		querySql`SELECT id FROM auth_session WHERE id=${querySql.param(session)} AND user_id=${querySql.param(user)} AND expires_at>clock_timestamp() FOR SHARE`,
-	);
-	return live.rowCount === 1 ? saved : null;
+	return saved
+		? {
+				...saved,
+				session: querySql`EXISTS(SELECT FROM auth_session WHERE id=${querySql.param(session)} AND user_id=${querySql.param(user)} AND expires_at>clock_timestamp() FOR SHARE)`,
+			}
+		: null;
 };
 const service = referenceService(db, {
 	authorize,

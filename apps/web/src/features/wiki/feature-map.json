@@ -12,7 +12,7 @@
 			"reach": [
 				{
 					"rail": "Wiki",
-					"personas": ["owner", "admin", "member", "resident", "signup", "triage"]
+					"personas": ["owner", "admin", "member", "resident", "triage"]
 				},
 				{
 					"link": "/wiki/{slug}",
@@ -26,7 +26,7 @@
 				"admin": "write",
 				"member": "write",
 				"resident": "write",
-				"signup": "write",
+				"signup": "none",
 				"triage": "write",
 				"visitor": "none"
 			},
@@ -108,8 +108,7 @@
 					]
 				},
 				{
-					"id": "signup-dead-end",
-					"defect": "a signed-in account with no church sees Wiki in the rail, but apps/web/src/features/wiki/server.ts:46 gives it no reader, so routes.tsx:57 sends it to sign-in, which says it is signed in",
+					"id": "no-church",
 					"reach": {
 						"persona": "signup",
 						"open": "/wiki",
