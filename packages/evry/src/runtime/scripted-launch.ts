@@ -45,6 +45,8 @@ const MILESTONES = /\bmilestones?\b/i;
 const BLOCKED = /\b(?:blocked|overdue|late|behind)\b/i;
 const GOAL = /\blaunch[- ]team\b.*\bgoal\b|\bgoal\b.*\blaunch[- ]team\b/i;
 const GUESTS = /\bguests?\b.*\blaunch sunday\b|\blaunch sunday\b.*\bguests?\b|\bcame to (?:the )?launch\b/i;
+const READY =
+	/\b(?:are|is) (?:we|the church|our church|it)\b.*\bready\b.*\blaunch|\b(?:ready (?:to|for) launch|launch[- ]ready)\b/i;
 const CHANGED = /\bwhat(?:'s| has)? changed\b.*\blaunch\b|\blaunch\b.*\bchanged\b/i;
 const MOVE =
 	/\b(?:push|move|change|reschedule|set)\b(?: the| our)? launch(?: sunday| date)?\b.*?\bto ([a-z]+\.? \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)(.*)$/i;
@@ -165,20 +167,20 @@ function countdownText(f: Record<string, unknown>) {
 	}
 }
 
+const prepText = (t: Row) =>
+	`${t.label}${t.fields.dueDate ? ` (due ${String(t.fields.dueDate)}${t.fields.overdue ? ", overdue" : ""})` : ""}`;
 function milestonesText(out: Output) {
 	const f = out.facts ?? {};
 	const rows = out.rows ?? [];
 	const milestones = rows.filter((r) => r.kind === "milestone");
 	const tasks = (id: string) => rows.filter((r) => r.kind === "item" && r.fields.milestoneId === id);
-	const taskText = (t: Row) =>
-		`${t.label}${t.fields.dueDate ? ` (due ${String(t.fields.dueDate)}${t.fields.overdue ? ", overdue" : ""})` : ""}`;
 	if (f.filter === "blocked") {
 		if (!milestones.length) return "No open launch milestone has an overdue linked prep task.";
 		const lines = milestones.map(
 			(m) =>
 				`- **${m.label}**: ${tasks(m.id)
 					.filter((t) => t.fields.overdue)
-					.map(taskText)
+					.map(prepText)
 					.join("; ")}`,
 		);
 		return `${plural(milestones.length, "launch milestone has", "launch milestones have")} an overdue prep task linked to it on the Launch plan:\n${lines.join("\n")}\n\nOnly a milestone's own linked prep tasks count.`;
@@ -187,9 +189,49 @@ function milestonesText(out: Output) {
 		return `All ${String(f.milestonesTotal)} launch milestones are marked complete on the Launch plan.`;
 	const lines = milestones.map((m) => {
 		const open = tasks(m.id);
-		return `- **${m.label}**: ${String(m.fields.done)} of ${String(m.fields.total)} tasks done${open.length ? `. Open: ${open.map(taskText).join("; ")}` : ""}`;
+		return `- **${m.label}**: ${String(m.fields.done)} of ${String(m.fields.total)} tasks done${open.length ? `. Open: ${open.map(prepText).join("; ")}` : ""}`;
 	});
 	return `${milestones.length} of ${String(f.milestonesTotal)} launch milestones are still open, as the Launch plan shows them:\n${lines.join("\n")}`;
+}
+
+function readinessText(workspace: Output, phases: Output | undefined) {
+	const f = workspace.facts ?? {};
+	const rows = workspace.rows ?? [];
+	const milestones = rows
+		.filter((r) => r.kind === "milestone")
+		.map((m) => {
+			const v = m.fields;
+			const held =
+				typeof v.practicesHeld === "number" ? ` ${v.practicesHeld} of ${String(v.practicesRequired)} held.` : "";
+			const by = `${String(v.completedBy)} on ${String(v.completedOn)}`;
+			if (v.completed === true) return `- **${m.label}**: met.${held} Completed by ${by}.`;
+			const open = rows.filter((r) => r.kind === "item" && r.fields.milestoneId === m.id);
+			const review =
+				v.needsReview === true ? ` Completed by ${by}, but a linked prep task has been reopened since.` : "";
+			const tasks = open.length
+				? ` Open: ${open.map(prepText).join("; ")}.`
+				: " No open prep tasks; no one has completed it yet.";
+			return `- **${m.label}**: not met.${held}${review}${tasks}`;
+		});
+	const head = `${String(f.milestonesDone)} of ${String(f.milestonesTotal)} launch readiness milestones are met on the Launch plan:`;
+	const phase = (phases?.rows ?? []).find((r) => r.kind === "phase");
+	const criteria = (phases?.rows ?? []).filter((r) => r.kind === "criterion");
+	const exit = !phases
+		? ["Phase readiness is for Owners and Admins, so I left the phase's exit criteria out."]
+		: phase?.fields.terminal === true || !criteria.length
+			? [`${String(phase?.label)} has no exit criteria to show.`]
+			: [
+					`Exit criteria for leaving ${String(phase?.label)} for ${String(phase?.fields.next)}, as phase readiness shows them:`,
+					...criteria.map((c) => `- ${c.label}: ${String(c.fields.status)}`),
+				];
+	return [
+		head,
+		...milestones,
+		"",
+		...exit,
+		"",
+		"This is what your records show. Readiness is your call, not mine, and I changed nothing.",
+	].join("\n");
 }
 
 function guestsText(out: Output) {
@@ -267,6 +309,7 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 		countdown: COUNTDOWN.test(text),
 		milestones: MILESTONES.test(text),
 		goal: GOAL.test(text),
+		ready: READY.test(text),
 		guests: GUESTS.test(text),
 		changed: CHANGED.test(text),
 		move: Boolean(move),
@@ -368,6 +411,14 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 		if (debrief.facts?.recorded !== true)
 			return say("Launch Sunday isn't recorded yet, so there's nothing to summarize.");
 		return propose("launch.publishDebriefSummary", { body: summaryFrom(debrief.facts) });
+	}
+	if (asked.ready) {
+		const workspace = found("launch.readWorkspace");
+		if (!workspace) return read("launch.readWorkspace", { filter: "all" });
+		const phases = found("phases.readReadiness");
+		if (!phases && offers("phases.readReadiness"))
+			return call("phases_read", { operation: "phases.readReadiness", input: {} });
+		return say(readinessText(workspace, phases));
 	}
 	if (asked.goal) {
 		const people = outputs.findLast((o) => o.operation === "people.listPeople");

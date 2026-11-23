@@ -81,7 +81,9 @@ export function drive(root: string): number {
 		child.stdout.on("data", (chunk) => (out += chunk));
 		child.stderr.on("data", (chunk) => (err += chunk));
 		const record = (line: string) => driven.get(id) === d && write(d, line);
-		child.on("error", (error) => record(`failed: vercel could not start (${error.message})`));
+		child.on("error", (error: NodeJS.ErrnoException) =>
+			record(`failed: vercel could not start (${error.code ?? error.name})`),
+		);
 		child.on("close", (code) => {
 			const at = out.lastIndexOf(MARK);
 			const status = at === -1 ? "" : out.slice(at + MARK.length).trim();

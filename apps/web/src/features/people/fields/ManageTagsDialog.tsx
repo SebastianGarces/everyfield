@@ -38,8 +38,8 @@ export const churchTags = createRead((): Promise<Outcome<ChurchTag[]> | ReadFail
 });
 const byName = (a: { name: string }, b: { name: string }) =>
 	a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-const problem = (r: Outcome<unknown> | ReadFailure) =>
-	r.status === "ok" ? undefined : r.status === "refused" ? r.code : r.status;
+const problem = (r: Exclude<Outcome<unknown> | ReadFailure, { status: "ok" }>) =>
+	r.status === "refused" ? r.code : r.status;
 export const tagProblem = (code: string) =>
 	code === "conflict"
 		? "Another tag already has this name, or the tag changed. Check the list and try again."
@@ -79,7 +79,7 @@ export function ManageTagsDialog({
 	async function confirmDelete(tag: ChurchTag) {
 		setRowProblem(null);
 		const r = await listChurchTags().catch(() => ({ status: "lost" }) as const);
-		if (r.status !== "ok") return setRowProblem({ id: tag.id, text: tagProblem(problem(r)!) });
+		if (r.status !== "ok") return setRowProblem({ id: tag.id, text: tagProblem(problem(r)) });
 		save(() => r.value);
 		const now = r.value.find((t) => t.id === tag.id);
 		if (now) setDeleting(now);

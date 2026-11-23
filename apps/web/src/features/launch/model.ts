@@ -13,10 +13,11 @@ import {
 	type Plan,
 	type SummaryProblem,
 } from "@everyfield/contracts/launch";
+import type { Outcome as Shared } from "@everyfield/contracts/common";
 import { READ_FAILED } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; error: LaunchError } | { status: "lost" };
+export type Outcome<T> = Shared<T, LaunchError["code"], { error: LaunchError }>;
 
 export async function sent<R extends { status: string }>(call: () => Promise<R>): Promise<R | { status: "lost" }> {
 	try {
@@ -211,6 +212,12 @@ function historyValue(field: OutcomeField, v: string | number | null, today: str
 }
 export const actorText = (e: Pick<HistoryEntry, "actor">) => e.actor?.displayName || "A former account";
 
+const NOT_READY_MESSAGE: Record<Extract<LaunchError, { code: "not_ready" }>["details"]["needs"], string> = {
+	launch_sunday: "Record the outcome after Launch Sunday.",
+	outcome: "Record Launch Sunday first. Reload the page to see it now.",
+	debrief: "Submit the debrief first. Reload the page to see it now.",
+};
+
 export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok" }> | ReadFailure): string {
 	if (outcome.status === "failed") return READ_FAILED;
 	if (outcome.status === "lost")
@@ -232,9 +239,7 @@ export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok"
 		case "invalid_summary":
 			return SUMMARY_MESSAGE[error.details.problem];
 		case "not_ready":
-			return error.details.needs === "outcome"
-				? "Record Launch Sunday first. Reload the page to see it now."
-				: "Submit the debrief first. Reload the page to see it now.";
+			return NOT_READY_MESSAGE[error.details.needs];
 		case "derived_evidence_only":
 			return "This milestone follows the submitted debrief. It can't be checked off by hand.";
 		case "invalid_gathering":
@@ -253,8 +258,11 @@ export function requestKeys(fresh: () => string) {
 	return {
 		keyFor(intent: readonly unknown[]) {
 			const id = JSON.stringify(intent);
-			if (!keys.has(id)) keys.set(id, fresh());
-			return keys.get(id)!;
+			const known = keys.get(id);
+			if (known !== undefined) return known;
+			const key = fresh();
+			keys.set(id, key);
+			return key;
 		},
 		settle(intent: readonly unknown[]) {
 			keys.delete(JSON.stringify(intent));

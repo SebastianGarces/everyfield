@@ -1,4 +1,5 @@
 import { requireSeat } from "@/server/sign-in";
+import type { SitePath } from "@everyfield/contracts/identity";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
@@ -115,7 +116,7 @@ export function AttestationsLoading() {
 export const intelligenceMetadata: Metadata = { title: "Plant Intelligence", robots: { index: false, follow: false } };
 export const trendsMetadata: Metadata = { title: "Trends", robots: { index: false, follow: false } };
 
-async function ownerOrAdmin(path: string) {
+async function ownerOrAdmin(path: SitePath) {
 	const viewer = await requireSeat(path);
 	if (!viewer) return { blocked: <NoChurchPlantSeat /> } as const;
 	if (!administers(viewer))

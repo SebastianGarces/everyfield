@@ -24,7 +24,24 @@ const CACHE_HIT = /Cache restored from key/;
 const CACHE_MISS = /Cache not found for input keys|\bcache is not found\b/;
 
 type Step = { name: string; conclusion?: string | null; started_at?: string | null; completed_at?: string | null };
-type Job = { id: number; name: string; created_at?: string | null; started_at?: string | null; steps?: Step[] };
+type Job = {
+	id: number;
+	name: string;
+	conclusion?: string | null;
+	created_at?: string | null;
+	started_at?: string | null;
+	steps?: Step[];
+};
+type FirstAttempt = { conclusion: string | null; failed: boolean; failedSteps: string[] };
+type FirstAttempts = {
+	runs: number;
+	cancelled: number;
+	failed: number;
+	rerun: number;
+	steps: { step: string; count: number }[];
+};
+const FAILED = new Set(["failure", "timed_out"]);
+const ROLL_UP = "ci / Every check passed";
 type JobTiming = {
 	id: number;
 	name: string;
@@ -83,6 +100,34 @@ function totals(jobs: JobTiming[]): Total[] {
 	return [...byName.values()].sort((a, b) => (b.setupMs ?? -1) - (a.setupMs ?? -1));
 }
 
+function firstAttempt(conclusion: string | null, jobs: Job[]): FirstAttempt {
+	const steps = jobs
+		.filter((job) => FAILED.has(job.conclusion ?? ""))
+		.flatMap((job) => {
+			const failed = (job.steps ?? []).filter((step) => FAILED.has(step.conclusion ?? ""));
+			return failed.length ? failed.map((step) => `${job.name} / ${step.name}`) : [job.name];
+		});
+	const causes = steps.some((step) => step !== ROLL_UP) ? steps.filter((step) => step !== ROLL_UP) : steps;
+	const failedSteps = conclusion === "cancelled" ? [] : causes;
+	return { conclusion, failed: failedSteps.length > 0, failedSteps };
+}
+
+function firstAttempts(runs: { attempts: number; firstAttempt: FirstAttempt }[]): FirstAttempts {
+	const counted = runs.filter((run) => run.firstAttempt.conclusion !== "cancelled");
+	const steps = new Map<string, number>();
+	for (const run of counted)
+		for (const step of new Set(run.firstAttempt.failedSteps)) steps.set(step, (steps.get(step) ?? 0) + 1);
+	return {
+		runs: runs.length,
+		cancelled: runs.length - counted.length,
+		failed: counted.filter((run) => run.firstAttempt.failed).length,
+		rerun: counted.filter((run) => run.attempts > 1).length,
+		steps: [...steps]
+			.map(([step, count]) => ({ step, count }))
+			.sort((a, b) => b.count - a.count || a.step.localeCompare(b.step)),
+	};
+}
+
 type GhResult = { ok: true; out: string } | { ok: false; status: number | null; message: string };
 
 function gh(path: string, opts: { escapes?: boolean } = {}): GhResult {
@@ -117,29 +162,52 @@ function main(): void {
 	const last = Number(values.last);
 	if (!Number.isInteger(last) || last < 1 || last > 100)
 		throw new CiTimingError("Usage: node tools/ci/ci-timing.ts --last <1-100> [--json]");
-	type Run = { id: number; created_at: string };
+	type Run = { id: number; created_at: string; run_attempt?: number; conclusion?: string | null };
 	const runs = list<Run>(
 		json(`repos/{owner}/{repo}/actions/workflows/ci.yml/runs?status=completed&per_page=${last}`),
 		"workflow_runs",
 	).slice(0, last);
-	const result = runs.map((run) => ({
-		id: run.id,
-		createdAt: run.created_at,
-		jobs: list<Job>(json(`repos/{owner}/{repo}/actions/runs/${run.id}/jobs?per_page=100`), "jobs").map((job) => {
-			const log = gh(`repos/{owner}/{repo}/actions/jobs/${job.id}/logs`, { escapes: true });
-			if (!log.ok && log.status !== 404 && log.status !== 410)
-				throw new CiTimingError(`GitHub read failed for the log of job ${job.id}: ${log.message}`);
-			return jobTiming(job, log.ok ? log.out : null);
-		}),
-	}));
+	const result = runs.map((run) => {
+		const attempts = run.run_attempt ?? 1;
+		const jobs = list<Job>(json(`repos/{owner}/{repo}/actions/runs/${run.id}/jobs?per_page=100`), "jobs");
+		const first =
+			attempts > 1
+				? {
+						conclusion: (json(`repos/{owner}/{repo}/actions/runs/${run.id}/attempts/1`) as Run).conclusion ?? null,
+						jobs: list<Job>(json(`repos/{owner}/{repo}/actions/runs/${run.id}/attempts/1/jobs?per_page=100`), "jobs"),
+					}
+				: { conclusion: run.conclusion ?? null, jobs };
+		return {
+			id: run.id,
+			createdAt: run.created_at,
+			attempts,
+			firstAttempt: firstAttempt(first.conclusion, first.jobs),
+			jobs: jobs.map((job) => {
+				const log = gh(`repos/{owner}/{repo}/actions/jobs/${job.id}/logs`, { escapes: true });
+				if (!log.ok && log.status !== 404 && log.status !== 410)
+					throw new CiTimingError(`GitHub read failed for the log of job ${job.id}: ${log.message}`);
+				return jobTiming(job, log.ok ? log.out : null);
+			}),
+		};
+	});
 	const sum = totals(result.flatMap((r) => r.jobs));
-	if (values.json) return console.log(JSON.stringify({ runs: result, totals: sum }, null, 2));
+	const first = firstAttempts(result);
+	if (values.json) return console.log(JSON.stringify({ runs: result, totals: sum, firstAttempts: first }, null, 2));
 	for (const run of result) {
-		console.log(`Run ${run.id} (${run.createdAt})`);
+		const attempt = run.firstAttempt.failed
+			? "; first attempt failed"
+			: run.firstAttempt.conclusion === "cancelled"
+				? "; first attempt cancelled"
+				: "";
+		console.log(`Run ${run.id} (${run.createdAt}, ${run.attempts} attempt(s)${attempt})`);
 		for (const job of run.jobs) console.log(line(job.name, job));
 	}
 	console.log(`Totals per job across ${result.length} run(s)`);
 	for (const t of sum) console.log(line(`${t.name} (${t.jobs})`, t));
+	console.log(
+		`First attempts across ${first.runs - first.cancelled} run(s) not cancelled (${first.cancelled} cancelled): ${first.failed} had a failed job, ${first.rerun} were rerun`,
+	);
+	for (const s of first.steps) console.log(`  ${String(s.count).padStart(3)}  ${s.step}`);
 }
 
 if (import.meta.main) {

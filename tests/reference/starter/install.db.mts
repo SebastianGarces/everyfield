@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { hash, vectorHash } from "../../../packages/reference/src/hash.ts";
 import { localEmbedding } from "../../../packages/reference/src/starter/verify/embed.ts";
+import { EmbeddingRefusal } from "../../../packages/reference/src/starter/verify/openai.ts";
 import { approvedWiki } from "../../../packages/reference/src/starter/manifest/approved.ts";
 import { referenceService } from "../../../packages/reference/src/starter/verify/service.ts";
 import { loadApprovedSnapshot, WikiRefusal } from "../../../packages/reference/src/starter/verify/snapshot.ts";
@@ -30,7 +31,7 @@ let dropVector = false;
 let failProvider = false;
 const service = referenceService(db, {
 	embed(text: string) {
-		if (failProvider) throw Error("provider_timeout");
+		if (failProvider) throw new EmbeddingRefusal("provider_timeout");
 		return dropVector ? [] : localEmbedding(text);
 	},
 });
@@ -258,7 +259,10 @@ test("AC:REF-CASE-002 AC:GAP-REF-002 AC:CASE-WIKI-010 AC:SCHEMA-014 approved wik
 		activationNumber: null,
 		passages: 0,
 		reason: "incomplete_candidate",
+		estimatedTokens: 0,
+		estimatedUsd: 0,
 		usageTokens: 0,
+		costUsd: 0,
 	});
 	failProvider = true;
 	const timedOut = await service.rebuildEmbeddings(publisher, {

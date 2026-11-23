@@ -5,6 +5,7 @@ import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
+import { organizationSeatContext } from "../access/organization-seat.ts";
 import { plantViewer } from "../documents/access.ts";
 import { readPlantSetupComplete } from "../identity/reads.ts";
 
@@ -97,10 +98,22 @@ const frameRow = z.object({
 
 export const dashboardReader = {
 	async resolveHome(db: Db, authority: RequestActor | null): Promise<PlantSetup> {
-		const context = authority?.actor.context;
-		if (!authority || context?.kind !== "seat") return "none";
-		if (context.owner.kind === "organization") return "organization";
+		if (!authority) return "none";
+		if (organizationSeatContext(authority)) return "organization";
+		const context = authority.actor.context;
+		if (context.kind !== "seat" || context.owner.kind !== "plant") return "none";
 		return (await readPlantSetupComplete(db, authority.session, context.owner)) ? "complete" : "incomplete";
+	},
+
+	async readPlantName(db: Db, authority: RequestActor) {
+		return settle(async () => {
+			const scope = scopeOf(authority);
+			const { rows } = await db.execute(sql`SELECT pl.name FROM (SELECT ${scope.live} AS ok) g
+	JOIN plant pl ON g.ok AND pl.id=${scope.plantId}::uuid`);
+			const r = z.object({ name: z.string() }).safeParse(rows[0]);
+			if (!r.success) return deny();
+			return r.data.name;
+		});
 	},
 
 	async readSetupGaps(db: Db, authority: RequestActor) {

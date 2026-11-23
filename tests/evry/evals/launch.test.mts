@@ -48,6 +48,7 @@ import {
 	seedOutcomeNote,
 	seedMilestones,
 	seedNeedsReview,
+	seedReadiness,
 	seedScheduled,
 	sessionOf,
 	setVenue,
@@ -66,7 +67,15 @@ type Case = {
 	id: string;
 	criterion: number;
 	setup?:
-		"scheduled" | "unloadable" | "launched" | "guests" | "milestones" | "needsReview" | "guestMatch" | "outcomeNote";
+		| "scheduled"
+		| "unloadable"
+		| "launched"
+		| "guests"
+		| "milestones"
+		| "needsReview"
+		| "guestMatch"
+		| "outcomeNote"
+		| "readiness";
 	continue?: true;
 	actor: LaunchName;
 	ask: string;
@@ -77,6 +86,9 @@ type Case = {
 	proposals?: Expected[];
 	approve?: true;
 	outcome?: "completed" | "refused";
+	stop?: string;
+	forbid?: string[];
+	unchanged?: true;
 };
 const { cases } = JSON.parse(readFileSync(new URL("./launch.cases.json", import.meta.url), "utf8")) as {
 	cases: Case[];
@@ -108,6 +120,20 @@ const fill = (text: string) =>
 		.replace(/\{said:(-?\d+)\}/g, (_, n) => said(day(Number(n))))
 		.replace(/\{day:(-?\d+)\}/g, (_, n) => day(Number(n)))
 		.replace(/\{(mar14|mar21|apr11|apr18)\}/g, (_, k: string) => said(DATES[k]!));
+const golden = JSON.parse(readFileSync(new URL("./golden.cases.json", import.meta.url), "utf8")) as {
+	case_id: string;
+	eval?: { forbid?: string[] };
+}[];
+const pattern = (source: string) => {
+	const m = /^\/(.*)\/([a-z]*)$/s.exec(source);
+	return m ? new RegExp(m[1]!, m[2]) : new RegExp(source);
+};
+const forbidden = (c: Case) => [
+	...(c.forbid ?? []).map(pattern),
+	...(c.ask === "are we ready to launch?"
+		? (golden.find((g) => g.case_id === "LCH-02")?.eval?.forbid ?? []).map(pattern)
+		: []),
+];
 const filled = <T,>(value: T): T => JSON.parse(fill(JSON.stringify(value))) as T;
 
 let close: () => Promise<void>;
@@ -158,9 +184,17 @@ async function ask(actor: EvryActor, conversationId: string, text: string) {
 	);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	assert.equal(outcome, "succeeded", text);
-	const read = await readConversation(db, actor, conversationId);
-	const start = read.events.findLastIndex((e) => e.kind === "user_message");
-	const turn = read.events.slice(start + 1);
+	const events: Awaited<ReturnType<typeof readConversation>>["events"] = [];
+	const reviews: Record<string, Proposal> = {};
+	for (let after = 0; ;) {
+		const page = await readConversation(db, actor, conversationId, after);
+		if (!page.events.length) break;
+		events.push(...page.events);
+		Object.assign(reviews, page.reviews);
+		after = page.events.at(-1)!.sequence;
+	}
+	const start = events.findLastIndex((e) => e.kind === "user_message");
+	const turn = events.slice(start + 1);
 	const reads = turn.flatMap((e) =>
 		e.kind === "tool_result" && typeof e.body.operation === "string" && e.body.operation !== "evry.prepareProposal"
 			? [e.body.operation]
@@ -174,8 +208,9 @@ async function ask(actor: EvryActor, conversationId: string, text: string) {
 			? [(e.body.result as { proposalId: string }).proposalId]
 			: [],
 	);
-	const proposals = ids.map((id) => read.reviews[id]).filter((p): p is Proposal => Boolean(p));
-	return { reads, answer, proposals };
+	const proposals = ids.map((id) => reviews[id]).filter((p): p is Proposal => Boolean(p));
+	const stop = turn.findLast((e) => e.kind === "status")?.body.reason;
+	return { reads, answer, proposals, stop };
 }
 
 async function approveAndRun(actor: EvryActor, proposal: Proposal) {
@@ -185,7 +220,12 @@ async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 	const outcome = await executeProposal(
 		db,
 		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-		noReminders,
+		{
+			reminders: noReminders,
+			phaseNotices: async () => {
+				throw Error("unexpected phase notice");
+			},
+		},
 		null,
 		native,
 	);
@@ -199,6 +239,13 @@ const untouched = async () =>
 				(SELECT jsonb_agg(a.account_id ORDER BY a.account_id) FROM task_assignee a WHERE a.task_id=k.id)) ORDER BY k.id)
 			FROM task k WHERE k.plant_id=${PLANT}) AS tasks,(SELECT phase FROM plant WHERE id=${PLANT}) AS phase`)
 	).rows[0];
+const standing = async () => ({
+	plan: await planOf(db),
+	untouched: await untouched(),
+	reviews: Number(
+		(await admin.execute(sql`SELECT count(*)::int AS n FROM proposal WHERE tenant_id=${PLANT}`)).rows[0]!.n,
+	),
+});
 const livePeople = async () =>
 	Number(
 		(await admin.execute(sql`SELECT count(*)::int AS n FROM person WHERE plant_id=${PLANT} AND state='live'`)).rows[0]!
@@ -785,17 +832,22 @@ test("INV-evry-launch: every Launch case passes on the scripted model, and each 
 		if (c.setup === "needsReview") await seedNeedsReview(db);
 		if (c.setup === "guestMatch") await seedGuestMatch(db);
 		if (c.setup === "outcomeNote") await seedOutcomeNote(db);
+		if (c.setup === "readiness") await seedReadiness(admin, db);
 		const actor = await actorOf(c.actor);
 		const conversation: string = c.continue
 			? previous!
 			: (await createConversation(db, actor, { requestKey: randomUUID() })).id;
 		previous = conversation;
 		let turn!: Awaited<ReturnType<typeof ask>>;
+		const was = c.unchanged ? await standing() : null;
 		const run = async () => {
 			turn = await ask(actor, conversation, c.ask);
 		};
 		await (c.setup === "unloadable" ? unloadable(run) : run());
 		assert.deepEqual(turn.reads, c.calls, `${c.id} reads`);
+		if (c.stop) assert.equal(turn.stop, c.stop, `${c.id} stop`);
+		for (const re of forbidden(c)) assert.doesNotMatch(turn.answer, re, `${c.id} answer`);
+		if (was) assert.deepEqual(await standing(), was, `${c.id} changes nothing`);
 		for (const text of c.answer ?? [])
 			assert.ok(turn.answer.includes(text), `${c.id} answer ${JSON.stringify(turn.answer)} has ${text}`);
 		for (const text of c.absent ?? [])

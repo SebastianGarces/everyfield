@@ -1,15 +1,15 @@
 "use server";
 
-import { feedSubject } from "@everyfield/contracts/notifications";
 import type { RequestActor } from "@everyfield/domain/access";
-import { newRequestKey, type Outcome, type OptOut, type Reply } from "./model.ts";
-import { call, notificationActor, optOutReady, type Mount } from "./server.ts";
+import { type Outcome, type OptOut, type Reply } from "./model.ts";
+import { viewerActor } from "@/server/request-context";
+import { call, optOutReady, type Mount } from "./server.ts";
+import { markSubject, subjectReadRequest, type Marked } from "./subject.ts";
 
-type Marked = { markedIds: string[] };
 type Marker = (m: Mount, actor: RequestActor) => Promise<Reply<Marked>>;
 
 async function mark(run: Marker): Promise<Outcome<Marked>> {
-	const actor = await notificationActor();
+	const actor = await viewerActor();
 	if (!actor) return { status: "refused", code: "access_denied" };
 	return call((m) => run(m, actor));
 }
@@ -26,21 +26,9 @@ export async function markAllVisibleRead(command: unknown): Promise<Outcome<Mark
 	return mark((m, actor) => m.producer.markAllVisibleRead(m.db, actor, command));
 }
 export async function markSubjectRead(raw: unknown): Promise<Outcome<Marked>> {
-	const subject = feedSubject.safeParse(raw);
-	if (!subject.success) return { status: "refused", code: "invalid_input" };
-	return mark(async (m, actor) => {
-		const page = await m.producer.readFeedPage(m.db, actor, { unread: true });
-		if (page.status !== "ok") return page;
-		const noticeIds = page.value.feed.items
-			.filter((i) => i.subject?.kind === subject.data.kind && i.subject.id === subject.data.id)
-			.map((i) => i.id);
-		if (!noticeIds.length) return { status: "ok", value: { markedIds: [] } };
-		return m.producer.markSelectedRead(m.db, actor, {
-			requestKey: newRequestKey(),
-			expectedRevision: page.value.revision,
-			input: { noticeIds },
-		});
-	});
+	const request = subjectReadRequest.safeParse(raw);
+	if (!request.success) return { status: "refused", code: "invalid_input" };
+	return mark((m, actor) => markSubject(m, actor, request.data));
 }
 
 async function optOut(run: (m: Mount) => Promise<Reply<OptOut>>): Promise<Outcome<OptOut>> {

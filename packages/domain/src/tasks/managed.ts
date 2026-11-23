@@ -60,6 +60,12 @@ export function obligationFacts(plantId: string, meetings: SQL, people: SQL, ass
 		'zone', (SELECT timezone FROM plant WHERE id=${plantId}::uuid))`;
 }
 
+function checked<V>(record: Record<string, V>, key: string, what: string): V {
+	const value = record[key];
+	if (value === undefined) throw Error(`The checked ${what} ${key} was not read`);
+	return value;
+}
+
 export async function ensureMeetingObligations(
 	tx: Tx,
 	cmd: AuditCommand,
@@ -97,14 +103,12 @@ export async function ensureMeetingObligations(
 	const at = new Date();
 	const results = [];
 	const created: TaskRow[] = [];
-	const origins = new Map<string, z.infer<typeof meetingObligations>["origin"]>(),
-		meetingOf = new Map<string, string>();
+	const obligations: (typeof tables.obligation.$inferInsert)[] = [];
 	for (const m of v.meetings) {
 		const meeting = row.meetings[m.meetingId];
 		if (!meeting) deny("unavailable");
 		if (new Set(m.followUps.map((f) => f.personId)).size !== m.followUps.length) deny("invalid_input");
 		if (m.followUps.some((f) => !(f.personId in row.people))) deny("invalid_subject");
-		origins.set(m.meetingId, m.origin);
 		const due = c.followUpDueDate(m.origin.date);
 		const title = displayTitle(meeting);
 		const wanted = [
@@ -142,6 +146,18 @@ export async function ensureMeetingObligations(
 			}
 			const obligationId = randomUUID(),
 				taskId = randomUUID();
+			obligations.push({
+				id: obligationId,
+				plant_id: plant,
+				meeting_id: m.meetingId,
+				person_id: w.personId,
+				kind: storageKind(w.kind),
+				origin_at: new Date(m.origin.at),
+				origin_date: m.origin.date,
+				timezone: m.origin.zone,
+				formula_version: "1",
+				due_date: due,
+			});
 			created.push(
 				newTask(row.zone, {
 					id: taskId,
@@ -150,17 +166,20 @@ export async function ensureMeetingObligations(
 					priority: "medium",
 					status: "not_started",
 					created_at: at,
-					assignees: w.assigneeIds.map((id) => ({ accountId: id, displayName: row.names[id]!, seated: true })),
+					assignees: w.assigneeIds.map((id) => ({
+						accountId: id,
+						displayName: checked(row.names, id, "assignee"),
+						seated: true,
+					})),
 					due_kind: "date_only",
 					due_date: due,
 					person_id: w.personId,
 					meeting_id: w.personId ? null : m.meetingId,
 					obligation_id: obligationId,
 					obligation_kind: w.kind,
-					relation_label: w.personId ? row.people[w.personId]! : title,
+					relation_label: w.personId ? checked(row.people, w.personId, "person") : title,
 				}),
 			);
-			meetingOf.set(taskId, m.meetingId);
 			results.push({
 				meetingId: m.meetingId,
 				kind: w.kind,
@@ -173,24 +192,7 @@ export async function ensureMeetingObligations(
 	}
 	if (created.length) {
 		cmd.writes.push(
-			tx.insert(tables.obligation).values(
-				created.map((t) => {
-					const meetingId = meetingOf.get(t.id)!,
-						origin = origins.get(meetingId)!;
-					return {
-						id: t.obligation_id!,
-						plant_id: plant,
-						meeting_id: meetingId,
-						person_id: t.person_id,
-						kind: storageKind(t.obligation_kind!),
-						origin_at: new Date(origin.at),
-						origin_date: origin.date,
-						timezone: origin.zone,
-						formula_version: "1",
-						due_date: t.due_date!,
-					};
-				}),
-			),
+			tx.insert(tables.obligation).values(obligations),
 			...insertTasks(plant, cmd.actor.accountId, created),
 		);
 		for (const t of created)
@@ -234,16 +236,18 @@ export async function applyManagedStatus(
 				(await tx.execute(sql`SELECT ${managedTasks(cmd.actor.plantId, asArray(v.obligationIds))} AS tasks`)).rows[0]
 					?.tasks,
 		)
-		.filter((row) => wanted.has(row.obligation_id!));
+		.flatMap((row) =>
+			row.obligation_id !== null && wanted.has(row.obligation_id) ? [{ row, obligationId: row.obligation_id }] : [],
+		);
 	const tasks = [],
 		changes = [];
-	for (const row of rows) {
+	for (const { row, obligationId } of rows) {
 		if (row.status === "no_longer_needed" || (v.status === "no_longer_needed" && row.status === "complete")) {
-			tasks.push({ obligationId: row.obligation_id!, taskId: row.id, outcome: "unchanged" as const });
+			tasks.push({ obligationId, taskId: row.id, outcome: "unchanged" as const });
 			continue;
 		}
 		const r = setStatus(tx, cmd, row, { status: v.status, reason: v.reason, source: "generated" });
-		tasks.push({ obligationId: row.obligation_id!, taskId: row.id, outcome: r.outcome });
+		tasks.push({ obligationId, taskId: row.id, outcome: r.outcome });
 		changes.push(...r.changes);
 	}
 	const outcome = tasks.some((t) => t.outcome === "changed")

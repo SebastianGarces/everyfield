@@ -1,8 +1,6 @@
 "use client";
 
-import { Alert02Icon } from "@hugeicons/core-free-icons";
-import { Switch } from "@everyfield/ui/controls";
-import { Icon } from "@everyfield/ui/foundations";
+import { InlineAlert, Switch } from "@everyfield/ui/controls";
 import Link from "next/link";
 import { useId, useState } from "react";
 import { setChurchBranding } from "./actions.ts";
@@ -71,14 +69,7 @@ export function ChurchBranding({
 					</span>
 				}
 			/>
-			<div aria-live="assertive" className="empty:hidden">
-				{problem ? (
-					<p className="mb-2 flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">
-						<Icon icon={Alert02Icon} size={16} className="mt-0.5 flex-none" />
-						<span className="min-w-0 flex-1">{problem}</span>
-					</p>
-				) : null}
-			</div>
+			<InlineAlert className="pb-2">{problem}</InlineAlert>
 		</section>
 	);
 }

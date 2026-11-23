@@ -1,6 +1,5 @@
 "use client";
 
-import { Alert02Icon } from "@hugeicons/core-free-icons";
 import {
 	TEMPLATE_DESCRIPTION_MAX,
 	TEMPLATE_NAME_MAX,
@@ -17,8 +16,8 @@ import {
 	Field,
 	Input,
 	Textarea,
+	InlineAlert,
 } from "@everyfield/ui/controls";
-import { Icon } from "@everyfield/ui/foundations";
 import { useRef, useState } from "react";
 import { editChurchTemplate } from "./actions.ts";
 
@@ -107,14 +106,7 @@ export function EditTemplateDialog({
 					<p className="text-sm text-text-3 text-pretty">
 						New documents take the new name. Documents already made from this template keep their own title.
 					</p>
-					<div aria-live="assertive" className="empty:hidden">
-						{error ? (
-							<p className="flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">
-								<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-								{error}
-							</p>
-						) : null}
-					</div>
+					<InlineAlert>{error}</InlineAlert>
 				</DialogBody>
 				<DialogFooter>
 					<DialogClose asChild>

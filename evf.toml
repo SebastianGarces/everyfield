@@ -9,14 +9,35 @@ run = ["bin/dev", "fast-check"]
 timeout_minutes = 10
 
 [[check]]
-name = "full-check"
-run = ["bin/dev", "check", "--full"]
-timeout_minutes = 25
+name = "db-packages"
+run = ["sh", "-c", "set -e; export CI=true EARLY_ACCESS_TEST_DATABASE=1; corepack pnpm db:migrate; python3 packages/db/src/schema/generate.py --check; corepack pnpm --filter @everyfield/db test:db; corepack pnpm --filter @everyfield/evry test:db"]
+timeout_minutes = 30
+heavy = true
 
 [[check]]
 name = "census"
-run = ["bin/dev", "census"]
-timeout_minutes = 20
+run = ["sh", "-c", "set -e; export CI=true EARLY_ACCESS_TEST_DATABASE=1; corepack pnpm db:migrate; NEXT_TELEMETRY_DISABLED=1 corepack pnpm build; corepack pnpm --filter @everyfield/domain test:db; node --test tests/reference/server-trace.test.mjs"]
+timeout_minutes = 45
+heavy = true
+
+[slot_postgres]
+image = "pgvector/pgvector:0.8.7-pg18"
+database = "everyfield_ci"
+refuse_files = [
+  "apps/web/.env",
+  "apps/web/.env.local",
+  "apps/web/.env.production",
+  "apps/web/.env.production.local",
+]
+
+[signoff]
+context = "evf/checks"
+heavy_jobs = [
+  "db (@everyfield/db, evry)",
+  "domain (census part 1)",
+  "domain (census part 2)",
+  "domain (census part 3)",
+]
 
 [guards]
 heavy = [
@@ -41,17 +62,17 @@ paths = [
   "packages/domain/src/documents/templates/agenda-content.ts",
   "packages/domain/src/documents/templates/budget-worksheet.json",
   "packages/domain/src/documents/templates/bylaws.json",
+  "packages/domain/src/documents/templates/child-protection-policy.json",
   "packages/domain/src/documents/templates/card-content.ts",
   "packages/domain/src/documents/templates/checklists-content.ts",
-  "packages/domain/src/documents/templates/church-content.ts",
   "packages/domain/src/documents/templates/commitment-card.json",
   "packages/domain/src/documents/templates/conflict-of-interest-policy.json",
+  "packages/domain/src/documents/templates/financial-controls-policy.json",
   "packages/domain/src/documents/templates/follow-up-letter.json",
   "packages/domain/src/documents/templates/guest-sign-in-sheet.json",
   "packages/domain/src/documents/templates/launch-team-commitment.json",
   "packages/domain/src/documents/templates/member-expectations.json",
   "packages/domain/src/documents/templates/prayer-letter.json",
-  "packages/domain/src/documents/templates/text-content.ts",
 ]
 outcome = "owner"
 quote = "when I meant document-template code I meant the actual templates... if you are talking about functionality, I don't necessarily have to approve it. I was referring to actual templates themselves"

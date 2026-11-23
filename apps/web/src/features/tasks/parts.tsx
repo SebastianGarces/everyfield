@@ -98,13 +98,14 @@ export function DueLine({ task, year }: { task: Pick<TaskItem, "due" | "overdue"
 }
 
 export function Assignee({ task, you }: { task: Pick<TaskItem, "assignees" | "followUpOwners">; you: string }) {
-	if (!task.assignees.length)
+	const names = assigneeNames(task.assignees);
+	const [firstName] = names;
+	if (firstName === undefined)
 		return (
 			<StatusBadge status="attention" size="sm" className="max-app-sm:hidden">
 				Needs owner
 			</StatusBadge>
 		);
-	const names = assigneeNames(task.assignees);
 	const own = task.assignees.some((a) => a.accountId === you);
 	const who = task.assignees.map((a) => {
 		const view = task.followUpOwners.find((o) => o.accountId === a.accountId);
@@ -118,7 +119,7 @@ export function Assignee({ task, you }: { task: Pick<TaskItem, "assignees" | "fo
 			className="inline-flex max-w-[260px] min-w-0 items-center gap-2 max-app-sm:max-w-[120px]"
 			title={who.join(", ")}
 		>
-			<Avatar name={names[0]!} label={label} size="xs" ring={own} />
+			<Avatar name={firstName} label={label} size="xs" ring={own} />
 			<span className="min-w-0 truncate text-sm text-text-2" aria-hidden="true">
 				<span className="max-app-sm:hidden">{room ? full : assigneeSummary(task.assignees)}</span>
 				<span className="app-sm:hidden">{assigneeSummary(task.assignees)}</span>

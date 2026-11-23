@@ -6,7 +6,7 @@ export type ContextKind = "account" | "plant" | "sending_church" | "sending_netw
 export type EvryActor = {
 	readonly authority: RequestActor;
 	readonly accountId: string;
-	readonly session: string;
+	readonly session: RequestActor["session"];
 	readonly owner: Exclude<Owner, { kind: "global" }>;
 	readonly contextKind: ContextKind;
 	readonly role: "owner" | "admin" | "member" | null;
