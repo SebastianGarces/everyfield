@@ -109,7 +109,7 @@ const noStore = (response: Response) => {
 
 test("the read and the answer send the proof only in the route's body, never in an action argument", async () => {
 	reset(viewer);
-	const sent: { url: string; body: string }[] = [];
+	const sent: { url: string; method?: string; body: string }[] = [];
 	const command = respondInvitationRequest.parse({
 		requestKey: "relationship-respond-1",
 		expectedRevision: "1",
@@ -117,7 +117,7 @@ test("the read and the answer send the proof only in the route's body, never in 
 	});
 	const realFetch = globalThis.fetch;
 	globalThis.fetch = (async (url: string, init: RequestInit) => {
-		sent.push({ url, body: String(init.body) });
+		sent.push({ url, method: init.method, body: String(init.body) });
 		return relationshipInvitationRoute(
 			new Request(new URL(url, ORIGIN), { ...init, headers: { ...init.headers, origin: ORIGIN } }),
 		);
@@ -131,8 +131,12 @@ test("the read and the answer send the proof only in the route's body, never in 
 	}
 	assert.deepEqual(state.actions, [], "no server action was called with the relationship invitation");
 	assert.deepEqual(
-		sent.map((s) => s.url),
-		["/api/connections/invitation", "/api/connections/invitation"],
+		sent.map((s) => [s.method, s.url]),
+		[
+			["POST", "/api/connections/invitation"],
+			["POST", "/api/connections/invitation"],
+		],
+		"both requests post to the route with no proof in the path or query",
 	);
 	assert.ok(
 		sent.every((s) => s.body.includes(PROOF)),

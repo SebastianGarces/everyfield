@@ -3429,6 +3429,72 @@ test("INV-lint: a server action parameter typed as a trusted shape is reported, 
 	);
 });
 
+test("INV-lint: a server action that takes who is asking from the caller is reported in any case, destructured or wrapped, its subject ids and non-action modules are not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function a(accountId: string) {}\nexport async function b(input: unknown, ACTOR: unknown) {}\nexport const c = async ({ workspace, note }: unknown) => note;\nexport async function d({ input: { sessionId } }: unknown) {}\nexport async function e(...session: unknown[]) {}\nconst wrap = <T>(f: T) => f;\nexport const f = wrap(async (Account: unknown) => Account);\nasync function g(workspaceId = "w") {}\nexport { g };\nexport async function h({ actorId: who }: unknown) {}\nexport async function fine(personId: string, { invitationId, accountName }: unknown, workspaces: unknown) {}\nasync function local(accountId: string) {}\n`,
+			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function inline(actor: unknown) {\n\t\t"use server";\n\t}\n\treturn inline;\n}\nexport const view = (session: unknown) => session;\n`,
+			"apps/web/src/features/x/server.ts": `import "server-only";\nexport async function save(accountId: string) {}\n`,
+		}).filter((hit) => hit.endsWith("action-identity-params")),
+		[
+			"apps/web/src/features/x/Card.tsx:2 action-identity-params",
+			"apps/web/src/features/x/actions.ts:11 action-identity-params",
+			"apps/web/src/features/x/actions.ts:2 action-identity-params",
+			"apps/web/src/features/x/actions.ts:3 action-identity-params",
+			"apps/web/src/features/x/actions.ts:4 action-identity-params",
+			"apps/web/src/features/x/actions.ts:5 action-identity-params",
+			"apps/web/src/features/x/actions.ts:6 action-identity-params",
+			"apps/web/src/features/x/actions.ts:8 action-identity-params",
+			"apps/web/src/features/x/actions.ts:9 action-identity-params",
+		],
+	);
+});
+
+test("INV-lint: a server action module that takes, parses or forwards a link proof is reported, a proof it reads from no input and non-action modules are not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\nimport { respondInvitationRequest } from "@everyfield/contracts/organizations";\nimport * as I from "@everyfield/contracts/identity";\nimport { inviteSeatRequest } from "@everyfield/contracts/identity";\nexport async function a(proof: string) {}\nexport async function b({ invitationProof }: unknown) {}\nexport async function c(raw: unknown) {\n\treturn I.verifyEmailRequest.safeParse(raw);\n}\nexport async function d(raw: { proof: string }, token: string) {\n\treturn save({ proof: token, other: raw.proof });\n}\nexport async function e(raw: unknown) {\n\treturn save({ proof: await readProof() });\n}\nexport async function f(raw: unknown) {\n\treturn inviteSeatRequest.parse(raw);\n}\nconst save = async (x: unknown) => x;\nconst readProof = async () => "cookie";\n`,
+			"apps/web/src/features/x/later.ts": `"use server";\nexport async function g(raw: unknown) {\n\tconst { respondSeatInvitationRequest: r } = await import("@everyfield/contracts/identity");\n\treturn r;\n}\nexport async function h() {\n\treturn (await import("@everyfield/contracts/organizations")).acceptInvitationRequest;\n}\n`,
+			"apps/web/src/features/x/handler.ts": `import { respondInvitationRequest } from "@everyfield/contracts/organizations";\nexport const route = (body: { proof: string }) => respondInvitationRequest.parse(body.proof);\n`,
+		}).filter((hit) => hit.endsWith("action-proofs")),
+		[
+			"apps/web/src/features/x/actions.ts:11 action-proofs",
+			"apps/web/src/features/x/actions.ts:11 action-proofs",
+			"apps/web/src/features/x/actions.ts:2 action-proofs",
+			"apps/web/src/features/x/actions.ts:5 action-proofs",
+			"apps/web/src/features/x/actions.ts:6 action-proofs",
+			"apps/web/src/features/x/actions.ts:8 action-proofs",
+			"apps/web/src/features/x/later.ts:3 action-proofs",
+			"apps/web/src/features/x/later.ts:7 action-proofs",
+			"apps/web/src/features/x/later.ts:7 action-proofs",
+		],
+	);
+});
+
+test("INV-lint: an unsubscribe module that imports the session, request headers or a viewer is reported in any import form, other modules are not", () => {
+	const reaching = `import { getViewer } from "@/server/request-context";\nimport { requestAuth } from "../../server/identity/index.ts";\nimport { cookies } from "next/headers";\nimport { getSessionCookie } from "better-auth/cookies";\nimport { viewerOf } from "./mount.ts";\nimport { readRequestViewer } from "@everyfield/domain/access";\nimport { plantSeat as p } from "@/server/elsewhere";\nexport { viewerActor } from "@/server/request-context.ts";\nexport const later = () => import("@/server/request-context");\nimport { unsubscribeCall } from "./unsubscribe.ts";\nimport { serverEnv } from "../../server/config.ts";\n`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/communication/mount.ts": "export const viewerOf = 1;\n",
+			"apps/web/src/server/request-context.ts": "export const getViewer = 1;\n",
+			"apps/web/src/server/identity/index.ts": "export const requestAuth = 1;\n",
+			"apps/web/src/server/config.ts": "export const serverEnv = 1;\n",
+			"apps/web/src/features/communication/unsubscribe.ts": "export const unsubscribeCall = 1;\n",
+			"apps/web/src/features/communication/unsubscribeActions.ts": reaching,
+			"apps/web/src/features/communication/unsubscribeRoute.tsx": `import "next/headers";\n`,
+			"apps/web/src/features/communication/unsubscribeOneClick.ts": `const r = require("@/server/request-context");\nexport { r };\n`,
+			"apps/web/src/features/communication/actions.ts": reaching,
+		}).filter((hit) => hit.endsWith("token-authority")),
+		[
+			...[1, 1, 2, 3, 4, 4, 5, 5, 6, 6, 7, 8, 9].map(
+				(line) => `apps/web/src/features/communication/unsubscribeActions.ts:${line} token-authority`,
+			),
+			"apps/web/src/features/communication/unsubscribeOneClick.ts:1 token-authority",
+			"apps/web/src/features/communication/unsubscribeRoute.tsx:1 token-authority",
+		].sort(),
+	);
+});
+
 test("INV-lint: a server action that mints its own request key is reported, a key from the client, other ids, previews and client modules are not", () => {
 	assert.deepEqual(
 		lint({
