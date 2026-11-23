@@ -2,6 +2,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useSyncExternalStore } from "react";
+import { reinstall } from "./install.ts";
 import { ONE_TIME_LINK_VALUES, oneTimeLinkValue, type LinkWindow, type OneTimeLinkName } from "./one-time-link.ts";
 
 type Listener = () => void;
@@ -146,16 +147,19 @@ type Installed = {
 const INSTALLED = Symbol.for("everyfield.location");
 
 if (typeof window !== "undefined") {
-	const host = window as unknown as Record<symbol, Installed | undefined>;
 	const navigation = (window as { navigation?: EntryChanges }).navigation;
-	const previous = host[INSTALLED];
+	const previous = reinstall<Installed>(INSTALLED, {
+		popstate: traversed,
+		hashchange: hashChanged,
+		entry: routerWrote,
+		arrived: routerArrived,
+	});
 	if (previous) {
 		window.removeEventListener("popstate", previous.popstate);
 		window.removeEventListener("hashchange", previous.hashchange);
 		navigation?.removeEventListener("currententrychange", previous.entry);
 		navigation?.removeEventListener("navigatesuccess", previous.arrived);
 	}
-	host[INSTALLED] = { popstate: traversed, hashchange: hashChanged, entry: routerWrote, arrived: routerArrived };
 	window.addEventListener("popstate", traversed);
 	window.addEventListener("hashchange", hashChanged);
 	navigation?.addEventListener("currententrychange", routerWrote);
