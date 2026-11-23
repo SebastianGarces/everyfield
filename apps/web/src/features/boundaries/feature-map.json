@@ -5,7 +5,7 @@
 	"surfaces": [
 		{
 			"id": "boundaries.not-found",
-			"says": "The page an unknown address shows: outside the product frame with a link to the home page, and inside it, around the frame, with a link to the viewer's own home.",
+			"says": "The page an unknown address shows: outside the product frame with a link to the public home page, or to the viewer's own home once signed in, and inside it, around the frame, with a link to the viewer's own home.",
 			"routes": [],
 			"reach": [
 				{
@@ -17,7 +17,8 @@
 			],
 			"personas": {
 				"visitor": "read",
-				"owner": "read"
+				"owner": "read",
+				"network": "read"
 			},
 			"states": [
 				{
@@ -25,6 +26,25 @@
 					"file": "apps/web/src/app/not-found.tsx",
 					"reach": {
 						"persona": "visitor",
+						"open": "/this-page-does-not-exist",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Page not found"
+						},
+						{
+							"role": "link",
+							"name": "Go to the home page"
+						}
+					]
+				},
+				{
+					"id": "outside-frame-signed-in",
+					"file": "apps/web/src/app/not-found.tsx",
+					"reach": {
+						"persona": "network",
 						"open": "/this-page-does-not-exist",
 						"seed": "qa"
 					},
