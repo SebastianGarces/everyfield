@@ -15,6 +15,7 @@ import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { MAILING } from "./church-address.mts";
 
 let f, plant, owner;
 const ZONE = "America/Chicago";
@@ -133,7 +134,7 @@ async function shown(message) {
 
 before(async () => {
 	f = await fixture();
-	plant = await f.workspace();
+	plant = await f.workspace("plant", MAILING);
 	await f.admin.execute(sql`UPDATE plant SET timezone = ${ZONE} WHERE id = ${plant.id}`);
 	const account = await f.account();
 	await f.seat(account, plant, "owner");

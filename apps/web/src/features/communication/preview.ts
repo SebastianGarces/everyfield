@@ -7,6 +7,7 @@ export type PreviewInput = {
 	hasMeeting: boolean;
 	origin: string;
 	churchName: string;
+	mailingAddress: string | null;
 };
 type PreviewResult = { html: string } | { error: string };
 
@@ -15,7 +16,14 @@ export function renderPreview(input: PreviewInput): PreviewResult {
 	if (input.hasMeeting) merge.rsvp_link = `${input.origin}/rsvp/preview`;
 	const bodyHtml = prepareBody(input.bodyHtml, usableKeys(input.hasMeeting));
 	try {
-		return { html: renderEmailHtml(bodyHtml, merge, { churchName: input.churchName }, "preview") };
+		return {
+			html: renderEmailHtml(
+				bodyHtml,
+				merge,
+				{ churchName: input.churchName, mailingAddress: input.mailingAddress },
+				"preview",
+			),
+		};
 	} catch {
 		return { error: "The preview did not load." };
 	}
