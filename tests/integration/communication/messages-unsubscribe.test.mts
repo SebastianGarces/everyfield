@@ -17,6 +17,7 @@ import { POST as oneClick } from "../../../apps/web/src/features/communication/u
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime } from "./scheduled-support.mts";
 import { ok, refused } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, churchA, churchB, ownerA, ownerB, memberA;
 const origin = "https://app.example.test";
@@ -200,7 +201,7 @@ test("AC:CASE-NTF-016 an unsubscribed person is refused like a blocked address o
 	const [{ revision }] = await rows(sql`SELECT revision::text AS revision FROM person WHERE id = ${eve.id}`);
 	const moved = `eve-new-${key().slice(0, 8)}@example.test`;
 	ok(
-		await f.db.transaction((t) =>
+		await gatedTransaction(f.db, (t) =>
 			peopleWriter.updatePerson(
 				t,
 				{ session: ownerA.session, selected: { kind: "plant", id: churchA.id } },
@@ -267,7 +268,7 @@ test("AC:CASE-NTF-016 history counts Unsubscribed apart from refused and blocked
 	await unsubscribe(ownerA, hal);
 	const mixed = await send(ownerA, [hal, ivy]);
 	const totals = ok(
-		await f.db.transaction((t) =>
+		await gatedTransaction(f.db, (t) =>
 			communicationWriter.getDeliveryTotals(t, ownerA.actor, { communicationId: mixed.id }),
 		),
 	);
@@ -284,7 +285,9 @@ test("AC:CASE-NTF-016 history counts Unsubscribed apart from refused and blocked
 		["failed", 0, 0, 2],
 	);
 	const all = ok(
-		await f.db.transaction((t) => communicationWriter.getDeliveryTotals(t, ownerA.actor, { communicationId: none.id })),
+		await gatedTransaction(f.db, (t) =>
+			communicationWriter.getDeliveryTotals(t, ownerA.actor, { communicationId: none.id }),
+		),
 	);
 	assert.equal(all.state, "unsubscribed");
 	assert.equal(hubLabel[all.state], "Not sent: unsubscribed");
@@ -297,7 +300,7 @@ test("AC:CASE-NTF-016 history counts Unsubscribed apart from refused and blocked
 	assert.equal(/deliver/i.test(text), false);
 	assert.equal(/deliver/i.test(scheduleText(none.result, "Fri 9:00")), false);
 	const recipients = ok(
-		await f.db.transaction((t) =>
+		await gatedTransaction(f.db, (t) =>
 			communicationWriter.listHistoryRecipients(t, ownerA.actor, { communicationId: none.id, limit: 10 }),
 		),
 	);
@@ -381,12 +384,12 @@ test("AC:CASE-NTF-016 an Owner sees the opt-out and when on the person's record;
 	await unsubscribe(ownerA, lee);
 	const [row] = await optOutsOf(lee.id);
 	const history = (who) =>
-		f.db.transaction((t) => communicationWriter.listForPerson(t, who.actor, { personId: lee.id, limit: 10 }));
+		gatedTransaction(f.db, (t) => communicationWriter.listForPerson(t, who.actor, { personId: lee.id, limit: 10 }));
 	assert.equal(ok(await history(ownerA)).emailOptOutAt, new Date(row.opted_out_at).toISOString());
 	assert.equal(ok(await history(memberA)).emailOptOutAt, null);
 	const [{ revision }] = await rows(sql`SELECT revision::text AS revision FROM person WHERE id = ${lee.id}`);
 	refused(
-		await f.db.transaction((t) =>
+		await gatedTransaction(f.db, (t) =>
 			peopleWriter.updatePerson(
 				t,
 				{ session: ownerA.session, selected: { kind: "plant", id: churchA.id } },
@@ -421,9 +424,11 @@ test("AC:CASE-NTF-016 an Owner sees the opt-out and when on the person's record;
 test("AC:CASE-NTF-016 a merge keeps the survivor unsubscribed when either person had unsubscribed", async () => {
 	const ctx = { session: ownerA.session, selected: { kind: "plant", id: churchA.id } };
 	const merge = async (sourceId, survivorId) => {
-		const review = ok(await f.db.transaction((t) => peopleMerge.getMergeReview(t, ctx, { sourceId, survivorId })));
+		const review = ok(
+			await gatedTransaction(f.db, (t) => peopleMerge.getMergeReview(t, ctx, { sourceId, survivorId })),
+		);
 		return ok(
-			await f.db.transaction((t) =>
+			await gatedTransaction(f.db, (t) =>
 				peopleMerge.mergePeople(t, ctx, {
 					requestKey: key(),
 					input: { sourceId, survivorId, reviewDigest: review.reviewDigest, fieldChoices: {} },
@@ -446,7 +451,7 @@ test("AC:CASE-NTF-016 a merge keeps the survivor unsubscribed when either person
 		assert.equal(sentTo(sent.resend).length, 0, `${unsubscribed}: the survivor gets no email`);
 		assert.equal(sent.result.unsubscribedCount, 1);
 		const record = ok(
-			await f.db.transaction((t) =>
+			await gatedTransaction(f.db, (t) =>
 				communicationWriter.listForPerson(t, ownerA.actor, { personId: survivor.id, limit: 10 }),
 			),
 		);

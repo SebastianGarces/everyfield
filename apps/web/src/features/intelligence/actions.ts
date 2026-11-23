@@ -1,6 +1,6 @@
 "use server";
 
-import type { CarePage, CareWriteResult } from "@everyfield/contracts/intelligence";
+import type { CareWriteResult } from "@everyfield/contracts/intelligence";
 import type { Outcome } from "./model.ts";
 import { run } from "./server.ts";
 
@@ -25,8 +25,4 @@ export async function correctCheckIn(
 	return run((care, db, authority) =>
 		care.correct(db, authority, { requestKey, expectedRevision, input: { weekId, answers, note } }),
 	);
-}
-
-export async function readCheckInHistory(page: unknown): Promise<Outcome<CarePage>> {
-	return run((care, db, authority) => care.readHistory(db, authority, { page }));
 }

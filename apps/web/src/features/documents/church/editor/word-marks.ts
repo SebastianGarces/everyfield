@@ -17,13 +17,13 @@ function decorate(doc: PmNode, lines: readonly WordRun[][]): DecorationSet {
 		return false;
 	});
 	if (starts.length !== lines.length) return DecorationSet.empty;
-	const marks = lines.flatMap((runs, k) =>
-		runs
+	const marks = lines.flatMap((runs, k) => {
+		const start = starts[k];
+		if (start === undefined) return [];
+		return runs
 			.filter((run) => run.op !== "kept")
-			.map((run) =>
-				Decoration.inline(starts[k]! + run.from, starts[k]! + run.to, WORD_MARK[run.op as "removed" | "added"]),
-			),
-	);
+			.map((run) => Decoration.inline(start + run.from, start + run.to, WORD_MARK[run.op as "removed" | "added"]));
+	});
 	return DecorationSet.create(doc, marks);
 }
 

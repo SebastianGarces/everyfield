@@ -16,8 +16,8 @@ import {
 import { NOTIFICATION_READS } from "../../../../packages/evry/src/adapters/notifications/reads/index.ts";
 import { NOTIFICATION_COMMANDS } from "../../../../packages/evry/src/adapters/notifications/commands/index.ts";
 import { modelTools } from "../../../../packages/evry/src/runtime/tools.ts";
-import { transaction } from "../../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../packages/domain/src/jobs/queue.ts";
 import { accounts, actor, admin, db, plant, setup, sql, teardown } from "../../runtime/support.mts";
 
 const noReminders = async () => {
@@ -104,7 +104,7 @@ async function runNext() {
 	const outcome = await executeProposal(
 		db,
 		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-		noReminders,
+		{ reminders: noReminders, phaseNotices: async () => undefined },
 	);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	return outcome;
@@ -324,16 +324,29 @@ test("INV-notification-tools an organization login is offered its oversight dige
 	assert.ok("notifications_read" in tools);
 	assert.deepEqual(
 		readCatalog(org).domains.flatMap((d) => d.operations.map((o) => o.operation)),
-		["notifications.previewOversightDigest", "pipeline.listPeople", "development.draftPlan", "development.readProgram"],
+		[
+			"notifications.previewOversightDigest",
+			"pipeline.listPeople",
+			"development.draftPlan",
+			"development.readProgram",
+			"oversight.listPlants",
+			"oversight.getPlant",
+			"organizationIntelligence.read",
+		],
 	);
 	assert.deepEqual(
 		readCatalog(org).reviewedWrites.map((w) => w.operation),
 		[
+			"notifications.setPreferences",
 			"notifications.oversightDigestCadence.set",
 			"organizations.updateProfile",
 			"pipeline.proposeStageMove",
 			"development.saveProgram",
 			"development.draftNextVersion",
+			"wiki.organizationArticles.add",
+			"wiki.organizationArticles.edit",
+			"wiki.organizationArticles.publish",
+			"wiki.organizationArticles.hide",
 		],
 	);
 	const plantTools = modelTools(owner, { read: async () => ({}), select: async () => ({}), propose: async () => ({}) });

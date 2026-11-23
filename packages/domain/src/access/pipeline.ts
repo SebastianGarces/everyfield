@@ -5,24 +5,23 @@ import {
 	pipelineDuty,
 } from "@everyfield/contracts/access";
 import { owner, type Owner, type sessionId } from "@everyfield/contracts/common";
-import type { Transaction } from "@everyfield/db/client";
 import { alias, and, eq, isNull, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
-import { currentActor, liveOwner, liveRead, observedActor } from "./session.ts";
+import { currentActor, liveOwner, liveRead, observedActor, type WriteTx } from "./session.ts";
 
 const development_enrollment_e = alias(tables.development_enrollment, "e");
 const development_program_p = alias(tables.development_program, "p");
 
 export async function readPipelinePerson(
-	tx: Transaction,
+	tx: WriteTx,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
 	raw: unknown,
 ) {
 	const input = organizationPersonRequest.safeParse(raw);
-	const unavailable = () => pipelineAccessResult.parse({ status: "unavailable" });
+	const unavailable = () => ({ status: "unavailable" }) satisfies z.output<typeof pipelineAccessResult>;
 	if (!input.success || selected.kind !== "organization") return unavailable();
 	const actor = await currentActor(tx, session, selected, false);
 	if (actor.status !== "active" || actor.context.kind !== "seat") return unavailable();
@@ -84,7 +83,9 @@ export async function readPipelinePerson(
 
 	if (director.length) duties.push({ kind: "program_director", canReadStaffNotes: false });
 	return duties.length
-		? pipelineAccessResult.parse({ status: "allowed", organization: selected, personId: input.data.personId, duties })
+		? ({ status: "allowed", organization: selected, personId: input.data.personId, duties } satisfies z.output<
+				typeof pipelineAccessResult
+			>)
 		: unavailable();
 }
 
@@ -105,7 +106,7 @@ export const reviewShared = sql<boolean>`(r.withdrawn_at IS NULL
   AND rw.organization_id=r.organization_id))`;
 
 export async function readOwnResidency(
-	tx: Transaction,
+	tx: WriteTx,
 	session: z.infer<typeof sessionId>,
 	organization: Owner,
 	raw: unknown,
@@ -127,12 +128,13 @@ export async function readOwnResidency(
 		)
 	).rows;
 
-	if (links.length !== 1) return null;
+	const [link] = links;
+	if (links.length !== 1 || !link) return null;
 	return ownResidencyProjection.parse({
 		organization,
 		personId: input.data.personId,
-		linkId: links[0]!.id,
-		revision: links[0]!.revision,
+		linkId: link.id,
+		revision: link.revision,
 	});
 }
 

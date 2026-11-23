@@ -1,6 +1,6 @@
+import { cn } from "@everyfield/ui/foundations";
 import type { IconSvgElement } from "@hugeicons/react";
 import type { ReactNode } from "react";
-import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { Mark } from "@/components/Logo";
 import { Avatar, CardIcon, type Tone } from "@/components/kit/kit";

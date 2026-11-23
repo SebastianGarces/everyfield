@@ -31,3 +31,57 @@ process.stdout.write(JSON.stringify({ locale: new Intl.Collator().resolvedOption
 	for (const run of runs)
 		assert.deepEqual({ text: run.text, hash: run.hash }, { text: expected, hash: digest }, run.locale);
 });
+
+test("INV-jobs: a queued job row holds identifiers, keys, state and timing, never a payload", async () => {
+	const { getTableColumns } = await import("../../../packages/db/src/query.ts");
+	const { job } = await import("../../../packages/db/src/schema/tables.ts");
+	assert.deepEqual(Object.keys(getTableColumns(job)).sort(), [
+		"attempt_count",
+		"checkpoint_key",
+		"claim_generation",
+		"eligible_at",
+		"error_code",
+		"finished_at",
+		"id",
+		"kind",
+		"lease_owner",
+		"lease_until",
+		"max_attempts",
+		"next_attempt_at",
+		"producer_key",
+		"revision",
+		"source_revision",
+		"state",
+		"subject_record_id",
+		"tenant_id",
+	]);
+});
+
+test("INV-token-at-rest: a column that names a token, proof or secret stores its digest, outside the listed exemptions", async () => {
+	const { getTableColumns, getTableName, is, Table } = await import("../../../packages/db/src/query.ts");
+	const tables = await import("../../../packages/db/src/schema/tables.ts");
+	const libraryOwned = "library-owned; changing them needs an auth-library change";
+	const exempt: Record<string, string> = {
+		"auth_session.token": libraryOwned,
+		"auth_account.access_token": libraryOwned,
+		"auth_account.refresh_token": libraryOwned,
+		"auth_account.id_token": libraryOwned,
+		"audit_event.actor_token": "a pseudonym digest of the acting account, never a credential",
+	};
+	const credential =
+		/(^|_)(tokens?|secrets?|proofs?|nonces?|otp|passwords?|passwd|passcodes?|credentials?|api_keys?|private_keys?|signing_keys?|jwts?|bearer)(_|$)/;
+	const holdsNoValue = new Set(["number", "bigint", "boolean", "date"]);
+	const words = (name: string) => name.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+	const raw = Object.values(tables)
+		.filter((value) => is(value, Table))
+		.flatMap((table) =>
+			Object.values(getTableColumns(table))
+				.filter(
+					(c) =>
+						!holdsNoValue.has(c.dataType) && credential.test(words(c.name)) && !/_(hash|digest)$/.test(words(c.name)),
+				)
+				.map((c) => `${getTableName(table)}.${c.name}`),
+		)
+		.sort();
+	assert.deepEqual(raw, Object.keys(exempt).sort());
+});

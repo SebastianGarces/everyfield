@@ -18,7 +18,7 @@ flowchart LR
   s0 -.- s0_st0(("church"))
   s0 -.- s0_st1(("member"))
   s0 -.- s0_st2(("signed-out"))
-  s0 -.- s0_st3(("rail-settings-cut-off (known defect)"))
+  s0 -.- s0_st3(("rail-settings"))
   s0 --- s0_b0["section-address<br/>tests + browser behavior"]
   s0 --- s0_b1["church-profile<br/>tests + cases + browser behavior"]
   s1["settings.account<br/>no page"]
@@ -54,6 +54,7 @@ flowchart LR
 Settings: a dialog over the page underneath, one address per section, offering the sections this seat may change.
 
 - Routes: `/settings`, `/settings/[section]`
+- Endpoints: `/settings/read`
 - Personas: `owner` write, `admin` write, `member` write, `resident` write, `visitor` none
 - Catalog: IDN-010, IDN-011
 
@@ -103,15 +104,15 @@ agent-browser wait --load networkidle
 agent-browser wait --url "**/signin?returnTo=%2Fsettings%2Faccount"
 ```
 
-- **rail-settings-cut-off**: heading "History"; no dialog "Church profile". Known defect, so this state shows what is wrong: run it in a window 577 px tall, such as agent-browser's default of 1280 by 577 px or the proof slot's 1440 by 577 px (agent-browser set viewport 1440 577); both show the defect: the rail is a sticky aside of fixed height with no scroll (packages/ui/src/shell/AppShell.tsx:263), and for the Owner its last link, Settings, sits at y 568 to 614 whatever the window height. In a window 614 px or taller it is fully visible and opens Settings, so this state fails there; from 568 to 614 px it is cut off and a click on it opens nothing; below 568 px it is hidden. The account menu and keyboard Enter still open Settings, and the base branch behaves the same. As `owner`, on the QA seed:
+- **rail-settings**: URL `/settings/church`; dialog "Church profile". As `owner`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/communication"
 agent-browser wait --load networkidle
 agent-browser find role link click --name "Settings" --exact
 agent-browser wait --load networkidle
-agent-browser find role heading text --name "History" --exact
-! agent-browser find role dialog text --name "Church profile" --exact
+agent-browser wait --url "**/settings/church"
+agent-browser find role dialog text --name "Church profile" --exact
 ```
 
 #### settings.dialog#section-address
@@ -146,7 +147,7 @@ An Owner saves the church profile, and the new church name shows across the app.
 agent-browser find label "Church name" fill "Harvest Point (QA) Map"
 agent-browser find role button click --name "Save" --exact
 agent-browser wait --load networkidle
-agent-browser find text "No unsaved changes." text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"No unsaved changes.\")"
 agent-browser open "$ORIGIN/overview"
 agent-browser wait --load networkidle
 agent-browser wait --text "Harvest Point (QA) Map"
@@ -197,7 +198,7 @@ Saving Your name changes the name the app shows for you, starting with the accou
 agent-browser find label "Your name" fill "Ruth Map Allen"
 agent-browser find role button click --name "Save" --exact
 agent-browser wait --load networkidle
-agent-browser find text "No unsaved changes." text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"No unsaved changes.\")"
 agent-browser open "$ORIGIN/overview"
 agent-browser wait --load networkidle
 agent-browser find role button text --name "Ruth Map Allen"
@@ -263,7 +264,7 @@ A saved primary color stays with its contrast reading when the kit opens again.
 agent-browser find label "Primary color" fill "#2F6F4E"
 agent-browser find role button click --name "Save" --exact
 agent-browser wait --load networkidle
-agent-browser find text "No unsaved changes." text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"No unsaved changes.\")"
 agent-browser open "$ORIGIN/settings/brand"
 agent-browser wait --load networkidle
 agent-browser wait --text "passes text"

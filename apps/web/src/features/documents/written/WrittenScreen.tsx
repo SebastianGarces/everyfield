@@ -14,8 +14,8 @@ const NativeEditor = dynamic(() => import("./NativeEditor.tsx"), {
 			<span className="sr-only" role="status">
 				Loading the editor
 			</span>
-			<Skeleton className="h-14 w-72 rounded-card" />
-			<Skeleton className="mx-auto h-12 w-full max-w-[816px] rounded-card" />
+			<Skeleton className="h-14 w-72" />
+			<Skeleton className="mx-auto h-12 w-full max-w-[816px]" />
 			<Skeleton className="mx-auto h-[640px] w-full max-w-[816px] rounded-none" />
 		</div>
 	),

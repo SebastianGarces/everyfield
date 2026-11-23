@@ -4,7 +4,24 @@ import * as catalog from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { cardView, FALLBACK } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
-import { byName, goldenChurch, IMPORT_KEY, MEETINGS, programId, teamId } from "../evals/golden-church.mts";
+import { withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
+import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts";
+import { recordCorrections } from "../../../packages/domain/src/people/corrections/index.ts";
+import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
+import {
+	ANA_COMMITMENT,
+	byName,
+	DANIEL_INTERVIEW,
+	DOCS,
+	goldenChurch,
+	IMPORT_KEY,
+	MEETINGS,
+	programId,
+	taskId,
+	teamId,
+	WELCOME,
+	WIKI,
+} from "../evals/golden-church.mts";
 import { nativePorts } from "../evals/settings-ports.mts";
 import { seedSetup, SETUP_SPECS } from "../evals/setup-church.mts";
 import { PIPELINE_SPECS, seedPipeline } from "../evals/pipeline-church.mts";
@@ -13,9 +30,19 @@ import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
 import { randomUUID } from "node:crypto";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { intelligenceChurch, type IntelligenceChurch } from "../evals/intelligence-church.mts";
 
 const church = await goldenChurch();
 after(church.close);
+let intelligence: Promise<IntelligenceChurch> | null = null;
+let delta = false;
+const oversightChurch = () => (intelligence ??= intelligenceChurch("evrycards"));
+after(async () => (intelligence ? (await intelligence).database.close() : undefined));
+const oversightActor = async (who: "owner" | "director") => {
+	const ch = await oversightChurch();
+	return evryActor((await readViewer(ch.db, ch.seats[who].session as never))!.authority!);
+};
 const native = nativePorts();
 await seedSetup(church.admin, church.db, native);
 const setupActor = async (session: string) => evryActor((await readViewer(church.db, session as never))!.authority!);
@@ -23,7 +50,7 @@ let feedbackId: string | undefined;
 async function sentFeedback() {
 	if (feedbackId) return feedbackId;
 	const authority = (await setupActor(SETUP_SPECS.setupOwner.session)).authority;
-	const r = await church.db.transaction((tx) =>
+	const r = await gatedTransaction(church.db, (tx) =>
 		feedbackWriter.submit(
 			tx as never,
 			authority,
@@ -49,6 +76,12 @@ const read = (operation: string, input: unknown) =>
 const JAMES = byName("James Okafor").id;
 const MARK = byName("Mark Thompson").id;
 const FILE = "first_name,last_name,email\r\nAda,Park,ada@example.test\r\n,,\r\nJames,Okafor,\r\n";
+const withTask =
+	(operation: string, build: (taskId: string) => Record<string, unknown>, search?: string) => async () => {
+		const found = (await read("tasks.list", search ? { search } : {})).rows[0];
+		assert.ok(found, `the eval church has an open task${search ? ` "${search}"` : ""}`);
+		return read(operation, build(found.id));
+	};
 
 const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResult>)> = {
 	"people.listPeople": {},
@@ -68,7 +101,79 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"people.listHouseholds": {},
 	"people.listTags": {},
 	"people.previewImport": { file: FILE },
+	"people.getInterviews": { personId: byName("Daniel Cruz").id },
+	"people.getAssessments": { personId: byName("Mike Brennan").id },
+	"people.getCommitments": { personId: byName("Ana Rivera").id },
+	"people.getCommitmentDownload": { commitmentId: ANA_COMMITMENT },
+	"people.getMergeReview": { sourceId: byName("John Smith").id, survivorId: byName("Jon Smith").id },
+	"people.previewUnmerge": async () => {
+		const pair = { sourceId: byName("John Smith").id, survivorId: byName("Jon Smith").id };
+		const authority = church.actors.owner.authority;
+		const review = await gatedTransaction(church.db, (tx) =>
+			peopleMerge.getMergeReview(tx, new PeopleReadContext(authority), pair),
+		);
+		assert.equal(review.status, "ok");
+		const merged = await withPeopleWrite(church.db, authority, (tx, ctx) =>
+			peopleMerge.mergePeople(tx, ctx, {
+				requestKey: "result-card-merge",
+				input: { ...pair, reviewDigest: review.status === "ok" ? review.value.reviewDigest : "" },
+			}),
+		);
+		assert.equal(merged.status, "ok");
+		return read("people.previewUnmerge", { personId: pair.survivorId });
+	},
+	"people.listRecordCorrections": async () => {
+		const daniel = byName("Daniel Cruz").id;
+		const fixed = await withPeopleWrite(church.db, church.actors.owner.authority, (tx, ctx) =>
+			recordCorrections.correctPersonRecord(tx, ctx, {
+				requestKey: "result-card-correction",
+				expectedRevision: "1",
+				input: {
+					recordType: "interview",
+					personId: daniel,
+					recordId: DANIEL_INTERVIEW,
+					changes: { occurredOn: "2026-10-01" },
+				},
+			}),
+		);
+		assert.equal(fixed.status, "ok");
+		return read("people.listRecordCorrections", { personId: daniel });
+	},
+	"people.mergedPersonDestination": { personId: JAMES },
 	"communication.list": {},
+	"tasks.list": {},
+	"tasks.count": {},
+	"tasks.get": withTask("tasks.get", (taskId) => ({ taskId })),
+	"tasks.statusHistory": { taskId: taskId("packet") },
+	"tasks.listSubtasks": withTask("tasks.listSubtasks", (parentId) => ({ parentId }), "Prepare launch Sunday"),
+	"tasks.listPrerequisites": withTask("tasks.listPrerequisites", (taskId) => ({ taskId }), "Prepare launch Sunday"),
+	"tasks.prerequisiteCandidates": withTask("tasks.prerequisiteCandidates", (taskId) => ({ taskId })),
+	"tasks.findOpenOccurrence": withTask("tasks.findOpenOccurrence", (taskId) => ({ taskId }), "Weekly team check-in"),
+	"tasks.eligibleAssignees": {},
+	"tasks.relationOptions": { kind: "person", search: "James" },
+	"tasks.listTemplates": {},
+	"tasks.previewTemplate": async () => {
+		const first = (await read("tasks.listTemplates", {})).rows[0];
+		assert.ok(first, "Everyfield has a phase checklist");
+		return read("tasks.previewTemplate", { checklistKey: first.id });
+	},
+	"tasks.readPhaseOffer": {},
+	"tasks.importReceipt": {},
+	"tasks.listFollowUpOwners": {},
+	"tasks.followUpCoverage": {},
+	"tasks.planHandoff": { fromAccountId: church.actors.owner.accountId },
+	"followups.readObligations": {},
+	"followups.listContactHistory": { personId: byName("Beth Johnson").id },
+	"communication.preview": {
+		subject: "You're invited: Vision Night",
+		body: "Hi {{name}}, come to Vision Night.",
+		audience: { groups: ["prospects"], teamIds: [], personIds: [] },
+		meetingWords: "vision night",
+	},
+	"communication.get": {},
+	"communication.forPerson": { personId: byName("Maria Santos").id },
+	"communication.templates.list": {},
+	"communication.resendCandidates": { communicationId: WELCOME, selection: "delivered_nonopeners" },
 	"notifications.feed": { unread: true },
 	"notifications.preferences.get": {},
 	"notifications.previewPlanterDigest": {},
@@ -103,6 +208,11 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"teams.listResponsibilities": { teamId: teamId("Worship") },
 	"teams.previewResponsibilities": { teamId: teamId("Worship") },
 	"teams.listMeetings": { teamId: teamId("Core team") },
+	"phases.readCatalog": {},
+	"phases.readHistory": {},
+	"phases.readReadiness": {},
+	"signals.listDefinitions": {},
+	"signals.getHistory": {},
 	"meetings.list": { window: "upcoming" },
 	"meetings.get": { meetingId: MEETINGS.thursday },
 	"meetings.hasHistory": {},
@@ -127,6 +237,7 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"meetings.readAnalytics": { meetingId: MEETINGS.lastNight },
 	"meetings.previewRosterImport": { meetingId: MEETINGS.training },
 	"venues.list": {},
+	"evry.readWorkflowHint": { workflow: "vision_night_follow_up" },
 	"venues.get": { venueId: MEETINGS.coffee },
 	"venues.history": { venueId: MEETINGS.coffee },
 	"seats.list": {},
@@ -154,6 +265,33 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"launch.readJournal": {},
 	"launch.readDebrief": {},
 	...Object.fromEntries(
+		[
+			["intelligence.readCommittedAdultCohort", "owner"],
+			["intelligence.readScorecard", "owner"],
+			["intelligence.readAssessment", "owner"],
+			["intelligence.readAssessmentDelta", "owner"],
+			["oversight.listPlants", "director"],
+			["organizationIntelligence.read", "director"],
+		].map(([op, who]) => [
+			op,
+			async () => {
+				const ch = await oversightChurch();
+				if (op === "intelligence.readAssessmentDelta" && !delta) {
+					await ch.classify();
+					await ch.publish();
+					delta = true;
+				}
+				return invokeRead(ch.db, await oversightActor(who as "owner"), adapters.get(op!)!, {});
+			},
+		]),
+	),
+	"oversight.getPlant": async () => {
+		const ch = await oversightChurch();
+		return invokeRead(ch.db, await oversightActor("director"), adapters.get("oversight.getPlant")!, {
+			plantId: ch.plants["Redeemer Church"]!.id,
+		});
+	},
+	...Object.fromEntries(
 		["dashboard.availableActions", "dashboard.metrics", "dashboard.activity", "dashboard.readSetupGaps"].map((op) => [
 			op,
 			async () => invokeRead(church.db, await setupActor(SETUP_SPECS.setupOwner.session), adapters.get(op)!, {}),
@@ -176,6 +314,17 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("pipeline.listPeople")!, {}),
 	"development.draftPlan": async () =>
 		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("development.draftPlan")!, {}),
+	"calendar.getContext": {},
+	"calendar.resolve": { date: "2026-11-01", time: "01:30" },
+	"wiki.search": { query: "vision meeting" },
+	"wiki.referenceExcerpt": { articleId: WIKI.vision.article },
+	"wiki.recommendForPhase": {},
+	"wiki.reading.resume": {},
+	"wiki.article.exportPdf": { articleId: WIKI.vision.article },
+	"documents.listOwned": {},
+	"documents.read": { documentId: DOCS.septemberAgenda.id },
+	"documents.readCoreValuesEvidence": {},
+	"documents.templates.list": {},
 	"development.readProgram": async () =>
 		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("development.readProgram")!, {
 			programId: pipeline.residency.programId,
@@ -186,7 +335,7 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	},
 };
 
-const catalogTools = Object.values(catalog).filter((v): v is string => typeof v === "string" && v.startsWith("evry."));
+const catalogTools = Object.values(catalog).flatMap((v) => (typeof v === "string" && v.startsWith("evry.") ? [v] : []));
 const installed = [
 	...Object.values(catalog.READ_DOMAINS).flatMap((adapters) => adapters.map((a) => a.operation)),
 	...catalogTools,

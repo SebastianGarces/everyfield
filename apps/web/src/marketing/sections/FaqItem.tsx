@@ -1,7 +1,7 @@
 "use client";
 
+import { cn } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
-import { cn } from "@/components/cn";
 import { useAddressHash } from "@/components/location";
 
 export function FaqItem({ id, q, children }: { id: string; q: string; children: ReactNode }) {

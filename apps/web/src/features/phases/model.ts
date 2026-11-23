@@ -7,8 +7,9 @@ import {
 	type PhasesError,
 	type ReasonProblem,
 } from "@everyfield/contracts/phases";
+import type { Outcome as Shared } from "@everyfield/contracts/common";
 
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; error: PhasesError } | { status: "lost" };
+export type Outcome<T> = Shared<T, PhasesError["code"], { error: PhasesError }>;
 
 export const SHORT_NAME: readonly string[] = [
 	"Discovery",
@@ -82,13 +83,22 @@ export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok"
 	}
 }
 
+export function atPhase<T>(items: readonly T[], phase: PhaseNumber, what: string): T {
+	const item = items[phase];
+	if (item === undefined) throw new Error(`No ${what} for phase ${phase}`);
+	return item;
+}
+
 export function requestKeys(fresh: () => string) {
 	const keys = new Map<string, string>();
 	return {
 		keyFor(intent: readonly unknown[]) {
 			const id = JSON.stringify(intent);
-			if (!keys.has(id)) keys.set(id, fresh());
-			return keys.get(id)!;
+			const known = keys.get(id);
+			if (known !== undefined) return known;
+			const key = fresh();
+			keys.set(id, key);
+			return key;
 		},
 		settle(intent: readonly unknown[]) {
 			keys.delete(JSON.stringify(intent));

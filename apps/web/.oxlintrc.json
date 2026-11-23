@@ -46,7 +46,12 @@
 		"nextjs/no-duplicate-head": "error",
 		"nextjs/no-head-import-in-document": "error",
 		"nextjs/no-script-component-in-head": "error",
-		"typescript/ban-ts-comment": ["error", { "ts-expect-error": true }],
+		"typescript/ban-ts-comment": [
+			"error",
+			{
+				"ts-expect-error": true
+			}
+		],
 		"typescript/no-duplicate-enum-values": "error",
 		"typescript/no-empty-object-type": "error",
 		"typescript/no-explicit-any": "error",
@@ -64,12 +69,57 @@
 		"typescript/prefer-namespace-keyword": "error",
 		"typescript/triple-slash-reference": "error",
 		"everyfield/resend-senders": "error",
+		"everyfield/raw-sql-literal": "error",
+		"everyfield/request-actor": "error",
+		"everyfield/site-path-cast": "error",
+		"everyfield/provider-key-mint": "error",
 		"everyfield/no-comments": "error",
+		"everyfield/server-log": "error",
+		"everyfield/no-raw-error-log": "error",
 		"everyfield/no-effects": "error",
+		"everyfield/stable-context-value": "error",
+		"everyfield/storage-client": "error",
+		"everyfield/deployment-env": "error",
+		"everyfield/server-config": "error",
+		"everyfield/no-silent-catch": "error",
 		"everyfield/max-state": "error",
-		"everyfield/no-sql-comments": "error"
+		"everyfield/mint-callers": "error",
+		"everyfield/no-sql-comments": "error",
+		"everyfield/no-error-message-match": "error",
+		"everyfield/no-slop-styling": "error",
+		"everyfield/sign-in-redirect": "error",
+		"everyfield/organization-seat": "error",
+		"everyfield/shared-outcome": "error",
+		"everyfield/web-database-imports": "error",
+		"everyfield/shared-notice": "error",
+		"everyfield/live-region-in-tree": "error",
+		"everyfield/confirm-keeps-refusal": "error",
+		"no-restricted-imports": [
+			"error",
+			{
+				"patterns": [
+					{
+						"group": [
+							"**/EvryPanel.tsx",
+							"**/SettingsDialog",
+							"**/SettingsDialog.tsx",
+							"**/FeedbackDialog.tsx",
+							"**/overlays.tsx"
+						],
+						"allowTypeImports": true,
+						"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/LazySettingsDialog, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+					}
+				]
+			}
+		]
 	},
 	"overrides": [
+		{
+			"files": ["src/**"],
+			"rules": {
+				"everyfield/no-default-database": "error"
+			}
+		},
 		{
 			"files": ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
 			"rules": {
@@ -1248,13 +1298,26 @@
 			}
 		},
 		{
-			"files": ["src/features/documents/church/editor/tiptap/**"],
+			"files": ["src/features/documents/church/editor/tiptap/primitives/tooltip.tsx"],
 			"rules": {
-				"react/set-state-in-effect": "off",
-				"react/refs": "off",
-				"react/immutability": "off"
+				"react/refs": "off"
 			},
 			"plugins": ["react"]
+		},
+		{
+			"files": [
+				"src/access/**",
+				"src/app/access/**",
+				"src/components/**",
+				"src/marketing/**",
+				"src/server/**",
+				"src/features/access/**",
+				"src/features/identity/**",
+				"src/features/wiki/**"
+			],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
 		},
 		{
 			"files": [
@@ -1269,9 +1332,32 @@
 			}
 		},
 		{
+			"files": [
+				"src/features/communication/**",
+				"src/features/followups/**",
+				"src/features/notifications/**",
+				"src/features/tasks/**"
+			],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
+		},
+		{
 			"files": ["src/**"],
 			"rules": {
-				"everyfield/private-care-scope": "error"
+				"everyfield/private-care-scope": "error",
+				"everyfield/table-writers": "error"
+			}
+		},
+		{
+			"files": [
+				"src/features/intelligence/**",
+				"src/features/oversight/**",
+				"src/features/phases/**",
+				"src/features/residency/**"
+			],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
 			}
 		},
 		{
@@ -1284,55 +1370,47 @@
 				"everyfield/no-global-listeners": "error",
 				"everyfield/zustand-shape": "error",
 				"everyfield/read-loader": "error",
+				"everyfield/link-value-key": "error",
 				"everyfield/no-render-writes": "error",
-				"everyfield/feature-boundaries": "error"
+				"everyfield/no-render-get-state": "error",
+				"everyfield/feature-boundaries": "error",
+				"everyfield/route-reads": "error",
+				"everyfield/route-segment-defaults": "error",
+				"everyfield/render-reads": "error",
+				"everyfield/no-read-actions": "error",
+				"everyfield/action-params-unknown": "error",
+				"everyfield/client-request-key": "error",
+				"everyfield/failure-not-empty": "error"
 			}
 		},
 		{
 			"files": [
-				"src/components/save/model.ts",
-				"src/features/assessment-review/model.ts",
+				"src/**/model.ts",
+				"src/**/*-model.ts",
+				"src/**/page-state.ts",
 				"src/features/communication/body.ts",
-				"src/features/communication/model.ts",
-				"src/features/documents/church/editor/table-model.ts",
-				"src/features/documents/model.ts",
-				"src/features/evry/conversation/model.ts",
-				"src/features/evry/review/model.ts",
-				"src/features/identity/seats/model.ts",
-				"src/features/intelligence/assessment-model.ts",
-				"src/features/intelligence/facts-model.ts",
-				"src/features/launch/model.ts",
-				"src/features/meetings/model.ts",
-				"src/features/meetings/page-state.ts",
-				"src/features/onboarding/model.ts",
-				"src/features/organizations/board/model.ts",
-				"src/features/organizations/data/model.ts",
-				"src/features/organizations/import/model.ts",
-				"src/features/organizations/model.ts",
-				"src/features/organizations/programs/model.ts",
-				"src/features/organizations/reviews/model.ts",
-				"src/features/oversight/model.ts",
-				"src/features/overview/model.ts",
-				"src/features/people/corrections/model.ts",
-				"src/features/people/fields/model.ts",
-				"src/features/people/import-export/model.ts",
-				"src/features/people/model.ts",
-				"src/features/phases/model.ts",
-				"src/features/residency/model.ts",
-				"src/features/settings/brand/model.ts",
-				"src/features/settings/model.ts",
-				"src/features/settings/time.ts",
-				"src/features/teams/model.ts",
-				"src/features/wiki/model.ts"
+				"src/features/settings/time.ts"
 			],
 			"rules": {
 				"everyfield/model-module": "error"
 			}
 		},
 		{
+			"files": ["src/features/launch/**", "src/features/meetings/**", "src/features/teams/**"],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
+		},
+		{
 			"files": ["src/app/layout.tsx"],
 			"rules": {
 				"everyfield/no-inner-html": "off"
+			}
+		},
+		{
+			"files": ["src/features/onboarding/**", "src/features/organizations/**", "src/features/people/**"],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
 			}
 		},
 		{
@@ -1343,9 +1421,89 @@
 			"plugins": ["react"]
 		},
 		{
+			"files": ["src/features/documents/**", "src/features/evry/**", "src/features/settings/**"],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
+		},
+		{
 			"files": ["src/features/intelligence/**"],
 			"rules": {
 				"everyfield/private-care-scope": "off"
+			}
+		},
+		{
+			"files": ["src/features/settings/LazySettingsDialog.tsx"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["**/EvryPanel.tsx", "**/FeedbackDialog.tsx", "**/overlays.tsx"],
+								"allowTypeImports": true,
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/LazySettingsDialog, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["src/features/evry/conversation/panel.tsx"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["**/SettingsDialog", "**/SettingsDialog.tsx", "**/FeedbackDialog.tsx", "**/overlays.tsx"],
+								"allowTypeImports": true,
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/LazySettingsDialog, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["src/features/feedback/FeedbackOverlay.tsx"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["**/EvryPanel.tsx", "**/SettingsDialog", "**/SettingsDialog.tsx", "**/overlays.tsx"],
+								"allowTypeImports": true,
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/LazySettingsDialog, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["src/features/wiki/chrome.tsx"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["**/EvryPanel.tsx", "**/SettingsDialog", "**/SettingsDialog.tsx", "**/FeedbackDialog.tsx"],
+								"allowTypeImports": true,
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/LazySettingsDialog, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["src/server/flags.types.ts"],
+			"rules": {
+				"typescript/ban-ts-comment": "off"
 			}
 		}
 	]

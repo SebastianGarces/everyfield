@@ -20,7 +20,7 @@ import {
 import { Button, ConfirmDialog, Field, Input, Skeleton } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
 import { useCallback, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { useOneTimeLinkValue } from "../../../components/location.ts";
+import { spendOneTimeLinkValue, useOneTimeLinkValue } from "../../../components/location.ts";
 import { NotAvailable } from "../../access/AccessStates";
 import { Refusal, useIntent, useLoad } from "../../../components/intent.ts";
 import { ProblemLine } from "../../organizations/parts";
@@ -30,12 +30,11 @@ import { AuthFooter, AuthHeading } from "../AuthFrame";
 import { refusalMessage } from "../messages";
 import { FormMessage, Outcome, PasswordInput } from "../parts";
 import { AFTER_SIGN_IN, SignInForm } from "../SignInScreen";
-import { acceptSeatInvitation, readInvitation, respondResidentInvitation } from "./client";
+import { acceptSeatInvitation, readInvitation, respondResidentInvitation, tabStore } from "./client";
 import {
 	formatExpiry,
 	joinTitle,
 	ROLE_TEXT,
-	tabStore,
 	type Description,
 	type Held,
 	type ResidentCommand,
@@ -306,13 +305,13 @@ function JoinForm({
 			requestKey,
 			invitationProof: proof,
 		});
-		if (!registered.ok) {
+		if (registered.status !== "ok") {
 			setBusy(false);
-			setRefusal(refusalMessage("register", registered.error));
+			setRefusal(refusalMessage("register", registered));
 			return;
 		}
 		const signedIn = await identityApi.signIn({ email: email.data, password });
-		if (signedIn.ok) {
+		if (signedIn.status === "ok") {
 			onJoined(email.data);
 			return;
 		}
@@ -450,6 +449,7 @@ function SeatFlow({
 		if (result.ok) {
 			tabStore.release();
 			tabStore.setJoining(null);
+			spendOneTimeLinkValue("invitation");
 			setDone(result.reply);
 			return;
 		}
@@ -457,7 +457,8 @@ function SeatFlow({
 			tabStore.release();
 			onRefused();
 		}
-		if (result.problem === "unknown") onHeld(tabStore.held(proof)!);
+		const kept = result.problem === "unknown" ? tabStore.held(proof) : null;
+		if (kept) onHeld(kept);
 	}
 
 	if (!signedIn)
@@ -575,7 +576,7 @@ function useConfirmationLink() {
 	const send = async (email: string) => {
 		setSent("sending");
 		const r = await identityApi.sendVerification(email);
-		setSent(r.ok ? "sent" : "failed");
+		setSent(r.status === "ok" ? "sent" : "failed");
 	};
 	return { sent, send };
 }
@@ -626,6 +627,7 @@ function ResidentAnswer({ description, proof, refreshing, onRefused, onHeld, joi
 		if (result.ok) {
 			tabStore.release();
 			tabStore.setJoining(null);
+			spendOneTimeLinkValue("invitation");
 			setDone(result.reply);
 			return;
 		}
@@ -633,7 +635,8 @@ function ResidentAnswer({ description, proof, refreshing, onRefused, onHeld, joi
 			tabStore.release();
 			onRefused();
 		}
-		if (result.problem === "unknown") onHeld(tabStore.held(proof)!);
+		const kept = result.problem === "unknown" ? tabStore.held(proof) : null;
+		if (kept) onHeld(kept);
 	};
 
 	if (done) return <ResidentOutcome done={done} organizationName={description.workspaceName} />;
@@ -750,6 +753,7 @@ function Unconfirmed({ held, onSettled }: { held: Held; onSettled: () => void })
 		if (result.ok) {
 			tabStore.release();
 			tabStore.setJoining(null);
+			spendOneTimeLinkValue("invitation");
 			const reply = result.reply;
 			setDone(
 				"seat" in reply ? (

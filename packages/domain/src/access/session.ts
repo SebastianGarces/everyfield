@@ -1,8 +1,19 @@
 import * as tables from "@everyfield/db/tables";
-import { and, eq, sql, getTableColumns, isNull, notExists, type SQL, type SQLWrapper } from "@everyfield/db/query";
+import {
+	and,
+	eq,
+	sql,
+	getTableColumns,
+	isNull,
+	notExists,
+	type SQL,
+	type SQLWrapper,
+	type SqlLiteral,
+} from "@everyfield/db/query";
 import { alias } from "@everyfield/db/query";
 import "server-only";
 import type { Transaction } from "@everyfield/db/client";
+import type { NativeRun } from "../operations/writes.ts";
 import { z } from "zod";
 import {
 	accountId,
@@ -66,10 +77,12 @@ export async function liveOwner(tx: Transaction, selected: Owner, lock = true): 
 					),
 		);
 	const roots = await (lock ? query.for("share", { of: root }) : query);
+	const [only] = roots;
 	if (
 		roots.length !== 1 ||
-		roots[0]!.kind !== selected.kind ||
-		(selected.kind === "organization" && roots[0]!.organization_kind !== selected.organizationKind)
+		!only ||
+		only.kind !== selected.kind ||
+		(selected.kind === "organization" && only.organization_kind !== selected.organizationKind)
 	)
 		return false;
 	if (!lock) return true;
@@ -122,25 +135,27 @@ async function viewerRow(db: Executor, identity: SQL, requested?: Owner) {
 			(SELECT a.avatar_object_id FROM account a WHERE a.id=i.account_id) AS avatar
 		FROM identity i CROSS JOIN selected
 	`);
-	return r.rows.length === 1 ? r.rows[0]! : null;
+	const [row] = r.rows;
+	return r.rows.length === 1 && row ? row : null;
 }
 function actorOf(row: SessionRow) {
 	const { now, seats, selected_owner: selected, hidden } = row;
 	if (row.expires_at <= now || !row.account_exists || seats.length > 1)
-		return currentActorResult.parse({ status: "unavailable" });
+		return { status: "unavailable" } satisfies z.output<typeof currentActorResult>;
 	if (hidden.some((w) => w.kind === "account" && w.opaque_subject_id === row.account_id))
 		return currentActorResult.parse({ status: "unavailable" });
 	if (row.registration_state === "pending_domain")
-		return currentActorResult.parse({ status: "pending_domain", accountId: row.account_id });
+		return { status: "pending_domain", accountId: row.account_id } satisfies z.output<typeof currentActorResult>;
 	if (!row.selected_exists || hidden.some((w) => w.kind === selected.kind && w.opaque_subject_id === selected.id))
-		return currentActorResult.parse({ status: "unavailable" });
+		return { status: "unavailable" } satisfies z.output<typeof currentActorResult>;
 	if (selected.kind === "account")
 		return currentActorResult.parse(
 			selected.id === row.account_id
 				? { status: "active", accountId: row.account_id, context: { kind: "account", owner: selected } }
 				: { status: "unavailable" },
 		);
-	const seat = seats[0]! && seatRow.parse(seats[0]!);
+	const [first] = seats;
+	const seat = first ? seatRow.parse(first) : undefined;
 	if (
 		!seat ||
 		seat.accepted_at > now ||
@@ -148,8 +163,9 @@ function actorOf(row: SessionRow) {
 			? seat.plant_id !== selected.id || seat.organization_id !== null
 			: selected.kind !== "organization" || seat.organization_id !== selected.id || seat.plant_id !== null)
 	)
-		return currentActorResult.parse({ status: "unavailable" });
-	if (hidden.some((w) => w.seat_id === seat.id)) return currentActorResult.parse({ status: "unavailable" });
+		return { status: "unavailable" } satisfies z.output<typeof currentActorResult>;
+	if (hidden.some((w) => w.seat_id === seat.id))
+		return { status: "unavailable" } satisfies z.output<typeof currentActorResult>;
 	return currentActorResult.parse({
 		status: "active",
 		accountId: row.account_id,
@@ -158,7 +174,7 @@ function actorOf(row: SessionRow) {
 }
 async function resolveActor(tx: Executor, session: z.infer<typeof sessionId>, requested?: Owner, lock = true) {
 	const row = await readSession(tx, session, requested, lock);
-	return row ? actorOf(row) : currentActorResult.parse({ status: "unavailable" });
+	return row ? actorOf(row) : ({ status: "unavailable" } satisfies z.output<typeof currentActorResult>);
 }
 
 export async function readViewer(db: Executor, session: z.infer<typeof sessionId>) {
@@ -195,27 +211,26 @@ export async function readRequestViewer(db: Executor, token: string) {
 	};
 }
 
-export async function currentActor(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner, lock = true) {
+export async function currentActor(tx: WriteTx, session: z.infer<typeof sessionId>, selected: Owner, lock = true) {
 	const bound = boundWrite(tx);
 	if (bound && bound.authority.session === session && sameOwner(bound.selected, selected)) return bound.actor;
 	const parsed = owner.safeParse(selected);
-	if (!parsed.success) return currentActorResult.parse({ status: "unavailable" });
-	const observed = requestReads.get(tx);
+	if (!parsed.success) return { status: "unavailable" } satisfies z.output<typeof currentActorResult>;
+	const observed = tx.write.observed;
 	if (observed && observed.session === session) {
 		const actor = observed.actor;
 		if (sameOwner(actor.context.owner, parsed.data)) return actor;
 		if (parsed.data.kind === "account" && parsed.data.id === actor.accountId)
-			return currentActorResult.parse({
+			return {
 				status: "active",
 				accountId: actor.accountId,
 				context: { kind: "account", owner: parsed.data },
-			});
+			} satisfies z.output<typeof currentActorResult>;
 	}
 	return resolveActor(tx, session, parsed.data, lock);
 }
-const requestReads = new WeakMap<Transaction, RequestActor>();
-export function observedActor(tx: Transaction, session: z.infer<typeof sessionId>) {
-	const observed = requestReads.get(tx);
+export function observedActor(tx: WriteTx, session: z.infer<typeof sessionId>) {
+	const observed = tx.write.observed;
 	return observed && observed.session === session ? observed.actor : null;
 }
 
@@ -237,17 +252,28 @@ type RequestWrite = {
 	organization: typeof tables.organization.$inferSelect | null;
 	setup: typeof tables.onboarding_setup.$inferSelect | null;
 };
-const requestWrites = new WeakMap<Transaction, RequestWrite>();
-export const requestWrite = (tx: Transaction) => requestWrites.get(tx);
 type DeferredWrite = Pick<RequestWrite, "authority" | "selected" | "actor">;
-const deferredWrites = new WeakMap<Transaction, DeferredWrite>();
-export const boundWrite = (tx: Transaction): DeferredWrite | undefined =>
-	requestWrites.get(tx) ?? deferredWrites.get(tx);
-export const clearRequestWrite = (tx: Transaction) => {
-	requestWrites.delete(tx);
-	deferredWrites.delete(tx);
+export class WriteState {
+	deferred: DeferredWrite | undefined;
+	locked: RequestWrite | undefined;
+	observed: RequestActor | undefined;
+	readonly native: NativeRun | undefined;
+	constructor(native?: NativeRun) {
+		this.native = native;
+	}
+}
+export type WriteTx = Transaction & { readonly write: WriteState };
+export function writeTx(tx: Transaction, native?: NativeRun): WriteTx {
+	const gated: Transaction = Object.create(tx);
+	return Object.assign(gated, { write: new WriteState(native) });
+}
+export const requestWrite = (tx: WriteTx) => tx.write.locked;
+export const boundWrite = (tx: WriteTx): DeferredWrite | undefined => tx.write.locked ?? tx.write.deferred;
+export const clearRequestWrite = (tx: WriteTx) => {
+	tx.write.locked = undefined;
+	tx.write.deferred = undefined;
 };
-export function deferWrite(tx: Transaction, authority: RequestActor, selected: Owner): DeferredWrite | null {
+export function deferWrite(tx: WriteTx, authority: RequestActor, selected: Owner): DeferredWrite | null {
 	const actor = authority.actor;
 	const own =
 		actor.context.kind === "seat" && sameOwner(actor.context.owner, selected)
@@ -257,7 +283,7 @@ export function deferWrite(tx: Transaction, authority: RequestActor, selected: O
 				: null;
 	if (!own) return null;
 	const write = { authority, selected, actor: own };
-	deferredWrites.set(tx, write);
+	tx.write.deferred = write;
 	return write;
 }
 export function writeAuthority(write: DeferredWrite): SQL {
@@ -313,7 +339,7 @@ export class RequestActor {
 		this.actor = actor;
 	}
 
-	async bind(tx: Transaction, selected: Owner): Promise<RequestWrite | null> {
+	async bind(tx: WriteTx, selected: Owner): Promise<RequestWrite | null> {
 		const locked = await lockWriteAuthority(tx, this.session, selected, this);
 		if (!locked || locked.identity.status !== "active") return null;
 		const write: RequestWrite = {
@@ -326,11 +352,11 @@ export class RequestActor {
 			organization: locked.organization,
 			setup: locked.setup,
 		};
-		requestWrites.set(tx, write);
+		tx.write.locked = write;
 		return write;
 	}
 
-	static async claimWrite(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner) {
+	static async claimWrite(tx: WriteTx, session: z.infer<typeof sessionId>, selected: Owner) {
 		const locked = await lockWriteAuthority(tx, session, selected);
 		if (!locked || locked.identity.status !== "active") return null;
 		const authority = new RequestActor(session, locked.identity);
@@ -344,12 +370,12 @@ export class RequestActor {
 			organization: locked.organization,
 			setup: locked.setup,
 		};
-		requestWrites.set(tx, write);
+		tx.write.locked = write;
 		return write;
 	}
 
-	observe(tx: Transaction) {
-		requestReads.set(tx, this);
+	observe(tx: WriteTx) {
+		tx.write.observed = this;
 	}
 
 	static of(session: z.infer<typeof sessionId>, actor: ActiveActor) {
@@ -368,7 +394,7 @@ export function writeVisibility(actor: string | SQLWrapper, selected: Owner) {
   (${selected.kind}<>'account' AND w.seat_id IN (SELECT id FROM seat WHERE account_id=${actor}::uuid
    AND coalesce(plant_id,organization_id)=${selected.id}::uuid AND ended_at IS NULL))))`;
 }
-export const seatHeld = (alias: string) =>
+export const seatHeld = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
 	sql`${sql.raw(alias)}.ended_at IS NULL AND ${sql.raw(alias)}.accepted_at <= clock_timestamp()`;
 export function liveRead(
 	access: { session: string; owner: Owner; seatId?: string; role?: z.infer<typeof role> },

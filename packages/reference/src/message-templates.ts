@@ -35,7 +35,7 @@ const repository = new URL("../../../", import.meta.url);
 const readRepositoryFile = (path: string) => readFile(new URL(path, repository));
 
 function templateNames(source: string): string[] {
-	return [...source.matchAll(/^ {4}name: "([^"]+)",$/gm)].map((m) => m[1]!);
+	return [...source.matchAll(/^ {4}name: "([^"]+)",$/gm)].map(([, name = ""]) => name);
 }
 
 const publisher = (c: MessageTemplateCaller) => sql`SELECT a.id FROM account a

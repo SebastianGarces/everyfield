@@ -1,12 +1,13 @@
 "use client";
 
-import { Alert02Icon, FloppyDiskIcon } from "@hugeicons/core-free-icons";
+import { FloppyDiskIcon } from "@hugeicons/core-free-icons";
 import {
 	TEMPLATE_DESCRIPTION_MAX,
 	TEMPLATE_NAME_MAX,
 	type ChurchTemplateSummary,
 } from "@everyfield/contracts/documents";
 import {
+	Alert,
 	Button,
 	Dialog,
 	DialogBody,
@@ -15,6 +16,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	Radio,
 	RadioGroup,
@@ -22,10 +24,10 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
-import { Icon } from "@everyfield/ui/foundations";
 import { useId, useState, useTransition, type FormEvent } from "react";
 import { createRead, useRead } from "../../../../components/read.tsx";
-import { listChurchTemplates, saveChurchTemplate, updateChurchTemplate } from "../actions.ts";
+import { saveChurchTemplate, updateChurchTemplate } from "../actions.ts";
+import { listChurchTemplates } from "../../fetch.ts";
 
 export const churchTemplates = createRead(
 	() => listChurchTemplates().then((result) => (result.status === "ok" ? result.templates : [])),
@@ -167,15 +169,9 @@ export function SaveAsTemplateDialog({
 							/>
 						) : null}
 						{unsaved ? (
-							<div className="flex flex-col gap-3 rounded-md bg-amber-100 px-4 py-3 text-md text-ink">
-								<p className="flex items-start gap-2.5">
-									<Icon icon={Alert02Icon} size={18} className="mt-0.5 flex-none text-amber-600" />
-									<span>
-										Your latest changes are not saved yet. The template copies the saved document, so save them first to
-										include them.
-									</span>
-								</p>
-								<div>
+							<Alert
+								tone="warning"
+								actions={
 									<Button
 										variant="secondary"
 										size="sm"
@@ -185,8 +181,11 @@ export function SaveAsTemplateDialog({
 									>
 										Save changes
 									</Button>
-								</div>
-							</div>
+								}
+							>
+								Your latest changes are not saved yet. The template copies the saved document, so save them first to
+								include them.
+							</Alert>
 						) : null}
 						{updating && templates ? (
 							<>
@@ -197,7 +196,7 @@ export function SaveAsTemplateDialog({
 										setChosen(next);
 										setError(null);
 									}}
-									className="max-h-72 gap-0 overflow-y-auto rounded-md px-3 shadow-[0_0_0_1px_var(--ef-line)]"
+									className="max-h-72 gap-y-0 overflow-y-auto rounded-md px-3 shadow-[0_0_0_1px_var(--ef-line)]"
 								>
 									{templates.map((t) => (
 										<Radio
@@ -207,7 +206,7 @@ export function SaveAsTemplateDialog({
 											label={
 												<span className="flex flex-wrap items-center gap-x-2 gap-y-1">
 													<span className="min-w-0 break-words">{t.title}</span>
-													<Tag className="h-[22px] px-2 text-xs">v{t.version}</Tag>
+													<Tag className="text-xs">v{t.version}</Tag>
 												</span>
 											}
 											description={t.description ?? undefined}
@@ -239,14 +238,7 @@ export function SaveAsTemplateDialog({
 								it fills in your church&apos;s details as they are then.
 							</p>
 						</div>
-						<div aria-live="assertive" className="empty:hidden">
-							{error ? (
-								<p className="flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">
-									<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-									{error}
-								</p>
-							) : null}
-						</div>
+						<InlineAlert>{error}</InlineAlert>
 					</DialogBody>
 				</form>
 				<DialogFooter>

@@ -5,6 +5,7 @@ import { timeText } from "@everyfield/contracts/common";
 import { ArrowLeft01Icon, CheckListIcon, Tick02Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
+	Count,
 	Dialog,
 	DialogBody,
 	DialogContent,
@@ -16,13 +17,15 @@ import {
 	iconButtonVariants,
 	SearchInput,
 	SegmentedControl,
-	ToastProvider,
-	useToast,
+	toast,
+	Toaster,
+	InlineAlert,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, prefersReducedMotion } from "@everyfield/ui/foundations";
 import { useRef, useState } from "react";
-import { addWalkIn, reloadCheckIn, setPresence, settleAttendance } from "./actions.ts";
+import { addWalkIn, setPresence, settleAttendance } from "./actions.ts";
+import { reloadCheckIn } from "./fetch.ts";
 import {
 	DialogNotice,
 	NoticeInDialog,
@@ -35,32 +38,37 @@ import { attendanceAfter, settledText, SettleDialog, usePresence, warmSeats, typ
 import { PersonPicker, type PickedPerson } from "./dialogs.tsx";
 import { problemText, RSVP_LABEL, type Guest } from "./model.ts";
 import { attendeeOf, isPending, PENDING, withAttendees, type GuestRow, type PendingGuest } from "./page-state.ts";
-import { Problem, TabStack } from "./parts.tsx";
+import { TabStack } from "./parts.tsx";
 import type { CheckInData } from "./server.ts";
 
 export function CheckInScreen({ data, admin }: { data: CheckInData; admin: boolean }) {
 	return (
-		<ToastProvider>
+		<>
+			<Toaster />
 			<CheckIn loaded={data} admin={admin} />
-		</ToastProvider>
+		</>
 	);
 }
 
 function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
-	const toast = useToast();
-	const [data, setData] = useState(loaded);
+	const [local, setLocal] = useState<{ from: CheckInData; value: CheckInData } | null>(null);
+	const data = local?.from === loaded ? local.value : loaded;
+	const setData = (change: (d: CheckInData) => CheckInData) =>
+		setLocal((last) => ({ from: loaded, value: change(last?.from === loaded ? last.value : loaded) }));
 	const [arrived, setArrived] = useState<string | null>(null);
 	const [search, setSearch] = useState("");
 	const door = useSaveIntent<DoorForm>({ explain: problemText });
 	const [draft, setDraft] = useState<PendingGuest | null>(null);
 	const m = data.meeting;
+	const { attendance } = data;
 	const final = data.attendance?.finalized != null;
 	const finalizer = admin || data.attendance?.viewerCanMarkAttendance === true;
 	const stale = () =>
 		reloadCheckIn(m.id).then(
 			(r) => {
-				if (r.status !== "ok" || r.value.status !== "found") return false;
-				setData(r.value);
+				const fresh = r.status === "ok" && r.value.status === "found" ? r.value : null;
+				if (!fresh) return false;
+				setData(() => fresh);
 				return true;
 			},
 			() => false,
@@ -116,7 +124,8 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 				...save,
 				send: (key) => setPresence(key, m.id, p.id, "attended"),
 				ok: (value) => {
-					const a = value.attendees[0]!;
+					const [a] = value.attendees;
+					if (!a) throw new Error("Marking a guest present answered no attendee");
 					const g: Guest = {
 						id: a.guestId,
 						revision: a.revision,
@@ -154,8 +163,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 		warmSeats();
 		door.open({ kind: "settle", input: null });
 	}
-	function submitSettle(input: SettleInput) {
-		const attendance = data.attendance!;
+	function submitSettle(input: SettleInput, attendance: NonNullable<CheckInData["attendance"]>) {
 		void door.save({
 			what: "Attendance",
 			done: "finalized",
@@ -206,7 +214,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 					</div>
 					<StatusBadge status="positive" size="sm">
 						<span className="tabular-nums">
-							{here.length} of {guests.length}
+							<Count value={here.length} /> of <Count value={guests.length} />
 						</span>
 						<span className="sr-only"> checked in</span>
 					</StatusBadge>
@@ -228,7 +236,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						setSearch(e.target.value);
 						setArrived(null);
 					}}
-					className="h-[46px]"
 				/>
 			</header>
 
@@ -318,18 +325,18 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						onClose={door.close}
 						onSubmit={submitWalkIn}
 					/>
-				) : door.editing?.kind === "settle" && data.attendance ? (
+				) : door.editing?.kind === "settle" && attendance ? (
 					<SettleDialog
 						open
 						mode="finalize"
 						meeting={m}
 						guests={data.guests}
-						attendance={data.attendance}
+						attendance={attendance}
 						onSeats={warmSeats}
 						initial={door.editing.input}
 						problem={door.problem}
 						onClose={door.close}
-						onSubmit={submitSettle}
+						onSubmit={(input) => submitSettle(input, attendance)}
 						onConflict={() => {
 							door.close();
 							settleConflict();
@@ -487,7 +494,7 @@ function WalkInDialog({
 								label="Who"
 								value={mode}
 								onValueChange={setMode}
-								className="flex w-full [&>*]:flex-1 [&>*]:justify-center"
+								className="w-full [&>*]:flex-1 [&>*]:justify-center"
 								options={[
 									{ value: "existing", label: "In People" },
 									{ value: "new", label: "Someone new" },
@@ -559,7 +566,7 @@ function WalkInDialog({
 								}),
 							}}
 						/>
-						<Problem text={problem} />
+						<InlineAlert>{problem}</InlineAlert>
 					</DialogBody>
 					<DialogFooter>
 						<Button variant="outline" type="button" onClick={onClose}>

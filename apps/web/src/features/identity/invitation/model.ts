@@ -38,34 +38,6 @@ export function joinTitle(d: Description): string {
 	return d.subject.purpose === "seat" ? `Join ${d.workspaceName}` : `Link your account to ${d.workspaceName}`;
 }
 
-const HELD = "ef-invitation-held";
-const JOINING = "ef-invitation-joining";
-
 export type Held = { proof: string; workspaceName: string } & (
 	{ kind: "seat"; command: SeatCommand } | { kind: "resident"; command: ResidentCommand }
 );
-
-export const tabStore = {
-	held(proof: string): Held | null {
-		try {
-			const raw = sessionStorage.getItem(HELD);
-			const value = raw ? (JSON.parse(raw) as Held) : null;
-			return value && value.proof === proof ? value : null;
-		} catch {
-			return null;
-		}
-	},
-	hold(value: Held) {
-		sessionStorage.setItem(HELD, JSON.stringify(value));
-	},
-	release() {
-		sessionStorage.removeItem(HELD);
-	},
-	joining(): string | null {
-		return sessionStorage.getItem(JOINING);
-	},
-	setJoining(email: string | null) {
-		if (email) sessionStorage.setItem(JOINING, email);
-		else sessionStorage.removeItem(JOINING);
-	},
-};

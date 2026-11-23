@@ -69,7 +69,7 @@ Send saves the feedback as the author's own; Sent feedback then lists it.
 - Operations: feedback.submit, feedback.listOwn
 - Catalog: ADM-001
 - Cases: CASE-ADM-001
-- Test: `tests/integration/feedback/feedback.test.mts`: `AC:CASE-ADM-001 the dialog saves its details, takes church and role from the seat, strips the address and saves a resend once`
+- Test: `tests/integration/feedback/feedback.test.mts`: `AC:CASE-ADM-001 the dialog saves its details, takes church and role from the seat and refuses sent ones, strips the address and saves a resend once`
 - Test: `tests/integration/feedback/feedback.test.mts`: `AC:CASE-ADM-001 AC:PUB57-002 INV-privacy: the author lists only their own feedback, 25 at a time, without private details`
 - Browser, behavior proof (acts and checks the result), from state open:
 
@@ -91,6 +91,7 @@ agent-browser find role link text --name "Idea" --exact
 Sent feedback: what you sent with Send feedback and where each one stands.
 
 - Routes: `/feedback`, `/feedback/[feedbackId]`
+- Endpoints: `/feedback/read`
 - Personas: `owner` read, `admin` read, `member` read, `resident` read, `signup` read, `triage` read, `network` read, `visitor` none
 - Catalog: ADM-001
 
@@ -152,7 +153,7 @@ agent-browser wait --load networkidle
 agent-browser wait --url "**/feedback/*"
 agent-browser find role heading text --name "Feedback" --exact
 agent-browser find role link text --name "Sent feedback" --exact
-agent-browser find text "None yet" text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"None yet\")"
 ```
 
 ### feedback.triage

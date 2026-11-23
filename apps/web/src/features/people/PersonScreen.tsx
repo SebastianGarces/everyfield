@@ -12,7 +12,10 @@ import {
 } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
 import {
+	Breadcrumb,
 	Button,
+	CalloutLabel,
+	CalloutText,
 	Card,
 	CardHeader,
 	CardHeading,
@@ -23,20 +26,19 @@ import {
 	MenuItem,
 	MenuSeparator,
 	MenuTrigger,
-	Breadcrumb,
-	CalloutLabel,
-	CalloutText,
 	StatePanel,
 	Tab,
 	Tabs,
 	TabsList,
 	TabsPanel,
+	TextButton,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
 import Link from "next/link";
 import { useOptimistic, useRef, useState, type ComponentProps } from "react";
 import type { z } from "zod";
-import { reloadPerson, type Receipt } from "./actions.ts";
+import type { Receipt } from "./actions.ts";
+import { reloadPerson, loadPersonPage } from "./fetch.ts";
 import { ActivityCard, type Activities, type EntryFields, type Item } from "./ActivityCard.tsx";
 import { CLASSIFICATION_LABEL, SOURCE_LABEL, STAGE_KEY, STAGE_LABEL, withEntry } from "./model.ts";
 import type { Outcome } from "../../components/save/model.ts";
@@ -54,9 +56,10 @@ import { RecordsSection, type CorrectedRecord } from "./assessments/RecordsSecti
 import { EditRecordDialog } from "./corrections/EditRecordDialog.tsx";
 import { DuplicateHints } from "./corrections/DuplicateHints.tsx";
 import { recordsIntent, recordsRead, unmergeRead } from "./corrections/intent.ts";
+import type { PersonPage } from "./corrections/page.ts";
 import type { DuplicateHints as Hints } from "./corrections/server.ts";
 import { UnmergeDialog } from "./corrections/UnmergeDialog.tsx";
-import { loadPersonPage, type PersonPage, type Unmerged } from "./corrections/actions.ts";
+import type { Unmerged } from "./corrections/actions.ts";
 import { Problem } from "./corrections/parts.tsx";
 import { PersonCommunication } from "../communication/PersonCommunication.tsx";
 import { PersonFollowUps } from "../followups/PersonFollowUps.tsx";
@@ -194,7 +197,7 @@ export function PersonScreen({
 								<h1 className="text-display-sm leading-[1.05] tracking-[-0.02em] text-ink text-balance max-app-sm:text-title-lg">
 									{p.displayName}
 								</h1>
-								<StageChip stage={STAGE_KEY[p.stage]} className="h-[30px] text-[13px]">
+								<StageChip stage={STAGE_KEY[p.stage]} className="h-[30px] text-[13px] leading-(--text-xs--line-height)">
 									{STAGE_LABEL[p.stage]}
 								</StageChip>
 							</div>
@@ -276,14 +279,7 @@ export function PersonScreen({
 				<div className="mb-5">
 					<Problem>
 						The Unmerge was saved, but this page did not read the moved records again.{" "}
-						<button
-							type="button"
-							className="font-medium underline underline-offset-2"
-							onClick={() => location.reload()}
-						>
-							Reload the page
-						</button>{" "}
-						to see where they are now.
+						<TextButton onClick={() => location.reload()}>Reload the page</TextButton> to see where they are now.
 					</Problem>
 				</div>
 			) : null}
@@ -292,7 +288,7 @@ export function PersonScreen({
 					<CalloutLabel tone="blue" icon={GitMergeIcon}>
 						Opened from a merged person
 					</CalloutLabel>
-					<CalloutText className="text-sm">
+					<CalloutText className="leading-(--text-sm--line-height)">
 						The link you followed was for a person who was merged into {p.displayName}. Their history is in this
 						Activity.
 					</CalloutText>
@@ -386,7 +382,7 @@ export function PersonScreen({
 						</div>
 						<div className="flex min-w-0 flex-col gap-5 max-app-lg:order-first">
 							<Card>
-								<CardHeader className="mb-2">
+								<CardHeader>
 									<CardHeading>
 										<CardTitle size="sm">Details</CardTitle>
 									</CardHeading>
@@ -473,7 +469,7 @@ export function PersonScreen({
 								<MinistryRoles key={`ministries-${generation}`} initial={ministries} canCorrect={canWrite} />
 							) : null}
 							<Card>
-								<CardHeader className="mb-2">
+								<CardHeader>
 									<CardHeading>
 										<CardTitle size="sm">{records ? "Adult or child" : "Adult or child and commitment"}</CardTitle>
 									</CardHeading>
@@ -520,7 +516,7 @@ export function PersonScreen({
 							</Card>
 							{p.summaryNotes ? (
 								<Card>
-									<CardHeader className="mb-2">
+									<CardHeader>
 										<CardHeading>
 											<CardTitle size="sm">Summary</CardTitle>
 										</CardHeading>

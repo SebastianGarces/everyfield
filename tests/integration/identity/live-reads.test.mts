@@ -16,6 +16,7 @@ import {
 	readConversation,
 } from "../../../packages/evry/src/conversations/store.ts";
 import { ok } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f;
 before(async () => {
@@ -99,7 +100,7 @@ test("INV-reads (C22, C27): Tasks, Settings, Evry and residency reads hold no lo
 	const sessions = [owner.session, orgOwner.session, s.recipient.session];
 	const waited = [];
 	for (const [name, read] of reads)
-		await f.db.transaction(async (tx) => {
+		await gatedTransaction(f.db, async (tx) => {
 			assert.ok(await read(tx), name);
 			try {
 				await f.admin.transaction(async (a) => {

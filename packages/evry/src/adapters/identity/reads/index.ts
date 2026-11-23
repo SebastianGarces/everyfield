@@ -1,4 +1,3 @@
-import type { Database } from "@everyfield/db/client";
 import { createSeatService } from "@everyfield/domain/identity";
 import { z } from "zod";
 import type { ReadAdapter, SourceResult } from "../../../catalog/types.ts";
@@ -15,7 +14,7 @@ export const SEAT_READS = [
 		input: z.strictObject({}),
 		allowed: plantSeat,
 		async invoke(tx, actor): Promise<SourceResult> {
-			const list = await createSeatService(tx as unknown as Database).list(actor.authority, {
+			const list = await createSeatService(tx).list(actor.authority, {
 				workspace: actor.owner,
 			});
 			const rows = list.items

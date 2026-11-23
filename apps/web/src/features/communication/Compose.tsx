@@ -1,13 +1,15 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { ArrowLeft01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { Button, ConfirmDialog, Field, Select } from "@everyfield/ui/controls";
+import { Alert, Button, ConfirmDialog, Field, Select, TextButton } from "@everyfield/ui/controls";
 import { Icon, useFocusOnChange } from "@everyfield/ui/foundations";
 import { useState, type ComponentProps } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { useLocalStore, useShallow, useStore } from "../../components/store.ts";
 import { unsavedMark } from "../../components/save/leave.ts";
-import { deleteDraft, readDraft, readMeetingContext, readMeetingTemplate, saveDraft, handOff } from "./actions.ts";
+import { deleteDraft, saveDraft, handOff } from "./actions.ts";
+import { readDraft, readMeetingContext, readMeetingTemplate } from "./fetch.ts";
 import { bodyToTextResult, textToBody } from "./body.ts";
 import {
 	audienceSize,
@@ -31,7 +33,6 @@ import {
 	type Draft,
 	type Handoff,
 	type MeetingContext,
-	type Outcome,
 	type PageData,
 	type Step,
 } from "./model.ts";
@@ -60,12 +61,12 @@ const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 async function open(id: string, handoff: Handoff | null): Promise<Opening> {
 	if (id !== "new") {
 		const draft = await readDraft(id);
-		if (draft.status === "lost") return { kind: "unreachable" };
+		if (draft.status === "lost" || draft.status === "failed") return { kind: "unreachable", read: draft.status };
 		return draft.status === "ok" ? { kind: "draft", draft: draft.value } : { kind: "missing" };
 	}
 	if (!handoff) return { kind: "new", meeting: null, template: null, guests: false, notes: [] };
 	const context = await readMeetingContext(handoff.meeting);
-	if (context.status === "lost") return { kind: "unreachable" };
+	if (context.status === "lost" || context.status === "failed") return { kind: "unreachable", read: context.status };
 	if (context.status !== "ok")
 		return {
 			kind: "new",
@@ -75,7 +76,7 @@ async function open(id: string, handoff: Handoff | null): Promise<Opening> {
 			notes: ["That meeting is not available. The message has no meeting."],
 		};
 	const found = handoff.template ? await readMeetingTemplate(context.value.type) : null;
-	if (found?.status === "lost") return { kind: "unreachable" };
+	if (found?.status === "lost" || found?.status === "failed") return { kind: "unreachable", read: found.status };
 	return {
 		kind: "new",
 		meeting: context.value,
@@ -89,7 +90,7 @@ async function open(id: string, handoff: Handoff | null): Promise<Opening> {
 }
 
 const openings = createRead(open, {
-	failed: (): Opening => ({ kind: "unreachable" }),
+	failed: (): Opening => ({ kind: "unreachable", read: "lost" }),
 	keep: (opening) => opening.kind !== "unreachable",
 });
 const meetingContexts = createRead((meetingId: string) => readMeetingContext(meetingId), {
@@ -136,31 +137,35 @@ export function Compose(props: ComposeProps) {
 	}
 	if (opened.kind === "unreachable") {
 		return (
-			<div className="flex flex-col items-start gap-3">
-				<p role="alert" className="text-md font-medium text-magenta-600">
-					{outcomeText({ status: "lost" })}
-				</p>
-				<div className="flex flex-wrap gap-2">
-					<Button variant="secondary" onClick={opening.retry}>
-						Try again
-					</Button>
-					<Button variant="ghost" onClick={props.onLeave}>
-						Back to messages
-					</Button>
-				</div>
-			</div>
+			<Alert
+				role="alert"
+				actions={
+					<>
+						<Button variant="secondary" onClick={opening.retry}>
+							Try again
+						</Button>
+						<Button variant="ghost" onClick={props.onLeave}>
+							Back to messages
+						</Button>
+					</>
+				}
+			>
+				{outcomeText({ status: opened.read })}
+			</Alert>
 		);
 	}
 	if (opened.kind === "missing") {
 		return (
-			<div className="flex flex-col items-start gap-3">
-				<p role="alert" className="text-md font-medium text-magenta-600">
-					That message is not here. It may have been deleted.
-				</p>
-				<Button variant="secondary" onClick={props.onLeave}>
-					Back to messages
-				</Button>
-			</div>
+			<Alert
+				role="alert"
+				actions={
+					<Button variant="secondary" onClick={props.onLeave}>
+						Back to messages
+					</Button>
+				}
+			>
+				That message is not here. It may have been deleted.
+			</Alert>
 		);
 	}
 	return (
@@ -281,11 +286,13 @@ function ComposeForm({
 	const canDelete = form.state === "draft" && form.communicationId !== null && form.revision !== null;
 
 	const removeDraft = async () => {
-		if (!form.communicationId || !form.revision) throw new Error("Save the message before you delete it.");
+		if (!form.communicationId || !form.revision) return { refused: "Save the message before you delete it." };
 		const result = await deleteDraft(keys.take("delete"), form.revision, form.communicationId).catch(lost<Draft>);
 		keys.settle("delete", result);
 		if (result.status !== "ok") {
-			throw new Error(`${outcomeText(result) ?? "The draft was not deleted."} The draft is still in your list.`);
+			return {
+				refused: `${outcomeText(result) ?? "The draft was not deleted."} The draft is still in your list.`,
+			};
 		}
 		onDeleted();
 	};
@@ -320,7 +327,7 @@ function ComposeForm({
 
 	const confirm = async () => {
 		if (!plan) return;
-		if (!form.communicationId || !form.revision) throw new Error("Save the message before you send it.");
+		if (!form.communicationId || !form.revision) return { refused: "Save the message before you send it." };
 		const target =
 			form.state === "reviewed"
 				? ({ kind: "reviewed", communicationId: form.communicationId } as const)
@@ -330,15 +337,16 @@ function ComposeForm({
 		keys.settle("save", result);
 		keys.settle("schedule", result);
 		if (result.status !== "ok")
-			throw new Error(
-				outcomeText(result) ?? (plan.kind === "now" ? "The email was not sent." : "The email was not scheduled."),
-			);
+			return {
+				refused:
+					outcomeText(result) ?? (plan.kind === "now" ? "The email was not sent." : "The email was not scheduled."),
+			};
 		keys.settle("send", { status: "ok", value: null });
 		const { report, communicationId } = result.value;
 		if (report === null) {
 			actions.edit(() => ({ ...form, communicationId, revision: result.value.revision, state: "scheduled" }));
 			actions.scheduled(communicationId);
-			throw new Error(scheduledNotSentText);
+			return { refused: scheduledNotSentText };
 		}
 		onDone(
 			communicationId,
@@ -354,6 +362,8 @@ function ComposeForm({
 	];
 
 	const stepIndex = STEPS.findIndex((s) => s.value === step);
+	const previousStep = STEPS[stepIndex - 1];
+	const nextStep = STEPS[stepIndex + 1];
 	const previewName = summary?.recipients[0]?.displayName ?? SAMPLE;
 	const chrome = { from: data.churchName, to: previewName, subject: form.subject };
 
@@ -407,11 +417,7 @@ function ComposeForm({
 					{note}
 				</p>
 			))}
-			{problem ? (
-				<p role="alert" className="text-sm font-medium text-magenta-600">
-					{problem}
-				</p>
-			) : null}
+			{problem ? <Alert role="alert">{problem}</Alert> : null}
 
 			<h2
 				ref={heading}
@@ -458,9 +464,8 @@ function ComposeForm({
 								{undo ? (
 									<p role="status" className="text-sm text-text-2">
 										Template applied.{" "}
-										<button
-											type="button"
-											className="font-medium text-ink underline underline-offset-[3px]"
+										<TextButton
+											className="text-ink"
 											onClick={() => {
 												actions.edit((c) => ({
 													...c,
@@ -473,7 +478,7 @@ function ComposeForm({
 											}}
 										>
 											Undo
-										</button>
+										</TextButton>
 									</p>
 								) : null}
 							</div>
@@ -518,12 +523,8 @@ function ComposeForm({
 					{reason ?? ""}
 				</p>
 				<div className="flex items-center gap-2">
-					{stepIndex > 0 ? (
-						<Button
-							variant="secondary"
-							onClick={() => void go(STEPS[stepIndex - 1]!.value)}
-							disabled={pending !== null}
-						>
+					{previousStep ? (
+						<Button variant="secondary" onClick={() => void go(previousStep.value)} disabled={pending !== null}>
 							Back
 						</Button>
 					) : null}
@@ -552,13 +553,13 @@ function ComposeForm({
 							Save draft
 						</Button>
 					) : null}
-					{stepIndex < STEPS.length - 1 ? (
+					{nextStep ? (
 						<Button
 							variant="primary"
 							aria-describedby="step-reason"
 							disabled={reason !== null || pending !== null}
 							loading={pending === "step"}
-							onClick={() => void go(STEPS[stepIndex + 1]!.value)}
+							onClick={() => void go(nextStep.value)}
 						>
 							Next
 						</Button>

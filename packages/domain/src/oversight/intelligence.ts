@@ -1,7 +1,7 @@
 import { LENSES } from "@everyfield/contracts/intelligence";
 import * as C from "@everyfield/contracts/oversight";
 import type { Database } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
+import { sql, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRows, type RequestActor } from "../access/session.ts";
@@ -130,7 +130,8 @@ const unshared = z.object({
 	state_province: z.string().nullable(),
 	country: z.string().nullable(),
 });
-const iso = (v: string) => sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+const iso = <VName extends string>(v: SqlLiteral<VName>) =>
+	sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
 export async function readIntelligence(
 	db: Reader,
@@ -208,7 +209,7 @@ export async function readIntelligence(
 		level: request.level,
 		run,
 		history,
-		groups: run ? groupsOf(request.level, r.shown_on!, r.rows, r.unshared, r.ratings) : [],
+		groups: run && r.shown_on !== null ? groupsOf(request.level, r.shown_on, r.rows, r.unshared, r.ratings) : [],
 		geographyReleases: [...releases].sort().map(([key, credit]) => ({ key, credit })),
 		canRefresh: seat.administrator,
 	});

@@ -1,19 +1,17 @@
+import { requireActor } from "@/server/sign-in";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { viewerOf } from "../../organizations/mount";
 import { NotAvailable } from "../../access/AccessStates";
 import { AFTER_SIGN_IN } from "../SignInScreen";
-import { readSeats } from "./actions";
+import { loadSeats, workspaceViewer } from "./server";
 import { parseSeats } from "./model";
 import { SeatsScreen } from "./SeatsScreen";
 
 export const seatsMetadata: Metadata = { title: "Seats and invitations", robots: { index: false, follow: false } };
 
 export async function SeatsPage() {
-	const who = await viewerOf();
-	if (who.kind === "signed_out") redirect("/signin?returnTo=%2Fsettings%2Fseats");
-	const read = await readSeats();
+	await requireActor("/settings/seats");
+	const read = await loadSeats(await workspaceViewer());
 	if (read.status !== "ready")
 		return (
 			<div className="py-12">

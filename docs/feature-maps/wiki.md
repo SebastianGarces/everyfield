@@ -34,7 +34,7 @@ flowchart LR
 The Playbook wiki: a home with what to read next, search, and every article's address.
 
 - Routes: `/wiki/[[...slug]]`
-- Endpoints: `/api/wiki/progress`
+- Endpoints: `/api/wiki/progress`, `/api/wiki/read`
 - Personas: `owner` write, `admin` write, `member` write, `resident` write, `signup` write, `triage` write, `visitor` none
 - Catalog: WIKI-001, WIKI-002, WIKI-003, WIKI-004, WIKI-011
 
@@ -126,6 +126,7 @@ Reading records progress; the home resumes it and marks an article changed since
 One article: its church versions and their order, rating, bookmark, print and PDF.
 
 - Routes: none
+- Endpoints: `/api/wiki/pdf`
 - Personas: `owner` write, `admin` write, `member` write, `resident` write, `triage` write
 - Catalog: WIKI-001, WIKI-005, WIKI-006, WIKI-007
 
@@ -167,7 +168,7 @@ Helpful or Unhelpful records the reader's one rating.
 ```bash
 agent-browser find role button click --name "Helpful" --exact
 agent-browser wait --load networkidle
-agent-browser find text "Marked as helpful." text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Marked as helpful.\")"
 ```
 
 #### wiki.article#export

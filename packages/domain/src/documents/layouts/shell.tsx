@@ -19,7 +19,7 @@ export function Doc(ctx: Ctx, title: string, subject: string, pages: ReactNode) 
 			lang="en-US"
 			tagged
 			pdfUa
-			fonts={documentFonts() as never}
+			fonts={documentFonts()}
 			style={{ fontFamily: FONT.body, fontSize: SIZE.base, color: ctx.p.ink }}
 		>
 			{pages}

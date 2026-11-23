@@ -126,7 +126,6 @@ export function StaffNotesPanel({
 					tone="error"
 					title="We could not load the staff notes"
 					headingLevel="h3"
-					className="py-10"
 					actions={
 						<Button variant="secondary" icon={RefreshIcon} onClick={page.retry}>
 							Try again

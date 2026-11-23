@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 
 import { fixture } from "../../support/fixture.mts";
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/session.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import {
 	pipelineWriter,
 	readPipelineBoard,
@@ -50,7 +51,7 @@ const refusedWith = (r: { status: string; refusal?: { code: string }; error?: { 
 const rows = async (q: ReturnType<typeof sql>) => (await admin.execute(q)).rows as Record<string, unknown>[];
 const exported = async (a: Actor = dana) => ok(await readPipelineExport(db, await authority(a)));
 const record = async (personId: string) => ok(await readPipelinePersonRecord(db, await authority(dana), { personId }));
-const tx = <T,>(body: (t: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>) => db.transaction(body);
+const tx = <T,>(body: (t: WriteTx) => Promise<T>) => gatedTransaction(db, body);
 function table(text: string) {
 	const lines = text.replace(/^﻿/, "").split("\r\n");
 	const start = lines.findIndex((l) => l.startsWith("record,person_id,"));
@@ -625,4 +626,83 @@ test("AC:ADR1-005 AC:ADR1-017 INV-privacy: removing a person also removes the du
 		false,
 	);
 	assert.equal((await exported()).text.includes("Riley"), false);
+});
+
+test("INV-concurrency: undo merge sends the survivor revision from the merge result, a change in between refuses it, and a retry replays", async () => {
+	const board = ok(await readPipelineBoard(db, await authority(dana), {}));
+	const stage = board.stages.find((s) => s.label === "Potential leader")!.id;
+	const add = async (displayName: string, email: string) => {
+		const personId = randomUUID();
+		ok(
+			await pipelineWriter.addPerson(db, await authority(dana), {
+				personId,
+				displayName,
+				email,
+				responsibleSeatId: null,
+				stageId: stage,
+			}),
+		);
+		return personId;
+	};
+	const merge = async (sourceId: string, survivorId: string) => {
+		const review = ok(await tx((t) => peopleMerge.getMergeReview(t, ctx(dana) as never, { sourceId, survivorId })));
+		return ok(
+			await tx((t) =>
+				peopleMerge.mergePeople(t, ctx(dana) as never, {
+					requestKey: randomUUID(),
+					input: { sourceId, survivorId, reviewDigest: review.reviewDigest, fieldChoices: { displayName: "survivor" } },
+				}),
+			),
+		) as { mergeId: string; survivorRevision: string };
+	};
+	const undo = (request: unknown) => tx((t) => peopleUnmerge.unmergePeople(t, ctx(dana) as never, request));
+	const state = (ids: string[]) =>
+		rows(sql`SELECT p.display_name AS name, p.merged_into_person_id AS into, m.unmerged_at IS NOT NULL AS unmerged
+		 FROM person p LEFT JOIN person_merge m ON m.source_id=p.id WHERE p.id IN (${ids[0]},${ids[1]}) ORDER BY p.display_name`);
+
+	const morgan = await add("Morgan Hale", "morgan@example.test");
+	const morganH = await add("Morgan H.", "morgan@example.test");
+	const changed = await merge(morganH, morgan);
+	const survivor = await record(morgan);
+	ok(
+		await pipelineWriter.editPerson(db, await authority(dana), {
+			personId: morgan,
+			expectedRevision: survivor.revision,
+			displayName: "Morgan Hale-Reyes",
+			email: "morgan@example.test",
+			responsibleSeatId: null,
+		}),
+	);
+	const before = await state([morgan, morganH]);
+	refusedWith(
+		await undo({
+			requestKey: randomUUID(),
+			expectedRevision: changed.survivorRevision,
+			input: { mergeId: changed.mergeId },
+		}),
+		"conflict",
+	);
+	assert.deepEqual(await state([morgan, morganH]), before);
+	assert.deepEqual(before, [
+		{ name: "Morgan H.", into: morgan, unmerged: false },
+		{ name: "Morgan Hale-Reyes", into: null, unmerged: false },
+	]);
+
+	const quinn = await add("Quinn Ash", "quinn@example.test");
+	const quinnA = await add("Quinn A.", "quinn@example.test");
+	const merged = await merge(quinnA, quinn);
+	const request = {
+		requestKey: randomUUID(),
+		expectedRevision: merged.survivorRevision,
+		input: { mergeId: merged.mergeId },
+	};
+	const first = await undo(request);
+	assert.equal(ok<{ outcome: string }>(first).outcome, "changed");
+	const undone = await state([quinn, quinnA]);
+	assert.deepEqual(undone, [
+		{ name: "Quinn A.", into: null, unmerged: true },
+		{ name: "Quinn Ash", into: null, unmerged: false },
+	]);
+	assert.deepEqual(await undo(request), first);
+	assert.deepEqual(await state([quinn, quinnA]), undone);
 });

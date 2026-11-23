@@ -1,3 +1,4 @@
+import type { Transaction } from "@everyfield/db/client";
 import { accountId, instant, resolveCalendar, revision, type TimeZone } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/tasks";
 import { and, eq, isNull, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
@@ -37,7 +38,7 @@ export type ReminderSource = {
 	open: boolean;
 	created: boolean;
 };
-export type TaskReminders = (tx: Tx, sources: readonly ReminderSource[]) => Promise<unknown>;
+export type TaskReminders = (tx: Transaction, sources: readonly ReminderSource[]) => Promise<unknown>;
 
 type DueColumns = Pick<TaskRow, "due_kind" | "due_date" | "due_time" | "timezone" | "due_at">;
 export function dueColumns(due: z.infer<typeof c.dueInput>, zone: TimeZone): DueColumns {
@@ -47,7 +48,7 @@ export function dueColumns(due: z.infer<typeof c.dueInput>, zone: TimeZone): Due
 		return { due_kind: "date_only", due_date: due.date, due_time: null, timezone: null, due_at: null };
 	const r = resolveCalendar(due.local, zone, "entered", due.offsetSeconds);
 	if (r.kind === "gap") deny("nonexistent_local_time", { local: due.local });
-	if (r.kind === "fold") deny("ambiguous_local_time", { local: due.local, choices: r.choices });
+	if (r.kind === "fold") deny("ambiguous_local_time", { local: due.local, choices: [...r.choices] });
 	if (r.kind === "invalid_offset") deny("invalid_input");
 	return {
 		due_kind: "timed",
@@ -123,6 +124,15 @@ type ReminderRow = Pick<
 	TaskRow,
 	"id" | "title" | "status" | "assignees" | "due_kind" | "due_date" | "due_at" | "deleted_at"
 > & { revision: string; plant_zone: string };
+function reminderDue(row: ReminderRow): ReminderSource["due"] {
+	if (row.due_kind === "undated") return { kind: "undated" };
+	if (row.due_kind === "date_only") {
+		if (row.due_date === null) throw Error(`Task ${row.id} is due on a date it does not store`);
+		return { kind: "date_only", date: row.due_date, zone: row.plant_zone };
+	}
+	if (row.due_at === null) throw Error(`Task ${row.id} is due at a time it does not store`);
+	return { kind: "timed", at: row.due_at.toISOString() };
+}
 function reminderSource(plantId: string, row: ReminderRow): ReminderSource {
 	return {
 		plantId,
@@ -130,12 +140,7 @@ function reminderSource(plantId: string, row: ReminderRow): ReminderSource {
 		revision: row.revision,
 		title: row.title,
 		assigneeIds: idsOf(row.assignees),
-		due:
-			row.due_kind === "undated"
-				? { kind: "undated" }
-				: row.due_kind === "date_only"
-					? { kind: "date_only", date: row.due_date!, zone: row.plant_zone }
-					: { kind: "timed", at: row.due_at!.toISOString() },
+		due: reminderDue(row),
 		open: OPEN(row.status) && row.deleted_at === null,
 		created: false,
 	};
@@ -256,8 +261,9 @@ export function noop(cmd: AuditCommand, row: TaskRow) {
 
 export async function current(tx: Tx, cmd: Command, taskId: string, expectedRevision: string, ownDuty: boolean) {
 	const row = await loadTask(tx, cmd.actor.plantId, taskId, true);
-	if (!row || row.deleted_at) deny();
-	if (!administers(cmd.actor) && !(ownDuty && row.assignees.some((a) => a.accountId === cmd.actor.accountId))) deny();
+	if (!row || row.deleted_at) deny("unavailable");
+	if (!administers(cmd.actor) && !(ownDuty && row.assignees.some((a) => a.accountId === cmd.actor.accountId)))
+		deny("unavailable");
 	if (row.revision !== expectedRevision) deny("conflict");
 	return row;
 }
@@ -273,6 +279,21 @@ export function update(plantId: string, row: TaskRow, next: TaskRow): SQL[] {
 	return [task, ...setWrites(plantId, row.id, idsOf(row.assignees), v.assigneeIds)];
 }
 
+const blocks = (row: Pick<TaskRow, "status" | "deleted_at">) => row.deleted_at === null && OPEN(row.status);
+export function recount(moves: readonly { from: LockedTask; to: Pick<TaskRow, "status" | "deleted_at"> }[]) {
+	const before = new Map<string, number>(),
+		after = new Map<string, number>();
+	for (const { from, to } of moves) {
+		const delta = Number(blocks(to)) - Number(blocks(from));
+		for (const w of from.waiting) {
+			before.set(w.id, w.open);
+			after.set(w.id, (after.get(w.id) ?? w.open) + delta);
+		}
+	}
+	return [...after]
+		.filter(([id, open]) => open !== before.get(id))
+		.map(([taskId, openPrerequisites]) => ({ taskId, openPrerequisites }));
+}
 export function setStatus(
 	tx: Tx,
 	cmd: AuditCommand,
@@ -281,7 +302,7 @@ export function setStatus(
 ) {
 	if (row.status === input.status) {
 		if (input.source !== "generated") noop(cmd, row);
-		return { row, outcome: "noop" as const, changes: [], successor: null };
+		return { row, outcome: "noop" as const, changes: [], successor: null, recounted: [] };
 	}
 	const reopening = !OPEN(row.status) && OPEN(input.status);
 	if (reopening && row.open_successor) deny("open_successor", { successorId: row.open_successor });
@@ -341,6 +362,7 @@ export function setStatus(
 			successor ? reminderChange(cmd.actor.plantId, null, successor) : undefined,
 		],
 		successor,
+		recounted: recount([{ from: row, to: next }]),
 	};
 }
 export function changeTo(
@@ -351,7 +373,7 @@ export function changeTo(
 	input: Parameters<typeof setStatus>[3],
 ) {
 	const r = setStatus(tx, cmd, row, input);
-	return { value: mutation(cmd, r.row, r.outcome), after: syncAll(reminders, tx, r.changes) };
+	return { value: mutation(cmd, r.row, r.outcome, r.recounted), after: syncAll(reminders, tx, r.changes) };
 }
 export function newTask(
 	zone: TimeZone,
@@ -390,11 +412,17 @@ export function newTask(
 		...fields,
 	};
 }
-export function mutation(cmd: AuditCommand, row: TaskRow, outcome: "changed" | "noop") {
+export function mutation(
+	cmd: AuditCommand,
+	row: TaskRow,
+	outcome: "changed" | "noop",
+	recounted: z.input<typeof c.recounted> = [],
+) {
 	return c.taskMutation.parse({
 		task: detailOf(row, instant.parse(new Date().toISOString())),
 		receiptId: cmd.id,
 		outcome,
+		recounted,
 	});
 }
 
@@ -407,7 +435,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 			return reply(tx, async () => {
 				const input = parse(c.createTaskRequest, raw);
 				return command(tx, context, "tasks.create", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input;
 					const due = dueColumns(v.due, cmd.actor.zone);
 					const refs =
@@ -441,7 +469,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 			return reply(tx, async () => {
 				const input = parse(c.editTaskRequest, raw);
 				return command(tx, context, "tasks.edit", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const row = await current(tx, cmd, input.input.taskId, input.expectedRevision, false);
 					const p = input.input.patch;
 					const relation = p.relation === undefined ? undefined : relationColumns(p.relation);
@@ -477,7 +505,15 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 						...(p.category !== undefined ? { category: p.category } : {}),
 						...(p.due !== undefined ? dueColumns(p.due, cmd.actor.zone) : {}),
 						...(p.assigneeIds !== undefined
-							? { assignees: sortPeople(p.assigneeIds.map((id) => known.get(id)!)) }
+							? {
+									assignees: sortPeople(
+										p.assigneeIds.map((id) => {
+											const person = known.get(id);
+											if (!person) throw Error(`Assignee ${id} was neither held nor checked`);
+											return person;
+										}),
+									),
+								}
 							: {}),
 						...(relation ? { ...relation, relation_label: refs?.relationLabel ?? null } : {}),
 					};
@@ -504,7 +540,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 			return reply(tx, async () => {
 				const input = parse(c.taskCommandRequest, raw);
 				return command(tx, context, "tasks.delete", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const row = await current(tx, cmd, input.input.taskId, input.expectedRevision, false);
 					const at = new Date();
 					cmd.writes.push(
@@ -538,7 +574,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 						child_complete: 0,
 					};
 					return {
-						value: mutation(cmd, next, "changed"),
+						value: mutation(cmd, next, "changed", recount([{ from: row, to: next }])),
 						after: syncReminders(reminders, tx, cmd.actor.plantId, row, next),
 					};
 				});

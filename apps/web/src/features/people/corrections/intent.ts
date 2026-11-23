@@ -1,6 +1,6 @@
 import type { FocusEvent, PointerEvent } from "react";
 import { createRead } from "../../../components/read.tsx";
-import { loadRecords, unmergePreview } from "./actions.ts";
+import { loadRecords, unmergePreview } from "../fetch.ts";
 
 const INTENT_FRESH_MS = 15_000;
 const lost = () => ({ status: "lost" }) as const;

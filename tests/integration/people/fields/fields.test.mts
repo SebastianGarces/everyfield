@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 
-import { runDueObjectCleanup } from "../../../../apps/web/src/server/jobs/object-cleanup.ts";
+import { runDueObjectCleanup } from "../../../../packages/domain/src/jobs/object-cleanup.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
 import {
@@ -17,6 +17,7 @@ import {
 	withPeopleWrite,
 } from "../../../../packages/domain/src/people/index.ts";
 import { leave } from "../../../../apps/web/src/features/people/fields/leave.ts";
+import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -33,7 +34,7 @@ const plants = [database.tenant.id, (await database.plant()).id],
 		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
 	];
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
-const tx = (body) => db.transaction(body);
+const tx = (body) => gatedTransaction(db, body);
 const write = async (who, body) =>
 	withPeopleWrite(db, await tx((t) => RequestActor.resolve(t, actors[who].session)), body);
 const key = () => randomUUID();
@@ -128,6 +129,16 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 		),
 		"conflict",
 	);
+	const elsewhere = ok(
+		await write(2, async (t, c) =>
+			fields.updateTag(t, c, {
+				requestKey: key(),
+				expectedRevision: foreign.revision,
+				input: { tagId: foreign.id, name: "Family" },
+			}),
+		),
+	);
+	assert.deepEqual([elsewhere.outcome, elsewhere.tag.name], ["changed", "Family"]);
 
 	const assign = { requestKey: key(), input: { personId: alex.id, tagId: north.tag.id } };
 	ok(
@@ -359,11 +370,12 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 	refused(await propagate(preview.household.revision), "conflict");
 	assert.equal((await rows(sql`SELECT street FROM person WHERE id=${sql.param(casey.id)}`))[0].street, "1 Own St");
 	refused(await propagate(edited.household.revision, reviewed.slice(1)), "conflict");
+	const caseyRevision = await revisionOf(casey.id);
 	ok(
 		await write(0, async (t, c) =>
 			people.updatePerson(t, c, {
 				requestKey: key(),
-				expectedRevision: await revisionOf(casey.id),
+				expectedRevision: caseyRevision,
 				input: { personId: casey.id, patch: { street: "2 New St" } },
 			}),
 		),
@@ -806,7 +818,7 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 			}),
 		),
 	);
-	const actor = await db.transaction((t) => RequestActor.resolve(t, actors[1].session));
+	const actor = await gatedTransaction(db, (t) => RequestActor.resolve(t, actors[1].session));
 	assert.ok(actor instanceof RequestActor);
 	const reads = {
 		listTags: (t, c) => fields.listTags(t, c, {}),
@@ -819,7 +831,7 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 		getPersonPhoto: (t, c) => fields.getPersonPhoto(t, c, { personId: p.id }),
 		readPersonPhoto: (_t, c) => readPersonPhoto(db, storage, c, { personId: p.id, versionId: pending.uploadId }),
 	};
-	const run = (read) => db.transaction((t) => read(t, new PeopleReadContext(actor)));
+	const run = (read) => gatedTransaction(db, (t) => read(t, new PeopleReadContext(actor)));
 	for (const read of Object.values(reads)) ok(await run(read));
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(actors[1].id)}`);
 	try {

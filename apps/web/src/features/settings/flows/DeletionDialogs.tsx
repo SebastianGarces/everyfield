@@ -16,7 +16,7 @@ import {
 import { useState } from "react";
 import type { DeletionStatus, FlowPort, SectionResult } from "../port";
 import { useWrite } from "../save";
-import { SaveError } from "../SettingsDialog";
+import { SaveError } from "../SaveError";
 import { useFlows } from "../store";
 
 type PlantSection = Extract<SectionResult, { section: "plant" }>;
@@ -63,7 +63,7 @@ export function WorkspaceDeletionDialog({
 		const result = await write.run(input, (requestKey) =>
 			request({ requestKey, expectedRevision: section.revision, input }),
 		);
-		if (result.ok) onRequested(result.value);
+		if (result.status === "ok") onRequested(result.value);
 	};
 
 	return (
@@ -143,9 +143,9 @@ export function AccountDeletionDialog({
 				const result = await write.run(input, (requestKey) =>
 					port.requestAccountDeletion({ requestKey, expectedRevision: section.revision, input }),
 				);
-				if (result.ok) return onRequested(result.value);
-				if (UNCERTAIN.has(result.refusal.code)) return onRequested(null);
-				throw new Error(`${result.refusal.message} Reference ${result.refusal.reference}.`);
+				if (result.status === "ok") return onRequested(result.value);
+				if (result.status === "lost" || UNCERTAIN.has(result.code)) return onRequested(null);
+				return { refused: `${result.message} Reference ${result.reference}.` };
 			}}
 		/>
 	);

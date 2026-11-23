@@ -17,7 +17,8 @@ import { preferenceRows } from "../model";
 import type { NotificationChoice, NotificationPatch, SectionResult } from "../port";
 import { newRequestKey } from "../port";
 import { OFFLINE_REFERENCE, refusalOf, type Refusal } from "../save";
-import { AutoSaveFooter, SaveError, SectionBody } from "../SettingsDialog";
+import { AutoSaveFooter, SectionBody } from "../SectionParts";
+import { SaveError } from "../SaveError";
 import { useSection, useSettings } from "../store";
 
 type Notifications = Extract<SectionResult, { section: "notifications" }>;
@@ -137,7 +138,7 @@ function Preferences({
 
 	return (
 		<SectionBody>
-			<div aria-live="polite" className="empty:hidden">
+			<div aria-live="polite" className="empty:sr-only">
 				{refusal ? (
 					<SaveError
 						message={refusal.refusal.message}

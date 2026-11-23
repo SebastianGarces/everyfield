@@ -31,7 +31,7 @@ export const updateProfile = nativeWrite({
 			FROM plant pl WHERE pl.id=${actor.owner.id}::uuid`;
 	},
 	async run(tx, context, request, { ports }) {
-		settled(await ports.settings.updatePlantProfile(tx, context, request as never));
+		settled(await ports.settings.updatePlantProfile(tx, context, request));
 	},
 });
 
@@ -97,7 +97,7 @@ export const setTimezone = nativeWrite({
 			FROM plant pl WHERE pl.id=${plant.id}::uuid`;
 	},
 	async run(tx, context, request, { ports }) {
-		const saved = settled(await ports.settings.setPlantTimezone(tx, context, request as never));
+		const saved = settled(await ports.settings.setPlantTimezone(tx, context, request));
 		return { revision: saved.revision };
 	},
 });
@@ -155,7 +155,7 @@ export const setDigestSchedule = nativeWrite({
 		return sql`SELECT ${JSON.stringify(review)}::jsonb AS review, ${JSON.stringify(args)}::jsonb AS args`;
 	},
 	async run(tx, context, request, { ports }) {
-		settled(await ports.settings.setDigestSchedule(tx, context, request as never));
+		settled(await ports.settings.setDigestSchedule(tx, context, request));
 	},
 });
 

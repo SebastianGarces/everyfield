@@ -1,6 +1,6 @@
 "use client";
 
-import type { PipelineBoard, PipelinePersonRecord } from "@everyfield/contracts/organizations";
+import type { PipelineChoices, PipelinePersonRecord } from "@everyfield/contracts/organizations";
 import { avatarRoute } from "@everyfield/contracts/settings";
 import { ArrowRight02Icon, Edit02Icon } from "@hugeicons/core-free-icons";
 import {
@@ -16,6 +16,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	PageHeader,
 	Select,
@@ -23,21 +24,12 @@ import {
 } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
 import { useActionState, useState, useTransition, type FormEvent, type ReactNode } from "react";
-import {
-	addNote,
-	editNote,
-	movePerson,
-	readPerson,
-	recordAssessment,
-	removeNote,
-	restorePerson,
-	retirePerson,
-} from "./actions";
+import { addNote, editNote, movePerson, recordAssessment, removeNote, restorePerson, retirePerson } from "./actions";
+import { readPerson } from "./fetch.ts";
 import { ConversationsCard } from "./Conversations";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { changedText, PIPELINE_PATH, refusalText } from "./model";
 import { PersonDialog } from "./PersonDialog";
-import { Problem } from "../../../components/Problem.tsx";
 import { RemoveDialog } from "../data/RemoveDialog";
 import { ResidencyLink } from "./ResidencyLink";
 import { NoteReviews, SendForReviewDialog } from "./SendForReview";
@@ -53,8 +45,8 @@ export function PersonRecord({
 	organization,
 }: {
 	initial: Record;
-	stages: PipelineBoard["stages"];
-	staff: PipelineBoard["staff"];
+	stages: PipelineChoices["stages"];
+	staff: PipelineChoices["staff"];
 	organization: string;
 }) {
 	const [local, setLocal] = useState<{ from: Record; value: Record } | null>(null);
@@ -109,7 +101,7 @@ export function PersonRecord({
 					) : null
 				}
 			/>
-			<Problem text={notice} />
+			<InlineAlert live="polite">{notice}</InlineAlert>
 			<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-5 max-app-md:grid-cols-1">
 				<div className="flex flex-col gap-5">
 					<Card>
@@ -294,7 +286,7 @@ function MoveDialog({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	record: Record;
-	stages: PipelineBoard["stages"];
+	stages: PipelineChoices["stages"];
 	onSubmit: (stageId: string, reason: string) => Promise<string | null>;
 }) {
 	return (
@@ -312,7 +304,7 @@ function MoveForm({
 	onSubmit,
 }: {
 	record: Record;
-	stages: PipelineBoard["stages"];
+	stages: PipelineChoices["stages"];
 	onSubmit: (stageId: string, reason: string) => Promise<string | null>;
 }) {
 	const choices = stages.filter((s) => s.id !== record.stage.id);
@@ -344,7 +336,7 @@ function MoveForm({
 				>
 					<Textarea name="reason" defaultValue={state.reason} rows={3} maxLength={1000} />
 				</Field>
-				<Problem text={state.problem} />
+				<InlineAlert live="polite">{state.problem}</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>
@@ -396,7 +388,7 @@ function AssessmentDialog({
 						<Field label="Who ran it" error={state.errors.by} hint="For example, Send Network assessment retreat.">
 							<Input value={by} onChange={(e) => setBy(e.target.value)} maxLength={200} />
 						</Field>
-						<Problem text={state.problem} />
+						<InlineAlert live="polite">{state.problem}</InlineAlert>
 					</DialogBody>
 					<DialogFooter>
 						<Button type="submit" variant="primary" loading={saving}>
@@ -415,7 +407,7 @@ function Notes({
 	onChanged,
 }: {
 	record: Record;
-	staff: PipelineBoard["staff"];
+	staff: PipelineChoices["staff"];
 	onChanged: () => Promise<void>;
 }) {
 	const canWrite = !record.retired;
@@ -454,7 +446,7 @@ function Notes({
 						<Field label="Add a note">
 							<Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} maxLength={5000} />
 						</Field>
-						<Problem text={problem} />
+						<InlineAlert live="polite">{problem}</InlineAlert>
 						<Button
 							type="submit"
 							variant="secondary"
@@ -519,13 +511,14 @@ function NoteItem({
 }: {
 	note: Extract<Record["notes"][number], { state: "current" }>;
 	editable: boolean;
-	review: { person: string; staff: PipelineBoard["staff"] } | null;
+	review: { person: string; staff: PipelineChoices["staff"] } | null;
 	canWithdraw: boolean;
 	onChanged: () => Promise<void>;
 }) {
 	const [editing, setEditing] = useState(false);
 	const [sending, setSending] = useState(false);
-	const sendable = review !== null && note.questions !== null;
+	const { questions } = note;
+	const sendable = review !== null && questions !== null;
 	const [text, setText] = useState(note.body);
 	const [problem, setProblem] = useState<string | null>(null);
 	const [saving, startSaving] = useTransition();
@@ -611,7 +604,7 @@ function NoteItem({
 					onOpenChange={setSending}
 					noteId={note.id}
 					person={review.person}
-					questions={note.questions!}
+					questions={questions}
 					staff={review.staff}
 					onSent={async () => {
 						setSending(false);

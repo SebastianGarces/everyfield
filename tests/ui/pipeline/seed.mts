@@ -34,7 +34,7 @@ export async function seedPipelineExample(env: {
 		origin,
 		secret,
 		trustedIp: () => env.address(ip),
-		enqueueMail: async () => {},
+		enqueueMail: async () => randomUUID(),
 		diagnostic: () => {},
 	});
 	const host = new URL(origin).host;

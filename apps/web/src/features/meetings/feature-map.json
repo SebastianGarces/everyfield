@@ -228,7 +228,7 @@
 			"id": "meetings.detail",
 			"says": "One meeting: its status, guests and RSVPs, kit, agenda, results and evaluation.",
 			"routes": ["/meetings/[meetingId]"],
-			"endpoints": ["/meetings/[meetingId]/agenda"],
+			"endpoints": ["/meetings/[meetingId]/agenda", "/meetings/read"],
 			"catalog": ["MTG-001", "MTG-002", "MTG-005", "MTG-007", "MTG-012", "MTG-013", "MTG-014"],
 			"reach": [
 				{

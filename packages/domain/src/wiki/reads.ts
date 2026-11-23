@@ -27,11 +27,21 @@ import {
 	type WikiArticle,
 	type WikiReply,
 } from "@everyfield/contracts/wiki";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
+import {
+	DAILY_QUERY_CAP_USD,
+	EmbeddingRefusal,
+	recordSpend,
+	tokensFor,
+	wikiQueryEmbedder,
+	type WikiQueryEmbedder,
+} from "@everyfield/reference/wiki-embedding";
 import "server-only";
 import { z } from "zod";
+import type { Owner } from "@everyfield/contracts/common";
 import type { RequestActor } from "../access/session.ts";
+import { asLogWord, logLine } from "../log.ts";
 import {
 	articleJson,
 	catalogQuery,
@@ -126,22 +136,28 @@ function present(raw: Record<string, unknown>): WikiArticle {
 function sourceOf(source: SourceView | undefined): SourceView {
 	return source ?? { kind: "current" };
 }
-async function readPage(db: Database, access: CorpusAccess, source: SourceView, page: number, where: SQL = sql`true`) {
+async function readPage(
+	db: Database | Transaction,
+	access: CorpusAccess,
+	source: SourceView,
+	page: number,
+	where: SQL = sql`true`,
+) {
 	const result = await db.execute(pageQuery(access, source, page, where));
 	const row = loaded.parse(result.rows[0]);
-	if (!row.allowed) deny();
+	if (!row.allowed) deny("access_denied");
 	const articles = (row.articles ?? []).map(present);
 	const nextCursor = page * PAGE < row.total ? String(page + 1) : null;
 	return { row, articles, nextCursor };
 }
 function listValue(articles: WikiArticle[], nextCursor: string | null, row: z.infer<typeof loaded>) {
-	return listResult.parse({
+	return {
 		articles,
 		nextCursor,
 		churches: row.churches ?? [],
 		networks: row.networks ?? [],
 		orderRevision: row.order_revision,
-	});
+	} satisfies z.output<typeof listResult>;
 }
 function accessFor(authority: RequestActor, owner = selectedOwner(authority)): CorpusAccess {
 	return { authority, owner };
@@ -158,7 +174,7 @@ export function listArticles(
 		return listValue(page.articles, page.nextCursor, page.row);
 	});
 }
-export function getArticle(db: Database, authority: RequestActor, raw: unknown) {
+export function getArticle(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(articleRequest, raw);
 		const page = await readPage(
@@ -209,7 +225,96 @@ function plainText(text: SQL): SQL {
 		text,
 	)})`;
 }
-export async function search(db: Database, authority: RequestActor, raw: unknown) {
+const MEANING_PASSAGES = 40;
+const MEANING_DISTANCE = 0.7;
+const BLEND = 60;
+const HEADLINE = "MaxFragments=1, MinWords=5, MaxWords=20";
+const SNIPPET_WORDS = 20;
+const SPACES = "\\s+";
+const PARTIAL_WORD = "^\\S*\\s+";
+const probeRow = z.object({
+	allowed: z.boolean(),
+	profile: z.string().nullable(),
+	dimensions: z.number().int().nullable(),
+	spent: z.coerce.number(),
+});
+const MEANING_VECTOR = "public.vector(1536)";
+type Meaning = { vector: string };
+
+function meaningSkipped(reason: string): null {
+	logLine({ component: "wiki", outcome: "meaning-skipped", reason: asLogWord(reason) });
+	return null;
+}
+async function meaningOf(
+	db: Database | Transaction,
+	authority: RequestActor,
+	owner: Owner,
+	embedder: WikiQueryEmbedder,
+	query: string,
+): Promise<Meaning | null> {
+	const probe = probeRow.parse(
+		(
+			await db.execute(sql`WITH ${meSql(authority, owner)}
+				SELECT EXISTS (SELECT FROM me) AS allowed, rel.embedding_profile AS profile,
+					rel.embedding_dimensions AS dimensions,
+					COALESCE((
+						SELECT usage FROM embedding_spend
+						WHERE day = (clock_timestamp() AT TIME ZONE 'UTC')::date AND purpose = 'query'
+					), 0) AS spent
+				FROM (SELECT 1) one
+				LEFT JOIN LATERAL (
+					SELECT r.embedding_profile, r.embedding_dimensions
+					FROM reference_activation a JOIN reference_release r ON r.id = a.release_id
+					ORDER BY a.activation_number DESC LIMIT 1
+				) rel ON true`)
+		).rows[0],
+	);
+	if (!probe.allowed || probe.profile !== embedder.profile || probe.dimensions !== embedder.dimensions) return null;
+	if (probe.spent >= tokensFor(DAILY_QUERY_CAP_USD)) return meaningSkipped("daily_limit");
+	let embedded: Awaited<ReturnType<WikiQueryEmbedder["embed"]>>;
+	try {
+		embedded = await embedder.embed(query);
+	} catch (error) {
+		if (!(error instanceof EmbeddingRefusal)) return meaningSkipped("embedding_failed");
+		await recordSpend(db, "query", error.usageTokens);
+		return meaningSkipped(error.code);
+	}
+	await recordSpend(db, "query", embedded.tokens);
+	return { vector: `[${embedded.vector.join(",")}]` };
+}
+function meaningSql(meaning: Meaning | null, phase: number | null): SQL {
+	if (!meaning)
+		return sql`SELECT NULL::uuid AS article_id, NULL::text AS content, NULL::float8 AS distance WHERE false`;
+	const type = sql.raw(MEANING_VECTOR);
+	const distance = sql`ps.embedding::${type} OPERATOR(public.<=>) ${meaning.vector}::${type}`;
+	return sql`
+		SELECT DISTINCT ON (p.article_id) p.article_id,
+			CASE WHEN m.ordinal = 0 THEN m.content ELSE regexp_replace(m.content, ${PARTIAL_WORD}, '') END AS content,
+			m.distance
+		FROM (
+			SELECT ps.revision_id, ps.ordinal, ps.content, ${distance} AS distance
+			FROM passage ps
+			WHERE (
+					ps.release_id = (SELECT release_id FROM release)
+					OR (ps.release_id IS NULL AND ps.tenant_id IN (SELECT org_id FROM links))
+				)
+				AND public.vector_dims(ps.embedding) = 1536
+			ORDER BY ${distance}
+			LIMIT ${MEANING_PASSAGES}
+		) m
+		JOIN picked p ON p.revision_id = m.revision_id
+		WHERE m.distance <= ${MEANING_DISTANCE}
+			AND NOT p.hidden
+			AND (${phase === null}::boolean OR p.phase = ${phase ?? 0})
+		ORDER BY p.article_id, m.distance`;
+}
+
+export async function search(
+	db: Database | Transaction,
+	authority: RequestActor,
+	raw: unknown,
+	embedder: WikiQueryEmbedder | null = wikiQueryEmbedder(process.env),
+) {
 	return runRead(async () => {
 		const input = parse(searchRequest, raw);
 		const access = accessFor(authority);
@@ -218,34 +323,57 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 			const gate = await db.execute(
 				sql`WITH ${meSql(authority, access.owner)} SELECT EXISTS (SELECT FROM me) AS allowed`,
 			);
-			if (!z.object({ allowed: z.boolean() }).parse(gate.rows[0]).allowed) deny();
-			return searchResult.parse({ status: "empty", results: [], nextCursor: null });
+			if (!z.object({ allowed: z.boolean() }).parse(gate.rows[0]).allowed) deny("access_denied");
+			return { status: "empty", results: [], nextCursor: null } satisfies z.output<typeof searchResult>;
 		}
 		const page = input.page ?? 1;
 		const offset = (page - 1) * PAGE;
 		const phase = input.phase ?? null;
+		const meaning = embedder ? await meaningOf(db, authority, access.owner, embedder, input.query) : null;
+		const words = sql`websearch_to_tsquery('english', ${input.query})`;
 		try {
 			const result = await db.transaction(async (tx) => {
-				await tx.execute(sql`SELECT set_config('lock_timeout','1s',true)`);
+				await tx.execute(
+					meaning
+						? sql`SELECT set_config('lock_timeout','1s',true), set_config('hnsw.iterative_scan','relaxed_order',true)`
+						: sql`SELECT set_config('lock_timeout','1s',true)`,
+				);
 				return tx.execute(sql`WITH ${corpusCtes(access, source)},
-					scored AS (
-						SELECT p.*, ts_rank(r.search_vector, websearch_to_tsquery('english', ${input.query})) AS text_rank
+					keyword AS (
+						SELECT p.article_id, ts_rank(r.search_vector, ${words}) AS text_rank
 						FROM picked p
 						JOIN article_revision r ON r.id = p.revision_id
 						WHERE NOT p.hidden
 							AND (${phase === null}::boolean OR p.phase = ${phase ?? 0})
-							AND r.search_vector @@ websearch_to_tsquery('english', ${input.query})
+							AND r.search_vector @@ ${words}
+					),
+					meaning AS (${meaningSql(meaning, phase)}),
+					scored AS (
+						SELECT p.*, k.article_id IS NOT NULL AS keyword_hit, m.content AS meaning_text,
+							COALESCE(k.position = 1, false) AS keyword_first,
+							COALESCE(1.0 / (${BLEND} + k.position), 0) + COALESCE(1.0 / (${BLEND} + m.position), 0) AS blend
+						FROM picked p
+						LEFT JOIN (
+							SELECT article_id, row_number() OVER (ORDER BY text_rank DESC, article_id) AS position FROM keyword
+						) k ON k.article_id = p.article_id
+						LEFT JOIN (
+							SELECT article_id, content, row_number() OVER (ORDER BY distance, article_id) AS position FROM meaning
+						) m ON m.article_id = p.article_id
+						WHERE k.article_id IS NOT NULL OR m.article_id IS NOT NULL
 					)
 					SELECT
 						EXISTS (SELECT FROM me) AS allowed,
 						(SELECT count(*)::int FROM scored) AS total,
 						COALESCE((
-							SELECT json_agg(${articleJson()} ORDER BY p.text_rank DESC, p.article_id)
+							SELECT json_agg(${articleJson()} ORDER BY p.keyword_first DESC, p.blend DESC, p.article_id)
 							FROM (
-								SELECT s.*, ts_headline('english', ${plainText(sql`coalesce(wiki_search_words(s.content_type, s.body), s.excerpt, s.title, '')`)}, websearch_to_tsquery('english', ${input.query}), 'MaxFragments=1, MinWords=5, MaxWords=20') AS snippet
+								SELECT s.*, CASE WHEN s.keyword_hit
+									THEN ts_headline('english', ${plainText(sql`coalesce(wiki_search_words(s.content_type, s.body), s.excerpt, s.title, '')`)}, ${words}, ${HEADLINE})
+									ELSE array_to_string((regexp_split_to_array(${plainText(sql`s.meaning_text`)}, ${SPACES}))[1:${SNIPPET_WORDS}::int], ' ')
+								END AS snippet
 								FROM (
 									SELECT * FROM scored
-									ORDER BY text_rank DESC, article_id
+									ORDER BY keyword_first DESC, blend DESC, article_id
 									OFFSET ${offset} LIMIT ${PAGE}
 								) s
 							) p
@@ -264,17 +392,19 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 					articles: z.array(z.record(z.string(), z.unknown())).nullable(),
 				})
 				.parse(result.rows[0]);
-			if (!row.allowed) deny();
+			if (!row.allowed) deny("access_denied");
 			const results = (row.articles ?? []).map(present);
-			if (!results.length) return searchResult.parse({ status: "empty", results: [], nextCursor: null });
-			return searchResult.parse({
+			if (!results.length)
+				return { status: "empty", results: [], nextCursor: null } satisfies z.output<typeof searchResult>;
+			return {
 				status: "results",
 				results,
 				nextCursor: page * PAGE < row.total ? String(page + 1) : null,
-			});
+			} satisfies z.output<typeof searchResult>;
 		} catch (error) {
 			const code = pgCode(error);
-			if (code === "55P03" || code === "57014") return searchResult.parse({ status: "unavailable", results: null });
+			if (code === "55P03" || code === "57014")
+				return { status: "unavailable", results: null } satisfies z.output<typeof searchResult>;
 			throw error;
 		}
 	});
@@ -300,7 +430,7 @@ export function navigation(db: Database, authority: RequestActor, raw: unknown) 
 		const access = accessFor(authority);
 		const result = await db.execute(navigationQuery(access, sourceOf(input.source)));
 		const row = z.object({ allowed: z.boolean(), articles: z.array(navRow).nullable() }).parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		const articles = row.articles ?? [];
 		const groups = new Map<string, typeof articles>();
 		for (const article of articles) {
@@ -347,11 +477,11 @@ export function articleNeighbors(db: Database, authority: RequestActor, raw: unk
 				articles: z.array(z.object({ articleId: z.uuid(), title: z.string(), slug: z.string(), position: z.number() })),
 			})
 			.parse(result.rows[0]);
-		if (!row.allowed) deny();
-		return neighborsResult.parse({
+		if (!row.allowed) deny("access_denied");
+		return {
 			articles: row.entitled ? row.articles : [],
 			errorCode: row.entitled ? null : "content_access_denied",
-		});
+		} satisfies z.output<typeof neighborsResult>;
 	});
 }
 export function tableOfContents(db: Database, authority: RequestActor, raw: unknown) {
@@ -365,10 +495,10 @@ export function tableOfContents(db: Database, authority: RequestActor, raw: unkn
 			sql`p.article_id = ${input.articleId}::uuid`,
 		);
 		const article = page.articles[0] ?? null;
-		return tocResult.parse({
+		return {
 			headings: article ? headings(article.contentType, article.body) : [],
 			errorCode: article ? null : "content_access_denied",
-		});
+		} satisfies z.output<typeof tocResult>;
 	});
 }
 const guideRow = z.object({
@@ -388,7 +518,7 @@ export function contextGuide(db: Database, authority: RequestActor, raw: unknown
 			const result = await db.execute(
 				sql`WITH ${meSql(authority, access.owner)} SELECT EXISTS (SELECT FROM me) AS allowed`,
 			);
-			if (!z.object({ allowed: z.boolean() }).parse(result.rows[0]).allowed) deny();
+			if (!z.object({ allowed: z.boolean() }).parse(result.rows[0]).allowed) deny("access_denied");
 			return guideResult.parse(noGuide);
 		}
 		const result = await db.execute(sql`WITH ${corpusCtes(access, { kind: "current" })}
@@ -406,10 +536,10 @@ export function contextGuide(db: Database, authority: RequestActor, raw: unknown
 					WHERE p.article_id = (SELECT g.article_id FROM global_rev g WHERE g.slug = ${entry.slug} LIMIT 1)
 				) AS article`);
 		const row = z.object({ allowed: z.boolean(), article: guideRow.nullable() }).parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		const article = row.article;
 		if (!article?.body) return guideResult.parse(noGuide);
-		return guideResult.parse({
+		return {
 			found: true,
 			missing: false,
 			citation: entry.heading,
@@ -421,7 +551,7 @@ export function contextGuide(db: Database, authority: RequestActor, raw: unknown
 				displayBody(article.contentType, false, article.body) ?? "",
 				entry.heading,
 			),
-		});
+		} satisfies z.output<typeof guideResult>;
 	});
 }
 export function referenceExcerpt(db: Database, authority: RequestActor, raw: unknown) {
@@ -437,13 +567,13 @@ export function referenceExcerpt(db: Database, authority: RequestActor, raw: unk
 		const article = page.articles[0];
 		if (!article?.body)
 			return excerptResult.parse({ excerpt: null, errorCode: article ? null : "content_access_denied" });
-		return excerptResult.parse({
+		return {
 			excerpt: sectionExcerpt(article.contentType, article.body, input.heading),
 			errorCode: null,
-		});
+		} satisfies z.output<typeof excerptResult>;
 	});
 }
-export function readingRecent(db: Database, authority: RequestActor, raw: unknown) {
+export function readingRecent(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		parse(z.strictObject({}).optional(), raw ?? {});
 		const access = accessFor(authority);
@@ -471,14 +601,17 @@ export function readingRecent(db: Database, authority: RequestActor, raw: unknow
 		const row = z
 			.object({ allowed: z.boolean(), articles: z.array(z.record(z.string(), z.unknown())).nullable() })
 			.parse(result.rows[0]);
-		if (!row.allowed) deny();
-		return recentResult.parse({ articles: (row.articles ?? []).map(present) });
+		if (!row.allowed) deny("access_denied");
+		return { articles: (row.articles ?? []).map(present) } satisfies z.output<typeof recentResult>;
 	});
 }
-export async function readingResume(db: Database, authority: RequestActor, raw: unknown) {
+export async function readingResume(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	const recent = await readingRecent(db, authority, raw ?? {});
 	if (recent.status !== "ok") return recent;
-	return { status: "ok" as const, value: resumeResult.parse({ article: recent.value.articles[0] ?? null }) };
+	return {
+		status: "ok" as const,
+		value: { article: recent.value.articles[0] ?? null } satisfies z.output<typeof resumeResult>,
+	};
 }
 export function readingStats(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
@@ -549,18 +682,18 @@ export function readingStats(db: Database, authority: RequestActor, raw: unknown
 				seated_lead: z.boolean(),
 			})
 			.parse(result.rows[0]);
-		if (!row.allowed) deny();
-		return statsResult.parse({
+		if (!row.allowed) deny("access_denied");
+		return {
 			discoveryComplete: row.caller_complete,
 			ownerRereadRequired: row.owner_reread,
 			qualifyingReader: row.caller_complete && row.seated_lead,
 			completionAtRatio: { owner: row.owner_complete, caller: row.caller_complete },
 			phase: row.phase,
 			articles: row.articles,
-		});
+		} satisfies z.output<typeof statsResult>;
 	});
 }
-export function recommendForPhase(db: Database, authority: RequestActor, raw: unknown) {
+export function recommendForPhase(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(recommendRequest, raw);
 		const access = accessFor(authority);
@@ -576,12 +709,12 @@ export function recommendForPhase(db: Database, authority: RequestActor, raw: un
 				articles: z.array(z.record(z.string(), z.unknown())).nullable(),
 			})
 			.parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		const articles = (row.articles ?? []).map(present);
-		return recommendResult.parse({
+		return {
 			phase: input.phase ?? row.plant_phase,
 			articles,
-		});
+		} satisfies z.output<typeof recommendResult>;
 	});
 }
 const CRAWLER = /facebookexternalhit|Twitterbot|Slackbot|LinkedInBot|Googlebot|bingbot/i;
@@ -649,12 +782,12 @@ export async function renderGlobalPreview(db: Database, raw: unknown) {
 }
 
 function deniedExport() {
-	return exportResult.parse({
+	return {
 		bytes: null,
 		html: null,
 		errorCode: "content_access_denied",
 		fontFailureOffersPrintFallback: false,
-	});
+	} satisfies z.output<typeof exportResult>;
 }
 function exportMeta(article: WikiArticle) {
 	return {
@@ -673,29 +806,29 @@ async function visibleBody(db: Database, authority: RequestActor, raw: unknown) 
 	);
 	const article = page.articles[0];
 	if (!article || article.hidden || article.body == null) return null;
-	return article;
+	return { ...article, body: article.body };
 }
 export function exportPdf(db: Database, authority: RequestActor, raw: unknown, render: PdfRenderer) {
 	return runRead(async () => {
 		const article = await visibleBody(db, authority, raw);
 		if (!article) return deniedExport();
 		const meta = exportMeta(article);
-		const blocks = wikiBlocks(article.contentType, article.body!);
+		const blocks = wikiBlocks(article.contentType, article.body);
 		try {
 			const bytes = Buffer.from(render(article.title, blocks, meta)).toString("base64");
-			return exportResult.parse({
+			return {
 				bytes,
 				html: null,
 				errorCode: null,
 				fontFailureOffersPrintFallback: false,
-			});
+			} satisfies z.output<typeof exportResult>;
 		} catch {
-			return exportResult.parse({
+			return {
 				bytes: null,
 				html: printHtml(article.title, blocks, meta),
 				errorCode: null,
 				fontFailureOffersPrintFallback: true,
-			});
+			} satisfies z.output<typeof exportResult>;
 		}
 	});
 }
@@ -704,11 +837,11 @@ export function printArticle(db: Database, authority: RequestActor, raw: unknown
 		const article = await visibleBody(db, authority, raw);
 		if (!article) return deniedExport();
 		const meta = exportMeta(article);
-		return exportResult.parse({
+		return {
 			bytes: null,
-			html: printHtml(article.title, wikiBlocks(article.contentType, article.body!), meta),
+			html: printHtml(article.title, wikiBlocks(article.contentType, article.body), meta),
 			errorCode: null,
 			fontFailureOffersPrintFallback: false,
-		});
+		} satisfies z.output<typeof exportResult>;
 	});
 }

@@ -10,7 +10,7 @@ export function DuplicateHints({ personId, hints, canReview }: { personId: strin
 	if (!hints.items.length) return null;
 	return (
 		<Card as="section" aria-labelledby="duplicates-title">
-			<CardHeader className="mb-1">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle size="sm" id="duplicates-title">
 						{hints.items.length === 1 ? "Possible duplicate" : "Possible duplicates"}

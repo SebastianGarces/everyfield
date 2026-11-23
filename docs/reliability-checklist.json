@@ -1,0 +1,32 @@
+[
+	{
+		"id": "migration-backfill-on-real-rows",
+		"trigger": { "paths": ["packages/db/migrations/*.sql"], "added": "\\b(UPDATE|update)\\s+\\w" },
+		"check": "Does a migration test insert rows before the backfill migrates and then reach head, so an `UPDATE` followed by an `ALTER TABLE` in the same transaction does not fail with pending trigger events?",
+		"source": "T-275 and PR #693: backfills passed CI on empty tables and failed on shared dev's real rows"
+	},
+	{
+		"id": "tenant-scoped-read-census",
+		"trigger": { "paths": ["packages/domain/src/**/*.ts"], "added": "export (async )?function .*RequestActor" },
+		"check": "Does every new exported read that takes a `RequestActor` have an INV-tenancy case in `tests/integration/access/tenancy.test.mts`, checked on the head merged with main?",
+		"source": "T-236: INV-tenancy discovers every actor-taking domain read and failed CI on a read main had added"
+	},
+	{
+		"id": "removed-export-imported-by-tests",
+		"trigger": { "paths": ["packages/*/src/**/index.ts", "packages/*/package.json"] },
+		"check": "For each export this diff removes or renames, does `git grep -nw <name> -- tests tools` on the head merged with main find no importer left?",
+		"source": "T-147: removed teams re-exports passed typecheck and lint but tests/integration/teams/teams.test.mts failed at ESM load in CI's census"
+	},
+	{
+		"id": "declared-column-order",
+		"trigger": { "paths": ["packages/db/src/schema/tables.ts"] },
+		"check": "Is every column this diff adds to `tables.ts` declared last in its `pgTable` block, in migration order, so the INV-schema drift gate sees the order the migration appends?",
+		"source": "T-291: launch columns declared mid-table passed several check rounds and failed only tests/integration/db/baseline.test.mts"
+	},
+	{
+		"id": "tampered-or-random-test-token",
+		"trigger": { "paths": ["tests/**"], "added": "(tamper|Tamper|randomBytes|Math\\.random)" },
+		"check": "Does every tampered or random token in this test change bytes that always alter the decoded value, never only `base64url` padding bits or a value that can repeat?",
+		"source": "CASE-NTF-016 (T-242 Done 2): the tamper flake that failed main's CI on #850 (issue #873), fixed in #874"
+	}
+]

@@ -1,39 +1,31 @@
 import { reminderSlot } from "@everyfield/contracts/meetings";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
-import { meetingMailGrants, meetingNotice, planNotifications } from "@everyfield/domain/meetings";
+import { meetingNotice, planNotifications } from "@everyfield/domain/meetings";
 import {
 	milestone,
 	milestoneCategory,
 	planMilestoneNotice,
 	planResidencyNotice,
 	planReviewNotice,
-	relationshipMailGrants,
 	residencyCategory,
 	residencyJobOf,
-	residencyMailGrants,
 	reviewJobOf,
-	reviewMailGrants,
 } from "@everyfield/domain/organizations";
-import { authorizeLaunchNotices } from "@everyfield/domain/launch";
-import { authorizePhaseNotices } from "@everyfield/domain/phases";
-import { authorizeTaskReminders } from "@everyfield/domain/tasks";
 import "server-only";
 import { z } from "zod";
 import { reviewPath } from "../organizations/reviews/model.ts";
 import { milestonePath } from "../residency/model.ts";
-import { mailEnv } from "../../server/mail-env.ts";
-import { transaction } from "../../server/platform/database.ts";
+import { serverConfig, serverEnv } from "../../server/config.ts";
 import {
+	authorizeNoticeMail,
+	authorizeNotificationMail,
+	transaction,
 	MAIL_PASSES,
 	mailUnsubscribe,
 	runDueMail,
-	type AuthorizeMail,
 	type createMailService,
 	type MailPass,
 	type MailTransport,
-} from "../../server/jobs/mail.ts";
-import {
 	claimDue,
 	finishClaim,
 	finishJob,
@@ -41,12 +33,11 @@ import {
 	recoverLease,
 	type Claim,
 	type JobResult,
-} from "../../server/jobs/queue.ts";
-import {
 	accountNotificationService,
 	mountMailService,
 	seatedNotificationService,
-} from "../../server/jobs/seated-notifications.ts";
+} from "@everyfield/domain/jobs";
+import { logLine } from "@everyfield/domain/log";
 
 const NOTICES_PER_RUN = 20;
 const slotOf = (key: string) => reminderSlot.parse(key.split("/")[1]);
@@ -190,7 +181,7 @@ export function createNotificationWorker(config: {
 				});
 				if (outcome === "planned") sent++;
 			} catch {
-				console.error(JSON.stringify({ component: "notification", outcome: "error" }));
+				logLine({ component: "notification", outcome: "error" });
 				await finishJob(db, claim, { state: "retry_wait", code: "notification_failed" });
 			}
 		}
@@ -201,51 +192,27 @@ export function createNotificationWorker(config: {
 }
 export type NotificationWorker = ReturnType<typeof createNotificationWorker>;
 
-export async function authorizeNotificationMail(
-	tx: Transaction,
-	mail: readonly { id: string; recipient: string | null; notice: string | null }[],
-): Promise<ReadonlySet<string>> {
-	const rows = mail.map((m) => ({ id: m.id, recipient: m.recipient, notice: m.notice }));
-	const input = sql`jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) i(id uuid,recipient uuid,notice uuid)`;
-	const r = await tx.execute(sql`WITH meeting AS (${meetingMailGrants(input)}),
-		relationship AS (${relationshipMailGrants(input)}), residency AS (${residencyMailGrants(input)}),
-		review AS (${reviewMailGrants(input)})
-		SELECT id FROM meeting UNION SELECT id FROM relationship UNION SELECT id FROM residency UNION SELECT id FROM review`);
-	return new Set(
-		z
-			.array(z.object({ id: z.uuid() }))
-			.parse(r.rows)
-			.map((row) => row.id),
-	);
-}
-
 let mounted: NotificationWorker | undefined;
-export function notificationsMount(db: Database | null): NotificationWorker | null {
-	const v = z.object(mailEnv).safeParse(process.env);
-	if (!db || !v.success) return null;
-	const origin = z.url().safeParse(process.env.IDENTITY_ORIGIN);
+export function notificationsMount(db: Database): NotificationWorker {
+	const config = serverConfig();
 	mounted ??= createNotificationWorker({
-		mail: mountMailService({ db, env: v.data, authorize: authorizeNotificationMail, unsubscribe: mailUnsubscribe() }),
-		origin: origin.success ? new URL(origin.data).origin : null,
+		mail: mountMailService({
+			db,
+			env: config,
+			authorize: authorizeNotificationMail,
+			unsubscribe: mailUnsubscribe(serverEnv()),
+		}),
+		origin: new URL(config.IDENTITY_ORIGIN).origin,
 	});
 	return mounted;
 }
 
-const authorizeNoticeMail: AuthorizeMail = async (tx, mail) => {
-	const granted = new Set<string>();
-	for (const rule of [authorizeTaskReminders, authorizePhaseNotices, authorizeLaunchNotices, authorizeNotificationMail])
-		for (const id of await rule(tx, mail)) granted.add(id);
-	return granted;
-};
-
-export function noticeMailPass(db: Database | null, transport: MailTransport): MailPass | null {
-	const v = z.object(mailEnv).safeParse(process.env);
-	if (!db || !v.success) return null;
+export function noticeMailPass(db: Database, transport: MailTransport): MailPass {
 	const mail = mountMailService({
 		db,
-		env: v.data,
+		env: serverConfig(),
 		authorize: authorizeNoticeMail,
-		unsubscribe: mailUnsubscribe(),
+		unsubscribe: mailUnsubscribe(serverEnv()),
 		transport,
 	});
 	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.notice, limit, until);

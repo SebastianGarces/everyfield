@@ -21,6 +21,7 @@ import {
 	Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import {
+	Alert,
 	Button,
 	CalloutLabel,
 	CalloutText,
@@ -35,6 +36,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	Input,
 	InsightCard,
 	InsightCount,
 	InsightFooter,
@@ -43,26 +45,25 @@ import {
 	InsightText,
 	InsightTitle,
 	InsightTop,
-	Input,
 	PageHeader,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { useId, useState, useTransition } from "react";
+import { useId, useState, useTransition, type CSSProperties } from "react";
 import { changeTaskStatus } from "../tasks/actions.ts";
 import { DoneBox } from "../tasks/parts.tsx";
 import {
 	chooseGatheringPath,
 	completeMilestone,
 	postponeLaunch,
-	readGatheringOffers,
 	reopenMilestone,
 	saveGathering,
 	setLaunchDate,
 } from "./actions.ts";
+import { readGatheringOffers } from "./fetch.ts";
 import { DebriefCard, SummaryCard } from "./Debrief.tsx";
 import { GatheringCard, GatheringChoice, type Offers } from "./Gathering.tsx";
 import { LaunchHistory } from "./History.tsx";
@@ -102,7 +103,6 @@ export function LaunchScreen({
 	offers: Offers;
 	viewer: Viewer;
 }) {
-	const toast = useToast();
 	const [plan, setPlan] = useState(initial);
 	const [offers, setOffers] = useState(initialOffers);
 	const milestone = plan.path.kind === "milestone" ? plan.path : null;
@@ -172,7 +172,7 @@ export function LaunchScreen({
 			<OutcomeCard plan={plan} admin={viewer.admin} keys={keys} onPlan={setPlan} />
 			{plan.outcome ? <DebriefCard plan={plan} admin={viewer.admin} keys={keys} onPlan={setPlan} /> : null}
 			{viewer.admin && plan.summary && plan.debrief?.submitted ? (
-				<SummaryCard plan={plan} keys={keys} onPlan={setPlan} />
+				<SummaryCard plan={plan} summary={plan.summary} keys={keys} onPlan={setPlan} />
 			) : null}
 		</>
 	);
@@ -259,6 +259,10 @@ function PreparationNotice({ plan }: { plan: Plan }) {
 function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: () => void }) {
 	const c = countdown(plan.launch, plan.today);
 	const date = plan.launch?.targetDate ?? null;
+	const windowStart = () => {
+		if (date === null) throw new Error("A launch that is ahead has no target date");
+		return longDate(addDays(date, -28));
+	};
 	const body = (() => {
 		switch (c.kind) {
 			case "none":
@@ -300,7 +304,7 @@ function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: 
 					title: c.window ? "Inside the four-week launch window" : "Before the launch window",
 					text: c.window
 						? "These are the weeks the Playbook's final readiness milestones are for."
-						: "The final four weeks start on " + longDate(addDays(date!, -28)) + ".",
+						: "The final four weeks start on " + windowStart() + ".",
 				};
 			case "completed":
 				return {
@@ -496,12 +500,11 @@ function StateMark({ m }: { m: Milestone }) {
 	return (
 		<span
 			aria-hidden="true"
-			className="grid size-6 flex-none place-items-center rounded-full shadow-[inset_0_0_0_1.5px_var(--ef-line-2)]"
-			style={
-				pct
-					? { background: `conic-gradient(var(--ef-blue-500) ${pct}%, var(--ef-surface-2) 0)`, boxShadow: "none" }
-					: undefined
-			}
+			className={cn(
+				"grid size-6 flex-none place-items-center rounded-full",
+				pct ? "ef-ring" : "shadow-[inset_0_0_0_1.5px_var(--ef-line-2)]",
+			)}
+			style={pct ? ({ "--ring": `${pct}%` } as CSSProperties) : undefined}
 		>
 			{pct ? <span className="size-4 rounded-full bg-surface" /> : null}
 		</span>
@@ -527,7 +530,6 @@ function MilestoneRow({
 	onMilestone: (m: Milestone) => void;
 	onTask: (t: PrepTask) => void;
 }) {
-	const toast = useToast();
 	const panel = useId();
 	const [busy, setBusy] = useState(false);
 	const [stale, setStale] = useState(false);
@@ -613,13 +615,10 @@ function MilestoneRow({
 						<p className="mt-3 ml-[38px] text-sm text-text-3 max-app-sm:ml-0">This milestone has no prep tasks left.</p>
 					)}
 					{stale ? (
-						<p
-							role="alert"
-							className="mt-3 ml-[38px] rounded-md bg-amber-100 px-3.5 py-2.5 text-sm text-ink max-app-sm:ml-0"
-						>
+						<Alert role="alert" tone="warning" className="mt-3 ml-[38px] max-app-sm:ml-0">
 							These tasks changed since you opened the page. Nothing was saved. Review them and complete the milestone
 							again.
-						</p>
+						</Alert>
 					) : null}
 					{m.completion && m.needsReview ? (
 						<p className="mt-3 ml-[38px] text-sm text-text-2 max-app-sm:ml-0">
@@ -666,7 +665,6 @@ function TaskRow({
 	viewer: Viewer;
 	onTask: (t: PrepTask) => void;
 }) {
-	const toast = useToast();
 	const [saving, setSaving] = useState(false);
 	const mine = task.assignees.some((a) => a.accountId === viewer.accountId);
 	async function toggle() {

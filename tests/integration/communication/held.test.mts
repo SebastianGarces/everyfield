@@ -14,6 +14,7 @@ import {
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, plant, owner;
 const ZONE = "America/Chicago";
@@ -26,7 +27,8 @@ const keys = {
 const DAY = 86_400_000;
 const key = () => randomUUID();
 const rows = async (query) => (await f.admin.execute(query)).rows;
-const read = (op, input, extra) => f.db.transaction((tx) => communicationWriter[op](tx, owner.actor, input, extra));
+const read = (op, input, extra) =>
+	gatedTransaction(f.db, (tx) => communicationWriter[op](tx, owner.actor, input, extra));
 
 function plantTime(weekday, hour, from = new Date()) {
 	const format = new Intl.DateTimeFormat("en-US", {
@@ -593,20 +595,18 @@ async function blockAddress(address) {
 }
 
 test("AC:CASE-COM-012 in dev capture mode schedule, cancel, time change and Check again work against the outbox", async () => {
-	const { mkdtemp, rm, writeFile } = await import("node:fs/promises");
+	const { mkdtemp, rm } = await import("node:fs/promises");
 	const { tmpdir } = await import("node:os");
 	const { join } = await import("node:path");
 	const { deliveryTransport } = await import("../../../apps/web/src/server/mail/transport.ts");
-	const { NO_ANSWER_FILE } = await import("../../../apps/web/src/server/mail/capture.ts");
 	const outbox = await mkdtemp(join(tmpdir(), "wp028-outbox-"));
 	const saved = process.env.EVERYFIELD_DEV_OUTBOX;
 	process.env.EVERYFIELD_DEV_OUTBOX = outbox;
 	try {
-		const capture = deliveryTransport(
-			{ keys: { ...keys, from: "church@example.test" }, apiKey: null },
-			() => Promise.reject(new Error("provider called")),
-			() => {},
-		);
+		const sender = { keys: { ...keys, from: "church@example.test" }, apiKey: null };
+		const refuse = () => Promise.reject(new Error("provider called"));
+		const capture = deliveryTransport(sender, refuse, { settle: async () => {} });
+		const quietCapture = deliveryTransport(sender, refuse, { silent: true });
 		const friday = plantTime("Fri", 9);
 		const saturday = plantTime("Sat", 9, new Date(friday));
 		const held = await reviewed(friday);
@@ -621,15 +621,11 @@ test("AC:CASE-COM-012 in dev capture mode schedule, cancel, time change and Chec
 		const quiet = await reviewed(friday);
 		ok(await handOff(quiet, capture));
 		await heldAtProvider(f.admin, quiet.id, capture, keys);
-		await writeFile(join(outbox, NO_ANSWER_FILE), "");
-		assert.equal(ok(await move(quiet, saturday, capture)).rescheduleStatus, "unknown");
+		assert.equal(ok(await move(quiet, saturday, quietCapture)).rescheduleStatus, "unknown");
 		assert.equal((await shown(quiet)).item.state, "time_unconfirmed");
-		await rm(join(outbox, NO_ANSWER_FILE));
 		assert.equal(ok(await move(quiet, saturday, capture)).rescheduleStatus, "accepted");
-		await writeFile(join(outbox, NO_ANSWER_FILE), "");
-		assert.equal(ok(await cancel(quiet, capture)).scheduledCancel, "reconcile");
+		assert.equal(ok(await cancel(quiet, quietCapture)).scheduledCancel, "reconcile");
 		assert.equal((await shown(quiet)).item.state, "cancel_unconfirmed");
-		await rm(join(outbox, NO_ANSWER_FILE));
 		assert.equal(ok(await cancel(quiet, capture)).scheduledCancel, "confirmed");
 		assert.equal((await shown(quiet)).item.state, "cancelled");
 	} finally {

@@ -13,8 +13,8 @@ import {
 	type Proposal,
 } from "../../../../../packages/evry/src/index.ts";
 import { verifyPeople } from "../../../../../packages/evry/src/adapters/people/reads/index.ts";
-import { transaction } from "../../../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../../packages/domain/src/jobs/queue.ts";
 import {
 	accounts,
 	actor,
@@ -33,6 +33,12 @@ import type { PrivateStorage } from "../../../../../packages/db/src/schema/stora
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
+};
+const noPorts = {
+	reminders: noReminders,
+	phaseNotices: async () => {
+		throw Error("unexpected phase notice");
+	},
 };
 
 before(setup);
@@ -80,7 +86,7 @@ async function approveAndRun(who: EvryActor, proposal: Proposal, storage: Privat
 			leaseOwner: claim.lease_owner,
 			generation: claim.claim_generation,
 		},
-		noReminders,
+		noPorts,
 	);
 	const statements = counted(start);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
@@ -116,7 +122,8 @@ async function openTask(personId: string) {
 test("INV-budget: a proposed person is created only after approval, once, with its audit row", async () => {
 	const owner = await actor("owner");
 	const t = await turn(owner);
-	const before = (await admin.execute(sql`SELECT count(*)::int n FROM person WHERE plant_id=${plant}`)).rows[0]!.n;
+	const before = (await admin.execute<{ n: number }>(sql`SELECT count(*)::int n FROM person WHERE plant_id=${plant}`))
+		.rows[0]!.n;
 	const proposal = await t.propose("people.createPerson", { displayName: "Jamie Park", city: "Oak Park" });
 	assert.ok(proposal);
 	assert.deepEqual(proposal.review, {
@@ -130,7 +137,7 @@ test("INV-budget: a proposed person is created only after approval, once, with i
 		],
 	});
 	const count = async () =>
-		(await admin.execute(sql`SELECT count(*)::int n FROM person WHERE plant_id=${plant}`)).rows[0]!.n;
+		(await admin.execute<{ n: number }>(sql`SELECT count(*)::int n FROM person WHERE plant_id=${plant}`)).rows[0]!.n;
 	assert.equal(await count(), before, "nothing changes before approval");
 
 	const { outcome, statements, review } = await approveAndRun(owner, proposal);
@@ -235,7 +242,7 @@ test("AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE a retirement runs 
 	const { outcome, statements, review } = await approveAndRun(owner, proposal);
 	assert.equal(outcome, "completed");
 	console.log(JSON.stringify({ effect: "people.deletePerson", statements }));
-	assert.equal(statements, 10);
+	assert.equal(statements, 9);
 	assert.deepEqual([(await personRow(p2)).state, await personRow(p1)], ["retired", p1Before]);
 	assert.deepEqual(await effectAudits(proposal.id), [
 		{ actor_id: owner.accountId, action: "people.retired", subject_id: p2 },
@@ -377,7 +384,7 @@ test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while th
 			leaseOwner: claim.lease_owner,
 			generation: claim.claim_generation,
 		},
-		noReminders,
+		noPorts,
 	);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	assert.equal(outcome, "completed");

@@ -4,34 +4,18 @@ import type { Database } from "@everyfield/db/client";
 import { readMyResidency, readResidentReading } from "@everyfield/domain/organizations";
 import "server-only";
 import { requestDatabase } from "../../server/database";
-import { getViewer } from "../../server/request-context";
+import { viewerActor } from "../../server/request-context";
 import type { ProgramAnswer } from "../organizations/programs/mount";
-
-export async function residentActor(): Promise<RequestActor | "signed_out" | null> {
-	const v = await getViewer();
-	if (!v) return null;
-	if (v.status === "unauthenticated") return "signed_out";
-	return v.status === "active" && v.authority ? v.authority : null;
-}
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export async function residentCall<T>(
 	run: (db: Database, authority: RequestActor) => Promise<ProgramReply<T>>,
 	authority?: RequestActor,
 ): Promise<ProgramAnswer<T>> {
-	let actor = authority;
-	if (!actor) {
-		const who = await residentActor();
-		if (!who || who === "signed_out") return { status: "refused", refusal: { code: "unavailable" } };
-		actor = who;
-	}
+	const actor = authority ?? (await viewerActor());
+	if (!actor) return { status: "refused", refusal: { code: "unavailable" } };
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		return await run(db, actor);
-	} catch (error) {
-		console.error(JSON.stringify({ component: "residency", outcome: "failed", error: String(error) }));
-		return { status: "lost" };
-	}
+	return transient({ component: "residency", outcome: "failed" }, () => run(db, actor), LOST);
 }
 
 export const loadMyResidency = (authority: RequestActor) => residentCall((db, a) => readMyResidency(db, a), authority);

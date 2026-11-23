@@ -14,6 +14,7 @@ import {
 	type CareWriteResult,
 } from "@everyfield/contracts/intelligence";
 import {
+	Alert,
 	Button,
 	CalloutLabel,
 	CalloutText,
@@ -26,10 +27,11 @@ import {
 	IconButton,
 	Textarea,
 } from "@everyfield/ui/controls";
-import { cn, Icon } from "@everyfield/ui/foundations";
+import { cn, Icon, prefersReducedMotion } from "@everyfield/ui/foundations";
 import { RadioGroup } from "radix-ui";
 import { startTransition, useActionState, useOptimistic, useRef, useState, useTransition } from "react";
-import { correctCheckIn, readCheckInHistory, saveCheckIn } from "./actions.ts";
+import { correctCheckIn, saveCheckIn } from "./actions.ts";
+import { readCheckInHistory } from "./fetch.ts";
 import {
 	AREA,
 	complete,
@@ -41,6 +43,7 @@ import {
 	savedAt,
 	shortDate,
 	submitLabel,
+	thisWeekOf,
 	weekNote,
 	withAnswer,
 	withResult,
@@ -48,9 +51,11 @@ import {
 	type Outcome,
 } from "./model.ts";
 import { CheckInHeader } from "./Header.tsx";
+import { READ_FAILED } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type FormDraft = Draft & { origin: object };
-type Failure = { error: CareError | null };
+type Failure = { error: CareError | null; failed?: true };
 type Notice = {
 	origin: object | null;
 	status: { text: string; draft: FormDraft } | null;
@@ -64,7 +69,10 @@ type Intent =
 
 const QUIET: Notice = { origin: null, status: null, failure: null, incomplete: false };
 const formOf = (week: CareWeek): FormDraft => ({ ...draftOf(week), origin: {} });
-const failureOf = <T,>(result: Outcome<T>): Failure => ({ error: result.status === "refused" ? result.error : null });
+const failureOf = <T,>(result: Outcome<T> | ReadFailure): Failure =>
+	result.status === "failed"
+		? { error: null, failed: true }
+		: { error: result.status === "refused" ? result.error : null };
 const savedText = (result: CareWriteResult, correcting: boolean) =>
 	result.outcome === "unchanged"
 		? "Nothing changed, so nothing new was saved."
@@ -76,12 +84,12 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 	const [strip, setStrip] = useState(initial);
 	const [older, setOlder] = useState<CarePage | null>(null);
 	const [target, setTarget] = useState<CareWeek | null>(null);
-	const [draft, setDraft] = useState<FormDraft>(() => formOf(initial.weeks[0]!));
+	const [draft, setDraft] = useState<FormDraft>(() => formOf(thisWeekOf(initial)));
 	const [pages, showAnswer] = useOptimistic(
 		{ strip, older },
-		(p, a: { week: CareWeek; answers: CareAnswers; note: string }) => ({
-			strip: withAnswer(p.strip, a.week, a.answers, a.note),
-			older: p.older ? withAnswer(p.older, a.week, a.answers, a.note) : null,
+		(p, a: { week: CareWeek; answers: CareAnswers; note: string; at: string }) => ({
+			strip: withAnswer(p.strip, a.week, a.answers, a.note, a.at),
+			older: p.older ? withAnswer(p.older, a.week, a.answers, a.note, a.at) : null,
 		}),
 	);
 	const [paging, startPaging] = useTransition();
@@ -105,7 +113,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 				incomplete: prev.origin === intent.origin && prev.incomplete,
 			};
 		const { draft: sentDraft, answers, week, correcting, revision } = intent;
-		showAnswer({ week, answers, note: sentDraft.note });
+		showAnswer({ week, answers, note: sentDraft.note, at: new Date().toISOString() });
 		const payload = JSON.stringify({ id: week.id, revision, answers, note: sentDraft.note });
 		if (sent.current?.payload !== payload) sent.current = { payload, key: crypto.randomUUID() };
 		const key = sent.current.key;
@@ -134,7 +142,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 		};
 	}, QUIET);
 
-	const thisWeek = pages.strip.weeks[0]!;
+	const thisWeek = thisWeekOf(pages.strip);
 	const shown = pages.older ?? pages.strip;
 	const editing = target ?? thisWeek;
 	const correcting = target !== null;
@@ -147,7 +155,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 		setTarget(week && week.ordinal !== thisWeek.ordinal ? week : null);
 		setDraft(formOf(week ?? thisWeek));
 		formRef.current?.focus({ preventScroll: true });
-		cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+		cardRef.current?.scrollIntoView({ behavior: prefersReducedMotion() ? "instant" : "smooth", block: "start" });
 	};
 	const answer = (area: CareArea, level: CareLevel) =>
 		setDraft((d) => ({ ...d, answers: { ...d.answers, [area]: level } }));
@@ -172,7 +180,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 	const load = (page: number) => {
 		const origin = draft.origin;
 		startPaging(async () => {
-			const result = await readCheckInHistory(page).catch((): Outcome<CarePage> => ({ status: "lost" }));
+			const result = await readCheckInHistory(page).catch((): Outcome<CarePage> | ReadFailure => ({ status: "lost" }));
 			if (result.status !== "ok") {
 				startTransition(() => act({ kind: "failed", origin, failure: failureOf(result) }));
 				return;
@@ -199,16 +207,19 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 			<div className="grid grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
 				<Card ref={cardRef} className="scroll-mt-28 scroll-mb-6">
 					{correcting ? (
-						<div className="mb-3 flex flex-wrap items-center gap-3 rounded-md bg-amber-50 px-4 py-3 shadow-[inset_0_0_0_1px_var(--ef-amber-100)]">
-							<Icon icon={Edit02Icon} size={18} className="text-amber-600" />
-							<span className="min-w-0 flex-1 text-sm text-ink-2">
-								Correcting the week of <b className="font-semibold text-ink">{shortDate(editing.startsOn)}</b>. Your
-								earlier answers stay in your history.
-							</span>
-							<Button variant="ghost" size="sm" onClick={() => choose(null)}>
-								Back to this week
-							</Button>
-						</div>
+						<Alert
+							tone="warning"
+							icon={Edit02Icon}
+							className="mb-3"
+							actions={
+								<Button variant="ghost" size="sm" onClick={() => choose(null)}>
+									Back to this week
+								</Button>
+							}
+						>
+							Correcting the week of <b className="font-semibold">{shortDate(editing.startsOn)}</b>. Your earlier
+							answers stay in your history.
+						</Alert>
 					) : null}
 					<CardHeader>
 						<CardHeading>
@@ -255,24 +266,24 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 						</p>
 					) : null}
 					{failure ? (
-						<div
+						<Alert
 							role="alert"
-							className="mt-4 flex flex-wrap items-center gap-3 rounded-md bg-magenta-50 px-4 py-3 text-sm text-ink-2"
+							className="mt-4"
+							actions={
+								conflict ? (
+									<Button size="sm" variant="secondary" loading={paging} onClick={() => load(1)}>
+										Load the latest
+									</Button>
+								) : null
+							}
 						>
-							<span className="min-w-0 flex-1">
-								{failure.error
-									? correcting
-										? "Your correction was not saved. "
-										: "Your check-in was not saved. "
-									: null}
-								{refusalText(failure.error)}
-							</span>
-							{conflict ? (
-								<Button size="sm" variant="secondary" loading={paging} onClick={() => load(1)}>
-									Load the latest
-								</Button>
-							) : null}
-						</div>
+							{failure.error
+								? correcting
+									? "Your correction was not saved. "
+									: "Your check-in was not saved. "
+								: null}
+							{failure.failed ? READ_FAILED : refusalText(failure.error)}
+						</Alert>
 					) : null}
 					<div className="mt-4 flex items-center justify-between gap-3 max-app-sm:flex-col-reverse max-app-sm:items-stretch">
 						<span className="min-w-0 flex-1 text-sm text-text-3">
@@ -293,7 +304,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 						<CalloutLabel tone="violet" icon={LockKeyIcon}>
 							Private to you
 						</CalloutLabel>
-						<CalloutText className="text-sm">
+						<CalloutText className="leading-(--text-sm--line-height)">
 							Only you can read your check-ins. They are never shown to your team, other Admins, your network or sending
 							church, and never sent to Evry. They do not affect Plant Intelligence or any score. Evry is off while this
 							page is open.
@@ -303,7 +314,9 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 						<CardHeader>
 							<CardHeading>
 								<CardTitle size="sm">{older ? `Earlier weeks, page ${older.page}` : "Your last 12 weeks"}</CardTitle>
-								<CardDescription className="text-sm">Select the pencil to correct a past week</CardDescription>
+								<CardDescription className="leading-(--text-sm--line-height)">
+									Select the pencil to correct a past week
+								</CardDescription>
 							</CardHeading>
 						</CardHeader>
 						<Strip page={shown} editing={editing.ordinal} onCorrect={choose} />
@@ -457,7 +470,7 @@ function Strip({ page, editing, onCorrect }: { page: CarePage; editing: number; 
 										label={`Correct the week of ${shortDate(week.startsOn)}`}
 										title="Correct this week"
 										onClick={() => onCorrect(week)}
-										className="size-7 text-text-3 shadow-none hover:bg-surface-2 hover:text-ink"
+										className="text-text-3 shadow-none hover:text-ink"
 									/>
 								) : null}
 							</td>

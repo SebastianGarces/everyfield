@@ -1,5 +1,4 @@
-import type { Transaction } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { PeopleReadContext, peopleCsv, peopleWriter, personFields } from "@everyfield/domain/people";
 import {
 	householdName,
@@ -20,12 +19,16 @@ import {
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
+import { attachedFile } from "../../../attachments/store.ts";
+import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { ownerOrAdmin } from "../../people/commands/index.ts";
 import { failure, problemText } from "../reads/index.ts";
+import type { WriteTx } from "@everyfield/domain/access";
+import { gatedTransaction } from "@everyfield/domain/operations";
+import { present } from "../../../runtime/captured.ts";
 
 type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
-type Run<A> = (tx: Transaction, context: PeopleContext, args: A, key: string) => Promise<EffectResult>;
+type Run<A> = (tx: WriteTx, context: PeopleContext, args: A, key: string) => Promise<EffectResult>;
 
 function reviewed<I, A>(spec: {
 	operation: string;
@@ -69,15 +72,15 @@ const ADDRESS = [
 	["postalCode", "postal_code"],
 	["country", "country"],
 ] as const;
-const addressLine = (a: string) =>
+const addressLine = <AName extends string>(a: SqlLiteral<AName>) =>
 	sql.raw(`nullif(concat_ws(', ',${ADDRESS.map(([, col]) => `nullif(btrim(${a}.${col}),'')`).join(",")}),'')`);
-const hasAddress = (a: string) =>
+const hasAddress = <AName extends string>(a: SqlLiteral<AName>) =>
 	sql.raw(`(${ADDRESS.map(([, col]) => `nullif(btrim(${a}.${col}),'')`).join(" IS NOT NULL OR ")} IS NOT NULL)`);
-const sameAddress = (a: string, b: string) =>
+const sameAddress = <AName extends string, BName extends string>(a: SqlLiteral<AName>, b: SqlLiteral<BName>) =>
 	sql.raw(
 		`(${ADDRESS.map(([, col]) => `${a}.${col}`).join(",")}) IS NOT DISTINCT FROM (${ADDRESS.map(([, col]) => `${b}.${col}`).join(",")})`,
 	);
-const roleOrder = (a: string) =>
+const roleOrder = <AName extends string>(a: SqlLiteral<AName>) =>
 	sql.raw(
 		`CASE ${a}.household_role WHEN 'head' THEN 1 WHEN 'spouse' THEN 2 WHEN 'child' THEN 3 ELSE 4 END,${a}.display_name,${a}.id`,
 	);
@@ -89,10 +92,18 @@ const address = z.strictObject({
 	country: z.string().trim().max(255).nullable().optional(),
 });
 type Address = z.infer<typeof address>;
-function fieldChanges(a: string, patch: Record<string, unknown>, keys: Record<string, string>) {
+function fieldChanges<AName extends string>(
+	a: SqlLiteral<AName>,
+	patch: Record<string, unknown>,
+	keys: Record<string, string>,
+) {
 	const rows = Object.entries(patch)
 		.filter(([, after]) => after !== undefined)
-		.map(([field, after], n) => ({ n, field, col: keys[field]!, after }));
+		.map(([field, after], n) => {
+			const col = keys[field];
+			if (col === undefined) throw new Error(`The patch field ${field} has no column`);
+			return { n, field, col, after };
+		});
 	return sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('field',k.field,'before',to_jsonb(${sql.raw(a)})->k.col,'after',k.after) ORDER BY k.n)
 		FILTER (WHERE (to_jsonb(${sql.raw(a)})->k.col) IS DISTINCT FROM k.after),'[]'::jsonb)
 		FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) k(n int,field text,col text,after jsonb))`;
@@ -362,7 +373,7 @@ function tagReview(actor: EvryActor, ids: string[], tag: SQL, assign: boolean, t
 		WHERE (SELECT count(*) FROM ps)=${ids.length} AND (EXISTS(SELECT FROM t) OR ${assign && tagName !== null}::boolean)`;
 }
 async function eachPerson(
-	tx: Transaction,
+	tx: WriteTx,
 	context: PeopleContext,
 	args: Tagging,
 	tagId: string,
@@ -388,7 +399,8 @@ async function eachPerson(
 				: { outcome: "unchanged" as const, reason: unchanged }),
 		});
 	}
-	return { receiptId: receiptId!, revision: "1", people };
+	if (receiptId === null) throw new Error("A tag change ran for no person");
+	return { receiptId, revision: "1", people };
 }
 export const assignTag = reviewed({
 	operation: "people.assignTag",
@@ -398,9 +410,10 @@ export const assignTag = reviewed({
 		.strictObject({ personIds, tagId: z.uuid().optional(), tagName: tagName.optional() })
 		.refine((v) => (v.tagId === undefined) !== (v.tagName === undefined), "name the tag by id or by name"),
 	review(actor, value) {
-		const tag = value.tagId
-			? sql`t.id=${value.tagId}::uuid`
-			: sql`t.normalized_name=lower(btrim(${value.tagName!}::text))`;
+		const tag =
+			value.tagName === undefined
+				? sql`t.id=${value.tagId}::uuid`
+				: sql`t.normalized_name=lower(btrim(${value.tagName}::text))`;
 		return tagReview(actor, value.personIds, tag, true, value.tagName ?? null);
 	},
 	async run(tx, context, args: Tagging, key) {
@@ -521,7 +534,7 @@ export const addNote = reviewed({
 			FROM person p WHERE ${livePerson(actor, sql`${value.personId}::uuid`)}`;
 	},
 	run: async (tx, context, args: object, key) =>
-		done(await peopleWriter.addNote(tx, context, { ...args, requestKey: key } as never), noteReceipt),
+		done(await peopleWriter.addNote(tx, context, { ...args, requestKey: key }), noteReceipt),
 });
 
 const liveNote = (actor: EvryActor, noteId: string) =>
@@ -545,7 +558,7 @@ export const editNote = reviewed({
 			${liveNote(actor, value.noteId)}`;
 	},
 	run: async (tx, context, args: object, key) =>
-		done(await peopleWriter.editNote(tx, context, { ...args, requestKey: key } as never), noteReceipt),
+		done(await peopleWriter.editNote(tx, context, { ...args, requestKey: key }), noteReceipt),
 });
 export const deleteNote = reviewed({
 	operation: "people.deleteNote",
@@ -560,7 +573,7 @@ export const deleteNote = reviewed({
 			${liveNote(actor, value.noteId)}`;
 	},
 	run: async (tx, context, args: object, key) =>
-		done(await peopleWriter.deleteNote(tx, context, { ...args, requestKey: key } as never), noteReceipt),
+		done(await peopleWriter.deleteNote(tx, context, { ...args, requestKey: key }), noteReceipt),
 });
 
 type Preview = z.infer<typeof importPreview>;
@@ -594,21 +607,48 @@ function plan(preview: Preview, chosen: Map<number, Choice>) {
 	}
 	return { rows, choices, refusal };
 }
-export const executeBulkImport = reviewed({
-	operation: "people.executeBulkImport",
-	description:
-		"Propose importing a people CSV (the same text people.previewImport takes): the review shows each row's planned outcome, and rows that match someone are skipped unless the user chose otherwise. Nothing is imported until the user approves the exact review.",
-	input: z.strictObject({
-		file: z.string().min(1).max(importLimits.bytes).describe("CSV text that uses the import template columns"),
+const importInput = z
+	.strictObject({
+		file: z
+			.string()
+			.min(1)
+			.max(importLimits.bytes)
+			.optional()
+			.describe("CSV text that uses the import template columns, when the user pasted it"),
+		attachmentId: z
+			.uuid()
+			.optional()
+			.describe("The attachmentId of a file attached in this conversation, instead of file"),
+		fileDigest: z
+			.string()
+			.regex(/^[0-9a-f]{64}$/)
+			.optional()
+			.describe("With attachmentId: the fileDigest of that file's latest people.previewImport check here"),
 		choices: z
 			.array(z.strictObject({ row: z.int().min(1), choice: importChoice }))
 			.max(importLimits.rows)
 			.optional()
 			.describe("Only rows the user decided differently from the preview's suggestion"),
-	}),
+	})
+	.refine((v) => (v.file === undefined) !== (v.attachmentId === undefined || v.fileDigest === undefined), {
+		message: "Give file, or attachmentId with fileDigest",
+	});
+async function importBytes(actor: EvryActor, value: z.infer<typeof importInput>, context: ReviewContext) {
+	if (value.file !== undefined) return new TextEncoder().encode(value.file);
+	if (!context.files) throw new EvryRefusal("attachment_elsewhere");
+	const file = await attachedFile(context.db, actor, context.conversationId, present(value.attachmentId));
+	if (file.status === "replaced" || file.checkedDigest !== value.fileDigest) throw new EvryRefusal("file_changed");
+	return context.files.read(file.id);
+}
+
+export const executeBulkImport = reviewed({
+	operation: "people.executeBulkImport",
+	description:
+		"Propose importing a people CSV: pasted text (file, the same text people.previewImport takes) or a file attached in this conversation (attachmentId with the fileDigest of its latest people.previewImport check). The review shows each row's planned outcome, and rows that match someone are skipped unless the user chose otherwise. Nothing is imported until the user approves the exact review.",
+	input: importInput,
 	async review(actor, value, context) {
-		const bytes = new TextEncoder().encode(value.file);
-		const preview = (await context.db.transaction((tx) =>
+		const bytes = await importBytes(actor, value, context);
+		const preview = (await gatedTransaction(context.db, (tx) =>
 			peopleCsv.previewImport(tx, new PeopleReadContext(actor.authority), { file: bytes }),
 		)) as Reply<Preview>;
 		if (preview.status !== "ok") {
@@ -616,9 +656,11 @@ export const executeBulkImport = reviewed({
 			if (preview.error.code === "unavailable") return null;
 			throw new EvryRefusal("invalid_input");
 		}
+		if (value.fileDigest !== undefined && preview.value.fileDigest !== value.fileDigest)
+			throw new EvryRefusal("file_changed");
 		const { rows, choices, refusal } = plan(preview.value, new Map(value.choices?.map((c) => [c.row, c.choice])));
 		const args: ImportArgs = {
-			file: value.file,
+			file: new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes),
 			fileDigest: preview.value.fileDigest,
 			reviewDigest: preview.value.reviewDigest,
 			choices,

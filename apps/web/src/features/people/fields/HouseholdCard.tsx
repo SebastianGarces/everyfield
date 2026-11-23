@@ -32,12 +32,12 @@ import {
 	joinHousehold,
 	leaveHousehold,
 	propagateAddress,
-	readHousehold,
 	setHouseholdRole,
 	startHousehold,
 	updateHousehold,
 	type MembershipSaved,
 } from "./actions.ts";
+import { readHousehold } from "../fetch.ts";
 import {
 	CopyAddressDialog,
 	EditHouseholdDialog,
@@ -241,7 +241,7 @@ export function HouseholdCard({
 					) : null
 				}
 			/>
-			<p role="status" aria-live="polite" className="-mt-1 mb-2 text-xs text-text-3 empty:hidden">
+			<p role="status" aria-live="polite" className="-mt-1 mb-2 text-xs text-text-3 empty:sr-only">
 				{saving ? "Saving…" : notice}
 			</p>
 			<SaveNotice {...lane.noticeProps} dialogOpen={editing !== null} />
@@ -271,7 +271,7 @@ export function HouseholdCard({
 										</PersonLink>
 									)}
 								</span>
-								<Tag className="h-[22px] px-2 text-xs">{ROLE_LABEL[m.role]}</Tag>
+								<Tag className="text-xs">{ROLE_LABEL[m.role]}</Tag>
 							</li>
 						))}
 					</ul>
@@ -410,7 +410,7 @@ export function HouseholdCard({
 
 function Header({ description, action }: { description?: string; action?: React.ReactNode }) {
 	return (
-		<CardHeader className="mb-2">
+		<CardHeader>
 			<CardHeading>
 				<CardTitle size="sm">Household</CardTitle>
 				{description ? <CardDescription>{description}</CardDescription> : null}

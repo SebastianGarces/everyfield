@@ -31,7 +31,7 @@ export const setSharing = nativeWrite({
 			WHERE a.plant_id=${actor.owner.id}::uuid AND a.organization_id=${value.organizationId}::uuid AND a.ended_at IS NULL`;
 	},
 	async run(tx, context, request, { ports }) {
-		committed(await ports.organizations["privacy.setSharing"](tx, context.session, context.selected, request as never));
+		committed(await ports.organizations["privacy.setSharing"](tx, context.session, context.selected, request));
 	},
 });
 

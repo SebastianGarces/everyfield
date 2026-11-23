@@ -7,6 +7,7 @@
 			"id": "teams.list",
 			"says": "Ministries: every team with its state, leader and how many serve, and the organization chart.",
 			"routes": ["/ministries"],
+			"endpoints": ["/ministries/read"],
 			"catalog": ["TEAM-001", "TEAM-012"],
 			"reach": [
 				{

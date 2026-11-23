@@ -16,6 +16,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	PageHeader,
 	Textarea,
@@ -25,15 +26,8 @@ import { useActionState, useState, useTransition, type FormEvent } from "react";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { PIPELINE_PATH } from "../board/model";
-import { Problem } from "../../../components/Problem.tsx";
-import {
-	addFeedback,
-	applyVersion,
-	confirmMilestone,
-	recordMilestone,
-	rereadEnrollment,
-	reviewVersion,
-} from "./actions";
+import { addFeedback, applyVersion, confirmMilestone, recordMilestone } from "./actions";
+import { rereadEnrollment, reviewVersion } from "./fetch.ts";
 import { formatMeeting, KIND, programHref, programProblem, PROGRAMS_PATH } from "./model";
 import { Detail } from "./ProgramScreen";
 import { ReviewParts } from "./VersionReview";
@@ -220,6 +214,7 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 				<ApplyDialog
 					open={reviewing}
 					enrollment={enrollment}
+					newerNumber={enrollment.newerVersion.number}
 					onClose={() => setReviewing(false)}
 					onApplied={async () => {
 						setReviewing(false);
@@ -286,11 +281,11 @@ function MilestoneRow({
 								{c.recorder ?? enrollment.person.name} marked it done {formatPlainDate(c.completedOn)}
 							</span>
 						</>
-					) : c ? (
+					) : c && c.confirmedOn !== null ? (
 						<>
 							<span className="text-ink">
 								{recordedOn ? `Finished on Version ${recordedOn} · ` : ""}Completed {formatPlainDate(c.completedOn)} ·
-								Confirmed {formatPlainDate(c.confirmedOn!)}
+								Confirmed {formatPlainDate(c.confirmedOn)}
 							</span>
 							<span className="text-text-2">
 								{c.source === "resident"
@@ -307,7 +302,7 @@ function MilestoneRow({
 					) : (
 						<span className="text-text-3">{hidden ? "Progress not shared" : "Not finished"}</span>
 					)}
-					<Problem text={problem} />
+					<InlineAlert live="polite">{problem}</InlineAlert>
 				</div>
 				{director && waiting ? (
 					<Button
@@ -403,7 +398,7 @@ function Feedback({
 							rows={3}
 							placeholder="What went well, and what to work on next"
 						/>
-						<Problem text={saving ? null : problem} />
+						<InlineAlert live="polite">{saving ? null : problem}</InlineAlert>
 						<div className="flex justify-end gap-2">
 							<Button variant="ghost" size="sm" onClick={() => setWriting(false)} disabled={saving}>
 								Cancel
@@ -483,7 +478,7 @@ function RecordForm({
 				<p className="text-sm text-text-2">
 					Confirmed today, {formatPlainDate(enrollment.today)}, with you as recorder and confirmer.
 				</p>
-				<Problem text={problem} />
+				<InlineAlert live="polite">{problem}</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>
@@ -494,21 +489,27 @@ function RecordForm({
 	);
 }
 
+type NewerNumber = NonNullable<EnrollmentDetail["newerVersion"]>["number"];
+
 function ApplyDialog({
 	open,
 	enrollment,
+	newerNumber,
 	onClose,
 	onApplied,
 }: {
 	open: boolean;
 	enrollment: EnrollmentDetail;
+	newerNumber: NewerNumber;
 	onClose: () => void;
 	onApplied: () => Promise<void>;
 }) {
 	return (
 		<Dialog open={open} onOpenChange={(next) => (next ? null : onClose())}>
 			<DialogContent size="lg">
-				{open ? <ApplyReview enrollment={enrollment} onClose={onClose} onApplied={onApplied} /> : null}
+				{open ? (
+					<ApplyReview enrollment={enrollment} newerNumber={newerNumber} onClose={onClose} onApplied={onApplied} />
+				) : null}
 			</DialogContent>
 		</Dialog>
 	);
@@ -516,10 +517,12 @@ function ApplyDialog({
 
 function ApplyReview({
 	enrollment,
+	newerNumber,
 	onClose,
 	onApplied,
 }: {
 	enrollment: EnrollmentDetail;
+	newerNumber: NewerNumber;
 	onClose: () => void;
 	onApplied: () => Promise<void>;
 }) {
@@ -531,7 +534,7 @@ function ApplyReview({
 	const loadProblem = answer && answer.status !== "ok" ? programProblem(answer) : null;
 	const stageId = review && picked?.review === review ? picked.stageId : (review?.stageId ?? "");
 	const name = enrollment.person.name;
-	const number = review?.toNumber ?? enrollment.newerVersion!.number;
+	const number = review?.toNumber ?? newerNumber;
 
 	const submit = (event: FormEvent) => {
 		event.preventDefault();
@@ -558,7 +561,7 @@ function ApplyReview({
 				description={`Review what changes for ${name}. Nothing is saved until you confirm.`}
 			/>
 			<DialogBody className="flex flex-col gap-5">
-				<Problem text={loadProblem ?? problem} />
+				<InlineAlert live="polite">{loadProblem ?? problem}</InlineAlert>
 				{review ? (
 					<ReviewParts review={review} stageId={stageId} onStageChange={(id) => setPicked({ review, stageId: id })} />
 				) : loadProblem || problem ? null : (

@@ -45,6 +45,7 @@ const location = {
 Object.assign(globalThis, {
 	window: Object.assign(new EventTarget(), {
 		HTMLIFrameElement: class {},
+		navigation: new EventTarget(),
 		location,
 		history,
 		sessionStorage: {
@@ -107,6 +108,21 @@ test("INV-link: a one-time link value brought in by a same-document navigation l
 	assert.equal(stored.has("ef-invitation-proof"), false);
 });
 
+test("INV-link: a one-time link value brought in by a router navigation leaves the address through a replace Next's router sees, and is handed to its page", () => {
+	const routerState = { __NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: "tree", kept: "entry" };
+	history.pushState(routerState, "", "/invitation?from=router#proof=third");
+	const before = history.length;
+	window.navigation.dispatchEvent(new Event("navigatesuccess"));
+	assert.equal(at.pathname + at.search + at.hash, "/invitation?from=router");
+	assert.equal(history.length, before);
+	assert.deepEqual(history.state, { __PRIVATE_NEXTJS_INTERNALS_TREE: "tree", kept: "entry" });
+	assert.equal(stored.get("ef-invitation-proof"), "third");
+	store.forgetOneTimeLinkValue("invitation");
+	history.pushState(null, "", "/people?token=t5#proof=x");
+	window.navigation.dispatchEvent(new Event("navigatesuccess"));
+	assert.equal(at.pathname + at.search + at.hash, "/people?token=t5#proof=x");
+});
+
 test("INV-location: the address hash reader shows the fragment after an in-page link, a store write, Back and Forward, and nothing on the server", async () => {
 	let shown: string | undefined;
 	function Reader() {
@@ -139,4 +155,34 @@ test("INV-location: the address hash reader shows the fragment after an in-page 
 	await act(async () => void window.dispatchEvent(new Event("popstate")));
 	assert.equal(shown, "#faq-seats", "Forward");
 	await act(async () => root.unmount());
+});
+
+test("INV-link: a spent one-time link value leaves storage at once and stays readable only until its page is left", async () => {
+	let seen: string | null | undefined;
+	function Reader() {
+		seen = store.useOneTimeLinkValue("invitation");
+		return null;
+	}
+	at = new URL("https://everyfield.test/invitation#proof=spent-1");
+	window.dispatchEvent(new Event("popstate"));
+	assert.equal(stored.get("ef-invitation-proof"), "spent-1");
+	const root = createRoot(
+		Object.assign(new EventTarget(), { nodeType: 1, nodeName: "DIV", tagName: "DIV", ownerDocument: document }),
+	);
+	await act(async () => root.render(createElement(Reader)));
+	assert.equal(seen, "spent-1");
+	await act(async () => store.spendOneTimeLinkValue("invitation"));
+	assert.equal(stored.has("ef-invitation-proof"), false);
+	assert.equal(seen, "spent-1", "the answered page still shows its outcome");
+	store.routerTransitionStarted("/people", "push");
+	await act(async () => root.unmount());
+	history.pushState(null, "", "/people");
+	at = new URL("https://everyfield.test/invitation");
+	window.dispatchEvent(new Event("popstate"));
+	const again = createRoot(
+		Object.assign(new EventTarget(), { nodeType: 1, nodeName: "DIV", tagName: "DIV", ownerDocument: document }),
+	);
+	await act(async () => again.render(createElement(Reader)));
+	assert.equal(seen, null, "back on the page, the value is gone");
+	await act(async () => again.unmount());
 });

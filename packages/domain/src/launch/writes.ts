@@ -94,7 +94,7 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 	const clock = config.clock ?? systemClock;
 
 	async function dateCommand(
-		db: Database,
+		db: Database | Transaction,
 		authority: RequestActor,
 		operation: "launch.schedule" | "launch.postpone",
 		q: { requestKey: string; expectedRevision: string; input: unknown },
@@ -137,7 +137,7 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 	}
 
 	async function milestoneCommand(
-		db: Database,
+		db: Database | Transaction,
 		authority: RequestActor,
 		operation: "launch.completeMilestone" | "launch.reopenMilestone",
 		q: { requestKey: string; expectedRevision: string; input: { milestoneId: string } },
@@ -166,10 +166,10 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 			const lock = milestoneLock.parse(rows[0]);
 			if (lock.prior) {
 				const stored = storedMilestone.parse(replay(lock.prior, identity));
-				return c.milestoneResult.parse({
+				return {
 					outcome: stored.outcome,
 					milestone: milestoneOf(stored.milestone, stored.practices),
-				});
+				} satisfies z.output<typeof c.milestoneResult>;
 			}
 			if (!lock.ok || !lock.milestone) deny("access_denied");
 			const m = milestoneOf(lock.milestone, lock.practices);
@@ -209,7 +209,7 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 	return {
 		...outcomeCommands(clock),
 		...gatheringCommands(clock),
-		async schedule(db: Database, authority: RequestActor, raw: unknown) {
+		async schedule(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.scheduleRequest, raw);
 				return dateCommand(db, authority, "launch.schedule", q, (current) => {
@@ -230,7 +230,7 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 				});
 			});
 		},
-		async postpone(db: Database, authority: RequestActor, raw: unknown) {
+		async postpone(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.postponeRequest, raw);
 				return dateCommand(db, authority, "launch.postpone", q, (current) => {
@@ -242,7 +242,7 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 				});
 			});
 		},
-		async ensureReadiness(db: Database, authority: RequestActor) {
+		async ensureReadiness(db: Database | Transaction, authority: RequestActor) {
 			return settle(async () => {
 				const scope = scopeOf(authority);
 				return db.transaction(async (tx) => {
@@ -260,7 +260,7 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 				});
 			});
 		},
-		async completeMilestone(db: Database, authority: RequestActor, raw: unknown) {
+		async completeMilestone(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.completeMilestoneRequest, raw);
 				manual(q.input.milestoneId);
@@ -289,7 +289,7 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 				});
 			});
 		},
-		async reopenMilestone(db: Database, authority: RequestActor, raw: unknown) {
+		async reopenMilestone(db: Database | Transaction, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.reopenMilestoneRequest, raw);
 				manual(q.input.milestoneId);

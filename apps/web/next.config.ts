@@ -2,6 +2,18 @@ import path from "node:path";
 import { BODY_JSON_MAX, IMPORT_BYTES_MAX } from "@everyfield/contracts/documents";
 import type { NextConfig } from "next";
 
+const LINK_PAGES = [
+	"/invitation",
+	"/connections/respond",
+	"/reset-password",
+	"/verify-email",
+	"/confirm-email",
+	"/signin",
+	"/rsvp/:path*",
+	"/unsubscribe/:path*",
+	"/email-preferences/:path*",
+];
+
 const config: NextConfig = {
 	turbopack: { root: path.join(import.meta.dirname, "../..") },
 	outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
@@ -45,13 +57,8 @@ const config: NextConfig = {
 					{ key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
 				],
 			},
-			{
-				source: "/invitation",
-				headers: [
-					{ key: "Referrer-Policy", value: "no-referrer" },
-					{ key: "X-Robots-Tag", value: "noindex, nofollow" },
-				],
-			},
+			...LINK_PAGES.map((source) => ({ source, headers: [{ key: "Referrer-Policy", value: "no-referrer" }] })),
+			{ source: "/invitation", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] },
 		];
 	},
 };

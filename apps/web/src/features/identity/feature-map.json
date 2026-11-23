@@ -516,6 +516,7 @@
 			"id": "identity.seats",
 			"says": "Seats and invitations: who can sign in to the church, pending invitations, roles and removal.",
 			"routes": ["/settings/seats"],
+			"endpoints": ["/settings/seats/read"],
 			"catalog": ["IDN-017", "IDN-019"],
 			"reach": [
 				{

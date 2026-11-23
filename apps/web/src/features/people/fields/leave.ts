@@ -1,14 +1,14 @@
 import type * as c from "@everyfield/contracts/people";
 import type { PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
-import type { Transaction } from "@everyfield/db/client";
 import { personFields as f } from "@everyfield/domain/people";
 import type { z } from "zod";
+import type { WriteTx } from "@everyfield/domain/access";
 
 type Leave = z.input<typeof c.removeFromHouseholdRequest>;
 type Answer = z.infer<typeof c.householdMutationResult>;
 
 export async function leave(
-	tx: Transaction,
+	tx: WriteTx,
 	ctx: PeopleWriteContext,
 	request: Leave,
 	deleteEmpty: boolean,

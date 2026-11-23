@@ -105,7 +105,7 @@ export async function readPreferences(
 export async function getPreferences(db: Pick<Database, "execute">, authority: RequestActor) {
 	return readReply(async () => {
 		const read = await readPreferences(db, authority);
-		if (!read) deny();
+		if (!read) deny("unavailable");
 		return preferenceResult.parse({
 			...read.values,
 			suppression: "unavailable",
@@ -148,7 +148,7 @@ async function save(
 			COALESCE((SELECT revision FROM bumped), (SELECT revision FROM locked)) AS revision,
 			EXISTS(SELECT FROM upserted) AS changed`);
 	const row = writeRow.parse(result.rows[0]);
-	if (!row.me) deny();
+	if (!row.me) deny("unavailable");
 	if (!row.seat_ok) deny("access_denied");
 	if (!row.locked || !row.revision) deny("conflict");
 	return { revision: row.revision, changed: row.changed };

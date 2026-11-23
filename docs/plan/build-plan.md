@@ -70,7 +70,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-028 | Shared email delivery and webhook reconciliation | 21 | 22 | 26 | 8 | 2.5 |
 | WP-029 | Communication history and resend | 19 | 9 | 18 | 0 | 2 |
 | WP-030 | Notification feed/preferences | 19 | 19 | 25 | 4 | 2.5 |
-| WP-033 | Approve and version available global Wiki snapshot | 4 | 4 | 10 | 7 | 1.5 |
+| WP-033 | Approve and version available global Wiki snapshot | 4 | 4 | 10 | 8 | 1.5 |
 | WP-034 | Wiki browsing/search/progress/bookmarks | 80 | 21 | 88 | 4 | 4 |
 | WP-035 | Wiki feedback/admin/revalidation | 89 | 7 | 88 | 3 | 4 |
 | WP-036 | Document template and format contracts | 27 | 5 | 15 | 3 | 2 |
@@ -86,7 +86,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-044 | Plant Intelligence/oversight assessment UI | 41 | 25 | 167 | 2 | 3.5 |
 | WP-048 | Dashboard/navigation/settings integration | 3 | 7 | 5 | 2 | 1.5 |
 | WP-049 | Feedback and later public marketing | 19 | 10 | 12 | 2 | 2 |
-| WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 69 | 9 | 3.5 |
+| WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 69 | 10 | 3.5 |
 | WP-051 | Evry conversations, reads and runs | 21 | 17 | 57 | 3 | 2.5 |
 | WP-053 | Evry approval and execution | 27 | 9 | 37 | 2 | 2.5 |
 | WP-054 | Evry files, history and conversation extras | 7 | 8 | 14 | 2 | 1.5 |

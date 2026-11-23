@@ -61,11 +61,11 @@ export function DateRangePicker({ value, onValueChange, presets, compareLabel, c
 					<Icon icon={ArrowDown01Icon} size={16} className="text-text-3" />
 				</PopoverTrigger>
 				<PopoverContent label="Choose a date range" className="w-[320px] p-4">
-					<RadioGroup aria-label="Date range" value={choice} onValueChange={setChoice} className="gap-0">
+					<RadioGroup aria-label="Date range" value={choice} onValueChange={setChoice} className="gap-y-0">
 						{presets.map((p) => (
-							<Radio key={p.key} value={p.key} label={p.label} description={formatRange(p.range)} className="py-2" />
+							<Radio key={p.key} value={p.key} label={p.label} description={formatRange(p.range)} />
 						))}
-						<Radio value={CUSTOM} label="Custom range" className="py-2" />
+						<Radio value={CUSTOM} label="Custom range" />
 					</RadioGroup>
 					{choice === CUSTOM ? (
 						<div className="mt-2 grid grid-cols-2 gap-3">

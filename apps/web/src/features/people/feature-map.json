@@ -269,7 +269,11 @@
 			"id": "people.person",
 			"says": "One person: profile, stage and its history, Activity, records, photo and commitment documents.",
 			"routes": ["/people/[personId]"],
-			"endpoints": ["/people/[personId]/photo/[versionId]", "/people/[personId]/commitments/[commitmentId]/document"],
+			"endpoints": [
+				"/people/[personId]/photo/[versionId]",
+				"/people/[personId]/commitments/[commitmentId]/document",
+				"/people/read"
+			],
 			"catalog": ["PPL-002", "PPL-003", "PPL-005", "PPL-006", "PPL-008", "PPL-014"],
 			"reach": [
 				{

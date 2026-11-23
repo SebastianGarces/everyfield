@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { test } from "node:test";
+import { recordId } from "../../../packages/contracts/src/common/values.ts";
 import { ASSET_MAX_BYTES } from "../../../packages/contracts/src/branding/values.ts";
 import {
 	ALT_REQUIRED,
@@ -75,7 +76,7 @@ test("AC:CASE-BRD-002 an upload sends request, bytes and finalize in order and r
 		altText: "Harvest Point logo",
 		expectedRevision: before.revision,
 	});
-	assert.deepEqual(outcome, { ok: true, kit: await kitOf(p) });
+	assert.deepEqual(outcome, { status: "ok", value: await kitOf(p) });
 });
 
 test("AC:CASE-BRD-002 a refused step ends the upload with that step's error and sends no later step", async () => {
@@ -84,8 +85,7 @@ test("AC:CASE-BRD-002 a refused step ends the upload with that step's error and 
 		for (const code of ["invalid_file", "unsupported_media_type", "unavailable"] as const) {
 			const p = port({ fault: { [step]: code } });
 			const outcome = await uploadAsset(p.brand, { slot: "mark", file: logo(), altText: "Mark", revision: () => "1" });
-			assert.equal(outcome.ok, false);
-			assert.equal(outcome.ok ? null : outcome.error?.code, code, `${step} ${code}`);
+			assert.equal(outcome.status === "refused" ? outcome.code : null, code, `${step} ${code}`);
 			assert.deepEqual(p.ops(), steps.slice(0, i + 1), `${step} ${code}`);
 		}
 	}
@@ -94,17 +94,17 @@ test("AC:CASE-BRD-002 a refused step ends the upload with that step's error and 
 test("AC:CASE-BRD-002 a removal empties only that slot at once and saves one patch at the current revision", async () => {
 	const p = port();
 	const up = await uploadAsset(p.brand, { slot: "signature", file: logo(), altText: "Signature", revision: () => "1" });
-	const kit = up.ok ? up.kit : assert.fail("upload refused");
+	const kit = up.status === "ok" ? up.value : assert.fail("upload refused");
 	assert.deepEqual(withoutAsset(kit, "signature"), { ...kit, assets: { ...kit.assets, signature: null } });
 
 	p.calls.length = 0;
 	const removed = await removeAsset(p.brand, "signature", kit.revision);
 	assert.deepEqual(p.calls, [["save", { expectedRevision: kit.revision, patch: { assets: { signature: null } } }]]);
-	assert.deepEqual(removed, { ok: true, kit: await kitOf(p) });
+	assert.deepEqual(removed, { status: "ok", value: await kitOf(p) });
 
 	const refusing = port({ fault: { saveBrand: "unavailable" } });
 	const refused = await removeAsset(refusing.brand, "mark", "1");
-	assert.equal(refused.ok ? null : refused.error?.code, "unavailable");
+	assert.equal(refused.status === "refused" ? refused.code : null, "unavailable");
 });
 
 test("AC:CASE-BRD-002 alt text is required: blank text is refused on the client, and the server's refusal reads the same words", async () => {
@@ -113,7 +113,7 @@ test("AC:CASE-BRD-002 alt text is required: blank text is refused on the client,
 	assert.equal(altProblem("A logo"), null);
 	const p = port();
 	const outcome = await uploadAsset(p.brand, { slot: "full_logo", file: logo(), altText: "  ", revision: () => "1" });
-	const error = outcome.ok ? assert.fail("blank alt text uploaded") : outcome.error!;
+	const error = outcome.status === "refused" ? outcome.error : assert.fail("blank alt text uploaded");
 	assert.equal(error.code, "alt_text_required");
 	assert.equal(assetMessage(error), ALT_REQUIRED);
 	assert.deepEqual(p.ops(), ["requestUpload"]);
@@ -136,20 +136,20 @@ test("INV-brand-assets-conflict: finalize sends the revision read when it starts
 		revision: () => revision,
 	});
 	revision = "1";
-	assert.ok((await outcome).ok);
+	assert.equal((await outcome).status, "ok");
 	assert.equal(
 		(p.calls.find(([op]) => op === "finalizeUpload")![1] as { expectedRevision: string }).expectedRevision,
 		"1",
 	);
 
 	const stale = await uploadAsset(p.brand, { slot: "mark", file: logo(), altText: "Mark", revision: () => "1" });
-	assert.equal(stale.ok ? null : stale.error?.code, "conflict");
+	assert.equal(stale.status === "refused" ? stale.code : null, "conflict");
 });
 
 test("AC:CASE-BRD-003 a suggestion changes nothing until chosen, and a chosen color saves only on Save", async () => {
 	const p = port();
 	const up = await uploadAsset(p.brand, { slot: "full_logo", file: logo(), altText: "Logo", revision: () => "1" });
-	const kit = up.ok ? up.kit : assert.fail("upload refused");
+	const kit = up.status === "ok" ? up.value : assert.fail("upload refused");
 	p.calls.length = 0;
 	const suggestion = await suggestFor(p.brand, "full_logo");
 	assert.deepEqual(p.calls, [["suggestColors", { assetKind: "full_logo" }]], "asking for a suggestion saves nothing");
@@ -166,7 +166,7 @@ test("AC:CASE-BRD-006 the preview places the stored assets and keeps the type fa
 	const kit = await kitOf(port());
 	const none = themeOf("Harvest Point Church", formOf(kit), "formal/legal", kit.assets).layout;
 	assert.equal(none.documentClass === "formal/legal" && none.headerLogo, null);
-	const ref = (alt: string) => ({ fileId: randomUUID(), alt });
+	const ref = (alt: string) => ({ fileId: recordId.parse(randomUUID()), alt });
 	const assets = {
 		...kit.assets,
 		full_logo: ref("Logo"),

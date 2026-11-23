@@ -1,5 +1,5 @@
 import * as c from "@everyfield/contracts/people";
-import { sql } from "@everyfield/db/query";
+import { sql, type SqlLiteral } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import "server-only";
@@ -50,7 +50,8 @@ function assessmentView(plant: string, raw: unknown) {
 		total: r.committed.score + r.compelled.score + r.contagious.score + r.courageous.score,
 	});
 }
-const lensSql = (name: string) => sql.raw(`jsonb_build_object('score',r.${name},'notes',r.${name}_notes)`);
+const lensSql = <Name extends string>(name: SqlLiteral<Name>) =>
+	sql.raw(`jsonb_build_object('score',r.${name},'notes',r.${name}_notes)`);
 const assessmentJson = sql`jsonb_build_object('id',r.id,'person_id',r.person_id,'occurred_on',r.assessed_on::text,
  'recorded_at',r.recorded_at,'actor_id',${recorderSql("r")},'revision',r.revision::text,'committed',${lensSql("committed")},
  'compelled',${lensSql("compelled")},'contagious',${lensSql("contagious")},'courageous',${lensSql("courageous")})`;

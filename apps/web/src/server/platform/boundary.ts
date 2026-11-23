@@ -1,5 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { ServerConfigError, serverConfig, serverConfigProblem } from "../config.ts";
+import { unexpected } from "./transient.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 export const privateHeaders = {
 	"Cache-Control": "private, no-store",
@@ -15,24 +18,6 @@ export class Refusal extends Error {
 		this.status = status;
 	}
 }
-export async function boundedBytes(request: Request, limit: number): Promise<Uint8Array> {
-	const reader = request.body?.getReader();
-	if (!reader) return new Uint8Array();
-	const chunks: Uint8Array[] = [];
-	let length = 0;
-	try {
-		for (;;) {
-			const item = await reader.read();
-			if (item.done) break;
-			length += item.value.byteLength;
-			if (length > limit) throw new Refusal("invalid_input", 413);
-			chunks.push(item.value);
-		}
-	} finally {
-		await reader.cancel();
-	}
-	return Buffer.concat(chunks);
-}
 export function safeResponse(body: unknown, status = 200) {
 	return Response.json(body, { status, headers: privateHeaders });
 }
@@ -43,6 +28,7 @@ export async function safeBoundary(body: () => Promise<Response>): Promise<Respo
 		result.headers.set("X-Request-Id", id);
 		return result;
 	} catch (error) {
+		if (!(error instanceof Refusal)) logFailure({ component: "route", outcome: "failed" }, error);
 		const response = safeResponse(
 			{ code: error instanceof Refusal ? error.code : "unavailable", requestId: id },
 			error instanceof Refusal ? error.status : 503,
@@ -51,3 +37,43 @@ export async function safeBoundary(body: () => Promise<Response>): Promise<Respo
 		return response;
 	}
 }
+
+export const ROUTE_KIND = Symbol.for("everyfield.route-kind");
+export type RouteKind = "session" | "token" | "signed";
+type Handler<A extends unknown[]> = (request: Request, ...rest: A) => Response | Promise<Response>;
+export type Route<A extends unknown[]> = Handler<A> & { readonly [ROUTE_KIND]: RouteKind };
+
+const appOrigin = (request: Request) =>
+	new URL(serverConfigProblem() ? request.url : serverConfig().IDENTITY_ORIGIN).origin;
+
+export function sameOriginRequest(request: Request): boolean {
+	const site = request.headers.get("sec-fetch-site");
+	if (site !== null) return site === "same-origin";
+	return request.headers.get("origin") === appOrigin(request);
+}
+
+export const configured =
+	<A extends unknown[]>(handler: Handler<A>): Handler<A> =>
+	async (request, ...rest) => {
+		try {
+			return await handler(request, ...rest);
+		} catch (error) {
+			const failure = unexpected({ component: "route", outcome: "failed" }, error);
+			if (!(failure instanceof ServerConfigError)) throw failure;
+			return safeResponse({ code: "unavailable" satisfies Refusal["code"] }, 503);
+		}
+	};
+
+const marked = <A extends unknown[]>(kind: RouteKind, handler: Handler<A>): Route<A> =>
+	Object.defineProperty(configured(handler), ROUTE_KIND, { value: kind }) as Route<A>;
+
+export const mutatingRoute = <A extends unknown[]>(handler: Handler<A>): Route<A> =>
+	marked("session", (request: Request, ...rest: A) =>
+		sameOriginRequest(request)
+			? handler(request, ...rest)
+			: safeResponse({ code: "origin_denied" satisfies Refusal["code"] }, 403),
+	);
+
+export const tokenRoute = <A extends unknown[]>(handler: Handler<A>): Route<A> => marked("token", handler);
+
+export const signedRoute = <A extends unknown[]>(handler: Handler<A>): Route<A> => marked("signed", handler);

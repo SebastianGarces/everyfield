@@ -20,8 +20,8 @@ import {
 	getPreferences,
 	renderOversightDigest,
 } from "../../../../packages/domain/src/notifications/index.ts";
-import { transaction } from "../../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../packages/domain/src/jobs/queue.ts";
 import {
 	accounts,
 	actor,
@@ -104,11 +104,12 @@ after(teardown);
 
 test("INV-oversight-preview the next oversight digest is what the runner compiles and renders for its send time, with plant names, dates and counts only", async () => {
 	const before = await effects();
+	const from = civil(Date.now() - 2 * DAY);
 	const result = await preview();
 	const [head, ...lines] = result.rows;
 	assert.equal(head!.id, "next");
 	assert.match(String(head!.fields.sendsAt), /, 7:00 AM$/);
-	assert.equal(head!.fields.from, civil(Date.now() - 2 * DAY));
+	assert.equal(head!.fields.from, from);
 	assert.equal(head!.fields.cadence, "daily");
 	assert.equal(head!.fields.sent, true);
 	const to = String(head!.fields.to);
@@ -179,8 +180,13 @@ async function runNext() {
 	const outcome = await executeProposal(
 		db,
 		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-		async () => {
-			throw Error("unexpected task reminder replan");
+		{
+			reminders: async () => {
+				throw Error("unexpected task reminder replan");
+			},
+			phaseNotices: async () => {
+				throw Error("unexpected phase notice");
+			},
 		},
 	);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));

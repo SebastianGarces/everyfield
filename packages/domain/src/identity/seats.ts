@@ -27,18 +27,18 @@ async function requiredWrites<T>(change: Promise<T>): Promise<T> {
 	try {
 		return await change;
 	} catch (error) {
-		if (databaseError.safeParse(error).success) d.refuse("required_write_failed");
+		if (databaseError.safeParse(error).success) d.deny("required_write_failed");
 		throw error;
 	}
 }
 const inWorkspace = (selected: Owner) =>
 	selected.kind === "plant" ? eq(t.seat.plant_id, selected.id) : eq(t.seat.organization_id, selected.id);
-export function createSeatService(db: Database) {
+export function createSeatService(db: Database | Transaction) {
 	async function list(authority: RequestActor, raw: unknown) {
 		const v = c.listSeatsRequest.parse(raw),
 			a = authority.actor,
 			seat = a.context;
-		if (seat.kind !== "seat" || !sameOwner(seat.owner, v.workspace)) d.refuse();
+		if (seat.kind !== "seat" || !sameOwner(seat.owner, v.workspace)) d.deny("invitation_unavailable");
 		const column = v.workspace.kind === "plant" ? sql`s.plant_id` : sql`s.organization_id`;
 		const found = await liveRows(
 			db,
@@ -52,7 +52,7 @@ export function createSeatService(db: Database) {
 				WHERE ${column}=${v.workspace.id} ${v.after ? sql`AND s.id>${v.after}` : sql``}
 				ORDER BY s.id LIMIT 101`,
 		);
-		if (!found) d.refuse();
+		if (!found) d.deny("invitation_unavailable");
 		const rows = z
 			.array(seatListRow)
 			.parse(found)
@@ -78,14 +78,14 @@ export function createSeatService(db: Database) {
 		return c.seatListResult.parse({
 			workspace: v.workspace,
 			items,
-			next: rows.length > 100 ? items.at(-1)!.seatId : null,
+			next: rows.length > 100 ? (items.at(-1)?.seatId ?? null) : null,
 			completeness: rows.length > 100 ? "partial" : "complete",
 		});
 	}
 	async function membership(session: string) {
 		return transaction(db, async (tx) => {
 			const proof = await tx.execute(sql`SELECT * FROM access_session(${sessionId.parse(session)}::uuid)`);
-			if (!proof.rows[0]) d.refuse();
+			if (!proof.rows[0]) d.deny("invitation_unavailable");
 			const a = z
 				.object({ account_id: z.uuid(), registration_state: z.enum(["active", "pending_domain"]) })
 				.parse(proof.rows[0]);
@@ -95,9 +95,11 @@ export function createSeatService(db: Database) {
 				.from(t.seat)
 				.where(and(eq(t.seat.account_id, a.account_id), isNull(t.seat.ended_at)));
 			if (!seats.length) return c.currentMembershipResult.parse({ status: "seatless" });
-			if (seats.length !== 1) d.refuse();
-			const s = seats[0]!,
-				w = await d.workspace(tx, s.plant_id ?? s.organization_id!),
+			const [s] = seats;
+			if (seats.length !== 1 || !s) d.deny("invitation_unavailable");
+			const workspaceId = s.plant_id ?? s.organization_id;
+			if (workspaceId === null) d.deny("invitation_unavailable");
+			const w = await d.workspace(tx, workspaceId),
 				actor = await d.currentActor(tx, sessionId.parse(session), w.selected);
 			return c.currentMembershipResult.parse(
 				actor.status === "active"
@@ -167,8 +169,8 @@ export function createSeatService(db: Database) {
 				.select()
 				.from(t.seat)
 				.where(and(eq(t.seat.id, v.seatId), inWorkspace(selected)));
-			if (!s || s.ended_at) d.refuse();
-			if (s.role === "owner") d.refuse("protected_owner");
+			if (!s || s.ended_at) d.deny("invitation_unavailable");
+			if (s.role === "owner") d.deny("protected_owner");
 			const { tasks, pipeline, programs } = await openDuties(tx, selected, s, false);
 			const personIds = pipeline.map((p) => p.person_id).filter((id): id is string => typeof id === "string");
 			const people = personIds.length
@@ -203,7 +205,7 @@ export function createSeatService(db: Database) {
 					).rows,
 				)
 				.map((r) => ({ accountId: r.account_id, displayName: r.display_name }));
-			if (duties.length > c.MAX_REMOVAL_ITEMS || recipients.length > c.MAX_REMOVAL_ITEMS) d.refuse("removal_too_large");
+			if (duties.length > c.MAX_REMOVAL_ITEMS || recipients.length > c.MAX_REMOVAL_ITEMS) d.deny("removal_too_large");
 			return c.removalReviewResult.parse({
 				seatId: s.id,
 				expectedRevision: s.revision,
@@ -258,16 +260,16 @@ export function createSeatService(db: Database) {
 					),
 				)
 				.for("update");
-			if (!target) d.refuse();
+			if (!target) d.deny("invitation_unavailable");
 			const [s] = await tx
 				.select()
 				.from(t.seat)
 				.where(and(eq(t.seat.id, v.input.seatId), inWorkspace(selected)))
 				.for("update");
-			if (!s) d.refuse();
-			if (s.role === "owner") d.refuse("protected_owner");
-			if (s.ended_at) d.refuse();
-			if (s.revision !== v.expectedRevision || s.role !== v.input.expectedRole) d.refuse("conflict");
+			if (!s) d.deny("invitation_unavailable");
+			if (s.role === "owner") d.deny("protected_owner");
+			if (s.ended_at) d.deny("invitation_unavailable");
+			if (s.revision !== v.expectedRevision || s.role !== v.input.expectedRole) d.deny("conflict");
 			const changed = mode === "remove" || ("to" in v.input && s.role !== v.input.to),
 				after = changed ? d.bump(s.revision) : s.revision;
 			const duties: Array<
@@ -279,9 +281,9 @@ export function createSeatService(db: Database) {
 				const handoffs = v.input.handoffs;
 				const { tasks, pipeline, programs } = await openDuties(tx, selected, s, true);
 				const all = [...tasks, ...pipeline, ...programs];
-				if (all.length > c.MAX_REMOVAL_ITEMS) d.refuse("removal_too_large");
+				if (all.length > c.MAX_REMOVAL_ITEMS) d.deny("removal_too_large");
 				const named = new Map<string, string>(handoffs.map((h) => [h.dutyId, h.expectedRevision]));
-				if (all.length !== handoffs.length || all.some((x) => named.get(x.id) !== x.revision)) d.refuse("conflict");
+				if (all.length !== handoffs.length || all.some((x) => named.get(x.id) !== x.revision)) d.deny("conflict");
 				const assigned = handoffs.flatMap((h) => (h.kind === "assign" ? [h.recipientAccountId] : []));
 				const eligibleRows = assigned.length
 					? await tx
@@ -310,10 +312,11 @@ export function createSeatService(db: Database) {
 					let recipient: string | null = null,
 						recipientSeat: string | null = null;
 					if (h.kind === "assign") {
-						if (h.recipientAccountId === s.account_id) d.refuse();
-						if (!recipients.has(h.recipientAccountId)) d.refuse();
+						if (h.recipientAccountId === s.account_id) d.deny("invitation_unavailable");
+						const seat = recipients.get(h.recipientAccountId);
+						if (seat === undefined) d.deny("invitation_unavailable");
 						recipient = h.recipientAccountId;
-						recipientSeat = recipients.get(recipient)!;
+						recipientSeat = seat;
 						duties.push({ status: "moved", dutyId: h.dutyId, recipientAccountId: recipient });
 					} else duties.push({ status: "needs_owner", dutyId: h.dutyId });
 					const task = tasks.find((x) => x.id === h.dutyId),
@@ -344,7 +347,7 @@ export function createSeatService(db: Database) {
 							d.eventRow(cmd, person.id, "assign", "people.updated", person.revision, d.bump(person.revision)),
 						);
 					} else if (program) {
-						if (!recipientSeat) d.refuse("conflict");
+						if (!recipientSeat) d.deny("conflict");
 						programMoves.set(program.id, recipientSeat);
 						dutyEvents.push(
 							d.eventRow(cmd, program.id, "assign", "roles.changed", program.revision, d.bump(program.revision)),
@@ -459,7 +462,9 @@ export function createSeatService(db: Database) {
 					duties,
 				}),
 			);
-			await syncAll(reminders!, tx, replan)?.();
+			if (reminders) await syncAll(reminders, tx, replan)?.();
+			else if (replan.some((change) => change !== undefined))
+				throw Error("A seat change moved task reminders without a reminder planner");
 			return result;
 		});
 	}

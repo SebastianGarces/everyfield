@@ -15,6 +15,7 @@ import {
 } from "../../../packages/domain/src/meetings/index.ts";
 import { issueRsvpToken } from "../meetings/rsvp-token.mts";
 import { fixture, ok, refused } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -32,7 +33,7 @@ const actors = [
 	await database.actor({ kind: "plant", id: P }, "member"),
 ];
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: who === 3 ? Q : P } });
-const tx = (body) => db.transaction(body);
+const tx = (body) => gatedTransaction(db, body);
 const run = (op, input, who = 0) => tx((t) => op(t, ctx(who), input));
 const key = () => randomUUID();
 const viewer = async (who = 0) => RequestActor.resolve(db, actors[who].session);

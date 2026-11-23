@@ -1,8 +1,8 @@
 import "server-only";
 import type { Database } from "@everyfield/db/client";
 import { runPeopleImport } from "@everyfield/domain/people";
-import { claimDue, finishJob, recoverLease } from "../../../server/jobs/queue.ts";
-import { z } from "zod";
+import { claimDue, finishJob, recoverLease } from "@everyfield/domain/jobs";
+import { logFailure } from "@everyfield/domain/log";
 
 export async function runDueImports(pool: Database, limit = 4, until = Infinity) {
 	await recoverLease(pool);
@@ -10,8 +10,7 @@ export async function runDueImports(pool: Database, limit = 4, until = Infinity)
 		const [claim] = await claimDue(pool, ["people_import"]);
 		if (!claim) return;
 		const outcome = await runPeopleImport(pool, claim).catch((error: unknown) => {
-			const code = z.object({ cause: z.object({ code: z.string() }) }).safeParse(error).data?.cause.code ?? null;
-			console.error(JSON.stringify({ component: "people-import", outcome: "retry", code }));
+			logFailure({ component: "people-import", outcome: "retry" }, error);
 			return "retry" as const;
 		});
 		await finishJob(

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { safeLinkAddress } from "../common/links.ts";
 import { computeTable, validate } from "./format/rules.ts";
 import { formatNumber, TABLE_LIMITS } from "./format/table.ts";
-import type { CellNode, ColumnSpec, DocNode, InlineNode, RowNode, TableNode } from "./format/types.ts";
+import type { AnyNode, CellNode, ColumnSpec, DocNode, InlineNode, RowNode, TableNode } from "./format/types.ts";
 
 const NODE_ATTRS: Record<string, readonly string[]> = {
 	doc: [],
@@ -133,16 +133,17 @@ export function readNative(stored: string): { body: DocNode; text: boolean } {
 	return { body: nativeFromText(stored), text: true };
 }
 
-type Node = { type: string; text?: string; content?: Node[] };
-const inline = (node: Node): string =>
+const inline = (node: AnyNode): string =>
 	node.type === "text"
-		? (node.text ?? "")
+		? node.text
 		: node.type === "hardBreak"
 			? "\n"
-			: (node.content ?? []).map(inline).join("");
+			: "content" in node
+				? (node.content ?? []).map(inline).join("")
+				: "";
 
 function filled(cell: CellNode, column: ColumnSpec | undefined): boolean {
-	if (column?.type === "text") return inline(cell as Node).trim() !== "";
+	if (column?.type === "text") return inline(cell).trim() !== "";
 	if (column?.type === "number" || column?.type === "money") return typeof cell.attrs?.value === "number";
 	if (column?.type === "check") return cell.attrs?.checked === true;
 	return false;
@@ -159,7 +160,7 @@ function cellText(cell: CellNode, column: ColumnSpec | undefined, row: number): 
 		case "index":
 			return String(row);
 		default:
-			return inline(cell as Node).replace(/\s*\n\s*/g, " ");
+			return inline(cell).replace(/\s*\n\s*/g, " ");
 	}
 }
 
@@ -174,12 +175,12 @@ function tableLines(table: TableNode): string[] {
 
 export function nativeText(body: DocNode): string {
 	const lines: string[] = [];
-	const walk = (node: Node) => {
+	const walk = (node: AnyNode) => {
 		if (node.type === "paragraph" || node.type === "heading") lines.push(inline(node));
-		else if (node.type === "table") lines.push(...tableLines(node as unknown as TableNode));
-		else for (const child of node.content ?? []) walk(child);
+		else if (node.type === "table") lines.push(...tableLines(node));
+		else if ("content" in node) for (const child of node.content ?? []) walk(child);
 	};
-	walk(body as Node);
+	walk(body);
 	return lines.join("\n").trim();
 }
 
