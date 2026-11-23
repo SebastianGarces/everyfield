@@ -16,14 +16,26 @@ const form = (people: Form["people"], groups: string[] = [], teamIds: string[] =
 	};
 };
 
-const summary = (recipients: (typeof ana)[], children: (typeof ana)[]): AudienceSummary => ({
-	resolvedDistinctPeople: recipients.length + children.length,
+const summary = (
+	recipients: (typeof ana)[],
+	children: (typeof ana)[],
+	{
+		unsubscribed = [],
+		missing = [],
+		complete = true,
+	}: { unsubscribed?: (typeof ana)[]; missing?: string[]; complete?: boolean } = {},
+): AudienceSummary => ({
+	resolvedDistinctPeople: recipients.length + children.length + unsubscribed.length + missing.length,
 	eligibleRecipients: recipients.length,
-	missingEmailExclusions: [],
+	missingEmailExclusions: missing,
 	duplicateAddressesRemoved: 0,
 	recipients,
-	complete: true,
-	unsubscribedExclusions: [],
+	complete,
+	unsubscribedExclusions: unsubscribed.map(({ id, displayName }) => ({
+		id,
+		displayName,
+		unsubscribedAt: "2026-11-01T00:00:00.000Z",
+	})),
 	childExclusions: children.map(({ id, displayName }) => ({ id, displayName })),
 });
 
@@ -40,5 +52,21 @@ test("the review To line shows a group and team with only the count who get the 
 	assert.equal(
 		toLine(form([], ["core_group"], [team.id]), summary([ana, ben], [lucia]), [team]),
 		"2 people · Core group, Welcome team",
+	);
+});
+
+test("the review To line leaves out picked people who are unsubscribed or have no email", () => {
+	const una = { id: "0b5c1e2a-5555-4a6b-8c7d-9e0f1a2b3c4d", displayName: "Una Unsub", email: "una@example.test" };
+	const ned = { id: "0b5c1e2a-6666-4a6b-8c7d-9e0f1a2b3c4d", displayName: "Ned Noemail", email: null };
+	assert.equal(
+		toLine(form([ana, una, ned]), summary([ana], [], { unsubscribed: [una], missing: [ned.displayName] }), []),
+		"1 person · Ana Santos",
+	);
+});
+
+test("the review To line keeps a picked person past the named-recipient cap", () => {
+	assert.equal(
+		toLine(form([ana, ben]), summary([ana], [], { complete: false }), []),
+		"1 person · Ana Santos, Ben Santos",
 	);
 });

@@ -1,6 +1,6 @@
+import { counted } from "@everyfield/contracts/common";
 import { bodyToTextResult, textToBody } from "./body.ts";
 import { fieldProblem, fieldProblemText, usableKeys } from "./fields.ts";
-import { counted } from "@everyfield/contracts/common";
 import {
 	emptyAudience,
 	groupLabel,
@@ -118,12 +118,24 @@ export function listed(items: string[], max = 4): string {
 }
 
 export function toLine(form: Form, summary: AudienceSummary | null, teams: readonly Team[]): string {
-	const children = new Set((summary?.childExclusions ?? []).map((person) => person.id));
 	const known = new Map((summary?.recipients ?? []).map((r) => [r.id, r.displayName]));
+	const leftOut = new Set([
+		...(summary?.childExclusions ?? []).map((person) => person.id),
+		...(summary?.unsubscribedExclusions ?? []).map((person) => person.id),
+	]);
+	const missing = new Set(summary?.missingEmailExclusions ?? []);
+	// recipients is capped (complete: false past the cap), so absence from it
+	// only proves a person is left out when the list is complete.
+	const getsEmail = (p: PersonRef) =>
+		!summary ||
+		known.has(p.id) ||
+		(!leftOut.has(p.id) &&
+			!summary.complete &&
+			!(!p.email?.trim() && p.displayName !== null && missing.has(p.displayName)));
 	const chosen = [
 		...form.audience.groups.map((g) => groupLabel[g as keyof typeof groupLabel] ?? g),
 		...form.audience.teamIds.map((id) => teams.find((t) => t.id === id)?.name ?? "A team"),
-		...form.people.filter((p) => !children.has(p.id)).map((p) => p.displayName ?? known.get(p.id) ?? "A person"),
+		...form.people.filter(getsEmail).map((p) => p.displayName ?? known.get(p.id) ?? "A person"),
 	];
 	const count = counted(summary?.eligibleRecipients ?? 0, "person", "people");
 	return chosen.length ? `${count} · ${listed(chosen)}` : count;
