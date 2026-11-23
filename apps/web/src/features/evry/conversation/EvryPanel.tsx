@@ -339,7 +339,6 @@ function Chat({
 							focusComposer();
 						}}
 						onEdit={() => onEdit(s)}
-						onReload={() => actions.reloadForChurch(s)}
 					/>
 				))}
 			</ol>
@@ -490,18 +489,9 @@ function TurnView({
 	);
 }
 
-function SendView({
-	send,
-	onResend,
-	onEdit,
-	onReload,
-}: {
-	send: Send;
-	onResend: () => void;
-	onEdit: () => void;
-	onReload: () => void;
-}) {
+function SendView({ send, onResend, onEdit }: { send: Send; onResend: () => void; onEdit: () => void }) {
 	const churchName = Panel.useSelect((s) => s.churchName);
+	const actions = useActions();
 	const notice = sendNotice(send, churchName);
 	return (
 		<li className="flex flex-col items-end gap-2">
@@ -517,7 +507,7 @@ function SendView({
 					title="Your church changed"
 					className="w-full"
 					actions={
-						<Button size="sm" variant="primary" onClick={onReload}>
+						<Button size="sm" variant="primary" onClick={() => actions.reloadForChurch(send)}>
 							Reload
 						</Button>
 					}
