@@ -116,11 +116,24 @@ export const EfValueCell = TiptapNode.create({
 	},
 });
 
-type CellSpec = { kind: ColumnSpec["type"]; shown: string | null; input: boolean; label: string; row: number };
+class CellSpec {
+	readonly kind: ColumnSpec["type"];
+	readonly shown: string | null;
+	readonly input: boolean;
+	readonly label: string;
+	readonly row: number;
+	constructor(kind: ColumnSpec["type"], shown: string | null, input: boolean, label: string, row: number) {
+		this.kind = kind;
+		this.shown = shown;
+		this.input = input;
+		this.label = label;
+		this.row = row;
+	}
+}
 const cellSpecOf = (decorations: readonly Decoration[]): CellSpec | null => {
 	for (const d of decorations) {
-		const spec = (d as unknown as { spec?: Partial<CellSpec> }).spec;
-		if (spec && typeof spec.kind === "string") return spec as CellSpec;
+		const spec: unknown = d.spec;
+		if (spec instanceof CellSpec) return spec;
 	}
 	return null;
 };
@@ -514,13 +527,18 @@ function decorationsFor(node: PMNode, pos: number): Decoration[] {
 			if (column) {
 				const align = `text-align:${alignOf(column)}`;
 				list.push(
-					Decoration.node(cellPos, cellPos + cell.nodeSize, { style: align }, {
-						kind: column.type,
-						shown: shown?.shown[ci] ?? null,
-						input: (shown?.role ?? "item") === "item",
-						label: column.label,
-						row: r + 1,
-					} satisfies CellSpec),
+					Decoration.node(
+						cellPos,
+						cellPos + cell.nodeSize,
+						{ style: align },
+						new CellSpec(
+							column.type,
+							shown?.shown[ci] ?? null,
+							(shown?.role ?? "item") === "item",
+							column.label,
+							r + 1,
+						),
+					),
 				);
 			}
 			cellPos += cell.nodeSize;
