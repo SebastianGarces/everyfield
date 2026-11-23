@@ -1,5 +1,6 @@
 "use client";
 
+import { InlineAlert } from "@everyfield/ui/controls";
 import * as React from "react";
 import { BUTTON_ICON } from "../styles.ts";
 
@@ -92,11 +93,7 @@ const LinkMain: React.FC<LinkMainProps> = ({ url, error, setUrl, setLink, remove
 					</Button>
 				</ButtonGroup>
 			</div>
-			{error ? (
-				<p role="alert" className="px-1 pb-1 text-sm text-magenta-600">
-					{error}
-				</p>
-			) : null}
+			<InlineAlert className="px-1 pb-1">{error}</InlineAlert>
 		</div>
 	);
 };

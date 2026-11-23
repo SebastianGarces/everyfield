@@ -21,6 +21,7 @@ import {
 	CardTitle,
 	ConfirmDialog,
 	Field,
+	InlineAlert,
 	Input,
 	PageHeader,
 	Select,
@@ -494,15 +495,13 @@ function RosterCard({
 				}
 			/>
 			{next ? (
-				<div className="mt-3 flex items-center gap-3">
+				<div className="mt-3 flex flex-wrap items-center gap-3">
 					<Button size="sm" variant="secondary" loading={more === "loading"} onClick={() => void loadMore()}>
 						Show more seats
 					</Button>
-					{more === "lost" || more === "failed" ? (
-						<p role="alert" className="text-sm text-magenta-600">
-							{more === "failed" ? READ_FAILED : "More seats did not load. Try again."}
-						</p>
-					) : null}
+					<InlineAlert className="min-w-0 flex-1 basis-64">
+						{more === "failed" ? READ_FAILED : more === "lost" ? "More seats did not load. Try again." : null}
+					</InlineAlert>
 				</div>
 			) : null}
 			{removed.length ? (
@@ -713,15 +712,13 @@ function PendingCard({
 				/>
 			) : null}
 			{next ? (
-				<div className="mt-3 flex items-center gap-3">
+				<div className="mt-3 flex flex-wrap items-center gap-3">
 					<Button size="sm" variant="secondary" loading={more === "loading"} onClick={() => void loadMore()}>
 						Show more invitations
 					</Button>
-					{more === "lost" || more === "failed" ? (
-						<p role="alert" className="text-sm text-magenta-600">
-							{more === "failed" ? READ_FAILED : "More invitations did not load. Try again."}
-						</p>
-					) : null}
+					<InlineAlert className="min-w-0 flex-1 basis-64">
+						{more === "failed" ? READ_FAILED : more === "lost" ? "More invitations did not load. Try again." : null}
+					</InlineAlert>
 				</div>
 			) : null}
 		</Card>

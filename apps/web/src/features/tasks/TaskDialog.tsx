@@ -11,7 +11,7 @@ import { RecordDialog } from "../../components/save/parts.tsx";
 import type { Wait } from "../../components/save/model.ts";
 import { offsetText } from "../../components/dates.ts";
 import { createTask, editTask } from "./actions.ts";
-import { AssigneePicker, forgetAssignees } from "./AssigneePicker.tsx";
+import { AssigneePicker, reloadAssignees } from "./AssigneePicker.tsx";
 import { relationOptions } from "./fetch.ts";
 import {
 	CATEGORIES,
@@ -228,7 +228,7 @@ function Form({
 			send = (key) => editTask(key, revision, task.id, patch);
 		}
 		const committed: Draft = { ...draft, ineligible: undefined };
-		send = noticingIneligible(send, forgetAssignees, (accountId) => (committed.ineligible = accountId));
+		send = noticingIneligible(send, reloadAssignees, (accountId) => (committed.ineligible = accountId));
 		const shownDue: Due =
 			due.due.kind === "undated"
 				? { kind: "undated" }

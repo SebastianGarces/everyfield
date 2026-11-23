@@ -1258,8 +1258,8 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 			},
 		},
 		{
-			async candidates() {
-				return [];
+			candidates() {
+				return sql`SELECT NULL::uuid WHERE false`;
 			},
 		},
 	);
