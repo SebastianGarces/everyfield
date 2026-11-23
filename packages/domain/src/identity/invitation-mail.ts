@@ -64,7 +64,7 @@ export async function authorizeInvitationMail(
 	const subjects = [...new Set(rows.flatMap((r) => [r.tenant_id, ...(r.inviter_id ? [r.inviter_id] : [])]))],
 		seats = rows.flatMap((r) => (r.seat_id ? [r.seat_id] : []));
 	const barriers = await tx.execute(
-		sql`SELECT opaque_subject_id,seat_id FROM lifecycle_witness WHERE state NOT IN ('active','cancelled') AND (opaque_subject_id=ANY(${sql.param(subjects)}::uuid[]) OR seat_id=ANY(${sql.param(seats)}::uuid[])) FOR SHARE`,
+		sql`SELECT opaque_subject_id,seat_id FROM lifecycle_witness WHERE state <> 'cancelled' AND (opaque_subject_id=ANY(${sql.param(subjects)}::uuid[]) OR seat_id=ANY(${sql.param(seats)}::uuid[])) FOR SHARE`,
 	);
 	const blockedSubjects = new Set(barriers.rows.map((r) => r.opaque_subject_id)),
 		blockedSeats = new Set(barriers.rows.map((r) => r.seat_id));

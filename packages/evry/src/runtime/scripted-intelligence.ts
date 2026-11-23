@@ -206,9 +206,274 @@ function plantStep(options: LanguageModelV4CallOptions, text: string, system: st
 	return null;
 }
 
+const RANK =
+	/\bwhich (?:state|region|country|plant|place)s? (?:is|are) doing (?:the )?best\b|\brank (?:our|the|my) (?:regions|states|plants|countries|places)\b/i;
+const REGION_PATTERNS = /\bpatterns?\b.*?\bin the (.+?) region\b/i;
+const ALL_PLANTS = /\bpatterns? across all (?:of )?our plants(?: in (?:the )?(.+?))?\s*[?.!]*$/i;
+const WHERE_PATTERN = /\bwhere does the (.+?) pattern show up\b/i;
+const WHERE_PLANTS = /\bwhere are (?:our|my|the) plants\b/i;
+const WHICH_REGION = /\bwhich region is (.+?) in\b/i;
+const NO_REGION = /\bwhich plants have no region\b/i;
+const REGION_CHANGED = /\bhas (.+?)['’]s region changed\b/i;
+const EARLIER = /\bwhat did network intelligence show for (.+?) in the (?:earlier|previous) run\b/i;
+const CHANGED_IN = /\bwhat changed in (.+?) since the (?:last|previous|earlier) run\b/i;
+const PLACE_ASKS = [
+	RANK,
+	REGION_PATTERNS,
+	ALL_PLANTS,
+	WHERE_PATTERN,
+	WHERE_PLANTS,
+	WHICH_REGION,
+	NO_REGION,
+	REGION_CHANGED,
+	EARLIER,
+	CHANGED_IN,
+];
+
+const HISTORY = "organizationIntelligence.readHistory";
+const LOCATIONS = "organizationIntelligence.readLocations";
+const LOCATION_HISTORY = "organizationIntelligence.readLocationHistory";
+const listed = (items: string[]) =>
+	items.length < 2 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+const levelOf = (place: string) =>
+	/\bregion\b/i.test(place)
+		? "region"
+		: /^(?:the )?(?:us|usa|u\.s\.?|united states)$/i.test(place.trim())
+			? "country"
+			: /\bportfolio\b|^all\b/i.test(place)
+				? "portfolio"
+				: "state";
+const rowsOf = (out: Output | undefined, kind: string) => (out?.rows ?? []).filter((r) => r.fields.row === kind);
+const fieldText = (r: Row, key: string) => String(r.fields[key] ?? "");
+const placeOf = (r: Row) =>
+	[r.fields.city, r.fields.stateProvince, r.fields.country].filter((x) => typeof x === "string" && x).join(", ");
+const findingsNote = (r: Row) => (r.fields.findings === "Not shared" ? " Findings: Not shared." : "");
+
+function groupLines(out: Output) {
+	const patterns = rowsOf(out, "pattern");
+	return rowsOf(out, "group").flatMap((g) => {
+		const own = patterns.filter((p) => p.fields.group === g.label && p.fields.level === g.fields.level);
+		return [
+			`**${g.label}** (${fieldText(g, "level")} view): [Open it in Network Intelligence](${fieldText(g, "href")})`,
+			`Plants in this group: ${fieldText(g, "plantLinks")}`,
+			...(own.length
+				? own.map(
+						(p) =>
+							`- **${p.label}**: ${fieldText(p, "pattern")} Plants: ${fieldText(p, "plantLinks")}. Suggested next step: ${fieldText(p, "nextStep")}`,
+					)
+				: [fieldText(g, "noPattern")]),
+			"",
+		];
+	});
+}
+
+function placeStep(
+	text: string,
+	outputs: Output[],
+	read: (operation: string, input?: unknown) => LanguageModelV4Content[],
+) {
+	if (RANK.test(text)) return say(OVERSIGHT_RULES.noPlaceRanking);
+	const history = outputs.filter((o) => o.operation === HISTORY);
+	const locations = lastOf(outputs, LOCATIONS);
+	const ranOn = (out: Output) => String(out.facts?.ranOn ?? "");
+	const notRun = "Network Intelligence hasn't run yet, so there are no groups or patterns to show.";
+	const plantNamed = (name: string) =>
+		(locations?.rows ?? []).find((r) => r.label.toLowerCase().includes(name.trim().toLowerCase()));
+
+	const region = REGION_PATTERNS.exec(text);
+	if (region) {
+		const place = (region[1] ?? "").trim();
+		const [out] = history;
+		if (!out) return read(HISTORY, { level: "region", place });
+		if (!out.facts?.ranOn) return say(notRun);
+		if (out.facts.placeNotFound) return say(String(out.facts.placeNotFound));
+		if (!locations) return read(LOCATIONS);
+		const unplaced = (locations.rows ?? []).filter((r) => r.fields.region === "No Region set");
+		return say(
+			[
+				`Network Intelligence, run ${ranOn(out)}:`,
+				"",
+				...groupLines(out),
+				String(out.facts.regionSource ?? ""),
+				...(unplaced.length
+					? [
+							"",
+							"These plants have no Region set, so they aren't in any Region group. They still count at the larger levels:",
+							...unplaced.map(
+								(r) =>
+									`- [${r.label}](${fieldText(r, "href")})${r.fields.findings === "Not shared" ? " (Not shared)" : ""} still counts in ${listed(fieldText(r, "countsIn").split(", "))}.`,
+							),
+						]
+					: []),
+			].join("\n"),
+		);
+	}
+
+	const all = ALL_PLANTS.exec(text);
+	if (all) {
+		const place = (all[1] ?? "").trim();
+		const level = place ? levelOf(place) : "portfolio";
+		const [out] = history;
+		if (!out) return read(HISTORY, { level, place: place || "Whole portfolio" });
+		if (!out.facts?.ranOn) return say(notRun);
+		if (out.facts.placeNotFound) return say(String(out.facts.placeNotFound));
+		return say(
+			[`Network Intelligence, run ${ranOn(out)}:`, "", ...groupLines(out), OVERSIGHT_RULES.noRanking].join("\n"),
+		);
+	}
+
+	const pattern = WHERE_PATTERN.exec(text);
+	if (pattern) {
+		const [out] = history;
+		if (!out) return read(HISTORY, {});
+		if (!out.facts?.ranOn) return say(notRun);
+		const words = (pattern[1] ?? "")
+			.toLowerCase()
+			.split(/[^a-z]+/)
+			.filter((w) => w && !["the", "a", "an"].includes(w));
+		const matches = (r: Row) => words.every((w) => r.label.toLowerCase().includes(w));
+		const holds = rowsOf(out, "pattern").filter(matches);
+		const [first] = holds;
+		if (!first)
+			return say(`Network Intelligence shows no ${pattern[1]} pattern at any level in the run of ${ranOn(out)}.`);
+		const title = first.label;
+		const without = rowsOf(out, "group").filter(
+			(g) => !holds.some((p) => p.fields.group === g.label && p.fields.level === g.fields.level),
+		);
+		return say(
+			[
+				`In Network Intelligence (run ${ranOn(out)}), **${title}** holds in:`,
+				...holds.map(
+					(p) =>
+						`- ${fieldText(p, "level")}, [${fieldText(p, "group")}](${fieldText(p, "href")}): ${fieldText(p, "plantLinks")}`,
+				),
+				"",
+				"It doesn't hold in:",
+				...without.map(
+					(g) =>
+						`- ${fieldText(g, "level")}, ${g.label}: ${fieldText(g, "noPattern") || "a different pattern holds here."}`,
+				),
+				"",
+				"Each level groups the plants on its own, never by adding up smaller groups.",
+			].join("\n"),
+		);
+	}
+
+	if (WHERE_PLANTS.test(text) || WHICH_REGION.test(text) || NO_REGION.test(text) || REGION_CHANGED.test(text)) {
+		if (!locations) return read(LOCATIONS);
+		const rows = locations.rows ?? [];
+		if (!rows.length) return say("No plant is linked to this organization, so there are no plant locations to show.");
+		const regionView = `See how they group in [Network Intelligence's Region view](${String(locations.facts?.regionView)}).`;
+		const which = WHICH_REGION.exec(text) ?? REGION_CHANGED.exec(text);
+		if (which) {
+			const plant = plantNamed(which[1] ?? "");
+			if (!plant) return say(`I can't find ${which[1]} among your plants.`);
+			if (WHICH_REGION.test(text))
+				return say(
+					plant.fields.region === "No Region set"
+						? `[${plant.label}](${fieldText(plant, "href")}) is in ${placeOf(plant)} and has no Region set. It still counts in ${listed(fieldText(plant, "countsIn").split(", "))}. ${regionView}`
+						: `[${plant.label}](${fieldText(plant, "href")}) is in ${placeOf(plant)}. Its reporting Region is ${fieldText(plant, "region")}. ${regionView}`,
+				);
+			const saved = lastOf(outputs, LOCATION_HISTORY);
+			if (!saved) return read(LOCATION_HISTORY, { plantId: plant.id });
+			const kept = saved.rows ?? [];
+			const link = `[${plant.label}](${fieldText(plant, "href")})`;
+			if (!kept.length)
+				return say(`${link} has no saved location yet, so it has no Region set and its Region hasn't changed.`);
+			return say(
+				[
+					kept.length === 1
+						? `${link} has one saved location, so its Region hasn't changed:`
+						: `${link} has ${kept.length} saved locations, newest first:`,
+					...kept.map(
+						(l) =>
+							`- ${l.label}, Region ${fieldText(l, "region")}. Took effect ${fieldText(l, "effective")}. Network Intelligence runs that used it: ${fieldText(l, "runs")}.`,
+					),
+					"",
+					`${OVERSIGHT_RULES.earlierRunLocation} Only ${plant.label}'s Owner or Admin can change its location and Region.`,
+				].join("\n"),
+			);
+		}
+		if (NO_REGION.test(text)) {
+			const none = rows.filter((r) => r.fields.region === "No Region set");
+			if (!none.length) return say("Every plant has a Region set.");
+			return say(
+				[
+					"These plants have no Region set:",
+					...none.map(
+						(r) =>
+							`- [${r.label}](${fieldText(r, "href")}) (${placeOf(r)})${r.fields.findings === "Not shared" ? ", Not shared" : ""}: still counts in ${listed(fieldText(r, "countsIn").split(", "))}.`,
+					),
+					"",
+					"A plant with no Region set still counts at the state, country and whole-portfolio levels. Only each plant's Owner or Admin can set its Region.",
+					regionView,
+				].join("\n"),
+			);
+		}
+		return say(
+			[
+				`Here is where your ${plural(rows.length, "plant is", "plants are")} placed for Network Intelligence:`,
+				...rows.map(
+					(r) =>
+						`- [${r.label}](${fieldText(r, "href")}): ${placeOf(r)}. Region: ${fieldText(r, "region")}.${findingsNote(r)}`,
+				),
+				"",
+				regionView,
+			].join("\n"),
+		);
+	}
+
+	const earlier = EARLIER.exec(text);
+	if (earlier) {
+		const place = (earlier[1] ?? "").trim();
+		const level = levelOf(place);
+		if (!history.length) return read(HISTORY, { level, place });
+		const runs = rowsOf(history[0], "run");
+		const before = runs[1];
+		if (!before) return say(runs.length ? "There's only one Network Intelligence run so far." : notRun);
+		const [, out] = history;
+		if (!out) return read(HISTORY, { level, place, runId: before.id });
+		if (out.facts?.placeNotFound) return say(String(out.facts.placeNotFound));
+		return say(
+			[`In the earlier run, on ${ranOn(out)}, Network Intelligence showed:`, "", ...groupLines(out)].join("\n"),
+		);
+	}
+
+	const changed = CHANGED_IN.exec(text);
+	if (changed) {
+		const place = (changed[1] ?? "").trim();
+		const level = levelOf(place);
+		const [out] = history;
+		if (!out) return read(HISTORY, { level, place, changes: true });
+		if (!out.facts?.ranOn) return say(notRun);
+		if (!out.facts.earlierRunId)
+			return say("There's only one Network Intelligence run so far, so nothing has changed yet.");
+		const group = rowsOf(out, "group")[0];
+		const changes = rowsOf(out, "change");
+		const earlierHref = `/network/intelligence?level=${level}&run=${String(out.facts.earlierRunId)}`;
+		return say(
+			[
+				`Between the run on [${String(out.facts.earlierRanOn)}](${earlierHref}) and the latest run on [${ranOn(out)}](${group ? fieldText(group, "href") : `/network/intelligence?level=${level}`}), in **${group?.label ?? place}**:`,
+				...(changes.length
+					? changes.map((c) => `- ${fieldText(c, "change")}: **${c.label}**. Plants: ${fieldText(c, "plantLinks")}.`)
+					: ["No pattern appeared or went away."]),
+				...(group ? ["", `Plants in this group now: ${fieldText(group, "plantLinks")}`] : []),
+			].join("\n"),
+		);
+	}
+	return null;
+}
+
 function organizationStep(options: LanguageModelV4CallOptions, text: string, system: string, outputs: Output[]) {
 	const tools = options.tools ?? [];
 	if (!tools.some((t) => t.name === "oversight_read")) return null;
+	if (
+		JSON.stringify(tools.find((t) => t.name === "oversight_read")).includes(LOCATIONS) &&
+		PLACE_ASKS.some((r) => r.test(text))
+	) {
+		if (proposed(outputs)) return say(REVIEW);
+		return placeStep(text, outputs, (operation, input = {}) => call("oversight_read", { operation, input }));
+	}
 	const can = (operation: string) =>
 		JSON.stringify(tools.find((t) => t.name === "propose_change") ?? {}).includes(`"${operation}"`);
 	const read = (operation: string, input: unknown = {}) => call("oversight_read", { operation, input });

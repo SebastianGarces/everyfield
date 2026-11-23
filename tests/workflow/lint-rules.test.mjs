@@ -2847,7 +2847,7 @@ export * from "./more";
 	]);
 	const listed = Object.values(LOOSE_CONTRACTS);
 	assert.ok(
-		listed.length <= 3 && listed.reduce((n, names) => n + Object.keys(names).length, 0) <= 3,
+		listed.length <= 1 && listed.reduce((n, names) => n + Object.keys(names).length, 0) <= 1,
 		"LOOSE_CONTRACTS only shrinks",
 	);
 	const [path, names] = Object.entries(LOOSE_CONTRACTS)[0];

@@ -2331,7 +2331,7 @@ export const lifecycle_witness = pgTable(
 		id: uuid("id")
 			.notNull()
 			.default(sql`gen_random_uuid()`),
-		kind: text("kind", { enum: ["account", "plant", "seat", "affiliation"] }).notNull(),
+		kind: text("kind", { enum: ["account", "plant"] }).notNull(),
 		opaque_subject_id: uuid("opaque_subject_id").notNull(),
 		account_id: uuid("account_id"),
 		plant_id: uuid("plant_id"),
@@ -2339,7 +2339,7 @@ export const lifecycle_witness = pgTable(
 		requester_id: uuid("requester_id"),
 		request_revision: int64("request_revision").notNull(),
 		state: text("state", {
-			enum: ["active", "pending_deletion", "purging", "purged", "cancelled", "revoked"],
+			enum: ["pending_deletion", "purging", "purged", "cancelled"],
 		}).notNull(),
 		requested_at: timestamp("requested_at", { withTimezone: true, mode: "date" }),
 		live_purged_at: timestamp("live_purged_at", { withTimezone: true, mode: "date" }),
@@ -2381,10 +2381,6 @@ export const lifecycle_witness = pgTable(
 		),
 		check("lifecycle_witness_ck_1", sql`((plant_id IS NULL) OR (kind = 'plant'::text))`),
 		check(
-			"lifecycle_witness_ck_10",
-			sql`((kind = ANY (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'revoked'::text])))`,
-		),
-		check(
 			"lifecycle_witness_ck_11",
 			sql`((state <> ALL (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])) OR ((request_id IS NOT NULL) AND (requested_at IS NOT NULL) AND (cancel_until IS NOT NULL) AND (request_revision >= 1)))`,
 		),
@@ -2410,22 +2406,15 @@ export const lifecycle_witness = pgTable(
 			"lifecycle_witness_ck_2",
 			sql`((copy_expires_at IS NULL) OR (copy_expires_at <= (live_purged_at + '168:00:00'::interval)))`,
 		),
-		check(
-			"lifecycle_witness_ck_3",
-			sql`(kind = ANY (ARRAY['account'::text, 'plant'::text, 'seat'::text, 'affiliation'::text]))`,
-		),
+		check("lifecycle_witness_ck_3", sql`(kind = ANY (ARRAY['account'::text, 'plant'::text]))`),
 		check(
 			"lifecycle_witness_ck_4",
-			sql`(state = ANY (ARRAY['active'::text, 'pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text, 'revoked'::text]))`,
+			sql`(state = ANY (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text]))`,
 		),
 		check("lifecycle_witness_ck_5", sql`(num_nonnulls(account_id, plant_id, seat_id, affiliation_id) <= 1)`),
 		check("lifecycle_witness_ck_6", sql`((account_id IS NULL) OR (kind = 'account'::text))`),
 		check("lifecycle_witness_ck_7", sql`((seat_id IS NULL) OR (kind = 'seat'::text))`),
 		check("lifecycle_witness_ck_8", sql`((affiliation_id IS NULL) OR (kind = 'affiliation'::text))`),
-		check(
-			"lifecycle_witness_ck_9",
-			sql`((kind <> ALL (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])))`,
-		),
 		index("lifecycle_witness_ref_0").using("btree", table.account_id.asc().nullsLast()),
 		index("lifecycle_witness_ref_1").using("btree", table.plant_id.asc().nullsLast()),
 		index("lifecycle_witness_ref_2").using("btree", table.requester_id.asc().nullsLast()),

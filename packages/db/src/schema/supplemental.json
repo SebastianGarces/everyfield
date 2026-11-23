@@ -3214,7 +3214,7 @@
 		},
 		{
 			"arguments": "handle uuid, new_name text",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.settings_update_name(handle uuid, new_name text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE subject uuid;\nBEGIN\n SELECT a.id INTO subject FROM auth_session s JOIN account a ON a.auth_user_id=s.user_id WHERE s.id=handle AND s.expires_at>clock_timestamp() FOR UPDATE OF a;\n IF subject IS NULL OR length(btrim(new_name)) NOT BETWEEN 1 AND 200 OR EXISTS(SELECT FROM lifecycle_witness WHERE kind='account' AND opaque_subject_id=subject AND state NOT IN ('active','cancelled')) THEN RAISE EXCEPTION 'unavailable' USING ERRCODE='42501'; END IF;\n UPDATE auth_user SET name=btrim(new_name),updated_at=clock_timestamp() WHERE id=(SELECT auth_user_id FROM account WHERE id=subject);\nEND $function$\n",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.settings_update_name(handle uuid, new_name text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE subject uuid;\nBEGIN\n SELECT a.id INTO subject FROM auth_session s JOIN account a ON a.auth_user_id=s.user_id WHERE s.id=handle AND s.expires_at>clock_timestamp() FOR UPDATE OF a;\n IF subject IS NULL OR length(btrim(new_name)) NOT BETWEEN 1 AND 200 OR EXISTS(SELECT FROM lifecycle_witness WHERE kind='account' AND opaque_subject_id=subject AND state<>'cancelled') THEN RAISE EXCEPTION 'unavailable' USING ERRCODE='42501'; END IF;\n UPDATE auth_user SET name=btrim(new_name),updated_at=clock_timestamp() WHERE id=(SELECT auth_user_id FROM account WHERE id=subject);\nEND $function$\n",
 			"name": "settings_update_name"
 		},
 		{
