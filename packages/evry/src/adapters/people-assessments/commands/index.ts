@@ -37,7 +37,7 @@ import type { WriteTx } from "@everyfield/domain/access";
 import { gatedTransaction } from "@everyfield/domain/operations";
 import { z } from "zod";
 import { person, reviewed, target, type Receipt } from "../../people/commands/index.ts";
-import { mergeReviewOf, unmergePreviewOf } from "../reads/index.ts";
+import { mergeNotes, mergeReviewOf, unmergePreviewOf } from "../reads/index.ts";
 import { date, id } from "../ids.ts";
 import { stagedFile } from "../../../attachments/store.ts";
 import type { EvryActor } from "../../../context/actor.ts";
@@ -473,6 +473,7 @@ export const ASSESSMENT_COMMANDS = {
 				...(stays.length
 					? [change("staysWithMergedRecord", listText(stays.map((r) => counted(r.kind, r.count))))]
 					: []),
+				...Object.entries(mergeNotes(m)).map(([field, text]) => change(field, text)),
 				...(m.stage && m.stage.result !== m.stage.survivor
 					? [change("stage", m.stage.result, json(m.stage.survivor))]
 					: []),
@@ -508,6 +509,7 @@ export const ASSESSMENT_COMMANDS = {
 				change("comesBack", u.names.source),
 				...(u.restores.length ? [change("movesBack", listText(u.restores.map((r) => counted(r.kind, r.count))))] : []),
 				...(u.fields.length ? [change("detailsGoBack", u.fields.join(", "))] : []),
+				...(u.attendanceBack ? [change("attendanceGoesBack", u.attendanceBack)] : []),
 			];
 			return sql`SELECT jsonb_build_object('target',${person},'changes',${changes(list)})
 					||${u.blocked ? sql`jsonb_build_object('refusal',${u.blocked}::text)` : sql`'{}'::jsonb`} AS review,

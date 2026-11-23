@@ -535,7 +535,8 @@
 		"question": "merge Casey Brooks and Casey Morgan",
 		"eval": {
 			"setup": {
-				"followUp": "Casey Brooks"
+				"followUp": "Casey Brooks",
+				"history": "Casey Brooks"
 			},
 			"calls": [
 				{
@@ -556,13 +557,22 @@
 					"changes": [
 						["keeps", "Casey Morgan"],
 						["mergesIn", "Casey Brooks"],
-						["moves", "1 follow-up outcome, 1 email and 1 follow-up"]
+						[
+							"moves",
+							"1 follow-up outcome, 1 email, 1 meeting kit item, 1 follow-up, 1 meeting attendance, 1 task and 1 ministry role"
+						],
+						[
+							"attendanceChanges",
+							"Vision Meeting #2: Casey Morgan’s RSVP (Going) replaces Casey Brooks’s pending RSVP. Vision Meeting #2: both are on this meeting, so Casey Morgan keeps one attendance (Attended)."
+						],
+						["openTasks", "Invite to the next lunch, due Nov 20, 2026"],
+						["openKitItems", "Welcome table sign for Vision Meeting #2"]
 					]
 				}
 			],
 			"require": ["I prepared a merge review: Casey Brooks merges into Casey Morgan.", "/approve/i"],
 			"forbid": ["/cannot run|not available/i"],
-			"derivation": "Casey Brooks has the Newcomer lunch follow-up (setup), a follow-up outcome and the sent welcome email (T-322's sent mail), which the People merge now carries (T-336): the review card keeps Casey Morgan and moves all three; the email unsubscribe stays with the merged record."
+			"derivation": "Casey Brooks has the Newcomer lunch follow-up (setup), a follow-up outcome and the sent welcome email (T-322's sent mail), and for this case an absent attendance with a pending RSVP at the Vision Meeting Casey Morgan attended, a kit item there, an open task and a Hospitality role (setup). The People merge now carries all of it (T-554): the review card keeps Casey Morgan, moves each kind with its count, names the combined attendance and the pending RSVP Casey Morgan's answer replaces, and lists the open task and kit item; the email unsubscribe stays with the merged record."
 		}
 	},
 	{
@@ -575,7 +585,7 @@
 		"question": "merge them",
 		"eval": {
 			"setup": {
-				"task": "Casey Brooks"
+				"role": "Casey Brooks"
 			},
 			"history": [
 				{
@@ -599,10 +609,10 @@
 			],
 			"proposals": [],
 			"require": [
-				"This merge cannot run. Casey Brooks has tasks on record. Merging people with this history is not available in Everyfield yet. Nothing was merged."
+				"This merge cannot run. Casey Brooks is Snack helper and Casey Morgan is Check-in on Kids ministry. One person can’t hold two current roles on one team, so end one of those roles first. Nothing was merged."
 			],
-			"forbid": ["/follow-up|email/i"],
-			"derivation": "For this case only Casey Brooks also has an open task, which the People merge can't carry yet: the People screen's words name only the tasks, never the follow-up, outcome or email that would move, and no review card is offered."
+			"forbid": ["/follow-up|email|not available/i"],
+			"derivation": "For this case only Casey Brooks also holds a current role on Kids ministry, where Casey Morgan is Check-in: a leadership conflict (D-2256). The answer is the People screen's refusal word for word, naming the team and both roles; no review card is offered and nothing merges."
 		}
 	},
 	{
@@ -616,6 +626,7 @@
 		"eval": {
 			"setup": {
 				"followUp": "John Smith",
+				"history": "John Smith",
 				"merge": ["John Smith", "Jon Smith"]
 			},
 			"history": [
@@ -645,12 +656,12 @@
 					"operation": "people.unmergePeople",
 					"changes": [
 						["comesBack", "John Smith"],
-						["movesBack", "1 follow-up"]
+						["movesBack", "1 task, 1 follow-up, 1 ministry role, 1 meeting attendance and 1 meeting kit item"]
 					]
 				}
 			],
 			"require": ["/Unmerge review for Jon Smith/"],
-			"derivation": "After the merge, which moved John Smith's Newcomer lunch follow-up (setup) and no email, nothing changed since: an Unmerge review that moves the follow-up back."
+			"derivation": "After the merge, which moved John Smith's Newcomer lunch follow-up, a Vision Meeting attendance, a kit item, an open task and a Hospitality role (setup) and no email, nothing changed since: an Unmerge review that moves each of them back."
 		}
 	},
 	{
