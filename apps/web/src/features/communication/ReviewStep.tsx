@@ -1,6 +1,5 @@
 "use client";
 
-import { counted } from "@everyfield/contracts/common";
 import { ArrowDown01Icon, ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -20,9 +19,8 @@ import { PreviewStage } from "./EmailFrame.tsx";
 import { MailingAddressPrompt } from "./MailingAddressPrompt.tsx";
 import { textToBody } from "./body.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
-import { listed, type Form } from "./composeModel.ts";
+import { toLine, type Form } from "./composeModel.ts";
 import {
-	groupLabel,
 	noRecipientReason,
 	type AudienceSummary,
 	type MeetingContext,
@@ -85,12 +83,6 @@ export function ReviewStep({
 	const name = recipients[safe]?.displayName ?? sampleName;
 	const eligible = summary?.eligibleRecipients ?? 0;
 	const template = templates.find((t) => t.templateId === form.templateKey);
-	const known = new Map(recipients.map((r) => [r.id, r.displayName]));
-	const chosen = [
-		...form.audience.groups.map((g) => groupLabel[g as keyof typeof groupLabel] ?? g),
-		...form.audience.teamIds.map((id) => teams.find((t) => t.id === id)?.name ?? "A team"),
-		...form.people.map((p) => p.displayName ?? known.get(p.id) ?? "A person"),
-	];
 	const left = [
 		...(summary?.childExclusions ?? []).map((person) => ({ name: person.displayName, why: "marked as a child" })),
 		...(summary?.missingEmailExclusions ?? []).map((name) => ({ name, why: "no email address" })),
@@ -154,10 +146,7 @@ export function ReviewStep({
 				<h2 className="font-title text-title-md leading-[1.2] tracking-[-0.02em] text-ink">Ready to send?</h2>
 				<dl className="flex flex-col gap-3 text-md">
 					<Row label="From" value={churchName} />
-					<Row
-						label="To"
-						value={`${counted(eligible, "person", "people")}${chosen.length ? ` · ${listed(chosen)}` : ""}`}
-					/>
+					<Row label="To" value={toLine(form, summary, teams)} />
 					<div className="grid grid-cols-[84px_minmax(0,1fr)] gap-3">
 						<dt className="text-sm text-text-3">Left out</dt>
 						<dd className="min-w-0 text-ink">

@@ -1,6 +1,16 @@
 import { bodyToTextResult, textToBody } from "./body.ts";
 import { fieldProblem, fieldProblemText, usableKeys } from "./fields.ts";
-import { emptyAudience, type Audience, type Draft, type DraftState, type Template } from "./model.ts";
+import { counted } from "@everyfield/contracts/common";
+import {
+	emptyAudience,
+	groupLabel,
+	type Audience,
+	type AudienceSummary,
+	type Draft,
+	type DraftState,
+	type Team,
+	type Template,
+} from "./model.ts";
 
 type PersonRef = { id: string; displayName: string | null; email: string | null };
 
@@ -105,4 +115,18 @@ export function formatWhen(iso: string): string {
 export function listed(items: string[], max = 4): string {
 	if (items.length <= max) return items.join(", ");
 	return `${items.slice(0, max).join(", ")}, and ${items.length - max} more`;
+}
+
+export function toLine(form: Form, summary: AudienceSummary | null, teams: readonly Team[]): string {
+	const children = new Set((summary?.childExclusions ?? []).map((person) => person.id));
+	const known = new Map((summary?.recipients ?? []).map((r) => [r.id, r.displayName]));
+	const chosen = [
+		...form.audience.groups.map((g) => groupLabel[g as keyof typeof groupLabel] ?? g),
+		...form.audience.teamIds.map((id) => teams.find((t) => t.id === id)?.name ?? "A team"),
+		...form.people
+			.filter((p) => !children.has(p.id))
+			.map((p) => p.displayName ?? known.get(p.id) ?? "A person"),
+	];
+	const count = counted(summary?.eligibleRecipients ?? 0, "person", "people");
+	return chosen.length ? `${count} · ${listed(chosen)}` : count;
 }
