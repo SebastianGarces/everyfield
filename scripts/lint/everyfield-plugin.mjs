@@ -1911,7 +1911,7 @@ const sharedNotice = {
 			JSXOpeningElement(node) {
 				const role = domElement(node) && jsxAttribute(node, "role");
 				if (!role || !attributeStrings(role).includes("alert")) return;
-				if (!problemClassed(node) && !domDescendants(node.parent).some(problemClassed)) return;
+				if (!domDescendants(node.parent).some(problemClassed)) return;
 				if (noticeLook(elementClassStrings(node).join(" ")) || keptLine(node)) return;
 				context.report({
 					node,
