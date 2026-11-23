@@ -239,7 +239,8 @@
     ],
     "embedding_spend.purpose": [
       "query",
-      "rebuild"
+      "rebuild",
+      "publish"
     ],
     "enrollment_milestone.source": [
       "program_leader",
@@ -366,7 +367,8 @@
       "people_import",
       "evry_effect",
       "feedback_publication",
-      "assessment"
+      "assessment",
+      "wiki_embedding"
     ],
     "job.state": [
       "ready",
@@ -19970,7 +19972,7 @@
     {
       "name": "embedding_spend",
       "domain": "reference",
-      "purpose": "Paid Wiki embedding tokens used per UTC day in this database, one row for search questions and one for release rebuilds (T-339, D-2042). Search stops calling the embedding provider once the day's query tokens pass the daily limit; each rebuild adds the tokens its run reported.",
+      "purpose": "Paid Wiki embedding tokens used per UTC day in this database, one row each for search questions, release rebuilds and organization publish jobs (T-339, D-2042, T-552). Search and publish embedding each stop calling the provider once their own day's tokens pass the daily limit; each rebuild adds the tokens its run reported.",
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
@@ -20042,7 +20044,7 @@
       ],
       "foreign_keys": [],
       "checks": [
-        "\"embedding_spend\".\"purpose\" IN ('query','rebuild')",
+        "\"embedding_spend\".\"purpose\" IN ('query','rebuild','publish')",
         "\"embedding_spend\".\"usage\" >= 0"
       ],
       "indexes": {},
@@ -23582,7 +23584,7 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "kind in ('mail', 'notification', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect', 'feedback_publication', 'assessment')",
+        "kind in ('mail', 'notification', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect', 'feedback_publication', 'assessment', 'wiki_embedding')",
         "state in ('ready', 'claimed', 'retry_wait', 'reconcile', 'succeeded', 'failed', 'cancelled', 'superseded')",
         "((attempt_count >= 0) AND (max_attempts >= 1))",
         "(claim_generation >= 0)",
@@ -31378,7 +31380,7 @@
     {
       "name": "passage",
       "domain": "reference",
-      "purpose": "Rebuildable exact source passage with complete embedding provenance. Model, dimensions and chunker are pinned by release; organization rights inherit the source revision.",
+      "purpose": "Rebuildable exact source passage with complete embedding provenance. Model, dimensions and chunker are pinned by release; organization rights inherit the source revision. An organization's published version has release-free rows its publish job embeds with the active release's profile (T-552).",
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
@@ -31443,10 +31445,10 @@
           "default": "gen_random_uuid()"
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
+          "note": "Real FK for global passages; NULL exactly for an organization version's passages, which carry no release (passage_release_owner).",
           "name": "release_id",
           "type": "uuid",
-          "nullable": false
+          "nullable": true
         },
         {
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
@@ -31575,7 +31577,9 @@
           "on_delete": "restrict"
         }
       ],
-      "checks": [],
+      "checks": [
+        "((release_id IS NULL) = (tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid))"
+      ],
       "indexes": {
         "passage_ref_0": {
           "name": "passage_ref_0",
@@ -31685,7 +31689,9 @@
           "passage_fk_2",
           "passage_fk_3"
         ],
-        "checks": []
+        "checks": [
+          "passage_release_owner"
+        ]
       },
       "policies": {},
       "rls": false

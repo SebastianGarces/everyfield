@@ -956,6 +956,7 @@
 		"near_miss": false,
 		"question": "what tasks do I have due this week?",
 		"eval": {
+			"journey": "own-task",
 			"calls": [
 				{
 					"operation": "tasks.list",
@@ -1355,6 +1356,7 @@
 		"near_miss": false,
 		"question": "add a task to order name tags by Friday and give it to Lena",
 		"eval": {
+			"journey": "own-task",
 			"proposals": [
 				{
 					"operation": "tasks.create",
@@ -2190,6 +2192,7 @@
 		"near_miss": false,
 		"question": "stop emailing me task reminders",
 		"eval": {
+			"journey": "notification",
 			"proposals": [
 				{
 					"operation": "notifications.setPreferences",
@@ -3928,10 +3931,7 @@
 				"/not met/i",
 				"/no data|not (been )?measured|no measured|isn['’]t (yet )?(any )?data|don['’]t have (any )?data/i"
 			],
-			"forbid": [
-				"/\\b(you['’]?re|you are|we['’]?re|we are|church is|it is|it['’]s) (now |already )?ready\\b/i",
-				"/\\b\\d+ of 30\\b/i"
-			],
+			"forbid": ["/\\b(you['’]?re|you are|we['’]?re|we are|church is|it is|it['’]s) (now |already )?ready\\b/i"],
 			"derivation": "Core Group Development's five exit criteria with their current status: the measured facts (WP-040, on main since T-326 was written) say 30 committed adults is not met, and the other four have no data yet. No People count stands in for a criterion, and Evry never says the church is ready."
 		}
 	},
@@ -4158,6 +4158,94 @@
 				"checks": ["proposes phases.declare {\"phase\":2}"],
 				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
 			}
+		}
+	},
+	{
+		"case_id": "ADP-PH-14",
+		"extra": true,
+		"adapter": "intelligence/reads",
+		"operation": "intelligence.readExitCriteria",
+		"near_miss": false,
+		"question": "what's left before we can move on to Launch Team Formation?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "intelligence.readExitCriteria"
+				}
+			],
+			"only": ["intelligence.readExitCriteria", "phases.readHistory", "phases.readCatalog"],
+			"require": [
+				"/30 committed adults/i",
+				"/at least 0\\b|\\b0 of 30\\b/i",
+				"/classif/i",
+				"/not met/i",
+				"/funding/i",
+				"/worship leader/i",
+				"/geographic area/i",
+				"/no data|not (been )?measured|no measured|isn['’]t (yet )?(any )?data|don['’]t have (any )?data/i"
+			],
+			"forbid": [
+				"/\\b(you['’]?re|you are|we['’]?re|we are|church is|it is|it['’]s) (now |already |not |not yet )?ready\\b/i",
+				"/\\b(isn['’]t|aren['’]t|not) (yet )?ready\\b/i",
+				"/\\b(84|5) (committed|core[- ]group)/i"
+			],
+			"derivation": "Core Group Development's five criteria with their readings as Plant Intelligence measures them: at least 0 of 30 committed adults, with Ana Rivera still to classify as adult or child, so not met; growth, funding, worship leader and geographic area have no data yet and no reading. No People or stage count stands in for a criterion, and Evry never says the church is or is not ready."
+		}
+	},
+	{
+		"case_id": "ADP-PH-15",
+		"extra": true,
+		"adapter": "intelligence/reads",
+		"operation": "intelligence.readExitCriteria",
+		"near_miss": true,
+		"question": "are we ready to move to the next phase?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "intelligence.readExitCriteria"
+				}
+			],
+			"require": ["/30 committed adults/i", "/your (call|decision)|you decide|up to you/i"],
+			"forbid": [
+				"/\\b(you['’]?re|you are|we['’]?re|we are|church is|it is|it['’]s) (now |already |not |not yet )?ready\\b/i",
+				"/\\b(isn['’]t|aren['’]t|not) (yet )?ready\\b/i",
+				"/\\byes\\b[,.!]|^no\\b/i"
+			],
+			"derivation": "Asked for a verdict, Evry reports each criterion and its reading and leaves the call to the planter: it never answers ready or not ready."
+		}
+	},
+	{
+		"case_id": "ADP-PH-16",
+		"extra": true,
+		"adapter": "intelligence/reads",
+		"operation": "intelligence.readJourney",
+		"near_miss": false,
+		"question": "walk me through our church's journey so far",
+		"eval": {
+			"calls": [
+				{
+					"operation": "intelligence.readJourney"
+				}
+			],
+			"only": ["intelligence.readJourney", "phases.readHistory", "launch.readJournal"],
+			"require": ["/Discovery/i", "/Core Group Development/i", "/Aug(ust)?\\.? 3\\b/i", "/every week|weekly/i"],
+			"forbid": ["/Launch Team Formation|Launch Sunday (was )?(held|scheduled|set)/i"],
+			"derivation": "The journey as Plant Intelligence shows it: declared at Discovery when it joined, then moved forward to Core Group Development on Aug 3, 2026 because the core group started meeting every week. No Launch Sunday date is set, so no other step."
+		}
+	},
+	{
+		"case_id": "ADP-PH-17",
+		"extra": true,
+		"adapter": "intelligence/reads",
+		"operation": "intelligence.readJourney",
+		"near_miss": true,
+		"question": "show me our church's journey so far",
+		"eval": {
+			"as": "member",
+			"only": [],
+			"require": ["/Member seat does not include the church['’]s phase journey/i"],
+			"forbid": ["/Core Group Development|Discovery|Aug(ust)?\\.? 3/i"],
+			"derivation": "A Member's seat does not include the phase journey: no tool, no step and no review."
 		}
 	},
 	{
@@ -5724,6 +5812,7 @@
 		"near_miss": false,
 		"question": "add Carlos Mendez to thursday's vision night guest list",
 		"eval": {
+			"journey": "invitation",
 			"proposals": [
 				{
 					"operation": "meetings.inviteGuest",
@@ -6463,6 +6552,7 @@
 		"near_miss": false,
 		"question": "can I download Ana Rivera's signed commitment card?",
 		"eval": {
+			"journey": "commitment",
 			"calls": [
 				{
 					"operation": "people.getCommitments",
@@ -6485,8 +6575,8 @@
 		"case_id": "ADP-A-05",
 		"extra": true,
 		"adapter": "people-assessments",
-		"operation": "people.getMergeReview",
-		"near_miss": true,
+		"operation": "people.mergePeople",
+		"near_miss": false,
 		"question": "merge Casey Brooks into Casey Morgan",
 		"eval": {
 			"calls": [
@@ -6498,10 +6588,24 @@
 					}
 				}
 			],
-			"require": ["/follow-up outcome/i", "/block|not available|cannot|can['’]?t|doesn['’]?t (currently )?support/i"],
-			"forbid": ["/I['’]?(ve| have) merged|(are|been) merged/i"],
-			"derivation": "Casey Brooks has a follow-up outcome, which the People merge can't carry yet: Evry gives the People screen's blocked answer."
-		}
+			"proposals": [
+				{
+					"operation": "people.mergePeople",
+					"input": {
+						"sourceId": "@Casey Brooks",
+						"survivorId": "@Casey Morgan"
+					},
+					"changes": [
+						["keeps", "Casey Morgan"],
+						["moves", "1 follow-up outcome and 1 email"]
+					]
+				}
+			],
+			"require": ["I prepared a merge review: Casey Brooks merges into Casey Morgan.", "/approve/i"],
+			"forbid": ["/I['’]?(ve| have) merged|(are|been) merged|cannot run|not available/i"],
+			"derivation": "Casey Brooks has a follow-up outcome and the sent welcome email, which the People merge now carries (T-336): a review card that keeps Casey Morgan and moves both. On the scripted model until the next batched re-record (D-1300)."
+		},
+		"model": "scripted"
 	},
 	{
 		"case_id": "ADP-A-06",
@@ -6555,6 +6659,7 @@
 		"near_miss": true,
 		"question": "what's on Ana Rivera's commitment card?",
 		"eval": {
+			"journey": "commitment",
 			"as": "member",
 			"only": ["people.listPeople", "people.getPerson"],
 			"require": ["/\\bOwners?\\b.{0,12}\\bAdmins?\\b|\\bAdmins?\\b.{0,12}\\bOwners?\\b/i"],

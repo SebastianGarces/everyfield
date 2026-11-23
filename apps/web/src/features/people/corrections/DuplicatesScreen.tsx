@@ -353,6 +353,26 @@ function PairReview({
 					{groups.moves.some((r) => r.treatment === "deduplicate") ? (
 						<p className="mt-2 text-xs text-text-3">Tags they both have are kept once.</p>
 					) : null}
+					{review.openFollowUps.length ? (
+						<div className="mt-3 border-t border-line pt-2.5">
+							<p className="text-xs font-semibold text-ink-2">
+								{review.openFollowUps.length === 1
+									? "This open follow-up stays open"
+									: review.openFollowUps.length === 2
+										? "Both open follow-ups stay open"
+										: `All ${review.openFollowUps.length} open follow-ups stay open`}{" "}
+								on {first(survivor.displayName)}
+							</p>
+							<ul className="mt-1.5 flex flex-col gap-1 text-xs text-text-2">
+								{review.openFollowUps.map((f) => (
+									<li key={`${f.personId}-${f.meeting}-${f.dueDate}`} className="text-pretty">
+										{f.personId === source.personId ? source.displayName : survivor.displayName}&rsquo;s from{" "}
+										{f.meeting}, due <LocalDay day={f.dueDate} />
+									</li>
+								))}
+							</ul>
+						</div>
+					) : null}
 					{groups.stays.length ? (
 						<p className="mt-3 text-xs text-text-3">
 							Stays in {first(source.displayName)}&rsquo;s history:{" "}
