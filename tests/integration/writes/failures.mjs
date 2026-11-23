@@ -28,16 +28,14 @@ function failingBlocks(lines) {
 	let block = null;
 	for (const line of lines.slice(start + 1)) {
 		if (line.startsWith("test at ")) {
-			block = { file: testFile(line.slice("test at ".length)), lines: [] };
+			block = { file: testPathWithoutCwdSegments(line.slice("test at ".length)), lines: [] };
 			blocks.push(block);
 		} else if (block && line.trim()) block.lines.push(line);
 	}
 	return blocks.map(nameErrorAndTestFrame);
 }
 
-// The reporter prints the path relative to the child's cwd (packages/domain in the census),
-// so drop leading ./ and ../ segments to match it inside an absolute file:// frame.
-function testFile(location) {
+function testPathWithoutCwdSegments(location) {
 	return "/" + location.replace(/:\d+:\d+$/, "").replace(/^(?:\.\.?\/)+/, "");
 }
 
