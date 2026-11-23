@@ -3311,16 +3311,11 @@ const wireParam = (param) => {
 const WIRE_HOME =
 	"A server action is a public POST endpoint: whatever the type says, its arguments arrive as untrusted JSON. Type each parameter unknown, string, number, boolean or FormData, and parse it once at the boundary, in the domain operation it reaches.";
 
-const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) => {
+function serverActions(context, check, opaque = () => {}) {
 	const moduleActions = SERVER_ACTIONS.test(context.sourceCode.text);
-	const check = (fn, name) => {
-		for (const param of fn.params)
-			if (!wireParam(param)) push({ node: param, fn: name, message: `${name} takes a typed parameter. ${WIRE_HOME}` });
-	};
-	const FUNCTION = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
 	const wrapped = (node) => {
 		if (!node) return [];
-		if (FUNCTION.has(node.type)) return [node];
+		if (FUNCTIONS.has(node.type)) return [node];
 		if (node.type === "CallExpression") return node.arguments.flatMap(wrapped);
 		if (node.type === "TSAsExpression" || node.type === "TSSatisfiesExpression") return wrapped(node.expression);
 		return [];
@@ -3348,11 +3343,11 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 			if (node.source) {
 				for (const spec of node.specifiers ?? [])
 					if (spec.exportKind !== "type")
-						push({
-							node: spec,
-							fn: nameOf(spec.exported),
-							message: `${nameOf(spec.exported)} is re-exported from ${node.source.value}, so this rule cannot see its parameters. Declare the server action in this module. ${WIRE_HOME}`,
-						});
+						opaque(
+							spec,
+							nameOf(spec.exported),
+							`${nameOf(spec.exported)} is re-exported from ${node.source.value}, so this rule cannot see its parameters. Declare the server action in this module.`,
+						);
 				return;
 			}
 			const d = node.declaration;
@@ -3372,11 +3367,11 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 		},
 		ExportAllDeclaration(node) {
 			if (!moduleActions || node.exportKind === "type") return;
-			push({
+			opaque(
 				node,
-				fn: "*",
-				message: `export * from ${node.source.value} in a "use server" module exports actions this rule cannot see. Declare each server action in this module. ${WIRE_HOME}`,
-			});
+				"*",
+				`export * from ${node.source.value} in a "use server" module exports actions this rule cannot see. Declare each server action in this module.`,
+			);
 		},
 		"Program:exit"() {
 			for (const [local, exported] of exportedLocals) {
@@ -3387,7 +3382,149 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 			}
 		},
 	};
-});
+}
+
+const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =>
+	serverActions(
+		context,
+		(fn, name) => {
+			for (const param of fn.params)
+				if (!wireParam(param))
+					push({ node: param, fn: name, message: `${name} takes a typed parameter. ${WIRE_HOME}` });
+		},
+		(node, fn, message) => push({ node, fn, message: `${message} ${WIRE_HOME}` }),
+	),
+);
+
+const IDENTITY_PARAM = /^(?:actor|account|session|workspace)(?:id)?$/i;
+
+const paramKeys = (pattern) => {
+	if (!pattern) return [];
+	if (pattern.type === "Identifier") return [[pattern, pattern.name]];
+	if (pattern.type === "AssignmentPattern") return paramKeys(pattern.left);
+	if (pattern.type === "RestElement") return paramKeys(pattern.argument);
+	if (pattern.type === "ArrayPattern") return pattern.elements.flatMap(paramKeys);
+	if (pattern.type === "TSParameterProperty") return paramKeys(pattern.parameter);
+	if (pattern.type !== "ObjectPattern") return [];
+	return pattern.properties.flatMap((p) =>
+		p.type === "RestElement"
+			? paramKeys(p.argument)
+			: [[p, keyName(p.key, p.computed)], ...(p.shorthand ? [] : paramKeys(p.value))],
+	);
+};
+
+const actionIdentityParams = {
+	meta: { type: "problem" },
+	create(context) {
+		return serverActions(context, (fn, name) => {
+			for (const param of fn.params)
+				for (const [node, key] of paramKeys(param))
+					if (key && IDENTITY_PARAM.test(key))
+						context.report({
+							node,
+							message: `${name} takes ${key} from the caller. A server action is a public POST endpoint, so a caller can send any ${key} it likes. Resolve who is asking from the session on the server (getViewer, viewerActor, organizationSeat in @/server/request-context) and take only the subject of the write as input.`,
+						});
+		});
+	},
+};
+
+export const PROOF_CONTRACTS = {
+	"@everyfield/contracts/identity": [
+		"acceptSeatInvitationRequest",
+		"describeInvitationRequest",
+		"recoverPasswordRequest",
+		"registrationRequest",
+		"respondResidentInvitationRequest",
+		"resumeRegistrationRequest",
+		"verifyEmailRequest",
+	],
+	"@everyfield/contracts/organizations": ["acceptInvitationRequest", "respondInvitationRequest"],
+};
+
+const PROOF_KEY = /proof/i;
+const PROOF_HOME =
+	"An invitation or account link proof is a bearer secret: a server action takes its arguments as public POST JSON that Next logs and replays, so a proof never passes through one. The proof page posts it in the body of its own route (/api/connections/invitation, the identity routes), and server code reads a proof it set itself from its cookie.";
+
+const fromNoInput = (node) => {
+	const call = unwrap(node);
+	return call?.type === "CallExpression" && call.arguments.length === 0;
+};
+
+const actionProofs = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!SERVER_ACTIONS.test(context.sourceCode.text)) return {};
+		const report = (node, what) => context.report({ node, message: `This "use server" module ${what}. ${PROOF_HOME}` });
+		const contracts = new Map(Object.entries(PROOF_CONTRACTS).map(([source, names]) => [source, new Set(names)]));
+		const sources = new Set(contracts.keys());
+		const names = new Set([...contracts.values()].flatMap((set) => [...set]));
+		const key = (node) => (node.type === "Property" ? keyName(node.key, node.computed) : null);
+		const uses = (node, name) => report(node, `uses the proof-carrying contract ${name}`);
+		return merge(moduleUses(sources, names, [], uses, true), {
+			ImportDeclaration(node) {
+				if (node.importKind === "type") return;
+				for (const spec of node.specifiers)
+					if (
+						spec.type === "ImportSpecifier" &&
+						spec.importKind !== "type" &&
+						contracts.get(node.source.value)?.has(nameOf(spec.imported))
+					)
+						uses(spec, nameOf(spec.imported));
+			},
+			Property(node) {
+				const name = key(node);
+				if (!name || !PROOF_KEY.test(name)) return;
+				if (node.parent.type === "ObjectPattern") return report(node, `takes a field named ${name}`);
+				if (!fromNoInput(node.value)) report(node, `forwards a field named ${name} it did not read itself`);
+			},
+			MemberExpression(node) {
+				const name = memberName(node);
+				if (name && PROOF_KEY.test(name)) report(node, `reads a field named ${name}`);
+			},
+			Identifier(node) {
+				const fn = node.parent;
+				if (FUNCTIONS.has(fn?.type) && fn.params.includes(node) && PROOF_KEY.test(node.name))
+					report(node, `takes a parameter named ${node.name}`);
+			},
+		});
+	},
+};
+
+const TOKEN_ONLY = new Set([
+	"apps/web/src/features/communication/unsubscribe.ts",
+	"apps/web/src/features/communication/unsubscribeActions.ts",
+	"apps/web/src/features/communication/unsubscribeRoute.tsx",
+	"apps/web/src/features/communication/unsubscribeOneClick.ts",
+]);
+const SESSION_MODULES = [
+	/^apps\/web\/src\/server\/(?:request-context|identity|sign-in)(?:\.[cm]?[jt]sx?|\/|$)/,
+	/^apps\/web\/src\/features\/[^/]+\/mount(?:\.[cm]?[jt]sx?)?$/,
+];
+const SESSION_PACKAGES = /^(?:next\/headers|better-auth(?:\/.*)?|@everyfield\/domain\/(?:access|identity))$/;
+const SESSION_NAME = /viewer|session|actor|seat/i;
+
+const tokenAuthority = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		if (!TOKEN_ONLY.has(from)) return {};
+		const report = (node, what) =>
+			context.report({
+				node,
+				message: `${what} in an unsubscribe module. The token in the link is the only authority here: a person who opens it may be signed out or signed in as someone else, so nothing may read the session, the request headers or a viewer.`,
+			});
+		return {
+			...moduleSources((node, spec) => {
+				const to = resolveImport(from, spec).to ?? "";
+				if (SESSION_PACKAGES.test(spec) || SESSION_MODULES.some((m) => m.test(to)))
+					report(node, `${spec} is a session, request-context or viewer module, imported`);
+			}),
+			ImportSpecifier(node) {
+				if (SESSION_NAME.test(nameOf(node.imported))) report(node, `${nameOf(node.imported)} is imported`);
+			},
+		};
+	},
+};
 
 const KEY_MINTS = new Set(["newRequestKey", "randomUUID"]);
 const keySlot = (node) =>
@@ -4267,6 +4404,9 @@ export default {
 		"render-reads": renderReads,
 		"no-read-actions": noReadActions,
 		"action-params-unknown": actionParamsUnknown,
+		"action-identity-params": actionIdentityParams,
+		"action-proofs": actionProofs,
+		"token-authority": tokenAuthority,
 		"client-request-key": clientRequestKey,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,

@@ -3,6 +3,7 @@ import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/n
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { testDatabase } from "../../support/test-database.mts";
 import { sql, eq, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
@@ -1184,6 +1185,32 @@ test("AC:AUTH-005 AC:AUTH-006 AC:AUTH-007 AC:TARGET-IDN-007 AC:ROLE43-018 email 
 	assert.equal(person.linked_account_id, a.id);
 	assert.equal(person.email, "crm-contact@example.test");
 	assert.equal((await call("confirmEmailChange", a, { proof: second.token })).status, "refused");
+});
+
+test("INV-proof-link: opening an email-change link writes nothing and its proof still confirms the change", async () => {
+	const { NextRequest } = createRequire(new URL("../../../apps/web/package.json", import.meta.url))("next/server");
+	const { proxy, EMAIL_CHANGE_PROOF_COOKIE } = await import("../../../apps/web/src/proxy.ts");
+	const a = await credentialActor();
+	ok(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
+	const mailed = deliveries.at(-1);
+	const state = async () =>
+		JSON.stringify({
+			proofs: await admin.select().from(t.identity_proof).where(eq(t.identity_proof.account_id, a.id)),
+			user: await admin.select().from(t.auth_user).where(eq(t.auth_user.id, a.user)),
+			audit: (await admin.execute(sql`SELECT count(*)::int AS n FROM audit_event`)).rows[0].n,
+		});
+	const before = await state();
+	const opened = proxy(
+		new NextRequest(`https://everyfield.test/confirm-email?token=${encodeURIComponent(mailed.token)}`),
+	);
+	assert.equal(opened.status, 307);
+	const kept = opened.cookies.get(EMAIL_CHANGE_PROOF_COOKIE)?.value;
+	assert.equal(kept, mailed.token);
+	assert.equal(await state(), before);
+	const result = await call("confirmEmailChange", a, { proof: kept });
+	assert.equal(result.status, "succeeded");
+	const [user] = await admin.select().from(t.auth_user).where(eq(t.auth_user.id, a.user));
+	assert.equal(user.email, mailed.address);
 });
 
 test("AC:TARGET-IDN-008 AC:ROLE43-018 password proof precedes unchanged refusal; supported revocation and reporting failures stay truthful", async () => {

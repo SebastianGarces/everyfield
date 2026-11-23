@@ -340,13 +340,19 @@ test("INV-invitation-detail: only the addressed receiving Owner or Admin can rea
 		false,
 		"the respond read must not lock or resolve the actor again",
 	);
+	assert.deepEqual(
+		statements.filter((q) => /\b(insert|update|delete|merge)\b/i.test(q)),
+		[],
+		"opening the request with its proof writes nothing",
+	);
 	assert.equal(shown.inviterDescription, "Harvest Point");
 	assert.deepEqual(shown.pair, i.pair);
-	await S.call(
+	const answered = await S.call(
 		"associations.respondInvitation",
 		oa,
-		S.command({ invitationId: i.invitationId, proof, decision: "decline" }),
+		S.command({ invitationId: i.invitationId, proof, decision: "accept" }),
 	);
+	assert.equal((answered as { status: string }).status, "accepted");
 	assert.deepEqual(await read(oa), { status: "unavailable" });
 });
 
