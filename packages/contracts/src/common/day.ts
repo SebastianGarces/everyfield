@@ -9,9 +9,8 @@ const MS_PER_DAY = 86_400_000;
 
 function noon(day: string): Date {
 	const parts = DAY.exec(day);
-	const at = parts ? new Date(Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]), 12)) : null;
-	if (at === null || Number.isNaN(at.getTime()) || at.toISOString().slice(0, 10) !== day)
-		throw new RangeError(`Not a civil day: ${day}`);
+	const at = parts && new Date(Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]), 12));
+	if (!at || at.toISOString().slice(0, 10) !== day) throw new RangeError(`Not a civil day: ${day}`);
 	return at;
 }
 
