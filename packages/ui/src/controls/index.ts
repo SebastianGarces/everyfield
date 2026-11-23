@@ -45,8 +45,10 @@ export {
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
+	DialogTitle,
 	DialogTrigger,
 	Sheet,
+	usePhone,
 } from "./Dialog";
 export { Field, Input, Kbd, SearchInput, Textarea, useFieldControl } from "./Field";
 export { both, IntentLink, useIntentPrefetch } from "./IntentLink";
@@ -73,6 +75,7 @@ export {
 	MenuTrigger,
 } from "./Menu";
 export { Breadcrumb, PageHeader, type Crumb } from "./PageHeader";
+export { ProblemText } from "./ProblemText";
 export { usePortalContainer } from "./overlay-portal";
 export { Popover, PopoverAnchor, PopoverClose, PopoverContent, PopoverTrigger, Tooltip, TooltipSep } from "./Popover";
 export { Select, type SelectOption } from "./Select";

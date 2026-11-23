@@ -4,4 +4,5 @@ packages:
 onlyBuiltDependencies:
   - bun
 patchedDependencies:
+  cmdk@1.1.1: patches/cmdk@1.1.1.patch
   vaul@1.1.2: patches/vaul@1.1.2.patch

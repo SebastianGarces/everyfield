@@ -1,3 +1,4 @@
+import { counted, dayText } from "@everyfield/contracts/common";
 import type { WriteTx } from "@everyfield/domain/access";
 import { gatedTransaction } from "@everyfield/domain/operations";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
@@ -16,7 +17,13 @@ import { z } from "zod";
 import { id, localDue, dueOf as nativeDue } from "../values.ts";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
+import {
+	savedInput,
+	savedRevision,
+	type EffectResult,
+	type ReviewContext,
+	type ReviewedWrite,
+} from "../../../proposals/types.ts";
 import { inPlant, ownerOrAdmin, value } from "../reads/index.ts";
 import { present } from "../../../runtime/captured.ts";
 
@@ -98,7 +105,7 @@ export function reviewed<I>(spec: {
 	};
 }
 const writer = (reminders: TaskReminders) => createTaskWriter({ reminders });
-const saved = z.object({ expectedRevision: z.string(), input: z.record(z.string(), z.unknown()) });
+const saved = z.strictObject({ expectedRevision: z.string(), input: z.record(z.string(), z.unknown()) });
 
 const taskId = id.describe("A task id from an earlier result");
 
@@ -249,7 +256,7 @@ const createTask = reviewed<z.infer<typeof createInput>>({
 			jsonb_build_object('input',${json(input)},'recurrence',${json(v.recurrence ?? null)}) AS args`;
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ input: z.unknown(), recurrence: recurrence.nullable() }).parse(args);
+		const a = z.strictObject({ input: z.unknown(), recurrence: recurrence.nullable() }).parse(args);
 		const tasks = writer(reminders);
 		const created = await tasks.create(tx, context, { requestKey: key("create"), input: a.input });
 		if (created.status !== "ok" || !a.recurrence) return done(created);
@@ -383,7 +390,7 @@ const bulkComplete = reviewed<z.infer<typeof bulkCompleteInput>>({
 		);
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ items: z.array(z.unknown()) }).parse(args);
+		const a = z.strictObject({ items: z.array(z.unknown()) }).parse(args);
 		return bulkDone(await writer(reminders).bulkComplete(tx, context, { requestKey: key("bulk"), items: a.items }));
 	},
 });
@@ -402,7 +409,7 @@ const bulkReschedule = reviewed<z.infer<typeof rescheduleInput>>({
 		);
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ items: z.array(z.unknown()), due: z.unknown() }).parse(args);
+		const a = z.strictObject({ items: z.array(z.unknown()), due: z.unknown() }).parse(args);
 		return bulkDone(
 			await writer(reminders).bulkReschedule(tx, context, { requestKey: key("bulk"), items: a.items, due: a.due }),
 		);
@@ -419,11 +426,11 @@ const checklistInput = z.strictObject({
 	remove: z.array(id).max(20).default([]).describe("Checklist row ids to remove"),
 });
 type Checklist = z.infer<typeof checklistInput>;
-const checklistArgs = z.object({
+const checklistArgs = z.strictObject({
 	parentId: id,
 	parentRevision: z.string(),
 	add: z.array(z.string()),
-	rows: z.array(z.object({ taskId: id, revision: z.string(), complete: z.boolean().nullable() })),
+	rows: z.array(z.strictObject({ taskId: id, revision: z.string(), complete: z.boolean().nullable() })),
 });
 function checklistWrite({
 	operation,
@@ -512,11 +519,6 @@ export const removeSubtask = checklistWrite({
 });
 
 const templates = createTemplateReader();
-const dayText = (date: string) =>
-	new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
-		new Date(`${date}T12:00:00Z`),
-	);
-const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 const card = (review: unknown, args: unknown) => sql`SELECT ${json(review)} AS review, ${json(args)} AS args`;
 
 type Open = Extract<z.infer<typeof phaseOffer>, { status: "open" }>;
@@ -541,7 +543,7 @@ function offerReview(offer: Open, accepted: readonly string[]) {
 		),
 		notes: created
 			? [
-					`${plural(created, "new task", "new tasks")}, assigned to you. Due dates count from the phase move on ${dayText(offer.transition.anchorDate)}, so some may already be past.`,
+					`${counted(created, "new task")}, assigned to you. Due dates count from the phase move on ${dayText(offer.transition.anchorDate)}, so some may already be past.`,
 				]
 			: ["No task is created, and the offer closes for this phase move."],
 	};
@@ -552,8 +554,8 @@ const answered = (reply: Answered): EffectResult =>
 	reply.status === "ok"
 		? { receiptId: reply.value.receiptId, revision: String(reply.value.created.length) }
 		: { refused: reply.error.code };
-const offerArgs = z.object({
-	input: z.object({ transitionId: id, catalogVersion: z.int().optional(), checklistKeys: z.array(z.string()) }),
+const offerArgs = z.strictObject({
+	input: z.strictObject({ transitionId: id, catalogVersion: z.int().optional(), checklistKeys: z.array(z.string()) }),
 });
 
 function offerWrite<I>(spec: {
@@ -651,14 +653,14 @@ export const importTemplate = reviewed<z.infer<typeof importInput>>({
 				target: { kind: "template", id: k.key, label: k.name },
 				changes: items.map((t) => ({ field: t?.title, before: null, after: t?.due })),
 				notes: [
-					`${plural(items.length, "new task", "new tasks")}, assigned to you. Due dates count from today; approved on a later day, they move with it.`,
+					`${counted(items.length, "new task")}, assigned to you. Due dates count from today; approved on a later day, they move with it.`,
 				],
 			},
 			{ input: { catalogVersion: preview.catalogVersion, checklistKey: k.key, itemKeys: v.itemKeys } },
 		);
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ input: z.unknown() }).parse(args);
+		const a = savedInput.parse(args);
 		const reply = await writer(reminders).importTemplate(tx, context, { requestKey: key("import"), input: a.input });
 		return reply.status === "ok"
 			? { receiptId: reply.value.receiptId, revision: String(reply.value.tasks.length) }
@@ -674,7 +676,7 @@ const prerequisitesInput = z.strictObject({
 		.refine((ids) => new Set(ids).size === ids.length, "repeated task")
 		.describe("The whole new set of top-level tasks it waits on; [] clears them"),
 });
-const prerequisiteFacts = z.object({
+const prerequisiteFacts = z.strictObject({
 	title: z.string(),
 	subtask: z.boolean(),
 	revision: z.string(),
@@ -721,7 +723,7 @@ export const replacePrerequisites = reviewed<z.infer<typeof prerequisitesInput>>
 		);
 	},
 	async run(tx, context, args, key, reminders) {
-		const a = z.object({ expectedRevision: z.string(), input: z.unknown() }).parse(args);
+		const a = savedRevision.parse(args);
 		return done(
 			await writer(reminders).replacePrerequisites(tx, context, {
 				requestKey: key("prerequisites"),

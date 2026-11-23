@@ -165,7 +165,6 @@ function avatarReadable(ctx: SettingsContext, account: string, version: string) 
 		AND (
 			(av_i.account_id=${account}::uuid AND EXISTS(SELECT FROM account av_x WHERE av_x.id=av_i.account_id AND av_x.avatar_object_id=${version}::uuid))
 			OR EXISTS(SELECT FROM seat av_v WHERE av_v.account_id=av_i.account_id AND ${seatHeld("av_v")}
-				AND NOT ${hiding("av_vw", sql`av_vw.seat_id=av_v.id`)}
 				AND (${workspaceAvatar(sql`${account}::uuid`, sql`coalesce(av_v.plant_id,av_v.organization_id)`)}=${version}::uuid
 					OR ${oversightAvatar(sql`${account}::uuid`, sql`coalesce(av_v.plant_id,av_v.organization_id)`, sql`${version}::uuid`)}))
 		))`;

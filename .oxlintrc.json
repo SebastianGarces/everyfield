@@ -65,9 +65,28 @@
 	},
 	"overrides": [
 		{
+			"files": ["packages/**"],
+			"rules": {
+				"everyfield/no-default-database": "error"
+			}
+		},
+		{
 			"files": ["packages/*/src/**"],
 			"rules": {
 				"everyfield/no-error-message-match": "error"
+			}
+		},
+		{
+			"files": [
+				"packages/contracts/src/**",
+				"packages/db/src/**",
+				"packages/domain/src/**",
+				"packages/evry/src/**",
+				"packages/reference/src/**"
+			],
+			"rules": {
+				"everyfield/count-text": "error",
+				"everyfield/civil-day": "error"
 			}
 		},
 		{
@@ -170,7 +189,7 @@
 			}
 		},
 		{
-			"files": ["packages/contracts/src/**"],
+			"files": ["packages/contracts/src/**", "packages/evry/src/**"],
 			"rules": {
 				"everyfield/strict-contracts": "error"
 			}

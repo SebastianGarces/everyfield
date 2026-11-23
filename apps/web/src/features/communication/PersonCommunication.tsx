@@ -10,7 +10,9 @@ import { loadProblem } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
 const previewContexts = createRead(() => readPreviewContext(), {
-	failed: (): Outcome<{ churchName: string; origin: string }> | ReadFailure => ({ status: "lost" }),
+	failed: (): Outcome<{ churchName: string; mailingAddress: string | null; origin: string }> | ReadFailure => ({
+		status: "lost",
+	}),
 });
 
 export function PersonCommunication({ personId, canWrite }: { personId: string; canWrite: boolean }) {
@@ -36,6 +38,7 @@ export function PersonCommunication({ personId, canWrite }: { personId: string; 
 							keepScope
 							onOpen={() => setSaved(true)}
 							churchName={preview.value.churchName}
+							mailingAddress={preview.value.mailingAddress}
 							origin={preview.value.origin}
 						/>
 					</div>

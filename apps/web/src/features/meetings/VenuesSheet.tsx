@@ -23,7 +23,7 @@ import { changeVenue, createVenue } from "./actions.ts";
 import { getVenue, listVenues } from "./fetch.ts";
 import { problemText, type Outcome, type Venue } from "./model.ts";
 import { SaveButton, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
-import { MONTHS } from "../../components/dates.ts";
+import { dayText } from "@everyfield/contracts/common";
 import { loadProblem, failedIcon } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
@@ -341,7 +341,7 @@ function Place({
 						{loaded.history.map((h) => (
 							<li key={h.id} className="border-t border-line py-2.5 text-sm first:border-t-0">
 								<span className="font-medium text-ink">{HISTORY_LABEL[h.kind] ?? "Changed"}</span>
-								<span className="text-text-3"> · {dayText(h.occurredAt)}</span>
+								<span className="text-text-3"> · {dayText(h.occurredAt.slice(0, 10))}</span>
 								{h.after ? (
 									<span className="block text-text-2">{Object.keys(h.after).map(fieldName).join(", ")}</span>
 								) : null}
@@ -375,11 +375,6 @@ const FIELD_NAME: Record<string, string> = {
 	active: "archived state",
 };
 const fieldName = (k: string) => FIELD_NAME[k] ?? k;
-const dayText = (at: string) => {
-	const d = new Date(at);
-	return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
-};
-
 type VenueDraft = Record<
 	"name" | "address" | "contactName" | "phone" | "email" | "costDescription" | "capacity" | "notes" | "reason",
 	string

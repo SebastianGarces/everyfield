@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { Clock01Icon } from "@hugeicons/core-free-icons";
 import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
 import { useState } from "react";
@@ -67,7 +68,7 @@ export function PlantTimezoneDialog({
 	const sameZone = zone === oldZone;
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
+		<Dialog drawer open={open} onOpenChange={onOpenChange}>
 			<DialogContent size="md">
 				<DialogHeader
 					icon={Clock01Icon}
@@ -131,7 +132,7 @@ function PreviewList({ preview, oldZone }: { preview: PlantTimezonePreview; oldZ
 			<p className="text-ink">
 				{total === 0
 					? "No future meetings, digests or reminders move."
-					: `${total} future ${total === 1 ? "time keeps" : "times keep"} the same clock time in the new zone.`}{" "}
+					: `${counted(total, "future time keeps", "future times keep")} the same clock time in the new zone.`}{" "}
 				<span className="text-text-2">Past times and one-time appointments do not change.</span>
 			</p>
 			{groups

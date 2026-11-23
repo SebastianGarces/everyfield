@@ -811,7 +811,7 @@ export const development_enrollment = pgTable(
 		cohort_label: text("cohort_label").notNull(),
 		started_on: date("started_on", { mode: "string" }).notNull(),
 		expected_end_on: date("expected_end_on", { mode: "string" }).notNull(),
-		status: text("status", { enum: ["active", "completed", "withdrawn"] }).notNull(),
+		status: text("status", { enum: ["active", "completed"] }).notNull(),
 		current_stage_id: uuid("current_stage_id").notNull(),
 		next_meeting_at: timestamp("next_meeting_at", { withTimezone: true, mode: "date" }),
 		meeting_timezone: text("meeting_timezone").notNull(),
@@ -869,10 +869,7 @@ export const development_enrollment = pgTable(
 		unique("development_enrollment_uq_1").on(table.id, table.version_id, table.organization_id),
 		unique("development_enrollment_uq_3").on(table.id, table.program_id, table.organization_id),
 		check("development_enrollment_ck_0", sql`(revision >= 1)`),
-		check(
-			"development_enrollment_ck_1",
-			sql`(status = ANY (ARRAY['active'::text, 'completed'::text, 'withdrawn'::text]))`,
-		),
+		check("development_enrollment_ck_1", sql`(status = ANY (ARRAY['active'::text, 'completed'::text]))`),
 		check("development_enrollment_ck_2", sql`(expected_end_on >= started_on)`),
 		check("development_enrollment_meeting_timezone_iana", sql`(meeting_timezone = ANY (${canonicalZones7}))`),
 		index("development_enrollment_ref_0").using("btree", table.organization_id.asc().nullsLast()),
@@ -2331,7 +2328,7 @@ export const lifecycle_witness = pgTable(
 		id: uuid("id")
 			.notNull()
 			.default(sql`gen_random_uuid()`),
-		kind: text("kind", { enum: ["account", "plant", "seat", "affiliation"] }).notNull(),
+		kind: text("kind", { enum: ["account", "plant"] }).notNull(),
 		opaque_subject_id: uuid("opaque_subject_id").notNull(),
 		account_id: uuid("account_id"),
 		plant_id: uuid("plant_id"),
@@ -2339,7 +2336,7 @@ export const lifecycle_witness = pgTable(
 		requester_id: uuid("requester_id"),
 		request_revision: int64("request_revision").notNull(),
 		state: text("state", {
-			enum: ["active", "pending_deletion", "purging", "purged", "cancelled", "revoked"],
+			enum: ["pending_deletion", "purging", "purged", "cancelled"],
 		}).notNull(),
 		requested_at: timestamp("requested_at", { withTimezone: true, mode: "date" }),
 		live_purged_at: timestamp("live_purged_at", { withTimezone: true, mode: "date" }),
@@ -2348,8 +2345,6 @@ export const lifecycle_witness = pgTable(
 		cleanup_state: text("cleanup_state", {
 			enum: ["not_started", "in_progress", "inaccessible", "confirmed"],
 		}).notNull(),
-		seat_id: uuid("seat_id"),
-		affiliation_id: uuid("affiliation_id"),
 		requester_opaque_id: uuid("requester_opaque_id"),
 		cancel_until: timestamp("cancel_until", { withTimezone: true, mode: "date" }),
 		cancelled_at: timestamp("cancelled_at", { withTimezone: true, mode: "date" }),
@@ -2364,12 +2359,6 @@ export const lifecycle_witness = pgTable(
 		foreignKey({ name: "lifecycle_witness_fk_2", columns: [table.requester_id], foreignColumns: [account.id] })
 			.onDelete("restrict")
 			.onUpdate("no action"),
-		foreignKey({ name: "lifecycle_witness_fk_3", columns: [table.seat_id], foreignColumns: [seat.id] })
-			.onDelete("restrict")
-			.onUpdate("no action"),
-		foreignKey({ name: "lifecycle_witness_fk_4", columns: [table.affiliation_id], foreignColumns: [affiliation.id] })
-			.onDelete("restrict")
-			.onUpdate("no action"),
 		foreignKey({ name: "lifecycle_witness_fk_6", columns: [table.id], foreignColumns: [record.id] })
 			.onDelete("restrict")
 			.onUpdate("no action"),
@@ -2380,10 +2369,6 @@ export const lifecycle_witness = pgTable(
 			sql`(cleanup_state = ANY (ARRAY['not_started'::text, 'in_progress'::text, 'inaccessible'::text, 'confirmed'::text]))`,
 		),
 		check("lifecycle_witness_ck_1", sql`((plant_id IS NULL) OR (kind = 'plant'::text))`),
-		check(
-			"lifecycle_witness_ck_10",
-			sql`((kind = ANY (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'revoked'::text])))`,
-		),
 		check(
 			"lifecycle_witness_ck_11",
 			sql`((state <> ALL (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])) OR ((request_id IS NOT NULL) AND (requested_at IS NOT NULL) AND (cancel_until IS NOT NULL) AND (request_revision >= 1)))`,
@@ -2410,27 +2395,15 @@ export const lifecycle_witness = pgTable(
 			"lifecycle_witness_ck_2",
 			sql`((copy_expires_at IS NULL) OR (copy_expires_at <= (live_purged_at + '168:00:00'::interval)))`,
 		),
-		check(
-			"lifecycle_witness_ck_3",
-			sql`(kind = ANY (ARRAY['account'::text, 'plant'::text, 'seat'::text, 'affiliation'::text]))`,
-		),
+		check("lifecycle_witness_ck_3", sql`(kind = ANY (ARRAY['account'::text, 'plant'::text]))`),
 		check(
 			"lifecycle_witness_ck_4",
-			sql`(state = ANY (ARRAY['active'::text, 'pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text, 'revoked'::text]))`,
+			sql`(state = ANY (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text]))`,
 		),
-		check("lifecycle_witness_ck_5", sql`(num_nonnulls(account_id, plant_id, seat_id, affiliation_id) <= 1)`),
 		check("lifecycle_witness_ck_6", sql`((account_id IS NULL) OR (kind = 'account'::text))`),
-		check("lifecycle_witness_ck_7", sql`((seat_id IS NULL) OR (kind = 'seat'::text))`),
-		check("lifecycle_witness_ck_8", sql`((affiliation_id IS NULL) OR (kind = 'affiliation'::text))`),
-		check(
-			"lifecycle_witness_ck_9",
-			sql`((kind <> ALL (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])))`,
-		),
 		index("lifecycle_witness_ref_0").using("btree", table.account_id.asc().nullsLast()),
 		index("lifecycle_witness_ref_1").using("btree", table.plant_id.asc().nullsLast()),
 		index("lifecycle_witness_ref_2").using("btree", table.requester_id.asc().nullsLast()),
-		index("lifecycle_witness_ref_3").using("btree", table.seat_id.asc().nullsLast()),
-		index("lifecycle_witness_ref_4").using("btree", table.affiliation_id.asc().nullsLast()),
 	],
 );
 export const mail = pgTable(
@@ -2484,11 +2457,14 @@ export const mail = pgTable(
 			.default(sql`1`),
 		created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
 		address_hash: text("address_hash"),
-		refusal: text("refusal", { enum: ["unsubscribed"] }),
+		refusal: text("refusal", { enum: ["unsubscribed", "child"] }),
 		communication_id: uuid("communication_id"),
 	},
 	(table): PgTableExtraConfigValue[] => [
-		check("mail_refusal", sql`((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))`),
+		check(
+			"mail_refusal",
+			sql`((refusal IS NULL) OR ((refusal = ANY (ARRAY['unsubscribed'::text, 'child'::text])) AND (state = 'refused'::text)))`,
+		),
 		foreignKey({ name: "mail_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })
 			.onDelete("restrict")
 			.onUpdate("no action"),
@@ -4983,7 +4959,7 @@ export const responsibility = pgTable(
 			.default(sql`gen_random_uuid()`),
 		plant_id: uuid("plant_id").notNull(),
 		team_id: uuid("team_id").notNull(),
-		source_version_id: uuid("source_version_id").notNull(),
+		source_version_id: uuid("source_version_id"),
 		source_line: text("source_line").notNull(),
 		text: text("text").notNull(),
 		sort_order: integer("sort_order").notNull(),

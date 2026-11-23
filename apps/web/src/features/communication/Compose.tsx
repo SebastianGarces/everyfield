@@ -1,4 +1,5 @@
 "use client";
+import { counted, countWord } from "@everyfield/contracts/common";
 import type { Outcome } from "@everyfield/contracts/common";
 
 import { ArrowLeft01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
@@ -11,21 +12,13 @@ import { unsavedMark } from "../../components/save/leave.ts";
 import { deleteDraft, saveDraft, handOff } from "./actions.ts";
 import { readDraft, readMeetingContext, readMeetingTemplate } from "./fetch.ts";
 import { bodyToTextResult, textToBody } from "./body.ts";
-import {
-	audienceSize,
-	draftPayload,
-	formatWhen,
-	isLocked,
-	listed,
-	plural,
-	writeReason,
-	type Form,
-} from "./composeModel.ts";
+import { audienceSize, draftPayload, formatWhen, isLocked, listed, writeReason, type Form } from "./composeModel.ts";
 import { PreviewStage } from "./EmailFrame.tsx";
 import { pickSampleName } from "./fields.ts";
 import { MessageEditor } from "./MessageEditor.tsx";
 import {
 	deliveryText,
+	noRecipientReason,
 	scheduleText,
 	outcomeText,
 	scheduledNotSentText,
@@ -192,29 +185,41 @@ function ComposeForm({
 }: ComposeProps & { opening: Opened; onHeld: (id: string) => void }) {
 	const keys = useKeys();
 	const store = useLocalStore(() => createComposeStore({ opening, templates: data.templates }));
-	const { form, saved, extra, notes, undo, pending, problem, plan, scheduledId, counted, previewed, actions } =
-		useStore(
-			store,
-			useShallow((state) => ({
-				form: state.form,
-				saved: state.saved,
-				extra: state.extra,
-				notes: state.notes,
-				undo: state.undo,
-				pending: state.pending,
-				problem: state.problem,
-				plan: state.plan,
-				scheduledId: state.scheduledId,
-				counted: state.counted,
-				previewed: state.previewed,
-				actions: state.actions,
-			})),
-		);
+	const {
+		form,
+		saved,
+		extra,
+		notes,
+		undo,
+		pending,
+		problem,
+		plan,
+		scheduledId,
+		counted: audienceCounted,
+		previewed,
+		actions,
+	} = useStore(
+		store,
+		useShallow((state) => ({
+			form: state.form,
+			saved: state.saved,
+			extra: state.extra,
+			notes: state.notes,
+			undo: state.undo,
+			pending: state.pending,
+			problem: state.problem,
+			plan: state.plan,
+			scheduledId: state.scheduledId,
+			counted: state.counted,
+			previewed: state.previewed,
+			actions: state.actions,
+		})),
+	);
 	const heading = useFocusOnChange<HTMLHeadingElement>(step);
 	const openedMeeting = opening.kind === "new" ? opening.meeting : null;
 	const meetingRead = useRead(!openedMeeting && form.meetingId ? meetingContexts : null, form.meetingId ?? "");
 	const meeting = openedMeeting ?? (meetingRead.value?.status === "ok" ? meetingRead.value.value : null);
-	const { summary, failed, ready } = useAudienceSummary(form.audience, counted);
+	const { summary, failed, ready } = useAudienceSummary(form.audience, audienceCounted);
 	const templates = [
 		...data.templates,
 		...extra.filter((t) => !data.templates.some((d) => d.templateId === t.templateId)),
@@ -230,7 +235,7 @@ function ComposeForm({
 	const whoReason = !ready
 		? "Counting who can get email."
 		: eligible === 0
-			? "Choose at least one person who can get email"
+			? noRecipientReason(summary, "Choose at least one person who can get email")
 			: null;
 	const reason = step === "who" ? whoReason : step === "write" ? (locked ? null : (write?.reason ?? null)) : null;
 
@@ -355,9 +360,15 @@ function ComposeForm({
 	};
 
 	const names = summary?.missingEmailExclusions ?? [];
+	const children = (summary?.childExclusions ?? []).map((person) => person.displayName);
 	const consequences = (when: string) => [
-		`${plural(eligible, "person gets", "people get")} this email ${when}.`,
-		...(names.length ? [`${listed(names)} ${names.length === 1 ? "has" : "have"} no email and will be skipped.`] : []),
+		`${counted(eligible, "person gets", "people get")} this email ${when}.`,
+		...(children.length
+			? [`${listed(children)} ${countWord(children.length, "is", "are")} marked as a child and will be skipped.`]
+			: []),
+		...(names.length
+			? [`${listed(names)} ${countWord(names.length, "has", "have")} no email and will be skipped.`]
+			: []),
 		"You cannot unsend it once it leaves.",
 	];
 
@@ -492,6 +503,7 @@ function ComposeForm({
 							hasMeeting,
 							origin: data.origin,
 							churchName: data.churchName,
+							mailingAddress: data.mailingAddress,
 						}}
 						chrome={chrome}
 					/>
@@ -506,6 +518,7 @@ function ComposeForm({
 					summary={summary}
 					meeting={meeting}
 					churchName={data.churchName}
+					mailingAddress={data.mailingAddress}
 					origin={data.origin}
 					sampleName={SAMPLE}
 					canSend={eligible > 0 && audienceSize(form.audience) > 0}
@@ -577,7 +590,7 @@ function ComposeForm({
 				title={
 					plan?.kind === "at"
 						? `Schedule for ${formatWhen(plan.at.toISOString())}?`
-						: `Send to ${plural(eligible, "person", "people")} now?`
+						: `Send to ${counted(eligible, "person", "people")} now?`
 				}
 				description={`"${form.subject}"`}
 				consequences={consequences(plan?.kind === "at" ? `on ${formatWhen(plan.at.toISOString())}` : "right away")}

@@ -9,7 +9,7 @@ import * as t from "@everyfield/db/tables";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { liveAccess, liveRead, liveRows, RequestActor, type WriteTx } from "../access/session.ts";
+import { liveAccess, liveRead, liveRows, ownerHidden, RequestActor, type WriteTx } from "../access/session.ts";
 import { timedTransaction, timeouts, transaction } from "./budget.ts";
 import { lastWrite } from "../operations/writes.ts";
 import * as d from "./invitation-core.ts";
@@ -133,15 +133,6 @@ export function createInvitationService(config: InvitationConfig) {
 		if (!p) d.deny("invitation_unavailable");
 		return p;
 	}
-	async function lockSourcePerson(
-		tx: WriteTx,
-		source: Pick<d.Invitation, "purpose" | "tenant_id" | "resident_person_id">,
-	) {
-		if (source.purpose === "residency_link" && source.resident_person_id)
-			await tx.execute(sql`WITH r AS MATERIALIZED (SELECT x.id FROM organization x WHERE x.id=${source.tenant_id}::uuid FOR SHARE)
- SELECT p.id FROM person p WHERE p.id=${source.resident_person_id}::uuid AND p.tenant_id=${source.tenant_id}::uuid
- AND EXISTS(SELECT FROM r) FOR UPDATE OF p`);
-	}
 	async function charge(
 		tx: WriteTx,
 		selected: Owner & { kind: "plant" | "organization" },
@@ -240,31 +231,30 @@ export function createInvitationService(config: InvitationConfig) {
 	async function describe(raw: unknown) {
 		const v = c.describeInvitationRequest.parse(raw);
 		return transaction(config.db, async (tx) => {
-			const [observed] = await tx
-				.select()
-				.from(t.invitation)
-				.where(
-					and(
-						eq(t.invitation.token_hash, d.hash(v.proof)),
-						or(eq(t.invitation.purpose, "seat"), eq(t.invitation.purpose, "residency_link")),
-						eq(t.invitation.state, "pending"),
-						gt(t.invitation.created_at, sql`clock_timestamp()-interval '720 hours'`),
-					),
-				);
-			if (!observed) return { status: "unavailable" } satisfies z.output<typeof c.invitationDescriptionResult>;
-			await lockSourcePerson(tx, observed);
-			const { invitation: i, tenant } = await d.load(tx, observed.id);
-			await d.pending(
+			const proof = d.hash(v.proof);
+			const {
+				invitation: i,
+				selected,
+				tenant,
+				name,
+				now,
+			} = await d.lockInvitation(
 				tx,
+				(row) => sql`${row}.token_hash=${proof} AND ${row}.purpose IN ('seat','residency_link')
+ AND ${row}.state='pending' AND ${row}.created_at>clock_timestamp()-interval '720 hours'`,
+				{ root: true },
+			);
+			d.current(
 				i,
 				tenant,
+				now,
 				i.purpose === "seat" ? "seats.acceptInvitation" : "residency.respondInvitation",
 				"accepted",
 			);
-			if (i.token_hash !== d.hash(v.proof) || i.resident_person_id !== observed.resident_person_id)
-				d.deny("invitation_unavailable");
+			if (i.token_hash !== proof) d.deny("invitation_unavailable");
 			if (i.purpose === "residency_link") await activePerson(tx, i.tenant_id, residentOf(i));
-			const p = await description(tx, i);
+			if (await ownerHidden(tx, selected)) d.deny("invitation_unavailable");
+			const p = pendingOf(i, selected, name);
 			return c.invitationDescriptionResult.parse({
 				status: p.status,
 				invitationId: p.invitationId,
@@ -286,25 +276,26 @@ export function createInvitationService(config: InvitationConfig) {
 		if (selected.kind !== "plant" && selected.kind !== "organization") d.deny("invitation_unavailable");
 		return d.writeAsAdministrator(config.db, session, selected, async (tx, bound) => {
 			const a = bound.actor;
-			const [source] = await tx
-				.select()
-				.from(t.invitation)
-				.where(and(eq(t.invitation.id, v.input.invitationId), eq(t.invitation.tenant_id, selected.id)));
-			if (!source) d.deny("invitation_unavailable");
-			await lockSourcePerson(tx, source);
-			const { invitation: i, tenant } = await d.load(tx, v.input.invitationId),
+			const {
+					invitation: i,
+					tenant,
+					now,
+				} = await d.lockInvitation(
+					tx,
+					(row) => sql`${row}.id=${v.input.invitationId}::uuid AND ${row}.tenant_id=${selected.id}::uuid`,
+				),
 				event = resend ? "seats.resendInvitation" : "seats.revokeInvitation",
 				cmd = await d.begin(tx, selected, a.accountId, event, v);
 			if (cmd.kind === "replay")
 				return resend ? c.invitationSentResult.parse(cmd.result) : c.invitationRevokedResult.parse(cmd.result);
-			const subject = await d.pending(tx, i, tenant, event, resend ? "pending" : "revoked", v.expectedRevision);
+			const subject = d.current(i, tenant, now, event, resend ? "pending" : "revoked", v.expectedRevision);
 			if (resend && i.purpose === "residency_link") await activePerson(tx, i.tenant_id, residentOf(i));
 			const after = d.bump(i.revision);
 			let updated = i;
 
 			if (resend) {
 				const retry = new Date((i.resent_at ?? i.created_at).getTime() + 60000);
-				if (retry > (await d.now(tx))) d.deny("invitation_cooldown", { retryAt: retry.toISOString() });
+				if (retry > now) d.deny("invitation_cooldown", { retryAt: retry.toISOString() });
 				const proof = randomBytes(32).toString("base64url");
 				const [changedInvitation] = await tx
 					.update(t.invitation)
@@ -369,10 +360,14 @@ export function createInvitationService(config: InvitationConfig) {
 								source.state === "accepted" ? (BigInt(source.revision) - 1n).toString() : source.revision,
 							input: { invitationId: source.id, proof: entry.resume.proof },
 						});
-			const a = await d.identity(tx, session);
-			if (!a.verified) d.deny("invitation_unavailable");
-			await lockSourcePerson(tx, source);
-			const { invitation: i, selected, tenant, now } = await d.lockForWrite(tx, v.input.invitationId);
+			const {
+				identity: a,
+				invitation: i,
+				selected,
+				tenant,
+				now,
+			} = await d.lockInvitation(tx, (row) => sql`${row}.id=${v.input.invitationId}::uuid`, { session, root: true });
+			if (!a) d.deny("invitation_unavailable");
 			if (
 				i.resident_person_id !== source.resident_person_id ||
 				i.purpose !== (resident ? "residency_link" : "seat") ||
@@ -467,17 +462,6 @@ export function createInvitationService(config: InvitationConfig) {
 							.returning();
 					}
 					if (!affiliation) throw Error("affiliation_unavailable");
-					const blocked = await tx
-						.select({ id: t.lifecycle_witness.id })
-						.from(t.lifecycle_witness)
-						.where(
-							and(
-								eq(t.lifecycle_witness.affiliation_id, affiliation.id),
-								sql`${t.lifecycle_witness.state} NOT IN ('active','cancelled')`,
-							),
-						)
-						.for("share");
-					if (blocked.length) d.deny("invitation_unavailable");
 					const id = randomUUID(),
 						choices = decision.choices;
 					cmd.writes.push(

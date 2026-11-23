@@ -82,6 +82,7 @@ import { seedSettings, settingsCases } from "./tenancy-settings.mts";
 import { seedTasks, tasksCases } from "./tenancy-tasks.mts";
 import { seedTeams, teamsCases } from "./tenancy-teams.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { MAILING, MAILING_LINE } from "../communication/church-address.mts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.meta.url));
@@ -493,6 +494,7 @@ function cases(who) {
 				eligibleRecipients: 0,
 				missingEmailExclusions: [],
 				unsubscribedExclusions: [],
+				childExclusions: [],
 				duplicateAddressesRemoved: 0,
 				eligibleEmails: [],
 				searchResultLimit: 20,
@@ -516,7 +518,9 @@ function cases(who) {
 		comm("get", () => comms("get", { id: a.draft }), { refused: "not_found" }),
 		comm("getDraft", () => comms("getDraft", { id: a.draft }), { refused: "not_found" }),
 		comm("listDrafts", () => comms("listDrafts"), { value: { drafts: [] } }),
-		comm("readChurchName", () => comms("readChurchName"), { value: { churchName: "Synthetic plant" } }),
+		comm("readChurchName", () => comms("readChurchName"), {
+			value: { churchName: "Synthetic plant", mailingAddress: MAILING_LINE },
+		}),
 		comm("listAudienceTeams", () => comms("listAudienceTeams"), { value: { teams: [] } }),
 		comm("listTemplates", () => comms("listTemplates"), {
 			check: (value) => assert.deepEqual(new Set(value.templates.map((t) => t.origin)), new Set(["system"])),
@@ -852,8 +856,8 @@ function cases(who) {
 
 before(async () => {
 	f = await fixture();
-	plantA = await f.workspace();
-	plantB = await f.workspace();
+	plantA = await f.workspace("plant", MAILING);
+	plantB = await f.workspace("plant", MAILING);
 	const seated = async (w) => {
 		const account = await f.account();
 		await f.seat(account, w, "owner");

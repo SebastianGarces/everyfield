@@ -8,6 +8,7 @@ import { communicationWriter, withCommunicationWrite } from "../../../packages/d
 import { GET, POST } from "../../../apps/web/src/app/api/webhooks/resend/route.ts";
 import { resendWebhook } from "../../../apps/web/src/server/jobs/webhook-route.ts";
 import { ok, refused } from "../../support/fixture.mts";
+import { MAILING } from "./church-address.mts";
 
 let f, plant, other, owner, member;
 const keys = {
@@ -115,8 +116,8 @@ async function mailFor(communicationId) {
 
 before(async () => {
 	f = await fixture();
-	plant = await f.workspace();
-	other = await f.workspace();
+	plant = await f.workspace("plant", MAILING);
+	other = await f.workspace("plant", MAILING);
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	owner = { ...account, actor: await f.actor(account.session) };

@@ -26,7 +26,7 @@ const listed = (actor: EvryActor) => sql`
 	WHERE d.tenant_id=${actor.owner.id}::uuid AND d.archived_at IS NULL
 		AND (d.kind IN ('native','core_values') OR (d.kind='church_document' AND d.church_archived_at IS NULL))`;
 
-const listedRow = z.object({
+const listedRow = z.strictObject({
 	id: z.uuid(),
 	title: z.string(),
 	kind: z.enum(["native", "core_values", "church_document"]),
@@ -35,6 +35,7 @@ const listedRow = z.object({
 	recorded_at: z.coerce.date(),
 	store: z.enum(["written", "church"]),
 });
+const listedPage = listedRow.extend({ total: z.coerce.number() });
 const TYPE = { native: "Written document", core_values: "Core values", church_document: "Church Document" } as const;
 
 function documentRow(row: z.infer<typeof listedRow>, extra: Record<string, string | boolean | null> = {}): SourceRow {
@@ -70,8 +71,8 @@ export const listOwned: ReadAdapter<z.infer<typeof listInput>> = {
 			WHERE ${live(actor)} AND NOT EXISTS(SELECT FROM unnest(${sql.param(words)}::text[]) w WHERE x.title NOT ILIKE w ESCAPE '\\')
 				AND (${input.store ?? null}::text IS NULL OR x.store=${input.store ?? null})
 			ORDER BY x.recorded_at DESC, x.id LIMIT ${LIST_LIMIT}`);
-		const rows = r.rows.map((raw) => listedRow.parse(raw));
-		const total = Number((r.rows[0] as { total?: unknown } | undefined)?.total ?? 0);
+		const rows = r.rows.map((raw) => listedPage.parse(raw));
+		const total = rows[0]?.total ?? 0;
 		return {
 			operation: "documents.listOwned",
 			status: rows.length ? "available" : "not_found",

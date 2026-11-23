@@ -1,3 +1,4 @@
+import { counted, countWord } from "@everyfield/contracts/common";
 import type { MailReport, RecipientOutcome } from "@everyfield/contracts/communication";
 import { CHANNEL_LABEL } from "../../followups/model.ts";
 import { ROLE_LABEL, SHARING_CATEGORIES, SHARING_CATEGORY_LABEL, ZONE_NAME } from "@everyfield/evry/labels";
@@ -400,9 +401,13 @@ const FIELD_LABEL: Record<string, string> = {
 	moves: "Moves over",
 	keptDetails: "Kept as is",
 	staysWithMergedRecord: "Stays behind",
+	attendanceChanges: "Attendance",
+	openTasks: "Open tasks",
+	openKitItems: "Kit items",
 	comesBack: "Comes back",
 	movesBack: "Moves back",
 	detailsGoBack: "Details back",
+	attendanceGoesBack: "Attendance back",
 	bookmarked: "Bookmark",
 	addedText: "Added text",
 	articleText: "Text",
@@ -793,9 +798,8 @@ export function subjectName(review: Review): string {
 	if (review.operation === "documents.importTextOrWord")
 		return String(changes.find((c) => c.field === "title")?.after ?? "New document");
 	const n = changes.length;
-	if (review.operation === "tasks.assignFollowUp")
-		return `${n.toLocaleString()} ${n === 1 ? "follow-up" : "follow-ups"}`;
-	return `${n.toLocaleString()} ${n === 1 ? "task" : "tasks"}`;
+	if (review.operation === "tasks.assignFollowUp") return counted(n, "follow-up");
+	return counted(n, "task");
 }
 
 export function savedText(review: Review): string {
@@ -820,9 +824,9 @@ export function savedText(review: Review): string {
 		case "tasks.delete":
 			return `Saved. ${name} is deleted.`;
 		case "tasks.bulkComplete":
-			return `Saved. ${name} ${review.review.changes.length === 1 ? "is" : "are"} complete.`;
+			return `Saved. ${name} ${countWord(review.review.changes.length, "is", "are")} complete.`;
 		case "tasks.bulkReschedule":
-			return `Saved. ${name} ${review.review.changes.length === 1 ? "has" : "have"} a new due date.`;
+			return `Saved. ${name} ${countWord(review.review.changes.length, "has", "have")} a new due date.`;
 		case "tasks.createSubtask":
 		case "tasks.setSubtaskCompletion":
 		case "tasks.removeSubtask":
@@ -1078,9 +1082,13 @@ const MERGE_FACTS = new Set([
 	"mergesIn",
 	"moves",
 	"staysWithMergedRecord",
+	"attendanceChanges",
+	"openTasks",
+	"openKitItems",
 	"comesBack",
 	"movesBack",
 	"detailsGoBack",
+	"attendanceGoesBack",
 ]);
 export const afterOnly = (review: Pick<Review, "operation">, field: string) =>
 	field === "reason" || MERGE_FACTS.has(field) || (ADDS.has(review.operation) && field !== "stage");
@@ -1091,7 +1099,7 @@ export const intelligencePage = (operation: Operation) =>
 		: { href: "/intelligence/attestations", label: "Open attestations" };
 export const openCriteria = (review: Review) => {
 	const value = review.review.changes.find((c) => c.field === "openCriteria")?.after;
-	return Array.isArray(value) ? (value as { label: string; status: string }[]) : null;
+	return Array.isArray(value) ? (value as { label: string; status: string; reading?: string | null }[]) : null;
 };
 
 export type MailOperation = Extract<Operation, `communication.${string}`>;
@@ -1181,8 +1189,8 @@ export function audienceText(value: unknown) {
 	if (!a) return null;
 	const who = [
 		...a.groups.map((g) => GROUP_LABEL[g] ?? g),
-		...(a.teamIds.length ? [`${a.teamIds.length} ${a.teamIds.length === 1 ? "team" : "teams"}`] : []),
-		...(a.personIds.length ? [`${a.personIds.length} ${a.personIds.length === 1 ? "person" : "people"}`] : []),
+		...(a.teamIds.length ? [counted(a.teamIds.length, "team")] : []),
+		...(a.personIds.length ? [counted(a.personIds.length, "person", "people")] : []),
 	].join(", ");
 	const count = `${a.recipients} with an email address`;
 	return [who || "Nobody chosen", count, a.noAddress ? `${a.noAddress} with no email address` : null]
@@ -1401,8 +1409,7 @@ export function consequence(review: Review): string | null {
 	if (review.operation === "notifications.markSelectedRead" || review.operation === "notifications.markAllVisibleRead")
 		return "Marking read doesn't complete or change any task.";
 	const tasks = handedBack(review.review.changes);
-	const owner =
-		tasks > 0 ? `${tasks.toLocaleString()} open ${tasks === 1 ? "task" : "tasks"} will need a new owner.` : null;
+	const owner = tasks > 0 ? `${counted(tasks, "open task")} will need a new owner.` : null;
 	switch (review.operation) {
 		case "people.createAssessment":
 		case "people.withdrawCommitment":
@@ -1443,12 +1450,11 @@ export function consequence(review: Review): string | null {
 
 export function importSummary(rows: readonly ReviewedRow[]) {
 	const n = (outcome: ReviewedRow["outcome"][]) => rows.filter((r) => outcome.includes(r.outcome)).length;
-	const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 	const add = n(["create", "create_and_review"]);
 	return [
-		`${plural(add, "person", "people")} will be added`,
-		n(["skip"]) ? `${plural(n(["skip"]), "row", "rows")} skipped` : null,
-		n(["fail"]) ? `${plural(n(["fail"]), "row fails", "rows fail")}` : null,
+		`${counted(add, "person", "people")} will be added`,
+		n(["skip"]) ? `${counted(n(["skip"]), "row")} skipped` : null,
+		n(["fail"]) ? `${counted(n(["fail"]), "row fails", "rows fail")}` : null,
 	]
 		.filter(Boolean)
 		.join(" · ");
@@ -1924,6 +1930,8 @@ export function mailRefusalText(code: string | undefined): string {
 			return "This message is no longer in Messages, so nothing was done.";
 		case "rsvp_needs_meeting":
 			return "This email has an RSVP link and no open meeting, so nothing was done.";
+		case "mailing_address_missing":
+			return "Sending is held until your church has a mailing address, so nothing was sent. Add it in Church profile.";
 		default:
 			return "Messages refused this change, so nothing was done.";
 	}
@@ -1937,6 +1945,8 @@ export function stoppedReason(code: string | undefined): string {
 			return "The send time is no longer within the next 30 days.";
 		case "rsvp_needs_meeting":
 			return "This email has an RSVP link, and its meeting is no longer open.";
+		case "mailing_address_missing":
+			return "Your church has no mailing address in Church profile yet.";
 		case "access_denied":
 			return "Your seat no longer allows email changes.";
 		case "provider_refused":

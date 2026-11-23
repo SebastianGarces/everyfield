@@ -107,7 +107,7 @@ export async function read<T>(
 export type Viewer = { plantId: string; accountId: string; access: Parameters<typeof liveRead>[0] };
 export const plantVisible = (plant: SQL) =>
 	sql`NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.kind = 'plant' AND w.opaque_subject_id = ${plant}
-		AND w.state NOT IN ('active', 'cancelled'))`;
+		AND w.state <> 'cancelled')`;
 export async function one(db: Reader, v: Viewer, query: SQL, admin = false) {
 	const r = await db.execute(sql`SELECT a.access_live, a.access_admin, q.* FROM (SELECT ${liveRead(v.access, admin)}
 		AS access_live, ${liveRead(v.access, true)} AS access_admin) a

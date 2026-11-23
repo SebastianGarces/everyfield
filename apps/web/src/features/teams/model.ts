@@ -1,3 +1,4 @@
+import { dayText } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/teams";
 import {
 	Baby01Icon,
@@ -17,7 +18,6 @@ import type { Tone } from "@everyfield/ui/controls";
 import type { Status } from "@everyfield/ui/display";
 import type { IconSvgElement } from "@everyfield/ui/foundations";
 import type { z } from "zod";
-import { MONTHS } from "../../components/dates.ts";
 
 export type Team = z.infer<typeof c.team>;
 export type Role = z.infer<typeof c.teamRole>;
@@ -101,10 +101,6 @@ export function people(members: readonly Member[]): Person[] {
 	return [...byId.values()];
 }
 
-export function dayText(day: string): string {
-	const [y, m, d] = day.split("-").map(Number);
-	return `${MONTHS[(m ?? 1) - 1]} ${d}, ${y}`;
-}
 export function stampText(at: string): string {
 	const date = new Date(at);
 	return Number.isNaN(date.valueOf())
@@ -116,10 +112,6 @@ export function stampText(at: string): string {
 				hour: "numeric",
 				minute: "2-digit",
 			});
-}
-
-export function plural(n: number, one: string, many = `${one}s`) {
-	return `${n} ${n === 1 ? one : many}`;
 }
 
 export function problemText(code: string): string {

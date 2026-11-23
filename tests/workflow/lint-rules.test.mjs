@@ -1357,6 +1357,74 @@ export const p = require("node:process").env;
 	);
 });
 
+test("INV-lint: the meetings next-step table is a model module", () => {
+	const file = "apps/web/src/features/meetings/next-step.ts";
+	assert.deepEqual(lint({ [file]: 'import "server-only";\nexport const at = () => Date.now();\n' }), [
+		`${file}:1 model-module`,
+		`${file}:2 model-module`,
+	]);
+	assert.deepEqual(
+		lint({ [file]: 'import type { MeetingStatus } from "./model.ts";\nexport const s = (m: MeetingStatus) => m;\n' }),
+		[],
+	);
+});
+
+test("INV-lint: a follow-up outcome action never revalidates or refreshes, in any import form; the overlay rule still holds there", () => {
+	const rules = /^(?:everyfield|eslint)\(([\w-]+)\)$/;
+	const actions = "apps/web/src/features/followups/actions.ts";
+	const code = `import { revalidatePath } from "next/cache";
+import { revalidateTag as tag } from "next/cache";
+import * as cache from "next/cache";
+export { refresh } from "next/cache";
+import { unstable_cache } from "next/cache";
+import { EvryPanel } from "./EvryPanel.tsx";
+export const used = [revalidatePath, tag, cache, unstable_cache, EvryPanel];
+`;
+	const dir = sandbox({
+		[actions]: code,
+		"apps/web/src/features/followups/EvryPanel.tsx": "export const EvryPanel = 1;\n",
+	});
+	assert.deepEqual(
+		lintIn(dir, [actions], rules).filter((hit) => hit.endsWith(" no-restricted-imports")),
+		[1, 2, 3, 4, 6].map((line) => `${actions}:${line} no-restricted-imports`),
+	);
+	const tasks = "apps/web/src/features/tasks/actions.ts";
+	assert.deepEqual(
+		lint({ [tasks]: 'import { revalidatePath } from "next/cache";\nexport const r = revalidatePath;\n' }).filter(
+			(hit) => hit.endsWith(" no-restricted-imports"),
+		),
+		[],
+	);
+});
+
+test("INV-lint: only the outbox route imports the dev outbox reader, and only the dev outbox route imports the outbox route, through any import form", () => {
+	const outbox = "apps/web/src/features/communication/outbox.ts";
+	const route = "apps/web/src/features/communication/outbox-route.ts";
+	const dev = "apps/web/src/app/api/dev/outbox/route.ts";
+	const send = "apps/web/src/features/communication/send.ts";
+	const capture = "apps/web/src/server/mail/capture.ts";
+	const files = {
+		[outbox]: "export const readOutbox = () => [];\n",
+		[route]: 'import { readOutbox } from "./outbox.ts";\nexport const outboxRoute = () => readOutbox();\n',
+		[dev]: 'export { outboxRoute as GET } from "../../../../features/communication/outbox-route";\n',
+		[send]: `import { readOutbox } from "./outbox";
+export const later = () => import("./outbox.ts");
+export type R = typeof import("@/features/communication/outbox-route");
+export const used = readOutbox;
+`,
+		[capture]: 'export { readOutbox } from "../../features/communication/outbox.ts";\n',
+	};
+	assert.deepEqual(
+		lint(files).filter((hit) => hit.endsWith(" private-importers")),
+		[
+			`${send}:1 private-importers`,
+			`${send}:2 private-importers`,
+			`${send}:3 private-importers`,
+			`${capture}:1 private-importers`,
+		],
+	);
+});
+
 test("INV-web-sql: apps/web imports no database module", () => {
 	const code = `import { sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
@@ -1442,6 +1510,52 @@ export const BA = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-" + (1 + "00")
 		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37, 40, 41, 43, 44, 47, 48, 49, 50, 51, 53]
 			.map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`)
 			.sort(),
+	);
+});
+
+test("INV-lint: apps/web shows a problem line through ProblemText, InlineAlert or Alert, never a hand-written role=alert element with magenta or red text on it or inside it; only the four kept list and send-state lines pass, once each", () => {
+	const code = `export const A = () => <p role="alert" className="text-sm text-magenta-600">x</p>;
+export const B = () => <p role="alert" className="mt-1 text-red-700">x</p>;
+export const C = () => <div role="alert" className="flex gap-2"><span>!</span><p className="text-sm text-magenta-600">x</p></div>;
+export const D = ({ x }) => <p role={x ? "alert" : "status"} className="text-xs text-magenta-600">x</p>;
+export const E = ({ on }) => <p role="alert" className={cn("text-sm", on ? "text-magenta-600" : "text-text-3")}>x</p>;
+export const F = () => <p role="alert" className="text-sm sm:text-red-600 hover:!text-magenta-700">x</p>;
+export const G = () => <p role="status" className="text-sm text-magenta-600">x</p>;
+export const H = () => <p role="alert" className="text-sm text-text-2">x</p>;
+export const I = () => <div role="alert" className="text-ink"><p className="text-sm">x</p></div>;
+export const J = () => <ProblemText className="px-3 py-2">x</ProblemText>;
+export const K = () => <Alert role="alert" className="text-magenta-600">x</Alert>;
+export const L = () => <Card role="alert" className="text-magenta-600">x</Card>;
+export const M = () => <p className="text-sm text-magenta-600">x</p>;
+export const N = () => <p role="alert" className="text-sm bg-magenta-600 text-ink">x</p>;
+`;
+	const kept = {
+		task: `export const A = () => <p className="px-1 py-2 text-sm text-magenta-600" role="alert">x</p>;\n`,
+		commitment: `export const A = () => <p role="alert" className="px-2 py-3 text-sm text-magenta-600">x</p>;\n`,
+		evry: `export const A = () => (
+	<div role="alert" className="flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600">
+		<p>x</p>
+	</div>
+);
+`,
+	};
+	const reported = lint({
+		"apps/web/src/features/x/Problem.tsx": code,
+		"packages/ui/src/controls/x.tsx": code,
+		"apps/web/src/features/tasks/TaskDialog.tsx": kept.task,
+		"apps/web/src/features/people/assessments/CommitmentDialogs.tsx": kept.commitment,
+		"apps/web/src/features/meetings/dialogs.tsx": `${kept.commitment}${kept.commitment.replace("A", "B")}`,
+		"apps/web/src/features/evry/conversation/EvryPanel.tsx": `${kept.evry}export const B = () => <p role="alert" className="text-xs text-magenta-600">x</p>;\n`,
+	}).filter((hit) => hit.endsWith(" shared-notice"));
+	assert.deepEqual(reported, [
+		"apps/web/src/features/evry/conversation/EvryPanel.tsx:6 shared-notice",
+		"apps/web/src/features/meetings/dialogs.tsx:2 shared-notice",
+		...[1, 2, 3, 4, 5, 6].map((line) => `apps/web/src/features/x/Problem.tsx:${line} shared-notice`),
+	]);
+	const [message] = lint({ "apps/web/src/features/x/Problem.tsx": code }, undefined, true);
+	assert.match(
+		message,
+		/ProblemText \(a control-level line\) or InlineAlert or Alert \(a section-level line\) from @everyfield\/ui\/controls/,
 	);
 });
 
@@ -2791,7 +2905,7 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 	);
 });
 
-test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased (the namespace too), destructured or re-exported (export * included), unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
+test("INV-lint: an object schema in packages/contracts or packages/evry is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased (the namespace too), destructured or re-exported (export * included), unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
 	const loose = `import { z } from "zod";
 import * as zz from "zod/v4";
 import { object as plain } from "zod";
@@ -2826,28 +2940,20 @@ export const p = q.object({});
 export * from "./more";
 `;
 	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" strict-contracts"));
-	assert.deepEqual(reported({ "packages/contracts/src/x/index.ts": loose, "packages/domain/src/x.ts": loose }), [
-		"packages/contracts/src/x/index.ts:11 strict-contracts",
-		"packages/contracts/src/x/index.ts:12 strict-contracts",
-		"packages/contracts/src/x/index.ts:13 strict-contracts",
-		"packages/contracts/src/x/index.ts:14 strict-contracts",
-		"packages/contracts/src/x/index.ts:15 strict-contracts",
-		"packages/contracts/src/x/index.ts:16 strict-contracts",
-		"packages/contracts/src/x/index.ts:18 strict-contracts",
-		"packages/contracts/src/x/index.ts:20 strict-contracts",
-		"packages/contracts/src/x/index.ts:22 strict-contracts",
-		"packages/contracts/src/x/index.ts:24 strict-contracts",
-		"packages/contracts/src/x/index.ts:27 strict-contracts",
-		"packages/contracts/src/x/index.ts:28 strict-contracts",
-		"packages/contracts/src/x/index.ts:4 strict-contracts",
-		"packages/contracts/src/x/index.ts:5 strict-contracts",
-		"packages/contracts/src/x/index.ts:5 strict-contracts",
-		"packages/contracts/src/x/index.ts:8 strict-contracts",
-		"packages/contracts/src/x/index.ts:9 strict-contracts",
-	]);
+	const hits = [11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 27, 28, 4, 5, 5, 8, 9];
+	assert.deepEqual(
+		reported({
+			"packages/contracts/src/x/index.ts": loose,
+			"packages/evry/src/adapters/x/commands/index.ts": loose,
+			"packages/domain/src/x.ts": loose,
+		}),
+		["packages/contracts/src/x/index.ts", "packages/evry/src/adapters/x/commands/index.ts"].flatMap((path) =>
+			hits.map((line) => `${path}:${line} strict-contracts`),
+		),
+	);
 	const listed = Object.values(LOOSE_CONTRACTS);
 	assert.ok(
-		listed.length <= 3 && listed.reduce((n, names) => n + Object.keys(names).length, 0) <= 3,
+		listed.length <= 1 && listed.reduce((n, names) => n + Object.keys(names).length, 0) <= 1,
 		"LOOSE_CONTRACTS only shrinks",
 	);
 	const [path, names] = Object.entries(LOOSE_CONTRACTS)[0];
@@ -3437,4 +3543,146 @@ exported(() => {});
 			"tools/ci/named.test.ts:4 one-top-level-before",
 		],
 	);
+});
+
+test("INV-explicit-database: a parameter never defaults to the database() pool in packages or apps/web/src", () => {
+	const flagged = `import { database, type Database } from "./client.ts";
+export async function expireAccessRequests(db: Database = database()) {
+	return db;
+}
+export const arrow = async (id: string, db: Database = database()) => [id, db];
+export class Store {
+	read(db: Database = database()) {
+		return db;
+	}
+}
+`;
+	const allowed = `import { database, type Database } from "@everyfield/db";
+export async function body() {
+	const db = database();
+	return db;
+}
+export async function fallback(dependencies: { db?: Database }) {
+	const db = dependencies.db ?? database();
+	return db;
+}
+`;
+	assert.deepEqual(
+		lint({
+			"packages/db/src/old.ts": flagged,
+			"packages/domain/src/allowed.ts": allowed,
+			"apps/web/src/access/old.ts": flagged,
+			"apps/web/src/access/allowed.ts": allowed,
+		}).filter((hit) => hit.endsWith(" no-default-database")),
+		[
+			"apps/web/src/access/old.ts:2 no-default-database",
+			"apps/web/src/access/old.ts:5 no-default-database",
+			"apps/web/src/access/old.ts:7 no-default-database",
+			"packages/db/src/old.ts:2 no-default-database",
+			"packages/db/src/old.ts:5 no-default-database",
+			"packages/db/src/old.ts:7 no-default-database",
+		],
+	);
+});
+
+test("INV-lint: hand-written count text in apps/web/src is refused, naming counted and countWord; choices on 1 that are not a singular and plural pair are allowed", () => {
+	const source = `export const a = (n: number) => \`\${n} \${n === 1 ? "task" : "tasks"}\`;
+export const b = (n: number) => \`\${n} follow-up\${n === 1 ? "" : "s"}\`;
+export const c = (n: number) => \`\${n} row\${n !== 1 ? "s" : ""}\`;
+export const d = (n: number) => \`\${n} \${n === 1 ? "person" : "people"}\`;
+export const e = (n: number) => (n === 1 ? "1 note" : \`\${n} notes\`);
+export const f = (n: number, one: string, many: string) => \`\${n} \${n === 1 ? one : many}\`;
+export const g = (n: number) => \`\${n} \${n === 1 ? "task is" : "tasks are"}\`;
+export const g2 = (n: number) => (n === 1 ? "This open task stays" : "These open tasks stay");
+export const g3 = (n: number) => \`\${n} \${n === 1 ? "task does" : "tasks do"}\`;
+export const h = (d: number) => (d === 1 ? "Yesterday" : "Earlier");
+export const i = (v: number) => (v > 1 ? " · version 2" : "");
+export const j = (s: number) => (s === 1 ? "" : " scale(2)");
+export const k = (n: number, one: string) => (n === 1 ? one : "many");
+export const l = (n: number) => (n === 1 ? "One task is" : \`\${n} tasks are\`);
+`;
+	const hits = lint({ "apps/web/src/features/x/count.ts": source }, undefined, true).filter((hit) =>
+		hit.includes(" count-text "),
+	);
+	assert.deepEqual(
+		hits.map((hit) => Number.parseInt(hit.split(":")[1], 10)),
+		[1, 2, 3, 4, 5, 6, 7, 8, 9],
+	);
+	assert.match(hits[0], /counted\(n, one, many\).*countWord\(n, one, many\).*@everyfield\/contracts\/common/);
+});
+
+test("INV-lint: the count-text rule allows the counted and countWord module itself", () => {
+	const helper = `export const countWord = (n: number, one: string, many = \`\${one}s\`) => (n === 1 ? one : many);
+`;
+	assert.deepEqual(
+		lint({
+			"packages/contracts/src/common/text.ts": helper,
+			"packages/contracts/src/common/other.ts": helper,
+		}).filter((hit) => hit.endsWith(" count-text")),
+		["packages/contracts/src/common/other.ts:1 count-text"],
+	);
+});
+
+test("INV-lint: a noon-UTC civil-day string is refused in app and package source, naming dayText, addDays and weekdayOf", () => {
+	const source = `export const a = (d: string) => new Date(\`\${d}T12:00:00Z\`);
+export const b = (d: string) => Date.parse(d + "T12:00:00Z");
+export const c = (x: string, day: (v: string) => string) => day(x + "T12:00:00Z");
+export const e = (d: string) => new Date(\`\${d}T12:00:00.000Z\`);
+export const f = (d: string) => new Date(\`\${d}T12:00:00\`);
+export const g = (d: string) => new Date(\`\${d}T09:30:00Z\`);
+export const h = "T12:00:00";
+`;
+	const hits = lint(
+		{ "apps/web/src/features/x/day.ts": source, "packages/evry/src/x/day.ts": source },
+		undefined,
+		true,
+	).filter((hit) => hit.includes(" civil-day "));
+	assert.deepEqual(
+		hits.map((hit) => hit.split(" ")[0]),
+		["apps/web/src/features/x/day.ts", "packages/evry/src/x/day.ts"].flatMap((file) =>
+			[1, 2, 3, 4].map((line) => `${file}:${line}`),
+		),
+	);
+	assert.match(hits[0], /dayText.*addDays.*weekdayOf.*@everyfield\/contracts\/common/);
+});
+
+test("INV-lint: the civil-day rule allows the day module itself", () => {
+	const helper = `const noon = (d: string) => new Date(\`\${d}T12:00:00Z\`);
+`;
+	assert.deepEqual(
+		lint({
+			"packages/contracts/src/common/day.ts": helper,
+			"packages/contracts/src/common/other.ts": helper,
+		}).filter((hit) => hit.endsWith(" civil-day")),
+		["packages/contracts/src/common/other.ts:1 civil-day"],
+	);
+});
+
+test("INV-lint: the root config refuses hand-written count text in package source, except packages/ui/src, which cannot import contracts", () => {
+	const source = `export const a = (n: number) => (n === 1 ? "task" : "tasks");
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/x/count.ts": source,
+			"packages/evry/src/x/count.ts": source,
+			"packages/ui/src/x/count.ts": source,
+		}).filter((hit) => hit.endsWith(" count-text")),
+		["packages/domain/src/x/count.ts:1 count-text", "packages/evry/src/x/count.ts:1 count-text"],
+	);
+});
+
+test("INV-lint: package source writes no count text by hand, apart from the ui package's Pipeline display", () => {
+	const dir = realpathSync(mkdtempSync(join(tmpdir(), "lint-rules-")));
+	temps.push(dir);
+	put(dir, "count-text.json", { jsPlugins: [PLUGIN], rules: { "everyfield/count-text": "error" } });
+	const packages = ["contracts", "db", "domain", "evry", "reference", "ui"].map((name) => `packages/${name}/src`);
+	const ran = spawnSync(OXLINT, ["-c", join(dir, "count-text.json"), "-f", "json", ...packages], {
+		cwd: repo,
+		encoding: "utf8",
+		env: env(repo),
+	});
+	const files = JSON.parse(ran.stdout.slice(ran.stdout.indexOf("{")))
+		.diagnostics.filter((d) => d.code === "everyfield(count-text)")
+		.map((d) => relative(repo, resolve(repo, d.filename)));
+	assert.deepEqual([...new Set(files)], ["packages/ui/src/display/Pipeline.tsx"]);
 });
