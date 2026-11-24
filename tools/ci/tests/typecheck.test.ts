@@ -27,6 +27,7 @@ const PACKAGES = [
 	"packages/db",
 	"packages/domain",
 	"packages/evry",
+	"packages/evry-scripted",
 	"packages/reference",
 	"packages/ui",
 ];
@@ -466,7 +467,7 @@ test("INV-typecheck: a package .env reaches no checker, child process or output"
 	assert.equal(runtime.stdout.trim(), sentinel);
 });
 
-test("INV-typecheck: a type error seeded in any one of the 7 packages fails pnpm typecheck, and typecheck:bun too", (t) => {
+test("INV-typecheck: a type error seeded in any one of the 8 packages fails pnpm typecheck, and typecheck:bun too", (t) => {
 	const copy = mkdtempSync(join(tmpdir(), "typecheck-seeded-"));
 	t.after(() => rmSync(copy, { recursive: true, force: true }));
 	const before = spawnSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" }).stdout;
@@ -485,7 +486,7 @@ test("INV-typecheck: a type error seeded in any one of the 7 packages fails pnpm
 		const failed = run();
 		assert.equal(failed.status, 1, `${dir}: ${failed.stdout}${failed.stderr}`);
 		assert.match(failed.stdout, new RegExp(`^${dir} typecheck: ${seeded}\\(1,14\\): error TS2322`, "m"), dir);
-		assert.match(failed.stderr, new RegExp(`typecheck failed in 1 of 7 packages:\\n  ${dir}: type errors`), dir);
+		assert.match(failed.stderr, new RegExp(`typecheck failed in 1 of 8 packages:\\n  ${dir}: type errors`), dir);
 		rmSync(join(copy, dir, "src/__seeded__"), { recursive: true });
 	}
 	writeFileSync(join(copy, "packages/ui", "src/t110-seeded.ts"), 'export const seeded: number = "seeded";\n');

@@ -1,0 +1,24 @@
+{
+	"name": "@everyfield/evry-scripted",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"typecheck": "../../node_modules/typescript-7/bin/tsc --noEmit",
+		"typecheck:bun": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
+		"lint": "oxlint -c ../../.oxlintrc.json --max-warnings=0 ."
+	},
+	"dependencies": {
+		"@ai-sdk/provider": "4.0.31",
+		"@everyfield/contracts": "workspace:*",
+		"@everyfield/domain": "workspace:*",
+		"@everyfield/evry": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/node": "24.19.2",
+		"oxlint": "1.92.0",
+		"typescript": "6.0.3"
+	}
+}

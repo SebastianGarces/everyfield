@@ -3,14 +3,8 @@ import { testDatabase } from "../../support/test-database.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
-import {
-	evryActor,
-	runTurn,
-	selectQualifiedModel,
-	stageAttachment,
-	type EvryActor,
-} from "../../../packages/evry/src/index.ts";
-import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
+import { evryActor, runTurn, stageAttachment, type EvryActor } from "../../../packages/evry/src/index.ts";
+import { scriptedModel, scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import type { LanguageModelV4 } from "../../../packages/evry/node_modules/@ai-sdk/provider/dist/index.js";
 import { S3Client, type PrivateStorage } from "../../../packages/db/src/schema/storage.ts";
 import { randomUUID } from "node:crypto";
@@ -48,7 +42,7 @@ export async function freshActor(session: string) {
 	const viewer = await readViewer(db, session as never);
 	return viewer?.authority ? evryActor(viewer.authority) : null;
 }
-export const scripted = () => selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+export const scripted = scriptedQualifiedModel;
 
 export const usage = {
 	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
