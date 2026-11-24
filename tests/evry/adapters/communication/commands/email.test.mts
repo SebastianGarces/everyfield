@@ -1031,9 +1031,10 @@ test("Evry finds messages by subject and send time; a member reads but cannot wr
 		readCatalog(who)
 			.reviewedWrites.map((w) => w.operation)
 			.filter((op) => op.startsWith("communication."));
-	assert.deepEqual(writes(member), []);
+	assert.deepEqual(writes(member), ["communication.correctContactLog"], "a member gets no email write");
 	assert.deepEqual(writes(owner).sort(), [
 		"communication.cancelScheduledReviewed",
+		"communication.correctContactLog",
 		"communication.deleteDraft",
 		"communication.executeResend",
 		"communication.replaceScheduledReviewed",
@@ -1042,6 +1043,7 @@ test("Evry finds messages by subject and send time; a member reads but cannot wr
 		"communication.saveDraft",
 		"communication.scheduleReviewed",
 		"communication.sendReviewed",
+		"communication.templates.archiveOrDelete",
 		"communication.templates.create",
 		"communication.templates.fork",
 		"communication.templates.update",

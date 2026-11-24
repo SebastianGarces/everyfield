@@ -45,6 +45,7 @@ import {
 } from "../audience.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
 import { present } from "../../../runtime/captured.ts";
+import { EvryRefusal } from "../../../context/errors.ts";
 
 const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
@@ -1113,6 +1114,140 @@ export const updateTemplate: ReviewedWrite<z.infer<typeof updateInput>> = {
 	},
 };
 
+const removeInput = z.strictObject({
+	templateId: z.uuid().describe("A church template id from communication.templates.list"),
+});
+const savedRemove = z.strictObject({
+	expectedRevision: z.string(),
+	action: z.enum(["delete", "archive"]),
+	input: z.strictObject({ templateId: z.uuid() }),
+});
+export const archiveOrDeleteTemplate: ReviewedWrite<z.infer<typeof removeInput>> = {
+	operation: "communication.templates.archiveOrDelete",
+	description:
+		"Propose removing a church template. One no email has used is deleted; one an email used is archived instead: hidden from the template list but kept on the emails that used it. A system template can't be removed. Nothing changes until the user approves the review.",
+	input: removeInput,
+	allowed: ownerOrAdmin,
+	async review(actor, value, context) {
+		const listed = await gatedTransaction(context.db, (tx) => communicationWriter.listTemplates(tx, actor.authority));
+		if (listed.status !== "ok") return null;
+		const found = listed.value.templates.find((t) => t.templateId === value.templateId && !t.archived);
+		if (!found) return null;
+		if (found.origin === "system")
+			throw new EvryRefusal(
+				"invalid_subject",
+				"System templates are part of Everyfield, so they can't be deleted or archived. Only the church's own templates can.",
+			);
+		return sql`WITH t AS (
+				SELECT t.id,t.name,t.revision,(SELECT count(*)::int FROM communication c WHERE c.template_id=t.id AND c.plant_id=t.plant_id) AS used
+				FROM message_template t WHERE t.id=${value.templateId}::uuid AND t.plant_id=${actor.owner.id}::uuid AND t.archived_at IS NULL
+			)
+			SELECT jsonb_build_object('target',jsonb_build_object('kind','template','id',t.id,'label',t.name),'changes',jsonb_build_array(
+					${change("template", sql`to_jsonb(t.name)`, sql`to_jsonb(CASE WHEN t.used=0 THEN 'deleted' ELSE 'archived' END)`)},
+					${change("usedBy", null, sql`to_jsonb(t.used)`)})) AS review,
+				jsonb_build_object('expectedRevision',t.revision::text,'action',CASE WHEN t.used=0 THEN 'delete' ELSE 'archive' END,
+					'input',jsonb_build_object('templateId',t.id)) AS args
+			FROM t`;
+	},
+	async execute(tx, context, args, effectKey): Promise<EffectResult> {
+		const saved = savedRemove.parse(args);
+		const request = {
+			requestKey: `${effectKey}:template`,
+			expectedRevision: saved.expectedRevision,
+			input: saved.input,
+		};
+		const removed =
+			saved.action === "delete"
+				? await communicationWriter.deleteTemplate(tx, context, request)
+				: await communicationWriter.archiveTemplate(tx, context, request);
+		if (removed.status !== "ok")
+			return { refused: removed.error.code === "referenced" ? "stale_review" : removed.error.code };
+		return { receiptId: removed.value.templateId, revision: removed.value.revision };
+	},
+};
+
+const contactOutcome = z.enum(["contacted", "attempted_no_contact", "administrative_completion", "no_longer_needed"]);
+const correctInput = z.strictObject({
+	outcomeId: z.uuid().describe("A contact log entry id from followups.listContactHistory"),
+	outcome: contactOutcome.describe(
+		"The outcome the entry should have had: contacted only when a conversation happened; attempted_no_contact for a try with no conversation",
+	),
+	occurredAt: z
+		.string()
+		.regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+		.optional()
+		.describe(
+			"Only when the outcome is contacted and the time was wrong too: the church's local date and time, like 2026-11-03T18:30. Any other outcome keeps the entry's time",
+		),
+	reason: z.string().trim().min(1).max(500).describe("Why it is corrected, in the user's words"),
+});
+const savedCorrection = z.strictObject({
+	expectedRevision: z.string(),
+	input: z.strictObject({
+		outcomeId: z.uuid(),
+		outcome: contactOutcome,
+		occurredAt: z.string().optional(),
+		reason: z.string(),
+	}),
+});
+export const correctContactLog: ReviewedWrite<z.infer<typeof correctInput>> = {
+	operation: "communication.correctContactLog",
+	description:
+		"Propose correcting one contact log entry's outcome, with the reason (and its time, only when the corrected outcome is contacted). The old entry is kept as superseded, not deleted. An Owner or Admin can correct any entry; a Member only one they recorded on a follow-up they still own. To withdraw an entry, use followups.correctOutcome.",
+	input: correctInput,
+	allowed: (actor) => actor.owner.kind === "plant" && actor.role !== null,
+	async review(actor, value, context) {
+		if (value.occurredAt && value.outcome !== "contacted")
+			throw new EvryRefusal(
+				"invalid_input",
+				"Only an entry corrected to contacted can take a new time. Any other correction keeps the entry's time.",
+			);
+		const plant = actor.owner.id;
+		const zone = sql`(SELECT timezone FROM plant WHERE id=${plant}::uuid)`;
+		const at = value.occurredAt ? sql`(${value.occurredAt}::timestamp AT TIME ZONE ${zone})` : sql`o.occurred_at`;
+		if (actor.role === "member") {
+			const own = await context.db.execute(sql`SELECT FROM contact_outcome o
+				JOIN task t ON t.id=o.task_id AND t.plant_id=o.plant_id AND t.deleted_at IS NULL AND t.parent_id IS NULL
+				WHERE o.id=${value.outcomeId}::uuid AND o.plant_id=${plant}::uuid
+					AND EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=t.id AND ta.account_id=${actor.accountId}::uuid)
+					AND (SELECT a.actor_id FROM audit_event a WHERE a.tenant_id=o.plant_id AND a.subject_id=o.id AND a.action='followup.recorded'
+						ORDER BY a.occurred_at,a.id LIMIT 1)=${actor.accountId}::uuid`);
+			if (!own.rows.length) throw new EvryRefusal("not_assigned");
+		}
+		const local = (when: SQL) =>
+			sql`to_jsonb(to_char(${when} AT TIME ZONE ${zone},'YYYY-MM-DD HH24:MI')||' '||${zone})`;
+		const refusal = sql`CASE WHEN ${at}>clock_timestamp() THEN 'That time is in the future. Pick a time that has passed.'
+			WHEN o.outcome=${value.outcome}::text AND ${at}=o.occurred_at THEN 'The entry already says that.' END`;
+		return sql`SELECT ${withRefusal(
+			refusal,
+			sql`jsonb_build_object('target',jsonb_build_object('kind','person','id',p.id,'label',p.display_name),
+				'changes',jsonb_build_array(${sql.join(
+					[
+						change("outcome", sql`to_jsonb(o.outcome)`, sql`to_jsonb(${value.outcome}::text)`),
+						...(value.occurredAt ? [change("occurredAt", local(sql`o.occurred_at`), local(at))] : []),
+						change("reason", null, sql`to_jsonb(${value.reason}::text)`),
+					],
+					sql`,`,
+				)}))`,
+		)} AS review,
+			jsonb_build_object('expectedRevision',o.revision::text,'input',jsonb_strip_nulls(jsonb_build_object('outcomeId',o.id,'outcome',${value.outcome}::text,
+				'occurredAt',CASE WHEN ${value.outcome}::text='contacted' THEN ${iso(at)} END,'reason',${value.reason}::text))) AS args
+			FROM contact_outcome o JOIN person p ON p.id=o.person_id AND p.tenant_id=o.plant_id
+			WHERE o.id=${value.outcomeId}::uuid AND o.plant_id=${plant}::uuid AND o.voided_at IS NULL`;
+	},
+	async execute(tx, context, args, effectKey): Promise<EffectResult> {
+		const saved = savedCorrection.parse(args);
+		const reply = await communicationWriter.correctContactLog(tx, context, {
+			requestKey: `${effectKey}:correct`,
+			expectedRevision: saved.expectedRevision,
+			input: saved.input,
+		});
+		return reply.status === "ok"
+			? { receiptId: reply.value.correction.outcomeId, revision: "1" }
+			: { refused: reply.error.code === "conflict" ? "stale_review" : reply.error.code };
+	},
+};
+
 export const COMMUNICATION_COMMANDS = {
 	"communication.saveDraft": saveDraft,
 	"communication.scheduleReviewed": schedule,
@@ -1126,4 +1261,6 @@ export const COMMUNICATION_COMMANDS = {
 	"communication.templates.create": createTemplate,
 	"communication.templates.fork": forkTemplate,
 	"communication.templates.update": updateTemplate,
+	"communication.templates.archiveOrDelete": archiveOrDeleteTemplate,
+	"communication.correctContactLog": correctContactLog,
 } as const;

@@ -4,7 +4,7 @@ import { gatedTransaction } from "@everyfield/domain/operations";
 import type { EvryActor } from "../context/actor.ts";
 import { EvryRefusal } from "../context/errors.ts";
 import { LIMITS } from "../context/limits.ts";
-import type { NativePorts } from "../proposals/types.ts";
+import type { MailPort, NativePorts } from "../proposals/types.ts";
 import type { ConversationFiles, ReadAdapter, SourceResult } from "./types.ts";
 
 export async function invokeRead<I>(
@@ -14,6 +14,7 @@ export async function invokeRead<I>(
 	input: I,
 	native: NativePorts | null = null,
 	files?: ConversationFiles,
+	mail: MailPort | null = null,
 ): Promise<SourceResult> {
 	if (!adapter.allowed(actor)) throw new EvryRefusal("access_denied");
 	const loaded = adapter.load
@@ -28,6 +29,6 @@ export async function invokeRead<I>(
 		: undefined;
 	return gatedTransaction(db, async (tx) => {
 		await tx.execute(sql.raw(`SET LOCAL statement_timeout = ${LIMITS.readTimeoutMs}`));
-		return adapter.invoke(tx, actor, input, native, loaded);
+		return adapter.invoke(tx, actor, input, native, loaded, mail);
 	});
 }
