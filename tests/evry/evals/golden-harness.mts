@@ -313,6 +313,23 @@ const MAIL: MailPort = {
 
 const MAX_STEPS = LIMITS.toolCalls + 1;
 
+let writing: Promise<unknown> = Promise.resolve();
+const oneWriter = new WeakMap<GoldenChurch["db"], GoldenChurch["db"]>();
+function oneWriterAtATime(db: GoldenChurch["db"]): GoldenChurch["db"] {
+	const known = oneWriter.get(db);
+	if (known) return known;
+	const transaction: GoldenChurch["db"]["transaction"] = (run, config) => {
+		const written = writing.then(() => db.transaction(run, config));
+		writing = written.catch(() => undefined);
+		return written;
+	};
+	const serial = new Proxy(db, {
+		get: (target, key, receiver) => (key === "transaction" ? transaction : Reflect.get(target, key, receiver)),
+	});
+	oneWriter.set(db, serial);
+	return serial;
+}
+
 let opening: Promise<unknown> = Promise.resolve();
 function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attached[] = []) {
 	const opened = opening.then(async () => {
@@ -391,6 +408,7 @@ export async function converse(
 	repetition = 1,
 ): Promise<Conversation> {
 	const { db } = church;
+	const writer = oneWriterAtATime(db);
 	const actor = church.actors[as];
 	const keys: string[] = [];
 	const inputs: string[] = [];
@@ -520,7 +538,7 @@ export async function converse(
 				const card: Proposal = { operation: call.operation, input: call.input, prepared: false, review: null };
 				proposals.push(card);
 				const number = proposals.length;
-				const open = await (conversation ??= openConversation(db, actor, files));
+				const open = await (conversation ??= openConversation(writer, actor, files));
 				for (const check of calls.filter((x) => x.operation === "people.previewImport" && x.result && !saved.has(x))) {
 					saved.add(check);
 					await db.execute(sql`WITH c AS (UPDATE conversation SET last_sequence=last_sequence+1 WHERE id=${open.id}::uuid RETURNING id,last_sequence)
@@ -528,7 +546,7 @@ export async function converse(
 					SELECT id,last_sequence,${open.lease.turnId}::uuid,'tool_result',${JSON.stringify({ operation: check.operation, input: check.input, result: check.result })}::jsonb FROM c`);
 				}
 				const proposal = await prepareProposal(
-					db,
+					writer,
 					actor,
 					open.lease,
 					open.id,
