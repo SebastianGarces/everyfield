@@ -13,7 +13,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 
 | Suite                    | Cases                                                                                                                    | What it scores                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `golden.test.mts`        | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (118 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
+| `golden.test.mts`        | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (333 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
 | `golden.test.mts`        | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge     |
 | `classify.test.mts`      | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                               |
 | `households.test.mts`    | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                      |
@@ -21,6 +21,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `settings.test.mts`      | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)        |
 | `onboarding.test.mts`    | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                                  |
 | `pipeline.test.mts`      | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                    |
+| `communication.test.mts` | `communication.cases.json` (26 cases)                                                                                    | Email reads, template removal and contact log corrections (scripted model)                  |
 | `launch.test.mts`        | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                     |
 | `wiki-network.test.mts`  | `wiki-network.cases.json`                                                                                                | A network's own Wiki versions: draft, change, publish and hide (scripted model)             |
 | `intelligence.test.mts`  | `intelligence.cases.json`                                                                                                | Plant Intelligence reads, refresh, feedback and tasks from suggestions (scripted model)     |
@@ -60,6 +61,21 @@ read, a planned Vision Meeting, a seated Member, a crowded activity feed). Each 
 shows, through its own reads and words (`apps/web/src/features/overview/model.ts`); MON-01 and CLN-10 carry their
 golden question word for word, with its expected answer and must-not. The approved feedback is read back through Sent
 feedback's own read. The recorded suites leave these tools out too.
+
+## The communication suite and the recorded Communication cases
+
+`communication.test.mts` scores T-334's eight Communication tools (`communication.forMeeting`,
+`communication.meetingRecipientTracking`, `communication.deliveryTotals`, `communication.listAudienceTeams`,
+`communication.searchRecipients`, `mail.suppression.listForSelf` and the reviewed
+`communication.templates.archiveOrDelete` and `communication.correctContactLog`) on the scripted model
+(`packages/evry-scripted/src/scripted-mail.ts`): 26 cases, with the approved changes run and read back. Since T-597 the
+recorded suites offer the same eight tools too, and ADP-M-24 to ADP-M-37 in `adapters.cases.json` score them on the real
+model: the six reads, a Member's own read and refused audience question, each write's review card, a system template
+refused and a Member's correction refused. Those 14 cases carry `eval.church: "communication"`: they run in a second
+Hope Fellowship in the same golden run, with `seedCommunication` (`communication-church.mts`) on top, so no other case's
+facts change. It leaves out the training email and its two children (`training: false`), which only the
+scripted suite uses. The run also checks that they wrote nothing. `deliveryTotals` shows the database clock's read time, which
+the harness pins to `NOW`.
 
 ## The pipeline suite (scripted model)
 
@@ -266,7 +282,7 @@ The cases whose result depends on the database clock, now pinned:
   Unpinned, ADP-M-03, ADP-M-04 and ADP-M-07's review cards carried "That time has already passed" once real time
   passed 2026-11-13.
 - Inactivity on the real pipeline board (`people.getPipelineData`): ADP-O-08, COM-06, GST-01, LCH-03, LCH-05, MON-01,
-  MON-03, MON-04, MON-05, PIP-01, PIP-02 and PIP-04. Fixed-date activity counts too: Maria Santos's note is dated before
+  MON-03, MON-04, MON-05, PIP-01 and PIP-02. Fixed-date activity counts too: Maria Santos's note is dated before
   her clock-relative last contact, so she reads her fixture's warning in `NOW`'s frame.
 - The whole follow-up suite (`followups.cases.json`), whose candidates are ranked by inactivity.
 - Every case's live session and accepted seat, seeded relative to the database clock.
@@ -406,12 +422,13 @@ run limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then reads
 "judge not recorded" until a recording run records its judge call.
 
-**Cost.** Recording all 285 cases on `gpt-6-luna` from scratch is 1,301 calls, about $2.17
-(`spend.allMicroUsd` in `golden.recorded.json`). The household and follow-up files are 10 calls each, under a cent
-each (their `spend`); `classify.recorded.json` holds 26 calls of about 20 millionths of a dollar each, recorded before
-token usage was kept, so its `spend` reads 0 until it is next recorded. Re-recording only the changed cases costs a
-fraction of a cent per case. A full re-record sends about 2M tokens a minute at the harness's 6 parallel cases, past
-the provider's per-minute limit: record in batches with `EVRY_EVAL_CASES`, then one full run to drop unused calls. If a run would cost more than $1, ask the owner first.
+**Cost.** Recording all 424 golden rows that run on `gpt-6-luna` from scratch is 1,988 calls, about $6.63
+(`spend.allMicroUsd` in `golden.recorded.json`; judge calls included, journey repetitions 2 and 3 not). The household
+file is 10 calls and the follow-up file 11, about $0.03 each, and `classify.recorded.json` is 32 calls, about a tenth of
+a cent (their `spend`). Re-recording only the changed cases costs about
+one to two cents per case. A full re-record sends about 2M tokens a minute at the harness's 6 parallel cases, and can
+pass the provider's per-minute limit: search the files for "Rate limit" afterwards, re-record those cases with
+`EVRY_EVAL_CASES`, then do one full run to drop unused calls. If a run would cost more than $1, ask the owner first.
 
 ### A new capability (OPS-102)
 
@@ -419,6 +436,13 @@ Every Evry adapter operation or catalog tool ships with its cases in the same PR
 Not yet or Partially case lands, the same PR moves that case to Supported. It changes the status in both
 `golden.approved.json` and `golden.cases.json` (status is the catalog snapshot, not the approval). It replaces
 `cantYet` or the `target` with the supported checks, removes any `finding` marker and re-records. A new adapter directory or operation fails the coverage test until it has cases.
+
+PIP-04, PIP-08 and HH-08 (T-547) are built and keep the approved status Not yet, because only the S4 evaluation task
+moves a status. A Not yet case needs the can't-yet checks, or the `calls` its built answer makes. With TEAM-06 and
+CLN-09 they read the People list once, under its skill, photo, household, adult-or-child or stage-move filter. The seed
+records Mateo Rivera and Bao Nguyen as children and moves Sam Patel (Oct 28), Priya Shah (Nov 2) and Mike Brennan
+(Nov 5) into core group. ADP-R-18 to ADP-R-22 ask for the next page of two of those lists, as a Member, as an
+organization seat, and for last month's moves.
 
 ## The intelligence and oversight suites (scripted model)
 

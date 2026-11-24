@@ -64,12 +64,12 @@ export const OWNER_EMAIL = "owner@example.test";
 const MEMBER_EMAIL = "member@example.test";
 const addressHash = (address: string) => createHmac("sha256", ADDRESS_KEY).update(address).digest("hex");
 
-export async function seedCommunication(admin: Database) {
+export async function seedCommunication(admin: Database, { training = true } = {}) {
 	const run = (q: ReturnType<typeof sql>) => admin.execute(q);
 	const owner = ACTOR_SPECS.owner.account;
 	await run(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,city,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
 		VALUES(${JAMIE},${PLANT},${PLANT},'Jamie Ortiz','Austin','other','2026-11-02T15:00:00.000Z','prospect','unknown','unknown',901,'live')`);
-	for (const [i, [name, child]] of Object.entries(CHILDREN).entries())
+	for (const [i, [name, child]] of Object.entries(training ? CHILDREN : {}).entries())
 		await run(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,city,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
 			VALUES(${child},${PLANT},${PLANT},${name},${`${name.split(" ")[0]!.toLowerCase()}.young@example.test`},'Austin','other','2026-11-02T15:00:00.000Z','prospect','child','unknown',${902 + i},'live')`);
 	await run(sql`INSERT INTO message_template(id,plant_id,name,category,subject,body_html,body_text)
@@ -105,8 +105,10 @@ export async function seedCommunication(admin: Database) {
 	};
 	await email(INVITATION, "You're invited: Vision Night", MEETINGS.thursday, "scheduled", SENT_AT, USED_TEMPLATE);
 	for (const r of INVITED) await mail(INVITATION, r, SENT_AT);
-	await email(TRAINING, "Worship team training", MEETINGS.training, "scheduled", TRAINING_AT, null);
-	for (const r of TRAINED) await mail(TRAINING, r, TRAINING_AT);
+	if (training) {
+		await email(TRAINING, "Worship team training", MEETINGS.training, "scheduled", TRAINING_AT, null);
+		for (const r of TRAINED) await mail(TRAINING, r, TRAINING_AT);
+	}
 	await email(REMINDER, "Vision Night reminder", MEETINGS.thursday, "draft", null, null);
 	await email(
 		THANKS,
