@@ -19,6 +19,7 @@ import {
 	rosterWriter,
 	venuesReader,
 	venuesWriter as venues,
+	withMeetingsWrite,
 } from "../../../packages/domain/src/meetings/index.ts";
 import { fixture, ok, refused } from "../../support/fixture.mts";
 import { NEXT_REQUEST, problemText } from "../../../apps/web/src/features/meetings/model.ts";
@@ -1327,7 +1328,8 @@ test("AC:TARGET-MTG-001 INV-privacy: every read and write that takes a meeting a
 		for (const [name, input] of Object.entries(inputs)) {
 			const [area, op] = name.split(".");
 			const command = { requestKey: key(), input: { meetingId, ...input } };
-			const write = async (request) => run(writers[area][op], request);
+			const write = async (request) =>
+				withMeetingsWrite(db, owner, (tx, context) => writers[area][op](tx, context, request));
 			const first = await write({ ...command, expectedRevision: gone.revision });
 			const r =
 				first.status === "refused" && first.error.code === "invalid_input"
