@@ -1,6 +1,6 @@
 import "../runs-in/render.mjs";
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
+import { createRequire, registerHooks } from "node:module";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -8,7 +8,20 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = createRequire(root + "apps/web/package.json");
 const { renderToStaticMarkup } = web("react-dom/server");
 const { createElement, isValidElement }: typeof import("react") = web("react");
+type Viewer = { status: "unauthenticated" | "active" };
+const viewer = globalThis as typeof globalThis & { notFoundViewer: Viewer };
+viewer.notFoundViewer = { status: "unauthenticated" };
+registerHooks({
+	resolve: (specifier, context, next) =>
+		specifier === "@/server/request-context"
+			? {
+					url: `data:text/javascript,${encodeURIComponent("export const getViewer = async () => globalThis.notFoundViewer;")}`,
+					shortCircuit: true,
+				}
+			: next(specifier, context),
+});
 const { FrameNotFound, RootNotFound } = await import("../../../apps/web/src/features/boundaries/NotFound.tsx");
+const { landingFor } = await import("../../../packages/contracts/src/identity/navigation.ts");
 const { FrameError, GlobalErrorDocument, RootError } =
 	await import("../../../apps/web/src/features/boundaries/Errors.tsx");
 
@@ -60,7 +73,7 @@ function boundaryError() {
 test("BUG-PR551: the not-found pages name the page as not found, as the one h1, with a link to a start page", async () => {
 	for (const [name, page, home] of [
 		["frame", createElement(FrameNotFound), "/home"],
-		["root", createElement(RootNotFound), "/"],
+		["root", await RootNotFound(), "/"],
 	] as const) {
 		const html = renderToStaticMarkup(page);
 		assert.equal(html.match(/<h1[\s>]/g)?.length, 1, `${name}: one h1`);
@@ -68,6 +81,22 @@ test("BUG-PR551: the not-found pages name the page as not found, as the one h1, 
 		assert.match(html, new RegExp(`<a [^>]*href="${home}"`), `${name}: links to ${home}`);
 		assert.match(text(html), /The link may be out of date/, `${name}: says why`);
 	}
+});
+
+test("the root not-found home button takes a signed-out visitor to / and a signed-in director or planter to their own app home", async () => {
+	for (const [who, status, plant, lands] of [
+		["signed-out visitor", "unauthenticated", null, "/"],
+		["director", "active", "organization", "/network"],
+		["planter", "active", "complete", "/overview"],
+	] as const) {
+		viewer.notFoundViewer = { status };
+		const html = renderToStaticMarkup(await RootNotFound());
+		const href = html.match(/<a [^>]*href="([^"]+)"[^>]*>Go to the home page<\/a>/)?.[1];
+		assert.equal(href, plant ? "/home" : "/", `${who}: the button's link`);
+		const landing = plant ? landingFor({ status, plant }) : href;
+		assert.equal(landing, lands, `${who}: /home lands on ${lands}`);
+	}
+	viewer.notFoundViewer = { status: "unauthenticated" };
 });
 
 test("BUG-PR551: an error boundary says something went wrong, shows the digest and never the error's message", () => {
