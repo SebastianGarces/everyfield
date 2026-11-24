@@ -1,7 +1,6 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { frozenClock, instant } from "../../../../../packages/contracts/src/common/index.ts";
-import { RequestActor } from "../../../../../packages/domain/src/access/session.ts";
 import { communicationWriter } from "../../../../../packages/domain/src/communication/index.ts";
 import { createFollowUpWriter, followUpReader } from "../../../../../packages/domain/src/followups/index.ts";
 import { createSignals } from "../../../../../packages/domain/src/intelligence/index.ts";
@@ -29,11 +28,11 @@ import {
 	trainingWriter,
 } from "../../../../../packages/domain/src/teams/index.ts";
 import { sql } from "../../../../../packages/db/src/query.ts";
-import { ok, type Actor } from "../../../../support/fixture.mts";
+import { ok } from "../../../../support/fixture.mts";
 import { key, world, type Row } from "./support.mts";
 
 const w = await world("wp091use");
-const { write, P, ctx, tx, insert, person, personRow, db } = w;
+const { write, authority, P, ctx, tx, insert, person, personRow, db } = w;
 after(() => w.database.close());
 const reminders = async () => undefined;
 const attendance = createAttendanceWriter({ reminders });
@@ -42,11 +41,6 @@ const followups = createFollowUpWriter({ reminders });
 const signals = createSignals();
 const clock = frozenClock(instant.parse("2026-10-13T16:00:00.000Z"));
 const launches = createLaunchWriter({ notices: async () => undefined as never, clock });
-const authority = async (actor: Pick<Actor, "session"> = w.actors.admin) => {
-	const found = await RequestActor.resolve(db, actor.session);
-	assert.ok(found instanceof RequestActor);
-	return found;
-};
 const NAME = "Zed Leaving";
 const meeting = await insert("meeting", {
 	type: "vision_meeting",

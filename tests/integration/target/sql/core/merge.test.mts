@@ -1,6 +1,5 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import { RequestActor } from "../../../../../packages/domain/src/access/session.ts";
 import { communicationWriter } from "../../../../../packages/domain/src/communication/index.ts";
 import { createFollowUpWriter, followUpReader } from "../../../../../packages/domain/src/followups/index.ts";
 import {
@@ -29,21 +28,16 @@ import {
 import { runDueImports } from "../../../../../apps/web/src/features/people/import-export/run-imports.ts";
 import { personId as personIdValue } from "../../../../../packages/contracts/src/common/values.ts";
 import { sql } from "../../../../../packages/db/src/query.ts";
-import { ok, refused, type Actor } from "../../../../support/fixture.mts";
+import { ok, refused } from "../../../../support/fixture.mts";
 import { caseOf, key, world, type Row } from "./support.mts";
 
 const w = await world("wp091merge");
-const { write, P, ctx, tx, rows, one, insert, person, personRow, db } = w;
+const { write, authority, P, ctx, tx, rows, one, insert, person, personRow, db } = w;
 after(() => w.database.close());
 const reminders = async () => undefined;
 const attendance = createAttendanceWriter({ reminders });
 const tasks = createTaskWriter({ reminders });
 const followups = createFollowUpWriter({ reminders });
-const authority = async (actor: Pick<Actor, "session"> = w.actors.admin) => {
-	const found = await RequestActor.resolve(db, actor.session);
-	assert.ok(found instanceof RequestActor);
-	return found;
-};
 const meeting = (title: string, values: Row = {}) =>
 	insert("meeting", {
 		type: "vision_meeting",

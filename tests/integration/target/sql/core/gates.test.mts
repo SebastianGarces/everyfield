@@ -1,14 +1,20 @@
 import "../../../platform/setup.mts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { frozenClock, instant } from "../../../../../packages/contracts/src/common/index.ts";
-import { RequestActor } from "../../../../../packages/domain/src/access/session.ts";
 import { createPrivateCare } from "../../../../../packages/domain/src/intelligence/index.ts";
 import { createLaunchWriter } from "../../../../../packages/domain/src/launch/index.ts";
 import { createAttendanceWriter, guestsWriter } from "../../../../../packages/domain/src/meetings/index.ts";
 import { queueJobs } from "../../../../../packages/domain/src/jobs/queue.ts";
 import { registry } from "../../../../../packages/domain/src/people/person-reference-registry/index.ts";
-import { commitments } from "../../../../../packages/domain/src/people/index.ts";
+import {
+	commitments,
+	peopleMerge,
+	peopleReader,
+	peopleUnmerge,
+	peopleWriter,
+} from "../../../../../packages/domain/src/people/index.ts";
 import { deletionOperations } from "../../../../../packages/domain/src/settings/index.ts";
 import { issueRestrictedDeletionSession } from "../../../../../packages/domain/src/settings/deletion.ts";
 import { readViewer } from "../../../../../packages/domain/src/access/session.ts";
@@ -21,15 +27,24 @@ import { freezeClock } from "../knowledge/support.mts";
 import { caseOf, key, world, type Row } from "./support.mts";
 
 const w = await world("wp091gates");
-const { write, P, Q, ctx, tx, rows, one, insert, person, personRow, db } = w;
+const { write, authority, P, Q, ctx, tx, rows, one, insert, person, personRow, db } = w;
 after(() => w.database.close());
 await w.admin.execute(sql`INSERT INTO launch(plant_id,status) VALUES(${P},'planning')`);
 const attendance = createAttendanceWriter({ reminders: async () => undefined });
-const authority = async (actor: Pick<Actor, "session">) => {
-	const found = await RequestActor.resolve(db, actor.session);
-	assert.ok(found instanceof RequestActor);
-	return found;
-};
+const deletion = deletionOperations({
+	queue: (t, i) =>
+		queueJobs(t, [
+			{
+				tenant: i.subject.id,
+				kind: "lifecycle_purge",
+				subject: i.witnessId,
+				key: "purge/" + i.requestId,
+				revision: i.revision,
+				eligibleAt: i.eligibleAt,
+			},
+		]),
+	workspaceNotice: async () => {},
+});
 const meeting = (type = "vision_meeting", values: Row = {}) =>
 	insert("meeting", {
 		type,
@@ -195,20 +210,6 @@ test("AC:ORG55-007 only the Owner can delete the workspace, and no transfer is o
 	const plant = await w.database.plant();
 	const owner = await w.database.actor(plant, "owner"),
 		admin = await w.database.actor(plant, "admin");
-	const deletion = deletionOperations({
-		queue: (t, i) =>
-			queueJobs(t, [
-				{
-					tenant: i.subject.id,
-					kind: "lifecycle_purge",
-					subject: i.witnessId,
-					key: "purge/" + i.requestId,
-					revision: i.revision,
-					eligibleAt: i.eligibleAt,
-				},
-			]),
-		workspaceNotice: async () => {},
-	});
 	const ask = async (who: Actor) =>
 		tx(async (t) =>
 			deletion.requestWorkspaceDeletion(
@@ -291,8 +292,6 @@ test("AC:TARGET-IDN-031 merging, unmerging and relinking a person never moves a 
 	};
 	const selected = { kind: "plant" as const, id: plant.id };
 	const as = (who: Actor) => ({ session: who.session, selected: selected as never });
-	const { peopleMerge, peopleUnmerge, peopleWriter, peopleReader } =
-		await import("../../../../../packages/domain/src/people/index.ts");
 	const make = async (displayName: string) =>
 		ok(
 			await tx((t) =>
@@ -481,7 +480,6 @@ test("AC:TARGET-PPL-024 attendance and training writes that race a merge or a re
 				});
 		},
 	};
-	const { peopleMerge, peopleWriter } = await import("../../../../../packages/domain/src/people/index.ts");
 	const left: string[] = [];
 	for (const leaving of ["merge", "retire"] as const)
 		for (const consumer of ["attendance", "training"] as const) {
@@ -534,7 +532,6 @@ test("AC:TARGET-PPL-024 attendance and training writes that race a merge or a re
 		JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=k.n
 		WHERE c.contype='f' AND c.confrelid=${w.database.schema + ".person"}::regclass`);
 	const registered = new Set(registry.map((e) => `${e.table}.${e.column}`));
-	const { readFileSync } = await import("node:fs");
 	const policies = JSON.parse(
 		readFileSync(new URL("../../../../../docs/architecture/person-references.json", import.meta.url), "utf8"),
 	) as { person_references: { table: string; columns: string[]; inverse_policy: string }[] };
@@ -562,20 +559,6 @@ test("AC:TARGET-IDN-032 at the deadline the request cannot be cancelled, access 
 	const c = caseOf("identity-access", "TARGET-IDN-032");
 	const inputs = c.given["case-input"] as { requested_at: string; cancel_at: string };
 	const deadline = new Date(inputs.cancel_at);
-	const deletion = deletionOperations({
-		queue: (t, i) =>
-			queueJobs(t, [
-				{
-					tenant: i.subject.id,
-					kind: "lifecycle_purge",
-					subject: i.witnessId,
-					key: "purge/" + i.requestId,
-					revision: i.revision,
-					eligibleAt: i.eligibleAt,
-				},
-			]),
-		workspaceNotice: async () => {},
-	});
 	const a = await w.database.actor(w.database.tenant, "admin");
 	const note = await insert("person_note", {
 		tenant_id: P,

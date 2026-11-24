@@ -60,8 +60,8 @@ export async function world(prefix: string) {
 		selected: church(who === "foreign" ? Q : P),
 	});
 	const tx = <T,>(body: (t: WriteTx) => Promise<T>) => gatedTransaction(db, body);
-	const authorityOf = async (who: Who) => {
-		const found = await RequestActor.resolve(db, actors[who].session);
+	const authority = async (actor: Pick<Actor, "session"> = actors.admin) => {
+		const found = await RequestActor.resolve(db, actor.session);
 		assert.ok(found instanceof RequestActor);
 		return found;
 	};
@@ -70,27 +70,27 @@ export async function world(prefix: string) {
 			op: (t: WriteTx, c: MeetingsContext, raw: unknown) => Promise<MeetingsReply<T>>,
 			input: unknown,
 			who: Who = "admin",
-		) => withMeetingsWrite(db, await authorityOf(who), (t, c) => op(t, c, input)),
+		) => withMeetingsWrite(db, await authority(actors[who]), (t, c) => op(t, c, input)),
 		tasks: async <T,>(
 			op: (t: WriteTx, c: TaskContext, raw: unknown) => Promise<TaskReply<T>>,
 			input: unknown,
 			who: Who = "admin",
-		) => withTaskWrite(db, await authorityOf(who), (t, c) => op(t, c, input)),
+		) => withTaskWrite(db, await authority(actors[who]), (t, c) => op(t, c, input)),
 		followUps: async <T,>(
 			op: (t: WriteTx, c: TaskContext, raw: unknown) => Promise<FollowUpReply<T>>,
 			input: unknown,
 			who: Who = "admin",
-		) => withFollowUpWrite(db, await authorityOf(who), (t, c) => op(t, c, input)),
+		) => withFollowUpWrite(db, await authority(actors[who]), (t, c) => op(t, c, input)),
 		teams: async <T,>(
 			op: (t: WriteTx, c: TeamsContext, raw: unknown) => Promise<TeamsReply<T>>,
 			input: unknown,
 			who: Who = "admin",
-		) => withTeamsWrite(db, await authorityOf(who), (t, c) => op(t, c, input)),
+		) => withTeamsWrite(db, await authority(actors[who]), (t, c) => op(t, c, input)),
 		people: async <T,>(
 			op: (t: WriteTx, c: WriteContext, raw: unknown) => Promise<Reply<T>>,
 			input: unknown,
 			who: Who = "admin",
-		) => withPeopleWrite(db, await authorityOf(who), (t, c) => op(t, c, input)),
+		) => withPeopleWrite(db, await authority(actors[who]), (t, c) => op(t, c, input)),
 	};
 	const rows = async <R extends Row = Row>(query: SQL) => (await admin.execute<R>(query)).rows;
 	const one = async <R extends Row = Row>(query: SQL) => {
@@ -276,6 +276,7 @@ export async function world(prefix: string) {
 		actors,
 		ctx,
 		tx,
+		authority,
 		write,
 		rows,
 		one,
@@ -302,8 +303,6 @@ export async function world(prefix: string) {
 		commitFault,
 	};
 }
-export type World = Awaited<ReturnType<typeof world>>;
-export type { Actor };
 
 function reasons(error: unknown): string {
 	return error instanceof Error ? `${error.message} ${reasons(error.cause)}` : "";

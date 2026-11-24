@@ -341,11 +341,10 @@ const families: Family[] = [
 				reference: { table: "person_skill", id: own },
 				history: await audited(p2, "people.created"),
 				edit: bump("person_skill", own),
-				kept: async () => ({
-					...(await one(sql`SELECT (SELECT to_jsonb(n)-'person_id'-'revision' FROM person_note n WHERE n.id=${note}::uuid) AS note,
+				kept: () =>
+					one(sql`SELECT (SELECT to_jsonb(n)-'person_id'-'revision' FROM person_note n WHERE n.id=${note}::uuid) AS note,
 						(SELECT count(*)::int FROM person_tag WHERE person_id=${p1}::uuid AND tag_id=${tag}::uuid) AS tags,
-						(SELECT count(*)::int FROM person_skill WHERE person_id=${p1}::uuid AND lower(btrim(name))='sound') AS skills`)),
-				}),
+						(SELECT count(*)::int FROM person_skill WHERE person_id=${p1}::uuid AND lower(btrim(name))='sound') AS skills`),
 			};
 		},
 	},

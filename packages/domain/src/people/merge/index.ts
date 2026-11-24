@@ -394,18 +394,17 @@ function plan(
 		const taken = new Set(theirs.values());
 		return [...mine].filter(([, key]) => taken.has(key)).map(([id]) => id);
 	};
+	const droppedTags = (byKind.get("tag") ?? []).filter((x) => held.has(x.id)).map((x) => x.id);
 	const keptByKind: readonly (readonly [Kind, string[]])[] = [
+		["tag", droppedTags],
 		["attestation", keptOf("attestation")],
 		["launch_guest", keptOf("launch_guest")],
 		["skill", same(source.skillNames, survivor.skillNames)],
 		["obligation", same(source.followUpMeetings, survivor.followUpMeetings)],
 	];
 	const kept = new Map(keptByKind.map(([k, ids]) => [k, new Set(ids)]));
-	const droppedTags = (byKind.get("tag") ?? []).filter((x) => held.has(x.id)).map((x) => x.id);
-	const stays = (x: Pick<Reference, "kind" | "id">) =>
-		kept.get(x.kind)?.has(x.id) || (x.kind === "tag" && droppedTags.includes(x.id));
 	const carried = new Map(
-		[...byKind].filter(([k]) => !participating(k)).map(([k, refs]) => [k, refs.filter((x) => !stays(x))]),
+		[...byKind].filter(([k]) => !participating(k)).map(([k, refs]) => [k, refs.filter((x) => !kept.get(k)?.has(x.id))]),
 	);
 	const causes: z.infer<typeof c.mergeBlocker>[] = [];
 	if (source.linked_account_id && survivor.linked_account_id) causes.push("linked_account_collision");
