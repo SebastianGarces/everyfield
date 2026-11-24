@@ -662,7 +662,7 @@ type Step =
 	| ["void", string]
 	| ["withdraw" | "withdraw!" | "reactivate" | "stale", Letter, number]
 	| ["merge", Letter, Letter]
-	| ["unmerge" | "unmerge refused" | "legacy", Letter]
+	| ["unmerge" | "legacy", Letter]
 	| ["merge backfill", number];
 
 test("INV-commitment (C100): after every command sequence the cached commitment equals the one function of the valid cards and dated changes", async () => {
@@ -792,9 +792,9 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 				["legacy", "a"],
 				["merge backfill", 2],
 				["unmerge", "a"],
-				["unmerge refused", "b"],
+				["unmerge", "b"],
 			],
-			expect: { a: ["active", 20], b: ["withdrawn", 5] },
+			expect: { a: ["active", 20], b: ["active", 15], c: ["withdrawn", 5] },
 		},
 	];
 	const merged = new Map<string, string>(),
@@ -902,11 +902,6 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 				assert.deepEqual(await backfill(admin, [mergeReferencesBackfill(1)], schema), [
 					{ name: "merge_references_c100", changed: a },
 				]);
-			} else if (step[0] === "unmerge refused") {
-				const [, a] = step;
-				const mergeId = merged.get(people[a]!)!;
-				const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(), { mergeId })));
-				assert.deepEqual(preview.conflicts, ["source_changed", "survivor_changed", "references_changed"], at);
 			}
 			if (step[0] === "unmerge") edited.clear();
 			for (const personId of Object.values(people).filter((id) => !edited.has(id))) {

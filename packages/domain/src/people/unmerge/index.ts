@@ -41,6 +41,7 @@ const mergeRow = z.object({
 	households_exist: z.boolean(),
 	tags_exist: z.boolean(),
 	later_merge: z.boolean(),
+	undone: z.array(z.string()),
 	added_to_moved: z.array(c.referenceKind),
 	edited: z.array(z.string()),
 });
@@ -72,6 +73,12 @@ async function readMerge(tx: Tx, owner: string, mergeId: string, gate: SQL) {
   WHERE NOT EXISTS(SELECT FROM tag t WHERE t.id=d::uuid AND t.plant_id=m.tenant_id)),
  'later_merge',EXISTS(SELECT FROM person_merge l WHERE l.tenant_id=m.tenant_id AND l.survivor_id=m.survivor_id
   AND l.unmerged_at IS NULL AND l.id<>m.id AND l.merged_at>=m.merged_at),
+ 'undone',(SELECT coalesce(jsonb_agg(k.key||'|'||k.id),'[]') FROM person_merge l CROSS JOIN LATERAL (
+  SELECT e.key,i.id FROM jsonb_each(l.moved) e CROSS JOIN LATERAL jsonb_array_elements_text(e.value) i(id)
+   WHERE e.key NOT IN ('participation','participation_inviter')
+  UNION ALL SELECT 'participation',p->>'id' FROM jsonb_array_elements(coalesce(l.prior->'participation','[]')) p) k
+  WHERE l.tenant_id=m.tenant_id AND l.unmerged_at IS NOT NULL AND l.id<>m.id AND l.merged_at>=m.merged_at
+  AND m.survivor_id IN (l.source_id,l.survivor_id)),
  'added_to_moved',${addedToMoved},
  'edited',(SELECT coalesce(jsonb_agg(DISTINCT k),'[]') FROM audit_event e
   CROSS JOIN LATERAL jsonb_object_keys(coalesce(e.before_value,'{}')||coalesce(e.after_value,'{}')) k
@@ -131,7 +138,7 @@ function plantInverse(merge: Merge, source: Facts, survivor: Facts): Inverse {
 	if (
 		source.state !== "merged" ||
 		source.merged_into_person_id !== survivor.id ||
-		source.revision !== merge.source_revision
+		source.revision !== afterUndone(merge, "merged_person", source.id, merge.source_revision)
 	)
 		conflicts.push("source_changed");
 	const changedFields = mergedFieldsChanged(merge, source, survivor);
@@ -175,7 +182,8 @@ function movedRecordsChanged(merge: Merge, source: Facts, survivor: Facts): Kind
 	const key = (k: string, id: string) => `${k}|${id}`;
 	const recorded = new Map(then.map(([k, id, r]) => [key(k, id), r]));
 	const now = new Map(survivor.refs.map((x) => [key(x.kind, x.id), x.revision]));
-	const kept = (k: Kind, id: string) => now.has(key(k, id)) && now.get(key(k, id)) === recorded.get(key(k, id));
+	const kept = (k: Kind, id: string) =>
+		now.has(key(k, id)) && now.get(key(k, id)) === afterUndone(merge, k, id, recorded.get(key(k, id)) ?? null);
 	const kinds = new Set<Kind>();
 	for (const [raw, ids] of Object.entries(merge.moved)) {
 		if (raw === "tag_dropped" || raw === "mail" || participating(raw)) continue;
@@ -193,6 +201,10 @@ function movedRecordsChanged(merge: Merge, source: Facts, survivor: Facts): Kind
 			kinds.add("participation");
 	}
 	return [...kinds];
+}
+function afterUndone(merge: Merge, kind: Kind, id: string, revision: string | null) {
+	const round = merge.undone.filter((moved) => moved === `${kind}|${id}`).length;
+	return revision === null ? null : String(BigInt(revision) + 2n * BigInt(round));
 }
 const ownAttendance = (merge: Merge, prior: Record<string, unknown>) =>
 	prior.person_id === merge.source_id || prior.person_id === merge.survivor_id;

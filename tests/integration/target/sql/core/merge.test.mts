@@ -856,3 +856,23 @@ test("a retired person's meetings, tasks, teams and follow-ups still name them a
 		"retired",
 	);
 });
+
+test("undoing the later merge lets the earlier one unmerge, with every record back where it was", async () => {
+	const [c, b, a] = [await person("Chain C"), await person("Chain B"), await person("Chain A")];
+	const night = await meeting("Chain night");
+	for (const id of [c, b, a]) {
+		ok(await invite(night, id));
+		ok(await checkIn(night, id));
+		await createTask(id, "Call");
+		await addNote(id, "Note");
+	}
+	await invite(await meeting("Chain lunch"), c);
+	const before = await records(c, b, a);
+	const first = await w.merge(c, b),
+		second = await w.merge(b, a);
+	assert.deepEqual(ok(await w.preview(first.mergeId)).conflicts, ["chained_merge"]);
+	assert.equal(ok(await w.unmerge(second.mergeId)).outcome, "changed");
+	assert.deepEqual(ok(await w.preview(first.mergeId)).conflicts, []);
+	assert.equal(ok(await w.unmerge(first.mergeId)).outcome, "changed");
+	assert.deepEqual(await records(c, b, a), before);
+});
