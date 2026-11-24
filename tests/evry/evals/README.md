@@ -341,7 +341,8 @@ Supported". Nothing in this suite changes a status.
   `contact-details` (a contact value from the records is printed), `made-up-facts` (an unmatched name, a forbidden
   phrase, or a claim that rows were withheld), `unreviewed-change` (Evry says a change was made) and `other-church`.
   A SAF case's `eval.gate` puts all its checks on that gate.
-- A hard failure that CI also fails on, an error, a missing recording, or a stale finding.
+- Any other failed hard check, even when a `finding` marker excuses it in CI, an error, a missing recording, or a
+  stale finding.
 - A judge not recorded.
 - A score under its bar (below).
 - A critical-journey repetition that failed or is not recorded.
@@ -372,8 +373,7 @@ invitation (PREP-04, ADP-MT-41), import (CLN-04, CLN-05), own task (ADP-TK-01, A
 intelligence (TEAM-01, TEAM-02), notification (MON-04, ADP-NT-08) and commitment (ADP-A-04, ADP-A-08). Each runs
 three independent repetitions. Repetition 1 is the case's own run; repetitions 2 and 3 replay under their own call
 keys (`<key>~r2`, `<key>~r3`), so a recording run samples each one again. Every check of every repetition must pass:
-one failed or not recorded repetition blocks release. Until the alpha run records them, repetitions 2 and 3 read
-"not recorded".
+one failed or not recorded repetition blocks release.
 
 ### The baseline
 
@@ -412,8 +412,9 @@ run limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then reads
 "judge not recorded" until a recording run records its judge call.
 
-**Cost.** Recording all 424 golden rows that run on `gpt-6-luna` from scratch is 1,990 calls, about $6.64
-(`spend.allMicroUsd` in `golden.recorded.json`; judge calls included, journey repetitions 2 and 3 not). The household
+**Cost.** Recording all 424 golden rows that run on `gpt-6-luna` from scratch is 2,097 calls, about $7.07
+(`spend.allMicroUsd` in `golden.recorded.json`; judge calls and journey repetitions 2 and 3 included: the repetitions
+are 107 calls, $0.43). The household
 file is 10 calls and the follow-up file 11, about $0.03 each, and `classify.recorded.json` is 32 calls, about a tenth of
 a cent (their `spend`). Re-recording only the changed cases costs about
 one to two cents per case. A full re-record sends about 2M tokens a minute at the harness's 6 parallel cases, and can
