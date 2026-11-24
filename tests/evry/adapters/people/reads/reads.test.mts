@@ -325,6 +325,8 @@ test("church-wide People filters: page 2 continues page 1 under the same filter,
 			);
 			assert.equal(new Set([...first.rows, ...second.rows].map((r) => r.id)).size, 4);
 			assert.equal(all.facts?.peopleInChurch, live);
+			assert.equal(first.facts?.pages, Math.ceil(all.total! / 2));
+			assert.equal((await read({ ...filter, limit: 100 })).rows.length, Math.min(all.total!, 24));
 			if ("inHousehold" in filter) assert.equal(all.total, live - 1);
 			assert.equal(
 				all.rows.some((r) => r.id === brook),
@@ -340,7 +342,7 @@ test("church-wide People filters: page 2 continues page 1 under the same filter,
 		assert.deepEqual(
 			Object.values(answers).map((r) => r.rows),
 			[
-				{ ...fields, skills: "Sound desk, level not recorded" },
+				{ ...fields, skills: "Sound desk (tech), level not recorded" },
 				{ ...fields, household: "Brook household", householdId: home },
 				{ ...fields, movedOn: local },
 			].map((f) => [{ kind: "person", id: brook, label: "Bay Brook", fields: f }]),
