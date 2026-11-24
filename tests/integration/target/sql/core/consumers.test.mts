@@ -33,7 +33,7 @@ import { ok, type Actor } from "../../../../support/fixture.mts";
 import { key, world, type Row } from "./support.mts";
 
 const w = await world("wp091use");
-const { P, ctx, tx, insert, person, personRow, db } = w;
+const { write, P, ctx, tx, insert, person, personRow, db } = w;
 after(() => w.database.close());
 const reminders = async () => undefined;
 const attendance = createAttendanceWriter({ reminders });
@@ -86,12 +86,12 @@ const household = await insert("household", { name: "Home" });
 const other = await person("Other person");
 const onMeeting = await person("On the meeting");
 ok(
-	await tx((t) =>
-		guestsWriter.inviteGuest(t, ctx(), { requestKey: key(), input: { meetingId: meeting, personId: onMeeting } }),
+	await write.meetings((t, c) =>
+		guestsWriter.inviteGuest(t, c, { requestKey: key(), input: { meetingId: meeting, personId: onMeeting } }),
 	),
 );
 const otherTask = ok(
-	await tx((t) => tasks.create(t, ctx(), { requestKey: key(), input: { title: "Call", category: "general" } })),
+	await write.tasks((t, c) => tasks.create(t, c, { requestKey: key(), input: { title: "Call", category: "general" } })),
 ).task;
 await w.admin.execute(sql`INSERT INTO launch(plant_id,status,target_date,actual_date,outcome_recorded_at)
 	VALUES(${P},'completed','2026-10-11','2026-10-11','2026-10-12T12:00:00Z')`);
@@ -108,19 +108,20 @@ const onPerson = async (id: string, input: Row) => revised("person", id, { perso
 type Write = (id: string) => Promise<{ status: string }>;
 const writes: Record<string, Write> = {
 	"meeting invitation": (id) =>
-		tx((t) => guestsWriter.inviteGuest(t, ctx(), request({ meetingId: meeting, personId: id }))),
+		write.meetings((t, c) => guestsWriter.inviteGuest(t, c, request({ meetingId: meeting, personId: id }))),
 	"meeting guest list": (id) =>
-		tx((t) => guestsWriter.addGuests(t, ctx(), request({ meetingId: meeting, people: [id] }))),
+		write.meetings((t, c) => guestsWriter.addGuests(t, c, request({ meetingId: meeting, people: [id] }))),
 	"meeting inviter": (id) =>
-		tx((t) =>
-			guestsWriter.inviteGuest(t, ctx(), request({ meetingId: meeting, personId: other, inviterPersonId: id })),
+		write.meetings((t, c) =>
+			guestsWriter.inviteGuest(t, c, request({ meetingId: meeting, personId: other, inviterPersonId: id })),
 		),
-	"meeting check-in": (id) => tx((t) => attendance.checkIn(t, ctx(), request({ meetingId: meeting, personId: id }))),
+	"meeting check-in": (id) =>
+		write.meetings((t, c) => attendance.checkIn(t, c, request({ meetingId: meeting, personId: id }))),
 	"meeting attendance": (id) =>
-		tx((t) =>
+		write.meetings((t, c) =>
 			attendance.captureAttendanceBatch(
 				t,
-				ctx(),
+				c,
 				request({ meetingId: meeting, entries: [{ personId: id, presence: "attended" }] }),
 			),
 		),
@@ -130,41 +131,43 @@ const writes: Record<string, Write> = {
 			itemId: kit,
 			patch: { assigneePersonId: id },
 		});
-		return tx((t) => meetingsWriter.updateKitItem(t, ctx(), body));
+		return write.meetings((t, c) => meetingsWriter.updateKitItem(t, c, body));
 	},
 	"team meeting roster": (id) =>
-		tx((t) => rosterWriter.copyTeamRoster(t, ctx(), request({ meetingId: teamMeeting, add: [id], remove: [] }))),
+		write.meetings((t, c) =>
+			rosterWriter.copyTeamRoster(t, c, request({ meetingId: teamMeeting, add: [id], remove: [] })),
+		),
 	"task about a person": (id) =>
-		tx((t) =>
-			tasks.create(t, ctx(), request({ title: "Call", category: "general", relation: { kind: "person", id } })),
+		write.tasks((t, c) =>
+			tasks.create(t, c, request({ title: "Call", category: "general", relation: { kind: "person", id } })),
 		),
 	"task relation edit": async (id) => {
 		const body = await revised("task", otherTask.id, {
 			taskId: otherTask.id,
 			patch: { relation: { kind: "person", id } },
 		});
-		return tx((t) => tasks.edit(t, ctx(), body));
+		return write.tasks((t, c) => tasks.edit(t, c, body));
 	},
-	"follow-up": (id) => tx((t) => followups.createFollowUp(t, ctx(), request({ personId: id }))),
+	"follow-up": (id) => write.followUps((t, c) => followups.createFollowUp(t, c, request({ personId: id }))),
 	"follow-up outcome": (id) =>
-		tx((t) =>
+		write.followUps((t, c) =>
 			followups.recordOutcome(
 				t,
-				ctx(),
+				c,
 				request({ target: { kind: "person", personId: id }, outcome: "attempted_no_contact", completeTask: false }),
 			),
 		),
 	"team role": async (id) => {
 		const body = await revised("team_role", role, { roleId: role, teamId: team, personId: id });
-		return tx((t) => teamsWriter.assignRole(t, ctx(), body));
+		return write.teams((t, c) => teamsWriter.assignRole(t, c, body));
 	},
 	"team leader": async (id) => {
 		const body = await revised("team", team, { teamId: team, personId: id });
-		return tx((t) => teamsWriter.appointLeader(t, ctx(), body));
+		return write.teams((t, c) => teamsWriter.appointLeader(t, c, body));
 	},
 	"training roster": async (id) =>
-		tx(async (t) =>
-			trainingWriter.setRequiredTrainingParticipants(t, ctx(), {
+		write.teams(async (t, c) =>
+			trainingWriter.setRequiredTrainingParticipants(t, c, {
 				requestKey: key(),
 				expectedRevision: await w.revisionOf("training_program", program),
 				input: { programId: program, personIds: [id], rosterDigest: "0".repeat(64) },
@@ -177,36 +180,37 @@ const writes: Record<string, Write> = {
 			programId: program,
 			earnedOn: "2026-10-01",
 		});
-		return tx((t) => trainingWriter.attestCompletion(t, ctx(), body));
+		return write.teams((t, c) => trainingWriter.attestCompletion(t, c, body));
 	},
 	"launch guest": async (id) => launches.addGuestAttendance(db, await authority(), request({ personId: id })),
-	tag: (id) => tx((t) => personFields.assignTag(t, ctx(), request({ personId: id, tagId: tag }))),
-	skill: (id) => tx((t) => personFields.addSkill(t, ctx(), request({ personId: id, name: "Sound", category: "tech" }))),
+	tag: (id) => write.people((t, c) => personFields.assignTag(t, c, request({ personId: id, tagId: tag }))),
+	skill: (id) =>
+		write.people((t, c) => personFields.addSkill(t, c, request({ personId: id, name: "Sound", category: "tech" }))),
 	household: async (id) => {
 		const body = await revised("person", id, { householdId: household, personId: id, role: "other" });
-		return tx((t) => personFields.addToHousehold(t, ctx(), body));
+		return write.people((t, c) => personFields.addToHousehold(t, c, body));
 	},
 	"new household": async (id) => {
 		const body = await revised("person", id, { name: "New home", headPersonId: id });
-		return tx((t) => personFields.createHouseholdWithHead(t, ctx(), body));
+		return write.people((t, c) => personFields.createHouseholdWithHead(t, c, body));
 	},
 	guardian: async (id) => {
 		const body = await onPerson(id, { guardianPersonId: other, contact: true });
-		return tx((t) => personFields.setGuardianContact(t, ctx(), body));
+		return write.people((t, c) => personFields.setGuardianContact(t, c, body));
 	},
 	note: async (id) => {
 		const body = await onPerson(id, { body: "Late note" });
-		return tx((t) => peopleWriter.addNote(t, ctx(), body));
+		return write.people((t, c) => peopleWriter.addNote(t, c, body));
 	},
 	details: async (id) => {
 		const body = await onPerson(id, { patch: { city: "Elgin" } });
-		return tx((t) => peopleWriter.updatePerson(t, ctx(), body));
+		return write.people((t, c) => peopleWriter.updatePerson(t, c, body));
 	},
 	assessment: (id) =>
-		tx((t) =>
+		write.people((t, c) =>
 			assessments.createAssessment(
 				t,
-				ctx(),
+				c,
 				request({
 					personId: id,
 					occurredOn: "2026-10-01",
@@ -218,10 +222,10 @@ const writes: Record<string, Write> = {
 			),
 		),
 	interview: (id) =>
-		tx((t) =>
+		write.people((t, c) =>
 			interviews.createInterview(
 				t,
-				ctx(),
+				c,
 				request({
 					personId: id,
 					occurredOn: "2026-10-01",
@@ -235,14 +239,14 @@ const writes: Record<string, Write> = {
 			),
 		),
 	commitment: (id) =>
-		tx((t) =>
-			commitments.createCommitment(t, ctx(), request({ personId: id, kind: "core_group", occurredOn: "2026-10-01" })),
+		write.people((t, c) =>
+			commitments.createCommitment(t, c, request({ personId: id, kind: "core_group", occurredOn: "2026-10-01" })),
 		),
 	"commitment witness": (id) =>
-		tx((t) =>
+		write.people((t, c) =>
 			commitments.createCommitment(
 				t,
-				ctx(),
+				c,
 				request({ personId: other, kind: "core_group", occurredOn: "2026-10-01", witness: { personId: id } }),
 			),
 		),

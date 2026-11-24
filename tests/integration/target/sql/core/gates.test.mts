@@ -21,7 +21,7 @@ import { freezeClock } from "../knowledge/support.mts";
 import { caseOf, key, world, type Row } from "./support.mts";
 
 const w = await world("wp091gates");
-const { P, Q, ctx, tx, rows, one, insert, person, personRow, db } = w;
+const { write, P, Q, ctx, tx, rows, one, insert, person, personRow, db } = w;
 after(() => w.database.close());
 await w.admin.execute(sql`INSERT INTO launch(plant_id,status) VALUES(${P},'planning')`);
 const attendance = createAttendanceWriter({ reminders: async () => undefined });
@@ -50,7 +50,7 @@ const finalizeRequest = async (meetingId: string, attendeeIds: string[]) => ({
 	input: { meetingId, attendeeIds },
 });
 const finalize = (request: Awaited<ReturnType<typeof finalizeRequest>>) =>
-	tx((t) => attendance.finalizeAttendance(t, ctx(), request));
+	write.meetings((t, c) => attendance.finalizeAttendance(t, c, request));
 const attended = async (meetingId: string) =>
 	(
 		await rows(sql`SELECT person_id FROM participation WHERE meeting_id=${meetingId}::uuid AND presence='attended'
@@ -112,8 +112,8 @@ test("AC:TARGET-MTG-020 finalize records each attendee once, rolls back on a fau
 	const history = await contacts();
 	const jamie = await person("Jamie");
 	ok(
-		await tx(async (t) =>
-			attendance.reconcileAttendance(t, ctx(), {
+		await write.meetings(async (t, c) =>
+			attendance.reconcileAttendance(t, c, {
 				requestKey: key(),
 				expectedRevision: await attendanceRevision(m),
 				input: { meetingId: m, attendeeIds: [jamie], reason: "Sign-in sheet" },
@@ -143,7 +143,7 @@ test("AC:GAP-MTG-011 a walk-in makes one Person and one attendance; another chur
 			(SELECT count(*)::int FROM participation WHERE meeting_id=${m}::uuid) AS links`);
 	const request = { requestKey: key(), input: { meetingId: m, displayName: "Jamie" } };
 	const walkIn = (who: "admin" | "foreign" = "admin") =>
-		tx((t) => guestsWriter.createWalkInContact(t, ctx(who), request));
+		write.meetings((t, c) => guestsWriter.createWalkInContact(t, c, request), who);
 
 	const before = await w.everything();
 	const reply = await walkIn("foreign");
@@ -383,7 +383,7 @@ test("AC:TARGET-PPL-020 each recorded event advances a stage once and nothing mo
 			const r = await role(event === "ministry_leadership");
 			removeFrom = r.team;
 			const request = await assign(r, id);
-			return () => tx((t) => teamsWriter.assignRole(t, ctx(), request));
+			return () => write.teams((t, c) => teamsWriter.assignRole(t, c, request));
 		};
 		const record = await run();
 		ok((await record()) as { status: string });
@@ -395,8 +395,8 @@ test("AC:TARGET-PPL-020 each recorded event advances a stage once and nothing mo
 		stages.push(reached);
 
 		const card = ok(
-			await tx((t) =>
-				commitments.createCommitment(t, ctx(), {
+			await write.people((t, c) =>
+				commitments.createCommitment(t, c, {
 					requestKey: key(),
 					input: { personId: id, kind: "core_group", occurredOn: "2026-10-01" },
 				}),
@@ -404,8 +404,8 @@ test("AC:TARGET-PPL-020 each recorded event advances a stage once and nothing mo
 		);
 		const committed = await stage(id);
 		ok(
-			await tx((t) =>
-				commitments.withdrawCommitment(t, ctx(), {
+			await write.people((t, c) =>
+				commitments.withdrawCommitment(t, c, {
 					requestKey: key(),
 					expectedRevision: card.person.revision,
 					input: { personId: id, effectiveOn: "2026-10-02" },
@@ -416,8 +416,8 @@ test("AC:TARGET-PPL-020 each recorded event advances a stage once and nothing mo
 		if (removeFrom) {
 			const teamId = removeFrom;
 			ok(
-				await tx(async (t) =>
-					teamsWriter.endMembership(t, ctx(), {
+				await write.teams(async (t, c) =>
+					teamsWriter.endMembership(t, c, {
 						requestKey: key(),
 						expectedRevision: await w.revisionOf("team", teamId),
 						input: { teamId, personId: id },
@@ -464,8 +464,8 @@ test("AC:TARGET-PPL-024 attendance and training writes that race a merge or a re
 		attendance: async (personId: string) => {
 			const m = await meeting();
 			return () =>
-				tx((t) =>
-					guestsWriter.inviteGuest(t, ctx(), {
+				write.meetings((t, c) =>
+					guestsWriter.inviteGuest(t, c, {
 						requestKey: key(),
 						input: { meetingId: m, personId },
 					}),
@@ -479,8 +479,8 @@ test("AC:TARGET-PPL-024 attendance and training writes that race a merge or a re
 				}),
 			);
 			return () =>
-				tx((t) =>
-					trainingWriter.setRequiredTrainingParticipants(t, ctx(), {
+				write.teams((t, c) =>
+					trainingWriter.setRequiredTrainingParticipants(t, c, {
 						requestKey: key(),
 						expectedRevision: seen.revision,
 						input: { programId: program, personIds: [personId], rosterDigest: seen.rosterDigest },

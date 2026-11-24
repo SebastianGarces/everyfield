@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import type { WriteTx } from "../../../../../packages/domain/src/access/session.ts";
+import { RequestActor, type WriteTx } from "../../../../../packages/domain/src/access/session.ts";
+import type { MeetingsReply } from "../../../../../packages/contracts/src/meetings/index.ts";
+import type { TeamsReply } from "../../../../../packages/contracts/src/teams/index.ts";
+import { withFollowUpWrite, type FollowUpReply } from "../../../../../packages/domain/src/followups/index.ts";
+import { withMeetingsWrite, type MeetingsContext } from "../../../../../packages/domain/src/meetings/index.ts";
+import type { WriteContext } from "../../../../../packages/domain/src/people/core.ts";
+import { withTaskWrite, type TaskContext, type TaskReply } from "../../../../../packages/domain/src/tasks/index.ts";
+import { withTeamsWrite } from "../../../../../packages/domain/src/teams/index.ts";
+import type { TeamsContext } from "../../../../../packages/domain/src/teams/core.ts";
 import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 import {
 	peopleMerge,
@@ -9,11 +17,12 @@ import {
 	peopleUnmerge,
 	peopleWriter,
 	searchPeople,
+	withPeopleWrite,
 } from "../../../../../packages/domain/src/people/index.ts";
 import { sql, type SQL } from "../../../../../packages/db/src/query.ts";
 import { fixture, ok, type Actor } from "../../../../support/fixture.mts";
 import { personId as personIdValue } from "../../../../../packages/contracts/src/common/values.ts";
-import { church } from "../../../people/people-support.mts";
+import { church, type Reply } from "../../../people/people-support.mts";
 
 export type Row = Record<string, unknown>;
 type Json = Record<string, unknown>;
@@ -51,6 +60,23 @@ export async function world(prefix: string) {
 		selected: church(who === "foreign" ? Q : P),
 	});
 	const tx = <T,>(body: (t: WriteTx) => Promise<T>) => gatedTransaction(db, body);
+	const authorityOf = async (who: Who) => {
+		const found = await RequestActor.resolve(db, actors[who].session);
+		assert.ok(found instanceof RequestActor);
+		return found;
+	};
+	const write = {
+		meetings: async <T,>(body: (t: WriteTx, c: MeetingsContext) => Promise<MeetingsReply<T>>, who: Who = "admin") =>
+			withMeetingsWrite(db, await authorityOf(who), body),
+		tasks: async <T,>(body: (t: WriteTx, c: TaskContext) => Promise<TaskReply<T>>, who: Who = "admin") =>
+			withTaskWrite(db, await authorityOf(who), body),
+		followUps: async <T,>(body: (t: WriteTx, c: TaskContext) => Promise<FollowUpReply<T>>, who: Who = "admin") =>
+			withFollowUpWrite(db, await authorityOf(who), body),
+		teams: async <T,>(body: (t: WriteTx, c: TeamsContext) => Promise<TeamsReply<T>>, who: Who = "admin") =>
+			withTeamsWrite(db, await authorityOf(who), body),
+		people: async <T,>(body: (t: WriteTx, c: WriteContext) => Promise<Reply<T>>, who: Who = "admin") =>
+			withPeopleWrite(db, await authorityOf(who), body),
+	};
 	const rows = async <R extends Row = Row>(query: SQL) => (await admin.execute<R>(query)).rows;
 	const one = async <R extends Row = Row>(query: SQL) => {
 		const [row] = await rows<R>(query);
@@ -231,6 +257,7 @@ export async function world(prefix: string) {
 		actors,
 		ctx,
 		tx,
+		write,
 		rows,
 		one,
 		revisionOf,

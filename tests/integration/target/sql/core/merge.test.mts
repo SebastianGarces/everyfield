@@ -33,7 +33,7 @@ import { ok, refused, type Actor } from "../../../../support/fixture.mts";
 import { caseOf, key, world, type Row } from "./support.mts";
 
 const w = await world("wp091merge");
-const { P, ctx, tx, rows, one, insert, person, personRow, db } = w;
+const { write, P, ctx, tx, rows, one, insert, person, personRow, db } = w;
 after(() => w.database.close());
 const reminders = async () => undefined;
 const attendance = createAttendanceWriter({ reminders });
@@ -78,13 +78,15 @@ async function importOne(text: string) {
 	return row.personId;
 }
 const invite = (meetingId: string, personId: string, inviterPersonId: string | null = null) =>
-	tx((t) => guestsWriter.inviteGuest(t, ctx(), { requestKey: key(), input: { meetingId, personId, inviterPersonId } }));
+	write.meetings((t, c) =>
+		guestsWriter.inviteGuest(t, c, { requestKey: key(), input: { meetingId, personId, inviterPersonId } }),
+	);
 const checkIn = (meetingId: string, personId: string) =>
-	tx((t) => attendance.checkIn(t, ctx(), { requestKey: key(), input: { meetingId, personId } }));
+	write.meetings((t, c) => attendance.checkIn(t, c, { requestKey: key(), input: { meetingId, personId } }));
 const addNote = async (personId: string, body: string) =>
 	ok(
-		await tx(async (t) =>
-			peopleWriter.addNote(t, ctx(), {
+		await write.people(async (t, c) =>
+			peopleWriter.addNote(t, c, {
 				requestKey: key(),
 				expectedRevision: (await personRow(personId)).revision,
 				input: { personId, body },
@@ -93,18 +95,18 @@ const addNote = async (personId: string, body: string) =>
 	).noteId;
 const addSkill = async (personId: string, name: string) =>
 	ok(
-		await tx((t) =>
-			personFields.addSkill(t, ctx(), { requestKey: key(), input: { personId, name, category: "tech" } }),
+		await write.people((t, c) =>
+			personFields.addSkill(t, c, { requestKey: key(), input: { personId, name, category: "tech" } }),
 		),
 	);
 const createTag = async (name: string) =>
-	ok(await tx((t) => personFields.createTag(t, ctx(), { requestKey: key(), input: { name } }))).tag.id;
+	ok(await write.people((t, c) => personFields.createTag(t, c, { requestKey: key(), input: { name } }))).tag.id;
 const assignTag = async (personId: string, tagId: string) =>
-	ok(await tx((t) => personFields.assignTag(t, ctx(), { requestKey: key(), input: { personId, tagId } })));
+	ok(await write.people((t, c) => personFields.assignTag(t, c, { requestKey: key(), input: { personId, tagId } })));
 const createTask = async (personId: string, title: string) =>
 	ok(
-		await tx((t) =>
-			tasks.create(t, ctx(), {
+		await write.tasks((t, c) =>
+			tasks.create(t, c, {
 				requestKey: key(),
 				input: { title, category: "follow_up", relation: { kind: "person", id: personId } },
 			}),
@@ -121,8 +123,8 @@ const train = (programId: string, personId: string) =>
 	});
 const attest = async (programId: string, personId: string) =>
 	ok(
-		await tx(async (t) =>
-			trainingWriter.attestCompletion(t, ctx(), {
+		await write.teams(async (t, c) =>
+			trainingWriter.attestCompletion(t, c, {
 				requestKey: key(),
 				expectedRevision: await w.revisionOf("training_program", programId),
 				input: { kind: "program", personId, programId, earnedOn: "2026-10-05" },
@@ -135,8 +137,8 @@ async function role(name: string) {
 }
 const assign = async (r: { team: string; id: string }, personId: string) =>
 	ok(
-		await tx(async (t) =>
-			teamsWriter.assignRole(t, ctx(), {
+		await write.teams(async (t, c) =>
+			teamsWriter.assignRole(t, c, {
 				requestKey: key(),
 				expectedRevision: await w.revisionOf("team_role", r.id),
 				input: { roleId: r.id, teamId: r.team, personId },
@@ -230,8 +232,8 @@ async function importedAndWalkIn() {
 	);
 	const night = await meeting("Vision night");
 	const walkIn = ok(
-		await tx((t) =>
-			guestsWriter.createWalkInContact(t, ctx(), {
+		await write.meetings((t, c) =>
+			guestsWriter.createWalkInContact(t, c, {
 				requestKey: key(),
 				input: { meetingId: night, displayName: "Jordan R." },
 			}),
@@ -239,8 +241,8 @@ async function importedAndWalkIn() {
 	).guest.person.personId;
 	ok(await invite(night, imported));
 	ok(
-		await tx(async (t) =>
-			guestsWriter.correctRsvp(t, ctx(), {
+		await write.meetings(async (t, c) =>
+			guestsWriter.correctRsvp(t, c, {
 				requestKey: key(),
 				expectedRevision: await w.revisionOf(
 					"participation",
@@ -258,8 +260,8 @@ async function importedAndWalkIn() {
 	);
 	ok(await checkIn(night, imported));
 	const finalized = ok(
-		await tx(async (t) =>
-			attendance.finalizeAttendance(t, ctx(), {
+		await write.meetings(async (t, c) =>
+			attendance.finalizeAttendance(t, c, {
 				requestKey: key(),
 				expectedRevision: String(
 					(await one(sql`SELECT attendance_revision::text AS r FROM meeting WHERE id=${night}::uuid`)).r,
@@ -279,8 +281,8 @@ async function importedAndWalkIn() {
 	}
 	await addSkill(walkIn, "Teaching");
 	const home = ok(
-		await tx(async (t) =>
-			personFields.createHouseholdWithHead(t, ctx(), {
+		await write.people(async (t, c) =>
+			personFields.createHouseholdWithHead(t, c, {
 				requestKey: key(),
 				expectedRevision: (await personRow(walkIn)).revision,
 				input: { name: "Rivera home", headPersonId: walkIn },
@@ -451,8 +453,8 @@ test("after a merge the notification feed, signed cards and their corrections re
 		created_at: "2026-10-01T12:00:00Z",
 	});
 	const card = ok(
-		await tx((t) =>
-			commitments.createCommitment(t, ctx(), {
+		await write.people((t, c) =>
+			commitments.createCommitment(t, c, {
 				requestKey: key(),
 				input: { personId: source, kind: "core_group", occurredOn: "2026-09-20", notes: "Signed at lunch" },
 			}),
@@ -558,8 +560,8 @@ test("a guest the source invited keeps an RSVP given after the merge when Unmerg
 		(await one(sql`SELECT id FROM participation WHERE meeting_id=${gathering}::uuid AND person_id=${guest}::uuid`)).id,
 	);
 	ok(
-		await tx(async (t) =>
-			guestsWriter.correctRsvp(t, ctx(), {
+		await write.meetings(async (t, c) =>
+			guestsWriter.correctRsvp(t, c, {
 				requestKey: key(),
 				expectedRevision: await w.revisionOf("participation", id),
 				input: { meetingId: gathering, personId: guest, rsvp: "confirmed" },
@@ -604,8 +606,8 @@ test("AC:TARGET-PPL-025 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-UNM
 			run: async () => {
 				const p = await pair("Commitment");
 				const card = ok(
-					await tx((t) =>
-						commitments.createCommitment(t, ctx(), {
+					await write.people((t, c) =>
+						commitments.createCommitment(t, c, {
 							requestKey: key(),
 							input: { personId: p.source, kind: "core_group", occurredOn: "2026-10-01" },
 						}),
@@ -613,8 +615,8 @@ test("AC:TARGET-PPL-025 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-UNM
 				).commitment;
 				const merged = await w.merge(p.source, p.survivor);
 				ok(
-					await tx(async (t) =>
-						recordCorrections.correctPersonRecord(t, ctx(), {
+					await write.people(async (t, c) =>
+						recordCorrections.correctPersonRecord(t, c, {
 							requestKey: key(),
 							expectedRevision: await w.revisionOf("commitment", card.id),
 							input: {
@@ -637,8 +639,8 @@ test("AC:TARGET-PPL-025 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-UNM
 				const p = await shared("Combined");
 				const merged = await w.merge(p.source, p.survivor);
 				ok(
-					await tx((t) =>
-						attendance.setAttendance(t, ctx(), {
+					await write.meetings((t, c) =>
+						attendance.setAttendance(t, c, {
 							requestKey: key(),
 							input: { meetingId: p.night, personId: p.survivor, presence: "excused" },
 						}),
@@ -655,8 +657,8 @@ test("AC:TARGET-PPL-025 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-UNM
 				const duty = await createTask(p.source, "Call them");
 				const merged = await w.merge(p.source, p.survivor);
 				ok(
-					await tx(async (t) =>
-						followups.recordOutcome(t, ctx(), {
+					await write.followUps(async (t, c) =>
+						followups.recordOutcome(t, c, {
 							requestKey: key(),
 							input: {
 								target: { kind: "task", taskId: duty, expectedRevision: await w.revisionOf("task", duty) },
@@ -679,8 +681,8 @@ test("AC:TARGET-PPL-025 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-UNM
 				await assignTag(p.source, tagId);
 				const merged = await w.merge(p.source, p.survivor);
 				ok(
-					await tx((t) =>
-						personFields.removeTag(t, ctx(), { requestKey: key(), input: { personId: p.survivor, tagId } }),
+					await write.people((t, c) =>
+						personFields.removeTag(t, c, { requestKey: key(), input: { personId: p.survivor, tagId } }),
 					),
 				);
 				return merged;
@@ -692,8 +694,8 @@ test("AC:TARGET-PPL-025 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-UNM
 			run: async () => {
 				const p = await pair("Household");
 				const home = ok(
-					await tx(async (t) =>
-						personFields.createHouseholdWithHead(t, ctx(), {
+					await write.people(async (t, c) =>
+						personFields.createHouseholdWithHead(t, c, {
 							requestKey: key(),
 							expectedRevision: (await personRow(p.source)).revision,
 							input: { name: "Gone", headPersonId: p.source },
@@ -704,8 +706,8 @@ test("AC:TARGET-PPL-025 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-UNM
 				const householdId = home.household.id;
 				const merged = await w.merge(p.source, p.survivor);
 				ok(
-					await tx(async (t) =>
-						personFields.deleteHousehold(t, ctx(), {
+					await write.people(async (t, c) =>
+						personFields.deleteHousehold(t, c, {
 							requestKey: key(),
 							expectedRevision: await w.revisionOf("household", householdId),
 							input: { householdId },
