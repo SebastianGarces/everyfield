@@ -154,7 +154,7 @@ const church = await goldenChurch();
 after(church.close);
 const mailChurch = await goldenChurch();
 after(mailChurch.close);
-await seedCommunication(mailChurch.admin);
+await seedCommunication(mailChurch.admin, { training: false });
 
 const fill = (p: string, as = (v: string) => v) =>
 	p.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => as(byName(name)[field]!));
