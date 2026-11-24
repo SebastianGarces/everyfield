@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID }
 import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
+import type { BackupBucket } from "./bucket.mts";
 import { readPrivateBytes } from "./control.mts";
 import { ManifestRefused, validateCandidate } from "./recovery.mts";
 import type { Snapshot } from "./restore.mts";
@@ -16,7 +17,8 @@ const capability = z.strictObject({
 	environment: z.literal("isolated-test"),
 });
 
-const COPY_KEY = /^copy\/[0-9-]{10}\/[0-9a-f-]{36}\/(manifest\.json|key|database|objects\/[0-9a-f-]{36})$/;
+const COPY_KEY =
+	/^copy\/[0-9-]{10}\/[0-9a-f-]{36}\/(manifest\.json|verified\.json|key|database|objects\/[0-9a-f-]{36})$/;
 const COPY_LIMIT = 256 * 1024 * 1024;
 
 export class BackupDirectory {
@@ -37,7 +39,8 @@ export class BackupDirectory {
 		return readPrivateBytes(this.#path(key), COPY_LIMIT).catch(() => null);
 	}
 }
-export type CopyDeps = { store: BackupDirectory; clock: () => Date };
+export type CopyStore = BackupDirectory | BackupBucket;
+export type CopyDeps = { store: CopyStore; clock: () => Date };
 export type CopyInput = {
 	capability: unknown;
 	keyFile: string;
@@ -78,6 +81,7 @@ class Refused extends Error {
 }
 const IV = 12,
 	TAG = 16;
+export const SEALED_BYTES = IV + TAG;
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const instant = (value: string | number) => new Date(value).toISOString().replace(/\.000Z$/, "Z");
 
@@ -105,7 +109,7 @@ async function backupKey(path: string) {
 	return key;
 }
 
-export async function openEncryptedCopy(store: BackupDirectory, location: string, keyFile: string): Promise<Snapshot> {
+export async function openEncryptedCopy(store: CopyStore, location: string, keyFile: string): Promise<Snapshot> {
 	const kek = await backupKey(keyFile);
 	const manifestBytes = await store.get(`${location}/manifest.json`);
 	if (!manifestBytes) throw new Refused("copy_unreadable");

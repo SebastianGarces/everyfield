@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import type { CopyStatus } from "./backup.mts";
 const require = createRequire(new URL("../../packages/domain/package.json", import.meta.url));
 const { z } = require("zod");
 
@@ -31,12 +32,19 @@ export type ReadinessReport =
 			customer_data_gate: "blocked";
 			build_gate_from_backup: false;
 			missing: EvidenceItem[];
+			daily_fallback_eligible: boolean;
+			second_provider_gate: false;
 			live_evidence_verified: false;
 			checked_at: string;
 	  }
 	| { refusal: "operator_unavailable" };
 
-export function readiness(input: { capability: unknown; evidence: unknown; now: Date }): ReadinessReport {
+export function readiness(input: {
+	capability: unknown;
+	evidence: unknown;
+	now: Date;
+	copies?: Pick<CopyStatus, "daily_fallback_eligible">;
+}): ReadinessReport {
 	if (!capability.safeParse(input.capability).success) return { refusal: "operator_unavailable" };
 	const evidence =
 		input.evidence && typeof input.evidence === "object" ? (input.evidence as Record<string, unknown>) : {};
@@ -48,6 +56,8 @@ export function readiness(input: { capability: unknown; evidence: unknown; now: 
 		customer_data_gate: "blocked",
 		build_gate_from_backup: false,
 		missing,
+		daily_fallback_eligible: input.copies?.daily_fallback_eligible ?? false,
+		second_provider_gate: false,
 		live_evidence_verified: false,
 		checked_at: input.now.toISOString().replace(/\.000Z$/, "Z"),
 	};
