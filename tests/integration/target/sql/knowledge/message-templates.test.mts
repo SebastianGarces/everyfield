@@ -3,12 +3,12 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { sql } from "../../../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../../../packages/db/src/query.ts";
 import { systemTemplates } from "../../../../../packages/contracts/src/communication/index.ts";
 import { RequestActor } from "../../../../../packages/domain/src/access/session.ts";
 import { communicationWriter, withCommunicationWrite } from "../../../../../packages/domain/src/communication/index.ts";
 import { messageTemplateInstaller } from "../../../../../packages/reference/src/message-templates.ts";
-import { fixture, ok, refused } from "../../../../support/fixture.mts";
+import { type Actor, fixture, ok, refused } from "../../../../support/fixture.mts";
 import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
 const SOURCE = {
@@ -20,22 +20,26 @@ const database = await fixture({ prefix: "wp092ref", clock: new Date("2026-10-13
 const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant;
-const rows = async (query) => (await admin.execute(query)).rows;
+const rows = async (query: SQL) => (await admin.execute(query)).rows;
 const key = () => randomUUID();
 const sourceHash = async () =>
 	createHash("sha256")
 		.update(await readFile(new URL(SOURCE.path, repository)))
 		.digest("hex");
-const actorOf = async (who) => {
+const actorOf = async (who: Actor) => {
 	const a = await RequestActor.resolve(db, who.session);
 	assert.ok(a instanceof RequestActor, JSON.stringify(a));
 	return a;
 };
-const caller = (who) => ({ actorId: who.id, userId: who.user, sessionId: who.session });
-const attempt = (run: Promise<unknown>) =>
+const caller = (who: Actor) => ({ actorId: who.id, userId: who.user, sessionId: who.session });
+const attempt = <V,>(run: Promise<V>) =>
 	run.then(
-		(value) => ({ status: "ok", value }),
-		(error) => ({ status: "refused", code: error.code, reply: JSON.stringify({ ...error, message: error.message }) }),
+		(value) => ({ status: "ok" as const, value }),
+		(error) => ({
+			status: "refused" as const,
+			code: error.code,
+			reply: JSON.stringify({ ...error, message: error.message }),
+		}),
 	);
 async function writes() {
 	const [row] = await rows(sql`SELECT
@@ -51,9 +55,10 @@ const installedTemplates = async () =>
 	(
 		await rows(sql`SELECT count(*)::int AS n FROM reference_item
 			WHERE kind = 'mail_template' AND tenant_id = '00000000-0000-0000-0000-000000000000'::uuid`)
-	)[0].n;
+	)[0]!.n;
 
-let A, publisher, foreign, fork;
+let A: Actor & { actor: RequestActor }, publisher: Actor, foreign: Actor;
+let fork: { templateId: string; bodyHtml: string };
 before(async () => {
 	A = { ...database.actors.admin, actor: await actorOf(database.actors.admin) };
 	publisher = await database.actor(null, "owner", { account: { registration_kind: "planter" } });
@@ -62,27 +67,32 @@ before(async () => {
 	);
 	const Q = await database.plant({ name: "Quarry Hill", timezone: "America/New_York" });
 	foreign = await database.actor(Q, "member");
-	const write = (op, input) =>
-		withCommunicationWrite(db, A.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
 	const forked = ok(
-		await write("forkTemplate", { requestKey: key(), input: { sourceKey: "vision-meeting-invitation" } }),
+		await withCommunicationWrite(db, A.actor, (tx, ctx) =>
+			communicationWriter.forkTemplate(tx, ctx, {
+				requestKey: key(),
+				input: { sourceKey: "vision-meeting-invitation" },
+			}),
+		),
 	);
 	fork = ok(
-		await write("updateTemplate", {
-			requestKey: key(),
-			expectedRevision: forked.revision,
-			input: {
-				templateId: forked.templateId,
-				patch: {
-					name: forked.name,
-					description: forked.description,
-					category: "meeting_invitation",
-					meetingType: "vision_meeting",
-					subject: "Our invitation",
-					bodyHtml: "<p>Welcome {{name}}.</p>",
+		await withCommunicationWrite(db, A.actor, (tx, ctx) =>
+			communicationWriter.updateTemplate(tx, ctx, {
+				requestKey: key(),
+				expectedRevision: forked.revision,
+				input: {
+					templateId: forked.templateId,
+					patch: {
+						name: forked.name,
+						description: forked.description,
+						category: "meeting_invitation",
+						meetingType: "vision_meeting",
+						subject: "Our invitation",
+						bodyHtml: "<p>Welcome {{name}}.</p>",
+					},
 				},
-			},
-		}),
+			}),
+		),
 	);
 });
 after(() => database.close());
@@ -103,7 +113,7 @@ test("AC:GAP-REF-006 seven system templates install twice without overwriting a 
 		assert.equal(await sourceHash(), SOURCE.sha256);
 
 		const listed = ok(await gatedTransaction(db, (tx) => communicationWriter.listTemplates(tx, A.actor)));
-		const forkShown = listed.templates.find((t) => t.sourceKey === "vision-meeting-invitation");
+		const forkShown = listed.templates.find((t) => t.sourceKey === "vision-meeting-invitation")!;
 		assert.equal(forkShown.origin, "plant");
 		assert.equal(forkShown.subject, "Our invitation");
 		const [stored] = await rows(
@@ -113,7 +123,7 @@ test("AC:GAP-REF-006 seven system templates install twice without overwriting a 
 		const shownSystem = listed.templates.filter((t) => t.origin === "system");
 		assert.equal(shownSystem.length, 6);
 		const approved = new Map(systemTemplates.map((t) => [t.sourceKey, t.subject]));
-		const systemSubjectOverwritten = shownSystem.some((t) => approved.get(t.sourceKey) !== t.subject);
+		const systemSubjectOverwritten = shownSystem.some((t) => approved.get(t.sourceKey ?? "") !== t.subject);
 		assert.equal(systemSubjectOverwritten, false);
 	});
 

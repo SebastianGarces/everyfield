@@ -422,7 +422,7 @@ run limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then reads
 "judge not recorded" until a recording run records its judge call.
 
-**Cost.** Recording all 424 golden rows that run on `gpt-6-luna` from scratch is 1,988 calls, about $6.63
+**Cost.** Recording all 424 golden rows that run on `gpt-6-luna` from scratch is 1,990 calls, about $6.64
 (`spend.allMicroUsd` in `golden.recorded.json`; judge calls included, journey repetitions 2 and 3 not). The household
 file is 10 calls and the follow-up file 11, about $0.03 each, and `classify.recorded.json` is 32 calls, about a tenth of
 a cent (their `spend`). Re-recording only the changed cases costs about

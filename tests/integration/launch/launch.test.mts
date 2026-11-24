@@ -2,11 +2,11 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { ok, refused } from "../../support/fixture.mts";
-import { frozenClock, instant } from "../../../packages/contracts/src/common/index.ts";
-import { countdown, reviewedOf } from "../../../packages/contracts/src/launch/index.ts";
+import { type Workspace, ok, refused } from "../../support/fixture.mts";
+import { frozenClock, instant, localDate } from "../../../packages/contracts/src/common/index.ts";
+import { countdown, reviewedOf, type Milestone, type Plan } from "../../../packages/contracts/src/launch/index.ts";
 import {
 	authorizeLaunchNotices,
 	createLaunchReader,
@@ -17,43 +17,55 @@ import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { seatedNotificationService } from "../../../packages/domain/src/jobs/seated-notifications.ts";
 import { launchNotices } from "../../../apps/web/src/features/launch/notices.ts";
 
-const inventory = JSON.parse(
+const inventory: { milestones: { template_key: string; task_titles: string[] }[] } = JSON.parse(
 	readFileSync(new URL("../../../docs/reference/launch-template-inventory.json", import.meta.url), "utf8"),
 );
 const TODAY = frozenClock(instant.parse("2026-10-14T03:00:00.000Z"));
-let f, reader, writer, tasks;
-const rows = async (q) => (await f.admin.execute(q)).rows;
-const one = async (q) => (await rows(q))[0];
-const plan = async (who) => ok(await reader.readPlan(f.db, who.actor)).plan;
-const schedule = (who, date, reason, expectedRevision, requestKey = randomUUID()) =>
-	writer.schedule(f.db, who.actor, { requestKey, expectedRevision, input: { date, reason } });
-const postpone = (who, reason, expectedRevision) =>
+let f: Awaited<ReturnType<typeof fixture>>;
+let reader: ReturnType<typeof createLaunchReader>;
+let writer: ReturnType<typeof createLaunchWriter>;
+let tasks: ReturnType<typeof createTaskWriter>;
+type Row = Record<string, unknown>;
+const rows = async <R extends Row = Row>(q: SQL) => (await f.admin.execute<R>(q)).rows;
+const one = async <R extends Row = Row>(q: SQL) => (await rows<R>(q))[0]!;
+type Church = Awaited<ReturnType<typeof church>>;
+type Who = Pick<Church["owner"], "actor">;
+const plan = async (who: Who) => ok(await reader.readPlan(f.db, who.actor)).plan;
+const schedule = (
+	who: Who,
+	date: string,
+	reason: string | null,
+	expectedRevision: string,
+	requestKey: string = randomUUID(),
+) => writer.schedule(f.db, who.actor, { requestKey, expectedRevision, input: { date, reason } });
+const postpone = (who: Who, reason: string, expectedRevision: string) =>
 	writer.postpone(f.db, who.actor, { requestKey: randomUUID(), expectedRevision, input: { reason } });
-const complete = (who, m, requestKey = randomUUID()) =>
+const complete = (who: Who, m: Milestone, requestKey: string = randomUUID()) =>
 	writer.completeMilestone(f.db, who.actor, {
 		requestKey,
 		expectedRevision: m.revision,
 		input: { milestoneId: m.id, reviewed: reviewedOf(m.tasks) },
 	});
-const reopen = (who, m) =>
+const reopen = (who: Who, m: Milestone) =>
 	writer.reopenMilestone(f.db, who.actor, {
 		requestKey: randomUUID(),
 		expectedRevision: m.revision,
 		input: { milestoneId: m.id },
 	});
-const task = (who, op, input) =>
+const task = (who: Who, op: "edit" | "delete" | "complete" | "reopen", input: object) =>
 	withTaskWrite(f.db, who.actor, (tx, ctx) => tasks[op](tx, ctx, { requestKey: randomUUID(), ...input }));
-const setStatus = (who, t, status) =>
+const setStatus = (who: Who, t: { id: string; revision: string }, status: "complete" | "reopen") =>
 	task(who, status === "complete" ? "complete" : "reopen", { expectedRevision: t.revision, input: { taskId: t.id } });
-const milestone = (p, key) => p.milestones.find((m) => m.templateKey === key);
-const footprint = (w) =>
+const day = (date: string) => localDate.parse(date);
+const milestone = (p: Plan, key: string) => p.milestones.find((m) => m.templateKey === key)!;
+const footprint = (w: { id: string }) =>
 	one(sql`SELECT (SELECT count(*)::int FROM launch_milestone WHERE plant_id=${w.id}) milestones,
 		(SELECT count(*)::int FROM task WHERE plant_id=${w.id}) tasks,
 		(SELECT count(*)::int FROM audit_event WHERE tenant_id=${w.id}) audits,
 		(SELECT count(*)::int FROM notice WHERE tenant_id=${w.id}) notices,
 		(SELECT revision::text FROM launch WHERE plant_id=${w.id}) revision`);
 
-async function seated(w, role) {
+async function seated(w: Workspace, role: "owner" | "admin" | "member") {
 	const a = await f.account();
 	await f.seat(a, w, role);
 	return { ...a, actor: await f.actor(a.session) };
@@ -75,7 +87,7 @@ async function scheduled() {
 	return { ...c, plan: await plan(c.owner) };
 }
 async function practice(
-	w,
+	w: { id: string },
 	{ status = "completed", heldAt = "2026-10-04T15:00:00Z", type = "prelaunch_practice" } = {},
 ) {
 	const id = randomUUID();
@@ -86,7 +98,7 @@ async function practice(
 		${status === "completed" ? heldAt : null})`);
 	return id;
 }
-async function teamOf(w) {
+async function teamOf(w: { id: string }) {
 	const id = randomUUID();
 	await f.admin.execute(
 		sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${id},${w.id},'Welcome','active',1)`,
@@ -118,27 +130,27 @@ before(async () => {
 after(() => f?.close());
 
 test("AC:CASE-LCH-008 the countdown counts church-local days: 28 days, today, overdue, postponed and no date", () => {
-	assert.deepEqual(countdown({ status: "scheduled", targetDate: "2026-11-10" }, "2026-10-13"), {
+	assert.deepEqual(countdown({ status: "scheduled", targetDate: day("2026-11-10") }, day("2026-10-13")), {
 		kind: "ahead",
 		days: 28,
 		window: true,
 	});
-	assert.deepEqual(countdown({ status: "scheduled", targetDate: "2026-11-11" }, "2026-10-13"), {
+	assert.deepEqual(countdown({ status: "scheduled", targetDate: day("2026-11-11") }, day("2026-10-13")), {
 		kind: "ahead",
 		days: 29,
 		window: false,
 	});
-	assert.deepEqual(countdown({ status: "scheduled", targetDate: "2026-10-13" }, "2026-10-13"), {
+	assert.deepEqual(countdown({ status: "scheduled", targetDate: day("2026-10-13") }, day("2026-10-13")), {
 		kind: "today",
 		window: true,
 	});
-	assert.deepEqual(countdown({ status: "scheduled", targetDate: "2026-11-10" }, "2026-11-12"), {
+	assert.deepEqual(countdown({ status: "scheduled", targetDate: day("2026-11-10") }, day("2026-11-12")), {
 		kind: "overdue",
 		days: 2,
 	});
-	assert.deepEqual(countdown({ status: "postponed", targetDate: null }, "2026-10-13"), { kind: "postponed" });
-	assert.deepEqual(countdown({ status: "planning", targetDate: null }, "2026-10-13"), { kind: "none" });
-	assert.deepEqual(countdown(null, "2026-10-13"), { kind: "none" });
+	assert.deepEqual(countdown({ status: "postponed", targetDate: null }, day("2026-10-13")), { kind: "postponed" });
+	assert.deepEqual(countdown({ status: "planning", targetDate: null }, day("2026-10-13")), { kind: "none" });
+	assert.deepEqual(countdown(null, day("2026-10-13")), { kind: "none" });
 });
 
 test("AC:CASE-LCH-001 AC:CASE-LCH-003 setting Launch Sunday seeds the nine milestones and 23 undated, unassigned prep tasks once", async () => {
@@ -226,11 +238,11 @@ test("AC:CASE-LCH-009 repair adds only what is missing: a renamed task keeps its
 	const [renamed, deleted] = ops.tasks;
 	ok(
 		await task(c.owner, "edit", {
-			expectedRevision: renamed.revision,
-			input: { taskId: renamed.id, patch: { title: "Order the chairs" } },
+			expectedRevision: renamed!.revision,
+			input: { taskId: renamed!.id, patch: { title: "Order the chairs" } },
 		}),
 	);
-	ok(await task(c.owner, "delete", { expectedRevision: deleted.revision, input: { taskId: deleted.id } }));
+	ok(await task(c.owner, "delete", { expectedRevision: deleted!.revision, input: { taskId: deleted!.id } }));
 
 	const read = ok(await reader.readPlan(f.db, c.owner.actor));
 	assert.equal(read.repair, true);
@@ -251,7 +263,7 @@ test("AC:CASE-LCH-009 repair adds only what is missing: a renamed task keeps its
 
 test("AC:CASE-LCH-001 moving Launch Sunday keeps every task's due date, assignee and status and the phase", async () => {
 	const c = await scheduled();
-	const t = milestone(c.plan, "promotion.plan").tasks[0];
+	const t = milestone(c.plan, "promotion.plan").tasks[0]!;
 	ok(
 		await task(c.owner, "edit", {
 			expectedRevision: t.revision,
@@ -305,17 +317,17 @@ test("AC:CASE-LCH-008 a passed Launch Sunday with no recorded launch is overdue,
 	await f.admin.execute(sql`UPDATE launch SET target_date='2026-10-01' WHERE plant_id=${c.w.id}`);
 	p = await plan(c.owner);
 	assert.deepEqual(countdown(p.launch, p.today), { kind: "overdue", days: 12 });
-	assert.equal(p.launch.status, "scheduled");
+	assert.equal(p.launch!.status, "scheduled");
 });
 
 test("AC:CASE-LCH-004 a milestone completes with an open task, refuses a stale review, needs review when a done task reopens", async () => {
 	const c = await scheduled();
 	const promo = milestone(c.plan, "promotion.plan");
 	const [first, second] = promo.tasks;
-	const done = ok(await setStatus(c.owner, first, "complete")).task;
+	const done = ok(await setStatus(c.owner, first!, "complete")).task;
 
 	const stale = refused(await complete(c.owner, promo), "stale_review");
-	const current = stale.details.milestone;
+	const current: Milestone = stale.details.milestone;
 	assert.deepEqual(
 		current.tasks.map((t) => t.status),
 		["complete", "not_started"],
@@ -324,14 +336,14 @@ test("AC:CASE-LCH-004 a milestone completes with an open task, refuses a stale r
 
 	const saved = ok(await complete(c.owner, current));
 	assert.equal(saved.outcome, "changed");
-	assert.equal(saved.milestone.completion.by.accountId, c.owner.id);
+	assert.equal(saved.milestone.completion!.by!.accountId, c.owner.id);
 	assert.equal(saved.milestone.needsReview, false);
-	assert.equal((await one(sql`SELECT status FROM task WHERE id=${second.id}`)).status, "not_started");
+	assert.equal((await one(sql`SELECT status FROM task WHERE id=${second!.id}`)).status, "not_started");
 
 	ok(await setStatus(c.owner, done, "reopen"));
 	const review = milestone(await plan(c.owner), "promotion.plan");
 	assert.equal(review.needsReview, true);
-	assert.equal(review.completion.by.accountId, c.owner.id);
+	assert.equal(review.completion!.by!.accountId, c.owner.id);
 
 	const reopened = ok(await reopen(c.owner, review));
 	assert.equal(reopened.milestone.completion, null);
@@ -348,8 +360,8 @@ test("AC:CASE-LCH-005 progress follows the live tasks, and finishing every task 
 		["complete", "complete", "not_started"],
 	);
 
-	ok(await setStatus(c.owner, m.tasks[0], "reopen"));
-	ok(await task(c.owner, "delete", { expectedRevision: m.tasks[1].revision, input: { taskId: m.tasks[1].id } }));
+	ok(await setStatus(c.owner, m.tasks[0]!, "reopen"));
+	ok(await task(c.owner, "delete", { expectedRevision: m.tasks[1]!.revision, input: { taskId: m.tasks[1]!.id } }));
 	m = milestone(await plan(c.owner), "operations.equipment_on_site");
 	assert.deepEqual(
 		m.tasks.map((t) => t.status),
@@ -367,7 +379,7 @@ test("AC:CASE-LCH-005 progress follows the live tasks, and finishing every task 
 
 test("AC:CASE-LCH-005 three pre-launch services held counts only held, past, unvoided practices", async () => {
 	const c = await scheduled();
-	const held = async () => milestone(await plan(c.owner), "launch_team.pre_launch_services").practices.held;
+	const held = async () => milestone(await plan(c.owner), "launch_team.pre_launch_services").practices!.held;
 	await practice(c.w);
 	const second = await practice(c.w);
 	assert.equal(await held(), 2);
@@ -391,7 +403,7 @@ test("AC:CASE-LCH-005 three pre-launch services held counts only held, past, unv
 
 test("AC:CASE-LCH-001 AC:CASE-LCH-004 a Member reads the plan and completes their own task, and nothing else", async () => {
 	const c = await scheduled();
-	const assimilation = milestone(c.plan, "launch_team.ministry_training").tasks[2];
+	const assimilation = milestone(c.plan, "launch_team.ministry_training").tasks[2]!;
 	assert.equal(assimilation.title, "Test assimilation end to end");
 	const assigned = ok(
 		await task(c.owner, "edit", {
@@ -400,7 +412,7 @@ test("AC:CASE-LCH-001 AC:CASE-LCH-004 a Member reads the plan and completes thei
 		}),
 	).task;
 	const seen = await plan(c.member);
-	assert.equal(seen.launch.targetDate, "2026-11-10");
+	assert.equal(seen.launch!.targetDate, "2026-11-10");
 	assert.equal(seen.milestones.length, 9);
 
 	const before = await footprint(c.w);
@@ -409,7 +421,7 @@ test("AC:CASE-LCH-001 AC:CASE-LCH-004 a Member reads the plan and completes thei
 	const promo = milestone(seen, "promotion.plan");
 	refused(await complete(c.member, promo), "access_denied");
 	refused(await reopen(c.member, promo), "access_denied");
-	const other = milestone(seen, "promotion.plan").tasks[0];
+	const other = milestone(seen, "promotion.plan").tasks[0]!;
 	refused(await setStatus(c.member, other, "complete"));
 	assert.deepEqual(await footprint(c.w), before);
 
@@ -422,7 +434,9 @@ test("AC:CASE-NTF-009 completing a milestone tells each other Owner and Admin on
 	const key = randomUUID();
 	ok(await complete(c.owner, promo, key));
 	const notices = () =>
-		rows(sql`SELECT recipient_id,category,purpose,title FROM notice WHERE tenant_id=${c.w.id} ORDER BY recipient_id`);
+		rows<{ recipient_id: string; category: string; purpose: string; title: string }>(
+			sql`SELECT recipient_id,category,purpose,title FROM notice WHERE tenant_id=${c.w.id} ORDER BY recipient_id`,
+		);
 	const sent = await notices();
 	assert.deepEqual(
 		sent.map((n) => n.recipient_id),

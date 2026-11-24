@@ -3,7 +3,7 @@ import { hostname } from "node:os";
 import { createRequire } from "node:module";
 import { developmentHosts } from "../../packages/db/src/development.ts";
 const require = createRequire(new URL("../../packages/domain/package.json", import.meta.url));
-const { z } = require("zod");
+const { z }: typeof import("../../packages/domain/node_modules/zod/index.js") = require("zod");
 const operations = z.enum([
 	"migration-inspect",
 	"migration-apply",
@@ -30,40 +30,43 @@ const control = z.strictObject({
 		})
 		.optional(),
 });
-export async function readPrivateBytes(path, limit = 1024 * 1024) {
+type Control = ReturnType<typeof control.parse>;
+export async function readPrivateBytes(path: string, limit = 1024 * 1024) {
 	const info = await lstat(path);
 	if (
 		!info.isFile() ||
 		info.isSymbolicLink() ||
-		info.uid !== process.getuid() ||
+		info.uid !== process.getuid!() ||
 		(info.mode & 0o077) !== 0 ||
 		info.size > limit
 	)
 		throw Error("unsafe_control_file");
 	return readFile(path);
 }
-export async function readPrivateJson(path) {
+export async function readPrivateJson(path: string) {
 	return JSON.parse((await readPrivateBytes(path)).toString("utf8"));
 }
-export async function loadControl(path, operation) {
+export async function loadControl(path: string, operation: string) {
 	const c = control.parse(await readPrivateJson(path));
 	if (
 		c.host !== hostname() ||
-		c.uid !== process.getuid() ||
+		c.uid !== process.getuid!() ||
 		Date.parse(c.expiresAt) <= Date.now() ||
-		!c.operations.includes(operation) ||
+		!(c.operations as readonly string[]).includes(operation) ||
 		process.env.NODE_ENV === "production"
 	)
 		throw Error("operator_unavailable");
-	const context = {
-		"backup-check": "restricted-backup",
-		"backup-copy": "restricted-backup",
-		"restore-rehearsal": "restricted-recovery",
-	}[operation];
+	const context = (
+		{
+			"backup-check": "restricted-backup",
+			"backup-copy": "restricted-backup",
+			"restore-rehearsal": "restricted-recovery",
+		} as Record<string, Control["context"] | undefined>
+	)[operation];
 	if ((context ?? "migration-operator") !== c.context) throw Error("operator_context_mismatch");
 	return c;
 }
-export function developmentConnection(c, raw) {
+export function developmentConnection(c: Control, raw: string) {
 	const u = new URL(raw);
 	if (
 		!c.database ||

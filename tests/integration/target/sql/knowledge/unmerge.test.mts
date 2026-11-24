@@ -1,8 +1,9 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { sql } from "../../../../../packages/db/src/query.ts";
-import { RequestActor } from "../../../../../packages/domain/src/access/session.ts";
+import { sql, type SQL } from "../../../../../packages/db/src/query.ts";
+import { tenantId } from "../../../../../packages/contracts/src/common/values.ts";
+import { RequestActor, type WriteTx } from "../../../../../packages/domain/src/access/session.ts";
 import {
 	commitments,
 	peopleMerge,
@@ -21,26 +22,30 @@ const P = database.tenant.id;
 const Q = (await database.plant()).id;
 const A = database.actors.admin;
 const B = await database.actor({ kind: "plant", id: Q }, "admin");
-const ctx = (actor = A) => ({ session: actor.session, selected: { kind: "plant", id: actor === B ? Q : P } });
-const tx = (body) => gatedTransaction(db, body);
+const ctx = (actor = A) => ({
+	session: actor.session,
+	selected: { kind: "plant" as const, id: tenantId.parse(actor === B ? Q : P) },
+});
+const tx = <T,>(body: (tx: WriteTx) => Promise<T>) => gatedTransaction(db, body);
 const key = () => randomUUID();
-const rows = async (query) => (await admin.execute(query)).rows;
-const one = async (query) => (await rows(query))[0];
-const revisionOf = async (table, id) =>
+type Row = Record<string, unknown>;
+const rows = async <R extends Row = Row>(query: SQL) => (await admin.execute<R>(query)).rows;
+const one = async <R extends Row = Row>(query: SQL) => (await rows<R>(query))[0]!;
+const revisionOf = async (table: string, id: string) =>
 	(await one(sql`SELECT revision::text AS r FROM ${sql.identifier(table)} WHERE id=${id}`)).r;
 
 after(async () => {
 	await database.close();
 });
 
-async function person(name) {
+async function person(name: string) {
 	return ok(
 		await tx((t) =>
 			people.createPerson(t, ctx(), { requestKey: key(), input: { displayName: name, adultClassification: "adult" } }),
 		),
 	).person.id;
 }
-async function card(personId, occurredOn) {
+async function card(personId: string, occurredOn: string) {
 	return ok(
 		await tx((t) =>
 			commitments.createCommitment(t, ctx(), {
@@ -50,7 +55,7 @@ async function card(personId, occurredOn) {
 		),
 	).commitment;
 }
-async function sharedTraining(personIds) {
+async function sharedTraining(personIds: readonly string[]) {
 	const program = ok(
 		await tx((t) =>
 			trainingWriter.createProgram(t, ctx(), {
@@ -60,6 +65,7 @@ async function sharedTraining(personIds) {
 		),
 	).program;
 	const viewer = await RequestActor.resolve(db, A.session);
+	assert.ok(viewer instanceof RequestActor);
 	const seen = ok(await trainingReader.readRequiredTrainingPreview(db, viewer, { programId: program.id, personIds }));
 	ok(
 		await tx((t) =>
@@ -71,7 +77,7 @@ async function sharedTraining(personIds) {
 		),
 	);
 }
-async function delivery(personId, state) {
+async function delivery(personId: string, state: string) {
 	const id = randomUUID();
 	await admin.execute(sql`INSERT INTO mail(id,tenant_id,recipient_person_id,purpose,logical_key,payload_hash,audience_hash,
  state,provider_message_id,accepted_at,created_at)
@@ -79,7 +85,7 @@ async function delivery(personId, state) {
  clock_timestamp(),clock_timestamp())`);
 	return id;
 }
-async function merge(sourceId, survivorId) {
+async function merge(sourceId: string, survivorId: string) {
 	const review = ok(await tx((t) => peopleMerge.getMergeReview(t, ctx(), { sourceId, survivorId })));
 	return ok(
 		await tx((t) =>
@@ -90,7 +96,7 @@ async function merge(sourceId, survivorId) {
 		),
 	);
 }
-async function unmerge(mergeId, actor = A) {
+async function unmerge(mergeId: string, actor = A) {
 	const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(actor), { mergeId })));
 	return tx((t) =>
 		peopleUnmerge.unmergePeople(t, ctx(actor), {
@@ -101,19 +107,21 @@ async function unmerge(mergeId, actor = A) {
 	);
 }
 
-const reference = async (p1, p2, mergeId) =>
+const reference = async (p1: string, p2: string, mergeId: string) =>
 	one(sql`SELECT (SELECT state FROM person WHERE id=${p2}) AS p2_state,
  (SELECT merged_into_person_id FROM person WHERE id=${p2}) AS p2_merged_into,
  (SELECT state FROM person WHERE id=${p1}) AS p1_state,
  (SELECT unmerged_at IS NOT NULL FROM person_merge WHERE id=${mergeId}) AS unmerged`);
-const provider = async (mailId) =>
-	one(sql`SELECT (SELECT count(*)::int FROM mail) AS mail,(SELECT count(*)::int FROM mail_attempt) AS attempts,
+const provider = async (mailId: string) =>
+	one<{
+		effect: { state: string };
+	}>(sql`SELECT (SELECT count(*)::int FROM mail) AS mail,(SELECT count(*)::int FROM mail_attempt) AS attempts,
  (SELECT count(*)::int FROM mail_request) AS requests,(SELECT count(*)::int FROM job WHERE kind='mail') AS jobs,
  (SELECT to_jsonb(m) FROM mail m WHERE m.id=${mailId}) AS effect`);
-const assignments = async (p1, p2) =>
+const assignments = async (p1: string, p2: string) =>
 	rows(sql`SELECT CASE person_id WHEN ${p1}::uuid THEN 'P1' ELSE 'P2' END AS owner,state FROM training_assignment
  WHERE person_id IN (${p1}::uuid,${p2}::uuid) ORDER BY 1,2`);
-const inverseReceipts = async (p1) =>
+const inverseReceipts = async (p1: string) =>
 	(await one(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${p1} AND action='people.unmerged'`)).n;
 
 test("AC:SCHEMA-010 guarded Unmerge refuses a changed post-merge state, keeps P1 current and undoes or resends no mail", async () => {

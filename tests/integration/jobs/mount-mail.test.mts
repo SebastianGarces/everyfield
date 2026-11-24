@@ -41,11 +41,11 @@ const ready = {
 		addressKey: Buffer.from(process.env.IDENTITY_ADDRESS_KEY!, "hex"),
 		from: process.env.IDENTITY_MAIL_FROM!,
 		origin: process.env.IDENTITY_ORIGIN!,
+		optOutKeys: null,
 	},
 	apiKey: "re_test_key",
 };
 const transport = () => queuedMailTransport(ready, resend.fetch, { VERCEL_ENV: "production" });
-const secret = "cron-" + randomUUID();
 
 type Body = { status: string; mailed: number; steps: Record<string, { status: string; count?: unknown }> };
 async function tick(mountMail: Parameters<typeof scheduledJobs>[0]["mountMail"]) {
@@ -57,7 +57,7 @@ async function tick(mountMail: Parameters<typeof scheduledJobs>[0]["mountMail"])
 		digests: null,
 		mail: null,
 		mountMail,
-	})(new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } }));
+	})();
 	return { status: response.status, body: (await response.json()) as Body };
 }
 const allPasses = () => ({
@@ -304,11 +304,11 @@ test("INV-mount-mail: a relationship invitation resent on day 29 restarts its 30
 		sql`UPDATE invitation SET created_at = clock_timestamp() - interval '29 days' WHERE id = ${made.invitationId}`,
 	);
 	const [{ created_at }] = (await admin.execute(sql`SELECT created_at FROM invitation WHERE id = ${made.invitationId}`))
-		.rows as { created_at: Date | string }[];
+		.rows as [{ created_at: Date | string }];
 	const resent = await c.resendInvitation(made.invitationId, made.revision);
 	assert.equal(resent.status, "pending");
 	const [{ resent_at }] = (await admin.execute(sql`SELECT resent_at FROM invitation WHERE id = ${made.invitationId}`))
-		.rows as { resent_at: Date | string }[];
+		.rows as [{ resent_at: Date | string }];
 	const restarted = new Date(new Date(resent_at).getTime() + 30 * 86_400_000);
 	assert.equal(resent.expiresAt, restarted.toISOString());
 
