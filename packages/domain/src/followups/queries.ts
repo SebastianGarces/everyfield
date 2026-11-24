@@ -11,7 +11,7 @@ import { meetingType } from "@everyfield/contracts/meetings";
 import { assignedTo, sortPeople } from "../tasks/assignees.ts";
 import { administers, parse, readerOf, type Tx } from "../tasks/core.ts";
 import { dueOf, storedKind } from "../tasks/queries.ts";
-import { originJson, originOf } from "../tasks/origin.ts";
+import { originJson, originOf, outcomeEvidence } from "../tasks/origin.ts";
 import { COMMITTED, eligibleOwner, ownerView } from "../tasks/owner.ts";
 import { followUpTask, gated, now, OPEN, readAnswer, refuse } from "./core.ts";
 
@@ -235,10 +235,11 @@ export const followUpReader = {
 			const viewer = reader(authority),
 				v = parse(c.readObligationsRequest, raw);
 			const asOf = v.asOf ?? now();
-			const evidence = sql`(x.obligation_id=o.id OR (x.person_id=o.person_id AND t.id=ANY(x.also_task_ids)))`;
+			const evidence = outcomeEvidence(sql`x`, sql`o`);
 			const filters = [
 				v.personId ? sql`o.person_id=${v.personId}::uuid` : null,
 				v.meetingId ? sql`o.meeting_id=${v.meetingId}::uuid` : null,
+				v.state === "any" ? sql`o.superseded_at IS NULL` : null,
 			].filter((f) => f !== null);
 			const found = await gated(
 				tx,

@@ -1,6 +1,7 @@
 import { meetingTitle } from "@everyfield/contracts/common";
 import { meetingType } from "@everyfield/contracts/meetings";
 import * as c from "@everyfield/contracts/people";
+import { settledStatus, taskStatus } from "@everyfield/contracts/tasks";
 import { sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
@@ -18,6 +19,8 @@ import {
 	type WriteContext,
 } from "../core.ts";
 import { matchPeople } from "../duplicates.ts";
+import { lastWrite, type AuditWrite } from "../../operations/writes.ts";
+import { auditRow } from "../../tasks/core.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people.ts";
 import {
 	lockPair,
@@ -89,6 +92,13 @@ function parseParticipation(raw: Record<string, unknown>): Participation {
 	const columns = Object.fromEntries(PARTICIPATION_COLUMNS.map((k) => [k, raw[k] ?? null])) as Columns;
 	return { ...row, meeting: titled(row), columns };
 }
+const followUpRow = meetingOf.extend({
+	id: z.uuid(),
+	meeting_id: z.uuid(),
+	waived: z.boolean(),
+	task: z.object({ id: z.uuid(), status: taskStatus, revision: z.coerce.string(), owned: z.boolean() }).nullable(),
+});
+type FollowUp = z.infer<typeof followUpRow>;
 const factsRow = z.object({
 	id: z.uuid(),
 	state: z.enum(["live", "retired", "merged"]),
@@ -103,15 +113,15 @@ const factsRow = z.object({
 	household_id: z.uuid().nullable(),
 	commitment_inputs: commitmentInputs,
 	enrollment_programs: z.array(z.uuid()),
-	open_follow_ups: z.array(meetingOf.extend({ due_date: z.string() })),
+	open_follow_ups: z.array(meetingOf.extend({ id: z.uuid(), due_date: z.string() })),
 	participations: z.array(z.record(z.string(), z.unknown())),
-	open_tasks: z.array(z.object({ title: z.string(), due_date: z.string().nullable() })),
+	open_tasks: z.array(z.object({ id: z.uuid(), title: z.string(), due_date: z.string().nullable() })),
 	open_kit_items: z.array(meetingOf.extend({ text: z.string() })),
 	current_roles: z.array(z.object({ team_id: z.uuid(), team: z.string(), role: z.string() })),
 	residency_invitations: z.array(z.object({ recipient_email: z.string() })),
 	residency_linked: z.boolean(),
 	skill_names: z.array(z.object({ id: z.uuid(), name: z.string() })),
-	follow_up_meetings: z.array(z.object({ id: z.uuid(), meeting_id: z.uuid() })),
+	follow_ups: z.array(followUpRow),
 	active_training: z.array(z.object({ id: z.uuid(), program_id: z.uuid() })),
 	refs: z.unknown(),
 });
@@ -125,22 +135,22 @@ const extra = [
 	"residency_invitations",
 	"residency_linked",
 	"skill_names",
-	"follow_up_meetings",
+	"follow_ups",
 	"active_training",
 ] as const;
 export type Facts = Omit<z.infer<typeof factsRow>, "refs" | (typeof extra)[number]> & {
 	refs: Reference[];
 	values: Record<string, unknown>;
 	commitment: CommitmentInputs;
-	openFollowUps: { personId: string; meeting: string; dueDate: string }[];
+	openFollowUps: { id: string; personId: string; meeting: string; dueDate: string }[];
 	participations: Participation[];
-	openTasks: { title: string; dueDate: string | null }[];
+	openTasks: { id: string; title: string; dueDate: string | null }[];
 	openKitItems: { meeting: string; text: string }[];
 	currentRoles: { teamId: string; team: string; role: string }[];
 	residencyInvitations: { recipientEmail: string }[];
 	residencyLinked: boolean;
 	skillNames: Map<string, string>;
-	followUpMeetings: Map<string, string>;
+	followUps: FollowUp[];
 	activeTraining: Map<string, string>;
 };
 const titled = (m: z.infer<typeof meetingOf>) =>
@@ -160,7 +170,7 @@ export function parseFacts(raw: unknown): Facts | null {
 		residency_invitations,
 		residency_linked,
 		skill_names,
-		follow_up_meetings,
+		follow_ups,
 		active_training,
 		...row
 	} = parsed;
@@ -169,15 +179,20 @@ export function parseFacts(raw: unknown): Facts | null {
 		refs: parseReferences(row.refs),
 		values,
 		commitment: commitment_inputs,
-		openFollowUps: open_follow_ups.map((f) => ({ personId: row.id, meeting: titled(f), dueDate: f.due_date })),
+		openFollowUps: open_follow_ups.map((f) => ({
+			id: f.id,
+			personId: row.id,
+			meeting: titled(f),
+			dueDate: f.due_date,
+		})),
 		participations: participations.map(parseParticipation),
-		openTasks: open_tasks.map((t) => ({ title: t.title, dueDate: t.due_date })),
+		openTasks: open_tasks.map((t) => ({ id: t.id, title: t.title, dueDate: t.due_date })),
 		openKitItems: open_kit_items.map((i) => ({ meeting: titled(i), text: i.text })),
 		currentRoles: current_roles.map((r) => ({ teamId: r.team_id, team: r.team, role: r.role })),
 		residencyInvitations: residency_invitations.map((i) => ({ recipientEmail: i.recipient_email })),
 		residencyLinked: residency_linked,
 		skillNames: new Map(skill_names.map((s) => [s.id, s.name])),
-		followUpMeetings: new Map(follow_up_meetings.map((f) => [f.id, f.meeting_id])),
+		followUps: follow_ups,
 		activeTraining: new Map(active_training.map((t) => [t.id, t.program_id])),
 	};
 }
@@ -189,7 +204,7 @@ const participationsOf = (person: SQL, owner: string | SQL) =>
  'vision_number',m.vision_number) ORDER BY g.id),'[]') FROM participation g JOIN meeting m ON m.id=g.meeting_id
  AND m.plant_id=g.plant_id WHERE (g.person_id=${person} OR g.inviter_person_id=${person}) AND g.plant_id=${owner}::uuid)`;
 const openTasksOf = (person: SQL, owner: string | SQL) =>
-	sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('title',k.title,'due_date',coalesce(k.due_date,
+	sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('id',k.id,'title',k.title,'due_date',coalesce(k.due_date,
  (k.due_at AT TIME ZONE coalesce(k.timezone,'UTC'))::date)::text) ORDER BY k.due_date NULLS LAST,k.created_at,k.id),'[]')
  FROM task k WHERE k.person_id=${person} AND k.plant_id=${owner}::uuid AND k.deleted_at IS NULL
  AND k.status NOT IN ('complete','no_longer_needed'))`;
@@ -210,13 +225,17 @@ const residencyOf = (person: SQL, owner: string | SQL) =>
 const duplicateKeysOf = (person: SQL, owner: string | SQL) =>
 	sql`'skill_names',(SELECT coalesce(jsonb_agg(jsonb_build_object('id',s.id,'name',lower(btrim(s.name)))),'[]')
  FROM person_skill s WHERE s.person_id=${person} AND s.plant_id=${owner}::uuid),
- 'follow_up_meetings',(SELECT coalesce(jsonb_agg(jsonb_build_object('id',o.id,'meeting_id',o.meeting_id)),'[]')
- FROM obligation o WHERE o.person_id=${person} AND o.plant_id=${owner}::uuid),
+ 'follow_ups',(SELECT coalesce(jsonb_agg(jsonb_build_object('id',o.id,'meeting_id',o.meeting_id,'title',m.title,
+ 'type',m.type,'vision_number',m.vision_number,'waived',o.waived_at IS NOT NULL,'task',(SELECT jsonb_build_object(
+  'id',k.id,'status',k.status,'revision',k.revision::text,'owned',EXISTS(SELECT FROM task_assignee a WHERE a.task_id=k.id))
+  FROM task k WHERE k.obligation_id=o.id AND k.plant_id=o.plant_id AND k.deleted_at IS NULL)) ORDER BY o.id),'[]')
+ FROM obligation o JOIN meeting m ON m.id=o.meeting_id AND m.plant_id=o.plant_id
+ WHERE o.person_id=${person} AND o.plant_id=${owner}::uuid AND o.kind='follow_up' AND o.superseded_at IS NULL),
  'active_training',(SELECT coalesce(jsonb_agg(jsonb_build_object('id',a.id,'program_id',a.program_id)),'[]')
  FROM training_assignment a WHERE a.person_id=${person} AND a.plant_id=${owner}::uuid AND a.state='active')`;
 const openFollowUpsOf = (person: SQL, owner: string | SQL) =>
 	sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('title',m.title,'type',m.type,'vision_number',m.vision_number,
- 'due_date',o.due_date::text) ORDER BY o.due_date,o.id),'[]') FROM obligation o
+ 'id',o.id,'due_date',o.due_date::text) ORDER BY o.due_date,o.id),'[]') FROM obligation o
  JOIN meeting m ON m.id=o.meeting_id AND m.plant_id=o.plant_id
  LEFT JOIN LATERAL (SELECT k.status,k.deleted_at FROM task k WHERE k.obligation_id=o.id AND k.plant_id=o.plant_id
   ORDER BY k.deleted_at NULLS FIRST,k.created_at DESC LIMIT 1) t ON true
@@ -350,6 +369,25 @@ export function writeParticipations(owner: string, rows: readonly Record<string,
  WHERE g.id=v.id AND g.plant_id=${owner}::uuid`;
 }
 
+const settled = (f: FollowUp) => f.task !== null && settledStatus.some((s) => s === f.task?.status);
+function followUpState(f: FollowUp) {
+	if (f.waived || f.task?.status === "no_longer_needed") return "no_longer_needed" as const;
+	return f.task?.status === "complete" ? ("complete" as const) : ("open" as const);
+}
+const FOLLOW_UP_RANK = { no_longer_needed: 0, open: 2, complete: 4 } as const;
+const followUpRank = (f: FollowUp) => FOLLOW_UP_RANK[followUpState(f)] + (f.task ? Number(f.task.owned) : -1);
+function followUpPlan(source: Facts, survivor: Facts) {
+	const mine = new Map(survivor.followUps.map((f) => [f.meeting_id, f]));
+	return source.followUps.flatMap((theirs) => {
+		const own = mine.get(theirs.meeting_id);
+		if (!own) return [];
+		const [kept, replaced] = followUpRank(theirs) > followUpRank(own) ? [theirs, own] : [own, theirs];
+		return [
+			{ meeting: titled(own), state: followUpState(kept), replaced, closes: settled(replaced) ? null : replaced.task },
+		];
+	});
+}
+
 function plan(
 	kind: "plant" | "organization",
 	source: Facts,
@@ -400,7 +438,6 @@ function plan(
 		["attestation", keptOf("attestation")],
 		["launch_guest", keptOf("launch_guest")],
 		["skill", same(source.skillNames, survivor.skillNames)],
-		["obligation", same(source.followUpMeetings, survivor.followUpMeetings)],
 	];
 	const kept = new Map(keptByKind.map(([k, ids]) => [k, new Set(ids)]));
 	const carried = new Map(
@@ -423,11 +460,17 @@ function plan(
 			: [];
 	if (invitations.length) causes.push("residency_invitation_collision");
 	const attendance = attendancePlan(source, survivor);
-	const references = [...byKind].map(([k, refs]) => ({
-		kind: k,
-		count: refs.length,
-		treatment: kept.get(k)?.size ? ("deduplicate" as const) : treatmentOf(k),
-	}));
+	const followUps = followUpPlan(source, survivor);
+	const moves = ([k, refs]: [Kind, Reference[]]) => {
+		if (k === "tag") return refs.length;
+		return k === "participation" ? attendance.moved[k].length : (carried.get(k)?.length ?? refs.length);
+	};
+	const references = [
+		...[...byKind].map(([k, refs]) => ({ kind: k, count: moves([k, refs]), treatment: treatmentOf(k) })),
+		...keptByKind
+			.filter(([k]) => k !== "tag")
+			.map(([k, ids]) => ({ kind: k, count: ids.length, treatment: "keep" as const })),
+	].filter((r) => r.count > 0);
 	return {
 		fields: differing.map((f) => ({
 			field: f,
@@ -444,6 +487,11 @@ function plan(
 		references,
 		blockers: { causes, leadership, invitations },
 		attendance,
+		followUps,
+		changes: [
+			...attendance.changes,
+			...followUps.map((f) => ({ change: "follow_up_combined" as const, meeting: f.meeting, state: f.state })),
+		],
 		reviewDigest: hash({
 			source: [source.id, source.revision, referencesDigest(source.refs)],
 			survivor: [survivor.id, survivor.revision, referencesDigest(survivor.refs)],
@@ -466,7 +514,66 @@ const ownerKind = (ctx: Pick<Context, "selected">) => {
 	return ctx.selected.kind;
 };
 
-export function moveRefs(owner: string, k: Kind, ids: string[], from: string, to: string): SQLWrapper {
+function combineFollowUps(
+	owner: string,
+	accountId: string,
+	audit: AuditWrite,
+	followUps: ReturnType<typeof followUpPlan>,
+	survivor: string,
+): FollowUpWrite | null {
+	if (!followUps.length) return null;
+	const replaced = followUps.map((f) => f.replaced.id);
+	const closed = followUps.flatMap((f) => (f.closes ? [f.closes] : []));
+	if (closed.length)
+		audit.writes.push(sql`UPDATE task SET person_id=${survivor}::uuid,status='no_longer_needed',revision=revision+1
+ WHERE id=ANY(${sql.param(closed.map((t) => t.id))}::uuid[]) AND plant_id=${owner}::uuid`);
+	for (const t of closed)
+		auditTaskStatus(owner, accountId, audit, {
+			id: t.id,
+			from: t.status,
+			to: "no_longer_needed",
+			revision: t.revision,
+			reason: "Combined with the other follow-up from this meeting in a merge",
+		});
+	audit.writes.push(sql`UPDATE obligation SET person_id=${survivor}::uuid,superseded_at=clock_timestamp(),
+ revision=revision+1 WHERE id=ANY(${sql.param(replaced)}::uuid[]) AND plant_id=${owner}::uuid`);
+	return { ids: new Set([...replaced, ...closed.map((t) => t.id)]), after: lastWrite(audit) };
+}
+const bumped = (x: Reference): Reference =>
+	x.revision === null ? x : { ...x, revision: String(BigInt(x.revision) + 1n) };
+type FollowUpWrite = { ids: ReadonlySet<string>; after: SQLWrapper };
+export function auditTaskStatus(
+	owner: string,
+	accountId: string,
+	audit: AuditWrite,
+	t: { id: string; from: string; to: string; revision: string; reason: string },
+) {
+	const reopens = t.to !== "no_longer_needed";
+	auditRow(
+		{ ...audit, actor: { accountId, plantId: owner } },
+		{
+			taskId: t.id,
+			action: reopens ? "tasks.changed" : "tasks.waived",
+			kind: reopens ? "reopen" : "waive",
+			before: { status: t.from },
+			after: { status: t.to },
+			beforeRevision: t.revision,
+			afterRevision: String(BigInt(t.revision) + 1n),
+			source: "generated",
+			reason: t.reason,
+		},
+	);
+}
+
+export const afterWrite = (write: SQLWrapper) => sql`(SELECT count(*) FROM ${write})>=0`;
+export function moveRefs(
+	owner: string,
+	k: Kind,
+	ids: string[],
+	from: string,
+	to: string,
+	after?: SQLWrapper,
+): SQLWrapper {
 	const e = registrationOf(k);
 	if (k === "training_assignment") {
 		return sql`UPDATE ${sql.identifier(e.table)} SET ${sql.identifier(e.column)}=${to}::uuid,
@@ -484,7 +591,7 @@ export function moveRefs(owner: string, k: Kind, ids: string[], from: string, to
 	}
 	return sql`UPDATE ${sql.identifier(e.table)} SET ${sql.identifier(e.column)}=${to}::uuid${e.revision ? sql`,revision=revision+1` : sql``}
  WHERE ${sql.identifier(e.column)}=${from}::uuid AND ${sql.identifier(e.owner)}=${owner}::uuid
- AND ${sql.identifier(e.key)}=ANY(${sql.param(ids)}::uuid[])`;
+ AND ${sql.identifier(e.key)}=ANY(${sql.param(ids)}::uuid[])${after ? sql` AND ${afterWrite(after)}` : sql``}`;
 }
 export function updatePerson(owner: string, id: string, set: Record<string, unknown>): SQLWrapper {
 	const assignments = Object.entries(set).map(([col, v]) =>
@@ -502,6 +609,8 @@ export const peopleMerge = {
 			const input = parse(c.mergeReviewRequest, raw);
 			const { source, survivor } = await readPair(tx, ctx.selected.id, input, adminRead(ctx));
 			const p = plan(kind, source, survivor, {});
+			const replaced = new Set(p.followUps.map((f) => f.replaced.id)),
+				closed = new Set(p.followUps.map((f) => f.closes?.id));
 			const side = (f: Facts) => ({
 				personId: f.id,
 				revision: f.revision,
@@ -516,9 +625,11 @@ export const peopleMerge = {
 				commitment: p.commitment && { result: p.commitment.state, effectiveOn: p.commitment.effectiveOn },
 				references: p.references,
 				blockers: p.blockers,
-				openFollowUps: [...survivor.openFollowUps, ...source.openFollowUps],
-				attendance: p.attendance.changes,
-				openTasks: source.openTasks,
+				openFollowUps: [...survivor.openFollowUps, ...source.openFollowUps]
+					.filter((f) => !replaced.has(f.id))
+					.map(({ personId, meeting, dueDate }) => ({ personId, meeting, dueDate })),
+				attendance: p.changes,
+				openTasks: source.openTasks.filter((t) => !closed.has(t.id)).map(({ title, dueDate }) => ({ title, dueDate })),
 				openKitItems: source.openKitItems,
 				reviewDigest: p.reviewDigest,
 			});
@@ -531,7 +642,7 @@ export const peopleMerge = {
 			const input = parse(c.mergePeopleRequest, raw);
 			const name = kind === "plant" ? "people.mergePeople" : "orgPeople.merge";
 			return c.mergeResult.parse(
-				await mutation<unknown>(tx, ctx, name, input, async (_actor, receiptId, audit) => {
+				await mutation<unknown>(tx, ctx, name, input, async (actor, receiptId, audit) => {
 					const m = input.input;
 					await lockPair(tx, owner, sql`${m.sourceId}::uuid,${m.survivorId}::uuid`);
 					const { source, survivor } = await readPair(tx, owner, m, sql`true`);
@@ -545,10 +656,12 @@ export const peopleMerge = {
 						audit.writes.push(sql`UPDATE participation SET removed_at=clock_timestamp(),rsvp_token_open=false,
  revision=revision+1 WHERE id=ANY(${sql.param(a.removed)}::uuid[]) AND plant_id=${owner}::uuid`);
 					if (a.updates.length) audit.writes.push(writeParticipations(owner, a.updates));
+					const combined = combineFollowUps(owner, actor, audit, p.followUps, survivor.id);
 					for (const [k, refs] of p.carried) {
-						const ids = refs.map((x) => x.id);
-						moved[k] = ids;
-						if (ids.length) audit.writes.push(moveRefs(owner, k, ids, source.id, survivor.id));
+						moved[k] = refs.map((x) => x.id);
+						const ids = moved[k].filter((id) => !combined?.ids.has(id));
+						const after = k === "obligation" ? combined?.after : undefined;
+						if (ids.length) audit.writes.push(moveRefs(owner, k, ids, source.id, survivor.id, after));
 					}
 					if (p.droppedTags.length) {
 						moved.tag_dropped = p.droppedTags;
@@ -579,11 +692,11 @@ export const peopleMerge = {
 					const sourceRevision = String(BigInt(source.revision) + 1n),
 						survivorRevision = String(BigInt(survivor.revision) + 1n);
 					const after = [
-						...survivor.refs.filter((x) => !participating(x.kind)),
+						...survivor.refs
+							.filter((x) => !participating(x.kind))
+							.map((x) => (combined?.ids.has(x.id) ? bumped(x) : x)),
 						...a.after,
-						...[...p.carried.values()]
-							.flat()
-							.map((x) => (x.revision === null ? x : { ...x, revision: String(BigInt(x.revision) + 1n) })),
+						...[...p.carried.values()].flat().map(bumped),
 						{ kind: "merged_person" as const, id: source.id, revision: sourceRevision, moves: true },
 					];
 					audit.writes.push(
@@ -592,7 +705,11 @@ export const peopleMerge = {
 		source: sourcePrior,
 		survivor: p.prior,
 		participation: a.prior,
-		attendance: a.changes,
+		attendance: p.changes,
+		followUps: p.followUps.map((f) => ({
+			obligation: f.replaced.id,
+			closed: f.closes && { task: f.closes.id, status: f.closes.status },
+		})),
 		training: p.closedTraining,
 		references: after.map((x) => [x.kind, x.id, x.revision]),
  })}::jsonb,
@@ -604,7 +721,7 @@ export const peopleMerge = {
 							sourceId: source.id,
 							survivorId: survivor.id,
 							survivorRevision,
-							moved: p.references.map(({ kind, count }) => ({ kind, count })),
+							moved: p.references.filter((r) => r.treatment !== "keep").map(({ kind, count }) => ({ kind, count })),
 							outcome: "changed",
 							receiptId,
 						},

@@ -27,6 +27,11 @@ export const attendanceChange = z.discriminatedUnion("change", [
 		answer: z.enum(["confirmed", "declined"]),
 	}),
 	z.strictObject({ change: z.literal("inviter_cleared"), meeting, inviterPersonId: personId }),
+	z.strictObject({
+		change: z.literal("follow_up_combined"),
+		meeting,
+		state: z.enum(["open", "complete", "no_longer_needed"]),
+	}),
 ]);
 export const mergeReview = z.strictObject({
 	source: side,

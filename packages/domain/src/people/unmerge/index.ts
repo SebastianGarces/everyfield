@@ -1,10 +1,14 @@
 import * as c from "@everyfield/contracts/people";
-import { sql, type SQL } from "@everyfield/db/query";
+import { taskStatus } from "@everyfield/contracts/tasks";
+import { sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { adminRead } from "../assessments/shared.ts";
 import { deny, mutation, parse, readReply, reply, type Context, type Tx, type WriteContext } from "../core.ts";
+import { lastWrite, type AuditWrite } from "../../operations/writes.ts";
 import {
+	afterWrite,
+	auditTaskStatus,
 	factsOf,
 	moveRefs,
 	parseFacts,
@@ -31,6 +35,14 @@ const mergeRow = z.object({
 		participation: z.array(z.record(z.string(), z.unknown())).default([]),
 		attendance: z.array(c.attendanceChange).default([]),
 		training: z.array(z.uuid()).default([]),
+		followUps: z
+			.array(
+				z.object({
+					obligation: z.uuid(),
+					closed: z.object({ task: z.uuid(), status: taskStatus }).nullable(),
+				}),
+			)
+			.default([]),
 		references: z.array(z.tuple([c.referenceKind, z.uuid(), z.string().nullable()])).optional(),
 	}),
 	moved: z.record(z.string(), z.array(z.uuid())),
@@ -76,7 +88,10 @@ async function readMerge(tx: Tx, owner: string, mergeId: string, gate: SQL) {
  'undone',(SELECT coalesce(jsonb_agg(k.key||'|'||k.id),'[]') FROM person_merge l CROSS JOIN LATERAL (
   SELECT e.key,i.id FROM jsonb_each(l.moved) e CROSS JOIN LATERAL jsonb_array_elements_text(e.value) i(id)
    WHERE e.key NOT IN ('participation','participation_inviter')
-  UNION ALL SELECT 'participation',p->>'id' FROM jsonb_array_elements(coalesce(l.prior->'participation','[]')) p) k
+  UNION SELECT 'participation',p->>'id' FROM jsonb_array_elements(coalesce(l.prior->'participation','[]')) p
+  UNION SELECT 'obligation',f->>'obligation' FROM jsonb_array_elements(coalesce(l.prior->'followUps','[]')) f
+  UNION SELECT 'task',f->'closed'->>'task' FROM jsonb_array_elements(coalesce(l.prior->'followUps','[]')) f
+   WHERE f->'closed'->>'task' IS NOT NULL) k
   WHERE l.tenant_id=m.tenant_id AND l.unmerged_at IS NOT NULL AND l.id<>m.id AND l.merged_at>=m.merged_at
   AND m.survivor_id IN (l.source_id,l.survivor_id)),
  'added_to_moved',${addedToMoved},
@@ -190,6 +205,10 @@ function movedRecordsChanged(merge: Merge, source: Facts, survivor: Facts): Kind
 		const kind = c.referenceKind.parse(raw);
 		if (ids.some((id) => !kept(kind, id))) kinds.add(kind);
 	}
+	for (const f of merge.prior.followUps) {
+		if (!kept("obligation", f.obligation)) kinds.add("obligation");
+		if (f.closed && !kept("task", f.closed.task)) kinds.add("task");
+	}
 	const rows = new Map([...survivor.participations, ...source.participations].map((r) => [r.id, r]));
 	for (const prior of merge.prior.participation) {
 		const id = z.uuid().parse(prior.id);
@@ -271,6 +290,35 @@ const reopenTraining = (owner: string, ids: string[], closed: string[], from: st
  ended_on=CASE WHEN id=ANY(${sql.param(closed)}::uuid[]) THEN NULL ELSE ended_on END
  WHERE id=ANY(${sql.param(ids)}::uuid[]) AND person_id=${from}::uuid AND plant_id=${owner}::uuid`;
 
+function restoreFollowUps(
+	owner: string,
+	accountId: string,
+	audit: AuditWrite,
+	merge: Merge,
+	survivor: Facts,
+	after: SQLWrapper | null,
+) {
+	const { followUps } = merge.prior;
+	if (!followUps.length) return;
+	const back = [...(merge.moved.obligation ?? []), ...(merge.moved.task ?? [])];
+	const owned = sql`CASE WHEN id=ANY(${sql.param(back)}::uuid[]) THEN ${merge.source_id}::uuid ELSE ${merge.survivor_id}::uuid END`;
+	audit.writes.push(sql`UPDATE obligation SET person_id=${owned},superseded_at=NULL,revision=revision+1
+ WHERE id=ANY(${sql.param(followUps.map((f) => f.obligation))}::uuid[]) AND plant_id=${owner}::uuid${after ? sql` AND ${afterWrite(after)}` : sql``}`);
+	const revisions = new Map(survivor.refs.filter((x) => x.kind === "task").map((x) => [x.id, x.revision]));
+	for (const { closed } of followUps) {
+		if (!closed) continue;
+		audit.writes.push(sql`UPDATE task SET person_id=${owned},status=${closed.status},revision=revision+1
+ WHERE id=${closed.task}::uuid AND plant_id=${owner}::uuid`);
+		auditTaskStatus(owner, accountId, audit, {
+			id: closed.task,
+			from: "no_longer_needed",
+			to: closed.status,
+			revision: revisions.get(closed.task) ?? "1",
+			reason: "The merge that closed it was undone",
+		});
+	}
+}
+
 export const peopleUnmerge = {
 	async previewUnmerge(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
@@ -304,7 +352,7 @@ export const peopleUnmerge = {
 			const input = parse(c.unmergePeopleRequest, raw);
 			const name = kind === "plant" ? "people.unmergePeople" : "orgPeople.unmerge";
 			return c.unmergeResult.parse(
-				await mutation<unknown>(tx, ctx, name, input, async (_actor, receiptId, audit) => {
+				await mutation<unknown>(tx, ctx, name, input, async (actor, receiptId, audit) => {
 					const id = input.input.mergeId;
 					await lockPair(
 						tx,
@@ -338,13 +386,19 @@ export const peopleUnmerge = {
 							changed: i.changed,
 							changedFields: i.changedFields,
 						});
-					for (const [k, ids] of Object.entries(merge.moved))
-						if (k !== "tag_dropped" && !participating(k) && ids.length)
-							audit.writes.push(
-								k === "training_assignment"
-									? reopenTraining(owner, ids, merge.prior.training, survivor.id, source.id)
-									: moveRefs(owner, k as Kind, ids, survivor.id, source.id),
-							);
+					const replaced = new Set(merge.prior.followUps.flatMap((f) => [f.obligation, f.closed?.task]));
+					let afterMove: SQLWrapper | null = null;
+					for (const [k, all] of Object.entries(merge.moved)) {
+						const ids = all.filter((x) => !replaced.has(x));
+						if (k === "tag_dropped" || participating(k) || !ids.length) continue;
+						audit.writes.push(
+							k === "training_assignment"
+								? reopenTraining(owner, ids, merge.prior.training, survivor.id, source.id)
+								: moveRefs(owner, k as Kind, ids, survivor.id, source.id),
+						);
+						if (k === "obligation") afterMove = lastWrite(audit);
+					}
+					restoreFollowUps(owner, actor, audit, merge, survivor, afterMove);
 					const own = merge.prior.participation.filter((r) => ownAttendance(merge, r));
 					const invited = merge.prior.participation.filter((r) => !ownAttendance(merge, r)).map((r) => String(r.id));
 					if (own.length) audit.writes.push(writeParticipations(owner, own));

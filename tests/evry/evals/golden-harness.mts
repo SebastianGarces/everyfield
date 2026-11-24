@@ -35,11 +35,8 @@ import {
 	refusalForModel,
 	resultForModel,
 } from "../../../packages/evry/src/runtime/tools.ts";
-import {
-	prepareProposal,
-	REVIEW_MINUTES,
-	type Proposal as Prepared,
-} from "../../../packages/evry/src/proposals/store.ts";
+import { prepareProposal, type Proposal as Prepared } from "../../../packages/evry/src/proposals/store.ts";
+import { REVIEW_MINUTES } from "../../../packages/evry/src/proposals/review.ts";
 import {
 	createConversation,
 	submitTurn,

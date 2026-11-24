@@ -75,6 +75,7 @@ export function blockerText(cause: Blocker, names: { source: string; survivor: s
 }
 
 const PRESENCE_LABEL = { attended: "Attended", excused: "Excused", absent: "Absent" } as const;
+const FOLLOW_UP_LABEL = { open: "Open", complete: "Done", no_longer_needed: "No longer needed" } as const;
 const ANSWER_LABEL = { confirmed: "Going", declined: "Not going" } as const;
 export type AttendanceChange = z.infer<typeof attendanceChange>;
 export function attendanceText(
@@ -90,6 +91,8 @@ export function attendanceText(
 			return `${a.meeting}: ${other(a.pendingPersonId)}’s RSVP (${ANSWER_LABEL[a.answer]}) replaces ${name(a.pendingPersonId)}’s pending RSVP.`;
 		case "inviter_cleared":
 			return `${a.meeting}: ${name(a.inviterPersonId)} invited ${other(a.inviterPersonId)}, so the attendance stays with no inviter.`;
+		case "follow_up_combined":
+			return `${a.meeting}: both have a follow-up from this meeting, so ${people.survivor.displayName} keeps one (${FOLLOW_UP_LABEL[a.state]}).`;
 	}
 }
 

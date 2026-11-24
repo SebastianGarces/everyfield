@@ -3010,7 +3010,7 @@ export const obligation = pgTable(
 				table.person_id.asc().nullsLast(),
 				table.kind.asc().nullsLast(),
 			)
-			.where(sql`(person_id IS NOT NULL)`),
+			.where(sql`((person_id IS NOT NULL) AND (superseded_at IS NULL))`),
 		uniqueIndex("obligation_uq_2")
 			.using("btree", table.meeting_id.asc().nullsLast(), table.kind.asc().nullsLast())
 			.where(sql`(person_id IS NULL)`),

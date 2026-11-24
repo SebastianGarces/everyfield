@@ -1026,7 +1026,7 @@ test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-CONFLICT a stale reviewed refere
 	const reviewed = ok(await review(p2.id, p1.id));
 	assert.deepEqual(
 		reviewed.references.filter((x) => x.kind === "attestation"),
-		[{ kind: "attestation", count: 1, treatment: "deduplicate" }],
+		[{ kind: "attestation", count: 1, treatment: "keep" }],
 	);
 	const merged = ok(
 		await tx((t) =>

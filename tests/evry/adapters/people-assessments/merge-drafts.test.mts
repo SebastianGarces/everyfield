@@ -223,6 +223,21 @@ test("a draft approved just before a merge is refused when it runs", async () =>
 	assert.equal((await rows(sql`SELECT count(*)::int AS n FROM person_note WHERE person_id=${survivor}`))[0]!.n, 0);
 });
 
+test("a merge stamped before the approval that commits after it still refuses the draft when it runs", async () => {
+	const owner = await actor("owner");
+	const source = await addPerson("Lee Overlap"),
+		survivor = await addPerson("Lee Kept");
+	const propose = await turn(owner);
+	const draft = await propose("people.addNote", { personId: survivor, body: "Late note" });
+	assert.ok(draft);
+	await approve(owner, draft);
+	const { mergeId } = await merge(owner, source, survivor);
+	await admin.execute(sql`UPDATE person_merge SET merged_at=(SELECT approved_at-(approved_at-created_at)/2 FROM proposal
+		WHERE id=${draft.id}) WHERE id=${mergeId}::uuid`);
+	assert.equal(await run(), "refused");
+	assert.equal((await rows(sql`SELECT count(*)::int AS n FROM person_note WHERE person_id=${survivor}`))[0]!.n, 0);
+});
+
 test("after a merge Evry answers about the survivor from the merged record and finds nobody under the merged id", async () => {
 	const owner = await actor("owner");
 	const source = await addPerson("Quincy Source"),

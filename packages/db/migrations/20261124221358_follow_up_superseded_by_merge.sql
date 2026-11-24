@@ -1,0 +1,2 @@
+DROP INDEX "obligation_uq_1";--> statement-breakpoint
+CREATE UNIQUE INDEX "obligation_uq_1" ON "obligation" USING btree ("meeting_id","person_id","kind") WHERE ((person_id IS NOT NULL) AND (superseded_at IS NULL));

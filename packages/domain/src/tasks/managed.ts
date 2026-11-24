@@ -47,7 +47,7 @@ export function obligationFacts(plantId: string, meetings: SQL, people: SQL, ass
 			FROM meeting WHERE plant_id=${plantId}::uuid AND id=ANY(${meetings})),
 		'existing', (SELECT coalesce(jsonb_agg(jsonb_build_object('id',o.id,'meeting_id',o.meeting_id,'kind',o.kind,'person_id',o.person_id,
 			'task_id',(SELECT t.id FROM task t WHERE t.obligation_id=o.id ORDER BY t.deleted_at NULLS FIRST LIMIT 1))),'[]')
-			FROM obligation o WHERE o.plant_id=${plantId}::uuid AND o.meeting_id=ANY(${meetings})),
+			FROM obligation o WHERE o.plant_id=${plantId}::uuid AND o.meeting_id=ANY(${meetings}) AND o.superseded_at IS NULL),
 		'people', (SELECT coalesce(jsonb_object_agg(id,display_name),'{}') FROM person WHERE tenant_id=${plantId}::uuid
 			AND plant_id IS NOT NULL AND state='live' AND id=ANY(${people})),
 		'seats', (SELECT coalesce(jsonb_agg(s.account_id),'[]') FROM seat s

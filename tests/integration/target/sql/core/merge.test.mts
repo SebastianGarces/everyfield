@@ -1,8 +1,10 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
+import { captureFacts } from "../../../../../packages/domain/src/intelligence/facts.ts";
 import { communicationWriter } from "../../../../../packages/domain/src/communication/index.ts";
 import { createFollowUpWriter, followUpReader } from "../../../../../packages/domain/src/followups/index.ts";
 import {
+	attendanceReader,
 	createAttendanceWriter,
 	guestsWriter,
 	meetingsReader,
@@ -206,6 +208,12 @@ async function records(...people: string[]) {
 	return out;
 }
 
+async function previewOf(s: { imported: string; walkIn: string }) {
+	const merged = await w.merge(s.walkIn, s.imported);
+	const { restores } = ok(await w.preview(merged.mergeId));
+	ok(await w.unmerge(merged.mergeId));
+	return restores;
+}
 async function importedAndWalkIn() {
 	const imported = await importOne(
 		"first_name,last_name,email,phone\r\nJordan,Rivera,jordan@example.test,555 010 1000\r\n",
@@ -285,9 +293,24 @@ test("a CSV import and a walk-in who are one person merge into one record with e
 	assert.deepEqual(review.blockers, { causes: [], leadership: [], invitations: [] });
 	assert.deepEqual(
 		review.attendance.map((a) => a.change),
-		["rsvp_replaced", "combined"],
+		["rsvp_replaced", "combined", "follow_up_combined"],
 	);
-	assert.equal(review.openFollowUps.length, 2, "both follow-ups are named before confirm");
+	assert.deepEqual(
+		review.openFollowUps.map((f) => [f.personId, f.meeting]),
+		[[s.imported, "Vision night"]],
+		"one follow-up stays open and it is the one named before confirm",
+	);
+	assert.deepEqual(review.openTasks.map((t) => t.title).sort(), ["Call Jordan"]);
+	assert.deepEqual(
+		Object.fromEntries(review.references.flatMap((r) => (r.treatment === "keep" ? [] : [[r.kind, r.count]]))),
+		Object.fromEntries((await previewOf(s)).map((r) => [r.kind, r.count])),
+		"what moves is what goes back",
+	);
+	assert.deepEqual(
+		review.references.filter((r) => r.treatment === "keep"),
+		[{ kind: "skill", count: 1, treatment: "keep" }],
+		"the skill they both have is named as staying, not as moving",
+	);
 	const before = await records(s.imported, s.walkIn);
 	const merged = await w.merge(s.walkIn, s.imported, { household: "source" });
 
@@ -332,12 +355,18 @@ test("a CSV import and a walk-in who are one person merge into one record with e
 		await tx(async (t) => followUpReader.readObligations(t, await authority(), { personId: s.imported, limit: 10 })),
 	).items;
 	assert.equal(duties.length, 1, "one follow-up for the one meeting");
-	assert.equal(
+	assert.deepEqual(
 		ok(
 			await tx(async (t) => followUpReader.readObligations(t, await authority(), { meetingId: s.night, limit: 10 })),
-		).items.filter((o) => o.kind === "first_vision_follow_up").length,
-		2,
-		"the other stays with the walk-in as history",
+		).items.flatMap((o) => (o.kind === "first_vision_follow_up" ? [[o.id, o.person?.id, o.state]] : [])),
+		[[duties[0]?.id, s.imported, "open"]],
+		"the meeting shows the same one follow-up",
+	);
+	assert.deepEqual(
+		ok(await tx(async (t) => followUpReader.listFollowUpOwners(t, await authority(), { personId: s.imported })))
+			.items.map((d) => d.title)
+			.sort(),
+		["Call Jordan", "Follow up with Jordan Rivera"],
 	);
 
 	const p = ok(await w.preview(merged.mergeId));
@@ -439,6 +468,263 @@ test("after a merge the notification feed, signed cards and their corrections re
 	);
 	const opened = ok(await tx(async (t) => taskReader.get(t, await authority(), { taskId: about })));
 	assert.ok(JSON.stringify(opened).includes(survivor), "the notice's task opens the survivor");
+});
+
+async function firstVisit(label: string, ...others: string[]) {
+	const p = await pair(label);
+	const night = await meeting(`${label} night`);
+	const everyone = [p.source, p.survivor, ...others];
+	for (const id of everyone) {
+		ok(await invite(night, id));
+		ok(await checkIn(night, id));
+	}
+	await attended(night, everyone);
+	return { ...p, night };
+}
+const attended = async (meetingId: string, attendeeIds: string[], reason?: string) =>
+	ok(
+		await write.meetings(reason ? attendance.reconcileAttendance : attendance.finalizeAttendance, {
+			requestKey: key(),
+			expectedRevision: String(
+				(await one(sql`SELECT attendance_revision::text AS r FROM meeting WHERE id=${meetingId}::uuid`)).r,
+			),
+			input: { meetingId, attendeeIds, ...(reason ? { reason } : {}) },
+		}),
+	);
+const followUpTask = async (meetingId: string, personId: string) =>
+	String(
+		(
+			await one(sql`SELECT t.id FROM task t JOIN obligation o ON o.id=t.obligation_id
+				WHERE o.meeting_id=${meetingId}::uuid AND o.person_id=${personId}::uuid`)
+		).id,
+	);
+const contact = async (taskId: string, input: Row = {}) =>
+	write.followUps(followups.recordOutcome, {
+		requestKey: key(),
+		input: {
+			target: { kind: "task", taskId, expectedRevision: await w.revisionOf("task", taskId) },
+			outcome: "contacted",
+			channel: "phone",
+			completeTask: true,
+			occurredAt: "2026-10-02T12:00:00.000Z",
+			...input,
+		},
+	});
+const intelligence = async () => {
+	const facts = await captureFacts(db, P, null);
+	assert.ok(facts);
+	return facts.followUps;
+};
+async function oneFollowUp(p: { survivor: string; night: string }) {
+	const actor = await authority();
+	const read = async (by: Row) =>
+		ok(await tx((t) => followUpReader.readObligations(t, actor, { ...by, limit: 10 }))).items.filter(
+			(o) => o.kind === "first_vision_follow_up",
+		);
+	const [mine, theirs] = [await read({ personId: p.survivor }), await read({ meetingId: p.night })];
+	assert.deepEqual(mine, theirs, "the person and the meeting show the same follow-up");
+	const [duty] = mine;
+	assert.ok(duty?.task);
+	assert.equal(mine.length, 1, "one follow-up for one visit");
+	const found = ok(await tx((t) => taskReader.get(t, actor, { taskId: duty.task!.id })));
+	assert.ok(found.status === "available");
+	assert.deepEqual(
+		[found.task.managed?.obligationId, found.task.relation?.id],
+		[duty.id, p.survivor],
+		"its call screen finds it by the task's person",
+	);
+	const open = ok(await tx((t) => followUpReader.listFollowUpOwners(t, actor, { personId: p.survivor }))).items;
+	assert.deepEqual(
+		open.map((d) => d.obligationId),
+		duty.state === "open" ? [duty.id] : [],
+	);
+	const counts = ok(await attendanceReader.linkedTaskProgress(db, actor, { meetingId: p.night })).followUps;
+	assert.equal(counts.total, 1, "the meeting counts one visitor once");
+	return duty;
+}
+async function bothSides(p: { source: string; survivor: string }) {
+	return {
+		records: await records(p.source, p.survivor),
+		contacts: await rows(sql`SELECT to_jsonb(x)-'revision' AS row FROM contact_outcome x
+			WHERE x.person_id IN (${p.source}::uuid,${p.survivor}::uuid) ORDER BY x.id`),
+	};
+}
+test("two open follow-ups from one meeting become one, its call is measured once, and Unmerge opens both again", async () => {
+	const p = await firstVisit("Open");
+	const facts = await intelligence();
+	const before = await bothSides(p);
+	const theirs = await followUpTask(p.night, p.source);
+	const merged = await w.merge(p.source, p.survivor);
+	assert.equal((await oneFollowUp(p)).state, "open");
+	assert.equal((await intelligence()).total, facts.total - 1);
+	assert.deepEqual(
+		ok(await w.preview(merged.mergeId)).attendance.map((a) => a.change),
+		["combined", "follow_up_combined"],
+	);
+	refused(
+		await write.tasks(tasks.reopen, {
+			requestKey: key(),
+			expectedRevision: await w.revisionOf("task", theirs),
+			input: { taskId: theirs },
+		}),
+		"protected_source",
+	);
+	const history = await rows(
+		sql`SELECT action,kind,reason FROM audit_event WHERE subject_id=${theirs}::uuid AND action='tasks.waived'`,
+	);
+	assert.deepEqual(history, [
+		{
+			action: "tasks.waived",
+			kind: "waive",
+			reason: "Combined with the other follow-up from this meeting in a merge",
+		},
+	]);
+	ok(await w.unmerge(merged.mergeId));
+	assert.deepEqual(await bothSides(p), before);
+	assert.deepEqual(await intelligence(), facts);
+
+	const again = await w.merge(p.source, p.survivor);
+	ok(await contact((await oneFollowUp(p)).task!.id));
+	const called = await oneFollowUp(p);
+	assert.deepEqual(
+		[called.state, called.contacted, called.completion?.outcome, called.measurement],
+		["complete", true, "contacted", { eligible: true, success: true, reason: "measured" }],
+	);
+	const measured = await intelligence();
+	assert.deepEqual(
+		[measured.total, measured.measured, measured.onTime, measured.contacted],
+		[facts.total - 1, facts.measured - 1, facts.onTime + 1, facts.contacted + 1],
+	);
+	ok(await w.unmerge(again.mergeId));
+	const after = await rows(sql`SELECT o.person_id,t.status,(SELECT count(*)::int FROM contact_outcome x
+		WHERE x.obligation_id=o.id AND x.person_id=o.person_id) AS calls FROM obligation o JOIN task t ON t.obligation_id=o.id
+		WHERE o.meeting_id=${p.night}::uuid AND o.kind='follow_up' AND o.superseded_at IS NULL ORDER BY t.status`);
+	assert.deepEqual(after, [
+		{ person_id: p.survivor, status: "complete", calls: 1 },
+		{ person_id: p.source, status: "not_started", calls: 0 },
+	]);
+});
+
+test("a finished follow-up wins over an open one from the same meeting, whichever person had it, and both outcomes stay", async (t) => {
+	for (const done of ["source", "survivor"] as const)
+		await t.test(done, async () => {
+			const p = await firstVisit(`Done ${done}`);
+			const other = done === "source" ? "survivor" : "source";
+			ok(
+				await contact(await followUpTask(p.night, p[other]), { outcome: "attempted_no_contact", completeTask: false }),
+			);
+			ok(await contact(await followUpTask(p.night, p[done])));
+			const facts = await intelligence();
+			const before = await bothSides(p);
+			const review = ok(await w.review(p.source, p.survivor));
+			assert.deepEqual(review.openFollowUps, []);
+			assert.deepEqual(review.openTasks, []);
+			assert.deepEqual(review.attendance.at(-1), {
+				change: "follow_up_combined",
+				meeting: `Done ${done} night`,
+				state: "complete",
+			});
+			const merged = await w.merge(p.source, p.survivor);
+			const duty = await oneFollowUp(p);
+			assert.deepEqual([duty.state, duty.contacted, duty.measurement?.success], ["complete", true, true]);
+			const contacts = ok(
+				await tx(async (x) =>
+					followUpReader.listContactHistory(x, await authority(), { personId: p.survivor, limit: 10 }),
+				),
+			).items;
+			assert.deepEqual(contacts.map((c) => c.outcome).sort(), ["attempted_no_contact", "contacted"]);
+			const now = await intelligence();
+			assert.deepEqual(
+				[now.total, now.measured, now.onTime, now.contacted],
+				[facts.total - 1, facts.measured - 1, facts.onTime, facts.contacted],
+			);
+			ok(await w.unmerge(merged.mergeId));
+			assert.deepEqual(await bothSides(p), before);
+			assert.deepEqual(await intelligence(), facts);
+		});
+});
+
+test("a contact that did not finish the replaced follow-up still counts on the one that stays, and two finished ones keep the earlier call", async () => {
+	const p = await firstVisit("Spoken");
+	ok(await contact(await followUpTask(p.night, p.source), { completeTask: false }));
+	await w.merge(p.source, p.survivor);
+	const open = await oneFollowUp(p);
+	assert.deepEqual([open.state, open.contacted], ["open", true]);
+
+	const q = await firstVisit("Twice");
+	ok(await contact(await followUpTask(q.night, q.survivor), { occurredAt: "2026-10-09T12:00:00.000Z" }));
+	ok(await contact(await followUpTask(q.night, q.source)));
+	await w.merge(q.source, q.survivor);
+	const done = await oneFollowUp(q);
+	assert.deepEqual([done.completion?.occurredAt, done.measurement?.success], ["2026-10-02T12:00:00.000Z", true]);
+});
+
+test("the follow-up someone owns is the one that stays", async () => {
+	const p = await firstVisit("Owned");
+	const theirs = await followUpTask(p.night, p.source);
+	await w.admin.execute(
+		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${P}::uuid,${theirs}::uuid,${w.actors.owner.id})`,
+	);
+	const before = await bothSides(p);
+	const merged = await w.merge(p.source, p.survivor);
+	const duty = await oneFollowUp(p);
+	assert.deepEqual([duty.task?.id, duty.owners.map((o) => o.accountId)], [theirs, [w.actors.owner.id]]);
+	ok(await w.unmerge(merged.mergeId));
+	assert.deepEqual(await bothSides(p), before);
+});
+
+test("correcting the merged person to absent closes their one follow-up and opens none", async () => {
+	const p = await firstVisit("Corrected");
+	await w.merge(p.source, p.survivor);
+	await attended(p.night, [], "They were not there");
+	assert.equal((await oneFollowUp(p)).state, "no_longer_needed");
+	assert.equal(
+		(
+			await one(sql`SELECT count(*)::int AS n FROM task t JOIN obligation o ON o.id=t.obligation_id
+				WHERE o.meeting_id=${p.night}::uuid AND o.kind='follow_up' AND t.status NOT IN ('complete','no_longer_needed')`)
+		).n,
+		0,
+	);
+	await attended(p.night, [p.survivor], "They were there after all");
+	assert.equal(
+		(await one(sql`SELECT count(*)::int AS n FROM obligation WHERE meeting_id=${p.night}::uuid AND kind='follow_up'`))
+			.n,
+		2,
+		"no third follow-up is made",
+	);
+});
+
+test("follow-ups combined through a chain of merges come back one merge at a time", async () => {
+	const third = await person("Chained third");
+	const p = await firstVisit("Chained", third);
+	const before = await bothSides(p);
+	const first = await w.merge(p.source, p.survivor);
+	const between = await records(p.survivor, third);
+	const second = await w.merge(p.survivor, third);
+	await oneFollowUp({ survivor: third, night: p.night });
+	assert.deepEqual(ok(await w.preview(first.mergeId)).conflicts, ["chained_merge"]);
+	ok(await w.unmerge(second.mergeId));
+	assert.deepEqual(await records(p.survivor, third), between);
+	assert.deepEqual(ok(await w.preview(first.mergeId)).conflicts, []);
+	ok(await w.unmerge(first.mergeId));
+	assert.deepEqual(await bothSides(p), before);
+});
+
+test("an edited replaced follow-up stops the Unmerge and names it", async () => {
+	const p = await firstVisit("Edited");
+	const theirs = await followUpTask(p.night, p.source);
+	ok(await contact(theirs));
+	const own = await followUpTask(p.night, p.survivor);
+	const merged = await w.merge(p.source, p.survivor);
+	ok(
+		await write.tasks(tasks.edit, {
+			requestKey: key(),
+			expectedRevision: await w.revisionOf("task", own),
+			input: { taskId: own, patch: { title: "Renamed" } },
+		}),
+	);
+	const preview = ok(await w.preview(merged.mergeId));
+	assert.deepEqual([preview.conflicts, preview.changed], [["references_changed"], ["task"]]);
 });
 
 async function pair(label: string) {

@@ -31,14 +31,13 @@ import {
 	proposalRow,
 	readable,
 	REVIEWED_WRITES,
+	REVIEW_MINUTES,
 	stale,
 	type Operation,
 	type Proposal,
 } from "./review.ts";
 
 export { allowedWrites, everyOperation, REVIEWED_WRITES, stale, type Offered, type Proposal } from "./review.ts";
-
-export const REVIEW_MINUTES = 15;
 
 function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	const r = schema.safeParse(raw);

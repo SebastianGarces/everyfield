@@ -79,13 +79,14 @@ const SEATING = ["onboarding.createPlant", "discovery.convertToPlant"];
 const ownSeating = (actor: EvryActor) =>
 	sql`p.account_id=${actor.accountId}::uuid AND p.tenant_id=${actor.accountId}::uuid AND p.operation=ANY(${sql.param(SEATING)}::text[])
 		AND ${liveRead({ session: actor.session, owner: { kind: "account", id: actor.accountId } as never })}`;
+export const REVIEW_MINUTES = 15;
 export const staleMessage = (alias: string) =>
 	`coalesce(${alias}.review->'target'->>'kind'='message' AND NOT EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid
 		AND t.plant_id=${alias}.tenant_id AND t.revision=(${alias}.input->>'expectedRevision')::bigint
 		AND ${untouchedMail("t")}=(${alias}.input->>'untouched')::int),false)`;
 export const staleMerge = (alias: string) =>
 	`EXISTS(SELECT FROM person_merge pm WHERE pm.tenant_id=${alias}.tenant_id
-		AND greatest(pm.merged_at,pm.unmerged_at)>${alias}.updated_at
+		AND greatest(pm.merged_at,pm.unmerged_at)>${alias}.expires_at-interval '${REVIEW_MINUTES} minutes'
 		AND (strpos(${alias}.input::text,pm.source_id::text)>0 OR strpos(${alias}.input::text,pm.survivor_id::text)>0
 			OR ${alias}.review->'target'->>'id' IN (pm.source_id::text,pm.survivor_id::text)))`;
 export const stale = (alias: string) => `(${staleMessage(alias)} OR ${staleMerge(alias)})`;

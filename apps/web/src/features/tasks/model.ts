@@ -463,7 +463,7 @@ export function problemText(
 		case "invalid_subject":
 			return "That person, meeting, team or assignee cannot be chosen here. Pick another one.";
 		case "protected_source":
-			return "This task was created by a meeting, so its category and link stay as they are.";
+			return "A meeting created this task, so its category and link stay as they are. If a merge closed it, it stays closed.";
 		case "nonexistent_local_time":
 			return "That time does not exist on this day because the clocks move forward. Pick another time.";
 		case "ambiguous_local_time":
