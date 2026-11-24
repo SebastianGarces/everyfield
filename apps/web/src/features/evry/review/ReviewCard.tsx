@@ -72,6 +72,7 @@ import {
 	documentRefusalText,
 	documentResult,
 	isDocument,
+	delayedText,
 	editableChanges,
 	fieldKind,
 	fieldLabel,
@@ -115,6 +116,7 @@ import {
 	reviseInput,
 	SHARE_CHOICES,
 	savedText,
+	shownNotes,
 	showsBefore,
 	shownChanges,
 	subjectName,
@@ -275,6 +277,8 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				? `${what} in this change is no longer available to you, so Evry can't show this change or its result.`
 				: `${what} in this change is no longer available to you. Nothing was changed.`;
 		}
+		case "completed":
+			return review && delayedText(review);
 		case "left":
 			return "Your church changed, so Evry can't show this change here.";
 		case "unavailable":
@@ -323,7 +327,7 @@ export function ReviewCard({
 	const view: View = unknown ? "unknown" : r.view === "pending" && photoGone ? "photo_unavailable" : r.view;
 
 	const mailTitle = review ? mailHead(review, view) : null;
-	const key = `${view}:${review?.revision ?? 0}:${mailTitle?.title ?? ""}`;
+	const key = `${view}:${review?.revision ?? 0}:${mailTitle?.title ?? ""}:${(review && delayedText(review)) ?? ""}`;
 	const [said, setSaid] = useState({ key, text: "" });
 	if (said.key !== key)
 		setSaid({ key, text: said.key.startsWith("loading") ? "" : announcement(view, review, r.lapsed, unknown) });
@@ -458,7 +462,7 @@ export function ReviewCard({
 								{consequence(review) && (view === "pending" || view === "running") ? (
 									<p className="text-sm text-text-2">{consequence(review)}</p>
 								) : null}
-								{review.review.notes?.length ? <Notes notes={review.review.notes} /> : null}
+								{shownNotes(review).length ? <Notes notes={shownNotes(review)} /> : null}
 								{view === "pending" && asksReason(review.operation) && !review.review.refusal ? (
 									<Field
 										label="Reason for this move"

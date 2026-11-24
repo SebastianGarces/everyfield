@@ -321,6 +321,7 @@ export type Review = {
 		current?: { id: string; label: string; value: string | null }[];
 	} | null;
 	stale: boolean;
+	mailDelayed?: true;
 	now: string;
 };
 
@@ -710,10 +711,12 @@ const SHARED = new Set<string>(SHARING_CATEGORIES);
 const WORDS: Record<string, Record<string, string>> = {
 	role: ROLE_LABEL,
 	access: { ...ROLE_LABEL, removed: "Removed" },
-	invitation: { pending: "Waiting", sent_again: "Sent again", revoked: "Revoked" },
+	invitation: { pending: "Waiting", sent_again: "Sent again", new_link: "New link", revoked: "Revoked" },
 	connection: {
 		connected: "Connected",
 		ended: "Ended",
+		requested_church: "Sending church",
+		requested_network: "Network",
 		"sending church": "Asked to be your sending church",
 		network: "Asked to connect as your network",
 	},
@@ -801,7 +804,38 @@ export function subjectName(review: Review): string {
 	return counted(n, "task");
 }
 
+export function delayedText(review: Review): string | null {
+	if (!review.mailDelayed || review.outcome !== "completed") return null;
+	const who = review.review.target?.label;
+	switch (review.operation) {
+		case "seats.invite":
+			return `The invitation to ${String(review.review.changes.find((c) => c.field === "invitation")?.after ?? who)} is saved, but its email is delayed. You do not need to send it again unless it expires.`;
+		case "seats.resendInvitation":
+			return `The invitation to ${who} is saved with a new link, but its email is delayed. The old link no longer works. You do not need to resend it unless it expires.`;
+		case "associations.invite":
+			return `The invitation to ${who} is saved, but its email is delayed. They have 30 days to accept. You do not need to send it again unless it expires.`;
+		default:
+			return null;
+	}
+}
+
+const DELAYED_VALUE: Record<string, string> = {
+	sent_again: "new_link",
+	"sending church": "requested_church",
+	network: "requested_network",
+};
+const delayedChange = (c: Change): Change => ({
+	...c,
+	field: c.field === "recipientEmail" ? "email" : c.field,
+	after: c.field === "invitation" || c.field === "connection" ? (DELAYED_VALUE[String(c.after)] ?? c.after) : c.after,
+});
+
+export const shownNotes = (review: Review): string[] =>
+	delayedText(review) !== null && review.operation.startsWith("seats.") ? [] : (review.review.notes ?? []);
+
 export function savedText(review: Review): string {
+	const delayed = delayedText(review);
+	if (delayed !== null) return delayed;
 	const who = review.review.target?.label;
 	if (isWikiEditor(review.operation)) return WIKI_EDITOR_SAVED[review.operation](who ?? "the article");
 	if (!isTasks(review.operation)) return who ? `Saved. ${who} is updated.` : "Saved.";
@@ -901,8 +935,8 @@ export const photoRef = (value: unknown) => String(value).slice(0, 8).toUpperCas
 const handedBack = (changes: readonly Change[]) =>
 	Number(changes.find((c) => c.field === "openTasksNeedingOwner")?.after ?? 0);
 
-export const shownChanges = (review: Pick<Review, "operation" | "review">) =>
-	review.review.changes.filter(
+export const shownChanges = (review: Review) =>
+	(delayedText(review) === null ? review.review.changes : review.review.changes.map(delayedChange)).filter(
 		(c) =>
 			c.field !== "openTasksNeedingOwner" &&
 			c.field !== "createTag" &&
