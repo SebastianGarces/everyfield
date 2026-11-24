@@ -61,7 +61,7 @@ export function proxy(request: NextRequest) {
 export const config = {
 	matcher: [
 		"/communication/:path*",
-		"/documents/:path*",
+		"/documents/:path((?!written/import$).*)?",
 		"/follow-ups/:path*",
 		"/intelligence/:path*",
 		"/me/:path*",

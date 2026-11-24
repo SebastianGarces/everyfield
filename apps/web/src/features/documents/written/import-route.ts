@@ -15,6 +15,8 @@ const answer = (outcome: DocumentOutcome<WrittenView>) => Response.json(outcome,
 const tooLarge = () => answer({ status: "refused", code: "invalid_input", problem: IMPORT_TOO_LARGE });
 
 export const importRoute = mutatingRoute(async function importRoute(request: Request) {
+	const actor = await viewerActor();
+	if (!actor) return answer({ status: "refused", code: "access_denied" });
 	const bytes = await readBoundedBody(request, IMPORT_BYTES_MAX);
 	if (!bytes) return tooLarge();
 	const query = new URL(request.url).searchParams;
@@ -30,8 +32,6 @@ export const importRoute = mutatingRoute(async function importRoute(request: Req
 	const storage = privateStorage();
 	if (!storage)
 		return answer({ status: "refused", code: "unavailable", problem: "Saving is not available right now." });
-	const actor = await viewerActor();
-	if (!actor) return answer({ status: "refused", code: "access_denied" });
 	const reply = await transient(
 		{ component: "documents", outcome: "import_failed" },
 		() => documentsWriter.importTextOrWord(requestDatabase(), actor, input, storage),
