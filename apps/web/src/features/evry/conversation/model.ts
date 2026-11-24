@@ -376,6 +376,8 @@ function startNotice(code: ErrorCode | undefined, churchName: string | null): st
 			return `You don't have access to Evry for ${churchName?.trim() || "this church"} yet. Ask whoever manages your church's Everyfield account to add you.`;
 		case "invalid_input":
 			return "Evry couldn't start a new conversation. Please try again.";
+		case "model_paused":
+			return "Evry is paused for now, so no conversation was started and nothing was saved. Your message is still here. Send it again later.";
 		default:
 			return "Evry can't start a new conversation right now. Please try again in a moment.";
 	}

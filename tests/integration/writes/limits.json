@@ -555,9 +555,9 @@
 		"retry": 4
 	},
 	"early-access/index.receiveAccessRequest": {
-		"limit": 9,
+		"limit": 10,
 		"retry": 5,
-		"reason": "A public request with no session or seat to gate it. BEGIN; two advisory locks, one for the email and one for the network key, so concurrent requests from either count each other; one statement counts the email's and the network key's attempts inside their rate windows; the attempt insert; the open-request read for the email; the request insert with its mail payload; COMMIT; then the provider's mail id is recorded in its own statement after the send, so the provider call holds no lock. A rate-limited request rolls back after the count: 5 statements. Its largest first run: 2 transaction, 2 locked read, 2 read, 3 write."
+		"reason": "A public request with no session or seat to gate it. The outbound-mail kill switch read (T-472; with the switch off it is the whole request); BEGIN; two advisory locks, one for the email and one for the network key, so concurrent requests from either count each other; one statement counts the email's and the network key's attempts inside their rate windows; the attempt insert; the open-request read for the email; the request insert with its mail payload; COMMIT; then the provider's mail id is recorded in its own statement after the send, so the provider call holds no lock. A rate-limited request rolls back after the count: 6 statements. Its largest first run: 2 transaction, 2 locked read, 3 read, 3 write."
 	},
 	"feedback.admin.changeStatus": {
 		"limit": 1

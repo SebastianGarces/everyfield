@@ -9,6 +9,7 @@ import { seeds } from "../../support/fixture.mts";
 import { resendRecorder } from "../communication/resend-recorder.mts";
 import { queuedMailTransport } from "../../../apps/web/src/server/mail/transport.ts";
 import { identityMailEnqueue, identityMailPass } from "../../../apps/web/src/server/identity/index.ts";
+import { receiveAccessRequest } from "../../../packages/domain/src/early-access/index.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { capturedLines, withSwitchOff } from "../../support/flags.mts";
 
@@ -51,6 +52,7 @@ async function tick() {
 		digests: null,
 		mail: spy("mail"),
 		messages: spy("messages"),
+		messageCancels: spy("message-cancels"),
 		mountMail: {
 			...Object.fromEntries(PASSES.map((name) => [name, spy(name)])),
 			identity: identityMailPass(queuedMailTransport(ready, resend.fetch, { VERCEL_ENV: "production" })),
@@ -108,7 +110,8 @@ test("with outbound-mail off, no cron mail pass runs or calls the email service 
 	const mailSteps = ["mail", ...PASSES.map((name) => `${name}-mail`), "messages"];
 	for (const step of mailSteps) assert.deepEqual(paused!.steps[step], { status: "paused" }, step);
 	assert.equal(paused!.status, "ok");
-	assert.deepEqual(ran, [], "no pass ran");
+	assert.deepEqual(ran, ["message-cancels"], "no pass that sends ran; cancels still go through");
+	ran.length = 0;
 	assert.deepEqual(resend.take(), [], "no provider call and no capture");
 	assert.deepEqual(await queued(keys), waiting, "queued mail stays queued with no attempt counted");
 	assert.deepEqual(
@@ -122,6 +125,7 @@ test("with outbound-mail off, no cron mail pass runs or calls the email service 
 		"digest",
 		"feedback",
 		"mail",
+		"message-cancels",
 		"messages",
 		"notice",
 		"onboarding",
@@ -136,4 +140,44 @@ test("with outbound-mail off, no cron mail pass runs or calls the email service 
 	);
 	await tick();
 	assert.deepEqual(resend.take(), [], "a later run sends nothing again");
+});
+
+test("with outbound-mail off, an early access request is refused before any write or provider call; back on, it goes out", async () => {
+	const operator = await seed.actor(null);
+	const email = `visitor-${randomUUID().slice(0, 8)}@example.org`;
+	const posts: string[] = [];
+	const submit = () =>
+		receiveAccessRequest(
+			"planter",
+			{ name: "Sam", email, plant_name: "Hope", city: "Boston", phase: "0 · Discovery", sending: "Grace" },
+			"192.0.2.9",
+			{
+				db: admin,
+				fetch: async (url) => (posts.push(String(url)), Response.json({ id: "mail-1" })),
+				env: {
+					VERCEL_ENV: "production",
+					RESEND_API_KEY: "re_test_key",
+					EMAIL_FROM: "everyfield@example.test",
+					EARLY_ACCESS_EMAIL_TO: "owner@example.org",
+				} as unknown as NodeJS.ProcessEnv,
+			},
+		);
+	const rows = async () =>
+		(
+			await admin.execute(sql`SELECT (SELECT count(*)::int FROM early_access_request) AS requests,
+				(SELECT count(*)::int FROM early_access_attempt) AS attempts`)
+		).rows[0];
+	const before = await rows();
+	const { value: refused, lines } = await capturedLines(() =>
+		withSwitchOff(db, { flag: "outbound-mail", operator: operator.id }, submit),
+	);
+	assert.deepEqual(refused, { status: "unavailable" });
+	assert.deepEqual(posts, []);
+	assert.deepEqual(await rows(), before, "no request and no counted attempt");
+	assert.deepEqual(
+		lines.map((l) => [l.component, l.switch, l.action, l.outcome]),
+		[["kill-switch", "outbound-mail", "access.requestEarlyAccess", "refused"]],
+	);
+	assert.deepEqual(await submit(), { status: "received" });
+	assert.equal(posts.length, 1);
 });

@@ -9,6 +9,7 @@ import { hubLabel } from "../../../apps/web/src/features/communication/model.ts"
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
+import { capturedLines, withSwitchOff } from "../../support/flags.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { MAILING } from "./church-address.mts";
 
@@ -359,5 +360,45 @@ test("AC:CASE-NTF-016 the every-minute cron call hands a due scheduled email off
 	);
 	assert.equal(response.status, 200);
 	assert.equal((await response.json()).messages, 1);
+	assert.deepEqual(sentTo(resend), [ben.email]);
+});
+
+test("with outbound-mail off, the cron run still cancels an email the service holds for a person who unsubscribed, and sends nothing due", async () => {
+	const { scheduledJobs, scheduledMessages, unsubscribedCancels } =
+		await import("../../../apps/web/src/server/jobs/scheduled.ts");
+	const ana = await person(churchA, "Ana");
+	const ben = await person(churchA, "Ben");
+	const resend = resendRecorder(PRODUCTION);
+	const held = await schedule(ownerA, [ana, ben], resend);
+	await heldAtProvider(f.admin, held.id, resend.transport, keys);
+	await unsubscribe(ownerA, ana);
+	const due = await schedule(ownerA, [ben], resend);
+	await f.admin.execute(sql`UPDATE mail SET scheduled_at = clock_timestamp() - interval '1 second'
+		WHERE logical_key LIKE ${"communication/" + due.id + "/%"} AND state = 'scheduled'`);
+	resend.take();
+	const [{ id: anaEmail }] = (await rows(sql`SELECT provider_message_id AS id FROM mail
+		WHERE logical_key = ${"communication/" + held.id + "/" + ana.id}`)) as { id: string }[];
+	const tick = scheduledJobs({
+		db: f.db,
+		storage: null,
+		cleanup: null,
+		effects: null,
+		digests: null,
+		mail: null,
+		messages: scheduledMessages(f.db, resend.transport, keys),
+		messageCancels: unsubscribedCancels(f.db, resend.transport),
+	});
+	const { value: response } = await capturedLines(() =>
+		withSwitchOff(f.db, { flag: "outbound-mail", operator: ownerA.id }, () => tick()),
+	);
+	const { steps } = await response.json();
+	assert.deepEqual(steps["message-cancels"], { status: "ok", count: 1 });
+	assert.deepEqual(steps.messages, { status: "paused" });
+	assert.deepEqual(
+		resend.take().map((r) => r.path),
+		[`/emails/${anaEmail}/cancel`],
+	);
+	assert.equal(resend.emails.get(anaEmail).lastEvent, "canceled");
+	await tick();
 	assert.deepEqual(sentTo(resend), [ben.email]);
 });

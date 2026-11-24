@@ -15,6 +15,7 @@ import { transaction } from "../../../../packages/domain/src/jobs/transaction.ts
 import { claimDue, finishClaim } from "../../../../packages/domain/src/jobs/queue.ts";
 import { actor, admin, db, plant, setup, sql, teardown } from "../../runtime/support.mts";
 import { seedDocument, type Seeded } from "./seed.mts";
+import { capturedLines, withSwitchOff } from "../../../support/flags.mts";
 
 const objects = new Map<string, Buffer>();
 const storage = {
@@ -143,6 +144,19 @@ test("an approved export saves the PDF with the Church Document, in private stor
 	assert.deepEqual([saved.format, saved.source_document_id, saved.state], ["pdf", docs.policy.id, "ready"]);
 	assert.equal(objects.get(saved.opaque_key)!.subarray(0, 5).toString(), "%PDF-");
 	assert.deepEqual(await audits(proposal.id), [{ action: "documents.exported", subject_id: saved.id }]);
+});
+
+test("an export approved while document exports are off is refused with a paused code and saves nothing", async () => {
+	const owner = await actor("owner");
+	const proposal = await propose(owner, "documents.exportNative", { documentId: docs.policy.id, format: "pdf" });
+	const stored = objects.size;
+	const { value } = await capturedLines(() =>
+		withSwitchOff(db, { flag: "document-exports", operator: owner.accountId }, () => approveAndRun(owner, proposal)),
+	);
+	assert.equal(value.outcome, "refused");
+	assert.equal(value.review.receipt?.code, "exports_paused");
+	assert.equal(objects.size, stored);
+	assert.deepEqual(await audits(proposal.id), []);
 });
 
 test("an approved archive archives a written document or a Church Document the way its own list does", async () => {

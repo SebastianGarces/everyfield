@@ -43,8 +43,11 @@ async function sweepOrphans(db: Database, storage: PrivateStorage) {
 }
 
 export function scheduledMessages(db: Database, transport: DeliveryTransport, keys: DeliveryKeys) {
-	return async (limit: number, until: number) =>
-		(await cancelUnsubscribedHeld(db, transport, 50)) + (await runDueScheduled(db, transport, keys, limit, until));
+	return (limit: number, until: number) => runDueScheduled(db, transport, keys, limit, until);
+}
+
+export function unsubscribedCancels(db: Database, transport: DeliveryTransport) {
+	return () => cancelUnsubscribedHeld(db, transport, 50);
 }
 
 export function scheduledJobs(config: {
@@ -54,6 +57,7 @@ export function scheduledJobs(config: {
 	effects: EffectPorts | null;
 	mail: ((limit: number, until: number) => Promise<number>) | null;
 	messages?: ((limit: number, until: number) => Promise<number>) | null;
+	messageCancels?: (() => Promise<number>) | null;
 	mountMail?: Partial<Record<Exclude<MailPassName, "mail">, MailPass | null>>;
 	digests: DigestWorker | null;
 	notifications?: NotificationWorker | null;
@@ -113,6 +117,7 @@ export function scheduledJobs(config: {
 			pass("notice"),
 			pass("digest"),
 			pass("feedback"),
+			["message-cancels", null, config.messageCancels ?? null],
 			["messages", "messages", mailing(messages && (() => messages(20, until)))],
 			["mail-callbacks", null, () => replayStoredCallbacks(db)],
 		];

@@ -12,7 +12,11 @@ import {
 	sendNotice,
 	turnsOf,
 } from "../../../apps/web/src/features/evry/conversation/model.ts";
-import { actionNotice, mailRefusalText } from "../../../apps/web/src/features/evry/review/model.ts";
+import {
+	actionNotice,
+	documentRefusalText,
+	mailRefusalText,
+} from "../../../apps/web/src/features/evry/review/model.ts";
 
 const T = "11111111-1111-4111-8111-111111111111";
 const at = "2026-10-21T00:00:00Z";
@@ -144,6 +148,8 @@ test("a paused Evry or paused email says what stopped, that nothing changed and 
 	const turn = endNotice({ state: "failed", reason: "failed", error: paused("model_paused", "new_turn") });
 	const texts = [
 		sendNotice(send),
+		sendNotice({ ...send, state: "unstarted" }),
+		documentRefusalText("exports_paused"),
 		`${turn.title}: ${turn.text}`,
 		actionNotice(paused("mail_paused", "same_request"), true),
 		mailRefusalText("mail_paused"),
@@ -153,7 +159,11 @@ test("a paused Evry or paused email says what stopped, that nothing changed and 
 		assert.doesNotMatch(text, /kill|switch|flag|_paused|model_|error/i);
 	}
 	assert.equal(turn.tone, "neutral");
-	assert.match(sendNotice(send), /nothing was saved\. Your message is still here/);
+	for (const state of ["refused", "unstarted"])
+		assert.match(
+			sendNotice({ ...send, state }),
+			/nothing was saved\. Your message is still here\. Send it again later/,
+		);
 	assert.equal(resendable(send), true, "the typed message can be sent again");
 	const failed = end(2, { state: "failed", reason: "failed", error: paused("model_paused", "new_turn") });
 	assert.equal(retryable({ ...EMPTY, events: [ask(1), failed], activeTurnId: null }, turnsOf([ask(1), failed])), true);

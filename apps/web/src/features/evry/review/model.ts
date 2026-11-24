@@ -1408,6 +1408,8 @@ export function documentRefusalText(code: string | undefined): string {
 			return "Your seat no longer allows this change, so nothing was saved.";
 		case "render_failed":
 			return "The file could not be made, so nothing was saved. Try again later.";
+		case "exports_paused":
+			return "Saving exports is paused for now, so nothing was saved. Ask Evry to prepare it again later.";
 		case "attachment_gone":
 			return "The attached file is no longer available, so nothing was saved. Attach it again and ask Evry.";
 		case "file_changed":
