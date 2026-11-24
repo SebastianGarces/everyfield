@@ -305,10 +305,60 @@ test("AC:GEO-004 AC:GEO-012 a plant outside the official list, one left unresolv
 		v.groups.every((g) => !g.patterns.length),
 		"no pattern for plants with no Region",
 	);
+	const at = async (level: Level) => levelOf(await read(net, level));
+	assert.deepEqual(await at("state"), {
+		"CA:ON": { label: "ON", placement: "placed", support: 1, pattern: null },
+		"US:TX": { label: "Texas", placement: "placed", support: 2, pattern: 2 },
+	});
+	assert.deepEqual(await at("country"), {
+		CA: { label: "CA", placement: "placed", support: 1, pattern: null },
+		US: { label: "United States", placement: "placed", support: 2, pattern: 2 },
+	});
+	assert.deepEqual(await at("portfolio"), {
+		portfolio: { label: "Whole portfolio", placement: "placed", support: 3, pattern: 3 },
+	});
+	for (const level of ["state", "country", "portfolio"] as const)
+		assert.ok(
+			(await read(net, level)).groups.some(
+				(g) => g.placement === "placed" && g.rows.some((r) => r.name === "Unsure Church"),
+			),
+			`${level}: the unresolved plant still counts where its place is known`,
+		);
 	assert.doesNotMatch(JSON.stringify(v), /attest|geographic_?area|planting_?area/i);
 	const location = (await readReportingLocation(c0.db, outside.actor))!;
 	assert.deepEqual(Object.keys(location).sort(), ["canEdit", "locality", "referenceVersionId", "region", "revision"]);
 	assert.equal(location.region, null);
+});
+
+test("INV-denominator: with one relevant plant in each of two metro areas only the larger levels show a pattern; a second relevant plant, not merely another plant, makes each metro's own", async () => {
+	const net = await network("Two Metro Network");
+	const DALLAS = { city: "Dallas", stateProvince: "TX", country: "US" };
+	const [a1, d1] = [await plant("Austin First", AUSTIN_TX), await plant("Dallas First", DALLAS)];
+	for (const p of [a1, d1]) await link(p, net);
+	await save(a1, AUSTIN_TX, "12420");
+	await save(d1, DALLAS, "19100");
+	const quiet = await c0.plant("Dallas Quiet", { phase: 1 });
+	await c0.admin.execute(sql`UPDATE plant SET city='Dallas',state_province='TX',country='US' WHERE id=${quiet.id}`);
+	await link(quiet, net);
+	await save(quiet, DALLAS, "19100");
+	const patterns = async (level: Level) =>
+		Object.fromEntries(Object.entries(levelOf(await read(net, level))).map(([k, v]) => [k, v.pattern]));
+	await refresh(net);
+	assert.equal(levelOf(await read(net, "region"))["19100"]!.support, 2, "the quiet plant shares the Region");
+	assert.deepEqual(await patterns("region"), { "12420": null, "19100": null });
+	assert.deepEqual(await patterns("state"), { "US:TX": 2 });
+	assert.deepEqual(await patterns("country"), { US: 2 });
+	assert.deepEqual(await patterns("portfolio"), { portfolio: 2 });
+
+	const [a2, d2] = [await plant("Austin Second", AUSTIN_TX), await plant("Dallas Second", DALLAS)];
+	for (const p of [a2, d2]) await link(p, net);
+	await save(a2, AUSTIN_TX, "12420");
+	await save(d2, DALLAS, "19100");
+	await refresh(net);
+	assert.deepEqual(await patterns("region"), { "12420": 2, "19100": 2 });
+	assert.deepEqual(await patterns("state"), { "US:TX": 4 });
+	assert.deepEqual(await patterns("country"), { US: 4 });
+	assert.deepEqual(await patterns("portfolio"), { portfolio: 4 });
 });
 
 test("AC:GEO-009 a Region corrected from one area to another changes the current view; the earlier run keeps its Region", async () => {
@@ -340,13 +390,15 @@ test("AC:B02-029 Network Intelligence and the oversight plant view consume only 
 	const first = await publish(a);
 	ok(await assessments.markAssessmentSeen(c0.db, a.actor, { runId: first.runId }));
 	const newest = await publish(a);
-	await publish(b);
+	const unreleased = await publish(b);
 	assert.notEqual(newest.runId, first.runId);
 	await refresh(net);
 
-	const rows = async () =>
+	const rows = async (level: Level = "portfolio") =>
 		Object.fromEntries(
-			(await read(net, "portfolio")).groups[0]!.rows.map((r) => [r.name, r.status === "shared" ? r.assessment : null]),
+			(await read(net, level)).groups.flatMap((g) =>
+				g.rows.map((r) => [r.name, r.status === "shared" ? r.assessment : null]),
+			),
 		);
 	const shared = async () =>
 		(await read(net, "portfolio")).groups[0]!.patterns.filter((x) => x.rule === "NIR-01").map((x) => x.support);
@@ -360,6 +412,20 @@ test("AC:B02-029 Network Intelligence and the oversight plant view consume only 
 	assert.ok(pv.status === "released");
 	assert.equal(pv.runId, first.runId, "the plant view agrees");
 	assert.deepEqual((await plantView(b)).assessment, { status: "not_assessed" });
+	for (const level of LEVELS) {
+		const view = await read(net, level);
+		assert.deepEqual(await rows(level), {
+			"Lakeside Church": lakeside,
+			"Riverside Church": { status: "not_assessed" },
+		});
+		assert.ok(
+			view.groups.every((g) => g.patterns.every((x) => x.rule !== "NIR-01")),
+			`${level}: no pattern`,
+		);
+		for (const shown of [view, await plantView(a), await plantView(b)])
+			for (const run of [newest, unreleased])
+				assert.ok(!JSON.stringify(shown).includes(run.runId), `${level}: nothing from an unreleased run shows`);
+	}
 
 	ok(await assessments.markAssessmentSeen(c0.db, a.actor, { runId: newest.runId }));
 	const riverside = ok(await assessments.readAssessment(c0.db, b.actor, {})).current!;

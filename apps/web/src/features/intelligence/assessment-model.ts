@@ -66,6 +66,19 @@ export function newestText(newest: NewestRun | null, hasCurrent: boolean): strin
 	}
 }
 
+export function refreshProblem(outcome: ActionOutcome<unknown>): string | null {
+	switch (outcome.status) {
+		case "ok":
+			return null;
+		case "signed_out":
+			return "You're signed out, so nothing was requested. Sign in and try again.";
+		case "refused":
+			return "You can't request a new assessment for this church. Only its Owners and Admins can.";
+		default:
+			return "We couldn't request a new assessment. The assessment below is unchanged. Try again in a moment.";
+	}
+}
+
 export function coldStartTitle(newest: NewestRun | null): { title: string; body: string } {
 	if (newest?.state === "preparing" || newest?.state === "deferred")
 		return {

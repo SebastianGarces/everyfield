@@ -27,6 +27,7 @@ export type ChartNode = Pick<ListedTeam, "id" | "name" | "icon" | "templateKey" 
 	parentId: ListedTeam["id"] | null;
 };
 export type HistoryEntry = z.infer<typeof c.historyEntry>;
+export type TeamPast = { entries: HistoryEntry[]; assignments: z.infer<typeof c.endedAssignment>[] };
 export type Catalog = z.infer<typeof c.catalogPage>;
 export type TeamState = Team["state"];
 

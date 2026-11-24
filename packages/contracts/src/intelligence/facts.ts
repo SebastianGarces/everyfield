@@ -171,6 +171,8 @@ export function launchCriteria(launch: {
 	};
 }
 
+export type FactsSinceRun = { facts: PlantFacts; outOfDateRunId: string | null };
+
 export const readFactsRequest = z.strictObject({});
 
 export const factsError = z.discriminatedUnion("code", [

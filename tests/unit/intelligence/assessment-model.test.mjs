@@ -8,6 +8,7 @@ import {
 	factText,
 	newestText,
 	nextSteps,
+	refreshProblem,
 	trendText,
 } from "../../../apps/web/src/features/intelligence/assessment-model.ts";
 import { facts } from "./views-fixture.mjs";
@@ -36,6 +37,16 @@ test("AC:ASMT-005 a newer run that is pending or failed is its own line, and the
 	);
 	assert.match(newestText({ state: "failed", retryAt: null, grounding: "grounded" }, true), /couldn't be finished/);
 	assert.match(newestText({ state: "needs_review", retryAt: null, grounding: "grounded" }, true), /Everyfield team/);
+});
+
+test("INV-freshness: a refresh that failed says so plainly and never claims a new assessment was requested", () => {
+	assert.equal(refreshProblem({ status: "ok", value: null }), null);
+	assert.match(refreshProblem({ status: "lost" }), /couldn't request .*unchanged\. Try again/);
+	assert.match(refreshProblem({ status: "signed_out" }), /nothing was requested/);
+	assert.match(
+		refreshProblem({ status: "refused", code: "access_denied", error: { code: "access_denied" } }),
+		/You can't request a new assessment/,
+	);
 });
 
 test("next steps name only gaps the measured facts show", () => {

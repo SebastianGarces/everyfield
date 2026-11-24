@@ -67,11 +67,12 @@ import {
 	SEVERITY_LABEL,
 	STANDING,
 } from "./assessment-model.ts";
+import { OutOfDate } from "./OutOfDate.tsx";
 import { IntelligenceTabs } from "./IntelligenceTabs.tsx";
 import { loadProblem, failedIcon } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
-type Props = { view: AssessmentView; facts: PlantFacts; catalog: Catalog };
+type Props = { view: AssessmentView; facts: PlantFacts; outOfDate: boolean; catalog: Catalog };
 type Point = Assessment["focus"];
 
 const LENS_ICON: Record<Lens["key"], IconSvgElement> = {
@@ -86,7 +87,7 @@ const LENS_ICON: Record<Lens["key"], IconSvgElement> = {
 };
 const phaseName = (catalog: Catalog, n: number) => `Phase ${n} · ${catalog.phases[n]?.name ?? ""}`;
 
-export function AssessmentScreen({ view, facts, catalog }: Props) {
+export function AssessmentScreen({ view, facts, outOfDate, catalog }: Props) {
 	const current = view.current;
 	return (
 		<>
@@ -101,7 +102,7 @@ export function AssessmentScreen({ view, facts, catalog }: Props) {
 			/>
 			<IntelligenceTabs current="overview" />
 			{current ? (
-				<Current view={view} assessment={current} catalog={catalog} />
+				<Current view={view} assessment={current} outOfDate={outOfDate} catalog={catalog} />
 			) : (
 				<ColdStart view={view} facts={facts} />
 			)}
@@ -113,7 +114,17 @@ const citations = createRead((runId: string, key: string) => resolveAssessmentCi
 	failed: (): ActionOutcome<CitationView> | ReadFailure => ({ status: "lost" }),
 });
 
-function Current({ view, assessment: a, catalog }: { view: AssessmentView; assessment: Assessment; catalog: Catalog }) {
+function Current({
+	view,
+	assessment: a,
+	outOfDate,
+	catalog,
+}: {
+	view: AssessmentView;
+	assessment: Assessment;
+	outOfDate: boolean;
+	catalog: Catalog;
+}) {
 	const [citation, setCitation] = useState<{ key: string; label: string } | null>(null);
 	const runId = a.runId;
 	const markSeen = useMemo(
@@ -161,7 +172,9 @@ function Current({ view, assessment: a, catalog }: { view: AssessmentView; asses
 							{a.phase}, so its criteria and standings are Phase {a.phase}&apos;s, not Phase {otherPhase}&apos;s.
 						</Alert>
 					) : null}
-					{later ? (
+					{outOfDate ? (
+						<OutOfDate key={a.runId} assessment={a} newest={view.newest} />
+					) : later ? (
 						<p role="status" className="text-sm text-text-2" data-newest={view.newest?.state}>
 							{later}
 						</p>
