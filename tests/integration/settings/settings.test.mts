@@ -1,4 +1,5 @@
 import "../platform/setup.mts";
+import { openedDeletion } from "../../support/deletion-cookie.mts";
 import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -457,11 +458,14 @@ test("AC:TARGET-IDN-011 AC:TARGET-TSK-018 church zone preview is actor/revision/
 });
 
 async function restricted(a, subject, status) {
-	return gatedTransaction(admin, (tx) =>
-		issueRestrictedDeletionSession(tx, { subject, requestId: status.requestId }, async () => ({
-			accountId: a.id,
-			provenAt: new Date(),
-		})),
+	return openedDeletion(
+		gatedTransaction(admin, (tx) =>
+			issueRestrictedDeletionSession(tx, { subject, requestId: status.requestId }, async () => ({
+				accountId: a.id,
+				provenAt: new Date(),
+			})),
+		),
+		{ subject, requestId: status.requestId },
 	);
 }
 test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:ROLE43-017 AC:DEL58-004 personal deletion suspends immediately and only fresh exact proof cancels", async () => {
@@ -1107,14 +1111,10 @@ test("AC:TARGET-IDN-026 AC:TARGET-IDN-032: only the Owner requests workspace del
 	assert.equal(opened.status, "ok");
 	assert.deepEqual(opened.value.subject, { kind: "plant", id: f.p.id });
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
-	assert.deepEqual(
-		ok(await gatedTransaction(db, (tx) => api.getWorkspaceDeletionStatus(tx, opened.value.session, request))),
-		pending,
-	);
+	const proof = await openedDeletion(opened.value.session, request);
+	assert.deepEqual(ok(await gatedTransaction(db, (tx) => api.getWorkspaceDeletionStatus(tx, proof, request))), pending);
 	const cancelled = ok(
-		await gatedTransaction(db, (tx) =>
-			api.cancelWorkspaceDeletion(tx, opened.value.session, command(request, pending.revision)),
-		),
+		await gatedTransaction(db, (tx) => api.cancelWorkspaceDeletion(tx, proof, command(request, pending.revision))),
 	);
 	assert.equal(cancelled.status, "cancelled");
 	assert.equal(cancelled.cancelUntil, pending.cancelUntil);
@@ -1135,14 +1135,11 @@ test("AC:DEL58-007: a workspace cancel after the stored deadline is refused even
 	const opened = await openWorkspace(owner);
 	assert.equal(opened.status, "ok");
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
-	const late = ok(
-		await gatedTransaction(db, (tx) => api.getWorkspaceDeletionStatus(tx, opened.value.session, request)),
-	);
+	const proof = await openedDeletion(opened.value.session, request);
+	const late = ok(await gatedTransaction(db, (tx) => api.getWorkspaceDeletionStatus(tx, proof, request)));
 	assert.deepEqual(late, p);
 	denied(
-		await gatedTransaction(db, (tx) =>
-			api.cancelWorkspaceDeletion(tx, opened.value.session, command(request, late.revision)),
-		),
+		await gatedTransaction(db, (tx) => api.cancelWorkspaceDeletion(tx, proof, command(request, late.revision))),
 		"deadline_passed",
 	);
 	const [w] = await admin
@@ -2101,6 +2098,7 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 	assert.equal(opened.value.requestId, pending.requestId);
 	assert.equal(await viewerOf(await login(a)), null);
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
+	const proof = await openedDeletion(opened.value.session, request);
 	const measured = async (body) => {
 		statements.length = 0;
 		recording = true;
@@ -2110,11 +2108,9 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 			recording = false;
 		}
 	};
-	const status = await measured((tx) => api.getAccountDeletionStatus(tx, opened.value.session, request));
+	const status = await measured((tx) => api.getAccountDeletionStatus(tx, proof, request));
 	assert.deepEqual(status.value, pending);
-	const cancelled = await measured((tx) =>
-		api.cancelAccountDeletion(tx, opened.value.session, command(request, pending.revision)),
-	);
+	const cancelled = await measured((tx) => api.cancelAccountDeletion(tx, proof, command(request, pending.revision)));
 	assert.equal(cancelled.value.status, "cancelled");
 	assert.equal(status.count, 5);
 	const fresh = await login(a);
@@ -2213,9 +2209,10 @@ test("INV-statements: settings writes lock their related rows in one statement e
 	assert.equal(requested.value.status, "pending_deletion");
 	const opened = await openWorkspace(owner);
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
+	const proof = await openedDeletion(opened.value.session, request);
 	const cancel = () =>
 		gatedTransaction(db, (tx) =>
-			producer.cancelWorkspaceDeletion(tx, opened.value.session, command(request, requested.value.revision)),
+			producer.cancelWorkspaceDeletion(tx, proof, command(request, requested.value.revision)),
 		);
 	const [ownerSeat] = await admin.select().from(t.seat).where(eq(t.seat.account_id, owner.id));
 	await admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, ownerSeat.id));

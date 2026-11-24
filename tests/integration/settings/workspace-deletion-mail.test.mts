@@ -1,4 +1,5 @@
 import "../platform/setup.mts";
+import { openedDeletion } from "../../support/deletion-cookie.mts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
@@ -105,11 +106,14 @@ async function request(a: Person, p: Church, requestKey = randomUUID()) {
 	);
 }
 async function cancel(owner: Person, p: Church, status: { requestId: string; revision: string }) {
-	const proof = await gatedTransaction(admin, (tx) =>
-		issueRestrictedDeletionSession(tx, { subject: p, requestId: status.requestId }, async () => ({
-			accountId: owner.id,
-			provenAt: new Date(),
-		})),
+	const proof = await openedDeletion(
+		gatedTransaction(admin, (tx) =>
+			issueRestrictedDeletionSession(tx, { subject: p, requestId: status.requestId }, async () => ({
+				accountId: owner.id,
+				provenAt: new Date(),
+			})),
+		),
+		{ subject: p, requestId: status.requestId },
 	);
 	return gatedTransaction(db, (tx) =>
 		deletion.cancelWorkspaceDeletion(tx, proof, {

@@ -8,8 +8,9 @@ import { accountId, recordId, revision, tenantId, type Owner, type sessionId } f
 import { allows, fromStates, invitationMachine, invitationPurposes, permits } from "@everyfield/contracts/machines";
 import type { OrganizationAdapter, RelationshipPair } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
-import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import { linkProofDigest, MintedProof } from "../proofs.ts";
 import {
 	administrator,
 	affiliationSchema,
@@ -202,7 +203,7 @@ export function relationshipCommands(
 			if (facts.address_pending) refuse("address_pending");
 			const id = randomUUID(),
 				expiry = new Date(facts.now.getTime() + 30 * DAY).toISOString(),
-				proof = randomBytes(32).toString("base64url");
+				proof = new MintedProof("connection");
 			const description =
 				subject.kind === "account"
 					? z.string().trim().min(1).max(500).parse(facts.inviter_name)
@@ -217,7 +218,7 @@ export function relationshipCommands(
 					purpose: purposes[pair.kind],
 					recipient_email: q.input.recipientEmail,
 					inviter_id: actor.accountId,
-					token_hash: hash(proof),
+					token_hash: linkProofDigest(proof),
 					state: "pending",
 					created_at: facts.now,
 				}),
@@ -445,12 +446,12 @@ export function relationshipCommands(
 				return finishCommand(tx, c, () => ({ status: "committed" }) satisfies z.output<typeof Q.mutationResult>);
 			}
 			if (i.now.getTime() - (i.resent_at ?? i.created_at).getTime() < 60000) refuse("resend_cooldown");
-			const proof = randomBytes(32).toString("base64url"),
+			const proof = new MintedProof("connection"),
 				expiresAt = expiryOf({ created_at: i.created_at, resent_at: i.now });
 			c.writes.push(
 				tx
 					.update(tables.invitation)
-					.set({ token_hash: hash(proof), resent_at: i.now, revision: bump(tables.invitation.revision) })
+					.set({ token_hash: linkProofDigest(proof), resent_at: i.now, revision: bump(tables.invitation.revision) })
 					.where(eq(tables.invitation.id, i.id)),
 			);
 			await appendEvent(tx, c, i.id, "resend", null, i.revision, next);

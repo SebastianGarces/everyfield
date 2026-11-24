@@ -1,4 +1,5 @@
 import "../platform/setup.mts";
+import { connectionLink } from "../../../packages/domain/src/proofs.ts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { appendFileSync } from "node:fs";
@@ -30,7 +31,10 @@ before(async () => {
 	associations = createOrganizationAdapter(
 		{
 			async invitation(tx, v, writes) {
-				proofs.set(v.invitationId, v.proof);
+				proofs.set(
+					v.invitationId,
+					connectionLink("https://example.test", "/connections/respond", v.invitationId, v.proof).split("#")[1],
+				);
 				await f.mail.append(
 					tx,
 					{

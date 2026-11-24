@@ -1,4 +1,5 @@
 import "../platform/setup.mts";
+import { openedDeletion } from "../../support/deletion-cookie.mts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
@@ -272,11 +273,8 @@ test("AC:TARGET-IDN-032 a cancelled request's purge job is superseded and purges
 	);
 	const opened = ok(await openDeletion(a));
 	const request = { subject: opened.subject, requestId: opened.requestId };
-	ok(
-		await gatedTransaction(db, (tx) =>
-			api.cancelAccountDeletion(tx, opened.session, command(request, pending.revision)),
-		),
-	);
+	const proof = await openedDeletion(opened.session, request);
+	ok(await gatedTransaction(db, (tx) => api.cancelAccountDeletion(tx, proof, command(request, pending.revision))));
 	const w = await witnessOf(a.id);
 	await admin.execute(
 		sql`UPDATE job SET eligible_at=eligible_at-interval '31 days' WHERE kind='lifecycle_purge' AND subject_record_id=${w.id}`,

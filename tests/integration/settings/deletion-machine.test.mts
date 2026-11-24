@@ -1,4 +1,5 @@
 import "../platform/setup.mts";
+import { openedDeletion } from "../../support/deletion-cookie.mts";
 import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
 import { appendFileSync } from "node:fs";
@@ -125,11 +126,14 @@ async function request(w, pool = admin, executor = db) {
 async function fire(w, row, event, facts) {
 	if (event === "account.requestDeletion" || event === "churches.requestWorkspaceDeletion") return request(w);
 	if (event === "account.cancelDeletion" || event === "churches.cancelWorkspaceDeletion") {
-		const proof = await gatedTransaction(admin, (tx) =>
-			issueRestrictedDeletionSession(tx, { subject: w.subject, requestId: row.request }, async () => ({
-				accountId: w.requester.id,
-				provenAt: new Date(),
-			})),
+		const proof = await openedDeletion(
+			gatedTransaction(admin, (tx) =>
+				issueRestrictedDeletionSession(tx, { subject: w.subject, requestId: row.request }, async () => ({
+					accountId: w.requester.id,
+					provenAt: new Date(),
+				})),
+			),
+			{ subject: w.subject, requestId: row.request },
 		);
 		const input = command({ subject: w.subject, requestId: row.request }, row.revision);
 		return gatedTransaction(db, (tx) =>
