@@ -1,7 +1,7 @@
 import type { Transaction } from "@everyfield/db/client";
 import { meetingTitle } from "@everyfield/contracts/common";
 import { meetingType } from "@everyfield/contracts/meetings";
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
 import { communicationWriter, optedOutSql } from "@everyfield/domain/communication";
 import { z } from "zod";
@@ -522,7 +522,11 @@ const meetingInput = z.strictObject({
 });
 type MeetingInput = z.infer<typeof meetingInput>;
 
-async function findMeeting(tx: Transaction, actor: EvryActor, input: MeetingInput) {
+// Most asked words matched (title or type) first, then a meeting that holds what the read lists, then soonest.
+const HAS_EMAILS = sql`EXISTS(SELECT FROM communication c WHERE c.plant_id=mt.plant_id AND c.meeting_id=mt.id)`;
+const HAS_RECIPIENTS = sql`EXISTS(SELECT FROM communication c JOIN mail m ON m.tenant_id=c.plant_id AND m.communication_id=c.id
+	WHERE c.plant_id=mt.plant_id AND c.meeting_id=mt.id AND m.recipient_person_id IS NOT NULL)`;
+async function findMeeting(tx: Transaction, actor: EvryActor, input: MeetingInput, holds: SQL) {
 	const words = meetingPatterns(input.meetingWords);
 	const r = await tx.execute(sql`
 		SELECT mt.id,mt.title,mt.type,mt.vision_number AS vision,${sql.raw(local("mt.starts_at", "mt.timezone"))} AS starts
@@ -532,7 +536,9 @@ async function findMeeting(tx: Transaction, actor: EvryActor, input: MeetingInpu
 			AND (${input.meetingOn ?? null}::date IS NULL OR mt.local_date=${input.meetingOn ?? null}::date)
 			AND (cardinality(${sql.param(words)}::text[])=0 OR EXISTS(SELECT FROM unnest(${sql.param(words)}::text[]) w(p)
 				WHERE mt.title ILIKE w.p OR replace(mt.type,'_',' ') ILIKE w.p))
-		ORDER BY ${SOONEST} LIMIT 1`);
+		ORDER BY (SELECT count(*) FROM unnest(${sql.param(words)}::text[]) w(p)
+				WHERE mt.title ILIKE w.p OR replace(mt.type,'_',' ') ILIKE w.p) DESC,
+			${holds} DESC, ${SOONEST} LIMIT 1`);
 	const found = meetingRow.optional().parse(r.rows[0]);
 	return found
 		? {
@@ -550,11 +556,11 @@ const nativeRefusal = (code: string) =>
 export const forMeeting: ReadAdapter<MeetingInput> = {
 	operation: "communication.forMeeting",
 	description:
-		"The emails Messages holds about one meeting: by meetingId, or the church's matching meeting from meetingWords or meetingOn (upcoming soonest first, then past latest first). The first row is the meeting; each email row has its subject, state (draft, scheduled, sending, sent, cancelled, failed and the like) and its send time in the church's time zone. Emails about other meetings are not in it. A sent state is not a confirmed delivery.",
+		"The emails Messages holds about one meeting: by meetingId, or the church's matching meeting from meetingWords or meetingOn (the meeting matching the most words, then one that has emails, then upcoming soonest, then past latest). The first row is the meeting; each email row has its subject, state (draft, scheduled, sending, sent, cancelled, failed and the like) and its send time in the church's time zone. Emails about other meetings are not in it. A sent state is not a confirmed delivery.",
 	input: meetingInput,
 	allowed: inPlant,
 	async invoke(tx, actor, input): Promise<SourceResult> {
-		const meeting = await findMeeting(tx, actor, input);
+		const meeting = await findMeeting(tx, actor, input, HAS_EMAILS);
 		if (!meeting) return notFound("communication.forMeeting", [NO_MEETING]);
 		const reply = await communicationWriter.listForMeeting(tx, actor.authority, { meetingId: meeting.id, limit: 50 });
 		if (reply.status !== "ok") {
@@ -598,7 +604,7 @@ export const meetingRecipientTracking: ReadAdapter<MeetingInput> = {
 	input: meetingInput,
 	allowed: inPlant,
 	async invoke(tx, actor, input): Promise<SourceResult> {
-		const meeting = await findMeeting(tx, actor, input);
+		const meeting = await findMeeting(tx, actor, input, HAS_RECIPIENTS);
 		if (!meeting) return notFound("communication.meetingRecipientTracking", [NO_MEETING]);
 		const reply = await communicationWriter.listMeetingTracking(tx, actor.authority, { meetingId: meeting.id });
 		if (reply.status !== "ok") {

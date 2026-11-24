@@ -51,9 +51,9 @@ type Case = {
 	answer?: string[];
 	absent?: string[];
 	facts?: "forMeeting" | "tracking" | "totals" | "teams";
-	proposal?: { operation: string; target: string; changes: Change[] };
+	proposal?: { operation: string; target: string; changes: Change[]; hidden?: string[] };
 	approve?: true;
-	check?: "deleted" | "archived" | "corrected" | "unchanged";
+	check?: "deleted" | "archived" | "corrected" | "retimed" | "unchanged";
 };
 const file = JSON.parse(readFileSync(new URL("./communication.cases.json", import.meta.url), "utf8")) as {
 	forbid: string[];
@@ -267,6 +267,16 @@ async function checkAfter(c: Case, who: EvryActor) {
 		assert.equal(next.fields.occurredAt, old.fields.occurredAt);
 		assert.equal(next.fields.state, "effective");
 	}
+	if (c.check === "retimed") {
+		const log = (await read(who, "followups.listContactHistory", { personId: await alexId() })).rows.filter(
+			(r) => r.kind === "contact" && r.fields.state === "effective",
+		);
+		assert.deepEqual(
+			log.map((r) => [r.fields.outcome, r.fields.occurredAt]),
+			[["contacted", "2026-11-03 17:00 America/Chicago"]],
+			"the saved entry has the time the card showed",
+		);
+	}
 }
 const alexId = async () =>
 	(await rows<{ id: string }>(sql`SELECT person_id AS id FROM contact_outcome WHERE id=${ALEX_CALL}`))[0]!.id;
@@ -316,6 +326,33 @@ test("INV-communication-self: mail.suppression.listForSelf takes no input and re
 	const member = (await read(await actorOf("member"), "mail.suppression.listForSelf")).rows;
 	assert.deepEqual(member[0]?.fields, { blocked: true, restores: 0 }, "the Member's own block, not the Owner's");
 	assert.doesNotMatch(JSON.stringify([owner, admin, member]), /@example\./);
+});
+
+test("INV-communication-meeting-match: the meeting matching the most words wins, then one with emails, before a sooner meeting of the same type", async () => {
+	const owner = await actorOf("owner");
+	const [interest, potluck] = [randomUUID(), randomUUID()];
+	const meeting = (id: string, title: string, day: string, startsAt: string) =>
+		admin.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
+			VALUES(${id},${PLANT},'vision_meeting',${title},${day},'18:30','America/Chicago',${startsAt},'1','planning',1)`);
+	const ops = ["communication.forMeeting", "communication.meetingRecipientTracking"];
+	const first = async (op: string, meetingWords: string) => (await read(owner, op, { meetingWords })).rows[0]?.id;
+	try {
+		const thursday = (
+			await rows<{ id: string }>(sql`SELECT meeting_id AS id FROM communication WHERE id=${INVITATION}`)
+		)[0]!.id;
+		await meeting(interest, "Interest meeting", "2026-11-10", "2026-11-11T00:30:00Z");
+		for (const op of ops)
+			assert.equal(
+				await first(op, "vision night"),
+				thursday,
+				`${op}: a sooner vision meeting with no emails is passed over`,
+			);
+		await meeting(potluck, "Vision night potluck", "2026-11-11", "2026-11-12T00:30:00Z");
+		for (const op of ops)
+			assert.equal(await first(op, "vision night potluck"), potluck, `${op}: the meeting matching more words wins`);
+	} finally {
+		await admin.execute(sql`DELETE FROM meeting WHERE id IN (${interest},${potluck})`);
+	}
 });
 
 test("INV-communication-system-template: a system template gets no review card, with the reason", async () => {
@@ -378,6 +415,8 @@ test("INV-evry-communication-evals: every Communication case passes on the scrip
 				assert.deepEqual(shown.after, after, field);
 				if (before !== undefined) assert.deepEqual(shown.before, before, `${field} before`);
 			}
+			for (const field of c.proposal.hidden ?? [])
+				assert.ok(!proposal.review.changes.some((x) => x.field === field), `${field} is not on the card`);
 			if (!c.approve) {
 				if (c.check) await checkAfter(c, actor);
 				return;

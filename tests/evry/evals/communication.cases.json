@@ -263,6 +263,18 @@
 			"derivation": "The Owner recorded the call and it has no follow-up the Member owns: refused, no card."
 		},
 		{
+			"id": "COM-CL-03",
+			"criteria": [11],
+			"operation": "communication.correctContactLog",
+			"actor": "owner",
+			"ask": "the call with Alex on Tuesday was actually no answer at 5pm, fix it",
+			"calls": ["people.listPeople", "followups.listContactHistory"],
+			"answer": [
+				"/^Only an entry corrected to contacted can take a new time\\. Any other correction keeps the entry's time\\. Nothing has changed\\.$/"
+			],
+			"derivation": "Only a correction to contacted saves a new time, so a no-answer correction that also moves the time is refused before any card: a card showing 17:00 would not match the 18:30 the log keeps."
+		},
+		{
 			"id": "COM-CL-02",
 			"criteria": [11],
 			"operation": "communication.correctContactLog",
@@ -274,14 +286,33 @@
 				"target": "Alex Rivera",
 				"changes": [
 					["outcome", "attempted_no_contact", "contacted"],
-					["occurredAt", "2026-11-03 18:30 America/Chicago"],
 					["reason", "the call with Alex on Tuesday was actually no answer, fix it"]
-				]
+				],
+				"hidden": ["occurredAt"]
 			},
 			"approve": true,
 			"check": "corrected",
 			"answer": ["/The old entry stays in the log as superseded/"],
-			"derivation": "Alex's Tuesday phone call is corrected from contacted to no answer with the reason; after Approve the log holds the new entry and keeps the old one as corrected."
+			"derivation": "Alex's Tuesday phone call is corrected from contacted to no answer with the reason; the time is not changed, so the card has no time row. After Approve the log holds the new entry and keeps the old one as corrected."
+		},
+		{
+			"id": "COM-CL-04",
+			"criteria": [11],
+			"operation": "communication.correctContactLog",
+			"actor": "owner",
+			"ask": "the call with Alex on Tuesday was actually at 5pm and we spoke, fix it",
+			"calls": ["people.listPeople", "followups.listContactHistory"],
+			"proposal": {
+				"operation": "communication.correctContactLog",
+				"target": "Alex Rivera",
+				"changes": [
+					["outcome", "contacted", "attempted_no_contact"],
+					["occurredAt", "2026-11-03 17:00 America/Chicago", "2026-11-03 18:30 America/Chicago"]
+				]
+			},
+			"approve": true,
+			"check": "retimed",
+			"derivation": "After COM-CL-02 the Tuesday entry is a no answer at 18:30. Corrected to contacted at 5pm, the card shows the time moving from 18:30 to 17:00, and after Approve the effective entry is contacted at 17:00: the card matches what is saved."
 		}
 	]
 }

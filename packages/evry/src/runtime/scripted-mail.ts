@@ -275,13 +275,25 @@ function newMailStep(options: LanguageModelV4CallOptions, ask: string, results: 
 		}
 		if (last.operation === "followups.listContactHistory") {
 			const entry = rowsOf(last, "contact").find(
-				(c) => c.fields.state !== "superseded" && weekday(c.fields.occurredAt) === day.toLowerCase(),
+				(c) => c.fields.state === "effective" && weekday(c.fields.occurredAt) === day.toLowerCase(),
 			);
 			if (!entry) return text(`I can't find a contact log entry for ${name} on ${day}.`);
 			const outcome = OUTCOME_WORDS.find(([words]) => words.test(what))?.[1];
 			if (!outcome) return text(`What should the entry say happened on that call?`);
-			return propose("communication.correctContactLog", { outcomeId: entry.id, outcome, reason: ask });
+			const clock = /\bat (\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i.exec(what);
+			const hour = clock ? (Number(clock[1]) % 12) + (clock[3]!.toLowerCase() === "pm" ? 12 : 0) : null;
+			const occurredAt =
+				clock && hour !== null
+					? `${String(entry.fields.occurredAt).slice(0, 10)}T${String(hour).padStart(2, "0")}:${clock[2] ?? "00"}`
+					: undefined;
+			return propose("communication.correctContactLog", {
+				outcomeId: entry.id,
+				outcome,
+				...(occurredAt && { occurredAt }),
+				reason: ask,
+			});
 		}
+		if (typeof last.problem === "string") return text(`${last.problem} Nothing has changed.`);
 		const refused = errorOf(last);
 		if (refused === "not_assigned" || refused === "access_denied")
 			return text(

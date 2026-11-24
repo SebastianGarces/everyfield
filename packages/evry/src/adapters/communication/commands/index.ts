@@ -1176,7 +1176,9 @@ const correctInput = z.strictObject({
 		.string()
 		.regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
 		.optional()
-		.describe("Only when the time was wrong too: the church's local date and time, like 2026-11-03T18:30"),
+		.describe(
+			"Only when the outcome is contacted and the time was wrong too: the church's local date and time, like 2026-11-03T18:30. Any other outcome keeps the entry's time",
+		),
 	reason: z.string().trim().min(1).max(500).describe("Why it is corrected, in the user's words"),
 });
 const savedCorrection = z.strictObject({
@@ -1191,10 +1193,15 @@ const savedCorrection = z.strictObject({
 export const correctContactLog: ReviewedWrite<z.infer<typeof correctInput>> = {
 	operation: "communication.correctContactLog",
 	description:
-		"Propose correcting one contact log entry's outcome (and its time, if that was wrong too), with the reason. The old entry is kept as superseded, not deleted. An Owner or Admin can correct any entry; a Member only one they recorded on a follow-up they still own. To withdraw an entry, use followups.correctOutcome.",
+		"Propose correcting one contact log entry's outcome, with the reason (and its time, only when the corrected outcome is contacted). The old entry is kept as superseded, not deleted. An Owner or Admin can correct any entry; a Member only one they recorded on a follow-up they still own. To withdraw an entry, use followups.correctOutcome.",
 	input: correctInput,
 	allowed: (actor) => actor.owner.kind === "plant" && actor.role !== null,
 	async review(actor, value, context) {
+		if (value.occurredAt && value.outcome !== "contacted")
+			throw new EvryRefusal(
+				"invalid_input",
+				"Only an entry corrected to contacted can take a new time. Any other correction keeps the entry's time.",
+			);
 		const plant = actor.owner.id;
 		const zone = sql`(SELECT timezone FROM plant WHERE id=${plant}::uuid)`;
 		const at = value.occurredAt ? sql`(${value.occurredAt}::timestamp AT TIME ZONE ${zone})` : sql`o.occurred_at`;
@@ -1214,10 +1221,14 @@ export const correctContactLog: ReviewedWrite<z.infer<typeof correctInput>> = {
 		return sql`SELECT ${withRefusal(
 			refusal,
 			sql`jsonb_build_object('target',jsonb_build_object('kind','person','id',p.id,'label',p.display_name),
-				'changes',jsonb_build_array(
-					${change("outcome", sql`to_jsonb(o.outcome)`, sql`to_jsonb(${value.outcome}::text)`)},
-					${change("occurredAt", value.occurredAt ? local(sql`o.occurred_at`) : null, local(at))},
-					${change("reason", null, sql`to_jsonb(${value.reason}::text)`)}))`,
+				'changes',jsonb_build_array(${sql.join(
+					[
+						change("outcome", sql`to_jsonb(o.outcome)`, sql`to_jsonb(${value.outcome}::text)`),
+						...(value.occurredAt ? [change("occurredAt", local(sql`o.occurred_at`), local(at))] : []),
+						change("reason", null, sql`to_jsonb(${value.reason}::text)`),
+					],
+					sql`,`,
+				)}))`,
 		)} AS review,
 			jsonb_build_object('expectedRevision',o.revision::text,'input',jsonb_strip_nulls(jsonb_build_object('outcomeId',o.id,'outcome',${value.outcome}::text,
 				'occurredAt',CASE WHEN ${value.occurredAt ?? null}::text IS NOT NULL OR ${value.outcome}::text='contacted'
