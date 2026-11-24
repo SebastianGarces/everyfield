@@ -6,7 +6,7 @@ import { Button, ConfirmDialog, Field, InlineAlert, Input } from "@everyfield/ui
 import { useRef, useState } from "react";
 import type { BrandKit, BrandPort, SuggestedColors } from "../port";
 import { ACCEPT, SLOT_INFO, SLOT_ORDER, backgrounds, canSuggest } from "./assets";
-import type { Note, Pick } from "./picks";
+import type { Note, Pick, PickedSrc } from "./picks";
 import type { useAssets } from "./useAssets";
 import { NativeImage } from "@/components/native";
 
@@ -228,7 +228,17 @@ function PickedFile({ slot, pick, assets, label }: { slot: AssetSlot; pick: Pick
 	);
 }
 
-function ImageBox({ src, alt, dark, busy }: { src: string; alt: string; dark: boolean; busy?: boolean }) {
+function ImageBox({
+	src,
+	alt,
+	dark,
+	busy,
+}: {
+	src: AppAssetPath | PickedSrc;
+	alt: string;
+	dark: boolean;
+	busy?: boolean;
+}) {
 	return (
 		<div
 			className="flex h-20 w-40 flex-none items-center justify-center overflow-hidden rounded-sm border border-line p-2"
