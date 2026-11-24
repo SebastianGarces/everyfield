@@ -1,6 +1,8 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import type * as contract from "../../../packages/contracts/src/intelligence/index.ts";
+import type { StoredDraft } from "../../../packages/domain/src/intelligence/assessment.ts";
 import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
 import { requestIntelligenceRefresh } from "../../../packages/domain/src/oversight/intelligence.ts";
 import { commitments, peopleWriter } from "../../../packages/domain/src/people/index.ts";
@@ -35,6 +37,32 @@ export const METHODOLOGY = [
 	],
 ] as const;
 
+type StoredCitation =
+	({ kind: "passage" } & contract.Passage) | ({ kind: "fact" } & Pick<contract.FactEntry, "key" | "label" | "value">);
+export type StoredRun = {
+	id: string;
+	outcome: contract.RunOutcome;
+	grounding: "grounded" | "degraded";
+	reason: contract.RunReason | null;
+	demand: contract.DemandKind;
+	demand_key: string;
+	requested_by: string | null;
+	model: string;
+	as_of: string;
+	source_revision: string;
+	reference_release: string | null;
+	reference_activation: string | number | null;
+	attempts: number;
+	pending_attempts: number;
+	input_tokens: number;
+	output_tokens: number;
+	drafts: StoredDraft[];
+	model_input: contract.ModelInput | null;
+	result: { draft: contract.DraftOutput; citations: Record<string, StoredCitation> } | null;
+	facts: contract.PlantFacts;
+	delta: contract.SnapshotDelta | null;
+};
+
 export async function church(
 	prefix: string,
 	{
@@ -53,9 +81,9 @@ export async function church(
 	const { admin } = database;
 	const db = database.pools.runtime;
 	const care = createPrivateCare();
-	const rows = async (q: ReturnType<typeof sql>) => (await admin.execute(q)).rows as Record<string, any>[];
-	const one = async (q: ReturnType<typeof sql>) => (await rows(q))[0]!;
-	const today = (await one(sql`SELECT (clock_timestamp() AT TIME ZONE ${ZONE})::date::text AS d`)).d as string;
+	const rows = async <T extends Record<string, unknown>>(q: ReturnType<typeof sql>) => (await admin.execute<T>(q)).rows;
+	const one = async <T extends Record<string, unknown>>(q: ReturnType<typeof sql>) => (await rows<T>(q))[0]!;
+	const today = (await one<{ d: string }>(sql`SELECT (clock_timestamp() AT TIME ZONE ${ZONE})::date::text AS d`)).d;
 	const day = (n: number) => new Date(Date.parse(today + "T12:00:00Z") + n * 86_400_000).toISOString().slice(0, 10);
 	const record = (id: string, kind: string, tenant: string) =>
 		admin.execute(sql`INSERT INTO record(id,kind,tenant_id) VALUES(${id},${kind},${tenant}) ON CONFLICT DO NOTHING`);
@@ -81,8 +109,13 @@ export async function church(
 		const revisions: Record<string, string> = {};
 		for (const [slug, phase, body] of METHODOLOGY) {
 			const number =
-				Number((await one(sql`SELECT count(*)::int AS n FROM article_revision WHERE article_id=${articles[slug]}`)).n) +
-				1;
+				Number(
+					(
+						await one<{ n: number }>(
+							sql`SELECT count(*)::int AS n FROM article_revision WHERE article_id=${articles[slug]}`,
+						)
+					).n,
+				) + 1;
 			revisions[slug] = randomUUID();
 			await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,
 				excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id)
@@ -251,7 +284,8 @@ export async function church(
 
 		const seated = async (w: { id: string }, account: Actor) => ({
 			...account,
-			seatId: (await one(sql`SELECT id FROM seat WHERE account_id=${account.id} AND plant_id=${w.id}`)).id as string,
+			seatId: (await one<{ id: string }>(sql`SELECT id FROM seat WHERE account_id=${account.id} AND plant_id=${w.id}`))
+				.id,
 			actor: (await RequestActor.resolve(db, account.session)) as RequestActor,
 			ctx: { session: account.session, selected: { kind: "plant", id: w.id } },
 		});
@@ -259,20 +293,20 @@ export async function church(
 		const contact = await person({ ...p, ctx: a.ctx }, "Alex Contact");
 		const meeting = await vision(p, 3, [contact]);
 		await admin.execute(sql`UPDATE meeting SET creator_id=${a.id} WHERE id=${meeting}`);
-		const program = (await one(sql`INSERT INTO training_program(plant_id,name,required) VALUES(${p.id},'Safe kids',true)
-			RETURNING id,version`)) as { id: string; version: number };
+		const program = await one<{ id: string; version: number }>(sql`INSERT INTO training_program(plant_id,name,required)
+			VALUES(${p.id},'Safe kids',true) RETURNING id,version`);
 		await admin.execute(sql`INSERT INTO training_assignment(plant_id,program_id,person_id,version,state,effective_on)
 			VALUES(${p.id},${program.id},${contact.id},${program.version},'active',${day(-2)})`);
 		const credit = (
-			await one(sql`INSERT INTO training_credit(plant_id,person_id,program_id,kind,version,earned_on,
+			await one<{ id: string }>(sql`INSERT INTO training_credit(plant_id,person_id,program_id,kind,version,earned_on,
 			verifier_account_id) VALUES(${p.id},${contact.id},${program.id},'earned',${program.version},${day(-1)},${a.id})
 			RETURNING id`)
-		).id as string;
+		).id;
 		await admin.execute(sql`INSERT INTO launch(plant_id,status,target_date) VALUES(${p.id},'scheduled',${day(90)})`);
 		const milestone = (
-			await one(sql`INSERT INTO launch_milestone(plant_id,title,area,position,template_key,completed_at,
+			await one<{ id: string }>(sql`INSERT INTO launch_milestone(plant_id,title,area,position,template_key,completed_at,
 			completed_by) VALUES(${p.id},'Book the venue','operations',0,'venue',clock_timestamp(),${a.id}) RETURNING id`)
-		).id as string;
+		).id;
 		const current = ok(await care.readCurrent(db, a.actor, {}));
 		const strained = { spiritual: "strained", family: "strained", financial: "strained", pace: "strained" };
 		ok(
@@ -359,3 +393,4 @@ export async function church(
 	};
 }
 export type Church = Awaited<ReturnType<typeof church>>;
+export type ChurchPlant = Awaited<ReturnType<Church["plant"]>>;

@@ -1,8 +1,11 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
-import { fixture } from "../identity/invitations-support.mts";
+import type { MeetingsReply } from "../../../packages/contracts/src/meetings/index.ts";
+import type { Database } from "../../../packages/db/src/client.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
+import type { RequestActor, WriteTx } from "../../../packages/domain/src/access/session.ts";
+import { fixture, type Fixture } from "../identity/invitations-support.mts";
 import {
 	attendanceReader as reads,
 	createAttendanceWriter,
@@ -10,6 +13,8 @@ import {
 	meetingsReader,
 	previewMeetingsWrite,
 	withMeetingsWrite,
+	type AttendanceWriter,
+	type MeetingsContext,
 } from "../../../packages/domain/src/meetings/index.ts";
 import { authorizeTaskReminders, reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
@@ -17,16 +22,37 @@ import { createNotificationService } from "../../../packages/domain/src/jobs/not
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { ok, refused } from "../../support/fixture.mts";
 
-let f, writer, plant, other, owner, member, foreign;
-const write = (who, op, input) => withMeetingsWrite(f.db, who.actor, (tx, ctx) => writer[op](tx, ctx, input));
-const guestWrite = (who, op, input) =>
-	withMeetingsWrite(f.db, who.actor, (tx, ctx) => guestsWriter[op](tx, ctx, input));
-const read = (who, op, input) => reads[op](f.db, who.actor, input);
-const rows = async (q) => (await f.admin.execute(q)).rows;
-const one = async (q) => (await rows(q))[0];
+let f: Fixture;
+let writer: AttendanceWriter;
+let plant: Workspace;
+let other: Workspace;
+let owner: Seated;
+let member: Seated;
+let foreign: Seated;
+type Workspace = Awaited<ReturnType<Fixture["workspace"]>>;
+type Account = Awaited<ReturnType<Fixture["account"]>>;
+type Seated = Account & { actor: RequestActor };
+type Scores = Record<string, number>;
+const write = <R,>(
+	who: Seated,
+	op: (tx: WriteTx, ctx: MeetingsContext, raw: unknown) => Promise<MeetingsReply<R>>,
+	input: unknown,
+) => withMeetingsWrite(f.db, who.actor, (tx, ctx) => op(tx, ctx, input));
+const read = <R,>(
+	who: Seated,
+	op: (db: Database, actor: RequestActor, raw: unknown) => Promise<MeetingsReply<R>>,
+	input: unknown,
+) => op(f.db, who.actor, input);
+async function shownEvaluation(who: Seated, meetingId: string) {
+	const shown = ok(await read(who, reads.getEvaluation, { meetingId }));
+	assert.ok(shown.status === "available");
+	return shown.evaluation;
+}
+const rows = async <T extends Record<string, unknown>>(q: SQL) => (await f.admin.execute<T>(q)).rows;
+const one = async <T extends Record<string, unknown>>(q: SQL) => (await rows<T>(q))[0]!;
 const key = () => randomUUID();
 
-async function person(name, stage = "prospect", w = plant) {
+async function person(name: string, stage = "prospect", w = plant) {
 	const id = randomUUID();
 	await f.admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at) VALUES(${id},${w.id},${w.id},${name},'other',${stage},'unknown',
@@ -41,26 +67,54 @@ async function meeting(type = "vision_meeting", at = "2026-10-01T23:00:00Z", w =
 		'America/Chicago',${at},'1','in_progress',1)`);
 	return id;
 }
-const revision = async (meetingId) =>
-	(await one(sql`SELECT attendance_revision::text AS r FROM meeting WHERE id=${meetingId}`)).r;
-const finalizeRequest = async (meetingId, attendeeIds, extra = {}, requestKey = key()) => ({
+const revision = async (meetingId: string) =>
+	(await one<{ r: string }>(sql`SELECT attendance_revision::text AS r FROM meeting WHERE id=${meetingId}`)).r;
+type Extra = { followUpAssigneeIds?: string[]; evaluationAssigneeIds?: string[] };
+const finalizeRequest = async (
+	meetingId: string,
+	attendeeIds: string[],
+	extra: Extra = {},
+	requestKey: string = key(),
+) => ({
 	requestKey,
 	expectedRevision: await revision(meetingId),
 	input: { meetingId, attendeeIds, ...extra },
 });
-const finalize = async (who, meetingId, attendeeIds, extra = {}, requestKey = key()) =>
-	write(who, "finalizeAttendance", await finalizeRequest(meetingId, attendeeIds, extra, requestKey));
-const reconcile = async (who, meetingId, attendeeIds) =>
-	write(who, "reconcileAttendance", {
+const finalize = async (
+	who: Seated,
+	meetingId: string,
+	attendeeIds: string[],
+	extra: Extra = {},
+	requestKey: string = key(),
+) => write(who, writer.finalizeAttendance, await finalizeRequest(meetingId, attendeeIds, extra, requestKey));
+const reconcile = async (who: Seated, meetingId: string, attendeeIds: string[]) =>
+	write(who, writer.reconcileAttendance, {
 		requestKey: key(),
 		expectedRevision: await revision(meetingId),
 		input: { meetingId, attendeeIds, reason: "Sign-in sheet checked" },
 	});
-const work = (meetingId) =>
-	rows(sql`SELECT b.kind, b.person_id, b.waiver_reason AS waiver, t.status, (SELECT coalesce(array_agg(a.account_id),'{}') FROM task_assignee a WHERE a.task_id=t.id) AS assignee_ids
+const work = (meetingId: string) =>
+	rows<{
+		kind: string;
+		person_id: string | null;
+		waiver: string | null;
+		status: string;
+		assignee_ids: string[];
+	}>(sql`SELECT b.kind, b.person_id, b.waiver_reason AS waiver, t.status, (SELECT coalesce(array_agg(a.account_id),'{}') FROM task_assignee a WHERE a.task_id=t.id) AS assignee_ids
 		FROM obligation b LEFT JOIN task t ON t.obligation_id=b.id WHERE b.meeting_id=${meetingId} ORDER BY b.kind, b.person_id`);
-async function storedAttendee(meetingId, personId) {
-	const g = await one(sql`SELECT g.id, g.revision::text AS revision, g.presence, coalesce(g.rsvp, 'pending') AS rsvp,
+async function storedAttendee(meetingId: string, personId: string) {
+	const g = await one<{
+		id: string;
+		revision: string;
+		presence: string;
+		rsvp: string;
+		has_card: boolean;
+		classification: string | null;
+		classification_stage: string | null;
+		prior_vision_id: string | null;
+		display_name: string;
+		state: string;
+	}>(sql`SELECT g.id, g.revision::text AS revision, g.presence, coalesce(g.rsvp, 'pending') AS rsvp,
 		g.card_response IS NOT NULL AS has_card, g.classification, g.classification_stage, g.prior_vision_id, p.display_name,
 		p.state FROM participation g JOIN person p ON p.id = g.person_id WHERE g.meeting_id=${meetingId} AND g.person_id=${personId}`);
 	return {
@@ -75,15 +129,15 @@ async function storedAttendee(meetingId, personId) {
 		priorVisionId: g.prior_vision_id,
 	};
 }
-const stageOf = async (id) => (await one(sql`SELECT stage FROM person WHERE id=${id}`)).stage;
-const classOf = async (meetingId, personId) =>
+const stageOf = async (id: string) => (await one(sql`SELECT stage FROM person WHERE id=${id}`)).stage;
+const classOf = async (meetingId: string, personId: string) =>
 	one(
 		sql`SELECT presence, classification, prior_vision_id FROM participation WHERE meeting_id=${meetingId} AND person_id=${personId}`,
 	);
 
 let statements = 0;
-const sent = [];
-async function counted(body) {
+const sent: { text: string; values: unknown[] }[] = [];
+async function counted<T>(body: () => Promise<T>) {
 	const start = statements;
 	const value = await body();
 	return { value, statements: statements - start };
@@ -93,10 +147,11 @@ before(async () => {
 	f = await fixture();
 	f.db.$client.on("connect", (client) => {
 		const query = client.query;
-		client.query = function (...args) {
+		client.query = function (this: unknown, ...args: unknown[]) {
 			statements++;
-			if (typeof args[0] === "object" && typeof args[0]?.text === "string")
-				sent.push({ text: args[0].text, values: args[1] ?? [] });
+			const [query0, values] = args;
+			if (query0 && typeof query0 === "object" && "text" in query0 && typeof query0.text === "string")
+				sent.push({ text: query0.text, values: Array.isArray(values) ? values : [] });
 			if (sent.length > 400) sent.shift();
 			return Reflect.apply(query, this, args);
 		};
@@ -124,14 +179,14 @@ before(async () => {
 				inputs[0]?.owner.id ?? randomUUID(),
 				inputs.map((i) => i.recipient),
 			);
-			return inputs.map((i) => (found.has(i.recipient) ? { address: found.get(i.recipient) } : null));
+			return inputs.map((i) => (found.has(i.recipient) ? { address: found.get(i.recipient)! } : null));
 		},
 	});
 	writer = createAttendanceWriter({ reminders: taskReminders(notifications) });
 	plant = await f.workspace();
 	other = await f.workspace();
 	await f.admin.execute(sql`UPDATE plant SET timezone='America/Chicago' WHERE id IN (${plant.id},${other.id})`);
-	const seated = async (w, role) => {
+	const seated = async (w: Workspace, role: "owner" | "member") => {
 		const a = await f.account();
 		await f.seat(a, w, role);
 		return { ...a, actor: await f.actor(a.session) };
@@ -152,9 +207,11 @@ async function eligibleAccount() {
 after(() => f?.close());
 
 test("INV-statements: finalizing 500 attendees sends the same statements as finalizing one", async () => {
-	const finalized = async (meetingId, attendeeIds) =>
+	const finalized = async (meetingId: string, attendeeIds: string[]) =>
 		(await counted(async () => ok(await finalize(owner, meetingId, attendeeIds)))).statements;
-	const many = await rows(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,stage,adult_classification,
+	const many = await rows<{
+		id: string;
+	}>(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at) SELECT ${plant.id},${plant.id},'Guest '||n,'other','prospect',
 		'unknown','unknown',0,'live',clock_timestamp() FROM generate_series(1,500) n RETURNING id`);
 	const one = await finalized(await meeting("vision_meeting", "2026-09-10T23:00:00Z"), [await person("Solo")]);
@@ -170,8 +227,8 @@ test("AC:TARGET-MTG-001 AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITA
 	const m = await meeting();
 	const [alex, casey, retired] = [await person("Alex"), await person("Casey"), await person("Retired")];
 	await f.admin.execute(sql`UPDATE person SET state='retired' WHERE id=${retired}`);
-	const batch = (entries, who = owner) =>
-		write(who, "captureAttendanceBatch", { requestKey: key(), input: { meetingId: m, entries } });
+	const batch = (entries: { personId: string; presence: string }[], who = owner) =>
+		write(who, writer.captureAttendanceBatch, { requestKey: key(), input: { meetingId: m, entries } });
 
 	const unknown = randomUUID();
 	const refusal = refused(
@@ -197,35 +254,36 @@ test("AC:TARGET-MTG-001 AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITA
 	);
 	await f.admin.execute(sql`UPDATE participation SET rsvp='confirmed', card_response='interested',
 		card_recorded_at=clock_timestamp() WHERE meeting_id=${m} AND person_id=${casey}`);
-	ok(await write(owner, "clearAttendance", { requestKey: key(), input: { meetingId: m, personId: casey } }));
+	ok(await write(owner, writer.clearAttendance, { requestKey: key(), input: { meetingId: m, personId: casey } }));
 	assert.deepEqual(await one(sql`SELECT presence, rsvp, card_response FROM participation WHERE person_id=${casey}`), {
 		presence: "absent",
 		rsvp: "confirmed",
 		card_response: "interested",
 	});
 	const again = ok(
-		await write(owner, "setAttendance", {
+		await write(owner, writer.setAttendance, {
 			requestKey: key(),
 			input: { meetingId: m, personId: alex, presence: "attended" },
 		}),
 	);
 	assert.equal(again.outcome, "noop");
 	refused(
-		await write(owner, "setAttendance", {
+		await write(owner, writer.setAttendance, {
 			requestKey: key(),
 			input: { meetingId: m, personId: await person("Stranger"), presence: "excused" },
 		}),
 		"unavailable",
 	);
 	refused(
-		await write(member, "checkIn", { requestKey: key(), input: { meetingId: m, personId: casey } }),
+		await write(member, writer.checkIn, { requestKey: key(), input: { meetingId: m, personId: casey } }),
 		"unavailable",
 	);
 	refused(
-		await write(foreign, "checkIn", { requestKey: key(), input: { meetingId: m, personId: casey } }),
+		await write(foreign, writer.checkIn, { requestKey: key(), input: { meetingId: m, personId: casey } }),
 		"unavailable",
 	);
-	const may = async (who, meetingId) => ok(await read(who, "listAttendance", { meetingId })).viewerCanMarkAttendance;
+	const may = async (who: Seated, meetingId: string) =>
+		ok(await read(who, reads.listAttendance, { meetingId })).viewerCanMarkAttendance;
 	assert.equal(await may(owner, m), true);
 	assert.equal(await may(member, m), false);
 	const leader = await person("Lee");
@@ -237,23 +295,27 @@ test("AC:TARGET-MTG-001 AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITA
 	await f.admin.execute(sql`UPDATE meeting SET type='team_meeting', team_id=${team} WHERE id=${teamMeeting}`);
 	assert.equal(await may(member, teamMeeting), true);
 	assert.equal(await may(member, m), false);
-	ok(await write(member, "checkIn", { requestKey: key(), input: { meetingId: teamMeeting, personId: casey } }));
+	ok(await write(member, writer.checkIn, { requestKey: key(), input: { meetingId: teamMeeting, personId: casey } }));
 	await f.admin.execute(sql`UPDATE team SET archived_at=clock_timestamp() WHERE id=${team}`);
 	assert.equal(await may(member, teamMeeting), false);
 
-	const checked = ok(await write(owner, "checkIn", { requestKey: key(), input: { meetingId: m, personId: casey } }));
-	assert.equal(checked.attendees[0].presence, "attended");
-	const summary = ok(await read(owner, "attendanceSummary", { meetingId: m }));
+	const checked = ok(
+		await write(owner, writer.checkIn, { requestKey: key(), input: { meetingId: m, personId: casey } }),
+	);
+	assert.equal(checked.attendees[0]!.presence, "attended");
+	const summary = ok(await read(owner, reads.attendanceSummary, { meetingId: m }));
 	assert.equal(summary.attended, 2);
 	assert.equal(summary.finalized, null);
 	const ready = await meeting("vision_meeting", "2026-10-03T23:00:00Z");
 	await f.admin.execute(sql`UPDATE meeting SET status='ready' WHERE id=${ready}`);
-	const early = ok(await write(owner, "checkIn", { requestKey: key(), input: { meetingId: ready, personId: alex } }));
+	const early = ok(
+		await write(owner, writer.checkIn, { requestKey: key(), input: { meetingId: ready, personId: alex } }),
+	);
 	assert.deepEqual(
 		early.attendees.map((a) => a.presence),
 		["attended"],
 	);
-	const readySummary = ok(await read(owner, "attendanceSummary", { meetingId: ready }));
+	const readySummary = ok(await read(owner, reads.attendanceSummary, { meetingId: ready }));
 	assert.deepEqual([readySummary.attended, readySummary.finalized], [1, null]);
 	assert.equal((await one(sql`SELECT status FROM meeting WHERE id=${ready}`)).status, "ready");
 
@@ -263,7 +325,7 @@ test("AC:TARGET-MTG-001 AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITA
 	assert.equal(held.count, 0);
 	assert.equal((await one(sql`SELECT status FROM meeting WHERE id=${practice}`)).status, "in_progress");
 	refused(
-		await write(owner, "setAttendance", {
+		await write(owner, writer.setAttendance, {
 			requestKey: key(),
 			input: { meetingId: practice, personId: alex, presence: "absent" },
 		}),
@@ -320,7 +382,10 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 	assert.equal((await one(sql`SELECT count(*)::int n FROM participation WHERE meeting_id=${v}`)).n, 0);
 
 	const request = await finalizeRequest(v, [alex, casey]);
-	const [a, b] = await Promise.all([write(owner, "finalizeAttendance", request), finalize(owner, v, [alex, casey])]);
+	const [a, b] = await Promise.all([
+		write(owner, writer.finalizeAttendance, request),
+		finalize(owner, v, [alex, casey]),
+	]);
 	const outcomes = [ok(a).outcome, ok(b).outcome].sort();
 	assert.deepEqual(outcomes, ["changed", "noop"]);
 	const first = ok(a).outcome === "changed" ? ok(a) : ok(b);
@@ -371,7 +436,7 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 		).title,
 		"Evaluate Vision Meeting",
 	);
-	const replay = ok(await write(owner, "finalizeAttendance", request));
+	const replay = ok(await write(owner, writer.finalizeAttendance, request));
 	assert.equal(replay.receiptId, ok(a).receiptId);
 	assert.equal((await work(v)).length, 3);
 	assert.equal(
@@ -390,8 +455,11 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 	);
 
 	const jamie = await person("Jamie");
-	const followUp = (id) =>
-		one(sql`SELECT t.id, t.revision::text AS revision FROM task t JOIN obligation b ON b.id=t.obligation_id
+	const followUp = (id: string) =>
+		one<{
+			id: string;
+			revision: string;
+		}>(sql`SELECT t.id, t.revision::text AS revision FROM task t JOIN obligation b ON b.id=t.obligation_id
 			WHERE b.meeting_id=${v} AND b.person_id=${id}`);
 	await f.admin.execute(sql`UPDATE task SET status='complete', completed_at=clock_timestamp()
 		WHERE id=${(await followUp(alex)).id}`);
@@ -437,10 +505,10 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 		classification: "returning",
 		prior_vision_id: earlier,
 	});
-	assert.equal((await work(v)).find((w) => w.person_id === jamie).status, "no_longer_needed");
+	assert.equal((await work(v)).find((w) => w.person_id === jamie)!.status, "no_longer_needed");
 	assert.equal((await work(earlier)).filter((w) => w.kind === "follow_up").length, 1);
-	const list = ok(await read(member, "listAttendance", { meetingId: v }));
-	assert.equal(list.items.find((i) => i.person.personId === jamie).priorVisionId, earlier);
+	const list = ok(await read(member, reads.listAttendance, { meetingId: v }));
+	assert.equal(list.items.find((i) => i.person.personId === jamie)!.priorVisionId, earlier);
 
 	const riley = await person("Riley");
 	const early = await meeting("vision_meeting", "2026-09-20T23:00:00Z"),
@@ -462,7 +530,7 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 		[[riley, "not_started", []]],
 	);
 	assert.ok(corrected.work.some((w) => w.meetingId === later && w.personId === riley && w.outcome === "created"));
-	assert.equal((await work(early)).find((w) => w.person_id === riley).status, "no_longer_needed");
+	assert.equal((await work(early)).find((w) => w.person_id === riley)!.status, "no_longer_needed");
 
 	const sam = await person("Sam");
 	const samLater = await meeting("vision_meeting", "2026-09-13T23:00:00Z"),
@@ -490,7 +558,7 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, computed average, reviewed corrections", async () => {
 	const v = await meeting("vision_meeting", "2026-10-10T23:00:00Z");
 	const alex = await person("Alex");
-	const scores = (n) => ({
+	const scores = (n: number): Scores => ({
 		attendanceScore: n,
 		locationScore: n,
 		logisticsScore: n,
@@ -500,8 +568,8 @@ test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, compute
 		closeScore: n,
 		nextStepsScore: n,
 	});
-	const record = (who, meetingId, input = {}) =>
-		write(who, "recordEvaluation", { requestKey: key(), input: { meetingId, scores: scores(1), ...input } });
+	const record = (who: Seated, meetingId: string, input: Record<string, unknown> = {}) =>
+		write(who, writer.recordEvaluation, { requestKey: key(), input: { meetingId, scores: scores(1), ...input } });
 	refused(await record(owner, await meeting("orientation", "2026-10-10T23:00:00Z")), "wrong_meeting_type");
 	refused(await record(owner, v), "status_transition");
 	ok(await finalize(owner, v, [alex]));
@@ -512,8 +580,8 @@ test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, compute
 		record(owner, v, { notes: "Room was cold" }),
 		record(owner, v, { scores: scores(5), notes: "Room was cold" }),
 	]);
-	const kept = [ok(a), ok(b)].find((r) => r.outcome === "changed");
-	const seen = [ok(a), ok(b)].find((r) => r.outcome === "noop");
+	const kept = [ok(a), ok(b)].find((r) => r.outcome === "changed")!;
+	const seen = [ok(a), ok(b)].find((r) => r.outcome === "noop")!;
 	assert.deepEqual(seen.evaluation, kept.evaluation);
 	assert.equal(kept.taskCompleted, true);
 	const evaluationTask = async () =>
@@ -521,16 +589,16 @@ test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, compute
 			FROM task t JOIN obligation b ON b.id=t.obligation_id WHERE b.meeting_id=${v} AND b.kind='evaluation'`);
 	assert.deepEqual(await evaluationTask(), { status: "complete", completions: 1 });
 	ok(
-		await write(owner, "correctEvaluation", {
+		await write(owner, writer.correctEvaluation, {
 			requestKey: key(),
 			expectedRevision: kept.evaluation.revision,
 			input: { meetingId: v, changes: scores(3), reason: "Re-entered" },
 		}),
 	);
 
-	const shown = ok(await read(owner, "getEvaluation", { meetingId: v })).evaluation;
+	const shown = await shownEvaluation(owner, v);
 	const corrected = ok(
-		await write(owner, "correctEvaluation", {
+		await write(owner, writer.correctEvaluation, {
 			requestKey: key(),
 			expectedRevision: shown.revision,
 			input: { meetingId: v, changes: { attendanceScore: 4 }, reason: "Correct entered rating" },
@@ -540,10 +608,10 @@ test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, compute
 	assert.equal(corrected.evaluation.average, 3.1);
 	assert.equal(corrected.taskCompleted, false);
 	assert.deepEqual(await evaluationTask(), { status: "complete", completions: 1 });
-	const history = async () => ok(await read(owner, "evaluationHistory", { meetingId: v })).entries;
+	const history = async () => ok(await read(owner, reads.evaluationHistory, { meetingId: v })).entries;
 	const entries = (await history()).length;
 	refused(
-		await write(owner, "correctEvaluation", {
+		await write(owner, writer.correctEvaluation, {
 			requestKey: key(),
 			expectedRevision: shown.revision,
 			input: { meetingId: v, changes: { attendanceScore: 5 }, reason: "Second tab" },
@@ -551,35 +619,36 @@ test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, compute
 		"conflict",
 	);
 	refused(
-		await write(foreign, "correctEvaluation", {
+		await write(foreign, writer.correctEvaluation, {
 			requestKey: key(),
 			expectedRevision: corrected.evaluation.revision,
 			input: { meetingId: v, changes: { attendanceScore: 5 }, reason: "Foreign" },
 		}),
 		"unavailable",
 	);
-	const last = (await history()).at(-1);
+	const last = (await history()).at(-1)!;
 	assert.equal((await history()).length, entries);
 	assert.deepEqual(
 		[last.kind, last.before, last.after, last.average, last.reason],
 		["corrected", { attendanceScore: 3 }, { attendanceScore: 4 }, { before: 3, after: 3.1 }, "Correct entered rating"],
 	);
-	assert.equal((await history())[0].actor.accountId, owner.id);
-	const memberView = ok(await read(member, "getEvaluation", { meetingId: v })).evaluation;
+	const { actor } = (await history())[0]!;
+	assert.equal(actor.kind === "current_account" && actor.accountId, owner.id);
+	const memberView = await shownEvaluation(member, v);
 	assert.equal(memberView.notes, null);
 	assert.deepEqual(memberView.corrections.count, 2);
-	refused(await read(member, "evaluationHistory", { meetingId: v }), "unavailable");
-	assert.equal(ok(await read(owner, "getEvaluation", { meetingId: v })).evaluation.notes, "Room was cold");
+	refused(await read(member, reads.evaluationHistory, { meetingId: v }), "unavailable");
+	assert.equal((await shownEvaluation(owner, v)).notes, "Room was cold");
 	const a2 = await f.account();
 	const seat = await f.seat(a2, plant, "admin");
 	const admin2 = { ...a2, actor: await f.actor(a2.session) };
-	assert.equal(ok(await read(admin2, "getEvaluation", { meetingId: v })).evaluation.notes, "Room was cold");
+	assert.equal((await shownEvaluation(admin2, v)).notes, "Room was cold");
 	await f.admin.execute(sql`UPDATE seat SET role='member' WHERE id=${seat}`);
-	assert.equal(ok(await read(admin2, "getEvaluation", { meetingId: v })).evaluation.notes, null);
+	assert.equal((await shownEvaluation(admin2, v)).notes, null);
 });
 
 test("BUG-01aca6707 AC:TARGET-MTG-014: the evaluation modal's payload saves for a finalized Vision meeting dated after today", async () => {
-	const all = (n) => ({
+	const all = (n: number): Scores => ({
 		attendanceScore: n,
 		locationScore: n,
 		logisticsScore: n,
@@ -589,15 +658,15 @@ test("BUG-01aca6707 AC:TARGET-MTG-014: the evaluation modal's payload saves for 
 		closeScore: n,
 		nextStepsScore: n,
 	});
-	const record = (meetingId, input) =>
-		write(owner, "recordEvaluation", { requestKey: key(), input: { meetingId, ...input } });
-	const correct = async (meetingId, input) =>
-		write(owner, "correctEvaluation", {
+	const record = (meetingId: string, input: Record<string, unknown>) =>
+		write(owner, writer.recordEvaluation, { requestKey: key(), input: { meetingId, ...input } });
+	const correct = async (meetingId: string, input: Record<string, unknown>) =>
+		write(owner, writer.correctEvaluation, {
 			requestKey: key(),
-			expectedRevision: ok(await read(owner, "getEvaluation", { meetingId })).evaluation.revision,
+			expectedRevision: (await shownEvaluation(owner, meetingId)).revision,
 			input: { meetingId, ...input },
 		});
-	const evaluated = async (at, input) => {
+	const evaluated = async (at: string, input: Record<string, unknown>) => {
 		const id = await meeting("vision_meeting", at);
 		ok(await finalize(owner, id, [await person("Guest")]));
 		return { id, result: await record(id, { scores: { ...all(4), agendaScore: 5 }, ...input }) };
@@ -622,7 +691,7 @@ test("BUG-01aca6707 AC:TARGET-MTG-014: the evaluation modal's payload saves for 
 	ok(await finalize(owner, blank, []));
 	const refusedNote = refused(await record(blank, { scores: all(3), notes: "   " }), "invalid_input");
 	assert.ok(
-		refusedNote.details.issues.some((x) => x.path === "input.notes"),
+		refusedNote.details.issues.some((x: { path: string }) => x.path === "input.notes"),
 		JSON.stringify(refusedNote),
 	);
 
@@ -635,7 +704,7 @@ test("BUG-01aca6707 AC:TARGET-MTG-014: the evaluation modal's payload saves for 
 	for (const reason of [undefined, "   "]) {
 		const e = refused(await correct(future.id, { changes: { vibeScore: 3 }, reason }), "invalid_input");
 		assert.ok(
-			e.details.issues.some((x) => x.path === "input.reason"),
+			e.details.issues.some((x: { path: string }) => x.path === "input.reason"),
 			JSON.stringify(e),
 		);
 	}
@@ -644,7 +713,7 @@ test("BUG-01aca6707 AC:TARGET-MTG-014: the evaluation modal's payload saves for 
 	for (const evaluatedOn of ["2099-01-31", "2099-03-01"]) {
 		const e = refused(await record(early, { scores: all(3), evaluatedOn }), "invalid_input");
 		assert.ok(
-			e.details.issues.some((x) => x.path === "input.evaluatedOn"),
+			e.details.issues.some((x: { path: string }) => x.path === "input.evaluatedOn"),
 			JSON.stringify(e),
 		);
 	}
@@ -665,41 +734,44 @@ test("AC:TARGET-MTG-016 reports count attended Persons and never show unknown as
 	const v = await meeting("vision_meeting", "2026-09-08T23:00:00Z", w);
 	ok(await finalize(admin, zero, []));
 	ok(
-		await write(admin, "captureAttendanceBatch", {
+		await write(admin, writer.captureAttendanceBatch, {
 			requestKey: key(),
 			input: { meetingId: v, entries: [{ personId: p3, presence: "attended" }] },
 		}),
 	);
 	ok(
-		await write(admin, "setAttendance", {
+		await write(admin, writer.setAttendance, {
 			requestKey: key(),
 			input: { meetingId: v, personId: p3, presence: "absent" },
 		}),
 	);
 	ok(await finalize(admin, v, [p1, p2]));
-	const analytics = ok(await read(admin, "readAnalytics", { meetingId: v }));
+	const analytics = ok(await read(admin, reads.readAnalytics, { meetingId: v }));
 	assert.deepEqual(analytics.attended, { status: "known", value: 2 });
 	assert.deepEqual(analytics.growth, { status: "unavailable", difference: 2 });
-	assert.deepEqual(analytics.evaluation.baseline, { status: "unknown" });
+	assert.deepEqual(analytics.evaluation!.baseline, { status: "unknown" });
 	assert.equal(analytics.tasks.followUps.total, 2);
-	assert.deepEqual(ok(await read(admin, "readAnalytics", { meetingId: zero })).growth, { status: "unknown" });
+	assert.deepEqual(ok(await read(admin, reads.readAnalytics, { meetingId: zero })).growth, { status: "unknown" });
 	const unfinalized = await meeting("vision_meeting", "2026-09-15T23:00:00Z", w);
-	const open = ok(await read(admin, "readAnalytics", { meetingId: unfinalized }));
+	const open = ok(await read(admin, reads.readAnalytics, { meetingId: unfinalized }));
 	assert.deepEqual(
 		[open.attended, open.growth, open.classifications],
 		[{ status: "unknown" }, { status: "unknown" }, null],
 	);
-	assert.deepEqual([open.evaluation.current, open.evaluation.delta], [{ status: "unknown" }, { status: "unknown" }]);
-	assert.deepEqual(ok(await read(admin, "readAnalytics", { meetingId: zero })).attended, { status: "known", value: 0 });
-	const unmeasured = ok(await read(admin, "summaryStats", { from: "2026-09-15", to: "2026-09-15" }));
+	assert.deepEqual([open.evaluation!.current, open.evaluation!.delta], [{ status: "unknown" }, { status: "unknown" }]);
+	assert.deepEqual(ok(await read(admin, reads.readAnalytics, { meetingId: zero })).attended, {
+		status: "known",
+		value: 0,
+	});
+	const unmeasured = ok(await read(admin, reads.summaryStats, { from: "2026-09-15", to: "2026-09-15" }));
 	assert.deepEqual(
 		[unmeasured.held, unmeasured.finalized, unmeasured.averageAttendance, unmeasured.averageEvaluation],
 		[1, 0, { status: "unknown" }, { status: "unknown" }],
 	);
-	const nobody = ok(await read(admin, "summaryStats", { from: "2026-09-01", to: "2026-09-01" }));
+	const nobody = ok(await read(admin, reads.summaryStats, { from: "2026-09-01", to: "2026-09-01" }));
 	assert.deepEqual(nobody.averageAttendance, { status: "known", value: 0 });
 
-	const evaluated = async (at, n) => {
+	const evaluated = async (at: string, n: number) => {
 		const id = await meeting("vision_meeting", at, w);
 		await f.admin.execute(sql`UPDATE meeting SET evaluation_scores=${sql.param(Array(8).fill(n))}::int[],
 			evaluated_on=local_date, evaluated_at=clock_timestamp(), evaluation_revision=1 WHERE id=${id}`);
@@ -709,12 +781,14 @@ test("AC:TARGET-MTG-016 reports count attended Persons and never show unknown as
 	for (let i = 0; i < 51; i++) await evaluated(new Date(Date.UTC(2025, 0, 2 + i, 23)).toISOString(), i === 0 ? 1 : 4);
 	await evaluated("2025-03-23T23:00:00Z", 1);
 	const latest = await evaluated("2025-03-23T23:00:00Z", 5);
-	assert.deepEqual(ok(await read(admin, "compareEvaluation", { meetingId: early })).baseline, { status: "unknown" });
-	const compared = ok(await read(admin, "compareEvaluation", { meetingId: latest }));
+	assert.deepEqual(ok(await read(admin, reads.compareEvaluation, { meetingId: early })).baseline, {
+		status: "unknown",
+	});
+	const compared = ok(await read(admin, reads.compareEvaluation, { meetingId: latest }));
 	assert.deepEqual(compared.baseline, { status: "known", value: 4, count: 50 });
 	assert.deepEqual(compared.delta, { status: "known", value: 1 });
 
-	const trend = ok(await read(admin, "attendanceTrend", { from: "2026-09-01", to: "2026-09-30" }));
+	const trend = ok(await read(admin, reads.attendanceTrend, { from: "2026-09-01", to: "2026-09-30" }));
 	assert.deepEqual(
 		trend.points.map((p) => [p.attended, p.growth.status]),
 		[
@@ -722,7 +796,7 @@ test("AC:TARGET-MTG-016 reports count attended Persons and never show unknown as
 			[2, "unavailable"],
 		],
 	);
-	const stats = ok(await read(admin, "summaryStats", { from: "2026-09-01", to: "2026-09-30" }));
+	const stats = ok(await read(admin, reads.summaryStats, { from: "2026-09-01", to: "2026-09-30" }));
 	assert.deepEqual(
 		[
 			stats.held,
@@ -735,13 +809,13 @@ test("AC:TARGET-MTG-016 reports count attended Persons and never show unknown as
 		[3, 2, 2, 2, { status: "known", value: 1 }, { status: "unknown" }],
 	);
 	assert.equal(
-		ok(await read(admin, "evaluationTrend", { from: "2025-01-01", to: "2025-12-31", limit: 3 })).points.length,
+		ok(await read(admin, reads.evaluationTrend, { from: "2025-01-01", to: "2025-12-31", limit: 3 })).points.length,
 		3,
 	);
 
 	await f.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${seat}`);
-	refused(await read(admin, "summaryStats", {}), "unavailable");
-	refused(await read(admin, "listAttendance", { meetingId: v }), "unavailable");
+	refused(await read(admin, reads.summaryStats, {}), "unavailable");
+	refused(await read(admin, reads.listAttendance, { meetingId: v }), "unavailable");
 });
 
 test("AC:TARGET-MTG-016 no report counts a cancelled or a voided meeting", async () => {
@@ -770,19 +844,19 @@ test("AC:TARGET-MTG-016 no report counts a cancelled or a voided meeting", async
 	const last = await held("2026-08-25T23:00:00Z", [p1, p2], 5);
 	const window = { from: "2026-08-01", to: "2026-08-31" };
 
-	const stats = ok(await read(admin, "summaryStats", window));
+	const stats = ok(await read(admin, reads.summaryStats, window));
 	assert.deepEqual([stats.held, stats.finalized, stats.attendances], [2, 2, 3]);
 	assert.deepEqual(
-		ok(await read(admin, "attendanceTrend", window)).points.map((p) => p.meetingId),
+		ok(await read(admin, reads.attendanceTrend, window)).points.map((p) => p.meetingId),
 		[first, last],
 	);
 	assert.deepEqual(
-		ok(await read(admin, "evaluationTrend", window)).points.map((p) => p.meetingId),
+		ok(await read(admin, reads.evaluationTrend, window)).points.map((p) => p.meetingId),
 		[first, last],
 	);
-	const analytics = ok(await read(admin, "readAnalytics", { meetingId: last }));
+	const analytics = ok(await read(admin, reads.readAnalytics, { meetingId: last }));
 	assert.deepEqual(analytics.growth, { status: "known", difference: 1, percent: 100 });
-	assert.deepEqual(ok(await read(admin, "compareEvaluation", { meetingId: last })).baseline, {
+	assert.deepEqual(ok(await read(admin, reads.compareEvaluation, { meetingId: last })).baseline, {
 		status: "known",
 		value: 3,
 		count: 1,
@@ -795,7 +869,8 @@ test("AC:GAP-MTG-017 AC:TARGET-MTG-017 an attendee note names its attended meeti
 		casey = await person("Casey");
 	ok(await finalize(owner, v, [alex]));
 	const requestKey = key();
-	const note = (who, input, k = requestKey) => write(who, "addAttendeeNote", { requestKey: k, input });
+	const note = (who: Seated, input: Record<string, unknown>, k: string = requestKey) =>
+		write(who, writer.addAttendeeNote, { requestKey: k, input });
 	const text = "  Called today; prefers evening interview  ";
 	const first = ok(await note(owner, { meetingId: v, personId: alex, text }));
 	assert.deepEqual(ok(await note(owner, { meetingId: v, personId: alex, text })), first);
@@ -814,44 +889,47 @@ test("AC:GAP-MTG-017 AC:TARGET-MTG-017 an attendee note names its attended meeti
 	refused(await note(owner, { meetingId: v, personId: alex, text: "   " }, key()), "invalid_input");
 	refused(await note(owner, { meetingId: v, personId: alex, text: "x".repeat(5001) }, key()), "invalid_input");
 	assert.equal((await one(sql`SELECT count(*)::int n FROM person_note`)).n, 1);
-	const progress = ok(await read(owner, "linkedTaskProgress", { meetingId: v }));
+	const progress = ok(await read(owner, reads.linkedTaskProgress, { meetingId: v }));
 	assert.deepEqual(progress.followUps, { total: 1, open: 1, complete: 0, closed: 0, needsOwner: 1 });
 });
 
 test("INV-attendance: guest list writes that change the attended set move its revision and wait for Correct attendance once finalized", async () => {
 	const m = await meeting();
 	const [alex, casey, dana] = [await person("Alex"), await person("Casey"), await person("Dana")];
-	const guestRevision = async (personId) =>
+	const guestRevision = async (personId: string) =>
 		ok(await meetingsReader.listGuests(f.db, owner.actor, { meetingId: m })).guests.find(
 			(g) => g.person.personId === personId,
-		).revision;
-	const remove = async (personId) =>
-		guestWrite(owner, "removeGuest", {
+		)!.revision;
+	const remove = async (personId: string) =>
+		write(owner, guestsWriter.removeGuest, {
 			requestKey: key(),
 			expectedRevision: await guestRevision(personId),
 			input: { meetingId: m, personId },
 		});
-	const invite = (personId) =>
-		guestWrite(owner, "inviteGuest", { requestKey: key(), input: { meetingId: m, personId } });
-	const walkIn = (displayName) =>
-		guestWrite(owner, "createWalkInContact", { requestKey: key(), input: { meetingId: m, displayName } });
-	const contact = (displayName, attendance) =>
-		guestWrite(owner, "createGuestContact", { requestKey: key(), input: { meetingId: m, displayName, attendance } });
+	const invite = (personId: string) =>
+		write(owner, guestsWriter.inviteGuest, { requestKey: key(), input: { meetingId: m, personId } });
+	const walkIn = (displayName: string) =>
+		write(owner, guestsWriter.createWalkInContact, { requestKey: key(), input: { meetingId: m, displayName } });
+	const contact = (displayName: string, attendance: string) =>
+		write(owner, guestsWriter.createGuestContact, {
+			requestKey: key(),
+			input: { meetingId: m, displayName, attendance },
+		});
 	const attended = async () =>
-		ok(await read(owner, "listAttendance", { meetingId: m }))
+		ok(await read(owner, reads.listAttendance, { meetingId: m }))
 			.items.filter((a) => a.presence === "attended")
 			.map((a) => a.person.displayName)
 			.sort();
 	ok(await invite(dana));
 	for (const personId of [alex, casey])
-		ok(await write(owner, "checkIn", { requestKey: key(), input: { meetingId: m, personId } }));
+		ok(await write(owner, writer.checkIn, { requestKey: key(), input: { meetingId: m, personId } }));
 
 	const reviewed = await finalizeRequest(m, [alex, casey]);
 	const door = ok(await walkIn("Door")).guest.person.personId;
-	refused(await write(owner, "finalizeAttendance", reviewed), "conflict");
+	refused(await write(owner, writer.finalizeAttendance, reviewed), "conflict");
 	const beforeRemoval = await finalizeRequest(m, [alex, casey, door]);
 	ok(await remove(casey));
-	refused(await write(owner, "finalizeAttendance", beforeRemoval), "conflict");
+	refused(await write(owner, writer.finalizeAttendance, beforeRemoval), "conflict");
 	ok(await finalize(owner, m, [alex, door]));
 	const finalized = await revision(m);
 
@@ -877,11 +955,11 @@ test("BUG-ce8e6b7f7: guest, walk-in, finalize and reconcile results carry the re
 		await person("Dana"),
 		await person("Newcomer"),
 	];
-	const guestRevision = async (personId) => (await storedAttendee(m, personId)).revision;
-	const invite = (personId) =>
-		guestWrite(owner, "inviteGuest", { requestKey: key(), input: { meetingId: m, personId } });
-	const steps = [];
-	const step = async (what, result) => {
+	const guestRevision = async (personId: string) => (await storedAttendee(m, personId)).revision;
+	const invite = (personId: string) =>
+		write(owner, guestsWriter.inviteGuest, { requestKey: key(), input: { meetingId: m, personId } });
+	const steps: string[] = [];
+	const step = async <R extends { attendanceRevision: string }>(what: string, result: Promise<MeetingsReply<R>>) => {
 		const value = ok(await result);
 		assert.equal(value.attendanceRevision, await revision(m), what);
 		steps.push(value.attendanceRevision);
@@ -891,18 +969,21 @@ test("BUG-ce8e6b7f7: guest, walk-in, finalize and reconcile results carry the re
 	await step("invite", invite(casey));
 	await step("invite", invite(dana));
 	for (const personId of [alex, casey])
-		ok(await write(owner, "checkIn", { requestKey: key(), input: { meetingId: m, personId } }));
+		ok(await write(owner, writer.checkIn, { requestKey: key(), input: { meetingId: m, personId } }));
 	const before = await revision(m);
 	const door = (
 		await step(
 			"walk-in",
-			guestWrite(owner, "createWalkInContact", { requestKey: key(), input: { meetingId: m, displayName: "Door" } }),
+			write(owner, guestsWriter.createWalkInContact, {
+				requestKey: key(),
+				input: { meetingId: m, displayName: "Door" },
+			}),
 		)
 	).guest.person.personId;
 	const sam = (
 		await step(
 			"attended contact",
-			guestWrite(owner, "createGuestContact", {
+			write(owner, guestsWriter.createGuestContact, {
 				requestKey: key(),
 				input: { meetingId: m, displayName: "Sam", attendance: "attended" },
 			}),
@@ -910,14 +991,14 @@ test("BUG-ce8e6b7f7: guest, walk-in, finalize and reconcile results carry the re
 	).guest.person.personId;
 	await step(
 		"absent contact",
-		guestWrite(owner, "createGuestContact", {
+		write(owner, guestsWriter.createGuestContact, {
 			requestKey: key(),
 			input: { meetingId: m, displayName: "Later", attendance: "not_recorded" },
 		}),
 	);
 	const removed = await step(
 		"remove an attended guest",
-		guestWrite(owner, "removeGuest", {
+		write(owner, guestsWriter.removeGuest, {
 			requestKey: key(),
 			expectedRevision: await guestRevision(casey),
 			input: { meetingId: m, personId: casey },
@@ -926,7 +1007,7 @@ test("BUG-ce8e6b7f7: guest, walk-in, finalize and reconcile results carry the re
 	assert.equal(BigInt(removed.attendanceRevision) - BigInt(before), 3n, "a walk-in, an attended contact, a removal");
 
 	const final = ok(
-		await write(owner, "finalizeAttendance", {
+		await write(owner, writer.finalizeAttendance, {
 			requestKey: key(),
 			expectedRevision: removed.attendanceRevision,
 			input: { meetingId: m, attendeeIds: [alex, door, newcomer] },
@@ -943,9 +1024,9 @@ test("BUG-ce8e6b7f7: guest, walk-in, finalize and reconcile results carry the re
 			["Newcomer", "attended"],
 		],
 	);
-	const alexRow = final.attendees.find((a) => a.person.personId === alex);
+	const alexRow = final.attendees.find((a) => a.person.personId === alex)!;
 	ok(
-		await guestWrite(owner, "recordCard", {
+		await write(owner, guestsWriter.recordCard, {
 			requestKey: key(),
 			expectedRevision: alexRow.revision,
 			input: { meetingId: m, personId: alex, response: "interested" },
@@ -953,7 +1034,7 @@ test("BUG-ce8e6b7f7: guest, walk-in, finalize and reconcile results carry the re
 	);
 
 	const corrected = ok(
-		await write(owner, "reconcileAttendance", {
+		await write(owner, writer.reconcileAttendance, {
 			requestKey: key(),
 			expectedRevision: final.attendanceRevision,
 			input: { meetingId: m, attendeeIds: [alex, newcomer, casey], reason: "Sign-in sheet checked" },
@@ -986,7 +1067,7 @@ test("INV-statements: a finalize preview runs the command once and saves nothing
 	assert.equal(await revision(m), request.expectedRevision);
 	assert.equal(preview.statements, 6);
 	assert.deepEqual(
-		ok(await write(owner, "finalizeAttendance", request)).classifications,
+		ok(await write(owner, writer.finalizeAttendance, request)).classifications,
 		ok(preview.value).classifications,
 	);
 });
@@ -1000,48 +1081,53 @@ test("AC:TARGET-TSK-012 finalize and Correct attendance refuse a follow-up owner
 	const v = await meeting("vision_meeting", "2026-10-12T23:00:00Z");
 	refused(await finalize(owner, v, [ivy], { followUpAssigneeIds: [unlinked.id] }), "owner_ineligible");
 	const done = ok(await finalize(owner, v, [ivy], { followUpAssigneeIds: [member.id] }));
-	const followUp = done.work.find((w) => w.kind === "first_vision_follow_up");
+	const followUp = done.work.find((w) => w.kind === "first_vision_follow_up")!;
 	assert.deepEqual(
 		[
-			followUp.owners[0].accountId,
-			followUp.owners[0].eligible,
-			followUp.owners[0].reason,
-			typeof followUp.owners[0].displayName,
+			followUp.owners[0]!.accountId,
+			followUp.owners[0]!.eligible,
+			followUp.owners[0]!.reason,
+			typeof followUp.owners[0]!.displayName,
 		],
 		[member.id, true, null, "string"],
 	);
-	const request = (extra) => async () => ({
+	const request = (extra: Extra) => async () => ({
 		requestKey: key(),
 		expectedRevision: await revision(v),
 		input: { meetingId: v, attendeeIds: [ivy, jo], reason: "Sign-in sheet checked", ...extra },
 	});
 	refused(
-		await write(owner, "reconcileAttendance", await request({ followUpAssigneeIds: [unlinked.id] })()),
+		await write(owner, writer.reconcileAttendance, await request({ followUpAssigneeIds: [unlinked.id] })()),
 		"owner_ineligible",
 	);
 	const corrected = ok(
-		await write(owner, "reconcileAttendance", await request({ followUpAssigneeIds: [member.id] })()),
+		await write(owner, writer.reconcileAttendance, await request({ followUpAssigneeIds: [member.id] })()),
 	);
-	const added = corrected.work.find((w) => w.personId === jo && w.outcome === "created");
-	assert.deepEqual([added.owners[0].accountId, added.owners[0].eligible], [member.id, true]);
+	const added = corrected.work.find((w) => w.personId === jo && w.outcome === "created")!;
+	assert.deepEqual([added.owners[0]!.accountId, added.owners[0]!.eligible], [member.id, true]);
 	await f.admin
 		.execute(sql`WITH d AS (DELETE FROM task_assignee WHERE task_id IN (SELECT id FROM task WHERE obligation_id=${followUp.obligationId}))
 		INSERT INTO task_assignee(plant_id,task_id,account_id) SELECT plant_id,id,${unlinked.id} FROM task WHERE obligation_id=${followUp.obligationId}`);
-	const again = ok(await write(owner, "reconcileAttendance", await request({ followUpAssigneeIds: [member.id] })()));
-	const kept = again.work.find((w) => w.obligationId === followUp.obligationId);
+	const again = ok(
+		await write(owner, writer.reconcileAttendance, await request({ followUpAssigneeIds: [member.id] })()),
+	);
+	const kept = again.work.find((w) => w.obligationId === followUp.obligationId)!;
 	assert.deepEqual(
-		[kept.owners[0].accountId, kept.owners[0].eligible, kept.owners[0].reason],
+		[kept.owners[0]!.accountId, kept.owners[0]!.eligible, kept.owners[0]!.reason],
 		[unlinked.id, false, "no_person"],
 	);
 	const empty = await meeting("vision_meeting", "2026-10-13T23:00:00Z");
-	const evaluation = ok(await finalize(owner, empty, [], { evaluationAssigneeIds: [unlinked.id] })).work[0];
-	assert.deepEqual([evaluation.owners[0].accountId, evaluation.owners[0].eligible], [unlinked.id, true]);
+	const evaluation = ok(await finalize(owner, empty, [], { evaluationAssigneeIds: [unlinked.id] })).work[0]!;
+	assert.deepEqual([evaluation.owners[0]!.accountId, evaluation.owners[0]!.eligible], [unlinked.id, true]);
 });
 
 let crowdNumber = 0;
-async function crowd(size) {
+async function crowd(size: number) {
 	const day = ++crowdNumber;
-	const made = await rows(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,stage,adult_classification,
+	const made = await rows<{
+		id: string;
+		display_name: string;
+	}>(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at) SELECT ${plant.id},${plant.id},'Crowd ${sql.raw(String(day))} Person '||n,
 		'other',CASE WHEN n % 10 = 0 THEN 'core_group' ELSE 'prospect' END,'unknown','unknown',0,'live',clock_timestamp()
 		FROM generate_series(0,${size - 1}) n RETURNING id, display_name`);
@@ -1049,8 +1135,9 @@ async function crowd(size) {
 		.sort((a, b) => Number(a.display_name.split(" ").pop()) - Number(b.display_name.split(" ").pop()))
 		.map((r) => r.id);
 	const extra = await person(`Crowd ${day} Extra`);
-	const leaver = ids[2];
-	const at = (days) => new Date(Date.UTC(2026, 0, 1) + (day * 10 + days) * 86400_000 + 23 * 3600_000).toISOString();
+	const leaver = ids[2]!;
+	const at = (days: number) =>
+		new Date(Date.UTC(2026, 0, 1) + (day * 10 + days) * 86400_000 + 23 * 3600_000).toISOString();
 	const earlier = await meeting("vision_meeting", at(0));
 	ok(
 		await finalize(
@@ -1063,7 +1150,7 @@ async function crowd(size) {
 	const first = ok(await finalize(owner, v, ids));
 	return { ids, extra, leaver, earlier, v, first };
 }
-const swap = async (c, extra = [c.extra], gone = [c.leaver]) => ({
+const swap = async (c: Awaited<ReturnType<typeof crowd>>, extra = [c.extra], gone = [c.leaver]) => ({
 	requestKey: key(),
 	expectedRevision: await revision(c.v),
 	input: {
@@ -1075,10 +1162,10 @@ const swap = async (c, extra = [c.extra], gone = [c.leaver]) => ({
 });
 
 test("INV-statements: a reconcile that adds, removes, advances and closes sends the same statements at 3 and 50 attendees", async () => {
-	const statementsFor = async (size) => {
+	const statementsFor = async (size: number) => {
 		const c = await crowd(size);
 		const request = await swap(c);
-		const done = await counted(async () => ok(await write(owner, "reconcileAttendance", request)));
+		const done = await counted(async () => ok(await write(owner, writer.reconcileAttendance, request)));
 		assert.deepEqual(done.value.added, [c.extra]);
 		assert.deepEqual(done.value.removed, [c.leaver]);
 		assert.deepEqual(done.value.stageChanges, [{ personId: c.extra, from: "prospect", to: "attendee" }]);
@@ -1094,22 +1181,26 @@ test("INV-statements: a reconcile that adds, removes, advances and closes sends 
 
 test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the exact result and writes the exact audit rows", async () => {
 	const c = await crowd(50);
-	const duty =
-		await rows(sql`SELECT b.id AS obligation_id, b.person_id, b.kind, t.id AS task_id, (SELECT coalesce(array_agg(a.account_id),'{}') FROM task_assignee a WHERE a.task_id=t.id) AS assignee_ids
+	const duty = await rows<{
+		obligation_id: string;
+		person_id: string | null;
+		kind: string;
+		task_id: string;
+	}>(sql`SELECT b.id AS obligation_id, b.person_id, b.kind, t.id AS task_id, (SELECT coalesce(array_agg(a.account_id),'{}') FROM task_assignee a WHERE a.task_id=t.id) AS assignee_ids
 		FROM obligation b JOIN task t ON t.obligation_id=b.id WHERE b.meeting_id=${c.v}`);
-	const dutyOf = (personId) => duty.find((d) => d.person_id === personId);
-	const evaluation = duty.find((d) => d.kind === "evaluation");
+	const dutyOf = (personId: string) => duty.find((d) => d.person_id === personId)!;
+	const evaluation = duty.find((d) => d.kind === "evaluation")!;
 	assert.equal(duty.length, 50 - 10 + 1, "a follow-up for each attendee without an earlier Vision, and the evaluation");
 	const seen = new Set((await rows(sql`SELECT id FROM audit_event WHERE tenant_id=${plant.id}`)).map((r) => r.id));
 	const finalizedAt = new Date(
-		(await one(sql`SELECT finalized_at FROM meeting WHERE id=${c.v}`)).finalized_at,
+		(await one<{ finalized_at: string }>(sql`SELECT finalized_at FROM meeting WHERE id=${c.v}`)).finalized_at,
 	).toISOString();
 	const request = await swap(c);
-	const result = ok(await write(owner, "reconcileAttendance", request));
+	const result = ok(await write(owner, writer.reconcileAttendance, request));
 
 	const attendeeIds = request.input.attendeeIds;
-	const priorOf = (id) => (c.ids.indexOf(id) % 5 === 1 ? c.earlier : null);
-	const stageOfIndex = (id) => (c.ids.indexOf(id) % 10 === 0 ? "core_group" : "prospect");
+	const priorOf = (id: string) => (c.ids.indexOf(id) % 5 === 1 ? c.earlier : null);
+	const stageOfIndex = (id: string) => (c.ids.indexOf(id) % 10 === 0 ? "core_group" : "prospect");
 	const created = result.work.find((w) => w.outcome === "created");
 	assert.ok(created, "the added prospect owes a follow-up");
 	const expectedWork = [
@@ -1191,10 +1282,19 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the ex
 	);
 
 	const written = (
-		await rows(sql`SELECT id, subject_type, subject_id, action, kind, before_value, after_value,
+		await rows<{
+			id: string;
+			subject_type: string;
+			subject_id: string;
+			action: string;
+			kind: string;
+			after_value: { status?: string };
+			reason: string | null;
+			metadata: { source?: string };
+		}>(sql`SELECT id, subject_type, subject_id, action, kind, before_value, after_value,
 		before_revision, after_revision, reason, metadata FROM audit_event WHERE tenant_id=${plant.id}`)
 	).filter((r) => !seen.has(r.id));
-	const byAction = (action) => written.filter((r) => r.action === action);
+	const byAction = (action: string) => written.filter((r) => r.action === action);
 	const current = c.ids.slice().sort();
 	assert.deepEqual(
 		byAction("meetings.finalized").map(({ id, ...r }) => r),
@@ -1213,7 +1313,7 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the ex
 			},
 		],
 	);
-	assert.equal(byAction("meetings.finalized")[0].id, result.receiptId);
+	assert.equal(byAction("meetings.finalized")[0]!.id, result.receiptId);
 	assert.deepEqual(
 		byAction("people.stage_changed").map(({ id, ...r }) => r),
 		[
@@ -1240,7 +1340,7 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the ex
 		[[dutyOf(c.leaver).task_id, "waive", "task", "Sign-in sheet checked", "generated"]],
 	);
 	assert.equal(written.length, 1 + 1 + 1 + 1, "no other audit row");
-	const closed = byAction("tasks.waived")[0];
+	const closed = byAction("tasks.waived")[0]!;
 	assert.equal(closed.after_value.status, "no_longer_needed");
 	assert.equal(await stageOf(c.extra), "attendee");
 	assert.equal((await classOf(c.v, c.leaver)).presence, "absent");
@@ -1262,7 +1362,7 @@ test("AC:TARGET-MTG-020 a reconcile that is stale, foreign, too early or not all
 			sql`SELECT count(*)::int n, string_agg(status, ',' ORDER BY id) s FROM task WHERE plant_id=${plant.id}`,
 		),
 	});
-	const nothing = async (body) => {
+	const nothing = async <T,>(body: () => Promise<T>) => {
 		const before = await snapshot();
 		const result = await body();
 		assert.deepEqual(await snapshot(), before);
@@ -1271,7 +1371,7 @@ test("AC:TARGET-MTG-020 a reconcile that is stale, foreign, too early or not all
 	const stale = await swap(c);
 	await nothing(async () =>
 		refused(
-			await write(owner, "reconcileAttendance", {
+			await write(owner, writer.reconcileAttendance, {
 				...stale,
 				expectedRevision: String(BigInt(stale.expectedRevision) - 1n),
 			}),
@@ -1282,13 +1382,16 @@ test("AC:TARGET-MTG-020 a reconcile that is stale, foreign, too early or not all
 	await f.admin.execute(sql`UPDATE person SET state='retired' WHERE id=${retired}`);
 	const outsider = await person("Outsider", "prospect", other);
 	const named = await nothing(async () =>
-		refused(await write(owner, "reconcileAttendance", await swap(c, [c.extra, retired, outsider])), "invalid_subject"),
+		refused(
+			await write(owner, writer.reconcileAttendance, await swap(c, [c.extra, retired, outsider])),
+			"invalid_subject",
+		),
 	);
 	assert.deepEqual(named.details.personIds.sort(), [retired, outsider].sort());
 	const draft = await meeting("vision_meeting", "2026-11-20T23:00:00Z");
 	await nothing(async () =>
 		refused(
-			await write(owner, "reconcileAttendance", {
+			await write(owner, writer.reconcileAttendance, {
 				requestKey: key(),
 				expectedRevision: await revision(draft),
 				input: { meetingId: draft, attendeeIds: [c.extra], followUpAssigneeIds: [], reason: "Too early" },
@@ -1305,7 +1408,7 @@ test("AC:TARGET-MTG-020 a reconcile that is stale, foreign, too early or not all
 	for (const id of [cancelled, voided])
 		await nothing(async () =>
 			refused(
-				await write(owner, "reconcileAttendance", {
+				await write(owner, writer.reconcileAttendance, {
 					requestKey: key(),
 					expectedRevision: await revision(id),
 					input: { meetingId: id, attendeeIds: [], followUpAssigneeIds: [], reason: "Not allowed" },
@@ -1313,12 +1416,12 @@ test("AC:TARGET-MTG-020 a reconcile that is stale, foreign, too early or not all
 				"status_transition",
 			),
 		);
-	await nothing(async () => refused(await write(member, "reconcileAttendance", await swap(c)), "unavailable"));
+	await nothing(async () => refused(await write(member, writer.reconcileAttendance, await swap(c)), "unavailable"));
 
 	const first = await swap(c);
-	const done = ok(await write(owner, "reconcileAttendance", first));
+	const done = ok(await write(owner, writer.reconcileAttendance, first));
 	const after = await snapshot();
-	const again = ok(await write(owner, "reconcileAttendance", first));
+	const again = ok(await write(owner, writer.reconcileAttendance, first));
 	assert.deepEqual(again, done);
 	assert.deepEqual(await snapshot(), after);
 });
@@ -1327,20 +1430,28 @@ test("INV-locking: two concurrent reconciles at one revision apply once and neve
 	const c = await crowd(50);
 	const other2 = await person("Second extra");
 	const a = await swap(c, [c.extra], [c.leaver]);
-	const b = { ...(await swap(c, [other2], [c.ids[7]])), expectedRevision: a.expectedRevision };
-	const settled = await Promise.all([write(owner, "reconcileAttendance", a), write(owner, "reconcileAttendance", b)]);
+	const b = { ...(await swap(c, [other2], [c.ids[7]!])), expectedRevision: a.expectedRevision };
+	const settled = await Promise.all([
+		write(owner, writer.reconcileAttendance, a),
+		write(owner, writer.reconcileAttendance, b),
+	]);
 	assert.deepEqual(settled.map((r) => (r.status === "ok" ? "applied" : r.error.code)).sort(), ["applied", "conflict"]);
-	const winner = settled.find((r) => r.status === "ok").value;
+	const winner = settled.find((r) => r.status === "ok")!.value;
 	assert.equal(winner.attendanceRevision, String(BigInt(a.expectedRevision) + 1n));
 	assert.equal(await revision(c.v), winner.attendanceRevision);
 
-	const people = await rows(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,stage,adult_classification,
+	const people = await rows<{
+		id: string;
+	}>(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at) SELECT ${plant.id},${plant.id},'Twin '||n,'other','prospect',
 		'unknown','unknown',0,'live',clock_timestamp() FROM generate_series(1,50) n RETURNING id`);
 	const ids = people.map((r) => r.id);
 	const m = await meeting("vision_meeting", "2026-12-05T23:00:00Z");
 	const request = await finalizeRequest(m, ids);
-	const [first, second] = await Promise.all([write(owner, "finalizeAttendance", request), finalize(owner, m, ids)]);
+	const [first, second] = await Promise.all([
+		write(owner, writer.finalizeAttendance, request),
+		finalize(owner, m, ids),
+	]);
 	assert.deepEqual([ok(first).outcome, ok(second).outcome].sort(), ["changed", "noop"]);
 	assert.equal((await work(m)).length, 51);
 });
@@ -1348,12 +1459,12 @@ test("INV-locking: two concurrent reconciles at one revision apply once and neve
 test("INV-planning: the locked fact read of a settle plans below the JIT threshold", async () => {
 	const c = await crowd(50);
 	const request = await swap(c);
-	ok(await write(owner, "reconcileAttendance", request));
+	ok(await write(owner, writer.reconcileAttendance, request));
 	const lock = sent.findLast(
 		(q) => q.text.startsWith("SELECT m.id, m.type, m.status") && q.text.includes("obligation_facts"),
 	);
 	assert.ok(lock, "the settle's locked fact read was not captured");
-	const literal = (v) =>
+	const literal = (v: unknown) =>
 		v === null ? "NULL" : Array.isArray(v) ? `'{${v.join(",")}}'` : `'${String(v).replaceAll("'", "''")}'`;
 	const text = lock.text.replace(/\$(\d+)/g, (_, n) => literal(lock.values[Number(n) - 1]));
 	const plan = await f.admin.$client.query(`EXPLAIN (FORMAT JSON) ${text}`);
@@ -1363,7 +1474,7 @@ test("INV-planning: the locked fact read of a settle plans below the JIT thresho
 });
 
 test("AC:TARGET-MTG-010 a team meeting's leader, an Owner and an Admin settle attendance; another Member cannot", async () => {
-	const seated = async (role) => {
+	const seated = async (role: "admin" | "member") => {
 		const a = await f.account();
 		await f.seat(a, plant, role);
 		return { ...a, actor: await f.actor(a.session) };
@@ -1374,7 +1485,7 @@ test("AC:TARGET-MTG-010 a team meeting's leader, an Owner and an Admin settle at
 	const team = randomUUID();
 	await f.admin.execute(sql`INSERT INTO team(id,plant_id,name,state,sort_order,leader_person_id,leader_source)
 		VALUES(${team},${plant.id},'Greeters','active',1,${leaderPerson},'explicit')`);
-	const teamMeeting = async (at) => {
+	const teamMeeting = async (at: string) => {
 		const id = await meeting("orientation", at);
 		await f.admin.execute(sql`UPDATE meeting SET type='team_meeting', team_id=${team} WHERE id=${id}`);
 		return id;
@@ -1390,7 +1501,7 @@ test("AC:TARGET-MTG-010 a team meeting's leader, an Owner and an Admin settle at
 	for (const [who, at] of [
 		[owner, "2026-09-04T23:00:00Z"],
 		[adminSeat, "2026-09-05T23:00:00Z"],
-	]) {
+	] as const) {
 		const m = await teamMeeting(at);
 		ok(await finalize(who, m, [guest]));
 		ok(await reconcile(who, m, []));

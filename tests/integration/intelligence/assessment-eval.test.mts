@@ -19,7 +19,8 @@ import {
 } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { paidAssessment, type JudgeResult } from "../../../packages/evry/src/runtime/assessment-model.ts";
 import { ok } from "../../support/fixture.mts";
-import { church, type Church } from "./assessment-church.mts";
+import type { StoredDraft } from "../../../packages/domain/src/intelligence/assessment.ts";
+import { church, type Church, type ChurchPlant, type StoredRun } from "./assessment-church.mts";
 import { realModelOptIn } from "./real-model.mts";
 
 type Draft = ReturnType<typeof draftOutput.parse>;
@@ -156,14 +157,14 @@ const CASES: Case[] = [
 ];
 
 let c: Church;
-const plants: Record<Case["plant"], any> = {} as never;
+let plants: Record<Case["plant"], ChurchPlant>;
 const assessments = createAssessments();
 const rows: {
 	case: Case;
 	model: string;
 	outcome: string;
 	reason: string | null;
-	drafts: any[];
+	drafts: (StoredDraft & { text: string; language: JudgeResult | null })[];
 	spentMicroUsd: number;
 	passed: boolean;
 	problems: string[];
@@ -187,16 +188,16 @@ let counterBefore: number | null = null;
 let counterAfter: number | null = null;
 let sideEffects = "";
 const sideEffectCounts = () =>
-	c.one(sql`SELECT (SELECT count(*) FROM task)::int AS tasks,(SELECT count(*) FROM phase_transition)::int AS phases,
+	c.one<
+		Record<string, number>
+	>(sql`SELECT (SELECT count(*) FROM task)::int AS tasks,(SELECT count(*) FROM phase_transition)::int AS phases,
 		(SELECT count(*) FROM communication)::int AS messages,(SELECT count(*) FROM notice)::int AS notices`);
 let baseline: Record<string, number>;
 
 before(async () => {
 	c = await church("t298e");
 	await c.release("methodology-2026.10");
-	plants.harvest = await c.harvest();
-	plants.unknown = await c.unknownCount();
-	plants.phase3 = await c.phaseThree();
+	plants = { harvest: await c.harvest(), unknown: await c.unknownCount(), phase3: await c.phaseThree() };
 	baseline = await sideEffectCounts();
 	counterBefore = await monthCounter();
 });
@@ -224,15 +225,11 @@ for (const k of CASES)
 		const charged = paid?.charged() ?? 0;
 		ok(await assessments.requestRefresh(c.db, p.actor, { requestId }));
 		await runAssessmentBatch(createAssessmentJob(), c.db, drafter, 1);
-		const stored = await c.one(sql`SELECT outcome, reason, model, drafts, model_input FROM assessment_run
+		const stored = await c.one<StoredRun>(sql`SELECT outcome, reason, model, drafts, model_input FROM assessment_run
 			WHERE plant_id=${p.id} AND demand_key=${"manual/" + requestId}`);
-		const result = {
-			outcome: stored.outcome as string,
-			reason: stored.reason as string | null,
-			drafts: stored.drafts as unknown[],
-		};
-		const drafts = [];
-		for (const d of stored.drafts as any[]) {
+		const result = { outcome: stored.outcome, reason: stored.reason, drafts: stored.drafts };
+		const drafts: (typeof rows)[number]["drafts"] = [];
+		for (const d of stored.drafts) {
 			const parsed = draftOutput.safeParse(d.output);
 			drafts.push({
 				...d,
@@ -257,10 +254,10 @@ for (const k of CASES)
 					: "fail";
 		if (language !== k.expect.language) problems.push(`language ${language}, expected ${k.expect.language}`);
 		if (result.outcome === "failed" && result.drafts.length !== 3) problems.push("a failed run must hold three drafts");
-		if (k.plant === "phase3" && !stored.model_input.passages.every((x) => x.phase === 3 || x.phase === null))
+		if (k.plant === "phase3" && !stored.model_input!.passages.every((x) => x.phase === 3 || x.phase === null))
 			problems.push("a Phase 3 run offered a passage of another phase");
 		if (k.plant === "unknown" && result.outcome === "published") {
-			const text = final.text;
+			const text = final!.text;
 			if (!/\bunknown\b/i.test(text) || !/classif|birth date/i.test(text))
 				problems.push("the Unknown count is not said to be unknown with what would settle it");
 			if (/\b(at|below|above) 30\b/.test(text)) problems.push("the published draft compares the Unknown count with 30");

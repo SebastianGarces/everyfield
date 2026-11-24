@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { defaultTab, nextStep, pickTab } from "../../../apps/web/src/features/meetings/next-step.ts";
+import {
+	defaultTab,
+	nextStep,
+	pickTab,
+	type NextStep,
+	type TabId,
+} from "../../../apps/web/src/features/meetings/next-step.ts";
 
-const base = {
+type Input = Parameters<typeof nextStep>[0];
+const base: Input = {
 	status: "planning",
 	canWrite: true,
 	checkIn: true,
@@ -14,9 +21,9 @@ const base = {
 	evaluationSaved: false,
 	vision: true,
 };
-const ask = (over) => nextStep({ ...base, ...over });
+const ask = (over: Partial<Input>) => nextStep({ ...base, ...over });
 
-const TABLE = [
+const TABLE: [string, Partial<Input>, NextStep["primary"], NextStep["secondary"], boolean][] = [
 	["cancelled", { status: "cancelled", checkIn: false }, null, [], false],
 	["planning, no guests", { guestCount: 0 }, "add-guest", ["check-in"], false],
 	["planning, with guests", {}, "send-invites", ["check-in"], false],
@@ -67,7 +74,7 @@ for (const [name, input, primary, secondary, toolbarInvites] of TABLE) {
 }
 
 test("AC:TARGET-MTG-001 Start check-in is primary only in progress and at most one primary shows", () => {
-	for (const status of ["planning", "ready", "in_progress", "completed"]) {
+	for (const status of ["planning", "ready", "in_progress", "completed"] as const) {
 		const n = ask({ status });
 		assert.equal(n.secondary.length <= 2, true);
 		assert.equal(n.secondary.includes("check-in") || n.primary === "check-in", true, status);
@@ -77,7 +84,7 @@ test("AC:TARGET-MTG-001 Start check-in is primary only in progress and at most o
 });
 
 test("AC:TARGET-MTG-001 the default tab follows the meeting state: Results once completed, Guests before", () => {
-	const cases = [
+	const cases: [Partial<Input>, TabId][] = [
 		[{ guestCount: 0 }, "guests"],
 		[{}, "guests"],
 		[{ status: "in_progress" }, "guests"],
@@ -94,7 +101,7 @@ test("AC:TARGET-MTG-001 the default tab follows the meeting state: Results once 
 });
 
 test("AC:TARGET-MTG-001 an unknown or unavailable ?tab= falls back to the default", () => {
-	const vision = ["guests", "kit", "results"];
+	const vision: TabId[] = ["guests", "kit", "results"];
 	assert.equal(pickTab("results", vision, "guests"), "results");
 	assert.equal(pickTab("kit", vision, "guests"), "kit");
 	assert.equal(pickTab("kit", ["guests", "results"], "results"), "results");

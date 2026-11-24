@@ -126,7 +126,9 @@ test("the plant moves to Phase 3 after its Phase 2 assessment: the read keeps it
 
 test("a fact citation opens the exact value and date from the run's own snapshot, and links only the people the reader can still open; a passage citation opens the passage the run read", async () => {
 	const { p, run } = await assessedPlant("Cedar Grove Church");
-	const gone = (await c0.one(sql`SELECT id FROM person WHERE plant_id=${p.id} AND display_name='Adult 07'`)).id;
+	const gone = (
+		await c0.one<{ id: string }>(sql`SELECT id FROM person WHERE plant_id=${p.id} AND display_name='Adult 07'`)
+	).id;
 	await c0.admin.execute(sql`UPDATE person SET state='retired' WHERE id=${gone}`);
 	const fact = ok(
 		await assessments.resolveCitation(c0.db, p.actor, { runId: run.runId, key: "committedAdults.atLeast" }),
@@ -289,7 +291,9 @@ test("every concern the organization sees is one the planter sees, with the same
 	assert.equal(org.plant.health, "watch");
 
 	const payload = JSON.stringify(org);
-	const people = await c0.rows(sql`SELECT id,display_name FROM person WHERE plant_id=${p.id}`);
+	const people = await c0.rows<{ id: string; display_name: string }>(
+		sql`SELECT id,display_name FROM person WHERE plant_id=${p.id}`,
+	);
 	for (const who of people) {
 		assert.ok(!payload.includes(who.id), "no person id");
 		assert.ok(!payload.includes(who.display_name), "no person name");
