@@ -1,3 +1,4 @@
+import "../runs-in/render.mjs";
 import assert from "node:assert/strict";
 import { createRequire, registerHooks } from "node:module";
 import { test } from "node:test";

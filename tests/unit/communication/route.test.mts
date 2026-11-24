@@ -1,3 +1,4 @@
+import "../runs-in/react-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseRoute, routeHref, type Route } from "../../../apps/web/src/features/communication/model.ts";

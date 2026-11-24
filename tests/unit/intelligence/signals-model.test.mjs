@@ -1,3 +1,4 @@
+import "../runs-in/react-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { countsOf, renewalOf, SIGNAL_DEFINITIONS } from "../../../packages/contracts/src/intelligence/signals.ts";

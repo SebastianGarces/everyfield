@@ -83,6 +83,10 @@ message or partial receipt. Generic input validation gets no regression test.
   tool with no case that is not in
   `tests/workflow/evry-evals-baseline.json`. The baseline only shrinks: remove an entry when its cases land,
   and never add one.
+- `test:unit` finds every `tests/unit/**/*.test.{mjs,mts}` itself (`tools/ci/test-unit.ts`); list no file in a
+  `package.json`. A file runs in `@everyfield/web` under plain `node` unless its first line imports a marker from
+  `tests/unit/runs-in/`, such as `import "../runs-in/render.mjs";`: `react-server` (web), `domain`, `render`,
+  `render-development` or `render-module-mocks` (domain). The `UNIT_GROUPS` table there holds each group's flags.
 - Workflow tooling tests use disposable repositories and fake external providers; they establish
   tooling behavior only. Mock providers we cannot run locally; prefer local fakes.
 
