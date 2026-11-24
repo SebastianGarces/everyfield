@@ -211,7 +211,7 @@ const kept = async (text: string) =>
 		await admin.execute(sql`SELECT
 			(SELECT count(*) FROM conversation_event e WHERE e.body::text LIKE ${`%${text}%`})::int AS events,
 			(SELECT count(*) FROM proposal p WHERE concat(p.input::text,p.review::text,p.receipt::text) LIKE ${`%${text}%`})::int AS proposals,
-			(SELECT count(*) FROM audit_event a WHERE a.metadata::text LIKE ${`%${text}%`})::int AS audit`)
+			(SELECT count(*) FROM audit_event a WHERE concat(a.reason,a.metadata::text,a.before_value::text,a.after_value::text) LIKE ${`%${text}%`})::int AS audit`)
 	).rows[0];
 
 type Hook = (p: Proposal | undefined, conversation: string) => Promise<void>;
