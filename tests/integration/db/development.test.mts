@@ -35,21 +35,20 @@ test("INV-dev-database: the guard accepts the pooled and direct development endp
 	assert.equal(assertDevelopmentDatabase(new URL(url(direct!))).hostname, direct);
 });
 
-test("INV-dev-database: the guard accepts a localhost database only with EVERYFIELD_DISPOSABLE_DATABASE=1 or the old CI pair", () => {
-	for (const pass of [DISPOSABLE, OLD_PAIR]) {
-		env(pass);
-		for (const host of ["localhost", "127.0.0.1"])
-			assert.equal(assertDevelopmentDatabase(url(`${host}:5432`, "/everyfield_ci")).hostname, host);
-	}
+test("INV-dev-database: the guard accepts a localhost database only with EVERYFIELD_DISPOSABLE_DATABASE=1", () => {
+	const hosts = ["localhost", "127.0.0.1"];
+	env(DISPOSABLE);
+	for (const host of hosts)
+		assert.equal(assertDevelopmentDatabase(url(`${host}:5432`, "/everyfield_ci")).hostname, host);
 	for (const partial of [
 		{},
 		...["", "0", "true", "01", " 1"].map((value) => ({ EVERYFIELD_DISPOSABLE_DATABASE: value })),
 		{ CI: "true" },
 		{ EARLY_ACCESS_TEST_DATABASE: "1" },
-		{ ...OLD_PAIR, CI: "1" },
+		OLD_PAIR,
 	]) {
 		env(partial);
-		assert.throws(() => assertDevelopmentDatabase(url("localhost:5432", "/everyfield_ci")));
+		for (const host of hosts) assert.throws(() => assertDevelopmentDatabase(url(`${host}:5432`, "/everyfield_ci")));
 	}
 });
 
