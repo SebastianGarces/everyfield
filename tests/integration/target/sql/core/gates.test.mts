@@ -50,7 +50,7 @@ const finalizeRequest = async (meetingId: string, attendeeIds: string[]) => ({
 	input: { meetingId, attendeeIds },
 });
 const finalize = (request: Awaited<ReturnType<typeof finalizeRequest>>) =>
-	write.meetings((t, c) => attendance.finalizeAttendance(t, c, request));
+	write.meetings(attendance.finalizeAttendance, request);
 const attended = async (meetingId: string) =>
 	(
 		await rows(sql`SELECT person_id FROM participation WHERE meeting_id=${meetingId}::uuid AND presence='attended'
@@ -73,7 +73,9 @@ test("AC:TARGET-MTG-020 finalize records each attendee once, rolls back on a fau
 	const request = await finalizeRequest(m, Object.values(people));
 
 	const before = await w.everything();
-	const error_code = await w.commitFault("obligation", () => finalize(request));
+	const error_code = await w.commitFault("obligation", () =>
+		tx((t) => attendance.finalizeAttendance(t, ctx(), request)),
+	);
 	assert.deepEqual(await w.changed(before), []);
 	const none = await work();
 	assert.deepEqual(
@@ -112,13 +114,11 @@ test("AC:TARGET-MTG-020 finalize records each attendee once, rolls back on a fau
 	const history = await contacts();
 	const jamie = await person("Jamie");
 	ok(
-		await write.meetings(async (t, c) =>
-			attendance.reconcileAttendance(t, c, {
-				requestKey: key(),
-				expectedRevision: await attendanceRevision(m),
-				input: { meetingId: m, attendeeIds: [jamie], reason: "Sign-in sheet" },
-			}),
-		),
+		await write.meetings(attendance.reconcileAttendance, {
+			requestKey: key(),
+			expectedRevision: await attendanceRevision(m),
+			input: { meetingId: m, attendeeIds: [jamie], reason: "Sign-in sheet" },
+		}),
 	);
 	const kept = await contacts();
 	assert.deepEqual(kept, history);
@@ -142,8 +142,7 @@ test("AC:GAP-MTG-011 a walk-in makes one Person and one attendance; another chur
 		}>(sql`SELECT (SELECT count(*)::int FROM person WHERE plant_id=${P}::uuid) AS people,
 			(SELECT count(*)::int FROM participation WHERE meeting_id=${m}::uuid) AS links`);
 	const request = { requestKey: key(), input: { meetingId: m, displayName: "Jamie" } };
-	const walkIn = (who: "admin" | "foreign" = "admin") =>
-		write.meetings((t, c) => guestsWriter.createWalkInContact(t, c, request), who);
+	const walkIn = (who: "admin" | "foreign" = "admin") => write.meetings(guestsWriter.createWalkInContact, request, who);
 
 	const before = await w.everything();
 	const reply = await walkIn("foreign");
@@ -160,7 +159,9 @@ test("AC:GAP-MTG-011 a walk-in makes one Person and one attendance; another chur
 		},
 		subcase("foreign-context-refused").expected.result,
 	);
-	const error_code = await w.commitFault("participation", () => walkIn());
+	const error_code = await w.commitFault("participation", () =>
+		tx((t) => guestsWriter.createWalkInContact(t, ctx(), request)),
+	);
 	const touched = await w.changed(before);
 	assert.deepEqual(
 		{
@@ -383,7 +384,7 @@ test("AC:TARGET-PPL-020 each recorded event advances a stage once and nothing mo
 			const r = await role(event === "ministry_leadership");
 			removeFrom = r.team;
 			const request = await assign(r, id);
-			return () => write.teams((t, c) => teamsWriter.assignRole(t, c, request));
+			return () => write.teams(teamsWriter.assignRole, request);
 		};
 		const record = await run();
 		ok((await record()) as { status: string });
@@ -395,34 +396,28 @@ test("AC:TARGET-PPL-020 each recorded event advances a stage once and nothing mo
 		stages.push(reached);
 
 		const card = ok(
-			await write.people((t, c) =>
-				commitments.createCommitment(t, c, {
-					requestKey: key(),
-					input: { personId: id, kind: "core_group", occurredOn: "2026-10-01" },
-				}),
-			),
+			await write.people(commitments.createCommitment, {
+				requestKey: key(),
+				input: { personId: id, kind: "core_group", occurredOn: "2026-10-01" },
+			}),
 		);
 		const committed = await stage(id);
 		ok(
-			await write.people((t, c) =>
-				commitments.withdrawCommitment(t, c, {
-					requestKey: key(),
-					expectedRevision: card.person.revision,
-					input: { personId: id, effectiveOn: "2026-10-02" },
-				}),
-			),
+			await write.people(commitments.withdrawCommitment, {
+				requestKey: key(),
+				expectedRevision: card.person.revision,
+				input: { personId: id, effectiveOn: "2026-10-02" },
+			}),
 		);
 		withdrawal ||= (await stage(id)) !== committed;
 		if (removeFrom) {
 			const teamId = removeFrom;
 			ok(
-				await write.teams(async (t, c) =>
-					teamsWriter.endMembership(t, c, {
-						requestKey: key(),
-						expectedRevision: await w.revisionOf("team", teamId),
-						input: { teamId, personId: id },
-					}),
-				),
+				await write.teams(teamsWriter.endMembership, {
+					requestKey: key(),
+					expectedRevision: await w.revisionOf("team", teamId),
+					input: { teamId, personId: id },
+				}),
 			);
 			removal ||= (await stage(id)) !== committed;
 		}
@@ -453,7 +448,7 @@ test("AC:TARGET-PPL-020 each recorded event advances a stage once and nothing mo
 	);
 	const failed = await person("Stage fault");
 	const request = await finalizeRequest(await meeting(), [failed]);
-	await w.commitFault("audit_event", () => finalize(request));
+	await w.commitFault("audit_event", () => tx((t) => attendance.finalizeAttendance(t, ctx(), request)));
 	assert.deepEqual([await stage(failed), await changes(failed)], ["prospect", 0]);
 });
 
@@ -464,12 +459,10 @@ test("AC:TARGET-PPL-024 attendance and training writes that race a merge or a re
 		attendance: async (personId: string) => {
 			const m = await meeting();
 			return () =>
-				write.meetings((t, c) =>
-					guestsWriter.inviteGuest(t, c, {
-						requestKey: key(),
-						input: { meetingId: m, personId },
-					}),
-				);
+				write.meetings(guestsWriter.inviteGuest, {
+					requestKey: key(),
+					input: { meetingId: m, personId },
+				});
 		},
 		training: async (personId: string) => {
 			const seen = ok(
@@ -479,13 +472,11 @@ test("AC:TARGET-PPL-024 attendance and training writes that race a merge or a re
 				}),
 			);
 			return () =>
-				write.teams((t, c) =>
-					trainingWriter.setRequiredTrainingParticipants(t, c, {
-						requestKey: key(),
-						expectedRevision: seen.revision,
-						input: { programId: program, personIds: [personId], rosterDigest: seen.rosterDigest },
-					}),
-				);
+				write.teams(trainingWriter.setRequiredTrainingParticipants, {
+					requestKey: key(),
+					expectedRevision: seen.revision,
+					input: { programId: program, personIds: [personId], rosterDigest: seen.rosterDigest },
+				});
 		},
 	};
 	const { peopleMerge, peopleWriter } = await import("../../../../../packages/domain/src/people/index.ts");

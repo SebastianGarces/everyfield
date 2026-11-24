@@ -66,16 +66,31 @@ export async function world(prefix: string) {
 		return found;
 	};
 	const write = {
-		meetings: async <T,>(body: (t: WriteTx, c: MeetingsContext) => Promise<MeetingsReply<T>>, who: Who = "admin") =>
-			withMeetingsWrite(db, await authorityOf(who), body),
-		tasks: async <T,>(body: (t: WriteTx, c: TaskContext) => Promise<TaskReply<T>>, who: Who = "admin") =>
-			withTaskWrite(db, await authorityOf(who), body),
-		followUps: async <T,>(body: (t: WriteTx, c: TaskContext) => Promise<FollowUpReply<T>>, who: Who = "admin") =>
-			withFollowUpWrite(db, await authorityOf(who), body),
-		teams: async <T,>(body: (t: WriteTx, c: TeamsContext) => Promise<TeamsReply<T>>, who: Who = "admin") =>
-			withTeamsWrite(db, await authorityOf(who), body),
-		people: async <T,>(body: (t: WriteTx, c: WriteContext) => Promise<Reply<T>>, who: Who = "admin") =>
-			withPeopleWrite(db, await authorityOf(who), body),
+		meetings: async <T,>(
+			op: (t: WriteTx, c: MeetingsContext, raw: unknown) => Promise<MeetingsReply<T>>,
+			input: unknown,
+			who: Who = "admin",
+		) => withMeetingsWrite(db, await authorityOf(who), (t, c) => op(t, c, input)),
+		tasks: async <T,>(
+			op: (t: WriteTx, c: TaskContext, raw: unknown) => Promise<TaskReply<T>>,
+			input: unknown,
+			who: Who = "admin",
+		) => withTaskWrite(db, await authorityOf(who), (t, c) => op(t, c, input)),
+		followUps: async <T,>(
+			op: (t: WriteTx, c: TaskContext, raw: unknown) => Promise<FollowUpReply<T>>,
+			input: unknown,
+			who: Who = "admin",
+		) => withFollowUpWrite(db, await authorityOf(who), (t, c) => op(t, c, input)),
+		teams: async <T,>(
+			op: (t: WriteTx, c: TeamsContext, raw: unknown) => Promise<TeamsReply<T>>,
+			input: unknown,
+			who: Who = "admin",
+		) => withTeamsWrite(db, await authorityOf(who), (t, c) => op(t, c, input)),
+		people: async <T,>(
+			op: (t: WriteTx, c: WriteContext, raw: unknown) => Promise<Reply<T>>,
+			input: unknown,
+			who: Who = "admin",
+		) => withPeopleWrite(db, await authorityOf(who), (t, c) => op(t, c, input)),
 	};
 	const rows = async <R extends Row = Row>(query: SQL) => (await admin.execute<R>(query)).rows;
 	const one = async <R extends Row = Row>(query: SQL) => {
