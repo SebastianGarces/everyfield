@@ -552,8 +552,8 @@ async function prepare(
 	const stored = one(
 		await db.execute(sql`WITH gate AS (SELECT ${adminGate(actor)} AS allowed),
 			input AS (
-				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, refusal, guardians, guardianCopy, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, refusal, guardians, guardian_copy: guardianCopy, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
-					id uuid, person uuid, refusal text, guardians uuid[], guardian_copy boolean, logical_key text, payload_hash text, token_hash text, address_hash text,
+				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, child, refusal, guardians, guardianCopy, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, child, refusal, guardians, guardian_copy: guardianCopy, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
+					id uuid, person uuid, child boolean, refusal text, guardians uuid[], guardian_copy boolean, logical_key text, payload_hash text, token_hash text, address_hash text,
 					payload jsonb, address text, batch int, position int
 				)
 			),
@@ -567,9 +567,9 @@ async function prepare(
 					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at, refusal, guardian_mail_ids, guardian_copy)
 				SELECT i.id, ${actor.plantId}::uuid, i.person, 'communication', ${found.id}::uuid, i.logical_key, i.payload_hash, ${loaded.digest},
 					i.payload, i.address, i.address_hash,
-					CASE WHEN i.refusal IS NOT NULL OR i.unsubscribed OR EXISTS (
+					CASE WHEN i.refusal IS NOT NULL OR i.unsubscribed OR (NOT i.child AND EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
-					) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
+					)) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
 					clock_timestamp(), ${heldUntil}::timestamptz,
 					CASE WHEN i.refusal IS NOT NULL THEN i.refusal WHEN i.unsubscribed THEN 'unsubscribed' END,
 					CASE WHEN i.refusal = 'guardian' THEN i.guardians END, i.guardian_copy

@@ -1,3 +1,4 @@
+import "../runs-in/react-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { overviewSubtitle } from "../../../apps/web/src/features/overview/model.ts";

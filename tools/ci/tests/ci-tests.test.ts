@@ -354,3 +354,56 @@ test("INV-ci-tests: CI runs this check on its own, in the tooling job the requir
 	assert.match(job, /^ +run: node tools\/ci\/ci-tests\.ts$/m);
 	assert.match(workflow, /needs: \[[^\]]*\btooling\b[^\]]*\]/);
 });
+
+test("INV-ci-tests: tests/unit files the test-unit runner finds count as run by the package their marker names", () => {
+	const f = fixture();
+	try {
+		mkdirSync(join(f.root, ".github/workflows"), { recursive: true });
+		mkdirSync(join(f.root, "tests/unit/people"), { recursive: true });
+		mkdirSync(join(f.root, "tests/integration/platform"), { recursive: true });
+		writeFileSync(join(f.root, "package.json"), JSON.stringify({ scripts: {} }));
+		mkdirSync(join(f.root, "apps/web"), { recursive: true });
+		mkdirSync(join(f.root, "packages/domain"), { recursive: true });
+		const runner = (pkg: string, args = "") =>
+			writeFileSync(
+				join(f.root, pkg === "@everyfield/web" ? "apps/web" : "packages/domain", "package.json"),
+				JSON.stringify({ name: pkg, scripts: { "test:unit": `node ../../tools/ci/test-unit.ts${args}` } }),
+			);
+		runner("@everyfield/web", " --react-server ../../tests/integration/platform/unit.test.mts");
+		runner("@everyfield/domain");
+		writeFileSync(join(f.root, "tests/integration/platform/unit.test.mts"), "");
+		writeFileSync(join(f.root, "tests/unit/people/model.test.mjs"), 'import "node:test";\n');
+		writeFileSync(
+			join(f.root, "tests/unit/people/picker.test.mts"),
+			'import "../runs-in/render.mjs";\nimport "node:test";\n',
+		);
+		writeFileSync(
+			join(f.root, ".github/workflows/ci.yml"),
+			"jobs:\n  tests:\n    steps:\n      - run: pnpm -r --if-present test:unit\n",
+		);
+		let result = cli(f.root);
+		assert.equal(result.status, 0, result.stderr);
+		assert.match(result.stdout, /CI includes all 3 test files/);
+		writeFileSync(
+			join(f.root, "packages/domain/package.json"),
+			JSON.stringify({ name: "@everyfield/domain", scripts: { lint: "eslint ." } }),
+		);
+		result = cli(f.root);
+		assert.equal(result.status, 1);
+		assert.equal(
+			result.stderr,
+			"ci-tests: Tests missing from CI commands:\ntests/unit/people/picker.test.mts\n" +
+				"Add them to a CI test command or replace a fixed list with a glob.\n",
+		);
+		runner("@everyfield/domain");
+		writeFileSync(join(f.root, "tests/unit/people/picker.test.mts"), 'import "../runs-in/renderer.mjs";\n');
+		result = cli(f.root);
+		assert.equal(result.status, 1);
+		assert.equal(
+			result.stderr,
+			"ci-tests: tests/unit/people/picker.test.mts imports tests/unit/runs-in/renderer.mjs, which is no group in tools/ci/test-unit.ts.\n",
+		);
+	} finally {
+		f.close();
+	}
+});

@@ -1,3 +1,4 @@
+import "../runs-in/react-server.mjs";
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { main } from "../../../tools/flag/main.ts";

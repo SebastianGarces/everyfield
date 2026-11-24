@@ -1,3 +1,4 @@
+import "../runs-in/render.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { instant } from "../../../packages/contracts/src/common/time.ts";
