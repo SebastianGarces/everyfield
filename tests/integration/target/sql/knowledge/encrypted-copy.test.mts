@@ -9,13 +9,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "../../../../../packages/contracts/node_modules/typescript/lib/typescript.js";
 import { sql } from "../../../../../packages/db/src/query.ts";
-import { S3Client } from "../../../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
+import { S3Client } from "../../../../../packages/db/src/schema/storage.ts";
 import { RequestActor } from "../../../../../packages/domain/src/access/session.ts";
 import { documentsWriter } from "../../../../../packages/domain/src/documents/index.ts";
 import { BackupDirectory, createEncryptedCopy, openEncryptedCopy } from "../../../../../ops/maintenance/copy.mts";
-import { validateCandidate } from "../../../../../ops/maintenance/recovery.mts";
+import { manifestSchema, validateCandidate } from "../../../../../ops/maintenance/recovery.mts";
 import { testDatabase } from "../../../../support/test-database.mts";
-import { ok, refused, seeds } from "../../../../support/fixture.mts";
+import { type Actor, type Workspace, ok, refused, seeds } from "../../../../support/fixture.mts";
 import { freezeClock, operator, readyFile, snapshot, type Store } from "./support.mts";
 
 const NOW = new Date("2026-10-13T16:00:00.000Z");
@@ -47,9 +47,9 @@ class MemoryClient extends S3Client {
 			credentials: { accessKeyId: "test", secretAccessKey: "test" },
 		});
 	}
-	async send(command) {
+	override async send(command: { input: { Key?: string } }) {
 		if (command.constructor.name !== "GetObjectCommand") throw new Error(`unexpected ${command.constructor.name}`);
-		const body = live.get(command.input.Key)!;
+		const body = live.get(String(command.input.Key))!;
 		return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
 	}
 }
@@ -65,7 +65,8 @@ const keys = () =>
 const writes = () => keys().length;
 
 let dir: string, keyFile: string, otherKeyFile: string, kek: Buffer;
-let plant, a, actor, documentId: string, subject: string, plain;
+let plant: Workspace, a: Actor, actor: RequestActor, documentId: string, subject: string;
+let plain: Awaited<ReturnType<typeof snapshot>>;
 
 before(async () => {
 	mock.timers.enable({ apis: ["Date"], now: NOW.getTime() });
@@ -82,8 +83,9 @@ before(async () => {
 
 	plant = await seed.plant({ name: "Harvest Point" });
 	a = await seed.actor(plant, "admin");
-	actor = await RequestActor.resolve(db, a.session);
-	assert.ok(actor instanceof RequestActor);
+	const resolved = await RequestActor.resolve(db, a.session);
+	assert.ok(resolved instanceof RequestActor);
+	actor = resolved;
 	subject = (await seed.actor(plant, "member")).id;
 	const file = await readyFile(admin, live, plant.id, DOCUMENT);
 	const { rows } = await admin.execute<{ id: string }>(sql`INSERT INTO generated_document (tenant_id, template_id,
@@ -183,7 +185,7 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 		assert.deepEqual(checked.manifest.database, { ...plain.manifest.database });
 		assert.deepEqual(
 			checked.manifest.objects.map((o) => ({ id: o.id, sha256: o.sha256, bytes: o.bytes })),
-			[{ id: plain.manifest.objects[0].id, sha256: sha256(DOCUMENT), bytes: DOCUMENT.length }],
+			[{ id: plain.manifest.objects[0]!.id, sha256: sha256(DOCUMENT), bytes: DOCUMENT.length }],
 		);
 		assert.equal(checked.manifest.database.sha256, sha256(plain.image));
 		const copied = keys()
@@ -193,7 +195,7 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 			"database",
 			"key",
 			"manifest.json",
-			`objects/${plain.manifest.objects[0].id}`,
+			`objects/${plain.manifest.objects[0]!.id}`,
 		]);
 		for (const [key, bytes] of copied) {
 			if (key.endsWith("manifest.json")) continue;
@@ -211,7 +213,7 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 			const opened = await openEncryptedCopy(store, location, keyFile);
 			assert.deepEqual(opened.image, plain.image);
 			assert.equal(sha256(opened.image), plain.manifest.database.sha256);
-			const id = plain.manifest.objects[0].id;
+			const id = plain.manifest.objects[0]!.id;
 			assert.deepEqual(Buffer.from(opened.objects.get(id)!), DOCUMENT);
 			assert.equal(sha256(opened.objects.get(id)!), sha256(DOCUMENT));
 		},
@@ -237,7 +239,7 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 			return b;
 		};
 		await tamper(`${location}/database`, flip);
-		await tamper(`${location}/objects/${plain.manifest.objects[0].id}`, flip);
+		await tamper(`${location}/objects/${plain.manifest.objects[0]!.id}`, flip);
 		await tamper(`${location}/key`, flip);
 		await tamper(`${location}/manifest.json`, (b) =>
 			Buffer.from(b.toString("utf8").replace(plain.manifest.database.sha256, "a".repeat(64))),
@@ -269,7 +271,7 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 
 	await step.test("a recopy that carries a later subject expiry is refused", async () => {
 		const opened = await openEncryptedCopy(store, location, keyFile);
-		const old = opened.manifest as Record<string, any>;
+		const old = manifestSchema.parse(opened.manifest);
 		const later = new Date(RECOPY.getTime() + 7 * DAY).toISOString();
 		const redated = {
 			...opened,
@@ -283,7 +285,7 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 		const before = writes();
 		const refusedCopy = await copyAt(RECOPY, {
 			source: { snapshot: redated },
-			originalExpiries: new Map(old.subjects.map((s) => [s.id, s.expiresAt])),
+			originalExpiries: new Map(old.subjects.map((s) => [s.id, s.expiresAt] as const)),
 		});
 		assert.deepEqual(refusedCopy, { copy_encrypted: false, refusal: "subject_expired_or_reset", location: null });
 		assert.equal(writes(), before);

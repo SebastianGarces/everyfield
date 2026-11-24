@@ -6,7 +6,7 @@ import { migrate, migrationArtifact } from "../../packages/db/src/schema/migrate
 import type { Database } from "../../packages/db/src/client.ts";
 import { ManifestRefused, validateCandidate } from "./recovery.mts";
 const require = createRequire(new URL("../../packages/domain/package.json", import.meta.url));
-const { z } = require("zod");
+const { z }: typeof import("../../packages/domain/node_modules/zod/index.js") = require("zod");
 
 export const OPERATION = "maintenance.restoreWithCurrentManifest";
 const IDENTIFIER = /^[a-z][a-z0-9_]{0,62}$/;

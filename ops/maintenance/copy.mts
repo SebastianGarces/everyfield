@@ -6,7 +6,7 @@ import { readPrivateBytes } from "./control.mts";
 import { ManifestRefused, validateCandidate } from "./recovery.mts";
 import type { Snapshot } from "./restore.mts";
 const require = createRequire(new URL("../../packages/domain/package.json", import.meta.url));
-const { z } = require("zod");
+const { z }: typeof import("../../packages/domain/node_modules/zod/index.js") = require("zod");
 
 export const COPY_OPERATION = "maintenance.createEncryptedCopy";
 const capability = z.strictObject({
