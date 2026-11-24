@@ -21,7 +21,7 @@ import { REVIEWED_WRITES } from "../../../packages/evry/src/proposals/store.ts";
 import { MEETINGS_COMMANDS } from "../../../packages/evry/src/adapters/meetings/commands/index.ts";
 import { getPerson, listPeople, verifyPeople } from "../../../packages/evry/src/adapters/people/reads/index.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
-import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
+import { scriptedModel } from "../../../packages/evry-scripted/src/scripted.ts";
 import { transientRetry, withTransientRetry } from "../../../packages/evry/src/runtime/model.ts";
 import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
 import { loadHistory } from "../../../packages/evry/src/runtime/run-store.ts";
@@ -289,8 +289,14 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		"tasks.createSubtask",
 		"tasks.setSubtaskCompletion",
 		"tasks.removeSubtask",
+		"tasks.acceptPhaseOffer",
+		"tasks.answerPhaseOffer",
+		"tasks.declinePhaseOffer",
+		"tasks.importTemplate",
+		"tasks.replacePrerequisites",
 		"tasks.createFollowUp",
 		"tasks.assignFollowUp",
+		"tasks.executeHandoff",
 		"tasks.reopenObligation",
 		"followups.recordOutcome",
 		"followups.correctOutcome",
@@ -301,6 +307,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		"communication.get",
 		"communication.forPerson",
 		"communication.templates.list",
+		"communication.forMeeting",
+		"communication.meetingRecipientTracking",
+		"communication.deliveryTotals",
+		"mail.suppression.listForSelf",
 	];
 	const wikiWrites = ["wiki.bookmarks.set", "wiki.feedback.setMine"];
 	const orgWikiWrites = [
@@ -369,6 +379,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"communication.templates.create",
 						"communication.templates.fork",
 						"communication.templates.update",
+						"communication.templates.archiveOrDelete",
+						"communication.correctContactLog",
 						"notifications.markSelectedRead",
 						"notifications.markAllVisibleRead",
 						"notifications.setPreferences",
@@ -420,6 +432,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 					]
 				: who === "member"
 					? [
+							"communication.correctContactLog",
 							"notifications.markSelectedRead",
 							"notifications.markAllVisibleRead",
 							"notifications.setPreferences",
@@ -535,6 +548,12 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"communication.forPerson",
 						"communication.templates.list",
 						"communication.resendCandidates",
+						"communication.forMeeting",
+						"communication.meetingRecipientTracking",
+						"communication.deliveryTotals",
+						"communication.listAudienceTeams",
+						"communication.searchRecipients",
+						"mail.suppression.listForSelf",
 						...ownerTaskReads,
 						"notifications.feed",
 						"notifications.preferences.get",
@@ -543,6 +562,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"phases.readCatalog",
 						"phases.readHistory",
 						"phases.readReadiness",
+						"intelligence.readExitCriteria",
+						"intelligence.readJourney",
 						"signals.listDefinitions",
 						"signals.getHistory",
 						...MEETINGS_READS,
@@ -594,6 +615,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 								"oversight.listPlants",
 								"oversight.getPlant",
 								"organizationIntelligence.read",
+								"organizationIntelligence.readHistory",
+								"organizationIntelligence.readLocations",
+								"organizationIntelligence.readLocationHistory",
 							]
 						: who === "seatless"
 							? ["discovery.getProfile"]

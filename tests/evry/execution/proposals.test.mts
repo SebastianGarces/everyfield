@@ -9,6 +9,7 @@ import type {
 import {
 	approveProposal,
 	cancelProposal,
+	projectError,
 	cancelTurn,
 	createConversation,
 	executeProposal,
@@ -24,10 +25,23 @@ import {
 import { waitingOnLock } from "../../support/fixture.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
-import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
+import { scriptedModel } from "../../../packages/evry-scripted/src/scripted.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim, recoverLease, type Claim } from "../../../packages/domain/src/jobs/queue.ts";
-import { accounts, actor, admin, db, people, plant, queries, setup, sql, teardown, work } from "../runtime/support.mts";
+import {
+	accounts,
+	actor,
+	admin,
+	db,
+	otherPlant,
+	people,
+	plant,
+	queries,
+	setup,
+	sql,
+	teardown,
+	work,
+} from "../runtime/support.mts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -571,4 +585,62 @@ test("INV-budget: a conversation's page read brings every review card's current 
 	} finally {
 		await admin.execute(sql`UPDATE seat SET role='owner' WHERE ${seat}`);
 	}
+});
+
+test("INV-church-changed: approving the old church's pending proposal after the seat moves church is refused as church_changed and changes nothing", async () => {
+	const [id, user, session] = [randomUUID(), randomUUID(), randomUUID()];
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${id + "@example.test"},true,'Mover')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${id},${user},'active','planter')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${session},${user},${randomUUID()},clock_timestamp()+interval '1 day')`,
+	);
+	const seat = (church: string) =>
+		admin.execute(
+			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${id},${church},'admin',clock_timestamp())`,
+		);
+	const fresh = async () => evryActor((await readViewer(db, session as never))!.authority!);
+	await seat(plant);
+	const before = await fresh();
+	const { proposal } = await propose(before, "Change Chen's city to Joliet");
+	const { proposal: theirs } = await propose(await actor("owner"), "Change Chen's city to Joliet");
+	const approve = (as: EvryActor, p: { id: string; revision: number; digest: string }) =>
+		refusal(approveProposal(db, as, p.id, witness(p), null));
+	const missing = { ...proposal, id: randomUUID() };
+	const state = async () => {
+		const r = await admin.execute(sql`SELECT p.state,p.outcome,p.approved_at,p.job_id,
+			(SELECT count(*)::int FROM audit_event a WHERE a.subject_id=p.conversation_id) AS audits,
+			(SELECT count(*)::int FROM job j WHERE j.kind='evry_effect') AS jobs FROM proposal p WHERE p.id=${proposal.id}`);
+		const row = r.rows[0] as { state: string; outcome: string | null; approved_at: unknown; job_id: string | null };
+		return { ...row, city: (await person(people.alexChen)).city, effects: await effectJobs(proposal.id) };
+	};
+
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${id}`);
+	const seatless = await fresh();
+	assert.equal(seatless.seatId, null);
+	for (const as of [seatless, before]) assert.equal(await approve(as, proposal), "not_found");
+
+	await seat(otherPlant);
+	const moved = await fresh();
+	assert.equal(moved.owner.id, otherPlant);
+	const pending = await state();
+	assert.equal(pending.state, "pending");
+	const thrown = await approveProposal(db, moved, proposal.id, witness(proposal), null).then(
+		() => assert.fail("a moved seat must not approve the old church's proposal"),
+		(e: unknown) => e,
+	);
+	const { correlationId, ...body } = projectError(thrown);
+	assert.match(correlationId, /^[0-9a-f-]{36}$/);
+	assert.deepEqual(body, { code: "church_changed", retry: "never", outcome: "refused" });
+	assert.equal(await approve(moved, missing), "not_found");
+	assert.equal(await approve(moved, theirs), "not_found");
+	assert.deepEqual(
+		await state(),
+		pending,
+		"the proposal stays pending: no approval, effect job, record write or audit row",
+	);
+	assert.equal(await refusal(readReview(db, moved, proposal.id)), "not_found", "a review read keeps its code");
 });

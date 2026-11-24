@@ -84,6 +84,15 @@ export function refusalForModel(code: string): { error: string; detail?: string 
 	return detail ? { error: code, detail } : { error: code };
 }
 
+const RECORDED_CRITERIA = z.array(
+	z.strictObject({ label: z.string(), status: z.string(), reading: z.string().nullable() }),
+);
+function forModel(c: Proposal["review"]["changes"][number]) {
+	if (c.field === "note") return { ...c, before: c.before === null ? null : "(the current note)" };
+	const open = c.field === "openCriteria" ? RECORDED_CRITERIA.safeParse(c.after) : null;
+	return open?.success ? { ...c, after: open.data.map(({ label, status }) => ({ label, status })) } : c;
+}
+
 export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "review">): ModelReply {
 	const target = proposal.review.target;
 	const people = (proposal.review.people ?? []).map((p) => ({
@@ -107,9 +116,7 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 								id: target.id,
 								label: target.label,
 								fields: {
-									changes: proposal.review.changes.map((c) =>
-										c.field === "note" ? { ...c, before: c.before === null ? null : "(the current note)" } : c,
-									),
+									changes: proposal.review.changes.map(forModel),
 								},
 							},
 							...people,

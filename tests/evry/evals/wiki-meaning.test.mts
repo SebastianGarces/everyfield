@@ -11,18 +11,22 @@ import {
 	invokeRead,
 	readConversation,
 	runTurn,
-	selectQualifiedModel,
 	submitTurn,
 	type EvryActor,
 } from "../../../packages/evry/src/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { search } from "../../../packages/evry/src/adapters/wiki/reads/index.ts";
 import type { SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
+import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
+import { runDueWikiEmbedding, wikiPassageEmbedder } from "../../../packages/domain/src/wiki/embedding.ts";
 import { ACTOR_SPECS, evalDatabase, seedHope, WIKI } from "./golden-church.mts";
 import { VISION_OPENING, VISION_SLUG, VISION_TITLE } from "../adapters/wiki/corpus.mts";
 
 type Case = { id: string; criterion: number; given: string; ask: string; search: string[]; answer: string[] };
+type NetworkVersion = { revision: string };
 const { cases } = JSON.parse(readFileSync(new URL("./wiki-meaning.cases.json", import.meta.url), "utf8")) as {
 	cases: Case[];
 };
@@ -31,15 +35,20 @@ const DIMENSIONS = 1536;
 const QUESTION = "getting people excited about our church's direction";
 const axis = (index: number) => Array.from({ length: DIMENSIONS }, (_, at) => (at === index ? 1 : 0));
 const near = Array.from({ length: DIMENSIONS }, (_, at) => (at === 0 ? 0.8 : at === 1 ? 0.6 : 0));
-const VECTORS: Record<string, number[]> = { [QUESTION]: near };
+const NETWORK_QUESTION = "showing gratitude to first-time guests";
+const NETWORK_TEXT = "Harvest planters mail a handwritten card within a week, signed by the whole team.";
+const VECTORS: Record<string, number[]> = { [QUESTION]: near, [NETWORK_QUESTION]: axis(3), [NETWORK_TEXT]: axis(3) };
 const SNIPPET = VISION_OPENING.split(/\s+/).slice(0, 20).join(" ");
+const THANKS_SLUG = "core-group/follow-up/thank-you-notes";
+const editorSession = randomUUID();
+let networkVersion: NetworkVersion | null = null;
 
 let close: () => Promise<void>;
 let db: Database;
 let admin: Database;
 let owner: EvryActor;
 const asked: string[] = [];
-const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
 	return viewer?.authority ? evryActor(viewer.authority) : null;
@@ -105,6 +114,39 @@ async function ask(text: string) {
 			.filter((r) => r.operation === "wiki.search"),
 	};
 }
+async function publishNetworkVersion(): Promise<NetworkVersion> {
+	const account = randomUUID();
+	const user = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${account + "@example.test"},true,'Harvest Editor')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${account},${user},'active','network')`,
+	);
+	await admin.execute(sql`INSERT INTO auth_session(id,user_id,token,expires_at)
+		VALUES(${editorSession},${user},${randomUUID()},clock_timestamp()+interval '1 day')`);
+	await admin.execute(sql`INSERT INTO seat(account_id,organization_id,role,accepted_at)
+		VALUES(${account},${WIKI.network},'admin',clock_timestamp()-interval '1 minute')`);
+	const editor = await RequestActor.resolve(db, editorSession as never);
+	assert.ok(editor instanceof RequestActor);
+	const body = JSON.stringify({
+		format: "everyfield-editor-v1",
+		blocks: [{ type: "paragraph", children: [{ type: "text", text: NETWORK_TEXT, marks: [] }] }],
+	});
+	const reply = await createWikiProducer().publishOrganizationArticle(db, editor, {
+		requestKey: randomUUID(),
+		expectedRevision: "1",
+		input: { articleId: WIKI.drafted.article, organizationId: WIKI.network, body },
+	});
+	assert.equal(reply.status, "ok");
+	assert.equal(await runDueWikiEmbedding(db, wikiPassageEmbedder(process.env), 5, Number.POSITIVE_INFINITY), 1);
+	const row = (
+		await admin.execute(sql`SELECT current_revision_id AS revision FROM article_editor_state
+			WHERE organization_id=${WIKI.network} AND article_id=${WIKI.drafted.article} AND state='published'`)
+	).rows[0] as NetworkVersion | undefined;
+	assert.ok(row, "the network's version is published");
+	return row;
+}
 const removeNetworkVersion = async () => {
 	await admin.execute(
 		sql`DELETE FROM article_editor_state WHERE organization_id=${WIKI.network} AND article_id=${WIKI.vision.article}`,
@@ -117,6 +159,7 @@ const removeNetworkVersion = async () => {
 test("INV-evry-wiki-meaning: Evry's wiki.search finds the vision meeting article by meaning and answers from it, never from a global text the church's Wiki does not show", async () => {
 	for (const c of cases) {
 		if (c.given === "network_version_removed") await removeNetworkVersion();
+		if (c.given === "network_version_published") networkVersion = await publishNetworkVersion();
 		const turn = await ask(c.ask);
 		assert.equal(turn.searched.length, 1, `${c.id} searches once`);
 		assert.deepEqual(
@@ -127,7 +170,11 @@ test("INV-evry-wiki-meaning: Evry's wiki.search finds the vision meeting article
 		for (const text of c.answer)
 			assert.ok(turn.answer.includes(text), `${c.id} answer ${JSON.stringify(turn.answer)} has ${text}`);
 	}
-	assert.deepEqual(asked, [QUESTION, QUESTION], "each turn embeds the question once");
+	assert.deepEqual(
+		asked,
+		[QUESTION, QUESTION, NETWORK_TEXT, NETWORK_QUESTION],
+		"each turn embeds the question once, and the publish job embeds the network's text once",
+	);
 });
 
 test("INV-evry-wiki-meaning-adapter: wiki.search returns the vision meeting passage and link for a question with none of its words, with an unchanged input schema", async () => {
@@ -146,6 +193,33 @@ test("INV-evry-wiki-meaning-adapter: wiki.search returns the vision meeting pass
 					href: `/wiki/${VISION_SLUG}`,
 					source: "global",
 					snippet: SNIPPET,
+				},
+			},
+		],
+		total: 1,
+		page: 1,
+		next: null,
+		completeness: "complete",
+		exclusions: ["article text beyond the snippet", "drafts", "hidden articles"],
+	});
+});
+
+test("INV-evry-wiki-meaning-network-adapter: wiki.search returns a network's own published version by meaning, with its passage and link", async () => {
+	assert.ok(networkVersion, "the eval published the network's version first");
+	const result = await invokeRead(db, owner, search as never, { query: NETWORK_QUESTION });
+	assert.deepEqual(result, {
+		operation: "wiki.search",
+		status: "available",
+		rows: [
+			{
+				kind: "article",
+				id: networkVersion.revision,
+				label: "Thank-You Notes",
+				fields: {
+					articleId: WIKI.drafted.article,
+					href: `/wiki/${THANKS_SLUG}`,
+					source: "network",
+					snippet: NETWORK_TEXT,
 				},
 			},
 		],

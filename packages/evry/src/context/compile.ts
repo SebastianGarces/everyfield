@@ -11,11 +11,12 @@ import type { EvryActor } from "./actor.ts";
 import { scrub } from "./errors.ts";
 import { LIMITS } from "./limits.ts";
 import { present } from "../runtime/captured.ts";
+import { PHOTO_NAME } from "../attachments/store.ts";
 
 export const PASTORAL_BOUNDARY =
 	"I help with the church planting work recorded in Everyfield. I can't give pastoral or Biblical counsel, write prayers, or judge whether someone is spiritually ready or qualified. Your church's leaders are the right people for that. I can show what is recorded about a person, such as their stage and history.";
 
-const requestKind = z.object({ kind: z.enum(["application", "capabilities", "pastoral_boundary"]) });
+const requestKind = z.strictObject({ kind: z.enum(["application", "capabilities", "pastoral_boundary"]) });
 export type RequestKind = z.infer<typeof requestKind>["kind"];
 
 export async function classifyRequest(model: LanguageModelV4, text: string, signal: AbortSignal) {
@@ -27,7 +28,7 @@ export async function classifyRequest(model: LanguageModelV4, text: string, sign
 		maxOutputTokens: 32,
 		output: Output.object({ schema: requestKind }),
 		system:
-			"Classify the user's request to EveryField's church-planting assistant. pastoral_boundary: the user asks for pastoral or Biblical counsel, a prayer to be written, or a judgment of someone's spiritual readiness or suitability. capabilities: the user asks what the assistant can do. application: anything else, including records that merely mention prayer.",
+			"Classify the user's request to EveryField's church-planting assistant. pastoral_boundary: the user asks for pastoral or Biblical counsel, a prayer to be written, or a judgment of a person's spiritual readiness or suitability. capabilities: the user asks only what the assistant can do in general, such as what it can do or help with, and names nothing to read, find or change. application: anything else, including any request to read, find, change or set something, questions about the church's records, templates, tags, checklists, Wiki, settings or notifications, planning the church's work, such as what to focus on this week, short replies such as yes, records that merely mention prayer, and questions about the church's launch, its Launch plan or its phase readiness, such as whether the church is ready to launch or to move to the next phase.",
 		prompt: scrub(text),
 		telemetry: { functionId: "evry.classify" },
 	});
@@ -176,6 +177,10 @@ export const OVERSIGHT_RULES = {
 	totalsOnly:
 		"Oversight shows totals only, so I can't list a plant's people, or read their notes, interviews or private care. Here is what that plant shares with you:",
 	noRanking: "I don't rank or score plants against each other.",
+	noPlaceRanking:
+		"Network Intelligence doesn't rank or score plants or places, so I can't say which one is doing best. I can show you the patterns it found instead, for one Region, state or country or across your whole portfolio.",
+	earlierRunLocation:
+		"An earlier Network Intelligence run keeps the location it used then. Only runs after a correction use the new one.",
 	plantRegion: (plant: string, region: string) =>
 		`I can't change that. Only ${plant}'s Owner or Admin can update its location and reporting Region, in their church settings. The Region I'm using now is ${region}. Nothing changed.`,
 } as const;
@@ -186,6 +191,10 @@ function oversightRules() {
 		`Quote Network Intelligence patterns as organizationIntelligence.read gives them, with the plants they name. A pattern always has two or more plants: one plant alone is never a pattern. Never rank or score plants; when asked to, reply: ${OVERSIGHT_RULES.noRanking} Which plants are close to launch comes only from each plant's shared Launch readiness and published summary.`,
 		`A plant's location and reporting Region belong to that plant. When the user asks to change one, read oversight.listPlants, prepare nothing and reply: ${OVERSIGHT_RULES.plantRegion("<the plant>", "<its region from oversight.listPlants>")}`,
 	].join("\n");
+}
+
+function placeRules() {
+	return `Network Intelligence by place and over time comes from organizationIntelligence.readHistory (one level or every level, one named place, an earlier run, or what changed since the run before), organizationIntelligence.readLocations (where each plant is placed now) and organizationIntelligence.readLocationHistory (a plant's saved locations and the runs that used each). Quote groups and patterns as they come, say why a group has no pattern, link each plant you name with its plantLinks or href and link the page view with href. A plant with No Region set still counts at its state, its country and the whole portfolio. ${OVERSIGHT_RULES.earlierRunLocation} Never give a street address or coordinates. When asked which plant or place is doing best, or to rank or score them, reply: ${OVERSIGHT_RULES.noPlaceRanking}`;
 }
 
 function roleRule(actor: EvryActor) {
@@ -259,13 +268,14 @@ const READ_AREAS: Record<string, string> = {
 		"Read your Plant Intelligence: committed adults, the scorecard, the latest assessment and what changed.",
 	oversight: "Read how your plants are doing, as your oversight pages show them, and Network Intelligence.",
 };
-const WRITE_AREAS: { prefix: string; text: string }[] = [
+const WRITE_AREAS: { prefix: string; except?: string; text: string }[] = [
 	{
 		prefix: "people.",
 		text: "Prepare changes to people for your review: add someone, update their details, move them to another stage, remove them, set or remove a photo, and import a People spreadsheet you checked with me.",
 	},
 	{
 		prefix: "communication.",
+		except: "communication.correctContactLog",
 		text: "Prepare emails for your review: save a draft, then schedule, move, cancel or change a scheduled email.",
 	},
 	{
@@ -331,7 +341,9 @@ export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "rol
 	const ops = new Set(catalog.domains.flatMap((d) => d.operations.map((o) => o.operation)));
 	if (ops.has("people.previewImport"))
 		reads.push("Check a People spreadsheet you attach here, row by row, before anything is imported.");
-	const writes = WRITE_AREAS.filter((a) => catalog.reviewedWrites.some((w) => w.operation.startsWith(a.prefix)));
+	const writes = WRITE_AREAS.filter((a) =>
+		catalog.reviewedWrites.some((w) => w.operation.startsWith(a.prefix) && w.operation !== a.except),
+	);
 	const lines = reads.length
 		? ["Here is what I can do for you here:", ...reads.map((r) => "- " + r), ...writes.map((w) => "- " + w.text)]
 		: ["I don't have anything to read in this context yet."];
@@ -386,6 +398,25 @@ function taskRules(catalog: Catalog) {
 		"To log a call or visit the user describes, prepare followups.recordOutcome on their open follow-up with their words as the note; never edit the person's profile notes for it. Use contacted only when the user says a conversation happened.",
 		"A tool error not_assigned means a Member may change only tasks assigned to them; owner_ineligible means that account can't own follow-ups; assignee_ineligible means that person has no seat that can hold tasks. Say so plainly.",
 		`For what to focus on this week, read the tasks due this week (tasks.list due this_week), ${meetings ? "the upcoming meetings (meetings.list window upcoming), " : ""}the open follow-ups (tasks.listFollowUpOwners) and the pipeline board, then list items from each with where it came from and its owner and date where recorded${meetings ? "" : ", and name meetings as an area you couldn't read"}. Never rank people by spiritual judgment or invent priorities or items.`,
+		...planRules(catalog),
+	];
+}
+
+export const PLAN_WRITES = [
+	"tasks.acceptPhaseOffer",
+	"tasks.answerPhaseOffer",
+	"tasks.declinePhaseOffer",
+	"tasks.importTemplate",
+	"tasks.executeHandoff",
+	"tasks.replacePrerequisites",
+] as const;
+function planRules(catalog: Catalog) {
+	if (!catalog.reviewedWrites.some((w) => (PLAN_WRITES as readonly string[]).includes(w.operation))) return [];
+	return [
+		"Before answering the phase offer, read tasks.readPhaseOffer. To take every offered checklist propose tasks.acceptPhaseOffer; to take some and not others, tasks.answerPhaseOffer with the accepted ids; to take none, tasks.declinePhaseOffer. When no offer is open, or a tool error says offer_answered, prepare nothing: read tasks.importReceipt and say the offer was already answered and how.",
+		"To import part of a checklist, find it in tasks.listTemplates, read tasks.previewTemplate and propose tasks.importTemplate with only the items the user named. When a named item isn't in that checklist, prepare nothing and name the checklist's real items.",
+		"To hand off one account's follow-ups, propose tasks.executeHandoff from that account to the new one. owner_ineligible means the new account can't own follow-ups; protected_owner means an Owner's follow-ups can't be handed off this way. Say so plainly.",
+		"To set the tasks one task waits on, propose tasks.replacePrerequisites with the whole new set; [] clears them. dependency_cycle means the change would make a cycle; invalid_subject means a checklist row can't wait on tasks, or a named prerequisite isn't a top-level task. Say why plainly.",
 	];
 }
 
@@ -446,8 +477,10 @@ function savedFacts(state: ConversationState | null) {
 							? `available until ${when(present(a.availableUntil))}`
 							: a.status === "replaced"
 								? "replaced by a newer file with the same name"
-								: "gone: attached files last 24 hours; ask the user to attach it again"
-					}${a.status !== "gone" ? (a.checkedDigest ? `; checked: fileDigest ${a.checkedDigest}` : "; not checked yet") : ""}`,
+								: a.status === "used"
+									? "used: it is already someone's People photo; to use it again, ask the user to attach it again"
+									: "gone: attached files last 24 hours; ask the user to attach it again"
+					}${a.status === "available" || a.status === "replaced" ? (a.checkedDigest ? `; checked: fileDigest ${a.checkedDigest}` : "; not checked yet") : ""}`,
 			),
 		);
 	if (state.reviews.length)
@@ -511,6 +544,7 @@ export function compileContext(input: {
 			: "",
 		`${NOT_TRACKED} When asked about something Everyfield does not track, say plainly that Everyfield doesn't track it, and call no tool for it.`,
 		input.actor.contextKind === "plant" ? PRIVATE_CARE : "",
+		ops.has("organizationIntelligence.readLocations") ? placeRules() : "",
 		input.catalog.reviewedWrites.some((w) => EMAIL_HANDOFF.has(w.operation))
 			? "When the user says to send or save an email you drafted, propose it with the subject and body exactly as you last showed them: change nothing they didn't ask for, and if something in it looks wrong, ask before proposing."
 			: "",
@@ -531,6 +565,10 @@ export function compileContext(input: {
 			: "",
 		ops.has("people.previewImport")
 			? "A file the user attached is listed below with its attachmentId. To check a People spreadsheet, call people.previewImport with its attachmentId; it writes nothing. To import it, propose people.executeBulkImport with that attachmentId and the fileDigest of its latest check. A file that is not listed, such as one attached in another conversation, on a computer or at a link, can't be used here: ask the user to attach it in this conversation."
+			: "",
+		input.catalog.reviewedWrites.some((w) => w.operation === "people.setPersonPhoto") &&
+		input.state?.attachments.some((a) => PHOTO_NAME.test(a.name))
+			? "To make a photo attached here (a .jpg, .jpeg, .png or .webp file in the list of attached files) someone's People photo, find the person, then propose people.setPersonPhoto with that photo's attachmentId as uploadId. Use only a photo listed as available; for any other, ask the user to attach it here. An \"Attached photo\" reference is only for the user's own account photo (account.finalizeAvatar)."
 			: "",
 		...taskRules(input.catalog),
 		recordedJudgments(input.catalog),

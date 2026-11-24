@@ -216,7 +216,11 @@ export function fromStates<S extends string, E extends string, G extends string,
 	return [...new Set(found.map((t) => t.from))];
 }
 
-export function refusalOf(m: MachineShape, event: string, from: string): string {
+export function refusalOf<R extends string>(
+	m: { readonly refusal: R; readonly refusalCodes?: readonly RefusalCode<string, string, R>[] },
+	event: string,
+	from: string,
+): R {
 	return (
 		m.refusalCodes?.find((r) => r.event === event && (r.from === undefined || many(r.from).includes(from)))?.code ??
 		m.refusal

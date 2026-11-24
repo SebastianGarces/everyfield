@@ -1,8 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs } from "node:util";
+import { parseArgs, parseEnv } from "node:util";
+import { identityDefaults } from "../.agents/skills/verify-preview/scripts/preview-env.mjs";
 import { recordsDir, wrapSetupCommands } from "./setup-step.mjs";
 
 const help = `Local preview commands, Node 24 and managed Portless required:
@@ -24,20 +26,20 @@ function portless(args) {
 	return JSON.parse(result.stdout);
 }
 
-function previewConfig(project) {
+function previewConfig(project, mode) {
 	const file = join(project, "scripts/preview.json");
+	if (!existsSync(file)) return file;
 	const records = recordsDir(project);
-	if (!records || !existsSync(file)) return file;
-	const config = wrapSetupCommands(JSON.parse(readFileSync(file, "utf8")), {
-		source: "stack",
-		records,
-		node: process.execPath,
-	});
-	const dir = join(dirname(records), "evf-preview-config");
+	const base = JSON.parse(readFileSync(file, "utf8"));
+	const config = records ? wrapSetupCommands(base, { source: "stack", records, node: process.execPath }) : base;
+	const envFile = join(project, "apps/web/.env.local");
+	const local = mode === "development" && existsSync(envFile) ? parseEnv(readFileSync(envFile, "utf8")) : {};
+	config.env = { ...identityDefaults({ ...local, ...process.env }), ...base.env };
+	const dir = join(records ? dirname(records) : tmpdir(), "evf-preview-config");
 	mkdirSync(dir, { recursive: true, mode: 0o700 });
-	const wrapped = join(dir, `stack-${basename(project)}.json`);
-	writeFileSync(wrapped, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
-	return wrapped;
+	const written = join(dir, `stack-${basename(project)}.json`);
+	writeFileSync(written, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
+	return written;
 }
 
 async function main() {
@@ -60,7 +62,7 @@ async function main() {
 	let preview = previews[0];
 	if (action === "up") {
 		if (preview && preview.mode !== mode) throw new Error("Stop this worktree's preview before changing mode.");
-		preview = portless(["up", "--project", project, "--mode", mode, "--config", previewConfig(project)]);
+		preview = portless(["up", "--project", project, "--mode", mode, "--config", previewConfig(project, mode)]);
 	} else if (action === "down" && preview) {
 		portless(["down", preview.id]);
 		preview = undefined;

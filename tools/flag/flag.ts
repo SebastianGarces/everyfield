@@ -39,6 +39,9 @@ Targets:
   --qa <qa-id>              the Neon branch of a bin/qa preview (bin/qa list), through neonctl
   --production              production, only with FLAG_PRODUCTION_DATABASE_URL set from Sebastian's production env
                             (AGENTS guard 1). Never from a seat, a test or CI.
+  FLAG_READER_DATABASE_URL  production read-only, for flag stale alone (no --file): a login in the everyfield_flag_reader
+                            role, which reads only the flag_rollout view. The nightly flag-cleanup job sets it from the
+                            repo secret and skips while it is unset. Runbook: docs/runbooks/release.md (D99).
 
 Flags Explorer: on a Vercel preview (bin/qa previews, with tokens Vercel signs) and on a deployment with FLAGS_SECRET
 set that is not production (the local bin/dev stack preview), the Vercel Toolbar can force a flag for one browser

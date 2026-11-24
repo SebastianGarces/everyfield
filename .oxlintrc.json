@@ -53,6 +53,7 @@
 		"everyfield/stable-context-value": "error",
 		"everyfield/storage-client": "error",
 		"everyfield/deployment-env": "error",
+		"everyfield/scripted-model-wiring": "error",
 		"everyfield/server-config": "error",
 		"everyfield/no-silent-catch": "error",
 		"everyfield/max-state": "error",
@@ -60,13 +61,33 @@
 		"everyfield/no-sql-comments": "error",
 		"everyfield/no-slop-styling": "error",
 		"everyfield/live-region-in-tree": "error",
+		"everyfield/confirm-keeps-refusal": "error",
 		"everyfield/one-top-level-before": "error"
 	},
 	"overrides": [
 		{
+			"files": ["packages/**"],
+			"rules": {
+				"everyfield/no-default-database": "error"
+			}
+		},
+		{
 			"files": ["packages/*/src/**"],
 			"rules": {
 				"everyfield/no-error-message-match": "error"
+			}
+		},
+		{
+			"files": [
+				"packages/contracts/src/**",
+				"packages/db/src/**",
+				"packages/domain/src/**",
+				"packages/evry/src/**",
+				"packages/reference/src/**"
+			],
+			"rules": {
+				"everyfield/count-text": "error",
+				"everyfield/civil-day": "error"
 			}
 		},
 		{
@@ -169,7 +190,7 @@
 			}
 		},
 		{
-			"files": ["packages/contracts/src/**"],
+			"files": ["packages/contracts/src/**", "packages/evry/src/**"],
 			"rules": {
 				"everyfield/strict-contracts": "error"
 			}
@@ -244,6 +265,12 @@
 				"everyfield/no-raw-history": "error",
 				"jsx-a11y/no-static-element-interactions": "error",
 				"jsx-a11y/click-events-have-key-events": "error"
+			}
+		},
+		{
+			"files": ["apps/web/src/**", "packages/*/src/**"],
+			"rules": {
+				"everyfield/no-double-cast": "error"
 			}
 		}
 	]

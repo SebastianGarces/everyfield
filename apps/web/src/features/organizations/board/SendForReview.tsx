@@ -17,7 +17,7 @@ import {
 } from "@everyfield/ui/controls";
 import { useActionState, useState } from "react";
 import { sendAnswers, withdrawReview } from "./actions";
-import { formatPlainDate } from "../../../components/dates.ts";
+import { dayText } from "@everyfield/contracts/common";
 import { refusalText } from "./model";
 
 type Staff = PipelineBoard["staff"];
@@ -163,7 +163,7 @@ function ReviewItem({
 		<li className="flex flex-col gap-1">
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
 				<span className="text-sm font-medium text-ink [overflow-wrap:anywhere]">
-					Sent to {review.reviewer}: {review.groupName}, {formatPlainDate(review.sentOn)}
+					Sent to {review.reviewer}: {review.groupName}, {dayText(review.sentOn)}
 				</span>
 				{canWithdraw ? (
 					<Button variant="ghost" size="sm" className="ml-auto" onClick={() => setConfirming(true)}>

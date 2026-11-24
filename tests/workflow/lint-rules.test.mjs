@@ -73,7 +73,7 @@ const GROUPS = [
 	{ config: ".oxlintrc.json", cwd: ".", owns: () => true },
 ];
 
-function lintIn(dir, paths, code = /^everyfield\(([\w-]+)\)$/) {
+function lintIn(dir, paths, code = /^everyfield\(([\w-]+)\)$/, messages = false) {
 	const hits = [];
 	for (const group of GROUPS) {
 		const mine = paths.filter((path) => GROUPS.find((g) => g.owns(path)) === group);
@@ -87,13 +87,15 @@ function lintIn(dir, paths, code = /^everyfield\(([\w-]+)\)$/) {
 		for (const d of JSON.parse(ran.stdout.slice(ran.stdout.indexOf("{"))).diagnostics) {
 			const rule = code.exec(d.code ?? "")?.[1];
 			if (rule && rule !== "resend-senders")
-				hits.push(`${relative(dir, resolve(cwd, d.filename))}:${d.labels?.[0]?.span.line ?? 1} ${rule}`);
+				hits.push(
+					`${relative(dir, resolve(cwd, d.filename))}:${d.labels?.[0]?.span.line ?? 1} ${rule}${messages ? ` ${d.message}` : ""}`,
+				);
 		}
 	}
 	return hits.sort();
 }
 
-const lint = (files, lintData) => lintIn(sandbox(files, lintData), Object.keys(files));
+const lint = (files, lintData, messages) => lintIn(sandbox(files, lintData), Object.keys(files), undefined, messages);
 
 const EFFECTS = `import * as R from "react";
 import React2, { useEffect as ue, useLayoutEffect } from "react";
@@ -372,14 +374,16 @@ export const other = () => setInterval(() => {}, 15_000);
 
 test("INV-lint: each listed product timer exempts its one call site, a new timer in the same file is reported and a listed timer that is gone is reported as stale", () => {
 	assert.deepEqual(
-		Object.entries(PRODUCT_TIMERS).flatMap(([path, sites]) => sites.map((s) => `${path} ${s.timer} ${s.within}`)),
+		Object.entries(PRODUCT_TIMERS).flatMap(([path, sites]) =>
+			sites.map((s) => `${path} ${s.timer} ${s.within} ${s.delay}`),
+		),
 		[
-			"apps/web/src/server/evry/http.ts setInterval conversationStreamGet",
-			"packages/evry/src/runtime/turn.ts setTimeout run",
-			"packages/evry/src/runtime/model.ts setTimeout transientRetry",
-			"packages/evry/src/runtime/observe.ts setTimeout timerPause",
-			"packages/db/src/schema/validate-file.ts setTimeout parser",
-			"packages/db/src/schema/validate-file.ts setTimeout parseOnce",
+			"apps/web/src/server/evry/http.ts setInterval conversationStreamGet 15_000",
+			"packages/evry/src/runtime/turn.ts setTimeout run LIMITS.wallMs",
+			"packages/evry/src/runtime/model.ts setTimeout transientRetry ms",
+			"packages/evry/src/runtime/observe.ts setTimeout timerPause ms",
+			"packages/db/src/schema/validate-file.ts setTimeout parser STARTUP_MS",
+			"packages/db/src/schema/validate-file.ts setTimeout parseOnce parseMs",
 		],
 	);
 	const paths = Object.keys(PRODUCT_TIMERS);
@@ -393,10 +397,10 @@ test("INV-lint: each listed product timer exempts its one call site, a new timer
 		const timer = setInterval(() => {}, 1);
 		return timer;
 	}
-	const again = setTimeout(() => {}, 1);
-	const timer = setTimeout(() => {}, 1);
+	const again = setTimeout(() => {}, STARTUP_MS);
+	const timer = setTimeout(() => {}, STARTUP_MS);
 	if (retry) {
-		const timer = setTimeout(() => {}, 1);
+		const timer = setTimeout(() => {}, STARTUP_MS);
 		return timer;
 	}
 	return [timer, again];
@@ -416,9 +420,106 @@ export function other() {
 			"packages/evry/src/runtime/turn.ts": "export const gone = 1;\n",
 		}),
 		[
-			...[1, 3, 6, 9, 15, 16, 19].map((line) => `packages/db/src/schema/validate-file.ts:${line} no-timers`),
+			...[1, 3, 6, 7, 9, 15, 16, 19].map((line) => `packages/db/src/schema/validate-file.ts:${line} no-timers`),
 			"packages/evry/src/runtime/turn.ts:1 no-timers",
 		].sort(),
+	);
+});
+
+test("INV-lint: a listed product timer is exempt only while exactly one call matches it, so a same-delay copy added shallower in the real function reports both calls with a message that names the listed timer and asks to remove the copy", () => {
+	const path = "packages/evry/src/runtime/model.ts";
+	const real = readFileSync(join(repo, path), "utf8");
+	const site = "\t\t\tconst timer = setTimeout(resolve, ms);\n";
+	const body = "): LanguageModelV4Middleware {\n";
+	const copied = real.replace(body, `${body}\tconst timer = setTimeout(() => 1, ms);\n`);
+	const line = (text, at) => text.slice(0, text.indexOf(at)).split("\n").length;
+	const message =
+		"2 calls match the listed product timer setTimeout timer in transientRetry with delay ms, which exempts exactly one. One of them is the listed product timer: keep it. Remove the copy that was added, or give a new timer its own binding and delay and its own reason.";
+	assert.deepEqual(
+		lint({ [path]: copied }, undefined, true).filter((hit) => hit.includes(" no-timers ")),
+		[line(copied, site), line(copied, body) + 1].map((n) => `${path}:${n} no-timers ${message}`).sort(),
+	);
+});
+
+test("INV-lint: a listed product timer exempts only the call with its callee, binding, delay and nearest named function, so a timer in a nested function is reported and two matching calls are both reported", () => {
+	const turn = `export async function run() {
+	if (retry) {
+		const wall = setTimeout(() => {}, LIMITS.wallMs);
+		clearTimeout(wall);
+	}
+	const kick = () => {
+		const wall = setTimeout(() => {}, LIMITS.wallMs);
+		return wall;
+	};
+	const wall = setTimeout(() => {}, LIMITS.wallMs);
+	return [wall, kick];
+}
+`;
+	const observe = `export const timerPause = () => {
+	const helper = () => {
+		const timer = setTimeout(() => {}, ms);
+		return timer;
+	};
+	return helper;
+};
+`;
+	const validate = `export function parser() {
+	function parser() {
+		const timer = setTimeout(() => {}, STARTUP_MS);
+		return timer;
+	}
+	return parser;
+}
+export function parseOnce() {
+	return new Promise((resolve) => {
+		const timer = setTimeout(resolve, parseMs);
+		return timer;
+	});
+}
+`;
+	const model = `export const transientRetry = memo(
+	(
+		sleep = (ms) =>
+			new Promise((resolve) => {
+				const timer = setTimeout(resolve, ms);
+				return timer;
+			}),
+	) => {
+		const timer = setTimeout(sleep, 0);
+		return timer;
+	},
+);
+`;
+	const stream = `export const conversationStreamGet = (ready) => {
+	if (ready) {
+		const heartbeat = setInterval(() => {}, 15_000);
+		return heartbeat;
+	} else {
+		const heartbeat = setInterval(() => {}, 15_000);
+		return heartbeat;
+	}
+};
+`;
+	assert.deepEqual(
+		lint({
+			"packages/evry/src/runtime/turn.ts": turn,
+			"packages/evry/src/runtime/observe.ts": observe,
+			"packages/db/src/schema/validate-file.ts": validate,
+			"packages/evry/src/runtime/model.ts": model,
+			"apps/web/src/server/evry/http.ts": stream,
+		}).filter((hit) => hit.endsWith(" no-timers")),
+		[
+			"apps/web/src/server/evry/http.ts:3 no-timers",
+			"apps/web/src/server/evry/http.ts:6 no-timers",
+			"packages/db/src/schema/validate-file.ts:1 no-timers",
+			"packages/db/src/schema/validate-file.ts:3 no-timers",
+			"packages/evry/src/runtime/model.ts:9 no-timers",
+			"packages/evry/src/runtime/observe.ts:1 no-timers",
+			"packages/evry/src/runtime/observe.ts:3 no-timers",
+			"packages/evry/src/runtime/turn.ts:10 no-timers",
+			"packages/evry/src/runtime/turn.ts:3 no-timers",
+			"packages/evry/src/runtime/turn.ts:7 no-timers",
+		],
 	);
 });
 
@@ -1162,6 +1263,24 @@ function history() {
 	return { dir, path, renamed, write, base };
 }
 
+test("INV-storage: only the storage module imports the object store's URL signer, in any linted file", () => {
+	const reach = `import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+export const later = () => import("@aws-sdk/s3-request-presigner");
+export const signer = getSignedUrl;
+`;
+	const files = [
+		"packages/db/src/schema/presign.ts",
+		"packages/db/scripts/presign.ts",
+		"apps/web/src/features/x/presign.ts",
+		"tests/integration/x/presign.test.mts",
+		"tools/x/presign.ts",
+	];
+	assert.deepEqual(
+		lint(Object.fromEntries([...files, "packages/db/src/schema/storage.ts"].map((path) => [path, reach]))),
+		files.flatMap((path) => [`${path}:1 storage-client`, `${path}:2 storage-client`]).sort(),
+	);
+});
+
 test("INV-storage: only the storage module reaches the object store client and its URL signer, in product code", () => {
 	const reach = `import { S3Client } from "@aws-sdk/client-s3";
 export { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -1185,6 +1304,7 @@ export const client = S3Client;
 			"packages/domain/src/documents/reach.ts:2 storage-client",
 			"packages/domain/src/documents/reach.ts:3 storage-client",
 			"packages/domain/src/documents/reach.ts:4 storage-client",
+			"tests/integration/x/reach.test.mts:2 storage-client",
 		],
 	);
 });
@@ -1256,6 +1376,74 @@ export const p = require("node:process").env;
 	);
 });
 
+test("INV-lint: the meetings next-step table is a model module", () => {
+	const file = "apps/web/src/features/meetings/next-step.ts";
+	assert.deepEqual(lint({ [file]: 'import "server-only";\nexport const at = () => Date.now();\n' }), [
+		`${file}:1 model-module`,
+		`${file}:2 model-module`,
+	]);
+	assert.deepEqual(
+		lint({ [file]: 'import type { MeetingStatus } from "./model.ts";\nexport const s = (m: MeetingStatus) => m;\n' }),
+		[],
+	);
+});
+
+test("INV-lint: a follow-up outcome action never revalidates or refreshes, in any import form; the overlay rule still holds there", () => {
+	const rules = /^(?:everyfield|eslint)\(([\w-]+)\)$/;
+	const actions = "apps/web/src/features/followups/actions.ts";
+	const code = `import { revalidatePath } from "next/cache";
+import { revalidateTag as tag } from "next/cache";
+import * as cache from "next/cache";
+export { refresh } from "next/cache";
+import { unstable_cache } from "next/cache";
+import { EvryPanel } from "./EvryPanel.tsx";
+export const used = [revalidatePath, tag, cache, unstable_cache, EvryPanel];
+`;
+	const dir = sandbox({
+		[actions]: code,
+		"apps/web/src/features/followups/EvryPanel.tsx": "export const EvryPanel = 1;\n",
+	});
+	assert.deepEqual(
+		lintIn(dir, [actions], rules).filter((hit) => hit.endsWith(" no-restricted-imports")),
+		[1, 2, 3, 4, 6].map((line) => `${actions}:${line} no-restricted-imports`),
+	);
+	const tasks = "apps/web/src/features/tasks/actions.ts";
+	assert.deepEqual(
+		lint({ [tasks]: 'import { revalidatePath } from "next/cache";\nexport const r = revalidatePath;\n' }).filter(
+			(hit) => hit.endsWith(" no-restricted-imports"),
+		),
+		[],
+	);
+});
+
+test("INV-lint: only the outbox route imports the dev outbox reader, and only the dev outbox route imports the outbox route, through any import form", () => {
+	const outbox = "apps/web/src/features/communication/outbox.ts";
+	const route = "apps/web/src/features/communication/outbox-route.ts";
+	const dev = "apps/web/src/app/api/dev/outbox/route.ts";
+	const send = "apps/web/src/features/communication/send.ts";
+	const capture = "apps/web/src/server/mail/capture.ts";
+	const files = {
+		[outbox]: "export const readOutbox = () => [];\n",
+		[route]: 'import { readOutbox } from "./outbox.ts";\nexport const outboxRoute = () => readOutbox();\n',
+		[dev]: 'export { outboxRoute as GET } from "../../../../features/communication/outbox-route";\n',
+		[send]: `import { readOutbox } from "./outbox";
+export const later = () => import("./outbox.ts");
+export type R = typeof import("@/features/communication/outbox-route");
+export const used = readOutbox;
+`,
+		[capture]: 'export { readOutbox } from "../../features/communication/outbox.ts";\n',
+	};
+	assert.deepEqual(
+		lint(files).filter((hit) => hit.endsWith(" private-importers")),
+		[
+			`${send}:1 private-importers`,
+			`${send}:2 private-importers`,
+			`${send}:3 private-importers`,
+			`${capture}:1 private-importers`,
+		],
+	);
+});
+
 test("INV-web-sql: apps/web imports no database module", () => {
 	const code = `import { sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
@@ -1277,7 +1465,7 @@ import { pgTable } from "@everyfield/db/columns";
 	);
 });
 
-test("INV-lint: apps/web shows an error or warning notice through the shared Alert, never a hand-written magenta or amber box, in cn object syntax or an amber token tint too", () => {
+test("INV-lint: apps/web shows an error or warning notice through the shared Alert, never a hand-written magenta or amber box, in cn object syntax, literal concatenation or an amber token tint too", () => {
 	const code = `export const A = () => <p className="rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">x</p>;
 export const B = (more) => \`flex bg-magenta-50 \${more} text-magenta-600\`;
 export const C = { error: "bg-magenta-50 text-magenta-600" };
@@ -1317,6 +1505,20 @@ export const AJ = () => <p className="rounded-md bg-[var(--ef-amber-50)] px-4 py
 export const AK = () => <p className="rounded-lg bg-(--ef-amber-100)/80 p-3">x</p>;
 export const AL = (on) => cn("rounded-md px-4 py-3", { "bg-surface-2": on, open: on });
 export const AM = () => <span className="rounded-pill bg-[var(--ef-amber-100)] px-2 py-0.5">x</span>;
+export const AN = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-50"]: on });
+export const AO = (on) => cn("rounded-lg p-3", { [\`bg-magenta-100\`]: on });
+export const AP = (on, tone) => cn("rounded-md px-4 py-3", { [tone]: on });
+export const AQ = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-" + "50"]: on });
+export const AR = (on) => cn("rounded-lg p-3", { ["bg-" + "magenta-" + \`100\`]: on });
+export const AS = (on, t) => cn("rounded-md px-4 py-3", { ["bg-amber-" + t]: on, ["bg-amber-50" + t]: on, ["bg-amber-" + \`\${t}50\`]: on });
+export const AT = (on) => cn("rounded-md px-4 py-3", { ["bg-surface-" + "2"]: on, ["bg-amber-" == "50"]: on });
+export const AU = () => cn("rounded-md px-3", "bg-amber-" + "50");
+export const AV = "rounded-md bg-amber-" + "100 px-4" + " py-3";
+export const AW = () => <p className={"rounded-md bg-amber-50 px-4 py-3" + " text-sm"}>x</p>;
+export const AX = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-" + 50]: on });
+export const AY = (on) => cn("rounded-lg p-3", { ["bg-magenta-" + 1 + 0 + 0]: on });
+export const AZ = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-" + (5 + 0)]: on, [5 + 0 + "bg-amber-50"]: on });
+export const BA = (on) => cn("rounded-md px-4 py-3", { ["bg-amber-" + (1 + "00")]: on });
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1324,13 +1526,59 @@ export const AM = () => <span className="rounded-pill bg-[var(--ef-amber-100)] p
 	}).filter((hit) => hit.endsWith(" shared-notice"));
 	assert.deepEqual(
 		reported.sort(),
-		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37]
+		[1, 2, 3, 6, 7, 13, 14, 15, 16, 17, 24, 25, 26, 27, 28, 29, 30, 35, 36, 37, 40, 41, 43, 44, 47, 48, 49, 50, 51, 53]
 			.map((line) => `apps/web/src/features/x/Notice.tsx:${line} shared-notice`)
 			.sort(),
 	);
 });
 
-test("INV-a11y: a live region in apps/web or packages/ui is never hidden, invisible or aria-hidden, so it stays in the accessibility tree", () => {
+test("INV-lint: apps/web shows a problem line through ProblemText, InlineAlert or Alert, never a hand-written role=alert element with magenta or red text on it or inside it; only the four kept list and send-state lines pass, once each", () => {
+	const code = `export const A = () => <p role="alert" className="text-sm text-magenta-600">x</p>;
+export const B = () => <p role="alert" className="mt-1 text-red-700">x</p>;
+export const C = () => <div role="alert" className="flex gap-2"><span>!</span><p className="text-sm text-magenta-600">x</p></div>;
+export const D = ({ x }) => <p role={x ? "alert" : "status"} className="text-xs text-magenta-600">x</p>;
+export const E = ({ on }) => <p role="alert" className={cn("text-sm", on ? "text-magenta-600" : "text-text-3")}>x</p>;
+export const F = () => <p role="alert" className="text-sm sm:text-red-600 hover:!text-magenta-700">x</p>;
+export const G = () => <p role="status" className="text-sm text-magenta-600">x</p>;
+export const H = () => <p role="alert" className="text-sm text-text-2">x</p>;
+export const I = () => <div role="alert" className="text-ink"><p className="text-sm">x</p></div>;
+export const J = () => <ProblemText className="px-3 py-2">x</ProblemText>;
+export const K = () => <Alert role="alert" className="text-magenta-600">x</Alert>;
+export const L = () => <Card role="alert" className="text-magenta-600">x</Card>;
+export const M = () => <p className="text-sm text-magenta-600">x</p>;
+export const N = () => <p role="alert" className="text-sm bg-magenta-600 text-ink">x</p>;
+`;
+	const kept = {
+		task: `export const A = () => <p className="px-1 py-2 text-sm text-magenta-600" role="alert">x</p>;\n`,
+		commitment: `export const A = () => <p role="alert" className="px-2 py-3 text-sm text-magenta-600">x</p>;\n`,
+		evry: `export const A = () => (
+	<div role="alert" className="flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600">
+		<p>x</p>
+	</div>
+);
+`,
+	};
+	const reported = lint({
+		"apps/web/src/features/x/Problem.tsx": code,
+		"packages/ui/src/controls/x.tsx": code,
+		"apps/web/src/features/tasks/TaskDialog.tsx": kept.task,
+		"apps/web/src/features/people/assessments/CommitmentDialogs.tsx": kept.commitment,
+		"apps/web/src/features/meetings/dialogs.tsx": `${kept.commitment}${kept.commitment.replace("A", "B")}`,
+		"apps/web/src/features/evry/conversation/EvryPanel.tsx": `${kept.evry}export const B = () => <p role="alert" className="text-xs text-magenta-600">x</p>;\n`,
+	}).filter((hit) => hit.endsWith(" shared-notice"));
+	assert.deepEqual(reported, [
+		"apps/web/src/features/evry/conversation/EvryPanel.tsx:6 shared-notice",
+		"apps/web/src/features/meetings/dialogs.tsx:2 shared-notice",
+		...[1, 2, 3, 4, 5, 6].map((line) => `apps/web/src/features/x/Problem.tsx:${line} shared-notice`),
+	]);
+	const [message] = lint({ "apps/web/src/features/x/Problem.tsx": code }, undefined, true);
+	assert.match(
+		message,
+		/ProblemText \(a control-level line\) or InlineAlert or Alert \(a section-level line\) from @everyfield\/ui\/controls/,
+	);
+});
+
+test("INV-a11y: a live region in apps/web or packages/ui (an output element included) is never hidden, invisible, inert or aria-hidden, nor inside an element that is (a portal ends that search), so it stays in the accessibility tree", () => {
 	const code = `export const A = ({ m }) => <div aria-live="polite" className="empty:hidden">{m}</div>;
 export const B = ({ m }) => <p role="status" className={cn("text-sm", !m && "hidden")}>{m}</p>;
 export const C = ({ m, tone }) => <div role={tone ? "alert" : "status"} hidden={!m}>{m}</div>;
@@ -1345,6 +1593,43 @@ export const K = ({ m, open }) => <div role="status" aria-hidden={!open}>{m}</di
 export const L = ({ m }) => <div role="status" hidden={false} aria-hidden={false}>{m}</div>;
 export const M = ({ m }) => <div aria-live="polite" aria-hidden="false" className="visible">{m}</div>;
 export const N = ({ m }) => <div role="status" hidden="false">{m}</div>;
+export const O = ({ m, busy }) => <div aria-live="polite" inert={busy}>{m}</div>;
+export const P = ({ m }) => <output className="empty:hidden">{m}</output>;
+export const Q = ({ m }) => <div role="status" inert={false}>{m}</div>;
+export const R = ({ m }) => <output aria-live="off" className="hidden">{m}</output>;
+export const S = ({ m }) => <output role="presentation" hidden>{m}</output>;
+export const T = ({ m }) => <output inert>{m}</output>;
+export const U = ({ m }) => <section className="hidden">{m}</section>;
+export const V = ({ m }) => <section inert><div role="status">{m}</div></section>;
+export const W = ({ m }) => <div role="status" inert={undefined} hidden={undefined} aria-hidden={undefined}>{m}</div>;
+export const X = ({ items }) => <div aria-hidden="true"><ul>{items.map((i) => <li key={i} role="status">{i}</li>)}</ul></div>;
+export const Y = ({ m }) => <div className="hidden md:block"><p aria-live="polite">{m}</p></div>;
+export const Z = ({ m }) => <div className="empty:hidden"><div role="alert">{m}</div></div>;
+export const AA = ({ m, open }) => <div hidden={!open}><p role="alert">{m}</p></div>;
+export const AB = ({ m, done }) => <div className={cn("grid", done && "invisible")}><p role="status">{m}</p></div>;
+export const AC = ({ m }) => <Panel hidden><p role="status">{m}</p></Panel>;
+export const AD = () => <div hidden title={<span role="status" />}>x</div>;
+export const AE = ({ m }) => <section inert={false}><output>{m}</output></section>;
+export const AF = ({ m }) => <div className={cn("hidden", "md:flex")}><output>{m}</output></div>;
+export const AG = ({ m }) => <div aria-hidden={undefined} hidden={undefined}><output>{m}</output></div>;
+export const AH = ({ m }) => <div className={\`invisible\`}><output>{m}</output></div>;
+export const AI = ({ m }) => (
+	<div inert="">
+		<p role="status">{m}</p>
+	</div>
+);
+export const AJ = ({ m }) => <div className="sm:hidden max-md:hidden group-hover:hidden"><p role="status">{m}</p></div>;
+export const AK = ({ m }) => <div className="data-[state=closed]:hidden before:hidden [&:empty]:hidden"><output>{m}</output></div>;
+export const AL = ({ m }) => <div className={cn("grid", clsx("invisible"))}><output>{m}</output></div>;
+export const AM = ({ m }) => <div hidden><Panel><p role="status">{m}</p></Panel></div>;
+export const AN = ({ m }) => <div hidden><Dialog.Portal><p role="status">{m}</p></Dialog.Portal></div>;
+export const AO = ({ m }) => <div inert><FloatingPortal><p role="alert">{m}</p></FloatingPortal></div>;
+export const AP = ({ m }) => <div aria-hidden="true">{createPortal(<p role="status">{m}</p>, document.body)}</div>;
+export const AQ = ({ m }) => <div className="invisible">{ReactDOM.createPortal(<output>{m}</output>, document.body)}</div>;
+export const AR = ({ m }) => <div hidden><Portal><div hidden={false}><p role="status">{m}</p></div></Portal></div>;
+export const AS = ({ m }) => <Menu.Portal><div inert><output>{m}</output></div></Menu.Portal>;
+export const AT = ({ m }) => <div hidden>{portal(<p role="status">{m}</p>)}</div>;
+export const AU = ({ m }) => <div hidden><PortalHost><p role="status">{m}</p></PortalHost></div>;
 `;
 	const reported = lint({
 		"apps/web/src/features/x/Notice.tsx": code,
@@ -1354,7 +1639,11 @@ export const N = ({ m }) => <div role="status" hidden="false">{m}</div>;
 	assert.deepEqual(
 		reported.sort(),
 		["apps/web/src/features/x/Notice.tsx", "packages/ui/src/controls/x.tsx"]
-			.flatMap((path) => [1, 2, 3, 4, 8, 9, 10, 11, 14].map((line) => `${path}:${line} live-region-in-tree`))
+			.flatMap((path) =>
+				[1, 2, 3, 4, 8, 9, 10, 11, 14, 15, 16, 20, 22, 24, 25, 32, 34, 37, 42, 43, 49, 50, 51].map(
+					(line) => `${path}:${line} live-region-in-tree`,
+				),
+			)
 			.sort(),
 	);
 });
@@ -1894,7 +2183,7 @@ export function gate(path: string, out: boolean) {
 	]);
 });
 
-test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper, through a destructured kind or a renamed owner too", () => {
+test("INV-lint: a hand-written organization seat check in web or domain code is reported outside the shared helper, through a destructured kind, a renamed owner or an alias of either, assigned with = or a logical assignment, too, and a same-named parameter in another function is not an owner", () => {
 	const source = `import type { RequestActor } from "@everyfield/domain/access";
 export function a(authority: RequestActor | null) {
 	const context = authority?.actor.context;
@@ -1989,6 +2278,99 @@ export function q(authority: RequestActor) {
 	if (context.kind !== "seat") return null;
 	return [nestedKind === "organization", spreadKind === "organization", (context.owner as Owner).kind === "organization"];
 }
+export function r(authority: RequestActor) {
+	const picked = authority.actor.context.owner;
+	const { kind: pickedKind } = authority.actor.context.owner;
+	return [picked, pickedKind];
+}
+export function s(picked: Owner, pickedKind: string, item: { kind: string }) {
+	return item.kind === "seat" && (picked.kind === "organization" || pickedKind === "organization");
+}
+export function t(authority: RequestActor) {
+	const context = authority.actor.context;
+	const { owner: o } = context;
+	const o2 = o;
+	const o3 = o2 as Owner;
+	const kind2 = o3.kind;
+	const kind3 = kind2;
+	const { kind: kind4 } = o2;
+	if (context.kind !== "seat") return null;
+	return [o2.kind === "organization", o3.kind === "organization", kind3 === "organization", kind4 === "organization"];
+}
+export function u(authority: RequestActor, fallback: Owner) {
+	const context = authority.actor.context;
+	const { kind: seatKind, owner: o } = context;
+	const seatKind2 = seatKind;
+	let o2;
+	o2 = fallback ?? o;
+	let o3: Owner;
+	({ owner: o3 } = context);
+	const o4 = seatKind2 ? fallback : o3;
+	return seatKind2 === "seat" && [o2.kind === "organization", o3.kind === "organization", o4.kind === "organization"];
+}
+export function v(authority: RequestActor, o: Owner) {
+	const context = authority.actor.context;
+	const o2 = o;
+	let o3 = o2;
+	o3 = o3;
+	let label = "the ";
+	label += context.owner.kind;
+	return context.kind === "seat" && [o2.kind === "organization", o3.kind === "organization", label === "organization"];
+}
+export function w(authority: RequestActor, item: { kind: string }) {
+	const context = authority.actor.context;
+	const { owner: o } = context;
+	const o2 = o;
+	const check = (o2: { kind: string }) => o2.kind === "organization";
+	return context.kind === "seat" && o2 && check(item);
+}
+export function x(authority: RequestActor, fallback: Owner | null) {
+	const context = authority.actor.context;
+	const { owner: o } = context;
+	let o5: Owner;
+	if (!fallback) o5 = o;
+	else o5 = fallback;
+	const o6 = fallback ? fallback : (o as Owner);
+	let tag = fallback;
+	tag = tag;
+	return tag === "seat" && context.kind === "seat" && [o5.kind === "organization", o6.kind === "organization"];
+}
+export function y(authority: RequestActor, fallback: Owner | null, item: { kind: string }, other: { kind: string }) {
+	const context = authority.actor.context;
+	const { owner: o } = context;
+	let o2 = fallback;
+	o2 ??= o;
+	let o3 = fallback;
+	o3 ||= o;
+	let o4 = fallback;
+	o4 &&= o;
+	const ownerKind = o.kind;
+	let k = item.kind;
+	k = ownerKind;
+	let k2 = o.kind;
+	k2 = item.kind;
+	let k3 = item.kind;
+	k3 ??= ownerKind;
+	let k4 = o.kind;
+	k4 = context.owner.kind;
+	let k5 = item.kind;
+	k5 = other.kind;
+	if (context.kind !== "seat") return null;
+	switch (k) {
+		case "organization":
+			return null;
+	}
+	return [
+		o2.kind === "organization",
+		o3.kind === "organization",
+		o4.kind === "organization",
+		k === "organization",
+		k2 === "organization",
+		k3 === "organization",
+		k4 === "organization",
+		k5 === "organization",
+	];
+}
 `;
 	assert.deepEqual(
 		lint({
@@ -1999,7 +2381,24 @@ export function q(authority: RequestActor) {
 		}),
 		[
 			"apps/web/src/features/x/server.ts:10 organization-seat",
+			"apps/web/src/features/x/server.ts:112 organization-seat",
+			"apps/web/src/features/x/server.ts:112 organization-seat",
+			"apps/web/src/features/x/server.ts:112 organization-seat",
+			"apps/web/src/features/x/server.ts:112 organization-seat",
+			"apps/web/src/features/x/server.ts:123 organization-seat",
+			"apps/web/src/features/x/server.ts:123 organization-seat",
+			"apps/web/src/features/x/server.ts:123 organization-seat",
+			"apps/web/src/features/x/server.ts:150 organization-seat",
+			"apps/web/src/features/x/server.ts:150 organization-seat",
 			"apps/web/src/features/x/server.ts:17 organization-seat",
+			"apps/web/src/features/x/server.ts:174 organization-seat",
+			"apps/web/src/features/x/server.ts:178 organization-seat",
+			"apps/web/src/features/x/server.ts:179 organization-seat",
+			"apps/web/src/features/x/server.ts:180 organization-seat",
+			"apps/web/src/features/x/server.ts:181 organization-seat",
+			"apps/web/src/features/x/server.ts:182 organization-seat",
+			"apps/web/src/features/x/server.ts:183 organization-seat",
+			"apps/web/src/features/x/server.ts:184 organization-seat",
 			"apps/web/src/features/x/server.ts:27 organization-seat",
 			"apps/web/src/features/x/server.ts:39 organization-seat",
 			"apps/web/src/features/x/server.ts:4 organization-seat",
@@ -2017,7 +2416,24 @@ export function q(authority: RequestActor) {
 			"apps/web/src/features/x/server.ts:93 organization-seat",
 			"apps/web/src/features/x/server.ts:93 organization-seat",
 			"packages/domain/src/x/index.ts:10 organization-seat",
+			"packages/domain/src/x/index.ts:112 organization-seat",
+			"packages/domain/src/x/index.ts:112 organization-seat",
+			"packages/domain/src/x/index.ts:112 organization-seat",
+			"packages/domain/src/x/index.ts:112 organization-seat",
+			"packages/domain/src/x/index.ts:123 organization-seat",
+			"packages/domain/src/x/index.ts:123 organization-seat",
+			"packages/domain/src/x/index.ts:123 organization-seat",
+			"packages/domain/src/x/index.ts:150 organization-seat",
+			"packages/domain/src/x/index.ts:150 organization-seat",
 			"packages/domain/src/x/index.ts:17 organization-seat",
+			"packages/domain/src/x/index.ts:174 organization-seat",
+			"packages/domain/src/x/index.ts:178 organization-seat",
+			"packages/domain/src/x/index.ts:179 organization-seat",
+			"packages/domain/src/x/index.ts:180 organization-seat",
+			"packages/domain/src/x/index.ts:181 organization-seat",
+			"packages/domain/src/x/index.ts:182 organization-seat",
+			"packages/domain/src/x/index.ts:183 organization-seat",
+			"packages/domain/src/x/index.ts:184 organization-seat",
 			"packages/domain/src/x/index.ts:27 organization-seat",
 			"packages/domain/src/x/index.ts:39 organization-seat",
 			"packages/domain/src/x/index.ts:4 organization-seat",
@@ -2121,6 +2537,59 @@ type Swapped = { status: "ok"; receipt: number } | { status: "refused"; value: n
 	);
 });
 
+test("INV-lint: an ok value / refused / lost union is reported when its parts are interfaces; an interface without the ok value is not", () => {
+	const source = `import type { Lost } from "@everyfield/contracts/common";
+interface Ok<T> { status: "ok"; value: T }
+export interface No { "status": "refused"; code: string }
+interface Gone { status: "lost" }
+interface Receipt { status: "ok"; receipt: number }
+interface Kind { kind: "ok"; value: number }
+export type Load<T> = Ok<T> | No | Gone;
+type Shared<T> = Ok<T> | No | Lost;
+type Polled = Receipt | No | Gone;
+type Kinds = Kind | No | Gone;
+async function read(): Promise<Ok<number> | No | Gone> {}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/model.ts": source, "packages/domain/src/m.ts": source }).filter((hit) =>
+			hit.endsWith("shared-outcome"),
+		),
+		["apps/web/src/features/x/model.ts", "packages/domain/src/m.ts"]
+			.flatMap((path) => [7, 8, 11].map((line) => `${path}:${line} shared-outcome`))
+			.sort(),
+	);
+});
+
+test("INV-lint: an interface Outcome part is read with every block of its name and the same-file interfaces and aliases it extends", () => {
+	const source = `import type { Lost } from "@everyfield/contracts/common";
+interface Base { status: "ok" }
+interface Ok<T> extends Base { value: T }
+interface Valued<T> { value: T }
+interface Merged<T> { value: T }
+interface Merged<T> { status: "ok" }
+type Tagged = { status: "refused" };
+interface No extends Tagged { code: string }
+interface Deep<T> extends Ok<T>, Valued<T> {}
+interface Loop extends Loop2 { status: "ok" }
+interface Loop2 extends Loop { receipt: number }
+interface Elsewhere extends Imported { status: "ok" }
+export type A<T> = Ok<T> | No | Lost;
+type B<T> = Merged<T> | No | Lost;
+type C<T> = Deep<T> | No | Lost;
+type D = Loop | No | Lost;
+type E = Elsewhere | No | Lost;
+type F<T> = Valued<T> | No | Lost;
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/model.ts": source, "packages/domain/src/m.ts": source }).filter((hit) =>
+			hit.endsWith("shared-outcome"),
+		),
+		["apps/web/src/features/x/model.ts", "packages/domain/src/m.ts"]
+			.flatMap((path) => [13, 14, 15].map((line) => `${path}:${line} shared-outcome`))
+			.sort(),
+	);
+});
+
 test("INV-lint: an inline ok value / refused / lost union in any annotation, alias body, generic default or cast, nested in arrays, tuples, intersections or type arguments, is reported through local aliases and the shared Lost under any local name; shared and imported replies are not", () => {
 	const source = `import type { Lost as Gone, Outcome } from "@everyfield/contracts/common";
 import type { MeetingsReply } from "@everyfield/domain/meetings";
@@ -2164,6 +2633,172 @@ type No = { status: "refused" };
 				),
 			)
 			.sort(),
+	);
+});
+
+test("INV-lint: a union that writes part of the ok value / refused / lost shape beside a contracts reply, a namespace Lost or under quoted keys and template statuses is reported; a union of contracts replies and the shared Lost alone is not", () => {
+	const source = `import type { Lost, Reply as Base } from "@everyfield/contracts/common";
+import type * as common from "@everyfield/contracts/common";
+import type { MeetingsReply, meetingsError } from "@everyfield/contracts/meetings";
+import type * as teams from "@everyfield/contracts/teams";
+import type { DomainReply } from "@everyfield/domain/meetings";
+type Composed<T> = MeetingsReply<T> | Lost;
+type Spaced<T> = teams.TeamsReply<T> | common.Lost;
+type Extra<T> = MeetingsReply<T> | Lost | { status: "deleted" };
+type Through<T> = Composed<T> | { status: "signed_out" };
+type Shared<T> = common.Outcome<T> | { status: "deleted" };
+type HandLost<T> = MeetingsReply<T> | { status: "lost" };
+type SpacedHand<T> = teams.TeamsReply<T> | { status: "lost" };
+type BaseHand<T> = Base<T, string> | { status: "lost" };
+type SpacedBase<T> = common.Reply<T, string> | { status: "lost" };
+type HandReply<T> = { status: "ok"; value: T } | { status: "refused" } | common.Lost;
+type Quoted<T> = { "status": "ok"; ["value"]: T } | { 'status': "refused" } | { "status": "lost" };
+type Template<T> = { status: \`ok\`; value: T } | { status: \`refused\` } | { status: \`lost\` };
+type Foreign<T> = DomainReply<T> | { status: "lost" };
+type NotReply = meetingsError | { status: "refused" } | { status: "lost" };
+type OtherSpace<T> = other.MeetingsReply<T> | { status: "lost" };
+type Numeric<T> = { status: 1; value: T } | { status: "refused" } | Lost;
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/server.ts": source }).filter((hit) => hit.endsWith("shared-outcome")),
+		[11, 12, 13, 14, 15, 16, 17].map((line) => `apps/web/src/features/x/server.ts:${line} shared-outcome`),
+	);
+});
+
+test("INV-lint: an onConfirm that awaits a call as a statement and never returns a value is reported, inline or through a local function or const; one that returns, awaits in a branch or only awaits a value is not", () => {
+	const source = `import { ConfirmDialog } from "@everyfield/ui/controls";
+async function named() {
+	await handler();
+}
+const wrapped = async () => {
+	await handler();
+	close();
+};
+let later = async () => { await handler(); };
+const made = make();
+export function A({ handler, x }) {
+	return [
+		<ConfirmDialog onConfirm={async () => { await handler(); }} />,
+		<ConfirmDialog onConfirm={named} />,
+		<ConfirmDialog onConfirm={wrapped} />,
+		<ConfirmDialog onConfirm={async function () { await handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { const run = async () => { return 1; }; await run(); }} />,
+		<ConfirmDialog onConfirm={async () => { await handler(); return; }} />,
+		<ConfirmDialog onConfirm={() => handler()} />,
+		<ConfirmDialog onConfirm={async () => { return await handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { const r = await handler(); if (r) return r; }} />,
+		<ConfirmDialog onConfirm={async () => { if (x) await handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { await prepare(); return handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { await handler; }} />,
+		<ConfirmDialog onConfirm={later} />,
+		<ConfirmDialog onConfirm={made} />,
+		<ConfirmDialog onCancel={async () => { await handler(); }} />,
+	];
+}
+`;
+	const hits = (path) =>
+		lint({ [path]: source })
+			.filter((hit) => hit.endsWith(" confirm-keeps-refusal"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10))
+			.sort((a, b) => a - b);
+	assert.deepEqual(hits("apps/web/src/features/x/Confirm.tsx"), [3, 6, 13, 16, 17, 18]);
+	assert.deepEqual(hits("packages/ui/src/controls/Confirm.tsx"), [3, 6, 13, 16, 17, 18]);
+	assert.deepEqual(hits("packages/domain/src/x/Confirm.tsx"), []);
+});
+
+test("INV-lint: an onConfirm that settles, voids, guards in try, optionally awaits, awaits into an unread const or never awaits a call is reported; a read const, a guarded void, a sync call, a call after an await or a returned value is not", () => {
+	const source = `import { ConfirmDialog } from "@everyfield/ui/controls";
+const guarded = async () => {
+	try {
+		await handler();
+	} finally {
+		close();
+	}
+};
+const cleaned = async () => {
+	try {
+		close();
+	} finally {
+		await handler?.();
+	}
+};
+const idle = async () => {
+	setBusy(true);
+	handler();
+};
+export function A({ handler, x }) {
+	return [
+		<ConfirmDialog onConfirm={() => { handler().then(close); }} />,
+		<ConfirmDialog onConfirm={() => { handler?.().catch(close); }} />,
+		<ConfirmDialog onConfirm={guarded} />,
+		<ConfirmDialog onConfirm={cleaned} />,
+		<ConfirmDialog onConfirm={async () => { await handler?.(); }} />,
+		<ConfirmDialog onConfirm={async () => { const r = await handler(); }} />,
+		<ConfirmDialog onConfirm={() => void handler()} />,
+		<ConfirmDialog onConfirm={() => { void handler?.(); }} />,
+		<ConfirmDialog onConfirm={async () => { handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { const { status } = await handler(); }} />,
+		<ConfirmDialog onConfirm={idle} />,
+		<ConfirmDialog onConfirm={async () => { const r = await handler(); show(r); }} />,
+		<ConfirmDialog onConfirm={async () => { const r = await handler; }} />,
+		<ConfirmDialog onConfirm={() => void (x && handler())} />,
+		<ConfirmDialog onConfirm={() => { handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { show(await prepare()); handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { try { close(); } catch { await handler(); } }} />,
+		<ConfirmDialog onConfirm={() => handler().then(close)} />,
+		<ConfirmDialog onConfirm={() => { store.getState().actions.discard(); }} />,
+		<ConfirmDialog onConfirm={() => !handler()} />,
+	];
+}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/Confirm.tsx": source })
+			.filter((hit) => hit.endsWith(" confirm-keeps-refusal"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10))
+			.sort((a, b) => a - b),
+		[4, 13, 18, 22, 23, 26, 27, 28, 29, 30, 31],
+	);
+});
+
+test("INV-lint: an onConfirm reads a plain nested block like its body, and a never-awaiting async handler is reported at its last call that is not the setter of a same-file useState", () => {
+	const source = `import React, { useState } from "react";
+const setLater = (value) => value;
+export function A({ handler, setOpen }) {
+	const [busy, setBusy] = useState(false);
+	const [count, setCount] = React.useState(0);
+	const [setFirst] = useState(null);
+	const { setX } = useStore();
+	const [, setMemo] = useMemo(() => [], []);
+	const [, setPair] = pair;
+	const [open, toggle] = useState(false);
+	return [
+		<ConfirmDialog onConfirm={async () => { { await handler(); } }} />,
+		<ConfirmDialog onConfirm={async () => { { { handler().then(close); } } }} />,
+		<ConfirmDialog onConfirm={async () => { handler(); setBusy(true); }} />,
+		<ConfirmDialog onConfirm={async () => { setOpen(false); }} />,
+		<ConfirmDialog onConfirm={async () => { setLater(1); }} />,
+		<ConfirmDialog onConfirm={async () => { setFirst(1); }} />,
+		<ConfirmDialog onConfirm={async () => { setX(1); }} />,
+		<ConfirmDialog onConfirm={async () => { setMemo(1); }} />,
+		<ConfirmDialog onConfirm={async () => { setBusy(true); }} />,
+		<ConfirmDialog onConfirm={async () => { bump(count); setCount(0); }} />,
+		<ConfirmDialog onConfirm={async () => { { setBusy(true); } }} />,
+		<ConfirmDialog onConfirm={async () => { { if (busy) await handler(); } }} />,
+		<ConfirmDialog onConfirm={async () => { { await handler(); } return handler(); }} />,
+		<ConfirmDialog onConfirm={async () => { setCount(1); }} />,
+		<ConfirmDialog onConfirm={async () => { setPair(1); }} />,
+		<ConfirmDialog onConfirm={async () => { toggle(!open); }} />,
+		<ConfirmDialog onConfirm={async () => { handler?.(); }} />,
+		<ConfirmDialog onConfirm={async () => { setBusy?.(true); }} />,
+	];
+}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/Confirm.tsx": source })
+			.filter((hit) => hit.endsWith(" confirm-keeps-refusal"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10))
+			.sort((a, b) => a - b),
+		[12, 13, 14, 15, 16, 17, 18, 19, 21, 26, 28],
 	);
 });
 
@@ -2289,7 +2924,7 @@ export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}),
 	);
 });
 
-test("INV-lint: a contract schema is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased, destructured or re-exported, unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
+test("INV-lint: an object schema in packages/contracts or packages/evry is a z.strictObject with no strip, passthrough, loose or catchall, called, bound, aliased (the namespace too), destructured or re-exported (export * included), unless LOOSE_CONTRACTS lists it with a reason, and a listed schema that turns strict is reported", () => {
 	const loose = `import { z } from "zod";
 import * as zz from "zod/v4";
 import { object as plain } from "zod";
@@ -2312,27 +2947,32 @@ export const l = aliased({});
 export { looseObject } from "zod";
 export const m = strictObject({ id: z.string() });
 const { looseObject: viaCast } = z as typeof z;
+const y = z;
+export const n = y.object({});
+const w = y as typeof z;
+export const o2 = w.strictObject({ id: y.string() });
+export * from "zod";
+export * as zod from "zod/v4";
+const other = { object: (shape) => shape };
+const q = other;
+export const p = q.object({});
+export * from "./more";
 `;
 	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" strict-contracts"));
-	assert.deepEqual(reported({ "packages/contracts/src/x/index.ts": loose, "packages/domain/src/x.ts": loose }), [
-		"packages/contracts/src/x/index.ts:11 strict-contracts",
-		"packages/contracts/src/x/index.ts:12 strict-contracts",
-		"packages/contracts/src/x/index.ts:13 strict-contracts",
-		"packages/contracts/src/x/index.ts:14 strict-contracts",
-		"packages/contracts/src/x/index.ts:15 strict-contracts",
-		"packages/contracts/src/x/index.ts:16 strict-contracts",
-		"packages/contracts/src/x/index.ts:18 strict-contracts",
-		"packages/contracts/src/x/index.ts:20 strict-contracts",
-		"packages/contracts/src/x/index.ts:22 strict-contracts",
-		"packages/contracts/src/x/index.ts:4 strict-contracts",
-		"packages/contracts/src/x/index.ts:5 strict-contracts",
-		"packages/contracts/src/x/index.ts:5 strict-contracts",
-		"packages/contracts/src/x/index.ts:8 strict-contracts",
-		"packages/contracts/src/x/index.ts:9 strict-contracts",
-	]);
+	const hits = [11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 27, 28, 4, 5, 5, 8, 9];
+	assert.deepEqual(
+		reported({
+			"packages/contracts/src/x/index.ts": loose,
+			"packages/evry/src/adapters/x/commands/index.ts": loose,
+			"packages/domain/src/x.ts": loose,
+		}),
+		["packages/contracts/src/x/index.ts", "packages/evry/src/adapters/x/commands/index.ts"].flatMap((path) =>
+			hits.map((line) => `${path}:${line} strict-contracts`),
+		),
+	);
 	const listed = Object.values(LOOSE_CONTRACTS);
 	assert.ok(
-		listed.length <= 3 && listed.reduce((n, names) => n + Object.keys(names).length, 0) <= 3,
+		listed.length <= 1 && listed.reduce((n, names) => n + Object.keys(names).length, 0) <= 1,
 		"LOOSE_CONTRACTS only shrinks",
 	);
 	const [path, names] = Object.entries(LOOSE_CONTRACTS)[0];
@@ -2808,7 +3448,87 @@ test("INV-lint: a server action parameter typed as a trusted shape is reported, 
 	);
 });
 
-test("INV-lint: a second top-level node:test before hook is reported in any import form, one before with other hooks and suite-level befores are not", () => {
+test("INV-lint: a server action that takes who is asking from the caller is reported in any case, destructured or wrapped, its subject ids and non-action modules are not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function a(accountId: string) {}\nexport async function b(input: unknown, ACTOR: unknown) {}\nexport const c = async ({ workspace, note }: unknown) => note;\nexport async function d({ input: { sessionId } }: unknown) {}\nexport async function e(...session: unknown[]) {}\nconst wrap = <T>(f: T) => f;\nexport const f = wrap(async (Account: unknown) => Account);\nasync function g(workspaceId = "w") {}\nexport { g };\nexport async function h({ actorId: who }: unknown) {}\nexport async function fine(personId: string, { invitationId, accountName }: unknown, workspaces: unknown) {}\nasync function local(accountId: string) {}\n`,
+			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function inline(actor: unknown) {\n\t\t"use server";\n\t}\n\treturn inline;\n}\nexport const view = (session: unknown) => session;\n`,
+			"apps/web/src/features/x/server.ts": `import "server-only";\nexport async function save(accountId: string) {}\n`,
+		}).filter((hit) => hit.endsWith("action-identity-params")),
+		[
+			"apps/web/src/features/x/Card.tsx:2 action-identity-params",
+			"apps/web/src/features/x/actions.ts:11 action-identity-params",
+			"apps/web/src/features/x/actions.ts:2 action-identity-params",
+			"apps/web/src/features/x/actions.ts:3 action-identity-params",
+			"apps/web/src/features/x/actions.ts:4 action-identity-params",
+			"apps/web/src/features/x/actions.ts:5 action-identity-params",
+			"apps/web/src/features/x/actions.ts:6 action-identity-params",
+			"apps/web/src/features/x/actions.ts:8 action-identity-params",
+			"apps/web/src/features/x/actions.ts:9 action-identity-params",
+		],
+	);
+});
+
+test("INV-lint: a server action module that takes, parses or forwards a link proof is reported, a proof it reads from no input and non-action modules are not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\nimport { respondInvitationRequest } from "@everyfield/contracts/organizations";\nimport * as I from "@everyfield/contracts/identity";\nimport { inviteSeatRequest } from "@everyfield/contracts/identity";\nexport async function a(proof: string) {}\nexport async function b({ invitationProof }: unknown) {}\nexport async function c(raw: unknown) {\n\treturn I.verifyEmailRequest.safeParse(raw);\n}\nexport async function d(raw: { proof: string }, token: string) {\n\treturn save({ proof: token, other: raw.proof });\n}\nexport async function e(raw: unknown) {\n\treturn save({ proof: await readProof() });\n}\nexport async function f(raw: unknown) {\n\treturn inviteSeatRequest.parse(raw);\n}\nconst save = async (x: unknown) => x;\nconst readProof = async () => "cookie";\n`,
+			"apps/web/src/features/x/later.ts": `"use server";\nexport async function g(raw: unknown) {\n\tconst { respondSeatInvitationRequest: r } = await import("@everyfield/contracts/identity");\n\treturn r;\n}\nexport async function h() {\n\treturn (await import("@everyfield/contracts/organizations")).acceptInvitationRequest;\n}\n`,
+			"apps/web/src/features/x/handler.ts": `import { respondInvitationRequest } from "@everyfield/contracts/organizations";\nexport const route = (body: { proof: string }) => respondInvitationRequest.parse(body.proof);\n`,
+		}).filter((hit) => hit.endsWith("action-proofs")),
+		[
+			"apps/web/src/features/x/actions.ts:11 action-proofs",
+			"apps/web/src/features/x/actions.ts:11 action-proofs",
+			"apps/web/src/features/x/actions.ts:2 action-proofs",
+			"apps/web/src/features/x/actions.ts:5 action-proofs",
+			"apps/web/src/features/x/actions.ts:6 action-proofs",
+			"apps/web/src/features/x/actions.ts:8 action-proofs",
+			"apps/web/src/features/x/later.ts:3 action-proofs",
+			"apps/web/src/features/x/later.ts:7 action-proofs",
+			"apps/web/src/features/x/later.ts:7 action-proofs",
+		],
+	);
+});
+
+test("INV-lint: an unsubscribe module that imports the session, request headers or a viewer is reported in any import form, other modules are not", () => {
+	const reaching = `import { getViewer } from "@/server/request-context";\nimport { requestAuth } from "../../server/identity/index.ts";\nimport { cookies } from "next/headers";\nimport { getSessionCookie } from "better-auth/cookies";\nimport { viewerOf } from "./mount.ts";\nimport { readRequestViewer } from "@everyfield/domain/access";\nimport { plantSeat as p } from "@/server/elsewhere";\nexport { viewerActor } from "@/server/request-context.ts";\nexport const later = () => import("@/server/request-context");\nimport { unsubscribeCall } from "./unsubscribe.ts";\nimport { serverEnv } from "../../server/config.ts";\n`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/communication/mount.ts": "export const viewerOf = 1;\n",
+			"apps/web/src/server/request-context.ts": "export const getViewer = 1;\n",
+			"apps/web/src/server/identity/index.ts": "export const requestAuth = 1;\n",
+			"apps/web/src/server/config.ts": "export const serverEnv = 1;\n",
+			"apps/web/src/features/communication/unsubscribe.ts": "export const unsubscribeCall = 1;\n",
+			"apps/web/src/features/communication/unsubscribeActions.ts": reaching,
+			"apps/web/src/features/communication/unsubscribeRoute.tsx": `import "next/headers";\n`,
+			"apps/web/src/features/communication/unsubscribeOneClick.ts": `const r = require("@/server/request-context");\nexport { r };\n`,
+			"apps/web/src/features/communication/actions.ts": reaching,
+		}).filter((hit) => hit.endsWith("token-authority")),
+		[
+			...[1, 1, 2, 3, 4, 4, 5, 5, 6, 6, 7, 8, 9].map(
+				(line) => `apps/web/src/features/communication/unsubscribeActions.ts:${line} token-authority`,
+			),
+			"apps/web/src/features/communication/unsubscribeOneClick.ts:1 token-authority",
+			"apps/web/src/features/communication/unsubscribeRoute.tsx:1 token-authority",
+		].sort(),
+	);
+});
+
+test("INV-lint: a server action that mints its own request key is reported, a key from the client, other ids, previews and client modules are not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\nimport { newRequestKey } from "./model.ts";\nimport { randomUUID } from "node:crypto";\nexport async function markSubjectRead(raw: unknown) {\n\treturn save({ requestKey: newRequestKey(), expectedRevision: "1", input: raw });\n}\nexport async function undo(raw: unknown) {\n\treturn save({ requestKey: crypto.randomUUID(), input: raw });\n}\nexport async function again(raw: unknown) {\n\tconst requestKey = randomUUID();\n\treturn save({ requestKey, input: raw });\n}\nexport async function fine(request: unknown) {\n\treturn save(request);\n}\nexport async function note(requestKey: string) {\n\treturn save({ requestKey, input: { noteId: crypto.randomUUID() } });\n}\nexport async function previewIt(input: unknown) {\n\treturn previewWrite(() => save({ requestKey: crypto.randomUUID(), input }));\n}\nconst save = async (x: unknown) => x;\nconst previewWrite = async (f: () => unknown) => f();\n`,
+			"apps/web/src/features/x/Card.tsx": `export const send = (save: (x: unknown) => void) => save({ requestKey: crypto.randomUUID() });\n`,
+		}).filter((hit) => hit.endsWith("client-request-key")),
+		[
+			"apps/web/src/features/x/actions.ts:11 client-request-key",
+			"apps/web/src/features/x/actions.ts:5 client-request-key",
+			"apps/web/src/features/x/actions.ts:8 client-request-key",
+		],
+	);
+});
+
+test("INV-lint: a second top-level node:test before hook is reported in any import form, one before with other hooks, suite-level befores and a before destructured inside a function are not", () => {
 	const named = `import test, { before, beforeEach, after, describe } from "node:test";
 before(async () => {});
 before(async () => {});
@@ -2867,6 +3587,18 @@ before(() => {});
 before(() => {});
 test.before(() => {});
 `;
+	const scoped = `import test from "node:test";
+import { before } from "./hooks.mts";
+export const { before: exported } = test;
+export function local() {
+	const { before } = test;
+	return before;
+}
+before(() => {});
+before(() => {});
+exported(() => {});
+exported(() => {});
+`;
 	assert.deepEqual(
 		lint({
 			"tests/integration/x/named.test.mts": named,
@@ -2878,6 +3610,7 @@ test.before(() => {});
 			"tests/workflow/single.test.mjs": single,
 			"tests/ui/local.test.mts": local,
 			"tests/ui/other.test.mts": other,
+			"tests/ui/scoped.test.mts": scoped,
 			"tools/ci/named.test.ts": named,
 		}).filter((hit) => hit.endsWith(" one-top-level-before")),
 		[
@@ -2885,6 +3618,7 @@ test.before(() => {});
 			"tests/evry/x/aliased.test.mts:3 one-top-level-before",
 			"tests/integration/x/named.test.mts:3 one-top-level-before",
 			"tests/integration/x/named.test.mts:4 one-top-level-before",
+			"tests/ui/scoped.test.mts:11 one-top-level-before",
 			"tests/unit/x/destructured.test.mts:5 one-top-level-before",
 			"tests/unit/x/it.test.mts:3 one-top-level-before",
 			"tests/unit/x/namespaced.test.mts:3 one-top-level-before",
@@ -2893,5 +3627,219 @@ test.before(() => {});
 			"tools/ci/named.test.ts:3 one-top-level-before",
 			"tools/ci/named.test.ts:4 one-top-level-before",
 		],
+	);
+});
+
+test("INV-explicit-database: a parameter never defaults to the database() pool in packages or apps/web/src", () => {
+	const flagged = `import { database, type Database } from "./client.ts";
+export async function expireAccessRequests(db: Database = database()) {
+	return db;
+}
+export const arrow = async (id: string, db: Database = database()) => [id, db];
+export class Store {
+	read(db: Database = database()) {
+		return db;
+	}
+}
+`;
+	const allowed = `import { database, type Database } from "@everyfield/db";
+export async function body() {
+	const db = database();
+	return db;
+}
+export async function fallback(dependencies: { db?: Database }) {
+	const db = dependencies.db ?? database();
+	return db;
+}
+`;
+	assert.deepEqual(
+		lint({
+			"packages/db/src/old.ts": flagged,
+			"packages/domain/src/allowed.ts": allowed,
+			"apps/web/src/access/old.ts": flagged,
+			"apps/web/src/access/allowed.ts": allowed,
+		}).filter((hit) => hit.endsWith(" no-default-database")),
+		[
+			"apps/web/src/access/old.ts:2 no-default-database",
+			"apps/web/src/access/old.ts:5 no-default-database",
+			"apps/web/src/access/old.ts:7 no-default-database",
+			"packages/db/src/old.ts:2 no-default-database",
+			"packages/db/src/old.ts:5 no-default-database",
+			"packages/db/src/old.ts:7 no-default-database",
+		],
+	);
+});
+
+test("INV-lint: hand-written count text in apps/web/src is refused, naming counted and countWord; choices on 1 that are not a singular and plural pair are allowed", () => {
+	const source = `export const a = (n: number) => \`\${n} \${n === 1 ? "task" : "tasks"}\`;
+export const b = (n: number) => \`\${n} follow-up\${n === 1 ? "" : "s"}\`;
+export const c = (n: number) => \`\${n} row\${n !== 1 ? "s" : ""}\`;
+export const d = (n: number) => \`\${n} \${n === 1 ? "person" : "people"}\`;
+export const e = (n: number) => (n === 1 ? "1 note" : \`\${n} notes\`);
+export const f = (n: number, one: string, many: string) => \`\${n} \${n === 1 ? one : many}\`;
+export const g = (n: number) => \`\${n} \${n === 1 ? "task is" : "tasks are"}\`;
+export const g2 = (n: number) => (n === 1 ? "This open task stays" : "These open tasks stay");
+export const g3 = (n: number) => \`\${n} \${n === 1 ? "task does" : "tasks do"}\`;
+export const h = (d: number) => (d === 1 ? "Yesterday" : "Earlier");
+export const i = (v: number) => (v > 1 ? " · version 2" : "");
+export const j = (s: number) => (s === 1 ? "" : " scale(2)");
+export const k = (n: number, one: string) => (n === 1 ? one : "many");
+export const l = (n: number) => (n === 1 ? "One task is" : \`\${n} tasks are\`);
+`;
+	const hits = lint({ "apps/web/src/features/x/count.ts": source }, undefined, true).filter((hit) =>
+		hit.includes(" count-text "),
+	);
+	assert.deepEqual(
+		hits.map((hit) => Number.parseInt(hit.split(":")[1], 10)),
+		[1, 2, 3, 4, 5, 6, 7, 8, 9],
+	);
+	assert.match(hits[0], /counted\(n, one, many\).*countWord\(n, one, many\).*@everyfield\/contracts\/common/);
+});
+
+test("INV-lint: the count-text rule allows the counted and countWord module itself", () => {
+	const helper = `export const countWord = (n: number, one: string, many = \`\${one}s\`) => (n === 1 ? one : many);
+`;
+	assert.deepEqual(
+		lint({
+			"packages/contracts/src/common/text.ts": helper,
+			"packages/contracts/src/common/other.ts": helper,
+		}).filter((hit) => hit.endsWith(" count-text")),
+		["packages/contracts/src/common/other.ts:1 count-text"],
+	);
+});
+
+test("INV-lint: a noon-UTC civil-day string is refused in app and package source, naming dayText, daysBetween, addDays and weekdayOf", () => {
+	const source = `export const a = (d: string) => new Date(\`\${d}T12:00:00Z\`);
+export const b = (d: string) => Date.parse(d + "T12:00:00Z");
+export const c = (x: string, day: (v: string) => string) => day(x + "T12:00:00Z");
+export const e = (d: string) => new Date(\`\${d}T12:00:00.000Z\`);
+export const f = (d: string) => new Date(\`\${d}T12:00:00\`);
+export const g = (d: string) => new Date(\`\${d}T09:30:00Z\`);
+export const h = "T12:00:00";
+`;
+	const hits = lint(
+		{ "apps/web/src/features/x/day.ts": source, "packages/evry/src/x/day.ts": source },
+		undefined,
+		true,
+	).filter((hit) => hit.includes(" civil-day "));
+	assert.deepEqual(
+		hits.map((hit) => hit.split(" ")[0]),
+		["apps/web/src/features/x/day.ts", "packages/evry/src/x/day.ts"].flatMap((file) =>
+			[1, 2, 3, 4].map((line) => `${file}:${line}`),
+		),
+	);
+	assert.match(hits[0], /dayText.*daysBetween.*addDays.*weekdayOf.*@everyfield\/contracts\/common/);
+});
+
+test("INV-lint: a midnight-UTC civil-day string is refused too, while a local wall-clock midnight passes", () => {
+	const source = `export const a = (d: string) => new Date(\`\${d}T00:00:00Z\`);
+export const b = (d: string) => Date.parse(d + "T00:00:00Z");
+export const c = "T00:00:00.000Z";
+export const e = (d: string) => \`\${d}T00:00:00\`;
+export const f = (d: string) => new Date(\`\${d}T00:30:00Z\`);
+`;
+	const hits = lint({ "apps/web/src/features/x/day.ts": source, "packages/domain/src/x/day.ts": source }).filter(
+		(hit) => hit.endsWith(" civil-day"),
+	);
+	assert.deepEqual(
+		hits,
+		["apps/web/src/features/x/day.ts", "packages/domain/src/x/day.ts"].flatMap((file) =>
+			[1, 2, 3].map((line) => `${file}:${line} civil-day`),
+		),
+	);
+});
+
+test("INV-lint: the civil-day rule allows the day module itself", () => {
+	const helper = `const noon = (d: string) => new Date(\`\${d}T12:00:00Z\`);
+const midnight = (d: string) => Date.parse(d + "T00:00:00Z");
+`;
+	assert.deepEqual(
+		lint({
+			"packages/contracts/src/common/day.ts": helper,
+			"packages/contracts/src/common/other.ts": helper,
+		}).filter((hit) => hit.endsWith(" civil-day")),
+		["packages/contracts/src/common/other.ts:1 civil-day", "packages/contracts/src/common/other.ts:2 civil-day"],
+	);
+});
+
+test("INV-lint: the root config refuses hand-written count text in package source, except packages/ui/src, which cannot import contracts", () => {
+	const source = `export const a = (n: number) => (n === 1 ? "task" : "tasks");
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/x/count.ts": source,
+			"packages/evry/src/x/count.ts": source,
+			"packages/ui/src/x/count.ts": source,
+		}).filter((hit) => hit.endsWith(" count-text")),
+		["packages/domain/src/x/count.ts:1 count-text", "packages/evry/src/x/count.ts:1 count-text"],
+	);
+});
+
+test("INV-lint: package source writes no count text by hand, apart from the ui package's Pipeline display", () => {
+	const dir = realpathSync(mkdtempSync(join(tmpdir(), "lint-rules-")));
+	temps.push(dir);
+	put(dir, "count-text.json", { jsPlugins: [PLUGIN], rules: { "everyfield/count-text": "error" } });
+	const packages = ["contracts", "db", "domain", "evry", "reference", "ui"].map((name) => `packages/${name}/src`);
+	const ran = spawnSync(OXLINT, ["-c", join(dir, "count-text.json"), "-f", "json", ...packages], {
+		cwd: repo,
+		encoding: "utf8",
+		env: env(repo),
+	});
+	const files = JSON.parse(ran.stdout.slice(ran.stdout.indexOf("{")))
+		.diagnostics.filter((d) => d.code === "everyfield(count-text)")
+		.map((d) => relative(repo, resolve(repo, d.filename)));
+	assert.deepEqual([...new Set(files)], ["packages/ui/src/display/Pipeline.tsx"]);
+});
+
+test("INV-lint: a cast through unknown is refused in app and package source and allowed in tests, a single cast or satisfies is not", () => {
+	const source = `type X = { id: string };
+export const a = () => window as unknown as Record<symbol, X>;
+export const b = (r: object) => (r as unknown as { id: string }).id;
+export const c = <T,>(x: number) => <T>(<unknown>x);
+export const d = (x: object) => x as X;
+export const e = (x: number) => x as unknown;
+export const f = { id: "a" } satisfies X;
+`;
+	const files = [
+		"apps/web/src/components/x.ts",
+		"packages/domain/src/x/cast.ts",
+		"apps/web/src/components/x.test.ts",
+		"packages/domain/src/test/cast.ts",
+		"packages/evry/src/tests/cast.ts",
+	];
+	const hits = lint(Object.fromEntries(files.map((file) => [file, source])), undefined, true).filter((hit) =>
+		hit.includes(" no-double-cast "),
+	);
+	assert.deepEqual(
+		hits.map((hit) => hit.split(" ")[0]),
+		["apps/web/src/components/x.ts", "packages/domain/src/x/cast.ts"].flatMap((file) =>
+			[2, 3, 4].map((line) => `${file}:${line}`),
+		),
+	);
+	assert.match(hits[0], /Type the value at its source, or narrow it with a check/);
+});
+
+test("INV-spend: only the composition root loads the scripted Evry package, and only by a dynamic import", () => {
+	const code = `import { scriptedModel } from "@everyfield/evry-scripted";
+export { scriptedDraft } from "@everyfield/evry-scripted";
+export const load = () => import("@everyfield/evry-scripted");
+export const model = scriptedModel;
+`;
+	const wiring = `import type { ScriptedReply } from "@everyfield/evry-scripted";
+export const load = () => import("@everyfield/evry-scripted");
+export type Reply = ScriptedReply;
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/server/evry/worker.ts": code,
+			"packages/evry/src/runtime/model.ts": code,
+			"apps/web/src/server/models.ts": wiring,
+		}).filter((hit) => hit.endsWith(" scripted-model-wiring")),
+		[
+			"apps/web/src/server/models.ts:1 scripted-model-wiring",
+			...["apps/web/src/server/evry/worker.ts", "packages/evry/src/runtime/model.ts"].flatMap((file) =>
+				[1, 2, 3].map((line) => `${file}:${line} scripted-model-wiring`),
+			),
+		].sort(),
 	);
 });

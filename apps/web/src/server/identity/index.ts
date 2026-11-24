@@ -4,6 +4,7 @@ import { nextCookies } from "better-auth/next-js";
 import { after } from "next/server";
 import { createHmac } from "node:crypto";
 import { endEmailChangeProofOnSessionChange } from "../email-change-proof.ts";
+import { answerWithLinkProof } from "../link-proof.ts";
 import { database } from "../database";
 import { serverConfig, serverEnv, type ServerConfig } from "../config.ts";
 import {
@@ -15,7 +16,7 @@ import {
 import { invitationService } from "../invitations";
 import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "@everyfield/domain/jobs";
 import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
-import { configured, mutatingRoute } from "../platform/boundary.ts";
+import { loggedRoute, mutatingRoute } from "../platform/boundary.ts";
 
 function identityMail(v: ServerConfig, transport?: MailTransport) {
 	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
@@ -79,12 +80,12 @@ function identityMount() {
 	return service;
 }
 
-export const identityHandler = configured((request: Request): Promise<Response> => identityMount().handle(request));
+export const identityHandler = loggedRoute((request: Request): Promise<Response> => identityMount().handle(request));
 
 export function requestAuth() {
 	return identityMount().auth;
 }
 
 export const identityWrite = mutatingRoute(async (request: Request) =>
-	endEmailChangeProofOnSessionChange(request, await identityHandler(request)),
+	endEmailChangeProofOnSessionChange(request, await answerWithLinkProof(request, identityHandler)),
 );

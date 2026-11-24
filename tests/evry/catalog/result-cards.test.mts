@@ -174,6 +174,25 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"communication.forPerson": { personId: byName("Maria Santos").id },
 	"communication.templates.list": {},
 	"communication.resendCandidates": { communicationId: WELCOME, selection: "delivered_nonopeners" },
+	"communication.forMeeting": { meetingWords: "vision meeting" },
+	"communication.meetingRecipientTracking": { meetingWords: "vision meeting" },
+	"communication.deliveryTotals": {},
+	"communication.listAudienceTeams": {},
+	"communication.searchRecipients": { query: "Casey" },
+	"mail.suppression.listForSelf": async () =>
+		invokeRead(church.db, church.actors.owner, adapters.get("mail.suppression.listForSelf")!, {}, null, undefined, {
+			keys: {
+				encryptionKey: Buffer.alloc(32, 7),
+				addressKey: Buffer.alloc(32, 9),
+				from: "church@example.test",
+				origin: "https://app.example.test",
+			},
+			transport: {
+				send: async () => ({ outcome: "ids", ids: [] }),
+				cancel: async () => [],
+				reschedule: async () => [],
+			},
+		}),
 	"notifications.feed": { unread: true },
 	"notifications.preferences.get": {},
 	"notifications.previewPlanterDigest": {},
@@ -211,6 +230,8 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"phases.readCatalog": {},
 	"phases.readHistory": {},
 	"phases.readReadiness": {},
+	"intelligence.readExitCriteria": {},
+	"intelligence.readJourney": {},
 	"signals.listDefinitions": {},
 	"signals.getHistory": {},
 	"meetings.list": { window: "upcoming" },
@@ -272,6 +293,8 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 			["intelligence.readAssessmentDelta", "owner"],
 			["oversight.listPlants", "director"],
 			["organizationIntelligence.read", "director"],
+			["organizationIntelligence.readHistory", "director"],
+			["organizationIntelligence.readLocations", "director"],
 		].map(([op, who]) => [
 			op,
 			async () => {
@@ -285,6 +308,17 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 			},
 		]),
 	),
+	"organizationIntelligence.readLocationHistory": async () => {
+		const ch = await oversightChurch();
+		return invokeRead(
+			ch.db,
+			await oversightActor("director"),
+			adapters.get("organizationIntelligence.readLocationHistory")!,
+			{
+				plantId: ch.plants["Harvest Point"]!.id,
+			},
+		);
+	},
 	"oversight.getPlant": async () => {
 		const ch = await oversightChurch();
 		return invokeRead(ch.db, await oversightActor("director"), adapters.get("oversight.getPlant")!, {

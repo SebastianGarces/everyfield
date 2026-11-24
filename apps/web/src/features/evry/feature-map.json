@@ -222,6 +222,24 @@
 					}
 				},
 				{
+					"id": "church-changed",
+					"says": "A moved seat's old-church sends, retries, streams and opens are refused with Reload.",
+					"catalog": ["EVR-021"],
+					"operations": ["evry.submitTurn"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/evry/runtime/conversations.test.mts",
+								"name": "INV-church-changed: a seat moved to another church refuses the old church's conversation as church_changed and writes nothing"
+							},
+							{
+								"file": "tests/evry/runtime/conversations.test.mts",
+								"name": "INV-church-changed: a moved seat's retry or read of the old conversation is church_changed"
+							}
+						]
+					}
+				},
+				{
 					"id": "attach-and-import",
 					"says": "An Owner or Admin attaches a Word or text file in the panel and asks for a church document: Evry shows a review of the import, refuses any file the Documents import refuses with that import's own sentence, and the document is in Documents only after Approve.",
 					"catalog": ["EVR-021", "DOC-016"],
@@ -245,7 +263,7 @@
 							"expect": [
 								{
 									"role": "button",
-									"name": "Attach a CSV, Word, text or PDF file"
+									"name": "Attach a file"
 								}
 							]
 						}
@@ -338,6 +356,20 @@
 			],
 			"behaviors": [
 				{
+					"id": "church-changed",
+					"says": "After a seat moves church, Approve on the old church's change is refused and it stays pending; the card says the church changed and offers Reload.",
+					"catalog": ["EVR-012"],
+					"operations": ["evry.approveProposal"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/evry/execution/proposals.test.mts",
+								"name": "INV-church-changed: approving the old church's pending proposal after the seat moves church is refused as church_changed and changes nothing"
+							}
+						]
+					}
+				},
+				{
 					"id": "approve-change",
 					"says": "A change Evry prepares shows as Review before saving with the exact old and new values; Approve runs it once and the page it changed shows the new value.",
 					"catalog": ["EVR-012", "EVR-013", "EVR-014"],
@@ -429,14 +461,18 @@
 				},
 				{
 					"id": "photo",
-					"says": "A photo attached in the panel is staged privately for one proposal; only its owner sees it while the review lasts, and approval needs it.",
+					"says": "A photo attached in the panel's one attach control is staged privately in that conversation; a People photo review shows it only to its owner while the review lasts, approval needs it, and the approved photo is bound to one person once.",
 					"catalog": ["EVR-025"],
 					"operations": [],
 					"proof": {
 						"tests": [
 							{
 								"file": "tests/evry/adapters/people/commands/commands.test.mts",
-								"name": "AC:UI45-003 a photo proposal's owner sees the exact staged upload while the review lasts; approval needs it"
+								"name": "AC:UI45-003 a photo proposal's owner sees the exact attached photo while the review lasts; approval needs it"
+							},
+							{
+								"file": "tests/evry/runtime/photo-attachments.test.mts",
+								"name": "an Owner's attached photo becomes Priya's People photo only after Approve, and the effect runs once"
 							}
 						],
 						"cases": ["UI45-003"],
@@ -447,12 +483,12 @@
 							"expect": [
 								{
 									"role": "button",
-									"name": "Attach a photo"
+									"name": "Attach a file"
 								}
 							]
 						}
 					},
-					"noOperation": "the panel stages the photo through the Settings avatar upload (conversation/photoActions.ts) and the review card reads it back from packages/evry/src/proposals/store.ts; neither is an Evry catalog operation"
+					"noOperation": "the panel stages the photo as a conversation attachment (packages/evry/src/attachments/store.ts) and, for the user's own account photo, through the Settings avatar upload (conversation/photoActions.ts); the review card reads it back from packages/evry/src/proposals/store.ts; none is an Evry catalog operation"
 				}
 			]
 		}

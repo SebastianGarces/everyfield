@@ -9,6 +9,7 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createNotificationProducer, issueEmailOptOutToken } from "../../../packages/domain/src/notifications/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { markSubject, subjectReadRequest } from "../../../apps/web/src/features/notifications/subject.ts";
 
 const database = await testDatabase({ prefix: "wp030" });
 const { admin } = database;
@@ -22,7 +23,7 @@ const orgs = createOrganizationAdapter(
 		invitation: async () => {},
 		invalidate: () => sql`UPDATE account SET id = id WHERE false`,
 	},
-	{ candidates: async () => [] },
+	{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 );
 type Value<F extends (...args: never[]) => unknown> = Extract<
 	Awaited<ReturnType<F>>,
@@ -825,4 +826,62 @@ test("AC:RECOVERY-DELETE-001 a lifecycle witness hides the audience, receipt and
 		await clear();
 	}
 	for (const read of Object.values(networkReads)) ok(await read());
+});
+
+test("INV-idempotency: opening a subject marks its notices once, and a retry with the same request key returns the first answer", async () => {
+	const church = await plant("Opened");
+	const sam = await identity(church);
+	const work = await task(church.id);
+	const other = await task(church.id);
+	const ids: string[] = [];
+	for (const [i, [feedCategory, source]] of (
+		[
+			["task_due", work],
+			["task_overdue", work],
+			["task_due", other],
+		] as const
+	).entries())
+		ids.push(
+			await notice({
+				tenant: church.id,
+				recipient: sam.id,
+				category: "task",
+				purpose: "task_due",
+				key: `${church.id}/${feedCategory}/${source}/1/${i}`,
+				source,
+				title: `Notice ${i}`,
+				eligible: `2026-10-13T1${i}:00:00Z`,
+			}),
+		);
+	const reader = await actor(sam.session);
+	const mount = { db, producer: api };
+	const notices = async () =>
+		(
+			await admin.execute(
+				sql`SELECT id, read_at IS NOT NULL AS read, revision::text AS revision, read_at::text AS read_at FROM notice WHERE id = ANY(${sql.param(ids)}::uuid[]) ORDER BY title`,
+			)
+		).rows;
+	const marks = () => count(sql`SELECT count(*)::int AS n FROM audit_event WHERE actor_id=${sam.id}::uuid `);
+	const request = {
+		requestKey: subjectReadRequest.shape.requestKey.parse(randomUUID()),
+		subject: { kind: "task" as const, id: work },
+	};
+
+	const first = ok(await markSubject(mount, reader, request));
+	assert.deepEqual([...first.markedIds].sort(), [ids[0], ids[1]].sort());
+	const marked = await notices();
+	assert.deepEqual(
+		marked.map((n) => n.read),
+		[true, true, false],
+	);
+	const audited = await marks();
+
+	assert.deepEqual(ok(await markSubject(mount, reader, request)), first);
+	assert.deepEqual(await notices(), marked);
+	assert.equal(await marks(), audited);
+
+	assert.deepEqual(
+		ok(await markSubject(mount, reader, { ...request, subject: { kind: "meeting", id: randomUUID() } })).markedIds,
+		[],
+	);
 });

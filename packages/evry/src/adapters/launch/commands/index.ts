@@ -1,4 +1,4 @@
-import { localDate } from "@everyfield/contracts/common";
+import { countWord, dayText, localDate } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
@@ -8,7 +8,6 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, NativePorts, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { plantAdmin } from "../../native.ts";
-import { launchDay } from "../reads/index.ts";
 
 const reader = createLaunchReader();
 const writer = createLaunchWriter({ notices: async () => undefined });
@@ -36,7 +35,7 @@ const plannedText = (plan: c.Plan) =>
 	plan.launch?.status === "postponed"
 		? "Postponed"
 		: plan.launch?.targetDate
-			? launchDay(plan.launch.targetDate)
+			? dayText(plan.launch.targetDate, { weekday: "short" })
 			: null;
 const guestAnswer = (a: Pick<c.DebriefAnswers, "missingNames" | "missingCount">) =>
 	a.missingNames === "yes" ? `Yes, ${a.missingCount ?? "?"}` : a.missingNames === "no" ? "No" : null;
@@ -107,13 +106,13 @@ export const schedule = launchWrite({
 			status === "completed"
 				? "Launch Sunday is already recorded, so its date can't move."
 				: moving && plan.launch?.targetDate === input.date
-					? `Launch Sunday is already ${launchDay(input.date)}.`
+					? `Launch Sunday is already ${dayText(input.date, { weekday: "short" })}.`
 					: !note.ok
 						? NOTE_REFUSAL[note.problem]
 						: null;
 		return {
 			changes: [
-				{ field: "launchDate", before: plannedText(plan), after: launchDay(input.date) },
+				{ field: "launchDate", before: plannedText(plan), after: dayText(input.date, { weekday: "short" }) },
 				{ field: "reason", before: null, after: note.ok ? note.note : (input.reason ?? null) },
 			],
 			notes: [UNCHANGED],
@@ -202,7 +201,7 @@ export const recordOutcome = launchWrite({
 				? OUTCOME_REFUSAL[checked.problem]
 				: null;
 		const changes: Change[] = [
-			{ field: "actualDate", before: null, after: launchDay(actualDate) },
+			{ field: "actualDate", before: null, after: dayText(actualDate, { weekday: "short" }) },
 			{ field: "attendance", before: null, after: input.attendance },
 			...(input.decisions !== undefined ? [{ field: "decisions", before: null, after: input.decisions }] : []),
 			...(answers
@@ -225,10 +224,10 @@ export const recordOutcome = launchWrite({
 	},
 	async run(db, authority, args, key) {
 		const a = z
-			.object({
+			.strictObject({
 				record: z.record(z.string(), z.unknown()),
 				debrief: z
-					.object({ draftId: z.string().nullable(), expectedRevision: z.string(), answers: z.unknown() })
+					.strictObject({ draftId: z.string().nullable(), expectedRevision: z.string(), answers: z.unknown() })
 					.nullable(),
 			})
 			.parse(args);
@@ -359,7 +358,7 @@ export const completeMilestone = launchWrite({
 			changes: [{ field: "milestone", before: milestoneState(m), after: "Complete" }],
 			notes: [
 				open.length
-					? `${open.length} of its ${m.tasks.length} prep tasks ${open.length === 1 ? "is still open and stays" : "are still open and stay"} open: ${open.map((t) => t.title).join("; ")}.`
+					? `${open.length} of its ${m.tasks.length} prep tasks ${countWord(open.length, "is still open and stays", "are still open and stay")} open: ${open.map((t) => t.title).join("; ")}.`
 					: "Every prep task linked to it is done.",
 				...(earlier
 					? [
@@ -519,7 +518,11 @@ export const correctOutcome = launchWrite({
 		const named = OUTCOME_FIELDS.filter((k) => input[k] !== undefined);
 		const changed = named.filter((k) => now[k] !== was[k]);
 		const shown = (k: OutcomeField, v: string | number | null) =>
-			k === "actualDate" ? (v === null ? null : launchDay(String(v))) : countShown(v as number | null);
+			k === "actualDate"
+				? v === null
+					? null
+					: dayText(String(v), { weekday: "short" })
+				: countShown(v as number | null);
 		const notInFuture = now.actualDate ?? plan.today;
 		const checked = o && c.checkOutcome({ ...now, actualDate: notInFuture, note: o.note }, plan.today);
 		const note = c.checkNote(input.reason, true);

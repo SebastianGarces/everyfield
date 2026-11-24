@@ -22,6 +22,13 @@ const seatListRow = z.object({
 	acted_at: z.coerce.date().nullable(),
 	avatar: z.uuid().nullable(),
 });
+const lockedSeat = z.object({
+	id: z.uuid(),
+	account_id: z.uuid(),
+	role: z.enum(t.seat.role.enumValues),
+	revision: z.string(),
+	ended_at: z.coerce.date().nullable(),
+});
 const databaseError = z.object({ cause: z.object({ code: z.string().regex(/^[0-9A-Z]{5}$/) }) });
 async function requiredWrites<T>(change: Promise<T>): Promise<T> {
 	try {
@@ -199,8 +206,8 @@ export function createSeatService(db: Database | Transaction) {
 							FROM seat s JOIN account a ON a.id=s.account_id CROSS JOIN LATERAL seat_identity(s.account_id) i
 							WHERE ${column}=${selected.id}::uuid AND s.ended_at IS NULL AND s.account_id<>${s.account_id}::uuid
 								AND a.registration_state='active' AND s.accepted_at<=clock_timestamp()
-								AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE (w.opaque_subject_id=s.account_id OR w.seat_id=s.id)
-									AND w.state NOT IN ('active','cancelled'))
+								AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=s.account_id
+									AND w.state <> 'cancelled')
 							ORDER BY s.id LIMIT ${c.MAX_REMOVAL_ITEMS + 1}`)
 					).rows,
 				)
@@ -247,25 +254,12 @@ export function createSeatService(db: Database | Transaction) {
 				v,
 			);
 			if (cmd.kind === "replay") return c.seatMutationResult.parse(cmd.result);
-			const [target] = await tx
-				.select({ id: t.account.id })
-				.from(t.account)
-				.where(
-					eq(
-						t.account.id,
-						tx
-							.select({ account_id: t.seat.account_id })
-							.from(t.seat)
-							.where(and(eq(t.seat.id, v.input.seatId), inWorkspace(selected))),
-					),
-				)
-				.for("update");
-			if (!target) d.deny("invitation_unavailable");
-			const [s] = await tx
-				.select()
-				.from(t.seat)
-				.where(and(eq(t.seat.id, v.input.seatId), inWorkspace(selected)))
-				.for("update");
+			const column = selected.kind === "plant" ? sql`plant_id` : sql`organization_id`;
+			const found = await tx.execute(sql`WITH target AS MATERIALIZED (SELECT a.id FROM account a
+ WHERE a.id=(SELECT x.account_id FROM seat x WHERE x.id=${v.input.seatId}::uuid AND x.${column}=${selected.id}::uuid) FOR UPDATE)
+ SELECT s.id, s.account_id, s.role, s.revision::text AS revision, s.ended_at FROM seat s
+ WHERE s.id=${v.input.seatId}::uuid AND s.${column}=${selected.id}::uuid AND EXISTS(SELECT FROM target) FOR UPDATE OF s`);
+			const [s] = lockedSeat.array().parse(found.rows);
 			if (!s) d.deny("invitation_unavailable");
 			if (s.role === "owner") d.deny("protected_owner");
 			if (s.ended_at) d.deny("invitation_unavailable");
@@ -297,7 +291,7 @@ export function createSeatService(db: Database | Transaction) {
 									isNull(t.seat.ended_at),
 									eq(t.account.registration_state, "active"),
 									sql`${t.seat.accepted_at}<=clock_timestamp()`,
-									sql`NOT EXISTS(SELECT FROM lifecycle_witness w WHERE (w.opaque_subject_id=${t.seat.account_id} OR w.seat_id=${t.seat.id}) AND w.state NOT IN ('active','cancelled'))`,
+									sql`NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=${t.seat.account_id} AND w.state <> 'cancelled')`,
 								),
 							)
 							.orderBy(asc(t.seat.id))

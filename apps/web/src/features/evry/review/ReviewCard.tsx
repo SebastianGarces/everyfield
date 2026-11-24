@@ -128,6 +128,7 @@ import {
 	type Phase,
 	type Review,
 } from "./model.ts";
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import { NativeImage } from "@/components/native";
 import { useRead } from "@/components/read";
 import { useLocalStore } from "@/components/store";
@@ -138,18 +139,21 @@ import {
 	reviewOf,
 	uploadOf,
 	type Action,
+	type Church,
 	type Notice,
+	type StagedSrc,
 } from "./ReviewCard.store.ts";
+import { ChurchChanged } from "../conversation/ChurchChanged.tsx";
 
-type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown";
+type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown" | "moved" | "left";
 
-export function useReview(proposalId: string, seed: Review | null | undefined) {
+export function useReview(proposalId: string, seed: Review | null | undefined, church: Church) {
 	const router = useRouter();
 	const store = useLocalStore(() =>
 		createReviewStore({
 			id: proposalId,
 			seed,
-			port: { ...api, refresh: () => router.refresh() },
+			port: { ...api, refresh: () => router.refresh(), church },
 		}),
 	);
 	const state = useSyncExternalStore(store.getState().actions.follow, store.getState, store.getState);
@@ -158,8 +162,15 @@ export function useReview(proposalId: string, seed: Review | null | undefined) {
 	const review = reviewOf(value);
 	const load = loadOf(value);
 	const lapsed = lapsedOf({ review, ranOut });
-	const view: Exclude<View, "photo_unavailable" | "unknown"> =
-		load === "ready" && review ? phaseOf(review, lapsed) : load === "ready" ? "loading" : load;
+	const view: Exclude<View, "photo_unavailable" | "unknown"> = state.churchChanged
+		? "moved"
+		: !review && church.changed()
+			? "left"
+			: load === "ready" && review
+				? phaseOf(review, lapsed)
+				: load === "ready"
+					? "loading"
+					: load;
 	const upload = uploadOf(review);
 	const mine = photo && photo.upload === upload ? photo : null;
 	const staged: StagedPhoto = mine ?? { status: view === "pending" && upload !== null ? "loading" : "idle" };
@@ -175,7 +186,7 @@ const UNKNOWN_TEXT: Record<Action, string> = {
 	recheck: "Evry got no answer from the email service. Check again.",
 };
 
-type StagedPhoto = { status: "idle" | "loading" | "gone" | "lost" } | { status: "ready"; src: string };
+type StagedPhoto = { status: "idle" | "loading" | "gone" | "lost" } | { status: "ready"; src: StagedSrc };
 
 type Tone = BandTone;
 const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; title: string; tone: Tone }> = {
@@ -190,6 +201,8 @@ const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; ti
 	unknown: { icon: Alert02Icon, title: "Not confirmed", tone: "amber" },
 	photo_unavailable: { icon: ImageNotFound01Icon, title: "Photo not available", tone: "gray" },
 	unavailable: { icon: SquareLock02Icon, title: "Not available to you", tone: "gray" },
+	moved: { icon: SquareLock02Icon, title: "Not approved", tone: "gray" },
+	left: { icon: SquareLock02Icon, title: "Not available", tone: "gray" },
 };
 
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
@@ -262,6 +275,8 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				? `${what} in this change is no longer available to you, so Evry can't show this change or its result.`
 				: `${what} in this change is no longer available to you. Nothing was changed.`;
 		}
+		case "left":
+			return "Your church changed, so Evry can't show this change here.";
 		case "unavailable":
 			return "You can't see this change now, so Evry can't show its result. Changes like this need an Owner or Admin seat in this church.";
 		default:
@@ -288,12 +303,14 @@ export function ReviewCard({
 	proposalId,
 	target,
 	seed,
+	church,
 }: {
 	proposalId: string;
 	target: string | null;
 	seed?: Review | null;
+	church: Church;
 }) {
-	const r = useReview(proposalId, seed);
+	const r = useReview(proposalId, seed, church);
 	const [reason, setReason] = useState("");
 	const [editing, setEditing] = useState<number | null>(null);
 	const [closes, setCloses] = useState(0);
@@ -375,7 +392,13 @@ export function ReviewCard({
 						Try again
 					</Button>
 				</div>
-			) : view === "unavailable" || view === "withheld" || !review ? null : (view === "pending" ||
+			) : view === "moved" ? (
+				<div className="px-4 py-3.5">
+					<ChurchChanged onReload={church.reload}>
+						Nothing was changed. Reload to use Evry for your new church.
+					</ChurchChanged>
+				</div>
+			) : view === "unavailable" || view === "withheld" || view === "left" || !review ? null : (view === "pending" ||
 					unknown === "revise") &&
 			  editing === review.revision ? (
 				<ReviseForm
@@ -886,7 +909,7 @@ function PhotoTile({
 }: {
 	caption: string;
 	value: unknown;
-	src?: string;
+	src?: AppAssetPath | StagedSrc;
 	alt: string;
 	state: TileState;
 	onRetry?: () => void;
@@ -944,7 +967,7 @@ function PhotoChange({
 	onRetry: () => void;
 }) {
 	const saved = review.outcome === "completed";
-	const after: { state: TileState; src?: string } =
+	const after: { state: TileState; src?: AppAssetPath | StagedSrc } =
 		change.after === null || change.after === undefined
 			? { state: "none" }
 			: staged.status === "ready"
@@ -1030,7 +1053,7 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 				return item ? (
 					<div key={n} className="flex min-w-0 flex-col gap-0.5">
 						<dt className="font-medium break-words text-ink">{c.field}</dt>
-						{values(c, item)}
+						{item === "checklist" ? <ChecklistTasks value={c.after} /> : values(c, item)}
 					</div>
 				) : c.field === "photo" && review.review.target ? (
 					<PhotoChange
@@ -1060,6 +1083,7 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 									<li key={x.label} className="flex flex-wrap items-baseline justify-between gap-x-3">
 										<span className="font-medium break-words text-ink">{x.label}</span>
 										<span className="text-xs text-text-3">{x.status.charAt(0).toUpperCase() + x.status.slice(1)}</span>
+										{x.reading ? <span className="w-full text-xs break-words text-text-2">{x.reading}</span> : null}
 									</li>
 								))}
 							</ul>
@@ -1070,6 +1094,24 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 				</div>
 			) : null}
 		</dl>
+	);
+}
+
+function ChecklistTasks({ value }: { value: unknown }) {
+	return (
+		<dd className="min-w-0 text-text-2">
+			{Array.isArray(value) ? (
+				<ul className="flex flex-col gap-0.5">
+					{value.map((task, i) => (
+						<li key={i} className="break-words">
+							{String(task)}
+						</li>
+					))}
+				</ul>
+			) : (
+				String(value)
+			)}
+		</dd>
 	);
 }
 

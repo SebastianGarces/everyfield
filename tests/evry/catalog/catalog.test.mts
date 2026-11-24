@@ -55,6 +55,12 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"communication.forPerson",
 		"communication.templates.list",
 		"communication.resendCandidates",
+		"communication.forMeeting",
+		"communication.meetingRecipientTracking",
+		"communication.deliveryTotals",
+		"communication.listAudienceTeams",
+		"communication.searchRecipients",
+		"mail.suppression.listForSelf",
 		"tasks.list",
 		"tasks.count",
 		"tasks.get",
@@ -107,6 +113,8 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"phases.readCatalog",
 		"phases.readHistory",
 		"phases.readReadiness",
+		"intelligence.readExitCriteria",
+		"intelligence.readJourney",
 		"signals.listDefinitions",
 		"signals.getHistory",
 		"meetings.list",
@@ -157,6 +165,9 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"oversight.listPlants",
 		"oversight.getPlant",
 		"organizationIntelligence.read",
+		"organizationIntelligence.readHistory",
+		"organizationIntelligence.readLocations",
+		"organizationIntelligence.readLocationHistory",
 		"calendar.getContext",
 		"calendar.resolve",
 		"wiki.search",
@@ -235,7 +246,13 @@ const as = (contextKind: EvryActor["contextKind"], role: EvryActor["role"]): Evr
 	selfPersonId: null,
 });
 const PHASE_TOOLS = {
-	phases: ["phases.readCatalog", "phases.readHistory", "phases.readReadiness"],
+	phases: [
+		"phases.readCatalog",
+		"phases.readHistory",
+		"phases.readReadiness",
+		"intelligence.readExitCriteria",
+		"intelligence.readJourney",
+	],
 	signals: ["signals.listDefinitions", "signals.getHistory"],
 	writes: ["phases.declare", "phases.transition", "signals.attest", "signals.correct", "signals.reaffirm"],
 };
@@ -383,6 +400,9 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		"oversight.listPlants",
 		"oversight.getPlant",
 		"organizationIntelligence.read",
+		"organizationIntelligence.readHistory",
+		"organizationIntelligence.readLocations",
+		"organizationIntelligence.readLocationHistory",
 	];
 	const orgWiki = [
 		"wiki.organizationArticles.add",

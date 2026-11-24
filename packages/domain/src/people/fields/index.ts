@@ -4,6 +4,7 @@ import type { Database } from "@everyfield/db/client";
 import { and, eq, inArray, sql } from "@everyfield/db/query";
 import {
 	putPrivateObject,
+	toUploadKey,
 	readAuthorizedObject,
 	validateAvatar,
 	type PrivateStorage,
@@ -220,7 +221,7 @@ export async function uploadPersonPhoto(db: Database, storage: PrivateStorage, c
 				purpose: "person_photo",
 				mediaType: file.media_type,
 				bytes: input.bytes,
-				uploadKey: file.upload_key,
+				uploadKey: toUploadKey(file.upload_key),
 			}).catch(() => deny("unavailable"));
 		return { uploadId: input.uploadId };
 	});

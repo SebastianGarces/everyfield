@@ -60,9 +60,21 @@ import { PIPELINE_READS } from "../../../packages/evry/src/adapters/pipeline/rea
 import { PIPELINE_COMMANDS } from "../../../packages/evry/src/adapters/pipeline/commands/index.ts";
 import { LAUNCH_READS } from "../../../packages/evry/src/adapters/launch/reads/index.ts";
 import { LAUNCH_COMMANDS } from "../../../packages/evry/src/adapters/launch/commands/index.ts";
+import { PLAN_WRITES } from "../../../packages/evry/src/context/compile.ts";
 import { INVITATION_COMMANDS } from "../../../packages/evry/src/adapters/meetings/commands/invitation.ts";
 import { WORKFLOW_READS } from "../../../packages/evry/src/adapters/meetings/reads/workflows.ts";
 import { WIKI_COMMANDS } from "../../../packages/evry/src/adapters/wiki/commands/index.ts";
+
+export const COMMUNICATION_LATER = [
+	"communication.forMeeting",
+	"communication.meetingRecipientTracking",
+	"communication.deliveryTotals",
+	"communication.listAudienceTeams",
+	"communication.searchRecipients",
+	"mail.suppression.listForSelf",
+	"communication.templates.archiveOrDelete",
+	"communication.correctContactLog",
+];
 
 const LATER = new Set<string>([
 	...SEAT_READS.map((a) => a.operation),
@@ -77,10 +89,17 @@ const LATER = new Set<string>([
 	...Object.keys(PIPELINE_COMMANDS),
 	...LAUNCH_READS.map((a) => a.operation),
 	...Object.keys(LAUNCH_COMMANDS),
+	...PLAN_WRITES,
 	...Object.keys(INVITATION_COMMANDS),
 	...WORKFLOW_READS.map((a) => a.operation),
 	"documents.importTextOrWord",
 	...Object.keys(WIKI_COMMANDS).filter((op) => op.startsWith("wiki.organizationArticles.")),
+	"organizationIntelligence.readHistory",
+	"organizationIntelligence.readLocations",
+	"organizationIntelligence.readLocationHistory",
+	"intelligence.readExitCriteria",
+	"intelligence.readJourney",
+	...COMMUNICATION_LATER,
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
 const SCRIPTED_ONLY = new Set(["documents.importTextOrWord"]);
@@ -171,7 +190,7 @@ export function recorder(name: string) {
 	let real: LanguageModelV4 | null = null;
 	function realModel() {
 		if (real) return real;
-		const selected = selectQualifiedModel({ ...process.env, EVRY_SCRIPTED_MODEL: "" });
+		const selected = selectQualifiedModel(process.env);
 		if (selected.status !== "qualified" || !selected.spend)
 			throw Error("Recording needs EVRY_MODEL and OPENAI_API_KEY");
 		if (loaded && loaded.model !== selected.id)
@@ -180,7 +199,9 @@ export function recorder(name: string) {
 		return (real = selected.model);
 	}
 
-	function model(keys: string[] = [], inputs: string[] = []): LanguageModelV4 {
+	function model(keys: string[] = [], inputs: string[] = [], repetition = 1): LanguageModelV4 {
+		const keyOf = (options: LanguageModelV4CallOptions) =>
+			repetition === 1 ? callKey(options) : `${callKey(options)}~r${repetition}`;
 		const known = (key: string) => used.get(key) ?? loaded?.calls[key];
 		const missing = (key: string): never => {
 			throw new MissingRecording(
@@ -193,7 +214,7 @@ export function recorder(name: string) {
 			modelId: loaded?.model ?? "recording",
 			supportedUrls: {},
 			async doGenerate(options) {
-				const key = callKey(options);
+				const key = keyOf(options);
 				keys.push(key);
 				inputs.push(JSON.stringify({ prompt: options.prompt, tools: options.tools }));
 				let call = known(key);
@@ -212,7 +233,7 @@ export function recorder(name: string) {
 				};
 			},
 			async doStream(options) {
-				const key = callKey(options);
+				const key = keyOf(options);
 				keys.push(key);
 				inputs.push(JSON.stringify({ prompt: options.prompt, tools: options.tools }));
 				const call = known(key);
@@ -309,13 +330,25 @@ export const MAIL: MailPort = {
 
 const MAX_STEPS = LIMITS.toolCalls + 1;
 
+let writing: Promise<unknown> = Promise.resolve();
+function oneWriterAtATime(db: GoldenChurch["db"]): GoldenChurch["db"] {
+	const transaction: GoldenChurch["db"]["transaction"] = (run, config) => {
+		const written = writing.then(() => db.transaction(run, config));
+		writing = written.catch(() => undefined);
+		return written;
+	};
+	return new Proxy(db, {
+		get: (target, key, receiver) => (key === "transaction" ? transaction : Reflect.get(target, key, receiver)),
+	});
+}
+
 let opening: Promise<unknown> = Promise.resolve();
 function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attached[] = []) {
 	const opened = opening.then(async () => {
 		const c = await createConversation(db, actor, { requestKey: randomUUID() });
 		for (const f of files)
 			await db.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
-				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,${f.pdf ? "commitment" : "assistant_staging"},${`private/${actor.owner.id}/${f.id}`},${f.pdf ? "application/pdf" : "text/csv"},${f.bytes.length},
+				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,${f.pdf ? "commitment" : "assistant_staging"},${`private/${actor.owner.id}/${f.id}`},${f.pdf ? "application/pdf" : isPng(f) ? "image/png" : "text/csv"},${f.bytes.length},
 					'pending',${`evry-attachment/${c.id}/${f.id}`},0,clock_timestamp()+make_interval(hours=>${ATTACHMENTS.stagingHours}))`);
 		const submitted = await submitTurn(db, actor, c.id, {
 			requestKey: randomUUID(),
@@ -354,20 +387,27 @@ export type CaseFile = {
 	checked?: boolean;
 };
 type Attached = CaseFile & { bytes: Uint8Array };
+const isPng = (f: CaseFile) => /\.png$/i.test(f.name);
+const PNG = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
+	"base64",
+);
 const fill = (csv: string) =>
 	csv.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => byName(name)[field] ?? "");
 const HEADING = W.styles(W.style("Heading1", "heading 1"));
 const bytesOf = (f: CaseFile): Uint8Array =>
-	f.pdf
-		? pdf()
-		: f.base64 !== undefined
-			? Buffer.from(f.base64, "base64")
-			: f.docx
-				? W.word(
-						f.docx.map((line) => (line.startsWith("# ") ? W.styled("Heading1", line.slice(2)) : W.p(line))).join(""),
-						{ styles: HEADING },
-					)
-				: new TextEncoder().encode(fill(f.csv ?? ""));
+	isPng(f)
+		? new Uint8Array(PNG)
+		: f.pdf
+			? pdf()
+			: f.base64 !== undefined
+				? Buffer.from(f.base64, "base64")
+				: f.docx
+					? W.word(
+							f.docx.map((line) => (line.startsWith("# ") ? W.styled("Heading1", line.slice(2)) : W.p(line))).join(""),
+							{ styles: HEADING },
+						)
+					: new TextEncoder().encode(fill(f.csv ?? ""));
 
 export async function converse(
 	church: GoldenChurch,
@@ -377,14 +417,18 @@ export async function converse(
 	attachments: CaseFile[] = [],
 	override?: LanguageModelV4,
 	page?: string,
-	{ recorded = golden, mail = MAIL }: { recorded?: ReturnType<typeof recorder>; mail?: MailPort } = {},
+	offer: readonly string[] = [],
+	repetition = 1,
+	{ recordings = golden, mail = MAIL }: { recordings?: ReturnType<typeof recorder>; mail?: MailPort } = {},
 ): Promise<Conversation> {
 	const { db } = church;
+	const writer = oneWriterAtATime(db);
 	const actor = church.actors[as];
 	const keys: string[] = [];
 	const inputs: string[] = [];
-	const model = override ?? recorded.model(keys, inputs);
-	const offered = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
+	const model = override ?? recordings.model(keys, inputs, repetition);
+	const recorded = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
+	const offered = (op: string) => offer.includes(op) || recorded(op);
 	const catalog = readCatalog(actor, offered);
 	const calls: ToolCall[] = [];
 	const proposals: Proposal[] = [];
@@ -509,7 +553,7 @@ export async function converse(
 				const card: Proposal = { operation: call.operation, input: call.input, prepared: false, review: null };
 				proposals.push(card);
 				const number = proposals.length;
-				const open = await (conversation ??= openConversation(db, actor, files));
+				const open = await (conversation ??= openConversation(writer, actor, files));
 				for (const check of calls.filter((x) => x.operation === "people.previewImport" && x.result && !saved.has(x))) {
 					saved.add(check);
 					await db.execute(sql`WITH c AS (UPDATE conversation SET last_sequence=last_sequence+1 WHERE id=${open.id}::uuid RETURNING id,last_sequence)
@@ -517,7 +561,7 @@ export async function converse(
 					SELECT id,last_sequence,${open.lease.turnId}::uuid,'tool_result',${JSON.stringify({ operation: check.operation, input: check.input, result: check.result })}::jsonb FROM c`);
 				}
 				const proposal = await prepareProposal(
-					db,
+					writer,
 					actor,
 					open.lease,
 					open.id,

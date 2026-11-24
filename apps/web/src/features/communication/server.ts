@@ -78,17 +78,16 @@ export async function deliverAs<T>(
 
 export function loadCommunicationPage(viewer: Viewer): Promise<Outcome<PageData>> {
 	const origin = appOrigin();
-	if (origin === null) return Promise.resolve({ status: "refused", code: "unavailable" });
 	return read(viewer, async (tx) => {
 		const templates = await communicationWriter.listTemplates(tx, viewer.authority);
 		if (templates.status !== "ok") return templates;
 		const church = await communicationWriter.readChurchName(tx, viewer.authority);
 		if (church.status !== "ok") return church;
-		const churchName = church.value.churchName;
+		const { churchName, mailingAddress } = church.value;
 		if (!canWrite(viewer)) {
 			return {
 				status: "ok",
-				value: { templates: templates.value.templates, teams: [], churchName, origin },
+				value: { templates: templates.value.templates, teams: [], churchName, mailingAddress, origin },
 			};
 		}
 		const teams = await communicationWriter.listAudienceTeams(tx, viewer.authority);
@@ -99,6 +98,7 @@ export function loadCommunicationPage(viewer: Viewer): Promise<Outcome<PageData>
 				templates: templates.value.templates,
 				teams: teams.value.teams,
 				churchName,
+				mailingAddress,
 				origin,
 			},
 		};

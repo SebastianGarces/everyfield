@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 125,
-  "column_count": 1412,
-  "foreign_key_count": 410,
+  "table_count": 126,
+  "column_count": 1418,
+  "foreign_key_count": 412,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -182,8 +182,7 @@
     ],
     "development_enrollment.status": [
       "active",
-      "completed",
-      "withdrawn"
+      "completed"
     ],
     "development_program.kind": [
       "apprenticeship",
@@ -239,7 +238,8 @@
     ],
     "embedding_spend.purpose": [
       "query",
-      "rebuild"
+      "rebuild",
+      "publish"
     ],
     "enrollment_milestone.source": [
       "program_leader",
@@ -366,7 +366,8 @@
       "people_import",
       "evry_effect",
       "feedback_publication",
-      "assessment"
+      "assessment",
+      "wiki_embedding"
     ],
     "job.state": [
       "ready",
@@ -399,17 +400,13 @@
     ],
     "lifecycle_witness.kind": [
       "account",
-      "plant",
-      "seat",
-      "affiliation"
+      "plant"
     ],
     "lifecycle_witness.state": [
-      "active",
       "pending_deletion",
       "purging",
       "purged",
-      "cancelled",
-      "revoked"
+      "cancelled"
     ],
     "lifecycle_witness.cleanup_state": [
       "not_started",
@@ -442,7 +439,9 @@
       "failed"
     ],
     "mail.refusal": [
-      "unsubscribed"
+      "unsubscribed",
+      "child",
+      "guardian"
     ],
     "mail_attempt.outcome": [
       "in_flight",
@@ -7321,6 +7320,56 @@
         "ADR1-001",
         "ADR1-005",
         "ADR1-017"
+      ]
+    },
+    {
+      "table": "guardian_contact",
+      "columns": [
+        "child_person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-012",
+        "WP-021"
+      ],
+      "meaning": "The child whose Messages email goes to a parent or guardian contact instead (D-2336, D-2337).",
+      "lock_order": "Lock the owner first; add and remove lock the child's Person row through its revision, after the lifecycle writers' locks.",
+      "merge_policy": "Keep the link on the people it names. A merge leaves one side not live, so the link is ignored; Unmerge brings it back as it was.",
+      "inverse_policy": "Unmerge does not move a link, because the merge did not move it.",
+      "retirement_policy": "A retired side makes the link count for nothing; the row stays until a household leave or a remove deletes it.",
+      "privacy_policy": "Names no content. Who added or removed it comes from the audit row on the child.",
+      "immutable_evidence_policy": "Each add and remove writes its own audit row on the child; remove and household leave delete the row.",
+      "future_case_ids": [
+        "TARGET-PPL-009"
+      ]
+    },
+    {
+      "table": "guardian_contact",
+      "columns": [
+        "guardian_person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-012",
+        "WP-021"
+      ],
+      "meaning": "The adult in the child's household who receives the child's Messages email (D-2336, D-2337).",
+      "lock_order": "Lock the owner first; add and remove lock the child's Person row through its revision, after the lifecycle writers' locks.",
+      "merge_policy": "Keep the link on the people it names. A merge leaves one side not live, so the link is ignored; Unmerge brings it back as it was.",
+      "inverse_policy": "Unmerge does not move a link, because the merge did not move it.",
+      "retirement_policy": "A retired side makes the link count for nothing; the row stays until a household leave or a remove deletes it.",
+      "privacy_policy": "Names no content. Who added or removed it comes from the audit row on the child.",
+      "immutable_evidence_policy": "Each add and remove writes its own audit row on the child; remove and household leave delete the row.",
+      "future_case_ids": [
+        "TARGET-PPL-009"
       ]
     }
   ],
@@ -17040,7 +17089,7 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "status in ('active', 'completed', 'withdrawn')",
+        "status in ('active', 'completed')",
         "(expected_end_on >= started_on)",
         "meeting_timezone in ('Africa/Abidjan', 'Africa/Accra', 'Africa/Addis_Ababa', 'Africa/Algiers', 'Africa/Asmera', 'Africa/Bamako', 'Africa/Bangui', 'Africa/Banjul', 'Africa/Bissau', 'Africa/Blantyre', 'Africa/Brazzaville', 'Africa/Bujumbura', 'Africa/Cairo', 'Africa/Casablanca', 'Africa/Ceuta', 'Africa/Conakry', 'Africa/Dakar', 'Africa/Dar_es_Salaam', 'Africa/Djibouti', 'Africa/Douala', 'Africa/El_Aaiun', 'Africa/Freetown', 'Africa/Gaborone', 'Africa/Harare', 'Africa/Johannesburg', 'Africa/Juba', 'Africa/Kampala', 'Africa/Khartoum', 'Africa/Kigali', 'Africa/Kinshasa', 'Africa/Lagos', 'Africa/Libreville', 'Africa/Lome', 'Africa/Luanda', 'Africa/Lubumbashi', 'Africa/Lusaka', 'Africa/Malabo', 'Africa/Maputo', 'Africa/Maseru', 'Africa/Mbabane', 'Africa/Mogadishu', 'Africa/Monrovia', 'Africa/Nairobi', 'Africa/Ndjamena', 'Africa/Niamey', 'Africa/Nouakchott', 'Africa/Ouagadougou', 'Africa/Porto-Novo', 'Africa/Sao_Tome', 'Africa/Tripoli', 'Africa/Tunis', 'Africa/Windhoek', 'America/Adak', 'America/Anchorage', 'America/Anguilla', 'America/Antigua', 'America/Araguaina', 'America/Argentina/La_Rioja', 'America/Argentina/Rio_Gallegos', 'America/Argentina/Salta', 'America/Argentina/San_Juan', 'America/Argentina/San_Luis', 'America/Argentina/Tucuman', 'America/Argentina/Ushuaia', 'America/Aruba', 'America/Asuncion', 'America/Bahia', 'America/Bahia_Banderas', 'America/Barbados', 'America/Belem', 'America/Belize', 'America/Blanc-Sablon', 'America/Boa_Vista', 'America/Bogota', 'America/Boise', 'America/Buenos_Aires', 'America/Cambridge_Bay', 'America/Campo_Grande', 'America/Cancun', 'America/Caracas', 'America/Catamarca', 'America/Cayenne', 'America/Cayman', 'America/Chicago', 'America/Chihuahua', 'America/Ciudad_Juarez', 'America/Coral_Harbour', 'America/Cordoba', 'America/Costa_Rica', 'America/Coyhaique', 'America/Creston', 'America/Cuiaba', 'America/Curacao', 'America/Danmarkshavn', 'America/Dawson', 'America/Dawson_Creek', 'America/Denver', 'America/Detroit', 'America/Dominica', 'America/Edmonton', 'America/Eirunepe', 'America/El_Salvador', 'America/Fort_Nelson', 'America/Fortaleza', 'America/Glace_Bay', 'America/Godthab', 'America/Goose_Bay', 'America/Grand_Turk', 'America/Grenada', 'America/Guadeloupe', 'America/Guatemala', 'America/Guayaquil', 'America/Guyana', 'America/Halifax', 'America/Havana', 'America/Hermosillo', 'America/Indiana/Knox', 'America/Indiana/Marengo', 'America/Indiana/Petersburg', 'America/Indiana/Tell_City', 'America/Indiana/Vevay', 'America/Indiana/Vincennes', 'America/Indiana/Winamac', 'America/Indianapolis', 'America/Inuvik', 'America/Iqaluit', 'America/Jamaica', 'America/Jujuy', 'America/Juneau', 'America/Kentucky/Monticello', 'America/Kralendijk', 'America/La_Paz', 'America/Lima', 'America/Los_Angeles', 'America/Louisville', 'America/Lower_Princes', 'America/Maceio', 'America/Managua', 'America/Manaus', 'America/Marigot', 'America/Martinique', 'America/Matamoros', 'America/Mazatlan', 'America/Mendoza', 'America/Menominee', 'America/Merida', 'America/Metlakatla', 'America/Mexico_City', 'America/Miquelon', 'America/Moncton', 'America/Monterrey', 'America/Montevideo', 'America/Montserrat', 'America/Nassau', 'America/New_York', 'America/Nome', 'America/Noronha', 'America/North_Dakota/Beulah', 'America/North_Dakota/Center', 'America/North_Dakota/New_Salem', 'America/Ojinaga', 'America/Panama', 'America/Paramaribo', 'America/Phoenix', 'America/Port-au-Prince', 'America/Port_of_Spain', 'America/Porto_Velho', 'America/Puerto_Rico', 'America/Punta_Arenas', 'America/Rankin_Inlet', 'America/Recife', 'America/Regina', 'America/Resolute', 'America/Rio_Branco', 'America/Santarem', 'America/Santiago', 'America/Santo_Domingo', 'America/Sao_Paulo', 'America/Scoresbysund', 'America/Sitka', 'America/St_Barthelemy', 'America/St_Johns', 'America/St_Kitts', 'America/St_Lucia', 'America/St_Thomas', 'America/St_Vincent', 'America/Swift_Current', 'America/Tegucigalpa', 'America/Thule', 'America/Tijuana', 'America/Toronto', 'America/Tortola', 'America/Vancouver', 'America/Whitehorse', 'America/Winnipeg', 'America/Yakutat', 'Antarctica/Casey', 'Antarctica/Davis', 'Antarctica/DumontDUrville', 'Antarctica/Macquarie', 'Antarctica/Mawson', 'Antarctica/McMurdo', 'Antarctica/Palmer', 'Antarctica/Rothera', 'Antarctica/Syowa', 'Antarctica/Troll', 'Antarctica/Vostok', 'Arctic/Longyearbyen', 'Asia/Aden', 'Asia/Almaty', 'Asia/Amman', 'Asia/Anadyr', 'Asia/Aqtau', 'Asia/Aqtobe', 'Asia/Ashgabat', 'Asia/Atyrau', 'Asia/Baghdad', 'Asia/Bahrain', 'Asia/Baku', 'Asia/Bangkok', 'Asia/Barnaul', 'Asia/Beirut', 'Asia/Bishkek', 'Asia/Brunei', 'Asia/Calcutta', 'Asia/Chita', 'Asia/Colombo', 'Asia/Damascus', 'Asia/Dhaka', 'Asia/Dili', 'Asia/Dubai', 'Asia/Dushanbe', 'Asia/Famagusta', 'Asia/Gaza', 'Asia/Hebron', 'Asia/Hong_Kong', 'Asia/Hovd', 'Asia/Irkutsk', 'Asia/Jakarta', 'Asia/Jayapura', 'Asia/Jerusalem', 'Asia/Kabul', 'Asia/Kamchatka', 'Asia/Karachi', 'Asia/Katmandu', 'Asia/Khandyga', 'Asia/Krasnoyarsk', 'Asia/Kuala_Lumpur', 'Asia/Kuching', 'Asia/Kuwait', 'Asia/Macau', 'Asia/Magadan', 'Asia/Makassar', 'Asia/Manila', 'Asia/Muscat', 'Asia/Nicosia', 'Asia/Novokuznetsk', 'Asia/Novosibirsk', 'Asia/Omsk', 'Asia/Oral', 'Asia/Phnom_Penh', 'Asia/Pontianak', 'Asia/Pyongyang', 'Asia/Qatar', 'Asia/Qostanay', 'Asia/Qyzylorda', 'Asia/Rangoon', 'Asia/Riyadh', 'Asia/Saigon', 'Asia/Sakhalin', 'Asia/Samarkand', 'Asia/Seoul', 'Asia/Shanghai', 'Asia/Singapore', 'Asia/Srednekolymsk', 'Asia/Taipei', 'Asia/Tashkent', 'Asia/Tbilisi', 'Asia/Tehran', 'Asia/Thimphu', 'Asia/Tokyo', 'Asia/Tomsk', 'Asia/Ulaanbaatar', 'Asia/Urumqi', 'Asia/Ust-Nera', 'Asia/Vientiane', 'Asia/Vladivostok', 'Asia/Yakutsk', 'Asia/Yekaterinburg', 'Asia/Yerevan', 'Atlantic/Azores', 'Atlantic/Bermuda', 'Atlantic/Canary', 'Atlantic/Cape_Verde', 'Atlantic/Faeroe', 'Atlantic/Madeira', 'Atlantic/Reykjavik', 'Atlantic/South_Georgia', 'Atlantic/St_Helena', 'Atlantic/Stanley', 'Australia/Adelaide', 'Australia/Brisbane', 'Australia/Broken_Hill', 'Australia/Darwin', 'Australia/Eucla', 'Australia/Hobart', 'Australia/Lindeman', 'Australia/Lord_Howe', 'Australia/Melbourne', 'Australia/Perth', 'Australia/Sydney', 'Europe/Amsterdam', 'Europe/Andorra', 'Europe/Astrakhan', 'Europe/Athens', 'Europe/Belgrade', 'Europe/Berlin', 'Europe/Bratislava', 'Europe/Brussels', 'Europe/Bucharest', 'Europe/Budapest', 'Europe/Busingen', 'Europe/Chisinau', 'Europe/Copenhagen', 'Europe/Dublin', 'Europe/Gibraltar', 'Europe/Guernsey', 'Europe/Helsinki', 'Europe/Isle_of_Man', 'Europe/Istanbul', 'Europe/Jersey', 'Europe/Kaliningrad', 'Europe/Kiev', 'Europe/Kirov', 'Europe/Lisbon', 'Europe/Ljubljana', 'Europe/London', 'Europe/Luxembourg', 'Europe/Madrid', 'Europe/Malta', 'Europe/Mariehamn', 'Europe/Minsk', 'Europe/Monaco', 'Europe/Moscow', 'Europe/Oslo', 'Europe/Paris', 'Europe/Podgorica', 'Europe/Prague', 'Europe/Riga', 'Europe/Rome', 'Europe/Samara', 'Europe/San_Marino', 'Europe/Sarajevo', 'Europe/Saratov', 'Europe/Simferopol', 'Europe/Skopje', 'Europe/Sofia', 'Europe/Stockholm', 'Europe/Tallinn', 'Europe/Tirane', 'Europe/Ulyanovsk', 'Europe/Vaduz', 'Europe/Vatican', 'Europe/Vienna', 'Europe/Vilnius', 'Europe/Volgograd', 'Europe/Warsaw', 'Europe/Zagreb', 'Europe/Zurich', 'Indian/Antananarivo', 'Indian/Chagos', 'Indian/Christmas', 'Indian/Cocos', 'Indian/Comoro', 'Indian/Kerguelen', 'Indian/Mahe', 'Indian/Maldives', 'Indian/Mauritius', 'Indian/Mayotte', 'Indian/Reunion', 'Pacific/Apia', 'Pacific/Auckland', 'Pacific/Bougainville', 'Pacific/Chatham', 'Pacific/Easter', 'Pacific/Efate', 'Pacific/Enderbury', 'Pacific/Fakaofo', 'Pacific/Fiji', 'Pacific/Funafuti', 'Pacific/Galapagos', 'Pacific/Gambier', 'Pacific/Guadalcanal', 'Pacific/Guam', 'Pacific/Honolulu', 'Pacific/Kiritimati', 'Pacific/Kosrae', 'Pacific/Kwajalein', 'Pacific/Majuro', 'Pacific/Marquesas', 'Pacific/Midway', 'Pacific/Nauru', 'Pacific/Niue', 'Pacific/Norfolk', 'Pacific/Noumea', 'Pacific/Pago_Pago', 'Pacific/Palau', 'Pacific/Pitcairn', 'Pacific/Ponape', 'Pacific/Port_Moresby', 'Pacific/Rarotonga', 'Pacific/Saipan', 'Pacific/Tahiti', 'Pacific/Tarawa', 'Pacific/Tongatapu', 'Pacific/Truk', 'Pacific/Wake', 'Pacific/Wallis', 'UTC')"
       ],
@@ -19970,7 +20019,7 @@
     {
       "name": "embedding_spend",
       "domain": "reference",
-      "purpose": "Paid Wiki embedding tokens used per UTC day in this database, one row for search questions and one for release rebuilds (T-339, D-2042). Search stops calling the embedding provider once the day's query tokens pass the daily limit; each rebuild adds the tokens its run reported.",
+      "purpose": "Paid Wiki embedding tokens used per UTC day in this database, one row each for search questions, release rebuilds and organization publish jobs (T-339, D-2042, T-552). Search and publish embedding each stop calling the provider once their own day's tokens pass the daily limit; each rebuild adds the tokens its run reported.",
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
@@ -20042,7 +20091,7 @@
       ],
       "foreign_keys": [],
       "checks": [
-        "\"embedding_spend\".\"purpose\" IN ('query','rebuild')",
+        "\"embedding_spend\".\"purpose\" IN ('query','rebuild','publish')",
         "\"embedding_spend\".\"usage\" >= 0"
       ],
       "indexes": {},
@@ -21927,6 +21976,279 @@
       "rls": false
     },
     {
+      "name": "guardian_contact",
+      "domain": "people",
+      "purpose": "An adult in a child's household whom staff named as that child's parent or guardian contact (D-2336). A Messages email that includes the child goes to the contact instead (D-2337). The link counts only while both people are live and in the household it names and the contact is marked as an adult.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-022"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-012"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-012"
+        ],
+        "rule": "WP-012 People households records a parent or guardian contact from an Owner or Admin."
+      },
+      "feature_ids": [
+        "PPL-009"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "tenant",
+      "invariants": [
+        "At most one link per church, child and adult.",
+        "The child and the adult are different people in the same household when the link is written, and the adult is marked as an adult.",
+        "A link whose people are no longer both live, both in its household, or whose adult is no longer marked as an adult is ignored by every read and send.",
+        "Each add and remove writes one audit row on the child in the same statement."
+      ],
+      "revision": "No revision column; adding and removing a link bump the child's revision.",
+      "idempotency": "Adding a link that exists or removing one that does not changes nothing and writes a noop audit row.",
+      "deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Link identity.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "The church both people belong to.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The person marked as a child. Not moved by a merge.",
+          "name": "child_person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The adult who receives the child's Messages email. Not moved by a merge.",
+          "name": "guardian_person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The household both people were in when the link was written; the link counts only while both are still in it.",
+          "name": "household_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "When the link was written.",
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "plant_id",
+            "child_person_id",
+            "guardian_person_id"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "The link goes with either Person in the church purge."
+          },
+          "columns": [
+            "child_person_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "The link goes with either Person in the church purge."
+          },
+          "columns": [
+            "guardian_person_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "The link goes with its household."
+          },
+          "columns": [
+            "household_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "household",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        }
+      ],
+      "checks": [
+        "child_person_id <> guardian_person_id"
+      ],
+      "indexes": {
+        "guardian_contact_pair": {
+          "name": "guardian_contact_pair",
+          "isUnique": true,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "child_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "guardian_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "guardian_contact_ref_0": {
+          "name": "guardian_contact_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "child_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "guardian_contact_ref_1": {
+          "name": "guardian_contact_ref_1",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "guardian_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "guardian_contact_household": {
+          "name": "guardian_contact_household",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "household_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "guardian_contact_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "guardian_contact_plant_id_plant_id_fk",
+          "guardian_contact_child",
+          "guardian_contact_guardian",
+          "guardian_contact_household"
+        ],
+        "checks": [
+          "guardian_contact_distinct"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "household",
       "domain": "people",
       "purpose": "Household address independent from each member contact address.",
@@ -23582,7 +23904,7 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "kind in ('mail', 'notification', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect', 'feedback_publication', 'assessment')",
+        "kind in ('mail', 'notification', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect', 'feedback_publication', 'assessment', 'wiki_embedding')",
         "state in ('ready', 'claimed', 'retry_wait', 'reconcile', 'succeeded', 'failed', 'cancelled', 'superseded')",
         "((attempt_count >= 0) AND (max_attempts >= 1))",
         "(claim_generation >= 0)",
@@ -25356,7 +25678,7 @@
     {
       "name": "lifecycle_witness",
       "domain": "operations",
-      "purpose": "Body-free independently synchronized deletion, credential and access witness with stable opaque subject key after live-root purge. A body-free affiliation witness may retain its independently legitimate organization counterparty. Restricted backup/restore inventory and checksummed receipts live solely in the external recovery artifact, not the live database.",
+      "purpose": "Body-free account and church workspace deletion witness with stable opaque subject key after live-root purge. Restricted backup/restore inventory and checksummed receipts live solely in the external recovery artifact, not the live database.",
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
@@ -25553,18 +25875,6 @@
           "nullable": false
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "seat_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "affiliation_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "Historical non-content subject key; retained after the live requester FK is cleared.",
           "name": "requester_opaque_id",
           "type": "uuid",
@@ -25644,40 +25954,6 @@
           "on_delete": "restrict"
         },
         {
-          "scope_exception": "Body-free revocation witness identifies a seat endpoint; synchronized witness writer validates exact seat kind and original identity before clearing live linkage on purge.",
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "seat_id"
-          ],
-          "references": {
-            "table": "seat",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "scope_exception": "Body-free revocation witness identifies a relationship endpoint; synchronized witness writer validates exact affiliation identity and permitted counterparty before clearing live linkage on purge.",
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "affiliation_id"
-          ],
-          "references": {
-            "table": "affiliation",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
           "scope_exception": "Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable.",
           "deletion": {
             "action": "restrict",
@@ -25698,7 +25974,6 @@
       "checks": [
         "cleanup_state in ('not_started', 'in_progress', 'inaccessible', 'confirmed')",
         "((plant_id IS NULL) OR (kind = 'plant'::text))",
-        "((kind = ANY (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'revoked'::text])))",
         "((state <> ALL (ARRAY['pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])) OR ((request_id IS NOT NULL) AND (requested_at IS NOT NULL) AND (cancel_until IS NOT NULL) AND (request_revision >= 1)))",
         "((cancel_until IS NULL) OR ((requested_at IS NOT NULL) AND (cancel_until = (requested_at + '720:00:00'::interval))))",
         "((state = 'cancelled'::text) = (cancelled_at IS NOT NULL))",
@@ -25707,13 +25982,9 @@
         "((state <> 'purged'::text) OR ((live_purged_at >= cancel_until) AND (copy_expires_at IS NOT NULL)))",
         "((copy_expires_at IS NULL) OR ((live_purged_at IS NOT NULL) AND (copy_expires_at >= live_purged_at)))",
         "((copy_expires_at IS NULL) OR (copy_expires_at <= (live_purged_at + '168:00:00'::interval)))",
-        "kind in ('account', 'plant', 'seat', 'affiliation')",
-        "state in ('active', 'pending_deletion', 'purging', 'purged', 'cancelled', 'revoked')",
-        "(num_nonnulls(account_id, plant_id, seat_id, affiliation_id) <= 1)",
-        "((account_id IS NULL) OR (kind = 'account'::text))",
-        "((seat_id IS NULL) OR (kind = 'seat'::text))",
-        "((affiliation_id IS NULL) OR (kind = 'affiliation'::text))",
-        "((kind <> ALL (ARRAY['account'::text, 'plant'::text])) OR (state = ANY (ARRAY['active'::text, 'pending_deletion'::text, 'purging'::text, 'purged'::text, 'cancelled'::text])))"
+        "kind in ('account', 'plant')",
+        "state in ('pending_deletion', 'purging', 'purged', 'cancelled')",
+        "((account_id IS NULL) OR (kind = 'account'::text))"
       ],
       "indexes": {
         "lifecycle_witness_ref_0": {
@@ -25760,36 +26031,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "lifecycle_witness_ref_3": {
-          "name": "lifecycle_witness_ref_3",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "seat_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "lifecycle_witness_ref_4": {
-          "name": "lifecycle_witness_ref_4",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "affiliation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "constraint_names": {
@@ -25803,14 +26044,11 @@
           "lifecycle_witness_fk_0",
           "lifecycle_witness_fk_1",
           "lifecycle_witness_fk_2",
-          "lifecycle_witness_fk_3",
-          "lifecycle_witness_fk_4",
           "lifecycle_witness_fk_6"
         ],
         "checks": [
           "lifecycle_witness_ck_0",
           "lifecycle_witness_ck_1",
-          "lifecycle_witness_ck_10",
           "lifecycle_witness_ck_11",
           "lifecycle_witness_ck_12",
           "lifecycle_witness_ck_13",
@@ -25821,11 +26059,7 @@
           "lifecycle_witness_ck_2",
           "lifecycle_witness_ck_3",
           "lifecycle_witness_ck_4",
-          "lifecycle_witness_ck_5",
-          "lifecycle_witness_ck_6",
-          "lifecycle_witness_ck_7",
-          "lifecycle_witness_ck_8",
-          "lifecycle_witness_ck_9"
+          "lifecycle_witness_ck_6"
         ]
       },
       "policies": {},
@@ -26216,7 +26450,7 @@
           "nullable": true
         },
         {
-          "note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; null otherwise. A blocked address keeps its suppression row instead.",
+          "note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; child when the person was marked as a child at send time and no parent or guardian contact could be emailed (no override); guardian when the child's email went to a parent or guardian contact instead; null otherwise. A blocked address keeps its suppression row instead.",
           "name": "refusal",
           "type": "text",
           "nullable": true
@@ -26226,6 +26460,19 @@
           "name": "communication_id",
           "type": "uuid",
           "nullable": true
+        },
+        {
+          "note": "For a child's Messages row with refusal guardian: the mail rows of the parent or guardian contacts who received the email instead. Each is that adult's one copy of the send. Null otherwise.",
+          "name": "guardian_mail_ids",
+          "type": "uuid[]",
+          "nullable": true
+        },
+        {
+          "note": "True on a Messages row sent to an adult only as a child's parent or guardian contact, not as a person in the audience. The Selected total of a send leaves these rows out.",
+          "name": "guardian_copy",
+          "type": "boolean",
+          "nullable": false,
+          "default": false
         }
       ],
       "primary_key": [
@@ -26396,7 +26643,8 @@
         "((frozen_payload IS NULL) = (address_hash IS NULL))",
         "purpose in ('communication', 'discovery_receipt', 'email_change', 'email_verification', 'notification', 'oversight_digest', 'password_reset', 'planter_digest', 'relationship_invitation', 'relationship_receipt', 'seat_invitation')",
         "((tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (frozen_payload IS NULL))",
-        "((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))"
+        "((refusal IS NOT DISTINCT FROM 'guardian'::text) = (COALESCE(cardinality(guardian_mail_ids), 0) > 0))",
+        "((refusal IS NULL) OR ((refusal = ANY (ARRAY['unsubscribed'::text, 'child'::text, 'guardian'::text])) AND (state = 'refused'::text)))"
       ],
       "indexes": {
         "mail_ref_1": {
@@ -26556,6 +26804,7 @@
         ],
         "checks": [
           "mail_refusal",
+          "mail_guardian",
           "mail_ck_0",
           "mail_ck_1",
           "mail_ck_2",
@@ -31378,7 +31627,7 @@
     {
       "name": "passage",
       "domain": "reference",
-      "purpose": "Rebuildable exact source passage with complete embedding provenance. Model, dimensions and chunker are pinned by release; organization rights inherit the source revision.",
+      "purpose": "Rebuildable exact source passage with complete embedding provenance. Model, dimensions and chunker are pinned by release; organization rights inherit the source revision. An organization's published version has release-free rows its publish job embeds with the active release's profile (T-552).",
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
@@ -31443,10 +31692,10 @@
           "default": "gen_random_uuid()"
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
+          "note": "Real FK for global passages; NULL exactly for an organization version's passages, which carry no release (passage_release_owner).",
           "name": "release_id",
           "type": "uuid",
-          "nullable": false
+          "nullable": true
         },
         {
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
@@ -31575,7 +31824,9 @@
           "on_delete": "restrict"
         }
       ],
-      "checks": [],
+      "checks": [
+        "((release_id IS NULL) = (tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid))"
+      ],
       "indexes": {
         "passage_ref_0": {
           "name": "passage_ref_0",
@@ -31685,7 +31936,9 @@
           "passage_fk_2",
           "passage_fk_3"
         ],
-        "checks": []
+        "checks": [
+          "passage_release_owner"
+        ]
       },
       "policies": {},
       "rls": false
@@ -41654,7 +41907,7 @@
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
           "name": "source_version_id",
           "type": "uuid",
-          "nullable": false
+          "nullable": true
         },
         {
           "note": "",

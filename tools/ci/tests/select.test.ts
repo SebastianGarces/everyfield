@@ -26,6 +26,7 @@ const TESTS = [
 const context: Context = {
 	testFiles: TESTS,
 	now: NOW,
+	unitTests: { "tests/unit/people/picker.test.mts": "@everyfield/domain" },
 	packages: [
 		{
 			dir: "apps/web",
@@ -49,6 +50,7 @@ const context: Context = {
 				"test:db": "node --test ../../tests/evry/runtime/*.test.mts",
 			},
 		},
+		{ dir: "packages/evry-scripted", name: "@everyfield/evry-scripted", scripts: { lint: "oxlint ." } },
 		{ dir: "packages/ui", name: "@everyfield/ui", scripts: { lint: "eslint .", typecheck: "tsc --noEmit" } },
 	],
 };
@@ -142,6 +144,7 @@ test("INV-ci-select: selection table: docs, one package, tools, lockfile, workfl
 				typecheck: "package source: packages/ui/src/controls/Button.tsx",
 				"test:unit": "package source: packages/ui/src/controls/Button.tsx",
 				"test:db": "package source: packages/ui/src/controls/Button.tsx",
+				"feature-maps": "feature map input: packages/ui/src/controls/Button.tsx",
 			},
 			tests: {},
 			filters: ["...@everyfield/ui"],
@@ -154,6 +157,7 @@ test("INV-ci-select: selection table: docs, one package, tools, lockfile, workfl
 				typecheck: "package source: packages/db/src/client.ts",
 				"test:unit": "package source: packages/db/src/client.ts",
 				"test:db": "package source: packages/db/src/client.ts",
+				"feature-maps": "feature map input: packages/db/src/client.ts",
 				census: "backend or database code: packages/db/src/client.ts",
 			},
 			tests: {},
@@ -227,6 +231,7 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 				typecheck: "package test outside its package: tests/integration/db/unit.test.mts",
 				"test:unit": "package test outside its package: tests/integration/db/unit.test.mts",
 				"test:db": "package test outside its package: tests/integration/db/unit.test.mts",
+				"feature-maps": "feature map input: tests/integration/db/unit.test.mts",
 				"ci-coverage": "package test outside its package: tests/integration/db/unit.test.mts",
 				census: "backend or database code: tests/integration/db/unit.test.mts",
 			},
@@ -241,6 +246,7 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 				typecheck: "package test outside its package: tests/evry/runtime/turn.test.mts",
 				"test:unit": "package test outside its package: tests/evry/runtime/turn.test.mts",
 				"test:db": "package test outside its package: tests/evry/runtime/turn.test.mts",
+				"feature-maps": "feature map input: tests/evry/runtime/turn.test.mts",
 				"ci-coverage": "package test outside its package: tests/evry/runtime/turn.test.mts",
 			},
 			tests: {},
@@ -254,12 +260,45 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 				typecheck: "package test outside its package: tests/unit/tasks/model.test.mjs",
 				"test:unit": "package test outside its package: tests/unit/tasks/model.test.mjs",
 				"test:db": "package test outside its package: tests/unit/tasks/model.test.mjs",
+				"feature-maps": "feature map input: tests/unit/tasks/model.test.mjs",
 				"ci-coverage": "package test outside its package: tests/unit/tasks/model.test.mjs",
 			},
 			tests: {},
 			filters: ["...@everyfield/web"],
 		}),
 	);
+	await t.test(
+		"INV-ci-select: a tests/unit test no script names runs the checks of the package test-unit finds it for",
+		() =>
+			assertSelected(selectChecks(["tests/unit/people/picker.test.mts"], map, context), {
+				checks: {
+					lint: "package test outside its package: tests/unit/people/picker.test.mts",
+					typecheck: "package test outside its package: tests/unit/people/picker.test.mts",
+					"test:unit": "package test outside its package: tests/unit/people/picker.test.mts",
+					"test:db": "package test outside its package: tests/unit/people/picker.test.mts",
+					"feature-maps": "feature map input: tests/unit/people/picker.test.mts",
+					"ci-coverage": "package test outside its package: tests/unit/people/picker.test.mts",
+				},
+				tests: {},
+				filters: ["...@everyfield/domain"],
+			}),
+	);
+});
+
+test("INV-ci-select: the scripted Evry model runs the Evry and domain suites that use it, not only its own checks", () => {
+	const why =
+		"package source: packages/evry-scripted/src/scripted.ts; scripted Evry model and the suites that run it: packages/evry-scripted/src/scripted.ts";
+	assertSelected(selectChecks(["packages/evry-scripted/src/scripted.ts"], map, context), {
+		checks: {
+			lint: why,
+			typecheck: why,
+			"test:unit": why,
+			"test:db": why,
+			"feature-maps": "feature map input: packages/evry-scripted/src/scripted.ts",
+		},
+		tests: {},
+		filters: ["...@everyfield/domain", "...@everyfield/evry", "...@everyfield/evry-scripted"],
+	});
 });
 
 test("INV-ci-select: tests that read files as text are selected when those files change", async (t) => {
@@ -270,6 +309,7 @@ test("INV-ci-select: tests that read files as text are selected when those files
 				typecheck: "package source: packages/evry/src/adapters/people/reads/list.ts",
 				"test:unit": "package source: packages/evry/src/adapters/people/reads/list.ts",
 				"test:db": "package source: packages/evry/src/adapters/people/reads/list.ts",
+				"feature-maps": "feature map input: packages/evry/src/adapters/people/reads/list.ts",
 				workflow: "runs tests/workflow/evry-evals-coverage.test.mjs",
 			},
 			tests: {
@@ -300,6 +340,7 @@ test("INV-ci-select: tests that read files as text are selected when those files
 				typecheck: "package source: apps/web/src/features/settings/actions.ts",
 				"test:unit": "package source: apps/web/src/features/settings/actions.ts",
 				"test:db": "package source: apps/web/src/features/settings/actions.ts",
+				"feature-maps": "feature map input: apps/web/src/features/settings/actions.ts",
 				census: "backend or database code: apps/web/src/features/settings/actions.ts",
 				workflow: "runs tests/workflow/server-logs.test.mjs",
 			},
@@ -309,6 +350,23 @@ test("INV-ci-select: tests that read files as text are selected when those files
 			filters: ["...@everyfield/web"],
 		}),
 	);
+	await t.test("INV-ci-select: a feature map or the operation catalog runs the feature-maps check", () => {
+		const featureMap = "apps/web/src/features/people/feature-map.json";
+		const catalog = "docs/catalog/operations.json";
+		assertSelected(selectChecks([featureMap, catalog], map, context), {
+			checks: {
+				lint: `package source: ${featureMap}`,
+				typecheck: `package source: ${featureMap}`,
+				"test:unit": `package source: ${featureMap}`,
+				"test:db": `package source: ${featureMap}`,
+				docs: `documentation: ${catalog}`,
+				"feature-maps": `feature map input: ${featureMap}; feature map input: ${catalog}`,
+				workflow: "runs tests/workflow/server-logs.test.mjs",
+			},
+			tests: { "tests/workflow/server-logs.test.mjs": `web app under a dev server: ${featureMap}` },
+			filters: ["...@everyfield/web"],
+		});
+	});
 	await t.test("INV-ci-select: a file read as text, or under a listed directory, reaches the test via the map", () =>
 		assertSelected(
 			selectChecks(

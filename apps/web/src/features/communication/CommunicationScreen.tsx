@@ -111,6 +111,7 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 							selected={route.template}
 							onSelect={(id) => go({ kind: "templates", template: id })}
 							churchName={data.churchName}
+							mailingAddress={data.mailingAddress}
 							origin={data.origin}
 						/>
 					) : route.kind === "address" && canWrite ? (
@@ -137,6 +138,7 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 								go({ kind: "compose", id: draft.communicationId, step: "review", handoff: null });
 							}}
 							churchName={data.churchName}
+							mailingAddress={data.mailingAddress}
 							origin={data.origin}
 							banner={banner}
 						/>

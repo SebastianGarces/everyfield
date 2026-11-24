@@ -59,6 +59,19 @@ already has it.
 6. Redeploy production (`vercel redeploy` on the current production deployment, or push to main), then
    `unset PROD_IDENTITY_ADMIN_URL`.
 
+The server refuses to start unless all seven identity settings are set and well formed: `IDENTITY_DATABASE_URL`,
+`IDENTITY_AUTH_DATABASE_URL`, `IDENTITY_ORIGIN`, `IDENTITY_SECRET`, `IDENTITY_MAIL_KEY`, `IDENTITY_ADDRESS_KEY` and
+`IDENTITY_MAIL_FROM` (T-525, T-527). A deployment that breaks this stops at boot: every request fails, and the Vercel
+function logs name the keys, never a value. Missing or empty keys give one line, for example
+`{"component":"server","event":"settings_missing","missing":"IDENTITY_MAIL_FROM"}`, and malformed keys give one line,
+for example `{"component":"server","event":"settings_malformed","malformed":"IDENTITY_MAIL_FROM"}`.
+
+The shapes are: both database URLs not empty, `IDENTITY_ORIGIN` a URL with its scheme, `IDENTITY_SECRET` at least 32
+characters, `IDENTITY_MAIL_KEY` and `IDENTITY_ADDRESS_KEY` 64 lowercase hex characters, and `IDENTITY_MAIL_FROM` a bare
+address such as `mail@example.com`, with no display name. Set all seven in Vercel Production before you redeploy. To
+recover, add each missing setting, correct each malformed one and redeploy. Once production has mail, correct a mail or
+address key by restoring its original value, never with a new one.
+
 Rerunning `--apply` is safe. It keeps existing logins and their passwords, re-asserts the grants and generates only
 the settings Vercel Production lacks. It refuses while an earlier commands file is still waiting. It also refuses
 when a login exists but Vercel lacks its URL, because the password cannot be read back. `--rotate-passwords` then gives
@@ -75,8 +88,8 @@ the existing logins new passwords and overwrites their URLs (`--force`). Never r
   confirm that every hand-set setting under "Shape of the hand-set settings" reports "right shape". Check a
   "cannot check" setting by hand in the Vercel dashboard.
 - When production refuses its identity or mail settings, Vercel logs name each refused setting, by name only, never
-  its value. A missing or malformed identity setting gives one `config_missing` line at boot (`missing` lists the
-  names); boot then skips warming, and code that needs the settings fails with the error name `ServerConfigError`.
+  its value. A missing or empty identity setting stops boot with one `settings_missing` line, and a malformed one with
+  one `settings_malformed` line (above).
   A mail refusal (no `RESEND_API_KEY` in production, or equal mail and address keys) gives one `settings_refused`
   line from `mail`. Fix the named settings and redeploy.
 

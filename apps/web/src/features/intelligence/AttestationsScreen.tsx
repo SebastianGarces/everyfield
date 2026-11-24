@@ -1,5 +1,6 @@
 "use client";
 
+import { dayText } from "@everyfield/contracts/common";
 import {
 	Coins01Icon,
 	CrownIcon,
@@ -39,6 +40,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	InlineAlert,
 	Input,
 	PageHeader,
 	Textarea,
@@ -48,7 +50,6 @@ import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { RadioGroup } from "radix-ui";
 import { useState } from "react";
-import { shortDate } from "./model.ts";
 import { IntelligenceTabs } from "./IntelligenceTabs.tsx";
 import { attestCandidate, attestSignal, correctCandidate, correctSignal, reaffirmSignal } from "./signals-actions.ts";
 import { reloadAttestations } from "./fetch.ts";
@@ -377,7 +378,7 @@ function SignalRow({ entry, first, onOpen }: { entry: SignalEntry; first: boolea
 					<>
 						<b className="font-medium text-ink">{entry.authorName ?? "A church admin"}</b>
 						<br />
-						{shortDate(recordOf(entry).asOf)}
+						{dayText(recordOf(entry).asOf, { year: "never" })}
 						{entry.state === "answered" ? ` · ${agoText(answerOf(entry).ageDays)}` : ""}
 						{entry.detail ? (
 							<>
@@ -585,7 +586,7 @@ function AnswerDialog({
 											<div className="min-w-0">
 												<div className="font-medium text-ink">{historyText(line)}</div>
 												<div className="text-xs text-text-3">
-													{line.authorName ?? "A church admin"} · {shortDate(line.asOf)}
+													{line.authorName ?? "A church admin"} · {dayText(line.asOf, { year: "never" })}
 												</div>
 											</div>
 											<span className="text-xs text-text-3">{i === 0 ? "Current" : "Replaced"}</span>
@@ -723,14 +724,6 @@ function RenewDialog({
 												"Not answered yet"
 											)}
 										</div>
-										{row.state === "failed" ? (
-											<div role="alert" className="mt-2 text-sm font-medium text-magenta-600">
-												{row.error}{" "}
-												<button type="button" className="underline" onClick={onReload}>
-													Load the latest answers
-												</button>
-											</div>
-										) : null}
 									</div>
 									{row.state === "saved" ? (
 										<span className="inline-flex items-center gap-1.5 text-sm font-semibold text-green-700">
@@ -745,6 +738,16 @@ function RenewDialog({
 											onChange={(pick) => patch(entry.key, { pick, state: "idle", error: null })}
 										/>
 									)}
+									<InlineAlert
+										className="col-span-full -mt-2"
+										actions={
+											<Button variant="ghost" size="sm" onClick={onReload}>
+												Load the latest answers
+											</Button>
+										}
+									>
+										{row.state === "failed" ? row.error : null}
+									</InlineAlert>
 								</div>
 							);
 						})}
@@ -755,7 +758,7 @@ function RenewDialog({
 					</DialogBody>
 					<DialogFooter>
 						<span className="mr-auto text-sm text-text-3 max-app-sm:hidden">
-							Saved as true as of today, {shortDate(today)}.
+							Saved as true as of today, {dayText(today, { year: "never" })}.
 						</span>
 						<Button type="button" variant="secondary" disabled={busy} onClick={onClose}>
 							{allDone && opened.some((e) => rowOf(e.key).state === "saved") ? "Close" : "Cancel"}
@@ -830,7 +833,8 @@ function CandidateSection({
 										<div className="mt-1.5 text-text-3">{c.reasons.map((r) => REASON_TEXT[r]).join(". ")}.</div>
 									) : null}
 									<div className="mt-1.5">
-										<b className="font-medium text-ink">{c.authorName ?? "A church admin"}</b> · {shortDate(c.asOf)}
+										<b className="font-medium text-ink">{c.authorName ?? "A church admin"}</b> ·{" "}
+										{dayText(c.asOf, { year: "never" })}
 									</div>
 								</div>
 								{c.personState === "live" ? (
@@ -1056,7 +1060,7 @@ function CandidateDialog({
 												<div className="min-w-0">
 													<div className="font-medium text-ink">{historyText(line)}</div>
 													<div className="text-xs text-text-3">
-														{line.authorName ?? "A church admin"} · {shortDate(line.asOf)}
+														{line.authorName ?? "A church admin"} · {dayText(line.asOf, { year: "never" })}
 													</div>
 												</div>
 												<span className="text-xs text-text-3">{i === 0 ? "Current" : "Replaced"}</span>

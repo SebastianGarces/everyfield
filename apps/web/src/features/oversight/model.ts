@@ -1,3 +1,4 @@
+import { counted, countWord, dayText } from "@everyfield/contracts/common";
 import type {
 	Health,
 	IntelligenceRow,
@@ -32,14 +33,12 @@ export function locality(row: Pick<PlantDirectoryRow, "city" | "stateProvince" |
 	return row.country;
 }
 
-const DAY = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" });
-const calendarDate = (date: string) => DAY.format(new Date(`${date}T00:00:00Z`));
-export const launchLabel = (date: string | null) => (date ? calendarDate(date) : "Not set");
+export const launchLabel = (date: string | null) => (date ? dayText(date) : "Not set");
 
 export function progressText(progress: MilestoneProgress): string | null {
 	switch (progress.status) {
 		case "reached":
-			return `Reached ${calendarDate(progress.date)}`;
+			return `Reached ${dayText(progress.date)}`;
 		case "not_reached":
 			return "Not reached yet";
 		case "withdrawn":
@@ -75,9 +74,6 @@ function listOf(names: readonly string[]): string {
 	if (names.length <= 2) return names.join(" and ");
 	return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 }
-
-export const plural = (n: number, one: string, many = `${one}s`) =>
-	`${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
 export const SECTIONS: readonly { key: SectionKey; label: string }[] = [
 	{ key: "people", label: "People" },
@@ -125,8 +121,8 @@ export const LAUNCH_STATE: Record<LaunchState, { label: string; status: Status }
 
 export function gapText(p: Preparation): string | null {
 	const parts = [
-		p.unfilledRoles ? `${plural(p.unfilledRoles, "required role")} unfilled` : null,
-		p.outstandingTraining ? `${plural(p.outstandingTraining, "required training")} not done` : null,
+		p.unfilledRoles ? `${counted(p.unfilledRoles, "required role")} unfilled` : null,
+		p.outstandingTraining ? `${counted(p.outstandingTraining, "required training")} not done` : null,
 	].filter((x) => x !== null);
 	return parts.length ? parts.join(" and ") : null;
 }
@@ -221,7 +217,7 @@ export function resultLabels(row: IntelligenceRow): Label[] {
 export function concernLenses(a: ReleasedAssessment): string | null {
 	if (a.status !== "released" || !a.concerns.length) return null;
 	const names = [...new Set(a.concerns.map((c) => (c.lens ? lensLabel(c.lens) : "Launch progress")))];
-	return `${names.length === 1 ? "Concern" : "Concerns"}: ${names.join(", ")}`;
+	return `${countWord(names.length, "Concern")}: ${names.join(", ")}`;
 }
 
 export const runLabel = (instant: string, timeZone: string) =>

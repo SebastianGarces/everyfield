@@ -2,6 +2,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useSyncExternalStore } from "react";
+import { reinstall } from "./install.ts";
 import { ONE_TIME_LINK_VALUES, oneTimeLinkValue, type LinkWindow, type OneTimeLinkName } from "./one-time-link.ts";
 
 type Listener = () => void;
@@ -29,6 +30,7 @@ const rules = new Map<string, AddressRule>();
 let routerBehind = false;
 let writing = false;
 let shown: string | null = null;
+let stepping: Listener | null = null;
 
 const ORIGIN = "http://address.invalid";
 export const currentAddress = () => window.location.pathname + window.location.search;
@@ -103,7 +105,19 @@ function takeLinkValue(): void {
 	if (oneTimeLinkValue(ONE_TIME_LINK_VALUES, storeWindow, true)?.value) readLinkValues();
 }
 
-function traversed() {
+function traversed(event: Event) {
+	if (stepping) {
+		const then = stepping;
+		stepping = null;
+		event.stopImmediatePropagation();
+		shown = fullAddress();
+		return then();
+	}
+	if (onSpentEntry()) {
+		event.stopImmediatePropagation();
+		stepping = () => {};
+		return window.history.back();
+	}
 	spent = null;
 	const from = shown === null ? null : urlOf(shown);
 	takeLinkValue();
@@ -138,25 +152,29 @@ function routerWrote(event: EntryChange) {
 }
 
 type Installed = {
-	popstate: () => void;
+	popstate: (event: Event) => void;
 	hashchange: () => void;
 	entry: (event: EntryChange) => void;
 	arrived: () => void;
 };
 const INSTALLED = Symbol.for("everyfield.location");
+const beforeTheRouter = { capture: true };
 
 if (typeof window !== "undefined") {
-	const host = window as unknown as Record<symbol, Installed | undefined>;
 	const navigation = (window as { navigation?: EntryChanges }).navigation;
-	const previous = host[INSTALLED];
+	const previous = reinstall<Installed>(INSTALLED, {
+		popstate: traversed,
+		hashchange: hashChanged,
+		entry: routerWrote,
+		arrived: routerArrived,
+	});
 	if (previous) {
-		window.removeEventListener("popstate", previous.popstate);
+		window.removeEventListener("popstate", previous.popstate, beforeTheRouter);
 		window.removeEventListener("hashchange", previous.hashchange);
 		navigation?.removeEventListener("currententrychange", previous.entry);
 		navigation?.removeEventListener("navigatesuccess", previous.arrived);
 	}
-	host[INSTALLED] = { popstate: traversed, hashchange: hashChanged, entry: routerWrote, arrived: routerArrived };
-	window.addEventListener("popstate", traversed);
+	window.addEventListener("popstate", traversed, beforeTheRouter);
 	window.addEventListener("hashchange", hashChanged);
 	navigation?.addEventListener("currententrychange", routerWrote);
 	navigation?.addEventListener("navigatesuccess", routerArrived);
@@ -167,6 +185,14 @@ const subscribe = (listener: Listener) => {
 	changes.add(listener);
 	return () => void changes.delete(listener);
 };
+
+const onSpentEntry = () => (window.history.state as { efSpent?: unknown } | null)?.efSpent === true;
+
+export function leaveEntryBehind(then: () => void): void {
+	write(fullAddress(), true, { ...(window.history.state as Record<string, unknown> | null), efSpent: true });
+	stepping = then;
+	window.history.back();
+}
 
 export function onTraversal(listener: Listener): () => void {
 	traversals.add(listener);

@@ -1,8 +1,10 @@
 import type { AssetSlot } from "@everyfield/contracts/branding";
 
+export type PickedSrc = `blob:${string}`;
+
 export type Pick = {
 	file: File;
-	url: string;
+	url: PickedSrc;
 	name: string;
 	size: number;
 	alt: string;
@@ -22,7 +24,7 @@ export const ASSET_FLOW = "brand.assets";
 
 export const pickFile = (file: File): Pick => ({
 	file,
-	url: URL.createObjectURL(file),
+	url: URL.createObjectURL(file) as PickedSrc,
 	name: file.name,
 	size: file.size,
 	alt: "",

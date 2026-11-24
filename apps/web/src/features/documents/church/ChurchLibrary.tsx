@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import {
 	Add01Icon,
 	Archive02Icon,
@@ -20,6 +21,7 @@ import {
 	DialogTrigger,
 	EmptyState,
 	IconButton,
+	InlineAlert,
 	IntentLink,
 	PageHeader,
 	SearchInput,
@@ -322,14 +324,10 @@ function PickerList({
 						</section>
 					);
 				})}
-				{message ? (
-					<p role="alert" className="text-md text-magenta-600">
-						{message}
-					</p>
-				) : null}
+				<InlineAlert>{message}</InlineAlert>
 			</DialogBody>
 			<p role="status" className="sr-only">
-				{found.length === 1 ? "1 template" : `${found.length} templates`}
+				{counted(found.length, "template")}
 			</p>
 			{pageCount > 1 ? (
 				<div className="flex flex-none flex-wrap items-center justify-between gap-3 px-7 pt-4 pb-6 shadow-[0_-1px_0_var(--ef-line)] max-app-sm:px-5 max-app-sm:pb-5">

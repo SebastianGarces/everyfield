@@ -1,7 +1,6 @@
 import type { Reply, RetryEligibility } from "@everyfield/contracts/common";
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
-import { WriteUnavailable } from "./writes.ts";
 
 type SafeErrorOption = z.ZodObject<{
 	code: z.ZodLiteral<string>;
@@ -17,6 +16,20 @@ export type Deny<S extends SafeErrorUnion> = <C extends Code<S>>(
 	...details: Record<never, never> extends Details<S, C> ? [details?: Details<S, C>] : [details: Details<S, C>]
 ) => never;
 
+export class DomainRefusal<C extends string = string> extends Error {
+	readonly code: C;
+	constructor(code: C) {
+		super(code);
+		this.code = code;
+	}
+}
+
+export class WriteUnavailable extends DomainRefusal<"unavailable"> {
+	constructor() {
+		super("unavailable");
+	}
+}
+
 export function defineRefusals<S extends SafeErrorUnion>(
 	schema: S,
 	options: { writeUnavailable?: z.output<S>["code"] } = {},
@@ -26,12 +39,10 @@ export function defineRefusals<S extends SafeErrorUnion>(
 		schema.options.map((option) => [option.shape.code.value, option.shape.retry.value]),
 	);
 
-	class Refusal extends Error {
-		readonly code: Code<S>;
+	class Refusal extends DomainRefusal<Code<S>> {
 		readonly details: object;
 		constructor(code: Code<S>, details: object = {}) {
 			super(code);
-			this.code = code;
 			this.details = details;
 		}
 	}

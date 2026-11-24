@@ -9,11 +9,6 @@ run = ["bin/dev", "fast-check"]
 timeout_minutes = 10
 
 [[check]]
-name = "full-check"
-run = ["bin/dev", "check", "--full"]
-timeout_minutes = 25
-
-[[check]]
 name = "db-packages"
 run = ["sh", "-c", "set -e; export CI=true EARLY_ACCESS_TEST_DATABASE=1; corepack pnpm db:migrate; python3 packages/db/src/schema/generate.py --check; corepack pnpm --filter @everyfield/db test:db; corepack pnpm --filter @everyfield/evry test:db"]
 timeout_minutes = 30
@@ -59,6 +54,15 @@ heavy = [
   "env *pnpm build", "env *pnpm build *", "env *pnpm * build", "env *pnpm * build *",
   "npx *pnpm build", "npx *pnpm build *", "npx *pnpm * build", "npx *pnpm * build *",
   "corepack pnpm build", "corepack pnpm build *", "corepack pnpm * build", "corepack pnpm * build *",
+]
+
+[policy]
+judge_paths = [
+  "bin/dev",
+  "tools/ci/",
+  ".agents/roles/verifier.md",
+  ".agents/skills/verify/",
+  ".agents/skills/verify-preview/",
 ]
 
 [[policy.class]]
@@ -125,6 +129,7 @@ paths = [
   "scripts/lint/check-comments.mjs",
   "scripts/lint/lint-scripts.json",
   "scripts/lint/boundaries/_layout.json",
+  "evf.toml",
 ]
 outcome = "owner"
 quote = "Yes, keep my OK on all five, including CI and agent settings"

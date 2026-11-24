@@ -58,6 +58,7 @@ export function scheduledJobs(config: {
 	digests: DigestWorker | null;
 	notifications?: NotificationWorker | null;
 	feedbackPublication?: ((limit: number, until: number) => Promise<number>) | null;
+	wikiEmbedding?: ((limit: number, until: number) => Promise<number>) | null;
 	assessments?: { drafter: Drafter } | null;
 	now?: () => Date;
 }) {
@@ -69,6 +70,7 @@ export function scheduledJobs(config: {
 		const messages = config.messages ?? null;
 		const notifications = config.notifications ?? null;
 		const feedbackPublication = config.feedbackPublication ?? null;
+		const wikiEmbedding = config.wikiEmbedding ?? null;
 		const assessments = config.assessments ?? null;
 		const now = config.now;
 		const assessing = createAssessmentJob(now ? { clock: { now: () => instant.parse(now().toISOString()) } } : {});
@@ -101,6 +103,7 @@ export function scheduledJobs(config: {
 				),
 			],
 			["feedback-publication", null, feedbackPublication && (() => feedbackPublication(10, until))],
+			["wiki-embedding", null, wikiEmbedding && (() => wikiEmbedding(10, until))],
 			["mail-expiry", null, () => expireStaleMail(db)],
 			["mail", "mailed", mailing(mail && (() => mail(20, until)))],
 			pass("identity"),

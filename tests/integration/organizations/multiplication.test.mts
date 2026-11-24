@@ -88,7 +88,7 @@ const adapter = createOrganizationAdapter(
 		invalidate: (_tx, v) =>
 			sql`UPDATE job SET state='superseded' WHERE subject_record_id=${sql.param(v.sourceId)} AND kind='digest' AND false`,
 	},
-	{ candidates: async () => [] },
+	{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 );
 async function caseyShares(choices: { shareFoundations: boolean; shareMilestones: boolean }) {
 	const link = (

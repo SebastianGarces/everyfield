@@ -15,7 +15,9 @@ const seats = createRead((purpose: Purpose) => assigneeOptions(purpose), {
 	fresh: Infinity,
 });
 export const warmAssignees = (purpose: Purpose = "any") => seats.get(purpose);
-export const forgetAssignees = () => seats.forget();
+export const reloadAssignees = () => {
+	for (const purpose of ["any", "committed_follow_up"] as const) if (seats.peek(purpose)) void seats.refresh(purpose);
+};
 
 export function AssigneePicker({
 	value,

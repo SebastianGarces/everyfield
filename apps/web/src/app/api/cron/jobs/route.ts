@@ -10,17 +10,18 @@ import { onboardingMailPass } from "@/features/onboarding/mount";
 import { settingsMailPass } from "@/features/settings/mail";
 import { feedbackMailPass } from "@/features/feedback/mail";
 import { feedbackPublicationMount } from "@/features/feedback/publication";
+import { wikiEmbeddingMount } from "@/features/wiki/embedding";
 import { deliveryTransport, mailReady, queuedMailTransport } from "@/server/mail/transport";
 import { scheduledJobs, scheduledMessages } from "@/server/jobs/scheduled";
 import { cronRoute } from "@/server/platform/cron";
-import { configured } from "@/server/platform/boundary";
+import { loggedRoute } from "@/server/platform/boundary";
 import { assessmentsMount } from "@/server/jobs/assessment";
 import { serverEnv } from "@/server/config";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-export const GET = configured(function GET(request: Request): Promise<Response> {
+export const GET = loggedRoute(async function GET(request: Request): Promise<Response> {
 	const db = jobDatabase();
 	const ready = mailReady();
 	return cronRoute(
@@ -33,7 +34,8 @@ export const GET = configured(function GET(request: Request): Promise<Response> 
 			digests: digestsMount(db),
 			notifications: notificationsMount(db),
 			feedbackPublication: feedbackPublicationMount(db),
-			assessments: assessmentsMount(db),
+			wikiEmbedding: wikiEmbeddingMount(db),
+			assessments: await assessmentsMount(db),
 			mail: ready ? (limit, until) => runDueInvitationMail(queuedMailTransport(ready), limit, until) : null,
 			messages: ready ? scheduledMessages(db, deliveryTransport(ready), ready.keys) : null,
 			mountMail: ready

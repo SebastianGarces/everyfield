@@ -41,7 +41,7 @@ export type NativeEditorPort = {
 	}) => Promise<DocumentOutcome<Written>>;
 	importFile: (file: File, params: Record<string, string>) => Promise<DocumentOutcome<WrittenView>>;
 	designate: (documentId: string, revision: string) => Promise<DocumentOutcome<Pick<Written, "revision" | "kind">>>;
-	created: (id: string) => void;
+	created: (id: string, editor: Editor, store: StoreApi<NativeEditorState>) => void;
 };
 
 export type Saved = {
@@ -86,12 +86,12 @@ export function createNativeEditorStore({
 	const chain = new SaveChain();
 	let importKey: string | null = null;
 
-	return createStore<NativeEditorState>()((set, get) => {
+	return createStore<NativeEditorState>()((set, get, store) => {
 		const savedNow = (editor: Editor) =>
 			sameDoc(get().saved.doc, editor.state.doc) && get().title.trim() === get().saved.title;
 
-		const created = (id: string) => {
-			if (!get().saved.id) port.created(id);
+		const created = (id: string, editor: Editor) => {
+			if (!get().saved.id) port.created(id, editor, store);
 		};
 
 		const saveNow = (editor: Editor): Promise<boolean> => {
@@ -130,7 +130,7 @@ export function createNativeEditorStore({
 					});
 					return false;
 				}
-				created(result.value.id);
+				created(result.value.id, editor);
 				set((state) => ({
 					saved: {
 						id: result.value.id,
@@ -210,7 +210,7 @@ export function createNativeEditorStore({
 							}
 							importKey = null;
 							const value = result.value;
-							created(value.id);
+							created(value.id, editor);
 							editor.chain().setMeta("addToHistory", false).setContent(toEditor(value.body)).run();
 							set({
 								saved: {
@@ -257,4 +257,41 @@ export function createNativeEditorStore({
 			},
 		};
 	});
+}
+
+type MovedEditor = {
+	readonly store: StoreApi<NativeEditorState>;
+	readonly body: ReturnType<Editor["getJSON"]>;
+	readonly caret: number | null;
+	readonly titleFocused: boolean;
+};
+
+type Kept = { store: StoreApi<NativeEditorState>; editor: Editor; titleFocused: boolean; last: MovedEditor | null };
+
+const moving = new Map<string, Kept>();
+
+const snapshot = (kept: Kept): MovedEditor => ({
+	store: kept.store,
+	body: kept.editor.getJSON(),
+	caret: kept.titleFocused ? null : kept.editor.state.selection.to,
+	titleFocused: kept.titleFocused,
+});
+
+export function keepForMove(id: string, store: StoreApi<NativeEditorState>, editor: Editor): void {
+	const kept: Kept = { store, editor, titleFocused: document.activeElement instanceof HTMLInputElement, last: null };
+	editor.on("destroy", () => {
+		kept.last = snapshot(kept);
+	});
+	moving.clear();
+	moving.set(id, kept);
+}
+
+export function takeMoved(id: string | undefined): MovedEditor | null {
+	const kept = id === undefined ? undefined : moving.get(id);
+	if (!kept) return null;
+	return kept.editor.isDestroyed ? kept.last : snapshot(kept);
+}
+
+export function forgetMoved(id: string): void {
+	moving.delete(id);
 }

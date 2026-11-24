@@ -13,13 +13,13 @@ import {
 	readConversation,
 	readReview,
 	runTurn,
-	selectQualifiedModel,
 	submitTurn,
 	type EvryActor,
 	type MailPort,
 	type NativePorts,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { testDatabase, type Database } from "../../support/test-database.mts";
@@ -113,7 +113,7 @@ let admin: Database;
 let plant: string;
 let people: Record<string, string>;
 const native: NativePorts = nativePorts();
-const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+const model = scriptedQualifiedModel();
 const shift = TODAY.getTime() - Date.now();
 const now = () => new Date(Date.now() + shift);
 const freshActor = async (session: string) => {
@@ -219,6 +219,9 @@ before(async () => {
 	admin = database.admin;
 	await seedHope(admin, { seatNames: true });
 	plant = (await seedSetup(admin, db, native, { team: false })).plant;
+	await admin.execute(
+		sql`UPDATE plant SET street='12 Mill Road', city='Austin', country='United States' WHERE id=${plant}`,
+	);
 	const overview = await seedOverview(admin, db, native, plant);
 	await seatMember(admin, plant);
 	const seeded = await seedInvitations(admin, db, plant, overview.people);

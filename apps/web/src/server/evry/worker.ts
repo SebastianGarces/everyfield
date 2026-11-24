@@ -12,12 +12,12 @@ import {
 	runTurn,
 	type MailPort,
 	type QualifiedModel,
-	selectQualifiedModel,
 } from "@everyfield/evry";
 import "server-only";
 import { deliveryTransport, mailReady } from "../mail/transport.ts";
 import { claimDue, finishJob } from "@everyfield/domain/jobs";
 import { evryNative } from "./native.ts";
+import { evryModel } from "../models.ts";
 
 export function evryMail(paused: boolean): MailPort | null {
 	const ready = mailReady();
@@ -32,9 +32,9 @@ export async function runTurns(
 	switches: Switches,
 	limit: number,
 	until = Infinity,
-	select: () => QualifiedModel = selectQualifiedModel,
+	select: () => QualifiedModel | Promise<QualifiedModel> = evryModel,
 ) {
-	const model: QualifiedModel = switches["evry-model-calls"] ? select() : { status: "paused" };
+	const model: QualifiedModel = switches["evry-model-calls"] ? await select() : { status: "paused" };
 	const freshActor = async (session: string) => {
 		const parsed = sessionId.safeParse(session);
 		const viewer = parsed.success ? await readViewer(pool, parsed.data) : null;

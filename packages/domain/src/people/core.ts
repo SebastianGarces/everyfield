@@ -445,6 +445,7 @@ const peopleWritePaths = {
 	"people.removeTag": "established",
 	"people.reorderPipeline": "established",
 	"people.restorePerson": "established",
+	"people.setGuardianContact": "established",
 	"people.setHouseholdRole": "established",
 	"people.setPersonPhoto": "established",
 	"people.unmergePeople": "established",

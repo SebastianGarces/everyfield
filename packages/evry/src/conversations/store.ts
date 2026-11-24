@@ -5,7 +5,7 @@ import { queueJobsFor } from "@everyfield/domain/jobs";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
-import { currentAuthority, liveAuthority } from "../context/authority.ts";
+import { currentAuthority, liveAuthority, movedChurch, refusedFor } from "../context/authority.ts";
 import { retainedEvents } from "./retained.ts";
 import { EvryRefusal, projectError } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
@@ -27,6 +27,12 @@ export const reference = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("article"), slug: z.string().min(1).max(300) }),
 ]);
 export type Reference = z.infer<typeof reference>;
+export const userMessageBody = z.strictObject({
+	text: z.string(),
+	references: z.array(reference).default([]),
+	attachments: z.array(attachment).default([]),
+	retryOf: z.int().optional(),
+});
 const submitInput = z.strictObject({
 	requestKey,
 	text,
@@ -52,7 +58,7 @@ function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 const owned = <AliasName extends string>(actor: EvryActor, alias: SqlLiteral<AliasName>) =>
 	sql`${sql.raw(alias)}.account_id=${actor.accountId}::uuid AND ${sql.raw(alias)}.tenant_id=${actor.owner.id}::uuid`;
 
-const conversationRow = z.object({
+const conversationRow = z.strictObject({
 	id: z.uuid(),
 	title: z.string(),
 	context: z.enum(["account", "plant", "sending_church", "sending_network"]),
@@ -66,7 +72,7 @@ const conversationJson = <AliasName extends string>(alias: SqlLiteral<AliasName>
 		`jsonb_build_object('id',${alias}.id,'title',${alias}.title,'context',${alias}.context_kind,'lastSequence',${alias}.last_sequence,'activeTurnId',${alias}.active_turn_id,'updatedAt',${alias}.updated_at)`,
 	);
 
-export const eventRow = z.object({
+export const eventRow = z.strictObject({
 	sequence: z.coerce.number(),
 	turnId: z.uuid().nullable(),
 	kind: z.enum(["user_message", "assistant_text", "tool_result", "status"]),
@@ -116,7 +122,7 @@ export async function listConversations(db: Database, actor: EvryActor, raw: unk
 			coalesce((SELECT jsonb_agg(${conversationJson("p")} ORDER BY p.updated_at DESC, p.id DESC) FROM (
 				SELECT * FROM matched ORDER BY updated_at DESC, id DESC LIMIT ${PAGE_SIZE} OFFSET ${(input.page - 1) * PAGE_SIZE}
 			) p), '[]'::jsonb) AS items`);
-	const row = z.object({ total: z.number(), items: z.array(conversationRow) }).parse(r.rows[0]);
+	const row = z.strictObject({ total: z.number(), items: z.array(conversationRow) }).parse(r.rows[0]);
 	return {
 		items: row.items,
 		total: row.total,
@@ -128,7 +134,7 @@ export async function listConversations(db: Database, actor: EvryActor, raw: unk
 export async function readConversation(db: Database, actor: EvryActor, id: string, after = 0) {
 	const conversationId = parse(uuid, id);
 	const read = await conversationPage(db, actor, sql`${conversationId}::uuid`, parse(z.int().min(0), after));
-	if (!read) throw new EvryRefusal("not_found");
+	if (!read) throw await refusedFor(db, actor, sql`${conversationId}::uuid`);
 	return read;
 }
 
@@ -152,7 +158,12 @@ async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor:
 		FROM conversation c WHERE c.id=${id} AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
 	if (!r.rows.length) return null;
 	const row = z
-		.object({ conversation: conversationRow, run_live: z.boolean(), events: z.array(eventRow), reviews: reviewMap })
+		.strictObject({
+			conversation: conversationRow,
+			run_live: z.boolean(),
+			events: z.array(eventRow),
+			reviews: reviewMap,
+		})
 		.parse(r.rows[0]);
 	return {
 		conversation: row.conversation,
@@ -165,7 +176,7 @@ async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor:
 	};
 }
 
-const submitted = z.object({ turnId: z.uuid(), sequence: z.coerce.number() });
+const submitted = z.strictObject({ turnId: z.uuid(), sequence: z.coerce.number() });
 export type Submitted = z.infer<typeof submitted> & { replayed: boolean };
 
 export async function submitTurn(
@@ -218,10 +229,12 @@ export async function submitTurn(
 		)
 		SELECT (SELECT jsonb_build_object('turnId',${turnId}::uuid,'sequence',last_sequence) FROM conv) AS submitted,
 			(SELECT to_jsonb(known) FROM known) AS known,
-			(SELECT ${liveRun("c")} FROM conversation c WHERE c.id=${id}::uuid AND ${owned(actor, "c")}) AS active`);
-	const row = r.rows[0] as { submitted: unknown; known: unknown; active: boolean | null };
+			(SELECT ${liveRun("c")} FROM conversation c WHERE c.id=${id}::uuid AND ${owned(actor, "c")}) AS active,
+			${movedChurch(actor, sql`${id}::uuid`)} AS moved`);
+	const row = r.rows[0] as { submitted: unknown; known: unknown; active: boolean | null; moved: boolean };
 	if (row.submitted) return { ...submitted.parse(row.submitted), replayed: false };
 	if (row.known) return { ...submitted.parse(row.known), replayed: true };
+	if (row.moved) throw new EvryRefusal("church_changed");
 	if (row.active === null) throw new EvryRefusal("not_found");
 	if (!row.active && attached.length) throw new EvryRefusal("attachment_gone");
 	throw new EvryRefusal(row.active ? "run_active" : "access_denied");
@@ -275,7 +288,7 @@ export async function closeLostJobs(db: Pick<Database, "execute">, limit = 100) 
 			SELECT id,last_sequence,turn_id,'status',${JSON.stringify(interrupted())}::jsonb FROM conv RETURNING 1
 		)
 		SELECT (SELECT count(*) FROM ended)::int AS jobs,(SELECT count(*) FROM saved)::int AS runs`);
-	return z.object({ jobs: z.number(), runs: z.number() }).parse(r.rows[0]);
+	return z.strictObject({ jobs: z.number(), runs: z.number() }).parse(r.rows[0]);
 }
 
 export async function cancelTurn(db: Database, actor: EvryActor, conversationId: string) {
@@ -314,15 +327,11 @@ export async function retryTurn(db: Database, actor: EvryActor, conversationId: 
 		FROM conversation c
 		JOIN LATERAL (SELECT * FROM conversation_event e WHERE e.conversation_id=c.id AND e.kind='user_message' ORDER BY e.sequence DESC LIMIT 1) m ON true
 		WHERE c.id=${id}::uuid AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
-	if (!r.rows.length) throw new EvryRefusal("not_found");
+	if (!r.rows.length) throw await refusedFor(db, actor, sql`${id}::uuid`);
 	const last = z
-		.object({
+		.strictObject({
 			sequence: z.coerce.number(),
-			body: z.object({
-				text: z.string(),
-				references: z.array(reference).default([]),
-				attachments: z.array(attachment).default([]),
-			}),
+			body: userMessageBody,
 			completed: z.boolean(),
 			known: submitted.nullable(),
 		})
@@ -338,9 +347,11 @@ export async function retryTurn(db: Database, actor: EvryActor, conversationId: 
 	);
 }
 
-const stateRow = z.object({
+const stateRow = z.strictObject({
 	attachments: z.array(attachmentState),
-	reviews: z.array(proposalRow.extend({ delivery: z.object({ delivered: z.number(), total: z.number() }).nullable() })),
+	reviews: z.array(
+		proposalRow.extend({ delivery: z.strictObject({ delivered: z.number(), total: z.number() }).nullable() }),
+	),
 });
 export type ConversationState = z.infer<typeof stateRow>;
 export async function conversationState(db: Database, actor: EvryActor, conversationId: string) {

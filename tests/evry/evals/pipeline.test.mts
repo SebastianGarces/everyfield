@@ -25,16 +25,13 @@ import {
 	readConversation,
 	readReview,
 	runTurn,
-	selectQualifiedModel,
 	submitTurn,
 	type EvryActor,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
-import {
-	dayText,
-	listPeople,
-	readProgram as programRead,
-} from "../../../packages/evry/src/adapters/pipeline/reads/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
+import { dayText } from "../../../packages/contracts/src/common/index.ts";
+import { listPeople, readProgram as programRead } from "../../../packages/evry/src/adapters/pipeline/reads/index.ts";
 import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
@@ -66,7 +63,7 @@ let close: () => Promise<void>;
 let db: Database;
 let admin: Database;
 let stages: Awaited<ReturnType<typeof seedPipeline>>;
-const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
 	return viewer?.authority ? evryActor(viewer.authority) : null;

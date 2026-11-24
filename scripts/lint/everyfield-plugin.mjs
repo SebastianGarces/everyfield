@@ -396,6 +396,27 @@ const typeName = (node) => {
 	return node.qualifier ? nameOf(node.qualifier.right ?? node.qualifier) : null;
 };
 
+const TEST_PATH = /(^|\/)tests?\/|\.test\./;
+
+const noDoubleCast = {
+	meta: { type: "problem" },
+	create(context) {
+		if (TEST_PATH.test(repoPath(context.filename))) return {};
+		const inner = (node) => (node.type === "ParenthesizedExpression" ? inner(node.expression) : node);
+		return {
+			"TSAsExpression, TSTypeAssertion"(node) {
+				const cast = inner(node.expression);
+				if (CASTS.has(cast.type) && cast.typeAnnotation.type === "TSUnknownKeyword")
+					context.report({
+						node,
+						message:
+							"Do not cast through unknown: it switches the type checker off. Type the value at its source, or narrow it with a check.",
+					});
+			},
+		};
+	},
+};
+
 const sitePathCast = {
 	meta: { type: "problem" },
 	create(context) {
@@ -584,10 +605,6 @@ const LOG_SINKS = new Set(["logLine", "logInfo", "logFailure", "asLogWord", "asL
 export const RAW_ERROR_SCOPE =
 	/^(?:(?:apps\/web\/src|packages\/[^/]+\/src|ops|tools\/prod-identity)\/|tools\/qa\/(?!tests\/))/;
 export const RAW_ERROR_SITES = {
-	"packages/evry/src/adapters/native.ts": {
-		sites: 2,
-		why: "refusalOf passes on a message only when it is a code word ([a-z_]{3,40}); Evry's recorded refusals carry that word, so reading it another way would change recorded Evry results",
-	},
 	"packages/domain/src/documents/unpack.ts": {
 		sites: 1,
 		why: "ImportRejected is thrown only with fixed copy literals in documents/unpack.ts, and that copy is the answer the person importing the file reads",
@@ -1230,6 +1247,7 @@ export const PRODUCT_TIMERS = {
 			timer: "setInterval",
 			binding: "heartbeat",
 			within: "conversationStreamGet",
+			delay: "15_000",
 			why: "the Evry conversation stream writes an SSE comment every 15 seconds so proxies and the browser keep an idle stream open while a turn runs; the interval is the keep-alive itself and nothing else marks when a quiet connection needs one",
 		},
 	],
@@ -1238,6 +1256,7 @@ export const PRODUCT_TIMERS = {
 			timer: "setTimeout",
 			binding: "wall",
 			within: "run",
+			delay: "LIMITS.wallMs",
 			why: "an Evry turn stops at its LIMITS.wallMs wall-time budget so a hung model or tool call cannot hold the run lease; the deadline is the limit itself and no event marks it",
 		},
 	],
@@ -1246,6 +1265,7 @@ export const PRODUCT_TIMERS = {
 			timer: "setTimeout",
 			binding: "timer",
 			within: "transientRetry",
+			delay: "ms",
 			why: "a transient model error is retried after the LIMITS.modelRetryDelaysMs backoff; the wait is the backoff itself and the turn's abort signal cancels it",
 		},
 	],
@@ -1254,6 +1274,7 @@ export const PRODUCT_TIMERS = {
 			timer: "setTimeout",
 			binding: "timer",
 			within: "timerPause",
+			delay: "ms",
 			why: "a conversation observer re-reads the store every pollMs so it still sees events written by another instance; the pause is the poll interval and the abort signal ends it",
 		},
 	],
@@ -1262,57 +1283,66 @@ export const PRODUCT_TIMERS = {
 			timer: "setTimeout",
 			binding: "timer",
 			within: "parser",
+			delay: "STARTUP_MS",
 			why: "a PDF parser worker that is not ready within STARTUP_MS counts as crashed, so a stuck worker cannot hold an upload; the deadline is the product limit",
 		},
 		{
 			timer: "setTimeout",
 			binding: "timer",
 			within: "parseOnce",
+			delay: "parseMs",
 			why: "a PDF parse that runs past parseMs is refused and its worker stopped, so one file cannot hold the parser; the deadline is the product limit",
 		},
 	],
 };
 
-const namedAncestor = (node, name) => {
-	for (let p = node.parent; p; p = p.parent)
-		if (
-			(p.type === "VariableDeclarator" || p.type === "FunctionDeclaration") &&
-			p.id?.type === "Identifier" &&
-			p.id.name === name
-		)
-			return true;
-	return false;
+const functionBinding = (fn) => {
+	if (fn.id?.name) return fn.id.name;
+	let node = fn;
+	while (node.parent?.type === "CallExpression" && node.parent.arguments.includes(node)) node = node.parent;
+	return node.parent?.type === "VariableDeclarator" && node.parent.id.type === "Identifier"
+		? node.parent.id.name
+		: null;
 };
 
-const timerSite = (node, site) => {
+const declaredFunctions = (node) => {
+	const found = [];
+	for (let p = node.parent; p; p = p.parent) if (FUNCTIONS.has(p.type) && functionBinding(p)) found.push(p);
+	return found;
+};
+
+const timerSite = (context, node, site) => {
 	const call = node.parent;
 	if (node.name !== site.timer || call?.type !== "CallExpression" || call.callee !== node) return false;
+	const [nearest, ...outer] = declaredFunctions(call);
 	return (
 		call.parent?.type === "VariableDeclarator" &&
 		call.parent.id.type === "Identifier" &&
 		call.parent.id.name === site.binding &&
-		namedAncestor(call, site.within)
+		context.sourceCode.getText(call.arguments[1]) === site.delay &&
+		nearest !== undefined &&
+		functionBinding(nearest) === site.within &&
+		!outer.some((fn) => functionBinding(fn) === site.within)
 	);
 };
 
 const noTimers = ratcheted("no-timers", (context, push) => {
 	const seen = new Set();
 	const sites = PRODUCT_TIMERS[repoPath(context.filename)] ?? [];
-	const matched = new Set();
-	const productTimer = (node) => {
-		const site = sites.find((s) => !matched.has(s) && timerSite(node, s));
-		if (site) matched.add(site);
-		return site !== undefined;
-	};
-	const report = (node, name) => {
-		const at = (node.range ?? [node.start, node.end]).join(":");
-		if (seen.has(at) || productTimer(node)) return;
-		seen.add(at);
+	const candidates = new Map(sites.map((site) => [site, []]));
+	const hit = (node, name) =>
 		push({
 			node,
 			fn: enclosingName(node),
 			message: `${name} waits for time to pass instead of reacting to what the code waits for. Fix the ordering at its cause: act in the event handler, on the state change, on the promise or on the DOM node that is ready. A timer that is itself the product behavior (a countdown, a toast's lifetime, a poll, a typing debounce) needs an entry in ${survivorFile(context)} with its reason, which waits for the owner.`,
 		});
+	const report = (node, name) => {
+		const at = (node.range ?? [node.start, node.end]).join(":");
+		if (seen.has(at)) return;
+		seen.add(at);
+		const site = sites.find((s) => timerSite(context, node, s));
+		if (site) candidates.get(site).push({ node, name });
+		else hit(node, name);
 	};
 	let timerImports = new Set();
 	let timerSpaces = new Set();
@@ -1364,13 +1394,21 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 			if (delayed) report(node, "scheduler.postTask with a delay");
 		},
 		"Program:exit"(program) {
-			for (const site of sites)
-				if (!matched.has(site))
+			for (const [site, found] of candidates) {
+				if (found.length > 1)
+					for (const c of found)
+						push({
+							node: c.node,
+							fn: enclosingName(c.node),
+							message: `${found.length} calls match the listed product timer ${site.timer} ${site.binding} in ${site.within} with delay ${site.delay}, which exempts exactly one. One of them is the listed product timer: keep it. Remove the copy that was added, or give a new timer its own binding and delay and its own reason.`,
+						});
+				if (!found.length)
 					push({
 						node: program,
 						fn: null,
-						message: `The listed product timer ${site.timer} ${site.binding} in ${site.within} is gone: delete its entry from PRODUCT_TIMERS in scripts/lint/everyfield-plugin.mjs.`,
+						message: `The listed product timer ${site.timer} ${site.binding} in ${site.within} with delay ${site.delay} is gone: delete its entry from PRODUCT_TIMERS in scripts/lint/everyfield-plugin.mjs.`,
 					});
+			}
 		},
 	};
 	return merge(
@@ -1561,16 +1599,19 @@ const rawSqlLiteral = {
 
 export const STORAGE_MODULE = "packages/db/src/schema/storage.ts";
 const OBJECT_STORE_PACKAGE = /^@aws-sdk(?:\/|$)/;
+const URL_SIGNER_PACKAGE = /^@aws-sdk\/s3-request-presigner(?:\/|$)/;
 const PRODUCT_CODE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
 
 const storageClient = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
-		if (path === STORAGE_MODULE || !PRODUCT_CODE.test(path)) return {};
+		if (path === STORAGE_MODULE) return {};
+		const product = PRODUCT_CODE.test(path);
 		const message = `Only ${STORAGE_MODULE} reaches the object store and signs its URLs: the browser gets the app's own authenticated routes, never a storage key or a signed URL.`;
 		return moduleSources((node, name) => {
-			if (OBJECT_STORE_PACKAGE.test(name)) context.report({ node, message });
+			if (URL_SIGNER_PACKAGE.test(name) || (product && OBJECT_STORE_PACKAGE.test(name)))
+				context.report({ node, message });
 		});
 	},
 };
@@ -1753,6 +1794,28 @@ function handles(handler, body, param) {
 
 const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
 
+const SCRIPTED_PACKAGE = "@everyfield/evry-scripted";
+const SCRIPTED_WIRING = "apps/web/src/server/models.ts";
+
+const scriptedModelWiring = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!PRODUCT_CODE.test(path)) return {};
+		const wiring = path === SCRIPTED_WIRING;
+		return moduleSources((node, name) => {
+			if (name !== SCRIPTED_PACKAGE && !name.startsWith(`${SCRIPTED_PACKAGE}/`)) return;
+			if (wiring && node.type === "ImportExpression") return;
+			context.report({
+				node,
+				message: wiring
+					? `${SCRIPTED_WIRING} loads ${SCRIPTED_PACKAGE} only by import() inside its local and test deployment branch, so production never loads it.`
+					: `${SCRIPTED_PACKAGE} is dev-only: only ${SCRIPTED_WIRING} loads it, inside its local and test deployment branch. Take the model or drafter from that file.`,
+			});
+		});
+	},
+};
+
 const webDatabaseImports = {
 	meta: { type: "problem" },
 	create(context) {
@@ -1792,6 +1855,20 @@ const formGroup = (node) => {
 	return false;
 };
 const templateText = (node) => node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ");
+const concatenated = (node) =>
+	node.type === "BinaryExpression" && node.operator === "+"
+		? [concatenatedOperand(node.left, node.right), concatenatedOperand(node.right, node.left)].reduce((a, b) =>
+				a && b ? [...a, ...b] : null,
+			)
+		: node.type === "Literal" && typeof node.value === "string"
+			? [node.value]
+			: node.type === "TemplateLiteral"
+				? [templateText(node)]
+				: null;
+const concatenatedOperand = (side, other) =>
+	side.type === "Literal" && typeof side.value === "number"
+		? concatenated(other) && [String(side.value)]
+		: concatenated(side);
 const classParts = (node) =>
 	node.type === "Literal"
 		? typeof node.value === "string"
@@ -1806,15 +1883,57 @@ const classParts = (node) =>
 					: node.type === "ArrayExpression"
 						? node.elements.flatMap((element) => (element ? classParts(element) : []))
 						: node.type === "ObjectExpression"
-							? node.properties.flatMap((property) =>
-									property.type === "Property" && !property.computed ? classParts(property.key) : [],
-								)
-							: [];
+							? node.properties.flatMap((property) => (property.type === "Property" ? classParts(property.key) : []))
+							: node.type === "BinaryExpression"
+								? [concatenated(node)?.join("")].filter(Boolean)
+								: [];
+
+const PROBLEM_TEXT = /^text-(?:magenta|red)-\d+(?:\/\d+)?$/;
+const problemToken = (token) => PROBLEM_TEXT.test(token.replace(/^!|!$/g, "").split(":").at(-1));
+const KEPT_PROBLEM_LINES = {
+	"apps/web/src/features/tasks/TaskDialog.tsx": {
+		className: "px-1 py-2 text-sm text-magenta-600",
+		reason: "the relation search failure is a list result state, kept by T-407",
+	},
+	"apps/web/src/features/people/assessments/CommitmentDialogs.tsx": {
+		className: "px-2 py-3 text-sm text-magenta-600",
+		reason: "the people search failure is a list result state, kept by T-407",
+	},
+	"apps/web/src/features/meetings/dialogs.tsx": {
+		className: "px-2 py-3 text-sm text-magenta-600",
+		reason: "the people search failure is a list result state, kept by T-407",
+	},
+	"apps/web/src/features/evry/conversation/EvryPanel.tsx": {
+		className: "flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600",
+		reason: "the message-level send state sits under its bubble, kept by T-407",
+	},
+};
+const elementClassStrings = (opening) => {
+	const className = jsxAttribute(opening, "className");
+	return className ? attributeStrings(className) : [];
+};
+const problemClassed = (opening) => elementClassStrings(opening).some((s) => classTokens(s).some(problemToken));
+const domDescendants = (node, out = []) => {
+	for (const child of childNodes(node)) {
+		if (child.type === "JSXOpeningElement" && domElement(child)) out.push(child);
+		domDescendants(child, out);
+	}
+	return out;
+};
 
 const sharedNotice = {
 	meta: { type: "problem" },
 	create(context) {
-		if (!WEB_CODE.test(repoPath(context.filename))) return {};
+		const path = repoPath(context.filename);
+		if (!WEB_CODE.test(path)) return {};
+		const kept = KEPT_PROBLEM_LINES[path];
+		let keptSeen = false;
+		const keptLine = (node) => {
+			if (!kept || keptSeen) return false;
+			const strings = elementClassStrings(node);
+			keptSeen = strings.length === 1 && strings[0] === kept.className;
+			return keptSeen;
+		};
 		const check = (node, value) => {
 			if (value === null) return;
 			if (errorNoticeLook(value))
@@ -1831,8 +1950,25 @@ const sharedNotice = {
 				});
 		};
 		return {
+			JSXOpeningElement(node) {
+				const role = domElement(node) && jsxAttribute(node, "role");
+				if (!role || !attributeStrings(role).includes("alert")) return;
+				if (!domDescendants(node.parent).some(problemClassed)) return;
+				if (noticeLook(elementClassStrings(node).join(" ")) || keptLine(node)) return;
+				context.report({
+					node,
+					message:
+						'A problem line is ProblemText (a control-level line) or InlineAlert or Alert (a section-level line) from @everyfield/ui/controls, which carry the tone, icon and live region. Do not hand-write role="alert" with magenta or red text.',
+				});
+			},
 			Literal: (node) => check(node, text(node)),
 			TemplateLiteral: (node) => check(node, templateText(node)),
+			BinaryExpression(node) {
+				const parts = concatenated(node);
+				if (!parts || parts.some(noticeLook) || (node.parent.type === "BinaryExpression" && concatenated(node.parent)))
+					return;
+				check(node, parts.join(""));
+			},
 			CallExpression(node) {
 				const parts = node.arguments.flatMap(classParts);
 				if (parts.length < 2 || parts.some(noticeLook)) return;
@@ -1852,14 +1988,58 @@ const attributeStrings = (attribute) =>
 		: stringsIn(attribute.value);
 const HIDING_CLASSES = new Set(["hidden", "invisible"]);
 const hidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, "").split(":").at(-1));
-const OFF_VALUES = { hidden: [false], "aria-hidden": [false, "false"] };
+const OFF_VALUES = { hidden: [false], inert: [false], "aria-hidden": [false, "false"] };
+const attributeValue = (attribute) =>
+	attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
 const switchedOff = (attribute, name) => {
-	const value = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
-	return value?.type === "Literal" && OFF_VALUES[name].includes(value.value);
+	const value = attributeValue(attribute);
+	return (
+		(value?.type === "Literal" && OFF_VALUES[name].includes(value.value)) ||
+		(value?.type === "Identifier" && value.name === "undefined")
+	);
 };
 const setAttribute = (element, name) => {
 	const attribute = jsxAttribute(element, name);
 	return attribute && !switchedOff(attribute, name) ? attribute : null;
+};
+const domElement = (element) => element.name.type === "JSXIdentifier" && /^[a-z]/.test(element.name.name);
+const fixedStrings = (node) =>
+	node?.type === "Literal" && typeof node.value === "string"
+		? [node.value]
+		: node?.type === "TemplateLiteral" && !node.expressions.length
+			? [templateText(node)]
+			: node?.type === "CallExpression"
+				? node.arguments.flatMap((argument) => fixedStrings(argument))
+				: [];
+const unprefixedHidingToken = (token) => HIDING_CLASSES.has(token.replace(/^!|!$/g, ""));
+const alwaysHidden = (element) => {
+	const className = jsxAttribute(element, "className");
+	return (
+		(className && fixedStrings(attributeValue(className)).some((s) => classTokens(s).some(unprefixedHidingToken))) ||
+		["hidden", "inert", "aria-hidden"].some((name) => {
+			const attribute = setAttribute(element, name);
+			return attribute && (!attribute.value || attributeValue(attribute).type === "Literal");
+		})
+	);
+};
+const portalElement = (element) =>
+	/Portal$/.test(
+		element.name.type === "JSXMemberExpression"
+			? element.name.property.name
+			: element.name.type === "JSXIdentifier"
+				? element.name.name
+				: "",
+	);
+const portalCall = (node) =>
+	(node.callee.type === "Identifier" ? node.callee.name : memberName(node.callee)) === "createPortal";
+const insideHiddenElement = (node) => {
+	for (let child = node.parent, at = child.parent; at; child = at, at = at.parent) {
+		if (at.type === "CallExpression" && portalCall(at)) return false;
+		if (at.type !== "JSXElement" || child === at.openingElement) continue;
+		if (portalElement(at.openingElement)) return false;
+		if (domElement(at.openingElement) && alwaysHidden(at.openingElement)) return true;
+	}
+	return false;
 };
 
 const liveRegionInTree = {
@@ -1873,16 +2053,29 @@ const liveRegionInTree = {
 				const liveValues = live ? attributeStrings(live) : [];
 				const announces =
 					(live && !(liveValues.length && liveValues.every((value) => value === "off"))) ||
-					(role && attributeStrings(role).some((value) => LIVE_ROLES.has(value)));
+					(role && attributeStrings(role).some((value) => LIVE_ROLES.has(value))) ||
+					(!live && !role && node.name.type === "JSXIdentifier" && node.name.name === "output");
 				if (!announces) return;
 				const className = jsxAttribute(node, "className");
 				const hiddenClass = className && attributeStrings(className).some((s) => s.split(/\s+/).some(hidingToken));
-				const hiding = (hiddenClass && className) || setAttribute(node, "hidden") || setAttribute(node, "aria-hidden");
-				if (!hiding) return;
+				const hiding =
+					(hiddenClass && className) ||
+					setAttribute(node, "hidden") ||
+					setAttribute(node, "inert") ||
+					setAttribute(node, "aria-hidden");
+				if (!hiding) {
+					if (insideHiddenElement(node))
+						context.report({
+							node,
+							message:
+								"This live region sits inside an element that is hidden, invisible, inert or aria-hidden, so it leaves the accessibility tree with it and what fills it is not announced. Keep the live region outside that element, or keep the element in the tree.",
+						});
+					return;
+				}
 				context.report({
 					node: hiding,
 					message:
-						"A live region (aria-live, or role status, alert or log) that is hidden, invisible or aria-hidden leaves the accessibility tree, so what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
+						"A live region (aria-live, role status, alert or log, or an output element) that is hidden, invisible, inert or aria-hidden leaves the accessibility tree, so what fills it is not announced. Keep it in the tree: empty:sr-only while empty, or InlineAlert from @everyfield/ui/controls for a notice.",
 				});
 			},
 		};
@@ -2960,6 +3153,30 @@ const featureBoundaries = ratcheted("feature-boundaries", (context, push) => {
 	};
 });
 
+const PRIVATE_IMPORTERS = {
+	"apps/web/src/features/communication/outbox.ts": {
+		importers: ["apps/web/src/features/communication/outbox-route.ts"],
+		why: "it reads the dev outbox folder, so the send path stays free of directory reads and the production bundle does not trace the filesystem",
+	},
+	"apps/web/src/features/communication/outbox-route.ts": {
+		importers: ["apps/web/src/app/api/dev/outbox/route.ts"],
+		why: "it serves the dev mail capture, and only the dev outbox route may expose it",
+	},
+};
+
+const privateImporters = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		return moduleSources((node, spec) => {
+			const { to } = resolveImport(from, spec);
+			const rule = to && PRIVATE_IMPORTERS[to];
+			if (rule && !rule.importers.includes(from))
+				context.report({ node, message: `Only ${rule.importers.join(", ")} imports ${to}: ${rule.why}.` });
+		});
+	},
+};
+
 const READ_ROUTE = /^apps\/web\/src\/app\/(?:.+\/)?(?:page\.tsx|layout\.tsx|route\.ts)$/;
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const SERVER_ACTIONS = /^\s*["']use server["']/;
@@ -3189,16 +3406,11 @@ const wireParam = (param) => {
 const WIRE_HOME =
 	"A server action is a public POST endpoint: whatever the type says, its arguments arrive as untrusted JSON. Type each parameter unknown, string, number, boolean or FormData, and parse it once at the boundary, in the domain operation it reaches.";
 
-const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) => {
+function serverActions(context, check, opaque = () => {}) {
 	const moduleActions = SERVER_ACTIONS.test(context.sourceCode.text);
-	const check = (fn, name) => {
-		for (const param of fn.params)
-			if (!wireParam(param)) push({ node: param, fn: name, message: `${name} takes a typed parameter. ${WIRE_HOME}` });
-	};
-	const FUNCTION = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
 	const wrapped = (node) => {
 		if (!node) return [];
-		if (FUNCTION.has(node.type)) return [node];
+		if (FUNCTIONS.has(node.type)) return [node];
 		if (node.type === "CallExpression") return node.arguments.flatMap(wrapped);
 		if (node.type === "TSAsExpression" || node.type === "TSSatisfiesExpression") return wrapped(node.expression);
 		return [];
@@ -3226,11 +3438,11 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 			if (node.source) {
 				for (const spec of node.specifiers ?? [])
 					if (spec.exportKind !== "type")
-						push({
-							node: spec,
-							fn: nameOf(spec.exported),
-							message: `${nameOf(spec.exported)} is re-exported from ${node.source.value}, so this rule cannot see its parameters. Declare the server action in this module. ${WIRE_HOME}`,
-						});
+						opaque(
+							spec,
+							nameOf(spec.exported),
+							`${nameOf(spec.exported)} is re-exported from ${node.source.value}, so this rule cannot see its parameters. Declare the server action in this module.`,
+						);
 				return;
 			}
 			const d = node.declaration;
@@ -3250,11 +3462,11 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 		},
 		ExportAllDeclaration(node) {
 			if (!moduleActions || node.exportKind === "type") return;
-			push({
+			opaque(
 				node,
-				fn: "*",
-				message: `export * from ${node.source.value} in a "use server" module exports actions this rule cannot see. Declare each server action in this module. ${WIRE_HOME}`,
-			});
+				"*",
+				`export * from ${node.source.value} in a "use server" module exports actions this rule cannot see. Declare each server action in this module.`,
+			);
 		},
 		"Program:exit"() {
 			for (const [local, exported] of exportedLocals) {
@@ -3265,36 +3477,231 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 			}
 		},
 	};
-});
+}
+
+const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =>
+	serverActions(
+		context,
+		(fn, name) => {
+			for (const param of fn.params)
+				if (!wireParam(param))
+					push({ node: param, fn: name, message: `${name} takes a typed parameter. ${WIRE_HOME}` });
+		},
+		(node, fn, message) => push({ node, fn, message: `${message} ${WIRE_HOME}` }),
+	),
+);
+
+const IDENTITY_PARAM = /^(?:actor|account|session|workspace)(?:id)?$/i;
+
+const paramKeys = (pattern) => {
+	if (!pattern) return [];
+	if (pattern.type === "Identifier") return [[pattern, pattern.name]];
+	if (pattern.type === "AssignmentPattern") return paramKeys(pattern.left);
+	if (pattern.type === "RestElement") return paramKeys(pattern.argument);
+	if (pattern.type === "ArrayPattern") return pattern.elements.flatMap(paramKeys);
+	if (pattern.type === "TSParameterProperty") return paramKeys(pattern.parameter);
+	if (pattern.type !== "ObjectPattern") return [];
+	return pattern.properties.flatMap((p) =>
+		p.type === "RestElement"
+			? paramKeys(p.argument)
+			: [[p, keyName(p.key, p.computed)], ...(p.shorthand ? [] : paramKeys(p.value))],
+	);
+};
+
+const actionIdentityParams = {
+	meta: { type: "problem" },
+	create(context) {
+		return serverActions(context, (fn, name) => {
+			for (const param of fn.params)
+				for (const [node, key] of paramKeys(param))
+					if (key && IDENTITY_PARAM.test(key))
+						context.report({
+							node,
+							message: `${name} takes ${key} from the caller. A server action is a public POST endpoint, so a caller can send any ${key} it likes. Resolve who is asking from the session on the server (getViewer, viewerActor, organizationSeat in @/server/request-context) and take only the subject of the write as input.`,
+						});
+		});
+	},
+};
+
+export const PROOF_CONTRACTS = {
+	"@everyfield/contracts/identity": [
+		"acceptSeatInvitationRequest",
+		"describeInvitationRequest",
+		"recoverPasswordRequest",
+		"registrationRequest",
+		"respondResidentInvitationRequest",
+		"resumeRegistrationRequest",
+		"verifyEmailRequest",
+	],
+	"@everyfield/contracts/organizations": ["acceptInvitationRequest", "respondInvitationRequest"],
+};
+
+const PROOF_KEY = /proof/i;
+const PROOF_HOME =
+	"An invitation or account link proof is a bearer secret: a server action takes its arguments as public POST JSON that Next logs and replays, so a proof never passes through one. The proof page posts it in the body of its own route (/api/connections/invitation, the identity routes), and server code reads a proof it set itself from its cookie.";
+
+const fromNoInput = (node) => {
+	const call = unwrap(node);
+	return call?.type === "CallExpression" && call.arguments.length === 0;
+};
+
+const actionProofs = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!SERVER_ACTIONS.test(context.sourceCode.text)) return {};
+		const report = (node, what) => context.report({ node, message: `This "use server" module ${what}. ${PROOF_HOME}` });
+		const contracts = new Map(Object.entries(PROOF_CONTRACTS).map(([source, names]) => [source, new Set(names)]));
+		const sources = new Set(contracts.keys());
+		const names = new Set([...contracts.values()].flatMap((set) => [...set]));
+		const key = (node) => (node.type === "Property" ? keyName(node.key, node.computed) : null);
+		const uses = (node, name) => report(node, `uses the proof-carrying contract ${name}`);
+		return merge(moduleUses(sources, names, [], uses, true), {
+			ImportDeclaration(node) {
+				if (node.importKind === "type") return;
+				for (const spec of node.specifiers)
+					if (
+						spec.type === "ImportSpecifier" &&
+						spec.importKind !== "type" &&
+						contracts.get(node.source.value)?.has(nameOf(spec.imported))
+					)
+						uses(spec, nameOf(spec.imported));
+			},
+			Property(node) {
+				const name = key(node);
+				if (!name || !PROOF_KEY.test(name)) return;
+				if (node.parent.type === "ObjectPattern") return report(node, `takes a field named ${name}`);
+				if (!fromNoInput(node.value)) report(node, `forwards a field named ${name} it did not read itself`);
+			},
+			MemberExpression(node) {
+				const name = memberName(node);
+				if (name && PROOF_KEY.test(name)) report(node, `reads a field named ${name}`);
+			},
+			Identifier(node) {
+				const fn = node.parent;
+				if (FUNCTIONS.has(fn?.type) && fn.params.includes(node) && PROOF_KEY.test(node.name))
+					report(node, `takes a parameter named ${node.name}`);
+			},
+		});
+	},
+};
+
+const TOKEN_ONLY = new Set([
+	"apps/web/src/features/communication/unsubscribe.ts",
+	"apps/web/src/features/communication/unsubscribeActions.ts",
+	"apps/web/src/features/communication/unsubscribeRoute.tsx",
+	"apps/web/src/features/communication/unsubscribeOneClick.ts",
+]);
+const SESSION_MODULES = [
+	/^apps\/web\/src\/server\/(?:request-context|identity|sign-in)(?:\.[cm]?[jt]sx?|\/|$)/,
+	/^apps\/web\/src\/features\/[^/]+\/mount(?:\.[cm]?[jt]sx?)?$/,
+];
+const SESSION_PACKAGES = /^(?:next\/headers|better-auth(?:\/.*)?|@everyfield\/domain\/(?:access|identity))$/;
+const SESSION_NAME = /viewer|session|actor|seat/i;
+
+const tokenAuthority = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		if (!TOKEN_ONLY.has(from)) return {};
+		const report = (node, what) =>
+			context.report({
+				node,
+				message: `${what} in an unsubscribe module. The token in the link is the only authority here: a person who opens it may be signed out or signed in as someone else, so nothing may read the session, the request headers or a viewer.`,
+			});
+		return {
+			...moduleSources((node, spec) => {
+				const to = resolveImport(from, spec).to ?? "";
+				if (SESSION_PACKAGES.test(spec) || SESSION_MODULES.some((m) => m.test(to)))
+					report(node, `${spec} is a session, request-context or viewer module, imported`);
+			}),
+			ImportSpecifier(node) {
+				if (SESSION_NAME.test(nameOf(node.imported))) report(node, `${nameOf(node.imported)} is imported`);
+			},
+		};
+	},
+};
+
+const KEY_MINTS = new Set(["newRequestKey", "randomUUID"]);
+const keySlot = (node) =>
+	(node.parent?.type === "Property" && node.parent.value === node && nameOf(node.parent.key) === "requestKey") ||
+	(node.parent?.type === "VariableDeclarator" &&
+		node.parent.id.type === "Identifier" &&
+		/requestKey/i.test(node.parent.id.name));
+const insidePreview = (node) => {
+	for (let at = node.parent; at; at = at.parent)
+		if (at.type === "CallExpression" && /^preview/.test(calleeName(at.callee) ?? "")) return true;
+	return false;
+};
+const clientRequestKey = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!SERVER_ACTIONS.test(context.sourceCode.text)) return {};
+		return {
+			CallExpression(node) {
+				const name = calleeName(node.callee);
+				if (!KEY_MINTS.has(name ?? "")) return;
+				if (name === "randomUUID" && !keySlot(node)) return;
+				if (insidePreview(node)) return;
+				context.report({
+					node,
+					message: `A server action mints its own request key with ${name}(), so a retry of the same request reaches the server under a new key and runs again. Make the key in the client once per user intent and take it as a parameter. A preview that always rolls back may mint one.`,
+				});
+			},
+		};
+	},
+};
 
 export const OUTCOME_MODULE = "packages/contracts/src/common/values.ts";
 const OUTCOME_SOURCE = "@everyfield/contracts/common";
 const OUTCOME_SCOPE = /^(apps\/web\/src|packages\/[^/]+\/src)\//;
 const statusLiterals = (type) =>
-	type?.type === "TSLiteralType" && typeof type.literal.value === "string"
-		? [type.literal.value]
+	type?.type === "TSLiteralType"
+		? [keyName(type.literal, false)]
 		: type?.type === "TSUnionType"
 			? type.types.flatMap(statusLiterals)
 			: [];
 const propertiesOf = (member) =>
-	member.type === "TSTypeLiteral"
-		? member.members.filter((m) => m.type === "TSPropertySignature" && m.key.type === "Identifier")
+	member.type === "TSTypeLiteral" || member.type === "TSInterfaceBody"
+		? (member.members ?? member.body).flatMap((m) =>
+				m.type === "TSPropertySignature" ? [{ name: keyName(m.key, m.computed), type: m.typeAnnotation }] : [],
+			)
 		: member.type === "TSIntersectionType"
 			? member.types.flatMap(propertiesOf)
 			: [];
 const memberStatuses = (member) =>
 	propertiesOf(member)
-		.filter((m) => m.key.name === "status")
-		.flatMap((m) => statusLiterals(m.typeAnnotation?.typeAnnotation));
+		.filter((m) => m.name === "status")
+		.flatMap((m) => statusLiterals(m.type?.typeAnnotation));
 const referenceName = (type) =>
 	type?.type === "TSTypeReference" && type.typeName.type === "Identifier" ? type.typeName.name : null;
+const REPLY_SOURCE = /^@everyfield\/contracts\/[\w/-]+$/;
+const sharedPiece = (source, name) =>
+	source === OUTCOME_SOURCE && name === "Lost"
+		? "lost"
+		: (source === OUTCOME_SOURCE && name === "Reply") || /\wReply$/.test(name)
+			? "reply"
+			: null;
 const OUTCOME_MESSAGE = `Import Outcome from ${OUTCOME_SOURCE} and specialize it (type Name<T> = Shared<T, Code, Extra>), so every feature answers the same union.`;
 const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 	const path = repoPath(context.filename);
 	if (path === OUTCOME_MODULE || !OUTCOME_SCOPE.test(path)) return {};
 	const shared = new Map();
+	const imported = new Map();
+	const namespaces = new Map();
 	const aliases = new Map();
+	const interfaces = new Map();
 	const candidates = [];
+	const interfaceParts = (name, seen) => {
+		if (seen.has(name)) return [];
+		seen.add(name);
+		if (aliases.has(name)) return [aliases.get(name)];
+		return (interfaces.get(name) ?? []).flatMap((block) => [
+			block.body,
+			...(block.extends ?? []).flatMap((h) =>
+				h.expression.type === "Identifier" ? interfaceParts(h.expression.name, seen) : [],
+			),
+		]);
+	};
 	const members = (type, seen) => {
 		if (type?.type === "TSUnionType") return type.types.flatMap((t) => members(t, seen));
 		const name = referenceName(type);
@@ -3302,20 +3709,32 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 			seen.add(name);
 			return members(aliases.get(name), seen);
 		}
+		if (name && interfaces.has(name)) return [{ type: "TSIntersectionType", types: interfaceParts(name, new Set()) }];
 		return [type];
 	};
-	const statusesOf = (member) => (shared.get(referenceName(member)) === "Lost" ? ["lost"] : memberStatuses(member));
+	const pieceOf = (member) => {
+		if (member?.type !== "TSTypeReference") return null;
+		const { typeName } = member;
+		if (typeName.type === "Identifier") return imported.get(typeName.name) ?? null;
+		return typeName.type === "TSQualifiedName" &&
+			typeName.left.type === "Identifier" &&
+			namespaces.has(typeName.left.name)
+			? sharedPiece(namespaces.get(typeName.left.name), typeName.right.name)
+			: null;
+	};
+	const statusesOf = (member) =>
+		({ lost: ["lost"], reply: ["ok", "refused"] })[pieceOf(member)] ?? memberStatuses(member);
+	const okValue = (member) =>
+		pieceOf(member) === "reply" ||
+		(memberStatuses(member).includes("ok") && propertiesOf(member).some((m) => m.name === "value"));
+	const shaped = (all) => {
+		const statuses = new Set(all.flatMap(statusesOf));
+		return all.some(okValue) && statuses.has("refused") && statuses.has("lost");
+	};
 	const outcomeShaped = (type) => {
 		if (type?.type !== "TSUnionType") return false;
 		const all = members(type, new Set());
-		const statuses = new Set(all.flatMap(statusesOf));
-		return (
-			all.some(
-				(member) => memberStatuses(member).includes("ok") && propertiesOf(member).some((m) => m.key.name === "value"),
-			) &&
-			statuses.has("refused") &&
-			statuses.has("lost")
-		);
+		return shaped(all) && !shaped(all.filter(pieceOf));
 	};
 	const childTypes = (type) =>
 		[
@@ -3339,13 +3758,22 @@ const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
 	const typeOf = (node) => inline.push(node.typeAnnotation);
 	return {
 		ImportDeclaration(node) {
-			if (node.source.value !== OUTCOME_SOURCE) return;
+			const source = node.source.value;
+			if (!REPLY_SOURCE.test(source)) return;
 			for (const spec of node.specifiers)
-				if (spec.type === "ImportSpecifier") shared.set(spec.local.name, nameOf(spec.imported));
+				if (spec.type === "ImportNamespaceSpecifier") namespaces.set(spec.local.name, source);
+				else if (spec.type === "ImportSpecifier") {
+					const piece = sharedPiece(source, nameOf(spec.imported));
+					if (piece) imported.set(spec.local.name, piece);
+					if (source === OUTCOME_SOURCE) shared.set(spec.local.name, nameOf(spec.imported));
+				}
 		},
 		TSTypeAliasDeclaration(node) {
 			aliases.set(node.id.name, node.typeAnnotation);
 			candidates.push(node);
+		},
+		TSInterfaceDeclaration(node) {
+			interfaces.set(node.id.name, [...(interfaces.get(node.id.name) ?? []), node]);
 		},
 		TSTypeAnnotation: typeOf,
 		TSAsExpression: typeOf,
@@ -3493,42 +3921,67 @@ const ownerRead = (node) => {
 	if (at?.type === "LogicalExpression") return ownerRead(at.left) || ownerRead(at.right);
 	return at?.type === "MemberExpression" && memberName(at) === "owner";
 };
-const seatNames = () => {
+const REBINDING = new Set(["=", "||=", "&&=", "??="]);
+const seatNames = (context) => {
 	const kinds = new Map();
 	const owners = new Set();
+	const variable = (id) => variableOf(context, id);
+	const holds = (name, subject) => kinds.set(name, [...(kinds.get(name) ?? []), subject]);
 	const bind = (pattern, from) => {
 		if (pattern?.type !== "ObjectPattern") return;
 		for (const property of pattern.properties) {
 			if (property.type !== "Property") continue;
 			const key = keyName(property.key, property.computed);
 			const value = property.value.type === "AssignmentPattern" ? property.value.left : property.value;
-			if (key === "kind" && value.type === "Identifier") kinds.set(value.name, from);
-			if (key === "owner" && value.type === "Identifier") owners.add(value.name);
+			if (key === "kind" && value.type === "Identifier") holds(variable(value), from);
+			if (key === "owner" && value.type === "Identifier") owners.add(variable(value));
 			if (key === "owner") bind(value, OWNER);
 		}
 	};
-	const declare = (node) => {
-		const init = unwrapped(node.init);
-		if (node.id.type === "ObjectPattern") bind(node.id, init);
-		if (node.id.type !== "Identifier") return;
-		if (ownerRead(init)) owners.add(node.id.name);
-		if (init?.type === "MemberExpression" && memberName(init) === "kind")
-			kinds.set(node.id.name, unwrapped(init.object));
-	};
-	const kindOf = (node) => {
+	const aliases = new Map();
+	const rebound = (node) => {
 		const at = unwrapped(node);
-		if (at?.type === "Identifier") return kinds.get(at.name) ?? null;
-		return at?.type === "MemberExpression" && memberName(at) === "kind" ? unwrapped(at.object) : null;
+		if (at?.type === "ConditionalExpression") return [...rebound(at.consequent), ...rebound(at.alternate)];
+		if (at?.type === "LogicalExpression") return [...rebound(at.left), ...rebound(at.right)];
+		return at?.type === "Identifier" ? [at] : [];
 	};
-	const namesOwner = (node) =>
-		node?.type === "Identifier" ? node.name === "owner" || owners.has(node.name) : memberName(node) === "owner";
-	return { declare, kindOf, namesOwner };
+	const assign = (id, value) => {
+		const init = unwrapped(value);
+		if (id.type === "ObjectPattern") bind(id, init);
+		if (id.type !== "Identifier") return;
+		const name = variable(id);
+		if (ownerRead(init)) owners.add(name);
+		if (init?.type === "MemberExpression" && memberName(init) === "kind") holds(name, unwrapped(init.object));
+		if (name) aliases.set(name, [...(aliases.get(name) ?? []), ...rebound(init)]);
+	};
+	const declare = (node) => assign(node.id, node.init);
+	const reassign = (node) => {
+		if (REBINDING.has(node.operator)) assign(node.left, node.right);
+	};
+	const kindOf = (node, seen = new Set()) => {
+		const at = unwrapped(node);
+		if (at?.type === "MemberExpression") return memberName(at) === "kind" ? [unwrapped(at.object)] : [];
+		const name = at?.type === "Identifier" ? variable(at) : null;
+		if (!name || seen.has(name)) return [];
+		seen.add(name);
+		return [...(kinds.get(name) ?? []), ...(aliases.get(name) ?? []).flatMap((target) => kindOf(target, seen))];
+	};
+	const namesOwner = (node, seen = new Set()) => {
+		if (node?.type !== "Identifier") return memberName(node) === "owner";
+		if (node.name === "owner") return true;
+		const name = variable(node);
+		if (!name || seen.has(name)) return false;
+		seen.add(name);
+		return owners.has(name) || (aliases.get(name) ?? []).some((target) => namesOwner(target, seen));
+	};
+	return { declare, reassign, kindOf, namesOwner };
 };
 const comparedKinds = (node, kindOf) => {
-	if (node.type === "SwitchCase") return node.test ? [[kindOf(node.parent.discriminant), node.test]] : [];
+	if (node.type === "SwitchCase")
+		return node.test ? kindOf(node.parent.discriminant).map((subject) => [subject, node.test]) : [];
 	return [
-		[kindOf(node.left), node.right],
-		[kindOf(node.right), node.left],
+		...kindOf(node.left).map((subject) => [subject, node.right]),
+		...kindOf(node.right).map((subject) => [subject, node.left]),
 	];
 };
 
@@ -3538,7 +3991,7 @@ const organizationSeatCheck = {
 		const path = repoPath(context.filename);
 		if (!SEAT_CODE.test(path)) return {};
 		const home = Object.hasOwn(ORGANIZATION_SEAT_CHECKS, path);
-		const names = seatNames();
+		const names = seatNames(context);
 		const comparisons = [];
 		const seats = [];
 		const organizations = [];
@@ -3550,7 +4003,8 @@ const organizationSeatCheck = {
 			for (const [subject, value] of comparedKinds(node, names.kindOf)) {
 				if (!subject || value?.type !== "Literal") continue;
 				if (value.value === "seat") seats.push(nearestFunction(node));
-				if (value.value === "organization" && names.namesOwner(subject)) organizations.push(node);
+				if (value.value === "organization" && names.namesOwner(subject) && !organizations.includes(node))
+					organizations.push(node);
 			}
 		};
 		const within = (fn, outer) => {
@@ -3561,6 +4015,7 @@ const organizationSeatCheck = {
 			BinaryExpression: visit,
 			SwitchCase: visit,
 			VariableDeclarator: names.declare,
+			AssignmentExpression: names.reassign,
 			"Program:exit"(program) {
 				comparisons.forEach(sort);
 				const found = organizations.filter((node) => seats.some((fn) => within(nearestFunction(node), fn)));
@@ -3583,14 +4038,6 @@ const organizationSeatCheck = {
 };
 
 export const LOOSE_CONTRACTS = {
-	"packages/contracts/src/people/csv/index.ts": {
-		importValues:
-			"it parses the createPersonRequest input of each CSV row, which also carries stage, adultClassification and birthDate; it drops them on purpose",
-	},
-	"packages/contracts/src/communication/results.ts": {
-		mailReport:
-			"it parses proposal receipts stored by earlier code, whose reports may hold keys the schema no longer names",
-	},
 	"packages/contracts/src/communication/requests.ts": {
 		historyQuery:
 			"it is the lenient history query: listHistory normalizes each value itself and drops a query key it does not name",
@@ -3620,7 +4067,7 @@ const strictContracts = {
 				context.report({
 					node,
 					message:
-						"A contract schema is a z.strictObject with no strip, passthrough, loose or catchall, so a request with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
+						"An object schema in packages/contracts or packages/evry is a z.strictObject with no strip, passthrough, loose or catchall, so a value with a key it does not name is refused instead of silently dropped. A schema that must drop keys is listed with its reason in LOOSE_CONTRACTS in scripts/lint/everyfield-plugin.mjs.",
 				});
 		};
 		return {
@@ -3632,13 +4079,18 @@ const strictContracts = {
 					else if (LOOSE_OBJECTS.has(imported)) loose.add(spec.local.name);
 				}
 			},
+			ExportAllDeclaration(node) {
+				if (/^zod(?:\/|$)/.test(node.source.value)) refuse(node);
+			},
 			ExportNamedDeclaration(node) {
 				if (!/^zod(?:\/|$)/.test(node.source?.value ?? "")) return;
 				for (const spec of node.specifiers) if (LOOSE_OBJECTS.has(nameOf(spec.local))) refuse(spec);
 			},
 			VariableDeclarator(node) {
 				const init = unwrapped(node.init);
-				if (node.id.type !== "ObjectPattern" || init?.type !== "Identifier" || !namespaces.has(init.name)) return;
+				if (init?.type !== "Identifier" || !namespaces.has(init.name)) return;
+				if (node.id.type === "Identifier") namespaces.add(node.id.name);
+				if (node.id.type !== "ObjectPattern") return;
 				for (const property of node.id.properties)
 					if (property.type === "Property" && LOOSE_OBJECTS.has(keyName(property.key, property.computed)))
 						refuse(property);
@@ -3834,6 +4286,114 @@ const stableContextValue = {
 
 const TEST_HOSTS = new Set(["test", "it", "default"]);
 
+const CONFIRM_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
+const SETTLERS = new Set(["then", "catch", "finally"]);
+const callOf = (node) => (node?.type === "ChainExpression" ? node.expression : node);
+const isCall = (node) => callOf(node)?.type === "CallExpression";
+const awaitedCall = (node) => node?.type === "AwaitExpression" && isCall(node.argument);
+const voidedCall = (node) => node?.type === "UnaryExpression" && node.operator === "void" && isCall(node.argument);
+const settledCall = (node) => isCall(node) && SETTLERS.has(memberName(callOf(node).callee));
+const confirmKeepsRefusal = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!CONFIRM_CODE.test(repoPath(context.filename))) return {};
+		const handlerOf = (node) => {
+			if (FUNCTIONS.has(node?.type)) return node;
+			if (node?.type !== "Identifier") return null;
+			for (let scope = context.sourceCode.getScope(node); scope; scope = scope.upper) {
+				const def = scope.set?.get(node.name)?.defs?.[0];
+				if (!def) continue;
+				if (def.node.type === "FunctionDeclaration") return def.node;
+				return def.node.type === "VariableDeclarator" &&
+					def.parent?.kind === "const" &&
+					FUNCTIONS.has(def.node.init?.type)
+					? def.node.init
+					: null;
+			}
+			return null;
+		};
+		const unread = (declarator) =>
+			!context.sourceCode
+				.getDeclaredVariables(declarator)
+				.some((variable) => variable.references.some((reference) => reference.isRead()));
+		const stateSetter = (callee) => {
+			const def = context.sourceCode.getScope(callee).references.find((reference) => reference.identifier === callee)
+				?.resolved?.defs[0];
+			const declarator = def?.node;
+			return (
+				declarator?.type === "VariableDeclarator" &&
+				declarator.id.type === "ArrayPattern" &&
+				declarator.id.elements[1] === def.name &&
+				declarator.init?.type === "CallExpression" &&
+				calleeName(declarator.init.callee) === "useState"
+			);
+		};
+		const dropping = (statements, found, floating) => {
+			for (const statement of statements) {
+				if (statement.type === "BlockStatement") {
+					dropping(statement.body, found, floating);
+					continue;
+				}
+				if (statement.type === "TryStatement") {
+					dropping(statement.block.body, found, floating);
+					dropping(statement.finalizer?.body ?? [], found, floating);
+					continue;
+				}
+				if (statement.type === "VariableDeclaration") {
+					if (statement.declarations.some((d) => awaitedCall(d.init) && unread(d))) found.push(statement);
+					continue;
+				}
+				if (statement.type !== "ExpressionStatement") continue;
+				const expression = statement.expression;
+				if (awaitedCall(expression) || voidedCall(expression) || settledCall(expression)) found.push(statement);
+				else if (isCall(expression) && !stateSetter(callOf(expression).callee)) floating.push(statement);
+			}
+		};
+		const report = (node) =>
+			context.report({
+				node,
+				message:
+					"This onConfirm drops the answer of a call, so a refusal the call returns never reaches the dialog. Return it (return handler()), or turn its refusal into return { refused } here.",
+			});
+		return {
+			JSXAttribute(node) {
+				if (node.name.name !== "onConfirm" || node.value?.type !== "JSXExpressionContainer") return;
+				const fn = handlerOf(node.value.expression);
+				if (!fn) return;
+				if (fn.body.type !== "BlockStatement") {
+					if (voidedCall(fn.body)) report(fn.body);
+					return;
+				}
+				if (walkOwn(fn.body, (n) => n.type === "ReturnStatement" && n.argument !== null)) return;
+				const found = [];
+				const floating = [];
+				dropping(fn.body.body, found, floating);
+				const awaits = walkOwn(fn.body, (n) => n.type === "AwaitExpression");
+				if (fn.async && !awaits && floating.length) found.push(floating.at(-1));
+				for (const statement of found) report(statement);
+			},
+		};
+	},
+};
+
+const noDefaultDatabase = {
+	meta: { type: "problem" },
+	create(context) {
+		return {
+			AssignmentPattern(node) {
+				if (!FUNCTIONS.has(node.parent?.type)) return;
+				if (!walkOwn(node.right, (n) => n.type === "CallExpression" && calleeName(unwrapped(n.callee)) === "database"))
+					return;
+				context.report({
+					node,
+					message:
+						"A default parameter that calls database() picks a pool the caller never sees. Make the database a required parameter and have each caller pass the one it uses.",
+				});
+			},
+		};
+	},
+};
+
 const oneTopLevelBefore = {
 	meta: { type: "problem" },
 	create(context) {
@@ -3865,6 +4425,8 @@ const oneTopLevelBefore = {
 			VariableDeclarator(node) {
 				const from = node.init;
 				if (node.id.type !== "ObjectPattern" || from?.type !== "Identifier") return;
+				const statement = node.parent.parent?.type === "ExportNamedDeclaration" ? node.parent.parent : node.parent;
+				if (statement.parent?.type !== "Program") return;
 				if (!hosts.has(from.name) && !namespaces.has(from.name)) return;
 				for (const property of node.id.properties)
 					if (
@@ -3892,6 +4454,108 @@ const oneTopLevelBefore = {
 	},
 };
 
+const COUNT_TEXT_HOME = "packages/contracts/src/common/text.ts";
+const COUNT_OPERATORS = new Set(["===", "!==", "==", "!=", ">", "<=", ">=", "<"]);
+const IRREGULAR_PLURALS = new Map([
+	["person", "people"],
+	["child", "children"],
+	["is", "are"],
+	["has", "have"],
+	["was", "were"],
+	["it", "they"],
+	["this", "these"],
+	["does", "do"],
+]);
+const isOne = (node) => node?.type === "Literal" && node.value === 1;
+const textOf = (node) => {
+	if (node?.type === "Literal" && typeof node.value === "string") return node.value;
+	if (node?.type !== "TemplateLiteral") return null;
+	return node.quasis.map((quasi) => quasi.value.cooked ?? "").join("\u0000");
+};
+const pluralOf = (one, many) => {
+	const lower = one.toLowerCase();
+	const other = many.toLowerCase();
+	if (!/^[a-z-]+$/.test(lower) || lower === other) return false;
+	return (
+		other === `${lower}s` ||
+		other === `${lower}es` ||
+		(lower.endsWith("y") && other === `${lower.slice(0, -1)}ies`) ||
+		IRREGULAR_PLURALS.get(lower) === other
+	);
+};
+const words = (text) => text.split(/(\s+|[^\p{L}\p{N}\u0000-]+)/u).filter((part) => part !== "");
+const countPair = (a, b) => {
+	if ((a === "" && /^(?:e?s)$/.test(b)) || (b === "" && /^(?:e?s)$/.test(a))) return true;
+	const left = words(a);
+	const right = words(b);
+	if (left.length !== right.length) return false;
+	let plural = false;
+	for (let index = 0; index < left.length; index += 1) {
+		const x = left[index];
+		const y = right[index];
+		if (x === y) continue;
+		if ((x === "1" && y === "\u0000") || (y === "1" && x === "\u0000")) continue;
+		if (pluralOf(x, y) || pluralOf(y, x)) plural = true;
+		else return false;
+	}
+	return plural;
+};
+const parameterOf = (identifier, context) => {
+	if (identifier?.type !== "Identifier") return null;
+	for (let scope = context.sourceCode.getScope(identifier); scope; scope = scope.upper) {
+		const def = scope.set?.get(identifier.name)?.defs?.[0];
+		if (def) return def.type === "Parameter" ? def.node : null;
+	}
+	return null;
+};
+const countText = {
+	meta: { type: "problem" },
+	create(context) {
+		if (repoPath(context.filename) === COUNT_TEXT_HOME) return {};
+		return {
+			ConditionalExpression(node) {
+				const test = node.test;
+				if (test.type !== "BinaryExpression" || !COUNT_OPERATORS.has(test.operator)) return;
+				if (!isOne(test.left) && !isOne(test.right)) return;
+				const a = textOf(node.consequent);
+				const b = textOf(node.alternate);
+				const owner = a === null || b === null ? parameterOf(node.consequent, context) : null;
+				const handWritten =
+					a !== null && b !== null ? countPair(a, b) : owner !== null && owner === parameterOf(node.alternate, context);
+				if (!handWritten) return;
+				context.report({
+					node,
+					message:
+						'This writes count text by hand. Use counted(n, one, many) for "3 tasks" or countWord(n, one, many) for the word alone, from @everyfield/contracts/common.',
+				});
+			},
+		};
+	},
+};
+
+const CIVIL_DAY_HOME = "packages/contracts/src/common/day.ts";
+const UTC_DAY = /T(?:12|00):00:00(?:\.000)?Z/;
+const civilDay = {
+	meta: { type: "problem" },
+	create(context) {
+		if (repoPath(context.filename) === CIVIL_DAY_HOME) return {};
+		const report = (node) =>
+			context.report({
+				node,
+				message:
+					"This builds a midnight- or noon-UTC Date to handle a civil day. Use dayText(day, options), daysBetween(from, to), addDays(day, n) or weekdayOf(day) from @everyfield/contracts/common.",
+			});
+		return {
+			Literal(node) {
+				if (typeof node.value === "string" && UTC_DAY.test(node.value)) report(node);
+			},
+			TemplateLiteral(node) {
+				if (node.quasis.some((quasi) => UTC_DAY.test(quasi.value.cooked ?? quasi.value.raw))) report(node);
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -3907,6 +4571,7 @@ export default {
 		"raw-sql-literal": rawSqlLiteral,
 		"request-actor": requestActor,
 		"site-path-cast": sitePathCast,
+		"no-double-cast": noDoubleCast,
 		"provider-key-mint": providerKeyMint,
 		"no-comments": noComments,
 		"server-log": serverLog,
@@ -3917,6 +4582,7 @@ export default {
 		"server-config": serverConfig,
 		"no-silent-catch": noSilentCatch,
 		"web-database-imports": webDatabaseImports,
+		"scripted-model-wiring": scriptedModelWiring,
 		"shared-notice": sharedNotice,
 		"no-cursor-utility": noCursorUtility,
 		"no-slop-styling": noSlopStyling,
@@ -3929,6 +4595,7 @@ export default {
 		"no-render-writes": noRenderWrites,
 		"no-render-get-state": noRenderGetState,
 		"feature-boundaries": featureBoundaries,
+		"private-importers": privateImporters,
 		"no-sql-comments": noSqlComments,
 		"no-error-message-match": noErrorMessageMatch,
 		"route-reads": routeReads,
@@ -3936,6 +4603,10 @@ export default {
 		"render-reads": renderReads,
 		"no-read-actions": noReadActions,
 		"action-params-unknown": actionParamsUnknown,
+		"action-identity-params": actionIdentityParams,
+		"action-proofs": actionProofs,
+		"token-authority": tokenAuthority,
+		"client-request-key": clientRequestKey,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
 		"organization-seat": organizationSeatCheck,
@@ -3945,5 +4616,9 @@ export default {
 		"stable-context-value": stableContextValue,
 		"live-region-in-tree": liveRegionInTree,
 		"one-top-level-before": oneTopLevelBefore,
+		"confirm-keeps-refusal": confirmKeepsRefusal,
+		"no-default-database": noDefaultDatabase,
+		"count-text": countText,
+		"civil-day": civilDay,
 	},
 };

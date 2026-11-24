@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	answerText,
 	EMPTY,
 	endNotice,
 	merge,
@@ -156,4 +157,14 @@ test("a paused Evry or paused email says what stopped, that nothing changed and 
 	assert.equal(resendable(send), true, "the typed message can be sent again");
 	const failed = end(2, { state: "failed", reason: "failed", error: paused("model_paused", "new_turn") });
 	assert.equal(retryable({ ...EMPTY, events: [ask(1), failed], activeTurnId: null }, turnsOf([ask(1), failed])), true);
+});
+
+test("INV-announce: the spoken answer has no markdown symbols", () => {
+	const [turn] = turnsOf([
+		ask(1),
+		say(2, "There are **19 prospects**, *3 new*. Run `pnpm test` or see [people](/people).\n\n- **Alex**\n- Sam\n"),
+		say(3, "5 * 3 = 15", { withheld: true }),
+		end(4, { state: "completed", reason: "completed" }),
+	]);
+	assert.equal(answerText(turn), "There are 19 prospects, 3 new. Run pnpm test or see people.\n\nAlex\nSam");
 });

@@ -29,6 +29,7 @@ import { fixture } from "../identity/invitations-support.mts";
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
+import { MAILING } from "./church-address.mts";
 
 const TYPED = "real.person@example.com";
 const APPROVED = "delivered+qa-maria@resend.dev";
@@ -76,7 +77,7 @@ let world = null;
 async function database() {
 	if (world) return world;
 	const f = await fixture({ mailKeys });
-	const plant = await f.workspace();
+	const plant = await f.workspace("plant", MAILING);
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	world = { f, plant, owner: await f.actor(account.session) };
@@ -444,7 +445,7 @@ test("INV-email-safety: refusals and capture faults never reach the provider", a
 			json: async () => ({ data: [{ name: "verified.example.org", status: "verified" }] }),
 		};
 	};
-	const unverified = { keys: { ...keys, from: "news@unverified-church.org" }, apiKey: "re_test_key" };
+	const unverified = { keys: { ...keys, from: "news@unverified.example.org" }, apiKey: "re_test_key" };
 	try {
 		anticipateProvider(unverified);
 		await setImmediate();
@@ -784,7 +785,7 @@ test("a password-reset request reaches the capture outbox within one runner tick
 				secret: randomBytes(32).toString("hex"),
 				scheduleDelivery: (work) => delivery.push(work),
 				trustedIp: () => "127.0.0.1",
-				enqueueMail: identityMailEnqueue()!,
+				enqueueMail: identityMailEnqueue(),
 				diagnostic: () => {},
 			});
 			const response = await identity.handle(

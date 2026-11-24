@@ -1,5 +1,6 @@
 "use client";
 
+import { counted, countWord, dayText } from "@everyfield/contracts/common";
 import type { PipelineBoard, PipelineGoals } from "@everyfield/contracts/organizations";
 import { Edit02Icon, FileExportIcon, FileImportIcon, PlusSignIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { Button, EmptyState, PageHeader, SearchInput } from "@everyfield/ui/controls";
@@ -10,8 +11,7 @@ import { useRouter } from "next/navigation";
 import { useState, type CSSProperties } from "react";
 import { readBoard } from "./fetch.ts";
 import { GoalsArea } from "./GoalsArea";
-import { formatPlainDate } from "../../../components/dates.ts";
-import { boardHref, PIPELINE_PATH, plural } from "./model";
+import { boardHref, PIPELINE_PATH } from "./model";
 import { PersonDialog, type Saved } from "./PersonDialog";
 import { PipelineTabs } from "./PipelineTabs";
 import { StageEditor } from "./StageEditor";
@@ -188,7 +188,7 @@ function Toolbar({ board }: { board: PipelineBoard }) {
 					)}
 				>
 					No stage move in 6 months
-					<span className={query.stale ? "text-amber-600" : "text-text-3"}>· as of {formatPlainDate(board.asOf)}</span>
+					<span className={query.stale ? "text-amber-600" : "text-text-3"}>· as of {dayText(board.asOf)}</span>
 				</Link>
 			)}
 			{board.audience === "administrator" ? (
@@ -230,7 +230,7 @@ function Columns({ board }: { board: PipelineBoard }) {
 							<span className="min-w-0 truncate">{stage.label}</span>
 							<span className="ml-auto flex-none font-medium whitespace-nowrap text-text-3">
 								{filtered ? `${stage.matching} of ${stage.count}` : stage.count}
-								<span className="sr-only"> {stage.count === 1 ? "person" : "people"}</span>
+								<span className="sr-only"> {countWord(stage.count, "person", "people")}</span>
 							</span>
 						</h2>
 						{stage.people.length ? (
@@ -269,9 +269,7 @@ function PersonCard({ person, stage }: { person: Card; stage?: string }) {
 						.filter(Boolean)
 						.join(" · ")}
 				</p>
-				{person.lastMovedOn ? (
-					<p className="text-xs text-text-3">Last move {formatPlainDate(person.lastMovedOn)}</p>
-				) : null}
+				{person.lastMovedOn ? <p className="text-xs text-text-3">Last move {dayText(person.lastMovedOn)}</p> : null}
 			</div>
 		</article>
 	);
@@ -308,7 +306,7 @@ function Counts({ board }: { board: PipelineBoard }) {
 					<li key={s.id} className="flex flex-col gap-1 rounded-card bg-surface-2 p-4">
 						<span className="text-sm font-semibold text-ink">{s.label}</span>
 						<span className="text-title-lg leading-none text-ink">{s.count}</span>
-						<span className="sr-only">{plural(s.count, "person", "people")}</span>
+						<span className="sr-only">{counted(s.count, "person", "people")}</span>
 					</li>
 				))}
 			</ul>

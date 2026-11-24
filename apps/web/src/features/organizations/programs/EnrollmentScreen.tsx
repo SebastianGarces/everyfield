@@ -24,7 +24,7 @@ import {
 import { Icon } from "@everyfield/ui/foundations";
 import { useActionState, useState, useTransition, type FormEvent } from "react";
 import { createRead, useRead } from "../../../components/read.tsx";
-import { formatPlainDate } from "../../../components/dates.ts";
+import { dayText } from "@everyfield/contracts/common";
 import { PIPELINE_PATH } from "../board/model";
 import { addFeedback, applyVersion, confirmMilestone, recordMilestone } from "./actions";
 import { rereadEnrollment, reviewVersion } from "./fetch.ts";
@@ -105,12 +105,12 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 					<CardBody>
 						<dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-sm">
 							<Detail term="Cohort">{enrollment.cohort}</Detail>
-							<Detail term="Started">{formatPlainDate(enrollment.startedOn)}</Detail>
-							<Detail term="Expected end">{formatPlainDate(enrollment.expectedEndOn)}</Detail>
+							<Detail term="Started">{dayText(enrollment.startedOn)}</Detail>
+							<Detail term="Expected end">{dayText(enrollment.expectedEndOn)}</Detail>
 							<Detail term="Program stage">{enrollment.stage.label}</Detail>
 							<Detail term="Next meeting">
 								{enrollment.nextMeeting
-									? `${formatMeeting(enrollment.nextMeeting.at, formatPlainDate)} (${enrollment.nextMeeting.timezone})`
+									? `${formatMeeting(enrollment.nextMeeting.at, dayText)} (${enrollment.nextMeeting.timezone})`
 									: "Not set"}
 							</Detail>
 							<Detail term="Plan">{`Version ${enrollment.versionNumber}`}</Detail>
@@ -278,14 +278,14 @@ function MilestoneRow({
 						<>
 							<span className="font-medium text-amber-600">Waiting for confirmation</span>
 							<span className="text-text-2">
-								{c.recorder ?? enrollment.person.name} marked it done {formatPlainDate(c.completedOn)}
+								{c.recorder ?? enrollment.person.name} marked it done {dayText(c.completedOn)}
 							</span>
 						</>
 					) : c && c.confirmedOn !== null ? (
 						<>
 							<span className="text-ink">
-								{recordedOn ? `Finished on Version ${recordedOn} · ` : ""}Completed {formatPlainDate(c.completedOn)} ·
-								Confirmed {formatPlainDate(c.confirmedOn)}
+								{recordedOn ? `Finished on Version ${recordedOn} · ` : ""}Completed {dayText(c.completedOn)} · Confirmed{" "}
+								{dayText(c.confirmedOn)}
 							</span>
 							<span className="text-text-2">
 								{c.source === "resident"
@@ -379,7 +379,7 @@ function Feedback({
 						<li key={f.id} className="flex flex-col gap-0.5 text-sm">
 							<span className="whitespace-pre-wrap [overflow-wrap:anywhere] text-ink">{f.body}</span>
 							<span className="text-xs text-text-3">
-								{f.writer ?? "Former staff"} · {formatPlainDate(f.writtenOn)}
+								{f.writer ?? "Former staff"} · {dayText(f.writtenOn)}
 							</span>
 						</li>
 					))}
@@ -476,7 +476,7 @@ function RecordForm({
 					<Input type="date" value={on} max={enrollment.today} onChange={(e) => setOn(e.target.value)} />
 				</Field>
 				<p className="text-sm text-text-2">
-					Confirmed today, {formatPlainDate(enrollment.today)}, with you as recorder and confirmer.
+					Confirmed today, {dayText(enrollment.today)}, with you as recorder and confirmer.
 				</p>
 				<InlineAlert live="polite">{problem}</InlineAlert>
 			</DialogBody>

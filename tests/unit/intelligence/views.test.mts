@@ -1,3 +1,4 @@
+import "../runs-in/domain.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readCatalog } from "../../../packages/domain/src/phases/catalog.ts";

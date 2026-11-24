@@ -17,6 +17,7 @@ const jobKind = z.enum([
 	"evry_effect",
 	"feedback_publication",
 	"assessment",
+	"wiki_embedding",
 ]);
 export type JobKind = z.infer<typeof jobKind>;
 export const DEFAULT_LEASE_SECONDS = 300;
@@ -211,6 +212,9 @@ const JOB_CODES = [
 	"provider_unknown",
 	"provider_refused",
 	"nothing_to_delete",
+	"not_configured",
+	"profile_mismatch",
+	"over_cap",
 ] as const;
 type JobCode = (typeof JOB_CODES)[number];
 export type JobResult =
@@ -251,6 +255,14 @@ function finishStatement(claim: Claim, result: JobResult) {
 }
 export async function finishClaim(tx: Transaction, claim: Claim, result: JobResult): Promise<boolean> {
 	return (await tx.execute(sql.raw(finishStatement(claim, result)))).rowCount === 1;
+}
+export async function deferClaim(tx: Transaction, claim: Claim, eligibleAt: SQL): Promise<boolean> {
+	const r =
+		await tx.execute(sql`UPDATE job SET state='ready', attempt_count=GREATEST(attempt_count-1,0), eligible_at=${eligibleAt},
+  next_attempt_at=NULL, lease_owner=NULL, lease_until=NULL, revision=revision+1
+ WHERE id=${claim.id} AND tenant_id=${claim.tenant_id} AND state='claimed' AND claim_generation=${claim.claim_generation}
+  AND lease_owner=${claim.lease_owner} AND lease_until>clock_timestamp()`);
+	return r.rowCount === 1;
 }
 export async function finishJob(db: Database, claim: Claim, result: JobResult): Promise<boolean> {
 	const pool = (db as Database & { $client: { query(text: string): Promise<unknown> } }).$client;

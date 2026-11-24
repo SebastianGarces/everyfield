@@ -1,3 +1,4 @@
+import "../runs-in/render.mjs";
 import assert from "node:assert/strict";
 import { existsSync, globSync, statSync } from "node:fs";
 import { registerHooks } from "node:module";

@@ -1,3 +1,4 @@
+import { asLogNames, logLine } from "@everyfield/domain/log";
 import { z } from "zod";
 
 const hexKey = z.string().regex(/^[a-f0-9]{64}$/);
@@ -7,7 +8,6 @@ export const mailKeys = z.object({
 	IDENTITY_ADDRESS_KEY: hexKey,
 	IDENTITY_MAIL_FROM: z.email(),
 });
-export type MailKeys = z.infer<typeof mailKeys>;
 
 const required = mailKeys.extend({
 	IDENTITY_DATABASE_URL: z.string().min(1),
@@ -18,37 +18,19 @@ const required = mailKeys.extend({
 export type ServerConfig = Readonly<z.infer<typeof required>>;
 export type ServerEnv = Readonly<Record<string, string | undefined>>;
 
-export class ServerConfigError extends Error {
-	readonly names: readonly string[];
-	constructor(names: readonly string[]) {
-		super("server_config_missing");
-		this.name = "ServerConfigError";
-		this.names = names;
-	}
-}
+let parsed: ServerConfig | undefined;
 
-let parsed: { config: ServerConfig } | { problem: ServerConfigError } | undefined;
+export const serverConfig = (): ServerConfig => (parsed ??= Object.freeze(required.parse(process.env)));
 
-function parse() {
-	if (parsed) return parsed;
+export function refuseInvalidServerConfig() {
 	const result = required.safeParse(process.env);
-	parsed = result.success
-		? { config: Object.freeze(result.data) }
-		: {
-				problem: new ServerConfigError([...new Set(result.error.issues.map((issue) => String(issue.path[0])))].sort()),
-			};
-	return parsed;
-}
-
-export const serverConfigProblem = (): ServerConfigError | null => {
-	const result = parse();
-	return "problem" in result ? result.problem : null;
-};
-
-export function serverConfig(): ServerConfig {
-	const result = parse();
-	if ("problem" in result) throw result.problem;
-	return result.config;
+	if (result.success) return;
+	const refused = [...new Set(result.error.issues.map((issue) => String(issue.path[0])))].sort();
+	const missing = refused.filter((key) => !process.env[key]);
+	const malformed = refused.filter((key) => process.env[key]);
+	if (missing.length) logLine({ component: "server", event: "settings_missing", missing: asLogNames(missing) });
+	if (malformed.length) logLine({ component: "server", event: "settings_malformed", malformed: asLogNames(malformed) });
+	process.exit(1);
 }
 
 export const serverEnv = (): ServerEnv => process.env;
