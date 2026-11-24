@@ -1,10 +1,10 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { ok } from "../../support/fixture.mts";
-import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import { communicationWriter } from "../../../packages/domain/src/communication/index.ts";
 import {
 	applyMessagesOptOut,
 	messagesOptOutToken,
@@ -16,8 +16,18 @@ import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider } from "./scheduled-support.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { MAILING } from "./church-address.mts";
+import {
+	firstRow,
+	rowsFrom,
+	writeAs,
+	type Church,
+	type Fixture,
+	type Row,
+	type Staff,
+	type WriteOp,
+} from "./communication-support.mts";
 
-let f;
+let f: Fixture;
 const ring = { current: randomBytes(32), previous: [] };
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
@@ -31,19 +41,19 @@ const PRODUCTION = { VERCEL_ENV: "production" };
 const ZONE = "America/Chicago";
 const key = () => randomUUID();
 const now = () => new Date();
-const rows = async (query) => (await f.admin.execute(query)).rows;
+const rows = <R extends Row = Row>(query: SQL) => rowsFrom<R>(f, query);
 
 async function church() {
 	const w = await f.workspace("plant", MAILING);
 	await f.admin.execute(sql`UPDATE plant SET timezone = ${ZONE} WHERE id = ${w.id}::uuid`);
 	return w;
 }
-async function staff(w, role = "owner") {
+async function staff(w: Church, role: "owner" | "admin" | "member" = "owner") {
 	const a = await f.account();
 	const seatId = await f.seat(a, w, role);
 	return { ...a, seatId, actor: await f.actor(a.session) };
 }
-async function person(w, name) {
+async function person(w: Church, name: string) {
 	const id = randomUUID();
 	const email = `${name.toLowerCase()}-${key().slice(0, 8)}@example.test`;
 	await f.admin
@@ -53,12 +63,13 @@ async function person(w, name) {
 	return { id, email, name, plantId: w.id };
 }
 
+type Person = Awaited<ReturnType<typeof person>>;
 function nextWeek() {
 	const at = new Date(Date.now() + 7 * 86_400_000);
 	at.setUTCHours(15, 30, 0, 0);
 	return at.toISOString();
 }
-const churchTime = (iso) =>
+const churchTime = (iso: string) =>
 	new Intl.DateTimeFormat("en-US", {
 		timeZone: ZONE,
 		month: "short",
@@ -70,9 +81,8 @@ const churchTime = (iso) =>
 		.format(new Date(iso))
 		.replace(/ /g, " ");
 
-const write = (who, op, input) =>
-	withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
-async function draft(who, people, subject = "Next Sunday") {
+const write = <K extends WriteOp>(who: Staff, op: K, input: unknown) => writeAs(f.db, who.actor, op, input);
+async function draft(who: Staff, people: Person[], subject = "Next Sunday") {
 	return ok(
 		await write(who, "saveDraft", {
 			requestKey: key(),
@@ -84,7 +94,7 @@ async function draft(who, people, subject = "Next Sunday") {
 		}),
 	);
 }
-async function schedule(who, people, { subject = "Next Sunday", at = nextWeek() } = {}) {
+async function schedule(who: Staff, people: Person[], { subject = "Next Sunday", at = nextWeek() } = {}) {
 	const resend = resendRecorder(PRODUCTION);
 	const saved = await draft(who, people, subject);
 	const scheduled = ok(
@@ -106,15 +116,15 @@ async function schedule(who, people, { subject = "Next Sunday", at = nextWeek() 
 	return { id: saved.communicationId, at, resend };
 }
 
-const unsubscribe = (who) =>
+const unsubscribe = (who: Person) =>
 	applyMessagesOptOut(f.db, ring, now, {
 		token: messagesOptOutToken(ring, { plantId: who.plantId, personId: who.id }),
 	});
 
-const feed = async (who) => ok(await notifications.readFeed(f.db, who.actor, {})).items;
-const bell = async (who) => ok(await notifications.readUnreadCount(f.db, who.actor, {})).count;
-const ours = async (who) => (await feed(who)).filter((item) => item.category === "scheduled_email_unsubscribe");
-const stored = (who) =>
+const feed = async (who: Staff) => ok(await notifications.readFeed(f.db, who.actor, {})).items;
+const bell = async (who: Staff) => ok(await notifications.readUnreadCount(f.db, who.actor, {})).count;
+const ours = async (who: Staff) => (await feed(who)).filter((item) => item.category === "scheduled_email_unsubscribe");
+const stored = (who: Staff) =>
 	rows(sql`SELECT n.source_record_id AS email, n.tenant_id AS church, n.title, n.safe_body AS body
 		FROM notice n WHERE n.recipient_id = ${who.id}::uuid AND split_part(n.logical_key, '/', 2) = 'scheduled_email_unsubscribe'
 		ORDER BY n.created_at`);
@@ -131,14 +141,14 @@ test("AC:CASE-NTF-016 Ana unsubscribes and Sam, who scheduled the email, has one
 	const ben = await person(w, "Ben Ode");
 	const email = await schedule(sam, [ana, ben]);
 	const bellBefore = await bell(sam);
-	const jobsBefore = (await rows(sql`SELECT count(*)::int AS n FROM job`))[0].n;
+	const jobsBefore = (await rows(sql`SELECT count(*)::int AS n FROM job`))[0]!.n;
 
 	const answer = ok(await unsubscribe(ana));
 	assert.equal(answer.changed, true);
 
-	assert.equal((await rows(sql`SELECT count(*)::int AS n FROM job`))[0].n, jobsBefore, "no job was queued");
+	assert.equal((await rows(sql`SELECT count(*)::int AS n FROM job`))[0]!.n, jobsBefore, "no job was queued");
 	assert.equal(await bell(sam), bellBefore + 1);
-	const [newest] = await feed(sam);
+	const newest = firstRow(await feed(sam));
 	const expected = {
 		category: "scheduled_email_unsubscribe",
 		title: "Ana Ruiz unsubscribed from a scheduled email",
@@ -172,7 +182,7 @@ test("AC:CASE-NTF-016 a refused opt-out, from a forged or tampered token, writes
 		(
 			await rows(sql`SELECT count(*)::int AS n FROM mail WHERE logical_key LIKE ${"communication/" + email.id + "/%"}
 			AND state = 'scheduled'`)
-		)[0].n,
+		)[0]!.n,
 		1,
 		"the email still waits for Ana",
 	);
@@ -184,7 +194,7 @@ test("AC:CASE-NTF-016 when Ana was the only recipient the notice says the email 
 	const ana = await person(w, "Ana Ruiz");
 	const email = await schedule(sam, [ana], { subject: "Picnic" });
 	ok(await unsubscribe(ana));
-	const [newest] = await ours(sam);
+	const newest = firstRow(await ours(sam));
 	assert.deepEqual(
 		{ title: newest.title, body: newest.body },
 		{
@@ -195,7 +205,7 @@ test("AC:CASE-NTF-016 when Ana was the only recipient the notice says the email 
 	const history = ok(
 		await gatedTransaction(f.db, (tx) => communicationWriter.listHistory(tx, sam.actor, { limit: 100 })),
 	);
-	const state = history.items.find((row) => row.id === email.id).state;
+	const state = history.items.find((row) => row.id === email.id)!.state;
 	assert.equal(hubLabel[state], "Not sent: unsubscribed", "the email itself reads the same");
 });
 
@@ -278,7 +288,7 @@ test("AC:CASE-NTF-016 Ana's opt-out from church A tells no one in church B, and 
 	assert.deepEqual(await ours(bea), []);
 	assert.equal((await feed(bea)).length, 0, "church B's seat shows no church A entry");
 	assert.equal(
-		(await rows(sql`SELECT state FROM mail WHERE logical_key = ${"communication/" + fromB.id + "/" + inB.id}`))[0]
+		(await rows(sql`SELECT state FROM mail WHERE logical_key = ${"communication/" + fromB.id + "/" + inB.id}`))[0]!
 			.state,
 		"scheduled",
 	);
@@ -296,8 +306,8 @@ test("AC:CASE-NTF-016 no notice when Ana is on no waiting scheduled email", asyn
 	await atSendTime(f.admin, f.db, went.id, went.resend.transport, keys);
 	await draft(sam, [ana, ben]);
 	const cancelled = await schedule(sam, [ana, ben]);
-	const [{ revision }] = await rows(
-		sql`SELECT revision::text AS revision FROM communication WHERE id = ${cancelled.id}::uuid`,
+	const { revision } = firstRow(
+		await rows(sql`SELECT revision::text AS revision FROM communication WHERE id = ${cancelled.id}::uuid`),
 	);
 	ok(
 		await communicationWriter.cancelScheduledReviewed(
@@ -328,7 +338,7 @@ test("AC:CASE-NTF-016 Sam's seat in the church has ended, so Sam sees nothing an
 	assert.deepEqual(await stored(sam), []);
 	assert.deepEqual(await ours(sam), []);
 	assert.deepEqual(await stored(lee), [], "no other Owner or Admin is told instead");
-	assert.equal((await rows(sql`SELECT count(*)::int AS n FROM notice WHERE tenant_id = ${w.id}::uuid`))[0].n, 0);
+	assert.equal((await rows(sql`SELECT count(*)::int AS n FROM notice WHERE tenant_id = ${w.id}::uuid`))[0]!.n, 0);
 });
 
 test("AC:CASE-NTF-016 the category is in-app only and on by default; turning it off hides these notices and on shows them again", async () => {
@@ -350,10 +360,10 @@ test("AC:CASE-NTF-016 the category is in-app only and on by default; turning it 
 		f.admin
 			.execute(sql`INSERT INTO notification_preference (account_id, category, channel, enabled, unsubscribe_revision)
 			VALUES (${sam.id}::uuid, 'scheduled_email_unsubscribe', 'email', true, 1)`),
-		(error) => /notification_preference_ck_6/.test(String(error.cause ?? error)),
+		(error) => /notification_preference_ck_6/.test(String((error instanceof Error && error.cause) || error)),
 	);
 
-	const set = async (enabled) => {
+	const set = async (enabled: boolean) => {
 		const current = ok(await notifications.getPreferences(f.db, sam.actor));
 		ok(
 			await notifications.setPreference(f.db, sam.actor, {
@@ -399,8 +409,9 @@ test("AC:CASE-NTF-016 filtering the feed by the category shows only these notice
 	);
 });
 
-const markChild = (who) => f.admin.execute(sql`UPDATE person SET adult_classification = 'child' WHERE id = ${who.id}`);
-async function guardianOf(w, child, name) {
+const markChild = (who: Person) =>
+	f.admin.execute(sql`UPDATE person SET adult_classification = 'child' WHERE id = ${who.id}`);
+async function guardianOf(w: Church, child: Person, name: string) {
 	const adult = await person(w, name);
 	const home = randomUUID();
 	await f.admin.execute(sql`INSERT INTO household(id,plant_id,name) VALUES(${home},${w.id},'Home')`);
@@ -425,9 +436,9 @@ test("AC:CASE-NTF-016-CHILD a child's opt-out tells the scheduler whether the em
 			}
 			const email = await schedule(sam, only ? [kit] : [kit, ben]);
 			if (!routed) await markChild(kit);
-			const jobsBefore = (await rows(sql`SELECT count(*)::int AS n FROM job`))[0].n;
+			const jobsBefore = (await rows(sql`SELECT count(*)::int AS n FROM job`))[0]!.n;
 			const done = ok(await unsubscribe(kit));
-			assert.equal((await rows(sql`SELECT count(*)::int AS n FROM job`))[0].n, jobsBefore, "no job was queued");
+			assert.equal((await rows(sql`SELECT count(*)::int AS n FROM job`))[0]!.n, jobsBefore, "no job was queued");
 			const at = `“Next Sunday”, scheduled for ${churchTime(email.at)}`;
 			const left = !routed && only;
 			const expected = [
@@ -464,7 +475,7 @@ test("AC:CASE-NTF-016-CHILD a child whose guardian's own copy was already refuse
 	ok(await undoMessagesOptOut(f.db, ring, now, { token: done.undoToken }));
 	ok(await unsubscribe(kit));
 	assert.equal(
-		(await stored(sam))[1].body,
+		(await stored(sam))[1]!.body,
 		`“Next Sunday”, scheduled for ${churchTime(email.at)}, will not go out because Kit Fox is marked as a child.`,
 	);
 	await atSendTime(f.admin, f.db, email.id, email.resend.transport, keys);

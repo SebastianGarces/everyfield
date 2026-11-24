@@ -1,3 +1,4 @@
+import type { ProviderKey } from "../../../packages/contracts/src/common/index.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import type { Database } from "../../../packages/db/src/client.ts";
 import {
@@ -44,7 +45,7 @@ export async function heldAtProvider(
 		frozen_payload: { sealed: string };
 		recipient_address_encrypted: string;
 		held: string;
-		provider_key: string;
+		provider_key: ProviderKey;
 	}[];
 	const messages = rows.map((row) => {
 		const body = JSON.parse(

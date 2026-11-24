@@ -174,7 +174,8 @@
 				"tests/integration/teams/**",
 				"tests/integration/task-assignees.mts",
 				"tests/integration/onboarding/**",
-				"tests/integration/wiki/**"
+				"tests/integration/wiki/**",
+				"tests/integration/communication/**"
 			],
 			"rules": {
 				"typescript/no-explicit-any": "error"

@@ -1,9 +1,9 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import { communicationWriter } from "../../../packages/domain/src/communication/index.ts";
 import {
 	applyMessagesOptOut,
 	describeMessagesOptOut,
@@ -14,16 +14,32 @@ import { issueMailOptOutToken, openClaim } from "../../../packages/domain/src/no
 import { peopleMerge, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { deliveryText, hubLabel, scheduleText } from "../../../apps/web/src/features/communication/model.ts";
 import { POST as oneClick } from "../../../apps/web/src/features/communication/unsubscribeOneClick.ts";
-import { resendRecorder } from "./resend-recorder.mts";
+import { emailsIn, resendRecorder, type Recorder, type SentEmail } from "./resend-recorder.mts";
 import { atSendTime } from "./scheduled-support.mts";
 import { ok, refused } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { MAILING, MAILING_LINE } from "./church-address.mts";
+import {
+	deliverAs,
+	firstRow,
+	rowsFrom,
+	writeAs,
+	type Church,
+	type Fixture,
+	type Row,
+	type Staff,
+	type WriteOp,
+} from "./communication-support.mts";
 
-const footer = (url) =>
+const footer = (url: string) =>
 	`\n\n--\nYou get this email because you are part of Synthetic plant.\nSynthetic plant · ${MAILING_LINE}\nUnsubscribe: ${url}`;
 
-let f, churchA, churchB, ownerA, ownerB, memberA;
+let f: Fixture;
+let churchA: Church;
+let churchB: Church;
+let ownerA: Staff;
+let ownerB: Staff;
+let memberA: Staff;
 const origin = "https://app.example.test";
 const ring = { current: randomBytes(32), previous: [] };
 const keys = {
@@ -37,9 +53,9 @@ const PRODUCTION = { VERCEL_ENV: "production" };
 const HOUR = 3_600_000;
 const key = () => randomUUID();
 const now = () => new Date();
-const rows = async (query) => (await f.admin.execute(query)).rows;
+const rows = <R extends Row = Row>(query: SQL) => rowsFrom<R>(f, query);
 
-async function person(church, name, email = `${name.toLowerCase()}-${key().slice(0, 8)}@example.test`) {
+async function person(church: Church, name: string, email = `${name.toLowerCase()}-${key().slice(0, 8)}@example.test`) {
 	const id = randomUUID();
 	await f.admin
 		.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
@@ -48,10 +64,15 @@ async function person(church, name, email = `${name.toLowerCase()}-${key().slice
 	return { id, email };
 }
 
-async function send(who, people, { mode = "now", meetingId = null, body = "<p>Hello {{name}}.</p>" } = {}) {
+type Person = Awaited<ReturnType<typeof person>>;
+type Sending = { mode?: "now" | "scheduled"; meetingId?: string | null; body?: string };
+async function send(
+	who: Staff,
+	people: Person[],
+	{ mode = "now", meetingId = null, body = "<p>Hello {{name}}.</p>" }: Sending = {},
+) {
 	const resend = resendRecorder(PRODUCTION);
-	const write = (op, input) =>
-		withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
+	const write = <K extends WriteOp>(op: K, input: unknown) => writeAs(f.db, who.actor, op, input);
 	const saved = ok(
 		await write("saveDraft", {
 			requestKey: key(),
@@ -71,9 +92,10 @@ async function send(who, people, { mode = "now", meetingId = null, body = "<p>He
 		}),
 	);
 	const handOff = () =>
-		communicationWriter[mode === "now" ? "dispatchAttempt" : "handOffScheduled"](
+		deliverAs(
 			f.db,
 			who.actor,
+			mode === "now" ? "dispatchAttempt" : "handOffScheduled",
 			{ requestKey: key(), expectedRevision: accepted.revision, input: { communicationId: saved.communicationId } },
 			resend.transport,
 			keys,
@@ -82,23 +104,23 @@ async function send(who, people, { mode = "now", meetingId = null, body = "<p>He
 	if (mode !== "now") await atSendTime(f.admin, f.db, saved.communicationId, resend.transport, keys);
 	return { id: saved.communicationId, result, resend, handOff };
 }
-const batches = (resend) => resend.requests.filter((r) => r.path === "/emails/batch" && r.method === "POST");
-const sentTo = (resend) => batches(resend).flatMap((r) => r.body);
-const emailFor = (resend, address) => sentTo(resend).find((m) => m.to[0] === address);
-const linkOf = (email) => {
+const batches = (resend: Recorder) => resend.requests.filter((r) => r.path === "/emails/batch" && r.method === "POST");
+const sentTo = (resend: Recorder) => batches(resend).flatMap(emailsIn);
+const emailFor = (resend: Recorder, address: string) => sentTo(resend).find((m) => m.to[0] === address)!;
+const linkOf = (email: SentEmail) => {
 	const found = email.html.match(/href="(https:\/\/app\.example\.test\/unsubscribe\/([A-Za-z0-9_-]+))"/);
 	assert.ok(found, "the email has an Unsubscribe link");
-	return { url: found[1], token: found[2] };
+	return { url: found[1]!, token: found[2]! };
 };
-const mailOf = (communicationId) =>
+const mailOf = (communicationId: string) =>
 	rows(sql`SELECT m.recipient_person_id AS person, m.state, m.refusal FROM mail m
 		WHERE m.logical_key LIKE ${"communication/" + communicationId + "/%"} ORDER BY m.recipient_person_id`);
-const optOutsOf = (personId) =>
-	rows(
+const optOutsOf = (personId: string) =>
+	rows<{ id: string; plant_id: string; person_id: string; opted_out_at: string; undone_at: string | null }>(
 		sql`SELECT id, plant_id, person_id, opted_out_at, undone_at FROM person_email_opt_out WHERE person_id = ${personId}`,
 	);
-async function unsubscribe(church, who) {
-	const sent = await send(church, [who]);
+async function unsubscribe(staff: Staff, who: Person) {
+	const sent = await send(staff, [who]);
 	return {
 		...ok(await applyMessagesOptOut(f.db, ring, now, { token: linkOf(emailFor(sent.resend, who.email)).token })),
 		sent,
@@ -143,7 +165,7 @@ test("AC:CASE-NTF-016 an announcement ends with an Unsubscribe link whose token 
 	});
 	const view = ok(await describeMessagesOptOut(f.db, ring, { token }));
 	assert.deepEqual(view, {
-		churchName: (await rows(sql`SELECT name FROM plant WHERE id = ${churchA.id}`))[0].name,
+		churchName: (await rows(sql`SELECT name FROM plant WHERE id = ${churchA.id}`))[0]!.name,
 		unsubscribed: false,
 	});
 	assert.equal(JSON.stringify(view).includes(ana.email), false);
@@ -162,10 +184,12 @@ test("AC:CASE-NTF-016 a meeting invitation carries the same Unsubscribe link and
 	const email = emailFor(resend, ben.email);
 	const rsvp = email.html.match(/href="(https:\/\/app\.example\.test\/rsvp\/([A-Za-z0-9_-]{43}))"/);
 	assert.ok(rsvp, "the invitation keeps its RSVP link");
-	const [{ rsvp_token_hash }] = await rows(
-		sql`SELECT rsvp_token_hash FROM participation WHERE meeting_id = ${meetingId} AND person_id = ${ben.id}`,
+	const { rsvp_token_hash } = firstRow(
+		await rows(
+			sql`SELECT rsvp_token_hash FROM participation WHERE meeting_id = ${meetingId} AND person_id = ${ben.id}`,
+		),
 	);
-	assert.equal(rsvp_token_hash, createHash("sha256").update(rsvp[2]).digest("hex"));
+	assert.equal(rsvp_token_hash, createHash("sha256").update(rsvp[2]!).digest("hex"));
 	const { url } = linkOf(email);
 	assert.deepEqual(email.headers, {
 		"List-Unsubscribe": `<${url}/one-click>`,
@@ -178,7 +202,7 @@ test("AC:CASE-NTF-016 a retried handoff sends the same body and headers under th
 	const cy = await person(churchA, "Cy");
 	const dee = await person(churchA, "Dee");
 	const first = await send(ownerA, [cy, dee]);
-	const [one] = batches(first.resend);
+	const one = firstRow(batches(first.resend));
 	await f.admin
 		.execute(sql`WITH m AS (SELECT id FROM mail WHERE logical_key LIKE ${"communication/" + first.id + "/%"}),
 		r AS (SELECT DISTINCT request_id AS id FROM mail_request_member WHERE mail_id IN (SELECT id FROM m)),
@@ -193,7 +217,7 @@ test("AC:CASE-NTF-016 a retried handoff sends the same body and headers under th
 	assert.ok(two, "the retry reached the email service");
 	assert.equal(two.idempotencyKey, one.idempotencyKey);
 	assert.deepEqual(two.body, one.body);
-	assert.ok(one.body.every((m) => m.headers["List-Unsubscribe"]));
+	assert.ok(emailsIn(one).every((m) => m.headers?.["List-Unsubscribe"]));
 });
 
 test("AC:CASE-NTF-016 an unsubscribed person is refused like a blocked address on a send and a schedule; the rest of the audience is sent; an address change does not lift it", async () => {
@@ -202,7 +226,7 @@ test("AC:CASE-NTF-016 an unsubscribed person is refused like a blocked address o
 	const done = await unsubscribe(ownerA, eve);
 	assert.equal(done.changed, true);
 	assert.ok(done.undoToken);
-	const [{ revision }] = await rows(sql`SELECT revision::text AS revision FROM person WHERE id = ${eve.id}`);
+	const { revision } = firstRow(await rows(sql`SELECT revision::text AS revision FROM person WHERE id = ${eve.id}`));
 	const moved = `eve-new-${key().slice(0, 8)}@example.test`;
 	ok(
 		await gatedTransaction(f.db, (t) =>
@@ -217,7 +241,7 @@ test("AC:CASE-NTF-016 an unsubscribed person is refused like a blocked address o
 			),
 		),
 	);
-	for (const mode of ["now", "scheduled"]) {
+	for (const mode of ["now", "scheduled"] as const) {
 		const sent = await send(ownerA, [eve, fay], { mode });
 		assert.deepEqual(
 			sentTo(sent.resend).map((m) => m.to[0]),
@@ -233,7 +257,7 @@ test("AC:CASE-NTF-016 an unsubscribed person is refused like a blocked address o
 			stored.find((r) => r.person === eve.id),
 			{ person: eve.id, state: "refused", refusal: "unsubscribed" },
 		);
-		assert.equal(stored.find((r) => r.person === fay.id).refusal, null);
+		assert.equal(stored.find((r) => r.person === fay.id)!.refusal, null);
 	}
 	const shown = deliveryText({
 		status: "partial",
@@ -241,6 +265,8 @@ test("AC:CASE-NTF-016 an unsubscribed person is refused like a blocked address o
 		rejectedCount: 0,
 		unknownCount: 0,
 		unsubscribedCount: 1,
+		childCount: 0,
+		guardianCount: 0,
 	});
 	assert.equal(
 		shown,
@@ -338,10 +364,10 @@ test("AC:CASE-NTF-016 the page changes nothing until the button; one-click needs
 		await undoMessagesOptOut(f.db, ring, () => new Date(Date.now() + HOUR + 60_000), { token: first.undoToken }),
 	);
 	assert.deepEqual([late.changed, late.expired], [false, true]);
-	assert.equal((await optOutsOf(jo.id))[0].undone_at, null);
+	assert.equal((await optOutsOf(jo.id))[0]!.undone_at, null);
 	const undone = ok(await undoMessagesOptOut(f.db, ring, now, { token: first.undoToken }));
 	assert.deepEqual([undone.changed, undone.expired], [true, false]);
-	assert.notEqual((await optOutsOf(jo.id))[0].undone_at, null);
+	assert.notEqual((await optOutsOf(jo.id))[0]!.undone_at, null);
 	assert.equal(ok(await undoMessagesOptOut(f.db, ring, now, { token: again.undoToken })).changed, false);
 	const resent = await send(ownerA, [jo]);
 	assert.deepEqual(
@@ -357,7 +383,7 @@ test("AC:CASE-NTF-016 a forged, tampered, other-key or wrong-purpose token fails
 	const kai = await person(churchA, "Kai");
 	const sent = await send(ownerA, [kai]);
 	const { token } = linkOf(emailFor(sent.resend, kai.email));
-	const flip = (t, at) => t.slice(0, at) + (t[at] === "A" ? "B" : "A") + t.slice(at + 1);
+	const flip = (t: string, at: number) => t.slice(0, at) + (t[at] === "A" ? "B" : "A") + t.slice(at + 1);
 	const accountToken = issueMailOptOutToken(ring, {
 		accountId: randomUUID(),
 		category: "task_due",
@@ -378,7 +404,7 @@ test("AC:CASE-NTF-016 a forged, tampered, other-key or wrong-purpose token fails
 	refused(await describeMessagesOptOut(f.db, ring, { token: applied.undoToken }), "access_denied");
 	refused(await describeMessagesOptOut(f.db, ring, { token: "" }), "invalid_input");
 	assert.equal((await optOutsOf(kai.id)).length, 1);
-	assert.equal((await optOutsOf(kai.id))[0].undone_at, null);
+	assert.equal((await optOutsOf(kai.id))[0]!.undone_at, null);
 	const rotated = { current: randomBytes(32), previous: [ring.current] };
 	assert.equal(ok(await describeMessagesOptOut(f.db, rotated, { token })).unsubscribed, true);
 });
@@ -386,12 +412,12 @@ test("AC:CASE-NTF-016 a forged, tampered, other-key or wrong-purpose token fails
 test("AC:CASE-NTF-016 an Owner sees the opt-out and when on the person's record; staff cannot clear or rewrite it", async () => {
 	const lee = await person(churchA, "Lee");
 	await unsubscribe(ownerA, lee);
-	const [row] = await optOutsOf(lee.id);
-	const history = (who) =>
+	const row = firstRow(await optOutsOf(lee.id));
+	const history = (who: Staff) =>
 		gatedTransaction(f.db, (t) => communicationWriter.listForPerson(t, who.actor, { personId: lee.id, limit: 10 }));
 	assert.equal(ok(await history(ownerA)).emailOptOutAt, new Date(row.opted_out_at).toISOString());
 	assert.equal(ok(await history(memberA)).emailOptOutAt, null);
-	const [{ revision }] = await rows(sql`SELECT revision::text AS revision FROM person WHERE id = ${lee.id}`);
+	const { revision } = firstRow(await rows(sql`SELECT revision::text AS revision FROM person WHERE id = ${lee.id}`));
 	refused(
 		await gatedTransaction(f.db, (t) =>
 			peopleWriter.updatePerson(
@@ -406,7 +432,7 @@ test("AC:CASE-NTF-016 an Owner sees the opt-out and when on the person's record;
 		),
 		"invalid_input",
 	);
-	const attempt = (query) =>
+	const attempt = (query: SQL) =>
 		f.db.execute(query).then(
 			() => "changed",
 			(error) => (error.cause ?? error).code,
@@ -426,8 +452,8 @@ test("AC:CASE-NTF-016 an Owner sees the opt-out and when on the person's record;
 });
 
 test("AC:CASE-NTF-016 a merge keeps the survivor unsubscribed when either person had unsubscribed", async () => {
-	const ctx = { session: ownerA.session, selected: { kind: "plant", id: churchA.id } };
-	const merge = async (sourceId, survivorId) => {
+	const ctx = { session: ownerA.session, selected: ownerA.actor.actor.context.owner };
+	const merge = async (sourceId: string, survivorId: string) => {
 		const review = ok(
 			await gatedTransaction(f.db, (t) => peopleMerge.getMergeReview(t, ctx, { sourceId, survivorId })),
 		);
@@ -440,8 +466,9 @@ test("AC:CASE-NTF-016 a merge keeps the survivor unsubscribed when either person
 			),
 		);
 	};
-	const pair = async (name) => [await person(churchA, `${name} One`), await person(churchA, `${name} Two`)];
-	const optOut = async (who) =>
+	const pair = async (name: string) =>
+		[await person(churchA, `${name} One`), await person(churchA, `${name} Two`)] as const;
+	const optOut = async (who: Person) =>
 		ok(
 			await applyMessagesOptOut(f.db, ring, now, {
 				token: messagesOptOutToken(ring, { plantId: churchA.id, personId: who.id }),

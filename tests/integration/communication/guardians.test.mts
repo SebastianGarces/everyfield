@@ -1,22 +1,38 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import {
 	applyMessagesOptOut,
 	messagesOptOutToken,
 	undoMessagesOptOut,
 } from "../../../packages/domain/src/communication/opt-out.ts";
-import { resendRecorder } from "./resend-recorder.mts";
+import { emailsIn, resendRecorder, type Recorder } from "./resend-recorder.mts";
 import { atSendTime, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
 import { hubLabel } from "../../../apps/web/src/features/communication/model.ts";
 import { MAILING } from "./church-address.mts";
 import { personFields, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
+import {
+	deliverAs,
+	firstRow,
+	readAs,
+	rowsFrom,
+	writeAs,
+	type Church,
+	type Fixture,
+	type ReadOp,
+	type Rest,
+	type Row,
+	type Staff,
+	type Value,
+	type WriteOp,
+} from "./communication-support.mts";
 
-let f, church, owner;
+let f: Fixture;
+let church: Church;
+let owner: Staff;
 const origin = "https://app.example.test";
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
@@ -28,7 +44,7 @@ const keys = {
 const PRODUCTION = { VERCEL_ENV: "production" };
 const DAY = 86_400_000;
 const key = () => randomUUID();
-const rows = async (query) => (await f.admin.execute(query)).rows;
+const rows = <R extends Row = Row>(query: SQL) => rowsFrom<R>(f, query);
 
 type Who = { id: string; name: string; email: string | null };
 async function person(name: string, as: "adult" | "child" | "unknown", household: string | null, email = true) {
@@ -69,9 +85,8 @@ async function block(who: Who) {
 			.digest("hex")},'complaint',${eventId},clock_timestamp())`);
 }
 
-const write = (op, input) =>
-	withCommunicationWrite(f.db, owner.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
-const read = (op, input, extra?) => f.db.transaction((tx) => communicationWriter[op](tx, owner.actor, input, extra));
+const write = <K extends WriteOp>(op: K, input: unknown) => writeAs(f.db, owner.actor, op, input);
+const read = <K extends ReadOp>(op: K, ...rest: Rest<K>) => readAs(f.db, owner.actor, op, ...rest);
 const audienceOf = async (people: Who[]) =>
 	ok(await read("readAudience", { groups: [], teamIds: [], personIds: people.map((p) => p.id) }));
 
@@ -88,7 +103,7 @@ async function draft(people: Who[], extra: Record<string, unknown> = {}, body = 
 		}),
 	);
 }
-const scheduleAt = (saved, at = new Date(Date.now() + 7 * DAY).toISOString()) =>
+const scheduleAt = (saved: Value<"saveDraft">, at = new Date(Date.now() + 7 * DAY).toISOString()) =>
 	write("scheduleReviewed", {
 		requestKey: key(),
 		expectedRevision: saved.revision,
@@ -99,9 +114,10 @@ async function handOff(people: Who[], mode: "now" | "scheduled", extra = {}, bod
 	const saved = await draft(people, extra, body);
 	const scheduled = ok(await scheduleAt(saved));
 	const report = ok(
-		await communicationWriter[mode === "now" ? "sendReviewed" : "handOffScheduled"](
+		await deliverAs(
 			f.db,
 			owner.actor,
+			mode === "now" ? "sendReviewed" : "handOffScheduled",
 			{
 				requestKey: key(),
 				expectedRevision: scheduled.revision,
@@ -113,10 +129,10 @@ async function handOff(people: Who[], mode: "now" | "scheduled", extra = {}, bod
 	);
 	return { id: saved.communicationId, report, resend };
 }
-const emails = (resend) =>
-	resend.requests.filter((r) => r.path === "/emails/batch" && r.method === "POST").flatMap((r) => r.body);
-const sentTo = (resend) => emails(resend).map((m) => m.to[0]);
-const emailFor = (resend, who: Who) => emails(resend).find((m) => m.to[0] === who.email);
+const emails = (resend: Recorder) =>
+	resend.requests.filter((r) => r.path === "/emails/batch" && r.method === "POST").flatMap(emailsIn);
+const sentTo = (resend: Recorder) => emails(resend).map((m) => m.to[0]);
+const emailFor = (resend: Recorder, who: Who) => emails(resend).find((m) => m.to[0] === who.email);
 const mailOf = async (id: string, who: Who) =>
 	rows(sql`SELECT m.state, m.refusal, (SELECT array_agg(g.recipient_person_id::text ORDER BY g.recipient_person_id)
 		FROM mail g WHERE g.id = ANY(m.guardian_mail_ids)) AS guardians
@@ -132,25 +148,27 @@ async function shown(id: string) {
 	};
 }
 const hubOf = async (id: string) =>
-	ok(await read("listHistory", { limit: 100 })).items.find((row) => row.id === id).state;
+	ok(await read("listHistory", { limit: 100 })).items.find((row) => row.id === id)!.state;
 const ring = { current: randomBytes(32), previous: [] };
 const now = () => new Date();
-const clickUnsubscribe = async (who) =>
+const clickUnsubscribe = async (who: Who) =>
 	ok(
 		await applyMessagesOptOut(f.db, ring, now, {
 			token: messagesOptOutToken(ring, { plantId: church.id, personId: who.id }),
 		}),
 	);
-const undo = async (done) => ok(await undoMessagesOptOut(f.db, ring, now, { token: done.undoToken }));
+const undo = async (done: { undoToken: string | null }) =>
+	ok(await undoMessagesOptOut(f.db, ring, now, { token: done.undoToken }));
 
-const explained = ({ totals }) => ({
+const explained = ({ totals }: { totals: Value<"getDeliveryTotals"> }) => ({
 	guardian: totals.guardian,
 	child: totals.child,
 	unsubscribed: totals.unsubscribed,
 	failed: totals.failed,
 	suppressed: totals.suppressed,
 });
-const rowOf = (view, who: Who) => view.recipients.find((row) => row.personId === who.id);
+const rowOf = (view: Awaited<ReturnType<typeof shown>>, who: Who) =>
+	view.recipients.find((row) => row.personId === who.id)!;
 
 before(async () => {
 	f = await fixture();
@@ -214,7 +232,7 @@ test("AC:CASE-NTF-016-GUARDIAN a group email goes to each child's parent or guar
 	]);
 	assert.deepEqual(await mailOf(sent.id, cal), [{ state: "refused", refusal: "child", guardians: null }]);
 
-	const own = emailFor(sent.resend, maria);
+	const own = emailFor(sent.resend, maria)!;
 	assert.ok(own.html.includes("Hello Maria Lopez."));
 	assert.equal(own.html.includes("parent or guardian"), false, "an adult in the audience gets their own copy");
 	const view = await shown(sent.id);
@@ -268,7 +286,7 @@ test("AC:CASE-NTF-016-GUARDIAN the copy sent only as a parent or guardian names 
 	assert.equal(scheduled.state, "scheduled", "a send only to a child with a contact is not refused");
 	const sent = await handOff([tim], "now", { meetingId }, "<p>Hi {{name}},</p><p>{{rsvp_link}}</p>");
 	assert.deepEqual(sentTo(sent.resend), [rosa.email]);
-	const email = emailFor(sent.resend, rosa);
+	const email = emailFor(sent.resend, rosa)!;
 	assert.ok(email.html.includes("as the parent or guardian of Tim Reyes."), email.html);
 	assert.ok(
 		email.text.startsWith("We are sending you this email as the parent or guardian of Tim Reyes.\n\nHi Rosa Reyes,"),
@@ -281,8 +299,10 @@ test("AC:CASE-NTF-016-GUARDIAN the copy sent only as a parent or guardian names 
 		"List-Unsubscribe": `<${unsubscribe[1]}/one-click>`,
 		"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
 	});
-	const [token] = await rows(
-		sql`SELECT rsvp_token_hash FROM participation WHERE meeting_id = ${meetingId} AND person_id = ${tim.id}`,
+	const token = firstRow(
+		await rows(
+			sql`SELECT rsvp_token_hash FROM participation WHERE meeting_id = ${meetingId} AND person_id = ${tim.id}`,
+		),
 	);
 	assert.equal(token.rsvp_token_hash, null, "no RSVP link is minted for the child");
 	assert.deepEqual(await mailOf(sent.id, tim), [{ state: "refused", refusal: "guardian", guardians: [rosa.id] }]);
@@ -364,7 +384,7 @@ test("AC:CASE-NTF-016-GUARDIAN a scheduled email follows the contacts as they ar
 
 	await atSendTime(f.admin, f.db, message.id, message.resend.transport, keys);
 	assert.deepEqual(sentTo(message.resend).sort(), [ana.email, amy.email].sort());
-	const added = emailFor(message.resend, amy);
+	const added = emailFor(message.resend, amy)!;
 	assert.ok(added.html.includes("as the parent or guardian of Kim Ng."));
 	assert.deepEqual(await mailOf(message.id, kidAdded), [
 		{ state: "refused", refusal: "guardian", guardians: [amy.id] },
@@ -389,7 +409,7 @@ test("INV-message-batches: one scheduled batch whose children go to 101 adults a
 	assert.deepEqual(
 		message.resend.requests
 			.filter((r) => r.path === "/emails/batch" && r.method === "POST")
-			.map((r) => r.body.length)
+			.map((r) => emailsIn(r).length)
 			.sort((a, b) => b - a),
 		[100, 1],
 	);
@@ -400,7 +420,7 @@ test("AC:CASE-NTF-016-GUARDIAN an adult who left the child's household no longer
 	const jo = await person("Jo Park", "adult", home);
 	const kit = await person("Kit Park", "child", home);
 	await link(kit, jo, home);
-	const [{ revision }] = await rows(sql`SELECT revision::text AS revision FROM person WHERE id = ${jo.id}`);
+	const { revision } = firstRow(await rows(sql`SELECT revision::text AS revision FROM person WHERE id = ${jo.id}`));
 	ok(
 		await withPeopleWrite(f.db, owner.actor, (t, c) =>
 			personFields.removeFromHousehold(t, c, {
@@ -458,7 +478,7 @@ test("AC:CASE-NTF-016-GUARDIAN a child whose own address is blocked still goes t
 		assert.deepEqual([message.report.guardianCount, message.report.childCount], [1, 0], mode);
 		if (mode === "scheduled") await atSendTime(f.admin, f.db, message.id, message.resend.transport, keys);
 		assert.deepEqual(sentTo(message.resend).sort(), [ana.email, mia.email].sort(), mode);
-		assert.ok(emailFor(message.resend, mia).html.includes("as the parent or guardian of Sol Reyes."), mode);
+		assert.ok(emailFor(message.resend, mia)!.html.includes("as the parent or guardian of Sol Reyes."), mode);
 		assert.deepEqual(
 			await mailOf(message.id, sol),
 			[{ state: "refused", refusal: "guardian", guardians: [mia.id] }],
@@ -521,7 +541,7 @@ test("AC:CASE-NTF-016-GUARDIAN a child who had already unsubscribed still goes t
 			await atSendTime(f.admin, f.db, message.id, message.resend.transport, keys);
 		}
 		assert.deepEqual(sentTo(message.resend).sort(), [ana.email, mia.email].sort(), mode);
-		assert.ok(emailFor(message.resend, mia).html.includes("as the parent or guardian of Sol Vega."), mode);
+		assert.ok(emailFor(message.resend, mia)!.html.includes("as the parent or guardian of Sol Vega."), mode);
 		assert.deepEqual(
 			await mailOf(message.id, sol),
 			[{ state: "refused", refusal: "guardian", guardians: [mia.id] }],
@@ -585,7 +605,7 @@ test("AC:CASE-NTF-016-GUARDIAN a child who unsubscribes after the email is sched
 		await check();
 		await atSendTime(f.admin, f.db, message.id, message.resend.transport, keys);
 		assert.deepEqual(sentTo(message.resend).sort(), [ana.email, mia.email].sort(), mode);
-		assert.ok(emailFor(message.resend, mia).html.includes("as the parent or guardian of Sol Bell."), mode);
+		assert.ok(emailFor(message.resend, mia)!.html.includes("as the parent or guardian of Sol Bell."), mode);
 		assert.deepEqual(
 			await mailOf(message.id, sol),
 			[{ state: "refused", refusal: "guardian", guardians: [mia.id] }],
