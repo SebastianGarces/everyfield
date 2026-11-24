@@ -1926,6 +1926,8 @@ function taskRefusalText(code: string | undefined, target: string | null): strin
 			return "An Owner's follow-ups can't be handed off this way, so nothing was moved.";
 		case "handoff_target_ineligible":
 			return "That person can no longer own follow-ups, so nothing was moved. Ask Evry to prepare it again.";
+		case "combined_follow_up":
+			return "Two people were merged, so this follow-up became one with the other from the same meeting. Nothing was saved. Use the one that is left.";
 		case "protected_source":
 			return "A meeting made this task, so it can't be changed this way. Nothing was saved.";
 		case "nonexistent_local_time":

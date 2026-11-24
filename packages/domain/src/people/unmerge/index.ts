@@ -313,7 +313,7 @@ function restoreFollowUps(owner: string, accountId: string, audit: AuditWrite, m
 			audit.writes.push(writeFollowUpTask(owner, task));
 			const current = now.get(task.id);
 			if (current && current.status !== task.status)
-				auditTaskStatus(owner, accountId, audit, current, task.status, "The merge that changed it was undone");
+				auditTaskStatus(owner, accountId, audit, "unmerge", current, task.status);
 		}
 		if (waiver) audit.writes.push(writeWaiver(owner, waiver));
 		if (kept && owners.length)

@@ -316,6 +316,26 @@ test("AC:EVRY-REAL-CHILD-TASK-PARITY INV-checklist: adding one row and ticking a
 	);
 });
 
+test("a status change a merge or Unmerge made names the merge, never who completed the task", async () => {
+	const owner = await actor("owner");
+	const id = await task("Call the merged guest", { status: "complete" });
+	for (const [action, kind, before, after] of [
+		["people.merged", "merge", "not_started", "complete"],
+		["people.unmerged", "unmerge", "complete", "not_started"],
+	] as const)
+		await admin.execute(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,before_value,after_value,metadata)
+			VALUES(${plant},${accounts.owner.id},${action},${kind},'task',${id},${JSON.stringify({ status: before })}::jsonb,
+				${JSON.stringify({ status: after })}::jsonb,${JSON.stringify({ source: kind })}::jsonb)`);
+	const history = await read(owner, "tasks.statusHistory", { taskId: id });
+	assert.deepEqual(
+		history.rows.map(({ fields: { to, by, mergedBy, unmergedBy } }) => ({ to, by, mergedBy, unmergedBy })),
+		[
+			{ to: "complete", by: undefined, mergedBy: "you", unmergedBy: undefined },
+			{ to: "not_started", by: undefined, mergedBy: undefined, unmergedBy: "you" },
+		],
+	);
+});
+
 test("INV-checklist-floor: a Member's checklist review keeps each native floor, step by step", async () => {
 	const member = await actor("member");
 	const propose = await turn(member);

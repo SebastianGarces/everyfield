@@ -2,6 +2,7 @@ import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { captureFacts } from "../../../../../packages/domain/src/intelligence/facts.ts";
 import { communicationWriter } from "../../../../../packages/domain/src/communication/index.ts";
+import { dashboardReader } from "../../../../../packages/domain/src/dashboard/index.ts";
 import { createFollowUpWriter, followUpReader } from "../../../../../packages/domain/src/followups/index.ts";
 import {
 	attendanceReader,
@@ -502,18 +503,28 @@ const followUpTask = async (meetingId: string, personId: string) =>
 				WHERE o.meeting_id=${meetingId}::uuid AND o.person_id=${personId}::uuid`)
 		).id,
 	);
-const contact = async (taskId: string, input: Row = {}) =>
-	write.followUps(followups.recordOutcome, {
-		requestKey: key(),
-		input: {
-			target: { kind: "task", taskId, expectedRevision: await w.revisionOf("task", taskId) },
-			outcome: "contacted",
-			channel: "phone",
-			completeTask: true,
-			occurredAt: "2026-10-02T12:00:00.000Z",
-			...input,
+const contact = async (taskId: string, input: Row = {}, who: "admin" | "owner" = "admin") =>
+	write.followUps(
+		followups.recordOutcome,
+		{
+			requestKey: key(),
+			input: {
+				target: { kind: "task", taskId, expectedRevision: await w.revisionOf("task", taskId) },
+				outcome: "contacted",
+				channel: "phone",
+				completeTask: true,
+				occurredAt: "2026-10-02T12:00:00.000Z",
+				...input,
+			},
 		},
-	});
+		who,
+	);
+const historyOf = async (taskId: string) =>
+	ok(await tx(async (t) => taskReader.statusHistory(t, await authority(), { taskId }))).items.map((h) => [
+		h.to,
+		h.source,
+		"accountId" in h.actor && h.actor.accountId,
+	]);
 const intelligence = async () => {
 	const facts = await captureFacts(db, P, null);
 	assert.ok(facts);
@@ -571,19 +582,12 @@ test("two open follow-ups from one meeting become one, its call is measured once
 			expectedRevision: await w.revisionOf("task", theirs),
 			input: { taskId: theirs },
 		}),
-		"protected_source",
+		"combined_follow_up",
 	);
-	const history = await rows(
-		sql`SELECT action,kind,reason FROM audit_event WHERE subject_id=${theirs}::uuid AND action='tasks.waived'`,
-	);
-	assert.deepEqual(history, [
-		{
-			action: "tasks.waived",
-			kind: "waive",
-			reason: "Combined with the other follow-up from this meeting in a merge",
-		},
-	]);
+	const closed = ["no_longer_needed", "merge", w.actors.admin.id];
+	assert.deepEqual((await historyOf(theirs)).slice(1), [closed]);
 	ok(await w.unmerge(merged.mergeId));
+	assert.deepEqual((await historyOf(theirs)).slice(1), [closed, ["not_started", "unmerge", w.actors.admin.id]]);
 	assert.deepEqual(await bothSides(p), before);
 	assert.deepEqual(await intelligence(), facts);
 
@@ -646,6 +650,35 @@ test("a finished follow-up wins over an open one from the same meeting, whicheve
 			assert.deepEqual(await bothSides(p), before);
 			assert.deepEqual(await intelligence(), facts);
 		});
+});
+
+test("a follow-up another account finished stays theirs: the merge only marks the kept one and adds no completed work", async () => {
+	const p = await firstVisit("Credited");
+	const [mine, theirs] = [await followUpTask(p.night, p.survivor), await followUpTask(p.night, p.source)];
+	ok(await contact(theirs, {}, "owner"));
+	const changes = async () =>
+		ok(await dashboardReader.readActivity(db, await authority())).entries.flatMap((e) =>
+			e.change.kind === "task_completed" ? [[e.change.taskId, e.actor?.accountId]] : [],
+		);
+	const before = { changes: await changes(), theirs: await historyOf(theirs), mine: await historyOf(mine) };
+	assert.ok(before.changes.some(([id, by]) => id === theirs && by === w.actors.owner.id));
+	const counted = async () =>
+		(
+			await one(sql`SELECT count(*)::int AS n FROM audit_event
+				WHERE tenant_id=${P}::uuid AND action IN ('tasks.changed','tasks.completed','tasks.waived')`)
+		).n;
+	const events = await counted();
+	const merged = await w.merge(p.source, p.survivor);
+	assert.equal((await oneFollowUp(p)).state, "complete");
+	const done = ["complete", "merge", w.actors.admin.id];
+	assert.deepEqual(await historyOf(mine), [...before.mine, done]);
+	assert.deepEqual(await historyOf(theirs), before.theirs);
+	assert.deepEqual(await changes(), before.changes);
+	ok(await w.unmerge(merged.mergeId));
+	assert.deepEqual(await historyOf(mine), [...before.mine, done, ["not_started", "unmerge", w.actors.admin.id]]);
+	assert.deepEqual(await historyOf(theirs), before.theirs);
+	assert.deepEqual(await changes(), before.changes);
+	assert.equal(await counted(), events, "the church digest counts no new task work");
 });
 
 test("a contact that did not finish the replaced follow-up still counts on the one that stays, and two finished ones keep the earlier call", async () => {

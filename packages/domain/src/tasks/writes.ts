@@ -311,7 +311,7 @@ export function setStatus(
 		if (input.source !== "generated") noop(cmd, row);
 		return { row, outcome: "noop" as const, changes: [], successor: null, recounted: [] };
 	}
-	if (row.superseded) deny("protected_source");
+	if (row.superseded) deny("combined_follow_up");
 	const reopening = !OPEN(row.status) && OPEN(input.status);
 	if (reopening && row.open_successor) deny("open_successor", { successorId: row.open_successor });
 	const at = new Date();

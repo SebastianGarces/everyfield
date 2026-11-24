@@ -20,7 +20,6 @@ import {
 } from "../core.ts";
 import { matchPeople } from "../duplicates.ts";
 import type { AuditWrite } from "../../operations/writes.ts";
-import { auditRow } from "../../tasks/core.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people.ts";
 import {
 	lockPair,
@@ -566,14 +565,14 @@ function combineFollowUps(
 		touch("obligation", replaced);
 		if (closes) {
 			audit.writes.push(writeFollowUpTask(owner, { ...closes, status: "no_longer_needed" }));
-			auditTaskStatus(owner, accountId, audit, closes, "no_longer_needed", COMBINED);
+			auditTaskStatus(owner, accountId, audit, "merge", closes, "no_longer_needed");
 			touch("task", closes);
 		}
 		if (!kept.task || !(takes || owners.length)) continue;
 		audit.writes.push(writeFollowUpTask(owner, { ...(takes?.task ?? kept.task), id: kept.task.id }));
 		touch("task", kept.task);
 		if (takes?.task && takes.task.status !== kept.task.status)
-			auditTaskStatus(owner, accountId, audit, kept.task, takes.task.status, COMBINED);
+			auditTaskStatus(owner, accountId, audit, "merge", kept.task, takes.task.status);
 		if (takes && kept.waived_at !== null) {
 			audit.writes.push(writeWaiver(owner, { id: kept.id, waived_at: null, waiver_reason: null }));
 			touch("obligation", kept);
@@ -584,7 +583,6 @@ function combineFollowUps(
 	}
 	return touched;
 }
-const COMBINED = "Combined with the other follow-up from this meeting in a merge";
 export const writeFollowUpTask = (
 	owner: string,
 	t: Pick<FollowUpTask, "id" | "status" | "completed_at" | "deleted_at">,
@@ -599,26 +597,25 @@ export function auditTaskStatus(
 	owner: string,
 	accountId: string,
 	audit: AuditWrite,
-	t: { id: string; status: FollowUpTask["status"]; revision: string },
+	source: "merge" | "unmerge",
+	t: Pick<FollowUpTask, "id" | "status" | "revision">,
 	to: FollowUpTask["status"],
-	reason: string,
 ) {
-	const closes = to === "no_longer_needed",
-		completes = to === "complete";
-	auditRow(
-		{ ...audit, actor: { accountId, plantId: owner } },
-		{
-			taskId: t.id,
-			action: closes ? "tasks.waived" : completes ? "tasks.completed" : "tasks.changed",
-			kind: closes ? "waive" : completes ? "complete" : "reopen",
-			before: { status: t.status },
-			after: { status: to },
-			beforeRevision: t.revision,
-			afterRevision: String(BigInt(t.revision) + 1n),
-			source: "generated",
-			reason,
-		},
-	);
+	audit.events.push({
+		id: randomUUID(),
+		tenant_id: owner,
+		actor_id: accountId,
+		actor_token: hash([owner, accountId]),
+		action: source === "merge" ? "people.merged" : "people.unmerged",
+		kind: source,
+		subject_type: "task",
+		subject_id: t.id,
+		before_value: { status: t.status },
+		after_value: { status: to },
+		before_revision: t.revision,
+		after_revision: String(BigInt(t.revision) + 1n),
+		metadata: { source },
+	});
 }
 
 export function moveRefs(owner: string, k: Kind, ids: string[], from: string, to: string): SQLWrapper {

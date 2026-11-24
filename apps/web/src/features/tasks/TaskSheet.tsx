@@ -55,7 +55,7 @@ export type PanelEdit =
 	| { kind: "repeat"; draft?: Rule | null; problem?: string };
 type Entry = TaskHistory["items"][number];
 
-const SOURCE: Record<Entry["source"], string> = {
+const SOURCE: Record<Exclude<Entry["source"], "merge" | "unmerge">, string> = {
 	person: "",
 	evry: " through Evry",
 	bulk: " in a bulk change",
@@ -74,6 +74,12 @@ function actorText(a: Entry["actor"]): string {
 	}
 	if (a.kind === "former_account") return "A former member";
 	return a.displayName ?? "A former member";
+}
+function bylineOf({ actor, source }: Entry): string {
+	const by = actorText(actor);
+	if (source === "merge") return `Merge of two people by ${by}`;
+	if (source === "unmerge") return `Unmerge of two people by ${by}`;
+	return `${by}${SOURCE[source]}`;
 }
 
 export function TaskSheet({
@@ -516,8 +522,7 @@ function History({ taskId, first }: { taskId: string; first: Outcome<TaskHistory
 								{e.from === null ? `Created as ${STATUS_LABEL[e.to].toLowerCase()}` : STATUS_LABEL[e.to]}
 							</div>
 							<div className="text-xs text-text-3">
-								{actorText(e.actor)}
-								{SOURCE[e.source]} · <When at={e.occurredAt} withTime />
+								{bylineOf(e)} · <When at={e.occurredAt} withTime />
 							</div>
 						</div>
 					</li>
