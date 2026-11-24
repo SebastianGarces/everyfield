@@ -156,10 +156,7 @@ async function feedbackVote(
 	);
 }
 
-async function sourceOrder(
-	mount: Mount,
-	actor: Parameters<typeof plantContext>[0],
-): Promise<SourceOrder | null> {
+async function sourceOrder(mount: Mount, actor: Parameters<typeof plantContext>[0]): Promise<SourceOrder | null> {
 	return transient(
 		{ component: "wiki", outcome: "order-read-failed" },
 		async () => {
