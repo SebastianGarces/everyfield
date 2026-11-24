@@ -329,6 +329,18 @@
 							"name": "Notes"
 						}
 					]
+				},
+				{
+					"id": "mail-delayed",
+					"reach": {
+						"manual": "as network, open a pipeline person and invite them to link an account with the outbound-mail switch off (bin/flag set outbound-mail off --all on the app's own database; turn it back on afterwards)"
+					},
+					"expect": [
+						{
+							"text": "saved, but its email is delayed.",
+							"match": "contains"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -475,6 +487,20 @@
 							],
 							"kind": "behavior"
 						}
+					}
+				},
+				{
+					"id": "mail-delayed",
+					"says": "With email paused, Invite and Resend save the invitation and the card says its email is delayed instead of when it was sent.",
+					"catalog": ["MUL-004"],
+					"operations": ["residency.invite"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/flags/mail-delay.test.mts",
+								"name": "a resident's account link invitation and its resend succeed with mail off and say delayed; back on they and a replay of the off command do not"
+							}
+						]
 					}
 				}
 			]
@@ -1302,7 +1328,7 @@
 			"behaviors": [
 				{
 					"id": "invite",
-					"says": "Connect sends an invitation that waits for a reply; Withdraw takes it back.",
+					"says": "Connect saves an invitation and says if its email is delayed; Withdraw takes it back.",
 					"catalog": ["IDN-020"],
 					"operations": ["associations.invite", "associations.revokeInvitation"],
 					"proof": {

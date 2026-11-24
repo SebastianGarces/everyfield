@@ -1,7 +1,7 @@
 {
 	"suite": "oversight",
 	"model": "scripted",
-	"note": "T-331 (WP-073, WP-074): a sending network's oversight through Evry, asked on the scripted model with the real adapters, approvals and effect executor, as North Texas Network's Admin (director) and Member (networkMember) in intelligence-church.mts: Harvest Point (Fort Worth, TX), Redeemer Church (Dallas, TX) and Grace Tulsa (OK) share everything, Hill Country Church (Austin, TX) shares no Plant Intelligence findings. Database clock pinned to Oct 13, 2026. `criterion` is the T-331 Done criterion; criterion 15's region part follows D-1529 (a plant's region is its own). Cases run in this order; `setup` names the fixture step that runs before a case. OVS-12 onward follow T-389 (Network Intelligence by Region, state and country): `criterion` there is T-389's Done criterion. Prairie Network's Admin (otherDirector) has no link to these plants. `harvestRegionCorrected` saves Harvest Point's corrected location (Round Rock, TX, Region Austin-Round Rock-San Marcos) and runs Network Intelligence again.",
+	"note": "T-331 (WP-073, WP-074): a sending network's oversight through Evry, asked on the scripted model with the real adapters, approvals and effect executor, as North Texas Network's Admin (director) and Member (networkMember) in intelligence-church.mts: Harvest Point (Fort Worth, TX), Redeemer Church (Dallas, TX) and Grace Tulsa (OK) share everything, Hill Country Church (Austin, TX) shares no Plant Intelligence findings. Database clock pinned to Oct 13, 2026. `criterion` is the T-331 Done criterion; criterion 15's region part follows D-1529 (a plant's region is its own). Cases run in this order; `setup` names the fixture step that runs before a case. OVS-12 onward follow T-389 (Network Intelligence by Region, state and country): `criterion` there is T-389's Done criterion. Prairie Network's Admin (otherDirector) has no link to these plants. `harvestRegionCorrected` saves Harvest Point's corrected location (Round Rock, TX, Region Austin-Round Rock-San Marcos) and runs Network Intelligence again. OVS-31 and OVS-32 are T-614: `meetingsHeld` gives Harvest Point three meetings (3 and 2 attended, the third not finalized) and Redeemer Church two that are not finalized.",
 	"cases": [
 		{
 			"id": "OVS-01",
@@ -362,6 +362,27 @@
 			"calls": ["organizationIntelligence.readLocations"],
 			"answer": ["No plant is linked to this organization, so there are no plant locations to show."],
 			"absent": ["Round Rock", "Fort Worth"]
+		},
+		{
+			"id": "OVS-31",
+			"operation": "oversight.getPlant",
+			"criterion": 7,
+			"setup": "meetingsHeld",
+			"actor": "director",
+			"ask": "how were meetings attended at Harvest Point?",
+			"calls": ["oversight.listPlants", "oversight.getPlant"],
+			"answer": ["**Harvest Point** meetings: 3 recent meetings, 5 attended at the 2 with attendance recorded."],
+			"absent": ["Harvest Person"]
+		},
+		{
+			"id": "OVS-32",
+			"operation": "oversight.getPlant",
+			"criterion": 7,
+			"actor": "director",
+			"ask": "how were meetings attended at Redeemer Church?",
+			"calls": ["oversight.listPlants", "oversight.getPlant"],
+			"answer": ["**Redeemer Church** meetings: 2 recent meetings, attendance unknown."],
+			"absent": ["0", "nobody", "no one", "attended", "Redeemer Person"]
 		}
 	]
 }

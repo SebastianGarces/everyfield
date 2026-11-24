@@ -125,6 +125,7 @@ const FAULTS: { value: string; label: string }[] = [
 	{ value: "saveWikiOrder:temporary", label: "Next Wiki order save fails" },
 	{ value: "finalizeAvatar:temporary", label: "Next photo save fails" },
 	{ value: "requestEmailChange:temporary", label: "Next email link: too many requests" },
+	{ value: "requestEmailChange:mail_delayed", label: "Next email link: email is delayed" },
 	{ value: "changePassword:unknown", label: "Next password change: outcome unknown" },
 ];
 

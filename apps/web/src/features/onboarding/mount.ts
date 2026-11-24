@@ -14,6 +14,7 @@ import { database } from "../../server/database";
 import * as c from "@everyfield/contracts/onboarding";
 import type { OnboardingWriteContext } from "@everyfield/contracts/onboarding/server";
 import { createOnboardingProducer, withOnboardingWrite, readOnboardingEntry } from "@everyfield/domain/onboarding";
+import { requestMailDelay } from "../../server/switches.ts";
 import { getViewer } from "../../server/request-context";
 import type { WriteTx } from "@everyfield/domain/access";
 
@@ -88,7 +89,8 @@ export function onboardingMount() {
 
 export async function onboardingEntry(session: Awaited<ReturnType<typeof getViewer>>) {
 	const m = onboardingMount();
-	return readOnboardingEntry(m.db, m.producer, session, session.authority, session.verified);
+	const entry = await readOnboardingEntry(m.db, m.producer, session, session.authority, session.verified);
+	return entry.kind === "confirm_email" ? { ...entry, ...(await requestMailDelay()) } : entry;
 }
 
 const refusal = (code: "unavailable" | "invalid_input"): Reply => ({

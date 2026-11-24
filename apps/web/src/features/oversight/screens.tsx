@@ -45,6 +45,7 @@ import { LENSES } from "@everyfield/contracts/intelligence";
 import { factText } from "../intelligence/assessment-model.ts";
 import { IntelligenceBody } from "./Intelligence.tsx";
 import {
+	attendanceText,
 	dayOf,
 	chosenText,
 	daysText,
@@ -624,10 +625,7 @@ function SectionCounts({
 							/>
 						))}
 					</div>
-					<p className="mt-2 text-sm text-text-3">
-						Attendance at the last {counted(m.meetings.length, "meeting")} · {m.attendedTotal.toLocaleString("en-US")}{" "}
-						in total
-					</p>
+					<p className="mt-2 text-sm text-text-3">{attendanceText(m)}</p>
 				</>
 			);
 		}

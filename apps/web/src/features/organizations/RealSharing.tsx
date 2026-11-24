@@ -13,6 +13,7 @@ import {
 	readResidency,
 	readSharing,
 	realRun,
+	realSend,
 	saveConsent,
 	saveResidency,
 	saveSharingChoice,
@@ -60,6 +61,7 @@ export function RealSharing({ data }: { data: SharingPageData }) {
 					nameOf={names.nameOf}
 					zone={data.zone}
 					run={realRun}
+					send={realSend}
 					end={names.end}
 					readSharing={data.kind === "plant" ? { read: readSharing, save: saveSharingChoice } : undefined}
 					invite={
