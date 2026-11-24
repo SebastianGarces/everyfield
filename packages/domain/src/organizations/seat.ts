@@ -7,7 +7,8 @@ import { z } from "zod";
 import { liveAccess, liveRead, type RequestActor } from "../access/session.ts";
 import { organizationSeatContext } from "../access/organization-seat.ts";
 import { hash } from "../operations/canonical.ts";
-import { declareWrite, lockedWrite, nativeWrite, WriteUnavailable } from "../operations/writes.ts";
+import { WriteUnavailable } from "../operations/refusals.ts";
+import { declareWrite, lockedWrite, nativeWrite } from "../operations/writes.ts";
 
 export type Executor = Pick<Transaction, "execute">;
 
