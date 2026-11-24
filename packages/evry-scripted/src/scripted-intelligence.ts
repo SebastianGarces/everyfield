@@ -42,6 +42,7 @@ const FEEDBACK = /\b(?:this|the) (?:finding|focus|suggestion) (?:wasn't|was not|
 const USEFUL = /\b(?:this|the) (?:finding|focus|suggestion) (?:was|is) (useful|helpful)\b/i;
 const PLANTS = /\bhow are (?:our|my|the) plants doing\b/i;
 const PEOPLE_AT = /\b(?:list|show|who are|name) (?:me )?(?:all )?the people (?:at|in) (.+?)(?: plant)?\s*[?.!]?$/i;
+const MEETINGS_AT = /\bhow (?:are|were) (?:the )?meetings attended (?:at|in) (.+?)(?: plant)?\s*[?.!]?$/i;
 const PATTERNS = /\bpatterns?\b.*?\b(?:across|in|among) (?:our |the )?(.+?) plants\b/i;
 const NEAR_LAUNCH = /\bclose to launch(?:ing)?\b|\bnear(?:ing)? launch\b/i;
 const REGION = /^(.+?) is in the (.+?) region\b/i;
@@ -480,7 +481,7 @@ function organizationStep(options: LanguageModelV4CallOptions, text: string, sys
 	const named = (name: string) =>
 		(plants?.rows ?? []).find((r) => r.label.toLowerCase().includes(name.toLowerCase().replace(/^the\s+/, "")));
 	const cadence = /\bsend my oversight digest (daily|weekly)\b/i;
-	const asked = [CHANNEL, cadence, REGION, PEOPLE_AT, PATTERNS, PLANTS, NEAR_LAUNCH].some((r) => r.test(text));
+	const asked = [CHANNEL, cadence, REGION, PEOPLE_AT, MEETINGS_AT, PATTERNS, PLANTS, NEAR_LAUNCH].some((r) => r.test(text));
 	if (!asked) return null;
 	if (proposed(outputs)) return say(REVIEW);
 
@@ -511,13 +512,16 @@ function organizationStep(options: LanguageModelV4CallOptions, text: string, sys
 		return say(OVERSIGHT_RULES.plantRegion(plant.label, String(plant.fields.region ?? "not set yet")));
 	}
 	const people = PEOPLE_AT.exec(text);
-	if (people) {
+	const meetings = MEETINGS_AT.exec(text);
+	const at = people ?? meetings;
+	if (at) {
 		if (!plants) return read("oversight.listPlants");
-		const plant = named((people[1] ?? "").trim());
-		if (!plant) return say(`I can't find ${people[1]} among your plants.`);
+		const plant = named((at[1] ?? "").trim());
+		if (!plant) return say(`I can't find ${at[1]} among your plants.`);
 		const view = lastOf(outputs, "oversight.getPlant");
 		if (!view) return read("oversight.getPlant", { plantId: plant.id });
 		const f = view.rows?.[0]?.fields ?? {};
+		if (meetings) return say(`**${plant.label}** meetings: ${String(f.meetings)}.`);
 		const breakdown =
 			typeof f.coreGroup === "number"
 				? ` (core group ${String(f.coreGroup)}, launch team ${String(f.launchTeam)}, leaders ${String(f.leaders)})`

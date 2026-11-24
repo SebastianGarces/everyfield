@@ -166,6 +166,31 @@ async function seed(ch: Church) {
 			AND i.kind='geography_region' AND i.canonical_key='omb-23-01/12420'`);
 		await refreshNetwork();
 	}
+	async function meetingHeld(
+		plantName: string,
+		{ daysAgo, came, finalized }: { daysAgo: number; came: number; finalized: boolean },
+	) {
+		const p = plants[plantName]!;
+		const people = await ch.rows(
+			sql`SELECT id FROM person WHERE plant_id=${p.id} AND state='live' ORDER BY display_name LIMIT ${came}`,
+		);
+		const id = await ch.vision(
+			p,
+			daysAgo,
+			people.map((r) => ({ id: String(r.id) })),
+		);
+		if (finalized) await finalizeMeeting(id);
+		return id;
+	}
+	const finalizeMeeting = (id: string) =>
+		admin.execute(sql`UPDATE meeting SET finalized_at=clock_timestamp() WHERE id=${id}`);
+	async function meetingsHeld() {
+		await meetingHeld("Harvest Point", { daysAgo: 24, came: 3, finalized: true });
+		await meetingHeld("Harvest Point", { daysAgo: 17, came: 2, finalized: true });
+		await meetingHeld("Harvest Point", { daysAgo: 10, came: 1, finalized: false });
+		await meetingHeld("Redeemer Church", { daysAgo: 17, came: 2, finalized: false });
+		await meetingHeld("Redeemer Church", { daysAgo: 10, came: 1, finalized: false });
+	}
 	const otherNetwork = await ch.database.organization("sending_network", {
 		name: "Prairie Network",
 		timezone: "America/Chicago",
@@ -196,6 +221,9 @@ async function seed(ch: Church) {
 		classify,
 		redeemerGrows,
 		harvestRegionCorrected,
+		meetingHeld,
+		finalizeMeeting,
+		meetingsHeld,
 		names,
 	};
 }

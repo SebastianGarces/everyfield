@@ -183,7 +183,7 @@ const SECTIONS = {
 			return C.meetingCounts.parse({
 				meetings,
 				averageDaysBetween: meetings.length > 1 ? Math.round(span / (meetings.length - 1)) : null,
-				attendedTotal: meetings.reduce((sum, m) => sum + (m.attended ?? 0), 0),
+				attendedTotal: C.attendanceOf(meetings).total,
 			});
 		},
 	},

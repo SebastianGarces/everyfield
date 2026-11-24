@@ -74,14 +74,22 @@ export const peopleCounts = z.strictObject({
 	),
 });
 export const taskCounts = z.strictObject({ open: count, overdue: count });
-export const meetingCounts = z.strictObject({
-	meetings: z
-		.array(z.strictObject({ date: localDate, attended: count.nullable() }))
-		.min(1)
-		.max(12),
-	averageDaysBetween: z.int().min(0).nullable(),
-	attendedTotal: count,
-});
+const meetingAttendance = z.strictObject({ date: localDate, attended: count.nullable() });
+export function attendanceOf(meetings: readonly z.infer<typeof meetingAttendance>[]): {
+	known: number;
+	total: number | null;
+} {
+	const known = meetings.flatMap((m) => m.attended ?? []);
+	return { known: known.length, total: known.length ? known.reduce((sum, n) => sum + n, 0) : null };
+}
+export const meetingCounts = z
+	.strictObject({
+		meetings: z.array(meetingAttendance).min(1).max(12),
+		averageDaysBetween: z.int().min(0).nullable(),
+		attendedTotal: count.nullable(),
+	})
+	.refine((c) => c.attendedTotal === attendanceOf(c.meetings).total, "attendedTotal covers only the known meetings");
+export type MeetingCounts = z.infer<typeof meetingCounts>;
 export const teamCounts = z.strictObject({
 	teams: count,
 	roles: count,
