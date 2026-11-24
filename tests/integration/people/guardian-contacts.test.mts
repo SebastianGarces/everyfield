@@ -1,13 +1,14 @@
 import { fixture, ok, refused } from "../../support/fixture.mts";
-import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
+import { authorityOf, church, isActivity, reads, type Reply, type Row, withStatus } from "./people-support.mts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import type { WriteContext } from "../../../packages/domain/src/people/core.ts";
+import type { WriteTx } from "../../../packages/domain/src/access/session.ts";
 import {
 	peopleWriter as people,
-	peopleReader,
 	personFields as fields,
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
@@ -21,28 +22,33 @@ const actors = [
 	database.actors.owner,
 	database.actors.member,
 	await database.actor({ kind: "plant", id: otherChurch }, "admin"),
-];
-const ctx = () => ({ session: actors[0].session, selected: { kind: "plant", id: database.tenant.id } });
-const tx = (body) => gatedTransaction(db, body);
-const write = async (who, body) =>
-	withPeopleWrite(db, await tx((t) => RequestActor.resolve(t, actors[who].session)), body);
+] as const;
+type Who = 0 | 1 | 2;
+type Person = Awaited<ReturnType<typeof person>>;
+const inHousehold = (result: Extract<Awaited<ReturnType<typeof fields.getHousehold>>, { status: "ok" }>["value"]) =>
+	withStatus(result, "available");
+const ctx = () => ({ session: actors[0].session, selected: church(database.tenant.id) });
+const tx = <T,>(body: (t: WriteTx) => Promise<T>) => gatedTransaction(db, body);
+const write = async <T,>(who: Who, body: (t: WriteTx, c: WriteContext) => Promise<Reply<T>>) =>
+	withPeopleWrite(db, await tx((t) => authorityOf(t, actors[who])), body);
 const key = () => randomUUID();
-const rows = async (query) => (await admin.execute(query)).rows;
-const revisionOf = async (id) => (await rows(sql`SELECT revision::text r FROM person WHERE id=${sql.param(id)}`))[0].r;
+const rows = async <T extends Row>(query: SQL) => (await admin.execute<T>(query)).rows;
+const revisionOf = async (id: string) =>
+	(await rows<{ r: string }>(sql`SELECT revision::text r FROM person WHERE id=${sql.param(id)}`))[0]!.r;
 const yearsAgo = (years: number) => `${new Date().getUTCFullYear() - years}-01-15`;
 
 after(async () => {
 	await database.close();
 });
 
-async function person(name: string, fields: Record<string, unknown> = {}, who = 0) {
+async function person(name: string, fields: Record<string, unknown> = {}, who: Who = 0) {
 	return ok(
 		await write(who, async (t, c) =>
 			people.createPerson(t, c, { requestKey: key(), input: { displayName: name, ...fields } }),
 		),
 	).person;
 }
-async function home(head, ...members: [any, string][]) {
+async function home(head: Person, ...members: [Person, string][]) {
 	const created = ok(
 		await write(0, async (t, c) =>
 			fields.createHouseholdWithHead(t, c, {
@@ -52,19 +58,20 @@ async function home(head, ...members: [any, string][]) {
 			}),
 		),
 	).result;
+	const { household } = inHousehold(created);
 	for (const [p, role] of members)
 		ok(
 			await write(0, async (t, c) =>
 				fields.addToHousehold(t, c, {
 					requestKey: key(),
 					expectedRevision: await revisionOf(p.id),
-					input: { householdId: created.household.id, personId: p.id, role },
+					input: { householdId: household.id, personId: p.id, role },
 				}),
 			),
 		);
-	return created.household;
+	return household;
 }
-const contact = async (child, guardian, on = true, who = 0) =>
+const contact = async (child: Person, guardian: Person, on = true, who: Who = 0) =>
 	write(who, async (t, c) =>
 		fields.setGuardianContact(t, c, {
 			requestKey: key(),
@@ -72,16 +79,21 @@ const contact = async (child, guardian, on = true, who = 0) =>
 			input: { personId: child.id, guardianPersonId: guardian.id, contact: on },
 		}),
 	);
-const card = async (child) => ok(await tx((t) => fields.getHousehold(t, ctx(), { personId: child.id })));
-const shownContacts = (result, child) =>
-	result.guardians
+const card = async (child: Person) =>
+	inHousehold(ok(await tx((t) => fields.getHousehold(t, ctx(), { personId: child.id }))));
+const shownContacts = (result: Parameters<typeof inHousehold>[0], child: Person) => {
+	const { guardians, members } = inHousehold(result);
+	return guardians
 		.filter((link) => link.childPersonId === child.id)
-		.map((link) => result.members.find((m) => m.personId === link.guardianPersonId)?.displayName)
+		.map((link) => members.find((m) => m.personId === link.guardianPersonId)?.displayName)
 		.sort();
-const stored = (child) =>
+};
+const stored = (child: Person) =>
 	rows(sql`SELECT count(*)::int n FROM guardian_contact WHERE child_person_id=${sql.param(child.id)}`);
-const history = async (child) =>
-	ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId: child.id }))).items.filter((i) => i.guardian);
+const history = async (child: Person) =>
+	ok(await tx((t) => reads.getActivities(t, ctx(), { personId: child.id })))
+		.items.filter(isActivity)
+		.filter((i) => i.guardian);
 
 test("AC:CASE-PPL-009-GUARDIAN staff mark an adult in a child's household as the child's parent or guardian contact, and the change is in the child's history", async () => {
 	const maria = await person("Maria Lopez", { adultClassification: "adult" });
@@ -134,7 +146,7 @@ test("AC:CASE-PPL-009-GUARDIAN a second adult can be added, and either contact c
 	assert.deepEqual(shownContacts(removed.result, kai), ["Eve Park"]);
 	assert.deepEqual(shownContacts(await card(kai), kai), ["Eve Park"]);
 	assert.deepEqual(
-		(await history(kai)).map((i) => [i.guardian.change, i.guardian.displayName]),
+		(await history(kai)).map((i) => [i.guardian?.change, i.guardian?.displayName]),
 		[
 			["removed", "Dan Park"],
 			["added", "Eve Park"],
@@ -191,7 +203,7 @@ test("AC:CASE-PPL-009-GUARDIAN when the adult or the child leaves the household,
 	ok(await contact(cy, ann));
 	ok(await contact(cy, bo));
 	ok(await contact(di, ann));
-	const leave = async (p) =>
+	const leave = async (p: Person) =>
 		ok(
 			await write(0, async (t, c) =>
 				fields.removeFromHousehold(t, c, {

@@ -25,7 +25,7 @@ const EASE = "cubic-bezier(.65,0,.35,1)";
 
 export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos }: Props) {
 	const reduced = useReduced();
-	const items = useRef<(HTMLSpanElement | null)[]>([]);
+	const items = useRef<HTMLSpanElement>(null);
 	const dot = useRef<HTMLSpanElement>(null);
 	const [k, setK] = useState(0);
 	const [paused, setPaused] = useState(false);
@@ -38,7 +38,8 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos 
 			joinRefs<HTMLDivElement>(
 				observeSize(
 					() => {
-						const ws = items.current.map((e) => e?.offsetWidth ?? 0);
+						if (!items.current) return;
+						const ws = [...items.current.querySelectorAll("span")].map((e) => e.offsetWidth);
 						const next = {
 							items: ws,
 							max: Math.max(...ws),
@@ -94,15 +95,13 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos 
 								<span className="block [transform:translateX(var(--cut,0px))]" style={{ transition: t }}>
 									<span className="absolute top-0 left-0 -z-1 h-[1.14em] w-full bg-mk-mint" />
 									<span
+										ref={items}
 										className="flex flex-col items-start [transform:translateY(calc(var(--k)*-1.14em))]"
 										style={{ "--k": k, transition: t } as CSSProperties}
 									>
 										{phrases.map((p, i) => (
 											<span
 												key={p}
-												ref={(el) => {
-													items.current[i] = el;
-												}}
 												className="block h-[1.14em] w-max flex-none px-[.12em] leading-[1.14em] whitespace-nowrap [transform:translateX(calc((var(--wk,0px)-var(--wi,0px))/2))]"
 												style={{ "--wi": w ? w.items[i] + "px" : undefined, transition: t } as CSSProperties}
 											>

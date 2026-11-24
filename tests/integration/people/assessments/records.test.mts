@@ -1,12 +1,21 @@
 import { fixture, ok, refused, waitingOnLock } from "../../../support/fixture.mts";
-import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
-import { S3Client } from "../../../../packages/db/node_modules/@aws-sdk/client-s3/dist-cjs/index.js";
+import { sql, type SQL } from "../../../../packages/db/src/query.ts";
+import {
+	authorityOf,
+	church,
+	isActivity,
+	noReminders,
+	reads,
+	StubClient,
+	type Reply,
+	type Row,
+} from "../people-support.mts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
-import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
-import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
+import { RequestActor, type WriteTx } from "../../../../packages/domain/src/access/session.ts";
+import { PeopleReadContext, type Context } from "../../../../packages/domain/src/people/core.ts";
 import {
 	commitmentInputs,
 	commitmentInputsJson,
@@ -23,7 +32,6 @@ import {
 	getCommitmentDownload,
 	interviews,
 	peopleMerge,
-	peopleReader,
 	peopleUnmerge,
 	peopleWriter as people,
 	recordCorrections,
@@ -32,41 +40,48 @@ import {
 } from "../../../../packages/domain/src/people/index.ts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
-const noReminders = async () => {
-	throw Error("unexpected task reminder replan");
-};
-
 const database = await fixture({ prefix: "wp014" });
 const { admin, schema } = database;
 const db = database.pools.runtime;
-const day = (n) => new Date(Date.parse(today + "T12:00:00Z") - n * 86_400_000).toISOString().slice(0, 10);
+const day = (n: number) => new Date(Date.parse(today + "T12:00:00Z") - n * 86_400_000).toISOString().slice(0, 10);
 
-const plants = [database.tenant.id, (await database.plant()).id],
+const plants = [database.tenant.id, (await database.plant()).id] as const,
 	actors = [
 		database.actors.owner,
 		database.actors.member,
 		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
 		database.actors.admin,
-	];
+	] as const;
 const today = (
 	await database.admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text d`)
-).rows[0].d;
-const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
-const tx = (body) => gatedTransaction(db, body);
+).rows[0]!.d;
+type Who = 0 | 1 | 2 | 3;
+const ctx = (who: Who = 0) => ({ session: actors[who].session, selected: church(plants[who === 2 ? 1 : 0]) });
+const tx = <T,>(body: (t: WriteTx) => Promise<T>) => gatedTransaction(db, body);
 const key = () => randomUUID();
-const rows = async (query) => (await admin.execute(query)).rows;
-const count = async (table, personId) =>
-	(await rows(sql`SELECT count(*)::int n FROM ${sql.identifier(table)} WHERE person_id=${sql.param(personId)}`))[0].n;
-const revisionOf = async (id) => (await rows(sql`SELECT revision::text r FROM person WHERE id=${sql.param(id)}`))[0].r;
-const stageOf = async (id) => (await rows(sql`SELECT stage FROM person WHERE id=${sql.param(id)}`))[0].stage;
-const feed = async (personId) =>
-	ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId }))).items.filter((a) => a.recordId);
-const audits = (personId) =>
-	rows(
+const rows = async <T extends Row>(query: SQL) => (await admin.execute<T>(query)).rows;
+const count = async (table: string, personId: string) =>
+	(await rows(sql`SELECT count(*)::int n FROM ${sql.identifier(table)} WHERE person_id=${sql.param(personId)}`))[0]!.n;
+const revisionOf = async (id: string) =>
+	(await rows(sql`SELECT revision::text r FROM person WHERE id=${sql.param(id)}`))[0]!.r;
+const stageOf = async (id: string) => (await rows(sql`SELECT stage FROM person WHERE id=${sql.param(id)}`))[0]!.stage;
+const feed = async (personId: string) =>
+	ok(await tx((t) => reads.getActivities(t, ctx(), { personId })))
+		.items.filter(isActivity)
+		.filter((a) => a.recordId);
+type Audit = {
+	action: string;
+	reason: string | null;
+	before_value: { commitment?: { occurredOn: string } } | null;
+	after_value: { commitment?: { occurredOn: string } } | null;
+	metadata: { event?: string } | null;
+};
+const audits = (personId: string) =>
+	rows<Audit>(
 		sql`SELECT * FROM audit_event WHERE subject_id=${sql.param(personId)} AND command_id=id ORDER BY occurred_at,id`,
 	);
 
-async function person(name, stage = "prospect") {
+async function person(name: string, stage = "prospect") {
 	return ok(
 		await tx((t) =>
 			people.createPerson(t, ctx(), {
@@ -76,8 +91,8 @@ async function person(name, stage = "prospect") {
 		),
 	).person;
 }
-async function retire(id) {
-	const review = ok(await tx((t) => peopleReader.getStatusWarnings(t, ctx(), { personId: id }))).reviewRevision;
+async function retire(id: string) {
+	const review = ok(await tx((t) => reads.getStatusWarnings(t, ctx(), { personId: id }))).reviewRevision;
 	ok(
 		await tx(async (t) =>
 			people.retirePerson(
@@ -93,8 +108,8 @@ async function retire(id) {
 		),
 	);
 }
-const lens = (score, notes = null) => ({ score, notes });
-const assess = (personId, occurredOn, score = 3, who = 0, requestKey = key()) =>
+const lens = (score: number, notes: string | null = null) => ({ score, notes });
+const assess = (personId: string, occurredOn: string, score = 3, who: Who = 0, requestKey: string = key()) =>
 	tx((t) =>
 		assessments.createAssessment(t, ctx(who), {
 			requestKey,
@@ -115,7 +130,7 @@ const criteria = (rating = "pass") => ({
 	rightReasons: { rating },
 	season: { rating },
 });
-const interview = (personId, result, occurredOn = day(3), requestKey = key()) =>
+const interview = (personId: string, result: string, occurredOn = day(3), requestKey: string = key()) =>
 	tx((t) =>
 		interviews.createInterview(t, ctx(), {
 			requestKey,
@@ -129,8 +144,7 @@ after(async () => {
 
 test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-RETIRE BUG-PR249 Four Cs: server total, chronological latest, no stage change, advisory warning, Owner/Admin only", async () => {
 	const alex = await person("Alex Rivera");
-	const warnings = async () =>
-		ok(await tx((t) => peopleReader.getStatusWarnings(t, ctx(), { personId: alex.id }))).warnings;
+	const warnings = async () => ok(await tx((t) => reads.getStatusWarnings(t, ctx(), { personId: alex.id }))).warnings;
 	assert.ok((await warnings()).includes("assessment_not_recorded"));
 
 	const first = ok(await assess(alex.id, day(3), 1));
@@ -155,7 +169,7 @@ test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 AC:PERSONREF-ASSESSMENT-IN
 	assert.equal(await count("four_cs", alex.id), 2);
 	const history = ok(await tx((t) => assessments.getAssessments(t, ctx(3), { personId: alex.id })));
 	assert.deepEqual(
-		[history.latest.id, history.items.map((a) => [a.occurredOn, a.total]), history.total],
+		[history.latest?.id, history.items.map((a) => [a.occurredOn, a.total]), history.total],
 		[
 			first.assessment.id,
 			[
@@ -165,8 +179,8 @@ test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 AC:PERSONREF-ASSESSMENT-IN
 			2,
 		],
 	);
-	assert.deepEqual(history.items[1].actor, { kind: "current_account", accountId: actors[3].id });
-	assert.equal(history.items[0].committed.notes, "Private lens note");
+	assert.deepEqual(history.items[1]!.actor, { kind: "current_account", accountId: actors[3].id });
+	assert.equal(history.items[0]!.committed.notes, "Private lens note");
 	assert.equal(await stageOf(alex.id), "prospect");
 	assert.ok(!(await warnings()).includes("assessment_not_recorded"));
 
@@ -205,7 +219,7 @@ test("AC:GAP-PPL-013 AC:TARGET-PPL-013 AC:GAP-PPL-006 interviews: any result adv
 			[kept.person.stage, kept.person.stageChange, await stageOf(leader.id)],
 			["leader", null, "leader"],
 		);
-		assert.equal((await rows(sql`SELECT count(*)::int n FROM task WHERE person_id=${sql.param(early.id)}`))[0].n, 0);
+		assert.equal((await rows(sql`SELECT count(*)::int n FROM task WHERE person_id=${sql.param(early.id)}`))[0]!.n, 0);
 		assert.deepEqual(
 			(await feed(early.id)).map((a) => [a.action, a.stage]),
 			[["interview_recorded", { from: "prospect", to: "interviewed" }]],
@@ -216,7 +230,7 @@ test("AC:GAP-PPL-013 AC:TARGET-PPL-013 AC:GAP-PPL-006 interviews: any result adv
 	const older = ok(await interview(alex.id, "qualified", day(30))).interview;
 	const read = ok(await tx((t) => interviews.getInterviews(t, ctx(), { personId: alex.id })));
 	assert.deepEqual(
-		[read.latest.id, read.items.map((i) => i.id), read.items[0].maturity],
+		[read.latest?.id, read.items.map((i) => i.id), read.items[0]!.maturity],
 		[current.id, [current.id, older.id], { rating: "pass", notes: "Private criterion note" }],
 	);
 	refused(await tx((t) => interviews.getInterviews(t, ctx(1), { personId: alex.id })));
@@ -227,22 +241,17 @@ const png = Buffer.from(
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
 	"base64",
 );
+type Stored = { bytes: Uint8Array; type: string | undefined };
 function privateStorage() {
-	const uploads = new Map();
-	const reads = { during: null, count: 0 };
-	const signer = new S3Client({
-		region: "auto",
-		endpoint: "https://storage.example.test",
-		credentials: { accessKeyId: "synthetic", secretAccessKey: "synthetic" },
-	});
-	signer.send = async (command) => {
-		const i = command.input;
-		switch (command.constructor.name) {
+	const uploads = new Map<string, Stored>();
+	const reads: { during: (() => Promise<void>) | null; count: number } = { during: null, count: 0 };
+	const client = new StubClient(async (operation, i) => {
+		switch (operation) {
 			case "GetBucketAclCommand":
 				return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
 			case "GetObjectCommand": {
 				reads.count++;
-				const found = uploads.get(i.Key);
+				const found = uploads.get(i.Key!);
 				if (!found) throw Object.assign(Error("NoSuchKey"), { name: "NoSuchKey" });
 				await reads.during?.();
 				return {
@@ -254,10 +263,10 @@ function privateStorage() {
 			default:
 				throw Error("unexpected provider operation");
 		}
-	};
-	return { bucket: "synthetic-only", client: signer, uploads, reads };
+	});
+	return { bucket: "synthetic-only", client, uploads, reads };
 }
-const authorityOf = (who) => gatedTransaction(db, (t) => RequestActor.resolve(t, actors[who].session));
+const actorOf = (who: Who) => gatedTransaction(db, (t) => authorityOf(t, actors[who]));
 
 test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: card and Core Group together; dated withdrawal and reactivation keep stage and first acquisition; corrections with history", async () => {
 	const alex = await person("Alex Rivera"),
@@ -265,14 +274,14 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 		foreign = ok(
 			await tx((t) => people.createPerson(t, ctx(2), { requestKey: key(), input: { displayName: "Foreign Alex" } })),
 		).person;
-	const card = (input, requestKey = key(), personId = alex.id) =>
+	const card = (input: object, requestKey: string = key(), personId = alex.id) =>
 		tx((t) =>
 			commitments.createCommitment(t, ctx(), {
 				requestKey,
 				input: { personId, kind: "core_group", ...input },
 			}),
 		);
-	const correct = (commitmentId, expectedRevision, correction, reason = "Wrong date entered") =>
+	const correct = (commitmentId: string, expectedRevision: string, correction: object, reason = "Wrong date entered") =>
 		tx((t) =>
 			commitments.correctCommitmentLifecycle(t, ctx(), {
 				requestKey: key(),
@@ -319,7 +328,7 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 		[casey.id]: "Casey Morgan",
 	});
 
-	const withdraw = (expectedRevision, effectiveOn = day(2), personId = alex.id) =>
+	const withdraw = (expectedRevision: string, effectiveOn = day(2), personId = alex.id) =>
 		tx((t) =>
 			commitments.withdrawCommitment(t, ctx(), {
 				requestKey: key(),
@@ -327,7 +336,7 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 				input: { personId, effectiveOn, reason: "Person withdrew" },
 			}),
 		);
-	const auditCount = async () => (await rows(sql`SELECT count(*)::int n FROM audit_event`))[0].n;
+	const auditCount = async () => (await rows(sql`SELECT count(*)::int n FROM audit_event`))[0]!.n;
 	const beforeStale = await auditCount();
 	refused(await withdraw(alex.revision), "conflict");
 	assert.equal(await auditCount(), beforeStale);
@@ -356,6 +365,7 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 		),
 	);
 	const after = await commitmentsOf();
+	assert.ok(after.firstAcquisition.status === "known");
 	assert.deepEqual(
 		[
 			reactivated.current.state,
@@ -389,10 +399,10 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 	const correction = (await audits(alex.id)).at(-1);
 	assert.deepEqual(
 		[
-			correction.action,
-			correction.reason,
-			correction.before_value.commitment.occurredOn,
-			correction.after_value.commitment.occurredOn,
+			correction?.action,
+			correction?.reason,
+			correction?.before_value?.commitment?.occurredOn,
+			correction?.after_value?.commitment?.occurredOn,
 		],
 		["people.corrected", "Wrong date entered", day(9), day(3)],
 	);
@@ -408,7 +418,7 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 		[old.commitment.id],
 	);
 	for (const id of [old.commitment.id, saved.commitment.id]) {
-		const k = (await commitmentsOf()).items.find((i) => i.id === id);
+		const k = (await commitmentsOf()).items.find((i) => i.id === id)!;
 		ok(await correct(id, k.revision, { action: "void" }, "Never signed"));
 	}
 	assert.deepEqual(ok(await card({ occurredOn: day(9), kind: "launch_team" }, oldKey)), old);
@@ -482,17 +492,18 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 		foreign = ok(
 			await tx((t) => people.createPerson(t, ctx(2), { requestKey: key(), input: { displayName: "Foreign Sam" } })),
 		).person;
-	const sign = (who, personId, bytes, mime) =>
+	const sign = (who: Who, personId: string, bytes: Uint8Array, mime: string) =>
 		signCommitmentDocument(db, storage, ctx(who), actors[who].id, { personId, mime, byteLength: bytes.length });
-	const keyOf = (uploadId) => `private/${plants[0]}/${uploadId}`;
-	const put = (signed, bytes) =>
+	const keyOf = (uploadId: string) => `private/${plants[0]}/${uploadId}`;
+	const put = (signed: { uploadId: string; headers: Record<string, string> }, bytes: Uint8Array) =>
 		storage.uploads.set(keyOf(signed.uploadId), { bytes, type: signed.headers["content-type"] });
-	const save = async (who, uploadId, input = {}, requestKey = key()) =>
-		saveCommitmentDocument(db, storage, await authorityOf(who), {
+	const save = async (who: Who, uploadId: string, input = {}, requestKey: string = key()) =>
+		saveCommitmentDocument(db, storage, await actorOf(who), {
 			requestKey,
 			input: { personId: sam.id, kind: "core_group", occurredOn: day(2), documentUploadId: uploadId, ...input },
 		});
-	const stateOf = async (id) => (await rows(sql`SELECT state FROM file_object WHERE id=${sql.param(id)}`))[0].state;
+	const stateOf = async (id: string) =>
+		(await rows(sql`SELECT state FROM file_object WHERE id=${sql.param(id)}`))[0]!.state;
 
 	const document = png;
 	refused(await sign(1, sam.id, document, "image/png"));
@@ -509,7 +520,7 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 	const url = new URL(signed.url);
 	assert.ok(url.pathname.endsWith("/" + keyOf(signed.uploadId)), url.pathname);
 	assert.equal(url.searchParams.get("X-Amz-Expires"), "300");
-	assert.deepEqual(url.searchParams.get("X-Amz-SignedHeaders").split(";"), [
+	assert.deepEqual(url.searchParams.get("X-Amz-SignedHeaders")?.split(";"), [
 		"cache-control",
 		"content-length",
 		"content-type",
@@ -530,7 +541,7 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 		storage.reads.during = null;
 		await admin.execute(sql`DELETE FROM auth_session WHERE id=${sql.param(actors[0].session)}`);
 	};
-	const owner = await authorityOf(0);
+	const owner = await actorOf(0);
 	storage.reads.during = signOut;
 	try {
 		refused(
@@ -550,8 +561,7 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 	refused(await save(0, signed.uploadId, { witness: { personId: foreign.id } }));
 	refused(await save(0, signed.uploadId, { witness: { personId: sam.id } }), "invalid_subject");
 	const future = await save(0, signed.uploadId, { occurredOn: day(-1) });
-	refused(future, "invalid_input");
-	assert.deepEqual(future.error.details, { reason: "future_date" });
+	assert.deepEqual(refused(future, "invalid_input").details, { reason: "future_date" });
 	assert.equal(storage.reads.count, before);
 	assert.deepEqual([await stateOf(signed.uploadId), await count("commitment", sam.id)], ["pending", 0]);
 	const reads = storage.reads.count;
@@ -561,7 +571,7 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 
 	const requestKey = key();
 	const input = { witness: { personId: witness.id }, notes: "Signed at the picnic" };
-	const auditsBefore = (await rows(sql`SELECT count(*)::int n FROM audit_event`))[0].n;
+	const auditsBefore = (await rows<{ n: number }>(sql`SELECT count(*)::int n FROM audit_event`))[0]!.n;
 	const saved = ok(await save(3, signed.uploadId, input, requestKey));
 	assert.deepEqual(
 		[
@@ -589,7 +599,7 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 			"changed",
 		],
 	);
-	assert.equal((await rows(sql`SELECT count(*)::int n FROM audit_event`))[0].n, auditsBefore + 1);
+	assert.equal((await rows(sql`SELECT count(*)::int n FROM audit_event`))[0]!.n, auditsBefore + 1);
 	assert.equal(await stateOf(signed.uploadId), "ready");
 	const history = ok(await tx((t) => commitments.getCommitments(t, ctx(), { personId: sam.id })));
 	assert.deepEqual(history.latest, saved.commitment);
@@ -607,7 +617,10 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 	const signedQuery = new URL(link.url).searchParams;
 	assert.equal(signedQuery.get("X-Amz-Expires"), "300");
 	const signedAt = Date.parse(
-		signedQuery.get("X-Amz-Date").replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/, "$1-$2-$3T$4:$5:$6Z"),
+		(signedQuery.get("X-Amz-Date") ?? "").replace(
+			/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/,
+			"$1-$2-$3T$4:$5:$6Z",
+		),
 	);
 	const ttl = Date.parse(link.expiresAt) - signedAt;
 	assert.equal(ttl >= 300_000 && ttl < 301_000, true, String(ttl));
@@ -621,30 +634,39 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 	const bad = ok(await sign(0, sam.id, fake, "application/pdf"));
 	put(bad, fake);
 	const unreadable = await save(0, bad.uploadId, { occurredOn: day(1) });
-	refused(unreadable, "invalid_input");
-	assert.deepEqual(unreadable.error.details, { reason: "unreadable_document" });
+	assert.deepEqual(refused(unreadable, "invalid_input").details, { reason: "unreadable_document" });
 	assert.deepEqual([await stateOf(bad.uploadId), await count("commitment", sam.id)], ["pending", 1]);
 
-	const unattached = async (id) =>
-		(await rows(sql`SELECT file_is_referenced(${sql.param(id)}::uuid) AS r`))[0].r === false;
-	const later = [];
+	const unattached = async (id: string) =>
+		(await rows(sql`SELECT file_is_referenced(${sql.param(id)}::uuid) AS r`))[0]!.r === false;
+	const later: string[] = [];
 	for (let n = 0; n < 2; n++) {
 		const next = ok(await sign(0, sam.id, png, "image/png"));
 		put(next, png);
 		later.push(next.uploadId);
 	}
-	assert.deepEqual([await unattached(later[0]), await unattached(signed.uploadId)], [true, false]);
+	assert.deepEqual([await unattached(later[0]!), await unattached(signed.uploadId)], [true, false]);
 	for (const uploadId of later)
 		assert.deepEqual(ok(await save(0, uploadId, { occurredOn: day(1) })).commitment.document, {
 			status: "attached",
 			mediaType: "image/png",
 			byteCount: png.length,
 		});
-	assert.equal(await unattached(later[1]), false);
+	assert.equal(await unattached(later[1]!), false);
 });
 
+type Letter = "a" | "b" | "c";
+type Step =
+	| ["card", Letter, number, string?]
+	| ["correct", string, number]
+	| ["void", string]
+	| ["withdraw" | "withdraw!" | "reactivate" | "stale", Letter, number]
+	| ["merge", Letter, Letter]
+	| ["unmerge" | "unmerge refused" | "legacy", Letter]
+	| ["merge backfill", number];
+
 test("INV-commitment (C100): after every command sequence the cached commitment equals the one function of the valid cards and dated changes", async () => {
-	const cases = [
+	const cases: { name: string; steps: Step[]; expect: Record<string, [string, number | null]> }[] = [
 		{
 			name: "late-recorded earlier card moves the start date",
 			steps: [
@@ -775,73 +797,85 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 			expect: { a: ["active", 20], b: ["withdrawn", 5] },
 		},
 	];
-	const merged = new Map(),
-		everyone = [],
-		edited = new Set();
+	const merged = new Map<string, string>(),
+		everyone: string[] = [],
+		edited = new Set<string>();
 	for (const { name, steps, expect } of cases) {
-		const people = {},
-			cards = {};
-		for (const letter of new Set(steps.flatMap((s) => s.slice(1).filter((x) => /^[abc]$/.test(x)))))
+		const people: Record<string, string> = {},
+			cards: Record<string, string> = {};
+		for (const letter of new Set(
+			steps.flatMap((s) =>
+				s
+					.slice(1)
+					.map(String)
+					.filter((x) => /^[abc]$/.test(x)),
+			),
+		))
 			everyone.push((people[letter] = (await person("Inv " + letter + " " + name.slice(0, 20))).id));
-		const current = async (personId) => ok(await tx((t) => commitments.getCommitments(t, ctx(), { personId }))).current;
-		const card = async (id) =>
-			(await rows(sql`SELECT revision::text r FROM commitment WHERE id=${sql.param(id)}`))[0].r;
-		for (const [op, a, b, c] of steps) {
-			const at = `${name}: ${op} ${a} ${b ?? ""}`;
-			if (op === "card") {
+		const current = async (personId: string) =>
+			ok(await tx((t) => commitments.getCommitments(t, ctx(), { personId }))).current;
+		const card = async (id: string) =>
+			(await rows<{ r: string }>(sql`SELECT revision::text r FROM commitment WHERE id=${sql.param(id)}`))[0]!.r;
+		for (const step of steps) {
+			const at = `${name}: ${step[0]} ${step[1]} ${step[2] ?? ""}`;
+			if (step[0] === "card") {
+				const [, a, b, c] = step;
 				const saved = ok(
 					await tx((t) =>
 						commitments.createCommitment(t, ctx(), {
 							requestKey: key(),
-							input: { personId: people[a], kind: "core_group", occurredOn: day(b) },
+							input: { personId: people[a]!, kind: "core_group", occurredOn: day(b) },
 						}),
 					),
 				);
 				if (c) cards[c] = saved.commitment.id;
-			} else if (op === "correct" || op === "void") {
-				const correction = op === "void" ? { action: "void" } : { action: "correct", occurredOn: day(b) };
+			} else if (step[0] === "correct" || step[0] === "void") {
+				const [op, a] = step;
+				const correction = step[0] === "void" ? { action: "void" } : { action: "correct", occurredOn: day(step[2]) };
 				ok(
 					await tx(async (t) =>
 						commitments.correctCommitmentLifecycle(t, ctx(), {
 							requestKey: key(),
-							expectedRevision: await card(cards[a]),
-							input: { commitmentId: cards[a], correction, reason: "Sequence " + op },
+							expectedRevision: await card(cards[a]!),
+							input: { commitmentId: cards[a]!, correction, reason: "Sequence " + op },
 						}),
 					),
-					at,
 				);
-			} else if (op === "withdraw" || op === "withdraw!" || op === "reactivate") {
+			} else if (step[0] === "withdraw" || step[0] === "withdraw!" || step[0] === "reactivate") {
+				const [op, a, b] = step;
 				const change = op === "reactivate" ? commitments.reactivateCommitment : commitments.withdrawCommitment;
 				const result = await tx(async (t) =>
 					change(t, ctx(), {
 						requestKey: key(),
-						expectedRevision: (await current(people[a])).personRevision,
-						input: { personId: people[a], effectiveOn: day(b) },
+						expectedRevision: (await current(people[a]!)).personRevision,
+						input: { personId: people[a]!, effectiveOn: day(b) },
 					}),
 				);
 				if (op === "withdraw!") refused(result, "invalid_input");
-				else ok(result, at);
-			} else if (op === "merge") {
+				else ok(result);
+			} else if (step[0] === "merge") {
+				const [, a, b] = step;
 				const review = ok(
-					await tx((t) => peopleMerge.getMergeReview(t, ctx(), { sourceId: people[a], survivorId: people[b] })),
+					await tx((t) => peopleMerge.getMergeReview(t, ctx(), { sourceId: people[a]!, survivorId: people[b]! })),
 				);
 				const done = ok(
 					await tx((t) =>
 						peopleMerge.mergePeople(t, ctx(), {
 							requestKey: key(),
 							input: {
-								sourceId: people[a],
-								survivorId: people[b],
+								sourceId: people[a]!,
+								survivorId: people[b]!,
 								reviewDigest: review.reviewDigest,
 								fieldChoices: {},
 							},
 						}),
 					),
 				);
-				merged.set(people[b], done.mergeId);
-				edited.delete(people[b]);
-			} else if (op === "unmerge") {
-				const mergeId = merged.get(people[a]);
+				merged.set(people[b]!, done.mergeId);
+				edited.delete(people[b]!);
+			} else if (step[0] === "unmerge") {
+				const [, a] = step;
+				const mergeId = merged.get(people[a]!)!;
 				const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(), { mergeId })));
 				ok(
 					await tx((t) =>
@@ -852,28 +886,34 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 						}),
 					),
 				);
-			} else if (op === "stale") {
+			} else if (step[0] === "stale") {
+				const [, a, b] = step;
 				await admin.execute(sql`UPDATE person SET commitment_state='active',commitment_effective_on=${sql.param(day(b))}
- WHERE id=${sql.param(people[a])}`);
-				edited.add(people[a]);
+ WHERE id=${sql.param(people[a]!)}`);
+				edited.add(people[a]!);
 				continue;
-			} else if (op === "legacy") {
+			} else if (step[0] === "legacy") {
+				const [, a] = step;
 				await admin.execute(sql`UPDATE person_merge SET moved=moved-'commitment_change'
- WHERE id=${sql.param(merged.get(people[a]))}`);
+ WHERE id=${sql.param(merged.get(people[a]!))}`);
 				continue;
-			} else if (op === "merge backfill") {
+			} else if (step[0] === "merge backfill") {
+				const [, a] = step;
 				assert.deepEqual(await backfill(admin, [mergeReferencesBackfill(1)], schema), [
 					{ name: "merge_references_c100", changed: a },
 				]);
-			} else if (op === "unmerge refused") {
-				const mergeId = merged.get(people[a]);
+			} else if (step[0] === "unmerge refused") {
+				const [, a] = step;
+				const mergeId = merged.get(people[a]!)!;
 				const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(), { mergeId })));
 				assert.deepEqual(preview.conflicts, ["source_changed", "survivor_changed", "references_changed"], at);
 			}
-			if (op === "unmerge") edited.clear();
+			if (step[0] === "unmerge") edited.clear();
 			for (const personId of Object.values(people).filter((id) => !edited.has(id))) {
-				const [row] = await rows(sql`SELECT p.state,p.commitment_state,p.commitment_effective_on::text AS on,
- ${commitmentInputsJson(sql`p.id`, sql`p.plant_id`)} AS inputs FROM person p WHERE p.id=${sql.param(personId)}`);
+				const row = (
+					await rows(sql`SELECT p.state,p.commitment_state,p.commitment_effective_on::text AS on,
+ ${commitmentInputsJson(sql`p.id`, sql`p.plant_id`)} AS inputs FROM person p WHERE p.id=${sql.param(personId)}`)
+				)[0]!;
 				if (row.state !== "live") continue;
 				assert.deepEqual(
 					{ state: row.commitment_state, effectiveOn: row.on },
@@ -883,7 +923,7 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 			}
 		}
 		for (const [letter, [state, n]] of Object.entries(expect)) {
-			const { state: s, effectiveOn } = await current(people[letter]);
+			const { state: s, effectiveOn } = await current(people[letter]!);
 			assert.deepEqual([s, effectiveOn], [state, n === null ? null : day(n)], name);
 		}
 	}
@@ -925,17 +965,15 @@ test("INV-concurrency: a save that meets a held lock waits the established way a
 		}),
 	);
 	storage.uploads.set(`private/${plants[0]}/${signed.uploadId}`, { bytes: png, type: "image/png" });
-	let release;
-	const held = new Promise((r) => (release = r));
-	let locked;
-	const lockTaken = new Promise((r) => (locked = r));
+	const { promise: held, resolve: release } = Promise.withResolvers<void>();
+	const { promise: lockTaken, resolve: locked } = Promise.withResolvers<void>();
 	const other = admin.transaction(async (a) => {
 		await a.execute(sql`UPDATE person SET stage='launch_team',revision=revision+1 WHERE id=${sql.param(lee.id)}`);
 		locked();
 		await held;
 	});
 	await lockTaken;
-	const saving = saveCommitmentDocument(db, storage, await authorityOf(0), {
+	const saving = saveCommitmentDocument(db, storage, await actorOf(0), {
 		requestKey: key(),
 		input: { personId: lee.id, kind: "core_group", occurredOn: day(1), documentUploadId: signed.uploadId },
 	});
@@ -955,11 +993,9 @@ test("INV-concurrency: a save that meets a held lock waits the established way a
 		}),
 	);
 	storage.uploads.set(`private/${plants[0]}/${next.uploadId}`, { bytes: png, type: "image/png" });
-	const deleting3 = await authorityOf(3);
-	let commit;
-	const committed = new Promise((r) => (commit = r));
-	let started;
-	const deleting = new Promise((r) => (started = r));
+	const deleting3 = await actorOf(3);
+	const { promise: committed, resolve: commit } = Promise.withResolvers<void>();
+	const { promise: deleting, resolve: started } = Promise.withResolvers<void>();
 	const deletion = admin.transaction(async (a) => {
 		await a.execute(sql`SELECT id FROM account WHERE id=${sql.param(actors[3].id)} FOR UPDATE`);
 		await a.execute(sql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,request_revision,state,witness_checkpoint,
@@ -980,7 +1016,7 @@ test("INV-concurrency: a save that meets a held lock waits the established way a
 	assert.deepEqual(
 		[
 			await count("commitment", lee.id),
-			(await rows(sql`SELECT state FROM file_object WHERE id=${sql.param(next.uploadId)}`))[0].state,
+			(await rows(sql`SELECT state FROM file_object WHERE id=${sql.param(next.uploadId)}`))[0]!.state,
 		],
 		[1, "pending"],
 	);
@@ -993,12 +1029,13 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 	ok(await interview(p.id, "qualified"));
 	const actor = await gatedTransaction(db, (t) => RequestActor.resolve(t, actors[3].session));
 	assert.ok(actor instanceof RequestActor);
-	const reads = {
+	const reads: Record<string, (t: WriteTx, c: Context) => Promise<Reply<unknown>>> = {
 		getAssessments: (t, c) => assessments.getAssessments(t, c, { personId: p.id }),
 		getInterviews: (t, c) => interviews.getInterviews(t, c, { personId: p.id }),
 		getCommitments: (t, c) => commitments.getCommitments(t, c, { personId: p.id }),
 	};
-	const run = (read) => gatedTransaction(db, (t) => read(t, new PeopleReadContext(actor)));
+	const run = (read: (t: WriteTx, c: Context) => Promise<Reply<unknown>>) =>
+		gatedTransaction(db, (t) => read(t, new PeopleReadContext(actor)));
 	for (const read of Object.values(reads)) ok(await run(read));
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(actors[3].id)}`);
 	try {
@@ -1028,17 +1065,17 @@ test("INV-reads (C22, C32): assessment, interview and commitment reads hold no l
 			}),
 		),
 	);
-	const viewer = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, actors[0].session)));
-	const reads = (c) => [
+	const viewer = new PeopleReadContext(await tx((t) => authorityOf(t, actors[0])));
+	const reads = (c: Context): [string, (t: WriteTx) => Promise<Reply<unknown>>][] => [
 		["getAssessments", (t) => assessments.getAssessments(t, c, { personId: p.id })],
 		["getInterviews", (t) => interviews.getInterviews(t, c, { personId: p.id })],
 		["getCommitments", (t) => commitments.getCommitments(t, c, { personId: p.id })],
 	];
-	const waited = [];
+	const waited: string[] = [];
 	for (const [name, c] of [
 		["cached", viewer],
 		["plain", ctx()],
-	])
+	] as const)
 		for (const [op, run] of reads(c))
 			await tx(async (t) => {
 				ok(await run(t));
