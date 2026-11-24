@@ -922,14 +922,7 @@ const words = (value: string) => {
 const label = (table: Record<string, string>, value: unknown) =>
 	typeof value === "string" && value ? (table[value] ?? words(value)) : null;
 const phaseDay = (value: unknown) =>
-	typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
-		? new Date(`${value}T00:00:00Z`).toLocaleDateString("en-US", {
-				month: "short",
-				day: "numeric",
-				year: "numeric",
-				timeZone: "UTC",
-			})
-		: null;
+	typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? dayText(value) : null;
 const ENTRY: Record<string, string> = {
 	creation: "Started in",
 	initial_declaration: "Declared as",

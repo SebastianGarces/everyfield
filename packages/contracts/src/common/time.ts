@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { addDays } from "./day.ts";
 
 export const localDate = z.iso.date().brand<"LocalDate">();
 export const localDateTime = z
@@ -118,9 +119,7 @@ export function resolveCalendar(
 }
 export function addCivilDays(date: LocalDate, days: number): LocalDate {
 	if (!Number.isSafeInteger(days)) throw new RangeError("Civil days must be integral");
-	const value = new Date(`${date}T00:00:00Z`);
-	value.setUTCDate(value.getUTCDate() + days);
-	return localDate.parse(value.toISOString().slice(0, 10));
+	return localDate.parse(addDays(date, days));
 }
 export function localDayBounds(date: LocalDate, zone: TimeZone): { start: Instant; end: Instant } {
 	const midnight = (day: LocalDate) => {

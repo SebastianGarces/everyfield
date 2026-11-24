@@ -1,3 +1,4 @@
+import "../runs-in/react-server.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { statusMoves, untilText } from "../../../apps/web/src/features/meetings/model.ts";

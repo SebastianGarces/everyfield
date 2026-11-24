@@ -1380,6 +1380,9 @@
 				"everyfield/render-reads": "error",
 				"everyfield/no-read-actions": "error",
 				"everyfield/action-params-unknown": "error",
+				"everyfield/action-identity-params": "error",
+				"everyfield/action-proofs": "error",
+				"everyfield/token-authority": "error",
 				"everyfield/client-request-key": "error",
 				"everyfield/failure-not-empty": "error"
 			}
@@ -1543,6 +1546,12 @@
 			"files": ["src/server/flags.types.ts"],
 			"rules": {
 				"typescript/ban-ts-comment": "off"
+			}
+		},
+		{
+			"files": ["src/**"],
+			"rules": {
+				"everyfield/no-double-cast": "error"
 			}
 		}
 	]

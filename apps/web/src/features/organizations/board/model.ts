@@ -1,6 +1,7 @@
 import { counted } from "@everyfield/contracts/common";
 import type { Lost } from "@everyfield/contracts/common";
 import { STARTER_STAGES, type PipelineBoardQuery, type PipelineRefusal } from "@everyfield/contracts/organizations";
+import { MONTHS } from "../../../components/dates.ts";
 
 export const PIPELINE_PATH = "/organization/pipeline";
 
@@ -89,8 +90,8 @@ export function goalHeadline(goal: { leaderTarget: number; plantTarget: number; 
 	return aim ? `${aim} by ${goal.targetYear}` : `Goal for ${goal.targetYear}`;
 }
 
-const monthName = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" });
 export const monthLabel = (month: string) => {
-	const name = monthName.format(new Date(`${month}-01T00:00:00Z`));
+	const name = MONTHS[Number(month.slice(5, 7)) - 1];
+	if (!name) throw new RangeError(`Not a month: ${month}`);
 	return month.endsWith("-01") ? `${name} ${month.slice(0, 4)}` : name;
 };

@@ -26,6 +26,7 @@ const TESTS = [
 const context: Context = {
 	testFiles: TESTS,
 	now: NOW,
+	unitTests: { "tests/unit/people/picker.test.mts": "@everyfield/domain" },
 	packages: [
 		{
 			dir: "apps/web",
@@ -264,6 +265,22 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 			tests: {},
 			filters: ["...@everyfield/web"],
 		}),
+	);
+	await t.test(
+		"INV-ci-select: a tests/unit test no script names runs the checks of the package test-unit finds it for",
+		() =>
+			assertSelected(selectChecks(["tests/unit/people/picker.test.mts"], map, context), {
+				checks: {
+					lint: "package test outside its package: tests/unit/people/picker.test.mts",
+					typecheck: "package test outside its package: tests/unit/people/picker.test.mts",
+					"test:unit": "package test outside its package: tests/unit/people/picker.test.mts",
+					"test:db": "package test outside its package: tests/unit/people/picker.test.mts",
+					"feature-maps": "feature map input: tests/unit/people/picker.test.mts",
+					"ci-coverage": "package test outside its package: tests/unit/people/picker.test.mts",
+				},
+				tests: {},
+				filters: ["...@everyfield/domain"],
+			}),
 	);
 });
 

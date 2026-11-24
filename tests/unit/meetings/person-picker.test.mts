@@ -1,3 +1,4 @@
+import "../runs-in/render-development.mjs";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { mock, test } from "node:test";

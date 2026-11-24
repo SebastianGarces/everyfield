@@ -230,6 +230,7 @@ export type Package = { dir: string; name: string; scripts: Readonly<Record<stri
 export type Context = {
 	testFiles: readonly string[];
 	packages: readonly Package[];
+	unitTests: Readonly<Record<string, string>>;
 	now: Date;
 };
 
@@ -254,13 +255,15 @@ export function suiteOf(file: string): SuiteId | undefined {
 	}) as SuiteId | undefined;
 }
 
-function owners(path: string, packages: readonly Package[]): Package[] {
-	return packages.filter((pkg) =>
-		Object.values(pkg.scripts).some((command) =>
-			(command.match(/[^\s"']+/g) ?? []).some(
-				(token) => token.includes("/") && matchesGlob(path, posix.normalize(posix.join(pkg.dir, token))),
+function owners(path: string, context: Pick<Context, "packages" | "unitTests">): Package[] {
+	return context.packages.filter(
+		(pkg) =>
+			context.unitTests[path] === pkg.name ||
+			Object.values(pkg.scripts).some((command) =>
+				(command.match(/[^\s"']+/g) ?? []).some(
+					(token) => token.includes("/") && matchesGlob(path, posix.normalize(posix.join(pkg.dir, token))),
+				),
 			),
-		),
 	);
 }
 
@@ -335,7 +338,7 @@ export function selectChecks(
 			if (rule.packages) {
 				for (const id of PACKAGE_CHECKS) add(checkWhy, id, why);
 				const inside = context.packages.filter((pkg) => path.startsWith(pkg.dir + "/"));
-				const found = (inside.length ? inside : owners(path, context.packages)).map((pkg) => pkg.name);
+				const found = (inside.length ? inside : owners(path, context)).map((pkg) => pkg.name);
 				if (!found.length && rule.fallbackPackage) found.push(rule.fallbackPackage);
 				if (!found.length) full.push(`no package owns ${path}`);
 				for (const name of found) filters.add(`...${name}`);

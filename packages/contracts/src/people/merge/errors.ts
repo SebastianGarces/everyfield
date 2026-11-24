@@ -34,6 +34,7 @@ export const referenceKind = z.enum([
 	"training_assignment",
 	"training_credit",
 	"answer_review",
+	"guardian_contact",
 ]);
 export const referenceTreatment = z.enum(["move", "deduplicate", "keep"]);
 

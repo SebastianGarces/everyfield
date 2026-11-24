@@ -3429,6 +3429,72 @@ test("INV-lint: a server action parameter typed as a trusted shape is reported, 
 	);
 });
 
+test("INV-lint: a server action that takes who is asking from the caller is reported in any case, destructured or wrapped, its subject ids and non-action modules are not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function a(accountId: string) {}\nexport async function b(input: unknown, ACTOR: unknown) {}\nexport const c = async ({ workspace, note }: unknown) => note;\nexport async function d({ input: { sessionId } }: unknown) {}\nexport async function e(...session: unknown[]) {}\nconst wrap = <T>(f: T) => f;\nexport const f = wrap(async (Account: unknown) => Account);\nasync function g(workspaceId = "w") {}\nexport { g };\nexport async function h({ actorId: who }: unknown) {}\nexport async function fine(personId: string, { invitationId, accountName }: unknown, workspaces: unknown) {}\nasync function local(accountId: string) {}\n`,
+			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function inline(actor: unknown) {\n\t\t"use server";\n\t}\n\treturn inline;\n}\nexport const view = (session: unknown) => session;\n`,
+			"apps/web/src/features/x/server.ts": `import "server-only";\nexport async function save(accountId: string) {}\n`,
+		}).filter((hit) => hit.endsWith("action-identity-params")),
+		[
+			"apps/web/src/features/x/Card.tsx:2 action-identity-params",
+			"apps/web/src/features/x/actions.ts:11 action-identity-params",
+			"apps/web/src/features/x/actions.ts:2 action-identity-params",
+			"apps/web/src/features/x/actions.ts:3 action-identity-params",
+			"apps/web/src/features/x/actions.ts:4 action-identity-params",
+			"apps/web/src/features/x/actions.ts:5 action-identity-params",
+			"apps/web/src/features/x/actions.ts:6 action-identity-params",
+			"apps/web/src/features/x/actions.ts:8 action-identity-params",
+			"apps/web/src/features/x/actions.ts:9 action-identity-params",
+		],
+	);
+});
+
+test("INV-lint: a server action module that takes, parses or forwards a link proof is reported, a proof it reads from no input and non-action modules are not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\nimport { respondInvitationRequest } from "@everyfield/contracts/organizations";\nimport * as I from "@everyfield/contracts/identity";\nimport { inviteSeatRequest } from "@everyfield/contracts/identity";\nexport async function a(proof: string) {}\nexport async function b({ invitationProof }: unknown) {}\nexport async function c(raw: unknown) {\n\treturn I.verifyEmailRequest.safeParse(raw);\n}\nexport async function d(raw: { proof: string }, token: string) {\n\treturn save({ proof: token, other: raw.proof });\n}\nexport async function e(raw: unknown) {\n\treturn save({ proof: await readProof() });\n}\nexport async function f(raw: unknown) {\n\treturn inviteSeatRequest.parse(raw);\n}\nconst save = async (x: unknown) => x;\nconst readProof = async () => "cookie";\n`,
+			"apps/web/src/features/x/later.ts": `"use server";\nexport async function g(raw: unknown) {\n\tconst { respondSeatInvitationRequest: r } = await import("@everyfield/contracts/identity");\n\treturn r;\n}\nexport async function h() {\n\treturn (await import("@everyfield/contracts/organizations")).acceptInvitationRequest;\n}\n`,
+			"apps/web/src/features/x/handler.ts": `import { respondInvitationRequest } from "@everyfield/contracts/organizations";\nexport const route = (body: { proof: string }) => respondInvitationRequest.parse(body.proof);\n`,
+		}).filter((hit) => hit.endsWith("action-proofs")),
+		[
+			"apps/web/src/features/x/actions.ts:11 action-proofs",
+			"apps/web/src/features/x/actions.ts:11 action-proofs",
+			"apps/web/src/features/x/actions.ts:2 action-proofs",
+			"apps/web/src/features/x/actions.ts:5 action-proofs",
+			"apps/web/src/features/x/actions.ts:6 action-proofs",
+			"apps/web/src/features/x/actions.ts:8 action-proofs",
+			"apps/web/src/features/x/later.ts:3 action-proofs",
+			"apps/web/src/features/x/later.ts:7 action-proofs",
+			"apps/web/src/features/x/later.ts:7 action-proofs",
+		],
+	);
+});
+
+test("INV-lint: an unsubscribe module that imports the session, request headers or a viewer is reported in any import form, other modules are not", () => {
+	const reaching = `import { getViewer } from "@/server/request-context";\nimport { requestAuth } from "../../server/identity/index.ts";\nimport { cookies } from "next/headers";\nimport { getSessionCookie } from "better-auth/cookies";\nimport { viewerOf } from "./mount.ts";\nimport { readRequestViewer } from "@everyfield/domain/access";\nimport { plantSeat as p } from "@/server/elsewhere";\nexport { viewerActor } from "@/server/request-context.ts";\nexport const later = () => import("@/server/request-context");\nimport { unsubscribeCall } from "./unsubscribe.ts";\nimport { serverEnv } from "../../server/config.ts";\n`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/communication/mount.ts": "export const viewerOf = 1;\n",
+			"apps/web/src/server/request-context.ts": "export const getViewer = 1;\n",
+			"apps/web/src/server/identity/index.ts": "export const requestAuth = 1;\n",
+			"apps/web/src/server/config.ts": "export const serverEnv = 1;\n",
+			"apps/web/src/features/communication/unsubscribe.ts": "export const unsubscribeCall = 1;\n",
+			"apps/web/src/features/communication/unsubscribeActions.ts": reaching,
+			"apps/web/src/features/communication/unsubscribeRoute.tsx": `import "next/headers";\n`,
+			"apps/web/src/features/communication/unsubscribeOneClick.ts": `const r = require("@/server/request-context");\nexport { r };\n`,
+			"apps/web/src/features/communication/actions.ts": reaching,
+		}).filter((hit) => hit.endsWith("token-authority")),
+		[
+			...[1, 1, 2, 3, 4, 4, 5, 5, 6, 6, 7, 8, 9].map(
+				(line) => `apps/web/src/features/communication/unsubscribeActions.ts:${line} token-authority`,
+			),
+			"apps/web/src/features/communication/unsubscribeOneClick.ts:1 token-authority",
+			"apps/web/src/features/communication/unsubscribeRoute.tsx:1 token-authority",
+		].sort(),
+	);
+});
+
 test("INV-lint: a server action that mints its own request key is reported, a key from the client, other ids, previews and client modules are not", () => {
 	assert.deepEqual(
 		lint({
@@ -3623,7 +3689,7 @@ test("INV-lint: the count-text rule allows the counted and countWord module itse
 	);
 });
 
-test("INV-lint: a noon-UTC civil-day string is refused in app and package source, naming dayText, addDays and weekdayOf", () => {
+test("INV-lint: a noon-UTC civil-day string is refused in app and package source, naming dayText, daysBetween, addDays and weekdayOf", () => {
 	const source = `export const a = (d: string) => new Date(\`\${d}T12:00:00Z\`);
 export const b = (d: string) => Date.parse(d + "T12:00:00Z");
 export const c = (x: string, day: (v: string) => string) => day(x + "T12:00:00Z");
@@ -3643,18 +3709,37 @@ export const h = "T12:00:00";
 			[1, 2, 3, 4].map((line) => `${file}:${line}`),
 		),
 	);
-	assert.match(hits[0], /dayText.*addDays.*weekdayOf.*@everyfield\/contracts\/common/);
+	assert.match(hits[0], /dayText.*daysBetween.*addDays.*weekdayOf.*@everyfield\/contracts\/common/);
+});
+
+test("INV-lint: a midnight-UTC civil-day string is refused too, while a local wall-clock midnight passes", () => {
+	const source = `export const a = (d: string) => new Date(\`\${d}T00:00:00Z\`);
+export const b = (d: string) => Date.parse(d + "T00:00:00Z");
+export const c = "T00:00:00.000Z";
+export const e = (d: string) => \`\${d}T00:00:00\`;
+export const f = (d: string) => new Date(\`\${d}T00:30:00Z\`);
+`;
+	const hits = lint({ "apps/web/src/features/x/day.ts": source, "packages/domain/src/x/day.ts": source }).filter(
+		(hit) => hit.endsWith(" civil-day"),
+	);
+	assert.deepEqual(
+		hits,
+		["apps/web/src/features/x/day.ts", "packages/domain/src/x/day.ts"].flatMap((file) =>
+			[1, 2, 3].map((line) => `${file}:${line} civil-day`),
+		),
+	);
 });
 
 test("INV-lint: the civil-day rule allows the day module itself", () => {
 	const helper = `const noon = (d: string) => new Date(\`\${d}T12:00:00Z\`);
+const midnight = (d: string) => Date.parse(d + "T00:00:00Z");
 `;
 	assert.deepEqual(
 		lint({
 			"packages/contracts/src/common/day.ts": helper,
 			"packages/contracts/src/common/other.ts": helper,
 		}).filter((hit) => hit.endsWith(" civil-day")),
-		["packages/contracts/src/common/other.ts:1 civil-day"],
+		["packages/contracts/src/common/other.ts:1 civil-day", "packages/contracts/src/common/other.ts:2 civil-day"],
 	);
 });
 
@@ -3685,4 +3770,32 @@ test("INV-lint: package source writes no count text by hand, apart from the ui p
 		.diagnostics.filter((d) => d.code === "everyfield(count-text)")
 		.map((d) => relative(repo, resolve(repo, d.filename)));
 	assert.deepEqual([...new Set(files)], ["packages/ui/src/display/Pipeline.tsx"]);
+});
+
+test("INV-lint: a cast through unknown is refused in app and package source and allowed in tests, a single cast or satisfies is not", () => {
+	const source = `type X = { id: string };
+export const a = () => window as unknown as Record<symbol, X>;
+export const b = (r: object) => (r as unknown as { id: string }).id;
+export const c = <T,>(x: number) => <T>(<unknown>x);
+export const d = (x: object) => x as X;
+export const e = (x: number) => x as unknown;
+export const f = { id: "a" } satisfies X;
+`;
+	const files = [
+		"apps/web/src/components/x.ts",
+		"packages/domain/src/x/cast.ts",
+		"apps/web/src/components/x.test.ts",
+		"packages/domain/src/test/cast.ts",
+		"packages/evry/src/tests/cast.ts",
+	];
+	const hits = lint(Object.fromEntries(files.map((file) => [file, source])), undefined, true).filter((hit) =>
+		hit.includes(" no-double-cast "),
+	);
+	assert.deepEqual(
+		hits.map((hit) => hit.split(" ")[0]),
+		["apps/web/src/components/x.ts", "packages/domain/src/x/cast.ts"].flatMap((file) =>
+			[2, 3, 4].map((line) => `${file}:${line}`),
+		),
+	);
+	assert.match(hits[0], /Type the value at its source, or narrow it with a check/);
 });

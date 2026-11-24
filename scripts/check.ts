@@ -27,6 +27,7 @@ import {
 	suiteOf,
 } from "../tools/ci/select.ts";
 import { sweepCommand } from "../tools/qa/containers.ts";
+import { unitPackages } from "../tools/ci/test-unit.ts";
 import {
 	DatabaseError,
 	databaseEnv,
@@ -226,7 +227,7 @@ export function check({
 	if (!relative(root, resolve(home)).startsWith("..")) throw new Error(`The CI home ${home} must be outside ${root}.`);
 	const started = Date.now();
 	const input = gather(root, home, full, gh);
-	const context = { testFiles: input.testFiles, packages: input.packages, now };
+	const context = { testFiles: input.testFiles, packages: input.packages, unitTests: unitPackages(root), now };
 	const selection = full
 		? everything(["verifier run (--full) ignores selection"], context)
 		: selectChecks(input.changed, input.map, context);

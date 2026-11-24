@@ -4,7 +4,7 @@ The approved target has 99 active single-owner packages. WP-086 is retired into 
 
 Start with a [short package brief](context.md). Read detailed requirements and cases on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 233 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 89 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 234 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 90 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
@@ -51,7 +51,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-008 | Invitation lifecycle and atomic acceptance | 7 | 13 | 42 | 5 | 2 |
 | WP-009 | Onboarding and discovery conversion | 7 | 8 | 23 | 5 | 2 |
 | WP-010 | Account and settings surfaces | 20 | 21 | 39 | 7 | 2.5 |
-| WP-012 | Households tags skills and person fields | 8 | 21 | 10 | 4 | 2 |
+| WP-012 | Households tags skills and person fields | 8 | 22 | 11 | 5 | 2 |
 | WP-013 | People CSV import/export | 2 | 5 | 3 | 4 | 1.5 |
 | WP-014 | Assessments interviews commitments | 8 | 10 | 13 | 7 | 2 |
 | WP-015 | Corrections duplicate resolution and merge | 9 | 12 | 36 | 4 | 2 |
@@ -67,7 +67,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-038 | Phase initial declaration and transitions | 32 | 7 | 23 | 2 | 2.5 |
 | WP-026 | Phase task templates and prompts | 5 | 7 | 5 | 3 | 1.5 |
 | WP-027 | Communication composition/templates | 14 | 17 | 5 | 3 | 2 |
-| WP-028 | Shared email delivery and webhook reconciliation | 21 | 22 | 27 | 8 | 2.5 |
+| WP-028 | Shared email delivery and webhook reconciliation | 21 | 22 | 28 | 8 | 2.5 |
 | WP-029 | Communication history and resend | 19 | 9 | 18 | 0 | 2 |
 | WP-030 | Notification feed/preferences | 19 | 19 | 25 | 4 | 2.5 |
 | WP-033 | Approve and version available global Wiki snapshot | 4 | 4 | 10 | 8 | 1.5 |
@@ -125,11 +125,11 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 2.5 |
 | WP-101 | Pipeline and development Evry adapters | 1 | 16 | 1 | 0 | 3 |
 | WP-102 | Multiplication privacy, race and parity integration | 17 | 0 | 17 | 1 | 4.5 |
-| WP-056 | Complete cross-feature privacy, concurrency and correction behavior | 0 | 0 | 1172 | 0 | 14.5 |
+| WP-056 | Complete cross-feature privacy, concurrency and correction behavior | 0 | 0 | 1174 | 0 | 15 |
 | WP-094 | Core browser, file and native/Evry feature parity | 4 | 0 | 6 | 0 | 1.5 |
 | WP-095 | Knowledge browser, file and native/Evry feature parity | 7 | 0 | 8 | 0 | 1.5 |
 | WP-096 | Intelligence browser, file and native/Evry feature parity | 3 | 0 | 18 | 0 | 1.5 |
-| WP-057 | Complete browser, file and native/Evry feature parity | 0 | 0 | 1172 | 4 | 14.5 |
+| WP-057 | Complete browser, file and native/Evry feature parity | 0 | 0 | 1174 | 4 | 15 |
 | WP-058 | Fresh bootstrap and release rehearsal | 12 | 0 | 29 | 0 | 1.5 |
 | WP-103 | Everyfield brand spelling in app copy | 0 | 0 | 0 | 0 | 0.5 |
 | WP-104 | Church brand kit | 7 | 6 | 9 | 1 | 1.5 |

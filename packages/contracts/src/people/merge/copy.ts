@@ -37,6 +37,7 @@ const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
 	training_assignment: ["training assignment", "training assignments"],
 	training_credit: ["training credit", "training credits"],
 	answer_review: ["answer send for review", "answer sends for review"],
+	guardian_contact: ["parent or guardian contact", "parent or guardian contacts"],
 };
 export const counted = (kind: ReferenceKind, count: number) => `${count} ${KIND_LABEL[kind][count === 1 ? 0 : 1]}`;
 export const kindTitle = (kind: ReferenceKind) => KIND_LABEL[kind][1].replace(/^./, (c) => c.toUpperCase());

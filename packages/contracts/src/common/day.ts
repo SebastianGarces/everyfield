@@ -2,6 +2,7 @@ export type DayTextOptions = {
 	year?: "never" | number;
 	weekday?: "short" | "long";
 	month?: "short" | "long";
+	locale?: "viewer";
 };
 
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -15,11 +16,12 @@ function noon(day: string): Date {
 }
 
 const formats = new Map<string, Intl.DateTimeFormat>();
-function format(weekday: DayTextOptions["weekday"], month: "short" | "long", year: boolean) {
-	const key = `${weekday ?? ""}/${month}/${year}`;
+function format(options: DayTextOptions, year: boolean) {
+	const { weekday, month = "short", locale } = options;
+	const key = `${weekday ?? ""}/${month}/${year}/${locale}`;
 	const known = formats.get(key);
 	if (known) return known;
-	const made = new Intl.DateTimeFormat("en-US", {
+	const made = new Intl.DateTimeFormat(locale === "viewer" ? undefined : "en-US", {
 		timeZone: "UTC",
 		...(weekday ? { weekday } : {}),
 		month,
@@ -33,10 +35,13 @@ function format(weekday: DayTextOptions["weekday"], month: "short" | "long", yea
 export function dayText(day: string, options: DayTextOptions = {}): string {
 	const at = noon(day);
 	const year = options.year === undefined || (options.year !== "never" && at.getUTCFullYear() !== options.year);
-	return format(options.weekday, options.month ?? "short", year).format(at);
+	return format(options, year).format(at);
 }
 
 export const addDays = (day: string, n: number): string =>
 	new Date(noon(day).getTime() + n * MS_PER_DAY).toISOString().slice(0, 10);
 
 export const weekdayOf = (day: string): number => noon(day).getUTCDay();
+
+export const daysBetween = (from: string, to: string): number =>
+	(noon(to).getTime() - noon(from).getTime()) / MS_PER_DAY;
