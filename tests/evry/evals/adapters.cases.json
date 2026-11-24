@@ -395,6 +395,146 @@
 		}
 	},
 	{
+		"case_id": "ADP-R-18",
+		"extra": true,
+		"adapter": "people",
+		"operation": "people.listPeople",
+		"near_miss": false,
+		"question": "show me the rest",
+		"eval": {
+			"as": "admin",
+			"history": [
+				{
+					"user": "who doesn't have a photo?"
+				},
+				{
+					"assistant": "79 of the 84 people in your church have no photo. This is page 1, the first 24 people; page 2 of the same list has the next 24. Ask me for the rest and I'll show page 2."
+				}
+			],
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"hasPhoto": false,
+						"page": 2
+					}
+				}
+			],
+			"only": ["people.listPeople"],
+			"names": {
+				"allowed": ["photo=none&slice=24:100"]
+			},
+			"derivation": "Page 2 of the people with no photo starts at the 25th, so no page-1 name repeats."
+		}
+	},
+	{
+		"case_id": "ADP-R-19",
+		"extra": true,
+		"adapter": "people",
+		"operation": "people.listPeople",
+		"near_miss": false,
+		"question": "next page please",
+		"eval": {
+			"as": "admin",
+			"history": [
+				{
+					"user": "who isn't in any household yet"
+				},
+				{
+					"assistant": "66 people aren't in a household. This is page 1, the first 24 people. Ask for the next page to see more of the same list."
+				}
+			],
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"inHousehold": false,
+						"page": 2
+					}
+				}
+			],
+			"only": ["people.listPeople"],
+			"names": {
+				"allowed": ["household=none&slice=24:100"]
+			},
+			"derivation": "Page 2 of the people in no household starts at the 25th, so no page-1 name repeats."
+		}
+	},
+	{
+		"case_id": "ADP-R-20",
+		"extra": true,
+		"adapter": "people",
+		"operation": "people.listPeople",
+		"near_miss": false,
+		"question": "who in our church has a worship skill?",
+		"eval": {
+			"as": "member",
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"skillCategories": ["worship"]
+					}
+				}
+			],
+			"only": ["people.listPeople"],
+			"names": {
+				"allowed": ["skill=worship"],
+				"all": "skill=worship"
+			},
+			"require": ["/Vocals/i"],
+			"derivation": "A Member's People screens show recorded skills; only Jen Thompson (Vocals) holds a worship skill."
+		}
+	},
+	{
+		"case_id": "ADP-R-21",
+		"extra": true,
+		"adapter": "people",
+		"operation": "people.listPeople",
+		"near_miss": true,
+		"question": "which people at Hope Fellowship have no photo?",
+		"eval": {
+			"as": "org",
+			"names": {
+				"allowed": []
+			},
+			"forbid": ["/\\b(79|84|66)\\b/"],
+			"derivation": "An organization seat gets no People read, so no names and no counts."
+		}
+	},
+	{
+		"case_id": "ADP-R-22",
+		"extra": true,
+		"adapter": "people",
+		"operation": "people.listPeople",
+		"near_miss": false,
+		"question": "who moved into core group in october?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"movedInto": {
+							"stage": "core_group",
+							"from": "2026-10-01",
+							"through": "2026-10-31"
+						}
+					}
+				}
+			],
+			"only": ["people.listPeople"],
+			"maxCalls": {
+				"people.getActivities": 0
+			},
+			"names": {
+				"allowed": ["Sam Patel"],
+				"all": ["Sam Patel"]
+			},
+			"require": ["/Oct(ober)?\\.? 28|10\\/28|2026-10-28/i"],
+			"derivation": "Sam Patel's is the only recorded move into core group between the church-local dates Oct 1 and Oct 31."
+		}
+	},
+	{
 		"case_id": "ADP-C-01",
 		"extra": true,
 		"adapter": "people/commands",

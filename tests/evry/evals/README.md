@@ -13,7 +13,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 
 | Suite                   | Cases                                                                                                                    | What it scores                                                                              |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `golden.test.mts`       | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (118 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
+| `golden.test.mts`       | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (319 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
 | `golden.test.mts`       | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge     |
 | `classify.test.mts`     | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                               |
 | `households.test.mts`   | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                      |
@@ -256,7 +256,7 @@ The cases whose result depends on the database clock, now pinned:
   Unpinned, ADP-M-03, ADP-M-04 and ADP-M-07's review cards carried "That time has already passed" once real time
   passed 2026-11-13.
 - Inactivity on the real pipeline board (`people.getPipelineData`): ADP-O-08, COM-06, GST-01, LCH-03, LCH-05, MON-01,
-  MON-03, MON-04, MON-05, PIP-01, PIP-02 and PIP-04. Fixed-date activity counts too: Maria Santos's note is dated before
+  MON-03, MON-04, MON-05, PIP-01 and PIP-02. Fixed-date activity counts too: Maria Santos's note is dated before
   her clock-relative last contact, so she reads her fixture's warning in `NOW`'s frame.
 - The whole follow-up suite (`followups.cases.json`), whose candidates are ranked by inactivity.
 - Every case's live session and accepted seat, seeded relative to the database clock.
@@ -409,6 +409,13 @@ Every Evry adapter operation or catalog tool ships with its cases in the same PR
 Not yet or Partially case lands, the same PR moves that case to Supported. It changes the status in both
 `golden.approved.json` and `golden.cases.json` (status is the catalog snapshot, not the approval). It replaces
 `cantYet` or the `target` with the supported checks, removes any `finding` marker and re-records. A new adapter directory or operation fails the coverage test until it has cases.
+
+PIP-04, PIP-08 and HH-08 (T-547) are built and keep the approved status Not yet, because only the S4 evaluation task
+moves a status. A Not yet case needs the can't-yet checks, or the `calls` its built answer makes. With TEAM-06 and
+CLN-09 they read the People list once, under its skill, photo, household, adult-or-child or stage-move filter. The seed
+records Mateo Rivera and Bao Nguyen as children and moves Sam Patel (Oct 28), Priya Shah (Nov 2) and Mike Brennan
+(Nov 5) into core group. ADP-R-18 to ADP-R-22 ask for the next page of two of those lists, as a Member, as an
+organization seat, and for last month's moves.
 
 ## The intelligence and oversight suites (scripted model)
 

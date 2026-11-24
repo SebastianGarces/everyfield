@@ -788,16 +788,31 @@
 		"expected_answer": "Later: exact count with dates; today a can't-yet",
 		"must_not": "Loop `getActivities` over everyone and blow the turn budget",
 		"eval": {
-			"cantYet": true,
-			"finding": {
-				"checks": [
-					"calls only no tool",
-					"says it can't do that yet",
-					"names the missing pipe capability",
-					"gives an answer"
-				],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"movedInto": {
+							"stage": "core_group"
+						}
+					}
+				}
+			],
+			"only": ["people.listPeople"],
+			"maxCalls": {
+				"people.getActivities": 0,
+				"people.listPeople": 3
+			},
+			"names": {
+				"allowed": ["Priya Shah", "Mike Brennan"],
+				"all": ["Priya Shah", "Mike Brennan"]
+			},
+			"require": [
+				"/\\b2\\b(?! ?,? ?2026)[^.\\n]{0,40}(people|moved|person)|\\btwo\\b/i",
+				"/Priya Shah[^\\n]{0,40}(Nov(ember)?\\.? 2\\b|11\\/0?2\\b|2026-11-02)/i",
+				"/Mike Brennan[^\\n]{0,40}(Nov(ember)?\\.? 5\\b|11\\/0?5\\b|2026-11-05)/i"
+			],
+			"derivation": "The recorded stage changes into core group: Sam Patel Oct 28, Priya Shah Nov 2, Mike Brennan Nov 5; this month is November in America/Chicago."
 		}
 	},
 	{
@@ -917,14 +932,29 @@
 		"expected_answer": "Later: households with members classified child; unknown stays unknown",
 		"must_not": "Guess children from names or roles",
 		"eval": {
-			"cantYet": true,
-			"names": {
-				"allowed": []
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"adultClassification": "child"
+					}
+				}
+			],
+			"only": ["people.listPeople", "people.listHouseholds"],
+			"maxCalls": {
+				"people.listPeople": 3,
+				"people.listHouseholds": 1
 			},
-			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "T-322 (D-1181): after the Evry email reads and reviewed writes joined the tool list, the re-recorded model answer misses these checks; recorded as a finding as in T-24 (D-958) and D-1151. Drifted on the T-322 merge re-record with S4 notifications; failing checks set from its report (D-1151)."
-			}
+			"names": {
+				"allowed": ["Mateo Rivera", "Bao Nguyen"]
+			},
+			"require": [
+				"/Rivera/",
+				"/Nguyen/",
+				"/(no|without|neither|unknown|not|n['’]t)\\b[^.\\n]{0,80}\\b(recorded|classified|classification|counted|included)\\b/i"
+			],
+			"forbid": ["/\\bThao\\b/i", "/\\b(Thompson|Okafor|Martinez|Garcia|Johnson|Lee)\\b[^.\\n]{0,20}household/i"],
+			"derivation": "Mateo Rivera and Bao Nguyen are the only people recorded as children. Thao Nguyen has the household role child and nothing recorded, so a role never counts."
 		}
 	},
 	{
@@ -1080,27 +1110,39 @@
 		"expected_answer": "Full alpha target: authorized church-wide skill matches with completeness stated, within existing read limits",
 		"must_not": "Loop over the whole church",
 		"eval": {
+			"calls": [
+				{
+					"operation": "people.listPeople"
+				}
+			],
+			"only": ["people.listPeople"],
 			"maxCalls": {
-				"people.getPersonSkills": 12
+				"people.getPersonSkills": 0,
+				"people.listPeople": 3
 			},
 			"names": {
-				"allowed": ["skill=Tech"]
+				"allowed": ["skill=Tech"],
+				"all": "skill=Tech"
 			},
 			"require": [
-				"/(can['’]?t|cannot|no way to|not able to|unable to|only)\\b[^.\\n]{0,80}(search|filter|across|whole|everyone|per person|one person|each person|all)/i"
+				"/Sound engineering[^\\n]{0,40}advanced|advanced[^\\n]{0,40}Sound engineering/i",
+				"/Video production[^\\n]{0,40}intermediate|intermediate[^\\n]{0,40}Video production/i",
+				"/everyone|everybody|church-?wide|(whole|entire|across (the|your)) church|all (of )?(the |your )?84|\\b84\\b/i"
 			],
 			"target": {
 				"names": {
 					"all": "skill=Tech"
+				},
+				"calls": [
+					{
+						"operation": "people.listPeople"
+					}
+				],
+				"maxCalls": {
+					"people.getPersonSkills": 0
 				}
 			},
-			"derivation": "Skills are read one person at a time; Mark Thompson (Sound engineering) and Alex Rivera (Video production) hold the Tech skills. Today-pass: no invented names and the per-person limit stated.",
-			"finding": {
-				"checks": [
-					"says /(can['’]?t|cannot|no way to|not able to|unable to|only)\\b[^.\\n]{0,80}(search|filter|across|whole|everyone|per person|one person|each person|all)/i"
-				],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "The People list's skill filter covers all 84 live people: Mark Thompson (Sound engineering, advanced) and Alex Rivera (Video production, intermediate) hold the Tech skills; Jen Thompson's Vocals is worship."
 		}
 	},
 	{
@@ -1305,14 +1347,29 @@
 		"expected_answer": "Later: exact list",
 		"must_not": "Scan every person one by one",
 		"eval": {
-			"cantYet": true,
-			"names": {
-				"allowed": []
+			"as": "admin",
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"inHousehold": false
+					}
+				}
+			],
+			"only": ["people.listPeople"],
+			"maxCalls": {
+				"people.listPeople": 4
 			},
-			"finding": {
-				"checks": ["calls only no tool", "names only matching records", "says it can't do that yet"],
-				"note": "Reads every household to list 66 people, the per-person scan the case forbids."
-			}
+			"names": {
+				"allowed": ["household=none"],
+				"all": "household=none",
+				"orPartial": true
+			},
+			"require": [
+				"/\\b66\\b/",
+				"/\\bof (the )?(79|66)\\b|next page|page 2|first (page|24)|see the rest|show (you )?(the )?(rest|more|next)|remaining|next 24|\\b(55|42) more\\b/i"
+			],
+			"derivation": "18 of the 84 live people are in a household, so 66 are not; the People list's household filter counts all of them and pages the names."
 		}
 	},
 	{
@@ -1346,7 +1403,14 @@
 		"must_not": "Say yes or no on its own judgment",
 		"eval": {
 			"offer": ["launch.readWorkspace"],
-			"calls": [{ "operation": "launch.readWorkspace" }, { "operation": "phases.readReadiness" }],
+			"calls": [
+				{
+					"operation": "launch.readWorkspace"
+				},
+				{
+					"operation": "phases.readReadiness"
+				}
+			],
 			"only": ["launch.readWorkspace", "phases.readReadiness", "phases.readHistory", "phases.readCatalog"],
 			"require": [
 				"/Prayer and fasting/i",
@@ -2084,28 +2148,45 @@
 		"expected_answer": "Full alpha target: the authorized matching people without photos, with completeness stated and no unbounded per-person scan",
 		"must_not": "Loop across the whole church",
 		"eval": {
+			"as": "admin",
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"hasPhoto": false
+					}
+				}
+			],
+			"only": ["people.listPeople"],
 			"maxCalls": {
-				"people.getPersonPhoto": 12
+				"people.getPersonPhoto": 0,
+				"people.listPeople": 4
 			},
 			"names": {
-				"allowed": ["photo=none"]
+				"allowed": ["photo=none"],
+				"all": "photo=none",
+				"orPartial": true
 			},
 			"require": [
-				"/(can['’]?t|cannot|no way to|not able to|unable to|only)\\b[^.\\n]{0,80}(each|one person|per person|everyone|whole|all|at a time|filter|search)/i"
+				"/\\b79\\b/",
+				"/\\b84\\b/",
+				"/\\bof (the )?(79|66)\\b|next page|page 2|first (page|24)|see the rest|show (you )?(the )?(rest|more|next)|remaining|next 24|\\b(55|42) more\\b/i"
 			],
 			"target": {
-				"require": ["/\\b79\\b/"],
-				"futureCapability": "a church-wide photo filter"
-			},
-			"derivation": "79 of the 84 live people have no photo; photos are read one person at a time today.",
-			"finding": {
-				"checks": [
-					"at most 12 people.getPersonPhoto calls",
-					"says /(can['’]?t|cannot|no way to|not able to|unable to|only)\\b[^.\\n]{0,80}(each|one person|per person|everyone|whole|all|at a time|filter|search)/i",
-					"gives an answer"
+				"calls": [
+					{
+						"operation": "people.listPeople",
+						"input": {
+							"hasPhoto": false
+						}
+					}
 				],
-				"note": "Reads photos person by person until the 24-tool budget ends the turn with no answer."
-			}
+				"maxCalls": {
+					"people.getPersonPhoto": 0
+				},
+				"require": ["/\\b79\\b/"]
+			},
+			"derivation": "79 of the 84 live people have no photo in the People list; the People list's photo filter counts all of them and pages the names."
 		}
 	},
 	{
