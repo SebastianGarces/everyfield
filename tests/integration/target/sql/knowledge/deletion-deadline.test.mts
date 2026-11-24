@@ -1,4 +1,5 @@
 import "../../../platform/setup.mts";
+import { openedDeletion } from "../../../../support/deletion-cookie.mts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -73,8 +74,11 @@ async function pendingDeletion() {
 }
 
 const restricted = (a: Actor, subject: Subject, requestId: string, at: Date) =>
-	gatedTransaction(admin, (tx) =>
-		issueRestrictedDeletionSession(tx, { subject, requestId }, async () => ({ accountId: a.id, provenAt: at })),
+	openedDeletion(
+		gatedTransaction(admin, (tx) =>
+			issueRestrictedDeletionSession(tx, { subject, requestId }, async () => ({ accountId: a.id, provenAt: at })),
+		),
+		{ subject, requestId },
 	);
 
 async function ordinary(a: Actor) {

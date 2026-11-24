@@ -1,3 +1,4 @@
+import { connectionLink } from "../../../packages/domain/src/proofs.ts";
 import { sql, type SQLWrapper } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { randomBytes, randomUUID } from "node:crypto";
 
@@ -62,7 +63,10 @@ export const effects = {
 		v: Parameters<import("../../../packages/domain/src/organizations/index.ts").OrganizationEffects["invitation"]>[1],
 		writes: SQLWrapper[],
 	) {
-		proofs.set(v.invitationId, v.proof);
+		proofs.set(
+			v.invitationId,
+			connectionLink("https://example.test", "/connections/respond", v.invitationId, v.proof).split("#")[1]!,
+		);
 		await mail.append(
 			c,
 			{
@@ -76,7 +80,10 @@ export const effects = {
 				logicalKey: "relationship/" + v.invitationId + "/" + v.operationId,
 				recipient: null,
 				address: v.recipientEmail,
-				content: { subject: v.inviterDescription, text: "https://example.test/accept-relationship?token=" + v.proof },
+				content: {
+					subject: v.inviterDescription,
+					text: "https://example.test/accept-relationship?token=" + proofs.get(v.invitationId)!,
+				},
 				operation: v.operationId,
 				notice: null,
 				eligibleAt: new Date().toISOString(),

@@ -6,13 +6,14 @@ import type { AccountPersonProducer } from "@everyfield/contracts/people";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, eq, gt, inArray, isNull, or, sql, type SQL } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
-import { createHmac, randomBytes, randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { liveAccess, liveRead, liveRows, ownerHidden, RequestActor, type WriteTx } from "../access/session.ts";
 import { timedTransaction, timeouts, transaction } from "./budget.ts";
 import { lastWrite } from "../operations/writes.ts";
 import * as d from "./invitation-core.ts";
+import { invitationLink, linkProofDigest, MintedProof } from "../proofs.ts";
 export interface InvitationMail {
 	owner: z.output<typeof tenantOwner>;
 	invitationId: string;
@@ -92,10 +93,9 @@ export function createInvitationService(config: InvitationConfig) {
 			resendAvailableAt: new Date((i.resent_at ?? i.created_at).getTime() + 60000).toISOString(),
 		});
 	}
-	async function mail(tx: WriteTx, i: d.Invitation, cmd: d.Command, proof: string) {
+	async function mail(tx: WriteTx, i: d.Invitation, cmd: d.Command, proof: MintedProof<"invitation">) {
 		const { selected, name } = await d.workspace(tx, i.tenant_id),
-			url = new URL("/invitation", origin);
-		url.hash = new URLSearchParams({ proof }).toString();
+			link = invitationLink(origin, proof);
 		return enqueue(tx, cmd, {
 			owner: selected,
 			invitationId: i.id,
@@ -107,8 +107,8 @@ export function createInvitationService(config: InvitationConfig) {
 			subject: "Your Everyfield invitation",
 			text:
 				i.purpose === "seat"
-					? `${i.inviter_description} invited you to join ${name} as ${i.role === "admin" ? "an Admin" : "a Member"}.\n\nReview the invitation: ${url.href}\n\nExpires ${d.expires(i).toISOString()}.`
-					: `${i.inviter_description} invited you to link your account to ${name}. You can accept or decline. This link does not add a workspace seat.\n\nReview the invitation: ${url.href}\n\nExpires ${d.expires(i).toISOString()}.`,
+					? `${i.inviter_description} invited you to join ${name} as ${i.role === "admin" ? "an Admin" : "a Member"}.\n\nReview the invitation: ${link}\n\nExpires ${d.expires(i).toISOString()}.`
+					: `${i.inviter_description} invited you to link your account to ${name}. You can accept or decline. This link does not add a workspace seat.\n\nReview the invitation: ${link}\n\nExpires ${d.expires(i).toISOString()}.`,
 		});
 	}
 	function residentOf(i: { resident_person_id: string | null }) {
@@ -174,7 +174,7 @@ export function createInvitationService(config: InvitationConfig) {
 			if ("personId" in v.input && (await activePerson(tx, selected.id, v.input.personId)).linked_account_id)
 				d.deny("invitation_unavailable");
 			await charge(tx, selected, v.input.recipientEmail, resident);
-			const proof = randomBytes(32).toString("base64url"),
+			const proof = new MintedProof("invitation"),
 				id = randomUUID();
 			const i: d.Invitation = {
 				id,
@@ -183,7 +183,7 @@ export function createInvitationService(config: InvitationConfig) {
 				recipient_email: v.input.recipientEmail,
 				inviter_id: a.accountId,
 				role: "role" in v.input ? v.input.role : null,
-				token_hash: d.hash(proof),
+				token_hash: linkProofDigest(proof),
 				state: "pending",
 				created_at: new Date(),
 				resent_at: null,
@@ -296,10 +296,10 @@ export function createInvitationService(config: InvitationConfig) {
 			if (resend) {
 				const retry = new Date((i.resent_at ?? i.created_at).getTime() + 60000);
 				if (retry > now) d.deny("invitation_cooldown", { retryAt: retry.toISOString() });
-				const proof = randomBytes(32).toString("base64url");
+				const proof = new MintedProof("invitation");
 				const [changedInvitation] = await tx
 					.update(t.invitation)
-					.set({ token_hash: d.hash(proof), resent_at: sql`clock_timestamp()`, revision: after })
+					.set({ token_hash: linkProofDigest(proof), resent_at: sql`clock_timestamp()`, revision: after })
 					.where(eq(t.invitation.id, i.id))
 					.returning();
 				if (!changedInvitation) d.deny("invitation_unavailable");

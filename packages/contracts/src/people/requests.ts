@@ -2,6 +2,7 @@ import { z } from "zod";
 import { localDate } from "../common/time.ts";
 import { personId, recordId, requestKey, revision } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
+import { skillCategory, skillName } from "./fields/index.ts";
 import {
 	adultClassification,
 	contactFields,
@@ -49,6 +50,9 @@ export const updatePersonRequest = commandEnvelope(
 export const personRequest = z.strictObject({ personId });
 export const personPhotosRequest = z.strictObject({ personIds: z.array(personId).max(100) });
 export const ownAccountPersonRequest = z.strictObject({});
+export const movedInto = z
+	.strictObject({ stage, from: localDate.optional(), through: localDate.optional() })
+	.refine((v) => !v.from || !v.through || v.from <= v.through);
 export const listPeopleRequest = z.strictObject({
 	...pageInput,
 	search: z.string().trim().max(255).optional(),
@@ -63,6 +67,11 @@ export const listPeopleRequest = z.strictObject({
 	archived: z.enum(["exclude", "include", "only"]).default("exclude"),
 	sort: z.literal("created_at_id").default("created_at_id"),
 	column: pipelineColumn.optional(),
+	skillCategories: z.array(skillCategory).min(1).max(7).optional(),
+	skillNames: z.array(skillName).min(1).max(10).optional(),
+	hasPhoto: z.boolean().optional(),
+	inHousehold: z.boolean().optional(),
+	movedInto: movedInto.optional(),
 });
 export const activityRequest = z.strictObject({
 	personId,

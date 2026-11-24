@@ -50,7 +50,7 @@ function readOnlyAreas(catalog: Catalog) {
 	const written = new Set(catalog.reviewedWrites.map((w) => namespace(w.operation)));
 	const read = new Set(catalog.domains.flatMap((d) => d.operations.map((o) => namespace(o.operation))));
 	return [...read]
-		.filter((n) => n !== "notifications" && n !== "calendar" && !written.has(n))
+		.filter((n) => n !== "notifications" && n !== "calendar" && n !== "mail" && !written.has(n))
 		.map((n) => AREA_NAMES[n] ?? n);
 }
 
@@ -536,7 +536,7 @@ export function compileContext(input: {
 		"Report exact totals and say when a result is partial; offer the next page instead of guessing. When a name matches more than one person, ask once which one, using only the returned fields.",
 		"You cannot change records yourself. propose_change only prepares an exact review card; nothing changes until the user approves it in the app. Never say a change was saved.",
 		input.actor.contextKind === "plant" && input.actor.role === "member"
-			? "This user is a Member of the church. Sending, resending or changing email, and changing records, needs an Owner or Admin of this church: say so when asked."
+			? "This user is a Member of the church. Sending, resending or changing email, and changing records, needs an Owner or Admin of this church: say so when asked. When asked which teams or people an email can go to, say only an Owner or Admin can choose that, and read nothing for it."
 			: "",
 		"A person row marked you: true is the signed-in user. Never suggest the user as someone to follow up with, contact, visit or invite; still count and list the user's row when asked for people or totals. When the user's own row matters to an answer, call it \"you\", never a third person.",
 		role

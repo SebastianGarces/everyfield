@@ -27,6 +27,7 @@
 			"entry": [
 				"test/**/*.{js,mjs,cjs,ts,mts,cts,tsx}",
 				"scripts/**/*.{js,mjs,cjs,ts,mts,cts}",
+				"src/proofs.types.ts",
 				"src/meetings/tokens.types.ts",
 			],
 		},
