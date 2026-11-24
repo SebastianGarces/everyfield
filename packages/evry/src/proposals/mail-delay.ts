@@ -24,7 +24,7 @@ async function unsentInvitations(db: Database, actor: EvryActor, ids: readonly s
 				AND i.created_at>clock_timestamp()-interval '720 hours'`);
 		return new Set(
 			z
-				.array(z.object({ id: z.uuid() }))
+				.array(z.strictObject({ id: z.uuid() }))
 				.parse(rows)
 				.map((r) => r.id),
 		);
