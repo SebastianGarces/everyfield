@@ -2,6 +2,9 @@ import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { appendFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { tenantId } from "../../../packages/contracts/src/common/index.ts";
+import type { MeetingsReply } from "../../../packages/contracts/src/meetings/index.ts";
+import type { WriteTx } from "../../../packages/domain/src/access/session.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import {
 	allows,
@@ -9,17 +12,38 @@ import {
 	meetingStatusMachine as machine,
 	noops,
 	refusals,
+	type Observation,
 } from "../../../packages/contracts/src/machines/index.ts";
-import { meetingsWriter as meetings } from "../../../packages/domain/src/meetings/index.ts";
+import { meetingsWriter as meetings, type MeetingsContext } from "../../../packages/domain/src/meetings/index.ts";
 import { fixture, ok, refused } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const database = await fixture({ prefix: "machine", max: 4 });
 const db = database.pools.runtime;
-const ctx = { session: database.actors.owner.session, selected: { kind: "plant", id: database.tenant.id } };
-const run = (op, input) => gatedTransaction(db, (tx) => op(tx, ctx, { requestKey: randomUUID(), ...input }));
-const day = (days) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
-const heldAt = (days) => new Date(Date.now() - days * 86_400_000).toISOString();
+const ctx: MeetingsContext = {
+	session: database.actors.owner.session,
+	selected: { kind: "plant", id: tenantId.parse(database.tenant.id) },
+};
+type Operation<R> = (tx: WriteTx, ctx: MeetingsContext, raw: unknown) => Promise<R>;
+const run = <R,>(op: Operation<R>, input: { expectedRevision?: string; input: unknown }) =>
+	gatedTransaction(db, (tx) => op(tx, ctx, { requestKey: randomUUID(), ...input }));
+type Status = (typeof machine.states)[number];
+type Event = (typeof machine.events)[number];
+type Subject = keyof typeof machine.subjects;
+type Step = { event: Event; to: Status };
+const statusOf = (name: string) => {
+	const found = machine.states.find((s) => s === name);
+	assert.ok(found, name);
+	return found;
+};
+const eventOf = (name: string) => {
+	const found = machine.events.find((e) => e === name);
+	assert.ok(found, name);
+	return found;
+};
+type Row = { id: string; revision: string; status: Status };
+const day = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+const heldAt = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
 const reason = "Model-based walk";
 const team = randomUUID();
 await database.admin.execute(sql`INSERT INTO team(id, plant_id, name, state, sort_order)
@@ -27,21 +51,21 @@ await database.admin.execute(sql`INSERT INTO team(id, plant_id, name, state, sor
 
 after(() => database.close());
 
-async function stored(id) {
-	const r = await database.admin.execute(
+async function stored(id: string) {
+	const r = await database.admin.execute<Row>(
 		sql`SELECT id, revision::text AS revision, status FROM meeting WHERE id = ${id}`,
 	);
-	return r.rows[0];
+	return r.rows[0]!;
 }
 
-async function schedule(subject) {
+async function schedule(subject: Subject) {
 	const created = ok(
 		await run(meetings.schedule, {
 			input: {
-				type: machine.subjects[subject].type,
+				type: machine.subjects[subject]!.type,
 				date: day(30),
 				time: "18:30",
-				...(machine.subjects[subject].type === "team_meeting" ? { teamId: team } : {}),
+				...(machine.subjects[subject]!.type === "team_meeting" ? { teamId: team } : {}),
 			},
 		}),
 	);
@@ -49,7 +73,7 @@ async function schedule(subject) {
 }
 
 let held = 1;
-function fire(row, event, to) {
+function fire(row: Row, event: Event, to: Status): Promise<MeetingsReply<{ outcome: string }>> {
 	const base = { expectedRevision: row.revision };
 	const meetingId = row.id;
 	switch (event) {
@@ -72,15 +96,15 @@ function fire(row, event, to) {
 	}
 }
 
-function pathTo(subject, goal) {
-	const s = machine.subjects[subject];
-	const [entry] = machine.entries;
-	const routes = new Map([[entry.to, []]]);
+function pathTo(subject: Subject, goal: Status) {
+	const s = machine.subjects[subject]!;
+	const entry = machine.entries[0]!;
+	const routes = new Map<Status, Step[]>([[entry.to, []]]);
 	const queue = [entry.to];
 	for (let at = queue.shift(); at !== undefined; at = queue.shift())
 		for (const t of machine.transitions)
 			if (t.from === at && !routes.has(t.to) && allows(machine, t.event, t.from, t.to, s)) {
-				routes.set(t.to, [...routes.get(at), { event: t.event, to: t.to }]);
+				routes.set(t.to, [...routes.get(at)!, { event: t.event, to: t.to }]);
 				queue.push(t.to);
 			}
 	const route = routes.get(goal);
@@ -88,7 +112,7 @@ function pathTo(subject, goal) {
 	return route;
 }
 
-async function meetingIn(subject, state) {
+async function meetingIn(subject: Subject, state: Status) {
 	let row = await schedule(subject);
 	for (const step of pathTo(subject, state)) {
 		ok(await fire(row, step.event, step.to));
@@ -99,18 +123,18 @@ async function meetingIn(subject, state) {
 }
 
 test("INV-machine: meeting status follows its declared transitions and refuses every other move", async (t) => {
-	const observations = [];
-	const observe = (o) => observations.push({ machine: machine.id, ...o });
+	const observations: Observation[] = [];
+	const observe = (o: Omit<Observation, "machine">) => observations.push({ machine: machine.id, ...o });
 	const subjects = Object.keys(machine.subjects);
 
 	for (const subject of subjects) {
 		const row = await schedule(subject);
-		observe({ kind: "edge", subject, event: machine.entries[0].event, from: null, to: row.status });
+		observe({ kind: "edge", subject, event: machine.entries[0]!.event, from: null, to: row.status });
 	}
 
 	for (const edge of machine.transitions)
 		for (const subject of subjects) {
-			if (!allows(machine, edge.event, edge.from, edge.to, machine.subjects[subject])) continue;
+			if (!allows(machine, edge.event, edge.from, edge.to, machine.subjects[subject]!)) continue;
 			const before = await meetingIn(subject, edge.from);
 			ok(await fire(before, edge.event, edge.to));
 			const after = await stored(before.id);
@@ -130,16 +154,16 @@ test("INV-machine: meeting status follows its declared transitions and refuses e
 
 	for (const r of refusals(machine)) {
 		const subject = r.subject;
-		const before = await meetingIn(subject, r.from);
-		refused(await fire(before, r.event, r.to), r.code);
+		const before = await meetingIn(subject, statusOf(r.from));
+		refused(await fire(before, eventOf(r.event), statusOf(r.to)), r.code);
 		const after = await stored(before.id);
 		assert.deepEqual(after, before, `${subject} ${r.event} ${r.from} -> ${r.to} left the row unchanged`);
 		observe({ kind: "refusal", subject, event: r.event, from: before.status, to: r.to });
 	}
 
 	for (const n of noops(machine)) {
-		const before = await meetingIn(n.subject, n.state);
-		const reply = ok(await fire(before, n.event, n.state));
+		const before = await meetingIn(n.subject, statusOf(n.state));
+		const reply = ok(await fire(before, eventOf(n.event), statusOf(n.state)));
 		assert.equal(reply.outcome, "noop");
 		assert.deepEqual(await stored(before.id), before, `${n.subject} ${n.event} ${n.state} wrote nothing`);
 		observe({ kind: "noop", subject: n.subject, event: n.event, from: n.state, to: n.state });

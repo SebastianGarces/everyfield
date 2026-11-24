@@ -1,10 +1,11 @@
-import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
+import { sql, type SQL } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { tenantId } from "../../../packages/contracts/src/common/index.ts";
+import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/session.ts";
 import { peopleReader, peopleWriter, readPersonPage } from "../../../packages/domain/src/people/index.ts";
 import {
 	answerRsvpToken,
@@ -20,8 +21,12 @@ import {
 	venuesReader,
 	venuesWriter as venues,
 	withMeetingsWrite,
+	type MeetingsContext,
 } from "../../../packages/domain/src/meetings/index.ts";
+import { statementText } from "../identity/invitations-support.mts";
 import { fixture, ok, refused } from "../../support/fixture.mts";
+import { activityRequest } from "../../../packages/contracts/src/people/index.ts";
+import type { MeetingsReply } from "../../../packages/contracts/src/meetings/index.ts";
 import { NEXT_REQUEST, problemText } from "../../../apps/web/src/features/meetings/model.ts";
 import { issueRsvpToken } from "./rsvp-token.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
@@ -33,7 +38,7 @@ const noReminders = async () => {
 const database = await fixture({ prefix: "wp020", max: 6 });
 const { admin } = database;
 const db = database.pools.runtime;
-let queries = [];
+let queries: string[] = [];
 
 const P = database.tenant.id;
 const Q = (await database.plant({ timezone: "America/New_York" })).id;
@@ -43,22 +48,31 @@ const actors = [
 	database.actors.admin,
 	await database.actor({ kind: "plant", id: Q }, "admin"),
 ];
-const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: who === 3 ? Q : P } });
-const tx = (body) => gatedTransaction(db, body);
-const run = (op, input, who = 0) => tx((t) => op(t, ctx(who), input));
+const ctx = (who = 0) => ({
+	session: actors[who]!.session,
+	selected: { kind: "plant" as const, id: tenantId.parse(who === 3 ? Q : P) },
+});
+type Operation<R> = (t: WriteTx, context: ReturnType<typeof ctx>, raw: unknown) => Promise<R>;
+const tx = <R,>(body: Parameters<typeof gatedTransaction<R>>[1]) => gatedTransaction(db, body);
+const run = <R,>(op: Operation<R>, input: unknown, who = 0) => tx((t) => op(t, ctx(who), input));
 const key = () => randomUUID();
-const viewer = async (who = 0) => RequestActor.resolve(db, actors[who].session);
-const count = async (query) => (await admin.execute(query)).rows[0].n;
-const day = (days) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+const resolved = async (session: (typeof actors)[number]["session"]) => {
+	const actor = await RequestActor.resolve(db, session);
+	assert.ok(actor instanceof RequestActor);
+	return actor;
+};
+const viewer = (who = 0) => resolved(actors[who]!.session);
+const count = async (query: SQL) => (await admin.execute<{ n: number }>(query)).rows[0]!.n;
+const day = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 
-async function person(name, fields = {}) {
+async function person(name: string, fields: { plant?: string; stage?: string; account?: string } = {}) {
 	const id = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,
 		pipeline_position,state,created_at,linked_account_id) VALUES(${id},${fields.plant ?? P},${fields.plant ?? P},${name},'other',
 		${fields.stage ?? "prospect"},'unknown','unknown',0,'live',clock_timestamp(),${fields.account ?? null})`);
 	return id;
 }
-async function schedule(fields = {}, who = 0) {
+async function schedule(fields: Record<string, unknown> = {}, who = 0) {
 	return ok(
 		await run(
 			meetings.schedule,
@@ -67,9 +81,12 @@ async function schedule(fields = {}, who = 0) {
 		),
 	).meeting;
 }
-async function retire(personId) {
-	const p = (await admin.execute(sql`SELECT revision::text AS r FROM person WHERE id=${personId}`)).rows[0].r;
-	const review = (await admin.execute(sql`SELECT material_revision::text AS r FROM plant WHERE id=${P}`)).rows[0].r;
+type Meeting = Awaited<ReturnType<typeof schedule>>;
+async function retire(personId: string) {
+	const p = (await admin.execute<{ r: string }>(sql`SELECT revision::text AS r FROM person WHERE id=${personId}`))
+		.rows[0]!.r;
+	const review = (await admin.execute<{ r: string }>(sql`SELECT material_revision::text AS r FROM plant WHERE id=${P}`))
+		.rows[0]!.r;
 	ok(
 		await tx((t) =>
 			peopleWriter.retirePerson(
@@ -85,14 +102,31 @@ async function retire(personId) {
 		),
 	);
 }
-const guestOf = async (meetingId, personId, who = 0) =>
+const available = <T extends { status: string }>(reply: MeetingsReply<T>) => {
+	const value = ok(reply);
+	assert.ok(isAvailable(value));
+	return value;
+};
+const isAvailable = <T extends { status: string }>(value: T): value is Extract<T, { status: "available" }> =>
+	value.status === "available";
+const openLink = async (token: string | null) => {
+	const view = await describeRsvpToken(db, { token });
+	assert.ok(view.state !== "unavailable");
+	return view;
+};
+const findGuest = async (meetingId: string, personId: string, who = 0) =>
 	ok(await reads.listGuests(db, await viewer(who), { meetingId })).guests.find((g) => g.person.personId === personId);
+const guestOf = async (meetingId: string, personId: string) => {
+	const guest = await findGuest(meetingId, personId);
+	assert.ok(guest);
+	return guest;
+};
 
 before(async () => {
 	db.$client.on("connect", (client) => {
 		const query = client.query;
-		client.query = function (...args) {
-			queries.push(typeof args[0] === "string" ? args[0] : args[0].text);
+		client.query = function (this: unknown, ...args: unknown[]) {
+			queries.push(statementText(args[0]));
 			return Reflect.apply(query, this, args);
 		};
 	});
@@ -165,7 +199,7 @@ test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 sched
 		type: "orientation",
 		venue: { kind: "new", venue: { name: "Annex", address: "2 Side St" } },
 	});
-	assert.equal(created.venue.name, "Annex");
+	assert.equal(created.venue!.name, "Annex");
 	assert.equal(created.visionNumber, null);
 	assert.equal(created.kit, null);
 	assert.deepEqual(created.agenda.sections, [], "only Vision starts from the default agenda");
@@ -185,7 +219,7 @@ test("AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 an entered spring-gap time refuses
 		"ambiguous_local_time",
 	);
 	assert.deepEqual(
-		fold.details.choices.map((c) => c.instant),
+		fold.details.choices.map((c: { instant: string }) => c.instant),
 		["2026-11-01T06:30:00.000Z", "2026-11-01T07:30:00.000Z"],
 	);
 	for (const [offsetSeconds, expected] of [
@@ -194,7 +228,7 @@ test("AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 an entered spring-gap time refuses
 	]) {
 		const m = await schedule({ type: "orientation", date: "2026-11-01", time: "01:30", offsetSeconds });
 		assert.equal(m.startsAt, expected);
-		const again = ok(await reads.get(db, await viewer(), { meetingId: m.id })).meeting;
+		const again = available(await reads.get(db, await viewer(), { meetingId: m.id })).meeting;
 		assert.deepEqual(
 			[again.startsAt, again.localDate, again.localTime, again.zone],
 			[expected, "2026-11-01", "01:30", "America/Chicago"],
@@ -204,7 +238,7 @@ test("AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 an entered spring-gap time refuses
 
 test("AC:TARGET-MTG-001 AC:B02-007 windows, closed type filter, equal-start paging, empty filter with history and foreign detail", async () => {
 	const at = day(50);
-	const ids = [];
+	const ids: string[] = [];
 	for (const type of ["orientation", "orientation", "orientation"])
 		ids.push((await schedule({ type, date: at, time: "07:00" })).id);
 	const cancelled = await schedule({ type: "orientation", date: at, time: "07:00" });
@@ -217,7 +251,7 @@ test("AC:TARGET-MTG-001 AC:B02-007 windows, closed type filter, equal-start pagi
 	);
 	const practice = await schedule({ type: "prelaunch_practice", date: at, time: "07:00" });
 	const v = await viewer(1);
-	const seen = [];
+	const seen: string[] = [];
 	let total = 0;
 	for (let page = 1; ; page++) {
 		const p = ok(await reads.list(db, v, { window: "upcoming", types: ["orientation"], page, limit: 2 }));
@@ -233,7 +267,7 @@ test("AC:TARGET-MTG-001 AC:B02-007 windows, closed type filter, equal-start pagi
 	);
 	const listed = ok(await reads.list(db, v, { window: "upcoming", types: ["orientation"], limit: 100 })).items;
 	assert.equal(
-		listed.find((m) => m.id === cancelled.id).status,
+		listed.find((m) => m.id === cancelled.id)!.status,
 		"cancelled",
 		"a cancelled future meeting stays distinguishable",
 	);
@@ -242,7 +276,10 @@ test("AC:TARGET-MTG-001 AC:B02-007 windows, closed type filter, equal-start pagi
 	).items;
 	assert.ok(practices.every((m) => m.type === "prelaunch_practice"));
 	assert.ok(practices.some((m) => m.id === practice.id));
-	assert.equal(ok(await reads.get(db, v, { meetingId: practice.id })).meeting.displayTitle, "Pre-launch Practice");
+	assert.equal(
+		available(await reads.get(db, v, { meetingId: practice.id })).meeting.displayTitle,
+		"Pre-launch Practice",
+	);
 	assert.equal(ok(await reads.list(db, v, { window: "past", types: ["team_meeting"] })).total, 0);
 	assert.equal(ok(await reads.hasHistory(db, v, {})).hasHistory, true);
 	assert.equal(ok(await reads.hasHistory(db, v, { types: ["team_meeting"] })).hasHistory, false);
@@ -264,25 +301,25 @@ test("AC:TARGET-MTG-001 AC:B02-007 windows, closed type filter, equal-start pagi
 
 test("AC:B02-008 AC:B02-009 AC:B02-011 AC:B02-012 AC:B02-013 AC:B02-015 AC:B02-032 AC:TARGET-MTG-002 held practices count once and only when actually held", async () => {
 	const base = ok(await reads.listCompletedPreLaunchPractices(db, await viewer())).count;
-	const hours = (n) => new Date(Date.now() - n * 3_600_000).toISOString();
-	const practices = [];
+	const hours = (n: number) => new Date(Date.now() - n * 3_600_000).toISOString();
+	const practices: Meeting[] = [];
 	for (let i = 0; i < 6; i++)
 		practices.push(await schedule({ type: "prelaunch_practice", date: day(-10 + i), time: "09:00" }));
-	const complete = (m, occurredAt, who = 0) =>
+	const complete = (m: Meeting, occurredAt: string, who = 0) =>
 		run(
 			meetings.completePractice,
 			{ requestKey: key(), expectedRevision: m.revision, input: { meetingId: m.id, occurredAt } },
 			who,
 		);
-	refused(await complete(practices[0], hours(48), 1));
-	refused(await complete(practices[0], hours(48), 3));
-	const done = [];
-	done.push(ok(await complete(practices[0], hours(48))).meeting);
-	done.push(ok(await complete(practices[1], hours(36), 2)).meeting);
+	refused(await complete(practices[0]!, hours(48), 1));
+	refused(await complete(practices[0]!, hours(48), 3));
+	const done: Meeting[] = [];
+	done.push(ok(await complete(practices[0]!, hours(48))).meeting);
+	done.push(ok(await complete(practices[1]!, hours(36), 2)).meeting);
 	const thirdInput = {
 		requestKey: key(),
-		expectedRevision: practices[2].revision,
-		input: { meetingId: practices[2].id, occurredAt: hours(24) },
+		expectedRevision: practices[2]!.revision,
+		input: { meetingId: practices[2]!.id, occurredAt: hours(24) },
 	};
 	done.push(ok(await run(meetings.completePractice, thirdInput)).meeting);
 	const replay = ok(await run(meetings.completePractice, thirdInput));
@@ -291,18 +328,18 @@ test("AC:B02-008 AC:B02-009 AC:B02-011 AC:B02-012 AC:B02-013 AC:B02-015 AC:B02-0
 		ok(await run(meetings.completePractice, thirdInput)).receiptId,
 		"a repeated request replays its receipt",
 	);
-	refused(await complete(practices[3], new Date(Date.now() + 3_600_000).toISOString()), "invalid_input");
+	refused(await complete(practices[3]!, new Date(Date.now() + 3_600_000).toISOString()), "invalid_input");
 	const cancelled = ok(
 		await run(meetings.changeStatus, {
 			requestKey: key(),
-			expectedRevision: practices[4].revision,
-			input: { meetingId: practices[4].id, to: "cancelled" },
+			expectedRevision: practices[4]!.revision,
+			input: { meetingId: practices[4]!.id, to: "cancelled" },
 		}),
 	).meeting;
 	refused(await complete(cancelled, hours(1)), "status_transition");
 	const cancelledRow = sql`SELECT status, revision::text, actual_occurrence_at,
 		(SELECT count(*)::int FROM audit_event WHERE subject_id = ${cancelled.id}) AS audits FROM meeting WHERE id = ${cancelled.id}::uuid`;
-	const untouched = (await admin.execute(cancelledRow)).rows[0];
+	const untouched = (await admin.execute(cancelledRow)).rows[0]!;
 	for (const input of [{ state: "completed", occurredAt: hours(1) }, { state: "not_completed" }])
 		refused(
 			await run(meetings.correctPracticeOccurrence, {
@@ -317,15 +354,15 @@ test("AC:B02-008 AC:B02-009 AC:B02-011 AC:B02-012 AC:B02-013 AC:B02-015 AC:B02-0
 	refused(
 		await run(meetings.changeStatus, {
 			requestKey: key(),
-			expectedRevision: practices[5].revision,
-			input: { meetingId: practices[5].id, to: "completed" },
+			expectedRevision: practices[5]!.revision,
+			input: { meetingId: practices[5]!.id, to: "completed" },
 		}),
 		"status_transition",
 	);
 	let counted = ok(await reads.listCompletedPreLaunchPractices(db, await viewer(1)));
 	assert.equal(counted.count - base, 3);
 	assert.equal(counted.criterion, "met");
-	const fourth = ok(await complete(practices[5], hours(2))).meeting;
+	const fourth = ok(await complete(practices[5]!, hours(2))).meeting;
 	assert.equal(ok(await reads.listCompletedPreLaunchPractices(db, await viewer())).count - base, 4, "four still meet");
 	ok(
 		await run(meetings.delete, {
@@ -337,32 +374,32 @@ test("AC:B02-008 AC:B02-009 AC:B02-011 AC:B02-012 AC:B02-013 AC:B02-015 AC:B02-0
 	const voided = ok(
 		await run(meetings.correctOccurrence, {
 			requestKey: key(),
-			expectedRevision: done[2].revision,
-			input: { meetingId: done[2].id, voided: true, reason: "Duplicate entry" },
+			expectedRevision: done[2]!.revision,
+			input: { meetingId: done[2]!.id, voided: true, reason: "Duplicate entry" },
 		}),
 	).meeting;
 	assert.ok(voided.occurrence.voidedAt);
 	ok(
 		await run(meetings.correctPracticeOccurrence, {
 			requestKey: key(),
-			expectedRevision: done[1].revision,
-			input: { meetingId: done[1].id, state: "not_completed", reason: "Did not happen" },
+			expectedRevision: done[1]!.revision,
+			input: { meetingId: done[1]!.id, state: "not_completed", reason: "Did not happen" },
 		}),
 	);
 	counted = ok(await reads.listCompletedPreLaunchPractices(db, await viewer()));
 	assert.equal(counted.count - base, 2);
-	assert.ok(counted.meetingIds.includes(fourth.id) && counted.meetingIds.includes(done[0].id));
+	assert.ok(counted.meetingIds.includes(fourth.id) && counted.meetingIds.includes(done[0]!.id));
 	assert.equal(counted.criterion, base + 2 >= 3 ? "met" : "not_met");
 	const history = (
 		await admin.execute(
-			sql`SELECT kind, before_value->>'heldAt' AS before FROM audit_event WHERE subject_id=${done[1].id} ORDER BY occurred_at`,
+			sql`SELECT kind, before_value->>'heldAt' AS before FROM audit_event WHERE subject_id=${done[1]!.id} ORDER BY occurred_at`,
 		)
 	).rows;
 	assert.deepEqual(
 		history.map((h) => h.kind),
 		["create", "complete", "correct"],
 	);
-	assert.ok(history[2].before, "the correction keeps the earlier held time");
+	assert.ok(history[2]!.before, "the correction keeps the earlier held time");
 	const alex = await person("Practice guest");
 	const practice = await schedule({ type: "prelaunch_practice", guests: [alex] });
 	assert.deepEqual([practice.visionNumber, practice.kit], [null, null]);
@@ -397,7 +434,7 @@ test("AC:B02-008 AC:B02-009 AC:B02-011 AC:B02-012 AC:B02-013 AC:B02-015 AC:B02-0
 		"wrong_meeting_type",
 	);
 	const catalog = JSON.parse(await readFile(new URL("../../../docs/catalog/operations.json", import.meta.url), "utf8"));
-	const operations = (catalog.operations ?? catalog).map((o) => o.id);
+	const operations = (catalog.operations ?? catalog).map((o: { id: string }) => o.id);
 	assert.ok(operations.includes("meetings.completePractice"));
 });
 
@@ -421,7 +458,7 @@ test("AC:TARGET-MTG-003 AC:TARGET-MTG-004 AC:GAP-MTG-004 venues keep meeting cop
 			input: { venueId: v.id, patch: { name: "New Hall", address: "9 Ninth St" } },
 		}),
 	).venue;
-	assert.deepEqual(ok(await reads.get(db, await viewer(), { meetingId: m.id })).meeting.venue, {
+	assert.deepEqual(available(await reads.get(db, await viewer(), { meetingId: m.id })).meeting.venue, {
 		id: v.id,
 		name: "Old Hall",
 		address: "1 First St",
@@ -457,7 +494,7 @@ test("AC:TARGET-MTG-003 AC:TARGET-MTG-004 AC:GAP-MTG-004 venues keep meeting cop
 		"archived venues are hidden by default",
 	);
 	assert.ok(ok(await venuesReader.list(db, vr, { archived: "only" })).items.some((x) => x.id === v.id));
-	const current = ok(await reads.get(db, await viewer(), { meetingId: m.id })).meeting;
+	const current = available(await reads.get(db, await viewer(), { meetingId: m.id })).meeting;
 	const kept = ok(
 		await run(meetings.edit, {
 			requestKey: key(),
@@ -487,17 +524,17 @@ test("AC:TARGET-MTG-003 AC:TARGET-MTG-004 AC:GAP-MTG-004 venues keep meeting cop
 	).venue;
 	assert.equal(restored.active, true);
 	assert.deepEqual(
-		ok(await reads.get(db, await viewer(), { meetingId: m.id })).meeting.venue.name,
+		available(await reads.get(db, await viewer(), { meetingId: m.id })).meeting.venue!.name,
 		"Old Hall",
 		"restore never rewrites copies",
 	);
-	const detail = ok(await venuesReader.get(db, vr, { venueId: v.id }));
+	const detail = available(await venuesReader.get(db, vr, { venueId: v.id }));
 	assert.deepEqual(
 		detail.history.map((h) => h.kind),
 		["restore", "noop", "archive", "correct", "edit", "create"],
 	);
-	assert.deepEqual(detail.history[3].before, { capacity: 50 });
-	assert.equal(detail.history[3].reason, "Typo");
+	assert.deepEqual(detail.history[3]!.before, { capacity: 50 });
+	assert.equal(detail.history[3]!.reason, "Typo");
 	assert.deepEqual(ok(await venuesReader.get(db, await viewer(3), { venueId: v.id })), { status: "unavailable" });
 	const big = ok(await venuesReader.list(db, vr, { minCapacity: 55, search: "hall" })).items.map((x) => x.id);
 	assert.ok(big.includes(v.id));
@@ -534,7 +571,7 @@ test("AC:TARGET-MTG-005 an agenda saves whole: reorder and retime round trip, in
 			"invalid_input",
 		);
 		assert.ok(
-			e.details.issues.some((i) => i.path === "input." + path),
+			e.details.issues.some((i: { path: string }) => i.path === "input." + path),
 			JSON.stringify(e.details.issues),
 		);
 	}
@@ -555,8 +592,9 @@ test("AC:TARGET-MTG-006 AC:PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE one kit, ow
 	assert.equal(ok(await run(meetings.populateKit, { ...populate, requestKey: key() })).outcome, "noop");
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM meeting_kit_item WHERE meeting_id=${m.id}`), 23);
 	const kit = ok(await reads.listKit(db, await viewer(), { meetingId: m.id }));
-	const [first, second] = kit.items;
-	const update = (item, patch, who = 0) =>
+	const first = kit.items[0]!;
+	const second = kit.items[1]!;
+	const update = (item: { id: string; revision: string }, patch: Record<string, unknown>, who = 0) =>
 		run(
 			meetings.updateKitItem,
 			{ requestKey: key(), expectedRevision: item.revision, input: { meetingId: m.id, itemId: item.id, patch } },
@@ -571,18 +609,21 @@ test("AC:TARGET-MTG-006 AC:PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE one kit, ow
 	const p2 = await person("Alex Chen");
 	let r = ok(await update(first, { checked: true, assigneePersonId: p2, notes: "Bring two" }));
 	assert.deepEqual([r.checked, r.total], [1, 23]);
-	const checkedFirst = r.items[0];
-	assert.deepEqual([checkedFirst.checked, checkedFirst.assignee.personId, checkedFirst.notes], [true, p2, "Bring two"]);
+	const checkedFirst = r.items[0]!;
+	assert.deepEqual(
+		[checkedFirst.checked, checkedFirst.assignee!.personId, checkedFirst.notes],
+		[true, p2, "Bring two"],
+	);
 	r = ok(await update(second, { checked: true }));
-	r = ok(await update(r.items[1], { checked: false }));
+	r = ok(await update(r.items[1]!, { checked: false }));
 	assert.equal(r.checked, 1, "uncheck reverses check");
 	assert.equal(ok(await reads.listKit(db, await viewer(1), { meetingId: m.id })).checked, 1);
 	refused(await update(first, { checked: false }), "conflict");
 	await retire(p2);
-	const after = ok(await reads.listKit(db, await viewer(), { meetingId: m.id })).items[0];
+	const after = ok(await reads.listKit(db, await viewer(), { meetingId: m.id })).items[0]!;
 	assert.deepEqual(after.assignee, { personId: p2, displayName: "Alex Chen", state: "retired" });
 	refused(
-		await update(ok(await reads.listKit(db, await viewer(), { meetingId: m.id })).items[2], { assigneePersonId: p2 }),
+		await update(ok(await reads.listKit(db, await viewer(), { meetingId: m.id })).items[2]!, { assigneePersonId: p2 }),
 		"invalid_subject",
 	);
 	const orientation = await schedule({ type: "orientation" });
@@ -604,7 +645,7 @@ test("AC:TARGET-MTG-006 AC:PERSONREF-MEETING-CHECKLIST-PERSON-RETIRE one kit, ow
 test("AC:TARGET-MTG-007 AC:TARGET-MTG-019 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE one guest row per Person, valid inviters, removal keeps history", async () => {
 	const m = await schedule();
 	const [alex, casey, jamie] = [await person("Alex"), await person("Casey"), await person("Jamie")];
-	const invite = (personId, inviterPersonId = null, requestKey = key()) =>
+	const invite = (personId: string, inviterPersonId: string | null = null, requestKey: string = key()) =>
 		run(guests.inviteGuest, { requestKey, input: { meetingId: m.id, personId, inviterPersonId } });
 	const first = ok(await invite(alex, casey));
 	assert.equal(ok(await invite(alex)).outcome, "noop", "inviting a current guest again adds nothing");
@@ -640,7 +681,7 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-019 AC:PERSONREF-MEETING-INVITATION-RSVP-A
 		],
 	);
 	let g = await guestOf(m.id, alex);
-	g = ok(
+	ok(
 		await run(guests.recordCard, {
 			requestKey: key(),
 			expectedRevision: g.revision,
@@ -650,7 +691,9 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-019 AC:PERSONREF-MEETING-INVITATION-RSVP-A
 	const note = ok(
 		await run(peopleWriter.addNote, {
 			requestKey: key(),
-			expectedRevision: (await admin.execute(sql`SELECT revision::text AS r FROM person WHERE id=${alex}`)).rows[0].r,
+			expectedRevision: (
+				await admin.execute<{ r: string }>(sql`SELECT revision::text AS r FROM person WHERE id=${alex}`)
+			).rows[0]!.r,
 			input: { personId: alex, body: "Followed up", meetingId: m.id },
 		}),
 	);
@@ -665,7 +708,7 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-019 AC:PERSONREF-MEETING-INVITATION-RSVP-A
 		}),
 	);
 	assert.equal(removed.guest.hasCard, false);
-	assert.equal(await guestOf(m.id, alex), undefined);
+	assert.equal(await findGuest(m.id, alex), undefined);
 	assert.equal(
 		await count(sql`SELECT count(*)::int AS n FROM person_note WHERE id=${note.noteId} AND removed_at IS NULL`),
 		1,
@@ -696,7 +739,7 @@ test("AC:TARGET-MTG-011 AC:GAP-MTG-011 AC:B02-023 AC:B02-024 quick-add contacts 
 	const created = ok(await run(guests.createGuestContact, input));
 	assert.deepEqual(ok(await run(guests.createGuestContact, input)), created, "a double submit replays");
 	assert.equal(await people(), before + 1);
-	const mara = (await admin.execute(sql`SELECT * FROM person WHERE id=${created.guest.person.personId}`)).rows[0];
+	const mara = (await admin.execute(sql`SELECT * FROM person WHERE id=${created.guest.person.personId}`)).rows[0]!;
 	assert.deepEqual(
 		[
 			mara.display_name,
@@ -751,21 +794,23 @@ test("BUG-ecafe8d01: a Person created from a guest list or at the door opens wit
 		const made = ok(await run(op, { requestKey: key(), input: { meetingId: m.id, displayName: "Robin" } }));
 		const personId = made.guest.person.personId;
 		const page = ok(await tx((t) => readPersonPage(t, ctx(), { personId }, 50)));
+		assert.equal(page.found.status, "available");
 		assert.equal(page.found.person.id, personId);
+		assert.equal(page.activities?.status, "ok");
 		assert.deepEqual(
-			page.activities.value.items.map((a) => [a.kind, a.action, a.actor.kind]),
+			page.activities.value.items.map((a) => [a.kind, "action" in a && a.action, a.actor.kind]),
 			[["activity", "created", "current_account"]],
 		);
-		const feed = ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId })));
+		const feed = ok(await tx((t) => peopleReader.getActivities(t, ctx(), activityRequest.parse({ personId }))));
 		assert.deepEqual(feed.items, page.activities.value.items);
 	}
 });
 
 test("AC:CASE-COM-010 AC:TARGET-MTG-001 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one current RSVP from link, own reply or Admin, never attendance", async () => {
-	const memberPerson = await person("Morgan", { account: actors[1].id });
+	const memberPerson = await person("Morgan", { account: actors[1]!.id });
 	const alex = await person("Alex Rivera");
 	const m = await schedule({ guests: [alex, memberPerson] });
-	const issue = (personId) => issueRsvpToken(admin, P, m.id, personId);
+	const issue = (personId: string) => issueRsvpToken(admin, P, m.id, personId);
 	const token = await issue(alex);
 	const totalWrites = () =>
 		count(
@@ -773,7 +818,7 @@ test("AC:CASE-COM-010 AC:TARGET-MTG-001 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:G
 		);
 	const writesBefore = await totalWrites();
 	queries = [];
-	const view = await describeRsvpToken(db, { token });
+	const view = await openLink(token);
 	assert.equal(queries.length, 1);
 	assert.deepEqual(
 		[view.state, view.guestFirstName, view.rsvp, view.meeting.displayTitle],
@@ -792,7 +837,7 @@ test("AC:CASE-COM-010 AC:TARGET-MTG-001 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:G
 		"token_closed",
 	);
 	let g = await guestOf(m.id, alex);
-	assert.deepEqual([g.rsvp, g.rsvpSource, g.presence], [winners[0].value.rsvp, "token", "absent"]);
+	assert.deepEqual([g.rsvp, g.rsvpSource, g.presence], [winners[0]!.value.rsvp, "token", "absent"]);
 	assert.equal((await describeRsvpToken(db, { token })).state, "answered");
 	const fresh = await issue(alex);
 	g = await guestOf(m.id, alex);
@@ -805,11 +850,7 @@ test("AC:CASE-COM-010 AC:TARGET-MTG-001 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:G
 	).guest;
 	refused(await answerRsvpToken(db, { token: fresh, rsvp: "declined" }), "token_closed");
 	assert.deepEqual([g.rsvp, g.rsvpSource, g.presence], ["confirmed", "admin", "absent"]);
-	assert.equal(
-		(await describeRsvpToken(db, { token: fresh })).rsvp,
-		"confirmed",
-		"the old link still shows the current answer",
-	);
+	assert.equal((await openLink(fresh)).rsvp, "confirmed", "the old link still shows the current answer");
 	g = ok(
 		await run(guests.correctRsvp, {
 			requestKey: key(),
@@ -900,7 +941,7 @@ test("BUG-ce8e6b7f7: a link to a cancelled or completed meeting reads as closed,
 				}),
 			);
 		else await admin.execute(sql`UPDATE meeting SET status='completed' WHERE id=${m.id}`);
-		const view = await describeRsvpToken(db, { token });
+		const view = await openLink(token);
 		assert.deepEqual([view.state, view.rsvp, view.meeting.displayTitle], ["closed", "pending", m.displayTitle], to);
 		refused(await answerRsvpToken(db, { token, rsvp: "confirmed" }), "token_closed");
 		await admin.execute(
@@ -912,9 +953,9 @@ test("BUG-ce8e6b7f7: a link to a cancelled or completed meeting reads as closed,
 
 test("AC:TARGET-MTG-013 cards: attended guests are the denominator, no card is unknown and notes stay with Owner/Admin", async () => {
 	const m = await schedule();
-	const alex = (
-		await run(guests.createWalkInContact, { requestKey: key(), input: { meetingId: m.id, displayName: "Alex" } })
-	).value.guest;
+	const alex = ok(
+		await run(guests.createWalkInContact, { requestKey: key(), input: { meetingId: m.id, displayName: "Alex" } }),
+	).guest;
 	const casey = await person("Casey");
 	ok(await run(guests.inviteGuest, { requestKey: key(), input: { meetingId: m.id, personId: casey } }));
 	const g = await guestOf(m.id, casey);
@@ -925,7 +966,7 @@ test("AC:TARGET-MTG-013 cards: attended guests are the denominator, no card is u
 			input: { meetingId: m.id, personId: casey, response: "not_interested", notes: "PRAYER-CANARY" },
 		}),
 	);
-	assert.equal(recorded.card.notes, "PRAYER-CANARY");
+	assert.equal(recorded.card!.notes, "PRAYER-CANARY");
 	refused(
 		await run(guests.recordCard, {
 			requestKey: key(),
@@ -950,7 +991,7 @@ test("AC:TARGET-MTG-013 cards: attended guests are the denominator, no card is u
 		memberCards.map((c) => [c.personId, c.response, c.notes]),
 		[[casey, "not_interested", null]],
 	);
-	assert.equal(ok(await reads.listCards(db, await viewer(), { meetingId: m.id })).cards[0].notes, "PRAYER-CANARY");
+	assert.equal(ok(await reads.listCards(db, await viewer(), { meetingId: m.id })).cards[0]!.notes, "PRAYER-CANARY");
 	for (const who of [await viewer(), await viewer(1)]) {
 		const page = ok(await reads.pageGuests(db, who, { meetingId: m.id }));
 		assert.deepEqual(page.guests, ok(await reads.listGuests(db, who, { meetingId: m.id })));
@@ -977,7 +1018,11 @@ test("AC:TARGET-MTG-013 cards: attended guests are the denominator, no card is u
 });
 
 test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC:B03-012 reminders follow the meeting and its current audience", async () => {
-	const plan = (meetingId, asOf) => planNotifications(db, P, { meetingId, asOf });
+	const plan = async (meetingId: string, asOf: string) => {
+		const planned = await planNotifications(db, P, { meetingId, asOf });
+		assert.ok(planned);
+		return planned;
+	};
 	const march = await schedule({ type: "orientation", date: "2026-03-10", time: "09:00" });
 	assert.equal(march.startsAt, "2026-03-10T14:00:00.000Z");
 	const early = await plan(march.id, "2026-02-01T00:00:00Z");
@@ -1004,15 +1049,15 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 	);
 
 	const memberPerson =
-		(await admin.execute(sql`SELECT id FROM person WHERE linked_account_id=${actors[1].id}`)).rows[0]?.id ??
-		(await person("Morgan", { account: actors[1].id }));
-	const ownerPerson = await person("Owner as guest", { account: actors[0].id, stage: "core_group" });
+		(await admin.execute<{ id: string }>(sql`SELECT id FROM person WHERE linked_account_id=${actors[1]!.id}`)).rows[0]
+			?.id ?? (await person("Morgan", { account: actors[1]!.id }));
+	const ownerPerson = await person("Owner as guest", { account: actors[0]!.id, stage: "core_group" });
 	const crmOnly = await person("CRM only");
 	await admin.execute(sql`UPDATE person SET email='crm@example.test' WHERE id=${crmOnly}`);
 	const m = await schedule({ date: day(20), time: "18:00", guests: [memberPerson, ownerPerson, crmOnly] });
 	const jobs = async () =>
 		(
-			await admin.execute(
+			await admin.execute<{ key: string; state: string; revision: string }>(
 				sql`SELECT producer_key AS key, state, eligible_at, source_revision::text AS revision FROM job
 					WHERE subject_record_id=${m.id} AND kind='notification' ORDER BY producer_key`,
 			)
@@ -1030,13 +1075,13 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 	);
 	const now = new Date().toISOString();
 	let current = await plan(m.id, now);
-	const reminder = current.slots.find((s) => s.slot === "day_3");
+	const reminder = current.slots.find((s) => s.slot === "day_3")!;
 	assert.deepEqual(
 		reminder.recipients,
-		[actors[0].id, actors[1].id].sort(),
+		[actors[0]!.id, actors[1]!.id].sort(),
 		"creator once though also a guest; no CRM-only address",
 	);
-	assert.deepEqual(current.slots[0].recipients, [actors[0].id], "the announcement goes to the linked Core Group");
+	assert.deepEqual(current.slots[0]!.recipients, [actors[0]!.id], "the announcement goes to the linked Core Group");
 	const moved = ok(
 		await run(meetings.edit, {
 			requestKey: key(),
@@ -1072,7 +1117,7 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 	);
 	assert.equal(same.outcome, "noop");
 	assert.deepEqual(await jobs(), afterMove, "the same time again queues nothing new");
-	const sent = afterMove.find((j) => j.state === "ready" && j.key.startsWith("meeting/day_7"));
+	const sent = afterMove.find((j) => j.state === "ready" && j.key.startsWith("meeting/day_7"))!;
 	await admin.execute(
 		sql`UPDATE job SET state='succeeded', finished_at=clock_timestamp() WHERE subject_record_id=${m.id} AND producer_key=${sent.key}`,
 	);
@@ -1084,7 +1129,7 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 		}),
 	).agenda;
 	const afterAgenda = await jobs();
-	assert.equal(afterAgenda.find((j) => j.key === sent.key).state, "succeeded");
+	assert.equal(afterAgenda.find((j) => j.key === sent.key)!.state, "succeeded");
 	assert.ok(
 		afterAgenda.filter((j) => j.state === "ready").every((j) => j.revision === agenda.revision),
 		"waiting jobs follow the meeting's revision",
@@ -1098,7 +1143,7 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 		}),
 	);
 	current = await plan(m.id, new Date().toISOString());
-	assert.deepEqual(current.slots.find((s) => s.slot === "day_1").recipients, [actors[0].id]);
+	assert.deepEqual(current.slots.find((s) => s.slot === "day_1")!.recipients, [actors[0]!.id]);
 	ok(
 		await run(meetings.changeStatus, {
 			requestKey: key(),
@@ -1115,7 +1160,7 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 });
 
 test("INV-reads: meeting pages and details are one statement whatever their size, without locks", async () => {
-	const measure = async (body) => {
+	const measure = async <T,>(body: () => Promise<MeetingsReply<T>>) => {
 		queries = [];
 		const value = ok(await body());
 		return { value, statements: queries.length, locks: queries.some((q) => /for\s+(update|share)/i.test(q)) };
@@ -1124,7 +1169,7 @@ test("INV-reads: meeting pages and details are one statement whatever their size
 	const small = await measure(() => reads.list(db, v, { limit: 2 }));
 	const large = await measure(() => reads.list(db, v, { limit: 100 }));
 	assert.ok(large.value.items.length > small.value.items.length);
-	const meetingId = large.value.items[0].id;
+	const meetingId = large.value.items[0]!.id;
 	for (const r of [
 		small,
 		large,
@@ -1153,7 +1198,7 @@ test("INV-tenancy C13: meeting and venue reads check access in their own stateme
 	const hall = ok(
 		await run(venues.create, { requestKey: key(), input: { name: "Live Hall", address: "1 Live St" } }),
 	).venue;
-	const v = await RequestActor.resolve(db, a.session);
+	const v = await resolved(a.session);
 	const meetingId = m.id;
 	const reads13 = () =>
 		Promise.all([
@@ -1172,7 +1217,7 @@ test("INV-tenancy C13: meeting and venue reads check access in their own stateme
 			venuesReader.get(db, v, { venueId: hall.id }),
 			venuesReader.history(db, v, { venueId: hall.id }),
 		]);
-	const notes = async () => ok(await reads.listCards(db, v, { meetingId })).cards[0].notes;
+	const notes = async () => ok(await reads.listCards(db, v, { meetingId })).cards[0]!.notes;
 	assert.equal(await notes(), "LIVE-CANARY");
 	ok(await reads.communicationContext(db, v, { meetingId }));
 	await admin.execute(sql`UPDATE seat SET role='member' WHERE id=${seat}`);
@@ -1184,8 +1229,8 @@ test("INV-tenancy C13: meeting and venue reads check access in their own stateme
 });
 
 test("AC:TARGET-MTG-001 the Next card's read skips a sooner cancelled or completed meeting and shows the one still on", async () => {
-	const at = (minutes) => new Date(Date.now() + minutes * 60_000).toISOString();
-	const insert = async (status, minutes) => {
+	const at = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
+	const insert = async (status: string, minutes: number) => {
 		const id = randomUUID();
 		await admin.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,
 			resolver_version,status,attendance_revision) VALUES(${id},${Q},'orientation',${status},${day(0)},'18:00',
@@ -1201,7 +1246,7 @@ test("AC:TARGET-MTG-001 the Next card's read skips a sooner cancelled or complet
 		[scheduled],
 	);
 	const unfiltered = ok(await reads.list(db, await viewer(3), { window: "upcoming", limit: 1 })).items;
-	assert.equal(unfiltered[0].status, "cancelled");
+	assert.equal(unfiltered[0]!.status, "cancelled");
 });
 
 test("AC:RECOVERY-DELETE-001 a plant pending deletion answers no RSVP link, read or answer, until the witness is gone", async () => {
@@ -1285,7 +1330,13 @@ test("AC:TARGET-MTG-001 INV-privacy: every read and write that takes a meeting a
 		"attendance.correctEvaluation": { changes: { vibeScore: 3 }, reason: "Wrong" },
 		"attendance.addAttendeeNote": { ...guest, text: "Came early" },
 	};
-	const writers = { meetings, guests, roster: rosterWriter, attendance };
+	type Write = (tx: WriteTx, context: MeetingsContext, raw: unknown) => Promise<MeetingsReply<unknown>>;
+	const writers: Record<string, Record<string, Write>> = {
+		meetings,
+		guests,
+		roster: rosterWriter,
+		attendance,
+	};
 	const takesNoMeeting = ["meetings.schedule"];
 	assert.deepEqual(
 		Object.entries(writers)
@@ -1295,8 +1346,10 @@ test("AC:TARGET-MTG-001 INV-privacy: every read and write that takes a meeting a
 		Object.keys(inputs).sort(),
 		"each write that takes a meeting is called here",
 	);
-	const readers = { reads, attendanceReader, rosterReader };
-	const perMeeting: Record<keyof typeof readers, string[]> = {
+	type ReaderName = "reads" | "attendanceReader" | "rosterReader";
+	type Read = (executor: typeof db, actor: RequestActor, raw: unknown) => Promise<MeetingsReply<unknown>>;
+	const readers: Record<string, Record<string, Read>> = { reads, attendanceReader, rosterReader };
+	const perMeeting: Record<ReaderName, string[]> = {
 		reads: [
 			"get",
 			"readAgenda",
@@ -1320,16 +1373,19 @@ test("AC:TARGET-MTG-001 INV-privacy: every read and write that takes a meeting a
 		],
 		rosterReader: ["previewRosterImport"],
 	};
-	const answerOf = (r) =>
-		r.status === "refused" ? r.error.code : (r.value.status ?? r.value.state ?? JSON.stringify(r.value));
+	const answerOf = (r: MeetingsReply<unknown>) => {
+		if (r.status === "refused") return r.error.code;
+		const value = r.value as { status?: string; state?: string };
+		return value.status ?? value.state ?? JSON.stringify(value);
+	};
 	const owner = await viewer();
-	const answers = async (meetingId) => {
+	const answers = async (meetingId: string) => {
 		const said: [string, string][] = [];
 		for (const [name, input] of Object.entries(inputs)) {
-			const [area, op] = name.split(".");
+			const [area, op] = name.split(".") as [string, string];
 			const command = { requestKey: key(), input: { meetingId, ...input } };
-			const write = async (request) =>
-				withMeetingsWrite(db, owner, (tx, context) => writers[area][op](tx, context, request));
+			const write = async (request: unknown) =>
+				withMeetingsWrite(db, owner, (tx, context) => writers[area]![op]!(tx, context, request));
 			const first = await write({ ...command, expectedRevision: gone.revision });
 			const r =
 				first.status === "refused" && first.error.code === "invalid_input"
@@ -1338,7 +1394,7 @@ test("AC:TARGET-MTG-001 INV-privacy: every read and write that takes a meeting a
 			said.push([name, answerOf(r)]);
 		}
 		for (const [area, names] of Object.entries(perMeeting))
-			for (const name of names) said.push([name, answerOf(await readers[area][name](db, owner, { meetingId }))]);
+			for (const name of names) said.push([name, answerOf(await readers[area]![name]!(db, owner, { meetingId }))]);
 		return said;
 	};
 	const missing = await answers(randomUUID());

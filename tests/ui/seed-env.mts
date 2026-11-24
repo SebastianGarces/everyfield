@@ -24,6 +24,7 @@ export const SEEDS = [
 	"oversight",
 	"pipeline",
 	"launch-evry",
+	"teams",
 ] as const;
 export type SeedName = (typeof SEEDS)[number];
 const SCHEMA = /^ui_[a-f0-9]{16}$/;

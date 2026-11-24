@@ -88,6 +88,7 @@ test("T-301 the People seed runs first, since the Evry and Meetings seeds read i
 		"oversight",
 		"people",
 		"pipeline",
+		"teams",
 	]);
 });
 

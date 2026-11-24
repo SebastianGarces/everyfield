@@ -1,7 +1,7 @@
 "use client";
 
 import { Moon02Icon, Sun01Icon } from "@hugeicons/core-free-icons";
-import { useRef, type KeyboardEvent } from "react";
+import { useRef, type KeyboardEvent, type Ref } from "react";
 import { cn, HoverGroup, Icon, useHoverItem, useProductTheme, type ProductTheme } from "../foundations";
 
 const OPTIONS = [
@@ -11,14 +11,15 @@ const OPTIONS = [
 
 export function ThemeToggle({ variant, className }: { variant: "rail" | "menu"; className?: string }) {
 	const { theme, setTheme } = useProductTheme();
-	const refs = useRef<Partial<Record<ProductTheme, HTMLButtonElement | null>>>({});
+	const light = useRef<HTMLButtonElement>(null);
+	const dark = useRef<HTMLButtonElement>(null);
 
 	const onKeyDown = (e: KeyboardEvent) => {
 		if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
 		e.preventDefault();
 		const next: ProductTheme = theme === "light" ? "dark" : "light";
 		setTheme(next);
-		refs.current[next]?.focus();
+		(next === "light" ? light : dark).current?.focus();
 	};
 
 	return (
@@ -41,7 +42,7 @@ export function ThemeToggle({ variant, className }: { variant: "rail" | "menu"; 
 					variant={variant}
 					checked={theme === o.theme}
 					onSelect={() => setTheme(o.theme)}
-					ref={(el) => void (refs.current[o.theme] = el)}
+					ref={o.theme === "light" ? light : dark}
 				/>
 			))}
 		</HoverGroup>
@@ -59,7 +60,7 @@ function ThemeOption({
 	variant: "rail" | "menu";
 	checked: boolean;
 	onSelect: () => void;
-	ref: (el: HTMLButtonElement | null) => void;
+	ref: Ref<HTMLButtonElement>;
 }) {
 	const { handlers, indicator } = useHoverItem(
 		option.theme,

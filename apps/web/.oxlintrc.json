@@ -1365,6 +1365,7 @@
 			"files": ["src/**"],
 			"rules": {
 				"everyfield/no-timers": "error",
+				"everyfield/stable-ref": "error",
 				"everyfield/clickable-host": "error",
 				"everyfield/no-cursor-utility": "error",
 				"everyfield/no-raw-history": "error",
@@ -1557,6 +1558,24 @@
 			"files": ["src/**"],
 			"rules": {
 				"everyfield/no-double-cast": "error"
+			}
+		},
+		{
+			"files": ["src/features/evry/review/**"],
+			"rules": {
+				"everyfield/server-clock": "error"
+			}
+		},
+		{
+			"files": ["src/features/wiki/**"],
+			"rules": {
+				"everyfield/no-scroll-into-view": "error"
+			}
+		},
+		{
+			"files": ["src/features/meetings/**", "src/features/launch/**", "src/features/oversight/**"],
+			"rules": {
+				"everyfield/explicit-time-zone": "error"
 			}
 		}
 	]
