@@ -24,7 +24,6 @@ import {
 import { isTransient, logFailure, logLine, type LogWord } from "@everyfield/domain/log";
 import { parseJson } from "../../server/platform/json.ts";
 import { mutatingRoute } from "../../server/platform/boundary.ts";
-import { ServerConfigError } from "../../server/config.ts";
 import { LOST, transient, unexpected } from "../../server/platform/transient.ts";
 
 type Producer = ReturnType<typeof createWikiProducer>;
@@ -75,10 +74,7 @@ export const loadPreview = cache(async (path: string, userAgent: string): Promis
 			};
 		},
 		null,
-	).catch((error: unknown) => {
-		if (error instanceof ServerConfigError) return null;
-		throw error;
-	});
+	);
 });
 
 type Got = { article: WikiArticle | null; errorCode: "content_access_denied" | null };
@@ -144,7 +140,7 @@ type WikiDraft = {
 };
 
 async function feedbackVote(
-	mount: NonNullable<ReturnType<typeof wikiMount>>,
+	mount: Mount,
 	actor: Parameters<typeof plantContext>[0],
 	articleId: string,
 ): Promise<"helpful" | "unhelpful" | null> {
@@ -161,7 +157,7 @@ async function feedbackVote(
 }
 
 async function sourceOrder(
-	mount: NonNullable<ReturnType<typeof wikiMount>>,
+	mount: Mount,
 	actor: Parameters<typeof plantContext>[0],
 ): Promise<SourceOrder | null> {
 	return transient(
