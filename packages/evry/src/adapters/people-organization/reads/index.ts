@@ -236,6 +236,8 @@ function receiptRows(
 }
 
 const listHouseholdsInput = searchInput;
+const SEVERAL_HOUSEHOLDS =
+	"Several households match this search. Ask which one the user means, naming each with its city, before reading any of them, and give no street address until they choose.";
 export const listHouseholds: ReadAdapter<z.infer<typeof listHouseholdsInput>> = {
 	operation: "people.listHouseholds",
 	description: "List households in this church, with the exact matched total and the next page when more exist.",
@@ -247,7 +249,7 @@ export const listHouseholds: ReadAdapter<z.infer<typeof listHouseholdsInput>> = 
 			await personFields.listHouseholds(tx, readCtx(actor), request),
 		);
 		if (!found) return missing("people.listHouseholds", ADDRESS);
-		return result(
+		const listed = result(
 			"people.listHouseholds",
 			"available",
 			found.items.map((home) =>
@@ -264,6 +266,9 @@ export const listHouseholds: ReadAdapter<z.infer<typeof listHouseholdsInput>> = 
 			found.next ? "partial" : "complete",
 			ADDRESS,
 		);
+		return request.search && found.total !== null && found.total > 1
+			? { ...listed, facts: { ...listed.facts, note: SEVERAL_HOUSEHOLDS } }
+			: listed;
 	},
 };
 

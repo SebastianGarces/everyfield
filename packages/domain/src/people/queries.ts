@@ -70,11 +70,49 @@ const warningsRow = z.object({
 	committed: z.boolean(),
 	duties: z.array(z.object({ id: z.uuid(), revision: z.string() })),
 });
-export function peopleFilters(
-	ctx: Pick<Context, "selected">,
-	input: Omit<z.infer<typeof c.listPeopleRequest>, "page" | "limit" | "view" | "sort">,
-	gate: SQL,
-) {
+type PeopleFilters = Omit<z.infer<typeof c.listPeopleRequest>, "page" | "limit" | "view" | "sort">;
+const listPhoto = () =>
+	listPhotoSql({
+		id: tables.person.id,
+		state: tables.person.state,
+		photo: tables.person.photo_object_id,
+		account: tables.person.linked_account_id,
+		plant: tables.person.plant_id,
+	});
+const matchedSkills = (input: PeopleFilters) =>
+	sql`person_skill ps WHERE ps.plant_id=person.plant_id AND ps.person_id=person.id AND (ps.category=ANY(${sql.param(input.skillCategories ?? [])}::text[])
+		OR EXISTS(SELECT FROM unnest(${sql.param(input.skillNames ?? [])}::text[]) term WHERE strpos(lower(ps.name),lower(term))>0))`;
+const stageMoves = (plant: string, move: z.infer<typeof c.movedInto>) =>
+	sql`(WITH RECURSIVE moved(person_id,at) AS (
+		SELECT a.subject_id,(a.occurred_at AT TIME ZONE pl.timezone)::date FROM plant pl JOIN audit_event a ON a.tenant_id=pl.id
+		WHERE pl.id=${plant}::uuid AND a.subject_type='person' AND a.kind<>'noop' AND a.action IN ('people.stage_changed','people.recorded')
+		AND a.after_value->>'stage'=${move.stage} AND a.before_value->>'stage' IS DISTINCT FROM ${move.stage}
+		AND a.occurred_at>=coalesce(${move.from ?? null}::date,date_trunc('month',clock_timestamp() AT TIME ZONE pl.timezone))::timestamp AT TIME ZONE pl.timezone
+		AND (${move.through ?? null}::date IS NULL OR a.occurred_at<(${move.through ?? null}::date+1)::timestamp AT TIME ZONE pl.timezone)
+		UNION SELECT m.merged_into_person_id,moved.at FROM moved JOIN person m ON m.id=moved.person_id AND m.tenant_id=${plant}::uuid
+		WHERE m.merged_into_person_id IS NOT NULL)
+	SELECT person_id,max(at) AS at FROM moved GROUP BY person_id)`;
+function matchJson(ctx: Pick<Context, "selected">, input: PeopleFilters) {
+	const parts = [
+		...(input.skillCategories || input.skillNames
+			? [
+					sql`'skills',(SELECT json_agg(json_build_object('name',ps.name,'category',ps.category,'proficiency',ps.proficiency) ORDER BY lower(ps.name),ps.id) FROM ${matchedSkills(input)})`,
+				]
+			: []),
+		...(input.inHousehold || input.adultClassification === "child"
+			? [
+					sql`'household',(SELECT json_build_object('id',h.id,'name',h.name) FROM household h WHERE h.id=person.household_id AND h.plant_id=person.plant_id)`,
+				]
+			: []),
+		...(input.movedInto
+			? [
+					sql`'movedOn',(SELECT mv.at::text FROM ${stageMoves(ctx.selected.id, input.movedInto)} mv WHERE mv.person_id=person.id)`,
+				]
+			: []),
+	];
+	return parts.length ? sql<unknown>`json_build_object(${sql.join(parts, sql`,`)})` : null;
+}
+export function peopleFilters(ctx: Pick<Context, "selected">, input: PeopleFilters, gate: SQL) {
 	const filters = [eq(tables.person.plant_id, ctx.selected.id), gate];
 	if (input.archived === "exclude") filters.push(eq(tables.person.state, "live"));
 	else if (input.archived === "only") filters.push(ne(tables.person.state, "live"));
@@ -99,8 +137,21 @@ export function peopleFilters(
 		filters.push(
 			sql`(CASE WHEN EXISTS(SELECT FROM commitment e JOIN plant pl ON pl.id=e.plant_id WHERE e.plant_id=${tables.person.plant_id} AND e.person_id=${tables.person.id} AND e.voided_at IS NULL AND e.signed_on<=(clock_timestamp() AT TIME ZONE pl.timezone)::date) THEN ${tables.person.commitment_state} ELSE 'unknown' END)=${input.commitment}`,
 		);
+	if (input.skillCategories || input.skillNames) filters.push(sql`EXISTS(SELECT FROM ${matchedSkills(input)})`);
+	if (input.hasPhoto !== undefined) filters.push(sql`((${listPhoto()}) IS NOT NULL)=${input.hasPhoto}`);
+	if (input.inHousehold !== undefined)
+		filters.push(sql`(${tables.person.household_id} IS NOT NULL)=${input.inHousehold}`);
+	if (input.movedInto)
+		filters.push(
+			sql`${tables.person.id} IN (SELECT mv.person_id FROM ${stageMoves(ctx.selected.id, input.movedInto)} mv)`,
+		);
 	return filters;
 }
+const matchRow = z.object({
+	skills: c.personMatch.shape.skills.nullable(),
+	household: c.personMatch.shape.household.nullable(),
+	movedOn: c.personMatch.shape.movedOn.nullable(),
+});
 async function list(tx: Tx, ctx: Context, raw: unknown) {
 	if (ctx.selected.kind !== "plant") deny("unavailable");
 	const input = parse(c.listPeopleRequest, raw);
@@ -114,16 +165,12 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 		"The people count",
 	);
 	if (!allowed) deny("unavailable");
+	const match = matchJson(ctx, input);
 	const result = await tx
 		.select({
 			...personColumns,
-			list_photo: listPhotoSql({
-				id: tables.person.id,
-				state: tables.person.state,
-				photo: tables.person.photo_object_id,
-				account: tables.person.linked_account_id,
-				plant: tables.person.plant_id,
-			}).as("list_photo"),
+			list_photo: listPhoto().as("list_photo"),
+			...(match && { match: match.as("match") }),
 		})
 		.from(tables.person)
 		.where(and(...filters))
@@ -149,6 +196,17 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 		photos: page.flatMap((r) => {
 			const photo = c.listPhoto.nullable().parse(r.list_photo);
 			return photo ? [{ personId: r.id, photo }] : [];
+		}),
+		...(match && {
+			matches: page.map((r) => {
+				const { skills, household, movedOn } = matchRow.parse(r.match);
+				return {
+					personId: r.id,
+					...(skills && { skills }),
+					...(household && { household }),
+					...(movedOn && { movedOn }),
+				};
+			}),
 		}),
 		total,
 		next: more ? input.page + 1 : null,
