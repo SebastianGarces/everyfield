@@ -7,18 +7,22 @@ import { fileURLToPath } from "node:url";
 import ts from "../../../packages/contracts/node_modules/typescript/lib/typescript.js";
 
 const COPY = fileURLToPath(new URL("../../../ops/maintenance/copy.mts", import.meta.url));
+const BUCKET = fileURLToPath(new URL("../../../ops/maintenance/bucket.mts", import.meta.url));
 const STORAGE = fileURLToPath(new URL("../../../packages/db/src/schema/storage.ts", import.meta.url));
 const dir = mkdtempSync(join(tmpdir(), "copy-store-"));
 after(() => rmSync(dir, { recursive: true, force: true }));
 
-test("the backup copy store takes only the backup directory, never the app's private storage or its object store client", () => {
+test("the backup copy store takes only the backup directory or the backup bucket, never the app's private storage or its object store client", () => {
 	const fixture = join(dir, "stores.mts");
 	const lines = [
 		`import { BackupDirectory, type CopyDeps } from ${JSON.stringify(COPY)};`,
+		`import type { BackupBucket } from ${JSON.stringify(BUCKET)};`,
 		`import type { PrivateStorage } from ${JSON.stringify(STORAGE)};`,
 		"declare const storage: PrivateStorage;",
+		"declare const bucketStore: BackupBucket;",
 		"const clock = () => new Date();",
 		'export const backup: CopyDeps = { store: new BackupDirectory("/private/backup"), clock };',
+		"export const backupBucket: CopyDeps = { store: bucketStore, clock };",
 		"export const appStorage: CopyDeps = { store: storage, clock };",
 		"export const appClient: CopyDeps = { store: storage.client, clock };",
 	];

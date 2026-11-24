@@ -482,9 +482,9 @@
       }
     },
     "privacy_page": {
-      "note": "E2 (2026-10-14): Sebastian approved this privacy policy as drafted on 2026-10-14. Scope is the early access site only; the product needs its own policy (REQ-ADM-007) before real product data.",
+      "note": "T-627 (2026-11-24) adds the two backup lines to the draft product section; they wait for Sebastian's approval. E2 (2026-10-14): Sebastian approved this privacy policy as drafted on 2026-10-14. Scope is the early access site only; the product needs its own policy (REQ-ADM-007) before real product data.",
       "title": "Privacy policy",
-      "updated": "October 14, 2026",
+      "updated": "November 24, 2026",
       "intro": [
         "This policy covers everyfield.app, the early access site for Everyfield. Everyfield LLC runs the site.",
         "The site has no accounts, no sign in and no newsletter. We collect the details you send in an early access request. Our hosting provider also records information about visits, as described below."
@@ -547,6 +547,8 @@
           ],
           "items": [
             "Vercel hosts the product. A church's records are stored in a Postgres database at Neon, and its files in a private Tigris storage bucket.",
+            "Tigris holds both the files and the encrypted backups, so one Tigris outage can affect both.",
+            "Deleted data leaves the backups within 7 days of being purged.",
             "A church that signs up on its own starts with every kind of sharing turned off. The church's Owner or an Admin can turn each kind of sharing on or off for each sending church or network.",
             "Evry conversations are private to the person who starts them."
           ]

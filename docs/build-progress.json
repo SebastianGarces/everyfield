@@ -3185,11 +3185,68 @@
       "notes": ""
     },
     "WP-095": {
-      "status": "not_started",
-      "revision": 0,
-      "updated_at": null,
-      "evidence": [],
-      "notes": ""
+      "status": "in_progress",
+      "revision": 1,
+      "updated_at": "2026-11-24T00:00:00.000Z",
+      "evidence": [
+        {
+          "path": "tests/integration/target/sql/knowledge/backup-gate.test.mts",
+          "commit": "ac5d0ae578b5648c142080b8130e5f72e6f25102",
+          "test": "AC:BKT60-003 and AC:REC59-005 in tests/integration/target/sql/knowledge/backup-gate.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-627: a surviving 23-hour copy from the backup bucket is the fallback with no disaster RTO; the customer-data gate stays blocked and no second provider gates it."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-deletion.test.mts",
+          "commit": "ac5d0ae578b5648c142080b8130e5f72e6f25102",
+          "test": "AC:ORG55-008 and AC:DEL58-008 in tests/integration/target/sql/knowledge/restore-deletion.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-627: still pass; a purged subject stays hidden and a recopy never resets the copy expiry."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-files.test.mts",
+          "commit": "ac5d0ae578b5648c142080b8130e5f72e6f25102",
+          "test": "AC:OPS54-002 and AC:REC59-004 in tests/integration/target/sql/knowledge/restore-files.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-627: still pass; mismatched bytes fail closed and the timed drill meets the internal targets."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/readiness.test.mts",
+          "commit": "ac5d0ae578b5648c142080b8130e5f72e6f25102",
+          "test": "AC:BKT60-004 in tests/integration/target/sql/knowledge/readiness.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-627: still passes; the gate stays blocked while evidence is missing."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-receipts.test.mts",
+          "commit": "ac5d0ae578b5648c142080b8130e5f72e6f25102",
+          "test": "AC:REC59-006 in tests/integration/target/sql/knowledge/restore-receipts.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-627: still passes; no mail or issue replays."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/drill-target.test.mts",
+          "commit": "ac5d0ae578b5648c142080b8130e5f72e6f25102",
+          "test": "INV-recovery in tests/integration/target/sql/knowledge/drill-target.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-627: the explicit open step, deleted logins, capture-only jobs, the deletion check and refused cancels on live and restored data."
+        },
+        {
+          "path": "tests/integration/ops/backup-bucket.test.mts",
+          "commit": "ac5d0ae578b5648c142080b8130e5f72e6f25102",
+          "test": "INV-backup in tests/integration/ops/ (packages/db test:unit)",
+          "result": "passed",
+          "note": "T-627: complete only after read-back, expiry, retained deletions, missed and failed days, and no app or build import of the backup modules."
+        },
+        {
+          "path": "docs/runbooks/recovery-drill-2026-11-24.md",
+          "commit": "ac5d0ae578b5648c142080b8130e5f72e6f25102",
+          "test": "Real drill on synthetic data with the everyfield-backup bucket and Neon history",
+          "result": "passed",
+          "note": "T-627: 37.6 seconds lost, 2 minutes 28 seconds to verified readable data. Not a customer promise; G-RECOVERY stays open."
+        }
+      ],
+      "notes": "T-627. No production backup has run. Owner steps remain: load the schedule, second key copy, production source and key restriction."
     },
     "WP-096": {
       "status": "not_started",
