@@ -126,7 +126,7 @@ after(async () => {
 
 test("INV-mount-mail: one tick sends the identity, relationship, settings and onboarding mail each mount queued, through that mount's own rule", async () => {
 	const reader = await seed.actor(null);
-	const enqueueIdentity = identityMailEnqueue()!;
+	const enqueueIdentity = identityMailEnqueue();
 	const identity = (purpose: "password_reset" | "email_verification", account = reader) => {
 		const logicalKey = `${purpose}/${createHash("sha256").update(randomUUID()).digest("hex")}`;
 		return db

@@ -1,3 +1,4 @@
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import * as S from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
 import type { z } from "zod";
@@ -89,7 +90,7 @@ export type Fault = SettingsError["code"] | BrandFault;
 type Store = {
 	sections: Map<string, SectionResult>;
 	previews: Map<string, { zone: string; expiresAt: number }>;
-	avatars: Map<string, string>;
+	avatars: Map<string, AppAssetPath>;
 	staged: Map<string, Blob>;
 };
 
@@ -612,7 +613,7 @@ export function createFixturePort(
 					const row = store.sections.get("account");
 					if (!bytes || !row || row.section !== "account") return refuse("invalid_input");
 					const versionId = nextId();
-					store.avatars.set(versionId, URL.createObjectURL(bytes));
+					store.avatars.set(versionId, URL.createObjectURL(bytes) as AppAssetPath);
 					const avatar = S.avatarResult.parse({
 						status: "available",
 						avatar: { accountId: ACCOUNT[persona], versionId },

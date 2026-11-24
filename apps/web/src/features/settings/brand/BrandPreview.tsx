@@ -1,5 +1,6 @@
 "use client";
 
+import { brandAssetPath, type AppAssetPath } from "@everyfield/contracts/common";
 import type { BrandKitData, DocumentClass, DocumentTheme } from "@everyfield/contracts/branding";
 import { DOCUMENT_INK, textOn } from "@everyfield/domain/branding/color";
 import { Tab, Tabs, TabsList, TabsPanel } from "@everyfield/ui/controls";
@@ -18,7 +19,7 @@ const CLASSES: { value: DocumentClass; label: string }[] = [
 const PX_PER_MM = 1.7;
 const PAPER = "white";
 
-const AssetSrcContext = createContext<(fileId: string) => string>(() => "");
+const AssetSrcContext = createContext<(fileId: string) => AppAssetPath>(brandAssetPath);
 
 export function BrandPreview({
 	churchName,
@@ -29,7 +30,7 @@ export function BrandPreview({
 	churchName: string;
 	form: BrandForm;
 	assets: BrandKitData["assets"];
-	assetSrc: (fileId: string) => string;
+	assetSrc: (fileId: string) => AppAssetPath;
 }) {
 	const [tab, setTab] = useState<DocumentClass>("formal/legal");
 	return (

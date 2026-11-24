@@ -785,7 +785,7 @@ test("a password-reset request reaches the capture outbox within one runner tick
 				secret: randomBytes(32).toString("hex"),
 				scheduleDelivery: (work) => delivery.push(work),
 				trustedIp: () => "127.0.0.1",
-				enqueueMail: identityMailEnqueue()!,
+				enqueueMail: identityMailEnqueue(),
 				diagnostic: () => {},
 			});
 			const response = await identity.handle(

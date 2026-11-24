@@ -1,3 +1,4 @@
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import { listPhotoRoute, personPhotosRequest } from "@everyfield/contracts/people";
@@ -12,7 +13,7 @@ export const GET = defineReads(
 	(get) => ({
 		photos: get(personPhotosRequest, async ({ viewer }, input) => {
 			const db = requestDatabase();
-			const none: Record<string, string> = {};
+			const none: Record<string, AppAssetPath> = {};
 			const people = viewer.people;
 			if (!people) return { status: "ok", value: none } as const;
 			return transient(
@@ -20,7 +21,7 @@ export const GET = defineReads(
 				async () => {
 					const reply = await readPersonPhotos(db, new PeopleReadContext(people.authority), input);
 					if (reply.status !== "ok") return { status: "ok", value: none } as const;
-					const photos: Record<string, string> = Object.fromEntries(
+					const photos: Record<string, AppAssetPath> = Object.fromEntries(
 						reply.value.photos.map((p) => [p.personId, listPhotoRoute(p.photo)]),
 					);
 					return { status: "ok", value: photos } as const;

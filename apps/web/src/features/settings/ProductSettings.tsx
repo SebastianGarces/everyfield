@@ -1,5 +1,6 @@
 "use client";
 
+import { brandAssetPath } from "@everyfield/contracts/common";
 import { DASHBOARD_HOME } from "@everyfield/contracts/identity";
 import { avatarRoute } from "@everyfield/contracts/settings";
 import { useRouter } from "next/navigation";
@@ -11,7 +12,7 @@ import { readSourceOrder } from "../wiki/fetch.ts";
 import { saveRegion } from "./region";
 import { SettingsGuide } from "../wiki/chrome.tsx";
 import { finalizeAssetUpload, requestAssetUpload, resetBrand, saveBrand } from "./brand/actions";
-import { assetSrc, uploadBytes } from "./brand/bytes";
+import { uploadBytes } from "./brand/bytes";
 import {
 	changePassword,
 	finalizeAvatar,
@@ -49,7 +50,7 @@ const PORT: SettingsPort = {
 		uploadBytes,
 		finalizeUpload: finalizeAssetUpload,
 		suggestColors,
-		assetSrc,
+		assetSrc: brandAssetPath,
 	},
 	wiki: { read: readSourceOrder, save: saveSourceOrder },
 	region: { read: readRegion, suggest: suggestRegion, save: saveRegion },
