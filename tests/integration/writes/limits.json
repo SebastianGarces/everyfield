@@ -1930,6 +1930,9 @@
 	"teams.readTrainingHistory": {
 		"limit": 1
 	},
+	"teams.readAssignmentHistory": {
+		"limit": 1
+	},
 	"teams.readTrainingMatrix": {
 		"limit": 1
 	},
@@ -2196,6 +2199,10 @@
 		"limit": 1
 	},
 	"assessments.readAssessment": {
+		"limit": 1,
+		"writes": 0
+	},
+	"facts.readFactsSinceRun": {
 		"limit": 1,
 		"writes": 0
 	},
