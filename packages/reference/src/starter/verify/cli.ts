@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 import { createDatabase, closeDatabase } from "@everyfield/db/client";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
-import { developmentHosts } from "@everyfield/db/development";
+import { developmentHosts, disposableDatabase } from "@everyfield/db/development";
 import { approvedWiki } from "../manifest/approved.ts";
 import { referenceService } from "./service.ts";
 import { WikiRefusal } from "./snapshot.ts";
@@ -32,10 +32,7 @@ try {
 }
 const development = developmentHosts.has(target.hostname);
 const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(target.hostname) &&
-	target.pathname === "/everyfield_ci";
+	disposableDatabase() && ["localhost", "127.0.0.1"].includes(target.hostname) && target.pathname === "/everyfield_ci";
 if (values.production) {
 	if (development || localCi)
 		fail("--production names the production database, but DATABASE_URL is a development or CI one.");

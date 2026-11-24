@@ -277,8 +277,7 @@ export async function up(repo: Repo, options: { mode: string; timeoutSeconds: nu
 			...baseEnv,
 			DATABASE_URL: ownerUrl,
 			DATABASE_URL_UNPOOLED: ownerUrl,
-			CI: "true",
-			EARLY_ACCESS_TEST_DATABASE: "1",
+			EVERYFIELD_DISPOSABLE_DATABASE: "1",
 		},
 	});
 	log(repo, "db:migrate", migrated);
