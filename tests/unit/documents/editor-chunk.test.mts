@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { mock, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type * as TypeScript from "typescript";
+import type * as TypeScript from "../../../apps/web/node_modules/typescript/lib/typescript.js";
 import { resolveImport } from "../../../scripts/lint/boundaries.mjs";
 import { mount } from "../evry/fake-dom.mts";
 
