@@ -49,12 +49,14 @@ Use `~/.config/everyfield-backup`, mode 700, outside every checkout. Every file 
 
 `control.json`:
 
-    {
-      "version": 1, "host": "<hostname>", "uid": 501, "environment": "development",
-      "context": "restricted-backup", "expiresAt": "<ISO time>",
-      "operations": ["backup-daily", "backup-expire", "backup-status"],
-      "database": { "host": "...", "name": "...", "role": "...", "schema": "public" }
-    }
+```json
+{
+  "version": 1, "host": "<hostname>", "uid": 501, "environment": "development",
+  "context": "restricted-backup", "expiresAt": "<ISO time>",
+  "operations": ["backup-daily", "backup-expire", "backup-status"],
+  "database": { "host": "...", "name": "...", "role": "...", "schema": "public" }
+}
+```
 
 `backup-*`, `bucket-*` and `schedule-*` need the context `restricted-backup`. `restore-*` and `deletion-check` need
 `restricted-recovery`, so recovery uses its own directory. Use a read-only database role and a read-only file key for
@@ -113,7 +115,9 @@ Logs go to `logs/` in the configuration directory. Trust `backup-status`, not th
 The job refuses a production database or the `everyfield` bucket with `production_source_refused`. To allow one, the owner
 adds this to `control.json`. It must name the exact host and bucket in `source.env`:
 
-    "production": { "host": "...", "bucket": "everyfield", "approvedBy": "owner", "approvedAt": "<ISO time>" }
+```json
+"production": { "host": "...", "bucket": "everyfield", "approvedBy": "owner", "approvedAt": "<ISO time>" }
+```
 
 ## Key restriction
 
