@@ -8,6 +8,7 @@ import { testDatabase, type Database } from "../../support/test-database.mts";
 import { seedWiki, wikiIds } from "../adapters/wiki/corpus.mts";
 import { forkTemplate, nativeFromText } from "../../../packages/contracts/src/documents/index.ts";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
+import { SEED as LAUNCH_MILESTONES } from "../../../packages/domain/src/launch/catalog.ts";
 
 export const NOW = new Date("2026-11-09T15:00:00Z");
 const id = (n: number) => `5b6d1f0e-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
@@ -130,6 +131,7 @@ export const HOUSEHOLDS = [
 	{ id: id(0xa6), name: "Garcia household", city: "Austin" },
 	{ id: id(0xa7), name: "Johnson household", city: "Cedar Park" },
 	{ id: id(0xa8), name: "Lee household", city: "Round Rock" },
+	{ id: id(0xa9), name: "Okafor household", city: "Leander", street: "77 Birch Ln" },
 ] as const;
 const home = (name: string) => HOUSEHOLDS.find((h) => h.name.startsWith(name))!.id;
 export const TAGS = [
@@ -930,6 +932,32 @@ export async function seedGolden(admin: Database, options: SeedOptions = {}) {
 	await seedMinistries(admin);
 	await seedMeetings((q) => admin.execute(q), ACTOR_SPECS.owner.account, options.shiftDays);
 	await seedTasks(admin, options);
+	await seedLaunchPlan(admin, options);
+}
+
+const LAUNCH_PLAN = {
+	completed: [
+		["launch_team.prayer_and_fasting", "2026-10-05T15:00:00.000Z"],
+		["promotion.plan", "2026-10-20T15:00:00.000Z"],
+	],
+	linked: [
+		["sound", "operations.equipment_on_site/1"],
+		["rental", "operations.worship_center/1"],
+		["banners", "promotion.implemented/3"],
+	],
+} as const;
+
+async function seedLaunchPlan(admin: Database, options: SeedOptions) {
+	const done = new Map<string, string>(LAUNCH_PLAN.completed);
+	await admin.execute(sql`INSERT INTO launch(plant_id,status) VALUES(${PLANT},'planning')`);
+	for (const m of LAUNCH_MILESTONES) {
+		const at = done.get(m.key);
+		await admin.execute(sql`INSERT INTO launch_milestone(id,plant_id,template_key,title,description,area,position,completed_at,completed_by)
+			VALUES(${id(0xd500 + m.position)},${PLANT},${m.key},${m.title},${m.description},${m.area},${m.position},
+				${at ? shifted(at, options.shiftDays) : null}::timestamptz,${at ? ACTOR_SPECS.owner.account : null}::uuid)`);
+	}
+	for (const [task, key] of LAUNCH_PLAN.linked)
+		await admin.execute(sql`UPDATE task SET launch_task_key=${key} WHERE id=${taskId(task)}`);
 }
 
 async function seedJudgments(admin: Database, owner: string) {

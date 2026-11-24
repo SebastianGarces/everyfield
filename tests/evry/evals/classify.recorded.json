@@ -1,349 +1,619 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-10-21T22:45:29.410Z",
+	"recordedAt": "2026-11-22T17:56:32.543Z",
 	"spend": {
-		"newCalls": 26,
-		"newMicroUsd": 0,
-		"allCalls": 26,
-		"allMicroUsd": 0
+		"newCalls": 32,
+		"newMicroUsd": 949,
+		"allCalls": 32,
+		"allMicroUsd": 949
 	},
 	"calls": {
-		"00276bf3f8e569b9": {
+		"02f37a851953439d": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"application\"}"
+					"text": "{\"kind\":\"pastoral_boundary\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_028ff3b1e98012ea006b032ccf72ac87d2bb28e575d35a5c5b",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 234,
+				"output": 14
 			}
 		},
-		"0434e5d027147348": {
+		"06123aab60c55ae7": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"application\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_042cf8211722f276006b032cc0d81087d294c7844dd74748ad",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 230,
+				"output": 12
 			}
 		},
-		"1689d12efe7b9af6": {
+		"1aad0418ddb8fafc": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"application\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_09bddd87b7229660006b032cbd507487d2ac1f36baf5f7e380",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 224,
+				"output": 12
 			}
 		},
-		"173417691948a654": {
+		"2282206f8da80145": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"capabilities\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_001b961f98d4720e006b032cc2654887d29dd860427c21805e",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 225,
+				"output": 12
 			}
 		},
-		"1d194f81df73a3ac": {
+		"2ae9a2d1f30c573f": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"application\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_03b3bcb07eaed7d1006b032cbca38087d2a45ac0ce9a6c84c9",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 228,
+				"output": 12
 			}
 		},
-		"207a024078eaf094": {
+		"2e83ac158e6c85e5": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"application\"}"
+					"text": "{\"kind\":\"pastoral_boundary\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0218a5de249e4326006b032cceacd087d2b6b057cb27ccf713",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 232,
+				"output": 14
 			}
 		},
-		"23ae1e58208bbb0b": {
+		"3492b8ce59a0d6ab": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"application\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0379669428c87fb4006b032cb84fd087d2a1939966fb37df1c",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 221,
+				"output": 12
 			}
 		},
-		"2a6d29bc37a7c89e": {
+		"3529721842336c56": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"capabilities\"}"
+					"text": "{\"kind\":\"pastoral_boundary\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0106432875497e6e006b032cd0467c87d29e7ef69f587c4273",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 231,
+				"output": 14
 			}
 		},
-		"566735e9c6b3fb45": {
+		"35d907b23d819f29": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"application\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0773ef16bfab45ae006b032cc4448887d2ad0615000c136d7f",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 230,
+				"output": 12
 			}
 		},
-		"65886a3d8faef902": {
+		"375e650f5e8ec734": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"application\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0ce4785d2507070d006b032cbbb40087d2b97b80aacc1c7ead",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 232,
+				"output": 12
 			}
 		},
-		"676e889dc58b75b9": {
+		"397a18bf3f8ccf1e": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"pastoral_boundary\"}"
+					"text": "{\"kind\":\"pastoral_boundary\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0bdd0f9169098263006b032ccb6da487d2876ca3f1d0e3dc18",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 229,
+				"output": 14
 			}
 		},
-		"75f24c54ba35789a": {
+		"3a54ceab0279034b": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"pastoral_boundary\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_02353fae8502af0c006b032cc5bc6487d283fbd435648a6935",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 225,
+				"output": 12
 			}
 		},
-		"7fddad3934367ba1": {
+		"3c90eff4ece23b43": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"pastoral_boundary\"}"
+					"text": "{\"kind\":\"pastoral_boundary\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_061221bab45cc7bc006b032cca904c87d28a06c06fc0d3f94e",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 236,
+				"output": 14
 			}
 		},
-		"81621bd431c2a9bb": {
+		"41fa3977365d72f8": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"application\"}"
+					"text": "{\"kind\":\"capabilities\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_08575b9c2e7255b3006b032cc9191887d299c36708ccecb7b5",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 227,
+				"output": 13
 			}
 		},
-		"83dfdc4acf2e0376": {
+		"46ce10bc5e05d9e1": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"pastoral_boundary\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0e8dd63ef1b1f82d006b032cba0a5c87d28608f422e9e95a28",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 233,
+				"output": 12
 			}
 		},
-		"915a2ad66fd7bffb": {
+		"48380ec8f68a5aa9": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"pastoral_boundary\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0749c04b149ef106006b032cbe27fc87d28b6ebb389c7c6c14",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 230,
+				"output": 12
 			}
 		},
-		"a6155ae6881c6f71": {
+		"562c67e123ed930b": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"capabilities\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_01331a41fc9f05a2006b032cc50bf887d289806cf7a338d06b",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 225,
+				"output": 12
 			}
 		},
-		"a78c491b06fa2875": {
+		"59f03df87560ec29": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"pastoral_boundary\"}"
+					"text": "{\"kind\":\"capabilities\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_091377c826e94cbb006b032cc9d1e487d2874a8afb9024d687",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 228,
+				"output": 13
 			}
 		},
-		"b840b95a883600f6": {
+		"5d8d135e72996dd3": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"application\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_01d0e589375c77cb006b032cb73ce887d2b1ce23cd197e0c68",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 227,
+				"output": 12
 			}
 		},
-		"bdfdd2892ffbb702": {
+		"661f760f5483057e": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"application\"}"
+					"text": "{\"kind\":\"pastoral_boundary\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_053f688a92d90bb2006b032ccd329887d2bf389949fc38970c",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 233,
+				"output": 14
 			}
 		},
-		"bdfee0c173afc260": {
+		"6a40d83c19e389f2": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"application\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_07c708f1357774cd006b032cc368dc87d29a2de39a09f23acd",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 230,
+				"output": 12
 			}
 		},
-		"bf4fb044ff5c0561": {
+		"6f399adab03bbbc8": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"application\"}"
+					"text": "{\"kind\":\"pastoral_boundary\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_09f04a20d9f016c0006b032ccc55f087d2bc45adac510da49f",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 229,
+				"output": 14
 			}
 		},
-		"c2f142f21c6f9b9f": {
+		"8600d9b9bee6722c": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"pastoral_boundary\"}"
+					"text": "{\"kind\":\"capabilities\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0ad9e5e1281e6f87006b032cc82a5487d288395c8bde5cc7af",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 227,
+				"output": 13
 			}
 		},
-		"c70ba6a5a1f128e2": {
+		"879e12926c788eb7": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"application\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_037dbbdca06fb6fe006b032cbf81f887d29e4d5c4a9ebbac2c",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 227,
+				"output": 12
 			}
 		},
-		"c8e5f25aaa8bd7e8": {
+		"96a441ac4243ada6": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"capabilities\"}"
+					"text": "{\"kind\":\"pastoral_boundary\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0edd70540f77d11f006b032ccde61487d2b977aafe35ff5559",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 229,
+				"output": 14
 			}
 		},
-		"e9a366535e3301aa": {
+		"96ca3e05b27e8119": {
 			"kind": "generate",
 			"content": [
 				{
 					"type": "text",
-					"text": "{\"kind\":\"pastoral_boundary\"}"
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0e3a9574ec090083006b032cc0270087d2981edf2197a69e41",
+							"phase": "final_answer"
+						}
+					}
 				}
 			],
 			"usage": {
-				"input": 0,
-				"output": 0
+				"input": 231,
+				"output": 12
+			}
+		},
+		"9e35f23e19e5bf87": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0be254b51e00ec10006b032cc69fa887d2a120aa3106fc34c3",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 228,
+				"output": 12
+			}
+		},
+		"b15fc75c6eef817b": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_029e6622487bd792006b032cbee69087d2b21eb41a5b151421",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 231,
+				"output": 12
+			}
+		},
+		"b44e1ab2eb8696ac": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_05d0ef8d57707524006b032cb94d2487d28dd36bde46a27853",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 227,
+				"output": 12
+			}
+		},
+		"b497056810705b19": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"kind\":\"capabilities\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0517bd681364e37d006b032cc7574487d2a117da3f53830b8d",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 226,
+				"output": 13
+			}
+		},
+		"f5bdeedc40d57468": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0cfcce4fae4e3bce006b032cbaca2087d2860c4595284f4b38",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 227,
+				"output": 12
+			}
+		},
+		"f8e8a379705fdf28": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0d037e073835c3c2006b032cc1803487d292e539f3da1a47da",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 226,
+				"output": 12
 			}
 		}
 	}

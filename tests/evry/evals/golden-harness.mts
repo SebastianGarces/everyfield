@@ -60,6 +60,17 @@ import { INVITATION_COMMANDS } from "../../../packages/evry/src/adapters/meeting
 import { WORKFLOW_READS } from "../../../packages/evry/src/adapters/meetings/reads/workflows.ts";
 import { WIKI_COMMANDS } from "../../../packages/evry/src/adapters/wiki/commands/index.ts";
 
+export const COMMUNICATION_LATER = [
+	"communication.forMeeting",
+	"communication.meetingRecipientTracking",
+	"communication.deliveryTotals",
+	"communication.listAudienceTeams",
+	"communication.searchRecipients",
+	"mail.suppression.listForSelf",
+	"communication.templates.archiveOrDelete",
+	"communication.correctContactLog",
+];
+
 const LATER = new Set<string>([
 	...SEAT_READS.map((a) => a.operation),
 	...SHARING_READS.map((a) => a.operation),
@@ -83,6 +94,7 @@ const LATER = new Set<string>([
 	"organizationIntelligence.readLocationHistory",
 	"intelligence.readExitCriteria",
 	"intelligence.readJourney",
+	...COMMUNICATION_LATER,
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
 const SCRIPTED_ONLY = new Set(["documents.importTextOrWord"]);
@@ -400,6 +412,7 @@ export async function converse(
 	attachments: CaseFile[] = [],
 	override?: LanguageModelV4,
 	page?: string,
+	offer: readonly string[] = [],
 	repetition = 1,
 ): Promise<Conversation> {
 	const { db } = church;
@@ -408,7 +421,8 @@ export async function converse(
 	const keys: string[] = [];
 	const inputs: string[] = [];
 	const model = override ?? golden.model(keys, inputs, repetition);
-	const offered = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
+	const recorded = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
+	const offered = (op: string) => offer.includes(op) || recorded(op);
 	const catalog = readCatalog(actor, offered);
 	const calls: ToolCall[] = [];
 	const proposals: Proposal[] = [];

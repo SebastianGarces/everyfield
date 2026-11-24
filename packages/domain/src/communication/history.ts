@@ -440,7 +440,7 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 						count(*) FILTER (WHERE m.refusal = 'unsubscribed')::int AS unsubscribed,
 						count(*) FILTER (WHERE ${childLeftOut})::int AS child,
 						count(*) FILTER (WHERE ${guardianSent})::int AS guardian,
-						count(*) FILTER (WHERE EXISTS (
+						count(*) FILTER (WHERE ${childLeftOut} IS NOT TRUE AND ${guardianSent} IS NOT TRUE AND EXISTS (
 							SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL))::int AS suppressed,
 						count(*) FILTER (WHERE m.state IN ('unknown', 'dispatched')
 							AND m.sent_at IS NULL AND m.delivered_at IS NULL AND m.accepted_at IS NULL)::int AS unknown,

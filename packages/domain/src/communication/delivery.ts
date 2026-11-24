@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "@everyfield/db/query";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import type { ProviderKey } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/communication";
 import {
@@ -545,8 +545,8 @@ async function prepare(
 	const stored = one(
 		await db.execute(sql`WITH gate AS (SELECT ${adminGate(actor)} AS allowed),
 			input AS (
-				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, refusal, guardians, guardianCopy, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, refusal, guardians, guardian_copy: guardianCopy, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
-					id uuid, person uuid, refusal text, guardians uuid[], guardian_copy boolean, logical_key text, payload_hash text, token_hash text, address_hash text,
+				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, child, refusal, guardians, guardianCopy, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, child, refusal, guardians, guardian_copy: guardianCopy, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
+					id uuid, person uuid, child boolean, refusal text, guardians uuid[], guardian_copy boolean, logical_key text, payload_hash text, token_hash text, address_hash text,
 					payload jsonb, address text, batch int, position int
 				)
 			),
@@ -560,11 +560,12 @@ async function prepare(
 					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at, refusal, guardian_mail_ids, guardian_copy)
 				SELECT i.id, ${actor.plantId}::uuid, i.person, 'communication', ${found.id}::uuid, i.logical_key, i.payload_hash, ${loaded.digest},
 					i.payload, i.address, i.address_hash,
-					CASE WHEN i.refusal IS NOT NULL OR i.unsubscribed OR EXISTS (
+					CASE WHEN i.refusal IS NOT NULL OR (NOT i.child AND (i.unsubscribed OR EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
-					) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
+					))) OR (i.person = ANY(${sql.param(leftOut)}::uuid[]) AND NOT (i.child AND i.unsubscribed))
+					THEN 'refused' ELSE ${waiting} END,
 					clock_timestamp(), ${heldUntil}::timestamptz,
-					CASE WHEN i.refusal IS NOT NULL THEN i.refusal WHEN i.unsubscribed THEN 'unsubscribed' END,
+					CASE WHEN i.refusal IS NOT NULL THEN i.refusal WHEN i.unsubscribed AND NOT i.child THEN 'unsubscribed' END,
 					CASE WHEN i.refusal = 'guardian' THEN i.guardians END, i.guardian_copy
 				FROM (SELECT i.*, ${optedOutSql(sql`${actor.plantId}::uuid`, sql`i.person`)} AS unsubscribed FROM input i) i
 				JOIN gate g ON g.allowed
@@ -1055,10 +1056,10 @@ export function rescheduleDispatched(
 	});
 }
 
-async function accountEmail(db: Database, actor: Actor) {
+async function accountEmail(db: Database | Transaction, actor: Actor, admin: boolean) {
 	const row = one(
 		await db.execute(sql`SELECT g.allowed, u.email
-			FROM (SELECT ${adminGate(actor)} AS allowed) g
+			FROM (SELECT ${communicationAccess(actor, actor.session, admin)} AS allowed) g
 			LEFT JOIN LATERAL (
 				SELECT c.email FROM access_account_contact(${actor.accountId}::uuid) c
 				WHERE g.allowed AND c.verified
@@ -1068,12 +1069,17 @@ async function accountEmail(db: Database, actor: Actor) {
 	return row.email.trim().toLowerCase();
 }
 
-export function listOwnSuppression(db: Database, authority: RequestActor, raw: unknown, keys: DeliveryKeys) {
+export function listOwnSuppression(
+	db: Database | Transaction,
+	authority: RequestActor,
+	raw: unknown,
+	keys: DeliveryKeys,
+) {
 	return readReply(async () => {
 		const input = parse(c.listSuppressionRequest, raw);
-		const actor = requireActor(authority);
+		const actor = readerOf(authority);
 		const ready = keysOf(keys);
-		const email = await accountEmail(db, actor);
+		const email = await accountEmail(db, actor, false);
 		if (input.address.trim().toLowerCase() !== email) deny("access_denied");
 		const hashValue = addressHash(ready.addressKey, email);
 		const row = one(
@@ -1105,7 +1111,7 @@ export function restoreOwnSuppression(db: Database, authority: RequestActor, raw
 		const input = parse(c.restoreSuppressionRequest, raw);
 		const actor = requireActor(authority);
 		const ready = keysOf(keys);
-		const email = await accountEmail(db, actor);
+		const email = await accountEmail(db, actor, true);
 		const address = input.input.address.trim().toLowerCase();
 		if (address !== email) deny("access_denied");
 		const hashValue = addressHash(ready.addressKey, address);

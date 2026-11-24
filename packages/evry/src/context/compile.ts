@@ -28,7 +28,7 @@ export async function classifyRequest(model: LanguageModelV4, text: string, sign
 		maxOutputTokens: 32,
 		output: Output.object({ schema: requestKind }),
 		system:
-			"Classify the user's request to EveryField's church-planting assistant. pastoral_boundary: the user asks for pastoral or Biblical counsel, a prayer to be written, or a judgment of someone's spiritual readiness or suitability. capabilities: the user asks what the assistant can do. application: anything else, including records that merely mention prayer.",
+			"Classify the user's request to EveryField's church-planting assistant. pastoral_boundary: the user asks for pastoral or Biblical counsel, a prayer to be written, or a judgment of a person's spiritual readiness or suitability. capabilities: the user asks only what the assistant can do in general, such as what it can do or help with, and names nothing to read, find or change. application: anything else, including any request to read, find, change or set something, questions about the church's records, templates, tags, checklists, Wiki, settings or notifications, planning the church's work, such as what to focus on this week, short replies such as yes, records that merely mention prayer, and questions about the church's launch, its Launch plan or its phase readiness, such as whether the church is ready to launch or to move to the next phase.",
 		prompt: scrub(text),
 		telemetry: { functionId: "evry.classify" },
 	});
@@ -268,13 +268,14 @@ const READ_AREAS: Record<string, string> = {
 		"Read your Plant Intelligence: committed adults, the scorecard, the latest assessment and what changed.",
 	oversight: "Read how your plants are doing, as your oversight pages show them, and Network Intelligence.",
 };
-const WRITE_AREAS: { prefix: string; text: string }[] = [
+const WRITE_AREAS: { prefix: string; except?: string; text: string }[] = [
 	{
 		prefix: "people.",
 		text: "Prepare changes to people for your review: add someone, update their details, move them to another stage, remove them, set or remove a photo, and import a People spreadsheet you checked with me.",
 	},
 	{
 		prefix: "communication.",
+		except: "communication.correctContactLog",
 		text: "Prepare emails for your review: save a draft, then schedule, move, cancel or change a scheduled email.",
 	},
 	{
@@ -340,7 +341,9 @@ export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "rol
 	const ops = new Set(catalog.domains.flatMap((d) => d.operations.map((o) => o.operation)));
 	if (ops.has("people.previewImport"))
 		reads.push("Check a People spreadsheet you attach here, row by row, before anything is imported.");
-	const writes = WRITE_AREAS.filter((a) => catalog.reviewedWrites.some((w) => w.operation.startsWith(a.prefix)));
+	const writes = WRITE_AREAS.filter((a) =>
+		catalog.reviewedWrites.some((w) => w.operation.startsWith(a.prefix) && w.operation !== a.except),
+	);
 	const lines = reads.length
 		? ["Here is what I can do for you here:", ...reads.map((r) => "- " + r), ...writes.map((w) => "- " + w.text)]
 		: ["I don't have anything to read in this context yet."];
