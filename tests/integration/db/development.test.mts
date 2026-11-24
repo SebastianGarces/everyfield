@@ -1,5 +1,7 @@
 import test, { afterEach } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { assertDevelopmentDatabase, developmentHosts } from "../../../packages/db/src/development.ts";
 
 const KEYS = ["NODE_ENV", "CI", "EARLY_ACCESS_TEST_DATABASE", "DATABASE_URL", "DATABASE_URL_UNPOOLED"] as const;
@@ -73,4 +75,21 @@ test("INV-dev-database: the tests/ui seeds' guard takes CI's everyfield_ci only 
 	assert.throws(at("postgres://ci:ci@localhost:5432/everyfield_ci"));
 	env({ ...CI, NODE_ENV: "production" });
 	assert.throws(at("postgres://ci:ci@localhost:5432/everyfield_ci"));
+});
+
+test("INV-dev-database: the development reset refuses CI's localhost database, which the guard accepts", () => {
+	for (const host of ["localhost", "127.0.0.1"]) {
+		const raw = `postgresql://made-up-user:made-up-secret@${host}:1/made_up_database`;
+		const run = spawnSync(
+			process.execPath,
+			[fileURLToPath(new URL("../../../packages/db/scripts/reset-dev.ts", import.meta.url))],
+			{ env: { PATH: process.env.PATH, ...CI, DATABASE_URL: raw }, encoding: "utf8", timeout: 60_000 },
+		);
+		const printed = run.stdout + run.stderr;
+		assert.equal(run.status, 1, printed);
+		assert.match(run.stderr, /^Reset refused\./);
+		assert.doesNotMatch(printed, /Development reset failed/);
+		for (const part of ["made-up-user", "made-up-secret", "made_up_database", host])
+			assert.equal(printed.includes(part), false, part);
+	}
 });
