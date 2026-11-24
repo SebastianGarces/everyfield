@@ -376,7 +376,8 @@ c AS (SELECT ${cite} AS cite,r.facts FROM r),
 pr AS (SELECT DISTINCT x->>'id' AS id FROM c CROSS JOIN LATERAL jsonb_array_elements(${countedPeople(key)}) x),
 ppl AS (SELECT coalesce(json_agg(json_build_object('personId',pe.id,'name',pe.display_name) ORDER BY pe.display_name,pe.id)
 	FILTER (WHERE pe.id IS NOT NULL),'[]'::json) AS shown,(count(*) FILTER (WHERE pe.id IS NULL))::int AS hidden
-	FROM pr LEFT JOIN person pe ON pe.id::text=pr.id AND pe.plant_id=${s.plant}::uuid AND pe.state='live'),
+	FROM pr LEFT JOIN person pe ON pe.id::text=pr.id AND pe.plant_id=${s.plant}::uuid AND (pe.state='live'
+		OR EXISTS(SELECT FROM person su WHERE su.id=pe.merged_into_person_id AND su.tenant_id=pe.tenant_id AND su.state='live'))),
 src AS (SELECT v.body,v.content_type FROM c JOIN article_revision v ON v.id=(c.cite->>'revisionId')::uuid
 	AND v.tenant_id=(c.cite->>'sourceId')::uuid
 	WHERE c.cite->>'kind'='passage' AND (c.cite->>'sourceKind'='global' OR EXISTS(SELECT FROM affiliation f
