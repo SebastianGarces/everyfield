@@ -32,7 +32,7 @@ function IncompleteLink({ action }: { action: ReactNode }) {
 }
 
 export function RecoverScreen() {
-	const [sent, setSent] = useState<{ to: string; again: boolean } | null>(null);
+	const [sent, setSent] = useState<{ to: string; again: boolean; delayed: boolean } | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [refusal, setRefusal] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -41,14 +41,14 @@ export function RecoverScreen() {
 	async function send(email: string) {
 		setBusy(true);
 		setRefusal(null);
-		if (sent) setSent({ to: sent.to, again: false });
+		if (sent) setSent({ ...sent, again: false });
 		const result = await identityApi.requestPasswordRecovery(email);
 		setBusy(false);
 		if (result.status !== "ok") {
 			setRefusal(refusalMessage("recover", result));
 			return;
 		}
-		setSent({ to: email, again: sent !== null });
+		setSent({ to: email, again: sent !== null, delayed: result.value.mailDelayed === true });
 	}
 
 	async function submit(event: FormEvent<HTMLFormElement>) {
@@ -68,11 +68,17 @@ export function RecoverScreen() {
 			<Outcome
 				icon={MailOpen01Icon}
 				tone="blue"
-				title="Check your email"
+				title={sent.delayed ? "Reset emails are delayed" : "Check your email"}
 				actions={
 					<>
 						<FormMessage tone="error">{refusal}</FormMessage>
-						<FormMessage tone="success">{sent.again ? "Another link is on its way." : null}</FormMessage>
+						<FormMessage tone={sent.delayed ? "neutral" : "success"}>
+							{sent.again
+								? sent.delayed
+									? "Your new request was received. Reset emails are delayed."
+									: "Another link is on its way."
+								: null}
+						</FormMessage>
 						<SignInButton label="Back to sign in" />
 						<Button variant="ghost" loading={busy} onClick={() => void send(sent.to)} className="w-full">
 							Send another link
@@ -80,8 +86,18 @@ export function RecoverScreen() {
 					</>
 				}
 			>
-				If an account uses <span className="font-medium text-ink">{sent.to}</span>, it gets a link to reset the
-				password. The link works once and expires after 1 hour.
+				{sent.delayed ? (
+					<>
+						If an account uses <span className="font-medium text-ink">{sent.to}</span>, its reset link is waiting to be
+						sent. The link expires 1 hour after you ask, so if none arrives within an hour, ask for a new one. Until
+						then, you do not need to ask again.
+					</>
+				) : (
+					<>
+						If an account uses <span className="font-medium text-ink">{sent.to}</span>, it gets a link to reset the
+						password. The link works once and expires after 1 hour.
+					</>
+				)}
 			</Outcome>
 		);
 

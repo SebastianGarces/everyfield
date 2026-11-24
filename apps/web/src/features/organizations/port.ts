@@ -15,6 +15,10 @@ export type OperationName = keyof Ops;
 
 export type Run = <K extends OperationName>(operation: K, input: Ops[K]["input"]) => Promise<Ops[K]["output"]>;
 
+export type SendOperation = "associations.invite" | "associations.resendInvitation";
+export type SentInvitation = { invitation: Invitation; mailDelayed: boolean };
+export type SendInvitation = <K extends SendOperation>(operation: K, input: Ops[K]["input"]) => Promise<SentInvitation>;
+
 export type Relationship = z.infer<typeof relationshipProjection>;
 export type Invitation = z.infer<typeof invitationResult>;
 export type ExpiredInvitation = z.infer<typeof expiredInvitationResult>;

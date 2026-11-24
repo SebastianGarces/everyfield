@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { closeDatabase, type Database } from "../../../packages/db/src/client.ts";
+import { closeDatabase } from "../../../packages/db/src/client.ts";
 import { setServerEnv } from "../../support/server-env.mts";
 import { cookie, fixture, password, register } from "./support.mts";
 
 let f: Awaited<ReturnType<typeof fixture>>;
-let identityWrite: (request: Request) => Promise<Response>;
+let identityWrite: typeof import("../../../apps/web/src/server/identity/index.ts").identityWrite;
 let endEmailChangeProofOnSessionChange: (request: Request, response: Response) => Promise<Response>;
 before(async () => {
 	f = await fixture();
@@ -16,7 +16,7 @@ before(async () => {
 	({ endEmailChangeProofOnSessionChange } = await import("../../../apps/web/src/server/email-change-proof.ts"));
 });
 after(async () => {
-	const pools = (globalThis as { [key: symbol]: Map<string, Database> | undefined })[
+	const pools = (globalThis as { [key: symbol]: Map<string, Parameters<typeof closeDatabase>[0]> | undefined })[
 		Symbol.for("everyfield.web.pools")
 	];
 	for (const pool of pools?.values() ?? []) await closeDatabase(pool);

@@ -24,8 +24,10 @@ flowchart LR
   s1["settings.account<br/>no page"]
   s0 -- "link #quot;Your account#quot;" --> s1
   s1 -.- s1_st0(("account"))
+  s1 -.- s1_st1(("mail-delayed (manual)"))
   s1 --- s1_b0["rename<br/>tests + browser behavior"]
   s1 --- s1_b1["photo<br/>tests + cases + browser presence"]
+  s1 --- s1_b2["mail-delayed<br/>tests"]
   s2["settings.brand<br/>no page"]
   s0 -- "link #quot;Brand kit#quot;" --> s2
   s2 -.- s2_st0(("kit"))
@@ -185,6 +187,8 @@ agent-browser find role button text --name "Add photo" --exact
 agent-browser find role button text --name "Change password" --exact
 ```
 
+- **mail-delayed**: text containing "Its link works for 24 hours from your request". Not scripted: as owner, open /settings/account, choose Change by the email and send a link with the outbound-mail switch off (bin/flag set outbound-mail off --all on the app's own database; turn it back on afterwards).
+
 #### settings.account#rename
 
 Saving Your name changes the name the app shows for you, starting with the account menu.
@@ -218,6 +222,14 @@ Add photo uploads a private photo that only seat holders who share a church or a
 ```bash
 agent-browser find role button text --name "Add photo" --exact
 ```
+
+#### settings.account#mail-delayed
+
+With email paused, an email change is requested and the result says the email to the new address is delayed.
+
+- No operation: the email change runs through the credential service, which is no catalog command
+- Catalog: IDN-010
+- Test: `tests/integration/flags/mail-delay.test.mts`: `an email change with mail off says delayed and queues the mail with the same proof; back on it answers as before`
 
 ### settings.brand
 

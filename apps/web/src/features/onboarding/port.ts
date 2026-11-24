@@ -23,7 +23,7 @@ export interface OnboardingTransport {
 
 const resume = C.resumeResult.options[1];
 const entry = z.discriminatedUnion("kind", [
-	z.strictObject({ kind: z.literal("confirm_email") }),
+	z.strictObject({ kind: z.literal("confirm_email"), mailDelayed: z.literal(true).optional() }),
 	z.strictObject({
 		kind: z.literal("start"),
 		offer: z.enum(["planter", "discovery", "either"]),

@@ -160,6 +160,8 @@
 				"tests/integration/jobs/**",
 				"tests/integration/launch/**",
 				"tests/integration/ops/**",
+				"tests/integration/access/**",
+				"tests/integration/identity/**",
 				"tests/integration/reference/**",
 				"tests/integration/target/**",
 				"tests/integration/tasks/**",

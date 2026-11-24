@@ -5,6 +5,7 @@ import type {
 	LaunchState,
 	Level,
 	PERSON_STAGES,
+	MeetingCounts,
 	MilestoneProgress,
 	PlantDirectoryRow,
 	PlantPath,
@@ -14,7 +15,7 @@ import type {
 	RuleId,
 	SectionKey,
 } from "@everyfield/contracts/oversight";
-import { lensLabel, regionLabel, RULE_IDS } from "@everyfield/contracts/oversight";
+import { attendanceOf, lensLabel, regionLabel, RULE_IDS } from "@everyfield/contracts/oversight";
 import type { Stage } from "@everyfield/ui/display";
 import { SHORT_NAME } from "../phases/model.ts";
 
@@ -85,6 +86,14 @@ export const SECTIONS: readonly { key: SectionKey; label: string }[] = [
 
 export function sharedCount(sections: PlantSections): number {
 	return SECTIONS.filter(({ key }) => ["shared", "empty"].includes(sections[key].status)).length;
+}
+
+export function attendanceText({ meetings, attendedTotal }: MeetingCounts): string {
+	const { known } = attendanceOf(meetings);
+	const held = counted(meetings.length, "meeting");
+	if (attendedTotal === null) return `Attendance at the last ${meetings.length === 1 ? "meeting" : held} · Unknown`;
+	const covered = known === meetings.length ? `the last ${held}` : `${known} of the last ${held}`;
+	return `Attendance at ${covered} · ${attendedTotal.toLocaleString("en-US")} in total`;
 }
 
 type PersonStage = (typeof PERSON_STAGES)[number];

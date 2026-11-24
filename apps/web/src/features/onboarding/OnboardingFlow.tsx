@@ -141,7 +141,9 @@ function Elsewhere({
 		entry.kind === "confirm_email"
 			? {
 					title: "Confirm your email first",
-					body: "We sent a confirmation link to your inbox. Open it, then come back to this page.",
+					body: entry.mailDelayed
+						? "Confirmation email is delayed. If a link arrives, open it, then come back to this page. If you have an invitation and no link arrives within an hour, go back to the invitation page to ask for a new one."
+						: "We sent a confirmation link to your inbox. Open it, then come back to this page.",
 				}
 			: entry.reason === "member"
 				? {

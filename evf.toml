@@ -10,13 +10,13 @@ timeout_minutes = 10
 
 [[check]]
 name = "db-packages"
-run = ["sh", "-c", "set -e; export CI=true EARLY_ACCESS_TEST_DATABASE=1; corepack pnpm db:migrate; python3 packages/db/src/schema/generate.py --check; corepack pnpm --filter @everyfield/db test:db; corepack pnpm --filter @everyfield/evry test:db"]
+run = ["sh", "-c", "set -e; export CI=true EARLY_ACCESS_TEST_DATABASE=1 EVERYFIELD_DISPOSABLE_DATABASE=1; corepack pnpm db:migrate; python3 packages/db/src/schema/generate.py --check; corepack pnpm --filter @everyfield/db test:db; corepack pnpm --filter @everyfield/evry test:db"]
 timeout_minutes = 30
 heavy = true
 
 [[check]]
 name = "census"
-run = ["sh", "-c", "set -e; export CI=true EARLY_ACCESS_TEST_DATABASE=1; corepack pnpm db:migrate; NEXT_TELEMETRY_DISABLED=1 corepack pnpm build; corepack pnpm --filter @everyfield/domain test:db; node --test tests/reference/server-trace.test.mjs"]
+run = ["sh", "-c", "set -e; export CI=true EARLY_ACCESS_TEST_DATABASE=1 EVERYFIELD_DISPOSABLE_DATABASE=1; corepack pnpm db:migrate; NEXT_TELEMETRY_DISABLED=1 corepack pnpm build; corepack pnpm --filter @everyfield/domain test:db; node --test tests/reference/server-trace.test.mjs"]
 timeout_minutes = 45
 heavy = true
 

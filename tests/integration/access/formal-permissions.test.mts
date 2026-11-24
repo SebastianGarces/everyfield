@@ -12,7 +12,7 @@ import {
 } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const table = JSON.parse(readFileSync(new URL("../../../formal/permissions/outcomes.json", import.meta.url), "utf8"))
@@ -92,11 +92,12 @@ function seatChange(
 	input: Record<string, unknown>,
 	revision: string,
 ) {
-	const v = command(revision, input);
-	if (op === "appointAdmin") return seats.appointAdmin(authority, plant, v);
-	if (op === "demote") return seats.demote(authority, plant, v);
-	if (op === "changeOrdinaryRole") return seats.changeOrdinaryRole(authority, plant, v);
-	if (op === "remove") return seats.remove(authority, plant, v, noReminders);
+	const v = command(revision, input),
+		selected = owner.parse(plant);
+	if (op === "appointAdmin") return seats.appointAdmin(authority, selected, v);
+	if (op === "demote") return seats.demote(authority, selected, v);
+	if (op === "changeOrdinaryRole") return seats.changeOrdinaryRole(authority, selected, v);
+	if (op === "remove") return seats.remove(authority, selected, v, noReminders);
 	throw Error(`unknown seat action ${op}`);
 }
 function seatInput(op: string, seatId: string, targetRole: string, to: string) {
@@ -172,7 +173,7 @@ for (const [, state, seated, role, expected] of table.filter((r) => r[0] === "ac
 	});
 
 for (const [, kind, role, event, expected] of table.filter((r) => r[0] === "statement"))
-	test(`INV-access: ${a(kind === "read" ? "read" : "admin read")} by ${a(role!)} after ${event === "none" ? "no change" : event.replace("_", " ")}: ${expected}, as the model says`, async () => {
+	test(`INV-access: ${a(kind === "read" ? "read" : "admin read")} by ${a(role!)} after ${event === "none" ? "no change" : event!.replace("_", " ")}: ${expected}, as the model says`, async () => {
 		const { plant, owner, actors } = await workspace(role!);
 		const actor = actors[0]!;
 		const authority = await resolved(actor);

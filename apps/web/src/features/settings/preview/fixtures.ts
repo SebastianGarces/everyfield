@@ -85,7 +85,7 @@ export type Operation =
 	| "readWikiOrder"
 	| "saveWikiOrder"
 	| BrandOperation;
-export type Fault = SettingsError["code"] | BrandFault;
+export type Fault = SettingsError["code"] | BrandFault | "mail_delayed";
 
 type Store = {
 	sections: Map<string, SectionResult>;
@@ -635,10 +635,10 @@ export function createFixturePort(
 				},
 			},
 			async requestEmailChange(request) {
-				const fault = await enter("requestEmailChange");
-				if (fault) return fault;
+				const fault = await tick("requestEmailChange");
+				if (fault && fault !== "mail_delayed") return refuse(fault as SettingsError["code"]);
 				N.requestEmailChange.parse(request);
-				return { status: "ok", value: { status: "verification_requested" } };
+				return { status: "ok", value: { status: "verification_requested", ...(fault ? { mailDelayed: true } : {}) } };
 			},
 			async changePassword(request) {
 				const fault = await enter("changePassword");

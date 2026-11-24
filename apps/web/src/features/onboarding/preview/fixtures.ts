@@ -15,6 +15,7 @@ export const PERSONAS = [
 	"member",
 	"organization",
 	"email",
+	"email-delayed",
 	"unavailable",
 ] as const;
 export type Persona = (typeof PERSONAS)[number];
@@ -31,6 +32,7 @@ export const PERSONA_LABEL: Record<Persona, string> = {
 	member: "Member of a church",
 	organization: "Organization account",
 	email: "Email not confirmed",
+	"email-delayed": "Email not confirmed, email delayed",
 	unavailable: "Setup unavailable",
 };
 export const parsePersona = (v: string | null): Persona =>
@@ -220,6 +222,7 @@ function entryOf(w: World): unknown {
 	if (w.persona === "organization") return { kind: "elsewhere", reason: "organization" };
 	if (w.persona === "unavailable") return { kind: "elsewhere", reason: "unavailable" };
 	if (w.persona === "email") return { kind: "confirm_email" };
+	if (w.persona === "email-delayed") return { kind: "confirm_email", mailDelayed: true };
 	if (w.resume) return { kind: "plant", plantName: w.plantName, resume: C.resumeResult.parse(w.resume) };
 	if (w.discovery) return { kind: "discovery", profile: w.discovery };
 	if (w.offer) return { kind: "start", offer: w.offer, accountRevision: w.accountRevision };
