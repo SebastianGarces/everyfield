@@ -3627,6 +3627,142 @@ const tokenAuthority = {
 	},
 };
 
+const RENDERER_PACKAGE = /^(?:@formepdf\/|pdf-lib(?:\/|$))/;
+const RENDERER_MODULE =
+	/^packages\/domain\/src\/documents\/(?:(?:render|doc-render|library-render|pdf-post)(?:\.[cm]?[jt]sx?)?$|layouts(?:\/|$))/;
+const DOCUMENTS_WRITER = "documentsWriter";
+const RENDER_ONLY_CALLS = new Set(["exportNative", "readChurchFile"]);
+export const RENDERING_ACTIONS = {
+	"apps/web/src/features/documents/actions.ts": { generate: 1 },
+};
+const RENDER_HOME =
+	"A server action's bundle serves the PDF fonts as web assets, not files, so a render there fails. Render in a route handler, as saveExportRoute does for the church document export.";
+
+const actionRender = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!SERVER_ACTIONS.test(context.sourceCode.text)) return {};
+		const from = repoPath(context.filename);
+		const left = { ...RENDERING_ACTIONS[from] };
+		const writers = new Set();
+		const report = (node, what) =>
+			context.report({ node, message: `This "use server" module ${what}. ${RENDER_HOME}` });
+		const called = (node, name) => {
+			if (left[name] > 0) left[name]--;
+			else report(node, `reaches ${name}, which renders a document`);
+		};
+		const isWriter = (node) => {
+			const value = unwrapped(node);
+			return (
+				(value?.type === "Identifier" && (value.name === DOCUMENTS_WRITER || writers.has(value.name))) ||
+				memberName(value) === DOCUMENTS_WRITER
+			);
+		};
+		return merge(
+			moduleSources((node, spec) => {
+				if (RENDERER_PACKAGE.test(spec) || RENDERER_MODULE.test(resolveImport(from, spec).to ?? ""))
+					report(node, `imports the document renderer ${spec}`);
+			}),
+			{
+				ImportSpecifier(node) {
+					if (nameOf(node.imported) === DOCUMENTS_WRITER) writers.add(node.local.name);
+				},
+				VariableDeclarator(node) {
+					if (node.id.type === "Identifier" && isWriter(node.init)) writers.add(node.id.name);
+				},
+				MemberExpression(node) {
+					const name = memberName(node);
+					if (RENDER_ONLY_CALLS.has(name) || (name === "generate" && isWriter(node.object))) called(node, name);
+					else if (name === null && node.computed && isWriter(node.object))
+						report(
+							node,
+							"picks a documentsWriter operation at run time, so this rule cannot tell that it does not render",
+						);
+				},
+			},
+		);
+	},
+};
+
+const WIKI = "apps/web/src/features/wiki/";
+
+const wikiNoMdx = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!repoPath(context.filename).startsWith(WIKI)) return {};
+		return moduleSources((node, spec) => {
+			if (/mdx/i.test(spec))
+				context.report({
+					node,
+					message: `${spec} compiles MDX. A wiki body is a church's own text: the reader shows it as blocks (articleBlocks) and never runs the JSX, imports or expressions in it.`,
+				});
+		});
+	},
+};
+
+const notificationMount = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!repoPath(context.filename).startsWith("apps/web/src/features/notifications/")) return {};
+		return {
+			Identifier(node) {
+				if ((node.name === "globalThis" || node.name === "global") && isValueReference(node))
+					context.report({
+						node,
+						message: `The notifications mount is one producer per module instance (\`mount\` in features/notifications/server.ts). ${node.name} outlives the module, so a reload would keep a producer with the old opt-out keys.`,
+					});
+			},
+		};
+	},
+};
+
+const TEAMS = "apps/web/src/features/teams/";
+const TEAMS_WRITE_IMPORTS = {
+	[`${TEAMS}server.ts`]: /^write$/,
+	[`${TEAMS}training/server.ts`]: /^readRosterPreview$/,
+	"apps/web/src/server/request-context.ts": /^seated$/,
+	"@everyfield/domain/teams": /Writer$/,
+};
+const TEAMS_READ_IN = { readRosterPreview: "previewRoster" };
+
+const teamsWriteAnswer = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		if (!from.startsWith(TEAMS) || !SERVER_ACTIONS.test(context.sourceCode.text)) return {};
+		const report = (node, what) =>
+			context.report({
+				node,
+				message: `${what}. A teams write answers with its own result, never with the page read again: a revalidate, refresh or redirect renders the page and sends it with the answer. The screen updates from the answer.`,
+			});
+		const reads = new Map();
+		return {
+			...moduleSources((node, spec) => {
+				if (node.type === "TSImportType" || node.importKind === "type" || node.exportKind === "type") return;
+				if (spec.startsWith("@everyfield/contracts/")) return;
+				const to = resolveImport(from, spec).to ?? "";
+				const allowed =
+					TEAMS_WRITE_IMPORTS[spec] ??
+					Object.entries(TEAMS_WRITE_IMPORTS).find(([path]) => path === to || path.startsWith(`${to}.`))?.[1];
+				if (node.type !== "ImportDeclaration" || !allowed) return report(node, `A teams action module imports ${spec}`);
+				for (const s of node.specifiers) {
+					if (s.importKind === "type") continue;
+					const name = s.type === "ImportSpecifier" ? nameOf(s.imported) : "*";
+					if (!allowed.test(name)) report(s, `A teams action module imports ${name} from ${spec}`);
+					else if (TEAMS_READ_IN[name]) reads.set(s.local.name, TEAMS_READ_IN[name]);
+				}
+			}),
+			Identifier(node) {
+				const reader = reads.get(node.name);
+				if (!reader || !isValueReference(node)) return;
+				for (let at = node.parent; at; at = at.parent)
+					if (at.type === "FunctionDeclaration" && at.id?.name === reader) return;
+				report(node, `${node.name} is used outside ${reader}`);
+			},
+		};
+	},
+};
+
 const KEY_MINTS = new Set(["newRequestKey", "randomUUID"]);
 const keySlot = (node) =>
 	(node.parent?.type === "Property" && node.parent.value === node && nameOf(node.parent.key) === "requestKey") ||
@@ -4562,7 +4698,7 @@ const civilDay = {
 	},
 };
 
-const REF_CODE = /^(?:apps\/web\/src\/(?!marketing\/)|packages\/ui\/src\/)/;
+const REF_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
 const HOOK = /^use(?:[A-Z0-9]|$)/;
 const MEMO_HOOKS = new Set(["useCallback", "useMemo"]);
 const within = (node, fn) => {
@@ -4831,6 +4967,10 @@ export default {
 		"action-proofs": actionProofs,
 		"token-authority": tokenAuthority,
 		"client-request-key": clientRequestKey,
+		"action-render": actionRender,
+		"wiki-no-mdx": wikiNoMdx,
+		"notification-mount": notificationMount,
+		"teams-write-answer": teamsWriteAnswer,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
 		"organization-seat": organizationSeatCheck,
