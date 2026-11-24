@@ -449,10 +449,10 @@ function LensTile({ lens, onCite }: { lens: Lens; onCite: (key: string, label: s
 					: "border border-line bg-surface-raised shadow-[var(--ef-shadow-card)]",
 			)}
 		>
-			<div className="flex items-center gap-2.5">
+			<div className="grid grid-cols-[1fr_auto] items-center gap-x-2.5 gap-y-3">
 				<span
 					className={cn(
-						"grid size-[34px] flex-none place-items-center rounded-pill",
+						"grid size-[34px] place-items-center rounded-pill",
 						standing.status === "positive"
 							? "bg-green-100 text-green-700"
 							: standing.status === "attention"
@@ -464,8 +464,8 @@ function LensTile({ lens, onCite }: { lens: Lens; onCite: (key: string, label: s
 				>
 					<Icon icon={LENS_ICON[lens.key]} size={18} />
 				</span>
-				<h3 className="min-w-0 flex-1 text-[15px] font-semibold text-ink">{lens.label}</h3>
-				<StatusBadge size="sm" status={standing.status} className="shrink-0">
+				<h3 className="col-span-2 row-start-2 text-[15px] font-semibold text-balance text-ink">{lens.label}</h3>
+				<StatusBadge size="sm" status={standing.status} className="col-start-2 row-start-1">
 					{standing.label}
 				</StatusBadge>
 			</div>
