@@ -12,14 +12,15 @@ import {
 	venuesWriter,
 	withMeetingsWrite,
 } from "../../../packages/domain/src/meetings/index.ts";
+import { casesFor, tenancyCase, type Tenancy, type TenancyOwner } from "./tenancy-case.mts";
 
 export const planNoReminders = async () => {};
 const attendance = createAttendanceWriter({ reminders: planNoReminders });
 
-export async function seedMeetings(t) {
+export async function seedMeetings(t: Tenancy) {
 	const { a, MARK, key, ok, occurredOn } = t;
-	const meet = (body) => withMeetingsWrite(t.f.db, t.ownerA.actor, body);
-	const read = (op, input) => meetingsReader[op](t.f.db, t.ownerA.actor, input);
+	const meet = <V,>(body: Parameters<typeof withMeetingsWrite<V>>[2]) =>
+		withMeetingsWrite(t.f.db, t.ownerA.actor, body);
 	a.venue = ok(
 		await meet((tx, c) =>
 			venuesWriter.create(tx, c, {
@@ -28,7 +29,7 @@ export async function seedMeetings(t) {
 			}),
 		),
 	).venue.id;
-	const schedule = async (input) =>
+	const schedule = async (input: object) =>
 		ok(await meet((tx, c) => meetingsWriter.schedule(tx, c, { requestKey: key(), input: { time: "18:00", ...input } })))
 			.meeting;
 	const dana = await t.personA("Dana");
@@ -55,12 +56,14 @@ export async function seedMeetings(t) {
 			guestsWriter.saveOwnRsvp(tx, c, { requestKey: key(), input: { meetingId: a.vision, rsvp: "confirmed" } }),
 		),
 	);
-	const blair = ok(await read("listGuests", { meetingId: a.vision })).guests.find((g) => g.person.personId === a.blair);
+	const blair = ok(await meetingsReader.listGuests(t.f.db, t.ownerA.actor, { meetingId: a.vision })).guests.find(
+		(g) => g.person.personId === a.blair,
+	);
 	ok(
 		await meet((tx, c) =>
 			guestsWriter.recordCard(tx, c, {
 				requestKey: key(),
-				expectedRevision: blair.revision,
+				expectedRevision: blair!.revision,
 				input: { meetingId: a.vision, personId: a.blair, response: "interested", notes: `${MARK} card notes` },
 			}),
 		),
@@ -109,19 +112,19 @@ export async function seedMeetings(t) {
 	);
 }
 
-export function meetingsCases(t, who) {
+export function meetingsCases(t: Tenancy, who: TenancyOwner) {
 	const { a, MARK, key } = t;
 	const db = t.f.db;
-	const m = (name, run, expected) => [`meetings:meetingsReader.${name}`, { run, expected }];
-	const at = (name, run, expected) => [`meetings:attendanceReader.${name}`, { run, expected }];
-	const v = (name, run, expected) => [`meetings:venuesReader.${name}`, { run, expected }];
+	const m = casesFor("meetings:meetingsReader.");
+	const at = casesFor("meetings:attendanceReader.");
+	const v = casesFor("meetings:venuesReader.");
 	const meeting = { meetingId: a.vision };
 	const unavailable = { refused: "unavailable" };
 	const gone = { ...unavailable, echo: [a.vision] };
 	const vision = { types: ["vision_meeting"], from: null, to: null };
 	const visionRow = async () =>
 		(
-			await t.rows(
+			await t.rows<{ title: string; revision: string }>(
 				sql`SELECT title, revision::text AS revision FROM meeting WHERE id = ${a.vision} AND plant_id = ${t.plantA.id}`,
 			)
 		)[0];
@@ -134,7 +137,7 @@ export function meetingsCases(t, who) {
 		}),
 		m("readAgenda", () => meetingsReader.readAgenda(db, who.actor, meeting), {
 			...gone,
-			control: (value) => assert.equal(value.sections[0].title, "Welcome"),
+			control: (value) => assert.equal(value.sections[0]!.title, "Welcome"),
 		}),
 		m("listKit", () => meetingsReader.listKit(db, who.actor, meeting), gone),
 		m("listGuests", () => meetingsReader.listGuests(db, who.actor, meeting), gone),
@@ -197,13 +200,11 @@ export function meetingsCases(t, who) {
 				}),
 		}),
 
-		[
+		tenancyCase(
 			"meetings:rosterReader.previewRosterImport",
-			{
-				run: () => rosterReader.previewRosterImport(db, who.actor, { meetingId: a.teamMeeting }),
-				expected: { ...unavailable, echo: [a.teamMeeting] },
-			},
-		],
+			() => rosterReader.previewRosterImport(db, who.actor, { meetingId: a.teamMeeting }),
+			{ ...unavailable, echo: [a.teamMeeting] },
+		),
 		v("list", () => venuesReader.list(db, who.actor, {}), { value: { items: [], page: 1, total: 0, next: null } }),
 		v("get", () => venuesReader.get(db, who.actor, { venueId: a.venue }), {
 			value: { status: "unavailable" },
@@ -214,23 +215,21 @@ export function meetingsCases(t, who) {
 			echo: [a.venue],
 		}),
 
-		[
+		tenancyCase(
 			"meetings:previewMeetingsWrite",
-			{
-				run: async () => {
-					const before = await visionRow();
-					const reply = await previewMeetingsWrite(db, who.actor, (tx, c) =>
-						meetingsWriter.edit(tx, c, {
-							requestKey: key(),
-							expectedRevision: before.revision,
-							input: { meetingId: a.vision, patch: { title: `${MARK} renamed` } },
-						}),
-					);
-					assert.deepEqual(await visionRow(), before, "previewMeetingsWrite changed church A's meeting");
-					return reply;
-				},
-				expected: gone,
+			async () => {
+				const before = await visionRow();
+				const reply = await previewMeetingsWrite(db, who.actor, (tx, c) =>
+					meetingsWriter.edit(tx, c, {
+						requestKey: key(),
+						expectedRevision: before!.revision,
+						input: { meetingId: a.vision, patch: { title: `${MARK} renamed` } },
+					}),
+				);
+				assert.deepEqual(await visionRow(), before, "previewMeetingsWrite changed church A's meeting");
+				return reply;
 			},
-		],
+			gone,
+		),
 	];
 }

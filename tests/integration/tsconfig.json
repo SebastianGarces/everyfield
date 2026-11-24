@@ -12,6 +12,8 @@
 	},
 	"files": ["./task-assignees.mts"],
 	"include": [
+		"./access/**/*.ts",
+		"./access/**/*.mts",
 		"./branding/**/*.ts",
 		"./branding/**/*.mts",
 		"./dashboard/**/*.ts",
@@ -24,6 +26,8 @@
 		"./flags/**/*.mts",
 		"./followups/**/*.ts",
 		"./followups/**/*.mts",
+		"./identity/**/*.ts",
+		"./identity/**/*.mts",
 		"./jobs/**/*.ts",
 		"./jobs/**/*.mts",
 		"./launch/**/*.ts",

@@ -3,7 +3,9 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { currentActor, readPipelinePerson, readOwnResidency } from "../../../packages/domain/src/access/index.ts";
 import { database, transaction, id, account, plant, organization, seat, person } from "./support.mts";
-let db;
+let db: Awaited<ReturnType<typeof database>>;
+type Account = Awaited<ReturnType<typeof account>>;
+type Selected = Parameters<typeof currentActor>[2];
 before(async () => {
 	db = await database();
 });
@@ -11,14 +13,14 @@ after(async () => {
 	await db?.close();
 });
 const unavailable = { status: "unavailable" };
-const own = (a) => ({ kind: "account", id: a.id });
+const own = (a: Account) => ({ kind: "account" as const, id: a.id });
 
 test("AC:TARGET-IDN-029 INV-tenancy: fresh session and one exact typed current seat; account identity is independent", async () => {
 	const a = await account(db.admin),
 		p = await plant(db.admin),
 		o = await organization(db.admin);
 	const s = await seat(db.admin, a, p);
-	const load = (selected) => transaction(db.runtime, (tx) => currentActor(tx, a.session, selected));
+	const load = (selected: Selected) => transaction(db.runtime, (tx) => currentActor(tx, a.session, selected));
 	assert.deepEqual(await load(p), {
 		status: "active",
 		accountId: a.id,
@@ -33,8 +35,10 @@ test("AC:TARGET-IDN-029 INV-tenancy: fresh session and one exact typed current s
 	await db.admin.execute(querySql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${s}`);
 	assert.deepEqual(await load(p), unavailable);
 	await seat(db.admin, a, o, "owner");
-	assert.deepEqual(await load({ ...o, organizationKind: "network" }), unavailable);
-	assert.equal((await load(o)).context.role, "owner");
+	assert.deepEqual(await load({ ...o, organizationKind: "sending_network" }), unavailable);
+	const owned = await load(o);
+	assert.ok(owned.status === "active" && owned.context.kind === "seat", JSON.stringify(owned));
+	assert.equal(owned.context.role, "owner");
 	await db.admin.execute(querySql`DELETE FROM auth_session WHERE id=${a.session}`);
 	assert.deepEqual(await load(o), unavailable);
 	const pending = await account(db.admin, "pending_domain");
@@ -86,13 +90,13 @@ test("AC:ADR1-002 INV-pipeline: exact organization duties and no resident intern
 	await db.admin.execute(
 		querySql`INSERT INTO development_enrollment(id,organization_id,person_id,program_id,version_id,cohort_label,started_on,expected_end_on,status,current_stage_id,meeting_timezone,revision) VALUES(${id()},${o.id},${p},${program},${version},'Synthetic','2026-10-01','2027-10-01','active',${developmentStage},'UTC',1)`,
 	);
-	const read = (a, selected = o) =>
+	const read = (a: Account, selected: Selected = o) =>
 		transaction(db.runtime, (tx) => readPipelinePerson(tx, a.session, selected, { personId: p }));
 	for (const [a, kind, notes] of [
 		[admin, "organization_administration", true],
 		[staff, "responsible_staff", true],
 		[director, "program_director", false],
-	]) {
+	] as const) {
 		assert.deepEqual(await read(a), {
 			status: "allowed",
 			organization: o,
@@ -102,7 +106,7 @@ test("AC:ADR1-002 INV-pipeline: exact organization duties and no resident intern
 	}
 	for (const a of [resident, unrelated]) assert.deepEqual(await read(a), unavailable);
 	assert.deepEqual(await read(admin, other), unavailable);
-	assert.deepEqual(await read(admin, { ...o, organizationKind: "network" }), unavailable);
+	assert.deepEqual(await read(admin, { ...o, organizationKind: "sending_network" }), unavailable);
 	const inv = id(),
 		aff = id(),
 		link = id();

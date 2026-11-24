@@ -72,7 +72,8 @@ writeFileSync('apps/web/.env.local',Object.entries({...settings,IDENTITY_ORIGIN:
 				const rows: Array<{ existing: number; missing: number }> = [];
 				for (let i = 0; i < 22; i++) {
 					await f.db.execute(querySql`DELETE FROM admission_attempt WHERE kind='reset'`);
-					const before = (await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0].n;
+					const before: number = (await f.db.execute<{ n: number }>(querySql`SELECT count(*)::int n FROM mail`))
+						.rows[0]!.n;
 					const row = { existing: 0, missing: 0 };
 					for (const kind of (i % 2 ? ["missing", "existing"] : ["existing", "missing"]) as Array<
 						"existing" | "missing"
@@ -91,11 +92,11 @@ writeFileSync('apps/web/.env.local',Object.entries({...settings,IDENTITY_ORIGIN:
 						row[kind] = performance.now() - start;
 					}
 					const deadline = performance.now() + 15000;
-					while ((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0].n === before) {
+					while ((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0]!.n === before) {
 						assert.ok(performance.now() < deadline, "post-response proof mail must reach the real outbox");
 						await new Promise((r) => setTimeout(r, 50));
 					}
-					assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0].n, before + 1);
+					assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0]!.n, before + 1);
 					if (i >= 2) rows.push(row);
 				}
 				const existing = rows.map((r) => r.existing),

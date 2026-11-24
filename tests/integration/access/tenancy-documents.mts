@@ -4,29 +4,13 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { nativeFromText } from "../../../packages/contracts/src/documents/index.ts";
 import { documentsReader, documentsWriter as docs } from "../../../packages/domain/src/documents/index.ts";
 import { templateFill } from "../../../packages/domain/src/documents/template-fill.ts";
+import { casesFor, seedStorage, tenancyCase, type Tenancy, type TenancyOwner } from "./tenancy-case.mts";
 
-const objects = new Map();
-const seedStorage = {
-	bucket: "tenancy-seed",
-	client: {
-		async send(command) {
-			const input = command.input ?? {};
-			switch (command.constructor.name) {
-				case "GetBucketAclCommand":
-					return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
-				case "PutObjectCommand":
-					objects.set(input.Key, Buffer.from(input.Body));
-					return {};
-				default:
-					throw Error(`unexpected provider operation ${command.constructor.name}`);
-			}
-		},
-	},
-};
+const seeding = seedStorage("tenancy-seed");
 const POLICY = "conflict-of-interest-policy";
 const AGENDA = "vision-meeting-agenda";
 
-export async function seedDocuments(t) {
+export async function seedDocuments(t: Tenancy) {
 	const { a, MARK, key, ok } = t;
 	const owner = t.ownerA.actor;
 	const db = t.f.db;
@@ -45,18 +29,13 @@ export async function seedDocuments(t) {
 			db,
 			owner,
 			{ documentId: church.id, revision: 2, format: "pdf", requestKey: a.exportKey },
-			seedStorage,
+			seeding,
 		),
 	).id;
 	const gone = ok(await docs.createFromTemplate(db, owner, { templateId: POLICY, requestKey: key() }));
 	a.deletedDoc = gone.id;
 	a.deletedExport = ok(
-		await docs.exportNative(
-			db,
-			owner,
-			{ documentId: gone.id, revision: 1, format: "pdf", requestKey: key() },
-			seedStorage,
-		),
+		await docs.exportNative(db, owner, { documentId: gone.id, revision: 1, format: "pdf", requestKey: key() }, seeding),
 	).id;
 	ok(await docs.deleteChurch(db, owner, { documentId: gone.id, expectedRevision: gone.revision }));
 	const shelved = ok(await docs.createFromTemplate(db, owner, { templateId: POLICY, requestKey: key() }));
@@ -80,7 +59,7 @@ export async function seedDocuments(t) {
 		await docs.designateCoreValues(db, owner, { documentId: values.id, expectedRevision: values.revision }),
 	).id;
 	a.generated = ok(
-		await docs.generate(db, owner, { templateId: "commitment-card", format: "pdf", requestKey: key() }, seedStorage),
+		await docs.generate(db, owner, { templateId: "commitment-card", format: "pdf", requestKey: key() }, seeding),
 	).id;
 	await t.f.admin.execute(sql`UPDATE seat SET ended_at = clock_timestamp() WHERE account_id = ${t.ownerA.id}`);
 	ok(
@@ -93,18 +72,23 @@ export async function seedDocuments(t) {
 	await t.f.admin.execute(sql`UPDATE seat SET ended_at = NULL WHERE account_id = ${t.ownerA.id}`);
 }
 
-export function documentsCases(t, who) {
+export function documentsCases(t: Tenancy, who: TenancyOwner) {
 	const { a, storage } = t;
 	const db = t.f.db;
-	const r = (name, run, expected) => [`documents:documentsReader.${name}`, { run, expected }];
-	const w = (name, run, expected) => [`documents:documentsWriter.${name}`, { run, expected }];
+	const r = casesFor("documents:documentsReader.");
+	const w = casesFor("documents:documentsWriter.");
 	const unavailable = { refused: "unavailable" };
-	const gone = (...ids) => ({ ...unavailable, echo: ids });
+	const gone = (...ids: string[]) => ({ ...unavailable, echo: ids });
 	const doc = { documentId: a.churchDoc };
 	const agenda = { templateId: AGENDA, format: "pdf", meetingId: a.vision };
-	const library = { check: (value) => assert.ok(value.templateCount > 0), control: (value) => library.check(value) };
+	const listed = (value: { templateCount: number }) => assert.ok(value.templateCount > 0);
+	const library = { check: listed, control: listed };
 	const exports = async () =>
-		(await t.rows(sql`SELECT count(*)::int AS n FROM generated_document WHERE tenant_id = ${t.plantA.id}`))[0].n;
+		(
+			await t.rows<{ n: number }>(
+				sql`SELECT count(*)::int AS n FROM generated_document WHERE tenant_id = ${t.plantA.id}`,
+			)
+		)[0]!.n;
 	return [
 		r("templates.list", () => documentsReader["templates.list"](db, who.actor, {}), library),
 		r("templates.get", () => documentsReader["templates.get"](db, who.actor, { templateId: AGENDA }), {
@@ -170,30 +154,25 @@ export function documentsCases(t, who) {
 			control: null,
 		}),
 		w("readTemplateCompare", () => docs.readTemplateCompare(db, who.actor, doc), gone(a.churchDoc)),
-		[
-			"documents/fill:templateFill",
-			{
-				run: () => templateFill(db, who.actor, { templateId: POLICY }),
-				expected: {
-					partial: { templateId: POLICY },
-					check: (value) => assert.ok(value.fields.some((field) => field.value === "Synthetic plant")),
-				},
-			},
-		],
+		tenancyCase("documents/fill:templateFill", () => templateFill(db, who.actor, { templateId: POLICY }), {
+			partial: { templateId: POLICY },
+			check: (value) => assert.ok(value.fields.some((field) => field.value === "Synthetic plant")),
+		}),
 	];
 }
 
-export function deletedDocumentCases(t, who) {
+export function deletedDocumentCases(t: Tenancy, who: TenancyOwner) {
 	const { a, storage } = t;
 	const db = t.f.db;
-	const deleted = { documentId: a.deletedDoc };
+	const gone = { documentId: a.deletedDoc, exportId: a.deletedExport };
+	const unknown = () => ({ documentId: randomUUID(), exportId: randomUUID() });
+	const deletedCase = (
+		name: string,
+		run: (ids: typeof gone) => Promise<{ status: string; error?: { code?: string } }>,
+	) => ({ name, deleted: () => run(gone), unknown: () => run(unknown()) });
 	return [
-		["readExportFile", (ids) => docs.readExportFile(db, who.actor, ids, storage)],
-		["listExports", ({ documentId }) => docs.listExports(db, who.actor, { documentId })],
-		["readChurch", ({ documentId }) => docs.readChurch(db, who.actor, { documentId })],
-	].map(([name, run]) => ({
-		name,
-		deleted: () => run({ ...deleted, exportId: a.deletedExport }),
-		unknown: () => run({ documentId: randomUUID(), exportId: randomUUID() }),
-	}));
+		deletedCase("readExportFile", (ids) => docs.readExportFile(db, who.actor, ids, storage)),
+		deletedCase("listExports", ({ documentId }) => docs.listExports(db, who.actor, { documentId })),
+		deletedCase("readChurch", ({ documentId }) => docs.readChurch(db, who.actor, { documentId })),
+	];
 }

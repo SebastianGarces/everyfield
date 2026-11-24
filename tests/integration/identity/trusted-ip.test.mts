@@ -2,13 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { trustedIdentityIp } from "../../../packages/domain/src/identity/ingress.ts";
 
-const header = (value) => ({ "x-vercel-forwarded-for": value, "x-forwarded-for": "198.51.100.9" });
-const earlyAccess = (value, vercel) => trustedIdentityIp({ headers: new Headers(header(value)) }, vercel);
-const identity = (value, vercel) =>
+const header = (value: string) => ({ "x-vercel-forwarded-for": value, "x-forwarded-for": "198.51.100.9" });
+const earlyAccess = (value: string, vercel: boolean) =>
+	trustedIdentityIp({ headers: new Headers(header(value)) }, vercel);
+const identity = (value: string, vercel: boolean) =>
 	trustedIdentityIp(new Request("https://app.example.test/api/auth", { headers: header(value) }), vercel);
 
 test("INV-identity: early access and identity read the same IP, or null, from the same header", () => {
-	const cases = [
+	const cases: [string, boolean, string | null][] = [
 		["192.0.2.1, 192.0.2.2", true, null],
 		["192.0.2.1", true, "192.0.2.1"],
 		["2001:db8::1", true, "2001:db8::1"],
