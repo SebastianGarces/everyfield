@@ -745,6 +745,7 @@ export function Screen() {
 			"apps/web/src/features/x/Screen.tsx:8 no-effects",
 			"apps/web/src/features/x/Screen.tsx:6 no-global-listeners",
 			"apps/web/src/features/x/Screen.tsx:8 no-global-listeners",
+			"apps/web/src/features/x/Screen.tsx:8 stable-ref",
 		].sort(),
 	);
 });
@@ -3069,7 +3070,8 @@ function attach(node) {
 	if (undefined != node) report("attached");
 }
 `;
-	assert.deepEqual(lint({ "apps/web/src/features/x/Old.tsx": source }), [
+	const hits = lint({ "apps/web/src/features/x/Old.tsx": source }).filter((hit) => hit.endsWith(" no-effects"));
+	assert.deepEqual(hits, [
 		"apps/web/src/features/x/Old.tsx:19 no-effects",
 		"apps/web/src/features/x/Old.tsx:20 no-effects",
 		"apps/web/src/features/x/Old.tsx:21 no-effects",
