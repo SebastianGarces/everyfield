@@ -53,6 +53,7 @@
 		"everyfield/stable-context-value": "error",
 		"everyfield/storage-client": "error",
 		"everyfield/deployment-env": "error",
+		"everyfield/scripted-model-wiring": "error",
 		"everyfield/server-config": "error",
 		"everyfield/no-silent-catch": "error",
 		"everyfield/max-state": "error",

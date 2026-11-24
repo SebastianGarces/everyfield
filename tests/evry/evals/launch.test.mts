@@ -17,12 +17,12 @@ import {
 	readConversation,
 	readReview,
 	runTurn,
-	selectQualifiedModel,
 	submitTurn,
 	type EvryActor,
 	type NativePorts,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
 import { LAUNCH_RULES } from "../../../packages/evry/src/context/compile.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
@@ -140,7 +140,7 @@ let close: () => Promise<void>;
 let db: Database;
 let admin: Database;
 let native: NativePorts;
-const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+const model = scriptedQualifiedModel();
 const noReminders: TaskReminders = async () => undefined;
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);

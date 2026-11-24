@@ -4658,6 +4658,7 @@
       ],
       "owning_paths": [
         "packages/evry/src/runtime/",
+        "packages/evry-scripted/",
         "packages/evry/src/conversations/",
         "packages/evry/src/context/",
         "apps/web/src/features/evry/conversation/",

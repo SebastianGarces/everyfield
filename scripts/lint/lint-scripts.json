@@ -20,6 +20,9 @@
 	"packages/evry/package.json": {
 		"lint": "oxlint -c ../../.oxlintrc.json --max-warnings=0 ."
 	},
+	"packages/evry-scripted/package.json": {
+		"lint": "oxlint -c ../../.oxlintrc.json --max-warnings=0 ."
+	},
 	"packages/reference/package.json": {
 		"lint": "cd ../.. && packages/reference/node_modules/.bin/oxlint -c .oxlintrc.json --max-warnings=0 packages/reference/src tests/reference/releases tests/reference/starter"
 	},

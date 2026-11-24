@@ -21,7 +21,7 @@ import { REVIEWED_WRITES } from "../../../packages/evry/src/proposals/store.ts";
 import { MEETINGS_COMMANDS } from "../../../packages/evry/src/adapters/meetings/commands/index.ts";
 import { getPerson, listPeople, verifyPeople } from "../../../packages/evry/src/adapters/people/reads/index.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
-import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
+import { scriptedModel } from "../../../packages/evry-scripted/src/scripted.ts";
 import { transientRetry, withTransientRetry } from "../../../packages/evry/src/runtime/model.ts";
 import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
 import { loadHistory } from "../../../packages/evry/src/runtime/run-store.ts";

@@ -49,6 +49,7 @@ const context: Context = {
 				"test:db": "node --test ../../tests/evry/runtime/*.test.mts",
 			},
 		},
+		{ dir: "packages/evry-scripted", name: "@everyfield/evry-scripted", scripts: { lint: "oxlint ." } },
 		{ dir: "packages/ui", name: "@everyfield/ui", scripts: { lint: "eslint .", typecheck: "tsc --noEmit" } },
 	],
 };
@@ -265,6 +266,22 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 			filters: ["...@everyfield/web"],
 		}),
 	);
+});
+
+test("INV-ci-select: the scripted Evry model runs the Evry and domain suites that use it, not only its own checks", () => {
+	const why =
+		"package source: packages/evry-scripted/src/scripted.ts; scripted Evry model and the suites that run it: packages/evry-scripted/src/scripted.ts";
+	assertSelected(selectChecks(["packages/evry-scripted/src/scripted.ts"], map, context), {
+		checks: {
+			lint: why,
+			typecheck: why,
+			"test:unit": why,
+			"test:db": why,
+			"feature-maps": "feature map input: packages/evry-scripted/src/scripted.ts",
+		},
+		tests: {},
+		filters: ["...@everyfield/domain", "...@everyfield/evry", "...@everyfield/evry-scripted"],
+	});
 });
 
 test("INV-ci-select: tests that read files as text are selected when those files change", async (t) => {

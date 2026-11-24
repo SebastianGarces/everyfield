@@ -10,7 +10,7 @@ import { executeProposal } from "../../../packages/evry/src/execution/execute.ts
 import { claimDue, finishJob } from "../../../packages/domain/src/jobs/queue.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
-import { selectQualifiedModel } from "../../../packages/evry/src/runtime/model.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/people.ts";
@@ -438,7 +438,7 @@ async function pool<T, R>(items: T[], size: number, run: (item: T) => Promise<R>
 }
 
 const scriptedModel = (() => {
-	const selected = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+	const selected = scriptedQualifiedModel();
 	if (selected.status !== "qualified") throw Error("the scripted model is not available");
 	return selected.model;
 })();

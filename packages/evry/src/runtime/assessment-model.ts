@@ -127,7 +127,6 @@ export function meteredAssessment(db: Database, model: LanguageModelV4, id: stri
 }
 
 export function paidAssessment(db: Database, env: Record<string, string | undefined> = process.env) {
-	if (env.EVRY_SCRIPTED_MODEL === "1") return null;
 	const paid = paidModel(env);
 	return paid && meteredAssessment(db, paid.model, paid.id, paid.spend);
 }

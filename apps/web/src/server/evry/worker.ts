@@ -10,12 +10,12 @@ import {
 	flushTraces,
 	runTurn,
 	type MailPort,
-	selectQualifiedModel,
 } from "@everyfield/evry";
 import "server-only";
 import { deliveryTransport, mailReady } from "../mail/transport.ts";
 import { claimDue, finishJob } from "@everyfield/domain/jobs";
 import { evryNative } from "./native.ts";
+import { evryModel } from "../models.ts";
 
 export function evryMail(): MailPort | null {
 	const ready = mailReady();
@@ -26,7 +26,7 @@ const LEASE_SECONDS = 240;
 const EFFECT_LEASE_SECONDS = 60;
 
 export async function runTurns(pool: Database, limit: number, until = Infinity) {
-	const model = selectQualifiedModel();
+	const model = await evryModel();
 	const freshActor = async (session: string) => {
 		const parsed = sessionId.safeParse(session);
 		const viewer = parsed.success ? await readViewer(pool, parsed.data) : null;
