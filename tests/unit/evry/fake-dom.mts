@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 const web = createRequire(fileURLToPath(new URL("../../../apps/web/package.json", import.meta.url)));
 
-export class FakeNode extends EventTarget {
+class FakeNode extends EventTarget {
 	childNodes: FakeNode[] = [];
 	parentNode: FakeNode | null = null;
 	attributes = new Map<string, string>();
@@ -109,7 +109,7 @@ export function propsOf(node: FakeNode): Props {
 	return key ? (Reflect.get(node, key) as Props) : {};
 }
 
-export function linesOf(node: FakeNode): string[] {
+function linesOf(node: FakeNode): string[] {
 	const spoken = SPOKEN.flatMap((name) => {
 		const value = node.getAttribute(name);
 		return value ? [value] : [];
@@ -145,7 +145,6 @@ export async function mount(type: unknown, props: Record<string, unknown>) {
 		lines: () => linesOf(container),
 		click: (label: string) =>
 			run(() => propsOf(button(label)).onClick?.({ preventDefault() {}, defaultPrevented: false })),
-		disabled: (label: string) => propsOf(button(label)).disabled === true,
 		submit: (fields: Record<string, string>) =>
 			run(() => {
 				const form = byTag("FORM")[0];

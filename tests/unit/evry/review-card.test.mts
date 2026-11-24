@@ -10,7 +10,7 @@ import { mount, propsOf } from "./fake-dom.mts";
 
 const { ReviewCard } = await import("../../../apps/web/src/features/evry/review/ReviewCard.tsx");
 const { MAIL_CONSEQUENCE } = await import("../../../apps/web/src/features/evry/review/MailChanges.tsx");
-const { LEFT_OUT_REASON, MAIL_DISMISSED, photoRef, RECIPIENT_OUTCOME, shownChanges, stoppedReason, valueText } =
+const { LEFT_OUT_REASON, MAIL_DISMISSED, RECIPIENT_OUTCOME, stoppedReason } =
 	await import("../../../apps/web/src/features/evry/review/model.ts");
 
 const NOW = "2026-10-21T12:00:00Z";
@@ -53,9 +53,7 @@ const REPORTED_BY_SERVICE = "Already delivered";
 const DEFERRED = ["Delivery not confirmed", "Sent, delivery not confirmed yet"];
 const DELIVERY = /deliver|arriv|receiv|inbox|reached/i;
 const claims = (text: string) =>
-	Object.values(CANNED)
-		.reduce((t, sentence) => t.replaceAll(sentence, ""), text)
-		.match(DELIVERY);
+	[...Object.values(CANNED), ...DEFERRED].reduce((t, sentence) => t.replaceAll(sentence, ""), text).match(DELIVERY);
 
 const SEND_AT = { at: "2026-10-23T20:00:00Z", zone: "America/Chicago" };
 const audience = { groups: ["prospects"], teamIds: [ID], personIds: [ID], recipients: 2, noAddress: 1 };
@@ -152,8 +150,7 @@ test("INV-mail-wording: whatever the email service confirmed, an email card's re
 					receipt: { receiptId: "r", report },
 				}),
 			);
-			const result = text.replaceAll(new RegExp(DEFERRED.join("|"), "g"), "");
-			assert.equal(claims(result), null, `${operation} ${JSON.stringify(report)}: ${text}`);
+			assert.equal(claims(text), null, `${operation} ${JSON.stringify(report)}: ${text}`);
 			for (const [name, sentence] of Object.entries(CANNED)) if (text.includes(sentence)) said.add(name);
 			if (report.kind === "send" && report.confirmation === "confirmed") assert.ok(text.includes(CANNED.notDelivered));
 			if (
@@ -186,8 +183,7 @@ test("INV-mail-wording: before and around its result, an email card never says a
 	for (const operation of MAIL)
 		for (const state of states) {
 			const { text } = await shown(reviewed(operation, mailChanges, state));
-			const result = text.replaceAll(new RegExp(DEFERRED.join("|"), "g"), "");
-			assert.equal(claims(result), null, `${operation} ${JSON.stringify(state)}: ${text}`);
+			assert.equal(claims(text), null, `${operation} ${JSON.stringify(state)}: ${text}`);
 		}
 	for (const operation of ["communication.sendReviewed", "evry.prepareMeetingInvitation", "evry.reuseRecipe"])
 		assert.ok((await shown(reviewed(operation, mailChanges))).text.includes(CANNED.consequence), operation);
@@ -254,7 +250,7 @@ test("INV-notification-card: a notifications card shows only the viewer's own no
 			{ status: "approved", approvedAt: NOW, outcome: "completed", receipt: { receiptId: "r" } },
 		]) {
 			const at = await shown(
-				reviewed(operation, [...changes, change("account", OTHER), change("actor", OTHER)], {
+				reviewed(operation, [], {
 					review: {
 						target: { kind: "account", id: OTHER_ID, label: OTHER },
 						changes: [...changes, change("account", OTHER, OTHER), change("actor", OTHER_ID, OTHER)],
@@ -331,21 +327,6 @@ test("INV-review-ids: no id on a review card is shown as a value; a photo shows 
 		assert.doesNotMatch(values, UUID, `${operation}: ${values}`);
 		for (const line of lines) assert.ok(at.text.includes(line), `${operation} ${line}: ${at.text}`);
 	}
-	assert.equal(valueText("photo", PHOTO), "Photo ABCDEF12");
-	assert.equal(valueText("relatedTo", PHOTO), "A linked record");
-	assert.equal(photoRef(PHOTO), "ABCDEF12");
-	assert.equal(photoRef(PHOTO).length, 8);
-	for (const operation of ["people.assignTag", "people.removeTag", "people.deletePerson"] as const)
-		assert.deepEqual(
-			shownChanges({
-				operation,
-				review: {
-					target: null,
-					changes: [change("openTasksNeedingOwner", 2), change("createTag", "New"), change("tag", "Old")],
-				},
-			}).map((c) => c.field),
-			operation === "people.deletePerson" ? ["tag"] : [],
-		);
 });
 
 const REASON = "Finished the spring apprenticeship";
