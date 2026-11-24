@@ -27,14 +27,20 @@ for (const file of repoFiles().filter((f) => emailScoped(f) && existsSync(join(r
 const templateClass = read("evf.toml")
 	.split("[[policy.class]]")
 	.find((block) => /^name = "document-templates"$/m.test(block));
-const owned = [...(/^paths = \[(.*?)\]/ms.exec(templateClass ?? "")?.[1] ?? "").matchAll(/"([^"]+)"/g)].map(
-	(m) => m[1],
-);
+const ownedBlock = /^paths = \[(.*?)\]/ms.exec((templateClass ?? "").replace(/^\s*#.*$/gm, ""))?.[1] ?? "";
+const owned = [...ownedBlock.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
 if (!templateClass || !/^outcome = "owner"$/m.test(templateClass))
 	failures.push('evf.toml: has no document-templates class with outcome = "owner"');
-const templates = "packages/domain/src/documents/templates";
-for (const name of readdirSync(join(root, templates)).filter((n) => n.endsWith(".json"))) {
-	const file = `${templates}/${name}`;
+const documents = "packages/domain/src/documents";
+const templates = `${documents}/templates`;
+for (const file of [
+	...readdirSync(join(root, templates))
+		.filter((name) => name.endsWith(".json"))
+		.map((name) => `${templates}/${name}`),
+	...readdirSync(join(root, documents), { recursive: true })
+		.filter((name) => name.endsWith("-content.ts"))
+		.map((name) => `${documents}/${name}`),
+]) {
 	if (!owned.some((entry) => (entry.endsWith("/") ? file.startsWith(entry) : file === entry)))
 		failures.push(`${file}: is not in the document-templates owner class of evf.toml; add its exact path there`);
 }

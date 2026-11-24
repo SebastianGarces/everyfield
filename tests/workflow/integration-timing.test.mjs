@@ -3,6 +3,7 @@ import { globSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { decide, testFiles } from "../../tools/ci/tooling-gate.ts";
 
 const repo = fileURLToPath(new URL("../../", import.meta.url));
 const ROOTS = [
@@ -20,65 +21,8 @@ const ROOTS = [
 const FILES = ["tests/evry/evals/*.test.mts", "tests/reference/**/*.db.mts", "tests/ui/seed-env.mts"];
 const SOURCE = /\.(mts|mjs|ts|js)$/;
 
-const EXEMPT = {
-	"tests/integration/identity/timing.production.mts": {
-		why: "the production latency proof: its pg_sleep stall, performance.now timings and polling deadline are the measurement",
-		hits: [
-			[
-				"pg_sleep",
-				"querySql`CREATE FUNCTION slow_identity_mail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(1.5);RETURN NEW;END $$`,",
-			],
-			["clock loop", 'for (const path of ["request-password-reset", "send-verification-email"]) {'],
-			["clock loop", "for (let i = 0; i < 22; i++) {"],
-			["performance.now", "const start = performance.now();"],
-			["performance.now", "row[kind] = performance.now() - start;"],
-			["performance.now", "const deadline = performance.now() + 15000;"],
-			[
-				"clock loop",
-				"while ((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0]!.n === before) {",
-			],
-			[
-				"performance.now",
-				'assert.ok(performance.now() < deadline, "post-response proof mail must reach the real outbox");',
-			],
-			[
-				"clock assertion",
-				'assert.ok(performance.now() < deadline, "post-response proof mail must reach the real outbox");',
-			],
-			[
-				"clock comparison",
-				'assert.ok(performance.now() < deadline, "post-response proof mail must reach the real outbox");',
-			],
-			["timer", "await new Promise((r) => setTimeout(r, 50));"],
-		],
-	},
-	"tests/integration/writes/counter.mjs": {
-		why: "the census sample's ms field reports real time, which is its job; nothing asserts on it",
-		hits: [
-			["performance.now", "const started = performance.now();"],
-			["performance.now", "ms: Math.round(performance.now() - started),"],
-		],
-	},
-	"tests/evry/evals/clock.test.mts": {
-		why: "the frame bound widens by the time the test took; nothing waits on it",
-		hits: [
-			["performance.now", "const started = performance.now();"],
-			["performance.now", "const latest = NOW.getTime() + (performance.now() - started) + MINUTE;"],
-		],
-	},
-	"tests/evry/evals/invitations.test.mts": {
-		why: "a fixed offset that pins the scripted clock to TODAY; nothing waits on it",
-		hits: [["clock subtraction", "const shift = TODAY.getTime() - Date.now();"]],
-	},
-	"tests/evry/evals/overview.test.mts": {
-		why: "a fixed offset that pins the scripted clock to TODAY; nothing waits on it",
-		hits: [["clock subtraction", "const shift = TODAY.getTime() - Date.now();"]],
-	},
-	"tests/integration/identity/invitations.test.mts": {
-		why: "INV-expiry: only elapsed time shows the expiry check reads the clock after the root lock wait (D-704)",
-		hits: [["timer", "await new Promise((resolve) => setTimeout(resolve, 3000));"]],
-	},
-};
+const EXEMPT_FILE = "tests/workflow/integration-timing-exempt.json";
+const EXEMPT = JSON.parse(readFileSync(join(repo, EXEMPT_FILE), "utf8"));
 
 const RULE_TEXT = {
 	timer: "a setTimeout or setInterval call is a real delay or watchdog",
@@ -316,7 +260,7 @@ test("T-261: no file under tests/integration, tests/unit, the Evry adapter, cata
 	);
 	const { violations, stale } = check(files);
 	assert.deepEqual(violations, [], "replace each with a data control: set the row's time or wait with waitingOnLock");
-	assert.deepEqual(stale, [], "an exemption whose hit is gone comes out of EXEMPT");
+	assert.deepEqual(stale, [], `an exemption whose hit is gone comes out of ${EXEMPT_FILE}`);
 });
 
 test("T-261: the scanner names each real wait and wall-clock assertion by line and rule", () => {
@@ -409,4 +353,11 @@ test("T-261: an exempt file holds only the hits it has today", () => {
 		`tests/integration/writes/counter.mjs:${counterLine} performance.now: ${RULE_TEXT["performance.now"]}`,
 	]);
 	assert.deepEqual(stale, []);
+});
+
+test("a pull request that changes only the exemption file runs this test in CI", () => {
+	const decisions = decide("pull_request", [EXEMPT_FILE]);
+	assert.equal(decisions.stack.run, true, decisions.stack.reason);
+	const self = "tests/workflow/integration-timing.test.mjs";
+	assert.deepEqual(testFiles(decisions, [], [self]).workflow, [self]);
 });
