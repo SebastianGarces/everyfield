@@ -7,13 +7,13 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import * as c from "../../../packages/contracts/src/intelligence/index.ts";
 import {
 	ASSESSMENT_TIMING,
+	captureFacts,
 	createAssessmentJob,
 	createAssessments,
 	createPrivateCare,
 	runAssessmentBatch,
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { createAttendanceWriter, withMeetingsWrite } from "../../../packages/domain/src/meetings/index.ts";
-import { captureFacts } from "../../../packages/domain/src/intelligence/index.ts";
 import { commitments, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { readIntelligence, requestIntelligenceRefresh } from "../../../packages/domain/src/oversight/intelligence.ts";
 import { scriptedAssessmentDrafter } from "../../../packages/evry-scripted/src/scripted-assessment.ts";

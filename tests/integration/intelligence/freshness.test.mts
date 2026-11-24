@@ -143,8 +143,8 @@ async function importPeople(p: ChurchPlant, text: string) {
 		}),
 	);
 	await runDueImports(c0.db, 10);
-	return (await c0.one<Person>(sql`SELECT e.subject_id AS id FROM audit_event e WHERE e.tenant_id=${p.id}
-		AND e.metadata ? 'import' ORDER BY e.recorded_at DESC LIMIT 1`))!;
+	return c0.one<Person>(sql`SELECT e.subject_id AS id FROM audit_event e WHERE e.tenant_id=${p.id}
+		AND e.metadata ? 'import' ORDER BY e.recorded_at DESC LIMIT 1`);
 }
 
 test("INV-freshness: an attendance mark, a commitment stage move, an imported person's commitment, a correction, a merge and a removal each mark the assessment out of date before any new run", async () => {

@@ -1907,7 +1907,7 @@ test("AC:ORG55-006 AC:DEL58-004 deleting a login hides its check-ins, avatar and
 		return {
 			listed: directory.items.filter((x) => x.id === person).map((x) => x.displayName),
 			photo: photos.photos.length,
-			bytes: await photoRead(storage, { ...f.a }, photo),
+			bytes: await photoRead(storage, f.a, photo),
 			files,
 			text: JSON.stringify([directory, photos]),
 		};

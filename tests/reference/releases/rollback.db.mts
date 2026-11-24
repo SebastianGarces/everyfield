@@ -1,74 +1,19 @@
-import { testDatabase } from "../../support/test-database.mts";
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
-import { referenceService, ReferenceRefusal } from "../../../packages/reference/src/server.ts";
-import type { ReferenceAuthority, ReferenceDependencies } from "../../../packages/reference/src/server.ts";
-import { promotion } from "../../../packages/contracts/src/reference/release.ts";
-import type { Promotion } from "../../../packages/contracts/src/reference/release.ts";
+import { ReferenceRefusal } from "../../../packages/reference/src/server.ts";
 import { hash, canonical, stableId } from "../../../packages/reference/src/hash.ts";
 import { chunkEntries, completeGeneration } from "../../../packages/reference/src/bundle.ts";
 import { fixture, identities } from "./fixtures.mts";
+import { promotions } from "./promotions.mts";
 
-const database = await testDatabase({ prefix: "t625_reference", roles: {}, max: 6 });
-const { admin: db } = database;
-const actor = randomUUID(),
-	user = randomUUID(),
-	session = randomUUID(),
-	passages = (b: Built) => new Map(b.bundle.passages.map((p) => [p.key, p]));
 type Built = ReturnType<typeof fixture>;
 const built = new Map<string, Built>();
-const artifacts = new Map<string, unknown>();
-const reviews = new Map<string, { actorId: string; review: ReferenceAuthority["review"] }>();
-const authorize: ReferenceDependencies["authorize"] = (command) => {
-	const saved = reviews.get(command.requestKey);
-	return saved
-		? {
-				...saved,
-				session: querySql`EXISTS(SELECT FROM auth_session WHERE id=${querySql.param(session)} AND user_id=${querySql.param(user)} AND expires_at>clock_timestamp() FOR SHARE)`,
-			}
-		: null;
-};
-const service = referenceService(db, {
-	authorize,
-	loadArtifact: async (locator) => artifacts.get(locator),
-	policyFor: (key) => built.get(key)!.policy,
-});
-function command(key: string, expected: string, kind: "activate" | "rollback" = "activate"): Promotion {
-	const f = built.get(key)!;
-	artifacts.set(key, f.bundle);
-	const cmd = promotion.parse({
-		kind,
-		generationKey: key,
-		manifestHash: f.manifestHash,
-		expectedActivation: expected,
-		requestKey: randomUUID(),
-		reason: "Synthetic reviewed reference proof",
-	});
-	reviews.set(cmd.requestKey, {
-		actorId: actor,
-		review: {
-			commandDigest: hash(canonical(cmd)),
-			approvalHash: hash("synthetic-reviewed:" + f.manifestHash),
-			approvalLocator: "synthetic-review:" + cmd.requestKey,
-		},
-	});
-	return cmd;
-}
+const { database, db, artifacts, service, command, seed } = await promotions("t625_reference", (key) =>
+	built.get(key)!,
+);
 before(async () => {
-	await db.execute(
-		querySql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${querySql.param(user)},${querySql.param(user + "@example.test")},true,'Synthetic')`,
-	);
-	await db.execute(
-		querySql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${querySql.param(actor)},${querySql.param(user)},'active','discovery')`,
-	);
-	await db.execute(
-		querySql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${querySql.param(session)},${querySql.param(user)},${querySql.param(randomUUID())},now()+interval '1 hour')`,
-	);
-	await db.execute(
-		querySql`INSERT INTO platform_grant(account_id,capability) VALUES(${querySql.param(actor)},'reference_publish')`,
-	);
+	await seed();
 	built.set("R1", fixture("R1"));
 	built.set("R2", secondRelease());
 });
@@ -116,7 +61,7 @@ const history = async () =>
 	).rows;
 
 test("AC:ASMT-011 a second release that removes, adds and changes passages and fails while building leaves R1 active with no partial generation; built, it activates second, and a rollback is activation 3 with the earlier ones unchanged", async () => {
-	const text = (key: string) => new Set([...passages(built.get(key)!).values()].map((p) => p.contentHash));
+	const text = (key: string) => new Set(built.get(key)!.bundle.passages.map((p) => p.contentHash));
 	const added = [...text("R2")].filter((h) => !text("R1").has(h));
 	const removed = [...text("R1")].filter((h) => !text("R2").has(h));
 	assert.ok(added.length >= 2 && removed.length >= 2, "R2 adds, removes and changes passages");

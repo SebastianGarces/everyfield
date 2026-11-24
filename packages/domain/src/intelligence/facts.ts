@@ -513,8 +513,9 @@ export function createFacts(config: { clock?: Clock } = {}) {
 				const { rows } = await db.execute(statementSinceRun(v.plant, v.ok, now()));
 				const r = sinceRunRow.parse(rows[0]);
 				const facts = factsOf(r);
-				const changed = r.run !== null && revisionOf(factInputs.parse(r.run.inputs)) !== r.run.revision;
-				return { facts, outOfDateRunId: changed ? (r.run?.id ?? null) : null };
+				const { run } = r;
+				const changed = run && revisionOf(factInputs.parse(run.inputs)) !== run.revision;
+				return { facts, outOfDateRunId: changed ? run.id : null };
 			});
 		},
 	};
