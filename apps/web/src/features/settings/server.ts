@@ -11,6 +11,7 @@ import { trustedIdentityIp } from "@everyfield/domain/identity";
 import {
 	avatarOperations,
 	createAccountCredentials,
+	deletionCookieValue,
 	deletionOperations,
 	readAvatar,
 	Refusal,
@@ -332,13 +333,13 @@ export async function openRestrictedDeletion(kind: "account" | "plant", raw: unk
 				? opened.code
 				: "proof_invalid",
 		);
-	const value: Restricted = {
-		handle: opened.value.session.handle,
-		request: restrictedCookie.shape.request.parse({ subject: opened.value.subject, requestId: opened.value.requestId }),
-	};
+	const target = restrictedCookie.shape.request.parse({
+		subject: opened.value.subject,
+		requestId: opened.value.requestId,
+	});
 	(await cookies()).set({
 		name: DELETION_COOKIE,
-		value: JSON.stringify(value),
+		value: deletionCookieValue(opened.value.session.handle, target),
 		httpOnly: true,
 		secure: new URL(ops.origin).protocol === "https:",
 		sameSite: "strict",

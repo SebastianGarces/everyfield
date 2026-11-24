@@ -1,3 +1,4 @@
+import { connectionLink } from "../../../packages/domain/src/proofs.ts";
 import assert from "node:assert/strict";
 import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -23,7 +24,10 @@ const proofs = new Map();
 const api = createOrganizationAdapter(
 	{
 		async invitation(_tx, v) {
-			proofs.set(v.invitationId, v.proof);
+			proofs.set(
+				v.invitationId,
+				connectionLink("https://example.test", "/connections/respond", v.invitationId, v.proof).split("#")[1],
+			);
 		},
 		notice: (tx, v) =>
 			queueJobs(tx, [
