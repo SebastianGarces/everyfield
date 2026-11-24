@@ -732,15 +732,7 @@
 				"all": ["Daniel Cruz", "Carmen Martinez"]
 			},
 			"require": ["/inactiv|alert|warning|last activity|settings/i"],
-			"derivation": "The board gives an inactivity level, not days: Daniel Cruz and Carmen Martinez are following_up at alert, Beth Johnson at warning, Carl Johnson at none. Evry says how inactivity is measured instead of using another threshold silently.",
-			"finding": {
-				"checks": [
-					"calls people.getPipelineData",
-					"says /inactiv|alert|warning|last activity|settings/i",
-					"names every match"
-				],
-				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "The board gives an inactivity level, not days: Daniel Cruz and Carmen Martinez are following_up at alert, Beth Johnson at warning, Carl Johnson at none. Evry says how inactivity is measured instead of using another threshold silently."
 		}
 	},
 	{
