@@ -1,6 +1,6 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
@@ -85,6 +85,29 @@ async function schedule(people, resend) {
 		),
 	);
 	return { id: saved.communicationId, report };
+}
+
+async function sendNow(people, resend) {
+	const saved = await draft(people);
+	const scheduled = ok(await scheduleAt(saved));
+	const report = ok(
+		await communicationWriter.sendReviewed(
+			f.db,
+			owner.actor,
+			{ requestKey: key(), expectedRevision: scheduled.revision, input: { communicationId: saved.communicationId } },
+			resend.transport,
+			keys,
+		),
+	);
+	return { id: saved.communicationId, report };
+}
+async function block(who) {
+	const eventId = randomUUID();
+	await f.admin
+		.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
+		VALUES(${eventId},${"seed-" + eventId},${"seed-" + eventId},'bounced',clock_timestamp(),clock_timestamp(),'x','{"hard_bounce":true}'::jsonb)`);
+	await f.admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
+		VALUES(${createHmac("sha256", keys.addressKey).update(who.email).digest("hex")},'hard_bounce',${eventId},clock_timestamp())`);
 }
 
 const sentTo = (resend) =>
@@ -304,4 +327,40 @@ test("AC:CASE-NTF-016-CHILD marking a person as a child after their email went o
 	const view = await shown(message.id);
 	assert.equal(statusOf(view, ana), "accepted");
 	assert.deepEqual([view.totals.child, view.totals.accepted], [0, 1]);
+});
+
+test("AC:CASE-NTF-016-CHILD a person marked as a child whose address is blocked after a bounce reads as marked as a child, not refused, whether sent now or scheduled", async () => {
+	for (const mode of ["now", "scheduled"] as const) {
+		const ana = await person("Ana", { as: "adult" });
+		const bad = await person("Bad", { as: "adult" });
+		const kid = await person("Kid", { as: "child" });
+		await block(bad);
+		await block(kid);
+		const resend = resendRecorder(PRODUCTION);
+		const message = await (mode === "now" ? sendNow : schedule)([ana, bad, kid], resend);
+		assert.equal(message.report.childCount, 1, mode);
+		if (mode === "scheduled") await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
+		assert.deepEqual(sentTo(resend), [ana.email], mode);
+		assert.deepEqual(
+			await mailOf(message.id, kid),
+			[{ state: "refused", refusal: "child", provider: null, accepted: null }],
+			mode,
+		);
+		assert.deepEqual(
+			await mailOf(message.id, bad),
+			[{ state: "refused", refusal: null, provider: null, accepted: null }],
+			mode,
+		);
+		const view = await shown(message.id);
+		assert.deepEqual(
+			[statusOf(view, kid), statusOf(view, bad), statusOf(view, ana)],
+			["child", "refused", "accepted"],
+			mode,
+		);
+		assert.deepEqual(
+			{ child: view.totals.child, failed: view.totals.failed, suppressed: view.totals.suppressed },
+			{ child: 1, failed: 1, suppressed: 1 },
+			mode,
+		);
+	}
 });

@@ -1,6 +1,6 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
@@ -51,6 +51,15 @@ const optOut = (who: Who) =>
 	f.admin.execute(sql`INSERT INTO person_email_opt_out (plant_id, person_id) VALUES (${church.id}, ${who.id})`);
 const set = (who: Who, change: ReturnType<typeof sql>) =>
 	f.admin.execute(sql`UPDATE person SET ${change} WHERE id = ${who.id}`);
+
+async function block(who: Who) {
+	const eventId = randomUUID();
+	await f.admin
+		.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
+		VALUES(${eventId},${"seed-" + eventId},${"seed-" + eventId},'complained',clock_timestamp(),clock_timestamp(),'x','{}'::jsonb)`);
+	await f.admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
+		VALUES(${createHmac("sha256", keys.addressKey).update(who.email ?? "").digest("hex")},'complaint',${eventId},clock_timestamp())`);
+}
 
 const write = (op, input) =>
 	withCommunicationWrite(f.db, owner.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
@@ -384,4 +393,43 @@ test("AC:CASE-NTF-016-GUARDIAN removing the contact or changing a marking after 
 	const view = await shown(message.id);
 	assert.deepEqual([rowOf(view, wes).deliveryStatus, rowOf(view, wes).sentTo], ["guardian", "Val Quinn"]);
 	assert.equal(rowOf(view, val).deliveryStatus, "accepted");
+});
+
+test("AC:CASE-NTF-016-GUARDIAN a child whose own address is blocked still goes to their parent or guardian, and reads the same sent now or scheduled", async () => {
+	for (const mode of ["now", "scheduled"] as const) {
+		const home = await household("Reyes household");
+		const ana = await person("Ana Reyes", "adult", null);
+		const bad = await person("Bo Reyes", "adult", null);
+		const mia = await person("Mia Reyes", "adult", home);
+		const sol = await person("Sol Reyes", "child", home);
+		await link(sol, mia, home);
+		await block(sol);
+		await block(bad);
+		const message = await handOff([ana, bad, sol], mode);
+		assert.deepEqual([message.report.guardianCount, message.report.childCount], [1, 0], mode);
+		if (mode === "scheduled") await atSendTime(f.admin, f.db, message.id, message.resend.transport, keys);
+		assert.deepEqual(sentTo(message.resend).sort(), [ana.email, mia.email].sort(), mode);
+		assert.ok(emailFor(message.resend, mia).html.includes("as the parent or guardian of Sol Reyes."), mode);
+		assert.deepEqual(
+			await mailOf(message.id, sol),
+			[{ state: "refused", refusal: "guardian", guardians: [mia.id] }],
+			mode,
+		);
+		const view = await shown(message.id);
+		assert.deepEqual(
+			[rowOf(view, sol).deliveryStatus, rowOf(view, sol).sentTo, rowOf(view, bad).deliveryStatus],
+			["guardian", "Mia Reyes", "refused"],
+			mode,
+		);
+		assert.deepEqual(
+			{
+				guardian: view.totals.guardian,
+				child: view.totals.child,
+				failed: view.totals.failed,
+				suppressed: view.totals.suppressed,
+			},
+			{ guardian: 1, child: 0, failed: 1, suppressed: 1 },
+			mode,
+		);
+	}
 });
