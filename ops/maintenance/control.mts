@@ -4,7 +4,6 @@ import { createRequire } from "node:module";
 import { developmentHosts } from "../../packages/db/src/development.ts";
 const require = createRequire(new URL("../../packages/domain/package.json", import.meta.url));
 const { z }: typeof import("../../packages/domain/node_modules/zod/index.js") = require("zod");
-export type ControlDatabase = NonNullable<Control["database"]>;
 export class OperatorRefused extends Error {
 	readonly code: string;
 	constructor(code: string) {
@@ -92,7 +91,7 @@ export async function loadControl(path: string, operation: string) {
 	if (context !== c.context) throw new OperatorRefused("operator_context_mismatch");
 	return c;
 }
-export function pinnedConnection(c: Control, raw: string): { url: URL; href: string; database: ControlDatabase } {
+export function pinnedConnection(c: Control, raw: string) {
 	const url = new URL(raw);
 	const d = c.database;
 	if (

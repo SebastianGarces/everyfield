@@ -7,7 +7,7 @@ const require = createRequire(new URL("../../packages/domain/package.json", impo
 const { z }: typeof import("../../packages/domain/node_modules/zod/index.js") = require("zod");
 
 export const OPEN_OPERATION = "maintenance.openDrillTarget";
-export const OPENED_MARK = "everyfield isolated restore: opened for a drill";
+const OPENED_MARK = "everyfield isolated restore: opened for a drill";
 const TARGET = /^[a-z][a-z0-9_]{0,62}$/;
 const ROLES = ["everyfield_runtime", "everyfield_auth", "everyfield_cleanup"];
 const capability = z.strictObject({

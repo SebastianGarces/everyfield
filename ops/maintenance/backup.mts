@@ -8,7 +8,7 @@ import { FALLBACK_HOURS, type Snapshot } from "./restore.mts";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
-export const KEEP_DAYS = 7;
+const KEEP_DAYS = 7;
 const UPLOAD_HOURS = 6;
 const LATE_HOURS = 26;
 const CAPTURE_ATTEMPTS = 3;

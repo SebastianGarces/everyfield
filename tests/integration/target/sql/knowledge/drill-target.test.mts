@@ -66,7 +66,6 @@ const targets: string[] = [];
 const rows = async <R extends Record<string, unknown> = Record<string, unknown>>(query: SQL) =>
 	(await admin.execute<R>(query)).rows;
 const files = (store: Store): FileSource => ({
-	bucket: "synthetic-only",
 	read: async (key) => (store.has(key) ? { bytes: store.get(key)!, version: "1" } : null),
 	keys: async (prefix) => [...store.keys()].filter((key) => key.startsWith(prefix)),
 });

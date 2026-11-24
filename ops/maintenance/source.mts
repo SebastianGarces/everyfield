@@ -11,7 +11,7 @@ import {
 } from "../../tools/qa/qa-guard.ts";
 import { BACKUP_BUCKET, objectClient, sdk } from "./bucket.mts";
 
-export const DRILL_BRANCH = /^drill-[a-z0-9-]{4,60}$/;
+const DRILL_BRANCH = /^drill-[a-z0-9-]{4,60}$/;
 export type SourceClass = "disposable" | "drill" | "development" | "production";
 export type ProductionApproval = { host: string; bucket: string; approvedBy: string; approvedAt: string };
 type Branch = NeonBranch & { default?: boolean; parent_id?: string | null; parent_timestamp?: string | null };
@@ -74,7 +74,6 @@ export function allowSource(
 }
 
 export type FileSource = {
-	bucket: string;
 	read(key: string): Promise<{ bytes: Uint8Array; version: string } | null>;
 	keys(prefix: string): Promise<string[]>;
 };
@@ -84,7 +83,6 @@ export function fileSource(env: Record<string, string>): FileSource {
 	if (!bucket) throw new OperatorRefused("source_files_invalid");
 	const client = objectClient(env);
 	return {
-		bucket,
 		async read(key) {
 			try {
 				const object = await client.send(new sdk.GetObjectCommand({ Bucket: bucket, Key: key }));

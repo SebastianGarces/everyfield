@@ -50,9 +50,8 @@ type Sdk = {
 export const sdk: Sdk = require("@aws-sdk/client-s3");
 
 export const BACKUP_BUCKET = "everyfield-backup";
-export const COPY_KEY =
-	/^copy\/[0-9-]{10}\/[0-9a-f-]{36}\/(manifest\.json|verified\.json|key|database|objects\/[0-9a-f-]{36})$/;
-const STORE_KEY = new RegExp(`${COPY_KEY.source}|^schedule\\.json$`);
+const STORE_KEY =
+	/^copy\/[0-9-]{10}\/[0-9a-f-]{36}\/(manifest\.json|verified\.json|key|database|objects\/[0-9a-f-]{36})$|^schedule\.json$/;
 const COPY_LIMIT = 256 * 1024 * 1024;
 
 export type StoredObject = { key: string; bytes: number; modifiedAt: string };

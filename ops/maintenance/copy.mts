@@ -17,8 +17,7 @@ const capability = z.strictObject({
 	environment: z.literal("isolated-test"),
 });
 
-const COPY_KEY =
-	/^copy\/[0-9-]{10}\/[0-9a-f-]{36}\/(manifest\.json|verified\.json|key|database|objects\/[0-9a-f-]{36})$/;
+const COPY_KEY = /^copy\/[0-9-]{10}\/[0-9a-f-]{36}\/(manifest\.json|key|database|objects\/[0-9a-f-]{36})$/;
 const COPY_LIMIT = 256 * 1024 * 1024;
 
 export class BackupDirectory {
