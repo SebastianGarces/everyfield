@@ -1,5 +1,5 @@
 import path from "node:path";
-import { BODY_JSON_MAX, IMPORT_BYTES_MAX } from "@everyfield/contracts/documents";
+import { BODY_JSON_MAX } from "@everyfield/contracts/documents";
 import type { NextConfig } from "next";
 
 const LINK_PAGES = [
@@ -45,7 +45,6 @@ const config: NextConfig = {
 	experimental: {
 		optimizePackageImports: ["@hugeicons/core-free-icons"],
 		serverActions: { bodySizeLimit: 3 * BODY_JSON_MAX + 64 * 1024 },
-		proxyClientMaxBodySize: IMPORT_BYTES_MAX + 64 * 1024,
 		...(process.env.EVF_NEXT_WORKERS ? { cpus: Number(process.env.EVF_NEXT_WORKERS) } : {}),
 	},
 	async headers() {

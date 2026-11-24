@@ -100,6 +100,8 @@ const live = (actor: EvryActor) =>
 const local = (at: string, zone = "pl.timezone") => `to_char((${at}) AT TIME ZONE ${zone},'Dy YYYY-MM-DD HH24:MI')`;
 
 const RESULT = `CASE WHEN m.refusal='unsubscribed' THEN 'unsubscribed'
+	WHEN m.refusal='child' THEN 'marked as a child'
+	WHEN m.refusal='guardian' THEN 'sent to a parent or guardian instead'
 	WHEN m.state='cancelled' THEN 'cancelled'
 	WHEN m.bounced_at IS NOT NULL THEN 'bounced'
 	WHEN m.state IN ('refused','failed') THEN 'failed'
@@ -649,7 +651,7 @@ const totalsInput = z.strictObject({
 export const deliveryTotals: ReadAdapter<z.infer<typeof totalsInput>> = {
 	operation: "communication.deliveryTotals",
 	description:
-		"How one email did, as counts: by id, or else the most recent email handed to the email service whose subject matches (leave both out for the latest one). sent counts every recipient the email service accepted, delivered only those it confirmed delivered, so never call sent delivered; deliveryNotConfirmed is the difference. opened, bounced, failed, unsubscribed and stillChecking (the email service has not answered yet) follow, with asOf: the time the counts were read, in the church's time zone.",
+		"How one email did, as counts: by id, or else the most recent email handed to the email service whose subject matches (leave both out for the latest one). sent counts every recipient the email service accepted, delivered only those it confirmed delivered, so never call sent delivered; deliveryNotConfirmed is the difference. opened, bounced, failed, unsubscribed and stillChecking (the email service has not answered yet) follow, with asOf: the time the counts were read, in the church's time zone. Say how many recipients it had, give every count that isn't zero and say what an open does not prove.",
 	input: totalsInput,
 	allowed: inPlant,
 	async invoke(tx, actor, input): Promise<SourceResult> {
@@ -738,7 +740,7 @@ const searchInput = z.strictObject({
 export const searchRecipients: ReadAdapter<z.infer<typeof searchInput>> = {
 	operation: "communication.searchRecipients",
 	description:
-		"Find live people by name to email, up to 20. Each row's email says whether Messages can email them: can_email, no_address (no email address recorded) or unsubscribed (they opted out of this church's email). Never print an email address.",
+		"Find live people by name to email, up to 20. Use this, not people.listPeople, when asked whether someone can be emailed, and when several match, give each one's email status. Each row's email says whether Messages can email them: can_email, no_address (no email address recorded) or unsubscribed (they opted out of this church's email). Never print an email address.",
 	input: searchInput,
 	allowed: ownerOrAdmin,
 	async invoke(tx, actor, input): Promise<SourceResult> {

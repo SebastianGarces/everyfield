@@ -963,6 +963,23 @@ try {
 		};
 		const tooLarge = { status: "refused", code: "invalid_input", problem: "The file must be 10 MB or smaller." };
 		const over = wordFile(IMPORT_BYTES_MAX + 1, "Just over");
+		const fileRows = async () =>
+			(
+				await admin.execute(
+					sql`SELECT (SELECT count(*) FROM file_object)::int AS files, (SELECT count(*) FROM document)::int AS documents`,
+				)
+			).rows[0];
+		const before = await fileRows();
+		const signedOut = await fetch(`${origin}/documents/written/import?title=Signed+out&format=text`, {
+			method: "POST",
+			headers: { "content-type": "application/octet-stream", origin, "sec-fetch-site": "same-origin" },
+			redirect: "manual",
+			body: over,
+		});
+		assert.equal(signedOut.status, 200, `signed-out import: HTTP ${signedOut.status}`);
+		assert.equal(signedOut.headers.get("cache-control"), "private, no-store");
+		assert.deepEqual(await signedOut.json(), { status: "refused", code: "access_denied" });
+		assert.deepEqual(await fileRows(), before, "a signed-out import writes nothing");
 		assert.deepEqual(await importFile(over, ""), tooLarge, "a length header just over the limit");
 		const streamed = new ReadableStream({
 			start(controller) {

@@ -15,6 +15,9 @@ const SUPPRESSION = id(0xc3c41);
 const BOUNCE = id(0xc3c42);
 const RESTORE = id(0xc3c43);
 const MEMBER_BOUNCE = id(0xc3c44);
+const TRAINING = id(0xc3c05);
+const CHILDREN: Record<string, string> = { "Kit Young": id(0xc3c32), "Lucia Young": id(0xc3c33) };
+const TRAINING_AT = "2026-11-08T15:00:00.000Z";
 const SENT_AT = "2026-11-09T14:00:00.000Z";
 
 type Recipient = {
@@ -24,7 +27,8 @@ type Recipient = {
 	delivered?: string;
 	opened?: string;
 	bounced?: true;
-	refusal?: "unsubscribed";
+	refusal?: "unsubscribed" | "child" | "guardian";
+	guardians?: readonly string[];
 };
 export const INVITED: readonly Recipient[] = [
 	{
@@ -41,15 +45,33 @@ export const INVITED: readonly Recipient[] = [
 	{ name: "Elena Garcia", state: "failed", result: "failed" },
 	{ name: "Casey Brooks", state: "refused", result: "unsubscribed", refusal: "unsubscribed" },
 ];
+export const TRAINED: readonly Recipient[] = [
+	{ name: "Maria Delgado", state: "accepted", result: "delivered", delivered: "2026-11-08T15:01:00.000Z" },
+	{ name: "Kit Young", state: "refused", result: "marked as a child", refusal: "child" },
+	{
+		name: "Lucia Young",
+		state: "refused",
+		result: "sent to a parent or guardian instead",
+		refusal: "guardian",
+		guardians: ["Maria Delgado"],
+	},
+	{ name: "Elena Garcia", state: "refused", result: "failed" },
+];
+const personIdOf = (name: string) => CHILDREN[name] ?? byName(name).id;
+const mailIdOf = (message: string, name: string) =>
+	sql`overlay(overlay(md5(${message + name}) placing '4' from 13) placing '8' from 17)::uuid`;
 export const OWNER_EMAIL = "owner@example.test";
 const MEMBER_EMAIL = "member@example.test";
 const addressHash = (address: string) => createHmac("sha256", ADDRESS_KEY).update(address).digest("hex");
 
-export async function seedCommunication(admin: Database) {
+export async function seedCommunication(admin: Database, { training = true } = {}) {
 	const run = (q: ReturnType<typeof sql>) => admin.execute(q);
 	const owner = ACTOR_SPECS.owner.account;
 	await run(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,city,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
 		VALUES(${JAMIE},${PLANT},${PLANT},'Jamie Ortiz','Austin','other','2026-11-02T15:00:00.000Z','prospect','unknown','unknown',901,'live')`);
+	for (const [i, [name, child]] of Object.entries(training ? CHILDREN : {}).entries())
+		await run(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,city,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
+			VALUES(${child},${PLANT},${PLANT},${name},${`${name.split(" ")[0]!.toLowerCase()}.young@example.test`},'Austin','other','2026-11-02T15:00:00.000Z','prospect','child','unknown',${902 + i},'live')`);
 	await run(sql`INSERT INTO message_template(id,plant_id,name,category,subject,body_html,body_text)
 		VALUES(${USED_TEMPLATE},${PLANT},'Vision night invitation','meeting_invitation','You''re invited: Vision Night',
 		'<p>Hi {{name}}, come to Vision Night on Thursday.</p>','Hi {{name}}, come to Vision Night on Thursday.')`);
@@ -67,14 +89,26 @@ export async function seedCommunication(admin: Database) {
 	const mail = (message: string, r: Recipient, at: string) => {
 		const accepted = r.state === "accepted" || r.state === "sent";
 		return run(sql`INSERT INTO mail(id,tenant_id,purpose,communication_id,recipient_person_id,logical_key,payload_hash,audience_hash,
-				state,refusal,accepted_at,sent_at,delivered_at,opened_at,bounced_at,created_at)
-			VALUES(overlay(overlay(md5(${message + r.name}) placing '4' from 13) placing '8' from 17)::uuid,${PLANT},'communication',${message},${byName(r.name).id},
-				${`communication/${message}/${byName(r.name).id}`},'seed','seed',${r.state},${r.refusal ?? null},
+				state,refusal,guardian_mail_ids,accepted_at,sent_at,delivered_at,opened_at,bounced_at,created_at)
+			VALUES(${mailIdOf(message, r.name)},${PLANT},'communication',${message},${personIdOf(r.name)},
+				${`communication/${message}/${personIdOf(r.name)}`},'seed','seed',${r.state},${r.refusal ?? null},
+				${
+					r.guardians
+						? sql`ARRAY[${sql.join(
+								r.guardians.map((g) => mailIdOf(message, g)),
+								sql`,`,
+							)}]`
+						: sql`NULL::uuid[]`
+				},
 				${accepted ? at : null}::timestamptz,${accepted ? at : null}::timestamptz,${r.delivered ?? null}::timestamptz,
 				${r.opened ?? null}::timestamptz,${r.bounced ? at : null}::timestamptz,${at})`);
 	};
 	await email(INVITATION, "You're invited: Vision Night", MEETINGS.thursday, "scheduled", SENT_AT, USED_TEMPLATE);
 	for (const r of INVITED) await mail(INVITATION, r, SENT_AT);
+	if (training) {
+		await email(TRAINING, "Worship team training", MEETINGS.training, "scheduled", TRAINING_AT, null);
+		for (const r of TRAINED) await mail(TRAINING, r, TRAINING_AT);
+	}
 	await email(REMINDER, "Vision Night reminder", MEETINGS.thursday, "draft", null, null);
 	await email(
 		THANKS,

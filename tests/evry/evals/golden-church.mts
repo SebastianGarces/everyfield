@@ -281,6 +281,12 @@ export const byName = (name: string) => {
 	return found;
 };
 
+export const RECORDED_CHILDREN = ["Mateo Rivera", "Bao Nguyen"] as const;
+export const CORE_GROUP_MOVES = [
+	{ name: "Sam Patel", at: "2026-10-28T18:00:00.000Z" },
+	{ name: "Priya Shah", at: "2026-11-02T18:00:00.000Z" },
+	{ name: "Mike Brennan", at: "2026-11-05T18:00:00.000Z" },
+] as const;
 export const PHASES = {
 	declared: { phase: 0, at: "2026-04-01T15:00:00.000Z" },
 	moved: { phase: 1, at: "2026-08-03T15:00:00.000Z", reason: "Our core group started meeting every week." },
@@ -545,6 +551,7 @@ export async function seedHope(admin: Database, options: SeedOptions = {}) {
 			await run(sql`INSERT INTO person_duplicate_dismissal(id,plant_id,person_id,with_person_id,dismissed_at)
 				VALUES(${id(0xe30 + i)},${PLANT},${p.id},${byName(r.reviewWith).id},'2026-11-06T16:00:00.000Z')`);
 	}
+	await seedPersonChanges(run, owner);
 	await seedJudgments(admin, owner);
 	for (const [n, doc] of Object.values(DOCS).entries()) {
 		const policy = docTemplateById("conflict-of-interest-policy")!;
@@ -958,6 +965,37 @@ async function seedLaunchPlan(admin: Database, options: SeedOptions) {
 	}
 	for (const [task, key] of LAUNCH_PLAN.linked)
 		await admin.execute(sql`UPDATE task SET launch_task_key=${key} WHERE id=${taskId(task)}`);
+}
+
+async function seedPersonChanges(run: (q: ReturnType<typeof sql>) => Promise<unknown>, owner: string) {
+	const changes = [
+		...RECORDED_CHILDREN.map((name) => ({
+			name,
+			at: "2026-10-04T18:00:00.000Z",
+			action: "people.recorded",
+			before: { adult_classification: "unknown" },
+			after: { adult_classification: "child" },
+			reason: "Their parents told us.",
+		})),
+		...CORE_GROUP_MOVES.map(({ name, at }) => ({
+			name,
+			at,
+			action: "people.stage_changed",
+			before: { stage: "interviewed" },
+			after: { stage: "core_group" },
+			reason: "They joined the core group.",
+		})),
+	];
+	for (const [n, c] of changes.entries()) {
+		const personId = byName(c.name).id;
+		await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,before_value,after_value,
+				before_revision,after_revision,occurred_at,recorded_at,reason)
+			VALUES(${id(0x6100 + n)},${PLANT},${owner},${c.action},'edit','person',${personId},${JSON.stringify(c.before)}::jsonb,
+				${JSON.stringify(c.after)}::jsonb,1,2,${c.at},${c.at},${c.reason})`);
+		await run(sql`UPDATE person SET revision=2 WHERE id=${personId}`);
+	}
+	for (const name of RECORDED_CHILDREN)
+		await run(sql`UPDATE person SET adult_classification='child' WHERE id=${byName(name).id}`);
 }
 
 async function seedJudgments(admin: Database, owner: string) {
