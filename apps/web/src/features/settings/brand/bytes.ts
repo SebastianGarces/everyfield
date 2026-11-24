@@ -1,8 +1,5 @@
 import { brandError } from "@everyfield/contracts/branding";
-import { brandAssetPath } from "@everyfield/contracts/common";
 import type { BrandReply } from "../port";
-
-export const assetSrc = brandAssetPath;
 
 export async function uploadBytes(uploadId: string, file: Blob): Promise<BrandReply<null>> {
 	const response = await fetch(`/api/brand/assets/${uploadId}`, {
