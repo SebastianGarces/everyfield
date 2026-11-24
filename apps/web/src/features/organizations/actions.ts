@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { command, residentOwner, type Reply } from "./mount";
+import { command, sendCommand, residentOwner, type Reply } from "./mount";
 import { loadHistoryPage, loadPipelineConsent, loadResidency, loadSharing, who } from "./connection-reads";
 
 const sharingSaved = z.object({
@@ -15,14 +15,14 @@ const refused: Reply<never> = { status: "refused", code: "unavailable" };
 export async function inviteAssociation(input: unknown) {
 	const w = await who();
 	if (!w) return refused;
-	return command(w.mount, w.authority, w.viewer.selected, (tx, s, o) =>
+	return sendCommand(w.mount, w.authority, w.viewer.selected, (tx, s, o) =>
 		w.mount.adapter["associations.invite"](tx, s, o, input),
 	);
 }
 export async function resendAssociationInvitation(input: unknown) {
 	const w = await who();
 	if (!w) return refused;
-	return command(w.mount, w.authority, w.viewer.selected, (tx, s, o) =>
+	return sendCommand(w.mount, w.authority, w.viewer.selected, (tx, s, o) =>
 		w.mount.adapter["associations.resendInvitation"](tx, s, o, input),
 	);
 }

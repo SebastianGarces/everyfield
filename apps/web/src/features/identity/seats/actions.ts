@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { invitationService } from "@/server/invitations";
 import { tasksMount } from "../../tasks/mount.ts";
-import { answer, refused, type Reply } from "../server";
+import { answer, answerSend, refused, type Reply } from "../server";
 import { workspaceViewer } from "./server";
 
 const operation = z.enum(["invite", "resend", "revoke", "appointAdmin", "demote", "remove"]);
@@ -18,9 +18,9 @@ export async function runSeatCommand(name: unknown, command: unknown): Promise<R
 	const s = w.authority;
 	switch (op.data) {
 		case "invite":
-			return answer(() => service.invite(s, command));
+			return answerSend(() => service.invite(s, command));
 		case "resend":
-			return answer(() => service.resend(s, command));
+			return answerSend(() => service.resend(s, command));
 		case "revoke":
 			return answer(() => service.revoke(s, command));
 		case "appointAdmin":

@@ -25,14 +25,12 @@ import { Refusal } from "../../components/intent.ts";
 import type { EndConnection } from "./EndDialog";
 import type { ReadDisclosure } from "./InviteDialog";
 import type { ReadConsent, SaveConsent } from "./Pipeline";
-import type { NameOf, OperationName, Run } from "./port";
+import type { NameOf, OperationName, Run, SendInvitation, SendOperation } from "./port";
 import type { ReadResidency, SaveResidency } from "./Residency";
 import type { ReadSharing, SaveSharing } from "./Sharing";
 
 type Actions = { [K in OperationName]?: (input: Ops[K]["input"]) => Promise<Reply<Ops[K]["output"]>> };
 const ACTIONS: Actions = {
-	"associations.invite": inviteAssociation,
-	"associations.resendInvitation": resendAssociationInvitation,
 	"associations.revokeInvitation": revokeAssociationInvitation,
 	"associations.respondInvitation": respondRelationshipInvitation,
 	"residency.leave": leaveResidency,
@@ -63,6 +61,17 @@ export const realRun: Run = async <K extends OperationName>(operation: K, input:
 	const reply = await action(input);
 	if (reply.status === "refused") throw new Refusal(reply.code);
 	return reply.value;
+};
+
+const SENDS: { [K in SendOperation]: (input: Ops[K]["input"]) => Promise<Reply<Ops[K]["output"]>> } = {
+	"associations.invite": inviteAssociation,
+	"associations.resendInvitation": resendAssociationInvitation,
+};
+
+export const realSend: SendInvitation = async <K extends SendOperation>(operation: K, input: Ops[K]["input"]) => {
+	const reply = await SENDS[operation](input);
+	if (reply.status === "refused") throw new Refusal(reply.code);
+	return { invitation: reply.value, mailDelayed: reply.mailDelayed === true };
 };
 
 export function createNames(initial: Record<string, string>) {

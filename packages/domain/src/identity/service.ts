@@ -3,6 +3,7 @@ import {
 	invalidSessionReturn,
 	LANDING_ROUTE,
 	passwordRecoveryRequest,
+	passwordRecoveryResult,
 	recoverPasswordRequest,
 	registrationOptions,
 	registrationRequest,
@@ -25,6 +26,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 import "server-only";
 import { z } from "zod";
+import { mailDelay, readSwitches } from "../flags/index.ts";
 import { readBoundedBody } from "../operations/body.ts";
 import { identityAuth } from "./auth.ts";
 import { attemptBudget, deny, identityRefusals, transaction } from "./budget.ts";
@@ -351,7 +353,10 @@ export function createIdentityService(config: IdentityConfig) {
 				} catch {
 					config.diagnostic({ correlationId, outcome: "delivery_failed" });
 				}
-				return json({ status: "accepted" });
+				return json({
+					status: "accepted",
+					...(await mailDelay(() => readSwitches(config.db))),
+				} satisfies z.output<typeof passwordRecoveryResult>);
 			}
 			if (path === "reset-password") {
 				const v = recoverPasswordRequest.parse(input);

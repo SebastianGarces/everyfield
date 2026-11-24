@@ -79,5 +79,6 @@ export const settingsError = z.discriminatedUnion("code", [
 	defineSafeError("manual_owner_exception_required", {}, "never"),
 ]);
 export type SectionResult = z.infer<typeof sectionResult>;
+export type EmailChangeRequested = { status: "verification_requested"; mailDelayed?: true };
 export type SettingsError = z.infer<typeof settingsError>;
 export { organizationOwner };

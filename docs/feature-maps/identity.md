@@ -31,7 +31,9 @@ flowchart LR
   s3["identity.recover<br/>/recover-password"]
   s3_link0 --> s3
   s3 -.- s3_st0(("form"))
+  s3 -.- s3_st1(("mail-delayed (manual)"))
   s3 --- s3_b0["request-link<br/>tests + cases + browser behavior"]
+  s3 --- s3_b1["mail-delayed<br/>tests"]
   s4["identity.reset<br/>/reset-password"]
   s4_link0 --> s4
   s4 -.- s4_st0(("no-token"))
@@ -43,14 +45,18 @@ flowchart LR
   s6["identity.invitation<br/>/invitation"]
   s6_link0 --> s6
   s6 -.- s6_st0(("no-proof"))
+  s6 -.- s6_st1(("mail-delayed (manual)"))
   s6 --- s6_b0["accept<br/>tests + cases"]
+  s6 --- s6_b1["mail-delayed<br/>tests"]
   s7["identity.seats<br/>/settings/seats"]
   x_people_list -- "button containing #quot;account menu#quot;, then menuitem #quot;Seats and invitations#quot;" --> s7
   s7_link1 --> s7
   s7 -.- s7_st0(("manage"))
   s7 -.- s7_st1(("member"))
+  s7 -.- s7_st2(("mail-delayed (manual)"))
   s7 --- s7_b0["invite<br/>tests + cases + browser behavior"]
   s7 --- s7_b1["roles-and-removal<br/>tests + cases + browser presence"]
+  s7 --- s7_b2["mail-delayed<br/>tests"]
 ```
 
 ## Surfaces
@@ -226,6 +232,8 @@ agent-browser find role heading text --name "Reset your password" --exact
 agent-browser find role button text --name "Send reset link" --exact
 ```
 
+- **mail-delayed**: heading "Reset emails are delayed". Not scripted: as a visitor, send a reset link with the outbound-mail switch off (bin/flag set outbound-mail off --all on the app's own database; turn it back on afterwards).
+
 #### identity.recover#request-link
 
 Send reset link always answers Check your email, for a known or an unknown address.
@@ -242,6 +250,14 @@ agent-browser find role button click --name "Send reset link" --exact
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "Check your email" --exact
 ```
+
+#### identity.recover#mail-delayed
+
+With email paused, Send reset link and Send another link say reset emails are delayed, for a known or an unknown address.
+
+- No operation: sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code
+- Catalog: IDN-009
+- Test: `tests/integration/flags/mail-delay.test.mts`: `a password reset with mail off says delayed for a known and an unknown address alike and queues the mail; back on it answers as before`
 
 ### identity.reset
 
@@ -328,6 +344,8 @@ agent-browser wait --load networkidle
 agent-browser find role heading text --name "This page is not available" --exact
 ```
 
+- **mail-delayed**: text containing "Confirmation email is delayed.". Not scripted: join from a seat invitation with an unconfirmed address with the outbound-mail switch off (bin/flag set outbound-mail off --all on the app's own database; turn it back on afterwards).
+
 #### identity.invitation#accept
 
 Accepting activates one seat and Person even when two tabs accept at once, and never from email equality alone.
@@ -337,6 +355,14 @@ Accepting activates one seat and Person even when two tabs accept at once, and n
 - Cases: TARGET-IDN-002, TARGET-IDN-003, TARGET-IDN-030
 - Test: `tests/integration/identity/invitations.test.mts`: `AC:TARGET-IDN-002 AC:TARGET-IDN-030 AC:SCHEMA-002 INV-acceptance: concurrent same-intent claim activates one seat, Person, receipt and security intent`
 - Test: `tests/integration/identity/invitations.test.mts`: `AC:TARGET-IDN-002 AC:TARGET-IDN-003 AC:TARGET-IDN-030 AC:SEC-03 native invitation signup, sign-in and exact resume never activate from email equality`
+
+#### identity.invitation#mail-delayed
+
+With email paused, Confirm your email to join says confirmation email is delayed before and after sending the link again.
+
+- No operation: sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code
+- Catalog: IDN-017
+- Test: `tests/integration/flags/mail-delay.test.mts`: `a confirmation email with mail off says delayed for a known and an unknown address alike and queues the mail; back on it answers as before`
 
 ### identity.seats
 
@@ -380,6 +406,8 @@ agent-browser find role heading text --name "Seats and invitations" --exact
 agent-browser wait --fn "!document.body.innerText.includes(\"Send invitation\")"
 ```
 
+- **mail-delayed**: text containing "is saved, but its email is delayed.". Not scripted: as owner, open /settings/seats and send or resend an invitation with the outbound-mail switch off (bin/flag set outbound-mail off --all on the app's own database; turn it back on afterwards).
+
 #### identity.seats#invite
 
 Send invitation emails a link that works for 30 days and lists it under Waiting for an answer.
@@ -413,3 +441,11 @@ An Owner changes roles and removes a seat after handing over its open duties; th
 ```bash
 agent-browser find role combobox text --name "Role for"
 ```
+
+#### identity.seats#mail-delayed
+
+With email paused, an invitation and a resend are saved and the status says the email is delayed.
+
+- Operations: seats.invite, seats.resendInvitation
+- Catalog: IDN-017
+- Test: `tests/integration/flags/mail-delay.test.mts`: `a seat invitation and its resend succeed with mail off and say delayed; back on they and a replay of the off command do not`
