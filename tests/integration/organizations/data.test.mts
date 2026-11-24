@@ -708,7 +708,7 @@ test("INV-concurrency: undo merge sends the survivor revision from the merge res
 	assert.deepEqual(await state([quinn, quinnA]), undone);
 });
 
-test("INV-concurrency: a seat removed or lowered after its actor was read removes, merges and undoes nothing, exports nothing and lists no pairs", async () => {
+test("INV-concurrency: a seat removed or lowered after its actor was read, or lowered before a re-read, removes, merges and undoes nothing, exports nothing and lists no pairs", async () => {
 	const board = ok(await readPipelineBoard(db, await authority(dana), {}));
 	const stage = board.stages.find((s) => s.label === "Potential leader")!.id;
 	const add = async (displayName: string) => {
@@ -764,26 +764,28 @@ test("INV-concurrency: a seat removed or lowered after its actor was read remove
 		const stale = await authority(lost);
 		await admin.execute(sql`${change} WHERE account_id=${lost.id}::uuid AND organization_id=${grace.id}::uuid`);
 
-		refusedWith(
-			await pipelineDataWriter.removePerson(db, stale, { personId: survivor, expectedRevision: revision }),
-			"unavailable",
-		);
-		refusedWith(
-			await withPeopleWrite(db, stale, (t, c) => peopleMerge.mergePeople(t, c, merge(pair, digest))),
-			"unavailable",
-		);
-		refusedWith(
-			await withPeopleWrite(db, stale, (t, c) =>
-				peopleUnmerge.unmergePeople(t, c, {
-					requestKey: randomUUID(),
-					expectedRevision: merged.survivorRevision,
-					input: { mergeId: merged.mergeId },
-				}),
-			),
-			"unavailable",
-		);
-		refusedWith(await readPipelineExport(db, stale), "unavailable");
-		refusedWith(await tx((t) => listOrganizationDuplicatePairs(t, new PeopleReadContext(stale))), "unavailable");
+		for (const held of loss === "lowered" ? [stale, await authority(lost)] : [stale]) {
+			refusedWith(
+				await pipelineDataWriter.removePerson(db, held, { personId: survivor, expectedRevision: revision }),
+				"unavailable",
+			);
+			refusedWith(
+				await withPeopleWrite(db, held, (t, c) => peopleMerge.mergePeople(t, c, merge(pair, digest))),
+				"unavailable",
+			);
+			refusedWith(
+				await withPeopleWrite(db, held, (t, c) =>
+					peopleUnmerge.unmergePeople(t, c, {
+						requestKey: randomUUID(),
+						expectedRevision: merged.survivorRevision,
+						input: { mergeId: merged.mergeId },
+					}),
+				),
+				"unavailable",
+			);
+			refusedWith(await readPipelineExport(db, held), "unavailable");
+			refusedWith(await tx((t) => listOrganizationDuplicatePairs(t, new PeopleReadContext(held))), "unavailable");
+		}
 		assert.deepEqual(await state(), before, loss);
 	}
 
