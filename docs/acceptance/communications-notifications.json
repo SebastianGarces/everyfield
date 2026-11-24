@@ -9477,7 +9477,7 @@
     },
     {
       "id": "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-CONFLICT",
-      "requirement": "Past frozen outbound email/bytes/provider receipts immutable; historical recipient attribution remains source record; inverse refuses changed/irreversible relationships.",
+      "requirement": "Past frozen outbound email/bytes/provider receipts immutable; historical recipient attribution remains source record; inverse returns unsent mail, leaves sent mail on its recipient and unsends or resends nothing.",
       "feature_ids": [
         "PPL-017"
       ],
@@ -9487,7 +9487,10 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -9809,7 +9812,7 @@
     },
     {
       "id": "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-MERGE",
-      "requirement": "Past frozen outbound email/bytes/provider receipts immutable; historical recipient attribution remains source record; inverse refuses changed/irreversible relationships.",
+      "requirement": "Past frozen outbound email/bytes/provider receipts immutable; historical recipient attribution remains source record; inverse returns unsent mail, leaves sent mail on its recipient and unsends or resends nothing.",
       "feature_ids": [
         "PPL-017"
       ],
@@ -9819,7 +9822,11 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts",
+        "tests/integration/target/sql/core/merge.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -10145,7 +10152,7 @@
     },
     {
       "id": "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE",
-      "requirement": "Past frozen outbound email/bytes/provider receipts immutable; historical recipient attribution remains source record; inverse refuses changed/irreversible relationships.",
+      "requirement": "Past frozen outbound email/bytes/provider receipts immutable; historical recipient attribution remains source record; inverse returns unsent mail, leaves sent mail on its recipient and unsends or resends nothing.",
       "feature_ids": [
         "PPL-017"
       ],
@@ -10157,7 +10164,10 @@
         "WP-029",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -10472,7 +10482,7 @@
     },
     {
       "id": "PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-UNMERGE",
-      "requirement": "Past frozen outbound email/bytes/provider receipts immutable; historical recipient attribution remains source record; inverse refuses changed/irreversible relationships.",
+      "requirement": "Past frozen outbound email/bytes/provider receipts immutable; historical recipient attribution remains source record; inverse returns unsent mail, leaves sent mail on its recipient and unsends or resends nothing.",
       "feature_ids": [
         "PPL-017"
       ],
@@ -10482,7 +10492,10 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual communication-recipient-contact references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -10832,7 +10845,10 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -11164,7 +11180,10 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -11501,7 +11520,10 @@
         "WP-082",
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
@@ -11835,7 +11857,10 @@
       "work_packages": [
         "WP-091"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/core/references.test.mts"
+      ],
       "description": "Two own-plant Person records P1/P2 with actual notification-person-subject references; one foreign Person; linked-account and unique-key distractors; exact reviewed facts captured.",
       "given": {
         "P": {
