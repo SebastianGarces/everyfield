@@ -51,3 +51,24 @@ test("INV-link: a reset or verify link leaves the address before the page, and i
 		assert.deepEqual([bare.status, bare.headers.get("location"), bare.headers.getSetCookie()], [200, null, []]);
 	}
 });
+
+test("the proxy skips the written-document import and no other documents path", () => {
+	const documents = (path: string) => proxied(`https://everyfield.test/documents${path}`);
+	assert.equal(documents("/written/import"), false);
+	for (const path of [
+		"",
+		"/church",
+		"/church/archived",
+		"/church/8d0f1c9e/file",
+		"/church/8d0f1c9e/exports",
+		"/church/8d0f1c9e/exports/1b2c",
+		"/preview",
+		"/read",
+		"/written/new",
+		"/written/8d0f1c9e",
+		"/written/imported",
+		"/written/import/preview",
+		"/written",
+	])
+		assert.equal(documents(path), true, `/documents${path} is not proxied`);
+});

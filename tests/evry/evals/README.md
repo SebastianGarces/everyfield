@@ -21,7 +21,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `settings.test.mts`      | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)        |
 | `onboarding.test.mts`    | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                                  |
 | `pipeline.test.mts`      | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                    |
-| `communication.test.mts` | `communication.cases.json` (23 cases)                                                                                    | Email reads, template removal and contact log corrections (scripted model)                  |
+| `communication.test.mts` | `communication.cases.json` (26 cases)                                                                                    | Email reads, template removal and contact log corrections (scripted model)                  |
 | `launch.test.mts`        | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                     |
 | `wiki-network.test.mts`  | `wiki-network.cases.json`                                                                                                | A network's own Wiki versions: draft, change, publish and hide (scripted model)             |
 | `intelligence.test.mts`  | `intelligence.cases.json`                                                                                                | Plant Intelligence reads, refresh, feedback and tasks from suggestions (scripted model)     |
@@ -67,12 +67,13 @@ feedback's own read. The recorded suites leave these tools out too.
 `communication.meetingRecipientTracking`, `communication.deliveryTotals`, `communication.listAudienceTeams`,
 `communication.searchRecipients`, `mail.suppression.listForSelf` and the reviewed
 `communication.templates.archiveOrDelete` and `communication.correctContactLog`) on the scripted model
-(`packages/evry-scripted/src/scripted-mail.ts`): 23 cases, with the approved changes run and read back. Since T-597 the
+(`packages/evry-scripted/src/scripted-mail.ts`): 26 cases, with the approved changes run and read back. Since T-597 the
 recorded suites offer the same eight tools too, and ADP-M-24 to ADP-M-37 in `adapters.cases.json` score them on the real
 model: the six reads, a Member's own read and refused audience question, each write's review card, a system template
 refused and a Member's correction refused. Those 14 cases carry `eval.church: "communication"`: they run in a second
 Hope Fellowship in the same golden run, with `seedCommunication` (`communication-church.mts`) on top, so no other case's
-facts change. The run also checks that they wrote nothing. `deliveryTotals` shows the database clock's read time, which
+facts change. It leaves out the training email and its two children (`training: false`), which only the
+scripted suite uses. The run also checks that they wrote nothing. `deliveryTotals` shows the database clock's read time, which
 the harness pins to `NOW`.
 
 ## The pipeline suite (scripted model)
@@ -411,7 +412,7 @@ run limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then reads
 "judge not recorded" until a recording run records its judge call.
 
-**Cost.** Recording all 424 golden rows that run on `gpt-6-luna` from scratch is 1,988 calls, about $6.63
+**Cost.** Recording all 424 golden rows that run on `gpt-6-luna` from scratch is 1,990 calls, about $6.64
 (`spend.allMicroUsd` in `golden.recorded.json`; judge calls included, journey repetitions 2 and 3 not). The household
 file is 10 calls and the follow-up file 11, about $0.03 each, and `classify.recorded.json` is 32 calls, about a tenth of
 a cent (their `spend`). Re-recording only the changed cases costs about
