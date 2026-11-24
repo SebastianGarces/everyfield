@@ -67,7 +67,7 @@ feedback's own read. The recorded suites leave these tools out too.
 `communication.meetingRecipientTracking`, `communication.deliveryTotals`, `communication.listAudienceTeams`,
 `communication.searchRecipients`, `mail.suppression.listForSelf` and the reviewed
 `communication.templates.archiveOrDelete` and `communication.correctContactLog`) on the scripted model
-(`packages/evry/src/runtime/scripted-mail.ts`): 23 cases, with the approved changes run and read back. Since T-597 the
+(`packages/evry-scripted/src/scripted-mail.ts`): 23 cases, with the approved changes run and read back. Since T-597 the
 recorded suites offer the same eight tools too, and ADP-M-24 to ADP-M-37 in `adapters.cases.json` score them on the real
 model: the six reads, a Member's own read and refused audience question, each write's review card, a system template
 refused and a Member's correction refused. Those 14 cases carry `eval.church: "communication"`: they run in a second
