@@ -13,6 +13,7 @@ import {
 	peopleWriter,
 	withPeopleWrite,
 } from "../../../packages/domain/src/people/index.ts";
+import { noReminders } from "./people-support.mts";
 import { listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
 
 const NOW = new Date("2026-11-09T15:00:00Z");
@@ -42,9 +43,6 @@ const names = async (reader: { actor: Actor }, filter: object) =>
 	ok(await list(reader, filter)).items.map((p) => p.displayName);
 const write = async <T,>(reader: Reader, body: Parameters<typeof withPeopleWrite<T>>[2]) =>
 	ok(await withPeopleWrite(db, await authority(reader.actor), body)) as T;
-const noReminders = async () => {
-	throw Error("unexpected task reminder replan");
-};
 
 let order = 0;
 async function person(reader: Reader, name: string, columns: Record<string, unknown> = {}) {
@@ -210,7 +208,7 @@ test("moves into a stage use the church's calendar month and dates, count each p
 	const created = await write(w, (tx, ctx) =>
 		peopleWriter.createPerson(tx, ctx, {
 			requestKey: randomUUID(),
-			input: { displayName: "Created there", stage: "core_group" } as never,
+			input: { displayName: "Created there", stage: "core_group" },
 		}),
 	);
 	assert.equal(created.person.stage, "core_group");
@@ -241,8 +239,8 @@ test("native stage moves count: a status change, a signed commitment, and the mo
 				requestKey: randomUUID(),
 				expectedRevision: "1",
 				input: { personId: ready, stage: "core_group", reason: "Joined", handoffs: [] },
-			} as never,
-			noReminders as never,
+			},
+			noReminders,
 		),
 	);
 	const signed = await person(w, "Signed", { stage: "interviewed" });
