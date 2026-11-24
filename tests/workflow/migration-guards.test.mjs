@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { globSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join, posix } from "node:path";
+import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -86,14 +86,10 @@ test("INV-deploy: the guard names each planted migration and allows the explicit
 	);
 });
 
-const MIGRATE_MODULE = "packages/db/src/schema/migrate";
 const MIGRATE_OWNERS = "packages/db/src/schema/";
 
 function migrateImports(path, source) {
-	const reaches = (name) =>
-		name === "@everyfield/db/migrate" ||
-		posix.join(name.startsWith(".") ? dirname(path) : "", name).replace(/\.[cm]?[jt]s$/, "") === MIGRATE_MODULE ||
-		/(?:^|\/)schema\/migrate(?:\.[cm]?[jt]s)?$/.test(name);
+	const reaches = (name) => name === "@everyfield/db/migrate" || /(?:^|\/)schema\/migrate(?:\.[cm]?[jt]s)?$/.test(name);
 	const found = [];
 	const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
 	const walk = (node) => {
