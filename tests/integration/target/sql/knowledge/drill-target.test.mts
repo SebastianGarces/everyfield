@@ -174,12 +174,12 @@ async function readable(pool: typeof db, target: string) {
 const openTarget = (target: string, connection = LOOPBACK, neon = noNeon) =>
 	openDrillTarget({ admin, connection, neon }, { capability: drillOperator, target });
 
-let plant: Workspace, owner: Actor;
+let plant: Workspace;
 before(async () => {
 	mock.timers.enable({ apis: ["Date"], now: START.getTime() });
 	await at(START);
 	plant = await seed.plant({ name: "Harvest Point", ...MAILING });
-	owner = await seed.actor(plant, "owner");
+	await seed.actor(plant, "owner");
 });
 after(async () => {
 	mock.timers.reset();
