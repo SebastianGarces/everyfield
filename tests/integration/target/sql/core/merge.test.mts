@@ -760,6 +760,27 @@ async function pair(label: string) {
 		survivor = await person(`${label} Keeper`, { phone: "555 010 1000" });
 	return { source, survivor };
 }
+test("two people training in the same program keep one active assignment, and Unmerge makes both active again", async () => {
+	const p = await pair("Training");
+	const programId = await program();
+	for (const id of [p.source, p.survivor]) await train(programId, id);
+	const assignments = () =>
+		rows(sql`SELECT to_jsonb(a)-'revision' AS row FROM training_assignment a
+			WHERE a.program_id=${programId}::uuid ORDER BY a.id`);
+	const before = await assignments();
+	const merged = await w.merge(p.source, p.survivor);
+	assert.deepEqual(
+		await rows(sql`SELECT state,count(*)::int AS n FROM training_assignment
+			WHERE program_id=${programId}::uuid AND person_id=${p.survivor}::uuid GROUP BY state ORDER BY state`),
+		[
+			{ state: "active", n: 1 },
+			{ state: "removed", n: 1 },
+		],
+	);
+	ok(await w.unmerge(merged.mergeId));
+	assert.deepEqual(await assignments(), before);
+});
+
 test("AC:TARGET-PPL-025 everything added after a merge stays with the person it was added to, and the preview says so", async (t) => {
 	const { source, survivor } = await pair("Added");
 	const moved = { task: await createTask(source, "Before"), note: await addNote(source, "Before") };

@@ -753,6 +753,7 @@ export const peopleMerge = {
 		survivor: p.prior,
 		participation: a.prior,
 		attendance: p.changes,
+		training: p.closedTraining,
 		followUps: p.followUps.map(({ kept, replaced, takes, owners, closes }) => ({
 			replaced: replaced.id,
 			closed: closes,
