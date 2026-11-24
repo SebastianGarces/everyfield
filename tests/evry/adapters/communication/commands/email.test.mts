@@ -201,7 +201,8 @@ async function approve(who: EvryActor, proposal: Proposal, mail: MailPort | null
 	return { outcome, review: await readReview(db, who, proposal.id) };
 }
 const change = (proposal: Proposal, field: string) => proposal.review.changes.find((c) => c.field === field);
-const rows = async (query: ReturnType<typeof sql>) => (await admin.execute(query)).rows as Record<string, any>[];
+const rows = async <Row extends Record<string, unknown>>(query: ReturnType<typeof sql>) =>
+	(await admin.execute<Row>(query)).rows;
 function localAt(days: number, hhmm = "09:00") {
 	const d = new Date(Date.now() + days * 86_400_000);
 	return `${d.toISOString().slice(0, 10)}T${hhmm}`;
@@ -288,7 +289,7 @@ test("approving a draft saves it in Messages drafts with no mail and no email se
 	const done = await approve(owner, proposal, service.port);
 	assert.equal(done.outcome, "completed");
 	assert.equal(done.review.outcome, "completed");
-	const [draft] = await rows(
+	const [draft] = await rows<{ subject: string; state: string; body_text: string; audience: { personIds: string[] } }>(
 		sql`SELECT subject,state,body_text,audience FROM communication WHERE id=${done.review.receipt!.receiptId!}`,
 	);
 	assert.equal(draft!.subject, "Draft only");
@@ -654,7 +655,10 @@ test("a time change shows old and new time and says Saturday only after the emai
 		2,
 	);
 	assert.equal(
-		new Date((await rows(sql`SELECT scheduled_at FROM communication WHERE id=${id}`))[0]!.scheduled_at).toISOString(),
+		new Date(
+			(await rows<{ scheduled_at: string }>(sql`SELECT scheduled_at FROM communication WHERE id=${id}`))[0]!
+				.scheduled_at,
+		).toISOString(),
 		(time.after as { at: string }).at,
 	);
 	const asked = service.calls.reschedule.length;
@@ -762,7 +766,7 @@ test("a replacement is scheduled only when every original send is confirmed canc
 	const report = done.review.receipt!.report!;
 	assert.equal(report.kind, "replace");
 	assert.equal(report.confirmation, "confirmed");
-	const [replacement] = await rows(
+	const [replacement] = await rows<{ id: string; state: string }>(
 		sql`SELECT id,state FROM communication WHERE plant_id=${plant} AND body_text LIKE '%5 pm%' ORDER BY created_at DESC LIMIT 1`,
 	);
 	assert.equal(replacement!.state, "scheduled");
@@ -902,7 +906,7 @@ const inMessages = {
 		assert.equal(reply.status, "ok", JSON.stringify(reply));
 	},
 	async sent(id: string) {
-		const held = await rows(
+		const held = await rows<{ id: string }>(
 			sql`SELECT provider_message_id AS id FROM mail WHERE logical_key LIKE ${"communication/" + id + "/%"} AND state='accepted'`,
 		);
 		for (const mail of held) {

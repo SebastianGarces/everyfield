@@ -365,12 +365,17 @@ test("fast-check lints a changed file in tests/{integration,evry,ui,workflow} wi
 	assert.equal(status, 1);
 	const lint = step("lint");
 	assert.equal(lint.status, "failed");
-	assert.deepEqual(lint.files.sort(), ["tests/integration/bad.test.mts", "tests/ui/bad.test.mjs"]);
+	assert.deepEqual(lint.files.sort(), [
+		"tests/evry/loose.test.mts",
+		"tests/integration/bad.test.mts",
+		"tests/ui/bad.test.mjs",
+	]);
 	const [command, fixFiles] = lint.fix.split(" --fix ");
 	assert.equal(command, "packages/evry/node_modules/.bin/oxlint -c .oxlintrc.json", "the fix runs from the root");
 	assert.deepEqual(fixFiles.split(" ").sort(), lint.files);
 	assert.match(lint.detail, /tests\/ui\/bad\.test\.mjs:1:7 .*\(eslint\(no-unused-vars\)\)/);
-	assert.doesNotMatch(lint.detail, /tests\/evry|tests\/support/);
+	assert.match(lint.detail, /tests\/evry\/loose\.test\.mts:1:21 .*\(typescript\(no-explicit-any\)\)/);
+	assert.doesNotMatch(lint.detail, /tests\/evry\/loose\.test\.mts:2:|tests\/support/);
 });
 
 test("fast-check typechecks a changed tool file with the root typecheck:tools script, beside the package typecheck (T-176)", () => {

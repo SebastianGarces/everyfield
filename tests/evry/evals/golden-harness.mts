@@ -279,10 +279,12 @@ export const saveRecording = golden.save;
 export const recordedFile = golden.file;
 
 export type Turn = { user: string } | { assistant: string };
-export type ToolCall = { operation: string; input: any; result?: SourceResult; error?: string };
+export const inputField = (input: unknown, field: string): unknown =>
+	typeof input === "object" && input !== null ? Reflect.get(input, field) : undefined;
+export type ToolCall = { operation: string; input: unknown; result?: SourceResult; error?: string };
 export type Proposal = {
 	operation: string;
-	input: any;
+	input: unknown;
 	prepared: boolean;
 	review: Prepared["review"] | null;
 	error?: string;
