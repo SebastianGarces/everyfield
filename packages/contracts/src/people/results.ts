@@ -18,6 +18,7 @@ import {
 } from "./values.ts";
 import { householdMembership } from "./fields/index.ts";
 import { avatarRoute } from "../settings/results.ts";
+import { personPhotoPath, type AppAssetPath } from "../common/assets.ts";
 
 const identityFields = { id: personId, revision, createdAt: instant, ...contactFields, lifecycle: personLifecycle };
 export const plantPerson = z
@@ -46,9 +47,9 @@ export const listPhoto = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("person"), personId, versionId: recordId }),
 	z.strictObject({ kind: z.literal("account"), accountId, versionId: recordId }),
 ]);
-export function listPhotoRoute(photo: z.infer<typeof listPhoto>): string {
+export function listPhotoRoute(photo: z.infer<typeof listPhoto>): AppAssetPath {
 	return photo.kind === "person"
-		? `/people/${photo.personId}/photo/${photo.versionId}`
+		? personPhotoPath(photo.personId, photo.versionId)
 		: avatarRoute({ accountId: photo.accountId, versionId: photo.versionId });
 }
 export const personPhoto = z.strictObject({ personId, photo: listPhoto });

@@ -1,5 +1,6 @@
 "use client";
 
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import {
 	Cancel01Icon,
 	FileExportIcon,
@@ -61,7 +62,7 @@ import { PipelineBoard } from "./PipelineBoard.tsx";
 import type { PeopleData, PeopleView } from "./server.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
-type ListRow = PlantPerson & { photo?: string };
+type ListRow = PlantPerson & { photo?: AppAssetPath };
 
 const COMMITMENT_LABEL = { active: "Committed", withdrawn: "Withdrawn", unknown: "Not recorded" } as const;
 const RETIRED_LABEL = { include: "Active and retired", only: "Retired only" } as const;

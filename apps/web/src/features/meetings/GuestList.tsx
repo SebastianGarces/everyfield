@@ -1,5 +1,6 @@
 "use client";
 
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import {
 	Add01Icon,
 	CheckmarkCircle02Icon,
@@ -157,7 +158,7 @@ export function GuestList({
 	const counts = rsvpCounts(shown);
 	const cardOf = new Map((cards ?? []).map((c) => [c.personId, c]));
 	const openedOf = new Map<string | null, string>(emailOpens.map((o) => [o.personId, o.openedAt]));
-	const photoOf = new Map<string | null, string>(photos.map((p) => [p.personId, listPhotoRoute(p.photo)]));
+	const photoOf = new Map<string | null, AppAssetPath>(photos.map((p) => [p.personId, listPhotoRoute(p.photo)]));
 	const noOpensYet = canWrite && shown.length > 0 && !shown.some((g) => openedOf.has(g.person.personId));
 	const cardTarget = shown.find((g) => g.presence === "attended" && !isPending(g) && !cardOf.has(g.person.personId));
 	const focusCardTarget = useFocusRequest<HTMLDivElement>(cardsRequest, (table) =>

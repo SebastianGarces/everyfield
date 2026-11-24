@@ -3,6 +3,7 @@ import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import {
 	readAuthorizedObject,
 	readPrivateUpload,
+	type ObjectPath,
 	type PrivateStorage,
 	type ResourceAuthorizer,
 } from "@everyfield/db/schema";
@@ -176,7 +177,7 @@ async function stagedBytes(
 	const r = await db.execute(sql`SELECT f.opaque_key AS key,f.media_type AS "mediaType" FROM proposal p
 		JOIN file_object f ON f.id=${upload}::uuid AND f.purpose='assistant_staging'
 		WHERE ${staged(actor, proposalId, sql`${upload}::uuid`)}`);
-	const attached = r.rows[0] as { key: string; mediaType: string } | undefined;
+	const attached = r.rows[0] as { key: ObjectPath; mediaType: string } | undefined;
 	const bytes = attached
 		? await readPrivateUpload(storage, attached.key, ATTACHMENTS.photoBytes).then((o) =>
 				typeof o === "string" ? null : o.bytes,

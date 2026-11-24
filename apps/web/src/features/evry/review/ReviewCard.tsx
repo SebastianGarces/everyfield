@@ -128,6 +128,7 @@ import {
 	type Phase,
 	type Review,
 } from "./model.ts";
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import { NativeImage } from "@/components/native";
 import { useRead } from "@/components/read";
 import { useLocalStore } from "@/components/store";
@@ -140,6 +141,7 @@ import {
 	type Action,
 	type Church,
 	type Notice,
+	type StagedSrc,
 } from "./ReviewCard.store.ts";
 import { ChurchChanged } from "../conversation/ChurchChanged.tsx";
 
@@ -184,7 +186,7 @@ const UNKNOWN_TEXT: Record<Action, string> = {
 	recheck: "Evry got no answer from the email service. Check again.",
 };
 
-type StagedPhoto = { status: "idle" | "loading" | "gone" | "lost" } | { status: "ready"; src: string };
+type StagedPhoto = { status: "idle" | "loading" | "gone" | "lost" } | { status: "ready"; src: StagedSrc };
 
 type Tone = BandTone;
 const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; title: string; tone: Tone }> = {
@@ -907,7 +909,7 @@ function PhotoTile({
 }: {
 	caption: string;
 	value: unknown;
-	src?: string;
+	src?: AppAssetPath | StagedSrc;
 	alt: string;
 	state: TileState;
 	onRetry?: () => void;
@@ -965,7 +967,7 @@ function PhotoChange({
 	onRetry: () => void;
 }) {
 	const saved = review.outcome === "completed";
-	const after: { state: TileState; src?: string } =
+	const after: { state: TileState; src?: AppAssetPath | StagedSrc } =
 		change.after === null || change.after === undefined
 			? { state: "none" }
 			: staged.status === "ready"

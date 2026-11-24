@@ -1,5 +1,6 @@
 "use client";
 
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import { useMemo, useState } from "react";
 import { createRead, useRead } from "@/components/read";
 import type { Turn } from "./model.ts";
@@ -7,7 +8,7 @@ import { readRowPhotos } from "./fetch.ts";
 import { cardView } from "./resultView.ts";
 
 const BATCH = 100;
-const NONE: Readonly<Record<string, string>> = {};
+const NONE: Readonly<Record<string, AppAssetPath>> = {};
 
 const batches = (ids: readonly string[]) =>
 	Array.from({ length: Math.ceil(ids.length / BATCH) }, (_, i) => ids.slice(i * BATCH, (i + 1) * BATCH));
@@ -31,7 +32,7 @@ const photoIds = (turns: readonly Turn[]) =>
 		),
 	].sort();
 
-export function useRowPhotos(turns: readonly Turn[], off = false): Readonly<Record<string, string>> {
+export function useRowPhotos(turns: readonly Turn[], off = false): Readonly<Record<string, AppAssetPath>> {
 	const ids = useMemo(() => photoIds(turns), [turns]);
 	const value = useRead(ids.length && !off ? rowPhotos : null, ids).value;
 	const [shown, setShown] = useState(NONE);

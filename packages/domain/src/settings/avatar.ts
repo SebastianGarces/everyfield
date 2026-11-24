@@ -4,6 +4,7 @@ import type { Database } from "@everyfield/db/client";
 import { and, eq, sql, type SQLWrapper } from "@everyfield/db/query";
 import {
 	putPrivateObject,
+	toUploadKey,
 	readAuthorizedObject,
 	validateAvatar,
 	type PrivateStorage,
@@ -216,7 +217,7 @@ export async function uploadAvatar(
 		purpose: "avatar",
 		mediaType: file.media_type,
 		bytes: raw.bytes,
-		uploadKey: file.upload_key,
+		uploadKey: toUploadKey(file.upload_key),
 	});
 }
 export async function readAvatar(
