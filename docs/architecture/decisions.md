@@ -142,7 +142,7 @@ Sebastian asked on 2026-11-04 to "implement all the suggestions - start now", an
 
 ## 2026-11-05 to 2026-11-06: evf v2 cutover
 
-evf v2 replaced evf v1 on 2026-11-05 and 2026-11-06. evf.toml holds the evf v2 roles, checks and policy, and evf reads them from the base branch, so the base branch decides them and a branch cannot change them for itself. Sebastian ruled on 2026-11-06: "Yes, switch all evf-v2 roles to Opus 5.5 medium now." Every evf v2 role runs Opus 5.5 at medium effort, as evf.toml records.
+evf v2 replaced evf v1 on 2026-11-05 and 2026-11-06. evf.toml holds the evf v2 roles, checks and policy, and evf reads them from the base branch, so the base branch decides them and a branch cannot change them for itself. When a change touches a file in evf.toml's policy list of judge paths, evf runs the checks a second time with main's copies of these files and shows the verifier both results, so a pull request cannot loosen its own judges unseen. Sebastian ruled on 2026-11-06: "Yes, switch all evf-v2 roles to Opus 5.5 medium now." Every evf v2 role runs Opus 5.5 at medium effort, as evf.toml records.
 
 These rulings governed evf v1 mechanisms and are retired with evf v1:
 
