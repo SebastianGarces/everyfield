@@ -2239,14 +2239,14 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 		ok(
 			await api.updateProgress(
 				db,
-				await actor(r1.member),
+				await actor(r1.owner),
 				reading({ articleId: opened, fraction: "0.40", plantId: R1 }),
 			),
 		);
 		const stored = async () =>
 			(
 				await admin.execute(
-					sql`SELECT to_jsonb(r) AS row FROM reading r WHERE account_id=${r1.member.id} ORDER BY article_id`,
+					sql`SELECT to_jsonb(r) AS row FROM reading r WHERE account_id=${r1.owner.id} ORDER BY article_id`,
 				)
 			).rows;
 		const before = await stored();
@@ -2254,20 +2254,17 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 		assert.ok(before.some(({ row }) => (row as { article_id: string }).article_id === opened));
 
 		const unread = await count(
-			sql`SELECT count(*)::int AS n FROM reading WHERE account_id=${r1.member.id} AND article_id=${other}`,
+			sql`SELECT count(*)::int AS n FROM reading WHERE account_id=${r1.owner.id} AND article_id=${other}`,
 		);
 		assert.equal(unread, 0);
 		for (const [route, articleId] of [
 			["/people", opened],
 			["/meetings", other],
 		] as const) {
-			const guide = await guideOf(r1.member, route);
+			const guide = await guideOf(r1.owner, route);
 			assert.deepEqual([guide.found, guide.articleId], [true, articleId]);
 		}
-		const found = present(
-			ok(await api.search(db, await actor(r1.member), { query: "database-management" })).results,
-			"results",
-		);
+		const found = present(ok(await api.search(db, await actor(r1.owner), { query: "Track" })).results, "results");
 		assert.ok(found.length > 0);
 		assert.deepEqual(await stored(), before);
 	});

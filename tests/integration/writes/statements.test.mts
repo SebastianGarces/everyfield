@@ -285,11 +285,11 @@ test("INV-census: a budget fails on growth, a write above six without its measur
 test("INV-census: a name held to zero writes fails on any run that writes more, and the tightener keeps the field", () => {
 	const part = { kind: "part", index: 1, total: 1, ran: ["a.test.mts"] };
 	const limits = {
-		"GET /overview": { limit: 8, writes: 0 },
+		"GET /overview": { limit: 5, writes: 0 },
 		"wiki.search": { limit: 4, retry: 4, writes: 0 },
 		"people.addNote": { limit: 5, writes: 1 },
 	};
-	const within = [sample("GET /overview", 8, 0), sample("wiki.search", 3, 0), sample("people.addNote", 5, 1), part];
+	const within = [sample("GET /overview", 5, 0), sample("wiki.search", 3, 0), sample("people.addNote", 5, 1), part];
 	assert.deepEqual(checkSamples(within, limits), []);
 	assert.deepEqual(checkBudgets(within, limits), []);
 	assert.deepEqual(tighten(within, limits, ["a.test.mts"]), {
@@ -299,13 +299,13 @@ test("INV-census: a name held to zero writes fails on any run that writes more, 
 
 	const over = [
 		...within,
-		sample("GET /overview", 8, 1),
+		sample("GET /overview", 5, 1),
 		sample("wiki.search", 4, 2, 1),
 		{ ...sample("wiki.search", 2, 1), status: "threw" },
 		sample("people.addNote", 5, 2),
 	];
 	const problems = [
-		"GET /overview: 1 writes, budget 0 (1 write, 7 read)",
+		"GET /overview: 1 writes, budget 0 (1 write, 4 read)",
 		"wiki.search: 2 writes, budget 0 (2 write, 2 read)",
 		"wiki.search: 1 writes, budget 0 (threw) (1 write, 1 read)",
 		"people.addNote: 2 writes, budget 1 (2 write, 3 read)",
