@@ -8,7 +8,7 @@ import {
 	submitTurn,
 	type EvryActor,
 } from "../../../packages/evry/src/index.ts";
-import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
+import { scriptedModel } from "../../../packages/evry-scripted/src/scripted.ts";
 import { readSwitches, setFlag } from "../../../packages/domain/src/flags/index.ts";
 import { runTurns } from "../../../apps/web/src/server/evry/worker.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";

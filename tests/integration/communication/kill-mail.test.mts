@@ -91,6 +91,9 @@ const deliver = (op, message, transport, revision) =>
 before(async () => {
 	f = await fixture();
 	plant = await f.workspace();
+	await f.admin.execute(
+		sql`UPDATE plant SET street='12 Mill Road', city='Austin', country='United States' WHERE id=${plant.id}`,
+	);
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	owner = { ...account, actor: await f.actor(account.session) };

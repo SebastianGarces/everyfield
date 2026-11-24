@@ -1440,6 +1440,27 @@ async function sentEmail(
 	return { proposal, review: done.review, id: done.review.receipt!.receiptId! };
 }
 
+test("with outbound-mail off, a retry of a send that already reached the email service is left unresolved, not called refused; back on, it completes with no second send", async () => {
+	const owner = await actor("owner");
+	const service = emailService();
+	const { proposal } = await sentEmail(owner, service, "Reached before the pause");
+	const calls = service.calls.send.length;
+	await loseOutcome(proposal.id);
+	await retryUnresolvedEffects(db, owner, proposal.id);
+	const paused = { ...service.port, transport: { ...service.port.transport, paused: true } };
+	const write = console.error;
+	console.error = () => undefined;
+	try {
+		assert.equal(await runNext(paused), "failed");
+	} finally {
+		console.error = write;
+	}
+	assert.equal((await readReview(db, owner, proposal.id)).outcome, "unknown", "the outcome stays open");
+	await retryUnresolvedEffects(db, owner, proposal.id);
+	assert.equal(await runNext(service.port), "completed");
+	assert.equal(service.calls.send.length, calls, "the email service is not asked twice");
+});
+
 test("the preview read names who a drafted email reaches and who is left out and why, and saves and sends nothing", async () => {
 	const owner = await actor("owner");
 	const { preview } = await reads();

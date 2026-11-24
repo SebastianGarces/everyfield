@@ -77,6 +77,7 @@ const mail: MailPort = {
 		origin: "https://app.example.test",
 	},
 	transport: {
+		paused: false,
 		async send() {
 			throw Error("no email is sent in this suite");
 		},

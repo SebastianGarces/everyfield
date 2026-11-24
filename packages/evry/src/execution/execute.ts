@@ -111,6 +111,7 @@ export async function executeProposal(
 			if (reach && !mail) throw new Refused("mail_unavailable");
 			if (write.sendsMail && mail?.transport.paused) {
 				logRefusal("outbound-mail", "evry.executeProposal");
+				if (p.reached) throw new Error("mail is paused and this effect already reached the email service");
 				throw new Refused("mail_paused");
 			}
 			const effectKey = `evry:${p.id}:${p.revision}`;

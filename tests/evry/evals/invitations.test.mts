@@ -161,7 +161,7 @@ async function ask(actor: EvryActor, text: string, conversation?: string) {
 	return { conversationId, reads, answer, proposals, steps };
 }
 
-async function approveAndRun(actor: EvryActor, proposal: Proposal) {
+async function approveAndRun(actor: EvryActor, proposal: Proposal, port: MailPort = mail) {
 	await approveProposal(db, actor, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	assert.ok(claim, "the effect is queued");
@@ -171,7 +171,7 @@ async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 		leaseOwner: claim.lease_owner,
 		generation: claim.claim_generation,
 	};
-	const outcome = await executeProposal(db, lease, ports, mail, native);
+	const outcome = await executeProposal(db, lease, ports, port, native);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	return outcome;
 }
@@ -385,4 +385,23 @@ test("INV-evry-recipes: a reused invitation whose audience changed after its rev
 	const card = await readReview(db, owner, p.id);
 	assert.deepEqual([card.outcome, card.receipt?.code], ["refused", "stale_review"]);
 	assert.deepEqual(await effects(), before, "nothing is added or sent");
+});
+
+test("an invitation approved before outbound mail is paused creates no meeting, guest or message and sends nothing", async () => {
+	const owner = await actorOf("owner");
+	const asked = await ask(owner, "invite the core group to the next vision meeting");
+	assert.equal(asked.proposals.length, 1, asked.answer);
+	const proposal = asked.proposals[0]!;
+	const before = await effects();
+	const write = console.error;
+	console.error = () => undefined;
+	try {
+		assert.equal(
+			await approveAndRun(owner, proposal, { ...mail, transport: { ...mail.transport, paused: true } }),
+			"refused",
+		);
+	} finally {
+		console.error = write;
+	}
+	assert.deepEqual(await effects(), before);
 });
