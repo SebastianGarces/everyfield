@@ -43,12 +43,25 @@ bin/flag set <name> on --all    # turn it back on
   change. Try again later." On an Evry review card, "Sending email is paused for now, so nothing was sent. This change
   is still waiting. Approve it again later." When asked to send, Evry says email is paused and nothing was sent.
   The early access form says "Your request was not sent" and keeps the answers.
-  People waiting for a password reset, verification or invitation email get it late, once the switch is back on.
+  People waiting for identity or invitation mail are told it is delayed, and their request is still accepted and queued:
+  - Password reset: "Reset emails are delayed", the same for a known and an unknown address, and to ask for a new link
+    if none arrives within an hour.
+  - Email verification: the onboarding "Confirm your email first" and invitation "Confirm your email to join" screens say
+    "Confirmation email is delayed". Sending the link again says the confirmation email is delayed and to ask for a new
+    link if none arrives within an hour.
+  - Email change in Settings: the email to the new address is delayed, its link works for 24 hours from the request, and
+    they sign in with the current address until they open it.
+  - Seat invitations, Connections and resident account links: the invitation is saved, but its email is delayed, after an
+    invite and after a resend. The invitation is not refused.
+
+  These messages come from the switch when the request is handled. Nobody is told when mail resumes. Evry review cards do
+  not say it yet.
 - **Still works:** cancelling or moving an email already handed to the email service, and checking what it holds. The
   cron run still cancels it for anyone who has unsubscribed since.
 - **Not stopped:** mail already handed to the email service for a scheduled time still goes out at that time. To stop
   one, cancel it from the message in Communication. Password-reset and verification mail still expires on its usual
-  schedule while it is held.
+  schedule while it is held: mail held past its 1-hour link is cancelled and is not sent, even after the switch is back
+  on. Email-change links work for 24 hours and invitations for 30 days from the request.
 
 ## `document-exports`
 

@@ -11,7 +11,7 @@ export type LaunchAnswer = z.input<typeof C.launchAnswer>;
 export type Relationship = DiscoveryProfile["relationships"][number];
 
 export type Entry =
-	| { kind: "confirm_email" }
+	| { kind: "confirm_email"; mailDelayed?: true | undefined }
 	| { kind: "start"; offer: "planter" | "discovery" | "either"; accountRevision: string }
 	| { kind: "plant"; plantName: string | null; resume: Resume }
 	| { kind: "discovery"; profile: DiscoveryProfile }

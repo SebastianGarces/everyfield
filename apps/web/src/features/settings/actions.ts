@@ -83,7 +83,7 @@ export async function removeAvatar(request: unknown): Promise<Reply<AvatarResult
 	);
 }
 
-export async function requestEmailChange(request: unknown): Promise<Reply<{ status: "verification_requested" }>> {
+export async function requestEmailChange(request: unknown): Promise<Reply<S.EmailChangeRequested>> {
 	return credential(N.requestEmailChange, request, (ops, context, r) => ops.requestEmailChange(context, r));
 }
 

@@ -42,8 +42,7 @@ export function watchProcess(container: string): () => void {
 export const databaseEnv = (url: string) => ({
 	DATABASE_URL: url,
 	DATABASE_URL_UNPOOLED: url,
-	EARLY_ACCESS_TEST_DATABASE: "1",
-	CI: "true",
+	EVERYFIELD_DISPOSABLE_DATABASE: "1",
 });
 
 export function startPostgres(options: PostgresOptions): ThrowawayPostgres & { stop: () => void } {

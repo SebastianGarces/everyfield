@@ -758,7 +758,6 @@ test("INV-census: every request and write stays within its statement budget", { 
 			cwd: join(root, "packages/domain"),
 			env: {
 				...environment,
-				EARLY_ACCESS_TEST_DATABASE: "1",
 				EVF_WRITE_COUNTS: output,
 				NODE_OPTIONS: nodeOptions.join(" "),
 			},

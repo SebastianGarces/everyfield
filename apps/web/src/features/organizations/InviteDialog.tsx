@@ -22,7 +22,7 @@ import { SharingDisclosure } from "./Disclosure";
 import { useIntent } from "../../components/intent.ts";
 import { emailProblem, kindLabel } from "./model";
 import { ProblemLine } from "./parts";
-import type { Disclosure, Invitation, Organization, RelationshipPair, Run } from "./port";
+import type { Disclosure, Organization, RelationshipPair, SendInvitation, SentInvitation } from "./port";
 import { READ_FAILED, thrownRead } from "../../components/read-failed.ts";
 
 export type InviteTarget = { pair: RelationshipPair; name: string };
@@ -42,7 +42,7 @@ export function InviteDialog({
 	targets,
 	readDisclosure,
 	expectedRevision,
-	run,
+	sendInvitation,
 	onSent,
 	onUnconfirmed,
 	trigger,
@@ -50,8 +50,8 @@ export function InviteDialog({
 	targets: InviteTarget[];
 	readDisclosure: ReadDisclosure;
 	expectedRevision: string;
-	run: Run;
-	onSent: (invitation: Invitation, target: InviteTarget) => void;
+	sendInvitation: SendInvitation;
+	onSent: (sent: SentInvitation, target: InviteTarget) => void;
 	onUnconfirmed: () => void;
 	trigger: ReactNode;
 }) {
@@ -75,10 +75,10 @@ export function InviteDialog({
 					targets={targets}
 					readDisclosure={readDisclosure}
 					expectedRevision={expectedRevision}
-					run={run}
+					sendInvitation={sendInvitation}
 					send={send}
-					onSent={(invitation, target) => {
-						onSent(invitation, target);
+					onSent={(sent, target) => {
+						onSent(sent, target);
 						change(false);
 					}}
 					onCancel={() => change(false)}
@@ -97,7 +97,7 @@ function InviteForm({
 	targets,
 	readDisclosure,
 	expectedRevision,
-	run,
+	sendInvitation,
 	send,
 	onSent,
 	onCancel,
@@ -105,9 +105,9 @@ function InviteForm({
 	targets: InviteTarget[];
 	readDisclosure: ReadDisclosure;
 	expectedRevision: string;
-	run: Run;
+	sendInvitation: SendInvitation;
 	send: ReturnType<typeof useIntent<InviteCommand>>;
-	onSent: (invitation: Invitation, target: InviteTarget) => void;
+	onSent: (sent: SentInvitation, target: InviteTarget) => void;
 	onCancel: () => void;
 }) {
 	const [targetId, setTargetId] = useState<string>("");
@@ -151,7 +151,7 @@ function InviteForm({
 					expectedRevision,
 					input: { pair: target.pair, recipientEmail: email },
 				}),
-			(command) => run("associations.invite", command),
+			(command) => sendInvitation("associations.invite", command),
 			() => true,
 		);
 		if (result.ok) onSent(result.reply, target);

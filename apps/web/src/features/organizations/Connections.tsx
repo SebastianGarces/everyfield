@@ -14,7 +14,7 @@ import { kindLabel, subjectOf } from "./model";
 import { formatDay } from "../../components/dates.ts";
 import { ProblemLine } from "./parts";
 import { SharingChoices, type ReadSharing, type SaveSharing, type SharingRow } from "./Sharing";
-import type { History, NameOf, Invitation, Relationship, Run } from "./port";
+import type { History, NameOf, Invitation, Relationship, Run, SendInvitation } from "./port";
 
 export type ConnectionsData = {
 	history: { status: "unavailable" } | History;
@@ -30,6 +30,7 @@ export function Connections({
 	nameOf,
 	zone,
 	run,
+	send,
 	end,
 	invite,
 	readSharing,
@@ -43,6 +44,7 @@ export function Connections({
 	nameOf: NameOf;
 	zone: string;
 	run: Run;
+	send: SendInvitation;
 	end: EndConnection;
 	invite?: { targets: InviteTarget[]; readDisclosure: ReadDisclosure; expectedRevision: string };
 	readSharing?: { read: ReadSharing; save: SaveSharing };
@@ -74,9 +76,13 @@ export function Connections({
 						targets={state.status === "ready" ? available(invite.targets, state.data.history) : invite.targets}
 						readDisclosure={invite.readDisclosure}
 						expectedRevision={invite.expectedRevision}
-						run={run}
-						onSent={(invitation, target) => {
-							setStatus(`Invitation sent. ${target.name} has 30 days to accept.`);
+						sendInvitation={send}
+						onSent={({ invitation, mailDelayed }, target) => {
+							setStatus(
+								mailDelayed
+									? `The invitation to ${target.name} is saved, but its email is delayed. They have 30 days to accept. You do not need to send it again unless it expires.`
+									: `Invitation sent. ${target.name} has 30 days to accept.`,
+							);
 							changePending((p) => [invitation, ...p.filter((i) => i.invitationId !== invitation.invitationId)]);
 						}}
 						onUnconfirmed={reload}
@@ -134,6 +140,7 @@ export function Connections({
 									nameOf={nameOf}
 									zone={zone}
 									run={run}
+									send={send}
 									onChange={(text, change) => {
 										setStatus(text);
 										changePending(change);
@@ -337,6 +344,7 @@ function PendingList({
 	nameOf,
 	zone,
 	run,
+	send,
 	onChange,
 	onStale,
 	stale,
@@ -346,6 +354,7 @@ function PendingList({
 	nameOf: NameOf;
 	zone: string;
 	run: Run;
+	send: SendInvitation;
 	onChange: (status: string, change: (list: Invitation[]) => Invitation[]) => void;
 	onStale: () => void;
 	stale: boolean;
@@ -371,11 +380,16 @@ function PendingList({
 			const result = await resend.run(
 				id,
 				make,
-				(command) => run("associations.resendInvitation", command),
+				(command) => send("associations.resendInvitation", command),
 				() => true,
 			);
 			if (result.ok)
-				onChange(`A new link went to ${name}.`, (list) => list.map((i) => (i.invitationId === id ? result.reply : i)));
+				onChange(
+					result.reply.mailDelayed
+						? `The invitation to ${name} is saved with a new link, but its email is delayed. You do not need to resend it unless it expires.`
+						: `A new link went to ${name}.`,
+					(list) => list.map((i) => (i.invitationId === id ? result.reply.invitation : i)),
+				);
 			return;
 		}
 		const result = await withdraw.run(

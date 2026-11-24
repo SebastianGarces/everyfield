@@ -20,7 +20,7 @@ function notSent(error: SettingsError | null): string {
 type State =
 	| { step: "idle" }
 	| { step: "editing"; value: string; error?: string; sending: boolean }
-	| { step: "sent"; email: string };
+	| { step: "sent"; email: string; delayed: boolean };
 
 export function EmailChange({ currentEmail }: { currentEmail: string }) {
 	const port = useFlows();
@@ -45,7 +45,8 @@ export function EmailChange({ currentEmail }: { currentEmail: string }) {
 		} catch {
 			reply = null;
 		}
-		if (reply?.status === "ok") return setState({ step: "sent", email: parsed.data });
+		if (reply?.status === "ok")
+			return setState({ step: "sent", email: parsed.data, delayed: reply.value.mailDelayed === true });
 		refuse(notSent(reply?.status === "refused" ? reply.error : null));
 	};
 
@@ -93,10 +94,18 @@ export function EmailChange({ currentEmail }: { currentEmail: string }) {
 				<div role="status" className="flex items-start gap-3 rounded-md bg-blue-50 px-4 py-3 text-sm text-ink-2">
 					<Icon icon={Mail01Icon} size={18} className="mt-px text-blue-600" />
 					<div className="min-w-0 flex-1">
-						<p>
-							We sent a link to <b className="font-semibold [overflow-wrap:anywhere] text-ink">{state.email}</b>. Open
-							it within 24 hours to finish. Until then you sign in with {currentEmail}.
-						</p>
+						{state.delayed ? (
+							<p>
+								The email to <b className="font-semibold [overflow-wrap:anywhere] text-ink">{state.email}</b> is
+								delayed. Its link works for 24 hours from your request, so ask again only if it has expired. Until you
+								open the link, you sign in with {currentEmail}.
+							</p>
+						) : (
+							<p>
+								We sent a link to <b className="font-semibold [overflow-wrap:anywhere] text-ink">{state.email}</b>. Open
+								it within 24 hours to finish. Until then you sign in with {currentEmail}.
+							</p>
+						)}
 						<p className="mt-1 text-text-3">A new request replaces this one, and only the newest link works.</p>
 						<Button size="sm" variant="ghost" className="mt-1.5 -ml-2.5" onClick={start}>
 							Use a different address

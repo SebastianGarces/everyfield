@@ -43,7 +43,7 @@ export interface CredentialProducer {
 	requestEmailChange(
 		context: SettingsContext,
 		input: z.infer<typeof native.requestEmailChange>,
-	): Promise<SettingsReply<{ status: "verification_requested" }>>;
+	): Promise<SettingsReply<result.EmailChangeRequested>>;
 	confirmEmailChange(
 		context: SettingsContext,
 		input: z.infer<typeof native.confirmEmailChange>,

@@ -121,9 +121,7 @@ export interface AvatarPort {
 export interface FlowPort {
 	avatar: AvatarPort;
 
-	requestEmailChange(
-		request: z.input<typeof N.requestEmailChange>,
-	): Promise<Reply<{ status: "verification_requested" }>>;
+	requestEmailChange(request: z.input<typeof N.requestEmailChange>): Promise<Reply<S.EmailChangeRequested>>;
 	changePassword(request: ChangePasswordRequest): Promise<CredentialOutcome>;
 
 	previewPersonalTimezone(

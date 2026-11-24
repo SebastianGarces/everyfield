@@ -1,4 +1,4 @@
-import { dayText } from "@everyfield/contracts/common";
+import { counted, dayText } from "@everyfield/contracts/common";
 import * as C from "@everyfield/contracts/oversight";
 import { getPlant, listPlants, placedIn, readIntelligence, readLocationHistory } from "@everyfield/domain/oversight";
 import { z } from "zod";
@@ -90,12 +90,17 @@ export const listOverseenPlants: ReadAdapter<Record<string, never>> = {
 	},
 };
 
+function meetingsText({ meetings, attendedTotal }: C.MeetingCounts): string {
+	const { known } = C.attendanceOf(meetings);
+	if (attendedTotal === null) return `${counted(meetings.length, "recent meeting")}, attendance unknown`;
+	const text = `${meetings.length} recent meetings, ${attendedTotal} attended`;
+	return known === meetings.length ? text : `${text} at the ${known} with attendance recorded`;
+}
 const SECTION_TEXT = {
 	people: (n: C.PlantSections["people"]) => (n.status === "shared" ? n.counts.total : null),
 	tasks: (n: C.PlantSections["tasks"]) =>
 		n.status === "shared" ? `${n.counts.open} open, ${n.counts.overdue} overdue` : null,
-	meetings: (n: C.PlantSections["meetings"]) =>
-		n.status === "shared" ? `${n.counts.meetings.length} recent meetings, ${n.counts.attendedTotal} attended` : null,
+	meetings: (n: C.PlantSections["meetings"]) => (n.status === "shared" ? meetingsText(n.counts) : null),
 };
 const sectionState = (s: { status: string }, value: string | number | null) =>
 	s.status === "withheld"

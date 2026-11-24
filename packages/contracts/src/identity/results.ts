@@ -21,7 +21,10 @@ export const identityError = z.discriminatedUnion("code", [
 	defineSafeError("admission_unavailable", {}, "same_request"),
 	defineSafeError("idempotency_conflict", {}, "never"),
 ]);
-export const passwordRecoveryResult = z.strictObject({ status: z.literal("accepted") });
+export const passwordRecoveryResult = z.strictObject({
+	status: z.literal("accepted"),
+	mailDelayed: z.literal(true).optional(),
+});
 export const recoveryCompletedResult = z.strictObject({
 	status: z.literal("password_reset"),
 	next: z.literal("sign_in"),

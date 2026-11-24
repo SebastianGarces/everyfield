@@ -1,4 +1,4 @@
-import { asLogWord, logLine, type LogWord } from "../log.ts";
+import { asLogWord, logFailure, logLine, type LogWord } from "../log.ts";
 import { registry, type FlagName } from "./registry.ts";
 import { readFlags } from "./values.ts";
 
@@ -14,6 +14,17 @@ const KILL_SWITCHES = (Object.keys(registry) as FlagName[]).filter(
 export async function readSwitches(db: Db): Promise<Switches> {
 	const values = await readFlags(db, null);
 	return Object.fromEntries(KILL_SWITCHES.map((name) => [name, values.value(name)])) as Switches;
+}
+
+export type MailDelay = { mailDelayed?: true };
+
+export async function mailDelay(read: () => Promise<Switches>): Promise<MailDelay> {
+	try {
+		return (await read())["outbound-mail"] ? {} : { mailDelayed: true };
+	} catch (error) {
+		logFailure({ component: "mail-delay", outcome: "read_failed" }, error);
+		return {};
+	}
 }
 
 type Action<A> = LogWord<A> | ReturnType<typeof asLogWord>;
