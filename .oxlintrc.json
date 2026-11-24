@@ -155,7 +155,14 @@
 				"tests/integration/flags/**",
 				"tests/integration/followups/**",
 				"tests/integration/oversight/**",
-				"tests/integration/phases/**"
+				"tests/integration/phases/**",
+				"tests/integration/jobs/**",
+				"tests/integration/launch/**",
+				"tests/integration/ops/**",
+				"tests/integration/reference/**",
+				"tests/integration/target/**",
+				"tests/integration/tasks/**",
+				"tests/integration/task-assignees.mts"
 			],
 			"rules": {
 				"typescript/no-explicit-any": "error"

@@ -3,26 +3,54 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { MAX_DESCRIPTION, normalizeDescription } from "../../../packages/contracts/src/tasks/index.ts";
 import {
 	CATALOG,
 	createTaskWriter,
 	createTemplateReader,
+	type TaskContext,
+	type TaskReply,
+	type TaskWriter,
 	taskReader,
 	withTaskWrite,
 } from "../../../packages/domain/src/tasks/index.ts";
 import { createPhaseWriter } from "../../../packages/domain/src/phases/index.ts";
 import { recommendForPhase } from "../../../packages/domain/src/wiki/reads.ts";
-import { ok, refused } from "../../support/fixture.mts";
+import type { RequestActor, WriteTx } from "../../../packages/domain/src/access/session.ts";
+import { type Workspace, ok, refused } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
-let f, writer, templates, phases, plant, owner, admin, member;
-const rows = async (q) => (await f.admin.execute(q)).rows;
-const write = (who, op, input, w = writer) => withTaskWrite(f.db, who.actor, (tx, ctx) => w[op](tx, ctx, input));
-const read = (who, op, input, r = templates) => gatedTransaction(f.db, (tx) => r[op](tx, who.actor, input));
-const importing = (who, checklistKey, requestKey = randomUUID(), extra = {}) => {
+type Who = { actor: RequestActor };
+type Row = Record<string, unknown>;
+type Answer<F> = F extends (...args: never[]) => Promise<infer V> ? V : never;
+type Value<F> = F extends (...args: never[]) => Promise<TaskReply<infer V>> ? V : never;
+type Writes = {
+	[K in keyof TaskWriter]: (
+		tx: WriteTx,
+		context: TaskContext,
+		raw: unknown,
+	) => Promise<TaskReply<Value<TaskWriter[K]>>>;
+};
+type Templates = ReturnType<typeof createTemplateReader>;
+type Reads = {
+	[K in keyof Templates]: (tx: WriteTx, who: RequestActor, raw: unknown) => Promise<Answer<Templates[K]>>;
+};
+type Church = Awaited<ReturnType<typeof church>>;
+let f: Awaited<ReturnType<typeof fixture>>;
+let writer: TaskWriter, templates: Templates, phases: ReturnType<typeof createPhaseWriter>;
+let plant: Workspace, owner: Church["owner"], admin: Church["admin"], member: Church["member"];
+const rows = async <R extends Row = Row>(q: SQL) => (await f.admin.execute<R>(q)).rows;
+const write = <K extends keyof Writes>(who: Who, op: K, input: object, w: Writes = writer) =>
+	withTaskWrite(f.db, who.actor, (tx, ctx) => w[op](tx, ctx, input));
+const read = <K extends keyof Reads>(who: Who, op: K, input: object, r: Reads = templates) =>
+	gatedTransaction(f.db, (tx) => r[op](tx, who.actor, input));
+const openOffer = (offer: Extract<Answer<Templates["readPhaseOffer"]>, { status: "ok" }>["value"]) => {
+	if (offer.status !== "open") assert.fail(offer.status);
+	return offer;
+};
+const importing = (who: Who, checklistKey: string, requestKey: string = randomUUID(), extra: object = {}) => {
 	const checklist = CATALOG.checklists.find((k) => k.key === checklistKey);
 	return write(who, "importTemplate", {
 		requestKey,
@@ -34,35 +62,37 @@ const importing = (who, checklistKey, requestKey = randomUUID(), extra = {}) => 
 		},
 	});
 };
-const accept = (who, transitionId, checklistKeys, requestKey = randomUUID()) =>
+const accept = (who: Who, transitionId: string, checklistKeys: readonly string[], requestKey: string = randomUUID()) =>
 	write(who, "acceptPhaseOffer", {
 		requestKey,
 		input: { transitionId, catalogVersion: CATALOG.version, checklistKeys },
 	});
-const decline = (who, transitionId, requestKey = randomUUID()) =>
+const decline = (who: Who, transitionId: string, requestKey: string = randomUUID()) =>
 	write(who, "declinePhaseOffer", { requestKey, input: { transitionId } });
-const footprint = async (w) =>
+const footprint = async (w: { id: string }) =>
 	(
-		await rows(sql`SELECT (SELECT count(*)::int FROM task WHERE plant_id=${w.id}) tasks,
+		await rows<
+			Record<"tasks" | "assignees" | "audits" | "answered", number>
+		>(sql`SELECT (SELECT count(*)::int FROM task WHERE plant_id=${w.id}) tasks,
 		(SELECT count(*)::int FROM task_assignee WHERE plant_id=${w.id}) assignees,
 		(SELECT count(*)::int FROM audit_event WHERE tenant_id=${w.id}) audits,
 		(SELECT count(*)::int FROM phase_transition WHERE plant_id=${w.id} AND offer_answer IS NOT NULL) answered`)
-	)[0];
+	)[0]!;
 let statements = 0;
-async function counted(body) {
+async function counted(body: () => Promise<unknown>) {
 	const start = statements;
 	await body();
 	return statements - start;
 }
 
 const chicago = (at: Date = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago" }).format(at);
-const plus = (date, days) => {
+const plus = (date: string, days: number) => {
 	const d = new Date(`${date}T00:00:00Z`);
 	d.setUTCDate(d.getUTCDate() + days);
 	return d.toISOString().slice(0, 10);
 };
 
-async function seated(w, role) {
+async function seated(w: Workspace, role: "owner" | "admin" | "member") {
 	const a = await f.account();
 	const seatId = await f.seat(a, w, role);
 	return { ...a, seatId, actor: await f.actor(a.session) };
@@ -72,8 +102,9 @@ async function church() {
 	await f.admin.execute(sql`UPDATE plant SET timezone='America/Chicago' WHERE id=${w.id}`);
 	return { w, owner: await seated(w, "owner"), admin: await seated(w, "admin"), member: await seated(w, "member") };
 }
-const revisionOf = async (w) => (await rows(sql`SELECT revision::text r FROM plant WHERE id=${w.id}`))[0].r;
-async function move(c, toPhase) {
+const revisionOf = async (w: { id: string }) =>
+	(await rows(sql`SELECT revision::text r FROM plant WHERE id=${w.id}`))[0]!.r;
+async function move(c: Pick<Church, "owner" | "w">, toPhase: number) {
 	ok(
 		await phases.transition(f.db, c.owner.actor, {
 			requestKey: randomUUID(),
@@ -82,12 +113,26 @@ async function move(c, toPhase) {
 		}),
 	);
 	return (
-		await rows(sql`SELECT id, kind, to_phase, (occurred_at AT TIME ZONE 'America/Chicago')::date::text AS local_date
+		await rows<{
+			id: string;
+			kind: string;
+			to_phase: number;
+			local_date: string;
+		}>(sql`SELECT id, kind, to_phase, (occurred_at AT TIME ZONE 'America/Chicago')::date::text AS local_date
 		FROM phase_transition WHERE plant_id=${c.w.id}
 		ORDER BY occurred_at DESC, id DESC LIMIT 1`)
-	)[0];
+	)[0]!;
 }
-function referenceCatalog() {
+type ReferenceChecklist = {
+	key: string;
+	name: string;
+	description: string;
+	phase: number;
+	category: string;
+	defaultPriority: string;
+	items: { key: string; title: string; description?: string; priority?: string; offsetDays: number }[];
+};
+function referenceCatalog(): ReferenceChecklist[] {
 	const ts = createRequire(new URL("../../../packages/domain/package.json", import.meta.url))("typescript");
 	const source = readFileSync(new URL("../../../docs/reference/task-templates.ts", import.meta.url), "utf8").replace(
 		/^import .*$/gm,
@@ -96,8 +141,9 @@ function referenceCatalog() {
 	const js = ts.transpileModule("const PHASES = {0:'',1:'',2:'',3:'',4:'',5:'',6:''};\n" + source, {
 		compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 	}).outputText;
-	const m = { exports: {} };
+	const m: { exports: { TASK_TEMPLATES?: ReferenceChecklist[] } } = { exports: {} };
 	new Function("module", "exports", js)(m, m.exports);
+	assert.ok(m.exports.TASK_TEMPLATES);
 	return m.exports.TASK_TEMPLATES;
 }
 const raised = {
@@ -118,10 +164,12 @@ before(async () => {
 	f = await fixture();
 	f.db.$client.on("connect", (client) => {
 		const query = client.query;
-		client.query = function (...args) {
-			statements++;
-			return Reflect.apply(query, this, args);
-		};
+		Object.assign(client, {
+			query(this: typeof client, ...args: unknown[]) {
+				statements++;
+				return Reflect.apply(query, this, args);
+			},
+		});
 	});
 	writer = createTaskWriter({ reminders: async () => {} });
 	templates = createTemplateReader();
@@ -166,7 +214,7 @@ test("AC:TARGET-TSK-009 the catalog keeps the 20 reference checklists item by it
 	);
 	assert.equal(described.length, 4);
 	for (const [list, item, text] of described)
-		assert.equal(CATALOG.checklists.find((k) => k.key === list).items.find((i) => i.key === item).description, text);
+		assert.equal(CATALOG.checklists.find((k) => k.key === list)!.items.find((i) => i.key === item)!.description, text);
 	const items = CATALOG.checklists.flatMap((k) =>
 		k.items.map((i) => ({ at: `${k.key}/${i.key}`, text: i.description })),
 	);
@@ -198,7 +246,7 @@ test("AC:TARGET-TSK-009 a preview lists each task due from the plant-local date 
 	const before = await footprint(plant);
 	const preview = ok(await read(admin, "previewTemplate", { checklistKey: "vision-meeting-preparation" }));
 	const today = chicago();
-	const reference = CATALOG.checklists.find((k) => k.key === "vision-meeting-preparation");
+	const reference = CATALOG.checklists.find((k) => k.key === "vision-meeting-preparation")!;
 	assert.equal(preview.anchorDate, today);
 	assert.equal(preview.checklist.name, "Vision Meeting Preparation");
 	assert.equal(preview.checklist.taskCount, 10);
@@ -206,8 +254,8 @@ test("AC:TARGET-TSK-009 a preview lists each task due from the plant-local date 
 		preview.checklist.tasks.map((t) => [t.key, t.title, t.description, t.priority, t.due]),
 		reference.items.map((i) => [i.key, i.title, i.description, i.priority, plus(today, i.offsetDays)]),
 	);
-	assert.equal(preview.checklist.tasks[0].due, today);
-	assert.equal(preview.checklist.tasks.find((t) => t.key === "confirm-attendance").priority, "high");
+	assert.equal(preview.checklist.tasks[0]!.due, today);
+	assert.equal(preview.checklist.tasks.find((t) => t.key === "confirm-attendance")!.priority, "high");
 	assert.deepEqual(await footprint(plant), before);
 	refused(await read(admin, "previewTemplate", { checklistKey: "no-such-checklist" }), "invalid_input");
 });
@@ -239,22 +287,26 @@ test("AC:TARGET-TSK-009 an import adds exactly the previewed tasks; a retry repl
 	assert.deepEqual(
 		stored.map((t) => [t.title, t.description]).sort(),
 		CATALOG.checklists
-			.find((k) => k.key === "vision-meeting-preparation")
+			.find((k) => k.key === "vision-meeting-preparation")!
 			.items.map((i) => [i.title, i.description])
 			.sort(),
 	);
 	const once = await footprint(c.w);
 	assert.equal(once.tasks, 10);
 	assert.equal(once.assignees, 10);
-	const imports = await rows(sql`SELECT subject_id, after_value, request_key FROM audit_event
+	const imports = await rows<{
+		subject_id: string;
+		after_value: { taskIds: string[]; checklistKey: string };
+		request_key: string;
+	}>(sql`SELECT subject_id, after_value, request_key FROM audit_event
 		WHERE tenant_id=${c.w.id} AND subject_type='checklist_import'`);
 	assert.equal(imports.length, 1);
-	assert.equal(imports[0].request_key, key);
+	assert.equal(imports[0]!.request_key, key);
 	assert.deepEqual(
-		imports[0].after_value.taskIds,
+		imports[0]!.after_value.taskIds,
 		first.tasks.map((t) => t.id),
 	);
-	assert.equal(imports[0].after_value.checklistKey, "vision-meeting-preparation");
+	assert.equal(imports[0]!.after_value.checklistKey, "vision-meeting-preparation");
 
 	const retry = ok(await importing(c.admin, "vision-meeting-preparation", key));
 	assert.deepEqual(
@@ -336,13 +388,13 @@ test("AC:PHASE-CASE-006 AC:TARGET-TSK-010 a real move offers the new phase's che
 test("AC:PHASE-CASE-006 AC:TARGET-TSK-010 the Owner accepts a subset dated from the move, and the offer is gone", async () => {
 	const c = await church();
 	const moved = await move(c, 2);
-	const offer = ok(await read(c.owner, "readPhaseOffer", {}));
+	const offer = openOffer(ok(await read(c.owner, "readPhaseOffer", {})));
 	const before = await footprint(c.w);
 	const answered = ok(await accept(c.owner, moved.id, ["ministry-team-setup", "launch-date-planning"]));
 	const anchor = moved.local_date;
 	const expected = ["ministry-team-setup", "launch-date-planning"].flatMap((key) =>
 		CATALOG.checklists
-			.find((k) => k.key === key)
+			.find((k) => k.key === key)!
 			.items.map((i) => [i.title, { kind: "local_date", date: plus(anchor, i.offsetDays) }]),
 	);
 	assert.deepEqual(
@@ -359,11 +411,13 @@ test("AC:PHASE-CASE-006 AC:TARGET-TSK-010 the Owner accepts a subset dated from 
 	const after = await footprint(c.w);
 	assert.equal(after.tasks - before.tasks, expected.length);
 	assert.equal(after.answered, 1);
-	const record = await rows(sql`SELECT after_value FROM audit_event WHERE tenant_id=${c.w.id}
+	const record = await rows<{
+		after_value: { taskIds: string[] };
+	}>(sql`SELECT after_value FROM audit_event WHERE tenant_id=${c.w.id}
 		AND subject_type='phase_transition' AND kind='offer_answer'`);
 	assert.equal(record.length, 1);
 	assert.deepEqual(
-		record[0].after_value.taskIds,
+		record[0]!.after_value.taskIds,
 		answered.created.map((t) => t.id),
 	);
 	assert.equal(offer.checklists.length, 3);
@@ -400,7 +454,7 @@ test("AC:PHASE-CASE-006 a declined or accepted checklist never comes back in a l
 	assert.deepEqual(ok(await read(c.owner, "readPhaseOffer", {})), { status: "none" });
 	await move(c, 4);
 	assert.deepEqual(
-		ok(await read(c.owner, "readPhaseOffer", {})).checklists.map((k) => k.key),
+		openOffer(ok(await read(c.owner, "readPhaseOffer", {}))).checklists.map((k) => k.key),
 		["promotion-campaign", "pre-launch-services", "final-preparation"],
 	);
 	assert.equal(ok(await read(c.owner, "listTemplates", {})).checklists.length, 20);
@@ -421,7 +475,7 @@ test("AC:TARGET-TSK-010 INV-one-answer two devices answer at once: one answer co
 	refused(loser, "offer_answered");
 	assert.equal((await footprint(c.w)).answered, 1);
 	assert.equal(
-		(await rows(sql`SELECT count(*)::int n FROM audit_event WHERE tenant_id=${c.w.id} AND kind='offer_answer'`))[0].n,
+		(await rows(sql`SELECT count(*)::int n FROM audit_event WHERE tenant_id=${c.w.id} AND kind='offer_answer'`))[0]!.n,
 		1,
 	);
 	const decided = ok(await read(loser === b ? c.admin : c.owner, "readPhaseOffer", { transitionId: moved.id }));
@@ -478,8 +532,11 @@ test("AC:TARGET-TSK-010 a stale move, a forged key, a lost seat or a failed inse
 		WHEN (NEW.plant_id = '${c.w.id}') EXECUTE FUNCTION wp026_fail_task()`),
 	);
 	try {
-		await assert.rejects(accept(c.owner, latest.id, ["peak-performance-classes"]), (e) =>
-			/injected task insert fault/.test(String(e.cause?.message ?? e.message)),
+		await assert.rejects(
+			accept(c.owner, latest.id, ["peak-performance-classes"]),
+			(e) =>
+				e instanceof Error &&
+				/injected task insert fault/.test(String(e.cause instanceof Error ? e.cause.message : e.message)),
 		);
 	} finally {
 		await f.admin.execute(sql`DROP TRIGGER wp026_fail_task ON task`);
@@ -498,19 +555,19 @@ test("AC:PHASE-CASE-006 AC:TARGET-TSK-009 a new catalog version never changes ed
 	ok(
 		await write(c.owner, "edit", {
 			requestKey: randomUUID(),
-			expectedRevision: edited.revision,
-			input: { taskId: edited.id, patch: { title: "Keep my edits", due: { kind: "local_date", date: "2027-01-15" } } },
+			expectedRevision: edited!.revision,
+			input: { taskId: edited!.id, patch: { title: "Keep my edits", due: { kind: "local_date", date: "2027-01-15" } } },
 		}),
 	);
 	ok(
 		await write(c.owner, "delete", {
 			requestKey: randomUUID(),
-			expectedRevision: deleted.revision,
-			input: { taskId: deleted.id },
+			expectedRevision: deleted!.revision,
+			input: { taskId: deleted!.id },
 		}),
 	);
 	const snapshot = () =>
-		rows(
+		rows<{ id: string; title: string; due_date: string | null; deleted_at: string | Date | null }>(
 			sql`SELECT id, title, description, due_date::text, deleted_at, revision::text FROM task WHERE plant_id=${c.w.id} ORDER BY id`,
 		);
 	const before = await snapshot();
@@ -518,7 +575,7 @@ test("AC:PHASE-CASE-006 AC:TARGET-TSK-009 a new catalog version never changes ed
 	const laterWriter = createTaskWriter({ reminders: async () => {}, catalog: raised });
 	const preview = ok(await read(c.owner, "previewTemplate", { checklistKey: "launch-date-planning" }, laterReader));
 	assert.equal(preview.catalogVersion, CATALOG.version + 1);
-	assert.match(preview.checklist.tasks[0].title, /^Revised: /);
+	assert.match(preview.checklist.tasks[0]!.title, /^Revised: /);
 	refused(
 		await write(
 			c.owner,
@@ -532,14 +589,14 @@ test("AC:PHASE-CASE-006 AC:TARGET-TSK-009 a new catalog version never changes ed
 		"stale_catalog",
 	);
 	assert.deepEqual(await snapshot(), before);
-	const kept = before.find((r) => r.id === edited.id);
+	const kept = before.find((r) => r.id === edited!.id)!;
 	assert.equal(kept.title, "Keep my edits");
 	assert.equal(kept.due_date, "2027-01-15");
-	assert.notEqual(before.find((r) => r.id === deleted.id).deleted_at, null);
+	assert.notEqual(before.find((r) => r.id === deleted!.id)!.deleted_at, null);
 	assert.equal(before.filter((r) => imported.some((t) => t.id === r.id) && /^Revised/.test(r.title)).length, 0);
 	const listed = ok(await gatedTransaction(f.db, (tx) => taskReader.list(tx, c.owner.actor, { limit: 100 })));
 	assert.equal(
-		listed.items.some((t) => t.id === deleted.id),
+		listed.items.some((t) => t.id === deleted!.id),
 		false,
 	);
 });
@@ -570,7 +627,7 @@ test("AC:TARGET-TSK-016 create, edit and import keep the typed text, drop unsafe
 	).task;
 	assert.equal(created.description, kept);
 	const stored = await rows(sql`SELECT description FROM task WHERE id=${created.id}`);
-	assert.equal(stored[0].description, kept);
+	assert.equal(stored[0]!.description, kept);
 	assert.equal(created.excerpt, kept);
 	const pastedHtml = 'See <img src=x onerror="alert(2)">\n<!-- note -->';
 	const withHtml = ok(
@@ -582,8 +639,8 @@ test("AC:TARGET-TSK-016 create, edit and import keep the typed text, drop unsafe
 	).task;
 	assert.equal(withHtml.description, pastedHtml);
 	const reread = ok(await gatedTransaction(f.db, (tx) => taskReader.get(tx, owner.actor, { taskId: created.id }))).task;
-	assert.equal(reread.description, pastedHtml);
-	assert.equal(reread.excerpt, pastedHtml);
+	assert.equal(reread!.description, pastedHtml);
+	assert.equal(reread!.excerpt, pastedHtml);
 	const edited = ok(
 		await write(owner, "edit", {
 			requestKey: randomUUID(),
@@ -608,11 +665,11 @@ test("AC:TARGET-TSK-016 create, edit and import keep the typed text, drop unsafe
 				requestKey: randomUUID(),
 				input: { title: "At the limit", description: "x".repeat(MAX_DESCRIPTION) },
 			}),
-		).task.description.length,
+		).task.description!.length,
 		MAX_DESCRIPTION,
 	);
 	const imported = ok(await importing(owner, "vision-meeting-preparation")).tasks;
-	const call = imported.find((t) => t.title === "Confirm attendance by phone");
+	const call = imported.find((t) => t.title === "Confirm attendance by phone")!;
 	assert.equal(call.excerpt, "A text is an invitation; a call is a commitment. Ring everyone who said yes.");
 });
 

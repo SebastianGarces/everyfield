@@ -3,7 +3,12 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { db, runtime, tenant, setup, teardown } from "./support.mts";
-import { authorizeTaskReminders, reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
+import {
+	authorizeTaskReminders,
+	reminderRecipients,
+	type ReminderSource,
+	type TaskReminders,
+} from "../../../packages/domain/src/tasks/index.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminderTimes } from "../../../packages/domain/src/jobs/calendar.ts";
@@ -11,16 +16,21 @@ import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
-let reminders, mail, sent;
-const people = {};
-const tasks = {};
+type Due = ReminderSource["due"];
+type CivilDue = Exclude<Due, { kind: "date_only" }> | { kind: "date_only"; date: string };
+type Name = "ana" | "ben" | "cy" | "dee";
+const NAMES: readonly Name[] = ["ana", "ben", "cy", "dee"];
+let reminders: TaskReminders;
+let mail: ReturnType<typeof createMailService>;
+const sent: string[] = [];
+const people = {} as Record<Name, { id: string; email: string }>;
+const tasks: Record<string, string> = {};
 const zone = "America/Chicago";
-const day = (n) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
-const hours = (n) => new Date(Date.now() + n * 3_600_000).toISOString();
+const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+const hours = (n: number) => new Date(Date.now() + n * 3_600_000).toISOString();
 
 before(async () => {
 	await setup();
-	sent = [];
 	mail = createMailService({
 		db: runtime,
 		encryptionKey: randomBytes(32),
@@ -43,11 +53,14 @@ before(async () => {
 			const found = await reminderRecipients(tx, inputs[0]?.owner.id ?? randomUUID(), [
 				...new Set(inputs.map((i) => i.recipient)),
 			]);
-			return inputs.map((i) => (found.has(i.recipient) ? { address: found.get(i.recipient) } : null));
+			return inputs.map((i) => {
+				const address = found.get(i.recipient);
+				return address === undefined ? null : { address };
+			});
 		},
 	});
 	reminders = taskReminders(notifications);
-	for (const name of ["ana", "ben", "cy", "dee"]) {
+	for (const name of NAMES) {
 		const id = randomUUID(),
 			user = randomUUID(),
 			email = `${name}-${id}@example.test`;
@@ -67,7 +80,17 @@ before(async () => {
 });
 after(teardown);
 
-async function put(name, t) {
+async function put(
+	name: string,
+	t: {
+		due: CivilDue;
+		revision: number;
+		assignee?: Name;
+		assignees?: readonly Name[];
+		status?: string;
+		created?: boolean;
+	},
+) {
 	const id = (tasks[name] ??= randomUUID());
 	const due =
 		t.due.kind === "timed"
@@ -99,15 +122,30 @@ async function put(name, t) {
 		created: t.created ?? false,
 	};
 }
-const sync = (sources) => gatedTransaction(runtime, (tx) => reminders(tx, sources));
-const times = (due) =>
+const sync = async (sources: readonly ReminderSource[]): Promise<unknown[]> => {
+	const results = await gatedTransaction(runtime, (tx) => reminders(tx, sources));
+	assert.ok(Array.isArray(results));
+	return results;
+};
+const times = (due: CivilDue): Partial<Record<"due" | "overdue", string>> =>
 	Object.fromEntries(taskReminderTimes(due.kind === "date_only" ? { ...due, zone } : due).map((t) => [t.slot, t.at]));
 
+type Planned = {
+	task: string;
+	recipient: string;
+	revision: number;
+	category: string;
+	eligible_at: string | Date;
+	cancelled: boolean;
+	archived: boolean;
+	mail: string | null;
+	job: string | null;
+};
 async function planned() {
 	const names = new Map(Object.entries(tasks).map(([k, v]) => [v, k]));
 	const who = new Map(Object.entries(people).map(([k, v]) => [v.id, k]));
 	const r =
-		await db.execute(sql`SELECT n.source_record_id AS task,n.recipient_id AS recipient,n.source_revision::int AS revision,
+		await db.execute<Planned>(sql`SELECT n.source_record_id AS task,n.recipient_id AS recipient,n.source_revision::int AS revision,
 		split_part(n.logical_key,'/',2) AS category,n.eligible_at,n.cancelled_at IS NOT NULL AS cancelled,n.archived_at IS NOT NULL AS archived,
 		m.state AS mail,j.state AS job
 		FROM notice n LEFT JOIN mail m ON m.notice_id=n.id LEFT JOIN job j ON j.id=m.job_id
@@ -126,7 +164,14 @@ async function planned() {
 		}))
 		.sort((a, b) => `${a.task}/${a.revision}/${a.category}`.localeCompare(`${b.task}/${b.revision}/${b.category}`));
 }
-const row = (task, to, revision, category, at, rest = {}) => ({
+const row = (
+	task: string,
+	to: Name,
+	revision: number,
+	category: string,
+	at: string | undefined,
+	rest: object = {},
+) => ({
 	task,
 	to,
 	revision,
@@ -140,7 +185,7 @@ const row = (task, to, revision, category, at, rest = {}) => ({
 });
 
 test("AC:CASE-NTF-005 one sync plans and replans the owed reminders of mixed tasks, and the worker sends only those", async () => {
-	const due = {
+	const due: Record<"t1" | "t2" | "t3" | "t4" | "t5" | "t7" | "t8", CivilDue> = {
 		t1: { kind: "date_only", date: day(10) },
 		t2: { kind: "timed", at: hours(5 * 24) },
 		t3: { kind: "date_only", date: day(3) },
@@ -164,7 +209,13 @@ test("AC:CASE-NTF-005 one sync plans and replans the owed reminders of mixed tas
 		{ notice: null, mail: null },
 		{ notice: null, mail: null },
 	]);
-	const t = Object.fromEntries(Object.entries(due).map(([k, v]) => [k, times(v)]));
+	const t = {
+		t1: times(due.t1),
+		t2: times(due.t2),
+		t3: times(due.t3),
+		t7: times(due.t7),
+		t8: times(due.t8),
+	};
 	const app = { mail: null, job: null };
 	assert.deepEqual(await planned(), [
 		row("t1", "ana", 1, "task_due", t.t1.due),
@@ -181,7 +232,7 @@ test("AC:CASE-NTF-005 one sync plans and replans the owed reminders of mixed tas
 	await db.execute(
 		sql`UPDATE notice SET eligible_at=now()-interval '1 hour' WHERE source_record_id=${tasks.t1} AND logical_key LIKE '%/task_due/%'`,
 	);
-	const shown = (await planned())[0].at,
+	const shown = (await planned())[0]!.at,
 		earlier = t.t1;
 	due.t1 = { kind: "date_only", date: day(12) };
 	t.t1 = times(due.t1);

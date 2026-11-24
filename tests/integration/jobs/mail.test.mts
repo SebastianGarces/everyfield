@@ -1,10 +1,11 @@
-import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
+import { sql as querySql, type SQL } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHmac } from "node:crypto";
 import { spawn } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -13,8 +14,10 @@ import { ok, seeds } from "../../support/fixture.mts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import {
 	createMailService,
+	type AuthorizeMail,
 	claimUnknownMail,
 	MAIL_PASSES,
+	type MailIntent,
 	runDueMail,
 } from "../../../packages/domain/src/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
@@ -25,22 +28,28 @@ import { callbackVisibility } from "../../../packages/domain/src/jobs/webhook.ts
 import { resendWebhook } from "../../../apps/web/src/server/jobs/webhook-route.ts";
 import { settleCaptured } from "../../../apps/web/src/server/mail/settle.ts";
 import { db, runtime, runtimeSettings, tenant, setup, teardown, due } from "./support.mts";
+
+const firstRow = <T,>(rows: readonly T[]): T => {
+	const [row] = rows;
+	if (row === undefined) assert.fail("no row");
+	return row;
+};
 const account = randomUUID(),
 	key = randomBytes(32),
 	secret = "whsec_" + randomBytes(32).toString("base64");
 let handedOff = () => {};
 const effects = new Map(),
-	requests = [];
+	requests: { key: string | string[] | undefined; payload: string }[] = [];
 let mode = "accepted",
 	sequence = 0,
-	endpoint;
+	endpoint = "";
 const server = createServer(async (req, res) => {
-	const chunks = [];
+	const chunks: Buffer[] = [];
 	for await (const c of req) chunks.push(c);
 	const payload = Buffer.concat(chunks).toString();
 	if (req.method === "GET") {
 		res.setHeader("content-type", "application/json");
-		res.end(JSON.stringify({ id: req.url.split("/").at(-1) }));
+		res.end(JSON.stringify({ id: req.url!.split("/").at(-1) }));
 		return;
 	}
 	const requestKey = req.headers["idempotency-key"];
@@ -68,12 +77,12 @@ const server = createServer(async (req, res) => {
 });
 const transport = createResendTransport(
 	"synthetic",
-	async (url, init) => fetch(endpoint + new URL(url).pathname, init),
+	async (url, init) => fetch(endpoint + new URL(new Request(url).url).pathname, init),
 	{ VERCEL_ENV: "production" },
 );
-const authorize = async (tx, mail) => {
+const authorize: AuthorizeMail = async (tx, mail) => {
 	const input = mail.map((m) => ({ id: m.id, recipient: m.recipient, tenant: m.tenant }));
-	const r = await tx.execute(
+	const r = await tx.execute<{ id: string }>(
 		querySql`SELECT i.id FROM jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(id uuid,recipient uuid,tenant uuid) JOIN seat s ON s.account_id=i.recipient AND s.plant_id=i.tenant AND s.ended_at IS NULL FOR SHARE OF s`,
 	);
 	return new Set(r.rows.map((r) => r.id));
@@ -87,7 +96,7 @@ const service = createMailService({
 	transport,
 });
 async function enqueue(
-	purpose = "notification",
+	purpose: MailIntent["purpose"] = "notification",
 	content = { subject: "Synthetic", text: "safe" },
 	logicalKey = `test/${randomUUID()}`,
 ) {
@@ -105,7 +114,7 @@ async function enqueue(
 		}),
 	);
 }
-async function callback(messageId, kind, eventKey = randomUUID(), bounce) {
+async function callback(messageId: string, kind: string, eventKey: string = randomUUID(), bounce?: { type: string }) {
 	const raw = JSON.stringify({
 		type: "email." + kind,
 		created_at: new Date().toISOString(),
@@ -121,8 +130,8 @@ async function callback(messageId, kind, eventKey = randomUUID(), bounce) {
 		headers: { "svix-id": eventKey, "svix-timestamp": stamp, "svix-signature": "v1," + signature },
 	});
 }
-const webhook = (request, key = secret) => resendWebhook(request, () => runtime, key);
-const receive = async (request) => (await webhook(request)).json();
+const webhook = (request: Request, key = secret) => resendWebhook(request, () => runtime, key);
+const receive = async (request: Request) => (await webhook(request)).json();
 before(async () => {
 	await setup();
 	const user = randomUUID();
@@ -135,8 +144,8 @@ before(async () => {
 	await db.execute(
 		querySql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${querySql.param(account)},${querySql.param(tenant)},'owner',now())`,
 	);
-	await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-	endpoint = "http://127.0.0.1:" + server.address().port;
+	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+	endpoint = "http://127.0.0.1:" + (server.address() as AddressInfo).port;
 });
 after(async () => {
 	server.closeAllConnections();
@@ -146,24 +155,24 @@ after(async () => {
 test("AC:NOTIFY47-008 INV-mail: dropped acceptance replays only the identical request/key; expiry and unknown never mint another effect", async () => {
 	mode = "lost";
 	const id = await enqueue();
-	const [claim] = await claimDue(runtime, ["mail"]);
+	const claim = firstRow(await claimDue(runtime, ["mail"]));
 	const n = effects.size;
 	assert.deepEqual(await service.dispatch(claim), { kind: "unknown" });
 	assert.equal(effects.size, n + 1);
 	assert.equal(
-		(await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(claim.id)}`)).rows[0].state,
+		(await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(claim.id)}`)).rows[0]!.state,
 		"reconcile",
 	);
 	mode = "accepted";
-	const before = (await db.execute(querySql`SELECT clock_timestamp()::text AS at`)).rows[0].at;
-	const [again] = await claimUnknownMail(runtime, ["test/"]);
+	const before = (await db.execute(querySql`SELECT clock_timestamp()::text AS at`)).rows[0]!.at;
+	const again = firstRow(await claimUnknownMail(runtime, ["test/"]));
 	assert.equal(again.id, claim.id);
 	assert.equal(
 		(
 			await db.execute(
 				querySql`SELECT lease_until BETWEEN ${querySql.param(before)}::timestamptz+interval '5 minutes' AND clock_timestamp()+interval '5 minutes' AS correct FROM job WHERE id=${querySql.param(again.id)}`,
 			)
-		).rows[0].correct,
+		).rows[0]!.correct,
 		true,
 	);
 	const out = await service.dispatch(again);
@@ -171,13 +180,13 @@ test("AC:NOTIFY47-008 INV-mail: dropped acceptance replays only the identical re
 	assert.equal(effects.size, n + 1);
 	assert.deepEqual(requests.at(-1), requests.at(-2));
 	assert.equal(
-		(await db.execute(querySql`SELECT provider_message_id FROM mail WHERE id=${querySql.param(id)}`)).rows[0]
+		(await db.execute(querySql`SELECT provider_message_id FROM mail WHERE id=${querySql.param(id)}`)).rows[0]!
 			.provider_message_id,
 		out.id,
 	);
 	mode = "lost";
 	const expired = await enqueue();
-	const [c] = await claimDue(runtime, ["mail"]);
+	const c = firstRow(await claimDue(runtime, ["mail"]));
 	await service.dispatch(c);
 	await db.execute(
 		querySql`UPDATE mail_request SET first_dispatched_at=clock_timestamp()-interval '24 hours' WHERE id=(SELECT request_id FROM mail_request_member WHERE mail_id=${querySql.param(expired)})`,
@@ -190,7 +199,7 @@ test("AC:NOTIFY47-008 INV-mail: dropped acceptance replays only the identical re
 test("INV-mail: killing a worker after provider acceptance recovers its original request without another effect", async () => {
 	mode = "hold";
 	const id = await enqueue();
-	const observed = new Promise((resolve) => (handedOff = resolve));
+	const observed = new Promise<void>((resolve) => (handedOff = resolve));
 	const child = spawn(
 		process.execPath,
 		["--conditions=react-server", new URL("./dispatch-child.mts", import.meta.url).pathname],
@@ -215,7 +224,7 @@ test("INV-mail: killing a worker after provider acceptance recovers its original
 	assert.deepEqual(await exited, { code: null, signal: "SIGKILL" });
 	const count = effects.size;
 	assert.equal(
-		(await db.execute(querySql`SELECT state FROM mail WHERE id=${querySql.param(id)}`)).rows[0].state,
+		(await db.execute(querySql`SELECT state FROM mail WHERE id=${querySql.param(id)}`)).rows[0]!.state,
 		"dispatched",
 	);
 	await db.execute(
@@ -223,12 +232,12 @@ test("INV-mail: killing a worker after provider acceptance recovers its original
 	);
 	assert.equal(await recoverLease(runtime), 1);
 	assert.equal(
-		(await db.execute(querySql`SELECT state FROM mail WHERE id=${querySql.param(id)}`)).rows[0].state,
+		(await db.execute(querySql`SELECT state FROM mail WHERE id=${querySql.param(id)}`)).rows[0]!.state,
 		"unknown",
 	);
 	mode = "accepted";
 	await db.execute(querySql`UPDATE job SET next_attempt_at=NULL WHERE subject_record_id=${querySql.param(id)}`);
-	const [claim] = await claimUnknownMail(runtime, ["test/"]);
+	const claim = firstRow(await claimUnknownMail(runtime, ["test/"]));
 	assert.equal(claim.subject_record_id, id);
 	assert.equal((await service.dispatch(claim)).kind, "accepted");
 	assert.equal(effects.size, count);
@@ -245,15 +254,17 @@ test("INV-mail: protected token bytes stay encrypted and fixed content survives 
 	const id = await enqueue("password_reset", content, logical);
 	assert.equal(await enqueue("password_reset", content, logical), id);
 	await assert.rejects(enqueue("password_reset", { ...content, text: "changed" }, logical), /mail_identity_conflict/);
-	const sql = await db.execute(querySql`SELECT row_to_json(m)::text data FROM mail m WHERE id=${querySql.param(id)}`);
-	assert.equal(sql.rows[0].data.includes(token), false);
-	assert.equal(sql.rows[0].data.includes("synthetic@example.test"), false);
-	const [claim] = await claimDue(runtime, ["mail"]);
+	const sql = await db.execute<{ data: string }>(
+		querySql`SELECT row_to_json(m)::text data FROM mail m WHERE id=${querySql.param(id)}`,
+	);
+	assert.equal(sql.rows[0]!.data.includes(token), false);
+	assert.equal(sql.rows[0]!.data.includes("synthetic@example.test"), false);
+	const claim = firstRow(await claimDue(runtime, ["mail"]));
 	assert.equal((await service.dispatch(claim)).kind, "accepted");
-	assert.equal(JSON.parse(requests.at(-1).payload).text, content.text);
+	assert.equal(JSON.parse(requests.at(-1)!.payload).text, content.text);
 	assert.equal(
-		(await db.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${querySql.param(id)}`)).rows[0]
-			.n,
+		(await db.execute(querySql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${querySql.param(id)}`))
+			.rows[0]!.n,
 		1,
 	);
 	assert.equal(
@@ -273,11 +284,11 @@ test("INV-mail: protected token bytes stay encrypted and fixed content survives 
 	const denied = await enqueue();
 	await db.execute(querySql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${querySql.param(account)}`);
 	const before = requests.length;
-	const [c] = await claimDue(runtime, ["mail"]);
+	const c = firstRow(await claimDue(runtime, ["mail"]));
 	assert.deepEqual(await service.dispatch(c), { kind: "not_dispatched" });
 	assert.equal(requests.length, before);
 	assert.equal(
-		(await db.execute(querySql`SELECT state FROM mail WHERE id=${querySql.param(denied)}`)).rows[0].state,
+		(await db.execute(querySql`SELECT state FROM mail WHERE id=${querySql.param(denied)}`)).rows[0]!.state,
 		"cancelled",
 	);
 	await db.execute(querySql`UPDATE seat SET ended_at=NULL WHERE account_id=${querySql.param(account)}`);
@@ -286,18 +297,18 @@ test("INV-mail: known retryable refusals back off and exhaust exactly three retr
 	mode = "refused";
 	const id = await enqueue();
 	for (let attempt = 1; attempt <= 4; attempt++) {
-		const [claim] = await claimDue(runtime, ["mail"]);
+		const claim = firstRow(await claimDue(runtime, ["mail"]));
 		assert.equal(claim.attempt_count, attempt);
 		assert.deepEqual(await service.dispatch(claim), { kind: "refused", retryable: true, retryAfterSeconds: 901 });
-		const state = (await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(claim.id)}`)).rows[0]
+		const state = (await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(claim.id)}`)).rows[0]!
 			.state;
 		assert.equal(state, attempt === 4 ? "failed" : "retry_wait");
 		if (attempt < 4) {
 			const delay = (
-				await db.execute(
+				await db.execute<{ n: number }>(
 					querySql`SELECT extract(epoch FROM next_attempt_at-clock_timestamp())::int n FROM job WHERE id=${querySql.param(claim.id)}`,
 				)
-			).rows[0].n;
+			).rows[0]!.n;
 			assert.ok(delay >= (attempt === 3 ? 1199 : 900));
 			await due();
 		}
@@ -307,14 +318,14 @@ test("INV-mail: known retryable refusals back off and exhaust exactly three retr
 			await db.execute(
 				querySql`SELECT count(*)::int n FROM mail_attempt a JOIN mail_request_member m ON m.request_id=a.request_id WHERE m.mail_id=${querySql.param(id)}`,
 			)
-		).rows[0].n,
+		).rows[0]!.n,
 		4,
 	);
 	mode = "accepted";
 });
 test("INV-mail: callbacks persist unknown IDs, reject wrong secrets, replay without send, and never regress delivery", async () => {
 	const id = await enqueue();
-	const [claim] = await claimDue(runtime, ["mail"]);
+	const claim = firstRow(await claimDue(runtime, ["mail"]));
 	const out = await service.dispatch(claim);
 	assert.equal(out.kind, "accepted");
 	const count = requests.length;
@@ -329,7 +340,7 @@ test("INV-mail: callbacks persist unknown IDs, reject wrong secrets, replay with
 			await db.execute(
 				querySql`SELECT state,delivered_at IS NOT NULL delivered FROM mail WHERE id=${querySql.param(id)}`,
 			)
-		).rows[0].state,
+		).rows[0]!.state,
 		"sent",
 	);
 	assert.equal(requests.length, count);
@@ -346,13 +357,13 @@ test("INV-mail: callbacks persist unknown IDs, reject wrong secrets, replay with
 	const body = await response.text();
 	assert.equal(body.includes(secret), false);
 	assert.equal(body.includes(out.id), false);
-	const prior = (await db.execute(querySql`SELECT count(*)::int n FROM provider_event`)).rows[0].n;
+	const prior = (await db.execute(querySql`SELECT count(*)::int n FROM provider_event`)).rows[0]!.n;
 	await db.execute(
 		querySql`CREATE FUNCTION reject_callback() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_storage_failure'; END $$; CREATE TRIGGER reject_callback BEFORE INSERT ON provider_event FOR EACH ROW EXECUTE FUNCTION reject_callback()`,
 	);
 	const unavailable = await webhook(await callback(unknown, "sent"));
 	assert.equal(unavailable.status, 503);
-	assert.equal((await db.execute(querySql`SELECT count(*)::int n FROM provider_event`)).rows[0].n, prior);
+	assert.equal((await db.execute(querySql`SELECT count(*)::int n FROM provider_event`)).rows[0]!.n, prior);
 	await db.execute(querySql`DROP TRIGGER reject_callback ON provider_event; DROP FUNCTION reject_callback()`);
 	await db.execute(
 		querySql`CREATE FUNCTION reject_projection() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_conflict' USING ERRCODE = 'serialization_failure'; END $$; CREATE TRIGGER reject_projection BEFORE UPDATE ON mail FOR EACH ROW EXECUTE FUNCTION reject_projection()`,
@@ -367,14 +378,14 @@ test("INV-mail: callbacks persist unknown IDs, reject wrong secrets, replay with
 
 test("INV-mail: a stored callback whose apply fails for a non-transient reason answers 503 and stays pending for replay", async () => {
 	const id = await enqueue();
-	const [claim] = await claimDue(runtime, ["mail"]);
+	const claim = firstRow(await claimDue(runtime, ["mail"]));
 	const out = await service.dispatch(claim);
 	assert.equal(out.kind, "accepted");
 	const before = await callbackVisibility(runtime, "disabled");
 	await db.execute(
 		querySql`CREATE FUNCTION reject_projection() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_apply_failure'; END $$; CREATE TRIGGER reject_projection BEFORE UPDATE ON mail FOR EACH ROW EXECUTE FUNCTION reject_projection()`,
 	);
-	const lines = [];
+	const lines: unknown[] = [];
 	const { error } = console;
 	console.error = (text) => lines.push(JSON.parse(text));
 	let failed;
@@ -392,25 +403,25 @@ test("INV-mail: a stored callback whose apply fails for a non-transient reason a
 	assert.deepEqual(await callbackVisibility(runtime, "disabled"), { ...before, pending: before.pending + 1 });
 	assert.equal(
 		(await db.execute(querySql`SELECT delivered_at IS NULL undelivered FROM mail WHERE id=${querySql.param(id)}`))
-			.rows[0].undelivered,
+			.rows[0]!.undelivered,
 		true,
 	);
 });
 test("INV-mail: captured mail settles each id on its own; one failing id neither stops nor fails the others", async () => {
-	const sent = [];
+	const sent: { id: string; provider: string }[] = [];
 	while (sent.length < 2) {
 		const id = await enqueue();
-		const [claim] = await claimDue(runtime, ["mail"]);
+		const claim = firstRow(await claimDue(runtime, ["mail"]));
 		const out = await service.dispatch(claim);
 		assert.equal(out.kind, "accepted");
 		sent.push({ id, provider: out.id });
 	}
 	await db.execute(
 		querySql.raw(
-			`CREATE FUNCTION reject_first() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.id = '${sent[0].id}' THEN RAISE EXCEPTION 'synthetic_apply_failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_first BEFORE UPDATE ON mail FOR EACH ROW EXECUTE FUNCTION reject_first()`,
+			`CREATE FUNCTION reject_first() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.id = '${sent[0]!.id}' THEN RAISE EXCEPTION 'synthetic_apply_failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER reject_first BEFORE UPDATE ON mail FOR EACH ROW EXECUTE FUNCTION reject_first()`,
 		),
 	);
-	const lines = [];
+	const lines: unknown[] = [];
 	const { error } = console;
 	console.error = (text) => lines.push(JSON.parse(text));
 	try {
@@ -426,19 +437,19 @@ test("INV-mail: captured mail settles each id on its own; one failing id neither
 		{ component: "mail-capture", outcome: "settle_failed", error: { name: "DrizzleQueryError", code: "P0001" } },
 	]);
 	const states = await db.execute(
-		querySql`SELECT id, sent_at IS NOT NULL sent FROM mail WHERE id IN (${querySql.param(sent[0].id)}, ${querySql.param(sent[1].id)})`,
+		querySql`SELECT id, sent_at IS NOT NULL sent FROM mail WHERE id IN (${querySql.param(sent[0]!.id)}, ${querySql.param(sent[1]!.id)})`,
 	);
 	assert.deepEqual(Object.fromEntries(states.rows.map((row) => [row.id, row.sent])), {
-		[sent[0].id]: false,
-		[sent[1].id]: true,
+		[sent[0]!.id]: false,
+		[sent[1]!.id]: true,
 	});
 });
 test("INV-recovery: only a freshly authorized operator can attach provider evidence after the replay window", async () => {
 	mode = "lost";
 	const id = await enqueue();
-	const [claim] = await claimDue(runtime, ["mail"]);
+	const claim = firstRow(await claimDue(runtime, ["mail"]));
 	assert.deepEqual(await service.dispatch(claim), { kind: "unknown" });
-	const providerId = effects.get(requests.at(-1).key),
+	const providerId = effects.get(requests.at(-1)!.key),
 		operation = randomUUID();
 	await db.execute(
 		querySql`UPDATE mail_request SET first_dispatched_at=clock_timestamp()-interval '24 hours' WHERE id=(SELECT request_id FROM mail_request_member WHERE mail_id=${querySql.param(id)})`,
@@ -477,27 +488,27 @@ test("INV-recovery: only a freshly authorized operator can attach provider evide
 		[{ actor_id: account, command_id: operation, reason: "provider_receipt/" + "c".repeat(64) }],
 	);
 	assert.equal(
-		(await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(claim.id)}`)).rows[0].state,
+		(await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(claim.id)}`)).rows[0]!.state,
 		"succeeded",
 	);
 	mode = "accepted";
 });
 test("INV-mail: hard bounce suppresses even security mail; soft bounce does not", async () => {
 	await enqueue();
-	const [c] = await claimDue(runtime, ["mail"]);
+	const c = firstRow(await claimDue(runtime, ["mail"]));
 	const out = await service.dispatch(c);
 	assert.equal(out.kind, "accepted");
 	await receive(await callback(out.id, "bounced", randomUUID(), { type: "Transient" }));
-	assert.equal((await db.execute(querySql`SELECT count(*)::int n FROM suppression`)).rows[0].n, 0);
+	assert.equal((await db.execute(querySql`SELECT count(*)::int n FROM suppression`)).rows[0]!.n, 0);
 	await receive(await callback(out.id, "bounced", randomUUID(), { type: "Permanent" }));
-	assert.equal((await db.execute(querySql`SELECT reason FROM suppression`)).rows[0].reason, "hard_bounce");
+	assert.equal((await db.execute(querySql`SELECT reason FROM suppression`)).rows[0]!.reason, "hard_bounce");
 	const next = await enqueue("password_reset");
-	const [claim] = await claimDue(runtime, ["mail"]);
+	const claim = firstRow(await claimDue(runtime, ["mail"]));
 	const count = requests.length;
 	assert.deepEqual(await service.dispatch(claim), { kind: "not_dispatched" });
 	assert.equal(requests.length, count);
 	assert.equal(
-		(await db.execute(querySql`SELECT state FROM mail WHERE id=${querySql.param(next)}`)).rows[0].state,
+		(await db.execute(querySql`SELECT state FROM mail WHERE id=${querySql.param(next)}`)).rows[0]!.state,
 		"refused",
 	);
 });
@@ -538,7 +549,6 @@ function queue(svc: ReturnType<typeof recorded>["svc"], logicalKey: string, extr
 		} as never),
 	);
 }
-const cron = "cron-" + randomUUID();
 async function tick(mountMail: Parameters<typeof scheduledJobs>[0]["mountMail"]) {
 	const response = await scheduledJobs({
 		db: runtime,
@@ -548,13 +558,13 @@ async function tick(mountMail: Parameters<typeof scheduledJobs>[0]["mountMail"])
 		digests: null,
 		mail: null,
 		mountMail,
-	})(new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${cron}` } }));
+	})();
 	return (await response.json()) as { steps: Record<string, { status: string; count?: unknown }> };
 }
 const passOver =
 	(svc: ReturnType<typeof recorded>["svc"], prefixes: readonly string[]) => (limit: number, until: number) =>
 		runDueMail(runtime, svc, prefixes, limit, until);
-const row = async (query) => (await db.execute(query)).rows[0];
+const row = async (query: SQL) => (await db.execute(query)).rows[0];
 
 test("every logical-key prefix a mail producer writes is claimed by exactly one runner pass", () => {
 	const listed = ["password_reset/", "email_verification/", "digest/", "notice/"];
@@ -685,7 +695,8 @@ test("an Unsubscribe link minted before the account's first cadence save still u
 		iat: new Date().toISOString(),
 	});
 	const actor = await RequestActor.resolve(runtime, sessionId.parse(reader.session));
-	const before = ok(await api.getPreferences(runtime, actor, {}));
+	if (!(actor instanceof RequestActor)) assert.fail(actor.status);
+	const before = ok(await api.getPreferences(runtime, actor));
 	ok(
 		await api.setDigestCadence(runtime, actor, {
 			requestKey: randomUUID(),
@@ -699,10 +710,8 @@ test("an Unsubscribe link minted before the account's first cadence save still u
 	const out = ok(await api.applyEmailOptOut(runtime, { token }));
 	assert.equal(out.changed, true);
 	assert.equal(
-		(
-			await row(querySql`SELECT enabled FROM notification_preference
-				WHERE account_id=${querySql.param(reader.id)} AND category='planter_digest' AND channel='email'`)
-		).enabled,
+		(await row(querySql`SELECT enabled FROM notification_preference
+				WHERE account_id=${querySql.param(reader.id)} AND category='planter_digest' AND channel='email'`))!.enabled,
 		false,
 	);
 });

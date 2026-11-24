@@ -2,6 +2,9 @@ import "../platform/setup.mts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
+import { S3Client } from "../../../packages/db/src/schema/storage.ts";
+import { accountId, sessionId } from "../../../packages/contracts/src/common/values.ts";
+import type { SettingsContext } from "../../../packages/contracts/src/settings/server.ts";
 import { testDatabase } from "../../support/test-database.mts";
 import { sql, eq } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
@@ -16,48 +19,64 @@ import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { ok } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
+const firstRow = <T,>(rows: readonly T[]): T => {
+	const [row] = rows;
+	if (row === undefined) assert.fail("no row");
+	return row;
+};
+
 const database = await testDatabase({
 	prefix: "t128",
 	roles: { runtime: ["runtime"], cleanup: ["cleanup"], auth: ["auth"] },
 });
 const { admin } = database;
 const { runtime: db, cleanup: cleanupDb, auth: authDb } = database.pools;
-let api, onboarding, credentials, signInAuth;
+let credentials: ReturnType<typeof createAccountCredentials>;
+let api: ReturnType<typeof settingsApi<typeof credentials>>;
+let onboarding: ReturnType<typeof createOnboardingProducer>;
+let signInAuth: ReturnType<typeof identityAuth>;
 const origin = "http://purge.localhost";
-const secret = randomBytes(40).toString("hex"),
-	cron = "cron-" + randomUUID();
-const ingress = new Map();
+const secret = randomBytes(40).toString("hex");
+const ingress = new Map<string, Request>();
 
-const objects = new Map();
+const objects = new Map<string, Buffer>();
 let failing = 0;
-const storage = {
-	bucket: "synthetic-only",
-	client: {
-		send: async (command) => {
-			assert.equal(command.constructor.name, "DeleteObjectCommand");
-			if (failing > 0) {
-				failing--;
-				throw Error("provider_timeout");
-			}
-			objects.delete(command.input.Key);
-			return {};
-		},
-	},
-};
-let tick;
+class DeletingClient extends S3Client {
+	constructor() {
+		super({
+			region: "us-east-1",
+			endpoint: "https://example.invalid",
+			forcePathStyle: true,
+			credentials: { accessKeyId: "test", secretAccessKey: "test" },
+		});
+	}
+	override async send(command: { input: { Key?: string } }) {
+		assert.equal(command.constructor.name, "DeleteObjectCommand");
+		if (failing > 0) {
+			failing--;
+			throw Error("provider_timeout");
+		}
+		objects.delete(String(command.input.Key));
+		return {};
+	}
+}
+const storage = { bucket: "synthetic-only", client: new DeletingClient() };
+let tick: ReturnType<typeof scheduledJobs>;
 async function run() {
-	const response = await tick(
-		new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${cron}` } }),
-	);
+	const response = await tick();
 	assert.equal(response.status, 200);
 	return response.json();
 }
 
 const command = (input = {}, expectedRevision = "1") => ({ input, expectedRevision, requestKey: randomUUID() });
-const ctx = (a, selected = { kind: "account", id: a.id }) => ({ session: a.session, selected });
+type Member = { id: string; user: string; email: string; password: string; session: SettingsContext["session"] };
+const ctx = (a: Member, selected: SettingsContext["selected"] = { kind: "account", id: accountId.parse(a.id) }) => ({
+	session: a.session,
+	selected,
+});
 
 before(async () => {
-	const organizationEffects = {
+	const organizationEffects: Parameters<typeof createOrganizationAdapter>[0] = {
 		invitation: async () => {},
 		invalidate: (tx) => queueJobs(tx, []),
 	};
@@ -75,14 +94,14 @@ before(async () => {
 		diagnostic: () => {},
 		responseCookies: async () => {},
 		deliverVerification: async () => {},
-		securityNotice: async () => {},
+		securityNotice: async () => randomUUID(),
 	});
 	api = settingsApi({
 		organizations: createOrganizationAdapter(organizationEffects, {
 			candidates: () => sql`SELECT NULL::uuid WHERE false`,
 		}),
 		organizationEffects,
-		effects: { replan: async () => {} },
+		effects: { replan: async () => randomUUID() },
 		suppression: async () => "unavailable",
 		avatarCleanup: { queue: (tx) => queueJobs(tx, []) },
 		deletion: {
@@ -114,8 +133,9 @@ before(async () => {
 });
 after(database.close);
 
-const signIn = (a) => signInAuth.api.signInEmail({ body: { email: a.email, password: a.password }, asResponse: true });
-async function member() {
+const signIn = (a: Pick<Member, "email" | "password">) =>
+	signInAuth.api.signInEmail({ body: { email: a.email, password: a.password }, asResponse: true });
+async function member(): Promise<Member> {
 	const email = randomUUID() + "@example.test",
 		password = "Initial secret 2468!";
 	const signed = await signInAuth.api.signUpEmail({ body: { name: "Purge User", email, password } });
@@ -132,10 +152,11 @@ async function member() {
 		.join("; ");
 	const request = new Request(origin + "/api/settings", { method: "POST", headers: { origin, cookie } });
 	const s = await signInAuth.api.getSession({ headers: request.headers });
+	assert.ok(s);
 	ingress.set(s.session.id, request);
-	return { id, user: signed.user.id, email, password, session: s.session.id };
+	return { id, user: signed.user.id, email, password, session: sessionId.parse(s.session.id) };
 }
-async function file(tenant) {
+async function file(tenant: string) {
 	const [account] = await admin.select({ id: t.account.id }).from(t.account).where(eq(t.account.id, tenant));
 	const id = randomUUID(),
 		key = `private/${tenant}/${randomUUID()}`,
@@ -156,26 +177,26 @@ async function file(tenant) {
 	});
 	if (account) await admin.update(t.account).set({ avatar_object_id: id }).where(eq(t.account.id, tenant));
 	else {
-		const [person] = await admin
-			.select({ id: t.person.id })
-			.from(t.person)
-			.where(eq(t.person.plant_id, tenant))
-			.limit(1);
+		const person = firstRow(
+			await admin.select({ id: t.person.id }).from(t.person).where(eq(t.person.plant_id, tenant)).limit(1),
+		);
 		await admin.update(t.person).set({ photo_object_id: id }).where(eq(t.person.id, person.id));
 	}
 	return { id, key };
 }
-const revisionOf = async (id) => (await admin.select().from(t.account).where(eq(t.account.id, id)))[0].revision;
-const witnessOf = async (subject) =>
-	(await admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, subject)))[0];
-const jobOf = async (witness) =>
-	(
+const revisionOf = async (id: string) =>
+	(await admin.select().from(t.account).where(eq(t.account.id, id)))[0]!.revision;
+const witnessesOf = (subject: string) =>
+	admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, subject));
+const witnessOf = async (subject: string) => firstRow(await witnessesOf(subject));
+const jobOf = async (witness: string) =>
+	firstRow(
 		await admin
 			.select()
 			.from(t.job)
-			.where(sql`${t.job.kind}='lifecycle_purge' AND ${t.job.subject_record_id}=${witness}`)
-	)[0];
-async function graceEnds(witness) {
+			.where(sql`${t.job.kind}='lifecycle_purge' AND ${t.job.subject_record_id}=${witness}`),
+	);
+async function graceEnds(witness: string) {
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`ALTER TABLE lifecycle_witness DISABLE TRIGGER witness_clock`);
 		await tx.execute(
@@ -188,7 +209,7 @@ async function graceEnds(witness) {
 		);
 	});
 }
-const openDeletion = (a) => credentials.openAccountDeletion({ email: a.email, password: a.password }, null);
+const openDeletion = (a: Member) => credentials.openAccountDeletion({ email: a.email, password: a.password }, null);
 
 test("AC:TARGET-IDN-032 after Delete my account and the grace period, a scheduled tick purges the account and the old login is refused", async () => {
 	const a = await member();
@@ -217,10 +238,10 @@ test("AC:TARGET-IDN-032 after Delete my account and the grace period, a schedule
 	assert.equal(purged.state, "purged");
 	assert.equal(purged.request_id, pending.requestId);
 	assert.notEqual(purged.live_purged_at, null);
-	assert.equal(purged.copy_expires_at.getTime() - purged.live_purged_at.getTime(), 7 * 86400_000);
+	assert.equal(purged.copy_expires_at!.getTime() - purged.live_purged_at!.getTime(), 7 * 86400_000);
 	assert.equal((await jobOf(w.id)).state, "succeeded");
 	assert.equal(objects.has(avatar.key), false);
-	assert.equal((await admin.select().from(t.file_object).where(eq(t.file_object.id, avatar.id)))[0].state, "purged");
+	assert.equal((await admin.select().from(t.file_object).where(eq(t.file_object.id, avatar.id)))[0]!.state, "purged");
 
 	const rejected = await signIn(a);
 	assert.notEqual(rejected.status, 200);
@@ -293,7 +314,11 @@ test("AC:TARGET-IDN-032 AC:DEL58-005 a workspace deletion purges through the sam
 		const a = await member();
 		const created = ok(
 			await gatedTransaction(db, (tx) =>
-				onboarding.createPlant(tx, ctx(a), command({ name: "Harvest Point", confirmed: true }, "1")),
+				onboarding.createPlant(
+					tx,
+					{ session: a.session, selected: { kind: "account", id: accountId.parse(a.id) } },
+					command({ name: "Harvest Point", confirmed: true }, "1"),
+				),
 			),
 		);
 		return { a, p: created.plant };
@@ -301,7 +326,7 @@ test("AC:TARGET-IDN-032 AC:DEL58-005 a workspace deletion purges through the sam
 	const deleted = await church(),
 		other = await church();
 	const [doomed, kept] = [await file(deleted.p.id), await file(other.p.id)];
-	const [plant] = await admin.select().from(t.plant).where(eq(t.plant.id, deleted.p.id));
+	const plant = firstRow(await admin.select().from(t.plant).where(eq(t.plant.id, deleted.p.id)));
 	ok(
 		await gatedTransaction(db, (tx) =>
 			api.requestWorkspaceDeletion(
@@ -317,15 +342,15 @@ test("AC:TARGET-IDN-032 AC:DEL58-005 a workspace deletion purges through the sam
 	assert.equal((await run()).purged, 1);
 	const purged = await witnessOf(deleted.p.id);
 	assert.equal(purged.state, "purged");
-	assert.equal(purged.copy_expires_at.getTime() - purged.live_purged_at.getTime(), 7 * 86400_000);
+	assert.equal(purged.copy_expires_at!.getTime() - purged.live_purged_at!.getTime(), 7 * 86400_000);
 	assert.equal((await jobOf(w.id)).state, "succeeded");
 	assert.equal((await admin.select().from(t.person).where(eq(t.person.plant_id, deleted.p.id))).length, 0);
 	assert.equal(objects.has(doomed.key), false);
-	const [survivor] = await admin.select().from(t.plant).where(eq(t.plant.id, other.p.id));
+	const survivor = firstRow(await admin.select().from(t.plant).where(eq(t.plant.id, other.p.id)));
 	assert.equal(survivor.name, "Harvest Point");
 	assert.ok((await admin.select().from(t.person).where(eq(t.person.plant_id, other.p.id))).length > 0);
 	assert.equal(objects.has(kept.key), true);
-	assert.equal((await witnessOf(other.p.id)) ?? null, null);
+	assert.deepEqual(await witnessesOf(other.p.id), []);
 });
 
 test("INV-executor: without the cleanup login the tick skips the purge, runs the other workers and still answers 200", async () => {
@@ -342,9 +367,7 @@ test("INV-executor: without the cleanup login the tick skips the purge, runs the
 		{ storage: null, cleanup: cleanupDb },
 	]) {
 		const skip = scheduledJobs({ db, effects: null, digests: null, mail: null, ...config });
-		const response = await skip(
-			new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${cron}` } }),
-		);
+		const response = await skip();
 		assert.equal(response.status, 200);
 		const body = await response.json();
 		assert.deepEqual([body.status, body.purged], ["ok", 0]);

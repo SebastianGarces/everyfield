@@ -1,6 +1,7 @@
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
+import type { Transaction } from "../../../packages/db/src/client.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import {
 	enqueueJob,
@@ -9,11 +10,20 @@ import {
 	finishJob,
 	recoverLease,
 	checkpoint,
+	type Claim,
+	type JobInput,
+	type JobKind,
 } from "../../../packages/domain/src/jobs/queue.ts";
 import { db, runtime, tenant, setup, teardown, subject, due } from "./support.mts";
+
+const firstRow = <T,>(rows: readonly T[]): T => {
+	const [row] = rows;
+	if (row === undefined) assert.fail("no row");
+	return row;
+};
 before(setup);
 after(teardown);
-const create = async (maxAttempts = 4, kind = "object_cleanup") => {
+const create = async (maxAttempts = 4, kind: JobKind = "object_cleanup") => {
 	const id = await subject();
 	return transaction(runtime, (tx) =>
 		enqueueJob(tx, {
@@ -31,7 +41,7 @@ test("AC:CASE-NTF-002 INV-jobs: concurrent claims fence late completions and ret
 	const id = await create();
 	const groups = await Promise.all([claimDue(runtime, ["object_cleanup"]), claimDue(runtime, ["object_cleanup"])]);
 	assert.deepEqual(groups.map((g) => g.length).sort(), [0, 1]);
-	const claim = groups.flat()[0];
+	const claim = groups.flat()[0]!;
 	assert.equal(claim.id, id);
 	assert.equal(claim.claim_generation, "1");
 	await db.execute(
@@ -40,7 +50,7 @@ test("AC:CASE-NTF-002 INV-jobs: concurrent claims fence late completions and ret
 	assert.equal(await recoverLease(runtime), 1);
 	assert.equal(await transaction(runtime, (tx) => finishClaim(tx, claim, { state: "succeeded" })), false);
 	await due();
-	const [newClaim] = await claimDue(runtime, ["object_cleanup"]);
+	const newClaim = firstRow(await claimDue(runtime, ["object_cleanup"]));
 	assert.equal(newClaim.claim_generation, "3");
 	assert.equal(newClaim.attempt_count, 2);
 	for (const stale of [
@@ -54,30 +64,30 @@ test("AC:CASE-NTF-002 INV-jobs: concurrent claims fence late completions and ret
 	}
 	assert.equal(await finishJob(runtime, newClaim, { state: "succeeded" }), true);
 	assert.equal(
-		(await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(id)}`)).rows[0].state,
+		(await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(id)}`)).rows[0]!.state,
 		"succeeded",
 	);
 });
 test("INV-jobs: default and explicit leases meet the execution limits", async () => {
-	async function bracket(operation, seconds) {
-		const before = (await db.execute(querySql`SELECT clock_timestamp()::text AS at`)).rows[0].at;
+	async function bracket(operation: () => Promise<Claim>, seconds: number) {
+		const before = (await db.execute(querySql`SELECT clock_timestamp()::text AS at`)).rows[0]!.at;
 		const claim = await operation();
 		const result =
 			await db.execute(querySql`SELECT lease_until BETWEEN ${querySql.param(before)}::timestamptz+make_interval(secs=>${querySql.param(seconds)})
       AND clock_timestamp()+make_interval(secs=>${querySql.param(seconds)}) AS correct FROM job WHERE id=${querySql.param(claim.id)}`);
-		assert.equal(result.rows[0].correct, true);
+		assert.equal(result.rows[0]!.correct, true);
 		return claim;
 	}
-	for (const [kind, seconds, expected] of [
+	const leases: [JobKind, number | undefined, number][] = [
 		["object_cleanup", undefined, 300],
 		["object_cleanup", 1, 1],
 		["object_cleanup", 120, 120],
 		["object_cleanup", 300, 300],
-	]) {
+	];
+	for (const [kind, seconds, expected] of leases) {
 		await create(4, kind);
 		const claim = await bracket(async () => {
-			const [c] = await claimDue(runtime, [kind], 1, seconds);
-			return c;
+			return firstRow(await claimDue(runtime, [kind], 1, seconds));
 		}, expected);
 		for (const invalid of [0, 301, 1.5]) await assert.rejects(claimDue(runtime, [kind], 1, invalid));
 		await db.execute(
@@ -88,58 +98,58 @@ test("INV-jobs: default and explicit leases meet the execution limits", async ()
 test("INV-jobs INV-privacy: safe checkpoints resume, external effects reconcile, exhausted jobs stop, and only a fixed code is stored", async () => {
 	for (const external of [false, true]) {
 		const id = await create(1);
-		const [claim] = await claimDue(runtime, ["object_cleanup"]);
+		const claim = firstRow(await claimDue(runtime, ["object_cleanup"]));
 		if (external) assert.equal(await transaction(runtime, (tx) => checkpoint(tx, claim, "external")), true);
 		await db.execute(
 			querySql`UPDATE job SET lease_until=clock_timestamp()-interval '1 second' WHERE id=${querySql.param(id)}`,
 		);
 		assert.equal(await recoverLease(runtime), 1);
 		assert.equal(
-			(await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(id)}`)).rows[0].state,
+			(await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(id)}`)).rows[0]!.state,
 			external ? "reconcile" : "failed",
 		);
 		assert.equal(await transaction(runtime, (tx) => finishClaim(tx, claim, { state: "succeeded" })), false);
 	}
 	const id = await create();
-	const [claim] = await claimDue(runtime, ["object_cleanup"]);
+	const claim = firstRow(await claimDue(runtime, ["object_cleanup"]));
 	for (const code of ["busy'; --", "Key (email)=(someone@example.test) already exists"])
 		await assert.rejects(finishJob(runtime, claim, { state: "retry_wait", code, retryAfterSeconds: 900 } as never));
 	assert.equal(
-		(await db.execute(querySql`SELECT state,error_code FROM job WHERE id=${querySql.param(id)}`)).rows[0].error_code,
+		(await db.execute(querySql`SELECT state,error_code FROM job WHERE id=${querySql.param(id)}`)).rows[0]!.error_code,
 		null,
 	);
 	assert.equal(
 		await finishJob(runtime, claim, { state: "retry_wait", code: "provider_unknown", retryAfterSeconds: 900 }),
 		true,
 	);
-	const wait = await db.execute(
+	const wait = await db.execute<{ seconds: number; state: string; error_code: string }>(
 		querySql`SELECT round(extract(epoch FROM next_attempt_at-clock_timestamp()))::int seconds,state,error_code FROM job WHERE id=${querySql.param(id)}`,
 	);
-	assert.ok(wait.rows[0].seconds >= 899 && wait.rows[0].seconds <= 900);
-	assert.deepEqual([wait.rows[0].state, wait.rows[0].error_code], ["retry_wait", "provider_unknown"]);
+	assert.ok(wait.rows[0]!.seconds >= 899 && wait.rows[0]!.seconds <= 900);
+	assert.deepEqual([wait.rows[0]!.state, wait.rows[0]!.error_code], ["retry_wait", "provider_unknown"]);
 	assert.deepEqual(await claimDue(runtime, ["object_cleanup"]), []);
 });
 test("INV-jobs: a retry on the last attempt waits instead of failing when the worker saved progress and reset its budget", async () => {
 	const job = async (id: string) =>
 		(
-			await db.execute(
+			await db.execute<{ state: string; seconds: number }>(
 				querySql`SELECT state,round(extract(epoch FROM next_attempt_at-clock_timestamp()))::int seconds FROM job WHERE id=${querySql.param(id)}`,
 			)
 		).rows[0];
 	for (const progress of [false, true]) {
 		const id = await create(1);
-		const [claim] = await claimDue(runtime, ["object_cleanup"]);
+		const claim = firstRow(await claimDue(runtime, ["object_cleanup"]));
 		assert.equal(claim.attempt_count, claim.max_attempts);
 		if (progress) await db.execute(querySql`UPDATE job SET attempt_count=0 WHERE id=${querySql.param(id)}`);
 		assert.equal(await finishJob(runtime, claim, { state: "retry_wait", code: "import_interrupted" }), true);
 		const row = await job(id);
-		assert.equal(row.state, progress ? "retry_wait" : "failed", String(progress));
-		if (progress) assert.ok(row.seconds >= 299 && row.seconds <= 300);
+		assert.equal(row!.state, progress ? "retry_wait" : "failed", String(progress));
+		if (progress) assert.ok(row!.seconds >= 299 && row!.seconds <= 300);
 	}
 });
 test("INV-jobs: intent and producer fact roll back together, replay retains original job identity", async () => {
 	const record = await subject();
-	const input = {
+	const input: JobInput = {
 		tenant,
 		subject: record,
 		kind: "object_cleanup",
@@ -156,12 +166,12 @@ test("INV-jobs: intent and producer fact roll back together, replay retains orig
 		/required_receipt_failed/,
 	);
 	assert.equal(
-		(await db.execute(querySql`SELECT title FROM document WHERE id=${querySql.param(record)}`)).rows[0].title,
+		(await db.execute(querySql`SELECT title FROM document WHERE id=${querySql.param(record)}`)).rows[0]!.title,
 		"Synthetic",
 	);
 	assert.equal(
 		(await db.execute(querySql`SELECT count(*)::int n FROM job WHERE subject_record_id=${querySql.param(record)}`))
-			.rows[0].n,
+			.rows[0]!.n,
 		0,
 	);
 	const id = await transaction(runtime, (tx) => enqueueJob(tx, input));
@@ -181,24 +191,24 @@ test("INV-scan: committed pages retain the owed tail beyond both page and retry 
 			maxAttempts: 1,
 		}),
 	);
-	const ids = [];
+	const ids: string[] = [];
 	for (let i = 0; i < 5; i++) ids.push(await subject());
 	ids.sort();
 	let observed = 0;
 	const config = {
 		size: 2,
-		load: async (tx, after, size) => {
-			const r = await tx.execute(
+		load: async (tx: Transaction, after: string | null, size: number) => {
+			const r = await tx.execute<{ id: string }>(
 				querySql`SELECT id FROM document WHERE tenant_id=${querySql.param(tenant)} AND id=ANY(${querySql.param(ids)}::uuid[]) AND (${querySql.param(after)}::uuid IS NULL OR id>${querySql.param(after)}::uuid) ORDER BY id LIMIT ${querySql.param(size)}`,
 			);
 			return r.rows.map((r) => r.id);
 		},
-		process: async (tx, ids) => {
+		process: async (tx: Transaction, ids: readonly string[]) => {
 			await tx.execute(querySql`UPDATE document SET title='processed' WHERE id=ANY(${querySql.param(ids)}::uuid[])`);
 		},
 	};
 	for (let i = 0; i < 4; i++) {
-		const [claim] = await claimDue(runtime, ["people_import"]);
+		const claim = firstRow(await claimDue(runtime, ["people_import"]));
 		assert.equal(claim.id, id);
 		assert.equal(await transaction(runtime, (tx) => scanPage(tx, claim, config)), true);
 		observed++;
@@ -209,11 +219,11 @@ test("INV-scan: committed pages retain the owed tail beyond both page and retry 
 			await db.execute(
 				querySql`SELECT count(*)::int n FROM document WHERE id=ANY(${querySql.param(ids)}::uuid[]) AND title='processed'`,
 			)
-		).rows[0].n,
+		).rows[0]!.n,
 		5,
 	);
 	assert.equal(
-		(await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(id)}`)).rows[0].state,
+		(await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(id)}`)).rows[0]!.state,
 		"succeeded",
 	);
 });
@@ -223,15 +233,17 @@ test("INV-jobs: a claim is one round trip; it takes the oldest due job, skips on
 	const calls = { query: 0, connect: 0 };
 	const query = pool.query,
 		connect = pool.connect;
-	pool.query = function (...args) {
-		calls.query++;
-		return Reflect.apply(query, this, args);
-	};
-	pool.connect = function (...args) {
-		calls.connect++;
-		return Reflect.apply(connect, this, args);
-	};
-	let held;
+	Object.assign(pool, {
+		query(this: typeof pool, ...args: unknown[]) {
+			calls.query++;
+			return Reflect.apply(query, this, args);
+		},
+		connect(this: typeof pool, ...args: unknown[]) {
+			calls.connect++;
+			return Reflect.apply(connect, this, args);
+		},
+	});
+	let held: Claim[];
 	try {
 		held = await db.transaction(async (tx) => {
 			await tx.execute(querySql`SELECT id FROM job WHERE id=${querySql.param(ids[0])} FOR UPDATE`);
@@ -246,7 +258,7 @@ test("INV-jobs: a claim is one round trip; it takes the oldest due job, skips on
 		held.map((c) => c.id),
 		[ids[1]],
 	);
-	const [oldest] = await claimDue(runtime, ["digest"]);
+	const oldest = firstRow(await claimDue(runtime, ["digest"]));
 	assert.deepEqual([oldest.id, oldest.attempt_count, oldest.claim_generation], [ids[0], 1, "1"]);
 	assert.deepEqual(await claimDue(runtime, ["digest"]), []);
 });
@@ -292,7 +304,7 @@ test("INV-jobs INV-privacy: every enqueue path and checkpoint accepts a key only
 	const count = await db.execute(
 		querySql`SELECT count(*)::int n FROM job WHERE subject_record_id=${querySql.param(record)}`,
 	);
-	assert.equal(count.rows[0].n, 0);
+	assert.equal(count.rows[0]!.n, 0);
 	for (const key of [
 		`settings/plant_timezone/${record}`,
 		`avatar/${record}/2026-01-01T00:00:00.000Z`,
@@ -309,7 +321,7 @@ test("INV-jobs INV-privacy: every enqueue path and checkpoint accepts a key only
 		querySql`SELECT producer_key FROM job WHERE subject_record_id=${querySql.param(record)} ORDER BY producer_key`,
 	);
 	assert.equal(stored.rows.length, 6);
-	const [claim] = await claimDue(runtime, ["object_cleanup"], 3);
+	const claim = firstRow(await claimDue(runtime, ["object_cleanup"], 3));
 	await assert.rejects(transaction(runtime, (tx) => checkpoint(tx, claim, randomBytes(24).toString("base64url"))));
 	assert.equal(await transaction(runtime, (tx) => checkpoint(tx, claim, "external")), true);
 });

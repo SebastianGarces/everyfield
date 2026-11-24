@@ -1,11 +1,17 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { ok, refused } from "../../support/fixture.mts";
-import { frozenClock, instant } from "../../../packages/contracts/src/common/index.ts";
-import { countdown, GUEST_QUESTION, reviewedOf } from "../../../packages/contracts/src/launch/index.ts";
+import { type Workspace, ok, refused } from "../../support/fixture.mts";
+import { frozenClock, instant, personId } from "../../../packages/contracts/src/common/index.ts";
+import {
+	countdown,
+	type DebriefAnswers,
+	GUEST_QUESTION,
+	type Plan,
+	reviewedOf,
+} from "../../../packages/contracts/src/launch/index.ts";
 import {
 	authorizeLaunchNotices,
 	createLaunchReader,
@@ -17,24 +23,38 @@ import { createPhaseWriter, phaseReader } from "../../../packages/domain/src/pha
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { seatedNotificationService } from "../../../packages/domain/src/jobs/seated-notifications.ts";
 import { launchNotices } from "../../../apps/web/src/features/launch/notices.ts";
+import type { WriteTx } from "../../../packages/domain/src/access/session.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
+const firstRow = <T,>(rows: readonly T[]): T => {
+	const [row] = rows;
+	if (row === undefined) assert.fail("no row");
+	return row;
+};
+
 const TODAY = frozenClock(instant.parse("2026-10-12T17:00:00.000Z"));
-let f, reader, writer, phases;
-const rows = async (q) => (await f.admin.execute(q)).rows;
-const one = async (q) => (await rows(q))[0];
-const plan = async (who) => ok(await reader.readPlan(f.db, who.actor)).plan;
-const journal = async (who) => ok(await reader.readJournal(f.db, who.actor)).entries;
+let f: Awaited<ReturnType<typeof fixture>>;
+let reader: ReturnType<typeof createLaunchReader>;
+let writer: ReturnType<typeof createLaunchWriter>;
+let phases: ReturnType<typeof createPhaseWriter>;
+type Row = Record<string, unknown>;
+const rows = async <R extends Row = Row>(q: SQL) => (await f.admin.execute<R>(q)).rows;
+const one = async <R extends Row = Row>(q: SQL) => (await rows<R>(q))[0]!;
+type Church = Awaited<ReturnType<typeof church>>;
+type Who = Pick<Church["owner"], "actor">;
+const plan = async (who: Who) => ok(await reader.readPlan(f.db, who.actor)).plan;
+const journal = async (who: Who) => ok(await reader.readJournal(f.db, who.actor)).entries;
 const key = () => randomUUID();
-const record = (who, input, expectedRevision, requestKey = key()) =>
+const record = (who: Who, input: object, expectedRevision: string, requestKey: string = key()) =>
 	writer.recordOutcome(f.db, who.actor, {
 		requestKey,
 		expectedRevision,
 		input: { attendance: null, decisions: null, note: null, ...input },
 	});
-const correct = (who, input, expectedRevision, requestKey = key()) =>
+const correct = (who: Who, input: object, expectedRevision: string, requestKey: string = key()) =>
 	writer.correctOutcome(f.db, who.actor, { requestKey, expectedRevision, input });
-const guest = (who, input, requestKey = key()) => writer.addGuestAttendance(f.db, who.actor, { requestKey, input });
+const guest = (who: Who, input: object, requestKey: string = key()) =>
+	writer.addGuestAttendance(f.db, who.actor, { requestKey, input });
 const BLANK = {
 	wentWell: null,
 	toChange: null,
@@ -44,21 +64,26 @@ const BLANK = {
 	missingNames: null,
 	missingCount: null,
 };
-const debrief = (who, p, answers, submit = false) =>
+type Draft = { draft: { id: string; revision: string } | null } | null;
+const debrief = (who: Who, p: { debrief: Draft }, answers: Partial<DebriefAnswers>, submit = false) =>
 	writer[submit ? "submitDebrief" : "saveDebriefDraft"](f.db, who.actor, {
 		requestKey: key(),
-		expectedRevision: p.debrief.draft?.revision ?? "0",
-		input: { draftId: p.debrief.draft?.id ?? null, answers: { ...BLANK, ...answers } },
+		expectedRevision: p.debrief!.draft?.revision ?? "0",
+		input: { draftId: p.debrief!.draft?.id ?? null, answers: { ...BLANK, ...answers } },
 	});
-const summary = (who, p, body, publish = false) =>
+const summary = (who: Who, p: { summary: Draft }, body: string, publish = false) =>
 	writer[publish ? "publishDebriefSummary" : "saveDebriefSummaryDraft"](f.db, who.actor, {
 		requestKey: key(),
-		expectedRevision: p.summary.draft?.revision ?? "0",
-		input: { draftId: p.summary.draft?.id ?? null, body },
+		expectedRevision: p.summary!.draft?.revision ?? "0",
+		input: { draftId: p.summary!.draft?.id ?? null, body },
 	});
-const named = (p) => p.guests.named.map((g) => g.displayName);
-const footprint = (w) =>
-	one(sql`SELECT (SELECT count(*)::int FROM person WHERE tenant_id=${w.id}) people,
+const named = (p: Plan) => p.guests.named!.map((g) => g.displayName);
+type Footprint = Record<
+	"people" | "guests" | "debriefs" | "summaries" | "tasks" | "meetings" | "mail" | "notices" | "audits" | "phase",
+	number
+> & { revision: string };
+const footprint = (w: { id: string }) =>
+	one<Footprint>(sql`SELECT (SELECT count(*)::int FROM person WHERE tenant_id=${w.id}) people,
 		(SELECT count(*)::int FROM launch_guest WHERE plant_id=${w.id}) guests,
 		(SELECT count(*)::int FROM launch_debrief WHERE plant_id=${w.id}) debriefs,
 		(SELECT count(*)::int FROM launch_summary WHERE plant_id=${w.id}) summaries,
@@ -70,7 +95,7 @@ const footprint = (w) =>
 		(SELECT phase FROM plant WHERE id=${w.id}) phase,
 		(SELECT revision::text FROM launch WHERE plant_id=${w.id}) revision`);
 
-async function seated(w, role, name = "Synthetic person") {
+async function seated(w: Workspace, role: "owner" | "admin" | "member", name = "Synthetic person") {
 	const a = await f.account();
 	await f.admin.execute(
 		sql`UPDATE auth_user SET name=${name} WHERE id=(SELECT auth_user_id FROM account WHERE id=${a.id})`,
@@ -78,7 +103,7 @@ async function seated(w, role, name = "Synthetic person") {
 	await f.seat(a, w, role);
 	return { ...a, actor: await f.actor(a.session) };
 }
-async function church({ planned = "2026-10-10" } = {}) {
+async function church({ planned = "2026-10-10" }: { planned?: string | null } = {}) {
 	const w = await f.workspace("plant");
 	await f.admin.execute(sql`UPDATE plant SET name='Harvest Point', timezone='America/Chicago' WHERE id=${w.id}`);
 	const owner = await seated(w, "owner", "Olivia Owner");
@@ -94,13 +119,13 @@ async function church({ planned = "2026-10-10" } = {}) {
 		);
 	return { w, owner, admin, member };
 }
-async function launched(input = {}) {
+async function launched(input: object = {}) {
 	const c = await church();
 	const p = await plan(c.owner);
 	ok(await record(c.owner, { actualDate: "2026-10-11", attendance: 40, decisions: 6, ...input }, p.revision));
 	return c;
 }
-async function person(w, name) {
+async function person(w: { id: string }, name: string) {
 	const id = randomUUID();
 	await f.admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at)
@@ -148,8 +173,8 @@ test("AC:LAUNCH46-001 AC:CASE-LCH-006 Launch Sunday held on Oct 11 sits beside t
 	);
 	assert.equal(saved.outcome, "changed");
 	const p = saved.plan;
-	assert.equal(p.launch.targetDate, "2026-10-10");
-	assert.equal(p.launch.status, "completed");
+	assert.equal(p.launch!.targetDate, "2026-10-10");
+	assert.equal(p.launch!.status, "completed");
 	assert.deepEqual(countdown(p.launch, p.today), { kind: "completed" });
 	assert.deepEqual(
 		{ ...p.outcome, recordedAt: undefined },
@@ -167,7 +192,7 @@ test("AC:LAUNCH46-001 AC:CASE-LCH-006 Launch Sunday held on Oct 11 sits beside t
 });
 
 test("a launch with no date, a later date or a postponement refuses an outcome until Launch Sunday arrives, with nothing written", async () => {
-	const early = async (c) => {
+	const early = async (c: Church) => {
 		const p = await plan(c.owner);
 		const before = await footprint(c.w);
 		const error = refused(await record(c.owner, { actualDate: "2026-10-11", attendance: 40 }, p.revision), "not_ready");
@@ -181,7 +206,7 @@ test("a launch with no date, a later date or a postponement refuses an outcome u
 	ok(
 		await writer.postpone(f.db, postponed.owner.actor, {
 			requestKey: key(),
-			expectedRevision: (await plan(postponed.owner)).launch.revision,
+			expectedRevision: (await plan(postponed.owner)).launch!.revision,
 			input: { reason: "The venue fell through." },
 		}),
 	);
@@ -191,14 +216,14 @@ test("a launch with no date, a later date or a postponement refuses an outcome u
 	const p = ok(
 		await record(today.owner, { actualDate: "2026-10-12", attendance: 40 }, (await plan(today.owner)).revision),
 	).plan;
-	assert.equal(p.launch.status, "completed");
-	assert.equal(p.outcome.actualDate, "2026-10-12");
+	assert.equal(p.launch!.status, "completed");
+	assert.equal(p.outcome!.actualDate, "2026-10-12");
 });
 
 test("AC:CASE-LCH-008 AC:LAUNCH46-012 no future date, counts 0 to 1,000,000, a note of 10,000; empty is not recorded and 0 is 0", async () => {
 	const c = await church();
 	let p = await plan(c.owner);
-	const m = p.milestones[0];
+	const m = p.milestones[0]!;
 	ok(
 		await writer.completeMilestone(f.db, c.owner.actor, {
 			requestKey: key(),
@@ -211,7 +236,7 @@ test("AC:CASE-LCH-008 AC:LAUNCH46-012 no future date, counts 0 to 1,000,000, a n
 	assert.equal(countdown(p.launch, p.today).kind, "overdue");
 
 	const before = await footprint(c.w);
-	const problem = async (input) =>
+	const problem = async (input: object) =>
 		refused(await record(c.owner, { actualDate: "2026-10-11", ...input }, p.revision), "invalid_outcome").details
 			.problem;
 	assert.equal(await problem({ actualDate: "2026-10-13" }), "date_in_future");
@@ -228,7 +253,7 @@ test("AC:CASE-LCH-008 AC:LAUNCH46-012 no future date, counts 0 to 1,000,000, a n
 			p.revision,
 		),
 	).plan;
-	assert.equal(saved.outcome.attendance, 1_000_000);
+	assert.equal(saved.outcome!.attendance, 1_000_000);
 	const empty = ok(
 		await correct(
 			c.owner,
@@ -236,8 +261,8 @@ test("AC:CASE-LCH-008 AC:LAUNCH46-012 no future date, counts 0 to 1,000,000, a n
 			saved.revision,
 		),
 	).plan;
-	assert.equal(empty.outcome.attendance, null);
-	assert.equal(empty.outcome.decisions, 0);
+	assert.equal(empty.outcome!.attendance, null);
+	assert.equal(empty.outcome!.decisions, 0);
 });
 
 test("AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named Mara, linked as a Launch Sunday guest, with nothing made up", async () => {
@@ -250,7 +275,7 @@ test("AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named M
 	assert.equal(p.guests.count, 1);
 	const mara = await one(sql`SELECT p.display_name,p.first_name,p.last_name,p.email,p.phone,p.linked_account_id,p.state,
 		p.stage,p.source,(SELECT count(*)::int FROM launch_guest g WHERE g.person_id=p.id) links
-		FROM person p WHERE p.id=${p.guests.named[0].personId}`);
+		FROM person p WHERE p.id=${p.guests.named![0]!.personId}`);
 	assert.deepEqual(mara, {
 		display_name: "Mara",
 		first_name: null,
@@ -267,7 +292,7 @@ test("AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named M
 	assert.equal(after.people, before.people + 1);
 	assert.equal(after.guests, before.guests + 1);
 	const created = await one(sql`SELECT actor_id,kind FROM audit_event WHERE action='people.created'
-		AND subject_id=${p.guests.named[0].personId}`);
+		AND subject_id=${p.guests.named![0]!.personId}`);
 	assert.deepEqual(created, { actor_id: c.owner.id, kind: "create" });
 	refused(await guest(c.owner, { displayName: "   " }), "invalid_input");
 	refused(await guest(c.owner, { displayName: "x".repeat(256) }), "invalid_input");
@@ -306,7 +331,7 @@ test("AC:LAUNCH46-005 attendance 100 with 20 named guests shows both, and no pla
 	const before = await footprint(c.w);
 	for (let i = 1; i <= 20; i++) ok(await guest(c.owner, { displayName: `Guest ${i}` }));
 	const p = await plan(c.owner);
-	assert.equal(p.outcome.attendance, 100);
+	assert.equal(p.outcome!.attendance, 100);
 	assert.equal(p.guests.count, 20);
 	assert.equal((await footprint(c.w)).people, before.people + 20);
 });
@@ -320,19 +345,19 @@ test("AC:LAUNCH46-011 AC:B02-019 a partial debrief stays a draft; submitting wit
 	assert.deepEqual(p.debrief, { draft: null, submitted: null });
 
 	p = ok(await debrief(c.owner, p, { wentWell: "Worship", toChange: "  Parking  " })).plan;
-	assert.equal(p.debrief.draft.answers.wentWell, "Worship");
-	assert.equal(p.debrief.draft.answers.toChange, "Parking");
-	assert.equal(p.debrief.draft.submittedAt, null);
-	assert.equal(p.debrief.submitted, null);
+	assert.equal(p.debrief!.draft!.answers.wentWell, "Worship");
+	assert.equal(p.debrief!.draft!.answers.toChange, "Parking");
+	assert.equal(p.debrief!.draft!.submittedAt, null);
+	assert.equal(p.debrief!.submitted, null);
 	p = await plan(c.owner);
-	assert.equal(p.debrief.draft.answers.toChange, "Parking");
+	assert.equal(p.debrief!.draft!.answers.toChange, "Parking");
 	assert.deepEqual(p.evidence.guestNamesEntered.status, "unknown");
 	assert.deepEqual(p.evidence.debriefDone.status, "unknown");
 	const stale = { ...p, debrief: { ...p.debrief, draft: null } };
 	refused(await debrief(c.owner, stale, { wentWell: "Other tab" }), "conflict");
 	assert.equal(ok(await debrief(c.owner, p, { wentWell: "Worship", toChange: "Parking" })).outcome, "noop");
 
-	const problem = async (answers) =>
+	const problem = async (answers: Partial<DebriefAnswers>) =>
 		refused(await debrief(c.owner, p, answers, true), "invalid_debrief").details.problem;
 	assert.equal(await problem({ wentWell: "Worship" }), "guest_answer_needed");
 	assert.equal(await problem({ missingNames: "yes" }), "guest_count_needed");
@@ -352,16 +377,16 @@ test("AC:LAUNCH46-011 AC:B02-019 a partial debrief stays a draft; submitting wit
 			true,
 		),
 	).plan;
-	assert.equal(done.debrief.draft, null);
-	assert.equal(done.debrief.submitted.version, 1);
-	assert.deepEqual(done.debrief.submitted.submittedBy, { accountId: c.owner.id, displayName: "Olivia Owner" });
-	assert.ok(done.debrief.submitted.submittedAt);
+	assert.equal(done.debrief!.draft, null);
+	assert.equal(done.debrief!.submitted!.version, 1);
+	assert.deepEqual(done.debrief!.submitted!.submittedBy, { accountId: c.owner.id, displayName: "Olivia Owner" });
+	assert.ok(done.debrief!.submitted!.submittedAt);
 	assert.equal(
 		GUEST_QUESTION,
 		"Was there anyone that visited as a guest and has not been entered by name into our People CRM?",
 	);
-	assert.equal(done.outcome.attendance, 40);
-	assert.equal("attendance" in done.debrief.submitted.answers, false);
+	assert.equal(done.outcome!.attendance, 40);
+	assert.equal("attendance" in done.debrief!.submitted!.answers, false);
 });
 
 test("AC:LAUNCH46-008 AC:LAUNCH46-010 AC:LAUNCH46-009 AC:B02-020 Yes 3 is not met with 3 remaining, naming 2 keeps 3, No is met, a later draft changes nothing", async () => {
@@ -379,7 +404,7 @@ test("AC:LAUNCH46-008 AC:LAUNCH46-010 AC:LAUNCH46-009 AC:B02-020 Yes 3 is not me
 
 	p = ok(await debrief(c.owner, p, { missingNames: "no" }, true)).plan;
 	assert.deepEqual(p.evidence.guestNamesEntered, { status: "met", remaining: null });
-	assert.equal(p.debrief.submitted.version, 2);
+	assert.equal(p.debrief!.submitted!.version, 2);
 	assert.deepEqual(
 		await rows(
 			sql`SELECT version,missing_names,missing_count FROM launch_debrief WHERE plant_id=${c.w.id} ORDER BY version`,
@@ -446,15 +471,15 @@ test("AC:CASE-LCH-007 AC:B02-021 correcting 40 to 50 with a reason is history on
 	refused(await correct(c.owner, { ...input, reason: " " }, p.revision), "invalid_reason");
 	const before = await footprint(c.w);
 	const fixed = ok(await correct(c.owner, input, p.revision)).plan;
-	assert.equal(fixed.outcome.attendance, 50);
-	assert.equal(fixed.outcome.recordedAt, p.outcome.recordedAt);
+	assert.equal(fixed.outcome!.attendance, 50);
+	assert.equal(fixed.outcome!.recordedAt, p.outcome!.recordedAt);
 	const again = ok(await correct(c.owner, input, fixed.revision));
 	assert.equal(again.outcome, "noop");
 	refused(await correct(c.owner, { ...input, attendance: 60 }, p.revision), "conflict");
 	const after = await footprint(c.w);
 	assert.equal(after.audits, before.audits + 1);
 	assert.deepEqual([after.phase, after.tasks], [before.phase, before.tasks]);
-	const [entry] = (await journal(c.owner)).filter((e) => e.change.kind === "outcome");
+	const entry = firstRow((await journal(c.owner)).filter((e) => e.change.kind === "outcome"));
 	assert.deepEqual(entry.change, {
 		kind: "outcome",
 		event: "corrected",
@@ -492,7 +517,7 @@ test("AC:CASE-LCH-002 AC:CASE-LCH-010 Launch history lists date moves, postponem
 		}),
 	);
 	p = await plan(c.owner);
-	let m = p.milestones[0];
+	let m = p.milestones[0]!;
 	m = ok(
 		await writer.completeMilestone(f.db, c.owner.actor, {
 			requestKey: key(),
@@ -535,7 +560,7 @@ test("AC:CASE-LCH-002 AC:CASE-LCH-010 Launch history lists date moves, postponem
 	await f.admin
 		.execute(sql`UPDATE audit_event SET actor_token=coalesce(actor_token,encode(sha256(convert_to(tenant_id::text||'/'||actor_id::text,'UTF8')),'hex')),
 		actor_id=NULL WHERE actor_id=${c.admin.id}`);
-	const moved = (await journal(c.owner)).find((e) => e.change.kind === "date" && e.change.event === "moved");
+	const moved = (await journal(c.owner)).find((e) => e.change.kind === "date" && e.change.event === "moved")!;
 	assert.equal(moved.actor, null);
 	assert.deepEqual(moved.change, {
 		kind: "date",
@@ -556,7 +581,9 @@ test("AC:CASE-LCH-002 AC:CASE-LCH-010 Launch history lists date moves, postponem
 	);
 	const now = await plan(c.owner);
 	ok(await record(c.owner, { actualDate: "2026-10-11", attendance: 40 }, now.revision));
-	const kinds = (await journal(c.owner)).slice(0, 1).map((e) => [e.change.kind, e.change.event]);
+	const kinds = (await journal(c.owner))
+		.slice(0, 1)
+		.map((e) => [e.change.kind, "event" in e.change ? e.change.event : undefined]);
 	assert.deepEqual(kinds, [["outcome", "recorded"]]);
 	refused(await reader.readJournal(f.db, c.member.actor), "access_denied");
 });
@@ -573,25 +600,26 @@ test("AC:B02-030 AC:LAUNCH46-015 AC:LAUNCH46-019 the summary publishes only what
 			true,
 		),
 	).plan;
-	assert.deepEqual(p.summary, { draft: null, published: [] });
+	const empty: unknown = p.summary;
+	assert.deepEqual(empty, { draft: null, published: [] });
 	const before = await footprint(c.w);
 
 	p = ok(await summary(c.owner, p, "Service held.")).plan;
-	assert.equal(p.summary.draft.body, "Service held.");
-	assert.deepEqual(p.summary.published, []);
+	assert.equal(p.summary!.draft!.body, "Service held.");
+	assert.equal(p.summary!.published.length, 0);
 	refused(await summary(c.owner, p, " ", true), "invalid_summary");
 	refused(await summary(c.owner, p, "x".repeat(4001), true), "invalid_summary");
 	p = ok(await summary(c.owner, p, "Service held. Next review is Tuesday.", true)).plan;
-	assert.equal(p.summary.draft, null);
+	assert.equal(p.summary!.draft, null);
 	assert.deepEqual(
-		p.summary.published.map((s) => [s.version, s.body, s.publishedBy.displayName]),
+		p.summary!.published.map((s) => [s.version, s.body, s.publishedBy!.displayName]),
 		[[1, "Service held. Next review is Tuesday.", "Olivia Owner"]],
 	);
-	assert.ok(p.summary.published[0].publishedAt);
+	assert.ok(p.summary!.published[0]!.publishedAt);
 	assert.equal(ok(await summary(c.owner, p, "Service held. Next review is Tuesday.", true)).outcome, "noop");
 	p = ok(await summary(c.owner, p, "Service held. Team review Tuesday.", true)).plan;
 	assert.deepEqual(
-		p.summary.published.map((s) => [s.version, s.body]),
+		p.summary!.published.map((s) => [s.version, s.body]),
 		[
 			[2, "Service held. Team review Tuesday."],
 			[1, "Service held. Next review is Tuesday."],
@@ -604,7 +632,7 @@ test("AC:B02-030 AC:LAUNCH46-015 AC:LAUNCH46-019 the summary publishes only what
 	);
 	const published = (await journal(c.owner)).filter((e) => e.change.kind === "summary");
 	assert.deepEqual(
-		published.map((e) => e.change.version),
+		published.map((e) => ("version" in e.change ? e.change.version : undefined)),
 		[2, 1],
 	);
 	const audit = JSON.stringify(
@@ -622,13 +650,13 @@ test("AC:LAUNCH46-016 AC:LAUNCH46-018 AC:B02-031 an organization reads the publi
 	const network = await f.workspace("sending_network");
 	const sender = await f.workspace("sending_church");
 	const stranger = await f.workspace("sending_network");
-	const orgActor = async (w) => {
+	const orgActor = async (w: Workspace) => {
 		const a = await f.account();
 		await f.seat(a, w, "owner");
 		return f.actor(a.session);
 	};
 	const [n, s, x] = [await orgActor(network), await orgActor(sender), await orgActor(stranger)];
-	const link = async (org, findings, meetings) =>
+	const link = async (org: { id: string }, findings: boolean, meetings: boolean) =>
 		(
 			await one(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,
 			share_ministry_teams,share_wiki,share_activity,shared_findings)
@@ -636,7 +664,7 @@ test("AC:LAUNCH46-016 AC:LAUNCH46-018 AC:B02-031 an organization reads the publi
 		).id;
 	const nLink = await link(network, true, true);
 	await link(sender, true, false);
-	const read = (who) => reader.readPublishedSummary(f.db, who, c.w.id);
+	const read = (who: Who["actor"]) => reader.readPublishedSummary(f.db, who, c.w.id);
 	p = ok(await summary(c.owner, p, "Draft words")).plan;
 	assert.equal(await read(n), null);
 	p = ok(await summary(c.owner, p, "Service held.", true)).plan;
@@ -654,7 +682,7 @@ test("AC:LAUNCH46-016 AC:LAUNCH46-018 AC:B02-031 an organization reads the publi
 	await link(second, true, true);
 	await f.admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${nLink}`);
 	assert.equal(await read(n), null);
-	assert.equal((await read(n2)).body, "Service held.");
+	assert.equal((await read(n2))!.body, "Service held.");
 	await f.admin.execute(sql`UPDATE affiliation SET shared_findings=false WHERE organization_id=${second.id}`);
 	assert.equal(await read(n2), null);
 });
@@ -665,7 +693,7 @@ test("AC:LAUNCH46-020 a Member sees the outcome and guest count, and every Launc
 	let p = ok(await debrief(c.owner, await plan(c.owner), { missingNames: "yes", missingCount: 2 }, true)).plan;
 	p = ok(await summary(c.owner, p, "Service held.", true)).plan;
 	const seen = await plan(c.member);
-	assert.equal(seen.outcome.attendance, 40);
+	assert.equal(seen.outcome!.attendance, 40);
 	assert.deepEqual(seen.guests, { count: 1, named: null });
 	assert.equal(seen.debrief, null);
 	assert.equal(seen.summary, null);
@@ -700,9 +728,10 @@ test("AC:PERSONREF-LAUNCH-NAMED-GUEST-MERGE AC:PERSONREF-LAUNCH-NAMED-GUEST-UNME
 	];
 	for (const id of [alex1, alex2]) ok(await guest(c.owner, { personId: id }));
 	ok(await debrief(c.owner, await plan(c.owner), { missingNames: "yes", missingCount: 3 }, true));
-	const read = (body) => gatedTransaction(f.db, (t) => body(t, new PeopleReadContext(c.owner.actor)));
-	const write = (body) => withPeopleWrite(f.db, c.owner.actor, body);
-	const merge = async (sourceId, survivorId) => {
+	const read = <T,>(body: (tx: WriteTx, ctx: PeopleReadContext) => Promise<T>) =>
+		gatedTransaction(f.db, (t) => body(t, new PeopleReadContext(c.owner.actor)));
+	const write = <T,>(body: Parameters<typeof withPeopleWrite<T>>[2]) => withPeopleWrite(f.db, c.owner.actor, body);
+	const merge = async (sourceId: string, survivorId: string) => {
 		const r = ok(await read((t, ctx) => peopleMerge.getMergeReview(t, ctx, { sourceId, survivorId })));
 		return ok(
 			await write((t, ctx) =>
@@ -721,7 +750,7 @@ test("AC:PERSONREF-LAUNCH-NAMED-GUEST-MERGE AC:PERSONREF-LAUNCH-NAMED-GUEST-UNME
 	const merged = await merge(alex2, alex1);
 	const p = await plan(c.owner);
 	assert.deepEqual(named(p), ["Alex Kim"]);
-	assert.equal(p.outcome.attendance, 40);
+	assert.equal(p.outcome!.attendance, 40);
 	assert.deepEqual(p.evidence.guestNamesEntered, { status: "not_met", remaining: 3 });
 	assert.deepEqual(await links(), [alex1, alex2]);
 	const mergedJo = await merge(alex1, jo);
@@ -744,9 +773,12 @@ test("AC:PERSONREF-LAUNCH-NAMED-GUEST-MERGE AC:PERSONREF-LAUNCH-NAMED-GUEST-UNME
 
 test("AC:PERSONREF-LAUNCH-NAMED-GUEST-RETIRE a retired guest leaves the roster and keeps the link as history", async () => {
 	const c = await launched();
-	const mara = ok(await guest(c.owner, { displayName: "Mara" })).plan.guests.named[0].personId;
-	const read = (body) => gatedTransaction(f.db, (t) => body(t, new PeopleReadContext(c.owner.actor)));
-	const { reviewRevision } = ok(await read((t, ctx) => peopleReader.getStatusWarnings(t, ctx, { personId: mara })));
+	const mara = ok(await guest(c.owner, { displayName: "Mara" })).plan.guests.named![0]!.personId;
+	const read = <T,>(body: (tx: WriteTx, ctx: PeopleReadContext) => Promise<T>) =>
+		gatedTransaction(f.db, (t) => body(t, new PeopleReadContext(c.owner.actor)));
+	const { reviewRevision } = ok(
+		await read((t, ctx) => peopleReader.getStatusWarnings(t, ctx, { personId: personId.parse(mara) })),
+	);
 	const { revision } = await one(sql`SELECT revision::text FROM person WHERE id=${mara}`);
 	ok(
 		await withPeopleWrite(f.db, c.owner.actor, (t, ctx) =>
@@ -766,7 +798,7 @@ test("AC:PERSONREF-LAUNCH-NAMED-GUEST-RETIRE a retired guest leaves the roster a
 	assert.deepEqual(p.guests, { count: 0, named: [] });
 	assert.equal((await rows(sql`SELECT 1 FROM launch_guest WHERE person_id=${mara}`)).length, 1);
 	assert.deepEqual(ok(await reader.suggestGuests(f.db, c.owner.actor, "Mara")), []);
-	refused(await guest(c.owner, { personId: mara }), "access_denied");
+	refused(await guest(c.owner, { personId: personId.parse(mara) }), "access_denied");
 });
 
 test("AC:CASE-LCH-011 the phase journey shows the declaration, the move and Launch Sunday as three entries, with nothing in between", async () => {
@@ -801,7 +833,9 @@ test("AC:CASE-LCH-011 the phase journey shows the declaration, the move and Laun
 	h = await journey();
 	assert.equal(h.entries.length, before + 1);
 	assert.deepEqual(
-		h.entries.slice(-3).map((e) => [e.kind, e.toPhase ?? e.actualDate]),
+		h.entries
+			.slice(-3)
+			.map((e) => [e.kind, ("toPhase" in e ? e.toPhase : null) ?? ("actualDate" in e ? e.actualDate : undefined)]),
 		[
 			["initial_declaration", 3],
 			["movement", 4],
@@ -809,5 +843,5 @@ test("AC:CASE-LCH-011 the phase journey shows the declaration, the move and Laun
 		],
 	);
 	assert.equal(h.state.phase, 4);
-	assert.deepEqual(h.entries.at(-1).actor, { accountId: c.owner.id, displayName: "Olivia Owner" });
+	assert.deepEqual(h.entries.at(-1)!.actor, { accountId: c.owner.id, displayName: "Olivia Owner" });
 });

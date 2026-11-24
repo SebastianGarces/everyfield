@@ -2,19 +2,26 @@ import "../../../platform/setup.mts";
 import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { eq, sql } from "../../../../../packages/db/src/query.ts";
+import { eq, sql, type SQL } from "../../../../../packages/db/src/query.ts";
 import * as t from "../../../../../packages/db/src/schema/tables.ts";
 import { createLifecycleCleanup, deletionOperations } from "../../../../../packages/domain/src/settings/index.ts";
 import { RequestActor } from "../../../../../packages/domain/src/access/session.ts";
 import { feedbackWriter } from "../../../../../packages/domain/src/feedback/index.ts";
-import { runDueScheduled } from "../../../../../packages/domain/src/communication/index.ts";
+import { type DeliveryTransport, runDueScheduled } from "../../../../../packages/domain/src/communication/index.ts";
 import { queueJobs } from "../../../../../packages/domain/src/jobs/queue.ts";
 import { runDueFeedbackPublication } from "../../../../../packages/domain/src/jobs/feedback-publication.ts";
 import { readCurrentManifest, restoreWithCurrentManifest } from "../../../../../ops/maintenance/restore.mts";
+import { accountId } from "../../../../../packages/contracts/src/common/values.ts";
 import { testDatabase } from "../../../../support/test-database.mts";
-import { ok, seeds } from "../../../../support/fixture.mts";
+import { type Actor, ok, seeds } from "../../../../support/fixture.mts";
 import { closedTo, dropTarget, freezeClock, objectStore, operator, snapshot, type Store } from "./support.mts";
 import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
+
+const firstRow = <T,>(rows: readonly T[]): T => {
+	const [row] = rows;
+	if (row === undefined) assert.fail("no row");
+	return row;
+};
 
 const IMAGE_AT = new Date("2026-09-06T12:00:00.000Z");
 const REQUESTED = new Date("2026-09-06T15:00:00.000Z");
@@ -47,7 +54,7 @@ const api = deletionOperations({
 });
 const targets: string[] = [];
 
-const transport = {
+const transport: DeliveryTransport & { sends: number } = {
 	sends: 0,
 	async send(batch) {
 		this.sends += 1;
@@ -60,7 +67,7 @@ const transport = {
 		throw new Error("provider_timeout");
 	},
 };
-const publisher = {
+const publisher: Parameters<typeof runDueFeedbackPublication>[1]["issues"] & { calls: number } = {
 	calls: 0,
 	async create() {
 		this.calls += 1;
@@ -68,16 +75,17 @@ const publisher = {
 	},
 	async search() {
 		this.calls += 1;
-		return { kind: "none" };
+		return { kind: "found", issues: [] };
 	},
 };
 
-let a, b, mailId, issueOf, image;
+let a: Actor, b: Actor, mailId: string, issueOf: string;
+let image: Awaited<ReturnType<typeof snapshot>>;
 async function at(when: Date) {
 	await freezeClock(admin, schema, when);
 	mock.timers.setTime(when.getTime());
 }
-const submit = async (who, description: string) => {
+const submit = async (who: Actor, description: string) => {
 	const actor = await RequestActor.resolve(db, who.session);
 	assert.ok(actor instanceof RequestActor);
 	return ok(
@@ -112,8 +120,8 @@ before(async () => {
 		issue_url='https://example.test/issues/7', published_at=clock_timestamp() WHERE id=${issueOf}::uuid`);
 
 	await at(REQUESTED);
-	const [account] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
-	const subject = { kind: "account" as const, id: a.id };
+	const account = firstRow(await admin.select().from(t.account).where(eq(t.account.id, a.id)));
+	const subject = { kind: "account" as const, id: accountId.parse(a.id) };
 	const requested = ok(
 		await gatedTransaction(db, (tx) =>
 			api.requestAccountDeletion(
@@ -139,12 +147,15 @@ after(async () => {
 	await database.close();
 });
 
-const rows = async (query) => (await admin.execute(query)).rows as Record<string, any>[];
+const rows = async <R extends Record<string, unknown> = Record<string, unknown>>(query: SQL) =>
+	(await admin.execute<R>(query)).rows;
 
 test("AC:REC59-006 an old copy restores no expired body and replays no mail or issue; its rows take the current receipts", async () => {
-	const [w] = await admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, a.id));
+	const w = firstRow(
+		await admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, a.id)),
+	);
 	assert.equal(w.state, "purged");
-	assert.equal(w.copy_expires_at.toISOString(), "2026-10-13T15:00:00.000Z");
+	assert.equal(w.copy_expires_at!.toISOString(), "2026-10-13T15:00:00.000Z");
 
 	await at(RESTORE_AT);
 	const target = `${schema}_r0`;
@@ -185,14 +196,14 @@ test("AC:REC59-006 an old copy restores no expired body and replays no mail or i
 	const [restoredIssue] = await rows(
 		sql`SELECT publication_state, issue_number FROM ${in_("feedback")} WHERE id=${issueOf}::uuid`,
 	);
-	const [restoredWitness] = await rows(
+	const [restoredWitness] = await rows<{ copy_expires_at: string | Date }>(
 		sql`SELECT copy_expires_at FROM ${in_("lifecycle_witness")} WHERE opaque_subject_id=${a.id}::uuid`,
 	);
 	const imageMail = JSON.parse(copy.image.toString()).tables.mail.length;
-	const [{ mail: targetMail }] = await rows(sql`SELECT count(*)::int AS mail FROM ${in_("mail")}`);
+	const [counted] = await rows<{ mail: number }>(sql`SELECT count(*)::int AS mail FROM ${in_("mail")}`);
 	const outcome = {
 		restored_body: body!.body,
-		new_mail: transport.sends + (targetMail - imageMail),
+		new_mail: transport.sends + (counted!.mail - imageMail),
 		new_issues: publisher.calls,
 		expiry_reset: new Date(restoredWitness!.copy_expires_at).toISOString() !== "2026-10-13T15:00:00.000Z",
 	};

@@ -3,22 +3,30 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
-import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { createMailService, type AuthorizeMail } from "../../../packages/domain/src/jobs/mail.ts";
 import {
 	createNotificationService,
+	type NoticeInput,
 	sendDiscoveryAssociationReceipt,
 } from "../../../packages/domain/src/jobs/notifications.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { db, runtime, tenant, setup, teardown } from "./support.mts";
+
+const firstRow = <T,>(rows: readonly T[]): T => {
+	const [row] = rows;
+	if (row === undefined) assert.fail("no row");
+	return row;
+};
 const account = randomUUID(),
 	org = randomUUID(),
 	org2 = randomUUID();
 let sent = 0;
-const authorizer = async (tx, mail) => {
+const authorizer: AuthorizeMail = async (tx, mail) => {
 	const input = mail.map((m) => ({ id: m.id, recipient: m.recipient, notice: m.notice }));
-	const r =
-		await tx.execute(querySql`WITH input AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(id uuid,recipient uuid,notice uuid)),
+	const r = await tx.execute<{
+		id: string;
+	}>(querySql`WITH input AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(id uuid,recipient uuid,notice uuid)),
  accounts AS MATERIALIZED (SELECT a.id FROM account a WHERE a.id IN (SELECT recipient FROM input) AND registration_state='active' FOR SHARE),
  notices AS MATERIALIZED (SELECT n.id,n.source_revision::text AS source_revision,t.revision::text AS current_revision,t.id AS task_id,t.status,t.deleted_at FROM notice n JOIN task t ON t.id=n.source_record_id WHERE n.id IN (SELECT notice FROM input) FOR SHARE OF n,t)
  SELECT i.id FROM input i LEFT JOIN notices n ON n.id=i.notice WHERE CASE WHEN n.id IS NOT NULL THEN n.current_revision=n.source_revision AND EXISTS(SELECT FROM task_assignee a WHERE a.task_id=n.task_id AND a.account_id=i.recipient) AND n.deleted_at IS NULL AND n.status NOT IN ('complete','no_longer_needed') ELSE i.recipient IN (SELECT id FROM accounts) END`);
@@ -48,12 +56,12 @@ const notifications = createNotificationService({
 		return values.map((v, n) => (r.rows.some((r) => r.n === n) ? { address: "synthetic@example.test" } : null));
 	},
 });
-const plantOwner = { kind: "plant", id: tenant };
+const plantOwner = { kind: "plant" as const, id: tenant };
 const task = randomUUID();
 function base(revision = "1") {
 	return {
 		owner: plantOwner,
-		source: { kind: "task", id: task, revision },
+		source: { kind: "task" as const, id: task, revision },
 		text: "An open task is due.",
 		operation: null,
 	};
@@ -116,7 +124,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 		first,
 	);
 	await db.execute(querySql`UPDATE job SET eligible_at='2026-01-01'`);
-	const [claim] = await claimDue(runtime, ["mail"]);
+	const claim = firstRow(await claimDue(runtime, ["mail"]));
 	assert.equal(claim.kind, "mail");
 	await transaction(runtime, async (tx) => {
 		await tx.execute(
@@ -209,8 +217,8 @@ test("INV-wiki: each published upstream change yields only an in-app notice, no 
 	await db.execute(
 		querySql`INSERT INTO article_editor_state(id,organization_id,article_id,state,revision) VALUES(${querySql.param(state)},${querySql.param(org)},${querySql.param(article)},'published',1)`,
 	);
-	const owner = { kind: "organization", id: org, organizationKind: "sending_network" };
-	const input = {
+	const owner = { kind: "organization" as const, id: org, organizationKind: "sending_network" as const };
+	const input: Omit<NoticeInput, "occurrence"> = {
 		owner,
 		recipient: account,
 		source: { kind: "article_editor_state", id: state, revision: "1" },
@@ -228,7 +236,7 @@ test("INV-wiki: each published upstream change yields only an in-app notice, no 
 	assert.equal(a.mail, null);
 	assert.equal(b.mail, null);
 	assert.equal(
-		(await db.execute(querySql`SELECT count(*)::int n FROM mail WHERE tenant_id=${querySql.param(org)}`)).rows[0].n,
+		(await db.execute(querySql`SELECT count(*)::int n FROM mail WHERE tenant_id=${querySql.param(org)}`)).rows[0]!.n,
 		0,
 	);
 	assert.deepEqual(
@@ -259,7 +267,7 @@ test("AC:CASE-NTF-015 INV-discovery: an account who owns the exact organization 
 	await db.execute(
 		querySql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,request_key,metadata) VALUES(${querySql.param(operation)},${querySql.param(org)},${querySql.param(account)},'affiliation.approved','edit','command',${querySql.param(org)},now(),now(),${querySql.param(operation)},jsonb_build_object('outcome',NULL))`,
 	);
-	const input = {
+	const input: Parameters<typeof sendDiscoveryAssociationReceipt>[2] = {
 		organization: org,
 		account,
 		operation,
@@ -274,20 +282,20 @@ test("AC:CASE-NTF-015 INV-discovery: an account who owns the exact organization 
 			return r.rowCount === 1;
 		},
 	};
-	const before = (await db.execute(querySql`SELECT count(*)::int n FROM plant`)).rows[0].n;
+	const before = (await db.execute(querySql`SELECT count(*)::int n FROM plant`)).rows[0]!.n;
 	const first = await transaction(runtime, (tx) => sendDiscoveryAssociationReceipt(tx, mail, input));
 	assert.equal(first.length, 1);
 	assert.deepEqual(await transaction(runtime, (tx) => sendDiscoveryAssociationReceipt(tx, mail, input)), first);
 	assert.equal(
 		(await db.execute(querySql`SELECT count(*)::int n FROM mail WHERE id=ANY(${querySql.param(first)}::uuid[])`))
-			.rows[0].n,
+			.rows[0]!.n,
 		1,
 	);
 	assert.equal(
-		(await db.execute(querySql`SELECT tenant_id FROM mail WHERE id=${querySql.param(first[0])}`)).rows[0].tenant_id,
+		(await db.execute(querySql`SELECT tenant_id FROM mail WHERE id=${querySql.param(first[0])}`)).rows[0]!.tenant_id,
 		account,
 	);
-	assert.equal((await db.execute(querySql`SELECT count(*)::int n FROM plant`)).rows[0].n, before);
+	assert.equal((await db.execute(querySql`SELECT count(*)::int n FROM plant`)).rows[0]!.n, before);
 	await assert.rejects(
 		transaction(runtime, (tx) =>
 			sendDiscoveryAssociationReceipt(tx, mail, { ...input, verifyOccurrence: async () => false }),

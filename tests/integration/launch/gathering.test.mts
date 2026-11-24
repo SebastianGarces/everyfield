@@ -1,55 +1,73 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { ok, refused as refusal } from "../../support/fixture.mts";
+import { type Workspace, ok, refused as refusal } from "../../support/fixture.mts";
+import type { HistoryChange, Plan } from "../../../packages/contracts/src/launch/index.ts";
 import { frozenClock, instant } from "../../../packages/contracts/src/common/index.ts";
 import { createLaunchReader, createLaunchWriter } from "../../../packages/domain/src/launch/index.ts";
 import { createPhaseWriter, phaseReader } from "../../../packages/domain/src/phases/index.ts";
 
+const firstRow = <T,>(rows: readonly T[]): T => {
+	const [row] = rows;
+	if (row === undefined) assert.fail("no row");
+	return row;
+};
+
 const TODAY = frozenClock(instant.parse("2026-10-12T17:00:00.000Z"));
 const CONSTITUTED = "Constituted as a church";
 const MEANING = "The church adopts its constitution and elects its first leaders.";
-let f, reader, writer, phases;
-const rows = async (q) => (await f.admin.execute(q)).rows;
-const one = async (q) => (await rows(q))[0];
+let f: Awaited<ReturnType<typeof fixture>>;
+let reader: ReturnType<typeof createLaunchReader>;
+let writer: ReturnType<typeof createLaunchWriter>;
+let phases: ReturnType<typeof createPhaseWriter>;
+type Row = Record<string, unknown>;
+const rows = async <R extends Row = Row>(q: SQL) => (await f.admin.execute<R>(q)).rows;
+const one = async <R extends Row = Row>(q: SQL) => (await rows<R>(q))[0]!;
+type Church = Awaited<ReturnType<typeof church>>;
+type Who = Pick<Church["owner"], "actor">;
 const key = () => randomUUID();
-const refused = (result, code, details = undefined) => {
+const refused = (result: { status: string }, code: string, details?: unknown) => {
 	const error = refusal(result, code);
 	if (details !== undefined) assert.deepEqual(error.details, details);
 	return error;
 };
-const plan = async (who) => ok(await reader.readPlan(f.db, who.actor)).plan;
-const offers = async (who) => ok(await reader.readGatheringOffers(f.db, who.actor));
-const journal = async (who) => ok(await reader.readJournal(f.db, who.actor)).entries;
-const choose = async (who, input, expectedRevision = undefined) =>
+const plan = async (who: Who) => ok(await reader.readPlan(f.db, who.actor)).plan;
+const offers = async (who: Who) => ok(await reader.readGatheringOffers(f.db, who.actor));
+const journal = async (who: Who) => ok(await reader.readJournal(f.db, who.actor)).entries;
+const choose = async (who: Who, input: object, expectedRevision?: string) =>
 	writer.choosePath(f.db, who.actor, {
 		requestKey: key(),
 		expectedRevision: expectedRevision ?? (await plan(who)).revision,
 		input,
 	});
-const useMilestone = (who, org) => choose(who, { path: "milestone", organizationId: org.id });
-const useSunday = (who) => choose(who, { path: "launch_sunday" });
-const record = async (who, input, requestKey = key()) =>
+const useMilestone = (who: Who, org: { id: string }) => choose(who, { path: "milestone", organizationId: org.id });
+const useSunday = (who: Who) => choose(who, { path: "launch_sunday" });
+const record = async (who: Who, input: object, requestKey: string = key()) =>
 	writer.recordGathering(f.db, who.actor, {
 		requestKey,
 		expectedRevision: (await plan(who)).revision,
 		input: { note: null, ...input },
 	});
-const correct = async (who, input) =>
+const correct = async (who: Who, input: object) =>
 	writer.correctGathering(f.db, who.actor, {
 		requestKey: key(),
 		expectedRevision: (await plan(who)).revision,
 		input: { note: null, ...input },
 	});
-const clear = async (who, reason) =>
+const clear = async (who: Who, reason: string) =>
 	writer.clearGathering(f.db, who.actor, {
 		requestKey: key(),
 		expectedRevision: (await plan(who)).revision,
 		input: { reason },
 	});
-const footprint = (w) =>
+const milestonePath = (p: Pick<Plan, "path">) => {
+	if (p.path.kind !== "milestone") assert.fail(p.path.kind);
+	return p.path;
+};
+const eventOf = (change: HistoryChange) => ("event" in change ? change.event : undefined);
+const footprint = (w: { id: string }) =>
 	one(sql`SELECT (SELECT count(*)::int FROM task WHERE plant_id=${w.id}) tasks,
 		(SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'status',status,'revision',revision::text) ORDER BY id),'[]')
 			FROM task WHERE plant_id=${w.id}) task_rows,
@@ -62,12 +80,16 @@ const footprint = (w) =>
 		(SELECT count(*)::int FROM phase_transition WHERE plant_id=${w.id}) moves,
 		(SELECT phase FROM plant WHERE id=${w.id}) phase,
 		(SELECT jsonb_build_object('status',status,'target',target_date::text) FROM launch WHERE plant_id=${w.id}) launch`);
-const audits = async (w) => (await one(sql`SELECT count(*)::int n FROM audit_event WHERE tenant_id=${w.id}`)).n;
-const launchRow = (w) =>
-	one(sql`SELECT gathering_path,gathering_organization_id::text AS org,gathering_reached_on::text AS reached_on,
+const audits = async (w: { id: string }) =>
+	(await one<{ n: number }>(sql`SELECT count(*)::int n FROM audit_event WHERE tenant_id=${w.id}`)).n;
+const launchRow = (w: { id: string }) =>
+	one<{
+		reached_on: string | null;
+		note: string | null;
+	}>(sql`SELECT gathering_path,gathering_organization_id::text AS org,gathering_reached_on::text AS reached_on,
 		gathering_reached_name AS name,gathering_note AS note,revision::text FROM launch WHERE plant_id=${w.id}`);
 
-async function seated(w, role, name = "Synthetic person") {
+async function seated(w: Workspace, role: "owner" | "admin" | "member", name = "Synthetic person") {
 	const a = await f.account();
 	await f.admin.execute(
 		sql`UPDATE auth_user SET name=${name} WHERE id=(SELECT auth_user_id FROM account WHERE id=${a.id})`,
@@ -75,18 +97,22 @@ async function seated(w, role, name = "Synthetic person") {
 	await f.seat(a, w, role);
 	return { ...a, actor: await f.actor(a.session) };
 }
-async function organization(kind, name, milestone = null) {
+async function organization(
+	kind: "sending_church" | "sending_network",
+	name: string,
+	milestone: { name: string; description?: string } | null = null,
+) {
 	const o = await f.workspace(kind);
 	await f.admin.execute(sql`UPDATE organization SET name=${name},
 		gathering_milestone_offered=${milestone !== null},gathering_milestone_name=${milestone?.name ?? null},
 		gathering_milestone_description=${milestone?.description ?? null} WHERE id=${o.id}`);
 	return o;
 }
-const affiliate = (w, o) =>
+const affiliate = (w: { id: string }, o: { id: string }) =>
 	f.admin.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,
 		share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
 		VALUES(${w.id},${o.id},clock_timestamp()-interval '1 day',false,false,false,false,false,false,false)`);
-async function church({ planned = null, both = false } = {}) {
+async function church({ planned = null, both = false }: { planned?: string | null; both?: boolean } = {}) {
 	const w = await f.workspace("plant");
 	await f.admin.execute(sql`UPDATE plant SET name='Harvest Point', timezone='America/Chicago' WHERE id=${w.id}`);
 	const hill = await organization("sending_network", "Hill Country Network", {
@@ -160,7 +186,7 @@ test("with two offers the Owner picks one; the plan shows it, who chose it and w
 	assert.equal(ok(await useMilestone(c.owner, c.hill)).outcome, "noop");
 	assert.equal(await audits(c.w), n);
 
-	const [entry] = await journal(c.owner);
+	const entry = firstRow(await journal(c.owner));
 	assert.deepEqual(entry.change, {
 		kind: "path",
 		to: "milestone",
@@ -171,7 +197,7 @@ test("with two offers the Owner picks one; the plan shows it, who chose it and w
 	assert.match(entry.at, /^\d{4}-\d\d-\d\dT/);
 
 	ok(await useMilestone(c.admin, c.grace));
-	assert.equal((await plan(c.owner)).path.offered.name, "First gathering multiplied");
+	assert.equal(milestonePath(await plan(c.owner)).offered!.name, "First gathering multiplied");
 });
 
 test("switching either way creates, deletes or changes no task or readiness milestone and moves no phase", async () => {
@@ -195,7 +221,7 @@ test("switching either way creates, deletes or changes no task or readiness mile
 	assert.deepEqual(await footprint(dated.w), was);
 	const back = await plan(dated.owner);
 	assert.deepEqual(back.path, { kind: "launch_sunday" });
-	assert.deepEqual([back.launch.status, back.launch.targetDate], [sunday.launch.status, sunday.launch.targetDate]);
+	assert.deepEqual([back.launch!.status, back.launch!.targetDate], [sunday.launch!.status, sunday.launch!.targetDate]);
 	assert.deepEqual(back.milestones, sunday.milestones);
 	assert.deepEqual(
 		(await journal(dated.owner)).slice(0, 2).map((e) => e.change),
@@ -220,7 +246,7 @@ test("the Owner records the milestone reached on Oct 11 with a note; a later or 
 	assert.equal((await launchRow(c.w)).reached_on, null);
 
 	const saved = ok(await record(c.owner, { date: "2026-10-11", note: "  Voted in by all 31 members.  " }));
-	assert.deepEqual(saved.plan.path.reached, {
+	assert.deepEqual(milestonePath(saved.plan).reached, {
 		name: CONSTITUTED,
 		date: "2026-10-11",
 		note: "Voted in by all 31 members.",
@@ -228,7 +254,7 @@ test("the Owner records the milestone reached on Oct 11 with a note; a later or 
 	const entries = (await journal(c.owner)).length;
 	assert.equal(ok(await record(c.owner, { date: "2026-10-11", note: "Voted in by all 31 members." })).outcome, "noop");
 	assert.equal((await journal(c.owner)).length, entries, "re-saving adds no Launch history entry");
-	assert.deepEqual((await journal(c.owner))[0].change, {
+	assert.deepEqual((await journal(c.owner))[0]!.change, {
 		kind: "gathering",
 		event: "recorded",
 		name: CONSTITUTED,
@@ -240,7 +266,7 @@ test("the Owner records the milestone reached on Oct 11 with a note; a later or 
 	const max = await church();
 	ok(await useMilestone(max.owner, max.hill));
 	ok(await record(max.owner, { date: "2026-10-12", note: "a".repeat(2000) }));
-	assert.equal((await launchRow(max.w)).note.length, 2000);
+	assert.equal((await launchRow(max.w)).note!.length, 2000);
 });
 
 test("a correction needs a reason and keeps both dates; a reached milestone is cleared with a reason before going back to Launch Sunday", async () => {
@@ -252,7 +278,7 @@ test("a correction needs a reason and keeps both dates; a reached milestone is c
 	assert.equal(await audits(c.w), n);
 
 	const fixed = ok(await correct(c.owner, { date: "2026-10-04", reason: "The vote was the Sunday before" }));
-	assert.deepEqual(fixed.plan.path.reached, { name: CONSTITUTED, date: "2026-10-04", note: null });
+	assert.deepEqual(milestonePath(fixed.plan).reached, { name: CONSTITUTED, date: "2026-10-04", note: null });
 	let history = await journal(c.owner);
 	assert.deepEqual(
 		history.slice(0, 2).map((e) => e.change),
@@ -277,7 +303,7 @@ test("a correction needs a reason and keeps both dates; a reached milestone is c
 			},
 		],
 	);
-	assert.deepEqual(history[0].actor, { accountId: c.owner.id, displayName: "Olivia Owner" });
+	assert.deepEqual(history[0]!.actor, { accountId: c.owner.id, displayName: "Olivia Owner" });
 
 	refused(await useSunday(c.owner), "gathering_reached");
 	refused(await useMilestone(c.owner, c.grace), "gathering_reached");
@@ -285,9 +311,9 @@ test("a correction needs a reason and keeps both dates; a reached milestone is c
 	assert.equal((await launchRow(c.w)).reached_on, "2026-10-04");
 
 	ok(await clear(c.owner, "Recorded on the wrong church"));
-	assert.equal((await plan(c.owner)).path.reached, null);
+	assert.equal(milestonePath(await plan(c.owner)).reached, null);
 	history = await journal(c.owner);
-	assert.deepEqual(history[0].change, {
+	assert.deepEqual(history[0]!.change, {
 		kind: "gathering",
 		event: "cleared",
 		name: CONSTITUTED,
@@ -299,7 +325,10 @@ test("a correction needs a reason and keeps both dates; a reached milestone is c
 	ok(await useSunday(c.owner));
 	assert.deepEqual((await plan(c.owner)).path, { kind: "launch_sunday" });
 	assert.deepEqual(
-		(await journal(c.owner)).map((e) => [e.change.kind, e.change.event ?? e.change.to]),
+		(await journal(c.owner)).map((e) => [
+			e.change.kind,
+			"event" in e.change ? e.change.event : "to" in e.change ? e.change.to : undefined,
+		]),
 		[
 			["path", "launch_sunday"],
 			["gathering", "cleared"],
@@ -336,22 +365,26 @@ test("recording, correcting and clearing move no phase and make nothing else; th
 	h = await journey();
 	assert.equal(h.state.phase, 4);
 	assert.deepEqual(
-		h.entries.slice(-3).map((e) => [e.kind, e.toPhase ?? e.reachedOn]),
+		h.entries
+			.slice(-3)
+			.map((e) => [e.kind, ("toPhase" in e ? e.toPhase : null) ?? ("reachedOn" in e ? e.reachedOn : undefined)]),
 		[
 			["initial_declaration", 3],
 			["movement", 4],
 			["gathering", "2026-10-11"],
 		],
 	);
-	assert.equal(h.entries.at(-1).name, CONSTITUTED);
-	assert.deepEqual(h.entries.at(-1).actor, { accountId: c.owner.id, displayName: "Olivia Owner" });
+	const reached = h.entries.at(-1)!;
+	assert.equal("name" in reached ? reached.name : undefined, CONSTITUTED);
+	assert.deepEqual(reached.actor, { accountId: c.owner.id, displayName: "Olivia Owner" });
 
 	const count = h.entries.length;
 	ok(await correct(c.owner, { date: "2026-10-04", note: "Constitution adopted", reason: "Earlier vote" }));
 	assert.deepEqual(await footprint(c.w), was);
 	h = await journey();
 	assert.equal(h.entries.length, count, "a correction is not a second journey entry");
-	assert.equal(h.entries.at(-1).reachedOn, "2026-10-04");
+	const moved = h.entries.at(-1)!;
+	assert.equal("reachedOn" in moved ? moved.reachedOn : undefined, "2026-10-04");
 	ok(await clear(c.owner, "Not yet constituted"));
 	assert.deepEqual(await footprint(c.w), was);
 	assert.equal((await journey()).entries.filter((e) => e.kind === "gathering").length, 0);
@@ -365,30 +398,34 @@ test("a rename keeps the reached name; a milestone turned off or an ended affili
 		sql`UPDATE organization SET gathering_milestone_name='Church constituted' WHERE id=${c.hill.id}`,
 	);
 	let p = await plan(c.owner);
-	assert.equal(p.path.reached.name, CONSTITUTED, "reached under its old name");
-	assert.equal(p.path.offered.name, "Church constituted");
+	assert.equal(milestonePath(p).reached!.name, CONSTITUTED, "reached under its old name");
+	assert.equal(milestonePath(p).offered!.name, "Church constituted");
 	await f.admin.execute(sql`UPDATE organization SET gathering_milestone_offered=false WHERE id=${c.hill.id}`);
 	p = await plan(c.owner);
-	assert.equal(p.path.offered, null);
-	assert.deepEqual(p.path.reached, { name: CONSTITUTED, date: "2026-10-11", note: null });
-	assert.equal((await journal(c.owner))[0].change.event, "recorded");
+	assert.equal(milestonePath(p).offered, null);
+	assert.deepEqual(milestonePath(p).reached, { name: CONSTITUTED, date: "2026-10-11", note: null });
+	assert.equal(eventOf((await journal(c.owner))[0]!.change), "recorded");
 
 	const off = await church();
 	ok(await useMilestone(off.owner, off.hill));
 	await f.admin.execute(sql`UPDATE organization SET gathering_milestone_offered=false WHERE id=${off.hill.id}`);
 	p = await plan(off.owner);
-	assert.deepEqual([p.path.kind, p.path.organizationName, p.path.offered], ["milestone", "Hill Country Network", null]);
+	assert.deepEqual(
+		[p.path.kind, milestonePath(p).organizationName, milestonePath(p).offered],
+		["milestone", "Hill Country Network", null],
+	);
 	const n = await audits(off.w);
 	refused(await record(off.owner, { date: "2026-10-11" }), "gathering_unavailable");
 	assert.equal(await audits(off.w), n);
 	ok(await useSunday(off.owner));
-	assert.equal((await journal(off.owner))[0].change.milestone, CONSTITUTED);
+	const undone = (await journal(off.owner))[0]!.change;
+	assert.equal("milestone" in undone ? undone.milestone : undefined, CONSTITUTED);
 
 	const ended = await church();
 	ok(await useMilestone(ended.owner, ended.hill));
 	await f.admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE plant_id=${ended.w.id}`);
 	p = await plan(ended.owner);
-	assert.deepEqual([p.path.organizationName, p.path.offered], ["Hill Country Network", null]);
+	assert.deepEqual([milestonePath(p).organizationName, milestonePath(p).offered], ["Hill Country Network", null]);
 	assert.deepEqual(await offers(ended.owner), []);
 	ok(await useSunday(ended.owner));
 	refused(await useMilestone(ended.owner, ended.hill), "gathering_unavailable");
@@ -399,11 +436,11 @@ test("a Member and an organization account see the path but every switch, record
 	ok(await useMilestone(c.owner, c.hill));
 	ok(await record(c.owner, { date: "2026-10-11", note: "Adopted" }));
 	const shown = (await plan(c.member)).path;
-	assert.deepEqual(shown.reached, { name: CONSTITUTED, date: "2026-10-11", note: "Adopted" });
+	assert.deepEqual(milestonePath({ path: shown }).reached, { name: CONSTITUTED, date: "2026-10-11", note: "Adopted" });
 	const before = { row: await launchRow(c.w), audits: await audits(c.w) };
 	const revision = (await plan(c.owner)).revision;
 	for (const who of [c.member, c.hillOwner]) {
-		const q = (input) => ({ requestKey: key(), expectedRevision: revision, input });
+		const q = (input: object) => ({ requestKey: key(), expectedRevision: revision, input });
 		refused(await writer.choosePath(f.db, who.actor, q({ path: "launch_sunday" })), "access_denied");
 		refused(
 			await writer.choosePath(f.db, who.actor, q({ path: "milestone", organizationId: c.grace.id })),
