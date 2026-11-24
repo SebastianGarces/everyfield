@@ -584,6 +584,39 @@ test("a message still waiting in Everyfield moves and cancels at once, with no e
 	);
 });
 
+test("a schedule Evry makes names an unsubscribed child as left out, and the stored record says marked as a child", async () => {
+	const owner = await actor("owner");
+	const service = emailService();
+	const kid = randomUUID();
+	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
+		VALUES(${kid},${plant},${plant},'Kit Young','kit.young@example.test','other',clock_timestamp(),'prospect','child','unknown',9,'live')`);
+	await unsubscribe(kid);
+	const start = await turn(owner, service.port);
+	const drafted = await start.propose("communication.saveDraft", {
+		subject: "Unsubscribed child",
+		body: "Hello.",
+		audience: { groups: [], teamIds: [], personIds: [people.alexRivera, dana, kid] },
+	});
+	const id = (await approve(owner, drafted!, service.port)).review.receipt!.receiptId!;
+	const t = await turn(owner, service.port);
+	const review = await t.propose("communication.scheduleReviewed", { communicationId: id, sendAt: localAt(3) });
+	assert.deepEqual(leftOutOf(review!), ["Dana Off: unsubscribed", "Kit Young: unsubscribed"]);
+	assert.equal((await approve(owner, review!, service.port)).outcome, "completed");
+	assert.equal(await sendWhenDue(id, service), 1);
+	assert.deepEqual(sent(service), ["alex.rivera@example.test"]);
+	const refused = await rows(
+		sql`SELECT recipient_person_id AS id,refusal FROM mail WHERE communication_id=${id} AND state='refused'`,
+	);
+	assert.deepEqual(
+		new Map(refused.map((r) => [r.id, r.refusal])),
+		new Map([
+			[dana, "unsubscribed"],
+			[kid, "child"],
+		]),
+	);
+	await admin.execute(sql`UPDATE person SET state='retired' WHERE id=${kid}`);
+});
+
 test("a time change shows old and new time and says Saturday only after the email service confirms", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
@@ -1031,9 +1064,10 @@ test("Evry finds messages by subject and send time; a member reads but cannot wr
 		readCatalog(who)
 			.reviewedWrites.map((w) => w.operation)
 			.filter((op) => op.startsWith("communication."));
-	assert.deepEqual(writes(member), []);
+	assert.deepEqual(writes(member), ["communication.correctContactLog"], "a member gets no email write");
 	assert.deepEqual(writes(owner).sort(), [
 		"communication.cancelScheduledReviewed",
+		"communication.correctContactLog",
 		"communication.deleteDraft",
 		"communication.executeResend",
 		"communication.replaceScheduledReviewed",
@@ -1042,6 +1076,7 @@ test("Evry finds messages by subject and send time; a member reads but cannot wr
 		"communication.saveDraft",
 		"communication.scheduleReviewed",
 		"communication.sendReviewed",
+		"communication.templates.archiveOrDelete",
 		"communication.templates.create",
 		"communication.templates.fork",
 		"communication.templates.update",

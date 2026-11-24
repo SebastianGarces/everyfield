@@ -46,6 +46,7 @@ export type Operation =
 	| "communication.templates.create"
 	| "communication.templates.fork"
 	| "communication.templates.update"
+	| "communication.templates.archiveOrDelete"
 	| InvitationOperation
 	| "meetings.schedule"
 	| "meetings.edit"
@@ -167,7 +168,8 @@ type TaskOperation =
 	| "tasks.executeHandoff"
 	| "tasks.replacePrerequisites"
 	| "followups.recordOutcome"
-	| "followups.correctOutcome";
+	| "followups.correctOutcome"
+	| "communication.correctContactLog";
 
 const TEAMS_TITLE = {
 	"teams.create": "Add a ministry",
@@ -769,7 +771,10 @@ export const showsBefore = (review: Pick<Review, "operation">, change: Change) =
 			review.operation === "development.draftNextVersion") &&
 		(change.before === null || change.before === undefined)
 	) &&
-	!(isDocument(review.operation) && change.before === null) &&
+	!(
+		(isDocument(review.operation) || review.operation === "communication.correctContactLog") &&
+		change.before === null
+	) &&
 	!(
 		isIntelligence(review.operation) &&
 		(change.before === null || JSON.stringify(change.before) === JSON.stringify(change.after))
@@ -845,6 +850,7 @@ export function savedText(review: Review): string {
 		case "followups.recordOutcome":
 			return `Saved. The contact with ${name} is logged.`;
 		case "followups.correctOutcome":
+		case "communication.correctContactLog":
 			return `Saved. The contact log of ${name} is corrected.`;
 		default:
 			return `Saved. ${name} is updated.`;
@@ -919,6 +925,7 @@ const TITLE: Record<Operation, string> = {
 	"communication.templates.create": "Save an email template",
 	"communication.templates.fork": "Copy a system template",
 	"communication.templates.update": "Change an email template",
+	"communication.templates.archiveOrDelete": "Remove an email template",
 	"people.createPerson": "Add a person",
 	"people.updatePerson": "Update a person",
 	"people.changeStatus": "Change a stage",
@@ -950,6 +957,7 @@ const TITLE: Record<Operation, string> = {
 	"tasks.replacePrerequisites": "Set what a task waits on",
 	"followups.recordOutcome": "Log a contact",
 	"followups.correctOutcome": "Correct a contact log entry",
+	"communication.correctContactLog": "Correct a contact log entry",
 	"people.createInterview": "Record an interview",
 	"people.createAssessment": "Record a 4 C's assessment",
 	"people.createCommitment": "Record a commitment",
@@ -1096,8 +1104,9 @@ export const openCriteria = (review: Review) => {
 	return Array.isArray(value) ? (value as { label: string; status: string; reading?: string | null }[]) : null;
 };
 
-export type MailOperation = Extract<Operation, `communication.${string}`>;
-export const isMail = (operation: Operation): operation is MailOperation => operation.startsWith("communication.");
+export type MailOperation = Exclude<Extract<Operation, `communication.${string}`>, "communication.correctContactLog">;
+export const isMail = (operation: Operation): operation is MailOperation =>
+	operation.startsWith("communication.") && operation !== "communication.correctContactLog";
 export type InvitationOperation = "evry.prepareMeetingInvitation" | "evry.reuseRecipe";
 export const isInvitation = (operation: Operation): operation is InvitationOperation =>
 	operation === "evry.prepareMeetingInvitation" || operation === "evry.reuseRecipe";
@@ -1224,6 +1233,7 @@ const MAIL_PENDING: Record<MailOperation, string> = {
 	"communication.templates.create": "Review the new template",
 	"communication.templates.fork": "Review the copy",
 	"communication.templates.update": "Review the template change",
+	"communication.templates.archiveOrDelete": "Review before removing",
 };
 const MAIL_REFUSED: Record<string, string> = {
 	"communication.scheduleReviewed": "Can't schedule this email",
@@ -1248,13 +1258,19 @@ export const MAIL_DISMISSED: Partial<Record<Operation, string>> = {
 	"communication.templates.create": "You closed this review. No template was saved.",
 	"communication.templates.fork": "You closed this review. No copy was made.",
 	"communication.templates.update": "You closed this review. The template stays as it was.",
+	"communication.templates.archiveOrDelete": "You closed this review. The template stays as it was.",
 };
+const removedTitle = (review: Review) =>
+	review.review.changes.find((c) => c.field === "template")?.after === "deleted"
+		? "Template deleted"
+		: "Template archived";
 const LOCAL_ONLY = new Set<Operation>([
 	"communication.saveDraft",
 	"communication.deleteDraft",
 	"communication.templates.create",
 	"communication.templates.fork",
 	"communication.templates.update",
+	"communication.templates.archiveOrDelete",
 ]);
 export function mailHead(
 	review: Review,
@@ -1283,8 +1299,9 @@ export function mailHead(
 		return {
 			title: !LOCAL_ONLY.has(review.operation)
 				? "Working with the email service…"
-				: review.operation === "communication.deleteDraft"
-					? "Deleting…"
+				: review.operation === "communication.deleteDraft" ||
+					  review.operation === "communication.templates.archiveOrDelete"
+					? "Removing…"
 					: "Saving…",
 			tone: "amber",
 		};
@@ -1297,9 +1314,11 @@ export function mailHead(
 			title:
 				review.operation === "communication.deleteDraft"
 					? "Draft deleted"
-					: review.operation.startsWith("communication.templates.")
-						? "Template saved"
-						: "Saved",
+					: review.operation === "communication.templates.archiveOrDelete"
+						? removedTitle(review)
+						: review.operation.startsWith("communication.templates.")
+							? "Template saved"
+							: "Saved",
 			tone: "green",
 		};
 	switch (report.kind) {

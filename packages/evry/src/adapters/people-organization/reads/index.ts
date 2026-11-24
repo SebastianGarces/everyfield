@@ -85,6 +85,7 @@ const searchInput = z.strictObject({
 	...pageInput,
 });
 const ADDRESS = ["street", "postal code", "state", "country", "email", "phone"];
+const MEMBER_CONTACT = ["members' email", "members' phone"];
 const CONTACT = ["contact values", "notes"];
 const ACTIVITY = ["note bodies", "internal reasons", "private care", "account ids", "assessment record ids"];
 
@@ -124,7 +125,11 @@ function householdRows(actor: EvryActor, value: z.infer<typeof householdResult>)
 	const home = value.household;
 	const household = row("household", home.id, home.name, {
 		name: home.name,
-		city: home.city ?? null,
+		street: home.street,
+		city: home.city,
+		stateProvince: home.stateProvince,
+		postalCode: home.postalCode,
+		country: home.country,
 		memberCount: String(home.memberCount),
 		revision: home.revision,
 	});
@@ -280,9 +285,9 @@ function readHousehold(
 					? await personFields.getHousehold(tx, readCtx(actor), request)
 					: await personFields.getHouseholdMembers(tx, readCtx(actor), request);
 			const found = valueOf<z.infer<typeof householdResult>>(reply);
-			if (!found) return missing(operation, ADDRESS);
+			if (!found) return missing(operation, MEMBER_CONTACT);
 			const rows = householdRows(actor, found);
-			return result(operation, "available", rows, rows.length, 1, null, "complete", ADDRESS);
+			return result(operation, "available", rows, rows.length, 1, null, "complete", MEMBER_CONTACT);
 		},
 	};
 }

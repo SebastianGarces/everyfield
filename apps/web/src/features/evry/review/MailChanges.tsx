@@ -100,7 +100,27 @@ type Meeting = { title: string; at: string; zone: string };
 const asMeeting = (value: unknown): Meeting | null =>
 	value && typeof value === "object" && "title" in value ? (value as Meeting) : null;
 
+function RemoveTemplate({ review }: { review: Review }) {
+	const template = find(review, "template");
+	const used = Number(find(review, "usedBy")?.after ?? 0);
+	return (
+		<dl className="flex flex-col gap-3 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
+			<Row label="Template">
+				<New>{text(template?.before)}</New>
+			</Row>
+			<Row label="Change">
+				<New>
+					{template?.after === "deleted"
+						? "Deleted. No email used it."
+						: `Archived instead of deleted: hidden from the template list, and kept on the ${counted(used, "email", "emails")} that used it.`}
+				</New>
+			</Row>
+		</dl>
+	);
+}
+
 function TemplateChanges({ review }: { review: Review }) {
+	if (review.operation === "communication.templates.archiveOrDelete") return <RemoveTemplate review={review} />;
 	const name = find(review, "name");
 	const subject = find(review, "subject");
 	const body = find(review, "body");
@@ -263,6 +283,8 @@ export const MAIL_CONSEQUENCE: Record<string, string> = {
 	"communication.templates.fork":
 		"A church copy is made that you can edit. The system template stays as it is. Nothing is sent.",
 	"communication.templates.update": "The church template changes in Messages. Nothing is sent.",
+	"communication.templates.archiveOrDelete":
+		"Only the church's own template changes. Emails already sent keep their content. Nothing is sent.",
 };
 
 function Tally({ items }: { items: [string, number][] }) {
