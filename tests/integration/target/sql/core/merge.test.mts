@@ -308,8 +308,12 @@ test("a CSV import and a walk-in who are one person merge into one record with e
 	);
 	assert.deepEqual(
 		review.references.filter((r) => r.treatment === "keep"),
-		[{ kind: "skill", count: 1, treatment: "keep" }],
-		"the skill they both have is named as staying, not as moving",
+		[
+			{ kind: "skill", count: 1, treatment: "keep" },
+			{ kind: "obligation", count: 1, treatment: "keep" },
+			{ kind: "task", count: 1, treatment: "keep" },
+		],
+		"the skill and the follow-up they both have are named as staying, not as moving",
 	);
 	const before = await records(s.imported, s.walkIn);
 	const merged = await w.merge(s.walkIn, s.imported, { household: "source" });
@@ -659,18 +663,42 @@ test("a contact that did not finish the replaced follow-up still counts on the o
 	assert.deepEqual([done.completion?.occurredAt, done.measurement?.success], ["2026-10-02T12:00:00.000Z", true]);
 });
 
-test("the follow-up someone owns is the one that stays", async () => {
+test("the owner of the replaced follow-up also owns the one that stays until Unmerge", async () => {
 	const p = await firstVisit("Owned");
 	const theirs = await followUpTask(p.night, p.source);
 	await w.admin.execute(
 		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${P}::uuid,${theirs}::uuid,${w.actors.owner.id})`,
 	);
-	const before = await bothSides(p);
+	const owners = () =>
+		rows(sql`SELECT a.task_id,a.account_id FROM task_assignee a JOIN task t ON t.id=a.task_id
+			WHERE t.person_id IN (${p.source}::uuid,${p.survivor}::uuid) ORDER BY a.task_id`);
+	const before = { sides: await bothSides(p), owners: await owners() };
 	const merged = await w.merge(p.source, p.survivor);
 	const duty = await oneFollowUp(p);
-	assert.deepEqual([duty.task?.id, duty.owners.map((o) => o.accountId)], [theirs, [w.actors.owner.id]]);
+	assert.deepEqual(
+		duty.owners.map((o) => o.accountId),
+		[w.actors.owner.id],
+	);
 	ok(await w.unmerge(merged.mergeId));
-	assert.deepEqual(await bothSides(p), before);
+	assert.deepEqual({ sides: await bothSides(p), owners: await owners() }, before);
+});
+
+test("an open follow-up reopens the one the kept person no longer needed or deleted, and Unmerge closes it again", async (t) => {
+	for (const how of ["waive", "delete"] as const)
+		await t.test(how, async () => {
+			const p = await firstVisit(`Closed ${how}`);
+			const own = await followUpTask(p.night, p.survivor);
+			const request = { requestKey: key(), expectedRevision: await w.revisionOf("task", own) };
+			if (how === "waive")
+				ok(await write.tasks(tasks.waive, { ...request, input: { taskId: own, reason: "Moved away" } }));
+			else ok(await write.tasks(tasks.delete, { ...request, input: { taskId: own } }));
+			const before = await bothSides(p);
+			const merged = await w.merge(p.source, p.survivor);
+			const duty = await oneFollowUp(p);
+			assert.deepEqual([duty.state, duty.task?.id, duty.waiver], ["open", own, null]);
+			ok(await w.unmerge(merged.mergeId));
+			assert.deepEqual(await bothSides(p), before);
+		});
 });
 
 test("correcting the merged person to absent closes their one follow-up and opens none", async () => {

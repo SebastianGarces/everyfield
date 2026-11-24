@@ -1,7 +1,7 @@
 import { meetingTitle } from "@everyfield/contracts/common";
 import { meetingType } from "@everyfield/contracts/meetings";
 import * as c from "@everyfield/contracts/people";
-import { settledStatus, taskStatus } from "@everyfield/contracts/tasks";
+import { taskStatus } from "@everyfield/contracts/tasks";
 import { sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
@@ -19,7 +19,7 @@ import {
 	type WriteContext,
 } from "../core.ts";
 import { matchPeople } from "../duplicates.ts";
-import { lastWrite, type AuditWrite } from "../../operations/writes.ts";
+import type { AuditWrite } from "../../operations/writes.ts";
 import { auditRow } from "../../tasks/core.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people.ts";
 import {
@@ -95,8 +95,19 @@ function parseParticipation(raw: Record<string, unknown>): Participation {
 const followUpRow = meetingOf.extend({
 	id: z.uuid(),
 	meeting_id: z.uuid(),
-	waived: z.boolean(),
-	task: z.object({ id: z.uuid(), status: taskStatus, revision: z.coerce.string(), owned: z.boolean() }).nullable(),
+	revision: z.coerce.string(),
+	waived_at: z.string().nullable(),
+	waiver_reason: z.string().nullable(),
+	task: z
+		.object({
+			id: z.uuid(),
+			revision: z.coerce.string(),
+			status: taskStatus,
+			completed_at: z.string().nullable(),
+			deleted_at: z.string().nullable(),
+			assignees: z.array(z.uuid()),
+		})
+		.nullable(),
 });
 type FollowUp = z.infer<typeof followUpRow>;
 const factsRow = z.object({
@@ -122,6 +133,7 @@ const factsRow = z.object({
 	residency_linked: z.boolean(),
 	skill_names: z.array(z.object({ id: z.uuid(), name: z.string() })),
 	follow_ups: z.array(followUpRow),
+	follow_up_tasks: z.array(z.object({ id: z.uuid(), status: taskStatus, revision: z.coerce.string() })),
 	active_training: z.array(z.object({ id: z.uuid(), program_id: z.uuid() })),
 	refs: z.unknown(),
 });
@@ -136,6 +148,7 @@ const extra = [
 	"residency_linked",
 	"skill_names",
 	"follow_ups",
+	"follow_up_tasks",
 	"active_training",
 ] as const;
 export type Facts = Omit<z.infer<typeof factsRow>, "refs" | (typeof extra)[number]> & {
@@ -151,6 +164,7 @@ export type Facts = Omit<z.infer<typeof factsRow>, "refs" | (typeof extra)[numbe
 	residencyLinked: boolean;
 	skillNames: Map<string, string>;
 	followUps: FollowUp[];
+	followUpTasks: { id: string; status: FollowUpTask["status"]; revision: string }[];
 	activeTraining: Map<string, string>;
 };
 const titled = (m: z.infer<typeof meetingOf>) =>
@@ -171,6 +185,7 @@ export function parseFacts(raw: unknown): Facts | null {
 		residency_linked,
 		skill_names,
 		follow_ups,
+		follow_up_tasks,
 		active_training,
 		...row
 	} = parsed;
@@ -193,6 +208,7 @@ export function parseFacts(raw: unknown): Facts | null {
 		residencyLinked: residency_linked,
 		skillNames: new Map(skill_names.map((s) => [s.id, s.name])),
 		followUps: follow_ups,
+		followUpTasks: follow_up_tasks,
 		activeTraining: new Map(active_training.map((t) => [t.id, t.program_id])),
 	};
 }
@@ -225,10 +241,16 @@ const residencyOf = (person: SQL, owner: string | SQL) =>
 const duplicateKeysOf = (person: SQL, owner: string | SQL) =>
 	sql`'skill_names',(SELECT coalesce(jsonb_agg(jsonb_build_object('id',s.id,'name',lower(btrim(s.name)))),'[]')
  FROM person_skill s WHERE s.person_id=${person} AND s.plant_id=${owner}::uuid),
+ 'follow_up_tasks',(SELECT coalesce(jsonb_agg(jsonb_build_object('id',k.id,'status',k.status,
+ 'revision',k.revision::text)),'[]') FROM task k WHERE k.person_id=${person} AND k.plant_id=${owner}::uuid
+ AND k.obligation_id IS NOT NULL),
  'follow_ups',(SELECT coalesce(jsonb_agg(jsonb_build_object('id',o.id,'meeting_id',o.meeting_id,'title',m.title,
- 'type',m.type,'vision_number',m.vision_number,'waived',o.waived_at IS NOT NULL,'task',(SELECT jsonb_build_object(
-  'id',k.id,'status',k.status,'revision',k.revision::text,'owned',EXISTS(SELECT FROM task_assignee a WHERE a.task_id=k.id))
-  FROM task k WHERE k.obligation_id=o.id AND k.plant_id=o.plant_id AND k.deleted_at IS NULL)) ORDER BY o.id),'[]')
+ 'type',m.type,'vision_number',m.vision_number,'revision',o.revision::text,'waived_at',o.waived_at,
+ 'waiver_reason',o.waiver_reason,'task',(SELECT jsonb_build_object('id',k.id,'revision',k.revision::text,
+  'status',k.status,'completed_at',k.completed_at,'deleted_at',k.deleted_at,'assignees',(SELECT
+  coalesce(jsonb_agg(a.account_id ORDER BY a.account_id),'[]') FROM task_assignee a WHERE a.task_id=k.id))
+  FROM task k WHERE k.obligation_id=o.id AND k.plant_id=o.plant_id
+  ORDER BY k.deleted_at NULLS FIRST,k.created_at DESC LIMIT 1)) ORDER BY o.id),'[]')
  FROM obligation o JOIN meeting m ON m.id=o.meeting_id AND m.plant_id=o.plant_id
  WHERE o.person_id=${person} AND o.plant_id=${owner}::uuid AND o.kind='follow_up' AND o.superseded_at IS NULL),
  'active_training',(SELECT coalesce(jsonb_agg(jsonb_build_object('id',a.id,'program_id',a.program_id)),'[]')
@@ -369,21 +391,33 @@ export function writeParticipations(owner: string, rows: readonly Record<string,
  WHERE g.id=v.id AND g.plant_id=${owner}::uuid`;
 }
 
-const settled = (f: FollowUp) => f.task !== null && settledStatus.some((s) => s === f.task?.status);
+type FollowUpTask = NonNullable<FollowUp["task"]>;
 function followUpState(f: FollowUp) {
-	if (f.waived || f.task?.status === "no_longer_needed") return "no_longer_needed" as const;
-	return f.task?.status === "complete" ? ("complete" as const) : ("open" as const);
+	if (f.waived_at !== null || f.task?.status === "no_longer_needed") return "no_longer_needed" as const;
+	if (!f.task || f.task.deleted_at !== null) return "deleted" as const;
+	return f.task.status === "complete" ? ("complete" as const) : ("open" as const);
 }
-const FOLLOW_UP_RANK = { no_longer_needed: 0, open: 2, complete: 4 } as const;
-const followUpRank = (f: FollowUp) => FOLLOW_UP_RANK[followUpState(f)] + (f.task ? Number(f.task.owned) : -1);
+const FOLLOW_UP_RANK = { deleted: 0, no_longer_needed: 1, open: 2, complete: 3 } as const;
 function followUpPlan(source: Facts, survivor: Facts) {
 	const mine = new Map(survivor.followUps.map((f) => [f.meeting_id, f]));
-	return source.followUps.flatMap((theirs) => {
-		const own = mine.get(theirs.meeting_id);
-		if (!own) return [];
-		const [kept, replaced] = followUpRank(theirs) > followUpRank(own) ? [theirs, own] : [own, theirs];
+	return source.followUps.flatMap((replaced) => {
+		const kept = mine.get(replaced.meeting_id);
+		if (!kept) return [];
+		const theirs = followUpState(replaced),
+			own = followUpState(kept);
+		const better = kept.task && replaced.task && FOLLOW_UP_RANK[theirs] > FOLLOW_UP_RANK[own];
+		const state = better ? theirs : own;
+		const held = new Set(kept.task?.assignees);
 		return [
-			{ meeting: titled(own), state: followUpState(kept), replaced, closes: settled(replaced) ? null : replaced.task },
+			{
+				meeting: titled(kept),
+				state: state === "deleted" ? ("no_longer_needed" as const) : state,
+				kept,
+				replaced,
+				takes: better ? replaced : null,
+				owners: state === "open" ? (replaced.task?.assignees ?? []).filter((id) => !held.has(id)) : [],
+				closes: theirs === "open" ? replaced.task : null,
+			},
 		];
 	});
 }
@@ -433,11 +467,14 @@ function plan(
 		return [...mine].filter(([, key]) => taken.has(key)).map(([id]) => id);
 	};
 	const droppedTags = (byKind.get("tag") ?? []).filter((x) => held.has(x.id)).map((x) => x.id);
+	const followUps = followUpPlan(source, survivor);
 	const keptByKind: readonly (readonly [Kind, string[]])[] = [
 		["tag", droppedTags],
 		["attestation", keptOf("attestation")],
 		["launch_guest", keptOf("launch_guest")],
 		["skill", same(source.skillNames, survivor.skillNames)],
+		["obligation", followUps.map((f) => f.replaced.id)],
+		["task", followUps.flatMap((f) => (f.replaced.task ? [f.replaced.task.id] : []))],
 	];
 	const kept = new Map(keptByKind.map(([k, ids]) => [k, new Set(ids)]));
 	const carried = new Map(
@@ -460,7 +497,6 @@ function plan(
 			: [];
 	if (invitations.length) causes.push("residency_invitation_collision");
 	const attendance = attendancePlan(source, survivor);
-	const followUps = followUpPlan(source, survivor);
 	const moves = ([k, refs]: [Kind, Reference[]]) => {
 		if (k === "tag") return refs.length;
 		return k === "participation" ? attendance.moved[k].length : (carried.get(k)?.length ?? refs.length);
@@ -514,66 +550,78 @@ const ownerKind = (ctx: Pick<Context, "selected">) => {
 	return ctx.selected.kind;
 };
 
+type Touched = { kind: "task" | "obligation"; id: string; revision: string };
 function combineFollowUps(
 	owner: string,
 	accountId: string,
 	audit: AuditWrite,
 	followUps: ReturnType<typeof followUpPlan>,
-	survivor: string,
-): FollowUpWrite | null {
-	if (!followUps.length) return null;
-	const replaced = followUps.map((f) => f.replaced.id);
-	const closed = followUps.flatMap((f) => (f.closes ? [f.closes] : []));
-	if (closed.length)
-		audit.writes.push(sql`UPDATE task SET person_id=${survivor}::uuid,status='no_longer_needed',revision=revision+1
- WHERE id=ANY(${sql.param(closed.map((t) => t.id))}::uuid[]) AND plant_id=${owner}::uuid`);
-	for (const t of closed)
-		auditTaskStatus(owner, accountId, audit, {
-			id: t.id,
-			from: t.status,
-			to: "no_longer_needed",
-			revision: t.revision,
-			reason: "Combined with the other follow-up from this meeting in a merge",
-		});
-	audit.writes.push(sql`UPDATE obligation SET person_id=${survivor}::uuid,superseded_at=clock_timestamp(),
- revision=revision+1 WHERE id=ANY(${sql.param(replaced)}::uuid[]) AND plant_id=${owner}::uuid`);
-	return { ids: new Set([...replaced, ...closed.map((t) => t.id)]), after: lastWrite(audit) };
+): Touched[] {
+	const touched: Touched[] = [];
+	const touch = (kind: Touched["kind"], row: { id: string; revision: string }) =>
+		touched.push({ kind, id: row.id, revision: String(BigInt(row.revision) + 1n) });
+	for (const { kept, replaced, takes, owners, closes } of followUps) {
+		audit.writes.push(sql`UPDATE obligation SET superseded_at=clock_timestamp(),revision=revision+1
+ WHERE id=${replaced.id}::uuid AND plant_id=${owner}::uuid`);
+		touch("obligation", replaced);
+		if (closes) {
+			audit.writes.push(writeFollowUpTask(owner, { ...closes, status: "no_longer_needed" }));
+			auditTaskStatus(owner, accountId, audit, closes, "no_longer_needed", COMBINED);
+			touch("task", closes);
+		}
+		if (!kept.task || !(takes || owners.length)) continue;
+		audit.writes.push(writeFollowUpTask(owner, { ...(takes?.task ?? kept.task), id: kept.task.id }));
+		touch("task", kept.task);
+		if (takes?.task && takes.task.status !== kept.task.status)
+			auditTaskStatus(owner, accountId, audit, kept.task, takes.task.status, COMBINED);
+		if (takes && kept.waived_at !== null) {
+			audit.writes.push(writeWaiver(owner, { id: kept.id, waived_at: null, waiver_reason: null }));
+			touch("obligation", kept);
+		}
+		if (owners.length)
+			audit.writes.push(sql`INSERT INTO task_assignee(plant_id,task_id,account_id)
+ SELECT ${owner}::uuid,${kept.task.id}::uuid,a FROM unnest(${sql.param(owners)}::uuid[]) a`);
+	}
+	return touched;
 }
+const COMBINED = "Combined with the other follow-up from this meeting in a merge";
+export const writeFollowUpTask = (
+	owner: string,
+	t: Pick<FollowUpTask, "id" | "status" | "completed_at" | "deleted_at">,
+) => sql`UPDATE task SET status=${t.status},completed_at=${t.completed_at}::timestamptz,
+ deleted_at=${t.deleted_at}::timestamptz,revision=revision+1 WHERE id=${t.id}::uuid AND plant_id=${owner}::uuid`;
+export const writeWaiver = (owner: string, o: Pick<FollowUp, "id" | "waived_at" | "waiver_reason">) =>
+	sql`UPDATE obligation SET waived_at=${o.waived_at}::timestamptz,waiver_reason=${o.waiver_reason},revision=revision+1
+ WHERE id=${o.id}::uuid AND plant_id=${owner}::uuid`;
 const bumped = (x: Reference): Reference =>
 	x.revision === null ? x : { ...x, revision: String(BigInt(x.revision) + 1n) };
-type FollowUpWrite = { ids: ReadonlySet<string>; after: SQLWrapper };
 export function auditTaskStatus(
 	owner: string,
 	accountId: string,
 	audit: AuditWrite,
-	t: { id: string; from: string; to: string; revision: string; reason: string },
+	t: { id: string; status: FollowUpTask["status"]; revision: string },
+	to: FollowUpTask["status"],
+	reason: string,
 ) {
-	const reopens = t.to !== "no_longer_needed";
+	const closes = to === "no_longer_needed",
+		completes = to === "complete";
 	auditRow(
 		{ ...audit, actor: { accountId, plantId: owner } },
 		{
 			taskId: t.id,
-			action: reopens ? "tasks.changed" : "tasks.waived",
-			kind: reopens ? "reopen" : "waive",
-			before: { status: t.from },
-			after: { status: t.to },
+			action: closes ? "tasks.waived" : completes ? "tasks.completed" : "tasks.changed",
+			kind: closes ? "waive" : completes ? "complete" : "reopen",
+			before: { status: t.status },
+			after: { status: to },
 			beforeRevision: t.revision,
 			afterRevision: String(BigInt(t.revision) + 1n),
 			source: "generated",
-			reason: t.reason,
+			reason,
 		},
 	);
 }
 
-export const afterWrite = (write: SQLWrapper) => sql`(SELECT count(*) FROM ${write})>=0`;
-export function moveRefs(
-	owner: string,
-	k: Kind,
-	ids: string[],
-	from: string,
-	to: string,
-	after?: SQLWrapper,
-): SQLWrapper {
+export function moveRefs(owner: string, k: Kind, ids: string[], from: string, to: string): SQLWrapper {
 	const e = registrationOf(k);
 	if (k === "training_assignment") {
 		return sql`UPDATE ${sql.identifier(e.table)} SET ${sql.identifier(e.column)}=${to}::uuid,
@@ -591,7 +639,7 @@ export function moveRefs(
 	}
 	return sql`UPDATE ${sql.identifier(e.table)} SET ${sql.identifier(e.column)}=${to}::uuid${e.revision ? sql`,revision=revision+1` : sql``}
  WHERE ${sql.identifier(e.column)}=${from}::uuid AND ${sql.identifier(e.owner)}=${owner}::uuid
- AND ${sql.identifier(e.key)}=ANY(${sql.param(ids)}::uuid[])${after ? sql` AND ${afterWrite(after)}` : sql``}`;
+ AND ${sql.identifier(e.key)}=ANY(${sql.param(ids)}::uuid[])`;
 }
 export function updatePerson(owner: string, id: string, set: Record<string, unknown>): SQLWrapper {
 	const assignments = Object.entries(set).map(([col, v]) =>
@@ -609,7 +657,7 @@ export const peopleMerge = {
 			const input = parse(c.mergeReviewRequest, raw);
 			const { source, survivor } = await readPair(tx, ctx.selected.id, input, adminRead(ctx));
 			const p = plan(kind, source, survivor, {});
-			const replaced = new Set(p.followUps.map((f) => f.replaced.id)),
+			const replaced = new Set(p.followUps.flatMap((f) => [f.replaced.id, ...(f.takes ? [f.kept.id] : [])])),
 				closed = new Set(p.followUps.map((f) => f.closes?.id));
 			const side = (f: Facts) => ({
 				personId: f.id,
@@ -656,12 +704,11 @@ export const peopleMerge = {
 						audit.writes.push(sql`UPDATE participation SET removed_at=clock_timestamp(),rsvp_token_open=false,
  revision=revision+1 WHERE id=ANY(${sql.param(a.removed)}::uuid[]) AND plant_id=${owner}::uuid`);
 					if (a.updates.length) audit.writes.push(writeParticipations(owner, a.updates));
-					const combined = combineFollowUps(owner, actor, audit, p.followUps, survivor.id);
+					const touched = combineFollowUps(owner, actor, audit, p.followUps);
 					for (const [k, refs] of p.carried) {
-						moved[k] = refs.map((x) => x.id);
-						const ids = moved[k].filter((id) => !combined?.ids.has(id));
-						const after = k === "obligation" ? combined?.after : undefined;
-						if (ids.length) audit.writes.push(moveRefs(owner, k, ids, source.id, survivor.id, after));
+						const ids = refs.map((x) => x.id);
+						moved[k] = ids;
+						if (ids.length) audit.writes.push(moveRefs(owner, k, ids, source.id, survivor.id));
 					}
 					if (p.droppedTags.length) {
 						moved.tag_dropped = p.droppedTags;
@@ -694,7 +741,7 @@ export const peopleMerge = {
 					const after = [
 						...survivor.refs
 							.filter((x) => !participating(x.kind))
-							.map((x) => (combined?.ids.has(x.id) ? bumped(x) : x)),
+							.map((x) => (touched.some((t) => t.id === x.id) ? bumped(x) : x)),
 						...a.after,
 						...[...p.carried.values()].flat().map(bumped),
 						{ kind: "merged_person" as const, id: source.id, revision: sourceRevision, moves: true },
@@ -706,11 +753,17 @@ export const peopleMerge = {
 		survivor: p.prior,
 		participation: a.prior,
 		attendance: p.changes,
-		followUps: p.followUps.map((f) => ({
-			obligation: f.replaced.id,
-			closed: f.closes && { task: f.closes.id, status: f.closes.status },
+		followUps: p.followUps.map(({ kept, replaced, takes, owners, closes }) => ({
+			replaced: replaced.id,
+			closed: closes,
+			kept: takes || owners.length ? kept.task : null,
+			waiver:
+				takes && kept.waived_at !== null
+					? { id: kept.id, waived_at: kept.waived_at, waiver_reason: kept.waiver_reason }
+					: null,
+			owners,
+			touched: touched.filter((t) => [kept.id, kept.task?.id, replaced.id, replaced.task?.id].includes(t.id)),
 		})),
-		training: p.closedTraining,
 		references: after.map((x) => [x.kind, x.id, x.revision]),
  })}::jsonb,
  ${JSON.stringify(moved)}::jsonb,${sourceRevision}::bigint,${survivorRevision}::bigint,${referencesDigest(after)})`,

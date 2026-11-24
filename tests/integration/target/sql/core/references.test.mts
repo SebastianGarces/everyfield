@@ -533,10 +533,12 @@ const families: Family[] = [
 					due_date: "2026-10-04",
 				});
 			await attend(met, p1);
-			const visit = await attend(met, p2);
-			await obligation(p1);
+			await attend(met, p2);
+			const own = await obligation(p1);
 			const theirs = await obligation(p2);
-			const id = await task(p2, { obligation_id: theirs });
+			await task(p1, { obligation_id: own });
+			await task(p2, { obligation_id: theirs });
+			const id = await task(p2);
 			await assignee(id);
 			const contacted = await insert("contact_outcome", {
 				person_id: p2,
@@ -548,13 +550,13 @@ const families: Family[] = [
 			});
 			return {
 				reference: { table: "task", id },
-				history: { table: "participation", id: visit },
+				history: { table: "obligation", id: theirs },
 				edit: bump("task", id),
 				kept: async () => ({
 					owners: await assigneeOf(id),
 					...(await one(sql`SELECT (SELECT to_jsonb(x)-'person_id'-'revision' FROM contact_outcome x WHERE x.id=${contacted}::uuid) AS contact,
 						(SELECT count(*)::int FROM contact_outcome WHERE outcome='contacted') AS contacted,
-						(SELECT to_jsonb(o)-'person_id'-'superseded_at'-'revision' FROM obligation o WHERE o.id=${theirs}::uuid) AS duty`)),
+						(SELECT to_jsonb(o)-'superseded_at'-'revision' FROM obligation o WHERE o.id=${theirs}::uuid) AS duty`)),
 				}),
 			};
 		},
@@ -727,11 +729,16 @@ async function checkRefusals(c: Case, pair: Pair, run: Record<string, () => Prom
 	}
 }
 const KEPT_WHEN_DUPLICATE = new Set(["skill", "attestation", "launch_guest", "mail"]);
+const LIVE: Record<string, ReturnType<typeof sql>> = {
+	participation: sql`AND removed_at IS NULL`,
+	obligation: sql`AND superseded_at IS NULL`,
+	task: sql`AND NOT EXISTS(SELECT FROM obligation o WHERE o.id=obligation_id AND o.superseded_at IS NOT NULL)`,
+};
 async function dangling(p2: string) {
 	let n = 0;
 	for (const e of registry) {
 		if (e.treatment === "keep" || KEPT_WHEN_DUPLICATE.has(e.kind)) continue;
-		const live = e.table === "participation" ? sql`AND removed_at IS NULL` : sql``;
+		const live = LIVE[e.table] ?? sql``;
 		n += Number(
 			(
 				await one(

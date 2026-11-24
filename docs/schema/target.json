@@ -6858,7 +6858,7 @@
       ],
       "meaning": "Current relation with immutable original provenance",
       "lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
-      "merge_policy": "Move the follow-up, its task and its outcomes to the survivor. When both have one for the same meeting, one stays current (finished over open over no longer needed, then one with an owner) and the other is superseded on the survivor with its open task closed.",
+      "merge_policy": "Move the follow-up, its task and its outcomes to the survivor. When both have one for the same meeting, the survivor's stays current with the better state of the two (finished, then open) and both owners while open. The source's is superseded and stays on the source with its task closed; its outcomes move and count on the survivor's.",
       "inverse_policy": "Return exactly the records the merge moved or combined. A record added after the merge stays with the Person it was added to. Refuse with no write when a moved or combined record was edited or removed after the merge, or a later record depends on one. Never transfer private authorship.",
       "retirement_policy": "No new current references to retired or merged Persons; historical evidence remains under current permission.",
       "privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
@@ -30074,7 +30074,7 @@
             "person_id",
             "kind"
           ],
-          "where": "((person_id IS NOT NULL) AND (superseded_at IS NULL))"
+          "where": "(person_id IS NOT NULL)"
         },
         {
           "columns": [
@@ -30223,7 +30223,7 @@
         "obligation_uq_1": {
           "name": "obligation_uq_1",
           "isUnique": true,
-          "where": "((person_id IS NOT NULL) AND (superseded_at IS NULL))",
+          "where": "(person_id IS NOT NULL)",
           "columns": [
             {
               "expression": "meeting_id",

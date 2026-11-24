@@ -1,13 +1,12 @@
 import * as c from "@everyfield/contracts/people";
 import { taskStatus } from "@everyfield/contracts/tasks";
-import { sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { adminRead } from "../assessments/shared.ts";
 import { deny, mutation, parse, readReply, reply, type Context, type Tx, type WriteContext } from "../core.ts";
-import { lastWrite, type AuditWrite } from "../../operations/writes.ts";
+import type { AuditWrite } from "../../operations/writes.ts";
 import {
-	afterWrite,
 	auditTaskStatus,
 	factsOf,
 	moveRefs,
@@ -15,7 +14,9 @@ import {
 	participating,
 	referencesDigest,
 	updatePerson,
+	writeFollowUpTask,
 	writeParticipations,
+	writeWaiver,
 	type Facts,
 } from "../merge/index.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people.ts";
@@ -24,6 +25,14 @@ import { commitmentOf, type CommitmentInputs } from "../commitments/lifecycle.ts
 
 type Kind = z.infer<typeof c.referenceKind>;
 type Field = z.infer<typeof c.unmergeField>;
+const followUpTask = z
+	.object({
+		id: z.uuid(),
+		status: taskStatus,
+		completed_at: z.string().nullable(),
+		deleted_at: z.string().nullable(),
+	})
+	.nullable();
 const mergeRow = z.object({
 	id: z.uuid(),
 	source_id: z.uuid(),
@@ -38,8 +47,14 @@ const mergeRow = z.object({
 		followUps: z
 			.array(
 				z.object({
-					obligation: z.uuid(),
-					closed: z.object({ task: z.uuid(), status: taskStatus }).nullable(),
+					replaced: z.uuid(),
+					closed: followUpTask,
+					kept: followUpTask,
+					waiver: z
+						.object({ id: z.uuid(), waived_at: z.string().nullable(), waiver_reason: z.string().nullable() })
+						.nullable(),
+					owners: z.array(z.uuid()),
+					touched: z.array(z.object({ kind: z.enum(["task", "obligation"]), id: z.uuid(), revision: z.string() })),
 				}),
 			)
 			.default([]),
@@ -89,9 +104,8 @@ async function readMerge(tx: Tx, owner: string, mergeId: string, gate: SQL) {
   SELECT e.key,i.id FROM jsonb_each(l.moved) e CROSS JOIN LATERAL jsonb_array_elements_text(e.value) i(id)
    WHERE e.key NOT IN ('participation','participation_inviter')
   UNION SELECT 'participation',p->>'id' FROM jsonb_array_elements(coalesce(l.prior->'participation','[]')) p
-  UNION SELECT 'obligation',f->>'obligation' FROM jsonb_array_elements(coalesce(l.prior->'followUps','[]')) f
-  UNION SELECT 'task',f->'closed'->>'task' FROM jsonb_array_elements(coalesce(l.prior->'followUps','[]')) f
-   WHERE f->'closed'->>'task' IS NOT NULL) k
+  UNION SELECT t->>'kind',t->>'id' FROM jsonb_array_elements(coalesce(l.prior->'followUps','[]')) f
+   CROSS JOIN LATERAL jsonb_array_elements(f->'touched') t) k
   WHERE l.tenant_id=m.tenant_id AND l.unmerged_at IS NOT NULL AND l.id<>m.id AND l.merged_at>=m.merged_at
   AND m.survivor_id IN (l.source_id,l.survivor_id)),
  'added_to_moved',${addedToMoved},
@@ -205,10 +219,9 @@ function movedRecordsChanged(merge: Merge, source: Facts, survivor: Facts): Kind
 		const kind = c.referenceKind.parse(raw);
 		if (ids.some((id) => !kept(kind, id))) kinds.add(kind);
 	}
-	for (const f of merge.prior.followUps) {
-		if (!kept("obligation", f.obligation)) kinds.add("obligation");
-		if (f.closed && !kept("task", f.closed.task)) kinds.add("task");
-	}
+	const held = new Map([...survivor.refs, ...source.refs].map((x) => [key(x.kind, x.id), x.revision]));
+	for (const t of merge.prior.followUps.flatMap((f) => f.touched))
+		if (held.get(key(t.kind, t.id)) !== afterUndone(merge, t.kind, t.id, t.revision)) kinds.add(t.kind);
 	const rows = new Map([...survivor.participations, ...source.participations].map((r) => [r.id, r]));
 	for (const prior of merge.prior.participation) {
 		const id = z.uuid().parse(prior.id);
@@ -290,32 +303,22 @@ const reopenTraining = (owner: string, ids: string[], closed: string[], from: st
  ended_on=CASE WHEN id=ANY(${sql.param(closed)}::uuid[]) THEN NULL ELSE ended_on END
  WHERE id=ANY(${sql.param(ids)}::uuid[]) AND person_id=${from}::uuid AND plant_id=${owner}::uuid`;
 
-function restoreFollowUps(
-	owner: string,
-	accountId: string,
-	audit: AuditWrite,
-	merge: Merge,
-	survivor: Facts,
-	after: SQLWrapper | null,
-) {
-	const { followUps } = merge.prior;
-	if (!followUps.length) return;
-	const back = [...(merge.moved.obligation ?? []), ...(merge.moved.task ?? [])];
-	const owned = sql`CASE WHEN id=ANY(${sql.param(back)}::uuid[]) THEN ${merge.source_id}::uuid ELSE ${merge.survivor_id}::uuid END`;
-	audit.writes.push(sql`UPDATE obligation SET person_id=${owned},superseded_at=NULL,revision=revision+1
- WHERE id=ANY(${sql.param(followUps.map((f) => f.obligation))}::uuid[]) AND plant_id=${owner}::uuid${after ? sql` AND ${afterWrite(after)}` : sql``}`);
-	const revisions = new Map(survivor.refs.filter((x) => x.kind === "task").map((x) => [x.id, x.revision]));
-	for (const { closed } of followUps) {
-		if (!closed) continue;
-		audit.writes.push(sql`UPDATE task SET person_id=${owned},status=${closed.status},revision=revision+1
- WHERE id=${closed.task}::uuid AND plant_id=${owner}::uuid`);
-		auditTaskStatus(owner, accountId, audit, {
-			id: closed.task,
-			from: "no_longer_needed",
-			to: closed.status,
-			revision: revisions.get(closed.task) ?? "1",
-			reason: "The merge that closed it was undone",
-		});
+function restoreFollowUps(owner: string, accountId: string, audit: AuditWrite, merge: Merge, facts: Facts[]) {
+	const now = new Map(facts.flatMap((f) => f.followUpTasks).map((t) => [t.id, t]));
+	for (const { replaced, closed, kept, waiver, owners } of merge.prior.followUps) {
+		audit.writes.push(sql`UPDATE obligation SET superseded_at=NULL,revision=revision+1
+ WHERE id=${replaced}::uuid AND plant_id=${owner}::uuid`);
+		for (const task of [closed, kept]) {
+			if (!task) continue;
+			audit.writes.push(writeFollowUpTask(owner, task));
+			const current = now.get(task.id);
+			if (current && current.status !== task.status)
+				auditTaskStatus(owner, accountId, audit, current, task.status, "The merge that changed it was undone");
+		}
+		if (waiver) audit.writes.push(writeWaiver(owner, waiver));
+		if (kept && owners.length)
+			audit.writes.push(sql`DELETE FROM task_assignee WHERE task_id=${kept.id}::uuid AND plant_id=${owner}::uuid
+ AND account_id=ANY(${sql.param(owners)}::uuid[])`);
 	}
 }
 
@@ -386,19 +389,14 @@ export const peopleUnmerge = {
 							changed: i.changed,
 							changedFields: i.changedFields,
 						});
-					const replaced = new Set(merge.prior.followUps.flatMap((f) => [f.obligation, f.closed?.task]));
-					let afterMove: SQLWrapper | null = null;
-					for (const [k, all] of Object.entries(merge.moved)) {
-						const ids = all.filter((x) => !replaced.has(x));
-						if (k === "tag_dropped" || participating(k) || !ids.length) continue;
-						audit.writes.push(
-							k === "training_assignment"
-								? reopenTraining(owner, ids, merge.prior.training, survivor.id, source.id)
-								: moveRefs(owner, k as Kind, ids, survivor.id, source.id),
-						);
-						if (k === "obligation") afterMove = lastWrite(audit);
-					}
-					restoreFollowUps(owner, actor, audit, merge, survivor, afterMove);
+					for (const [k, ids] of Object.entries(merge.moved))
+						if (k !== "tag_dropped" && !participating(k) && ids.length)
+							audit.writes.push(
+								k === "training_assignment"
+									? reopenTraining(owner, ids, merge.prior.training, survivor.id, source.id)
+									: moveRefs(owner, k as Kind, ids, survivor.id, source.id),
+							);
+					restoreFollowUps(owner, actor, audit, merge, [source, survivor]);
 					const own = merge.prior.participation.filter((r) => ownAttendance(merge, r));
 					const invited = merge.prior.participation.filter((r) => !ownAttendance(merge, r)).map((r) => String(r.id));
 					if (own.length) audit.writes.push(writeParticipations(owner, own));

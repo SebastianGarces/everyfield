@@ -15136,7 +15136,7 @@
             }
           ],
           "isUnique": true,
-          "where": "((person_id IS NOT NULL) AND (superseded_at IS NULL))",
+          "where": "(person_id IS NOT NULL)",
           "concurrently": false,
           "method": "btree",
           "with": {}
