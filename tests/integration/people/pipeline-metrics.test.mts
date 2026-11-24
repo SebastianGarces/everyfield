@@ -12,7 +12,7 @@ const db = database.pools.runtime;
 after(() => database.close());
 
 const authority = async (a: Actor) => {
-	const r = await RequestActor.resolve(db, a.session as never);
+	const r = await RequestActor.resolve(db, a.session);
 	assert.ok(r instanceof RequestActor);
 	return r;
 };
