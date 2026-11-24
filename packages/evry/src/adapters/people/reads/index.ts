@@ -75,7 +75,12 @@ const listInput = z.strictObject({
 			"People with a recorded move into this stage between two church-local dates, each person once with the date of their last such move. Leave the dates out for this calendar month. Being added or imported in the stage, or moving on from it, isn't a move into it.",
 		),
 	page: z.int().min(1).max(100_000).optional().describe("Page number of a previous result's next page"),
-	limit: z.int().min(1).max(100).optional(),
+	limit: z
+		.int()
+		.min(1)
+		.max(100)
+		.optional()
+		.describe("At most 24 a page under a skill, photo, household, child or move filter"),
 });
 type Match = NonNullable<z.infer<typeof peoplePage>["matches"]>[number];
 const matchFields = (m: Match) => ({
@@ -85,8 +90,9 @@ const matchFields = (m: Match) => ({
 	...(m.household && { household: m.household.name, householdId: m.household.id }),
 	...(m.movedOn && { movedOn: m.movedOn }),
 });
+const PAGE = 24;
 const CHURCH_WIDE =
-	"These filters cover everyone in the church: peopleInChurch is how many people that is. When next is not null, name this page's people and offer the next page under the same filter.";
+	"These filters cover everyone in the church: say so in the answer, with peopleInChurch, how many people that is. When next is not null, name this page's people, say how many of the total they are and offer the next page under the same filter.";
 const CHILD_NOTE =
 	"Say that people with no adult or child recorded aren't counted. A household no page names has no child recorded.";
 const personInput = z.strictObject({ personId: z.uuid() });
@@ -98,11 +104,6 @@ export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 	input: listInput,
 	allowed: inPlant,
 	async invoke(tx: WriteTx, actor: EvryActor, input): Promise<SourceResult> {
-		const request = listPeopleRequest.parse({ ...input, limit: input.limit ?? 24, page: input.page ?? 1 });
-		const reply = await peopleReader.listPeople(tx, new PeopleReadContext(actor.authority), request);
-		if (reply.status !== "ok")
-			throw new EvryRefusal(reply.error.code === "invalid_input" ? "invalid_input" : "source_unavailable");
-		const page = reply.value;
 		const churchWide =
 			input.skillCategories !== undefined ||
 			input.skillNames !== undefined ||
@@ -110,6 +111,12 @@ export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 			input.inHousehold !== undefined ||
 			input.adultClassification !== undefined ||
 			input.movedInto !== undefined;
+		const limit = Math.min(input.limit ?? PAGE, churchWide ? PAGE : 100);
+		const request = listPeopleRequest.parse({ ...input, limit, page: input.page ?? 1 });
+		const reply = await peopleReader.listPeople(tx, new PeopleReadContext(actor.authority), request);
+		if (reply.status !== "ok")
+			throw new EvryRefusal(reply.error.code === "invalid_input" ? "invalid_input" : "source_unavailable");
+		const page = reply.value;
 		const everyone = churchWide
 			? await peopleReader.listPeople(
 					tx,

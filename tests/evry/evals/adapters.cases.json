@@ -7142,7 +7142,7 @@
 			"forbid": [
 				"/(?:Jen Thompson|Roberto Garcia)[^\\n.;,]{0,80}(?<!\\b(?:not|no|yet|until|unconfirmed|without|whether|whose|before)\\b[^\\n|]{0,60}|n['’]t\\b[^\\n|]{0,60})\\bdelivered\\b(?! (?:yet|status|isn|is not|not|hasn|un))/i",
 				"/(?<!\\b(?:not|no|yet|until|unconfirmed|without|whether|whose|before)\\b[^\\n|]{0,60}|n['’]t\\b[^\\n|]{0,60})\\bdelivered\\b(?: and opened)?\\**:\\**[^\\n;.]*(?:Jen Thompson|Roberto Garcia)/i",
-				"/(?<!\\b(?:not|no|yet|until|unconfirmed|without|whether|whose|before)\\b[^\\n|]{0,60}|n['’]t\\b[^\\n|]{0,60})\\bdelivered\\b(?: and opened| and not opened)?\\W*\\n(?:\\s*[-*•][^\\n]*\\n)*?\\s*[-*•][^\\n]*(?:Jen Thompson|Roberto Garcia)/i",
+				"/(?<!\\b(?:not|no|yet|until|unconfirmed|without|whether|whose|before)\\b[^\\n|]{0,60}|n['’]t\\b[^\\n|]{0,60})(?<!^\\s*[-*•]\\s[^\\n]*[—–:-][^\\n]*)\\bdelivered\\b(?: and opened| and not opened)?\\W*\\n(?:\\s*[-*•][^\\n]*\\n)*?\\s*[-*•][^\\n]*(?:Jen Thompson|Roberto Garcia)/im",
 				"/@example\\.(org|test)/i"
 			],
 			"derivation": "Seven invited people, one per delivery result. Jen's send is only accepted and Roberto's is unanswered, so neither is called delivered."
@@ -7166,10 +7166,10 @@
 				"/You['’]re invited: Vision Night/",
 				"/\\b7\\b/",
 				"/(sent|accepted)\\D{0,60}\\b4\\b|\\b4\\b\\D{0,60}(sent|accepted)/i",
-				"/delivered\\D{0,30}\\b2\\b|\\b2\\b\\D{0,30}delivered/i",
+				"/(?:delivered|confirmed delivery to)\\D{0,30}\\b2\\b|\\b2\\b\\D{0,30}delivered/i",
 				"/open(ed|s)?\\D{0,30}\\b1\\b|\\b1\\b\\D{0,30}open/i",
 				"/bounced?\\D{0,30}\\b1\\b|\\b1\\b\\D{0,30}bounce/i",
-				"/unsubscribed\\D{0,30}\\b1\\b|\\b1\\b\\D{0,40}unsubscribed/i",
+				"/unsubscribed?\\D{0,30}\\b1\\b|\\b1\\b\\D{0,40}unsubscribed?/i",
 				"/\\b0?9:00\\b/",
 				"/open[\\s\\S]{0,160}(not|n['’]t|only|may|might|doesn)|(not|n['’]t|only|may|might)[\\s\\S]{0,160}open/i"
 			],
