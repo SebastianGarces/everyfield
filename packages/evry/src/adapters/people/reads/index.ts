@@ -95,6 +95,8 @@ const CHURCH_WIDE =
 	"These filters cover everyone in the church: say so in the answer, with peopleInChurch, how many people that is. When next is not null, name this page's people, say how many of the total they are and offer the next page under the same filter.";
 const CHILD_NOTE =
 	"Say that people with no adult or child recorded aren't counted. A household no page names has no child recorded.";
+const MOVE_NOTE =
+	"Moves say who moved in and when, never who is stuck or inactive: for that, read people.getPipelineData instead and give each person's inactivity.";
 const personInput = z.strictObject({ personId: z.uuid() });
 
 export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
@@ -154,7 +156,11 @@ export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 				facts: {
 					peopleInChurch: everyone.value.total,
 					...(page.next !== null && page.total !== null && { pages: Math.ceil(page.total / limit) }),
-					note: input.adultClassification === "child" ? `${CHURCH_WIDE} ${CHILD_NOTE}` : CHURCH_WIDE,
+					note: [
+						CHURCH_WIDE,
+						...(input.adultClassification === "child" ? [CHILD_NOTE] : []),
+						...(input.movedInto ? [MOVE_NOTE] : []),
+					].join(" "),
 				},
 			}),
 		};
