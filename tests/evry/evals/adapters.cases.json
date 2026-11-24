@@ -4558,7 +4558,11 @@
 				"/\\b(isn['’]t|aren['’]t|not) (yet )?ready\\b/i",
 				"/\\byes\\b[,.!]|^no\\b/i"
 			],
-			"derivation": "Asked for a verdict, Evry reports each criterion and its reading and leaves the call to the planter: it never answers ready or not ready."
+			"derivation": "Asked for a verdict, Evry reports each criterion and its reading and leaves the call to the planter: it never answers ready or not ready.",
+			"finding": {
+				"checks": ["calls intelligence.readExitCriteria"],
+				"note": "T-576: asked for a verdict, the model answers from phases.readReadiness and phases.readHistory; the criterion's reading is not read."
+			}
 		}
 	},
 	{

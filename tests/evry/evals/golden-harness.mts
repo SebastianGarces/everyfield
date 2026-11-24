@@ -610,6 +610,8 @@ function localNow(zone: string) {
 }
 
 function pinnedAsOf(result: SourceResult): SourceResult {
+	if (result.operation === "intelligence.readJourney")
+		return { ...result, rows: result.rows.map((r, i) => ({ ...r, id: `journey-${result.rows.length - i}` })) };
 	if (result.operation !== "communication.deliveryTotals") return result;
 	const rows = result.rows.map((r) => {
 		const zone = typeof r.fields.asOf === "string" ? r.fields.asOf.split(" ").at(-1) : undefined;

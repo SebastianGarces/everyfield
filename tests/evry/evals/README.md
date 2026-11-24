@@ -194,9 +194,9 @@ say the church is or is not ready. Three more tests hold the reads to the screen
 `criteriaOf` and the journey's signs from the same facts, the journey matches `/intelligence/journey`'s timeline, and a
 Member, an organization seat and another church get no tool or data.
 
-The real-model cases for the two reads (ADP-PH-14 to ADP-PH-17 in `adapters.cases.json`) wait for the next batched
-re-record (D-1999): while an operation is in `LATER`, `golden.test.mts` reports its adapter cases as held and does not
-run them. The phase-move review shows each criterion's reading on the card, but the model's copy keeps the recorded
+The real-model cases for the two reads (ADP-PH-14 to ADP-PH-17 in `adapters.cases.json`) run in the golden suite with
+`eval.offer` naming both reads (T-576): the operations stay in `LATER`, so no other case sees them. A case whose
+operation is in `LATER` and not offered is reported as held and does not run. The phase-move review shows each criterion's reading on the card, but the model's copy keeps the recorded
 `{label, status}` shape until that re-record (`proposalForModel`, D-2014).
 
 ## The household and follow-up suites
@@ -412,7 +412,7 @@ run limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then reads
 "judge not recorded" until a recording run records its judge call.
 
-**Cost.** Recording all 424 golden rows that run on `gpt-6-luna` from scratch is 2,097 calls, about $7.07
+**Cost.** Recording all 422 golden rows that run on `gpt-6-luna` from scratch is 2,115 calls, about $7.13
 (`spend.allMicroUsd` in `golden.recorded.json`; judge calls and journey repetitions 2 and 3 included: the repetitions
 are 107 calls, $0.43). The household
 file is 10 calls and the follow-up file 11, about $0.03 each, and `classify.recorded.json` is 32 calls, about a tenth of

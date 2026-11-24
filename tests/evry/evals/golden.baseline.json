@@ -1,6 +1,6 @@
 {
 	"note": "The cases that hard-passed in the last accepted golden run. A case listed here that fails now is a release-blocking regression in the report. Rewrite it only from a full accepted run: EVRY_EVAL_BASELINE=write (tests/evry/evals/README.md).",
-	"recordedAt": "2026-11-24T07:17:57.517Z",
+	"recordedAt": "2026-11-24T08:13:20.623Z",
 	"passed": [
 		"MON-01",
 		"MON-02",
@@ -275,6 +275,9 @@
 		"ADP-PH-10",
 		"ADP-PH-11",
 		"ADP-PH-13",
+		"ADP-PH-14",
+		"ADP-PH-16",
+		"ADP-PH-17",
 		"ADP-H-01",
 		"ADP-H-02",
 		"ADP-H-03",
