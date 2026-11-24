@@ -85,7 +85,7 @@ const listInput = z.strictObject({
 type Match = NonNullable<z.infer<typeof peoplePage>["matches"]>[number];
 const matchFields = (m: Match) => ({
 	...(m.skills && {
-		skills: m.skills.map((s) => [s.name, s.proficiency ?? "level not recorded"].join(", ")).join("; "),
+		skills: m.skills.map((s) => `${s.name} (${s.category}), ${s.proficiency ?? "level not recorded"}`).join("; "),
 	}),
 	...(m.household && { household: m.household.name, householdId: m.household.id }),
 	...(m.movedOn && { movedOn: m.movedOn }),
@@ -153,6 +153,7 @@ export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 			...(everyone && {
 				facts: {
 					peopleInChurch: everyone.value.total,
+					...(page.next !== null && page.total !== null && { pages: Math.ceil(page.total / limit) }),
 					note: input.adultClassification === "child" ? `${CHURCH_WIDE} ${CHILD_NOTE}` : CHURCH_WIDE,
 				},
 			}),

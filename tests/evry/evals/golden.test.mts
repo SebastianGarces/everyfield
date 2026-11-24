@@ -1215,7 +1215,7 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 	assert.deepEqual(await filtered({ skillCategories: ["tech"], skillNames: ["sound"] }), [
 		2,
 		84,
-		[["Sound engineering, advanced"], ["Video production, intermediate"]],
+		[["Sound engineering (tech), advanced"], ["Video production (tech), intermediate"]],
 	]);
 	assert.deepEqual(await filtered({ adultClassification: "child" }), [
 		2,
