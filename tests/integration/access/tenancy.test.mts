@@ -229,6 +229,7 @@ const unreached = async () => {
 	throw Error("No scheduled message is moved");
 };
 const transport: DeliveryTransport = {
+	paused: false,
 	cancel: unreached,
 	reschedule: unreached,
 	async send(batch) {
