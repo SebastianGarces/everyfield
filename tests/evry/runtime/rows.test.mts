@@ -6,6 +6,7 @@ import { createConversation, readConversation, submitTurn, type EvryActor } from
 import { liveRowKeys } from "../../../packages/evry/src/conversations/liveness.ts";
 import { scriptedModel } from "../../../packages/evry-scripted/src/scripted.ts";
 import { actor, accounts, admin, db, people, plant, setup, sql, teardown, work } from "./support.mts";
+import { assistantText, toolResult, type ToolResult } from "./saved.mts";
 
 before(setup);
 after(teardown);
@@ -31,8 +32,8 @@ async function events(who: EvryActor, id: string) {
 		if (!page.more) break;
 	}
 	return {
-		cards: all.filter((e) => e.kind === "tool_result").map((e) => e.body as Record<string, any>),
-		texts: all.filter((e) => e.kind === "assistant_text").map((e) => e.body as Record<string, any>),
+		cards: all.filter((e) => e.kind === "tool_result").map((e) => toolResult.parse(e.body)),
+		texts: all.filter((e) => e.kind === "assistant_text").map((e) => assistantText.parse(e.body)),
 	};
 }
 async function household(name: string, city: string | null, members: { id: string; role: string }[] = []) {
@@ -131,11 +132,7 @@ test("AC:EVRY-CONTEXT-BOUNDS a listHouseholds turn keeps its household row in-tu
 		const card = replay.cards[0]!.result;
 		assert.equal(card.operation, "people.listHouseholds");
 		assert.deepEqual(
-			[
-				card.rows.map((r: any) => [r.kind, r.label, r.fields.city, r.fields.memberCount]),
-				card.total,
-				card.withheldRows,
-			],
+			[card.rows.map((r) => [r.kind, r.label, r.fields.city, r.fields.memberCount]), card.total, card.withheldRows],
 			[[["household", "Okafor household", "North Ridgeville", "2"]], 1, undefined],
 		);
 		assert.equal(replay.texts.map((t) => t.text).join(""), "There is 1 household: Okafor household.");
@@ -181,7 +178,7 @@ test("AC:EVRY-CONTEXT-BOUNDS a mixed household result withholds only the source 
 		{ id: people.alexRivera, role: "head" },
 		{ id: people.alexChen, role: "spouse" },
 	]);
-	const labels = (card: Record<string, any>) => card.result.rows.map((r: any) => r.label).sort();
+	const labels = (card: ToolResult) => card.result.rows.map((r) => r.label).sort();
 	try {
 		const id = await ask(owner, "show me the Okafor household");
 		const run = script([{ operation: "people.getHousehold", input: { householdId: home } }], "Done.");
@@ -258,7 +255,7 @@ test("AC:EVRY-CONTEXT-BOUNDS every row kind the catalog returns is kept while it
 		assert.equal(await work(run.model), "succeeded");
 		const replay = await events(owner, id);
 		assert.deepEqual(
-			replay.cards.map((c) => [c.result.rows[0].kind, c.result.rows.length, c.result.withheldRows]),
+			replay.cards.map((c) => [c.result.rows[0]!.kind, c.result.rows.length, c.result.withheldRows]),
 			[
 				["tag", 1, undefined],
 				["file", 1, undefined],

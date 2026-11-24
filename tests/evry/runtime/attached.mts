@@ -9,6 +9,7 @@ import {
 	type EvryActor,
 } from "../../../packages/evry/src/index.ts";
 import { db, work } from "./support.mts";
+import { toolResult } from "./saved.mts";
 
 function bucket() {
 	const objects = new Map<string, Buffer>();
@@ -68,7 +69,7 @@ export async function say(
 			.filter((e) => e.kind === "assistant_text")
 			.map((e) => e.body.text)
 			.join(""),
-		results: mine.filter((e) => e.kind === "tool_result").map((e) => e.body as Record<string, any>),
+		results: mine.filter((e) => e.kind === "tool_result").map((e) => toolResult.parse(e.body)),
 		reviews: Object.values(page.reviews),
 	};
 }

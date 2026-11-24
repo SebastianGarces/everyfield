@@ -42,7 +42,7 @@
 		"typecheck": "../../node_modules/typescript-7/bin/tsc --noEmit",
 		"typecheck:bun": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
 		"lint": "oxlint -c ../../.oxlintrc.json --max-warnings=0 . && eslint --max-warnings=0 .",
-		"test": "tsx --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 test/*.test.ts",
+		"test": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 test/*.test.ts",
 		"test:unit": "node ../../tools/ci/test-unit.ts --domain ../../tests/integration/documents/engine.test.mts ../../tests/integration/writes/held-port.test.mjs ../../tests/integration/writes/failures.test.mjs ../../tests/integration/documents/agenda.test.mts ../../tests/integration/documents/text-templates.test.mts ../../tests/integration/documents/format.test.mts ../../tests/integration/documents/table-rules.test.mts ../../tests/integration/documents/doc-render.test.mts ../../tests/integration/documents/doc-exports.test.mts ../../tests/integration/documents/doc-brand.test.mts ../../tests/integration/documents/conditions.test.mts",
 		"test:identity": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ${EVF_NODE_TEST_FLAGS:-} ../../tests/integration/identity/*.test.mts",
 		"test:identity:production": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ${EVF_NODE_TEST_FLAGS:-} ../../tests/integration/identity/timing.production.mts",
