@@ -163,8 +163,10 @@
 				"tests/integration/access/**",
 				"tests/integration/identity/**",
 				"tests/integration/reference/**",
+				"tests/integration/settings/**",
 				"tests/integration/target/**",
 				"tests/integration/tasks/**",
+				"tests/integration/teams/**",
 				"tests/integration/task-assignees.mts",
 				"tests/integration/onboarding/**",
 				"tests/integration/wiki/**"

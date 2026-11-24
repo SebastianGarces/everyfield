@@ -1,8 +1,9 @@
-import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
+import { sql, type SQL } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
+import { tenantId } from "../../../../packages/contracts/src/common/index.ts";
+import { RequestActor, type WriteTx } from "../../../../packages/domain/src/access/session.ts";
 import { peopleMerge, peopleUnmerge, peopleWriter } from "../../../../packages/domain/src/people/index.ts";
 import { registry } from "../../../../packages/domain/src/people/person-reference-registry/index.ts";
 import {
@@ -21,7 +22,7 @@ const noReminders = async () => {
 const database = await fixture({ prefix: "wp019", max: 6 });
 const { admin } = database;
 const db = database.pools.runtime;
-let memberPerson;
+let memberPerson: string;
 const P = database.tenant.id;
 const Q = (await database.plant({ timezone: "America/New_York" })).id;
 const actors = [
@@ -30,31 +31,40 @@ const actors = [
 	database.actors.admin,
 	await database.actor({ kind: "plant", id: Q }, "admin"),
 ];
-const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: who === 3 ? Q : P } });
-const tx = (body) => gatedTransaction(db, body);
-const run = (op, input, who = 0) => tx((t) => op(t, ctx(who), input));
+const ctx = (who = 0) => ({
+	session: actors[who]!.session,
+	selected: { kind: "plant" as const, id: tenantId.parse(who === 3 ? Q : P) },
+});
+type Context = ReturnType<typeof ctx>;
+const tx = <V,>(body: (t: WriteTx) => Promise<V>) => gatedTransaction(db, body);
+const run = <V,>(op: (t: WriteTx, context: Context, raw: unknown) => Promise<V>, input: unknown, who = 0) =>
+	tx((t) => op(t, ctx(who), input));
 const key = () => randomUUID();
-const viewer = async (who = 0) => RequestActor.resolve(db, actors[who].session);
-const count = async (query) => Number((await admin.execute(query)).rows[0].n);
-const rev = async (table, id) =>
-	(await admin.execute(sql.raw(`SELECT revision::text AS r FROM ${table} WHERE id='${id}'`))).rows[0].r;
+const viewer = async (who = 0) => {
+	const actor = await RequestActor.resolve(db, actors[who]!.session);
+	assert.ok(actor instanceof RequestActor);
+	return actor;
+};
+const count = async (query: SQL) => Number((await admin.execute(query)).rows[0]!.n);
+const rev = async (table: string, id: string) =>
+	(await admin.execute<{ r: string }>(sql.raw(`SELECT revision::text AS r FROM ${table} WHERE id='${id}'`))).rows[0]!.r;
 const plantRevision = () =>
-	admin.execute(sql`SELECT material_revision::text AS r FROM plant WHERE id=${P}`).then((r) => r.rows[0].r);
+	admin.execute(sql`SELECT material_revision::text AS r FROM plant WHERE id=${P}`).then((r) => r.rows[0]!.r);
 
-async function person(name, fields = {}) {
+async function person(name: string, fields: { plant?: string; stage?: string; account?: string; state?: string } = {}) {
 	const id = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,
 		pipeline_position,state,created_at,linked_account_id) VALUES(${id},${fields.plant ?? P},${fields.plant ?? P},${name},'other',
 		${fields.stage ?? "prospect"},'unknown','unknown',0,${fields.state ?? "live"},clock_timestamp(),${fields.account ?? null})`);
 	return id;
 }
-async function makeTeam(name, who = 0) {
+async function makeTeam(name: string, who = 0) {
 	return ok(await run(teamsWriter.create, { requestKey: key(), input: { name } }, who)).team;
 }
-async function makeRole(teamId, name, fields = {}) {
+async function makeRole(teamId: string, name: string, fields: { leadership?: boolean; desiredSkills?: string } = {}) {
 	return ok(await run(teamsWriter.createRole, { requestKey: key(), input: { teamId, name, ...fields } })).role;
 }
-async function assign(role, teamId, personId) {
+async function assign(role: { id: string }, teamId: string, personId: string) {
 	return ok(
 		await run(teamsWriter.assignRole, {
 			requestKey: key(),
@@ -63,7 +73,7 @@ async function assign(role, teamId, personId) {
 		}),
 	);
 }
-async function program(name, fields = {}) {
+async function program(name: string, fields: { required?: boolean; teamId?: string | null; who?: number } = {}) {
 	return ok(
 		await run(
 			trainingWriter.createProgram,
@@ -75,10 +85,10 @@ async function program(name, fields = {}) {
 		),
 	).program;
 }
-async function preview(programId, personIds, who = 0) {
+async function preview(programId: string, personIds: string[], who = 0) {
 	return ok(await trainingReader.readRequiredTrainingPreview(db, await viewer(who), { programId, personIds }));
 }
-async function saveRoster(programId, personIds, who = 0, requestKey = key()) {
+async function saveRoster(programId: string, personIds: string[], who = 0, requestKey = key()) {
 	const seen = await preview(programId, personIds, who);
 	return ok(
 		await run(
@@ -92,21 +102,21 @@ async function saveRoster(programId, personIds, who = 0, requestKey = key()) {
 		),
 	);
 }
-const idsOf = (names, book) => names.map((name) => book[name]);
-const teamMeeting = (teamId, fields = {}, who = 0) =>
+const idsOf = <Name extends string>(names: Name[], book: Record<Name, string>) => names.map((name) => book[name]);
+const teamMeeting = (teamId: string, fields: object = {}, who = 0) =>
 	run(
 		meetingsWriter.schedule,
 		{ requestKey: key(), input: { type: "team_meeting", teamId, date: "2026-10-24", time: "09:00", ...fields } },
 		who,
 	);
-async function held(meetingId, personIds) {
+async function held(meetingId: string, personIds: string[]) {
 	await admin.execute(sql`UPDATE participation SET presence='attended'
 		WHERE meeting_id=${meetingId} AND person_id = ANY(${sql.param(personIds)}::uuid[])`);
 	await admin.execute(sql`UPDATE meeting SET status='completed' WHERE id=${meetingId}`);
 }
 
 before(async () => {
-	memberPerson = await person("Member leader", { account: actors[1].id });
+	memberPerson = await person("Member leader", { account: actors[1]!.id });
 });
 after(async () => {
 	await database.close();
@@ -128,7 +138,7 @@ test("AC:SCHEMA-004 AC:SME53-001 AC:SME53-003 AC:TARGET-TEAM-008 AC:TARGET-TEAM-
 	assert.deepEqual(saved.personIds, idsOf(["Alex", "Casey", "Jordan"], book));
 	await assign(await makeRole(worship.id, "Later"), worship.id, mara);
 	const matrix = ok(await trainingReader.readTrainingMatrix(db, await viewer(), {}));
-	const row = matrix.programs.find((item) => item.id === required.id);
+	const row = matrix.programs.find((item) => item.id === required.id)!;
 	assert.deepEqual(row.personIds, [alex, casey, jordan].sort());
 	assert.equal(row.personIds.includes(mara), false);
 	const again = await preview(required.id, [alex, alex, casey]);
@@ -194,7 +204,7 @@ test("AC:SCHEMA-004 AC:SME53-001 AC:SME53-003 AC:TARGET-TEAM-008 AC:TARGET-TEAM-
 		creditBefore,
 	);
 	const listed = ok(await trainingReader.listTraining(db, await viewer(), {}));
-	const shown = listed.programs.find((item) => item.id === required.id);
+	const shown = listed.programs.find((item) => item.id === required.id)!;
 	assert.equal(shown.requiredPeople, 1);
 	assert.equal(shown.compatibleCredits, 1);
 	refused(
@@ -237,7 +247,7 @@ test("AC:SCHEMA-004 AC:SME53-001 AC:SME53-003 AC:TARGET-TEAM-008 AC:TARGET-TEAM-
 		}),
 	);
 	assert.equal(
-		(await admin.execute(sql`SELECT team_id FROM training_program WHERE id=${required.id}`)).rows[0].team_id,
+		(await admin.execute(sql`SELECT team_id FROM training_program WHERE id=${required.id}`)).rows[0]!.team_id,
 		worship.id,
 	);
 	const empty = await makeTeam("Empty applicability");
@@ -267,11 +277,11 @@ test("AC:TARGET-TEAM-009 completion revoke and redo keep the original credit", a
 		"conflict",
 	);
 	assert.equal(
-		(await admin.execute(sql`SELECT name, team_id FROM training_program WHERE id=${item.id}`)).rows[0].name,
+		(await admin.execute(sql`SELECT name, team_id FROM training_program WHERE id=${item.id}`)).rows[0]!.name,
 		"Redo course revised",
 	);
 	assert.equal(
-		(await admin.execute(sql`SELECT team_id FROM training_program WHERE id=${item.id}`)).rows[0].team_id,
+		(await admin.execute(sql`SELECT team_id FROM training_program WHERE id=${item.id}`)).rows[0]!.team_id,
 		team.id,
 	);
 	refused(
@@ -293,7 +303,7 @@ test("AC:TARGET-TEAM-009 completion revoke and redo keep the original credit", a
 			2,
 		),
 	);
-	assert.equal(earned.verifierAccountId, actors[2].id);
+	assert.equal(earned.verifierAccountId, actors[2]!.id);
 	ok(
 		await run(trainingWriter.revokeCompletion, {
 			requestKey: key(),
@@ -326,9 +336,9 @@ test("AC:TARGET-TEAM-009 completion revoke and redo keep the original credit", a
 	const history = ok(await trainingReader.readTrainingHistory(db, await viewer(), { personId: alex }));
 	const kinds = history.credits.filter((row) => row.programId === item.id).map((row) => row.kind);
 	assert.deepEqual(kinds, ["earned", "revoked", "earned"]);
-	assert.equal(history.credits.find((row) => row.programId === item.id).verifierAccountId, actors[2].id);
-	assert.equal(history.credits.find((row) => row.programId === item.id).earnedOn, "2026-10-01");
-	const latest = history.credits.filter((row) => row.programId === item.id).at(-1);
+	assert.equal(history.credits.find((row) => row.programId === item.id)!.verifierAccountId, actors[2]!.id);
+	assert.equal(history.credits.find((row) => row.programId === item.id)!.earnedOn, "2026-10-01");
+	const latest = history.credits.filter((row) => row.programId === item.id).at(-1)!;
 	assert.equal(latest.kind, "earned");
 	refused(
 		await run(
@@ -350,7 +360,7 @@ test("AC:TARGET-TEAM-017 AC:SME53-009 service evidence does not change a role", 
 	const casey = await person("Casey Service");
 	const seats = await count(sql`SELECT count(*)::int AS n FROM seat`);
 	const roles = await count(sql`SELECT count(*)::int AS n FROM team_role`);
-	const stage = (await admin.execute(sql`SELECT stage FROM person WHERE id=${alex}`)).rows[0].stage;
+	const stage = (await admin.execute(sql`SELECT stage FROM person WHERE id=${alex}`)).rows[0]!.stage;
 	const jobs = await count(sql`SELECT count(*)::int AS n FROM job`);
 	const yes = ok(
 		await run(trainingWriter.attestCompletion, {
@@ -367,7 +377,7 @@ test("AC:TARGET-TEAM-017 AC:SME53-009 service evidence does not change a role", 
 	assert.deepEqual([yes.candidate, no.candidate], [true, false]);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM seat`), seats);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM team_role`), roles);
-	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${alex}`)).rows[0].stage, stage);
+	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${alex}`)).rows[0]!.stage, stage);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM job`), jobs);
 	refused(
 		await run(trainingWriter.attestCompletion, {
@@ -427,7 +437,7 @@ test("AC:B01-001 AC:GAP-TEAM-013 AC:TARGET-TEAM-013 a team meeting keeps its gue
 	refused(await teamMeeting(hospitality.id, { subtype: "training", date: "2026-10-25" }, actors.length - 1));
 	const second = ok(await teamMeeting(hospitality.id, { subtype: "training", date: "2026-10-26" }, 1)).meeting;
 	assert.equal(second.guestCount, 3);
-	const stored = (await admin.execute(sql`SELECT type, subtype, team_id FROM meeting WHERE id=${meeting.id}`)).rows[0];
+	const stored = (await admin.execute(sql`SELECT type, subtype, team_id FROM meeting WHERE id=${meeting.id}`)).rows[0]!;
 	assert.deepEqual({ ...stored }, { type: "team_meeting", subtype: "training", team_id: hospitality.id });
 	const listed = ok(await meetingsReader.list(db, await viewer(), { teamId: hospitality.id, window: "all" }));
 	assert.deepEqual(listed.items.map((m) => m.id).sort(), [meeting.id, second.id].sort());
@@ -440,7 +450,7 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 	const bareFacts = ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: bare.id }));
 	assert.equal(bareFacts.composite, null);
 	assert.deepEqual(bareFacts.weights, [40, 35, 25]);
-	const measuresOf = async (teamId) => {
+	const measuresOf = async (teamId: string) => {
 		const h = ok(await trainingReader.readHealth(db, await viewer(), { teamId }));
 		return [h.trainingRate, h.staffingRate, h.attendanceRate, h.composite, h.staffingBand, h.attendanceBand];
 	};
@@ -581,7 +591,7 @@ test("AC:GAP-TEAM-015 AC:TARGET-TEAM-004 AC:TARGET-TEAM-015 stage moves stay wit
 		input: { roleId: role.id, teamId: team.id, personId: member },
 	};
 	ok(await run(teamsWriter.assignRole, request));
-	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${member}`)).rows[0].stage, "launch_team");
+	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${member}`)).rows[0]!.stage, "launch_team");
 	assert.notEqual(await plantRevision(), beforeRev);
 	const events = await count(
 		sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${member} AND action='people.stage_changed'`,
@@ -602,7 +612,7 @@ test("AC:GAP-TEAM-015 AC:TARGET-TEAM-004 AC:TARGET-TEAM-015 stage moves stay wit
 			input: { roleId: leadRole.id, teamId: team.id, personId: leaderPerson },
 		}),
 	);
-	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${leaderPerson}`)).rows[0].stage, "leader");
+	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${leaderPerson}`)).rows[0]!.stage, "leader");
 	ok(
 		await run(teamsWriter.assignRole, {
 			requestKey: key(),
@@ -610,14 +620,14 @@ test("AC:GAP-TEAM-015 AC:TARGET-TEAM-004 AC:TARGET-TEAM-015 stage moves stay wit
 			input: { roleId: extra.id, teamId: team.id, personId: stayed },
 		}),
 	);
-	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${stayed}`)).rows[0].stage, "leader");
+	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${stayed}`)).rows[0]!.stage, "leader");
 	assert.equal(
 		await count(
 			sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${stayed} AND action='people.stage_changed'`,
 		),
 		0,
 	);
-	const frozenStage = (await admin.execute(sql`SELECT stage FROM person WHERE id=${member}`)).rows[0].stage;
+	const frozenStage = (await admin.execute(sql`SELECT stage FROM person WHERE id=${member}`)).rows[0]!.stage;
 	const frozenRev = await plantRevision();
 	const roleRevision = await rev("team_role", role.id);
 	refused(
@@ -628,7 +638,7 @@ test("AC:GAP-TEAM-015 AC:TARGET-TEAM-004 AC:TARGET-TEAM-015 stage moves stay wit
 		}),
 		"conflict",
 	);
-	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${member}`)).rows[0].stage, frozenStage);
+	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${member}`)).rows[0]!.stage, frozenStage);
 	assert.equal(await plantRevision(), frozenRev);
 	const mail = await count(sql`SELECT count(*)::int AS n FROM job WHERE kind='mail'`);
 	assert.equal(mail, 0);
@@ -643,7 +653,7 @@ test("AC:GAP-TEAM-015 AC:TARGET-TEAM-004 AC:TARGET-TEAM-015 stage moves stay wit
 	);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM seat`), seats);
 	await admin.execute(
-		sql`UPDATE seat SET ended_at = clock_timestamp() WHERE account_id=${actors[1].id} AND plant_id=${P}`,
+		sql`UPDATE seat SET ended_at = clock_timestamp() WHERE account_id=${actors[1]!.id} AND plant_id=${P}`,
 	);
 	try {
 		const linked = memberPerson;
@@ -657,7 +667,7 @@ test("AC:GAP-TEAM-015 AC:TARGET-TEAM-004 AC:TARGET-TEAM-015 stage moves stay wit
 		);
 		refused(await teamMeeting(led.id, { subtype: "training", date: "2026-10-27", time: "09:30" }, 1));
 	} finally {
-		await admin.execute(sql`UPDATE seat SET ended_at = NULL WHERE account_id=${actors[1].id} AND plant_id=${P}`);
+		await admin.execute(sql`UPDATE seat SET ended_at = NULL WHERE account_id=${actors[1]!.id} AND plant_id=${P}`);
 	}
 	for (let n = 1; n <= 101; n += 1) await person("M " + String(n).padStart(3, "0"));
 	const page = ok(await teamsReader.listLeaderCandidates(db, await viewer(), {}));
@@ -674,13 +684,13 @@ test("AC:GAP-TEAM-015 AC:TARGET-TEAM-004 AC:TARGET-TEAM-015 stage moves stay wit
 });
 
 test("AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-CONFLICT AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-RETIRE AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-UNMERGE AC:SCHEMA-009 training references follow the person rules", async () => {
-	const assignment = registry.find((item) => item.kind === "training_assignment");
-	const credit = registry.find((item) => item.kind === "training_credit");
+	const assignment = registry.find((item) => item.kind === "training_assignment")!;
+	const credit = registry.find((item) => item.kind === "training_credit")!;
 	assert.equal(assignment.treatment, "move");
 	assert.equal(assignment.revision, true);
 	assert.equal(credit.treatment, "keep");
 	assert.equal(credit.revision, false);
-	const make = async (name) =>
+	const make = async (name: string) =>
 		ok(
 			await tx((t) =>
 				peopleWriter.createPerson(t, ctx(), {
@@ -702,7 +712,7 @@ test("AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE AC:PERSONREF-TRAINING
 	);
 	const assignmentId = (
 		await admin.execute(sql`SELECT id FROM training_assignment WHERE person_id=${source.id} AND program_id=${item.id}`)
-	).rows[0].id;
+	).rows[0]!.id;
 	const review = ok(
 		await tx((t) => peopleMerge.getMergeReview(t, ctx(), { sourceId: source.id, survivorId: survivor.id })),
 	);
@@ -717,7 +727,7 @@ test("AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE AC:PERSONREF-TRAINING
 		"conflict",
 	);
 	assert.equal(
-		(await admin.execute(sql`SELECT person_id FROM training_assignment WHERE id=${assignmentId}`)).rows[0].person_id,
+		(await admin.execute(sql`SELECT person_id FROM training_assignment WHERE id=${assignmentId}`)).rows[0]!.person_id,
 		source.id,
 	);
 	const fresh = ok(
@@ -732,7 +742,7 @@ test("AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE AC:PERSONREF-TRAINING
 		),
 	);
 	assert.equal(
-		(await admin.execute(sql`SELECT person_id FROM training_assignment WHERE id=${assignmentId}`)).rows[0].person_id,
+		(await admin.execute(sql`SELECT person_id FROM training_assignment WHERE id=${assignmentId}`)).rows[0]!.person_id,
 		survivor.id,
 	);
 	assert.equal(
@@ -755,25 +765,25 @@ test("AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE AC:PERSONREF-TRAINING
 		),
 	);
 	assert.equal(
-		(await admin.execute(sql`SELECT person_id FROM training_assignment WHERE id=${assignmentId}`)).rows[0].person_id,
+		(await admin.execute(sql`SELECT person_id FROM training_assignment WHERE id=${assignmentId}`)).rows[0]!.person_id,
 		source.id,
 	);
-	assert.equal((await admin.execute(sql`SELECT state FROM person WHERE id=${source.id}`)).rows[0].state, "live");
+	assert.equal((await admin.execute(sql`SELECT state FROM person WHERE id=${source.id}`)).rows[0]!.state, "live");
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM job WHERE kind='mail'`), jobs);
 	const left = await make("Shared left");
 	const right = await make("Shared right");
 	const shared = await program("Shared roster", { teamId: null });
 	await saveRoster(shared.id, [left.id, right.id]);
 	const leftRow = (
-		await admin.execute(
+		await admin.execute<{ id: string; revision: number }>(
 			sql`SELECT id, revision::int AS revision FROM training_assignment WHERE person_id=${left.id} AND program_id=${shared.id} AND state='active'`,
 		)
-	).rows[0];
+	).rows[0]!;
 	const rightId = (
 		await admin.execute(
 			sql`SELECT id FROM training_assignment WHERE person_id=${right.id} AND program_id=${shared.id} AND state='active'`,
 		)
-	).rows[0].id;
+	).rows[0]!.id;
 	const reviewBoth = ok(
 		await tx((t) => peopleMerge.getMergeReview(t, ctx(), { sourceId: left.id, survivorId: right.id })),
 	);
@@ -792,9 +802,9 @@ test("AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE AC:PERSONREF-TRAINING
 	).rows;
 	const active = placed.filter((row) => row.state === "active");
 	assert.equal(active.length, 1);
-	assert.equal(active[0].id, rightId);
-	assert.equal(active[0].person_id, right.id);
-	const ended = placed.find((row) => row.id === leftRow.id);
+	assert.equal(active[0]!.id, rightId);
+	assert.equal(active[0]!.person_id, right.id);
+	const ended = placed.find((row) => row.id === leftRow.id)!;
 	assert.equal(ended.person_id, right.id);
 	assert.equal(ended.state, "removed");
 	assert.equal(ended.ended, true);
@@ -814,11 +824,11 @@ test("AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE AC:PERSONREF-TRAINING
 			sql`SELECT id, person_id, state, revision::int AS revision FROM training_assignment WHERE program_id=${shared.id}`,
 		)
 	).rows;
-	const back = restored.find((row) => row.id === leftRow.id);
+	const back = restored.find((row) => row.id === leftRow.id)!;
 	assert.equal(back.person_id, left.id);
 	assert.equal(back.state, "removed");
 	assert.equal(back.revision, leftRow.revision + 2);
-	const keptActive = restored.find((row) => row.id === rightId);
+	const keptActive = restored.find((row) => row.id === rightId)!;
 	assert.equal(keptActive.person_id, right.id);
 	assert.equal(keptActive.state, "active");
 	const retired = await make("P2 retire");
@@ -854,11 +864,11 @@ test("AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE AC:PERSONREF-TRAINING
 	);
 	const past = ok(await trainingReader.readTrainingHistory(db, await viewer(), { personId: retired.id }));
 	assert.equal(
-		past.credits.some((row) => row.personId === undefined || row.programId === kept.id),
+		past.credits.some((row) => row.programId === kept.id),
 		true,
 	);
 	assert.equal(
-		(await admin.execute(sql`SELECT person_id FROM training_credit WHERE program_id=${kept.id}`)).rows[0].person_id,
+		(await admin.execute(sql`SELECT person_id FROM training_credit WHERE program_id=${kept.id}`)).rows[0]!.person_id,
 		retired.id,
 	);
 	assert.equal(
@@ -879,13 +889,13 @@ test("AC:TARGET-IDN-029 the session account is the actor", async () => {
 	refused(
 		await run(trainingWriter.createProgram, {
 			requestKey: key(),
-			actorId: actors[1].id,
+			actorId: actors[1]!.id,
 			input: { name: "Forged field", required: false, teamId: null },
 		}),
 		"invalid_input",
 	);
 	const before = await count(sql`SELECT count(*)::int AS n FROM training_program`);
-	await admin.execute(sql`UPDATE auth_session SET user_id=${actors[2].user} WHERE id=${actors[0].session}`);
+	await admin.execute(sql`UPDATE auth_session SET user_id=${actors[2]!.user} WHERE id=${actors[0]!.session}`);
 	try {
 		const created = ok(
 			await run(trainingWriter.createProgram, {
@@ -893,17 +903,17 @@ test("AC:TARGET-IDN-029 the session account is the actor", async () => {
 				input: { name: "Follows account", required: false, teamId: null },
 			}),
 		);
-		const actor = (await admin.execute(sql`SELECT actor_id FROM audit_event WHERE id=${created.receiptId}`)).rows[0]
+		const actor = (await admin.execute(sql`SELECT actor_id FROM audit_event WHERE id=${created.receiptId}`)).rows[0]!
 			.actor_id;
-		assert.equal(actor, actors[2].id);
+		assert.equal(actor, actors[2]!.id);
 	} finally {
-		await admin.execute(sql`UPDATE auth_session SET user_id=${actors[0].user} WHERE id=${actors[0].session}`);
+		await admin.execute(sql`UPDATE auth_session SET user_id=${actors[0]!.user} WHERE id=${actors[0]!.session}`);
 	}
 	const orphan = randomUUID();
 	await admin.execute(
 		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${orphan},${orphan + "@example.test"},true,'Orphan')`,
 	);
-	await admin.execute(sql`UPDATE auth_session SET user_id=${orphan} WHERE id=${actors[0].session}`);
+	await admin.execute(sql`UPDATE auth_session SET user_id=${orphan} WHERE id=${actors[0]!.session}`);
 	try {
 		refused(
 			await run(trainingWriter.createProgram, {
@@ -913,7 +923,7 @@ test("AC:TARGET-IDN-029 the session account is the actor", async () => {
 		);
 		assert.equal(await count(sql`SELECT count(*)::int AS n FROM training_program`), before + 1);
 	} finally {
-		await admin.execute(sql`UPDATE auth_session SET user_id=${actors[0].user} WHERE id=${actors[0].session}`);
+		await admin.execute(sql`UPDATE auth_session SET user_id=${actors[0]!.user} WHERE id=${actors[0]!.session}`);
 	}
 	const item = await program("Cross tenant");
 	refused(
@@ -933,7 +943,7 @@ test("AC:TARGET-IDN-029 the session account is the actor", async () => {
 		"access_denied",
 	);
 	const ownerView = await viewer(0);
-	await admin.execute(sql`UPDATE seat SET role='member' WHERE account_id=${actors[0].id} AND plant_id=${P}`);
+	await admin.execute(sql`UPDATE seat SET role='member' WHERE account_id=${actors[0]!.id} AND plant_id=${P}`);
 	try {
 		refused(await trainingReader.listTraining(db, ownerView, {}));
 		refused(
@@ -944,7 +954,7 @@ test("AC:TARGET-IDN-029 the session account is the actor", async () => {
 			"access_denied",
 		);
 	} finally {
-		await admin.execute(sql`UPDATE seat SET role='owner' WHERE account_id=${actors[0].id} AND plant_id=${P}`);
+		await admin.execute(sql`UPDATE seat SET role='owner' WHERE account_id=${actors[0]!.id} AND plant_id=${P}`);
 	}
 });
 
@@ -1217,11 +1227,11 @@ test("AC:REQ-IDN-005 a credit write for a missing, another church's or retired p
 test("INV-concurrency two leaders recording the same credit at once add one credit row, and two revokes add one revoke", async () => {
 	const course = await program("Race course", { required: false });
 	const sam = await person("Sam Race");
-	const credits = (kind) =>
+	const credits = (kind: "earned" | "revoked") =>
 		count(sql`SELECT count(*)::int AS n FROM training_credit
 			WHERE program_id=${course.id} AND person_id=${sam} AND kind=${kind}`);
 	const revision = await rev("training_program", course.id);
-	const both = (op, input) =>
+	const both = <V,>(op: Parameters<typeof run<V>>[0], input: object) =>
 		Promise.all([0, 2].map((who) => run(op, { requestKey: key(), expectedRevision: revision, input }, who)));
 	const attests = await both(trainingWriter.attestCompletion, {
 		kind: "program",
