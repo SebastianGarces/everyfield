@@ -150,6 +150,8 @@ function firstServiceOf(l: FactInputs["launch"], today: string): z.input<typeof 
 	return { path: "launch_sunday", status: heldOn ? "met" : "unknown", heldOn };
 }
 
+const revisionOf = (inputs: FactInputs) => createHash("sha256").update(JSON.stringify(inputs)).digest("hex");
+
 export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.PlantFacts {
 	const windowStart = addDays(today, -(c.WINDOW_DAYS - 1));
 	const priorStart = addDays(today, -(2 * c.WINDOW_DAYS - 1));
@@ -330,7 +332,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		asOf,
 		today,
 		formulaVersion: c.FACTS_FORMULA_VERSION,
-		sourceRevision: createHash("sha256").update(JSON.stringify(inputs)).digest("hex"),
+		sourceRevision: revisionOf(inputs),
 		committedAdults,
 		growth,
 		vision,
@@ -364,19 +366,18 @@ export const peopleJson = (
   FROM person p WHERE p.tenant_id=${plant} AND p.state='live'
   AND EXISTS(SELECT FROM commitment k WHERE k.person_id=p.id AND k.plant_id=p.tenant_id AND k.voided_at IS NULL)),'[]'::jsonb)`;
 
-function statement(plant: string, ok: SQL, at: SQL) {
+function inputsSql() {
+	const touched = (...subjects: SQL[]) => sql`EXISTS(SELECT FROM audit_event ev WHERE ev.tenant_id=x.plant
+ AND ev.subject_id IN (${sql.join(subjects, sql`,`)}) AND ev.recorded_at>x.at)`;
 	const held = (m: SQL) => sql`${m}.plant_id=x.plant AND ${m}.status='completed' AND ${m}.retired_at IS NULL
- AND ${m}.occurrence_voided_at IS NULL AND coalesce(${m}.actual_occurrence_at,${m}.starts_at)<=x.at`;
+ AND ${m}.occurrence_voided_at IS NULL AND (coalesce(${m}.actual_occurrence_at,${m}.starts_at)<=x.at
+ OR (coalesce(${m}.actual_occurrence_at,${m}.starts_at)<=x.until AND ${touched(sql`${m}.id`)}))`;
 	const heldOn = (m: SQL) => sql`(coalesce(${m}.actual_occurrence_at,${m}.starts_at) AT TIME ZONE x.zone)::date`;
 	const attended = (m: SQL) =>
 		sql`(SELECT count(*)::int FROM participation pa WHERE pa.meeting_id=${m}.id AND pa.plant_id=${m}.plant_id
  AND pa.removed_at IS NULL AND pa.presence='attended')`;
 	const evidence = sql`(e.obligation_id=o.id OR (e.person_id=o.person_id AND t.id=ANY(e.also_task_ids)))`;
-	return sql`WITH gate AS (SELECT ${ok} AS ok),
- x AS (SELECT pl.id AS plant,pl.timezone AS zone,${at} AS at,(${at} AT TIME ZONE pl.timezone)::date AS today
-  FROM plant pl WHERE pl.id=${plant}::uuid AND (SELECT ok FROM gate))
- SELECT (SELECT ok FROM gate) AS ok,x.today::text AS today,${iso(sql`x.at`)} AS at,
- jsonb_build_object(
+	return sql`jsonb_build_object(
  'zone',x.zone,
  'people',${peopleJson(sql`x.plant`)},
  'vision',coalesce((SELECT jsonb_agg(jsonb_build_object('on',v.on_date::text,'attended',v.attended) ORDER BY v.at_ DESC,v.id)
@@ -409,7 +410,8 @@ function statement(plant: string, ok: SQL, at: SQL) {
  'roles',coalesce((SELECT jsonb_agg(jsonb_build_object('key',r.responsibility_key,'id',p.id,'name',p.display_name)
    ORDER BY r.responsibility_key,p.id,r.id)
   FROM team_role r JOIN team tm ON tm.id=r.team_id AND tm.plant_id=r.plant_id AND tm.archived_at IS NULL
-  JOIN team_tenure tn ON tn.role_id=r.id AND tn.plant_id=r.plant_id AND tn.ended_on IS NULL AND tn.started_on<=x.today
+  JOIN team_tenure tn ON tn.role_id=r.id AND tn.plant_id=r.plant_id AND tn.ended_on IS NULL
+   AND (tn.started_on<=x.today OR (tn.started_on<=x.until_day AND ${touched(sql`tn.id`, sql`tm.id`)}))
   JOIN person p ON p.id=tn.person_id AND p.tenant_id=r.plant_id AND p.state='live'
   WHERE r.plant_id=x.plant AND r.retired_at IS NULL AND r.responsibility_key IS NOT NULL),'[]'::jsonb),
  'training',coalesce((SELECT jsonb_agg(jsonb_build_object('id',g.id,'name',g.name,'people',
@@ -430,15 +432,38 @@ function statement(plant: string, ok: SQL, at: SQL) {
  'launch',(SELECT jsonb_build_object('target',l.target_date::text,'actual',l.actual_date::text,'status',l.status,
   'path',l.gathering_path,'reachedOn',l.gathering_reached_on::text,'reachedName',l.gathering_reached_name)
   FROM launch l WHERE l.plant_id=x.plant)
- ) AS inputs
- FROM gate LEFT JOIN x ON true`;
+ )`;
 }
+
+const moment = (at: SQL, until: SQL) => sql`pl.id AS plant,pl.timezone AS zone,${at} AS at,${until} AS until,
+  (${at} AT TIME ZONE pl.timezone)::date AS today,(${until} AT TIME ZONE pl.timezone)::date AS until_day`;
+const gated = (plant: string, ok: SQL, at: SQL) => sql`WITH gate AS (SELECT ${ok} AS ok),
+ x AS (SELECT ${moment(at, at)} FROM plant pl WHERE pl.id=${plant}::uuid AND (SELECT ok FROM gate))`;
+const measured = () =>
+	sql`(SELECT ok FROM gate) AS ok,x.today::text AS today,${iso(sql`x.at`)} AS at,${inputsSql()} AS inputs`;
+
+const statement = (plant: string, ok: SQL, at: SQL) =>
+	sql`${gated(plant, ok, at)} SELECT ${measured()} FROM gate LEFT JOIN x ON true`;
+
+const statementSinceRun = (plant: string, ok: SQL, at: SQL) => sql`${gated(plant, ok, at)},
+ run AS (SELECT r.id,r.source_revision,r.as_of FROM assessment_run r JOIN x ON x.plant=r.plant_id
+  WHERE r.outcome='published' AND r.formula_version=${c.FACTS_FORMULA_VERSION}
+  ORDER BY r.available_at DESC,r.id DESC LIMIT 1),
+ since AS (SELECT ${moment(sql`run.as_of`, sql`greatest(x.until,run.as_of)`)}
+  FROM run CROSS JOIN x JOIN plant pl ON pl.id=x.plant)
+ SELECT ${measured()},
+ (SELECT jsonb_build_object('id',run.id,'revision',run.source_revision,
+  'inputs',(SELECT ${inputsSql()} FROM since x)) FROM run) AS run
+ FROM gate LEFT JOIN x ON true`;
 
 const factsRow = z.object({
 	ok: z.boolean().nullable(),
 	today: z.string().nullable(),
 	at: instant.nullable(),
 	inputs: z.unknown(),
+});
+const sinceRunRow = factsRow.extend({
+	run: z.object({ id: z.uuid(), revision: z.string(), inputs: z.unknown() }).nullable(),
 });
 
 const refusals = defineRefusals(c.factsError);
@@ -453,6 +478,18 @@ export async function captureFacts(db: Pick<Database, "execute">, plant: string,
 }
 
 export function createFacts(config: { clock?: Clock } = {}) {
+	const now = () =>
+		config.clock ? sql`${new Date(config.clock.now()).toISOString()}::timestamptz` : sql`statement_timestamp()`;
+	function viewerOf(authority: RequestActor, raw: unknown) {
+		if (!c.readFactsRequest.safeParse(raw).success) deny("invalid_input");
+		const viewer = plantViewer(authority);
+		if (!viewer || viewer.access.role === "member") deny("access_denied");
+		return { plant: viewer.plantId, ok: liveRead(viewer.access, true) };
+	}
+	function factsOf(r: z.infer<typeof factsRow>) {
+		if (!r.ok || !r.today || !r.at) deny("access_denied");
+		return buildFacts(factInputs.parse(r.inputs), r.at, r.today);
+	}
 	return {
 		async readFacts(
 			db: Pick<Database, "execute">,
@@ -460,16 +497,24 @@ export function createFacts(config: { clock?: Clock } = {}) {
 			raw: unknown = {},
 		): Promise<c.FactsReply<c.PlantFacts>> {
 			return refusals.settle(async () => {
-				if (!c.readFactsRequest.safeParse(raw).success) deny("invalid_input");
-				const viewer = plantViewer(authority);
-				if (!viewer || viewer.access.role === "member") deny("access_denied");
-				const at = config.clock
-					? sql`${new Date(config.clock.now()).toISOString()}::timestamptz`
-					: sql`statement_timestamp()`;
-				const { rows } = await db.execute(statement(viewer.plantId, liveRead(viewer.access, true), at));
-				const r = factsRow.parse(rows[0]);
-				if (!r.ok || !r.today || !r.at) deny("access_denied");
-				return buildFacts(factInputs.parse(r.inputs), r.at, r.today);
+				const v = viewerOf(authority, raw);
+				const { rows } = await db.execute(statement(v.plant, v.ok, now()));
+				return factsOf(factsRow.parse(rows[0]));
+			});
+		},
+
+		async readFactsSinceRun(
+			db: Pick<Database, "execute">,
+			authority: RequestActor,
+			raw: unknown = {},
+		): Promise<c.FactsReply<c.FactsSinceRun>> {
+			return refusals.settle(async () => {
+				const v = viewerOf(authority, raw);
+				const { rows } = await db.execute(statementSinceRun(v.plant, v.ok, now()));
+				const r = sinceRunRow.parse(rows[0]);
+				const facts = factsOf(r);
+				const changed = r.run !== null && revisionOf(factInputs.parse(r.run.inputs)) !== r.run.revision;
+				return { facts, outOfDateRunId: changed ? r.run?.id ?? null : null };
 			});
 		},
 	};
