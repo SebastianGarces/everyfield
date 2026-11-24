@@ -1206,7 +1206,13 @@ test("INV-evry-golden: a case offers beyond the recorded catalog only the reads 
 	const offering = [...golden, ...extras, ...scripted].filter((c) => c.eval.offer?.length);
 	assert.deepEqual(
 		offering.map((c) => [c.case_id, c.eval.offer]),
-		[["LCH-02", ["launch.readWorkspace"]]],
+		[
+			["LCH-02", ["launch.readWorkspace"]],
+			...["ADP-PH-14", "ADP-PH-15", "ADP-PH-16", "ADP-PH-17"].map((id) => [
+				id,
+				["intelligence.readExitCriteria", "intelligence.readJourney"],
+			]),
+		],
 	);
 	for (const c of offering)
 		for (const op of c.eval.offer!) assert.ok(ADAPTERS.has(op) && !RECORDED(op), `${c.case_id} offers ${op}`);
@@ -1452,7 +1458,7 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 
 test("INV-evry-golden: every golden and adapter case passes its hard checks on the recorded model; alpha gaps and judge grades are reported", async (t) => {
 	const only = process.env.EVRY_EVAL_CASES?.split(",").map((s) => s.trim());
-	const recordable = (c: ExtraCase) => c.model === "scripted" || RECORDED(c.operation);
+	const recordable = (c: ExtraCase) => c.model === "scripted" || RECORDED(c.operation) || c.eval.offer?.includes(c.operation);
 	const held = extras.filter((c) => !recordable(c)).map((c) => c.case_id);
 	const cases = [...golden, ...extras.filter(recordable)].filter((c) => !only || only.includes(c.case_id));
 	if (held.length) t.diagnostic(`held for the batched re-record (operation in LATER): ${held.join(", ")}`);
