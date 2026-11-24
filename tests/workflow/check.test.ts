@@ -738,8 +738,7 @@ test("T-105 a full run runs every test:db but the census, one after another on o
 				EVF_NODE_TEST_FLAGS: "--test-concurrency=3",
 				DATABASE_URL: url,
 				DATABASE_URL_UNPOOLED: url,
-				EARLY_ACCESS_TEST_DATABASE: "1",
-				CI: "true",
+				EVERYFIELD_DISPOSABLE_DATABASE: "1",
 			},
 		);
 	for (const c of calls.filter((c) => !c.command.includes("db:migrate") && !c.command.includes("test:db")))
