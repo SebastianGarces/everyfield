@@ -24,7 +24,8 @@ export type Outcome = {
 	refused: { code: string; revision: number } | null;
 	unknown: { action: Action; revision: number } | null;
 };
-export type Staged = { upload: string; status: "ready"; src: string } | { upload: string; status: "gone" | "lost" };
+export type StagedSrc = `data:${string}`;
+export type Staged = { upload: string; status: "ready"; src: StagedSrc } | { upload: string; status: "gone" | "lost" };
 
 export type Church = {
 	changed: () => boolean;
@@ -99,9 +100,9 @@ export function photoWanted(state: Current): string | null {
 }
 
 const asDataUrl = (blob: Blob) =>
-	new Promise<string>((resolve, reject) => {
+	new Promise<StagedSrc>((resolve, reject) => {
 		const reader = new FileReader();
-		reader.onload = () => resolve(String(reader.result));
+		reader.onload = () => resolve(String(reader.result) as StagedSrc);
 		reader.onerror = () => reject(reader.error ?? new Error("unreadable"));
 		reader.readAsDataURL(blob);
 	});

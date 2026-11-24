@@ -1,4 +1,4 @@
-import { counted, countWord, dayText } from "@everyfield/contracts/common";
+import { accountAvatarPath, counted, countWord, dayText, personPhotoPath } from "@everyfield/contracts/common";
 import type { MailReport, RecipientOutcome } from "@everyfield/contracts/communication";
 import { CHANNEL_LABEL } from "../../followups/model.ts";
 import { ROLE_LABEL, SHARING_CATEGORIES, SHARING_CATEGORY_LABEL, ZONE_NAME } from "@everyfield/evry/labels";
@@ -737,7 +737,7 @@ export function settingsLink(operation: SettingsOperation): { href: string; labe
 export const isPhoto = (operation: Operation) =>
 	operation === "people.setPersonPhoto" || operation === "account.finalizeAvatar";
 export const savedPhotoSrc = (target: { kind: string; id: string }, version: string) =>
-	target.kind === "account" ? `/api/accounts/${target.id}/avatar/${version}` : `/people/${target.id}/photo/${version}`;
+	target.kind === "account" ? accountAvatarPath(target.id, version) : personPhotoPath(target.id, version);
 
 const ITEM_FIELD: Partial<Record<Operation, string>> = {
 	"tasks.bulkComplete": "status",

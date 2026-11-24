@@ -232,7 +232,7 @@ export const commitments = {
  'upload',${
 		document
 			? sql`(SELECT f.id FROM file_object f WHERE f.id=${document.uploadId}::uuid AND f.tenant_id=${plant}::uuid
-   AND f.purpose='commitment' AND f.state='pending' AND f.opaque_key=${documentKey(plant, document.uploadId)}::text
+   AND f.purpose='commitment' AND f.state='pending' AND f.opaque_key=${privateObjectPath(plant, document.uploadId)}::text
    AND f.expires_at>clock_timestamp() AND f.max_bytes=${String(document.byteCount)}::bigint
    AND f.media_type=${document.mediaType}::text AND NOT file_is_referenced(f.id) FOR UPDATE OF f)`
 			: sql`NULL`
@@ -456,7 +456,6 @@ export async function getCommitmentDownload(db: Database, storage: PrivateStorag
 	});
 }
 
-const documentKey = privateObjectPath;
 const documentWriter = (ctx: PeopleContext, actorId: string, plant: string) =>
 	sql`EXISTS(SELECT FROM access_session(${ctx.session}::uuid) i JOIN seat s ON s.account_id=i.account_id
  WHERE i.account_id=${actorId}::uuid AND i.registration_state='active' AND s.plant_id=${plant}::uuid AND s.ended_at IS NULL
@@ -473,7 +472,7 @@ export async function signCommitmentDocument(
 		const plant = plantId(ctx);
 		const input = parse(c.signCommitmentDocumentRequest, raw);
 		const id = randomUUID();
-		const key = documentKey(plant, id);
+		const key = privateObjectPath(plant, id);
 		const result = await db.execute(sql`WITH upload AS (
  INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
  SELECT ${id}::uuid,${plant}::uuid,'commitment',${key}::text,${input.mime}::text,${String(input.byteLength)}::bigint,
@@ -516,7 +515,7 @@ export async function saveCommitmentDocument(
 		).rows.map((r) => earlyRow.parse(r));
 		if (!early) deny("unavailable");
 		if (!early.attached) checkCard(request.input, early.today, early.witness);
-		const object = await readPrivateObject(storage, documentKey(plant, uploadId), c.COMMITMENT_MAX_BYTES);
+		const object = await readPrivateObject(storage, privateObjectPath(plant, uploadId), c.COMMITMENT_MAX_BYTES);
 		const mime = c.commitmentMime.safeParse(object?.mediaType);
 		if (!object || !mime.success) deny("unavailable");
 		const document = await checkCommitmentDocument(uploadId, object.bytes, mime.data);
