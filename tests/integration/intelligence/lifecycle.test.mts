@@ -3,6 +3,8 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { AsyncResource } from "node:async_hooks";
 import { randomBytes, randomUUID } from "node:crypto";
+import { sessionId, tenantId } from "../../../packages/contracts/src/common/index.ts";
+import type { Database } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/seats.ts";
@@ -86,23 +88,35 @@ const network = (s: Portfolio, level: "portfolio" | "region" = "portfolio", runI
 	readIntelligence(c0.db, s.director, { level, runId });
 const rowsOf = (view: Awaited<ReturnType<typeof network>>) => view!.groups.flatMap((g) => g.rows);
 const count = async (q: ReturnType<typeof sql>) => Number((await c0.one(q)).n);
+type WitnessRow = Record<
+	"requested_at" | "cancel_until" | "cancelled_at" | "live_purged_at" | "copy_expires_at",
+	string | null
+> & { id: string; state: string; request_id: string; request_revision: string };
 async function witness(p: { id: string }) {
-	const w =
-		await c0.one(sql`SELECT state,request_id,request_revision::text AS request_revision,requested_at,cancel_until,
+	const { requested_at, cancel_until, cancelled_at, live_purged_at, copy_expires_at, ...w } =
+		await c0.one<WitnessRow>(sql`SELECT state,request_id,request_revision::text AS request_revision,requested_at,cancel_until,
 		cancelled_at,live_purged_at,copy_expires_at,id FROM lifecycle_witness WHERE kind='plant' AND opaque_subject_id=${p.id}`);
-	for (const k of ["requested_at", "cancel_until", "cancelled_at", "live_purged_at", "copy_expires_at"])
-		w[k] = w[k] === null ? null : new Date(w[k]);
-	return w;
+	const at = (value: string | null) => (value === null ? null : new Date(value));
+	return {
+		...w,
+		requested_at: at(requested_at),
+		cancel_until: at(cancel_until),
+		cancelled_at: at(cancelled_at),
+		live_purged_at: at(live_purged_at),
+		copy_expires_at: at(copy_expires_at),
+	};
 }
 async function signIn(p: Plant): Promise<Plant> {
-	const session = randomUUID();
+	const session = sessionId.parse(randomUUID());
 	await c0.admin.execute(sql`INSERT INTO auth_session(id,user_id,token,expires_at)
 		VALUES(${session},${p.owner.user},${randomBytes(32).toString("hex")},clock_timestamp()+interval '1 day')`);
-	const actor = (await RequestActor.resolve(c0.db, session as never)) as RequestActor;
+	const actor = (await RequestActor.resolve(c0.db, session)) as RequestActor;
 	return { ...p, owner: { ...p.owner, session }, actor, ctx: { ...p.ctx, session } };
 }
 async function requestDeletion(p: Plant) {
-	const { revision } = await c0.one(sql`SELECT revision::text AS revision FROM plant WHERE id=${p.id}`);
+	const { revision } = await c0.one<{ revision: string }>(
+		sql`SELECT revision::text AS revision FROM plant WHERE id=${p.id}`,
+	);
 	return ok(
 		await gatedTransaction(c0.db, (tx) =>
 			deletion.requestWorkspaceDeletion(
@@ -129,7 +143,10 @@ async function cancel(p: Plant, pending: { subject: unknown; requestId: string; 
 	);
 }
 async function share(s: Portfolio, p: Plant, category: string, enabled: boolean) {
-	const a = await c0.one(sql`SELECT revision::text AS revision,consent_revision::text AS consent FROM affiliation
+	const a = await c0.one<{
+		revision: string;
+		consent: string;
+	}>(sql`SELECT revision::text AS revision,consent_revision::text AS consent FROM affiliation
 		WHERE id=${p.affiliation}`);
 	const organization = { kind: "organization", id: s.s1.id, organizationKind: "sending_network" };
 	await gatedTransaction(c0.db, (tx) =>
@@ -162,9 +179,11 @@ async function graceEnds(w: { id: string }) {
 			AND subject_record_id=${w.id}`);
 	});
 }
-const purge = () => runDuePurges(c0.db, (c0.database.pools as Record<string, any>).cleanup, storage as never, 10);
+const purge = () => runDuePurges(c0.db, (c0.database.pools as Record<string, Database>).cleanup!, storage as never, 10);
 const changeDemands = (p: { id: string }) =>
-	c0.rows(sql`SELECT producer_key FROM job WHERE kind='assessment' AND subject_record_id=${p.id}
+	c0.rows<{
+		producer_key: string;
+	}>(sql`SELECT producer_key FROM job WHERE kind='assessment' AND subject_record_id=${p.id}
 		AND producer_key LIKE 'change/%' ORDER BY eligible_at,id`);
 const notices = (p: { id: string }) =>
 	count(sql`SELECT (SELECT count(*) FROM notice WHERE tenant_id=${p.id})+(SELECT count(*) FROM mail
@@ -180,7 +199,9 @@ test("AC:TEN-007 after A's account deletion and its purge, P keeps A's shared re
 			.sort(),
 		[p.id, q.id].sort(),
 	);
-	const { revision } = await c0.one(sql`SELECT revision::text AS revision FROM account WHERE id=${a.id}`);
+	const { revision } = await c0.one<{ revision: string }>(
+		sql`SELECT revision::text AS revision FROM account WHERE id=${a.id}`,
+	);
 	const pending = ok(
 		await gatedTransaction(c0.db, (tx) =>
 			deletion.requestAccountDeletion(
@@ -191,7 +212,9 @@ test("AC:TEN-007 after A's account deletion and its purge, P keeps A's shared re
 		),
 	);
 	assert.equal(pending.status, "pending_deletion");
-	const w = await c0.one(sql`SELECT id FROM lifecycle_witness WHERE kind='account' AND opaque_subject_id=${a.id}`);
+	const w = await c0.one<{ id: string }>(
+		sql`SELECT id FROM lifecycle_witness WHERE kind='account' AND opaque_subject_id=${a.id}`,
+	);
 	await graceEnds(w);
 	assert.equal(await purge(), 1);
 	assert.equal((await c0.one(sql`SELECT state FROM lifecycle_witness WHERE id=${w.id}`)).state, "purged");
@@ -302,7 +325,8 @@ test("AC:SCHEMA-011 AC:TEN-007 a cancel under a separately revoked grant revives
 	const w2 = await witness(p);
 	assert.deepEqual([w2.state, w2.request_id, w2.request_revision], ["cancelled", first.requestId, "1"]);
 	assert.deepEqual([w2.requested_at, w2.cancel_until], [w1.requested_at, w1.cancel_until]);
-	assert.equal(w2.cancelled_at.toISOString(), cancelled.cancelledAt);
+	assert.equal(cancelled.status, "cancelled");
+	assert.equal(w2.cancelled_at!.toISOString(), cancelled.cancelledAt);
 	p = await signIn(p);
 	assert.deepEqual(await current(p), r0, "P's normal access is back");
 	for (const view of [await network(s), await network(s, "portfolio", s.runId), await network(s, "region")]) {
@@ -320,7 +344,7 @@ test("AC:SCHEMA-011 AC:TEN-007 a cancel under a separately revoked grant revives
 		[w3.state, w3.request_id, w3.request_revision, w3.cancelled_at],
 		["pending_deletion", second.requestId, "2", null],
 	);
-	assert.ok(w3.cancel_until > w1.cancel_until);
+	assert.ok(w3.cancel_until! > w1.cancel_until!);
 	await graceEnds(w3);
 	const fenced = await witness(p);
 	refused(await cancel(p, second), "deadline_passed");
@@ -345,7 +369,7 @@ test("AC:SCHEMA-011 AC:TEN-007 a cancel under a separately revoked grant revives
 		[purged.state, purged.request_id, purged.request_revision, purged.requested_at, purged.cancel_until],
 		["purged", second.requestId, "2", fenced.requested_at, fenced.cancel_until],
 	);
-	assert.equal(purged.copy_expires_at.getTime() - purged.live_purged_at.getTime(), 7 * 86_400_000);
+	assert.equal(purged.copy_expires_at!.getTime() - purged.live_purged_at!.getTime(), 7 * 86_400_000);
 	for (const table of ["assessment_run", "assessment_insight", "assessment_feedback", "assessment_seen"])
 		assert.equal(await count(sql`SELECT count(*) AS n FROM ${sql.raw(table)} WHERE plant_id=${p.id}`), 0, table);
 	assert.equal(await count(sql`SELECT count(*) AS n FROM network_intelligence_plant WHERE plant_id=${p.id}`), 0);
@@ -374,8 +398,8 @@ test("AC:SCHEMA-011 AC:TEN-007 a cancel under a separately revoked grant revives
 	);
 
 	const refusedWrite = (set: ReturnType<typeof sql>) =>
-		assert.rejects(c0.admin.execute(sql`UPDATE lifecycle_witness SET ${set} WHERE id=${purged.id}`), (e: any) =>
-			/immutable_lifecycle_clock/.test(e.cause?.message ?? e.message),
+		assert.rejects(c0.admin.execute(sql`UPDATE lifecycle_witness SET ${set} WHERE id=${purged.id}`), (e: Error) =>
+			/immutable_lifecycle_clock/.test(e.cause instanceof Error ? e.cause.message : e.message),
 		);
 	await refusedWrite(
 		sql`live_purged_at=live_purged_at+interval '1 day',copy_expires_at=copy_expires_at+interval '1 day'`,
@@ -390,7 +414,7 @@ test("AC:SCHEMA-011 AC:TEN-007 a cancel under a separately revoked grant revives
 });
 
 async function removal(s: Portfolio, requestKey: string = randomUUID()) {
-	const owner = { kind: "plant" as const, id: s.p.id };
+	const owner = { kind: "plant" as const, id: tenantId.parse(s.p.id) };
 	const review = await seats.readRemoval(s.a.session, owner, { seatId: s.seatB.seatId });
 	assert.deepEqual(
 		review.duties.map((d) => d.dutyId),
@@ -411,7 +435,7 @@ async function removal(s: Portfolio, requestKey: string = randomUUID()) {
 	);
 }
 const removeSeat = (s: Portfolio, cmd: ReturnType<typeof command>) =>
-	seats.remove(s.a.actor, { kind: "plant", id: s.p.id }, cmd, async () => {});
+	seats.remove(s.a.actor, { kind: "plant", id: tenantId.parse(s.p.id) }, cmd, async () => {});
 const eligible = async (s: Portfolio) =>
 	(await c0.one(sql`SELECT ${eligibleOwner(sql`${s.seatB.id}::uuid`, sql`${s.p.id}::uuid`)} AS ok`)).ok as boolean;
 const seatOf = (s: Portfolio) =>
@@ -444,7 +468,7 @@ test("AC:MW-CASE-023 a fault in a required write of the seat removal returns req
 		WHEN (NEW.action = 'membership.ended' AND NEW.subject_id = '${s.seatB.seatId}') EXECUTE FUNCTION fail_removal()`),
 	);
 	try {
-		await assert.rejects(removeSeat(s, await removal(s)), (e: any) => e.code === "required_write_failed");
+		await assert.rejects(removeSeat(s, await removal(s)), { code: "required_write_failed" });
 	} finally {
 		await c0.admin.execute(sql.raw(`DROP TRIGGER fail_removal ON audit_event; DROP FUNCTION fail_removal()`));
 	}
@@ -478,7 +502,10 @@ test("AC:MW-CASE-023 Admin A removes Seat-B with no wakeup: R0 stays current, th
 	assert.deepEqual([await eligible(s), await leadAdmin(s)], [false, false]);
 	assert.deepEqual(await c0.rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${s.seatB.task}`), []);
 	assert.equal((await current(p))!.runId, r0.runId);
-	const [event] = await c0.rows(sql`SELECT tenant_id,to_jsonb(e)::text AS body FROM audit_event e
+	const [event] = await c0.rows<{
+		tenant_id: string;
+		body: string;
+	}>(sql`SELECT tenant_id,to_jsonb(e)::text AS body FROM audit_event e
 		WHERE e.action='membership.ended' AND e.subject_id=${s.seatB.seatId}`);
 	assert.equal(event!.tenant_id, p.id);
 	assert.equal(event!.body.includes(CANARY), false);

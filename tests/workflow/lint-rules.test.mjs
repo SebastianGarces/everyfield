@@ -3516,6 +3516,144 @@ test("INV-lint: an unsubscribe module that imports the session, request headers 
 	);
 });
 
+test("INV-lint: no server action module, whatever its file name, imports the PDF renderer or calls an operation that renders, except the one library generate call; other modules may", () => {
+	const imports = `import { render } from "@formepdf/core";
+import { PDFDocument } from "pdf-lib";
+import { renderDocFile } from "@everyfield/domain/documents/render-doc";
+import { docElement } from "../../../../../packages/domain/src/documents/layouts/doc.tsx";
+export { renderPreview } from "../../../../../packages/domain/src/documents/library-render.ts";
+export * from "@formepdf/react";
+export const later = () => import("@formepdf/core");
+`;
+	const calls = `import { documentsWriter as writer } from "@everyfield/domain/documents";
+import * as documents from "@everyfield/domain/documents";
+export async function save(op: unknown) {
+	await writer.exportNative();
+	await writer["exportNative"]();
+	await writer[\`readChurchFile\`]();
+	const again = documents.documentsWriter;
+	await again.generate();
+	await writer?.generate();
+	await writer[op as "saveNative"]();
+}
+export async function keep() {
+	await writer.saveNative();
+	return ticket.generate();
+}
+`;
+	const library = `import { documentsWriter } from "@everyfield/domain/documents";
+export async function generateDocument() {
+	return documentsWriter.generate();
+}
+`;
+	const twice = `export async function another() {
+	return documentsWriter.generate();
+}
+export async function exportDocument() {
+	return documentsWriter.exportNative();
+}
+`;
+	const files = {
+		"packages/domain/package.json": {
+			name: "@everyfield/domain",
+			exports: { "./documents": "./src/documents/index.ts", "./documents/render-doc": "./src/documents/doc-render.ts" },
+		},
+		"packages/domain/src/documents/doc-render.ts": "export {};\n",
+		"apps/web/src/features/settings/region.ts": `"use server";\n${imports}`,
+		"apps/web/src/features/documents/church/actions.ts": `"use server";\n${calls}`,
+		"apps/web/src/features/documents/actions.ts": `"use server";\n${library}${twice}`,
+		"apps/web/src/features/documents/church/server.ts": `${imports}${calls}`,
+	};
+	const hits = (code) => lintIn(sandbox(code), Object.keys(code)).filter((hit) => hit.endsWith("action-render"));
+	assert.deepEqual(
+		hits(files),
+		[
+			...[7, 10].map((line) => `apps/web/src/features/documents/actions.ts:${line}`),
+			...[5, 6, 7, 9, 10, 11].map((line) => `apps/web/src/features/documents/church/actions.ts:${line}`),
+			...[2, 3, 4, 5, 6, 7, 8].map((line) => `apps/web/src/features/settings/region.ts:${line}`),
+		]
+			.map((at) => `${at} action-render`)
+			.sort(),
+	);
+	assert.deepEqual(hits({ "apps/web/src/features/documents/actions.ts": `"use server";\n${library}` }), []);
+});
+
+test("INV-lint: a wiki module that imports an MDX compiler is reported in any import form, other modules are not", () => {
+	const code = `import { compile } from "@mdx-js/mdx";
+import { MDXRemote } from "next-mdx-remote/rsc";
+export * from "remark-mdx";
+export const later = () => import("mdx-bundler");
+import { articleBlocks } from "./model.ts";
+export const all = [compile, MDXRemote, articleBlocks];
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/wiki/prose.tsx": code, "apps/web/src/features/people/prose.tsx": code }),
+		[1, 2, 3, 4].map((line) => `apps/web/src/features/wiki/prose.tsx:${line} wiki-no-mdx`),
+	);
+});
+
+test("INV-lint: a notifications module that keeps state on globalThis or global is reported, a field or text of that name and another feature are not", () => {
+	const code = `const KEY = Symbol.for("everyfield.notifications");
+const kept = globalThis as { [KEY]?: object };
+export const mount = () => (kept[KEY] ??= {});
+export const other = () => (global as { [KEY]?: object })[KEY];
+export const source = { global: "global", globalThis: 1 };
+export const read = () => source.global;
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/notifications/server.ts": code,
+			"apps/web/src/features/wiki/server.ts": code,
+		}),
+		[2, 4].map((line) => `apps/web/src/features/notifications/server.ts:${line} notification-mount`),
+	);
+});
+
+test("INV-lint: a teams action module imports only its writers, write, seated and the roster preview, so a write never revalidates, redirects or reads the page again", () => {
+	const good = `"use server";
+import type { Outcome } from "@everyfield/contracts/common";
+import { outcomeOf } from "@everyfield/contracts/common";
+import { seated } from "@/server/request-context";
+import { trainingWriter } from "@everyfield/domain/teams";
+import type { WriteTx } from "@everyfield/domain/access";
+import { write } from "../server.ts";
+import { readRosterPreview } from "./server.ts";
+export async function save() {
+	return seated("unavailable", (viewer) => write(viewer, () => trainingWriter));
+}
+export async function previewRoster() {
+	return seated("unavailable", (viewer) => readRosterPreview(viewer));
+}
+export type Saved = Outcome<WriteTx>;
+export const kinds = [outcomeOf];
+`;
+	const bad = `import { revalidatePath } from "next/cache";
+import * as cache from "next/cache";
+import { redirect } from "next/navigation";
+import { trainingReader } from "@everyfield/domain/teams";
+import { loadTraining } from "./server.ts";
+import { loadTeam, readCatalog } from "../server.ts";
+export { loadTeams } from "../server.ts";
+export async function saveAgain() {
+	const { refresh } = await import("next/cache");
+	return seated("unavailable", (viewer) => readRosterPreview(viewer));
+}
+`;
+	const server = {
+		"apps/web/src/features/teams/server.ts": "export {};\n",
+		"apps/web/src/features/teams/training/server.ts": "export {};\n",
+		"apps/web/src/server/request-context.ts": "export {};\n",
+	};
+	const at = "apps/web/src/features/teams/training/actions.ts";
+	const hits = (code) =>
+		lintIn(sandbox({ ...server, ...code }), Object.keys(code)).filter((hit) => hit.endsWith("teams-write-answer"));
+	assert.deepEqual(hits({ [at]: good, "apps/web/src/features/people/actions.ts": `"use server";\n${bad}` }), []);
+	assert.deepEqual(
+		hits({ [at]: `${good}${bad}` }),
+		[17, 18, 19, 20, 21, 22, 22, 23, 25, 26].map((line) => `${at}:${line} teams-write-answer`),
+	);
+});
+
 test("INV-lint: a server action that mints its own request key is reported, a key from the client, other ids, previews and client modules are not", () => {
 	assert.deepEqual(
 		lint({

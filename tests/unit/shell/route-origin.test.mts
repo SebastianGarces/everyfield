@@ -73,6 +73,12 @@ test("INV-security: every route that writes is built with a route wrapper that n
 	);
 });
 
+test("INV-structure: the church document export is the POST route handler saveExportRoute, so it renders outside a server action", async () => {
+	const { saveExportRoute } = await import("../../../apps/web/src/features/documents/church/server.ts");
+	const file = "app/(product)/(frame)/documents/church/[documentId]/exports/route.ts";
+	assert.equal(routes.find((r) => r.file === file)?.module.POST, saveExportRoute);
+});
+
 test("INV-security: a session route refuses a write from another site or of unknown origin before it runs", async () => {
 	const refused: Record<string, string>[] = [
 		{ "sec-fetch-site": "cross-site", origin: ORIGIN },

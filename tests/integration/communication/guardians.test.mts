@@ -377,6 +377,24 @@ test("AC:CASE-NTF-016-GUARDIAN a scheduled email follows the contacts as they ar
 	assert.deepEqual([rowOf(after_, kidAdded).deliveryStatus, rowOf(after_, kidAdded).sentTo], ["guardian", "Amy Ng"]);
 });
 
+test("INV-message-batches: one scheduled batch whose children go to 101 adults asks the email service twice, for 100 and 1", async () => {
+	const home = await household("Large household");
+	const kids: Who[] = [];
+	for (let i = 0; i < 100; i++) kids.push(await person(`Kid ${i}`, "child", home, false));
+	for (const [i, kid] of [...kids, kids[0]!].entries())
+		await link(kid, await person(`Parent ${i}`, "adult", home), home);
+
+	const message = await handOff(kids, "scheduled");
+	await atSendTime(f.admin, f.db, message.id, message.resend.transport, keys);
+	assert.deepEqual(
+		message.resend.requests
+			.filter((r) => r.path === "/emails/batch" && r.method === "POST")
+			.map((r) => r.body.length)
+			.sort((a, b) => b - a),
+		[100, 1],
+	);
+});
+
 test("AC:CASE-NTF-016-GUARDIAN an adult who left the child's household no longer gets the child's email", async () => {
 	const home = await household("Park household");
 	const jo = await person("Jo Park", "adult", home);
