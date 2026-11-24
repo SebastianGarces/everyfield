@@ -6,8 +6,7 @@ export const developmentHosts: ReadonlySet<string> = new Set([
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
 export function disposableDatabase(): boolean {
-	const oldPair = process.env.CI === "true" && process.env.EARLY_ACCESS_TEST_DATABASE === "1";
-	return process.env.EVERYFIELD_DISPOSABLE_DATABASE === "1" || oldPair;
+	return process.env.EVERYFIELD_DISPOSABLE_DATABASE === "1";
 }
 
 export function assertDevelopmentDatabase(url: string | URL | undefined): URL {
