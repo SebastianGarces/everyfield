@@ -61,3 +61,15 @@ test("the five owner classes stay in evf.toml, each with an owner outcome", () =
 	assert.deepEqual(names, ["document-templates", "landing-marketing", "wiki", "brand-prototype", "workflow-gates"]);
 	for (const block of classes) assert.match(block, /^outcome = "owner"$/m);
 });
+
+test("the workflow-gates class asks the owner for .github/, evf.toml and the timing exemptions", () => {
+	const block = toml
+		.replace(/^\s*#.*$/gm, "")
+		.split("[[policy.class]]")
+		.find((text) => /^name = "workflow-gates"$/m.test(text));
+	assert.ok(block, "evf.toml has a workflow-gates class");
+	const paths = [.../^paths = \[(.*?)\]/ms.exec(block)[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+	for (const path of [".github/", "evf.toml", "tests/workflow/integration-timing-exempt.json"])
+		assert.ok(paths.includes(path), `workflow-gates holds ${path}`);
+	assert.match(block, /^outcome = "owner"$/m);
+});
