@@ -21,6 +21,8 @@ a customer promise, and there is no customer SLA and no disaster recovery time.
   done after 1 min 35 s.
 - **Lost work:** 37.6 s, from 20:41:47.000 to 20:42:24.563 (target: 1 hour). Four commits of the drill's steady work, at
   20:41:54, 20:42:04, 20:42:14 and 20:42:24, fall after the recovery point. The last restored commit is 20:41:44.094.
+  Work committed after the mistake, until the service stopped at 20:42:45, is not in the restored data either. Counted to
+  that point, the gap is 58 s. An operator stops the service first for that reason.
 - **Recovery source:** Neon point-in-time history of a non-production branch. The operator asked for a point 30 s before
   the mistake. No copy was made for it. The manifest's time is the `parent_timestamp` Neon reports for the branch, not the
   time of the capture. A first capture stamped its own time; it was thrown away and the command fixed before the restore.
