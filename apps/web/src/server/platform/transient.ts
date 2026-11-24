@@ -1,5 +1,4 @@
 import { isTransient, logFailure, type LogFields } from "@everyfield/domain/log";
-import { ServerConfigError } from "../config.ts";
 
 type Fields = Record<string, string | number | boolean | null>;
 
@@ -16,7 +15,7 @@ const nextSignal = (error: unknown) =>
 	typeof error === "object" && error !== null && typeof (error as { digest?: unknown }).digest === "string";
 
 export function unexpected<const F extends Fields>(fields: LogFields<F>, error: unknown): Error {
-	if (error instanceof ServerConfigError || error instanceof ServerFailure || nextSignal(error)) return error as Error;
+	if (error instanceof ServerFailure || nextSignal(error)) return error as Error;
 	logFailure(fields, error);
 	return new ServerFailure();
 }

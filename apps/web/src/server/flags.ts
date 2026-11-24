@@ -12,7 +12,6 @@ type Entities = RequestActor | null;
 
 const requestFlags = cache((authority: Entities) => {
 	const db = requestDatabase();
-	if (!db) throw Error("flags_database_unavailable");
 	return readFlags(db, authority);
 });
 
@@ -23,7 +22,7 @@ const adapter = {
 	},
 };
 
-const identify = async (): Promise<Entities> => (await getViewer())?.authority ?? null;
+const identify = async (): Promise<Entities> => (await getViewer()).authority;
 
 const options = [
 	{ value: false, label: "Off" },
