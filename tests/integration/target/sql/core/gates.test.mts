@@ -161,10 +161,8 @@ test("AC:GAP-MTG-011 a walk-in makes one Person and one attendance; another chur
 		},
 		subcase("foreign-context-refused").expected.result,
 	);
-	const error_code = await w.commitFault(
-		"participation",
-		() => write.meetings(guestsWriter.createWalkInContact, request),
-		"write",
+	const error_code = await w.commitFault("participation", () =>
+		tx((t) => guestsWriter.createWalkInContact(t, ctx(), request)),
 	);
 	const touched = await w.changed(before);
 	assert.deepEqual(
