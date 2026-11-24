@@ -12,7 +12,7 @@ function bareConditions(text: string): string[] {
 		const key = /^(\s*(?:- +)*)["']?if["']?\s*:(.*)$/.exec(line);
 		if (!key) return [];
 		const rest = lines.slice(i + 1);
-		const end = rest.findIndex((next) => next.trim() && next.search(/\S/) <= key[1].length);
+		const end = rest.findIndex((next) => next.trim() && next.search(/\S/) <= key[1]!.length);
 		const value = [key[2], ...rest.slice(0, end < 0 ? rest.length : end)].join("\n").trim();
 		return [value.startsWith("'") ? value.slice(1).replaceAll("''", "'") : value];
 	});
