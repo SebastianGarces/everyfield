@@ -4,6 +4,11 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import {
+	applyMessagesOptOut,
+	messagesOptOutToken,
+	undoMessagesOptOut,
+} from "../../../packages/domain/src/communication/opt-out.ts";
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
@@ -128,6 +133,16 @@ async function shown(id: string) {
 }
 const hubOf = async (id: string) =>
 	ok(await read("listHistory", { limit: 100 })).items.find((row) => row.id === id).state;
+const ring = { current: randomBytes(32), previous: [] };
+const now = () => new Date();
+const clickUnsubscribe = async (who) =>
+	ok(
+		await applyMessagesOptOut(f.db, ring, now, {
+			token: messagesOptOutToken(ring, { plantId: church.id, personId: who.id }),
+		}),
+	);
+const undo = async (done) => ok(await undoMessagesOptOut(f.db, ring, now, { token: done.undoToken }));
+
 const explained = ({ totals }) => ({
 	guardian: totals.guardian,
 	child: totals.child,
@@ -513,6 +528,65 @@ test("AC:CASE-NTF-016-GUARDIAN an email scheduled only to an unsubscribed child 
 		const message = await handOff([kit], "scheduled");
 		assert.equal(await hubOf(message.id), "scheduled");
 		if (!reached) await optOut(ida);
+		await atSendTime(f.admin, f.db, message.id, message.resend.transport, keys);
+		assert.deepEqual(sentTo(message.resend), reached ? [ida.email] : []);
+		assert.deepEqual(await mailOf(message.id, kit), [
+			reached
+				? { state: "refused", refusal: "guardian", guardians: [ida.id] }
+				: { state: "refused", refusal: "child", guardians: null },
+		]);
+		const state = await hubOf(message.id);
+		assert.equal(hubLabel[state], reached ? hubLabel.sending : "Not sent: marked as a child");
+		assert.deepEqual(explained(await shown(message.id)), {
+			guardian: reached ? 1 : 0,
+			child: reached ? 0 : 1,
+			unsubscribed: 0,
+			failed: 0,
+			suppressed: 0,
+		});
+	}
+});
+
+test("AC:CASE-NTF-016-GUARDIAN a child who unsubscribes after the email is scheduled, with or without an undo or an earlier opt-out, still goes to their parent or guardian", async () => {
+	for (const mode of ["opt out", "undone", "already unsubscribed"] as const) {
+		const home = await household("Bell household");
+		const ana = await person("Ana Bell", "adult", null);
+		const mia = await person("Mia Bell", "adult", home);
+		const sol = await person("Sol Bell", "child", home);
+		await link(sol, mia, home);
+		if (mode === "already unsubscribed") await optOut(sol);
+		const message = await handOff([ana, sol], "scheduled");
+		const done = await clickUnsubscribe(sol);
+		assert.equal(done.changed, mode !== "already unsubscribed", mode);
+		if (mode === "undone") assert.equal((await undo(done)).changed, true);
+		const check = async () => {
+			const view = await shown(message.id);
+			assert.deepEqual([rowOf(view, sol).deliveryStatus, rowOf(view, sol).sentTo], ["guardian", "Mia Bell"], mode);
+			assert.deepEqual(explained(view), { guardian: 1, child: 0, unsubscribed: 0, failed: 0, suppressed: 0 }, mode);
+		};
+		await check();
+		await atSendTime(f.admin, f.db, message.id, message.resend.transport, keys);
+		assert.deepEqual(sentTo(message.resend).sort(), [ana.email, mia.email].sort(), mode);
+		assert.ok(emailFor(message.resend, mia).html.includes("as the parent or guardian of Sol Bell."), mode);
+		assert.deepEqual(
+			await mailOf(message.id, sol),
+			[{ state: "refused", refusal: "guardian", guardians: [mia.id] }],
+			mode,
+		);
+		await check();
+	}
+});
+
+test("AC:CASE-NTF-016-GUARDIAN an email scheduled only to a child who then unsubscribes goes to their parent or guardian, or reads Not sent: marked as a child when that adult can no longer be emailed", async () => {
+	for (const reached of [true, false]) {
+		const home = await household("Fox household");
+		const ida = await person("Ida Fox", "adult", home);
+		const kit = await person("Kit Fox", "child", home);
+		await link(kit, ida, home);
+		const message = await handOff([kit], "scheduled");
+		await clickUnsubscribe(kit);
+		assert.equal(await hubOf(message.id), "scheduled");
+		if (!reached) await unlink(kit, ida);
 		await atSendTime(f.admin, f.db, message.id, message.resend.transport, keys);
 		assert.deepEqual(sentTo(message.resend), reached ? [ida.email] : []);
 		assert.deepEqual(await mailOf(message.id, kit), [
