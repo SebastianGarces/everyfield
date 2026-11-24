@@ -1,6 +1,7 @@
 import { existsSync, globSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
+import { RUNNER, UnitGroupError, listedTests, unitTestsOf } from "./test-unit.ts";
 
 class CiTestsError extends Error {
 	name = "ToolError";
@@ -72,6 +73,15 @@ export function checkCiTests(root: string): void {
 					if (!target.scripts[script] || visited.has(key)) continue;
 					visited.add(key);
 					follow(target.scripts[script], target, `${target.name || target.dir} ${script}`);
+				}
+			} else if (tokens[0] === "node" && resolve(root, pkg.dir, tokens[1] ?? "") === join(root, RUNNER)) {
+				try {
+					for (const files of listedTests(pkg.name, tokens.slice(2)).values())
+						for (const file of files) run(relative(root, resolve(root, pkg.dir, file)), label);
+					for (const file of unitTestsOf(root, pkg.name)) run(file, label);
+				} catch (error) {
+					if (error instanceof UnitGroupError) fail(error.message);
+					throw error;
 				}
 			} else if (["node", "tsx"].includes(tokens[0] ?? "") && tokens.includes("--test")) {
 				for (const token of tokens.slice(tokens.indexOf("--test") + 1)) {
