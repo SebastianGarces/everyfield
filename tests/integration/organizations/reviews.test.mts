@@ -4,8 +4,8 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 
-import { fixture } from "../../support/fixture.mts";
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { fixture, type Actor, type Workspace } from "../../support/fixture.mts";
+import { authorityOf } from "../people/people-support.mts";
 import {
 	pipelineWriter,
 	readPipelineBoard,
@@ -33,8 +33,7 @@ const { admin } = database;
 const db = database.pools.runtime;
 after(() => database.close());
 
-type Actor = { id: string; session: string; email?: string };
-type Org = { kind: "organization"; id: string };
+type Org = Workspace & { kind: "organization" };
 let grace: Org, hill: Org;
 let dana: Actor, luis: Actor, ana: Actor, ben: Actor, pat: Actor, hillOwner: Actor;
 let benSeat: string, patSeat: string, hillSeat: string;
@@ -48,7 +47,7 @@ const ORDINATION = "Licensed at Grace Austin in 2022; ordination council planned
 const CALLING = "East Austin, among young families.";
 const ORIGIN = "http://app.example.test";
 
-const authority = (a: Actor) => RequestActor.resolve(db, a.session as never);
+const authority = (a: Actor) => authorityOf(db, a);
 const ok = <T,>(r: { status: string; value?: T; refusal?: unknown }): T => {
 	assert.equal(r.status, "ok", JSON.stringify(r));
 	return r.value as T;
@@ -58,7 +57,7 @@ const refusal = (r: { status: string; refusal?: unknown }) => {
 	return r.refusal;
 };
 const named = (org: Org, role: "owner" | "admin" | "member", name: string) =>
-	database.actor(org as never, role, { user: { name } });
+	database.actor(org, role, { user: { name } });
 const seatOf = async (a: Actor, org: Org) =>
 	(
 		await admin.execute(
@@ -84,6 +83,11 @@ const send = async (a: Actor, extra: Partial<Record<string, unknown>> = {}) =>
 const withdraw = async (a: Actor, reviewId: string) =>
 	reviewWriter.withdrawReview(db, await authority(a), { reviewId });
 const open = async (a: Actor, reviewId: string) => readAnswerReview(db, await authority(a), { reviewId });
+const openShared = async (a: Actor, reviewId: string) => {
+	const r = ok(await open(a, reviewId));
+	assert.ok(r.shared);
+	return r;
+};
 const list = async (a: Actor) => ok(await readAnswerReviews(db, await authority(a)));
 const sendsOf = async (reviewId: string) =>
 	(
@@ -100,11 +104,11 @@ let mail: ReturnType<typeof createMailService>;
 let worker: ReturnType<typeof createNotificationWorker>;
 
 before(async () => {
-	grace = (await database.organization("sending_church", {
+	grace = await database.organization("sending_church", {
 		name: "Grace Austin",
 		timezone: "America/Chicago",
-	})) as never;
-	hill = (await database.organization("sending_network", { name: "Hill Country Network" })) as never;
+	});
+	hill = await database.organization("sending_network", { name: "Hill Country Network" });
 	dana = await named(grace, "owner", "Dana");
 	luis = await named(grace, "admin", "Luis");
 	ana = await named(grace, "member", "Ana");
@@ -140,7 +144,7 @@ before(async () => {
 			file: bytes,
 			columns: null,
 		}),
-	) as { fileDigest: string; reviewDigest: string; columns: { choice: string }[]; rows: { row: number }[] };
+	);
 	const result = ok(
 		await pipelineImportWriter.importPeople(db, await authority(dana), {
 			importId: randomUUID(),
@@ -153,7 +157,7 @@ before(async () => {
 			responsibleSeatId: patSeat,
 			duplicates: [],
 		}),
-	) as { added: { row: number; personId: string }[] };
+	);
 	jordan = result.added.find((a) => a.row === 1)!.personId;
 	sam = result.added.find((a) => a.row === 2)!.personId;
 	noteId = (await record(dana)).notes[0]!.id;
@@ -274,7 +278,7 @@ test("Ben reads the note's answers as edited, and a question taken out as no lon
 	ok(
 		await pipelineWriter.editNote(db, await authority(dana), { noteId, expectedRevision: kept.revision, body: edited }),
 	);
-	assert.deepEqual((ok(await open(ben, reviewId)) as { answers: unknown }).answers, [
+	assert.deepEqual((await openShared(ben, reviewId)).answers, [
 		{ question: "Statement of faith", answer: "I affirm the Nicene Creed." },
 		{ question: "Ordination history", answer: ORDINATION },
 	]);
@@ -288,8 +292,8 @@ test("Ben reads the note's answers as edited, and a question taken out as no lon
 			body: without,
 		}),
 	);
-	const read = ok(await open(ben, reviewId));
-	assert.deepEqual((read as { answers: unknown }).answers, [
+	const read = await openShared(ben, reviewId);
+	assert.deepEqual(read.answers, [
 		{ question: "Statement of faith", answer: "I affirm the Nicene Creed." },
 		{ question: "Ordination history", answer: null },
 	]);
@@ -351,7 +355,7 @@ test("an ended seat, the note's removal and Jordan's removal on request each sto
 
 	const samNote = (await record(dana, sam)).notes[0]!.id;
 	const samReview = ok(await send(dana, { noteId: samNote, questions: ["Statement of faith"] })).reviewId;
-	assert.deepEqual((ok(await open(ben, samReview)) as { answers: unknown }).answers, [
+	assert.deepEqual((await openShared(ben, samReview)).answers, [
 		{ question: "Statement of faith", answer: "The Nicene Creed" },
 	]);
 	const samRecord = await record(dana, sam);
@@ -376,6 +380,6 @@ test("an ended seat, the note's removal and Jordan's removal on request each sto
 });
 
 test("sends stay out of the pipeline export", async () => {
-	const exported = ok(await readPipelineExport(db, await authority(dana), {})) as { text: string };
+	const exported = ok(await readPipelineExport(db, await authority(dana)));
 	for (const secret of [GROUP, FAITH, "Nicene", ...CHOSEN]) assert.ok(!exported.text.includes(secret), secret);
 });

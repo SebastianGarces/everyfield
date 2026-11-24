@@ -156,6 +156,7 @@
 				"tests/integration/db/**",
 				"tests/integration/flags/**",
 				"tests/integration/followups/**",
+				"tests/integration/organizations/**",
 				"tests/integration/oversight/**",
 				"tests/integration/people/**",
 				"tests/integration/phases/**",

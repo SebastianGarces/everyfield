@@ -30,8 +30,12 @@ export async function tenant(kind: "plant" | "sending_church" | "sending_network
 			: await seed.organization(kind, { name });
 	return owner.parse(created);
 }
-export async function identity(selected?: ReturnType<typeof owner.parse>, role = "owner") {
-	const a = await seed.actor(selected?.kind === "account" ? null : (selected as never), role as never, {
+export async function identity(
+	selected?: ReturnType<typeof owner.parse>,
+	role: "owner" | "admin" | "member" = "owner",
+) {
+	if (selected?.kind === "global") throw Error("global");
+	const a = await seed.actor(selected?.kind === "account" ? null : selected, role, {
 		email: randomUUID() + "@example.test",
 	});
 	return {
@@ -94,7 +98,7 @@ export const effects = {
 	invalidate: (_c: WriteTx, v: { sourceId: string }) => supersedeDigests(v.sourceId),
 };
 export const api = createOrganizationAdapter(effects, { candidates: () => sql`SELECT NULL::uuid WHERE false` });
-export const command = (input: unknown, expectedRevision = "1", requestKey = randomUUID()) => ({
+export const command = <T,>(input: T, expectedRevision = "1", requestKey = randomUUID()) => ({
 	requestKey,
 	expectedRevision,
 	input,
@@ -115,7 +119,7 @@ export async function write<T>(actor: Actor, body: (c: WriteTx) => Promise<T>): 
 	});
 }
 export async function call(name: keyof typeof api, actor: Actor, input: unknown) {
-	const run = (c: WriteTx): Promise<unknown> => api[name](c, actor.session, actor.selected, input as never);
+	const run = (c: WriteTx): Promise<unknown> => api[name](c, actor.session, actor.selected, input);
 	return reads.has(name) ? tx(run) : write(actor, run);
 }
 export const waitingOnLock = () => sharedWaitingOnLock(runtime);
@@ -128,7 +132,7 @@ export async function affiliation(
 		await db.execute(sql`INSERT INTO affiliation(plant_id,account_id,sending_church_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
  VALUES(${sql.param(plant.kind === "plant" ? plant.id : null)},${sql.param(plant.kind === "account" ? plant.id : null)},${sql.param(plant.kind === "organization" ? plant.id : null)},${sql.param(org.id)},clock_timestamp(),${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)}) RETURNING id`);
 	const [row] = r.rows;
-	if (!row) throw Error("The affiliation insert returned no row");
+	if (typeof row?.id !== "string") throw Error("The affiliation insert returned no row");
 	return row.id;
 }
 export async function race<A, B>(holder: Actor, held: (c: WriteTx) => Promise<A>, rival: () => Promise<B>) {

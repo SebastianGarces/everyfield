@@ -6,6 +6,7 @@ import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
 import { pendingFor, readAnswerableInvitation } from "../../../packages/domain/src/organizations/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/index.ts";
+import { accountId } from "../../../packages/contracts/src/common/index.ts";
 import { liveAccess } from "../../../packages/domain/src/access/session.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
@@ -59,27 +60,28 @@ test("AC:AF-001 AC:AF-002 AC:AF-003 AC:AF-004 AC:AF-005 AC:AF-006 AC:AF-007 exac
 		await S.db.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE plant_id=${sql.param(p.id)}`);
 		for (const n of indexes) {
 			await S.db.execute(
-				sql`DELETE FROM affiliation WHERE plant_id=${sql.param(p.id)} AND organization_id=${sql.param(o[n].id)}`,
+				sql`DELETE FROM affiliation WHERE plant_id=${sql.param(p.id)} AND organization_id=${sql.param(o[n]!.id)}`,
 			);
-			await S.affiliation(p, o[n]);
+			await S.affiliation(p, o[n]!);
 		}
 		const h = Q.relationshipHistoryResult.parse(await S.call("associations.getHistory", a, { plant: p }));
 		assert.equal(h.status, "available");
 		if (h.status !== "available") throw Error();
 		assert.deepEqual(
 			h.activeRelationships.map((r) => r.pair.organization.id).sort(),
-			indexes.map((n) => o[n].id).sort(),
+			indexes.map((n) => o[n]!.id).sort(),
 		);
 		assert.deepEqual(h.items, []);
 		assert.equal(
-			(await S.db.execute(sql`SELECT count(*)::int AS n FROM seat WHERE account_id=${sql.param(a.account)}`)).rows[0].n,
+			(await S.db.execute(sql`SELECT count(*)::int AS n FROM seat WHERE account_id=${sql.param(a.account)}`)).rows[0]!
+				.n,
 			1,
 		);
 	}
 	const p2 = await S.tenant("plant"),
 		a2 = await S.identity(p2),
-		oa = await S.identity(o[0]);
-	await invite(a2, o[0], oa.email);
+		oa = await S.identity(o[0]!);
+	await invite(a2, o[0]!, oa.email);
 	const h = Q.relationshipHistoryResult.parse(await S.call("associations.getHistory", a2, { plant: p2 }));
 	assert.equal(h.status, "available");
 	if (h.status === "available") assert.deepEqual(h.activeRelationships, []);
@@ -101,7 +103,7 @@ test("AC:AF-008 AC:AF-009 AC:AF-011 AC:AF-018 AC:AF-027 approval is exact-addres
 			await S.db.execute(
 				sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${sql.param(result[0].relationship.id)}`,
 			)
-		).rows[0].n,
+		).rows[0]!.n,
 		1,
 	);
 	assert.equal(
@@ -109,7 +111,7 @@ test("AC:AF-008 AC:AF-009 AC:AF-011 AC:AF-018 AC:AF-027 approval is exact-addres
 			await S.db.execute(
 				sql`SELECT count(*)::int AS n FROM affiliation WHERE plant_id=${sql.param(p.id)} AND ended_at IS NULL`,
 			)
-		).rows[0].n,
+		).rows[0]!.n,
 		2,
 	);
 	const cn = await invite(ca, network, na.email);
@@ -120,11 +122,13 @@ test("AC:AF-008 AC:AF-009 AC:AF-011 AC:AF-018 AC:AF-027 approval is exact-addres
 		const i = await invite(d, o, o.id === church.id ? ca.email : na.email);
 		assert.equal((await approve(i, o.id === church.id ? ca : na)).relationship.pair.kind, "discovery");
 		assert.equal(
-			(await S.db.execute(sql`SELECT count(*)::int AS n FROM seat WHERE account_id=${sql.param(d.account)}`)).rows[0].n,
+			(await S.db.execute(sql`SELECT count(*)::int AS n FROM seat WHERE account_id=${sql.param(d.account)}`)).rows[0]!
+				.n,
 			0,
 		);
 	}
 	const view = Q.sharingResult.parse(await S.call("privacy.getSharing", pa, { plant: p, organization: church }));
+	assert.ok("view" in view);
 	assert.equal(view.view, "plant_administration");
 	if (view.view === "plant_administration")
 		assert.deepEqual(view.choices, {
@@ -160,7 +164,7 @@ test("AC:AF-016 AC:AF-017 AC:AF-019 AC:ROLE43-016 AC:TARGET-IDN-020 wrong side, 
 	);
 	await assert.rejects(S.call("associations.acceptInvitation", oa, q), /unavailable/);
 	assert.equal(
-		(await S.db.execute(sql`SELECT count(*)::int AS n FROM affiliation WHERE plant_id=${sql.param(p.id)}`)).rows[0].n,
+		(await S.db.execute(sql`SELECT count(*)::int AS n FROM affiliation WHERE plant_id=${sql.param(p.id)}`)).rows[0]!.n,
 		0,
 	);
 });
@@ -213,7 +217,7 @@ test("AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:A
 			await S.db.execute(
 				sql`SELECT count(*)::int AS n FROM seat WHERE account_id=${sql.param(pa.account)} AND ended_at IS NULL`,
 			)
-		).rows[0].n,
+		).rows[0]!.n,
 		1,
 	);
 	const audit = await S.db.execute(
@@ -290,7 +294,9 @@ test("INV-relationships: invitation rotation, duplicate intents, decline, revoke
 	const saved = await S.db.execute(
 		sql`SELECT result->'receipt' AS receipt,result FROM audit_event WHERE result IS NOT NULL`,
 	);
-	assert.equal(JSON.stringify(saved.rows).includes(S.proofs.get(k.invitationId)), false);
+	const proof = S.proofs.get(k.invitationId);
+	assert.ok(proof);
+	assert.equal(JSON.stringify(saved.rows).includes(proof), false);
 });
 
 test("INV-invitation-detail: only the addressed receiving Owner or Admin can read a request's details, even with the proof", async () => {
@@ -320,7 +326,7 @@ test("INV-invitation-detail: only the addressed receiving Owner or Admin can rea
 		if (instrumented.has(client)) return;
 		instrumented.add(client);
 		const query = client.query;
-		client.query = function (...args: unknown[]) {
+		client.query = function (this: typeof client, ...args: unknown[]) {
 			if (recording) statements.push(typeof args[0] === "string" ? args[0] : (args[0] as { text: string }).text);
 			return Reflect.apply(query, this, args);
 		} as typeof client.query;
@@ -387,7 +393,7 @@ test("discovery invitations expire after 30 days: the receiver sees who to ask, 
 				canManage: true,
 				access: liveAccess(authority),
 			};
-			return pendingFor(S.runtime as never, viewer);
+			return pendingFor(S.runtime, viewer);
 		};
 
 	const first = await invite(d, o, oa.email);
@@ -452,7 +458,7 @@ test("AC:TARGET-IDN-021 a Discovery conversion and an organization ending that l
 			S.tx((c) =>
 				onboarding.convertDiscovery(
 					c,
-					{ session: d.session, selected: d.selected },
+					{ session: d.session, selected: { kind: "account", id: accountId.parse(d.account) } },
 					S.command({ discoveryId: discovery!.id, name: "New plant", confirmed: true, relationships: [] }),
 				),
 			),
@@ -568,7 +574,7 @@ test("INV-lock-order: a link write locks its gate's account, seat and root, then
 		{ table: "affiliation", id: s.link },
 	];
 	const sharing = (s: Setup, expectedRevision?: string) =>
-		S.command(
+		S.command<unknown>(
 			{
 				plant: s.subject,
 				organization: s.o,
@@ -580,10 +586,10 @@ test("INV-lock-order: a link write locks its gate's account, seat and root, then
 			expectedRevision,
 		);
 	const consent = (s: Setup, expectedRevision?: string) =>
-		S.command({ relationshipId: s.link, sharePipelineTotals: true }, expectedRevision);
+		S.command<unknown>({ relationshipId: s.link, sharePipelineTotals: true }, expectedRevision);
 	const staleUnbound =
 		(name: "privacy.setSharing" | "pipelineSharing.setConsent", input: typeof sharing) => (s: Setup) =>
-			S.tx((c) => S.api[name](c, s.sa.session, s.sa.selected, input(s, "2") as never));
+			S.tx((c) => S.api[name](c, s.sa.session, s.sa.selected, input(s, "2")));
 	const rows = [
 		{
 			name: "the organization ends a Discovery link",

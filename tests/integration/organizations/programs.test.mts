@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 
-import { fixture } from "../../support/fixture.mts";
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { fixture, type Actor, type Workspace } from "../../support/fixture.mts";
+import { recordId } from "../../../packages/contracts/src/common/index.ts";
+import { authorityOf } from "../people/people-support.mts";
 import {
 	pipelineWriter,
 	readPipelineBoard,
@@ -29,13 +30,12 @@ const { admin } = database;
 const db = database.pools.runtime;
 after(() => database.close());
 
-type Actor = { id: string; session: string };
-let grace: { kind: "organization"; id: string };
-let hill: { kind: "organization"; id: string };
+let grace: Workspace & { kind: "organization" };
+let hill: Workspace & { kind: "organization" };
 let dana: Actor, luis: Actor, ana: Actor, dee: Actor, ben: Actor, hillOwner: Actor;
 let anaSeat: string, deeSeat: string, hillSeat: string;
 
-const authority = (a: Actor) => RequestActor.resolve(db, a.session as never);
+const authority = (a: Actor) => authorityOf(db, a);
 const ok = <T,>(r: { status: string; value?: T; refusal?: unknown }): T => {
 	assert.equal(r.status, "ok", JSON.stringify(r));
 	return r.value as T;
@@ -104,17 +104,17 @@ async function revision(
 }
 
 before(async () => {
-	grace = (await database.organization("sending_church", {
+	grace = await database.organization("sending_church", {
 		name: "Grace Austin",
 		timezone: "America/Chicago",
-	})) as never;
-	hill = (await database.organization("sending_network", { name: "Hill Country Network" })) as never;
-	dana = await database.actor(grace as never, "owner", { user: { name: "Dana" } });
-	luis = await database.actor(grace as never, "admin", { user: { name: "Luis" } });
-	ana = await database.actor(grace as never, "member", { user: { name: "Ana" } });
-	dee = await database.actor(grace as never, "member", { user: { name: "Dee" } });
-	ben = await database.actor(grace as never, "member", { user: { name: "Ben" } });
-	hillOwner = await database.actor(hill as never, "owner", { user: { name: "Hana" } });
+	});
+	hill = await database.organization("sending_network", { name: "Hill Country Network" });
+	dana = await database.actor(grace, "owner", { user: { name: "Dana" } });
+	luis = await database.actor(grace, "admin", { user: { name: "Luis" } });
+	ana = await database.actor(grace, "member", { user: { name: "Ana" } });
+	dee = await database.actor(grace, "member", { user: { name: "Dee" } });
+	ben = await database.actor(grace, "member", { user: { name: "Ben" } });
+	hillOwner = await database.actor(hill, "owner", { user: { name: "Hana" } });
 	anaSeat = await seatOf(ana.id, grace.id);
 	deeSeat = await seatOf(dee.id, grace.id);
 	hillSeat = await seatOf(hillOwner.id, hill.id);
@@ -882,7 +882,10 @@ test("a version that drops Casey's finished milestone keeps its record under Ver
 	assert.equal(open.stage, "Gathering");
 	assert.equal(open.stageId, v3.stages[0]!.id);
 	const v4 = await publishNext({
-		milestones: (ms) => [...ms, { ...ms[0]!, id: randomUUID(), lineage: randomUUID(), title: "Visit a church plant" }],
+		milestones: (ms) => [
+			...ms,
+			{ ...ms[0]!, id: recordId.parse(randomUUID()), lineage: randomUUID(), title: "Visit a church plant" },
+		],
 	});
 	refusedWith(
 		await applyVersion(db, await authority(ana), {
@@ -1090,10 +1093,8 @@ test("a batch apply is refused whole for anyone but the director and for any bad
 		.version_id as string;
 	const stale = await applyVersions(db, await authority(ana), { ...input, versionId: v1 });
 	refusedWith(stale, "stale_review");
-	assert.deepEqual((stale as { refusal: { enrollmentIds: string[] } }).refusal.enrollmentIds, [
-		batch.casey,
-		batch.jordan,
-	]);
+	assert.ok(stale.status === "refused" && stale.refusal.code === "stale_review");
+	assert.deepEqual(stale.refusal.enrollmentIds, [batch.casey, batch.jordan]);
 	const hillProgram = (await admin.execute(sql`SELECT id FROM development_program WHERE organization_id=${hill.id}`))
 		.rows[0]!.id as string;
 	const hillRevision = ok(await readProgram(db, await authority(hillOwner), { programId: hillProgram })).revision;
@@ -1169,7 +1170,8 @@ test("one person's review going out of date refuses the whole apply, names them,
 	const before = await storedRows([batch.casey, batch.jordan]);
 	const answer = await applyVersions(db, await authority(ana), confirmAll(rs));
 	refusedWith(answer, "stale_review");
-	assert.deepEqual((answer as { refusal: { enrollmentIds: string[] } }).refusal.enrollmentIds, [batch.jordan]);
+	assert.ok(answer.status === "refused" && answer.refusal.code === "stale_review");
+	assert.deepEqual(answer.refusal.enrollmentIds, [batch.jordan]);
 	for (const id of [batch.casey, batch.jordan]) assert.equal((await enrollment(ana, id)).versionNumber, 1);
 	assert.deepEqual(await storedRows([batch.casey, batch.jordan]), before);
 	assert.deepEqual(await appliedTo([batch.casey, batch.jordan]), []);

@@ -42,6 +42,8 @@
 		"./onboarding/**/*.mts",
 		"./ops/**/*.ts",
 		"./ops/**/*.mts",
+		"./organizations/**/*.ts",
+		"./organizations/**/*.mts",
 		"./oversight/**/*.ts",
 		"./oversight/**/*.mts",
 		"./people/**/*.ts",

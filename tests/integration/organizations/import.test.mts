@@ -4,8 +4,8 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 
-import { fixture } from "../../support/fixture.mts";
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { fixture, type Actor, type Workspace } from "../../support/fixture.mts";
+import { authorityOf } from "../people/people-support.mts";
 import {
 	pipelineWriter,
 	readPipelineBoard,
@@ -20,8 +20,7 @@ const { admin } = database;
 const db = database.pools.runtime;
 after(() => database.close());
 
-type Actor = { id: string; session: string };
-type Org = { kind: "organization"; id: string };
+type Org = Workspace & { kind: "organization" };
 let grace: Org, hill: Org;
 let dana: Actor, luis: Actor, ana: Actor, ben: Actor, hillOwner: Actor;
 let luisSeat: string;
@@ -30,7 +29,7 @@ const casey = randomUUID();
 const files = new URL("./import-files/", import.meta.url);
 const file = (name: string) => new Uint8Array(readFileSync(new URL(name, files)));
 const text = (value: string) => new TextEncoder().encode(value);
-const authority = (a: Actor) => RequestActor.resolve(db, a.session as never);
+const authority = (a: Actor) => authorityOf(db, a);
 const ok = <T,>(r: { status: string; value?: T; refusal?: unknown }): T => {
 	assert.equal(r.status, "ok", JSON.stringify(r));
 	return r.value as T;
@@ -40,7 +39,7 @@ const refusal = (r: { status: string; refusal?: unknown }) => {
 	return r.refusal;
 };
 const named = (org: Org, role: "owner" | "admin" | "member", name: string) =>
-	database.actor(org as never, role, { user: { name } });
+	database.actor(org, role, { user: { name } });
 const board = async (a: Actor) => ok(await readPipelineBoard(db, await authority(a), {}));
 const stageId = async (label: string, a: Actor = dana) => (await board(a)).stages.find((s) => s.label === label)!.id;
 
@@ -49,26 +48,10 @@ type Preview = {
 	reviewDigest: string;
 	columns: { title: string; choice: string; locked: boolean }[];
 };
-type Previewed = Preview & {
-	rows: {
-		row: number;
-		status: string;
-		name: string | null;
-		problems: string[];
-		existing: { name: string }[];
-		sameAs: number[];
-		stageId: string | null;
-	}[];
-};
 const preview = async (a: Actor, fileName: string, bytes: Uint8Array, columns: string[] | null = null) =>
 	previewPipelineImport(db, await authority(a), { fileName, file: bytes, columns });
 const previewed = async (a: Actor, fileName: string, bytes: Uint8Array, columns: string[] | null = null) =>
-	ok(await preview(a, fileName, bytes, columns)) as Previewed;
-type Result = {
-	added: { row: number; personId: string }[];
-	skipped: number[];
-	refused: { row: number; problems: string[] }[];
-};
+	ok(await preview(a, fileName, bytes, columns));
 const run = async (
 	a: Actor,
 	fileName: string,
@@ -106,11 +89,11 @@ const notesOf = async (personId: string) =>
 const choiceByTitle = (p: Preview) => Object.fromEntries(p.columns.map((c) => [c.title, c.choice]));
 
 before(async () => {
-	grace = (await database.organization("sending_church", {
+	grace = await database.organization("sending_church", {
 		name: "Grace Austin",
 		timezone: "America/Chicago",
-	})) as never;
-	hill = (await database.organization("sending_network", { name: "Hill Country Network" })) as never;
+	});
+	hill = await database.organization("sending_network", { name: "Hill Country Network" });
 	dana = await named(grace, "owner", "Dana");
 	luis = await named(grace, "admin", "Luis");
 	ana = await named(grace, "member", "Ana");
@@ -249,7 +232,7 @@ test("Dana imports applications.xlsx: Jordan and Sam join the chosen stage, Case
 			duplicates: [{ row: 3, choice: "skip" }],
 			importId,
 		}),
-	) as Result;
+	);
 	assert.deepEqual(
 		{ added: result.added.map((a) => a.row), skipped: result.skipped, refused: result.refused },
 		{ added: [1, 2], skipped: [3], refused: [] },
@@ -392,7 +375,7 @@ test("a Stage column places rows by label; an unknown label is a row error and a
 			["Cam Doyle", "ready", [], null],
 		],
 	);
-	const result = ok(await run(dana, "stages.csv", bytes, p, { stageId: resident })) as Result;
+	const result = ok(await run(dana, "stages.csv", bytes, p, { stageId: resident }));
 	assert.deepEqual(result.refused, [{ row: 2, problems: ["unknown_stage"] }]);
 	const b = await board(dana);
 	const where = (name: string) => b.stages.find((s) => s.people.some((x) => x.name === name))?.label;
@@ -406,7 +389,7 @@ test("a value a spreadsheet would run as a formula is stored as text and neutral
 	const name = '=HYPERLINK("http://example.test","Click")';
 	const bytes = text(`Full name,Email address\r\n"${name.replaceAll('"', '""')}",formula@example.test\r\n`);
 	const p = await previewed(dana, "formula.csv", bytes);
-	const result = ok(await run(dana, "formula.csv", bytes, p, { stageId: await stageId("Potential leader") })) as Result;
+	const result = ok(await run(dana, "formula.csv", bytes, p, { stageId: await stageId("Potential leader") }));
 	const record = ok(await readPipelinePersonRecord(db, await authority(dana), { personId: result.added[0]!.personId }));
 	assert.equal(record.name, name);
 	const exported = ok(await readPipelineExport(db, await authority(dana))).text;
@@ -446,19 +429,19 @@ test("Ben, Ana and another organization's Owner cannot preview or import Grace A
 });
 
 test("a UTF-8 CSV with a BOM, CRLF, quoted commas and multi-line answers imports like the Excel file", async () => {
-	const csvOrg = (await database.organization("sending_church", {
+	const csvOrg = await database.organization("sending_church", {
 		name: "CSV Church",
 		timezone: "America/Chicago",
-	})) as Org;
-	const xlsxOrg = (await database.organization("sending_church", {
+	});
+	const xlsxOrg = await database.organization("sending_church", {
 		name: "XLSX Church",
 		timezone: "America/Chicago",
-	})) as Org;
+	});
 	const imported = async (org: Org, fileName: string, bytes: Uint8Array) => {
 		const owner = await named(org, "owner", "Owner");
 		const p = await previewed(owner, fileName, bytes);
 		const stage = (await board(owner)).stages[0]!.id;
-		const result = ok(await run(owner, fileName, bytes, p, { stageId: stage })) as Result;
+		const result = ok(await run(owner, fileName, bytes, p, { stageId: stage }));
 		const people = [];
 		for (const a of result.added) {
 			const r = ok(await readPipelinePersonRecord(db, await authority(owner), { personId: a.personId }));

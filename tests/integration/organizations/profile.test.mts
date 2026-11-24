@@ -85,10 +85,10 @@ test("INV-location: correction is plant settings with immutable effective histor
 		sql`SELECT id,city,state_province,country,region_item_id,supersedes_id,committed_at,effective_at FROM plant_geography WHERE plant_id=${sql.param(p.id)} ORDER BY effective_at`,
 	);
 	assert.equal(history.rows.length, 2);
-	assert.equal(history.rows[0].city, "City");
-	assert.equal(history.rows[1].city, null);
-	assert.equal(history.rows[1].supersedes_id, history.rows[0].id);
-	assert.equal(history.rows[0].region_item_id, null);
+	assert.equal(history.rows[0]!.city, "City");
+	assert.equal(history.rows[1]!.city, null);
+	assert.equal(history.rows[1]!.supersedes_id, history.rows[0]!.id);
+	assert.equal(history.rows[0]!.region_item_id, null);
 	const root = await S.db.execute(sql`SELECT phase,street,revision FROM plant WHERE id=${sql.param(p.id)}`);
 	assert.deepEqual(root.rows, [{ phase: 1, street: "private street", revision: "3" }]);
 	await assert.rejects(

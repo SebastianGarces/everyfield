@@ -4,9 +4,10 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { seeds } from "../../support/fixture.mts";
+import { seeds, type Actor as SeededActor, type Workspace } from "../../support/fixture.mts";
+import { authorityOf } from "../people/people-support.mts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { accountId } from "../../../packages/contracts/src/common/index.ts";
 import { createNotificationProducer } from "../../../packages/domain/src/notifications/index.ts";
 import {
 	createOrganizationAdapter,
@@ -29,8 +30,8 @@ import { gatedTransaction } from "../../../packages/domain/src/operations/writes
 
 const ORIGIN = "http://app.example.test";
 let f: Awaited<ReturnType<typeof fixture>>;
-type Actor = { id: string; session: string; email: string };
-let grace: { kind: "organization"; id: string; organizationKind: "sending_church" };
+type Actor = Pick<SeededActor, "id" | "session" | "email">;
+let grace: Workspace & { kind: "organization" };
 let dana: Actor, luis: Actor, ana: Actor, casey: Actor, robin: Actor, planter: Actor;
 const people = { casey: randomUUID(), jordan: randomUUID(), robin: randomUUID() };
 const enrollments = { casey: randomUUID(), jordan: randomUUID(), robin: randomUUID() };
@@ -38,7 +39,7 @@ const program = randomUUID();
 const milestones: Record<"vision" | "prospectus" | "preach", string> = { vision: "", prospectus: "", preach: "" };
 const VISION = "Present your vision to the sending church leadership";
 
-const authority = (a: { session: string }) => RequestActor.resolve(f.db, sessionId.parse(a.session));
+const authority = (a: Pick<Actor, "session">) => authorityOf(f.db, a);
 const ok = <T,>(r: { status: string; value?: T; refusal?: unknown }): T => {
 	assert.equal(r.status, "ok", JSON.stringify(r));
 	return r.value as T;
@@ -111,14 +112,14 @@ async function leave(a: Actor) {
 			sql`SELECT id,revision::text AS revision,consent_revision::text AS consent FROM residency_link WHERE account_id=${a.id}::uuid AND ended_at IS NULL`,
 		)
 	).rows[0] as { id: string; revision: string; consent: string };
-	const owner = { kind: "account" as const, id: a.id };
+	const owner = { kind: "account" as const, id: accountId.parse(a.id) };
 	await gatedTransaction(f.db, async (tx) => {
-		if (!(await RequestActor.claimWrite(tx, sessionId.parse(a.session), owner))) throw Error("unavailable");
-		return adapter["residency.leave"](tx, sessionId.parse(a.session), owner, {
+		if (!(await RequestActor.claimWrite(tx, a.session, owner))) throw Error("unavailable");
+		return adapter["residency.leave"](tx, a.session, owner, {
 			requestKey: randomUUID(),
 			expectedRevision: l.revision,
 			input: { linkId: l.id, expectedConsentRevision: l.consent },
-		} as never);
+		});
 	});
 }
 const confirm = async (enrollmentId: string, milestoneId: string) =>
@@ -151,9 +152,9 @@ before(async () => {
 	});
 	worker = createNotificationWorker({ mail, origin: ORIGIN });
 	const seed = seeds(f.admin);
-	grace = (await seed.organization("sending_church", { name: "Grace Austin", timezone: "America/Chicago" })) as never;
+	grace = await seed.organization("sending_church", { name: "Grace Austin", timezone: "America/Chicago" });
 	const staff = async (role: "owner" | "admin" | "member", name: string) => {
-		const a = await seed.actor(grace as never, role, { user: { name } });
+		const a = await seed.actor(grace, role, { user: { name } });
 		return { id: a.id, session: a.session, email: a.email };
 	};
 	dana = await staff("owner", "Dana");
@@ -166,7 +167,7 @@ before(async () => {
 	casey = await discovery("casey@example.test", "Casey Lee");
 	robin = await discovery("robin@example.test", "Robin Hale");
 	const plant = await seed.plant();
-	const p = await seed.actor(plant as never, "owner", { user: { name: "Pat" } });
+	const p = await seed.actor(plant, "owner", { user: { name: "Pat" } });
 	planter = { id: p.id, session: p.session, email: p.email };
 	const anaSeat = (
 		await f.admin.execute(

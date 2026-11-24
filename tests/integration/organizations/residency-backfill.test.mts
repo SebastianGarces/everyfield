@@ -5,15 +5,17 @@ import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { backfill } from "../../../packages/db/src/schema/migrate.ts";
 import { fixture } from "../identity/invitations-support.mts";
+import { authorityOf } from "../people/people-support.mts";
+import type { Actor } from "../../support/fixture.mts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { accountId, instant } from "../../../packages/contracts/src/common/index.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { createOnboardingProducer, readOnboardingEntry } from "../../../packages/domain/src/onboarding/index.ts";
 import { residentDiscoveryBackfill } from "../../../packages/domain/src/onboarding/backfill.ts";
 
 let f: Awaited<ReturnType<typeof fixture>>;
-type Account = { id: string; session: string };
+type Account = Pick<Actor, "id" | "session">;
 let ended: Account, linked: Account, kept: Account, seated: Account, declined: Account, pending: Account;
 
 const onboarding = createOnboardingProducer({
@@ -31,11 +33,11 @@ const entryOf = async (a: Account) =>
 			onboarding,
 			{
 				status: "active",
-				accountId: a.id,
+				accountId: accountId.parse(a.id),
 				sessionId: a.session,
-				expiresAt: new Date(Date.now() + 3600000).toISOString(),
+				expiresAt: instant.parse(new Date(Date.now() + 3600000).toISOString()),
 			},
-			await RequestActor.resolve(f.db, sessionId.parse(a.session)),
+			await authorityOf(f.db, a),
 			true,
 		)
 	).kind;
@@ -75,14 +77,14 @@ async function leave(a: Account) {
 	 WHERE account_id=${a.id}::uuid AND ended_at IS NULL`,
 		)
 	).rows[0] as { id: string; revision: string; consent: string };
-	const owner = { kind: "account" as const, id: a.id };
+	const owner = { kind: "account" as const, id: accountId.parse(a.id) };
 	await gatedTransaction(f.db, async (tx) => {
-		if (!(await RequestActor.claimWrite(tx, sessionId.parse(a.session), owner))) throw Error("unavailable");
-		return adapter["residency.leave"](tx, sessionId.parse(a.session), owner, {
+		if (!(await RequestActor.claimWrite(tx, a.session, owner))) throw Error("unavailable");
+		return adapter["residency.leave"](tx, a.session, owner, {
 			requestKey: randomUUID(),
 			expectedRevision: l.revision,
 			input: { linkId: l.id, expectedConsentRevision: l.consent },
-		} as never);
+		});
 	});
 }
 async function invited(decision?: "accept" | "decline", beforeAnswer?: (a: Account) => Promise<unknown>) {
