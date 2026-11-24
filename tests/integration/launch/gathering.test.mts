@@ -9,12 +9,6 @@ import { frozenClock, instant } from "../../../packages/contracts/src/common/ind
 import { createLaunchReader, createLaunchWriter } from "../../../packages/domain/src/launch/index.ts";
 import { createPhaseWriter, phaseReader } from "../../../packages/domain/src/phases/index.ts";
 
-const firstRow = <T,>(rows: readonly T[]): T => {
-	const [row] = rows;
-	if (row === undefined) assert.fail("no row");
-	return row;
-};
-
 const TODAY = frozenClock(instant.parse("2026-10-12T17:00:00.000Z"));
 const CONSTITUTED = "Constituted as a church";
 const MEANING = "The church adopts its constitution and elects its first leaders.";
@@ -186,7 +180,7 @@ test("with two offers the Owner picks one; the plan shows it, who chose it and w
 	assert.equal(ok(await useMilestone(c.owner, c.hill)).outcome, "noop");
 	assert.equal(await audits(c.w), n);
 
-	const entry = firstRow(await journal(c.owner));
+	const entry = (await journal(c.owner))[0]!;
 	assert.deepEqual(entry.change, {
 		kind: "path",
 		to: "milestone",

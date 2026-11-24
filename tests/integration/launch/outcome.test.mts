@@ -26,12 +26,6 @@ import { launchNotices } from "../../../apps/web/src/features/launch/notices.ts"
 import type { WriteTx } from "../../../packages/domain/src/access/session.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
-const firstRow = <T,>(rows: readonly T[]): T => {
-	const [row] = rows;
-	if (row === undefined) assert.fail("no row");
-	return row;
-};
-
 const TODAY = frozenClock(instant.parse("2026-10-12T17:00:00.000Z"));
 let f: Awaited<ReturnType<typeof fixture>>;
 let reader: ReturnType<typeof createLaunchReader>;
@@ -479,7 +473,7 @@ test("AC:CASE-LCH-007 AC:B02-021 correcting 40 to 50 with a reason is history on
 	const after = await footprint(c.w);
 	assert.equal(after.audits, before.audits + 1);
 	assert.deepEqual([after.phase, after.tasks], [before.phase, before.tasks]);
-	const entry = firstRow((await journal(c.owner)).filter((e) => e.change.kind === "outcome"));
+	const entry = (await journal(c.owner)).filter((e) => e.change.kind === "outcome")[0]!;
 	assert.deepEqual(entry.change, {
 		kind: "outcome",
 		event: "corrected",

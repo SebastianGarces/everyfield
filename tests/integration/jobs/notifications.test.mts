@@ -13,11 +13,6 @@ import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { db, runtime, tenant, setup, teardown } from "./support.mts";
 
-const firstRow = <T,>(rows: readonly T[]): T => {
-	const [row] = rows;
-	if (row === undefined) assert.fail("no row");
-	return row;
-};
 const account = randomUUID(),
 	org = randomUUID(),
 	org2 = randomUUID();
@@ -124,7 +119,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 		first,
 	);
 	await db.execute(querySql`UPDATE job SET eligible_at='2026-01-01'`);
-	const claim = firstRow(await claimDue(runtime, ["mail"]));
+	const claim = (await claimDue(runtime, ["mail"]))[0]!;
 	assert.equal(claim.kind, "mail");
 	await transaction(runtime, async (tx) => {
 		await tx.execute(

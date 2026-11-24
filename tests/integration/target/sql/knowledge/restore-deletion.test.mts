@@ -31,12 +31,6 @@ import {
 } from "./support.mts";
 import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
-const firstRow = <T,>(rows: readonly T[]): T => {
-	const [row] = rows;
-	if (row === undefined) assert.fail("no row");
-	return row;
-};
-
 const REQUESTED = new Date("2026-10-13T16:00:00.000Z");
 const SNAPSHOT_AT = new Date("2026-11-19T16:00:00.000Z");
 const FIRST_PURGE = new Date("2026-11-20T15:00:00.000Z");
@@ -99,7 +93,7 @@ before(async () => {
 	avatar = await readyFile(admin, live, a.id, Buffer.from("A's avatar bytes"), "avatar");
 	await admin.update(t.account).set({ avatar_object_id: avatar.id }).where(eq(t.account.id, a.id));
 
-	const account = firstRow(await admin.select().from(t.account).where(eq(t.account.id, a.id)));
+	const account = (await admin.select().from(t.account).where(eq(t.account.id, a.id)))[0]!;
 	const requested = ok(
 		await gatedTransaction(db, (tx) =>
 			api.requestAccountDeletion(
@@ -183,9 +177,9 @@ test("AC:ORG55-008 a restore from before the purge keeps A hidden, with the copy
 		"the request sets the cancel deadline; the live purge after one retry sets the copy expiry",
 		async () => {
 			assert.equal(cancelUntil, "2026-11-12T16:00:00.000Z");
-			const w = firstRow(
-				await admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, a.id)),
-			);
+			const w = (
+				await admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, a.id))
+			)[0]!;
 			assert.equal(w.state, "purged");
 			assert.equal(w.live_purged_at!.toISOString(), PURGED.toISOString());
 			assert.equal(w.copy_expires_at!.toISOString(), "2026-11-27T16:00:00.000Z");

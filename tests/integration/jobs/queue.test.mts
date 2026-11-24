@@ -16,11 +16,6 @@ import {
 } from "../../../packages/domain/src/jobs/queue.ts";
 import { db, runtime, tenant, setup, teardown, subject, due } from "./support.mts";
 
-const firstRow = <T,>(rows: readonly T[]): T => {
-	const [row] = rows;
-	if (row === undefined) assert.fail("no row");
-	return row;
-};
 before(setup);
 after(teardown);
 const create = async (maxAttempts = 4, kind: JobKind = "object_cleanup") => {
@@ -50,7 +45,7 @@ test("AC:CASE-NTF-002 INV-jobs: concurrent claims fence late completions and ret
 	assert.equal(await recoverLease(runtime), 1);
 	assert.equal(await transaction(runtime, (tx) => finishClaim(tx, claim, { state: "succeeded" })), false);
 	await due();
-	const newClaim = firstRow(await claimDue(runtime, ["object_cleanup"]));
+	const newClaim = (await claimDue(runtime, ["object_cleanup"]))[0]!;
 	assert.equal(newClaim.claim_generation, "3");
 	assert.equal(newClaim.attempt_count, 2);
 	for (const stale of [
@@ -87,7 +82,7 @@ test("INV-jobs: default and explicit leases meet the execution limits", async ()
 	for (const [kind, seconds, expected] of leases) {
 		await create(4, kind);
 		const claim = await bracket(async () => {
-			return firstRow(await claimDue(runtime, [kind], 1, seconds));
+			return (await claimDue(runtime, [kind], 1, seconds))[0]!;
 		}, expected);
 		for (const invalid of [0, 301, 1.5]) await assert.rejects(claimDue(runtime, [kind], 1, invalid));
 		await db.execute(
@@ -98,7 +93,7 @@ test("INV-jobs: default and explicit leases meet the execution limits", async ()
 test("INV-jobs INV-privacy: safe checkpoints resume, external effects reconcile, exhausted jobs stop, and only a fixed code is stored", async () => {
 	for (const external of [false, true]) {
 		const id = await create(1);
-		const claim = firstRow(await claimDue(runtime, ["object_cleanup"]));
+		const claim = (await claimDue(runtime, ["object_cleanup"]))[0]!;
 		if (external) assert.equal(await transaction(runtime, (tx) => checkpoint(tx, claim, "external")), true);
 		await db.execute(
 			querySql`UPDATE job SET lease_until=clock_timestamp()-interval '1 second' WHERE id=${querySql.param(id)}`,
@@ -111,7 +106,7 @@ test("INV-jobs INV-privacy: safe checkpoints resume, external effects reconcile,
 		assert.equal(await transaction(runtime, (tx) => finishClaim(tx, claim, { state: "succeeded" })), false);
 	}
 	const id = await create();
-	const claim = firstRow(await claimDue(runtime, ["object_cleanup"]));
+	const claim = (await claimDue(runtime, ["object_cleanup"]))[0]!;
 	for (const code of ["busy'; --", "Key (email)=(someone@example.test) already exists"])
 		await assert.rejects(finishJob(runtime, claim, { state: "retry_wait", code, retryAfterSeconds: 900 } as never));
 	assert.equal(
@@ -138,7 +133,7 @@ test("INV-jobs: a retry on the last attempt waits instead of failing when the wo
 		).rows[0];
 	for (const progress of [false, true]) {
 		const id = await create(1);
-		const claim = firstRow(await claimDue(runtime, ["object_cleanup"]));
+		const claim = (await claimDue(runtime, ["object_cleanup"]))[0]!;
 		assert.equal(claim.attempt_count, claim.max_attempts);
 		if (progress) await db.execute(querySql`UPDATE job SET attempt_count=0 WHERE id=${querySql.param(id)}`);
 		assert.equal(await finishJob(runtime, claim, { state: "retry_wait", code: "import_interrupted" }), true);
@@ -208,7 +203,7 @@ test("INV-scan: committed pages retain the owed tail beyond both page and retry 
 		},
 	};
 	for (let i = 0; i < 4; i++) {
-		const claim = firstRow(await claimDue(runtime, ["people_import"]));
+		const claim = (await claimDue(runtime, ["people_import"]))[0]!;
 		assert.equal(claim.id, id);
 		assert.equal(await transaction(runtime, (tx) => scanPage(tx, claim, config)), true);
 		observed++;
@@ -258,7 +253,7 @@ test("INV-jobs: a claim is one round trip; it takes the oldest due job, skips on
 		held.map((c) => c.id),
 		[ids[1]],
 	);
-	const oldest = firstRow(await claimDue(runtime, ["digest"]));
+	const oldest = (await claimDue(runtime, ["digest"]))[0]!;
 	assert.deepEqual([oldest.id, oldest.attempt_count, oldest.claim_generation], [ids[0], 1, "1"]);
 	assert.deepEqual(await claimDue(runtime, ["digest"]), []);
 });
@@ -321,7 +316,7 @@ test("INV-jobs INV-privacy: every enqueue path and checkpoint accepts a key only
 		querySql`SELECT producer_key FROM job WHERE subject_record_id=${querySql.param(record)} ORDER BY producer_key`,
 	);
 	assert.equal(stored.rows.length, 6);
-	const claim = firstRow(await claimDue(runtime, ["object_cleanup"], 3));
+	const claim = (await claimDue(runtime, ["object_cleanup"], 3))[0]!;
 	await assert.rejects(transaction(runtime, (tx) => checkpoint(tx, claim, randomBytes(24).toString("base64url"))));
 	assert.equal(await transaction(runtime, (tx) => checkpoint(tx, claim, "external")), true);
 });

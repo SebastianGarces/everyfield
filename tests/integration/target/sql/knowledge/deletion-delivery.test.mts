@@ -22,12 +22,6 @@ import { freezeClock } from "./support.mts";
 import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 import { MAILING } from "../../../communication/church-address.mts";
 
-const firstRow = <T,>(rows: readonly T[]): T => {
-	const [row] = rows;
-	if (row === undefined) assert.fail("no row");
-	return row;
-};
-
 const DELETE_AT = new Date("2026-10-13T16:00:00.000Z");
 const SEND_AT = "2026-10-20T16:00:00.000Z";
 
@@ -200,7 +194,7 @@ test("AC:DEL58-006 pending deletion hands off nothing new, leaves held mail to r
 			]),
 		workspaceNotice: async () => {},
 	});
-	const p = firstRow(await rows(sql`SELECT revision::text AS revision FROM plant WHERE id = ${plant.id}`));
+	const p = (await rows(sql`SELECT revision::text AS revision FROM plant WHERE id = ${plant.id}`))[0]!;
 	const request = ok(
 		await gatedTransaction(db, (tx) =>
 			deletion.requestWorkspaceDeletion(

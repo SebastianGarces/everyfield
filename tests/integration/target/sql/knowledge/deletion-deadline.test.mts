@@ -14,12 +14,6 @@ import { type Actor, type Workspace, ok, refusedWith, seeds } from "../../../../
 import { freezeClock } from "./support.mts";
 import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
-const firstRow = <T,>(rows: readonly T[]): T => {
-	const [row] = rows;
-	if (row === undefined) assert.fail("no row");
-	return row;
-};
-
 const REQUESTED = new Date("2026-10-13T16:00:00.000Z");
 const DEADLINE = new Date("2026-11-12T16:00:00.000Z");
 const BEFORE = new Date("2026-11-12T15:59:59.999Z");
@@ -55,7 +49,7 @@ after(() => database.close());
 async function pendingDeletion() {
 	const a = await seed.actor(plant, "admin");
 	const requestId = randomUUID();
-	const w = firstRow(
+	const w = (
 		await admin
 			.insert(t.lifecycle_witness)
 			.values({
@@ -72,8 +66,8 @@ async function pendingDeletion() {
 				witness_checkpoint: "1",
 				cleanup_state: "not_started",
 			})
-			.returning(),
-	);
+			.returning()
+	)[0]!;
 	await admin.execute(sql`SELECT settings_suspend_subject(${w.id}::uuid,${requestId}::uuid)`);
 	return { a, subject: { kind: "account" as const, id: accountId.parse(a.id) }, requestId, witness: w.id };
 }
@@ -134,7 +128,7 @@ test("AC:DEL58-003 the restricted session cancels only the current request, and 
 				token: randomBytes(32).toString("hex"),
 				expires_at: new Date(BEFORE.getTime() + 86_400_000),
 			});
-			const account = firstRow(await admin.select().from(t.account).where(eq(t.account.id, a.id)));
+			const account = (await admin.select().from(t.account).where(eq(t.account.id, a.id)))[0]!;
 			const newer = ok(
 				await gatedTransaction(db, (tx) =>
 					api.requestAccountDeletion(

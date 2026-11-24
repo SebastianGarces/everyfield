@@ -29,11 +29,6 @@ import { resendWebhook } from "../../../apps/web/src/server/jobs/webhook-route.t
 import { settleCaptured } from "../../../apps/web/src/server/mail/settle.ts";
 import { db, runtime, runtimeSettings, tenant, setup, teardown, due } from "./support.mts";
 
-const firstRow = <T,>(rows: readonly T[]): T => {
-	const [row] = rows;
-	if (row === undefined) assert.fail("no row");
-	return row;
-};
 const account = randomUUID(),
 	key = randomBytes(32),
 	secret = "whsec_" + randomBytes(32).toString("base64");
@@ -155,7 +150,7 @@ after(async () => {
 test("AC:NOTIFY47-008 INV-mail: dropped acceptance replays only the identical request/key; expiry and unknown never mint another effect", async () => {
 	mode = "lost";
 	const id = await enqueue();
-	const claim = firstRow(await claimDue(runtime, ["mail"]));
+	const claim = (await claimDue(runtime, ["mail"]))[0]!;
 	const n = effects.size;
 	assert.deepEqual(await service.dispatch(claim), { kind: "unknown" });
 	assert.equal(effects.size, n + 1);
@@ -165,7 +160,7 @@ test("AC:NOTIFY47-008 INV-mail: dropped acceptance replays only the identical re
 	);
 	mode = "accepted";
 	const before = (await db.execute(querySql`SELECT clock_timestamp()::text AS at`)).rows[0]!.at;
-	const again = firstRow(await claimUnknownMail(runtime, ["test/"]));
+	const again = (await claimUnknownMail(runtime, ["test/"]))[0]!;
 	assert.equal(again.id, claim.id);
 	assert.equal(
 		(
@@ -186,7 +181,7 @@ test("AC:NOTIFY47-008 INV-mail: dropped acceptance replays only the identical re
 	);
 	mode = "lost";
 	const expired = await enqueue();
-	const c = firstRow(await claimDue(runtime, ["mail"]));
+	const c = (await claimDue(runtime, ["mail"]))[0]!;
 	await service.dispatch(c);
 	await db.execute(
 		querySql`UPDATE mail_request SET first_dispatched_at=clock_timestamp()-interval '24 hours' WHERE id=(SELECT request_id FROM mail_request_member WHERE mail_id=${querySql.param(expired)})`,
@@ -237,7 +232,7 @@ test("INV-mail: killing a worker after provider acceptance recovers its original
 	);
 	mode = "accepted";
 	await db.execute(querySql`UPDATE job SET next_attempt_at=NULL WHERE subject_record_id=${querySql.param(id)}`);
-	const claim = firstRow(await claimUnknownMail(runtime, ["test/"]));
+	const claim = (await claimUnknownMail(runtime, ["test/"]))[0]!;
 	assert.equal(claim.subject_record_id, id);
 	assert.equal((await service.dispatch(claim)).kind, "accepted");
 	assert.equal(effects.size, count);
@@ -259,7 +254,7 @@ test("INV-mail: protected token bytes stay encrypted and fixed content survives 
 	);
 	assert.equal(sql.rows[0]!.data.includes(token), false);
 	assert.equal(sql.rows[0]!.data.includes("synthetic@example.test"), false);
-	const claim = firstRow(await claimDue(runtime, ["mail"]));
+	const claim = (await claimDue(runtime, ["mail"]))[0]!;
 	assert.equal((await service.dispatch(claim)).kind, "accepted");
 	assert.equal(JSON.parse(requests.at(-1)!.payload).text, content.text);
 	assert.equal(
@@ -284,7 +279,7 @@ test("INV-mail: protected token bytes stay encrypted and fixed content survives 
 	const denied = await enqueue();
 	await db.execute(querySql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${querySql.param(account)}`);
 	const before = requests.length;
-	const c = firstRow(await claimDue(runtime, ["mail"]));
+	const c = (await claimDue(runtime, ["mail"]))[0]!;
 	assert.deepEqual(await service.dispatch(c), { kind: "not_dispatched" });
 	assert.equal(requests.length, before);
 	assert.equal(
@@ -297,7 +292,7 @@ test("INV-mail: known retryable refusals back off and exhaust exactly three retr
 	mode = "refused";
 	const id = await enqueue();
 	for (let attempt = 1; attempt <= 4; attempt++) {
-		const claim = firstRow(await claimDue(runtime, ["mail"]));
+		const claim = (await claimDue(runtime, ["mail"]))[0]!;
 		assert.equal(claim.attempt_count, attempt);
 		assert.deepEqual(await service.dispatch(claim), { kind: "refused", retryable: true, retryAfterSeconds: 901 });
 		const state = (await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(claim.id)}`)).rows[0]!
@@ -325,7 +320,7 @@ test("INV-mail: known retryable refusals back off and exhaust exactly three retr
 });
 test("INV-mail: callbacks persist unknown IDs, reject wrong secrets, replay without send, and never regress delivery", async () => {
 	const id = await enqueue();
-	const claim = firstRow(await claimDue(runtime, ["mail"]));
+	const claim = (await claimDue(runtime, ["mail"]))[0]!;
 	const out = await service.dispatch(claim);
 	assert.equal(out.kind, "accepted");
 	const count = requests.length;
@@ -378,7 +373,7 @@ test("INV-mail: callbacks persist unknown IDs, reject wrong secrets, replay with
 
 test("INV-mail: a stored callback whose apply fails for a non-transient reason answers 503 and stays pending for replay", async () => {
 	const id = await enqueue();
-	const claim = firstRow(await claimDue(runtime, ["mail"]));
+	const claim = (await claimDue(runtime, ["mail"]))[0]!;
 	const out = await service.dispatch(claim);
 	assert.equal(out.kind, "accepted");
 	const before = await callbackVisibility(runtime, "disabled");
@@ -411,7 +406,7 @@ test("INV-mail: captured mail settles each id on its own; one failing id neither
 	const sent: { id: string; provider: string }[] = [];
 	while (sent.length < 2) {
 		const id = await enqueue();
-		const claim = firstRow(await claimDue(runtime, ["mail"]));
+		const claim = (await claimDue(runtime, ["mail"]))[0]!;
 		const out = await service.dispatch(claim);
 		assert.equal(out.kind, "accepted");
 		sent.push({ id, provider: out.id });
@@ -447,7 +442,7 @@ test("INV-mail: captured mail settles each id on its own; one failing id neither
 test("INV-recovery: only a freshly authorized operator can attach provider evidence after the replay window", async () => {
 	mode = "lost";
 	const id = await enqueue();
-	const claim = firstRow(await claimDue(runtime, ["mail"]));
+	const claim = (await claimDue(runtime, ["mail"]))[0]!;
 	assert.deepEqual(await service.dispatch(claim), { kind: "unknown" });
 	const providerId = effects.get(requests.at(-1)!.key),
 		operation = randomUUID();
@@ -495,7 +490,7 @@ test("INV-recovery: only a freshly authorized operator can attach provider evide
 });
 test("INV-mail: hard bounce suppresses even security mail; soft bounce does not", async () => {
 	await enqueue();
-	const c = firstRow(await claimDue(runtime, ["mail"]));
+	const c = (await claimDue(runtime, ["mail"]))[0]!;
 	const out = await service.dispatch(c);
 	assert.equal(out.kind, "accepted");
 	await receive(await callback(out.id, "bounced", randomUUID(), { type: "Transient" }));
@@ -503,7 +498,7 @@ test("INV-mail: hard bounce suppresses even security mail; soft bounce does not"
 	await receive(await callback(out.id, "bounced", randomUUID(), { type: "Permanent" }));
 	assert.equal((await db.execute(querySql`SELECT reason FROM suppression`)).rows[0]!.reason, "hard_bounce");
 	const next = await enqueue("password_reset");
-	const claim = firstRow(await claimDue(runtime, ["mail"]));
+	const claim = (await claimDue(runtime, ["mail"]))[0]!;
 	const count = requests.length;
 	assert.deepEqual(await service.dispatch(claim), { kind: "not_dispatched" });
 	assert.equal(requests.length, count);

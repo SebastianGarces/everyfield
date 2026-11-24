@@ -31,12 +31,6 @@ import { createNotificationService } from "../../../packages/domain/src/jobs/not
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 
-const firstRow = <T,>(rows: readonly T[]): T => {
-	const [row] = rows;
-	if (row === undefined) assert.fail("no row");
-	return row;
-};
-
 type Who = { actor: RequestActor };
 type Row = Record<string, unknown>;
 type Answer<F> = F extends (...args: never[]) => Promise<infer V> ? V : never;
@@ -322,13 +316,13 @@ test("AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 creat
 	const child = await subtask(owner, cleared, "Bring chairs");
 	const withChild = available(ok(await read(owner, "get", { taskId: first.task.id })));
 	assert.deepEqual(
-		withChild!.checklistItems.map((k) => k.id),
+		withChild.checklistItems.map((k) => k.id),
 		[child.id],
 	);
 	ok(
 		await write(owner, "delete", {
 			requestKey: randomUUID(),
-			expectedRevision: withChild!.revision,
+			expectedRevision: withChild.revision,
 			input: { taskId: first.task.id },
 		}),
 	);
@@ -1122,10 +1116,7 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 	refused(await tick(member, pa, ticked, false), "unavailable");
 	for (const row of [inherited, unassigned]) ok(await tick(owner, p, row, true));
 	const parent = await get(owner, p.id);
-	assert.deepEqual(
-		[parent!.status, parent!.revision, parent!.checklist],
-		["not_started", "1", { total: 3, complete: 3 }],
-	);
+	assert.deepEqual([parent.status, parent.revision, parent.checklist], ["not_started", "1", { total: 3, complete: 3 }]);
 	const reopened = ok(await tick(member, p, ticked, false)).task;
 	assert.equal(reopened.status, "not_started");
 	const history = ok(await read(member, "statusHistory", { taskId: c.id })).items.map((h) => [h.from, h.to]);
@@ -1170,7 +1161,7 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 	refused(await remove(member, reopened), "unavailable");
 	ok(await remove(owner, reopened));
 	const after = await get(owner, p.id);
-	assert.deepEqual([after!.revision, after!.checklist], ["1", { total: 2, complete: 2 }]);
+	assert.deepEqual([after.revision, after.checklist], ["1", { total: 2, complete: 2 }]);
 	assert.equal(ok(await read(owner, "statusHistory", { taskId: c.id })).items.length, 3);
 });
 
@@ -1203,8 +1194,8 @@ test("AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once,
 	const row = await subtask(owner, c, "Row");
 	const theirs = await create(foreign, { title: "Theirs" });
 	const fresh = await get(owner, c.id);
-	for (const id of [c.id, theirs.id, gone.id, row.id]) refused(await replace(owner, fresh!, [id]), "invalid_subject");
-	refused(await replace(member, fresh!, [b.id]), "unavailable");
+	for (const id of [c.id, theirs.id, gone.id, row.id]) refused(await replace(owner, fresh, [id]), "invalid_subject");
+	refused(await replace(member, fresh, [b.id]), "unavailable");
 	const named = ok(await read(owner, "listRows", { taskIds: [a.id, b.id, c.id, gone.id, theirs.id] }));
 	assert.deepEqual(Object.fromEntries(named.items.map((t) => [t.title, t.openPrerequisites])), { A: 1, B: 1, C: 0 });
 	assert.deepEqual(
@@ -1312,7 +1303,7 @@ test("AC:TARGET-TSK-006 a write that settles, reopens or deletes a prerequisite 
 	const bulk = ok(
 		await write(owner, "bulkComplete", {
 			requestKey: randomUUID(),
-			items: fresh.map((t) => ({ taskId: t!.id, expectedRevision: t!.revision })),
+			items: fresh.map((t) => ({ taskId: t.id, expectedRevision: t.revision })),
 		}),
 	);
 	assert.deepEqual(counts(bulk), { Both: 0, All: 1 });
@@ -1335,8 +1326,8 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 	ok(await tick(owner, t, item, true));
 	const key = randomUUID(),
 		reviewed = await get(owner, t.id);
-	const first = ok(await complete(member, reviewed!, key));
-	assert.deepEqual(ok(await complete(member, reviewed!, key)), first);
+	const first = ok(await complete(member, reviewed, key));
+	assert.deepEqual(ok(await complete(member, reviewed, key)), first);
 	assert.deepEqual(
 		[first.task.status, first.successor!.due, first.successor!.assignees[0]!.accountId],
 		["complete", due("2026-02-28"), member.id],
@@ -1488,7 +1479,7 @@ test("AC:TARGET-TSK-006 saving the same prerequisites in another order is a no-o
 	const reordered = ok(await replace(saved.task, [b.id, a.id]));
 	assert.equal(reordered.outcome, "noop");
 	const read = await get(owner, task.id);
-	assert.deepEqual([read!.revision, read!.prerequisiteIds], [saved.task.revision, [a.id, b.id]]);
+	assert.deepEqual([read.revision, read.prerequisiteIds], [saved.task.revision, [a.id, b.id]]);
 	assert.equal(await history(), entries);
 });
 
@@ -1513,29 +1504,29 @@ test("AC:TARGET-TSK-007 Make it repeat on an older occurrence of a stopped serie
 		tasks: await rows(
 			sql`SELECT t.id, t.series_id, t.occurrence_key, t.status, t.revision::text,
 				(SELECT count(*)::int FROM audit_event a WHERE a.subject_id=t.id) AS history
-			FROM task t WHERE t.id IN (${first.id}, ${third!.id}) ORDER BY t.occurrence_key`,
+			FROM task t WHERE t.id IN (${first.id}, ${third.id}) ORDER BY t.occurrence_key`,
 		),
 	});
 	const before = await oldSeries();
 
 	const rule = { frequency: "monthly", until: null, localTime: null };
-	const restarted = ok(await configure(await get(owner, second!.id), rule)).task;
+	const restarted = ok(await configure(await get(owner, second.id), rule)).task;
 	assert.equal(restarted.occurrenceId, "1");
 	assert.notEqual(restarted.recurrence!.seriesId, old);
-	assert.deepEqual((await get(owner, second!.id)).recurrence, {
+	assert.deepEqual((await get(owner, second.id)).recurrence, {
 		seriesId: restarted.recurrence!.seriesId,
 		...rule,
 		stopped: false,
 	});
 	assert.deepEqual(await oldSeries(), before);
 	assert.equal(before.rule[0]!.stopped, true);
-	assert.equal(ok(await complete(await get(owner, third!.id))).successor, null);
+	assert.equal(ok(await complete(await get(owner, third.id))).successor, null);
 
 	const reopened = ok(
 		await write(owner, "reopen", {
 			requestKey: randomUUID(),
 			expectedRevision: restarted.revision,
-			input: { taskId: second!.id },
+			input: { taskId: second.id },
 		}),
 	).task;
 	const key = randomUUID();
@@ -1545,10 +1536,10 @@ test("AC:TARGET-TSK-007 Make it repeat on an older occurrence of a stopped serie
 		["2", restarted.recurrence!.seriesId, { kind: "local_date", date: "2026-10-14" }],
 	);
 	assert.deepEqual(ok(await complete(reopened, key)), done);
-	ok(await complete(await get(owner, second!.id)));
+	ok(await complete(await get(owner, second.id)));
 	assert.deepEqual(
 		await rows(
-			sql`SELECT series_id, occurrence_key FROM task WHERE predecessor_id=${second!.id} AND deleted_at IS NULL
+			sql`SELECT series_id, occurrence_key FROM task WHERE predecessor_id=${second.id} AND deleted_at IS NULL
 			ORDER BY occurrence_key`,
 		),
 		[
@@ -1692,7 +1683,7 @@ test("AC:TARGET-TSK-008 AC:TARGET-TSK-007 a bulk complete names each recurring t
 	);
 	for (const i of [result.items[0], result.items[2]]) {
 		const next = await get(owner, i!.successor!.id);
-		assert.deepEqual([next!.status, next!.occurrenceId, next!.revision], ["not_started", "2", i!.successor!.revision]);
+		assert.deepEqual([next.status, next.occurrenceId, next.revision], ["not_started", "2", i!.successor!.revision]);
 	}
 	assert.deepEqual(ok(await write(owner, "bulkComplete", request)), result);
 	const successors = async (t: { id: string }) =>
@@ -1943,10 +1934,10 @@ test("AC:TARGET-TSK-014 a seat that has not accepted yet gets no task-reminder m
 	assert.equal(mailRows.length, 2);
 	const allowed = () => gatedTransaction(f.db, (tx) => authorizeTaskReminders(tx, mailRows));
 	assert.equal((await allowed()).size, 2);
-	const seat = firstRow(
+	const seat = (
 		await rows(sql`SELECT id, accepted_at FROM seat WHERE account_id=${member.id} AND plant_id=${plant.id}
-		AND ended_at IS NULL`),
-	);
+		AND ended_at IS NULL`)
+	)[0]!;
 	await f.admin.execute(sql`UPDATE seat SET accepted_at=clock_timestamp()+interval '1 day' WHERE id=${seat.id}`);
 	try {
 		assert.equal((await allowed()).size, 0, "the seat is not accepted yet");

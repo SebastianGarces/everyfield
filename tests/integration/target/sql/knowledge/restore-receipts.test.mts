@@ -17,12 +17,6 @@ import { type Actor, ok, seeds } from "../../../../support/fixture.mts";
 import { closedTo, dropTarget, freezeClock, objectStore, operator, snapshot, type Store } from "./support.mts";
 import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
-const firstRow = <T,>(rows: readonly T[]): T => {
-	const [row] = rows;
-	if (row === undefined) assert.fail("no row");
-	return row;
-};
-
 const IMAGE_AT = new Date("2026-09-06T12:00:00.000Z");
 const REQUESTED = new Date("2026-09-06T15:00:00.000Z");
 const PURGED = new Date("2026-10-06T15:00:00.000Z");
@@ -120,7 +114,7 @@ before(async () => {
 		issue_url='https://example.test/issues/7', published_at=clock_timestamp() WHERE id=${issueOf}::uuid`);
 
 	await at(REQUESTED);
-	const account = firstRow(await admin.select().from(t.account).where(eq(t.account.id, a.id)));
+	const account = (await admin.select().from(t.account).where(eq(t.account.id, a.id)))[0]!;
 	const subject = { kind: "account" as const, id: accountId.parse(a.id) };
 	const requested = ok(
 		await gatedTransaction(db, (tx) =>
@@ -151,9 +145,7 @@ const rows = async <R extends Record<string, unknown> = Record<string, unknown>>
 	(await admin.execute<R>(query)).rows;
 
 test("AC:REC59-006 an old copy restores no expired body and replays no mail or issue; its rows take the current receipts", async () => {
-	const w = firstRow(
-		await admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, a.id)),
-	);
+	const w = (await admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, a.id)))[0]!;
 	assert.equal(w.state, "purged");
 	assert.equal(w.copy_expires_at!.toISOString(), "2026-10-13T15:00:00.000Z");
 

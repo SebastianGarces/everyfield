@@ -19,12 +19,6 @@ import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { ok } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
-const firstRow = <T,>(rows: readonly T[]): T => {
-	const [row] = rows;
-	if (row === undefined) assert.fail("no row");
-	return row;
-};
-
 const database = await testDatabase({
 	prefix: "t128",
 	roles: { runtime: ["runtime"], cleanup: ["cleanup"], auth: ["auth"] },
@@ -177,9 +171,9 @@ async function file(tenant: string) {
 	});
 	if (account) await admin.update(t.account).set({ avatar_object_id: id }).where(eq(t.account.id, tenant));
 	else {
-		const person = firstRow(
-			await admin.select({ id: t.person.id }).from(t.person).where(eq(t.person.plant_id, tenant)).limit(1),
-		);
+		const person = (
+			await admin.select({ id: t.person.id }).from(t.person).where(eq(t.person.plant_id, tenant)).limit(1)
+		)[0]!;
 		await admin.update(t.person).set({ photo_object_id: id }).where(eq(t.person.id, person.id));
 	}
 	return { id, key };
@@ -188,14 +182,14 @@ const revisionOf = async (id: string) =>
 	(await admin.select().from(t.account).where(eq(t.account.id, id)))[0]!.revision;
 const witnessesOf = (subject: string) =>
 	admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, subject));
-const witnessOf = async (subject: string) => firstRow(await witnessesOf(subject));
+const witnessOf = async (subject: string) => (await witnessesOf(subject))[0]!;
 const jobOf = async (witness: string) =>
-	firstRow(
+	(
 		await admin
 			.select()
 			.from(t.job)
-			.where(sql`${t.job.kind}='lifecycle_purge' AND ${t.job.subject_record_id}=${witness}`),
-	);
+			.where(sql`${t.job.kind}='lifecycle_purge' AND ${t.job.subject_record_id}=${witness}`)
+	)[0]!;
 async function graceEnds(witness: string) {
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`ALTER TABLE lifecycle_witness DISABLE TRIGGER witness_clock`);
@@ -326,7 +320,7 @@ test("AC:TARGET-IDN-032 AC:DEL58-005 a workspace deletion purges through the sam
 	const deleted = await church(),
 		other = await church();
 	const [doomed, kept] = [await file(deleted.p.id), await file(other.p.id)];
-	const plant = firstRow(await admin.select().from(t.plant).where(eq(t.plant.id, deleted.p.id)));
+	const plant = (await admin.select().from(t.plant).where(eq(t.plant.id, deleted.p.id)))[0]!;
 	ok(
 		await gatedTransaction(db, (tx) =>
 			api.requestWorkspaceDeletion(
@@ -346,7 +340,7 @@ test("AC:TARGET-IDN-032 AC:DEL58-005 a workspace deletion purges through the sam
 	assert.equal((await jobOf(w.id)).state, "succeeded");
 	assert.equal((await admin.select().from(t.person).where(eq(t.person.plant_id, deleted.p.id))).length, 0);
 	assert.equal(objects.has(doomed.key), false);
-	const survivor = firstRow(await admin.select().from(t.plant).where(eq(t.plant.id, other.p.id)));
+	const survivor = (await admin.select().from(t.plant).where(eq(t.plant.id, other.p.id)))[0]!;
 	assert.equal(survivor.name, "Harvest Point");
 	assert.ok((await admin.select().from(t.person).where(eq(t.person.plant_id, other.p.id))).length > 0);
 	assert.equal(objects.has(kept.key), true);
