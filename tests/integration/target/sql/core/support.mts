@@ -46,7 +46,10 @@ export async function world(prefix: string) {
 		foreign: await database.actor({ kind: "plant", id: Q }, "admin"),
 	};
 	type Who = keyof typeof actors;
-	const ctx = (who: Who = "admin") => ({ session: actors[who].session, selected: church(who === "foreign" ? Q : P) });
+	const ctx = (who: Who = "admin") => ({
+		session: actors[who].session,
+		selected: church(who === "foreign" ? Q : P),
+	});
 	const tx = <T,>(body: (t: WriteTx) => Promise<T>) => gatedTransaction(db, body);
 	const rows = async <R extends Row = Row>(query: SQL) => (await admin.execute<R>(query)).rows;
 	const one = async <R extends Row = Row>(query: SQL) => {
@@ -59,13 +62,15 @@ export async function world(prefix: string) {
 	async function insert(table: string, values: Row) {
 		const id = (values.id as string | undefined) ?? key();
 		const entries = Object.entries({ id, plant_id: P, ...values }).filter(([, v]) => v !== undefined);
-		await admin.execute(sql`INSERT INTO ${sql.identifier(table)}(${sql.join(
-			entries.map(([k]) => sql.identifier(k)),
-			sql`,`,
-		)}) VALUES(${sql.join(
-			entries.map(([, v]) => (v && typeof v === "object" && "getSQL" in v ? (v as SQL) : sql.param(v))),
-			sql`,`,
-		)})`);
+		await admin.execute(
+			sql`INSERT INTO ${sql.identifier(table)}(${sql.join(
+				entries.map(([k]) => sql.identifier(k)),
+				sql`,`,
+			)}) VALUES(${sql.join(
+				entries.map(([, v]) => (v && typeof v === "object" && "getSQL" in v ? (v as SQL) : sql.param(v))),
+				sql`,`,
+			)})`,
+		);
 		return id;
 	}
 	async function person(displayName: string, input: Row = {}, who: Who = "admin") {
@@ -79,7 +84,13 @@ export async function world(prefix: string) {
 		).person.id;
 	}
 	const personRow = (id: string) =>
-		one<{ state: string; merged_into_person_id: string | null; revision: string; display_name: string; retired: boolean }>(
+		one<{
+			state: string;
+			merged_into_person_id: string | null;
+			revision: string;
+			display_name: string;
+			retired: boolean;
+		}>(
 			sql`SELECT state,merged_into_person_id,revision::text,display_name,retired_at IS NOT NULL AS retired FROM person WHERE id=${id}::uuid`,
 		);
 	async function update(personId: string, patch: Row) {
@@ -97,7 +108,12 @@ export async function world(prefix: string) {
 		tx((t) => peopleMerge.getMergeReview(t, ctx(who), { sourceId, survivorId }));
 	const digestOf = async (sourceId: string, survivorId: string) => ok(await review(sourceId, survivorId)).reviewDigest;
 	const mergeWith = (
-		input: { sourceId: string; survivorId: string; reviewDigest: string; fieldChoices?: Record<string, "source"> },
+		input: {
+			sourceId: string;
+			survivorId: string;
+			reviewDigest: string;
+			fieldChoices?: Record<string, "source">;
+		},
 		{ who = "admin" as Who, requestKey = key() as string } = {},
 	) => tx((t) => peopleMerge.mergePeople(t, ctx(who), { requestKey, input }));
 	const merge = async (
@@ -115,22 +131,36 @@ export async function world(prefix: string) {
 		mergeId: string,
 		expectedRevision: string,
 		{ who = "admin" as Who, requestKey = key() as string } = {},
-	) => tx((t) => peopleUnmerge.unmergePeople(t, ctx(who), { requestKey, expectedRevision, input: { mergeId } }));
-	const unmerge = async (mergeId: string) =>
-		unmergeWith(mergeId, ok(await preview(mergeId)).reviewRevision);
+	) =>
+		tx((t) =>
+			peopleUnmerge.unmergePeople(t, ctx(who), {
+				requestKey,
+				expectedRevision,
+				input: { mergeId },
+			}),
+		);
+	const unmerge = async (mergeId: string) => unmergeWith(mergeId, ok(await preview(mergeId)).reviewRevision);
 	const destination = (personId: string, who: Who = "admin") =>
 		tx((t) => peopleMerge.mergedPersonDestination(t, ctx(who), { personId }));
 	const ownerPerson = await person("Duty owner");
 	await admin.execute(sql`UPDATE person SET linked_account_id=${actors.member.id} WHERE id=${ownerPerson}::uuid`);
 	async function retireRequest(personId: string) {
 		const row = await personRow(personId);
-		const duties = await rows<{ id: string; revision: string }>(sql`SELECT id,revision::text FROM task
+		const duties = await rows<{
+			id: string;
+			revision: string;
+		}>(sql`SELECT id,revision::text FROM task
 			WHERE person_id=${personId}::uuid AND deleted_at IS NULL AND status NOT IN ('complete','no_longer_needed')`);
-		const warnings = ok(await tx((t) => peopleReader.getStatusWarnings(t, ctx(), { personId: personIdValue.parse(personId) })));
+		const warnings = ok(
+			await tx((t) => peopleReader.getStatusWarnings(t, ctx(), { personId: personIdValue.parse(personId) })),
+		);
 		return {
 			requestKey: key(),
 			expectedRevision: row.revision,
-			input: { personId, reason: "Moved away", reviewRevision: warnings.reviewRevision,
+			input: {
+				personId,
+				reason: "Moved away",
+				reviewRevision: warnings.reviewRevision,
 				handoffs: duties.map((d) => ({
 					kind: "assign",
 					dutyId: d.id,
@@ -147,7 +177,9 @@ export async function world(prefix: string) {
 		ok(await tx((t) => searchPeople(t, ctx(), name, 1000))).some((hit) => hit.id === personId);
 
 	const tables = (
-		await rows<{ name: string }>(sql`SELECT c.relname AS name FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+		await rows<{
+			name: string;
+		}>(sql`SELECT c.relname AS name FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
 			WHERE n.nspname=current_schema() AND c.relkind='r' AND c.relname NOT LIKE 'schema_%' ORDER BY 1`)
 	).map((r) => r.name);
 	async function everything() {
@@ -171,7 +203,9 @@ export async function world(prefix: string) {
 	async function commitFault<T>(table: string, body: () => Promise<T>) {
 		const name = "fault_" + key().replaceAll("-", "");
 		await admin.execute(
-			sql.raw(`CREATE FUNCTION ${name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'required_write_failed'; END $$`),
+			sql.raw(
+				`CREATE FUNCTION ${name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'required_write_failed'; END $$`,
+			),
 		);
 		await admin.execute(
 			sql.raw(`CREATE CONSTRAINT TRIGGER ${name} AFTER INSERT OR UPDATE ON ${table} DEFERRABLE INITIALLY DEFERRED

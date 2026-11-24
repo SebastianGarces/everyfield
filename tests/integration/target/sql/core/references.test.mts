@@ -41,7 +41,13 @@ const meeting = (title: string) =>
 		attendance_revision: 1,
 	});
 const attend = (meetingId: string, personId: string, values: Row = {}) =>
-	insert("participation", { meeting_id: meetingId, person_id: personId, roster_member: false, presence: "attended", ...values });
+	insert("participation", {
+		meeting_id: meetingId,
+		person_id: personId,
+		roster_member: false,
+		presence: "attended",
+		...values,
+	});
 const task = (personId: string, values: Row = {}) =>
 	insert("task", {
 		title: "Call them",
@@ -97,7 +103,10 @@ const audited = async (p2: string, action: string): Promise<Table> => ({
 	column: "subject_id",
 	id: String((await one(sql`SELECT id FROM audit_event WHERE subject_id=${p2}::uuid AND action=${action} LIMIT 1`)).id),
 });
-const stored = (query: SQL, read: (row: Row) => unknown) => ({ row: () => one(query), person: read });
+const stored = (query: SQL, read: (row: Row) => unknown) => ({
+	row: () => one(query),
+	person: read,
+});
 
 const families: Family[] = [
 	{
@@ -277,9 +286,17 @@ const families: Family[] = [
 			const tag = await insert("tag", { name, normalized_name: name.toLowerCase() });
 			for (const id of [p1, p2]) {
 				await w.admin.execute(sql`INSERT INTO person_tag(plant_id,person_id,tag_id) VALUES(${P},${id},${tag})`);
-				await insert("person_skill", { person_id: id, name: id === p1 ? "Sound" : " sound", category: "tech" });
+				await insert("person_skill", {
+					person_id: id,
+					name: id === p1 ? "Sound" : " sound",
+					category: "tech",
+				});
 			}
-			const own = await insert("person_skill", { person_id: p2, name: "Teaching", category: "teaching" });
+			const own = await insert("person_skill", {
+				person_id: p2,
+				name: "Teaching",
+				category: "teaching",
+			});
 			const note = await insert("person_note", {
 				tenant_id: P,
 				person_id: p2,
@@ -346,12 +363,17 @@ const families: Family[] = [
 			"AC:PERSONREF-LAUNCH-NAMED-GUEST-CONFLICT AC:PERSONREF-LAUNCH-NAMED-GUEST-MERGE AC:PERSONREF-LAUNCH-NAMED-GUEST-RETIRE AC:PERSONREF-LAUNCH-NAMED-GUEST-UNMERGE the guest link moves and the recorder stays",
 		file: "launch",
 		async seed(p2) {
-			const id = await insert("launch_guest", { person_id: p2, recorded_by: w.actors.owner.id, recorded_at: PAST });
+			const id = await insert("launch_guest", {
+				person_id: p2,
+				recorded_by: w.actors.owner.id,
+				recorded_at: PAST,
+			});
 			return {
 				reference: { table: "launch_guest", id },
 				history: await audited(p2, "people.created"),
 				edit: bump("launch_guest", id),
-				kept: () => one(sql`SELECT to_jsonb(g)-'person_id'-'revision' AS guest FROM launch_guest g WHERE g.id=${id}::uuid`),
+				kept: () =>
+					one(sql`SELECT to_jsonb(g)-'person_id'-'revision' AS guest FROM launch_guest g WHERE g.id=${id}::uuid`),
 			};
 		},
 	},
@@ -372,7 +394,8 @@ const families: Family[] = [
 				reference: { table: "meeting_kit_item", column: "assignee_person_id", id },
 				history: await audited(p2, "people.created"),
 				edit: bump("meeting_kit_item", id),
-				kept: () => one(sql`SELECT (SELECT count(*)::int FROM seat) AS seats,(SELECT count(*)::int FROM account) AS accounts`),
+				kept: () =>
+					one(sql`SELECT (SELECT count(*)::int FROM seat) AS seats,(SELECT count(*)::int FROM account) AS accounts`),
 			};
 		},
 	},
@@ -515,8 +538,17 @@ const families: Family[] = [
 				leader_person_id: p2,
 				leader_source: "explicit",
 			});
-			const role = await insert("team_role", { team_id: team, name: "Greeter", leadership: false, sort_order: 1 });
-			const id = await insert("team_tenure", { role_id: role, person_id: p2, started_on: "2026-06-01" });
+			const role = await insert("team_role", {
+				team_id: team,
+				name: "Greeter",
+				leadership: false,
+				sort_order: 1,
+			});
+			const id = await insert("team_tenure", {
+				role_id: role,
+				person_id: p2,
+				started_on: "2026-06-01",
+			});
 			return {
 				reference: { table: "team_tenure", id },
 				history: await audited(p2, "people.created"),
@@ -530,7 +562,10 @@ const families: Family[] = [
 			"AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-CONFLICT AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-RETIRE AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-UNMERGE the assignment moves once and the completion keeps its date",
 		file: "teams-training",
 		async seed(p2) {
-			const program = await insert("training_program", { name: `Welcome ${key()}`, required: true });
+			const program = await insert("training_program", {
+				name: `Welcome ${key()}`,
+				required: true,
+			});
 			const id = await insert("training_assignment", {
 				program_id: program,
 				person_id: p2,
@@ -655,8 +690,7 @@ async function checkRefusals(c: Case, pair: Pair, run: Record<string, () => Prom
 		assert.deepEqual(await w.changed(before), [], `${c.id} ${s.name}`);
 		assert.deepEqual(result, s.expected.result, `${c.id} ${s.name}`);
 		const state: Row = await stateOf(pair, c.action.arguments.consumer, s.expected.state, at);
-		for (const [k, v] of Object.entries(s.expected.state))
-			assert.deepEqual(state[k], v, `${c.id} ${s.name} ${k}`);
+		for (const [k, v] of Object.entries(s.expected.state)) assert.deepEqual(state[k], v, `${c.id} ${s.name} ${k}`);
 	}
 }
 const KEPT_WHEN_DUPLICATE = new Set(["skill", "obligation", "attestation", "launch_guest", "mail"]);
@@ -676,7 +710,11 @@ async function dangling(p2: string) {
 	return n;
 }
 const receipts = async (p1: string, action: string) =>
-	(await one(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${p1}::uuid AND action=${action} AND kind<>'noop'`)).n;
+	(
+		await one(
+			sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${p1}::uuid AND action=${action} AND kind<>'noop'`,
+		)
+	).n;
 
 for (const family of families) {
 	const ids = [...family.cases.matchAll(/AC:(\S+)/g)].map((m) => m[1]!);
@@ -748,7 +786,9 @@ for (const family of families) {
 			const reference = state["reference-1"] as Row;
 			assert.deepEqual(
 				{
-					state: { "reference-1": { person: reference.person, observed_state: reference.observed_state } },
+					state: {
+						"reference-1": { person: reference.person, observed_state: reference.observed_state },
+					},
 					result: {
 						error_code: "revision_conflict",
 						changed_references: touched.length,
