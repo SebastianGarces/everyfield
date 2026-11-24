@@ -2,15 +2,36 @@ import "../platform/setup.mts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import { communicationWriter } from "../../../packages/domain/src/communication/index.ts";
+import type {
+	DeliveryBatch,
+	DeliveryTransport,
+	ProviderAnswer,
+} from "../../../packages/domain/src/communication/delivery.ts";
 import { GET, POST } from "../../../apps/web/src/app/api/webhooks/resend/route.ts";
 import { resendWebhook } from "../../../apps/web/src/server/jobs/webhook-route.ts";
 import { ok, refused } from "../../support/fixture.mts";
 import { MAILING } from "./church-address.mts";
+import {
+	deliverAs,
+	firstRow,
+	rowsFrom,
+	writeAs,
+	type Church,
+	type DeliveryOp,
+	type Fixture,
+	type Row,
+	type Staff,
+	type WriteOp,
+} from "./communication-support.mts";
 
-let f, plant, other, owner, member;
+let f: Fixture;
+let plant: Church;
+let other: Church;
+let owner: Staff;
+let member: Staff;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
@@ -19,15 +40,14 @@ const keys = {
 };
 const emptyAudience = { groups: [], teamIds: [], personIds: [] };
 const key = () => randomUUID();
-const rows = async (query) => (await f.admin.execute(query)).rows;
-const write = (who, op, input) =>
-	withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
+const rows = <R extends Row = Row>(query: SQL) => rowsFrom<R>(f, query);
+const write = <K extends WriteOp>(who: Staff, op: K, input: unknown) => writeAs(f.db, who.actor, op, input);
 const day = 86_400_000;
 const onTheHour = (ms: number) => new Date(Math.ceil(ms / 3_600_000) * 3_600_000).toISOString();
 const AT = onTheHour(Date.now() + 7 * day);
 const LATER = onTheHour(Date.now() + 8 * day);
 
-async function person(name, fields = {}) {
+async function person(name: string, fields: { plant?: string; email?: string; state?: string } = {}) {
 	const id = randomUUID();
 	const plantId = fields.plant ?? plant.id;
 	await f.admin
@@ -37,7 +57,7 @@ async function person(name, fields = {}) {
 		${fields.state ?? "live"},clock_timestamp())`);
 	return id;
 }
-async function scheduled(name, email, at, extraIds = []) {
+async function scheduled(name: string, email: string, at: string, extraIds: string[] = []) {
 	const personId = await person(name, { email });
 	const saved = ok(
 		await write(owner, "saveDraft", {
@@ -56,15 +76,22 @@ async function scheduled(name, email, at, extraIds = []) {
 	});
 	return { personId, saved, accepted, email };
 }
-function port(behavior) {
+type Send = DeliveryTransport["send"];
+type Batch = Parameters<Send>[0];
+type Calls = { send: number; cancel: number; reschedule: number };
+type Behavior = {
+	send?: (batch: Batch, calls: Calls) => Promise<DeliveryBatch>;
+	cancel?: () => ProviderAnswer;
+};
+function port(behavior: Behavior) {
 	const calls = { send: 0, cancel: 0, reschedule: 0 };
 	const keys: string[] = [];
-	return {
-		calls,
-		keys,
+	const transport: DeliveryTransport = {
+		paused: false,
 		async send(batch) {
 			calls.send += 1;
 			keys.push(batch.key);
+			assert.ok(behavior.send, "unexpected send");
 			return behavior.send(batch, calls);
 		},
 		async cancel(ids) {
@@ -73,21 +100,34 @@ function port(behavior) {
 		},
 		async reschedule() {
 			calls.reschedule += 1;
-			if (behavior.reschedule) return behavior.reschedule();
 			throw new Error("provider_timeout");
 		},
 	};
+	return Object.assign(transport, { calls, keys });
 }
-const handoff = (who, communicationId, revision, carrier, op = "dispatchAttempt") =>
-	communicationWriter[op](
+const handoff = (
+	who: Staff,
+	communicationId: string,
+	revision: string,
+	carrier: DeliveryTransport,
+	op: DeliveryOp = "dispatchAttempt",
+) =>
+	deliverAs(
 		f.db,
 		who.actor,
+		op,
 		{ requestKey: key(), expectedRevision: revision, input: { communicationId } },
 		carrier,
 		keys,
 	);
 const secret = "whsec_" + randomBytes(32).toString("base64");
-function signed(messageId, kind, eventKey = randomUUID(), bounce, createdAt = new Date().toISOString()) {
+function signed(
+	messageId: string,
+	kind: string,
+	eventKey: string = randomUUID(),
+	bounce?: { type: string },
+	createdAt = new Date().toISOString(),
+) {
 	const raw = JSON.stringify({
 		type: "email." + kind,
 		created_at: createdAt,
@@ -103,8 +143,10 @@ function signed(messageId, kind, eventKey = randomUUID(), bounce, createdAt = ne
 		headers: { "svix-id": eventKey, "svix-timestamp": stamp, "svix-signature": "v1," + signature },
 	});
 }
-async function mailFor(communicationId) {
-	return rows(sql`SELECT m.state, m.payload_hash, m.provider_message_id, m.logical_key, m.job_id,
+async function mailFor(communicationId: string) {
+	return rows<
+		{ state: string; payload_hash: string; provider_message_id: string; provider_key: string } & Row
+	>(sql`SELECT m.state, m.payload_hash, m.provider_message_id, m.logical_key, m.job_id,
 		r.provider_key, r.first_dispatched_at, a.outcome
 		FROM mail m
 		LEFT JOIN mail_request_member mem ON mem.mail_id = m.id
@@ -129,7 +171,7 @@ after(() => f?.close());
 
 test("AC:GAP-COM-012 AC:MAIL51-002 AC:MAIL51-003 reviewed handoff sends once and refuses a stale or late schedule", async () => {
 	const guest = await person("Alex", { email: "alex-window@example.test" });
-	const draft = (subject) =>
+	const draft = (subject: string) =>
 		write(owner, "saveDraft", {
 			requestKey: key(),
 			input: { subject, bodyHtml: "<p>Welcome Alex.</p>", audience: { ...emptyAudience, personIds: [guest] } },
@@ -191,7 +233,7 @@ test("AC:GAP-COM-012 AC:MAIL51-002 AC:MAIL51-003 reviewed handoff sends once and
 	assert.equal(sent.sentAt, null);
 	assert.equal(sent.replayedWithNewKeys, 0);
 	assert.equal(carrier.calls.send, 1);
-	const [body] = await rows(sql`SELECT body_text FROM communication WHERE id = ${welcome.communicationId}`);
+	const body = firstRow(await rows(sql`SELECT body_text FROM communication WHERE id = ${welcome.communicationId}`));
 	assert.equal(body.body_text, "Welcome Alex.");
 	await f.admin.execute(sql`UPDATE person SET email = 'alex-moved@example.test' WHERE id = ${guest}`);
 	const staleDraft = ok(await draft("Stale"));
@@ -228,7 +270,7 @@ test("INV-access: a member cannot send or schedule a message", async () => {
 			},
 		}),
 	);
-	const stored = async (communicationId) => {
+	const stored = async (communicationId: string) => {
 		const prefix = "communication/" + communicationId + "/%";
 		const [row] = await rows(sql`SELECT c.state, c.revision::text AS revision,
 			(SELECT count(*)::int FROM mail WHERE logical_key LIKE ${prefix}) AS mail,
@@ -236,7 +278,7 @@ test("INV-access: a member cannot send or schedule a message", async () => {
 				WHERE m.logical_key LIKE ${prefix}) AS requests,
 			(SELECT count(*)::int FROM audit_event WHERE subject_id = c.id) AS audits
 			FROM communication c WHERE c.id = ${communicationId}::uuid`);
-		return row;
+		return row!;
 	};
 	const before = { draft: await stored(draft.communicationId), ready: await stored(scheduledId) };
 	assert.deepEqual(
@@ -303,7 +345,7 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 	const stored = await mailFor(saved.communicationId);
 	assert.equal(stored.length, 100);
 	assert.equal(stored.filter((row) => row.state === "accepted").length, 1);
-	assert.equal(stored[0].job_id, null);
+	assert.equal(stored[0]!.job_id, null);
 
 	const refusedPair = await scheduled("Refused", `refused-${key().slice(0, 8)}@example.test`, AT);
 	assert.equal(refusedPair.accepted.status, "ok", JSON.stringify(refusedPair.accepted));
@@ -316,7 +358,7 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 		await handoff(
 			owner,
 			refusedPair.saved.communicationId,
-			refusedPair.accepted.value.revision,
+			ok(refusedPair.accepted).revision,
 			denyPort,
 			"sendReviewed",
 		),
@@ -334,7 +376,7 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 		},
 	});
 	const uncertain = ok(
-		await handoff(owner, unknownPair.saved.communicationId, unknownPair.accepted.value.revision, lost, "sendReviewed"),
+		await handoff(owner, unknownPair.saved.communicationId, ok(unknownPair.accepted).revision, lost, "sendReviewed"),
 	);
 	assert.equal(uncertain.uncertain, true);
 	assert.equal(uncertain.failed, false);
@@ -351,39 +393,40 @@ test("AC:MAIL-LEDGER-001 a send whose call throws is unknown, and Check result r
 			return { outcome: "ids", ids: ["prov-crash"] };
 		},
 	});
-	const first = ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
+	const first = ok(await handoff(owner, made.saved.communicationId, ok(made.accepted).revision, carrier));
 	assert.equal(first.status, "accepted_unknown");
 	assert.equal(first.providerCalls, 1);
 	assert.equal(carrier.calls.send, 1);
 	const mid = await mailFor(made.saved.communicationId);
 	assert.equal(mid.length, 1);
 	assert.equal(new Set(mid.map((row) => row.provider_key)).size, 1);
-	assert.equal(mid[0].outcome, "unknown");
-	assert.equal(mid[0].state, "unknown");
+	assert.equal(mid[0]!.outcome, "unknown");
+	assert.equal(mid[0]!.state, "unknown");
 	const second = ok(
-		await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier, "reconcileProviderOutcome"),
+		await handoff(owner, made.saved.communicationId, ok(made.accepted).revision, carrier, "reconcileProviderOutcome"),
 	);
 	assert.equal(carrier.calls.send, 2);
-	assert.deepEqual(carrier.keys, [mid[0].provider_key, mid[0].provider_key]);
+	assert.deepEqual(carrier.keys, [mid[0]!.provider_key, mid[0]!.provider_key]);
 	assert.equal(second.providerCalls, 0);
 	assert.equal(second.replayedWithNewKeys, 0);
 	assert.equal(second.acceptedCount, 1);
 	const after = await mailFor(made.saved.communicationId);
 	assert.equal(after.length, 1);
-	assert.equal(after[0].state, "accepted");
-	assert.equal(after[0].provider_message_id, "prov-crash");
-	assert.equal(after[0].outcome, "accepted");
+	assert.equal(after[0]!.state, "accepted");
+	assert.equal(after[0]!.provider_message_id, "prov-crash");
+	assert.equal(after[0]!.outcome, "accepted");
 });
 
 test("AC:MAIL-KEYWINDOW-001 a check inside the provider window re-sends the same key, after it nothing; a foreign person sends nothing", async () => {
 	const made = await scheduled("Window", `window-${key().slice(0, 8)}@example.test`, AT);
 	assert.equal(made.accepted.status, "ok");
+	const { revision } = ok(made.accepted);
 	const carrier = port({
 		async send() {
 			return { outcome: "unknown" };
 		},
 	});
-	const first = ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
+	const first = ok(await handoff(owner, made.saved.communicationId, revision, carrier));
 	assert.equal(first.negativeEvidenceRequired, true);
 	assert.equal(first.automaticReplayAllowed, false);
 	assert.equal(first.firstDispatchClockReset, false);
@@ -392,18 +435,22 @@ test("AC:MAIL-KEYWINDOW-001 a check inside the provider window re-sends the same
 		await f.admin.execute(sql`UPDATE mail_request r SET first_dispatched_at = clock_timestamp() - ${hours}::interval
 			FROM mail m JOIN mail_request_member mem ON mem.mail_id = m.id
 			WHERE mem.request_id = r.id AND m.logical_key LIKE ${"communication/" + made.saved.communicationId + "/%"}`);
-		const [before] = await rows(sql`SELECT r.first_dispatched_at FROM mail_request r
+		const before = firstRow(
+			await rows<{ first_dispatched_at: string }>(sql`SELECT r.first_dispatched_at FROM mail_request r
 			JOIN mail_request_member mem ON mem.request_id = r.id
 			JOIN mail m ON m.id = mem.mail_id
-			WHERE m.logical_key LIKE ${"communication/" + made.saved.communicationId + "/%"}`);
-		const again = ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
+			WHERE m.logical_key LIKE ${"communication/" + made.saved.communicationId + "/%"}`),
+		);
+		const again = ok(await handoff(owner, made.saved.communicationId, revision, carrier));
 		assert.equal(again.automaticReplayAllowed, false);
 		assert.equal(again.firstDispatchClockReset, false);
 		assert.equal(again.providerCalls, 0);
-		const [afterClock] = await rows(sql`SELECT r.first_dispatched_at FROM mail_request r
+		const afterClock = firstRow(
+			await rows<{ first_dispatched_at: string }>(sql`SELECT r.first_dispatched_at FROM mail_request r
 			JOIN mail_request_member mem ON mem.request_id = r.id
 			JOIN mail m ON m.id = mem.mail_id
-			WHERE m.logical_key LIKE ${"communication/" + made.saved.communicationId + "/%"}`);
+			WHERE m.logical_key LIKE ${"communication/" + made.saved.communicationId + "/%"}`),
+		);
 		assert.equal(
 			new Date(afterClock.first_dispatched_at).toISOString(),
 			new Date(before.first_dispatched_at).toISOString(),
@@ -448,7 +495,7 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 			return { outcome: "unknown" };
 		},
 	});
-	ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
+	ok(await handoff(owner, made.saved.communicationId, ok(made.accepted).revision, carrier));
 	const sends = carrier.calls.send;
 	const cancelled = ok(
 		await communicationWriter.cancelScheduledReviewed(
@@ -456,7 +503,7 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 			owner.actor,
 			{
 				requestKey: key(),
-				expectedRevision: made.accepted.value.revision,
+				expectedRevision: ok(made.accepted).revision,
 				input: { communicationId: made.saved.communicationId, signedUrlExpires: "2026-10-13T16:05:00.000Z" },
 			},
 			carrier,
@@ -473,7 +520,7 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 
 	const sentOne = await scheduled("Sent", `sent-${key().slice(0, 8)}@example.test`, AT);
 	assert.equal(sentOne.accepted.status, "ok");
-	ok(await handoff(owner, sentOne.saved.communicationId, sentOne.accepted.value.revision, carrier));
+	ok(await handoff(owner, sentOne.saved.communicationId, ok(sentOne.accepted).revision, carrier));
 	await f.admin.execute(sql`UPDATE mail SET state = 'sent', sent_at = clock_timestamp()
 		WHERE logical_key LIKE ${"communication/" + sentOne.saved.communicationId + "/%"}`);
 	const recalled = ok(
@@ -482,7 +529,7 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 			owner.actor,
 			{
 				requestKey: key(),
-				expectedRevision: sentOne.accepted.value.revision,
+				expectedRevision: ok(sentOne.accepted).revision,
 				input: { communicationId: sentOne.saved.communicationId, signedUrlExpires: "2026-10-13T16:05:00.000Z" },
 			},
 			carrier,
@@ -490,14 +537,16 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 	);
 	assert.equal(recalled.sentRecalled, false);
 	assert.equal(recalled.newSend, false);
-	const [stillSent] = await rows(
-		sql`SELECT state FROM mail WHERE logical_key LIKE ${"communication/" + sentOne.saved.communicationId + "/%"}`,
+	const stillSent = firstRow(
+		await rows(
+			sql`SELECT state FROM mail WHERE logical_key LIKE ${"communication/" + sentOne.saved.communicationId + "/%"}`,
+		),
 	);
 	assert.equal(stillSent.state, "sent");
 	const sentReplace = ok(
 		await communicationWriter.replaceScheduledReviewed(f.db, owner.actor, {
 			requestKey: key(),
-			expectedRevision: sentOne.accepted.value.revision,
+			expectedRevision: ok(sentOne.accepted).revision,
 			input: { communicationId: sentOne.saved.communicationId },
 		}),
 	);
@@ -511,11 +560,11 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 			return { outcome: "unknown" };
 		},
 	});
-	ok(await handoff(owner, unknownOne.saved.communicationId, unknownOne.accepted.value.revision, unknownPort));
+	ok(await handoff(owner, unknownOne.saved.communicationId, ok(unknownOne.accepted).revision, unknownPort));
 	const unknownReplace = ok(
 		await communicationWriter.replaceScheduledReviewed(f.db, owner.actor, {
 			requestKey: key(),
-			expectedRevision: unknownOne.accepted.value.revision,
+			expectedRevision: ok(unknownOne.accepted).revision,
 			input: { communicationId: unknownOne.saved.communicationId },
 		}),
 	);
@@ -531,14 +580,14 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 			return { outcome: "done" };
 		},
 	});
-	ok(await handoff(owner, drop.saved.communicationId, drop.accepted.value.revision, confirmPort));
+	ok(await handoff(owner, drop.saved.communicationId, ok(drop.accepted).revision, confirmPort));
 	ok(
 		await communicationWriter.cancelScheduledReviewed(
 			f.db,
 			owner.actor,
 			{
 				requestKey: key(),
-				expectedRevision: drop.accepted.value.revision,
+				expectedRevision: ok(drop.accepted).revision,
 				input: { communicationId: drop.saved.communicationId },
 			},
 			confirmPort,
@@ -547,7 +596,7 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 	const replaced = ok(
 		await communicationWriter.replaceScheduledReviewed(f.db, owner.actor, {
 			requestKey: key(),
-			expectedRevision: drop.accepted.value.revision,
+			expectedRevision: ok(drop.accepted).revision,
 			input: { communicationId: drop.saved.communicationId },
 		}),
 	);
@@ -562,15 +611,16 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 			return { outcome: "ids", ids: ["prov-move"] };
 		},
 	});
-	ok(await handoff(owner, move.saved.communicationId, move.accepted.value.revision, movePort, "handOffScheduled"));
-	const beforeCount = (await rows(sql`SELECT count(*)::int AS n FROM communication WHERE plant_id = ${plant.id}`))[0].n;
+	ok(await handoff(owner, move.saved.communicationId, ok(move.accepted).revision, movePort, "handOffScheduled"));
+	const beforeCount = (await rows(sql`SELECT count(*)::int AS n FROM communication WHERE plant_id = ${plant.id}`))[0]!
+		.n;
 	const moved = ok(
 		await communicationWriter.rescheduleDispatched(
 			f.db,
 			owner.actor,
 			{
 				requestKey: key(),
-				expectedRevision: move.accepted.value.revision,
+				expectedRevision: ok(move.accepted).revision,
 				input: { communicationId: move.saved.communicationId, scheduledAt: LATER },
 			},
 			movePort,
@@ -580,9 +630,9 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 	assert.equal(moved.rescheduleStatus, "accepted");
 	assert.equal(moved.newCommunications, 0);
 	assert.equal(movePort.calls.send, 0);
-	const [kept] = await rows(sql`SELECT body_html FROM communication WHERE id = ${move.saved.communicationId}`);
+	const kept = firstRow(await rows(sql`SELECT body_html FROM communication WHERE id = ${move.saved.communicationId}`));
 	assert.equal(kept.body_html, "<p>Welcome Alex.</p>");
-	const afterCount = (await rows(sql`SELECT count(*)::int AS n FROM communication WHERE plant_id = ${plant.id}`))[0].n;
+	const afterCount = (await rows(sql`SELECT count(*)::int AS n FROM communication WHERE plant_id = ${plant.id}`))[0]!.n;
 	assert.equal(afterCount, beforeCount);
 });
 
@@ -594,10 +644,10 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 			return { outcome: "ids", ids: ["prov-callback"] };
 		},
 	});
-	ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
+	ok(await handoff(owner, made.saved.communicationId, ok(made.accepted).revision, carrier));
 	const events = async () =>
-		(await rows(sql`SELECT count(*)::int AS n FROM provider_event WHERE message_id = 'prov-callback'`))[0].n;
-	const suppressions = async () => (await rows(sql`SELECT count(*)::int AS n FROM suppression`))[0].n;
+		(await rows(sql`SELECT count(*)::int AS n FROM provider_event WHERE message_id = 'prov-callback'`))[0]!.n;
+	const suppressions = async () => (await rows(sql`SELECT count(*)::int AS n FROM suppression`))[0]!.n;
 	const beforeEvents = await events();
 	const beforeSuppress = await suppressions();
 	const previousSecret = process.env.RESEND_WEBHOOK_SECRET;
@@ -619,7 +669,7 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 	);
 	assert.equal(bad.status, 401);
 	assert.equal((await bad.json()).code, "invalid_signature");
-	const allEvents = async () => (await rows(sql`SELECT count(*)::int AS n FROM provider_event`))[0].n;
+	const allEvents = async () => (await rows(sql`SELECT count(*)::int AS n FROM provider_event`))[0]!.n;
 	const beforeAll = await allEvents();
 	const chunks = 64;
 	let pulled = 0;
@@ -672,8 +722,8 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 	);
 	assert.equal((await duplicate.json()).result, "duplicate");
 	assert.equal(await events(), 2);
-	const [mail] = await rows(
-		sql`SELECT state, delivered_at, accepted_at FROM mail WHERE provider_message_id = 'prov-callback'`,
+	const mail = firstRow(
+		await rows(sql`SELECT state, delivered_at, accepted_at FROM mail WHERE provider_message_id = 'prov-callback'`),
 	);
 	assert.notEqual(mail.state, "accepted");
 	assert.ok(mail.delivered_at);
@@ -691,7 +741,7 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 		await rows(sql`SELECT state, delivered_at, accepted_at FROM mail WHERE provider_message_id = 'prov-callback'`),
 		[mail],
 	);
-	const again = ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
+	const again = ok(await handoff(owner, made.saved.communicationId, ok(made.accepted).revision, carrier));
 	assert.equal(again.providerCalls, 0);
 	assert.equal(carrier.calls.send, 1);
 
@@ -701,11 +751,12 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 			return { outcome: "ids", ids: ["prov-soft"] };
 		},
 	});
-	ok(await handoff(owner, soft.saved.communicationId, soft.accepted.value.revision, softPort));
+	ok(await handoff(owner, soft.saved.communicationId, ok(soft.accepted).revision, softPort));
 	const hash = createHmac("sha256", keys.addressKey).update(soft.email.trim().toLowerCase()).digest("hex");
 	const active = async () =>
-		(await rows(sql`SELECT count(*)::int AS n FROM suppression WHERE address_hash = ${hash} AND cleared_at IS NULL`))[0]
-			.n;
+		(
+			await rows(sql`SELECT count(*)::int AS n FROM suppression WHERE address_hash = ${hash} AND cleared_at IS NULL`)
+		)[0]!.n;
 	await resendWebhook(signed("prov-soft", "bounced", randomUUID(), { type: "Transient" }), () => f.db, secret);
 	assert.equal(await active(), 0);
 	await resendWebhook(signed("prov-soft", "bounced", randomUUID(), { type: "Permanent" }), () => f.db, secret);
@@ -714,7 +765,7 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 
 test("INV-webhook: a callback whose message id matches no mail, or more than one, stays pending and never routes by request id", async () => {
 	const twin = `prov-twin-${key().slice(0, 8)}`;
-	const sent = [];
+	const sent: string[] = [];
 	for (const name of ["Twin A", "Twin B"]) {
 		const made = await scheduled(name, `${name.replace(" ", "-").toLowerCase()}-${key().slice(0, 8)}@example.test`, AT);
 		const carrier = port({
@@ -722,7 +773,7 @@ test("INV-webhook: a callback whose message id matches no mail, or more than one
 				return { outcome: "ids", ids: [twin] };
 			},
 		});
-		ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
+		ok(await handoff(owner, made.saved.communicationId, ok(made.accepted).revision, carrier));
 		sent.push(made.saved.communicationId);
 	}
 	const settled = async () =>
@@ -732,17 +783,17 @@ test("INV-webhook: a callback whose message id matches no mail, or more than one
 		beforeMail.map((m) => m.id),
 		[twin, twin],
 	);
-	const pendingEvents = async (messageId) =>
+	const pendingEvents = async (messageId: string) =>
 		(
 			await rows(
 				sql`SELECT count(*)::int AS n FROM provider_event WHERE message_id = ${messageId} AND processed_at IS NULL`,
 			)
-		)[0].n;
+		)[0]!.n;
 	const ambiguous = await resendWebhook(signed(twin, "delivered"), () => f.db, secret);
 	assert.equal(ambiguous.status, 200);
 	assert.deepEqual(await ambiguous.json(), { stored: true, result: "unmatched" });
 	assert.equal(await pendingEvents(twin), 1);
-	const [first] = await mailFor(sent[0]);
+	const first = firstRow(await mailFor(sent[0]!));
 	const byRequest = await resendWebhook(signed(first.provider_key, "delivered"), () => f.db, secret);
 	assert.deepEqual(await byRequest.json(), { stored: true, result: "unmatched" });
 	assert.equal(await pendingEvents(first.provider_key), 1);
@@ -750,7 +801,7 @@ test("INV-webhook: a callback whose message id matches no mail, or more than one
 	const delivered = await rows(
 		sql`SELECT count(*)::int AS n FROM mail WHERE provider_message_id = ${twin} AND delivered_at IS NOT NULL`,
 	);
-	assert.equal(delivered[0].n, 0);
+	assert.equal(delivered[0]!.n, 0);
 });
 
 test("AC:CASE-NTF-011 a person clears only their own suppressed address", async () => {
@@ -761,7 +812,7 @@ test("AC:CASE-NTF-011 a person clears only their own suppressed address", async 
 			return { outcome: "ids", ids: ["prov-self"] };
 		},
 	});
-	ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
+	ok(await handoff(owner, made.saved.communicationId, ok(made.accepted).revision, carrier));
 	await resendWebhook(signed("prov-self", "bounced", randomUUID(), { type: "Permanent" }), () => f.db, secret);
 	const listed = ok(await communicationWriter.listForSelf(f.db, owner.actor, { address: owner.email }, keys));
 	assert.equal(listed.address, owner.email);
@@ -804,7 +855,7 @@ test("AC:CASE-NTF-011 a person clears only their own suppressed address", async 
 	);
 	assert.equal(repeat.suppressionClears, 0);
 	assert.equal(repeat.newSends, 0);
-	const [row] = await rows(sql`SELECT state FROM mail WHERE provider_message_id = 'prov-self'`);
+	const row = firstRow(await rows(sql`SELECT state FROM mail WHERE provider_message_id = 'prov-self'`));
 	assert.equal(row.state, "cancelled");
 	assert.equal(carrier.calls.send, before);
 });
@@ -837,8 +888,10 @@ test("AC:CASE-NTF-011 a Member reads only their own address's block and still ca
 		),
 		"access_denied",
 	);
-	const [still] = await rows(
-		sql`SELECT cleared_at IS NULL AS active FROM suppression WHERE address_hash = ${createHmac("sha256", keys.addressKey).update(member.email.trim().toLowerCase()).digest("hex")}`,
+	const still = firstRow(
+		await rows(
+			sql`SELECT cleared_at IS NULL AS active FROM suppression WHERE address_hash = ${createHmac("sha256", keys.addressKey).update(member.email.trim().toLowerCase()).digest("hex")}`,
+		),
 	);
 	assert.equal(still.active, true);
 });
@@ -855,11 +908,11 @@ test("AC:CASE-NTF-013 AC:NOTIFY47-003 a password reset sends with category email
 			return { outcome: "unknown" };
 		},
 	});
-	const seen = [];
-	const methods = ["log", "info", "warn", "error", "debug"];
-	const originals = new Map(methods.map((name) => [name, console[name]]));
+	const seen: string[] = [];
+	const methods = ["log", "info", "warn", "error", "debug"] as const;
+	const originals = methods.map((name) => [name, console[name]] as const);
 	for (const name of methods) {
-		console[name] = (...args) => {
+		console[name] = (...args: unknown[]) => {
 			seen.push(args.map((item) => String(item)).join(" "));
 		};
 	}
@@ -878,7 +931,10 @@ test("AC:CASE-NTF-013 AC:NOTIFY47-003 a password reset sends with category email
 		assert.equal(result.sentAt, null);
 		assert.equal(JSON.stringify(result).includes(token), false);
 		assert.equal(JSON.stringify(result).includes(address), false);
-		const audits = await rows(sql`SELECT after_value::text AS text, metadata::text AS meta FROM audit_event
+		const audits = await rows<{
+			text: string;
+			meta: string;
+		}>(sql`SELECT after_value::text AS text, metadata::text AS meta FROM audit_event
 			WHERE actor_id = ${owner.id} AND action = 'communication.send_intended' AND after_value->>'purpose' = 'password_reset'`);
 		assert.ok(audits.length >= 1);
 		for (const audit of audits) {
@@ -904,12 +960,14 @@ test("AC:AUDIT-007 AC:SCHEMA-013 runtime cannot change the audit log and mail st
 			return { outcome: "ids", ids: ["prov-audit"] };
 		},
 	});
-	ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
+	ok(await handoff(owner, made.saved.communicationId, ok(made.accepted).revision, carrier));
 	const delivered = await resendWebhook(signed("prov-audit", "delivered"), () => f.db, secret);
 	assert.equal(delivered.status, 200);
-	const [mail] = await rows(sql`SELECT id, state, delivered_at FROM mail WHERE provider_message_id = 'prov-audit'`);
+	const mail = firstRow(
+		await rows(sql`SELECT id, state, delivered_at FROM mail WHERE provider_message_id = 'prov-audit'`),
+	);
 	assert.ok(mail.delivered_at);
-	const before = (await rows(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id = ${mail.id}`))[0].n;
+	const before = (await rows(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id = ${mail.id}`))[0]!.n;
 	await assert.rejects(() =>
 		f.db.execute(sql`UPDATE audit_event SET reason = 'changed' WHERE subject_id = ${mail.id}`),
 	);
@@ -918,19 +976,21 @@ test("AC:AUDIT-007 AC:SCHEMA-013 runtime cannot change the audit log and mail st
 		f.db.execute(sql`INSERT INTO audit_event (tenant_id, system_cause, action, kind, subject_id, metadata)
 			VALUES (${plant.id}, 'provider_callback', 'not-an-action', 'outcome', ${mail.id}, '{}'::jsonb)`),
 	);
-	const [afterMail] = await rows(sql`SELECT state, delivered_at FROM mail WHERE id = ${mail.id}`);
+	const afterMail = firstRow(await rows(sql`SELECT state, delivered_at FROM mail WHERE id = ${mail.id}`));
 	assert.equal(afterMail.state, mail.state);
 	assert.ok(afterMail.delivered_at);
-	const after = (await rows(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id = ${mail.id}`))[0].n;
+	const after = (await rows(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id = ${mail.id}`))[0]!.n;
 	assert.equal(after, before);
 	const dupes = (
 		await rows(sql`SELECT count(*)::int AS n FROM (
 		SELECT event_key FROM audit_event WHERE subject_id = ${mail.id} AND event_key IS NOT NULL
 		GROUP BY event_key HAVING count(*) > 1) d`)
-	)[0].n;
+	)[0]!.n;
 	assert.equal(dupes, 0);
-	const [defs] = await rows(sql`SELECT string_agg(pg_get_constraintdef(oid), ' ') AS text
-		FROM pg_constraint WHERE conrelid IN ('mail'::regclass, 'job'::regclass) AND contype = 'c'`);
+	const defs = firstRow(
+		await rows<{ text: string }>(sql`SELECT string_agg(pg_get_constraintdef(oid), ' ') AS text
+		FROM pg_constraint WHERE conrelid IN ('mail'::regclass, 'job'::regclass) AND contype = 'c'`),
+	);
 	assert.equal(defs.text.includes("'blocked_unknown'"), false);
 	assert.equal(defs.text.includes("'completed'"), false);
 	assert.equal(defs.text.includes("'ready'"), true);
@@ -947,13 +1007,13 @@ test("AC:PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE AC:TEN-004 a changed e
 			return { outcome: "ids", ids: ["prov-frozen"] };
 		},
 	});
-	ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
-	const [before] = await rows(
-		sql`SELECT payload_hash, frozen_payload FROM mail WHERE provider_message_id = 'prov-frozen'`,
+	ok(await handoff(owner, made.saved.communicationId, ok(made.accepted).revision, carrier));
+	const before = firstRow(
+		await rows(sql`SELECT payload_hash, frozen_payload FROM mail WHERE provider_message_id = 'prov-frozen'`),
 	);
 	await f.admin.execute(sql`UPDATE person SET email = ${"moved-" + email} WHERE id = ${made.personId}`);
-	const [afterRow] = await rows(
-		sql`SELECT payload_hash, frozen_payload FROM mail WHERE provider_message_id = 'prov-frozen'`,
+	const afterRow = firstRow(
+		await rows(sql`SELECT payload_hash, frozen_payload FROM mail WHERE provider_message_id = 'prov-frozen'`),
 	);
 	assert.equal(afterRow.payload_hash, before.payload_hash);
 	assert.equal(JSON.stringify(afterRow.frozen_payload), JSON.stringify(before.frozen_payload));
@@ -992,7 +1052,7 @@ test("AC:PERSONREF-COMMUNICATION-RECIPIENT-CONTACT-RETIRE AC:TEN-004 a changed e
 			await rows(
 				sql`SELECT count(*)::int AS n FROM mail WHERE logical_key LIKE ${"communication/" + saved.communicationId + "/%"}`,
 			)
-		)[0].n;
+		)[0]!.n;
 	assert.equal(await count(), 1);
 	await f.admin.execute(sql`UPDATE seat SET ended_at = clock_timestamp() WHERE id = ${seatId}`);
 	const blocked = await handoff(who, saved.communicationId, accepted.revision, seatPort);
@@ -1015,7 +1075,7 @@ test("INV-plain-text: the text part reads like the message: Tom & Ann, never &am
 		}),
 	);
 	assert.equal(saved.bodyText, "Dinner with Tom & Ann, 6 < 7.");
-	const stored = (await rows(sql`SELECT body_text FROM communication WHERE id = ${saved.communicationId}`))[0];
+	const stored = (await rows(sql`SELECT body_text FROM communication WHERE id = ${saved.communicationId}`))[0]!;
 	assert.equal(stored.body_text, "Dinner with Tom & Ann, 6 < 7.");
 	const accepted = ok(
 		await write(owner, "scheduleReviewed", {
@@ -1024,7 +1084,7 @@ test("INV-plain-text: the text part reads like the message: Tom & Ann, never &am
 			input: { communicationId: saved.communicationId, scheduledAt: AT },
 		}),
 	);
-	const texts = [];
+	const texts: string[] = [];
 	const carrier = port({
 		async send(batch) {
 			texts.push(...batch.messages.map((message) => message.text));
@@ -1033,8 +1093,8 @@ test("INV-plain-text: the text part reads like the message: Tom & Ann, never &am
 	});
 	ok(await handoff(owner, saved.communicationId, accepted.revision, carrier));
 	assert.equal(texts.length, 1);
-	assert.ok(texts[0].includes("Dinner with Tom & Ann, 6 < 7."), texts[0]);
-	assert.equal(texts[0].includes("&amp;"), false, texts[0]);
+	assert.ok(texts[0]!.includes("Dinner with Tom & Ann, 6 < 7."), texts[0]);
+	assert.equal(texts[0]!.includes("&amp;"), false, texts[0]);
 	const linked = await rows(
 		sql`SELECT communication_id FROM mail WHERE logical_key LIKE ${"communication/" + saved.communicationId + "/%"}`,
 	);

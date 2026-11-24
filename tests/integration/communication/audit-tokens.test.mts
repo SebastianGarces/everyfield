@@ -4,14 +4,26 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import { communicationWriter } from "../../../packages/domain/src/communication/index.ts";
 import { applyMessagesOptOut, undoMessagesOptOut } from "../../../packages/domain/src/communication/opt-out.ts";
+import type { DeliveryMessage } from "../../../packages/domain/src/communication/delivery.ts";
 import { answerRsvpToken } from "../../../packages/domain/src/meetings/index.ts";
 import { createNotificationProducer, issueEmailOptOutToken } from "../../../packages/domain/src/notifications/index.ts";
 import { ok } from "../../support/fixture.mts";
 import { MAILING } from "./church-address.mts";
+import {
+	firstRow,
+	sendOnly,
+	writeAs,
+	type Church,
+	type Fixture,
+	type Staff,
+	type WriteOp,
+} from "./communication-support.mts";
 
-let f, plant, owner;
+let f: Fixture;
+let plant: Church;
+let owner: Staff;
 const origin = "https://app.example.test";
 const ring = { current: randomBytes(32), previous: [] };
 const keys = { encryptionKey: Buffer.alloc(32, 7), addressKey: Buffer.alloc(32, 9), from: "news@example.test", origin };
@@ -51,8 +63,7 @@ async function guestOfMeeting() {
 }
 
 async function sendInvite(meeting: string, person: string) {
-	const write = (op, input) =>
-		withCommunicationWrite(f.db, owner.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
+	const write = <K extends WriteOp>(op: K, input: unknown) => writeAs(f.db, owner.actor, op, input);
 	const saved = ok(
 		await write("saveDraft", {
 			requestKey: randomUUID(),
@@ -71,7 +82,7 @@ async function sendInvite(meeting: string, person: string) {
 			input: { communicationId: saved.communicationId, scheduledAt: new Date(Date.now() + 3_600_000).toISOString() },
 		}),
 	);
-	const sent = [];
+	const sent: DeliveryMessage[] = [];
 	ok(
 		await communicationWriter.dispatchAttempt(
 			f.db,
@@ -81,20 +92,15 @@ async function sendInvite(meeting: string, person: string) {
 				expectedRevision: accepted.revision,
 				input: { communicationId: saved.communicationId },
 			},
-			{
-				async send(batch) {
-					sent.push(...batch.messages);
-					return { outcome: "ids", ids: batch.messages.map(() => randomUUID()) };
-				},
-				async lookup() {
-					return { outcome: "unknown" };
-				},
-			},
+			sendOnly(async (batch) => {
+				sent.push(...batch.messages);
+				return { outcome: "ids", ids: batch.messages.map(() => randomUUID()) };
+			}),
 			{ ...keys, optOutKeys: ring },
 		),
 	);
 	assert.equal(sent.length, 1);
-	return sent[0].html as string;
+	return firstRow(sent).html;
 }
 
 async function auditRowsHolding(token: string) {
@@ -132,7 +138,9 @@ test("no raw RSVP, unsubscribe, email-preference or invitation proof token issue
 	issue("invitation proof", invitation.proof);
 	await f.invitations.accept(s.recipient.session, invitation.claim);
 
-	const { rows: written } = await f.admin.execute(sql`SELECT DISTINCT action FROM audit_event ORDER BY action`);
+	const { rows: written } = await f.admin.execute<{ action: string }>(
+		sql`SELECT DISTINCT action FROM audit_event ORDER BY action`,
+	);
 	const actions = written.map((r) => r.action);
 	for (const action of ["meetings.rsvp_recorded", "settings.changed", "communication.send_intended"])
 		assert.ok(actions.includes(action), `${action} in ${actions.join(", ")}`);

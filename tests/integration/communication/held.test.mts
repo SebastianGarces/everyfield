@@ -1,9 +1,14 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { z } from "../../../packages/contracts/node_modules/zod/index.js";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import {
+	communicationWriter,
+	withCommunicationWrite,
+	type DeliveryTransport,
+} from "../../../packages/domain/src/communication/index.ts";
 import {
 	cancelText,
 	deliveryText,
@@ -11,13 +16,26 @@ import {
 	rescheduleText,
 	scheduleText,
 } from "../../../apps/web/src/features/communication/model.ts";
-import { resendRecorder } from "./resend-recorder.mts";
+import { emailsIn, resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
-import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { MAILING } from "./church-address.mts";
+import {
+	deliverAs,
+	readAs,
+	rowsFrom,
+	type Church,
+	type DeliveryOp,
+	type Fixture,
+	type ReadOp,
+	type Rest,
+	type Row,
+	type Staff,
+} from "./communication-support.mts";
 
-let f, plant, owner;
+let f: Fixture;
+let plant: Church;
+let owner: Staff;
 const ZONE = "America/Chicago";
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
@@ -27,11 +45,10 @@ const keys = {
 };
 const DAY = 86_400_000;
 const key = () => randomUUID();
-const rows = async (query) => (await f.admin.execute(query)).rows;
-const read = (op, input, extra) =>
-	gatedTransaction(f.db, (tx) => communicationWriter[op](tx, owner.actor, input, extra));
+const rows = <R extends Row = Row>(query: SQL) => rowsFrom<R>(f, query);
+const read = <K extends ReadOp>(op: K, ...rest: Rest<K>) => readAs(f.db, owner.actor, op, ...rest);
 
-function plantTime(weekday, hour, from = new Date()) {
+function plantTime(weekday: string, hour: number, from = new Date()) {
 	const format = new Intl.DateTimeFormat("en-US", {
 		timeZone: ZONE,
 		weekday: "short",
@@ -42,22 +59,33 @@ function plantTime(weekday, hour, from = new Date()) {
 		minute: "2-digit",
 		hourCycle: "h23",
 	});
-	const parts = (d) => Object.fromEntries(format.formatToParts(d).map((p) => [p.type, p.value]));
+	const parts = (d: Date) => {
+		const found = new Map(format.formatToParts(d).map((p) => [p.type, p.value]));
+		const part = (type: Intl.DateTimeFormatPartTypes) => Number(found.get(type));
+		return {
+			weekday: found.get("weekday"),
+			year: part("year"),
+			month: part("month"),
+			day: part("day"),
+			hour: part("hour"),
+			minute: part("minute"),
+		};
+	};
 	for (let i = 1; i <= 8; i++) {
 		const p = parts(new Date(from.getTime() + i * DAY));
 		if (p.weekday !== weekday) continue;
-		const wanted = Date.UTC(+p.year, +p.month - 1, +p.day, hour);
+		const wanted = Date.UTC(p.year, p.month - 1, p.day, hour);
 		let guess = wanted;
 		for (let k = 0; k < 2; k++) {
 			const q = parts(new Date(guess));
-			guess += wanted - Date.UTC(+q.year, +q.month - 1, +q.day, +q.hour, +q.minute);
+			guess += wanted - Date.UTC(q.year, q.month - 1, q.day, q.hour, q.minute);
 		}
 		return new Date(guess).toISOString();
 	}
 	throw new Error("no such day");
 }
 
-async function person(name, email = `${name.toLowerCase()}-${key().slice(0, 8)}@example.test`) {
+async function person(name: string, email = `${name.toLowerCase()}-${key().slice(0, 8)}@example.test`) {
 	const id = randomUUID();
 	await f.admin
 		.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
@@ -65,7 +93,7 @@ async function person(name, email = `${name.toLowerCase()}-${key().slice(0, 8)}@
 		VALUES(${id},${plant.id},${plant.id},${name},${email},'other','prospect','unknown','unknown',0,'live',clock_timestamp())`);
 	return id;
 }
-async function reviewed(at, given = null) {
+async function reviewed(at: string, given: string[] | null = null) {
 	const people = given ?? [];
 	if (!given) for (const name of ["Ana", "Ben", "Cy"]) people.push(await person(name));
 	const result = await withCommunicationWrite(f.db, owner.actor, async (tx, ctx) => {
@@ -87,22 +115,25 @@ async function reviewed(at, given = null) {
 	const value = ok(result);
 	return { id: value.communicationId, revision: value.revision, people };
 }
-const handOff = (message, transport, op = "handOffScheduled") =>
-	communicationWriter[op](
+const timeChange = z.object({ scheduled_at: z.string() });
+type Message = { id: string; revision: string };
+const handOff = (message: Message, transport: DeliveryTransport, op: DeliveryOp = "handOffScheduled") =>
+	deliverAs(
 		f.db,
 		owner.actor,
+		op,
 		{ requestKey: key(), expectedRevision: message.revision, input: { communicationId: message.id } },
 		transport,
 		keys,
 	);
-const cancel = async (message, transport) =>
+const cancel = async (message: Message, transport: DeliveryTransport) =>
 	communicationWriter.cancelScheduledReviewed(
 		f.db,
 		owner.actor,
 		{ requestKey: key(), expectedRevision: await revisionOf(message), input: { communicationId: message.id } },
 		transport,
 	);
-const move = async (message, at, transport) =>
+const move = async (message: Message, at: string, transport: DeliveryTransport) =>
 	communicationWriter.rescheduleDispatched(
 		f.db,
 		owner.actor,
@@ -113,19 +144,27 @@ const move = async (message, at, transport) =>
 		},
 		transport,
 	);
-const revisionOf = async (message) =>
-	(await rows(sql`SELECT revision::text AS revision FROM communication WHERE id = ${message.id}`))[0].revision;
-const mailOf = (message) =>
-	rows(sql`SELECT m.state, m.provider_message_id AS provider,
+const revisionOf = async (message: Message) =>
+	(
+		await rows<{ revision: string }>(sql`SELECT revision::text AS revision FROM communication WHERE id = ${message.id}`)
+	)[0]!.revision;
+const mailOf = (message: Message) =>
+	rows<{
+		state: string;
+		provider: string | null;
+		held: string | null;
+		cancel_confirmed: boolean;
+		provider_key: string;
+	}>(sql`SELECT m.state, m.provider_message_id AS provider,
 		to_char(m.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS held,
 		m.cancel_confirmed_at IS NOT NULL AS cancel_confirmed, r.provider_key
 		FROM mail m JOIN mail_request_member mem ON mem.mail_id = m.id JOIN mail_request r ON r.id = mem.request_id
 		WHERE m.logical_key LIKE ${"communication/" + message.id + "/%"} ORDER BY mem.position`);
-const auditsOf = async (message) =>
-	(await rows(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id = ${message.id}`))[0].n;
-async function shown(message) {
+const auditsOf = async (message: Message) =>
+	(await rows(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id = ${message.id}`))[0]!.n;
+async function shown(message: Message) {
 	const page = ok(await read("listHistory", { limit: 100 }));
-	const item = page.items.find((row) => row.id === message.id);
+	const item = page.items.find((row) => row.id === message.id)!;
 	const detail = ok(await read("getDetail", { id: message.id }, keys));
 	const totals = ok(await read("getDeliveryTotals", { communicationId: message.id }));
 	assert.equal(totals.state, item.state);
@@ -171,10 +210,10 @@ test("BUG-f038ba571 AC:CASE-COM-012 AC:GAP-COM-012 AC:MAIL51-003 AC:CASE-COM-005
 	await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
 	const calls = resend.take();
 	assert.equal(calls.length, 1);
-	assert.equal(`${calls[0].method} ${calls[0].path}`, "POST /emails/batch");
-	assert.equal(calls[0].idempotencyKey, stored[0].provider_key);
+	assert.equal(`${calls[0]!.method} ${calls[0]!.path}`, "POST /emails/batch");
+	assert.equal(calls[0]!.idempotencyKey, stored[0]!.provider_key);
 	assert.deepEqual(
-		calls[0].body.map((entry) => entry.scheduled_at ?? null),
+		emailsIn(calls[0]!).map((entry) => entry.scheduled_at ?? null),
 		[null, null, null],
 	);
 	stored = await mailOf(message);
@@ -279,7 +318,7 @@ test("BUG-f038ba571 AC:MAIL51-005 AC:MAIL51-007 a cancel is Cancelled only after
 		"POST /emails/re-2/cancel",
 		"POST /emails/re-3/cancel",
 	]);
-	assert.ok(calls.every((call) => !call.path.includes(stored[0].provider_key) && call.idempotencyKey === null));
+	assert.ok(calls.every((call) => !call.path.includes(stored[0]!.provider_key) && call.idempotencyKey === null));
 	assert.deepEqual(
 		{
 			status: result.scheduledCancel,
@@ -390,7 +429,7 @@ test("AC:MAIL51-004 a time change shows the new time only after every recipient 
 	const result = ok(await move(message, saturday, resend.transport));
 	const calls = resend.take();
 	assert.deepEqual(
-		calls.map((call) => `${call.method} ${call.path} ${call.body.scheduled_at}`).sort(),
+		calls.map((call) => `${call.method} ${call.path} ${timeChange.parse(call.body).scheduled_at}`).sort(),
 		["re-1", "re-2", "re-3"].map((id) => `PATCH /emails/${id} ${saturday}`),
 	);
 	assert.deepEqual(
@@ -424,7 +463,7 @@ test("AC:MAIL51-004 a time change without confirmation names the requested and h
 		{ status: result.rescheduleStatus, at: result.scheduledAt, held: result.heldAt, open: result.openCount },
 		{ status: "unknown", at: saturday, held: friday, open: 1 },
 	);
-	const when = (iso) => (iso === friday ? "Friday 9:00" : iso === saturday ? "Saturday 9:00" : iso);
+	const when = (iso: string) => (iso === friday ? "Friday 9:00" : iso === saturday ? "Saturday 9:00" : iso);
 	assert.equal(
 		rescheduleText(result, when),
 		"Time change not confirmed. You asked for Saturday 9:00. The email service still holds Friday 9:00 for 1. Check again to ask the email service.",
@@ -573,18 +612,22 @@ test("AC:CASE-COM-005 a mixed result shows exact counts, an all-unknown result i
 
 	const tally = { confirmedCount: 1, sentCount: 1, openCount: 1 };
 	const texts = [
-		...[result, unknown, { status: "failed", acceptedCount: 0, rejectedCount: 2, unknownCount: 0 }].flatMap(
-			(report) => [deliveryText(report), scheduleText(report, "Friday")],
+		...[
+			result,
+			unknown,
+			{ ...result, status: "failed" as const, acceptedCount: 0, rejectedCount: 2, unknownCount: 0 },
+		].flatMap((report) => [deliveryText(report), scheduleText(report, "Friday")]),
+		...(["confirmed", "reconcile", "none"] as const).map((scheduledCancel) =>
+			cancelText({ ...tally, scheduledCancel }),
 		),
-		...["confirmed", "reconcile", "none"].map((scheduledCancel) => cancelText({ ...tally, scheduledCancel })),
-		...["accepted", "unknown"].map((rescheduleStatus) =>
+		...(["accepted", "unknown"] as const).map((rescheduleStatus) =>
 			rescheduleText({ ...tally, rescheduleStatus, scheduledAt: "2026-11-07T15:00:00.000Z", heldAt: null }, String),
 		),
 	];
 	for (const text of texts) assert.doesNotMatch(text, /deliver/i, text);
 });
 
-async function blockAddress(address) {
+async function blockAddress(address: string) {
 	const { createHmac } = await import("node:crypto");
 	const hash = createHmac("sha256", keys.addressKey).update(address).digest("hex");
 	const eventId = randomUUID();
@@ -604,7 +647,7 @@ test("AC:CASE-COM-012 in dev capture mode schedule, cancel, time change and Chec
 	const saved = process.env.EVERYFIELD_DEV_OUTBOX;
 	process.env.EVERYFIELD_DEV_OUTBOX = outbox;
 	try {
-		const sender = { keys: { ...keys, from: "church@example.test" }, apiKey: null };
+		const sender = { keys: { ...keys, from: "church@example.test", optOutKeys: null }, apiKey: null };
 		const refuse = () => Promise.reject(new Error("provider called"));
 		const capture = deliveryTransport(sender, refuse, { settle: async () => {} });
 		const quietCapture = deliveryTransport(sender, refuse, { silent: true });

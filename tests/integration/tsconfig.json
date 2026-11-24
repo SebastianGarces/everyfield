@@ -16,6 +16,8 @@
 		"./access/**/*.mts",
 		"./branding/**/*.ts",
 		"./branding/**/*.mts",
+		"./communication/**/*.ts",
+		"./communication/**/*.mts",
 		"./dashboard/**/*.ts",
 		"./dashboard/**/*.mts",
 		"./db/**/*.ts",

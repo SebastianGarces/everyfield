@@ -1,7 +1,8 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { z } from "../../../packages/contracts/node_modules/zod/index.js";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { notificationCategory, notificationChannels } from "../../../packages/contracts/src/settings/values.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { resendRecorder } from "./resend-recorder.mts";
@@ -10,22 +11,24 @@ import { createMailService, runDueMail } from "../../../packages/domain/src/jobs
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { INVITATION_MAIL } from "../../../apps/web/src/server/invitations/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { firstRow, rowsFrom, type Fixture, type Row } from "./communication-support.mts";
 
-let f;
-const rows = async (query) => (await f.admin.execute(query)).rows;
+let f: Fixture;
+const rows = <R extends Row = Row>(query: SQL) => rowsFrom<R>(f, query);
 
 before(async () => {
 	f = await fixture();
 });
 after(() => f?.close());
 
-async function updatesOff(accountId) {
+async function updatesOff(accountId: string) {
 	for (const category of notificationCategory.options.filter((name) => notificationChannels(name).includes("email")))
 		await f.admin
 			.execute(sql`INSERT INTO notification_preference (id, account_id, category, channel, enabled, unsubscribe_revision)
 			VALUES (${randomUUID()}, ${accountId}, ${category}, 'email', false, 1)`);
 }
-const sentTo = (address) => f.effects.filter((effect) => effect.to === address);
+const textMail = z.object({ to: z.string(), text: z.string() });
+const sentTo = (address: string) => f.effects.filter((effect) => effect.to === address);
 
 test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitation to the email service when the invitee turned off update emails", async () => {
 	const resend = resendRecorder();
@@ -37,6 +40,7 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 					addressKey: Buffer.alloc(32, 9),
 					from: "church@resend.dev",
 					origin: "https://app.example.test",
+					optOutKeys: null,
 				},
 				apiKey: "re_test_key",
 			},
@@ -44,7 +48,6 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 			{ VERCEL_ENV: "production" },
 		),
 	);
-	const secret = "cron-" + randomUUID();
 	const tick = scheduledJobs({
 		db: f.db,
 		storage: null,
@@ -54,7 +57,7 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 		mail: (limit, until) => runDueMail(f.db, f.mail, INVITATION_MAIL, limit, until),
 	});
 	try {
-		for (const kind of ["plant", "sending_church"]) {
+		for (const kind of ["plant", "sending_church"] as const) {
 			const s = await f.setup(kind);
 			await updatesOff(s.recipient.id);
 			const resident = kind === "plant" ? undefined : await f.resident(s.w);
@@ -70,21 +73,22 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 				? f.invitations.inviteResident(actor, command)
 				: f.invitations.invite(actor, command));
 			resend.take();
-			const response = await tick(
-				new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } }),
-			);
+			const response = await tick();
 			assert.equal(response.status, 200);
 			assert.equal((await response.json()).mailed, 1, `${kind}: the runner claimed one invitation`);
 			const calls = resend.take();
 			assert.equal(calls.length, 1, `${kind}: one call to the email service`);
-			const [call] = calls;
+			const call = firstRow(calls);
 			assert.equal(call.method, "POST");
 			assert.equal(call.path, "/emails");
-			assert.equal(call.body.to, s.recipient.email);
-			assert.match(call.body.text, kind === "plant" ? /invited you to join/ : /invited you to link your account/);
-			const [mail] = await rows(sql`SELECT m.purpose, m.state, m.provider_message_id, r.provider_key FROM mail m
+			const body = textMail.parse(call.body);
+			assert.equal(body.to, s.recipient.email);
+			assert.match(body.text, kind === "plant" ? /invited you to join/ : /invited you to link your account/);
+			const mail = firstRow(
+				await rows(sql`SELECT m.purpose, m.state, m.provider_message_id, r.provider_key FROM mail m
 				JOIN mail_request_member mm ON mm.mail_id = m.id JOIN mail_request r ON r.id = mm.request_id
-				WHERE m.logical_key = ${`invitation/${made.invitation.invitationId}/1`}`);
+				WHERE m.logical_key = ${`invitation/${made.invitation.invitationId}/1`}`),
+			);
 			assert.equal(call.idempotencyKey, mail.provider_key);
 			assert.deepEqual(
 				{ purpose: mail.purpose, state: mail.state, id: mail.provider_message_id },
@@ -123,9 +127,7 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 				eligibleAt: new Date().toISOString(),
 			}),
 		);
-		const response = await tick(
-			new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } }),
-		);
+		const response = await tick();
 		assert.equal((await response.json()).mailed, 0);
 		assert.deepEqual(resend.take(), []);
 		assert.deepEqual(await rows(sql`SELECT state FROM mail WHERE id = ${other}`), [{ state: "pending" }]);
@@ -135,7 +137,7 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 });
 
 test("AC:CASE-NTF-011 an invitation to an address blocked after a bounce is not sent, not queued and names the reason", async () => {
-	for (const kind of ["plant", "sending_church"]) {
+	for (const kind of ["plant", "sending_church"] as const) {
 		const s = await f.setup(kind);
 		const eventId = randomUUID();
 		await f.admin
@@ -155,6 +157,7 @@ test("AC:CASE-NTF-011 an invitation to an address blocked after a bounce is not 
 		await assert.rejects(
 			resident ? f.invitations.inviteResident(actor, command) : f.invitations.invite(actor, command),
 			(error) => {
+				assert.ok(error instanceof Error && "code" in error);
 				assert.equal(error.code, "address_blocked");
 				return true;
 			},

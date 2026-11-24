@@ -1,21 +1,36 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import { communicationWriter } from "../../../packages/domain/src/communication/index.ts";
 import {
 	applyMessagesOptOut,
 	messagesOptOutToken,
 	undoMessagesOptOut,
 } from "../../../packages/domain/src/communication/opt-out.ts";
 import { hubLabel } from "../../../apps/web/src/features/communication/model.ts";
-import { resendRecorder } from "./resend-recorder.mts";
+import { emailsIn, resendRecorder, type Recorder } from "./resend-recorder.mts";
 import { atSendTime, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
 import { MAILING } from "./church-address.mts";
+import {
+	readAs,
+	rowsFrom,
+	writeAs,
+	type Church,
+	type Fixture,
+	type ReadOp,
+	type Rest,
+	type Row,
+	type Staff,
+	type Value,
+	type WriteOp,
+} from "./communication-support.mts";
 
-let f, church, owner;
+let f: Fixture;
+let church: Church;
+let owner: Staff;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
@@ -25,14 +40,14 @@ const keys = {
 const PRODUCTION = { VERCEL_ENV: "production" };
 const DAY = 86_400_000;
 const key = () => randomUUID();
-const rows = async (query) => (await f.admin.execute(query)).rows;
+const rows = <R extends Row = Row>(query: SQL) => rowsFrom<R>(f, query);
 const yearsAgo = (years: number) => {
 	const at = new Date();
 	return `${at.getUTCFullYear() - years}-06-15`;
 };
 
 async function person(
-	name,
+	name: string,
 	marking: { as?: "adult" | "child" | "unknown"; born?: string; householdChild?: boolean } = {},
 ) {
 	const id = randomUUID();
@@ -51,14 +66,14 @@ async function person(
 		${marking.born ?? null}::date,${household}::uuid,${household ? "child" : null},'unknown',0,'live',clock_timestamp())`);
 	return { id, email, name };
 }
-const mark = (who, as: "adult" | "child") =>
+type Person = Awaited<ReturnType<typeof person>>;
+const mark = (who: Person, as: "adult" | "child") =>
 	f.admin.execute(sql`UPDATE person SET adult_classification = ${as} WHERE id = ${who.id}`);
-const bornOn = (who, born: string) =>
+const bornOn = (who: Person, born: string) =>
 	f.admin.execute(sql`UPDATE person SET birth_date = ${born}::date WHERE id = ${who.id}`);
 
-const write = (op, input) =>
-	withCommunicationWrite(f.db, owner.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
-async function draft(people) {
+const write = <K extends WriteOp>(op: K, input: unknown) => writeAs(f.db, owner.actor, op, input);
+async function draft(people: Person[]) {
 	return ok(
 		await write("saveDraft", {
 			requestKey: key(),
@@ -70,14 +85,14 @@ async function draft(people) {
 		}),
 	);
 }
-const scheduleAt = (saved, at = new Date(Date.now() + 7 * DAY).toISOString()) =>
+const scheduleAt = (saved: Value<"saveDraft">, at = new Date(Date.now() + 7 * DAY).toISOString()) =>
 	write("scheduleReviewed", {
 		requestKey: key(),
 		expectedRevision: saved.revision,
 		input: { communicationId: saved.communicationId, scheduledAt: at },
 	});
 
-async function schedule(people, resend, leftOut?: string[]) {
+async function schedule(people: Person[], resend: Recorder, leftOut?: string[]) {
 	const saved = await draft(people);
 	const scheduled = ok(await scheduleAt(saved));
 	const report = ok(
@@ -96,7 +111,7 @@ async function schedule(people, resend, leftOut?: string[]) {
 	return { id: saved.communicationId, report };
 }
 
-async function sendNow(people, resend) {
+async function sendNow(people: Person[], resend: Recorder) {
 	const saved = await draft(people);
 	const scheduled = ok(await scheduleAt(saved));
 	const report = ok(
@@ -110,7 +125,7 @@ async function sendNow(people, resend) {
 	);
 	return { id: saved.communicationId, report };
 }
-async function block(who) {
+async function block(who: Person) {
 	const eventId = randomUUID();
 	await f.admin
 		.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
@@ -119,19 +134,20 @@ async function block(who) {
 		VALUES(${createHmac("sha256", keys.addressKey).update(who.email).digest("hex")},'hard_bounce',${eventId},clock_timestamp())`);
 }
 
-const optOut = (who) =>
+const optOut = (who: Person) =>
 	f.admin.execute(sql`INSERT INTO person_email_opt_out (plant_id, person_id) VALUES (${church.id}, ${who.id})`);
 const ring = { current: randomBytes(32), previous: [] };
 const now = () => new Date();
-const clickUnsubscribe = async (who) =>
+const clickUnsubscribe = async (who: Person) =>
 	ok(
 		await applyMessagesOptOut(f.db, ring, now, {
 			token: messagesOptOutToken(ring, { plantId: church.id, personId: who.id }),
 		}),
 	);
-const undo = async (done) => ok(await undoMessagesOptOut(f.db, ring, now, { token: done.undoToken }));
+const undo = async (done: { undoToken: string | null }) =>
+	ok(await undoMessagesOptOut(f.db, ring, now, { token: done.undoToken }));
 
-const explained = ({ totals }) => ({
+const explained = ({ totals }: { totals: Value<"getDeliveryTotals"> }) => ({
 	child: totals.child,
 	guardian: totals.guardian,
 	unsubscribed: totals.unsubscribed,
@@ -139,21 +155,22 @@ const explained = ({ totals }) => ({
 	suppressed: totals.suppressed,
 });
 
-const sentTo = (resend) =>
+const sentTo = (resend: Recorder) =>
 	resend.requests
 		.filter((r) => r.path === "/emails/batch" && r.method === "POST")
-		.flatMap((r) => r.body.map((m) => m.to[0]));
-const read = (op, input, extra?) => f.db.transaction((tx) => communicationWriter[op](tx, owner.actor, input, extra));
-async function shown(id) {
+		.flatMap((r) => emailsIn(r).map((m) => m.to[0]));
+const read = <K extends ReadOp>(op: K, ...rest: Rest<K>) => readAs(f.db, owner.actor, op, ...rest);
+async function shown(id: string) {
 	const page = ok(await read("listHistory", { limit: 100 }));
 	return {
-		item: page.items.find((row) => row.id === id),
+		item: page.items.find((row) => row.id === id)!,
 		totals: ok(await read("getDeliveryTotals", { communicationId: id })),
 		recipients: ok(await read("listHistoryRecipients", { communicationId: id, limit: 100 })).items,
 	};
 }
-const statusOf = (view, who) => view.recipients.find((row) => row.personId === who.id)?.deliveryStatus;
-const mailOf = async (id, who) =>
+const statusOf = (view: Awaited<ReturnType<typeof shown>>, who: Person) =>
+	view.recipients.find((row) => row.personId === who.id)?.deliveryStatus;
+const mailOf = async (id: string, who: Person) =>
 	rows(sql`SELECT state, refusal, provider_message_id AS provider, accepted_at::text AS accepted
 		FROM mail WHERE logical_key = ${"communication/" + id + "/" + who.id}`);
 
@@ -345,7 +362,7 @@ test("AC:CASE-NTF-016-CHILD marking a person as a child after their email went o
 	await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
 	assert.deepEqual(sentTo(resend), [ana.email]);
 	const went = await mailOf(message.id, ana);
-	assert.equal(went[0].state, "accepted");
+	assert.equal(went[0]!.state, "accepted");
 	resend.take();
 
 	await mark(ana, "child");
@@ -473,7 +490,7 @@ test("AC:CASE-NTF-016-CHILD an unsubscribed child named as left out of a schedul
 		assert.deepEqual(explained(view), totals);
 	};
 	await check();
-	assert.equal((await mailOf(message.id, out))[0].state, "refused", "refused when scheduled");
+	assert.equal((await mailOf(message.id, out))[0]!.state, "refused", "refused when scheduled");
 	await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
 	assert.deepEqual(sentTo(resend), [ana.email]);
 	assert.deepEqual(await mailOf(message.id, kid), [
