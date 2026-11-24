@@ -29,8 +29,8 @@ export function invitationLink(origin: string, proof: MintedProof<"invitation">)
 	url.hash = new URLSearchParams({ proof: reveal(proof) }).toString();
 	return url.href;
 }
-export const connectionLink = (origin: string, invitationId: string, proof: MintedProof<"connection">) =>
-	`${origin}/connections/respond?invitation=${invitationId}#${reveal(proof)}`;
+export const connectionLink = (origin: string, path: string, invitationId: string, proof: MintedProof<"connection">) =>
+	`${origin}${path}?invitation=${invitationId}#${reveal(proof)}`;
 export const deletionCookieValue = (
 	proof: MintedProof<"deletion">,
 	request: z.infer<typeof getAccountDeletionStatusRequest> | z.infer<typeof getWorkspaceDeletionStatusRequest>,

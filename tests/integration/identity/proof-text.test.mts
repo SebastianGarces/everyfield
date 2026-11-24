@@ -38,7 +38,7 @@ test("a minted invitation proof shows its value only in its link", () => {
 
 test("a minted connection proof shows its value only in its link", () => {
 	const proof = new MintedProof("connection");
-	const link = connectionLink(origin, id, proof);
+	const link = connectionLink(origin, "/connections/respond", id, proof);
 	const raw = link.split("#")[1]!;
 	assert.equal(link, `${origin}/connections/respond?invitation=${id}#${raw}`);
 	hides(proof, raw);

@@ -10,7 +10,7 @@ type Invitation = Parameters<typeof invitationLink>[1];
 export const anInvitationProofIsNotAString: Refused<string, Invitation> = true;
 export const aStringIsNotAnInvitationProof: Refused<Invitation, string> = true;
 
-type Connection = Parameters<typeof connectionLink>[2];
+type Connection = Parameters<typeof connectionLink>[3];
 export const aConnectionProofIsNotAString: Refused<string, Connection> = true;
 export const aStringIsNotAConnectionProof: Refused<Connection, string> = true;
 type Effect = Parameters<OrganizationEffects["invitation"]>[1]["proof"];

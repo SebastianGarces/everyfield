@@ -169,7 +169,10 @@ export async function seedOversight(env: {
 	const api = createOrganizationAdapter(
 		{
 			async invitation(_tx, v) {
-				proofs.set(v.invitationId, connectionLink("https://example.test", v.invitationId, v.proof).split("#")[1]!);
+				proofs.set(
+					v.invitationId,
+					connectionLink("https://example.test", "/connections/respond", v.invitationId, v.proof).split("#")[1]!,
+				);
 			},
 			invalidate: (_tx, v) =>
 				sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,

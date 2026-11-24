@@ -31,7 +31,10 @@ before(async () => {
 	associations = createOrganizationAdapter(
 		{
 			async invitation(tx, v, writes) {
-				proofs.set(v.invitationId, connectionLink("https://example.test", v.invitationId, v.proof).split("#")[1]);
+				proofs.set(
+					v.invitationId,
+					connectionLink("https://example.test", "/connections/respond", v.invitationId, v.proof).split("#")[1],
+				);
 				await f.mail.append(
 					tx,
 					{

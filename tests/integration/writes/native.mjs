@@ -915,7 +915,10 @@ try {
 	const organizations = createOrganizationAdapter(
 		{
 			invitation: (tx, i, writes) => {
-				proofs.set(i.invitationId, connectionLink("https://example.test", i.invitationId, i.proof).split("#")[1]);
+				proofs.set(
+					i.invitationId,
+					connectionLink("https://example.test", "/connections/respond", i.invitationId, i.proof).split("#")[1],
+				);
 				return f.mail.append(
 					tx,
 					{

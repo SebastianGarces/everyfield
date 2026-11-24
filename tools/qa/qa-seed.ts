@@ -496,7 +496,7 @@ async function fill(
 		invitation: async (_tx, input) =>
 			void proofs.set(
 				input.invitationId,
-				connectionLink("https://example.test", input.invitationId, input.proof).split("#")[1]!,
+				connectionLink("https://example.test", "/connections/respond", input.invitationId, input.proof).split("#")[1]!,
 			),
 		invalidate: (_tx, input) =>
 			sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,

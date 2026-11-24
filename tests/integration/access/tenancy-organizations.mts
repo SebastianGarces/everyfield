@@ -24,7 +24,10 @@ const proofs = new Map();
 const api = createOrganizationAdapter(
 	{
 		async invitation(_tx, v) {
-			proofs.set(v.invitationId, connectionLink("https://example.test", v.invitationId, v.proof).split("#")[1]);
+			proofs.set(
+				v.invitationId,
+				connectionLink("https://example.test", "/connections/respond", v.invitationId, v.proof).split("#")[1],
+			);
 		},
 		notice: (tx, v) =>
 			queueJobs(tx, [

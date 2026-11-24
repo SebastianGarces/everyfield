@@ -63,7 +63,10 @@ export const effects = {
 		v: Parameters<import("../../../packages/domain/src/organizations/index.ts").OrganizationEffects["invitation"]>[1],
 		writes: SQLWrapper[],
 	) {
-		proofs.set(v.invitationId, connectionLink("https://example.test", v.invitationId, v.proof).split("#")[1]!);
+		proofs.set(
+			v.invitationId,
+			connectionLink("https://example.test", "/connections/respond", v.invitationId, v.proof).split("#")[1]!,
+		);
 		await mail.append(
 			c,
 			{

@@ -65,7 +65,7 @@ function create(v: ServerConfig) {
 	const effects: OrganizationEffects = {
 		async invitation(tx, input, writes) {
 			if (input.owner.kind === "global") refuse();
-			const link = connectionLink(v.IDENTITY_ORIGIN, input.invitationId, input.proof);
+			const link = connectionLink(v.IDENTITY_ORIGIN, "/connections/respond", input.invitationId, input.proof);
 			await mail.append(
 				tx,
 				{
