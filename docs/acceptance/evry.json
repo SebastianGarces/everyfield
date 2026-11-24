@@ -10183,7 +10183,7 @@
         "WP-091"
       ],
       "status": "future-not-run",
-      "description": "Merge receipt R moved household/member/training/attendance/task refs; survivor/references/account/photo unchanged; second fixture has edited attendance and later sent email",
+      "description": "Merge receipt R moved household/member/training/attendance/task refs; survivor/references/account/photo unchanged; second fixture has edited attendance and later sent email; third has only records added later, including sent email",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -10422,6 +10422,129 @@
             "event": null
           },
           "name": "changed-reference-and-sent-email"
+        },
+        {
+          "given": {
+            "P": {
+              "fixture_type": "plant",
+              "id": "P",
+              "timezone": "America/Chicago",
+              "observed_state": "fixture-state-7",
+              "assessment_input_state": "fixture-state-11",
+              "phase": "Phase1"
+            },
+            "A": {
+              "fixture_type": "account",
+              "id": "A",
+              "email": "alex@example.test",
+              "personal_timezone": "America/Chicago",
+              "registration": "active"
+            },
+            "seat-A": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "P",
+              "role": "Admin",
+              "active": true
+            },
+            "session-A": {
+              "fixture_type": "session",
+              "account": "A",
+              "expires_at": "2026-11-12T16:00:00Z"
+            },
+            "Alex-Rivera": {
+              "fixture_type": "person",
+              "id": "Alex-Rivera",
+              "plant": "P",
+              "name": "Alex Rivera",
+              "city": "Chicago",
+              "observed_state": "fixture-state-4"
+            },
+            "Alex-Chen": {
+              "fixture_type": "person",
+              "id": "Alex-Chen",
+              "plant": "P",
+              "name": "Alex Chen",
+              "city": "Evanston",
+              "observed_state": "fixture-state-4"
+            },
+            "Casey": {
+              "fixture_type": "person",
+              "id": "Casey",
+              "plant": "P",
+              "name": "Casey Reed",
+              "stage": "leader",
+              "observed_state": "fixture-state-4"
+            },
+            "C": {
+              "fixture_type": "conversation",
+              "id": "C",
+              "account": "A",
+              "context": "P",
+              "sequence": 4,
+              "draft_state": "fixture-state-2"
+            },
+            "R": {
+              "fixture_type": "review",
+              "id": "R",
+              "account": "A",
+              "context": "P",
+              "observed_state": "fixture-state-1",
+              "approved": false,
+              "expires_at": "2026-10-13T16:15:00Z"
+            },
+            "T": {
+              "fixture_type": "task",
+              "id": "T",
+              "plant": "P",
+              "person": "Alex-Rivera",
+              "assignee": "A",
+              "due_date": "2026-10-13",
+              "status": "not_started",
+              "observed_state": "fixture-state-4"
+            },
+            "case-input": {
+              "fixture_type": "domain_inputs",
+              "receipt": "R",
+              "survivor_unchanged": true,
+              "references_unchanged": true,
+              "repeat": 2
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "people.unmergePeople",
+            "arguments": {
+              "receipt": "R",
+              "survivor_unchanged": true,
+              "references_unchanged": true,
+              "later_additions": [
+                "task",
+                "note"
+              ],
+              "later_provider_effect": "sent"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "restored_people": 2,
+              "inverse_receipts": 1,
+              "additions_kept": true,
+              "mail_undone": false,
+              "mail_resent": false
+            },
+            "event": null
+          },
+          "name": "later-additions-and-sent-email-split"
         },
         {
           "given": {

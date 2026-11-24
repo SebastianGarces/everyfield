@@ -184,6 +184,38 @@ const families: Family[] = [
 	},
 	{
 		cases:
+			"AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-CONFLICT AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-UNMERGE a prepared Evry review keeps the person, digest and receipt it was made with",
+		file: "evry",
+		async seed(p2) {
+			const conversation = await insert("conversation", {
+				plant_id: undefined,
+				tenant_id: P,
+				account_id: w.actors.admin.id,
+				context_kind: "plant",
+				title: "Chat",
+			});
+			const id = await insert("proposal", {
+				plant_id: undefined,
+				tenant_id: P,
+				account_id: w.actors.admin.id,
+				conversation_id: conversation,
+				operation: "people.updatePerson",
+				input: JSON.stringify({ input: { personId: p2, patch: { city: "Elgin" } }, expectedRevision: "1" }),
+				review: JSON.stringify({ target: { kind: "person", id: p2, label: "Alex Chen" }, changes: [] }),
+				digest: "b".repeat(64),
+				state: "pending",
+				expires_at: "2026-10-14T12:00:00Z",
+			});
+			const proposal = sql`SELECT to_jsonb(x) AS proposal FROM proposal x WHERE x.id=${id}::uuid`;
+			return {
+				reference: { redirect: true },
+				history: stored(proposal, (row) => (row.proposal as { input: { input: Row } }).input.input.personId),
+				kept: () => one(proposal),
+			};
+		},
+	},
+	{
+		cases:
 			"AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-CONFLICT AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-RETIRE AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-UNMERGE the dated evidence keeps its interval and answer",
 		file: "people",
 		async seed(p2) {
