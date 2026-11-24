@@ -1,4 +1,4 @@
-import { accountId, sessionId } from "@everyfield/contracts/common";
+import { accountId } from "@everyfield/contracts/common";
 import { allows, deletionMachine, fromStates, holds } from "@everyfield/contracts/machines";
 import * as q from "@everyfield/contracts/settings";
 import * as n from "@everyfield/contracts/settings/native";
@@ -6,10 +6,11 @@ import type { DeletionProducer, SettingsContext } from "@everyfield/contracts/se
 import type { Database } from "@everyfield/db/client";
 import { alias, and, eq, getTableColumns, inArray, isNull, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { lock as lockSeats } from "../identity/invitation-core.ts";
+import { deletionProofDigest, MintedProof } from "../proofs.ts";
 import { executeWrites, gatedTransaction } from "../operations/writes.ts";
 import {
 	appendEvent,
@@ -387,7 +388,7 @@ async function mintable(tx: Tx, account: SQL, subject: { kind: DeletionSubject["
 }
 async function mint(tx: Tx, id: string, w: NonNullable<z.infer<typeof mintRow>["witness"]>, at: Date, provenAt: Date) {
 	if (provenAt > at || at.getTime() - provenAt.getTime() > 5 * 60_000) deny("proof_invalid");
-	const handle = randomBytes(32).toString("base64url");
+	const handle = new MintedProof("deletion");
 	await tx
 		.update(t.identity_proof)
 		.set({ superseded_at: at })
@@ -402,12 +403,12 @@ async function mint(tx: Tx, id: string, w: NonNullable<z.infer<typeof mintRow>["
 	await tx.insert(t.identity_proof).values({
 		account_id: id,
 		purpose: "deletion_cancel",
-		token_hash: hash(handle),
+		token_hash: deletionProofDigest(handle),
 		deletion_subject_id: w.id,
 		request_revision: Number(w.request_revision),
 		expires_at: new Date(at.getTime() + 10 * 60_000),
 	});
-	return { kind: "restricted_deletion" as const, handle: sessionId.parse(handle) };
+	return { kind: "restricted_deletion" as const, handle };
 }
 export async function issueRestrictedDeletionSession(
 	tx: Tx,
