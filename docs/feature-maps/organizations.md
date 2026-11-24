@@ -697,7 +697,7 @@ agent-browser find role heading text --name "This page is not available" --exact
 
 #### organizations.sharing#invite
 
-Connect saves an invitation that waits for a reply, and says when its email is delayed; Withdraw takes it back.
+Connect saves an invitation and says if its email is delayed; Withdraw takes it back.
 
 - Operations: associations.invite, associations.revokeInvitation
 - Catalog: IDN-020
