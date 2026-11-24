@@ -44,6 +44,8 @@
 		"./ops/**/*.mts",
 		"./oversight/**/*.ts",
 		"./oversight/**/*.mts",
+		"./people/**/*.ts",
+		"./people/**/*.mts",
 		"./phases/**/*.ts",
 		"./phases/**/*.mts",
 		"./platform/**/*.ts",

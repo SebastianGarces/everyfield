@@ -2,17 +2,21 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
-import { fixture } from "../identity/invitations-support.mts";
+import { fixture, type Fixture } from "../identity/invitations-support.mts";
 import { PeopleReadContext, readPersonPhotos } from "../../../packages/domain/src/people/index.ts";
-import { ok, refused } from "../../support/fixture.mts";
+import { ok, refused, type Workspace } from "../../support/fixture.mts";
 
-let f, plant, other, viewer;
-async function account(w = plant, role = "member") {
+let f: Fixture;
+let plant: Workspace;
+let other: Workspace;
+let viewer: Account;
+type Account = Awaited<ReturnType<typeof account>>;
+async function account(w: Workspace = plant, role: "member" | "admin" = "member") {
 	const a = await f.account();
-	if (w) await f.seat(a, w, role);
+	await f.seat(a, w, role);
 	return { ...a, actor: await f.actor(a.session) };
 }
-async function setAvatar(a) {
+async function setAvatar(a: Account) {
 	const versionId = randomUUID();
 	await f.admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,byte_count,
 		sha256,state,upload_key,claim_generation) VALUES(${versionId},${a.id},'avatar',${`private/${a.id}/${versionId}`},
@@ -20,16 +24,16 @@ async function setAvatar(a) {
 	await f.admin.execute(sql`UPDATE account SET avatar_object_id=${versionId} WHERE id=${a.id}`);
 	return { accountId: a.id, versionId };
 }
-async function person(name, linked = null, w = plant) {
+async function person(name: string, linked: Account | null = null, w = plant) {
 	const id = randomUUID();
 	await f.admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at,linked_account_id) VALUES(${id},${w.id},${w.id},${name},'other',
 		'prospect','unknown','unknown',0,'live',clock_timestamp(),${linked?.id ?? null})`);
 	return id;
 }
-const lookup = async (personIds, who = viewer) =>
+const lookup = async (personIds: string[], who = viewer) =>
 	readPersonPhotos(f.db, new PeopleReadContext(who.actor), { personIds });
-const photos = async (personIds, who) =>
+const photos = async (personIds: string[], who?: Account) =>
 	Object.fromEntries(ok(await lookup(personIds, who)).photos.map((p) => [p.personId, p.photo]));
 
 before(async () => {

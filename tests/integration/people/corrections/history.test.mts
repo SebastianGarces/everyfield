@@ -1,10 +1,12 @@
 import { fixture, ok, refused } from "../../../support/fixture.mts";
-import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
+import { sql, type SQL } from "../../../../packages/db/src/query.ts";
+import { authorityOf, church, type Row } from "../people-support.mts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
-import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
+import { owner } from "../../../../packages/contracts/src/common/index.ts";
+import type { WriteTx } from "../../../../packages/domain/src/access/session.ts";
 import { peopleMerge, peopleUnmerge, peopleWriter as people } from "../../../../packages/domain/src/people/index.ts";
 import { followUpReader } from "../../../../packages/domain/src/followups/index.ts";
 import { communicationWriter } from "../../../../packages/domain/src/communication/index.ts";
@@ -23,17 +25,18 @@ const actors = {
 	stranger: await database.actor({ kind: "plant", id: other }, "admin"),
 	orgAdmin: await database.actor(org, "admin"),
 };
-const ctx = (who = "owner") => ({
+type Who = keyof typeof actors;
+const ctx = (who: Who = "owner") => ({
 	session: actors[who].session,
-	selected: who === "stranger" ? { kind: "plant", id: other } : who === "orgAdmin" ? org : { kind: "plant", id: plant },
+	selected: who === "stranger" ? church(other) : who === "orgAdmin" ? owner.parse(org) : church(plant),
 });
-const tx = (body) => gatedTransaction(db, body);
+const tx = <T,>(body: (t: WriteTx) => Promise<T>) => gatedTransaction(db, body);
 const key = () => randomUUID();
-const rows = async (query) => (await admin.execute(query)).rows;
-const authority = (who = "owner") => tx((t) => RequestActor.resolve(t, actors[who].session));
+const rows = async <T extends Row>(query: SQL) => (await admin.execute<T>(query)).rows;
+const authority = (who: Who = "owner") => gatedTransaction(db, (t) => authorityOf(t, actors[who]));
 after(() => database.close());
 
-async function person(name) {
+async function person(name: string) {
 	return ok(
 		await tx((t) =>
 			people.createPerson(t, ctx(), {
@@ -43,28 +46,28 @@ async function person(name) {
 		),
 	).person.id;
 }
-async function meeting(title, day) {
+async function meeting(title: string, day: string) {
 	const id = randomUUID();
 	await admin.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,
  resolver_version,status,attendance_revision) VALUES(${id},${plant},'vision_meeting',${title},${day}::date,'18:00',
  'America/Chicago',(${day}||'T23:00:00Z')::timestamptz,'1','completed',1)`);
 	return id;
 }
-async function followUp(personId, title, day, due) {
+async function followUp(personId: string, title: string, day: string, due: string) {
 	const id = randomUUID();
 	await admin.execute(sql`INSERT INTO obligation(id,plant_id,meeting_id,person_id,kind,origin_at,origin_date,timezone,
  formula_version,due_date) VALUES(${id},${plant},${await meeting(title, day)},${personId},'follow_up',
  (${day}||'T23:00:00Z')::timestamptz,${day}::date,'America/Chicago','1',${due}::date)`);
 	return id;
 }
-async function outcome(personId, obligationId = null) {
+async function outcome(personId: string, obligationId: string | null = null) {
 	const id = randomUUID();
 	await admin.execute(sql`INSERT INTO contact_outcome(id,plant_id,person_id,obligation_id,outcome,occurred_at,recorded_at,
  contact_channel) VALUES(${id},${plant},${personId},${obligationId}::uuid,'contacted',clock_timestamp()-interval '1 day',
  clock_timestamp(),'phone')`);
 	return id;
 }
-async function sentEmail(personId, subject = "Welcome to Synthetic") {
+async function sentEmail(personId: string, subject = "Welcome to Synthetic") {
 	const communication = randomUUID(),
 		id = randomUUID();
 	await admin.execute(sql`INSERT INTO communication(id,plant_id,author_id,revision,state,subject,body_html,body_text,
@@ -81,29 +84,37 @@ const HISTORY = [
 	["obligation", "person_id"],
 	["contact_outcome", "person_id"],
 	["mail", "recipient_person_id"],
-];
-async function historyOf(...ids) {
-	const out = {};
+] as const;
+type Moved = { row: { id: string; plant_id?: string; tenant_id?: string } };
+type History = Record<(typeof HISTORY)[number][0], Moved[]>;
+async function historyOf(...ids: string[]) {
+	const out: History = { obligation: [], contact_outcome: [], mail: [] };
 	for (const [table, column] of HISTORY)
-		out[table] = await rows(sql`SELECT to_jsonb(x) AS row FROM ${sql.identifier(table)} x
+		out[table] = await rows<Moved>(sql`SELECT to_jsonb(x) AS row FROM ${sql.identifier(table)} x
  WHERE x.${sql.identifier(column)}=ANY(${sql.param(ids)}::uuid[]) ORDER BY x.id`);
 	return out;
 }
-const idsOn = async (personId) => {
+const idsOn = async (personId: string) => {
 	const h = await historyOf(personId);
 	return Object.fromEntries(Object.entries(h).map(([k, v]) => [k, v.map((r) => r.row.id)]));
 };
-const people_ = async (...ids) =>
+const people_ = async (...ids: string[]) =>
 	rows(sql`SELECT id,state,revision::text,merged_into_person_id FROM person WHERE id=ANY(${sql.param(ids)}::uuid[])
  ORDER BY id`);
-const review = (sourceId, survivorId, who = "owner") =>
+const review = (sourceId: string, survivorId: string, who: Who = "owner") =>
 	tx((t) => peopleMerge.getMergeReview(t, ctx(who), { sourceId, survivorId }));
-const mergeWith = (sourceId, survivorId, reviewDigest, requestKey = key(), who = "owner") =>
-	tx((t) => peopleMerge.mergePeople(t, ctx(who), { requestKey, input: { sourceId, survivorId, reviewDigest } }));
-const preview = (mergeId, who = "owner") => tx((t) => peopleUnmerge.previewUnmerge(t, ctx(who), { mergeId }));
-const unmerge = (mergeId, expectedRevision, who = "owner", requestKey = key()) =>
+const mergeWith = (
+	sourceId: string,
+	survivorId: string,
+	reviewDigest: string,
+	requestKey: string = key(),
+	who: Who = "owner",
+) => tx((t) => peopleMerge.mergePeople(t, ctx(who), { requestKey, input: { sourceId, survivorId, reviewDigest } }));
+const preview = (mergeId: string, who: Who = "owner") =>
+	tx((t) => peopleUnmerge.previewUnmerge(t, ctx(who), { mergeId }));
+const unmerge = (mergeId: string, expectedRevision: string, who: Who = "owner", requestKey: string = key()) =>
 	tx((t) => peopleUnmerge.unmergePeople(t, ctx(who), { requestKey, expectedRevision, input: { mergeId } }));
-const moving = (r) =>
+const moving = (r: { references: { kind: string; count: number; treatment: string }[] }) =>
 	r.references
 		.filter((x) => ["obligation", "contact_outcome", "mail"].includes(x.kind))
 		.map((x) => [x.kind, x.count, x.treatment]);
@@ -158,15 +169,15 @@ test("AC:TARGET-PPL-025 a merge carries the source's follow-up, its outcome and 
 		);
 	}
 
-	const owner = await authority();
-	const obligations = ok(await tx((t) => followUpReader.readObligations(t, owner, { personId: morgan, limit: 10 })));
+	const viewer = await authority();
+	const obligations = ok(await tx((t) => followUpReader.readObligations(t, viewer, { personId: morgan, limit: 10 })));
 	assert.deepEqual(
-		obligations.items.map((o) => [o.id, o.person.id, o.state]),
+		obligations.items.map((o) => [o.id, o.person?.id, o.state]),
 		[[obligation, morgan, "open"]],
 	);
-	const contacts = ok(await tx((t) => followUpReader.listContactHistory(t, owner, { personId: morgan, limit: 10 })));
+	const contacts = ok(await tx((t) => followUpReader.listContactHistory(t, viewer, { personId: morgan, limit: 10 })));
 	assert.deepEqual(contacts.items.map((x) => x.id).sort(), [contacted, later].sort());
-	const sent = ok(await tx((t) => communicationWriter.listHistory(t, owner, { personId: morgan })));
+	const sent = ok(await tx((t) => communicationWriter.listHistory(t, viewer, { personId: morgan })));
 	assert.deepEqual(
 		sent.items.map((x) => x.subject),
 		["Welcome to Synthetic"],
@@ -196,8 +207,8 @@ test("AC:TARGET-PPL-025 a review names both people's distinct open follow-ups, a
 		{ personId: a, meeting: "Orientation night", dueDate: "2026-11-05" },
 	]);
 	ok(await mergeWith(a, b, r.reviewDigest));
-	const owner = await authority();
-	const items = ok(await tx((t) => followUpReader.readObligations(t, owner, { personId: b, limit: 10 }))).items;
+	const viewer = await authority();
+	const items = ok(await tx((t) => followUpReader.readObligations(t, viewer, { personId: b, limit: 10 }))).items;
 	assert.deepEqual(
 		items.map((o) => [o.id, o.state]).sort(),
 		[
@@ -228,7 +239,7 @@ test("AC:TARGET-PPL-025 Unmerge returns moved follow-ups and outcomes exactly, a
 	);
 	assert.equal(ok(await unmerge(merged.mergeId, p.reviewRevision)).outcome, "changed");
 	const back = await historyOf(s);
-	const without = (h) =>
+	const without = (h: History) =>
 		Object.fromEntries(
 			Object.entries(h).map(([t, list]) => [t, list.map(({ row }) => ({ ...row, revision: undefined }))]),
 		);
@@ -268,7 +279,7 @@ test("AC:TARGET-PPL-025 a Member, another church and an organization seat cannot
 	await sentEmail(s, "Private welcome");
 	const digest = ok(await review(s, k)).reviewDigest;
 	const state = { people: await people_(s, k), history: await historyOf(s, k) };
-	for (const who of ["member", "stranger", "orgAdmin"]) {
+	for (const who of ["member", "stranger", "orgAdmin"] as const) {
 		const r = await review(s, k, who);
 		refused(r);
 		assert.ok(!JSON.stringify(r).match(/Park night|Private welcome|obligation|mail/), who);
@@ -277,7 +288,7 @@ test("AC:TARGET-PPL-025 a Member, another church and an organization seat cannot
 	assert.deepEqual({ people: await people_(s, k), history: await historyOf(s, k) }, state);
 	const merged = ok(await mergeWith(s, k, digest));
 	const revision = ok(await preview(merged.mergeId)).reviewRevision;
-	for (const who of ["member", "stranger", "orgAdmin"]) {
+	for (const who of ["member", "stranger", "orgAdmin"] as const) {
 		const p = await preview(merged.mergeId, who);
 		refused(p);
 		assert.ok(!JSON.stringify(p).match(/mail_sent|obligation/), who);

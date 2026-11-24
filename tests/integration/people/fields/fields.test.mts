@@ -1,16 +1,27 @@
 import { fixture, ok, refused } from "../../../support/fixture.mts";
-import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
+import { sql, type SQL } from "../../../../packages/db/src/query.ts";
+import {
+	actionOf,
+	authorityOf,
+	church,
+	isActivity,
+	noReminders,
+	reads,
+	type Reply,
+	type Row,
+	StubClient,
+	withStatus,
+} from "../people-support.mts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 
 import { runDueObjectCleanup } from "../../../../packages/domain/src/jobs/object-cleanup.ts";
-import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
-import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
+import { RequestActor, type WriteTx } from "../../../../packages/domain/src/access/session.ts";
+import { PeopleReadContext, type WriteContext } from "../../../../packages/domain/src/people/core.ts";
 import {
 	peopleWriter as people,
-	peopleReader,
 	personFields as fields,
 	readPersonPhoto,
 	uploadPersonPhoto,
@@ -19,40 +30,46 @@ import {
 import { leave } from "../../../../apps/web/src/features/people/fields/leave.ts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
-const noReminders = async () => {
-	throw Error("unexpected task reminder replan");
-};
-
 const database = await fixture({ prefix: "wp012" });
 const { admin } = database;
 const db = database.pools.runtime;
 
-const plants = [database.tenant.id, (await database.plant()).id],
+const plants = [database.tenant.id, (await database.plant()).id] as const,
 	actors = [
 		database.actors.owner,
 		database.actors.member,
 		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
-	];
-const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
-const tx = (body) => gatedTransaction(db, body);
-const write = async (who, body) =>
-	withPeopleWrite(db, await tx((t) => RequestActor.resolve(t, actors[who].session)), body);
+	] as const;
+type Household = Extract<Awaited<ReturnType<typeof fields.getHousehold>>, { status: "ok" }>["value"];
+const inHousehold = (result: Household) => withStatus(result, "available");
+type Who = 0 | 1 | 2;
+const ctx = (who: Who = 0) => ({ session: actors[who].session, selected: church(plants[who === 2 ? 1 : 0]) });
+const tx = <T,>(body: (t: WriteTx) => Promise<T>) => gatedTransaction(db, body);
+const write = async <T,>(who: Who, body: (t: WriteTx, c: WriteContext) => Promise<Reply<T>>) =>
+	withPeopleWrite(db, await tx((t) => authorityOf(t, actors[who])), body);
 const key = () => randomUUID();
-const rows = async (query) => (await admin.execute(query)).rows;
-const audit = (subject) =>
-	rows(
+const rows = async <T extends Row>(query: SQL) => (await admin.execute<T>(query)).rows;
+type Audit = {
+	kind: string;
+	action: string;
+	subject_type: string;
+	before_value: object | null;
+	after_value: { skill?: { proficiency: string } | null } | null;
+};
+const audit = (subject: string) =>
+	rows<Audit>(
 		sql`SELECT kind,action,subject_type,before_value,after_value FROM audit_event WHERE subject_id=${sql.param(subject)} AND command_id=id ORDER BY occurred_at,id`,
 	);
 
-async function person(name, fields = {}, who = 0) {
+async function person(name: string, fields = {}, who: Who = 0) {
 	return ok(
 		await write(who, async (t, c) =>
 			people.createPerson(t, c, { requestKey: key(), input: { displayName: name, ...fields } }),
 		),
 	).person;
 }
-async function retire(p) {
-	const review = ok(await tx((t) => peopleReader.getStatusWarnings(t, ctx(), { personId: p.id }))).reviewRevision;
+async function retire(p: { id: string; revision: string }) {
+	const review = ok(await tx((t) => reads.getStatusWarnings(t, ctx(), { personId: p.id }))).reviewRevision;
 	ok(
 		await write(0, async (t, c) =>
 			people.retirePerson(
@@ -68,7 +85,8 @@ async function retire(p) {
 		),
 	);
 }
-const revisionOf = async (id) => (await rows(sql`SELECT revision::text r FROM person WHERE id=${sql.param(id)}`))[0].r;
+const revisionOf = async (id: string) =>
+	(await rows<{ r: string }>(sql`SELECT revision::text r FROM person WHERE id=${sql.param(id)}`))[0]!.r;
 
 after(async () => {
 	await database.close();
@@ -77,7 +95,7 @@ after(async () => {
 test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE plant-local tag names, nullable color, one link per pair and deletion with history", async () => {
 	const alex = await person("Alex Rivera"),
 		jamie = await person("Jamie Chen");
-	const create = (name, color, who = 0) =>
+	const create = (name: string, color: string | null | undefined, who: Who = 0) =>
 		write(who, async (t, c) =>
 			fields.createTag(t, c, { requestKey: key(), input: color === undefined ? { name } : { name, color } }),
 		);
@@ -100,8 +118,8 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 	const raced = (await Promise.all(racers.map((name) => create(name, null)))).map((r) => ok(r));
 	assert.deepEqual(raced.map((r) => r.outcome).sort(), ["changed", "noop"]);
 	assert.equal(new Set(raced.map((r) => r.tag.id)).size, 1);
-	const welcome = racers[raced.findIndex((r) => r.outcome === "changed")].trim();
-	assert.equal(raced.find((r) => r.outcome === "changed").tag.name, welcome);
+	const welcome = racers[raced.findIndex((r) => r.outcome === "changed")]!.trim();
+	assert.equal(raced.find((r) => r.outcome === "changed")!.tag.name, welcome);
 	const renamed = ok(
 		await write(0, async (t, c) =>
 			fields.updateTag(t, c, {
@@ -158,7 +176,7 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 	);
 	assert.deepEqual([repeat.outcome, repeat.tags], ["noop", first.tags]);
 	const links = await rows(sql`SELECT count(*)::int n FROM person_tag WHERE person_id=${sql.param(alex.id)}`);
-	assert.equal(links[0].n, 2);
+	assert.equal(links[0]!.n, 2);
 	assert.deepEqual(
 		(await audit(alex.id)).filter((a) => a.kind !== "create").map((a) => [a.kind, a.after_value]),
 		[
@@ -199,11 +217,8 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 			[welcome, 0],
 		],
 	);
-	const activity = ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId: jamie.id }))).items;
-	assert.deepEqual(
-		activity.map((a) => a.action),
-		["retired", "updated", "created"],
-	);
+	const items = ok(await tx((t) => reads.getActivities(t, ctx(), { personId: jamie.id }))).items;
+	assert.deepEqual(items.map(actionOf), ["retired", "updated", "created"]);
 
 	const deleted = ok(
 		await write(0, async (t, c) =>
@@ -219,7 +234,7 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 		ok(await tx((t) => fields.getPersonTags(t, ctx(), { personId: alex.id }))).tags.map((t) => t.name),
 		["family"],
 	);
-	assert.equal((await audit(north.tag.id)).at(-1).action, "people.retired");
+	assert.equal((await audit(north.tag.id)).at(-1)!.action, "people.retired");
 	const remove = () =>
 		write(0, async (t, c) =>
 			fields.removeTag(t, c, { requestKey: key(), input: { personId: alex.id, tagId: family.id } }),
@@ -233,7 +248,7 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 
 test("AC:GAP-PPL-011 AC:TARGET-PPL-011 skills keep closed categories, null clears and refuse stale or foreign edits", async () => {
 	const alex = await person("Alex Rivera");
-	const add = async (name, category, proficiency) =>
+	const add = async (name: string, category: string, proficiency?: string) =>
 		ok(
 			await write(0, async (t, c) =>
 				fields.addSkill(t, c, {
@@ -244,7 +259,7 @@ test("AC:GAP-PPL-011 AC:TARGET-PPL-011 skills keep closed categories, null clear
 		);
 	await add("Music", "worship", "advanced");
 	const added = await add(" Hospitality ", "hospitality", "beginner");
-	const hospitality = added.skills.find((s) => s.name === "Hospitality");
+	const hospitality = added.skills.find((s) => s.name === "Hospitality")!;
 	assert.deepEqual(
 		added.skills.map((s) => [s.category, s.name, s.proficiency]),
 		[
@@ -252,7 +267,7 @@ test("AC:GAP-PPL-011 AC:TARGET-PPL-011 skills keep closed categories, null clear
 			["hospitality", "Hospitality", "beginner"],
 		],
 	);
-	const update = (rev, patch, who = 0) =>
+	const update = (rev: string, patch: object, who: Who = 0) =>
 		write(who, async (t, c) =>
 			fields.updateSkill(t, c, {
 				requestKey: key(),
@@ -269,7 +284,7 @@ test("AC:GAP-PPL-011 AC:TARGET-PPL-011 skills keep closed categories, null clear
 	refused(await update(hospitality.revision, { proficiency: null }), "conflict");
 	refused(await update(hospitality.revision, { proficiency: null }, 2));
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM audit_event`), before);
-	const current = advanced.skills.find((s) => s.id === hospitality.id);
+	const current = advanced.skills.find((s) => s.id === hospitality.id)!;
 	const cleared = ok(await update(current.revision, { proficiency: null, notes: null }));
 	assert.deepEqual(
 		ok(await tx((t) => fields.getPersonSkills(t, ctx(1), { personId: alex.id }))).skills.find(
@@ -277,7 +292,7 @@ test("AC:GAP-PPL-011 AC:TARGET-PPL-011 skills keep closed categories, null clear
 		),
 		{ ...cleared.skills.find((s) => s.id === hospitality.id), proficiency: null, notes: null },
 	);
-	const latest = cleared.skills.find((s) => s.id === hospitality.id);
+	const latest = cleared.skills.find((s) => s.id === hospitality.id)!;
 	const removed = ok(
 		await write(0, async (t, c) =>
 			fields.removeSkill(t, c, {
@@ -294,7 +309,7 @@ test("AC:GAP-PPL-011 AC:TARGET-PPL-011 skills keep closed categories, null clear
 	assert.deepEqual(
 		(await audit(alex.id))
 			.filter((a) => a.kind === "edit")
-			.map((a) => (a.after_value.skill === null ? "removed" : a.after_value.skill.proficiency)),
+			.map((a) => (a.after_value?.skill === null ? "removed" : a.after_value?.skill?.proficiency)),
 		["advanced", "beginner", "advanced", null, "removed"],
 	);
 });
@@ -305,7 +320,7 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 		jamie = await person("Jamie Chen"),
 		retiring = await person("Riley Stone");
 	await retire(retiring);
-	const create = (p, rev) =>
+	const create = (p: { id: string; revision: string }, rev: string) =>
 		write(0, async (t, c) =>
 			fields.createHouseholdWithHead(t, c, {
 				requestKey: key(),
@@ -315,13 +330,13 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 		);
 	refused(await create(retiring, await revisionOf(retiring.id)));
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM household`), [{ n: 0 }]);
-	const created = ok(await create(head, head.revision)).result;
+	const created = inHousehold(ok(await create(head, head.revision)).result);
 	const h = created.household;
 	assert.deepEqual(
 		created.members.map((m) => [m.displayName, m.role, m.street, m.city]),
 		[["Alex Rivera", "head", "9 Elm St", "Chicago"]],
 	);
-	const join = async (p, role, rev) =>
+	const join = async (p: { id: string }, role: string, rev?: string) =>
 		write(0, async (t, c) =>
 			fields.addToHousehold(t, c, {
 				requestKey: key(),
@@ -330,7 +345,7 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 			}),
 		);
 	ok(await join(casey, "spouse"));
-	const joined = ok(await join(jamie, "child")).result;
+	const joined = inHousehold(ok(await join(jamie, "child")).result);
 	assert.deepEqual(
 		joined.members.map((m) => [m.displayName, m.role, m.street]),
 		[
@@ -351,18 +366,20 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 		),
 	);
 
-	const preview = ok(await tx((t) => fields.getHouseholdMembers(t, ctx(), { householdId: h.id })));
-	const edited = ok(
-		await write(0, async (t, c) =>
-			fields.updateHousehold(t, c, {
-				requestKey: key(),
-				expectedRevision: preview.household.revision,
-				input: { householdId: h.id, patch: { street: "10 Oak Ave" } },
-			}),
-		),
-	).result;
+	const preview = inHousehold(ok(await tx((t) => fields.getHouseholdMembers(t, ctx(), { householdId: h.id }))));
+	const edited = inHousehold(
+		ok(
+			await write(0, async (t, c) =>
+				fields.updateHousehold(t, c, {
+					requestKey: key(),
+					expectedRevision: preview.household.revision,
+					input: { householdId: h.id, patch: { street: "10 Oak Ave" } },
+				}),
+			),
+		).result,
+	);
 	const reviewed = preview.members.map((m) => ({ personId: m.personId, revision: m.revision }));
-	const propagate = (rev, members = reviewed) =>
+	const propagate = (rev: string, members = reviewed) =>
 		write(0, async (t, c) =>
 			fields.propagateAddress(t, c, {
 				requestKey: key(),
@@ -371,7 +388,7 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 			}),
 		);
 	refused(await propagate(preview.household.revision), "conflict");
-	assert.equal((await rows(sql`SELECT street FROM person WHERE id=${sql.param(casey.id)}`))[0].street, "1 Own St");
+	assert.equal((await rows(sql`SELECT street FROM person WHERE id=${sql.param(casey.id)}`))[0]!.street, "1 Own St");
 	refused(await propagate(edited.household.revision, reviewed.slice(1)), "conflict");
 	const caseyRevision = await revisionOf(casey.id);
 	ok(
@@ -385,9 +402,9 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 	);
 	const audited = await rows(sql`SELECT count(*)::int n FROM audit_event`);
 	refused(await propagate(edited.household.revision), "conflict");
-	assert.equal((await rows(sql`SELECT street FROM person WHERE id=${sql.param(casey.id)}`))[0].street, "2 New St");
+	assert.equal((await rows(sql`SELECT street FROM person WHERE id=${sql.param(casey.id)}`))[0]!.street, "2 New St");
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM audit_event`), audited);
-	const fresh = ok(await tx((t) => fields.getHouseholdMembers(t, ctx(), { householdId: h.id })));
+	const fresh = inHousehold(ok(await tx((t) => fields.getHouseholdMembers(t, ctx(), { householdId: h.id }))));
 	const propagated = ok(
 		await propagate(
 			fresh.household.revision,
@@ -395,7 +412,7 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 		),
 	);
 	assert.equal(propagated.updatedPeople, 3);
-	assert.deepEqual(new Set(propagated.result.members.map((m) => m.street)), new Set(["10 Oak Ave"]));
+	assert.deepEqual(new Set(inHousehold(propagated.result).members.map((m) => m.street)), new Set(["10 Oak Ave"]));
 	assert.deepEqual(await rows(sql`SELECT DISTINCT street FROM person WHERE household_id=${sql.param(h.id)}`), [
 		{ street: "10 Oak Ave" },
 	]);
@@ -409,9 +426,9 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 			}),
 		),
 	);
-	assert.equal(left.result.household.memberCount, 2);
-	assert.equal((await rows(sql`SELECT street FROM person WHERE id=${sql.param(casey.id)}`))[0].street, "10 Oak Ave");
-	const current = ok(await tx((t) => fields.getHousehold(t, ctx(), { personId: head.id }))).household;
+	assert.equal(inHousehold(left.result).household.memberCount, 2);
+	assert.equal((await rows(sql`SELECT street FROM person WHERE id=${sql.param(casey.id)}`))[0]!.street, "10 Oak Ave");
+	const current = inHousehold(ok(await tx((t) => fields.getHousehold(t, ctx(), { personId: head.id })))).household;
 	refused(
 		await write(0, async (t, c) =>
 			fields.deleteHousehold(t, c, {
@@ -433,7 +450,7 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 		),
 	);
 	assert.deepEqual(
-		role.result.members.map((m) => m.role),
+		inHousehold(role.result).members.map((m) => m.role),
 		["head", "other"],
 	);
 	await retire({ id: jamie.id, revision: await revisionOf(jamie.id) });
@@ -446,7 +463,7 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 			}),
 		),
 	);
-	const empty = ok(await tx((t) => fields.getHousehold(t, ctx(), { householdId: h.id })));
+	const empty = inHousehold(ok(await tx((t) => fields.getHousehold(t, ctx(), { householdId: h.id }))));
 	assert.deepEqual([empty.household.memberCount, empty.members], [0, []]);
 	const raced = await Promise.all([
 		join(casey, "other"),
@@ -473,7 +490,7 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 			await write(0, async (t, c) =>
 				fields.deleteHousehold(t, c, {
 					requestKey: key(),
-					expectedRevision: again.result.household.revision,
+					expectedRevision: inHousehold(again.result).household.revision,
 					input: { householdId: h.id },
 				}),
 			),
@@ -481,45 +498,49 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 	}
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM person WHERE household_id IS NOT NULL`), [{ n: 0 }]);
 	assert.deepEqual(ok(await tx((t) => fields.getHousehold(t, ctx(), { personId: jamie.id }))), { status: "none" });
-	const history = ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId: jamie.id }))).items;
+	const history = ok(await tx((t) => reads.getActivities(t, ctx(), { personId: jamie.id }))).items;
 	assert.deepEqual(
 		history
+			.filter(isActivity)
 			.filter((a) => a.household)
-			.map((a) => [a.action, a.household.from?.role ?? null, a.household.to?.name, a.household.to?.role]),
+			.map((a) => [a.action, a.household?.from?.role ?? null, a.household?.to?.name, a.household?.to?.role]),
 		[
 			["updated", "child", "Rivera household", "other"],
 			["updated", null, "Rivera household", "child"],
 		],
 	);
-	assert.equal((await audit(h.id)).at(-1).action, "people.retired");
+	assert.equal((await audit(h.id)).at(-1)!.action, "people.retired");
 	assert.equal(ok(await tx((t) => fields.listHouseholds(t, ctx(), {}))).total, 0);
 });
 
 test("AC:TARGET-PPL-009 leave-and-delete: one transaction, a replay answers ok, a refused delete keeps the member", async () => {
-	const start = async (name) => {
+	const start = async (name: string) => {
 		const p = await person(name);
-		const made = ok(
-			await write(0, async (t, c) =>
-				fields.createHouseholdWithHead(t, c, {
-					requestKey: key(),
-					expectedRevision: p.revision,
-					input: { name: `${name} household`, headPersonId: p.id },
-				}),
-			),
-		).result.household;
+		const made = inHousehold(
+			ok(
+				await write(0, async (t, c) =>
+					fields.createHouseholdWithHead(t, c, {
+						requestKey: key(),
+						expectedRevision: p.revision,
+						input: { name: `${name} household`, headPersonId: p.id },
+					}),
+				),
+			).result,
+		).household;
 		return { p, h: made };
 	};
-	const households = async (id) => rows(sql`SELECT id FROM household WHERE id=${sql.param(id)}`);
-	const membership = async (id) =>
-		(await rows(sql`SELECT household_id FROM person WHERE id=${sql.param(id)}`))[0].household_id;
-	const leaving = (p, k, rev, deleteEmpty) =>
+	const households = async (id: string) => rows(sql`SELECT id FROM household WHERE id=${sql.param(id)}`);
+	const membership = async (id: string) =>
+		(await rows<{ household_id: string | null }>(sql`SELECT household_id FROM person WHERE id=${sql.param(id)}`))[0]!
+			.household_id;
+	const leaving = (p: { id: string }, k: string, rev: string, deleteEmpty: boolean) =>
 		write(0, (t, c) => leave(t, c, { requestKey: k, expectedRevision: rev, input: { personId: p.id } }, deleteEmpty));
 
 	const one = await start("Morgan Lee");
 	const k = key(),
 		rev = await revisionOf(one.p.id);
 	const first = ok(await leaving(one.p, k, rev, true));
-	assert.equal(first.result.household.memberCount, 0);
+	assert.equal(inHousehold(first.result).household.memberCount, 0);
 	assert.equal(await membership(one.p.id), null);
 	assert.deepEqual(await households(one.h.id), []);
 	const again = ok(await leaving(one.p, k, rev, true));
@@ -554,39 +575,34 @@ const png = Buffer.from(
 	"base64",
 );
 function privateStorage() {
-	const objects = new Map();
-	return {
-		objects,
-		bucket: "synthetic-only",
-		client: {
-			send: async (command) => {
-				const i = command.input;
-				switch (command.constructor.name) {
-					case "GetBucketAclCommand":
-						return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
-					case "PutObjectCommand":
-						assert.match(i.Key, new RegExp(`^private/${plants[0]}/[a-f0-9-]{36}$`));
-						assert.equal(i.ACL, "private");
-						objects.set(i.Key, Buffer.from(i.Body));
-						return {};
-					case "GetObjectCommand": {
-						const body = objects.get(i.Key);
-						return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
-					}
-					case "DeleteObjectCommand":
-						objects.delete(i.Key);
-						return {};
-					default:
-						throw Error("unexpected provider operation");
-				}
-			},
-		},
-	};
+	const objects = new Map<string, Buffer>();
+	const client = new StubClient(async (operation, i) => {
+		switch (operation) {
+			case "GetBucketAclCommand":
+				return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
+			case "PutObjectCommand":
+				assert.match(i.Key!, new RegExp(`^private/${plants[0]}/[a-f0-9-]{36}$`));
+				assert.equal(i.ACL, "private");
+				assert.ok(i.Body instanceof Uint8Array);
+				objects.set(i.Key!, Buffer.from(i.Body));
+				return {};
+			case "GetObjectCommand": {
+				const body = objects.get(i.Key!)!;
+				return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
+			}
+			case "DeleteObjectCommand":
+				objects.delete(i.Key!);
+				return {};
+			default:
+				throw Error("unexpected provider operation");
+		}
+	});
+	return { objects, bucket: "synthetic-only", client };
 }
 test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verified private bytes, exact-version reads, replace, remove and revoked or foreign access", async () => {
 	const storage = privateStorage();
 	const alex = await person("Alex Rivera");
-	const upload = async (bytes, who = 0) => {
+	const upload = async (bytes: Uint8Array, who: Who = 0) => {
 		const pending = ok(
 			await write(who, async (t, c) =>
 				fields.requestPersonPhotoUpload(t, c, {
@@ -599,7 +615,7 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 		);
 		return { pending, stored: await uploadPersonPhoto(db, storage, ctx(who), { uploadId: pending.uploadId, bytes }) };
 	};
-	const set = async (uploadId, who = 0) =>
+	const set = async (uploadId: string, who: Who = 0) =>
 		write(who, async (t, c) =>
 			fields.setPersonPhoto(t, c, {
 				requestKey: key(),
@@ -647,7 +663,7 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 
 	const second = await upload(png);
 	const replaced = ok(await set(second.pending.uploadId));
-	assert.equal(replaced.photo.versionId, second.pending.uploadId);
+	assert.equal(withStatus(replaced.photo, "available").versionId, second.pending.uploadId);
 	refused(await readPersonPhoto(db, storage, ctx(), version));
 	assert.ok(
 		ok(await readPersonPhoto(db, storage, ctx(), { personId: alex.id, versionId: second.pending.uploadId })).bytes
@@ -693,7 +709,7 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 });
 
 const sharp = createRequire(import.meta.url)("../../../../packages/db/node_modules/sharp");
-async function jpegOf(size) {
+async function jpegOf(size: number) {
 	const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#2e7d32" } })
 		.jpeg()
 		.toBuffer();
@@ -715,15 +731,15 @@ async function jpegOf(size) {
 
 test("AC:TARGET-PPL-005 peo-51 peo-52 a 1.5 MB photo saves, and a replay of its request key after a lost answer answers the saved change with one upload", async () => {
 	const storage = privateStorage();
-	const send = storage.client.send;
+	const { answer } = storage.client;
 	let puts = 0;
-	storage.client.send = async (command) => {
-		if (command.constructor.name === "PutObjectCommand") puts++;
-		return send(command);
+	storage.client.answer = async (operation, input) => {
+		if (operation === "PutObjectCommand") puts++;
+		return answer(operation, input);
 	};
 	const sam = await person("Sam Ortiz");
 	const photo = await jpegOf(1_500_000);
-	const change = async (requestKey, expectedRevision, bytes) => {
+	const change = async (requestKey: string, expectedRevision: string, bytes: Uint8Array) => {
 		const staged = ok(
 			await write(0, async (t, c) =>
 				fields.requestPersonPhotoUpload(t, c, {
@@ -748,16 +764,16 @@ test("AC:TARGET-PPL-005 peo-51 peo-52 a 1.5 MB photo saves, and a replay of its 
 	};
 	const uploads = async () =>
 		(
-			await rows(
+			await rows<{ n: number }>(
 				sql`SELECT count(*)::int n FROM file_object WHERE tenant_id=${sql.param(plants[0])} AND purpose='person_photo'`,
 			)
-		)[0].n;
+		)[0]!.n;
 	const updates = async () =>
 		(
-			await rows(
+			await rows<{ n: number }>(
 				sql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${sql.param(sam.id)} AND command_id=id AND action='people.updated'`,
 			)
-		)[0].n;
+		)[0]!.n;
 	const before = { uploads: await uploads(), updates: await updates() };
 
 	const requestKey = key();
@@ -775,7 +791,7 @@ test("AC:TARGET-PPL-005 peo-51 peo-52 a 1.5 MB photo saves, and a replay of its 
 	const delivered = ok(await readPersonPhoto(db, storage, ctx(1), { personId: sam.id, versionId: first.uploadId }));
 	assert.deepEqual([Buffer.from(delivered.bytes).equals(photo), delivered.mediaType], [true, "image/jpeg"]);
 
-	const stage = (requestKey, byteLength) =>
+	const stage = (requestKey: string, byteLength: number) =>
 		write(0, async (t, c) =>
 			fields.requestPersonPhotoUpload(t, c, { requestKey, personId: sam.id, mime: "image/jpeg", byteLength }),
 		);
@@ -791,15 +807,17 @@ test("AC:TARGET-PPL-005 peo-51 peo-52 a 1.5 MB photo saves, and a replay of its 
 
 test("INV-tenancy C13: a seat ended after the request resolved its actor reads no people-fields data", async () => {
 	const p = await person("Morgan Lee");
-	const home = ok(
-		await write(0, async (t, c) =>
-			fields.createHouseholdWithHead(t, c, {
-				requestKey: key(),
-				expectedRevision: await revisionOf(p.id),
-				input: { name: "Lee household", headPersonId: p.id },
-			}),
-		),
-	).result.household;
+	const home = inHousehold(
+		ok(
+			await write(0, async (t, c) =>
+				fields.createHouseholdWithHead(t, c, {
+					requestKey: key(),
+					expectedRevision: await revisionOf(p.id),
+					input: { name: "Lee household", headPersonId: p.id },
+				}),
+			),
+		).result,
+	).household;
 	const storage = privateStorage();
 	const pending = ok(
 		await write(0, async (t, c) =>
@@ -823,7 +841,7 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 	);
 	const actor = await gatedTransaction(db, (t) => RequestActor.resolve(t, actors[1].session));
 	assert.ok(actor instanceof RequestActor);
-	const reads = {
+	const reads: Record<string, (t: WriteTx, c: PeopleReadContext) => Promise<Reply<unknown>>> = {
 		listTags: (t, c) => fields.listTags(t, c, {}),
 		getPersonTags: (t, c) => fields.getPersonTags(t, c, { personId: p.id }),
 		getPersonSkills: (t, c) => fields.getPersonSkills(t, c, { personId: p.id }),
@@ -834,7 +852,8 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 		getPersonPhoto: (t, c) => fields.getPersonPhoto(t, c, { personId: p.id }),
 		readPersonPhoto: (_t, c) => readPersonPhoto(db, storage, c, { personId: p.id, versionId: pending.uploadId }),
 	};
-	const run = (read) => gatedTransaction(db, (t) => read(t, new PeopleReadContext(actor)));
+	const run = (read: (t: WriteTx, c: PeopleReadContext) => Promise<Reply<unknown>>) =>
+		gatedTransaction(db, (t) => read(t, new PeopleReadContext(actor)));
 	for (const read of Object.values(reads)) ok(await run(read));
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(actors[1].id)}`);
 	try {

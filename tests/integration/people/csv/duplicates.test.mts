@@ -1,10 +1,22 @@
 import { fixture, ok, refused } from "../../../support/fixture.mts";
-import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
+import { sql, type SQL } from "../../../../packages/db/src/query.ts";
+import {
+	actionOf,
+	authorityOf,
+	church,
+	isActivity,
+	noReminders,
+	reads,
+	type Reply,
+	type Row,
+	withStatus,
+} from "../people-support.mts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
-import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
+import type { Context, WriteContext } from "../../../../packages/domain/src/people/core.ts";
+import type { WriteTx } from "../../../../packages/domain/src/access/session.ts";
 import { runDueImports } from "../../../../apps/web/src/features/people/import-export/run-imports.ts";
 import { readPair } from "../../../../apps/web/src/features/people/corrections/server.ts";
 import { readPeoplePage } from "../../../../apps/web/src/features/people/page-data.ts";
@@ -16,49 +28,50 @@ import {
 	listDuplicatePairs,
 	peopleCsv as csv,
 	peopleMerge,
-	peopleReader,
 	peopleWriter as people,
 	restoreDuplicatePair,
 	withPeopleWrite,
 } from "../../../../packages/domain/src/people/index.ts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
-const noReminders = async () => {
-	throw Error("unexpected task reminder replan");
-};
-
 const database = await fixture({ prefix: "t263" });
 const { admin } = database;
 const db = database.pools.runtime;
-const plants = [database.tenant.id, (await database.plant()).id];
+const plants = [database.tenant.id, (await database.plant()).id] as const;
 const actors = [
 	await database.actor({ kind: "plant", id: plants[0] }, "admin", { user: { name: "Ada Admin" } }),
 	database.actors.member,
 	await database.actor({ kind: "plant", id: plants[1] }, "admin"),
 	database.actors.owner,
-];
-const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
-const rows = async (query) => (await admin.execute(query)).rows;
-const read = (who, body) => gatedTransaction(db, (t) => body(t, ctx(who)));
-const actor = async (who = 0) => gatedTransaction(db, (t) => RequestActor.resolve(t, actors[who].session));
-const write = async (who, body) => withPeopleWrite(db, await actor(who), body);
-const dismiss = (pair, who = 0) => write(who, (t, c) => dismissDuplicatePair(t, c, pair));
-const restore = (pair, who = 0) => write(who, (t, c) => restoreDuplicatePair(t, c, pair));
-const listed = async (who = 0) => ok(await read(who, (t, c) => listDuplicatePairs(t, c))).items;
-const dismissedList = async (who = 0) => ok(await read(who, (t, c) => listDismissedDuplicatePairs(t, c))).items;
-const ids = (items) => items.map((x) => ({ personId: x.person.id, withPersonId: x.with.id }));
-const bytes = (text) => new TextEncoder().encode(text);
+] as const;
+type Who = 0 | 1 | 2 | 3;
+const ctx = (who: Who = 0) => ({ session: actors[who].session, selected: church(plants[who === 2 ? 1 : 0]) });
+const rows = async <T extends Row>(query: SQL) => (await admin.execute<T>(query)).rows;
+const read = <T,>(who: Who, body: (t: WriteTx, c: Context) => Promise<T>) =>
+	gatedTransaction(db, (t) => body(t, ctx(who)));
+const actor = (who: Who = 0) => gatedTransaction(db, (t) => authorityOf(t, actors[who]));
+const write = async <T,>(who: Who, body: (t: WriteTx, c: WriteContext) => Promise<Reply<T>>) =>
+	withPeopleWrite(db, await actor(who), body);
+type Pair = Record<"personId" | "withPersonId", Awaited<ReturnType<typeof person>>["id"]>;
+const dismiss = (pair: { personId: string; withPersonId: string } | null, who: Who = 0) =>
+	write(who, (t, c) => dismissDuplicatePair(t, c, pair));
+const restore = (pair: Pair, who: Who = 0) => write(who, (t, c) => restoreDuplicatePair(t, c, pair));
+const listed = async (who: Who = 0) => ok(await read(who, (t, c) => listDuplicatePairs(t, c))).items;
+const dismissedList = async (who: Who = 0) => ok(await read(who, (t, c) => listDismissedDuplicatePairs(t, c))).items;
+type Listed = { person: { id: string }; with: { id: string } };
+const ids = (items: Listed[]) => items.map((x) => ({ personId: x.person.id, withPersonId: x.with.id }));
+const bytes = (text: string) => new TextEncoder().encode(text);
 
-async function person(name, input = {}) {
+async function person(name: string, input = {}) {
 	return ok(
 		await write(3, (t, c) =>
 			people.createPerson(t, c, { requestKey: randomUUID(), input: { displayName: name, ...input } }),
 		),
 	).person;
 }
-async function flaggedPairs(names) {
+async function flaggedPairs<const Names extends readonly string[]>(names: Names) {
 	const tag = randomUUID().slice(0, 8);
-	const existing = [];
+	const existing: Awaited<ReturnType<typeof person>>[] = [];
 	for (const n of names)
 		existing.push(await person(`${n} Existing`, { email: `${n.toLowerCase()}-${tag}@example.test` }));
 	const text =
@@ -78,21 +91,25 @@ async function flaggedPairs(names) {
 	await runDueImports(db, 10);
 	const receipt = ok(await read(3, (t, c) => csv.getImportReceipt(t, c, { requestKey })));
 	return names.map((_, i) => ({
-		personId: receipt.rows.find((r) => r.row === i + 1).personId,
-		withPersonId: existing[i].id,
-	}));
+		personId: withStatus(
+			receipt.rows.find((r) => r.row === i + 1)!,
+			"created",
+		).personId,
+		withPersonId: existing[i]!.id,
+	})) as { [K in keyof Names]: Pair };
 }
-const mine = (pairs) => (items) => ids(items).filter((x) => pairs.some((p) => p.personId === x.personId));
-const audits = async (pair) =>
+const mine = (pairs: Pair[]) => (items: Listed[]) =>
+	ids(items).filter((x) => pairs.some((p) => p.personId === x.personId));
+const audits = async (pair: Pair) =>
 	rows(sql`SELECT tenant_id::text,actor_id::text,action,kind,subject_type,subject_id::text,metadata FROM audit_event
  WHERE subject_id=${sql.param(pair.personId)}::uuid AND action IN ('people.duplicate_dismissed','people.duplicate_restored')
  ORDER BY occurred_at,id`);
-const dismissals = async (pair) =>
+const dismissals = async (pair: Pair) =>
 	(
 		await rows(
 			sql`SELECT count(*)::int n FROM person_duplicate_dismissal WHERE person_id=${sql.param(pair.personId)}::uuid`,
 		)
-	)[0].n;
+	)[0]!.n;
 
 after(async () => {
 	await database.close();
@@ -106,14 +123,17 @@ test("AC:TARGET-PPL-016 a dismissed pair leaves the list for the Dismissed view,
 
 	assert.deepEqual(ok(await dismiss(first)), { outcome: "changed" });
 	assert.deepEqual(ours(await listed()), [second]);
-	const [shown] = (await dismissedList()).filter((x) => x.person.id === first.personId);
+	const shown = (await dismissedList()).find((x) => x.person.id === first.personId);
+	assert.ok(shown);
 	assert.equal(shown.person.displayName, "Iris Imported");
 	assert.equal(shown.with.displayName, "Iris Existing");
 	assert.equal(shown.dismissedBy, "Ada Admin");
-	const [{ at }] = await rows(
-		sql`SELECT to_char(dismissed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at FROM person_duplicate_dismissal
+	const { at } = (
+		await rows(
+			sql`SELECT to_char(dismissed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at FROM person_duplicate_dismissal
  WHERE person_id=${sql.param(first.personId)}::uuid`,
-	);
+		)
+	)[0]!;
 	assert.equal(shown.dismissedAt, at, "when it was dismissed");
 
 	assert.deepEqual(ok(await restore(first)), { outcome: "changed" });
@@ -151,8 +171,8 @@ test("AC:TARGET-PPL-016 a repeated dismiss or restore, or a double click, ends i
 test("AC:TARGET-PPL-016 a merged, retired or never-flagged pair is refused with nothing written, and the Dismissed view shows only live pairs", async () => {
 	const [merged, retired, kept] = await flaggedPairs(["Lev", "Mae", "Ned"]);
 	const before = async () => [
-		(await rows(sql`SELECT count(*)::int n FROM person_duplicate_dismissal`))[0].n,
-		(await rows(sql`SELECT count(*)::int n FROM audit_event WHERE action LIKE 'people.duplicate_%'`))[0].n,
+		(await rows(sql`SELECT count(*)::int n FROM person_duplicate_dismissal`))[0]!.n,
+		(await rows(sql`SELECT count(*)::int n FROM audit_event WHERE action LIKE 'people.duplicate_%'`))[0]!.n,
 	];
 
 	const review = ok(
@@ -184,9 +204,11 @@ test("AC:TARGET-PPL-016 a merged, retired or never-flagged pair is refused with 
 
 	ok(await dismiss(retired));
 	ok(await dismiss(kept));
-	const [{ revision }] = await rows(sql`SELECT revision::text FROM person WHERE id=${sql.param(retired.withPersonId)}`);
+	const { revision } = (
+		await rows(sql`SELECT revision::text FROM person WHERE id=${sql.param(retired.withPersonId)}`)
+	)[0]!;
 	const { reviewRevision } = ok(
-		await read(3, (t, c) => peopleReader.getStatusWarnings(t, c, { personId: retired.withPersonId })),
+		await read(3, (t, c) => reads.getStatusWarnings(t, c, { personId: retired.withPersonId })),
 	);
 	ok(
 		await write(3, (t, c) =>
@@ -224,10 +246,12 @@ test("AC:TARGET-PPL-016 INV-tenancy only the church's Owners and Admins dismiss,
 	assert.deepEqual(mine([pair])(await dismissedList(0)), [pair]);
 });
 
-const review = (person, other, keep = null) => read(0, (t, c) => readPair(t, c, { person, with: other, keep }));
-const listedOn = async (person, other, keep = null) => {
+type PersonId = Pair["personId"];
+const review = (person: PersonId, other: PersonId, keep: PersonId | null = null) =>
+	read(0, (t, c) => readPair(t, c, { person, with: other, keep }));
+const listedOn = async (person: PersonId, other: PersonId, keep: PersonId | null = null) => {
 	const view = await review(person, other, keep);
-	assert.equal(view.kind, "ready");
+	assert.ok(view.kind === "ready", view.kind);
 	return view.listed;
 };
 
@@ -293,12 +317,12 @@ test("AC:TARGET-PPL-016 a hint-only pair is not listed, and a dismiss after one 
 });
 
 test("AC:TARGET-PPL-016 INV-tenancy the People page load counts the church's listed pairs for an Owner or Admin, one lower after a dismiss", async () => {
-	const page = (who, pairs = true) =>
+	const page = (who: Who, pairs = true) =>
 		read(who, (t, c) => readPeoplePage(t, c, parseQuery(new URLSearchParams()), { pairs }));
 	const [one, two] = await flaggedPairs(["Quin", "Wes"]);
 	const n = (await listed()).length;
 	assert.ok(n >= 2);
-	const label = (k) => (k ? `${k} to review in Duplicates` : null);
+	const label = (k: number) => (k ? `${k} to review in Duplicates` : null);
 	assert.equal((await page(0)).review, label(n), "the Admin's count is the list's");
 	assert.equal((await page(3)).review, label(n), "the Owner's too");
 	assert.equal((await page(2)).review, label((await listed(2)).length));
@@ -316,16 +340,17 @@ test("AC:TARGET-PPL-016 INV-tenancy the People page load counts the church's lis
 	ok(await restore(two));
 });
 
-const feed = async (personId, who = 3) =>
-	ok(await read(who, (t, c) => peopleReader.getActivities(t, c, { personId, kinds: ["activity"], limit: 24 }))).items;
-const reviews = (items) =>
+const feed = async (personId: string, who: Who = 3) =>
+	ok(await read(who, (t, c) => reads.getActivities(t, c, { personId, kinds: ["activity"], limit: 24 }))).items;
+const reviews = (items: Awaited<ReturnType<typeof feed>>) =>
 	items
+		.filter(isActivity)
 		.filter((i) => i.action === "duplicate_dismissed" || i.action === "duplicate_restored")
 		.map((i) => ({ action: i.action, actor: i.actor, with: i.withPerson }));
-const by = (who) => ({ kind: "current_account", accountId: actors[who].id });
-async function retire(personId) {
-	const [{ revision }] = await rows(sql`SELECT revision::text FROM person WHERE id=${sql.param(personId)}`);
-	const { reviewRevision } = ok(await read(3, (t, c) => peopleReader.getStatusWarnings(t, c, { personId })));
+const by = (who: Who) => ({ kind: "current_account", accountId: actors[who].id });
+async function retire(personId: string) {
+	const { revision } = (await rows(sql`SELECT revision::text FROM person WHERE id=${sql.param(personId)}`))[0]!;
+	const { reviewRevision } = ok(await read(3, (t, c) => reads.getStatusWarnings(t, c, { personId })));
 	ok(
 		await write(3, (t, c) =>
 			people.retirePerson(
@@ -358,10 +383,7 @@ test("AC:TARGET-PPL-008 a dismiss and its restore show in both people's Activity
 		{ action: "duplicate_dismissed", actor: by(0), with: imported },
 	]);
 	const items = await feed(pair.personId);
-	assert.deepEqual(
-		items.map((i) => i.action),
-		["duplicate_restored", "duplicate_dismissed", "created"],
-	);
+	assert.deepEqual(items.map(actionOf), ["duplicate_restored", "duplicate_dismissed", "created"]);
 	const ordered = [...items].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt) || b.id.localeCompare(a.id));
 	assert.deepEqual(items, ordered);
 });
@@ -370,7 +392,9 @@ test("AC:TARGET-PPL-008 the entry names the other person as they are now: rename
 	const [renamed, merged] = await flaggedPairs(["Sol", "Tam"]);
 	ok(await dismiss(renamed));
 	ok(await dismiss(merged));
-	const [{ revision }] = await rows(sql`SELECT revision::text FROM person WHERE id=${sql.param(renamed.withPersonId)}`);
+	const { revision } = (
+		await rows(sql`SELECT revision::text FROM person WHERE id=${sql.param(renamed.withPersonId)}`)
+	)[0]!;
 	ok(
 		await write(3, (t, c) =>
 			people.updatePerson(t, c, {
@@ -427,8 +451,10 @@ test("AC:TARGET-PPL-008 INV-tenancy the feed never shows or names another church
 			people.createPerson(t, c, { requestKey: randomUUID(), input: { displayName: "Vic Other" } }),
 		),
 	).person;
-	const [mine] = await rows(sql`SELECT id FROM audit_event WHERE subject_id=${sql.param(pair.personId)}::uuid
- AND action='people.duplicate_dismissed'`);
+	const mine = (
+		await rows(sql`SELECT id FROM audit_event WHERE subject_id=${sql.param(pair.personId)}::uuid
+ AND action='people.duplicate_dismissed'`)
+	)[0]!;
 	await admin.execute(sql`INSERT INTO audit_event (tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,metadata)
  SELECT ${sql.param(plants[1])}::uuid,${sql.param(actors[2].id)}::uuid,actor_token,action,kind,subject_type,${sql.param(theirs.id)}::uuid,
   jsonb_build_object('withPersonId',${sql.param(pair.withPersonId)}::text) FROM audit_event WHERE id=${sql.param(mine.id)}::uuid`);
