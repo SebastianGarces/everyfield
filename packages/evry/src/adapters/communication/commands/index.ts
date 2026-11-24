@@ -1231,8 +1231,7 @@ export const correctContactLog: ReviewedWrite<z.infer<typeof correctInput>> = {
 				)}))`,
 		)} AS review,
 			jsonb_build_object('expectedRevision',o.revision::text,'input',jsonb_strip_nulls(jsonb_build_object('outcomeId',o.id,'outcome',${value.outcome}::text,
-				'occurredAt',CASE WHEN ${value.occurredAt ?? null}::text IS NOT NULL OR ${value.outcome}::text='contacted'
-					THEN ${iso(at)} END,'reason',${value.reason}::text))) AS args
+				'occurredAt',CASE WHEN ${value.outcome}::text='contacted' THEN ${iso(at)} END,'reason',${value.reason}::text))) AS args
 			FROM contact_outcome o JOIN person p ON p.id=o.person_id AND p.tenant_id=o.plant_id
 			WHERE o.id=${value.outcomeId}::uuid AND o.plant_id=${plant}::uuid AND o.voided_at IS NULL`;
 	},

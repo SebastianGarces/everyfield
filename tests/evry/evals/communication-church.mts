@@ -7,11 +7,10 @@ const id = (n: number) => `5b6d1f0e-0000-4000-8000-${n.toString(16).padStart(12,
 export const ADDRESS_KEY = Buffer.alloc(32, 9);
 export const INVITATION = id(0xc3c01);
 export const REMINDER = id(0xc3c02);
-export const THANKS = id(0xc3c03);
+const THANKS = id(0xc3c03);
 export const USED_TEMPLATE = id(0xc3c11);
-export const UNUSED_TEMPLATE = id(0xd33);
 export const ALEX_CALL = id(0xc3c21);
-export const JAMIE = id(0xc3c31);
+const JAMIE = id(0xc3c31);
 const SUPPRESSION = id(0xc3c41);
 const BOUNCE = id(0xc3c42);
 const RESTORE = id(0xc3c43);
@@ -43,8 +42,8 @@ export const INVITED: readonly Recipient[] = [
 	{ name: "Casey Brooks", state: "refused", result: "unsubscribed", refusal: "unsubscribed" },
 ];
 export const OWNER_EMAIL = "owner@example.test";
-export const MEMBER_EMAIL = "member@example.test";
-export const addressHash = (address: string) => createHmac("sha256", ADDRESS_KEY).update(address).digest("hex");
+const MEMBER_EMAIL = "member@example.test";
+const addressHash = (address: string) => createHmac("sha256", ADDRESS_KEY).update(address).digest("hex");
 
 export async function seedCommunication(admin: Database) {
 	const run = (q: ReturnType<typeof sql>) => admin.execute(q);

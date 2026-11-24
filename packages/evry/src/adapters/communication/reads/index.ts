@@ -526,18 +526,16 @@ const HAS_EMAILS = sql`EXISTS(SELECT FROM communication c WHERE c.plant_id=mt.pl
 const HAS_RECIPIENTS = sql`EXISTS(SELECT FROM communication c JOIN mail m ON m.tenant_id=c.plant_id AND m.communication_id=c.id
 	WHERE c.plant_id=mt.plant_id AND c.meeting_id=mt.id AND m.recipient_person_id IS NOT NULL)`;
 async function findMeeting(tx: Transaction, actor: EvryActor, input: MeetingInput, holds: SQL) {
-	const words = meetingPatterns(input.meetingWords);
+	const words = sql`${sql.param(meetingPatterns(input.meetingWords))}::text[]`;
+	const matched = sql`(SELECT count(*) FROM unnest(${words}) w(p) WHERE mt.title ILIKE w.p OR replace(mt.type,'_',' ') ILIKE w.p)`;
 	const r = await tx.execute(sql`
 		SELECT mt.id,mt.title,mt.type,mt.vision_number AS vision,${sql.raw(local("mt.starts_at", "mt.timezone"))} AS starts
 		FROM meeting mt WHERE mt.plant_id=${actor.owner.id}::uuid AND ${live(actor)}
 			AND (${input.meetingId ?? null}::uuid IS NULL OR mt.id=${input.meetingId ?? null}::uuid)
 			AND (${input.meetingId ?? null}::uuid IS NOT NULL OR mt.status<>'cancelled')
 			AND (${input.meetingOn ?? null}::date IS NULL OR mt.local_date=${input.meetingOn ?? null}::date)
-			AND (cardinality(${sql.param(words)}::text[])=0 OR EXISTS(SELECT FROM unnest(${sql.param(words)}::text[]) w(p)
-				WHERE mt.title ILIKE w.p OR replace(mt.type,'_',' ') ILIKE w.p))
-		ORDER BY (SELECT count(*) FROM unnest(${sql.param(words)}::text[]) w(p)
-				WHERE mt.title ILIKE w.p OR replace(mt.type,'_',' ') ILIKE w.p) DESC,
-			${holds} DESC, ${SOONEST} LIMIT 1`);
+			AND (cardinality(${words})=0 OR ${matched}>0)
+		ORDER BY ${matched} DESC,${holds} DESC, ${SOONEST} LIMIT 1`);
 	const found = meetingRow.optional().parse(r.rows[0]);
 	return found
 		? {
