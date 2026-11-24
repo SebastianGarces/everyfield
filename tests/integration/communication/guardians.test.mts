@@ -7,6 +7,7 @@ import { communicationWriter, withCommunicationWrite } from "../../../packages/d
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
+import { hubLabel } from "../../../apps/web/src/features/communication/model.ts";
 import { MAILING } from "./church-address.mts";
 import { personFields, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
 
@@ -88,7 +89,7 @@ const scheduleAt = (saved, at = new Date(Date.now() + 7 * DAY).toISOString()) =>
 		expectedRevision: saved.revision,
 		input: { communicationId: saved.communicationId, scheduledAt: at },
 	});
-async function handOff(people: Who[], mode: "now" | "scheduled", extra = {}, body?: string) {
+async function handOff(people: Who[], mode: "now" | "scheduled", extra = {}, body?: string, leftOut?: string[]) {
 	const resend = resendRecorder(PRODUCTION);
 	const saved = await draft(people, extra, body);
 	const scheduled = ok(await scheduleAt(saved));
@@ -96,7 +97,11 @@ async function handOff(people: Who[], mode: "now" | "scheduled", extra = {}, bod
 		await communicationWriter[mode === "now" ? "sendReviewed" : "handOffScheduled"](
 			f.db,
 			owner.actor,
-			{ requestKey: key(), expectedRevision: scheduled.revision, input: { communicationId: saved.communicationId } },
+			{
+				requestKey: key(),
+				expectedRevision: scheduled.revision,
+				input: { communicationId: saved.communicationId, leftOut },
+			},
 			resend.transport,
 			keys,
 		),
@@ -121,6 +126,15 @@ async function shown(id: string) {
 		recipients: detail.recipients,
 	};
 }
+const hubOf = async (id: string) =>
+	ok(await read("listHistory", { limit: 100 })).items.find((row) => row.id === id).state;
+const explained = ({ totals }) => ({
+	guardian: totals.guardian,
+	child: totals.child,
+	unsubscribed: totals.unsubscribed,
+	failed: totals.failed,
+	suppressed: totals.suppressed,
+});
 const rowOf = (view, who: Who) => view.recipients.find((row) => row.personId === who.id);
 
 before(async () => {
@@ -433,5 +447,87 @@ test("AC:CASE-NTF-016-GUARDIAN a child whose own address is blocked still goes t
 			{ guardian: 1, child: 0, failed: 1, suppressed: 1 },
 			mode,
 		);
+	}
+});
+
+test("AC:CASE-NTF-016-GUARDIAN a child who had already unsubscribed still goes to their parent or guardian, and reads the same sent now, scheduled or named as left out", async () => {
+	for (const mode of ["now", "scheduled", "left out"] as const) {
+		const home = await household("Vega household");
+		const ana = await person("Ana Vega", "adult", null);
+		const uri = await person("Uri Vega", "adult", null);
+		const mia = await person("Mia Vega", "adult", home);
+		const sol = await person("Sol Vega", "child", home);
+		await link(sol, mia, home);
+		await optOut(sol);
+		await optOut(uri);
+		const message = await handOff(
+			[ana, uri, sol],
+			mode === "now" ? "now" : "scheduled",
+			{},
+			undefined,
+			mode === "left out" ? [sol.id, uri.id] : undefined,
+		);
+		const { guardianCount, childCount, unsubscribedCount, rejectedCount } = message.report;
+		assert.deepEqual(
+			{ guardianCount, childCount, unsubscribedCount, rejectedCount },
+			{ guardianCount: 1, childCount: 0, unsubscribedCount: 1, rejectedCount: 0 },
+			mode,
+		);
+		const check = async () => {
+			const view = await shown(message.id);
+			assert.deepEqual(
+				[rowOf(view, sol).deliveryStatus, rowOf(view, sol).sentTo, rowOf(view, uri).deliveryStatus],
+				["guardian", "Mia Vega", "unsubscribed"],
+				mode,
+			);
+			assert.deepEqual(explained(view), { guardian: 1, child: 0, unsubscribed: 1, failed: 0, suppressed: 0 }, mode);
+		};
+		await check();
+		if (mode !== "now") {
+			assert.deepEqual(await mailOf(message.id, uri), [{ state: "refused", refusal: "unsubscribed", guardians: null }]);
+			await atSendTime(f.admin, f.db, message.id, message.resend.transport, keys);
+		}
+		assert.deepEqual(sentTo(message.resend).sort(), [ana.email, mia.email].sort(), mode);
+		assert.ok(emailFor(message.resend, mia).html.includes("as the parent or guardian of Sol Vega."), mode);
+		assert.deepEqual(
+			await mailOf(message.id, sol),
+			[{ state: "refused", refusal: "guardian", guardians: [mia.id] }],
+			mode,
+		);
+		assert.deepEqual(
+			await mailOf(message.id, uri),
+			[{ state: "refused", refusal: "unsubscribed", guardians: null }],
+			mode,
+		);
+		await check();
+	}
+});
+
+test("AC:CASE-NTF-016-GUARDIAN an email scheduled only to an unsubscribed child goes to their parent or guardian, or reads Not sent: marked as a child when that adult can no longer be emailed", async () => {
+	for (const reached of [true, false]) {
+		const home = await household("Wolf household");
+		const ida = await person("Ida Wolf", "adult", home);
+		const kit = await person("Kit Wolf", "child", home);
+		await link(kit, ida, home);
+		await optOut(kit);
+		const message = await handOff([kit], "scheduled");
+		assert.equal(await hubOf(message.id), "scheduled");
+		if (!reached) await optOut(ida);
+		await atSendTime(f.admin, f.db, message.id, message.resend.transport, keys);
+		assert.deepEqual(sentTo(message.resend), reached ? [ida.email] : []);
+		assert.deepEqual(await mailOf(message.id, kit), [
+			reached
+				? { state: "refused", refusal: "guardian", guardians: [ida.id] }
+				: { state: "refused", refusal: "child", guardians: null },
+		]);
+		const state = await hubOf(message.id);
+		assert.equal(hubLabel[state], reached ? hubLabel.sending : "Not sent: marked as a child");
+		assert.deepEqual(explained(await shown(message.id)), {
+			guardian: reached ? 1 : 0,
+			child: reached ? 0 : 1,
+			unsubscribed: 0,
+			failed: 0,
+			suppressed: 0,
+		});
 	}
 });
