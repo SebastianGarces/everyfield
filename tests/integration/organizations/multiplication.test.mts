@@ -4,9 +4,10 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { seeds, waitingOnLock } from "../../support/fixture.mts";
+import { seeds, waitingOnLock, type Actor as SeededActor, type Workspace } from "../../support/fixture.mts";
+import { authorityOf } from "../people/people-support.mts";
 import { readViewer, RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { accountId } from "../../../packages/contracts/src/common/index.ts";
 import {
 	createOrganizationAdapter,
 	pipelineWriter,
@@ -27,10 +28,10 @@ import { listPeople } from "../../../packages/evry/src/adapters/pipeline/reads/i
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f: Awaited<ReturnType<typeof fixture>>;
-type Actor = { id: string; session: string; email: string };
-type Org = { kind: "organization"; id: string; organizationKind: "sending_church" | "sending_network" };
+type Actor = Pick<SeededActor, "id" | "session" | "email">;
+type Org = Workspace & { kind: "organization" };
 let grace: Org, hill: Org;
-let harvest: { kind: "plant"; id: string };
+let harvest: Workspace & { kind: "plant" };
 let dana: Actor, luis: Actor, ana: Actor, dee: Actor, ben: Actor, hillOwner: Actor, planter: Actor, casey: Actor;
 let anaSeat: string, deeSeat: string;
 let networkLink: string;
@@ -59,7 +60,7 @@ const VISION = "Present your vision to the sending church leadership";
 const PROSPECTUS = "Write a church planting prospectus";
 const PREACH = "Preach on a Sunday";
 
-const authority = (a: { session: string }) => RequestActor.resolve(f.db, sessionId.parse(a.session));
+const authority = (a: Pick<Actor, "session">) => authorityOf(f.db, a);
 const ok = <T,>(r: { status: string; value?: T; refusal?: unknown }): T => {
 	assert.equal(r.status, "ok", JSON.stringify(r));
 	return r.value as T;
@@ -69,11 +70,13 @@ const board = async (a: Actor) => ok(await readPipelineBoard(f.db, await authori
 const names = (b: Awaited<ReturnType<typeof board>>) => b.stages.flatMap((s) => s.people.map((p) => p.name)).sort();
 const record = async (a: Actor, personId: string) => readPipelinePersonRecord(f.db, await authority(a), { personId });
 const enrollment = async (a: Actor, enrollmentId: string) => readEnrollment(f.db, await authority(a), { enrollmentId });
+type Note = Extract<Awaited<ReturnType<typeof record>>, { status: "ok" }>["value"]["notes"][number];
+const noteBody = (n: Note) => ("body" in n ? n.body : null);
 const milestoneOf = <T extends { title: string }>(list: T[], title: string) => list.find((m) => m.title === title)!;
 async function evryRead(a: Actor) {
-	const viewer = await readViewer(f.db, sessionId.parse(a.session));
+	const viewer = await readViewer(f.db, a.session);
 	const actor = evryActor(viewer!.authority!);
-	return JSON.stringify(await invokeRead(f.db, actor, listPeople as never, {}));
+	return JSON.stringify(await invokeRead(f.db, actor, listPeople, {}));
 }
 const today = async () =>
 	(await f.admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text AS d`)).rows[0]!
@@ -96,14 +99,14 @@ async function caseyShares(choices: { shareFoundations: boolean; shareMilestones
 			sql`SELECT id,revision::text AS revision,consent_revision::text AS consent FROM residency_link WHERE account_id=${casey.id}::uuid AND ended_at IS NULL`,
 		)
 	).rows[0] as { id: string; revision: string; consent: string };
-	const owner = { kind: "account" as const, id: casey.id };
+	const owner = { kind: "account" as const, id: accountId.parse(casey.id) };
 	await gatedTransaction(f.db, async (tx) => {
-		if (!(await RequestActor.claimWrite(tx, sessionId.parse(casey.session), owner))) throw Error("unavailable");
-		return adapter["residency.setSharing"](tx, sessionId.parse(casey.session), owner, {
+		if (!(await RequestActor.claimWrite(tx, casey.session, owner))) throw Error("unavailable");
+		return adapter["residency.setSharing"](tx, casey.session, owner, {
 			requestKey: randomUUID(),
 			expectedRevision: link.revision,
 			input: { linkId: link.id, expectedConsentRevision: link.consent, choices },
-		} as never);
+		});
 	});
 }
 async function invite(personId: string, email: string) {
@@ -113,7 +116,7 @@ async function invite(personId: string, email: string) {
 		expectedRevision: r.organizationRevision,
 		input: { organization: grace, personId, recipientEmail: email },
 	});
-	return { invitationId: sent.invitation.invitationId as string, proof: await f.proof(sent.invitation.invitationId) };
+	return { invitationId: sent.invitation.invitationId, proof: await f.proof(sent.invitation.invitationId) };
 }
 const accept = (i: { invitationId: string; proof: string }, shareMilestones = true) => ({
 	requestKey: randomUUID(),
@@ -150,14 +153,14 @@ async function atOnce<T>(lock: SQL, writes: (() => Promise<T>)[]): Promise<T[]> 
 before(async () => {
 	f = await fixture();
 	const seed = seeds(f.admin);
-	grace = (await seed.organization("sending_church", { name: "Grace Austin", timezone: "America/Chicago" })) as never;
-	hill = (await seed.organization("sending_network", {
+	grace = await seed.organization("sending_church", { name: "Grace Austin", timezone: "America/Chicago" });
+	hill = await seed.organization("sending_network", {
 		name: "Hill Country Network",
 		timezone: "America/Chicago",
-	})) as never;
-	harvest = (await seed.plant({ name: "Harvest Point" })) as never;
-	const actor = async (where: unknown, role: "owner" | "admin" | "member", name: string, email?: string) => {
-		const a = await seed.actor(where as never, role, { user: { name }, ...(email ? { email } : {}) });
+	});
+	harvest = await seed.plant({ name: "Harvest Point" });
+	const actor = async (where: Workspace | null, role: "owner" | "admin" | "member", name: string, email?: string) => {
+		const a = await seed.actor(where, role, { user: { name }, ...(email ? { email } : {}) });
 		return { id: a.id, session: a.session, email: a.email };
 	};
 	dana = await actor(grace, "owner", "Dana");
@@ -301,7 +304,7 @@ before(async () => {
 	for (const [enrollmentId, title] of [
 		[caseyEnrollment, PREACH],
 		[jordanEnrollment, PROSPECTUS],
-	])
+	] as const)
 		ok(
 			await programWriter.recordMilestone(f.db, await authority(ana), {
 				enrollmentId,
@@ -350,7 +353,7 @@ test("AC:ADR1-002 AC:ADR1-009 AC:ADR1-012 Dana and Luis see every pipeline perso
 		assert.deepEqual(names(await board(who)), ["Casey Lee", "Jordan Reyes"]);
 		const c = ok(await record(who, caseyPerson));
 		assert.deepEqual(
-			c.notes.map((n) => n.body),
+			c.notes.map((n) => noteBody(n)),
 			[SECRET.anaNote],
 		);
 		assert.deepEqual(
@@ -358,7 +361,7 @@ test("AC:ADR1-002 AC:ADR1-009 AC:ADR1-012 Dana and Luis see every pipeline perso
 			[SECRET.caseyTalk],
 		);
 		const j = ok(await record(who, jordanPerson));
-		assert.deepEqual(j.notes.map((n) => n.body).sort(), [SECRET.danaNote, SECRET.deeNote].sort());
+		assert.deepEqual(j.notes.map((n) => noteBody(n)).sort(), [SECRET.danaNote, SECRET.deeNote].sort());
 		const e = ok(await enrollment(who, caseyEnrollment));
 		assert.deepEqual(
 			e.milestones.map((m) => [m.title, m.completion?.source ?? null, m.feedback?.map((x) => x.body) ?? null]),
@@ -384,7 +387,7 @@ test("AC:ADR1-002 AC:ADR1-012 AC:ADR1-014 Ana sees Casey, the notes on her, the 
 	assert.deepEqual(names(await board(ana)), ["Casey Lee"]);
 	const c = ok(await record(ana, caseyPerson));
 	assert.deepEqual(
-		c.notes.map((n) => [n.author, n.body]),
+		c.notes.map((n) => [n.author, noteBody(n)]),
 		[["Ana", SECRET.anaNote]],
 	);
 	assert.deepEqual(await record(ana, jordanPerson), unavailable);
@@ -404,7 +407,7 @@ test("AC:ADR1-002 AC:ADR1-012 AC:ADR1-014 Ana sees Casey, the notes on her, the 
 test("AC:ADR1-002 Dee sees Jordan and Jordan's notes, and no other person's notes, feedback or progress", async () => {
 	assert.deepEqual(names(await board(dee)), ["Jordan Reyes"]);
 	const j = ok(await record(dee, jordanPerson));
-	assert.deepEqual(j.notes.map((n) => n.body).sort(), [SECRET.danaNote, SECRET.deeNote].sort());
+	assert.deepEqual(j.notes.map((n) => noteBody(n)).sort(), [SECRET.danaNote, SECRET.deeNote].sort());
 	assert.deepEqual(await record(dee, caseyPerson), unavailable);
 	assert.deepEqual(await enrollment(dee, caseyEnrollment), unavailable);
 	const e = ok(await enrollment(dee, jordanEnrollment));
@@ -633,23 +636,18 @@ test("AC:ADR1-008 Dana and Luis moving Casey at the same moment: one move saves,
 		count(sql`SELECT count(*)::int AS n FROM pipeline_stage_move m JOIN pipeline_person pp
 	 ON pp.id=m.pipeline_person_id WHERE pp.person_id=${caseyPerson}::uuid`);
 	const before = await moves();
-	const [byDana, byLuis] = await atOnce(
-		sql`SELECT 1 FROM pipeline_person WHERE person_id=${caseyPerson}::uuid FOR UPDATE`,
-		[
-			[dana, stages.Resident, "Dana's window"],
-			[luis, stages.Commissioned, "Luis's window"],
-		].map(
-			([who, stageId, reason]) =>
-				async () =>
-					pipelineWriter.movePerson(f.db, await authority(who as Actor), {
-						personId: caseyPerson,
-						expectedRevision: seen.revision,
-						stageId,
-						reason,
-					}),
-		),
-	);
-	const replies = [byDana, byLuis].map((r) => (r.status === "ok" ? "saved" : r.refusal.code));
+	const move = (who: Actor, stageId: string | undefined, reason: string) => async () =>
+		pipelineWriter.movePerson(f.db, await authority(who), {
+			personId: caseyPerson,
+			expectedRevision: seen.revision,
+			stageId,
+			reason,
+		});
+	const moved = await atOnce(sql`SELECT 1 FROM pipeline_person WHERE person_id=${caseyPerson}::uuid FOR UPDATE`, [
+		move(dana, stages.Resident, "Dana's window"),
+		move(luis, stages.Commissioned, "Luis's window"),
+	]);
+	const replies = moved.map((r) => (r.status === "ok" ? "saved" : r.refusal.code));
 	assert.deepEqual([...replies].sort(), ["conflict", "saved"]);
 	const winner = replies[0] === "saved" ? "Resident" : "Commissioned";
 	const now = ok(await record(replies[0] === "saved" ? luis : dana, caseyPerson));
@@ -789,7 +787,8 @@ test("AC:ADR1-004 accepting the same invitation in two tabs at once makes one li
 
 test("AC:ADR1-004 Luis revoking while Casey's invitation is being accepted leaves at most one link and one winner", async () => {
 	const r = await resident("Quinn");
-	const pending = ok(await record(luis, r.personId)).residency as { revision: string };
+	const pending = ok(await record(luis, r.personId)).residency;
+	assert.ok(pending.status === "pending");
 	const [accepted, revoked] = await atOnce(invitationLock(r.invitation.invitationId), [
 		() => settle(f.invitations.respondResident(r.who.session, accept(r.invitation))),
 		async () =>

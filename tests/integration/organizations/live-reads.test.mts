@@ -2,17 +2,18 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { eq } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { liveAccess } from "../../../packages/domain/src/access/session.ts";
+import { liveAccess, type RequestActor } from "../../../packages/domain/src/access/session.ts";
 import {
 	namesFor,
 	pendingFor,
 	residencyLinks,
 	subjectFacts,
 	targetsFor,
+	type Viewer,
 } from "../../../packages/domain/src/organizations/reads.ts";
-import { fixture, key } from "../identity/invitations-support.mts";
+import { fixture, key, type Fixture } from "../identity/invitations-support.mts";
 
-let f;
+let f: Fixture;
 before(async () => {
 	f = await fixture();
 });
@@ -20,7 +21,7 @@ after(async () => {
 	await f?.close();
 });
 
-const viewerOf = (authority, kind) => ({
+const viewerOf = (authority: RequestActor, kind: Viewer["kind"]): Viewer => ({
 	kind,
 	session: authority.session,
 	accountId: authority.actor.accountId,
@@ -29,7 +30,7 @@ const viewerOf = (authority, kind) => ({
 	access: liveAccess(authority),
 });
 
-async function answers(db, viewer, ids) {
+async function answers(db: Fixture["db"], viewer: Viewer, ids: { subject: string; link?: string }) {
 	return {
 		namesFor: await namesFor(db, viewer, [ids.subject]),
 		pendingFor: (await pendingFor(db, viewer)).map((p) => p.invitationId),
@@ -90,6 +91,7 @@ test("AC:TARGET-IDN-029 organization reads: a resident whose session ended reads
 		...i.claim,
 		input: { ...i.claim.input, decision: "accept", choices: { shareFoundations: true, shareMilestones: false } },
 	});
+	assert.ok(accepted.status === "accepted");
 	const viewer = viewerOf(await f.actor(s.recipient.session), "account"),
 		ids = { subject: s.w.id, link: accepted.linkId };
 

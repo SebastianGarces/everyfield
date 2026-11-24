@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 
-import { fixture } from "../../support/fixture.mts";
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { peopleReader } from "../../../packages/domain/src/people/index.ts";
+import { fixture, type Actor, type Workspace } from "../../support/fixture.mts";
+import { accountId } from "../../../packages/contracts/src/common/index.ts";
+import { authorityOf, church, reads, StubClient } from "../people/people-support.mts";
 import { readAvatar } from "../../../packages/domain/src/settings/avatar.ts";
 import {
 	pipelineWriter,
@@ -33,15 +33,14 @@ const { admin } = database;
 const db = database.pools.runtime;
 after(() => database.close());
 
-type Actor = { id: string; session: string };
-let grace: { kind: "organization"; id: string };
-let hill: { kind: "organization"; id: string };
+let grace: Workspace & { kind: "organization" };
+let hill: Workspace & { kind: "organization" };
 let dana: Actor, luis: Actor, ana: Actor, ben: Actor, hillOwner: Actor;
 let anaSeat: string, luisSeat: string;
 
 const named = async (workspace: typeof grace, role: "owner" | "admin" | "member", name: string) =>
-	database.actor(workspace as never, role, { user: { name } });
-const authority = (a: Actor) => RequestActor.resolve(db, a.session as never);
+	database.actor(workspace, role, { user: { name } });
+const authority = (a: Actor) => authorityOf(db, a);
 const ok = <T,>(r: { status: string; value?: T; refusal?: unknown }): T => {
 	assert.equal(r.status, "ok", JSON.stringify(r));
 	return r.value as T;
@@ -63,11 +62,11 @@ const names = (b: Awaited<ReturnType<typeof board>>) =>
 	Object.fromEntries(b.stages.map((s) => [s.label, s.people.map((p) => p.name)]));
 
 before(async () => {
-	grace = (await database.organization("sending_church", {
+	grace = await database.organization("sending_church", {
 		name: "Grace Austin",
 		timezone: "America/Chicago",
-	})) as never;
-	hill = (await database.organization("sending_network", { name: "Hill Country Network" })) as never;
+	});
+	hill = await database.organization("sending_network", { name: "Hill Country Network" });
 	dana = await named(grace, "owner", "Dana");
 	luis = await named(grace, "admin", "Luis");
 	ana = await named(grace, "member", "Ana");
@@ -132,7 +131,7 @@ test("AC:ADR1-001 AC:ADR1-002 an Owner adds a person with an email and responsib
 			stageId: stageId(b, "Potential leader"),
 		}),
 	);
-	assert.equal((again as { outcome: string }).outcome, "noop");
+	assert.equal(again.outcome, "noop");
 	const after = await board(dana);
 	const potential = after.stages.find((s) => s.label === "Potential leader")!;
 	assert.equal(potential.count, 1);
@@ -159,16 +158,16 @@ test("AC:ADR1-001 AC:ADR1-002 an Owner adds a person with an email and responsib
 	refusedWith(await record(hillOwner, casey), "unavailable");
 	const plantOwner = database.actors.owner;
 	const plant = await gatedTransaction(db, (t) =>
-		peopleReader.listPeople(
+		reads.listPeople(
 			t,
-			{ session: plantOwner.session as never, selected: database.tenant as never },
+			{ session: plantOwner.session, selected: church(database.tenant.id) },
 			{
 				search: "Casey",
 			},
 		),
 	);
 	assert.equal(plant.status, "ok");
-	assert.equal((plant as { value: { items: unknown[] } }).value.items.length, 0);
+	assert.equal(plant.value.items.length, 0);
 });
 
 test("AC:ADR1-001 an Owner edits a person's name, email and responsible staff", async () => {
@@ -521,15 +520,13 @@ const PNG = Buffer.from(
 const photoObjects = new Map<string, Buffer>();
 const photoStorage = {
 	bucket: "synthetic-only",
-	client: {
-		send: async (command: { constructor: { name: string }; input: { Key: string } }) => {
-			if (command.constructor.name === "GetBucketAclCommand")
-				return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
-			if (command.constructor.name !== "GetObjectCommand") throw Error("unexpected provider operation");
-			const body = photoObjects.get(command.input.Key)!;
-			return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
-		},
-	},
+	client: new StubClient(async (operation, input) => {
+		if (operation === "GetBucketAclCommand")
+			return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
+		if (operation !== "GetObjectCommand") throw Error("unexpected provider operation");
+		const body = photoObjects.get(input.Key ?? "")!;
+		return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
+	}),
 };
 async function setAvatar(a: Actor) {
 	const versionId = randomUUID();
@@ -544,8 +541,8 @@ async function setAvatar(a: Actor) {
 const photoRead = (photo: { accountId: string; versionId: string }) =>
 	readAvatar(
 		db,
-		photoStorage as never,
-		{ session: dana.session, selected: { kind: "account", id: dana.id } } as never,
+		photoStorage,
+		{ session: dana.session, selected: { kind: "account", id: accountId.parse(dana.id) } },
 		photo,
 	).then(
 		(bytes) => (Buffer.from(bytes).equals(PNG) ? "bytes" : "wrong bytes"),
