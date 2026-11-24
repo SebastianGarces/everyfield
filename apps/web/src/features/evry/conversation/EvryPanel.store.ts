@@ -579,7 +579,12 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 						set({ load: "ready" });
 						if (r.status === "refused" && r.error.code === "church_changed") return leave(CHURCH.opened);
 						if (r.status !== "ok")
-							return set({ problem: "That conversation could not open. Check your connection and try again." });
+							return set({
+								problem:
+									r.status === "refused"
+										? "You no longer have access to that conversation."
+										: "That conversation could not open. Check your connection and try again.",
+							});
 						openState(opened(r.value));
 					})(),
 				newChat: () => {

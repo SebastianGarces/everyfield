@@ -28,7 +28,15 @@ import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { writeAddress } from "../../../components/location.ts";
-import { armLeaveHold, leaveHoldMark, leaveNow, SAVE_SHORTCUT, shortcutMark } from "../../../components/save/leave.ts";
+import {
+	armLeaveHold,
+	leaveHoldMark,
+	leaveNow,
+	leaveRequestNow,
+	movePage,
+	SAVE_SHORTCUT,
+	shortcutMark,
+} from "../../../components/save/leave.ts";
 import { useLocalStore, useStore } from "../../../components/store.ts";
 import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument } from "../actions.ts";
 import type { DocumentOutcome } from "../outcome.ts";
@@ -40,7 +48,15 @@ import { BlockShortcuts, LeaveDialog, SaveStatusText, type SaveStatus } from "..
 import { EditorToolbar } from "../church/editor/Toolbar.tsx";
 import { documentProblem, type WrittenView } from "../model.ts";
 import { CopiedNote, SECTION, TextRevisionNote } from "./notes.tsx";
-import { EMPTY, createNativeEditorStore, sameDoc, toEditor } from "./NativeEditor.store.ts";
+import {
+	EMPTY,
+	createNativeEditorStore,
+	forgetMoved,
+	keepForMove,
+	sameDoc,
+	takeMoved,
+	toEditor,
+} from "./NativeEditor.store.ts";
 
 async function importWritten(file: File, params: Record<string, string>): Promise<DocumentOutcome<WrittenView>> {
 	try {
@@ -60,7 +76,6 @@ const port = {
 	save: saveOwnedDocument,
 	importFile: importWritten,
 	designate: designateOwnedDocument,
-	created: (id: string) => writeAddress(`/documents/written/${id}`, { replace: true }),
 };
 
 export default function NativeEditor({
@@ -73,7 +88,23 @@ export default function NativeEditor({
 	canStore: boolean;
 }) {
 	const router = useRouter();
-	const store = useLocalStore(() => createNativeEditorStore({ doc, port }));
+	const [moved] = useState(() => takeMoved(doc?.id));
+	const store = useLocalStore(
+		() =>
+			moved?.store ??
+			createNativeEditorStore({
+				doc,
+				port: {
+					...port,
+					created: (id, editor, kept) => {
+						const href = `/documents/written/${id}`;
+						if (leaveRequestNow()) return writeAddress(href, { replace: true });
+						keepForMove(id, kept, editor);
+						movePage(href, () => router.replace(href, { scroll: false }));
+					},
+				},
+			}),
+	);
 	const actions = useStore(store, (state) => state.actions);
 	const saved = useStore(store, (state) => state.saved);
 	const title = useStore(store, (state) => state.title);
@@ -86,7 +117,7 @@ export default function NativeEditor({
 
 	const editor = useEditor({
 		extensions: [...nativeExtensions(), BlockShortcuts],
-		content: toEditor(doc?.body ?? EMPTY),
+		content: moved?.body ?? toEditor(doc?.body ?? EMPTY),
 		immediatelyRender: true,
 		editorProps: {
 			attributes: {
@@ -96,7 +127,10 @@ export default function NativeEditor({
 				spellcheck: "true",
 			},
 		},
-		onCreate: ({ editor: created }) => actions.began(created),
+		onCreate: ({ editor: created }) => {
+			actions.began(created);
+			if (actions.unsaved(created)) armLeaveHold();
+		},
 		onUpdate: ({ editor: changed }) => {
 			actions.settle();
 			if (actions.unsaved(changed)) armLeaveHold();
@@ -121,6 +155,14 @@ export default function NativeEditor({
 
 	const save = useCallback(async () => (editor ? actions.save(editor) : false), [editor, actions]);
 	const editorContext = useMemo(() => ({ editor }), [editor]);
+	const settleMoved = useCallback(
+		(paper: HTMLDivElement | null) => {
+			if (!paper || !doc || !moved) return;
+			forgetMoved(doc.id);
+			if (editor && moved.caret !== null) editor.chain().setTextSelection(moved.caret).focus().run();
+		},
+		[doc, moved, editor],
+	);
 	function reload() {
 		leaveNow(() => window.location.reload());
 	}
@@ -164,10 +206,13 @@ export default function NativeEditor({
 				<div className="w-full max-w-[816px] self-center">
 					<Field label="Title" error={errors.title}>
 						<Input
-							ref={doc ? undefined : focusOnMount}
+							ref={doc && !moved?.titleFocused ? undefined : focusOnMount}
 							value={title}
 							maxLength={200}
-							onChange={(event) => actions.typeTitle(event.target.value)}
+							onChange={(event) => {
+								actions.typeTitle(event.target.value);
+								if (editor && actions.unsaved(editor)) armLeaveHold();
+							}}
 						/>
 					</Field>
 				</div>
@@ -278,7 +323,7 @@ export default function NativeEditor({
 				</div>
 				<InlineAlert className="w-full max-w-[816px] self-center">{errors.body}</InlineAlert>
 				<div className="ef-sheet ef-native">
-					<div className="ef-paper">
+					<div className="ef-paper" ref={moved ? settleMoved : undefined}>
 						<EditorContent editor={editor} />
 					</div>
 				</div>

@@ -86,6 +86,12 @@ const history = {
 		at = entries[index]!.url;
 		window.dispatchEvent(new Event("popstate"));
 	},
+	forward() {
+		if (index === entries.length - 1) return;
+		index += 1;
+		at = entries[index]!.url;
+		window.dispatchEvent(new Event("popstate"));
+	},
 };
 function visit(href: string) {
 	routerTransitionStarted(href, "push");
@@ -301,4 +307,58 @@ test("INV-leave: Back from a page with unsaved work asks every time, from its fi
 	assert.equal(at.pathname, "/documents/written/e");
 	leave.leaveRequestNow()?.stay();
 	clean();
+});
+
+test("INV-leave: a held page that moves to its saved address leaves no history entry at the old one, Forward onto the step it left goes nowhere, and Back then Leave gets no second question from the browser", () => {
+	const editor = new FakeForm("form");
+	const mark = () => {
+		editor.attributes["data-unsaved"] = "";
+		editor.attributes["data-leave-hold"] = "";
+	};
+	visit("/documents/written/new");
+	const before = at.pathname;
+	page = [editor];
+	leave.armLeaveHold();
+	mark();
+	const below = entries[index - 2]!.url.pathname;
+	let routerHeard = 0;
+	const router = () => void routerHeard++;
+	window.addEventListener("popstate", router);
+
+	leave.movePage("/documents/written/9", () => {
+		leave.armLeaveHold();
+		history.replaceState({ page: "/documents/written/9" }, "", "/documents/written/9");
+	});
+	assert.equal(before, "/documents/written/new");
+	assert.equal(routerHeard, 0, "the router does not hear the step off the guard entry");
+	assert.equal(at.pathname, "/documents/written/9");
+	assert.equal(entries[index - 1]!.url.pathname, below, "the page's own entry now holds the saved address");
+	assert.ok(
+		entries.slice(0, index + 1).every((entry) => entry.url.pathname !== "/documents/written/new"),
+		"an edit before the move lands does not arm at the old address",
+	);
+
+	history.forward();
+	assert.equal(at.pathname, "/documents/written/9", "Forward onto the step left behind comes straight back");
+	assert.equal(routerHeard, 0);
+	assert.equal(leave.leaveRequestNow(), null);
+
+	leave.armLeaveHold();
+	assert.equal(index, entries.length - 1, "the next edit drops the step left behind");
+	history.back();
+	const asked = leave.leaveRequestNow();
+	assert.ok(asked, "Back from the saved address asks");
+	asked.stay();
+	assert.equal(at.pathname, "/documents/written/9", "Stay keeps the page");
+	history.back();
+	leave.leaveRequestNow()?.leave();
+	assert.equal(at.pathname, below, "Leave goes to the page before the document");
+	assert.equal(
+		dispatch("beforeunload", null, {}).defaultPrevented,
+		false,
+		"when that page is another document, the browser does not ask again",
+	);
+	window.removeEventListener("popstate", router);
+	delete editor.attributes["data-unsaved"];
+	delete editor.attributes["data-leave-hold"];
 });
