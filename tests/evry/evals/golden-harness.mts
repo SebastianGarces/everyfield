@@ -314,20 +314,15 @@ const MAIL: MailPort = {
 const MAX_STEPS = LIMITS.toolCalls + 1;
 
 let writing: Promise<unknown> = Promise.resolve();
-const oneWriter = new WeakMap<GoldenChurch["db"], GoldenChurch["db"]>();
 function oneWriterAtATime(db: GoldenChurch["db"]): GoldenChurch["db"] {
-	const known = oneWriter.get(db);
-	if (known) return known;
 	const transaction: GoldenChurch["db"]["transaction"] = (run, config) => {
 		const written = writing.then(() => db.transaction(run, config));
 		writing = written.catch(() => undefined);
 		return written;
 	};
-	const serial = new Proxy(db, {
+	return new Proxy(db, {
 		get: (target, key, receiver) => (key === "transaction" ? transaction : Reflect.get(target, key, receiver)),
 	});
-	oneWriter.set(db, serial);
-	return serial;
 }
 
 let opening: Promise<unknown> = Promise.resolve();
