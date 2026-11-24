@@ -587,7 +587,8 @@
 		"limit": 2
 	},
 	"followups.createFollowUp": {
-		"limit": 4
+		"limit": 4,
+		"retry": 5
 	},
 	"followups.executeHandoff": {
 		"limit": 2
@@ -596,7 +597,8 @@
 		"limit": 2
 	},
 	"followups.recordOutcome:person": {
-		"limit": 2
+		"limit": 2,
+		"retry": 5
 	},
 	"followups.recordOutcome:no_longer_needed": {
 		"limit": 2
@@ -776,14 +778,16 @@
 		"limit": 1
 	},
 	"meetings.captureAttendanceBatch": {
-		"limit": 2
+		"limit": 2,
+		"retry": 5
 	},
 	"meetings.changeStatus": {
 		"limit": 6,
 		"retry": 5
 	},
 	"meetings.checkIn": {
-		"limit": 2
+		"limit": 2,
+		"retry": 5
 	},
 	"meetings.clearAttendance": {
 		"limit": 2
@@ -822,7 +826,8 @@
 		"retry": 5
 	},
 	"meetings.createWalkInContact": {
-		"limit": 6
+		"limit": 6,
+		"retry": 5
 	},
 	"meetings.delete": {
 		"limit": 6,
@@ -1308,7 +1313,8 @@
 		"limit": 3
 	},
 	"people.addNote": {
-		"limit": 6
+		"limit": 6,
+		"retry": 5
 	},
 	"people.addSkill": {
 		"limit": 6,
@@ -1351,7 +1357,8 @@
 		"retry": 5
 	},
 	"people.createInterview": {
-		"limit": 6
+		"limit": 6,
+		"retry": 5
 	},
 	"people.createPerson": {
 		"limit": 6,
@@ -1439,7 +1446,8 @@
 		"reads": "C88: the person lock is its own statement and the duty read comes after it. tasks.references locks the person FOR SHARE while it adds a task, and a statement whose snapshot predates the person lock misses that task and hands off a stale set of duties. The open duties, the members they move to and those members' seats are one statement after the lock."
 	},
 	"people.setGuardianContact": {
-		"limit": 4
+		"limit": 4,
+		"retry": 5
 	},
 	"people.setHouseholdRole": {
 		"limit": 4
@@ -1785,7 +1793,8 @@
 		"limit": 4
 	},
 	"tasks.create": {
-		"limit": 4
+		"limit": 4,
+		"retry": 5
 	},
 	"tasks.createSubtask": {
 		"limit": 2
@@ -1797,7 +1806,8 @@
 		"limit": 3
 	},
 	"tasks.edit": {
-		"limit": 4
+		"limit": 4,
+		"retry": 5
 	},
 	"tasks.importTemplate": {
 		"limit": 2
