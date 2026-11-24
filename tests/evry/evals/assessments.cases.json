@@ -559,7 +559,7 @@
 						["mergesIn", "Casey Brooks"],
 						[
 							"moves",
-							"1 follow-up outcome, 1 email, 1 meeting kit item, 1 follow-up, 1 meeting attendance, 1 task and 1 ministry role"
+							"1 follow-up outcome, 1 meeting kit item, 1 follow-up, 1 meeting attendance, 1 task and 1 ministry role"
 						],
 						[
 							"attendanceChanges",
@@ -572,7 +572,7 @@
 			],
 			"require": ["I prepared a merge review: Casey Brooks merges into Casey Morgan.", "/approve/i"],
 			"forbid": ["/cannot run|not available/i"],
-			"derivation": "Casey Brooks has the Newcomer lunch follow-up (setup), a follow-up outcome and the sent welcome email (T-322's sent mail), and for this case an absent attendance with a pending RSVP at the Vision Meeting Casey Morgan attended, a kit item there, an open task and a Hospitality role (setup). The People merge now carries all of it (T-554): the review card keeps Casey Morgan, moves each kind with its count, names the combined attendance and the pending RSVP Casey Morgan's answer replaces, and lists the open task and kit item; the email unsubscribe stays with the merged record."
+			"derivation": "Casey Brooks has the Newcomer lunch follow-up (setup), a follow-up outcome and the sent welcome email (T-322's sent mail), and for this case an absent attendance with a pending RSVP at the Vision Meeting Casey Morgan attended, a kit item there, an open task and a Hospitality role (setup). The People merge now carries all of it (T-554): the review card keeps Casey Morgan, moves each kind with its count, names the combined attendance and the pending RSVP Casey Morgan's answer replaces, and lists the open task and kit item; the sent email stays with Casey Brooks and shows in Casey Morgan's history, and the email unsubscribe stays with the merged record."
 		}
 	},
 	{
@@ -691,11 +691,12 @@
 		"model": "scripted",
 		"adapter": "people-assessments",
 		"operation": "people.previewUnmerge",
-		"near_miss": true,
+		"near_miss": false,
 		"question": "undo that merge",
 		"eval": {
 			"setup": {
-				"touch": "Jon Smith"
+				"touch": "Jon Smith",
+				"task": "Jon Smith"
 			},
 			"history": [
 				{
@@ -713,9 +714,20 @@
 					}
 				}
 			],
-			"proposals": [],
-			"require": ["Cannot unmerge. Jon Smith's details changed after the merge.", "Nothing was changed"],
-			"derivation": "Jon Smith changed after the merge: the native Unmerge's answer, and nothing changes."
+			"proposals": [
+				{
+					"operation": "people.unmergePeople",
+					"changes": [
+						["comesBack", "John Smith"],
+						[
+							"staysWithKept",
+							"Added after the merge, so it stays with Jon Smith: 1 task and the edits to address."
+						]
+					]
+				}
+			],
+			"require": ["/Unmerge review for Jon Smith/"],
+			"derivation": "Jon Smith's city changed and a task was added after the merge, which changed neither: the review keeps both with Jon Smith (D-2528)."
 		}
 	},
 	{
@@ -728,7 +740,8 @@
 		"question": "undo that merge",
 		"eval": {
 			"setup": {
-				"merge": ["Casey Brooks", "Casey Morgan"]
+				"merge": ["Casey Brooks", "Casey Morgan"],
+				"editOutcome": "Casey Morgan"
 			},
 			"history": [
 				{
@@ -748,9 +761,9 @@
 			],
 			"proposals": [],
 			"require": [
-				"Cannot unmerge. The merge moved email sent to Casey Brooks into Casey Morgan's communication history, and sent email is never unsent. An Unmerge cannot take back sent email, so Everyfield will not run it. Correct Casey’s details by hand instead; each change is kept in the history. Nothing was changed."
+				"Cannot unmerge. Casey Morgan’s follow-up outcomes changed after the merge. An Unmerge would lose those changes, so Everyfield will not run it. Correct Casey’s details by hand instead; each change is kept in the history. Nothing was changed."
 			],
-			"derivation": "The approved merge (setup) moved Casey Brooks's sent welcome email to Casey Morgan; mail is never unsent (REQ-PPL-025), so the native Unmerge's answer, and nothing changes."
+			"derivation": "The approved merge (setup) moved Casey Brooks's follow-up outcome, which was edited after; the sent welcome email stays with Casey Brooks and is no conflict (D-2528). The native Unmerge's answer, and nothing changes."
 		}
 	},
 	{

@@ -6967,13 +6967,13 @@
 					},
 					"changes": [
 						["keeps", "Casey Morgan"],
-						["moves", "1 follow-up outcome and 1 email"]
+						["moves", "1 follow-up outcome"]
 					]
 				}
 			],
 			"require": ["I prepared a merge review: Casey Brooks merges into Casey Morgan.", "/approve/i"],
 			"forbid": ["/I['’]?(ve| have) merged|(are|been) merged|cannot run|not available/i"],
-			"derivation": "Casey Brooks has a follow-up outcome and the sent welcome email, which the People merge now carries (T-336): a review card that keeps Casey Morgan and moves both. On the scripted model until the next batched re-record (D-1300)."
+			"derivation": "Casey Brooks has a follow-up outcome, which the People merge carries (T-336), and the sent welcome email, which stays with Casey Brooks (D-2528): a review card that keeps Casey Morgan and moves the outcome. On the scripted model until the next batched re-record (D-1300)."
 		},
 		"model": "scripted"
 	},

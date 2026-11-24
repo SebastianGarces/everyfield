@@ -107,6 +107,7 @@ type Eval = Checks & {
 		role?: string;
 		merge?: [source: string, survivor: string];
 		touch?: string;
+		editOutcome?: string;
 		signed?: { text: string; file: CaseFile };
 	};
 	finding?: Finding;
@@ -520,6 +521,9 @@ async function setUp(setup: NonNullable<Eval["setup"]>) {
 		);
 		if (merged.status !== "ok") throw Error(`setup: merge refused (${merged.error.code})`);
 	}
+	if (setup.editOutcome)
+		await church.admin.execute(sql`UPDATE contact_outcome SET notes='Edited',revision=revision+1
+			WHERE person_id=${byName(setup.editOutcome).id}::uuid`);
 	if (setup.touch) {
 		const personId = byName(setup.touch).id;
 		const current = await church.db.execute(sql`SELECT revision::text AS r FROM person WHERE id=${personId}::uuid`);
