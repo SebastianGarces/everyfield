@@ -560,11 +560,12 @@ async function prepare(
 					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at, refusal, guardian_mail_ids, guardian_copy)
 				SELECT i.id, ${actor.plantId}::uuid, i.person, 'communication', ${found.id}::uuid, i.logical_key, i.payload_hash, ${loaded.digest},
 					i.payload, i.address, i.address_hash,
-					CASE WHEN i.refusal IS NOT NULL OR i.unsubscribed OR (NOT i.child AND EXISTS (
+					CASE WHEN i.refusal IS NOT NULL OR (NOT i.child AND (i.unsubscribed OR EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
-					)) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
+					))) OR (i.person = ANY(${sql.param(leftOut)}::uuid[]) AND NOT (i.child AND i.unsubscribed))
+					THEN 'refused' ELSE ${waiting} END,
 					clock_timestamp(), ${heldUntil}::timestamptz,
-					CASE WHEN i.refusal IS NOT NULL THEN i.refusal WHEN i.unsubscribed THEN 'unsubscribed' END,
+					CASE WHEN i.refusal IS NOT NULL THEN i.refusal WHEN i.unsubscribed AND NOT i.child THEN 'unsubscribed' END,
 					CASE WHEN i.refusal = 'guardian' THEN i.guardians END, i.guardian_copy
 				FROM (SELECT i.*, ${optedOutSql(sql`${actor.plantId}::uuid`, sql`i.person`)} AS unsubscribed FROM input i) i
 				JOIN gate g ON g.allowed
