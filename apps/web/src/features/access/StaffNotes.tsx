@@ -20,7 +20,7 @@ import { cn, Icon, observeSize, useFocusRequest } from "@everyfield/ui/foundatio
 import { useId, useMemo, useState } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { NotAvailable } from "./AccessStates";
-import { DUTY_LABEL, type AllowedNotes, type ReadNotes } from "./port";
+import { DUTY_LABEL, type AllowedNotes, type ReadNotes, type StaffNotesAccess } from "./port";
 
 type Note = AllowedNotes["notes"][number];
 type FirstPage = OrganizationNotesResult | { status: "failed" };
@@ -48,6 +48,7 @@ export function StaffNotesPanel({
 	authorName,
 	zone,
 }: {
+	access: StaffNotesAccess;
 	personName: string;
 	read: ReadNotes;
 	authorName: (accountId: string) => string;

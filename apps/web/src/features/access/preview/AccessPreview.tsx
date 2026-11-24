@@ -90,6 +90,7 @@ function StaffNotesPreview() {
 					{canReadStaffNotes(access) ? (
 						<StaffNotesPanel
 							key={`${viewer}-${scenario}`}
+							access={access}
 							personName={PERSON.name}
 							read={notesReader(viewer, scenario)}
 							authorName={authorName}

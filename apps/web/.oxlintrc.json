@@ -1385,6 +1385,10 @@
 				"everyfield/action-proofs": "error",
 				"everyfield/token-authority": "error",
 				"everyfield/client-request-key": "error",
+				"everyfield/action-render": "error",
+				"everyfield/wiki-no-mdx": "error",
+				"everyfield/notification-mount": "error",
+				"everyfield/teams-write-answer": "error",
 				"everyfield/failure-not-empty": "error"
 			}
 		},

@@ -15,6 +15,7 @@ import {
 import { programWriter, readProgram } from "../../../packages/domain/src/organizations/programs.ts";
 import { pipelineDataWriter, readPipelineExport } from "../../../packages/domain/src/organizations/data.ts";
 import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts";
+import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import { peopleUnmerge } from "../../../packages/domain/src/people/unmerge/index.ts";
 import { listOrganizationDuplicatePairs } from "../../../packages/domain/src/people/duplicates.ts";
 
@@ -705,4 +706,95 @@ test("INV-concurrency: undo merge sends the survivor revision from the merge res
 	]);
 	assert.deepEqual(await undo(request), first);
 	assert.deepEqual(await state([quinn, quinnA]), undone);
+});
+
+test("INV-concurrency: a seat removed or lowered after its actor was read removes, merges and undoes nothing, exports nothing and lists no pairs", async () => {
+	const board = ok(await readPipelineBoard(db, await authority(dana), {}));
+	const stage = board.stages.find((s) => s.label === "Potential leader")!.id;
+	const add = async (displayName: string) => {
+		const personId = randomUUID();
+		ok(
+			await pipelineWriter.addPerson(db, await authority(dana), {
+				personId,
+				displayName,
+				email: "stale.seat@example.test",
+				responsibleSeatId: null,
+				stageId: stage,
+			}),
+		);
+		return personId;
+	};
+	const [survivor, source, mergedInto, mergedSource] = [
+		await add("Sam Cole"),
+		await add("Sam C."),
+		await add("Terry Dunn"),
+		await add("Terry D."),
+	];
+	const pair = { sourceId: source, survivorId: survivor };
+	const reviewOf = async (input: typeof pair) =>
+		ok(await tx((t) => peopleMerge.getMergeReview(t, ctx(dana) as never, input))).reviewDigest;
+	const merge = (input: typeof pair, reviewDigest: string) => ({
+		requestKey: randomUUID(),
+		input: { ...input, reviewDigest, fieldChoices: { displayName: "survivor" } },
+	});
+	const earlier = { sourceId: mergedSource, survivorId: mergedInto };
+	const earlierMerge = merge(earlier, await reviewOf(earlier));
+	const merged = ok(
+		await withPeopleWrite(db, await authority(dana), (t, c) => peopleMerge.mergePeople(t, c, earlierMerge)),
+	) as {
+		mergeId: string;
+		survivorRevision: string;
+	};
+	const digest = await reviewOf(pair);
+	const revision = (await record(survivor)).revision;
+	const state = async () => ({
+		people: await rows(sql`SELECT id,display_name,state,revision::text,merged_into_person_id FROM person
+		 WHERE id IN (${survivor},${source},${mergedInto},${mergedSource}) ORDER BY id`),
+		merges: await rows(sql`SELECT id,unmerged_at FROM person_merge WHERE tenant_id=${grace.id}::uuid ORDER BY id`),
+		audits: await rows(sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${grace.id}::uuid`),
+	});
+	const before = await state();
+
+	const losses = {
+		lowered: sql`UPDATE seat SET role='member',revision=revision+1`,
+		removed: sql`UPDATE seat SET ended_at=clock_timestamp(),revision=revision+1`,
+	};
+	for (const [loss, change] of Object.entries(losses)) {
+		const lost = await database.actor(grace as never, "admin", { user: { name: `Seat ${loss}` } });
+		const stale = await authority(lost);
+		await admin.execute(sql`${change} WHERE account_id=${lost.id}::uuid AND organization_id=${grace.id}::uuid`);
+
+		refusedWith(
+			await pipelineDataWriter.removePerson(db, stale, { personId: survivor, expectedRevision: revision }),
+			"unavailable",
+		);
+		refusedWith(
+			await withPeopleWrite(db, stale, (t, c) => peopleMerge.mergePeople(t, c, merge(pair, digest))),
+			"unavailable",
+		);
+		refusedWith(
+			await withPeopleWrite(db, stale, (t, c) =>
+				peopleUnmerge.unmergePeople(t, c, {
+					requestKey: randomUUID(),
+					expectedRevision: merged.survivorRevision,
+					input: { mergeId: merged.mergeId },
+				}),
+			),
+			"unavailable",
+		);
+		refusedWith(await readPipelineExport(db, stale), "unavailable");
+		refusedWith(await tx((t) => listOrganizationDuplicatePairs(t, new PeopleReadContext(stale))), "unavailable");
+		assert.deepEqual(await state(), before, loss);
+	}
+
+	ok(await withPeopleWrite(db, await authority(dana), (t, c) => peopleMerge.mergePeople(t, c, merge(pair, digest))));
+	ok(
+		await withPeopleWrite(db, await authority(dana), (t, c) =>
+			peopleUnmerge.unmergePeople(t, c, {
+				requestKey: randomUUID(),
+				expectedRevision: merged.survivorRevision,
+				input: { mergeId: merged.mergeId },
+			}),
+		),
+	);
 });
