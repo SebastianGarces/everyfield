@@ -37,7 +37,10 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 scripted model (`packages/evry-scripted/src/scripted-settings.ts`), not a recording: their ask allowed no new spend. Each
 case in `settings.cases.json` is a real turn (`runTurn`) in Hope Fellowship with the real catalog, reads and review
 cards; a case with `approve` is approved and its effect run with the native services the Settings screens use
-(`settings-ports.mts`), and the change is read back as Settings shows it. The golden, household and follow-up suites
+(`settings-ports.mts`), and the change is read back as Settings shows it. SET-32 to SET-34 (T-618) have `mailOff`: they run
+with the `outbound-mail` switch off. Each asks to send a seat invitation, resend one or invite an organization to connect,
+approves the review and runs its effect. Its completed card must read exactly `card` while the mail is still queued with
+no attempt, and exactly `ordinary` once the switch is back on. They make no model call. The golden, household and follow-up suites
 offer the model only the operations they were recorded with (`RECORDED` in `golden-harness.mts`, ruling D-1137), so
 their recordings stay valid until the next recording run adds these tools.
 

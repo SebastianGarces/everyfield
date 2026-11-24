@@ -556,6 +556,100 @@
 				],
 				"refusal": "The church digest already goes out on this schedule, so nothing would change."
 			}
+		},
+		{
+			"id": "SET-32",
+			"task": "T-618",
+			"criterion": 9,
+			"actor": "owner",
+			"ask": "invite maya@example.test as a Member",
+			"operation": "seats.invite",
+			"calls": [],
+			"proposal": {
+				"operation": "seats.invite",
+				"target": "Hope Fellowship"
+			},
+			"approve": true,
+			"mailOff": {
+				"card": [
+					"The invitation to maya@example.test is saved, but its email is delayed. You do not need to send it again unless it expires.",
+					"Invite someone",
+					"Invitation: maya@example.test",
+					"Role: Member",
+					"Open Seats"
+				],
+				"ordinary": [
+					"Saved. Hope Fellowship is updated.",
+					"Invite someone",
+					"Invitation: maya@example.test",
+					"Role: Member",
+					"Everyfield emails maya@example.test a link to join as a Member. It works for 30 days.",
+					"Open Seats"
+				]
+			}
+		},
+		{
+			"id": "SET-33",
+			"task": "T-618",
+			"criterion": 9,
+			"actor": "owner",
+			"ask": "resend the invitation to jordan@example.test",
+			"operation": "seats.resendInvitation",
+			"calls": ["seats.listInvitations"],
+			"proposal": {
+				"operation": "seats.resendInvitation",
+				"target": "jordan@example.test"
+			},
+			"approve": true,
+			"mailOff": {
+				"card": [
+					"The invitation to jordan@example.test is saved with a new link, but its email is delayed. The old link no longer works. You do not need to resend it unless it expires.",
+					"Resend an invitation",
+					"Invitation: Waiting to New link",
+					"Open Seats"
+				],
+				"ordinary": [
+					"Saved. jordan@example.test is updated.",
+					"Resend an invitation",
+					"Invitation: Waiting to Sent again",
+					"Everyfield emails jordan@example.test a new link. The earlier link stops working.",
+					"Open Seats"
+				]
+			}
+		},
+		{
+			"id": "SET-34",
+			"task": "T-618",
+			"criterion": 9,
+			"actor": "owner",
+			"ask": "invite Hill Country Network to connect at network@hillcountry.example.test",
+			"operation": "associations.invite",
+			"calls": [],
+			"proposal": {
+				"operation": "associations.invite",
+				"target": "Hill Country Network"
+			},
+			"approve": true,
+			"mailOff": {
+				"card": [
+					"The invitation to Hill Country Network is saved, but its email is delayed. They have 30 days to accept. You do not need to send it again unless it expires.",
+					"Ask to connect",
+					"Connection: Network",
+					"Email: network@hillcountry.example.test",
+					"Nothing is shared until they accept.",
+					"If they accept, they can see: People totals. You can change this in Settings > Sharing.",
+					"Open Sharing"
+				],
+				"ordinary": [
+					"Saved. Hill Country Network is updated.",
+					"Ask to connect",
+					"Connection: Asked to connect as your network",
+					"Sent to: network@hillcountry.example.test",
+					"Nothing is shared until they accept.",
+					"If they accept, they can see: People totals. You can change this in Settings > Sharing.",
+					"Open Sharing"
+				]
+			}
 		}
 	]
 }

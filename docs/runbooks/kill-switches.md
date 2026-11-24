@@ -54,8 +54,14 @@ bin/flag set <name> on --all    # turn it back on
   - Seat invitations, Connections and resident account links: the invitation is saved, but its email is delayed, after an
     invite and after a resend. The invitation is not refused.
 
-  These messages come from the switch when the request is handled. Nobody is told when mail resumes. Evry review cards do
-  not say it yet.
+  - Evry review cards, once an approved invitation is saved. A seat invitation: "The invitation to <address> is saved, but
+    its email is delayed. You do not need to send it again unless it expires." A resent seat invitation: "The invitation
+    to <address> is saved with a new link, but its email is delayed. The old link no longer works. You do not need to
+    resend it unless it expires." A connection invitation: "The invitation to <organization> is saved, but its email is
+    delayed. They have 30 days to accept. You do not need to send it again unless it expires." Such a card says it each
+    time it is read while the switch is off and that approval's email is unsent, then reads as usual.
+
+  These messages come from the switch when the request is handled. Nobody is told when mail resumes.
 - **Still works:** cancelling or moving an email already handed to the email service, and checking what it holds. The
   cron run still cancels it for anyone who has unsubscribed since.
 - **Not stopped:** mail already handed to the email service for a scheduled time still goes out at that time. To stop

@@ -186,7 +186,7 @@ After a seat moves church, Approve on the old church's change is refused and it 
 
 #### evry.review#approve-change
 
-A change Evry prepares shows as Review before saving with the exact old and new values; Approve runs it once and the page it changed shows the new value.
+A change Evry prepares shows as Review before saving with the exact old and new values; Approve runs it once and its page shows the new value. An invitation says if its email is delayed.
 
 - Operations: evry.approveProposal, evry.executeProposal
 - Catalog: EVR-012, EVR-013, EVR-014

@@ -5,6 +5,7 @@ import {
 	carryOverText,
 	approvalLeft,
 	consequence,
+	delayedText,
 	digestSchedule,
 	editableChanges,
 	fieldLabel,
@@ -23,6 +24,8 @@ import {
 	retryable,
 	reviseInput,
 	savedText,
+	shownChanges,
+	shownNotes,
 	showsBefore,
 	subjectName,
 	valueText,
@@ -438,4 +441,76 @@ test("INV-evry-recipes: an invitation review is named after its meeting, new or 
 			label: "Open the meeting",
 		},
 	);
+});
+
+test("a completed invitation card says its email is delayed, in its text and its screen-reader text, and nothing on it says the email was sent", () => {
+	const card = (operation, label, changes, notes) =>
+		review({
+			operation,
+			status: "approved",
+			outcome: "completed",
+			mailDelayed: true,
+			review: { target: { kind: "invitation", id: "i", label }, changes, notes },
+		});
+	const cards = [
+		card(
+			"seats.invite",
+			"Hope Fellowship",
+			[
+				{ field: "invitation", before: null, after: "ana@example.test" },
+				{ field: "role", before: null, after: "admin" },
+			],
+			["Everyfield emails ana@example.test a link to join as an Admin. It works for 30 days."],
+		),
+		card(
+			"seats.resendInvitation",
+			"jordan@example.test",
+			[{ field: "invitation", before: "pending", after: "sent_again" }],
+			["Everyfield emails jordan@example.test a new link. The earlier link stops working."],
+		),
+		...["sending church", "network"].map((after) =>
+			card(
+				"associations.invite",
+				"Grace Austin",
+				[
+					{ field: "connection", before: null, after },
+					{ field: "recipientEmail", before: null, after: "connect@example.test" },
+				],
+				["Nothing is shared until they accept."],
+			),
+		),
+	];
+	const said = cards.map((c) => [
+		delayedText(c),
+		...shownChanges(c).map((x) => `${fieldLabel(x.field)}: ${valueText(x.field, x.after)}`),
+		...shownNotes(c),
+	]);
+	const connection = [
+		"The invitation to Grace Austin is saved, but its email is delayed. They have 30 days to accept. You do not need to send it again unless it expires.",
+		"Email: connect@example.test",
+		"Nothing is shared until they accept.",
+	];
+	assert.deepEqual(said, [
+		[
+			"The invitation to ana@example.test is saved, but its email is delayed. You do not need to send it again unless it expires.",
+			"Invitation: ana@example.test",
+			"Role: Admin",
+		],
+		[
+			"The invitation to jordan@example.test is saved with a new link, but its email is delayed. The old link no longer works. You do not need to resend it unless it expires.",
+			"Invitation: New link",
+		],
+		connection.toSpliced(1, 0, "Connection: Sending church"),
+		connection.toSpliced(1, 0, "Connection: Network"),
+	]);
+	for (const c of cards) {
+		assert.equal(savedText(c), delayedText(c));
+		for (const over of [{ mailDelayed: undefined }, { outcome: null }, { outcome: "refused" }, { outcome: "failed" }]) {
+			const plain = { ...c, ...over };
+			assert.equal(delayedText(plain), null);
+			assert.deepEqual(shownChanges(plain), c.review.changes);
+			assert.deepEqual(shownNotes(plain), c.review.notes);
+		}
+	}
+	assert.equal(delayedText(review({ outcome: "completed", mailDelayed: true })), null);
 });
