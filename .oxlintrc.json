@@ -274,6 +274,7 @@
 				"react/set-state-in-render": "error",
 				"react/unsupported-syntax": "warn",
 				"everyfield/no-inner-html": "error",
+				"everyfield/stable-ref": "error",
 				"everyfield/no-cursor-utility": "error",
 				"everyfield/no-global-listeners": "error",
 				"everyfield/no-raw-history": "error",

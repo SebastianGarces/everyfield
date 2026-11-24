@@ -793,6 +793,29 @@ const RUNTIME_GLOBALS = new Set([
 const CLOCKS = new Set(["Date", "performance"]);
 const GLOBAL_OBJECTS = new Set(["globalThis", "self", "window"]);
 
+function clockTracker() {
+	const aliases = new Map();
+	const clockOf = (node) => {
+		if (node?.type === "Identifier") return aliases.get(node.name) ?? (CLOCKS.has(node.name) ? node.name : null);
+		if (node?.type !== "MemberExpression") return null;
+		const name = memberName(node);
+		if (CLOCKS.has(name) && node.object.type === "Identifier" && GLOBAL_OBJECTS.has(node.object.name)) return name;
+		return name === "now" && clockOf(node.object) ? "now" : null;
+	};
+	const track = (node) => {
+		if (node.id.type === "Identifier") {
+			const clock = clockOf(node.init);
+			if (clock) aliases.set(node.id.name, clock);
+			return;
+		}
+		if (node.id.type !== "ObjectPattern" || !clockOf(node.init)) return;
+		for (const p of node.id.properties)
+			if (p.type === "Property" && keyName(p.key, p.computed) === "now" && p.value.type === "Identifier")
+				aliases.set(p.value.name, "now");
+	};
+	return { clockOf, track };
+}
+
 const modelModule = {
 	meta: { type: "problem" },
 	create(context) {
@@ -801,14 +824,7 @@ const modelModule = {
 				node,
 				message: `A model module is pure: it takes the clock, the browser and the server as arguments and imports none of them. Remove the ${what}.`,
 			});
-		const aliases = new Map();
-		const clockOf = (node) => {
-			if (node?.type === "Identifier") return aliases.get(node.name) ?? (CLOCKS.has(node.name) ? node.name : null);
-			if (node?.type !== "MemberExpression") return null;
-			const name = memberName(node);
-			if (CLOCKS.has(name) && node.object.type === "Identifier" && GLOBAL_OBJECTS.has(node.object.name)) return name;
-			return name === "now" && clockOf(node.object) ? "now" : null;
-		};
+		const { clockOf, track } = clockTracker();
 		const sources = moduleSources((node, name) => {
 			if (node.type === "TSImportType" || node.importKind === "type" || node.exportKind === "type") return;
 			if (RUNTIME_MODULES.test(name) && !(node.type === "ImportDeclaration" && typeOnly(node)))
@@ -818,17 +834,7 @@ const modelModule = {
 			...sources,
 			ExpressionStatement: (node) =>
 				typeof node.directive === "string" && node.directive.startsWith("use ") && report(node, `"${node.directive}"`),
-			VariableDeclarator: (node) => {
-				if (node.id.type === "Identifier") {
-					const clock = clockOf(node.init);
-					if (clock) aliases.set(node.id.name, clock);
-					return;
-				}
-				if (node.id.type !== "ObjectPattern" || !clockOf(node.init)) return;
-				for (const p of node.id.properties)
-					if (p.type === "Property" && keyName(p.key, p.computed) === "now" && p.value.type === "Identifier")
-						aliases.set(p.value.name, "now");
-			},
+			VariableDeclarator: track,
 			NewExpression: (node) =>
 				clockOf(node.callee) === "Date" && node.arguments.length === 0 && report(node, "clock read (new Date())"),
 			CallExpression: (node) => {
@@ -4556,6 +4562,224 @@ const civilDay = {
 	},
 };
 
+const REF_CODE = /^(?:apps\/web\/src\/(?!marketing\/)|packages\/ui\/src\/)/;
+const HOOK = /^use(?:[A-Z0-9]|$)/;
+const MEMO_HOOKS = new Set(["useCallback", "useMemo"]);
+const within = (node, fn) => {
+	for (let at = node; at; at = at.parent) if (at === fn) return true;
+	return false;
+};
+const refOwner = (node) => {
+	let outermost = null;
+	let component = null;
+	for (let at = node.parent; at; at = at.parent) {
+		if (!FUNCTIONS.has(at.type)) continue;
+		outermost = at;
+		if (isOwner(functionName(at) ?? "")) component = at;
+	}
+	return component ?? outermost;
+};
+const patternDefault = (pattern, name) => {
+	for (const part of childNodes(pattern)) {
+		if (part.type === "AssignmentPattern" && part.left.type === "Identifier" && part.left.name === name)
+			return part.right;
+		const inner = FUNCTIONS.has(part.type) ? null : patternDefault(part, name);
+		if (inner) return inner;
+	}
+	return null;
+};
+const returnsOf = (fn) => {
+	if (fn.body.type !== "BlockStatement") return [fn.body];
+	const found = [];
+	walkOwn(fn.body, (node) => {
+		if (node.type === "ReturnStatement" && node.argument) found.push(node.argument);
+		return false;
+	});
+	return found;
+};
+const stableRef = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!REF_CODE.test(repoPath(context.filename))) return {};
+		const valuesOf = (id, owner) => {
+			const variable = variableOf(context, id);
+			if (!variable) return [];
+			const values = variable.references.flatMap((r) => (r.writeExpr && !r.init ? [r.writeExpr] : []));
+			for (const def of variable.defs) {
+				if (def.type === "FunctionName") values.push(def.node);
+				else if (def.type === "Variable")
+					values.push(def.node.id.type === "Identifier" ? def.node.init : patternDefault(def.node.id, id.name));
+				else if (def.type === "Parameter")
+					values.push(patternDefault({ type: "ArrayPattern", elements: def.node.params }, id.name));
+			}
+			return values.filter((value) => value && within(value, owner));
+		};
+		const propertyOf = (object, name, owner) =>
+			object.type === "Identifier" && name
+				? valuesOf(object, owner)
+						.map(unwrapped)
+						.filter((value) => value?.type === "ObjectExpression")
+						.flatMap((value) => value.properties)
+						.filter((p) => p.type === "Property" && keyName(p.key, p.computed) === name)
+						.map((p) => p.value)
+				: [];
+		const isFresh = (node, owner, seen = new Set()) => {
+			const value = unwrapped(node);
+			if (!value || !owner || seen.has(value)) return false;
+			seen.add(value);
+			const fresh = (part) => isFresh(part, owner, seen);
+			if (FUNCTIONS.has(value.type)) return true;
+			if (value.type === "ConditionalExpression") return fresh(value.consequent) || fresh(value.alternate);
+			if (value.type === "LogicalExpression") return fresh(value.left) || fresh(value.right);
+			if (value.type === "Identifier") return valuesOf(value, owner).some(fresh);
+			if (value.type === "MemberExpression") return propertyOf(value.object, memberName(value), owner).some(fresh);
+			return value.type === "CallExpression" && freshCall(value, fresh);
+		};
+		const freshCall = (call, fresh) => {
+			const name = calleeName(call.callee);
+			if (MEMO_HOOKS.has(name)) return call.arguments.length < 2;
+			if (HOOK.test(name ?? "")) return false;
+			if (call.arguments.some(fresh)) return true;
+			if (call.callee.type === "MemberExpression") return name === "bind";
+			if (call.callee.type !== "Identifier") return true;
+			const local = variableOf(context, call.callee)
+				?.defs.map((def) => (def.type === "Variable" ? unwrapped(def.node.init) : def.node))
+				.find((node) => FUNCTIONS.has(node?.type));
+			if (local) return returnsOf(local).some((answer) => isFresh(answer, local));
+			return name !== "revealRef";
+		};
+		return {
+			JSXAttribute(node) {
+				if (node.name.name !== "ref" || node.value?.type !== "JSXExpressionContainer") return;
+				if (!isFresh(node.value.expression, refOwner(node))) return;
+				context.report({
+					node,
+					message:
+						"This ref is a new function on every render, so React detaches and attaches the element each time: focus requests, observers and measurements run again. Use a module-level function, a ref object, useCallback with its dependencies, a hook's or store's stable function, or revealRef(up).",
+				});
+			},
+		};
+	},
+};
+
+const serverClock = {
+	meta: { type: "problem" },
+	create(context) {
+		const { clockOf, track } = clockTracker();
+		const report = (node) =>
+			context.report({
+				node,
+				message:
+					"A review card never reads the browser clock: its expiry follows the server's now (review.now). Pass that instant in; formatting a server instant with new Date(iso) is fine.",
+			});
+		return {
+			VariableDeclarator: (node) => {
+				track(node);
+				if (node.id.type === "ObjectPattern" && clockOf(node.init))
+					for (const p of node.id.properties)
+						if (p.type === "Property" && keyName(p.key, p.computed) === "now") report(p);
+			},
+			NewExpression: (node) => clockOf(node.callee) === "Date" && node.arguments.length === 0 && report(node),
+			CallExpression: (node) => clockOf(node.callee) === "Date" && report(node),
+			MemberExpression: (node) => clockOf(node) === "now" && report(node),
+		};
+	},
+};
+
+const SCROLL_INTO_VIEW = /^scrollIntoView(?:IfNeeded)?$/;
+const noScrollIntoView = {
+	meta: { type: "problem" },
+	create(context) {
+		const report = (node, name) =>
+			SCROLL_INTO_VIEW.test(name ?? "") &&
+			context.report({
+				node,
+				message:
+					"scrollIntoView also scrolls the page and every column around the element. Set scrollTop on the one column that moves.",
+			});
+		return {
+			MemberExpression: (node) => report(node, memberName(node)),
+			Property: (node) => node.parent.type === "ObjectPattern" && report(node, keyName(node.key, node.computed)),
+		};
+	},
+};
+
+const DATE_OPTIONS = new Set([
+	"dateStyle",
+	"timeStyle",
+	"weekday",
+	"era",
+	"year",
+	"month",
+	"day",
+	"dayPeriod",
+	"hour",
+	"minute",
+	"second",
+	"fractionalSecondDigits",
+	"timeZoneName",
+	"hour12",
+	"hourCycle",
+]);
+const explicitTimeZone = {
+	meta: { type: "problem" },
+	create(context) {
+		const definition = (node) => {
+			const value = unwrapped(node);
+			if (value?.type !== "Identifier") return value;
+			const variable = variableOf(context, value);
+			const [def] = variable?.defs ?? [];
+			return def?.type === "Variable" && def.node.id.type === "Identifier" && def.node.init
+				? unwrapped(def.node.init)
+				: value;
+		};
+		const keysOf = (node) => {
+			const options = definition(node);
+			return options?.type === "ObjectExpression"
+				? options.properties.filter((p) => p.type === "Property").map((p) => [keyName(p.key, p.computed), p.value])
+				: [];
+		};
+		const zoned = (options) => keysOf(options).some(([key, value]) => key === "timeZone" && !isNothing(value));
+		const isDateType = (id) => {
+			const type = (variableOf(context, id)?.defs ?? [])
+				.map((def) => def.name?.typeAnnotation?.typeAnnotation)
+				.find(Boolean);
+			return type?.type === "TSTypeReference" && typeName(type) === "Date";
+		};
+		const isDate = (node) => {
+			if (node.type === "TSAsExpression" && typeName(node.typeAnnotation) === "Date") return true;
+			const value = definition(node);
+			if (value?.type === "NewExpression") return calleeName(value.callee) === "Date";
+			return value?.type === "Identifier" && isDateType(value);
+		};
+		const report = (node) =>
+			context.report({
+				node,
+				message:
+					"Format a meeting, launch or oversight date in the church's time zone: pass { timeZone } in an options object written here. Without it the browser's zone decides the day.",
+			});
+		const formatter = (node) => {
+			const callee = definition(node.callee);
+			const name = callee?.type === "Identifier" ? callee.name : memberName(callee);
+			if (name === "DateTimeFormat" && !zoned(node.arguments[1])) report(node);
+		};
+		return {
+			NewExpression: formatter,
+			CallExpression(node) {
+				formatter(node);
+				if (node.callee.type !== "MemberExpression" || zoned(node.arguments[1])) return;
+				const name = memberName(node.callee);
+				if (name === "toLocaleDateString" || name === "toLocaleTimeString") report(node);
+				else if (
+					name === "toLocaleString" &&
+					(isDate(node.callee.object) || keysOf(node.arguments[1]).some(([key]) => DATE_OPTIONS.has(key)))
+				)
+					report(node);
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -4620,5 +4844,9 @@ export default {
 		"no-default-database": noDefaultDatabase,
 		"count-text": countText,
 		"civil-day": civilDay,
+		"stable-ref": stableRef,
+		"server-clock": serverClock,
+		"no-scroll-into-view": noScrollIntoView,
+		"explicit-time-zone": explicitTimeZone,
 	},
 };
