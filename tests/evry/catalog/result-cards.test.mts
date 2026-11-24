@@ -188,6 +188,7 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 				origin: "https://app.example.test",
 			},
 			transport: {
+				paused: false,
 				send: async () => ({ outcome: "ids", ids: [] }),
 				cancel: async () => [],
 				reschedule: async () => [],

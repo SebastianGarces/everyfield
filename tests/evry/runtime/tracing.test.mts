@@ -25,8 +25,10 @@ const langfuse = createServer((request: IncomingMessage, response: ServerRespons
 	request.on("end", () => {
 		if (outage) return void (hung.push(response), firstHung.resolve());
 		const raw = Buffer.concat(chunks);
-		const body = JSON.parse(String(request.headers["content-encoding"] === "gzip" ? gunzipSync(raw) : raw));
-		spans.push(...body.resourceSpans.flatMap((r: any) => r.scopeSpans.flatMap((s: any) => s.spans)));
+		const body: { resourceSpans: { scopeSpans: { spans: Span[] }[] }[] } = JSON.parse(
+			String(request.headers["content-encoding"] === "gzip" ? gunzipSync(raw) : raw),
+		);
+		spans.push(...body.resourceSpans.flatMap((r) => r.scopeSpans.flatMap((s) => s.spans)));
 		response.writeHead(200, { "content-type": "application/json" }).end("{}");
 	});
 });

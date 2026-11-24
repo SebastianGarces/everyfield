@@ -1,4 +1,5 @@
 import type { Database } from "@everyfield/db/client";
+import { readSwitches, switchedOff } from "@everyfield/domain/flags";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { queueJobsFor } from "@everyfield/domain/jobs";
 import { randomUUID } from "node:crypto";
@@ -44,6 +45,10 @@ const listInput = z.strictObject({
 	page: z.int().min(1).max(100_000).default(1),
 });
 
+async function admitTurn(db: Database, action: "evry.createConversation" | "evry.submitTurn" | "evry.retryTurn") {
+	if (switchedOff(await readSwitches(db), "evry-model-calls", action)) throw new EvryRefusal("model_paused");
+}
+
 function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	const r = schema.safeParse(raw);
 	if (!r.success) throw new EvryRefusal("invalid_input");
@@ -83,6 +88,7 @@ const titleOf = (value: string) => {
 
 export async function createConversation(db: Database, actor: EvryActor, raw: unknown): Promise<Conversation> {
 	const input = parse(createInput, raw);
+	await admitTurn(db, "evry.createConversation");
 	const r = await db.execute(sql`
 		WITH known AS (
 			SELECT a.subject_id FROM audit_event a
@@ -182,6 +188,7 @@ export async function submitTurn(
 ): Promise<Submitted> {
 	const id = parse(uuid, conversationId);
 	const input = parse(submitInput, raw);
+	await admitTurn(db, retryOf ? "evry.retryTurn" : "evry.submitTurn");
 	const turnId = randomUUID();
 	const body = {
 		text: input.text,
