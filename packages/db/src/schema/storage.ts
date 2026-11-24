@@ -19,6 +19,11 @@ import { isProduction } from "../deployment.ts";
 type FileObjectRow = typeof file_object.$inferSelect;
 
 export type FilePurpose = FileObjectRow["purpose"];
+export type UploadKey = string & z.$brand<"UploadKey">;
+export type ObjectPath = string & z.$brand<"ObjectPath">;
+export const toUploadKey = (key: string) => key as UploadKey;
+export const privateObjectPath = (tenantId: string, objectId: string) =>
+	`private/${tenantId}/${objectId}` as ObjectPath;
 export interface PrivateStorage {
 	client: S3Client;
 	bucket: string;
@@ -92,7 +97,7 @@ export async function putPrivateObject(
 	db: Database,
 	storage: PrivateStorage,
 	authorize: ResourceAuthorizer,
-	input: { tenantId: string; purpose: FilePurpose; mediaType: string; bytes: Uint8Array; uploadKey: string },
+	input: { tenantId: string; purpose: FilePurpose; mediaType: string; bytes: Uint8Array; uploadKey: UploadKey },
 ) {
 	if (!isUploadKey(input.uploadKey)) throw new StorageError("invalid_upload_key");
 	await assertPrivateBucket(storage);
@@ -112,7 +117,7 @@ export async function putPrivateObject(
 					id: candidate.id,
 					tenant_id: candidate.tenant_id,
 					purpose: candidate.purpose,
-					opaque_key: `private/${candidate.tenant_id}/${randomUUID()}`,
+					opaque_key: privateObjectPath(candidate.tenant_id, randomUUID()),
 					media_type: input.mediaType,
 					max_bytes: String(input.bytes.length),
 					byte_count: String(input.bytes.length),
@@ -224,7 +229,7 @@ export function assertPrivateBucket(storage: PrivateStorage): Promise<void> {
 	return check;
 }
 const UPLOAD_URL_SECONDS = 300;
-export async function signPrivatePut(storage: PrivateStorage, key: string, mediaType: string, byteLength: number) {
+export async function signPrivatePut(storage: PrivateStorage, key: ObjectPath, mediaType: string, byteLength: number) {
 	await assertPrivateBucket(storage);
 	const issuedAt = new Date();
 	const url = await getSignedUrl(
@@ -249,13 +254,13 @@ export async function signPrivatePut(storage: PrivateStorage, key: string, media
 		expiresAt: new Date(issuedAt.getTime() + UPLOAD_URL_SECONDS * 1000).toISOString(),
 	};
 }
-export async function readPrivateObject(storage: PrivateStorage, key: string, maxBytes: number) {
+export async function readPrivateObject(storage: PrivateStorage, key: ObjectPath, maxBytes: number) {
 	const object = await readPrivateUpload(storage, key, maxBytes);
 	return typeof object === "string" ? null : object;
 }
 export async function readPrivateUpload(
 	storage: PrivateStorage,
-	key: string,
+	key: ObjectPath,
 	maxBytes: number,
 ): Promise<{ bytes: Uint8Array; mediaType: string } | "missing" | "too_large"> {
 	const object = await storage.client

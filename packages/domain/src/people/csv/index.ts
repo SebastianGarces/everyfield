@@ -2,7 +2,7 @@ import { owner, requestIdentity, type Owner } from "@everyfield/contracts/common
 import * as c from "@everyfield/contracts/people";
 import type { Database } from "@everyfield/db/client";
 import { and, sql, type SQL } from "@everyfield/db/query";
-import { readPrivateUpload, signPrivatePut, type PrivateStorage } from "@everyfield/db/schema";
+import { privateObjectPath, readPrivateUpload, signPrivatePut, type PrivateStorage } from "@everyfield/db/schema";
 import { createHash, randomUUID } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
 import "server-only";
@@ -533,7 +533,6 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 	return finished.rows.length ? "succeeded" : "lost";
 }
 
-const uploadKey = (plant: string, uploadId: string) => `private/${plant}/${uploadId}`;
 export async function signPeopleImport(db: Database, storage: PrivateStorage, authority: RequestActor, raw: unknown) {
 	return readReply(async () => {
 		const ctx = new PeopleReadContext(authority);
@@ -543,7 +542,7 @@ export async function signPeopleImport(db: Database, storage: PrivateStorage, au
 		if (typeof declared === "number" && declared > c.importLimits.bytes) deny("file_too_large");
 		const input = parse(c.signImportUploadRequest, raw);
 		const id = randomUUID();
-		const key = uploadKey(plant, id);
+		const key = privateObjectPath(plant, id);
 		const result = await db.execute(sql`WITH upload AS (
  INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
  SELECT ${id}::uuid,${plant}::uuid,'native_import',${key}::text,'text/csv',${String(input.byteLength)}::bigint,
@@ -565,7 +564,7 @@ export async function signPeopleImport(db: Database, storage: PrivateStorage, au
 }
 async function storedFile(db: Database, storage: PrivateStorage, ctx: PeopleReadContext, uploadId: string) {
 	const plant = plantId(ctx),
-		key = uploadKey(plant, uploadId);
+		key = privateObjectPath(plant, uploadId);
 	const found = z.object({ allowed: z.boolean(), staged: z.boolean() }).parse(
 		(
 			await db.execute(sql`SELECT ${access(ctx, true)} AS allowed, EXISTS(SELECT FROM file_object f

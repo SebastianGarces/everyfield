@@ -16,7 +16,7 @@ import {
 import { invitationService } from "../invitations";
 import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "@everyfield/domain/jobs";
 import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
-import { configured, mutatingRoute } from "../platform/boundary.ts";
+import { loggedRoute, mutatingRoute } from "../platform/boundary.ts";
 
 function identityMail(v: ServerConfig, transport?: MailTransport) {
 	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
@@ -80,7 +80,7 @@ function identityMount() {
 	return service;
 }
 
-export const identityHandler = configured((request: Request): Promise<Response> => identityMount().handle(request));
+export const identityHandler = loggedRoute((request: Request): Promise<Response> => identityMount().handle(request));
 
 export function requestAuth() {
 	return identityMount().auth;

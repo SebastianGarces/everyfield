@@ -1,5 +1,6 @@
 "use client";
 
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import {
 	Add01Icon,
 	Cancel01Icon,
@@ -416,7 +417,7 @@ function TurnView({
 	canRetry: boolean;
 	retrying: boolean;
 	reviews: State["reviews"];
-	photos: Readonly<Record<string, string>>;
+	photos: Readonly<Record<string, AppAssetPath>>;
 	onRetry: () => void;
 }) {
 	const panel = Panel.useStoreApi();

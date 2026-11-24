@@ -18,45 +18,18 @@ const required = mailKeys.extend({
 export type ServerConfig = Readonly<z.infer<typeof required>>;
 export type ServerEnv = Readonly<Record<string, string | undefined>>;
 
-export class ServerConfigError extends Error {
-	readonly names: readonly string[];
-	constructor(names: readonly string[]) {
-		super("server_config_missing");
-		this.name = "ServerConfigError";
-		this.names = names;
-	}
-}
+let parsed: ServerConfig | undefined;
 
-let parsed: { config: ServerConfig } | { problem: ServerConfigError } | undefined;
+export const serverConfig = (): ServerConfig => (parsed ??= Object.freeze(required.parse(process.env)));
 
-function parse() {
-	if (parsed) return parsed;
+export function refuseInvalidServerConfig() {
 	const result = required.safeParse(process.env);
-	parsed = result.success
-		? { config: Object.freeze(result.data) }
-		: {
-				problem: new ServerConfigError([...new Set(result.error.issues.map((issue) => String(issue.path[0])))].sort()),
-			};
-	return parsed;
-}
-
-export const serverConfigProblem = (): ServerConfigError | null => {
-	const result = parse();
-	return "problem" in result ? result.problem : null;
-};
-
-export function serverConfig(): ServerConfig {
-	const result = parse();
-	if ("problem" in result) throw result.problem;
-	return result.config;
-}
-
-export function refuseMissingServerConfig() {
-	const missing = Object.keys(required.shape)
-		.filter((key) => !process.env[key])
-		.sort();
-	if (!missing.length) return;
-	logLine({ component: "server", event: "settings_missing", missing: asLogNames(missing) });
+	if (result.success) return;
+	const refused = [...new Set(result.error.issues.map((issue) => String(issue.path[0])))].sort();
+	const missing = refused.filter((key) => !process.env[key]);
+	const malformed = refused.filter((key) => process.env[key]);
+	if (missing.length) logLine({ component: "server", event: "settings_missing", missing: asLogNames(missing) });
+	if (malformed.length) logLine({ component: "server", event: "settings_malformed", malformed: asLogNames(malformed) });
 	process.exit(1);
 }
 
