@@ -74,6 +74,16 @@ export function resultForModel(resultId: number, result: SourceResult): ModelRep
 	return JSON.parse(scrub(JSON.stringify({ ...value, rows, truncatedRows: result.rows.length - rows.length })));
 }
 
+const REFUSAL_DETAIL: Partial<Record<string, string>> = {
+	mail_paused:
+		"Sending email is paused for everyone right now, so nothing was prepared, scheduled or sent. Tell the user that email is paused, that nothing was sent, and that they can ask again later.",
+};
+
+export function refusalForModel(code: string): { error: string; detail?: string } {
+	const detail = REFUSAL_DETAIL[code];
+	return detail ? { error: code, detail } : { error: code };
+}
+
 const RECORDED_CRITERIA = z.array(
 	z.strictObject({ label: z.string(), status: z.string(), reading: z.string().nullable() }),
 );

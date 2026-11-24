@@ -8,6 +8,7 @@ import {
 	type AccessRequest,
 	type AccessRequestResult,
 } from "./contract.ts";
+import { readSwitches, switchedOff } from "../flags/index.ts";
 import { mailRecipientAllowed } from "../mail-recipients.ts";
 
 const mailSchema = z.object({
@@ -72,6 +73,8 @@ export async function receiveAccessRequest(
 		if (!env.RESEND_API_KEY) throw new Error("Mail credentials unavailable");
 		const mailPayload = mailFor(request, env);
 		const db = dependencies.db ?? database();
+		if (switchedOff(await readSwitches(db), "outbound-mail", "access.requestEarlyAccess"))
+			return { status: "unavailable" };
 		const reservation = await reserveAccessRequest(
 			{
 				kind: request.kind,

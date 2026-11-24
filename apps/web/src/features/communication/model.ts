@@ -134,6 +134,8 @@ function refusalText(code: string): string {
 			return "Sending is held. Add your church's mailing address in Church profile, then send again. Nothing was sent.";
 		case "unavailable":
 			return "Email delivery is not set up on this server. Nothing was sent.";
+		case "mail_paused":
+			return "Sending email is paused for now. Nothing was sent, and this message did not change. Try again later.";
 		default:
 			return "Unable to save. Try again in a moment.";
 	}
