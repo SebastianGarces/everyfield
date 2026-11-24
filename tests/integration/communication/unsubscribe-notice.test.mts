@@ -398,3 +398,120 @@ test("AC:CASE-NTF-016 filtering the feed by the category shows only these notice
 		["Ana unsubscribed from a scheduled email"],
 	);
 });
+
+const markChild = (who) => f.admin.execute(sql`UPDATE person SET adult_classification = 'child' WHERE id = ${who.id}`);
+async function guardianOf(w, child, name) {
+	const adult = await person(w, name);
+	const home = randomUUID();
+	await f.admin.execute(sql`INSERT INTO household(id,plant_id,name) VALUES(${home},${w.id},'Home')`);
+	await f.admin.execute(sql`UPDATE person SET household_id = ${home}::uuid, household_role = 'other'
+		WHERE id IN (${child.id}, ${adult.id})`);
+	await f.admin.execute(sql`UPDATE person SET adult_classification = 'adult' WHERE id = ${adult.id}`);
+	await f.admin.execute(sql`INSERT INTO guardian_contact(plant_id,child_person_id,guardian_person_id,household_id)
+		VALUES(${w.id},${child.id},${adult.id},${home})`);
+	return adult;
+}
+
+test("AC:CASE-NTF-016-CHILD a child's opt-out tells the scheduler whether the email still goes to a parent or guardian, as its only recipient and among others", async () => {
+	for (const routed of [true, false])
+		for (const only of [true, false]) {
+			const w = await church();
+			const sam = await staff(w);
+			const kit = await person(w, "Kit Fox");
+			const ben = await person(w, "Ben Ode");
+			if (routed) {
+				await markChild(kit);
+				await guardianOf(w, kit, "Ida Fox");
+			}
+			const email = await schedule(sam, only ? [kit] : [kit, ben]);
+			if (!routed) await markChild(kit);
+			const jobsBefore = (await rows(sql`SELECT count(*)::int AS n FROM job`))[0].n;
+			const done = ok(await unsubscribe(kit));
+			assert.equal((await rows(sql`SELECT count(*)::int AS n FROM job`))[0].n, jobsBefore, "no job was queued");
+			const at = `“Next Sunday”, scheduled for ${churchTime(email.at)}`;
+			const left = !routed && only;
+			const expected = [
+				{
+					email: email.id,
+					church: w.id,
+					title: left ? "Not sent: Kit Fox is marked as a child" : "Kit Fox unsubscribed from this church's email",
+					body: routed
+						? `${at}, still goes to the parent or guardian of Kit Fox.`
+						: left
+							? `${at}, will not go out because Kit Fox is marked as a child.`
+							: `Kit Fox is marked as a child and left out of ${at}.`,
+				},
+			];
+			assert.deepEqual(await stored(sam), expected);
+			assert.equal((await ours(sam)).length, 1);
+			assert.equal(JSON.stringify(await ours(sam)).includes("@"), false, "the notice shows no address");
+
+			await Promise.all([unsubscribe(kit), unsubscribe(kit)]);
+			assert.equal(ok(await undoMessagesOptOut(f.db, ring, now, { token: done.undoToken })).changed, true);
+			assert.equal(ok(await unsubscribe(kit)).changed, true);
+			assert.deepEqual(await stored(sam), expected, "one notice");
+		}
+});
+
+test("AC:CASE-NTF-016-CHILD a child whose guardian's own copy was already refused is told as left out", async () => {
+	const w = await church();
+	const sam = await staff(w);
+	const kit = await person(w, "Kit Fox");
+	await markChild(kit);
+	const ida = await guardianOf(w, kit, "Ida Fox");
+	const email = await schedule(sam, [kit, ida]);
+	const done = ok(await unsubscribe(ida));
+	ok(await undoMessagesOptOut(f.db, ring, now, { token: done.undoToken }));
+	ok(await unsubscribe(kit));
+	assert.equal(
+		(await stored(sam))[1].body,
+		`“Next Sunday”, scheduled for ${churchTime(email.at)}, will not go out because Kit Fox is marked as a child.`,
+	);
+	await atSendTime(f.admin, f.db, email.id, email.resend.transport, keys);
+	assert.deepEqual(
+		email.resend.requests.filter((r) => r.path === "/emails/batch"),
+		[],
+	);
+});
+
+test("AC:CASE-NTF-016-CHILD a child unsubscribed before the email was scheduled who uses the link again is still marked as a child and adds no notice", async () => {
+	const w = await church();
+	const sam = await staff(w);
+	const kit = await person(w, "Kit");
+	const ben = await person(w, "Ben");
+	await markChild(kit);
+	ok(await unsubscribe(kit));
+	const email = await schedule(sam, [kit, ben]);
+	assert.equal(ok(await unsubscribe(kit)).changed, false);
+	assert.deepEqual(await stored(sam), []);
+	const row = () =>
+		rows(sql`SELECT state, refusal FROM mail WHERE logical_key = ${"communication/" + email.id + "/" + kit.id}`);
+	assert.deepEqual(await row(), [{ state: "scheduled", refusal: null }]);
+	await atSendTime(f.admin, f.db, email.id, email.resend.transport, keys);
+	assert.deepEqual(await row(), [{ state: "refused", refusal: "child" }]);
+});
+
+test("AC:CASE-NTF-016-CHILD an opt-out that reaches a child through a merge leaves one notice about the child, beside the adult's unchanged notice", async () => {
+	const w = await church();
+	const sam = await staff(w);
+	const kit = await person(w, "Kit");
+	const old = await person(w, "Kit old");
+	const ben = await person(w, "Ben");
+	const ana = await person(w, "Ana");
+	await markChild(kit);
+	const email = await schedule(sam, [kit, ben, ana]);
+	await f.admin.execute(
+		sql`UPDATE person SET merged_into_person_id = ${kit.id}, state = 'merged' WHERE id = ${old.id}`,
+	);
+	ok(await unsubscribe(old));
+	ok(await unsubscribe(old));
+	ok(await unsubscribe(ana));
+	const at = `“Next Sunday”, scheduled for ${churchTime(email.at)}`;
+	assert.deepEqual(
+		(await stored(sam)).map(({ title, body }) => ({ title, body })),
+		[
+			{ title: "Kit unsubscribed from this church's email", body: `Kit is marked as a child and left out of ${at}.` },
+			{ title: "Ana unsubscribed from a scheduled email", body: `Ana will not get ${at}.` },
+		],
+	);
+});

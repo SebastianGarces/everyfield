@@ -5,7 +5,6 @@ import { z } from "zod";
 import { hash } from "../operations/canonical.ts";
 import { effectiveAdultSql, plantTodaySql } from "../people/adult.ts";
 import { guardianLinksSql } from "../people/households/guardians.ts";
-import { optedOutAtSql, optedOutSql } from "./opt-out.ts";
 
 export const guardianRow = z.object({
 	id: z.uuid(),
@@ -26,6 +25,23 @@ export type Guardian = z.infer<typeof guardianRow> & { email: string };
 
 type AudienceLists = { groups: SQL; teamIds: SQL; personIds: SQL };
 
+const optOutsOf = (plantId: SQL, personId: SQL) => sql`person_email_opt_out o
+		WHERE o.plant_id = ${plantId}
+			AND (o.person_id = ${personId} OR o.person_id IN (
+				SELECT q.id FROM person q WHERE q.merged_into_person_id = ${personId} AND q.tenant_id = ${plantId}))`;
+
+export function optedOutAtSql(plantId: SQL, personId: SQL): SQL {
+	return sql`(SELECT to_char(min(o.opted_out_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+		FROM ${optOutsOf(plantId, personId)} AND o.undone_at IS NULL)`;
+}
+
+export function optedOutSql(plantId: SQL, personId: SQL): SQL {
+	return sql`(${optedOutAtSql(plantId, personId)} IS NOT NULL)`;
+}
+
+export const optedOutSinceSql = (plantId: SQL, personId: SQL, since: SQL) =>
+	sql`EXISTS (SELECT 1 FROM ${optOutsOf(plantId, personId)} AND o.opted_out_at >= ${since})`;
+
 export const childSql = (plantId: SQL, personId: SQL) =>
 	sql`EXISTS (SELECT 1 FROM person cp WHERE cp.id = ${personId} AND cp.tenant_id = ${plantId}
 		AND ${effectiveAdultSql(sql`cp.birth_date`, sql`cp.adult_classification`, plantTodaySql(sql`cp.plant_id`))} = 'child')`;
@@ -44,6 +60,15 @@ export const routedIdsSql = (plantId: SQL, childId: SQL) =>
 	sql`(SELECT gad.id FROM ${linksOf(plantId, childId, reachable(plantId))})`;
 
 export const routedSql = (plantId: SQL, childId: SQL) => sql`EXISTS ${routedIdsSql(plantId, childId)}`;
+
+export const copyReachesSql = (plantId: SQL, childId: SQL, communicationId: SQL) =>
+	sql`EXISTS (SELECT 1 FROM ${linksOf(
+		plantId,
+		childId,
+		sql`${reachable(plantId)} AND NOT EXISTS (SELECT 1 FROM mail gm WHERE gm.tenant_id = gcx.plant_id
+			AND gm.communication_id = ${communicationId} AND gm.recipient_person_id = gad.id
+			AND gm.state IN ('refused', 'failed', 'cancelled'))`,
+	)})`;
 
 export const routedNamesSql = (plantId: SQL, childId: SQL) =>
 	sql`(SELECT string_agg(gad.display_name, ', ' ORDER BY gad.display_name, gad.id)

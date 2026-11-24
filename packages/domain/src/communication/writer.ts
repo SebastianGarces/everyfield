@@ -22,13 +22,13 @@ import { meetingOpenSql } from "../meetings/tokens.ts";
 import {
 	audiencePeople,
 	onlyChildren,
+	optedOutAtSql,
 	recipientsDigest,
 	reviewedParts,
 	routedNameListSql,
 	storedAudiencePeople,
 	summarizeAudience,
 } from "./audience.ts";
-import { optedOutAtSql } from "./opt-out.ts";
 import { personSearchMatch } from "../people/search.ts";
 import {
 	correctContactLog as correctContactLogCommand,
