@@ -808,7 +808,8 @@
 		"retry": 5
 	},
 	"meetings.correctPracticeOccurrence": {
-		"limit": 6
+		"limit": 6,
+		"retry": 5
 	},
 	"meetings.correctRsvp": {
 		"limit": 6,

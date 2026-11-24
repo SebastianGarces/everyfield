@@ -32,7 +32,8 @@ bin/flag set <name> on --all    # turn it back on
 
 - **Stops:** every new hand-off to the email service. In Communication, sending now, scheduling and saving a resend
   are refused before anything changes. Evry refuses to prepare or approve an email it would send, and an Evry send
-  approved before the flip is refused before it runs. Every cron mail pass is held: identity, organization, settings,
+  approved before the flip is refused before it runs (a meeting invitation creates no meeting or guests). One that
+  had already reached the email service stays unconfirmed until it is checked or retried. Every cron mail pass is held: identity, organization, settings,
   onboarding, notice, digest and feedback mail, invitation mail and scheduled messages. Held mail stays queued with no
   attempt counted, and goes out once on the first cron run after the switch is back on.
 - **Users see:** in Communication, "Sending email is paused for now. Nothing was sent, and this message did not
