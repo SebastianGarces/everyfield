@@ -2233,6 +2233,42 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 		},
 	);
 
+	test("INV-wiki-read opening the Guide and searching record no view or progress for the signed-in reader", async () => {
+		const opened = present(guideIds.get("core-group/follow-up/database-management"), "people guide");
+		const other = present(guideIds.get("core-group/vision-meetings/what-is-a-vision-meeting"), "meetings guide");
+		ok(
+			await api.updateProgress(
+				db,
+				await actor(r1.owner),
+				reading({ articleId: opened, fraction: "0.40", plantId: R1 }),
+			),
+		);
+		const stored = async () =>
+			(
+				await admin.execute(
+					sql`SELECT to_jsonb(r) AS row FROM reading r WHERE account_id=${r1.owner.id} ORDER BY article_id`,
+				)
+			).rows;
+		const before = await stored();
+		assert.ok(before.length > 0);
+		assert.ok(before.some(({ row }) => (row as { article_id: string }).article_id === opened));
+
+		const unread = await count(
+			sql`SELECT count(*)::int AS n FROM reading WHERE account_id=${r1.owner.id} AND article_id=${other}`,
+		);
+		assert.equal(unread, 0);
+		for (const [route, articleId] of [
+			["/people", opened],
+			["/meetings", other],
+		] as const) {
+			const guide = await guideOf(r1.owner, route);
+			assert.deepEqual([guide.found, guide.articleId], [true, articleId]);
+		}
+		const found = present(ok(await api.search(db, await actor(r1.owner), { query: "Track" })).results, "results");
+		assert.ok(found.length > 0);
+		assert.deepEqual(await stored(), before);
+	});
+
 	test(
 		ac(["CASE-WIKI-008", "WIKI-ENTITLEMENT-001"]) +
 			" the Guide excerpt comes from the church version, falls back to its start, and an ended seat gets no text",

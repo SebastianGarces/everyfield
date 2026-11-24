@@ -40,6 +40,7 @@ const factories = {
 	createLaunchReader: "launch",
 	createPrivateCare: "privateCare",
 	createSignals: "signals",
+	createFacts: "facts",
 	createAssessments: "assessments",
 	createAssessmentJob: "assessments.job",
 	createFollowUpWriter: "followups",

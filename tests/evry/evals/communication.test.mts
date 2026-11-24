@@ -28,7 +28,7 @@ import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { ACTOR_SPECS, goldenChurch, PLANT, type ActorName } from "./golden-church.mts";
-import { COMMUNICATION_LATER, RECORDED } from "./golden-harness.mts";
+import { RECORDED } from "./golden-harness.mts";
 import {
 	ADDRESS_KEY,
 	ALEX_CALL,
@@ -37,8 +37,20 @@ import {
 	OWNER_EMAIL,
 	REMINDER,
 	seedCommunication,
+	TRAINED,
 	USED_TEMPLATE,
 } from "./communication-church.mts";
+
+const TOOLS = [
+	"communication.forMeeting",
+	"communication.meetingRecipientTracking",
+	"communication.deliveryTotals",
+	"communication.listAudienceTeams",
+	"communication.searchRecipients",
+	"mail.suppression.listForSelf",
+	"communication.templates.archiveOrDelete",
+	"communication.correctContactLog",
+];
 
 type Change = [field: string, after: unknown, before?: unknown];
 type Case = {
@@ -50,7 +62,7 @@ type Case = {
 	calls: string[];
 	answer?: string[];
 	absent?: string[];
-	facts?: "forMeeting" | "tracking" | "totals" | "teams";
+	facts?: "forMeeting" | "tracking" | "trained" | "totals" | "teams";
 	proposal?: { operation: string; target: string; changes: Change[]; hidden?: string[] };
 	approve?: true;
 	check?: "deleted" | "archived" | "corrected" | "retimed" | "unchanged";
@@ -183,13 +195,14 @@ async function checkFacts(c: Case, who: EvryActor, found: SourceRow[], answer: s
 		assert.match(answer, /"You're invited: Vision Night": sent, sent 2026-11-09 08:00 America\/Chicago/);
 		assert.match(answer, /"Vision Night reminder": draft, not sent/);
 	}
-	if (c.facts === "tracking") {
+	if (c.facts === "tracking" || c.facts === "trained") {
+		const sent = c.facts === "trained" ? TRAINED : INVITED;
 		const people = found.filter((r) => r.kind === "person");
 		assert.deepEqual(
 			people.map((p) => [p.label, p.fields.result]).toSorted(),
-			INVITED.map((r) => [r.name, r.result]).toSorted(),
+			sent.map((r) => [r.name, r.result]).toSorted(),
 		);
-		for (const r of INVITED) {
+		for (const r of sent) {
 			const line = answer.split("\n").find((l) => l.startsWith(`- ${r.name}: `));
 			assert.ok(line, `the answer names ${r.name}`);
 			if (r.result === "sent" || r.result === "checking") assert.doesNotMatch(line, /\bdelivered\b/i, r.name);
@@ -281,8 +294,8 @@ async function checkAfter(c: Case, who: EvryActor) {
 const alexId = async () =>
 	(await rows<{ id: string }>(sql`SELECT person_id AS id FROM contact_outcome WHERE id=${ALEX_CALL}`))[0]!.id;
 
-test("INV-communication-catalog: the eight tools are held from the recorded suites, a Member is offered the four meeting and delivery reads and correctContactLog, never teams, recipients or template removal", async () => {
-	for (const op of COMMUNICATION_LATER) assert.equal(RECORDED(op), false, op);
+test("INV-communication-catalog: the recorded suites offer the eight tools, a Member is offered the four meeting and delivery reads and correctContactLog, never teams, recipients or template removal", async () => {
+	for (const op of TOOLS) assert.equal(RECORDED(op), true, op);
 	const offered = (who: EvryActor) => {
 		const catalog = readCatalog(who);
 		return [
@@ -291,7 +304,7 @@ test("INV-communication-catalog: the eight tools are held from the recorded suit
 		];
 	};
 	const owner = offered(await actorOf("owner"));
-	for (const op of COMMUNICATION_LATER) assert.ok(owner.includes(op), `owner ${op}`);
+	for (const op of TOOLS) assert.ok(owner.includes(op), `owner ${op}`);
 	const member = offered(await actorOf("member"));
 	for (const op of [
 		"communication.forMeeting",
@@ -308,7 +321,7 @@ test("INV-communication-catalog: the eight tools are held from the recorded suit
 	])
 		assert.ok(!member.includes(op), `member ${op}`);
 	assert.deepEqual(
-		offered(await actorOf("org")).filter((op) => COMMUNICATION_LATER.includes(op)),
+		offered(await actorOf("org")).filter((op) => TOOLS.includes(op)),
 		[],
 		"an organization seat gets none",
 	);
