@@ -55,7 +55,6 @@ const teamMeeting = await insert("meeting", {
 	status: "planning",
 	attendance_revision: 1,
 });
-const role = await insert("team_role", { team_id: team, name: "Greeter", leadership: false, sort_order: 1 });
 const program = await insert("training_program", { name: "Welcome", required: true });
 const tag = await insert("tag", { name: "Volunteer", normalized_name: "volunteer" });
 const household = await insert("household", { name: "Home" });
