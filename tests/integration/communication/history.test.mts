@@ -1,16 +1,33 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { addressAad, mailAddressHash } from "../../../packages/domain/src/communication/delivery.ts";
 import { sealAddress } from "./sealed-address.mts";
 import { ok, refused } from "../../support/fixture.mts";
-import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { MAILING } from "./church-address.mts";
+import {
+	firstRow,
+	readAs,
+	rowsFrom,
+	writeAs,
+	type Church,
+	type Fixture,
+	type ReadOp,
+	type Rest,
+	type Row,
+	type Staff,
+	type WriteOp,
+} from "./communication-support.mts";
 
-let f, plant, other, owner, member, stranger, foreign;
+let f: Fixture;
+let plant: Church;
+let other: Church;
+let owner: Staff;
+let member: Staff;
+let stranger: Staff;
+let foreign: Staff;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
@@ -18,18 +35,16 @@ const keys = {
 	origin: "https://app.example.test",
 };
 const key = () => randomUUID();
-const rows = async (query) => (await f.admin.execute(query)).rows;
-const write = (who, op, input) =>
-	withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
-const read = (who, op, input, deliveryKeys) =>
-	gatedTransaction(f.db, (tx) => communicationWriter[op](tx, who.actor, input, deliveryKeys));
-const countOf = async (query) => Number((await rows(query))[0].n);
-const hidden = (value, ...needles) => {
+const rows = <R extends Row = Row>(query: SQL) => rowsFrom<R>(f, query);
+const write = <K extends WriteOp>(who: Staff, op: K, input: unknown) => writeAs(f.db, who.actor, op, input);
+const read = <K extends ReadOp>(who: Staff, op: K, ...rest: Rest<K>) => readAs(f.db, who.actor, op, ...rest);
+const countOf = async (query: SQL) => Number((await rows(query))[0]!.n);
+const hidden = (value: unknown, ...needles: string[]) => {
 	const text = JSON.stringify(value);
 	for (const needle of needles) assert.equal(text.includes(needle), false, needle);
 };
 
-async function person(name, fields = {}) {
+async function person(name: string, fields: { plant?: string; email?: string; state?: string; notes?: string } = {}) {
 	const id = randomUUID();
 	await f.admin
 		.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
@@ -38,7 +53,18 @@ async function person(name, fields = {}) {
 		'prospect','unknown','unknown',0,${fields.state ?? "live"},clock_timestamp(),${fields.notes ?? null})`);
 	return id;
 }
-async function message(fields = {}) {
+async function message(
+	fields: {
+		audience?: object;
+		plant?: string;
+		state?: string;
+		subject?: string;
+		bodyHtml?: string | null;
+		bodyText?: string | null;
+		meeting?: string;
+		createdAt?: string;
+	} = {},
+) {
 	const id = randomUUID();
 	const audience = fields.audience ?? { groups: [], teamIds: [], personIds: [] };
 	await f.admin
@@ -48,14 +74,28 @@ async function message(fields = {}) {
 		${JSON.stringify(audience)}::jsonb, coalesce(${fields.createdAt ?? null}::timestamptz, clock_timestamp()))`);
 	return id;
 }
-async function meeting(title, target = plant) {
+async function meeting(title: string, target = plant) {
 	const id = randomUUID();
 	await f.admin
 		.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
 		VALUES(${id},${target.id},'vision_meeting',${title},'2026-11-01','18:00','America/Chicago','2026-11-01T23:00:00Z','1','completed',1)`);
 	return id;
 }
-async function mail(communicationId, personId, address, patch = {}) {
+async function mail(
+	communicationId: string,
+	personId: string,
+	address: string,
+	patch: {
+		plant?: string;
+		sentHours?: number;
+		createdHours?: number;
+		state?: string;
+		delivered?: boolean;
+		opened?: boolean;
+		clicked?: boolean;
+		accepted?: boolean;
+	} = {},
+) {
 	const id = randomUUID();
 	const tenant = patch.plant ?? plant.id;
 	const sealed = sealAddress(keys.encryptionKey, address, addressAad(tenant, id));
@@ -75,7 +115,7 @@ async function mail(communicationId, personId, address, patch = {}) {
 			CASE WHEN ${Boolean(patch.accepted)} THEN clock_timestamp() END`);
 	return { id, sealed };
 }
-async function task(personId, assigneeId) {
+async function task(personId: string, assigneeId?: string) {
 	const id = randomUUID();
 	await f.admin
 		.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,completed_at)
@@ -86,7 +126,7 @@ async function task(personId, assigneeId) {
 		);
 	return id;
 }
-async function outcome(taskId, personId, name, future = false) {
+async function outcome(taskId: string | null, personId: string, name: string, future = false) {
 	const id = randomUUID();
 	await f.admin
 		.execute(sql`INSERT INTO contact_outcome (id, plant_id, person_id, task_id, outcome, occurred_at, recorded_at, completes_task)
@@ -101,7 +141,7 @@ before(async () => {
 	f = await fixture();
 	plant = await f.workspace("plant", MAILING);
 	other = await f.workspace("plant", MAILING);
-	const seated = async (workspace, roleName) => {
+	const seated = async (workspace: Church, roleName: "owner" | "member") => {
 		const account = await f.account();
 		await f.seat(account, workspace, roleName);
 		return { ...account, actor: await f.actor(account.session) };
@@ -142,8 +182,8 @@ test("AC:CASE-COM-001 AC:MAIL51-008 history keeps a zero rate and hides private 
 	assert.equal(page.draftCountsAsSent, false);
 	assert.equal(page.unknownCountsAsSent, false);
 	assert.deepEqual(page.foreignRows, []);
-	const draft = page.items.find((item) => item.id === draftId);
-	const unknown = page.items.find((item) => item.id === unknownId);
+	const draft = page.items.find((item) => item.id === draftId)!;
+	const unknown = page.items.find((item) => item.id === unknownId)!;
 	assert.equal(draft.state, "draft");
 	assert.equal(draft.countsAsSent, false);
 	assert.equal(draft.rate, null);
@@ -170,11 +210,11 @@ test("AC:CASE-COM-001 AC:MAIL51-008 history keeps a zero rate and hides private 
 	refused(await read(foreign, "getDeliveryTotals", { communicationId: draftId }), "not_found");
 
 	const first = ok(await read(owner, "listHistory", { query: "CURSOR-PAGE", limit: 1 }));
-	assert.equal(first.items[0].id, newer);
+	assert.equal(first.items[0]!.id, newer);
 	assert.equal(first.complete, false);
 	assert.ok(first.nextCursor);
 	const second = ok(await read(owner, "listHistory", { query: "CURSOR-PAGE", limit: 1, cursor: first.nextCursor }));
-	assert.equal(second.items[0].id, older);
+	assert.equal(second.items[0]!.id, older);
 	assert.equal(second.complete, true);
 	const fallback = ok(await read(owner, "listHistory", { query: "CURSOR-PAGE", limit: "nope" }));
 	assert.equal(fallback.limit, 50);
@@ -202,17 +242,18 @@ test("AC:CASE-COM-002 AC:CASE-COM-003 detail keeps the sealed delivery address",
 	assert.equal(detail.deliveryAddress, "old@example.test");
 	assert.equal(detail.currentPersonAddress, "new@example.test");
 	assert.equal(detail.deliveryStatus, "delivered");
-	assert.equal(detail.recipients[0].currentPersonAddress, "new@example.test");
-	const stored = (await rows(sql`SELECT recipient_address_encrypted AS sealed FROM mail WHERE id = ${sent.id}`))[0]
-		.sealed;
+	assert.equal(detail.recipients[0]!.currentPersonAddress, "new@example.test");
+	const stored = firstRow(
+		await rows<{ sealed: string }>(sql`SELECT recipient_address_encrypted AS sealed FROM mail WHERE id = ${sent.id}`),
+	).sealed;
 	hidden(detail, stored, "TOKEN-CANARY", "CARE-CANARY", "SECRET-BODY");
 	const recipients = ok(await read(member, "listHistoryRecipients", { communicationId: id }, keys));
-	assert.equal(recipients.items[0].deliveryAddress, "old@example.test");
-	assert.equal(recipients.items[0].name, "Alex Detail");
+	assert.equal(recipients.items[0]!.deliveryAddress, "old@example.test");
+	assert.equal(recipients.items[0]!.name, "Alex Detail");
 	const tracked = ok(await read(owner, "listMeetingTracking", { meetingId: meet }));
 	assert.equal(tracked.complete, true);
-	assert.equal(tracked.items[0].personId, alex);
-	assert.equal(tracked.items[0].deliveryStatus, "delivered");
+	assert.equal(tracked.items[0]!.personId, alex);
+	assert.equal(tracked.items[0]!.deliveryStatus, "delivered");
 	const meetingPage = ok(await read(owner, "listForMeeting", { meetingId: meet }));
 	assert.equal(
 		meetingPage.items.some((item) => item.id === id),
@@ -328,15 +369,15 @@ test("AC:CASE-COM-009 AC:CASE-COM-003 AC:CASE-COM-012 reviewed resend keeps deli
 		await rows(
 			sql`SELECT state, subject, body_html, template_source, audience, meeting_id FROM communication WHERE id = ${created.communicationId}`,
 		)
-	)[0];
+	)[0]!;
 	assert.equal(copy.state, "reviewed");
 	assert.equal(copy.subject, "Please read");
 	assert.equal(copy.body_html, "<p>Please read</p>");
 	assert.equal(copy.template_source, `lineage:${id}`);
-	assert.deepEqual(copy.audience.personIds, [alex]);
+	assert.deepEqual((copy.audience as { personIds: string[] }).personIds, [alex]);
 	const copyRevision = (
 		await rows(sql`SELECT revision::text AS r FROM communication WHERE id = ${created.communicationId}`)
-	)[0].r;
+	)[0]!.r;
 	refused(
 		await write(owner, "saveDraft", {
 			requestKey: key(),
@@ -402,7 +443,7 @@ test("AC:TARGET-COM-011 AC:TARGET-PPL-021 contact freshness follows effective co
 	await mail(sent, owen, "owen@example.test", { state: "sent", sentHours: 3, delivered: true });
 	const owenPage = ok(await read(member, "listForPerson", { personId: owen }));
 	assert.equal(owenPage.lastConfirmedContactAt, null);
-	assert.equal(owenPage.items.find((item) => item.id === sent).state, "sent");
+	assert.equal(owenPage.items.find((item) => item.id === sent)!.state, "sent");
 
 	const adminTask = await task(nora, member.id);
 	await outcome(adminTask, nora, "administrative_completion");
@@ -463,9 +504,9 @@ test("AC:TARGET-COM-011 AC:TARGET-PPL-021 contact freshness follows effective co
 	const kept = await rows(
 		sql`SELECT id, voided_at IS NOT NULL AS voided FROM contact_outcome WHERE person_id = ${nora} AND id = ${callOutcome}`,
 	);
-	assert.equal(kept[0].voided, true);
+	assert.equal(kept[0]!.voided, true);
 	assert.equal(await countOf(sql`SELECT count(*)::int AS n FROM contact_outcome WHERE id = ${callOutcome}`), 1);
-	assert.equal((await rows(sql`SELECT status FROM task WHERE id = ${callTask}`))[0].status, "complete");
+	assert.equal((await rows(sql`SELECT status FROM task WHERE id = ${callTask}`))[0]!.status, "complete");
 	assert.equal(await countOf(sql`SELECT count(*)::int AS n FROM mail WHERE tenant_id = ${plant.id}`), mailBefore);
 	assert.equal(
 		ok(await read(owner, "listForPerson", { personId: nora })).lastConfirmedContactAt,
@@ -513,7 +554,7 @@ test("AC:TARGET-COM-011 AC:TARGET-PPL-021 contact freshness follows effective co
 		"invalid_input",
 	);
 	assert.equal(
-		(await rows(sql`SELECT voided_at IS NOT NULL AS voided FROM contact_outcome WHERE id = ${pastOutcome}`))[0].voided,
+		(await rows(sql`SELECT voided_at IS NOT NULL AS voided FROM contact_outcome WHERE id = ${pastOutcome}`))[0]!.voided,
 		false,
 	);
 	refused(
@@ -602,7 +643,7 @@ test("AC:CASE-COM-002 meeting tracking lists a person emailed by two of the meet
 	const ids = tracked.items.map((row) => row.personId);
 	assert.deepEqual(ids.sort(), [once, twice].sort());
 	assert.equal(new Set(ids).size, ids.length, "one row per person, so the list has unique keys");
-	assert.equal(tracked.items.find((row) => row.personId === twice).deliveryStatus, "delivered");
+	assert.equal(tracked.items.find((row) => row.personId === twice)!.deliveryStatus, "delivered");
 });
 
 test("AC:RECOVERY-DELETE-001 a pending-deletion witness on the plant hides communication history reads", async () => {

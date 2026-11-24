@@ -2,16 +2,31 @@ import "../platform/setup.mts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import {
+	communicationWriter,
+	withCommunicationWrite,
+	type DeliveryTransport,
+} from "../../../packages/domain/src/communication/index.ts";
 import { readSwitches } from "../../../packages/domain/src/flags/index.ts";
 import { outcomeText } from "../../../apps/web/src/features/communication/model.ts";
 import { ok } from "../../support/fixture.mts";
 import { heldAtProvider } from "./scheduled-support.mts";
 import { capturedLines, withSwitchOff } from "../../support/flags.mts";
+import {
+	deliverAs,
+	rowsFrom,
+	type Church,
+	type DeliveryOp,
+	type Fixture,
+	type Row,
+	type Staff,
+} from "./communication-support.mts";
 
-let f, plant, owner;
+let f: Fixture;
+let plant: Church;
+let owner: Staff;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
@@ -19,11 +34,16 @@ const keys = {
 	origin: "https://app.example.test",
 };
 const key = () => randomUUID();
-const rows = async (query) => (await f.admin.execute(query)).rows;
+const rows = <R extends Row = Row>(query: SQL) => rowsFrom<R>(f, query);
 
 function emailService() {
-	const calls = { send: [], cancel: [], reschedule: [] };
-	const transport = (paused) => ({
+	type Batch = Parameters<DeliveryTransport["send"]>[0];
+	const calls = {
+		send: [] as Batch[],
+		cancel: [] as string[][],
+		reschedule: [] as { ids: string[]; at: string }[],
+	};
+	const transport = (paused: boolean): DeliveryTransport => ({
 		paused,
 		async send(batch) {
 			calls.send.push(batch);
@@ -42,7 +62,7 @@ function emailService() {
 }
 
 async function reviewed(days = 3) {
-	const people = [];
+	const people: string[] = [];
 	for (const name of ["Ana", "Ben"]) {
 		const id = randomUUID();
 		await f.admin
@@ -72,17 +92,23 @@ async function reviewed(days = 3) {
 	);
 	return { id: value.communicationId };
 }
-const record = async (message) =>
+const record = async (message: { id: string }) =>
 	(
-		await rows(sql`SELECT c.state, c.revision::text AS revision,
+		await rows<{
+			state: string;
+			revision: string;
+			mail: number;
+			audits: number;
+		}>(sql`SELECT c.state, c.revision::text AS revision,
 			(SELECT count(*)::int FROM mail m WHERE m.logical_key LIKE ${"communication/" + message.id + "/%"}) AS mail,
 			(SELECT count(*)::int FROM audit_event a WHERE a.subject_id = c.id) AS audits
 			FROM communication c WHERE c.id = ${message.id}`)
-	)[0];
-const deliver = (op, message, transport, revision) =>
-	communicationWriter[op](
+	)[0]!;
+const deliver = (op: DeliveryOp, message: { id: string }, transport: DeliveryTransport, revision: string) =>
+	deliverAs(
 		f.db,
 		owner.actor,
+		op,
 		{ requestKey: key(), expectedRevision: revision, input: { communicationId: message.id } },
 		transport,
 		keys,
@@ -109,8 +135,8 @@ test("with outbound-mail off, sending now and handing off a scheduled email are 
 		withSwitchOff(f.db, { flag: "outbound-mail", operator: owner.id }, async () => {
 			const transport = await service.transport();
 			return [
-				await deliver("sendReviewed", now, transport, before[0].revision),
-				await deliver("handOffScheduled", held, transport, before[1].revision),
+				await deliver("sendReviewed", now, transport, before[0]!.revision),
+				await deliver("handOffScheduled", held, transport, before[1]!.revision),
 			];
 		}),
 	);
@@ -133,10 +159,10 @@ test("with outbound-mail off, sending now and handing off a scheduled email are 
 		"Sending email is paused for now. Nothing was sent, and this message did not change. Try again later.",
 	);
 
-	const sent = ok(await deliver("sendReviewed", now, await service.transport(), before[0].revision));
+	const sent = ok(await deliver("sendReviewed", now, await service.transport(), before[0]!.revision));
 	assert.equal(sent.acceptedCount, 2, "back on, with no restart or deploy");
 	assert.equal(service.calls.send.length, 1);
-	ok(await deliver("handOffScheduled", held, await service.transport(), before[1].revision));
+	ok(await deliver("handOffScheduled", held, await service.transport(), before[1]!.revision));
 });
 
 test("with outbound-mail off, cancelling or moving mail already handed to the email service still goes through", async () => {

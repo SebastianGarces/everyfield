@@ -1,35 +1,53 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { scheduleAccepted, systemTemplates } from "../../../packages/contracts/src/communication/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import { communicationWriter, type DeliveryTransport } from "../../../packages/domain/src/communication/index.ts";
 import { ok, refused } from "../../support/fixture.mts";
-import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { MAILING } from "./church-address.mts";
+import {
+	firstRow,
+	readAs,
+	rowsFrom,
+	writeAs,
+	type Church,
+	type Fixture,
+	type ReadOp,
+	type Rest,
+	type Row,
+	type Staff,
+	type WriteOp,
+} from "./communication-support.mts";
 
-let f, plant, other, owner, member, foreign;
-const write = (who, op, input) =>
-	withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
-const read = (who, op, input) =>
-	gatedTransaction(f.db, (tx) =>
-		input === undefined ? communicationWriter[op](tx, who.actor) : communicationWriter[op](tx, who.actor, input),
-	);
+let f: Fixture;
+let plant: Church;
+let other: Church;
+let owner: Staff;
+let member: Staff;
+let foreign: Staff;
+const write = <K extends WriteOp>(who: Pick<Staff, "actor">, op: K, input: unknown) =>
+	writeAs(f.db, who.actor, op, input);
+const read = <K extends ReadOp>(who: Pick<Staff, "actor">, op: K, ...rest: Rest<K>) =>
+	readAs(f.db, who.actor, op, ...rest);
 const key = () => randomUUID();
-const rows = async (query) => (await f.admin.execute(query)).rows;
+const rows = <R extends Row = Row>(query: SQL) => rowsFrom<R>(f, query);
 const catalog = () => JSON.parse(JSON.stringify(systemTemplates));
 
 async function counts() {
-	const [row] = await rows(sql`SELECT
+	const result = await rows(sql`SELECT
 		(SELECT count(*)::int FROM communication WHERE plant_id = ${plant.id}) AS communications,
 		(SELECT count(*)::int FROM mail WHERE tenant_id = ${plant.id} AND purpose = 'communication') AS intents,
 		(SELECT count(*)::int FROM mail_attempt WHERE tenant_id = ${plant.id}) AS attempts`);
-	return row;
+	return firstRow(result);
 }
 
-async function person(name, fields = {}) {
+async function person(
+	name: string,
+	fields: { plant?: string; email?: string | null; stage?: string; state?: string; account?: string } = {},
+) {
 	const id = randomUUID();
 	await f.admin
 		.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
@@ -45,19 +63,19 @@ async function team(state = "active", name = "Hospitality") {
 	);
 	return id;
 }
-async function role(teamId, leadership = false) {
+async function role(teamId: string, leadership = false) {
 	const id = randomUUID();
 	await f.admin.execute(
 		sql`INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order) VALUES(${id},${plant.id},${teamId},${leadership ? "Lead" : "Member"},${leadership},1)`,
 	);
 	return id;
 }
-async function tenure(roleId, personId) {
+async function tenure(roleId: string, personId: string) {
 	await f.admin.execute(
 		sql`INSERT INTO team_tenure(id,plant_id,role_id,person_id,started_on) VALUES(${randomUUID()},${plant.id},${roleId},${personId},'2026-01-01')`,
 	);
 }
-async function meeting(title, w = other) {
+async function meeting(title: string, w = other) {
 	const id = randomUUID();
 	await f.admin.execute(
 		sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
@@ -65,8 +83,13 @@ async function meeting(title, w = other) {
 	);
 	return id;
 }
+type AuditRow = {
+	action: string;
+	before_value: Record<string, unknown> | null;
+	after_value: Record<string, unknown> | null;
+};
 const emptyAudience = { groups: [], teamIds: [], personIds: [] };
-const draft = (input) => write(owner, "saveDraft", { requestKey: key(), input });
+const draft = (input: unknown) => write(owner, "saveDraft", { requestKey: key(), input });
 const templateInput = (patch = {}) => ({
 	name: "Custom note",
 	description: null,
@@ -82,7 +105,7 @@ before(async () => {
 	plant = await f.workspace("plant", MAILING);
 	other = await f.workspace("plant", MAILING);
 	await f.admin.execute(sql`UPDATE plant SET timezone = 'America/Chicago' WHERE id IN (${plant.id},${other.id})`);
-	const seated = async (w, roleName) => {
+	const seated = async (w: Church, roleName: "owner" | "member") => {
 		const account = await f.account();
 		await f.seat(account, w, roleName);
 		return { ...account, actor: await f.actor(account.session) };
@@ -219,7 +242,7 @@ test("AC:CASE-COM-007 forking a source whose church fork is archived brings the 
 		}),
 	);
 	const auditRows = () =>
-		rows(
+		rows<AuditRow>(
 			sql`SELECT action, before_value, after_value FROM audit_event WHERE subject_id = ${fork.templateId}::uuid ORDER BY recorded_at, id`,
 		);
 	const beforeFork = (await auditRows()).length;
@@ -229,20 +252,22 @@ test("AC:CASE-COM-007 forking a source whose church fork is archived brings the 
 	assert.equal(restored.archived, false);
 	assert.equal(restored.name, "Our reminder");
 	assert.equal(BigInt(restored.revision), BigInt(archived.revision) + 1n);
-	const [row] = await rows(
-		sql`SELECT archived_at, revision::text AS revision, name FROM message_template WHERE id = ${fork.templateId}::uuid`,
+	const row = firstRow(
+		await rows(
+			sql`SELECT archived_at, revision::text AS revision, name FROM message_template WHERE id = ${fork.templateId}::uuid`,
+		),
 	);
 	assert.equal(row.archived_at, null);
 	assert.equal(row.revision, restored.revision);
 	assert.equal(row.name, "Our reminder");
 	const afterFork = await auditRows();
 	assert.equal(afterFork.length, beforeFork + 1);
-	const forkAudit = afterFork.at(-1);
+	const forkAudit = afterFork.at(-1)!;
 	assert.equal(forkAudit.action, "communication.template_forked");
-	assert.equal(typeof forkAudit.before_value.archived_at, "string");
-	assert.equal(forkAudit.after_value.archived_at, null);
+	assert.equal(typeof forkAudit.before_value!.archived_at, "string");
+	assert.equal(forkAudit.after_value!.archived_at, null);
 	const listed = ok(await read(owner, "listTemplates"));
-	const shown = listed.templates.find((template) => template.sourceKey === sourceKey);
+	const shown = listed.templates.find((template) => template.sourceKey === sourceKey)!;
 	assert.equal(shown.origin, "plant");
 	assert.equal(shown.templateId, fork.templateId);
 
@@ -262,7 +287,7 @@ test("AC:CASE-COM-007 a plant fork replaces one system source and keeps referenc
 	const forks = await rows(
 		sql`SELECT count(*)::int AS n FROM message_template WHERE plant_id = ${plant.id} AND source_key = 'general-announcement'`,
 	);
-	assert.equal(forks[0].n, 1);
+	assert.equal(forks[0]!.n, 1);
 	assert.deepEqual(catalog(), beforeCatalog);
 
 	const systemMeeting = ok(await read(owner, "readMeetingTemplate", { meetingType: "vision_meeting" }));
@@ -308,7 +333,7 @@ test("AC:CASE-COM-007 a plant fork replaces one system source and keeps referenc
 	const stillThere = await rows(
 		sql`SELECT archived_at IS NOT NULL AS archived FROM message_template WHERE id = ${orientation.templateId}`,
 	);
-	assert.equal(stillThere[0].archived, true);
+	assert.equal(stillThere[0]!.archived, true);
 	refused(
 		await write(owner, "deleteTemplate", {
 			requestKey: key(),
@@ -318,7 +343,7 @@ test("AC:CASE-COM-007 a plant fork replaces one system source and keeps referenc
 		"referenced",
 	);
 	const kept = await rows(sql`SELECT template_id FROM communication WHERE id = ${linked.communicationId}`);
-	assert.equal(kept[0].template_id, orientation.templateId);
+	assert.equal(kept[0]!.template_id, orientation.templateId);
 
 	const announcementFork = ok(first);
 	ok(
@@ -329,7 +354,7 @@ test("AC:CASE-COM-007 a plant fork replaces one system source and keeps referenc
 		}),
 	);
 	const listed = ok(await read(owner, "listTemplates"));
-	const announcement = listed.templates.find((template) => template.sourceKey === "general-announcement");
+	const announcement = listed.templates.find((template) => template.sourceKey === "general-announcement")!;
 	assert.equal(announcement.origin, "system");
 
 	const teamSource = ok(
@@ -369,8 +394,8 @@ test("AC:CASE-COM-007 a plant fork replaces one system source and keeps referenc
 			},
 		}),
 	);
-	const [unchanged] = await rows(
-		sql`SELECT state, subject, body_html FROM communication WHERE id = ${scheduled.communicationId}`,
+	const unchanged = firstRow(
+		await rows(sql`SELECT state, subject, body_html FROM communication WHERE id = ${scheduled.communicationId}`),
 	);
 	assert.equal(unchanged.state, "scheduled");
 	assert.equal(unchanged.subject, "Team night");
@@ -386,7 +411,7 @@ test("AC:CASE-COM-007 a plant fork replaces one system source and keeps referenc
 		}),
 		"not_found",
 	);
-	const [name] = await rows(sql`SELECT subject FROM message_template WHERE id = ${orientation.templateId}`);
+	const name = firstRow(await rows(sql`SELECT subject FROM message_template WHERE id = ${orientation.templateId}`));
 	assert.notEqual(name.subject, "Foreign edit");
 	refused(
 		await write(member, "forkTemplate", { requestKey: key(), input: { sourceKey: "general-announcement" } }),
@@ -505,18 +530,20 @@ test("AC:CASE-COM-012 AC:CASE-COM-003 drafts save and a reviewed schedule stays 
 	assert.deepEqual(again.audience.personIds, [guest]);
 	assert.deepEqual(again.audience.groups, ["leaders"]);
 	const listed = ok(await read(owner, "listDrafts"));
-	const listedRich = listed.drafts.find((row) => row.communicationId === rich.communicationId);
+	const listedRich = listed.drafts.find((row) => row.communicationId === rich.communicationId)!;
 	assert.equal(listedRich.templateSource, "general-announcement");
 	assert.equal(listedRich.meetingId, meet);
-	const [draftAudit] = await rows(
-		sql`SELECT action, before_value, after_value FROM audit_event WHERE subject_id = ${saved.communicationId}::uuid`,
+	const draftAudit = firstRow(
+		await rows<AuditRow>(
+			sql`SELECT action, before_value, after_value FROM audit_event WHERE subject_id = ${saved.communicationId}::uuid`,
+		),
 	);
 	assert.equal(draftAudit.action, "communication.draft_saved");
 	assert.equal(draftAudit.before_value, null);
-	assert.equal(draftAudit.after_value.subject, "Hold the date");
-	assert.equal(draftAudit.after_value.state, "draft");
-	assert.equal(Object.hasOwn(draftAudit.after_value, "body_html"), false);
-	assert.equal(typeof draftAudit.after_value.body_sha256, "string");
+	assert.equal(draftAudit.after_value!.subject, "Hold the date");
+	assert.equal(draftAudit.after_value!.state, "draft");
+	assert.equal(Object.hasOwn(draftAudit.after_value!, "body_html"), false);
+	assert.equal(typeof draftAudit.after_value!.body_sha256, "string");
 	const mailBefore = await counts();
 	refused(
 		await write(owner, "saveDraft", {
@@ -529,7 +556,7 @@ test("AC:CASE-COM-012 AC:CASE-COM-003 drafts save and a reviewed schedule stays 
 	const mailAfter = await counts();
 	assert.equal(mailAfter.intents, mailBefore.intents);
 	assert.equal(mailAfter.attempts, mailBefore.attempts);
-	const [still] = await rows(sql`SELECT subject, state FROM communication WHERE id = ${saved.communicationId}`);
+	const still = firstRow(await rows(sql`SELECT subject, state FROM communication WHERE id = ${saved.communicationId}`));
 	assert.equal(still.subject, "Hold the date");
 	assert.equal(still.state, "draft");
 
@@ -567,7 +594,7 @@ test("AC:CASE-COM-012 AC:CASE-COM-003 drafts save and a reviewed schedule stays 
 		}),
 		"invalid_input",
 	);
-	const [unsent] = await rows(sql`SELECT state FROM communication WHERE id = ${unreachable.communicationId}`);
+	const unsent = firstRow(await rows(sql`SELECT state FROM communication WHERE id = ${unreachable.communicationId}`));
 	assert.equal(unsent.state, "draft");
 
 	refused(
@@ -615,16 +642,16 @@ test("AC:CASE-COM-012 AC:CASE-COM-003 drafts save and a reviewed schedule stays 
 	assert.equal(drifted.details.previewBody, "<p>Changed</p>");
 	assert.equal(drifted.details.scriptExecution, false);
 	assert.equal(drifted.details.providerCalls, 0);
-	const scheduleAudits = await rows(
+	const scheduleAudits = await rows<AuditRow>(
 		sql`SELECT action, before_value, after_value FROM audit_event WHERE subject_id = ${saved.communicationId}::uuid ORDER BY recorded_at, id`,
 	);
 	assert.deepEqual(
 		scheduleAudits.map((row) => row.action),
 		["communication.draft_saved", "communication.scheduled"],
 	);
-	assert.equal(scheduleAudits[1].before_value.state, "draft");
-	assert.equal(scheduleAudits[1].after_value.state, "scheduled");
-	assert.equal(typeof scheduleAudits[1].after_value.review_digest, "string");
+	assert.equal(scheduleAudits[1]!.before_value!.state, "draft");
+	assert.equal(scheduleAudits[1]!.after_value!.state, "scheduled");
+	assert.equal(typeof scheduleAudits[1]!.after_value!.review_digest, "string");
 	const later = new Date(Date.now() + 2 * 86_400_000).toISOString();
 	const moved = ok(
 		await write(owner, "rescheduleReviewed", {
@@ -635,8 +662,8 @@ test("AC:CASE-COM-012 AC:CASE-COM-003 drafts save and a reviewed schedule stays 
 	);
 	assert.equal(moved.scheduleSent, false);
 	assert.equal(moved.draftIntents, 0);
-	const [kept] = await rows(
-		sql`SELECT state, subject, body_html FROM communication WHERE id = ${saved.communicationId}`,
+	const kept = firstRow(
+		await rows(sql`SELECT state, subject, body_html FROM communication WHERE id = ${saved.communicationId}`),
 	);
 	assert.equal(kept.state, "scheduled");
 	assert.equal(kept.subject, "Hold the date");
@@ -752,14 +779,19 @@ test("AC:CASE-COM-003 a read-only member seat and a forged actor with another us
 		"access_denied",
 	);
 	let providerCalls = 0;
-	const transport = {
+	const transport: DeliveryTransport = {
+		paused: false,
 		async send() {
 			providerCalls += 1;
 			return { outcome: "ids", ids: ["never"] };
 		},
-		async lookup() {
+		async cancel() {
 			providerCalls += 1;
-			return { outcome: "unknown" };
+			return [];
+		},
+		async reschedule() {
+			providerCalls += 1;
+			return [];
 		},
 	};
 	refused(
@@ -817,7 +849,9 @@ test("AC:CASE-COM-012 a draft update that leaves out the subject keeps the store
 		}),
 	);
 	assert.equal(updated.subject, "Keep this subject");
-	const [kept] = await rows(sql`SELECT subject, body_html FROM communication WHERE id = ${saved.communicationId}`);
+	const kept = firstRow(
+		await rows(sql`SELECT subject, body_html FROM communication WHERE id = ${saved.communicationId}`),
+	);
 	assert.deepEqual([kept.subject, kept.body_html], ["Keep this subject", "<p>Second</p>"]);
 	const cleared = ok(
 		await write(owner, "saveDraft", {

@@ -1,16 +1,34 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import {
+	communicationWriter,
+	withCommunicationWrite,
+	type DeliveryTransport,
+} from "../../../packages/domain/src/communication/index.ts";
 import { hubLabel } from "../../../apps/web/src/features/communication/model.ts";
-import { resendRecorder } from "./resend-recorder.mts";
+import { emailsIn, resendRecorder, type Recorder, type SentEmail } from "./resend-recorder.mts";
 import { atSendTime, minuteRunner } from "./scheduled-support.mts";
 import { MAILING, MAILING_LINE } from "./church-address.mts";
 import { ok, refused } from "../../support/fixture.mts";
+import {
+	deliverAs,
+	readAs,
+	rowsFrom,
+	type Church,
+	type DeliveryOp,
+	type Fixture,
+	type ReadOp,
+	type Rest,
+	type Row,
+	type Staff,
+} from "./communication-support.mts";
 
-let f, plant, owner;
+let f: Fixture;
+let plant: Church;
+let owner: Staff;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
@@ -23,11 +41,12 @@ const FOOTER_LINE = `Synthetic plant · ${MAILING_LINE}`;
 const MISSING = "Mailing address missing. Add it in Church profile before this email can go out.";
 const key = () => randomUUID();
 const soon = () => new Date(Date.now() + 5 * 60_000).toISOString();
-const rows = async (query) => (await f.admin.execute(query)).rows;
-const read = (op, input) => f.db.transaction((tx) => communicationWriter[op](tx, owner.actor, input));
-const setAddress = (street) => f.admin.execute(sql`UPDATE plant SET street = ${street} WHERE id = ${plant.id}`);
+const rows = <R extends Row = Row>(query: SQL) => rowsFrom<R>(f, query);
+const read = <K extends ReadOp>(op: K, ...rest: Rest<K>) => readAs(f.db, owner.actor, op, ...rest);
+const setAddress = (street: string | null) =>
+	f.admin.execute(sql`UPDATE plant SET street = ${street} WHERE id = ${plant.id}`);
 
-async function person(name) {
+async function person(name: string) {
 	const id = randomUUID();
 	await f.admin
 		.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
@@ -53,7 +72,7 @@ async function draft() {
 	);
 	return { id: saved.communicationId, revision: saved.revision };
 }
-const schedule = (message, at = soon()) =>
+const schedule = (message: { id: string; revision: string }, at = soon()) =>
 	withCommunicationWrite(f.db, owner.actor, (tx, ctx) =>
 		communicationWriter.scheduleReviewed(tx, ctx, {
 			requestKey: key(),
@@ -61,26 +80,28 @@ const schedule = (message, at = soon()) =>
 			input: { communicationId: message.id, scheduledAt: at },
 		}),
 	);
-const handOff = (message, transport, op) =>
-	communicationWriter[op](
+const handOff = (message: { id: string; revision: string }, transport: DeliveryTransport, op: DeliveryOp) =>
+	deliverAs(
 		f.db,
 		owner.actor,
+		op,
 		{ requestKey: key(), expectedRevision: message.revision, input: { communicationId: message.id } },
 		transport,
 		keys,
 	);
-const sentEmails = (resend) =>
+const sentEmails = (resend: Recorder) =>
 	resend
 		.take()
 		.filter((call) => call.path === "/emails/batch")
-		.flatMap((call) => call.body);
-const mailCount = async (message) =>
+		.flatMap(emailsIn);
+const mailCount = async (message: { id: string }) =>
 	(
 		await rows(sql`SELECT count(*)::int AS n FROM mail WHERE logical_key LIKE ${"communication/" + message.id + "/%"}`)
-	)[0].n;
-const stateOf = async (message) => (await rows(sql`SELECT state FROM communication WHERE id = ${message.id}`))[0].state;
+	)[0]!.n;
+const stateOf = async (message: { id: string }) =>
+	(await rows(sql`SELECT state FROM communication WHERE id = ${message.id}`))[0]!.state;
 
-function assertChurchFooter(email) {
+function assertChurchFooter(email: SentEmail) {
 	assert.ok(email.html.includes(`<span data-mailing-address>${FOOTER_LINE}</span>`), email.html);
 	assert.ok(email.html.includes("You get this email because you are part of Synthetic plant."));
 	assert.ok(email.html.includes(">Unsubscribe</a>"));
@@ -163,7 +184,7 @@ test("a scheduled email whose church clears its address is held at its send time
 		sql`SELECT DISTINCT state FROM mail WHERE logical_key LIKE ${"communication/" + message.id + "/%"}`,
 	);
 	assert.deepEqual(states, [{ state: "scheduled" }]);
-	const item = ok(await read("listHistory", { limit: 100 })).items.find((row) => row.id === message.id);
+	const item = ok(await read("listHistory", { limit: 100 })).items.find((row) => row.id === message.id)!;
 	assert.equal(item.state, "held");
 	assert.equal(hubLabel[item.state], "Held: no mailing address");
 	assert.equal(ok(await read("getDeliveryTotals", { communicationId: message.id })).state, "held");
@@ -173,7 +194,7 @@ test("a scheduled email whose church clears its address is held at its send time
 	const emails = sentEmails(resend);
 	assert.equal(emails.length, 2);
 	for (const email of emails) assertChurchFooter(email);
-	const after = ok(await read("listHistory", { limit: 100 })).items.find((row) => row.id === message.id);
+	const after = ok(await read("listHistory", { limit: 100 })).items.find((row) => row.id === message.id)!;
 	assert.equal(after.state, "sending");
 });
 
