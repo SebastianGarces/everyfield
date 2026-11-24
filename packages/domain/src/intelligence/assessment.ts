@@ -70,7 +70,10 @@ export const NO_PROGRESS: DraftProgress = {
 };
 export type Drafted = { progress: DraftProgress; retryAfterMs: number | null } & (
 	| { published: c.DraftOutput; reason: null }
-	| { published: null; reason: "invalid_drafts" | "attempts" | "budget" | "busy" | "model_unavailable" | "deadline" | "lost_claim" }
+	| {
+			published: null;
+			reason: "invalid_drafts" | "attempts" | "budget" | "busy" | "model_unavailable" | "deadline" | "lost_claim";
+	  }
 );
 
 export async function draftWithin(

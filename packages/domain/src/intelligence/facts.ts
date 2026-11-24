@@ -514,7 +514,7 @@ export function createFacts(config: { clock?: Clock } = {}) {
 				const r = sinceRunRow.parse(rows[0]);
 				const facts = factsOf(r);
 				const changed = r.run !== null && revisionOf(factInputs.parse(r.run.inputs)) !== r.run.revision;
-				return { facts, outOfDateRunId: changed ? r.run?.id ?? null : null };
+				return { facts, outOfDateRunId: changed ? (r.run?.id ?? null) : null };
 			});
 		},
 	};

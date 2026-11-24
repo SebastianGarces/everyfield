@@ -373,13 +373,19 @@ test("AC:ASMT-002 INV-freshness: a correction that commits after capture, its wa
 
 	await c0.admin.execute(sql`DELETE FROM job WHERE kind='assessment' AND subject_record_id=${p.id}
 		AND producer_key=${"followup/" + paused.id}`);
-	assert.deepEqual((await jobs(p)).filter((x) => x.producer_key.startsWith("followup/")), [], "the wake-up is lost");
+	assert.deepEqual(
+		(await jobs(p)).filter((x) => x.producer_key.startsWith("followup/")),
+		[],
+		"the wake-up is lost",
+	);
 	clockMs = Date.now() + 1000;
 	const source = (await captureFacts(c0.db, p.id, iso(clockMs)))!.sourceRevision;
 	assert.notEqual(source, paused.source_revision);
 	await job.scheduleAssessments(c0.db, 500);
-	const swept = (await c0.rows<{ producer_key: string; state: string }>(sql`SELECT producer_key,state FROM job
-		WHERE kind='assessment' AND subject_record_id=${p.id} AND state='ready'`)).map((x) => x.producer_key.split("/")[0]);
+	const swept = (
+		await c0.rows<{ producer_key: string; state: string }>(sql`SELECT producer_key,state FROM job
+		WHERE kind='assessment' AND subject_record_id=${p.id} AND state='ready'`)
+	).map((x) => x.producer_key.split("/")[0]);
 	assert.deepEqual(swept, ["change"]);
 	await drain();
 	const next = (await runs(p)).at(-1)!;
