@@ -70,7 +70,10 @@ export const NO_PROGRESS: DraftProgress = {
 };
 export type Drafted = { progress: DraftProgress; retryAfterMs: number | null } & (
 	| { published: c.DraftOutput; reason: null }
-	| { published: null; reason: "invalid_drafts" | "attempts" | "budget" | "busy" | "model_unavailable" | "lost_claim" }
+	| {
+			published: null;
+			reason: "invalid_drafts" | "attempts" | "budget" | "busy" | "model_unavailable" | "deadline" | "lost_claim";
+	  }
 );
 
 export async function draftWithin(
@@ -78,7 +81,7 @@ export async function draftWithin(
 	input: c.ModelInput,
 	from: DraftProgress = NO_PROGRESS,
 	reserve: (progress: DraftProgress) => Promise<boolean> = async () => true,
-	callMs: number = c.ASSESSMENT_BUDGET.callMs,
+	leftMs: () => number = () => c.ASSESSMENT_BUDGET.callMs,
 ): Promise<Drafted> {
 	const B = c.ASSESSMENT_BUDGET;
 	let p: DraftProgress = { ...from, usage: { ...from.usage }, drafts: [...from.drafts] };
@@ -94,10 +97,12 @@ export async function draftWithin(
 		let reply: DraftReply | null = null;
 		while (!reply) {
 			if (p.pendingAttempts >= B.attemptsPerDraft) return stop("attempts");
+			if (leftMs() <= 0) return stop("deadline");
 			const bound = inputBound({ input, feedback, ordinal });
 			const outputLeft = B.outputTokens - p.usage.outputTokens;
 			if (p.usage.inputTokens + bound > B.inputTokens || outputLeft <= 0) return stop("budget");
 			const allowance = Math.min(OUTPUT_PER_CALL, outputLeft);
+			const unsent = p;
 			const before = p.usage;
 			p = {
 				...p,
@@ -109,10 +114,15 @@ export async function draftWithin(
 				},
 			};
 			if (!(await reserve(p))) return stop("lost_claim");
+			const left = leftMs();
+			if (left <= 0) {
+				p = unsent;
+				return stop("deadline");
+			}
 			try {
 				reply = await drafter.draft(
 					{ input, feedback, ordinal, maxOutputTokens: allowance },
-					AbortSignal.timeout(Math.min(callMs, B.callMs)),
+					AbortSignal.timeout(Math.min(left, B.callMs)),
 				);
 				p = {
 					...p,

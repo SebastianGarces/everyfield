@@ -30,6 +30,8 @@ export const ASSESSMENT_TIMING = {
 	backoffMs: [30_000, 60_000, 120_000, 240_000],
 } as const;
 
+const CAPTURE_TRIES = 3;
+
 const claimRow = z.object({
 	id: z.uuid(),
 	plant: z.uuid(),
@@ -183,6 +185,14 @@ SELECT EXISTS(SELECT FROM r) AS ok`);
 			{ isolationLevel: "repeatable read" },
 		);
 	}
+	async function captureAgain(db: Database, j: Claim, model: string) {
+		for (let tries = 1; ; tries++)
+			try {
+				return await capture(db, j, model);
+			} catch (error) {
+				if (tries === CAPTURE_TRIES || pgCode(error) !== "40001") throw error;
+			}
+	}
 	async function reserve(db: Database, j: Claim, run: Run, p: DraftProgress) {
 		const { rows } = await db.execute(sql`WITH ${lock(j)},
 r AS (UPDATE assessment_run SET outcome='pending',retry_at=NULL,${counters(p)}
@@ -278,12 +288,11 @@ SELECT EXISTS(SELECT FROM r) AS published,EXISTS(SELECT FROM lk) AS claimed,(SEL
 			};
 			from = progressOf(j.run);
 		} else {
-			const captured = await capture(db, j, drafter.id);
+			const captured = await captureAgain(db, j, drafter.id);
 			if (captured === "none") return;
 			run = captured;
 		}
-		const left = run.deadline - nowMs();
-		if (left <= 0) return settleRun(db, j, run, from, "failed", "deadline");
+		const left = () => run.deadline - nowMs();
 		const drafted: Drafted = await draftWithin(drafter, run.input, from, (p) => reserve(db, j, run, p), left);
 		const p = drafted.progress;
 		switch (drafted.reason) {
@@ -303,6 +312,7 @@ SELECT EXISTS(SELECT FROM r) AS published,EXISTS(SELECT FROM lk) AS claimed,(SEL
 			case "attempts":
 			case "budget":
 			case "model_unavailable":
+			case "deadline":
 				return settleRun(db, j, run, p, "failed", drafted.reason);
 		}
 		const current = await captureFacts(db, run.plant, run.asOf);

@@ -268,7 +268,10 @@ test("AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named M
 	assert.deepEqual(named(p), ["Mara"]);
 	assert.equal(p.guests.count, 1);
 	const mara = await one(sql`SELECT p.display_name,p.first_name,p.last_name,p.email,p.phone,p.linked_account_id,p.state,
-		p.stage,p.source,(SELECT count(*)::int FROM launch_guest g WHERE g.person_id=p.id) links
+		p.stage,p.source,p.birth_date,p.adult_classification,p.commitment_state,
+		(SELECT count(*)::int FROM commitment k WHERE k.person_id=p.id) commitments,
+		(SELECT count(*)::int FROM seat s WHERE s.plant_id=p.plant_id) seats,
+		(SELECT count(*)::int FROM launch_guest g WHERE g.person_id=p.id) links
 		FROM person p WHERE p.id=${p.guests.named![0]!.personId}`);
 	assert.deepEqual(mara, {
 		display_name: "Mara",
@@ -280,6 +283,11 @@ test("AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named M
 		state: "live",
 		stage: "attendee",
 		source: "event",
+		birth_date: null,
+		adult_classification: "unknown",
+		commitment_state: "unknown",
+		commitments: 0,
+		seats: 3,
 		links: 1,
 	});
 	const after = await footprint(c.w);
@@ -288,6 +296,17 @@ test("AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named M
 	const created = await one(sql`SELECT actor_id,kind FROM audit_event WHERE action='people.created'
 		AND subject_id=${p.guests.named![0]!.personId}`);
 	assert.deepEqual(created, { actor_id: c.owner.id, kind: "create" });
+	const twice = key();
+	const saves = await Promise.all([1, 2].map(() => guest(c.owner, { displayName: "Noor" }, twice)));
+	assert.ok(saves.some((r) => r.status === "ok"));
+	ok(await guest(c.owner, { displayName: "Noor" }, twice));
+	assert.deepEqual(
+		await one(sql`SELECT count(*)::int people,
+			(SELECT count(*)::int FROM launch_guest g JOIN person n ON n.id=g.person_id WHERE n.tenant_id=${c.w.id}
+				AND n.display_name='Noor') guests FROM person WHERE tenant_id=${c.w.id} AND display_name='Noor'`),
+		{ people: 1, guests: 1 },
+		"two taps and a retry: one Person, one guest",
+	);
 	refused(await guest(c.owner, { displayName: "   " }), "invalid_input");
 	refused(await guest(c.owner, { displayName: "x".repeat(256) }), "invalid_input");
 });
@@ -318,6 +337,15 @@ test("AC:LAUNCH46-004 AC:LAUNCH46-002 picking the suggested Alex Kim links him; 
 	const other = await f.workspace("plant");
 	refused(await guest(c.owner, { personId: await person(other, "Alex Kim") }), "access_denied");
 	assert.equal(await count(), 1);
+
+	const namesake = await person(c.w, "Alex Kim");
+	const exact = ok(await guest(c.owner, { personId: namesake })).plan;
+	assert.deepEqual(
+		exact.guests.named!.map((g) => g.personId).sort(),
+		[alex, namesake].sort(),
+		"the exact Alex picked, not the other one",
+	);
+	assert.equal(await count(), 2, "two people with one name stay two");
 });
 
 test("AC:LAUNCH46-005 attendance 100 with 20 named guests shows both, and no placeholder People exist for the other 80", async () => {

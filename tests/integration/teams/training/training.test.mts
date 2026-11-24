@@ -145,6 +145,59 @@ test("AC:SCHEMA-004 AC:SME53-001 AC:SME53-003 AC:TARGET-TEAM-008 AC:TARGET-TEAM-
 	assert.deepEqual(again.personIds, [alex, casey]);
 	const replaced = await saveRoster(required.id, [alex, casey]);
 	assert.deepEqual(replaced.personIds, [alex, casey]);
+
+	const church = (
+		await admin.execute<{ d: string }>(sql`SELECT (clock_timestamp() AT TIME ZONE timezone)::date::text AS d
+			FROM plant WHERE id=${P}`)
+	).rows[0]!.d;
+	await admin.execute(sql`UPDATE training_assignment SET effective_on='2026-10-01'
+		WHERE program_id=${required.id} AND state='active'`);
+	const obligations = async () =>
+		ok(await trainingReader.readRequiredTrainingParticipants(db, await viewer(1), { programId: required.id }))
+			.people.map((x) => x.personId)
+			.sort();
+	const past = async () =>
+		ok(await trainingReader.readAssignmentHistory(db, await viewer(1), { teamId: worship.id })).assignments.map((a) => [
+			a.personName,
+			a.programName,
+			a.assignedOn,
+			a.endedOn,
+		]);
+	assert.deepEqual(await obligations(), [alex, casey].sort());
+	assert.deepEqual(await past(), [["Jordan Roster", required.name, church, church]]);
+	const seen = await preview(required.id, [alex]);
+	const removeCasey = {
+		requestKey: key(),
+		expectedRevision: seen.revision,
+		input: { programId: required.id, personIds: [alex], rosterDigest: seen.rosterDigest },
+	};
+	await admin.execute(sql`CREATE FUNCTION t625_fault() RETURNS trigger LANGUAGE plpgsql AS
+		$$BEGIN RAISE EXCEPTION 'injected roster fault'; END$$`);
+	await admin.execute(sql`CREATE TRIGGER t625_fault BEFORE UPDATE ON training_assignment FOR EACH ROW
+		EXECUTE FUNCTION t625_fault()`);
+	try {
+		refused(await run(trainingWriter.setRequiredTrainingParticipants, removeCasey), "required_write_failed");
+	} finally {
+		await admin.execute(sql`DROP TRIGGER t625_fault ON training_assignment`);
+	}
+	assert.deepEqual(await obligations(), [alex, casey].sort(), "a fault keeps the whole roster");
+	const once = ok(await run(trainingWriter.setRequiredTrainingParticipants, removeCasey));
+	assert.deepEqual(
+		ok(await run(trainingWriter.setRequiredTrainingParticipants, removeCasey)),
+		once,
+		"a repeat replays",
+	);
+	assert.deepEqual(await obligations(), [alex], "the current obligations change");
+	assert.deepEqual(
+		await past(),
+		[
+			["Casey Roster", required.name, "2026-10-01", church],
+			["Jordan Roster", required.name, church, church],
+		],
+		"the earlier assignment stays in history with its dates",
+	);
+	refused(await trainingReader.readAssignmentHistory(db, await viewer(3), { teamId: worship.id }), "access_denied");
+	await saveRoster(required.id, [alex, casey]);
 	assert.equal(
 		await count(
 			sql`SELECT count(*)::int AS n FROM training_assignment WHERE program_id=${required.id} AND person_id=${alex} AND state='active'`,

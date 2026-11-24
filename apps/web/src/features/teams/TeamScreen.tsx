@@ -86,6 +86,7 @@ import {
 	problemText,
 	stampText,
 	type HistoryEntry,
+	type TeamPast,
 	type Member,
 	type Role,
 	type SetupForm,
@@ -112,7 +113,7 @@ const earliest = (days: readonly string[]) => {
 };
 
 const histories = createRead(({ teamId }: { teamId: string; revision: string }) => teamHistory(teamId), {
-	failed: (): Outcome<{ entries: HistoryEntry[] }> | ReadFailure => ({ status: "lost" }),
+	failed: (): Outcome<TeamPast> | ReadFailure => ({ status: "lost" }),
 });
 
 const TABS = ["roles", "responsibilities", "people", "training", "history"] as const;
@@ -1099,10 +1100,42 @@ function PeopleCard({
 
 function HistoryCard({ teamId, revision }: { teamId: string; revision: string }) {
 	const history = useRead(histories, { teamId, revision });
-	return <HistoryList state={history.value ?? null} />;
+	const past = history.value?.status === "ok" ? history.value.value.assignments : [];
+	return (
+		<div className="flex flex-col gap-5">
+			{past.length ? <PastAssignments assignments={past} /> : null}
+			<HistoryList state={history.value ?? null} />
+		</div>
+	);
 }
 
-function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | ReadFailure | null }): ReactNode {
+function PastAssignments({ assignments }: { assignments: TeamPast["assignments"] }) {
+	return (
+		<Card as="section" aria-labelledby="past-training-title">
+			<CardHeader>
+				<CardHeading>
+					<CardTitle id="past-training-title">Earlier training assignments</CardTitle>
+					<CardDescription>People who were on a training list and no longer are, newest first.</CardDescription>
+				</CardHeading>
+			</CardHeader>
+			<ul className="flex flex-col divide-y divide-line">
+				{assignments.map((a) => (
+					<li key={a.id} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-3">
+						<span className="min-w-0 wrap-anywhere">
+							<span className="font-medium text-ink">{a.personName}</span>
+							<span className="text-text-2"> · {a.programName}</span>
+						</span>
+						<span className="text-sm text-text-3">
+							{dayText(a.assignedOn)} to {dayText(a.endedOn)}
+						</span>
+					</li>
+				))}
+			</ul>
+		</Card>
+	);
+}
+
+function HistoryList({ state }: { state: Outcome<TeamPast> | ReadFailure | null }): ReactNode {
 	return (
 		<Card as="section" aria-labelledby="history-title">
 			<CardHeader>

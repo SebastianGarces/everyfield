@@ -41,16 +41,18 @@ const report = <W extends string>(what: LogWord<W>, error: unknown) =>
 
 export async function loadAssessment(
 	authority: RequestActor,
-): Promise<Loaded<{ view: AssessmentView; facts: PlantFacts; catalog: Catalog }>> {
+): Promise<Loaded<{ view: AssessmentView; facts: PlantFacts; outOfDate: boolean; catalog: Catalog }>> {
 	const db = requestDatabase();
 	try {
 		const [view, measured, catalog] = await Promise.all([
 			assessments.readAssessment(db, authority, {}),
-			facts.readFacts(db, authority),
+			facts.readFactsSinceRun(db, authority),
 			readCatalog(),
 		]);
 		if (view.status !== "ok" || measured.status !== "ok") return { status: "denied" };
-		return { status: "ok", value: { view: view.value, facts: measured.value, catalog } };
+		const current = view.value.current;
+		const outOfDate = current !== null && current.runId === measured.value.outOfDateRunId;
+		return { status: "ok", value: { view: view.value, facts: measured.value.facts, outOfDate, catalog } };
 	} catch (error) {
 		if (!isTransient(error))
 			throw unexpected({ component: "plant-intelligence", what: "assessment", outcome: "read_failed" }, error);

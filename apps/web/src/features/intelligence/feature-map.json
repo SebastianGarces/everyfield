@@ -1,13 +1,13 @@
 {
 	"$schema": "../../../feature-map.schema.json",
 	"feature": "intelligence",
-	"catalog": ["PI-014", "PI-015", "PI-024", "PI-029", "PI-034", "PI-038", "PI-039"],
+	"catalog": ["PI-014", "PI-015", "PI-021", "PI-024", "PI-029", "PI-034", "PI-037", "PI-038", "PI-039"],
 	"surfaces": [
 		{
 			"id": "intelligence.assessment",
-			"says": "Plant Intelligence: the church's latest assessment, or what to record first while none is prepared.",
+			"says": "Plant Intelligence: the church's latest assessment, marked when records changed since, or what to record first while none is prepared.",
 			"routes": ["/intelligence"],
-			"catalog": ["PI-024", "PI-025", "PI-034"],
+			"catalog": ["PI-021", "PI-024", "PI-025", "PI-034", "PI-037"],
 			"reach": [
 				{
 					"rail": "Plant Intelligence",
@@ -15,8 +15,8 @@
 				}
 			],
 			"personas": {
-				"owner": "read",
-				"admin": "read",
+				"owner": "write",
+				"admin": "write",
 				"member": "none",
 				"visitor": "none"
 			},
@@ -40,6 +40,21 @@
 						{
 							"role": "link",
 							"name": "Trends"
+						}
+					]
+				},
+				{
+					"id": "out-of-date",
+					"reach": {
+						"manual": "prepare an assessment with the scheduled tick, then change a record it used, such as a commitment"
+					},
+					"expect": [
+						{
+							"text": "This assessment is out of date"
+						},
+						{
+							"role": "button",
+							"name": "Refresh"
 						}
 					]
 				},
@@ -84,6 +99,24 @@
 				}
 			],
 			"behaviors": [
+				{
+					"id": "out-of-date",
+					"says": "A change to a record the assessment used marks it out of date with a Refresh button; Refresh shows that a new assessment is being prepared and queues one run.",
+					"catalog": ["PI-021", "PI-037"],
+					"operations": ["intelligence.requestRefresh"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/intelligence/freshness.test.mts",
+								"name": "INV-freshness: an attendance mark, a commitment stage move, an imported person's commitment, a correction, a merge and a removal each mark the assessment out of date before any new run"
+							},
+							{
+								"file": "tests/integration/intelligence/orchestration.test.mts",
+								"name": "an Owner's or Admin's fresh-assessment request reads being prepared and then the new assessment; a repeated id queues one run; a Member is refused and nothing is queued"
+							}
+						]
+					}
+				},
 				{
 					"id": "cold-start-guidance",
 					"says": "With no assessment yet, the page lists next steps from the church's own records, each a link to where to record it.",
