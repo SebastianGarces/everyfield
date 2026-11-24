@@ -522,7 +522,6 @@ const meetingInput = z.strictObject({
 });
 type MeetingInput = z.infer<typeof meetingInput>;
 
-// Most asked words matched (title or type) first, then a meeting that holds what the read lists, then soonest.
 const HAS_EMAILS = sql`EXISTS(SELECT FROM communication c WHERE c.plant_id=mt.plant_id AND c.meeting_id=mt.id)`;
 const HAS_RECIPIENTS = sql`EXISTS(SELECT FROM communication c JOIN mail m ON m.tenant_id=c.plant_id AND m.communication_id=c.id
 	WHERE c.plant_id=mt.plant_id AND c.meeting_id=mt.id AND m.recipient_person_id IS NOT NULL)`;
