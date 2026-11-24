@@ -100,6 +100,8 @@ const live = (actor: EvryActor) =>
 const local = (at: string, zone = "pl.timezone") => `to_char((${at}) AT TIME ZONE ${zone},'Dy YYYY-MM-DD HH24:MI')`;
 
 const RESULT = `CASE WHEN m.refusal='unsubscribed' THEN 'unsubscribed'
+	WHEN m.refusal='child' THEN 'marked as a child'
+	WHEN m.refusal='guardian' THEN 'sent to a parent or guardian instead'
 	WHEN m.state='cancelled' THEN 'cancelled'
 	WHEN m.bounced_at IS NOT NULL THEN 'bounced'
 	WHEN m.state IN ('refused','failed') THEN 'failed'

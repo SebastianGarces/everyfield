@@ -853,6 +853,8 @@ const RESULT: Record<string, string> = {
 	failed: "Not sent",
 	cancelled: "Cancelled",
 	unsubscribed: "Unsubscribed, not sent",
+	"marked as a child": "Not sent: marked as a child",
+	"sent to a parent or guardian instead": "Sent to a parent or guardian instead",
 };
 const CAN_EMAIL: Record<string, string> = {
 	can_email: "Can get email",
