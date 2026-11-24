@@ -37,7 +37,6 @@
 					"everyfield/resend-senders": "Tests drive fake mail providers, and early access is one of the guarded senders that may reach Resend"
 				},
 				"tests/integration/**, tests/evry/**, tests/ui/**, tests/unit/**, tests/workflow/**": {
-					"typescript/no-explicit-any": "No typecheck covers these test folders, so a type written there goes unchecked; any marks untyped JSON",
 					"no-unused-vars": "Tests drop fields with rest destructuring to compare what is left"
 				},
 				"tests/**/*.cjs": {

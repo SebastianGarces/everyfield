@@ -124,7 +124,6 @@
 		{
 			"files": ["tests/integration/**", "tests/evry/**", "tests/ui/**", "tests/unit/**", "tests/workflow/**"],
 			"rules": {
-				"typescript/no-explicit-any": "off",
 				"no-unused-vars": [
 					"error",
 					{
@@ -138,47 +137,6 @@
 						"destructuredArrayIgnorePattern": false
 					}
 				]
-			}
-		},
-		{
-			"files": [
-				"tests/workflow/**/*.ts",
-				"tests/unit/**/*.mts",
-				"tests/ui/**/*.mts",
-				"tests/evry/**",
-				"tests/integration/dashboard/**",
-				"tests/integration/documents/**",
-				"tests/integration/feedback/**",
-				"tests/integration/meetings/**",
-				"tests/integration/notifications/**",
-				"tests/integration/platform/**",
-				"tests/integration/writes/**",
-				"tests/integration/branding/**",
-				"tests/integration/db/**",
-				"tests/integration/flags/**",
-				"tests/integration/followups/**",
-				"tests/integration/organizations/**",
-				"tests/integration/oversight/**",
-				"tests/integration/people/**",
-				"tests/integration/phases/**",
-				"tests/integration/intelligence/**",
-				"tests/integration/jobs/**",
-				"tests/integration/launch/**",
-				"tests/integration/ops/**",
-				"tests/integration/access/**",
-				"tests/integration/identity/**",
-				"tests/integration/reference/**",
-				"tests/integration/settings/**",
-				"tests/integration/target/**",
-				"tests/integration/tasks/**",
-				"tests/integration/teams/**",
-				"tests/integration/task-assignees.mts",
-				"tests/integration/onboarding/**",
-				"tests/integration/wiki/**",
-				"tests/integration/communication/**"
-			],
-			"rules": {
-				"typescript/no-explicit-any": "error"
 			}
 		},
 		{
