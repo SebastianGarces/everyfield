@@ -1,4 +1,4 @@
-import { fixture, ok, refused } from "../../support/fixture.mts";
+import { fixture, ok, refused, type Actor } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { library } from "../../../packages/domain/src/documents/catalog.ts";
@@ -10,6 +10,7 @@ import { agendaMeetingOf } from "../../../packages/domain/src/documents/agenda-m
 import { loadStarter, validateBundle } from "../../../packages/reference/src/index.ts";
 import { referenceArtifactSha256 } from "../../../packages/reference/src/playbook.ts";
 import { PDFDocument } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
+import { present } from "./support.mts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -19,7 +20,7 @@ const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other Plant", timezone: "America/New_York" })).id;
-const actors = [
+const actors: [Actor, Actor, Actor, Actor, Actor] = [
 	database.actors.owner,
 	database.actors.member,
 	database.actors.admin,
@@ -32,12 +33,12 @@ let foreignTeam: string;
 const editedTitle = "Tenant edited copy";
 
 const authority = async (who = 0) => {
-	const actor = await RequestActor.resolve(db, actors[who].session);
+	const actor = await RequestActor.resolve(db, present(actors[who]).session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
 	return actor;
 };
 const countOf = async (table: string) =>
-	Number((await admin.execute(sql.raw(`SELECT count(*)::int AS n FROM ${table}`))).rows[0].n);
+	Number(present((await admin.execute(sql.raw(`SELECT count(*)::int AS n FROM ${table}`))).rows[0]).n);
 const counts = async () => {
 	const tables = ["document", "document_revision", "file_object", "audit_event", "generated_document"];
 	return Object.fromEntries(await Promise.all(tables.map(async (table) => [table, await countOf(table)])));
@@ -170,7 +171,7 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 				assert.equal(first.missing.length, 0);
 				assert.equal(first.engineVersion, renderEngineVersion());
 				assert.equal(typeof first.artifact, "string");
-				const bytes = Buffer.from(first.artifact, "base64");
+				const bytes = Buffer.from(present(first.artifact), "base64");
 				assert.equal(first.digest, createHash("sha256").update(bytes).digest("hex"));
 				if (format === "pdf") {
 					assert.equal(bytes.subarray(0, 5).toString("latin1"), "%PDF-");
@@ -194,11 +195,11 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 		);
 		assert.equal(word.details.issues[0].problem, "Format is not on this template.");
 		const agenda = ok(await documentsReader.resolveContext(db, member, previewInput("vision-meeting-agenda", "pdf")));
-		assert.equal(agenda.fields.find((field) => field.key === "pastor_name").value, "Pastor Ada");
-		assert.equal(agenda.fields.find((field) => field.key === "pastor_name").source, "pastor_name");
+		assert.equal(agenda.fields.find((field) => field.key === "pastor_name")?.value, "Pastor Ada");
+		assert.equal(agenda.fields.find((field) => field.key === "pastor_name")?.source, "pastor_name");
 		assert.equal("artifact" in agenda, false);
 		const launch = ok(await documentsReader.resolveContext(db, owner, previewInput("launch-sunday-checklists", "pdf")));
-		assert.equal(launch.fields.find((field) => field.key === "launch_date").value, "2026-09-14");
+		assert.equal(launch.fields.find((field) => field.key === "launch_date")?.value, "2026-09-14");
 		const kept = ok(
 			await documentsReader.preview(
 				db,
@@ -206,8 +207,8 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 				previewInput("commitment-card", "pdf", { overrides: { church_name: "   " } }),
 			),
 		);
-		assert.equal(kept.fields.find((field) => field.key === "church_name").value, "Harvest Point");
-		assert.equal(kept.fields.find((field) => field.key === "church_name").source, "church_name");
+		assert.equal(kept.fields.find((field) => field.key === "church_name")?.value, "Harvest Point");
+		assert.equal(kept.fields.find((field) => field.key === "church_name")?.source, "church_name");
 		refused(
 			await documentsReader.preview(
 				db,
@@ -280,7 +281,7 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 			await admin.execute(sql`UPDATE seat SET role='member' WHERE account_id=${actors[1].id}`);
 		}
 		assert.deepEqual(await counts(), before);
-		const title = (await admin.execute(sql`SELECT title FROM document WHERE tenant_id=${P}`)).rows[0].title;
+		const title = (await admin.execute(sql`SELECT title FROM document WHERE tenant_id=${P}`)).rows[0]?.title;
 		assert.equal(title, editedTitle);
 		assert.equal(await countOf("document"), 1);
 	});
@@ -301,19 +302,32 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 		assert.equal(merged.missing.includes("church_name"), true);
 		assert.equal(await renderPreview(card, "pdf", merged), null);
 		const finance = Number(
-			(
-				await admin.execute(
-					sql`SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema=current_schema() AND table_name ILIKE '%finance%'`,
-				)
-			).rows[0].n,
+			present(
+				(
+					await admin.execute(
+						sql`SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema=current_schema() AND table_name ILIKE '%finance%'`,
+					)
+				).rows[0],
+			).n,
 		);
 		assert.equal(finance, 0);
 		const framework = (
 			await admin.execute(sql`SELECT to_regclass('generic_file') AS generic_file, to_regclass('file') AS file`)
 		).rows[0];
-		assert.equal(framework.generic_file, null);
-		assert.equal(framework.file, null);
-		const report = validateBundle({ body: "SECRET-CANARY" }, {});
+		assert.equal(framework?.generic_file, null);
+		assert.equal(framework?.file, null);
+		const report = validateBundle(
+			{ body: "SECRET-CANARY" },
+			{
+				identities: { sourceManifestSha256: "", catalogSha256: "" },
+				plan: {
+					profile: { chunker: "fixed-codepoints-1200-v1", model: "", dimensions: 0 },
+					entries: [],
+					discoveryIds: [],
+				},
+				editorial: { approved: false, originalAvailable: false, conflicts: [] },
+			},
+		);
 		assert.equal(report.ok, false);
 		assert.equal(JSON.stringify(report).includes("SECRET-CANARY"), false);
 		const reference = await import("../../../packages/reference/src/index.ts");
@@ -393,7 +407,7 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 			sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on) VALUES(${P},${elderRole},${ada},'2026-01-01')`,
 		);
 
-		const offered = async (who, meetingId) =>
+		const offered = async (who: RequestActor, meetingId: string) =>
 			ok(await documentsReader["templates.contextual"](db, who, { meetingId })).templates.map(
 				(template) => template.id,
 			);
@@ -404,7 +418,7 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 			assert.deepEqual(await offered(owner, none), []);
 		assert.deepEqual(await offered(outsider, vision), []);
 
-		const printed = async (who, meetingId: string) => {
+		const printed = async (who: RequestActor, meetingId: string) => {
 			const result = ok(await documentsReader.printAgenda(db, who, { meetingId }));
 			return {
 				...result,
@@ -414,7 +428,7 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 		const before = await counts();
 		const audit = await countOf("audit_event");
 
-		const render = (id: string, facts) =>
+		const render = (id: string, facts: ReturnType<typeof agendaMeetingOf>) =>
 			renderTemplatePdf(
 				{ id },
 				{
@@ -450,7 +464,7 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 		);
 		assert.equal(viaPreview.digest, createHash("sha256").update(mine.bytes).digest("hex"));
 		const dateField = viaPreview.fields.find((field) => field.key === "meeting_date");
-		assert.deepEqual([dateField.value, dateField.source], [visionFacts.date, "meeting"]);
+		assert.deepEqual([dateField?.value, dateField?.source], [visionFacts.date, "meeting"]);
 		const context = ok(
 			await documentsReader.resolveContext(
 				db,
@@ -458,7 +472,7 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 				previewInput("vision-meeting-agenda", "pdf", { meetingId: vision }),
 			),
 		);
-		assert.equal(context.fields.find((field) => field.key === "meeting_date").source, "meeting");
+		assert.equal(context.fields.find((field) => field.key === "meeting_date")?.source, "meeting");
 		const over = ok(
 			await documentsReader.preview(
 				db,
@@ -468,8 +482,8 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 		);
 		assert.deepEqual(
 			[
-				over.fields.find((field) => field.key === "meeting_date").value,
-				over.fields.find((field) => field.key === "meeting_date").source,
+				over.fields.find((field) => field.key === "meeting_date")?.value,
+				over.fields.find((field) => field.key === "meeting_date")?.source,
 			],
 			["Nov 11", "override"],
 		);

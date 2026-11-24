@@ -1,8 +1,10 @@
-import { fixture, ok, refused } from "../../support/fixture.mts";
-import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
+import type { ChurchDocument } from "../../../packages/contracts/src/documents/index.ts";
+import { fixture, ok, refused, type Actor } from "../../support/fixture.mts";
+import { sql, type SQL } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
+import { MemoryClient } from "./storage.mts";
+import { blocksOf, present } from "./support.mts";
 import test, { after, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -11,7 +13,7 @@ const database = await fixture({ prefix: "t9arch", plant: { name: "Harvest Point
 const { admin } = database;
 const db = database.pools.runtime;
 const Q = (await database.plant({ name: "Other Church", timezone: "America/New_York" })).id;
-const actors = [
+const actors: [Actor, Actor, Actor, Actor] = [
 	database.actors.owner,
 	database.actors.member,
 	database.actors.admin,
@@ -23,47 +25,16 @@ const ADMIN = 2;
 const OTHER = 3;
 const SEATS = [OWNER, ADMIN, MEMBER];
 
-class MemoryClient extends S3Client {
-	objects = new Map();
-	constructor() {
-		super({
-			region: "us-east-1",
-			endpoint: "https://example.invalid",
-			forcePathStyle: true,
-			credentials: { accessKeyId: "test", secretAccessKey: "test" },
-		});
-	}
-	async send(command) {
-		const input = command.input ?? {};
-		switch (command.constructor.name) {
-			case "GetBucketAclCommand":
-				return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
-			case "PutObjectCommand":
-				this.objects.set(input.Key, Buffer.from(input.Body));
-				return {};
-			case "GetObjectCommand": {
-				const body = this.objects.get(input.Key);
-				if (!body) throw Object.assign(new Error("missing"), { name: "NoSuchKey" });
-				return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
-			}
-			case "DeleteObjectCommand":
-				this.objects.delete(input.Key);
-				return {};
-			default:
-				throw new Error(`unexpected provider operation ${command.constructor.name}`);
-		}
-	}
-}
 const storage = { bucket: "synthetic-only", client: new MemoryClient() };
 
-const authority = async (who) => {
-	const actor = await RequestActor.resolve(db, actors[who].session);
+const authority = async (who: number) => {
+	const actor = await RequestActor.resolve(db, present(actors[who]).session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
 	return actor;
 };
-const rowsOf = async (query) => (await admin.execute(query)).rows;
-const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
-const bytesFrom = (file) => Buffer.from(file.bytes, "base64");
+const rowsOf = async <T extends Record<string, unknown>>(query: SQL) => (await admin.execute<T>(query)).rows;
+const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
+const bytesFrom = (file: { bytes: string }) => Buffer.from(file.bytes, "base64");
 
 const stored = async () => {
 	const tenant = database.tenant.id;
@@ -77,17 +48,17 @@ const stored = async () => {
 	]);
 	return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 };
-const audits = async (id) =>
+const audits = async (id: string) =>
 	rowsOf(
 		sql`SELECT action, kind, actor_id::text AS actor FROM audit_event WHERE subject_id = ${id}::uuid
 			AND action IN ('documents.church_archived', 'documents.archived') ORDER BY occurred_at`,
 	);
 
-const create = async (who, templateId = "conflict-of-interest-policy") =>
+const create = async (who: number, templateId = "conflict-of-interest-policy") =>
 	ok(await documentsWriter.createFromTemplate(db, await authority(who), { templateId, requestKey: randomUUID() }));
-const save = async (doc, text) => {
+const save = async (doc: ChurchDocument, text: string) => {
 	const body = structuredClone(doc.body);
-	body.body.content.push({ type: "paragraph", content: [{ type: "text", text }] });
+	blocksOf(body).push({ type: "paragraph", content: [{ type: "text", text }] });
 	return ok(
 		await documentsWriter.saveNative(db, await authority(OWNER), {
 			documentId: doc.id,
@@ -96,11 +67,11 @@ const save = async (doc, text) => {
 		}),
 	);
 };
-const archive = async (who, documentId, expectedRevision) =>
+const archive = async (who: number, documentId: string, expectedRevision: string) =>
 	documentsWriter.archiveChurch(db, await authority(who), { documentId, expectedRevision });
-const remove = async (who, documentId, expectedRevision) =>
+const remove = async (who: number, documentId: string, expectedRevision: string) =>
 	documentsWriter.deleteChurch(db, await authority(who), { documentId, expectedRevision });
-const exportDoc = async (who, documentId, revision, format = "pdf") =>
+const exportDoc = async (who: number, documentId: string, revision: number, format = "pdf") =>
 	ok(
 		await documentsWriter.exportNative(
 			db,
@@ -109,10 +80,11 @@ const exportDoc = async (who, documentId, revision, format = "pdf") =>
 			storage,
 		),
 	);
-const exportFile = async (who, documentId, exportId) =>
+const exportFile = async (who: number, documentId: string, exportId: string) =>
 	documentsWriter.readExportFile(db, await authority(who), { documentId, exportId }, storage);
-const listExports = async (who, documentId) => documentsWriter.listExports(db, await authority(who), { documentId });
-const listed = async (who) =>
+const listExports = async (who: number, documentId: string) =>
+	documentsWriter.listExports(db, await authority(who), { documentId });
+const listed = async (who: number) =>
 	ok(await documentsWriter.listChurch(db, await authority(who), {})).documents.map((d) => d.id);
 
 after(async () => {
@@ -245,7 +217,7 @@ describe("AC:DOC-022 archive a Church Document", { concurrency: 1 }, () => {
 				);
 				assert.ok(bytesFrom(file).length > 0);
 				const saved = await exportDoc(who, doc.id, 1, format);
-				assert.equal(saved.source.revision, 1, `seat ${who} exports revision 1 as ${format}`);
+				assert.equal(saved.source?.revision, 1, `seat ${who} exports revision 1 as ${format}`);
 			}
 		}
 		refused(await documentsWriter.readChurch(db, await authority(OTHER), { documentId: doc.id }), "unavailable");
@@ -257,7 +229,7 @@ describe("AC:DOC-022 archive a Church Document", { concurrency: 1 }, () => {
 		const doc = await create(OWNER);
 		const pdf = await exportDoc(MEMBER, doc.id, 1, "pdf");
 		const word = await exportDoc(OWNER, doc.id, 1, "docx");
-		const first = {};
+		const first: Record<string, string> = {};
 		for (const saved of [pdf, word]) first[saved.id] = sha256(bytesFrom(ok(await exportFile(OWNER, doc.id, saved.id))));
 		ok(await archive(OWNER, doc.id, doc.revision));
 		const archivedState = await stored();
@@ -279,7 +251,7 @@ describe("AC:DOC-022 archive a Church Document", { concurrency: 1 }, () => {
 		for (const saved of [pdf, word]) {
 			const entry = history.entries.find((e) => e.id === saved.id);
 			assert.ok(entry, "the saved history lists it");
-			assert.equal(entry.source.documentId, doc.id);
+			assert.equal(entry.source?.documentId, doc.id);
 			const link = ok(await documentsWriter.download(db, await authority(MEMBER), { documentId: saved.id }, storage));
 			assert.ok(link.url, "its download from the saved history still signs");
 		}
@@ -293,7 +265,7 @@ describe("AC:DOC-022 archive a Church Document", { concurrency: 1 }, () => {
 		const archivedExport = await exportDoc(OWNER, archived.id, 1);
 		ok(await archive(OWNER, archived.id, archived.revision));
 
-		const marks = async (id) =>
+		const marks = async (id: string) =>
 			(
 				await rowsOf(
 					sql`SELECT archived_at IS NOT NULL AS deleted, church_archived_at IS NOT NULL AS archived FROM document WHERE id = ${id}::uuid`,
@@ -307,7 +279,7 @@ describe("AC:DOC-022 archive a Church Document", { concurrency: 1 }, () => {
 					sql`SELECT count(*)::int AS n FROM document WHERE archived_at IS NOT NULL AND church_archived_at IS NOT NULL
 						AND tenant_id = ${database.tenant.id}::uuid`,
 				)
-			)[0].n,
+			)[0]?.n,
 			0,
 		);
 

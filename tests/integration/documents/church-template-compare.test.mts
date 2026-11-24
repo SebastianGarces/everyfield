@@ -1,23 +1,29 @@
-import { fixture, ok, refused } from "../../support/fixture.mts";
+import { fixture, ok, refused, type Actor } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
-import { LEGAL_NOTICE, docTemplate, templateHash } from "../../../packages/contracts/src/documents/index.ts";
+import {
+	LEGAL_NOTICE,
+	docTemplate,
+	templateHash,
+	type ChurchTemplateSummary,
+	type DocDifference,
+} from "../../../packages/contracts/src/documents/index.ts";
 import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
+import { asKind, blocksOf, firstText, para, present } from "./support.mts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
 const POLICY = "conflict-of-interest-policy";
-const para = (text) => ({ type: "paragraph", content: [{ type: "text", text }] });
-const shape = (differences) => differences.map((d) => [d.id, d.part, d.kind]);
+const shape = (differences: DocDifference[]) => differences.map((d) => [d.id, d.part, d.kind]);
 
 const database = await fixture({ prefix: "t80cmp", plant: { name: "Harvest Point" } });
 const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other Church", timezone: "America/New_York" })).id;
-const actors = [
+const actors: [Actor, Actor, Actor, Actor] = [
 	database.actors.owner,
 	database.actors.member,
 	database.actors.admin,
@@ -28,25 +34,26 @@ const MEMBER = 1;
 const ADMIN = 2;
 const OTHER = 3;
 
-const authority = async (who) => {
-	const actor = await RequestActor.resolve(db, actors[who].session);
+const authority = async (who: number) => {
+	const actor = await RequestActor.resolve(db, present(actors[who]).session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
 	return actor;
 };
-const create = async (who, templateId) =>
+const create = async (who: number, templateId: string) =>
 	ok(await documentsWriter.createFromTemplate(db, await authority(who), { templateId, requestKey: randomUUID() }));
-const save = async (who, documentId, expectedRevision, body) =>
+const save = async (who: number, documentId: string, expectedRevision: string, body: unknown) =>
 	documentsWriter.saveNative(db, await authority(who), { documentId, expectedRevision, body });
-const compare = async (who, documentId) =>
+const compare = async (who: number, documentId: string) =>
 	documentsWriter.readTemplateCompare(db, await authority(who), { documentId });
-const accept = async (who, request) => documentsWriter.acceptTemplateChanges(db, await authority(who), request);
-const status = async (who, documentId) =>
+const accept = async (who: number, request: unknown) =>
+	documentsWriter.acceptTemplateChanges(db, await authority(who), request);
+const status = async (who: number, documentId: string) =>
 	ok(await documentsWriter.readChurchForEdit(db, await authority(who), { documentId })).template;
-const history = async (who, documentId) =>
+const history = async (who: number, documentId: string) =>
 	ok(await documentsWriter["history.list"](db, await authority(who), { documentId }));
-const revisionBody = async (documentId, revision) =>
+const revisionBody = async (documentId: string, revision: number) =>
 	ok(await documentsWriter["history.get"](db, await authority(MEMBER), { documentId, revision })).body;
-const file = async (who, documentId, format, revision?) =>
+const file = async (who: number, documentId: string, format: string, revision?: number) =>
 	ok(
 		await documentsWriter.readChurchFile(
 			db,
@@ -55,21 +62,22 @@ const file = async (who, documentId, format, revision?) =>
 			null,
 		),
 	);
-const pdfText = async (f) => (await pdfPages(Buffer.from(f.bytes, "base64"))).join(" ").replace(/\s+/g, " ");
-const docxText = (f) =>
+const pdfText = async (f: { bytes: string }) =>
+	(await pdfPages(Buffer.from(f.bytes, "base64"))).join(" ").replace(/\s+/g, " ");
+const docxText = (f: { bytes: string }) =>
 	Object.entries(docxParts(Buffer.from(f.bytes, "base64")))
 		.filter(([name]) => /^word\/(document|header\d*|footer\d*)\.xml$/.test(name))
 		.map(([, xml]) => wordText(xml))
 		.join(" ");
-const countOf = async (table, where = "") =>
-	Number((await admin.execute(sql.raw(`SELECT count(*)::int AS n FROM ${table} ${where}`))).rows[0].n);
+const countOf = async (table: string, where = "") =>
+	Number(present((await admin.execute(sql.raw(`SELECT count(*)::int AS n FROM ${table} ${where}`))).rows[0]).n);
 const counts = async () => ({
 	documents: await countOf("document"),
 	revisions: await countOf("document_revision"),
 	audits: await countOf("audit_event"),
 });
 
-async function churchTemplate(who, name) {
+async function churchTemplate(who: number, name: string) {
 	const base = await create(who, POLICY);
 	return ok(
 		await documentsWriter.saveChurchTemplate(db, await authority(who), {
@@ -81,19 +89,21 @@ async function churchTemplate(who, name) {
 		}),
 	);
 }
-const storedTemplate = async (recordId) =>
+const storedTemplate = async (recordId: string) =>
 	docTemplate.parse(
 		JSON.parse(
-			(
-				await admin.execute(
-					sql`SELECT r.body FROM document t JOIN document_revision r ON r.id = t.current_revision_id
+			present(
+				(
+					await admin.execute<{ body: string }>(
+						sql`SELECT r.body FROM document t JOIN document_revision r ON r.id = t.current_revision_id
 					WHERE t.id = ${recordId}::uuid`,
-				)
-			).rows[0].body,
+					)
+				).rows[0],
+			).body,
 		),
 	);
 
-async function versionTwo(template) {
+async function versionTwo(template: ChurchTemplateSummary) {
 	const doc = await create(OWNER, template.templateId);
 	const body = structuredClone(doc.body);
 	body.fields.push({
@@ -103,8 +113,8 @@ async function versionTwo(template) {
 		source: "church.pastor",
 		fallback: "our pastor",
 	});
-	const blocks = body.body.content;
-	blocks[4] = { ...blocks[4], content: [{ type: "text", text: "Why this policy exists" }] };
+	const blocks = blocksOf(body);
+	blocks[4] = { ...asKind(blocks[4], "heading"), content: [{ type: "text", text: "Why this policy exists" }] };
 	blocks.splice(7, 0, {
 		type: "paragraph",
 		content: [
@@ -154,7 +164,7 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 	test("INV-doc-compare: a fresh document matches its church template; the compare names it as the church's own", async () => {
 		const template = await churchTemplate(ADMIN, "Board policy");
 		const doc = await create(ADMIN, template.templateId);
-		assert.equal(doc.body.origin.template, template.templateId);
+		assert.equal(doc.body.origin?.template, template.templateId);
 		assert.equal(await status(ADMIN, doc.id), "current");
 		const found = ok(await compare(ADMIN, doc.id));
 		assert.equal(found.templateTitle, "Board policy");
@@ -181,8 +191,11 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 		const doc = await create(OWNER, template.templateId);
 		const edited = structuredClone(doc.body);
 		edited.page.margin.left = 72;
-		edited.body.content[4] = { ...edited.body.content[4], content: [{ type: "text", text: "Our purpose" }] };
-		edited.body.content.splice(7, 1);
+		blocksOf(edited)[4] = {
+			...asKind(blocksOf(edited)[4], "heading"),
+			content: [{ type: "text", text: "Our purpose" }],
+		};
+		blocksOf(edited).splice(7, 1);
 		ok(await save(OWNER, doc.id, "1", edited));
 		const found = ok(await compare(OWNER, doc.id));
 		assert.equal(found.templateTitle, "Margins policy");
@@ -192,11 +205,13 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 			[1, "body", "changed"],
 			[2, "body", "template-only"],
 		]);
-		assert.equal(found.differences[0].document.margin.left, 72);
-		assert.equal(found.differences[0].template.margin.left, v1.page.margin.left);
-		assert.equal(found.differences[1].document.content[0].text, "Our purpose");
-		assert.equal(found.differences[1].template.content[0].text, "Purpose");
-		assert.deepEqual(found.differences[2].template, v1.body.content[7]);
+		const [page] = found.differences;
+		assert.ok(page?.part === "page");
+		assert.equal(page.document.margin.left, 72);
+		assert.equal(page.template.margin.left, v1.page.margin.left);
+		assert.equal(firstText(found.differences[1]?.document), "Our purpose");
+		assert.equal(firstText(found.differences[1]?.template), "Purpose");
+		assert.deepEqual(found.differences[2]?.template, blocksOf(v1)[7]);
 	});
 
 	test("INV-doc-compare: accepting some changes of version 2 writes one revision with the exact body and origin", async () => {
@@ -204,7 +219,7 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 		const doc = await create(ADMIN, template.templateId);
 		const other = await create(ADMIN, template.templateId);
 		const edited = structuredClone(doc.body);
-		edited.body.content[3] = para("Our board keeps this policy so every decision serves the church.");
+		blocksOf(edited)[3] = para("Our board keeps this policy so every decision serves the church.");
 		const r2 = ok(await save(ADMIN, doc.id, "1", edited));
 		const rev1Pdf = await file(MEMBER, doc.id, "pdf", 1);
 		const rev2Body = await revisionBody(doc.id, 2);
@@ -225,7 +240,7 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 			[2, "body", "document-only"],
 			[3, "body", "template-only"],
 		]);
-		assert.equal(found.differences[1].template.content[0].text, "Why this policy exists");
+		assert.equal(firstText(found.differences[1]?.template), "Why this policy exists");
 		assert.equal(found.values.pastor_name, "Pastor Ada");
 		assert.equal(found.values.church_name, "Harvest Point");
 
@@ -243,9 +258,9 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 		assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
 		assert.equal(accepted.revision, "3");
 		assert.equal(accepted.templateVersion, 2);
-		const expected = structuredClone(r2.body.body.content);
-		expected[4] = v2.body.content[4];
-		expected.splice(7, 0, v2.body.content[6]);
+		const expected = structuredClone(blocksOf(r2.body));
+		expected[4] = present(blocksOf(v2)[4]);
+		expected.splice(7, 0, present(blocksOf(v2)[6]));
 		expected.splice(5, 1);
 		assert.deepEqual(accepted.body.body.content, expected, "only the accepted blocks take the template's version");
 		assert.deepEqual(accepted.body.origin, { template: template.templateId, version: 2, hash: await templateHash(v2) });
@@ -253,7 +268,7 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 			accepted.body.fields.map((f) => f.key),
 			["church_name", "church_legal_name", "pastor_name"],
 		);
-		assert.equal(accepted.body.data.pastor_name, "Pastor Ada");
+		assert.equal(accepted.body.data?.pastor_name, "Pastor Ada");
 		assert.equal(await status(ADMIN, doc.id), "current", "the notice is gone");
 
 		assert.deepEqual(
@@ -303,7 +318,7 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 			source: "church.pastor",
 			fallback: "our pastor",
 		});
-		body.body.content.push({
+		blocksOf(body).push({
 			type: "paragraph",
 			content: [
 				{ type: "text", text: "Questions go to " },
@@ -333,7 +348,7 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 				accept: "all",
 			}),
 		);
-		assert.equal(accepted.body.data.pastor_name, "our pastor");
+		assert.equal(accepted.body.data?.pastor_name, "our pastor");
 		assert.ok((await pdfText(await file(OTHER, doc.id, "pdf"))).includes("Questions go to our pastor"));
 	});
 
@@ -372,7 +387,7 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 		const template = await churchTemplate(OWNER, "Conflict policy");
 		const doc = await create(ADMIN, template.templateId);
 		const edited = structuredClone(doc.body);
-		edited.body.content.splice(5, 1);
+		blocksOf(edited).splice(5, 1);
 		ok(await save(ADMIN, doc.id, "1", edited));
 		const found = ok(await compare(ADMIN, doc.id));
 		ok(await save(OWNER, doc.id, "2", { ...edited, title: "Saved elsewhere" }));

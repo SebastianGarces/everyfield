@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import test, { describe, mock } from "node:test";
@@ -11,7 +12,6 @@ import {
 	PDFRef,
 	PDFSignature,
 } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
-import ExcelJS from "../../../packages/domain/node_modules/exceljs/lib/exceljs.nodejs.js";
 import { library, templateView } from "../../../packages/domain/src/documents/catalog.ts";
 import {
 	ContrastLog,
@@ -42,6 +42,27 @@ import { contentSnapshot, REGISTRY } from "../../../packages/domain/src/document
 import { fontDigests } from "../../../packages/domain/src/documents/fonts.ts";
 import { sofficeTest } from "./fixtures/readers.mts";
 import { lowContrastKit, sampleKit } from "./fixtures/sample-kit.ts";
+
+type Cell = { value: unknown; numFmt?: string };
+type Row = { eachCell(visit: (cell: Cell) => void): void };
+type Sheet = {
+	name: string;
+	views: { state?: string; xSplit?: number; ySplit?: number; topLeftCell?: string }[];
+	eachRow(visit: (row: Row) => void): void;
+	getCell(address: string): Cell;
+	getCell(row: number, column: number): Cell;
+	getColumn(n: number): { width?: number };
+};
+type Workbook = {
+	worksheets: Sheet[];
+	calcProperties: { fullCalcOnLoad?: boolean };
+	xlsx: { load(bytes: Uint8Array): Promise<unknown>; writeBuffer(): Promise<ArrayBuffer> };
+	eachSheet(visit: (sheet: Sheet) => void): void;
+	getWorksheet(name: string): Sheet | undefined;
+};
+const ExcelJS: { Workbook: new () => Workbook } = createRequire(import.meta.url)(
+	"../../../packages/domain/node_modules/exceljs/lib/exceljs.nodejs.js",
+);
 
 const CHURCH = "Harborlight Church";
 const FULL = {
@@ -383,7 +404,7 @@ describe("INV-doc-engine: api engine", () => {
 		assert.equal(monthly.getCell("A23").value, "Total expenses");
 		assert.deepEqual(monthly.getCell("N23").value, { formula: "SUM(N13:N22)" });
 		assert.deepEqual(monthly.getCell("B25").value, { formula: "B10-B23" });
-		const view = monthly.views[0] as { state?: string; xSplit?: number; ySplit?: number; topLeftCell?: string };
+		const view = monthly.views[0]!;
 		assert.deepEqual([view.state, view.xSplit, view.ySplit, view.topLeftCell], ["frozen", 1, 3, "B4"]);
 		assert.equal(monthly.getColumn(1).width, 36);
 		assert.match(String(monthly.getCell("B5").numFmt), /\$/);
@@ -415,8 +436,7 @@ describe("INV-doc-engine: api engine", () => {
 			sheet.eachRow((row) =>
 				row.eachCell((cell) => {
 					const value = cell.value as { formula?: string } | null;
-					if (value && typeof value === "object" && value.formula)
-						cell.value = { formula: value.formula } as ExcelJS.CellFormulaValue;
+					if (value && typeof value === "object" && value.formula) cell.value = { formula: value.formula };
 				}),
 			),
 		);

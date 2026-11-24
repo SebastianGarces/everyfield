@@ -12,8 +12,11 @@ import {
 	forkTemplate,
 	ledgerTables,
 	type BlockNode,
+	type CellNode,
 	type DocDocument,
 	type InlineNode,
+	type RowNode,
+	type RowRole,
 	type TableNode,
 } from "../../../packages/contracts/src/documents/format/index.ts";
 import { docFormats, renderDocFile } from "../../../packages/domain/src/documents/doc-render.ts";
@@ -30,6 +33,7 @@ import {
 	removeRow,
 	setSign,
 } from "../../../apps/web/src/features/documents/church/editor/table-ops.ts";
+import { asKind, blocksOf, present } from "./support.mts";
 import { docxParts, pdfOperators, pdfPages, sofficeTest, sofficeToPdf, wordText } from "./fixtures/readers.mts";
 
 const THEME = {
@@ -263,7 +267,7 @@ sofficeTest(
 
 test("AC:CASE-DOC-023 the PDF prints each bracketed placeholder as plain text and the Word file shades its run", async () => {
 	const doc = await fork("conflict-of-interest-policy");
-	doc.body.content.push({
+	blocksOf(doc).push({
 		type: "paragraph",
 		content: [{ type: "text", text: "Approved for [low amount] to [high amount], not [] or a [bracket" }],
 	});
@@ -274,7 +278,7 @@ test("AC:CASE-DOC-023 the PDF prints each bracketed placeholder as plain text an
 	const ops = await pdfOperators(pdf);
 	assert.doesNotMatch(ops, /0\.992\d* 0\.941\d* 0\.650\d* rg/, "no fill in the placeholder color");
 	assert.doesNotMatch(ops, /\/BM \/Multiply/, "no highlight blend");
-	const xml = docxParts(await renderDocFile(doc, "docx", THEME, SAVED))["word/document.xml"];
+	const xml = present(docxParts(await renderDocFile(doc, "docx", THEME, SAVED))["word/document.xml"]);
 	const shaded = [
 		...xml.matchAll(
 			/<w:shd w:val="clear" w:color="auto" w:fill="FDF0A6"\/><\/w:rPr><w:t xml:space="preserve">([^<]*)<\/w:t>/g,
@@ -310,24 +314,27 @@ function computedCells(sheet: string) {
 	return { formula: (ref: string) => cells.get(ref)?.f, value };
 }
 
-async function budgetWith(rows: [string, string, number | null][], columns?: TableNode["attrs"]["columns"]) {
+async function budgetWith(
+	rows: [role: RowRole, label: string, ...values: (number | null)[]][],
+	columns?: TableNode["attrs"]["columns"],
+) {
 	const doc = await fork("budget-worksheet");
 	const table = ledgerTables(doc.body)[0]!;
 	if (columns) table.attrs.columns = columns;
-	table.content = rows.map(([role, label, ...values]) => ({
+	table.content = rows.map(([role, label, ...values]): RowNode => ({
 		type: "row",
-		...(role === "item" ? {} : { attrs: role === "group" ? { role, sign: "add" } : { role } }),
+		...(role === "item" ? {} : { attrs: role === "group" ? { role, sign: "add" as const } : { role } }),
 		content: [
 			{ type: "cell", content: [{ type: "text", text: label }] },
 			...table.attrs.columns
 				.slice(1)
-				.map((c, i) =>
+				.map((c, i): CellNode =>
 					c.type === "formula" || role !== "item"
 						? { type: "cell", content: [] }
 						: { type: "cell", attrs: { value: values[i] ?? null }, content: [] },
 				),
 		],
-	})) as TableNode["content"];
+	}));
 	return { doc: docDocument.parse(doc), table: ledgerTables(docDocument.parse(doc).body)[0]! };
 }
 
@@ -361,7 +368,7 @@ test("AC:CASE-DOC-013 a workbook division by a zero or empty divisor shows 0, as
 			["item", "Zero", 10, 0],
 			["item", "Empty", 10, null],
 			["item", "Four", 10, 4],
-		] as never,
+		],
 		[
 			{ id: "category", label: "Category", type: "text", width: 0 },
 			{ id: "amount", label: "Amount", type: "money", width: 110, align: "right" },
@@ -375,7 +382,7 @@ test("AC:CASE-DOC-013 a workbook division by a zero or empty divisor shows 0, as
 				width: 110,
 				align: "right",
 			},
-		] as never,
+		],
 	);
 	const cells = computedCells(sheetsOf(await renderDocFile(doc, "xlsx", THEME, SAVED)).sheets[0]!);
 	assert.equal(cells.formula("D5"), "IF((C5)=0,0,(B5)/(C5))");
@@ -390,8 +397,9 @@ test("AC:CASE-DOC-013 a workbook division by a zero or empty divisor shows 0, as
 	);
 });
 
-const textOf = (cell: any) => (cell?.content ?? []).map((n: any) => n.text ?? "").join("");
-const textCell = (text: string) => ({ type: "cell", content: [{ type: "text", text }] });
+const textOf = (cell: CellNode | undefined) =>
+	(cell?.content ?? []).map((n) => (n.type === "text" ? n.text : "")).join("");
+const textCell = (text: string): CellNode => ({ type: "cell", content: [{ type: "text", text }] });
 function sheetText(sheet: string, ref: string) {
 	const body = new RegExp(`<c r="${ref}"[^>]*?(?:/>|>(.*?)</c>)`, "s").exec(sheet)?.[1] ?? "";
 	return [...body.matchAll(/<t[^>]*>(.*?)<\/t>/gs)].map((m) => m[1]!.replaceAll("&amp;", "&")).join("");
@@ -423,11 +431,13 @@ function editedSheet(xlsx: Uint8Array, table: TableNode, title: string) {
 }
 
 test("AC:CASE-DOC-013 a forked budget, edited, gives an Excel file with the edits and computed totals; so does a budget in a blank document", async () => {
-	const doc: any = await forkTemplate(docTemplateById("budget-worksheet")!, { data: { church_name: "Harvest Point" } });
-	doc.body.content[0].content[1].text += " 2027";
+	const doc = await forkTemplate(docTemplateById("budget-worksheet")!, { data: { church_name: "Harvest Point" } });
+	const title = asKind(blocksOf(doc)[0], "heading").content?.[1];
+	assert.ok(title?.type === "text");
+	title.text += " 2027";
 	let t = ledgerTables(doc.body)[0]!;
 	const at = (label: string) => t.content!.findIndex((r) => textOf(r.content[0]) === label);
-	const put = (ri: number, ci: number, cell: unknown) => ((t.content![ri]!.content as unknown[])[ci] = cell);
+	const put = (ri: number, ci: number, cell: CellNode) => (t.content![ri]!.content[ci] = cell);
 	put(at("Tithes and offerings"), 1, { type: "cell", attrs: { value: 3000 } });
 	put(at("Pastor and staff pay"), 1, { type: "cell", attrs: { value: 1500 } });
 	t = addLineItem(t, at("Other income"));
@@ -444,7 +454,7 @@ test("AC:CASE-DOC-013 a forked budget, edited, gives an Excel file with the edit
 	t.attrs.columns[2]!.label = "Notes";
 	put(1, 2, textCell("weekly"));
 	t = removeColumn(t, 3);
-	doc.body.content[doc.body.content.findIndex((n: any) => n.type === "table")] = t;
+	blocksOf(doc)[blocksOf(doc).findIndex((n) => n.type === "table")] = t;
 	const edited = docDocument.parse(doc);
 	const table = ledgerTables(edited.body)[0]!;
 	assert.deepEqual(
@@ -460,9 +470,9 @@ test("AC:CASE-DOC-013 a forked budget, edited, gives an Excel file with the edit
 	assert.equal(sheetText(forked.sheet, "C5"), "weekly");
 	assert.equal(forked.cells.value(`B${forked.last}`), 3000 + 500 - 1500 - 250.5);
 
-	const blank: any = await fork("guest-sign-in-sheet");
+	const blank = await fork("guest-sign-in-sheet");
 	let b = newBudget();
-	const putB = (ri: number, ci: number, cell: unknown) => ((b.content![ri]!.content as unknown[])[ci] = cell);
+	const putB = (ri: number, ci: number, cell: CellNode) => (b.content![ri]!.content[ci] = cell);
 	putB(1, 0, textCell("Offerings"));
 	putB(1, 1, { type: "cell", attrs: { value: 1200.25 } });
 	b = addLineItem(b, 1);
@@ -497,7 +507,7 @@ test("AC:CASE-DOC-023 the PDF and the Word file print a budget's totals rounded 
 		["Sending church support", 0.7],
 		["Network or denominational support", 0.1],
 	] as const)
-		(table.content!.find((r) => textOf(r.content[0]) === label)!.content as unknown[])[1] = {
+		table.content!.find((r) => textOf(r.content[0]) === label)!.content[1] = {
 			type: "cell",
 			attrs: { value },
 		};
@@ -516,10 +526,15 @@ test("AC:CASE-DOC-023 the PDF and the Word file print a budget's totals rounded 
 const palette = makePalette(NEUTRAL_THEME);
 const renderXlsx = (doc: DocDocument) => buildLedgerWorkbook(doc, fieldValues(doc), NEUTRAL_THEME);
 
-async function budgetDoc(change: (table: any, items: any[]) => void) {
+const tableIn = (doc: DocDocument) =>
+	asKind(
+		blocksOf(doc).find((n) => n.type === "table"),
+		"table",
+	);
+async function budgetDoc(change: (table: TableNode, items: RowNode[]) => void) {
 	const doc = await forkTemplate(docTemplateById("budget-worksheet")!, { data: { church_name: "Harbor City Church" } });
-	const table: any = doc.body.content!.find((n) => n.type === "table");
-	const items = table.content.filter((r: any) => (r.attrs?.role ?? "item") === "item");
+	const table = tableIn(doc);
+	const items = present(table.content).filter((r) => (r.attrs?.role ?? "item") === "item");
 	change(table, items);
 	return docDocument.parse(doc);
 }
@@ -558,8 +573,9 @@ function workbook(bytes: Uint8Array) {
 }
 
 test("AC:CASE-DOC-013 Excel shows cents, no dollar sign on a number column, ticks, the header fill, the stripes and a sheet for each table", async () => {
-	const build = async (change: (table: any, items: any[]) => void) => workbook(renderXlsx(await budgetDoc(change)));
-	const set = (items: any[], values: number[]) =>
+	const build = async (change: (table: TableNode, items: RowNode[]) => void) =>
+		workbook(renderXlsx(await budgetDoc(change)));
+	const set = (items: RowNode[], values: number[]) =>
 		items.forEach((r, i) => (r.content[1] = { type: "cell", attrs: { value: values[i] ?? null } }));
 
 	const cents = await build((t, items) => set(items, [100.55, 200]));
@@ -578,7 +594,7 @@ test("AC:CASE-DOC-013 Excel shows cents, no dollar sign on a number column, tick
 	assert.doesNotMatch(whole.format("B5")!, /0\.00/);
 
 	const number = await build((t, items) => {
-		t.attrs.columns[1].type = "number";
+		present(t.attrs.columns[1]).type = "number";
 		set(items, [100, 2.5]);
 	});
 	for (const ref of ["B5", "B6", "B10", "B23"])
@@ -587,9 +603,9 @@ test("AC:CASE-DOC-013 Excel shows cents, no dollar sign on a number column, tick
 
 	const checks = await build((t, items) => {
 		t.attrs.columns.push({ id: "paid", label: "Paid", type: "check", width: 40 });
-		t.content.forEach((row: any) => row.content.push({ type: "cell" }));
-		items[0].content[3] = { type: "cell", attrs: { checked: true } };
-		items[1].content[3] = { type: "cell", attrs: { checked: false } };
+		present(t.content).forEach((row) => row.content.push({ type: "cell" }));
+		present(items[0]).content[3] = { type: "cell", attrs: { checked: true } };
+		present(items[1]).content[3] = { type: "cell", attrs: { checked: false } };
 	});
 	assert.match(checks.cell("D5")!, /☒/, "a ticked cell shows ticked");
 	assert.doesNotMatch(checks.cell("D6")!, /<t[ >]|<v>/, "an unticked cell shows empty");
@@ -609,9 +625,9 @@ test("AC:CASE-DOC-013 Excel shows cents, no dollar sign on a number column, tick
 
 	const twoTables = async (first: string, second: string) => {
 		const doc = await budgetDoc((t) => (t.attrs.sheet = first));
-		const copy: any = structuredClone(doc.body.content!.find((n) => n.type === "table"));
+		const copy = structuredClone(tableIn(doc));
 		copy.attrs.sheet = second;
-		doc.body.content!.push(copy);
+		blocksOf(doc).push(copy);
 		return workbook(renderXlsx(docDocument.parse(doc)));
 	};
 	const two = await twoTables("Plan A", "Plan B");
@@ -622,8 +638,8 @@ test("AC:CASE-DOC-013 Excel shows cents, no dollar sign on a number column, tick
 });
 
 async function everything() {
-	const text = (s?: string) => (s ? textCell(s) : { type: "cell" });
-	const grid = {
+	const text = (s?: string): CellNode => (s ? textCell(s) : { type: "cell" });
+	const grid: TableNode = {
 		type: "table",
 		attrs: {
 			style: "grid",
@@ -640,15 +656,17 @@ async function everything() {
 				{ id: "done", label: "Done", type: "check", width: 40 },
 			],
 		},
-		content: [
-			["Chairs", 4, 12.5, true],
-			["Tables", 2, 80, false],
-			["Banner", 1, 0.3, true],
-		].map(([name, qty, cost, done]) => ({
+		content: (
+			[
+				["Chairs", 4, 12.5, true],
+				["Tables", 2, 80, false],
+				["Banner", 1, 0.3, true],
+			] as const
+		).map(([name, qty, cost, done]) => ({
 			type: "row",
 			content: [
 				{ type: "cell" },
-				text(name as string),
+				text(name),
 				{ type: "cell", attrs: { value: qty } },
 				{ type: "cell", attrs: { value: cost } },
 				{ type: "cell" },
@@ -656,7 +674,7 @@ async function everything() {
 			],
 		})),
 	};
-	const checklist = {
+	const checklist: TableNode = {
 		type: "table",
 		attrs: {
 			style: "rows",
@@ -672,10 +690,11 @@ async function everything() {
 			{ type: "row", content: [{ type: "cell" }, text("Serve once a month")] },
 		],
 	};
-	const base: any = await fork("budget-worksheet");
-	const budget = structuredClone(base.body.content.find((n: any) => n.type === "table"));
-	budget.content[1].content[1] = { type: "cell", attrs: { value: 3000.5 } };
-	budget.content[2].content[1] = { type: "cell", attrs: { value: 1200 } };
+	const base = await fork("budget-worksheet");
+	const budget = structuredClone(tableIn(base));
+	const rows = present(budget.content);
+	present(rows[1]).content[1] = { type: "cell", attrs: { value: 3000.5 } };
+	present(rows[2]).content[1] = { type: "cell", attrs: { value: 1200 } };
 	const body = {
 		type: "doc",
 		content: [
@@ -723,7 +742,7 @@ test("AC:CASE-DOC-023 the PDF and the Word file hold a table's text, numbers, ro
 	}
 
 	const form = (await PDFDocument.load(pdfBytes)).getForm();
-	const checks = form.getFields().filter((f) => f instanceof PDFCheckBox) as InstanceType<typeof PDFCheckBox>[];
+	const checks = form.getFields().filter((f) => f instanceof PDFCheckBox);
 	const names = form.getFields().map((f) => f.getName());
 	assert.equal(new Set(names).size, names.length, "every form field has a unique name");
 	assert.equal(checks.filter((c) => c.isChecked()).length, 3, "the PDF prints three ticked boxes");

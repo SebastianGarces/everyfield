@@ -15,6 +15,8 @@ import {
 	type BlockNode,
 	type DocDocument,
 	type DocTemplate,
+	type InlineNode,
+	type Mark,
 } from "../../../packages/contracts/src/documents/format/index.ts";
 import {
 	DOC_TEMPLATES,
@@ -515,10 +517,14 @@ test("AC:CASE-DOC-013 typed values print computed formula, subtotal and total ce
 });
 
 function everyNode(): DocDocument {
-	const t = (text: string, marks?: DocDocument["body"]["content"] extends unknown ? any[] : never) =>
+	const t = (text: string, marks?: Mark[]) =>
 		marks ? { type: "text" as const, text, marks } : { type: "text" as const, text };
-	const p = (style: string, ...content: any[]) => ({ type: "paragraph", attrs: { style }, content });
-	const doc: any = {
+	const p = (style: "body" | "lead" | "small" | "kicker", ...content: InlineNode[]) => ({
+		type: "paragraph" as const,
+		attrs: { style },
+		content,
+	});
+	const doc: DocDocument = {
 		format: "everyfield.doc/1",
 		kind: "document",
 		id: "every-node",
