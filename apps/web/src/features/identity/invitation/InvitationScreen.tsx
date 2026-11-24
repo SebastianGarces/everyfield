@@ -45,7 +45,11 @@ import { FullPageLink } from "@/components/native";
 const PAGE = "/invitation";
 
 type Session = Awaited<ReturnType<typeof readInvitation>>["session"];
-type Read = { description: ReturnType<typeof invitationDescriptionResult.parse>; session: Session };
+type Read = {
+	description: ReturnType<typeof invitationDescriptionResult.parse>;
+	session: Session;
+	mailDelayed: boolean;
+};
 
 export function InvitationScreen() {
 	const proof = useOneTimeLinkValue("invitation");
@@ -57,7 +61,11 @@ export function InvitationScreen() {
 function InvitationFor({ proof }: { proof: string }) {
 	const fetch = useCallback(async (): Promise<Read> => {
 		const r = await readInvitation(proof);
-		return { description: invitationDescriptionResult.parse(r.description), session: r.session };
+		return {
+			description: invitationDescriptionResult.parse(r.description),
+			session: r.session,
+			mailDelayed: r.mailDelayed === true,
+		};
 	}, [proof]);
 	const { state, reload, update, refreshing } = useLoad(fetch, "The invitation did not load");
 	const [held, setHeld] = useState<Held | null>(() => tabStore.held(proof));
@@ -82,7 +90,7 @@ function InvitationFor({ proof }: { proof: string }) {
 			</div>
 		);
 	if (state.status !== "ready") return <Loading />;
-	const { description, session } = state.data;
+	const { description, session, mailDelayed } = state.data;
 	if (held)
 		return (
 			<Unconfirmed
@@ -131,7 +139,8 @@ function InvitationFor({ proof }: { proof: string }) {
 		onHeld: setHeld,
 		joining,
 	};
-	if (description.subject.purpose === "seat") return <SeatFlow {...answer} signedIn={signedIn} onJoined={joined} />;
+	if (description.subject.purpose === "seat")
+		return <SeatFlow {...answer} mailDelayed={mailDelayed} signedIn={signedIn} onJoined={joined} />;
 	if (!signedIn) return <SignedOut description={description} proof={proof} onJoined={joined} />;
 	return <ResidentAnswer {...answer} />;
 }
@@ -411,9 +420,10 @@ function SeatFlow({
 	onRefused,
 	onHeld,
 	joining,
+	mailDelayed,
 	signedIn,
 	onJoined,
-}: AnswerProps & { signedIn: boolean; onJoined: (email: string) => Promise<Read | null> }) {
+}: AnswerProps & { mailDelayed: boolean; signedIn: boolean; onJoined: (email: string) => Promise<Read | null> }) {
 	const intent = useIntent<SeatCommand>("seat-accept");
 	const [done, setDone] = useState<SeatAccepted | null>(null);
 	const [confirm, setConfirm] = useState<{ tries: number } | null>(null);
@@ -499,6 +509,7 @@ function SeatFlow({
 				busy={intent.pending !== null || refreshing}
 				stillRefused={confirm.tries > 1 && intent.problem === "refused"}
 				sent={link.sent}
+				delayed={link.sent === "delayed" || (link.sent !== "sent" && mailDelayed)}
 				onSend={() => void link.send(joining)}
 				onContinue={() => void accept(joining)}
 			/>
@@ -525,13 +536,14 @@ function SeatFlow({
 	);
 }
 
-type LinkSent = "idle" | "sending" | "sent" | "failed";
+type LinkSent = "idle" | "sending" | "sent" | "delayed" | "failed";
 
 function ConfirmEmail({
 	email,
 	busy,
 	stillRefused,
 	sent,
+	delayed,
 	onSend,
 	onContinue,
 }: {
@@ -539,6 +551,7 @@ function ConfirmEmail({
 	busy: boolean;
 	stillRefused: boolean;
 	sent: LinkSent;
+	delayed: boolean;
 	onSend: () => void;
 	onContinue: () => void;
 }) {
@@ -556,7 +569,13 @@ function ConfirmEmail({
 								? "Your email is not confirmed yet, or this invitation is for another address. Open the newest link, then select Continue."
 								: null}
 					</FormMessage>
-					<FormMessage tone="success">{sent === "sent" ? `We sent a link to ${email}.` : null}</FormMessage>
+					<FormMessage tone={sent === "delayed" ? "neutral" : "success"}>
+						{sent === "sent"
+							? `We sent a link to ${email}.`
+							: sent === "delayed"
+								? `The confirmation email to ${email} is delayed. You do not need to send it again yet. If no link arrives within an hour, ask for a new one.`
+								: null}
+					</FormMessage>
 					<Button variant="primary" className="w-full" loading={busy} onClick={onContinue}>
 						Continue
 					</Button>
@@ -566,7 +585,9 @@ function ConfirmEmail({
 				</>
 			}
 		>
-			Open the confirmation link in your email. Then come back to this page and select Continue.
+			{delayed
+				? "Confirmation email is delayed. If a link arrives, open it, then come back to this page and select Continue. If none arrives within an hour, select Send the link again."
+				: "Open the confirmation link in your email. Then come back to this page and select Continue."}
 		</Outcome>
 	);
 }
@@ -576,7 +597,7 @@ function useConfirmationLink() {
 	const send = async (email: string) => {
 		setSent("sending");
 		const r = await identityApi.sendVerification(email);
-		setSent(r.status === "ok" ? "sent" : "failed");
+		setSent(r.status !== "ok" ? "failed" : r.value.mailDelayed ? "delayed" : "sent");
 	};
 	return { sent, send };
 }
@@ -585,8 +606,12 @@ function ConfirmHint({ email }: { email: string }) {
 	const { sent, send } = useConfirmationLink();
 	return (
 		<div className="mt-3 flex flex-col gap-3">
-			<FormMessage tone="success">
-				{sent === "sent" ? `We sent a link to ${email}. Open it, then select Accept and join again.` : null}
+			<FormMessage tone={sent === "delayed" ? "neutral" : "success"}>
+				{sent === "sent"
+					? `We sent a link to ${email}. Open it, then select Accept and join again.`
+					: sent === "delayed"
+						? `The confirmation email to ${email} is delayed. If a link arrives, open it, then select Accept and join again. You do not need to send it again yet. If no link arrives within an hour, ask for a new one.`
+						: null}
 			</FormMessage>
 			<FormMessage tone="error">
 				{sent === "failed" ? "The link was not sent. Check your connection and try again." : null}

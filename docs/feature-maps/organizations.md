@@ -20,9 +20,11 @@ flowchart LR
   s1["organizations.person<br/>/organization/pipeline/[personId]"]
   s0 -- "link #quot;Jordan Reyes#quot;" --> s1
   s1 -.- s1_st0(("record"))
+  s1 -.- s1_st1(("mail-delayed (manual)"))
   s1 --- s1_b0["move-stage<br/>tests + cases + browser behavior"]
   s1 --- s1_b1["add-note<br/>tests + cases + browser behavior"]
   s1 --- s1_b2["invite-to-link<br/>tests + cases + browser behavior"]
+  s1 --- s1_b3["mail-delayed<br/>tests"]
   s2["organizations.duplicates<br/>/organization/pipeline/duplicates"]
   s0 -- "link #quot;Possible duplicates#quot;" --> s2
   s2 -.- s2_st0(("none"))
@@ -227,6 +229,8 @@ agent-browser find role button text --name "Log conversation" --exact
 agent-browser find role heading text --name "Notes" --exact
 ```
 
+- **mail-delayed**: text containing "saved, but its email is delayed.". Not scripted: as network, open a pipeline person and invite them to link an account with the outbound-mail switch off (bin/flag set outbound-mail off --all on the app's own database; turn it back on afterwards).
+
 #### organizations.person#move-stage
 
 Move stage needs a reason; the move and its reason show in the history after a reload.
@@ -291,6 +295,14 @@ agent-browser wait --load networkidle
 agent-browser wait --text "Invitation pending"
 agent-browser find role button text --name "Revoke" --exact
 ```
+
+#### organizations.person#mail-delayed
+
+With email paused, Invite and Resend save the invitation and the card says its email is delayed instead of when it was sent.
+
+- Operations: residency.invite
+- Catalog: MUL-004
+- Test: `tests/integration/flags/mail-delay.test.mts`: `a resident's account link invitation and its resend succeed with mail off and say delayed; back on they and a replay of the off command do not`
 
 ### organizations.duplicates
 
@@ -685,7 +697,7 @@ agent-browser find role heading text --name "This page is not available" --exact
 
 #### organizations.sharing#invite
 
-Connect sends an invitation that waits for a reply; Withdraw takes it back.
+Connect saves an invitation that waits for a reply, and says when its email is delayed; Withdraw takes it back.
 
 - Operations: associations.invite, associations.revokeInvitation
 - Catalog: IDN-020

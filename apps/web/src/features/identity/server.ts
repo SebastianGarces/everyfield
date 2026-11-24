@@ -1,8 +1,11 @@
 import "server-only";
+import type { MailDelay } from "@everyfield/domain/flags";
 import { invitationRefusals } from "@everyfield/domain/identity";
 import { z } from "zod";
+import { withMailDelay } from "../../server/switches.ts";
 
-export type Reply = { status: "ok"; value: unknown } | { status: "refused"; code: string; retryAt: string | null };
+export type Reply =
+	({ status: "ok"; value: unknown } & MailDelay) | { status: "refused"; code: string; retryAt: string | null };
 
 export const refused = (code: string, retryAt: string | null = null): Reply => ({ status: "refused", code, retryAt });
 
@@ -18,3 +21,5 @@ export async function answer(call: () => Promise<unknown>): Promise<Reply> {
 		throw e;
 	}
 }
+
+export const answerSend = async (call: () => Promise<unknown>): Promise<Reply> => withMailDelay(await answer(call));

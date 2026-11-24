@@ -11,6 +11,7 @@ import type {
 	Relationship,
 	RelationshipPair,
 	Run,
+	SendInvitation,
 } from "../port";
 
 export const ORGANIZATION_FLOWS = [
@@ -27,7 +28,7 @@ export const VIEWERS = ["owner", "member"] as const;
 export type Viewer = (typeof VIEWERS)[number];
 export const VIEWER_LABEL: Record<Viewer, string> = { owner: "Owner or Admin", member: "Member" };
 
-const SCENARIOS = ["connected", "none", "load-failed", "offline-once", "refused"] as const;
+const SCENARIOS = ["connected", "none", "load-failed", "offline-once", "refused", "mail-delayed"] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 export const SCENARIO_LABEL: Record<Scenario, string> = {
 	connected: "Normal",
@@ -35,11 +36,12 @@ export const SCENARIO_LABEL: Record<Scenario, string> = {
 	"load-failed": "Load fails once",
 	"offline-once": "Reply lost once",
 	refused: "Server refuses",
+	"mail-delayed": "Email is delayed",
 };
 
 export const FLOW_CONTROLS: Record<OrganizationFlow, { viewer: boolean; scenarios: readonly Scenario[] }> = {
 	connections: { viewer: true, scenarios: SCENARIOS },
-	organization: { viewer: true, scenarios: SCENARIOS },
+	organization: { viewer: true, scenarios: SCENARIOS.filter((s) => s !== "mail-delayed") },
 	invitation: { viewer: false, scenarios: ["connected", "none", "offline-once", "refused"] },
 	residency: { viewer: false, scenarios: ["connected", "load-failed", "offline-once", "refused"] },
 	pipeline: { viewer: true, scenarios: ["connected", "load-failed", "offline-once", "refused"] },
@@ -491,6 +493,10 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		}
 		return sampleDisclosure(p);
 	};
+	const send: SendInvitation = async (operation, input) => ({
+		invitation: await run(operation, input),
+		mailDelayed: scenario === "mail-delayed",
+	});
 	const end = async (command: z.infer<typeof C.endRelationshipRequest>) => {
 		const r = (await run("associations.end", command)) as z.infer<typeof C.mutationResult>;
 		return r.status === "committed" ? read(null) : null;
@@ -515,6 +521,7 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		load,
 		read,
 		run,
+		send,
 		end,
 		readResidency,
 		saveResidency,

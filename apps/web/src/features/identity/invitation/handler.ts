@@ -3,6 +3,7 @@ import "server-only";
 import { describeInvitationRequest, invitationDescriptionResult } from "@everyfield/contracts/identity";
 import { z } from "zod";
 import { invitationService } from "@/server/invitations";
+import { requestMailDelay } from "@/server/switches";
 import { answer, refused, type Reply } from "../server";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
 import { parseJson } from "../../../server/platform/json.ts";
@@ -10,6 +11,7 @@ import { parseJson } from "../../../server/platform/json.ts";
 export type InvitationRead = {
 	description: unknown;
 	session: "signed_out" | "pending_domain" | "active" | "unavailable";
+	mailDelayed?: true;
 };
 
 const request = z.discriminatedUnion("op", [
@@ -29,10 +31,8 @@ async function read(proof: string): Promise<InvitationRead> {
 			: Promise.resolve(invitationDescriptionResult.parse({ status: "unavailable" })),
 		getViewer(),
 	]);
-	return {
-		description,
-		session: session.status === "unauthenticated" ? "signed_out" : session.status,
-	};
+	if (session.status === "unauthenticated") return { description, session: "signed_out" };
+	return { description, session: session.status, ...(await requestMailDelay()) };
 }
 
 async function asSelf(call: (sessionId: string) => Promise<unknown>): Promise<Reply> {

@@ -7,6 +7,7 @@ import type { Database, Transaction } from "@everyfield/db/client";
 import { credentialOutcome, type CredentialOutcome } from "@everyfield/contracts/identity";
 import * as n from "@everyfield/contracts/settings/native";
 import type { CredentialProducer, SettingsContext } from "@everyfield/contracts/settings/server";
+import { mailDelay, readSwitches } from "../flags/index.ts";
 import { identityAuth } from "../identity/auth.ts";
 import { executeWrites, gatedTransaction } from "../operations/writes.ts";
 import { attemptBudget, identityRefusals } from "../identity/budget.ts";
@@ -219,7 +220,10 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 					deny("unknown");
 				}
 				await settle(reservation, true);
-				return { status: "ok" as const, value: { status: "verification_requested" as const } };
+				return {
+					status: "ok" as const,
+					value: { status: "verification_requested" as const, ...(await mailDelay(() => readSwitches(config.db))) },
+				};
 			}),
 		confirmEmailChange: async (ctx, raw) => {
 			const correlationId = randomUUID();

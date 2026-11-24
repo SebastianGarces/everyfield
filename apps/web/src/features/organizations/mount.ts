@@ -31,10 +31,12 @@ import {
 	type MailPass,
 	type MailTransport,
 } from "@everyfield/domain/jobs";
+import type { MailDelay } from "@everyfield/domain/flags";
+import { withMailDelay } from "../../server/switches.ts";
 import { getViewer } from "../../server/request-context";
 
 export type RefusalCode = OrganizationRefusalCode | "invalid_input";
-export type Reply<T = unknown> = { status: "ok"; value: T } | { status: "refused"; code: RefusalCode };
+export type Reply<T = unknown> = ({ status: "ok"; value: T } & MailDelay) | { status: "refused"; code: RefusalCode };
 export type Mount = ReturnType<typeof current>;
 
 const expiryDay = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" });
@@ -163,6 +165,9 @@ export async function command<T>(
 		return refusalOf(e);
 	}
 }
+
+export const sendCommand = async <T>(...args: Parameters<typeof command<T>>): Promise<Reply<T>> =>
+	withMailDelay(await command(...args));
 
 export async function query<T>(
 	m: Mount,

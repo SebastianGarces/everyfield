@@ -33,6 +33,7 @@ export function ResidencyLink({ record, onChanged }: { record: Record; onChanged
 	const link = record.residency;
 	const [busy, setBusy] = useState<"invite" | "resend" | null>(null);
 	const [problem, setProblem] = useState<string | null>(null);
+	const [delayed, setDelayed] = useState(false);
 
 	async function run(operation: "invite" | "resend" | "revoke") {
 		setProblem(null);
@@ -57,7 +58,10 @@ export function ResidencyLink({ record, onChanged }: { record: Record; onChanged
 			await onChanged();
 			setProblem(`This invitation was already answered or ended, so nothing changed. The status above is current.`);
 		} else if (reply.status === "refused") setProblem(problemText(reply.code));
-		else await onChanged();
+		else {
+			setDelayed(reply.mailDelayed === true);
+			await onChanged();
+		}
 	}
 	const send = (operation: "invite" | "resend") => async () => {
 		setBusy(operation);
@@ -93,10 +97,18 @@ export function ResidencyLink({ record, onChanged }: { record: Record; onChanged
 					</p>
 				) : link.status === "pending" ? (
 					<>
-						<p className="text-ink-2">
-							Sent {dayText(link.sentOn)} to{" "}
-							<span className="text-ink [overflow-wrap:anywhere]">{link.recipientEmail}</span>. It works for 30 days.
-						</p>
+						{delayed ? (
+							<p role="status" className="text-ink-2">
+								The invitation to <span className="text-ink [overflow-wrap:anywhere]">{link.recipientEmail}</span> is
+								saved, but its email is delayed. It works for 30 days. You do not need to send it again unless it
+								expires.
+							</p>
+						) : (
+							<p className="text-ink-2">
+								Sent {dayText(link.sentOn)} to{" "}
+								<span className="text-ink [overflow-wrap:anywhere]">{link.recipientEmail}</span>. It works for 30 days.
+							</p>
+						)}
 						<div className="flex flex-wrap gap-2">
 							<Button
 								variant="secondary"
