@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { BACKUP_BUCKET, objectClient, privateEnv, sdk } from "./bucket.mts";
+import { OperatorRefused } from "./control.mts";
 
 export type ProbeAnswer = "allowed" | "refused" | "unknown";
 export type KeyProbe = Record<"list" | "read" | "write" | "delete", ProbeAnswer>;
@@ -43,7 +44,7 @@ export async function probeAppKeys(files: readonly string[]) {
 	for (const entry of files) {
 		const at = entry.indexOf("=");
 		const name = entry.slice(0, at);
-		if (!(APP_KEYS as readonly string[]).includes(name)) throw Error("probe_key_unknown");
+		if (!(APP_KEYS as readonly string[]).includes(name)) throw new OperatorRefused("probe_key_unknown");
 		keys[name] = await probeBackupBucket(await privateEnv(entry.slice(at + 1)));
 	}
 	return { keys, restricted: keysRestricted(keys) };

@@ -9,14 +9,21 @@ import { sql } from "../../packages/db/src/query.ts";
 import { copyStatus, expireCopies, runBackup } from "./backup.mts";
 import { BackupBucket, objectClient, privateEnv, sdk } from "./bucket.mts";
 import { captureSnapshot } from "./capture.mts";
-import { type Control, loadControl, pinnedConnection, readPrivateBytes, readPrivateJson } from "./control.mts";
+import {
+	type Control,
+	loadControl,
+	OperatorRefused,
+	pinnedConnection,
+	readPrivateBytes,
+	readPrivateJson,
+} from "./control.mts";
 import { openEncryptedCopy } from "./copy.mts";
 import { checkDeletion } from "./deletion.mts";
 import { openDrillTarget, OPEN_OPERATION } from "./drill.mts";
 import { keysRestricted, probeAppKeys, probeOtherBuckets } from "./probe.mts";
 import { OPERATION, readCurrentManifest, restoreWithCurrentManifest, type Snapshot } from "./restore.mts";
 import { installSchedule, uninstallSchedule } from "./schedule.mts";
-import { allowSource, fileSource, readNeon, sourceClass } from "./source.mts";
+import { allowSource, fileSource, historyPoint, readNeon, sourceClass } from "./source.mts";
 
 const CHECKOUT = fileURLToPath(new URL("../../", import.meta.url));
 const COPY_LIMIT = 256 * 1024 * 1024;
@@ -34,10 +41,11 @@ export type Flags = {
 	keys?: string[] | undefined;
 	current?: string | undefined;
 	load?: boolean | undefined;
+	history?: boolean | undefined;
 };
 
 const required = (value: string | undefined, name: string): string => {
-	if (!value) throw Error(`${name}_required`);
+	if (!value) throw new OperatorRefused(`${name}_required`);
 	return value;
 };
 
@@ -46,7 +54,7 @@ async function privateDirectory(path: string): Promise<string> {
 	const real = await realpath(path);
 	const inside = relative(await realpath(CHECKOUT), real);
 	if (!info.isDirectory() || info.uid !== process.getuid!() || (info.mode & 0o077) !== 0 || !inside.startsWith(".."))
-		throw Error("unsafe_control_directory");
+		throw new OperatorRefused("unsafe_control_directory");
 	return real;
 }
 
@@ -63,22 +71,28 @@ async function connected<T>(
 	const db = createDatabase({ connectionString: href, max: 1 });
 	try {
 		const [actual] = (await db.execute(sql`SELECT current_user AS role, current_database() AS name`)).rows;
-		if (actual?.role !== database.role || actual?.name !== database.name) throw Error("target_mismatch");
+		if (actual?.role !== database.role || actual?.name !== database.name) throw new OperatorRefused("target_mismatch");
 		return await run(db, url, database.schema, env);
 	} finally {
 		await closeDatabase(db);
 	}
 }
 
-const sourceCommit = () =>
-	execFileSync("git", ["-C", CHECKOUT, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+const sourceCommit = () => execFileSync("git", ["-C", CHECKOUT, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 
-const capture = (config: Config): Promise<Snapshot> =>
-	connected(config, "approved", (db, _url, schema, env) =>
-		captureSnapshot({ db, schema, files: fileSource(env), sourceCommit: sourceCommit() }),
+const capture = (config: Config, fromHistory = false): Promise<Snapshot> =>
+	connected(config, "approved", (db, url, schema, env) =>
+		captureSnapshot({
+			db,
+			schema,
+			files: fileSource(env),
+			sourceCommit: sourceCommit(),
+			...(fromHistory ? { recoveredTo: historyPoint(url) } : {}),
+		}),
 	);
 
-const bucket = (config: Config) => BackupBucket.open(config.path("tigris.env"));
+const bucketKey = (config: Config) => config.control.bucketKey ?? config.path("tigris.env");
+const bucket = (config: Config) => BackupBucket.open(bucketKey(config));
 
 async function appKeys(config: Config): Promise<"open" | "closed"> {
 	const evidence = await readPrivateJson(config.path("app-key-probe.json")).catch(() => null);
@@ -95,13 +109,17 @@ async function readSnapshot(dir: string): Promise<Snapshot> {
 
 async function restore(config: Config, flags: Flags) {
 	const target = required(flags.target, "target");
-	if (!flags.copy === !flags.snapshot) throw Error("copy_or_snapshot_required");
+	if (!flags.copy === !flags.snapshot) throw new OperatorRefused("copy_or_snapshot_required");
 	const snapshot = flags.copy
 		? await openEncryptedCopy(await bucket(config), flags.copy, config.path("backup.key"))
 		: await readSnapshot(await privateDirectory(required(flags.snapshot, "snapshot")));
 	const live = await privateDirectory(required(flags.current, "current"));
 	const current = async () => {
-		const witness = { dir: live, control: await loadControl(join(live, "control.json"), "restore-copy"), path: (n: string) => join(live, n) };
+		const witness = {
+			dir: live,
+			control: await loadControl(join(live, "control.json"), "restore-copy"),
+			path: (n: string) => join(live, n),
+		};
 		return connected(witness, "approved", async (db, _url, schema) =>
 			db.transaction(async (tx) => {
 				await tx.execute(sql.raw(`SET LOCAL search_path TO ${schema}, pg_catalog, pg_temp`));
@@ -110,9 +128,12 @@ async function restore(config: Config, flags: Flags) {
 		);
 	};
 	return connected(config, "never", async (_db, url, schema, env) => {
-		if (!["disposable", "drill"].includes(sourceClass(url, readNeon))) throw Error("target_not_isolated_drill");
+		if (!["disposable", "drill"].includes(sourceClass(url, readNeon)))
+			throw new OperatorRefused("target_not_isolated_drill");
 		const client = objectClient(env);
-		if (new URL(env.AWS_ENDPOINT_URL_S3 ?? "").hostname !== "127.0.0.1") throw Error("target_not_isolated_drill");
+		const destination = required(env.AWS_BUCKET_NAME, "bucket");
+		if (new URL(env.AWS_ENDPOINT_URL_S3 ?? "").hostname !== "127.0.0.1")
+			throw new OperatorRefused("target_not_isolated_drill");
 		const admin = createDatabase({
 			connectionString: url.href,
 			max: 1,
@@ -127,7 +148,7 @@ async function restore(config: Config, flags: Flags) {
 					clock,
 					objects: {
 						put: async (key, bytes) => {
-							await client.send(new sdk.PutObjectCommand({ Bucket: env.AWS_BUCKET_NAME, Key: key, Body: bytes }));
+							await client.send(new sdk.PutObjectCommand({ Bucket: destination, Key: key, Body: bytes }));
 						},
 					},
 				},
@@ -153,7 +174,10 @@ async function restore(config: Config, flags: Flags) {
 
 const schedulePaths = (flags: Flags) => flags.agents ?? join(homedir(), "Library/LaunchAgents");
 
-export const OPERATOR_COMMANDS: Record<string, (config: Config, flags: Flags) => Promise<{ ok: boolean; report: unknown }>> = {
+export const OPERATOR_COMMANDS: Record<
+	string,
+	(config: Config, flags: Flags) => Promise<{ ok: boolean; report: unknown }>
+> = {
 	"backup-key-create": async (config) => {
 		await writeFile(config.path("backup.key"), randomBytes(32), { mode: 0o600, flag: "wx" });
 		return { ok: true, report: { key_created: config.path("backup.key"), second_copy: "required" } };
@@ -162,9 +186,10 @@ export const OPERATOR_COMMANDS: Record<string, (config: Config, flags: Flags) =>
 		const out = required(flags.out, "out");
 		await mkdir(out, { mode: 0o700 });
 		await privateDirectory(out);
-		const snapshot = await capture(config);
+		const snapshot = await capture(config, flags.history === true);
 		await mkdir(join(out, "objects"), { mode: 0o700 });
-		const put = (name: string, bytes: Uint8Array | string) => writeFile(join(out, name), bytes, { mode: 0o600, flag: "wx" });
+		const put = (name: string, bytes: Uint8Array | string) =>
+			writeFile(join(out, name), bytes, { mode: 0o600, flag: "wx" });
 		for (const [id, bytes] of snapshot.objects) await put(join("objects", id), bytes);
 		await put("image.json", snapshot.image);
 		await put("manifest.json", JSON.stringify(snapshot.manifest));
@@ -195,7 +220,7 @@ export const OPERATOR_COMMANDS: Record<string, (config: Config, flags: Flags) =>
 	},
 	"bucket-probe": async (config, flags) => {
 		if (!flags.keys?.length) {
-			const buckets = await probeOtherBuckets(await privateEnv(config.path("tigris.env")));
+			const buckets = await probeOtherBuckets(await privateEnv(bucketKey(config)));
 			const refused = Object.values(buckets).every((b) => b.list === "refused" && b.read === "refused");
 			return { ok: refused, report: { backup_key_on: buckets } };
 		}
@@ -205,11 +230,11 @@ export const OPERATOR_COMMANDS: Record<string, (config: Config, flags: Flags) =>
 		return { ok: probe.restricted, report: probe };
 	},
 	"schedule-install": async (config, flags) => {
+		if (flags.load && CHECKOUT.includes("/.worktrees/")) throw new OperatorRefused("schedule_checkout_refused");
 		const installed = await installSchedule(
 			{
 				agents: schedulePaths(flags),
 				config: config.dir,
-				node: process.execPath,
 				cli: fileURLToPath(new URL("./cli.mts", import.meta.url)),
 				logs: join(config.dir, "logs"),
 			},
@@ -243,7 +268,7 @@ export const OPERATOR_COMMANDS: Record<string, (config: Config, flags: Flags) =>
 		}),
 	"deletion-check": async (config, flags) =>
 		connected(config, "approved", async (db, _url, schema, env) => {
-			const store = await lstat(config.path("tigris.env")).then(
+			const store = await lstat(bucketKey(config)).then(
 				() => bucket(config),
 				() => undefined,
 			);
@@ -255,12 +280,11 @@ export const OPERATOR_COMMANDS: Record<string, (config: Config, flags: Flags) =>
 		}),
 };
 
-const CODE = /^[a-z][a-z0-9_]{2,60}$/;
 export async function runOperator(command: string, flags: Flags): Promise<boolean> {
 	try {
 		return await operate(command, flags);
 	} catch (error) {
-		const code = error instanceof Error && CODE.test(error.message) ? error.message : "failed";
+		const code = error instanceof OperatorRefused ? error.code : "failed";
 		console.log(JSON.stringify({ refused: code }));
 		throw error;
 	}
@@ -271,9 +295,8 @@ async function operate(command: string, flags: Flags): Promise<boolean> {
 	const path = (name: string) => join(dir, name);
 	const control = await loadControl(path("control.json"), command);
 	const run = OPERATOR_COMMANDS[command];
-	if (!run) throw Error("invalid_command");
+	if (!run) throw new OperatorRefused("invalid_command");
 	const { ok, report } = await run({ dir, control, path }, flags);
 	console.log(JSON.stringify(report, null, "\t"));
 	return ok;
 }
-

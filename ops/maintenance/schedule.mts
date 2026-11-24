@@ -3,7 +3,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export type ScheduleInput = { agents: string; config: string; node: string; cli: string; logs: string };
+export type ScheduleInput = { agents: string; config: string; cli: string; logs: string };
 const DAILY = { label: "app.everyfield.backup-daily", command: "backup-daily" };
 const EXPIRE = { label: "app.everyfield.backup-expire", command: "backup-expire" };
 
@@ -14,7 +14,7 @@ export function plist(job: typeof DAILY, input: ScheduleInput) {
 		job === DAILY
 			? "<key>StartCalendarInterval</key>\n\t<dict>\n\t\t<key>Hour</key>\n\t\t<integer>3</integer>\n\t\t<key>Minute</key>\n\t\t<integer>30</integer>\n\t</dict>"
 			: "<key>StartInterval</key>\n\t<integer>3600</integer>";
-	const args = [input.node, input.cli, job.command, "--config", input.config];
+	const args = ["/usr/bin/env", "node", input.cli, job.command, "--config", input.config];
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -28,7 +28,7 @@ ${args.map((arg) => `\t\t<string>${xml(arg)}</string>`).join("\n")}
 	<key>EnvironmentVariables</key>
 	<dict>
 		<key>PATH</key>
-		<string>${xml(join(homedir(), ".local/bin"))}:/usr/bin:/bin</string>
+		<string>${xml(join(homedir(), ".local/bin"))}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
 	</dict>
 	${when}
 	<key>Umask</key>

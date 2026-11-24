@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { sql } from "../../packages/db/src/query.ts";
 import type { Database } from "../../packages/db/src/client.ts";
+import { OperatorRefused } from "./control.mts";
 import { schemaVersion, type Snapshot } from "./restore.mts";
 import type { FileSource } from "./source.mts";
 
@@ -11,8 +12,14 @@ const ROWS_PER_READ = 500;
 const IDENTIFIER = /^[a-z][a-z0-9_]{0,62}$/;
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
-export type CaptureDeps = { db: Database; schema: string; files: FileSource; sourceCommit: string };
-export class CaptureRefused extends Error {}
+export type CaptureDeps = {
+	db: Database;
+	schema: string;
+	files: FileSource;
+	sourceCommit: string;
+	recoveredTo?: string;
+};
+export class CaptureRefused extends OperatorRefused {}
 
 export async function captureSnapshot(deps: CaptureDeps): Promise<Snapshot> {
 	if (!IDENTIFIER.test(deps.schema)) throw new CaptureRefused("schema_invalid");
@@ -67,7 +74,8 @@ export async function captureSnapshot(deps: CaptureDeps): Promise<Snapshot> {
 		objects.set(file.id, found.bytes);
 		listed.push({ id: file.id, sha256: file.sha256, bytes: found.bytes.length, version: found.version });
 	}
-	const createdAt = read.point.at;
+	const createdAt = deps.recoveredTo ?? read.point.at;
+	if (createdAt > read.point.at) throw new CaptureRefused("recovery_point_invalid");
 	return {
 		image,
 		objects,

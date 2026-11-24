@@ -1,4 +1,5 @@
 import { sql } from "../../packages/db/src/query.ts";
+import { OperatorRefused } from "./control.mts";
 import type { Database } from "../../packages/db/src/client.ts";
 import { readCopies, type BucketCopy } from "./backup.mts";
 import type { BackupBucket } from "./bucket.mts";
@@ -47,7 +48,7 @@ export async function checkDeletion(
 	deps: { db: Database; schema: string; files: FileSource; bucket?: BackupBucket },
 	subject: string,
 ): Promise<DeletionCheck> {
-	if (!IDENTIFIER.test(deps.schema) || !UUID.test(subject)) throw Error("subject_invalid");
+	if (!IDENTIFIER.test(deps.schema) || !UUID.test(subject)) throw new OperatorRefused("subject_invalid");
 	const read = await deps.db.transaction(
 		async (tx) => {
 			await tx.execute(sql.raw(`SET LOCAL search_path TO ${deps.schema}, pg_catalog, pg_temp`));
@@ -66,7 +67,7 @@ export async function checkDeletion(
 			const remaining: Record<string, number> = {};
 			for (const [table, of] of byTable) {
 				const names = [table, ...of.map((c) => c.column)];
-				if (!names.every((name) => IDENTIFIER.test(name))) throw Error("schema_invalid");
+				if (!names.every((name) => IDENTIFIER.test(name))) throw new OperatorRefused("schema_invalid");
 				const where = of.map((c) => `t."${c.column}"='${subject}'::uuid`).join(" OR ");
 				const kept = KEPT[table];
 				const [row] = (
@@ -102,11 +103,7 @@ export async function checkDeletion(
 			: null;
 	const copiesEnd = (copies ?? []).every((c) => expiresAt !== null && Date.parse(c.expires_at) <= expiresAt);
 	const purged =
-		w?.state === "purged" &&
-		withinSeven &&
-		copiesEnd &&
-		stored.size === 0 &&
-		Object.keys(read.remaining).length === 0;
+		w?.state === "purged" && withinSeven && copiesEnd && stored.size === 0 && Object.keys(read.remaining).length === 0;
 	return {
 		subject,
 		checked_at: now.toISOString(),

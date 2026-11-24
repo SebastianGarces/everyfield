@@ -1,13 +1,57 @@
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
-import { readPrivateBytes } from "./control.mts";
+import { OperatorRefused, readPrivateBytes } from "./control.mts";
 const require = createRequire(new URL("../../packages/db/package.json", import.meta.url));
-type Sdk = typeof import("../../packages/db/node_modules/@aws-sdk/client-s3");
+type Http = { headers?: Record<string, string> };
+type Middleware = (
+	next: (args: { request: Http }) => Promise<{ response: Http }>,
+) => (args: { request: Http }) => Promise<{ response: Http }>;
+type Command<Answer> = {
+	readonly answer?: Answer;
+	middlewareStack: { add(middleware: Middleware, options: { step: string; name: string }): void };
+};
+type Make<Input, Answer> = new (input: { Bucket: string } & Input) => Command<Answer>;
+type Keyed = { Key: string };
+type Version = { Key?: string; VersionId?: string; IsLatest?: boolean };
+type VersionPage = {
+	Versions?: Version[];
+	DeleteMarkers?: Version[];
+	IsTruncated?: boolean;
+	NextKeyMarker?: string;
+	NextVersionIdMarker?: string;
+};
+type Client = { send<Answer>(command: Command<Answer>): Promise<Answer> };
+type Sdk = {
+	S3Client: new (config: {
+		endpoint: string;
+		region: string;
+		forcePathStyle: boolean;
+		credentials: { accessKeyId: string; secretAccessKey: string };
+	}) => Client;
+	PutObjectCommand: Make<Keyed & { Body: Uint8Array | string; ContentType?: string; IfNoneMatch?: string }, unknown>;
+	GetObjectCommand: Make<
+		Keyed,
+		{ Body?: { transformToByteArray(): Promise<Uint8Array> }; ContentLength?: number; VersionId?: string }
+	>;
+	DeleteObjectCommand: Make<Keyed, unknown>;
+	RestoreObjectCommand: Make<Keyed, unknown>;
+	HeadBucketCommand: Make<unknown, unknown>;
+	GetBucketVersioningCommand: Make<unknown, { Status?: string }>;
+	ListObjectsV2Command: Make<
+		{ Prefix?: string; ContinuationToken?: string; MaxKeys?: number },
+		{
+			Contents?: { Key?: string; Size?: number; LastModified?: Date }[];
+			IsTruncated?: boolean;
+			NextContinuationToken?: string;
+		}
+	>;
+	ListObjectVersionsCommand: Make<{ KeyMarker?: string; VersionIdMarker?: string }, VersionPage>;
+};
 export const sdk: Sdk = require("@aws-sdk/client-s3");
-type Client = InstanceType<Sdk["S3Client"]>;
 
 export const BACKUP_BUCKET = "everyfield-backup";
-export const COPY_KEY = /^copy\/[0-9-]{10}\/[0-9a-f-]{36}\/(manifest\.json|verified\.json|key|database|objects\/[0-9a-f-]{36})$/;
+export const COPY_KEY =
+	/^copy\/[0-9-]{10}\/[0-9a-f-]{36}\/(manifest\.json|verified\.json|key|database|objects\/[0-9a-f-]{36})$/;
 const STORE_KEY = new RegExp(`${COPY_KEY.source}|^schedule\\.json$`);
 const COPY_LIMIT = 256 * 1024 * 1024;
 
@@ -28,9 +72,10 @@ export async function privateEnv(path: string): Promise<Record<string, string>> 
 
 export function objectClient(env: Record<string, string>): Client {
 	const { AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_ENDPOINT_URL_S3, AWS_REGION } = env;
-	if (!AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY || !AWS_ENDPOINT_URL_S3) throw Error("object_key_invalid");
+	if (!AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY || !AWS_ENDPOINT_URL_S3)
+		throw new OperatorRefused("object_key_invalid");
 	const url = new URL(AWS_ENDPOINT_URL_S3);
-	if (url.protocol !== "https:" && url.hostname !== "127.0.0.1") throw Error("object_key_invalid");
+	if (url.protocol !== "https:" && url.hostname !== "127.0.0.1") throw new OperatorRefused("object_key_invalid");
 	return new sdk.S3Client({
 		endpoint: AWS_ENDPOINT_URL_S3,
 		region: AWS_REGION || "auto",
@@ -42,18 +87,9 @@ export function objectClient(env: Record<string, string>): Client {
 const named = (error: unknown) => (error instanceof Error ? error.name : "");
 const missing = (error: unknown) => ["NoSuchKey", "NotFound"].includes(named(error));
 
-type Http = { headers?: Record<string, string> };
-function withHeaders<C extends { middlewareStack: unknown }>(command: C, headers: Record<string, string>) {
+function withHeaders<Answer>(command: Command<Answer>, headers: Record<string, string>) {
 	let answered: Record<string, string> = {};
-	const stack = command.middlewareStack as {
-		add(
-			middleware: (
-				next: (args: { request: Http }) => Promise<{ response: Http }>,
-			) => (args: { request: Http }) => Promise<{ response: Http }>,
-			options: { step: string; name: string },
-		): void;
-	};
-	stack.add(
+	command.middlewareStack.add(
 		(next) => async (args) => {
 			Object.assign((args.request.headers ??= {}), headers);
 			const answer = await next(args);
@@ -74,7 +110,7 @@ export class BackupBucket {
 		return new BackupBucket(objectClient(await privateEnv(credentials)));
 	}
 	#key(key: string) {
-		if (!STORE_KEY.test(key)) throw Error("copy_key_invalid");
+		if (!STORE_KEY.test(key)) throw new OperatorRefused("copy_key_invalid");
 		return { Bucket: BACKUP_BUCKET, Key: key };
 	}
 	async put(key: string, bytes: Uint8Array): Promise<void> {
@@ -117,18 +153,13 @@ export class BackupBucket {
 		const versioning = await this.#client.send(new sdk.GetBucketVersioningCommand({ Bucket: BACKUP_BUCKET }));
 		const head = withHeaders(new sdk.HeadBucketCommand({ Bucket: BACKUP_BUCKET }), {});
 		await this.#client.send(head.command);
-		const restore = withHeaders(
-			new sdk.RestoreObjectCommand(this.#key(`copy/1970-01-01/${randomUUID()}/key`)),
-			{ "x-tigris-restore-type": "soft-delete" },
-		);
+		const restore = withHeaders(new sdk.RestoreObjectCommand(this.#key(`copy/1970-01-01/${randomUUID()}/key`)), {
+			"x-tigris-restore-type": "soft-delete",
+		});
 		const softDelete = await this.#client.send(restore.command).then(
 			() => "unknown" as const,
 			(error: unknown) =>
-				error instanceof Error && /soft-delete is not enabled/i.test(error.message)
-					? ("off" as const)
-					: missing(error)
-						? ("on" as const)
-						: ("unknown" as const),
+				named(error) === "InvalidArgument" ? ("off" as const) : missing(error) ? ("on" as const) : ("unknown" as const),
 		);
 		const snapshots = head.answered()["x-tigris-enable-snapshot"];
 		return {
@@ -147,11 +178,9 @@ export class BackupBucket {
 		const found: Remain[] = [];
 		let marker: { KeyMarker?: string; VersionIdMarker?: string } | null = {};
 		while (marker) {
-			const { command }: { command: InstanceType<Sdk["ListObjectVersionsCommand"]> } = withHeaders(
-				new sdk.ListObjectVersionsCommand({ Bucket: BACKUP_BUCKET, ...marker }),
-				headers,
+			const page: VersionPage = await this.#client.send(
+				withHeaders(new sdk.ListObjectVersionsCommand({ Bucket: BACKUP_BUCKET, ...marker }), headers).command,
 			);
-			const page = await this.#client.send(command);
 			for (const v of page.Versions ?? [])
 				found.push({ key: v.Key!, version: v.VersionId ?? null, deleted, latest: v.IsLatest === true });
 			for (const v of page.DeleteMarkers ?? [])

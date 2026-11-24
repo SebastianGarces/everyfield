@@ -45,6 +45,7 @@ async function main() {
 			keys: { type: "string", multiple: true },
 			current: { type: "string" },
 			load: { type: "boolean" },
+			history: { type: "boolean" },
 			help: { type: "boolean" },
 		},
 	});

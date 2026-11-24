@@ -1,5 +1,3 @@
--- A plant's live purge removes its messages and saved message templates with the rest of its owned content, and refuses
--- to complete while one remains.
 DO $patch$
 DECLARE def text; patched text; tbl text;
 BEGIN

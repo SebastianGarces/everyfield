@@ -5,6 +5,13 @@ import { developmentHosts } from "../../packages/db/src/development.ts";
 const require = createRequire(new URL("../../packages/domain/package.json", import.meta.url));
 const { z }: typeof import("../../packages/domain/node_modules/zod/index.js") = require("zod");
 export type ControlDatabase = NonNullable<Control["database"]>;
+export class OperatorRefused extends Error {
+	readonly code: string;
+	constructor(code: string) {
+		super(code);
+		this.code = code;
+	}
+}
 const operations = z.enum([
 	"migration-inspect",
 	"migration-apply",
@@ -41,6 +48,7 @@ const control = z.strictObject({
 			schema: z.string().regex(/^[a-z][a-z0-9_]{0,62}$/),
 		})
 		.optional(),
+	bucketKey: z.string().startsWith("/").optional(),
 	production: z
 		.strictObject({
 			host: z.string().min(1),
@@ -60,7 +68,7 @@ export async function readPrivateBytes(path: string, limit = 1024 * 1024) {
 		(info.mode & 0o077) !== 0 ||
 		info.size > limit
 	)
-		throw Error("unsafe_control_file");
+		throw new OperatorRefused("unsafe_control_file");
 	return readFile(path);
 }
 export async function readPrivateJson(path: string) {
@@ -75,13 +83,13 @@ export async function loadControl(path: string, operation: string) {
 		!(c.operations as readonly string[]).includes(operation) ||
 		process.env.NODE_ENV === "production"
 	)
-		throw Error("operator_unavailable");
+		throw new OperatorRefused("operator_unavailable");
 	const context = /^(backup-|bucket-|schedule-)/.test(operation)
 		? "restricted-backup"
 		: /^(restore-|deletion-)/.test(operation)
 			? "restricted-recovery"
 			: "migration-operator";
-	if (context !== c.context) throw Error("operator_context_mismatch");
+	if (context !== c.context) throw new OperatorRefused("operator_context_mismatch");
 	return c;
 }
 export function pinnedConnection(c: Control, raw: string): { url: URL; href: string; database: ControlDatabase } {
@@ -93,7 +101,7 @@ export function pinnedConnection(c: Control, raw: string): { url: URL; href: str
 		decodeURIComponent(url.username) !== d.role ||
 		decodeURIComponent(url.pathname.slice(1)) !== d.name
 	)
-		throw Error("target_mismatch");
+		throw new OperatorRefused("target_mismatch");
 	if (url.hostname !== "127.0.0.1") url.searchParams.set("sslmode", "verify-full");
 	return { url, href: url.href, database: d };
 }
@@ -106,7 +114,7 @@ export function developmentConnection(c: Control, raw: string) {
 		decodeURIComponent(u.username) !== c.database.role ||
 		decodeURIComponent(u.pathname.slice(1)) !== c.database.name
 	)
-		throw Error("target_mismatch");
+		throw new OperatorRefused("target_mismatch");
 	u.searchParams.set("sslmode", "verify-full");
 	return u.href;
 }

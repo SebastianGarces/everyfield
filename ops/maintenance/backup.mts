@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { BackupBucket, Remain, Retention, StoredObject } from "./bucket.mts";
 import { CaptureRefused, KEEP_MS } from "./capture.mts";
+import { OperatorRefused } from "./control.mts";
 import { COPY_OPERATION, createEncryptedCopy, openEncryptedCopy, SEALED_BYTES } from "./copy.mts";
 import { manifestSchema } from "./recovery.mts";
 import { FALLBACK_HOURS, type Snapshot } from "./restore.mts";
@@ -58,10 +59,7 @@ export async function runBackup(deps: BackupDeps): Promise<BackupResult> {
 	try {
 		snapshot = await capture(deps);
 	} catch (error) {
-		return {
-			copy_complete: false,
-			refusal: error instanceof CaptureRefused ? error.message : "capture_failed",
-		};
+		return { copy_complete: false, refusal: error instanceof OperatorRefused ? error.code : "capture_failed" };
 	}
 	const result = await createEncryptedCopy(
 		{ store: deps.bucket, clock: deps.clock },
@@ -117,7 +115,12 @@ const parsed = (bytes: Uint8Array | null): unknown => {
 	}
 };
 
-async function readCopy(bucket: BackupBucket, location: string, stored: StoredObject[], now: Date): Promise<BucketCopy> {
+async function readCopy(
+	bucket: BackupBucket,
+	location: string,
+	stored: StoredObject[],
+	now: Date,
+): Promise<BucketCopy> {
 	const sizes = new Map(stored.map((o) => [o.key.slice(location.length + 1), o.bytes]));
 	const bytes = stored.reduce((total, o) => total + o.bytes, 0);
 	const date = location.split("/")[1]!;
