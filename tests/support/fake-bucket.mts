@@ -1,0 +1,103 @@
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
+import { BackupBucket, objectClient } from "../../ops/maintenance/bucket.mts";
+
+type Stored = { bytes: Buffer; modifiedAt: Date };
+type Put = (key: string, bytes: Buffer) => Buffer | "refuse";
+
+export async function fakeBucket() {
+	const objects = new Map<string, Stored>();
+	const deleted: string[] = [];
+	const settings = {
+		now: new Date(0),
+		softDelete: false,
+		snapshots: false,
+		versioning: false,
+		put: ((_key, bytes) => bytes) as Put,
+	};
+	const xml = (body: string) => `<?xml version="1.0" encoding="UTF-8"?>${body}`;
+	const server = createServer((request, response) => {
+		const url = new URL(request.url ?? "/", "http://bucket");
+		const [, bucket, ...rest] = decodeURIComponent(url.pathname).split("/");
+		const key = rest.join("/");
+		const answer = (status: number, body?: string | Buffer) => {
+			response.statusCode = status;
+			if (typeof body === "string") response.setHeader("content-type", "application/xml");
+			response.end(request.method === "HEAD" ? undefined : body);
+		};
+		const fail = (status: number, code: string) => answer(status, xml(`<Error><Code>${code}</Code></Error>`));
+		if (bucket !== "everyfield-backup") return fail(403, "AccessDenied");
+		if (!key) {
+			if (request.method === "HEAD") {
+				response.setHeader("x-tigris-enable-snapshot", String(settings.snapshots));
+				return answer(200);
+			}
+			if (url.searchParams.has("versioning"))
+				return answer(
+					200,
+					xml(
+						`<VersioningConfiguration>${settings.versioning ? "<Status>Enabled</Status>" : ""}</VersioningConfiguration>`,
+					),
+				);
+			if (url.searchParams.has("versions")) {
+				const keys =
+					request.headers["x-tigris-soft-delete"] === "true"
+						? settings.softDelete
+							? deleted
+							: []
+						: [...objects.keys()];
+				const latest = request.headers["x-tigris-soft-delete"] !== "true";
+				return answer(
+					200,
+					xml(
+						`<ListVersionsResult><IsTruncated>false</IsTruncated>${keys.map((k) => `<Version><Key>${k}</Key><VersionId>1</VersionId><IsLatest>${latest}</IsLatest></Version>`).join("")}</ListVersionsResult>`,
+					),
+				);
+			}
+			return answer(
+				200,
+				xml(
+					`<ListBucketResult><IsTruncated>false</IsTruncated>${[...objects].map(([k, o]) => `<Contents><Key>${k}</Key><Size>${o.bytes.length}</Size><LastModified>${o.modifiedAt.toISOString()}</LastModified></Contents>`).join("")}</ListBucketResult>`,
+				),
+			);
+		}
+		if (request.method === "POST") return settings.softDelete ? fail(404, "NoSuchKey") : fail(400, "InvalidArgument");
+		if (request.method === "DELETE") {
+			if (objects.delete(key)) deleted.push(key);
+			return answer(204);
+		}
+		if (request.method === "PUT") {
+			const chunks: Buffer[] = [];
+			request.on("data", (chunk: Buffer) => chunks.push(chunk));
+			request.on("end", () => {
+				if (request.headers["if-none-match"] === "*" && objects.has(key)) return fail(412, "PreconditionFailed");
+				const kept = settings.put(key, Buffer.concat(chunks));
+				if (kept === "refuse") return fail(400, "InvalidRequest");
+				objects.set(key, { bytes: kept, modifiedAt: settings.now });
+				answer(200);
+			});
+			return;
+		}
+		const found = objects.get(key);
+		if (!found) return fail(404, "NoSuchKey");
+		response.setHeader("content-length", found.bytes.length);
+		response.setHeader("content-type", "application/octet-stream");
+		answer(200, found.bytes);
+	});
+	await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+	const endpoint = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+	const bucket = new BackupBucket(
+		objectClient({ AWS_ACCESS_KEY_ID: "k", AWS_SECRET_ACCESS_KEY: "s", AWS_ENDPOINT_URL_S3: endpoint }),
+	);
+	return {
+		bucket,
+		endpoint,
+		objects,
+		settings,
+		close: () =>
+			new Promise<void>((done) => {
+				server.close(() => done());
+				server.closeAllConnections();
+			}),
+	};
+}

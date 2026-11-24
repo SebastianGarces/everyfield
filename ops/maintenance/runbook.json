@@ -1,6 +1,6 @@
 {
 	"version": 1,
-	"scope": "Local and shared-development producer proof. This file grants no external or production authority.",
+	"scope": "Local, shared-development and drill producer proof, and the restricted backup host's commands. This file grants no external or production authority. docs/runbooks/recovery.md is the operator's runbook.",
 	"commands": {
 		"help": "node ops/maintenance/cli.mts --help",
 		"migration_inspection": "node ops/maintenance/cli.mts migration-inspect --control <private-control-file>",
@@ -10,13 +10,26 @@
 		"restore_rehearsal": "node ops/maintenance/cli.mts restore-rehearsal --control <private-restricted-recovery-control> --snapshot <private-snapshot-directory>",
 		"encrypted_copy": "node ops/maintenance/cli.mts backup-copy --control <private-restricted-backup-control> --key <private-backup-key-file> --out <private-copy-directory> (--snapshot <private-snapshot-directory> | --recopy <copy-location>)",
 		"readiness": "node ops/maintenance/cli.mts readiness --control <private-operator-control> [--evidence <private-evidence-file>]",
+		"backup_key_create": "node ops/maintenance/cli.mts backup-key-create --config <private-directory>",
+		"daily_backup": "node ops/maintenance/cli.mts backup-daily --config <private-directory>",
+		"expire_copies": "node ops/maintenance/cli.mts backup-expire --config <private-directory>",
+		"copy_status": "node ops/maintenance/cli.mts backup-status --config <private-directory>",
+		"capture": "node ops/maintenance/cli.mts backup-capture --config <private-directory> --out <new-private-directory> [--history]",
+		"backup_key_probe": "node ops/maintenance/cli.mts bucket-probe --config <private-directory>",
+		"app_key_probe": "node ops/maintenance/cli.mts bucket-probe --config <private-directory> --keys production=<private-env-file> --keys preview=<private-env-file> --keys development=<private-env-file>",
+		"schedule_install": "node ops/maintenance/cli.mts schedule-install --config <private-directory> [--agents <directory>] [--load]",
+		"schedule_uninstall": "node ops/maintenance/cli.mts schedule-uninstall --config <private-directory> [--agents <directory>] [--load]",
+		"restore_copy": "node ops/maintenance/cli.mts restore-copy --config <private-directory> --target <new-schema> --current <private-live-directory> (--copy <copy-location> | --snapshot <private-directory>) [--incident <ISO-time>]",
+		"restore_open": "node ops/maintenance/cli.mts restore-open --config <private-directory> --target <restored-schema>",
+		"deletion_check": "node ops/maintenance/cli.mts deletion-check --config <private-directory> --subject <church-id>",
 		"baseline_tests": "corepack pnpm --filter @everyfield/db test:db"
 	},
 	"control": {
 		"file": "Regular, non-symlink, current OS user owned, no group or other permissions, outside checkout.",
 		"identity": "Current uid and hostname, unexpired exact operation list and development context.",
-		"database": "Pinned shared-development direct endpoint plus matching current database, role and explicit schema. Neither a URL nor a sentinel alone grants authority.",
-		"migration_role": "Operator only. The application runtime cannot create schema objects or update migration history."
+		"database": "Pinned shared-development direct endpoint plus matching current database, role and explicit schema. Neither a URL nor a sentinel alone grants authority. The --config commands pin host, database, role and schema the same way and classify the host as disposable, drill, development or production; production is refused without the owner's approval in control.json.",
+		"migration_role": "Operator only. The application runtime cannot create schema objects or update migration history.",
+		"directory": "The --config commands read control.json, source.env, backup.key and the bucket key from one private directory: mode 700, current OS user owned, outside the checkout."
 	},
 	"migration_provenance": {
 		"deployment_path": "Vercel project everyfield has root apps/web and default Next build. app build/start and managed previews do not run migrations. CI migrates its throwaway database explicitly.",
@@ -48,13 +61,17 @@
 		"readiness": "Actual selected probes distinguish ready, unavailable, behind, unconfigured and unverified. Missing provider or backup proof stays visible. No customer SLA follows from liveness. ops.readiness (readiness.mts, the readiness command) reports the before-customer-data gate from a private evidence file only: customer_data_gate blocked and build_gate_from_backup false, naming each missing item of cost_approval, host_schedule, key_exclusion and coherent_restore. A restore rehearsal is not coherent-restore evidence. It never reads ready here; WP-058 closes the gate with live evidence."
 	},
 	"recovery": {
-		"live_gate": "G-RECOVERY remains open. recovery.mts holds the offline candidate manifest check (shape, expiry and duplicate identities); restore.mts holds the isolated restore rehearsal; copy.mts holds the local encrypted copy. None uses a real backup bucket, provider, host or schedule, so none proves live recovery.",
+		"live_gate": "G-RECOVERY remains open. recovery.mts holds the candidate manifest check; restore.mts the isolated restore; copy.mts the encrypted copy; capture.mts the consistent capture; bucket.mts the private bucket store; backup.mts the daily run, expiry and status; drill.mts the open step; deletion.mts the deletion check; probe.mts the key probes; schedule.mts the launchd files. docs/runbooks/recovery-drill-2026-11-24.md records one real drill on synthetic data with the real bucket. No production backup has run.",
 		"encrypted_copy": "maintenance.createEncryptedCopy (copy.mts, the backup-copy command) seals the database image and every ready object with AES-256-GCM under a fresh data key, records each sha256 and size, the key version and the original subject expiry in a manifest validateCandidate accepts, and stores the data key only wrapped by the restricted backup key read from a private file. The wrap binds the manifest, so another key, a changed checksum or changed ciphertext does not open. A recopy keeps the original subject expiry and refuses a later one.",
-		"future_restricted_host": "Before customer data, positively identify the approved restricted host and schedule, deliver dedicated bucket-scoped credentials and recoverable keys outside ordinary app/build/preview, and prove negative access.",
-		"future_provider_proof": "Verify Neon seven-day PITR and expiring daily snapshots, Tigris seven-day deleted-object retention and cleanup, separate private encrypted daily backup bucket, exact DB and ready-byte inventory, current witness journal synchronized at least every five minutes, original subject expiry and external receipt reconciliation.",
-		"restore": "maintenance.restoreWithCurrentManifest (restore.mts, the restore-rehearsal command) restores a snapshot into a fresh schema that no app login can reach, with users, jobs, mail and issue publication off. It applies the current pending and purged witnesses read outside the image, takes current mail and issue receipts without replaying them, verifies every ready file's bytes and the original expiry, measures recovery point and time, and fails closed on a mismatched file or an uncertain witness. It never opens service; reopening needs separate explicit authority.",
-		"measurements": "Ordinary live-provider targets are at most one-hour lost work and four-hour recovery. A surviving fresh complete accessible daily copy may permit at most 24-hour fallback. The rehearsal measures both from its drill clock; no live provider run measures them yet, and none is guaranteed. Shared-provider/account failure risk remains; no disaster RTO or customer SLA.",
-		"spending": "No added paid plan, service or account. G-SPEND remains open; obtain explicit approval of a concrete low/expected/high monthly cost and usage envelope before commitment."
+		"future_restricted_host": "The restricted host is Sebastian's Mac and the schedule files are built. The owner still has to load the schedule (schedule-install --load), keep a second copy of backup.key, approve a production source in control.json and restrict the existing keys (T-627).",
+		"future_provider_proof": "Still unproven: production size and credentials, the schedule running unattended, a seven-day Neon history (the project keeps 24 hours), object history of the app's own bucket, and current witness journal synchronization at least every five minutes.",
+		"restore": "maintenance.restoreWithCurrentManifest (restore.mts, the restore-rehearsal command) restores a snapshot into a fresh schema that no app login can reach, with users, jobs, mail and issue publication off. It applies the current pending and purged witnesses read outside the image, takes current mail and issue receipts without replaying them, closes the jobs of mail and issues already handed off and records mail first sent after the copy, verifies every ready file's bytes and the original expiry, measures recovery point and time, and fails closed on a mismatched file or an uncertain witness. It never opens service; reopening needs separate explicit authority. restore-open (maintenance.openDrillTarget) opens only a schema that a restore left closed, on a disposable database or a Neon drill branch descended from development, and ends every restored session first.",
+		"measurements": "Ordinary live-provider targets are at most one-hour lost work and four-hour recovery. The 2026-11-24 drill lost 37.6 seconds and took 2 minutes 28 seconds from the mistake to the Owner reading the meetings, from Neon history on synthetic data. A surviving fresh complete accessible daily copy may permit at most 24-hour fallback. None is guaranteed. Shared-provider/account failure risk remains; no disaster RTO or customer SLA.",
+		"spending": "Sebastian approved the running cost of the one backup bucket on 2026-11-24. No other paid plan, service or account is approved; G-SPEND stays open for them.",
+		"daily_copy": "backup-daily captures one repeatable-read point and every ready file's bytes, encrypts on the host, uploads to everyfield-backup, reads the copy back and opens it. Only then does it write the verified marker; a copy without it, or missing an object, never counts as complete. Copies expire 6 days 22 hours after their capture point so the hourly backup-expire finishes within 7 days of any later purge. backup-status reads the bucket and shows a missed or failed day as failing, never as the 24-hour fallback.",
+		"expiry": "backup-expire deletes every copy at or past its effective expiry and lists versions and deleted objects. It fails while versioning, snapshots or soft delete would keep a deleted copy. On 2026-11-24 all three were off and no remains were found.",
+		"key_exclusion": "No app, package or build code imports ops/maintenance or names its key files; tests/integration/ops/backup-isolation.test.mts fails on a planted one. The bucket key is refused on the app's buckets and opens no copy. backup-status reports app_key_restriction_open until the owner's probe shows every app key refused.",
+		"deletion_check": "deletion-check counts the rows that name the church in every uuid column of every table and the files under its keys. It reads purged only when none remain, the witness is purged and every copy from before the purge ends within 7 days of it."
 	},
 	"downstream": [
 		"WP-005 and UI owners connect the tested internal fixture-session adapter through a development-only transport with the exact managed target and fresh synthetic allowlist. No switching surface exists in production.",
