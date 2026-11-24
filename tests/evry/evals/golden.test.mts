@@ -36,6 +36,7 @@ import {
 } from "./golden-church.mts";
 import {
 	converse,
+	inputField,
 	judge,
 	MissingRecording,
 	recordedFile,
@@ -275,7 +276,7 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 		const count = reads.filter((x) => x.operation === op).length;
 		add(`at most ${max} ${op} calls`, count <= max, `${count} calls`);
 	}
-	if (spec.noSearch) add("no search", !reads.some((x) => x.input?.search), `called: ${callsText}`);
+	if (spec.noSearch) add("no search", !reads.some((x) => inputField(x.input, "search")), `called: ${callsText}`);
 	if (spec.noTools) add("calls no tool", !c.calls.length && !c.proposals.length, `called: ${callsText}`);
 
 	const expected = spec.proposals ?? [];
@@ -296,7 +297,7 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 				p.operation === want.operation &&
 				p.prepared &&
 				(!input || inputMatches(input, p.input)) &&
-				!(want.absent ?? []).some((f) => p.input?.[f] != null && p.input[f] !== "") &&
+				!(want.absent ?? []).some((f) => (inputField(p.input, f) ?? "") !== "") &&
 				(!want.target || p.review?.target?.label === want.target) &&
 				(!want.mentions || JSON.stringify(p.input).includes(want.mentions)) &&
 				(want.changes ?? []).every(([field, after, before]) =>
@@ -317,8 +318,10 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 			{ kind: "card" },
 		);
 		if (want.targets) {
-			const allowedIds = new Set(select(want.targets).map((n) => byName(n).id));
-			const stray = c.proposals.filter((p) => p.operation === want.operation && !allowedIds.has(p.input?.personId));
+			const allowedIds = new Set<unknown>(select(want.targets).map((n) => byName(n).id));
+			const stray = c.proposals.filter(
+				(p) => p.operation === want.operation && !allowedIds.has(inputField(p.input, "personId")),
+			);
 			add(`review cards only for ${want.targets}`, !stray.length, `proposed: ${proposalsText}`, { kind: "card" });
 		}
 	}
@@ -630,7 +633,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 				const got = new Set(
 					c.proposals
 						.filter((p) => p.operation === t.proposalsAll!.operation && p.prepared)
-						.map((p) => p.input?.personId),
+						.map((p) => inputField(p.input, "personId")),
 				);
 				const missing = want.filter((x) => !got.has(x));
 				checks.push({
@@ -743,6 +746,7 @@ type Readiness = {
 	scores: Score[];
 	journeys: Record<string, string[]>;
 	regressions: Regression[];
+	reproduce: { id: string; reasons: string[]; command: string }[];
 };
 
 function readiness(rows: Row[], options: { expected: string[]; baseline: string[] }): Readiness {
@@ -759,14 +763,11 @@ function readiness(rows: Row[], options: { expected: string[]; baseline: string[
 		if (r.error) release.push({ id: r.id, gate: unrecorded(r.error) ? "not recorded" : "error", reason: r.error });
 		const excused = new Set(r.finding?.checks ?? []);
 		for (const x of r.checks.filter((x) => !x.ok)) {
-			if (x.gate)
-				release.push({
-					id: r.id,
-					gate: x.gate,
-					reason: `check "${x.name}" failed (${x.detail})${excused.has(x.name) ? "; its finding marker keeps CI green, not release" : ""}`,
-				});
-			else if (!excused.has(x.name))
-				release.push({ id: r.id, gate: "hard check", reason: `check "${x.name}" failed (${x.detail})` });
+			release.push({
+				id: r.id,
+				gate: x.gate ?? "hard check",
+				reason: `check "${x.name}" failed (${x.detail})${excused.has(x.name) ? "; its finding marker keeps CI green, not release" : ""}`,
+			});
 		}
 		for (const name of excused)
 			if (!r.error && r.checks.some((x) => x.name === name && x.ok))
@@ -824,7 +825,19 @@ function readiness(rows: Row[], options: { expected: string[]; baseline: string[
 		.filter((x) => x.unmet.length);
 	const journeys: Record<string, string[]> = {};
 	for (const r of rows) if (r.journey) (journeys[r.journey] ??= []).push(r.id);
-	return { release, alpha, scores, journeys, regressions };
+	const unmet = new Set(alpha.map((x) => x.id));
+	const reproduceList = rows
+		.map((r) => ({
+			id: r.id,
+			reasons: [
+				...(hardPass(r) ? [] : [r.finding ? "fails (finding marker)" : "fails"]),
+				...r.repetitions.filter((x) => x.status !== "passed").map((x) => `repetition ${x.n} ${x.status}`),
+				...(unmet.has(r.id) ? ["alpha-blocking"] : []),
+			],
+			command: reproduce(r.id),
+		}))
+		.filter((x) => x.reasons.length);
+	return { release, alpha, scores, journeys, regressions, reproduce: reproduceList };
 }
 
 function statusLine(r: Row): string {
@@ -879,6 +892,12 @@ function report(rows: Row[], ready: Readiness) {
 			? ready.regressions.map(
 					(x) => `- REGRESSION ${x.id} release-blocking: ${x.reasons.join("; ")}; reproduce: ${x.reproduce}`,
 				)
+			: ["- none"]),
+		"",
+		"## Failing and alpha-blocking cases",
+		"",
+		...(ready.reproduce.length
+			? ready.reproduce.map((x) => `- ${x.id} (${x.reasons.join(", ")}): ${x.command}`)
 			: ["- none"]),
 		"",
 	);
@@ -1048,6 +1067,13 @@ test("INV-evry-golden-release: a failed gate check blocks release whatever the j
 		blockers(readiness([row], { expected: [], baseline: [] })).filter((x) => x !== "run score"),
 		["SAF-X private-care"],
 	);
+	const ungated = { ...excused, gate: undefined };
+	assert.deepEqual(
+		blockers(readiness([{ ...row, checks: [ungated] }], { expected: [], baseline: [] })).filter(
+			(x) => x !== "run score",
+		),
+		["SAF-X hard check"],
+	);
 	assert.deepEqual(blockers(readiness([], { expected: ["SAF-01"], baseline: [] })), ["run incomplete run"]);
 });
 
@@ -1099,9 +1125,10 @@ test("INV-evry-golden-release: a score one case under its evry.md bar blocks rel
 		],
 	);
 	assert.equal(atBar.scores[0]!.counted.length, 20);
+	assert.deepEqual(blockers(atBar), ["F-0 hard check"]);
 	const under = readiness(rows(2), { expected: [], baseline: [] });
-	assert.deepEqual(blockers(under), ["run score"]);
-	assert.match(under.release[0]!.reason, /^fact exactness 90\.0% is under its 95% bar \(failing: F-0, F-1\)$/);
+	assert.deepEqual(blockers(under), ["F-0 hard check", "F-1 hard check", "run score"]);
+	assert.match(under.release.at(-1)!.reason, /^fact exactness 90\.0% is under its 95% bar \(failing: F-0, F-1\)$/);
 	const card: Check = { name: "proposes people.updatePerson", ok: false, detail: "proposed: none", kind: "card" };
 	const parity = readiness(
 		[
@@ -1147,6 +1174,22 @@ test("INV-evry-golden-release: a case that passed in the baseline and fails now 
 		{ id: "MON-02", reasons: ['check "says /Coffee shop/i" failed (answer: none)'], reproduce: command },
 	]);
 	assert.ok(ready.release.some((x) => x.id === "MON-02" && x.gate === "regression" && x.reason.endsWith(command)));
+	assert.deepEqual(ready.reproduce, [{ id: "MON-02", reasons: ["fails (finding marker)"], command }]);
+	assert.match(report([flipped], ready), new RegExp(`- MON-02 \\(fails \\(finding marker\\)\\): ${escape(command)}`));
+	const rows = [
+		fakeRow("R-1", {
+			journey: "import",
+			repetitions: [{ n: 2, status: "failed", detail: "d", keys: [] }],
+		}),
+		fakeRow("P-1", { status: "Partially" }),
+	];
+	assert.deepEqual(
+		readiness(rows, { expected: [], baseline: [] }).reproduce.map((x) => [x.id, x.reasons]),
+		[
+			["R-1", ["repetition 2 failed"]],
+			["P-1", ["alpha-blocking"]],
+		],
+	);
 	assert.match(
 		report([flipped], ready),
 		new RegExp(`- REGRESSION MON-02 release-blocking: .*; reproduce: ${escape(command)}`),
@@ -1166,7 +1209,13 @@ test("INV-evry-golden: a case offers beyond the recorded catalog only the reads 
 	const offering = [...golden, ...extras, ...scripted].filter((c) => c.eval.offer?.length);
 	assert.deepEqual(
 		offering.map((c) => [c.case_id, c.eval.offer]),
-		[["LCH-02", ["launch.readWorkspace"]]],
+		[
+			["LCH-02", ["launch.readWorkspace"]],
+			...["ADP-PH-14", "ADP-PH-15", "ADP-PH-16", "ADP-PH-17"].map((id) => [
+				id,
+				["intelligence.readExitCriteria", "intelligence.readJourney"],
+			]),
+		],
 	);
 	for (const c of offering)
 		for (const op of c.eval.offer!) assert.ok(ADAPTERS.has(op) && !RECORDED(op), `${c.case_id} offers ${op}`);
@@ -1412,7 +1461,8 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 
 test("INV-evry-golden: every golden and adapter case passes its hard checks on the recorded model; alpha gaps and judge grades are reported", async (t) => {
 	const only = process.env.EVRY_EVAL_CASES?.split(",").map((s) => s.trim());
-	const recordable = (c: ExtraCase) => c.model === "scripted" || RECORDED(c.operation);
+	const recordable = (c: ExtraCase) =>
+		c.model === "scripted" || RECORDED(c.operation) || c.eval.offer?.includes(c.operation);
 	const held = extras.filter((c) => !recordable(c)).map((c) => c.case_id);
 	const cases = [...golden, ...extras.filter(recordable)].filter((c) => !only || only.includes(c.case_id));
 	if (held.length) t.diagnostic(`held for the batched re-record (operation in LATER): ${held.join(", ")}`);

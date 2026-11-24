@@ -8,6 +8,7 @@ import { getPlant, listPlants, readIntelligence } from "../../../packages/domain
 import {
 	OVERSIGHT_READS,
 	readIntelligenceHistory,
+	readOverseenPlant,
 	readPlantLocationHistory,
 	readPlantLocations,
 } from "../../../packages/evry/src/adapters/oversight/reads/index.ts";
@@ -46,6 +47,7 @@ let region: unknown;
 const SETUP: Record<string, () => Promise<void>> = {
 	redeemerGrows: () => ch.redeemerGrows(),
 	harvestRegionCorrected: () => ch.harvestRegionCorrected(),
+	meetingsHeld: () => ch.meetingsHeld(),
 };
 const PLACE_READS = new Set(OVERSIGHT_READS.slice(3).map((a) => a.operation));
 const id = (name: string) => ch.plants[name]!.id;
@@ -297,4 +299,26 @@ test("AC:EVRY-ORG-CONTEXT AC:NI-010 AC:NI-041 AC:NI-044 AC:LI-001 AC:LI-007 AC:L
 		await bounded(c.id, got);
 		await SETTLED[c.id]?.(got);
 	}
+});
+
+test("a linked plant's meetings read says how many meetings its attended total covers, and unknown when none", async () => {
+	const actor = (await h.freshActor(ch.seats.director.session))!;
+	const meetings = async (name: string) => {
+		const read = await invokeRead(ch.db, actor, readOverseenPlant, { plantId: id(name) });
+		return read.rows[0]!.fields.meetings;
+	};
+	assert.equal(await meetings("Hill Country Church"), "Not shared");
+	assert.equal(await meetings("Grace Tulsa"), "Nothing recorded");
+	const held = [await ch.meetingHeld("Grace Tulsa", { daysAgo: 21, came: 3, finalized: false })];
+	assert.equal(await meetings("Grace Tulsa"), "1 recent meeting, attendance unknown");
+	held.push(await ch.meetingHeld("Grace Tulsa", { daysAgo: 14, came: 2, finalized: false }));
+	held.push(await ch.meetingHeld("Grace Tulsa", { daysAgo: 7, came: 0, finalized: false }));
+	assert.equal(await meetings("Grace Tulsa"), "3 recent meetings, attendance unknown");
+	await ch.finalizeMeeting(held[2]!);
+	assert.equal(await meetings("Grace Tulsa"), "3 recent meetings, 0 attended at the 1 with attendance recorded");
+	await ch.finalizeMeeting(held[1]!);
+	assert.equal(await meetings("Grace Tulsa"), "3 recent meetings, 2 attended at the 2 with attendance recorded");
+	await ch.finalizeMeeting(held[0]!);
+	assert.equal(await meetings("Grace Tulsa"), "3 recent meetings, 5 attended");
+	assert.equal(await meetings("Hill Country Church"), "Not shared");
 });

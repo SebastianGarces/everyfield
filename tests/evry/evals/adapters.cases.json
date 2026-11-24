@@ -4513,6 +4513,7 @@
 		"near_miss": false,
 		"question": "what's left before we can move on to Launch Team Formation?",
 		"eval": {
+			"offer": ["intelligence.readExitCriteria", "intelligence.readJourney"],
 			"calls": [
 				{
 					"operation": "intelligence.readExitCriteria"
@@ -4545,6 +4546,7 @@
 		"near_miss": true,
 		"question": "are we ready to move to the next phase?",
 		"eval": {
+			"offer": ["intelligence.readExitCriteria", "intelligence.readJourney"],
 			"calls": [
 				{
 					"operation": "intelligence.readExitCriteria"
@@ -4556,7 +4558,11 @@
 				"/\\b(isn['’]t|aren['’]t|not) (yet )?ready\\b/i",
 				"/\\byes\\b[,.!]|^no\\b/i"
 			],
-			"derivation": "Asked for a verdict, Evry reports each criterion and its reading and leaves the call to the planter: it never answers ready or not ready."
+			"derivation": "Asked for a verdict, Evry reports each criterion and its reading and leaves the call to the planter: it never answers ready or not ready.",
+			"finding": {
+				"checks": ["calls intelligence.readExitCriteria"],
+				"note": "T-576: asked for a verdict, the model answers from phases.readReadiness and phases.readHistory; the criterion's reading is not read."
+			}
 		}
 	},
 	{
@@ -4567,6 +4573,7 @@
 		"near_miss": false,
 		"question": "walk me through our church's journey so far",
 		"eval": {
+			"offer": ["intelligence.readExitCriteria", "intelligence.readJourney"],
 			"calls": [
 				{
 					"operation": "intelligence.readJourney"
@@ -4586,6 +4593,7 @@
 		"near_miss": true,
 		"question": "show me our church's journey so far",
 		"eval": {
+			"offer": ["intelligence.readExitCriteria", "intelligence.readJourney"],
 			"as": "member",
 			"only": [],
 			"require": ["/Member seat does not include the church['’]s phase journey/i"],

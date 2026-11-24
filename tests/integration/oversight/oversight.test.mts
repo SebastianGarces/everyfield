@@ -326,6 +326,30 @@ test("AC:TARGET-IDN-023 Grace Austin reads every section: meetings, teams, train
 	assert.equal(network!.sections.meetings.status, "shared");
 });
 
+test("the attended total covers only finalized meetings and is null when none is", async () => {
+	const viewer = await S.identity(N2, "member");
+	const read = async () => {
+		const section = (await getPlant(S.runtime, await as(viewer), Q2.id))!.sections.meetings;
+		assert.equal(section.status, "shared");
+		const counts = section.status === "shared" ? section.counts : null;
+		return [counts!.attendedTotal, counts!.meetings.map((m) => m.attended)];
+	};
+	const finalize = (date: string) =>
+		S.db.execute(sql`UPDATE meeting SET finalized_at=clock_timestamp() WHERE plant_id=${Q2.id} AND local_date=${date}`);
+	const people = [];
+	for (const name of ["Bayou One", "Bayou Two", "Bayou Three"]) people.push(await person(Q2, name));
+	await meeting(Q2, "2026-08-04", people, false);
+	await meeting(Q2, "2026-08-11", people.slice(0, 2), false);
+	await meeting(Q2, "2026-08-18", [], false);
+	assert.deepEqual(await read(), [null, [null, null, null]]);
+	await finalize("2026-08-18");
+	assert.deepEqual(await read(), [0, [null, null, 0]], "a finalized meeting where nobody came is a real 0");
+	await finalize("2026-08-11");
+	assert.deepEqual(await read(), [2, [null, 2, 0]]);
+	await finalize("2026-08-04");
+	assert.deepEqual(await read(), [5, [3, 2, 0]]);
+});
+
 test("AC:TARGET-IDN-023 a section whose read fails says unavailable while the others load", async () => {
 	await S.db.execute(sql.raw(`ALTER TABLE ${S.schema}.reading RENAME TO reading_moved`));
 	try {
