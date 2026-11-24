@@ -185,7 +185,7 @@ export function recorder(name: string) {
 	let real: LanguageModelV4 | null = null;
 	function realModel() {
 		if (real) return real;
-		const selected = selectQualifiedModel({ ...process.env, EVRY_SCRIPTED_MODEL: "" });
+		const selected = selectQualifiedModel(process.env);
 		if (selected.status !== "qualified" || !selected.spend)
 			throw Error("Recording needs EVRY_MODEL and OPENAI_API_KEY");
 		if (loaded && loaded.model !== selected.id)

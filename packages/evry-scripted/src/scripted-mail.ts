@@ -1,7 +1,7 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
 import { counted, weekdayOf } from "@everyfield/contracts/common";
-import { present } from "./captured.ts";
+import { present } from "@everyfield/evry";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind: string; id: string; label: string; fields: Record<string, unknown> };
@@ -85,7 +85,12 @@ function previewDraft() {
 const reads = (options: LanguageModelV4CallOptions, operation: string) =>
 	JSON.stringify(options.tools?.find((t) => t.name === "communication_read") ?? {}).includes(`"${operation}"`);
 const OWNER_ONLY = (what: string) => `Only an Owner or Admin of this church can ${what}. Ask one of them.`;
+const CHILD_TEXT: Record<string, string> = {
+	"marked as a child": "not sent: they're marked as a child",
+	"sent to a parent or guardian instead": "sent to a parent or guardian instead",
+};
 const RESULT_TEXT: Record<string, string> = {
+	...CHILD_TEXT,
 	waiting: "waiting for its send time",
 	checking: "still being checked: the email service hasn't answered, so it may or may not have gone",
 	sent: "sent, but delivery isn't confirmed yet",
@@ -408,6 +413,8 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		const email = rowsOf(last, "message")[0];
 		if (!email) return text(`Messages has no email to ${name}.`);
 		const result = String(email.fields.result);
+		const child = CHILD_TEXT[result];
+		if (child) return text(`Your last email for ${name}, "${email.label}" (${String(email.fields.sentAt)}): ${child}.`);
 		const fact =
 			result === "opened"
 				? `it was delivered, and an open was recorded ${String(email.fields.openedAt)}`

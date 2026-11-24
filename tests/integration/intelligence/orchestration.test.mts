@@ -14,7 +14,7 @@ import {
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { commitments, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { readIntelligence, requestIntelligenceRefresh } from "../../../packages/domain/src/oversight/intelligence.ts";
-import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
+import { scriptedAssessmentDrafter } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { ok } from "../../support/fixture.mts";
 import { church, type Church } from "./assessment-church.mts";

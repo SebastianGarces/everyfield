@@ -142,7 +142,7 @@ Sebastian asked on 2026-11-04 to "implement all the suggestions - start now", an
 
 ## 2026-11-05 to 2026-11-06: evf v2 cutover
 
-evf v2 replaced evf v1 on 2026-11-05 and 2026-11-06. evf.toml holds the evf v2 roles, checks and policy, and evf reads them from the base branch, so the base branch decides them and a branch cannot change them for itself. Sebastian ruled on 2026-11-06: "Yes, switch all evf-v2 roles to Opus 5.5 medium now." Every evf v2 role runs Opus 5.5 at medium effort, as evf.toml records.
+evf v2 replaced evf v1 on 2026-11-05 and 2026-11-06. evf.toml holds the evf v2 roles, checks and policy, and evf reads them from the base branch, so the base branch decides them and a branch cannot change them for itself. When a change touches a file in evf.toml's policy list of judge paths, evf runs the checks a second time with main's copies of these files and shows the verifier both results, so a pull request cannot loosen its own judges unseen. Sebastian ruled on 2026-11-06: "Yes, switch all evf-v2 roles to Opus 5.5 medium now." Every evf v2 role runs Opus 5.5 at medium effort, as evf.toml records.
 
 These rulings governed evf v1 mechanisms and are retired with evf v1:
 
@@ -177,6 +177,8 @@ Jonah, as Sebastian's evf delegate, ruled on 2026-11-10 (packages/pac-5): only t
 ## D92, 2026-11-14: assessments and the language judge may use gpt-6-luna under D77's counter (ruling D-1487, T-380)
 
 Sebastian approved the spend for Plant Intelligence assessments under G-SPEND on 2026-11-14: "Approve under D77's counter". Assessments (WP-042, WP-043) and the graded language judge (PI-036) may use OpenAI gpt-6-luna, the model Evry chat uses, on local, development and preview environments. They charge the same monthly model_spend counter as Evry chat and stop at the same EVRY_MONTHLY_CAP_USD (default 20 USD per database): there is no separate assessment limit. Every paid call reserves its worst case before the provider sees it and settles to its reported usage, as D77 says (packages/evry/src/runtime/spend.ts). The assessment job mounts the paid drafter (packages/evry/src/runtime/assessment-model.ts) only when the server environment sets EVRY_MODEL=gpt-6-luna and OPENAI_API_KEY and leaves EVRY_SCRIPTED_MODEL unset; EVRY_SCRIPTED_MODEL=1 keeps the scripted drafter on every environment, and automated tests and CI make no paid call. Production runs no assessment. The evaluation (tests/integration/intelligence/assessment-eval.test.mts) uses the paid drafter and judge only with ASSESSMENT_EVAL_REAL_MODEL=1, on the shared development database. Running assessments in production, a different model or a higher limit needs Sebastian's approval again.
+
+Note, 2026-11-23 (T-558, D-2415): EVRY_SCRIPTED_MODEL is now read only by the app's composition root, apps/web/src/server/models.ts. It mounts the paid drafter from packages/evry/src/runtime/assessment-model.ts, or loads the scripted drafter from the dev-only package packages/evry-scripted, and the paid assessment selector no longer reads the flag. The approval above and what each environment gets are unchanged.
 
 ## D93, 2026-11-15: formal checks cover permissions and billing only, in TLA+ with TLC (rulings D-1576, D-1577, T-398)
 

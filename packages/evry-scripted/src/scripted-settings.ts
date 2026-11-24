@@ -1,8 +1,8 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
 import { counted } from "@everyfield/contracts/common";
-import { ZONE_NAME } from "../catalog/labels.ts";
-import { captured } from "./captured.ts";
+import { ZONE_NAME } from "@everyfield/evry/labels";
+import { captured } from "@everyfield/evry";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Output = Record<string, unknown> & { rows?: Row[] };

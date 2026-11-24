@@ -39,6 +39,7 @@ const config: NextConfig = {
 		"@everyfield/db",
 		"@everyfield/ui",
 		"@everyfield/evry",
+		"@everyfield/evry-scripted",
 		"@everyfield/contracts",
 	],
 	experimental: {

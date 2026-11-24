@@ -1,3 +1,4 @@
+import { brandAssetPath } from "@everyfield/contracts/common";
 import { Extension, mergeAttributes, Node, Mark, textblockTypeInputRule, type Editor } from "@tiptap/core";
 import Blockquote from "@tiptap/extension-blockquote";
 import Bold from "@tiptap/extension-bold";
@@ -400,7 +401,7 @@ function imageView(initial: PMNode, assets: Assets | null) {
 		const asset = assets?.[source] ?? null;
 		if (asset) {
 			const img = document.createElement("img");
-			img.src = `/api/brand/assets/${asset.fileId}`;
+			img.src = brandAssetPath(asset.fileId);
 			img.alt = (node.attrs.alt as string | undefined) || asset.alt;
 			img.draggable = false;
 			box.append(img);

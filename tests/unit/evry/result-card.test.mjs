@@ -142,6 +142,42 @@ test("a message read is a Messages card with the send time, no person wording an
 	assert.deepEqual(none.facts.slice(0, 1), ["No draft or scheduled message in this church matches."]);
 });
 
+test("INV-communication-child-card: the email cards word a left-out child and a routed child as the Messages record does", () => {
+	const children = [
+		["marked as a child", "Not sent: marked as a child"],
+		["sent to a parent or guardian instead", "Sent to a parent or guardian instead"],
+	];
+	for (const [operation, title] of [
+		["communication.get", "Email results"],
+		["communication.meetingRecipientTracking", "Who got the meeting's emails"],
+	]) {
+		const people = children.map(([value], i) => ({
+			kind: "person",
+			id: [P1, P2][i],
+			label: `Child ${i}`,
+			fields: { result: value, deliveredAt: null, openedAt: null },
+		}));
+		const view = cardView(operation, result(operation, people), null);
+		assert.equal(view.title, title);
+		assert.deepEqual(
+			view.rows.map((r) => r.line),
+			children.map(([, line]) => line),
+		);
+	}
+	const emails = children.map(([value], i) => ({
+		kind: "message",
+		id: [P1, P2][i],
+		label: "Family night",
+		fields: { result: value, sentAt: "Mon 2026-11-09 08:00", deliveredAt: null, openedAt: null },
+	}));
+	const view = cardView("communication.forPerson", result("communication.forPerson", emails), null);
+	assert.equal(view.title, "Emails");
+	assert.deepEqual(
+		view.rows.map((r) => r.line),
+		children.map(([, line]) => `${line} · Mon 2026-11-09 08:00`),
+	);
+});
+
 const T1 = "44444444-4444-4444-8444-444444444441";
 const T2 = "44444444-4444-4444-8444-444444444442";
 const T3 = "44444444-4444-4444-8444-444444444443";

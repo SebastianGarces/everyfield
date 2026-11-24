@@ -15,12 +15,12 @@ import {
 	readConversation,
 	readReview,
 	runTurn,
-	selectQualifiedModel,
 	submitTurn,
 	type EvryActor,
 	type NativePorts,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { entryText, STEP_TEXT } from "../../../apps/web/src/features/overview/model.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
@@ -79,7 +79,7 @@ let plant: string;
 let fixture: Awaited<ReturnType<typeof seedOverview>>;
 let cases: Case[];
 const native: NativePorts = nativePorts();
-const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+const model = scriptedQualifiedModel();
 const shift = TODAY.getTime() - Date.now();
 const now = () => new Date(Date.now() + shift);
 const freshActor = async (session: string) => {

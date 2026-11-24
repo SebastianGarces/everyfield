@@ -21,7 +21,7 @@ import {
 import { deletionOperations } from "../../../packages/domain/src/settings/index.ts";
 import { issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import { eligibleOwner } from "../../../packages/domain/src/tasks/owner.ts";
-import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
+import { scriptedAssessmentDrafter } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { runDuePurges } from "../../../packages/domain/src/jobs/lifecycle-purge.ts";
 import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import { ok, refused } from "../../support/fixture.mts";

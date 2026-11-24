@@ -47,7 +47,8 @@
 		"@everyfield/contracts": "workspace:*",
 		"better-auth": "1.7.10",
 		"pdfjs-dist": "6.4.299",
-		"@everyfield/evry": "workspace:*"
+		"@everyfield/evry": "workspace:*",
+		"@everyfield/evry-scripted": "workspace:*"
 	},
 	"devDependencies": {
 		"@tailwindcss/postcss": "4.3.3",

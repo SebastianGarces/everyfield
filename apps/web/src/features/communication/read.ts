@@ -154,7 +154,6 @@ export const GET = defineReads(seat, "access_denied", (get) => ({
 		z.undefined(),
 		async ({ viewer }): Promise<Outcome<{ churchName: string; mailingAddress: string | null; origin: string }>> => {
 			const origin = appOrigin();
-			if (origin === null) return { status: "refused", code: "unavailable" };
 			return read(viewer, async (tx) => {
 				const church = await communicationWriter.readChurchName(tx, viewer.authority);
 				if (church.status !== "ok") return church;

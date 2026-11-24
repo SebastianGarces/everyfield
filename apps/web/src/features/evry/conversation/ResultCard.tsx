@@ -1,5 +1,6 @@
 "use client";
 
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import {
 	Activity01Icon,
 	Award01Icon,
@@ -103,7 +104,7 @@ export function ResultCard({
 	operation: string;
 	result: SourceResult;
 	originalTotal: number | null;
-	photos: Readonly<Record<string, string>>;
+	photos: Readonly<Record<string, AppAssetPath>>;
 }) {
 	const [all, setAll] = useState(false);
 	const { title, summary, icon, rows, facts, links } = cardView(operation, result, originalTotal);

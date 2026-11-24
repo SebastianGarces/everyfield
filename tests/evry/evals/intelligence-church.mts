@@ -9,7 +9,7 @@ import {
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { installGeographyRelease } from "../../../packages/domain/src/organizations/index.ts";
 import { requestIntelligenceRefresh } from "../../../packages/domain/src/oversight/index.ts";
-import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
+import { scriptedAssessmentDrafter } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
 import { CANARY, church, type Church } from "../../integration/intelligence/assessment-church.mts";
 

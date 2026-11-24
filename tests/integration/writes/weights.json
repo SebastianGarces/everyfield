@@ -55,7 +55,6 @@
 		"tests/integration/identity/mail-keys-refused.test.mts": 2623,
 		"tests/integration/identity/mail-settings-refused.test.mts": 3716,
 		"tests/integration/identity/reads.test.mts": 3806,
-		"tests/integration/identity/settings-refused.test.mts": 2760,
 		"tests/integration/identity/trusted-ip.test.mts": 2646,
 		"tests/integration/intelligence/assessment-eval.test.mts": 7691,
 		"tests/integration/intelligence/assessment-paid.test.mts": 10346,

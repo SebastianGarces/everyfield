@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { LanguageModelV4 } from "../../../packages/evry/node_modules/@ai-sdk/provider/dist/index.js";
 import { createConversation, readConversation, submitTurn, type EvryActor } from "../../../packages/evry/src/index.ts";
 import { liveRowKeys } from "../../../packages/evry/src/conversations/liveness.ts";
-import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
+import { scriptedModel } from "../../../packages/evry-scripted/src/scripted.ts";
 import { actor, accounts, admin, db, people, plant, setup, sql, teardown, work } from "./support.mts";
 
 before(setup);

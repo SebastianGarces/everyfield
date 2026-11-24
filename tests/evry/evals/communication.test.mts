@@ -14,12 +14,12 @@ import {
 	prepareProposal,
 	readConversation,
 	runTurn,
-	selectQualifiedModel,
 	submitTurn,
 	type EvryActor,
 	type MailPort,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { READ_DOMAINS, readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceRow } from "../../../packages/evry/src/catalog/types.ts";
@@ -37,6 +37,7 @@ import {
 	OWNER_EMAIL,
 	REMINDER,
 	seedCommunication,
+	TRAINED,
 	USED_TEMPLATE,
 } from "./communication-church.mts";
 
@@ -50,7 +51,7 @@ type Case = {
 	calls: string[];
 	answer?: string[];
 	absent?: string[];
-	facts?: "forMeeting" | "tracking" | "totals" | "teams";
+	facts?: "forMeeting" | "tracking" | "trained" | "totals" | "teams";
 	proposal?: { operation: string; target: string; changes: Change[]; hidden?: string[] };
 	approve?: true;
 	check?: "deleted" | "archived" | "corrected" | "retimed" | "unchanged";
@@ -91,7 +92,7 @@ const mail: MailPort = {
 let close: () => Promise<void>;
 let db: Database;
 let admin: Database;
-const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
 	return viewer?.authority ? evryActor(viewer.authority) : null;
@@ -183,13 +184,14 @@ async function checkFacts(c: Case, who: EvryActor, found: SourceRow[], answer: s
 		assert.match(answer, /"You're invited: Vision Night": sent, sent 2026-11-09 08:00 America\/Chicago/);
 		assert.match(answer, /"Vision Night reminder": draft, not sent/);
 	}
-	if (c.facts === "tracking") {
+	if (c.facts === "tracking" || c.facts === "trained") {
+		const sent = c.facts === "trained" ? TRAINED : INVITED;
 		const people = found.filter((r) => r.kind === "person");
 		assert.deepEqual(
 			people.map((p) => [p.label, p.fields.result]).toSorted(),
-			INVITED.map((r) => [r.name, r.result]).toSorted(),
+			sent.map((r) => [r.name, r.result]).toSorted(),
 		);
-		for (const r of INVITED) {
+		for (const r of sent) {
 			const line = answer.split("\n").find((l) => l.startsWith(`- ${r.name}: `));
 			assert.ok(line, `the answer names ${r.name}`);
 			if (r.result === "sent" || r.result === "checking") assert.doesNotMatch(line, /\bdelivered\b/i, r.name);

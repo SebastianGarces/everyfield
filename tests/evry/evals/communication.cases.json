@@ -1,7 +1,7 @@
 {
 	"suite": "communication",
 	"model": "scripted",
-	"church": "Hope Fellowship (golden-church.mts) plus communication-church.mts: Thursday's vision night invitation with one recipient per delivery result, a reminder draft, last week's thank-you email, a used and an unused church template, Jamie Ortiz with no address, Alex Rivera's Tuesday call and the Owner's own blocked address",
+	"church": "Hope Fellowship (golden-church.mts) plus communication-church.mts: Thursday's vision night invitation with one recipient per delivery result, a team training email that left out one child and went to a parent or guardian for another, a reminder draft, last week's thank-you email, a used and an unused church template, Jamie Ortiz with no address, Alex Rivera's Tuesday call and the Owner's own blocked address",
 	"forbid": [
 		"/@example\\.(org|test)/",
 		"/\\bI['’]?(ve| have) (deleted|archived|removed|corrected|changed|updated|fixed)\\b|\\b(has been|have been|is now|was) (deleted|archived|removed|corrected|changed|updated|fixed)\\b/i"
@@ -83,6 +83,46 @@
 			"facts": "totals",
 			"answer": ["/An open is only what the email service's tracking saw/"],
 			"derivation": "A Member reads the same counts."
+		},
+		{
+			"id": "COM-MT-07",
+			"operation": "communication.meetingRecipientTracking",
+			"actor": "owner",
+			"ask": "who got the worship team training invitation, and did it reach them?",
+			"calls": ["communication.meetingRecipientTracking"],
+			"facts": "trained",
+			"answer": [
+				"/^- Kit Young: not sent: they're marked as a child$/m",
+				"/^- Lucia Young: sent to a parent or guardian instead$/m",
+				"/^- Maria Delgado: delivered, no open recorded/m",
+				"/^- Elena Garcia: failed: the email service refused it$/m"
+			],
+			"absent": ["/(Kit|Lucia) Young: .*(failed|refused)/"],
+			"derivation": "Kit Young is marked as a child with no parent or guardian contact, so nothing went. Lucia Young's copy went to Maria Delgado, who keeps their own delivered row. Elena Garcia was refused by the email service, so only Elena's result is failed."
+		},
+		{
+			"id": "COM-PE-01",
+			"operation": "communication.forPerson",
+			"actor": "owner",
+			"ask": "did Kit open my last email?",
+			"calls": ["people.listPeople", "communication.forPerson"],
+			"answer": [
+				"/^Your last email for Kit Young, \"Worship team training\" \\(Sun 2026-11-08 09:00\\): not sent: they're marked as a child\\.$/"
+			],
+			"absent": ["/failed|refused|will come/"],
+			"derivation": "Messages left Kit Young out of the training email because Kit is marked as a child, so there is nothing to have opened."
+		},
+		{
+			"id": "COM-PE-02",
+			"operation": "communication.forPerson",
+			"actor": "owner",
+			"ask": "did Lucia open my last email?",
+			"calls": ["people.listPeople", "communication.forPerson"],
+			"answer": [
+				"/^Your last email for Lucia Young, \"Worship team training\" \\(Sun 2026-11-08 09:00\\): sent to a parent or guardian instead\\.$/"
+			],
+			"absent": ["/failed|refused|not sent/"],
+			"derivation": "Lucia Young's copy of the training email went to a parent or guardian, so it is neither failed nor sent to Lucia."
 		},
 		{
 			"id": "COM-AU-01",

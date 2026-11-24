@@ -14,7 +14,7 @@ import {
 import { meteredAssessment } from "../../../packages/evry/src/runtime/assessment-model.ts";
 import { paidModel } from "../../../packages/evry/src/runtime/model.ts";
 import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
-import { scriptedAssessmentDrafter, scriptedDraft } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
+import { scriptedAssessmentDrafter, scriptedDraft } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
 import { CANARY, church, type Church } from "./assessment-church.mts";
 

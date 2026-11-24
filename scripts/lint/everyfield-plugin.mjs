@@ -1599,16 +1599,19 @@ const rawSqlLiteral = {
 
 export const STORAGE_MODULE = "packages/db/src/schema/storage.ts";
 const OBJECT_STORE_PACKAGE = /^@aws-sdk(?:\/|$)/;
+const URL_SIGNER_PACKAGE = /^@aws-sdk\/s3-request-presigner(?:\/|$)/;
 const PRODUCT_CODE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
 
 const storageClient = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
-		if (path === STORAGE_MODULE || !PRODUCT_CODE.test(path)) return {};
+		if (path === STORAGE_MODULE) return {};
+		const product = PRODUCT_CODE.test(path);
 		const message = `Only ${STORAGE_MODULE} reaches the object store and signs its URLs: the browser gets the app's own authenticated routes, never a storage key or a signed URL.`;
 		return moduleSources((node, name) => {
-			if (OBJECT_STORE_PACKAGE.test(name)) context.report({ node, message });
+			if (URL_SIGNER_PACKAGE.test(name) || (product && OBJECT_STORE_PACKAGE.test(name)))
+				context.report({ node, message });
 		});
 	},
 };
@@ -1790,6 +1793,28 @@ function handles(handler, body, param) {
 }
 
 const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
+
+const SCRIPTED_PACKAGE = "@everyfield/evry-scripted";
+const SCRIPTED_WIRING = "apps/web/src/server/models.ts";
+
+const scriptedModelWiring = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!PRODUCT_CODE.test(path)) return {};
+		const wiring = path === SCRIPTED_WIRING;
+		return moduleSources((node, name) => {
+			if (name !== SCRIPTED_PACKAGE && !name.startsWith(`${SCRIPTED_PACKAGE}/`)) return;
+			if (wiring && node.type === "ImportExpression") return;
+			context.report({
+				node,
+				message: wiring
+					? `${SCRIPTED_WIRING} loads ${SCRIPTED_PACKAGE} only by import() inside its local and test deployment branch, so production never loads it.`
+					: `${SCRIPTED_PACKAGE} is dev-only: only ${SCRIPTED_WIRING} loads it, inside its local and test deployment branch. Take the model or drafter from that file.`,
+			});
+		});
+	},
+};
 
 const webDatabaseImports = {
 	meta: { type: "problem" },
@@ -4557,6 +4582,7 @@ export default {
 		"server-config": serverConfig,
 		"no-silent-catch": noSilentCatch,
 		"web-database-imports": webDatabaseImports,
+		"scripted-model-wiring": scriptedModelWiring,
 		"shared-notice": sharedNotice,
 		"no-cursor-utility": noCursorUtility,
 		"no-slop-styling": noSlopStyling,
