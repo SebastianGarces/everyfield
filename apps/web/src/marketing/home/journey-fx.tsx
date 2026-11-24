@@ -247,7 +247,7 @@ export function JourneyPath({
 								<div className="group relative size-(--ic) transition-[translate,scale] duration-400 ease-[cubic-bezier(.3,1.4,.5,1)] hover:not-has-aria-pressed:-translate-y-[3px] has-aria-pressed:scale-[1.08]">
 									<span
 										aria-hidden="true"
-										className="pointer-events-none absolute top-1 left-1.5 z-1 type-mk-pic-xs mk-counter font-semibold text-mk-ink-62 group-has-aria-pressed:text-ink"
+										className="pointer-events-none absolute top-1 left-1.5 z-1 type-mk-pic-xs mk-counter font-semibold text-mk-ink-62 max-mk-cx:leading-[1.1] group-has-aria-pressed:text-ink"
 									>
 										{stepNumber(i)}
 									</span>
