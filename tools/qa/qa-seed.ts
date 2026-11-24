@@ -20,6 +20,7 @@ import {
 	readPipelineBoard,
 	readPipelinePersonRecord,
 	residentWriter,
+	connectionLink,
 	type OrganizationEffects,
 } from "../../packages/domain/src/organizations/index.ts";
 import { RESIDENCY_TEMPLATE } from "../../packages/contracts/src/organizations/programs.ts";
@@ -492,7 +493,11 @@ async function fill(
 
 	const proofs = new Map<string, string>();
 	const effects: OrganizationEffects = {
-		invitation: async (_tx, input) => void proofs.set(input.invitationId, input.proof),
+		invitation: async (_tx, input) =>
+			void proofs.set(
+				input.invitationId,
+				connectionLink("https://example.test", "/connections/respond", input.invitationId, input.proof).split("#")[1]!,
+			),
 		invalidate: (_tx, input) =>
 			sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
 	};

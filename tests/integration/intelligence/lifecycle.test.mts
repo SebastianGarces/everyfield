@@ -1,3 +1,4 @@
+import { openedDeletion } from "../../support/deletion-cookie.mts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { AsyncResource } from "node:async_hooks";
@@ -114,11 +115,14 @@ async function requestDeletion(p: Plant) {
 }
 async function cancel(p: Plant, pending: { subject: unknown; requestId: string; revision: string }) {
 	const request = { subject: pending.subject, requestId: pending.requestId };
-	const handle = await gatedTransaction(c0.db, (tx) =>
-		issueRestrictedDeletionSession(tx, request as never, async () => ({
-			accountId: p.owner.id,
-			provenAt: new Date(Date.now() - 1000),
-		})),
+	const handle = await openedDeletion(
+		gatedTransaction(c0.db, (tx) =>
+			issueRestrictedDeletionSession(tx, request as never, async () => ({
+				accountId: p.owner.id,
+				provenAt: new Date(Date.now() - 1000),
+			})),
+		),
+		request,
 	);
 	return gatedTransaction(c0.db, (tx) =>
 		deletion.cancelWorkspaceDeletion(tx, handle, command(request, pending.revision) as never),
