@@ -32,9 +32,9 @@ export const getViewer = cache(async () => {
 		email: null,
 		avatar: null,
 	} as const;
-	const jar = await cookies();
 	const db = requestDatabase();
 	const auth = await requestAuth().$context;
+	const jar = await cookies();
 	const token = signedSessionToken(jar.get(auth.authCookies.sessionToken.name)?.value, auth.secret);
 	if (!token) return unauthenticated;
 	const found = await readRequestViewer(db, token);

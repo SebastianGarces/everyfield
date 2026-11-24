@@ -23,7 +23,7 @@ flowchart LR
 
 ### boundaries.not-found
 
-The page an unknown address shows: outside the product frame with a link to the public home page, or to the viewer's own home once signed in, and inside it, around the frame, with a link to the viewer's own home.
+The page an unknown address shows: outside the product frame with a link to the public home page, and inside it, around the frame, with a link to the viewer's own home.
 
 - Routes: none
 - Personas: `visitor` read, `owner` read, `network` read
