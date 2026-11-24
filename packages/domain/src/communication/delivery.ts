@@ -22,6 +22,8 @@ import {
 	childSql,
 	guardianRow,
 	linksOf,
+	optedOutSinceSql,
+	optedOutSql,
 	personRow,
 	reviewedParts,
 	routeChildren,
@@ -34,7 +36,7 @@ import { z } from "zod";
 import { administers, deny, hash, parse, readReply, readerOf } from "./core.ts";
 import { meetingOpenSql, newRsvpToken, rsvpTokenDigest, rsvpTokenUpdate } from "../meetings/tokens.ts";
 import type { OptOutKeyRing } from "../notifications/opt-out.ts";
-import { messagesOptOutToken, optedOutSql } from "./opt-out.ts";
+import { messagesOptOutToken } from "./opt-out.ts";
 
 const CALL_TIMEOUT_MS = 10_000;
 
@@ -560,11 +562,12 @@ async function prepare(
 					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at, refusal, guardian_mail_ids, guardian_copy)
 				SELECT i.id, ${actor.plantId}::uuid, i.person, 'communication', ${found.id}::uuid, i.logical_key, i.payload_hash, ${loaded.digest},
 					i.payload, i.address, i.address_hash,
-					CASE WHEN i.refusal IS NOT NULL OR i.unsubscribed OR (NOT i.child AND EXISTS (
+					CASE WHEN i.refusal IS NOT NULL OR (NOT i.child AND (i.unsubscribed OR EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
-					)) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
+					))) OR (i.person = ANY(${sql.param(leftOut)}::uuid[]) AND NOT (i.child AND i.unsubscribed))
+					THEN 'refused' ELSE ${waiting} END,
 					clock_timestamp(), ${heldUntil}::timestamptz,
-					CASE WHEN i.refusal IS NOT NULL THEN i.refusal WHEN i.unsubscribed THEN 'unsubscribed' END,
+					CASE WHEN i.refusal IS NOT NULL THEN i.refusal WHEN i.unsubscribed AND NOT i.child THEN 'unsubscribed' END,
 					CASE WHEN i.refusal = 'guardian' THEN i.guardians END, i.guardian_copy
 				FROM (SELECT i.*, ${optedOutSql(sql`${actor.plantId}::uuid`, sql`i.person`)} AS unsubscribed FROM input i) i
 				JOIN gate g ON g.allowed
@@ -1266,7 +1269,8 @@ async function claimDue(db: Database) {
 				FOR UPDATE SKIP LOCKED
 			), decided AS MATERIALIZED (
 				SELECT m.id, mem.position,
-					${optedOutSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} AS unsubscribed,
+					(${optedOutSql(sql`m.tenant_id`, sql`m.recipient_person_id`)}
+						OR ${optedOutSinceSql(sql`m.tenant_id`, sql`m.recipient_person_id`, sql`m.created_at`)}) AS unsubscribed,
 					${childSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} AS child,
 					(SELECT p.display_name FROM person p WHERE p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id) AS name,
 					coalesce((SELECT jsonb_agg(jsonb_build_object('id', gad.id, 'displayName', gad.display_name, 'email', gad.email,

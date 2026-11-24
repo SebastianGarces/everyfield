@@ -33,7 +33,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 ## The settings suite (scripted model)
 
 `settings.test.mts` scores the seat, church settings, sharing, connection, account and organization tools (T-327) on the
-scripted model (`packages/evry/src/runtime/scripted-settings.ts`), not a recording: their ask allowed no new spend. Each
+scripted model (`packages/evry-scripted/src/scripted-settings.ts`), not a recording: their ask allowed no new spend. Each
 case in `settings.cases.json` is a real turn (`runTurn`) in Hope Fellowship with the real catalog, reads and review
 cards; a case with `approve` is approved and its effect run with the native services the Settings screens use
 (`settings-ports.mts`), and the change is read back as Settings shows it. The golden, household and follow-up suites
@@ -43,7 +43,7 @@ their recordings stay valid until the next recording run adds these tools.
 ## The onboarding suite (scripted model)
 
 `onboarding.test.mts` scores the setup and Discovery tools (T-345) the same way, on the scripted model
-(`packages/evry/src/runtime/scripted-onboarding.ts`). `setup-church.mts` seeds, beside Hope Fellowship, a church whose
+(`packages/evry-scripted/src/scripted-onboarding.ts`). `setup-church.mts` seeds, beside Hope Fellowship, a church whose
 Owner has not finished setup (with an Admin), two seatless accounts and a Discovery account linked to Hill Country
 Network, through the same onboarding producer `/onboarding` calls. Each approved change is read back through
 `/onboarding`'s own read (`readOnboardingEntry`) and Home's landing rule. The recorded suites leave these tools out too.
@@ -52,7 +52,7 @@ Network, through the same onboarding producer `/onboarding` calls. Each approved
 
 `overview.test.mts` scores the Overview and feedback tools (T-330: `dashboard.availableActions`, `dashboard.metrics`,
 `dashboard.activity`, `dashboard.readSetupGaps`, `feedback.listOwn`, `feedback.getOwnStatus` and the reviewed
-`feedback.submit`) on the scripted model (`packages/evry/src/runtime/scripted-overview.ts`): their ask allowed no new
+`feedback.submit`) on the scripted model (`packages/evry-scripted/src/scripted-overview.ts`): their ask allowed no new
 spend. It runs on the acceptance fixture church, Cedar Creek (`seedOverview` in `setup-church.mts`, America/Chicago),
 with the database clock pinned to Oct 13, 2026: the church in its first week with setup finished, people added over two
 months, the week's meetings and an overdue task. A case's `given` applies one later fixture change (a failing Meetings
@@ -78,7 +78,7 @@ the harness pins to `NOW`.
 ## The pipeline suite (scripted model)
 
 `pipeline.test.mts` scores the organization pipeline and program tools (WP-101) the same way, on the scripted model
-(`packages/evry/src/runtime/scripted-pipeline.ts`): reading the pipeline as each seat's Pipeline page shows it
+(`packages/evry-scripted/src/scripted-pipeline.ts`): reading the pipeline as each seat's Pipeline page shows it
 (`pipeline.listPeople`), drafting a program plan (`development.draftPlan`), and the two review cards, a stage move that
 names only a person and a stage (`pipeline.proposeStageMove`) and a new unpublished program (`development.saveProgram`).
 `pipeline-church.mts` seeds, beside Hope Fellowship, Grace Austin's seats and pipeline and Hill Country Network's own
@@ -104,7 +104,7 @@ stub (T-552); a question with none of its words finds that version and Evry answ
 ## The network Wiki suite (scripted model)
 
 `wiki-network.test.mts` scores the four organization Wiki writes (T-338: `wiki.organizationArticles.add`, `edit`,
-`publish` and `hide`) on the scripted model (`packages/evry/src/runtime/scripted-wiki-editor.ts`). `wiki-network-church.mts`
+`publish` and `hide`) on the scripted model (`packages/evry-scripted/src/scripted-wiki-editor.ts`). `wiki-network-church.mts`
 gives Harvest Network, from the golden Wiki corpus, an Owner, an Admin and a Member, and removes its version of the vision
 meeting article so the Admin starts from the Wiki's. Hope Fellowship shares Harvest Network's Wiki. The cases run in order
 as one story: a declined draft, a draft asked without the contact's details, the approved draft, a change, a change made
@@ -116,7 +116,7 @@ writer in the approval request, and each result is read back as the network's ed
 
 `assessments.cases.json` (`"model": "scripted"`) asks the interview, 4 C's, commitment, merge, Unmerge and correction
 adapters (`packages/evry/src/adapters/people-assessments`) the prompts the S4 spec names, on the deterministic scripted
-model local previews use (`packages/evry/src/runtime/scripted-assessments.ts`). They need no recording and are never
+model local previews use (`packages/evry-scripted/src/scripted-assessments.ts`). They need no recording and are never
 judged. They run one at a time after the recorded cases, because a case's `setup` merges or edits people through the
 native People commands first. A proposal spec may also check the review card itself: `changes` (`[field, after]` or
 `[field, after, before]`) and `refusal` (a pattern the card's refusal must match).
@@ -133,7 +133,7 @@ their lineage.
 ## The launch suite (scripted model)
 
 `launch.test.mts` scores the Launch tools (WP-075, WP-076) the same way, on the scripted model
-(`packages/evry/src/runtime/scripted-launch.ts`): the countdown, the open and blocked milestones, Launch history and
+(`packages/evry-scripted/src/scripted-launch.ts`): the countdown, the open and blocked milestones, Launch history and
 Launch Sunday's guests as the Launch plan reads them, and five review cards: setting or moving Launch Sunday
 (`launch.schedule`), postponing it (`launch.postpone`), recording Launch Sunday with the debrief's guest answer
 (`launch.recordOutcome`), submitting the debrief (`launch.submitDebrief`) and publishing the summary
@@ -166,7 +166,7 @@ the same afterwards. The recorded suites leave these tools out too.
 ## The task plan suite (scripted model)
 
 `task-plan.test.mts` scores six reviewed writes (T-347, WP-068) on the scripted model
-(`packages/evry/src/runtime/scripted-task-plan.ts`), not a recording (D-1997): accepting every checklist of the phase
+(`packages/evry-scripted/src/scripted-task-plan.ts`), not a recording (D-1997): accepting every checklist of the phase
 offer (`tasks.acceptPhaseOffer`), accepting some and declining the rest (`tasks.answerPhaseOffer`, which answers as the
 Tasks page's offer does, D-1996), declining them all (`tasks.declinePhaseOffer`), importing named items of one checklist
 (`tasks.importTemplate`), handing one seat's open follow-ups to another (`tasks.executeHandoff`) and setting what a task
@@ -183,7 +183,7 @@ doesn't hold, a handoff to a seat that can't own follow-ups or from an Owner, a 
 ## The phase readiness suite (scripted model)
 
 `phases.test.mts` scores `intelligence.readExitCriteria` and `intelligence.readJourney` (T-340) on the scripted model
-(`packages/evry/src/runtime/scripted-phases.ts`): their ask allowed no new spend. It runs on Hope Fellowship with 18
+(`packages/evry-scripted/src/scripted-phases.ts`): their ask allowed no new spend. It runs on Hope Fellowship with 18
 committed core-group adults (`phases-church.mts` adds the cards on top of the golden seed, dated relative to the
 database clock). The cases ask what the church needs to move to the next phase (each Core Group Development criterion
 with its status and reading, "18 of 30 committed adults"), prepare and approve the move to Launch Team Formation (the
@@ -436,7 +436,7 @@ organization seat, and for last month's moves.
 ## The intelligence and oversight suites (scripted model)
 
 `intelligence.test.mts` and `oversight.test.mts` score T-331's tools (WP-073, WP-074) on the scripted model
-(`packages/evry/src/runtime/scripted-intelligence.ts`), on `intelligence-church.mts`: the assessment test church with the
+(`packages/evry-scripted/src/scripted-intelligence.ts`), on `intelligence-church.mts`: the assessment test church with the
 database clock pinned to the acceptance fixture's Oct 13, 2026. Cedar Creek Church has 28 committed adults, 2 committed
 people nobody has classified and 10 core-group-stage people with no commitment, a private check-in whose note is a
 canary, and an assessment published by the real job with the scripted drafter (its focus asks to finish guest

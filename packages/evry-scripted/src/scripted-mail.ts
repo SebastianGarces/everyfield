@@ -1,7 +1,7 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
 import { counted, weekdayOf } from "@everyfield/contracts/common";
-import { present } from "./captured.ts";
+import { present } from "@everyfield/evry";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind: string; id: string; label: string; fields: Record<string, unknown> };

@@ -1,9 +1,14 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import {
+	applyMessagesOptOut,
+	messagesOptOutToken,
+	undoMessagesOptOut,
+} from "../../../packages/domain/src/communication/opt-out.ts";
 import { hubLabel } from "../../../apps/web/src/features/communication/model.ts";
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, minuteRunner } from "./scheduled-support.mts";
@@ -72,14 +77,18 @@ const scheduleAt = (saved, at = new Date(Date.now() + 7 * DAY).toISOString()) =>
 		input: { communicationId: saved.communicationId, scheduledAt: at },
 	});
 
-async function schedule(people, resend) {
+async function schedule(people, resend, leftOut?: string[]) {
 	const saved = await draft(people);
 	const scheduled = ok(await scheduleAt(saved));
 	const report = ok(
 		await communicationWriter.handOffScheduled(
 			f.db,
 			owner.actor,
-			{ requestKey: key(), expectedRevision: scheduled.revision, input: { communicationId: saved.communicationId } },
+			{
+				requestKey: key(),
+				expectedRevision: scheduled.revision,
+				input: { communicationId: saved.communicationId, leftOut },
+			},
 			resend.transport,
 			keys,
 		),
@@ -109,6 +118,26 @@ async function block(who) {
 	await f.admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
 		VALUES(${createHmac("sha256", keys.addressKey).update(who.email).digest("hex")},'hard_bounce',${eventId},clock_timestamp())`);
 }
+
+const optOut = (who) =>
+	f.admin.execute(sql`INSERT INTO person_email_opt_out (plant_id, person_id) VALUES (${church.id}, ${who.id})`);
+const ring = { current: randomBytes(32), previous: [] };
+const now = () => new Date();
+const clickUnsubscribe = async (who) =>
+	ok(
+		await applyMessagesOptOut(f.db, ring, now, {
+			token: messagesOptOutToken(ring, { plantId: church.id, personId: who.id }),
+		}),
+	);
+const undo = async (done) => ok(await undoMessagesOptOut(f.db, ring, now, { token: done.undoToken }));
+
+const explained = ({ totals }) => ({
+	child: totals.child,
+	guardian: totals.guardian,
+	unsubscribed: totals.unsubscribed,
+	failed: totals.failed,
+	suppressed: totals.suppressed,
+});
 
 const sentTo = (resend) =>
 	resend.requests
@@ -362,5 +391,176 @@ test("AC:CASE-NTF-016-CHILD a person marked as a child whose address is blocked 
 			{ child: 1, failed: 1, suppressed: 1 },
 			mode,
 		);
+	}
+});
+
+test("AC:CASE-NTF-016-CHILD a person marked as a child who had already unsubscribed reads as marked as a child, whether sent now or scheduled, while an unsubscribed adult reads as unsubscribed", async () => {
+	for (const mode of ["now", "scheduled"] as const) {
+		const ana = await person("Ana", { as: "adult" });
+		const uri = await person("Uri", { as: "adult" });
+		const kid = await person("Kid", { as: "child" });
+		await optOut(uri);
+		await optOut(kid);
+		const resend = resendRecorder(PRODUCTION);
+		const message = await (mode === "now" ? sendNow : schedule)([ana, uri, kid], resend);
+		const { acceptedCount, childCount, guardianCount, unsubscribedCount, rejectedCount } = message.report;
+		assert.deepEqual(
+			{ acceptedCount, childCount, guardianCount, unsubscribedCount, rejectedCount },
+			{ acceptedCount: 1, childCount: 1, guardianCount: 0, unsubscribedCount: 1, rejectedCount: 0 },
+			mode,
+		);
+		const unsubscribed = [{ state: "refused", refusal: "unsubscribed", provider: null, accepted: null }];
+		const totals = { child: 1, guardian: 0, unsubscribed: 1, failed: 0, suppressed: 0 };
+		if (mode === "scheduled") {
+			assert.deepEqual(await mailOf(message.id, uri), unsubscribed, "refused when scheduled");
+			const waiting = await shown(message.id);
+			assert.deepEqual([statusOf(waiting, kid), statusOf(waiting, uri)], ["child", "unsubscribed"]);
+			assert.deepEqual(explained(waiting), totals);
+			await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
+		}
+		assert.deepEqual(sentTo(resend), [ana.email], mode);
+		assert.deepEqual(
+			await mailOf(message.id, kid),
+			[{ state: "refused", refusal: "child", provider: null, accepted: null }],
+			mode,
+		);
+		assert.deepEqual(await mailOf(message.id, uri), unsubscribed, mode);
+		const view = await shown(message.id);
+		assert.deepEqual(
+			[statusOf(view, kid), statusOf(view, uri), statusOf(view, ana)],
+			["child", "unsubscribed", "accepted"],
+			mode,
+		);
+		assert.deepEqual(explained(view), totals, mode);
+	}
+});
+
+test("AC:CASE-NTF-016-CHILD a person unsubscribed and marked as a child when scheduled, then marked as an adult, gets nothing and reads as unsubscribed", async () => {
+	const ana = await person("Ana", { as: "adult" });
+	const kid = await person("Kid", { as: "child" });
+	await optOut(kid);
+	const resend = resendRecorder(PRODUCTION);
+	const message = await schedule([ana, kid], resend);
+	await mark(kid, "adult");
+	await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
+	assert.deepEqual(sentTo(resend), [ana.email]);
+	assert.deepEqual(await mailOf(message.id, kid), [
+		{ state: "refused", refusal: "unsubscribed", provider: null, accepted: null },
+	]);
+	const view = await shown(message.id);
+	assert.equal(statusOf(view, kid), "unsubscribed");
+	assert.deepEqual(explained(view), { child: 0, guardian: 0, unsubscribed: 1, failed: 0, suppressed: 0 });
+});
+
+test("AC:CASE-NTF-016-CHILD an unsubscribed child named as left out of a scheduled email reads as marked as a child, and the others named stay refused", async () => {
+	const ana = await person("Ana", { as: "adult" });
+	const out = await person("Out", { as: "adult" });
+	const uri = await person("Uri", { as: "adult" });
+	const kid = await person("Kid", { as: "child" });
+	await optOut(uri);
+	await optOut(kid);
+	const resend = resendRecorder(PRODUCTION);
+	const message = await schedule([ana, out, uri, kid], resend, [out.id, uri.id, kid.id]);
+	assert.deepEqual(
+		[message.report.childCount, message.report.unsubscribedCount, message.report.rejectedCount],
+		[1, 1, 1],
+	);
+	const statuses = { kid: "child", out: "refused", uri: "unsubscribed" };
+	const totals = { child: 1, guardian: 0, unsubscribed: 1, failed: 1, suppressed: 0 };
+	const check = async () => {
+		const view = await shown(message.id);
+		assert.deepEqual({ kid: statusOf(view, kid), out: statusOf(view, out), uri: statusOf(view, uri) }, statuses);
+		assert.deepEqual(explained(view), totals);
+	};
+	await check();
+	assert.equal((await mailOf(message.id, out))[0].state, "refused", "refused when scheduled");
+	await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
+	assert.deepEqual(sentTo(resend), [ana.email]);
+	assert.deepEqual(await mailOf(message.id, kid), [
+		{ state: "refused", refusal: "child", provider: null, accepted: null },
+	]);
+	assert.deepEqual(await mailOf(message.id, out), [
+		{ state: "refused", refusal: null, provider: null, accepted: null },
+	]);
+	await check();
+});
+
+test("AC:CASE-NTF-016-CHILD a person marked as a child who unsubscribes after the email is scheduled, with or without an undo, reads as marked as a child, while an adult and a person not recorded read as unsubscribed at once", async () => {
+	for (const undone of [false, true]) {
+		const ana = await person("Ana", { as: "adult" });
+		const uri = await person("Uri", { as: "adult" });
+		const nan = await person("Nan");
+		const kid = await person("Kid", { as: "child" });
+		const resend = resendRecorder(PRODUCTION);
+		const message = await schedule([ana, uri, nan, kid], resend);
+		for (const who of [uri, nan, kid]) {
+			const done = await clickUnsubscribe(who);
+			assert.equal(done.changed, true);
+			if (undone) assert.equal((await undo(done)).changed, true);
+		}
+		const statuses = { kid: "child", uri: "unsubscribed", nan: "unsubscribed" };
+		const totals = { child: 1, guardian: 0, unsubscribed: 2, failed: 0, suppressed: 0 };
+		const check = async () => {
+			for (const who of [uri, nan])
+				assert.deepEqual(await mailOf(message.id, who), [
+					{ state: "refused", refusal: "unsubscribed", provider: null, accepted: null },
+				]);
+			const view = await shown(message.id);
+			assert.deepEqual({ kid: statusOf(view, kid), uri: statusOf(view, uri), nan: statusOf(view, nan) }, statuses);
+			assert.deepEqual(explained(view), totals);
+		};
+		await check();
+		await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
+		assert.deepEqual(sentTo(resend), [ana.email]);
+		assert.deepEqual(await mailOf(message.id, kid), [
+			{ state: "refused", refusal: "child", provider: null, accepted: null },
+		]);
+		await check();
+	}
+});
+
+test("AC:CASE-NTF-016-CHILD a person marked as a child who unsubscribes after the email is scheduled and is then marked as an adult gets nothing and reads as unsubscribed, even when the opt-out was undone", async () => {
+	for (const undone of [false, true]) {
+		const ana = await person("Ana", { as: "adult" });
+		const kid = await person("Kid", { as: "child" });
+		const resend = resendRecorder(PRODUCTION);
+		const message = await schedule([ana, kid], resend);
+		const done = await clickUnsubscribe(kid);
+		if (undone) assert.equal((await undo(done)).changed, true);
+		await mark(kid, "adult");
+		await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
+		assert.deepEqual(sentTo(resend), [ana.email]);
+		assert.deepEqual(await mailOf(message.id, kid), [
+			{ state: "refused", refusal: "unsubscribed", provider: null, accepted: null },
+		]);
+		const view = await shown(message.id);
+		assert.equal(statusOf(view, kid), "unsubscribed");
+		assert.deepEqual(explained(view), { child: 0, guardian: 0, unsubscribed: 1, failed: 0, suppressed: 0 });
+	}
+});
+
+test("AC:CASE-NTF-016-CHILD an opt-out that reaches a child through a merge leaves the child marked as a child, and its undo does not bring the email back once they are marked as an adult", async () => {
+	for (const grown of [false, true]) {
+		const ana = await person("Ana", { as: "adult" });
+		const kid = await person("Kid", { as: "child" });
+		const old = await person("Kid old");
+		const resend = resendRecorder(PRODUCTION);
+		const message = await schedule([ana, kid], resend);
+		await f.admin.execute(
+			sql`UPDATE person SET merged_into_person_id = ${kid.id}, state = 'merged' WHERE id = ${old.id}`,
+		);
+		const done = await clickUnsubscribe(old);
+		const waiting = await shown(message.id);
+		assert.equal(statusOf(waiting, kid), "child");
+		assert.deepEqual(explained(waiting), { child: 1, guardian: 0, unsubscribed: 0, failed: 0, suppressed: 0 });
+		if (grown) {
+			assert.equal((await undo(done)).changed, true);
+			await mark(kid, "adult");
+		}
+		await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
+		assert.deepEqual(sentTo(resend), [ana.email]);
+		assert.deepEqual(await mailOf(message.id, kid), [
+			{ state: "refused", refusal: grown ? "unsubscribed" : "child", provider: null, accepted: null },
+		]);
 	}
 });

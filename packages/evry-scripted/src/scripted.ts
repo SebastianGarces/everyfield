@@ -20,7 +20,7 @@ import { assessmentStep } from "./scripted-assessments.ts";
 import { mailStep, proposesOn } from "./scripted-mail.ts";
 import { settingsStep } from "./scripted-settings.ts";
 import { phaseStep, SIGNAL } from "./scripted-phases.ts";
-import { captured, present } from "./captured.ts";
+import { captured, present } from "@everyfield/evry";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 const lastUserText = (prompt: Prompt) => {
@@ -1132,7 +1132,6 @@ export function scriptedModel(): LanguageModelV4 {
 		doGenerate: generate,
 		async doStream(options) {
 			const result = await generate(options);
-			const pace = FORMATTING.test(lastUserText(options.prompt)) ? 45 : 10;
 			const parts: LanguageModelV4StreamPart[] = [{ type: "stream-start", warnings: [] }];
 			for (const c of result.content)
 				if (c.type === "text") {
@@ -1144,11 +1143,10 @@ export function scriptedModel(): LanguageModelV4 {
 			parts.push({ type: "finish", finishReason: result.finishReason, usage: result.usage });
 			return {
 				stream: new ReadableStream({
-					async start(controller) {
+					start(controller) {
 						for (const part of parts) {
 							if (options.abortSignal?.aborted) break;
 							controller.enqueue(part);
-							if (part.type === "text-delta") await new Promise((r) => setTimeout(r, pace));
 						}
 						controller.close();
 					},
