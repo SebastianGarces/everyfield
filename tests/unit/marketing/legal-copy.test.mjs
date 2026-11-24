@@ -99,7 +99,7 @@ test("ordinary words and notes pass", () => {
 		"Resend your request if it fails.",
 		"We ask for your church plant name and how many church plants you support.",
 		"The planter form asks for your city in the United States.",
-		"Email privacy@everyfield.app about everyfield.app and Everyfield.",
+		"Email privacy@example.com about everyfield.app and Everyfield.",
 		"Fill in every field.",
 		"November 24, 2026",
 	];
