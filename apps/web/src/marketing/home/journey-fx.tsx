@@ -37,7 +37,7 @@ export function JourneyPath({
 	const walker = useRef<HTMLDivElement>(null);
 	const bot = useRef<HTMLSpanElement>(null);
 	const bubble = useRef<HTMLParagraphElement>(null);
-	const stops = useRef<(HTMLButtonElement | null)[]>([]);
+	const stops = useRef<HTMLOListElement>(null);
 	const geo = useRef<Geo>({ c: [], at: [], len: 0, L: 0, wx: 0, k: 0 });
 	const raf = useRef(0);
 	const moodTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -76,14 +76,14 @@ export function JourneyPath({
 	const layout = useCallback(() => {
 		const B = band.current,
 			T = trail.current;
-		if (!B || !T || !bot.current || !svg.current || !walked.current) return;
+		if (!B || !T || !bot.current || !svg.current || !walked.current || !stops.current) return;
 		const W = B.clientWidth,
 			H = B.clientHeight;
 		bot.current.firstElementChild?.setAttribute("style", `transform:scale(${bot.current.offsetWidth / BOT})`);
 		const g = geo.current;
-		g.c = stops.current.flatMap((s) => {
-			const li = s?.closest("li");
-			return s && li ? [{ x: li.offsetLeft, y: li.offsetTop, s: s.offsetWidth }] : [];
+		g.c = [...stops.current.querySelectorAll("button")].flatMap((s) => {
+			const li = s.closest("li");
+			return li ? [{ x: li.offsetLeft, y: li.offsetTop, s: s.offsetWidth }] : [];
 		});
 		const segs = stopCurve(g.c, W);
 		g.at = [];
@@ -171,7 +171,7 @@ export function JourneyPath({
 		if (!step) return;
 		e.preventDefault();
 		const j = (i + step + n) % n;
-		stops.current[j]?.focus();
+		stops.current?.querySelectorAll("button")[j]?.focus();
 		pick(j);
 	};
 
@@ -237,7 +237,7 @@ export function JourneyPath({
 							className="stroke-cream [stroke-dasharray:100_100] [stroke-dashoffset:100] [stroke-width:4]"
 						/>
 					</svg>
-					<ol aria-label={label} className="m-0 list-none p-0">
+					<ol ref={stops} aria-label={label} className="m-0 list-none p-0">
 						{steps.map((s, i) => (
 							<li
 								key={s.title}
@@ -252,9 +252,6 @@ export function JourneyPath({
 										{stepNumber(i)}
 									</span>
 									<button
-										ref={(el) => {
-											stops.current[i] = el;
-										}}
 										type="button"
 										aria-pressed={i === k}
 										aria-label={s.title}

@@ -4698,7 +4698,7 @@ const civilDay = {
 	},
 };
 
-const REF_CODE = /^(?:apps\/web\/src\/(?!marketing\/)|packages\/ui\/src\/)/;
+const REF_CODE = /^(?:apps\/web|packages\/ui)\/src\//;
 const HOOK = /^use(?:[A-Z0-9]|$)/;
 const MEMO_HOOKS = new Set(["useCallback", "useMemo"]);
 const within = (node, fn) => {
