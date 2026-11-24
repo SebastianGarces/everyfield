@@ -8,7 +8,6 @@ import { plantVisible, refused, type Reader } from "./core.ts";
 import { displayTitle } from "./rows.ts";
 
 const TOKEN_DAYS = 7;
-const digestOf = (text: string) => createHash("sha256").update(text).digest("hex");
 
 let reveal: (token: MintedRsvpToken) => string;
 export class MintedRsvpToken {
@@ -16,16 +15,12 @@ export class MintedRsvpToken {
 	static {
 		reveal = (token) => token.#value;
 	}
-	toString(): never {
-		throw new TypeError("rsvp_token_unwrapped");
-	}
-	toJSON(): never {
-		throw new TypeError("rsvp_token_unwrapped");
-	}
 }
 export const newRsvpToken = () => new MintedRsvpToken();
 export const rsvpTokenDigest = (token: MintedRsvpToken | z.infer<typeof c.rsvpToken>) =>
-	digestOf(token instanceof MintedRsvpToken ? reveal(token) : token);
+	createHash("sha256")
+		.update(token instanceof MintedRsvpToken ? reveal(token) : token)
+		.digest("hex");
 export const rsvpLink = (origin: string, token: MintedRsvpToken) => `${origin}/rsvp/${reveal(token)}`;
 
 const ANSWERING_SQL = c.answeringStatuses.map((s) => `'${s}'`).join(", ");
