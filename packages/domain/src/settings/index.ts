@@ -4,6 +4,7 @@ export type { AvatarCleanup } from "./avatar.ts";
 export { Refusal } from "./core.ts";
 export { createAccountCredentials } from "./credentials.ts";
 export type { CredentialConfig } from "./credentials.ts";
+export { deletionCookieValue } from "../proofs.ts";
 export { createLifecycleCleanup, deletionOperations } from "./deletion.ts";
 export { authorizeSettingsMail } from "./mail.ts";
 export type { DeletionEffects, DeletionRequest, DeletionSubject, WorkspaceDeletionNotice } from "./deletion.ts";

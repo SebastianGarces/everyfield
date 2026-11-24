@@ -24,6 +24,7 @@ import * as tables from "@everyfield/db/tables";
 import { currentActor } from "@everyfield/domain/access";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
+import type { MintedProof } from "../proofs.ts";
 import { canonical } from "../operations/canonical.ts";
 import { DomainRefusal } from "../operations/refusals.ts";
 import { finishAudit, prepareWrite } from "../operations/writes.ts";
@@ -175,7 +176,7 @@ export interface OrganizationEffects {
 			invitationId: string;
 			owner: Owner;
 			recipientEmail: string;
-			proof: string;
+			proof: MintedProof<"connection">;
 			inviterDescription: string;
 			expiresAt: string;
 			operationId: string;

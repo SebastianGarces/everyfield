@@ -1,3 +1,5 @@
+import { openedDeletion } from "../../support/deletion-cookie.mts";
+import { connectionLink } from "../../../packages/domain/src/proofs.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { randomBytes } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
@@ -913,7 +915,7 @@ try {
 	const organizations = createOrganizationAdapter(
 		{
 			invitation: (tx, i, writes) => {
-				proofs.set(i.invitationId, i.proof);
+				proofs.set(i.invitationId, connectionLink("https://example.test", i.invitationId, i.proof).split("#")[1]);
 				return f.mail.append(
 					tx,
 					{
@@ -922,7 +924,7 @@ try {
 						logicalKey: "relationship/" + i.invitationId + "/" + i.operationId,
 						recipient: null,
 						address: i.recipientEmail,
-						content: { subject: i.inviterDescription, text: "native " + i.proof },
+						content: { subject: i.inviterDescription, text: "native " + proofs.get(i.invitationId) },
 						operation: i.operationId,
 						notice: null,
 						eligibleAt: new Date().toISOString(),
@@ -1108,11 +1110,14 @@ try {
 	);
 	assert.equal(requested.status, "ok");
 	if (requested.status !== "ok") throw Error("deletion_request");
-	const proof = await gatedTransaction(f.db, (tx) =>
-		issueRestrictedDeletionSession(tx, { subject: s.w, requestId: requested.value.requestId }, async () => ({
-			accountId: s.sender.id,
-			provenAt: new Date(Date.now() - 100),
-		})),
+	const proof = await openedDeletion(
+		gatedTransaction(f.db, (tx) =>
+			issueRestrictedDeletionSession(tx, { subject: s.w, requestId: requested.value.requestId }, async () => ({
+				accountId: s.sender.id,
+				provenAt: new Date(Date.now() - 100),
+			})),
+		),
+		{ subject: s.w, requestId: requested.value.requestId },
 	);
 	const cancelled = await measure("settings.cancelWorkspaceDeletion", () =>
 		gatedTransaction(f.db, (tx) =>

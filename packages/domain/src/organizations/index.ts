@@ -20,6 +20,7 @@ export function createOrganizationAdapter(
 		"associations.getHistory": getHistory,
 	};
 }
+export { connectionLink } from "../proofs.ts";
 export { readAnswerableInvitation } from "./relationships.ts";
 export { readPlantSharing, readSharingDisclosure } from "./sharing.ts";
 export {

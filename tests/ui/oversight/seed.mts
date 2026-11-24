@@ -1,3 +1,4 @@
+import { connectionLink } from "../../../packages/domain/src/proofs.ts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
@@ -168,7 +169,7 @@ export async function seedOversight(env: {
 	const api = createOrganizationAdapter(
 		{
 			async invitation(_tx, v) {
-				proofs.set(v.invitationId, v.proof);
+				proofs.set(v.invitationId, connectionLink("https://example.test", v.invitationId, v.proof).split("#")[1]!);
 			},
 			invalidate: (_tx, v) =>
 				sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,

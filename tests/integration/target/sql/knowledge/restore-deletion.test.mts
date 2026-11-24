@@ -1,4 +1,5 @@
 import "../../../platform/setup.mts";
+import { openedDeletion } from "../../../../support/deletion-cookie.mts";
 import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -152,8 +153,14 @@ async function privateVisible(target: string, store: Store) {
 
 async function cancelThrough(target: string) {
 	const pool = database.connect("admin", { schema: target, max: 1 });
-	const proof = await gatedTransaction(pool, (tx) =>
-		issueRestrictedDeletionSession(tx, { subject, requestId }, async () => ({ accountId: a.id, provenAt: new Date() })),
+	const proof = await openedDeletion(
+		gatedTransaction(pool, (tx) =>
+			issueRestrictedDeletionSession(tx, { subject, requestId }, async () => ({
+				accountId: a.id,
+				provenAt: new Date(),
+			})),
+		),
+		{ subject, requestId },
 	);
 	return gatedTransaction(pool, (tx) => api.cancelAccountDeletion(tx, proof, command({ subject, requestId })));
 }
