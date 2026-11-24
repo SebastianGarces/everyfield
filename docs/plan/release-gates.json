@@ -266,7 +266,7 @@
       "owner": "Owner",
       "status": "owner-review-required",
       "question": "Review access, privacy and terms copy before WP-097 go-live. Review planters and trust copy before WP-049 publishes those pages; home and oversight copy is already approved.",
-      "recommendation": "Approve the initial collection, retention, vendor and contact disclosures before WP-097 go-live. Keep planters/trust links hidden until their WP-049 copy review, and update product privacy before customer data.",
+      "recommendation": "Approve the initial collection, retention, provider-category and contact disclosures before WP-097 go-live. Keep planters/trust links hidden until their WP-049 copy review, and update product privacy before customer data.",
       "decision_before": "WP-097 go-live for access/privacy/terms; WP-049 publication for planters/trust; product privacy update before customer data."
     },
     {
