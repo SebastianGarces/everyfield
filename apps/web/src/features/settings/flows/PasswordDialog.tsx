@@ -74,7 +74,7 @@ export function PasswordDialog() {
 	);
 }
 
-function PasswordForm({
+export function PasswordForm({
 	pending,
 	startChange,
 	onCancel,

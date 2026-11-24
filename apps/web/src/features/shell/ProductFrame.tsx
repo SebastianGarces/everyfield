@@ -1,5 +1,6 @@
 "use client";
 
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import { BookOpen02Icon, MessageEdit01Icon, Settings02Icon } from "@hugeicons/core-free-icons";
 import { DASHBOARD_HOME, LANDING_ROUTE, ORGANIZATION_HOME } from "@everyfield/contracts/identity";
 import { toast, Toaster } from "@everyfield/ui/controls";
@@ -28,7 +29,7 @@ const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Me
 
 type FrameProps = {
 	name: string;
-	photo?: string;
+	photo?: AppAssetPath;
 	settings: SettingsViewer | null;
 	settingsDialog?: ReactNode;
 	residency?: { organizationName: string } | null;

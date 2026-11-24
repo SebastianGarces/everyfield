@@ -7,6 +7,7 @@ import {
 	proficiency,
 	skillCategory,
 } from "@everyfield/contracts/people";
+import { personPhotoPath, type AppAssetPath } from "@everyfield/contracts/common";
 import type { Tone } from "@everyfield/ui/display";
 import type { z } from "zod";
 
@@ -139,5 +140,5 @@ export function membershipOf(result: HouseholdResult | null, personId: string): 
 	return me ? { householdId: result.household.id, name: result.household.name, role: me.role } : null;
 }
 
-export const photoSrc = (photo: PhotoResult): string | undefined =>
-	photo.status === "available" ? `/people/${photo.personId}/photo/${photo.versionId}` : undefined;
+export const photoSrc = (photo: PhotoResult): AppAssetPath | undefined =>
+	photo.status === "available" ? personPhotoPath(photo.personId, photo.versionId) : undefined;

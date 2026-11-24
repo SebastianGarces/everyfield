@@ -78,7 +78,6 @@ export async function deliverAs<T>(
 
 export function loadCommunicationPage(viewer: Viewer): Promise<Outcome<PageData>> {
 	const origin = appOrigin();
-	if (origin === null) return Promise.resolve({ status: "refused", code: "unavailable" });
 	return read(viewer, async (tx) => {
 		const templates = await communicationWriter.listTemplates(tx, viewer.authority);
 		if (templates.status !== "ok") return templates;

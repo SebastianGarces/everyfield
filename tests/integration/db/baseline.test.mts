@@ -33,6 +33,7 @@ import {
 	deleteUnreferencedObject,
 	privateStorageFrom,
 	S3Client,
+	toUploadKey,
 	type PrivateStorage,
 	type ResourceAuthorizer,
 } from "../../../packages/db/src/schema/storage.ts";
@@ -626,7 +627,7 @@ test("INV-storage: a malformed upload key is refused before any statement or pro
 				purpose: "commitment",
 				mediaType: "application/pdf",
 				bytes: Buffer.from(pdf()),
-				uploadKey,
+				uploadKey: toUploadKey(uploadKey),
 			}),
 			/invalid_upload_key/,
 			JSON.stringify(uploadKey),
@@ -644,7 +645,7 @@ test("INV-storage: a malformed upload key is refused before any statement or pro
 				purpose: "commitment",
 				mediaType: "application/pdf",
 				bytes: Buffer.from(pdf()),
-				uploadKey,
+				uploadKey: toUploadKey(uploadKey),
 			}),
 			/unavailable/,
 		);
@@ -690,7 +691,7 @@ test("INV-storage: server-owned key, current authorization, five-minute signing 
 			purpose: "commitment",
 			mediaType: "application/pdf",
 			bytes,
-			uploadKey: randomUUID(),
+			uploadKey: toUploadKey(randomUUID()),
 		}),
 		/private_bucket_required/,
 	);
@@ -699,7 +700,7 @@ test("INV-storage: server-owned key, current authorization, five-minute signing 
 		purpose: "commitment",
 		mediaType: "application/pdf",
 		bytes,
-		uploadKey: randomUUID(),
+		uploadKey: toUploadKey(randomUUID()),
 	});
 	const recordCount = firstRow(
 		await admin.execute(querySql`SELECT count(*)::int n FROM record WHERE kind='file_object'`),
@@ -714,7 +715,7 @@ test("INV-storage: server-owned key, current authorization, five-minute signing 
 			purpose: "commitment",
 			mediaType: "application/pdf",
 			bytes,
-			uploadKey,
+			uploadKey: toUploadKey(uploadKey),
 		}),
 		uploaded,
 	);
@@ -771,7 +772,7 @@ test("INV-storage: server-owned key, current authorization, five-minute signing 
 		purpose: "commitment",
 		mediaType: "application/pdf",
 		bytes,
-		uploadKey: randomUUID(),
+		uploadKey: toUploadKey(randomUUID()),
 	};
 	let lost = true;
 	const lostResponse = storageOf("synthetic-only", async (command) => {
@@ -812,7 +813,7 @@ test("INV-storage: server-owned key, current authorization, five-minute signing 
 		purpose: "commitment",
 		mediaType: "application/pdf",
 		bytes,
-		uploadKey: randomUUID(),
+		uploadKey: toUploadKey(randomUUID()),
 	});
 	const failing = storageOf("synthetic-only", async () => {
 		throw Error("lost response");
