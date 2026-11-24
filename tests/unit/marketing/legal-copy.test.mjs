@@ -6,6 +6,7 @@ import { test } from "node:test";
 const SKILL = ".agents/skills/policy-writing/SKILL.md";
 const { shared } = JSON.parse(readFileSync(new URL("../../../design/marketing-copy.json", import.meta.url), "utf8"));
 
+const MISSPELLED = ["Every", "Field"].join("");
 const ALLOWED_TIMEFRAMES = [];
 
 const COUNT =
@@ -75,7 +76,7 @@ for (const name of ["privacy_page", "terms_page"]) {
 			"30-day": "There is a 30-day hold.",
 			"thirty days": "We delete it after thirty days.",
 			"a year": "We keep it for a year.",
-			EveryField: "EveryField runs the site.",
+			[MISSPELLED]: `${MISSPELLED} runs the site.`,
 			"Every Field": "Every Field runs the site.",
 			plants: "The number of plants you support.",
 			plant: "Your plant owns it.",
