@@ -30,7 +30,7 @@ export type DeletionCheck = {
 	copy_expiry_within_7_days: boolean;
 	remaining_rows: Record<string, number>;
 	remaining_files: number;
-	copies_before_purge: Pick<BucketCopy, "location" | "expires_at">[] | null;
+	copies_before_purge: Pick<BucketCopy, "location" | "expires_at" | "state">[] | null;
 	verdict: "purged" | "not_purged";
 };
 
@@ -44,8 +44,16 @@ type Witness = {
 };
 const instant = (value: string | null) => (value ? new Date(value).toISOString() : null);
 
+export async function readBucket<T>(read: () => Promise<T>): Promise<T> {
+	try {
+		return await read();
+	} catch {
+		throw new OperatorRefused("backup_bucket_unreadable");
+	}
+}
+
 export async function checkDeletion(
-	deps: { db: Database; schema: string; files: FileSource; bucket?: BackupBucket },
+	deps: { db: Database; schema: string; files: FileSource; bucket: BackupBucket },
 	subject: string,
 ): Promise<DeletionCheck> {
 	if (!IDENTIFIER.test(deps.schema) || !UUID.test(subject)) throw new OperatorRefused("subject_invalid");
@@ -96,12 +104,14 @@ export async function checkDeletion(
 	const withinSeven = purgedAt !== null && expiresAt !== null && expiresAt - purgedAt <= SEVEN_DAYS;
 	const now = w ? new Date(w.at) : new Date();
 	const copies =
-		deps.bucket && purgedAt !== null
-			? (await readCopies(deps.bucket, now))
+		purgedAt !== null
+			? (await readBucket(() => readCopies(deps.bucket, now)))
 					.filter((c) => c.created_at === null || Date.parse(c.created_at) <= purgedAt)
-					.map(({ location, expires_at }) => ({ location, expires_at }))
+					.map(({ location, expires_at, state }) => ({ location, expires_at, state }))
 			: null;
-	const copiesEnd = (copies ?? []).every((c) => expiresAt !== null && Date.parse(c.expires_at) <= expiresAt);
+	const copiesEnd =
+		copies !== null &&
+		copies.every((c) => c.state !== "expired" && expiresAt !== null && Date.parse(c.expires_at) <= expiresAt);
 	const purged =
 		w?.state === "purged" && withinSeven && copiesEnd && stored.size === 0 && Object.keys(read.remaining).length === 0;
 	return {

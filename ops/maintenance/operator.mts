@@ -18,7 +18,7 @@ import {
 	readPrivateJson,
 } from "./control.mts";
 import { openEncryptedCopy } from "./copy.mts";
-import { checkDeletion } from "./deletion.mts";
+import { checkDeletion, readBucket } from "./deletion.mts";
 import { openDrillTarget, OPEN_OPERATION } from "./drill.mts";
 import { keysRestricted, probeAppKeys, probeOtherBuckets } from "./probe.mts";
 import { OPERATION, readCurrentManifest, restoreWithCurrentManifest, type Snapshot } from "./restore.mts";
@@ -268,12 +268,9 @@ export const OPERATOR_COMMANDS: Record<
 		}),
 	"deletion-check": async (config, flags) =>
 		connected(config, "approved", async (db, _url, schema, env) => {
-			const store = await lstat(bucketKey(config)).then(
-				() => bucket(config),
-				() => undefined,
-			);
+			const store = await readBucket(() => bucket(config));
 			const report = await checkDeletion(
-				{ db, schema, files: fileSource(env), ...(store ? { bucket: store } : {}) },
+				{ db, schema, files: fileSource(env), bucket: store },
 				required(flags.subject, "subject"),
 			);
 			return { ok: report.verdict === "purged", report };

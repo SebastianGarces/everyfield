@@ -1,7 +1,10 @@
 import "../../../platform/setup.mts";
 import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { sql, type SQL } from "../../../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../../../packages/domain/src/access/session.ts";
 import {
@@ -18,6 +21,7 @@ import { gatedTransaction } from "../../../../../packages/domain/src/operations/
 import { createLifecycleCleanup, deletionOperations } from "../../../../../packages/domain/src/settings/index.ts";
 import { issueRestrictedDeletionSession } from "../../../../../packages/domain/src/settings/deletion.ts";
 import { tenantId } from "../../../../../packages/contracts/src/common/values.ts";
+import { expireCopies, runBackup } from "../../../../../ops/maintenance/backup.mts";
 import { captureSnapshot } from "../../../../../ops/maintenance/capture.mts";
 import { checkDeletion } from "../../../../../ops/maintenance/deletion.mts";
 import { openDrillTarget } from "../../../../../ops/maintenance/drill.mts";
@@ -34,11 +38,13 @@ import {
 	sourceClass,
 } from "../../../../../ops/maintenance/source.mts";
 import { openedDeletion } from "../../../../support/deletion-cookie.mts";
+import { fakeBucket } from "../../../../support/fake-bucket.mts";
 import { testDatabase } from "../../../../support/test-database.mts";
 import { type Actor, ok, seeds, type Workspace } from "../../../../support/fixture.mts";
 import { MAILING } from "../../../communication/church-address.mts";
 import { dropTarget, freezeClock, objectStore, operator, readyFile, type Store } from "./support.mts";
 
+const DAY = 86_400_000;
 const START = new Date("2026-10-13T16:00:00.000Z");
 const DEADLINE = new Date("2026-11-12T16:00:00.000Z");
 const PURGED = new Date("2026-11-12T17:00:00.000Z");
@@ -460,6 +466,8 @@ test("INV-recovery: an opened target repeats no accepted, scheduled or unknown m
 });
 
 test("INV-recovery: the deletion check reads real rows and files, and no cancel works at or after the deadline, live or restored", async (step) => {
+	const backups = await fakeBucket();
+	step.after(() => backups.close());
 	await at(START);
 	const request = async (name: string) => {
 		const church = await seed.plant({ name });
@@ -486,7 +494,7 @@ test("INV-recovery: the deletion check reads real rows and files, and no cancel 
 	};
 	type Request = Awaited<ReturnType<typeof request>>;
 	const check = (r: Request, where = schema, store = live) =>
-		checkDeletion({ db: admin, schema: where, files: files(store) }, r.church.id);
+		checkDeletion({ db: admin, schema: where, files: files(store), bucket: backups.bucket }, r.church.id);
 	const purge = (r: Request, removeFiles: boolean) =>
 		createLifecycleCleanup(cleanup, {
 			authorize: async () => true,
@@ -573,6 +581,70 @@ test("INV-recovery: the deletion check reads real rows and files, and no cancel 
 		assert.equal(left.verdict, "not_purged");
 		assert.deepEqual(left.remaining_rows, { message_template: 1 });
 		await admin.execute(sql`DELETE FROM message_template WHERE plant_id=${done.church.id}::uuid`);
+	});
+
+	await step.test("a purge is proven only against a bucket that was read and holds no copy past its end", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "deletion-check-"));
+		const keyFile = join(dir, "backup.key");
+		writeFileSync(keyFile, randomBytes(32), { mode: 0o600 });
+		const store = async (when: Date, taken: Snapshot) => {
+			backups.settings.now = when;
+			const stored = await runBackup({
+				bucket: backups.bucket,
+				keyFile,
+				capture: async () => taken,
+				clock: () => when,
+			});
+			if (!stored.copy_complete) assert.fail(stored.refusal);
+			return stored;
+		};
+		const verdict = async () => (await check(done)).verdict;
+		try {
+			const before = await store(DEADLINE, copy);
+			const afterPurge = new Date(PURGED.getTime() + DAY);
+			await at(afterPurge);
+			const later = await store(afterPurge, await capture());
+			const report = await check(done);
+			assert.equal(report.verdict, "purged");
+			assert.deepEqual(report.copies_before_purge, [
+				{ location: before.location, expires_at: before.expires_at, state: "complete" },
+			]);
+
+			await at(new Date(Date.parse(before.expires_at) - 1000));
+			assert.equal(await verdict(), "purged");
+			for (const when of [before.expires_at, COPY_EXPIRY, "2026-11-20T17:00:00.000Z"]) {
+				await at(new Date(when));
+				const late = await check(done);
+				assert.equal(late.verdict, "not_purged", when);
+				assert.equal(late.copies_before_purge![0]!.state, "expired");
+			}
+			const swept = await expireCopies(backups.bucket, new Date("2026-11-19T17:00:00.000Z"));
+			assert.deepEqual([swept.deleted, swept.kept], [[before.location], [later.location]]);
+			assert.equal(await verdict(), "purged");
+
+			backups.settings.put = (key, bytes) => (key.endsWith("/manifest.json") ? "refuse" : bytes);
+			for (const [written, expected] of [
+				["2026-11-19T11:00:00.000Z", "purged"],
+				["2026-11-19T11:00:00.001Z", "not_purged"],
+			] as const) {
+				backups.objects.clear();
+				await at(new Date(written));
+				await assert.rejects(store(new Date(written), copy));
+				const [cut] = (await check(done)).copies_before_purge!;
+				assert.equal(cut!.state, "uploading");
+				assert.equal(await verdict(), expected, cut!.expires_at);
+			}
+		} finally {
+			backups.objects.clear();
+			await at(PURGED);
+			rmSync(dir, { recursive: true, force: true });
+		}
+		const unreadable = await fakeBucket();
+		await unreadable.close();
+		await assert.rejects(
+			checkDeletion({ db: admin, schema, files: files(live), bucket: unreadable.bucket }, done.church.id),
+			{ message: "backup_bucket_unreadable" },
+		);
 	});
 
 	await step.test("after the purge, on live and on a restored copy from before it, no cancel works", async () => {

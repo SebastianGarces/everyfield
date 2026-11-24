@@ -146,6 +146,11 @@ From a daily copy instead, replace steps 2 to 4 with `restore-copy --copy <locat
 
 ## Check a church deletion
 
-`deletion-check --subject <church id>` with a `restricted-recovery` directory. `purged` means the witness is purged, no
-row or file of the church remains, the copy expiry is at most 7 days after the purge, and every stored copy from before
-the purge ends by then. Otherwise it lists what is left and exits 2. `cancel_allowed` is true only before the deadline.
+`deletion-check --subject <church id>` with a `restricted-recovery` directory. That directory needs the bucket key: its
+own `tigris.env`, or `bucketKey` in its `control.json`. Without it, or when the bucket cannot be read for a church with
+a purge time, the check is refused with `backup_bucket_unreadable` and gives no verdict. `purged` means the witness is
+purged, no row or file of the church remains, the copy expiry is at most 7 days after the purge, and every stored copy
+from before the purge ends by then, and none of them is at or past its own expiry and still stored. Otherwise it lists
+what is left and exits 2. `copies_before_purge` gives each such copy's expiry and state; for `expired`, run
+`backup-expire` and check again. An upload that has no manifest yet counts as from before the purge, so check again when
+it finishes. `cancel_allowed` is true only before the deadline.
