@@ -12,11 +12,13 @@ import {
 	createPrivateCare,
 	runAssessmentBatch,
 } from "../../../packages/domain/src/intelligence/index.ts";
+import { createAttendanceWriter, withMeetingsWrite } from "../../../packages/domain/src/meetings/index.ts";
+import { captureFacts } from "../../../packages/domain/src/intelligence/index.ts";
 import { commitments, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { readIntelligence, requestIntelligenceRefresh } from "../../../packages/domain/src/oversight/intelligence.ts";
 import { scriptedAssessmentDrafter } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
-import { ok } from "../../support/fixture.mts";
+import { ok, waitingOnLock } from "../../support/fixture.mts";
 import { church, type Church, type StoredRun } from "./assessment-church.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
@@ -331,6 +333,134 @@ test("AC:ASMT-003 a record changed while the draft is in flight supersedes that 
 	assert.deepEqual([newer.outcome, newer.demand], ["published", "followup"]);
 	assert.equal(newer.facts.committedAdults.exact, 31);
 	assert.deepEqual(newer.model_input!.facts, c.factCatalog(newer.facts), "every fact from the one captured snapshot");
+});
+
+test("AC:ASMT-002 INV-freshness: a correction that commits after capture, its wake-up lost, settles the run superseded and keeps the earlier result; the next sweep queues the new source state", async () => {
+	const p = await assessed("Paused Outbox");
+	const prior = (await view(p)).current!;
+	clockMs += 1000;
+	const card = await c0.one<{ id: string; person_id: string; revision: string }>(sql`SELECT id,person_id,revision::text
+		FROM commitment WHERE plant_id=${p.id} ORDER BY id LIMIT 1`);
+	let corrected = false;
+	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
+	await runAssessmentBatch(
+		job,
+		c0.db,
+		scripted({
+			during: async () => {
+				if (corrected) return;
+				corrected = true;
+				ok(
+					await gatedTransaction(c0.db, (t) =>
+						commitments.correctCommitmentLifecycle(t, p.ctx as never, {
+							requestKey: randomUUID(),
+							expectedRevision: card.revision,
+							input: {
+								commitmentId: card.id,
+								correction: { action: "correct", occurredOn: c0.day(-45) },
+								reason: "Read the card again",
+							},
+						}),
+					),
+				);
+			},
+		}),
+		1,
+	);
+	const paused = (await runs(p)).at(-1)!;
+	assert.deepEqual([paused.outcome, paused.reason, paused.result], ["superseded", "changed_input", null]);
+	assert.equal((await view(p)).current!.runId, prior.runId, "the earlier result stays current");
+
+	await c0.admin.execute(sql`DELETE FROM job WHERE kind='assessment' AND subject_record_id=${p.id}
+		AND producer_key=${"followup/" + paused.id}`);
+	assert.deepEqual((await jobs(p)).filter((x) => x.producer_key.startsWith("followup/")), [], "the wake-up is lost");
+	clockMs = Date.now() + 1000;
+	const source = (await captureFacts(c0.db, p.id, iso(clockMs)))!.sourceRevision;
+	assert.notEqual(source, paused.source_revision);
+	await job.scheduleAssessments(c0.db, 500);
+	const swept = (await c0.rows<{ producer_key: string; state: string }>(sql`SELECT producer_key,state FROM job
+		WHERE kind='assessment' AND subject_record_id=${p.id} AND state='ready'`)).map((x) => x.producer_key.split("/")[0]);
+	assert.deepEqual(swept, ["change"]);
+	await drain();
+	const next = (await runs(p)).at(-1)!;
+	assert.deepEqual([next.outcome, next.demand, next.source_revision], ["published", "change", source]);
+	clockMs = Date.now();
+});
+
+test("AC:ASMT-009 INV-freshness: two connections commit people, attendance and training changes while a capture waits with its snapshot open; the run holds one snapshot, never a mix of old and new", async () => {
+	const p = await assessed("One Snapshot");
+	const held = await c0.one<{ id: string }>(sql`SELECT id FROM meeting WHERE plant_id=${p.id}`);
+	const trainee = await c0.committed(p, "Trainee", 20);
+	const newcomer = await c0.person(p, "Newcomer");
+	const program = (
+		await c0.one<{ id: string }>(sql`INSERT INTO training_program(plant_id,name,required)
+			VALUES(${p.id},'Snapshot course',true) RETURNING id`)
+	).id;
+	await c0.admin.execute(sql`INSERT INTO training_assignment(plant_id,program_id,person_id,version,state,effective_on)
+		VALUES(${p.id},${program},${trainee.id},1,'active',${c0.day(-5)})`);
+	clockMs = Date.now() + 1000;
+	const old = (await captureFacts(c0.db, p.id, iso(clockMs)))!;
+	const attendance = createAttendanceWriter({
+		reminders: async () => {
+			throw Error("unexpected task reminder replan");
+		},
+	});
+	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
+
+	const written = Promise.withResolvers<void>();
+	const go = Promise.withResolvers<void>();
+	const locked = Promise.withResolvers<number>();
+	const release = Promise.withResolvers<void>();
+	const gate = c0.admin.transaction(async (tx) => {
+		await tx.execute(sql`LOCK TABLE four_cs IN ACCESS EXCLUSIVE MODE`);
+		locked.resolve((await tx.execute<{ pid: number }>(sql`SELECT pg_backend_pid() AS pid`)).rows[0]!.pid);
+		await release.promise;
+	});
+	const blocker = await locked.promise;
+	const firstConnection = gatedTransaction(c0.db, async (tx) => {
+		const signed = ok(
+			await commitments.createCommitment(tx, p.ctx as never, {
+				requestKey: randomUUID(),
+				input: { personId: newcomer.id, kind: "core_group", occurredOn: c0.day(-1) },
+			}),
+		);
+		await tx.execute(sql`INSERT INTO training_credit(plant_id,person_id,program_id,kind,version,earned_on)
+			VALUES(${p.id},${trainee.id},${program},'earned',1,${c0.day(-1)})`);
+		written.resolve();
+		await go.promise;
+		return signed;
+	});
+	await written.promise;
+	const secondConnection = withMeetingsWrite(c0.db, p.actor, (tx, ctx) =>
+		attendance.checkIn(tx, ctx, { requestKey: randomUUID(), input: { meetingId: held.id, personId: trainee.id } }),
+	);
+	const capture = runAssessmentBatch(job, c0.db, scripted(), 1);
+	try {
+		await waitingOnLock(c0.admin, { blockedBy: blocker });
+		go.resolve();
+		await firstConnection;
+		ok(await secondConnection);
+	} finally {
+		go.resolve();
+		release.resolve();
+		await gate;
+	}
+	await capture;
+	const raced = (await runs(p)).at(-1)!;
+	const now = (await captureFacts(c0.db, p.id, new Date(raced.as_of).toISOString()))!;
+	assert.equal(raced.source_revision, now.sourceRevision, "all three changes, in one snapshot");
+	assert.notEqual(now.sourceRevision, old.sourceRevision);
+	assert.deepEqual(
+		[
+			raced.facts.committedAdults.known + raced.facts.committedAdults.needsClassifying.length,
+			raced.facts.vision.lastAttendance,
+			raced.facts.training.complete,
+		],
+		[old.committedAdults.known + 1, [old.vision.lastAttendance[0]! + 1], old.training.complete + 1],
+	);
+	assert.deepEqual(raced.model_input!.facts, c.factCatalog(raced.facts), "every model fact comes from it");
+	assert.deepEqual([raced.outcome, (await runs(p)).length], ["published", 2], "the raced attempt left no run");
+	clockMs = Date.now();
 });
 
 test("AC:ASMT-004 a worker whose claim expired and was taken over cannot publish, even with matching data; the new owner resumes the same run and budget", async () => {
