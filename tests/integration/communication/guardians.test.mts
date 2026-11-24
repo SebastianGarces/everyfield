@@ -58,7 +58,9 @@ async function block(who: Who) {
 		.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
 		VALUES(${eventId},${"seed-" + eventId},${"seed-" + eventId},'complained',clock_timestamp(),clock_timestamp(),'x','{}'::jsonb)`);
 	await f.admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
-		VALUES(${createHmac("sha256", keys.addressKey).update(who.email ?? "").digest("hex")},'complaint',${eventId},clock_timestamp())`);
+		VALUES(${createHmac("sha256", keys.addressKey)
+			.update(who.email ?? "")
+			.digest("hex")},'complaint',${eventId},clock_timestamp())`);
 }
 
 const write = (op, input) =>
