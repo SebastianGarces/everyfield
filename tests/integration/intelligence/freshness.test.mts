@@ -68,8 +68,11 @@ const later = (days: number) =>
 type Person = { id: string };
 const people = <T,>(p: ChurchPlant, op: (tx: WriteTx, ctx: never, raw: never) => Promise<T>, raw: unknown) =>
 	gatedTransaction(c0.db, (tx) => op(tx, p.ctx as never, raw as never));
-const meeting = <T,>(p: ChurchPlant, op: (tx: WriteTx, ctx: MeetingsContext, raw: unknown) => Promise<T>, raw: unknown) =>
-	withMeetingsWrite(c0.db, p.actor, (tx, ctx) => op(tx, ctx, raw) as never) as Promise<T>;
+const meeting = <T,>(
+	p: ChurchPlant,
+	op: (tx: WriteTx, ctx: MeetingsContext, raw: unknown) => Promise<T>,
+	raw: unknown,
+) => withMeetingsWrite(c0.db, p.actor, (tx, ctx) => op(tx, ctx, raw) as never) as Promise<T>;
 const unplanned = async (): Promise<never> => {
 	throw Error("unexpected task reminder replan");
 };
@@ -154,7 +157,12 @@ test("INV-freshness: an attendance mark, a commitment stage move, an imported pe
 		[
 			"an attendance mark",
 			async () =>
-				ok(await meeting(p, attendance.checkIn, { requestKey: key(), input: { meetingId: older, personId: adults[9]!.id } })),
+				ok(
+					await meeting(p, attendance.checkIn, {
+						requestKey: key(),
+						input: { meetingId: older, personId: adults[9]!.id },
+					}),
+				),
 		],
 		[
 			"a stage move that changes commitment",
@@ -258,7 +266,9 @@ test("INV-freshness: a meeting held after the assessment marks it once its atten
 	await assessedTwoDaysAgo();
 	const held = await scheduled(p, -1);
 	await complete(p, held.id);
-	ok(await meeting(p, attendance.checkIn, { requestKey: key(), input: { meetingId: held.id, personId: adults[0]!.id } }));
+	ok(
+		await meeting(p, attendance.checkIn, { requestKey: key(), input: { meetingId: held.id, personId: adults[0]!.id } }),
+	);
 	assert.equal(await outOfDate(p), true, "held and attended since");
 	ok(
 		await meeting(p, attendance.clearAttendance, {
@@ -310,18 +320,27 @@ test("AC:ASMT-012 INV-freshness: a failed write, an exact retry, a no-op, an unr
 	assert.equal(await outOfDate(p), false, "an exact retry");
 
 	const person = adults[2]!;
+	const contact = await c0.person(p, "No Card Yet");
 	const patch = async (fields: object) =>
 		ok(
 			await people(p, peopleWriter.updatePerson as never, {
 				requestKey: key(),
-				expectedRevision: await revision("person", person.id),
-				input: { personId: person.id, patch: fields },
+				expectedRevision: await revision("person", contact.id),
+				input: { personId: contact.id, patch: fields },
 			}),
 		);
 	await patch({ city: "Waco" });
 	assert.equal(await outOfDate(p), false, "a field the assessment does not read");
 	await patch({ city: "Waco" });
 	assert.equal(await outOfDate(p), false, "a real no-op");
+	ok(
+		await people(p, peopleWriter.addNote as never, {
+			requestKey: key(),
+			expectedRevision: await revision("person", person.id),
+			input: { personId: person.id, body: "Moved to Waco" },
+		}),
+	);
+	assert.equal(await outOfDate(p), false, "a note on a person it counts");
 	ok(await changeStage(p, person, "launch_team"));
 	assert.equal(await outOfDate(p), false, "a stage label alone");
 
@@ -374,7 +393,11 @@ test("INV-freshness: undoing a change clears the mark, Refresh publishes a fresh
 					expectedRevision: row[0].r,
 					input: { key: "systems_tested", action: "set", value, reason: "Checked again" },
 				})
-			: signals.attest(c0.db, p.actor, { requestKey: key(), expectedRevision: "0", input: { key: "systems_tested", value } });
+			: signals.attest(c0.db, p.actor, {
+					requestKey: key(),
+					expectedRevision: "0",
+					input: { key: "systems_tested", value },
+				});
 	};
 	ok(await answer("yes"));
 	assert.equal(await outOfDate(p), true);
