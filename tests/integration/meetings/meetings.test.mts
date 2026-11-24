@@ -751,9 +751,11 @@ test("AC:TARGET-MTG-011 AC:GAP-MTG-011 AC:B02-023 AC:B02-024 quick-add contacts 
 			mara.source,
 			mara.adult_classification,
 			mara.commitment_state,
+			mara.birth_date,
 		],
-		["Mara", null, null, null, null, "prospect", "meeting_guest_list", "unknown", "unknown"],
+		["Mara", null, null, null, null, "prospect", "meeting_guest_list", "unknown", "unknown", null],
 	);
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM commitment WHERE person_id=${mara.id}`), 0);
 	assert.deepEqual([created.guest.presence, created.guest.rsvp], ["absent", "pending"]);
 	const walkIn = { requestKey: key(), input: { meetingId: m.id, displayName: "Jamie" } };
 	const jamie = ok(await run(guests.createWalkInContact, walkIn));

@@ -73,6 +73,8 @@ test("AC:BKT60-004 the before-customer-data gate stays blocked while cost, host 
 			customer_data_gate: "blocked",
 			build_gate_from_backup: false,
 			missing: ["cost_approval", "host_schedule", "key_exclusion", "coherent_restore"],
+			daily_fallback_eligible: false,
+			second_provider_gate: false,
 			live_evidence_verified: false,
 			checked_at: "2026-10-13T16:00:00Z",
 		});

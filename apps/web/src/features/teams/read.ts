@@ -5,7 +5,7 @@ import { defineReads } from "../../server/platform/reads.ts";
 import { listResponsibilities, previewResponsibilities } from "./responsibilities/server.ts";
 import { outcomeOf } from "@everyfield/contracts/common";
 import { loadTeam, loadTeams, readCatalog, readExport, readHistory, readRevision } from "./server.ts";
-import { loadPersonTraining, loadTraining } from "./training/server.ts";
+import { loadPersonTraining, loadTraining, readAssignmentHistory } from "./training/server.ts";
 
 const team = z.strictObject({ teamId: z.string() });
 
@@ -15,7 +15,15 @@ export const GET = defineReads(plantSeat, "unavailable", (get) => ({
 		if (view.status === "failed") return { status: "lost" } as const;
 		return { status: "ok", value: view.status === "found" ? view : null } as const;
 	}),
-	history: get(team, async (v, { teamId }) => outcomeOf(await readHistory(v, teamId))),
+	history: get(team, async (v, { teamId }) => {
+		const [changes, training] = await Promise.all([readHistory(v, teamId), readAssignmentHistory(v, teamId)]);
+		const past = outcomeOf(training);
+		if (past.status !== "ok") return past;
+		const r = outcomeOf(changes);
+		return r.status === "ok"
+			? ({ status: "ok", value: { entries: r.value.entries, assignments: past.value.assignments } } as const)
+			: r;
+	}),
 	catalog: get(z.undefined(), async (v) => outcomeOf(await readCatalog(v))),
 	teams: get(z.undefined(), async (v) => ({ status: "ok", value: await loadTeams(v) }) as const),
 	chart: get(z.strictObject({ includeArchived: z.boolean() }), async (v, { includeArchived }) => {

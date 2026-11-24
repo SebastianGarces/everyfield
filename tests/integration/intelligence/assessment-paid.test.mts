@@ -7,6 +7,7 @@ import type {
 	LanguageModelV4CallOptions,
 } from "../../../packages/evry/node_modules/@ai-sdk/provider/dist/index.js";
 import { APICallError } from "../../../packages/evry/node_modules/ai/dist/index.js";
+import { instant } from "../../../packages/contracts/src/common/index.ts";
 import { draftOutput, languagePasses } from "../../../packages/contracts/src/intelligence/index.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import {
@@ -15,7 +16,7 @@ import {
 	runAssessmentBatch,
 	type Drafter,
 } from "../../../packages/domain/src/intelligence/index.ts";
-import { meteredAssessment } from "../../../packages/evry/src/runtime/assessment-model.ts";
+import { meteredAssessment, paidAssessment } from "../../../packages/evry/src/runtime/assessment-model.ts";
 import { paidModel } from "../../../packages/evry/src/runtime/model.ts";
 import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
 import { scriptedAssessmentDrafter, scriptedDraft } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
@@ -239,4 +240,87 @@ test("AC:PI-CASE-027 the paid judge grades plain, warm and useful wording, lists
 	await setCounter(CAP);
 	assert.deepEqual(await paid.judge(draft), { status: "judge_failed", detail: "model_unavailable" });
 	assert.equal(fake.requests.length, 4, "no judge call past the cap");
+});
+
+test("AC:ASMT-010 INV-spend: the shipped paid drafter sends one HTTP request per dispatch on 429 and 5xx, and with 1000 ms left a bad number and a bad citation use it up: no request starts past the deadline", async (t) => {
+	const p = await c.harvest("Deadline Chapel");
+	await setCounter(0);
+	await c.admin.execute(sql`DELETE FROM job WHERE kind='assessment'`);
+	let clockMs = Date.now() + 5000;
+	const clocked = createAssessmentJob({ clock: { now: () => instant.parse(new Date(clockMs).toISOString()) } });
+	let deadline = Infinity;
+	const sentAt: number[] = [];
+	const problems: string[] = [];
+	type Draft = ReturnType<typeof scriptedDraft>;
+	const reply = (status: number, body: object, headers: Record<string, string> = {}) =>
+		new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
+	const busy = (status: number, retryAfter?: number) => () =>
+		reply(
+			status,
+			{ error: { message: "busy", type: "server_error", param: null, code: null } },
+			retryAfter === undefined ? {} : { "retry-after": String(retryAfter) },
+		);
+	const drafted = (tookMs: number, change: (text: string) => string) => (body: { input: { content: unknown }[] }) => {
+		clockMs += tookMs;
+		const content = body.input.at(-1)!.content as { text: string }[];
+		const text = change(JSON.stringify(scriptedDraft(JSON.parse(content[0]!.text).input)));
+		return reply(200, {
+			id: "resp_1",
+			object: "response",
+			created_at: 1,
+			model: "gpt-6-luna",
+			output: [
+				{ type: "message", role: "assistant", id: "m1", content: [{ type: "output_text", text, annotations: [] }] },
+			],
+			usage: { input_tokens: 900, output_tokens: 400 },
+		});
+	};
+	const queue: ((body: never) => Response)[] = [];
+	t.mock.method(globalThis, "fetch", async (_: unknown, init: { body: string }) => {
+		sentAt.push(deadline - clockMs);
+		const next = queue.shift();
+		if (!next) {
+			problems.push("an unplanned request");
+			return reply(400, { error: { message: "unplanned", type: "x", param: null, code: null } });
+		}
+		return next(JSON.parse(init.body) as never);
+	});
+	const { drafter } = paidAssessment(c.db, { EVRY_MODEL: "gpt-6-luna", OPENAI_API_KEY: "sk-test-not-a-key" })!;
+	const requestId = randomUUID();
+	ok(await assessments.requestRefresh(c.db, p.actor, { requestId }));
+	const stored = () =>
+		c.one<StoredRun & { deadline_at: string }>(
+			sql`SELECT * FROM assessment_run WHERE plant_id=${p.id} AND demand_key=${"manual/" + requestId}`,
+		);
+
+	queue.push(busy(429, 60), busy(503, 3500));
+	await runAssessmentBatch(clocked, c.db, drafter, 1);
+	const first = await stored();
+	deadline = new Date(first.deadline_at).getTime();
+	assert.deepEqual([first.outcome, first.reason, first.attempts, sentAt.length], ["deferred", "busy", 1, 1]);
+	clockMs += 60_000;
+	await runAssessmentBatch(clocked, c.db, drafter, 1);
+	const second = await stored();
+	assert.deepEqual([second.outcome, second.reason, second.attempts, sentAt.length], ["deferred", "busy", 2, 2]);
+
+	clockMs = deadline - 1000;
+	const uncited = (text: string) => {
+		const d = JSON.parse(text) as Draft;
+		return JSON.stringify({ ...d, focus: { ...d.focus, citations: ["not.a.fact"] } });
+	};
+	queue.push(
+		drafted(600, (text) => text.replace("show 30 committed adults", "show 31 committed adults")),
+		drafted(600, uncited),
+		drafted(0, (text) => text),
+	);
+	await runAssessmentBatch(clocked, c.db, drafter, 1);
+	const last = await stored();
+	assert.deepEqual([last.outcome, last.reason, last.attempts, last.result], ["failed", "deadline", 4, null]);
+	const broke = last.drafts.map((d) => d.violations.map((v) => v.rule));
+	assert.equal(broke.length, 2);
+	assert.ok(broke[0]!.includes("invented_number") && broke[1]!.includes("invented_citation"), JSON.stringify(broke));
+	assert.deepEqual(sentAt.slice(2), [1000, 400], "no request starts past the deadline");
+	assert.equal(sentAt.length, last.attempts, "one request per dispatch: the SDK retries nothing");
+	assert.deepEqual(problems, []);
+	assert.equal((await view(p)).current, null);
 });

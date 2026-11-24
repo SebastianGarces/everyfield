@@ -11,6 +11,7 @@ import {
 import { validateCandidate } from "./recovery.mts";
 import { OPERATION, readCurrentManifest, restoreWithCurrentManifest } from "./restore.mts";
 import { BackupDirectory, COPY_OPERATION, createEncryptedCopy } from "./copy.mts";
+import { OPERATOR_COMMANDS, runOperator } from "./operator.mts";
 import { READINESS_OPERATION, readiness } from "./readiness.mts";
 
 const commands = [
@@ -35,16 +36,30 @@ async function main() {
 			out: { type: "string" },
 			recopy: { type: "string" },
 			evidence: { type: "string" },
+			config: { type: "string" },
+			copy: { type: "string" },
+			target: { type: "string" },
+			incident: { type: "string" },
+			subject: { type: "string" },
+			agents: { type: "string" },
+			keys: { type: "string", multiple: true },
+			current: { type: "string" },
+			load: { type: "boolean" },
+			history: { type: "boolean" },
 			help: { type: "boolean" },
 		},
 	});
 	if (values.help) {
 		console.log(
-			"Restricted development operations. Commands: migration-inspect, migration-apply, migration-adopt, backup-check, backup-copy, restore-rehearsal, readiness. Requires --control <private host-bound authorization file>. Adoption additionally requires --review <private reviewed per-file SHA-256 map>. restore-rehearsal requires --snapshot <private directory with manifest.json, image.json and objects/<id>> and restores into a fresh closed schema it drops afterwards. backup-copy requires --key <private 32-byte backup key file>, --out <private copy directory> and either --snapshot <directory> or --recopy <copy location in --out>. readiness reads --evidence <private evidence file> when given and reports the customer-data gate. No production action or provider setup.",
+			"Restricted development operations. Commands: migration-inspect, migration-apply, migration-adopt, backup-check, backup-copy, restore-rehearsal, readiness. Requires --control <private host-bound authorization file>. Adoption additionally requires --review <private reviewed per-file SHA-256 map>. restore-rehearsal requires --snapshot <private directory with manifest.json, image.json and objects/<id>> and restores into a fresh closed schema it drops afterwards. backup-copy requires --key <private 32-byte backup key file>, --out <private copy directory> and either --snapshot <directory> or --recopy <copy location in --out>. readiness reads --evidence <private evidence file> when given and reports the customer-data gate. The restricted backup and recovery commands backup-key-create, backup-capture, backup-daily, backup-expire, backup-status, bucket-probe, schedule-install, schedule-uninstall, restore-copy, restore-open and deletion-check take --config <private directory> instead and exit 2 when their check fails; docs/runbooks/recovery.md gives each one. No production action or provider setup.",
 		);
 		return;
 	}
 	const command = positionals[0];
+	if (positionals.length === 1 && command !== undefined && Object.hasOwn(OPERATOR_COMMANDS, command)) {
+		if (!(await runOperator(command, values))) process.exitCode = 2;
+		return;
+	}
 	if (positionals.length !== 1 || !commands.includes(command) || !values.control) throw Error("invalid_command");
 	const c = await loadControl(values.control, command);
 	if (command === "readiness") {

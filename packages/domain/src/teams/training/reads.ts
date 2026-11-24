@@ -236,6 +236,26 @@ export const trainingReader = {
 			return c.trainingHistory.parse({ personId: input.personId, credits: found.credits });
 		});
 	},
+	async readAssignmentHistory(db: Reader, authority: RequestActor, raw: unknown) {
+		return read(authority, async (viewer) => {
+			const input = parse(c.assignmentHistoryRequest, raw);
+			const found = await row(
+				db,
+				viewer,
+				sql`SELECT (SELECT plant_id FROM team WHERE id = ${input.teamId}::uuid) AS owner,
+					coalesce((SELECT json_agg(json_build_object('id', e.id, 'personName', e.person, 'programName', e.program,
+						'assignedOn', e.effective_on, 'endedOn', e.ended_on) ORDER BY e.ended_on DESC, e.person, e.id)
+					FROM (SELECT a.id, p.display_name AS person, g.name AS program, a.effective_on, a.ended_on
+						FROM training_assignment a
+						JOIN training_program g ON g.id = a.program_id AND g.plant_id = a.plant_id
+						JOIN person p ON p.id = a.person_id AND p.tenant_id = a.plant_id
+						WHERE a.plant_id = ${viewer.plantId}::uuid AND a.ended_on IS NOT NULL AND ${ownOrChurchWide(input.teamId)}
+						ORDER BY a.ended_on DESC, p.display_name, a.id LIMIT 200) e), '[]'::json) AS assignments`,
+			);
+			owner(viewer.plantId, found.owner);
+			return c.assignmentHistory.parse({ teamId: input.teamId, assignments: found.assignments });
+		});
+	},
 	async readHealth(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.staffingFactsRequest, raw);

@@ -14,6 +14,9 @@ async function read<T>(viewer: Seat, run: (db: Database, authority: Authority) =
 	return readDb("training", (db) => run(db, viewer.authority));
 }
 
+export const readAssignmentHistory = (viewer: Seat, teamId: string) =>
+	read(viewer, (db, authority) => trainingReader.readAssignmentHistory(db, authority, { teamId }));
+
 export async function loadTraining(viewer: Seat, teamId: string): Promise<Outcome<TrainingLoad>> {
 	const [list, matrix] = await Promise.all([
 		read(viewer, (db, authority) => trainingReader.listTraining(db, authority, { teamId })),
