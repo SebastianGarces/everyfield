@@ -407,3 +407,24 @@ test("INV-pipeline-reason: after an approval with a reason, the card's reads, re
 	]);
 	for (const { call, seen } of sent) assert.equal(seen.includes(REASON), call === "POST approve", `${call}: ${seen}`);
 });
+
+test("INV-review-footer: a view change gives the card a new footer element, so a focused control never turns into another one; a render in the same view keeps it", async () => {
+	recorded(() => new Error("offline"));
+	const at = await card(move());
+	const footerOf = (label: string) => {
+		const control = at.byTag("BUTTON").find((n) => n.textContent.trim() === label);
+		assert.ok(control, `no ${label} in: ${at.text()}`);
+		return { control, footer: control.parentNode };
+	};
+	const first = footerOf("Cancel");
+	await at.run(() => propsOf(at.byTag("TEXTAREA")[0]!).onChange?.({ target: { value: REASON } }));
+	const typing = footerOf("Cancel");
+	assert.ok(typing.footer === first.footer && typing.control === first.control, "the same view keeps the footer");
+
+	await at.click("Approve");
+	const unknown = footerOf("Check again");
+	assert.ok(unknown.footer !== first.footer, "another view has a footer of its own");
+	assert.ok(unknown.footer?.contains(unknown.control));
+	assert.ok(!at.all().includes(first.control), "no control of the old view stays");
+	await at.unmount();
+});

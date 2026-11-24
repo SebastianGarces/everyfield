@@ -7,7 +7,7 @@ class FakeNode extends EventTarget {
 	childNodes: FakeNode[] = [];
 	parentNode: FakeNode | null = null;
 	attributes = new Map<string, string>();
-	style: Record<string, string> = {};
+	style: Record<string, unknown> = { setProperty() {}, removeProperty() {} };
 	nodeValue: string | null = null;
 	constructor(
 		public nodeName: string,
@@ -61,6 +61,9 @@ class FakeNode extends EventTarget {
 	}
 	querySelector() {
 		return null;
+	}
+	get options() {
+		return this.all().filter((n) => n.tagName === "OPTION");
 	}
 	all(): FakeNode[] {
 		return this.childNodes.flatMap((c) => [c, ...c.all()]);
@@ -131,7 +134,9 @@ export async function mount(type: unknown, props: Record<string, unknown>) {
 			await step();
 			for (let turn = 0; turn < 5; turn++) await settle();
 		});
-	await run(() => root.render(createElement(AppRouterContext.Provider, { value: router }, createElement(type, props))));
+	const render = (next: Record<string, unknown>) =>
+		run(() => root.render(createElement(AppRouterContext.Provider, { value: router }, createElement(type, next))));
+	await render(props);
 	const byTag = (tag: string) => container.all().filter((n) => n.tagName === tag);
 	const button = (label: string) => {
 		const found = byTag("BUTTON").find((n) => n.textContent.trim() === label);
@@ -140,7 +145,9 @@ export async function mount(type: unknown, props: Record<string, unknown>) {
 	};
 	return {
 		byTag,
+		all: () => container.all(),
 		run,
+		update: render,
 		text: () => container.textContent,
 		lines: () => linesOf(container),
 		click: (label: string) =>

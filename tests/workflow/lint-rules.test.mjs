@@ -3819,6 +3819,175 @@ export const f = { id: "a" } satisfies X;
 	assert.match(hits[0], /Type the value at its source, or narrow it with a check/);
 });
 
+test("INV-lint: a JSX ref made new on every render is reported, inline, declared in the component, in a branch, composed or returned by a call; stable refs and marketing pass", () => {
+	const source = `import { useCallback, useMemo, useRef } from "react";
+import { revealRef } from "@/components/motion/Reveal";
+import { mergeRefs, useTarget } from "./refs.ts";
+const focus = (el) => el?.focus();
+const attachTo = (id) => (el) => el?.setAttribute("id", id);
+const pick = (up) => (up ? focus : undefined);
+const REFS = { focus };
+const made = <p ref={(el) => el?.focus()} />;
+export function Bad({ id, on, store, ref = (el) => el?.focus() }) {
+	const attach = (el) => el?.focus();
+	function declared(el) { el?.focus(); }
+	const held = { attach };
+	const uncached = useCallback((el) => el?.focus());
+	let late = null;
+	late = (el) => el?.focus();
+	return [
+		<p ref={(el) => void el} />,
+		<p ref={(el) => revealRef()(el)} />,
+		<p ref={attach} />,
+		<p ref={declared} />,
+		<p ref={on ? attach : undefined} />,
+		<p ref={on && attach} />,
+		<p ref={store.ref ?? attach} />,
+		<p ref={mergeRefs(store.ref, focus)} />,
+		<p ref={useTarget ? attachTo(id) : undefined} />,
+		<p ref={store.compose(attach)} />,
+		<p ref={focus.bind(null)} />,
+		<p ref={held.attach} />,
+		<p ref={uncached} />,
+		<p ref={late} />,
+		<p ref={ref} />,
+		id.map((x) => <p ref={attach as never} key={x} />),
+	];
+}
+export function Good({ on, store, ref, id }) {
+	const box = useRef(null);
+	const cached = useCallback((el) => revealRef()(el), []);
+	const memo = useMemo(() => attachTo(id), [id]);
+	const { track } = store;
+	return [
+		<p ref={focus} />,
+		<p ref={box} />,
+		<p ref={cached} />,
+		<p ref={memo} />,
+		<p ref={track} />,
+		<p ref={store.actions.attach} />,
+		<p ref={store.refFor(id)} />,
+		<p ref={useTarget(id)} />,
+		<p ref={revealRef(on)} />,
+		<p ref={pick(on)} />,
+		<p ref={on ? cached : undefined} />,
+		<p ref={ref ?? box} />,
+		<p ref={REFS.focus} />,
+		<p onClick={() => focus(null)} />,
+	];
+}
+export const make = (tag) => {
+	const bind = (el) => el?.setAttribute("data-tag", tag);
+	return function Made() {
+		return <p ref={bind} />;
+	};
+};
+`;
+	const factory = `export const revealRef = (up) => (el) => el?.setAttribute("data-up", up);
+export const Reveal = ({ up }) => <div ref={revealRef(up)} />;
+`;
+	const files = {
+		"apps/web/src/features/x/Panel.tsx": source,
+		"packages/ui/src/shell/Panel.tsx": source,
+		"apps/web/src/components/motion/Reveal.tsx": factory,
+		"apps/web/src/marketing/home/Panel.tsx": source,
+	};
+	const lines = Array.from({ length: 16 }, (_, i) => 17 + i);
+	assert.deepEqual(
+		lint(files).filter((hit) => hit.endsWith(" stable-ref")),
+		[
+			...["apps/web/src/features/x/Panel.tsx", "packages/ui/src/shell/Panel.tsx"].flatMap((file) =>
+				lines.map((line) => `${file}:${line} stable-ref`),
+			),
+			"apps/web/src/components/motion/Reveal.tsx:2 stable-ref",
+		].sort(),
+	);
+});
+
+test("INV-lint: a read of the browser clock in the review card's folder is reported, called, aliased or passed on; formatting a server instant is not", () => {
+	const source = `const { now: tick } = performance;
+const read = Date.now;
+export const reads = () => [
+	Date.now(),
+	new Date(),
+	Date(),
+	performance.now(),
+	new globalThis.Date(),
+];
+export const passed = (start: (clock: () => number) => void) => start(Date.now);
+export const shown = (iso: string, now: string) => [new Date(iso), Date.parse(now), Date.UTC(2026, 0, 1), tick, read];
+`;
+	const review = "apps/web/src/features/evry/review/ReviewCard.tsx";
+	const hits = lint({ [review]: source, "apps/web/src/features/evry/conversation/Panel.tsx": source });
+	assert.deepEqual(
+		hits.filter((hit) => hit.endsWith(" server-clock")),
+		[1, 2, 4, 5, 6, 7, 8, 10].map((line) => `${review}:${line} server-clock`).sort(),
+	);
+	assert.deepEqual(
+		lint({ "apps/web/src/features/evry/review/model.ts": "export const at = () => new Date();\n" }).filter((hit) =>
+			hit.endsWith(" server-clock"),
+		),
+		["apps/web/src/features/evry/review/model.ts:1 server-clock"],
+	);
+});
+
+test("INV-lint: scrollIntoView in the Wiki is reported, called, optional, computed or destructured; setting scrollTop is not", () => {
+	const source = `export function keep(el: HTMLElement, current: HTMLElement | null) {
+	current?.scrollIntoView();
+	el["scrollIntoView"]({ block: "nearest" });
+	const { scrollIntoView } = el;
+	el.scrollTop += 4;
+	return scrollIntoView;
+}
+`;
+	const wiki = "apps/web/src/features/wiki/client.tsx";
+	assert.deepEqual(
+		lint({ [wiki]: source, "apps/web/src/features/people/list.tsx": source }).filter((hit) =>
+			hit.endsWith(" no-scroll-into-view"),
+		),
+		[2, 3, 4].map((line) => `${wiki}:${line} no-scroll-into-view`),
+	);
+});
+
+test("INV-lint: a date formatted with no explicit time zone in meetings, launch or oversight is reported; a zoned date and a number are not", () => {
+	const source = `const SHORT = { month: "short" } as const;
+const ZONED = (zone: string) => ({ month: "short", timeZone: zone }) as const;
+const F = Intl.DateTimeFormat;
+export const bad = (x: string, at: Date, anything: { toLocaleString(a: string, b: object): string }) => [
+	new Intl.DateTimeFormat("en-US", { month: "short" }).format(at),
+	Intl.DateTimeFormat("en-US").format(at),
+	new F("en-US", SHORT).format(at),
+	new Date(x).toLocaleDateString("en-US"),
+	at.toLocaleTimeString("en-US", { hour: "numeric" }),
+	at.toLocaleString("en-US"),
+	new Date(x).toLocaleString(),
+	anything.toLocaleString("en-US", { dateStyle: "medium" }),
+	at.toLocaleDateString("en-US", { timeZone: undefined }),
+	at?.toLocaleDateString("en-US", ZONED),
+];
+export const good = (n: number, at: Date, timeZone: string) => {
+	const options = { month: "short", timeZone } as const;
+	return [
+		n.toLocaleString("en-US"),
+		n.toLocaleString("en-US", { style: "currency", currency: "USD" }),
+		new Intl.NumberFormat("en-US").format(n),
+		new Intl.DateTimeFormat("en-US", { month: "short", timeZone }).format(at),
+		new Intl.DateTimeFormat("en-US", options).format(at),
+		at.toLocaleDateString("en-US", { timeZone: "UTC" }),
+		at.toLocaleString("en-US", { timeZone }),
+	];
+};
+`;
+	const folders = ["meetings", "launch", "oversight"].map((name) => `apps/web/src/features/${name}/Dates.tsx`);
+	const files = Object.fromEntries([...folders, "apps/web/src/features/people/Dates.tsx"].map((f) => [f, source]));
+	assert.deepEqual(
+		lint(files).filter((hit) => hit.endsWith(" explicit-time-zone")),
+		folders
+			.flatMap((file) => [5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((line) => `${file}:${line} explicit-time-zone`))
+			.sort(),
+	);
+});
+
 test("INV-spend: only the composition root loads the scripted Evry package, and only by a dynamic import", () => {
 	const code = `import { scriptedModel } from "@everyfield/evry-scripted";
 export { scriptedDraft } from "@everyfield/evry-scripted";
