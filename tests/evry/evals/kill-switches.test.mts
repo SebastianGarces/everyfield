@@ -7,9 +7,10 @@ import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor, type QualifiedModel } from "../../../packages/evry/src/index.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { EvryRefusal } from "../../../packages/evry/src/context/errors.ts";
-import { readSwitches, setFlag, type KillSwitch } from "../../../packages/domain/src/flags/index.ts";
+import { readSwitches, type KillSwitch } from "../../../packages/domain/src/flags/index.ts";
 import { endNotice, sendNotice, type TurnEnd } from "../../../apps/web/src/features/evry/conversation/model.ts";
 import { sql } from "../../../packages/db/src/query.ts";
+import { withSwitchOff } from "../../support/flags.mts";
 import { goldenChurch, type GoldenChurch } from "./golden-church.mts";
 import { converse, MAIL, recorder, type Turn } from "./golden-harness.mts";
 
@@ -36,16 +37,6 @@ after(async () => {
 	await church?.close();
 });
 
-async function off<T>(name: KillSwitch, body: () => Promise<T>): Promise<T> {
-	const operator = church.actors.owner.accountId;
-	await setFlag(church.db, { flag: name, scope: { kind: "global" }, value: false, operator });
-	try {
-		return await body();
-	} finally {
-		await setFlag(church.db, { flag: name, scope: { kind: "global" }, value: null, operator });
-	}
-}
-
 test("KILL-01 with Evry's model calls off, a natural question gets the paused answer and Evry makes zero model calls", async () => {
 	const c = byId("KILL-01");
 	const owner = church.actors.owner;
@@ -60,7 +51,7 @@ test("KILL-01 with Evry's model calls off, a natural question gets the paused an
 	};
 	const queued = await createConversation(church.db, owner, { requestKey: randomUUID() });
 	await submitTurn(church.db, owner, queued.id, { requestKey: randomUUID(), text: c.question });
-	await off(c.switch, async () => {
+	await withSwitchOff(church.db, { flag: c.switch, operator: church.actors.owner.accountId }, async () => {
 		const [claim] = await claimDue(church.db, ["assistant_turn"], 1, 240);
 		assert.ok(claim);
 		const lease = {
@@ -95,21 +86,25 @@ test("KILL-01 with Evry's model calls off, a natural question gets the paused an
 test("KILL-02 with outbound mail off, asking Evry to schedule an email gets an honest paused answer and nothing is sent", async () => {
 	const c = byId("KILL-02");
 	const sends: unknown[] = [];
-	const answer = await off(c.switch, async () => {
-		const paused = !(await readSwitches(church.db))["outbound-mail"];
-		const mail = {
-			...MAIL,
-			transport: {
-				...MAIL.transport,
-				paused,
-				send: async (batch: unknown) => (sends.push(batch), { outcome: "refused" as const }),
-			},
-		};
-		return converse(church, "owner", c.question, c.eval.history ?? [], [], undefined, undefined, [], 1, {
-			recordings: recorded,
-			mail,
-		});
-	});
+	const answer = await withSwitchOff(
+		church.db,
+		{ flag: c.switch, operator: church.actors.owner.accountId },
+		async () => {
+			const paused = !(await readSwitches(church.db))["outbound-mail"];
+			const mail = {
+				...MAIL,
+				transport: {
+					...MAIL.transport,
+					paused,
+					send: async (batch: unknown) => (sends.push(batch), { outcome: "refused" as const }),
+				},
+			};
+			return converse(church, "owner", c.question, c.eval.history ?? [], [], undefined, undefined, [], 1, {
+				recordings: recorded,
+				mail,
+			});
+		},
+	);
 	const failures: string[] = [];
 	for (const expected of c.eval.proposals ?? []) {
 		const card = answer.proposals.find((p) => p.operation === expected.operation);

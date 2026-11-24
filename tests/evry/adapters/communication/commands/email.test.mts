@@ -40,7 +40,8 @@ import {
 	teardown,
 } from "../../../runtime/support.mts";
 import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
-import { readSwitches, setFlag } from "../../../../../packages/domain/src/flags/index.ts";
+import { readSwitches } from "../../../../../packages/domain/src/flags/index.ts";
+import { capturedLines, withSwitchOff } from "../../../../support/flags.mts";
 
 const CALLBACK_SECRET = "whsec_" + randomBytes(32).toString("base64");
 function signedCallback(messageId: string, kind: string) {
@@ -1317,9 +1318,6 @@ test("each read and effect stays within its budget in limits.json and no transac
 test("with outbound-mail off, Evry refuses to prepare or approve a send, refuses an approved one before it runs, and sends nothing; back on, the send goes out", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
-	const operator = accounts.owner.id;
-	const flip = (value: boolean | null) =>
-		setFlag(db, { flag: "outbound-mail", scope: { kind: "global" }, value, operator });
 	const portFor = async (): Promise<MailPort> => ({
 		...service.port,
 		transport: { ...service.port.transport, paused: !(await readSwitches(db))["outbound-mail"] },
@@ -1341,11 +1339,7 @@ test("with outbound-mail off, Evry refuses to prepare or approve a send, refuses
 	assert.ok(ready && queued);
 	await approveProposal(db, owner, queued.id, { revision: queued.revision, digest: queued.digest }, null, service.port);
 	const proposals = async () => (await rows(sql`SELECT count(*)::int n FROM proposal`))[0]!.n;
-	const logged: string[] = [];
-	const write = console.error;
-	console.error = (line: unknown) => void logged.push(String(line));
-	await flip(false);
-	try {
+	const whilePaused = async () => {
 		const paused = await portFor();
 		const before = await proposals();
 		await assert.rejects(
@@ -1390,12 +1384,12 @@ test("with outbound-mail off, Evry refuses to prepare or approve a send, refuses
 			"no schedule was written",
 		);
 		assert.equal(service.calls.send.length, 0, "no send reached the email service");
-	} finally {
-		console.error = write;
-		await flip(null);
-	}
+	};
+	const { lines } = await capturedLines(() =>
+		withSwitchOff(db, { flag: "outbound-mail", operator: accounts.owner.id }, whilePaused),
+	);
 	assert.deepEqual(
-		logged.map((l) => JSON.parse(l)),
+		lines,
 		[...Array<string>(4).fill("evry.prepareProposal"), "evry.approveProposal", "evry.executeProposal"].map(
 			(action) => ({
 				component: "kill-switch",
@@ -1448,13 +1442,7 @@ test("with outbound-mail off, a retry of a send that already reached the email s
 	await loseOutcome(proposal.id);
 	await retryUnresolvedEffects(db, owner, proposal.id);
 	const paused = { ...service.port, transport: { ...service.port.transport, paused: true } };
-	const write = console.error;
-	console.error = () => undefined;
-	try {
-		assert.equal(await runNext(paused), "failed");
-	} finally {
-		console.error = write;
-	}
+	await capturedLines(async () => assert.equal(await runNext(paused), "failed"));
 	assert.equal((await readReview(db, owner, proposal.id)).outcome, "unknown", "the outcome stays open");
 	await retryUnresolvedEffects(db, owner, proposal.id);
 	assert.equal(await runNext(service.port), "completed");
