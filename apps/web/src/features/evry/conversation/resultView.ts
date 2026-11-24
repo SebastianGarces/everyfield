@@ -559,6 +559,44 @@ const VIEWS: Record<string, OpView> = {
 		counts: "template",
 		empty: "No email template is available.",
 	},
+	"communication.forMeeting": {
+		title: "Emails about a meeting",
+		noun: ["email", "emails"],
+		icon: "message",
+		counts: "message",
+		empty: "No meeting matches, or Messages has no email about it.",
+	},
+	"communication.meetingRecipientTracking": people("Who got the meeting's emails", {
+		icon: "message",
+		empty: "No meeting matches, or no email about it has gone to anyone.",
+	}),
+	"communication.deliveryTotals": {
+		title: "Delivery totals",
+		noun: ["email", "emails"],
+		icon: "message",
+		counts: "tally",
+		quiet: true,
+		empty: "No email in Messages matches, or you can't see it.",
+	},
+	"communication.listAudienceTeams": {
+		title: "Teams you can email",
+		noun: ["team", "teams"],
+		icon: "team",
+		counts: "team",
+		empty: "This church has no team an email can go to yet.",
+	},
+	"communication.searchRecipients": people("Who can get email", {
+		icon: "message",
+		empty: "No live person in this church matches.",
+	}),
+	"mail.suppression.listForSelf": {
+		title: "Your email address",
+		noun: ["address", "addresses"],
+		icon: "setting",
+		counts: "setting",
+		quiet: true,
+		empty: "Your account's email address isn't verified.",
+	},
 	"communication.resendCandidates": people("Resend", {
 		icon: "message",
 		shownOnly: true,
@@ -815,6 +853,21 @@ const RESULT: Record<string, string> = {
 	failed: "Not sent",
 	cancelled: "Cancelled",
 	unsubscribed: "Unsubscribed, not sent",
+};
+const CAN_EMAIL: Record<string, string> = {
+	can_email: "Can get email",
+	no_address: "No email address",
+	unsubscribed: "Unsubscribed from this church's email",
+};
+const MESSAGE_STATE: Record<string, string> = {
+	draft: "Draft",
+	scheduled: "Scheduled",
+	held: "Held",
+	sending: "Sending",
+	sent: "Sent",
+	cancelled: "Cancelled",
+	failed: "Failed",
+	unknown: "Not confirmed",
 };
 const HOUSEHOLD_DETAIL = new Set(["people.getHousehold", "people.getHouseholdMembers"]);
 const ROLE: Record<string, string> = { head: "Head", spouse: "Spouse", child: "Child", other: "Other" };
@@ -1338,6 +1391,20 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "template",
 			};
 		case "message":
+			if (operation === "communication.forMeeting")
+				return {
+					...plain,
+					name: row.label,
+					line: joined(
+						label(MESSAGE_STATE, fields.state) ?? text(fields.state),
+						text(fields.sentAt)
+							? `Sent ${text(fields.sentAt)}`
+							: text(fields.scheduledFor)
+								? `Sends ${text(fields.scheduledFor)}`
+								: null,
+					),
+					avatar: null,
+				};
 			if (typeof fields.result === "string")
 				return {
 					...plain,
@@ -1366,6 +1433,22 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "task":
 			return taskView(operation, row, key);
 		case "tally": {
+			if (operation === "communication.deliveryTotals")
+				return {
+					...plain,
+					name: row.label,
+					line: joined(
+						`Sent ${num(fields.sent)} of ${num(fields.recipients)}`,
+						`Delivered ${num(fields.delivered)}`,
+						`Opened ${num(fields.opened)}`,
+						`Bounced ${num(fields.bounced)}`,
+						`Failed ${num(fields.failed)}`,
+						`Unsubscribed ${num(fields.unsubscribed)}`,
+						`Still being checked ${num(fields.stillChecking)}`,
+						text(fields.asOf) ? `As of ${text(fields.asOf)}` : null,
+					),
+					avatar: "tally",
+				};
 			const n = num(fields.count);
 			const done = num(fields.complete);
 			return {
@@ -1378,6 +1461,13 @@ function rowView(operation: string, row: SourceRow): RowView {
 			};
 		}
 		case "history":
+			if (operation === "mail.suppression.listForSelf")
+				return {
+					...plain,
+					name: "Restored",
+					line: joined(text(fields.at), text(fields.by) ? `By ${fields.by}` : null, text(fields.reason)),
+					avatar: "history",
+				};
 			return {
 				...plain,
 				name: fields.from ? `${label(TASK_STATUS, fields.from)} → ${label(TASK_STATUS, fields.to)}` : "Created",
@@ -1691,6 +1781,13 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "notice",
 			};
 		case "setting": {
+			if (operation === "mail.suppression.listForSelf")
+				return {
+					...plain,
+					name: row.label,
+					line: fields.blocked ? "Blocked from Everyfield email. Restore it in Messages." : "Not blocked",
+					avatar: "setting",
+				};
 			const cadence = text(fields.cadence);
 			return {
 				...plain,
@@ -1826,6 +1923,16 @@ function rowView(operation: string, row: SourceRow): RowView {
 						: "Has an open follow-up"
 					: (COVERAGE[String(fields.coverage)] ?? null),
 			mark: typeof fields.stage === "string" ? { kind: "stage", stage: fields.stage } : null,
+			avatar: "person",
+			photoFor: row.id,
+			href,
+		};
+	if (operation === "communication.searchRecipients")
+		return {
+			key,
+			name: row.label,
+			line: CAN_EMAIL[String(fields.email)] ?? String(fields.email),
+			mark: null,
 			avatar: "person",
 			photoFor: row.id,
 			href,

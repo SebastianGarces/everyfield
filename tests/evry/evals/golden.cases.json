@@ -1278,21 +1278,19 @@
 		"expected_answer": "Full alpha target: the recorded household address authorized for the same actor in the native app; clarify ambiguity or missing data",
 		"must_not": "Print an address from memory or another source",
 		"eval": {
+			"as": "admin",
 			"calls": [
 				{
 					"operation": "people.getHousehold",
 					"alsoAccepted": ["people.listHouseholds", "people.getHouseholdMembers", "people.listPeople"]
 				}
 			],
-			"forbid": ["/\\b\\d{2,5}\\s+[A-Z][a-z]+\\s+(St|Street|Ave|Avenue|Rd|Road|Dr|Drive|Ln|Lane|Blvd|Way|Ct)\\b/"],
-			"require": [
-				"/address|street/i",
-				"/\\b(can['’]?t|cannot|can not|unable|don['’]?t|doesn['’]?t|do not|does not|not|no way|only|isn['’]?t|aren['’]?t|wasn['’]?t|weren['’]?t)\\b/i"
-			],
+			"require": ["418 Maple Ave", "/Pflugerville/"],
 			"target": {
 				"require": ["418 Maple Ave"]
 			},
-			"derivation": "The Thompson household's recorded street is 418 Maple Ave; today's read excludes it, so the target is an alpha gap."
+			"derivation": "The Thompson household's recorded address, 418 Maple Ave, Pflugerville, from the native household read the People screens use; no other household's street.",
+			"forbid": ["/77 Birch/"]
 		}
 	},
 	{
@@ -1342,17 +1340,29 @@
 		"area": "Launch / phases",
 		"case_id": "LCH-02",
 		"question": "are we ready to launch?",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `phases.readReadiness`, `launch.readWorkspace`",
 		"expected_answer": "Later: criteria met and unmet with evidence; readiness is the planter's call",
 		"must_not": "Say yes or no on its own judgment",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/\\byou['’]?(re| are) (not )?(ready|on track)\\b/i"],
-			"finding": {
-				"checks": ["classified application", "names the missing launch capability"],
-				"note": "evry.classifyRequest labels 'are we ready to launch?' pastoral_boundary, so it gets the pastoral reply."
-			}
+			"offer": ["launch.readWorkspace"],
+			"calls": [{ "operation": "launch.readWorkspace" }, { "operation": "phases.readReadiness" }],
+			"only": ["launch.readWorkspace", "phases.readReadiness", "phases.readHistory", "phases.readCatalog"],
+			"require": [
+				"/Prayer and fasting/i",
+				"/Promotion plan chosen/i",
+				"/Confirm the school rental|Order launch banners|Research sound systems/i",
+				"/\\b(1|one) of (3|three)\\b/i",
+				"/30 committed adults/i",
+				"/no data/i",
+				"/your (call|decision)|up to you|you decide|planter['’]?s call/i"
+			],
+			"forbid": [
+				"/\\byou['’]?(re| are) (not )?(ready|on track)\\b/i",
+				"/\\b(you(?:'re| are) ready|(?:is|are) ready (?:to|for) launch|ready to launch|launch[- ]ready|cleared to launch|should (?:now )?(?:launch|move (?:on )?to phase|advance))\\b/i",
+				"/\\bon track\\b|\\bnot ready\\b|\\bare ready\\b/i"
+			],
+			"derivation": "Only this case is offered launch.readWorkspace (D-2192). The Launch plan (golden-church.mts seedLaunchPlan) has no date and nine readiness milestones: Prayer and fasting underway (Oct 5, 2026) and Promotion plan chosen (Oct 20, 2026) completed by Nate Ellis; the other seven open, three with an open linked task (Research sound systems, Confirm the school rental, Order launch banners, the last two overdue); Three pre-launch services held reads 1 of 3 (the Oct 31 Launch rehearsal). Phase readiness for leaving Core Group Development: 30 committed adults not met, the other four criteria no data yet. The answer gives each as met or not with its evidence and says readiness is the planter's call, never that the church is or isn't ready. The second forbid pattern is the readiness_verdict wording in packages/domain/src/intelligence/checks.ts."
 		}
 	},
 	{
@@ -2347,7 +2357,8 @@
 				"text": "Casey Morgan",
 				"require": ["{Casey Morgan.email}", "{Casey Morgan.phone}"]
 			},
-			"derivation": "Today: one clarification, no email. Target (Sebastian, 7 Nov: \"Should get phone and email\"): once Casey Morgan is chosen, the Admin gets her recorded email and phone."
+			"derivation": "Base: one clarification between the two Caseys from a list whose rows hold no email or phone, so neither Casey's contact values reach the model or the answer. Target (Sebastian, 7 Nov: \"Should get phone and email\"): once Casey Morgan is chosen, the Admin gets her recorded email and phone from the native person read.",
+			"neverSent": ["{Casey Morgan.email}", "{Casey Morgan.phone}", "{Casey Brooks.email}", "{Casey Brooks.phone}"]
 		}
 	},
 	{
