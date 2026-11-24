@@ -6,6 +6,7 @@ import type { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import type { EffectResult, NativeContext, NativePorts, ReviewContext, ReviewedWrite } from "../proposals/types.ts";
 import type { RequestActor, WriteTx } from "@everyfield/domain/access";
+import { DomainRefusal } from "@everyfield/domain/operations";
 
 export const plantAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
@@ -32,20 +33,13 @@ export function patchChanges(patch: Record<string, unknown>, columns: Record<str
 		FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) k(n int,field text,col text,after jsonb))`;
 }
 
-export function refusalOf(error: unknown): string | null {
-	if (!(error instanceof Error)) return null;
-	const code = (error as { code?: unknown }).code;
-	if (typeof code === "string" && /^[a-z_]{3,40}$/.test(code)) return code;
-	return /^[a-z_]{3,40}$/.test(error.message) ? error.message : null;
-}
-
 export function settled<T>(reply: { status: "ok"; value: T } | { status: "refused"; error: { code: string } }): T {
 	if (reply.status === "ok") return reply.value;
-	throw Object.assign(new Error(reply.error.code), { code: reply.error.code });
+	throw new DomainRefusal(reply.error.code);
 }
 
 export function committed<T extends { status: string }>(result: T): T {
-	if (result.status === "unavailable") throw new Error("unavailable");
+	if (result.status === "unavailable") throw new DomainRefusal("unavailable");
 	return result;
 }
 
@@ -111,8 +105,7 @@ export function nativeWrite<I>(spec: {
 				);
 				return { ...receipt, revision: receipt?.revision ?? "1" };
 			} catch (error) {
-				const code = refusalOf(error);
-				if (code) return { refused: code };
+				if (error instanceof DomainRefusal) return { refused: error.code };
 				throw error;
 			}
 		},
