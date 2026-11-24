@@ -75,7 +75,7 @@ export const peopleCounts = z.strictObject({
 });
 export const taskCounts = z.strictObject({ open: count, overdue: count });
 const meetingAttendance = z.strictObject({ date: localDate, attended: count.nullable() });
-export function attendanceOf(meetings: readonly z.infer<typeof meetingAttendance>[]): {
+export function attendanceOf(meetings: readonly Pick<z.infer<typeof meetingAttendance>, "attended">[]): {
 	known: number;
 	total: number | null;
 } {

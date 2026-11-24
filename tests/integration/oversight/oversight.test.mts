@@ -335,9 +335,7 @@ test("the attended total covers only finalized meetings and is null when none is
 		return [counts!.attendedTotal, counts!.meetings.map((m) => m.attended)];
 	};
 	const finalize = (date: string) =>
-		S.db.execute(
-			sql`UPDATE meeting SET finalized_at=clock_timestamp() WHERE plant_id=${Q2.id} AND local_date=${date}`,
-		);
+		S.db.execute(sql`UPDATE meeting SET finalized_at=clock_timestamp() WHERE plant_id=${Q2.id} AND local_date=${date}`);
 	const people = [];
 	for (const name of ["Bayou One", "Bayou Two", "Bayou Three"]) people.push(await person(Q2, name));
 	await meeting(Q2, "2026-08-04", people, false);

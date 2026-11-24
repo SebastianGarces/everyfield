@@ -481,7 +481,9 @@ function organizationStep(options: LanguageModelV4CallOptions, text: string, sys
 	const named = (name: string) =>
 		(plants?.rows ?? []).find((r) => r.label.toLowerCase().includes(name.toLowerCase().replace(/^the\s+/, "")));
 	const cadence = /\bsend my oversight digest (daily|weekly)\b/i;
-	const asked = [CHANNEL, cadence, REGION, PEOPLE_AT, MEETINGS_AT, PATTERNS, PLANTS, NEAR_LAUNCH].some((r) => r.test(text));
+	const asked = [CHANNEL, cadence, REGION, PEOPLE_AT, MEETINGS_AT, PATTERNS, PLANTS, NEAR_LAUNCH].some((r) =>
+		r.test(text),
+	);
 	if (!asked) return null;
 	if (proposed(outputs)) return say(REVIEW);
 
