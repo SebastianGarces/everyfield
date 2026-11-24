@@ -147,6 +147,7 @@
 				"tests/ui/**/*.mts",
 				"tests/evry/**",
 				"tests/integration/dashboard/**",
+				"tests/integration/documents/**",
 				"tests/integration/feedback/**",
 				"tests/integration/meetings/**",
 				"tests/integration/notifications/**",

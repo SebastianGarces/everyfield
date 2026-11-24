@@ -3,6 +3,7 @@ import test from "node:test";
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
 import { PDFDocument, PDFName } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
 import { docDocument, forkTemplate, type DocDocument } from "../../../packages/contracts/src/documents/format/index.ts";
+import { recordId } from "../../../packages/contracts/src/common/values.ts";
 import type { BrandKitData } from "../../../packages/contracts/src/branding/index.ts";
 import {
 	documentBrand,
@@ -16,22 +17,30 @@ import { MIN_BODY, ratio, textOn } from "../../../packages/domain/src/documents/
 import { docxMedia } from "./fixtures/readers.mts";
 import { createHash } from "node:crypto";
 
-const kit = (patch: Partial<BrandKitData> = {}): BrandKitData =>
-	({
-		primaryColor: "#1F4E6B",
-		accentColor: "#D4731A",
-		headingFont: "dm-serif-display",
-		bodyFont: "dm-sans",
-		assets: {
-			full_logo: { fileId: "11111111-1111-4111-8111-111111111111", alt: "Logo" },
-			full_logo_dark: null,
-			mark: null,
-			mark_dark: null,
-			cover_photo: { fileId: "22222222-2222-4222-8222-222222222222", alt: "Cover" },
-			signature: null,
-		},
-		...patch,
-	}) as unknown as BrandKitData;
+const kit = (patch: Partial<BrandKitData> = {}): BrandKitData => ({
+	primaryColor: "#1F4E6B",
+	accentColor: "#D4731A",
+	headingFont: "DM Serif Display",
+	bodyFont: "DM Sans",
+	legalName: null,
+	address: null,
+	website: null,
+	phone: null,
+	email: null,
+	ein: null,
+	tagline: null,
+	signerName: null,
+	signerTitle: null,
+	assets: {
+		full_logo: { fileId: recordId.parse("11111111-1111-4111-8111-111111111111"), alt: "Logo" },
+		full_logo_dark: null,
+		mark: null,
+		mark_dark: null,
+		cover_photo: { fileId: recordId.parse("22222222-2222-4222-8222-222222222222"), alt: "Cover" },
+		signature: null,
+	},
+	...patch,
+});
 
 test("AC:CASE-BRD-006 the brand of a document is the palette the PDF paints, and the kit's images it may show", () => {
 	const themed = documentBrand(kit(), true);
@@ -91,7 +100,7 @@ test("AC:CASE-BRD-006 an image node prints the full logo, the mark or the cover 
 	const base = await forkTemplate(docTemplateById("conflict-of-interest-policy")!, {
 		data: { church_name: "Harbor City Church", church_legal_name: "Harbor City Church, Inc." },
 	});
-	const doc = {
+	const doc: DocDocument = {
 		...base,
 		body: {
 			type: "doc",
@@ -100,7 +109,7 @@ test("AC:CASE-BRD-006 an image node prints the full logo, the mark or the cover 
 				attrs: { source, width: 120, height: source === "photo" ? 80 : 40 },
 			})),
 		},
-	} as unknown as DocDocument;
+	};
 	assert.ok(docDocument.safeParse(doc).success, "the document parses");
 	const pdf = await PDFDocument.load((await renderDocPdf(doc, theme.render)).bytes);
 	const sizes: number[][] = [];

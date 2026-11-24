@@ -1,6 +1,6 @@
 import { fixture, ok } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
+import type { PrivateStorage } from "../../../packages/db/src/schema/storage.ts";
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { brandWriter, uploadBrandAsset } from "../../../packages/domain/src/branding/index.ts";
@@ -10,6 +10,7 @@ import { resolveMerge } from "../../../packages/domain/src/documents/merge.ts";
 import { renderPreview } from "../../../packages/domain/src/documents/library-render.ts";
 import { digestOf } from "../../../packages/domain/src/documents/render.ts";
 import { docxParts, pdfOperators, pdfPages } from "./fixtures/readers.mts";
+import { MemoryClient } from "./storage.mts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 
@@ -20,39 +21,8 @@ const db = database.pools.runtime;
 const P = database.tenant.id;
 const actors = [database.actors.owner, database.actors.member];
 
-class MemoryClient extends S3Client {
-	objects = new Map<string, Buffer>();
-	constructor() {
-		super({
-			region: "us-east-1",
-			endpoint: "https://example.invalid",
-			forcePathStyle: true,
-			credentials: { accessKeyId: "test", secretAccessKey: "test" },
-		});
-	}
-	async send(command: { constructor: { name: string }; input?: Record<string, unknown> }) {
-		const input = (command.input ?? {}) as { Key: string; Body: Uint8Array };
-		switch (command.constructor.name) {
-			case "GetBucketAclCommand":
-				return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
-			case "PutObjectCommand":
-				this.objects.set(input.Key, Buffer.from(input.Body));
-				return {};
-			case "GetObjectCommand": {
-				const body = this.objects.get(input.Key);
-				if (!body) throw Object.assign(new Error("missing"), { name: "NoSuchKey" });
-				return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
-			}
-			case "DeleteObjectCommand":
-				this.objects.delete(input.Key);
-				return {};
-			default:
-				throw new Error(`unexpected provider operation ${command.constructor.name}`);
-		}
-	}
-}
 const client = new MemoryClient();
-const storage = { bucket: "synthetic-only", client } as never;
+const storage = { bucket: "synthetic-only", client };
 
 const authority = async (who = 0) => {
 	const actor = await RequestActor.resolve(db, actors[who]!.session);
@@ -111,13 +81,18 @@ async function neutralDigest(templateId: string, format: "pdf" | "xlsx") {
 	assert.ok(merge.ok);
 	return digestOf((await renderPreview(template, format, merge))!);
 }
-async function preview(templateId: string, format: "pdf" | "xlsx" = "pdf", who = 0, store: unknown = storage) {
+async function preview(
+	templateId: string,
+	format: "pdf" | "xlsx" = "pdf",
+	who = 0,
+	store: PrivateStorage | null = storage,
+) {
 	const value = ok(
 		await documentsReader.preview(
 			db,
 			await authority(who),
 			{ templateId, format, overrides: await overridesFor(templateId) },
-			store as never,
+			store,
 		),
 	);
 	assert.ok(value.artifact && value.digest);

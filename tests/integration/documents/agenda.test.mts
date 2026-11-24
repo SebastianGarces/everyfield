@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test, { describe } from "node:test";
-import { PDFDocument } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
+import { PDFCheckBox, PDFDocument } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
 import { ATTENDEE_CAP, agendaKindOf, agendaMeetingOf } from "../../../packages/domain/src/documents/agenda-meeting.ts";
 import type { MeetingRead } from "../../../packages/domain/src/documents/meeting-read.ts";
 import { addMinutes, durationText } from "../../../packages/contracts/src/common/meeting-text.ts";
@@ -189,7 +189,10 @@ describe("AC:DOC-007 AC:DOC-011 agendas from the meeting", () => {
 		assert.equal(r.fields.filter((f) => f.name.endsWith("_role")).length, 8);
 		const doc = await PDFDocument.load(r.bytes, { updateMetadata: false });
 		for (const f of doc.getForm().getFields())
-			if (f.getName().startsWith("present_")) assert.equal((f as never as { isChecked(): boolean }).isChecked(), false);
+			if (f.getName().startsWith("present_")) {
+				assert.ok(f instanceof PDFCheckBox);
+				assert.equal(f.isChecked(), false);
+			}
 		const board = await render(
 			"board-meeting-agenda",
 			meetingOf({

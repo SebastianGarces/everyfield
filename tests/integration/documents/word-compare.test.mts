@@ -8,18 +8,30 @@ import {
 	type DocDocument,
 	type DocTemplate,
 	type InlineNode,
+	type Mark,
+	type ParagraphNode,
+	type PageSetup,
+	type Token,
 	type WordChanges,
 } from "../../../packages/contracts/src/documents/format/index.ts";
 
-const t = (text: string, marks?: unknown[]) => ({ type: "text", text, ...(marks ? { marks } : {}) }) as InlineNode;
-const field = (key: string) => ({ type: "field", attrs: { key } }) as InlineNode;
-const p = (...content: InlineNode[]) => ({ type: "paragraph", content }) as BlockNode;
-const h = (level: 1 | 2 | 3, text: string) => ({ type: "heading", attrs: { level }, content: [t(text)] }) as BlockNode;
-const bullets = (...items: string[]) =>
-	({ type: "bulletList", content: items.map((text) => ({ type: "listItem", content: [p(t(text))] })) }) as BlockNode;
-const columns = (...texts: string[]) =>
-	({ type: "columns", content: texts.map((text) => ({ type: "column", content: [p(t(text))] })) }) as BlockNode;
-const box = (fill: string, text: string) => ({ type: "box", attrs: { fill }, content: [p(t(text))] }) as BlockNode;
+const t = (text: string, marks?: Mark[]): InlineNode => ({ type: "text", text, ...(marks ? { marks } : {}) });
+const field = (key: string): InlineNode => ({ type: "field", attrs: { key } });
+const p = (...content: InlineNode[]): ParagraphNode => ({ type: "paragraph", content });
+const h = (level: 1 | 2 | 3, text: string): BlockNode => ({
+	type: "heading",
+	attrs: { level },
+	content: [t(text)],
+});
+const bullets = (...items: string[]): BlockNode => ({
+	type: "bulletList",
+	content: items.map((text) => ({ type: "listItem", content: [p(t(text))] })),
+});
+const columns = (...texts: string[]): BlockNode => ({
+	type: "columns",
+	content: texts.map((text) => ({ type: "column", content: [p(t(text))] })),
+});
+const box = (fill: Token, text: string): BlockNode => ({ type: "box", attrs: { fill }, content: [p(t(text))] });
 const body = (document: BlockNode, template: BlockNode) =>
 	wordChanges({ id: 0, part: "body", kind: "changed", document, template });
 
@@ -170,8 +182,12 @@ describe("INV-word-compare: the word compare", () => {
 	});
 
 	test("INV-word-compare: a block that only differs by a field's value is still not listed", () => {
-		const page = { size: "letter", orientation: "portrait", margin: { top: 72, right: 72, bottom: 72, left: 72 } };
-		const tpl = {
+		const page: PageSetup = {
+			size: "letter",
+			orientation: "portrait",
+			margin: { top: 72, right: 72, bottom: 72, left: 72 },
+		};
+		const tpl: DocTemplate = {
 			format: "everyfield.doc/1",
 			kind: "template",
 			id: "x",
@@ -182,8 +198,8 @@ describe("INV-word-compare: the word compare", () => {
 			fields: [{ key: "church.name", label: "Church", type: "text" }],
 			page,
 			body: { type: "doc", content: [p(t("Welcome to "), field("church.name"))] },
-		} as unknown as DocTemplate;
-		const doc = { ...tpl, kind: "document", data: { "church.name": "Grace" } } as unknown as DocDocument;
+		};
+		const doc: DocDocument = { ...tpl, kind: "document", origin: null, data: { "church.name": "Grace" } };
 		const listed: DocDifference[] = compareWithTemplate(doc, tpl);
 		assert.deepEqual(listed, []);
 	});

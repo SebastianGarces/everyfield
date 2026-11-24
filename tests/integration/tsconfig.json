@@ -22,6 +22,8 @@
 		"./dashboard/**/*.mts",
 		"./db/**/*.ts",
 		"./db/**/*.mts",
+		"./documents/**/*.ts",
+		"./documents/**/*.mts",
 		"./feedback/**/*.ts",
 		"./feedback/**/*.mts",
 		"./flags/**/*.ts",
