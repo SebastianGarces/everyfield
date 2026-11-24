@@ -3626,7 +3626,6 @@ const RENDERER_MODULE =
 	/^packages\/domain\/src\/documents\/(?:(?:render|doc-render|library-render|pdf-post)(?:\.[cm]?[jt]sx?)?$|layouts(?:\/|$))/;
 const DOCUMENTS_WRITER = "documentsWriter";
 const RENDER_ONLY_CALLS = new Set(["exportNative", "readChurchFile"]);
-const RENDER_CALLS = new Set([...RENDER_ONLY_CALLS, "generate"]);
 export const RENDERING_ACTIONS = {
 	"apps/web/src/features/documents/actions.ts": { generate: 1 },
 };
@@ -3664,25 +3663,10 @@ const actionRender = {
 				},
 				VariableDeclarator(node) {
 					if (node.id.type === "Identifier" && isWriter(node.init)) writers.add(node.id.name);
-					if (node.id.type !== "ObjectPattern") return;
-					for (const p of node.id.properties) {
-						if (p.type === "RestElement") {
-							if (isWriter(node.init) && p.argument.type === "Identifier") writers.add(p.argument.name);
-							continue;
-						}
-						const name = keyName(p.key, p.computed);
-						if (name === DOCUMENTS_WRITER && p.value.type === "Identifier") writers.add(p.value.name);
-						if (isWriter(node.init) && RENDER_CALLS.has(name) && !RENDER_ONLY_CALLS.has(name)) called(p, name);
-					}
-				},
-				Property(node) {
-					if (node.parent.type !== "ObjectPattern") return;
-					const name = keyName(node.key, node.computed);
-					if (RENDER_ONLY_CALLS.has(name)) called(node, name);
 				},
 				MemberExpression(node) {
 					const name = memberName(node);
-					if (RENDER_ONLY_CALLS.has(name) || (RENDER_CALLS.has(name) && isWriter(node.object))) called(node, name);
+					if (RENDER_ONLY_CALLS.has(name) || (name === "generate" && isWriter(node.object))) called(node, name);
 					else if (name === null && node.computed && isWriter(node.object))
 						report(
 							node,

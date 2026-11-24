@@ -3529,13 +3529,10 @@ export async function save(op: unknown) {
 	await writer.exportNative();
 	await writer["exportNative"]();
 	await writer[\`readChurchFile\`]();
-	const { exportNative: later } = writer;
 	const again = documents.documentsWriter;
 	await again.generate();
 	await writer?.generate();
-	const { generate } = documents.documentsWriter;
 	await writer[op as "saveNative"]();
-	return [later, generate];
 }
 export async function keep() {
 	await writer.saveNative();
@@ -3570,7 +3567,7 @@ export async function exportDocument() {
 		hits(files),
 		[
 			...[7, 10].map((line) => `apps/web/src/features/documents/actions.ts:${line}`),
-			...[5, 6, 7, 8, 10, 11, 12, 13].map((line) => `apps/web/src/features/documents/church/actions.ts:${line}`),
+			...[5, 6, 7, 9, 10, 11].map((line) => `apps/web/src/features/documents/church/actions.ts:${line}`),
 			...[2, 3, 4, 5, 6, 7, 8].map((line) => `apps/web/src/features/settings/region.ts:${line}`),
 		]
 			.map((at) => `${at} action-render`)

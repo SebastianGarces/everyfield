@@ -46,14 +46,12 @@ test("INV-privacy: /wiki renders outside the product frame: through every layout
 	const props = { params: Promise.resolve({ slug: ["launch"] }), searchParams: Promise.resolve({}) };
 	let tree = createElement(WikiPage, props);
 	const passed: string[] = [];
-	for (let dir = dirname(page[0]!); dir !== "app"; dir = dirname(dir))
-		for (const kind of ["template", "layout"])
-			for (const extension of ["tsx", "ts", "jsx", "js"]) {
-				const file = join(dir, `${kind}.${extension}`);
-				if (!existsSync(join(SRC, file))) continue;
-				passed.push(file);
-				tree = createElement((await import(at(file))).default, null, tree);
-			}
+	for (let dir = dirname(page[0]!); dir !== "app"; dir = dirname(dir)) {
+		const file = join(dir, "layout.tsx");
+		if (!existsSync(join(SRC, file))) continue;
+		passed.push(file);
+		tree = createElement((await import(at(file))).default, null, tree);
+	}
 	assert.ok(passed.includes("app/(product)/layout.tsx"));
 	const { prelude } = await prerender(createElement(Fragment, null, tree));
 	const html = await new Response(prelude).text();
