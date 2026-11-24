@@ -213,6 +213,12 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 	const tasks = !!review && isTasks(review.operation);
 	const record = tasks && review.review.target?.kind !== "person" ? "task" : "person";
 	if (review && view === "pending" && review.review.refusal) return review.review.refusal;
+	if (review?.stale === "merge" && (view === "pending" || view === "withheld"))
+		return `Someone in this draft was merged or unmerged after Evry prepared it. Nothing was changed. ${
+			view === "withheld" || reviseInput(review) === null
+				? "Ask Evry to prepare it again."
+				: "Review it again to see it as it is now."
+		}`;
 	if (mail) {
 		if (view === "pending" && review.stale)
 			return "This message changed since the review. Nothing was changed. Review it again to see it as it is now.";
@@ -231,10 +237,6 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 	const intelligence = !!review && isIntelligence(review.operation);
 	switch (view) {
 		case "pending":
-			if (review?.stale)
-				return `Someone in this draft was merged or unmerged after Evry prepared it. Nothing was changed. ${
-					reviseInput(review) === null ? "Ask Evry to prepare it again." : "Review it again to see it as it is now."
-				}`;
 			return review && review.revision > 1
 				? `You revised this change. Only revision ${review.revision} can be approved.`
 				: null;
@@ -276,8 +278,6 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "cancelled":
 			return "You cancelled this change. Nothing was changed.";
 		case "withheld": {
-			if (review?.stale)
-				return "Someone in this draft was merged or unmerged after Evry prepared it. Nothing was changed. Ask Evry to prepare it again.";
 			const what = review && isWiki(review.operation) ? "The article" : `The ${record}`;
 			return review?.status === "approved"
 				? `${what} in this change is no longer available to you, so Evry can't show this change or its result.`
@@ -434,7 +434,7 @@ export function ReviewCard({
 								<InvitationChanges review={review} />
 								{view === "completed" ? <MailResult review={review} /> : null}
 								{review.review.notes?.length ? <Notes notes={review.review.notes} /> : null}
-								{view === "pending" && !review.review.refusal ? (
+								{view === "pending" && !review.review.refusal && !review.stale ? (
 									<p className="text-sm text-text-2">{INVITATION_CONSEQUENCE}</p>
 								) : null}
 							</>
@@ -554,7 +554,7 @@ function Footer({
 						variant="primary"
 						icon={Tick02Icon}
 						loading={r.busy === "approve"}
-						disabled={other("approve") || !canApprove || review.stale || reason === ""}
+						disabled={other("approve") || !canApprove || review.stale !== null || reason === ""}
 						onClick={() => void r.approve(reason ?? undefined)}
 					>
 						Approve

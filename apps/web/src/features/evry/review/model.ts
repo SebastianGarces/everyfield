@@ -320,7 +320,7 @@ export type Review = {
 		import?: ImportOutcome;
 		current?: { id: string; label: string; value: string | null }[];
 	} | null;
-	stale: boolean;
+	stale: "message" | "merge" | null;
 	mailDelayed?: true;
 	now: string;
 };
@@ -1308,6 +1308,7 @@ const LOCAL_ONLY = new Set<Operation>([
 	"communication.templates.update",
 	"communication.templates.archiveOrDelete",
 ]);
+const MERGED_TITLE = "Someone was merged or unmerged";
 export function mailHead(
 	review: Review,
 	phase: string,
@@ -1315,7 +1316,11 @@ export function mailHead(
 	if (isInvitation(review.operation)) {
 		if (phase === "pending")
 			return {
-				title: review.review.refusal ? "Can't prepare this invitation" : "Review every step before approving",
+				title: review.review.refusal
+					? "Can't prepare this invitation"
+					: review.stale === "merge"
+						? MERGED_TITLE
+						: "Review every step before approving",
 				tone: "amber",
 			};
 		if (phase === "completed" && review.receipt?.report?.confirmation === "confirmed")
@@ -1324,11 +1329,14 @@ export function mailHead(
 	if (!sendsMail(review.operation)) return null;
 	if (phase === "pending" && isMail(review.operation))
 		return {
-			title: review.stale
-				? "Message changed"
-				: review.review.refusal
-					? (MAIL_REFUSED[review.operation] ?? "Can't do this")
-					: MAIL_PENDING[review.operation],
+			title:
+				review.stale === "merge" && !review.review.refusal
+					? MERGED_TITLE
+					: review.stale
+						? "Message changed"
+						: review.review.refusal
+							? (MAIL_REFUSED[review.operation] ?? "Can't do this")
+							: MAIL_PENDING[review.operation],
 			tone: "amber",
 		};
 	if (phase === "running")
@@ -1643,6 +1651,12 @@ export const editableChanges = (review: Review) =>
 export function reviseInput(review: Review, edits: Record<string, string> = {}): unknown {
 	if (!REVISABLE.has(review.operation) && !isMail(review.operation)) return null;
 	const { target, changes } = review.review;
+	if (
+		review.stale === "merge" &&
+		isMail(review.operation) &&
+		changes.some((c) => audienceOf(c.after)?.personIds.length)
+	)
+		return null;
 	const value = (c: Change) => {
 		const edited = edits[c.field];
 		if (edited === undefined) return c.after;

@@ -21,6 +21,18 @@ import { readViewer } from "../../../../../packages/domain/src/access/session.ts
 import { teamsWriter, trainingReader, trainingWriter } from "../../../../../packages/domain/src/teams/index.ts";
 import { accountId } from "../../../../../packages/contracts/src/common/values.ts";
 import { sql } from "../../../../../packages/db/src/query.ts";
+import {
+	createConversation,
+	evryActor,
+	invokeRead,
+	readConversation,
+	runTurn,
+	submitTurn,
+} from "../../../../../packages/evry/src/index.ts";
+import { READ_DOMAINS, readCatalog } from "../../../../../packages/evry/src/catalog/catalog.ts";
+import type { ReadAdapter } from "../../../../../packages/evry/src/catalog/types.ts";
+import { scriptedQualifiedModel } from "../../../../../packages/evry-scripted/src/index.ts";
+import { claimDue } from "../../../../../packages/domain/src/jobs/queue.ts";
 import { openedDeletion } from "../../../../support/deletion-cookie.mts";
 import { ok, refused, waitingOnLock, type Actor } from "../../../../support/fixture.mts";
 import { freezeClock } from "../knowledge/support.mts";
@@ -237,6 +249,43 @@ test("AC:ORG55-007 only the Owner can delete the workspace, and no transfer is o
 	);
 });
 
+async function evrySees(who: Actor, people: string[]) {
+	const actor = evryActor(await authority(who));
+	const about: Record<string, (personId: string) => unknown> = {
+		"people.getPerson": (personId) => ({ personId }),
+		"people.getActivities": (personId) => ({ personId }),
+		"people.getAssessments": (personId) => ({ personId }),
+		"people.getInterviews": (personId) => ({ personId }),
+		"people.getCommitments": (personId) => ({ personId }),
+		"followups.listContactHistory": (personId) => ({ personId }),
+	};
+	const adapters = (Object.values(READ_DOMAINS).flat() as readonly ReadAdapter<unknown>[]).filter(
+		(a) => a.operation in about || a.operation === "people.listPeople",
+	);
+	assert.equal(adapters.length, Object.keys(about).length + 1);
+	const found: unknown[] = [];
+	for (const adapter of adapters)
+		for (const id of people)
+			found.push(await invokeRead(db, actor, adapter, adapter.input.parse(about[adapter.operation]?.(id) ?? {})));
+	assert.ok(JSON.stringify(found).includes("Casey Rivera"));
+	const conversation = await createConversation(db, actor, { requestKey: key() });
+	await submitTurn(db, actor, conversation.id, {
+		requestKey: key(),
+		text: "Show me the weekly care note for Casey Rivera",
+	});
+	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
+	assert.ok(claim);
+	const outcome = await runTurn(
+		{ db, model: scriptedQualifiedModel(), freshActor: async () => evryActor(await authority(who)) },
+		{ turnId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
+		{ claimStart: new Date(), claimEnd: new Date() },
+	);
+	assert.equal(outcome, "succeeded");
+	const { events } = await readConversation(db, actor, conversation.id);
+	assert.ok(events.some((e) => e.kind === "assistant_text"));
+	return { found, events, catalog: readCatalog(actor).domains.map((d) => d.operations.map((o) => o.operation)) };
+}
+
 test("AC:TARGET-IDN-031 merging, unmerging and relinking a person never moves a private care note or shows it to another Admin", async () => {
 	const c = caseOf("identity-access", "TARGET-IDN-031");
 	const now = "2026-10-13T16:00:00.000Z";
@@ -317,11 +366,19 @@ test("AC:TARGET-IDN-031 merging, unmerging and relinking a person never moves a 
 	);
 	assert.deepEqual(await stored(), before);
 	assert.deepEqual(await otherReads(), c.expected.result);
-	const shared = JSON.stringify([
-		await rows(sql`SELECT to_jsonb(e) AS e FROM audit_event e WHERE e.tenant_id=${plant.id}::uuid`),
-		ok(await tx((t) => peopleReader.getActivities(t, as(b), { personId: casey, limit: 100, page: 1 }))),
-	]);
-	assert.ok(!shared.includes("CARE-CANARY") && !shared.includes(saved.week.id!), shared);
+	const sharedStaysPrivate = async () => {
+		const found = {
+			audit: await rows(sql`SELECT to_jsonb(e) AS e FROM audit_event e WHERE e.tenant_id=${plant.id}::uuid`),
+			activity: ok(await tx((t) => peopleReader.getActivities(t, as(b), { personId: casey, limit: 100, page: 1 }))),
+			evry: await evrySees(b, [casey, alex]),
+		};
+		for (const [where, seen] of Object.entries(found)) {
+			const text = JSON.stringify(seen);
+			for (const secret of ["CARE-CANARY", "strained", saved.week.id!])
+				assert.equal(text.includes(secret), false, `${where} shows ${secret}`);
+		}
+	};
+	await sharedStaysPrivate();
 	const p = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, as(b), { mergeId: merged.mergeId })));
 	ok(
 		await tx((t) =>
@@ -333,9 +390,12 @@ test("AC:TARGET-IDN-031 merging, unmerging and relinking a person never moves a 
 		),
 	);
 	assert.deepEqual(await stored(), before);
+	assert.deepEqual(await otherReads(), c.expected.result);
+	await sharedStaysPrivate();
 	await w.admin.execute(sql`UPDATE person SET linked_account_id=${b.id} WHERE id=${casey}::uuid`);
 	assert.deepEqual(await stored(), before);
 	assert.deepEqual(await otherReads(), c.expected.result);
+	await sharedStaysPrivate();
 	const own = ok(await care.readCurrent(db, await authority(a), {}));
 	assert.deepEqual([own.week.id, own.week.answer?.note], [saved.week.id, "CARE-CANARY"]);
 });

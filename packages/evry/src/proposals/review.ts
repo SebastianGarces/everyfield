@@ -89,6 +89,8 @@ export const staleMerge = (alias: string) =>
 		AND (strpos(${alias}.input::text,pm.source_id::text)>0 OR strpos(${alias}.input::text,pm.survivor_id::text)>0
 			OR ${alias}.review->'target'->>'id' IN (pm.source_id::text,pm.survivor_id::text)))`;
 export const stale = (alias: string) => `(${staleMessage(alias)} OR ${staleMerge(alias)})`;
+const staleCause = (alias: string) =>
+	`CASE WHEN ${alias}.state='pending' THEN CASE WHEN ${staleMessage(alias)} THEN 'message' WHEN ${staleMerge(alias)} THEN 'merge' END END`;
 export const projection = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
 	sql`${sql.raw(`jsonb_build_object('id',${alias}.id,'conversationId',${alias}.conversation_id,'operation',${alias}.operation,
 		'revision',${alias}.revision,'digest',${alias}.digest,'expiresAt',${alias}.expires_at,'approvedAt',${alias}.approved_at,
@@ -117,7 +119,7 @@ export const projection = <AliasName extends string>(alias: SqlLiteral<AliasName
 			AND ${alias}.approved_at<clock_timestamp()-interval '2 minutes' THEN 'unknown' END),
 		'executing',${alias}.state='approved' AND ${alias}.outcome IS NULL AND EXISTS(SELECT FROM job j WHERE j.id=${alias}.job_id
 			AND ${liveJob("j")}),
-		'stale',${alias}.state='pending' AND ${stale(alias)},
+		'stale',${staleCause(alias)},
 		'receipt',${alias}.receipt,'now',clock_timestamp())`)}`;
 
 const targetKind = z.enum([
@@ -186,7 +188,7 @@ export const proposalRow = z.strictObject({
 	review,
 	outcome: z.enum(["completed", "failed", "refused", "unknown"]).nullable(),
 	executing: z.boolean(),
-	stale: z.boolean(),
+	stale: z.enum(["message", "merge"]).nullable(),
 	receipt: z
 		.strictObject({
 			receiptId: z.uuid().optional(),

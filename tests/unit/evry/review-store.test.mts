@@ -39,7 +39,7 @@ const review = {
 	outcome: null,
 	executing: false,
 	receipt: null,
-	stale: false,
+	stale: null,
 	now: "2026-10-21T12:00:00Z",
 };
 const refused = { error: { code: "not_found", correlationId: "x", retry: "never", outcome: "refused" } };

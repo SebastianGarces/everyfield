@@ -12,6 +12,7 @@ import {
 	reviseProposal,
 	submitTurn,
 	type EvryActor,
+	type MailPort,
 	type Proposal,
 } from "../../../../packages/evry/src/index.ts";
 import { ASSESSMENT_READS } from "../../../../packages/evry/src/adapters/people-assessments/reads/index.ts";
@@ -52,7 +53,7 @@ async function addPerson(name: string, values: { email?: string; account?: strin
 		clock_timestamp()-interval '1 day','prospect','unknown','unknown',1000,'live',${values.email ?? null},${values.account ?? null}::uuid)`);
 	return id;
 }
-async function turn(who: EvryActor) {
+async function turn(who: EvryActor, mail: MailPort | null = null) {
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
 	await submitTurn(db, who, c.id, { requestKey: randomUUID(), text: "hold this turn" });
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
@@ -63,7 +64,7 @@ async function turn(who: EvryActor) {
 		leaseOwner: claim.lease_owner,
 		generation: claim.claim_generation,
 	};
-	return (operation: string, input: unknown) => prepareProposal(db, who, lease, c.id, { operation, input });
+	return (operation: string, input: unknown) => prepareProposal(db, who, lease, c.id, { operation, input }, mail);
 }
 const approve = (who: EvryActor, p: Proposal) =>
 	approveProposal(db, who, p.id, { revision: p.revision, digest: p.digest }, null);
@@ -134,7 +135,7 @@ test("AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE AC:PERSONREF-ASSIST
 	for (const [name, draft] of Object.entries(drafts)) {
 		assert.ok(draft);
 		const shown = await readReview(db, owner, draft.id);
-		assert.deepEqual([shown.status, shown.stale], ["pending", true], name);
+		assert.deepEqual([shown.status, shown.stale], ["pending", "merge"], name);
 		await assert.rejects(approve(owner, draft), { code: "review_changed" }, name);
 		assert.deepEqual(await stored(draft.id), prepared.get(draft.id), name);
 	}
@@ -146,10 +147,66 @@ test("AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE AC:PERSONREF-ASSIST
 		revision: drafts.survivor!.revision,
 		input: { personId: survivor, patch: { city: "Aurora" } },
 	});
-	assert.equal(again.stale, false, "reviewed again, so it can be approved");
+	assert.equal(again.stale, null, "reviewed again, so it can be approved");
 	await unmerge(owner, merged.mergeId);
-	assert.equal((await readReview(db, owner, again.id)).stale, true, "an Unmerge asks for a review too");
+	assert.equal((await readReview(db, owner, again.id)).stale, "merge", "an Unmerge asks for a review too");
 	await assert.rejects(approve(owner, again), { code: "review_changed" });
+});
+
+test("an invitation and an email drafted before a merge say the merge made them stale, and approving them adds nobody and sends nothing", async () => {
+	const owner = await actor("owner");
+	const source = await addPerson("Sage Source", { email: "sage.source@example.test" }),
+		survivor = await addPerson("Sage Kept", { email: "sage.kept@example.test" });
+	await admin.execute(
+		sql`UPDATE plant SET street='12 Mill Road',city='Austin',country='United States' WHERE id=${plant}`,
+	);
+	const meeting = randomUUID();
+	await admin.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,
+		status,attendance_revision) VALUES(${meeting},${plant},'vision_meeting','Sage night','2030-11-01','18:00','America/Chicago',
+		'2030-11-01T23:00:00Z','1','planning',1)`);
+	const sent: unknown[] = [];
+	const propose = await turn(owner, {
+		keys: {
+			encryptionKey: Buffer.alloc(32, 7),
+			addressKey: Buffer.alloc(32, 9),
+			from: "church@example.test",
+			origin: "https://app.example.test",
+		},
+		transport: {
+			paused: false,
+			async send(batch) {
+				sent.push(batch);
+				return { outcome: "refused" };
+			},
+			cancel: async () => [],
+			reschedule: async () => [],
+		},
+	});
+	const audience = { groups: [], teamIds: [], personIds: [source] };
+	const drafts = {
+		invitation: await propose("evry.prepareMeetingInvitation", {
+			meetingId: meeting,
+			audience: { groups: [], householdIds: [], personIds: [source] },
+		}),
+		email: await propose("communication.saveDraft", { subject: "Hello", body: "Hello", audience }),
+		send: await propose("communication.sendReviewed", { subject: "Hello", body: "Hello", audience }),
+	};
+	for (const [name, draft] of Object.entries(drafts)) {
+		assert.ok(draft, name);
+		assert.deepEqual([draft.review.refusal, draft.stale], [undefined, null], name);
+	}
+	const effects = () =>
+		rows(sql`SELECT (SELECT count(*)::int FROM communication) AS messages,(SELECT count(*)::int FROM mail) AS mail,
+			(SELECT count(*)::int FROM participation WHERE meeting_id=${meeting}) AS guests`);
+	const before = await effects();
+	await merge(owner, source, survivor);
+	for (const [name, draft] of Object.entries(drafts)) {
+		assert.ok(draft);
+		assert.equal((await readReview(db, owner, draft.id)).stale, "merge", name);
+		await assert.rejects(approve(owner, draft), { code: "review_changed" }, name);
+	}
+	assert.deepEqual(await claimDue(db, ["evry_effect"], 1, 60), []);
+	assert.deepEqual([await effects(), sent], [before, []]);
 });
 
 test("a draft approved just before a merge is refused when it runs", async () => {
