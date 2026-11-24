@@ -1,4 +1,5 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
+import { addDays, dayText } from "@everyfield/contracts/common";
 import { captured, present } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
@@ -36,26 +37,15 @@ function today(prompt: Prompt) {
 	const now = at ? new Date(at) : new Date();
 	return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago" }).format(now);
 }
-const shift = (day: string, days: number) =>
-	new Date(Date.parse(`${day}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 function dateIn(text: string, prompt: Prompt): string | null {
 	const day = today(prompt);
 	if (/\btoday\b/i.test(text)) return day;
-	if (/\byesterday\b/i.test(text)) return shift(day, -1);
+	if (/\byesterday\b/i.test(text)) return addDays(day, -1);
 	const m = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? (\d{1,2})(?:,? (\d{4}))?\b/i.exec(text);
 	if (!m) return null;
 	const month = String(MONTHS.indexOf(captured(m, 1).toLowerCase()) + 1).padStart(2, "0");
 	return `${m[3] ?? day.slice(0, 4)}-${month}-${captured(m, 2).padStart(2, "0")}`;
 }
-const longDate = (day: unknown) =>
-	typeof day === "string"
-		? new Date(`${day}T12:00:00Z`).toLocaleDateString("en-US", {
-				month: "short",
-				day: "numeric",
-				year: "numeric",
-				timeZone: "UTC",
-			})
-		: "an unknown date";
 
 const CRITERIA = [
 	["maturity", /\bmaturity\b/],
@@ -196,7 +186,7 @@ function interviewText(person: string, r: Row) {
 		return `${CRITERION_WORDS[k]} ${String(f[k])}${notes}`;
 	}).join(", ");
 	const next = typeof f.nextSteps === "string" ? ` Next steps: ${f.nextSteps}` : "";
-	return `${person}'s interview on ${longDate(f.occurredOn)}: ${criteria}. Result: ${RESULT_WORDS[String(f.result)] ?? String(f.result)}.${next}`;
+	return `${person}'s interview on ${typeof f.occurredOn === "string" ? dayText(f.occurredOn) : "an unknown date"}: ${criteria}. Result: ${RESULT_WORDS[String(f.result)] ?? String(f.result)}.${next}`;
 }
 
 export function assessmentStep(
@@ -316,7 +306,7 @@ export function assessmentStep(
 			if (!a) return say(`There is no recorded 4 C's assessment for ${person.label}.`);
 			const scores = LENSES.map((k) => `${k} ${String(a.fields[k])}`).join(", ");
 			return say(
-				`${person.label}'s 4 C's on ${longDate(a.fields.occurredOn)}: ${scores}. Total ${String(a.fields.total)}.`,
+				`${person.label}'s 4 C's on ${typeof a.fields.occurredOn === "string" ? dayText(a.fields.occurredOn) : "an unknown date"}: ${scores}. Total ${String(a.fields.total)}.`,
 			);
 		}
 		case "commitments": {
@@ -329,10 +319,11 @@ export function assessmentStep(
 			if (card.fields.document === "attached" && !download)
 				return read("people.getCommitmentDownload", { commitmentId: card.id });
 			const state = String(current.fields.state);
-			const since = current.fields.effectiveOn ? ` since ${longDate(current.fields.effectiveOn)}` : "";
+			const effective = current.fields.effectiveOn;
+			const since = typeof effective === "string" && effective ? ` since ${dayText(effective)}` : "";
 			const link = download?.rows?.[0]?.fields.href;
 			return say(
-				`${person.label}'s commitment is ${state}${since}. Latest card: ${card.label.replace(/ signed (\S+)$/, (_, d) => ` signed ${longDate(d)}`)}.${
+				`${person.label}'s commitment is ${state}${since}. Latest card: ${card.label.replace(/ signed (\S+)$/, (_, d) => ` signed ${dayText(d)}`)}.${
 					typeof link === "string" ? ` [Download the signed document](${link})` : ""
 				}`,
 			);

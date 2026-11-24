@@ -64,6 +64,7 @@ const REFUSAL: Record<string, string> = {
 	team_unavailable: "That ministry is archived or not in this church.",
 	wrong_meeting_type: "Only a Vision meeting has this.",
 	status_transition: "This meeting's status does not allow that change.",
+	practice_cancelled: "A cancelled practice can't be corrected.",
 	nonexistent_local_time: "That time does not exist on that day, because the clocks change. Pick another time.",
 	ambiguous_local_time: "That time happens twice on that day, because the clocks change. Pick another time.",
 	invalid_subject: "Someone named here is not a current person in this church.",
@@ -127,7 +128,7 @@ function write<I, F, V>(spec: {
 			return sql`SELECT ${JSON.stringify(review)}::jsonb AS review, ${JSON.stringify(prepared.args)}::jsonb AS args ${live}`;
 		},
 		async execute(tx, context, args, effectKey, ports): Promise<EffectResult> {
-			const request = { ...z.object({}).loose().parse(args), requestKey: effectKey };
+			const request = { ...z.record(z.string(), z.unknown()).parse(args), requestKey: effectKey };
 			try {
 				const reply = await spec.run(writers(ports.reminders), tx, context, request);
 				if (reply.status !== "ok") return { refused: reply.error.code };
@@ -788,7 +789,7 @@ async function generatedTasks(tx: WriteTx, v: Finalization) {
 	);
 	const titles = new Map(
 		z
-			.array(z.object({ id: z.string(), title: z.string() }))
+			.array(z.strictObject({ id: z.string(), title: z.string() }))
 			.parse(r.rows)
 			.map((t) => [t.id, t.title]),
 	);

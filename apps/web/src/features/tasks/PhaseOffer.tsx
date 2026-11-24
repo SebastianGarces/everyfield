@@ -1,5 +1,6 @@
 "use client";
 
+import { counted, dateText } from "@everyfield/contracts/common";
 import { BookOpen01Icon, CheckListIcon } from "@hugeicons/core-free-icons";
 import { Alert, Button, Card, CardTitle, Checkbox, IntentLink, toast } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
@@ -8,9 +9,7 @@ import { answerOffer } from "./actions.ts";
 import { loadOffer } from "./fetch.ts";
 import {
 	CATEGORY_LABEL,
-	dayText,
 	problemText,
-	taskCount,
 	type OfferAnswered,
 	type OpenOffer,
 	type Outcome,
@@ -59,7 +58,7 @@ export function PhaseOffer({
 			toast({
 				tone: "success",
 				message: r.value.created.length
-					? `Added ${taskCount(r.value.created.length)} for ${phaseName(offer.transition.toPhase)}.`
+					? `Added ${counted(r.value.created.length, "task")} for ${phaseName(offer.transition.toPhase)}.`
 					: "Declined. These checklists will not be offered again.",
 			});
 			return;
@@ -97,7 +96,7 @@ export function PhaseOffer({
 	return (
 		<Card as="section" aria-labelledby={titleId} className="mb-5 gap-4">
 			<div>
-				<p className="text-sm text-text-3">Moved on {dayText(offer.transition.anchorDate, year)}</p>
+				<p className="text-sm text-text-3">Moved on {dateText(offer.transition.anchorDate, year)}</p>
 				<CardTitle id={titleId} size="sm" className="mt-1">
 					Checklists for {phaseName(offer.transition.toPhase)}
 				</CardTitle>
@@ -113,17 +112,17 @@ export function PhaseOffer({
 							onCheckedChange={() => toggle(k.key)}
 							disabled={saving !== null}
 							label={k.name}
-							description={`${taskCount(k.tasks.length)} · ${CATEGORY_LABEL[k.category]}. ${k.description}`}
+							description={`${counted(k.tasks.length, "task")} · ${CATEGORY_LABEL[k.category]}. ${k.description}`}
 						/>
 						<details className="group mb-3 ml-8">
 							<summary className="text-sm text-text-2 underline-offset-[3px] hover:underline">
-								Show the {taskCount(k.tasks.length)}
+								Show the {counted(k.tasks.length, "task")}
 							</summary>
 							<ol className="mt-2 flex flex-col gap-1.5">
 								{k.tasks.map((t) => (
 									<li key={t.key} className="flex flex-wrap justify-between gap-x-3 text-sm">
 										<span className="text-ink">{t.title}</span>
-										<span className="whitespace-nowrap text-text-3">Due {dayText(t.due, year)}</span>
+										<span className="whitespace-nowrap text-text-3">Due {dateText(t.due, year)}</span>
 									</li>
 								))}
 							</ol>
@@ -164,7 +163,7 @@ export function PhaseOffer({
 					loading={saving === "accept"}
 					onClick={() => void answer("accept")}
 				>
-					{chosen.size ? `Add ${taskCount(count)}` : "Choose a checklist"}
+					{chosen.size ? `Add ${counted(count, "task")}` : "Choose a checklist"}
 				</Button>
 				<Button
 					variant="ghost"
@@ -189,7 +188,7 @@ function AlreadyAnswered({ decided, onClose }: { decided: Decided; onClose: () =
 			<CardTitle size="sm">This offer was already answered</CardTitle>
 			<p className="text-md text-text-2">
 				{a.answer === "accepted"
-					? `Someone accepted it on another device or seat. Added ${taskCount(a.tasks.length)}:`
+					? `Someone accepted it on another device or seat. Added ${counted(a.tasks.length, "task")}:`
 					: "Someone declined every checklist on another device or seat. No tasks were added."}
 			</p>
 			{a.tasks.length ? (

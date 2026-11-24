@@ -1,5 +1,6 @@
 "use client";
 
+import { counted } from "@everyfield/contracts/common";
 import { Alert02Icon, FileExportIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -14,7 +15,7 @@ import {
 } from "@everyfield/ui/controls";
 import { useState } from "react";
 import { querySearch, type PeopleQuery } from "../model.ts";
-import { describeFilters, plural } from "./model.ts";
+import { describeFilters } from "./model.ts";
 import "./export.css";
 
 type State =
@@ -98,7 +99,7 @@ export function ExportDialog({
 									{state.complete ? "Downloaded" : "Downloaded, not complete"}
 								</CalloutLabel>
 								<CalloutText>
-									{state.filename} has {plural(state.returned, "person", "people")}.
+									{state.filename} has {counted(state.returned, "person", "people")}.
 								</CalloutText>
 							</Card>
 						) : state.kind === "failed" ? (

@@ -10,6 +10,7 @@ import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { MAILING } from "./church-address.mts";
 
 let f, churchA, churchB, ownerA, ownerB;
 const ring = { current: randomBytes(32), previous: [] };
@@ -96,8 +97,8 @@ const statusOf = (view, who) => view.recipients.find((row) => row.personId === w
 
 before(async () => {
 	f = await fixture();
-	churchA = await f.workspace();
-	churchB = await f.workspace();
+	churchA = await f.workspace("plant", MAILING);
+	churchB = await f.workspace("plant", MAILING);
 	const a = await f.account();
 	await f.seat(a, churchA, "owner");
 	ownerA = { ...a, actor: await f.actor(a.session) };
@@ -253,7 +254,7 @@ test("AC:CASE-NTF-016 after Ana unsubscribes, compose shows her as unsubscribed 
 		FROM person_email_opt_out WHERE person_id = ${ana.id} AND undone_at IS NULL`);
 
 	const found = ok(await read(ownerA, "readRecipients", { query: "Anabel" })).people;
-	assert.deepEqual(found, [{ id: ana.id, displayName: "Anabel", email: ana.email, unsubscribedAt: at }]);
+	assert.deepEqual(found, [{ id: ana.id, displayName: "Anabel", email: ana.email, unsubscribedAt: at, guardians: [] }]);
 	const audience = ok(await read(ownerA, "readAudience", { groups: [], teamIds: [], personIds: [ana.id, ben.id] }));
 	assert.equal(audience.resolvedDistinctPeople, 2);
 	assert.equal(audience.eligibleRecipients, 1, "Will get this email leaves her out");

@@ -80,24 +80,25 @@ export function useProductSettings(viewer: SettingsViewer | null, seedFits: bool
 		refreshAfterClose.current = null;
 		refresh?.();
 	}, []);
+	const refreshOnClose =
+		<A extends unknown[], R extends { status: string }>(save: (...args: A) => Promise<R>) =>
+		async (...args: A) => {
+			const reply = await save(...args);
+			if (reply.status === "ok" && !refreshAfterClose.current) {
+				const stop = onTraversal(() => {
+					if (!sectionAt(window.location.pathname, viewer)) refreshUnderneath();
+				});
+				refreshAfterClose.current = () => {
+					stop();
+					router.refresh();
+				};
+			}
+			return reply;
+		};
 	const [port] = useState<SettingsPort>(() => ({
 		...PORT,
-		wiki: {
-			...PORT.wiki,
-			save: async (...args) => {
-				const reply = await PORT.wiki.save(...args);
-				if (reply.status === "ok" && !refreshAfterClose.current) {
-					const stop = onTraversal(() => {
-						if (!sectionAt(window.location.pathname, viewer)) refreshUnderneath();
-					});
-					refreshAfterClose.current = () => {
-						stop();
-						router.refresh();
-					};
-				}
-				return reply;
-			},
-		},
+		saveChurch: refreshOnClose(PORT.saveChurch),
+		wiki: { ...PORT.wiki, save: refreshOnClose(PORT.wiki.save) },
 	}));
 
 	const navigate = useCallback(
@@ -148,9 +149,6 @@ export function useProductSettings(viewer: SettingsViewer | null, seedFits: bool
 }
 
 function deletionPage(status: DeletionStatus | null): string {
-	const page =
-		status && status.status !== "active" && status.subject.kind === "plant"
-			? "/workspace-deletion"
-			: "/account-deletion";
+	const page = status?.subject.kind === "plant" ? "/workspace-deletion" : "/account-deletion";
 	return status?.status === "pending_deletion" ? `${page}?until=${encodeURIComponent(status.cancelUntil)}` : page;
 }

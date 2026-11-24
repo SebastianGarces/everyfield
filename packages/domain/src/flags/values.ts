@@ -13,9 +13,9 @@ type ScopeKind = (typeof SCOPES)[number];
 const storedValue = z.object({ name: z.string(), scope: z.enum(SCOPES), value: z.boolean() });
 
 class FlagValues<R extends Registry = typeof registry> {
-	readonly #declared: R;
+	readonly #declared: Registry;
 	readonly #stored: ReadonlyMap<string, boolean>;
-	constructor(declared: R, stored: readonly z.infer<typeof storedValue>[]) {
+	constructor(declared: Registry, stored: readonly z.infer<typeof storedValue>[]) {
 		this.#declared = declared;
 		this.#stored = new Map(stored.map((row) => [`${row.scope}:${row.name}`, row.value]));
 	}
@@ -34,8 +34,9 @@ class FlagValues<R extends Registry = typeof registry> {
 export async function readFlags<R extends Registry = typeof registry>(
 	db: Db,
 	authority: RequestActor | null,
-	declared: R = registry as unknown as R,
+	declared?: R,
 ): Promise<FlagValues<R>> {
+	const known: Registry = declared ?? registry;
 	const scopes: SQL[] = [sql`f.tenant_id=${GLOBAL_TENANT}::uuid`];
 	let account: string | null = null;
 	if (authority) {
@@ -50,8 +51,8 @@ export async function readFlags<R extends Registry = typeof registry>(
 	const { rows } = await db.execute(sql`SELECT f.name,
  CASE WHEN f.tenant_id=${GLOBAL_TENANT}::uuid THEN 'global' WHEN f.tenant_id=${account}::uuid THEN 'account' ELSE 'workspace' END AS scope,
  f.value FROM feature_flag f
- WHERE f.value IS NOT NULL AND f.name=ANY(${sql.param(Object.keys(declared))}::text[]) AND (${sql.join(scopes, sql` OR `)})`);
-	return new FlagValues(declared, z.array(storedValue).parse(rows));
+ WHERE f.value IS NOT NULL AND f.name=ANY(${sql.param(Object.keys(known))}::text[]) AND (${sql.join(scopes, sql` OR `)})`);
+	return new FlagValues<R>(known, z.array(storedValue).parse(rows));
 }
 
 export type FlagScope = { kind: "global" } | { kind: "workspace"; id: string } | { kind: "account"; id: string };
@@ -66,10 +67,10 @@ const scopeTenants: Record<ScopeKind, readonly string[]> = {
 export async function setFlag<R extends Registry = typeof registry>(
 	db: Db,
 	change: { flag: keyof R & string; scope: FlagScope; value: boolean | null; operator: FlagOperator },
-	declared: R = registry as unknown as R,
+	declared?: R,
 ) {
 	const { flag, scope, value } = change;
-	if (!Object.hasOwn(declared, flag)) throw Error(`flag_not_registered: ${flag}`);
+	if (!Object.hasOwn(declared ?? registry, flag)) throw Error(`flag_not_registered: ${flag}`);
 	const account = typeof change.operator === "string" ? z.uuid().parse(change.operator) : null;
 	const cause = typeof change.operator === "string" ? null : z.string().min(1).parse(change.operator.cause);
 	const tenant = scope.kind === "global" ? GLOBAL_TENANT : z.uuid().parse(scope.id);

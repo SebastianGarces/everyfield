@@ -9,7 +9,7 @@
 		"flows/avatarBytes.ts": "the avatar upload bytes step Evry photo attach reuses",
 		"flows/usePersonalZoneChoice.ts": "the personal time zone choice hook the intelligence check-in reuses",
 		"model.ts": "CATEGORY_TEXT and firstSection, which Evry, notifications and the shell read",
-		"opener.tsx": "SettingsOpener, useOpenSettings and useSettingsLink, which the shell and wiki use to open settings",
+		"opener.tsx": "SettingsOpener, useOpenSettings and useSettingsLink, which the shell, wiki and Messages use to open settings",
 		"port.ts": "the SettingsViewer type the shell passes to settings",
 		"save.ts": "OFFLINE_REFERENCE and the Refusal type the intelligence check-in reuses",
 		"server.ts": "settingsViewerOf and settingsCommands, the settings server entry for the shell and Evry"

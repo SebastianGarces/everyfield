@@ -9,6 +9,7 @@ import { addressAad, mailAddressHash } from "../../../packages/domain/src/commun
 import { sealAddress } from "./sealed-address.mts";
 import { ok } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { MAILING } from "./church-address.mts";
 
 let f, plant, owner;
 const keys = {
@@ -39,7 +40,7 @@ async function message(state, patch = {}) {
 
 before(async () => {
 	f = await fixture();
-	plant = await f.workspace();
+	plant = await f.workspace("plant", MAILING);
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	owner = { ...account, actor: await f.actor(account.session) };
@@ -65,7 +66,7 @@ test("AC:CASE-COM-004 recipient search matches word prefixes of the name and the
 	assert.deepEqual(await names("ez"), []);
 	const none = await person("Pat NoMail", null);
 	const found = ok(await read("readRecipients", { query: "NoMail" })).people;
-	assert.deepEqual(found, [{ id: none, displayName: "Pat NoMail", email: null, unsubscribedAt: null }]);
+	assert.deepEqual(found, [{ id: none, displayName: "Pat NoMail", email: null, unsubscribedAt: null, guardians: [] }]);
 });
 
 test("AC:CASE-COM-004 recipient search uses the one person-search rule: diacritics fold and apostrophes split name words", async () => {

@@ -2,12 +2,15 @@ import {
 	MEETING_TYPE_TITLE,
 	addCivilDays,
 	calendarContext,
+	counted,
+	dayText,
 	frozenClock,
 	instant,
 	localDate,
 	localDateTime,
 	resolveCalendar,
 	timeZone,
+	weekdayOf,
 	type Instant,
 	type TimeZone,
 } from "@everyfield/contracts/common";
@@ -39,7 +42,7 @@ export function owedPeriod(
 	let end = today;
 	if (automatic(`${end}T${String(config.hour).padStart(2, "0")}:00:00`, zone) > now) end = addCivilDays(end, -1);
 	if (config.cadence === "weekly") {
-		const weekday = new Date(`${end}T00:00:00Z`).getUTCDay();
+		const weekday = weekdayOf(end);
 		end = addCivilDays(end, -((weekday - config.weekday + 7) % 7));
 	}
 	if (config.completedDaysOnly) end = addCivilDays(end, -1);
@@ -121,7 +124,7 @@ export async function readOversightDigest(db: Database, authority: RequestActor,
 						JOIN affiliation a ON a.organization_id = ${input.organizationId}::uuid
 							AND a.plant_id IS NOT NULL AND a.ended_at IS NULL AND a.share_activity
 							AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.kind = 'plant' AND w.opaque_subject_id = a.plant_id
-								AND w.state NOT IN ('active','cancelled'))
+								AND w.state <> 'cancelled')
 						JOIN audit_event e ON e.tenant_id = a.plant_id
 							AND e.action IN (${sql.raw(actions)})
 							AND e.occurred_at >= CASE WHEN ${input.period} = 'owed_catchup' THEN b.start_at - interval '7 days' ELSE b.start_at END
@@ -237,7 +240,7 @@ export async function compileOversightDigest(
 			WHERE a.organization_id = ${input.organization}::uuid AND a.plant_id IS NOT NULL AND a.ended_at IS NULL
 				AND a.share_activity AND (SELECT ok FROM live)
 				AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.kind = 'plant' AND w.opaque_subject_id = a.plant_id
-					AND w.state NOT IN ('active','cancelled'))
+					AND w.state <> 'cancelled')
 			ORDER BY a.id FOR SHARE OF a
 		), counted AS (
 			SELECT p.name AS plant, p.id, (e.occurred_at AT TIME ZONE ${zone})::date AS date, count(*)::int AS count
@@ -256,11 +259,7 @@ export async function compileOversightDigest(
 		.parse({ ...r.rows[0], lines: jsonValue(r.rows[0]?.lines) });
 }
 
-const day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-const shortDay = (date: string) => day.format(new Date(`${date}T00:00:00Z`));
-const range = (start: string, end: string) =>
-	start === end ? shortDay(start) : `${shortDay(start)} to ${shortDay(end)}`;
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const range = (start: string, end: string) => (start === end ? dayText(start) : `${dayText(start)} to ${dayText(end)}`);
 
 export function renderPlanterDigest(input: {
 	start: string;
@@ -270,14 +269,14 @@ export function renderPlanterDigest(input: {
 	lines: readonly PlanterDigestItem[];
 }) {
 	return {
-		title: `Church digest: ${plural(input.total, "open item")}, ${range(input.start, input.end)}`,
+		title: `Church digest: ${counted(input.total, "open item")}, ${range(input.start, input.end)}`,
 		lines: [
 			...input.lines.map((l) =>
 				l.kind === "meeting"
-					? `Meeting on ${shortDay(l.date)}: ${l.title}.`
+					? `Meeting on ${dayText(l.date)}: ${l.title}.`
 					: l.date < input.today
-						? `Overdue task, due ${shortDay(l.date)}: ${l.title}.`
-						: `Task due ${shortDay(l.date)}: ${l.title}.`,
+						? `Overdue task, due ${dayText(l.date)}: ${l.title}.`
+						: `Task due ${dayText(l.date)}: ${l.title}.`,
 			),
 			...(input.total > input.lines.length ? [`${input.total - input.lines.length} more in Everyfield.`] : []),
 		],
@@ -292,11 +291,11 @@ export function renderOversightDigest(input: {
 }) {
 	const shown = input.lines.reduce((sum, l) => sum + l.count, 0);
 	return {
-		title: `Oversight digest: ${plural(input.total, "activity", "activities")}, ${range(input.start, input.end)}`,
+		title: `Oversight digest: ${counted(input.total, "activity", "activities")}, ${range(input.start, input.end)}`,
 		lines: [
-			...input.lines.map((l) => `${l.plant}: ${plural(l.count, "activity", "activities")} on ${shortDay(l.date)}.`),
+			...input.lines.map((l) => `${l.plant}: ${counted(l.count, "activity", "activities")} on ${dayText(l.date)}.`),
 			...(input.total > shown
-				? [`${plural(input.total - shown, "more activity", "more activities")} in Everyfield.`]
+				? [`${counted(input.total - shown, "more activity", "more activities")} in Everyfield.`]
 				: []),
 		],
 	};

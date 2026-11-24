@@ -1,3 +1,4 @@
+import { counted, countWord, dayText } from "@everyfield/contracts/common";
 import type { MailReport, RecipientOutcome } from "@everyfield/contracts/communication";
 import { CHANNEL_LABEL } from "../../followups/model.ts";
 import { ROLE_LABEL, SHARING_CATEGORIES, SHARING_CATEGORY_LABEL, ZONE_NAME } from "@everyfield/evry/labels";
@@ -45,6 +46,7 @@ export type Operation =
 	| "communication.templates.create"
 	| "communication.templates.fork"
 	| "communication.templates.update"
+	| "communication.templates.archiveOrDelete"
 	| InvitationOperation
 	| "meetings.schedule"
 	| "meetings.edit"
@@ -166,7 +168,8 @@ type TaskOperation =
 	| "tasks.executeHandoff"
 	| "tasks.replacePrerequisites"
 	| "followups.recordOutcome"
-	| "followups.correctOutcome";
+	| "followups.correctOutcome"
+	| "communication.correctContactLog";
 
 const TEAMS_TITLE = {
 	"teams.create": "Add a ministry",
@@ -400,9 +403,13 @@ const FIELD_LABEL: Record<string, string> = {
 	moves: "Moves over",
 	keptDetails: "Kept as is",
 	staysWithMergedRecord: "Stays behind",
+	attendanceChanges: "Attendance",
+	openTasks: "Open tasks",
+	openKitItems: "Kit items",
 	comesBack: "Comes back",
 	movesBack: "Moves back",
 	detailsGoBack: "Details back",
+	attendanceGoesBack: "Attendance back",
 	bookmarked: "Bookmark",
 	addedText: "Added text",
 	articleText: "Text",
@@ -583,12 +590,6 @@ const DATE_FIELDS = new Set([
 
 const CAPITALIZED = new Set(["householdRole", "category", "proficiency", "color"]);
 const CLASSIFICATION_LABEL: Record<string, string> = { adult: "Adult", child: "Child", unknown: "Not recorded" };
-const dateFormat = new Intl.DateTimeFormat(undefined, {
-	month: "short",
-	day: "numeric",
-	year: "numeric",
-	timeZone: "UTC",
-});
 
 const TASK_STATUS: Record<string, string> = {
 	not_started: "Not started",
@@ -690,7 +691,7 @@ export function valueText(field: string, value: unknown): string | null {
 	if (field === "category" && String(value) in CATEGORY) return CATEGORY[String(value)] ?? String(value);
 	if (CAPITALIZED.has(field) && typeof value === "string") return value.charAt(0).toUpperCase() + value.slice(1);
 	if (DATE_FIELDS.has(field) && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
-		return dateFormat.format(new Date(`${value}T00:00:00Z`));
+		return dayText(value, { locale: "viewer" });
 	if (field === "status" || field === "followUp") return TASK_STATUS[String(value)] ?? String(value);
 	if (field === "outcome") return OUTCOME[String(value)] ?? String(value);
 	if (field === "channel") return CHANNEL[String(value)] ?? String(value);
@@ -770,7 +771,10 @@ export const showsBefore = (review: Pick<Review, "operation">, change: Change) =
 			review.operation === "development.draftNextVersion") &&
 		(change.before === null || change.before === undefined)
 	) &&
-	!(isDocument(review.operation) && change.before === null) &&
+	!(
+		(isDocument(review.operation) || review.operation === "communication.correctContactLog") &&
+		change.before === null
+	) &&
 	!(
 		isIntelligence(review.operation) &&
 		(change.before === null || JSON.stringify(change.before) === JSON.stringify(change.after))
@@ -793,9 +797,8 @@ export function subjectName(review: Review): string {
 	if (review.operation === "documents.importTextOrWord")
 		return String(changes.find((c) => c.field === "title")?.after ?? "New document");
 	const n = changes.length;
-	if (review.operation === "tasks.assignFollowUp")
-		return `${n.toLocaleString()} ${n === 1 ? "follow-up" : "follow-ups"}`;
-	return `${n.toLocaleString()} ${n === 1 ? "task" : "tasks"}`;
+	if (review.operation === "tasks.assignFollowUp") return counted(n, "follow-up");
+	return counted(n, "task");
 }
 
 export function savedText(review: Review): string {
@@ -820,9 +823,9 @@ export function savedText(review: Review): string {
 		case "tasks.delete":
 			return `Saved. ${name} is deleted.`;
 		case "tasks.bulkComplete":
-			return `Saved. ${name} ${review.review.changes.length === 1 ? "is" : "are"} complete.`;
+			return `Saved. ${name} ${countWord(review.review.changes.length, "is", "are")} complete.`;
 		case "tasks.bulkReschedule":
-			return `Saved. ${name} ${review.review.changes.length === 1 ? "has" : "have"} a new due date.`;
+			return `Saved. ${name} ${countWord(review.review.changes.length, "has", "have")} a new due date.`;
 		case "tasks.createSubtask":
 		case "tasks.setSubtaskCompletion":
 		case "tasks.removeSubtask":
@@ -847,6 +850,7 @@ export function savedText(review: Review): string {
 		case "followups.recordOutcome":
 			return `Saved. The contact with ${name} is logged.`;
 		case "followups.correctOutcome":
+		case "communication.correctContactLog":
 			return `Saved. The contact log of ${name} is corrected.`;
 		default:
 			return `Saved. ${name} is updated.`;
@@ -921,6 +925,7 @@ const TITLE: Record<Operation, string> = {
 	"communication.templates.create": "Save an email template",
 	"communication.templates.fork": "Copy a system template",
 	"communication.templates.update": "Change an email template",
+	"communication.templates.archiveOrDelete": "Remove an email template",
 	"people.createPerson": "Add a person",
 	"people.updatePerson": "Update a person",
 	"people.changeStatus": "Change a stage",
@@ -952,6 +957,7 @@ const TITLE: Record<Operation, string> = {
 	"tasks.replacePrerequisites": "Set what a task waits on",
 	"followups.recordOutcome": "Log a contact",
 	"followups.correctOutcome": "Correct a contact log entry",
+	"communication.correctContactLog": "Correct a contact log entry",
 	"people.createInterview": "Record an interview",
 	"people.createAssessment": "Record a 4 C's assessment",
 	"people.createCommitment": "Record a commitment",
@@ -1078,9 +1084,13 @@ const MERGE_FACTS = new Set([
 	"mergesIn",
 	"moves",
 	"staysWithMergedRecord",
+	"attendanceChanges",
+	"openTasks",
+	"openKitItems",
 	"comesBack",
 	"movesBack",
 	"detailsGoBack",
+	"attendanceGoesBack",
 ]);
 export const afterOnly = (review: Pick<Review, "operation">, field: string) =>
 	field === "reason" || MERGE_FACTS.has(field) || (ADDS.has(review.operation) && field !== "stage");
@@ -1091,11 +1101,12 @@ export const intelligencePage = (operation: Operation) =>
 		: { href: "/intelligence/attestations", label: "Open attestations" };
 export const openCriteria = (review: Review) => {
 	const value = review.review.changes.find((c) => c.field === "openCriteria")?.after;
-	return Array.isArray(value) ? (value as { label: string; status: string }[]) : null;
+	return Array.isArray(value) ? (value as { label: string; status: string; reading?: string | null }[]) : null;
 };
 
-export type MailOperation = Extract<Operation, `communication.${string}`>;
-export const isMail = (operation: Operation): operation is MailOperation => operation.startsWith("communication.");
+export type MailOperation = Exclude<Extract<Operation, `communication.${string}`>, "communication.correctContactLog">;
+export const isMail = (operation: Operation): operation is MailOperation =>
+	operation.startsWith("communication.") && operation !== "communication.correctContactLog";
 export type InvitationOperation = "evry.prepareMeetingInvitation" | "evry.reuseRecipe";
 export const isInvitation = (operation: Operation): operation is InvitationOperation =>
 	operation === "evry.prepareMeetingInvitation" || operation === "evry.reuseRecipe";
@@ -1181,8 +1192,8 @@ export function audienceText(value: unknown) {
 	if (!a) return null;
 	const who = [
 		...a.groups.map((g) => GROUP_LABEL[g] ?? g),
-		...(a.teamIds.length ? [`${a.teamIds.length} ${a.teamIds.length === 1 ? "team" : "teams"}`] : []),
-		...(a.personIds.length ? [`${a.personIds.length} ${a.personIds.length === 1 ? "person" : "people"}`] : []),
+		...(a.teamIds.length ? [counted(a.teamIds.length, "team")] : []),
+		...(a.personIds.length ? [counted(a.personIds.length, "person", "people")] : []),
 	].join(", ");
 	const count = `${a.recipients} with an email address`;
 	return [who || "Nobody chosen", count, a.noAddress ? `${a.noAddress} with no email address` : null]
@@ -1222,6 +1233,7 @@ const MAIL_PENDING: Record<MailOperation, string> = {
 	"communication.templates.create": "Review the new template",
 	"communication.templates.fork": "Review the copy",
 	"communication.templates.update": "Review the template change",
+	"communication.templates.archiveOrDelete": "Review before removing",
 };
 const MAIL_REFUSED: Record<string, string> = {
 	"communication.scheduleReviewed": "Can't schedule this email",
@@ -1246,13 +1258,19 @@ export const MAIL_DISMISSED: Partial<Record<Operation, string>> = {
 	"communication.templates.create": "You closed this review. No template was saved.",
 	"communication.templates.fork": "You closed this review. No copy was made.",
 	"communication.templates.update": "You closed this review. The template stays as it was.",
+	"communication.templates.archiveOrDelete": "You closed this review. The template stays as it was.",
 };
+const removedTitle = (review: Review) =>
+	review.review.changes.find((c) => c.field === "template")?.after === "deleted"
+		? "Template deleted"
+		: "Template archived";
 const LOCAL_ONLY = new Set<Operation>([
 	"communication.saveDraft",
 	"communication.deleteDraft",
 	"communication.templates.create",
 	"communication.templates.fork",
 	"communication.templates.update",
+	"communication.templates.archiveOrDelete",
 ]);
 export function mailHead(
 	review: Review,
@@ -1281,8 +1299,9 @@ export function mailHead(
 		return {
 			title: !LOCAL_ONLY.has(review.operation)
 				? "Working with the email service…"
-				: review.operation === "communication.deleteDraft"
-					? "Deleting…"
+				: review.operation === "communication.deleteDraft" ||
+					  review.operation === "communication.templates.archiveOrDelete"
+					? "Removing…"
 					: "Saving…",
 			tone: "amber",
 		};
@@ -1295,9 +1314,11 @@ export function mailHead(
 			title:
 				review.operation === "communication.deleteDraft"
 					? "Draft deleted"
-					: review.operation.startsWith("communication.templates.")
-						? "Template saved"
-						: "Saved",
+					: review.operation === "communication.templates.archiveOrDelete"
+						? removedTitle(review)
+						: review.operation.startsWith("communication.templates.")
+							? "Template saved"
+							: "Saved",
 			tone: "green",
 		};
 	switch (report.kind) {
@@ -1401,8 +1422,7 @@ export function consequence(review: Review): string | null {
 	if (review.operation === "notifications.markSelectedRead" || review.operation === "notifications.markAllVisibleRead")
 		return "Marking read doesn't complete or change any task.";
 	const tasks = handedBack(review.review.changes);
-	const owner =
-		tasks > 0 ? `${tasks.toLocaleString()} open ${tasks === 1 ? "task" : "tasks"} will need a new owner.` : null;
+	const owner = tasks > 0 ? `${counted(tasks, "open task")} will need a new owner.` : null;
 	switch (review.operation) {
 		case "people.createAssessment":
 		case "people.withdrawCommitment":
@@ -1443,12 +1463,11 @@ export function consequence(review: Review): string | null {
 
 export function importSummary(rows: readonly ReviewedRow[]) {
 	const n = (outcome: ReviewedRow["outcome"][]) => rows.filter((r) => outcome.includes(r.outcome)).length;
-	const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 	const add = n(["create", "create_and_review"]);
 	return [
-		`${plural(add, "person", "people")} will be added`,
-		n(["skip"]) ? `${plural(n(["skip"]), "row", "rows")} skipped` : null,
-		n(["fail"]) ? `${plural(n(["fail"]), "row fails", "rows fail")}` : null,
+		`${counted(add, "person", "people")} will be added`,
+		n(["skip"]) ? `${counted(n(["skip"]), "row")} skipped` : null,
+		n(["fail"]) ? `${counted(n(["fail"]), "row fails", "rows fail")}` : null,
 	]
 		.filter(Boolean)
 		.join(" · ");
@@ -1794,6 +1813,8 @@ export function refusalText(code: string | undefined, target: string | null, ope
 				return "Your seat no longer allows this change, so nothing was saved.";
 			case "status_transition":
 				return "The meeting's status no longer allows this change, so nothing was saved.";
+			case "practice_cancelled":
+				return "A cancelled practice can't be corrected, so nothing was saved.";
 			case "not_found":
 			case "source_unavailable":
 				return `${who} is no longer in Meetings, so nothing was saved.`;
@@ -1924,6 +1945,8 @@ export function mailRefusalText(code: string | undefined): string {
 			return "This message is no longer in Messages, so nothing was done.";
 		case "rsvp_needs_meeting":
 			return "This email has an RSVP link and no open meeting, so nothing was done.";
+		case "mailing_address_missing":
+			return "Sending is held until your church has a mailing address, so nothing was sent. Add it in Church profile.";
 		default:
 			return "Messages refused this change, so nothing was done.";
 	}
@@ -1937,6 +1960,8 @@ export function stoppedReason(code: string | undefined): string {
 			return "The send time is no longer within the next 30 days.";
 		case "rsvp_needs_meeting":
 			return "This email has an RSVP link, and its meeting is no longer open.";
+		case "mailing_address_missing":
+			return "Your church has no mailing address in Church profile yet.";
 		case "access_denied":
 			return "Your seat no longer allows email changes.";
 		case "provider_refused":

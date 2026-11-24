@@ -1,13 +1,14 @@
 import type { Transaction } from "@everyfield/db/client";
 import { meetingTitle } from "@everyfield/contracts/common";
 import { meetingType } from "@everyfield/contracts/meetings";
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
 import { communicationWriter, optedOutSql } from "@everyfield/domain/communication";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { personRow } from "../../../catalog/person-row.ts";
+import { churchZone, localTime, ownerOrAdmin } from "../../tasks/reads/index.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { audienceInput, classifiedPeople } from "../audience.ts";
 
@@ -22,7 +23,7 @@ const listInput = z.strictObject({
 		.describe("The church's local date a scheduled message sends on, like 2026-11-06"),
 	limit: z.int().min(1).max(50).optional(),
 });
-const messageRow = z.object({
+const messageRow = z.strictObject({
 	id: z.uuid(),
 	subject: z.string().nullable(),
 	state: z.string(),
@@ -113,7 +114,7 @@ const sentAt = (c: string) =>
 const OPEN_NOTE =
 	"proof anyone read it, will come or talked to anyone (an open is only what the email service's tracking saw; it misses some opens and counts some automatic ones)";
 
-const resultRow = z.object({
+const resultRow = z.strictObject({
 	id: z.uuid(),
 	name: z.string(),
 	result: z.string(),
@@ -123,7 +124,7 @@ const resultRow = z.object({
 const recipientRow = (actor: EvryActor, r: z.infer<typeof resultRow>) =>
 	personRow(actor, r.id, r.name, { result: r.result, deliveredAt: r.delivered_at, openedAt: r.opened_at });
 
-const meetingRow = z.object({
+const meetingRow = z.strictObject({
 	id: z.uuid(),
 	title: z.string().nullable(),
 	type: meetingType,
@@ -148,6 +149,12 @@ const previewInput = z.strictObject({
 		.describe("That meeting's local date, like 2026-10-15"),
 });
 
+const meetingPatterns = (words: string | undefined) =>
+	(words ?? "")
+		.toLowerCase()
+		.split(/[^a-z0-9]+/)
+		.filter((w) => w.length >= 3 && !["the", "and", "our", "for"].includes(w))
+		.map((w) => `%${w}%`);
 const SOONEST = sql.raw(
 	"mt.starts_at < statement_timestamp(), CASE WHEN mt.starts_at >= statement_timestamp() THEN mt.starts_at END, mt.starts_at DESC, mt.id",
 );
@@ -159,11 +166,7 @@ export const preview: ReadAdapter<z.infer<typeof previewInput>> = {
 	allowed: inPlant,
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const plant = actor.owner.id;
-		const words = (input.meetingWords ?? "")
-			.toLowerCase()
-			.split(/[^a-z0-9]+/)
-			.filter((w) => w.length >= 3 && !["the", "and", "our", "for"].includes(w))
-			.map((w) => `%${w}%`);
+		const words = meetingPatterns(input.meetingWords);
 		const wantMeeting = words.length > 0 || input.meetingOn !== undefined;
 		const r = await tx.execute(sql`WITH ${classifiedPeople(plant, input.audience, null)}
 			SELECT coalesce((SELECT jsonb_agg(jsonb_build_object('id',id,'name',name,'reason',reason) ORDER BY reason IS NULL,lower(name) COLLATE "C",id) FROM classified),'[]'::jsonb) AS people,
@@ -178,8 +181,8 @@ export const preview: ReadAdapter<z.infer<typeof previewInput>> = {
 			WHERE ${live(actor)}`);
 		if (!r.rows.length) throw new EvryRefusal("access_denied");
 		const found = z
-			.object({
-				people: z.array(z.object({ id: z.uuid(), name: z.string(), reason: z.string().nullable() })),
+			.strictObject({
+				people: z.array(z.strictObject({ id: z.uuid(), name: z.string(), reason: z.string().nullable() })),
 				meetings: z.array(meetingRow).nullable(),
 			})
 			.parse(r.rows[0]);
@@ -219,7 +222,7 @@ const messageFacts =
 	'sentAt',${local(sentAt("c"))},'scheduledFor',${local("c.scheduled_at")},
 	'results',coalesce((SELECT jsonb_object_agg(x.result,x.n) FROM (SELECT ${RESULT} AS result,count(*) AS n
 		FROM mail m WHERE m.tenant_id=c.plant_id AND m.communication_id=c.id GROUP BY 1) x),'{}'::jsonb))`);
-const facts = z.object({
+const facts = z.strictObject({
 	id: z.uuid(),
 	subject: z.string(),
 	state: z.string(),
@@ -314,7 +317,7 @@ export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 					AND NOT EXISTS(SELECT FROM mail m WHERE m.tenant_id=p.tenant_id AND m.recipient_person_id=p.id
 						AND m.purpose='communication' AND ${sql.raw(WENT_OUT)})
 				ORDER BY lower(p.display_name) COLLATE "C",p.id LIMIT ${limit}`);
-			const rows = z.array(z.object({ id: z.uuid(), name: z.string(), total: z.number() })).parse(r.rows);
+			const rows = z.array(z.strictObject({ id: z.uuid(), name: z.string(), total: z.number() })).parse(r.rows);
 			const total = rows[0]?.total ?? 0;
 			return {
 				operation: "communication.forPerson",
@@ -341,13 +344,14 @@ export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 					ORDER BY at DESC LIMIT ${limit}) x),'[]'::jsonb) AS emails
 			FROM plant pl WHERE pl.id=${plant}::uuid AND ${live(actor)}`);
 		const found = z
-			.object({
+			.strictObject({
 				found: z.boolean(),
 				emails: z.array(
-					z.object({
+					z.strictObject({
 						id: z.uuid(),
 						subject: z.string(),
 						result: z.string(),
+						at: z.string(),
 						sent_at: z.string(),
 						delivered_at: z.string().nullable(),
 						opened_at: z.string().nullable(),
@@ -454,13 +458,13 @@ export const resendCandidates: ReadAdapter<z.infer<typeof resendInput>> = {
 			FROM communication c JOIN plant pl ON pl.id=c.plant_id
 			WHERE c.id=${input.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid AND ${live(actor)}`);
 		const found = z
-			.object({
+			.strictObject({
 				subject: z.string(),
 				sent_at: z.string().nullable(),
 				resend_from: z.string().nullable(),
 				too_soon: z.boolean(),
 				people: z.array(
-					z.object({ id: z.uuid(), name: z.string(), result: z.string(), hard_reason: z.string().nullable() }),
+					z.strictObject({ id: z.uuid(), name: z.string(), result: z.string(), hard_reason: z.string().nullable() }),
 				),
 			})
 			.optional()
@@ -507,6 +511,300 @@ export const resendCandidates: ReadAdapter<z.infer<typeof resendInput>> = {
 	},
 };
 
+const localDate = z
+	.string()
+	.regex(/^\d{4}-\d{2}-\d{2}$/)
+	.describe("That meeting's local date, like 2026-11-12");
+const meetingInput = z.strictObject({
+	meetingId: z.uuid().optional().describe("A meeting id from an earlier result"),
+	meetingWords: z.string().trim().min(3).max(120).optional().describe("Words naming the meeting, like 'vision night'"),
+	meetingOn: localDate.optional(),
+});
+type MeetingInput = z.infer<typeof meetingInput>;
+
+const HAS_EMAILS = sql`EXISTS(SELECT FROM communication c WHERE c.plant_id=mt.plant_id AND c.meeting_id=mt.id)`;
+const HAS_RECIPIENTS = sql`EXISTS(SELECT FROM communication c JOIN mail m ON m.tenant_id=c.plant_id AND m.communication_id=c.id
+	WHERE c.plant_id=mt.plant_id AND c.meeting_id=mt.id AND m.recipient_person_id IS NOT NULL)`;
+async function findMeeting(tx: Transaction, actor: EvryActor, input: MeetingInput, holds: SQL) {
+	const words = sql`${sql.param(meetingPatterns(input.meetingWords))}::text[]`;
+	const matched = sql`(SELECT count(*) FROM unnest(${words}) w(p) WHERE mt.title ILIKE w.p OR replace(mt.type,'_',' ') ILIKE w.p)`;
+	const r = await tx.execute(sql`
+		SELECT mt.id,mt.title,mt.type,mt.vision_number AS vision,${sql.raw(local("mt.starts_at", "mt.timezone"))} AS starts
+		FROM meeting mt WHERE mt.plant_id=${actor.owner.id}::uuid AND ${live(actor)}
+			AND (${input.meetingId ?? null}::uuid IS NULL OR mt.id=${input.meetingId ?? null}::uuid)
+			AND (${input.meetingId ?? null}::uuid IS NOT NULL OR mt.status<>'cancelled')
+			AND (${input.meetingOn ?? null}::date IS NULL OR mt.local_date=${input.meetingOn ?? null}::date)
+			AND (cardinality(${words})=0 OR ${matched}>0)
+		ORDER BY ${matched} DESC,${holds} DESC, ${SOONEST} LIMIT 1`);
+	const found = meetingRow.optional().parse(r.rows[0]);
+	return found
+		? {
+				kind: "meeting" as const,
+				id: found.id,
+				label: meetingTitle({ title: found.title, type: found.type, visionNumber: found.vision }),
+				fields: { startsAt: found.starts, type: found.type },
+			}
+		: null;
+}
+const NO_MEETING = "no meeting matched";
+const nativeRefusal = (code: string) =>
+	new EvryRefusal(code === "access_denied" ? "access_denied" : "source_unavailable");
+
+export const forMeeting: ReadAdapter<MeetingInput> = {
+	operation: "communication.forMeeting",
+	description:
+		"The emails Messages holds about one meeting: by meetingId, or the church's matching meeting from meetingWords or meetingOn (the meeting matching the most words, then one that has emails, then upcoming soonest, then past latest). The first row is the meeting; each email row has its subject, state (draft, scheduled, sending, sent, cancelled, failed and the like) and its send time in the church's time zone. Emails about other meetings are not in it. A sent state is not a confirmed delivery.",
+	input: meetingInput,
+	allowed: inPlant,
+	async invoke(tx, actor, input): Promise<SourceResult> {
+		const meeting = await findMeeting(tx, actor, input, HAS_EMAILS);
+		if (!meeting) return notFound("communication.forMeeting", [NO_MEETING]);
+		const reply = await communicationWriter.listForMeeting(tx, actor.authority, { meetingId: meeting.id, limit: 50 });
+		if (reply.status !== "ok") {
+			if (reply.error.code === "not_found") return notFound("communication.forMeeting", [NO_MEETING]);
+			throw nativeRefusal(reply.error.code);
+		}
+		const zone = await churchZone(tx, actor);
+		const rows = reply.value.items.map((m) => ({
+			kind: "message" as const,
+			id: m.id,
+			label: m.subject || "Untitled",
+			fields: {
+				state: m.state,
+				sentAt: localTime(m.sentAt, zone),
+				scheduledFor: localTime(m.scheduledAt, zone),
+			},
+		}));
+		return {
+			operation: "communication.forMeeting",
+			status: "available",
+			rows: [meeting, ...rows],
+			total: reply.value.nextCursor ? null : rows.length,
+			page: 1,
+			next: null,
+			completeness: reply.value.nextCursor ? "partial" : "complete",
+			exclusions: ["email addresses", "message bodies", "emails about other meetings"],
+		};
+	},
+};
+
+const trackedRow = z.strictObject({
+	id: z.uuid(),
+	result: z.string(),
+	delivered_at: z.string().nullable(),
+	opened_at: z.string().nullable(),
+});
+export const meetingRecipientTracking: ReadAdapter<MeetingInput> = {
+	operation: "communication.meetingRecipientTracking",
+	description:
+		"Who the emails about one meeting went to (its invitation and the rest), found like communication.forMeeting, and each person's latest result: waiting (held for its send time), checking (the email service has not answered, so it may or may not have gone), sent (accepted, delivery not confirmed yet), delivered, opened, bounced, failed, cancelled or unsubscribed. Never call one delivered before its result says delivered, and say what an open does not prove.",
+	input: meetingInput,
+	allowed: inPlant,
+	async invoke(tx, actor, input): Promise<SourceResult> {
+		const meeting = await findMeeting(tx, actor, input, HAS_RECIPIENTS);
+		if (!meeting) return notFound("communication.meetingRecipientTracking", [NO_MEETING]);
+		const reply = await communicationWriter.listMeetingTracking(tx, actor.authority, { meetingId: meeting.id });
+		if (reply.status !== "ok") {
+			if (reply.error.code === "not_found") return notFound("communication.meetingRecipientTracking", [NO_MEETING]);
+			throw nativeRefusal(reply.error.code);
+		}
+		const r = await tx.execute(sql`
+			SELECT DISTINCT ON (m.recipient_person_id) m.recipient_person_id AS id,${sql.raw(RESULT)} AS result,
+				${sql.raw(local("m.delivered_at"))} AS delivered_at,${sql.raw(local("coalesce(m.opened_at,m.clicked_at)"))} AS opened_at
+			FROM communication c JOIN plant pl ON pl.id=c.plant_id
+			JOIN mail m ON m.tenant_id=c.plant_id AND m.communication_id=c.id
+			WHERE c.plant_id=${actor.owner.id}::uuid AND c.meeting_id=${meeting.id}::uuid AND m.recipient_person_id IS NOT NULL
+			ORDER BY m.recipient_person_id,m.created_at DESC,m.id DESC`);
+		const results = new Map(
+			z
+				.array(trackedRow)
+				.parse(r.rows)
+				.map((row) => [row.id, row]),
+		);
+		const people = reply.value.items.map((p) => {
+			const found = results.get(p.personId);
+			return personRow(actor, p.personId, p.name, {
+				result: found?.result ?? "checking",
+				deliveredAt: found?.delivered_at ?? null,
+				openedAt: found?.opened_at ?? null,
+			});
+		});
+		return {
+			operation: "communication.meetingRecipientTracking",
+			status: "available",
+			rows: [meeting, ...people],
+			total: people.length,
+			page: 1,
+			next: null,
+			completeness: "complete",
+			exclusions: ["email addresses", "message bodies", OPEN_NOTE],
+		};
+	},
+};
+
+const totalsInput = z.strictObject({
+	communicationId: z.uuid().optional().describe("A message id from an earlier result"),
+	subject: z.string().trim().min(1).max(200).optional().describe("Words from the subject"),
+});
+export const deliveryTotals: ReadAdapter<z.infer<typeof totalsInput>> = {
+	operation: "communication.deliveryTotals",
+	description:
+		"How one email did, as counts: by id, or else the most recent email handed to the email service whose subject matches (leave both out for the latest one). sent counts every recipient the email service accepted, delivered only those it confirmed delivered, so never call sent delivered; deliveryNotConfirmed is the difference. opened, bounced, failed, unsubscribed and stillChecking (the email service has not answered yet) follow, with asOf: the time the counts were read, in the church's time zone.",
+	input: totalsInput,
+	allowed: inPlant,
+	async invoke(tx, actor, input): Promise<SourceResult> {
+		const words = input.subject ? `%${input.subject.replace(/[\\%_]/g, "\\$&")}%` : null;
+		const found = await tx.execute(sql`
+			SELECT c.id,coalesce(nullif(c.subject,''),'Untitled') AS subject,${sql.raw(local(sentAt("c")))} AS sent_at
+			FROM communication c JOIN plant pl ON pl.id=c.plant_id
+			WHERE c.plant_id=${actor.owner.id}::uuid AND ${live(actor)}
+				AND (${input.communicationId ?? null}::uuid IS NULL OR c.id=${input.communicationId ?? null}::uuid)
+				AND (${input.communicationId ?? null}::uuid IS NOT NULL OR EXISTS(SELECT FROM mail m WHERE m.tenant_id=c.plant_id AND m.communication_id=c.id))
+				AND (${words}::text IS NULL OR c.subject ILIKE ${words} ESCAPE '\\')
+			ORDER BY (SELECT max(m.created_at) FROM mail m WHERE m.tenant_id=c.plant_id AND m.communication_id=c.id) DESC NULLS LAST,c.created_at DESC
+			LIMIT 1`);
+		const message = z
+			.strictObject({ id: z.uuid(), subject: z.string(), sent_at: z.string().nullable() })
+			.optional()
+			.parse(found.rows[0]);
+		if (!message) return notFound("communication.deliveryTotals", ["email addresses", "message bodies"]);
+		const reply = await communicationWriter.getDeliveryTotals(tx, actor.authority, { communicationId: message.id });
+		if (reply.status !== "ok") {
+			if (reply.error.code === "not_found")
+				return notFound("communication.deliveryTotals", ["email addresses", "message bodies"]);
+			throw nativeRefusal(reply.error.code);
+		}
+		const t = reply.value;
+		const zone = await churchZone(tx, actor);
+		return {
+			operation: "communication.deliveryTotals",
+			status: "available",
+			rows: [
+				{
+					kind: "tally",
+					id: message.id,
+					label: message.subject,
+					fields: {
+						state: t.state,
+						sentAt: message.sent_at,
+						recipients: t.selected,
+						sent: t.sent,
+						delivered: t.delivered,
+						deliveryNotConfirmed: Math.max(0, t.sent - t.delivered),
+						opened: t.opened,
+						bounced: t.bounced,
+						failed: t.failed,
+						unsubscribed: t.unsubscribed,
+						stillChecking: t.unknown,
+						asOf: localTime(t.asOf, zone),
+					},
+				},
+			],
+			total: 1,
+			page: 1,
+			next: null,
+			completeness: "complete",
+			exclusions: ["email addresses", "message bodies", OPEN_NOTE],
+		};
+	},
+};
+
+export const listAudienceTeams: ReadAdapter<Record<string, never>> = {
+	operation: "communication.listAudienceTeams",
+	description:
+		"The church's teams an email can be sent to as an audience, by name, with the id an email's audience teamIds takes.",
+	input: z.strictObject({}),
+	allowed: ownerOrAdmin,
+	async invoke(tx, actor): Promise<SourceResult> {
+		const reply = await communicationWriter.listAudienceTeams(tx, actor.authority);
+		if (reply.status !== "ok") throw nativeRefusal(reply.error.code);
+		const rows = reply.value.teams.map((t) => ({ kind: "team" as const, id: t.id, label: t.name, fields: {} }));
+		return {
+			operation: "communication.listAudienceTeams",
+			status: rows.length ? "available" : "not_found",
+			rows,
+			total: rows.length,
+			page: 1,
+			next: null,
+			completeness: "complete",
+			exclusions: ["archived teams", "team members"],
+		};
+	},
+};
+
+const searchInput = z.strictObject({
+	query: z.string().trim().min(1).max(200).describe("A name, or words from one"),
+});
+export const searchRecipients: ReadAdapter<z.infer<typeof searchInput>> = {
+	operation: "communication.searchRecipients",
+	description:
+		"Find live people by name to email, up to 20. Each row's email says whether Messages can email them: can_email, no_address (no email address recorded) or unsubscribed (they opted out of this church's email). Never print an email address.",
+	input: searchInput,
+	allowed: ownerOrAdmin,
+	async invoke(tx, actor, input): Promise<SourceResult> {
+		const reply = await communicationWriter.readRecipients(tx, actor.authority, { query: input.query });
+		if (reply.status !== "ok") throw nativeRefusal(reply.error.code);
+		const rows = reply.value.people.map((p) =>
+			personRow(actor, p.id, p.displayName, {
+				email: p.unsubscribedAt ? "unsubscribed" : p.email ? "can_email" : "no_address",
+			}),
+		);
+		return {
+			operation: "communication.searchRecipients",
+			status: rows.length ? "available" : "not_found",
+			rows,
+			total: rows.length === reply.value.limit ? null : rows.length,
+			page: 1,
+			next: null,
+			completeness: rows.length === reply.value.limit ? "partial" : "complete",
+			exclusions: ["email addresses", "addresses the email service blocks: the send review checks them"],
+		};
+	},
+};
+
+const ownEmail = z.strictObject({ email: z.string() });
+export const listForSelf: ReadAdapter<Record<string, never>> = {
+	operation: "mail.suppression.listForSelf",
+	description:
+		"Whether the signed-in user's own verified email address is blocked from Everyfield email (after a bounce or a complaint), and when and why it was restored before. It reads only their own address and takes none. Evry can't clear a block: they restore it themselves in Messages.",
+	input: z.strictObject({}),
+	allowed: inPlant,
+	async invoke(tx, actor, _input, _native, _loaded, mail): Promise<SourceResult> {
+		if (!mail) throw new EvryRefusal("source_unavailable");
+		const r = await tx.execute(
+			sql`SELECT c.email FROM access_account_contact(${actor.accountId}::uuid) c WHERE c.verified LIMIT 1`,
+		);
+		const own = ownEmail.optional().parse(r.rows[0]);
+		if (!own) return notFound("mail.suppression.listForSelf", ["your address: it isn't verified"]);
+		const reply = await communicationWriter.listForSelf(tx, actor.authority, { address: own.email }, mail.keys);
+		if (reply.status !== "ok") throw nativeRefusal(reply.error.code);
+		const zone = await churchZone(tx, actor);
+		return {
+			operation: "mail.suppression.listForSelf",
+			status: "available",
+			rows: [
+				{
+					kind: "setting",
+					id: actor.accountId,
+					label: "Your email address",
+					fields: { blocked: reply.value.active, restores: reply.value.restores.length },
+				},
+				...reply.value.restores.map((x, n) => ({
+					kind: "history" as const,
+					id: `${actor.accountId}:restore:${n + 1}`,
+					label: "Restored",
+					fields: { at: localTime(x.at, zone), by: x.actorName, reason: x.reason },
+				})),
+			],
+			total: reply.value.restores.length + 1,
+			page: 1,
+			next: null,
+			completeness: "complete",
+			exclusions: ["the address itself", "any address but your own"],
+		};
+	},
+};
+
 export const COMMUNICATION_READS = [
 	listMessages,
 	preview,
@@ -514,4 +812,10 @@ export const COMMUNICATION_READS = [
 	forPerson,
 	listTemplates,
 	resendCandidates,
+	forMeeting,
+	meetingRecipientTracking,
+	deliveryTotals,
+	listAudienceTeams,
+	searchRecipients,
+	listForSelf,
 ] as const;

@@ -28,6 +28,7 @@ import {
 	type Address,
 	type PersonFacts,
 } from "../fields/shared.ts";
+import { adultOfSql, guardianLinksSql } from "./guardians.ts";
 
 type Role = z.infer<typeof f.householdRole>;
 const roleOrder = f.householdRole.options;
@@ -36,15 +37,19 @@ const memberRow = z.object({
 	display_name: z.string(),
 	household_role: f.householdRole,
 	revision: z.coerce.string(),
+	adult: f.adultClassification,
 	...address,
 });
+const linkRow = z.object({ child: z.uuid(), guardian: z.uuid() });
 const householdRow = z.object({
 	id: z.uuid(),
 	name: z.string(),
 	revision: z.coerce.string(),
 	...address,
 	members: z.array(memberRow),
+	guardians: z.array(linkRow),
 });
+type Link = z.infer<typeof linkRow>;
 type Household = z.infer<typeof householdRow>;
 type Member = z.infer<typeof memberRow>;
 
@@ -53,7 +58,9 @@ const householdJson = (plant: string, id: SQL) =>
  'state_province',h.state_province,'postal_code',h.postal_code,'country',h.country,'members',
  coalesce((SELECT jsonb_agg(jsonb_build_object('id',m.id,'display_name',m.display_name,'household_role',m.household_role,
    'revision',m.revision::text,'street',m.street,'city',m.city,'state_province',m.state_province,'postal_code',m.postal_code,
-   'country',m.country)) FROM person m WHERE m.household_id=h.id AND m.tenant_id=h.plant_id AND m.state='live'),'[]'))
+   'country',m.country,'adult',${adultOfSql("m")})) FROM person m WHERE m.household_id=h.id AND m.tenant_id=h.plant_id AND m.state='live'),'[]'),
+ 'guardians',coalesce((SELECT jsonb_agg(jsonb_build_object('child',gcx.child_person_id,'guardian',gcx.guardian_person_id))
+   FROM ${guardianLinksSql(sql`gcx.plant_id=h.plant_id AND gcx.household_id=h.id`)}),'[]'))
  FROM household h WHERE h.id=${id} AND h.plant_id=${plant}::uuid)`;
 function household(raw: unknown): Household {
 	if (!raw) deny("unavailable");
@@ -77,10 +84,16 @@ function view(h: Household) {
 			displayName: m.display_name,
 			role: m.household_role,
 			revision: m.revision,
+			adult: m.adult,
 			...addressView(m),
 		})),
+		guardians: [...h.guardians]
+			.sort((a, b) => a.child.localeCompare(b.child) || a.guardian.localeCompare(b.guardian))
+			.map((link) => ({ childPersonId: link.child, guardianPersonId: link.guardian })),
 	});
 }
+const without = (links: Link[], personId: string) =>
+	links.filter((link) => link.child !== personId && link.guardian !== personId);
 export const personHouseholdJson = (plant: string) => householdJson(plant, sql`person.household_id`);
 export const personHousehold = (householdId: string | null, raw: unknown) =>
 	householdId ? view(household(raw)) : f.householdResult.parse({ status: "none" });
@@ -90,6 +103,7 @@ function joined(p: PersonFacts, h: Address, role: Role): Member {
 		display_name: p.display_name,
 		household_role: role,
 		revision: next(p.revision),
+		adult: p.adult,
 		...(hasAddress(p) || !hasAddress(h) ? addressOf(p) : addressOf(h)),
 	};
 }
@@ -126,7 +140,7 @@ export const households = {
  ORDER BY lower(h.name),h.id LIMIT ${input.limit} OFFSET ${(input.page - 1) * input.limit}) x ON true`);
 			if (result.rows[0]?.allowed !== true) deny("unavailable");
 			const rows = z
-				.array(householdRow.omit({ members: true }).extend({ members: z.number(), total: z.number() }))
+				.array(householdRow.omit({ members: true, guardians: true }).extend({ members: z.number(), total: z.number() }))
 				.parse(result.rows.filter((row) => row.id !== null));
 			const total = rows[0]?.total ?? 0;
 			return f.householdsPage.parse({
@@ -176,6 +190,7 @@ export const households = {
 						postal_code: fields.postalCode ?? null,
 						country: fields.country ?? null,
 						members: [],
+						guardians: [],
 					};
 					const head = joined(p, home, "head");
 					home.members.push(head);
@@ -325,8 +340,21 @@ export const households = {
 					audit.writes.push(
 						personUpdate(tx, plant, p, { household_id: null, household_role: null }),
 						householdTouched(tx, plant, h.id),
+						tx
+							.delete(tables.guardian_contact)
+							.where(
+								and(
+									eq(tables.guardian_contact.plant_id, plant),
+									sql`${p.id}::uuid IN (${tables.guardian_contact.child_person_id}, ${tables.guardian_contact.guardian_person_id})`,
+								),
+							),
 					);
-					const after = { ...h, revision: next(h.revision), members: h.members.filter((m) => m.id !== p.id) };
+					const after = {
+						...h,
+						revision: next(h.revision),
+						members: h.members.filter((m) => m.id !== p.id),
+						guardians: without(h.guardians, p.id),
+					};
 					return {
 						value: { result: view(after), outcome: "changed", receiptId } satisfies HouseholdValue,
 						subject: p.id,
@@ -366,6 +394,84 @@ export const households = {
 						action: "people.updated",
 						before: { revision: p.revision, ...membership(h, p.household_role) },
 						after: { revision: next(p.revision), ...membership(h, input.input.role) },
+					};
+				}),
+			);
+		});
+	},
+	async setGuardianContact(tx: Tx, ctx: WriteContext, raw: unknown) {
+		return reply(tx, async () => {
+			const plant = plantId(ctx);
+			const input = parse(f.setGuardianContactRequest, raw);
+			return f.householdMutationResult.parse(
+				await mutation<unknown>(tx, ctx, "people.setGuardianContact", input, async (_actor, receiptId, audit) => {
+					const { personId, guardianPersonId, contact } = input.input;
+					const extra = sql`jsonb_build_object('household',${householdJson(plant, sql`person.household_id`)},
+ 'guardianLive',EXISTS (SELECT 1 FROM person ga WHERE ga.id=${guardianPersonId}::uuid AND ga.tenant_id=${plant}::uuid
+   AND ga.plant_id=${plant}::uuid AND ga.state='live'))`;
+					const child = await personFacts(tx, plant, personId, extra);
+					livePerson(child);
+					expectRevision(child.revision, input.expectedRevision);
+					const facts = z.object({ household: z.unknown(), guardianLive: z.boolean() }).parse(child.extra);
+					if (!child.household_id) deny("invalid_input", { reason: "not_in_household" });
+					if (child.adult !== "child") deny("invalid_input", { reason: "not_child" });
+					if (guardianPersonId === child.id) deny("invalid_subject");
+					const h = household(facts.household);
+					const linked = h.guardians.some((link) => link.child === child.id && link.guardian === guardianPersonId);
+					const noop = () => {
+						const value: HouseholdValue = { result: view(h), outcome: "noop", receiptId };
+						return { value, subject: child.id, action: "people.updated" as const, outcome: "noop" as const };
+					};
+					if (!contact && !linked) return noop();
+					const adult = h.members.find((m) => m.id === guardianPersonId);
+					if (contact) {
+						if (!facts.guardianLive) deny("unavailable");
+						if (!adult) deny("invalid_input", { reason: "not_in_household" });
+						if (adult.adult !== "adult") deny("invalid_input", { reason: "not_adult" });
+						if (linked) return noop();
+					}
+					const named = { personId: guardianPersonId, displayName: adult?.display_name ?? "" };
+					const link = and(
+						eq(tables.guardian_contact.plant_id, plant),
+						eq(tables.guardian_contact.child_person_id, child.id),
+						eq(tables.guardian_contact.guardian_person_id, guardianPersonId),
+					);
+					audit.writes.push(
+						personUpdate(tx, plant, child, {}),
+						contact
+							? tx
+									.insert(tables.guardian_contact)
+									.values({
+										plant_id: plant,
+										child_person_id: child.id,
+										guardian_person_id: guardianPersonId,
+										household_id: h.id,
+									})
+									.onConflictDoUpdate({
+										target: [
+											tables.guardian_contact.plant_id,
+											tables.guardian_contact.child_person_id,
+											tables.guardian_contact.guardian_person_id,
+										],
+										set: { household_id: h.id, created_at: sql`clock_timestamp()` },
+									})
+							: tx.delete(tables.guardian_contact).where(link),
+					);
+					const guardians = contact
+						? [...h.guardians, { child: child.id, guardian: guardianPersonId }]
+						: h.guardians.filter((l) => !(l.child === child.id && l.guardian === guardianPersonId));
+					const revision = next(child.revision);
+					const after = {
+						...h,
+						guardians,
+						members: h.members.map((m) => (m.id === child.id ? { ...m, revision } : m)),
+					};
+					return {
+						value: { result: view(after), outcome: "changed", receiptId } satisfies HouseholdValue,
+						subject: child.id,
+						action: "people.updated",
+						before: { revision: child.revision, guardian: contact ? null : named },
+						after: { revision, guardian: contact ? named : null },
 					};
 				}),
 			);

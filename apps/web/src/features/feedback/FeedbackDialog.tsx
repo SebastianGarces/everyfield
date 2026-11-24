@@ -17,6 +17,7 @@ import {
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
+	InlineAlert,
 	Textarea,
 } from "@everyfield/ui/controls";
 import { cn, EvryBot, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
@@ -256,13 +257,13 @@ function FeedbackForm({
 						))}
 					</dl>
 				</details>
-				{failure ? (
-					<p role="alert" className="m-0 text-sm font-medium text-magenta-600">
-						{failure === "lost"
-							? "We could not confirm it was sent. Send again: it is saved only once."
-							: "Your feedback could not be sent from this account."}
-					</p>
-				) : null}
+				<InlineAlert>
+					{failure === "lost"
+						? "We could not confirm it was sent. Send again: it is saved only once."
+						: failure
+							? "Your feedback could not be sent from this account."
+							: null}
+				</InlineAlert>
 			</DialogBody>
 			<DialogFooter>
 				<span className="grow text-sm text-text-3">No screenshot is sent.</span>

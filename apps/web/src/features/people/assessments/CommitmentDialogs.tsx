@@ -8,6 +8,7 @@ import {
 	UserRemove01Icon,
 	UserCheck01Icon,
 } from "@hugeicons/core-free-icons";
+import { dayText } from "@everyfield/contracts/common";
 import { COMMITMENT_MAX_BYTES, commitmentMime } from "@everyfield/contracts/people";
 import {
 	Button,
@@ -418,7 +419,7 @@ export function LifecycleDialog({
 					touched && draft.effectiveOn === ""
 						? "Choose the date."
 						: early && since
-							? `Choose ${new Date(`${since}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })} or later.`
+							? `Choose ${dayText(since)} or later.`
 							: futureDate
 								? "Choose today or an earlier date."
 								: null

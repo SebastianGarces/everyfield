@@ -1,5 +1,6 @@
 import { prefersReducedMotion, type NodeRef } from "@everyfield/ui/foundations";
 import { cancelFrame, frame } from "motion/react";
+import { reinstall } from "@/components/install";
 
 type Listener = () => void;
 
@@ -24,14 +25,12 @@ type Installed = { changed: Listener; media: MediaQueryList };
 const INSTALLED = Symbol.for("everyfield.marketing.page-state");
 
 function install() {
-	const host = window as unknown as Record<symbol, Installed | undefined>;
-	const previous = host[INSTALLED];
+	const media = matchMedia("(prefers-reduced-motion: reduce)");
+	const previous = reinstall<Installed>(INSTALLED, { changed: pageChanged, media });
 	if (previous) {
 		document.removeEventListener("visibilitychange", previous.changed);
 		previous.media.removeEventListener("change", previous.changed);
 	}
-	const media = matchMedia("(prefers-reduced-motion: reduce)");
-	host[INSTALLED] = { changed: pageChanged, media };
 	reduced = media.matches;
 	document.addEventListener("visibilitychange", pageChanged);
 	media.addEventListener("change", pageChanged);

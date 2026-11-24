@@ -279,6 +279,9 @@ async function fill(
 				),
 			) as { plant: { id: string } };
 			id = created.plant.id;
+			await admin.execute(
+				sql`UPDATE plant SET street='1200 Congress Ave', state_province='TX', country='United States' WHERE id=${id}`,
+			);
 			done.push(`church${label}`);
 		}
 		const completed = await rows(admin, sql`SELECT onboarding_completed_at FROM plant WHERE id=${id}`);
@@ -493,7 +496,7 @@ async function fill(
 		invalidate: (_tx, input) =>
 			sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
 	};
-	const organizations = createOrganizationAdapter(effects, { candidates: async () => [] });
+	const organizations = createOrganizationAdapter(effects, { candidates: () => sql`SELECT NULL::uuid WHERE false` });
 	async function organizationRow(kind: OrgKind, name: string, city = "Austin"): Promise<OrgOwner> {
 		let id = (
 			await rows(admin, sql`SELECT id FROM organization WHERE name=${name} AND kind=${kind} ORDER BY id LIMIT 1`)
@@ -616,7 +619,7 @@ async function fill(
 		done.push(`person ${SHARED.name} in ${RIVERSIDE.name}`);
 	}
 
-	await multiplication({
+	const m: Multiplication = {
 		admin,
 		runtime,
 		done,
@@ -627,7 +630,9 @@ async function fill(
 		relate,
 		plant,
 		organizations,
-	});
+	};
+	await multiplication(m);
+	const expired = await expiredRequest(m, onboarding, proofs);
 
 	const wikiWritten = await wiki(admin);
 	done.push(...(await wikiCases(admin, plantId, owner)));
@@ -636,7 +641,8 @@ async function fill(
 	done.push(...(await checkIns(admin, runtime, owner, plantId, ownerSession)));
 
 	for (const id of sessions.values()) await admin.execute(sql`DELETE FROM auth_session WHERE id=${id}`);
-	return done.length ? `QA seed wrote: ${done.join(", ")}.` : "QA seed: the branch is already complete.";
+	const summary = done.length ? `QA seed wrote: ${done.join(", ")}.` : "QA seed: the branch is already complete.";
+	return expired ? `${summary}\nQA link, Expired discovery request: ${expired}` : summary;
 }
 
 const GRACE = "Grace Austin (QA)";
@@ -696,7 +702,7 @@ type Multiplication = {
 	admin: Database;
 	runtime: Database;
 	done: string[];
-	account: (name: string, email: string, organization?: Registration) => Promise<string>;
+	account: (name: string, email: string, organization?: Registration, active?: boolean) => Promise<string>;
 	sessionOf: (email: string) => Promise<string>;
 	organizationRow: (kind: OrgKind, name: string, city?: string) => Promise<OrgOwner>;
 	seatRow: (accountId: string, orgId: string, role: string, label: string) => Promise<string>;
@@ -1122,6 +1128,64 @@ const BOUNCES = {
 	adminAgain: "qa-seed/bounce/admin-2",
 } as const;
 
+const DISCOVERY_SENDER = { name: "Nico Alvarez", login: QA_LOGINS.discoverySender } as const;
+const EXPIRED_AGE = "35 days";
+
+async function expiredRequest(
+	m: Multiplication,
+	onboarding: ReturnType<typeof createOnboardingProducer>,
+	proofs: ReadonlyMap<string, string>,
+): Promise<string | null> {
+	const { admin, runtime, done } = m;
+	const nico = await m.account(DISCOVERY_SENDER.name, DISCOVERY_SENDER.login, { kind: "discovery" }, false);
+	const selected = { kind: "account", id: nico } as const;
+	const revision = async () =>
+		(await rows(admin, sql`SELECT revision::text AS r FROM account WHERE id=${nico}`))[0]!.r as string;
+	if (!(await rows(admin, sql`SELECT 1 FROM discovery WHERE account_id=${nico}`)).length) {
+		const c = { session: await m.sessionOf(DISCOVERY_SENDER.login), selected };
+		const expectedRevision = await revision();
+		ok(
+			`Discovery ${DISCOVERY_SENDER.name}`,
+			await gatedTransaction(runtime, (tx) =>
+				onboarding.createDiscovery(
+					tx as never,
+					c as never,
+					{ requestKey: randomUUID(), expectedRevision, input: {} } as never,
+				),
+			),
+		);
+		done.push(`Discovery ${DISCOVERY_SENDER.name}`);
+	}
+	const hill = await m.organizationRow("sending_network", HILL);
+	const sent = await rows(
+		admin,
+		sql`SELECT 1 FROM relationship_invitation WHERE account_id=${nico} AND organization_id=${hill.id}`,
+	);
+	if (sent.length) return null;
+	const s = (await m.sessionOf(DISCOVERY_SENDER.login)) as never;
+	const expectedRevision = await revision();
+	const invited = await gatedTransaction(runtime, (tx) =>
+		m.organizations["associations.invite"](
+			tx,
+			s,
+			selected as never,
+			{
+				requestKey: randomUUID(),
+				expectedRevision,
+				input: {
+					pair: { kind: "discovery", accountId: nico, organization: hill },
+					recipientEmail: HILL_OWNER.login,
+				},
+			} as never,
+		),
+	);
+	await admin.execute(
+		sql`UPDATE invitation SET created_at=clock_timestamp()-${EXPIRED_AGE}::interval WHERE id=${invited.invitationId}`,
+	);
+	done.push(`expired request from ${DISCOVERY_SENDER.name} to ${HILL}`);
+	return `/connections/respond?invitation=${invited.invitationId}#${proofs.get(invited.invitationId)!}`;
+}
+
 async function bounce(tx: Database, keys: MailKeys, eventKey: string, address: string, daysAgo: number) {
 	const event = randomUUID(),
 		hash = mailAddressHash(keys.addressKey, address);
@@ -1170,6 +1234,12 @@ async function mailCases(
 			)
 		)[0] as { id: string; revision: string } | undefined;
 	if (!(await message())) {
+		const filled = await rows(
+			admin,
+			sql`UPDATE plant SET street='1200 Congress Ave', state_province='TX', country='United States'
+				WHERE id=${p.plantId} AND street IS NULL AND country IS NULL RETURNING id`,
+		);
+		if (filled.length) done.push("church mailing address");
 		const c = await p.ctx();
 		const personIds: string[] = [];
 		for (const name of DELIVERY_TO) personIds.push((await p.personId(name))!.id);

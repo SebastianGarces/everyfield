@@ -1,5 +1,12 @@
 import type * as people from "@everyfield/contracts/people";
-import { householdRole, PHOTO_MAX_BYTES, photoMime, proficiency, skillCategory } from "@everyfield/contracts/people";
+import {
+	householdRole,
+	listText,
+	PHOTO_MAX_BYTES,
+	photoMime,
+	proficiency,
+	skillCategory,
+} from "@everyfield/contracts/people";
 import type { Tone } from "@everyfield/ui/display";
 import type { z } from "zod";
 
@@ -118,6 +125,12 @@ export function householdChange(change: { from: Membership | null; to: Membershi
 		return `Role in ${to.name} changed to ${ROLE_LABEL[to.role].toLowerCase()}`;
 	if (from && to) return `Moved from ${from.name} to ${to.name}`;
 	return "Household changed";
+}
+
+export function guardianLine(first: string, contacts: readonly string[]): string {
+	if (!contacts.length)
+		return `${first} is marked as a child, so Messages emails skip ${first} until a parent or guardian contact is set.`;
+	return `Messages emails for ${first} go to ${listText(contacts)}, as ${first}'s parent or guardian contact.`;
 }
 
 export function membershipOf(result: HouseholdResult | null, personId: string): Membership | null {

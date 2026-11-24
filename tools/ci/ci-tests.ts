@@ -1,6 +1,7 @@
 import { existsSync, globSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
+import { RUNNER, UnitGroupError, listedTests, unitPackages } from "./test-unit.ts";
 
 class CiTestsError extends Error {
 	name = "ToolError";
@@ -38,10 +39,12 @@ export function checkCiTests(root: string): void {
 		visited = new Set<string>();
 	const run = (file: string, label: string) => (runs.get(file) ?? runs.set(file, new Set()).get(file)!).add(label);
 	function follow(command: string, pkg: Package, label: string, matrix: Record<string, string[]> = {}): void {
-		for (const part of command.split(/\s*(?:&&|\|\||;|\n)\s*/)) {
+		for (const part of command.replace(/\\\n\s*/g, " ").split(/\s*(?:&&|\|\||;|\n)\s*/)) {
 			const tokens = (part.match(/"[^"]*"|'[^']*'|[^\s]+/g) ?? []).map((t) => t.replace(/^(['"])(.*)\1$/, "$2"));
 			if (tokens[0] === "corepack") tokens.shift();
-			if (tokens[0] === "pnpm") {
+			if (tokens[0] === "node" && tokens[1] === "tools/ci/parallel.ts") {
+				for (const arg of tokens.slice(2)) follow(arg.slice(arg.indexOf("=") + 1), pkg, label, matrix);
+			} else if (tokens[0] === "pnpm") {
 				const args = tokens.slice(1);
 				const filterAt = args.indexOf("--filter"),
 					filter = filterAt < 0 ? undefined : args.splice(filterAt, 2)[1];
@@ -70,6 +73,15 @@ export function checkCiTests(root: string): void {
 					if (!target.scripts[script] || visited.has(key)) continue;
 					visited.add(key);
 					follow(target.scripts[script], target, `${target.name || target.dir} ${script}`);
+				}
+			} else if (tokens[0] === "node" && resolve(root, pkg.dir, tokens[1] ?? "") === join(root, RUNNER)) {
+				try {
+					for (const files of listedTests(pkg.name, tokens.slice(2)).values())
+						for (const file of files) run(relative(root, resolve(root, pkg.dir, file)), label);
+					for (const [file, owner] of Object.entries(unitPackages(root))) if (owner === pkg.name) run(file, label);
+				} catch (error) {
+					if (error instanceof UnitGroupError) fail(error.message);
+					throw error;
 				}
 			} else if (["node", "tsx"].includes(tokens[0] ?? "") && tokens.includes("--test")) {
 				for (const token of tokens.slice(tokens.indexOf("--test") + 1)) {

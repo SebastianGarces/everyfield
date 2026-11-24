@@ -1,3 +1,4 @@
+import { counted, dayText } from "@everyfield/contracts/common";
 import {
 	countdown,
 	type Countdown,
@@ -27,22 +28,6 @@ export async function sent<R extends { status: string }>(call: () => Promise<R>)
 	}
 }
 
-const at = (date: string) => new Date(`${date}T12:00:00Z`);
-export const longDate = (date: string) =>
-	new Intl.DateTimeFormat("en-US", {
-		timeZone: "UTC",
-		weekday: "short",
-		month: "short",
-		day: "numeric",
-		year: "numeric",
-	}).format(at(date));
-export const shortDate = (date: string, today: string) =>
-	new Intl.DateTimeFormat("en-US", {
-		timeZone: "UTC",
-		month: "short",
-		day: "numeric",
-		...(date.slice(0, 4) === today.slice(0, 4) ? {} : { year: "numeric" }),
-	}).format(at(date));
 export const instantDate = (instant: string, timeZone: string) =>
 	new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric", year: "numeric" }).format(
 		new Date(instant),
@@ -78,8 +63,7 @@ export const progressOf = (m: Pick<Milestone, "tasks">) => ({
 	done: m.tasks.filter((t) => t.status === "complete").length,
 	total: m.tasks.length,
 });
-export const tasksText = ({ done, total }: { done: number; total: number }) =>
-	`${done} of ${total} ${total === 1 ? "task" : "tasks"}`;
+export const tasksText = ({ done, total }: { done: number; total: number }) => `${done} of ${counted(total, "task")}`;
 
 export const NOTE_MESSAGE: Record<NoteProblem, string> = {
 	empty: "Write a short reason. It stays in the Launch history.",
@@ -131,7 +115,7 @@ const FIELD_LABEL: Record<OutcomeField, string> = {
 };
 export function historyText(e: HistoryEntry, today: string): { title: string; lines: string[] } {
 	const c = e.change;
-	const day = (d: string | null) => (d ? shortDate(d, today) : "no date");
+	const day = (d: string | null) => (d ? dayText(d, { year: Number(today.slice(0, 4)) }) : "no date");
 	switch (c.kind) {
 		case "date":
 			return {
@@ -208,9 +192,15 @@ export function historyText(e: HistoryEntry, today: string): { title: string; li
 }
 function historyValue(field: OutcomeField, v: string | number | null, today: string) {
 	if (v === null) return "Not recorded";
-	return field === "actualDate" ? shortDate(String(v), today) : String(v);
+	return field === "actualDate" ? dayText(String(v), { year: Number(today.slice(0, 4)) }) : String(v);
 }
 export const actorText = (e: Pick<HistoryEntry, "actor">) => e.actor?.displayName || "A former account";
+
+const NOT_READY_MESSAGE: Record<Extract<LaunchError, { code: "not_ready" }>["details"]["needs"], string> = {
+	launch_sunday: "Record the outcome after Launch Sunday.",
+	outcome: "Record Launch Sunday first. Reload the page to see it now.",
+	debrief: "Submit the debrief first. Reload the page to see it now.",
+};
 
 export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok" }> | ReadFailure): string {
 	if (outcome.status === "failed") return READ_FAILED;
@@ -233,9 +223,7 @@ export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok"
 		case "invalid_summary":
 			return SUMMARY_MESSAGE[error.details.problem];
 		case "not_ready":
-			return error.details.needs === "outcome"
-				? "Record Launch Sunday first. Reload the page to see it now."
-				: "Submit the debrief first. Reload the page to see it now.";
+			return NOT_READY_MESSAGE[error.details.needs];
 		case "derived_evidence_only":
 			return "This milestone follows the submitted debrief. It can't be checked off by hand.";
 		case "invalid_gathering":

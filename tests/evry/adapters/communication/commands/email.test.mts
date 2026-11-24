@@ -139,6 +139,9 @@ let dana = "";
 let noAddress = "";
 before(async () => {
 	await setup();
+	await admin.execute(
+		sql`UPDATE plant SET street='12 Mill Road', city='Austin', country='United States' WHERE id=${plant}`,
+	);
 	const emails: [string, string][] = [
 		[people.alexRivera, "alex.rivera@example.test"],
 		[people.alexChen, "alex.chen@example.test"],
@@ -1028,9 +1031,10 @@ test("Evry finds messages by subject and send time; a member reads but cannot wr
 		readCatalog(who)
 			.reviewedWrites.map((w) => w.operation)
 			.filter((op) => op.startsWith("communication."));
-	assert.deepEqual(writes(member), []);
+	assert.deepEqual(writes(member), ["communication.correctContactLog"], "a member gets no email write");
 	assert.deepEqual(writes(owner).sort(), [
 		"communication.cancelScheduledReviewed",
+		"communication.correctContactLog",
 		"communication.deleteDraft",
 		"communication.executeResend",
 		"communication.replaceScheduledReviewed",
@@ -1039,6 +1043,7 @@ test("Evry finds messages by subject and send time; a member reads but cannot wr
 		"communication.saveDraft",
 		"communication.scheduleReviewed",
 		"communication.sendReviewed",
+		"communication.templates.archiveOrDelete",
 		"communication.templates.create",
 		"communication.templates.fork",
 		"communication.templates.update",

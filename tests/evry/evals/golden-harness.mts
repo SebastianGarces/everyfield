@@ -60,6 +60,17 @@ import { INVITATION_COMMANDS } from "../../../packages/evry/src/adapters/meeting
 import { WORKFLOW_READS } from "../../../packages/evry/src/adapters/meetings/reads/workflows.ts";
 import { WIKI_COMMANDS } from "../../../packages/evry/src/adapters/wiki/commands/index.ts";
 
+export const COMMUNICATION_LATER = [
+	"communication.forMeeting",
+	"communication.meetingRecipientTracking",
+	"communication.deliveryTotals",
+	"communication.listAudienceTeams",
+	"communication.searchRecipients",
+	"mail.suppression.listForSelf",
+	"communication.templates.archiveOrDelete",
+	"communication.correctContactLog",
+];
+
 const LATER = new Set<string>([
 	...SEAT_READS.map((a) => a.operation),
 	...SHARING_READS.map((a) => a.operation),
@@ -78,6 +89,12 @@ const LATER = new Set<string>([
 	...WORKFLOW_READS.map((a) => a.operation),
 	"documents.importTextOrWord",
 	...Object.keys(WIKI_COMMANDS).filter((op) => op.startsWith("wiki.organizationArticles.")),
+	"organizationIntelligence.readHistory",
+	"organizationIntelligence.readLocations",
+	"organizationIntelligence.readLocationHistory",
+	"intelligence.readExitCriteria",
+	"intelligence.readJourney",
+	...COMMUNICATION_LATER,
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
 const SCRIPTED_ONLY = new Set(["documents.importTextOrWord"]);
@@ -308,13 +325,25 @@ const MAIL: MailPort = {
 
 const MAX_STEPS = LIMITS.toolCalls + 1;
 
+let writing: Promise<unknown> = Promise.resolve();
+function oneWriterAtATime(db: GoldenChurch["db"]): GoldenChurch["db"] {
+	const transaction: GoldenChurch["db"]["transaction"] = (run, config) => {
+		const written = writing.then(() => db.transaction(run, config));
+		writing = written.catch(() => undefined);
+		return written;
+	};
+	return new Proxy(db, {
+		get: (target, key, receiver) => (key === "transaction" ? transaction : Reflect.get(target, key, receiver)),
+	});
+}
+
 let opening: Promise<unknown> = Promise.resolve();
 function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attached[] = []) {
 	const opened = opening.then(async () => {
 		const c = await createConversation(db, actor, { requestKey: randomUUID() });
 		for (const f of files)
 			await db.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
-				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,${f.pdf ? "commitment" : "assistant_staging"},${`private/${actor.owner.id}/${f.id}`},${f.pdf ? "application/pdf" : "text/csv"},${f.bytes.length},
+				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,${f.pdf ? "commitment" : "assistant_staging"},${`private/${actor.owner.id}/${f.id}`},${f.pdf ? "application/pdf" : isPng(f) ? "image/png" : "text/csv"},${f.bytes.length},
 					'pending',${`evry-attachment/${c.id}/${f.id}`},0,clock_timestamp()+make_interval(hours=>${ATTACHMENTS.stagingHours}))`);
 		const submitted = await submitTurn(db, actor, c.id, {
 			requestKey: randomUUID(),
@@ -353,20 +382,27 @@ export type CaseFile = {
 	checked?: boolean;
 };
 type Attached = CaseFile & { bytes: Uint8Array };
+const isPng = (f: CaseFile) => /\.png$/i.test(f.name);
+const PNG = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
+	"base64",
+);
 const fill = (csv: string) =>
 	csv.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => byName(name)[field] ?? "");
 const HEADING = W.styles(W.style("Heading1", "heading 1"));
 const bytesOf = (f: CaseFile): Uint8Array =>
-	f.pdf
-		? pdf()
-		: f.base64 !== undefined
-			? Buffer.from(f.base64, "base64")
-			: f.docx
-				? W.word(
-						f.docx.map((line) => (line.startsWith("# ") ? W.styled("Heading1", line.slice(2)) : W.p(line))).join(""),
-						{ styles: HEADING },
-					)
-				: new TextEncoder().encode(fill(f.csv ?? ""));
+	isPng(f)
+		? new Uint8Array(PNG)
+		: f.pdf
+			? pdf()
+			: f.base64 !== undefined
+				? Buffer.from(f.base64, "base64")
+				: f.docx
+					? W.word(
+							f.docx.map((line) => (line.startsWith("# ") ? W.styled("Heading1", line.slice(2)) : W.p(line))).join(""),
+							{ styles: HEADING },
+						)
+					: new TextEncoder().encode(fill(f.csv ?? ""));
 
 export async function converse(
 	church: GoldenChurch,
@@ -380,6 +416,7 @@ export async function converse(
 	repetition = 1,
 ): Promise<Conversation> {
 	const { db } = church;
+	const writer = oneWriterAtATime(db);
 	const actor = church.actors[as];
 	const keys: string[] = [];
 	const inputs: string[] = [];
@@ -510,7 +547,7 @@ export async function converse(
 				const card: Proposal = { operation: call.operation, input: call.input, prepared: false, review: null };
 				proposals.push(card);
 				const number = proposals.length;
-				const open = await (conversation ??= openConversation(db, actor, files));
+				const open = await (conversation ??= openConversation(writer, actor, files));
 				for (const check of calls.filter((x) => x.operation === "people.previewImport" && x.result && !saved.has(x))) {
 					saved.add(check);
 					await db.execute(sql`WITH c AS (UPDATE conversation SET last_sequence=last_sequence+1 WHERE id=${open.id}::uuid RETURNING id,last_sequence)
@@ -518,7 +555,7 @@ export async function converse(
 					SELECT id,last_sequence,${open.lease.turnId}::uuid,'tool_result',${JSON.stringify({ operation: check.operation, input: check.input, result: check.result })}::jsonb FROM c`);
 				}
 				const proposal = await prepareProposal(
-					db,
+					writer,
 					actor,
 					open.lease,
 					open.id,

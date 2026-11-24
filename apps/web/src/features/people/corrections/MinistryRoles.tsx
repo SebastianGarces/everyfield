@@ -1,5 +1,6 @@
 "use client";
 
+import { dayText } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/teams";
 import { Calendar03Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import {
@@ -20,7 +21,7 @@ import type { z } from "zod";
 import { RecordDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import { correctTenure } from "../../teams/actions.ts";
 import { roleDateProblems } from "./model.ts";
-import { dayText, problemText } from "../../teams/model.ts";
+import { problemText } from "../../teams/model.ts";
 
 type Role = z.infer<typeof c.assignmentRow>;
 type Form = { role: Role; startedOn: string; endedOn: string; reason: string; problem?: string };

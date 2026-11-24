@@ -1,3 +1,4 @@
+import "../platform/setup.mts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
@@ -77,7 +78,9 @@ before(async () => {
 		securityNotice: async () => {},
 	});
 	api = settingsApi({
-		organizations: createOrganizationAdapter(organizationEffects, { candidates: async () => [] }),
+		organizations: createOrganizationAdapter(organizationEffects, {
+			candidates: () => sql`SELECT NULL::uuid WHERE false`,
+		}),
 		organizationEffects,
 		effects: { replan: async () => {} },
 		suppression: async () => "unavailable",

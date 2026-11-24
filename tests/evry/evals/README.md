@@ -27,6 +27,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `oversight.test.mts`    | `oversight.cases.json`                                                                                                   | An organization seat's oversight, Network Intelligence and digest settings (scripted model) |
 | `wiki-meaning.test.mts` | `wiki-meaning.cases.json`                                                                                                | `wiki.search` by meaning on fixed vectors: global and network articles (scripted model)     |
 | `task-plan.test.mts`    | `task-plan.cases.json`                                                                                                   | Phase offer, checklist import, follow-up handoff and prerequisite cards (scripted model)    |
+| `phases.test.mts`       | `phases.cases.json`                                                                                                      | Exit criteria with their readings, the journey and the phase-move review (scripted model)   |
 
 ## The settings suite (scripted model)
 
@@ -163,6 +164,24 @@ the offer or the task natively after the card is shown, and the approval must en
 `revision_conflict`) with nothing created. The suite also holds the refusals: an answered offer, an item the checklist
 doesn't hold, a handoff to a seat that can't own follow-ups or from an Owner, a cycle and a checklist row, a Member
 (only an Owner or Admin, D-1998) and an organization seat. The recorded suites leave these six writes out too.
+
+## The phase readiness suite (scripted model)
+
+`phases.test.mts` scores `intelligence.readExitCriteria` and `intelligence.readJourney` (T-340) on the scripted model
+(`packages/evry/src/runtime/scripted-phases.ts`): their ask allowed no new spend. It runs on Hope Fellowship with 18
+committed core-group adults (`phases-church.mts` adds the cards on top of the golden seed, dated relative to the
+database clock). The cases ask what the church needs to move to the next phase (each Core Group Development criterion
+with its status and reading, "18 of 30 committed adults"), prepare and approve the move to Launch Team Formation (the
+review lists the open criteria with their readings; the journey changes only after approval), ask again once all eight
+responsibilities are filled and Launch Sunday is scheduled (every criterion met), and walk the journey. No reply may
+say the church is or is not ready. Three more tests hold the reads to the screens: each phase's rows match
+`criteriaOf` and the journey's signs from the same facts, the journey matches `/intelligence/journey`'s timeline, and a
+Member, an organization seat and another church get no tool or data.
+
+The real-model cases for the two reads (ADP-PH-14 to ADP-PH-17 in `adapters.cases.json`) wait for the next batched
+re-record (D-1999): while an operation is in `LATER`, `golden.test.mts` reports its adapter cases as held and does not
+run them. The phase-move review shows each criterion's reading on the card, but the model's copy keeps the recorded
+`{label, status}` shape until that re-record (`proposalForModel`, D-2014).
 
 ## The household and follow-up suites
 

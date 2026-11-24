@@ -2,6 +2,7 @@ import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { readFileSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { readCatalog, READ_DOMAINS } from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import { approveProposal } from "../../../packages/evry/src/proposals/store.ts";
@@ -14,12 +15,15 @@ import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src
 import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/people.ts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
+import { waitingOnLock } from "../../support/fixture.mts";
 import {
 	GIVING,
 	goldenChurch,
 	PRIVATE_CHECK_IN,
 	HOUSEHOLDS,
+	MEETINGS,
 	IMPORT_KEY,
+	PLANT,
 	REVIEW_PAIRS,
 	PEOPLE,
 	byName,
@@ -92,7 +96,15 @@ type Eval = Checks & {
 		proposalsAll?: { operation: string; targets: string };
 	};
 	targetProbe?: { history: Turn[]; text: string; require: string[] };
-	setup?: { merge?: [source: string, survivor: string]; touch?: string; signed?: { text: string; file: CaseFile } };
+	setup?: {
+		followUp?: string;
+		task?: string;
+		history?: string;
+		role?: string;
+		merge?: [source: string, survivor: string];
+		touch?: string;
+		signed?: { text: string; file: CaseFile };
+	};
 	finding?: Finding;
 	gate?: Gate;
 	journey?: Journey;
@@ -433,6 +445,56 @@ const scriptedModel = (() => {
 })();
 async function setUp(setup: NonNullable<Eval["setup"]>) {
 	const authority = church.actors.owner.authority;
+	if (setup.followUp) {
+		const meeting = randomUUID();
+		await church.admin.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,
+			resolver_version,status,attendance_revision) VALUES(${meeting},${PLANT},'orientation','Newcomer lunch','2026-11-08',
+			'12:00','America/Chicago','2026-11-08T18:00:00Z','1','completed',1)`);
+		await church.admin
+			.execute(sql`INSERT INTO obligation(plant_id,meeting_id,person_id,kind,origin_at,origin_date,timezone,
+			formula_version,due_date) VALUES(${PLANT},${meeting},${byName(setup.followUp).id},'follow_up','2026-11-08T18:00:00Z',
+			'2026-11-08','America/Chicago','1','2026-11-11')`);
+	}
+	const task = randomUUID();
+	if (setup.task)
+		await church.admin
+			.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id)
+			VALUES(${task},${PLANT},'Call about the merge','general','medium','not_started','2026-11-08T18:00:00Z','undated',
+			${byName(setup.task).id})`);
+	const added = { attendance: randomUUID(), kit: randomUUID(), task: randomUUID(), role: randomUUID() };
+	if (setup.history) {
+		const personId = byName(setup.history).id;
+		await church.admin
+			.execute(sql`INSERT INTO participation(id,plant_id,meeting_id,person_id,roster_member,rsvp,presence)
+			VALUES(${added.attendance},${PLANT},${MEETINGS.lastWeek},${personId},false,'pending','absent')`);
+		await church.admin.execute(sql`INSERT INTO meeting_kit_item(id,plant_id,meeting_id,item_key,position,category,text,
+			assignee_person_id) VALUES(${added.kit},${PLANT},${MEETINGS.lastWeek},'merge-setup',99,'materials','Welcome table sign',
+			${personId})`);
+		await church.admin
+			.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date,
+			person_id) VALUES(${added.task},${PLANT},'Invite to the next lunch','general','medium','not_started',
+			'2026-11-08T18:00:00Z','date_only','2026-11-20',${personId})`);
+	}
+	const roleOn = setup.history ? "Hospitality" : setup.role ? "Kids ministry" : null;
+	if (roleOn) {
+		await church.admin.execute(sql`INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order)
+			VALUES(${added.role},${PLANT},${teamId(roleOn)},${setup.history ? "Usher" : "Snack helper"},false,99)`);
+		await church.admin.execute(sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on)
+			VALUES(${PLANT},${added.role},${byName((setup.history ?? setup.role)!).id},'2026-09-01')`);
+	}
+	const cleanup = async () => {
+		if (setup.task) await church.admin.execute(sql`DELETE FROM task WHERE id=${task}::uuid`);
+		if (setup.merge) return;
+		if (roleOn) {
+			await church.admin.execute(sql`DELETE FROM team_tenure WHERE role_id=${added.role}::uuid`);
+			await church.admin.execute(sql`DELETE FROM team_role WHERE id=${added.role}::uuid`);
+		}
+		if (setup.history) {
+			await church.admin.execute(sql`DELETE FROM participation WHERE id=${added.attendance}::uuid`);
+			await church.admin.execute(sql`DELETE FROM meeting_kit_item WHERE id=${added.kit}::uuid`);
+			await church.admin.execute(sql`DELETE FROM task WHERE id=${added.task}::uuid`);
+		}
+	};
 	if (setup.merge) {
 		const pair = { sourceId: byName(setup.merge[0]).id, survivorId: byName(setup.merge[1]).id };
 		const review = await gatedTransaction(church.db, (tx) =>
@@ -475,6 +537,7 @@ async function setUp(setup: NonNullable<Eval["setup"]>) {
 		await finishJob(church.db, claim, { state: "succeeded" });
 		if (outcome !== "completed") throw Error(`setup: the approved commitment ${outcome}`);
 	}
+	return cleanup;
 }
 
 async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
@@ -509,6 +572,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 		keys: [],
 	};
 	const own = row.scripted;
+	let cleanup: (() => Promise<void>) | undefined;
 	const ask = async (repetition: number) => {
 		const c = await converse(
 			church,
@@ -533,7 +597,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 		return { c, checks };
 	};
 	try {
-		if (own && spec.setup) await setUp(spec.setup);
+		if (own && spec.setup) cleanup = await setUp(spec.setup);
 		const { c, checks } = await ask(1);
 		row.conversation = c;
 		row.keys = c.keys;
@@ -598,6 +662,8 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 		}
 	} catch (error) {
 		row.error = error instanceof Error ? error.message : String(error);
+	} finally {
+		await cleanup?.();
 	}
 	if (row.journey) {
 		row.repetitions.push(
@@ -1276,6 +1342,7 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			.reviewedWrites.map((w) => w.operation)
 			.filter((op) => !/^(meetings|tasks|followups)\./.test(op)),
 		[
+			"communication.correctContactLog",
 			"notifications.markSelectedRead",
 			"notifications.markAllVisibleRead",
 			"notifications.setPreferences",
@@ -1312,7 +1379,10 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 
 test("INV-evry-golden: every golden and adapter case passes its hard checks on the recorded model; alpha gaps and judge grades are reported", async (t) => {
 	const only = process.env.EVRY_EVAL_CASES?.split(",").map((s) => s.trim());
-	const cases = [...golden, ...extras].filter((c) => !only || only.includes(c.case_id));
+	const recordable = (c: ExtraCase) => c.model === "scripted" || RECORDED(c.operation);
+	const held = extras.filter((c) => !recordable(c)).map((c) => c.case_id);
+	const cases = [...golden, ...extras.filter(recordable)].filter((c) => !only || only.includes(c.case_id));
+	if (held.length) t.diagnostic(`held for the batched re-record (operation in LATER): ${held.join(", ")}`);
 	const rows = await pool(cases, recording ? 6 : 8, runCase);
 	const spend = saveRecording();
 	const expected = approved.cases.map((c) => c.case_id).filter((id) => !only || only.includes(id));
@@ -1376,6 +1446,65 @@ test("INV-evry-golden: every golden and adapter case passes its hard checks on t
 	t.diagnostic(
 		`release: ${ready.release.length ? `blocked (${ready.release.length} reasons)` : "ready"}; alpha: ${ready.release.length || ready.alpha.length ? "blocked" : "ready"}`,
 	);
+});
+
+function holding(lock: ReturnType<typeof sql>) {
+	let release!: () => void;
+	const released = new Promise<void>((resolve) => (release = resolve));
+	let locked!: (pid: number) => void;
+	let failed!: (error: unknown) => void;
+	const pid = new Promise<number>((resolve, reject) => ((locked = resolve), (failed = reject)));
+	const done = church.admin.transaction(async (tx) => {
+		await tx.execute(lock);
+		const { rows } = await tx.execute<{ pid: number }>(sql`SELECT pg_catalog.pg_backend_pid() AS pid`);
+		locked(rows[0]!.pid);
+		await released;
+	});
+	done.catch(failed);
+	return { pid, release, done };
+}
+
+test("INV-evry-golden: a case's review never queues on the write gate behind another case's review, so PREP-06 replays its recording while a rival review holds the church past the gate's lock timeout", async () => {
+	const walkIn = golden.find((c) => c.case_id === "PREP-06")!;
+	const rival = extras.find((c) => c.case_id === "ADP-MT-33")!;
+	const ask = () => converse(church, "owner", walkIn.question, walkIn.eval.history ?? []);
+	const card = (c: Conversation) => c.proposals.map((p) => [p.operation, p.prepared, p.review]);
+	const alone = await ask();
+
+	const duplicateCheck = holding(sql`LOCK TABLE organization_person_removal IN ACCESS EXCLUSIVE MODE`);
+	const plant = holding(sql`SELECT 1 FROM plant WHERE id=${PLANT}::uuid FOR UPDATE`);
+	const rivalMeeting = holding(sql`SELECT 1 FROM meeting WHERE id=${MEETINGS.training}::uuid FOR UPDATE`);
+	const [checkHolder, plantHolder] = [await duplicateCheck.pid, await plant.pid, await rivalMeeting.pid];
+	const rivalDone = new AbortController();
+	let rivalRun: Promise<unknown> = Promise.resolve();
+	try {
+		const contended = ask().then(
+			(c) => ({ keys: c.keys, card: card(c), error: null }),
+			(error: unknown) => ({ keys: [], card: [], error: String(error) }),
+		);
+		await waitingOnLock(church.admin, { blockedBy: checkHolder });
+		rivalRun = converse(church, "owner", rival.question, rival.eval.history ?? []).finally(() => rivalDone.abort());
+		rivalRun.catch(() => undefined);
+		await waitingOnLock(church.admin, { blockedBy: plantHolder });
+		const { rows } = await church.admin.execute<{ pid: number }>(
+			sql`SELECT pid FROM pg_catalog.pg_stat_activity WHERE ${plantHolder}::int=ANY(pg_catalog.pg_blocking_pids(pid))`,
+		);
+		duplicateCheck.release();
+		const queuedBehindRival = await waitingOnLock(church.admin, {
+			blockedBy: rows[0]!.pid,
+			signal: rivalDone.signal,
+		});
+		plant.release();
+		assert.deepEqual(
+			{ queuedBehindRival, ...(await contended) },
+			{ queuedBehindRival: false, keys: alone.keys, card: card(alone), error: null },
+		);
+	} finally {
+		duplicateCheck.release();
+		plant.release();
+		rivalMeeting.release();
+		await Promise.allSettled([duplicateCheck.done, plant.done, rivalMeeting.done, rivalRun]);
+	}
 });
 
 test("INV-evry-assessments-evals: every interview, 4 C's, commitment, merge and correction case passes on the scripted model", async () => {

@@ -175,7 +175,7 @@ export const listDuplicatePairs: ReadAdapter<Record<string, never>> = {
 
 export const PEOPLE_READS = [listPeople, getPerson, getPersonPhoto, checkForDuplicates, listDuplicatePairs] as const;
 
-const verifiedRow = z.object({
+const verifiedRow = z.strictObject({
 	id: z.uuid(),
 	display_name: z.string(),
 	city: z.string().nullable(),

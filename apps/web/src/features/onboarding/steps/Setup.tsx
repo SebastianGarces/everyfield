@@ -1,7 +1,7 @@
 "use client";
 
 import { DASHBOARD_HOME } from "@everyfield/contracts/identity";
-import { Button, Field, IntentLink, Input, Switch } from "@everyfield/ui/controls";
+import { Button, Field, InlineAlert, IntentLink, Input, Switch } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import {
@@ -123,11 +123,7 @@ export function JourneyStep({ state, actions, resume, plantName }: Props) {
 					/>
 				</div>
 			</fieldset>
-			{problem ? (
-				<p role="alert" className="mx-auto mt-4 max-w-[820px] text-sm font-medium text-magenta-600">
-					{problem}
-				</p>
-			) : null}
+			<InlineAlert className="mx-auto mt-4 max-w-[820px]">{problem}</InlineAlert>
 			<Notice notice={state.notice} op="declareJourney" />
 			<StepFooter
 				onBack={() => actions.go("church")}
@@ -335,11 +331,7 @@ export function TeamStep({ state, actions, resume, plantName }: Props) {
 					detail="No role is assigned. Add your lead from your team list later."
 				/>
 			</fieldset>
-			{choiceProblem ? (
-				<p role="alert" className="mx-auto mt-4 max-w-[820px] text-sm font-medium text-magenta-600">
-					{choiceProblem}
-				</p>
-			) : null}
+			<InlineAlert className="mx-auto mt-4 max-w-[820px]">{choiceProblem}</InlineAlert>
 			<Notice notice={state.notice} op="answerLead" />
 			<StepFooter
 				onBack={back}

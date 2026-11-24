@@ -218,6 +218,9 @@ before(async () => {
 	admin = database.admin;
 	await seedHope(admin, { seatNames: true });
 	plant = (await seedSetup(admin, db, native, { team: false })).plant;
+	await admin.execute(
+		sql`UPDATE plant SET street='12 Mill Road', city='Austin', country='United States' WHERE id=${plant}`,
+	);
 	const overview = await seedOverview(admin, db, native, plant);
 	await seatMember(admin, plant);
 	const seeded = await seedInvitations(admin, db, plant, overview.people);

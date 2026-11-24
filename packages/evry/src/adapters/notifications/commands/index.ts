@@ -30,7 +30,7 @@ function reviewed<I>(spec: {
 		allowed: spec.allowed,
 		review: spec.review,
 		async execute(tx, _context, args, effectKey): Promise<EffectResult> {
-			const reply = await spec.run(tx, { ...z.object({}).loose().parse(args), requestKey: effectKey });
+			const reply = await spec.run(tx, { ...z.record(z.string(), z.unknown()).parse(args), requestKey: effectKey });
 			return reply.status === "ok" ? { own: true } : { refused: reply.error.code };
 		},
 	};

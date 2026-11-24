@@ -1,12 +1,14 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "@everyfield/db/query";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import type { ProviderKey } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/communication";
 import {
+	guardianNote,
 	plainText,
 	renderBody,
 	renderEmailHtml,
+	renderEmailText,
 	renderTransactional,
 	scheduleAccepted,
 	usesRsvpLink,
@@ -14,7 +16,20 @@ import {
 } from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
-import { audiencePeople, reviewedParts } from "./audience.ts";
+import { churchAddressSql, churchMailingAddress, hasMailingAddressSql } from "./address.ts";
+import {
+	byGuardian,
+	childSql,
+	guardianRow,
+	linksOf,
+	personRow,
+	reviewedParts,
+	routeChildren,
+	routedSql,
+	storedAudiencePeople,
+	usable,
+	type Guardian,
+} from "./audience.ts";
 import { z } from "zod";
 import { administers, deny, hash, parse, readReply, readerOf } from "./core.ts";
 import { meetingOpenSql, newRsvpToken, rsvpTokenDigest, rsvpTokenUpdate } from "../meetings/tokens.ts";
@@ -60,8 +75,10 @@ type Member = {
 	provider: string | null;
 	scheduledAt: string | null;
 	cancelRequested: boolean;
-	unsubscribed: boolean;
+	leftOut: LeftOut;
 };
+type LeftOut = "unsubscribed" | "child" | "guardian" | null;
+const leftOutValue = z.enum(["unsubscribed", "child", "guardian"]).nullable();
 type Mode = "now" | "scheduled" | "lookup";
 type Batch = {
 	requestId: string;
@@ -132,17 +149,19 @@ function requireActor(authority: RequestActor) {
 }
 function counts(members: readonly Member[]) {
 	const accepted = members.filter(
-		(row) => row.state === "accepted" || row.state === "sent" || row.state === "scheduled",
+		(row) => !row.leftOut && (row.state === "accepted" || row.state === "sent" || row.state === "scheduled"),
 	);
 	const rejected = members.filter(
-		(row) => !row.unsubscribed && (row.state === "refused" || row.state === "failed" || row.state === "cancelled"),
+		(row) => !row.leftOut && (row.state === "refused" || row.state === "failed" || row.state === "cancelled"),
 	);
 	const unknown = members.filter((row) => row.state === "unknown" || row.state === "dispatched");
 	return {
 		acceptedCount: accepted.length,
 		rejectedCount: rejected.length,
 		unknownCount: unknown.length,
-		unsubscribedCount: members.filter((row) => row.unsubscribed).length,
+		unsubscribedCount: members.filter((row) => row.leftOut === "unsubscribed").length,
+		childCount: members.filter((row) => row.leftOut === "child").length,
+		guardianCount: members.filter((row) => row.leftOut === "guardian").length,
 		confirmedRecipientIds: accepted.map((row) => row.personId).filter((id): id is string => id !== null),
 	};
 }
@@ -200,16 +219,18 @@ const loadedSchema = z.object({
 	meeting_open: z.boolean().nullable(),
 	guests: z.unknown().nullable(),
 	church_name: z.string().nullable(),
+	church_address: z.unknown().nullable(),
 });
 
 type Loaded = z.infer<typeof loadedSchema>;
 
-async function loadAudience(db: Database, actor: Actor, communicationId: string): Promise<Loaded> {
+async function loadAudience(db: Database, actor: Actor, communicationId: string, resolve = false): Promise<Loaded> {
 	const gate = adminGate(actor);
 	const raw = one(
 		await db.execute(sql`SELECT g.allowed, c.id, c.revision::text AS revision, c.state, c.subject, c.body_html, c.body_text,
 			c.audience, c.review_digest, c.meeting_id,
 			(SELECT pl.name FROM plant pl WHERE pl.id = c.plant_id) AS church_name,
+			${churchAddressSql(sql`c.plant_id`)} AS church_address,
 			CASE WHEN c.meeting_id IS NULL THEN false ELSE EXISTS (
 				SELECT 1 FROM meeting mt WHERE mt.id = c.meeting_id AND mt.plant_id = c.plant_id AND ${meetingOpenSql("mt")}
 			) END AS meeting_open,
@@ -218,7 +239,7 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 				WHERE pt.meeting_id = c.meeting_id AND pt.plant_id = c.plant_id AND pt.removed_at IS NULL
 			) END AS guests,
 			to_char(c.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS scheduled_at,
-			'[]'::jsonb AS people,
+			${resolve ? sql`CASE WHEN c.id IS NULL THEN '[]'::jsonb ELSE ${storedAudiencePeople(actor.plantId, sql`c.audience`)} END` : sql`'[]'::jsonb`} AS people,
 			CASE WHEN c.id IS NULL THEN 0 ELSE (
 				SELECT count(*)::int FROM jsonb_array_elements_text(coalesce(c.audience->'personIds', '[]'::jsonb)) e(value)
 				WHERE NOT EXISTS (
@@ -237,7 +258,9 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 							'provider', m.provider_message_id,
 							'scheduledAt', to_char(m.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 							'cancelRequested', m.cancel_requested_at IS NOT NULL,
-							'unsubscribed', m.refusal IS NOT DISTINCT FROM 'unsubscribed',
+							'leftOut', CASE WHEN m.refusal IS NOT NULL THEN m.refusal
+								WHEN m.state = 'scheduled' AND ${childSql(sql`m.tenant_id`, sql`m.recipient_person_id`)}
+								THEN CASE WHEN ${routedSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} THEN 'guardian' ELSE 'child' END END,
 							'payload', CASE WHEN m.state IN ('dispatched', 'unknown') THEN m.frozen_payload END,
 							'address', CASE WHEN m.state IN ('dispatched', 'unknown') THEN m.recipient_address_encrypted END
 						) ORDER BY mem.position) AS members
@@ -275,7 +298,7 @@ const storedBatches = z.array(
 				provider: z.string().nullable(),
 				scheduledAt: z.string().nullable(),
 				cancelRequested: z.boolean(),
-				unsubscribed: z.boolean(),
+				leftOut: leftOutValue,
 				payload: sealedPayload.nullable(),
 				address: z.string().nullable(),
 			}),
@@ -315,19 +338,14 @@ function batchesOf(raw: unknown, tenantId: string, encryptionKey?: Uint8Array): 
 }
 
 async function openLoaded(db: Database, actor: Actor, communicationId: string, expectedRevision: string) {
-	const found = loadedSchema.parse(await loadAudience(db, actor, communicationId));
+	const found = await loadAudience(db, actor, communicationId, true);
 	if (found.allowed !== true) deny("access_denied");
 	if (!found.id) deny("not_found");
 	if (found.revision !== expectedRevision || found.state !== "scheduled") deny("conflict");
 	if (!found.subject || !found.body_html) deny("invalid_input");
 	if ((found.foreign_people ?? 0) > 0) deny("access_denied");
 	const audience = c.audienceInput.parse(asJson(found.audience) ?? { groups: [], teamIds: [], personIds: [] });
-	const resolved = one(
-		await db.execute(sql`SELECT g.allowed, q.people FROM (SELECT ${adminGate(actor)} AS allowed) g
-			LEFT JOIN LATERAL (SELECT ${audiencePeople(actor.plantId, audience)} AS people) q ON g.allowed`),
-	) as { allowed?: boolean; people?: unknown } | undefined;
-	if (resolved?.allowed !== true) deny("access_denied");
-	const people = resolved.people ?? [];
+	const people = found.people ?? [];
 	const parts = reviewedParts(people);
 	if (!parts.people.length) deny("invalid_input");
 	const digest = hash({ subject: found.subject, body: found.body_html, people: parts.people, emails: parts.emails });
@@ -338,6 +356,83 @@ async function openLoaded(db: Database, actor: Actor, communicationId: string, e
 		audience,
 		parts,
 		digest,
+	};
+}
+
+type Content = { id: string; subject: string; body: string; churchName: string; mailingAddress: string | null };
+
+function renderCopy(
+	keys: ReturnType<typeof keysOf>,
+	plantId: string,
+	content: Content,
+	person: { id: string; displayName: string; email: string },
+	options: { token: string | null; guardianOf: readonly string[] | null },
+) {
+	const to = person.email.toLowerCase();
+	const id = randomUUID();
+	const merge: Record<MergeKey, string> = {
+		name: person.displayName,
+		rsvp_link: options.token ? `${keys.origin}/rsvp/${options.token}` : "",
+	};
+	const unsubscribe = keys.optOutKeys
+		? `${keys.origin}/unsubscribe/${messagesOptOutToken(keys.optOutKeys, { plantId, personId: person.id })}`
+		: null;
+	const context = {
+		churchName: content.churchName,
+		mailingAddress: content.mailingAddress,
+		...(unsubscribe ? { unsubscribeUrl: unsubscribe } : {}),
+	};
+	const html = renderEmailHtml(content.body, merge, {
+		...context,
+		...(options.guardianOf ? { guardianOf: options.guardianOf } : {}),
+	});
+	const rendered = plainText(renderBody(content.body, merge)) || content.subject;
+	const body = options.guardianOf ? `${guardianNote(options.guardianOf)}\n\n${rendered}` : rendered;
+	const text = renderEmailText(body, context);
+	const headers = unsubscribe
+		? { "List-Unsubscribe": `<${unsubscribe}/one-click>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
+		: undefined;
+	const payloadHash = hash({
+		purpose: "communication",
+		personId: person.id,
+		address: to,
+		subject: content.subject,
+		body: html,
+		from: keys.from,
+		...(headers ? { headers } : {}),
+	});
+	const message: DeliveryMessage = { to, subject: content.subject, html, text, ...(headers ? { headers } : {}) };
+	return {
+		id,
+		person: person.id,
+		logical_key: `communication/${content.id}/${person.id}`,
+		payload_hash: payloadHash,
+		token_hash: options.token ? rsvpTokenDigest(options.token) : null,
+		address_hash: addressHash(keys.addressKey, to) as string | null,
+		payload: {
+			v: 1,
+			sealed: seal(
+				keys.encryptionKey,
+				JSON.stringify({ subject: content.subject, text, html, from: keys.from, ...(headers ? { headers } : {}) }),
+				`${plantId}/${id}/communication`,
+			),
+		} as { v: 1; sealed: string } | null,
+		address: seal(keys.encryptionKey, to, `${plantId}/${id}/address`) as string | null,
+		message: message as DeliveryMessage | null,
+	};
+}
+
+function blankCopy(content: Content, personId: string): ReturnType<typeof renderCopy> {
+	return {
+		id: randomUUID(),
+		person: personId,
+		logical_key: `communication/${content.id}/${personId}`,
+		payload_hash: hash({ purpose: "communication", personId, subject: content.subject, held: true }),
+		token_hash: null,
+		address_hash: null,
+		payload: null,
+		address: null,
+		message: null,
 	};
 }
 
@@ -354,88 +449,84 @@ async function prepare(
 	const frozen = batchesOf(found.batches, actor.plantId, keys.encryptionKey);
 	if (frozen.length) return frozen;
 	if (mode === "lookup") deny("not_found");
+	const mailingAddress = churchMailingAddress(found.church_address);
+	if (mailingAddress === null) deny("mailing_address_missing");
 	const linked = usesRsvpLink(found.body_html);
 	const canLink = linked && new URL(keys.origin).protocol === "https:";
 	if (linked && (!found.meeting_id || !found.meeting_open)) deny("rsvp_needs_meeting");
 	const guests = new Set(z.array(z.uuid()).parse(asJson(found.guests) ?? []));
 	const people = z
-		.array(z.object({ id: z.uuid(), email: z.string().nullable(), displayName: z.string(), n: z.number() }))
+		.array(personRow)
 		.parse(asJson(found.people) ?? [])
-		.flatMap((row) => {
-			const email = row.email?.trim();
-			return email ? [{ ...row, email }] : [];
-		})
 		.sort((a, b) => a.id.localeCompare(b.id));
-	const seen = new Set<string>();
-	const address = (row: (typeof people)[number]) => (row.email ?? "").trim().toLowerCase();
+	const address = (row: { email: string }) => row.email.toLowerCase();
 	const out = new Set(leftOut);
-	const reached = new Set(people.filter((row) => !out.has(row.id)).map(address));
-	const unique = people.filter((row) =>
+	const addressed = people.flatMap((row) => {
+		const email = row.email?.trim();
+		return email && !row.child ? [{ ...row, email }] : [];
+	});
+	const seen = new Set<string>();
+	const reached = new Set(addressed.filter((row) => !out.has(row.id)).map(address));
+	const own = addressed.filter((row) =>
 		seen.has(row.id) || (out.has(row.id) && reached.has(address(row))) ? false : (seen.add(row.id), true),
 	);
-	const rows = unique.map((person, index) => {
-		const address = person.email.toLowerCase();
-		const id = randomUUID();
-		const token = canLink && guests.has(person.id) ? newRsvpToken() : null;
-		const merge: Record<MergeKey, string> = {
-			name: person.displayName,
-			rsvp_link: token ? `${keys.origin}/rsvp/${token}` : "",
-		};
-		const unsubscribe = keys.optOutKeys
-			? `${keys.origin}/unsubscribe/${messagesOptOutToken(keys.optOutKeys, { plantId: actor.plantId, personId: person.id })}`
-			: null;
-		const html = renderEmailHtml(found.body_html, merge, {
-			churchName: found.church_name ?? "",
-			...(unsubscribe ? { unsubscribeUrl: unsubscribe } : {}),
+	const children = people.filter((row) => row.child);
+	const routing = routeChildren(children, (guardian) => !out.has(guardian.id));
+	const routedTo = new Map(routing.routed.map((route) => [route.child.id, route.guardians]));
+	const content = {
+		id: found.id,
+		subject: found.subject,
+		body: found.body_html,
+		churchName: found.church_name ?? "",
+		mailingAddress,
+	};
+	const copy = (person: { id: string; displayName: string; email: string }, guardianOf: readonly string[] | null) =>
+		renderCopy(keys, actor.plantId, content, person, {
+			token: !guardianOf && canLink && guests.has(person.id) ? newRsvpToken() : null,
+			guardianOf,
 		});
-		const body = plainText(renderBody(found.body_html, merge)) || found.subject;
-		const text = unsubscribe ? `${body}\n\n--\nUnsubscribe: ${unsubscribe}` : body;
-		const headers = unsubscribe
-			? { "List-Unsubscribe": `<${unsubscribe}/one-click>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
-			: undefined;
-		const payloadHash = hash({
-			purpose: "communication",
-			personId: person.id,
-			address,
-			subject: found.subject,
-			body: html,
-			from: keys.from,
-			...(headers ? { headers } : {}),
-		});
+	const ownRows = own.map((person) => ({
+		...copy(person, null),
+		child: false,
+		routable: false,
+		refusal: null,
+		guardians: null,
+		guardianCopy: false,
+	}));
+	const copyOf = new Map(ownRows.filter((row) => !out.has(row.person)).map((row) => [row.person, row.id]));
+	const extra = mode === "scheduled" ? [] : byGuardian(routing.routed, (guardian) => copyOf.has(guardian.id));
+	const guardianRows = extra.map(({ guardian, children: names }) => {
+		const row = copy(guardian, names);
+		copyOf.set(guardian.id, row.id);
+		return { ...row, child: false, routable: false, refusal: null, guardians: null, guardianCopy: true };
+	});
+	const childRows = children.map((child) => {
+		const email = child.email?.trim();
+		const routes = routedTo.get(child.id);
+		if (mode === "scheduled")
+			return {
+				...(email ? copy({ ...child, email }, null) : blankCopy(content, child.id)),
+				child: true,
+				routable: !!routes,
+				refusal: null,
+				guardians: null,
+				guardianCopy: false,
+			};
 		return {
-			id,
-			person: person.id,
-			logical_key: `communication/${found.id}/${person.id}`,
-			payload_hash: payloadHash,
-			token_hash: token ? rsvpTokenDigest(token) : null,
-			html,
-			text,
-			headers,
-			address_hash: addressHash(keys.addressKey, address),
-			payload: {
-				v: 1,
-				sealed: seal(
-					keys.encryptionKey,
-					JSON.stringify({ subject: found.subject, text, html, from: keys.from, ...(headers ? { headers } : {}) }),
-					`${actor.plantId}/${id}/communication`,
-				),
-			},
-			address: seal(keys.encryptionKey, address, `${actor.plantId}/${id}/address`),
-			batch: Math.floor(index / c.MAIL_BATCH_LIMIT),
-			position: index % c.MAIL_BATCH_LIMIT,
-			to: address,
+			...blankCopy(content, child.id),
+			child: true,
+			routable: !!routes,
+			refusal: routes ? ("guardian" as const) : ("child" as const),
+			guardians: routes?.flatMap((guardian) => copyOf.get(guardian.id) ?? []) ?? null,
+			guardianCopy: false,
 		};
 	});
-	const groups = Array.from({ length: Math.ceil(rows.length / c.MAIL_BATCH_LIMIT) }, (_, batch) => {
-		const requestHash = hash(rows.filter((row) => row.batch === batch).map((row) => row.payload_hash));
-		return {
-			batch,
-			id: randomUUID(),
-			attempt: randomUUID(),
-			provider_key: providerKey.parse(`communication/${found.id}/${requestHash}`),
-			request_hash: requestHash,
-		};
-	});
+	const rows = [...ownRows, ...guardianRows, ...childRows].map((row, index) => ({
+		...row,
+		batch: Math.floor(index / c.MAIL_BATCH_LIMIT),
+		position: index % c.MAIL_BATCH_LIMIT,
+	}));
+	const groups = batchGroups(found.id, rows);
 	const meetingId = found.meeting_id;
 	const minted = meetingId !== null && rows.some((row) => row.token_hash !== null);
 	const waiting = mode === "scheduled" ? "scheduled" : "dispatched";
@@ -454,9 +545,9 @@ async function prepare(
 	const stored = one(
 		await db.execute(sql`WITH gate AS (SELECT ${adminGate(actor)} AS allowed),
 			input AS (
-				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
-					id uuid, person uuid, logical_key text, payload_hash text, token_hash text, address_hash text, payload jsonb, address text,
-					batch int, position int
+				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, child, refusal, guardians, guardianCopy, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, child, refusal, guardians, guardian_copy: guardianCopy, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
+					id uuid, person uuid, child boolean, refusal text, guardians uuid[], guardian_copy boolean, logical_key text, payload_hash text, token_hash text, address_hash text,
+					payload jsonb, address text, batch int, position int
 				)
 			),
 			requests AS (
@@ -466,14 +557,15 @@ async function prepare(
 			),
 			ins_mail AS (
 				INSERT INTO mail (id, tenant_id, recipient_person_id, purpose, communication_id, logical_key, payload_hash, audience_hash,
-					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at, refusal)
+					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at, refusal, guardian_mail_ids, guardian_copy)
 				SELECT i.id, ${actor.plantId}::uuid, i.person, 'communication', ${found.id}::uuid, i.logical_key, i.payload_hash, ${loaded.digest},
 					i.payload, i.address, i.address_hash,
-					CASE WHEN i.unsubscribed OR EXISTS (
+					CASE WHEN i.refusal IS NOT NULL OR i.unsubscribed OR (NOT i.child AND EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
-					) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
+					)) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
 					clock_timestamp(), ${heldUntil}::timestamptz,
-					CASE WHEN i.unsubscribed THEN 'unsubscribed' END
+					CASE WHEN i.refusal IS NOT NULL THEN i.refusal WHEN i.unsubscribed THEN 'unsubscribed' END,
+					CASE WHEN i.refusal = 'guardian' THEN i.guardians END, i.guardian_copy
 				FROM (SELECT i.*, ${optedOutSql(sql`${actor.plantId}::uuid`, sql`i.person`)} AS unsubscribed FROM input i) i
 				JOIN gate g ON g.allowed
 				WHERE EXISTS (
@@ -523,7 +615,7 @@ async function prepare(
 			)
 			SELECT (SELECT allowed FROM gate) AS allowed,
 				(SELECT count(*)::int FROM ins_attempt) AS attempts,
-				coalesce((SELECT jsonb_agg(jsonb_build_object('id', m.id, 'state', m.state, 'unsubscribed', m.refusal IS NOT NULL))
+				coalesce((SELECT jsonb_agg(jsonb_build_object('id', m.id, 'state', m.state, 'refusal', m.refusal))
 					FROM ins_mail m), '[]'::jsonb) AS members,
 				(SELECT count(*) FROM ins_mem) AS members_written,
 				(SELECT count(*) FROM ins_audit) AS audits`),
@@ -531,7 +623,7 @@ async function prepare(
 	if (stored?.allowed !== true) deny("access_denied");
 	const written = new Map(
 		z
-			.array(z.object({ id: z.uuid(), state: z.string(), unsubscribed: z.boolean() }))
+			.array(z.object({ id: z.uuid(), state: z.string(), refusal: leftOutValue }))
 			.parse(asJson(stored.members) ?? [])
 			.map((row) => [row.id, row]),
 	);
@@ -557,21 +649,14 @@ async function prepare(
 				provider: null,
 				scheduledAt: heldUntil,
 				cancelRequested: false,
-				unsubscribed: writtenOf(row.id).unsubscribed,
+				leftOut:
+					writtenOf(row.id).refusal ??
+					(state(row.id) === "scheduled" && row.child ? (row.routable ? "guardian" : "child") : null),
 			})),
 			messages: new Map(
-				members
-					.filter((row) => state(row.id) === "dispatched")
-					.map((row) => [
-						row.position,
-						{
-							to: row.to,
-							subject: found.subject,
-							html: row.html,
-							text: row.text,
-							...(row.headers ? { headers: row.headers } : {}),
-						},
-					]),
+				members.flatMap((row) =>
+					state(row.id) === "dispatched" && row.message ? [[row.position, row.message] as const] : [],
+				),
 			),
 		};
 	});
@@ -970,10 +1055,10 @@ export function rescheduleDispatched(
 	});
 }
 
-async function accountEmail(db: Database, actor: Actor) {
+async function accountEmail(db: Database | Transaction, actor: Actor, admin: boolean) {
 	const row = one(
 		await db.execute(sql`SELECT g.allowed, u.email
-			FROM (SELECT ${adminGate(actor)} AS allowed) g
+			FROM (SELECT ${communicationAccess(actor, actor.session, admin)} AS allowed) g
 			LEFT JOIN LATERAL (
 				SELECT c.email FROM access_account_contact(${actor.accountId}::uuid) c
 				WHERE g.allowed AND c.verified
@@ -983,12 +1068,17 @@ async function accountEmail(db: Database, actor: Actor) {
 	return row.email.trim().toLowerCase();
 }
 
-export function listOwnSuppression(db: Database, authority: RequestActor, raw: unknown, keys: DeliveryKeys) {
+export function listOwnSuppression(
+	db: Database | Transaction,
+	authority: RequestActor,
+	raw: unknown,
+	keys: DeliveryKeys,
+) {
 	return readReply(async () => {
 		const input = parse(c.listSuppressionRequest, raw);
-		const actor = requireActor(authority);
+		const actor = readerOf(authority);
 		const ready = keysOf(keys);
-		const email = await accountEmail(db, actor);
+		const email = await accountEmail(db, actor, false);
 		if (input.address.trim().toLowerCase() !== email) deny("access_denied");
 		const hashValue = addressHash(ready.addressKey, email);
 		const row = one(
@@ -1020,7 +1110,7 @@ export function restoreOwnSuppression(db: Database, authority: RequestActor, raw
 		const input = parse(c.restoreSuppressionRequest, raw);
 		const actor = requireActor(authority);
 		const ready = keysOf(keys);
-		const email = await accountEmail(db, actor);
+		const email = await accountEmail(db, actor, true);
 		const address = input.input.address.trim().toLowerCase();
 		if (address !== email) deny("access_denied");
 		const hashValue = addressHash(ready.addressKey, address);
@@ -1136,7 +1226,7 @@ export function sendTransactionalMail(
 }
 
 const churchClosing = (tenant: SQL) => sql`EXISTS (SELECT 1 FROM lifecycle_witness w
-	WHERE w.opaque_subject_id = ${tenant} AND w.state IN ('pending_deletion', 'purging', 'purged', 'revoked'))`;
+	WHERE w.opaque_subject_id = ${tenant} AND w.state IN ('pending_deletion', 'purging', 'purged'))`;
 
 const claimedSchema = z.object({
 	request_id: z.uuid(),
@@ -1150,12 +1240,15 @@ const claimedSchema = z.object({
 			id: z.uuid(),
 			state: z.string(),
 			personId: z.uuid().nullable(),
-			unsubscribed: z.boolean(),
+			name: z.string().nullable(),
+			leftOut: leftOutValue,
 			payload: sealedPayload.nullable(),
 			address: z.string().nullable(),
+			guardians: z.array(guardianRow.extend({ copy: z.uuid().nullable(), copyState: z.string().nullable() })),
 		}),
 	),
 });
+type Claimed = z.infer<typeof claimedSchema>;
 
 async function claimDue(db: Database) {
 	const raw = one(
@@ -1164,6 +1257,7 @@ async function claimDue(db: Database) {
 				JOIN mail_request_member mem ON mem.mail_id = m.id AND mem.tenant_id = m.tenant_id
 				WHERE m.purpose = 'communication' AND m.state = 'scheduled' AND m.scheduled_at IS NOT NULL
 					AND m.scheduled_at <= clock_timestamp() AND NOT ${churchClosing(sql`m.tenant_id`)}
+					AND ${hasMailingAddressSql(sql`m.tenant_id`)}
 				ORDER BY m.scheduled_at, mem.request_id
 				LIMIT 1
 			), locked AS MATERIALIZED (
@@ -1173,6 +1267,18 @@ async function claimDue(db: Database) {
 			), decided AS MATERIALIZED (
 				SELECT m.id, mem.position,
 					${optedOutSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} AS unsubscribed,
+					${childSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} AS child,
+					(SELECT p.display_name FROM person p WHERE p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id) AS name,
+					coalesce((SELECT jsonb_agg(jsonb_build_object('id', gad.id, 'displayName', gad.display_name, 'email', gad.email,
+						'optedOut', ${optedOutSql(sql`m.tenant_id`, sql`gad.id`)}, 'copy', gm.id, 'copyState', gm.state)
+						ORDER BY gad.display_name, gad.id)
+						FROM ${linksOf(
+							sql`m.tenant_id`,
+							sql`m.recipient_person_id`,
+							sql`true`,
+							sql`LEFT JOIN mail gm ON gm.tenant_id = gcx.plant_id AND gm.communication_id = m.communication_id
+								AND gm.recipient_person_id = gad.id`,
+						)}), '[]'::jsonb) AS guardians,
 					EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL) AS blocked
 				FROM locked r
 				JOIN mail_request_member mem ON mem.request_id = r.id AND mem.tenant_id = r.tenant_id
@@ -1180,19 +1286,19 @@ async function claimDue(db: Database) {
 				WHERE m.state = 'scheduled'
 			), flipped AS (
 				UPDATE mail m SET
-					state = CASE WHEN d.unsubscribed OR d.blocked THEN 'refused' ELSE 'dispatched' END,
-					refusal = CASE WHEN d.unsubscribed THEN 'unsubscribed' END,
+					state = CASE WHEN d.child OR d.unsubscribed OR d.blocked THEN 'refused' ELSE 'dispatched' END,
+					refusal = CASE WHEN d.child THEN 'child' WHEN d.unsubscribed THEN 'unsubscribed' END,
 					scheduled_at = NULL
 				FROM decided d
 				WHERE m.id = d.id AND m.state = 'scheduled'
 				RETURNING m.id, m.state, m.refusal, m.recipient_person_id, m.frozen_payload, m.recipient_address_encrypted,
-					m.logical_key, d.position
+					m.logical_key, d.position, d.name, d.guardians
 			)
 			SELECT r.id AS request_id, r.tenant_id, r.provider_key,
 				(SELECT a.id FROM mail_attempt a WHERE a.request_id = r.id AND a.attempt_number = 1) AS attempt_id,
 				(SELECT split_part(f.logical_key, '/', 2) FROM flipped f LIMIT 1) AS communication_id,
 				coalesce((SELECT jsonb_agg(jsonb_build_object('position', f.position, 'id', f.id, 'state', f.state,
-					'personId', f.recipient_person_id, 'unsubscribed', f.refusal IS NOT NULL,
+					'personId', f.recipient_person_id, 'leftOut', f.refusal, 'name', f.name, 'guardians', f.guardians,
 					'payload', f.frozen_payload, 'address', f.recipient_address_encrypted) ORDER BY f.position)
 					FROM flipped f), '[]'::jsonb) AS members
 			FROM locked r
@@ -1201,6 +1307,174 @@ async function claimDue(db: Database) {
 	return raw
 		? claimedSchema.parse({ ...(raw as object), members: asJson((raw as { members: unknown }).members) })
 		: null;
+}
+
+const closedCopy = new Set(["refused", "failed", "cancelled"]);
+
+function batchGroups(communicationId: string, rows: readonly { batch: number; payload_hash: string }[]) {
+	return Array.from({ length: Math.ceil(rows.length / c.MAIL_BATCH_LIMIT) }, (_, batch) => {
+		const requestHash = hash(rows.filter((row) => row.batch === batch).map((row) => row.payload_hash));
+		return {
+			batch,
+			id: randomUUID(),
+			attempt: randomUUID(),
+			provider_key: providerKey.parse(`communication/${communicationId}/${requestHash}`),
+			request_hash: requestHash,
+		};
+	});
+}
+
+async function routeClaimed(db: Database, keys: ReturnType<typeof keysOf>, claimed: Claimed): Promise<Batch[]> {
+	const routes = claimed.members.flatMap((row) => {
+		if (row.leftOut !== "child") return [];
+		const guardians = row.guardians.filter(
+			(guardian): guardian is Guardian & typeof guardian =>
+				usable(guardian) && (!guardian.copyState || !closedCopy.has(guardian.copyState)),
+		);
+		return guardians.length ? [{ row, child: { displayName: row.name ?? "" }, guardians }] : [];
+	});
+	const [first] = routes;
+	if (!first) return [];
+	const tenant = claimed.tenant_id;
+	const found = z
+		.object({
+			subject: z.string(),
+			body_html: z.string(),
+			church_name: z.string().nullable(),
+			church_address: z.unknown().nullable(),
+		})
+		.parse(
+			one(
+				await db.execute(sql`SELECT c.subject, c.body_html, (SELECT pl.name FROM plant pl WHERE pl.id = c.plant_id) AS church_name,
+					${churchAddressSql(sql`c.plant_id`)} AS church_address
+					FROM communication c WHERE c.id = ${claimed.communication_id}::uuid AND c.plant_id = ${tenant}::uuid`),
+			),
+		);
+	const content = {
+		id: claimed.communication_id,
+		subject: found.subject,
+		body: found.body_html,
+		churchName: found.church_name ?? "",
+		mailingAddress: churchMailingAddress(found.church_address),
+	};
+	const rows = byGuardian(routes, (guardian) => !!guardian.copy).map(({ guardian, children }, index) => ({
+		...renderCopy(keys, tenant, content, guardian, { token: null, guardianOf: children }),
+		batch: Math.floor(index / c.MAIL_BATCH_LIMIT),
+		position: index % c.MAIL_BATCH_LIMIT,
+	}));
+	const copyOf = new Map<string, string>(rows.map((row) => [row.person, row.id]));
+	for (const { guardians } of routes)
+		for (const guardian of guardians) if (guardian.copy) copyOf.set(guardian.id, guardian.copy);
+	const links = routes.map(({ row, guardians }) => ({
+		child: row.id,
+		guardians: guardians.flatMap((guardian) => copyOf.get(guardian.id) ?? []),
+	}));
+	const groups = batchGroups(claimed.communication_id, rows);
+	const stored = z.object({ written: z.array(z.object({ id: z.uuid(), state: z.string() })) }).parse(
+		one(
+			await db.execute(sql`WITH gate AS (SELECT NOT ${churchClosing(sql`${tenant}::uuid`)} AS allowed),
+			input AS (
+				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, logical_key, payload_hash, address_hash, payload, address, batch, position }) => ({ id, person, logical_key, payload_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
+					id uuid, person uuid, logical_key text, payload_hash text, address_hash text, payload jsonb, address text, batch int, position int
+				)
+			),
+			requests AS (
+				SELECT * FROM jsonb_to_recordset(${JSON.stringify(groups)}::jsonb) AS q(
+					batch int, id uuid, attempt uuid, provider_key text, request_hash text
+				)
+			),
+			ins_mail AS (
+				INSERT INTO mail (id, tenant_id, recipient_person_id, purpose, communication_id, logical_key, payload_hash, audience_hash,
+					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, guardian_copy)
+				SELECT i.id, ${tenant}::uuid, i.person, 'communication', ${claimed.communication_id}::uuid, i.logical_key, i.payload_hash,
+					(SELECT cm.audience_hash FROM mail cm WHERE cm.id = ${first.row.id}::uuid AND cm.tenant_id = ${tenant}::uuid),
+					i.payload, i.address, i.address_hash,
+					CASE WHEN EXISTS (
+						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
+					) THEN 'refused' ELSE 'dispatched' END,
+					clock_timestamp(), true
+				FROM input i
+				JOIN gate g ON g.allowed
+				ON CONFLICT (tenant_id, logical_key) DO NOTHING
+				RETURNING id, state
+			),
+			ins_req AS (
+				INSERT INTO mail_request (id, tenant_id, provider_key, request_hash, first_dispatched_at)
+				SELECT q.id, ${tenant}::uuid, q.provider_key, q.request_hash, clock_timestamp()
+				FROM requests q
+				WHERE EXISTS (SELECT 1 FROM input i JOIN ins_mail m ON m.id = i.id WHERE i.batch = q.batch)
+				RETURNING id
+			),
+			ins_mem AS (
+				INSERT INTO mail_request_member (request_id, tenant_id, mail_id, position)
+				SELECT r.id, ${tenant}::uuid, m.id, i.position
+				FROM ins_req r
+				JOIN requests q ON q.id = r.id
+				JOIN input i ON i.batch = q.batch
+				JOIN ins_mail m ON m.id = i.id
+				RETURNING mail_id
+			),
+			ins_attempt AS (
+				INSERT INTO mail_attempt (id, tenant_id, request_id, attempt_number, claim_generation, started_at, outcome, completed_at)
+				SELECT q.attempt, ${tenant}::uuid, r.id, 1, 1, clock_timestamp(),
+					CASE WHEN bool_or(m.state = 'dispatched') THEN 'in_flight' ELSE 'refused' END,
+					CASE WHEN bool_or(m.state = 'dispatched') THEN NULL ELSE clock_timestamp() END
+				FROM ins_req r
+				JOIN requests q ON q.id = r.id
+				JOIN input i ON i.batch = q.batch
+				JOIN ins_mail m ON m.id = i.id
+				GROUP BY q.attempt, r.id
+				RETURNING outcome
+			),
+			links AS (
+				SELECT l.child, array(
+					SELECT g FROM unnest(l.guardians) g
+					WHERE g IN (SELECT id FROM ins_mail) OR g NOT IN (SELECT id FROM input)
+				) AS kept
+				FROM jsonb_to_recordset(${JSON.stringify(links)}::jsonb) AS l(child uuid, guardians uuid[])
+			),
+			routed AS (
+				UPDATE mail m SET refusal = 'guardian', guardian_mail_ids = l.kept
+				FROM links l
+				JOIN gate g ON g.allowed
+				WHERE m.id = l.child AND m.tenant_id = ${tenant}::uuid AND m.state = 'refused' AND m.refusal = 'child'
+					AND cardinality(l.kept) > 0
+				RETURNING m.id
+			)
+			SELECT coalesce((SELECT jsonb_agg(jsonb_build_object('id', m.id, 'state', m.state)) FROM ins_mail m), '[]'::jsonb) AS written,
+				(SELECT count(*) FROM ins_mem) AS members_written,
+				(SELECT count(*) FROM ins_attempt) AS attempts,
+				(SELECT count(*) FROM routed) AS routed`),
+		),
+	);
+	const written = new Map(stored.written.map((row) => [row.id, row.state]));
+	return groups.flatMap((group) => {
+		const members = rows.filter((row) => row.batch === group.batch && written.has(row.id));
+		if (!members.length) return [];
+		return [
+			{
+				requestId: group.id,
+				attemptId: group.attempt,
+				providerKey: group.provider_key,
+				expired: false,
+				members: members.map((row) => ({
+					id: row.id,
+					position: row.position,
+					state: written.get(row.id) ?? "refused",
+					personId: row.person,
+					provider: null,
+					scheduledAt: null,
+					cancelRequested: false,
+					leftOut: null,
+				})),
+				messages: new Map(
+					members.flatMap((row) =>
+						written.get(row.id) === "dispatched" && row.message ? [[row.position, row.message] as const] : [],
+					),
+				),
+			},
+		];
+	});
 }
 
 export async function runDueScheduled(
@@ -1229,7 +1503,7 @@ export async function runDueScheduled(
 			provider: null,
 			scheduledAt: null,
 			cancelRequested: false,
-			unsubscribed: row.unsubscribed,
+			leftOut: row.leftOut,
 		}));
 		const batch: Batch = {
 			requestId: claimed.request_id,
@@ -1243,9 +1517,16 @@ export async function runDueScheduled(
 					.map((row) => [row.position, openFrozen(ready.encryptionKey, claimed.tenant_id, row)]),
 			),
 		};
-		const result = await handOffBatch(transport, batch);
-		await record(db, who, claimed.communication_id, [{ batch, updates: result?.updates ?? [] }]);
-		await result?.afterRecord?.(db);
+		const copies = await routeClaimed(db, ready, claimed);
+		const answered: Answered[] = [];
+		const settle: ((db: Database) => Promise<void>)[] = [];
+		for (const next of [batch, ...copies]) {
+			const result = await handOffBatch(transport, next);
+			if (next === batch || result) answered.push({ batch: next, updates: result?.updates ?? [] });
+			if (result?.afterRecord) settle.push(result.afterRecord);
+		}
+		await record(db, who, claimed.communication_id, answered);
+		for (const after of settle) await after(db);
 	}
 	return handled;
 }

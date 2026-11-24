@@ -9,6 +9,17 @@ export const audienceInput = z.strictObject({
 	personIds: z.array(z.uuid()).max(200).default([]).describe("People ids from an earlier result"),
 });
 export type AudienceValue = z.infer<typeof audienceInput>;
+export const audiencePerson = z.strictObject({
+	id: z.uuid(),
+	displayName: z.string(),
+	email: z.string().nullable(),
+	n: z.int(),
+	optedOutAt: z.string().nullable(),
+	child: z.boolean(),
+	guardians: z.array(
+		z.strictObject({ id: z.uuid(), displayName: z.string(), email: z.string().nullable(), optedOut: z.boolean() }),
+	),
+});
 
 export const classifiedPeople = (plantId: string, audience: AudienceValue, hashes: Record<string, string> | null) =>
 	sql`people AS (

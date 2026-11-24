@@ -1,3 +1,4 @@
+import "../runs-in/react-server.mjs";
 import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import { createRequire } from "node:module";

@@ -1,5 +1,5 @@
 import type { Outcome as Shared } from "@everyfield/contracts/common";
-import { dateText, timeText } from "@everyfield/contracts/common";
+import { dateText, daysBetween, timeText } from "@everyfield/contracts/common";
 import { meetingStatusMachine, targets } from "@everyfield/contracts/machines";
 import type * as c from "@everyfield/contracts/meetings";
 import type { Status } from "@everyfield/ui/display";
@@ -165,8 +165,6 @@ export const FACTORS: { key: Factor; label: string; hint: string }[] = [
 export const scoreText = (n: number) => n.toFixed(1);
 export const deltaText = (n: number) => (n > 0 ? "+" : n < 0 ? "−" : "") + Math.abs(n).toFixed(1);
 
-export const peopleText = (n: number) => `${n} ${n === 1 ? "person" : "people"}`;
-
 export const WINDOWS = ["all", "upcoming", "past"] as const;
 export type Window = (typeof WINDOWS)[number];
 export const WINDOW_LABEL: Record<Window, string> = { all: "All", upcoming: "Upcoming", past: "Past" };
@@ -240,8 +238,7 @@ function civilDate(instant: string, zone: string): string {
 	);
 }
 export function untilText(m: { localDate: string; zone: string }, now: string): string {
-	const day = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
-	const days = Math.round(day(m.localDate) - day(civilDate(now, m.zone)));
+	const days = daysBetween(civilDate(now, m.zone), m.localDate);
 	if (days <= 0) return "today";
 	if (days === 1) return "tomorrow";
 	if (days < 14) return `in ${days} days`;
@@ -276,6 +273,8 @@ export function problemText(code: string): string {
 			return "This kind of meeting does not have that.";
 		case "status_transition":
 			return "The meeting cannot move to that status from where it is now.";
+		case "practice_cancelled":
+			return "A cancelled practice can't be corrected. Nothing changed.";
 		case "nonexistent_local_time":
 			return "That time does not exist on that day, because the clocks spring forward. Choose another time.";
 		case "ambiguous_local_time":
