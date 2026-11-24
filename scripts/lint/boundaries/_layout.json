@@ -4,6 +4,7 @@
 		"db": [],
 		"domain": ["contracts", "db", "reference"],
 		"evry": ["contracts", "db", "domain"],
+		"evry-scripted": ["contracts", "domain", "evry"],
 		"reference": ["contracts", "db"],
 		"ui": []
 	},

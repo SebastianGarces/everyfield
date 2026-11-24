@@ -16,7 +16,7 @@ import {
 import {
 	scriptedAssessmentDrafter,
 	scriptedLanguageJudge,
-} from "../../../packages/evry/src/runtime/scripted-assessment.ts";
+} from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { paidAssessment, type JudgeResult } from "../../../packages/evry/src/runtime/assessment-model.ts";
 import { ok } from "../../support/fixture.mts";
 import { church, type Church } from "./assessment-church.mts";

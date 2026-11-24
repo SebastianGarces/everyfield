@@ -3799,3 +3799,28 @@ export const f = { id: "a" } satisfies X;
 	);
 	assert.match(hits[0], /Type the value at its source, or narrow it with a check/);
 });
+
+test("INV-spend: only the composition root loads the scripted Evry package, and only by a dynamic import", () => {
+	const code = `import { scriptedModel } from "@everyfield/evry-scripted";
+export { scriptedDraft } from "@everyfield/evry-scripted";
+export const load = () => import("@everyfield/evry-scripted");
+export const model = scriptedModel;
+`;
+	const wiring = `import type { ScriptedReply } from "@everyfield/evry-scripted";
+export const load = () => import("@everyfield/evry-scripted");
+export type Reply = ScriptedReply;
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/server/evry/worker.ts": code,
+			"packages/evry/src/runtime/model.ts": code,
+			"apps/web/src/server/models.ts": wiring,
+		}).filter((hit) => hit.endsWith(" scripted-model-wiring")),
+		[
+			"apps/web/src/server/models.ts:1 scripted-model-wiring",
+			...["apps/web/src/server/evry/worker.ts", "packages/evry/src/runtime/model.ts"].flatMap((file) =>
+				[1, 2, 3].map((line) => `${file}:${line} scripted-model-wiring`),
+			),
+		].sort(),
+	);
+});

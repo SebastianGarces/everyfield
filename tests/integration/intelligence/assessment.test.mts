@@ -10,7 +10,7 @@ import {
 	runAssessmentBatch,
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { dayText } from "../../../packages/contracts/src/common/index.ts";
-import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
+import { scriptedAssessmentDrafter } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
 import { CANARY, church, type Church } from "./assessment-church.mts";
 

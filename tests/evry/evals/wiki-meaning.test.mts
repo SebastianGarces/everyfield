@@ -11,10 +11,10 @@ import {
 	invokeRead,
 	readConversation,
 	runTurn,
-	selectQualifiedModel,
 	submitTurn,
 	type EvryActor,
 } from "../../../packages/evry/src/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { search } from "../../../packages/evry/src/adapters/wiki/reads/index.ts";
 import type { SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
@@ -48,7 +48,7 @@ let db: Database;
 let admin: Database;
 let owner: EvryActor;
 const asked: string[] = [];
-const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
 	return viewer?.authority ? evryActor(viewer.authority) : null;
