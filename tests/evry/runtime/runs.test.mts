@@ -307,6 +307,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		"communication.get",
 		"communication.forPerson",
 		"communication.templates.list",
+		"communication.forMeeting",
+		"communication.meetingRecipientTracking",
+		"communication.deliveryTotals",
+		"mail.suppression.listForSelf",
 	];
 	const wikiWrites = ["wiki.bookmarks.set", "wiki.feedback.setMine"];
 	const orgWikiWrites = [
@@ -375,6 +379,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"communication.templates.create",
 						"communication.templates.fork",
 						"communication.templates.update",
+						"communication.templates.archiveOrDelete",
+						"communication.correctContactLog",
 						"notifications.markSelectedRead",
 						"notifications.markAllVisibleRead",
 						"notifications.setPreferences",
@@ -426,6 +432,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 					]
 				: who === "member"
 					? [
+							"communication.correctContactLog",
 							"notifications.markSelectedRead",
 							"notifications.markAllVisibleRead",
 							"notifications.setPreferences",
@@ -541,6 +548,12 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"communication.forPerson",
 						"communication.templates.list",
 						"communication.resendCandidates",
+						"communication.forMeeting",
+						"communication.meetingRecipientTracking",
+						"communication.deliveryTotals",
+						"communication.listAudienceTeams",
+						"communication.searchRecipients",
+						"mail.suppression.listForSelf",
 						...ownerTaskReads,
 						"notifications.feed",
 						"notifications.preferences.get",

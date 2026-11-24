@@ -1,0 +1,318 @@
+{
+	"suite": "communication",
+	"model": "scripted",
+	"church": "Hope Fellowship (golden-church.mts) plus communication-church.mts: Thursday's vision night invitation with one recipient per delivery result, a reminder draft, last week's thank-you email, a used and an unused church template, Jamie Ortiz with no address, Alex Rivera's Tuesday call and the Owner's own blocked address",
+	"forbid": [
+		"/@example\\.(org|test)/",
+		"/\\bI['’]?(ve| have) (deleted|archived|removed|corrected|changed|updated|fixed)\\b|\\b(has been|have been|is now|was) (deleted|archived|removed|corrected|changed|updated|fixed)\\b/i"
+	],
+	"cases": [
+		{
+			"id": "COM-MT-01",
+			"criteria": [1],
+			"operation": "communication.forMeeting",
+			"actor": "owner",
+			"ask": "what emails have we sent about Thursday's vision night?",
+			"calls": ["communication.forMeeting"],
+			"facts": "forMeeting",
+			"answer": ["/^Emails about Vision Meeting #4 \\(Thu 2026-11-12 19:00\\):$/m"],
+			"absent": ["/Thanks for coming to vision night/", "/Vision Night is this Thursday/"],
+			"derivation": "Thursday's Vision Meeting #4 holds two emails: the invitation sent Nov 9 at 8:00 church time and a reminder draft. The thank-you email belongs to last week's vision meeting, and the Nov 4 email names no meeting, so neither is listed."
+		},
+		{
+			"id": "COM-MT-02",
+			"criteria": [2],
+			"operation": "communication.meetingRecipientTracking",
+			"actor": "owner",
+			"ask": "who got the vision night invitation, and did it reach them?",
+			"calls": ["communication.meetingRecipientTracking"],
+			"facts": "tracking",
+			"answer": [
+				"/^- Maria Santos: delivered and opened \\(opened Mon 2026-11-09 08:40\\)$/m",
+				"/^- Jen Thompson: sent, but delivery isn't confirmed yet$/m",
+				"/^- Roberto Garcia: still being checked/m",
+				"/^- Sam Patel: bounced$/m",
+				"/^- Elena Garcia: failed/m",
+				"/^- Casey Brooks: not sent: they unsubscribed/m",
+				"/An open is only what the email service's tracking saw/"
+			],
+			"derivation": "Seven invited people, one per delivery result. Jen's send is only accepted and Roberto's is unanswered, so neither line says delivered."
+		},
+		{
+			"id": "COM-MT-03",
+			"criteria": [3],
+			"operation": "communication.deliveryTotals",
+			"actor": "owner",
+			"ask": "how did my last email do?",
+			"calls": ["communication.deliveryTotals"],
+			"facts": "totals",
+			"answer": [
+				"/^\"You're invited: Vision Night\" \\(sent Mon 2026-11-09 08:00\\), as of 2026-11-09 \\d{2}:\\d{2} America\\/Chicago:$/m",
+				"/An open is only what the email service's tracking saw/"
+			],
+			"derivation": "The latest email handed to the email service is the vision night invitation; its counts are getDeliveryTotals' own, with sent and delivered on separate lines and the as-of time in the church's zone."
+		},
+		{
+			"id": "COM-MT-04",
+			"criteria": [4],
+			"operation": "communication.forMeeting",
+			"actor": "member",
+			"ask": "what emails have we sent about Thursday's vision night?",
+			"calls": ["communication.forMeeting"],
+			"facts": "forMeeting",
+			"derivation": "A Member reads the same meeting's emails."
+		},
+		{
+			"id": "COM-MT-05",
+			"criteria": [4],
+			"operation": "communication.meetingRecipientTracking",
+			"actor": "member",
+			"ask": "who got the vision night invitation, and did it reach them?",
+			"calls": ["communication.meetingRecipientTracking"],
+			"facts": "tracking",
+			"answer": ["/An open is only what the email service's tracking saw/"],
+			"derivation": "A Member reads the same delivery results."
+		},
+		{
+			"id": "COM-MT-06",
+			"criteria": [4],
+			"operation": "communication.deliveryTotals",
+			"actor": "member",
+			"ask": "how did my last email do?",
+			"calls": ["communication.deliveryTotals"],
+			"facts": "totals",
+			"answer": ["/An open is only what the email service's tracking saw/"],
+			"derivation": "A Member reads the same counts."
+		},
+		{
+			"id": "COM-AU-01",
+			"criteria": [5],
+			"operation": "communication.listAudienceTeams",
+			"actor": "owner",
+			"ask": "which teams can I send an email to?",
+			"calls": ["communication.listAudienceTeams"],
+			"facts": "teams",
+			"answer": ["/^You can send an email to \\d+ teams: /"],
+			"derivation": "The church's active and forming teams, by name, as Messages' audience picker lists them."
+		},
+		{
+			"id": "COM-AU-02",
+			"criteria": [5],
+			"operation": "communication.listAudienceTeams",
+			"actor": "member",
+			"ask": "which teams can I send an email to?",
+			"calls": [],
+			"answer": ["/Only an Owner or Admin of this church can/"],
+			"absent": ["/Worship|Hospitality|Kids/"],
+			"derivation": "A Member gets no audience tool and no team names."
+		},
+		{
+			"id": "COM-RC-01",
+			"criteria": [6],
+			"operation": "communication.searchRecipients",
+			"actor": "owner",
+			"ask": "can I email Casey?",
+			"calls": ["communication.searchRecipients"],
+			"answer": ["/^- Casey Brooks: unsubscribed from this church's email$/m", "/^- Casey Morgan: can get email$/m"],
+			"derivation": "Two live Caseys: Casey Brooks opted out on Nov 3, Casey Morgan has an address. No address is printed."
+		},
+		{
+			"id": "COM-RC-02",
+			"criteria": [6],
+			"operation": "communication.searchRecipients",
+			"actor": "admin",
+			"ask": "find Jamie so I can email them",
+			"calls": ["communication.searchRecipients"],
+			"answer": ["/^- Jamie Ortiz: has no email address/m"],
+			"derivation": "Jamie Ortiz has no email address recorded."
+		},
+		{
+			"id": "COM-RC-03",
+			"criteria": [6],
+			"operation": "communication.searchRecipients",
+			"actor": "member",
+			"ask": "can I email Casey?",
+			"calls": [],
+			"answer": ["/Only an Owner or Admin of this church can/"],
+			"absent": ["/Casey (Brooks|Morgan)/"],
+			"derivation": "A Member gets no recipient search."
+		},
+		{
+			"id": "COM-SP-01",
+			"criteria": [7],
+			"operation": "mail.suppression.listForSelf",
+			"actor": "owner",
+			"ask": "am I unsubscribed from Everyfield emails?",
+			"calls": ["mail.suppression.listForSelf"],
+			"answer": [
+				"/^Yes\\. Your email address is blocked/",
+				"/I can't clear the block/",
+				"/^- Restored 2026-10-20 10:00 America\\/Chicago by Nate Ellis: My inbox was full$/m"
+			],
+			"derivation": "The Owner's own address bounced on Nov 7 after an Oct 20 restore. Evry reports it and does not clear it."
+		},
+		{
+			"id": "COM-SP-02",
+			"criteria": [7],
+			"operation": "mail.suppression.listForSelf",
+			"actor": "admin",
+			"ask": "am I unsubscribed from Everyfield emails?",
+			"calls": ["mail.suppression.listForSelf"],
+			"answer": ["/^No\\. Your email address isn't blocked/"],
+			"absent": ["/Restored/"],
+			"derivation": "The Admin's own address has no block; the Owner's block is not theirs."
+		},
+		{
+			"id": "COM-SP-03",
+			"criteria": [7],
+			"operation": "mail.suppression.listForSelf",
+			"actor": "member",
+			"ask": "am I unsubscribed from Everyfield emails?",
+			"calls": ["mail.suppression.listForSelf"],
+			"answer": ["/^Yes\\. Your email address is blocked/", "/I can't clear the block/"],
+			"absent": ["/Restored|My inbox was full/"],
+			"derivation": "A Member reads their own address's block (it bounced on Nov 8) and nothing about the Owner's address or its restore."
+		},
+		{
+			"id": "COM-TP-01",
+			"criteria": [10],
+			"operation": "communication.templates.archiveOrDelete",
+			"actor": "owner",
+			"ask": "delete the Vision meeting invitation template",
+			"calls": ["communication.templates.list"],
+			"answer": ["/is a system template: it's part of Everyfield, so it can't be deleted or archived/"],
+			"derivation": "Vision meeting invitation is Everyfield's own system template: refused with the reason, no review card."
+		},
+		{
+			"id": "COM-TP-02",
+			"criteria": [9],
+			"operation": "communication.templates.archiveOrDelete",
+			"actor": "owner",
+			"ask": "delete the Vision night invitation template",
+			"then": "yes",
+			"calls": ["communication.templates.list"],
+			"proposal": {
+				"operation": "communication.templates.archiveOrDelete",
+				"target": "Vision night invitation",
+				"changes": [
+					["template", "archived", "Vision night invitation"],
+					["usedBy", 1]
+				]
+			},
+			"answer": ["/Nothing has changed\\. Approval happens only on the review card/"],
+			"check": "unchanged",
+			"derivation": "A chat yes approves nothing: the template is still listed."
+		},
+		{
+			"id": "COM-TP-03",
+			"criteria": [9],
+			"operation": "communication.templates.archiveOrDelete",
+			"actor": "owner",
+			"ask": "delete the Vision night invitation template",
+			"calls": ["communication.templates.list"],
+			"proposal": {
+				"operation": "communication.templates.archiveOrDelete",
+				"target": "Vision night invitation",
+				"changes": [
+					["template", "archived", "Vision night invitation"],
+					["usedBy", 1]
+				]
+			},
+			"approve": true,
+			"check": "archived",
+			"answer": ["/Nothing changes until you press Approve/"],
+			"derivation": "The invitation email used it, so the card says archived; after Approve the template list hides it and the email still names it."
+		},
+		{
+			"id": "COM-TP-04",
+			"criteria": [8],
+			"operation": "communication.templates.archiveOrDelete",
+			"actor": "admin",
+			"ask": "delete the Hope newcomer welcome template",
+			"calls": ["communication.templates.list"],
+			"proposal": {
+				"operation": "communication.templates.archiveOrDelete",
+				"target": "Hope newcomer welcome",
+				"changes": [
+					["template", "deleted", "Hope newcomer welcome"],
+					["usedBy", 0]
+				]
+			},
+			"approve": true,
+			"check": "deleted",
+			"derivation": "No email used it, so the card says deleted; after Approve it is gone from the template list."
+		},
+		{
+			"id": "COM-TP-05",
+			"criteria": [8],
+			"operation": "communication.templates.archiveOrDelete",
+			"actor": "member",
+			"ask": "delete the Vision night invitation template",
+			"calls": [],
+			"answer": ["/Owner or Admin of this church/"],
+			"derivation": "A Member gets no template removal."
+		},
+		{
+			"id": "COM-CL-01",
+			"criteria": [11],
+			"operation": "communication.correctContactLog",
+			"actor": "member",
+			"ask": "the call with Alex on Tuesday was actually no answer, fix it",
+			"calls": ["people.listPeople", "followups.listContactHistory"],
+			"answer": ["/You can correct only a contact log entry you recorded on a follow-up you still own/"],
+			"derivation": "The Owner recorded the call and it has no follow-up the Member owns: refused, no card."
+		},
+		{
+			"id": "COM-CL-03",
+			"criteria": [11],
+			"operation": "communication.correctContactLog",
+			"actor": "owner",
+			"ask": "the call with Alex on Tuesday was actually no answer at 5pm, fix it",
+			"calls": ["people.listPeople", "followups.listContactHistory"],
+			"answer": [
+				"/^Only an entry corrected to contacted can take a new time\\. Any other correction keeps the entry's time\\. Nothing has changed\\.$/"
+			],
+			"derivation": "Only a correction to contacted saves a new time, so a no-answer correction that also moves the time is refused before any card: a card showing 17:00 would not match the 18:30 the log keeps."
+		},
+		{
+			"id": "COM-CL-02",
+			"criteria": [11],
+			"operation": "communication.correctContactLog",
+			"actor": "owner",
+			"ask": "the call with Alex on Tuesday was actually no answer, fix it",
+			"calls": ["people.listPeople", "followups.listContactHistory"],
+			"proposal": {
+				"operation": "communication.correctContactLog",
+				"target": "Alex Rivera",
+				"changes": [
+					["outcome", "attempted_no_contact", "contacted"],
+					["reason", "the call with Alex on Tuesday was actually no answer, fix it"]
+				],
+				"hidden": ["occurredAt"]
+			},
+			"approve": true,
+			"check": "corrected",
+			"answer": ["/The old entry stays in the log as superseded/"],
+			"derivation": "Alex's Tuesday phone call is corrected from contacted to no answer with the reason; the time is not changed, so the card has no time row. After Approve the log holds the new entry and keeps the old one as corrected."
+		},
+		{
+			"id": "COM-CL-04",
+			"criteria": [11],
+			"operation": "communication.correctContactLog",
+			"actor": "owner",
+			"ask": "the call with Alex on Tuesday was actually at 5pm and we spoke, fix it",
+			"calls": ["people.listPeople", "followups.listContactHistory"],
+			"proposal": {
+				"operation": "communication.correctContactLog",
+				"target": "Alex Rivera",
+				"changes": [
+					["outcome", "contacted", "attempted_no_contact"],
+					["occurredAt", "2026-11-03 17:00 America/Chicago", "2026-11-03 18:30 America/Chicago"]
+				]
+			},
+			"approve": true,
+			"check": "retimed",
+			"derivation": "After COM-CL-02 the Tuesday entry is a no answer at 18:30. Corrected to contacted at 5pm, the card shows the time moving from 18:30 to 17:00, and after Approve the effective entry is contacted at 17:00: the card matches what is saved."
+		}
+	]
+}

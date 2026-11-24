@@ -263,7 +263,7 @@ async function run(
 			let result: SourceResult | undefined;
 			for (let attempt = 0; result === undefined; attempt++) {
 				try {
-					result = await invokeRead(db, fresh, adapter, input, deps.native ?? null, filesOf(fresh));
+					result = await invokeRead(db, fresh, adapter, input, deps.native ?? null, filesOf(fresh), deps.mail ?? null);
 				} catch (error) {
 					if (error instanceof EvryRefusal && ATTACHMENT_REFUSALS.has(error.code)) return { error: error.code };
 					if (attempt < LIMITS.readRetries && isTransient(error)) continue;
