@@ -1,6 +1,16 @@
+import { counted } from "@everyfield/contracts/common";
 import { bodyToTextResult, textToBody } from "./body.ts";
 import { fieldProblem, fieldProblemText, usableKeys } from "./fields.ts";
-import { emptyAudience, type Audience, type Draft, type DraftState, type Template } from "./model.ts";
+import {
+	emptyAudience,
+	groupLabel,
+	type Audience,
+	type AudienceSummary,
+	type Draft,
+	type DraftState,
+	type Team,
+	type Template,
+} from "./model.ts";
 
 type PersonRef = { id: string; displayName: string | null; email: string | null };
 
@@ -105,4 +115,24 @@ export function formatWhen(iso: string): string {
 export function listed(items: string[], max = 4): string {
 	if (items.length <= max) return items.join(", ");
 	return `${items.slice(0, max).join(", ")}, and ${items.length - max} more`;
+}
+
+export function toLine(form: Form, summary: AudienceSummary | null, teams: readonly Team[]): string {
+	const named = new Map((summary?.recipients ?? []).map((r) => [r.id, r.displayName]));
+	const notDirect = new Set([
+		...(summary?.childExclusions ?? []).map((person) => person.id),
+		...(summary?.guardianRoutes ?? []).map((person) => person.id),
+		...(summary?.unsubscribedExclusions ?? []).map((person) => person.id),
+	]);
+	const noEmailNames = new Set(summary?.missingEmailExclusions ?? []);
+	const hasNoEmail = (p: PersonRef) => !p.email?.trim() && p.displayName !== null && noEmailNames.has(p.displayName);
+	const beyondNamedCap = (p: PersonRef) => summary?.complete === false && !notDirect.has(p.id) && !hasNoEmail(p);
+	const getsEmail = (p: PersonRef) => !summary || named.has(p.id) || beyondNamedCap(p);
+	const chosen = [
+		...form.audience.groups.map((g) => groupLabel[g as keyof typeof groupLabel] ?? g),
+		...form.audience.teamIds.map((id) => teams.find((t) => t.id === id)?.name ?? "A team"),
+		...form.people.filter(getsEmail).map((p) => p.displayName ?? named.get(p.id) ?? "A person"),
+	];
+	const count = counted(summary?.eligibleRecipients ?? 0, "person", "people");
+	return chosen.length ? `${count} · ${listed(chosen)}` : count;
 }
