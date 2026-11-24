@@ -719,10 +719,7 @@
 					"operation": "people.unmergePeople",
 					"changes": [
 						["comesBack", "John Smith"],
-						[
-							"staysWithKept",
-							"Added after the merge, so it stays with Jon Smith: 1 task and the edits to address."
-						]
+						["staysWithKept", "Added after the merge, so it stays with Jon Smith: 1 task and the edits to address."]
 					]
 				}
 			],

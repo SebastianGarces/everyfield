@@ -424,12 +424,7 @@ test("AC:TARGET-PPL-025 AC:EVRY-PERSON-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW
 					sql`UPDATE person SET state='retired',retired_at=clock_timestamp(),revision=revision+1 WHERE id=${sql.param(d.id)}`,
 				),
 		],
-		[
-			"chained merge",
-			["chained_merge"],
-			[],
-			async (d) => ok(await merge(d.id, (await person("Chain survivor")).id)),
-		],
+		["chained merge", ["chained_merge"], [], async (d) => ok(await merge(d.id, (await person("Chain survivor")).id))],
 		[
 			"later merge into the survivor",
 			["chained_merge"],

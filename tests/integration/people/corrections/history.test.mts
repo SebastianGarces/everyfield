@@ -259,7 +259,9 @@ test("AC:TARGET-PPL-025 a merge whose source had been emailed unmerges with ever
 		const mine = await sentEmail(s),
 			theirs = await sentEmail(k);
 		const mailRows = () =>
-			rows(sql`SELECT to_jsonb(m)-'revision' AS row FROM mail m WHERE id IN (${mine}::uuid,${theirs}::uuid) ORDER BY id`);
+			rows(
+				sql`SELECT to_jsonb(m)-'revision' AS row FROM mail m WHERE id IN (${mine}::uuid,${theirs}::uuid) ORDER BY id`,
+			);
 		const effects = () =>
 			rows(sql`SELECT (SELECT count(*)::int FROM mail) AS mail,(SELECT count(*)::int FROM mail_attempt) AS attempts,
  (SELECT count(*)::int FROM job) AS jobs`);
@@ -273,7 +275,10 @@ test("AC:TARGET-PPL-025 a merge whose source had been emailed unmerges with ever
  WHERE id=${merged.mergeId}`);
 		} else assert.deepEqual(await mailRows(), before);
 		const p = ok(await preview(merged.mergeId));
-		assert.deepEqual([p.conflicts, p.stays, p.restores.find((x) => x.kind === "mail")?.count], [[], [], legacy ? 1 : undefined]);
+		assert.deepEqual(
+			[p.conflicts, p.stays, p.restores.find((x) => x.kind === "mail")?.count],
+			[[], [], legacy ? 1 : undefined],
+		);
 		assert.equal(ok(await unmerge(merged.mergeId, p.reviewRevision)).outcome, "changed");
 		assert.deepEqual(await mailRows(), before);
 		assert.deepEqual([(await idsOn(s)).mail, (await idsOn(k)).mail], [[mine], [theirs]]);

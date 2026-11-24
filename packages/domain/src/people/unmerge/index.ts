@@ -147,9 +147,7 @@ function plantInverse(merge: Merge, source: Facts, survivor: Facts): Inverse {
 		conflicts,
 		changed: [...changed].sort(),
 		changedFields,
-		stays: merge.prior.references
-			? survivor.refs.filter((x) => !then.has(`${x.kind}|${x.id}`)).map((x) => x.kind)
-			: [],
+		stays: merge.prior.references ? survivor.refs.filter((x) => !then.has(`${x.kind}|${x.id}`)).map((x) => x.kind) : [],
 		staysFields: c.unmergeField.options.filter(
 			(f) => !set.includes(f) && merge.edited.some((key) => (auditFields[key] ?? fieldOf(key)) === f),
 		),
@@ -161,7 +159,8 @@ function mergedFieldsChanged(merge: Merge, source: Facts, survivor: Facts): Fiel
 	for (const col of Object.keys(prior)) {
 		const field = fieldOf(col);
 		if (!field) continue;
-		const given = col === "stage" ? furthest(source.stage, prior.stage) : (merge.prior.source[col] ?? source.values[col]);
+		const given =
+			col === "stage" ? furthest(source.stage, prior.stage) : (merge.prior.source[col] ?? source.values[col]);
 		if (JSON.stringify(survivor.values[col] ?? null) !== JSON.stringify(given ?? null)) changed.add(field);
 	}
 	return c.unmergeField.options.filter((f) => changed.has(f));
@@ -321,7 +320,8 @@ export const peopleUnmerge = {
 							outcome: "noop",
 						};
 					if (survivor.revision !== input.expectedRevision) deny("conflict");
-					if (i.conflicts.length) deny("inverse_conflict", {
+					if (i.conflicts.length)
+						deny("inverse_conflict", {
 							causes: i.conflicts,
 							changed: i.changed,
 							changedFields: i.changedFields,

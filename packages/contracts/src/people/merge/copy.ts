@@ -94,8 +94,7 @@ export function attendanceText(
 }
 
 export type UnmergeField = z.infer<typeof unmergeField>;
-const fieldList = (fields: readonly UnmergeField[]) =>
-	listText(fields.map((f) => MERGE_FIELD_LABEL[f].toLowerCase()));
+const fieldList = (fields: readonly UnmergeField[]) => listText(fields.map((f) => MERGE_FIELD_LABEL[f].toLowerCase()));
 export function unmergeStaysText(
 	stays: { stays: readonly { kind: ReferenceKind; count: number }[]; staysFields: readonly UnmergeField[] },
 	names: { survivor: string },
@@ -104,9 +103,7 @@ export function unmergeStaysText(
 		...stays.stays.map((r) => counted(r.kind, r.count)),
 		...(stays.staysFields.length ? [`the edits to ${fieldList(stays.staysFields)}`] : []),
 	];
-	return items.length
-		? `Added after the merge, so it stays with ${names.survivor}: ${listText(items)}.`
-		: null;
+	return items.length ? `Added after the merge, so it stays with ${names.survivor}: ${listText(items)}.` : null;
 }
 export type InverseConflict = z.infer<typeof inverseConflict>;
 export function conflictText(

@@ -24,7 +24,16 @@ import { fresh, usePersonState, When } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { unmergePair, type Unmerged } from "./actions.ts";
 import { unmergeRead } from "./intent.ts";
-import { attendanceText, conflictText, counted, FIELD_LABEL, kindTitle, listText, unmergeAdvice, unmergeStaysText } from "./model.ts";
+import {
+	attendanceText,
+	conflictText,
+	counted,
+	FIELD_LABEL,
+	kindTitle,
+	listText,
+	unmergeAdvice,
+	unmergeStaysText,
+} from "./model.ts";
 import { Problem } from "./parts.tsx";
 import type { UnmergeView } from "./server.ts";
 import { loadProblem } from "../../../components/read-failed.ts";
