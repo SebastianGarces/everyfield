@@ -241,7 +241,7 @@ export async function world(prefix: string) {
 		const now = await everything();
 		return Object.keys(now).filter((name) => now[name] !== before[name]);
 	}
-	async function commitFault<T>(table: string, body: () => Promise<T>) {
+	async function commitFault<T>(table: string, body: () => Promise<T>, when: "commit" | "write" = "commit") {
 		const name = "fault_" + key().replaceAll("-", "");
 		await admin.execute(
 			sql.raw(
@@ -249,8 +249,12 @@ export async function world(prefix: string) {
 			),
 		);
 		await admin.execute(
-			sql.raw(`CREATE CONSTRAINT TRIGGER ${name} AFTER INSERT OR UPDATE ON ${table} DEFERRABLE INITIALLY DEFERRED
-				FOR EACH ROW EXECUTE FUNCTION ${name}()`),
+			sql.raw(
+				when === "commit"
+					? `CREATE CONSTRAINT TRIGGER ${name} AFTER INSERT OR UPDATE ON ${table} DEFERRABLE INITIALLY DEFERRED
+						FOR EACH ROW EXECUTE FUNCTION ${name}()`
+					: `CREATE TRIGGER ${name} AFTER INSERT OR UPDATE ON ${table} FOR EACH ROW EXECUTE FUNCTION ${name}()`,
+			),
 		);
 		try {
 			await assert.rejects(

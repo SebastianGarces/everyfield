@@ -73,8 +73,10 @@ test("AC:TARGET-MTG-020 finalize records each attendee once, rolls back on a fau
 	const request = await finalizeRequest(m, Object.values(people));
 
 	const before = await w.everything();
-	const error_code = await w.commitFault("obligation", () =>
-		tx((t) => attendance.finalizeAttendance(t, ctx(), request)),
+	const error_code = await w.commitFault(
+		"obligation",
+		() => write.meetings(attendance.finalizeAttendance, request),
+		"write",
 	);
 	assert.deepEqual(await w.changed(before), []);
 	const none = await work();
@@ -159,8 +161,10 @@ test("AC:GAP-MTG-011 a walk-in makes one Person and one attendance; another chur
 		},
 		subcase("foreign-context-refused").expected.result,
 	);
-	const error_code = await w.commitFault("participation", () =>
-		tx((t) => guestsWriter.createWalkInContact(t, ctx(), request)),
+	const error_code = await w.commitFault(
+		"participation",
+		() => write.meetings(guestsWriter.createWalkInContact, request),
+		"write",
 	);
 	const touched = await w.changed(before);
 	assert.deepEqual(
@@ -448,7 +452,7 @@ test("AC:TARGET-PPL-020 each recorded event advances a stage once and nothing mo
 	);
 	const failed = await person("Stage fault");
 	const request = await finalizeRequest(await meeting(), [failed]);
-	await w.commitFault("audit_event", () => tx((t) => attendance.finalizeAttendance(t, ctx(), request)));
+	await w.commitFault("audit_event", () => write.meetings(attendance.finalizeAttendance, request), "write");
 	assert.deepEqual([await stage(failed), await changes(failed)], ["prospect", 0]);
 });
 
