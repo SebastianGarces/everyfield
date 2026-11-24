@@ -1,6 +1,7 @@
 import "server-only";
 import type { Database } from "@everyfield/db/client";
 import { EvryRefusal, evryActor, projectError, type EvryActor } from "@everyfield/evry";
+import { readSwitches } from "@everyfield/domain/flags";
 import { after } from "next/server";
 import { privateHeaders } from "../platform/boundary";
 import { requestDatabase } from "../database";
@@ -45,14 +46,18 @@ export async function evryResponse(body: (db: Database, actor: EvryActor) => Pro
 }
 
 export function drainTurns() {
-	after(() => runTurns(requestDatabase(), 4));
+	after(async () => {
+		const db = requestDatabase();
+		await runTurns(db, await readSwitches(db), 4);
+	});
 }
 
 export const evryEffectPorts = () => ({ reminders: tasksMount().reminders, phaseNotices: phasesMount().notices });
 
 export function drainEffects() {
 	after(async () => {
-		await runEffects(requestDatabase(), evryEffectPorts(), 4);
+		const db = requestDatabase();
+		await runEffects(db, await readSwitches(db), evryEffectPorts(), 4);
 	});
 }
 

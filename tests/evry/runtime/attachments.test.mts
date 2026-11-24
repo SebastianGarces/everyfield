@@ -18,6 +18,7 @@ import { readAttachment } from "../../../packages/evry/src/attachments/store.ts"
 import { runDueObjectCleanup } from "../../../packages/domain/src/jobs/object-cleanup.ts";
 import { accounts, actor, admin, db, people, plant, setup, sql, teardown } from "./support.mts";
 import { attach, conversation, files, say } from "./attached.mts";
+import type { ToolResult } from "./saved.mts";
 
 before(async () => {
 	await setup();
@@ -44,9 +45,7 @@ test("AC:CLN-04 AC:GAP-EVR-422 an attached launch interest form is checked row b
 	const preview = checked.results.find((r) => r.operation === "people.previewImport")!;
 	assert.deepEqual(preview.input, { attachmentId: form.id });
 	assert.deepEqual(
-		preview.result.rows
-			.filter((r: any) => r.kind === "import")
-			.map((r: any) => [r.label, r.fields.status, r.fields.problems]),
+		preview.result.rows.filter((r) => r.kind === "import").map((r) => [r.label, r.fields.status, r.fields.problems]),
 		[
 			["Jordan Lee", "valid", null],
 			["Alex Rivera", "valid", null],
@@ -166,7 +165,7 @@ async function approve(who: EvryActor, proposal: Proposal) {
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	return readReview(db, who, proposal.id);
 }
-const commitmentCard = (turn: { results: Record<string, any>[]; reviews: (Proposal | null | undefined)[] }) => {
+const commitmentCard = (turn: { results: ToolResult[]; reviews: (Proposal | null | undefined)[] }) => {
 	const id = turn.results.findLast((r) => r.operation === "evry.prepareProposal")?.result.proposalId;
 	const card = turn.reviews.find((r) => r?.id === id && r?.operation === "people.createCommitment");
 	assert.ok(card, "this turn prepared a commitment review");

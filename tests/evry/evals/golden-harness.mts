@@ -29,7 +29,12 @@ import { EvryRefusal } from "../../../packages/evry/src/context/errors.ts";
 import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
 import { selectQualifiedModel, type Price } from "../../../packages/evry/src/runtime/model.ts";
 import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
-import { modelTools, proposalForModel, resultForModel } from "../../../packages/evry/src/runtime/tools.ts";
+import {
+	modelTools,
+	proposalForModel,
+	refusalForModel,
+	resultForModel,
+} from "../../../packages/evry/src/runtime/tools.ts";
 import {
 	prepareProposal,
 	REVIEW_MINUTES,
@@ -279,10 +284,12 @@ export const saveRecording = golden.save;
 export const recordedFile = golden.file;
 
 export type Turn = { user: string } | { assistant: string };
-export type ToolCall = { operation: string; input: any; result?: SourceResult; error?: string };
+export const inputField = (input: unknown, field: string): unknown =>
+	typeof input === "object" && input !== null ? Reflect.get(input, field) : undefined;
+export type ToolCall = { operation: string; input: unknown; result?: SourceResult; error?: string };
 export type Proposal = {
 	operation: string;
-	input: any;
+	input: unknown;
 	prepared: boolean;
 	review: Prepared["review"] | null;
 	error?: string;
@@ -301,14 +308,14 @@ export type Conversation = {
 const refuse = async (): Promise<never> => {
 	throw Error("a review never calls the email service");
 };
-const MAIL: MailPort = {
+export const MAIL: MailPort = {
 	keys: {
 		encryptionKey: Buffer.alloc(32, 7),
 		addressKey: Buffer.alloc(32, 9),
 		from: "church@example.test",
 		origin: "https://app.example.test",
 	},
-	transport: { send: refuse, cancel: refuse, reschedule: refuse },
+	transport: { paused: false, send: refuse, cancel: refuse, reschedule: refuse },
 };
 
 const MAX_STEPS = LIMITS.toolCalls + 1;
@@ -402,13 +409,14 @@ export async function converse(
 	page?: string,
 	offer: readonly string[] = [],
 	repetition = 1,
+	{ recordings = golden, mail = MAIL }: { recordings?: ReturnType<typeof recorder>; mail?: MailPort } = {},
 ): Promise<Conversation> {
 	const { db } = church;
 	const writer = oneWriterAtATime(db);
 	const actor = church.actors[as];
 	const keys: string[] = [];
 	const inputs: string[] = [];
-	const model = override ?? golden.model(keys, inputs, repetition);
+	const model = override ?? recordings.model(keys, inputs, repetition);
 	const recorded = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
 	const offered = (op: string) => offer.includes(op) || recorded(op);
 	const catalog = readCatalog(actor, offered);
@@ -548,7 +556,7 @@ export async function converse(
 					open.lease,
 					open.id,
 					call,
-					MAIL,
+					mail,
 					null,
 					conversationFiles,
 				).catch((error: unknown) =>
@@ -556,7 +564,7 @@ export async function converse(
 				);
 				if (!proposal || "error" in proposal) {
 					card.error = proposal?.error ?? "source_unavailable";
-					return { error: card.error, ...(proposal?.problem && { problem: proposal.problem }) };
+					return { ...refusalForModel(card.error), ...(proposal?.problem && { problem: proposal.problem }) };
 				}
 				card.prepared = true;
 				card.review = proposal.review;

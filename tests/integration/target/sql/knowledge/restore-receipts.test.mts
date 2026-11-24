@@ -49,6 +49,7 @@ const api = deletionOperations({
 const targets: string[] = [];
 
 const transport: DeliveryTransport & { sends: number } = {
+	paused: false,
 	sends: 0,
 	async send(batch) {
 		this.sends += 1;

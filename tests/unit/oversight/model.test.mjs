@@ -153,6 +153,7 @@ test("a near Launch Sunday alone is no concern; a recorded role or training gap 
 	assert.equal(nearLaunch(prep({ launched: true, daysToLaunch: null, unfilledRoles: 3 })), "clear");
 	assert.equal(nearLaunch(prep({ daysToLaunch: null })), "unknown");
 	assert.equal(nearLaunch(prep({ unfilledRoles: null })), "unknown");
+	assert.equal(nearLaunch(prep({ outstandingTraining: null })), "unknown");
 	assert.equal(nearLaunch(prep({ unfilledRoles: null, outstandingTraining: 1 })), "gap");
 });
 
@@ -215,4 +216,5 @@ test("follow-up, growth and training results keep zero, the 21 and 28 day lines 
 	assert.equal(trainingResult(counts({ requiredTraining: 3, outstandingTraining: 2 })), "gap");
 	assert.equal(trainingResult(counts({ requiredTraining: 3, outstandingTraining: 0 })), "clear");
 	assert.equal(trainingResult(counts({ outstandingTraining: 0 })), "unknown");
+	assert.equal(trainingResult(counts({ requiredTraining: 3 })), "unknown");
 });

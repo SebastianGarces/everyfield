@@ -213,7 +213,9 @@ test("AC:PI-014 a correction to another value keeps history; the same value and 
 	);
 	refusedBare(await correct(a, { action: "retract", key: "systems_tested" }, "0"), "not_current");
 	const view = await page(a);
-	assert.equal(view.counts.notAnswered, 7);
+	assert.deepEqual(view.counts, { current: 0, needsRenewing: 0, notAnswered: 7 });
+	const shown = view.signals.find((s) => s.key === "prayer_leader_assigned")!;
+	assert.deepEqual([shown.state, shown.value, shown.renewal], ["retracted", null, { status: "unknown" }]);
 	const again = ok(await attest(a, "prayer_leader_assigned", "yes", {}, gone.signal.revision));
 	assert.equal(again.signal.revision, "4");
 	const all = ok(await signals.getHistory(f.db, a.actor, { key: "prayer_leader_assigned" })).revisions;

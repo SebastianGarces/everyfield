@@ -40,6 +40,7 @@ const rows = async <R extends Record<string, unknown> = Record<string, unknown>>
 const key = () => randomUUID();
 
 const transport: DeliveryTransport & { calls: { send: number; cancel: number } } = {
+	paused: false,
 	calls: { send: 0, cancel: 0 },
 	async send(batch) {
 		this.calls.send += 1;

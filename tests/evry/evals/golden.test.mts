@@ -36,6 +36,7 @@ import {
 } from "./golden-church.mts";
 import {
 	converse,
+	inputField,
 	judge,
 	MissingRecording,
 	recordedFile,
@@ -275,7 +276,7 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 		const count = reads.filter((x) => x.operation === op).length;
 		add(`at most ${max} ${op} calls`, count <= max, `${count} calls`);
 	}
-	if (spec.noSearch) add("no search", !reads.some((x) => x.input?.search), `called: ${callsText}`);
+	if (spec.noSearch) add("no search", !reads.some((x) => inputField(x.input, "search")), `called: ${callsText}`);
 	if (spec.noTools) add("calls no tool", !c.calls.length && !c.proposals.length, `called: ${callsText}`);
 
 	const expected = spec.proposals ?? [];
@@ -296,7 +297,7 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 				p.operation === want.operation &&
 				p.prepared &&
 				(!input || inputMatches(input, p.input)) &&
-				!(want.absent ?? []).some((f) => p.input?.[f] != null && p.input[f] !== "") &&
+				!(want.absent ?? []).some((f) => (inputField(p.input, f) ?? "") !== "") &&
 				(!want.target || p.review?.target?.label === want.target) &&
 				(!want.mentions || JSON.stringify(p.input).includes(want.mentions)) &&
 				(want.changes ?? []).every(([field, after, before]) =>
@@ -317,8 +318,10 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 			{ kind: "card" },
 		);
 		if (want.targets) {
-			const allowedIds = new Set(select(want.targets).map((n) => byName(n).id));
-			const stray = c.proposals.filter((p) => p.operation === want.operation && !allowedIds.has(p.input?.personId));
+			const allowedIds = new Set<unknown>(select(want.targets).map((n) => byName(n).id));
+			const stray = c.proposals.filter(
+				(p) => p.operation === want.operation && !allowedIds.has(inputField(p.input, "personId")),
+			);
 			add(`review cards only for ${want.targets}`, !stray.length, `proposed: ${proposalsText}`, { kind: "card" });
 		}
 	}
@@ -630,7 +633,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 				const got = new Set(
 					c.proposals
 						.filter((p) => p.operation === t.proposalsAll!.operation && p.prepared)
-						.map((p) => p.input?.personId),
+						.map((p) => inputField(p.input, "personId")),
 				);
 				const missing = want.filter((x) => !got.has(x));
 				checks.push({

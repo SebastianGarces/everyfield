@@ -225,6 +225,7 @@ export const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 		"Propose scheduling a saved draft for a send time in the church's time zone, within the next 30 days. The review lists who gets it, who is left out and why, and the exact content. Nothing is sent until the user approves.",
 	input: scheduleInput,
 	allowed: ownerOrAdmin,
+	sendsMail: true,
 	async review(actor, value, context): Promise<SQL | null> {
 		const found = await context.db.execute(
 			sql`SELECT c.audience,c.body_html,c.revision::text AS revision FROM communication c
@@ -557,6 +558,7 @@ export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 		"Change the body or the audience",
 	),
 	allowed: ownerOrAdmin,
+	sendsMail: true,
 	async review(actor, value, context): Promise<SQL | null> {
 		const found = await context.db.execute(
 			sql`SELECT c.body_html,c.audience FROM communication c WHERE c.id=${value.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid AND c.state='scheduled'`,
@@ -746,6 +748,7 @@ export const send: ReviewedWrite<z.infer<typeof sendInput>> = {
 		"Give a saved draft id, or a subject, body and audience",
 	),
 	allowed: ownerOrAdmin,
+	sendsMail: true,
 	async review(actor, value, context): Promise<SQL | null> {
 		const plant = actor.owner.id;
 		let draft: {
@@ -876,6 +879,7 @@ function resendWrite({
 		description,
 		input: resendInput,
 		allowed: ownerOrAdmin,
+		sendsMail: true,
 		async review(actor, value, context) {
 			const read = await gatedTransaction(context.db, (tx) =>
 				resendCandidates.invoke(tx, actor, { communicationId: value.communicationId, selection }, context.native),
