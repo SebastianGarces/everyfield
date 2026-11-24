@@ -13425,7 +13425,7 @@
         "WP-094"
       ],
       "status": "future-not-run",
-      "description": "Merge unlinked duplicate S into linked survivor D with distinct tags/qualification/household/photo and registered later refs; replay; safely reverse unchanged result. Then separately edit D, add training/RSVP, chain-merge or dispatch recorded mail before attempting inverse.",
+      "description": "Merge unlinked duplicate S into linked survivor D with distinct tags/qualification/household/photo and registered later refs; replay; reverse an unchanged result. Then separately edit a field the merge did not change, add training/RSVP and dispatch later mail, and split each. Then separately edit a field the merge changed, edit a moved record and chain-merge before attempting inverse.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -13487,10 +13487,14 @@
           "retiring": "S",
           "merge_receipt": "merge-1",
           "later_conflicts": [
+            "merged_field_edit",
+            "moved_record_edit",
+            "chain_merge"
+          ],
+          "later_additions": [
             "survivor_edit",
             "training_insert",
             "RSVP_insert",
-            "chain_merge",
             "provider_dispatch"
           ]
         }
@@ -13516,10 +13520,14 @@
           "retiring": "S",
           "merge_receipt": "merge-1",
           "later_conflicts": [
+            "merged_field_edit",
+            "moved_record_edit",
+            "chain_merge"
+          ],
+          "later_additions": [
             "survivor_edit",
             "training_insert",
             "RSVP_insert",
-            "chain_merge",
             "provider_dispatch"
           ]
         }
@@ -13528,9 +13536,13 @@
         "state": {},
         "result": {
           "unchanged_inverse_allowed": true,
+          "split_inverse_allowed": [
+            true,
+            true,
+            true,
+            true
+          ],
           "conflicted_inverse_writes": [
-            0,
-            0,
             0,
             0,
             0
