@@ -36,7 +36,9 @@ import { createMailService, type MailPayload } from "../../../packages/domain/sr
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { readViewer, type WriteTx } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/seats.ts";
-import { PeopleReadContext, peopleReader } from "../../../packages/domain/src/people/index.ts";
+import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
+import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
+import { PeopleReadContext, peopleReader, readPersonPhotos } from "../../../packages/domain/src/people/index.ts";
 import { listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
 import { insertTasks } from "../task-assignees.mts";
 import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
@@ -1849,6 +1851,139 @@ test("AC:DEL58-004 AC:DEL58-007 AC:TARGET-IDN-032 account purge removes personal
 	assert.equal(done.status, "purged");
 	assert.equal(objects.size, 0);
 	assert.equal((await admin.select().from(t.file_object).where(eq(t.file_object.id, file)))[0]!.state, "purged");
+});
+
+test("AC:ORG55-006 AC:DEL58-004 deleting a login hides its check-ins, avatar and own documents on the next read and keeps the church's; the purge removes them, keeps the church's and gives their author to no one", async () => {
+	const { deleteUnreferencedObject } = await import("../../../packages/db/src/schema/storage.ts");
+	const storage = photoStorage();
+	const f = await plant(),
+		a = await seat(f.p, "admin"),
+		subject = { kind: "account" as const, id: a.id };
+	await admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id IN (${a.id},${f.a.id})`);
+	const person = randomUUID();
+	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,
+		commitment_state,pipeline_position,state,created_at,linked_account_id) VALUES(${person},${f.p.id},${f.p.id},
+		'Alex Admin','other','leader','adult','unknown',1,'live',clock_timestamp(),${a.id})`);
+	const photo = await setPhoto(storage, a);
+	const care = createPrivateCare();
+	const mine = (await seen(a)).authority;
+	const week = ok(await care.readCurrent(db, mine, {}));
+	const answers = { spiritual: "strained", family: "steady", financial: "steady", pace: "steady" };
+	ok(
+		await care.save(db, mine, {
+			requestKey: randomUUID(),
+			expectedRevision: week.revision,
+			input: { answers, note: "CARE-CANARY" },
+		}),
+	);
+	const doc = async (tenant: string, title: string) => {
+		const id = randomUUID(),
+			version = randomUUID();
+		await admin.insert(t.document).values({ id, tenant_id: tenant, kind: "native", title });
+		await admin.insert(t.document_revision).values({
+			id: version,
+			tenant_id: tenant,
+			document_id: id,
+			version_number: 1,
+			body: `${title} body`,
+			content_hash: createHash("sha256").update(`${title} body`).digest("hex"),
+			recorded_at: new Date(),
+		});
+		await admin.update(t.document).set({ current_revision_id: version }).where(eq(t.document.id, id));
+		return { id, version };
+	};
+	const DA = await doc(a.id, "Private plan"),
+		DP = await doc(f.p.id, "Church plan");
+
+	const owner = async () => {
+		const { authority } = await seen(f.a);
+		const directory = ok(
+			await gatedTransaction(db, (tx) =>
+				peopleReader.listPeople(tx, new PeopleReadContext(authority), listPeopleRequest.parse({ page: 1, limit: 100 })),
+			),
+		);
+		const photos = ok(await readPersonPhotos(db, new PeopleReadContext(authority), { personIds: [person] }));
+		const files = ok(await documentsWriter.listOwned(db, authority, {})).documents.map((d) => d.id);
+		return {
+			listed: directory.items.filter((x) => x.id === person).map((x) => x.displayName),
+			photo: photos.photos.length,
+			bytes: await photoRead(storage, f.a, photo),
+			files,
+			text: JSON.stringify([directory, photos]),
+		};
+	};
+	const rows = async () =>
+		(
+			await admin.execute<{
+				weeks: number;
+				others: number;
+				da: number;
+				dp: number;
+				moved: number;
+				linked: string | null;
+			}>(
+				sql`SELECT (SELECT count(*)::int FROM private_week WHERE author_id=${a.id}) weeks,
+				(SELECT count(*)::int FROM private_week WHERE author_id=${f.a.id}) others,
+				(SELECT count(*)::int FROM document_revision WHERE id=${DA.version}) da,
+				(SELECT count(*)::int FROM document_revision WHERE id=${DP.version} AND body='Church plan body') dp,
+				(SELECT count(*)::int FROM document WHERE id=${DA.id} AND tenant_id<>${a.id}) moved,
+				(SELECT linked_account_id::text FROM person WHERE id=${person}) linked`,
+			)
+		).rows[0]!;
+	const before = await owner();
+	assert.deepEqual([before.listed, before.photo, before.bytes], [["Alex Admin"], 1, "bytes"]);
+	assert.deepEqual(before.files, [DP.id], "another account's own file is never in the church's list");
+	assert.equal(before.text.includes("CARE-CANARY"), false);
+
+	const revision = (await admin.select().from(t.account).where(eq(t.account.id, a.id)))[0]!.revision;
+	const pending = ok(await call("requestAccountDeletion", a, command({ confirmed: true }, revision)));
+	const hidden = await owner();
+	assert.deepEqual([hidden.listed, hidden.photo, hidden.bytes], [["Alex Admin"], 0, "refused"]);
+	assert.deepEqual(hidden.files, [DP.id]);
+	assert.equal(await viewerOf(a), null);
+	const mineNow = await care.readCurrent(db, mine, {});
+	assert.equal(mineNow.status === "refused" && mineNow.error.code, "access_denied");
+	const ownFiles = await documentsWriter.listOwned(db, mine, {});
+	assert.equal(ownFiles.status, "refused", "the deleted login reads no file of its own");
+	assert.deepEqual(
+		{ ...(await rows()), linked: undefined },
+		{ weeks: 1, others: 0, da: 1, dp: 1, moved: 0, linked: undefined },
+	);
+
+	await admin.transaction(async (tx) => {
+		await tx.execute(sql`ALTER TABLE lifecycle_witness DISABLE TRIGGER USER`);
+		await tx.execute(sql`UPDATE lifecycle_witness SET requested_at=requested_at-interval '31 days',
+			cancel_until=cancel_until-interval '31 days' WHERE opaque_subject_id=${a.id}`);
+		await tx.execute(sql`ALTER TABLE lifecycle_witness ENABLE TRIGGER USER`);
+	});
+	const deleted: string[] = [];
+	const bucket = stubStorage((operation, input) => {
+		assert.equal(operation, "DeleteObjectCommand");
+		deleted.push(objectInput.parse(input).Key);
+		return {};
+	});
+	const purge = createLifecycleCleanup(cleanupDb, {
+		authorize: async () => true,
+		removeOwnedResources: async () => {
+			const removed = await deleteUnreferencedObject(
+				cleanupDb,
+				bucket,
+				async (_tx, identity) =>
+					identity.tenant_id === subject.id ? { kind: "system" as const, cause: "object_cleanup" as const } : null,
+				photo.versionId,
+			);
+			return removed.status === "inaccessible";
+		},
+	});
+	const done = await purge({ subject, requestId: pending.requestId, revision: pending.revision });
+	assert.equal(done.status, "purged");
+	assert.equal(deleted.length, 1);
+	assert.deepEqual(await rows(), { weeks: 0, others: 0, da: 0, dp: 1, moved: 0, linked: null });
+	const after = await owner();
+	assert.deepEqual([after.listed, after.photo, after.bytes], [["Alex Admin"], 0, "refused"]);
+	assert.deepEqual(after.files, [DP.id], "DA is not visible and DP is retained");
+	const kept = await admin.execute(sql`SELECT d::text AS row FROM document d WHERE d.tenant_id=${f.p.id}`);
+	assert.equal(JSON.stringify(kept.rows).includes(a.id), false, "no private author on the church's document");
 });
 
 test("INV-settings-preview: expiry is checked independently from actor, subject, revision, source and zone matching", async () => {

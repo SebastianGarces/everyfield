@@ -91,7 +91,7 @@ jobs:
       - name: nightly.localhost on the loopback (the seeds accept only a *.localhost origin)
         run: echo "127.0.0.1 nightly.localhost" | sudo tee -a /etc/hosts
       - name: Production build
-        run: pnpm build
+        run: node scripts/nightly-ui.ts build "$UI_DIR"
       - name: Seed tests/ui and serve the build
         id: up
         run: node scripts/nightly-ui.ts up "$UI_DIR"

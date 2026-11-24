@@ -207,6 +207,7 @@ export function teamsCases(t: Tenancy, who: TenancyOwner) {
 		}),
 		tr("readPersonTraining", () => trainingReader.readPersonTraining(db, who.actor, { personId: a.avery }), denied),
 		tr("readTrainingHistory", () => trainingReader.readTrainingHistory(db, who.actor, { personId: a.avery }), denied),
+		tr("readAssignmentHistory", () => trainingReader.readAssignmentHistory(db, who.actor, ministry), denied),
 		tr("readStaffingFacts", () => trainingReader.readStaffingFacts(db, who.actor, ministry), denied),
 		tr("readHealth", () => trainingReader.readHealth(db, who.actor, ministry), denied),
 		tr("readAggregateHealth", () => trainingReader.readAggregateHealth(db, who.actor, {}), {

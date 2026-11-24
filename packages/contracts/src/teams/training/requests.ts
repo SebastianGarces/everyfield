@@ -56,6 +56,7 @@ export const recompleteTrainingRequest = commandEnvelope(
 export const listTrainingRequest = z.strictObject({ teamId: recordId.optional() });
 export const trainingMatrixRequest = z.strictObject({ teamId: recordId.optional() });
 export const personTrainingRequest = z.strictObject({ personId });
+export const assignmentHistoryRequest = z.strictObject({ teamId: recordId });
 export const trainingHistoryRequest = z.strictObject({ personId });
 export const staffingFactsRequest = z.strictObject({ teamId: recordId });
 export const aggregateHealthRequest = z.strictObject({});

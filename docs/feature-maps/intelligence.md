@@ -10,10 +10,12 @@ flowchart LR
   s0["intelligence.assessment<br/>/intelligence"]
   rail -- "Plant Intelligence" --> s0
   s0 -.- s0_st0(("cold-start"))
-  s0 -.- s0_st1(("member"))
-  s0 -.- s0_st2(("signed-out"))
-  s0 -.- s0_st3(("loading (manual)"))
-  s0 --- s0_b0["cold-start-guidance<br/>tests + cases + browser presence"]
+  s0 -.- s0_st1(("out-of-date (manual)"))
+  s0 -.- s0_st2(("member"))
+  s0 -.- s0_st3(("signed-out"))
+  s0 -.- s0_st4(("loading (manual)"))
+  s0 --- s0_b0["out-of-date<br/>tests"]
+  s0 --- s0_b1["cold-start-guidance<br/>tests + cases + browser presence"]
   s1["intelligence.trends<br/>/intelligence/trends"]
   s0 -- "link #quot;Trends#quot;" --> s1
   s1 -.- s1_st0(("empty"))
@@ -39,11 +41,11 @@ flowchart LR
 
 ### intelligence.assessment
 
-Plant Intelligence: the church's latest assessment, or what to record first while none is prepared.
+Plant Intelligence: the church's latest assessment, marked when records changed since, or what to record first while none is prepared.
 
 - Routes: `/intelligence`
-- Personas: `owner` read, `admin` read, `member` none, `visitor` none
-- Catalog: PI-024, PI-025, PI-034
+- Personas: `owner` write, `admin` write, `member` none, `visitor` none
+- Catalog: PI-021, PI-024, PI-025, PI-034, PI-037
 
 Reach:
 
@@ -61,6 +63,7 @@ agent-browser find role region text --name "Next steps from your records" --exac
 agent-browser find role link text --name "Trends" --exact
 ```
 
+- **out-of-date**: text "This assessment is out of date"; button "Refresh". Not scripted: prepare an assessment with the scheduled tick, then change a record it used, such as a commitment.
 - **member**: heading "Plant Intelligence is for Owners and Admins". As `member`, on the QA seed:
 
 ```bash
@@ -78,6 +81,15 @@ agent-browser wait --url "**/signin?returnTo=%2Fintelligence"
 ```
 
 - **loading** (`loading.tsx`): text "Loading Plant Intelligence". Not scripted: shows only while the server renders the page.
+
+#### intelligence.assessment#out-of-date
+
+A change to a record the assessment used marks it out of date with a Refresh button; Refresh shows that a new assessment is being prepared and queues one run.
+
+- Operations: intelligence.requestRefresh
+- Catalog: PI-021, PI-037
+- Test: `tests/integration/intelligence/freshness.test.mts`: `INV-freshness: an attendance mark, a commitment stage move, an imported person's commitment, a correction, a merge and a removal each mark the assessment out of date before any new run`
+- Test: `tests/integration/intelligence/orchestration.test.mts`: `an Owner's or Admin's fresh-assessment request reads being prepared and then the new assessment; a repeated id queues one run; a Member is refused and nothing is queued`
 
 #### intelligence.assessment#cold-start-guidance
 
