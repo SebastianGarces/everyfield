@@ -98,6 +98,8 @@ test("T-301 the nightly ui job runs webkit after a failed chromium run and uses 
 	const next = workflow.slice(start + 1).search(/\n  [\w-]+:\n/);
 	const job = next < 0 ? workflow.slice(start) : workflow.slice(start, start + 1 + next);
 	assert.doesNotMatch(job, /secrets\./);
+	assert.match(job, /- name: Production build\n\s+run: node scripts\/nightly-ui\.ts build "\$UI_DIR"\n/);
+	assert.doesNotMatch(job, /run: pnpm build/);
 	for (const engine of ["chromium", "webkit"]) {
 		const at = job.indexOf(`- name: tests/ui ${engine}\n`);
 		assert.ok(at > 0, `${engine} step`);

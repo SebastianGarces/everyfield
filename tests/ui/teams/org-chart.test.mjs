@@ -21,7 +21,7 @@ for (const [name, engine] of ENGINES)
 						for (const team of fixture("teams").names) await region.getByRole("link", { name: team }).waitFor();
 						await page.evaluate(() => document.fonts.ready);
 						const sizes = await region.evaluate((node) => ({
-							page: [document.documentElement.scrollWidth, document.documentElement.clientWidth],
+							page: [document.documentElement.scrollWidth, document.documentElement.getBoundingClientRect().width],
 							region: [node.scrollWidth, node.clientWidth],
 						}));
 						assert.equal(sizes.page[0], sizes.page[1], `the page is wider than the screen: ${JSON.stringify(sizes)}`);

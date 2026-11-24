@@ -1,14 +1,11 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { createServer as createHttpServer } from "node:http";
-import { createRequire } from "node:module";
 import { createServer } from "node:net";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import vm from "node:vm";
 import test from "node:test";
+import { serveGoogleFonts } from "../../scripts/google-fonts.ts";
 
 const app = fileURLToPath(new URL("../../apps/web/", import.meta.url));
 const next = fileURLToPath(new URL("../../apps/web/node_modules/next/dist/bin/next", import.meta.url));
@@ -32,29 +29,6 @@ const freePort = () =>
 		server.on("error", reject);
 	});
 
-function googleFontsMock(fontOrigin) {
-	const require = createRequire(join(app, "package.json"));
-	const google = (file) => require(`next/dist/compiled/@next/font/dist/google/${file}`);
-	const { validateGoogleFontFunctionCall } = google("validate-google-font-function-call.js");
-	const { getFontAxes } = google("get-font-axes.js");
-	const { getGoogleFontsUrl } = google("get-google-fonts-url.js");
-	const mock = {};
-	for (const file of globSync("src/**/*.{ts,tsx}", { cwd: app })) {
-		const text = readFileSync(join(app, file), "utf8");
-		const imported = text.match(/import\s*\{([^}]*)\}\s*from\s*["']next\/font\/google["']/)?.[1] ?? "";
-		for (const name of imported.match(/\w+/g) ?? [])
-			for (const [, options] of text.matchAll(new RegExp(`\\b${name}\\((\\{[^)]*\\})\\)`, "g"))) {
-				const font = validateGoogleFontFunctionCall(name, vm.runInNewContext(`(${options})`));
-				const axes = getFontAxes(font.fontFamily, font.weights, font.styles, font.selectedVariableAxes);
-				mock[getGoogleFontsUrl(font.fontFamily, axes, font.display)] =
-					`/* latin */\n@font-face {\n  font-family: '${font.fontFamily}';\n  font-style: normal;\n  font-weight: 400;\n` +
-					`  font-display: swap;\n  src: url(${fontOrigin}/font.woff2) format('woff2');\n}\n`;
-			}
-	}
-	assert.ok(Object.keys(mock).length > 0, "found no next/font/google call in apps/web/src");
-	return mock;
-}
-
 function actionId(name) {
 	const manifest = JSON.parse(readFileSync(`${app}.next/dev/server/server-reference-manifest.json`, "utf8"));
 	const found = Object.entries(manifest.node).find(
@@ -65,12 +39,7 @@ function actionId(name) {
 }
 
 async function serverLogs(t) {
-	let fontRequests = 0;
-	const fonts = createHttpServer((_, response) => {
-		fontRequests++;
-		response.writeHead(200, { "content-type": "font/woff2" }).end();
-	});
-	await new Promise((r) => fonts.listen(0, "127.0.0.1", r));
+	const fonts = await serveGoogleFonts(app);
 	const outside = [];
 	const offline = createHttpServer((request) => {
 		outside.push(new URL(request.url).host);
@@ -82,12 +51,6 @@ async function serverLogs(t) {
 	});
 	await new Promise((r) => offline.listen(0, "127.0.0.1", r));
 	const proxy = `http://127.0.0.1:${offline.address().port}`;
-	const dir = mkdtempSync(join(tmpdir(), "server-logs-"));
-	const mockFile = join(dir, "google-fonts.cjs");
-	writeFileSync(
-		mockFile,
-		`module.exports = ${JSON.stringify(googleFontsMock(`http://127.0.0.1:${fonts.address().port}`))};\n`,
-	);
 	const port = await freePort();
 	const origin = `http://127.0.0.1:${port}`;
 	let log = "";
@@ -116,7 +79,7 @@ async function serverLogs(t) {
 			IDENTITY_MAIL_FROM: "server-logs@example.test",
 			NODE_ENV: "development",
 			NEXT_TELEMETRY_DISABLED: "1",
-			NEXT_FONT_GOOGLE_MOCKED_RESPONSES: mockFile,
+			...fonts.env,
 			NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --require ${GUARD}`,
 			NODE_USE_ENV_PROXY: "1",
 			HTTP_PROXY: proxy,
@@ -203,7 +166,7 @@ async function serverLogs(t) {
 		for (const [page] of calls)
 			assert.equal(log.split(`POST ${page}`).length - 1, 1, `the dev server logged the action request to ${page}`);
 		assertOffline();
-		assert.ok(fontRequests > 0, "the page's fonts came from this run's font server, not from Google");
+		assert.ok(fonts.requests() > 0, "the page's fonts came from this run's font server, not from Google");
 		const shown = Object.keys(secrets).filter((key) => log.includes(secrets[key]));
 		const masked = Object.values(secrets).reduce((text, secret) => text.replaceAll(secret, "<password>"), log);
 		assert.deepEqual(shown, [], `the dev server log shows synthetic passwords:\n${masked}`);
@@ -215,7 +178,6 @@ async function serverLogs(t) {
 		watcher.kill();
 		fonts.close();
 		offline.close();
-		rmSync(dir, { recursive: true, force: true });
 	}
 }
 

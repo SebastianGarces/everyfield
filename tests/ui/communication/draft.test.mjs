@@ -46,7 +46,8 @@ for (const [engine, launcher] of ENGINES) {
 
 					await page.getByRole("button", { name: "Back to messages" }).click();
 					await page.getByRole("button", { name: "Leave", exact: true }).click();
-					await page.getByRole("button", { name: "New message" }).click();
+					await page.getByText(/^Counts as of /).waitFor();
+					await page.locator("header", { hasText: "Messages" }).getByRole("button", { name: "New message" }).click();
 					await page.getByRole("heading", { name: "Who is this for?" }).waitFor();
 					assert.equal(await page.getByRole("button", { name: "Remove Ana Lee" }).count(), 0);
 				},
