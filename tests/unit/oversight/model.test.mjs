@@ -1,3 +1,4 @@
+import "../runs-in/react-server.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {

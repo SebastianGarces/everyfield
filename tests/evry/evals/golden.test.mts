@@ -15,6 +15,7 @@ import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src
 import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/people.ts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
+import { waitingOnLock } from "../../support/fixture.mts";
 import {
 	GIVING,
 	goldenChurch,
@@ -1404,6 +1405,65 @@ test("INV-evry-golden: every golden and adapter case passes its hard checks on t
 	t.diagnostic(
 		`release: ${ready.release.length ? `blocked (${ready.release.length} reasons)` : "ready"}; alpha: ${ready.release.length || ready.alpha.length ? "blocked" : "ready"}`,
 	);
+});
+
+function holding(lock: ReturnType<typeof sql>) {
+	let release!: () => void;
+	const released = new Promise<void>((resolve) => (release = resolve));
+	let locked!: (pid: number) => void;
+	let failed!: (error: unknown) => void;
+	const pid = new Promise<number>((resolve, reject) => ((locked = resolve), (failed = reject)));
+	const done = church.admin.transaction(async (tx) => {
+		await tx.execute(lock);
+		const { rows } = await tx.execute<{ pid: number }>(sql`SELECT pg_catalog.pg_backend_pid() AS pid`);
+		locked(rows[0]!.pid);
+		await released;
+	});
+	done.catch(failed);
+	return { pid, release, done };
+}
+
+test("INV-evry-golden: a case's review never queues on the write gate behind another case's review, so PREP-06 replays its recording while a rival review holds the church past the gate's lock timeout", async () => {
+	const walkIn = golden.find((c) => c.case_id === "PREP-06")!;
+	const rival = extras.find((c) => c.case_id === "ADP-MT-33")!;
+	const ask = () => converse(church, "owner", walkIn.question, walkIn.eval.history ?? []);
+	const card = (c: Conversation) => c.proposals.map((p) => [p.operation, p.prepared, p.review]);
+	const alone = await ask();
+
+	const duplicateCheck = holding(sql`LOCK TABLE organization_person_removal IN ACCESS EXCLUSIVE MODE`);
+	const plant = holding(sql`SELECT 1 FROM plant WHERE id=${PLANT}::uuid FOR UPDATE`);
+	const rivalMeeting = holding(sql`SELECT 1 FROM meeting WHERE id=${MEETINGS.training}::uuid FOR UPDATE`);
+	const [checkHolder, plantHolder] = [await duplicateCheck.pid, await plant.pid, await rivalMeeting.pid];
+	const rivalDone = new AbortController();
+	let rivalRun: Promise<unknown> = Promise.resolve();
+	try {
+		const contended = ask().then(
+			(c) => ({ keys: c.keys, card: card(c), error: null }),
+			(error: unknown) => ({ keys: [], card: [], error: String(error) }),
+		);
+		await waitingOnLock(church.admin, { blockedBy: checkHolder });
+		rivalRun = converse(church, "owner", rival.question, rival.eval.history ?? []).finally(() => rivalDone.abort());
+		rivalRun.catch(() => undefined);
+		await waitingOnLock(church.admin, { blockedBy: plantHolder });
+		const { rows } = await church.admin.execute<{ pid: number }>(
+			sql`SELECT pid FROM pg_catalog.pg_stat_activity WHERE ${plantHolder}::int=ANY(pg_catalog.pg_blocking_pids(pid))`,
+		);
+		duplicateCheck.release();
+		const queuedBehindRival = await waitingOnLock(church.admin, {
+			blockedBy: rows[0]!.pid,
+			signal: rivalDone.signal,
+		});
+		plant.release();
+		assert.deepEqual(
+			{ queuedBehindRival, ...(await contended) },
+			{ queuedBehindRival: false, keys: alone.keys, card: card(alone), error: null },
+		);
+	} finally {
+		duplicateCheck.release();
+		plant.release();
+		rivalMeeting.release();
+		await Promise.allSettled([duplicateCheck.done, plant.done, rivalMeeting.done, rivalRun]);
+	}
 });
 
 test("INV-evry-assessments-evals: every interview, 4 C's, commitment, merge and correction case passes on the scripted model", async () => {
