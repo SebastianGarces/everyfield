@@ -77,14 +77,17 @@ const silence = async (on) => {
 	}
 };
 
+async function newChat(panel) {
+	await panel.getByRole("button", { name: "History" }).click();
+	await panel.getByRole("button", { name: "New chat" }).click();
+}
 async function openEvry(page, context, cookie = owner()) {
 	await signIn(context, cookie);
 	await page.goto(`${BASE}/communication`);
 	await hydrated(page);
 	await page.getByRole("button", { name: "Ask Evry" }).click();
 	const panel = page.getByRole("dialog", { name: "Evry" });
-	await panel.getByRole("button", { name: "History" }).click();
-	await panel.getByRole("button", { name: "New chat" }).click();
+	await newChat(panel);
 	return panel;
 }
 async function ask(panel, text, heading) {
@@ -555,13 +558,14 @@ for (const [engine, launcher] of ENGINES) {
 			const d = await database();
 			const panel = await openEvry(page, context);
 			const friday = await scheduledFriday(panel, d);
+			await newChat(panel);
 			const draft = await ask(
 				panel,
 				"Draft an email to the launch team inviting them to Sunday's interest meeting.",
 				"Review before saving",
 			);
 			await approve(draft);
-			await panel.getByRole("region", { name: "Saved" }).nth(1).waitFor({ timeout: 90_000 });
+			await done(panel, "Saved").waitFor({ timeout: 90_000 });
 			const later = await ask(panel, "Schedule it for Saturday at 9am", "Review before scheduling");
 			await approve(later);
 			await done(panel, /^Scheduled for Sat, 9:00 AM/).waitFor({ timeout: 90_000 });
