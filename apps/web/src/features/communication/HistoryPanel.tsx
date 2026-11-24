@@ -408,7 +408,7 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 	);
 }
 
-function Detail({
+export function Detail({
 	view,
 	canWrite,
 	review,
