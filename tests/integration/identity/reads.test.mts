@@ -1,6 +1,6 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { fixture } from "./invitations-support.mts";
+import { fixture, statementText, type Fixture } from "./invitations-support.mts";
 import { sql } from "../../../packages/db/src/query.ts";
 import {
 	currentActor,
@@ -18,18 +18,18 @@ import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { signedSessionToken } from "../../../packages/domain/src/identity/index.ts";
 import { createHmac } from "node:crypto";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
-let f;
+let f: Fixture;
 let recording = false;
-let statements = [];
+let statements: string[] = [];
 before(async () => {
 	f = await fixture();
-	const instrumented = new WeakSet();
+	const instrumented = new WeakSet<object>();
 	f.db.$client.on("acquire", (client) => {
 		if (instrumented.has(client)) return;
 		instrumented.add(client);
 		const query = client.query;
-		client.query = function (...args) {
-			if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+		client.query = function (...args: unknown[]) {
+			if (recording) statements.push(statementText(args[0]));
 			return Reflect.apply(query, this, args);
 		};
 	});
@@ -37,7 +37,7 @@ before(async () => {
 after(async () => {
 	await f?.close();
 });
-async function count(body) {
+async function count<V>(body: () => Promise<V>) {
 	statements = [];
 	recording = true;
 	try {
@@ -57,12 +57,13 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 	);
 	const viewer = await count(() => readViewer(f.db, sessionId.parse(s.sender.session)));
 	assert.equal(viewer.statements.length, 1);
+	const authority = viewer.value?.authority;
+	assert.ok(viewer.value && authority);
 	assert.equal(viewer.value.registration, "active");
-	assert.deepEqual(viewer.value.authority.actor.context.owner, s.w);
+	assert.deepEqual(authority.actor.context.owner, s.w);
 	assert.equal(viewer.value.person, null);
-	let release, locked;
-	const ready = new Promise((resolve) => (locked = resolve)),
-		done = new Promise((resolve) => (release = resolve));
+	const { promise: ready, resolve: locked } = Promise.withResolvers<void>(),
+		{ promise: done, resolve: release } = Promise.withResolvers<void>();
 	const holder = f.admin.transaction(async (a) => {
 		await a.execute(sql`UPDATE auth_session SET expires_at=expires_at WHERE id=${s.sender.session}`);
 		locked();
@@ -74,12 +75,11 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 			await tx.execute(sql`SET LOCAL lock_timeout='250ms'`);
 			return readViewer(tx, sessionId.parse(s.sender.session));
 		});
-		assert.equal(during.registration, "active");
+		assert.equal(during?.registration, "active");
 	} finally {
 		release();
 		await holder;
 	}
-	const authority = viewer.value.authority;
 	const roster = await count(() => f.seats.list(authority, { workspace: s.w }));
 	assert.equal(roster.statements.length, 1);
 	assert.deepEqual(
@@ -98,10 +98,12 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 	);
 	const sharing = await count(() => readPlantSharing(f.db, authority));
 	assert.equal(sharing.statements.length, 1);
-	const relationshipId = history.value.activeRelationships[0].id;
-	assert.equal(sharing.value[relationshipId].sharing.view, "plant_administration");
-	assert.deepEqual(sharing.value[relationshipId].sharing.choices.people, false);
-	assert.equal(sharing.value[relationshipId].relationshipRevision, "1");
+	const relationshipId = history.value.activeRelationships[0]!.id;
+	const shared = sharing.value[relationshipId]!;
+	assert.ok("view" in shared.sharing);
+	assert.equal(shared.sharing.view, "plant_administration");
+	assert.deepEqual(shared.sharing.choices.people, false);
+	assert.equal(shared.relationshipRevision, "1");
 	const disclosure = await count(() =>
 		gatedTransaction(f.db, (tx) => {
 			authority.observe(tx);
@@ -112,10 +114,11 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 			});
 		}),
 	);
+	assert.ok("kind" in disclosure.value);
 	assert.equal(disclosure.value.kind, "existing_consent");
 	assert.equal(disclosure.value.choices.people, false);
 	assert.deepEqual(
-		disclosure.statements.map((q) => q.trim().split(/\s/)[0].toUpperCase()),
+		disclosure.statements.map((q) => q.trim().split(/\s/)[0]!.toUpperCase()),
 		["BEGIN", "SELECT", "COMMIT"],
 	);
 	const observed = await count(() =>
@@ -134,7 +137,7 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 		context: { kind: "account", owner: { kind: "account", id: s.sender.id } },
 	});
 	assert.deepEqual(
-		observed.statements.map((q) => q.trim().split(" ")[0].toUpperCase()),
+		observed.statements.map((q) => q.trim().split(" ")[0]!.toUpperCase()),
 		["BEGIN", "COMMIT"],
 	);
 	const all = [viewer, roster, invitations, history, sharing, disclosure, observed].flatMap((r) => r.statements);
@@ -157,14 +160,17 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 
 test("INV-reads: one lock-free statement reads the request session, its user and the viewer; a revoked session reads nothing", async () => {
 	const s = await f.setup();
-	const [{ token }] = (await f.admin.execute(sql`SELECT token FROM auth_session WHERE id=${s.sender.session}`)).rows;
+	const { token } = (
+		await f.admin.execute<{ token: string }>(sql`SELECT token FROM auth_session WHERE id=${s.sender.session}`)
+	).rows[0]!;
 	const request = await count(() => readRequestViewer(f.db, token));
 	assert.equal(request.statements.length, 1);
-	assert.doesNotMatch(request.statements[0], /access_session|for\s+(update|share)/i);
+	assert.doesNotMatch(request.statements[0]!, /access_session|for\s+(update|share)/i);
+	assert.ok(request.value);
 	assert.equal(request.value.session.id, s.sender.session);
 	assert.deepEqual(request.value.user, { name: "Synthetic person", email: s.sender.email, emailVerified: true });
 	const viewer = await readViewer(f.db, sessionId.parse(s.sender.session));
-	const plain = (v) => ({ ...v, authority: v.authority.actor });
+	const plain = (v: typeof viewer) => ({ ...v, authority: v?.authority?.actor });
 	assert.deepEqual(plain(request.value.viewer), plain(viewer));
 	assert.equal(await readRequestViewer(f.db, token + "0"), null);
 	await f.admin.execute(sql`DELETE FROM auth_session WHERE id=${s.sender.session}`);
@@ -204,8 +210,9 @@ test("INV-reads: a resident's own residency read reuses the observed actor and t
 	});
 	assert.equal(accepted.status, "accepted");
 	const viewer = await readViewer(f.db, sessionId.parse(s.recipient.session));
-	assert.equal(viewer.authority.actor.context.kind, "account");
-	const authority = viewer.authority;
+	const authority = viewer?.authority;
+	assert.ok(authority);
+	assert.equal(authority.actor.context.kind, "account");
 	const residency = await count(() =>
 		gatedTransaction(f.db, (tx) => {
 			authority.observe(tx);

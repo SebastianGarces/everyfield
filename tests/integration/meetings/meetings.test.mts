@@ -9,16 +9,20 @@ import { peopleReader, peopleWriter, readPersonPage } from "../../../packages/do
 import {
 	answerRsvpToken,
 	attendanceReader,
+	createAttendanceWriter,
 	describeRsvpToken,
 	guestsWriter as guests,
 	meetingsReader as reads,
 	meetingsWriter as meetings,
 	planNotifications,
+	rosterReader,
+	rosterWriter,
 	venuesReader,
 	venuesWriter as venues,
+	withMeetingsWrite,
 } from "../../../packages/domain/src/meetings/index.ts";
 import { fixture, ok, refused } from "../../support/fixture.mts";
-import { NEXT_REQUEST } from "../../../apps/web/src/features/meetings/model.ts";
+import { NEXT_REQUEST, problemText } from "../../../apps/web/src/features/meetings/model.ts";
 import { issueRsvpToken } from "./rsvp-token.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
@@ -1222,4 +1226,130 @@ test("AC:RECOVERY-DELETE-001 a plant pending deletion answers no RSVP link, read
 		await admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${witness}`);
 	}
 	assert.equal(ok(await answerRsvpToken(db, { token, rsvp: "confirmed" })).rsvp, "confirmed");
+});
+
+test("AC:TARGET-MTG-001 INV-privacy: every read and write that takes a meeting answers a missing, a foreign and a deleted meeting with one code and the same words", async () => {
+	const attendance = createAttendanceWriter({ reminders: noReminders });
+	const ana = await person("Ana Gone");
+	const gone = await schedule({ guests: [ana] });
+	const teamGone = await person("Leah Away");
+	ok(
+		await run(meetings.delete, {
+			requestKey: key(),
+			expectedRevision: gone.revision,
+			input: { meetingId: gone.id, reason: "Duplicate" },
+		}),
+	);
+	const foreign = ok(
+		await run(
+			meetings.schedule,
+			{ requestKey: key(), input: { type: "vision_meeting", date: day(30), time: "18:30" } },
+			3,
+		),
+	).meeting;
+	const scores = Object.fromEntries(
+		["attendance", "location", "logistics", "agenda", "vibe", "message", "close", "nextSteps"].map((s) => [
+			`${s}Score`,
+			4,
+		]),
+	);
+	const guest = { personId: ana };
+	const inputs: Record<string, Record<string, unknown>> = {
+		"meetings.edit": { patch: { title: "New title" } },
+		"meetings.changeStatus": { to: "cancelled" },
+		"meetings.delete": { reason: "Duplicate" },
+		"meetings.completePractice": { occurredAt: new Date(Date.now() - 86_400_000).toISOString() },
+		"meetings.correctPracticeOccurrence": { state: "not_completed", reason: "Wrong" },
+		"meetings.correctOccurrence": { voided: true, reason: "Wrong" },
+		"meetings.replaceAgenda": { sections: [] },
+		"meetings.populateKit": {},
+		"meetings.updateKitItem": { itemId: randomUUID(), patch: { checked: true } },
+		"guests.inviteGuest": { personId: teamGone },
+		"guests.addGuests": { people: [teamGone] },
+		"guests.removeGuest": guest,
+		"guests.setInviter": { ...guest, inviterPersonId: null },
+		"guests.correctRsvp": { ...guest, rsvp: "confirmed" },
+		"guests.saveOwnRsvp": { rsvp: "confirmed" },
+		"guests.createGuestContact": { displayName: "New Guest" },
+		"guests.createWalkInContact": { displayName: "Walk In" },
+		"guests.recordCard": { ...guest, response: "interested" },
+		"guests.clearCard": { ...guest, reason: "Wrong" },
+		"roster.copyTeamRoster": { add: [], remove: [] },
+		"attendance.setAttendance": { ...guest, presence: "attended" },
+		"attendance.checkIn": guest,
+		"attendance.clearAttendance": guest,
+		"attendance.captureAttendanceBatch": { entries: [{ ...guest, presence: "attended" }] },
+		"attendance.finalizeAttendance": { attendeeIds: [ana] },
+		"attendance.reconcileAttendance": { attendeeIds: [ana], reason: "Wrong" },
+		"attendance.recordEvaluation": { scores },
+		"attendance.correctEvaluation": { changes: { vibeScore: 3 }, reason: "Wrong" },
+		"attendance.addAttendeeNote": { ...guest, text: "Came early" },
+	};
+	const writers = { meetings, guests, roster: rosterWriter, attendance };
+	const takesNoMeeting = ["meetings.schedule"];
+	assert.deepEqual(
+		Object.entries(writers)
+			.flatMap(([area, writer]) => Object.keys(writer).map((name) => `${area}.${name}`))
+			.filter((name) => !takesNoMeeting.includes(name))
+			.sort(),
+		Object.keys(inputs).sort(),
+		"each write that takes a meeting is called here",
+	);
+	const readers = { reads, attendanceReader, rosterReader };
+	const perMeeting: Record<keyof typeof readers, string[]> = {
+		reads: [
+			"get",
+			"readAgenda",
+			"listKit",
+			"listGuests",
+			"pageGuests",
+			"listCards",
+			"cardBreakdown",
+			"getOwnRsvp",
+			"invitationAttribution",
+			"communicationContext",
+		],
+		attendanceReader: [
+			"listAttendance",
+			"attendanceSummary",
+			"getEvaluation",
+			"evaluationHistory",
+			"compareEvaluation",
+			"linkedTaskProgress",
+			"readAnalytics",
+		],
+		rosterReader: ["previewRosterImport"],
+	};
+	const answerOf = (r) =>
+		r.status === "refused" ? r.error.code : (r.value.status ?? r.value.state ?? JSON.stringify(r.value));
+	const owner = await viewer();
+	const answers = async (meetingId) => {
+		const said: [string, string][] = [];
+		for (const [name, input] of Object.entries(inputs)) {
+			const [area, op] = name.split(".");
+			const command = { requestKey: key(), input: { meetingId, ...input } };
+			const write = async (request) =>
+				withMeetingsWrite(db, owner, (tx, context) => writers[area][op](tx, context, request));
+			const first = await write({ ...command, expectedRevision: gone.revision });
+			const r =
+				first.status === "refused" && first.error.code === "invalid_input"
+					? await write({ ...command, requestKey: key() })
+					: first;
+			said.push([name, answerOf(r)]);
+		}
+		for (const [area, names] of Object.entries(perMeeting))
+			for (const name of names) said.push([name, answerOf(await readers[area][name](db, owner, { meetingId }))]);
+		return said;
+	};
+	const missing = await answers(randomUUID());
+	assert.deepEqual(
+		missing.filter(([, code]) => code !== "unavailable"),
+		[],
+	);
+	assert.deepEqual(await answers(foreign.id), missing, "a foreign meeting reads as a missing one");
+	assert.deepEqual(await answers(gone.id), missing, "a deleted meeting reads as a missing one");
+	assert.deepEqual(
+		[...new Set(missing.map(([, code]) => problemText(code)))],
+		["This is not available any more. It may have been deleted, or your seat may have changed. Reload the page."],
+	);
 });
