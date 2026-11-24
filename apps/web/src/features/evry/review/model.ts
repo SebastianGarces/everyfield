@@ -411,6 +411,7 @@ const FIELD_LABEL: Record<string, string> = {
 	movesBack: "Moves back",
 	detailsGoBack: "Details back",
 	attendanceGoesBack: "Attendance back",
+	staysWithKept: "Stays",
 	bookmarked: "Bookmark",
 	addedText: "Added text",
 	articleText: "Text",
@@ -1125,6 +1126,7 @@ const MERGE_FACTS = new Set([
 	"movesBack",
 	"detailsGoBack",
 	"attendanceGoesBack",
+	"staysWithKept",
 ]);
 export const afterOnly = (review: Pick<Review, "operation">, field: string) =>
 	field === "reason" || MERGE_FACTS.has(field) || (ADDS.has(review.operation) && field !== "stage");

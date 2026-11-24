@@ -231,6 +231,10 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 	const intelligence = !!review && isIntelligence(review.operation);
 	switch (view) {
 		case "pending":
+			if (review?.stale)
+				return `Someone in this draft was merged or unmerged after Evry prepared it. Nothing was changed. ${
+					reviseInput(review) === null ? "Ask Evry to prepare it again." : "Review it again to see it as it is now."
+				}`;
 			return review && review.revision > 1
 				? `You revised this change. Only revision ${review.revision} can be approved.`
 				: null;
@@ -272,6 +276,8 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "cancelled":
 			return "You cancelled this change. Nothing was changed.";
 		case "withheld": {
+			if (review?.stale)
+				return "Someone in this draft was merged or unmerged after Evry prepared it. Nothing was changed. Ask Evry to prepare it again.";
 			const what = review && isWiki(review.operation) ? "The article" : `The ${record}`;
 			return review?.status === "approved"
 				? `${what} in this change is no longer available to you, so Evry can't show this change or its result.`
@@ -554,7 +560,7 @@ function Footer({
 						Approve
 					</Button>
 				)}
-				{review.stale ? (
+				{review.stale && reviseInput(review) !== null ? (
 					<Button size="sm" variant="secondary" loading={r.busy === "revise"} onClick={() => void r.revise()}>
 						Review again
 					</Button>

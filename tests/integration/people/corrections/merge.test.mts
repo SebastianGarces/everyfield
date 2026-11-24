@@ -402,56 +402,50 @@ test("AC:TARGET-PPL-017 AC:TARGET-PPL-025 AC:CA022 AC:PERSONREF-HOUSEHOLD-TAG-SK
 	assert.equal((await personRow(s.id)).revision, back.s.revision);
 });
 
-test("AC:TARGET-PPL-025 AC:EVRY-PERSON-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-CONFLICT AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-CONFLICT Unmerge refuses after a later edit, new reference or chained merge and changes nothing", async () => {
-	const cases: [string, string[], (d: { id: string }) => Promise<unknown>][] = [
+test("AC:TARGET-PPL-025 AC:EVRY-PERSON-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW-COMMITMENT-CONFLICT AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-CONFLICT Unmerge refuses after a merged field is edited again, the survivor retires or a chained merge, names it and changes nothing", async () => {
+	const edit = async (d: { id: string }) =>
+		ok(
+			await tx(async (t) =>
+				people.updatePerson(t, ctx(), {
+					requestKey: key(),
+					expectedRevision: (await personRow(d.id)).revision,
+					input: { personId: d.id, patch: { phone: "555 010 3000" } },
+				}),
+			),
+		);
+	const cases: [string, string[], string[], (d: { id: string }) => Promise<unknown>][] = [
+		["merged field edited again", ["survivor_changed"], ["phone"], edit],
 		[
-			"survivor edit",
-			["survivor_changed"],
-			async (d) =>
-				ok(
-					await tx(async (t) =>
-						people.updatePerson(t, ctx(), {
-							requestKey: key(),
-							expectedRevision: (await personRow(d.id)).revision,
-							input: { personId: d.id, patch: { phone: "555 010 3000" } },
-						}),
-					),
-				),
-		],
-		[
-			"new reference",
-			["references_changed"],
-			async (d) =>
-				ok(
-					await tx((t) =>
-						assessments.createAssessment(t, ctx(), {
-							requestKey: key(),
-							input: {
-								personId: d.id,
-								occurredOn: day(1),
-								committed: lens(2),
-								compelled: lens(2),
-								contagious: lens(2),
-								courageous: lens(2),
-							},
-						}),
-					),
+			"survivor retired",
+			["survivor_retired"],
+			[],
+			(d) =>
+				admin.execute(
+					sql`UPDATE person SET state='retired',retired_at=clock_timestamp(),revision=revision+1 WHERE id=${sql.param(d.id)}`,
 				),
 		],
 		[
 			"chained merge",
-			["source_changed", "survivor_changed", "references_changed"],
+			["chained_merge"],
+			[],
 			async (d) => ok(await merge(d.id, (await person("Chain survivor")).id)),
 		],
+		[
+			"later merge into the survivor",
+			["chained_merge"],
+			[],
+			async (d) => ok(await merge((await person("Chain source")).id, d.id)),
+		],
 	];
-	for (const [name, causes, later] of cases) {
+	for (const [name, causes, fields, later] of cases) {
 		const d = await person("Unmerge " + name),
-			s = await person("Unmerge " + name + " duplicate");
+			s = await person("Unmerge " + name + " duplicate", { phone: "555 010 2000" });
 		ok(await addSkill(s.id, "Teaching"));
-		const merged = ok(await merge(s.id, d.id));
+		const merged = ok(await merge(s.id, d.id, { phone: "source" }));
 		await later(d);
 		const state = { d: await personRow(d.id), s: await personRow(s.id), skills: await skillsOf(d.id) };
-		assert.deepEqual(ok(await unmergePreview(merged.mergeId)).conflicts, causes, name);
+		const p = ok(await unmergePreview(merged.mergeId));
+		assert.deepEqual([p.conflicts, p.changedFields], [causes, fields], name);
 		const error = refused(
 			await tx((t) =>
 				peopleUnmerge.unmergePeople(t, ctx(), {
@@ -462,7 +456,7 @@ test("AC:TARGET-PPL-025 AC:EVRY-PERSON-UNMERGE AC:PERSONREF-ASSESSMENT-INTERVIEW
 			),
 			"inverse_conflict",
 		);
-		assert.deepEqual(error.details.causes, causes, name);
+		assert.deepEqual(error.details, { causes, changed: [], changedFields: fields }, name);
 		assert.deepEqual({ d: await personRow(d.id), s: await personRow(s.id), skills: await skillsOf(d.id) }, state, name);
 	}
 });

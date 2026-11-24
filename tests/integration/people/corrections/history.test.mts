@@ -11,7 +11,6 @@ import { peopleMerge, peopleUnmerge, peopleWriter as people } from "../../../../
 import { followUpReader } from "../../../../packages/domain/src/followups/index.ts";
 import { communicationWriter } from "../../../../packages/domain/src/communication/index.ts";
 import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
-import { unmergeBlockedText } from "../../../../packages/contracts/src/people/merge/copy.ts";
 
 const database = await fixture({ prefix: "t336" });
 const { admin } = database;
@@ -119,7 +118,7 @@ const moving = (r: { references: { kind: string; count: number; treatment: strin
 		.filter((x) => ["obligation", "contact_outcome", "mail"].includes(x.kind))
 		.map((x) => [x.kind, x.count, x.treatment]);
 
-test("AC:TARGET-PPL-025 a merge carries the source's follow-up, its outcome and the sent email to the survivor, refuses a stale review and repeats as the earlier result", async () => {
+test("AC:TARGET-PPL-025 a merge carries the source's follow-up and its outcome to the survivor, keeps the sent email on its recipient and shows it on the survivor, refuses a stale review and repeats as the earlier result", async () => {
 	const brooks = await person("Casey Brooks"),
 		morgan = await person("Casey Morgan");
 	const obligation = await followUp(brooks, "Vision night", "2026-11-01", "2026-11-04");
@@ -131,7 +130,6 @@ test("AC:TARGET-PPL-025 a merge carries the source's follow-up, its outcome and 
 	assert.deepEqual([r.survivor.personId, r.source.personId], [morgan, brooks]);
 	assert.deepEqual(moving(r), [
 		["contact_outcome", 1, "move"],
-		["mail", 1, "move"],
 		["obligation", 1, "move"],
 	]);
 	assert.deepEqual(r.blockers, { causes: [], leadership: [], invitations: [] });
@@ -150,15 +148,14 @@ test("AC:TARGET-PPL-025 a merge carries the source's follow-up, its outcome and 
 		merged.moved.filter((m) => ["obligation", "contact_outcome", "mail"].includes(m.kind)),
 		[
 			{ kind: "contact_outcome", count: 2 },
-			{ kind: "mail", count: 1 },
 			{ kind: "obligation", count: 1 },
 		],
 	);
-	assert.deepEqual(await idsOn(brooks), { obligation: [], contact_outcome: [], mail: [] });
+	assert.deepEqual(await idsOn(brooks), { obligation: [], contact_outcome: [], mail: [mailId] });
 	assert.deepEqual(await idsOn(morgan), {
 		obligation: [obligation],
 		contact_outcome: [contacted, later].sort(),
-		mail: [mailId],
+		mail: [],
 	});
 	const after = await historyOf(brooks, morgan);
 	for (const [table] of HISTORY) {
@@ -254,22 +251,34 @@ test("AC:TARGET-PPL-025 Unmerge returns moved follow-ups and outcomes exactly, a
 	assert.equal(ok(await preview(merged.mergeId)).state, "unmerged");
 });
 
-test("AC:TARGET-PPL-025 Unmerge after a merge that moved sent email names the email and changes nothing", async () => {
-	const s = await person("Avery Fox"),
-		k = await person("Avery Fox Keep");
-	await followUp(s, "Fox night", "2026-11-01", "2026-11-04");
-	await sentEmail(s);
-	const merged = ok(await mergeWith(s, k, ok(await review(s, k)).reviewDigest));
-	const p = ok(await preview(merged.mergeId));
-	assert.deepEqual(p.conflicts, ["mail_sent"]);
-	assert.equal(
-		unmergeBlockedText(p.conflicts, { source: "Avery Fox", survivor: "Avery Fox Keep" }),
-		"Cannot unmerge. The merge moved email sent to Avery Fox into Avery Fox Keep's communication history, and sent email is never unsent. An Unmerge cannot take back sent email, so Everyfield will not run it. Correct Avery’s details by hand instead; each change is kept in the history.",
-	);
-	const state = { people: await people_(s, k), history: await historyOf(s, k) };
-	const error = refused(await unmerge(merged.mergeId, p.reviewRevision), "inverse_conflict");
-	assert.deepEqual(error.details.causes, ["mail_sent"]);
-	assert.deepEqual({ people: await people_(s, k), history: await historyOf(s, k) }, state);
+test("AC:TARGET-PPL-025 a merge whose source had been emailed unmerges with every email byte-equal, and a merge recorded with moved email gives it back to its recipient", async () => {
+	for (const legacy of [false, true]) {
+		const s = await person("Avery Fox"),
+			k = await person("Avery Fox Keep");
+		await followUp(s, "Fox night", "2026-11-01", "2026-11-04");
+		const mine = await sentEmail(s),
+			theirs = await sentEmail(k);
+		const mailRows = () =>
+			rows(sql`SELECT to_jsonb(m)-'revision' AS row FROM mail m WHERE id IN (${mine}::uuid,${theirs}::uuid) ORDER BY id`);
+		const effects = () =>
+			rows(sql`SELECT (SELECT count(*)::int FROM mail) AS mail,(SELECT count(*)::int FROM mail_attempt) AS attempts,
+ (SELECT count(*)::int FROM job) AS jobs`);
+		const before = await mailRows(),
+			sends = await effects();
+		const merged = ok(await mergeWith(s, k, ok(await review(s, k)).reviewDigest));
+		if (legacy) {
+			await admin.execute(sql`UPDATE mail SET recipient_person_id=${k},revision=revision+1 WHERE id=${mine}`);
+			await admin.execute(sql`UPDATE person_merge SET moved=moved||${JSON.stringify({ mail: [mine] })}::jsonb,
+ prior=jsonb_set(prior,'{references}',prior->'references'||${JSON.stringify([["mail", mine, "2"]])}::jsonb)
+ WHERE id=${merged.mergeId}`);
+		} else assert.deepEqual(await mailRows(), before);
+		const p = ok(await preview(merged.mergeId));
+		assert.deepEqual([p.conflicts, p.stays, p.restores.find((x) => x.kind === "mail")?.count], [[], [], legacy ? 1 : undefined]);
+		assert.equal(ok(await unmerge(merged.mergeId, p.reviewRevision)).outcome, "changed");
+		assert.deepEqual(await mailRows(), before);
+		assert.deepEqual([(await idsOn(s)).mail, (await idsOn(k)).mail], [[mine], [theirs]]);
+		assert.deepEqual(await effects(), sends);
+	}
 });
 
 test("AC:TARGET-PPL-025 a Member, another church and an organization seat cannot review, merge or unmerge, and learn nothing of the follow-ups or email", async () => {
@@ -291,10 +300,10 @@ test("AC:TARGET-PPL-025 a Member, another church and an organization seat cannot
 	for (const who of ["member", "stranger", "orgAdmin"] as const) {
 		const p = await preview(merged.mergeId, who);
 		refused(p);
-		assert.ok(!JSON.stringify(p).match(/mail_sent|obligation/), who);
+		assert.ok(!JSON.stringify(p).match(/obligation/), who);
 		refused(await unmerge(merged.mergeId, revision, who));
 	}
-	const moved = await historyOf(k);
+	const moved = await historyOf(s, k);
 	assert.ok(moved.obligation.every((x) => x.row.plant_id === plant));
 	assert.ok(moved.mail.every((x) => x.row.tenant_id === plant));
 });

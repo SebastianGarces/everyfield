@@ -5,6 +5,7 @@ import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
 import { addressAad, openText, type DeliveryKeys } from "./delivery.ts";
 import { hasMailingAddressSql } from "./address.ts";
+import { currentPersonJoin, lineageOf } from "../people/lineage.ts";
 import { childSql, optedOutAtSql, routedIdsSql, routedNamesSql, routedSql } from "./audience.ts";
 import {
 	administers,
@@ -118,8 +119,8 @@ function shownTimeSql(plantId: string) {
 }
 function reachableSql(plantId: string) {
 	return sql`(SELECT count(*)::int FROM (
-		SELECT m.recipient_person_id FROM mail m
-		JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
+		SELECT p.id FROM mail m
+		${currentPersonJoin(sql`m.recipient_person_id`, sql`m.tenant_id`)}
 		WHERE ${mailOn(plantId)} AND p.state = 'live' AND p.email IS NOT NULL AND btrim(p.email) <> ''
 			AND m.refusal IS NULL AND NOT ${heldMinor}
 			AND NOT EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL)
@@ -259,6 +260,11 @@ async function readPage(
 	return pageValue(limit, rawPage.parse(asJson(raw.payload)));
 }
 
+const namesOrReached = (plantId: string, personId: SQL) => {
+	const lineage = lineageOf(personId, sql`${plantId}::uuid`);
+	return sql`EXISTS (SELECT 1 FROM ${lineage} reached(id) WHERE jsonb_exists(c.audience->'personIds', reached.id::text))
+		OR EXISTS (SELECT 1 FROM mail m WHERE ${mailOn(plantId)} AND m.recipient_person_id IN ${lineage})`;
+};
 export async function listHistory(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.historyQuery, request ?? {});
 	const reader = readerOf(authority);
@@ -274,8 +280,7 @@ export async function listHistory(tx: Tx, authority: RequestActor, request: unkn
 		channelIncludes(input.channel),
 		sql`true`,
 		sql`(${meetingId}::uuid IS NULL OR c.meeting_id = ${meetingId}::uuid)
-			AND (${personId}::uuid IS NULL OR jsonb_exists(c.audience->'personIds', ${personId}::text)
-				OR EXISTS (SELECT 1 FROM mail m WHERE ${mailOn(reader.plantId)} AND m.recipient_person_id = ${personId}::uuid))`,
+			AND (${personId}::uuid IS NULL OR ${namesOrReached(reader.plantId, sql`${personId}::uuid`)})`,
 	);
 	return c.historyPage.parse(page);
 }
@@ -321,8 +326,7 @@ export async function listForPerson(tx: Tx, authority: RequestActor, request: un
 						'asOf', ${stamp(sql`clock_timestamp()`)},
 						'items', ${itemsJson(
 							reader.plantId,
-							sql`(jsonb_exists(c.audience->'personIds', ${input.personId}::text)
-								OR EXISTS (SELECT 1 FROM mail m WHERE ${mailOn(reader.plantId)} AND m.recipient_person_id = ${input.personId}::uuid))`,
+							sql`(${namesOrReached(reader.plantId, sql`${input.personId}::uuid`)})`,
 							limit,
 							null,
 							null,
@@ -640,7 +644,7 @@ export async function listMeetingTracking(tx: Tx, authority: RequestActor, reque
 								${statusSql} AS status
 							FROM communication c
 							JOIN mail m ON m.tenant_id = c.plant_id AND m.communication_id = c.id
-							JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
+							${currentPersonJoin(sql`m.recipient_person_id`, sql`m.tenant_id`)}
 							WHERE c.plant_id = ${reader.plantId}::uuid AND c.meeting_id = ${input.meetingId}::uuid
 							ORDER BY p.id, m.created_at DESC, m.id DESC
 						) t
@@ -733,7 +737,7 @@ function resendDoc(plantId: string, communicationId: string, selection: string) 
 			FROM (
 				SELECT DISTINCT ON (p.id) p.id, p.display_name AS name, ${eligible} AS eligible
 				FROM mail m
-				JOIN person p ON p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id
+				${currentPersonJoin(sql`m.recipient_person_id`, sql`m.tenant_id`)}
 				WHERE m.tenant_id = c.plant_id AND m.communication_id = c.id
 				ORDER BY p.id, m.created_at DESC
 			) picked

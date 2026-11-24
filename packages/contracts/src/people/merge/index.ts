@@ -5,24 +5,10 @@ import { commandEnvelope } from "../../common/writes.ts";
 import { criterionRating, interviewResult } from "../assessments/index.ts";
 import { actorAttribution } from "../results.ts";
 import { pageInput, stage } from "../values.ts";
-import { blockers, inverseConflict, referenceKind, referenceTreatment } from "./errors.ts";
+import { blockers, inverseConflict, mergeField, referenceKind, referenceTreatment, unmergeField } from "./errors.ts";
 
 export * from "./errors.ts";
 
-export const mergeField = z.enum([
-	"displayName",
-	"firstName",
-	"lastName",
-	"email",
-	"phone",
-	"address",
-	"source",
-	"summaryNotes",
-	"birthDate",
-	"adultClassification",
-	"household",
-	"photo",
-]);
 export const plantOnlyMergeFields = ["source", "adultClassification", "household", "photo", "birthDate"] as const;
 export const mergeSide = z.enum(["source", "survivor"]);
 
@@ -106,6 +92,9 @@ export const unmergePreview = z.strictObject({
 	fields: z.array(mergeField).max(mergeField.options.length),
 	conflicts: z.array(inverseConflict).max(inverseConflict.options.length),
 	changed: z.array(referenceKind).max(referenceKind.options.length),
+	changedFields: z.array(unmergeField).max(unmergeField.options.length),
+	stays: moved,
+	staysFields: z.array(unmergeField).max(unmergeField.options.length),
 	attendance: z.array(attendanceChange).max(600),
 	reviewRevision: revision,
 });

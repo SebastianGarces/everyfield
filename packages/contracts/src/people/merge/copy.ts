@@ -1,6 +1,6 @@
 import type { z } from "zod";
-import type { inverseConflict, leadershipConflict, mergeBlocker, referenceKind } from "./errors.ts";
-import type { attendanceChange, mergeField } from "./index.ts";
+import type { inverseConflict, leadershipConflict, mergeBlocker, referenceKind, unmergeField } from "./errors.ts";
+import type { attendanceChange } from "./index.ts";
 
 export type ReferenceKind = z.infer<typeof referenceKind>;
 
@@ -93,15 +93,39 @@ export function attendanceText(
 	}
 }
 
+export type UnmergeField = z.infer<typeof unmergeField>;
+const fieldList = (fields: readonly UnmergeField[]) =>
+	listText(fields.map((f) => MERGE_FIELD_LABEL[f].toLowerCase()));
+export function unmergeStaysText(
+	stays: { stays: readonly { kind: ReferenceKind; count: number }[]; staysFields: readonly UnmergeField[] },
+	names: { survivor: string },
+) {
+	const items = [
+		...stays.stays.map((r) => counted(r.kind, r.count)),
+		...(stays.staysFields.length ? [`the edits to ${fieldList(stays.staysFields)}`] : []),
+	];
+	return items.length
+		? `Added after the merge, so it stays with ${names.survivor}: ${listText(items)}.`
+		: null;
+}
 export type InverseConflict = z.infer<typeof inverseConflict>;
 export function conflictText(
 	cause: InverseConflict,
 	names: { source: string; survivor: string },
 	changed: readonly ReferenceKind[] = [],
+	changedFields: readonly UnmergeField[] = [],
 ) {
 	switch (cause) {
+		case "chained_merge":
+			return `${names.survivor} was part of another merge after this one.`;
+		case "survivor_retired":
+			return `${names.survivor} was retired after the merge.`;
 		case "survivor_changed":
-			return `${names.survivor}'s details changed after the merge.`;
+			return changedFields.length
+				? `The merge changed ${names.survivor}’s ${fieldList(changedFields)}, and it was edited again after.`
+				: `${names.survivor}'s details changed after the merge.`;
+		case "household_deleted":
+			return `The household ${names.source} or ${names.survivor} would go back to was deleted after the merge.`;
 		case "source_changed":
 			return `${names.source}'s record changed after the merge.`;
 		case "references_changed":
@@ -113,6 +137,10 @@ export function conflictText(
 	}
 }
 export function unmergeAdvice(conflicts: readonly InverseConflict[], names: { survivor: string }) {
+	if (conflicts.every((c) => c === "chained_merge"))
+		return "Undo the later merge first, then review this Unmerge again.";
+	if (conflicts.every((c) => c === "survivor_retired"))
+		return `Restore ${names.survivor.split(" ")[0]} first, then review this Unmerge again.`;
 	const fix = `Correct ${names.survivor.split(" ")[0]}’s details by hand instead; each change is kept in the history.`;
 	return conflicts.every((c) => c === "mail_sent")
 		? `An Unmerge cannot take back sent email, so Everyfield will not run it. ${fix}`
@@ -129,15 +157,16 @@ export function unmergeBlockedText(
 	conflicts: readonly InverseConflict[],
 	names: { source: string; survivor: string },
 	changed: readonly ReferenceKind[] = [],
+	changedFields: readonly UnmergeField[] = [],
 ) {
 	return [
 		"Cannot unmerge.",
-		...conflicts.map((c) => conflictText(c, names, changed)),
+		...conflicts.map((c) => conflictText(c, names, changed, changedFields)),
 		unmergeAdvice(conflicts, names),
 	].join(" ");
 }
 
-export const MERGE_FIELD_LABEL: Record<z.infer<typeof mergeField>, string> = {
+export const MERGE_FIELD_LABEL: Record<UnmergeField, string> = {
 	displayName: "Name",
 	firstName: "First name",
 	lastName: "Last name",
@@ -150,4 +179,5 @@ export const MERGE_FIELD_LABEL: Record<z.infer<typeof mergeField>, string> = {
 	adultClassification: "Adult or child",
 	household: "Household",
 	photo: "Photo",
+	stage: "Stage",
 };
