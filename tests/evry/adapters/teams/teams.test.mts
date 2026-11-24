@@ -212,6 +212,16 @@ test("AC:SME53-009 INV-stale-review: approving after the role or the person chan
 	assert.deepEqual(await tenures(parker), []);
 });
 
+test("INV-counts: a ministry and a church with no measured composite read Unknown, never 0", async () => {
+	const owner = await actor("owner");
+	const one = await invokeRead(db, owner, adapter("teams.health"), { teamId: worship });
+	assert.equal(one.rows[0]!.fields.composite, "Unknown");
+	const church = await invokeRead(db, owner, adapter("teams.aggregateHealth"), {});
+	assert.equal(church.facts!.composite, "Unknown");
+	assert.equal(church.facts!.measuredMinistries, 0);
+	assert.ok(church.rows.every((r) => r.fields.composite === "Unknown"));
+});
+
 test("INV-authority: a Member reads the roster their Ministries screen shows and may not prepare a change", async () => {
 	const member = await actor("member");
 	const result = await invokeRead(db, member, adapter("teams.get"), { teamId: worship });

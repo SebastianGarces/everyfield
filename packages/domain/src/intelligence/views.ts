@@ -43,7 +43,7 @@ export function lensesOf(facts: unknown, draft: c.DraftOutput): c.LensTile[] {
 		const citing = points
 			.filter(({ p }) => p.citations.some((k) => c.lensOfKey(k) === lens.key))
 			.sort((a, b) => RANK[a.p.urgency] - RANK[b.p.urgency] || a.ordinal - b.ordinal);
-		const top = citing[0];
+		const top = citing.find(({ p }) => quality !== "unknown" || p.urgency !== "positive");
 		return {
 			key: lens.key,
 			label: lens.label,

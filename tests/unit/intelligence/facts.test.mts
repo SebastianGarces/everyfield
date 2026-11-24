@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { buildFacts, factInputs, type FactInputs } from "../../../packages/domain/src/intelligence/facts.ts";
+import { criteriaOf } from "../../../packages/domain/src/intelligence/views.ts";
+import { readCatalog } from "../../../packages/domain/src/phases/catalog.ts";
 
 const TODAY = "2026-11-14";
 const AS_OF = "2026-11-14T17:00:00.000Z";
@@ -110,6 +112,8 @@ test("AC:CA017 growth is on track at 20 days, slowed from 21 to 27 days and stal
 test("AC:CA017 an old known date cannot prove stalled while an unclassified person signed after it", () => {
 	const f = facts({ people: [person({ signed: [-40] }), person({ signed: [-5], manual: null })] });
 	assert.deepEqual([f.growth.status, f.growth.reason], ["unknown", "unclassified_newer"]);
+	const only = facts({ people: [person({ signed: [-40], manual: null })] });
+	assert.deepEqual([only.growth.status, only.criteria.growth_trajectory], ["unknown", "unknown"]);
 	assert.equal(
 		facts({ people: [person({ signed: [-3] }), person({ signed: [-1], manual: null })] }).growth.status,
 		"on_track",
@@ -152,7 +156,8 @@ test("AC:PI-CASE-003 Vision rhythm is past the 21-day mark at 22 days; a schedul
 		[none.vision.status, none.vision.reason, none.cohesion.status],
 		["unknown", "no_attendance", "unknown"],
 	);
-	assert.equal(facts({ anyAttendance: true }).vision.reason, "no_vision_meeting");
+	const unmet = facts({ anyAttendance: true }).vision;
+	assert.deepEqual([unmet.status, unmet.reason], ["unknown", "no_vision_meeting"]);
 });
 
 test("AC:PI-CASE-005 cohesion flags three or more committed people, at least 20%, who attended before and not in the last 28 days", () => {
@@ -291,6 +296,59 @@ test("AC:PI-PURPOSE-001 the fact inputs hold no private care and only a count an
 	assert.throws(() =>
 		factInputs.parse({ ...empty(), interviews: { count: 1, latestOn: day(-1), result: "qualified" } }),
 	);
+});
+
+test("INV-facts: a plant with no evidence reads Unknown in every fact and criterion that rests on it, never Not met", async () => {
+	const none = facts({});
+	assert.deepEqual(
+		[
+			none.growth.status,
+			none.vision.status,
+			none.cohesion.status,
+			none.followUps.status,
+			none.training.status,
+			none.firstService?.status,
+		],
+		Array(6).fill("unknown"),
+	);
+	assert.equal(
+		facts({
+			followUps: [
+				{ originAt: hours(-10) as never, state: "open", completion: null, contacted: false, owned: true },
+				{ originAt: hours(-90) as never, state: "no_longer_needed", completion: null, contacted: false, owned: true },
+			],
+		}).followUps.status,
+		"unknown",
+	);
+	const catalog = await readCatalog();
+	const shown = catalog.phases.flatMap((_, phase) => criteriaOf(catalog, phase, none));
+	const status = new Map(shown.map((x) => [x.key as string, x.status]));
+	for (const key of [
+		"growth_trajectory",
+		"training_complete",
+		"first_service_complete",
+		"launch_date_set",
+		"launch_window",
+	])
+		assert.equal(status.get(key), "unknown", key);
+});
+
+test("INV-facts: a real zero stays a measured zero", () => {
+	const person0 = { personId: randomUUID(), complete: false };
+	const f = facts({
+		people: [person({ signed: [0] })],
+		anyAttendance: true,
+		vision: [{ on: TODAY, attended: 1 }],
+		followUps: [{ originAt: hours(-72) as never, state: "open", completion: null, contacted: false, owned: true }],
+		training: [{ id: randomUUID(), name: "Launch team basics", people: [person0] }],
+	});
+	assert.deepEqual([f.growth.status, f.growth.daysSince], ["on_track", 0]);
+	assert.deepEqual([f.vision.status, f.vision.daysSince], ["on_target", 0]);
+	assert.deepEqual([f.cohesion.status, f.cohesion.disengaged.length], ["steady", 0]);
+	assert.deepEqual([f.followUps.status, f.followUps.onTime, f.followUps.measured], ["measured", 0, 1]);
+	assert.deepEqual([f.training.status, f.training.complete, f.training.total], ["not_met", 0, 1]);
+	const { status, known, exact } = facts({}).committedAdults;
+	assert.deepEqual([status, known, exact], ["not_met", 0, 0]);
 });
 
 const sunday = {
