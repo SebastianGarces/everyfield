@@ -1,15 +1,18 @@
+import { sessionId, tenantId } from "../../../packages/contracts/src/common/index.ts";
+import { ok } from "../../support/fixture.mts";
 import { testDatabase } from "../../support/test-database.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/session.ts";
 import {
 	guestsWriter as guests,
 	meetingsReader as reads,
 	meetingsWriter as meetings,
 	planNotifications,
+	type MeetingsContext,
 } from "../../../packages/domain/src/meetings/index.ts";
 import { createNotificationProducer } from "../../../packages/domain/src/notifications/index.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
@@ -23,14 +26,15 @@ const { admin } = database;
 const db = database.pools.runtime;
 
 const P = randomUUID();
-const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const actors = Array.from({ length: 4 }, () => ({
+	id: randomUUID(),
+	user: randomUUID(),
+	session: sessionId.parse(randomUUID()),
+}));
 const [creator, guest, core, leaving] = actors.map((a) => a.id) as [string, string, string, string];
-const ctx = { session: actors[0]!.session, selected: { kind: "plant", id: P } };
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const run = (op, input) => gatedTransaction(db, (t) => op(t, ctx, input));
+const ctx: MeetingsContext = { session: actors[0]!.session, selected: { kind: "plant", id: tenantId.parse(P) } };
+const run = <R,>(op: (tx: WriteTx, ctx: MeetingsContext, raw: unknown) => Promise<R>, input: unknown) =>
+	gatedTransaction(db, (t) => op(t, ctx, input));
 const key = () => randomUUID();
 const day = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 const people: Record<string, string> = {};
@@ -48,10 +52,10 @@ const schedule = async (date = day(10)) =>
 			requestKey: key(),
 			input: { type: "orientation", date, time: "18:00", guests: [people.guest, people.leaving, people.contact] },
 		}),
-	).meeting;
+	).meeting!;
 const slotTimes = async (meetingId: string) =>
 	Object.fromEntries(
-		(await planNotifications(db, P, { meetingId, asOf: new Date().toISOString() })).slots.map((s) => [
+		(await planNotifications(db, P, { meetingId, asOf: new Date().toISOString() }))!.slots.map((s) => [
 			s.slot,
 			s.eligibleAt,
 		]),
@@ -64,11 +68,13 @@ const jobs = async (meetingId: string) =>
 	).rows;
 const notices = async (meetingId: string) =>
 	(
-		await admin.execute(sql`SELECT n.recipient_id AS recipient, split_part(n.logical_key,'/',2) AS category,
+		await admin.execute<
+			Record<"recipient" | "category" | "slot" | "mail" | "mail_state", string>
+		>(sql`SELECT n.recipient_id AS recipient, split_part(n.logical_key,'/',2) AS category,
 			split_part(n.logical_key,'/',5) AS slot, n.title, m.purpose AS mail, m.state AS mail_state
 			FROM notice n LEFT JOIN mail m ON m.notice_id=n.id WHERE n.source_record_id=${meetingId}
 			ORDER BY n.eligible_at, n.recipient_id`)
-	).rows.map((r) => [r.recipient, r.category, r.slot, r.mail, r.mail_state]);
+	).rows.map((r) => [r.recipient, r.category, r.slot, r.mail, r.mail_state] as const);
 const mailed = (recipients: string[], category: string, slot: string) =>
 	[...recipients].sort().map((r) => [r, category, slot, "notification", "pending"]);
 
@@ -96,29 +102,32 @@ function service(authorize = authorizeNotificationMail) {
 		},
 	});
 }
-const secret = "cron-" + randomUUID();
-const request = () => new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } });
 const tick = scheduledJobs({
 	db,
 	storage: null,
 	cleanup: null,
-	reminders: null,
+	effects: null,
 	digests: null,
 	mail: null,
 	notifications: createNotificationWorker({ mail: service() }),
 	now: () => clock.at,
 });
 async function runTick() {
-	const response = await tick(request());
+	const response = await tick();
 	const body = await response.json();
 	assert.equal(response.status, 200, JSON.stringify(body));
 	return body;
+}
+async function viewer(who: number) {
+	const actor = await RequestActor.resolve(db, actors[who]!.session);
+	assert.ok(actor instanceof RequestActor);
+	return actor;
 }
 const feed = createNotificationProducer({ optOutKey: randomBytes(32), now: () => new Date() });
 async function bell(who: number, meetingId: string) {
 	await admin.execute(sql`UPDATE notice SET eligible_at=clock_timestamp()
 		WHERE source_record_id=${meetingId} AND eligible_at>clock_timestamp()`);
-	const reader = await RequestActor.resolve(db, actors[who]!.session);
+	const reader = await viewer(who);
 	return ok(await feed.readFeed(db, reader, {}))
 		.items.filter((i) => i.subject?.kind === "meeting" && i.subject.id === meetingId)
 		.map((i) => [i.category, i.title])
@@ -168,13 +177,13 @@ test("AC:CASE-NTF-006 AC:TARGET-MTG-018 the scheduled tick sends each slot to it
 	assert.deepEqual(await notices(m.id), mailed([core], "meeting_announcement", "announcement"));
 	assert.deepEqual(await bell(2, m.id), [["meeting_announcement", "New meeting: Orientation"]]);
 
-	await advance(m.id, at.day_7);
+	await advance(m.id, at.day_7!);
 	assert.equal((await runTick()).notified, 1);
 	assert.deepEqual((await notices(m.id)).slice(1), mailed([creator, guest, leaving], "meeting_reminder", "day_7"));
 
-	const removed = ok(
-		await reads.listGuests(db, await RequestActor.resolve(db, actors[0]!.session), { meetingId: m.id }),
-	).guests.find((g) => g.person.personId === people.leaving);
+	const removed = ok(await reads.listGuests(db, await viewer(0), { meetingId: m.id })).guests.find(
+		(g) => g.person.personId === people.leaving,
+	)!;
 	ok(
 		await run(guests.removeGuest, {
 			requestKey: key(),
@@ -182,7 +191,7 @@ test("AC:CASE-NTF-006 AC:TARGET-MTG-018 the scheduled tick sends each slot to it
 			input: { meetingId: m.id, personId: people.leaving },
 		}),
 	);
-	await advance(m.id, at.day_3);
+	await advance(m.id, at.day_3!);
 	assert.equal((await runTick()).notified, 1);
 	assert.deepEqual((await notices(m.id)).slice(4), mailed([creator, guest], "meeting_reminder", "day_3"));
 	assert.deepEqual(await bell(1, m.id), [
@@ -202,7 +211,7 @@ test("AC:CASE-NTF-006 AC:TARGET-MTG-018 the scheduled tick sends each slot to it
 			input: { meetingId: m.id, to: "cancelled" },
 		}),
 	);
-	await advance(m.id, at.day_1);
+	await advance(m.id, at.day_1!);
 	assert.equal((await runTick()).notified, 0);
 	assert.equal((await notices(m.id)).length, 6);
 	assert.deepEqual(
@@ -222,7 +231,7 @@ test("INV-notification-worker: a passed, suppressed or stale slot finishes witho
 	const late = await schedule();
 	const at = await slotTimes(late.id);
 	await worker.run(db, new Date().toISOString());
-	await advance(late.id, at.day_3);
+	await advance(late.id, at.day_3!);
 	assert.equal(await worker.run(db, clock.at.toISOString()), 1);
 	assert.deepEqual(
 		(await jobs(late.id)).map((j) => [j.slot, j.state, j.error_code]),

@@ -2,21 +2,25 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { AsyncResource } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
-import type { LanguageModelV4, LanguageModelV4CallOptions } from "@ai-sdk/provider";
+import type {
+	LanguageModelV4,
+	LanguageModelV4CallOptions,
+} from "../../../packages/evry/node_modules/@ai-sdk/provider/dist/index.js";
 import { APICallError } from "../../../packages/evry/node_modules/ai/dist/index.js";
-import { languagePasses } from "../../../packages/contracts/src/intelligence/index.ts";
+import { draftOutput, languagePasses } from "../../../packages/contracts/src/intelligence/index.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import {
 	createAssessmentJob,
 	createAssessments,
 	runAssessmentBatch,
+	type Drafter,
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { meteredAssessment } from "../../../packages/evry/src/runtime/assessment-model.ts";
 import { paidModel } from "../../../packages/evry/src/runtime/model.ts";
 import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
 import { scriptedAssessmentDrafter, scriptedDraft } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
-import { CANARY, church, type Church } from "./assessment-church.mts";
+import { CANARY, church, type Church, type ChurchPlant, type StoredRun } from "./assessment-church.mts";
 
 type Reply = { text: string; usage?: { input: number; output: number } } | Error;
 function fakeProvider(reply: (params: LanguageModelV4CallOptions, n: number) => Reply, during?: () => Promise<void>) {
@@ -76,13 +80,15 @@ const setCounter = async (micro: number) => {
 		await c.admin.execute(sql`INSERT INTO model_spend(month,charged_micro_usd)
 			VALUES(date_trunc('month',clock_timestamp() AT TIME ZONE 'UTC')::date,${micro})`);
 };
-async function run(p, drafter) {
+async function run(p: ChurchPlant, drafter: Drafter) {
 	const requestId = randomUUID();
 	ok(await assessments.requestRefresh(c.db, p.actor, { requestId }));
 	await runAssessmentBatch(job, c.db, drafter, 5);
-	return c.one(sql`SELECT * FROM assessment_run WHERE plant_id=${p.id} AND demand_key=${"manual/" + requestId}`);
+	return c.one<StoredRun>(
+		sql`SELECT * FROM assessment_run WHERE plant_id=${p.id} AND demand_key=${"manual/" + requestId}`,
+	);
 }
-const view = async (p) => ok(await assessments.readAssessment(c.db, p.actor, {}));
+const view = async (p: ChurchPlant) => ok(await assessments.readAssessment(c.db, p.actor, {}));
 
 test("INV-spend: each paid draft call reserves its worst case in the month's counter first, then settles to its usage", async () => {
 	const p = await c.harvest("Metered Grace");
@@ -122,8 +128,8 @@ test("AC:PI-CASE-013 when the month's counter would pass the cap no call is sent
 	assert.equal(await counter(), CAP - 1, "a refused reservation charges nothing");
 	const v = await view(p);
 	assert.deepEqual(v.current, previous, "the previous published assessment stays current");
-	assert.equal(v.current.ageDays, 0);
-	assert.equal(v.newest.state, "failed");
+	assert.equal(v.current!.ageDays, 0);
+	assert.equal(v.newest!.state, "failed");
 });
 
 test("AC:PI-CASE-013 a real draft that invents a number is rejected and its violations go back to the model; a failing draft never publishes", async () => {
@@ -145,8 +151,8 @@ test("AC:PI-CASE-013 a real draft that invents a number is rejected and its viol
 		],
 	);
 	assert.deepEqual(sent(fake.requests[0]!).feedback, []);
-	assert.deepEqual(sent(fake.requests[1]!).feedback, r.drafts[0].violations, "draft 2 was sent draft 1's violations");
-	assert.match((await view(p)).current.focus.body + JSON.stringify(r.result), /30 committed adults/);
+	assert.deepEqual(sent(fake.requests[1]!).feedback, r.drafts[0]!.violations, "draft 2 was sent draft 1's violations");
+	assert.match((await view(p)).current!.focus.body + JSON.stringify(r.result), /30 committed adults/);
 
 	const before = (await view(p)).current;
 	const always = fakeProvider((params) => ({ text: invent(params), usage: { input: 900, output: 400 } }));
@@ -210,7 +216,7 @@ test("AC:PI-PURPOSE-001 the provider request holds only the run's facts, passage
 test("AC:PI-CASE-027 the paid judge grades plain, warm and useful wording, lists hype and pressure, and never passes a reply it can't read", async () => {
 	await setCounter(0);
 	const p = await c.harvest("Judged Grace");
-	const draft = (await run(p, scriptedAssessmentDrafter())).drafts[0].output;
+	const draft = draftOutput.parse((await run(p, scriptedAssessmentDrafter())).drafts[0]!.output);
 	const replies = [
 		JSON.stringify({ plain: 5, warm: 4, useful: 4, failures: [] }),
 		JSON.stringify({ plain: 4, warm: 4, useful: 3, failures: [{ rule: "hype", quote: "Amazing progress!" }] }),

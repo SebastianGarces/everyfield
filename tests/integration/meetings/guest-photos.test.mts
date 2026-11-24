@@ -2,30 +2,39 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
-import { fixture } from "../identity/invitations-support.mts";
+import { fixture, type Fixture } from "../identity/invitations-support.mts";
 import { guestsWriter, meetingsReader, withMeetingsWrite } from "../../../packages/domain/src/meetings/index.ts";
+import { S3Client, type PrivateStorage } from "../../../packages/db/src/schema/storage.ts";
 import { readAvatar } from "../../../packages/domain/src/settings/index.ts";
 import { ok } from "../../support/fixture.mts";
 
-let f, plant, other, owner, member;
+let f: Fixture;
+let plant: Workspace;
+let other: Workspace;
+let owner: Seated;
+let member: Seated;
+type Workspace = Awaited<ReturnType<Fixture["workspace"]>>;
+type Seated = Awaited<ReturnType<typeof account>>;
 const key = () => randomUUID();
 const PNG = Buffer.from("synthetic photo bytes");
-const objects = new Map();
-const storage = {
-	bucket: "synthetic-only",
-	client: {
-		send: async (command) => {
-			const i = command.input;
-			if (command.constructor.name === "GetBucketAclCommand")
-				return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
-			if (command.constructor.name !== "GetObjectCommand") throw Error("unexpected provider operation");
-			const body = objects.get(i.Key);
-			return { ContentLength: body.length, ContentType: "image/png", Body: { transformToByteArray: async () => body } };
-		},
-	},
-};
+const objects = new Map<string, Buffer>();
+class PhotoClient extends S3Client {
+	override async send(command: { input: object }): Promise<object> {
+		if (command.constructor.name === "GetBucketAclCommand")
+			return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
+		if (command.constructor.name !== "GetObjectCommand") throw Error("unexpected provider operation");
+		assert.ok("Key" in command.input && typeof command.input.Key === "string");
+		const body = objects.get(command.input.Key)!;
+		return {
+			ContentLength: body.length,
+			ContentType: "image/png",
+			Body: { transformToByteArray: async () => body },
+		};
+	}
+}
+const storage: PrivateStorage = { bucket: "synthetic-only", client: new PhotoClient({ region: "us-east-1" }) };
 
-async function file(tenant, purpose) {
+async function file(tenant: string, purpose: string) {
 	const id = randomUUID(),
 		opaque = `private/${tenant}/${randomUUID()}`;
 	objects.set(opaque, PNG);
@@ -34,17 +43,17 @@ async function file(tenant, purpose) {
 		${PNG.length},${createHash("sha256").update(PNG).digest("hex")},'ready',${id},0)`);
 	return id;
 }
-async function setAvatar(a) {
+async function setAvatar(a: Seated) {
 	const versionId = await file(a.id, "avatar");
 	await f.admin.execute(sql`UPDATE account SET avatar_object_id=${versionId} WHERE id=${a.id}`);
 	return { accountId: a.id, versionId };
 }
-async function account(w = plant, role = "member") {
+async function account(w = plant, role: "owner" | "member" = "member") {
 	const a = await f.account();
 	if (w) await f.seat(a, w, role);
 	return { ...a, actor: await f.actor(a.session) };
 }
-async function person(name, linked = null, w = plant) {
+async function person(name: string, linked: Seated | null = null, w = plant) {
 	const id = randomUUID();
 	await f.admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at,linked_account_id) VALUES(${id},${w.id},${w.id},${name},'other',
@@ -58,11 +67,11 @@ async function meeting() {
 		'UTC','2026-10-01T23:00:00Z','1','in_progress',1)`);
 	return id;
 }
-const invite = (meetingId, personId) =>
+const invite = (meetingId: string, personId: string) =>
 	withMeetingsWrite(f.db, owner.actor, (tx, ctx) =>
 		guestsWriter.inviteGuest(tx, ctx, { requestKey: key(), input: { meetingId, personId } }),
 	);
-async function photos(meetingId, who = member) {
+async function photos(meetingId: string, who = member) {
 	const list = ok(await meetingsReader.listGuests(f.db, who.actor, { meetingId }));
 	const name = new Map(list.guests.map((g) => [g.person.personId, g.person.displayName]));
 	return {
