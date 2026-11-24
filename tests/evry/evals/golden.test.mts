@@ -16,6 +16,7 @@ import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts"
 import { peopleWriter } from "../../../packages/domain/src/people/people.ts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { waitingOnLock } from "../../support/fixture.mts";
+import { ALEX_CALL, seedCommunication, USED_TEMPLATE } from "./communication-church.mts";
 import {
 	GIVING,
 	goldenChurch,
@@ -63,6 +64,7 @@ type ProposalSpec = {
 	mentions?: string;
 	targets?: string;
 	optional?: boolean;
+	target?: string;
 	changes?: [string, unknown, unknown?][];
 	refusal?: string;
 };
@@ -84,6 +86,7 @@ type Checks = {
 };
 type Eval = Checks & {
 	as?: ActorName;
+	church?: "communication";
 	text?: string;
 	page?: string;
 	offer?: string[];
@@ -149,6 +152,9 @@ const RERECORD =
 
 const church = await goldenChurch();
 after(church.close);
+const mailChurch = await goldenChurch();
+after(mailChurch.close);
+await seedCommunication(mailChurch.admin);
 
 const fill = (p: string, as = (v: string) => v) =>
 	p.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => as(byName(name)[field]!));
@@ -290,6 +296,7 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 				p.prepared &&
 				(!input || inputMatches(input, p.input)) &&
 				!(want.absent ?? []).some((f) => p.input?.[f] != null && p.input[f] !== "") &&
+				(!want.target || p.review?.target?.label === want.target) &&
 				(!want.mentions || JSON.stringify(p.input).includes(want.mentions)) &&
 				(want.changes ?? []).every(([field, after, before]) =>
 					p.review?.changes.some(
@@ -545,6 +552,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 	const isGolden = !("extra" in item);
 	const as = spec.as ?? "owner";
 	const text = spec.text ?? item.question;
+	const at = spec.church === "communication" ? mailChurch : church;
 	const given = [text, ...(spec.history ?? []).map((t) => ("user" in t ? t.user : ""))].join("\n");
 	const area = isGolden ? (item as GoldenCase).scenario_id : "";
 	const row: Row = {
@@ -575,7 +583,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 	let cleanup: (() => Promise<void>) | undefined;
 	const ask = async (repetition: number) => {
 		const c = await converse(
-			church,
+			at,
 			as,
 			text,
 			spec.history ?? [],
@@ -607,7 +615,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 			const t = spec.target;
 			const checks = score(t, c, { area, given, target: true });
 			const installed = new Set([
-				...readCatalog(church.actors[as], RECORDED).domains.flatMap((d) => d.operations.map((o) => o.operation)),
+				...readCatalog(at.actors[as], RECORDED).domains.flatMap((d) => d.operations.map((o) => o.operation)),
 			]);
 			for (const op of t.futureOperations ?? [])
 				checks.push({
@@ -633,7 +641,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 			row.target = { checks, met: checks.every((x) => x.ok) };
 		}
 		if (spec.targetProbe) {
-			const probe = await converse(church, as, spec.targetProbe.text, spec.targetProbe.history);
+			const probe = await converse(at, as, spec.targetProbe.text, spec.targetProbe.history);
 			row.keys.push(...probe.keys);
 			const checks = spec.targetProbe.require.map((p) => ({
 				name: `after "${spec.targetProbe!.text}", says ${p}`,
@@ -1384,6 +1392,9 @@ test("INV-evry-golden: every golden and adapter case passes its hard checks on t
 	const cases = [...golden, ...extras.filter(recordable)].filter((c) => !only || only.includes(c.case_id));
 	if (held.length) t.diagnostic(`held for the batched re-record (operation in LATER): ${held.join(", ")}`);
 	const rows = await pool(cases, recording ? 6 : 8, runCase);
+	const { rows: untouched } = await mailChurch.admin.execute(sql`SELECT (SELECT archived_at FROM message_template
+		WHERE id=${USED_TEMPLATE}) AS archived,o.outcome,o.voided_at AS voided,(SELECT count(*)::int FROM contact_outcome
+		WHERE person_id=o.person_id) AS entries FROM contact_outcome o WHERE o.id=${ALEX_CALL}`);
 	const spend = saveRecording();
 	const expected = approved.cases.map((c) => c.case_id).filter((id) => !only || only.includes(id));
 	const ready = readiness(rows, { expected, baseline: baseline.passed });
@@ -1441,6 +1452,7 @@ test("INV-evry-golden: every golden and adapter case passes its hard checks on t
 	t.diagnostic(
 		`${rows.filter(hardPass).length}/${rows.length} hard-pass; alpha gaps: ${gaps.join(", ") || "none"}; ${graded} graded`,
 	);
+	assert.deepEqual(untouched, [{ archived: null, outcome: "contacted", voided: null, entries: 1 }], "no case writes");
 	assert.equal(blocking.length, 0, "\n" + blocking.join("\n\n"));
 	assert.ok(graded > 0 || !rows.some((r) => hardPass(r) && !r.scripted), "the judge grades the answers that pass");
 	t.diagnostic(

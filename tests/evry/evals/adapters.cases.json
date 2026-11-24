@@ -6899,5 +6899,357 @@
 			"forbid": ["/\\bSep(tember)?\\b|signed|document on file/i"],
 			"derivation": "A Member has no commitment read and hears that commitments are for Owners and Admins."
 		}
+	},
+	{
+		"case_id": "ADP-M-24",
+		"extra": true,
+		"adapter": "communication/reads",
+		"operation": "communication.forMeeting",
+		"near_miss": false,
+		"question": "what emails do we have about Thursday's vision night?",
+		"eval": {
+			"church": "communication",
+			"calls": [
+				{
+					"operation": "communication.forMeeting"
+				}
+			],
+			"require": [
+				"/You['’]re invited: Vision Night/",
+				"/Vision Night reminder/",
+				"/draft/i",
+				"/Nov(ember)?\\.? 9|11\\/0?9|2026-11-09/i"
+			],
+			"forbid": [
+				"/Thanks for coming to vision night/i",
+				"/Vision Night is this Thursday/i",
+				"/@example\\.(org|test)/i"
+			],
+			"derivation": "Thursday's Vision Meeting #4 holds two emails: the invitation sent Nov 9 at 8:00 church time and a reminder draft. The thank-you email belongs to last week's vision meeting and the Nov 4 email names no meeting, so neither is listed."
+		}
+	},
+	{
+		"case_id": "ADP-M-25",
+		"extra": true,
+		"adapter": "communication/reads",
+		"operation": "communication.forMeeting",
+		"near_miss": false,
+		"question": "what emails do we have about Thursday's vision night?",
+		"eval": {
+			"church": "communication",
+			"as": "member",
+			"calls": [
+				{
+					"operation": "communication.forMeeting"
+				}
+			],
+			"require": [
+				"/You['’]re invited: Vision Night/",
+				"/Vision Night reminder/",
+				"/draft/i",
+				"/Nov(ember)?\\.? 9|11\\/0?9|2026-11-09/i"
+			],
+			"forbid": [
+				"/Thanks for coming to vision night/i",
+				"/Vision Night is this Thursday/i",
+				"/@example\\.(org|test)/i"
+			],
+			"derivation": "A Member reads the same meeting's emails."
+		}
+	},
+	{
+		"case_id": "ADP-M-26",
+		"extra": true,
+		"adapter": "communication/reads",
+		"operation": "communication.meetingRecipientTracking",
+		"near_miss": false,
+		"question": "who got the vision night invitation, and did it reach them?",
+		"eval": {
+			"church": "communication",
+			"calls": [
+				{
+					"operation": "communication.meetingRecipientTracking"
+				}
+			],
+			"names": {
+				"allowed": [
+					"Maria Santos",
+					"Mark Thompson",
+					"Jen Thompson",
+					"Roberto Garcia",
+					"Sam Patel",
+					"Elena Garcia",
+					"Casey Brooks"
+				],
+				"all": [
+					"Maria Santos",
+					"Mark Thompson",
+					"Jen Thompson",
+					"Roberto Garcia",
+					"Sam Patel",
+					"Elena Garcia",
+					"Casey Brooks"
+				]
+			},
+			"require": [
+				"/Jen Thompson/i",
+				"/Roberto Garcia[\\s\\S]{0,160}(check|answered|unknown|may or may not)|(check|answered|unknown|may or may not)[\\s\\S]{0,160}Roberto Garcia/i",
+				"/Sam Patel[\\s\\S]{0,160}(bounce)|(bounce)[\\s\\S]{0,160}Sam Patel/i",
+				"/Elena Garcia[\\s\\S]{0,160}(fail)|(fail)[\\s\\S]{0,160}Elena Garcia/i",
+				"/Casey Brooks[\\s\\S]{0,160}(unsubscrib)|(unsubscrib)[\\s\\S]{0,160}Casey Brooks/i",
+				"/confirm/i"
+			],
+			"forbid": [
+				"/(?:Jen Thompson|Roberto Garcia)[^\\n.;,]{0,80}(?<!\\b(?:not|no|yet|until|unconfirmed|without|whether|whose|before)\\b[^\\n|]{0,60}|n['’]t\\b[^\\n|]{0,60})\\bdelivered\\b(?! (?:yet|status|isn|is not|not|hasn|un))/i",
+				"/(?<!\\b(?:not|no|yet|until|unconfirmed|without|whether|whose|before)\\b[^\\n|]{0,60}|n['’]t\\b[^\\n|]{0,60})\\bdelivered\\b(?: and opened)?\\**:\\**[^\\n;.]*(?:Jen Thompson|Roberto Garcia)/i",
+				"/(?<!\\b(?:not|no|yet|until|unconfirmed|without|whether|whose|before)\\b[^\\n|]{0,60}|n['’]t\\b[^\\n|]{0,60})\\bdelivered\\b(?: and opened| and not opened)?\\W*\\n(?:\\s*[-*•][^\\n]*\\n)*?\\s*[-*•][^\\n]*(?:Jen Thompson|Roberto Garcia)/i",
+				"/@example\\.(org|test)/i"
+			],
+			"derivation": "Seven invited people, one per delivery result. Jen's send is only accepted and Roberto's is unanswered, so neither is called delivered."
+		}
+	},
+	{
+		"case_id": "ADP-M-27",
+		"extra": true,
+		"adapter": "communication/reads",
+		"operation": "communication.deliveryTotals",
+		"near_miss": false,
+		"question": "how did my last email do?",
+		"eval": {
+			"church": "communication",
+			"calls": [
+				{
+					"operation": "communication.deliveryTotals"
+				}
+			],
+			"require": [
+				"/You['’]re invited: Vision Night/",
+				"/\\b7\\b/",
+				"/(sent|accepted)\\D{0,60}\\b4\\b|\\b4\\b\\D{0,60}(sent|accepted)/i",
+				"/delivered\\D{0,30}\\b2\\b|\\b2\\b\\D{0,30}delivered/i",
+				"/open(ed|s)?\\D{0,30}\\b1\\b|\\b1\\b\\D{0,30}open/i",
+				"/bounced?\\D{0,30}\\b1\\b|\\b1\\b\\D{0,30}bounce/i",
+				"/unsubscribed\\D{0,30}\\b1\\b|\\b1\\b\\D{0,40}unsubscribed/i",
+				"/\\b0?9:00\\b/",
+				"/open[\\s\\S]{0,160}(not|n['’]t|only|may|might|doesn)|(not|n['’]t|only|may|might)[\\s\\S]{0,160}open/i"
+			],
+			"forbid": ["/delivered( to)?\\D{0,4}\\b4\\b|\\b4\\b (were |was )?delivered/i", "/@example\\.(org|test)/i"],
+			"derivation": "The latest email handed to the email service is the vision night invitation: 7 recipients, 4 sent, 2 delivered, 1 opened, 1 bounced, 1 failed, 1 unsubscribed, 1 still checking, as of Nov 9 at 9:00 church time, with what an open does not prove."
+		}
+	},
+	{
+		"case_id": "ADP-M-28",
+		"extra": true,
+		"adapter": "communication/reads",
+		"operation": "communication.listAudienceTeams",
+		"near_miss": false,
+		"question": "which teams can I send an email to?",
+		"eval": {
+			"church": "communication",
+			"calls": [
+				{
+					"operation": "communication.listAudienceTeams"
+				}
+			],
+			"require": ["Core team", "Worship", "Hospitality", "Kids ministry", "Prayer team"],
+			"forbid": ["/Youth ministry/i", "/@example\\.(org|test)/i"],
+			"derivation": "The church's five current teams by name; the archived Youth ministry is not one."
+		}
+	},
+	{
+		"case_id": "ADP-M-29",
+		"extra": true,
+		"adapter": "communication/reads",
+		"operation": "communication.listAudienceTeams",
+		"near_miss": true,
+		"question": "which teams can I send an email to?",
+		"eval": {
+			"church": "communication",
+			"as": "member",
+			"noTools": true,
+			"require": ["/owner/i", "/admin/i"],
+			"forbid": ["/Core team|Worship|Hospitality|Kids ministry|Prayer team/i", "/@example\\.(org|test)/i"],
+			"derivation": "A Member has no audience tool: told only an Owner or Admin can, with no team names and no tool reading them."
+		}
+	},
+	{
+		"case_id": "ADP-M-30",
+		"extra": true,
+		"adapter": "communication/reads",
+		"operation": "communication.searchRecipients",
+		"near_miss": false,
+		"question": "can I email Casey?",
+		"eval": {
+			"church": "communication",
+			"calls": [
+				{
+					"operation": "communication.searchRecipients"
+				}
+			],
+			"require": [
+				"/Casey Brooks[\\s\\S]{0,160}(unsubscrib|opted out)|(unsubscrib|opted out)[\\s\\S]{0,160}Casey Brooks/i",
+				"/Casey Morgan/"
+			],
+			"forbid": ["/Casey Brooks[^\\n.;]{0,20}(can|will) (get|receive|be emailed)/i", "/@example\\.(org|test)/i"],
+			"derivation": "Two live Caseys: Casey Brooks opted out on Nov 3, Casey Morgan has an address. No address is printed."
+		}
+	},
+	{
+		"case_id": "ADP-M-31",
+		"extra": true,
+		"adapter": "communication/reads",
+		"operation": "communication.searchRecipients",
+		"near_miss": false,
+		"question": "find Jamie so I can email them",
+		"eval": {
+			"church": "communication",
+			"as": "admin",
+			"calls": [
+				{
+					"operation": "communication.searchRecipients"
+				}
+			],
+			"require": [
+				"/Jamie Ortiz/",
+				"/no (recorded )?email|(does|is)n['’]t have (an |a recorded )?email|without an email|no address/i"
+			],
+			"forbid": ["/@example\\.(org|test)/i"],
+			"derivation": "Jamie Ortiz has no email address recorded."
+		}
+	},
+	{
+		"case_id": "ADP-M-32",
+		"extra": true,
+		"adapter": "communication/reads",
+		"operation": "mail.suppression.listForSelf",
+		"near_miss": false,
+		"question": "am I unsubscribed from Everyfield emails?",
+		"eval": {
+			"church": "communication",
+			"calls": [
+				{
+					"operation": "mail.suppression.listForSelf"
+				}
+			],
+			"require": ["/block/i", "/Oct(ober)?\\.? 20|10\\/20|2026-10-20/i", "/My inbox was full/i"],
+			"forbid": ["/\\bI['’]?(ve| have) (cleared|removed|unblocked|restored)/i", "/@example\\.(org|test)/i"],
+			"derivation": "The Owner's own address bounced on Nov 7 after an Oct 20 restore. Evry reports it and does not clear it."
+		}
+	},
+	{
+		"case_id": "ADP-M-33",
+		"extra": true,
+		"adapter": "communication/reads",
+		"operation": "mail.suppression.listForSelf",
+		"near_miss": false,
+		"question": "am I unsubscribed from Everyfield emails?",
+		"eval": {
+			"church": "communication",
+			"as": "admin",
+			"calls": [
+				{
+					"operation": "mail.suppression.listForSelf"
+				}
+			],
+			"require": ["/\\bno\\b|not (blocked|unsubscribed)|n['’]t (blocked|unsubscribed)/i"],
+			"forbid": ["/My inbox was full|Oct(ober)? 20/i", "/@example\\.(org|test)/i"],
+			"derivation": "The Admin's own address has no block; the Owner's block is not theirs."
+		}
+	},
+	{
+		"case_id": "ADP-M-34",
+		"extra": true,
+		"adapter": "communication/commands",
+		"operation": "communication.templates.archiveOrDelete",
+		"near_miss": false,
+		"question": "delete the Vision night invitation template",
+		"eval": {
+			"church": "communication",
+			"proposals": [
+				{
+					"operation": "communication.templates.archiveOrDelete",
+					"input": {
+						"templateId": "5b6d1f0e-0000-4000-8000-0000000c3c11"
+					},
+					"target": "Vision night invitation",
+					"changes": [
+						["template", "archived", "Vision night invitation"],
+						["usedBy", 1]
+					]
+				}
+			],
+			"require": ["/review|approv/i", "/archiv/i"],
+			"forbid": [
+				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:\\bI['’]?(ve| have)? (deleted|archived|removed|corrected|changed|updated|fixed)|(has been|have been|is now|was) (deleted|archived|removed|corrected|fixed))/i",
+				"/@example\\.(org|test)/i"
+			],
+			"derivation": "The invitation email used it, so the card says archived, used by 1 email; nothing is written."
+		}
+	},
+	{
+		"case_id": "ADP-M-35",
+		"extra": true,
+		"adapter": "communication/commands",
+		"operation": "communication.templates.archiveOrDelete",
+		"near_miss": true,
+		"question": "delete the General announcement template",
+		"eval": {
+			"church": "communication",
+			"attempts": ["communication.templates.archiveOrDelete"],
+			"require": ["/system|Everyfield['’]s|part of Everyfield|built[- ]in/i"],
+			"forbid": [
+				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:\\bI['’]?(ve| have)? (deleted|archived|removed|corrected|changed|updated|fixed)|(has been|have been|is now|was) (deleted|archived|removed|corrected|fixed))/i",
+				"/@example\\.(org|test)/i"
+			],
+			"derivation": "General announcement is Everyfield's own system template: refused with the reason, no review card."
+		}
+	},
+	{
+		"case_id": "ADP-M-36",
+		"extra": true,
+		"adapter": "communication/commands",
+		"operation": "communication.correctContactLog",
+		"near_miss": false,
+		"question": "the call with Alex on Tuesday was actually no answer, fix it",
+		"eval": {
+			"church": "communication",
+			"proposals": [
+				{
+					"operation": "communication.correctContactLog",
+					"input": {
+						"outcomeId": "5b6d1f0e-0000-4000-8000-0000000c3c21",
+						"outcome": "attempted_no_contact"
+					},
+					"target": "Alex Rivera",
+					"changes": [["outcome", "attempted_no_contact", "contacted"]],
+					"absent": ["occurredAt"]
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:\\bI['’]?(ve| have)? (deleted|archived|removed|corrected|changed|updated|fixed)|(has been|have been|is now|was) (deleted|archived|removed|corrected|fixed))/i",
+				"/@example\\.(org|test)/i"
+			],
+			"derivation": "Alex's Tuesday phone call is proposed as no answer; the time is not changed; nothing is written."
+		}
+	},
+	{
+		"case_id": "ADP-M-37",
+		"extra": true,
+		"adapter": "communication/commands",
+		"operation": "communication.correctContactLog",
+		"near_miss": true,
+		"question": "the call with Alex on Tuesday was actually no answer, fix it",
+		"eval": {
+			"church": "communication",
+			"as": "member",
+			"attempts": ["communication.correctContactLog", "followups.correctOutcome"],
+			"require": ["/owner|admin|you recorded|recorded (it|by you)|only correct/i"],
+			"forbid": [
+				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:\\bI['’]?(ve| have)? (deleted|archived|removed|corrected|changed|updated|fixed)|(has been|have been|is now|was) (deleted|archived|removed|corrected|fixed))/i",
+				"/@example\\.(org|test)/i"
+			],
+			"derivation": "The Owner recorded the call and it has no follow-up the Member owns: refused, no card."
+		}
 	}
 ]

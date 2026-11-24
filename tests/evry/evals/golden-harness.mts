@@ -60,17 +60,6 @@ import { INVITATION_COMMANDS } from "../../../packages/evry/src/adapters/meeting
 import { WORKFLOW_READS } from "../../../packages/evry/src/adapters/meetings/reads/workflows.ts";
 import { WIKI_COMMANDS } from "../../../packages/evry/src/adapters/wiki/commands/index.ts";
 
-export const COMMUNICATION_LATER = [
-	"communication.forMeeting",
-	"communication.meetingRecipientTracking",
-	"communication.deliveryTotals",
-	"communication.listAudienceTeams",
-	"communication.searchRecipients",
-	"mail.suppression.listForSelf",
-	"communication.templates.archiveOrDelete",
-	"communication.correctContactLog",
-];
-
 const LATER = new Set<string>([
 	...SEAT_READS.map((a) => a.operation),
 	...SHARING_READS.map((a) => a.operation),
@@ -94,7 +83,6 @@ const LATER = new Set<string>([
 	"organizationIntelligence.readLocationHistory",
 	"intelligence.readExitCriteria",
 	"intelligence.readJourney",
-	...COMMUNICATION_LATER,
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
 const SCRIPTED_ONLY = new Set(["documents.importTextOrWord"]);
@@ -506,7 +494,7 @@ export async function converse(
 				calls.push(call);
 				const resultId = ++sequence;
 				try {
-					call.result = await invokeRead(db, actor, adapter, input, null, conversationFiles);
+					call.result = pinnedAsOf(await invokeRead(db, actor, adapter, input, null, conversationFiles, MAIL));
 					return keep(resultId, call.result);
 				} catch (error) {
 					if (
@@ -605,24 +593,37 @@ export async function converse(
 	return { kind: "application", calls, proposals, answer, keys, inputs, ...(failed ? { failed } : {}) };
 }
 
+function localNow(zone: string) {
+	const part = (type: string) =>
+		new Intl.DateTimeFormat("en-US", {
+			timeZone: zone,
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+			hour: "2-digit",
+			minute: "2-digit",
+			hourCycle: "h23",
+		})
+			.formatToParts(NOW)
+			.find((p) => p.type === type)!.value;
+	return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")} ${zone}`;
+}
+
+function pinnedAsOf(result: SourceResult): SourceResult {
+	if (result.operation !== "communication.deliveryTotals") return result;
+	const rows = result.rows.map((r) => {
+		const zone = typeof r.fields.asOf === "string" ? r.fields.asOf.split(" ").at(-1) : undefined;
+		return zone?.includes("/") ? { ...r, fields: { ...r.fields, asOf: localNow(zone) } } : r;
+	});
+	return { ...result, rows };
+}
+
 function pinnedContactTime<R extends { changes: { field: string; after: unknown }[] }>(review: R, input: unknown): R {
 	if ((input as { occurred?: unknown } | null)?.occurred === undefined) return review;
 	const changes = review.changes.map((c) => {
 		const zone = c.field === "occurredAt" && typeof c.after === "string" ? c.after.split(" ").at(-1) : undefined;
 		if (!zone?.includes("/")) return c;
-		const part = (type: string) =>
-			new Intl.DateTimeFormat("en-US", {
-				timeZone: zone,
-				year: "numeric",
-				month: "2-digit",
-				day: "2-digit",
-				hour: "2-digit",
-				minute: "2-digit",
-				hourCycle: "h23",
-			})
-				.formatToParts(NOW)
-				.find((p) => p.type === type)!.value;
-		const now = `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")} ${zone}`;
+		const now = localNow(zone);
 		return String(c.after) >= now ? { ...c, after: now } : c;
 	});
 	return { ...review, changes };
