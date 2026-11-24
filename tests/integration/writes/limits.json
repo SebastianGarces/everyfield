@@ -634,8 +634,7 @@
 		"reads": "The invitation, a residency invitation's organization and Person, and the workspace root are locked in one statement. The workspace's lifecycle witness is read in the next one because workspace deletion locks the root before it writes the witness, and a statement's snapshot predates its locks (C88): read in the same statement, a witness written while this one waited on the root would be missed."
 	},
 	"identity.handle:request-password-reset": {
-		"limit": 3,
-		"reason": "A signed-out request with no seat to gate it: the attempt-budget reserve, its finish, then the outbound-mail kill switch read, which tells the waiting person when the email is delayed (T-533). Its largest first run: 2 write, 1 read."
+		"limit": 3
 	},
 	"identity.handle:reset-password": {
 		"limit": 25,
@@ -653,8 +652,7 @@
 		"reason": "Better Auth's endpoint, with no transaction of its own: the session middleware reads the session and its user twice (cookie check, then the fresh-session check), Everyfield's account read with its lifecycle check (one statement) gates it, then the user's sessions are listed, the current session is read again and the others are deleted. Its largest first run: 7 read, 1 write."
 	},
 	"identity.handle:send-verification-email": {
-		"limit": 3,
-		"reason": "A signed-out request with no seat to gate it: the attempt-budget reserve, its finish, then the outbound-mail kill switch read, which tells the waiting person when the email is delayed (T-533). Its largest first run: 2 write, 1 read."
+		"limit": 3
 	},
 	"identity.handle:sign-in/email": {
 		"limit": 8,
