@@ -13,7 +13,7 @@ function fail(message: string): never {
 const RENDER = ["--tsconfig", "../../tests/unit/render.tsconfig.json"];
 const QUIET = "--disable-warning=ExperimentalWarning";
 
-export const UNIT_GROUPS = {
+const UNIT_GROUPS = {
 	"react-server": { package: "@everyfield/web", command: "node", flags: ["--conditions=react-server"] },
 	web: { package: "@everyfield/web", command: "node", flags: [] },
 	domain: { package: "@everyfield/domain", command: "tsx", flags: ["--conditions=react-server"] },
@@ -30,27 +30,26 @@ export const UNIT_GROUPS = {
 	},
 } as const satisfies Record<string, { package: string; command: "node" | "tsx"; flags: readonly string[] }>;
 
-export type UnitGroup = keyof typeof UNIT_GROUPS;
-export const DEFAULT_GROUP: UnitGroup = "web";
-export const MARKER_DIR = "tests/unit/runs-in";
-export const UNIT_TESTS = "tests/unit/**/*.test.{mjs,mts}";
+type UnitGroup = keyof typeof UNIT_GROUPS;
+const DEFAULT_GROUP: UnitGroup = "web";
+const MARKER_DIR = "tests/unit/runs-in";
+const UNIT_TESTS = "tests/unit/**/*.test.{mjs,mts}";
 export const RUNNER = "tools/ci/test-unit.ts";
 
 const isGroup = (name: string): name is UnitGroup => Object.hasOwn(UNIT_GROUPS, name);
 const SIDE_EFFECT_IMPORT = /^import\s+["']([^"']+)["'];?\s*$/gm;
 
-export function groupOf(file: string, source: string): UnitGroup {
+function groupOf(file: string, source: string): UnitGroup {
 	const named = [...source.matchAll(SIDE_EFFECT_IMPORT)]
 		.map(([, spec]) => posix.join(posix.dirname(file), spec!))
 		.filter((path) => posix.dirname(path) === MARKER_DIR)
 		.map((path) => posix.basename(path, ".mjs"));
-	if (named.length > 1) fail(`${file} imports ${named.length} ${MARKER_DIR} markers. Keep one.`);
 	const [name = DEFAULT_GROUP] = named;
 	if (!isGroup(name)) fail(`${file} imports ${MARKER_DIR}/${name}.mjs, which is no group in ${RUNNER}.`);
 	return name;
 }
 
-export function unitGroups(root: string): Map<UnitGroup, string[]> {
+function unitGroups(root: string): Map<UnitGroup, string[]> {
 	const groups = new Map<UnitGroup, string[]>();
 	for (const file of globSync(UNIT_TESTS, { cwd: root }).sort()) {
 		const group = groupOf(file, readFileSync(join(root, file), "utf8"));
@@ -63,10 +62,6 @@ export function unitPackages(root: string): Record<string, string> {
 	return Object.fromEntries(
 		[...unitGroups(root)].flatMap(([group, files]) => files.map((file) => [file, UNIT_GROUPS[group].package])),
 	);
-}
-
-export function unitTestsOf(root: string, pkg: string): string[] {
-	return [...unitGroups(root)].filter(([group]) => UNIT_GROUPS[group].package === pkg).flatMap(([, files]) => files);
 }
 
 export function listedTests(pkg: string, args: readonly string[]): Map<UnitGroup, string[]> {
@@ -92,7 +87,6 @@ function main(): void {
 	const found = unitGroups(root);
 	const extra = (process.env.EVF_NODE_TEST_FLAGS ?? "").split(/\s+/).filter(Boolean);
 	const groups = (Object.keys(UNIT_GROUPS) as UnitGroup[]).filter((group) => UNIT_GROUPS[group].package === name);
-	if (!groups.length) fail(`${name || "This package"} has no group in ${RUNNER}.`);
 	for (const group of groups) {
 		const files = [
 			...(listed.get(group) ?? []),

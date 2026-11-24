@@ -1,7 +1,7 @@
 import { existsSync, globSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
-import { RUNNER, UnitGroupError, listedTests, unitTestsOf } from "./test-unit.ts";
+import { RUNNER, UnitGroupError, listedTests, unitPackages } from "./test-unit.ts";
 
 class CiTestsError extends Error {
 	name = "ToolError";
@@ -78,7 +78,7 @@ export function checkCiTests(root: string): void {
 				try {
 					for (const files of listedTests(pkg.name, tokens.slice(2)).values())
 						for (const file of files) run(relative(root, resolve(root, pkg.dir, file)), label);
-					for (const file of unitTestsOf(root, pkg.name)) run(file, label);
+					for (const [file, owner] of Object.entries(unitPackages(root))) if (owner === pkg.name) run(file, label);
 				} catch (error) {
 					if (error instanceof UnitGroupError) fail(error.message);
 					throw error;
