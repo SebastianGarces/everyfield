@@ -1,3 +1,4 @@
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import {
 	ASSET_SLOTS,
 	DEFAULT_BODY_FONT,
@@ -85,7 +86,7 @@ export function createFixtureBrand({
 	let data = START[kit];
 	let revision = kit === "none" ? "0" : "1";
 	const staged = new Map<string, { slot: string; byteLength: number }>();
-	const served = new Map<string, string>();
+	const served = new Map<string, AppAssetPath>();
 	const refuse = (code: BrandError["code"]): BrandReply<never> => ({
 		status: "refused",
 		error: brandError.parse({
@@ -145,7 +146,7 @@ export function createFixtureBrand({
 			if (refused) return refused;
 			const request = staged.get(uploadId);
 			if (!request || request.byteLength !== file.size) return refuse("invalid_file");
-			served.set(uploadId, URL.createObjectURL(file));
+			served.set(uploadId, URL.createObjectURL(file) as AppAssetPath);
 			return { status: "ok", value: null };
 		},
 		async finalizeUpload(raw) {
@@ -177,7 +178,7 @@ export function createFixtureBrand({
 				}),
 			};
 		},
-		assetSrc: (fileId) => served.get(fileId) ?? "",
+		assetSrc: (fileId) => served.get(fileId) ?? ("" as AppAssetPath),
 		async reset(raw) {
 			const refused = await gate("resetBrand");
 			if (refused) return refused;

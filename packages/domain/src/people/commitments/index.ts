@@ -4,6 +4,7 @@ import type { Database } from "@everyfield/db/client";
 import { and, eq, sql, type SQL } from "@everyfield/db/query";
 import {
 	createAuthorizedDownload,
+	privateObjectPath,
 	readPrivateObject,
 	signPrivatePut,
 	validateCommitment,
@@ -455,7 +456,7 @@ export async function getCommitmentDownload(db: Database, storage: PrivateStorag
 	});
 }
 
-const documentKey = (plant: string, uploadId: string) => `private/${plant}/${uploadId}`;
+const documentKey = privateObjectPath;
 const documentWriter = (ctx: PeopleContext, actorId: string, plant: string) =>
 	sql`EXISTS(SELECT FROM access_session(${ctx.session}::uuid) i JOIN seat s ON s.account_id=i.account_id
  WHERE i.account_id=${actorId}::uuid AND i.registration_state='active' AND s.plant_id=${plant}::uuid AND s.ended_at IS NULL

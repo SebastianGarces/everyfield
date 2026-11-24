@@ -2,7 +2,7 @@ import { owner, requestIdentity, type Owner } from "@everyfield/contracts/common
 import * as c from "@everyfield/contracts/people";
 import type { Database } from "@everyfield/db/client";
 import { and, sql, type SQL } from "@everyfield/db/query";
-import { readPrivateUpload, signPrivatePut, type PrivateStorage } from "@everyfield/db/schema";
+import { privateObjectPath, readPrivateUpload, signPrivatePut, type PrivateStorage } from "@everyfield/db/schema";
 import { createHash, randomUUID } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
 import "server-only";
@@ -533,7 +533,7 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 	return finished.rows.length ? "succeeded" : "lost";
 }
 
-const uploadKey = (plant: string, uploadId: string) => `private/${plant}/${uploadId}`;
+const uploadKey = privateObjectPath;
 export async function signPeopleImport(db: Database, storage: PrivateStorage, authority: RequestActor, raw: unknown) {
 	return readReply(async () => {
 		const ctx = new PeopleReadContext(authority);

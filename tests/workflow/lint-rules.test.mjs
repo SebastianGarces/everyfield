@@ -1263,6 +1263,24 @@ function history() {
 	return { dir, path, renamed, write, base };
 }
 
+test("INV-storage: only the storage module imports the object store's URL signer, in any linted file", () => {
+	const reach = `import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+export const later = () => import("@aws-sdk/s3-request-presigner");
+export const signer = getSignedUrl;
+`;
+	const files = [
+		"packages/db/src/schema/presign.ts",
+		"packages/db/scripts/presign.ts",
+		"apps/web/src/features/x/presign.ts",
+		"tests/integration/x/presign.test.mts",
+		"tools/x/presign.ts",
+	];
+	assert.deepEqual(
+		lint(Object.fromEntries([...files, "packages/db/src/schema/storage.ts"].map((path) => [path, reach]))),
+		files.flatMap((path) => [`${path}:1 storage-client`, `${path}:2 storage-client`]).sort(),
+	);
+});
+
 test("INV-storage: only the storage module reaches the object store client and its URL signer, in product code", () => {
 	const reach = `import { S3Client } from "@aws-sdk/client-s3";
 export { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -1286,6 +1304,7 @@ export const client = S3Client;
 			"packages/domain/src/documents/reach.ts:2 storage-client",
 			"packages/domain/src/documents/reach.ts:3 storage-client",
 			"packages/domain/src/documents/reach.ts:4 storage-client",
+			"tests/integration/x/reach.test.mts:2 storage-client",
 		],
 	);
 });

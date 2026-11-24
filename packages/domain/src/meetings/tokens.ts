@@ -8,13 +8,29 @@ import { plantVisible, refused, type Reader } from "./core.ts";
 import { displayTitle } from "./rows.ts";
 
 const TOKEN_DAYS = 7;
-export const rsvpTokenDigest = (token: string) => createHash("sha256").update(token).digest("hex");
+const digestOf = (text: string) => createHash("sha256").update(text).digest("hex");
+
+let reveal: (token: MintedRsvpToken) => string;
+export class MintedRsvpToken {
+	readonly #value = randomBytes(32).toString("base64url");
+	static {
+		reveal = (token) => token.#value;
+	}
+	toString(): never {
+		throw new TypeError("rsvp_token_unwrapped");
+	}
+	toJSON(): never {
+		throw new TypeError("rsvp_token_unwrapped");
+	}
+}
+export const newRsvpToken = () => new MintedRsvpToken();
+export const rsvpTokenDigest = (token: MintedRsvpToken | z.infer<typeof c.rsvpToken>) =>
+	digestOf(token instanceof MintedRsvpToken ? reveal(token) : token);
+export const rsvpLink = (origin: string, token: MintedRsvpToken) => `${origin}/rsvp/${reveal(token)}`;
 
 const ANSWERING_SQL = c.answeringStatuses.map((s) => `'${s}'`).join(", ");
 export const meetingOpenSql = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
 	sql`${sql.raw(alias)}.retired_at IS NULL AND ${sql.raw(alias)}.status IN (${sql.raw(ANSWERING_SQL)})`;
-
-export const newRsvpToken = () => randomBytes(32).toString("base64url");
 
 export function rsvpTokenUpdate(plantId: string, meetingId: string, pairs: SQLWrapper) {
 	return sql`UPDATE participation g SET rsvp_token_hash = t.token_hash,

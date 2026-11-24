@@ -1,6 +1,12 @@
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
-import { readPrivateUpload, signPrivatePut, type PrivateStorage } from "@everyfield/db/schema";
+import {
+	privateObjectPath,
+	readPrivateUpload,
+	signPrivatePut,
+	type ObjectPath,
+	type PrivateStorage,
+} from "@everyfield/db/schema";
 import { IMPORT_BYTES_MAX, IMPORT_TOO_LARGE } from "@everyfield/contracts/documents";
 import { liveRead, type WriteTx } from "@everyfield/domain/access";
 import { queueJobsFor } from "@everyfield/domain/jobs";
@@ -69,7 +75,7 @@ export async function stageAttachment(
 	const { input } = parsed.data;
 	const kind = kindOf(input.name);
 	const id = randomUUID();
-	const key = `private/${actor.owner.id}/${id}`;
+	const key = privateObjectPath(actor.owner.id, id);
 	const r = await db.execute(sql`WITH c AS (
 			SELECT c.id,c.tenant_id FROM conversation c WHERE c.id=${conversationId}::uuid AND c.account_id=${actor.accountId}::uuid
 				AND c.tenant_id=${actor.owner.id}::uuid AND ${currentAuthority(actor)}
@@ -106,7 +112,7 @@ export async function readAttachment(
 		FROM conversation c JOIN file_object f ON f.id=${attachmentId}::uuid AND f.tenant_id=c.tenant_id AND ${stagedIn("f", "c")}
 		WHERE c.id=${conversationId}::uuid AND c.account_id=${actor.accountId}::uuid AND c.tenant_id=${actor.owner.id}::uuid
 			AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined }, true)}`);
-	const row = r.rows[0] as { key: string; live: boolean } | undefined;
+	const row = r.rows[0] as { key: ObjectPath; live: boolean } | undefined;
 	if (!row) throw new EvryRefusal("attachment_elsewhere");
 	if (!row.live || !storage) throw new EvryRefusal("attachment_gone");
 	const object = await readPrivateUpload(storage, row.key, ATTACHMENTS.bytes);
@@ -125,7 +131,7 @@ export async function stagedBytes(
 	const r = await db.execute(sql`SELECT f.opaque_key AS key FROM file_object f WHERE f.id=${attachmentId}::uuid
 		AND f.tenant_id=${tenantId}::uuid AND f.purpose='assistant_staging'
 		AND f.upload_key=${uploadKey(conversationId, attachmentId)}::text AND f.state='pending' AND f.expires_at>clock_timestamp()`);
-	const key = (r.rows[0] as { key: string } | undefined)?.key;
+	const key = (r.rows[0] as { key: ObjectPath } | undefined)?.key;
 	if (!key || !storage) return null;
 	const object = await readPrivateUpload(storage, key, ATTACHMENTS.bytes);
 	return typeof object === "string" ? null : object.bytes;

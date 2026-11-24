@@ -1,5 +1,6 @@
 "use client";
 
+import type { AppAssetPath } from "@everyfield/contracts/common";
 import type { AssetSlot, HexColor } from "@everyfield/contracts/branding";
 import { Button, ConfirmDialog, Field, InlineAlert, Input } from "@everyfield/ui/controls";
 import { useRef, useState } from "react";
@@ -244,7 +245,7 @@ function Backgrounds({
 	primary,
 	neutralInk,
 }: {
-	src: string;
+	src: AppAssetPath;
 	alt: string;
 	primary: HexColor | null;
 	neutralInk: string;

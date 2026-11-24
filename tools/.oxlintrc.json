@@ -9,7 +9,8 @@
 		"everyfield/no-raw-error-log": "error",
 		"everyfield/no-effects": "error",
 		"everyfield/max-state": "error",
-		"everyfield/one-top-level-before": "error"
+		"everyfield/one-top-level-before": "error",
+		"everyfield/storage-client": "error"
 	},
 	"overrides": [
 		{
