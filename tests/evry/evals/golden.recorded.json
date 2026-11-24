@@ -1,11 +1,11 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-24T03:55:28.173Z",
+	"recordedAt": "2026-11-24T03:58:22.878Z",
 	"spend": {
-		"newCalls": 8,
-		"newMicroUsd": 39177,
-		"allCalls": 1989,
-		"allMicroUsd": 6643033
+		"newCalls": 2,
+		"newMicroUsd": 5677,
+		"allCalls": 1988,
+		"allMicroUsd": 6631828
 	},
 	"calls": {
 		"000700626987afea": {
@@ -72963,6 +72963,25 @@
 				"output": 50
 			}
 		},
+		"8e21e9b2eea20b57": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The reply is brief, clear, and neutral.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It identifies the two matching households and asks which one the user means before giving an address.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_032e5ba97f14c5a8006b050b5e43ec87d2984dd4e2255c1742",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 309,
+				"output": 104
+			}
+		},
 		"8e6af70f62202144": {
 			"kind": "generate",
 			"content": [
@@ -83161,92 +83180,6 @@
 				"output": 12
 			}
 		},
-		"a391e70fc2fd06f5": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_0048f67a8eb65701006b050aadc03c87d2bf192c7aa98830c0",
-					"timestamp": "2026-11-24T03:55:26.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "text-start",
-					"id": "msg_0048f67a8eb65701006b050aaf29f487d2bbc5d3c878383bda",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0048f67a8eb65701006b050aaf29f487d2bbc5d3c878383bda",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0048f67a8eb65701006b050aaf29f487d2bbc5d3c878383bda",
-					"delta": "There are two “Okafor household” records: the Austin household has no street address recorded, and the Leander household’s address is **77 Birch Ln, Leander**. The Leander household currently has no members listed."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_0048f67a8eb65701006b050aaf29f487d2bbc5d3c878383bda",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0048f67a8eb65701006b050aaf29f487d2bbc5d3c878383bda",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 56323,
-							"noCache": 3,
-							"cacheRead": 55682,
-							"cacheWrite": 638
-						},
-						"outputTokens": {
-							"total": 51,
-							"text": 51,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 56323,
-							"input_tokens_details": {
-								"cache_write_tokens": 638,
-								"cache_write_tokens_details": {
-									"ttl_12h_tokens": 0,
-									"ttl_30m_tokens": 638
-								},
-								"cached_tokens": 55682
-							},
-							"output_tokens": 51,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 56374
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_0048f67a8eb65701006b050aadc03c87d2bf192c7aa98830c0",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 56323,
-				"output": 51
-			}
-		},
 		"a394ad6c914cf600": {
 			"kind": "generate",
 			"content": [
@@ -87674,6 +87607,112 @@
 			"usage": {
 				"input": 225,
 				"output": 12
+			}
+		},
+		"a9df5f844386b486": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0048f67a8eb65701006b050b5a906087d2bb492a319f2713d3",
+					"timestamp": "2026-11-24T03:58:19.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0048f67a8eb65701006b050b5c4c7887d292650e9a50cf0a3d:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0048f67a8eb65701006b050b5c4c7887d292650e9a50cf0a3d",
+							"reasoningEncryptedContent": "gAAAAABrBQtc4MwGoi83OCVSDIZyDSWVJ8Wwu13BvzqlV_ADeRe_R3TMa7R6G42t07tjtwzBnnvNHI05b03HVfXQwg2trgffPeO_QIfmX7ElnkkRSZE956zExNdn8Ua0WOEgBuPKZN3bVxwCHzfxxNjKK7m4zuN3JvQsVVvrnfzHmSiRESOUlVN6FnxixhnX1M6SzMkj-N1cffXUgMOU96S3qdW0A1nvWx9j_Xw6OaMaoVhoNojFi_b87F9SUxuFqIyATqVCB7X2PDiPzDJm7u_qnZjQG8y5Ah_hd9dJLWAFhYi2bUPRgdWe_tRvBRwlqsB7fP-DOYJG3ATGgddf7RFRsqNGb32Cta1vPddCuKTX-9FjxmSvhFWFxoMJy8KoHuQIIJwYJf6JROT0JvcekyaeYresaaIzcO1kiK55zxcilXv3whoLRPyp02aevba0BPKMtInuQgDoFtwXesCkQypzcGE3cjKT5OtigfJ9CzRBjwJIXXfIOpXRWYAqQ88rIe09c1MMPxNncb1roOFPRUQyKlAtE6_MzWwIFlcQZ3f4E-M0uJNG_kBweTVEDZ7F_vfgDg79M8l0tdZjYBFtpuhnoB9ElBF6ob8CBUrp6v-LWDanWhRyviXhOaX01q8VMbOQDRXbB3-yU6sG_APfsR-dpdfNm9H5-2zRNMYLIhBBjdLeFwoX7CmDyBdIuD4o76K8mt4x4KEAyzolmYaEERQV9_2DYGnpMdc5jwLwC7HKoj_fY7O4k7HPLm8ykjKAVddQxM44VAyV8yj3GBWttHJNOqzv3AgonC_FQjltUeuCdD_mPxfNLB6a_qZc-pYo77gKjjPALd3TOv4aqP_5XDqr0Iz1oFKcP7uVJgWtNXzsDEkspn0l-al4Z6tEaVVM5hrt8hCouMocGQgQY2nbI3mKrBmIFS0dOE8Mis52xyXQTYvePPUNlmw8ZfN5OFQiLVYBwD0Pd6F8fYYtRoiB-Z4b1rL54xqLUCMA-eAMOOK6twhe7QEZ5QFR_NSmfzuU4eRYCQspESJG1qCTK0hUgC1ZcyoRMlRcErvpc3eUo-sp4GYnQqeHfvt26CoRjxvBJDy1ygDDyjGRpZAC9G2VZMF1sTywBuNAeS814tCOoqPfrkQSnu5WlTPCzbLBFhgefAnbJ1OlTKO24RT-D2BRZ5H4lBwFxgYpcedZQHukQ0UtyEYsjnA22Q9yWVwwqfCKRosf9kkBM-Z9b-pC0Mbf9hrEsA75IHmh3wQAd4NcD4DcmDod7CafENWSLCiaklkGFoex3ZU0utwCIJspUSusytyy6rEj0tz77vcQTO7K5UBdiAZqm5p0CUBICHO1efJl8WgbtjUb1VA8kF9rQuNDDcF22bGXJ5dhjARRZY4qWL8QTR3rGZXFzXU="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0048f67a8eb65701006b050b5c4c7887d292650e9a50cf0a3d:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0048f67a8eb65701006b050b5c4c7887d292650e9a50cf0a3d",
+							"reasoningEncryptedContent": "gAAAAABrBQtctPrNDAdF8b2K_cGQ0UO71CO9ySZ7gy5OKyb124lRJuLSpZ5J3zPrbVRhVlbis8sakB2hpCi4BcUFfKrSzSw9w5TpN_ff4y0SFVjs6pv_Bt9yf5o6_bRhXM0fm_QFMZB7YXsv2Kf5Z7QOnq4tRrT6_JjpL1wTHfN7NTP1CwGTB0d94_CezehKu0kT-c3IIpeKyX1sFN_IyLe4v0Z9xU8oD2O5dvV_6RJEwyzuTe7wLFyWoPO_UXLBJ4kG0UyW54hTbtzU7JMUuIKH-greBZR7GHLIqsZqNwqAWV-ZZpGE2Aksfl01bB5z0Xsu_4VFsn0r5oqoeXrqMWBUxli90dmJJuhA6hvOLlZzo6rO7G2PvKXynxMGOZ7-xHCTdLasmrvr-8jOlv2UAoEPFN0sDvPj2vKD6atcqJkaz61ZLp70yNOixi_0gCI75bU_lDM8hoXxP_5q2qPLoJNk9qEZrfl2QFdq8IBLUGOegZ8fDZm_eunVxECs62j4xgWiGRSanmImzU9QB_no24Aua5qNTujpL7sIN0dTngyDXimdQ-JV6n4kF91CuooLWYBu9Y1j2F7KZez7ZnJ5861t8jI-3S_oc_6LtEIVBfuS0kPqBsG4nrz9_0Rr7Xqgm5AHPJKsTPdnYcLsXl4cJe6XWSBPy3Iwz74V57zCiBwPCsfmE7KLAY9nxv8qkvZwH4A0pqR2SVy2mTXlEelSWNDYlMESDcCpgo6aZbiDhuoSueTFgY-aFDBG5ylIQ_UIhGv7yLLeQovlao0T0tsYf1bayTlQGWl6wtxah-mNX4S8iwzmSz_tmrmvL-QCfjuFu1bQHvQ_EYQFjjCVd42Rppq54i1tqowKPdPo72F-xUZpx9T-TBbi_6Dm4pZOzCQpJ1Tij58aUwS7Dnl0QEojdelOolkjTfrhfITbmvQmXb3SpD9usfwxckVnJ2w_6Xwjdnr3x8BdZT5f9pRk4L5NN-DcXcRXvS_xAO-t1RlL3hm4I-QDFWnVR8rNOWbOcFUcY-ka92lmGYWJBN2W2oYsdQfY7wIxnxWjlQeqBeALUFl7PwEDCX3AyuHy8dwU7zwpThDmgLsIWz3Oto--WZlrtrvBxNHc6ks4SQL_6Ywfg7FkXfIfuLeJG7JkQZcd0ws2g-V-3qqucXyAg0VLP5sL-TOJtWEF26Ve4q_ekkNKZaU71ImVJlXmKVeuPcynq60o252mQAC90u0uWqncESYdMJHN0Y4IvEaKjtd5XA2k5_UCMuqAbf4gdMeeV0QmjUpuWe-V-HKfgsuceAVNTFZwQGR-DExZ5C0JG3QElIWMzS2STkAP-jhbRdFgefn8BKaITadI5om7UCOOYgVHlbx8zkJpeboKSpSqCmDqXJWmetheZnQrfWrjfrX137bKgfyA0UeU0_Sm1giVtlCEcNAgREBw-2YQj8EoW0n7x9DsPid6LFvvmyZbZg_Ob_2BCF7B4NgrR0ypVG9EX_v3Y30cdM6_SPX57V9YXOJ8LNEljEO21LC2SUslGHfnz5gIl9O_D-Q39yRCvezLqOuexuDvqmYST3NMRxTPrB7HKGoAvBZFDkgZJMRAR8X-zq7LAhQ2eVB3MY4OL35xILbpE0xSr8LGgK4Mu-rHq-OgWFwti0oamQIjLO-FUEUToOtcw1jehW01akdvXaoES_eXDWC7ilBqQoMEoGQqcBhEI5yd9vwyIat5DT02l8G42JT1jiFOdYOnwUFk_7ZNXHwbgsCTuv7Hu-3Bu6YqrwyGoss8N-6BpJBCGogpWUW9Ovu8o7hgHGDaNIltBTJy"
+						}
+					}
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0048f67a8eb65701006b050b5c6c8087d29a8477a9392c4149",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0048f67a8eb65701006b050b5c6c8087d29a8477a9392c4149",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0048f67a8eb65701006b050b5c6c8087d29a8477a9392c4149",
+					"delta": "I found two Okafor households: one in Austin and one in Leander. Which one do you mean?"
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0048f67a8eb65701006b050b5c6c8087d29a8477a9392c4149",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0048f67a8eb65701006b050b5c6c8087d29a8477a9392c4149",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 55724,
+							"noCache": 3,
+							"cacheRead": 55421,
+							"cacheWrite": 300
+						},
+						"outputTokens": {
+							"total": 43,
+							"text": 29,
+							"reasoning": 14
+						},
+						"raw": {
+							"input_tokens": 55724,
+							"input_tokens_details": {
+								"cache_write_tokens": 300,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 300
+								},
+								"cached_tokens": 55421
+							},
+							"output_tokens": 43,
+							"output_tokens_details": {
+								"reasoning_tokens": 14
+							},
+							"total_tokens": 55767
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0048f67a8eb65701006b050b5a906087d2bb492a319f2713d3",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 55724,
+				"output": 43
 			}
 		},
 		"a9ecc86196878729": {
@@ -107701,92 +107740,6 @@
 				"output": 40
 			}
 		},
-		"d40aea76ec1a50ab": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_0493d994fff67015006b0501dca7d487d2a373303972b336a1",
-					"timestamp": "2026-11-24T03:17:49.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "text-start",
-					"id": "msg_0493d994fff67015006b0501dd4a1087d28f36b127b6f26998",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0493d994fff67015006b0501dd4a1087d28f36b127b6f26998",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0493d994fff67015006b0501dd4a1087d28f36b127b6f26998",
-					"delta": "Yes—**Mark Thompson** has the skill **Sound engineering** (advanced). The search covered all **84 people** in the church."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_0493d994fff67015006b0501dd4a1087d28f36b127b6f26998",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0493d994fff67015006b0501dd4a1087d28f36b127b6f26998",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 55395,
-							"noCache": 3,
-							"cacheRead": 55175,
-							"cacheWrite": 217
-						},
-						"outputTokens": {
-							"total": 32,
-							"text": 32,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 55395,
-							"input_tokens_details": {
-								"cached_tokens": 55175,
-								"cache_write_tokens": 217,
-								"cache_write_tokens_details": {
-									"ttl_30m_tokens": 217,
-									"ttl_12h_tokens": 0
-								}
-							},
-							"output_tokens": 32,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 55427
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_0493d994fff67015006b0501dca7d487d2a373303972b336a1",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 55395,
-				"output": 32
-			}
-		},
 		"d436d17ba8d8066f": {
 			"kind": "generate",
 			"content": [
@@ -108434,137 +108387,6 @@
 			"usage": {
 				"input": 320,
 				"output": 55
-			}
-		},
-		"d67c8d1e53b04dcd": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_0048f67a8eb65701006b050aaa085487d2944d11f711bd9aca",
-					"timestamp": "2026-11-24T03:55:22.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "reasoning-start",
-					"id": "rs_0048f67a8eb65701006b050aabb2a887d287d1a1d3e2a3887f:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_0048f67a8eb65701006b050aabb2a887d287d1a1d3e2a3887f",
-							"reasoningEncryptedContent": "gAAAAABrBQqrtJdTBzaeZXvbrO1S_uugg8jyra9wok9RcSbGT0Tg1-y20jLDReqJJbhiY3pfJfxCzOJeBkoQCWk_wg85BPYhahZZpz6Ghew1ASHXiiHUKfVT2PcgiNhTwLDM2NHJcMMttMLGl4fDZ6mAAEdRTVkNBhhoLKcVYWssqYCZ757E01nVYbGTTmrKB764t6sCQB65ZQRt2fhr7kCLdSsnkaoJfzDliZbOMi7gffz0pqOh655-GhcKx3R83bEI6AaSaD975dyAQW4qSwnV9J4hxDEMeupIKgZjjN3vk0ZKwumY6FOohwZbeyf68xzrFOV1jCxBSP3FOLdVcNV1X0LkhAXBG_Ccz0QUnHnflP_vawhb48HIabPw2ADbJEGhWM4lne4LFk_MSZkxllfjFa5Y_nu6Wf_g4Pzzfd0Gh6HKzXJcJK5WH0XfkfEhpI8tM49T1EEB2rk7sWYYjoB6wdeIm2rfVNZ-EF_miYDtt1I3JJcDVl6KF0bWF5lW67CGNr5jgF3xwmzpMnmFtflc-93tCs6GLLeTcBD1u0d0PJnlQL98nSoo9lohw4vip8jP7gkxXIkf8A5QgV7M-Y-4U8YUTJ59Mh6CSq40-vwo5CrsHizQ__MV-8WLx5rQvmCIBcl5AYiHXCRBhFKTg8K9Ql2nj7_onfMGZfw2nUgNUZDRunEWXGpKx8jrJIRwosOHi4zZXZMyrl3EjYxCJI-5JlS3EOjLDVLfp_LE_o0PykQMQm0ousPcrJ9jQhe_6uFXeu8ThJIAyjF1Z9W_4N2PJ_Mxs8ZOBkYSE6V9hjDKZmJgoSkeWCC9qA8uhP35EmwRHEYLKxm74KeCr5GxBEfuioxh9gXMhGa0xKBXoWGCa4ZPWlsbc-p_EOGYTLgDAU8HUmyoYXQ6SCScZtzcqjVocbhSX4p8SH3Da2eIbe2AIIYzrEDsQKXdFWt8phmoTLtWPim_PQx_1UUUMLvY4jzDfqX1aziwBdgK0O_hcTzwIJDHYZdggplX0eUpcUMWAVP9EhVR5-VKj4b4y6YrOxITKz5spLxziiCjgAM0g6GxLsltbY6AvEiCIFGs2BcfFW1Ur3eQdnV4t_6w2Z2qAy3J42OaVJLnvxG8A4m3SVVKksGMg3FxxULVv77KQe2RtEywY-IxRMmuOka--TDflN-86qpJ5krcq22dhh8MeaNae-VcEumPr_sjQl1R29xZ6USc_FEHbuzRQufAB9k145E7ZGzyyZvOZqkvtbuMy8H5SKkg3VB7HimoVF0-Tl2ncx1KFPWAAWeH_0-N_QsH2A9fUBlct73VaaARzgdNBQ1qNt0zBVhhsjDp37Uc3NNrBCuBE30qlMAKCZVP_6VIdReQph7rw0TqpiS0ZQeNMwBLHNZPaudP9jM="
-						}
-					}
-				},
-				{
-					"type": "reasoning-end",
-					"id": "rs_0048f67a8eb65701006b050aabb2a887d287d1a1d3e2a3887f:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_0048f67a8eb65701006b050aabb2a887d287d1a1d3e2a3887f",
-							"reasoningEncryptedContent": "gAAAAABrBQqtt6Vi7pfRJYQJ3l54v7PIeqi_8YJE_NMXUit5XdO8PHL4EyuPrCXzTht5bqvJb74CPurZ8nMVZhlbAMhERF418-ekukbTLXm2Nz73qD_R7yREPwLIPa_zFUWeGe8agE9MId4jwEnUINO_a85bm7nfej2S6hBPmQOQFzesfbMY2U6pZiAW26OmwRcu2SYk4LMpMJsn9MjM_pVlErvnbh8mfbCJ7VRbAK8X3bNGj3OBR_7kLk6_xMv1GUx0sEyhqxdN2Ch-OFKevwbXfQ9lXg_hOzEQQaowc1iJ0Ku360iLL2VF3p51HSNtVvqPxG6O2iwJVrbm_wAjIbYiFzTNq_-BZ1M8hOlC41TMw1rwXVgrzVZWdUnEJkxsjvePRDaLvw1cK4QIO7IC72KHeB4w7WtJwMjaE8C5kcdbpT9_gYNXMnpODGw1JSMrdfyZsJErGYoVAJSyPs-bY_Dzk9sVygyBWWc1mZ-ZV9S9NNmFdv5V8wXikCxafr4LUSQnAQhUfFWyUeqvKHZCgQ0L0ieccM1eIKCzKMzU1LJTsGfyxQamvPJPfqF4OPeARLLNmV5ntUFWXu62wD1tS0cSvDbXqvZ-TkxLmUVhiHPGWAsCX8tVL4nzdvu0vfRko05YhUERoqi6mElLKygNcRQQ0cGCQSL1JGrO3zJ_EQI7LRRtoUYkhe8Y57mXSie6rky91mGfuVXki6zyarfpAOMSek2hXzO59pdgRDXiyxVD76HkKQPvqxUp2Mm8aV3-CQ7JvFlamipSSgsfm4ks5VTdReU5Gtk1Gc5-h0UtLNJLDJl38B5Dr9hRgURsgOHhG1R6qADYufF_8ZIFB4YEt_2xQrg5o99mqI8vHXuBDzSOCz93_LnAufK9S-XhzZwbY8rK_wKQYPA9c6Zf2rttNKGdrvCY1uG-sDjF-xmR5JbLQCXo_IV3sjf8W-G_iru1hylIh34td_FzMMd_iTc0XodDJOPcYW6WPVAwNQWmuQE2xDX23C9TaCulrAvOY_4byAz5VHxVIN9ZG7v_hlDk9c5TwwEUJgYu3Zj0FhsfcAMjzKyofIujkSptENUmREwNWwti1KIpHgtA0Gwgwu9xys68wZQh53Qr0o2LJUEYl9gxpczS5fzrZha4_8RpYsj4dZljYOUfpDa6AgAI5Rx4O2BRaYUgsGT_WXJxThirWKHvQiJMfGibNM41m4YN6Pa9oWW--v7Mp5suuO-DISrdsUdkiqoecgYUSJqlQU8HS9gIMI7Awg-QsQ43ExIa2yJ1uCaT0CodEedUJ1MYtbhssX8fdTIOvww_w2Ve3E3-aBEEnIbOqDE9AHWp4CKjxxGgET5zVrOCi0ZUUMGrg5BnpAzjUM6Gxvm_AoU_Hfd6b804yk-r_dStSTgwFrFnN0Cq2XYq1YohpJOvdUaBa3MFMmGPCDexuVF_AAf3z2pU24iojTBntRlsqkPV3rJNELjGJ2Ud5EQ9Ghw__2yURQKJUKzHVftbAVIpMsRkbFQOBxpfYm6t-PUabeE18oFzmpNY5ClCaVk3u23coRh76iEbZT56txvLHoeI9cdYlB-LrqIOEzKq3Llkodpm4FZ4tvozqJm38rLICTbBH42m0yTgdZEVJ4_GSwIE5HNetgdSkgYwKo-S_-Ch-gvTcceDp9y-7V-PycPPGGypzvsLGRBZndXj7hfA_rcek80JOZtaF4kPfkPisze_t2YZrRDlELEa-NzfT7OUPsS-1qD3kJrAybCwzA2CFm-RcLYEkKt8SjygjGh7lZWlOuX4gYBR7fmLKsMSMx17PjxXSti7hz9obvJTbe2kIhJtKpk33zZ4jP7KfwhnP8QrCLSaCEo3FZF-lY8CRdWodtRcH1HIXp80gTeuxX6PhHtVSIjrTW4feCT-x5EnvzWC3qzTJ4LGI_rDjla1xZiJmSRskXWpC73dXEDNrwRxURrrmSjeX0QKufDjUwqzP530Cxfom9IydOPXtdhkpb_aJY2Fz6MWNs3lo1_04IaOt1t5BMOLK_0e-rn1j0NI9QAM8N8dLE75f9Mt3_qTcUNBqfEcwrMm1gI2LZfegtsclnsD1OMw1kq16SSuFm6Y2UCCU3E6XR14lgyPJZg08C5e7NNmgnlBQhWG6NChh4sw95XWF8VJqes0ovrtMpc0Kk51-oufBcb7U70rBk8OsF_EVdmaQ6rRsIGg3K_Y48y65F5WeBqQ_R8gLv4aDxLFJZsmyDEdId-TMzYBIuBLcTahOd0TrQpkdwk83RD9AgRgAzDB0WNgl7o8-xngktmZvigjaqz39Y7AA1SKLguGK2eKYskvpbEqTlpsiDciBriJaGGQWiWsqbdY8sMZMmnYHpnl28ubyVHAB2o75qkb2UjX6MMql70rqsycd0Pntj5vhV5jENIaeugWfKFszXwanXj7PWGw2TTz-RQ4-Aj9o-l5dR_qAJWOxyyadxcSQXVGkvgwRlB8oQOC-NCOlyK_izq5toJGAg-3RA-Cwj319_yDrzc84i9Wc_Cwa_fdFX_njb-Be9EXPOJvD4VV-1NU4-HmjdEGTvx0YrfWynlTnpSblYQhMgwBsAQuk5TT6ddaPZDAl4aekmXHbs9nPH9f7Gkwxe8u4tBXZg9JitmuwT6lMziCCsCUk4owtufn5_55ieTEv2EqlgMYsHcbfRIX55dxZ4-eT0NOhqmRFtwAFVv5CuBXMzW5Z9PzCJzrtcLWL_quxg=="
-						}
-					}
-				},
-				{
-					"type": "tool-input-start",
-					"id": "call_iUk7NYpVhfZUcWtOU55vbDJp",
-					"toolName": "peopleOrganization_read"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_iUk7NYpVhfZUcWtOU55vbDJp",
-					"delta": "{\"operation\":\"people.getHousehold\",\"input\":{\"householdId\":\"5b6d1f0e-0000-4000-8000-0000000000a4\"}}"
-				},
-				{
-					"type": "tool-input-end",
-					"id": "call_iUk7NYpVhfZUcWtOU55vbDJp"
-				},
-				{
-					"type": "tool-call",
-					"toolCallId": "call_iUk7NYpVhfZUcWtOU55vbDJp",
-					"toolName": "peopleOrganization_read",
-					"input": "{\"operation\":\"people.getHousehold\",\"input\":{\"householdId\":\"5b6d1f0e-0000-4000-8000-0000000000a4\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "fc_0048f67a8eb65701006b050aad0f0087d2a6c45c199c91df5d"
-						}
-					}
-				},
-				{
-					"type": "tool-input-start",
-					"id": "call_hyIdc3IN29jlZY1sqsEZ2aYb",
-					"toolName": "peopleOrganization_read"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_hyIdc3IN29jlZY1sqsEZ2aYb",
-					"delta": "{\"operation\":\"people.getHousehold\",\"input\":{\"householdId\":\"5b6d1f0e-0000-4000-8000-0000000000a9\"}}"
-				},
-				{
-					"type": "tool-input-end",
-					"id": "call_hyIdc3IN29jlZY1sqsEZ2aYb"
-				},
-				{
-					"type": "tool-call",
-					"toolCallId": "call_hyIdc3IN29jlZY1sqsEZ2aYb",
-					"toolName": "peopleOrganization_read",
-					"input": "{\"operation\":\"people.getHousehold\",\"input\":{\"householdId\":\"5b6d1f0e-0000-4000-8000-0000000000a9\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "fc_0048f67a8eb65701006b050aad0f1487d29f64e3463ce22cad"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "tool-calls"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 55685,
-							"noCache": 3,
-							"cacheRead": 55421,
-							"cacheWrite": 261
-						},
-						"outputTokens": {
-							"total": 199,
-							"text": 121,
-							"reasoning": 78
-						},
-						"raw": {
-							"input_tokens": 55685,
-							"input_tokens_details": {
-								"cache_write_tokens": 261,
-								"cache_write_tokens_details": {
-									"ttl_12h_tokens": 0,
-									"ttl_30m_tokens": 261
-								},
-								"cached_tokens": 55421
-							},
-							"output_tokens": 199,
-							"output_tokens_details": {
-								"reasoning_tokens": 78
-							},
-							"total_tokens": 55884
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_0048f67a8eb65701006b050aaa085487d2944d11f711bd9aca",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 55685,
-				"output": 199
 			}
 		},
 		"d67dbaac755f91b2": {

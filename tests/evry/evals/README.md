@@ -11,23 +11,24 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 (prompt, tools, tool choice, reasoning, output limit, response format, provider options). Every file has one shape:
 `model`, `recordedAt`, `spend` and `calls` (key to a recorded generate or stream call with its token usage).
 
-| Suite                   | Cases                                                                                                                    | What it scores                                                                              |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `golden.test.mts`       | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (319 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
-| `golden.test.mts`       | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge     |
-| `classify.test.mts`     | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                               |
-| `households.test.mts`   | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                      |
-| `followups.test.mts`    | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                         |
-| `settings.test.mts`     | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)        |
-| `onboarding.test.mts`   | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                                  |
-| `pipeline.test.mts`     | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                    |
-| `launch.test.mts`       | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                     |
-| `wiki-network.test.mts` | `wiki-network.cases.json`                                                                                                | A network's own Wiki versions: draft, change, publish and hide (scripted model)             |
-| `intelligence.test.mts` | `intelligence.cases.json`                                                                                                | Plant Intelligence reads, refresh, feedback and tasks from suggestions (scripted model)     |
-| `oversight.test.mts`    | `oversight.cases.json`                                                                                                   | An organization seat's oversight, Network Intelligence and digest settings (scripted model) |
-| `wiki-meaning.test.mts` | `wiki-meaning.cases.json`                                                                                                | `wiki.search` by meaning on fixed vectors: global and network articles (scripted model)     |
-| `task-plan.test.mts`    | `task-plan.cases.json`                                                                                                   | Phase offer, checklist import, follow-up handoff and prerequisite cards (scripted model)    |
-| `phases.test.mts`       | `phases.cases.json`                                                                                                      | Exit criteria with their readings, the journey and the phase-move review (scripted model)   |
+| Suite                    | Cases                                                                                                                    | What it scores                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `golden.test.mts`        | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (333 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades       |
+| `golden.test.mts`        | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                 | The same hard checks, plus each review card's facts and refusal; no recording, no judge     |
+| `classify.test.mts`      | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                               |
+| `households.test.mts`    | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                      |
+| `followups.test.mts`     | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                         |
+| `settings.test.mts`      | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)        |
+| `onboarding.test.mts`    | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                                  |
+| `pipeline.test.mts`      | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                    |
+| `communication.test.mts` | `communication.cases.json` (23 cases)                                                                                    | Email reads, template removal and contact log corrections (scripted model)                  |
+| `launch.test.mts`        | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                     |
+| `wiki-network.test.mts`  | `wiki-network.cases.json`                                                                                                | A network's own Wiki versions: draft, change, publish and hide (scripted model)             |
+| `intelligence.test.mts`  | `intelligence.cases.json`                                                                                                | Plant Intelligence reads, refresh, feedback and tasks from suggestions (scripted model)     |
+| `oversight.test.mts`     | `oversight.cases.json`                                                                                                   | An organization seat's oversight, Network Intelligence and digest settings (scripted model) |
+| `wiki-meaning.test.mts`  | `wiki-meaning.cases.json`                                                                                                | `wiki.search` by meaning on fixed vectors: global and network articles (scripted model)     |
+| `task-plan.test.mts`     | `task-plan.cases.json`                                                                                                   | Phase offer, checklist import, follow-up handoff and prerequisite cards (scripted model)    |
+| `phases.test.mts`        | `phases.cases.json`                                                                                                      | Exit criteria with their readings, the journey and the phase-move review (scripted model)   |
 
 ## The settings suite (scripted model)
 
@@ -59,6 +60,20 @@ read, a planned Vision Meeting, a seated Member, a crowded activity feed). Each 
 shows, through its own reads and words (`apps/web/src/features/overview/model.ts`); MON-01 and CLN-10 carry their
 golden question word for word, with its expected answer and must-not. The approved feedback is read back through Sent
 feedback's own read. The recorded suites leave these tools out too.
+
+## The communication suite and the recorded Communication cases
+
+`communication.test.mts` scores T-334's eight Communication tools (`communication.forMeeting`,
+`communication.meetingRecipientTracking`, `communication.deliveryTotals`, `communication.listAudienceTeams`,
+`communication.searchRecipients`, `mail.suppression.listForSelf` and the reviewed
+`communication.templates.archiveOrDelete` and `communication.correctContactLog`) on the scripted model
+(`packages/evry/src/runtime/scripted-mail.ts`): 23 cases, with the approved changes run and read back. Since T-597 the
+recorded suites offer the same eight tools too, and ADP-M-24 to ADP-M-37 in `adapters.cases.json` score them on the real
+model: the six reads, a Member's own read and refused audience question, each write's review card, a system template
+refused and a Member's correction refused. Those 14 cases carry `eval.church: "communication"`: they run in a second
+Hope Fellowship in the same golden run, with `seedCommunication` (`communication-church.mts`) on top, so no other case's
+facts change. The run also checks that they wrote nothing. `deliveryTotals` shows the database clock's read time, which
+the harness pins to `NOW`.
 
 ## The pipeline suite (scripted model)
 
@@ -396,12 +411,13 @@ run limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then reads
 "judge not recorded" until a recording run records its judge call.
 
-**Cost.** Recording all 285 cases on `gpt-6-luna` from scratch is 1,301 calls, about $2.17
-(`spend.allMicroUsd` in `golden.recorded.json`). The household and follow-up files are 10 calls each, under a cent
-each (their `spend`); `classify.recorded.json` holds 26 calls of about 20 millionths of a dollar each, recorded before
-token usage was kept, so its `spend` reads 0 until it is next recorded. Re-recording only the changed cases costs a
-fraction of a cent per case. A full re-record sends about 2M tokens a minute at the harness's 6 parallel cases, past
-the provider's per-minute limit: record in batches with `EVRY_EVAL_CASES`, then one full run to drop unused calls. If a run would cost more than $1, ask the owner first.
+**Cost.** Recording all 424 golden rows that run on `gpt-6-luna` from scratch is 1,988 calls, about $6.63
+(`spend.allMicroUsd` in `golden.recorded.json`; judge calls included, journey repetitions 2 and 3 not). The household
+file is 10 calls and the follow-up file 11, about $0.03 each, and `classify.recorded.json` is 32 calls, about a tenth of
+a cent (their `spend`). Re-recording only the changed cases costs about
+one to two cents per case. A full re-record sends about 2M tokens a minute at the harness's 6 parallel cases, and can
+pass the provider's per-minute limit: search the files for "Rate limit" afterwards, re-record those cases with
+`EVRY_EVAL_CASES`, then do one full run to drop unused calls. If a run would cost more than $1, ask the owner first.
 
 ### A new capability (OPS-102)
 

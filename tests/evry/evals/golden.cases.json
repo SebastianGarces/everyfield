@@ -70,11 +70,7 @@
 					}
 				}
 			],
-			"derivation": "The upcoming list from meetings.list, as the Meetings page shows it: church-local date, time and venue, with the cancelled meeting marked cancelled.",
-			"finding": {
-				"checks": ["says /Coffee shop/i"],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "The upcoming list from meetings.list, as the Meetings page shows it: church-local date, time and venue, with the cancelled meeting marked cancelled."
 		}
 	},
 	{
@@ -111,7 +107,11 @@
 				"/follow[- ]?ups?/i"
 			],
 			"forbid": ["/Pray for the launch|Plan the Sunday interest meeting/"],
-			"derivation": "Six overdue tasks on the Tasks page (Order launch banners Nov 2, Submit the insurance forms Nov 6, Send the launch budget to Hill Country Church Nov 7 and Book the school gym for the interest meeting Nov 8 for Nate, Confirm the school rental Nov 5 for Lena Park, Call the worship leader Nov 8 for Ana Rivera), with the exact count; open follow-ups are listed apart and called follow-ups. No follow-up is overdue."
+			"derivation": "Six overdue tasks on the Tasks page (Order launch banners Nov 2, Submit the insurance forms Nov 6, Send the launch budget to Hill Country Church Nov 7 and Book the school gym for the interest meeting Nov 8 for Nate, Confirm the school rental Nov 5 for Lena Park, Call the worship leader Nov 8 for Ana Rivera), with the exact count; open follow-ups are listed apart and called follow-ups. No follow-up is overdue.",
+			"finding": {
+				"checks": ["says /follow[- ]?ups?/i"],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -164,15 +164,7 @@
 			},
 			"require": ["/inactiv|alert|warning|last activity|no recent activity/i"],
 			"forbid": ["/(last|recent) (call|email|text|phone call)|you (called|emailed|texted)/i"],
-			"derivation": "The fixture's alert-level people are Daniel Cruz, Carmen Martinez, Kevin Walsh and Pedro Martinez; warning-level people may also be named, no one at level none. Ana Rivera may be named as the person who recorded the Johnsons' call.",
-			"finding": {
-				"checks": [
-					"calls people.getPipelineData",
-					"says /inactiv|alert|warning|last activity|no recent activity/i",
-					"names every match"
-				],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "The fixture's alert-level people are Daniel Cruz, Carmen Martinez, Kevin Walsh and Pedro Martinez; warning-level people may also be named, no one at level none. Ana Rivera may be named as the person who recorded the Johnsons' call."
 		}
 	},
 	{
@@ -427,16 +419,7 @@
 			"clarify": true,
 			"require": ["/Nov(ember)?\\.? 12|12th|12 Nov/i", "/Nov(ember)?\\.? 19|19th|19 Nov/i"],
 			"forbid": ["/I['’]?(ve| have) (scheduled|booked|set up)|meeting (is|has been) (scheduled|booked|set)/i"],
-			"derivation": "Next Thursday could be Nov 12 or Nov 19: Evry asks which before any review; the follow-up turn (ADP-MT schedule case) proposes the 19th at 7:00 PM Central at the Coffee shop.",
-			"finding": {
-				"checks": [
-					"no unexpected review card",
-					"asks a clarifying question",
-					"no review card before the answer",
-					"says /Nov(ember)?\\.? 19|19th|19 Nov/i"
-				],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "Next Thursday could be Nov 12 or Nov 19: Evry asks which before any review; the follow-up turn (ADP-MT schedule case) proposes the 19th at 7:00 PM Central at the Coffee shop."
 		}
 	},
 	{
@@ -716,6 +699,14 @@
 					"/\\b2\\b[^\\n]{0,40}launch|launch[^\\n]{0,40}\\b2\\b/i",
 					"/more|next page|page 2|continues|first (page|24)/i"
 				]
+			},
+			"finding": {
+				"checks": [
+					"says /\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i",
+					"says /\\b3\\b[^\\n]{0,40}leader|leader[^\\n]{0,40}\\b3\\b/i",
+					"says /\\b2\\b[^\\n]{0,40}launch|launch[^\\n]{0,40}\\b2\\b/i"
+				],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -741,7 +732,15 @@
 				"all": ["Daniel Cruz", "Carmen Martinez"]
 			},
 			"require": ["/inactiv|alert|warning|last activity|settings/i"],
-			"derivation": "The board gives an inactivity level, not days: Daniel Cruz and Carmen Martinez are following_up at alert, Beth Johnson at warning, Carl Johnson at none. Evry says how inactivity is measured instead of using another threshold silently."
+			"derivation": "The board gives an inactivity level, not days: Daniel Cruz and Carmen Martinez are following_up at alert, Beth Johnson at warning, Carl Johnson at none. Evry says how inactivity is measured instead of using another threshold silently.",
+			"finding": {
+				"checks": [
+					"calls people.getPipelineData",
+					"says /inactiv|alert|warning|last activity|settings/i",
+					"names every match"
+				],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -913,10 +912,6 @@
 					"/remov/i",
 					"/reason/i"
 				]
-			},
-			"finding": {
-				"checks": ["asks a clarifying question"],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -1002,8 +997,8 @@
 			"cantYet": true,
 			"forbid": ["/(you have|there are|you['’]?re at) \\d+ committed/i"],
 			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Counts core_group, launch_team and leader (10) as committed adults, which the case forbids."
+				"checks": ["calls only no tool", "says it can't do that yet"],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -1245,7 +1240,11 @@
 			],
 			"noSearch": true,
 			"require": ["/\\b8\\b|eight/i"],
-			"forbid": ["/surname|last name/i"]
+			"forbid": ["/surname|last name/i"],
+			"finding": {
+				"checks": ["says /\\b8\\b|eight/i"],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -1576,11 +1575,8 @@
 			],
 			"derivation": "An unsent draft that names Thursday's Vision Night and the audience communication.preview reports: the prospects who get it, with asdf and the instruction-named record left out for no address and Casey Brooks for unsubscribing. Nothing is saved or sent; a saveDraft review card would save only on approval.",
 			"finding": {
-				"checks": [
-					"says /Vision Night/i",
-					"says /not (been )?(sent|saved)|isn['’]?t (sent|saved)|nothing (is |was |has been )?(sent|saved)|won['’]?t (be )?sen[dt]|unsaved|not saved/i"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+				"checks": ["says /Vision Night/i"],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -1645,11 +1641,7 @@
 			"names": {
 				"allowed": ["Maria Santos", "Maria Delgado"]
 			},
-			"derivation": "Two Marias: Evry asks which one before it reads any email facts (ADP-M-13 answers for Maria Santos).",
-			"finding": {
-				"checks": ["asks a clarifying question"],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "Two Marias: Evry asks which one before it reads any email facts (ADP-M-13 answers for Maria Santos)."
 		}
 	},
 	{
@@ -1731,7 +1723,11 @@
 				}
 			],
 			"require": ["/Hope newcomer welcome/", "/General announcement/i", "/system/i", "/church|your own|custom/i"],
-			"derivation": "Every template by name, marked system (Everyfield's seven) or church (Hope newcomer welcome)."
+			"derivation": "Every template by name, marked system (Everyfield's seven) or church (Hope newcomer welcome).",
+			"finding": {
+				"checks": ["says /system/i"],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{

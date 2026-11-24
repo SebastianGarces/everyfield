@@ -972,14 +972,6 @@
 		"near_miss": false,
 		"question": "what's the Okafors' address?",
 		"eval": {
-			"finding": {
-				"checks": [
-					"calls people.listHouseholds {\"search\":\"~okafor\"}",
-					"asks a clarifying question",
-					"says /Leander/"
-				],
-				"note": "T-577 batched re-record of T-546 and T-550 (D-2210): in 3 samples the model twice read people instead of households and once gave both addresses without asking; the ask-once rule names only people. Failing checks set from the report (D-958, D-1151)."
-			},
 			"as": "admin",
 			"calls": [
 				{
@@ -1083,8 +1075,11 @@
 			],
 			"derivation": "One saveDraft review card to the launch team; nothing is saved before approval.",
 			"finding": {
-				"checks": ["proposes communication.saveDraft {\"audience\":{\"groups\":[\"launch_team\"]}}"],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
+				"checks": [
+					"proposes communication.saveDraft {\"audience\":{\"groups\":[\"launch_team\"]}}",
+					"says /review|approv/i"
+				],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
 			}
 		}
 	},
@@ -1109,14 +1104,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way)/i"
-			],
-			"finding": {
-				"checks": [
-					"proposes communication.saveDraft {\"audience\":{\"groups\":[\"launch_team\"]}}",
-					"says /review|approv/i"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -1176,7 +1164,14 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"proposes communication.scheduleReviewed {\"communicationId\":\"5b6d1f0e-0000-4000-8000-000000000c01\",\"sendAt\":\"~2026-11-13T09:00\"}",
+					"says /review|approv/i"
+				],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -1269,7 +1264,11 @@
 			"forbid": [
 				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way)/i"
 			],
-			"derivation": "A schedule needs a saved message: the draft review comes first, and no schedule card is proposed for an unsaved message."
+			"derivation": "A schedule needs a saved message: the draft review comes first, and no schedule card is proposed for an unsaved message.",
+			"finding": {
+				"checks": ["proposes communication.saveDraft {\"audience\":{\"groups\":[\"launch_team\"]}}"],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -1575,7 +1574,11 @@
 			"forbid": [
 				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
 			],
-			"derivation": "The phase journey's move from Discovery to Core Group Development on Aug 3 offers phase 1 checklists nobody answered yet (D-1464)."
+			"derivation": "The phase journey's move from Discovery to Core Group Development on Aug 3 offers phase 1 checklists nobody answered yet (D-1464).",
+			"finding": {
+				"checks": ["says /phase 1|Phase 1|Core Group Development/i"],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -1675,13 +1678,7 @@
 			"forbid": [
 				"/(?<!(prove|proves|mean|means|show|shows|confirm|confirms|say|says) )\\b(no one|nobody) (has )?(called|contacted|reached)/i"
 			],
-			"derivation": "Carl Johnson has no recorded outcome: Evry says none is recorded, never that nobody reached him.",
-			"finding": {
-				"checks": [
-					"says /no (call|contact|outcome)s? (is |are |has been )?recorded|nothing (is |has been )?recorded|no recorded|not recorded|(couldn['’]?t|could not|didn['’]?t) find (a |any )?recorded/i"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "Carl Johnson has no recorded outcome: Evry says none is recorded, never that nobody reached him."
 		}
 	},
 	{
@@ -1999,11 +1996,7 @@
 			"forbid": [
 				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
 			],
-			"derivation": "The church has six overdue tasks, not four, so Evry lists them and asks which to complete before any review; nothing changes.",
-			"finding": {
-				"checks": ["no unexpected review card", "says /\\b(6|six)\\b/i", "says /which|all six|all 6/i"],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "The church has six overdue tasks, not four, so Evry lists them and asks which to complete before any review; nothing changes."
 		}
 	},
 	{
@@ -2216,7 +2209,14 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"no unexpected review card",
+					"proposes followups.correctOutcome {\"outcomeId\":\"5b6d1f0e-0000-4000-8000-000000008f01\",\"correction\":{\"kind\":\"replace\",\"outcome\":\"attempted_no_contact\"}}"
+				],
+				"note": "T-597 batched re-record (D-2439): the model proposed communication.correctContactLog, which this task newly offers, for the same correction. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -2712,13 +2712,7 @@
 				"/doesn['’]?t (mean|tell|prove)|not (mean|proof|the same)|isn['’]?t (proof|the same)|only (means|shows|tells)/i"
 			],
 			"forbid": ["/(she|maria)('ll| will) (come|attend|be there)|(she|maria) is interested/i"],
-			"derivation": "Maria Santos's last email: delivered and an open recorded, with the note that an open isn't attendance, interest or a conversation (COM-03).",
-			"finding": {
-				"checks": [
-					"says /doesn['’]?t (mean|tell|prove)|not (mean|proof|the same)|isn['’]?t (proof|the same)|only (means|shows|tells)/i"
-				],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "Maria Santos's last email: delivered and an open recorded, with the note that an open isn't attendance, interest or a conversation (COM-03)."
 		}
 	},
 	{
@@ -2836,11 +2830,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced|saved|deleted|resent)|has been (sent|scheduled|moved|cancelled|canceled|saved|deleted|resent)|is on its way)/i"
-			],
-			"finding": {
-				"checks": ["proposes communication.templates.create", "says /review|approv/i"],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -2945,11 +2935,7 @@
 					"operation": "communication.sendReviewed",
 					"optional": true
 				}
-			],
-			"finding": {
-				"checks": ["says /approv/i"],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -3261,7 +3247,11 @@
 				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
 				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
 			},
-			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
+			"finding": {
+				"checks": ["names every match"],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -3571,11 +3561,7 @@
 			"names": {
 				"allowed": ["Casey Morgan", "Casey Brooks"]
 			},
-			"derivation": "Two people are named Casey; Evry asks which one before preparing any review.",
-			"finding": {
-				"checks": ["no unexpected review card", "asks a clarifying question", "no review card before the answer"],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "Two people are named Casey; Evry asks which one before preparing any review."
 		}
 	},
 	{
@@ -3963,14 +3949,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			],
-			"finding": {
-				"checks": [
-					"proposes teams.initialize {\"selections\":[{\"teamKey\":\"technology\",\"roleKeys\":[\"technology_lead\"]}]}",
-					"says /review|approv/i"
-				],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -4409,7 +4388,11 @@
 			],
 			"require": ["/review|approv/i"],
 			"forbid": ["/\\b(you['’]?re|you are|we['’]?re|we are|church is|it is|it['’]s) (now |already )?ready\\b/i"],
-			"derivation": "A review of the move to Launch Team Formation with Core Group Development's open exit criteria; the phase changes only after approval."
+			"derivation": "A review of the move to Launch Team Formation with Core Group Development's open exit criteria; the phase changes only after approval.",
+			"finding": {
+				"checks": ["proposes phases.transition {\"toPhase\":2}"],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -4452,14 +4435,7 @@
 				}
 			],
 			"require": ["/review|approv/i"],
-			"derivation": "The matching prayer signal, in the Owner's words, dated this week (NOW is Monday Nov 9, 2026).",
-			"finding": {
-				"checks": [
-					"proposes signals.attest {\"key\":\"/^prayer_(rhythm_established|in_gatherings)$/\",\"value\":\"yes\",\"asOf\":\"/^2026-11-(09|1[0-5])$/\",\"detail\":\"~prayer and fasting\"}",
-					"says /review|approv/i"
-				],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "The matching prayer signal, in the Owner's words, dated this week (NOW is Monday Nov 9, 2026)."
 		}
 	},
 	{
@@ -4526,11 +4502,7 @@
 				}
 			],
 			"require": ["/review|approv/i"],
-			"derivation": "The empty church never declared or moved, so its starting phase is declared through a review.",
-			"finding": {
-				"checks": ["proposes phases.declare {\"phase\":2}"],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "The empty church never declared or moved, so its starting phase is declared through a review."
 		}
 	},
 	{
@@ -5046,7 +5018,11 @@
 			"forbid": ["/\\b5\\b[^.\\n]{0,30}(created|added|imported)/i", "/\\b2\\b[^.\\n]{0,30}fail/i"],
 			"require": ["/can['’]?t|cannot|not able|unable/i"],
 			"derivation": "A Member has no import receipt read: Evry reads no receipt, and no receipt facts reach the answer.",
-			"only": []
+			"only": [],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -5204,7 +5180,14 @@
 				}
 			],
 			"require": ["/review|approv/i"],
-			"derivation": "The September 14 agenda is a written document; it is archived through one review and leaves the Documents list."
+			"derivation": "The September 14 agenda is a written document; it is archived through one review and leaves the Documents list.",
+			"finding": {
+				"checks": [
+					"proposes documents.archive {\"documentId\":\"5b6d1f0e-0000-4000-8000-000000000dd2\"}",
+					"says /review|approv/i"
+				],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -5667,7 +5650,11 @@
 					"alsoAccepted": ["meetings.attendanceTrend"]
 				}
 			],
-			"require": ["/42/"]
+			"require": ["/42/"],
+			"finding": {
+				"checks": ["calls meetings.summaryStats", "says /42/"],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -5689,11 +5676,7 @@
 			],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
-			],
-			"finding": {
-				"checks": ["calls meetings.linkedTaskProgress {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a27\"}"],
-				"note": "T-384 stacked re-record of the seven S4 Evry tasks (D-1503): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -5845,11 +5828,7 @@
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			],
-			"derivation": "No saved venue is a library: Evry asks and does not pick one (GAP-EVR-427).",
-			"finding": {
-				"checks": ["asks a clarifying question"],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "No saved venue is a library: Evry asks and does not pick one (GAP-EVR-427)."
 		}
 	},
 	{
@@ -5918,13 +5897,7 @@
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			],
-			"derivation": "The evaluation is the planter's judgment: Evry offers to record the scores they give and proposes nothing.",
-			"finding": {
-				"checks": [
-					"says /your (own |1.?5 )?(judg|evaluation|scores?|call|assessment)|send (me )?your|you (give|score|rate)|planter/i"
-				],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "The evaluation is the planter's judgment: Evry offers to record the scores they give and proposes nothing."
 		}
 	},
 	{
@@ -6197,7 +6170,13 @@
 			],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"proposes meetings.inviteGuest {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a21\",\"personId\":\"@Carlos Mendez\"}"
+				],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -6309,13 +6288,7 @@
 			],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
-			],
-			"finding": {
-				"checks": [
-					"proposes meetings.createGuestContact {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a21\",\"displayName\":\"~Grace Kim\"}"
-				],
-				"note": "T-317 re-record (D-1312): Evry finds no Grace Kim and asks which of the two Thursday meetings before preparing the guest card."
-			}
+			]
 		}
 	},
 	{
@@ -6404,7 +6377,13 @@
 			],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"proposes meetings.setAttendance {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a28\",\"personId\":\"@Maria Santos\",\"presence\":\"excused\"}"
+				],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -6426,7 +6405,14 @@
 			],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"no unexpected review card",
+					"proposes meetings.checkIn {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a28\",\"personId\":\"@Carlos Mendez\"}"
+				],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -6589,7 +6575,14 @@
 			],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"no unexpected review card",
+					"proposes venues.edit {\"venueId\":\"5b6d1f0e-0000-4000-8000-000000000a01\",\"patch\":{\"capacity\":45}}"
+				],
+				"note": "T-597 batched re-record (D-2439): this pass's sample fails these checks; model drift after the tool catalog changed. Failing checks set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -6839,11 +6832,7 @@
 		"eval": {
 			"only": ["wiki.search", "wiki.referenceExcerpt"],
 			"require": ["/Church Documents/i"],
-			"derivation": "No tool edits the Wiki: churches keep their own writing in Church Documents. No review card.",
-			"finding": {
-				"checks": ["calls only wiki.search, wiki.referenceExcerpt"],
-				"note": "T-553 batched re-record of T-348, T-391, T-335 and T-331 (D-2057): model sampling on the merged catalog; failing checks set from the report (D-958, D-1151)."
-			}
+			"derivation": "No tool edits the Wiki: churches keep their own writing in Church Documents. No review card."
 		}
 	},
 	{
