@@ -33,7 +33,10 @@ const EXEMPT = {
 			["performance.now", "const start = performance.now();"],
 			["performance.now", "row[kind] = performance.now() - start;"],
 			["performance.now", "const deadline = performance.now() + 15000;"],
-			["clock loop", "while ((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0]!.n === before) {"],
+			[
+				"clock loop",
+				"while ((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0]!.n === before) {",
+			],
 			[
 				"performance.now",
 				'assert.ok(performance.now() < deadline, "post-response proof mail must reach the real outbox");',
