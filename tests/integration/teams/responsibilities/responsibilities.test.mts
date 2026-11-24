@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
-import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
+import { sql, type SQL } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
+import { digest, tenantId } from "../../../../packages/contracts/src/common/index.ts";
+import type { TeamsReply } from "../../../../packages/contracts/src/teams/index.ts";
+import { RequestActor, type WriteTx } from "../../../../packages/domain/src/access/session.ts";
 import {
 	responsibilityReader,
 	responsibilityWriter,
@@ -33,39 +35,57 @@ const actors = [
 	await database.actor({ kind: "plant", id: Q }, "admin"),
 ];
 const releaseId = randomUUID();
-const itemIds = new Map();
+const itemIds = new Map<string, string>();
 const freeze = JSON.parse(
 	readFileSync(new URL("../../../../packages/reference/src/freeze.json", import.meta.url), "utf8"),
 );
 const referenceKeys = [...new Set(Object.values(REFERENCE_TEAM_KEY))];
-const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: who === 3 ? Q : P } });
-const tx = (body) => gatedTransaction(db, body);
-const run = (op, input, who = 0) => tx((t) => op(t, ctx(who), input));
+const ctx = (who = 0) => ({
+	session: actors[who]!.session,
+	selected: { kind: "plant" as const, id: tenantId.parse(who === 3 ? Q : P) },
+});
+type Context = ReturnType<typeof ctx>;
+const tx = <V,>(body: (t: WriteTx) => Promise<V>) => gatedTransaction(db, body);
+const run = <V,>(op: (t: WriteTx, context: Context, raw: unknown) => Promise<V>, input: unknown, who = 0) =>
+	tx((t) => op(t, ctx(who), input));
+type Write = (t: WriteTx, context: Context, raw: unknown) => Promise<TeamsReply<unknown>>;
 const key = () => randomUUID();
 const viewer = async (who = 0) => {
-	const actor = await RequestActor.resolve(db, actors[who].session);
-	assert.equal(actor.status, "active");
+	const actor = await RequestActor.resolve(db, actors[who]!.session);
+	assert.ok(actor instanceof RequestActor);
 	return actor;
 };
-const count = async (query) => Number((await admin.execute(query)).rows[0].n);
-const linesOf = async (teamId) =>
+const count = async (query: SQL) => Number((await admin.execute(query)).rows[0]!.n);
+const linesOf = async (teamId: string) =>
 	(
-		await admin.execute(sql`SELECT id, source_line, text, (removed_at IS NOT NULL) AS removed,
+		await admin.execute<{
+			id: string;
+			source_line: string;
+			text: string;
+			removed: boolean;
+			completed_on: string | null;
+			revision: string;
+		}>(sql`SELECT id, source_line, text, (removed_at IS NOT NULL) AS removed,
 			completed_on::text AS completed_on, revision::text AS revision
 			FROM responsibility WHERE team_id=${teamId} ORDER BY sort_order, source_line`)
 	).rows;
-const offerOf = async (teamId) =>
+const offerOf = async (teamId: string) =>
 	(
-		await admin.execute(sql`SELECT responsibility_offer AS offer, responsibility_offer_version_id::text AS version,
+		await admin.execute<{
+			offer: string;
+			version: string | null;
+			revision: string;
+		}>(sql`SELECT responsibility_offer AS offer, responsibility_offer_version_id::text AS version,
 			revision::text AS revision FROM team WHERE id=${teamId}`)
-	).rows[0];
-const audits = (requestKey) => count(sql`SELECT count(*)::int AS n FROM audit_event WHERE request_key=${requestKey}`);
-const phase = async () => Number((await admin.execute(sql`SELECT phase FROM plant WHERE id=${P}`)).rows[0].phase);
+	).rows[0]!;
+const audits = (requestKey: string) =>
+	count(sql`SELECT count(*)::int AS n FROM audit_event WHERE request_key=${requestKey}`);
+const phase = async () => Number((await admin.execute(sql`SELECT phase FROM plant WHERE id=${P}`)).rows[0]!.phase);
 const marks = async () => ({
 	rows: await count(sql`SELECT count(*)::int AS n FROM responsibility`),
 	audits: await count(sql`SELECT count(*)::int AS n FROM audit_event`),
 });
-async function expectedLines(referenceKey) {
+async function expectedLines(referenceKey: string) {
 	const described = await playbookTeam(referenceKey);
 	if (typeof described.description !== "string" || described.description.length === 0) {
 		throw new Error("missing catalog team " + referenceKey);
@@ -79,25 +99,31 @@ async function expectedLines(referenceKey) {
 			return { key: line, text: line, sortOrder: index + 1 };
 		});
 }
-function flipHex(value) {
+function flipHex(value: string) {
 	const last = value.at(-1);
 	return value.slice(0, -1) + (last === "0" ? "1" : "0");
 }
 
-async function person(name, account) {
+async function person(name: string, account: string) {
 	const id = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,
 		pipeline_position,state,created_at,linked_account_id) VALUES(${id},${P},${P},${name},'other','launch_team','unknown','unknown',0,'live',clock_timestamp(),${account})`);
 	return id;
 }
-async function makeTemplateTeam(name, templateKey) {
+async function makeTemplateTeam(name: string, templateKey: string | null) {
 	const team = ok(await run(teamsWriter.create, { requestKey: key(), input: { name } })).team;
 	if (templateKey) {
 		await admin.execute(sql`UPDATE team SET template_key=${templateKey} WHERE id=${team.id}`);
 	}
 	return team;
 }
-async function offerInput(teamId, decision, selected, revision, requestKey = key()) {
+async function offerInput(
+	teamId: string,
+	decision: "accept" | "decline",
+	selected: string[],
+	revision: string,
+	requestKey = key(),
+) {
 	const preview = ok(await responsibilityReader.previewResponsibilities(db, await viewer(), { teamId }));
 	return {
 		requestKey,
@@ -111,7 +137,7 @@ async function offerInput(teamId, decision, selected, revision, requestKey = key
 		},
 	};
 }
-async function addVersion(referenceKey) {
+async function addVersion(referenceKey: string) {
 	const itemId = itemIds.get(referenceKey);
 	const version = randomUUID();
 	const token = randomUUID().replaceAll("-", "");
@@ -120,7 +146,7 @@ async function addVersion(referenceKey) {
 			await admin.execute(
 				sql`SELECT coalesce(max(version_number), 0) + 1 AS n FROM reference_version WHERE item_id=${itemId}`,
 			)
-		).rows[0].n,
+		).rows[0]!.n,
 	);
 	await admin.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
 		VALUES(${version},${itemId},${releaseId},${number},'lines',${token},'test')`);
@@ -176,15 +202,15 @@ test("AC:B01-028 preview stores nothing and one selected line stays the only act
 	);
 	assert.deepEqual(await marks(), beforeRead);
 
-	const staleVersion = await offerInput(team.id, "accept", [lines[0].key], team.revision);
+	const staleVersion = await offerInput(team.id, "accept", [lines[0]!.key], team.revision);
 	staleVersion.input.expectedVersion = flipHex(staleVersion.input.expectedVersion);
 	refused(await run(responsibilityWriter.offerResponsibilities, staleVersion), "stale_template_version");
-	const staleDigest = await offerInput(team.id, "accept", [lines[0].key], team.revision);
-	staleDigest.input.reviewDigest = flipHex(staleDigest.input.reviewDigest);
+	const staleDigest = await offerInput(team.id, "accept", [lines[0]!.key], team.revision);
+	staleDigest.input.reviewDigest = digest.parse(flipHex(staleDigest.input.reviewDigest));
 	refused(await run(responsibilityWriter.offerResponsibilities, staleDigest), "stale_review");
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${team.id}`), 0);
 
-	const input = await offerInput(team.id, "accept", [lines[0].key], team.revision);
+	const input = await offerInput(team.id, "accept", [lines[0]!.key], team.revision);
 	const accepted = ok(await run(responsibilityWriter.offerResponsibilities, input));
 	assert.equal(accepted.outcome, "changed");
 	assert.equal(accepted.decision, "accept");
@@ -197,13 +223,13 @@ test("AC:B01-028 preview stores nothing and one selected line stays the only act
 	assert.equal(stored.filter((row) => row.removed).length, lines.length - 1);
 	assert.deepEqual(
 		stored.filter((row) => !row.removed).map((row) => row.source_line),
-		[lines[0].key],
+		[lines[0]!.key],
 	);
 	const page = ok(await responsibilityReader.listResponsibilities(db, await viewer(), { teamId: team.id }));
 	assert.equal(page.offer, "accepted");
 	assert.equal(page.items.length, 1);
-	assert.equal(page.items[0].sourceLine, lines[0].key);
-	assert.equal(page.items[0].text, lines[0].text);
+	assert.equal(page.items[0]!.sourceLine, lines[0]!.key);
+	assert.equal(page.items[0]!.text, lines[0]!.text);
 	const again = await offerInput(
 		team.id,
 		"accept",
@@ -260,8 +286,8 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 			.join(),
 	);
 
-	const first = stored.find((row) => row.source_line === worship[0].key);
-	const second = stored.find((row) => row.source_line === worship[1].key);
+	const first = stored.find((row) => row.source_line === worship[0]!.key)!;
+	const second = stored.find((row) => row.source_line === worship[1]!.key)!;
 	const removed = ok(
 		await run(responsibilityWriter.deleteResponsibility, {
 			requestKey: key(),
@@ -270,7 +296,7 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 		}),
 	);
 	assert.equal(removed.outcome, "changed");
-	assert.equal((await linesOf(team.id)).find((row) => row.id === first.id).removed, true);
+	assert.equal((await linesOf(team.id)).find((row) => row.id === first.id)!.removed, true);
 	const edited = ok(
 		await run(responsibilityWriter.editResponsibility, {
 			requestKey: key(),
@@ -296,9 +322,9 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 		}),
 		"conflict",
 	);
-	assert.equal((await linesOf(team.id)).find((row) => row.id === second.id).text, "Follow up within two days");
+	assert.equal((await linesOf(team.id)).find((row) => row.id === second.id)!.text, "Follow up within two days");
 	const today = (await admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text AS d`))
-		.rows[0].d;
+		.rows[0]!.d;
 	const tickInput = {
 		requestKey: key(),
 		expectedRevision: edited.revision,
@@ -306,7 +332,7 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 	};
 	const ticked = ok(await run(responsibilityWriter.completeResponsibility, tickInput));
 	assert.equal(ticked.completedOn, today);
-	assert.equal((await linesOf(team.id)).find((row) => row.id === second.id).completed_on, today);
+	assert.equal((await linesOf(team.id)).find((row) => row.id === second.id)!.completed_on, today);
 	const tickReplay = ok(await run(responsibilityWriter.completeResponsibility, tickInput));
 	assert.equal(tickReplay.receiptId, ticked.receiptId);
 	assert.equal(await audits(tickInput.requestKey), 1);
@@ -327,7 +353,7 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 		}),
 	);
 	assert.equal(cleared.completedOn, null);
-	assert.equal((await linesOf(team.id)).find((row) => row.id === second.id).completed_on, null);
+	assert.equal((await linesOf(team.id)).find((row) => row.id === second.id)!.completed_on, null);
 	const tickedAgain = ok(
 		await run(responsibilityWriter.completeResponsibility, {
 			requestKey: key(),
@@ -344,7 +370,7 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 		}),
 	);
 	assert.equal(added.sourceLine, `custom:${added.id}`);
-	assert.equal(added.revision, (await linesOf(team.id)).find((row) => row.id === added.id).revision);
+	assert.equal(added.revision, (await linesOf(team.id)).find((row) => row.id === added.id)!.revision);
 	const columnDefault = (
 		await admin.execute(sql`SELECT pg_get_expr(d.adbin, d.adrelid) AS value
 			FROM pg_attribute a
@@ -352,14 +378,14 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 			JOIN pg_namespace n ON n.oid = c.relnamespace
 			LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
 			WHERE c.relname = 'responsibility' AND a.attname = 'revision' AND n.nspname = current_schema()`)
-	).rows[0].value;
+	).rows[0]!.value;
 	assert.equal(added.revision, columnDefault);
-	assert.equal((await linesOf(team.id)).find((row) => row.id === added.id).removed, false);
+	assert.equal((await linesOf(team.id)).find((row) => row.id === added.id)!.removed, false);
 	assert.equal(await phase(), started);
 
 	const facilities = await expectedLines("facilities");
 	const declinedTeam = await makeTemplateTeam("Passed", "facilities");
-	const declinedInput = await offerInput(declinedTeam.id, "decline", [facilities[0].key], declinedTeam.revision);
+	const declinedInput = await offerInput(declinedTeam.id, "decline", [facilities[0]!.key], declinedTeam.revision);
 	const declined = ok(await run(responsibilityWriter.offerResponsibilities, declinedInput));
 	assert.equal(declined.decision, "decline");
 	assert.equal((await linesOf(declinedTeam.id)).filter((row) => !row.removed).length, 0);
@@ -405,10 +431,10 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 	assert.deepEqual(moved.createdIds, []);
 	assert.equal((await offerOf(team.id)).version, worshipVersion);
 	stored = await linesOf(team.id);
-	assert.equal(stored.find((row) => row.id === second.id).text, "Follow up within two days");
-	assert.equal(stored.find((row) => row.id === first.id).removed, true);
-	assert.equal(stored.find((row) => row.source_line === worship[2].key).removed, true);
-	assert.equal(stored.find((row) => row.id === added.id).text, "Bring the keys");
+	assert.equal(stored.find((row) => row.id === second.id)!.text, "Follow up within two days");
+	assert.equal(stored.find((row) => row.id === first.id)!.removed, true);
+	assert.equal(stored.find((row) => row.source_line === worship[2]!.key)!.removed, true);
+	assert.equal(stored.find((row) => row.id === added.id)!.text, "Bring the keys");
 	const beforeDecline = await linesOf(team.id);
 	refused(
 		await run(
@@ -444,11 +470,11 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 	const accepted = ok(
 		await run(
 			responsibilityWriter.offerResponsibilities,
-			await offerInput(team.id, "accept", [technology[0].key], team.revision),
+			await offerInput(team.id, "accept", [technology[0]!.key], team.revision),
 		),
 	);
 	assert.equal(accepted.createdIds.length, technology.length);
-	const row = (await linesOf(team.id)).find((item) => item.source_line === technology[0].key);
+	const row = (await linesOf(team.id)).find((item) => item.source_line === technology[0]!.key)!;
 	const before = await marks();
 	const memberPreview = ok(
 		await responsibilityReader.previewResponsibilities(db, await viewer(1), { teamId: team.id }),
@@ -460,7 +486,7 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 	refused(
 		await run(
 			responsibilityWriter.offerResponsibilities,
-			await offerInput(team.id, "accept", [technology[1].key], (await offerOf(team.id)).revision),
+			await offerInput(team.id, "accept", [technology[1]!.key], (await offerOf(team.id)).revision),
 			1,
 		),
 		"access_denied",
@@ -477,7 +503,7 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 		),
 		"access_denied",
 	);
-	assert.equal((await linesOf(team.id)).find((item) => item.id === row.id).completed_on, null);
+	assert.equal((await linesOf(team.id)).find((item) => item.id === row.id)!.completed_on, null);
 
 	const forgedInput = await offerInput(team.id, "decline", [], (await offerOf(team.id)).revision);
 	const forgedBefore = await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${team.id}`);
@@ -485,7 +511,7 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 		await tx((t) =>
 			responsibilityWriter.offerResponsibilities(
 				t,
-				{ session: actors[3].session, selected: { kind: "plant", id: P } },
+				{ session: actors[3]!.session, selected: { kind: "plant", id: tenantId.parse(P) } },
 				forgedInput,
 			),
 		),
@@ -493,7 +519,7 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 	);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${team.id}`), forgedBefore);
 	const owner = await viewer(0);
-	const forgedReader = RequestActor.of(actors[3].session, owner.actor);
+	const forgedReader = RequestActor.of(actors[3]!.session, owner.actor);
 	refused(await responsibilityReader.listResponsibilities(db, forgedReader, { teamId: team.id }), "unavailable");
 	refused(await responsibilityReader.previewResponsibilities(db, forgedReader, { teamId: team.id }), "unavailable");
 	refused(
@@ -503,12 +529,12 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 		),
 		"access_denied",
 	);
-	const missing = await offerInput(team.id, "accept", [technology[0].key], (await offerOf(team.id)).revision);
+	const missing = await offerInput(team.id, "accept", [technology[0]!.key], (await offerOf(team.id)).revision);
 	missing.input.teamId = randomUUID();
 	refused(await run(responsibilityWriter.offerResponsibilities, missing), "unavailable");
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${team.id}`), forgedBefore);
 
-	const lead = await person("Team Lead", actors[1].id);
+	const lead = await person("Team Lead", actors[1]!.id);
 	ok(
 		await run(teamsWriter.appointLeader, {
 			requestKey: key(),
@@ -561,17 +587,17 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 			1,
 		),
 	);
-	assert.equal((await linesOf(team.id)).find((item) => item.id === custom.id).removed, true);
+	assert.equal((await linesOf(team.id)).find((item) => item.id === custom.id)!.removed, true);
 	refused(
 		await run(
 			responsibilityWriter.offerResponsibilities,
-			await offerInput(team.id, "accept", [technology[0].key], (await offerOf(team.id)).revision),
+			await offerInput(team.id, "accept", [technology[0]!.key], (await offerOf(team.id)).revision),
 			1,
 		),
 		"access_denied",
 	);
 
-	const seat = actors[0].id;
+	const seat = actors[0]!.id;
 	const resolved = await viewer(0);
 	try {
 		await admin.execute(sql`UPDATE seat SET role='member' WHERE account_id=${seat} AND plant_id=${P}`);
@@ -582,11 +608,11 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 	const adminActor = await viewer(2);
 	try {
 		await admin.execute(
-			sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${actors[2].id} AND plant_id=${P}`,
+			sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${actors[2]!.id} AND plant_id=${P}`,
 		);
 		refused(await responsibilityReader.listResponsibilities(db, adminActor, { teamId: team.id }), "unavailable");
 	} finally {
-		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${actors[2].id} AND plant_id=${P}`);
+		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${actors[2]!.id} AND plant_id=${P}`);
 	}
 	ok(
 		await run(teamsWriter.archive, {
@@ -626,18 +652,18 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 });
 
 test("AC:REQ-IDN-005 an unknown or another church's team or line is unavailable to responsibilities", async () => {
-	const gone = (result) => refused(result, "unavailable");
+	const gone = (result: TeamsReply<unknown>) => refused(result, "unavailable");
 	const foreign = ok(await run(teamsWriter.create, { requestKey: key(), input: { name: "Foreign duties" } }, 3)).team;
 	const foreignLine = { id: randomUUID(), revision: "1" };
 	await admin.execute(sql`INSERT INTO responsibility (id, plant_id, team_id, source_version_id, source_line, text, sort_order)
 		VALUES (${foreignLine.id}, ${Q}, ${foreign.id}, (SELECT id FROM reference_version ORDER BY id LIMIT 1),
 			${"custom:" + foreignLine.id}, 'Foreign line', 1)`);
 	const foreignRevision = (await admin.execute(sql`SELECT revision::text AS r FROM team WHERE id=${foreign.id}`))
-		.rows[0].r;
+		.rows[0]!.r;
 	for (const [teamId, responsibilityId] of [
 		[randomUUID(), randomUUID()],
 		[foreign.id, foreignLine.id],
-	]) {
+	] as const) {
 		gone(await responsibilityReader.listResponsibilities(db, await viewer(), { teamId }));
 		gone(await responsibilityReader.previewResponsibilities(db, await viewer(), { teamId }));
 		gone(
@@ -660,16 +686,17 @@ test("AC:REQ-IDN-005 an unknown or another church's team or line is unavailable 
 				input: { teamId, text: "Probe" },
 			}),
 		);
-		for (const [op, input] of [
+		const probes: [Write, object][] = [
 			[responsibilityWriter.editResponsibility, { responsibilityId, text: "Probe" }],
 			[responsibilityWriter.completeResponsibility, { responsibilityId, done: true }],
 			[responsibilityWriter.deleteResponsibility, { responsibilityId }],
-		])
+		];
+		for (const [op, input] of probes)
 			gone(await run(op, { requestKey: key(), expectedRevision: foreignLine.revision, input }));
 	}
 	const stored = (
 		await admin.execute(sql`SELECT text, completed_on, removed_at FROM responsibility WHERE id=${foreignLine.id}`)
-	).rows[0];
+	).rows[0]!;
 	assert.deepEqual([stored.text, stored.completed_on, stored.removed_at], ["Foreign line", null, null]);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE text='Probe'`), 0);
 });
@@ -678,7 +705,7 @@ test("AC:TARGET-TEAM-007 a custom team and administration have no Playbook lines
 	for (const [name, templateKey] of [
 		["Office", "administration"],
 		["Custom", null],
-	]) {
+	] as const) {
 		const team = await makeTemplateTeam(name, templateKey);
 		const preview = ok(await responsibilityReader.previewResponsibilities(db, await viewer(), { teamId: team.id }));
 		assert.deepEqual(preview.lines, []);
@@ -779,9 +806,9 @@ test("AC:TARGET-TEAM-007 every template key maps to a frozen catalog team or the
 
 test("INV-tenancy a non-admin cannot change a missing, foreign or other team's line, or lead an archived team or as a retired person", async () => {
 	const linked = await admin.execute(
-		sql`SELECT id FROM person WHERE linked_account_id=${actors[1].id} AND tenant_id=${P} AND state='live'`,
+		sql`SELECT id FROM person WHERE linked_account_id=${actors[1]!.id} AND tenant_id=${P} AND state='live'`,
 	);
-	const lead = linked.rows[0]?.id ?? (await person("Line gate lead", actors[1].id));
+	const lead = linked.rows[0]?.id ?? (await person("Line gate lead", actors[1]!.id));
 	const led = await makeTemplateTeam("Gate led duties", null);
 	const other = await makeTemplateTeam("Gate other duties", null);
 	const foreign = ok(
@@ -794,7 +821,7 @@ test("INV-tenancy a non-admin cannot change a missing, foreign or other team's l
 			input: { teamId: led.id, personId: lead },
 		}),
 	);
-	const line = async (plant, teamId) => {
+	const line = async (plant: string, teamId: string) => {
 		const id = randomUUID();
 		await admin.execute(sql`INSERT INTO responsibility (id, plant_id, team_id, source_version_id, source_line, text, sort_order)
 			VALUES (${id}, ${plant}, ${teamId}, (SELECT id FROM reference_version ORDER BY id LIMIT 1),
@@ -804,14 +831,15 @@ test("INV-tenancy a non-admin cannot change a missing, foreign or other team's l
 	const mine = await line(P, led.id);
 	const theirs = await line(P, other.id);
 	const abroad = await line(Q, foreign.id);
-	const writes = [
+	const writes: [Write, (responsibilityId: string) => object][] = [
 		[responsibilityWriter.editResponsibility, (responsibilityId) => ({ responsibilityId, text: "Gate probe" })],
 		[responsibilityWriter.completeResponsibility, (responsibilityId) => ({ responsibilityId, done: true })],
 		[responsibilityWriter.deleteResponsibility, (responsibilityId) => ({ responsibilityId })],
 	];
-	const revision = async (id) =>
-		(await admin.execute(sql`SELECT revision::text AS r FROM responsibility WHERE id=${id}`)).rows[0]?.r ?? "1";
-	const denied = async (responsibilityId) => {
+	const revision = async (id: string) =>
+		(await admin.execute<{ r: string }>(sql`SELECT revision::text AS r FROM responsibility WHERE id=${id}`)).rows[0]
+			?.r ?? "1";
+	const denied = async (responsibilityId: string) => {
 		for (const [op, input] of writes)
 			refused(
 				await run(
@@ -840,7 +868,7 @@ test("INV-tenancy a non-admin cannot change a missing, foreign or other team's l
 	for (const [responsibilityId, who] of [
 		[mine, 1],
 		[theirs, 2],
-	])
+	] as const)
 		for (const [op, input] of writes)
 			ok(
 				await run(

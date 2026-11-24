@@ -5,7 +5,13 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { createRequire } from "node:module";
-import { testDatabase } from "../../support/test-database.mts";
+import { testDatabase, type Database } from "../../support/test-database.mts";
+import { statementText } from "../identity/invitations-support.mts";
+import { accountId, tenantId, sessionId, type Owner } from "../../../packages/contracts/src/common/index.ts";
+import type { SettingsContext, SettingsReply } from "../../../packages/contracts/src/settings/server.ts";
+import type { SectionResult } from "../../../packages/contracts/src/settings/index.ts";
+import { S3Client, type PrivateStorage } from "../../../packages/db/src/schema/storage.ts";
+import { z } from "../../../packages/contracts/node_modules/zod/index.js";
 import { sql, eq, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import {
@@ -14,15 +20,21 @@ import {
 	uploadAvatar,
 	readAvatar,
 	withSettingsWrite,
+	type CredentialConfig,
+	type DeletionSubject,
+	type SettingsEffects,
 } from "../../../packages/domain/src/settings/index.ts";
 import { issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import { settingsApi } from "./settings-api.mts";
-import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
+import {
+	createOrganizationAdapter,
+	type OrganizationEffects,
+} from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { enqueueJob, queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
-import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { createMailService, type MailPayload } from "../../../packages/domain/src/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
-import { readViewer } from "../../../packages/domain/src/access/session.ts";
+import { readViewer, type WriteTx } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/seats.ts";
 import { PeopleReadContext, peopleReader } from "../../../packages/domain/src/people/index.ts";
 import { listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
@@ -36,41 +48,107 @@ const database = await testDatabase({
 });
 const { admin } = database;
 const { runtime: db, cleanup: cleanupDb, auth: authDb } = database.pools;
-let api, onboarding, mail, producerDeps;
+type Credentials = ReturnType<typeof createAccountCredentials>;
+type Deps = Parameters<typeof settingsApi<Credentials>>[0];
+type Api = ReturnType<typeof settingsApi<Credentials>>;
+type Value<F> = F extends (...args: never[]) => Promise<SettingsReply<infer V>> ? V : never;
+type Operation<V> = (tx: WriteTx, context: SettingsContext, raw: unknown) => Promise<SettingsReply<V>>;
+type WriteName = {
+	[K in keyof Api]: Api[K] extends Operation<Value<Api[K]>> ? K : never;
+}[keyof Api];
+type Writes = { [K in WriteName]: Operation<Value<Api[K]>> };
+type CredentialName = "requestEmailChange" | "confirmEmailChange" | "changePassword";
+type SectionName = SectionResult["section"];
+type SectionOf<K extends SectionName> = Extract<SectionResult, { section: K }>;
+type SavedSection = Value<Api["saveSection"]>["current"];
+type SavedOf<K extends SectionName> = Extract<SavedSection, { section: K }>;
+type Viewer = NonNullable<Awaited<ReturnType<typeof viewerOf>>>;
+type Plant = Extract<Owner, { kind: "plant" }>;
+type Session = { id: string; session: string };
+type Account = Awaited<ReturnType<typeof actor>>;
+type Login = { id: Account["id"]; user: string; email: string; password: string };
+let api: Api,
+	onboarding: ReturnType<typeof createOnboardingProducer>,
+	mail: ReturnType<typeof createMailService>,
+	producerDeps: Deps;
 let faults = false;
 const origin = "http://settings.localhost";
-const ingress = new Map();
-const trustedIps = new Map();
-const deliveries = [];
-const diagnostics = [];
+const ingress = new Map<string, Request>();
+const trustedIps = new Map<string, string>();
+const deliveries: Parameters<CredentialConfig["deliverVerification"]>[1][] = [];
+const diagnostics: Parameters<CredentialConfig["diagnostic"]>[0][] = [];
 const secret = randomBytes(40).toString("hex");
 const denied = refusedWith({ details: {} });
-const command = (input = {}, expectedRevision = "1", requestKey = randomUUID()) => ({
+const command = <const Input extends object>(
+	input: Input,
+	expectedRevision = "1",
+	requestKey: string = randomUUID(),
+) => ({
 	input,
 	expectedRevision,
 	requestKey,
 });
-const ctx = (a, selected = { kind: "account", id: a.id }) => ({
-	session: a.session,
+const ctx = (a: Session, selected: Owner = { kind: "account", id: accountId.parse(a.id) }): SettingsContext => ({
+	session: sessionId.parse(a.session),
 	selected,
 });
-const CREDENTIALS = ["requestEmailChange", "confirmEmailChange", "changePassword"];
-const call = (name, a, v, selected) =>
-	CREDENTIALS.includes(name)
-		? api[name](ctx(a, selected), v)
-		: gatedTransaction(db, (tx) => api[name](tx, ctx(a, selected), v));
-async function viewerOf(a) {
-	const v = await readViewer(db, a.session);
+const call = <K extends WriteName>(name: K, a: Session, v: object, selected?: Owner) => {
+	const writes: Writes = api;
+	return gatedTransaction(db, (tx) => writes[name](tx, ctx(a, selected), v));
+};
+const credential = <K extends CredentialName>(name: K, a: Session, v: Parameters<Credentials[K]>[1]) => {
+	const operations: {
+		[N in CredentialName]: (
+			context: SettingsContext,
+			input: Parameters<Credentials[N]>[1],
+		) => ReturnType<Credentials[N]>;
+	} = producerDeps.credentials;
+	return operations[name](ctx(a), v);
+};
+const isSection = <T extends { section: SectionName }, K extends SectionName>(
+	value: T,
+	name: K,
+): value is Extract<T, { section: K }> => value.section === name;
+async function save<K extends SectionName>(
+	a: Session,
+	v: { input: { section: K } },
+	selected?: Owner,
+): Promise<SettingsReply<{ current: SavedOf<K> }>> {
+	const reply = await call("saveSection", a, v, selected);
+	if (reply.status !== "ok") return reply;
+	const { current } = reply.value;
+	assert.ok(isSection<SavedSection, K>(current, v.input.section));
+	return { status: "ok", value: { current } };
+}
+async function viewerOf(a: { session: string }) {
+	const v = await readViewer(db, sessionId.parse(a.session));
 	if (!v?.authority) return null;
-	const user = await admin.execute(
+	const user = await admin.execute<{ name: string; email: string; email_verified: boolean }>(
 		sql`SELECT u.name, u.email, u.email_verified FROM auth_session s JOIN auth_user u ON u.id=s.user_id WHERE s.id=${a.session}`,
 	);
-	const { name, email, email_verified } = user.rows[0];
+	const { name, email, email_verified } = user.rows[0]!;
 	return { authority: v.authority, principal: { display_name: name, email, verified: email_verified } };
 }
-const section = async (a, request) => api.getSection(db, await viewerOf(a), request);
+async function seen(a: { session: string }): Promise<Viewer> {
+	const viewer = await viewerOf(a);
+	assert.ok(viewer);
+	return viewer;
+}
+async function readSection<K extends SectionName>(
+	viewer: Viewer,
+	request: { section: K } & Record<string, unknown>,
+): Promise<SettingsReply<SectionOf<K>>> {
+	const reply = await api.getSection(db, viewer, request);
+	if (reply.status !== "ok") return reply;
+	assert.ok(isSection<SectionResult, K>(reply.value, request.section));
+	return { status: "ok", value: reply.value };
+}
+const section = async <K extends SectionName>(
+	a: { session: string },
+	request: { section: K } & Record<string, unknown>,
+) => readSection(await seen(a), request);
 async function actor() {
-	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+	const a = { id: accountId.parse(randomUUID()), user: randomUUID(), session: sessionId.parse(randomUUID()) };
 	await admin.execute(
 		sql`INSERT INTO auth_user(id,name,email,email_verified) VALUES(${a.user},'Synthetic',${a.user + "@example.test"},true)`,
 	);
@@ -82,29 +160,33 @@ async function actor() {
 	);
 	return a;
 }
-async function plant(a = undefined) {
+async function plant(a?: Pick<Account, "id" | "session"> & { user: string }) {
 	a ??= await actor();
 	const [row] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
 	const result = ok(
 		await gatedTransaction(db, (tx) =>
-			onboarding.createPlant(tx, ctx(a), command({ name: "Harvest Point", confirmed: true }, row.revision)),
+			onboarding.createPlant(
+				tx,
+				{ session: a.session, selected: { kind: "account", id: a.id } },
+				command({ name: "Harvest Point", confirmed: true }, row!.revision),
+			),
 		),
 	);
 	return { a, p: result.plant, result };
 }
-async function seated(a) {
+async function seated(a: Account) {
 	const { p } = await plant();
 	await admin
 		.insert(t.seat)
 		.values({ plant_id: p.id, account_id: a.id, role: "member", accepted_at: new Date(), revision: "1" });
 	return a;
 }
-async function seat(p, role = "admin") {
+async function seat(p: Plant, role: "admin" | "member" = "admin") {
 	const a = await actor();
 	await admin.insert(t.seat).values({ plant_id: p.id, account_id: a.id, role, accepted_at: new Date(), revision: "1" });
 	return a;
 }
-const effect = async (tx, input) => {
+const effect: SettingsEffects["replan"] = async (tx, input) => {
 	if (faults) throw Error("intent_fault");
 	return enqueueJob(tx, {
 		tenant: input.owner.id,
@@ -131,9 +213,9 @@ before(async () => {
 			},
 		},
 	});
-	const organizationEffects = {
+	const organizationEffects: OrganizationEffects = {
 		invitation: async () => {},
-		invalidate: (tx, i) => {
+		invalidate: (_tx, i) => {
 			if (faults) throw Error("grant_fault");
 			return sql`UPDATE job SET state='superseded' WHERE subject_record_id=${sql.param(i.sourceId)} AND kind='digest' AND state='ready'`;
 		},
@@ -251,7 +333,7 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 		other = await plant(),
 		adminActor = await seat(f.p),
 		member = await seat(f.p, "member");
-	denied(await call("saveSection", f.a, command({ section: "account", name: "Wrong context" }), f.p));
+	denied(await save(f.a, command({ section: "account", name: "Wrong context" }), f.p));
 	const initial = ok(await section(f.a, { section: "plant", plant: f.p }));
 	assert.equal(initial.values.timeZone, "America/Chicago");
 	assert.deepEqual(initial.values.digest, { cadence: "weekly", weekday: 0, hour: 16 });
@@ -263,30 +345,30 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 			patch: { name: " New Name ", street: "123 Private Street", city: null, stateProvince: "TX", country: null },
 		},
 	});
-	const saved = ok(await call("saveSection", adminActor, v, f.p));
+	const saved = ok(await save(adminActor, v, f.p));
 	assert.equal(saved.current.values.profile.name, "New Name");
 	assert.equal(saved.current.values.profile.street, "123 Private Street");
 	assert.equal(saved.current.values.profile.city, null);
 	assert.equal(saved.current.revision, "2");
-	denied(await call("saveSection", member, command(v.input, "2"), f.p));
-	denied(await call("saveSection", other.a, command(v.input, "2"), other.p));
-	denied(await call("saveSection", f.a, command(v.input), f.p), "conflict");
-	const replay = ok(await call("saveSection", adminActor, v, f.p));
+	denied(await save(member, command(v.input, "2"), f.p));
+	denied(await save(other.a, command(v.input, "2"), other.p));
+	denied(await save(f.a, command(v.input), f.p), "conflict");
+	const replay = ok(await save(adminActor, v, f.p));
 	assert.deepEqual(replay, saved);
 	assert.equal(replay.current.revision, "2");
-	const noop = ok(await call("saveSection", f.a, command(v.input, "2"), f.p));
+	const noop = ok(await save(f.a, command(v.input, "2"), f.p));
 
 	assert.equal(noop.current.revision, "2");
 	faults = true;
 	await assert.rejects(
-		call("saveSection", f.a, command({ ...v.input, change: { kind: "digest", value: { cadence: "off" } } }, "2"), f.p),
+		save(f.a, command({ ...v.input, change: { kind: "digest", value: { cadence: "off" } } }, "2"), f.p),
 		/intent_fault/,
 	);
 	faults = false;
 	assert.equal(ok(await section(f.a, { section: "plant", plant: f.p })).revision, "2");
 	const self = ok(await section(member, { section: "account" }));
 	assert.deepEqual(self.personalTimezone, { status: "unconfirmed" });
-	const name = ok(await call("saveSection", member, command({ section: "account", name: " Member Updated " })));
+	const name = ok(await save(member, command({ section: "account", name: " Member Updated " })));
 	assert.equal(name.current.name, "Member Updated");
 });
 
@@ -301,8 +383,7 @@ test("AC:TARGET-IDN-012 account preferences keep exact category/channel choices 
 	assert.equal(current.values.oversightCadence, null);
 	assert.equal(current.values.suppression, "unavailable");
 	const saved = ok(
-		await call(
-			"saveSection",
+		await save(
 			a,
 			command({
 				section: "notifications",
@@ -311,31 +392,23 @@ test("AC:TARGET-IDN-012 account preferences keep exact category/channel choices 
 		),
 	);
 	assert.equal(
-		saved.current.values.choices.find((c) => c.category === "task_due" && c.channel === "email").enabled,
+		saved.current.values.choices.find((c) => c.category === "task_due" && c.channel === "email")!.enabled,
 		false,
 	);
 	assert.equal(
-		saved.current.values.choices.find((c) => c.category === "task_overdue" && c.channel === "email").enabled,
+		saved.current.values.choices.find((c) => c.category === "task_overdue" && c.channel === "email")!.enabled,
 		true,
 	);
 	assert.equal(
-		saved.current.values.choices.find((c) => c.category === "task_due" && c.channel === "in_app").enabled,
+		saved.current.values.choices.find((c) => c.category === "task_due" && c.channel === "in_app")!.enabled,
 		true,
 	);
 	denied(
-		await call(
-			"saveSection",
-			a,
-			command({ section: "notifications", patch: { kind: "oversight_cadence", cadence: "daily" } }, "2"),
-		),
+		await save(a, command({ section: "notifications", patch: { kind: "oversight_cadence", cadence: "daily" } }, "2")),
 	);
 	await plant();
 	const cadence = ok(
-		await call(
-			"saveSection",
-			a,
-			command({ section: "notifications", patch: { kind: "planter_cadence", cadence: "daily" } }, "2"),
-		),
+		await save(a, command({ section: "notifications", patch: { kind: "planter_cadence", cadence: "daily" } }, "2")),
 	);
 	assert.equal(cadence.current.values.planterCadence, "daily");
 });
@@ -378,7 +451,9 @@ test("AC:TARGET-IDN-031 AC:TARGET-IDN-032 AC:TARGET-TSK-018 personal zones canon
 		/intent_fault/,
 	);
 	faults = false;
-	assert.equal(ok(await section(a, { section: "account" })).personalTimezone.timeZone, "America/Chicago");
+	const kept = ok(await section(a, { section: "account" })).personalTimezone;
+	assert.ok(kept.status === "confirmed");
+	assert.equal(kept.timeZone, "America/Chicago");
 });
 
 test("INV-private-calendar: ended seat keeps its personal preference but cannot invoke the author calendar", async () => {
@@ -396,9 +471,9 @@ test("INV-private-calendar: ended seat keeps its personal preference but cannot 
 			},
 		},
 	});
-	const preview = (zone) =>
+	const preview = (zone: string) =>
 		gatedTransaction(db, (tx) => producer.previewPersonalTimezone(tx, ctx(f.a), { timeZone: zone }));
-	const apply = (p) =>
+	const apply = (p: { newZone: string; previewId: string; expectedRevision: string }) =>
 		gatedTransaction(db, (tx) =>
 			producer.setPersonalTimezone(
 				tx,
@@ -457,7 +532,7 @@ test("AC:TARGET-IDN-011 AC:TARGET-TSK-018 church zone preview is actor/revision/
 	assert.equal(no.revision, "2");
 });
 
-async function restricted(a, subject, status) {
+async function restricted(a: { id: string }, subject: DeletionSubject, status: { requestId: string }) {
 	return openedDeletion(
 		gatedTransaction(admin, (tx) =>
 			issueRestrictedDeletionSession(tx, { subject, requestId: status.requestId }, async () => ({
@@ -481,7 +556,7 @@ test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:R
 	assert.equal(await viewerOf(member), null);
 	assert.equal((await admin.select().from(t.auth_session).where(eq(t.auth_session.id, member.session))).length, 0);
 	const proof = await restricted(member, { kind: "account", id: member.id }, pending);
-	const request = { subject: { kind: "account", id: member.id }, requestId: pending.requestId };
+	const request = { subject: { kind: "account" as const, id: member.id }, requestId: pending.requestId };
 	const visible = ok(await gatedTransaction(db, (tx) => api.getAccountDeletionStatus(tx, proof, request)));
 	assert.deepEqual(visible, pending);
 	denied(
@@ -508,9 +583,8 @@ test("AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:R
 
 test("INV-lifecycle: first-witness deletion waits for an in-flight edit; later reads and writes deny", async () => {
 	const a = await actor();
-	let release, entered;
-	const ready = new Promise((r) => (entered = r)),
-		gate = new Promise((r) => (release = r));
+	const { promise: ready, resolve: entered } = Promise.withResolvers<void>(),
+		{ promise: gate, resolve: release } = Promise.withResolvers<void>();
 	const edit = gatedTransaction(db, async (tx) => {
 		const r = ok(await api.saveSection(tx, ctx(a), command({ section: "account", name: "Serialized Name" })));
 		entered();
@@ -521,26 +595,26 @@ test("INV-lifecycle: first-witness deletion waits for an in-flight edit; later r
 	const deletion = call("requestAccountDeletion", a, command({ confirmed: true }, "2"));
 	release();
 	const [saved, pending] = await Promise.all([edit, deletion]);
+	assert.ok(saved.current.section === "account");
 	assert.equal(saved.current.name, "Serialized Name");
 	assert.equal(ok(pending).status, "pending_deletion");
-	denied(await call("saveSection", a, command({ section: "account", name: "Too Late" }, "2")));
+	denied(await save(a, command({ section: "account", name: "Too Late" }, "2")));
 });
 
 test("INV-settings: concurrent account edits serialize before taking session share locks", async () => {
 	const a = await actor();
-	let entered, release;
-	const ready = new Promise((r) => (entered = r)),
-		gate = new Promise((r) => (release = r));
+	const { promise: ready, resolve: entered } = Promise.withResolvers<void>(),
+		{ promise: gate, resolve: release } = Promise.withResolvers<void>();
 	const blocking = admin.transaction(async (tx) => {
 		await tx.select().from(t.auth_user).where(eq(t.auth_user.id, a.user)).for("update");
 		entered();
 		await gate;
 	});
 	await ready;
-	const pids = [];
+	const pids: number[] = [];
 	const edits = ["First name", "Second name"].map((name) =>
 		gatedTransaction(db, async (tx) => {
-			pids.push((await tx.execute(sql`SELECT pg_backend_pid() AS id`)).rows[0].id);
+			pids.push((await tx.execute<{ id: number }>(sql`SELECT pg_backend_pid() AS id`)).rows[0]!.id);
 			return api.saveSection(tx, ctx(a), command({ section: "account", name }));
 		}),
 	);
@@ -557,16 +631,16 @@ test("INV-settings: concurrent account edits serialize before taking session sha
 		true,
 		JSON.stringify(results),
 	);
-	const replies = results.map((r) => r.value);
+	const replies = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
 	assert.equal(replies.filter((r) => r.status === "ok").length, 1);
 	denied(
-		replies.find((r) => r.status === "refused"),
+		replies.find((r) => r.status === "refused")!,
 		"conflict",
 	);
 	assert.equal(ok(await section(a, { section: "account" })).revision, "2");
 });
 
-async function overdue(a, subject) {
+async function overdue(a: { id: string }, subject: DeletionSubject) {
 	const at = new Date(Date.now() - 31 * 86400_000),
 		requestId = randomUUID();
 	const [w] = await admin
@@ -592,13 +666,13 @@ async function overdue(a, subject) {
 		subject,
 		requestId,
 		revision: "1",
-		requestedAt: w.requested_at.toISOString(),
-		cancelUntil: w.cancel_until.toISOString(),
+		requestedAt: w!.requested_at!.toISOString(),
+		cancelUntil: w!.cancel_until!.toISOString(),
 	};
 }
 test("AC:DEL58-007 AC:DEL58-008 AC:DEL58-009 deadline refuses cancellation; retryable witnessed purge preserves church-owned onboarding and People facts", async () => {
 	const f = await plant();
-	const subject = { kind: "account", id: f.a.id };
+	const subject = { kind: "account" as const, id: f.a.id };
 	const p = await overdue(f.a, subject);
 	const proof = await restricted(f.a, subject, p);
 	denied(
@@ -618,19 +692,22 @@ test("AC:DEL58-007 AC:DEL58-008 AC:DEL58-009 deadline refuses cancellation; retr
 		.select()
 		.from(t.lifecycle_witness)
 		.where(eq(t.lifecycle_witness.opaque_subject_id, subject.id));
-	assert.equal(w.state, "purging");
-	assert.equal(w.live_purged_at, null);
+	assert.equal(w!.state, "purging");
+	assert.equal(w!.live_purged_at, null);
 	const [shared] = await admin.select().from(t.person).where(eq(t.person.id, f.result.ownerSeat.personId));
-	assert.equal(shared.linked_account_id, null);
-	assert.equal(shared.display_name, "Synthetic");
+	assert.equal(shared!.linked_account_id, null);
+	assert.equal(shared!.display_name, "Synthetic");
 	const [setup] = await admin.select().from(t.onboarding_setup).where(eq(t.onboarding_setup.plant_id, f.p.id));
 
-	assert.equal(setup.plant_id, f.p.id);
-	const [creation] = await admin.select().from(t.audit_event).where(eq(t.audit_event.id, setup.creation_operation_id));
-	assert.deepEqual(Object.keys(creation.result).sort(), ["creation", "plant"]);
+	assert.equal(setup!.plant_id, f.p.id);
+	const [creation] = await admin.select().from(t.audit_event).where(eq(t.audit_event.id, setup!.creation_operation_id));
+	assert.deepEqual(Object.keys(z.record(z.string(), z.unknown()).parse(creation!.result)).sort(), [
+		"creation",
+		"plant",
+	]);
 	const [user] = await admin.select().from(t.auth_user).where(eq(t.auth_user.id, f.a.user));
-	assert.equal(user.name, "Removed account");
-	assert.equal(user.email, `removed-${f.a.id}@removed.invalid`);
+	assert.equal(user!.name, "Removed account");
+	assert.equal(user!.email, `removed-${f.a.id}@removed.invalid`);
 	complete = true;
 	const done = await purge(input);
 	assert.equal(done.status, "purged");
@@ -638,13 +715,13 @@ test("AC:DEL58-007 AC:DEL58-008 AC:DEL58-009 deadline refuses cancellation; retr
 	assert.deepEqual(await purge(input), done);
 	await assert.rejects(purge({ ...input, requestId: randomUUID() }), /conflict/);
 	const [church] = await admin.select().from(t.plant).where(eq(t.plant.id, f.p.id));
-	assert.equal(church.name, "Harvest Point");
+	assert.equal(church!.name, "Harvest Point");
 });
 
 test("AC:DEL58-007 AC:DEL58-005 workspace purge hides and removes only its content; unrelated church survives", async () => {
 	const f = await plant(),
 		other = await plant();
-	const subject = { kind: "plant", id: f.p.id };
+	const subject = { kind: "plant" as const, id: f.p.id };
 	const p = await overdue(f.a, subject);
 	assert.equal(await viewerOf(f.a), null);
 	assert.equal(ok(await section(other.a, { section: "plant", plant: other.p })).values.profile.name, "Harvest Point");
@@ -679,9 +756,9 @@ test("AC:DEL58-005: purging one church workspace leaves each person's own accoun
 	assert.equal((await purge({ subject: p.subject, requestId: p.requestId, revision: p.revision })).status, "purged");
 	for (const a of [f.a, member]) {
 		const [account] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
-		assert.equal(account.registration_state, "active");
+		assert.equal(account!.registration_state, "active");
 		const [user] = await admin.select().from(t.auth_user).where(eq(t.auth_user.id, a.user));
-		assert.deepEqual([user.name, user.email], ["Synthetic", a.user + "@example.test"]);
+		assert.deepEqual([user!.name, user!.email], ["Synthetic", a.user + "@example.test"]);
 	}
 	const open = await admin.execute(
 		sql`SELECT account_id, role FROM seat WHERE ended_at IS NULL AND account_id IN (${other.a.id}::uuid, ${otherAdmin.id}::uuid, ${network.a.id}::uuid) ORDER BY role`,
@@ -705,31 +782,11 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
 		"base64",
 	);
-	const objects = new Map();
-	const storage = {
-		bucket: "synthetic-only",
-		client: {
-			send: async (command) => {
-				const i = command.input;
-				switch (command.constructor.name) {
-					case "GetBucketAclCommand":
-						return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
-					case "PutObjectCommand":
-						assert.match(i.Key, new RegExp(`^private/${a.id}/[a-f0-9-]{36}$`));
-						assert.equal(i.ACL, "private");
-						assert.equal(i.CacheControl, "private, no-store");
-						objects.set(i.Key, Buffer.from(i.Body));
-						return {};
-					case "GetObjectCommand": {
-						const body = objects.get(i.Key);
-						return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
-					}
-					default:
-						throw Error("unexpected provider operation");
-				}
-			},
-		},
-	};
+	const storage = photoStorage((i) => {
+		assert.match(i.Key, new RegExp(`^private/${a.id}/[a-f0-9-]{36}$`));
+		assert.equal(i.ACL, "private");
+		assert.equal(i.CacheControl, "private, no-store");
+	});
 	const upload = ok(await call("requestAvatarUpload", a, { mime: "image/png", byteLength: bytes.length }));
 	await assert.rejects(uploadAvatar(db, storage, ctx(foreign), { uploadId: upload.uploadId, bytes }), /unavailable/);
 	await assert.rejects(
@@ -740,9 +797,8 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	const saved = ok(await call("finalizeAvatar", a, command({ uploadId: upload.uploadId })));
 	assert.deepEqual(saved, { status: "available", avatar: { accountId: a.id, versionId: upload.uploadId } });
 	assert.deepEqual(await readAvatar(db, storage, ctx(a), { accountId: a.id, versionId: upload.uploadId }), bytes);
-	let entered, release;
-	const locked = new Promise((r) => (entered = r)),
-		held = new Promise((r) => (release = r));
+	const { promise: locked, resolve: entered } = Promise.withResolvers<void>(),
+		{ promise: held, resolve: release } = Promise.withResolvers<void>();
 	const holder = admin.transaction(async (tx) => {
 		await tx.execute(sql`SELECT 1 FROM auth_session WHERE id=${a.session} FOR UPDATE`);
 		entered();
@@ -771,43 +827,62 @@ const PNG = Buffer.from(
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
 	"base64",
 );
-function photoStorage() {
-	const objects = new Map();
-	return {
-		bucket: "synthetic-only",
-		client: {
-			send: async (command) => {
-				const i = command.input;
-				switch (command.constructor.name) {
-					case "GetBucketAclCommand":
-						return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
-					case "PutObjectCommand":
-						objects.set(i.Key, Buffer.from(i.Body));
-						return {};
-					case "GetObjectCommand": {
-						const body = objects.get(i.Key);
-						return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
-					}
-					default:
-						throw Error("unexpected provider operation");
-				}
-			},
-		},
-	};
+const objectInput = z.object({
+	Key: z.string(),
+	ACL: z.string().optional(),
+	CacheControl: z.string().optional(),
+	Body: z.instanceof(Uint8Array).optional(),
+});
+type ObjectInput = z.output<typeof objectInput>;
+class StubClient extends S3Client {
+	answer: (operation: string, input: unknown) => object;
+	constructor(answer: (operation: string, input: unknown) => object) {
+		super({ region: "us-east-1", credentials: { accessKeyId: "test", secretAccessKey: "test" } });
+		this.answer = answer;
+	}
+	override async send(command: { input: object }) {
+		return this.answer(command.constructor.name, command.input);
+	}
 }
-async function setPhoto(storage, a) {
+const stubStorage = (answer: StubClient["answer"]): PrivateStorage => ({
+	bucket: "synthetic-only",
+	client: new StubClient(answer),
+});
+function photoStorage(stored: (input: ObjectInput) => void = () => {}) {
+	const objects = new Map<string, Buffer>();
+	return stubStorage((operation, input) => {
+		switch (operation) {
+			case "GetBucketAclCommand":
+				return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
+			case "PutObjectCommand": {
+				const i = objectInput.parse(input);
+				stored(i);
+				objects.set(i.Key, Buffer.from(i.Body!));
+				return {};
+			}
+			case "GetObjectCommand": {
+				const body = objects.get(objectInput.parse(input).Key)!;
+				return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
+			}
+			default:
+				throw Error("unexpected provider operation");
+		}
+	});
+}
+type Photo = { accountId: string; versionId: string };
+async function setPhoto(storage: PrivateStorage, a: Session) {
 	const upload = ok(await call("requestAvatarUpload", a, { mime: "image/png", byteLength: PNG.length }));
 	await uploadAvatar(db, storage, ctx(a), { uploadId: upload.uploadId, bytes: PNG });
 	const [row] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
-	ok(await call("finalizeAvatar", a, command({ uploadId: upload.uploadId }, row.revision)));
+	ok(await call("finalizeAvatar", a, command({ uploadId: upload.uploadId }, row!.revision)));
 	return { accountId: a.id, versionId: upload.uploadId };
 }
-const photoRead = (storage, a, photo) =>
+const photoRead = (storage: PrivateStorage, a: Session, photo: Photo) =>
 	readAvatar(db, storage, ctx(a), photo).then(
 		(bytes) => (Buffer.from(bytes).equals(PNG) ? "bytes" : "wrong bytes"),
 		(error) => (error.message === "unavailable" ? "refused" : error.message),
 	);
-async function newSession(a) {
+async function newSession(a: Pick<Account, "id"> & { user: string }) {
 	const session = randomUUID();
 	await admin.execute(
 		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
@@ -824,7 +899,7 @@ test("AC:TARGET-IDN-006: seat holders in the same church load each other's curre
 		seatless = await actor();
 	const owner = await setPhoto(storage, f.a),
 		memberPhoto = await setPhoto(storage, member);
-	const read = (who, photo) => photoRead(storage, who, photo);
+	const read = (who: Session, photo: Photo) => photoRead(storage, who, photo);
 
 	assert.equal(await read(member, owner), "bytes");
 	assert.equal(await read(f.a, memberPhoto), "bytes");
@@ -856,7 +931,7 @@ test("AC:TARGET-IDN-006: seat holders in the same church load each other's curre
 	assert.equal(await read(member, owner), "refused");
 	assert.equal(await read(member, replaced), "bytes");
 	const [row] = await admin.select().from(t.account).where(eq(t.account.id, f.a.id));
-	ok(await call("removeAvatar", f.a, command({}, row.revision)));
+	ok(await call("removeAvatar", f.a, command({}, row!.revision)));
 	assert.equal(await read(f.a, replaced), "refused");
 	assert.equal(await read(member, replaced), "refused");
 
@@ -898,7 +973,7 @@ test("AC:TARGET-IDN-006: an overseeing organization and its plant load each othe
 	const planter = await setPhoto(storage, f.a),
 		staffPhoto = await setPhoto(storage, staff),
 		directorPhoto = await setPhoto(storage, director);
-	const read = (who, photo) => photoRead(storage, who, photo);
+	const read = (who: Session, photo: Photo) => photoRead(storage, who, photo);
 
 	for (const who of [church.a, director]) {
 		assert.equal(await read(who, planter), "bytes");
@@ -922,7 +997,7 @@ test("AC:TARGET-IDN-006: an overseeing organization and its plant load each othe
 	assert.equal(await read(staff, await setPhoto(storage, church.a)), "refused");
 
 	assert.equal(await read(church.a, planter), "bytes");
-	await admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${link.id}`);
+	await admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${link!.id}`);
 	assert.equal(await read(church.a, planter), "refused");
 });
 
@@ -933,7 +1008,7 @@ test("AC:TARGET-IDN-006: a committed personal or church workspace deletion reque
 	const photo = await setPhoto(storage, leaving);
 	assert.equal(await photoRead(storage, f.a, photo), "bytes");
 	const [row] = await admin.select().from(t.account).where(eq(t.account.id, leaving.id));
-	ok(await call("requestAccountDeletion", leaving, command({ confirmed: true }, row.revision)));
+	ok(await call("requestAccountDeletion", leaving, command({ confirmed: true }, row!.revision)));
 	assert.equal(await photoRead(storage, f.a, photo), "refused");
 	assert.equal(await photoRead(storage, await newSession(leaving), photo), "refused");
 
@@ -947,7 +1022,7 @@ test("AC:TARGET-IDN-006: a committed personal or church workspace deletion reque
 		await call(
 			"requestWorkspaceDeletion",
 			church.a,
-			command({ plant: church.p, confirmed: true }, plantRow.revision),
+			command({ plant: church.p, confirmed: true }, plantRow!.revision),
 			church.p,
 		),
 	);
@@ -968,8 +1043,8 @@ test("AC:TARGET-IDN-006: the Seats roster and the People list name each visible 
 		formerPhoto = await setPhoto(storage, former);
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${former.id}`);
 
-	const roster = async (a) => {
-		const authority = (await readViewer(db, a.session)).authority;
+	const roster = async (a: Session) => {
+		const { authority } = await seen(a);
 		const list = await createSeatService(db).list(authority, { workspace: f.p });
 		return Object.fromEntries(list.items.map((s) => [s.displayName + "/" + s.status, s.avatar]));
 	};
@@ -987,17 +1062,19 @@ test("AC:TARGET-IDN-006: the Seats roster and the People list name each visible 
 	assert.doesNotMatch(JSON.stringify(await roster(f.a)), /private\/|https?:/);
 	assert.equal(formerPhoto.accountId, former.id);
 
-	const person = async (name, linked) => {
+	const person = async (name: string, linked?: string) => {
 		const id = randomUUID();
 		await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at,linked_account_id)
 			VALUES(${id},${f.p.id},${f.p.id},${name},'other','prospect','unknown','unknown',0,'live',clock_timestamp(),${linked ?? null})`);
 		return id;
 	};
 	const linked = await person("Linked", member.id),
-		[{ id: both }] = await admin
-			.select({ id: t.person.id })
-			.from(t.person)
-			.where(and(eq(t.person.plant_id, f.p.id), eq(t.person.linked_account_id, f.a.id))),
+		both = (
+			await admin
+				.select({ id: t.person.id })
+				.from(t.person)
+				.where(and(eq(t.person.plant_id, f.p.id), eq(t.person.linked_account_id, f.a.id)))
+		)[0]!.id,
 		unlinked = await person("Unlinked"),
 		leftChurch = await person("Left", former.id);
 	const crm = randomUUID();
@@ -1015,7 +1092,7 @@ test("AC:TARGET-IDN-006: the Seats roster and the People list name each visible 
 		claim_generation: "0",
 	});
 	await admin.update(t.person).set({ photo_object_id: crm }).where(eq(t.person.id, both));
-	const authority = (await readViewer(db, plain.session)).authority;
+	const { authority } = await seen(plain);
 	const page = ok(
 		await gatedTransaction(db, (tx) =>
 			peopleReader.listPeople(tx, new PeopleReadContext(authority), listPeopleRequest.parse({ page: 1, limit: 100 })),
@@ -1028,7 +1105,7 @@ test("AC:TARGET-IDN-006: the Seats roster and the People list name each visible 
 	assert.equal(photos[leftChurch], undefined);
 });
 
-let signInAuth;
+let signInAuth: ReturnType<typeof identityAuth>;
 async function credentialActor() {
 	signInAuth ??= identityAuth({
 		db: authDb,
@@ -1041,14 +1118,14 @@ async function credentialActor() {
 	const email = randomUUID() + "@example.test",
 		password = "Initial secret 2468!";
 	const signed = await signInAuth.api.signUpEmail({ body: { name: "Credential User", email, password } });
-	const id = randomUUID();
+	const id = accountId.parse(randomUUID());
 	await admin
 		.insert(t.account)
 		.values({ id, auth_user_id: signed.user.id, registration_state: "active", registration_kind: "planter" });
 	await admin.update(t.auth_user).set({ email_verified: true }).where(eq(t.auth_user.id, signed.user.id));
 	return login({ id, user: signed.user.id, email, password });
 }
-async function login(a) {
+async function login(a: Login) {
 	const r = await signInAuth.api.signInEmail({ body: { email: a.email, password: a.password }, asResponse: true });
 	assert.equal(r.status, 200);
 	const cookie = r.headers
@@ -1057,13 +1134,14 @@ async function login(a) {
 		.join("; ");
 	const request = new Request(origin + "/api/settings", { method: "POST", headers: { origin, cookie } });
 	const s = await signInAuth.api.getSession({ headers: request.headers });
+	assert.ok(s);
 	ingress.set(s.session.id, request);
-	return { ...a, session: s.session.id };
+	return { ...a, session: sessionId.parse(s.session.id) };
 }
-const openWorkspace = (a, password = a.password) =>
+const openWorkspace = (a: Login, password = a.password) =>
 	producerDeps.credentials.openWorkspaceDeletion({ email: a.email, password }, null);
 const PROOF_REFUSED = { status: "refused", code: "proof_invalid" };
-async function credentialSeat(p, role) {
+async function credentialSeat(p: Plant, role: "admin" | "member") {
 	const a = await credentialActor();
 	await admin.insert(t.seat).values({ plant_id: p.id, account_id: a.id, role, accepted_at: new Date(), revision: "1" });
 	return a;
@@ -1074,14 +1152,14 @@ test("AC:TARGET-IDN-026 AC:TARGET-IDN-032: only the Owner requests workspace del
 	const member = await credentialSeat(f.p, "member"),
 		seatedAdmin = await credentialSeat(f.p, "admin");
 	const [church] = await admin.select().from(t.plant).where(eq(t.plant.id, f.p.id));
-	const ask = (a) =>
-		call("requestWorkspaceDeletion", a, command({ plant: f.p, confirmed: true }, church.revision), f.p);
+	const ask = (a: Session) =>
+		call("requestWorkspaceDeletion", a, command({ plant: f.p, confirmed: true }, church!.revision), f.p);
 	denied(await ask(member));
 	denied(await ask(seatedAdmin));
 	assert.deepEqual(await openWorkspace(owner), PROOF_REFUSED);
-	const seatOf = async (a) => {
+	const seatOf = async (a: Session) => {
 		const context = (await viewerOf(a))?.authority.actor.context;
-		return context ? { kind: context.kind, owner: context.owner, role: context.role } : null;
+		return context?.kind === "seat" ? { kind: context.kind, owner: context.owner, role: context.role } : null;
 	};
 	const seats = { [owner.id]: "owner", [member.id]: "member", [seatedAdmin.id]: "admin" };
 	for (const a of [owner, member, seatedAdmin])
@@ -1095,7 +1173,7 @@ test("AC:TARGET-IDN-026 AC:TARGET-IDN-032: only the Owner requests workspace del
 		.select()
 		.from(t.lifecycle_witness)
 		.where(and(eq(t.lifecycle_witness.kind, "plant"), eq(t.lifecycle_witness.opaque_subject_id, f.p.id)));
-	assert.equal(w.cancel_until.toISOString(), pending.cancelUntil);
+	assert.equal(w!.cancel_until!.toISOString(), pending.cancelUntil);
 	for (const a of [owner, member, seatedAdmin]) assert.equal(await viewerOf(a), null);
 	assert.equal(await viewerOf(await login(member)), null);
 
@@ -1108,7 +1186,7 @@ test("AC:TARGET-IDN-026 AC:TARGET-IDN-032: only the Owner requests workspace del
 	);
 
 	const opened = await openWorkspace(owner);
-	assert.equal(opened.status, "ok");
+	assert.ok(opened.status === "ok", JSON.stringify(opened));
 	assert.deepEqual(opened.value.subject, { kind: "plant", id: f.p.id });
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
 	const proof = await openedDeletion(opened.value.session, request);
@@ -1133,7 +1211,7 @@ test("AC:DEL58-007: a workspace cancel after the stored deadline is refused even
 	const f = await plant(owner);
 	const p = await overdue(owner, { kind: "plant", id: f.p.id });
 	const opened = await openWorkspace(owner);
-	assert.equal(opened.status, "ok");
+	assert.ok(opened.status === "ok", JSON.stringify(opened));
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
 	const proof = await openedDeletion(opened.value.session, request);
 	const late = ok(await gatedTransaction(db, (tx) => api.getWorkspaceDeletionStatus(tx, proof, request)));
@@ -1146,7 +1224,7 @@ test("AC:DEL58-007: a workspace cancel after the stored deadline is refused even
 		.select()
 		.from(t.lifecycle_witness)
 		.where(and(eq(t.lifecycle_witness.kind, "plant"), eq(t.lifecycle_witness.opaque_subject_id, f.p.id)));
-	assert.equal(w.state, "pending_deletion");
+	assert.equal(w!.state, "pending_deletion");
 });
 
 test("AC:AUTH-005 AC:AUTH-006 AC:AUTH-007 AC:TARGET-IDN-007 AC:ROLE43-018 email proof is requester-bound, superseded, 24 hours, unique, and preserves account/Person identity", async () => {
@@ -1157,46 +1235,47 @@ test("AC:AUTH-005 AC:AUTH-006 AC:AUTH-007 AC:TARGET-IDN-007 AC:ROLE43-018 email 
 		.update(t.person)
 		.set({ email: "crm-contact@example.test" })
 		.where(eq(t.person.id, church.result.ownerSeat.personId));
-	const requested = ok(await call("requestEmailChange", a, { newEmail: " " + randomUUID() + "@Example.Test " }));
+	const requested = ok(await credential("requestEmailChange", a, { newEmail: " " + randomUUID() + "@Example.Test " }));
 	assert.equal(requested.status, "verification_requested");
-	const first = deliveries.at(-1);
-	assert.equal((await call("confirmEmailChange", b, { proof: first.token })).status, "refused");
-	const dbNow = async () => Date.parse((await admin.execute(sql`SELECT clock_timestamp()::text AS t`)).rows[0].t);
+	const first = deliveries.at(-1)!;
+	assert.equal((await credential("confirmEmailChange", b, { proof: first.token })).status, "refused");
+	const dbNow = async () =>
+		Date.parse((await admin.execute<{ t: string }>(sql`SELECT clock_timestamp()::text AS t`)).rows[0]!.t);
 	const earliest = await dbNow();
-	ok(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
+	ok(await credential("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
 	const latest = await dbNow();
-	const second = deliveries.at(-1);
-	assert.equal((await call("confirmEmailChange", a, { proof: first.token })).status, "refused");
+	const second = deliveries.at(-1)!;
+	assert.equal((await credential("confirmEmailChange", a, { proof: first.token })).status, "refused");
 	const proofs = await admin.select().from(t.identity_proof).where(eq(t.identity_proof.account_id, a.id));
 	assert.equal(proofs.filter((p) => p.superseded_at !== null).length, 1);
-	const active = proofs.find((p) => p.superseded_at === null);
+	const active = proofs.find((p) => p.superseded_at === null)!;
 	const expiry = active.expires_at.getTime();
 	assert.ok(expiry >= earliest + 86_400_000 && expiry <= latest + 86_400_000 + 1, String(expiry - earliest));
-	const result = await call("confirmEmailChange", a, { proof: second.token });
+	const result = await credential("confirmEmailChange", a, { proof: second.token });
 	assert.equal(result.status, "succeeded");
 	assert.equal(result.action, "email_changed");
 	assert.equal(result.reporting.status, "recorded");
 	const [account] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
-	assert.equal(account.auth_user_id, a.user);
+	assert.equal(account!.auth_user_id, a.user);
 	const [user] = await admin.select().from(t.auth_user).where(eq(t.auth_user.id, a.user));
-	assert.equal(user.email, second.address);
+	assert.equal(user!.email, second.address);
 	const [person] = await admin.select().from(t.person).where(eq(t.person.id, church.result.ownerSeat.personId));
-	assert.equal(person.linked_account_id, a.id);
-	assert.equal(person.email, "crm-contact@example.test");
-	assert.equal((await call("confirmEmailChange", a, { proof: second.token })).status, "refused");
+	assert.equal(person!.linked_account_id, a.id);
+	assert.equal(person!.email, "crm-contact@example.test");
+	assert.equal((await credential("confirmEmailChange", a, { proof: second.token })).status, "refused");
 });
 
 test("INV-proof-link: opening an email-change link writes nothing and its proof still confirms the change", async () => {
 	const { NextRequest } = createRequire(new URL("../../../apps/web/package.json", import.meta.url))("next/server");
 	const { proxy, EMAIL_CHANGE_PROOF_COOKIE } = await import("../../../apps/web/src/proxy.ts");
 	const a = await credentialActor();
-	ok(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
-	const mailed = deliveries.at(-1);
+	ok(await credential("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
+	const mailed = deliveries.at(-1)!;
 	const state = async () =>
 		JSON.stringify({
 			proofs: await admin.select().from(t.identity_proof).where(eq(t.identity_proof.account_id, a.id)),
 			user: await admin.select().from(t.auth_user).where(eq(t.auth_user.id, a.user)),
-			audit: (await admin.execute(sql`SELECT count(*)::int AS n FROM audit_event`)).rows[0].n,
+			audit: (await admin.execute(sql`SELECT count(*)::int AS n FROM audit_event`)).rows[0]!.n,
 		});
 	const before = await state();
 	const opened = proxy(
@@ -1206,10 +1285,10 @@ test("INV-proof-link: opening an email-change link writes nothing and its proof 
 	const kept = opened.cookies.get(EMAIL_CHANGE_PROOF_COOKIE)?.value;
 	assert.equal(kept, mailed.token);
 	assert.equal(await state(), before);
-	const result = await call("confirmEmailChange", a, { proof: kept });
+	const result = await credential("confirmEmailChange", a, { proof: kept });
 	assert.equal(result.status, "succeeded");
 	const [user] = await admin.select().from(t.auth_user).where(eq(t.auth_user.id, a.user));
-	assert.equal(user.email, mailed.address);
+	assert.equal(user!.email, mailed.address);
 });
 
 test("AC:TARGET-IDN-008 AC:ROLE43-018 password proof precedes unchanged refusal; supported revocation and reporting failures stay truthful", async () => {
@@ -1222,10 +1301,10 @@ test("AC:TARGET-IDN-008 AC:ROLE43-018 password proof precedes unchanged refusal;
 		newPassword: "Replacement secret 2468!",
 		confirmPassword: "Replacement secret 2468!",
 	};
-	assert.equal((await call("changePassword", a, input)).status, "refused");
+	assert.equal((await credential("changePassword", a, input)).status, "refused");
 	assert.equal(
 		(
-			await call("changePassword", a, {
+			await credential("changePassword", a, {
 				currentPassword: a.password,
 				newPassword: a.password,
 				confirmPassword: a.password,
@@ -1234,7 +1313,7 @@ test("AC:TARGET-IDN-008 AC:ROLE43-018 password proof precedes unchanged refusal;
 		"refused",
 	);
 	faults = true;
-	const changed = await call("changePassword", a, { ...input, currentPassword: a.password });
+	const changed = await credential("changePassword", a, { ...input, currentPassword: a.password });
 	faults = false;
 	assert.equal(changed.status, "succeeded");
 	assert.deepEqual(changed.reporting, { status: "pending_investigation" });
@@ -1255,13 +1334,13 @@ test("AC:TARGET-IDN-008 AC:ROLE43-018 password proof precedes unchanged refusal;
 		.select({ n: sql`count(*)::int` })
 		.from(t.audit_event)
 		.where(and(eq(t.audit_event.tenant_id, a.id), eq(t.audit_event.action, "identity.credential_changed")));
-	assert.equal(count.n, 0);
+	assert.equal(count!.n, 0);
 });
 
 async function organization() {
-	const id = randomUUID(),
+	const id = tenantId.parse(randomUUID()),
 		a = await actor(),
-		o = { kind: "organization", id, organizationKind: "sending_network" };
+		o = { kind: "organization" as const, id, organizationKind: "sending_network" as const };
 	await admin
 		.insert(t.organization)
 		.values({ id, kind: "sending_network", name: "Network", timezone: "UTC", material_revision: "1" });
@@ -1271,18 +1350,17 @@ async function organization() {
 test("AC:CASE-NTF-004 an organization member who never saved an oversight choice sees the bell on, email off and daily", async () => {
 	const { a } = await organization();
 	const current = ok(await section(a, { section: "notifications" }));
-	const oversight = (channel) =>
-		current.values.choices.find((c) => c.category === "oversight_digest" && c.channel === channel).enabled;
+	const oversight = (channel: "email" | "in_app") =>
+		current.values.choices.find((c) => c.category === "oversight_digest" && c.channel === channel)!.enabled;
 	assert.deepEqual([oversight("in_app"), oversight("email"), current.values.oversightCadence], [true, false, "daily"]);
 	const saved = ok(
-		await call(
-			"saveSection",
+		await save(
 			a,
 			command({ section: "notifications", patch: { kind: "oversight_cadence", cadence: "weekly" } }, current.revision),
 		),
 	);
-	const after = (channel) =>
-		saved.current.values.choices.find((c) => c.category === "oversight_digest" && c.channel === channel).enabled;
+	const after = (channel: "email" | "in_app") =>
+		saved.current.values.choices.find((c) => c.category === "oversight_digest" && c.channel === channel)!.enabled;
 	assert.deepEqual([after("in_app"), after("email"), saved.current.values.oversightCadence], [true, false, "weekly"]);
 });
 test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact-pair sharing use the shared producers with one revision/audit/intent set", async () => {
@@ -1307,42 +1385,41 @@ test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact
 		})
 		.returning();
 	const input = {
-		section: "affiliations",
+		section: "affiliations" as const,
 		plant: f.p,
 		organization: org.o,
-		relationshipId: relationship.id,
+		relationshipId: relationship!.id,
 		expectedConsentRevision: "1",
 		patch: { teams: false, activityPush: false },
 	};
-	const saved = ok(await call("saveSection", f.a, command(input), f.p));
+	const saved = ok(await save(f.a, command(input), f.p));
 	assert.equal(saved.current.values.consentRevision, "2");
 	assert.equal(saved.current.values.choices.ministry_teams, false);
 	assert.equal(saved.current.values.choices.activity, false);
 	assert.equal(saved.current.values.choices.people, true);
 	assert.equal(saved.current.values.choices.shared_findings, true);
 
-	denied(await call("saveSection", g.a, command(input), g.p));
-	denied(await call("saveSection", org.a, command({ ...input, expectedConsentRevision: "2" }, "2"), org.o));
-	denied(await call("saveSection", f.a, command(input, "2"), f.p), "conflict");
+	denied(await save(g.a, command(input), g.p));
+	denied(await save(org.a, command({ ...input, expectedConsentRevision: "2" }, "2"), org.o));
+	denied(await save(f.a, command(input, "2"), f.p), "conflict");
 	const next = { ...input, expectedConsentRevision: "2", patch: { people: false } };
 	faults = true;
-	await assert.rejects(call("saveSection", f.a, command(next, "2"), f.p), /grant_fault/);
+	await assert.rejects(save(f.a, command(next, "2"), f.p), /grant_fault/);
 	faults = false;
 	assert.equal(
-		(await admin.select().from(t.affiliation).where(eq(t.affiliation.id, relationship.id)))[0].consent_revision,
+		(await admin.select().from(t.affiliation).where(eq(t.affiliation.id, relationship!.id)))[0]!.consent_revision,
 		"2",
 	);
 	assert.deepEqual(
 		(
 			await admin.execute(
-				sql`SELECT tenant_id,producer_key,source_revision::text AS revision FROM job WHERE kind='notification' AND subject_record_id=${relationship.id}`,
+				sql`SELECT tenant_id,producer_key,source_revision::text AS revision FROM job WHERE kind='notification' AND subject_record_id=${relationship!.id}`,
 			)
 		).rows,
 		[{ tenant_id: f.p.id, producer_key: "affiliation/sharing/2", revision: "2" }],
 	);
 	const profile = ok(
-		await call(
-			"saveSection",
+		await save(
 			org.a,
 			command({
 				section: "organization",
@@ -1355,8 +1432,7 @@ test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact
 	assert.equal(profile.current.values.profile.name, "New Network");
 	assert.equal(profile.current.values.revision, "2");
 	const noop = ok(
-		await call(
-			"saveSection",
+		await save(
 			org.a,
 			command({ section: "organization", organization: org.o, patch: { name: "New Network" } }, "2"),
 			org.o,
@@ -1364,27 +1440,26 @@ test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact
 	);
 
 	assert.equal(noop.current.values.revision, "2");
-	const wrong = { ...org.o, organizationKind: "sending_church" };
+	const wrong = { ...org.o, organizationKind: "sending_church" as const };
 	denied(await section(org.a, { section: "organization", organization: wrong }));
 });
 
 test("INV-lifecycle: an account root read serializes first-witness deletion even before any witness exists", async () => {
 	const { liveOwner } = await import("../../../packages/domain/src/access/session.ts");
 	const a = await actor();
-	let entered, release;
-	const ready = new Promise((r) => (entered = r)),
-		gate = new Promise((r) => (release = r));
+	const { promise: ready, resolve: entered } = Promise.withResolvers<void>(),
+		{ promise: gate, resolve: release } = Promise.withResolvers<void>();
 	const reading = gatedTransaction(db, async (tx) => {
 		assert.equal(await liveOwner(tx, { kind: "account", id: a.id }), true);
 		entered();
 		await gate;
 	});
 	await ready;
-	let pid, started;
+	let pid: number | undefined;
 	const done = new AbortController();
-	const running = new Promise((r) => (started = r));
+	const { promise: running, resolve: started } = Promise.withResolvers<void>();
 	const deletion = gatedTransaction(db, async (tx) => {
-		pid = (await tx.execute(sql`SELECT pg_backend_pid() AS id`)).rows[0].id;
+		pid = (await tx.execute<{ id: number }>(sql`SELECT pg_backend_pid() AS id`)).rows[0]!.id;
 		started();
 		const result = await api.requestAccountDeletion(tx, ctx(a), command({ confirmed: true }));
 		done.abort();
@@ -1409,8 +1484,8 @@ test("INV-preference-migration: grouped existing choices become independent exac
 	);
 	const a = await actor();
 	const block = migration
-		.split("-- BEGIN NOTIFICATION PREFERENCE DATA")[1]
-		.split("-- END NOTIFICATION PREFERENCE DATA")[0];
+		.split("-- BEGIN NOTIFICATION PREFERENCE DATA")[1]!
+		.split("-- END NOTIFICATION PREFERENCE DATA")[0]!;
 	await admin.transaction(async (tx) => {
 		await tx.execute(
 			sql`ALTER TABLE notification_preference DROP CONSTRAINT notification_preference_ck_1,DROP CONSTRAINT notification_preference_ck_6`,
@@ -1498,10 +1573,10 @@ test("AC:B03-017 AC:TARGET-TSK-018 church timezone preserves date-only tasks and
 		),
 	);
 	const [after] = await admin.select().from(t.task).where(eq(t.task.id, task));
-	assert.equal(after.due_date, "2099-01-15");
+	assert.equal(after!.due_date, "2099-01-15");
 	const [appointment] = await admin.select().from(t.meeting).where(eq(t.meeting.id, meeting));
-	assert.equal(appointment.starts_at.toISOString(), "2099-01-15T15:00:00.000Z");
-	assert.equal(appointment.timezone, "America/Chicago");
+	assert.equal(appointment!.starts_at.toISOString(), "2099-01-15T15:00:00.000Z");
+	assert.equal(appointment!.timezone, "America/Chicago");
 });
 
 test("AC:TARGET-TSK-018 frozen schedule previews disclose fold/gap policy and ignore the host timezone", async () => {
@@ -1557,7 +1632,7 @@ test("AC:TARGET-IDN-012 exact task preference reaches enqueue and dispatch; chur
 			due_date: "2099-01-15",
 		},
 	]);
-	const sent = [];
+	const sent: MailPayload[] = [];
 	const sender = createMailService({
 		db,
 		encryptionKey: randomBytes(32),
@@ -1583,10 +1658,10 @@ test("AC:TARGET-IDN-012 exact task preference reaches enqueue and dispatch; chur
 		},
 	});
 	const initialPreferences = ok(await section(f.a, { section: "notifications" }));
-	const notice = (category, occurrence) => ({
+	const notice = (category: "task_due" | "task_overdue", occurrence: string) => ({
 		owner: f.p,
 		recipient: f.a.id,
-		source: { kind: "task", id: task, revision: "1" },
+		source: { kind: "task" as const, id: task, revision: "1" },
 		category,
 		occurrence,
 		title: "Task update",
@@ -1595,8 +1670,7 @@ test("AC:TARGET-IDN-012 exact task preference reaches enqueue and dispatch; chur
 		eligibleAt: new Date().toISOString(),
 	});
 	ok(
-		await call(
-			"saveSection",
+		await save(
 			f.a,
 			command(
 				{
@@ -1610,10 +1684,10 @@ test("AC:TARGET-IDN-012 exact task preference reaches enqueue and dispatch; chur
 	const due = await gatedTransaction(db, (tx) => notifications.enqueue(tx, notice("task_due", "due")));
 	assert.equal(due.mail, null);
 	const overdue = await gatedTransaction(db, (tx) => notifications.enqueue(tx, notice("task_overdue", "overdue")));
+	assert.ok(overdue.mail);
 	assert.match(overdue.mail, /^[a-f0-9-]{36}$/);
 	ok(
-		await call(
-			"saveSection",
+		await save(
 			f.a,
 			command(
 				{
@@ -1625,12 +1699,13 @@ test("AC:TARGET-IDN-012 exact task preference reaches enqueue and dispatch; chur
 		),
 	);
 	const [outbox] = await admin.select().from(t.mail).where(eq(t.mail.id, overdue.mail));
+	assert.ok(outbox?.job_id);
 	await admin
 		.update(t.job)
 		.set({ eligible_at: sql`clock_timestamp()-interval '1 second'` })
 		.where(eq(t.job.id, outbox.job_id));
 	const claims = await claimDue(db, ["mail"], 100);
-	const claim = claims.find((c) => c.id === outbox.job_id);
+	const claim = claims.find((c) => c.id === outbox.job_id)!;
 	assert.equal(claim.kind, "mail");
 	assert.deepEqual(await sender.dispatch(claim), { kind: "not_dispatched" });
 	assert.deepEqual(sent, []);
@@ -1653,16 +1728,17 @@ test("AC:TARGET-IDN-012 exact task preference reaches enqueue and dispatch; chur
 
 test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 native credential budgets use own login rather than target and refuse exhausted password failures", async () => {
 	const a = await credentialActor();
-	for (let i = 0; i < 3; i++) ok(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
-	denied(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "temporary");
+	for (let i = 0; i < 3; i++)
+		ok(await credential("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
+	denied(await credential("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "temporary");
 	const b = await credentialActor();
 	const input = {
 		currentPassword: "Incorrect secret",
 		newPassword: "Budget replacement 2468!",
 		confirmPassword: "Budget replacement 2468!",
 	};
-	for (let i = 0; i < 5; i++) assert.equal((await call("changePassword", b, input)).status, "refused");
-	assert.equal((await call("changePassword", b, { ...input, currentPassword: b.password })).status, "refused");
+	for (let i = 0; i < 5; i++) assert.equal((await credential("changePassword", b, input)).status, "refused");
+	assert.equal((await credential("changePassword", b, { ...input, currentPassword: b.password })).status, "refused");
 	const old = await login(b);
 	assert.equal(ok(await section(old, { section: "account" })).email, b.email);
 });
@@ -1670,18 +1746,19 @@ test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 native credential budgets use own logi
 test("AC:TARGET-IDN-007 an email change whose send throws is unknown and gives its try back", async () => {
 	const a = await credentialActor();
 	trustedIps.set(a.session, "198.51.100.31");
-	const live = ingress.get(a.session);
+	const live = ingress.get(a.session)!;
 	ingress.set(a.session, new Request(live.url, { method: "POST", headers: { origin } }));
-	denied(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "unknown");
+	denied(await credential("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "unknown");
 	ingress.set(a.session, live);
-	for (let i = 0; i < 3; i++) ok(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
-	denied(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "temporary");
+	for (let i = 0; i < 3; i++)
+		ok(await credential("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }));
+	denied(await credential("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "temporary");
 });
 
 test("AC:DEL58-004 AC:DEL58-007 AC:TARGET-IDN-032 account purge removes personal bodies while preserving church documents", async () => {
 	const { deleteUnreferencedObject } = await import("../../../packages/db/src/schema/storage.ts");
 	const f = await plant(),
-		subject = { kind: "account", id: f.a.id };
+		subject = { kind: "account" as const, id: f.a.id };
 	const file = randomUUID(),
 		key = `private/${f.a.id}/${randomUUID()}`,
 		bytes = Buffer.from("x"),
@@ -1721,18 +1798,13 @@ test("AC:DEL58-004 AC:DEL58-007 AC:TARGET-IDN-032 account purge removes personal
 	const pending = await overdue(f.a, subject),
 		input = { subject, requestId: pending.requestId, revision: pending.revision };
 	let timeout = true;
-	const storage = {
-		bucket: "synthetic-only",
-		client: {
-			send: async (command) => {
-				assert.equal(command.constructor.name, "DeleteObjectCommand");
-				assert.equal(command.input.Key, key);
-				if (timeout) throw Error("provider_timeout");
-				objects.delete(key);
-				return {};
-			},
-		},
-	};
+	const storage = stubStorage((operation, input) => {
+		assert.equal(operation, "DeleteObjectCommand");
+		assert.equal(objectInput.parse(input).Key, key);
+		if (timeout) throw Error("provider_timeout");
+		objects.delete(key);
+		return {};
+	});
 	const purge = createLifecycleCleanup(cleanupDb, {
 		authorize: async () => true,
 		removeOwnedResources: async () => {
@@ -1750,7 +1822,9 @@ test("AC:DEL58-004 AC:DEL58-007 AC:TARGET-IDN-032 account purge removes personal
 								eq(t.lifecycle_witness.state, "purging"),
 							),
 						);
-					return w && identity.tenant_id === subject.id ? { kind: "system", cause: "object_cleanup" } : null;
+					return w && identity.tenant_id === subject.id
+						? { kind: "system" as const, cause: "object_cleanup" as const }
+						: null;
 				},
 				file,
 			);
@@ -1763,18 +1837,18 @@ test("AC:DEL58-004 AC:DEL58-007 AC:TARGET-IDN-032 account purge removes personal
 		.select()
 		.from(t.lifecycle_witness)
 		.where(eq(t.lifecycle_witness.opaque_subject_id, subject.id));
-	assert.equal(w.live_purged_at, null);
+	assert.equal(w!.live_purged_at, null);
 	assert.equal(
-		(await admin.select().from(t.document_revision).where(eq(t.document_revision.id, docs[0].version))).length,
+		(await admin.select().from(t.document_revision).where(eq(t.document_revision.id, docs[0]!.version))).length,
 		0,
 	);
-	const [shared] = await admin.select().from(t.document_revision).where(eq(t.document_revision.id, docs[1].version));
-	assert.equal(shared.body, "Church-owned document body");
+	const [shared] = await admin.select().from(t.document_revision).where(eq(t.document_revision.id, docs[1]!.version));
+	assert.equal(shared!.body, "Church-owned document body");
 	timeout = false;
 	const done = await purge(input);
 	assert.equal(done.status, "purged");
 	assert.equal(objects.size, 0);
-	assert.equal((await admin.select().from(t.file_object).where(eq(t.file_object.id, file)))[0].state, "purged");
+	assert.equal((await admin.select().from(t.file_object).where(eq(t.file_object.id, file)))[0]!.state, "purged");
 });
 
 test("INV-settings-preview: expiry is checked independently from actor, subject, revision, source and zone matching", async () => {
@@ -1824,27 +1898,40 @@ test("INV-settings-preview: expiry is checked independently from actor, subject,
 });
 
 let recording = false;
-const statements = [];
-async function mountRead(a, request) {
-	const viewer = await viewerOf(a);
+const statements: string[] = [];
+async function mountRead<K extends SectionName>(a: Session, request: { section: K } & Record<string, unknown>) {
+	const viewer = await seen(a);
 	statements.length = 0;
 	recording = true;
 	try {
-		const value = await api.getSection(db, viewer, request);
+		const value = await readSection(viewer, request);
 		return { value: ok(value), statements: [...statements] };
 	} finally {
 		recording = false;
 	}
 }
+const mounted = <K extends SectionName>(
+	a: Session,
+	request: { section: K } & Record<string, unknown>,
+	observe: (value: SectionOf<K>) => unknown[],
+	expected: unknown[],
+) => ({
+	section: request.section,
+	expected,
+	read: async () => {
+		const { value, statements } = await mountRead(a, request);
+		return { observed: observe(value), statements };
+	},
+});
 const instrumented = new WeakSet();
-function instrument(...pools) {
+function instrument(...pools: Database[]) {
 	for (const pool of pools)
 		pool.$client.on("acquire", (client) => {
 			if (instrumented.has(client)) return;
 			instrumented.add(client);
 			const query = client.query;
-			client.query = function (...args) {
-				if (recording) statements.push(typeof args[0] === "string" ? args[0] : args[0].text);
+			client.query = function (...args: unknown[]) {
+				if (recording) statements.push(statementText(args[0]));
 				return Reflect.apply(query, this, args);
 			};
 		});
@@ -1873,33 +1960,48 @@ test("INV-performance: each settings section reads in one statement on the pool,
 	});
 	const sharing = { plant: f.p, organization: org.o };
 	const reads = [
-		[f.a, { section: "account" }, (v) => [v.name, v.email], ["Synthetic", f.a.user + "@example.test"]],
-		[f.a, { section: "notifications" }, (v) => [v.values.planterCadence, v.values.oversightCadence], ["weekly", null]],
-		[
-			f.a,
-			{ section: "plant", plant: f.p },
-			(v) => [v.values.profile.name, v.values.timeZone],
-			["Harvest Point", "America/Chicago"],
-		],
-		[f.a, { section: "teams", plant: f.p, teamId: team.id }, (v) => [v.name, v.revision], ["Worship", "1"]],
-		[org.a, { section: "organization", organization: org.o }, (v) => [v.values.profile.name], ["Network"]],
-		[
+		mounted(f.a, { section: "account" }, (v) => [v.name, v.email], ["Synthetic", f.a.user + "@example.test"]),
+		mounted(f.a, { section: "notifications" }, (v) => [v.values.planterCadence, v.values.oversightCadence], [
+			"weekly",
+			null,
+		]),
+		mounted(f.a, { section: "plant", plant: f.p }, (v) => [v.values.profile.name, v.values.timeZone], [
+			"Harvest Point",
+			"America/Chicago",
+		]),
+		mounted(f.a, { section: "teams", plant: f.p, teamId: team!.id }, (v) => [v.name, v.revision], ["Worship", "1"]),
+		mounted(
+			org.a,
+			{ section: "organization", organization: org.o },
+			(v) => {
+				assert.ok(v.values.status === "available");
+				return [v.values.profile.name];
+			},
+			["Network"],
+		),
+		mounted(
 			f.a,
 			{ section: "affiliations", ...sharing },
-			(v) => [v.values.view, v.values.choices.people],
+			(v) => {
+				assert.ok("choices" in v.values);
+				return [v.values.view, v.values.choices.people];
+			},
 			["plant_administration", true],
-		],
-		[
+		),
+		mounted(
 			org.a,
 			{ section: "affiliations", ...sharing },
-			(v) => [v.values.view, v.values.availability.people],
+			(v) => {
+				assert.ok("availability" in v.values);
+				return [v.values.view, v.values.availability.people];
+			},
 			["organization", true],
-		],
+		),
 	];
-	for (const [a, request, observe, expected] of reads) {
-		const read = await mountRead(a, request);
-		assert.deepEqual(observe(read.value), expected, request.section);
-		assert.equal(read.statements.length, 1, `${request.section}: ${read.statements.join("\n")}`);
+	for (const { section, expected, read } of reads) {
+		const { observed, statements } = await read();
+		assert.deepEqual(observed, expected, section);
+		assert.equal(statements.length, 1, `${section}: ${statements.join("\n")}`);
 	}
 });
 test("INV-authority: a settings read checks seat, role, session and lifecycle again; a viewer that lost them since its lookup reads nothing", async () => {
@@ -1923,12 +2025,13 @@ test("INV-authority: a settings read checks seat, role, session and lifecycle ag
 		consent_revision: "1",
 		revision: "1",
 	});
-	const church = [
+	type Request = { section: SectionName } & Record<string, unknown>;
+	const church: Request[] = [
 		{ section: "plant", plant: f.p },
-		{ section: "teams", plant: f.p, teamId: team.id },
+		{ section: "teams", plant: f.p, teamId: team!.id },
 		{ section: "affiliations", plant: f.p, organization: org.o },
 	];
-	const cases = [
+	const cases: [string, () => Promise<Account>, Request[], (a: Account) => PromiseLike<unknown>][] = [
 		[
 			"admin downgraded to member",
 			() => seat(f.p),
@@ -1965,7 +2068,7 @@ test("INV-authority: a settings read checks seat, role, session and lifecycle ag
 	];
 	for (const [change, make, requests, mutate] of cases) {
 		const a = await make();
-		const viewer = await viewerOf(a);
+		const viewer = await seen(a);
 		for (const request of requests) ok(await api.getSection(db, viewer, request));
 		await mutate(a);
 		for (const request of requests)
@@ -1978,7 +2081,7 @@ test("BUG-3213d18: notifications read the account's saved choices and an organiz
 		sql`INSERT INTO notification_preference(account_id,category,channel,enabled,cadence,unsubscribe_revision) VALUES(${org.a.id},'task_due','email',false,null,1),(${org.a.id},'planter_digest','email',true,'daily',1),(${org.a.id},'oversight_digest','email',true,'daily',1)`,
 	);
 	const read = ok(await section(org.a, { section: "notifications" }));
-	const choice = (category, channel) =>
+	const choice = (category: string, channel: string) =>
 		read.values.choices.find((c) => c.category === category && c.channel === channel)?.enabled;
 	assert.equal(choice("task_due", "email"), false);
 	assert.equal(choice("task_due", "in_app"), true);
@@ -1992,7 +2095,7 @@ test("BUG-3213d18: notifications read the account's saved choices and an organiz
 	assert.equal(read.values.planterCadence, "daily");
 	assert.equal(read.values.oversightCadence, "daily");
 	const patch = { kind: "channel", choice: { category: "task_due", channel: "email", enabled: true } };
-	ok(await call("saveSection", org.a, command({ section: "notifications", patch }, read.revision)));
+	ok(await save(org.a, command({ section: "notifications", patch }, read.revision)));
 	const [stored] = await admin
 		.select()
 		.from(t.notification_preference)
@@ -2003,14 +2106,14 @@ test("BUG-3213d18: notifications read the account's saved choices and an organiz
 				eq(t.notification_preference.channel, "email"),
 			),
 		);
-	assert.equal(stored.enabled, true);
+	assert.equal(stored!.enabled, true);
 	const reload = ok(await section(org.a, { section: "notifications" }));
-	assert.equal(reload.values.choices.find((c) => c.category === "task_due" && c.channel === "email").enabled, true);
+	assert.equal(reload.values.choices.find((c) => c.category === "task_due" && c.channel === "email")!.enabled, true);
 });
 
-async function mountWrite(a, body) {
-	const viewer = await viewerOf(a),
-		context = { session: a.session, selected: { kind: "account", id: a.id } };
+async function mountWrite<V>(a: Session, body: (tx: WriteTx, context: SettingsContext) => Promise<SettingsReply<V>>) {
+	const viewer = await seen(a),
+		context = ctx(a);
 	statements.length = 0;
 	recording = true;
 	try {
@@ -2020,7 +2123,7 @@ async function mountWrite(a, body) {
 		recording = false;
 	}
 }
-const auditOf = (requestKey) =>
+const auditOf = (requestKey: string) =>
 	admin.execute(
 		sql`SELECT action, metadata, result FROM audit_event WHERE command_id=(SELECT id FROM audit_event WHERE request_key=${requestKey})`,
 	);
@@ -2074,32 +2177,32 @@ test("INV-performance: photo, own time zone and deletion writes use a fixed smal
 		[finalizeKey, "avatar"],
 		[removeKey, "avatar"],
 		[zoneKey, "personalTimezone"],
-	]) {
+	] as const) {
 		const rows = (await auditOf(key)).rows;
 		assert.equal(rows.length, 1, field);
-		assert.deepEqual(rows[0].metadata, { section: "account", diff: { [field]: true } });
+		assert.deepEqual(rows[0]!.metadata, { section: "account", diff: { [field]: true } });
 	}
 	assert.equal((await auditOf(deletionKey)).rows.length, 1);
-	assert.deepEqual((await auditOf(zoneKey)).rows[0].result, { revision: "2" });
-	assert.deepEqual((await auditOf(finalizeKey)).rows[0].result, {});
-	assert.deepEqual((await auditOf(removeKey)).rows[0].result, {});
+	assert.deepEqual((await auditOf(zoneKey)).rows[0]!.result, { revision: "2" });
+	assert.deepEqual((await auditOf(finalizeKey)).rows[0]!.result, {});
+	assert.deepEqual((await auditOf(removeKey)).rows[0]!.result, {});
 });
 
 test("AC:DEL58-002 INV-performance: a fresh password proof opens only the account's current request; status and cancel stay small", async () => {
 	instrument(db);
 	const a = await credentialActor();
 	const [row] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
-	const pending = ok(await call("requestAccountDeletion", a, command({ confirmed: true }, row.revision)));
-	const open = (password) => producerDeps.credentials.openAccountDeletion({ email: a.email, password }, null);
+	const pending = ok(await call("requestAccountDeletion", a, command({ confirmed: true }, row!.revision)));
+	const open = (password: string) => producerDeps.credentials.openAccountDeletion({ email: a.email, password }, null);
 	assert.deepEqual(await open("Wrong secret 1234!"), { status: "refused", code: "proof_invalid" });
 	const opened = await open(a.password);
-	assert.equal(opened.status, "ok");
+	assert.ok(opened.status === "ok", JSON.stringify(opened));
 	assert.deepEqual(opened.value.subject, { kind: "account", id: a.id });
 	assert.equal(opened.value.requestId, pending.requestId);
 	assert.equal(await viewerOf(await login(a)), null);
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
 	const proof = await openedDeletion(opened.value.session, request);
-	const measured = async (body) => {
+	const measured = async <V,>(body: (tx: WriteTx) => Promise<SettingsReply<V>>) => {
 		statements.length = 0;
 		recording = true;
 		try {
@@ -2120,7 +2223,7 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 
 test("INV-statements: settings writes lock their related rows in one statement each", async () => {
 	instrument(db);
-	const counted = async (body) => {
+	const counted = async <V,>(body: () => Promise<V>) => {
 		statements.length = 0;
 		recording = true;
 		try {
@@ -2152,7 +2255,7 @@ test("INV-statements: settings writes lock their related rows in one statement e
 		due_kind: "date_only",
 		due_date: "2099-01-15",
 	});
-	const run = (body, selected = undefined) =>
+	const run = <V,>(body: (tx: WriteTx, context: SettingsContext) => Promise<SettingsReply<V>>, selected?: Owner) =>
 		counted(async () => ok(await gatedTransaction(db, (tx) => body(tx, ctx(owner, selected)))));
 
 	const personal = await run((tx, c) => producer.previewPersonalTimezone(tx, c, { timeZone: "Europe/Paris" }));
@@ -2198,16 +2301,21 @@ test("INV-statements: settings writes lock their related rows in one statement e
 	assert.equal(churchSet.value.status, "changed");
 
 	const [root] = await admin.select().from(t.plant).where(eq(t.plant.id, f.p.id));
-	const viewer = await viewerOf(owner);
+	const viewer = await seen(owner);
 	const requested = await counted(async () =>
 		ok(
 			await withSettingsWrite(db, viewer.authority, ctx(owner, f.p), (tx) =>
-				producer.requestWorkspaceDeletion(tx, ctx(owner, f.p), command({ plant: f.p, confirmed: true }, root.revision)),
+				producer.requestWorkspaceDeletion(
+					tx,
+					ctx(owner, f.p),
+					command({ plant: f.p, confirmed: true }, root!.revision),
+				),
 			),
 		),
 	);
 	assert.equal(requested.value.status, "pending_deletion");
 	const opened = await openWorkspace(owner);
+	assert.ok(opened.status === "ok");
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
 	const proof = await openedDeletion(opened.value.session, request);
 	const cancel = () =>
@@ -2215,18 +2323,18 @@ test("INV-statements: settings writes lock their related rows in one statement e
 			producer.cancelWorkspaceDeletion(tx, proof, command(request, requested.value.revision)),
 		);
 	const [ownerSeat] = await admin.select().from(t.seat).where(eq(t.seat.account_id, owner.id));
-	await admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, ownerSeat.id));
+	await admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, ownerSeat!.id));
 	denied(await cancel());
-	await admin.update(t.seat).set({ ended_at: null }).where(eq(t.seat.id, ownerSeat.id));
+	await admin.update(t.seat).set({ ended_at: null }).where(eq(t.seat.id, ownerSeat!.id));
 	const cancelled = await counted(async () => ok(await cancel()));
 	assert.equal(cancelled.value.status, "cancelled");
 
 	const [account] = await admin.select().from(t.account).where(eq(t.account.id, solo.id));
-	const pending = ok(await call("requestAccountDeletion", solo, command({ confirmed: true }, account.revision)));
+	const pending = ok(await call("requestAccountDeletion", solo, command({ confirmed: true }, account!.revision)));
 	const openedAccount = await counted(() =>
 		producerDeps.credentials.openAccountDeletion({ email: solo.email, password: solo.password }, null),
 	);
-	assert.equal(openedAccount.value.status, "ok");
+	assert.ok(openedAccount.value.status === "ok");
 	assert.deepEqual(openedAccount.value.value.subject, { kind: "account", id: solo.id });
 	assert.equal(openedAccount.value.value.requestId, pending.requestId);
 
@@ -2256,22 +2364,15 @@ test("INV-account-revision people/peo-3: Your account and notifications share on
 	const notifications = ok(await section(a, { section: "notifications" }));
 	assert.equal(notifications.revision, account.revision);
 	const toggle = { kind: "channel", choice: { category: "task_due", channel: "email", enabled: false } };
-	const named = ok(
-		await call("saveSection", a, command({ section: "account", name: "Shared Revision" }, account.revision)),
-	);
+	const named = ok(await save(a, command({ section: "account", name: "Shared Revision" }, account.revision)));
 	assert.notEqual(named.current.revision, account.revision);
 	assert.equal(ok(await section(a, { section: "notifications" })).revision, named.current.revision);
-	const stale = await call("saveSection", a, command({ section: "notifications", patch: toggle }, account.revision));
+	const stale = await save(a, command({ section: "notifications", patch: toggle }, account.revision));
 	assert.equal(stale.status, "refused", JSON.stringify(stale));
 	assert.equal(stale.error.code, "conflict");
-	const toggled = ok(
-		await call("saveSection", a, command({ section: "notifications", patch: toggle }, named.current.revision)),
-	);
+	const toggled = ok(await save(a, command({ section: "notifications", patch: toggle }, named.current.revision)));
 	assert.equal(ok(await section(a, { section: "account" })).revision, toggled.current.revision);
-	denied(
-		await call("saveSection", a, command({ section: "account", name: "Too Old" }, named.current.revision)),
-		"conflict",
-	);
+	denied(await save(a, command({ section: "account", name: "Too Old" }, named.current.revision)), "conflict");
 	assert.equal(ok(await section(a, { section: "account" })).name, "Shared Revision");
 });
 
@@ -2281,7 +2382,16 @@ test("an organization's Owner offers its plants a gathering milestone in its pro
 	await admin
 		.insert(t.seat)
 		.values({ account_id: member.id, organization_id: org.o.id, role: "member", accepted_at: new Date() });
-	const milestone = (value) => ({ section: "organization", organization: org.o, patch: { gatheringMilestone: value } });
+	const offered = async (a: Session) => {
+		const { values } = ok(await section(a, { section: "organization", organization: org.o }));
+		assert.ok(values.status === "available");
+		return values.profile.gatheringMilestone;
+	};
+	const milestone = (value: object) => ({
+		section: "organization" as const,
+		organization: org.o,
+		patch: { gatheringMilestone: value },
+	});
 	const stored = async () =>
 		(
 			await admin.execute(
@@ -2289,18 +2399,14 @@ test("an organization's Owner offers its plants a gathering milestone in its pro
 				gathering_milestone_description AS description,revision::text AS revision FROM organization WHERE id=${org.o.id}`,
 			)
 		).rows[0];
-	assert.deepEqual(
-		ok(await section(org.a, { section: "organization", organization: org.o })).values.profile.gatheringMilestone,
-		{
-			offered: false,
-			name: null,
-			description: null,
-		},
-	);
+	assert.deepEqual(await offered(org.a), {
+		offered: false,
+		name: null,
+		description: null,
+	});
 
 	const saved = ok(
-		await call(
-			"saveSection",
+		await save(
 			org.a,
 			command(
 				milestone({ offered: true, name: " Constituted as a church ", description: "Adopts its constitution.\r\n" }),
@@ -2310,19 +2416,13 @@ test("an organization's Owner offers its plants a gathering milestone in its pro
 	);
 	const value = { offered: true, name: "Constituted as a church", description: "Adopts its constitution." };
 	assert.deepEqual(saved.current.values.profile.gatheringMilestone, value);
-	assert.deepEqual(
-		ok(await section(org.a, { section: "organization", organization: org.o })).values.profile.gatheringMilestone,
-		value,
-	);
-	assert.deepEqual(
-		ok(await section(member, { section: "organization", organization: org.o })).values.profile.gatheringMilestone,
-		value,
-	);
+	assert.deepEqual(await offered(org.a), value);
+	assert.deepEqual(await offered(member), value);
 	const audit = (
 		await admin.execute(
 			sql`SELECT after_value FROM audit_event WHERE subject_id=${org.o.id} AND action='organization.profile_changed' ORDER BY recorded_at DESC LIMIT 1`,
 		)
-	).rows[0].after_value;
+	).rows[0]!.after_value;
 	assert.deepEqual(audit, {
 		gathering_milestone_offered: true,
 		gathering_milestone_name: "Constituted as a church",
@@ -2330,14 +2430,7 @@ test("an organization's Owner offers its plants a gathering milestone in its pro
 	});
 
 	const before = await stored();
-	denied(
-		await call(
-			"saveSection",
-			member,
-			command(milestone({ offered: false, name: null, description: null }), "2"),
-			org.o,
-		),
-	);
+	denied(await save(member, command(milestone({ offered: false, name: null, description: null }), "2"), org.o));
 	assert.deepEqual(await stored(), before);
 
 	for (const bad of [
@@ -2345,23 +2438,15 @@ test("an organization's Owner offers its plants a gathering milestone in its pro
 		{ offered: true, name: "a".repeat(121), description: null },
 		{ offered: true, name: "Constituted", description: "a".repeat(2001) },
 	])
-		denied(await call("saveSection", org.a, command(milestone(bad), "2"), org.o), "invalid_input");
+		denied(await save(org.a, command(milestone(bad), "2"), org.o), "invalid_input");
 	assert.deepEqual(await stored(), before);
 	ok(
-		await call(
-			"saveSection",
+		await save(
 			org.a,
 			command(milestone({ offered: true, name: "a".repeat(120), description: "a".repeat(2000) }), "2"),
 			org.o,
 		),
 	);
-	ok(
-		await call(
-			"saveSection",
-			org.a,
-			command(milestone({ offered: false, name: "a".repeat(120), description: null }), "3"),
-			org.o,
-		),
-	);
+	ok(await save(org.a, command(milestone({ offered: false, name: "a".repeat(120), description: null }), "3"), org.o));
 	assert.deepEqual(await stored(), { offered: false, name: "a".repeat(120), description: null, revision: "4" });
 });
