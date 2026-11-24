@@ -371,7 +371,7 @@
 				},
 				{
 					"id": "approve-change",
-					"says": "A change Evry prepares shows as Review before saving with the exact old and new values; Approve runs it once and the page it changed shows the new value.",
+					"says": "A change Evry prepares shows as Review before saving with the exact old and new values; Approve runs it once and its page shows the new value. An invitation says if its email is delayed.",
 					"catalog": ["EVR-012", "EVR-013", "EVR-014"],
 					"operations": ["evry.approveProposal", "evry.executeProposal"],
 					"proof": {
