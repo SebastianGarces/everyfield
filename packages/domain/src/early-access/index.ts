@@ -8,7 +8,7 @@ import {
 	type AccessRequest,
 	type AccessRequestResult,
 } from "./contract.ts";
-import { readSwitches, switchedOff } from "../flags/switches.ts";
+import { readSwitches, switchedOff } from "../flags/index.ts";
 import { mailRecipientAllowed } from "../mail-recipients.ts";
 
 const mailSchema = z.object({
