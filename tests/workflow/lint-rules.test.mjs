@@ -3821,7 +3821,7 @@ export const f = { id: "a" } satisfies X;
 	assert.match(hits[0], /Type the value at its source, or narrow it with a check/);
 });
 
-test("INV-lint: a JSX ref made new on every render is reported, inline, declared in the component, in a branch, composed or returned by a call; stable refs and marketing pass", () => {
+test("INV-lint: a JSX ref made new on every render is reported, inline, declared in the component, in a branch, composed or returned by a call, in marketing too; stable refs pass", () => {
 	const source = `import { useCallback, useMemo, useRef } from "react";
 import { revealRef } from "@/components/motion/Reveal";
 import { mergeRefs, useTarget } from "./refs.ts";
@@ -3898,9 +3898,11 @@ export const Reveal = ({ up }) => <div ref={revealRef(up)} />;
 	assert.deepEqual(
 		lint(files).filter((hit) => hit.endsWith(" stable-ref")),
 		[
-			...["apps/web/src/features/x/Panel.tsx", "packages/ui/src/shell/Panel.tsx"].flatMap((file) =>
-				lines.map((line) => `${file}:${line} stable-ref`),
-			),
+			...[
+				"apps/web/src/features/x/Panel.tsx",
+				"packages/ui/src/shell/Panel.tsx",
+				"apps/web/src/marketing/home/Panel.tsx",
+			].flatMap((file) => lines.map((line) => `${file}:${line} stable-ref`)),
 			"apps/web/src/components/motion/Reveal.tsx:2 stable-ref",
 		].sort(),
 	);
