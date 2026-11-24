@@ -23,7 +23,7 @@ import {
 	readIntelligence,
 	requestIntelligenceRefresh,
 } from "../../../packages/domain/src/oversight/index.ts";
-import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
+import { scriptedAssessmentDrafter } from "../../../packages/evry-scripted/src/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
 import { CANARY, church, type Church } from "../intelligence/assessment-church.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";

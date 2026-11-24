@@ -107,6 +107,13 @@ async function serverLogs(t) {
 		cwd: app,
 		env: {
 			...process.env,
+			IDENTITY_DATABASE_URL: "postgres://logs:logs@127.0.0.1:1/logs",
+			IDENTITY_AUTH_DATABASE_URL: "postgres://logs:logs@127.0.0.1:1/logs",
+			IDENTITY_ORIGIN: origin,
+			IDENTITY_SECRET: "server-logs-synthetic-session-secret",
+			IDENTITY_MAIL_KEY: "a".repeat(64),
+			IDENTITY_ADDRESS_KEY: "b".repeat(64),
+			IDENTITY_MAIL_FROM: "server-logs@example.test",
 			NODE_ENV: "development",
 			NEXT_TELEMETRY_DISABLED: "1",
 			NEXT_FONT_GOOGLE_MOCKED_RESPONSES: mockFile,

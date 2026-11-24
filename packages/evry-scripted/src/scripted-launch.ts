@@ -2,8 +2,7 @@ import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk
 import { randomUUID } from "node:crypto";
 import { addDays, counted, countWord, dayText } from "@everyfield/contracts/common";
 import { GUEST_NAME_MAX } from "@everyfield/contracts/launch";
-import { LAUNCH_RULES } from "../context/compile.ts";
-import { captured } from "./captured.ts";
+import { captured, LAUNCH_RULES } from "@everyfield/evry";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind?: string; id: string; label: string; fields: Record<string, unknown> };

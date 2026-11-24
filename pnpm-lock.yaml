@@ -46,6 +46,9 @@ importers:
       '@everyfield/evry':
         specifier: workspace:*
         version: link:../../packages/evry
+      '@everyfield/evry-scripted':
+        specifier: workspace:*
+        version: link:../../packages/evry-scripted
       '@everyfield/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -378,6 +381,31 @@ importers:
       tsx:
         specifier: 4.23.15
         version: 4.23.15
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  packages/evry-scripted:
+    dependencies:
+      '@ai-sdk/provider':
+        specifier: 4.0.31
+        version: 4.0.31
+      '@everyfield/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@everyfield/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@everyfield/evry':
+        specifier: workspace:*
+        version: link:../evry
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      oxlint:
+        specifier: 1.92.0
+        version: 1.92.0
       typescript:
         specifier: 6.0.3
         version: 6.0.3
