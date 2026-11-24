@@ -112,7 +112,14 @@ export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 			input.adultClassification !== undefined ||
 			input.movedInto !== undefined;
 		const limit = Math.min(input.limit ?? PAGE, churchWide ? PAGE : 100);
-		const request = listPeopleRequest.parse({ ...input, limit, page: input.page ?? 1 });
+		const named = (input.skillNames ?? []).flatMap((n) => skillCategory.safeParse(n.toLowerCase()).data ?? []);
+		const skillCategories = [...new Set([...(input.skillCategories ?? []), ...named])];
+		const request = listPeopleRequest.parse({
+			...input,
+			...(skillCategories.length > 0 && { skillCategories }),
+			limit,
+			page: input.page ?? 1,
+		});
 		const reply = await peopleReader.listPeople(tx, new PeopleReadContext(actor.authority), request);
 		if (reply.status !== "ok")
 			throw new EvryRefusal(reply.error.code === "invalid_input" ? "invalid_input" : "source_unavailable");

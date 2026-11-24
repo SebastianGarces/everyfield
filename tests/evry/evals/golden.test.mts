@@ -1508,10 +1508,13 @@ test("INV-evry-golden: a case's review never queues on the write gate behind ano
 	const card = (c: Conversation) => c.proposals.map((p) => [p.operation, p.prepared, p.review]);
 	const alone = await ask();
 
-	const duplicateCheck = holding(sql`LOCK TABLE organization_person_removal IN ACCESS EXCLUSIVE MODE`);
+	const checkLock = () => holding(sql`LOCK TABLE organization_person_removal IN ACCESS EXCLUSIVE MODE`);
+	let duplicateCheck = checkLock();
+	const checks = [duplicateCheck];
 	const plant = holding(sql`SELECT 1 FROM plant WHERE id=${PLANT}::uuid FOR UPDATE`);
 	const rivalMeeting = holding(sql`SELECT 1 FROM meeting WHERE id=${MEETINGS.training}::uuid FOR UPDATE`);
-	const [checkHolder, plantHolder] = [await duplicateCheck.pid, await plant.pid, await rivalMeeting.pid];
+	let checkHolder = await duplicateCheck.pid;
+	const [plantHolder] = [await plant.pid, await rivalMeeting.pid];
 	const rivalDone = new AbortController();
 	let rivalRun: Promise<unknown> = Promise.resolve();
 	try {
@@ -1519,6 +1522,16 @@ test("INV-evry-golden: a case's review never queues on the write gate behind ano
 			(c) => ({ keys: c.keys, card: card(c), error: null }),
 			(error: unknown) => ({ keys: [], card: [], error: String(error) }),
 		);
+		for (const read of alone.calls.filter((x) => x.operation === "people.checkForDuplicates")) {
+			assert.ok(!read.error, "the duplicate read replays");
+			await waitingOnLock(church.admin, { blockedBy: checkHolder });
+			const next = checkLock();
+			checks.push(next);
+			await waitingOnLock(church.admin, { blockedBy: checkHolder, count: 2 });
+			duplicateCheck.release();
+			duplicateCheck = next;
+			checkHolder = await next.pid;
+		}
 		await waitingOnLock(church.admin, { blockedBy: checkHolder });
 		rivalRun = converse(church, "owner", rival.question, rival.eval.history ?? []).finally(() => rivalDone.abort());
 		rivalRun.catch(() => undefined);
@@ -1537,10 +1550,10 @@ test("INV-evry-golden: a case's review never queues on the write gate behind ano
 			{ queuedBehindRival: false, keys: alone.keys, card: card(alone), error: null },
 		);
 	} finally {
-		duplicateCheck.release();
-		plant.release();
-		rivalMeeting.release();
-		await Promise.allSettled([duplicateCheck.done, plant.done, rivalMeeting.done, rivalRun]);
+		for (const held of [...checks, plant, rivalMeeting]) held.release();
+		await Promise.allSettled(
+			[...checks, plant, rivalMeeting].map((held) => held.done).concat(rivalRun as Promise<void>),
+		);
 	}
 });
 
