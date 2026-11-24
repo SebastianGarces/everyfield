@@ -285,3 +285,79 @@ test("INV-privacy: one person's read gives each church seat the email and phone 
 		await admin.execute(sql`UPDATE person SET email=NULL, phone=NULL WHERE id=${people.casey}`);
 	}
 });
+
+test("church-wide People filters: page 2 continues page 1 under the same filter, with the whole church counted and no private value, for an Owner or Member; an organization seat is refused", async () => {
+	const home = randomUUID();
+	await admin.execute(sql`INSERT INTO household(id,plant_id,name) VALUES(${home},${plant},'Brook household')`);
+	const add = async (name: string, columns: { adult?: string; household?: string; stage?: string } = {}) => {
+		const id = randomUUID();
+		await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,phone,street,source,notes,created_at,stage,adult_classification,commitment_state,pipeline_position,state,household_id,household_role)
+			VALUES(${id},${plant},${plant},${name},${`${id}@filters.test`},'312-555-0177','9 Hidden Lane','other','private summary',clock_timestamp(),
+				${columns.stage ?? "prospect"},${columns.adult ?? "unknown"},'unknown',7000,'live',${columns.household ?? null},${columns.household ? "child" : null})`);
+		return id;
+	};
+	const brook = await add("Bay Brook", { adult: "child", household: home, stage: "core_group" });
+	await add("Ash Reed");
+	await admin.execute(sql`INSERT INTO person_skill(plant_id,person_id,name,category,proficiency,notes)
+		VALUES(${plant},${brook},'Sound desk','tech',NULL,'private skill note')`);
+	await admin.execute(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,before_value,after_value,reason)
+		VALUES(${plant},${accounts.owner.id},'people.stage_changed','edit','person',${brook},'{"stage":"interviewed"}','{"stage":"core_group"}','private reason')`);
+	const local = (
+		await admin.execute(
+			sql`SELECT (clock_timestamp() AT TIME ZONE timezone)::date::text AS d FROM plant WHERE id=${plant}`,
+		)
+	).rows[0]!.d;
+	const live = Number(
+		(await admin.execute(sql`SELECT count(*)::int AS n FROM person WHERE tenant_id=${plant} AND state='live'`)).rows[0]!
+			.n,
+	);
+	for (const who of ["owner", "member"] as const) {
+		const reader = await actor(who);
+		const read = (input: object) => invokeRead(db, reader, listPeople, input as never);
+		for (const filter of [{ hasPhoto: false }, { inHousehold: false }]) {
+			const all = await read({ ...filter, limit: 100 });
+			const first = await read({ ...filter, limit: 2 });
+			const second = await read({ ...filter, limit: 2, page: 2 });
+			assert.deepEqual([first.next, first.total, second.total, second.page], [2, all.total, all.total, 2]);
+			assert.deepEqual(
+				[...first.rows, ...second.rows].map((r) => r.id),
+				all.rows.slice(0, 4).map((r) => r.id),
+			);
+			assert.equal(new Set([...first.rows, ...second.rows].map((r) => r.id)).size, 4);
+			assert.equal(all.facts?.peopleInChurch, live);
+			if ("inHousehold" in filter) assert.equal(all.total, live - 1);
+			assert.equal(
+				all.rows.some((r) => r.id === brook),
+				false,
+			);
+		}
+		const answers = {
+			skills: await read({ skillCategories: ["tech"], skillNames: ["sound"] }),
+			children: await read({ adultClassification: "child", inHousehold: true }),
+			moved: await read({ movedInto: { stage: "core_group" } }),
+		};
+		const fields = { city: null, stage: "core_group" };
+		assert.deepEqual(
+			Object.values(answers).map((r) => r.rows),
+			[
+				{ ...fields, skills: "Sound desk, level not recorded" },
+				{ ...fields, household: "Brook household", householdId: home },
+				{ ...fields, movedOn: local },
+			].map((f) => [{ kind: "person", id: brook, label: "Bay Brook", fields: f }]),
+		);
+		assert.deepEqual(answers.skills.exclusions, ["archived people", "private care", "skill notes"]);
+		assert.deepEqual(answers.children.exclusions, [
+			"archived people",
+			"private care",
+			"people with no adult or child recorded",
+		]);
+		assert.doesNotMatch(JSON.stringify(answers), /private (skill|reason|summary)|filters\.test|0177|Hidden Lane/);
+	}
+	const organization = await actor("orgOwner");
+	for (const input of [{ hasPhoto: false }, { movedInto: { stage: "core_group" as const } }])
+		await assert.rejects(
+			() => invokeRead(db, organization, listPeople, input),
+			(e: { code?: string }) => e.code === "access_denied",
+		);
+	assert.ok(!JSON.stringify(readCatalog(organization)).includes("people.listPeople"));
+});

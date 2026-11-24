@@ -172,6 +172,7 @@ function select(selector: string | string[]): string[] {
 				if (key === "stage") return any.includes(p.stage);
 				if (key === "city") return any.includes(p.city ?? "");
 				if (key === "inactivity") return any.includes(p.inactivity ?? "none");
+				if (key === "household" && value === "none") return !p.household;
 				if (key === "household")
 					return HOUSEHOLDS.some((h) => h.id === p.household?.id && any.some((v) => h.name.startsWith(v)));
 				if (key === "tag") return any.some((v) => p.tags?.includes(v));
@@ -948,7 +949,11 @@ test("INV-evry-golden: every approved golden case is encoded once, with its appr
 		for (const f of fields) assert.equal(g[f], a[f], `${a.case_id} ${f} differs from the approved file`);
 		if (a.question.startsWith("(") || /\(.*\)$/.test(a.question))
 			assert.ok(g.eval.text, `${a.case_id} needs eval.text`);
-		if (a.status === "Not yet") assert.ok(g.eval.cantYet, `${a.case_id} is Not yet: it needs the can't-yet checks`);
+		if (a.status === "Not yet")
+			assert.ok(
+				g.eval.cantYet || g.eval.calls?.length,
+				`${a.case_id} is Not yet: it needs the can't-yet checks, or the read a built answer calls`,
+			);
 		if (a.status === "Partially")
 			assert.ok(g.eval.target || g.eval.targetProbe, `${a.case_id} is Partially: it needs its alpha target`);
 	}
@@ -1195,6 +1200,26 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 		if (skills.rows.some((s) => s.fields.category === "tech")) tech.push(p.label);
 	}
 	assert.deepEqual(tech, ["Mark Thompson", "Alex Rivera"]);
+	const filtered = async (input: object) => {
+		const page = await read("people.listPeople", { limit: 100, ...input });
+		return [page.total, page.facts?.peopleInChurch, page.rows.map((r) => Object.values(r.fields).slice(2))];
+	};
+	assert.deepEqual(await filtered({ skillCategories: ["tech"], skillNames: ["sound"] }), [
+		2,
+		84,
+		[["Sound engineering, advanced"], ["Video production, intermediate"]],
+	]);
+	assert.deepEqual(await filtered({ adultClassification: "child" }), [
+		2,
+		84,
+		[
+			["Rivera household", byName("Mateo Rivera").household!.id],
+			["Nguyen household", byName("Bao Nguyen").household!.id],
+		],
+	]);
+	assert.deepEqual(await filtered({ movedInto: { stage: "core_group" } }), [2, 84, [["2026-11-02"], ["2026-11-05"]]]);
+	assert.deepEqual((await filtered({ hasPhoto: false })).slice(0, 2), [79, 84]);
+	assert.deepEqual((await filtered({ inHousehold: false })).slice(0, 2), [66, 84]);
 	assert.deepEqual(labels(await read("teams.get", { teamId: teamId("Worship") })), [
 		"Alex Rivera",
 		"Ana Rivera",

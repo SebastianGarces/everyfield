@@ -16,7 +16,7 @@ import {
 	longText,
 	pipelineColumn,
 } from "./values.ts";
-import { householdMembership } from "./fields/index.ts";
+import { householdMembership, skill } from "./fields/index.ts";
 import { avatarRoute } from "../settings/results.ts";
 
 const identityFields = { id: personId, revision, createdAt: instant, ...contactFields, lifecycle: personLifecycle };
@@ -54,11 +54,18 @@ export function listPhotoRoute(photo: z.infer<typeof listPhoto>): string {
 export const personPhoto = z.strictObject({ personId, photo: listPhoto });
 export type PersonPhoto = z.infer<typeof personPhoto>;
 export const personPhotos = z.strictObject({ photos: z.array(personPhoto).max(100) });
+export const personMatch = z.strictObject({
+	personId,
+	skills: z.array(skill.pick({ name: true, category: true, proficiency: true })).optional(),
+	household: z.strictObject({ id: recordId, name: z.string() }).optional(),
+	movedOn: localDate.optional(),
+});
 export const peoplePage = z
 	.strictObject({
 		owner: plantOwner,
 		items: z.array(plantPerson).max(100),
 		photos: z.array(personPhoto).max(100),
+		matches: z.array(personMatch).max(100).optional(),
 		next: z.int().min(2).nullable(),
 		completeness: z.enum(["complete", "partial"]),
 		total: z.int().min(0).nullable(),

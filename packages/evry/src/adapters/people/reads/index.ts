@@ -9,11 +9,16 @@ import {
 	personFields,
 } from "@everyfield/domain/people";
 import {
+	adultClassification,
 	duplicateCheckRequest,
 	listPeopleRequest,
+	movedInto,
 	personFieldsRequest,
 	personRequest,
+	skillCategory,
+	skillName,
 	stage,
+	type peoplePage,
 } from "@everyfield/contracts/people";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
@@ -47,15 +52,49 @@ const listInput = z.strictObject({
 		.describe(
 			"The seven stages, in order: prospect, attendee, following_up, interviewed, core_group, launch_team, leader. There is no inactive stage: asked for one, name these seven and offer people.deletePerson with a reason.",
 		),
+	skillCategories: z
+		.array(skillCategory)
+		.min(1)
+		.max(7)
+		.optional()
+		.describe("Recorded skill categories. A person matches on any category or skillNames text; notes never count."),
+	skillNames: z.array(skillName).min(1).max(10).optional().describe("Text in a recorded skill's name"),
+	hasPhoto: z
+		.boolean()
+		.optional()
+		.describe("Whether the People list shows a photo for them, their account's photo included"),
+	inHousehold: z.boolean().optional().describe("Whether they are in any household"),
+	adultClassification: adultClassification
+		.optional()
+		.describe(
+			"What is recorded, or what the birth date decides. A child row names its household. A household role, surname or note never counts; unknown means nothing is recorded.",
+		),
+	movedInto: movedInto
+		.optional()
+		.describe(
+			"People with a recorded move into this stage between two church-local dates, each person once with the date of their last such move. Leave the dates out for this calendar month. Being added or imported in the stage, or moving on from it, isn't a move into it.",
+		),
 	page: z.int().min(1).max(100_000).optional().describe("Page number of a previous result's next page"),
 	limit: z.int().min(1).max(100).optional(),
 });
+type Match = NonNullable<z.infer<typeof peoplePage>["matches"]>[number];
+const matchFields = (m: Match) => ({
+	...(m.skills && {
+		skills: m.skills.map((s) => [s.name, s.proficiency ?? "level not recorded"].join(", ")).join("; "),
+	}),
+	...(m.household && { household: m.household.name, householdId: m.household.id }),
+	...(m.movedOn && { movedOn: m.movedOn }),
+});
+const CHURCH_WIDE =
+	"These filters cover everyone in the church: peopleInChurch is how many people that is. When next is not null, name this page's people and offer the next page under the same filter.";
+const CHILD_NOTE =
+	"Say that people with no adult or child recorded aren't counted. A household no page names has no child recorded.";
 const personInput = z.strictObject({ personId: z.uuid() });
 
 export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 	operation: "people.listPeople",
 	description:
-		"List people in this church, with the exact matched total and the next page when more exist. A stage says where someone is, never whether they are ready for the next one: list the stage and say that readiness is the user's call.",
+		"List people in this church, or only those matching a city, stage, skill, photo, household, adult or child, or stage move, with the exact matched total and the next page when more exist. A stage says where someone is, never whether they are ready for the next one: list the stage and say that readiness is the user's call.",
 	input: listInput,
 	allowed: inPlant,
 	async invoke(tx: WriteTx, actor: EvryActor, input): Promise<SourceResult> {
@@ -64,15 +103,45 @@ export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 		if (reply.status !== "ok")
 			throw new EvryRefusal(reply.error.code === "invalid_input" ? "invalid_input" : "source_unavailable");
 		const page = reply.value;
+		const churchWide =
+			input.skillCategories !== undefined ||
+			input.skillNames !== undefined ||
+			input.hasPhoto !== undefined ||
+			input.inHousehold !== undefined ||
+			input.adultClassification !== undefined ||
+			input.movedInto !== undefined;
+		const everyone = churchWide
+			? await peopleReader.listPeople(
+					tx,
+					new PeopleReadContext(actor.authority),
+					listPeopleRequest.parse({ page: 1, limit: 1 }),
+				)
+			: null;
+		if (everyone && everyone.status !== "ok") throw new EvryRefusal("source_unavailable");
+		const matches = new Map((page.matches ?? []).map((m) => [m.personId, matchFields(m)]));
 		return {
 			operation: "people.listPeople",
 			status: "available",
-			rows: page.items.map((p) => row(actor, p)),
+			rows: page.items.map((p) => {
+				const found = row(actor, p);
+				return { ...found, fields: { ...found.fields, ...matches.get(p.id) } };
+			}),
 			total: page.total,
 			page: request.page,
 			next: page.next,
 			completeness: page.completeness,
-			exclusions: ["archived people", "private care"],
+			exclusions: [
+				"archived people",
+				"private care",
+				...(input.skillCategories || input.skillNames ? ["skill notes"] : []),
+				...(input.adultClassification === "child" ? ["people with no adult or child recorded"] : []),
+			],
+			...(everyone && {
+				facts: {
+					peopleInChurch: everyone.value.total,
+					note: input.adultClassification === "child" ? `${CHURCH_WIDE} ${CHILD_NOTE}` : CHURCH_WIDE,
+				},
+			}),
 		};
 	},
 };
