@@ -1,10 +1,11 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { sql } from "../../../packages/db/src/query.ts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
-import { ok, refused } from "../../support/fixture.mts";
-import { requestIdentity } from "../../../packages/contracts/src/common/index.ts";
+import type { RequestActor, WriteTx } from "../../../packages/domain/src/access/session.ts";
+import { type Workspace, ok, refused } from "../../support/fixture.mts";
+import { personId, requestIdentity, tenantId } from "../../../packages/contracts/src/common/index.ts";
 import {
 	auditTransaction,
 	finishAudit,
@@ -17,21 +18,66 @@ import {
 	createTaskWriter,
 	ensureMeetingObligations,
 	reminderRecipients,
+	type TaskContext,
+	type TaskReminders,
+	type TaskReply,
+	type TaskWriter,
 	taskReader,
 	withTaskWrite,
 } from "../../../packages/domain/src/tasks/index.ts";
 import { peopleReader, peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
-import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { createMailService, type MailPayload } from "../../../packages/domain/src/jobs/mail.ts";
 import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 
-let f, writer, reminders, mail, sent, plant, other, owner, member, admin2, foreign;
-const write = (who, op, input) => withTaskWrite(f.db, who.actor, (tx, ctx) => writer[op](tx, ctx, input));
-const read = (who, op, input) => gatedTransaction(f.db, (tx) => taskReader[op](tx, who.actor, input));
-const create = async (who, input) =>
+type Who = { actor: RequestActor };
+type Row = Record<string, unknown>;
+type Answer<F> = F extends (...args: never[]) => Promise<infer V> ? V : never;
+type Value<F> = F extends (...args: never[]) => Promise<TaskReply<infer V>> ? V : never;
+type Writes = {
+	[K in keyof TaskWriter]: (
+		tx: WriteTx,
+		context: TaskContext,
+		raw: unknown,
+	) => Promise<TaskReply<Value<TaskWriter[K]>>>;
+};
+type Reader = typeof taskReader;
+type Reads = {
+	[K in keyof Reader]: (tx: WriteTx, who: RequestActor, raw: unknown) => Promise<Answer<Reader[K]>>;
+};
+type Seated = Who & Awaited<ReturnType<typeof f.account>>;
+type MailRow = { id: string; recipient: string | null; notice: string | null };
+type Task = Awaited<ReturnType<typeof create>>;
+type Versioned = { id: string; revision: string };
+let f: Awaited<ReturnType<typeof fixture>>;
+let writer: TaskWriter, reminders: TaskReminders, mail: ReturnType<typeof createMailService>;
+let plant: ReturnType<typeof plantOf>, other: Workspace;
+let owner: Seated, member: Seated, admin2: Seated, foreign: Seated;
+const sent: MailPayload[] = [];
+const reads: Reads = taskReader;
+const write = <K extends keyof Writes>(who: Who, op: K, input: object) => {
+	const writes: Writes = writer;
+	return withTaskWrite(f.db, who.actor, (tx, ctx) => writes[op](tx, ctx, input));
+};
+const read = <K extends keyof Reads>(who: Who, op: K, input: object | undefined) =>
+	gatedTransaction(f.db, (tx) => reads[op](tx, who.actor, input));
+const plantOf = (w: Workspace) => ({ kind: "plant" as const, id: tenantId.parse(w.id) });
+const seriesOf = (found: Extract<Answer<Reader["findOpenOccurrence"]>, { status: "ok" }>["value"]) => {
+	if (found.status !== "series") assert.fail(found.status);
+	return found;
+};
+const available = (detail: Extract<Answer<Reader["get"]>, { status: "ok" }>["value"]) => {
+	const task = "task" in detail ? detail.task : undefined;
+	if (!task) assert.fail(detail.status);
+	return task;
+};
+const create = async (who: Who, input: object) =>
 	ok(await write(who, "create", { requestKey: randomUUID(), input: { title: "Task", ...input } })).task;
-async function recurring(input, rule = { frequency: "weekly", until: null }) {
+async function recurring(
+	input: object,
+	rule: { frequency: string; until: string | null; localTime?: string } = { frequency: "weekly", until: null },
+) {
 	const t = await create(owner, input);
 	return ok(
 		await write(owner, "configureRecurrence", {
@@ -41,7 +87,7 @@ async function recurring(input, rule = { frequency: "weekly", until: null }) {
 		}),
 	).task;
 }
-const subtask = async (who, parent, title) =>
+const subtask = async (who: Who, parent: Versioned, title: string) =>
 	ok(
 		await write(who, "createSubtask", {
 			requestKey: randomUUID(),
@@ -49,22 +95,22 @@ const subtask = async (who, parent, title) =>
 			input: { parentId: parent.id, title },
 		}),
 	).task;
-const rows = async (q) => (await f.admin.execute(q)).rows;
-async function person(name, who = owner) {
+const rows = async <R extends Row = Row>(q: SQL) => (await f.admin.execute<R>(q)).rows;
+async function person(name: string, who: Who = owner) {
 	const ctx = { session: who.actor.session, selected: who.actor.actor.context.owner };
 	const r = await gatedTransaction(f.db, (tx) =>
 		peopleWriter.createPerson(tx, ctx, { requestKey: randomUUID(), input: { displayName: name } }),
 	);
 	return ok(r).person.id;
 }
-async function meeting(title, date = "2026-10-13", w = plant) {
+async function meeting(title: string, date = "2026-10-13", w: { id: string } = plant) {
 	const id = randomUUID();
 	await f.admin.execute(
 		sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision) VALUES(${id},${w.id},'vision_meeting',${title},${date},'18:00','America/Chicago',${date + "T23:00:00Z"},'1','completed',1)`,
 	);
 	return id;
 }
-async function team(w = plant) {
+async function team(w: { id: string } = plant) {
 	const id = randomUUID();
 	await f.admin.execute(
 		sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${id},${w.id},'Hospitality','active',1)`,
@@ -72,9 +118,10 @@ async function team(w = plant) {
 	return id;
 }
 
+type MeetingObligations = Parameters<typeof ensureMeetingObligations>[3]["meetings"][number];
 const finalize = (
-	meetingId,
-	input,
+	meetingId: string,
+	input: Pick<MeetingObligations, "followUps" | "evaluation">,
 	fault = false,
 	origin = { at: "2026-10-13T23:00:00Z", date: "2026-10-13", zone: "America/Chicago" },
 ) =>
@@ -88,6 +135,7 @@ const finalize = (
 			digest: "0".repeat(64),
 		});
 		const claim = await prepareWrite(tx, identity);
+		if (claim.kind !== "new") assert.fail(claim.kind);
 		const cmd = { ...claim, actor: { accountId: owner.id, plantId: plant.id } };
 		const r = await ensureMeetingObligations(tx, cmd, reminders, { meetings: [{ meetingId, origin, ...input }] });
 		cmd.events.unshift({
@@ -105,7 +153,7 @@ const finalize = (
 		return r.value;
 	});
 let statements = 0;
-async function counted(body) {
+async function counted(body: () => Promise<unknown>) {
 	const start = statements;
 	await body();
 	return statements - start;
@@ -115,12 +163,13 @@ before(async () => {
 	f = await fixture();
 	f.db.$client.on("connect", (client) => {
 		const query = client.query;
-		client.query = function (...args) {
-			statements++;
-			return Reflect.apply(query, this, args);
-		};
+		Object.assign(client, {
+			query(this: typeof client, ...args: unknown[]) {
+				statements++;
+				return Reflect.apply(query, this, args);
+			},
+		});
 	});
-	sent = [];
 	mail = createMailService({
 		db: f.db,
 		encryptionKey: randomBytes(32),
@@ -145,15 +194,18 @@ before(async () => {
 				inputs[0]?.owner.id ?? randomUUID(),
 				inputs.map((i) => i.recipient),
 			);
-			return inputs.map((i) => (found.has(i.recipient) ? { address: found.get(i.recipient) } : null));
+			return inputs.map((i) => {
+				const address = found.get(i.recipient);
+				return address === undefined ? null : { address };
+			});
 		},
 	});
 	reminders = taskReminders(notifications);
 	writer = createTaskWriter({ reminders });
-	plant = await f.workspace();
+	plant = plantOf(await f.workspace());
 	other = await f.workspace();
 	await f.admin.execute(sql`UPDATE plant SET timezone='America/Chicago' WHERE id IN (${plant.id},${other.id})`);
-	const seated = async (w, role) => {
+	const seated = async (w: Workspace, role: "owner" | "admin" | "member") => {
 		const a = await f.account();
 		await f.seat(a, w, role);
 		return { ...a, actor: await f.actor(a.session) };
@@ -171,7 +223,8 @@ after(() => f?.close());
 test("AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 create, edit and delete keep a valid task or change nothing", async () => {
 	const foreignPerson = await person("Foreign", foreign);
 	const before = await rows(sql`SELECT (SELECT count(*)::int FROM task) t,(SELECT count(*)::int FROM audit_event) a`);
-	const attempt = (input) => write(owner, "create", { requestKey: randomUUID(), input: { title: "Task", ...input } });
+	const attempt = (input: object) =>
+		write(owner, "create", { requestKey: randomUUID(), input: { title: "Task", ...input } });
 	refused(await attempt({ title: "   " }), "invalid_input");
 	refused(await attempt({ due: { kind: "local_date", date: "2026-02-30" } }), "invalid_input");
 	refused(await attempt({ assigneeIds: [foreign.id] }), "invalid_subject");
@@ -187,7 +240,7 @@ test("AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 creat
 		"ambiguous_local_time",
 	);
 	assert.deepEqual(
-		fold.details.choices.map((c) => c.offsetSeconds),
+		fold.details.choices.map((c: { offsetSeconds: number }) => c.offsetSeconds),
 		[-18000, -21600],
 	);
 	refused(await attempt({ parentId: randomUUID() }), "invalid_input");
@@ -198,9 +251,12 @@ test("AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 creat
 	const saved = [];
 	for (const offsetSeconds of [-18000, -21600]) {
 		const t = await create(owner, { due: { kind: "resolved_instant", local: "2026-11-01T01:30:00", offsetSeconds } });
-		saved.push(ok(await read(owner, "get", { taskId: t.id })).task.due.instant);
+		saved.push(available(ok(await read(owner, "get", { taskId: t.id }))).due);
 	}
-	assert.deepEqual(saved, ["2026-11-01T06:30:00.000Z", "2026-11-01T07:30:00.000Z"]);
+	assert.deepEqual(
+		saved.map((due) => (due.kind === "resolved_instant" ? due.instant : due.kind)),
+		["2026-11-01T06:30:00.000Z", "2026-11-01T07:30:00.000Z"],
+	);
 
 	const request = {
 		requestKey: randomUUID(),
@@ -228,7 +284,7 @@ test("AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 creat
 		}),
 	).task;
 	assert.deepEqual(
-		[edited.revision, edited.priority, edited.assignees[0].accountId, edited.relation, edited.due],
+		[edited.revision, edited.priority, edited.assignees[0]!.accountId, edited.relation, edited.due],
 		[
 			"2",
 			"high",
@@ -258,7 +314,7 @@ test("AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 creat
 	);
 
 	const child = await subtask(owner, cleared, "Bring chairs");
-	const withChild = ok(await read(owner, "get", { taskId: first.task.id })).task;
+	const withChild = available(ok(await read(owner, "get", { taskId: first.task.id })));
 	assert.deepEqual(
 		withChild.checklistItems.map((k) => k.id),
 		[child.id],
@@ -307,12 +363,12 @@ test("AC:TARGET-TSK-001 AC:B03-001 AC:B03-002 AC:B03-003 views, stable pages, co
 
 	const pages = [1, 2].map(async (page) => ok(await read(me, "list", { sort: "due", page })));
 	const [one, two] = await Promise.all(pages);
-	assert.deepEqual([one.items.length, two.items.length, one.total, one.next, two.next], [50, 2, 52, 2, null]);
-	assert.equal(one.items[0].id, dated.id);
-	const ids = [...one.items, ...two.items].map((t) => t.id);
+	assert.deepEqual([one!.items.length, two!.items.length, one!.total, one!.next, two!.next], [50, 2, 52, 2, null]);
+	assert.equal(one!.items[0]!.id, dated.id);
+	const ids = [...one!.items, ...two!.items].map((t) => t.id);
 	assert.equal(new Set(ids).size, 52);
 	assert.deepEqual(ids.slice(1), [...undated].sort());
-	assert.deepEqual(one.items[0].checklist, { total: 2, complete: 0 });
+	assert.deepEqual(one!.items[0]!.checklist, { total: 2, complete: 0 });
 
 	const counts = ok(await read(mine, "count", {}));
 	assert.deepEqual(
@@ -329,22 +385,24 @@ test("AC:TARGET-TSK-001 AC:B03-001 AC:B03-002 AC:B03-003 views, stable pages, co
 		false,
 	);
 
-	const overdue = async (taskId, asOf) => ok(await read(me, "get", { taskId, asOf })).task.overdue;
+	const overdue = async (taskId: string, asOf: string) =>
+		available(ok(await read(me, "get", { taskId, asOf }))).overdue;
 	assert.deepEqual(
 		[await overdue(dated.id, "2026-10-14T03:00:00Z"), await overdue(dated.id, "2026-10-14T05:00:00Z")],
 		[false, true],
 	);
-	for (const [date, end] of [
+	const clockChanges: [string, string][] = [
 		["2026-03-08", "2026-03-09T05:00:00Z"],
 		["2026-11-01", "2026-11-02T06:00:00Z"],
-	]) {
+	];
+	for (const [date, end] of clockChanges) {
 		const t = await create(me, { due: { kind: "local_date", date } });
 		const justBefore = new Date(Date.parse(end) - 1000).toISOString();
 		assert.deepEqual([await overdue(t.id, justBefore), await overdue(t.id, end)], [false, true]);
-		assert.equal(t.due.date, date);
+		assert.deepEqual(t.due, { kind: "local_date", date });
 	}
 	const timed = await create(me, { due: { kind: "resolved_instant", local: "2026-10-13T13:00:00" } });
-	assert.equal(timed.due.instant, "2026-10-13T18:00:00.000Z");
+	assert.equal(timed.due.kind === "resolved_instant" ? timed.due.instant : timed.due.kind, "2026-10-13T18:00:00.000Z");
 	assert.deepEqual(
 		[await overdue(timed.id, "2026-10-13T17:59:59Z"), await overdue(timed.id, "2026-10-13T18:00:01Z")],
 		[false, true],
@@ -352,7 +410,7 @@ test("AC:TARGET-TSK-001 AC:B03-001 AC:B03-002 AC:B03-003 views, stable pages, co
 });
 
 test("AC:TARGET-TSK-003 AC:TARGET-TSK-015 own-duty completion, one result per request, reopen and history", async () => {
-	const command = (who, op, t, extra = {}) =>
+	const command = <K extends keyof Writes>(who: Who, op: K, t: Versioned, extra: object = {}) =>
 		write(who, op, { requestKey: randomUUID(), expectedRevision: t.revision, input: { taskId: t.id, ...extra } });
 	const t = await create(owner, {
 		title: "Welcome packs",
@@ -385,17 +443,18 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-015 own-duty completion, one result per re
 	const again = ok(await write(member, "reopen", same));
 	assert.equal(again.outcome, "noop");
 	assert.deepEqual(ok(await write(member, "reopen", same)), again);
-	const keyed = (key) =>
+	const keyed = (key: string) =>
 		rows(
 			sql`SELECT kind, subject_type, subject_id FROM audit_event WHERE tenant_id=${plant.id} AND request_key=${key}`,
 		);
 	const plain = await recurring({ title: "Stack chairs" });
-	const unchanged = [["reopen", same.requestKey, t.id]];
-	for (const [op, input] of [
+	const unchanged: [string, string, string][] = [["reopen", same.requestKey, t.id]];
+	const noops: ["edit" | "replacePrerequisites" | "configureRecurrence", object][] = [
 		["edit", { patch: { title: "Stack chairs" } }],
 		["replacePrerequisites", { prerequisiteIds: [] }],
 		["configureRecurrence", { rule: { frequency: "weekly", until: null } }],
-	]) {
+	];
+	for (const [op, input] of noops) {
 		const requestKey = randomUUID();
 		const r = ok(
 			await write(owner, op, { requestKey, expectedRevision: plain.revision, input: { taskId: plain.id, ...input } }),
@@ -454,7 +513,7 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 	const m1 = await meeting("Vision night"),
 		m2 = await meeting("Second vision night");
 	const counts = () =>
-		rows(
+		rows<{ t: number; o: number }>(
 			sql`SELECT (SELECT count(*)::int FROM task WHERE obligation_id IS NOT NULL) t,(SELECT count(*)::int FROM obligation) o`,
 		);
 	const input = {
@@ -473,17 +532,17 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 			["meeting_evaluation", null, "created"],
 		],
 	);
-	const task = async (id) => ok(await read(owner, "get", { taskId: id })).task;
-	const [f1, f2, evaluation] = await Promise.all(first.map((r) => task(r.taskId)));
+	const task = async (id: string) => available(ok(await read(owner, "get", { taskId: id })));
+	const [f1, f2, evaluation] = await Promise.all(first.map((r) => task(r.taskId!)));
 	assert.deepEqual(
-		[f1.title, f1.due, f1.assignees[0].accountId, f1.managed.kind, f2.assignees],
+		[f1!.title, f1!.due, f1!.assignees[0]!.accountId, f1!.managed!.kind, f2!.assignees],
 		["Follow up with Alex Rivera", { kind: "local_date", date: "2026-10-15" }, member.id, "first_vision_follow_up", []],
 	);
 	assert.deepEqual(
-		[evaluation.relation, evaluation.managed.kind],
+		[evaluation!.relation, evaluation!.managed!.kind],
 		[{ kind: "meeting", id: m1, label: "Vision night" }, "meeting_evaluation"],
 	);
-	assert.equal(ok(await read(owner, "statusHistory", { taskId: f1.id })).items[0].source, "generated");
+	assert.equal(ok(await read(owner, "statusHistory", { taskId: f1!.id })).items[0]!.source, "generated");
 
 	const settled = await counts();
 	await assert.rejects(finalize(m2, input, true), /outer_audit_before_commit/);
@@ -494,40 +553,44 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 	);
 	assert.deepEqual(await counts(), settled);
 	const second = await finalize(m2, { followUps: [{ personId: p1, assigneeIds: [] }], evaluation: null });
-	assert.notEqual(second[0].obligationId, first[0].obligationId);
+	assert.notEqual(second[0]!.obligationId, first[0]!.obligationId);
 
 	const waived = ok(
 		await write(owner, "waive", {
 			requestKey: randomUUID(),
-			expectedRevision: f2.revision,
-			input: { taskId: f2.id, reason: "Moved away" },
+			expectedRevision: f2!.revision,
+			input: { taskId: f2!.id, reason: "Moved away" },
 		}),
 	).task;
 	ok(
 		await write(owner, "edit", {
 			requestKey: randomUUID(),
 			expectedRevision: waived.revision,
-			input: { taskId: f2.id, patch: { title: "Closed" } },
+			input: { taskId: f2!.id, patch: { title: "Closed" } },
 		}),
 	);
 	ok(
-		await write(owner, "delete", { requestKey: randomUUID(), expectedRevision: f1.revision, input: { taskId: f1.id } }),
+		await write(owner, "delete", {
+			requestKey: randomUUID(),
+			expectedRevision: f1!.revision,
+			input: { taskId: f1!.id },
+		}),
 	);
 	assert.deepEqual(
 		(await finalize(m1, input)).map((r) => r.outcome),
 		["existing", "existing", "existing"],
 	);
 	assert.deepEqual(
-		await rows(sql`SELECT waived_at IS NOT NULL w, waiver_reason r FROM obligation WHERE id=${first[1].obligationId}`),
+		await rows(sql`SELECT waived_at IS NOT NULL w, waiver_reason r FROM obligation WHERE id=${first[1]!.obligationId}`),
 		[{ w: true, r: "Moved away" }],
 	);
-	assert.equal((await counts())[0].t, settled[0].t + 1);
+	assert.equal((await counts())[0]!.t, settled[0]!.t + 1);
 	for (const patch of [{ relation: { kind: "meeting", id: m2 } }, { category: "general" }])
 		refused(
 			await write(owner, "edit", {
 				requestKey: randomUUID(),
-				expectedRevision: evaluation.revision,
-				input: { taskId: evaluation.id, patch },
+				expectedRevision: evaluation!.revision,
+				input: { taskId: evaluation!.id, patch },
 			}),
 			"protected_source",
 		);
@@ -542,9 +605,10 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 				digest: "1".repeat(64),
 			});
 			const claim = await prepareWrite(tx, identity);
+			if (claim.kind !== "new") assert.fail(claim.kind);
 			const cmd = { ...claim, actor: { accountId: owner.id, plantId: plant.id } };
 			const r = await applyManagedStatus(tx, cmd, reminders, {
-				obligationIds: [first[2].obligationId],
+				obligationIds: [first[2]!.obligationId],
 				status: "complete",
 			});
 			cmd.events.unshift({
@@ -561,7 +625,7 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 		});
 	assert.deepEqual([await recordEvaluation(), await recordEvaluation()], ["changed", "noop"]);
 	assert.deepEqual(
-		ok(await read(owner, "statusHistory", { taskId: evaluation.id })).items.map((h) => [h.to, h.source]),
+		ok(await read(owner, "statusHistory", { taskId: evaluation!.id })).items.map((h) => [h.to, h.source]),
 		[
 			["not_started", "generated"],
 			["complete", "generated"],
@@ -593,9 +657,9 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 			),
 		),
 	);
-	assert.deepEqual(await rows(sql`SELECT person_id FROM task WHERE id=${second[0].taskId}`), [{ person_id: p1 }]);
+	assert.deepEqual(await rows(sql`SELECT person_id FROM task WHERE id=${second[0]!.taskId}`), [{ person_id: p1 }]);
 	assert.equal(
-		ok(await read(owner, "relationOptions", { kind: "person", search: "Alex" })).items.some((o) => o.id === p1),
+		ok(await read(owner, "relationOptions", { kind: "person", search: "Alex" })).items.some((o) => String(o.id) === p1),
 		false,
 	);
 	refused(
@@ -611,10 +675,16 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 });
 
 test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee and stop when settled", async () => {
-	const notices = (task) =>
-		rows(sql`SELECT n.recipient_id, n.purpose, n.cancelled_at IS NOT NULL cancelled, m.state, m.id mail FROM notice n
+	const notices = (task: string) =>
+		rows<{
+			recipient_id: string;
+			purpose: string;
+			cancelled: boolean;
+			state: string;
+			mail: string;
+		}>(sql`SELECT n.recipient_id, n.purpose, n.cancelled_at IS NOT NULL cancelled, m.state, m.id mail FROM notice n
 			LEFT JOIN mail m ON m.notice_id=n.id WHERE n.source_record_id=${task} ORDER BY n.recipient_id, n.eligible_at`);
-	const live = async (task) => (await notices(task)).filter((n) => !n.cancelled);
+	const live = async (task: string) => (await notices(task)).filter((n) => !n.cancelled);
 	const t = await create(owner, {
 		title: "Book the venue",
 		assigneeIds: [member.id],
@@ -639,7 +709,7 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 		(await live(t.id)).map((n) => n.recipient_id),
 		[admin2.id, admin2.id],
 	);
-	const mailRows = await rows(
+	const mailRows = await rows<MailRow>(
 		sql`SELECT id, recipient_account_id recipient, notice_id notice FROM mail WHERE notice_id IN (SELECT id FROM notice WHERE source_record_id=${t.id})`,
 	);
 	const allowed = await gatedTransaction(f.db, (tx) => authorizeTaskReminders(tx, mailRows));
@@ -666,7 +736,7 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 			input: { taskId: t.id, rule: { frequency: "weekly", until: null } },
 		}),
 	).task;
-	const replanned = await rows(
+	const replanned = await rows<MailRow>(
 		sql`SELECT m.id, m.recipient_account_id recipient, m.notice_id notice FROM mail m JOIN notice n ON n.id=m.notice_id
 			WHERE n.source_record_id=${t.id} AND n.cancelled_at IS NULL`,
 	);
@@ -683,7 +753,7 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 		}),
 	);
 	assert.deepEqual(await live(t.id), []);
-	const pending = async (task) => (await live(task)).map((n) => [n.recipient_id, n.state]);
+	const pending = async (task: string) => (await live(task)).map((n) => [n.recipient_id, n.state]);
 	const twice = [
 		[admin2.id, "pending"],
 		[admin2.id, "pending"],
@@ -700,12 +770,12 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 			input: { taskId: once.id },
 		}),
 	);
-	assert.deepEqual([await pending(once.id), await pending(done.successor.id)], [[], twice]);
+	assert.deepEqual([await pending(once.id), await pending(done.successor!.id)], [[], twice]);
 	ok(
 		await write(owner, "delete", {
 			requestKey: randomUUID(),
-			expectedRevision: done.successor.revision,
-			input: { taskId: done.successor.id },
+			expectedRevision: done.successor!.revision,
+			input: { taskId: done.successor!.id },
 		}),
 	);
 	ok(
@@ -722,9 +792,9 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 });
 
 test("INV-statements: page reads are one statement and generated work costs the same for any batch size", async () => {
-	const guests = [];
+	const guests: string[] = [];
 	for (let n = 0; n < 6; n++) guests.push(await person("Guest " + n));
-	const batch = async (n) => {
+	const batch = async (n: number) => {
 		const m = await meeting("Batch " + n, "2099-01-10");
 		const followUps = guests.slice(0, n).map((personId) => ({ personId, assigneeIds: [member.id] }));
 		const origin = { at: "2099-01-11T00:00:00Z", date: "2099-01-10", zone: "America/Chicago" };
@@ -754,17 +824,17 @@ test("INV-statements: page reads are one statement and generated work costs the 
 	for (let n = 0; n < 40; n++) await create(owner, { title: "More " + n, assigneeIds: [member.id] });
 	assert.deepEqual([few, await reads()], [Array(8).fill(3), Array(8).fill(3)]);
 
-	const bulkOf = async (n) => {
-		const items = [];
+	const bulkOf = async (n: number) => {
+		const items: { taskId: string; expectedRevision: string }[] = [];
 		for (let i = 0; i < n; i++) {
 			const task = await recurring({ assigneeIds: [member.id], due: { kind: "local_date", date: "2099-02-01" } });
 			items.push({ taskId: task.id, expectedRevision: task.revision });
 		}
-		let result;
+		const changed: number[] = [];
 		const count = await counted(async () => {
-			result = ok(await write(owner, "bulkComplete", { requestKey: randomUUID(), items }));
+			changed.push(ok(await write(owner, "bulkComplete", { requestKey: randomUUID(), items })).changed);
 		});
-		assert.equal(result.changed, n);
+		assert.deepEqual(changed, [n]);
 		return count;
 	};
 	const [single, twenty] = [await bulkOf(1), await bulkOf(20)];
@@ -809,7 +879,7 @@ test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the dea
 	);
 });
 
-function deadline(ms) {
+function deadline(ms: number) {
 	const local = new Intl.DateTimeFormat("sv-SE", {
 		timeZone: "America/Chicago",
 		year: "numeric",
@@ -828,15 +898,15 @@ const dispatch = async () => {
 	for (const claim of await claimDue(f.db, ["mail"], 10)) await mail.dispatch(claim);
 };
 async function dbNow() {
-	return Number((await rows(sql`SELECT (extract(epoch FROM clock_timestamp())*1000)::float8 AS ms`))[0].ms);
+	return Number((await rows(sql`SELECT (extract(epoch FROM clock_timestamp())*1000)::float8 AS ms`))[0]!.ms);
 }
-async function arrive(ms) {
+async function arrive(ms: number) {
 	await f.admin.execute(
 		sql`UPDATE job SET eligible_at=clock_timestamp()-interval '1 second' WHERE kind='mail' AND state IN ('ready','retry_wait') AND eligible_at<=${new Date(ms).toISOString()}::timestamptz`,
 	);
 }
 test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new assignee", async () => {
-	const linked = async (name) => {
+	const linked = async (name: string) => {
 		const a = await f.account();
 		await f.seat(a, plant, "member");
 		const id = await person(name);
@@ -851,11 +921,13 @@ test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new
 	];
 	await f.admin.execute(sql`UPDATE person SET stage='leader' WHERE id=${moving.person}`);
 	const ctx = { session: owner.actor.session, selected: plant };
-	const warnings = (id) => gatedTransaction(f.db, (tx) => peopleReader.getStatusWarnings(tx, ctx, { personId: id }));
-	const handTo = (duties, to) =>
+	const warnings = (id: string) =>
+		gatedTransaction(f.db, (tx) => peopleReader.getStatusWarnings(tx, ctx, { personId: personId.parse(id) }));
+	const handTo = (duties: readonly Versioned[], to: string) =>
 		duties.map((d) => ({ kind: "assign", dutyId: d.id, expectedRevision: d.revision, toPersonId: to }));
 	const due = (await dbNow()) + 86_400_000;
-	const dated = (assigneeId, title) => create(owner, { title, assigneeIds: [assigneeId], due: deadline(due) });
+	const dated = (assigneeId: string, title: string) =>
+		create(owner, { title, assigneeIds: [assigneeId], due: deadline(due) });
 	const [retired, demoted] = [await dated(leaving.id, "Set up chairs"), await dated(moving.id, "Lead worship")];
 	const review = ok(await warnings(leaving.person));
 	ok(
@@ -899,13 +971,14 @@ test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new
 	);
 	await arrive(due);
 	await dispatch();
-	const delivered = async (task) =>
+	const delivered = async (task: string) =>
 		rows(sql`SELECT n.recipient_id, n.cancelled_at IS NOT NULL cancelled, m.state FROM notice n LEFT JOIN mail m ON m.notice_id=n.id
 			WHERE n.source_record_id=${task} ORDER BY n.cancelled_at IS NOT NULL, n.eligible_at`);
-	for (const [task, from, to] of [
+	const handoffs: [string, string, string][] = [
 		[retired.id, leaving.id, staying.id],
 		[demoted.id, moving.id, taking.id],
-	])
+	];
+	for (const [task, from, to] of handoffs)
 		assert.deepEqual(
 			(await delivered(task)).map((n) => [n.recipient_id, n.cancelled, n.state]),
 			[
@@ -924,7 +997,7 @@ test("AC:TARGET-TSK-014 AC:TARGET-IDN-019 a duty handed off when a seat is remov
 	};
 	const [leaving, taking] = [await seated(), await seated()];
 	const due = (await dbNow()) + 86_400_000;
-	const dated = (title) => create(owner, { title, assigneeIds: [leaving.id], due: deadline(due) });
+	const dated = (title: string) => create(owner, { title, assigneeIds: [leaving.id], due: deadline(due) });
 	const [handed, unowned] = [await dated("Print bulletins"), await dated("Order supplies")];
 	const review = await f.seats.readRemoval(owner.session, plant, { seatId: leaving.seat });
 	const result = await f.seats.remove(
@@ -948,7 +1021,7 @@ test("AC:TARGET-TSK-014 AC:TARGET-IDN-019 a duty handed off when a seat is remov
 	assert.equal(result.outcome, "changed");
 	await arrive(due);
 	await dispatch();
-	const delivered = async (task) =>
+	const delivered = async (task: string) =>
 		(
 			await rows(sql`SELECT n.recipient_id, n.cancelled_at IS NOT NULL cancelled, m.state FROM notice n LEFT JOIN mail m ON m.notice_id=n.id
 			WHERE n.source_record_id=${task} ORDER BY n.cancelled_at IS NOT NULL, n.eligible_at`)
@@ -967,12 +1040,12 @@ test("AC:TARGET-TSK-014 AC:TARGET-IDN-019 a duty handed off when a seat is remov
 
 test("INV-tenancy: a seat ended, demoted or signed out after the viewer lookup reads no task data", async () => {
 	const t = await create(owner, { title: "Private plan" });
-	const seated = async (role) => {
+	const seated = async (role: "owner" | "admin" | "member") => {
 		const a = await f.account();
 		const seat = await f.seat(a, plant, role);
 		return { ...a, seat, actor: await f.actor(a.session) };
 	};
-	const reads = () => [
+	const reads = (): [keyof Reads, object | undefined][] => [
 		["get", { taskId: t.id }],
 		["list", {}],
 		["count", {}],
@@ -985,18 +1058,18 @@ test("INV-tenancy: a seat ended, demoted or signed out after the viewer lookup r
 		["prerequisiteCandidates", { taskId: t.id }],
 	];
 	const [removed, demoted, signedOut] = [await seated("admin"), await seated("admin"), await seated("admin")];
-	for (const who of [removed, demoted, signedOut]) for (const [op, input] of reads(who)) ok(await read(who, op, input));
+	for (const who of [removed, demoted, signedOut]) for (const [op, input] of reads()) ok(await read(who, op, input));
 	await f.admin.execute(sql`UPDATE seat SET ended_at=now() WHERE id=${removed.seat}`);
 	await f.admin.execute(sql`UPDATE seat SET role='member' WHERE id=${demoted.seat}`);
 	await f.admin.execute(sql`UPDATE auth_session SET expires_at=now() WHERE id=${signedOut.session}`);
 	for (const who of [removed, signedOut])
-		for (const [op, input] of reads(who)) refused(await read(who, op, input), "unavailable");
-	assert.equal(ok(await read(demoted, "get", { taskId: t.id })).task.id, t.id);
-	for (const [op, input] of reads(demoted).slice(7)) refused(await read(demoted, op, input), "unavailable");
+		for (const [op, input] of reads()) refused(await read(who, op, input), "unavailable");
+	assert.equal(available(ok(await read(demoted, "get", { taskId: t.id }))).id, t.id);
+	for (const [op, input] of reads().slice(7)) refused(await read(demoted, op, input), "unavailable");
 });
 
-const get = async (who, taskId) => ok(await read(who, "get", { taskId })).task;
-const tick = (who, parent, child, complete) =>
+const get = async (who: Who, taskId: string) => available(ok(await read(who, "get", { taskId })));
+const tick = (who: Who, parent: { id: string }, child: Versioned, complete: boolean) =>
 	write(who, "setSubtaskCompletion", {
 		requestKey: randomUUID(),
 		expectedRevision: child.revision,
@@ -1004,7 +1077,7 @@ const tick = (who, parent, child, complete) =>
 	});
 
 test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-level tasks with their own assignee and history", async () => {
-	const child = (who, parent, input) =>
+	const child = (who: Who, parent: Versioned, input: object) =>
 		write(who, "createSubtask", {
 			requestKey: randomUUID(),
 			expectedRevision: parent.revision,
@@ -1015,7 +1088,7 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 	const c = ok(await child(owner, p, { title: "Call venue", assigneeIds: [member.id] })).task;
 	const unassigned = ok(await child(owner, p, { assigneeIds: [] })).task;
 	assert.deepEqual(
-		[inherited.assignees[0].accountId, c.assignees[0].accountId, unassigned.assignees],
+		[inherited.assignees[0]!.accountId, c.assignees[0]!.accountId, unassigned.assignees],
 		[admin2.id, member.id, []],
 	);
 	refused(await child(owner, p, { assigneeIds: [foreign.id] }), "invalid_subject");
@@ -1024,7 +1097,7 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 	refused(await child(owner, { ...p, revision: "9" }, {}), "conflict");
 	const pa = await create(owner, { title: "Member plan", assigneeIds: [member.id] });
 	const l = ok(await child(member, pa, {})).task;
-	assert.equal(l.assignees[0].accountId, member.id);
+	assert.equal(l.assignees[0]!.accountId, member.id);
 	for (const assigneeIds of [[owner.id], [], [member.id]])
 		refused(await child(member, pa, { assigneeIds }), "access_denied");
 	refused(await child(member, p, {}), "unavailable");
@@ -1079,7 +1152,7 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 	refused(await child(owner, full, {}), "invalid_input");
 	assert.equal((await get(owner, full.id)).checklistItems.length, 500);
 
-	const remove = (who, row) =>
+	const remove = (who: Who, row: Versioned) =>
 		write(who, "removeSubtask", {
 			requestKey: randomUUID(),
 			expectedRevision: row.revision,
@@ -1093,7 +1166,7 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 });
 
 test("AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once, and settled or deleted ones stop blocking", async () => {
-	const replace = (who, task, ids, requestKey = randomUUID()) =>
+	const replace = (who: Who, task: Versioned, ids: readonly string[], requestKey: string = randomUUID()) =>
 		write(who, "replacePrerequisites", {
 			requestKey,
 			expectedRevision: task.revision,
@@ -1132,7 +1205,7 @@ test("AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once,
 		[],
 	);
 
-	const both = async (pairs) => {
+	const both = async (pairs: readonly [Versioned, Versioned][]) => {
 		const results = await Promise.all(pairs.map(([from, to]) => replace(owner, from, [to.id])));
 		return results.map((r) => (r.status === "ok" ? "ok" : r.error.code)).sort();
 	};
@@ -1145,12 +1218,12 @@ test("AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once,
 		["dependency_cycle", "ok"],
 	);
 	const [p, q, r, s] = await Promise.all(["P", "Q", "R", "S"].map((title) => create(owner, { title })));
-	const pq = ok(await replace(owner, p, [q.id])).task,
-		rs = ok(await replace(owner, r, [s.id])).task;
+	const pq = ok(await replace(owner, p!, [q!.id])).task,
+		rs = ok(await replace(owner, r!, [s!.id])).task;
 	assert.deepEqual(
 		await both([
-			[q, r],
-			[s, p],
+			[q!, r!],
+			[s!, p!],
 		]),
 		["dependency_cycle", "ok"],
 	);
@@ -1208,25 +1281,25 @@ test("AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once,
 });
 
 test("AC:TARGET-TSK-006 a write that settles, reopens or deletes a prerequisite answers with the new counts of the tasks waiting on it", async () => {
-	const command = (op, task, input = {}) =>
+	const command = <K extends keyof Writes>(op: K, task: Versioned, input: object = {}) =>
 		write(owner, op, {
 			requestKey: randomUUID(),
 			expectedRevision: task.revision,
 			input: { taskId: task.id, ...input },
 		});
 	const [one, two, three] = await Promise.all(["One", "Two", "Three"].map((title) => create(owner, { title })));
-	const needs = async (title, ids) =>
+	const needs = async (title: string, ids: readonly string[]) =>
 		ok(await command("replacePrerequisites", await create(owner, { title }), { prerequisiteIds: ids })).task;
-	const both = await needs("Both", [one.id, two.id]);
-	const all = await needs("All", [one.id, two.id, three.id]);
-	const counts = (answer) =>
+	const both = await needs("Both", [one!.id, two!.id]);
+	const all = await needs("All", [one!.id, two!.id, three!.id]);
+	const counts = (answer: { recounted: readonly { taskId: string; openPrerequisites: number }[] }) =>
 		Object.fromEntries(answer.recounted.map((r) => [r.taskId === both.id ? "Both" : "All", r.openPrerequisites]));
 
-	const done = ok(await command("complete", one));
+	const done = ok(await command("complete", one!));
 	assert.deepEqual(counts(done), { Both: 1, All: 2 });
-	assert.deepEqual(ok(await command("changeStatus", two, { status: "in_progress" })).recounted, []);
+	assert.deepEqual(ok(await command("changeStatus", two!, { status: "in_progress" })).recounted, []);
 	assert.deepEqual(counts(ok(await command("reopen", done.task))), { Both: 2, All: 3 });
-	const fresh = await Promise.all([one, two].map((t) => get(owner, t.id)));
+	const fresh = await Promise.all([one, two].map((t) => get(owner, t!.id)));
 	const bulk = ok(
 		await write(owner, "bulkComplete", {
 			requestKey: randomUUID(),
@@ -1234,7 +1307,7 @@ test("AC:TARGET-TSK-006 a write that settles, reopens or deletes a prerequisite 
 		}),
 	);
 	assert.deepEqual(counts(bulk), { Both: 0, All: 1 });
-	assert.deepEqual(counts(ok(await command("delete", three))), { All: 0 });
+	assert.deepEqual(counts(ok(await command("delete", three!))), { All: 0 });
 	assert.deepEqual(
 		ok(await read(owner, "listRows", { taskIds: [both.id, all.id] })).items.map((t) => t.openPrerequisites),
 		[0, 0],
@@ -1242,9 +1315,9 @@ test("AC:TARGET-TSK-006 a write that settles, reopens or deletes a prerequisite 
 });
 
 test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates exactly one next task with a fresh checklist", async () => {
-	const complete = (who, task, requestKey = randomUUID()) =>
+	const complete = (who: Who, task: Versioned, requestKey: string = randomUUID()) =>
 		write(who, "completeOccurrence", { requestKey, expectedRevision: task.revision, input: { taskId: task.id } });
-	const due = (date) => ({ kind: "local_date", date });
+	const due = (date: string) => ({ kind: "local_date", date });
 	const t = await recurring(
 		{ title: "Pay rent", assigneeIds: [member.id], due: due("2026-01-31") },
 		{ frequency: "monthly", until: null },
@@ -1256,21 +1329,26 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 	const first = ok(await complete(member, reviewed, key));
 	assert.deepEqual(ok(await complete(member, reviewed, key)), first);
 	assert.deepEqual(
-		[first.task.status, first.successor.due, first.successor.assignees[0].accountId],
+		[first.task.status, first.successor!.due, first.successor!.assignees[0]!.accountId],
 		["complete", due("2026-02-28"), member.id],
 	);
 	assert.deepEqual(
-		first.successor.checklistItems.map((k) => [k.title, k.status]),
+		first.successor!.checklistItems.map((k) => [k.title, k.status]),
 		[["Call venue", "not_started"]],
 	);
-	assert.equal((await get(owner, t.id)).checklistItems[0].status, "complete");
+	assert.equal((await get(owner, t.id)).checklistItems[0]!.status, "complete");
 	assert.deepEqual(
-		await rows(sql`SELECT due_kind, completed_at, series_id FROM task WHERE parent_id=${first.successor.id}`),
+		await rows(sql`SELECT due_kind, completed_at, series_id FROM task WHERE parent_id=${first.successor!.id}`),
 		[{ due_kind: "undated", completed_at: null, series_id: null }],
 	);
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM task WHERE predecessor_id=${t.id}`), [{ n: 1 }]);
 	const open = ok(await read(member, "findOpenOccurrence", { taskId: t.id }));
-	assert.deepEqual(open.open, { taskId: first.successor.id, occurrence: 2, predecessorId: t.id, revision: "1" });
+	assert.deepEqual(seriesOf(open).open, {
+		taskId: first.successor!.id,
+		occurrence: 2,
+		predecessorId: t.id,
+		revision: "1",
+	});
 	refused(
 		await write(owner, "reopen", {
 			requestKey: randomUUID(),
@@ -1282,8 +1360,8 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 	ok(
 		await write(owner, "delete", {
 			requestKey: randomUUID(),
-			expectedRevision: first.successor.revision,
-			input: { taskId: first.successor.id },
+			expectedRevision: first.successor!.revision,
+			input: { taskId: first.successor!.id },
 		}),
 	);
 	const reopened = ok(
@@ -1295,14 +1373,14 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 	).task;
 	const again = ok(await complete(owner, reopened));
 	assert.deepEqual([again.successor?.due, again.successor?.occurrenceId], [due("2026-02-28"), "2"]);
-	assert.deepEqual(ok(await read(member, "findOpenOccurrence", { taskId: t.id })).open, {
-		taskId: again.successor.id,
+	assert.deepEqual(seriesOf(ok(await read(member, "findOpenOccurrence", { taskId: t.id }))).open, {
+		taskId: again.successor!.id,
 		occurrence: 2,
 		predecessorId: t.id,
 		revision: "1",
 	});
 
-	const cases = [
+	const cases: [object, NonNullable<Parameters<typeof recurring>[1]>, object | null][] = [
 		[due("2024-02-29"), { frequency: "yearly", until: null }, due("2025-02-28")],
 		[due("2026-01-31"), { frequency: "monthly", until: "2026-02-28" }, due("2026-02-28")],
 		[due("2026-01-28"), { frequency: "monthly", until: "2026-02-27" }, null],
@@ -1325,12 +1403,12 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 		const task = await recurring({ due: from }, rule);
 		const result = ok(await complete(owner, task));
 		assert.deepEqual(result.successor?.due ?? null, expected, JSON.stringify(rule));
-		if (rule.frequency === "weekly") assert.equal(result.successor.overdue, true);
+		if (rule.frequency === "weekly") assert.equal(result.successor!.overdue, true);
 	}
 	const undated = ok(await complete(owner, await recurring({})));
 	const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago" }).format(new Date());
 	const week = new Date(Date.parse(today + "T00:00:00Z") + 7 * 86_400_000).toISOString().slice(0, 10);
-	assert.deepEqual(undated.successor.due, due(week));
+	assert.deepEqual(undated.successor!.due, due(week));
 
 	const raced = await recurring({ due: due("2026-05-01") });
 	const results = await Promise.all([complete(owner, raced), complete(owner, raced)]);
@@ -1356,7 +1434,7 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 	assert.equal((await get(owner, failing.id)).status, "not_started");
 	const recovered = ok(await complete(owner, failing, retry));
 	assert.deepEqual(
-		recovered.successor.checklistItems.map((k) => k.title),
+		recovered.successor!.checklistItems.map((k) => k.title),
 		["Fail copy"],
 	);
 
@@ -1368,7 +1446,7 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 			input: { taskId: stopped.id, rule: null },
 		}),
 	).task;
-	assert.equal(halted.recurrence.stopped, true);
+	assert.equal(halted.recurrence!.stopped, true);
 	assert.equal(ok(await complete(owner, halted)).successor, null);
 	refused(
 		await write(owner, "configureRecurrence", {
@@ -1383,7 +1461,7 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 test("AC:TARGET-TSK-006 saving the same prerequisites in another order is a no-op", async () => {
 	const [a, b] = [await create(owner, { title: "First" }), await create(owner, { title: "Second" })];
 	const task = await create(owner, { title: "Blocked" });
-	const replace = (t, ids) =>
+	const replace = (t: Versioned, ids: readonly string[]) =>
 		write(owner, "replacePrerequisites", {
 			requestKey: randomUUID(),
 			expectedRevision: t.revision,
@@ -1396,7 +1474,7 @@ test("AC:TARGET-TSK-006 saving the same prerequisites in another order is a no-o
 				sql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${task.id}
 				AND (before_value IS NOT NULL OR after_value IS NOT NULL)`,
 			)
-		)[0].n;
+		)[0]!.n;
 	const entries = await history();
 	const reordered = ok(await replace(saved.task, [b.id, a.id]));
 	assert.equal(reordered.outcome, "noop");
@@ -1406,18 +1484,18 @@ test("AC:TARGET-TSK-006 saving the same prerequisites in another order is a no-o
 });
 
 test("AC:TARGET-TSK-007 Make it repeat on an older occurrence of a stopped series starts a new series from it", async () => {
-	const complete = (task, requestKey = randomUUID()) =>
+	const complete = (task: Versioned, requestKey: string = randomUUID()) =>
 		write(owner, "completeOccurrence", { requestKey, expectedRevision: task.revision, input: { taskId: task.id } });
-	const configure = (task, rule) =>
+	const configure = (task: Versioned, rule: object | null) =>
 		write(owner, "configureRecurrence", {
 			requestKey: randomUUID(),
 			expectedRevision: task.revision,
 			input: { taskId: task.id, rule },
 		});
 	const first = await recurring({ title: "Count offering", due: { kind: "local_date", date: "2026-09-07" } });
-	const second = ok(await complete(first)).successor;
-	const third = ok(await complete(second)).successor;
-	const old = first.recurrence.seriesId;
+	const second = ok(await complete(first)).successor!;
+	const third = ok(await complete(second)).successor!;
+	const old = first.recurrence!.seriesId;
 	ok(await configure(third, null));
 	const oldSeries = async () => ({
 		rule: await rows(
@@ -1434,14 +1512,14 @@ test("AC:TARGET-TSK-007 Make it repeat on an older occurrence of a stopped serie
 	const rule = { frequency: "monthly", until: null, localTime: null };
 	const restarted = ok(await configure(await get(owner, second.id), rule)).task;
 	assert.equal(restarted.occurrenceId, "1");
-	assert.notEqual(restarted.recurrence.seriesId, old);
+	assert.notEqual(restarted.recurrence!.seriesId, old);
 	assert.deepEqual((await get(owner, second.id)).recurrence, {
-		seriesId: restarted.recurrence.seriesId,
+		seriesId: restarted.recurrence!.seriesId,
 		...rule,
 		stopped: false,
 	});
 	assert.deepEqual(await oldSeries(), before);
-	assert.equal(before.rule[0].stopped, true);
+	assert.equal(before.rule[0]!.stopped, true);
 	assert.equal(ok(await complete(await get(owner, third.id))).successor, null);
 
 	const reopened = ok(
@@ -1454,8 +1532,8 @@ test("AC:TARGET-TSK-007 Make it repeat on an older occurrence of a stopped serie
 	const key = randomUUID();
 	const done = ok(await complete(reopened, key));
 	assert.deepEqual(
-		[done.successor.occurrenceId, done.successor.recurrence.seriesId, done.successor.due],
-		["2", restarted.recurrence.seriesId, { kind: "local_date", date: "2026-10-14" }],
+		[done.successor!.occurrenceId, done.successor!.recurrence!.seriesId, done.successor!.due],
+		["2", restarted.recurrence!.seriesId, { kind: "local_date", date: "2026-10-14" }],
 	);
 	assert.deepEqual(ok(await complete(reopened, key)), done);
 	ok(await complete(await get(owner, second.id)));
@@ -1465,14 +1543,20 @@ test("AC:TARGET-TSK-007 Make it repeat on an older occurrence of a stopped serie
 			ORDER BY occurrence_key`,
 		),
 		[
-			{ series_id: restarted.recurrence.seriesId, occurrence_key: "2" },
+			{ series_id: restarted.recurrence!.seriesId, occurrence_key: "2" },
 			{ series_id: old, occurrence_key: "3" },
 		],
 	);
 });
 
 test("AC:TARGET-TSK-008 bulk changes report each task, commit all valid tasks or none, and never repeat on retry", async () => {
-	const bulk = (who, op, tasks, extra = {}, requestKey = randomUUID()) =>
+	const bulk = <K extends keyof Writes>(
+		who: Who,
+		op: K,
+		tasks: readonly Versioned[],
+		extra: object = {},
+		requestKey: string = randomUUID(),
+	) =>
 		write(who, op, {
 			requestKey,
 			items: tasks.map((t) => ({ taskId: t.id, expectedRevision: t.revision })),
@@ -1577,7 +1661,7 @@ test("AC:TARGET-TSK-008 bulk changes report each task, commit all valid tasks or
 });
 
 test("AC:TARGET-TSK-008 AC:TARGET-TSK-007 a bulk complete names each recurring task's next occurrence once", async () => {
-	const due = (date) => ({ kind: "local_date", date });
+	const due = (date: string) => ({ kind: "local_date", date });
 	const weekly = await recurring({ title: "Weekly prayer", due: due("2026-10-05") });
 	const monthly = await recurring(
 		{ title: "Monthly report", due: due("2026-10-31") },
@@ -1598,20 +1682,21 @@ test("AC:TARGET-TSK-008 AC:TARGET-TSK-007 a bulk complete names each recurring t
 		],
 	);
 	for (const i of [result.items[0], result.items[2]]) {
-		const next = await get(owner, i.successor.id);
-		assert.deepEqual([next.status, next.occurrenceId, next.revision], ["not_started", "2", i.successor.revision]);
+		const next = await get(owner, i!.successor!.id);
+		assert.deepEqual([next.status, next.occurrenceId, next.revision], ["not_started", "2", i!.successor!.revision]);
 	}
 	assert.deepEqual(ok(await write(owner, "bulkComplete", request)), result);
-	const successors = async (t) => (await rows(sql`SELECT count(*)::int n FROM task WHERE predecessor_id=${t.id}`))[0].n;
+	const successors = async (t: { id: string }) =>
+		(await rows(sql`SELECT count(*)::int n FROM task WHERE predecessor_id=${t.id}`))[0]!.n;
 	assert.deepEqual([await successors(weekly), await successors(plain), await successors(monthly)], [1, 0, 1]);
 });
 
 test("AC:TARGET-TSK-002 a list of assignees is checked as a whole, kept as a set and audited", async () => {
-	const assigneeIds = async (id) =>
+	const assigneeIds = async (id: string) =>
 		(await rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${id} ORDER BY account_id`)).map(
 			(r) => r.account_id,
 		);
-	const before = (await rows(sql`SELECT count(*)::int n FROM task`))[0].n;
+	const before = (await rows(sql`SELECT count(*)::int n FROM task`))[0]!.n;
 	const bad = refused(
 		await write(owner, "create", {
 			requestKey: randomUUID(),
@@ -1620,7 +1705,7 @@ test("AC:TARGET-TSK-002 a list of assignees is checked as a whole, kept as a set
 		"invalid_subject",
 	);
 	assert.equal(bad.details.accountId, foreign.id);
-	assert.equal((await rows(sql`SELECT count(*)::int n FROM task`))[0].n, before);
+	assert.equal((await rows(sql`SELECT count(*)::int n FROM task`))[0]!.n, before);
 	const t = await create(owner, { title: "Pair", assigneeIds: [member.id, admin2.id, member.id] });
 	assert.deepEqual(t.assignees.map((a) => a.accountId).sort(), [member.id, admin2.id].sort());
 	assert.deepEqual(await assigneeIds(t.id), [member.id, admin2.id].sort());
@@ -1658,12 +1743,12 @@ test("AC:TARGET-TSK-002 a list of assignees is checked as a whole, kept as a set
 		}),
 	).task;
 	assert.equal(BigInt(trimmed.revision) - BigInt(same.revision), 1n);
-	const audit = await rows(
+	const audit = await rows<Record<"before_value" | "after_value", { assigneeIds: string[] }>>(
 		sql`SELECT before_value, after_value FROM audit_event WHERE subject_id=${t.id} AND after_revision=${trimmed.revision}::bigint`,
 	);
 	assert.equal(audit.length, 1);
-	assert.deepEqual(audit[0].before_value.assigneeIds, [member.id, admin2.id].sort());
-	assert.deepEqual(audit[0].after_value.assigneeIds, [admin2.id]);
+	assert.deepEqual(audit[0]!.before_value.assigneeIds, [member.id, admin2.id].sort());
+	assert.deepEqual(audit[0]!.after_value.assigneeIds, [admin2.id]);
 	const cleared = ok(
 		await write(owner, "edit", {
 			requestKey: randomUUID(),
@@ -1711,8 +1796,8 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 any assignee acts, a Member adds nobod
 			input: { taskId: weekly.id },
 		}),
 	).successor;
-	assert.deepEqual(next.assignees.map((a) => a.accountId).sort(), [member.id, admin2.id].sort());
-	const mine = async (who) =>
+	assert.deepEqual(next!.assignees.map((a) => a.accountId).sort(), [member.id, admin2.id].sort());
+	const mine = async (who: Who) =>
 		ok(
 			await read(who, "list", {
 				view: "my",
@@ -1744,7 +1829,7 @@ test("INV-statements: a page read sends the same statements for one assignee or 
 	const one = await create(owner, { title: "Solo", assigneeIds: [member.id] });
 	const three = await create(owner, { title: "Trio", assigneeIds: [member.id, admin2.id, third.id] });
 	assert.equal(three.assignees.length, 3);
-	const each = async (id) => [
+	const each = async (id: string) => [
 		await counted(() => read(owner, "list", { search: id === one.id ? "Solo" : "Trio" })),
 		await counted(() => read(owner, "get", { taskId: id })),
 		await counted(() => read(owner, "listSubtasks", { parentId: id })),
@@ -1756,11 +1841,16 @@ test("INV-statements: an edit, a subtask and a prerequisite change lock their ta
 	const p = await person("Jo Lane");
 	const t = await create(owner, { title: "Set up" });
 	const before = await create(owner, { title: "Book the room" });
-	const step = async (op, input, expectedRevision) => {
-		let task;
+	const step = async (
+		op: "edit" | "createSubtask" | "replacePrerequisites",
+		input: object,
+		expectedRevision: string,
+	) => {
+		const saved: Task[] = [];
 		const n = await counted(async () => {
-			task = ok(await write(owner, op, { requestKey: randomUUID(), expectedRevision, input })).task;
+			saved.push(ok(await write(owner, op, { requestKey: randomUUID(), expectedRevision, input })).task);
 		});
+		const task = saved[0]!;
 		return { n, task };
 	};
 	const renamed = await step("edit", { taskId: t.id, patch: { title: "Set up chairs" } }, t.revision);
@@ -1793,10 +1883,14 @@ test("INV-statements: an edit, a subtask and a prerequisite change lock their ta
 });
 
 test("AC:TARGET-TSK-014 each assignee gets their own reminders, and removing one withdraws only theirs", async () => {
-	const notices = (task) =>
-		rows(sql`SELECT n.recipient_id, n.purpose, n.cancelled_at IS NOT NULL cancelled FROM notice n
+	const notices = (task: string) =>
+		rows<{
+			recipient_id: string;
+			purpose: string;
+			cancelled: boolean;
+		}>(sql`SELECT n.recipient_id, n.purpose, n.cancelled_at IS NOT NULL cancelled FROM notice n
 			WHERE n.source_record_id=${task} ORDER BY n.recipient_id, n.eligible_at`);
-	const live = async (task) => (await notices(task)).filter((n) => !n.cancelled).map((n) => n.recipient_id);
+	const live = async (task: string) => (await notices(task)).filter((n) => !n.cancelled).map((n) => n.recipient_id);
 	const t = await create(owner, {
 		title: "Set up the room",
 		assigneeIds: [member.id, admin2.id],
@@ -1812,7 +1906,7 @@ test("AC:TARGET-TSK-014 each assignee gets their own reminders, and removing one
 		}),
 	).task;
 	assert.deepEqual(await live(t.id), [admin2.id, admin2.id]);
-	const stale = await rows(
+	const stale = await rows<MailRow>(
 		sql`SELECT m.id, m.recipient_account_id recipient, m.notice_id notice FROM mail m JOIN notice n ON n.id=m.notice_id
 			WHERE n.source_record_id=${t.id}`,
 	);
@@ -1834,14 +1928,16 @@ test("AC:TARGET-TSK-014 a seat that has not accepted yet gets no task-reminder m
 		assigneeIds: [member.id],
 		due: { kind: "local_date", date: "2099-02-15" },
 	});
-	const mailRows = await rows(
+	const mailRows = await rows<MailRow>(
 		sql`SELECT id, recipient_account_id recipient, notice_id notice FROM mail WHERE notice_id IN (SELECT id FROM notice WHERE source_record_id=${t.id})`,
 	);
 	assert.equal(mailRows.length, 2);
 	const allowed = () => gatedTransaction(f.db, (tx) => authorizeTaskReminders(tx, mailRows));
 	assert.equal((await allowed()).size, 2);
-	const [seat] = await rows(sql`SELECT id, accepted_at FROM seat WHERE account_id=${member.id} AND plant_id=${plant.id}
-		AND ended_at IS NULL`);
+	const seat = (
+		await rows(sql`SELECT id, accepted_at FROM seat WHERE account_id=${member.id} AND plant_id=${plant.id}
+		AND ended_at IS NULL`)
+	)[0]!;
 	await f.admin.execute(sql`UPDATE seat SET accepted_at=clock_timestamp()+interval '1 day' WHERE id=${seat.id}`);
 	try {
 		assert.equal((await allowed()).size, 0, "the seat is not accepted yet");

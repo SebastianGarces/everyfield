@@ -8,9 +8,13 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { sql } from "../../../../../packages/db/src/query.ts";
-import { readCurrentManifest, restoreWithCurrentManifest } from "../../../../../ops/maintenance/restore.mts";
+import {
+	readCurrentManifest,
+	restoreWithCurrentManifest,
+	type Snapshot,
+} from "../../../../../ops/maintenance/restore.mts";
 import { testDatabase } from "../../../../support/test-database.mts";
-import { seeds } from "../../../../support/fixture.mts";
+import { type Actor, seeds } from "../../../../support/fixture.mts";
 import { dropTarget, freezeClock, objectStore, operator, schemaExists, snapshot, type Store } from "./support.mts";
 
 const NOW = new Date("2026-10-14T16:00:00.000Z");
@@ -18,7 +22,7 @@ const database = await testDatabase({ prefix: "wp092ref", clock: NOW });
 const { admin, schema } = database;
 const seed = seeds(admin);
 const targets: string[] = [];
-let copy, stale, a;
+let copy: Snapshot, stale: unknown, a: Actor;
 
 before(async () => {
 	await freezeClock(admin, schema, NOW);
@@ -86,7 +90,8 @@ test("only a verified recovery operator capability with an isolated target gets 
 });
 
 test("an uncertain current witness refuses, the subject stays hidden and service stays closed", async (step) => {
-	const live = (await readCurrentManifest(admin)) as Record<string, any>;
+	const live = await readCurrentManifest(admin);
+	assert.ok(live && typeof live === "object");
 	const states: [string, () => Promise<unknown>, string][] = [
 		["no current manifest", async () => null, "witness_missing"],
 		["no current witness for a subject the image holds", async () => ({ ...live, witnesses: [] }), "witness_missing"],

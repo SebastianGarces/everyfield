@@ -22,14 +22,14 @@ const service = createMailService({
 	from: "no-reply@example.test",
 	authorize: async (tx, mail) => {
 		const input = mail.map((m) => ({ id: m.id, recipient: m.recipient, tenant: m.tenant }));
-		const r = await tx.execute(
+		const r = await tx.execute<{ id: string }>(
 			querySql`SELECT i.id FROM jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(id uuid,recipient uuid,tenant uuid) JOIN seat s ON s.account_id=i.recipient AND s.plant_id=i.tenant AND s.ended_at IS NULL FOR SHARE OF s`,
 		);
 		return new Set(r.rows.map((r) => r.id));
 	},
 	transport: createResendTransport(
 		"synthetic",
-		async (url, init) => fetch(endpoint.origin + new URL(url).pathname, init),
+		async (url, init) => fetch(endpoint.origin + new URL(new Request(url).url).pathname, init),
 		{ VERCEL_ENV: "production" },
 	),
 });

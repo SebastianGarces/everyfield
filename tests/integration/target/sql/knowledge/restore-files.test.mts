@@ -3,9 +3,13 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../../../packages/db/src/query.ts";
-import { readCurrentManifest, restoreWithCurrentManifest } from "../../../../../ops/maintenance/restore.mts";
+import {
+	readCurrentManifest,
+	restoreWithCurrentManifest,
+	type Snapshot,
+} from "../../../../../ops/maintenance/restore.mts";
 import { testDatabase } from "../../../../support/test-database.mts";
-import { seeds } from "../../../../support/fixture.mts";
+import { seeds, type Workspace } from "../../../../support/fixture.mts";
 import {
 	closedTo,
 	dropTarget,
@@ -27,7 +31,7 @@ const { admin, schema } = database;
 const seed = seeds(admin);
 const live: Store = new Map();
 const targets: string[] = [];
-let plant, file;
+let plant: Workspace, file: Awaited<ReturnType<typeof readyFile>>;
 
 before(async () => {
 	await freezeClock(admin, schema, COHERENT);
@@ -45,7 +49,7 @@ after(async () => {
 	await database.close();
 });
 
-async function rehearse(copy, times: Date[] = [INCIDENT], incidentAt?: Date) {
+async function rehearse(copy: Snapshot, times: Date[] = [INCIDENT], incidentAt?: Date) {
 	const target = `${schema}_r${targets.length}`;
 	targets.push(target);
 	const store: Store = new Map();
@@ -73,7 +77,7 @@ test("AC:REC59-003 restored bytes of an older file version fail the restore clos
 		'ready', ${"upload-" + v2}, 0)`);
 	live.set(key, v1);
 	const copy = await snapshot(admin, live, { createdAt: COHERENT });
-	assert.equal(copy.manifest.objects.find((o) => o.id === v2).sha256, V2);
+	assert.equal(copy.manifest.objects.find((o) => o.id === v2)!.sha256, V2);
 	try {
 		const { result, store, target } = await rehearse(copy);
 		assert.deepEqual(

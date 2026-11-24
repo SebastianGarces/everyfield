@@ -10,7 +10,7 @@ import { sql } from "../../../../../packages/db/src/query.ts";
 import { readiness } from "../../../../../ops/maintenance/readiness.mts";
 import { readCurrentManifest, restoreWithCurrentManifest } from "../../../../../ops/maintenance/restore.mts";
 import { testDatabase } from "../../../../support/test-database.mts";
-import { seeds } from "../../../../support/fixture.mts";
+import { type Actor, seeds, type Workspace } from "../../../../support/fixture.mts";
 import { dropTarget, freezeClock, objectStore, operator, snapshot } from "./support.mts";
 
 const NOW = new Date("2026-10-13T16:00:00.000Z");
@@ -35,7 +35,7 @@ const ITEMS = ["cost_approval", "host_schedule", "key_exclusion", "coherent_rest
 const database = await testDatabase({ prefix: "wp092rdy", clock: NOW });
 const { admin, schema } = database;
 const seed = seeds(admin);
-let plant, a;
+let plant: Workspace, a: Actor;
 
 before(async () => {
 	await freezeClock(admin, schema, NOW);

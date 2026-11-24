@@ -20,7 +20,6 @@ type Body = {
 	removed: number;
 };
 let f: Fixture;
-const secret = "cron-" + randomUUID();
 const clock = { at: new Date() };
 const deletes: string[] = [];
 
@@ -65,9 +64,7 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 	});
 	const run = async (at: string) => {
 		clock.at = new Date(at);
-		const response = await tick(
-			new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } }),
-		);
+		const response = await tick();
 		return { code: response.status, body: (await response.json()) as Body };
 	};
 
@@ -183,9 +180,7 @@ test("INV-scheduled-steps: a throwing notification step names itself and the lat
 	console.error = (...args: unknown[]) => void logged.push(args.map(String).join(" "));
 	let response: Response;
 	try {
-		response = await failing(
-			new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } }),
-		);
+		response = await failing();
 	} finally {
 		console.error = error;
 	}
@@ -239,9 +234,7 @@ test("INV-scheduled-steps: each tick sweeps an unreferenced documents file whose
 	const staging = { ...file(new Date(Date.now() + 3_600_000)), state: "ready" as const };
 	await f.admin.insert(t.file_object).values([expired, staging]);
 
-	const response = await tick(
-		new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } }),
-	);
+	const response = await tick();
 	const body = (await response.json()) as Body;
 	assert.equal(response.status, 200, JSON.stringify(body));
 	assert.deepEqual(body.steps["documents-orphans"], { status: "ok", count: { purged: 1, unknown: 0 } });
@@ -259,8 +252,6 @@ test("INV-scheduled-steps: each tick sweeps an unreferenced documents file whose
 		digests: null,
 		mail: null,
 	});
-	const skipped = await bare(
-		new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } }),
-	);
+	const skipped = await bare();
 	assert.deepEqual(((await skipped.json()) as Body).steps["documents-orphans"], { status: "skipped" });
 });
