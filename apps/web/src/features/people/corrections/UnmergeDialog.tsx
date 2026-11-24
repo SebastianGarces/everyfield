@@ -201,7 +201,7 @@ export function UnmergeDialog({
 							{p.attendance.length ? (
 								<div>
 									<p className="text-xs font-semibold text-ink-2">
-										Attendance the merge combined or changed goes back as it was
+										Meeting records the merge changed go back as they were
 									</p>
 									<ul className="mt-1.5 flex flex-col gap-1 text-xs text-text-2">
 										{p.attendance.map((a) => (
