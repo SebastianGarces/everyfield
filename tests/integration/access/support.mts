@@ -1,7 +1,8 @@
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { randomUUID } from "node:crypto";
-import { testDatabase } from "../../support/test-database.mts";
-import { seeds } from "../../support/fixture.mts";
+import { testDatabase, type Database } from "../../support/test-database.mts";
+import { seeds, type Workspace } from "../../support/fixture.mts";
+import { accountId, tenantId } from "../../../packages/contracts/src/common/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 export const id = randomUUID;
@@ -9,25 +10,30 @@ export async function database() {
 	const t = await testDatabase({ prefix: "wp006", roles: { runtime: ["runtime"], cleanup: ["cleanup"] } });
 	return { admin: t.admin, ...t.pools, schema: t.schema, createSchema: t.createSchema, close: t.close };
 }
-export async function transaction(pool, run) {
-	return gatedTransaction(pool, run);
-}
-export async function account(db, registration = "active") {
+export const transaction = gatedTransaction;
+export async function account(db: Database, registration = "active") {
 	const a = await seeds(db).actor(null, "owner", {
 		account: { registration_state: registration, registration_kind: "planter" },
 	});
-	return { id: a.id, user: a.user, session: a.session };
+	return { id: accountId.parse(a.id), user: a.user, session: a.session };
 }
-export async function plant(db) {
-	return seeds(db).plant({ timezone: "UTC" });
+export async function plant(db: Database) {
+	const w = await seeds(db).plant({ timezone: "UTC" });
+	return { ...w, id: tenantId.parse(w.id) };
 }
-export async function organization(db, kind = "sending_church") {
-	return seeds(db).organization(kind);
+export async function organization(db: Database) {
+	const w = await seeds(db).organization("sending_church");
+	return { ...w, id: tenantId.parse(w.id) };
 }
-export async function seat(db, actor, tenant, role = "admin") {
+export async function seat(
+	db: Database,
+	actor: { id: string },
+	tenant: Workspace,
+	role: "owner" | "admin" | "member" = "admin",
+) {
 	return seeds(db).seat(actor, tenant, role);
 }
-export async function person(db, tenant, linked = null) {
+export async function person(db: Database, tenant: Workspace, linked: string | null = null) {
 	const p = id();
 	await db.execute(
 		statement(

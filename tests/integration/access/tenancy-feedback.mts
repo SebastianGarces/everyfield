@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { authorizeTriage, feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
+import { tenancyCase, type Tenancy, type TenancyOwner } from "./tenancy-case.mts";
 
-let sent;
-export async function seedFeedback(t) {
+let sent: string;
+export async function seedFeedback(t: Tenancy) {
 	const reply = await feedbackWriter.submit(
 		t.f.db,
 		t.ownerA.actor,
@@ -13,53 +14,33 @@ export async function seedFeedback(t) {
 	sent = t.ok(reply).id;
 }
 
-export function feedbackCases(t, who) {
-	const name = (op) => `feedback:feedbackWriter.${op}`;
+export function feedbackCases(t: Tenancy, who: TenancyOwner) {
+	const name = (op: string) => `feedback:feedbackWriter.${op}`;
 	return [
-		[
-			name("getSendContext"),
-			{
-				run: () => feedbackWriter.getSendContext(t.f.db, who.actor),
-				expected: {
-					check: (value) => assert.equal(value.replyTo, who.email),
-					control: (value) => assert.equal(value.church, `${t.MARK} Church`),
-				},
-			},
-		],
-		[
-			name("listOwn"),
-			{
-				run: () => feedbackWriter.listOwn(t.f.db, who.actor, {}),
-				expected: { value: { items: [], next: null }, control: (value) => assert.equal(value.items[0].id, sent) },
-			},
-		],
-		[
-			name("getOwnStatus"),
-			{
-				run: () => feedbackWriter.getOwnStatus(t.f.db, who.actor, { feedbackId: sent }),
-				expected: { refused: "unavailable", control: (value) => assert.equal(value.id, sent) },
-			},
-		],
-		[
-			name("admin.list"),
-			{
-				run: () => feedbackWriter["admin.list"](t.f.db, who.actor, {}),
-				expected: { refused: "access_denied", control: null },
-			},
-		],
-		[
-			name("admin.get"),
-			{
-				run: () => feedbackWriter["admin.get"](t.f.db, who.actor, { feedbackId: sent }),
-				expected: { refused: "access_denied", control: null },
-			},
-		],
-		[
+		tenancyCase(name("getSendContext"), () => feedbackWriter.getSendContext(t.f.db, who.actor), {
+			check: (value) => assert.equal(value.replyTo, who.email),
+			control: (value) => assert.equal(value.church, `${t.MARK} Church`),
+		}),
+		tenancyCase(name("listOwn"), () => feedbackWriter.listOwn(t.f.db, who.actor, {}), {
+			value: { items: [], next: null },
+			control: (value) => assert.equal(value.items[0]!.id, sent),
+		}),
+		tenancyCase(name("getOwnStatus"), () => feedbackWriter.getOwnStatus(t.f.db, who.actor, { feedbackId: sent }), {
+			refused: "unavailable",
+			control: (value) => assert.equal(value.id, sent),
+		}),
+		tenancyCase(name("admin.list"), () => feedbackWriter["admin.list"](t.f.db, who.actor, {}), {
+			refused: "access_denied",
+			control: null,
+		}),
+		tenancyCase(name("admin.get"), () => feedbackWriter["admin.get"](t.f.db, who.actor, { feedbackId: sent }), {
+			refused: "access_denied",
+			control: null,
+		}),
+		tenancyCase(
 			"feedback:authorizeTriage",
-			{
-				run: async () => ({ status: "ok", value: await authorizeTriage(t.f.db, who.actor) }),
-				expected: { value: false, control: null },
-			},
-		],
+			async () => ({ status: "ok", value: await authorizeTriage(t.f.db, who.actor) }),
+			{ value: false, control: null },
+		),
 	];
 }

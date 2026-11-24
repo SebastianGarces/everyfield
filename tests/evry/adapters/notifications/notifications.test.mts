@@ -148,11 +148,33 @@ test("AC:INH-NOTIFICATIONS-03 a review lists exactly the three asked notices, ap
 	const proposal = await propose("notifications.markSelectedRead", { noticeIds: [N[0], N[1], N[2], others[0]] });
 	assert.ok(proposal);
 	assert.equal(proposal.status, "pending");
+	const saved = (
+		await admin.execute(
+			sql`SELECT id,title,split_part(logical_key,'/',2) AS category,eligible_at FROM notice WHERE id IN (${N[0]},${N[1]},${N[2]}) ORDER BY eligible_at DESC`,
+		)
+	).rows;
 	assert.deepEqual(
-		proposal.review.changes.map((c) => (c.before as { id: string }).id).sort(),
-		[N[0], N[1], N[2]].sort(),
+		saved.map((n) => n.title),
+		["Interest meeting Sunday", "Call the venue is overdue", "Call the venue is due"],
 	);
-	assert.ok(proposal.review.changes.every((c) => c.field === "notice" && c.after === "read"));
+	assert.deepEqual(
+		proposal.review,
+		{
+			target: null,
+			changes: saved.map((n) => ({
+				field: "notice",
+				before: {
+					id: n.id,
+					title: n.title,
+					category: n.category,
+					at: new Date(String(n.eligible_at)).toISOString(),
+					zone: "America/Chicago",
+				},
+				after: "read",
+			})),
+		},
+		"a review holds the viewer's own notices as saved, and no other account",
+	);
 	assert.deepEqual(await unreadIds(accounts.owner.id), [...N].sort(), "nothing is read before approval");
 	const first = await approve(owner, proposal);
 	assert.equal(first.outcome, "completed");
@@ -191,7 +213,7 @@ test("AC:NOTIFY47-001 mark all states the visible unread count, marks them all a
 	const propose = await turn(owner);
 	const proposal = await propose("notifications.markAllVisibleRead", {});
 	assert.ok(proposal);
-	assert.deepEqual(proposal.review.changes, [{ field: "unread", before: 12, after: 0 }]);
+	assert.deepEqual(proposal.review, { target: null, changes: [{ field: "unread", before: 12, after: 0 }] });
 	const later = await notice(accounts.owner.id, "meeting_reminder", "Arrived after the review", ago(0.005));
 	const done = await approve(owner, proposal);
 	assert.equal(done.outcome, "completed");
@@ -209,12 +231,15 @@ test("INV-notification-settings email off for task reminders is reviewed with in
 	];
 	const proposal = await propose("notifications.setPreferences", { choices });
 	assert.ok(proposal);
-	assert.deepEqual(proposal.review.changes, [
-		{ field: "task_due.email", before: true, after: false },
-		{ field: "task_due.in_app", before: true, after: true },
-		{ field: "task_overdue.email", before: true, after: false },
-		{ field: "task_overdue.in_app", before: true, after: true },
-	]);
+	assert.deepEqual(proposal.review, {
+		target: null,
+		changes: [
+			{ field: "task_due.email", before: true, after: false },
+			{ field: "task_due.in_app", before: true, after: true },
+			{ field: "task_overdue.email", before: true, after: false },
+			{ field: "task_overdue.in_app", before: true, after: true },
+		],
+	});
 	const settings = () =>
 		readAs(owner, "notifications.preferences.get").then((r) =>
 			r.rows.filter((row) => row.id.startsWith("task_")).map((row) => [row.id, row.fields.email, row.fields.inApp]),
@@ -261,13 +286,16 @@ test("INV-digest-cadence the cadence takes only daily or weekly; weekly to daily
 	await assert.rejects(propose("notifications.digestCadence.set", { cadence: "hourly" }), /invalid_input/);
 	const proposal = await propose("notifications.digestCadence.set", { cadence: "daily" });
 	assert.ok(proposal);
-	assert.deepEqual(proposal.review.changes, [
-		{
-			field: "planter_digest.cadence",
-			before: { cadence: "weekly", weekday: 1, hour: 8 },
-			after: { cadence: "daily", weekday: 1, hour: 8 },
-		},
-	]);
+	assert.deepEqual(proposal.review, {
+		target: null,
+		changes: [
+			{
+				field: "planter_digest.cadence",
+				before: { cadence: "weekly", weekday: 1, hour: 8 },
+				after: { cadence: "daily", weekday: 1, hour: 8 },
+			},
+		],
+	});
 	assert.equal((await approve(owner, proposal)).outcome, "completed");
 	const settings = await readAs(owner, "notifications.preferences.get");
 	assert.equal(settings.rows.find((r) => r.id === "planter_digest")?.fields.cadence, "daily");

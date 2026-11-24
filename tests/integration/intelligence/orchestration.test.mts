@@ -456,6 +456,19 @@ test("AC:PI-CASE-028 three scheduled failures in a row hold the plant for review
 	const list = ok(await assessments.listRunsForReview(c0.db, asOperator, {}));
 	const held = list.find((r) => r.plantName === "Stone Bridge")!;
 	assert.deepEqual([held.cause, held.drafts, held.streak.length], ["output_check", 3, 3]);
+	assert.deepEqual(Object.keys(held).sort(), [
+		"asOf",
+		"cause",
+		"demand",
+		"drafts",
+		"outcome",
+		"plantName",
+		"runId",
+		"settledAt",
+		"streak",
+		"usage",
+		"violations",
+	]);
 	const last = failed
 		.at(-1)!
 		.drafts.at(-1)

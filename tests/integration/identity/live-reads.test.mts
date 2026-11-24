@@ -2,8 +2,8 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
-import { fixture } from "./invitations-support.mts";
-import { readOwnResidency } from "../../../packages/domain/src/access/index.ts";
+import { fixture, type Fixture } from "./invitations-support.mts";
+import { readOwnResidency, type WriteTx } from "../../../packages/domain/src/access/index.ts";
 import { createTaskWriter, taskReader, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/sections.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
@@ -15,10 +15,10 @@ import {
 	listConversations,
 	readConversation,
 } from "../../../packages/evry/src/conversations/store.ts";
-import { ok } from "../../support/fixture.mts";
+import { ok, type Workspace } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
-let f;
+let f: Fixture;
 before(async () => {
 	f = await fixture();
 });
@@ -27,13 +27,13 @@ after(() => f?.close());
 test("INV-reads (C22, C27): Tasks, Settings, Evry and residency reads hold no lock on the reader's session, so sign-out never waits for them", async () => {
 	const plant = await f.workspace(),
 		org = await f.workspace("sending_church");
-	const seated = async (w, role) => {
+	const seated = async (w: Workspace) => {
 		const a = await f.account();
-		await f.seat(a, w, role);
+		await f.seat(a, w, "owner");
 		return { ...a, actor: await f.actor(a.session) };
 	};
-	const owner = await seated(plant, "owner"),
-		orgOwner = await seated(org, "owner");
+	const owner = await seated(plant),
+		orgOwner = await seated(org);
 	const task = ok(
 		await withTaskWrite(f.db, owner.actor, (tx, ctx) =>
 			createTaskWriter({ reminders: async () => {} }).create(tx, ctx, {
@@ -64,10 +64,11 @@ test("INV-reads (C22, C27): Tasks, Settings, Evry and residency reads hold no lo
 
 	const settings = sectionOperations({ suppression: async () => "unavailable" } as never);
 	const principal = { display_name: "Synthetic", email: "c22@example.test", verified: true };
-	const section = (who, request) => (tx) =>
+	const section = (who: typeof owner, request: object) => (tx: WriteTx) =>
 		settings.getSection(tx, { authority: who.actor, principal }, request).then(ok);
-	const tasks = (op, input?) => (tx) => taskReader[op](tx, owner.actor, input).then(ok);
-	const reads: [string, (tx) => Promise<unknown>][] = [
+	const tasks = (op: keyof typeof taskReader, input?: object) => async (tx: WriteTx) =>
+		ok<unknown>(await taskReader[op](tx, owner.actor, input));
+	const reads: [string, (tx: WriteTx) => Promise<unknown>][] = [
 		["tasks get", tasks("get", { taskId: task.id })],
 		["tasks list", tasks("list", {})],
 		["tasks count", tasks("count", {})],
@@ -98,7 +99,7 @@ test("INV-reads (C22, C27): Tasks, Settings, Evry and residency reads hold no lo
 		],
 	];
 	const sessions = [owner.session, orgOwner.session, s.recipient.session];
-	const waited = [];
+	const waited: string[] = [];
 	for (const [name, read] of reads)
 		await gatedTransaction(f.db, async (tx) => {
 			assert.ok(await read(tx), name);

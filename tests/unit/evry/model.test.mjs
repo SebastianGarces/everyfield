@@ -128,11 +128,19 @@ test("AC:UI45-006 INV-page: only a person page offers a reference", () => {
 });
 
 test("INV-turns: live text of a turn with a withheld text is never shown", () => {
-	const [turn] = turnsOf([ask(1), say(2, "x", { withheld: true })], { [T]: "secret words so far" });
-	assert.deepEqual(
-		turn.blocks.map((b) => [b.kind, b.text]),
-		[["text", ""]],
-	);
+	const withheld = [ask(1), say(2, "Saved. "), say(3, "x", { withheld: true })];
+	const ended = end(4, { state: "completed", reason: "completed" });
+	for (const events of [withheld, [...withheld, ended]]) {
+		const [turn] = turnsOf(events, { [T]: "Saved. secret words so far" });
+		assert.deepEqual(
+			turn.blocks.map((b) => [b.kind, b.text]),
+			[
+				["text", "Saved. "],
+				["text", ""],
+			],
+		);
+		assert.equal(answerText(turn), "Saved.");
+	}
 });
 
 test("a paused Evry or paused email says what stopped, that nothing changed and what to do, and names no switch, flag or code", () => {

@@ -204,14 +204,16 @@ const audits = async () => Number((await admin.execute(sql`SELECT count(*)::int 
 test("INV-digest-cadence daily to weekly is reviewed, changes nothing until approved, saves as Settings shows it and a second approval writes nothing", async () => {
 	const proposal = await propose("notifications.oversightDigestCadence.set", { cadence: "weekly" });
 	assert.ok(proposal);
-	assert.deepEqual(proposal.review.changes, [
-		{
-			field: "oversight_digest.cadence",
-			before: { cadence: "daily", weekday: 1, hour: 7 },
-			after: { cadence: "weekly", weekday: 1, hour: 7 },
-		},
-	]);
-	assert.equal(proposal.review.refusal, undefined);
+	assert.deepEqual(proposal.review, {
+		target: null,
+		changes: [
+			{
+				field: "oversight_digest.cadence",
+				before: { cadence: "daily", weekday: 1, hour: 7 },
+				after: { cadence: "weekly", weekday: 1, hour: 7 },
+			},
+		],
+	});
 	assert.equal(await settingsCadence(), "daily", "nothing changes before approval");
 	const first = await approve(proposal);
 	assert.equal(first.replayed, false);

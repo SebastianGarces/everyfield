@@ -5,8 +5,9 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { sql } from "../../../packages/db/src/query.ts";
-import { fixture, type Actor, type Workspace } from "../../support/fixture.mts";
+import { sql, type SQL } from "../../../packages/db/src/query.ts";
+import { seeds, type Actor, type Workspace } from "../../support/fixture.mts";
+import { testDatabase } from "../../support/test-database.mts";
 import {
 	createIdentityService,
 	createInvitationService,
@@ -15,12 +16,16 @@ import {
 } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer, peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 type Value = string | number | boolean | Value[] | { [key: string]: Value };
 type Entries = Record<string, Record<string, Value>>;
-type Step = { action: string; args: Record<string, string>; ok?: boolean; after: Entries };
+type Args = Record<
+	"session" | "op" | "to" | "target" | "invitation" | "workspace" | "role" | "request" | "kind",
+	string
+>;
+type Step = { action: string; args: Args; ok?: boolean; after: Entries };
 type Traces = { seed: number; traces: number; depth: number; init: Entries; behaviors: Step[][] };
 
 const committed = fileURLToPath(new URL("../../../formal/permissions/traces.json", import.meta.url));
@@ -32,7 +37,11 @@ const SECRET = randomBytes(32).toString("hex");
 const PASSWORD = "Replay-pass-1";
 const WRITTEN = "Replay write";
 
-let fx: Awaited<ReturnType<typeof fixture>>;
+async function open() {
+	const database = await testDatabase({ prefix: "replay", max: 8, roles: { runtime: ["runtime"], auth: ["auth"] } });
+	return Object.assign(database, seeds(database.admin));
+}
+let fx: Awaited<ReturnType<typeof open>>;
 let seats: ReturnType<typeof createSeatService>;
 let invitations: ReturnType<typeof createInvitationService>;
 let identity: ReturnType<typeof createIdentityService>;
@@ -43,7 +52,7 @@ const noReminders = async () => {
 };
 
 before(async () => {
-	fx = await fixture({ prefix: "replay", max: 8, roles: { runtime: ["runtime"], auth: ["auth"] } });
+	fx = await open();
 	const db = fx.pools.runtime;
 	seats = createSeatService(db);
 	invitations = createInvitationService({
@@ -95,7 +104,7 @@ const command = (expectedRevision: string, input: Record<string, unknown>) => ({
 	expectedRevision,
 	input,
 });
-const rows = async (query: ReturnType<typeof sql>) => (await fx.admin.execute(query)).rows as Record<string, any>[];
+const rows = async <Row extends Record<string, unknown>>(query: SQL) => (await fx.admin.execute<Row>(query)).rows;
 
 type Outcome = string;
 async function outcome(run: () => Promise<unknown>, success = "allowed"): Promise<Outcome> {
@@ -109,6 +118,16 @@ async function outcome(run: () => Promise<unknown>, success = "allowed"): Promis
 		return `threw ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`;
 	}
 }
+
+type SeatRow = {
+	id: string;
+	account_id: string;
+	plant_id: string;
+	role: string;
+	revision: string;
+	ended_at: string | null;
+};
+type InvitationRow = { state: string; expired: boolean };
 
 class World {
 	plants = new Map<string, Workspace>();
@@ -137,12 +156,15 @@ class World {
 				VALUES(${actor.user}::uuid, 'credential', ${actor.user}, ${passwordHash})`,
 			);
 			if (live[0])
-				world.seats.set(live[0][0], (await rows(sql`SELECT id FROM seat WHERE account_id=${actor.id}::uuid`))[0]!.id);
+				world.seats.set(
+					live[0][0],
+					(await rows<{ id: string }>(sql`SELECT id FROM seat WHERE account_id=${actor.id}::uuid`))[0]!.id,
+				);
 			for (const [key, state] of Object.entries(init.sessions!).filter(([k]) => k.startsWith(`${name}/`))) {
 				if (state === "unused") continue;
 				if (state !== "live" || !key.endsWith("/1"))
 					throw Error(`the replay seeds only a live first session, not ${key} ${state}`);
-				const [s] = await rows(sql`SELECT token FROM auth_session WHERE id=${actor.session}::uuid`);
+				const [s] = await rows<{ token: string }>(sql`SELECT token FROM auth_session WHERE id=${actor.session}::uuid`);
 				world.sessions.set(key, { id: actor.session, cookie: sessionCookie(s!.token) });
 			}
 		}
@@ -168,23 +190,23 @@ class World {
 	}
 	plantOf(seat: string) {
 		const [row] = this.seatRows.filter((r) => r.id === this.seats.get(seat));
-		return [...this.plants.values()].find((p) => p.id === row?.plant_id)!;
+		return owner.parse([...this.plants.values()].find((p) => p.id === row?.plant_id));
 	}
 
-	seatRows: Record<string, any>[] = [];
+	seatRows: SeatRow[] = [];
 	liveSessions = new Set<string>();
-	invitationRow: Record<string, any> | undefined;
+	invitationRow: InvitationRow | undefined;
 	written = new Map<string, number>();
 	async observe() {
 		const ids = [...this.accounts.values()].map((a) => a.id);
 		const users = [...this.accounts.values()].map((a) => a.user);
-		this.seatRows = await rows(
+		this.seatRows = await rows<SeatRow>(
 			sql`SELECT id, account_id, plant_id, role, revision::text AS revision, ended_at FROM seat
 			WHERE account_id=ANY(${`{${ids.join(",")}}`}::uuid[]) ORDER BY id`,
 		);
 		this.liveSessions = new Set(
 			(
-				await rows(
+				await rows<{ id: string; user_id: string }>(
 					sql`SELECT id, user_id FROM auth_session WHERE user_id=ANY(${`{${users.join(",")}}`}::uuid[]) AND expires_at>clock_timestamp()`,
 				)
 			).map((r) => `${r.user_id}/${r.id}`),
@@ -192,13 +214,13 @@ class World {
 		const invitation = [...this.invitations.values()][0];
 		this.invitationRow = invitation
 			? (
-					await rows(
+					await rows<InvitationRow>(
 						sql`SELECT state, created_at+interval '30 days'<=clock_timestamp() AS expired FROM invitation WHERE id=${invitation}::uuid`,
 					)
 				)[0]
 			: undefined;
 		const plants = [...this.plants.values()].map((p) => p.id);
-		const counts = await rows(
+		const counts = await rows<{ id: string; n: number }>(
 			sql`SELECT p.id, (SELECT count(*)::int FROM person x WHERE x.plant_id=p.id AND x.display_name=${WRITTEN}) AS n
 			FROM plant p WHERE p.id=ANY(${`{${plants.join(",")}}`}::uuid[])`,
 		);
@@ -280,7 +302,7 @@ class Unresolved extends Error {
 }
 const seatOf = (v: Value) => v as { state: string; ws: string; role: string; rev: number };
 
-const handlers: Record<string, (world: World, args: Record<string, string>) => Promise<Outcome>> = {
+const handlers: Record<string, (world: World, args: Args) => Promise<Outcome>> = {
 	async SignIn(world, { session }) {
 		const actor = world.account(session);
 		const response = await post("sign-in/email", { email: actor.email, password: PASSWORD });
@@ -290,7 +312,7 @@ const handlers: Record<string, (world: World, args: Record<string, string>) => P
 			.map((c) => c.split(";")[0]!)
 			.find((c) => c.startsWith("better-auth.session_token="))!;
 		const token = decodeURIComponent(cookie.split("=")[1]!).split(".")[0]!;
-		const [row] = await rows(sql`SELECT id FROM auth_session WHERE token=${token}`);
+		const [row] = await rows<{ id: string }>(sql`SELECT id FROM auth_session WHERE token=${token}`);
 		world.sessions.set(session, { id: row!.id, cookie });
 		return "allowed";
 	},
@@ -300,7 +322,7 @@ const handlers: Record<string, (world: World, args: Record<string, string>) => P
 	},
 	async SeatAction(world, { session, op, to, target }) {
 		const plant = world.plantOf(target);
-		const [seat] = await rows(
+		const [seat] = await rows<{ id: string; role: string; revision: string }>(
 			sql`SELECT id, role, revision::text AS revision FROM seat WHERE id=${world.seats.get(target)}::uuid`,
 		);
 		const input =
@@ -319,7 +341,9 @@ const handlers: Record<string, (world: World, args: Record<string, string>) => P
 	},
 	async Invite(world, { session, invitation, workspace, role, to }) {
 		const plant = world.plants.get(workspace)!;
-		const [p] = await rows(sql`SELECT revision::text AS revision FROM plant WHERE id=${plant.id}::uuid`);
+		const [p] = await rows<{ revision: string }>(
+			sql`SELECT revision::text AS revision FROM plant WHERE id=${plant.id}::uuid`,
+		);
 		return outcome(async () => {
 			const sent = await invitations.invite(
 				await world.authority(session),
@@ -330,7 +354,9 @@ const handlers: Record<string, (world: World, args: Record<string, string>) => P
 	},
 	async Revoke(world, { session, invitation }) {
 		const id = world.invitations.get(invitation)!;
-		const [i] = await rows(sql`SELECT revision::text AS revision FROM invitation WHERE id=${id}::uuid`);
+		const [i] = await rows<{ revision: string }>(
+			sql`SELECT revision::text AS revision FROM invitation WHERE id=${id}::uuid`,
+		);
 		return outcome(async () =>
 			invitations.revoke(await world.authority(session), command(i!.revision, { invitationId: id })),
 		);
@@ -344,7 +370,9 @@ const handlers: Record<string, (world: World, args: Record<string, string>) => P
 	},
 	async Accept(world, { session, invitation }) {
 		const id = world.invitations.get(invitation)!;
-		const [i] = await rows(sql`SELECT revision::text AS revision FROM invitation WHERE id=${id}::uuid`);
+		const [i] = await rows<{ revision: string }>(
+			sql`SELECT revision::text AS revision FROM invitation WHERE id=${id}::uuid`,
+		);
 		return outcome(() =>
 			invitations.accept(world.session(session).id, command(i!.revision, { invitationId: id, proof: proofs.get(id) })),
 		);

@@ -1,8 +1,9 @@
 import { createPhaseWriter, phaseReader } from "../../../packages/domain/src/phases/index.ts";
+import { tenancyCase, type Tenancy, type TenancyOwner } from "./tenancy-case.mts";
 
 const phases = createPhaseWriter({ notices: async () => {} });
 
-export async function seedPhases(t) {
+export async function seedPhases(t: Tenancy) {
 	const { MARK, key, ok } = t;
 	const db = t.f.db;
 	const state = async () => ok(await phaseReader.readHistory(db, t.ownerA.actor)).state;
@@ -23,21 +24,15 @@ export async function seedPhases(t) {
 	);
 }
 
-export function phasesCases(t, who) {
+export function phasesCases(t: Tenancy, who: TenancyOwner) {
 	return [
-		[
-			"phases:phaseReader.readHistory",
-			{
-				run: () => phaseReader.readHistory(t.f.db, who.actor),
-				expected: {
-					value: {
-						state: { phase: 1, revision: "1", declarable: true },
-						plantName: "Synthetic plant",
-						timeZone: "UTC",
-						entries: [],
-					},
-				},
+		tenancyCase("phases:phaseReader.readHistory", () => phaseReader.readHistory(t.f.db, who.actor), {
+			value: {
+				state: { phase: 1, revision: "1", declarable: true },
+				plantName: "Synthetic plant",
+				timeZone: "UTC",
+				entries: [],
 			},
-		],
+		}),
 	];
 }

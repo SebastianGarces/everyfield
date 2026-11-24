@@ -203,6 +203,6 @@ cd packages/domain && FORMAL_TRACES=/tmp/formal-seed-<seed> \
 ```
 
 on a throwaway Postgres (`.agents/skills/verify/SKILL.md`). Or run the whole nightly step locally with
-`node scripts/nightly-formal.ts --seed <seed>` against `DATABASE_URL` on a throwaway `everyfield_ci` (with `CI=true` and
-`EARLY_ACCESS_TEST_DATABASE=1`, after `pnpm db:migrate`); it prints where its `replay.log` is. Then follow
+`node scripts/nightly-formal.ts --seed <seed>` against `DATABASE_URL` on a throwaway `everyfield_ci` (with
+`EVERYFIELD_DISPOSABLE_DATABASE=1`, after `pnpm db:migrate`); it prints where its `replay.log` is. Then follow
 `.agents/skills/maintain-formal-verification/SKILL.md` ("A filed nightly seed").

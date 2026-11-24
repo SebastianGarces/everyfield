@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
+import type { BrandKit } from "../../../packages/contracts/src/branding/index.ts";
 import {
 	brandReader,
 	brandWriter,
@@ -7,22 +8,9 @@ import {
 	readBrandAssetIfChanged,
 	uploadBrandAsset,
 } from "../../../packages/domain/src/branding/index.ts";
+import { casesFor, seedStorage, tenancyCase, type Tenancy, type TenancyOwner } from "./tenancy-case.mts";
 
-const seedStorage = {
-	bucket: "tenancy-brand-seed",
-	client: {
-		async send(command) {
-			switch (command.constructor.name) {
-				case "GetBucketAclCommand":
-					return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
-				case "PutObjectCommand":
-					return {};
-				default:
-					throw Error(`unexpected provider operation ${command.constructor.name}`);
-			}
-		},
-	},
-};
+const seeding = seedStorage("tenancy-brand-seed");
 const logo = await sharp({
 	create: { width: 200, height: 120, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
 })
@@ -40,7 +28,7 @@ const noAssets = Object.fromEntries(
 	["full_logo", "full_logo_dark", "mark", "mark_dark", "cover_photo", "signature"].map((slot) => [slot, null]),
 );
 
-export async function seedBranding(t) {
+export async function seedBranding(t: Tenancy) {
 	const { a, MARK, ok } = t;
 	const owner = t.ownerA.actor;
 	const db = t.f.db;
@@ -59,7 +47,7 @@ export async function seedBranding(t) {
 			altText,
 		}),
 	);
-	const uploaded = ok(await uploadBrandAsset(db, seedStorage, owner, { uploadId: ticket.uploadId, bytes: logo }));
+	const uploaded = ok(await uploadBrandAsset(db, seeding, owner, { uploadId: ticket.uploadId, bytes: logo }));
 	ok(
 		await brandWriter.finalizeUpload(db, owner, {
 			uploadId: ticket.uploadId,
@@ -71,10 +59,10 @@ export async function seedBranding(t) {
 	Object.assign(a, { brandAsset: ticket.uploadId, brandSha: uploaded.sha256 });
 }
 
-export function brandingCases(t, who) {
+export function brandingCases(t: Tenancy, who: TenancyOwner) {
 	const { a, MARK, storage } = t;
 	const db = t.f.db;
-	const r = (name, run, expected) => [`branding:brandReader.${name}`, { run, expected }];
+	const r = casesFor("branding:brandReader.");
 	const defaultKit = {
 		primaryColor: null,
 		accentColor: null,
@@ -86,7 +74,7 @@ export function brandingCases(t, who) {
 		revision: "0",
 		colors: { primary: null, accent: null },
 	};
-	const savedKit = (value) => {
+	const savedKit = (value: BrandKit) => {
 		assert.deepEqual([value.kitState, value.primaryColor, value.tagline], ["saved", PRIMARY, `${MARK} tagline`]);
 		assert.deepEqual(value.assets.full_logo, { fileId: a.brandAsset, alt: `${MARK} logo` });
 	};
@@ -116,6 +104,7 @@ export function brandingCases(t, who) {
 				},
 			},
 			control: (value) => {
+				assert.ok(value.layout.documentClass === "formal/legal");
 				assert.deepEqual([value.churchName, value.layout.footer.name], [`${MARK} Church`, `${MARK} Church`]);
 				assert.deepEqual(value.layout.headerLogo, { fileId: a.brandAsset, alt: `${MARK} logo` });
 			},
@@ -124,22 +113,17 @@ export function brandingCases(t, who) {
 			refused: "unavailable",
 			control: null,
 		}),
-		[
-			"branding:readBrandAsset",
-			{
-				run: () => readBrandAsset(db, storage, who.actor, a.brandAsset),
-				expected: { refused: "unavailable", control: null },
-			},
-		],
-		[
+		tenancyCase("branding:readBrandAsset", () => readBrandAsset(db, storage, who.actor, a.brandAsset), {
+			refused: "unavailable",
+			control: null,
+		}),
+		tenancyCase(
 			"branding:readBrandAssetIfChanged",
+			() => readBrandAssetIfChanged(db, storage, who.actor, a.brandAsset, () => true),
 			{
-				run: () => readBrandAssetIfChanged(db, storage, who.actor, a.brandAsset, () => true),
-				expected: {
-					refused: "unavailable",
-					control: (value) => assert.deepEqual(value, { sha256: a.brandSha, mediaType: "image/png", bytes: null }),
-				},
+				refused: "unavailable",
+				control: (value) => assert.deepEqual(value, { sha256: a.brandSha, mediaType: "image/png", bytes: null }),
 			},
-		],
+		),
 	];
 }

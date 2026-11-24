@@ -194,7 +194,7 @@ jobs:
           --health-interval 2s --health-timeout 5s --health-retries 30
     env:
       DATABASE_URL: postgres://ci:ci@localhost:5432/everyfield_ci
-      EARLY_ACCESS_TEST_DATABASE: "1"
+      EVERYFIELD_DISPOSABLE_DATABASE: "1"
     steps:
       - uses: actions/checkout@v7
       - name: Shared setup (Node, pnpm, node_modules)
@@ -239,7 +239,7 @@ jobs:
           --health-interval 2s --health-timeout 5s --health-retries 30
     env:
       DATABASE_URL: postgres://ci:ci@localhost:5432/everyfield_ci
-      EARLY_ACCESS_TEST_DATABASE: "1"
+      EVERYFIELD_DISPOSABLE_DATABASE: "1"
     steps:
       - uses: actions/checkout@v7
       - name: Shared setup (Node, pnpm, node_modules)

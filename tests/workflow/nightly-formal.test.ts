@@ -195,7 +195,7 @@ test("T-401 the nightly formal job runs on its own Postgres, with no secret, no 
 	assert.ok(Number(/\n    timeout-minutes: (\d+)\n/.exec(job)![1]) <= 20);
 	assert.match(job, /image: pgvector\/pgvector:0\.8\.7-pg18\n/);
 	assert.match(job, /DATABASE_URL: postgres:\/\/ci:ci@localhost:5432\/everyfield_ci\n/);
-	assert.match(job, /EARLY_ACCESS_TEST_DATABASE: "1"\n/);
+	assert.match(job, /EVERYFIELD_DISPOSABLE_DATABASE: "1"\n/);
 	assert.match(job, /uses: \.\/\.github\/actions\/setup\n/);
 	assert.ok(job.indexOf("run: pnpm db:migrate\n") > 0);
 	assert.ok(job.indexOf("run: node scripts/nightly-formal.ts\n") > job.indexOf("run: pnpm db:migrate\n"));

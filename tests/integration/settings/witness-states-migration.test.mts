@@ -41,19 +41,19 @@ const rows = async () =>
 
 test("INV-witness-states: the migration deletes witnesses in removed states or kinds and keeps every other row", async () => {
 	await migrate(admin, schema, await before());
-	const removed = [];
+	const removed: string[] = [];
 	for (const [kind, state] of [
 		["account", "active"],
 		["seat", "revoked"],
 		["affiliation", "active"],
-	])
-		removed.push(String((await witness(kind, state)).rows[0].id));
+	] as const)
+		removed.push(String((await witness(kind, state)).rows[0]!.id));
 	const requested = new Date("2026-11-01T12:00:00.000Z");
 	await admin.execute(sql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,request_id,request_revision,state,requested_at,cancel_until,witness_checkpoint,cleanup_state)
 		VALUES('account',${randomUUID()},${randomUUID()},1,'pending_deletion',${requested},${new Date(requested.getTime() + 30 * 86_400_000)},1,'not_started')`);
 	const kept = (await rows()).filter((r) => !removed.includes(String(r.id)));
 	assert.equal(kept.length, 1);
-	assert.equal(kept[0].state, "pending_deletion");
+	assert.equal(kept[0]!.state, "pending_deletion");
 
 	assert.deepEqual(
 		await migrate(admin, schema),
@@ -63,7 +63,7 @@ test("INV-witness-states: the migration deletes witnesses in removed states or k
 	const records = await admin.execute(
 		sql`SELECT count(*)::int AS n FROM record WHERE id = ANY(${`{${removed.join(",")}}`}::uuid[])`,
 	);
-	assert.equal(records.rows[0].n, 0);
+	assert.equal(records.rows[0]!.n, 0);
 
 	for (const state of ["active", "revoked"])
 		await assert.rejects(witness("account", state), refusedBy("lifecycle_witness_ck_4"), state);
