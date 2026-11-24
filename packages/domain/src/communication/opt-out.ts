@@ -1,8 +1,9 @@
 import { createHmac, randomBytes } from "node:crypto";
 import type { Database } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql } from "@everyfield/db/query";
 import { z } from "zod";
 import { openClaim, sealClaim, type OptOutKeyRing } from "../notifications/opt-out.ts";
+import { childSql, copyReachesSql, optedOutSql } from "./audience.ts";
 import { deny, readReply } from "./core.ts";
 
 const HOUR = 60 * 60 * 1000;
@@ -58,18 +59,6 @@ function open(ring: OptOutKeyRing, token: string): Claim | null {
 	return null;
 }
 
-export function optedOutSql(plantId: SQL, personId: SQL): SQL {
-	return sql`(${optedOutAtSql(plantId, personId)} IS NOT NULL)`;
-}
-
-export function optedOutAtSql(plantId: SQL, personId: SQL): SQL {
-	return sql`(SELECT to_char(min(o.opted_out_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
-		FROM person_email_opt_out o
-		WHERE o.plant_id = ${plantId} AND o.undone_at IS NULL
-			AND (o.person_id = ${personId} OR o.person_id IN (
-				SELECT q.id FROM person q WHERE q.merged_into_person_id = ${personId} AND q.tenant_id = ${plantId})))`;
-}
-
 const stateRow = z.object({
 	church_name: z.string().nullable(),
 	opt_out_id: z.uuid().nullable(),
@@ -90,6 +79,8 @@ async function readState(db: Database, value: Claim) {
 	return stateRow.parse(result.rows[0]);
 }
 
+const keptAsChildSql = childSql(sql`m.tenant_id`, sql`m.recipient_person_id`);
+
 async function writeOptOut(db: Database, value: Claim) {
 	const result = await db.execute(sql`WITH target AS (
 			SELECT p.id, p.tenant_id, pl.name FROM person p JOIN plant pl ON pl.id = p.tenant_id
@@ -100,26 +91,45 @@ async function writeOptOut(db: Database, value: Claim) {
 			SELECT tenant_id, id FROM target
 			ON CONFLICT (person_id) WHERE undone_at IS NULL DO NOTHING
 			RETURNING id, opted_out_at
+		), reached AS (
+			SELECT t.id, t.tenant_id FROM target t
+			UNION ALL
+			SELECT q.merged_into_person_id, t.tenant_id FROM target t
+			JOIN person q ON q.id = t.id AND q.merged_into_person_id IS NOT NULL
 		), skipped AS (
 			UPDATE mail m SET state = 'refused', refusal = 'unsubscribed'
-			FROM target t
+			FROM reached t
 			WHERE m.tenant_id = t.tenant_id AND m.purpose = 'communication' AND m.state = 'scheduled'
-				AND m.recipient_person_id IN (SELECT t.id UNION ALL
-					SELECT q.merged_into_person_id FROM person q WHERE q.id = t.id AND q.merged_into_person_id IS NOT NULL)
+				AND m.recipient_person_id = t.id AND NOT ${keptAsChildSql}
 			RETURNING m.id, m.recipient_person_id, m.scheduled_at, m.communication_id
+		), kept AS (
+			SELECT m.id, m.recipient_person_id, m.scheduled_at, m.communication_id
+			FROM reached t
+			JOIN mail m ON m.tenant_id = t.tenant_id AND m.purpose = 'communication' AND m.state = 'scheduled'
+				AND m.recipient_person_id = t.id
+			WHERE ${keptAsChildSql} AND EXISTS (SELECT 1 FROM inserted)
+				AND NOT ${optedOutSql(sql`m.tenant_id`, sql`m.recipient_person_id`)}
 		), noticed AS (
 			INSERT INTO notice (tenant_id, recipient_id, category, purpose, logical_key, source_record_id, source_revision,
 				title, safe_body, eligible_at, created_at, timezone)
 			SELECT c.plant_id, x.scheduler, 'communication', 'communication_unsubscribed',
 				c.plant_id::text || '/scheduled_email_unsubscribe/' || c.id::text || '/' || k.recipient_person_id::text,
 				c.id, c.revision,
-				CASE WHEN x.only THEN 'Not sent: ' || p.display_name || ' unsubscribed'
+				CASE WHEN k.child AND x.only AND NOT x.copied THEN 'Not sent: ' || p.display_name || ' is marked as a child'
+					WHEN k.child THEN p.display_name || ' unsubscribed from this church''s email'
+					WHEN x.only THEN 'Not sent: ' || p.display_name || ' unsubscribed'
 					ELSE p.display_name || ' unsubscribed from a scheduled email' END,
-				CASE WHEN x.only
+				CASE WHEN k.child AND x.copied
+					THEN x.subject || ', scheduled for ' || x.send_at || ', still goes to the parent or guardian of ' || p.display_name || '.'
+					WHEN k.child AND x.only
+					THEN x.subject || ', scheduled for ' || x.send_at || ', will not go out because ' || p.display_name || ' is marked as a child.'
+					WHEN k.child
+					THEN p.display_name || ' is marked as a child and left out of ' || x.subject || ', scheduled for ' || x.send_at || '.'
+					WHEN x.only
 					THEN x.subject || ', scheduled for ' || x.send_at || ', will not go out because its only recipient unsubscribed from this church''s email.'
 					ELSE p.display_name || ' will not get ' || x.subject || ', scheduled for ' || x.send_at || '.' END,
 				clock_timestamp(), clock_timestamp(), pl.timezone
-			FROM skipped k
+			FROM (SELECT s.*, false AS child FROM skipped s UNION ALL SELECT e.*, true FROM kept e) k
 			JOIN communication c ON c.id = k.communication_id
 			JOIN plant pl ON pl.id = c.plant_id
 			JOIN person p ON p.id = k.recipient_person_id AND p.tenant_id = c.plant_id
@@ -133,7 +143,9 @@ async function writeOptOut(db: Database, value: Claim) {
 				NOT EXISTS (SELECT 1 FROM mail o
 					WHERE o.tenant_id = c.plant_id AND o.purpose = 'communication'
 						AND o.communication_id = c.id
-						AND o.id NOT IN (SELECT id FROM skipped) AND o.refusal IS DISTINCT FROM 'unsubscribed') AS only
+						AND o.id NOT IN (SELECT id FROM skipped) AND o.refusal IS DISTINCT FROM 'unsubscribed'
+						AND NOT (k.child AND o.recipient_person_id IS NOT DISTINCT FROM k.recipient_person_id)) AS only,
+				k.child AND ${copyReachesSql(sql`c.plant_id`, sql`k.recipient_person_id`, sql`c.id`)} AS copied
 			) x
 			WHERE c.plant_id = (SELECT tenant_id FROM target)
 				AND EXISTS (SELECT 1 FROM seat s WHERE s.account_id = x.scheduler AND s.plant_id = c.plant_id

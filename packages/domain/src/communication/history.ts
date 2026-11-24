@@ -5,8 +5,7 @@ import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
 import { addressAad, openText, type DeliveryKeys } from "./delivery.ts";
 import { hasMailingAddressSql } from "./address.ts";
-import { childSql, routedIdsSql, routedNamesSql, routedSql } from "./audience.ts";
-import { optedOutAtSql } from "./opt-out.ts";
+import { childSql, optedOutAtSql, routedIdsSql, routedNamesSql, routedSql } from "./audience.ts";
 import {
 	administers,
 	command,

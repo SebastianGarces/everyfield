@@ -25,7 +25,7 @@ import {
 import { waitingOnLock } from "../../support/fixture.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
-import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
+import { scriptedModel } from "../../../packages/evry-scripted/src/scripted.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim, recoverLease, type Claim } from "../../../packages/domain/src/jobs/queue.ts";
 import {

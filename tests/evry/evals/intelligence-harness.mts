@@ -10,12 +10,12 @@ import {
 	executeProposal,
 	readConversation,
 	runTurn,
-	selectQualifiedModel,
 	submitTurn,
 	type EvryActor,
 	type NativePorts,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 
@@ -38,7 +38,7 @@ export const loadCases = (file: string) =>
 	(JSON.parse(readFileSync(new URL(file, import.meta.url), "utf8")) as { cases: Case[] }).cases;
 
 export function harness(db: Database, today: Date, native: NativePorts | null = null) {
-	const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+	const model = scriptedQualifiedModel();
 	const shift = today.getTime() - Date.now();
 	const now = () => new Date(Date.now() + shift);
 	const freshActor = async (session: string) => {

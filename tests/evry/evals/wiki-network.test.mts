@@ -16,11 +16,11 @@ import {
 	readConversation,
 	readReview,
 	runTurn,
-	selectQualifiedModel,
 	submitTurn,
 	type EvryActor,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { referenceExcerpt } from "../../../packages/evry/src/adapters/wiki/reads/index.ts";
 import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { editorBlocksFromBody, editorWriteBody } from "../../../apps/web/src/features/wiki/model.ts";
@@ -53,7 +53,7 @@ const NATIVE = "Sam meets planters on Mondays.";
 let close: () => Promise<void>;
 let db: Database;
 let admin: Database;
-const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+const model = scriptedQualifiedModel();
 const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
 	return viewer?.authority ? evryActor(viewer.authority) : null;

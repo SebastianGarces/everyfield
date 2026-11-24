@@ -1794,6 +1794,28 @@ function handles(handler, body, param) {
 
 const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
 
+const SCRIPTED_PACKAGE = "@everyfield/evry-scripted";
+const SCRIPTED_WIRING = "apps/web/src/server/models.ts";
+
+const scriptedModelWiring = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!PRODUCT_CODE.test(path)) return {};
+		const wiring = path === SCRIPTED_WIRING;
+		return moduleSources((node, name) => {
+			if (name !== SCRIPTED_PACKAGE && !name.startsWith(`${SCRIPTED_PACKAGE}/`)) return;
+			if (wiring && node.type === "ImportExpression") return;
+			context.report({
+				node,
+				message: wiring
+					? `${SCRIPTED_WIRING} loads ${SCRIPTED_PACKAGE} only by import() inside its local and test deployment branch, so production never loads it.`
+					: `${SCRIPTED_PACKAGE} is dev-only: only ${SCRIPTED_WIRING} loads it, inside its local and test deployment branch. Take the model or drafter from that file.`,
+			});
+		});
+	},
+};
+
 const webDatabaseImports = {
 	meta: { type: "problem" },
 	create(context) {
@@ -4560,6 +4582,7 @@ export default {
 		"server-config": serverConfig,
 		"no-silent-catch": noSilentCatch,
 		"web-database-imports": webDatabaseImports,
+		"scripted-model-wiring": scriptedModelWiring,
 		"shared-notice": sharedNotice,
 		"no-cursor-utility": noCursorUtility,
 		"no-slop-styling": noSlopStyling,

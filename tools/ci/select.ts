@@ -39,6 +39,7 @@ export type Rule = {
 	tests?: readonly string[];
 	packages?: true;
 	fallbackPackage?: string;
+	consumers?: readonly string[];
 	full?: true;
 };
 
@@ -68,6 +69,12 @@ export const RULES: readonly Rule[] = [
 		],
 	},
 	{ name: "package source", paths: ["apps/*/**", "packages/*/**"], packages: true },
+	{
+		name: "scripted Evry model and the suites that run it",
+		paths: ["packages/evry-scripted/**"],
+		packages: true,
+		consumers: ["@everyfield/evry", "@everyfield/domain"],
+	},
 	{ name: "package manifest", paths: ["apps/*/package.json", "packages/*/package.json"], checks: ["ci-coverage"] },
 	{
 		name: "package test outside its package",
@@ -341,7 +348,7 @@ export function selectChecks(
 				const found = (inside.length ? inside : owners(path, context)).map((pkg) => pkg.name);
 				if (!found.length && rule.fallbackPackage) found.push(rule.fallbackPackage);
 				if (!found.length) full.push(`no package owns ${path}`);
-				for (const name of found) filters.add(`...${name}`);
+				for (const name of [...found, ...(rule.consumers ?? [])]) filters.add(`...${name}`);
 			}
 		}
 	}

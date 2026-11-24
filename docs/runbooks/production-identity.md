@@ -59,6 +59,13 @@ already has it.
 6. Redeploy production (`vercel redeploy` on the current production deployment, or push to main), then
    `unset PROD_IDENTITY_ADMIN_URL`.
 
+The server refuses to start without the seven identity settings: `IDENTITY_DATABASE_URL`,
+`IDENTITY_AUTH_DATABASE_URL`, `IDENTITY_ORIGIN`, `IDENTITY_SECRET`, `IDENTITY_MAIL_KEY`, `IDENTITY_ADDRESS_KEY` and
+`IDENTITY_MAIL_FROM` (T-525). A deployment missing any of them, or holding an empty one, stops at boot: every
+request fails, and the Vercel function logs show one line naming the missing keys, never a value, for example
+`{"component":"server","event":"settings_missing","missing":"IDENTITY_MAIL_FROM"}`. Set all seven in Vercel
+Production before you redeploy. To recover, add each named setting and redeploy.
+
 Rerunning `--apply` is safe. It keeps existing logins and their passwords, re-asserts the grants and generates only
 the settings Vercel Production lacks. It refuses while an earlier commands file is still waiting. It also refuses
 when a login exists but Vercel lacks its URL, because the password cannot be read back. `--rotate-passwords` then gives
@@ -75,8 +82,9 @@ the existing logins new passwords and overwrites their URLs (`--force`). Never r
   confirm that every hand-set setting under "Shape of the hand-set settings" reports "right shape". Check a
   "cannot check" setting by hand in the Vercel dashboard.
 - When production refuses its identity or mail settings, Vercel logs name each refused setting, by name only, never
-  its value. A missing or malformed identity setting gives one `config_missing` line at boot (`missing` lists the
-  names); boot then skips warming, and code that needs the settings fails with the error name `ServerConfigError`.
+  its value. A missing or empty identity setting stops boot with one `settings_missing` line (above). A malformed one
+  gives one `config_missing` line at boot (`missing` lists the names); boot then skips warming, and code that needs the
+  settings fails with the error name `ServerConfigError`.
   A mail refusal (no `RESEND_API_KEY` in production, or equal mail and address keys) gives one `settings_refused`
   line from `mail`. Fix the named settings and redeploy.
 

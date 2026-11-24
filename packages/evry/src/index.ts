@@ -2,7 +2,16 @@ import "server-only";
 export { evryActor, type EvryActor, type ContextKind } from "./context/actor.ts";
 export { EvryRefusal, projectError, type ProjectedError } from "./context/errors.ts";
 export { LIMITS, type StopReason } from "./context/limits.ts";
-export { readCatalog, READ_DOMAINS, SELECT_RETURNED_ROWS, type Catalog } from "./catalog/catalog.ts";
+export {
+	MEMBER_INTELLIGENCE,
+	MEMBER_PHASES,
+	readCatalog,
+	READ_DOMAINS,
+	SELECT_RETURNED_ROWS,
+	type Catalog,
+} from "./catalog/catalog.ts";
+export { INTELLIGENCE_RULES, LAUNCH_RULES, OVERSIGHT_RULES, PIPELINE_RULES } from "./context/compile.ts";
+export { captured, present } from "./runtime/captured.ts";
 export { invokeRead } from "./catalog/invoke.ts";
 export { pipelineListsPeople } from "./adapters/pipeline/reads/index.ts";
 export {
@@ -20,7 +29,7 @@ export {
 export { stageAttachment } from "./attachments/store.ts";
 export { CLAIM_SECONDS } from "./runtime/job.ts";
 export { observeConversation, observeRun, type LiveText, type Observed } from "./runtime/observe.ts";
-export { selectQualifiedModel, type QualifiedModel } from "./runtime/model.ts";
+export { selectQualifiedModel, withTransientRetry, type QualifiedModel } from "./runtime/model.ts";
 export { runTurn, type RunDeps, type RunOutcome } from "./runtime/turn.ts";
 export { flushTraces, type Claimed } from "./runtime/trace.ts";
 export type { RunLease } from "./runtime/run-store.ts";

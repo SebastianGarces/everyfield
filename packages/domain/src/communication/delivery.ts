@@ -22,6 +22,8 @@ import {
 	childSql,
 	guardianRow,
 	linksOf,
+	optedOutSinceSql,
+	optedOutSql,
 	personRow,
 	reviewedParts,
 	routeChildren,
@@ -41,7 +43,7 @@ import {
 	type MintedRsvpToken,
 } from "../meetings/tokens.ts";
 import type { OptOutKeyRing } from "../notifications/opt-out.ts";
-import { messagesOptOutToken, optedOutSql } from "./opt-out.ts";
+import { messagesOptOutToken } from "./opt-out.ts";
 
 const CALL_TIMEOUT_MS = 10_000;
 
@@ -1274,7 +1276,8 @@ async function claimDue(db: Database) {
 				FOR UPDATE SKIP LOCKED
 			), decided AS MATERIALIZED (
 				SELECT m.id, mem.position,
-					${optedOutSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} AS unsubscribed,
+					(${optedOutSql(sql`m.tenant_id`, sql`m.recipient_person_id`)}
+						OR ${optedOutSinceSql(sql`m.tenant_id`, sql`m.recipient_person_id`, sql`m.created_at`)}) AS unsubscribed,
 					${childSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} AS child,
 					(SELECT p.display_name FROM person p WHERE p.id = m.recipient_person_id AND p.tenant_id = m.tenant_id) AS name,
 					coalesce((SELECT jsonb_agg(jsonb_build_object('id', gad.id, 'displayName', gad.display_name, 'email', gad.email,

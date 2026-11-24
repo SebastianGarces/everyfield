@@ -21,11 +21,11 @@ import {
 	readCatalog,
 	readConversation,
 	runTurn,
-	selectQualifiedModel,
 	submitTurn,
 	type EvryActor,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
+import { scriptedQualifiedModel } from "../../../packages/evry-scripted/src/index.ts";
 import { PLAN_WRITES } from "../../../packages/evry/src/context/compile.ts";
 import { REVIEWED_WRITES } from "../../../packages/evry/src/proposals/store.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
@@ -64,7 +64,7 @@ const { cases } = JSON.parse(readFileSync(new URL("./task-plan.cases.json", impo
 let church: GoldenChurch;
 let db: Database;
 let admin: Database;
-const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+const model = scriptedQualifiedModel();
 const reminders = async () => undefined;
 const templates = createTemplateReader();
 const freshActor = async (session: string) => {
