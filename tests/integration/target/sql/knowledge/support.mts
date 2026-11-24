@@ -41,7 +41,7 @@ export async function snapshot(
 		expiresAt,
 		subjects = [],
 	}: { createdAt: Date; expiresAt?: Date; subjects?: { id: string; expiresAt: string }[] },
-): Promise<Snapshot & { manifest: Record<string, any> }> {
+) {
 	const names = (
 		await admin.execute<{ name: string }>(sql`SELECT c.relname AS name FROM pg_class c
 			JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -81,7 +81,7 @@ export async function snapshot(
 			witnessCheckpoint: checkpoint,
 			subjects,
 		},
-	};
+	} satisfies Snapshot;
 }
 
 export async function readyFile(

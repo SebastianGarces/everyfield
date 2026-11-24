@@ -440,6 +440,11 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 	const bareFacts = ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: bare.id }));
 	assert.equal(bareFacts.composite, null);
 	assert.deepEqual(bareFacts.weights, [40, 35, 25]);
+	const measuresOf = async (teamId) => {
+		const h = ok(await trainingReader.readHealth(db, await viewer(), { teamId }));
+		return [h.trainingRate, h.staffingRate, h.attendanceRate, h.composite, h.staffingBand, h.attendanceBand];
+	};
+	assert.deepEqual(await measuresOf(bare.id), [null, null, null, null, "unknown", "unknown"]);
 	const team = await makeTeam("Staffed health");
 	const alex = await person("Alex Health");
 	const casey = await person("Casey Health");
@@ -478,6 +483,11 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM job`), jobs);
 	const course = await program("Coverage", { teamId: team.id });
 	await saveRoster(course.id, [alex, casey]);
+	assert.equal(
+		ok(await trainingReader.readStaffingFacts(db, await viewer(), { teamId: team.id })).trainingRate,
+		0,
+		"nobody has finished yet is a measured 0",
+	);
 	ok(
 		await run(trainingWriter.attestCompletion, {
 			requestKey: key(),
@@ -502,6 +512,14 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 	assert.equal(zero.attendanceRate, 0);
 	assert.equal(zero.trainingRate, null);
 	assert.equal(zero.composite, null);
+	assert.deepEqual(await measuresOf(quiet.id), [null, 0, 0, null, "red", "yellow"]);
+	const church = ok(await trainingReader.readAggregateHealth(db, await viewer(), {}));
+	assert.ok(church.totalTeams > 1);
+	assert.deepEqual(
+		[church.measuredTeams, church.composite],
+		[1, covered.composite],
+		"unmeasured ministries stay out of the average",
+	);
 });
 
 test("AC:GAP-TEAM-010 AC:TARGET-PPL-021 AC:TARGET-TEAM-010 a person keeps current and former teams", async () => {
