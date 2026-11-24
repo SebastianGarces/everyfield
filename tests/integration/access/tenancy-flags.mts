@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFlags, setFlag } from "../../../packages/domain/src/flags/index.ts";
+import { tenancyCase, type Tenancy, type TenancyOwner } from "./tenancy-case.mts";
 
-export async function seedFlags(t) {
+export async function seedFlags(t: Tenancy) {
 	await setFlag(t.f.db, {
 		flag: "overview-role-subtitle",
 		scope: { kind: "workspace", id: t.plantA.id },
@@ -10,17 +11,15 @@ export async function seedFlags(t) {
 	});
 }
 
-export function flagsCases(t, who) {
+export function flagsCases(t: Tenancy, who: TenancyOwner) {
 	return [
-		[
+		tenancyCase(
 			"flags:readFlags",
-			{
-				run: async () => ({
-					status: "ok",
-					value: (await readFlags(t.f.db, who.actor)).value("overview-role-subtitle"),
-				}),
-				expected: { value: false, control: (value) => assert.equal(value, true) },
-			},
-		],
+			async () => ({
+				status: "ok",
+				value: (await readFlags(t.f.db, who.actor)).value("overview-role-subtitle"),
+			}),
+			{ value: false, control: (value) => assert.equal(value, true) },
+		),
 	];
 }

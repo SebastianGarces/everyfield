@@ -2,21 +2,24 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { createOnboardingProducer, readOnboardingEntry } from "../../../packages/domain/src/onboarding/index.ts";
+import { accountId, instant, sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { tenancyCase, type Tenancy, type TenancyOwner } from "./tenancy-case.mts";
 
 const producer = createOnboardingProducer({ relationships: async () => {}, enqueue: async () => {} });
-const planters = {};
+type Planter = Awaited<ReturnType<typeof planter>>;
+const planters = {} as Record<"a" | "b", Planter>;
 
-async function planter(t, name) {
+async function planter(t: Tenancy, name: string) {
 	const { f, key, ok } = t;
-	const p = { id: key(), user: key(), session: key() };
+	const p = { id: key(), user: key(), session: sessionId.parse(key()) };
 	await f.admin.execute(sql`INSERT INTO auth_user(id,name,email,email_verified)
 		VALUES(${p.user},'Synthetic',${`${p.user}@example.test`},true)`);
 	await f.admin.execute(sql`INSERT INTO account(id,auth_user_id,registration_kind,registration_state)
 		VALUES(${p.id},${p.user},'planter','active')`);
 	await f.admin.execute(sql`INSERT INTO auth_session(id,user_id,token,expires_at)
 		VALUES(${p.session},${p.user},${randomUUID()},clock_timestamp()+interval '1 day')`);
-	const ctx = { session: p.session, selected: { kind: "account", id: p.id } };
+	const ctx = { session: p.session, selected: { kind: "account" as const, id: accountId.parse(p.id) } };
 	const created = ok(
 		await gatedTransaction(f.db, (tx) =>
 			producer.createPlant(tx, ctx, {
@@ -29,12 +32,12 @@ async function planter(t, name) {
 	return { ...p, name, plant: created.plant, actor: await f.actor(p.session) };
 }
 
-export async function seedOnboarding(t) {
+export async function seedOnboarding(t: Tenancy) {
 	planters.a = await planter(t, `${t.MARK} onboarding church`);
 	planters.b = await planter(t, "Beta onboarding church");
 }
 
-const fresh = (plant) => ({
+const fresh = (plant: Planter["plant"]) => ({
 	status: "available",
 	plant: { kind: "plant", id: plant.id },
 	basics: "created",
@@ -52,9 +55,9 @@ const fresh = (plant) => ({
 	values: "missing",
 });
 
-const entryOf = (p) => ({ kind: "plant", plantName: p.name, resume: fresh(p.plant) });
+const entryOf = (p: Planter) => ({ kind: "plant", plantName: p.name, resume: fresh(p.plant) });
 
-export function onboardingCases(t, who) {
+export function onboardingCases(t: Tenancy, who: TenancyOwner) {
 	const owner = who === t.ownerA ? planters.a : planters.b;
 	const entry = () =>
 		readOnboardingEntry(
@@ -62,23 +65,17 @@ export function onboardingCases(t, who) {
 			producer,
 			{
 				status: "active",
-				accountId: owner.id,
+				accountId: accountId.parse(owner.id),
 				sessionId: owner.session,
-				expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+				expiresAt: instant.parse(new Date(Date.now() + 3_600_000).toISOString()),
 			},
 			owner.actor,
 			true,
 		);
 	return [
-		[
-			"onboarding:readOnboardingEntry",
-			{
-				run: async () => ({ status: "ok", value: await entry() }),
-				expected: {
-					value: entryOf(owner),
-					control: (value) => assert.deepEqual(value, entryOf(planters.a)),
-				},
-			},
-		],
+		tenancyCase("onboarding:readOnboardingEntry", async () => ({ status: "ok", value: await entry() }), {
+			value: entryOf(owner),
+			control: (value) => assert.deepEqual(value, entryOf(planters.a)),
+		}),
 	];
 }

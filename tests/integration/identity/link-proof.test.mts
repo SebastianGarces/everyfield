@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { createRequire } from "node:module";
-import { closeDatabase, type Database } from "../../../packages/db/src/client.ts";
+import { closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { setServerEnv } from "../../support/server-env.mts";
 import { fixture, password, register, signIn } from "./support.mts";
 
 let f: Awaited<ReturnType<typeof fixture>>;
-let identityWrite: (request: Request) => Promise<Response>;
+let identityWrite: typeof import("../../../apps/web/src/server/identity/index.ts").identityWrite;
 const { NextRequest } = createRequire(new URL("../../../apps/web/package.json", import.meta.url))("next/server");
 const { proxy } = await import("../../../apps/web/src/proxy.ts");
 before(async () => {
@@ -17,7 +17,7 @@ before(async () => {
 	({ identityWrite } = await import("../../../apps/web/src/server/identity/index.ts"));
 });
 after(async () => {
-	const pools = (globalThis as { [key: symbol]: Map<string, Database> | undefined })[
+	const pools = (globalThis as { [key: symbol]: Map<string, Parameters<typeof closeDatabase>[0]> | undefined })[
 		Symbol.for("everyfield.web.pools")
 	];
 	for (const pool of pools?.values() ?? []) await closeDatabase(pool);
@@ -138,8 +138,8 @@ test("INV-proof-link: opening a reset or verify link writes nothing and leaves t
 		assert.equal(opened.status, 307, kind);
 		const kept = opened.headers
 			.getSetCookie()
-			.map((c: string) => c.split(";")[0])
-			.find((c: string) => c.startsWith(`ef-${kind}-proof=`));
+			.map((c) => c.split(";")[0]!)
+			.find((c) => c.startsWith(`ef-${kind}-proof=`));
 		assert.ok(kept, `${kind} link value is not kept`);
 		const page = proxy(new NextRequest(new URL(opened.headers.get("location")!), { headers: { cookie: kept } }));
 		assert.equal(page.status, 200, kind);

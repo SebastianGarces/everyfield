@@ -3,6 +3,7 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { tenantId } from "../../../packages/contracts/src/common/index.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture, type Actor } from "../../support/fixture.mts";
 import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/index.ts";
@@ -25,13 +26,14 @@ after(async () => {
 
 type Body = (tx: WriteTx) => Promise<{ status: "ok"; value: string }>;
 const db = () => f.pools.runtime;
+const tenant = () => ({ ...f.tenant, id: tenantId.parse(f.tenant.id) });
 const writers: Record<string, (authority: RequestActor, body: Body) => Promise<unknown>> = {
 	withCommunicationWrite: (a, body) => withCommunicationWrite(db(), a, body),
 	withFollowUpWrite: (a, body) => withFollowUpWrite(db(), a, body),
 	withMeetingsWrite: (a, body) => withMeetingsWrite(db(), a, body),
-	withOnboardingWrite: (a, body) => withOnboardingWrite(db(), a, { session: a.session, selected: f.tenant }, body),
+	withOnboardingWrite: (a, body) => withOnboardingWrite(db(), a, { session: a.session, selected: tenant() }, body),
 	withPeopleWrite: (a, body) => withPeopleWrite(db(), a, body),
-	withSettingsWrite: (a, body) => withSettingsWrite(db(), a, { session: a.session, selected: f.tenant }, body),
+	withSettingsWrite: (a, body) => withSettingsWrite(db(), a, { session: a.session, selected: tenant() }, body),
 	withTaskWrite: (a, body) => withTaskWrite(db(), a, body),
 	withTeamsWrite: (a, body) => withTeamsWrite(db(), a, body),
 };

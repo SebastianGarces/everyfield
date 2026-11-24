@@ -5,14 +5,23 @@ import { readFile, mkdtemp, cp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
 import { database, transaction, id, account, plant } from "./support.mts";
+import type { Database } from "../../support/test-database.mts";
 import { waitingOnLock } from "../../support/fixture.mts";
 import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 import { currentActor } from "../../../packages/domain/src/access/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
-async function permissions(db, schema) {
+const permissionDenied = (error: unknown) =>
+	error instanceof Error && error.cause instanceof Error && "code" in error.cause && error.cause.code === "42501";
+
+async function permissions(db: Database, schema: string) {
 	return (
-		await db.execute(querySql`SELECT role,tab,priv,has_table_privilege(role,quote_ident(${schema})||'.'||quote_ident(tab),priv) AS allowed
+		await db.execute<{
+			role: string;
+			tab: string;
+			priv: string;
+			allowed: boolean;
+		}>(querySql`SELECT role,tab,priv,has_table_privilege(role,quote_ident(${schema})||'.'||quote_ident(tab),priv) AS allowed
     FROM unnest(ARRAY['everyfield_runtime','everyfield_cleanup']) role
     CROSS JOIN unnest(ARRAY['lifecycle_witness','document_revision','tenant','record']) tab
     CROSS JOIN unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE']) priv ORDER BY role,tab,priv`)
@@ -30,12 +39,12 @@ test("INV-privileges: fresh and upgraded grants converge without rewriting appli
 		await migrate(db.admin, other, pathToFileURL(dir + "/"));
 		const oldACL = await permissions(db.admin, other);
 		assert.equal(
-			oldACL.find((p) => p.role === "everyfield_runtime" && p.tab === "lifecycle_witness" && p.priv === "DELETE")
+			oldACL.find((p) => p.role === "everyfield_runtime" && p.tab === "lifecycle_witness" && p.priv === "DELETE")!
 				.allowed,
 			true,
 		);
 		assert.equal(
-			oldACL.find((p) => p.role === "everyfield_cleanup" && p.tab === "record" && p.priv === "DELETE").allowed,
+			oldACL.find((p) => p.role === "everyfield_cleanup" && p.tab === "record" && p.priv === "DELETE")!.allowed,
 			true,
 		);
 		const before = (
@@ -61,7 +70,7 @@ test("INV-privileges: fresh and upgraded grants converge without rewriting appli
 		assert.deepEqual(await migrate(db.admin, other), []);
 		const baseline = await readFile(new URL("../../../packages/db/migrations/0002_baseline.sql", import.meta.url));
 		assert.equal(
-			(await migrationArtifact())[1].sha256,
+			(await migrationArtifact())[1]!.sha256,
 			(await import("node:crypto")).createHash("sha256").update(baseline).digest("hex"),
 		);
 		assert.deepEqual(
@@ -78,8 +87,8 @@ test("INV-privileges: fresh and upgraded grants converge without rewriting appli
 			[db.cleanup, "DELETE FROM tenant"],
 			[db.cleanup, "UPDATE record SET kind=kind"],
 			[db.cleanup, "DELETE FROM record"],
-		])
-			await assert.rejects(pool.execute(querySql.raw(sql)), (e) => e.cause?.code === "42501");
+		] as const)
+			await assert.rejects(pool.execute(querySql.raw(sql)), permissionDenied);
 		const a = await account(db.admin),
 			p = await plant(db.admin),
 			q = await plant(db.admin),
@@ -107,16 +116,16 @@ test("INV-privileges: fresh and upgraded grants converge without rewriting appli
       VALUES('plant',${q.id},${q.id},${futureRequest},1,'purging',now(),now()+interval '30 days',1,'not_started')`);
 		await assert.rejects(
 			db.cleanup.execute(querySql`SELECT purge_document_revisions(${q.id},${futureRequest},${"1"},${futureDoc})`),
-			(e) => e.cause?.code === "42501",
+			permissionDenied,
 		);
 		const args = [p.id, request, "1", doc];
 		await assert.rejects(
 			db.runtime.execute(statement("SELECT purge_document_revisions($1,$2,$3,$4)", args)),
-			(e) => e.cause?.code === "42501",
+			permissionDenied,
 		);
 		await assert.rejects(
 			db.cleanup.execute(statement("SELECT purge_document_revisions($1,$2,$3,$4)", args)),
-			(e) => e.cause?.code === "42501",
+			permissionDenied,
 		);
 		assert.deepEqual((await db.admin.execute(querySql`SELECT body FROM document_revision WHERE id=${revision}`)).rows, [
 			{ body: "IMMUTABLE-BODY" },
@@ -129,7 +138,7 @@ test("INV-privileges: fresh and upgraded grants converge without rewriting appli
 		])
 			await assert.rejects(
 				db.cleanup.execute(statement("SELECT purge_document_revisions($1,$2,$3,$4)", invalid)),
-				(e) => e.cause?.code === "42501",
+				permissionDenied,
 			);
 		assert.deepEqual(
 			(await db.cleanup.execute(statement("SELECT purge_document_revisions($1,$2,$3,$4) AS n", args))).rows,
@@ -164,20 +173,11 @@ test("INV-privileges: fresh and upgraded grants converge without rewriting appli
 test("INV-revocation: a session revoke waits for an in-flight authority transaction and the next access is unavailable", async () => {
 	const db = await database();
 	const a = await account(db.admin),
-		selected = { kind: "account", id: a.id };
-	let release;
-	const hold = new Promise((resolve) => {
-		release = resolve;
-	});
-	let loaded;
-	const ready = new Promise((resolve) => {
-		loaded = resolve;
-	});
-	let announced;
-	const revokeReady = new Promise((resolve) => {
-		announced = resolve;
-	});
-	let pid;
+		selected = { kind: "account" as const, id: a.id };
+	const { promise: hold, resolve: release } = Promise.withResolvers<void>();
+	const { promise: ready, resolve: loaded } = Promise.withResolvers<void>();
+	const { promise: revokeReady, resolve: announced } = Promise.withResolvers<void>();
+	let pid: number | undefined;
 	const active = gatedTransaction(db.runtime, async (tx) => {
 		assert.deepEqual(await currentActor(tx, a.session, selected), {
 			status: "active",
@@ -191,7 +191,7 @@ test("INV-revocation: a session revoke waits for an in-flight authority transact
 	try {
 		await Promise.race([ready, active]);
 		deleting = db.admin.transaction(async (tx) => {
-			pid = (await tx.execute(querySql`SELECT pg_backend_pid() AS pid`)).rows[0].pid;
+			pid = (await tx.execute<{ pid: number }>(querySql`SELECT pg_backend_pid() AS pid`)).rows[0]!.pid;
 			announced();
 			await tx.execute(querySql`DELETE FROM auth_session WHERE id=${a.session}`);
 		});
