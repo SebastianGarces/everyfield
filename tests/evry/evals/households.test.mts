@@ -1,7 +1,7 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { recorder } from "./golden-harness.mts";
+import { inputField, recorder } from "./golden-harness.mts";
 import { converse, id, readAs, smallChurch } from "./small-church.mts";
 
 type Case = {
@@ -78,11 +78,11 @@ test("AC:EVRY-CONTEXT-BOUNDS household requests pick the household operation wit
 		for (const call of calls.filter((x) => x.error))
 			failures.push(`${c.text}: ${call.operation} ${JSON.stringify(call.input)} was refused (${call.error})`);
 		for (const call of calls.filter((x) => accepted.includes(x.operation))) {
-			if (c.noSearch && call.input?.search)
-				failures.push(`${c.text}: searched for ${JSON.stringify(call.input.search)}`);
+			if (c.noSearch && inputField(call.input, "search"))
+				failures.push(`${c.text}: searched for ${JSON.stringify(inputField(call.input, "search"))}`);
 			if (/get(Household|HouseholdMembers)$/.test(call.operation)) {
-				const target = call.input?.householdId ?? call.input?.personId;
-				if (![HOUSEHOLD, JAMES, RUTH].includes(target))
+				const target = inputField(call.input, "householdId") ?? inputField(call.input, "personId");
+				if (![HOUSEHOLD, JAMES, RUTH].some((id) => id === target))
 					failures.push(`${c.text}: ${call.operation} with ${JSON.stringify(call.input)}`);
 			}
 		}

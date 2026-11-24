@@ -29,6 +29,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `wiki-meaning.test.mts`  | `wiki-meaning.cases.json`                                                                                                | `wiki.search` by meaning on fixed vectors: global and network articles (scripted model)     |
 | `task-plan.test.mts`     | `task-plan.cases.json`                                                                                                   | Phase offer, checklist import, follow-up handoff and prerequisite cards (scripted model)    |
 | `phases.test.mts`        | `phases.cases.json`                                                                                                      | Exit criteria with their readings, the journey and the phase-move review (scripted model)   |
+| `kill-switches.test.mts` | `kill-switches.cases.json`                                                                                               | Evry with a kill switch off: model calls paused (zero calls), outbound mail paused          |
 
 ## The settings suite (scripted model)
 
@@ -198,6 +199,15 @@ The real-model cases for the two reads (ADP-PH-14 to ADP-PH-17 in `adapters.case
 `eval.offer` naming both reads (T-576): the operations stay in `LATER`, so no other case sees them. A case whose
 operation is in `LATER` and not offered is reported as held and does not run. The phase-move review shows each criterion's reading on the card, but the model's copy keeps the recorded
 `{label, status}` shape until that re-record (`proposalForModel`, D-2014).
+
+## The kill-switch suite
+
+`kill-switches.test.mts` (T-472) runs on Hope Fellowship with a kill switch turned off globally
+(`docs/runbooks/kill-switches.md`). KILL-01 turns off `evry-model-calls`: a question queued before the flip ends with
+the paused code, a new one is refused at submit, the answer is the Evry panel's paused notice, and the replay model
+records zero calls, so `kill-switches.recorded.json` holds none for it. KILL-02 turns off `outbound-mail` and asks Evry
+to schedule the saved draft: the schedule review is refused before anything is prepared, no send reaches the email
+service, and the recorded answer says email is paused and nothing was sent or scheduled. Only these cases were recorded.
 
 ## The household and follow-up suites
 

@@ -145,6 +145,7 @@
 				"tests/workflow/**/*.ts",
 				"tests/unit/**/*.mts",
 				"tests/ui/**/*.mts",
+				"tests/evry/**",
 				"tests/integration/dashboard/**",
 				"tests/integration/feedback/**",
 				"tests/integration/notifications/**",
@@ -162,7 +163,9 @@
 				"tests/integration/reference/**",
 				"tests/integration/target/**",
 				"tests/integration/tasks/**",
-				"tests/integration/task-assignees.mts"
+				"tests/integration/task-assignees.mts",
+				"tests/integration/onboarding/**",
+				"tests/integration/wiki/**"
 			],
 			"rules": {
 				"typescript/no-explicit-any": "error"
