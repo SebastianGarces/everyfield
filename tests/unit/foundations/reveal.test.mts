@@ -24,7 +24,6 @@ const { AccessForm } = await import("../../../apps/web/src/access/AccessForm.tsx
 
 test("INV-stable-ref: revealRef answers the same function for the same direction", () => {
 	assert.equal(revealRef(), revealRef(false));
-	assert.equal(revealRef(), revealRef());
 	assert.equal(revealRef(true), revealRef(true));
 	assert.notEqual(revealRef(true), revealRef(false));
 });

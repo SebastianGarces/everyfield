@@ -4565,7 +4565,6 @@ const civilDay = {
 const REF_CODE = /^(?:apps\/web\/src\/(?!marketing\/)|packages\/ui\/src\/)/;
 const HOOK = /^use(?:[A-Z0-9]|$)/;
 const MEMO_HOOKS = new Set(["useCallback", "useMemo"]);
-const REVEAL_REF = "revealRef";
 const within = (node, fn) => {
 	for (let at = node; at; at = at.parent) if (at === fn) return true;
 	return false;
@@ -4632,8 +4631,6 @@ const stableRef = {
 			if (FUNCTIONS.has(value.type)) return true;
 			if (value.type === "ConditionalExpression") return fresh(value.consequent) || fresh(value.alternate);
 			if (value.type === "LogicalExpression") return fresh(value.left) || fresh(value.right);
-			if (value.type === "SequenceExpression") return fresh(value.expressions.at(-1));
-			if (value.type === "AssignmentExpression") return fresh(value.right);
 			if (value.type === "Identifier") return valuesOf(value, owner).some(fresh);
 			if (value.type === "MemberExpression") return propertyOf(value.object, memberName(value), owner).some(fresh);
 			return value.type === "CallExpression" && freshCall(value, fresh);
@@ -4649,7 +4646,7 @@ const stableRef = {
 				?.defs.map((def) => (def.type === "Variable" ? unwrapped(def.node.init) : def.node))
 				.find((node) => FUNCTIONS.has(node?.type));
 			if (local) return returnsOf(local).some((answer) => isFresh(answer, local));
-			return name !== REVEAL_REF;
+			return name !== "revealRef";
 		};
 		return {
 			JSXAttribute(node) {

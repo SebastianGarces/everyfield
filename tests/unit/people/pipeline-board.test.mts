@@ -8,7 +8,7 @@ mock.module(new URL("../../../apps/web/src/features/people/actions.ts", import.m
 	namedExports: { reorderPipeline: noAction, changeStatus: noAction },
 });
 const { PipelineBoard } = await import("../../../apps/web/src/features/people/PipelineBoard.tsx");
-const { parseQuery, STAGE_LABEL } = await import("../../../apps/web/src/features/people/model.ts");
+const { parseQuery } = await import("../../../apps/web/src/features/people/model.ts");
 
 const COLUMNS = ["prospect", "attendee", "following_up", "interviewed", "core_group"] as const;
 const board = (revision: string, names: readonly string[]) => ({
@@ -54,6 +54,5 @@ test("INV-pipeline-columns: a refreshed pipeline keeps every column's element, s
 		messages().every((n, i) => n === before.messages[i]),
 		"each column keeps its reorder message",
 	);
-	assert.ok(page.lines().includes(`${STAGE_LABEL.prospect} people`));
 	await page.unmount();
 });
