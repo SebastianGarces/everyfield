@@ -684,7 +684,20 @@ test("AC:TARGET-MTG-016 reports count attended Persons and never show unknown as
 	assert.equal(analytics.tasks.followUps.total, 2);
 	assert.deepEqual(ok(await read(admin, "readAnalytics", { meetingId: zero })).growth, { status: "unknown" });
 	const unfinalized = await meeting("vision_meeting", "2026-09-15T23:00:00Z", w);
-	assert.deepEqual(ok(await read(admin, "readAnalytics", { meetingId: unfinalized })).attended, { status: "unknown" });
+	const open = ok(await read(admin, "readAnalytics", { meetingId: unfinalized }));
+	assert.deepEqual(
+		[open.attended, open.growth, open.classifications],
+		[{ status: "unknown" }, { status: "unknown" }, null],
+	);
+	assert.deepEqual([open.evaluation.current, open.evaluation.delta], [{ status: "unknown" }, { status: "unknown" }]);
+	assert.deepEqual(ok(await read(admin, "readAnalytics", { meetingId: zero })).attended, { status: "known", value: 0 });
+	const unmeasured = ok(await read(admin, "summaryStats", { from: "2026-09-15", to: "2026-09-15" }));
+	assert.deepEqual(
+		[unmeasured.held, unmeasured.finalized, unmeasured.averageAttendance, unmeasured.averageEvaluation],
+		[1, 0, { status: "unknown" }, { status: "unknown" }],
+	);
+	const nobody = ok(await read(admin, "summaryStats", { from: "2026-09-01", to: "2026-09-01" }));
+	assert.deepEqual(nobody.averageAttendance, { status: "known", value: 0 });
 
 	const evaluated = async (at, n) => {
 		const id = await meeting("vision_meeting", at, w);

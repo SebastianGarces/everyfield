@@ -221,10 +221,10 @@ test("INV-counts: the church's health averages only measured ministries and name
 		measuredTeams: number;
 		totalTeams: number;
 		composite: number | null;
-		teams: { window: { meetings: number } }[];
+		teams: { window: { meetings: number }; attendanceBand: string }[];
 	}>(trainingReader.readAggregateHealth as never, {});
 	assert.deepEqual([health.measuredTeams, health.totalTeams, health.composite], [0, 4, null]);
-	assert.ok(health.teams.every((t) => t.window.meetings === 0));
+	assert.ok(health.teams.every((t) => t.window.meetings === 0 && t.attendanceBand === "unknown"));
 	const kidsHealth = await read<{ teamId: string }>(trainingReader.readHealth as never, { teamId: kids });
 	assert.deepEqual(
 		kidsHealth,

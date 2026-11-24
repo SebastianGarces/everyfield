@@ -19,6 +19,8 @@ type ErrorCode =
 	| "invalid_input"
 	| "run_active"
 	| "model_unavailable"
+	| "model_paused"
+	| "mail_paused"
 	| "source_unavailable"
 	| "interrupted"
 	| "review_changed"
@@ -326,6 +328,12 @@ export function endNotice(end: TurnEnd | null): Notice | null {
 				title: "Evry can't answer yet",
 				text: "Evry's AI model is not turned on yet. Your message is saved, so you can try again later.",
 			};
+		case "model_paused":
+			return {
+				tone: "neutral",
+				title: "Evry is paused",
+				text: "Evry stopped before it read or changed anything. Your message is saved, so you can try again later.",
+			};
 		case "source_unavailable":
 			return {
 				tone: "error",
@@ -368,6 +376,8 @@ function startNotice(code: ErrorCode | undefined, churchName: string | null): st
 			return `You don't have access to Evry for ${churchName?.trim() || "this church"} yet. Ask whoever manages your church's Everyfield account to add you.`;
 		case "invalid_input":
 			return "Evry couldn't start a new conversation. Please try again.";
+		case "model_paused":
+			return "Evry is paused for now, so no conversation was started and nothing was saved. Your message is still here. Send it again later.";
 		default:
 			return "Evry can't start a new conversation right now. Please try again in a moment.";
 	}
@@ -382,6 +392,8 @@ export function sendNotice(send: Send, churchName: string | null = null): string
 			return "Not sent. Evry is still answering your last message. Stop it or wait, then send again.";
 		case "invalid_input":
 			return "Not sent. A message can have up to 8,000 characters.";
+		case "model_paused":
+			return "Not sent. Evry is paused for now, so nothing was saved. Your message is still here. Send it again later.";
 		case "access_denied":
 		case "not_found":
 			return "Not sent. You no longer have access to this conversation.";

@@ -53,6 +53,15 @@ test("INV-signals: three signals go stale after 30 days and keep their value; th
 	assert.equal(renewalLabel({ status: "current", daysLeft: 18 }), "Current for 18 more days");
 });
 
+test("INV-signals: an unanswered and a retracted signal have an Unknown renewal at any age and count only as not answered", () => {
+	for (const state of ["unanswered", "retracted"])
+		for (const { key } of SIGNAL_DEFINITIONS)
+			for (const age of [null, 0, 31])
+				assert.deepEqual(renewalOf(key, state, age), { status: "unknown" }, `${key} ${state} ${age}`);
+	const entries = [blank("core_group_giving"), { ...blank("prayer_in_gatherings"), state: "retracted" }];
+	assert.deepEqual(countsOf(entries), { current: 0, needsRenewing: 0, notAnswered: 2 });
+});
+
 test("INV-signals: an answer shows at once, counts follow, and a refusal puts the row back", () => {
 	const before = page();
 	const entry = before.signals.find((s) => s.key === "prayer_in_gatherings");

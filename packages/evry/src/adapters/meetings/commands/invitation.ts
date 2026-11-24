@@ -310,8 +310,9 @@ async function execute(
 	}
 }
 
-const sends: Pick<ReviewedWrite<unknown>, "allowed" | "recheck" | "execute" | "reach" | "check"> = {
+const sends: Pick<ReviewedWrite<unknown>, "allowed" | "sendsMail" | "recheck" | "execute" | "reach" | "check"> = {
 	allowed: ownerOrAdmin,
+	sendsMail: true,
 	recheck,
 	execute,
 	reach: (db, authority, args, effectKey, first, mail) => {
