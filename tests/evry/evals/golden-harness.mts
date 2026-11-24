@@ -412,6 +412,7 @@ export async function converse(
 	attachments: CaseFile[] = [],
 	override?: LanguageModelV4,
 	page?: string,
+	offer: readonly string[] = [],
 	repetition = 1,
 ): Promise<Conversation> {
 	const { db } = church;
@@ -420,7 +421,8 @@ export async function converse(
 	const keys: string[] = [];
 	const inputs: string[] = [];
 	const model = override ?? golden.model(keys, inputs, repetition);
-	const offered = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
+	const recorded = override ? (op: string) => SCRIPTED_ONLY.has(op) || RECORDED(op) : RECORDED;
+	const offered = (op: string) => offer.includes(op) || recorded(op);
 	const catalog = readCatalog(actor, offered);
 	const calls: ToolCall[] = [];
 	const proposals: Proposal[] = [];

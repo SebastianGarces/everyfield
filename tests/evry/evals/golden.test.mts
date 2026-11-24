@@ -86,6 +86,7 @@ type Eval = Checks & {
 	as?: ActorName;
 	text?: string;
 	page?: string;
+	offer?: string[];
 	history?: Turn[];
 	attachments?: CaseFile[];
 	kind?: Conversation["kind"];
@@ -149,12 +150,11 @@ const RERECORD =
 const church = await goldenChurch();
 after(church.close);
 
+const fill = (p: string, as = (v: string) => v) =>
+	p.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => as(byName(name)[field]!));
 function pattern(p: string): RegExp {
-	const filled = p.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") =>
-		escape(byName(name)[field]!),
-	);
-	const m = /^\/([\s\S]+)\/([a-z]*)$/.exec(filled);
-	return m ? new RegExp(m[1]!, m[2]) : new RegExp(escape(filled), "i");
+	const m = /^\/([\s\S]+)\/([a-z]*)$/.exec(p);
+	return m ? new RegExp(fill(m[1]!, escape), m[2]) : new RegExp(escape(fill(p)), "i");
 }
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -582,6 +582,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 			spec.attachments ?? [],
 			own ? scriptedModel : undefined,
 			spec.page,
+			spec.offer,
 			repetition,
 		);
 		const checks: Check[] = [
@@ -591,7 +592,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 				detail: `classified ${c.kind}`,
 			},
 			...score(spec, c, { area, given }),
-			...gates(c, given),
+			...gates(c, [given, ...(spec.require ?? []).map((p) => fill(p))].join("\n")),
 		].map((x) => (spec.gate && !x.gate ? { ...x, gate: spec.gate } : x));
 		return { c, checks };
 	};
@@ -1148,6 +1149,16 @@ const read = (operation: string, input: unknown, as: ActorName = "owner"): Promi
 	invokeRead(church.db, church.actors[as], ADAPTERS.get(operation)!, input);
 const labels = (r: SourceResult, kind = "person") => r.rows.filter((x) => x.kind === kind).map((x) => x.label);
 
+test("INV-evry-golden: a case offers beyond the recorded catalog only the reads it names", () => {
+	const offering = [...golden, ...extras, ...scripted].filter((c) => c.eval.offer?.length);
+	assert.deepEqual(
+		offering.map((c) => [c.case_id, c.eval.offer]),
+		[["LCH-02", ["launch.readWorkspace"]]],
+	);
+	for (const c of offering)
+		for (const op of c.eval.offer!) assert.ok(ADAPTERS.has(op) && !RECORDED(op), `${c.case_id} offers ${op}`);
+});
+
 test("INV-evry-golden: the seeded church holds the records the factual cases check, read back through the real reads", async () => {
 	const everyone = await read("people.listPeople", { limit: 100 });
 	assert.equal(everyone.total, 84);
@@ -1157,7 +1168,14 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 	assert.deepEqual(totals, [3, 2, 5, 2, 4, 11, 57]);
 	const prospects = await read("people.listPeople", { stages: ["prospect"], limit: 100 });
 	assert.equal(prospects.rows.filter((r) => r.fields.city === "Austin").length, 13);
-	assert.equal((await read("people.listHouseholds", { limit: 100 })).total, 8);
+	assert.equal((await read("people.listHouseholds", { limit: 100 })).total, 9);
+	assert.deepEqual(
+		(await read("people.listHouseholds", { search: "Okafor" })).rows.map((r) => [r.fields.city, r.fields.memberCount]),
+		[
+			["Austin", "2"],
+			["Leander", "0"],
+		],
+	);
 	assert.deepEqual(labels(await read("people.getHousehold", { personId: byName("Alex Rivera").id })), [
 		"Alex Rivera",
 		"Ana Rivera",
@@ -1263,6 +1281,28 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 			["Launch funding viable", "no data yet"],
 			["Worship leader identified", "no data yet"],
 			["Geographic area set", "no data yet"],
+		],
+	);
+	const plan = await read("launch.readWorkspace", { filter: "all" });
+	assert.deepEqual(
+		plan.rows.map((r) =>
+			r.kind === "milestone"
+				? [r.label, r.fields.completed, r.fields.completedBy, r.fields.completedOn, r.fields.practicesHeld ?? null]
+				: [r.label, r.fields.milestone, r.fields.overdue],
+		),
+		[
+			["Set-up equipment on site", false, null, null, null],
+			["Research sound systems", "Set-up equipment on site", false],
+			["Set-up and tear-down training held", false, null, null, null],
+			["Worship Center secured and rehearsed in", false, null, null, null],
+			["Confirm the school rental", "Worship Center secured and rehearsed in", true],
+			["Prayer and fasting underway", true, "Nate Ellis", "Mon, Oct 5, 2026", null],
+			["Three pre-launch services held", false, null, null, 1],
+			["Ministry training 90–100% complete", false, null, null, null],
+			["Promotion plan chosen", true, "Nate Ellis", "Tue, Oct 20, 2026", null],
+			["Promotion plan implemented", false, null, null, null],
+			["Order launch banners", "Promotion plan implemented", true],
+			["Partner churches announcing the launch", false, null, null, null],
 		],
 	);
 	const signals = await read("signals.getHistory", {});

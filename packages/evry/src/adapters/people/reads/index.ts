@@ -77,6 +77,9 @@ export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 	},
 };
 
+const CONTACT_NOTE =
+	"Give this person's email and phone only when the user asks for contact details, such as an email, a phone number or how to reach them, and then give both as recorded. Leave them out of any other answer about this person.";
+
 export const getPerson: ReadAdapter<z.infer<typeof personInput>> = {
 	operation: "people.getPerson",
 	description: "Read one person in this church by an id from an earlier result.",
@@ -85,7 +88,15 @@ export const getPerson: ReadAdapter<z.infer<typeof personInput>> = {
 	async invoke(tx: WriteTx, actor: EvryActor, input): Promise<SourceResult> {
 		const reply = await peopleReader.getPerson(tx, new PeopleReadContext(actor.authority), personRequest.parse(input));
 		const found = reply.status === "ok" && reply.value.status === "available" ? reply.value.person : null;
-		return one("people.getPerson", found && "stage" in found ? [row(actor, found)] : [], ["private care"]);
+		if (!found || !("stage" in found)) return one("people.getPerson", [], ["private care"]);
+		const fields = {
+			city: found.city ?? null,
+			stage: found.stage,
+			email: found.email ?? null,
+			phone: found.phone ?? null,
+		};
+		const read = one("people.getPerson", [personRow(actor, found.id, found.displayName, fields)], ["private care"]);
+		return fields.email || fields.phone ? { ...read, facts: { note: CONTACT_NOTE } } : read;
 	},
 };
 
